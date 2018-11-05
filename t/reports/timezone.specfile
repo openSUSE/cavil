@@ -1,0 +1,38 @@
+{
+  "errors" => [],
+  "main"   => {
+    "%doc"     => [],
+    "%license" => [],
+    "file"     => "timezone.spec",
+    "group"    => "System/Base",
+    "license"  => "BSD-3-Clause and SUSE-Public-Domain",
+    "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
+    "summary"  => "Timezone Descriptions",
+    "url"      => "http://www.gnu.org/software/libc/libc.html",
+    "version"  => "2012f"
+  },
+  "sub" => [
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "timezone.spec",
+      "group"    => "System/Base",
+      "license"  => "BSD-3-Clause and SUSE-Public-Domain",
+      "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
+      "summary"  => "Timezone Descriptions",
+      "url"      => "http://www.gnu.org/software/libc/libc.html",
+      "version"  => "2012f"
+    },
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "timezone-java.spec",
+      "group"    => "System/Base",
+      "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
+      "summary"  => "Timezone Descriptions",
+      "url"      => "http://www.gnu.org/software/libc/libc.html",
+      "version"  => "2012f"
+    }
+  ],
+  "warnings" => []
+}

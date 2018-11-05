@@ -1,0 +1,439 @@
+% layout 'default', title => "Report for $package->{name}";
+
+%= asset 'chart.js'
+
+<div class="float-right help">
+  Press <span class="badge badge-secondary">?</span> for help
+</div>
+
+<h2>
+  <%= link_to $package->{name} =>
+    url_for('search')->query(q => $package->{name}), target => '_blank' %>
+</h2>
+
+% my $lic = lic($spec->{main}{license});
+% content_for 'ready_function' => begin
+  $('#create-pattern').data('licenseName', '<%= $lic %>');
+  fromNow();
+  backToTop();
+% end
+<table class="table borderless novertpad">
+  <tbody>
+    % if (my $lstr = $lic->to_string) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-box"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">RPM License:</th>
+        <td><%= $lstr %></td>
+      </tr>
+    % }
+
+    % if (my $link = $package->{external_link}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-external-link-alt"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">External Link:</th>
+        <td><%= format_link($package->{external_link}) %></td>
+      </tr>
+    % }
+
+    % if (@$actions) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-directions"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Actions:</th>
+        <td>
+          % if (my $num = @$actions) {
+            <%= link_to
+              $num == 1 ? '1 related review' : "$num related reviews"
+              => "#actions", 'data-toggle' => 'collapse' %>
+          % }
+        </td>
+      </tr>
+    % }
+
+    % if (@$products) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-shopping-bag"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Products:</th>
+        <td><%= join ', ', @$products %></td>
+      </tr>
+    % }
+
+    % if (my $version = $spec->{main}{version}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-code-branch"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Version:</th>
+        <td><%= $version %></td>
+      </tr>
+    % }
+
+    % if (my $summary = $spec->{main}{summary}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-edit"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Summary:</th>
+        <td><%= $summary %></td>
+      </tr>
+    % }
+
+    % if (my $group = $spec->{main}{group}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-users"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Group:</th>
+        <td><%= $group %></td>
+      </tr>
+    % }
+
+    % if (my $url = $spec->{main}{url}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-link"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">URL:</th>
+        <td><%= link_to $url => $url => (target => '_blank') %></td>
+      </tr>
+    % }
+
+    % if (my $report = $package->{checksum}) {
+      % my ($shortname) = $report =~ /:(\w+)$/;
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="far fa-file"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Shortname:</th>
+        <td><%= $shortname %></td>
+      </tr>
+    % }
+
+    <tr>
+      <th class="fit text-left noleftpad" scope="row">
+        <i class="far fa-plus-square"></i>
+      </th>
+      <th class="fit text-left noleftpad" scope="row">Created:</th>
+      <td class="from-now"><%= $package->{created_epoch} %></td>
+    </tr>
+
+    % if (my $reviewed = $package->{reviewed_epoch}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-search"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Reviewed:</th>
+        <td class="from-now"><%= $reviewed %></td>
+      </tr>
+    % }
+
+    % if (my $login = $package->{login}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-user"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Reviewing User:</th>
+        <td><%= $login %></td>
+      </tr>
+    % }
+
+    <tr>
+      <th class="fit text-left noleftpad" scope="row">
+        <i class="fas fa-balance-scale"></i>
+      </th>
+      <th class="fit text-left noleftpad" scope="row">State:</th>
+      <td><%= $package->{state} %></td>
+    </tr>
+
+    % if (@$history) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-history"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">History:</th>
+        <td>
+          % if (my $num = @$history) {
+            <%= link_to
+              $num == 1 ? '1 other review' : "$num other reviews" => "#history",
+              'data-toggle' => 'collapse' %>
+          % }
+        </td>
+      </tr>
+    % }
+  </tbody>
+</table>
+
+% if (@$actions) {
+  <div id="actions" class="collapse">
+    <table class="table table-striped">
+      <tbody>
+        % for my $result (@$actions) {
+          <tr>
+            <td><%= $result->{name} %></td>
+            <td><%= $result->{result} || '' %></td>
+            <td><%= $result->{state} %></td>
+            <td><%= $result->{login} || '' %></td>
+            <td class="text-right">
+              % my $url = url_for package_details => {id => $result->{id}};
+              <%= link_to $result->{created_epoch} => $url,
+                target => '_blank', class => 'from-now' %>
+            </td>
+          </tr>
+        % }
+      </tbody>
+    </table>
+  </div>
+% }
+
+% if (@$history) {
+  <div id="history" class="collapse">
+    <table class="table table-striped">
+      <tbody>
+        % for my $result (@$history) {
+          <tr>
+            <td><%= format_link($result->{external_link}) %></td>
+            <td><%= $result->{result} || '' %></td>
+            <td><%= $result->{state} %></td>
+            <td><%= $result->{login} || '' %></td>
+            <td class="text-right">
+              % my $url = url_for package_details => {id => $result->{id}};
+              <%= link_to $result->{created_epoch} => $url,
+                target => '_blank', class => 'from-now' %>
+            </td>
+          </tr>
+        % }
+      </tbody>
+    </table>
+  </div>
+% }
+
+% if (@{$spec->{errors} // []}) {
+  <div class="alert alert-danger">
+    <p>Spec file errors:</p>
+    <ul>
+      % for my $l (@{$spec->{errors}}) {
+        %= t li => $l
+      % }
+    </ul>
+  </div>
+% }
+% if (@{$spec->{warnings} // []}) {
+  <div class="alert alert-warning">
+    <p>Spec file warnings:</p>
+    <ul>
+      % for my $l (@{$spec->{warnings}}) {
+        %= t li => $l
+      % }
+    </ul>
+  </div>
+% }
+
+% if (current_user_has_role 'admin') {
+    <div class="row">
+        %= form_for review_package => (class => 'container') => begin
+            <div class="form-group">
+                <label for="comment">Comment:</label>
+                <textarea name="comment" class="form-control"><%= $package->{result} // 'Reviewed ok' %></textarea>
+            </div>
+            %= submit_button 'Checked', class => 'btn btn-success', id => 'correct', name => 'correct'
+            %= submit_button 'Good Enough', class => 'btn btn-warning', id => 'acceptable', name => 'acceptable'
+            %= submit_button 'Unacceptable', class => 'btn btn-danger', id => 'unacceptable', name => 'unacceptable'
+        % end
+    </div>
+% }
+% elsif (current_user_has_role 'manager') {
+    <div class="row">
+        %= form_for fasttrack_package => (class => 'container') => begin
+            <div class="form-group">
+                <label for="comment">Comment:</label>
+                <textarea name="comment" class="form-control"><%= $package->{result} // 'No changes since last review' %></textarea>
+            </div>
+            %= submit_button 'Accept without legal review', class => 'btn btn-warning', id => 'acceptable', name => 'acceptable'
+        % end
+    </div>
+% }
+% elsif (my $comment = $package->{result}) {
+  <div class="row">
+    <form class="container">
+      <div class="form-group">
+        <label for="comment">Comment:</label>
+        <textarea name="comment" class="form-control" disabled><%= $comment %></textarea>
+      </div>
+    </form>
+  </div>
+% }
+
+% my %docs;
+% my %lics;
+% for my $sub (@{$spec->{sub} // []}) {
+    % for my $line (@{$sub->{'%doc'}}) {
+        % for my $file (split(/ /, $line)) {
+            % $docs{$file} = 1;
+        % }
+    % }
+    % for my $line (@{$sub->{'%license'}}) {
+        % for my $file (split(/ /, $line)) {
+            % $lics{$file} = 1;
+        % }
+    % }
+% }
+% if (%docs || %lics) {
+  <div class="alert alert-secondary top-buffer">
+    % if (%docs) {
+      <p>
+        <b>Files copied as %doc:</b>
+        %= join ' ', sort keys %docs
+      </p>
+    % }
+    % if (%lics) {
+      <p>
+        <b>Files copied as %license:</b>
+        %= join ' ', sort keys %lics
+      </p>
+    % }
+  </div>
+% }
+
+<h2>Licenses</h2>
+
+%= include 'reviewer/_reindex'
+
+<div id="details">
+    % if ($package->{obsolete}) {
+        <span>This report is obsolete and might not exist anymore.</span>
+    % }
+    % else {
+        <i class="fas fa-spinner fa-pulse"></i>
+        <span id="ajax-status">Preparing the report, this may take a moment...</span>
+    % }
+</div>
+
+% my $detail_url = url_for('calc_report', id => $package->{id})->to_abs;
+% $detail_url->query([full => 1]) if param 'full';
+% content_for 'ready_function' => begin
+    setupReviewDetails('<%= $detail_url %>');
+% end
+
+<div class="modal" id="new-license-pattern" tabindex="-1" role="dialog"
+  data-create-url="<%= url_for('create_pattern') %>">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      %= form_for create_match => (id => 'pattern-form') => begin
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Create pattern for <%= $package->{name} %>
+          </h5>
+          <button type="button" class="close" data-dismiss="modal"
+            aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="pattern">License</label>
+            %= select_field license => $licenses, class => 'form-control'
+          </div>
+          <div class="form-group">
+            <label for="pattern">Pattern</label>
+            <%= text_area pattern => '', class => 'mono-textarea form-control',
+              rows => 20 %>
+          </div>
+
+          <div class="row form-group">
+            <div class="col-sm-4">
+              <div class="checkbox-inline">
+                <label>
+                  %= check_box patent => 1
+                  Patent
+                </label>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="checkbox-inline">
+                <label>
+                  %= check_box trademark => 1
+                  Trademark
+                </label>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="checkbox-inline">
+                <label>
+                  %= check_box opinion => 1
+                  Opinion
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-check-label control-label">
+              <input type="checkbox" id="only-match-local" value="match-local">
+              Only match for packages named
+            </label>
+            <label for="packname" class="sr-only control-label">
+              Package Name
+            </label>
+            <%= text_field packname => $package->{name},
+              class => 'form-control', disabled => 'disabled' %>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="create-pattern-and-continue">
+            Create Pattern and Continue
+          </button>
+          <button class="btn btn-secondary" id="create-pattern-and-reindex">
+            Create Pattern and Reindex
+          </button>
+        </div>
+      % end
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="help" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"> Keyboard Shortcuts </h5>
+        <button type="button" class="close" data-dismiss="modal"
+          aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <table>
+          <tr>
+            <td width="80"><span class="badge badge-secondary">?</span></td>
+            <td width="200">Help</td>
+            <td width="80"><span class="badge badge-secondary">c</span></td>
+            <td width="200">Create Pattern</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-secondary">n</span></td>
+            <td>Next Match</td>
+            <td><span class="badge badge-secondary">i</span></td>
+            <td>Create Ignore-Pattern</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-secondary">R</span></td>
+            <td>Reindex</td>
+            <td><span class="badge badge-secondary">F</span></td>
+            <td>Load Full Report</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<a id="back-to-top" href="#" class="btn btn-primary btn-lg back-to-top"
+  role="button" title="Click to return to the top" data-toggle="tooltip"
+  data-placement="left"><i class="fas fa-angle-up"></i></a>

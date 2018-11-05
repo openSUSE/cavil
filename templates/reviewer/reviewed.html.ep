@@ -1,0 +1,10 @@
+% layout 'default', title => "$package->{name}: $package->{state}";
+
+<div class="row">
+  <div class="col-md-12 align-middle">
+    <div class="alert alert-success" role="alert">
+      Reviewed <%= link_to $package->{name} =>
+        package_details => {id => $package->{id}}, class => 'alert-link' %>
+      as <b><%= $package->{state} %></b>.
+    </div>
+</div>

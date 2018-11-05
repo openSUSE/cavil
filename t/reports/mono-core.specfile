@@ -1,0 +1,61 @@
+{
+  "errors" =>
+    ["License from mono-core.spec is not part of main license: Apache-2.0"],
+  "main" => {
+    "%doc"     => ["AUTHORS COPYING.LIB ChangeLog NEWS README"],
+    "%license" => [],
+    "file"     => "mono-core.spec",
+    "group"    => "Development/Languages/Mono",
+    "license"  => "LGPL-2.1 and MIT and MS-PL",
+    "licenses" => [
+      "LGPL-2.1 and MIT and MS-PL", "LGPL-2.1",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "MIT and MS-PL",              "MIT and MS-PL",
+      "MIT and MS-PL",              "MIT and MS-PL",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "LGPL-2.1",                   "LGPL-2.1",
+      "Apache-2.0",                 "Apache-2.0",
+      "LGPL-2.1",                   "LGPL-2.1"
+    ],
+    "summary" => "Cross-platform, Open Source, .NET development framework",
+    "url"     => "http://www.mono-project.com",
+    "version" => "3.2.1"
+  },
+  "sub" => [
+    {
+      "%doc"     => ["AUTHORS COPYING.LIB ChangeLog NEWS README"],
+      "%license" => [],
+      "file"     => "mono-core.spec",
+      "group"    => "Development/Languages/Mono",
+      "license"  => "LGPL-2.1 and MIT and MS-PL",
+      "licenses" => [
+        "LGPL-2.1 and MIT and MS-PL", "LGPL-2.1",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "MIT and MS-PL",              "MIT and MS-PL",
+        "MIT and MS-PL",              "MIT and MS-PL",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "LGPL-2.1",                   "LGPL-2.1",
+        "Apache-2.0",                 "Apache-2.0",
+        "LGPL-2.1",                   "LGPL-2.1"
+      ],
+      "summary" => "Cross-platform, Open Source, .NET development framework",
+      "url"     => "http://www.mono-project.com",
+      "version" => "3.2.1"
+    }
+  ],
+  "warnings" => [
+    "Main license had to be normalized: LGPL-2.1 and MIT and MS-PL -> LGPL-2.1-only and MIT and MS-PL",
+    "License from mono-core.spec had to be normalized: LGPL-2.1 and MIT and MS-PL -> LGPL-2.1-only and MIT and MS-PL",
+    "License from mono-core.spec had to be normalized: LGPL-2.1 -> LGPL-2.1-only"
+  ]
+}

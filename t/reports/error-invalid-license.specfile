@@ -1,0 +1,20 @@
+{
+  "errors" => ["Invalid license expression: (Artistic-1.0"],
+  "main"   => {
+    "%doc"     => [],
+    "%license" => [],
+    "file"     => "error-invalid-license.spec",
+    "license"  => "(Artistic",
+    "licenses" => ["(Artistic"]
+  },
+  "sub" => [
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "error-invalid-license.spec",
+      "license"  => "(Artistic",
+      "licenses" => ["(Artistic"]
+    }
+  ],
+  "warnings" => []
+}

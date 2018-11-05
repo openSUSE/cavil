@@ -1,0 +1,98 @@
+{
+  "errors" => [
+    "License from gtk-vnc.spec is not part of main license: LGPL-2.1 and LGPL-2.1+",
+    "License from gtk-vnc2.spec is not part of main license: LGPL-2.1 and LGPL-2.1+"
+  ],
+  "main" => {
+    "%doc" => [
+      "AUTHORS COPYING.LIB ChangeLog NEWS README",
+      "AUTHORS COPYING.LIB ChangeLog NEWS README",
+      "AUTHORS COPYING.LIB ChangeLog NEWS README",
+      "examples/gvncviewer-bindings.py",
+      "examples/gvncviewer-introspection.py"
+    ],
+    "%license" => [],
+    "file"     => "gtk-vnc.spec",
+    "group"    => "Development/Libraries/X11",
+    "license"  => "LGPL-2.1+",
+    "licenses" => [
+      "LGPL-2.1+",
+      "LGPL-2.1 and LGPL-2.1+",
+      "LGPL-2.1 and LGPL-2.1+",
+      "LGPL-2.1 and LGPL-2.1+",
+      "LGPL-2.1 and LGPL-2.1+",
+      "LGPL-2.1 and LGPL-2.1+",
+      "LGPL-2.1 and LGPL-2.1+",
+      "LGPL-2.1+",
+      "LGPL-2.1+",
+      "LGPL-2.1+"
+    ],
+    "summary" => "A GTK widget for VNC clients",
+    "url"     => "http://gtk-vnc.sf.net/",
+    "version" => "0.5.2"
+  },
+  "sub" => [
+    {
+      "%doc" => [
+        "AUTHORS COPYING.LIB ChangeLog NEWS README",
+        "AUTHORS COPYING.LIB ChangeLog NEWS README",
+        "AUTHORS COPYING.LIB ChangeLog NEWS README",
+        "examples/gvncviewer-bindings.py",
+        "examples/gvncviewer-introspection.py"
+      ],
+      "%license" => [],
+      "file"     => "gtk-vnc.spec",
+      "group"    => "Development/Libraries/X11",
+      "license"  => "LGPL-2.1+",
+      "licenses" => [
+        "LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1+",
+        "LGPL-2.1+",
+        "LGPL-2.1+"
+      ],
+      "summary" => "A GTK widget for VNC clients",
+      "url"     => "http://gtk-vnc.sf.net/",
+      "version" => "0.5.2"
+    },
+    {
+      "%doc" => [
+        "AUTHORS COPYING.LIB ChangeLog NEWS README",
+        "AUTHORS COPYING.LIB ChangeLog NEWS README",
+        "AUTHORS COPYING.LIB ChangeLog NEWS README",
+        "examples/gvncviewer-bindings.py",
+        "examples/gvncviewer-introspection.py"
+      ],
+      "%license" => [],
+      "file"     => "gtk-vnc2.spec",
+      "group"    => "Development/Libraries/X11",
+      "licenses" => [
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1 and LGPL-2.1+",
+        "LGPL-2.1+",
+        "LGPL-2.1+"
+      ],
+      "summary" => "A GTK widget for VNC clients",
+      "url"     => "http://gtk-vnc.sf.net/",
+      "version" => "0.5.2"
+    }
+  ],
+  "warnings" => [
+    "Main license had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later",
+    "License from gtk-vnc.spec had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later",
+    "License from gtk-vnc.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only and LGPL-2.1-or-later",
+    "License from gtk-vnc2.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only and LGPL-2.1-or-later",
+    "License from gtk-vnc2.spec had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later"
+  ]
+}

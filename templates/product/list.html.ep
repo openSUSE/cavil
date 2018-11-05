@@ -1,0 +1,22 @@
+% layout 'default', title => 'List Products';
+
+<h2>All Products</h2>
+
+<table id="products" class="table table-bordered table-striped">
+  <thead>
+    <th>Name</th>
+  </thead>
+  <tbody>
+
+    % for my $product (@$products) {
+      <tr>
+        % my $name = $product->{name};
+        %= t td => link_to($name => product_show => {name => $name})
+      </tr>
+    % }
+  </tbody>
+</table>
+
+%content_for 'ready_function' => begin
+  $('#products').DataTable({paging: false});
+%end

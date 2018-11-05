@@ -1,0 +1,27 @@
+#! /bin/sh
+#
+
+source_path=$1
+destfile=$2
+destination_path=$3
+mimetype=$4
+description=$5
+config_dir=$6
+
+html=0
+
+if fgrep -q 'DOCTYPE html' "$source_path"; then
+	html=1
+fi
+if fgrep -q '<html' "$source_path"; then
+        html=1
+fi
+case "$source_path" in
+	*.html|*.xhtml) html=1 ;;
+esac
+
+if test "$html" = 1; then
+   outfile=$(basename $source_path).w3m-render.txt
+   w3m -o argv_is_url=false -o display_charset=UTF-8 -cols 120 -no-cookie -T text/html -dump "$source_path" > "$outfile"
+fi
+

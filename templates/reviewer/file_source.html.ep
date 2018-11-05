@@ -1,0 +1,43 @@
+% my $last;
+% my $lastrisk = 0;
+% my $snippet = 0;
+<div class="source <%= $hidden ? 'hidden' : '' %>"
+  id="file-details-<%= $file %>">
+  <table class="snippet">
+    <tbody>
+      % for my $line (@$lines) {
+        % my $hash = $line->[1]->{hash};
+        % if ($last && ($line->[0] - $last) > 1) {
+          <tr><td class="redbar" colspan="3"></td></tr>
+          % $snippet++;
+        % }
+        % my $risk = $line->[1]->{risk};
+        % my $class = "risk-$risk";
+        % $class .= " hash-$hash" if $hash;
+        % if ($risk > 0) {
+          <tr class="<%= $class %>" title="<%= $line->[1]->{name} %>">
+        % }
+        % else {
+          <tr class="<%= $class %>">
+        % }
+          % if ($risk == 9 && $risk != $lastrisk) {
+            <td class="actions">
+              <a href="#" data-hash="<%= $hash %>"
+                data-packname="<%= $packname %>">
+                <i class="fas fa-fire ignore"></i>
+              </a>
+            </td>
+          % }
+          % else {
+            <td class="actions"></td>
+          % }
+          <td class='linenumber'><%= $line->[0] %></td>
+          <td class="code" data-snippet="<%= $snippet %>"
+            data-pid="<%= $line->[1]->{pid} %>"><%= $line->[2] %></td>
+          % $last = $line->[0];
+        </tr>
+        % $lastrisk = $risk;
+      % }
+    </tbody>
+  </table>
+</div>

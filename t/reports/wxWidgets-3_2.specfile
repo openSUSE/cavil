@@ -1,0 +1,57 @@
+{
+  "errors" => [],
+  "main"   => {
+    "%doc"     => ["docs/*.txt README.SUSE"],
+    "%license" => [],
+    "file"     => "wxWidgets-3_2.spec",
+    "group"    => "Development/Libraries/C and C++",
+    "license"  => "LGPL-2.1+ WITH WxWindows-exception-3.1",
+    "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
+    "summary"  => "C++ Library for Cross-Platform Development",
+    "url"      => "http://www.wxwidgets.org/",
+    "version"  => "3.1.1~2640"
+  },
+  "sub" => [
+    {
+      "%doc"     => ["docs/*.txt README.SUSE"],
+      "%license" => [],
+      "file"     => "wxWidgets-3_2.spec",
+      "group"    => "Development/Libraries/C and C++",
+      "license"  => "LGPL-2.1+ WITH WxWindows-exception-3.1",
+      "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
+      "summary"  => "C++ Library for Cross-Platform Development",
+      "url"      => "http://www.wxwidgets.org/",
+      "version"  => "3.1.1~2640"
+    },
+    {
+      "%doc"     => ["docs/*.txt README.SUSE"],
+      "%license" => [],
+      "file"     => "wxGTK-3_2.spec",
+      "group"    => "Development/Libraries/C and C++",
+      "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
+      "summary"  => "C++ Library for Cross-Platform Development",
+      "url"      => "http://www.wxwidgets.org/",
+      "version"  => "3.1.1~2640"
+    },
+    {
+      "%doc"     => ["docs/*.txt README.SUSE"],
+      "%license" => [],
+      "file"     => "wxQT-3_2.spec",
+      "group"    => "Development/Libraries/C and C++",
+      "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
+      "summary"  => "C++ Library for Cross-Platform Development",
+      "url"      => "http://www.wxwidgets.org/",
+      "version"  => "3.1.1~2640"
+    }
+  ],
+  "warnings" => [
+    "Main license has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
+    "Main license had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later",
+    "License from wxWidgets-3_2.spec has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
+    "License from wxWidgets-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later",
+    "License from wxGTK-3_2.spec has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
+    "License from wxGTK-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later",
+    "License from wxQT-3_2.spec has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
+    "License from wxQT-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later"
+  ]
+}

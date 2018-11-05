@@ -1,0 +1,83 @@
+% layout 'default', title => "Edit license pattern";
+
+<h3>Edit license pattern</h3>
+
+% content_for 'ready_function' => begin
+  $(".del-pattern").click(function(){
+    if (confirm("Sure to delete pattern?")){
+      $.ajax({ type: "delete", url: $(this).data('url'), success: function() {
+        window.location = '/licenses';
+      }});
+    }
+    return false;
+  });
+  $('#only-match-local').change(function() {
+    $('input[name=packname]').prop('disabled', !$('#only-match-local').prop('checked'));
+  });
+% end
+
+% my $url = url_for($match->{id} ? 'update_pattern' : 'create_pattern');
+
+%= form_for $url => (method => 'POST') => begin
+  <div class="form-group">
+    <label for="pattern">License</label>
+    %= select_field license => $licenses, class => 'form-control'
+  </div>
+  <div class="form-group">
+    <label for="pattern">Pattern</label>
+    <%= text_area pattern => $match->{pattern},
+      class => 'mono-textarea form-control', rows => 20 %>
+  </div>
+  <div class="row form-group">
+    <div class="col-sm-4">
+      <div class="checkbox-inline">
+        <label>
+          <%= check_box patent => 1,
+            $match->{patent} ? (checked => undef) : () %>
+          Patent
+        </label>
+      </div>
+    </div>
+    <div class="col-sm-4">
+      <div class="checkbox-inline">
+        <label>
+          <%= check_box trademark => 1,
+            $match->{trademark} ? (checked => undef) : () %> Trademark
+        </label>
+      </div>
+    </div>
+    <div class="col-sm-4">
+      <div class="checkbox-inline">
+        <label>
+          <%= check_box opinion => 1,
+            $match->{opinion} ? (checked => undef) : () %> Opinion
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-check-label control-label">
+      <%= check_box '' => 'match-local',
+        id => 'only-match-local',
+        $match->{packname} ? (checked => 'checked') : () %>
+      Only match for packages named
+    </label>
+    <label for="packname" class="sr-only control-label">Package Name</label>
+    <%= text_field packname => $match->{packname}, class => 'form-control',
+      $match->{packname} ? () : (disabled => 'disabled') %>
+  </div>
+  % if ($match->{id}) {
+    %= submit_button 'Update', class => 'btn btn-primary'
+    <a class="del-pattern btn btn-danger btn-sm" title="Remove match" href="#"
+      data-url="<%= url_for('remove_pattern') %>">
+      Delete
+    </a>
+  % }
+  % else {
+    %= submit_button 'Create', class => 'btn btn-primary'
+  % }
+% end
+
+% if ($next_best) {
+  %= include 'license/_pattern_diff';
+% }

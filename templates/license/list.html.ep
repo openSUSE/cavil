@@ -1,0 +1,61 @@
+% layout 'default';
+% title 'List Licenses';
+
+<h2>All Licenses</h2>
+
+<div class="modal" id="add-new" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">New license</h5>
+        <button type="button" class="close" data-dismiss="modal"
+          aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form>
+          <div class="form-group">
+            <label for="name" class="control-label">License Name:</label>
+            <input type="text" class="form-control" id="name">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" id="license-create" class="btn btn-primary">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#add-new">
+    Add new
+  </button>
+</p>
+
+<table id="licenses" class="table table-bordered table-striped">
+  <thead>
+    <th>Name</th>
+    <th>Risk</th>
+    <th>Flags</th>
+  </thead>
+  <tbody>
+
+    % for my $l (@$licenses) {
+      <tr>
+        %= t td => link_to($l->{name} => url_for('license_show', id => $l->{id}))
+        %= t td => $l->{risk}
+        % my @flags = ($l->{eula} ? 'EULA' : ());
+        % push @flags, 'NonFree' if $l->{nonfree};
+        %= t td => join(', ', @flags)
+      </tr>
+    % }
+  </tbody>
+</table>
+
+%content_for 'ready_function' => begin
+    $('#licenses').DataTable({paging: false});
+    $('#license-create').click(createLicense);
+%end

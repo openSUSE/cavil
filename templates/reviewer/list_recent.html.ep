@@ -1,0 +1,24 @@
+% layout 'default';
+% title "List recent reviews";
+
+<h3>Recent Reviews</h3>
+
+<table class="table table-striped table-bordered" id="reviews"
+  data-script="<%= url_for('reviews_recent_ajax') %>">
+  <thead>
+    <tr>
+      <th class="link">Link</th>
+      <th class="created">Created</th>
+      <th class="reviewed">Reviewed</th>
+      <th class="package">Package</th>
+      <th class="state">State</th>
+      <th class="result">Comment</th>
+      <th class="login">Reviewing User</th>
+      <th class="report">Report</th>
+    </tr>
+  </thead>
+</table>
+
+% content_for 'ready_function' => begin
+  setupRecentTable();
+% end

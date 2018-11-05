@@ -1,0 +1,12 @@
+% layout 'default';
+% title "Directory listing of $filename";
+
+<h5>
+    List of <%= $filename %> within package <%= $package->{name} %>
+</h5>
+
+<ul>
+    % for my $entry (@$entries) {
+        %= t li => link_to($entry, 'file_view', { id => $package->{id}, file => "$filename/$entry"} )
+    % }
+</ul>

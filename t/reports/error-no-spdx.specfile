@@ -1,0 +1,20 @@
+{
+  "errors" => ["Invalid SPDX license: MPLv2.0"],
+  "main"   => {
+    "%doc"     => [],
+    "%license" => [],
+    "file"     => "error-no-spdx.spec",
+    "license"  => "MPLv2.0",
+    "licenses" => ["MPLv2.0"]
+  },
+  "sub" => [
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "error-no-spdx.spec",
+      "license"  => "MPLv2.0",
+      "licenses" => ["MPLv2.0"]
+    }
+  ],
+  "warnings" => []
+}

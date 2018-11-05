@@ -1,0 +1,28 @@
+{
+  "errors" => [],
+  "main"   => {
+    "%doc"     => ["Changes examples README.md"],
+    "%license" => ["LICENSE"],
+    "file"     => "perl-Mojolicious.spec",
+    "group"    => "Development/Libraries/Perl",
+    "license"  => "Artistic-2.0",
+    "licenses" => ["Artistic-2.0"],
+    "summary"  => "Real-time web framework",
+    "url"      => "http://search.cpan.org/dist/Mojolicious/",
+    "version"  => "7.25"
+  },
+  "sub" => [
+    {
+      "%doc"     => ["Changes examples README.md"],
+      "%license" => ["LICENSE"],
+      "file"     => "perl-Mojolicious.spec",
+      "group"    => "Development/Libraries/Perl",
+      "license"  => "Artistic-2.0",
+      "licenses" => ["Artistic-2.0"],
+      "summary"  => "Real-time web framework",
+      "url"      => "http://search.cpan.org/dist/Mojolicious/",
+      "version"  => "7.25"
+    }
+  ],
+  "warnings" => []
+}

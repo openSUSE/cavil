@@ -1,0 +1,25 @@
+%= t h4 => begin
+    Diff against closest
+    %= link_to 'pattern' => url_for('edit_pattern', id => $next_best)
+% end
+
+% my $lastline = 1;
+% for my $row (@$diff) {
+    % while ($lastline < $row->[3]) {
+        <br/>
+        % $lastline++;
+    % }
+    % if ($row->[0] eq 'u') {
+        %= t span => $row->[1];
+    % } elsif ($row->[0] eq 'c') {
+        %= t span => (class => 'diff-removed') => $row->[1];
+        %= t span => (class => 'diff-added') => $row->[2];
+    % } elsif ($row->[0] eq '-') {
+        %= t span => (class => 'diff-removed') => $row->[1];
+    % } elsif ($row->[0] eq '+') {
+        %= t span => (class => 'diff-added') => $row->[2];
+    % } else {
+        %= $row->[0];
+    % }
+    % $lastline = $row->[3];
+% }

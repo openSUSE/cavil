@@ -1,0 +1,195 @@
+.navbar-brand img {
+  height: 100%
+}
+select.prio-box {
+  width: 100% !important;
+}
+select.state-box {
+  width: 100% !important;
+}
+.table > tbody > tr > td.middle-align {
+  vertical-align: middle;
+}
+
+/* license key word */
+pre .lkw {
+  background-color: #FCF8B2;
+  /* font-weight: bold; */
+}
+
+textarea.mono-textarea {
+  font-family: monospace;
+}
+
+.source {
+  margin-bottom: 10px;
+  border: 1px solid #dfe2e5 !important;
+  border-top: 0 !important;
+  border-radius: 0 0 .25rem .25rem;
+
+  td.actions {
+    padding-left: 5px;
+  }
+
+  td.linenumber, td.code {
+    font-family: monospace;
+    padding: 0;
+    margin: 0;
+    font-size: 12px;
+    line-height: 20px;
+    color: rgba(27,31,35,0.3);
+    border: 0 !important;
+  }
+
+  td.code {
+    padding-left: .5em;
+    color: #24292e;
+    margin-left: .5em;
+    white-space: -moz-pre-wrap;
+    white-space: -o-pre-wrap;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  td.linenumber {
+    border-right: 1px solid #ddd;
+    padding: 0 .5em;
+    margin-right: .5em;
+    text-align: right;
+    width: 1%;
+    min-width: 25px;
+    color: rgba(27,31,35,0.3);
+    user-select: none;
+  }
+
+  td.redbar {
+    border-top: 1px solid rgba(0,0,0,0.8);
+    /* couldn't find a way to apply reasonable margin around the border -
+       inline-block doesn't work for tables (the way I expect it) */
+  }
+
+  tr.risk-9 {
+    background-color: black;
+    color: white;
+
+    i.fas {
+      color: white;
+    }
+
+    a.current-selector i.fas {
+      color: yellow;
+    }
+  }
+
+  tr.risk-9, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1 {
+    .code {
+      color: white;
+    }
+
+    .linenumber {
+      color: #aaa;
+    }
+  }
+
+  tr.risk-6 {
+    background-color: #d7252a;
+  }
+
+  tr.risk-5 {
+    background-color: #eb882c;
+  }
+
+  tr.risk-4 {
+    background-color: #d8a223;
+  }
+
+  tr.risk-3 {
+    background-color: #029f93;
+  }
+
+  tr.risk-2 {
+    background-color: #01a2e0;
+  }
+
+  tr.risk-1 {
+    background-color: #016396;
+  }
+}
+
+span.diff-removed {
+  background-color: #f88;
+}
+
+span.diff-added {
+  background-color: #9f9;
+}
+
+#snippet {
+  font-size: 130%;
+}
+
+#prev-command {
+  font-weight: bold;
+}
+#prev-snippet-row {
+  display: none;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+body {
+  margin-bottom: 60px;
+}
+.table th.fit, table td.fit {
+  padding-left: 0px !important;
+  width: 1%;
+  white-space: nowrap;
+}
+.table.borderless td, .table.borderless th {
+  border: none;
+}
+.noleftpad {
+  padding-left: 0 !important;
+}
+.novertpad th, .novertpad td {
+  padding-bottom: 0 !important;
+  padding-top: 0 !important;
+}
+.top-buffer {
+  margin-top:20px;
+}
+.back-to-top {
+  bottom: 20px;
+  cursor: pointer;
+  display: none;
+  position: fixed;
+  right: 20px;
+  z-index: 1000;
+}
+.file {
+  background-color: #f1f8ff;
+  border: 1px solid #c8e1ff;
+  border-radius: .25rem .25rem 0 0;
+  font-size: 13px;
+  line-height: 20px;
+  margin-top: 5px;
+  padding: 10px;
+}
+.file a {
+  color: #586069;
+}
+.fineprint {
+  font-size: 0.3em;
+}
+.help {
+    color: #818182;
+}
+.footer {
+  bottom: 0;
+  height: 60px;
+  padding-top: 20px;
+  position: absolute;
+  width: 100%;
+}

@@ -1,0 +1,88 @@
+{
+  "errors" => [
+    "License from libqt4.spec is not part of main license: BSD-3-Clause and LGPL-2.0+",
+    "License from libqt4.spec is not part of main license: LGPL-2.0+"
+  ],
+  "main" => {
+    "%doc"     => ["*.txt LICENSE.GPL3 LICENSE.LGPL", "changes-*"],
+    "%license" => [],
+    "file"     => "libqt4.spec",
+    "group"    => "System/Libraries",
+    "license"  => "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+    "licenses" => [
+      "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "BSD-3-Clause and LGPL-2.0+",
+      "BSD-3-Clause and LGPL-2.0+",
+      "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "LGPL-2.0+",
+      "LGPL-2.0+",
+      "LGPL-2.0+",
+      "LGPL-2.0+",
+      "LGPL-2.0+"
+    ],
+    "summary" => "C++ Program Library, Core Components",
+    "url"     => "http://qt.digia.com",
+    "version" => "4.8.4"
+  },
+  "sub" => [
+    {
+      "%doc"     => ["*.txt LICENSE.GPL3 LICENSE.LGPL", "changes-*"],
+      "%license" => [],
+      "file"     => "libqt4.spec",
+      "group"    => "System/Libraries",
+      "license"  => "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+      "licenses" => [
+        "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+        "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+        "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+        "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+        "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+        "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+        "BSD-3-Clause and LGPL-2.0+",
+        "BSD-3-Clause and LGPL-2.0+",
+        "GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1",
+        "LGPL-2.0+",
+        "LGPL-2.0+",
+        "LGPL-2.0+",
+        "LGPL-2.0+",
+        "LGPL-2.0+"
+      ],
+      "summary" => "C++ Program Library, Core Components",
+      "url"     => "http://qt.digia.com",
+      "version" => "4.8.4"
+    },
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "libqt4-devel-doc.spec",
+      "group"    => "Documentation/HTML",
+      "licenses" => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
+      "summary"  => "Qt documentation",
+      "url"      => "http://qt.digia.com/",
+      "version"  => "4.8.4"
+    },
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "libqt4-sql-plugins.spec",
+      "group"    => "System/Libraries",
+      "licenses" => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
+      "summary"  => "Qt 4 SQL related libraries",
+      "url"      => "http://qt.digia.com/",
+      "version"  => "4.8.4"
+    }
+  ],
+  "warnings" => [
+    "Main license had to be normalized: GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1 -> GPL-3.0-only or SUSE-LGPL-2.1-with-digia-exception-1.1",
+    "License from libqt4.spec had to be normalized: GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1 -> GPL-3.0-only or SUSE-LGPL-2.1-with-digia-exception-1.1",
+    "License from libqt4.spec had to be normalized: BSD-3-Clause and LGPL-2.0+ -> BSD-3-Clause and LGPL-2.0-or-later",
+    "License from libqt4.spec had to be normalized: LGPL-2.0+ -> LGPL-2.0-or-later",
+    "License from libqt4-devel-doc.spec had to be normalized: SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0 -> SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0-only",
+    "License from libqt4-sql-plugins.spec had to be normalized: SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0 -> SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0-only"
+  ]
+}

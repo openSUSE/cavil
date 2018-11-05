@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Meta, title, CSS, favicons, etc. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="icon" href="<%= icon_url 'legal-hammer-symbol.svg'%>" sizes="any" type="image/svg+xml">
+    <link rel="icon" type="image/png" href="<%= icon_url 'favicon-32.png' %>" sizes="32x32">
+
+    <meta name="csrf-token" content="<%= csrf_token %>" />
+    <meta name="csrf-param" content="csrf_token" />
+
+    <title><%= title() || 'Cavil' %></title>
+
+    %= asset 'app.css'
+    %= asset 'app.js'
+
+    %= content_for 'head'
+
+    %= javascript begin
+      %= content_for 'head_javascript'
+      $(function() {
+        setupCreatePattern();
+        %= content_for 'ready_function'
+      } );
+    % end
+
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-3 border-bottom">
+      <div class="container">
+        %= link_to '/' => (class => 'navbar-brand') => begin
+          <img src="<%= icon_url 'legal-hammer-symbol.svg'%>" width="20"
+            height="20" alt="Legal Icon">
+        % end
+        <button class="navbar-toggler" type="button" data-toggle="collapse"
+          data-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent" aria-expanded="false"
+          aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item">
+              %= link_to 'Open Reviews' => '/', class => 'nav-link'
+            </li>
+            <li class="nav-item">
+              <%= link_to 'Recently Reviewed' => 'reviews_recent',
+                class => 'nav-link' %>
+            </li>
+            <li class="nav-item">
+              %= link_to 'All Products' => '/products', class => 'nav-link'
+            </li>
+            % if (current_user_has_role 'admin') {
+              <li class="nav-item">
+                %= link_to 'All Licenses' => '/licenses', class => 'nav-link'
+              </li>
+              % if (current_package) {
+                <li class="nav-item">
+                  <%= link_to 'Create Pattern' => url_for('new_pattern'),
+                    data => {packname => current_package->{name}},
+                    id => 'create-pattern', accesskey => 'c',
+                    class => 'nav-link' %>
+                </li>
+              % }
+            % }
+          </ul>
+          <form action="<%= url_for 'search' %>" class="form-inline">
+            <%= text_field 'q', class => 'form-control mr-sm-2',
+              placeholder => 'Package Search' %>
+          </form>
+          <ul class="navbar-nav">
+            % if (current_user_has_role 'admin') {
+              <li class="nav-item">
+                %= link_to 'Minion' => '/minion', class => 'nav-link'
+              </li>
+            % }
+            <li class="nav-item">
+              % if (my $user = current_user) {
+                %= link_to "Log out $user" => 'logout', class => 'nav-link'
+              % }
+              % else {
+                %= link_to Login => '/login', class => 'nav-link'
+              % }
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container" id="content">
+      %= include '_notifications'
+      %= content
+    </div>
+
+    <footer class='footer'>
+      <div class='container'>
+        <div id='footer-legal' class="text-center">
+          Cavil is maintained by
+          <a href="https://github.com/openSUSE/cavil/issues">
+            Sebastian Riedel
+          </a>
+          <div class="fineprint">&copy; <a href="https://suse.com">SUSE</a>
+            2017-2018. Logo made by
+            <a href="http://www.freepik.com" title="Freepik">
+              Freepik
+            </a>
+            from
+            <a href="http://www.flaticon.com" title="Flaticon">
+              flaticon.com
+            </a> is licensed by
+            <a href="http://creativecommons.org/licenses/by/3.0/"
+              title="Creative Commons BY 3.0" target="_blank">
+              CC BY 3.0
+            </a>.
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

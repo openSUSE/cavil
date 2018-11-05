@@ -1,0 +1,40 @@
+{
+  "errors" => [],
+  "main"   => {
+    "%doc" => [
+      "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*",
+      "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*"
+    ],
+    "%license" => [],
+    "file"     => "plasma-nm5.spec",
+    "group"    => "System/GUI/KDE",
+    "license"  => "(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)",
+    "licenses" => ["(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)"],
+    "summary" =>
+      "Plasma applet written in QML for managing network connections",
+    "url" => "https://projects.kde.org/projects/playground/network/plasma-nm",
+    "version" => "5.9.2"
+  },
+  "sub" => [
+    {
+      "%doc" => [
+        "COPYING*", "COPYING*", "COPYING*", "COPYING*",
+        "COPYING*", "COPYING*", "COPYING*", "COPYING*",
+        "COPYING*", "COPYING*", "COPYING*"
+      ],
+      "%license" => [],
+      "file"     => "plasma-nm5.spec",
+      "group"    => "System/GUI/KDE",
+      "license"  => "(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)",
+      "licenses" => ["(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)"],
+      "summary" =>
+        "Plasma applet written in QML for managing network connections",
+      "url" => "https://projects.kde.org/projects/playground/network/plasma-nm",
+      "version" => "5.9.2"
+    }
+  ],
+  "warnings" => [
+    "Main license had to be normalized: (LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0) -> (LGPL-2.1-only or LGPL-3.0-only) and (GPL-2.0-only or GPL-3.0-only)",
+    "License from plasma-nm5.spec had to be normalized: (LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0) -> (LGPL-2.1-only or LGPL-3.0-only) and (GPL-2.0-only or GPL-3.0-only)"
+  ]
+}

@@ -1,0 +1,18 @@
+% layout 'default';
+% title "Content of $filename";
+
+%= asset 'codemirror.css'
+%= asset 'codemirror.js'
+
+<h5>
+    View of <%= $filename %> within package <%= $package->{name} %>
+</h5>
+
+<textarea class="form-control col-xs-12" id="file">
+%= maybe_utf8 $file->slurp
+</textarea>
+
+% content_for 'ready_function' => begin
+    setupCodeMirror('<%=  $filename %>');
+    $('#create-pattern').data('licenseName', '<%= $license %>');
+% end
