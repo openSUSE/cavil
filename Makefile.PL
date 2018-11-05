@@ -12,7 +12,7 @@ WriteMakefile(
   ABSTRACT     => 'Legal Reviews',
   AUTHOR =>
     ['Sebastian Riedel <sriedel@suse.de>', 'Stephan Kulow <coolo@suse.de>'],
-  LICENSE    => 'MIT',
+  LICENSE    => 'gpl_2',
   META_MERGE => {
     dynamic_config => 0,
     'meta-spec'    => {version => 2},
