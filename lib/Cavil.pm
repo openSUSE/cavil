@@ -206,38 +206,6 @@ sub startup {
   $public->get('/api/1.0/package/:name')->to('API#status')->name('package_api');
   $public->get('/api/1.0/source')->to('API#source')->name('source_api');
 
-  # TODO: remove when no longer needed
-  $public->get(
-    '/tmp/full' => sub {
-      my $c = shift;
-
-      my $records
-        = $c->pg->db->select('tmp_heritage_copyright')->arrays->to_array;
-      my $data = '';
-      for my $r (@$records) {
-        $data .= join("\t", @$r) . "\n";
-      }
-
-      $c->render(text => $data);
-    }
-  );
-  $public->get(
-    '/tmp/list' => sub {
-      my $c = shift;
-
-      my $records = $c->pg->db->query(
-        'select package, array_agg(file)
-         from tmp_heritage_copyright group by package'
-      )->arrays->to_array;
-      my $data = '';
-      for my $r (@$records) {
-        $data .= join("\t", $r->[0], @{$r->[1]}) . "\n";
-      }
-
-      $c->render(text => $data);
-    }
-  );
-
   # Review UI
   $public->get('/')->to('Reviewer#list_reviews')->name('dashboard');
   $public->get('/search')->to('Search#search')->name('search');
