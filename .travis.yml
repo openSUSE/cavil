@@ -15,7 +15,6 @@ services:
     - postgresql
 env:
   global:
-    - HARNESS_OPTIONS=j9
     - TEST_ONLINE=postgresql://postgres@/mojo_test
 before_install:
   - sudo apt-get install -y libmagic-dev ruby-sass
