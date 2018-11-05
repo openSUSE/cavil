@@ -18,6 +18,7 @@ env:
     - HARNESS_OPTIONS=j9
     - TEST_ONLINE=postgresql://postgres@/mojo_test
 install:
+  - cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.5.1.tar.gz
   - cpanm -n --installdeps .
 before_script:
   - psql -U postgres -c 'create database mojo_test'
