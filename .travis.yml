@@ -17,6 +17,8 @@ env:
   global:
     - HARNESS_OPTIONS=j9
     - TEST_ONLINE=postgresql://postgres@/mojo_test
+before_install:
+  - sudo apt-get install -y libfile-libmagic-perl
 install:
   - cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.5.1.tar.gz
   - cpanm -n --installdeps .
