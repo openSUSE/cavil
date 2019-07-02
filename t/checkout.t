@@ -84,7 +84,7 @@ $json = $mojo_temp_dir->child('.postprocessed.json');
 ok -f $json, '2nd log file exists';
 $hash = decode_json($json->slurp);
 
-my $maxed_file = 'Mojolicious-7.25/README.max-lined.md';
+my $maxed_file = 'Mojolicious-7.25/README.processed.md';
 is_deeply $hash->{unpacked}->{$maxed_file}, {mime => 'text/plain'},
   'file was maxed';
 

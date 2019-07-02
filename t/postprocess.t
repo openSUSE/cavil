@@ -25,11 +25,11 @@ $processor->postprocess;
 is_deeply $processor->hash,
   {
   destdir  => $pwll,
-  unpacked => {'README.max-lined.md' => {mime => 'text/plain'}}
+  unpacked => {'README.processed.md' => {mime => 'text/plain'}}
   },
   'maxed';
 
-is $pwll->child('README.max-lined.md')->slurp,
+is $pwll->child('README.processed.md')->slurp,
   $pwll->child('README.shortened')->slurp, 'Correctly split';
 
 done_testing;

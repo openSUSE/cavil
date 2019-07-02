@@ -63,17 +63,17 @@ sub _split_line_by_whitespace {
   return $changed;
 }
 
-sub _split_lines {
-  my ($self, $from) = @_;
+sub _process_file {
+  my ($self, $from, $mimetype) = @_;
 
   # avoid doing it again
-  return undef if $from =~ m/.max-lined/;
+  return undef if $from =~ m/.processed/;
   my $to;
   if ($from =~ m,^(.*)\.([^./]+$),) {
-    $to = "$1.max-lined.$2";
+    $to = "$1.processed.$2";
   }
   else {
-    $to = "$from.max-lined";
+    $to = "$from.processed";
   }
 
   my $destdir = $self->hash->{destdir};
@@ -113,7 +113,7 @@ sub postprocess {
     my $entry = $self->hash->{unpacked}{$fname};
     next if exists $entry->{unpacked} || $entry->{mime} !~ m,text/,;
 
-    my $new_fname = $self->_split_lines($fname);
+    my $new_fname = $self->_process_file($fname, $entry->{mime});
     next unless $new_fname;
     $self->hash->{unpacked}{$new_fname} = {mime => $entry->{mime}};
     delete $self->hash->{unpacked}{$fname};
