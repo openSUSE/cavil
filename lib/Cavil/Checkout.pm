@@ -18,10 +18,11 @@ use Mojo::Base -base;
 
 use File::Unpack;
 use Mojo::File 'path';
-use Mojo::JSON 'decode_json';
+use Mojo::JSON qw(decode_json encode_json);
 use Mojo::Util 'dumper';
 use Cavil::Util qw(buckets slurp_and_decode);
 use Cavil::Licenses 'lic';
+use Cavil::PostProcess;
 
 use constant DEBUG => $ENV{SUSE_CHECKOUT_DEBUG} || 0;
 
@@ -119,7 +120,9 @@ sub unpack {
 
   my $dir    = path($self->dir);
   my $unpack = $dir->child('.unpacked')->remove_tree;
-  my $log    = $dir->child('.unpacked.json');
+  my $log    = $dir->child('.postprocessed.json');
+  unlink $log;
+  $log = $dir->child('.unpacked.json');
   unlink $log;
 
   # Reset signals just to be safe
@@ -145,9 +148,19 @@ sub unpack {
   $u->exclude(vcs => 1);
   $u->mime_helper_dir('/usr/share/File-Unpack/helper/');
   eval { $u->unpack($dir) };
-  return
-    unless my $err = $@ || ($u->{error} ? join(', ', @{$u->{error}}) : undef);
-  -f $log ? warn $err : die $err;
+  my $err = $@ || ($u->{error} ? join(', ', @{$u->{error}}) : undef);
+
+  if ($err) {
+    -f $log ? warn $err : die $err;
+    return;
+  }
+
+  my $unpacked  = decode_json($dir->child('.unpacked.json')->slurp);
+  my $processor = Cavil::PostProcess->new($unpacked);
+  $processor->postprocess;
+  open(my $fh, '>', $dir->child('.postprocessed.json'));
+  print $fh encode_json($processor->hash);
+  close($fh);
 }
 
 sub unpacked_files {
@@ -217,7 +230,7 @@ sub _specfile {
   my $info
     = {file => $file->basename, licenses => [], '%doc' => [], '%license' => []};
   for my $line (split "\n", $file->slurp) {
-    if ($line =~ /^License:\s*(.+)\s*$/) { push @{$info->{licenses}}, $1 }
+    if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}},   $1 }
     elsif ($line =~ /^\%doc\s*(.+)\s*$/)     { push @{$info->{'%doc'}},     $1 }
     elsif ($line =~ /^\%license\s*(.+)\s*$/) { push @{$info->{'%license'}}, $1 }
     elsif ($line =~ /^Version:\s*(.+)\s*$/) { $info->{version} ||= $1 }

@@ -224,7 +224,7 @@ sub reindex {
 
   my $unpacked = path(
     $self->{checkout_dir}, $pkg->{name},
-    $pkg->{checkout_dir},  '.unpacked.json'
+    $pkg->{checkout_dir},  '.postprocessed.json'
   );
   -f $unpacked ? $self->index($id, $priority) : $self->unpack($id, $priority);
 
