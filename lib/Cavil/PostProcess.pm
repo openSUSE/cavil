@@ -134,7 +134,13 @@ sub postprocess {
 
     next unless $entry->{mime} =~ m,text/,;
 
-    my $new_fname = $self->_process_file($file, $entry->{mime});
+    my $new_fname = eval { $self->_process_file($file, $entry->{mime}) };
+    if ($@) {
+
+      # if we can't open the file, we plainly erase it
+      delete $self->hash->{unpacked}{$file};
+      next;
+    }
     next unless $new_fname;
     $self->hash->{unpacked}{$new_fname} = {mime => $entry->{mime}};
     delete $self->hash->{unpacked}{$file};
