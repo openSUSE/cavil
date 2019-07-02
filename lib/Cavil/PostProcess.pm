@@ -17,22 +17,23 @@ package Cavil::PostProcess;
 use Mojo::Base -base;
 
 has 'hash';
+has max_line_length => 125;
 
 sub _split_find_a_good_spot {
-  my ($line, $max_line_length) = @_;
+  my ($self, $line) = @_;
 
-  my $index  = $max_line_length;
+  my $index  = $self->max_line_length;
   my $length = length($line);
   return $length if ($index > $length);
   my %splits = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
-  while ($index > $max_line_length * 0.7) {
+  while ($index > $self->max_line_length * 0.7) {
     my $char = substr($line, $index, 1);
     return $index + $splits{$char} if (exists $splits{$char});
     $index--;
   }
 
   # now look further down
-  $index = $max_line_length;
+  $index = $self->max_line_length;
   while ($index < $length) {
     my $char = substr($line, $index, 1);
     return $index + $splits{$char} if (exists $splits{$char});
@@ -42,11 +43,11 @@ sub _split_find_a_good_spot {
 }
 
 sub _split_line_by_whitespace {
-  my ($fh, $line, $max_line_length) = @_;
+  my ($self, $fh, $line) = @_;
 
   my $changed;
   while ($line) {
-    my $index = _split_find_a_good_spot($line, $max_line_length);
+    my $index = $self->_split_find_a_good_spot($line);
     if (!$index) {
       print $fh $line;
       print $fh "\n";
@@ -63,7 +64,7 @@ sub _split_line_by_whitespace {
 }
 
 sub _split_lines {
-  my ($destdir, $from, $max_line_length) = @_;
+  my ($self, $from) = @_;
 
   # avoid doing it again
   return undef if $from =~ m/.max-lined/;
@@ -75,15 +76,17 @@ sub _split_lines {
     $to = "$from.max-lined";
   }
 
+  my $destdir = $self->hash->{destdir};
+
   open(my $f_in,  '<', "$destdir/$from") || die "Can't open $from";
   open(my $f_out, '>', "$destdir/$to")   || die "Can't open $to";
 
   my $changed = 0;
   while (<$f_in>) {
     my $line = $_;
-    if (length($line) > $max_line_length) {
+    if (length($line) > $self->max_line_length) {
       chomp $line;
-      $changed = _split_line_by_whitespace($f_out, $line, $max_line_length)
+      $changed = $self->_split_line_by_whitespace($f_out, $line)
         || $changed;
     }
     else {
@@ -110,14 +113,11 @@ sub postprocess {
     my $entry = $self->hash->{unpacked}{$fname};
     next if exists $entry->{unpacked} || $entry->{mime} !~ m,text/,;
 
-    my $max_line_length = 125;
-    my $new_fname
-      = _split_lines($self->hash->{destdir}, $fname, $max_line_length);
+    my $new_fname = $self->_split_lines($fname);
     next unless $new_fname;
     $self->hash->{unpacked}{$new_fname} = {mime => $entry->{mime}};
     delete $self->hash->{unpacked}{$fname};
   }
 }
-
 
 1;
