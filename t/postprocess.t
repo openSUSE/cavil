@@ -32,18 +32,31 @@ is_deeply $processor->hash,
 is $pwll->child('README.processed.md')->slurp,
   $pwll->child('README.shortened')->slurp, 'Correctly split';
 
-my $pwt = temp_copy('package-with-translations', '96d268b759eb1e18a63a95a2c622ab47d5c34f23');
+my $pwt = temp_copy('package-with-translations',
+  '96d268b759eb1e18a63a95a2c622ab47d5c34f23');
 $processor = Cavil::PostProcess->new(
-  {destdir => $pwt, unpacked => {'test.po' => {mime => 'text/x-po'}}});
+  {
+    destdir  => $pwt,
+    unpacked => {
+      'test.po'      => {mime => 'text/x-po'},
+      'package.spec' => {mime => 'text/plain'}
+    }
+  }
+);
 $processor->postprocess;
 is_deeply $processor->hash,
   {
   destdir  => $pwt,
-  unpacked => {'test.processed.po' => {mime => 'text/x-po'}}
+  unpacked => {
+    'test.processed.po'      => {mime => 'text/x-po'},
+    'package.processed.spec' => {mime => 'text/plain'},
+  }
   },
   'striped';
 
 is $pwt->child('test.processed.po')->slurp,
-  $pwt->child('test.stripped')->slurp, 'Correctly stripped';
+  $pwt->child('test.stripped')->slurp, 'Correctly stripped msgid';
+is $pwt->child('package.processed.spec')->slurp,
+  $pwt->child('package.stripped')->slurp, 'Correctly stripped spec file';
 
 done_testing;

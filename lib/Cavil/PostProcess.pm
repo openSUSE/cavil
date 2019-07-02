@@ -83,6 +83,11 @@ sub _process_file {
   if ($mimetype && $mimetype =~ m,text/x-po,) {
     $ignore_re = qr(^msgid ");
   }
+
+  # spec files are mostly text/plain
+  if ($from =~ m,.spec$,) {
+    $ignore_re = qr(^Name *:);
+  }
   open(my $f_in,  '<', "$destdir/$from") || die "Can't open $from";
   open(my $f_out, '>', "$destdir/$to")   || die "Can't open $to";
 
@@ -96,8 +101,7 @@ sub _process_file {
 
     if (length($line) > $self->max_line_length) {
       chomp $line;
-      $changed = $self->_split_line_by_whitespace($f_out, $line)
-        || $changed;
+      $changed = $self->_split_line_by_whitespace($f_out, $line) || $changed;
     }
     else {
       print $f_out $line;
