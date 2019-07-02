@@ -153,7 +153,7 @@ ok $db->select('bot_packages', ['unpacked'], {id => $pkg_id})->hash->{unpacked},
 # Verify report checksum
 my $specfile = $t->app->reports->specfile_report($pkg_id);
 my $dig      = $t->app->reports->dig_report($pkg_id);
-is $t->app->checksum($specfile, $dig), 'a1e0bb9908de18249938ba2d1714c2be',
+is $t->app->checksum($specfile, $dig), '425a58966dd35fb9dbe17591cd4cf2f5',
   'right checksum';
 
 # Check matches
@@ -162,7 +162,7 @@ my $res = $db->select(
   ['sline', 'pattern'],
   {
     'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious/resources/'
-      . 'public/mojo/prettify/run_prettify.js'
+      . 'public/mojo/prettify/run_prettify.processed.js'
   },
   {order_by => 'sline'}
 )->arrays;

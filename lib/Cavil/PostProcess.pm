@@ -123,14 +123,27 @@ sub new { shift->SUPER::new(hash => shift) }
 sub postprocess {
   my $self = shift;
 
-  for my $fname (keys %{$self->hash->{unpacked}}) {
-    my $entry = $self->hash->{unpacked}{$fname};
-    next if exists $entry->{unpacked} || $entry->{mime} !~ m,text/,;
+  for my $file (keys %{$self->hash->{unpacked}}) {
+    my $entry = $self->hash->{unpacked}{$file};
 
-    my $new_fname = $self->_process_file($fname, $entry->{mime});
+    # clean up after file::unpack
+    if ($file eq '.unpacked.json' || exists $entry->{unpacked}) {
+      delete $self->hash->{unpacked}{$file};
+      next;
+    }
+
+    next unless $entry->{mime} =~ m,text/,;
+
+    my $new_fname = eval { $self->_process_file($file, $entry->{mime}) };
+    if ($@) {
+
+      # if we can't open the file, we plainly erase it
+      delete $self->hash->{unpacked}{$file};
+      next;
+    }
     next unless $new_fname;
     $self->hash->{unpacked}{$new_fname} = {mime => $entry->{mime}};
-    delete $self->hash->{unpacked}{$fname};
+    delete $self->hash->{unpacked}{$file};
   }
 }
 
