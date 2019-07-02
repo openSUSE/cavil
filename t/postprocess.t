@@ -32,4 +32,18 @@ is_deeply $processor->hash,
 is $pwll->child('README.processed.md')->slurp,
   $pwll->child('README.shortened')->slurp, 'Correctly split';
 
+my $pwt = temp_copy('package-with-translations', '96d268b759eb1e18a63a95a2c622ab47d5c34f23');
+$processor = Cavil::PostProcess->new(
+  {destdir => $pwt, unpacked => {'test.po' => {mime => 'text/x-po'}}});
+$processor->postprocess;
+is_deeply $processor->hash,
+  {
+  destdir  => $pwt,
+  unpacked => {'test.processed.po' => {mime => 'text/x-po'}}
+  },
+  'striped';
+
+is $pwt->child('test.processed.po')->slurp,
+  $pwt->child('test.stripped')->slurp, 'Correctly stripped';
+
 done_testing;

@@ -77,13 +77,23 @@ sub _process_file {
   }
 
   my $destdir = $self->hash->{destdir};
+  my $ignore_re;
 
+  # mimetype text/x-po only hits most, but it might be good enough
+  if ($mimetype && $mimetype =~ m,text/x-po,) {
+    $ignore_re = qr(^msgid ");
+  }
   open(my $f_in,  '<', "$destdir/$from") || die "Can't open $from";
   open(my $f_out, '>', "$destdir/$to")   || die "Can't open $to";
 
   my $changed = 0;
   while (<$f_in>) {
     my $line = $_;
+    if ($ignore_re && $line =~ /$ignore_re/) {
+      $changed = 1;
+      last;
+    }
+
     if (length($line) > $self->max_line_length) {
       chomp $line;
       $changed = $self->_split_line_by_whitespace($f_out, $line)
