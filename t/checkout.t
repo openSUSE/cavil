@@ -79,14 +79,14 @@ my $module = $mojo_temp_dir->child('.unpacked', 'Mojolicious-7.25', 'lib',
   'Mojolicious.pm');
 ok -f $module, 'module exists';
 
-# preprocessed
+# check post processed
 $json = $mojo_temp_dir->child('.postprocessed.json');
 ok -f $json, '2nd log file exists';
 $hash = decode_json($json->slurp);
 
 my $maxed_file = 'Mojolicious-7.25/README.max-lined.md';
-is_deeply $hash->{unpacked}->{$maxed_file},
-       {mime => 'text/plain'}, 'file was maxed';
+is_deeply $hash->{unpacked}->{$maxed_file}, {mime => 'text/plain'},
+  'file was maxed';
 
 # "plasma-nm5"
 my $nm5 = $dir->child('plasma-nm5', '4df243e211552e65b7146523c2f7051c');
