@@ -275,7 +275,7 @@ sub _short_report {
 
   # Minimum number of files for short report
   my $files = $report->{files};
-  my $all = $short->{all} = keys %$files;
+  my $all   = $short->{all} = keys %$files;
   $full = 1 if $all < $min;
 
   # Files
@@ -315,7 +315,7 @@ sub _short_report {
       my $name    = $current->{name} = $license->{name};
 
       my $matches = $risk->{$lic};
-      my %files = map { $_ => 1 } map {@$_} values %$matches;
+      my %files   = map { $_ => 1 } map {@$_} values %$matches;
       $chart->{$name} = keys %files;
 
       $current->{flags} = $license->{flags};

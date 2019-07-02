@@ -53,7 +53,7 @@ sub create_package {
   my ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
 
   # Check if we need to import from OBS
-  my $dir = path($config->{checkout_dir}, $srcpkg, $verifymd5);
+  my $dir    = path($config->{checkout_dir}, $srcpkg, $verifymd5);
   my $create = !-e $dir;
 
   my $user = $self->users->licensedigger;

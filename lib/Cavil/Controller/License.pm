@@ -57,7 +57,7 @@ sub edit_pattern {
   for my $p (@{$self->licenses->patterns($pattern->{license})}) {
     next if $p->{id} == $pattern->{id};
     my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
-    my $d = Spooky::Patterns::XS::distance($p1, $p2);
+    my $d  = Spooky::Patterns::XS::distance($p1, $p2);
     if ($min > $d) {
       $min  = $d;
       $best = $p;

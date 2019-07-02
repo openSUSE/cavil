@@ -28,7 +28,7 @@ my $MAX_FILE_SIZE = 30000;
 sub buckets {
   my ($things, $size) = @_;
 
-  my $buckets = int(@$things / $size) || 1;
+  my $buckets    = int(@$things / $size) || 1;
   my $per_bucket = ceil @$things / $buckets;
   my @buckets;
   for my $thing (@$things) {

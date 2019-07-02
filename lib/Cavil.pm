@@ -29,7 +29,7 @@ use Scalar::Util 'weaken';
 use Time::HiRes ();
 
 has bootstrap => sub {
-  my $self = shift;
+  my $self      = shift;
   my $bootstrap = Cavil::Bootstrap->new(app => $self);
   weaken $bootstrap->{app};
   return $bootstrap;
@@ -41,7 +41,7 @@ our $VERSION = '0.5';
 sub startup {
   my $self = shift;
 
-  my $file = $ENV{CAVIL_CONF} || 'cavil.conf';
+  my $file   = $ENV{CAVIL_CONF} || 'cavil.conf';
   my $config = $self->plugin(Config => {file => $file});
   $self->secrets($config->{secrets});
 

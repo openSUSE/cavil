@@ -25,7 +25,7 @@ use Text::Diff;
 use Data::Dumper;
 
 has description => 'Show license changes from previous reviews';
-has usage => sub { shift->extract_usage };
+has usage       => sub { shift->extract_usage };
 
 sub run {
   my ($self, @args) = @_;

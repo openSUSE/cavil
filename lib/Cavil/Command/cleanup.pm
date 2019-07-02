@@ -17,7 +17,7 @@ package Cavil::Command::cleanup;
 use Mojo::Base 'Mojolicious::Command';
 
 has description => 'Start background jobs to remove obsolete checkouts';
-has usage => sub { shift->extract_usage };
+has usage       => sub { shift->extract_usage };
 
 sub run { say shift->app->minion->enqueue('obsolete') }
 

@@ -108,7 +108,7 @@ sub pattern_checksum {
   my ($self, $pattern) = @_;
 
   Spooky::Patterns::XS::init_matcher();
-  my $a = Spooky::Patterns::XS::parse_tokens($pattern);
+  my $a   = Spooky::Patterns::XS::parse_tokens($pattern);
   my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
   for my $n (@$a) {
 
@@ -178,9 +178,9 @@ sub update_pattern {
       token_hexsum => $self->pattern_checksum($args{pattern}),
       packname     => $args{packname} // '',
       license      => $args{license},
-      patent       => $args{patent} // 0,
-      trademark    => $args{trademark} // 0,
-      opinion      => $args{opinion} // 0
+      patent    => $args{patent}    // 0,
+      trademark => $args{trademark} // 0,
+      opinion   => $args{opinion}   // 0
     },
     {id => $id}
   );

@@ -20,7 +20,7 @@ use Mojo::File 'path';
 use Mojo::Util qw(dumper getopt);
 
 has description => 'Manage Cavil users';
-has usage => sub { shift->extract_usage };
+has usage       => sub { shift->extract_usage };
 
 sub run {
   my ($self, @args) = @_;
@@ -42,7 +42,7 @@ sub run {
   # Download
   my ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
   my $checkout_dir = $import ? $app->config->{checkout_dir} : $download;
-  my $dir = path($checkout_dir, $srcpkg, $verifymd5)->make_path;
+  my $dir          = path($checkout_dir, $srcpkg, $verifymd5)->make_path;
   $obs->download_source($api, $project, $pkg, $dir, {rev => $srcmd5});
   return say qq{Downloaded $pkg to "$dir".} if $download;
 

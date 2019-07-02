@@ -118,7 +118,7 @@ EOF
 # explicit 404
 get '/public/source/:project/perl-Mojolicious' =>
   [project => ['openSUSE:Factory']] => (query => {view => 'info', rev => 4}) =>
-  {text    => '', status => 404};
+  {text => '', status => 404};
 
 get '/public/source/:project/perl-Mojolicious/perl-Mojolicious.spec' =>
   [project => ['home:kraih']] =>
@@ -129,7 +129,7 @@ get '/public/source/:project/perl-Mojolicious/:special' =>
   [project => ['home:kraih']] =>
   (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'}) =>
   [special => ['perl-Mojo#licious.changes']] =>
-  {text    => 'Mojolicious changes!'};
+  {text => 'Mojolicious changes!'};
 
 get '/public/source/:project/perl-WrongChecksum' =>
   [project => ['home:kraih']] => (query => {expand => 1, rev => 1}) =>
@@ -151,7 +151,7 @@ get '/public/source/:project/perl-WrongChecksum/perl-WrongChecksum.changes' =>
   {text => 'Wrong checksum changes!'};
 
 get '/public/source/:project/perl-Mojo-SQLite' => (query => {expand => 1}) =>
-  [project => ['home:kraih']] => {text => <<'EOF'};
+  [project => ['home:kraih']]                  => {text => <<'EOF'};
 <directory name="perl-Mojo-SQLite" rev="51d642346cc9e5f57c43463dd0b1dad9"
   vrev="5" srcmd5="51d642346cc9e5f57c43463dd0b1dad9">
   <linkinfo project="devel:languages:perl" package="perl-Mojo-SQLite"
