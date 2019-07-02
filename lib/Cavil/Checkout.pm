@@ -167,15 +167,12 @@ sub unpacked_files {
   my ($self, $bucket_size) = @_;
 
   my $dir      = path($self->dir);
-  my $unpacked = decode_json($dir->child('.unpacked.json')->slurp);
+  my $unpacked = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
 
   my @files;
-  for my $file (sort keys %{$unpacked->{unpacked}}) {
+  for my $file (sort keys %{$unpacked}) {
 
-    next if $file eq '.unpacked.json';
-    next if exists $unpacked->{unpacked}{$file}{unpacked};
-
-    my $mime = $unpacked->{unpacked}{$file}{mime};
+    my $mime = $unpacked->{$file}{mime};
     next if $mime =~ $BLACKLIST_MIME_RE;
 
     push @files, [$file, $mime];
