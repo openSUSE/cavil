@@ -17,7 +17,7 @@ package Cavil::Command::updatespooky;
 use Mojo::Base 'Mojolicious::Command';
 
 has description => 'Update Spooky::Patterns::XS indeces';
-has usage => sub { shift->extract_usage };
+has usage       => sub { shift->extract_usage };
 
 sub run {
   my ($self, @args) = @_;

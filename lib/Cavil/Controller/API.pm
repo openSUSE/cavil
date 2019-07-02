@@ -33,7 +33,7 @@ sub source {
 
   # Get package infomation, rev may be pointing to link, so we need the
   # canonical srcmd5
-  my $obs = $self->app->obs;
+  my $obs  = $self->app->obs;
   my $info = eval { $obs->package_info($api, $project, $pkg, {rev => $rev}) };
   unless ($info && $info->{verifymd5}) {
     return $self->render(json => {error => 'Package not found'}, status => 404);

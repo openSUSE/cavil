@@ -17,7 +17,7 @@ package Cavil::Command::rindex;
 use Mojo::Base 'Mojolicious::Command';
 
 has description => 'Start background jobs to reindex all packages';
-has usage => sub { shift->extract_usage };
+has usage       => sub { shift->extract_usage };
 
 sub run { say shift->app->minion->enqueue('reindex_all') }
 

@@ -36,7 +36,7 @@ sub _analyze {
   my $specfile = $reports->specfile_report($id);
   my $dig      = $reports->dig_report($id);
 
-  my $chksum = $app->checksum($specfile, $dig);
+  my $chksum    = $app->checksum($specfile, $dig);
   my $shortname = _shortname($app->pg->db, $chksum, $specfile, $dig);
 
   # Free up memory
@@ -89,7 +89,7 @@ sub _analyzed {
 
   # Previously reviewed and accepted
   elsif (my $f_id = $found_correct || $found_acceptable) {
-    $pkg->{state} = $found_correct ? 'correct' : 'acceptable';
+    $pkg->{state}            = $found_correct ? 'correct' : 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{result}
       = "Accepted because previously reviewed under the same license ($f_id)";

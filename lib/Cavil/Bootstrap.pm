@@ -115,7 +115,7 @@ sub _name {
 sub _store {
   my ($db, $dir, $prefix, $l, @patterns) = @_;
 
-  my @in = @patterns ? (id => {-in => \@patterns}) : ();
+  my @in  = @patterns ? (id => {-in => \@patterns}) : ();
   my $all = $db->select(
     'license_patterns',
     ['pattern', 'patent', 'trademark', 'opinion'],

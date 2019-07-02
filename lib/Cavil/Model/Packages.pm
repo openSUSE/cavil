@@ -180,7 +180,7 @@ sub name_suggestions {
   my $like = '%' . $partial . '%';
   return $self->pg->db->select(
     'bot_packages', [\'distinct(name)'],
-    {-and  => [{name => \[' ilike ?', $like]}, {name => {'!=' => $partial}}]},
+    {-and => [{name => \[' ilike ?', $like]}, {name => {'!=' => $partial}}]},
     {limit => 100}
   )->arrays->flatten->to_array;
 }

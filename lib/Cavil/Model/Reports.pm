@@ -33,7 +33,7 @@ sub cached_dig_report {
 sub dig_report {
   my ($self, $id) = @_;
 
-  my $db = $self->pg->db;
+  my $db  = $self->pg->db;
   my $pkg = $db->select('bot_packages', '*', {id => $id})->hash;
   my $ignored
     = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
@@ -56,7 +56,7 @@ sub risk_is_acceptable {
 sub source_for {
   my ($self, $id, $needed) = @_;
 
-  my $db = $self->pg->db;
+  my $db   = $self->pg->db;
   my $file = $db->select('matched_files', '*', {id => $id})->hash;
   return undef unless $file;
 
@@ -67,7 +67,7 @@ sub source_for {
     '.unpacked',           $file->{filename}
   );
   my %needed_lines = map { $_->[0] => $_->[1] } @$needed;
-  my $lines = $self->_lines({}, $fn, \%needed_lines);
+  my $lines        = $self->_lines({}, $fn, \%needed_lines);
 
   return {lines => $lines, name => $pkg->{name}};
 }
@@ -75,7 +75,7 @@ sub source_for {
 sub specfile_report {
   my ($self, $id) = @_;
 
-  my $db = $self->pg->db;
+  my $db   = $self->pg->db;
   my $hash = $db->select('bot_reports', '*', {package => $id})->hash;
 
   unless ($hash) {

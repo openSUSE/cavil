@@ -102,7 +102,7 @@ sub package_info {
 sub _find_link_target {
   my ($ua, $api, $project, $pkg, $lrev) = @_;
 
-  my $url = _url($api, 'public', 'source', $project, $pkg);
+  my $url   = _url($api, 'public', 'source', $project, $pkg);
   my $query = {expand => 1};
   $query->{rev} = $lrev if defined $lrev;
   $url->query($query);

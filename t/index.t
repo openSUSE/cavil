@@ -97,7 +97,7 @@ my $index_job = $t->app->minion->job($index_id);
 is $index_job->task, 'index', 'right task';
 is $index_job->info->{state},  'finished', 'job is finished';
 is $index_job->info->{result}, undef,      'job was successful';
-my @batch_ids = @{$index_job->info->{children}};
+my @batch_ids  = @{$index_job->info->{children}};
 my @batch_jobs = map { $t->app->minion->job($_) } @batch_ids;
 is $batch_jobs[0]->task, 'index_batch', 'right task';
 is $batch_jobs[0]->info->{state},  'finished', 'job is finished';
