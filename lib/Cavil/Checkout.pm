@@ -70,8 +70,6 @@ my $URL_RE = qr!
   \b((https?|ftp|file)://[\w-]+\.[\w\./:\\\+~-]+\w\??)\b
 !ix;
 
-my $MIME = path(__FILE__)->sibling('resources', 'mime_helper')->to_string;
-
 sub keyword_report {
   my ($self, $matcher, $meta, $file) = @_;
 
@@ -146,7 +144,6 @@ sub unpack {
   );
   $u->exclude(vcs => 1);
   $u->mime_helper_dir('/usr/share/File-Unpack/helper/');
-  $u->mime_helper_dir($MIME);
   eval { $u->unpack($dir) };
   return
     unless my $err = $@ || ($u->{error} ? join(', ', @{$u->{error}}) : undef);
