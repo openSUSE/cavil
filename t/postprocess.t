@@ -5,7 +5,6 @@ use File::Copy 'copy';
 use Mojo::File qw(path tempdir);
 use Mojo::JSON 'decode_json';
 use Cavil::Checkout;
-use Mojo::Util 'dumper';
 
 my $dir = path(__FILE__)->dirname->child('legal-bot');
 
