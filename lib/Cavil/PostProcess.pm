@@ -20,15 +20,15 @@ has 'hash';
 has max_line_length => 125;
 
 sub _split_find_a_good_spot {
-  my ($self, $line, $start, $max_line_length) = @_;
+  my ($self, $line, $start, $len, $max_line_length) = @_;
 
   my $index  = $max_line_length;
-  my $length = length($line)-$start;
+  my $length = $len - $start;
   return $length if ($index > $length);
-  my %splits = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
+  my %splits    = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
   my $max_chars = $max_line_length * 0.7;
   while ($index > $max_chars) {
-    my $char = substr($line, $start+$index, 1);
+    my $char = substr($line, $start + $index, 1);
     return $index + $splits{$char} if (exists $splits{$char});
     $index--;
   }
@@ -36,7 +36,7 @@ sub _split_find_a_good_spot {
   # now look further down
   $index = $max_line_length;
   while ($index < $length) {
-    my $char = substr($line, $start+$index, 1);
+    my $char = substr($line, $start + $index, 1);
     return $index + $splits{$char} if (exists $splits{$char});
     $index++;
   }
@@ -48,9 +48,13 @@ sub _split_line_by_whitespace {
 
   my $changed;
   my $start = 0;
-  my $len = length($line);
+  my $len   = length($line);
+
+  # files with 60K lines are most likley not to be read by humans
+  die "too long" if $len > 60000;
   while ($start < $len) {
-    my $index = $self->_split_find_a_good_spot($line, $start, $self->max_line_length);
+    my $index = $self->_split_find_a_good_spot($line, $start, $len,
+      $self->max_line_length);
     if (!$index) {
       print $fh substr($line, $start);
       print $fh "\n";

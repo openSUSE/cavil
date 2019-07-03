@@ -164,8 +164,9 @@ sub unpack {
 sub unpacked_files {
   my ($self, $bucket_size) = @_;
 
-  my $dir      = path($self->dir);
-  my $unpacked = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
+  my $dir = path($self->dir);
+  my $unpacked
+    = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
 
   my @files;
   for my $file (sort keys %{$unpacked}) {
