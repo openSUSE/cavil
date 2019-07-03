@@ -17,24 +17,16 @@ package Cavil::PostProcess;
 use Mojo::Base -base;
 
 has 'hash';
-has max_line_length => 125;
+has max_line_length => 115;
 
 sub _split_find_a_good_spot {
   my ($self, $line, $start, $len, $max_line_length) = @_;
 
-  my $index  = $max_line_length;
   my $length = $len - $start;
+  my $index = $max_line_length;
   return $length if ($index > $length);
   my %splits    = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
-  my $max_chars = $max_line_length * 0.7;
-  while ($index > $max_chars) {
-    my $char = substr($line, $start + $index, 1);
-    return $index + $splits{$char} if (exists $splits{$char});
-    $index--;
-  }
 
-  # now look further down
-  $index = $max_line_length;
   while ($index < $length) {
     my $char = substr($line, $start + $index, 1);
     return $index + $splits{$char} if (exists $splits{$char});
