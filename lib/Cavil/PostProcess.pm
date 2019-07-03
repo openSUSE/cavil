@@ -17,25 +17,18 @@ package Cavil::PostProcess;
 use Mojo::Base -base;
 
 has 'hash';
-has max_line_length => 125;
+has max_line_length => 115;
 
 sub _split_find_a_good_spot {
-  my ($self, $line) = @_;
+  my ($self, $line, $start, $len, $max_line_length) = @_;
 
-  my $index  = $self->max_line_length;
-  my $length = length($line);
+  my $length = $len - $start;
+  my $index = $max_line_length;
   return $length if ($index > $length);
-  my %splits = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
-  while ($index > $self->max_line_length * 0.7) {
-    my $char = substr($line, $index, 1);
-    return $index + $splits{$char} if (exists $splits{$char});
-    $index--;
-  }
+  my %splits    = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
 
-  # now look further down
-  $index = $self->max_line_length;
   while ($index < $length) {
-    my $char = substr($line, $index, 1);
+    my $char = substr($line, $start + $index, 1);
     return $index + $splits{$char} if (exists $splits{$char});
     $index++;
   }
@@ -46,18 +39,23 @@ sub _split_line_by_whitespace {
   my ($self, $fh, $line) = @_;
 
   my $changed;
-  while ($line) {
-    my $index = $self->_split_find_a_good_spot($line);
+  my $start = 0;
+  my $len   = length($line);
+
+  # files with 60K lines are most likley not to be read by humans
+  die "too long" if $len > 60000;
+  while ($start < $len) {
+    my $index = $self->_split_find_a_good_spot($line, $start, $len,
+      $self->max_line_length);
     if (!$index) {
-      print $fh $line;
+      print $fh substr($line, $start);
       print $fh "\n";
       last;
     }
 
-    my $first = substr($line, 0, $index);
-    print $fh $first;
+    print $fh substr($line, $start, $index);
     print $fh "\n";
-    $line    = substr($line, $index);
+    $start += $index;
     $changed = 1;
   }
   return $changed;
@@ -123,12 +121,13 @@ sub new { shift->SUPER::new(hash => shift) }
 sub postprocess {
   my $self = shift;
 
-  for my $file (keys %{$self->hash->{unpacked}}) {
-    my $entry = $self->hash->{unpacked}{$file};
+  my $unpacked = $self->hash->{unpacked};
+  for my $file (keys %$unpacked) {
+    my $entry = $unpacked->{$file};
 
     # clean up after file::unpack
     if ($file eq '.unpacked.json' || exists $entry->{unpacked}) {
-      delete $self->hash->{unpacked}{$file};
+      delete $unpacked->{$file};
       next;
     }
 
@@ -138,12 +137,12 @@ sub postprocess {
     if ($@) {
 
       # if we can't open the file, we plainly erase it
-      delete $self->hash->{unpacked}{$file};
+      delete $unpacked->{$file};
       next;
     }
     next unless $new_fname;
-    $self->hash->{unpacked}{$new_fname} = {mime => $entry->{mime}};
-    delete $self->hash->{unpacked}{$file};
+    $unpacked->{$new_fname} = {mime => $entry->{mime}};
+    delete $unpacked->{$file};
   }
 }
 

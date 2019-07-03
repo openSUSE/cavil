@@ -1,5 +1,100 @@
-Now I wish I could write as long lines as some github projects do - one badge here, one badge there as if they had no other 
-hobby than collecting badges for things github displays.
+Now I wish I could write as long lines as some github projects do - one badge here, one badge there as if they had no 
+other hobby than collecting badges for things github displays. 
 
 But sometimes they also just contain long URLS to https://build.opensuse.org/package/view_file/system:install:head/patterns-base/patterns-base.spec?expand=1 
 - then there is little we can do about it.
+
+Just a glimpse on what sounds can look like:
+```
+[PackageDescription {package = PackageIdentifier {pkgName = PackageName {unPackageName = "OrPatterns"}, pkgVersion = 
+Version {versionBranch = [0,1], versionTags = []}}, license = BSD3, licenseFiles = ["LICENSE"], copyright = "", maintainer 
+= "Adam Vogt <vogt.adam@gmail.com>", author = "Adam Vogt <vogt.adam@gmail.com>", stability = "", testedWith = [(GHC,ThisVersion 
+(Version {versionBranch = [7,8,2], versionTags = []})),(GHC,ThisVersion (Version {versionBranch = [7,6,2], versionTags 
+= []})),(GHC,ThisVersion (Version {versionBranch = [7,4,1], versionTags = []}))], homepage = "", pkgUrl = "", bugReports 
+= "", sourceRepos = [SourceRepo {repoKind = RepoHead, repoType = Just Darcs, repoLocation = Just "http://code.haskell.org/~aavogt/OrPatterns
+", repoModule = Nothing, repoBranch = Nothing, repoTag = Nothing, repoSubdir = Nothing}], synopsis = "A quasiquoter 
+for or-patterns", description = "A quasiquoter for or-patterns. It allows one additional\nform for patterns:\n\n> f 
+[o| p1 | p2 | p3 |] = rhs\n\nAbove, @p1@, @p2@ and @p3@ are three arbitrary patterns\nthat bind the same variables. 
+These variables are\navailable in the expression @rhs@. Nesting of or-patterns\nis not supported yet.\n\nSee also:\n\n* 
+http://hackage.haskell.org/package/first-class-patterns\nsupports @\\\\\\/@ (or). However, variables bound with\nthose 
+patterns are not named. This means:\n\n> g :: Either (x, y) (y, x) -> (x, y)\n> g [o| Left (x,y) | Right (y,x) |] = 
+(x,y)\n\n> -- ends up slightly longer\n> g = elim $ left (pair var var) \\/ right flipped ->> (,)\n>  where\n>   flipped 
+= (\\(a,b) -> (b,a)) --> pair var var\n\n* http://hackage.haskell.org/trac/ghc/ticket/3919\nis the feature request for 
+or-patterns in ghc", category = "Development", customFieldsPD = [], buildDepends = [Dependency (PackageName {unPackageName 
+= "base"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [4,5], versionTags = []}
+)) (LaterVersion (Version {versionBranch = [4,5], versionTags = []}))) (EarlierVersion (Version {versionBranch = [4,8], 
+versionTags = []}))),Dependency (PackageName {unPackageName = "template-haskell"}) (IntersectVersionRanges (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [2,4], versionTags = []})) (LaterVersion (Version {versionBranch = [2,4], versionTags 
+= []}))) (EarlierVersion (Version {versionBranch = [2,10], versionTags = []}))),Dependency (PackageName {unPackageName 
+= "mtl"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [2,1], versionTags = []}
+)) (LaterVersion (Version {versionBranch = [2,1], versionTags = []}))) (EarlierVersion (Version {versionBranch = [2,2], 
+versionTags = []}))),Dependency (PackageName {unPackageName = "syb"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion 
+(Version {versionBranch = [0,4], versionTags = []})) (LaterVersion (Version {versionBranch = [0,4], versionTags = []}
+))) (EarlierVersion (Version {versionBranch = [0,5], versionTags = []}))),Dependency (PackageName {unPackageName = 
+"split"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [0,2], versionTags = []}
+)) (LaterVersion (Version {versionBranch = [0,2], versionTags = []}))) (EarlierVersion (Version {versionBranch = [0,3], 
+versionTags = []}))),Dependency (PackageName {unPackageName = "haskell-src-meta"}) (IntersectVersionRanges (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [0,6], versionTags = []})) (LaterVersion (Version {versionBranch = [0,6], versionTags 
+= []}))) (EarlierVersion (Version {versionBranch = [0,7], versionTags = []}))),Dependency (PackageName {unPackageName 
+= "haskell-src-exts"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [1,15], versionTags 
+= []})) (LaterVersion (Version {versionBranch = [1,15], versionTags = []}))) (EarlierVersion (Version {versionBranch 
+= [1,16], versionTags = []}))),Dependency (PackageName {unPackageName = "containers"}) (IntersectVersionRanges (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [0,3], versionTags = []})) (LaterVersion (Version {versionBranch = [0,3], versionTags 
+= []}))) (EarlierVersion (Version {versionBranch = [0,6], versionTags = []})))], specVersionRaw = Right (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [1,10], versionTags = []})) (LaterVersion (Version {versionBranch = [1,10], versionTags 
+= []}))), buildType = Just Simple, setupBuildInfo = Nothing, library = Just (Library {exposedModules = [ModuleName [
+"OrPatterns"],ModuleName ["OrPatterns","Internal"]], reexportedModules = [], requiredSignatures = [], exposedSignatures 
+= [], libExposed = True, libBuildInfo = BuildInfo {buildable = True, buildTools = [], cppOptions = [], ccOptions = [], 
+ldOptions = [], pkgconfigDepends = [], frameworks = [], extraFrameworkDirs = [], cSources = [], jsSources = [], hsSourceDirs 
+= ["."], otherModules = [], defaultLanguage = Just Haskell2010, otherLanguages = [], defaultExtensions = [], otherExtensions 
+= [EnableExtension TemplateHaskell], oldExtensions = [], extraLibs = [], extraGHCiLibs = [], extraLibDirs = [], includeDirs 
+= [], includes = [], installIncludes = [], options = [], profOptions = [], sharedOptions = [], customFieldsBI = [], 
+targetBuildDepends = [Dependency (PackageName {unPackageName = "base"}) (IntersectVersionRanges (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [4,5], versionTags = []})) (LaterVersion (Version {versionBranch = [4,5], versionTags 
+= []}))) (EarlierVersion (Version {versionBranch = [4,8], versionTags = []}))),Dependency (PackageName {unPackageName 
+= "template-haskell"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [2,4], versionTags 
+= []})) (LaterVersion (Version {versionBranch = [2,4], versionTags = []}))) (EarlierVersion (Version {versionBranch 
+= [2,10], versionTags = []}))),Dependency (PackageName {unPackageName = "mtl"}) (IntersectVersionRanges (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [2,1], versionTags = []})) (LaterVersion (Version {versionBranch = [2,1], versionTags 
+= []}))) (EarlierVersion (Version {versionBranch = [2,2], versionTags = []}))),Dependency (PackageName {unPackageName 
+= "syb"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [0,4], versionTags = []}
+)) (LaterVersion (Version {versionBranch = [0,4], versionTags = []}))) (EarlierVersion (Version {versionBranch = [0,5], 
+versionTags = []}))),Dependency (PackageName {unPackageName = "split"}) (IntersectVersionRanges (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [0,2], versionTags = []})) (LaterVersion (Version {versionBranch = [0,2], versionTags 
+= []}))) (EarlierVersion (Version {versionBranch = [0,3], versionTags = []}))),Dependency (PackageName {unPackageName 
+= "haskell-src-meta"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [0,6], versionTags 
+= []})) (LaterVersion (Version {versionBranch = [0,6], versionTags = []}))) (EarlierVersion (Version {versionBranch 
+= [0,7], versionTags = []}))),Dependency (PackageName {unPackageName = "haskell-src-exts"}) (IntersectVersionRanges 
+(UnionVersionRanges (ThisVersion (Version {versionBranch = [1,15], versionTags = []})) (LaterVersion (Version {versionBranch 
+= [1,15], versionTags = []}))) (EarlierVersion (Version {versionBranch = [1,16], versionTags = []}))),Dependency (PackageName 
+{unPackageName = "containers"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [0,3], 
+versionTags = []})) (LaterVersion (Version {versionBranch = [0,3], versionTags = []}))) (EarlierVersion (Version {versionBranch 
+= [0,6], versionTags = []})))], targetBuildRenaming = fromList []}}), executables = [], testSuites = [], benchmarks 
+= [], dataFiles = [], dataDir = "", extraSrcFiles = [], extraTmpFiles = [], extraDocFiles = []},PackageDescription {
+package = PackageIdentifier {pkgName = PackageName {unPackageName = "web-plugins"}, pkgVersion = Version {versionBranch 
+= [0,2,9], versionTags = []}}, license = BSD3, licenseFiles = ["LICENSE"], copyright = "", maintainer = "Jeremy Shaw 
+<jeremy@n-heptane.com>", author = "Jeremy Shaw", stability = "", testedWith = [(GHC,ThisVersion (Version {versionBranch 
+= [7,6,3], versionTags = []})),(GHC,ThisVersion (Version {versionBranch = [7,8,4], versionTags = []})),(GHC,ThisVersion 
+(Version {versionBranch = [7,10,2], versionTags = []})),(GHC,ThisVersion (Version {versionBranch = [8,0,1], versionTags 
+= []}))], homepage = "https://github.com/clckwrks/web-plugins", pkgUrl = "", bugReports = "", sourceRepos = [SourceRepo 
+{repoKind = RepoHead, repoType = Just Git, repoLocation = Just "git://github.com/clckwrks/web-plugins.git", repoModule 
+= Nothing, repoBranch = Nothing, repoTag = Nothing, repoSubdir = Nothing}], synopsis = "dynamic plugin system for web 
+applications", description = "This provides a simple framework for defining plugins for a web application.\nIt is designed 
+with the requirement that plugins can be loaded into a running\nweb application with out having to know about the plugin 
+in advance.", category = "Web", customFieldsPD = [], buildDepends = [Dependency (PackageName {unPackageName = "base
+"}) (IntersectVersionRanges (LaterVersion (Version {versionBranch = [4], versionTags = []})) (EarlierVersion (Version 
+{versionBranch = [5], versionTags = []}))),Dependency (PackageName {unPackageName = "stm"}) (IntersectVersionRanges 
+(UnionVersionRanges (ThisVersion (Version {versionBranch = [2,3], versionTags = []})) (LaterVersion (Version {versionBranch 
+= [2,3], versionTags = []}))) (EarlierVersion (Version {versionBranch = [2,5], versionTags = []}))),Dependency (PackageName 
+{unPackageName = "mtl"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [2,1], versionTags 
+= []})) (LaterVersion (Version {versionBranch = [2,1], versionTags = []}))) (EarlierVersion (Version {versionBranch 
+= [2,3], versionTags = []}))),Dependency (PackageName {unPackageName = "text"}) (IntersectVersionRanges (UnionVersionRanges 
+(ThisVersion (Version {versionBranch = [0,11], versionTags = []})) (LaterVersion (Version {versionBranch = [0,11], versionTags 
+= []}))) (EarlierVersion (Version {versionBranch = [1,3], versionTags = []}))),Dependency (PackageName {unPackageName 
+= "containers"}) (IntersectVersionRanges (UnionVersionRanges (ThisVersion (Version {versionBranch = [0,4], versionTags 
+= []})) (LaterVersion (Version {versionBranch = [0,4], versionTags = []}))) (EarlierVersion (Version {versionBranch 
+= [0,6], versionTags = []})))], specVersionRaw = Right (UnionVersionRanges (ThisVersion (Version {versionBranch = [1,8], 
+versionTags = []})) (LaterVersion (Version {versionBranch = [1,8], versionTags = []}))), buildType = Just Simple, setupBuildInfo 
+= Nothing, library = Just (Library {exposedModules = [ModuleName ["Web","Plugins","Core"]], reexportedModules = [], 
+requiredSignatures = [], exposedSignatures = [], libExposed = True, libBuildInfo = BuildInfo {buildable = True, buildTools 
+= [], cppOptions = [], ccOptions = [], ldOptions = [], pkgconfigDepends = [], frameworks = [], 

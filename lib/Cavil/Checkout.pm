@@ -158,16 +158,15 @@ sub unpack {
   my $unpacked  = decode_json($dir->child('.unpacked.json')->slurp);
   my $processor = Cavil::PostProcess->new($unpacked);
   $processor->postprocess;
-  open(my $fh, '>', $dir->child('.postprocessed.json'));
-  print $fh encode_json($processor->hash);
-  close($fh);
+  $dir->child('.postprocessed.json')->spurt(encode_json($processor->hash));
 }
 
 sub unpacked_files {
   my ($self, $bucket_size) = @_;
 
-  my $dir      = path($self->dir);
-  my $unpacked = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
+  my $dir = path($self->dir);
+  my $unpacked
+    = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
 
   my @files;
   for my $file (sort keys %{$unpacked}) {
