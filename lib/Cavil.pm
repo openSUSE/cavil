@@ -171,13 +171,7 @@ sub startup {
     }
   );
 
-  # Migrations (do not run automatically for now, use the eval command)
-  #
-  #  Migrate to latest version:
-  #  $ script/cavil eval 'app->pg->migrations->migrate'
-  #
-  #  Migrate to version 0 first for a fresh start:
-  #  $ script/cavil eval 'app->pg->migrations->migrate(0)'
+  # Migrations (do not run automatically, use the migrate command)
   #
   my $path = $self->home->child('migrations', 'cavil.sql');
   $self->pg->migrations->name('legalqueue_api')->from_file($path);
