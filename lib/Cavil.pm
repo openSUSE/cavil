@@ -20,6 +20,7 @@ use Mojo::Pg;
 use Cavil::Bootstrap;
 use Cavil::Model::Licenses;
 use Cavil::Model::Packages;
+use Cavil::Model::Patterns;
 use Cavil::Model::Products;
 use Cavil::Model::Reports;
 use Cavil::Model::Requests;
@@ -151,11 +152,18 @@ sub startup {
       state $users = Cavil::Model::Users->new(pg => shift->pg);
     }
   );
-  my $cache = $self->home->child('cache')->make_path;
+
   $self->helper(
     licenses => sub {
+      state $lics = Cavil::Model::Licenses->new(pg => shift->pg);
+    }
+  );
+
+  my $cache = $self->home->child('cache')->make_path;
+  $self->helper(
+    patterns => sub {
       my $self = shift;
-      state $users = Cavil::Model::Licenses->new(
+      state $patterns = Cavil::Model::Patterns->new(
         cache => $cache,
         pg    => $self->pg,
         log   => $self->app->log

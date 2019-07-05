@@ -75,8 +75,8 @@ sub _index_batch {
 
   my $packagename
     = $db->select('bot_packages', 'name', {id => $id})->hash->{name};
-  $app->licenses->load_unspecific_patterns($matcher);
-  $app->licenses->load_specific_patterns($matcher, $packagename);
+  $app->patterns->load_unspecific($matcher);
+  $app->patterns->load_specific($matcher, $packagename);
   my $preptime = time - $start;
 
   my %meta = (emails => {}, urls => {});

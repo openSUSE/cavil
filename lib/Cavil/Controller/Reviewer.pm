@@ -81,7 +81,7 @@ sub details {
   my $report = $self->reports->specfile_report($id);
 
   my $should_reindex
-    = $self->licenses->has_new_patterns($pkg->{name}, $pkg->{indexed});
+    = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
 
   my $lic = lic($report->{main}{license});
   my $lid = $self->licenses->try_to_match_license($lic->to_string);

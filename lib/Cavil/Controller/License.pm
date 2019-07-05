@@ -48,13 +48,13 @@ sub create_pattern {
 sub edit_pattern {
   my $self    = shift;
   my $id      = $self->param('id');
-  my $pattern = $self->licenses->pattern($id);
+  my $pattern = $self->patterns->find($id);
   Spooky::Patterns::XS::init_matcher();
   my $p1 = Spooky::Patterns::XS::normalize($pattern->{pattern});
 
   my $best;
   my $min = 10000;
-  for my $p (@{$self->licenses->patterns($pattern->{license})}) {
+  for my $p (@{$self->patterns->for_license($pattern->{license})}) {
     next if $p->{id} == $pattern->{id};
     my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
     my $d  = Spooky::Patterns::XS::distance($p1, $p2);
@@ -98,7 +98,6 @@ sub new_pattern {
   my $lid      = $self->param('license-id');
   my $licenses = $self->licenses;
   $lid ||= $licenses->try_to_match_license($lname);
-  $licenses->expire_cache;
   $self->stash('diff',      undef);
   $self->stash('next_best', 0);
   return $self->_edit_pattern({license => $lid});
@@ -109,11 +108,11 @@ sub remove_pattern {
   my $self = shift;
 
   my $id       = $self->param('id');
-  my $licenses = $self->licenses;
-  my $pattern  = $licenses->pattern($id);
+  my $patterns = $self->patterns;
+  my $pattern  = $patterns->find($id);
   $self->packages->reindex_matched_packages($id);
-  $licenses->expire_cache;
-  $self->licenses->remove_pattern($id);
+  $patterns->expire_cache;
+  $patterns->remove($id);
   $self->render(json => 'ok');
 }
 
@@ -123,7 +122,7 @@ sub show {
   my $id = $self->param('id');
   $self->render(
     license  => $self->licenses->find($id),
-    patterns => $self->licenses->patterns($id)
+    patterns => $self->patterns->for_license($id)
   );
 }
 
@@ -146,13 +145,13 @@ sub update {
 sub update_pattern {
   my $self = shift;
 
-  my $id    = $self->param('id');
-  my $match = $self->licenses->pattern($id);
+  my $id       = $self->param('id');
+  my $patterns = $self->patterns;
+  my $match    = $patterns->find($id);
 
-  # expire old license
-  my $licenses = $self->licenses;
-  $licenses->expire_cache;
-  $licenses->update_pattern(
+  # expire old license pattern
+  $patterns->expire_cache;
+  $patterns->update(
     $id,
     packname  => $self->param('packname'),
     pattern   => $self->param('pattern'),
@@ -162,7 +161,7 @@ sub update_pattern {
     opinion   => $self->param('opinion')
   );
   $self->packages->mark_matched_for_reindex($id);
-  $match = $licenses->pattern($id);
+  $match = $patterns->find($id);
   $self->flash(
     success => 'Pattern has been updated, reindexing all affected packages.');
   $self->redirect_to('license_show', id => $match->{license});

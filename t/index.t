@@ -63,20 +63,20 @@ my $pkg_id = $t->app->packages->add(
   priority        => 5
 );
 
-$t->app->licenses->expire_cache;
+$t->app->patterns->expire_cache;
 my $lic_id1 = $t->app->licenses->create(name => 'Apache-2.0');
-$t->app->licenses->create_pattern($lic_id1,
+$t->app->patterns->create($lic_id1,
   pattern => 'You may obtain a copy of the License at');
-$t->app->licenses->create_pattern(
+$t->app->patterns->create(
   $lic_id1,
   packname => 'perl-Mojolicious',
   pattern  => 'Licensed under the Apache License, Version 2.0'
 );
 my $lic_id2 = $t->app->licenses->create(name => 'Artistic-2.0');
-$t->app->licenses->create_pattern($lic_id2, pattern => 'License: Artistic-2.0');
+$t->app->patterns->create($lic_id2, pattern => 'License: Artistic-2.0');
 my $lic_id3
   = $t->app->licenses->create(name => 'Definitely not a license', risk => 0);
-$t->app->licenses->create_pattern($lic_id3,
+$t->app->patterns->create($lic_id3,
   pattern => 'powerful web development toolkit');
 
 # Unpack and index with the job queue
@@ -228,7 +228,7 @@ is_deeply $res, [[210, 1], [236, 1], [751, 2]],
 # Manual reindexing
 $t->app->pg->db->query(
   "update license_patterns set pattern = 'powerful' where id = 1");
-$t->app->licenses->expire_cache;
+$t->app->patterns->expire_cache;
 $list = $t->app->minion->backend->list_jobs(0, 10, {tasks => ['index_later']});
 is $list->{total}, 1, 'one index_later jobs';
 $reindex_id = $t->app->minion->enqueue('reindex_all');

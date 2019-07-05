@@ -119,7 +119,7 @@ my $form = {
   package => 'perl-Mojolicious',
   project => 'devel:languages:perl'
 };
-$t->app->licenses->expire_cache;
+$t->app->patterns->expire_cache;
 $t->post_ok(
   '/packages' => {Authorization => 'Token test_token'} => form => $form)
   ->status_is(200)
