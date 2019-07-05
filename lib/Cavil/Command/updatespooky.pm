@@ -37,7 +37,7 @@ sub run {
   my $patterns = $db->query('select * from license_patterns order by id');
   while (my $row = $patterns->hash) {
     $row->{packname} ||= '';
-    my $hex = $app->licenses->pattern_checksum($row->{pattern});
+    my $hex = $app->patterns->checksum($row->{pattern});
     if (defined $sums{$hex}) {
       print STDERR
         "http://legaldb.suse.de/licenses/edit_pattern/$row->{id} ($row->{license},$row->{packname}) and http://legaldb.suse.de/licenses/edit_pattern/$sums{$hex}->{id} ($sums{$hex}->{license},$sums{$hex}->{packname}) collide\n";
