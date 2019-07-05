@@ -158,3 +158,9 @@ drop table if exists emails;
 drop table if exists urls;
 drop table if exists matched_files;
 drop type if exists bot_state;
+
+-- 2 up
+alter table license_patterns add column license_string text;
+
+-- 2 down
+alter table license_patterns drop column license_string;
