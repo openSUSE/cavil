@@ -69,15 +69,9 @@ sub _index_batch {
 
   my $start   = time;
   my $db      = $app->pg->db;
-  my $matcher = Spooky::Patterns::XS::init_matcher();
 
-  my $packagename
-    = $db->select('bot_packages', 'name', {id => $id})->hash->{name};
-  $app->patterns->load_unspecific($matcher);
-  $app->patterns->load_specific($matcher, $packagename);
+  my $fi = Cavil::FileIndexer->new($app, $id);
   my $preptime = time - $start;
-
-  my $fi = Cavil::FileIndexer->new($matcher, $app, $id);
 
   my %meta = (emails => {}, urls => {});
   for my $file (@$batch) {

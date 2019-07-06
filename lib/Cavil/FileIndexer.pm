@@ -22,16 +22,31 @@ has 'app';
 has 'checkout';
 has 'db';
 has 'dir';
+has 'ignored_lines';
 has 'keywords';
 has 'matcher';
 has 'package';
 
 sub new {
-  my ($class, $matcher, $app, $package) = @_;
+  my ($class, $app, $package) = @_;
   my $self
-    = $class->SUPER::new(matcher => $matcher, app => $app, package => $package);
+    = $class->SUPER::new(app => $app, package => $package);
 
-  $self->db($app->pg->db);
+  my $matcher = Spooky::Patterns::XS::init_matcher();
+
+  my $db = $app->pg->db;
+  my $packagename
+      = $db->select('bot_packages', 'name', {id => $package})->hash->{name};
+
+  $app->patterns->load_unspecific($matcher);
+  $app->patterns->load_specific($matcher, $packagename);
+  $self->matcher($matcher);
+
+  my $igls = $db->select('ignored_lines', 'hash', { packname => $packagename} );
+  my %hashes = map { $_->{hash} => 1 } @{$igls->hashes};
+  $self->ignored_lines(\%hashes);
+
+  $self->db($db);
   $self->_calculate_keyword_dict;
   $self->dir($app->package_checkout_dir($package));
   $self->checkout(Cavil::Checkout->new($self->dir));
@@ -45,67 +60,6 @@ sub _calculate_keyword_dict {
   my %keyword_patterns;
   map { $keyword_patterns{$_->{id}} = 1 } @{$patterns->hashes};
   $self->keywords(\%keyword_patterns);
-}
-
-sub _snippet {
-  my ($self, $path, $first_line, $last_line) = @_;
-
-  my %lines;
-  for (my $line = $first_line; $line <= $last_line; $line += 1) {
-    $lines{$line} = 1;
-  }
-
-  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
-  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%lines)}) {
-    $ctx->add($row->[2] . "\n");
-  }
-  say "SNP $path " . $ctx->hex;
-  return $ctx->hex;
-}
-
-sub _find_near_line {
-  my ($lines, $line, $line_delta, $delta) = @_;
-  for (my $count = 0; $count < $line_delta; $count++, $line += $delta) {
-    return $line if defined $lines->{$line};
-  }
-  return undef;
-}
-
-sub file {
-  my ($self, $meta, $path, $mime) = @_;
-
-  my $report = $self->checkout->keyword_report($self->matcher, $meta, $path);
-  return unless $report;
-
-  my $file_id;
-  my $keywords = $self->keywords;
-  my $package  = $self->package;
-  my $keyword_missed;
-
-  for my $match (@{$report->{matches}}) {
-    $file_id ||= $self->db->insert(
-      'matched_files',
-      {package   => $self->package, filename => $path, mimetype => $mime},
-      {returning => 'id'}
-    )->hash->{id};
-    my ($mid, $ls, $le) = @$match;
-
-    $keyword_missed ||= $keywords->{$mid};
-
-    # package is kind of duplicated in file, but the join is just too expensive
-    $self->db->insert(
-      'pattern_matches',
-      {
-        file    => $file_id,
-        package => $package,
-        pattern => $mid,
-        sline   => $ls,
-        eline   => $le
-      }
-    );
-  }
-  return unless $keyword_missed;
-  $self->_check_missing_snippets($path, $report);
 }
 
 sub _check_missing_snippets {
@@ -155,8 +109,73 @@ sub _check_missing_snippets {
     $first_snippet_line ||= $line;
     $prev_line = $line;
   }
-  $self->_snippet($path, $first_snippet_line, $prev_line)
-    if $first_snippet_line;
+  return unless $first_snippet_line;
+  $self->_snippet($path, $first_snippet_line, $prev_line);
+}
+
+sub _snippet {
+  my ($self, $path, $first_line, $last_line) = @_;
+
+  my %lines;
+  for (my $line = $first_line; $line <= $last_line; $line += 1) {
+    $lines{$line} = 1;
+  }
+
+  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%lines)}) {
+    $ctx->add($row->[2] . "\n");
+  }
+
+  say "SNP $path " . $ctx->hex . " " . (defined $self->ignored_lines->{$ctx->hex});
+  if ($self->ignored_lines->{$ctx->hex}) {
+    say "and now?";
+  }
+  return $ctx->hex;
+}
+
+sub _find_near_line {
+  my ($lines, $line, $line_delta, $delta) = @_;
+  for (my $count = 0; $count < $line_delta; $count++, $line += $delta) {
+    return $line if defined $lines->{$line};
+  }
+  return undef;
+}
+
+sub file {
+  my ($self, $meta, $path, $mime) = @_;
+
+  my $report = $self->checkout->keyword_report($self->matcher, $meta, $path);
+  return unless $report;
+
+  my $file_id;
+  my $keywords = $self->keywords;
+  my $package  = $self->package;
+  my $keyword_missed;
+
+  for my $match (@{$report->{matches}}) {
+    $file_id ||= $self->db->insert(
+      'matched_files',
+      {package   => $self->package, filename => $path, mimetype => $mime},
+      {returning => 'id'}
+    )->hash->{id};
+    my ($mid, $ls, $le) = @$match;
+
+    $keyword_missed ||= $keywords->{$mid};
+
+    # package is kind of duplicated in file, but the join is just too expensive
+    $self->db->insert(
+      'pattern_matches',
+      {
+        file    => $file_id,
+        package => $package,
+        pattern => $mid,
+        sline   => $ls,
+        eline   => $le
+      }
+    );
+  }
+  return unless $keyword_missed;
+  $self->_check_missing_snippets($path, $report);
 }
 
 1;
