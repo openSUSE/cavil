@@ -19,7 +19,7 @@ use Mojo::Base 'Mojolicious::Command';
 use Mojo::File 'path';
 use Mojo::Util qw(dumper getopt);
 
-has description => 'Manage Cavil users';
+has description => 'Import OBS sources';
 has usage       => sub { shift->extract_usage };
 
 sub run {
@@ -66,8 +66,22 @@ sub run {
   $obj->{external_link} //= 'obs-command';
   $obj->{obsolete} = 0;
   $pkgs->update($obj);
-  my $id = $pkgs->unpack($obj->{id}, 1);
-  say "Indexing $pkg ($obj->{id}) with job $id.";
+  my $job = $pkgs->obs_import(
+    $obj->{id},
+    {
+      api       => $api,
+      project   => $project,
+      pkg       => $pkg,
+      srcpkg    => $srcpkg,
+      rev       => $rev,
+      srcmd5    => $srcmd5,
+      verifymd5 => $verifymd5,
+      priority  => 9
+    },
+    9
+  );
+
+  say "Triggered obs_import job $job";
 }
 
 1;
