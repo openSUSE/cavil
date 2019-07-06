@@ -1,4 +1,4 @@
-# Copyright (C) 2018 SUSE Linux GmbH
+# Copyright (C) 2018,2019 SUSE Linux GmbH
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -59,6 +59,35 @@ sub _index {
   $log->info("[$id] Made @{[scalar @$batches]} batches for $dir");
 }
 
+sub _index_batch_file {
+  my ($matcher, $checkout, $db, $package, $meta, $path, $mime) = @_;
+
+  my $report = $checkout->keyword_report($matcher, $meta, $path);
+  return unless $report;
+
+  my $file_id;
+  for my $match (@{$report->{matches}}) {
+    $file_id ||= $db->insert(
+      'matched_files',
+      {package   => $package, filename => $path, mimetype => $mime},
+      {returning => 'id'}
+    )->hash->{id};
+    my ($mid, $ls, $le) = @$match;
+
+    # package is kind of duplicated in file, but the join is just too expensive
+    $db->insert(
+      'pattern_matches',
+      {
+        file    => $file_id,
+        package => $package,
+        pattern => $mid,
+        sline   => $ls,
+        eline   => $le
+      }
+    );
+  }
+}
+
 sub _index_batch {
   my ($job, $id, $batch) = @_;
 
@@ -82,29 +111,7 @@ sub _index_batch {
   my %meta = (emails => {}, urls => {});
   for my $file (@$batch) {
     my ($path, $mime) = @$file;
-    next unless my $report = $checkout->keyword_report($matcher, \%meta, $path);
-
-    my $file_id;
-    for my $match (@{$report->{matches}}) {
-      $file_id ||= $db->insert(
-        'matched_files',
-        {package   => $id, filename => $path, mimetype => $mime},
-        {returning => 'id'}
-      )->hash->{id};
-      my ($mid, $ls, $le) = @$match;
-
-     # package is kind of duplicated in file, but the join is just too expensive
-      $db->insert(
-        'pattern_matches',
-        {
-          file    => $file_id,
-          package => $id,
-          pattern => $mid,
-          sline   => $ls,
-          eline   => $le
-        }
-      );
-    }
+    _index_batch_file($matcher, $checkout, $db, $id, \%meta, $path, $mime);
   }
 
   # URLs
