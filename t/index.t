@@ -65,22 +65,38 @@ my $pkg_id = $t->app->packages->add(
 
 $t->app->patterns->expire_cache;
 my $lic_id1 = $t->app->licenses->create(name => 'Apache-2.0');
-$t->app->patterns->create($lic_id1,
-  pattern => 'You may obtain a copy of the License at', license_string => 'Apache-2.0');
 $t->app->patterns->create(
   $lic_id1,
-  packname => 'perl-Mojolicious',
-  pattern  => 'Licensed under the Apache License, Version 2.0',
+  pattern        => 'You may obtain a copy of the License at',
+  license_string => 'Apache-2.0'
+);
+$t->app->patterns->create(
+  $lic_id1,
+  packname       => 'perl-Mojolicious',
+  pattern        => 'Licensed under the Apache License, Version 2.0',
   license_string => 'Apache-2.0'
 );
 my $lic_id2 = $t->app->licenses->create(name => 'Artistic-2.0');
-$t->app->patterns->create($lic_id2, pattern => 'License: Artistic-2.0', license_string => 'Artistic-2.0');
+$t->app->patterns->create(
+  $lic_id2,
+  pattern        => 'License: Artistic-2.0',
+  license_string => 'Artistic-2.0'
+);
 my $lic_id3
   = $t->app->licenses->create(name => 'Definitely not a license', risk => 0);
-$t->app->patterns->create($lic_id3,
-  pattern => 'powerful web development toolkit', license_string => 'SUSE-NotALicense');
+$t->app->patterns->create(
+  $lic_id3,
+  pattern        => 'powerful web development toolkit',
+  license_string => 'SUSE-NotALicense'
+);
+
 # keyword without license
 $t->app->patterns->create($lic_id3, pattern => 'the terms');
+$t->app->patterns->create($lic_id3, pattern => 'copyright notice');
+
+# Changes entry about 6.57 fixing copyright notices
+$t->app->packages->ignore_line('perl-Mojolicious',
+  '81efb065de14988c4bd808697de1df51');
 
 # Unpack and index with the job queue
 my $unpack_id = $t->app->minion->enqueue(unpack => [$pkg_id]);
@@ -177,7 +193,7 @@ $res = $db->select(
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
-is_deeply $res, [[751, 2]], 'Perl correctly tagged Artistic';
+is_deeply $res, [[751, 2], [1103, 5]], 'Perl correctly tagged Artistic';
 
 # Raise acceptable risk
 $config->{acceptable_risk} = 5;
@@ -225,7 +241,7 @@ $res = $db->select(
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
-is_deeply $res, [[210, 1], [236, 1], [751, 2]],
+is_deeply $res, [[210, 1], [236, 1], [751, 2], [1103,5]],
   'Perl correctly tagged with new pattern';
 
 # Manual reindexing
@@ -246,7 +262,7 @@ $res = $db->select(
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
-is_deeply $res, [[236, 1], [258, 1], [278, 1], [333, 1], [751, 2]],
+is_deeply $res, [[236, 1], [258, 1], [278, 1], [333, 1], [751, 2], [1103,5]],
   'Perl correctly tagged with new pattern';
 
 # Accepted because of low risk

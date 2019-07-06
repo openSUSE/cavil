@@ -68,7 +68,7 @@ sub analyze {
     = (shift, shift, shift // 9, shift || []);
   $self->pg->db->update('bot_reports', {ldig_report => undef},
     {package => $id});
-  $self->minion->enqueue(
+  return $self->minion->enqueue(
     analyze => [$id] => {parents => $parents, priority => $priority});
 }
 
@@ -127,8 +127,10 @@ sub ignore_line {
   );
 
   # as it affects all packages with the name, we need to update all reports
-  my $ids = $db->select('bot_packages', 'id', {name => $package});
-  while (my $pkg = $ids->hash) { $self->analyze($pkg->{id}) }
+  my $ids = $db->select('bot_packages', [qw(id checksum)], {name => $package});
+  while (my $pkg = $ids->hash) {
+    $self->analyze($pkg->{id}) if $pkg->{checksum};
+  }
 }
 
 sub imported {

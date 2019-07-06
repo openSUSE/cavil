@@ -164,3 +164,13 @@ alter table license_patterns add column license_string text;
 
 -- 2 down
 alter table license_patterns drop column license_string;
+
+-- 3 up
+create table snippets (
+  id        bigserial primary key,
+  hash      text not null,
+  created   timestamp with time zone not null default now()
+)
+
+-- 3 down
+drop table if exists snippets;
