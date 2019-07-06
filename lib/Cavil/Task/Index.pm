@@ -30,6 +30,29 @@ sub register {
   $app->minion->add_task(reindex_matched_later => \&_reindex_matched_later);
 }
 
+sub _dump_snippet {
+  my ($path, $first_line, $last_line) = @_;
+
+  my %lines;
+  for (my $line = $first_line; $line <= $last_line; $line += 1) {
+    $lines{$line} = 1;
+  }
+
+  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%lines)}) {
+    $ctx->add($row->[2] . "\n");
+  }
+  return $ctx->hex;
+}
+
+sub _find_near_line {
+  my ($lines, $line, $line_delta, $delta) = @_;
+  for (my $count = 0; $count < $line_delta; $count++, $line += $delta) {
+    return $line if defined $lines->{$line};
+  }
+  return undef;
+}
+
 sub _index {
   my ($job, $id) = @_;
 
@@ -60,12 +83,15 @@ sub _index {
 }
 
 sub _index_batch_file {
-  my ($matcher, $checkout, $db, $package, $meta, $path, $mime) = @_;
+  my ($matcher, $checkout, $db, $package, $keywords, $meta, $dir, $path, $mime)
+    = @_;
 
   my $report = $checkout->keyword_report($matcher, $meta, $path);
   return unless $report;
 
   my $file_id;
+  my $keyword_missed;
+
   for my $match (@{$report->{matches}}) {
     $file_id ||= $db->insert(
       'matched_files',
@@ -73,6 +99,8 @@ sub _index_batch_file {
       {returning => 'id'}
     )->hash->{id};
     my ($mid, $ls, $le) = @$match;
+
+    $keyword_missed ||= $keywords->{$mid};
 
     # package is kind of duplicated in file, but the join is just too expensive
     $db->insert(
@@ -86,6 +114,51 @@ sub _index_batch_file {
       }
     );
   }
+  return unless $keyword_missed;
+
+  # extract missed snippets
+  my %needed_lines;
+
+  # pick uncategorized matches first
+  for my $match (@{$report->{matches}}) {
+    my ($mid, $ls, $le) = @$match;
+    next unless $keywords->{$mid};
+    my $line = $ls - 1;
+    while ($line <= $le + 1) {
+      $needed_lines{$line++} = 1;
+    }
+  }
+
+  # possible skip between the keyword areas
+  my $delta = 6;
+
+  # extend to near matches
+  for my $match (@{$report->{matches}}) {
+    my ($mid, $ls, $le) = @$match;
+    my $prev_line   = _find_near_line(\%needed_lines, $ls - 2, $delta, -1);
+    my $follow_line = _find_near_line(\%needed_lines, $le + 2, $delta, +1);
+    next unless $prev_line || $follow_line;
+    $prev_line   ||= $ls;
+    $follow_line ||= $le;
+    for (my $line = $prev_line; $line <= $follow_line; $line++) {
+      $needed_lines{$line} = 1;
+    }
+  }
+
+  $path = $dir->child('.unpacked', $path);
+
+  # process snippet areas
+  my $prev_line;
+  my $first_snippet_line;
+  for my $line (sort { $a <=> $b } keys %needed_lines) {
+    if ($prev_line && $line - $prev_line > 1) {
+      _dump_snippet($path, $first_snippet_line, $prev_line);
+      $first_snippet_line = undef;
+    }
+    $first_snippet_line ||= $line;
+    $prev_line = $line;
+  }
+  _dump_snippet($path, $first_snippet_line, $prev_line) if $first_snippet_line;
 }
 
 sub _index_batch {
@@ -101,6 +174,10 @@ sub _index_batch {
   my $start   = time;
   my $db      = $app->pg->db;
   my $matcher = Spooky::Patterns::XS::init_matcher();
+  my $keywords
+    = $db->select('license_patterns', 'id', {license_string => undef});
+  my %keyword_patterns;
+  map { $keyword_patterns{$_->{id}} = 1 } @{$keywords->hashes};
 
   my $packagename
     = $db->select('bot_packages', 'name', {id => $id})->hash->{name};
@@ -111,7 +188,8 @@ sub _index_batch {
   my %meta = (emails => {}, urls => {});
   for my $file (@$batch) {
     my ($path, $mime) = @$file;
-    _index_batch_file($matcher, $checkout, $db, $id, \%meta, $path, $mime);
+    _index_batch_file($matcher, $checkout, $db, $id, \%keyword_patterns,
+      \%meta, $dir, $path, $mime);
   }
 
   # URLs

@@ -23,9 +23,9 @@ sub _split_find_a_good_spot {
   my ($self, $line, $start, $len, $max_line_length) = @_;
 
   my $length = $len - $start;
-  my $index = $max_line_length;
+  my $index  = $max_line_length;
   return $length if ($index > $length);
-  my %splits    = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
+  my %splits = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
 
   while ($index < $length) {
     my $char = substr($line, $start + $index, 1);
