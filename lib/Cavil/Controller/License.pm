@@ -31,8 +31,8 @@ sub create_pattern {
   my $id      = $self->param('license');
   my $pattern = $self->param('pattern');
 
-  my $licenses = $self->licenses;
-  my $match    = $licenses->create_pattern(
+  my $patterns = $self->patterns;
+  my $match    = $patterns->create(
     $id,
     packname  => $self->param('packname'),
     pattern   => $pattern,
@@ -40,7 +40,7 @@ sub create_pattern {
     trademark => $self->param('trademark'),
     opinion   => $self->param('opinion')
   );
-  $licenses->expire_cache;
+  $patterns->expire_cache;
   $self->flash(success => 'Pattern has been created.');
   $self->redirect_to('edit_pattern', id => $match->{id});
 }
