@@ -64,8 +64,8 @@ sub _cleanup_batch {
     $db->query('delete from bot_reports where package = ?',     $id);
     $db->query('delete from emails where package = ?',          $id);
     $db->query('delete from urls where package = ?',            $id);
-    $db->query('delete from matched_files where package = ?',   $id);
     $db->query('delete from pattern_matches where package = ?', $id);
+    $db->query('delete from matched_files where package = ?',   $id);
     $tx->commit;
     $dir->remove_tree;
   }
@@ -78,22 +78,17 @@ sub _obsolete {
   my $log = $app->log;
   my $db  = $job->app->pg->db;
 
-  my $list = $db->query(
-    "select id, name, state, checksum
-     from bot_packages
-     where state != 'new' and obsolete is not true and checksum is not null
-     order by id"
-  );
+  my $leave_untagged_imports = 7;
 
-  my %seen;
-  while (my $pkg = $list->hash) {
-    my $key = "$pkg->{name}-+$pkg->{state}+-$pkg->{checksum}";
-    if (defined $seen{$key}) {
-      $db->query('update bot_packages set obsolete = true where id = ?',
-        $seen{$key});
-    }
-    $seen{$key} = $pkg->{id};
-  }
+  my $list = $db->query(
+    "update bot_packages set obsolete = true where id in
+       (select id from bot_packages
+        left join bot_package_products on bot_package_products.package=bot_packages.id
+        where state != 'new' and checksum is not null and
+        imported < now() - Interval '$leave_untagged_imports days' and
+        bot_package_products.product is null
+       )"
+  );
 
   $app->minion->enqueue('cleanup' => [] => {parents => [$job->id]});
 }
