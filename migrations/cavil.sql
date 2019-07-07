@@ -164,3 +164,26 @@ alter table license_patterns add column license_string text;
 
 -- 2 down
 alter table license_patterns drop column license_string;
+
+-- 3 up
+create table snippets (
+  id         bigserial primary key,
+  hash       text not null,
+  text       text not null,
+  license    boolean not null default false,
+  classified boolean not null default false,
+  approved   boolean not null default false,
+  created    timestamp with time zone not null default now()
+);
+create index on snippets(classified);
+create unique index on snippets(hash);
+
+create table file_snippets (
+  id         bigserial primary key,
+  snippet    int not null references snippets(id),
+  created    timestamp with time zone not null default now()
+)
+
+-- 3 down
+drop table if exists snippets;
+drop table if exists file_snippets;

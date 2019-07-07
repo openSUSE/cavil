@@ -28,13 +28,14 @@ sub create {
   my $mid = $self->pg->db->insert(
     'license_patterns',
     {
-      license      => $id,
-      pattern      => $args{pattern},
-      token_hexsum => $self->checksum($args{pattern}),
-      packname     => $args{packname} // '',
-      patent       => $args{patent} // 0,
-      trademark    => $args{trademark} // 0,
-      opinion      => $args{opinion} // 0
+      license        => $id,
+      pattern        => $args{pattern},
+      token_hexsum   => $self->checksum($args{pattern}),
+      packname       => $args{packname} // '',
+      patent         => $args{patent} // 0,
+      trademark      => $args{trademark} // 0,
+      opinion        => $args{opinion} // 0,
+      license_string => $args{license_string},
     },
     {returning => 'id'}
   )->hash->{id};

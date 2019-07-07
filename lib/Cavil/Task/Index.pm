@@ -1,4 +1,4 @@
-# Copyright (C) 2018 SUSE Linux GmbH
+# Copyright (C) 2018,2019 SUSE Linux GmbH
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@ package Cavil::Task::Index;
 use Mojo::Base 'Mojolicious::Plugin';
 
 use Cavil::Checkout;
+use Cavil::FileIndexer;
 use Spooky::Patterns::XS;
 use Time::HiRes 'time';
 
@@ -66,45 +67,16 @@ sub _index_batch {
   my $log = $app->log;
   $app->plugins->emit_hook('before_task_index_batch');
 
-  my $dir      = $app->package_checkout_dir($id);
-  my $checkout = Cavil::Checkout->new($dir);
-
   my $start   = time;
   my $db      = $app->pg->db;
-  my $matcher = Spooky::Patterns::XS::init_matcher();
 
-  my $packagename
-    = $db->select('bot_packages', 'name', {id => $id})->hash->{name};
-  $app->patterns->load_unspecific($matcher);
-  $app->patterns->load_specific($matcher, $packagename);
+  my $fi = Cavil::FileIndexer->new($app, $id);
   my $preptime = time - $start;
 
   my %meta = (emails => {}, urls => {});
   for my $file (@$batch) {
     my ($path, $mime) = @$file;
-    next unless my $report = $checkout->keyword_report($matcher, \%meta, $path);
-
-    my $file_id;
-    for my $match (@{$report->{matches}}) {
-      $file_id ||= $db->insert(
-        'matched_files',
-        {package   => $id, filename => $path, mimetype => $mime},
-        {returning => 'id'}
-      )->hash->{id};
-      my ($mid, $ls, $le) = @$match;
-
-     # package is kind of duplicated in file, but the join is just too expensive
-      $db->insert(
-        'pattern_matches',
-        {
-          file    => $file_id,
-          package => $id,
-          pattern => $mid,
-          sline   => $ls,
-          eline   => $le
-        }
-      );
-    }
+    $fi->file(\%meta, $path, $mime);
   }
 
   # URLs
@@ -131,6 +103,7 @@ sub _index_batch {
     );
   }
   my $total = time - $start;
+  my $dir   = $fi->dir;
   $log->info(
     sprintf(
       "[$id] Indexed batch of @{[scalar @$batch]} files from $dir (%.02f prep, %.02f total)",
@@ -152,7 +125,7 @@ sub _indexed {
 
   # Next step - always high prio because the renderer
   # relies on it
-  $pkgs->analyze($id, 9, [$job->id]);
+  return $pkgs->analyze($id, 9, [$job->id]);
 }
 
 sub _reindex_all {
