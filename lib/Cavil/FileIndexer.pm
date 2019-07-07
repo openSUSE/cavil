@@ -29,20 +29,19 @@ has 'package';
 
 sub new {
   my ($class, $app, $package) = @_;
-  my $self
-    = $class->SUPER::new(app => $app, package => $package);
+  my $self = $class->SUPER::new(app => $app, package => $package);
 
   my $matcher = Spooky::Patterns::XS::init_matcher();
 
   my $db = $app->pg->db;
   my $packagename
-      = $db->select('bot_packages', 'name', {id => $package})->hash->{name};
+    = $db->select('bot_packages', 'name', {id => $package})->hash->{name};
 
   $app->patterns->load_unspecific($matcher);
   $app->patterns->load_specific($matcher, $packagename);
   $self->matcher($matcher);
 
-  my $igls = $db->select('ignored_lines', 'hash', { packname => $packagename} );
+  my $igls   = $db->select('ignored_lines', 'hash', {packname => $packagename});
   my %hashes = map { $_->{hash} => 1 } @{$igls->hashes};
   $self->ignored_lines(\%hashes);
 
@@ -62,6 +61,9 @@ sub _calculate_keyword_dict {
   $self->keywords(\%keyword_patterns);
 }
 
+# A 'snippet' is a region of a source file containing keywords.
+# The +-1 area around each keyword is taking into it and possible
+# keywordless lines in between near keywords too - to form one text
 sub _check_missing_snippets {
   my ($self, $path, $report) = @_;
 
@@ -85,7 +87,7 @@ sub _check_missing_snippets {
 
   # extend to near matches
   for my $match (@{$report->{matches}}) {
-    my ($mid, $ls, $le) = @$match;
+    my ($mid, $ls, $le, $pm_id) = @$match;
     my $prev_line   = _find_near_line(\%needed_lines, $ls - 2, $delta, -1);
     my $follow_line = _find_near_line(\%needed_lines, $le + 2, $delta, +1);
     next unless $prev_line || $follow_line;
@@ -103,18 +105,18 @@ sub _check_missing_snippets {
   my $first_snippet_line;
   for my $line (sort { $a <=> $b } keys %needed_lines) {
     if ($prev_line && $line - $prev_line > 1) {
-      $self->_snippet($path, $first_snippet_line, $prev_line);
+      $self->_snippet($report, $path, $first_snippet_line, $prev_line);
       $first_snippet_line = undef;
     }
     $first_snippet_line ||= $line;
     $prev_line = $line;
   }
   return unless $first_snippet_line;
-  $self->_snippet($path, $first_snippet_line, $prev_line);
+  $self->_snippet($report, $path, $first_snippet_line, $prev_line);
 }
 
 sub _snippet {
-  my ($self, $path, $first_line, $last_line) = @_;
+  my ($self, $report, $path, $first_line, $last_line) = @_;
 
   my %lines;
   for (my $line = $first_line; $line <= $last_line; $line += 1) {
@@ -126,9 +128,17 @@ sub _snippet {
     $ctx->add($row->[2] . "\n");
   }
 
-  say "SNP $path " . $ctx->hex . " " . (defined $self->ignored_lines->{$ctx->hex});
+  say "SNP $path "
+    . $ctx->hex . " "
+    . (defined $self->ignored_lines->{$ctx->hex});
+
   if ($self->ignored_lines->{$ctx->hex}) {
-    say "and now?";
+    for my $match (@{$report->{matches}}) {
+      my ($mid, $ls, $le, $pm_id) = @$match;
+      next if $le < $first_line || $ls > $last_line;
+      $self->db->update('pattern_matches', {ignored => 1}, {id => $pm_id});
+    }
+
   }
   return $ctx->hex;
 }
@@ -163,7 +173,7 @@ sub file {
     $keyword_missed ||= $keywords->{$mid};
 
     # package is kind of duplicated in file, but the join is just too expensive
-    $self->db->insert(
+    my $pm_id = $self->db->insert(
       'pattern_matches',
       {
         file    => $file_id,
@@ -171,8 +181,10 @@ sub file {
         pattern => $mid,
         sline   => $ls,
         eline   => $le
-      }
-    );
+      },
+      {returning => 'id'}
+    )->hash->{id};
+    push(@$match, $pm_id);
   }
   return unless $keyword_missed;
   $self->_check_missing_snippets($path, $report);

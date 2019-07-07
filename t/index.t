@@ -241,7 +241,7 @@ $res = $db->select(
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
-is_deeply $res, [[210, 1], [236, 1], [751, 2], [1103,5]],
+is_deeply $res, [[210, 1], [236, 1], [751, 2], [1103, 5]],
   'Perl correctly tagged with new pattern';
 
 # Manual reindexing
@@ -262,8 +262,17 @@ $res = $db->select(
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
-is_deeply $res, [[236, 1], [258, 1], [278, 1], [333, 1], [751, 2], [1103,5]],
+is_deeply $res, [[236, 1], [258, 1], [278, 1], [333, 1], [751, 2], [1103, 5]],
   'Perl correctly tagged with new pattern';
+
+$res = $db->select(
+  ['pattern_matches', ['matched_files', id => 'file']],
+  ['sline', 'pattern', 'ignored'],
+  {'matched_files.filename' => 'Mojolicious-7.25/Changes'},
+  {order_by                 => 'sline'}
+)->arrays;
+is_deeply $res, [[225, 6, 1], [2801, 1, 0]],
+  'Only one Changes entry is an ignored line';
 
 # Accepted because of low risk
 my $pkg = $t->app->packages->find($pkg_id);
