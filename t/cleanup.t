@@ -89,6 +89,7 @@ my $three_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140403',
   priority        => 5
 );
+my $product_id = $t->app->products->find_or_create('Cpan')->{id};
 
 $t->app->patterns->expire_cache;
 my $lic_id = $t->app->licenses->create(name => 'Artistic-2.0', risk => 2);
@@ -99,6 +100,9 @@ $t->app->minion->enqueue(unpack => [$_]) for ($one_id, $two_id, $three_id);
 $t->app->minion->perform_jobs;
 
 # First package
+# fake import date
+$t->app->pg->db->query('update bot_packages set imported = ? where id=?',
+  '2017-12-24', $one_id);
 is $t->app->packages->find($one_id)->{state}, 'acceptable', 'right state';
 is $t->app->packages->find($one_id)->{result},
   'Accepted because of low risk (2)', 'right result';
@@ -115,7 +119,12 @@ ok $t->app->pg->db->select('matched_files', [\'count(*)'], {package => $one_id})
 ok $t->app->pg->db->select('pattern_matches', [\'count(*)'],
   {package => $one_id})->array->[0], 'has pattern matches';
 
-# Second package
+# Second package (product)
+# fake import date
+$t->app->pg->db->query('update bot_packages set imported = ? where id=?',
+  '2017-12-24', $two_id);
+$t->app->pg->db->insert('bot_package_products',
+  {package => $two_id, product => $product_id});
 is $t->app->packages->find($two_id)->{state}, 'acceptable', 'right state';
 is $t->app->packages->find($two_id)->{result},
   'Accepted because previously reviewed under the same license (1)',
@@ -180,18 +189,7 @@ is $t->app->packages->find($two_id)->{state}, 'correct', 'right state';
 is $t->app->packages->find($two_id)->{result},
   'Accepted because previously reviewed under the same license (1)',
   'right result';
-ok $t->app->packages->find($two_id)->{obsolete}, 'obsolete';
-ok !-e $dir->child(@two), 'checkout does not exists';
-ok !$t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $two_id})
-  ->array->[0], 'no reports';
-ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $two_id})
-  ->array->[0], 'no emails';
-ok !$t->app->pg->db->select('urls', [\'count(*)'], {package => $two_id})
-  ->array->[0], 'no URLs';
-ok !$t->app->pg->db->select('matched_files', [\'count(*)'],
-  {package => $two_id})->array->[0], 'no matched files';
-ok !$t->app->pg->db->select('pattern_matches', [\'count(*)'],
-  {package => $two_id})->array->[0], 'no pattern matches';
+ok !$t->app->packages->find($two_id)->{obsolete}, 'obsolete';
 
 # Third package (obsolete)
 is $t->app->packages->find($three_id)->{state}, 'correct', 'right state';
@@ -214,7 +212,7 @@ ok $t->app->pg->db->select('pattern_matches', [\'count(*)'],
 $t->app->minion->enqueue('obsolete');
 $t->app->minion->perform_jobs;
 ok $t->app->packages->find($one_id)->{obsolete}, 'still obsolete';
-ok $t->app->packages->find($two_id)->{obsolete}, 'still obsolete';
+ok !$t->app->packages->find($two_id)->{obsolete},   'old but part of product';
 ok !$t->app->packages->find($three_id)->{obsolete}, 'still not obsolete';
 
 # Clean up once we are done
