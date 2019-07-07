@@ -151,7 +151,7 @@ sub unpack {
   my $err = $@ || ($u->{error} ? join(', ', @{$u->{error}}) : undef);
 
   if ($err) {
-    -f $log ? warn $err : die $err;
+    die $err;
     return;
   }
 
