@@ -243,6 +243,14 @@ $res = $db->select(
 )->arrays;
 is_deeply $res, [[210, 1], [236, 1], [751, 2], [1103, 5]],
   'Perl correctly tagged with new pattern';
+$res = $db->select('snippets', ['hash'], {}, {order_by => 'hash'})->arrays;
+is_deeply $res,
+  [
+  ["17ca85fa8cb6e7b6517e5e71470861cc"], ["23173dc0c404f298e5f20597697e5b19"],
+  ["300a5e5e524c7a2daa8da898c2d4da54"], ["3c376fca10ff8a41d0d51c9d46a3bdae"],
+  ["541e8cc6ac467ffcbb5b2c27088def98"]
+  ],
+  'Snippets inserted - ignored line ignored';
 
 # Manual reindexing
 $t->app->pg->db->query(

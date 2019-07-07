@@ -26,6 +26,7 @@ has 'ignored_lines';
 has 'keywords';
 has 'matcher';
 has 'package';
+has 'snippets';
 
 sub new {
   my ($class, $app, $package) = @_;
@@ -49,6 +50,8 @@ sub new {
   $self->_calculate_keyword_dict;
   $self->dir($app->package_checkout_dir($package));
   $self->checkout(Cavil::Checkout->new($self->dir));
+  $self->snippets({});
+
   return $self;
 }
 
@@ -123,24 +126,48 @@ sub _snippet {
     $lines{$line} = 1;
   }
 
-  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  my $ctx  = Spooky::Patterns::XS::init_hash(0, 0);
+  my $text = '';
   for my $row (@{Spooky::Patterns::XS::read_lines($path, \%lines)}) {
-    $ctx->add($row->[2] . "\n");
+    my $line = $row->[2] . "\n";
+    $text .= $line;
+    $ctx->add($line);
   }
 
-  say "SNP $path "
-    . $ctx->hex . " "
-    . (defined $self->ignored_lines->{$ctx->hex});
+  my $hash = $ctx->hex;
 
-  if ($self->ignored_lines->{$ctx->hex}) {
+  # ignored lines are easy targets
+  if ($self->ignored_lines->{$hash}) {
     for my $match (@{$report->{matches}}) {
       my ($mid, $ls, $le, $pm_id) = @$match;
       next if $le < $first_line || $ls > $last_line;
       $self->db->update('pattern_matches', {ignored => 1}, {id => $pm_id});
     }
-
+    return;
   }
-  return $ctx->hex;
+
+  my $snippet = $self->_fetch_snippet($hash, $text);
+  return undef;
+}
+
+sub _fetch_snippet {
+  my ($self, $hash, $text) = @_;
+
+  my $snippets = $self->snippets;
+  my $db       = $self->db;
+
+  return $snippets->{$hash} if exists $snippets->{$hash};
+  my $snip = $db->select('snippets', 'id', {hash => $hash})->hash;
+  if ($snip) {
+    return $snippets->{$hash} = $snip->{id};
+  }
+
+  $db->query(
+    'insert into snippets (hash, text) values (?, ?)
+   on conflict do nothing', $hash, $text
+  );
+  return $snippets->{$hash}
+    = $db->select('snippets', 'id', {hash => $hash})->hash->{id};
 }
 
 sub _find_near_line {
