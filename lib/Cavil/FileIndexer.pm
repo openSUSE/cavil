@@ -68,7 +68,7 @@ sub _calculate_keyword_dict {
 # The +-1 area around each keyword is taking into it and possible
 # keywordless lines in between near keywords too - to form one text
 sub _check_missing_snippets {
-  my ($self, $path, $report) = @_;
+  my ($self, $file_id, $path, $report) = @_;
 
   my $keywords = $self->keywords;
 
@@ -108,18 +108,19 @@ sub _check_missing_snippets {
   my $first_snippet_line;
   for my $line (sort { $a <=> $b } keys %needed_lines) {
     if ($prev_line && $line - $prev_line > 1) {
-      $self->_snippet($report, $path, $first_snippet_line, $prev_line);
+      $self->_snippet($file_id, $report, $path, $first_snippet_line,
+        $prev_line);
       $first_snippet_line = undef;
     }
     $first_snippet_line ||= $line;
     $prev_line = $line;
   }
   return unless $first_snippet_line;
-  $self->_snippet($report, $path, $first_snippet_line, $prev_line);
+  $self->_snippet($file_id, $report, $path, $first_snippet_line, $prev_line);
 }
 
 sub _snippet {
-  my ($self, $report, $path, $first_line, $last_line) = @_;
+  my ($self, $file_id, $report, $path, $first_line, $last_line) = @_;
 
   my %lines;
   for (my $line = $first_line; $line <= $last_line; $line += 1) {
@@ -146,29 +147,24 @@ sub _snippet {
     return;
   }
 
-  my $snippet = $self->_fetch_snippet($hash, $text);
+  $self->snippets->{$hash}
+    ||= $self->app->snippets->find_or_create($hash, $text);
+
+  my $snippet = $self->snippets->{$hash};
+  $self->db->insert(
+    'file_snippets',
+    {
+      package => $self->package,
+      snippet => $snippet,
+      sline   => $first_line,
+      eline   => $last_line,
+      file    => $file_id
+    }
+  );
+
   return undef;
 }
 
-sub _fetch_snippet {
-  my ($self, $hash, $text) = @_;
-
-  my $snippets = $self->snippets;
-  my $db       = $self->db;
-
-  return $snippets->{$hash} if exists $snippets->{$hash};
-  my $snip = $db->select('snippets', 'id', {hash => $hash})->hash;
-  if ($snip) {
-    return $snippets->{$hash} = $snip->{id};
-  }
-
-  $db->query(
-    'insert into snippets (hash, text) values (?, ?)
-   on conflict do nothing', $hash, $text
-  );
-  return $snippets->{$hash}
-    = $db->select('snippets', 'id', {hash => $hash})->hash->{id};
-}
 
 sub _find_near_line {
   my ($lines, $line, $line_delta, $delta) = @_;
@@ -214,7 +210,7 @@ sub file {
     push(@$match, $pm_id);
   }
   return unless $keyword_missed;
-  $self->_check_missing_snippets($path, $report);
+  $self->_check_missing_snippets($file_id, $path, $report);
 }
 
 1;

@@ -25,6 +25,7 @@ use Cavil::Model::Products;
 use Cavil::Model::Reports;
 use Cavil::Model::Requests;
 use Cavil::Model::Users;
+use Cavil::Model::Snippets;
 use Cavil::OBS;
 use Scalar::Util 'weaken';
 use Time::HiRes ();
@@ -169,6 +170,12 @@ sub startup {
         pg    => $self->pg,
         log   => $self->app->log
       );
+    }
+  );
+
+  $self->helper(
+    snippets => sub {
+      state $snips = Cavil::Model::Snippets->new(pg => shift->pg);
     }
   );
 
