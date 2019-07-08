@@ -18,6 +18,7 @@ use Mojo::Base 'Mojolicious';
 
 use Mojo::Pg;
 use Cavil::Bootstrap;
+use Cavil::Classifier;
 use Cavil::Model::Licenses;
 use Cavil::Model::Packages;
 use Cavil::Model::Patterns;
@@ -36,7 +37,8 @@ has bootstrap => sub {
   weaken $bootstrap->{app};
   return $bootstrap;
 };
-has obs => sub { Cavil::OBS->new };
+has classifier => sub { Cavil::Classifier->new };
+has obs        => sub { Cavil::OBS->new };
 
 our $VERSION = '0.5';
 
@@ -46,6 +48,8 @@ sub startup {
   my $file   = $ENV{CAVIL_CONF} || 'cavil.conf';
   my $config = $self->plugin(Config => {file => $file});
   $self->secrets($config->{secrets});
+
+  $self->classifier->url($config->{classifier});
 
   # Avoid huge temp files in "/tmp"
   $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};

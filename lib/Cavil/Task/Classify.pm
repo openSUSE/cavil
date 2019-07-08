@@ -27,17 +27,14 @@ sub register {
 sub _classify {
   my ($job, $id, $data) = @_;
 
-  my $app = $job->app;
-  my $log = $app->log;
-  my $db  = $app->pg->db;
-  my $url = $app->config->{classifier};
-  die "No 'classifier' configured" unless $url;
+  my $app        = $job->app;
+  my $log        = $app->log;
+  my $db         = $app->pg->db;
+  my $classifier = $app->classifier;
 
   my $results = $db->select('snippets', ['id', 'text'], {classified => 0});
   while (my $next = $results->hash) {
-    my $ua  = Mojo::UserAgent->new;
-    my $res = $ua->post($url => json => $next->{text})->result;
-    $res = $res->json;
+    my $res = $classifier->classify($next->{text});
     if ($res->{license}) {
       say "$next->{id} license with confidence $res->{confidence}";
     }
