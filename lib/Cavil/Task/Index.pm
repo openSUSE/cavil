@@ -67,10 +67,10 @@ sub _index_batch {
   my $log = $app->log;
   $app->plugins->emit_hook('before_task_index_batch');
 
-  my $start   = time;
-  my $db      = $app->pg->db;
+  my $start = time;
+  my $db    = $app->pg->db;
 
-  my $fi = Cavil::FileIndexer->new($app, $id);
+  my $fi       = Cavil::FileIndexer->new($app, $id);
   my $preptime = time - $start;
 
   my %meta = (emails => {}, urls => {});

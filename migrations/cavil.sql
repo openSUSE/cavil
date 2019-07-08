@@ -182,8 +182,15 @@ create table file_snippets (
   id         bigserial primary key,
   snippet    int not null references snippets(id),
   created    timestamp with time zone not null default now()
-)
+);
 
 -- 3 down
 drop table if exists snippets;
 drop table if exists file_snippets;
+
+-- 4 up
+alter table snippets add column confidence int not null default 0;
+
+-- 4 down
+alter table snippets drop column confidence;
+

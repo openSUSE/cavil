@@ -108,6 +108,7 @@ sub startup {
   $self->helper(
     pg => sub { state $pg = Mojo::Pg->new($config->{pg})->max_connections(1) });
   $self->plugin(Minion => {Pg => $self->pg});
+  $self->plugin('Cavil::Task::Classify');
   $self->plugin('Cavil::Task::Import');
   $self->plugin('Cavil::Task::Unpack');
   $self->plugin('Cavil::Task::Index');
