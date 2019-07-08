@@ -1,0 +1,16 @@
+% layout 'default';
+% title 'Random Code Snippets';
+
+%= form_for tag_snippets => (method => 'POST') => begin
+  % for my $snip (@$snippets) {
+    <h3><%= $snip->{license} ? 'Licenses related' : 'Not about licenses' %> (Confidence: <%= $snip->{confidence} %>%)</h3>
+    <pre class='license license-<%= $snip->{license} %>' data-snippet='<%= $snip->{id} %>'><%= $snip->{text} %></pre>
+    %= hidden_field('g_' . $snip->{id}, $snip->{license}, id => "good_$snip->{id}")
+  % }
+
+  %= submit_button 'Save'
+% end
+
+% content_for 'ready_function' => begin
+  snippetSwitcher();
+% end

@@ -13,36 +13,31 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
-package Cavil::Model::Snippets;
-use Mojo::Base -base;
+package Cavil::Controller::Snippet;
+use Mojo::Base 'Mojolicious::Controller';
 
-use Mojo::File 'path';
+sub list {
+  my $self = shift;
 
-has [qw(pg)];
-
-sub find_or_create {
-  my ($self, $hash, $text) = @_;
-
-  my $db = $self->pg->db;
-
-  my $snip = $db->select('snippets', 'id', {hash => $hash})->hash;
-  return $snip->{id} if $snip;
-
-  $db->query(
-    'insert into snippets (hash, text) values (?, ?)
-   on conflict do nothing', $hash, $text
-  );
-  return $db->select('snippets', 'id', {hash => $hash})->hash->{id};
+  $self->render(snippets => $self->snippets->random(100));
 }
 
-sub random {
-  my ($self, $limit) = @_;
+sub update {
+  my $self = shift;
 
-  return $self->pg->db->query(
-    'select id, text, classified,
-         license, confidence from snippets where approved=FALSE
-        order by random() limit ?', $limit
-  )->hashes;
+  my $db     = $self->pg->db;
+  my $params = $self->req->params->to_hash;
+  for my $param (keys %$params) {
+    next unless $param =~ m/g_(\d+)/;
+    my $id      = $1;
+    my $license = $params->{$param};
+    $db->update(
+      'snippets',
+      {license => $license, approved => 1, classified => 1},
+      {id      => $id}
+    );
+  }
+  $self->redirect_to('snippets');
 }
 
 1;

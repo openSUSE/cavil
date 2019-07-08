@@ -265,6 +265,9 @@ sub startup {
   $public->get('/products/*name/list_packages')
     ->to('Product#list_packages_ajax')->name('product_packages_ajax');
   $public->get('/products/*name')->to('Product#show')->name('product_show');
+
+  $public->get('/snippets')->to('Snippet#list')->name('snippets');
+  $public->post('/snippets')->to('Snippet#update')->name('tag_snippets');
 }
 
 1;
