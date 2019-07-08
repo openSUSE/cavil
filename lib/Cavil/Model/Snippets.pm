@@ -40,8 +40,8 @@ sub random {
 
   return $self->pg->db->query(
     'select id, text, classified,
-         license, confidence from snippets where approved=FALSE
-        order by random() limit ?', $limit
+    license, confidence from snippets TABLESAMPLE BERNOULLI (10) where approved=FALSE
+    limit ?', $limit
   )->hashes;
 }
 

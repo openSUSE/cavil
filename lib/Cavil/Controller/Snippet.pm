@@ -27,7 +27,7 @@ sub update {
 
   my $db     = $self->pg->db;
   my $params = $self->req->params->to_hash;
-  for my $param (keys %$params) {
+  for my $param (sort keys %$params) {
     next unless $param =~ m/g_(\d+)/;
     my $id      = $1;
     my $license = $params->{$param};

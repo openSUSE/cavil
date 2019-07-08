@@ -637,9 +637,7 @@ function snippetSwitcher() {
       $(this).removeClass('license-0').addClass('license-1');
     }
     var name = '#good_' + $(this).data('snippet');
-    console.log(name);
     var elem = $(name);
-    elem.val(!elem.val());
-    console.log(elem.val());
+    elem.val(1 - elem.val());
   });
 }

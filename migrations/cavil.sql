@@ -209,3 +209,9 @@ create table file_snippets (
 
 -- 5 down
 drop table if exists file_snippets;
+
+-- 6 up
+create index on snippets(approved);
+
+-- 6 down
+drop index snippets_approved_idx if exists;
