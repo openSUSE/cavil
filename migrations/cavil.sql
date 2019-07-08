@@ -182,8 +182,30 @@ create table file_snippets (
   id         bigserial primary key,
   snippet    int not null references snippets(id),
   created    timestamp with time zone not null default now()
-)
+);
 
 -- 3 down
 drop table if exists snippets;
+drop table if exists file_snippets;
+
+-- 4 up
+alter table snippets add column confidence int not null default 0;
+
+-- 4 down
+alter table snippets drop column confidence;
+
+-- 5 up
+drop table if exists file_snippets;
+create table file_snippets (
+  id         bigserial primary key,
+  created    timestamp with time zone not null default now(),
+  package    int not null references bot_packages(id) on delete cascade,
+  file       bigint not null references matched_files(id)
+               on delete cascade,
+  snippet    int not null references snippets(id) on delete cascade,
+  sline      int not null,
+  eline      int not null
+);
+
+-- 5 down
 drop table if exists file_snippets;

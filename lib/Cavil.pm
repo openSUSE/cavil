@@ -25,6 +25,7 @@ use Cavil::Model::Products;
 use Cavil::Model::Reports;
 use Cavil::Model::Requests;
 use Cavil::Model::Users;
+use Cavil::Model::Snippets;
 use Cavil::OBS;
 use Scalar::Util 'weaken';
 use Time::HiRes ();
@@ -108,6 +109,7 @@ sub startup {
   $self->helper(
     pg => sub { state $pg = Mojo::Pg->new($config->{pg})->max_connections(1) });
   $self->plugin(Minion => {Pg => $self->pg});
+  $self->plugin('Cavil::Task::Classify');
   $self->plugin('Cavil::Task::Import');
   $self->plugin('Cavil::Task::Unpack');
   $self->plugin('Cavil::Task::Index');
@@ -168,6 +170,12 @@ sub startup {
         pg    => $self->pg,
         log   => $self->app->log
       );
+    }
+  );
+
+  $self->helper(
+    snippets => sub {
+      state $snips = Cavil::Model::Snippets->new(pg => shift->pg);
     }
   );
 

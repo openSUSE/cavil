@@ -150,11 +150,43 @@ sub _dig_report {
     {package => $pkg->{id}, ignored => 0}
   );
 
+  my $snippets = $db->select(
+    ['snippets', ['file_snippets', snippet => 'id']],
+    ['file', 'sline', 'eline'],
+    {
+      package               => $pkg->{id},
+      'snippets.classified' => 1,
+      'snippets.license'    => 0
+    },
+    {order_by => 'sline'}
+  );
+  my %file_snippets;
+  for my $snip_row (@{$snippets->hashes}) {
+    $file_snippets{$snip_row->{file}} ||= [];
+    push(
+      @{$file_snippets{$snip_row->{file}}},
+      [$snip_row->{sline}, $snip_row->{eline}]
+    );
+  }
+
   my $expanded_limit = $self->max_expanded_files;
   my $num_expanded   = 0;
 
+  my %matches_to_ignore;
+
   while (my $match = $matches->hash) {
-    my $pid     = $match->{pattern};
+    my $pid = $match->{pattern};
+
+    my $part_of_snippet;
+    for my $region (@{$file_snippets{$match->{file}}}) {
+      my ($first_line, $last_line) = @$region;
+      if ($match->{sline} >= $first_line && $match->{eline} <= $last_line) {
+        $part_of_snippet = 1;
+        $matches_to_ignore{$match->{id}} = 1;
+        last;
+      }
+    }
+    next if $part_of_snippet;
     my $pattern = $self->_load_pattern_from_cache($pid);
     my $license = $self->_load_license_from_cache($pattern->{license});
 
@@ -201,8 +233,6 @@ sub _dig_report {
     $license->{flags} = [grep { $license->{flaghash}{$_} } @flags];
     delete $license->{flaghash};
   }
-
-  my %matches_to_ignore;
 
   for my $file (keys %{$report->{files}}) {
     next unless $report->{expanded}{$file};

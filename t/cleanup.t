@@ -183,6 +183,12 @@ ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})
   ->array->[0], 'no emails';
 ok !$t->app->pg->db->select('urls', [\'count(*)'], {package => $one_id})
   ->array->[0], 'no URLs';
+ok !$t->app->pg->db->select('matched_files', [\'count(*)'],
+  {package => $one_id})->array->[0], 'no matched files';
+ok !$t->app->pg->db->select('pattern_matches', [\'count(*)'],
+  {package => $one_id})->array->[0], 'no pattern matches';
+ok !$t->app->pg->db->select('file_snippets', [\'count(*)'],
+  {package => $one_id})->array->[0], 'no file snippets';
 
 # Second package (obsolete)
 is $t->app->packages->find($two_id)->{state}, 'correct', 'right state';
