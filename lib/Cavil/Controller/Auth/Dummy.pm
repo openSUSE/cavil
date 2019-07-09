@@ -23,7 +23,7 @@ sub login {
     login    => 'tester',
     email    => 'tester@example.com',
     fullname => 'Dummy Test User',
-    roles => ['manager', 'admin']
+    roles => ['manager', 'admin', 'classifier']
   );
 
   $self->session(user => $user->{login});
