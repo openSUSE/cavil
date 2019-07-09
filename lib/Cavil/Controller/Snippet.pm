@@ -1,4 +1,4 @@
-# Copyright (C) 2018 SUSE Linux GmbH
+# Copyright (C) 2019 SUSE Linux GmbH
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,21 +13,31 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
-package Cavil::Controller::Auth::Dummy;
+package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller';
 
-sub login {
+sub list {
   my $self = shift;
 
-  my $user = $self->users->find_or_create(
-    login    => 'tester',
-    email    => 'tester@example.com',
-    fullname => 'Dummy Test User',
-    roles => ['manager', 'admin', 'classifier']
-  );
+  $self->render(snippets => $self->snippets->random(100));
+}
 
-  $self->session(user => $user->{login});
-  $self->redirect_to('dashboard');
+sub update {
+  my $self = shift;
+
+  my $db     = $self->pg->db;
+  my $params = $self->req->params->to_hash;
+  for my $param (sort keys %$params) {
+    next unless $param =~ m/g_(\d+)/;
+    my $id      = $1;
+    my $license = $params->{$param};
+    $db->update(
+      'snippets',
+      {license => $license, approved => 1, classified => 1},
+      {id      => $id}
+    );
+  }
+  $self->redirect_to('snippets');
 }
 
 1;

@@ -35,4 +35,14 @@ sub find_or_create {
   return $db->select('snippets', 'id', {hash => $hash})->hash->{id};
 }
 
+sub random {
+  my ($self, $limit) = @_;
+
+  return $self->pg->db->query(
+    'select id, text, classified,
+    license, confidence from snippets where approved=FALSE
+    order by hash limit ?', $limit
+  )->hashes;
+}
+
 1;

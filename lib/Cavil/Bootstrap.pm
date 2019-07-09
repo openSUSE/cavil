@@ -31,7 +31,8 @@ sub load {
     if $licenses->pg->db->select('licenses', 'id', {name => 'Low Risk Keyword'})
     ->hash;
 
-  my $dir = path(__FILE__)->dirname->child('resources', 'bootstrap');
+  my $patterns = $self->app->patterns;
+  my $dir      = path(__FILE__)->dirname->child('resources', 'bootstrap');
   for my $file ($dir->list->sort->each) {
     my $data = decode_json $file->slurp;
 
@@ -42,7 +43,7 @@ sub load {
       eula    => $data->{eula}
     );
 
-    $licenses->create_pattern(
+    $patterns->create(
       $id,
       pattern   => $_->{pattern},
       patent    => $_->{patent},
@@ -50,7 +51,7 @@ sub load {
       opinion   => $_->{opinion}
     ) for @{$data->{patterns}};
   }
-  $licenses->expire_cache;
+  $patterns->expire_cache;
 
   return 1;
 }

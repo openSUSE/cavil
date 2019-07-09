@@ -628,3 +628,16 @@ function fromNow() {
     date.text(jQuery.timeago(new Date(date.text() * 1000)));
   });
  }
+
+function snippetSwitcher() {
+  $('.license').click(function() {
+    if ($(this).hasClass('license-1')) {
+      $(this).removeClass('license-1').addClass('license-0');
+    } else {
+      $(this).removeClass('license-0').addClass('license-1');
+    }
+    var name = '#good_' + $(this).data('snippet');
+    var elem = $(name);
+    elem.val(1 - elem.val());
+  });
+}
