@@ -36,15 +36,18 @@ sub _index {
 
   my $app     = $job->app;
   my $log     = $app->log;
+  my $i       = 1;
   my $dir     = $app->package_checkout_dir($id);
   my $batches = Cavil::Checkout->new($dir)
     ->unpacked_files($app->config->{index_bucket_average});
 
-  # Clean up
-  my $db = $app->pg->db;
-  $db->delete('matched_files', {package => $id});
-  $db->delete('urls',          {package => $id});
-  $db->delete('emails',        {package => $id});
+  # Clean up (make sure not to leak a Postgres connection)
+  {
+    my $db = $app->pg->db;
+    $db->delete('matched_files', {package => $id});
+    $db->delete('urls',          {package => $id});
+    $db->delete('emails',        {package => $id});
+  }
 
   # Split up files into batches
   my $minion    = $app->minion;
