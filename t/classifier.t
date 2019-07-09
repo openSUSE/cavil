@@ -82,33 +82,25 @@ my $pkg_id = $t->app->packages->add(
   priority        => 5
 );
 $t->app->patterns->expire_cache;
-my $lic_id1 = $t->app->licenses->create(name => 'Apache-2.0');
 $t->app->patterns->create(
-  $lic_id1,
   pattern        => 'You may obtain a copy of the License at',
   license_string => 'Apache-2.0'
 );
 $t->app->patterns->create(
-  $lic_id1,
   packname       => 'perl-Mojolicious',
   pattern        => 'Licensed under the Apache License, Version 2.0',
   license_string => 'Apache-2.0'
 );
-my $lic_id2 = $t->app->licenses->create(name => 'Artistic-2.0');
 $t->app->patterns->create(
-  $lic_id2,
   pattern        => 'License: Artistic-2.0',
   license_string => 'Artistic-2.0'
 );
-my $lic_id3
-  = $t->app->licenses->create(name => 'Definitely not a license', risk => 0);
 $t->app->patterns->create(
-  $lic_id3,
   pattern        => 'powerful web development toolkit',
   license_string => 'SUSE-NotALicense'
 );
-$t->app->patterns->create($lic_id3, pattern => 'the terms');
-$t->app->patterns->create($lic_id3, pattern => 'copyright notice');
+$t->app->patterns->create(pattern => 'the terms');
+$t->app->patterns->create(pattern => 'copyright notice');
 
 # Unpack and index
 $t->app->minion->enqueue(unpack => [$pkg_id]);

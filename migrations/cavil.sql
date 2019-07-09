@@ -215,3 +215,9 @@ create index on snippets(approved);
 
 -- 6 down
 drop index snippets_approved_idx if exists;
+
+-- 7 up
+alter table license_patterns drop column license;
+
+-- 7 down
+alter table license_patterns add column license int not null references licenses (id);

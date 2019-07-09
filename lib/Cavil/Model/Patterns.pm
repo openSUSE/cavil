@@ -23,12 +23,11 @@ use Storable;
 has [qw(cache log pg)];
 
 sub create {
-  my ($self, $id, %args) = @_;
+  my ($self, %args) = @_;
 
   my $mid = $self->pg->db->insert(
     'license_patterns',
     {
-      license        => $id,
       pattern        => $args{pattern},
       token_hexsum   => $self->checksum($args{pattern}),
       packname       => $args{packname} // '',
@@ -87,6 +86,10 @@ sub load_unspecific {
   rename $tmp, $cachefile;
 }
 
+sub all {
+  return shift->pg->db->select('license_patterns', '*')->hashes;
+}
+
 sub find {
   my ($self, $id) = @_;
   return $self->pg->db->select('license_patterns', '*', {id => $id})->hash;
@@ -110,9 +113,9 @@ sub checksum {
 }
 
 sub for_license {
-  my ($self, $id) = @_;
-  return $self->pg->db->select('license_patterns', '*', {license => $id},
-    'created')->hashes->to_array;
+  my ($self, $license_string) = @_;
+  return $self->pg->db->select('license_patterns', '*',
+    {license_string => $license_string}, 'created')->hashes->to_array;
 }
 
 sub remove {

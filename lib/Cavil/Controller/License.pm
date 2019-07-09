@@ -31,14 +31,15 @@ sub create_pattern {
   my $id      = $self->param('license');
   my $pattern = $self->param('pattern');
 
+  my $license  = $self->licenses->find($id);
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    $id,
-    packname  => $self->param('packname'),
-    pattern   => $pattern,
-    patent    => $self->param('patent'),
-    trademark => $self->param('trademark'),
-    opinion   => $self->param('opinion')
+    license_string => $license->{name},
+    packname       => $self->param('packname'),
+    pattern        => $pattern,
+    patent         => $self->param('patent'),
+    trademark      => $self->param('trademark'),
+    opinion        => $self->param('opinion')
   );
   $patterns->expire_cache;
   $self->flash(success => 'Pattern has been created.');
@@ -54,7 +55,7 @@ sub edit_pattern {
 
   my $best;
   my $min = 10000;
-  for my $p (@{$self->patterns->for_license($pattern->{license})}) {
+  for my $p (@{$self->patterns->all}) {
     next if $p->{id} == $pattern->{id};
     my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
     my $d  = Spooky::Patterns::XS::distance($p1, $p2);
@@ -119,10 +120,12 @@ sub remove_pattern {
 sub show {
   my $self = shift;
 
-  my $id = $self->param('id');
+  my $id  = $self->param('id');
+  my $lic = $self->licenses->find($id);
+  die "No such licence" unless $lic;
   $self->render(
-    license  => $self->licenses->find($id),
-    patterns => $self->patterns->for_license($id)
+    license  => $lic,
+    patterns => $self->patterns->for_license($lic->{name})
   );
 }
 
