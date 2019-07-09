@@ -63,6 +63,8 @@ my $pkg_id = $t->app->packages->add(
   priority        => 5
 );
 
+$t->app->licenses->create(name => 'Apache-2.0');
+$t->app->licenses->create(name => 'Artistic-2.0');
 $t->app->patterns->expire_cache;
 $t->app->patterns->create(
   pattern => 'You may obtain a copy of the License at',
@@ -137,8 +139,8 @@ is $analyzed_job->info->{state},  'finished', 'job is finished';
 is $analyzed_job->info->{result}, undef,      'job was successful';
 is $t->app->packages->find($pkg_id)->{state}, 'new', 'still new';
 
-# Check shortname
-like $t->app->packages->find($pkg_id)->{checksum}, qr/^Artistic-2.0-5:\w+/,
+# Check shortname (3 missing snippets)
+like $t->app->packages->find($pkg_id)->{checksum}, qr/^Artistic-2.0-9:\w+/,
   'right shortname';
 
 # Check email addresses and URLs
@@ -164,7 +166,7 @@ ok $db->select('bot_packages', ['unpacked'], {id => $pkg_id})->hash->{unpacked},
 # Verify report checksum
 my $specfile = $t->app->reports->specfile_report($pkg_id);
 my $dig      = $t->app->reports->dig_report($pkg_id);
-is $t->app->checksum($specfile, $dig), '425a58966dd35fb9dbe17591cd4cf2f5',
+is $t->app->checksum($specfile, $dig), 'b9cd69e1482c6adf4f4dbd6807fc4fc0',
   'right checksum';
 
 # Check matches
@@ -199,19 +201,15 @@ $t->get_ok('/licenses')->status_is(200)->content_like(qr/Licenses/);
 # Pattern change
 $t->get_ok('/licenses')->status_is(200)
   ->text_is('td a[href=/licenses/1]' => 'Apache-2.0')
-  ->text_is('td a[href=/licenses/2]' => 'Artistic-2.0')
-  ->text_is('td a[href=/licenses/3]' => 'Definitely not a license');
-$t->get_ok('/licenses/1')->status_is(200)
-  ->element_exists('li div a[href=/licenses/edit_pattern/1]')
-  ->text_is('li pre' => 'You may obtain a copy of the License at');
+  ->text_is('td a[href=/licenses/2]' => 'Artistic-2.0');
 $t->get_ok('/licenses/edit_pattern/1')->status_is(200)
-  ->text_is('select[name=license] option[value=1]' => 'Apache-2.0')
+  ->element_exists('input[name=license][value=Apache-2.0]')
   ->text_is(
   'textarea[name=pattern]' => 'You may obtain a copy of the License at')
   ->element_exists_not('input:checked');
 $t->post_ok('/licenses/update_pattern/1' => form =>
-    {license => 1, pattern => 'real-time web framework'})->status_is(302)
-  ->header_is(Location => '/licenses/1');
+    {license => 'Apache-2.0', pattern => 'real-time web framework'})
+  ->status_is(302)->header_is(Location => '/licenses/1');
 $t->get_ok('/licenses/1')->status_is(200)
   ->element_exists('li div a[href=/licenses/edit_pattern/1]')
   ->text_is('li pre' => 'real-time web framework')
@@ -274,8 +272,17 @@ $res = $db->select(
 is_deeply $res, [[225, 6, 1], [2801, 1, 0]],
   'Only one Changes entry is an ignored line';
 
-# Accepted because of low risk
 my $pkg = $t->app->packages->find($pkg_id);
+is $pkg->{state}, 'new', 'still snippets left';
+
+# now 'classify'
+$db->update('snippets', {classified => 1, license => 0});
+$reindex_id = $t->app->minion->enqueue('reindex_all');
+$t->app->minion->perform_jobs;
+
+# Accepted because of low risk
+$pkg = $t->app->packages->find($pkg_id);
+
 is $pkg->{state}, 'acceptable', 'automatically accepted';
 is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
 

@@ -306,12 +306,9 @@ sub _info_for_pattern {
   return {risk => 0} unless $pid;
 
   if (!defined $pid_info->{$pid}) {
-    my $pattern   = $self->_load_pattern_from_cache($db, $pid);
-    $pid_info->{$pid} = {
-      risk => $pattern->{risk},
-      name => $pattern->{license},
-      pid  => $pid
-    };
+    my $pattern = $self->_load_pattern_from_cache($db, $pid);
+    $pid_info->{$pid}
+      = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
   }
   return $pid_info->{$pid};
 }
@@ -355,7 +352,8 @@ sub _lines {
       );
     }
     else {
-      push(@lines, [$index, $self->_info_for_pattern($db, $pid_info, $pid), $line]);
+      push(@lines,
+        [$index, $self->_info_for_pattern($db, $pid_info, $pid), $line]);
     }
   }
 
