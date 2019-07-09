@@ -193,6 +193,7 @@ sub startup {
   my $bot     = $public->under('/')->to('Auth::Token#check');
   my $manager = $public->under('/' => {role => 'manager'})->to('Auth#check');
   my $admin   = $public->under('/' => {role => 'admin'})->to('Auth#check');
+  my $classifier = $public->under('/' => {role => 'classifier'})->to('Auth#check');
   if ($config->{openid}) {
     $public->get('/login')->to('Auth::OpenID#login')->name('login');
     $public->get('/openid')->to('Auth::OpenID#openid')->name('openid');
@@ -267,7 +268,7 @@ sub startup {
   $public->get('/products/*name')->to('Product#show')->name('product_show');
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
-  $public->post('/snippets')->to('Snippet#update')->name('tag_snippets');
+  $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
 }
 
 1;

@@ -1,6 +1,26 @@
 % layout 'default';
 % title 'Random Code Snippets';
 
+<h2>What you see here</h2>
+<p>Cavil scans code for patterns. Some of these patterns belong to a named
+  license, some are keywords that signal licenses (like the word 'license' itself).
+  If we find such a keyword, but can't name the license we need to check if we
+  missed a licence text or just found a false positive.</p>
+<p>False positives are for example <code>See LICENSE.TXT</code>. This is talking
+  about a file not a license. The boundaries between license texts and false positives
+  are a little less sharp than what you'd hope for. So we train a neural network
+  with these informations, but as all neural network it needs food for training. Most cases
+  you see here are already classified by said neural network. You see its confidence
+  for each sample, if it's 0, it wasn't yet asked.</p>
+<p>The classification can be corrected by clicking on the text, if you have a Save
+  button, depends on your role within cavil. If you feel confident you can help,
+  ask the admins for it. If you got it, your task is to check, correct and approve
+  the classification.</p>
+
+% unless (@$snippets) {
+  <h3>No snippets left to approve!</h3>
+% }
+
 %= form_for tag_snippets => (method => 'POST') => begin
   % for my $snip (@$snippets) {
     <h3><%= $snip->{license} ? 'Licenses related' : 'Not about licenses' %> (Confidence: <%= $snip->{confidence} %>%)</h3>
@@ -8,7 +28,9 @@
     %= hidden_field('g_' . $snip->{id}, $snip->{license}, id => "good_$snip->{id}")
   % }
 
-  %= submit_button 'Save'
+  % if (current_user_has_role 'classifier') {
+    %= submit_button 'Save'
+  % }
 % end
 
 % content_for 'ready_function' => begin
