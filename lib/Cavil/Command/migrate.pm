@@ -30,17 +30,24 @@ sub run {
 
   my $db = $app->pg->db;
 
-  # special case for migration 2, which copies license names
+  # special case for migration 7, which copies license properties
   # to patterns
-  if ($migrations->active < 2) {
-    $migrations->migrate(2);
-    my $patterns = $db->query('select p.id,l.name from license_patterns p '
-        . 'join licenses l on p.license = l.id')->hashes;
+  if ($migrations->active < 7) {
+    $migrations->migrate(7);
+    my $patterns = $db->query(
+      "select p.id,l.name,l.risk,l.eula,l.nonfree
+         from license_patterns p join licenses l on p.license = l.id"
+    )->hashes;
     for my $p (@$patterns) {
       $db->update(
         'license_patterns',
-        {license_string => $p->{name}},
-        {id             => $p->{id}}
+        {
+          license_string => $p->{name},
+          risk           => $p->{risk},
+          eula           => $p->{eula},
+          nonfree        => $p->{nonfree}
+        },
+        {id => $p->{id}}
       );
     }
   }

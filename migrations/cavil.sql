@@ -217,7 +217,15 @@ create index on snippets(approved);
 drop index snippets_approved_idx if exists;
 
 -- 7 up
-alter table license_patterns drop column license;
+alter table license_patterns add risk int not null default 5;
+alter table license_patterns add eula boolean not null default false;
+alter table license_patterns add nonfree boolean not null default false;
 
 -- 7 down
+alter table license_patterns drop column risk, drop column eula, drop column nonfree;
+
+-- 8 up
+alter table license_patterns drop column license;
+
+-- 8 down
 alter table license_patterns add column license int not null references licenses (id);

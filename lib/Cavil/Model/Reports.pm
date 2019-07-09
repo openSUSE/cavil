@@ -186,25 +186,29 @@ sub _dig_report {
     }
     next if $part_of_snippet;
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
-    my $license = $self->_load_license_from_cache($db, $pattern->{license});
 
-    $report->{licenses}{$license->{id}} ||= $license;
-    $report->{licenses}{$license->{id}}{flaghash}{$_} ||= $pattern->{$_}
+    $report->{licenses}{$pattern->{license_string}}
+      ||= {name => $pattern->{license_string}};
+    $report->{licenses}{$pattern->{license_string}}{flaghash}{$_}
+      ||= $pattern->{$_}
       for qw(patent trademark opinion);
-    $report->{flags}{eula}    = 1 if $license->{eula};
-    $report->{flags}{nonfree} = 1 if $license->{nonfree};
+    $report->{flags}{eula}    = 1 if $pattern->{eula};
+    $report->{flags}{nonfree} = 1 if $pattern->{nonfree};
 
-    my $rl = $report->{risks}{$license->{risk}};
-    push(@{$rl->{$license->{id}}{$pid}}, $match->{file});
-    $report->{risks}{$license->{risk}} = $rl;
-    if ($license->{risk} == 9 && $num_expanded++ < $expanded_limit) {
+    my $rl = $report->{risks}{$pattern->{risk}};
+    push(@{$rl->{$pattern->{license_string}}{$pid}}, $match->{file});
+    $report->{risks}{$pattern->{risk}} = $rl;
+    if ($pattern->{license_string} eq '' && $num_expanded++ < $expanded_limit) {
       $report->{expanded}{$match->{file}} = 1;
     }
 
-    $pid_info->{$pid}
-      = {risk => $license->{risk}, name => $license->{name}, pid => $pid};
+    $pid_info->{$pid} = {
+      risk => $pattern->{risk},
+      name => $pattern->{license_string},
+      pid  => $pid
+    };
 
-    my $risk = $license->{risk};
+    my $risk = $pattern->{risk};
 
     for (my $i = $match->{sline} - 3; $i <= $match->{eline} + 3; $i++) {
       next if $i < 1;
@@ -274,10 +278,12 @@ sub _info_for_pattern {
   return {risk => 0} unless $pid;
 
   if (!defined $pid_info->{$pid}) {
-    my $match   = $self->_load_pattern_from_cache($db, $pid);
-    my $license = $self->_load_license_from_cache($db, $match->{license});
-    $pid_info->{$pid}
-      = {risk => $license->{risk}, name => $license->{name}, pid => $pid};
+    my $pattern   = $self->_load_pattern_from_cache($db, $pid);
+    $pid_info->{$pid} = {
+      risk => $pattern->{risk},
+      name => $pattern->{license_string},
+      pid  => $pid
+    };
   }
   return $pid_info->{$pid};
 }
@@ -311,13 +317,6 @@ sub _lines {
   }
 
   return \@lines;
-}
-
-sub _load_license_from_cache {
-  my ($self, $db, $lid) = @_;
-  $self->{license_cache}->{"license-$lid"}
-    ||= $db->select('licenses', '*', {id => $lid})->hash;
-  return $self->{license_cache}->{"license-$lid"};
 }
 
 sub _load_pattern_from_cache {
