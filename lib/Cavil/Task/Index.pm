@@ -36,7 +36,6 @@ sub _index {
 
   my $app     = $job->app;
   my $log     = $app->log;
-  my $i       = 1;
   my $dir     = $app->package_checkout_dir($id);
   my $batches = Cavil::Checkout->new($dir)
     ->unpacked_files($app->config->{index_bucket_average});
