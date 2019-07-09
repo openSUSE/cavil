@@ -45,6 +45,8 @@ sub run {
       $db->update(
         'license_patterns',
         {
+          # Careful: in migration 7 it's called license_string
+          # renamed to license in 10
           license_string => $p->{name},
           risk           => $p->{risk},
           eula           => $p->{eula},

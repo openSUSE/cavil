@@ -65,21 +65,21 @@ my $pkg_id = $t->app->packages->add(
 
 $t->app->patterns->expire_cache;
 $t->app->patterns->create(
-  pattern        => 'You may obtain a copy of the License at',
-  license_string => 'Apache-2.0'
+  pattern => 'You may obtain a copy of the License at',
+  license => 'Apache-2.0'
 );
 $t->app->patterns->create(
-  packname       => 'perl-Mojolicious',
-  pattern        => 'Licensed under the Apache License, Version 2.0',
-  license_string => 'Apache-2.0'
+  packname => 'perl-Mojolicious',
+  pattern  => 'Licensed under the Apache License, Version 2.0',
+  license  => 'Apache-2.0'
 );
 $t->app->patterns->create(
-  pattern        => 'License: Artistic-2.0',
-  license_string => 'Artistic-2.0'
+  pattern => 'License: Artistic-2.0',
+  license => 'Artistic-2.0'
 );
 $t->app->patterns->create(
-  pattern        => 'powerful web development toolkit',
-  license_string => 'SUSE-NotALicense'
+  pattern => 'powerful web development toolkit',
+  license => 'SUSE-NotALicense'
 );
 
 # keyword without license

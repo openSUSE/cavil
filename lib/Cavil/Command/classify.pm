@@ -19,7 +19,9 @@ use Mojo::Base 'Mojolicious::Command';
 has description => 'Start background jobs to classify snippets';
 has usage       => sub { shift->extract_usage };
 
-sub run { say shift->app->minion->enqueue('classify' => [] => { priority => 10 }) }
+sub run {
+  say shift->app->minion->enqueue('classify' => [] => {priority => 10});
+}
 
 1;
 

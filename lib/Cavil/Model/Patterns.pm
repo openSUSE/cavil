@@ -28,13 +28,13 @@ sub create {
   my $mid = $self->pg->db->insert(
     'license_patterns',
     {
-      pattern        => $args{pattern},
-      token_hexsum   => $self->checksum($args{pattern}),
-      packname       => $args{packname} // '',
-      patent         => $args{patent} // 0,
-      trademark      => $args{trademark} // 0,
-      opinion        => $args{opinion} // 0,
-      license_string => $args{license_string},
+      pattern      => $args{pattern},
+      token_hexsum => $self->checksum($args{pattern}),
+      packname     => $args{packname} // '',
+      patent       => $args{patent} // 0,
+      trademark    => $args{trademark} // 0,
+      opinion      => $args{opinion} // 0,
+      license      => $args{license},
     },
     {returning => 'id'}
   )->hash->{id};
@@ -113,9 +113,9 @@ sub checksum {
 }
 
 sub for_license {
-  my ($self, $license_string) = @_;
-  return $self->pg->db->select('license_patterns', '*',
-    {license_string => $license_string}, 'created')->hashes->to_array;
+  my ($self, $license) = @_;
+  return $self->pg->db->select('license_patterns', '*', {license => $license},
+    'created')->hashes->to_array;
 }
 
 sub remove {

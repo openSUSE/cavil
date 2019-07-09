@@ -56,9 +56,8 @@ sub new {
 }
 
 sub _calculate_keyword_dict {
-  my $self = shift;
-  my $patterns
-    = $self->db->select('license_patterns', 'id', {license_string => ''});
+  my $self     = shift;
+  my $patterns = $self->db->select('license_patterns', 'id', {license => ''});
   my %keyword_patterns;
   map { $keyword_patterns{$_->{id}} = 1 } @{$patterns->hashes};
   $self->keywords(\%keyword_patterns);

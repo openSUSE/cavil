@@ -161,23 +161,22 @@ sub _dig_report {
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
     ['file', 'sline', 'eline', 'classified', 'license'],
-    {
-      package               => $pkg->{id},
-    },
+    {package  => $pkg->{id},},
     {order_by => 'sline'}
   );
   my %file_snippets_to_ignore;
   my %file_snippets_to_show;
 
   for my $snip_row (@{$snippets->hashes}) {
-     if (!$snip_row->{license} && $snip_row->{classified}) {
-       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
-     } else {
-       _add_to_snippet_hash(\%file_snippets_to_show, $snip_row);
-     }
+    if (!$snip_row->{license} && $snip_row->{classified}) {
+      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
+    }
+    else {
+      _add_to_snippet_hash(\%file_snippets_to_show, $snip_row);
+    }
   }
 
-  $report->{missed_snippets} =  \%file_snippets_to_show;
+  $report->{missed_snippets} = \%file_snippets_to_show;
 
   my $expanded_limit = $self->max_expanded_files;
   my $num_expanded   = 0;
@@ -203,25 +202,21 @@ sub _dig_report {
     }
     next if $part_of_snippet;
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
-    next if $pattern->{license_string} eq '';
+    next if $pattern->{license} eq '';
 
-    $report->{licenses}{$pattern->{license_string}}
-      ||= {name => $pattern->{license_string}, risk => $pattern->{risk}};
-    $report->{licenses}{$pattern->{license_string}}{flaghash}{$_}
-      ||= $pattern->{$_}
+    $report->{licenses}{$pattern->{license}}
+      ||= {name => $pattern->{license}, risk => $pattern->{risk}};
+    $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
       for qw(patent trademark opinion);
     $report->{flags}{eula}    = 1 if $pattern->{eula};
     $report->{flags}{nonfree} = 1 if $pattern->{nonfree};
 
     my $rl = $report->{risks}{$pattern->{risk}};
-    push(@{$rl->{$pattern->{license_string}}{$pid}}, $match->{file});
+    push(@{$rl->{$pattern->{license}}{$pid}}, $match->{file});
     $report->{risks}{$pattern->{risk}} = $rl;
 
-    $pid_info->{$pid} = {
-      risk => $pattern->{risk},
-      name => $pattern->{license_string},
-      pid  => $pid
-    };
+    $pid_info->{$pid}
+      = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
 
     my $risk = $pattern->{risk};
 
@@ -293,12 +288,18 @@ sub _info_for_pattern {
   return {risk => 0} unless $pid;
 
   if (!defined $pid_info->{$pid}) {
+<<<<<<< HEAD
     my $pattern   = $self->_load_pattern_from_cache($db, $pid);
     $pid_info->{$pid} = {
       risk => $pattern->{risk},
       name => $pattern->{license_string},
       pid  => $pid
     };
+=======
+    my $pattern = $self->_load_pattern_from_cache($pid);
+    $pid_info->{$pid}
+      = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
+>>>>>>> fe2889a... Rename license_string back to license
   }
   return $pid_info->{$pid};
 }

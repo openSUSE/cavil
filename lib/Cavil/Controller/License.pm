@@ -34,12 +34,12 @@ sub create_pattern {
   my $license  = $self->licenses->find($id);
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    license_string => $license->{name},
-    packname       => $self->param('packname'),
-    pattern        => $pattern,
-    patent         => $self->param('patent'),
-    trademark      => $self->param('trademark'),
-    opinion        => $self->param('opinion')
+    license   => $license->{name},
+    packname  => $self->param('packname'),
+    pattern   => $pattern,
+    patent    => $self->param('patent'),
+    trademark => $self->param('trademark'),
+    opinion   => $self->param('opinion')
   );
   $patterns->expire_cache;
   $self->flash(success => 'Pattern has been created.');

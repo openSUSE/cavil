@@ -44,14 +44,14 @@ sub load {
     );
 
     $patterns->create(
-      pattern        => $_->{pattern},
-      patent         => $_->{patent},
-      trademark      => $_->{trademark},
-      opinion        => $_->{opinion},
-      license_string => $data->{name},
-      risk           => $data->{risk},
-      nonfree        => $data->{nonfree},
-      eula           => $data->{eula}
+      pattern   => $_->{pattern},
+      patent    => $_->{patent},
+      trademark => $_->{trademark},
+      opinion   => $_->{opinion},
+      license   => $data->{name},
+      risk      => $data->{risk},
+      nonfree   => $data->{nonfree},
+      eula      => $data->{eula}
     ) for @{$data->{patterns}};
   }
   $patterns->expire_cache;

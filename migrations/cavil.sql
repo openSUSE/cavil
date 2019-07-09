@@ -237,3 +237,9 @@ alter table license_patterns alter column license_string set not null;
 -- 9 down
 alter table license_patterns alter column license_string drop default;
 alter table license_patterns alter column license_string set null;
+
+-- 10 up
+alter table license_patterns rename column license_string to license;
+
+-- 10 down
+alter table license_patterns rename column license to license_string;
