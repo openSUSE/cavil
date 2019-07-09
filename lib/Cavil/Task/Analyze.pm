@@ -42,9 +42,13 @@ sub _analyze {
   # Free up memory
   undef $specfile;
 
-  my $db = $app->pg->db;
-  $db->update('bot_packages', {checksum    => $shortname},    {id      => $id});
-  $db->update('bot_reports',  {ldig_report => to_json($dig)}, {package => $id});
+  # Do not leak Postgres connections
+  {
+    my $db = $app->pg->db;
+    $db->update('bot_packages', {checksum => $shortname}, {id => $id});
+    $db->update('bot_reports', {ldig_report => to_json($dig)},
+      {package => $id});
+  }
 
   my $prio = $job->info->{priority};
   $app->minion->enqueue(

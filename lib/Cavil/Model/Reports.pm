@@ -39,7 +39,7 @@ sub dig_report {
     = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
   my %ignored_lines = map { $_->{hash} => 1 } $ignored->hashes->each;
 
-  my $report = $self->_dig_report({}, $pkg, \%ignored_lines);
+  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines);
 
   # prune match caches
   delete $report->{matches};
@@ -67,7 +67,7 @@ sub source_for {
     '.unpacked',           $file->{filename}
   );
   my %needed_lines = map { $_->[0] => $_->[1] } @$needed;
-  my $lines        = $self->_lines({}, $fn, \%needed_lines);
+  my $lines        = $self->_lines($db, {}, $fn, \%needed_lines);
 
   return {lines => $lines, name => $pkg->{name}};
 }
@@ -132,9 +132,7 @@ sub _check_ignores {
 }
 
 sub _dig_report {
-  my ($self, $pid_info, $pkg, $ignored_lines) = @_;
-
-  my $db = $self->pg->db;
+  my ($self, $db, $pid_info, $pkg, $ignored_lines) = @_;
 
   my $report = {};
   my $files
@@ -187,8 +185,8 @@ sub _dig_report {
       }
     }
     next if $part_of_snippet;
-    my $pattern = $self->_load_pattern_from_cache($pid);
-    my $license = $self->_load_license_from_cache($pattern->{license});
+    my $pattern = $self->_load_pattern_from_cache($db, $pid);
+    my $license = $self->_load_license_from_cache($db, $pattern->{license});
 
     $report->{licenses}{$license->{id}} ||= $license;
     $report->{licenses}{$license->{id}}{flaghash}{$_} ||= $pattern->{$_}
@@ -241,7 +239,7 @@ sub _dig_report {
       '.unpacked',         $report->{files}{$file}
     );
     $report->{lines}{$file}
-      = $self->_lines($pid_info, $fn, $report->{needed_lines}{$file});
+      = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file});
     $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore);
   }
 
@@ -252,7 +250,7 @@ sub _dig_report {
   }
 
   if (%matches_to_ignore) {
-    return $self->_dig_report($pid_info, $pkg, $ignored_lines);
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines);
   }
 
   my $emails = $db->select('emails', '*', {package => $pkg->{id}});
@@ -272,12 +270,12 @@ sub _dig_report {
 }
 
 sub _info_for_pattern {
-  my ($self, $pid_info, $pid) = @_;
+  my ($self, $db, $pid_info, $pid) = @_;
   return {risk => 0} unless $pid;
 
   if (!defined $pid_info->{$pid}) {
-    my $match   = $self->_load_pattern_from_cache($pid);
-    my $license = $self->_load_license_from_cache($match->{license});
+    my $match   = $self->_load_pattern_from_cache($db, $pid);
+    my $license = $self->_load_license_from_cache($db, $match->{license});
     $pid_info->{$pid}
       = {risk => $license->{risk}, name => $license->{name}, pid => $pid};
   }
@@ -285,7 +283,7 @@ sub _info_for_pattern {
 }
 
 sub _lines {
-  my ($self, $pid_info, $fn, $needed_lines) = @_;
+  my ($self, $db, $pid_info, $fn, $needed_lines) = @_;
 
   my @lines;
 
@@ -308,23 +306,24 @@ sub _lines {
       from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
-    push(@lines, [$index, $self->_info_for_pattern($pid_info, $pid), $line]);
+    push(@lines,
+      [$index, $self->_info_for_pattern($db, $pid_info, $pid), $line]);
   }
 
   return \@lines;
 }
 
 sub _load_license_from_cache {
-  my ($self, $lid) = @_;
+  my ($self, $db, $lid) = @_;
   $self->{license_cache}->{"license-$lid"}
-    ||= $self->pg->db->select('licenses', '*', {id => $lid})->hash;
+    ||= $db->select('licenses', '*', {id => $lid})->hash;
   return $self->{license_cache}->{"license-$lid"};
 }
 
 sub _load_pattern_from_cache {
-  my ($self, $pid) = @_;
+  my ($self, $db, $pid) = @_;
   $self->{license_cache}->{"pattern-$pid"}
-    ||= $self->pg->db->select('license_patterns', '*', {id => $pid})->hash;
+    ||= $db->select('license_patterns', '*', {id => $pid})->hash;
   return $self->{license_cache}->{"pattern-$pid"};
 }
 
