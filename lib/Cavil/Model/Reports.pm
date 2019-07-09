@@ -24,6 +24,9 @@ use Cavil::Checkout;
 
 has [qw(acceptable_risk checkout_dir max_expanded_files pg)];
 
+# we need a HUGE number because Spooky uses unsigned integers
+my $pattern_delta = 10000000000;
+
 sub cached_dig_report {
   my ($self, $id) = @_;
   return $self->pg->db->select('bot_reports', 'ldig_report', {package => $id})
@@ -99,6 +102,7 @@ sub _check_ignores {
   my $lastline = '';
   my @clines   = @{$report->{lines}{$file}};
   my $line     = shift @clines;
+  my $freport  = $report->{matches}{$file};
 
   while ($line || @clines) {
     if ($line->[1]{risk} == 9) {
@@ -115,8 +119,10 @@ sub _check_ignores {
       }
       my $hex = $ctx->hex;
       if (defined $ignored_lines->{$hex}) {
-        map { $matches_to_ignore->{$report->{matches}{$file}{$_->[0]}} = 1 }
-          @marks;
+        for my $m (@marks) {
+          next unless $freport->{$m->[0]};
+          $matches_to_ignore->{$freport->{$m->[0]}} = 1;
+        }
       }
       else {
         for my $m (@marks) {
@@ -186,6 +192,18 @@ sub _dig_report {
   for my $file (keys %file_snippets_to_show) {
     last if $num_expanded++ > $expanded_limit;
     $report->{expanded}{$file} = 1;
+    for my $snip_row (@{$file_snippets_to_show{$file}}) {
+      my ($sline, $eline) = @$snip_row;
+      for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
+        next if $i < 1;
+        if ($i >= $sline && $i <= $eline) {
+          $report->{needed_lines}{$file}{$i} = $pattern_delta + 1;
+        }
+        else {
+          $report->{needed_lines}{$file}{$i} = 0;
+        }
+      }
+    }
   }
 
   while (my $match = $matches->hash) {
@@ -196,7 +214,6 @@ sub _dig_report {
       my ($first_line, $last_line) = @$region;
       if ($match->{sline} >= $first_line && $match->{eline} <= $last_line) {
         $part_of_snippet = 1;
-        $matches_to_ignore{$match->{id}} = 1;
         last;
       }
     }
@@ -225,6 +242,7 @@ sub _dig_report {
       if ($i >= $match->{sline} && $i <= $match->{eline}) {
 
         my $opid = $report->{needed_lines}{$match->{file}}{$i} // 0;
+        next if $opid > $pattern_delta;
 
         # set the risk of the line
         # but make sure we do not lower the risk
@@ -288,18 +306,12 @@ sub _info_for_pattern {
   return {risk => 0} unless $pid;
 
   if (!defined $pid_info->{$pid}) {
-<<<<<<< HEAD
     my $pattern   = $self->_load_pattern_from_cache($db, $pid);
     $pid_info->{$pid} = {
       risk => $pattern->{risk},
-      name => $pattern->{license_string},
+      name => $pattern->{license},
       pid  => $pid
     };
-=======
-    my $pattern = $self->_load_pattern_from_cache($pid);
-    $pid_info->{$pid}
-      = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
->>>>>>> fe2889a... Rename license_string back to license
   }
   return $pid_info->{$pid};
 }
@@ -328,8 +340,23 @@ sub _lines {
       from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
-    push(@lines,
-      [$index, $self->_info_for_pattern($db, $pid_info, $pid), $line]);
+    if ($pid > $pattern_delta) {
+      push(
+        @lines,
+        [
+          $index,
+          {
+            risk => 9,
+            pid  => $pid - $pattern_delta,
+            name => 'Snippet of missing keywords'
+          },
+          $line
+        ]
+      );
+    }
+    else {
+      push(@lines, [$index, $self->_info_for_pattern($db, $pid_info, $pid), $line]);
+    }
   }
 
   return \@lines;

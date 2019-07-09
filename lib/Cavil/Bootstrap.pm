@@ -28,7 +28,7 @@ sub load {
   # Avoid adding the same data more than once
   my $licenses = $self->app->licenses;
   return undef
-    if $licenses->pg->db->select('licenses', 'id', {name => 'Low Risk Keyword'})
+    if $licenses->pg->db->select('licenses', 'id', {name => 'Apache-2.0'})
     ->hash;
 
   my $patterns = $self->app->patterns;
@@ -36,12 +36,12 @@ sub load {
   for my $file ($dir->list->sort->each) {
     my $data = decode_json $file->slurp;
 
-    my $id = $licenses->create(
+    $licenses->create(
       name    => $data->{name},
       risk    => $data->{risk},
       nonfree => $data->{nonfree},
       eula    => $data->{eula}
-    );
+    ) if $data->{name};
 
     $patterns->create(
       pattern   => $_->{pattern},

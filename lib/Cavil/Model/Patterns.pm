@@ -34,7 +34,10 @@ sub create {
       patent       => $args{patent} // 0,
       trademark    => $args{trademark} // 0,
       opinion      => $args{opinion} // 0,
-      license      => $args{license},
+      license      => $args{license} // '',
+      nonfree      => $args{nonfree} // 0,
+      eula         => $args{eula} // 0,
+      risk         => $args{risk} // 5
     },
     {returning => 'id'}
   )->hash->{id};
