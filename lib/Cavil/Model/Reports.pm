@@ -131,6 +131,16 @@ sub _check_ignores {
   }
 }
 
+sub _add_to_snippet_hash {
+  my ($file_snippets, $snip_row) = @_;
+
+  $file_snippets->{$snip_row->{file}} ||= [];
+  push(
+    @{$file_snippets->{$snip_row->{file}}},
+    [$snip_row->{sline}, $snip_row->{eline}]
+  );
+}
+
 sub _dig_report {
   my ($self, $db, $pid_info, $pkg, $ignored_lines) = @_;
 
@@ -150,33 +160,40 @@ sub _dig_report {
 
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
-    ['file', 'sline', 'eline'],
+    ['file', 'sline', 'eline', 'classified', 'license'],
     {
       package               => $pkg->{id},
-      'snippets.classified' => 1,
-      'snippets.license'    => 0
     },
     {order_by => 'sline'}
   );
-  my %file_snippets;
+  my %file_snippets_to_ignore;
+  my %file_snippets_to_show;
+
   for my $snip_row (@{$snippets->hashes}) {
-    $file_snippets{$snip_row->{file}} ||= [];
-    push(
-      @{$file_snippets{$snip_row->{file}}},
-      [$snip_row->{sline}, $snip_row->{eline}]
-    );
+     if (!$snip_row->{license} && $snip_row->{classified}) {
+       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
+     } else {
+       _add_to_snippet_hash(\%file_snippets_to_show, $snip_row);
+     }
   }
+
+  $report->{missed_snippets} =  \%file_snippets_to_show;
 
   my $expanded_limit = $self->max_expanded_files;
   my $num_expanded   = 0;
 
   my %matches_to_ignore;
 
+  for my $file (keys %file_snippets_to_show) {
+    last if $num_expanded++ > $expanded_limit;
+    $report->{expanded}{$file} = 1;
+  }
+
   while (my $match = $matches->hash) {
     my $pid = $match->{pattern};
 
     my $part_of_snippet;
-    for my $region (@{$file_snippets{$match->{file}}}) {
+    for my $region (@{$file_snippets_to_ignore{$match->{file}}}) {
       my ($first_line, $last_line) = @$region;
       if ($match->{sline} >= $first_line && $match->{eline} <= $last_line) {
         $part_of_snippet = 1;
@@ -186,6 +203,7 @@ sub _dig_report {
     }
     next if $part_of_snippet;
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
+    next if $pattern->{license_string} eq '';
 
     $report->{licenses}{$pattern->{license_string}}
       ||= {name => $pattern->{license_string}, risk => $pattern->{risk}};
@@ -198,9 +216,6 @@ sub _dig_report {
     my $rl = $report->{risks}{$pattern->{risk}};
     push(@{$rl->{$pattern->{license_string}}{$pid}}, $match->{file});
     $report->{risks}{$pattern->{risk}} = $rl;
-    if ($pattern->{license_string} eq '' && $num_expanded++ < $expanded_limit) {
-      $report->{expanded}{$match->{file}} = 1;
-    }
 
     $pid_info->{$pid} = {
       risk => $pattern->{risk},

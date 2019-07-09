@@ -278,6 +278,10 @@ sub _short_report {
   my $all   = $short->{all} = keys %$files;
   $full = 1 if $all < $min;
 
+  my $snippets_sum = 0;
+  map { $snippets_sum += @{$_} } values %{$report->{missed_snippets}};
+  $short->{missed_snippets} = $snippets_sum;
+
   # Files
   my $expanded = $report->{expanded};
   my $lines    = $report->{lines};

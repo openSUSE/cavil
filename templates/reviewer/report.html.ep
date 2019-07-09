@@ -17,6 +17,12 @@
 
   <canvas id="license-chart" width="100%" height="18em"></canvas>
 
+  % if ($report->{missed_snippets}) {
+    <div class="alert alert-warning" role="alert">
+      Found unmatched keywords in <span class="badge badge-secondary"><%= $report->{missed_snippets} %></span> places.
+      License report is incomplete
+    </div>
+  % }
   % my $risks = $report->{risks};
   % for my $risk (reverse sort keys %$risks) {
     <h3>Risk <%= $risk %></h3>

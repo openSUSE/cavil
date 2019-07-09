@@ -1,4 +1,4 @@
-# Copyright (C) 2018 SUSE Linux GmbH
+# Copyright (C) 2018,2019 SUSE Linux GmbH
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -141,6 +141,8 @@ sub _shortname {
   for my $risk (keys %{$report->{risks}}) {
     $max_risk = $risk if $risk > $max_risk;
   }
+  $max_risk = 9 if %{$report->{missed_snippets}};
+
   my $l = lic($specfile->{main}{license})->example;
   $l ||= 'Error';
 
