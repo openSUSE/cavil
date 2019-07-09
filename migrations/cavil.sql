@@ -220,26 +220,18 @@ drop index snippets_approved_idx if exists;
 alter table license_patterns add risk int not null default 5;
 alter table license_patterns add eula boolean not null default false;
 alter table license_patterns add nonfree boolean not null default false;
-
--- 7 down
-alter table license_patterns drop column risk, drop column eula, drop column nonfree;
-
--- 8 up
-alter table license_patterns drop column license;
-
--- 8 down
-alter table license_patterns add column license int not null references licenses (id);
-
--- 9 up
 alter table license_patterns alter column license_string set default '';
 alter table license_patterns alter column license_string set not null;
 
--- 9 down
+-- 7 down
+alter table license_patterns drop column risk, drop column eula, drop column nonfree;
 alter table license_patterns alter column license_string drop default;
 alter table license_patterns alter column license_string set null;
 
--- 10 up
+-- 8 up
+alter table license_patterns drop column license;
 alter table license_patterns rename column license_string to license;
 
--- 10 down
+-- 8 down
 alter table license_patterns rename column license to license_string;
+alter table license_patterns add column license int not null references licenses (id);
