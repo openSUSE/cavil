@@ -229,3 +229,11 @@ alter table license_patterns drop column license;
 
 -- 8 down
 alter table license_patterns add column license int not null references licenses (id);
+
+-- 9 up
+alter table license_patterns alter column license_string set default '';
+alter table license_patterns alter column license_string set not null;
+
+-- 9 down
+alter table license_patterns alter column license_string drop default;
+alter table license_patterns alter column license_string set null;

@@ -38,6 +38,9 @@ sub run {
       "select p.id,l.name,l.risk,l.eula,l.nonfree
          from license_patterns p join licenses l on p.license = l.id"
     )->hashes;
+    $p->{name} = '' if $p->{name} eq 'Low Risk Keyword';
+    $p->{name} = '' if $p->{name} eq 'Higher Risk Keyword';
+
     for my $p (@$patterns) {
       $db->update(
         'license_patterns',

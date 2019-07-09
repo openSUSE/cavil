@@ -84,10 +84,10 @@ sub _checksum {
   $canon_license ||= "Unknown";
   my $text = "RPM-License $canon_license\n";
 
-  for my $lid (sort { $a <=> $b } keys %{$report->{licenses}}) {
-    next if $report->{licenses}{$lid}{risk} == 0;
-    $text .= "LID:$lid";
-    for my $flag (@{$report->{licenses}{$lid}{flags}}) {
+  for my $license (sort { $a cmp $b } keys %{$report->{licenses}}) {
+    next if $report->{licenses}{$license}{risk} == 0;
+    $text .= "LIC:$license";
+    for my $flag (@{$report->{licenses}{$license}{flags}}) {
       $text .= ":$flag";
     }
     $text .= "\n";

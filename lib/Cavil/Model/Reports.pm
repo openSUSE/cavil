@@ -188,7 +188,7 @@ sub _dig_report {
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
 
     $report->{licenses}{$pattern->{license_string}}
-      ||= {name => $pattern->{license_string}};
+      ||= {name => $pattern->{license_string}, risk => $pattern->{risk}};
     $report->{licenses}{$pattern->{license_string}}{flaghash}{$_}
       ||= $pattern->{$_}
       for qw(patent trademark opinion);
