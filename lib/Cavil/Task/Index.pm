@@ -68,7 +68,6 @@ sub _index_batch {
   $app->plugins->emit_hook('before_task_index_batch');
 
   my $start = time;
-  my $db    = $app->pg->db;
 
   my $fi       = Cavil::FileIndexer->new($app, $id);
   my $preptime = time - $start;
@@ -80,6 +79,7 @@ sub _index_batch {
   }
 
   # URLs
+  my $db  = $app->pg->db;
   my $max = $app->config->{max_email_url_size};
   for my $url (sort keys %{$meta{urls}}) {
     next if length($url) > $max;
