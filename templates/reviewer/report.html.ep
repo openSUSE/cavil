@@ -17,7 +17,14 @@
 
   <canvas id="license-chart" width="100%" height="18em"></canvas>
 
+  % if ($report->{missed_snippets}) {
+    <div class="alert alert-warning" role="alert">
+      Found unmatched keywords in <span class="badge badge-secondary"><%= $report->{missed_snippets} %></span> places.
+      License report is incomplete
+    </div>
+  % }
   % my $risks = $report->{risks};
+  % my $license_counter = 0;
   % for my $risk (reverse sort keys %$risks) {
     <h3>Risk <%= $risk %></h3>
     % my $current = $risks->{$risk};
@@ -27,10 +34,10 @@
         % my $matches = $current->{$lic};
         % my $name = $matches->{name};
         % my $num = scalar @{$matches->{files}};
+        % $license_counter += 1;
         <li>
-          <a href="<%= url_for('license_show', id => $lic) %>" target="_">
-            <%= $name %></a>:
-          <a href="#filelist-<%= $lic %>" data-toggle="collapse">
+          <%= $name %>:
+          <a href="#filelist-<%= $license_counter %>" data-toggle="collapse">
             <%= $num %> files
           </a>
           % if (my @flags = @{$matches->{flags}}) {
@@ -39,7 +46,7 @@
             </p>
           % }
           % my $listclass = $num > 3 ? 'collapse' : 'collapse in';
-          <div id="filelist-<%= $lic %>" class="<%= $listclass %>">
+          <div id="filelist-<%= $license_counter %>" class="<%= $listclass %>">
             <ul>
             % for my $file (@{$matches->{files}}) {
               % my ($id, $name, $expand) = @$file;

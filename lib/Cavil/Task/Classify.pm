@@ -35,12 +35,6 @@ sub _classify {
   my $results = $db->select('snippets', ['id', 'text'], {classified => 0});
   while (my $next = $results->hash) {
     my $res = $classifier->classify($next->{text});
-    if ($res->{license}) {
-      say "$next->{id} license with confidence $res->{confidence}";
-    }
-    else {
-      say "$next->{id} not a license with confidence $res->{confidence}";
-    }
     $db->update(
       'snippets',
       {

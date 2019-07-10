@@ -37,8 +37,8 @@ my $t = Test::Mojo->new(Cavil => $config);
 $t->app->pg->migrations->migrate;
 
 # Prepare database
-my $db = $t->app->pg->db;
-my $pkgs   = $t->app->packages;
+my $db   = $t->app->pg->db;
+my $pkgs = $t->app->packages;
 
 # Basic search with suggestion
 $t->get_ok('/snippets')->status_is(200)
@@ -47,26 +47,28 @@ $t->get_ok('/snippets')->status_is(200)
 my $id = $t->app->snippets->find_or_create('0000', 'Licenses are cool');
 $t->get_ok('/snippets')->status_is(200)
   ->content_unlike(qr/No snippets left/, 'snippets to check');
-$t->get_ok('/snippets')->status_is(200)
-  ->element_exists("#good_$id")
+$t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")
   ->element_exists("input[name=g_$id][value='0']")
   ->element_exists_not('input[type="submit"]');
 
-$t->post_ok('/snippets' => form => { "g_$id" => 0 })->status_is(403);
+$t->post_ok('/snippets' => form => {"g_$id" => 0})->status_is(403);
 
 # now test with login
 $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-$t->get_ok('/snippets')->status_is(200)
-  ->element_exists("#good_$id")
+$t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")
   ->element_exists("input[name=g_$id][value='0']")
   ->element_exists('input[type="submit"]');
-$t->post_ok('/snippets' => form => { "g_$id" => 0 })
-  ->status_is(302)->header_is(Location => '/snippets');
+$t->post_ok('/snippets' => form => {"g_$id" => 0})->status_is(302)
+  ->header_is(Location => '/snippets');
 $t->get_ok('/snippets')->status_is(200)
-   ->content_like(qr/No snippets left/, 'All done');
+  ->content_like(qr/No snippets left/, 'All done');
 
 my $res = $db->select('snippets', [qw(classified approved license)])->hash;
-is_deeply($res, {classified => 1, approved => 1, license => 0}, 'all fields updated');
+is_deeply(
+  $res,
+  {classified => 1, approved => 1, license => 0},
+  'all fields updated'
+);
 
 # Clean up once we are done
 $pg->db->query('drop schema bot_snippet_test cascade');

@@ -92,8 +92,11 @@ my $three_id = $t->app->packages->add(
 my $product_id = $t->app->products->find_or_create('Cpan')->{id};
 
 $t->app->patterns->expire_cache;
-my $lic_id = $t->app->licenses->create(name => 'Artistic-2.0', risk => 2);
-$t->app->patterns->create($lic_id, pattern => 'The Artistic License 2.0');
+$t->app->patterns->create(
+  pattern => 'The Artistic License 2.0',
+  license => "Artistic-2.0",
+  risk    => 2
+);
 
 # Unpack and index with the job queue
 $t->app->minion->enqueue(unpack => [$_]) for ($one_id, $two_id, $three_id);

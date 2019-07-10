@@ -23,19 +23,21 @@ use Storable;
 has [qw(cache log pg)];
 
 sub create {
-  my ($self, $id, %args) = @_;
+  my ($self, %args) = @_;
 
   my $mid = $self->pg->db->insert(
     'license_patterns',
     {
-      license        => $id,
-      pattern        => $args{pattern},
-      token_hexsum   => $self->checksum($args{pattern}),
-      packname       => $args{packname} // '',
-      patent         => $args{patent} // 0,
-      trademark      => $args{trademark} // 0,
-      opinion        => $args{opinion} // 0,
-      license_string => $args{license_string},
+      pattern      => $args{pattern},
+      token_hexsum => $self->checksum($args{pattern}),
+      packname     => $args{packname} // '',
+      patent       => $args{patent} // 0,
+      trademark    => $args{trademark} // 0,
+      opinion      => $args{opinion} // 0,
+      license      => $args{license} // '',
+      nonfree      => $args{nonfree} // 0,
+      eula         => $args{eula} // 0,
+      risk         => $args{risk} // 5
     },
     {returning => 'id'}
   )->hash->{id};
@@ -87,6 +89,10 @@ sub load_unspecific {
   rename $tmp, $cachefile;
 }
 
+sub all {
+  return shift->pg->db->select('license_patterns', '*')->hashes;
+}
+
 sub find {
   my ($self, $id) = @_;
   return $self->pg->db->select('license_patterns', '*', {id => $id})->hash;
@@ -110,8 +116,8 @@ sub checksum {
 }
 
 sub for_license {
-  my ($self, $id) = @_;
-  return $self->pg->db->select('license_patterns', '*', {license => $id},
+  my ($self, $license) = @_;
+  return $self->pg->db->select('license_patterns', '*', {license => $license},
     'created')->hashes->to_array;
 }
 

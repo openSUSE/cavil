@@ -31,9 +31,10 @@ sub create_pattern {
   my $id      = $self->param('license');
   my $pattern = $self->param('pattern');
 
+  my $license  = $self->licenses->find($id);
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    $id,
+    license   => $license->{name},
     packname  => $self->param('packname'),
     pattern   => $pattern,
     patent    => $self->param('patent'),
@@ -54,7 +55,7 @@ sub edit_pattern {
 
   my $best;
   my $min = 10000;
-  for my $p (@{$self->patterns->for_license($pattern->{license})}) {
+  for my $p (@{$self->patterns->all}) {
     next if $p->{id} == $pattern->{id};
     my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
     my $d  = Spooky::Patterns::XS::distance($p1, $p2);
@@ -94,13 +95,10 @@ sub list {
 sub new_pattern {
   my $self = shift;
 
-  my $lname    = $self->param('license-name');
-  my $lid      = $self->param('license-id');
-  my $licenses = $self->licenses;
-  $lid ||= $licenses->try_to_match_license($lname);
+  my $lname = $self->param('license-name');
   $self->stash('diff',      undef);
   $self->stash('next_best', 0);
-  return $self->_edit_pattern({license => $lid});
+  return $self->_edit_pattern({license => $lname});
 }
 
 # AJAX route
@@ -119,10 +117,12 @@ sub remove_pattern {
 sub show {
   my $self = shift;
 
-  my $id = $self->param('id');
+  my $id  = $self->param('id');
+  my $lic = $self->licenses->find($id);
+  die "No such licence" unless $lic;
   $self->render(
-    license  => $self->licenses->find($id),
-    patterns => $self->patterns->for_license($id)
+    license  => $lic,
+    patterns => $self->patterns->for_license($lic->{name})
   );
 }
 
@@ -164,29 +164,14 @@ sub update_pattern {
   $match = $patterns->find($id);
   $self->flash(
     success => 'Pattern has been updated, reindexing all affected packages.');
-  $self->redirect_to('license_show', id => $match->{license});
+  my $lic_id = $self->licenses->try_to_match_license($match->{license});
+  $self->redirect_to('license_show', id => $lic_id);
 }
 
 sub _edit_pattern {
   my ($self, $match) = @_;
 
-  my $license_id = $self->param('license_id') || $match->{license};
-
-  $self->{licenses} ||= $self->licenses->all;
-  my @licenses;
-  for my $lic (sort { lc($a->{name}) cmp lc($b->{name}) } @{$self->{licenses}})
-  {
-    my $val = [$lic->{name} => $lic->{id}];
-    if ($lic->{id} == $license_id) {
-      push(@$val, (selected => 'selected'));
-    }
-    push(@licenses, $val);
-  }
-  $self->render(
-    template => 'license/edit_pattern',
-    match    => $match,
-    licenses => \@licenses
-  );
+  $self->render(template => 'license/edit_pattern', match => $match);
 }
 
 1;
