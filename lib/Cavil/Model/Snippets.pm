@@ -20,6 +20,12 @@ use Mojo::File 'path';
 
 has [qw(pg)];
 
+sub find {
+  my ($self, $id) = @_;
+
+  return $self->pg->db->select('snippets', '*', {id => $id})->hash;
+}
+
 sub find_or_create {
   my ($self, $hash, $text) = @_;
 

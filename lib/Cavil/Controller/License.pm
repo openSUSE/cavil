@@ -28,15 +28,17 @@ sub create {
 sub create_pattern {
   my $self = shift;
 
-  my $id      = $self->param('license');
+  my $license = $self->param('license');
   my $pattern = $self->param('pattern');
 
-  my $license  = $self->licenses->find($id);
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    license   => $license->{name},
+    license   => $license,
     packname  => $self->param('packname'),
     pattern   => $pattern,
+    risk      => $self->param('risk'),
+    eula      => $self->param('eula'),
+    nonfree   => $self->param('nonfree'),
     patent    => $self->param('patent'),
     trademark => $self->param('trademark'),
     opinion   => $self->param('opinion')
@@ -79,7 +81,7 @@ sub edit_pattern {
       push(@$row, $line);
     }
     $self->stash('diff',      $diff);
-    $self->stash('next_best', $best->{id});
+    $self->stash('next_best', $best);
   }
   else {
     $self->stash('next_best', undef);
@@ -147,7 +149,6 @@ sub update_pattern {
 
   my $id       = $self->param('id');
   my $patterns = $self->patterns;
-  my $match    = $patterns->find($id);
 
   # expire old license pattern
   $patterns->expire_cache;
@@ -158,14 +159,13 @@ sub update_pattern {
     license   => $self->param('license'),
     patent    => $self->param('patent'),
     trademark => $self->param('trademark'),
-    opinion   => $self->param('opinion')
+    opinion   => $self->param('opinion'),
+    risk      => $self->param('risk')
   );
   $self->packages->mark_matched_for_reindex($id);
-  $match = $patterns->find($id);
   $self->flash(
     success => 'Pattern has been updated, reindexing all affected packages.');
-  my $lic_id = $self->licenses->try_to_match_license($match->{license});
-  $self->redirect_to('license_show', id => $lic_id);
+  $self->redirect_to('edit_pattern', id => $id);
 }
 
 sub _edit_pattern {

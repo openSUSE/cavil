@@ -270,6 +270,7 @@ sub startup {
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
   $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
+  $manager->get('/snippet/edit/:id')->to('Snippet#edit')->name('edit_snippet');
 }
 
 1;

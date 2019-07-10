@@ -138,7 +138,10 @@ sub update {
       license      => $args{license},
       patent       => $args{patent} // 0,
       trademark    => $args{trademark} // 0,
-      opinion      => $args{opinion} // 0
+      opinion      => $args{opinion} // 0,
+      risk         => $args{risk} // 5,
+      eula         => $args{eula} // 0,
+      nonfree      => $args{nonfree} // 0
     },
     {id => $id}
   );

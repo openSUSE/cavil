@@ -40,4 +40,27 @@ sub update {
   $self->redirect_to('snippets');
 }
 
+sub edit {
+  my $self = shift;
+
+  my $id      = $self->param('id');
+  my $snippet = $self->snippets->find($id);
+
+  Spooky::Patterns::XS::init_matcher();
+  my $p1 = Spooky::Patterns::XS::normalize($snippet->{text});
+
+  my $best;
+  my $min = 10000;
+  for my $p (@{$self->patterns->all}) {
+    my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
+    my $d  = Spooky::Patterns::XS::distance($p1, $p2);
+    if ($min > $d) {
+      $min  = $d;
+      $best = $p;
+    }
+  }
+
+  $self->render(snippet => $snippet, best => $best);
+}
+
 1;

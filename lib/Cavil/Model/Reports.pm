@@ -143,7 +143,7 @@ sub _add_to_snippet_hash {
   $file_snippets->{$snip_row->{file}} ||= [];
   push(
     @{$file_snippets->{$snip_row->{file}}},
-    [$snip_row->{sline}, $snip_row->{eline}]
+    [$snip_row->{sline}, $snip_row->{eline}, $snip_row->{id}]
   );
 }
 
@@ -166,7 +166,7 @@ sub _dig_report {
 
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
-    ['file', 'sline', 'eline', 'classified', 'license'],
+    ['snippets.id', 'file', 'sline', 'eline', 'classified', 'license'],
     {package  => $pkg->{id},},
     {order_by => 'sline'}
   );
@@ -191,13 +191,15 @@ sub _dig_report {
 
   for my $file (keys %file_snippets_to_show) {
     last if $num_expanded++ > $expanded_limit;
+
     $report->{expanded}{$file} = 1;
     for my $snip_row (@{$file_snippets_to_show{$file}}) {
-      my ($sline, $eline) = @$snip_row;
+      my ($sline, $eline, $id) = @$snip_row;
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;
         if ($i >= $sline && $i <= $eline) {
-          $report->{needed_lines}{$file}{$i} = $pattern_delta + 1;
+          $report->{needed_lines}{$file}{$i} = $pattern_delta + $id;
+          $report->{snippets}{$file}{$i}     = $id;
         }
         else {
           $report->{needed_lines}{$file}{$i} = 0;
@@ -343,9 +345,9 @@ sub _lines {
         [
           $index,
           {
-            risk => 9,
-            pid  => $pid - $pattern_delta,
-            name => 'Snippet of missing keywords'
+            risk    => 9,
+            snippet => $pid - $pattern_delta,
+            name    => 'Snippet of missing keywords'
           },
           $line
         ]

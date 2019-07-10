@@ -1,0 +1,60 @@
+% layout 'default', title => "Edit snippet";
+
+%= form_for url_for('create_pattern') => (method => 'POST') => begin
+  <div class="form-group">
+    <label for="pattern">License</label>
+    %= text_field license => $best->{license}, class => 'form-control'
+  </div>
+
+  <div class="form-group">
+    <label for="pattern">Pattern</label>
+    <%= text_area pattern => $snippet->{text},
+      class => 'mono-textarea form-control', rows => 20 %>
+  </div>
+
+  <div class="row form-inline">
+    <div class="form-group col-sm-3">
+        <label for="risk" class="mr-2">Risk</label>
+        % my @risks;
+        % for my $r (0..6) {
+            % if ($r == $best->{risk}) { push(@risks, [ $r => $r, selected => 'selected' ]) } else { push(@risks, $r); }
+        % }
+        %= select_field risk => \@risks, class => 'form-control'
+    </div>
+
+    <div class="col-sm-3">
+      <div class="checkbox-inline">
+        <label>
+          <%= check_box patent => 1,
+            $best->{patent} ? (checked => undef) : () %>
+          Patent
+        </label>
+      </div>
+    </div>
+    <div class="col-sm-3">
+      <div class="checkbox-inline">
+        <label>
+          <%= check_box trademark => 1,
+            $best->{trademark} ? (checked => undef) : () %> Trademark
+        </label>
+      </div>
+    </div>
+    <div class="col-sm-3">
+      <div class="checkbox-inline">
+        <label>
+          <%= check_box opinion => 1,
+            $best->{opinion} ? (checked => undef) : () %> Opinion
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    %= submit_button 'Create Pattern', class => 'btn btn-primary'
+  <div>
+%end
+
+Closest <%= link_to 'pattern' => url_for('edit_pattern', id => $best->{id}) %>:
+<p>
+  <pre class='license license-1'><%= $best->{pattern} %></pre>
+</p>

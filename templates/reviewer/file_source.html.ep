@@ -32,7 +32,7 @@
             <td class="actions"></td>
           % }
           <td class='linenumber'><%= $line->[0] %></td>
-          <td class="code" data-snippet="<%= $snippet %>"
+          <td class="code" data-snippet-id="<%= $line->[1]->{snippet} %>" data-snippet="<%= $snippet %>"
             data-pid="<%= $line->[1]->{pid} %>"><%= $line->[2] %></td>
           % $last = $line->[0];
         </tr>
