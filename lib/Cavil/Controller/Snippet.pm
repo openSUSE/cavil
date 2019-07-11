@@ -15,6 +15,8 @@
 
 package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller';
+use Mojo::JSON 'decode_json';
+use Cavil::Text 'closest_pattern';
 
 sub list {
   my $self = shift;
@@ -47,18 +49,12 @@ sub edit {
   my $snippet = $self->snippets->find($id);
 
   Spooky::Patterns::XS::init_matcher();
-  my $p1 = Spooky::Patterns::XS::normalize($snippet->{text});
 
-  my $best;
-  my $min = 10000;
-  for my $p (@{$self->patterns->all}) {
-    my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
-    my $d  = Spooky::Patterns::XS::distance($p1, $p2);
-    if ($min > $d) {
-      $min  = $d;
-      $best = $p;
-    }
-  }
+  my $cache = $self->app->home->child('cache', 'cavil.pattern.words');
+  my $data  = decode_json $cache->slurp;
+
+  my $best = closest_pattern($snippet->{text}, undef, $data);
+  $best = $self->patterns->find($best->{id});
 
   $self->render(snippet => $snippet, best => $best);
 }

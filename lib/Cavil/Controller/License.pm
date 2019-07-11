@@ -16,6 +16,8 @@
 package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller';
 use Algorithm::Diff 'sdiff';
+use Mojo::JSON 'decode_json';
+use Cavil::Text 'closest_pattern';
 
 sub create {
   my $self       = shift;
@@ -53,21 +55,18 @@ sub edit_pattern {
   my $id      = $self->param('id');
   my $pattern = $self->patterns->find($id);
   Spooky::Patterns::XS::init_matcher();
+
+  my $cache = $self->app->home->child('cache', 'cavil.pattern.words');
+  my $data  = decode_json $cache->slurp;
+
   my $p1 = Spooky::Patterns::XS::normalize($pattern->{pattern});
 
-  my $best;
-  my $min = 10000;
-  for my $p (@{$self->patterns->all}) {
-    next if $p->{id} == $pattern->{id};
-    my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
-    my $d  = Spooky::Patterns::XS::distance($p1, $p2);
-    if ($min > $d) {
-      $min  = $d;
-      $best = $p;
-    }
-  }
-  if ($best) {
-    my $p2     = Spooky::Patterns::XS::normalize($best->{pattern});
+  my $best = closest_pattern($pattern->{pattern}, $pattern->{id}, $data);
+  $best = $self->patterns->find($best->{id});
+
+  $self->stash('diff', undef);
+   if ($best) {
+   my $p2     = Spooky::Patterns::XS::normalize($best->{pattern});
     my @words1 = map { $_->[1] } @$p1;
     my @words2 = map { $_->[1] } @$p2;
     my $diff   = sdiff(\@words1, \@words2);
@@ -86,6 +85,7 @@ sub edit_pattern {
   else {
     $self->stash('next_best', undef);
   }
+
   return $self->_edit_pattern($pattern);
 }
 
