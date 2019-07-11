@@ -119,6 +119,7 @@ sub startup {
   $self->plugin('Cavil::Task::Index');
   $self->plugin('Cavil::Task::Analyze');
   $self->plugin('Cavil::Task::Cleanup');
+  $self->plugin('Cavil::Task::ClosestMatch');
 
   $self->plugin('Cavil::Plugin::Linux');
   $self->plugin('Cavil::Plugin::Compression');
