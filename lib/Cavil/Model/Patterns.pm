@@ -42,6 +42,8 @@ sub create {
     {returning => 'id'}
   )->hash->{id};
 
+  $self->expire_cache;
+
   return $self->find($mid);
 }
 

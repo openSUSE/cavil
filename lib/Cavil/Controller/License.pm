@@ -45,7 +45,6 @@ sub create_pattern {
     trademark => $self->param('trademark'),
     opinion   => $self->param('opinion')
   );
-  $patterns->expire_cache;
   $self->flash(success => 'Pattern has been created.');
   $self->redirect_to('edit_pattern', id => $match->{id});
 }

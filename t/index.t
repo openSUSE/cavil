@@ -65,7 +65,6 @@ my $pkg_id = $t->app->packages->add(
 
 $t->app->licenses->create(name => 'Apache-2.0');
 $t->app->licenses->create(name => 'Artistic-2.0');
-$t->app->patterns->expire_cache;
 $t->app->patterns->create(
   pattern => 'You may obtain a copy of the License at',
   license => 'Apache-2.0'
