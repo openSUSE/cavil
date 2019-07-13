@@ -1,6 +1,6 @@
 %= t h4 => begin
     Diff against closest
-    %= link_to "pattern ($next_best->{license})" => url_for('edit_pattern', id => $next_best->{id})
+    %= link_to "pattern ($similarity%: $next_best->{license})" => url_for('edit_pattern', id => $next_best->{id})
 % end
 
 % my $lastline = 1;

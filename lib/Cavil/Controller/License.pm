@@ -61,7 +61,7 @@ sub edit_pattern {
 
   my $p1 = Spooky::Patterns::XS::normalize($pattern->{pattern});
 
-  my $best = closest_pattern($pattern->{pattern}, $pattern->{id}, $data);
+  my ($best, $sim) = closest_pattern($pattern->{pattern}, $pattern->{id}, $data);
   $best = $self->patterns->find($best->{id});
 
   $self->stash('diff', undef);
@@ -81,6 +81,7 @@ sub edit_pattern {
     }
     $self->stash('diff',      $diff);
     $self->stash('next_best', $best);
+    $self->stash('similarity', int($sim * 1000 + 0.5) / 10);
   }
   else {
     $self->stash('next_best', undef);

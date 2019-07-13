@@ -53,10 +53,10 @@ sub edit {
   my $cache = $self->app->home->child('cache', 'cavil.pattern.words');
   my $data  = decode_json $cache->slurp;
 
-  my $best = closest_pattern($snippet->{text}, undef, $data);
+  my ($best, $sim) = closest_pattern($snippet->{text}, undef, $data);
   $best = $self->patterns->find($best->{id});
 
-  $self->render(snippet => $snippet, best => $best);
+  $self->render(snippet => $snippet, best => $best, similarity => int($sim * 1000 + 0.5) / 10);
 }
 
 1;

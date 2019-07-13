@@ -51,10 +51,10 @@
 
   <div>
     %= submit_button 'Create Pattern', class => 'btn btn-primary'
-  <div>
+  </div>
 %end
 
-Closest <%= link_to 'pattern' => url_for('edit_pattern', id => $best->{id}) %>:
+Closest <%= link_to "pattern ($similarity%)" => url_for('edit_pattern', id => $best->{id}) %>:
 <p>
   <pre class='license license-1'><%= $best->{pattern} %></pre>
 </p>

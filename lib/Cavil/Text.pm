@@ -55,8 +55,7 @@ sub closest_pattern {
   my ($sum, $array)
     = calculate_tfdifs(wordcount($text), $data->{words}, $data->{idfs});
 
-  my $best_pattern
-    = _find_best_pattern(
+  return _find_best_pattern(
     {square_sum => $sum, tfidfs_array => $array, id => $id},
     $data->{patterns});
 }
@@ -103,5 +102,5 @@ sub _find_best_pattern {
       $best_pattern = $hash;
     }
   }
-  return $best_pattern;
+  return ($best_pattern, $best / $template->{square_sum});
 }
