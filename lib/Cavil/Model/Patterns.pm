@@ -20,16 +20,24 @@ use Mojo::File 'path';
 use Spooky::Patterns::XS;
 use Storable;
 
-has [qw(cache log pg)];
+has [qw(cache log pg minion)];
 
 sub create {
   my ($self, %args) = @_;
 
-  my $mid = $self->pg->db->insert(
+  my $db       = $self->pg->db;
+  my $checksum = $self->checksum($args{pattern});
+  my $id
+    = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
+  if ($id) {
+    return {conflict => $id->{id}};
+  }
+
+  my $mid = $db->insert(
     'license_patterns',
     {
       pattern      => $args{pattern},
-      token_hexsum => $self->checksum($args{pattern}),
+      token_hexsum => $checksum,
       packname     => $args{packname} // '',
       patent       => $args{patent} // 0,
       trademark    => $args{trademark} // 0,
@@ -43,6 +51,9 @@ sub create {
   )->hash->{id};
 
   $self->expire_cache;
+
+  # reclculate the tf-idfs
+  $self->minion->enqueue(pattern_stats => [] => {priority => 9});
 
   return $self->find($mid);
 }

@@ -173,6 +173,7 @@ sub startup {
       state $patterns = Cavil::Model::Patterns->new(
         cache => $cache,
         pg    => $self->pg,
+        minion => $self->minion,
         log   => $self->app->log
       );
     }

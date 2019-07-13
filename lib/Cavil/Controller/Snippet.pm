@@ -63,33 +63,73 @@ sub edit {
   );
 }
 
+sub _render_conflict {
+  my ($self, $id) = @_;
+  my $conflicting_pattern = $self->patterns->find($id);
+  say Mojo::Util::dumper $conflicting_pattern;
+  $self->stash('conflicting_pattern', $conflicting_pattern);
+  $self->stash('pattern_text',        $self->param('pattern'));
+  $self->render(template => 'snippet/conflict');
+
+}
+
+sub _create_pattern {
+  my ($self, $packages) = @_;
+
+  my $pattern = $self->patterns->create(
+    license => $self->param('license'),
+    pattern => $self->param('pattern'),
+    risk    => $self->param('risk'),
+
+    # TODO: those checkboxes aren't yet taken over
+    eula      => $self->param('eula'),
+    nonfree   => $self->param('nonfree'),
+    patent    => $self->param('patent'),
+    trademark => $self->param('trademark'),
+    opinion   => $self->param('opinion')
+  );
+  if ($pattern->{conflict}) {
+    return $self->_render_conflict($pattern->{conflict});
+  }
+  $self->flash(success => 'Pattern has been created.');
+  $self->stash(pattern => $pattern);
+
+  for my $pkg (@$packages) {
+    my $pkg = $db->update(
+      'bot_packages',
+      {indexed => undef, checksum => undef},
+      {id => $pkg->{package}, '-not_bool' => 'obsolete', indexed => undef},
+      {returning => 'id'}
+    )->hash;
+    next unless $pkg;
+    $db->delete('bot_reports', {package => $pkg->{id}});
+    $self->packages->index($pkg->{id}, 7);
+  }
+  return undef;
+}
+
 # proxy function
 sub decision {
   my $self = shift;
 
   my $db = $self->pg->db;
 
-  if ($self->param('create-pattern')) {
-    my $match = $self->patterns->create(
-      license => $self->param('license'),
-      pattern => $self->param('pattern'),
-      risk    => $self->param('risk'),
+  my $packages
+    = $db->query('select distinct package from file_snippets where snippet=?',
+    $self->param('id'))->hashes;
 
-      # TODO: those checkboxes aren't yet taken over
-      eula      => $self->param('eula'),
-      nonfree   => $self->param('nonfree'),
-      patent    => $self->param('patent'),
-      trademark => $self->param('trademark'),
-      opinion   => $self->param('opinion')
-    );
-    $self->flash(success => 'Pattern has been created.');
-    $self->redirect_to('edit_pattern', id => $match->{id});
-    return;
+  if ($self->param('create-pattern')) {
+    $self->_create_pattern($packages);
   }
   elsif ($self->param('mark-non-license')) {
-    $self->snippets->mark_non_license($self->params('id'));
+    $self->stash(pattern => undef);
+    $self->snippets->mark_non_license($self->param('id'));
+    for my $pkg (@$packages) {
+      $self->packages->analyze($pkg->{package}, 7);
+    }
   }
-  $self->render(text => 'ok');
+  $packages = [map { $self->packages->find($_->{package}) } @$packages];
+  $self->render(packages => $packages);
 }
 
 1;
