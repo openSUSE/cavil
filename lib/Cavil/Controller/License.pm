@@ -65,8 +65,8 @@ sub edit_pattern {
   $best = $self->patterns->find($best->{id});
 
   $self->stash('diff', undef);
-   if ($best) {
-   my $p2     = Spooky::Patterns::XS::normalize($best->{pattern});
+  if ($best) {
+    my $p2     = Spooky::Patterns::XS::normalize($best->{pattern});
     my @words1 = map { $_->[1] } @$p1;
     my @words2 = map { $_->[1] } @$p2;
     my $diff   = sdiff(\@words1, \@words2);
@@ -163,6 +163,7 @@ sub update_pattern {
     risk      => $self->param('risk')
   );
   $self->packages->mark_matched_for_reindex($id);
+  $self->app->minion->enqueue(pattern_stats => [] => {priority => 9});
   $self->flash(
     success => 'Pattern has been updated, reindexing all affected packages.');
   $self->redirect_to('edit_pattern', id => $id);
