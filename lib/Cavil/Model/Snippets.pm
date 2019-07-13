@@ -51,4 +51,12 @@ sub random {
   )->hashes;
 }
 
+sub mark_non_license {
+  my ($self, $id) = @_;
+  $self->pg->db->update(
+    'snippets',
+    {license => 0, approved => 1, classified => 1},
+    {id      => $id}
+  );
+}
 1;

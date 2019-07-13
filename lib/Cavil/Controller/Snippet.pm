@@ -56,7 +56,40 @@ sub edit {
   my ($best, $sim) = closest_pattern($snippet->{text}, undef, $data);
   $best = $self->patterns->find($best->{id});
 
-  $self->render(snippet => $snippet, best => $best, similarity => int($sim * 1000 + 0.5) / 10);
+  $self->render(
+    snippet    => $snippet,
+    best       => $best,
+    similarity => int($sim * 1000 + 0.5) / 10
+  );
+}
+
+# proxy function
+sub decision {
+  my $self = shift;
+
+  my $db = $self->pg->db;
+
+  if ($self->param('create-pattern')) {
+    my $match = $self->patterns->create(
+      license => $self->param('license'),
+      pattern => $self->param('pattern'),
+      risk    => $self->param('risk'),
+
+      # TODO: those checkboxes aren't yet taken over
+      eula      => $self->param('eula'),
+      nonfree   => $self->param('nonfree'),
+      patent    => $self->param('patent'),
+      trademark => $self->param('trademark'),
+      opinion   => $self->param('opinion')
+    );
+    $self->flash(success => 'Pattern has been created.');
+    $self->redirect_to('edit_pattern', id => $match->{id});
+    return;
+  }
+  elsif ($self->param('mark-non-license')) {
+    $self->snippets->mark_non_license($self->params('id'));
+  }
+  $self->render(text => 'ok');
 }
 
 1;
