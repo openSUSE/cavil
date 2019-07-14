@@ -97,7 +97,9 @@ sub specfile_report {
 }
 
 sub _check_ignores {
-  my ($self, $report, $file, $ignored_lines, $matches_to_ignore) = @_;
+  my ($self, $report, $file, $ignored_lines, $matches_to_ignore,
+    $snippets_to_remove)
+    = @_;
 
   my $lastline = '';
   my @clines   = @{$report->{lines}{$file}};
@@ -106,20 +108,35 @@ sub _check_ignores {
 
   while ($line || @clines) {
     if ($line->[1]{risk} == 9) {
+      my $hex;
       my @marks;
       push(@marks, $line);
-      my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
-      $ctx->add("$lastline\n");
-      $ctx->add("$line->[2]\n");
-      while ($line = shift @clines) {
-        $lastline = $line->[2];
-        $ctx->add("$lastline\n");
-        last if $line->[1]{risk} != 9;
-        push(@marks, $line);
+      if ($line->[1]->{snippet}) {
+        $hex = $report->{snippets}{$file}{$line->[1]->{snippet}};
+        if (defined $ignored_lines->{$hex}) {
+          $snippets_to_remove->{$line->[1]->{snippet}} = 1;
+        }
+        while ($line = shift @clines) {
+          $lastline = $line->[2];
+          last if $line->[1]{risk} != 9;
+          push(@marks, $line);
+        }
       }
-      my $hex = $ctx->hex;
+      else {
+        my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+        $ctx->add("$lastline\n");
+        $ctx->add("$line->[2]\n");
+        while ($line = shift @clines) {
+          $lastline = $line->[2];
+          $ctx->add("$lastline\n");
+          last if $line->[1]{risk} != 9;
+          push(@marks, $line);
+        }
+        $hex = $ctx->hex;
+      }
       if (defined $ignored_lines->{$hex}) {
         for my $m (@marks) {
+          $m->[1]->{risk} = 0;
           next unless $freport->{$m->[0]};
           $matches_to_ignore->{$freport->{$m->[0]}} = 1;
         }
@@ -143,7 +160,9 @@ sub _add_to_snippet_hash {
   $file_snippets->{$snip_row->{file}} ||= [];
   push(
     @{$file_snippets->{$snip_row->{file}}},
-    [$snip_row->{sline}, $snip_row->{eline}, $snip_row->{id}]
+    [
+      $snip_row->{sline}, $snip_row->{eline}, $snip_row->{id}, $snip_row->{hash}
+    ]
   );
 }
 
@@ -166,7 +185,10 @@ sub _dig_report {
 
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
-    ['snippets.id', 'file', 'sline', 'eline', 'classified', 'license'],
+    [
+      'snippets.id', 'snippets.hash', 'file', 'sline',
+      'eline',       'classified',    'license'
+    ],
     {package  => $pkg->{id},},
     {order_by => 'sline'}
   );
@@ -188,18 +210,19 @@ sub _dig_report {
   my $num_expanded   = 0;
 
   my %matches_to_ignore;
+  my %snippets_to_remove;
 
   for my $file (keys %file_snippets_to_show) {
     last if $num_expanded++ > $expanded_limit;
 
     $report->{expanded}{$file} = 1;
     for my $snip_row (@{$file_snippets_to_show{$file}}) {
-      my ($sline, $eline, $id) = @$snip_row;
+      my ($sline, $eline, $id, $hash) = @$snip_row;
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;
         if ($i >= $sline && $i <= $eline) {
           $report->{needed_lines}{$file}{$i} = $pattern_delta + $id;
-          $report->{snippets}{$file}{$i}     = $id;
+          $report->{snippets}{$file}{$id}    = $hash;
         }
         else {
           $report->{needed_lines}{$file}{$i} = 0;
@@ -213,7 +236,7 @@ sub _dig_report {
 
     my $part_of_snippet;
     for my $region (@{$file_snippets_to_ignore{$match->{file}}}) {
-      my ($first_line, $last_line) = @$region;
+      my ($first_line, $last_line, $id, $hash) = @$region;
       if ($match->{sline} >= $first_line && $match->{eline} <= $last_line) {
         $part_of_snippet = 1;
         last;
@@ -274,7 +297,8 @@ sub _dig_report {
     );
     $report->{lines}{$file}
       = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file});
-    $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore);
+    $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore,
+      \%snippets_to_remove);
   }
 
   # in case ignored lines found unignored matches (i.e. first load), update them
@@ -287,6 +311,12 @@ sub _dig_report {
     return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines);
   }
 
+  if (%snippets_to_remove) {
+    for my $id (keys %snippets_to_remove) {
+      $db->delete('file_snippets', {snippet => $id, package => $pkg->{id}});
+    }
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines);
+  }
   my $emails = $db->select('emails', '*', {package => $pkg->{id}});
   while (my $email = $emails->hash) {
     my $key = $email->{email};
