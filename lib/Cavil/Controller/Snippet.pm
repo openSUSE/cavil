@@ -89,16 +89,18 @@ sub _create_pattern {
     opinion   => $self->param('opinion')
   );
   if ($pattern->{conflict}) {
-    return $self->_render_conflict($pattern->{conflict});
+    $self->_render_conflict($pattern->{conflict});
+    return 1;
   }
   $self->flash(success => 'Pattern has been created.');
   $self->stash(pattern => $pattern);
 
+  my $db = $self->pg->db;
   for my $pkg (@$packages) {
     my $pkg = $db->update(
       'bot_packages',
       {indexed => undef, checksum => undef},
-      {id => $pkg->{package}, '-not_bool' => 'obsolete', indexed => undef},
+      {id        => $pkg, '-not_bool' => 'obsolete', indexed => {'!=', undef}},
       {returning => 'id'}
     )->hash;
     next unless $pkg;
@@ -114,22 +116,26 @@ sub decision {
 
   my $db = $self->pg->db;
 
-  my $packages
-    = $db->query('select distinct package from file_snippets where snippet=?',
-    $self->param('id'))->hashes;
+  my %packages;
+  my $results = $db->query('select package from file_snippets where snippet=?',
+    $self->param('id'));
+  while (my $next = $results->hash) {
+    $packages{$next->{package}} = 1;
+  }
+  my $packages = [keys %packages];
 
   if ($self->param('create-pattern')) {
-    $self->_create_pattern($packages);
+    return if $self->_create_pattern($packages);
   }
   elsif ($self->param('mark-non-license')) {
-    $self->stash(pattern => undef);
     $self->snippets->mark_non_license($self->param('id'));
     for my $pkg (@$packages) {
-      $self->packages->analyze($pkg->{package}, 7);
+      $self->packages->analyze($pkg, 7);
     }
   }
-  $packages = [map { $self->packages->find($_->{package}) } @$packages];
-  $self->render(packages => $packages);
+  $packages = [map { $self->packages->find($_) } @$packages];
+  $self->stash(packages => $packages);
+  $self->render;
 }
 
 1;
