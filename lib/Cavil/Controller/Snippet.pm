@@ -17,6 +17,8 @@ package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller';
 use Mojo::JSON 'decode_json';
 use Cavil::Text 'closest_pattern';
+use Encode qw(from_to decode);
+use Mojo::File 'path';
 
 sub list {
   my $self = shift;
@@ -67,8 +69,8 @@ sub edit {
   )->hash->{count};
   my $example = $db->query(
     'select fs.package, file, filename,
-       sline,eline from cavil_staging.file_snippets fs
-       join cavil_staging.matched_files m on m.id=fs.file
+       sline,eline from file_snippets fs
+       join matched_files m on m.id=fs.file
        where snippet=? limit 1', $id
   )->hash;
   my $package  = $self->packages->find($example->{package});
@@ -77,6 +79,33 @@ sub edit {
      where file=? and sline>=? and eline<=?', $example->{file},
     $example->{sline}, $example->{eline}
   )->hashes;
+  my $fn = path(
+    $self->app->config->{checkout_dir},
+    $package->{name}, $package->{checkout_dir},
+    '.unpacked', $example->{filename}
+  );
+
+  my %needed_lines;
+  for (my $line = $example->{sline}; $line <= $example->{eline}; $line += 1) {
+    $needed_lines{$line} = 1;
+  }
+
+  my $text = '';
+  for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
+    my ($index, $pid, $line) = @$row;
+
+    # Sanitize line - first try UTF-8 strict and then LATIN1
+    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
+    if ($@) {
+      from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
+      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+    }
+    $text .= "$line\n";
+  }
+  $snippet->{text} = $text;
+
+  # not preserved by textarea/codemirror
+  $example->{sline} += 1 if $text =~ m/^\n/;
   $self->render(
     patterns      => $patterns,
     package       => $package,

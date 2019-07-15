@@ -11,7 +11,7 @@
   var mycm = CodeMirror.fromTextArea(document.getElementById("file"), {
     theme: 'neo',
     lineNumbers: true,
-    firstLineNumber: <%= $example->{sline} + 1 %>,
+    firstLineNumber: <%= $example->{sline} %>,
     mode: mode
   });
   mycm.on("gutterClick", function(cm, n) {
@@ -27,7 +27,7 @@
 % for my $pattern (@$patterns) {
   % my $line = $pattern->{sline};
   % while ($line <= $pattern->{eline}) {
-    % my $cm_line = $line - $example->{sline} - 1;
+    % my $cm_line = $line - $example->{sline};
     % content_for ready_function => "mycm.addLineClass($cm_line, 'background', 'found-pattern pattern-$pattern->{pattern}');";
     % $line += 1;
   % }
