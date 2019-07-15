@@ -16,6 +16,8 @@
 package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller';
 use Algorithm::Diff 'sdiff';
+use Mojo::JSON 'decode_json';
+use Cavil::Text 'closest_pattern';
 
 sub create {
   my $self       = shift;
@@ -28,20 +30,21 @@ sub create {
 sub create_pattern {
   my $self = shift;
 
-  my $id      = $self->param('license');
+  my $license = $self->param('license');
   my $pattern = $self->param('pattern');
 
-  my $license  = $self->licenses->find($id);
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    license   => $license->{name},
+    license   => $license,
     packname  => $self->param('packname'),
     pattern   => $pattern,
+    risk      => $self->param('risk'),
+    eula      => $self->param('eula'),
+    nonfree   => $self->param('nonfree'),
     patent    => $self->param('patent'),
     trademark => $self->param('trademark'),
     opinion   => $self->param('opinion')
   );
-  $patterns->expire_cache;
   $self->flash(success => 'Pattern has been created.');
   $self->redirect_to('edit_pattern', id => $match->{id});
 }
@@ -51,19 +54,17 @@ sub edit_pattern {
   my $id      = $self->param('id');
   my $pattern = $self->patterns->find($id);
   Spooky::Patterns::XS::init_matcher();
+
+  my $cache = $self->app->home->child('cache', 'cavil.pattern.words');
+  my $data  = decode_json $cache->slurp;
+
   my $p1 = Spooky::Patterns::XS::normalize($pattern->{pattern});
 
-  my $best;
-  my $min = 10000;
-  for my $p (@{$self->patterns->all}) {
-    next if $p->{id} == $pattern->{id};
-    my $p2 = Spooky::Patterns::XS::normalize($p->{pattern});
-    my $d  = Spooky::Patterns::XS::distance($p1, $p2);
-    if ($min > $d) {
-      $min  = $d;
-      $best = $p;
-    }
-  }
+  my ($best, $sim)
+    = closest_pattern($pattern->{pattern}, $pattern->{id}, $data);
+  $best = $self->patterns->find($best->{id});
+
+  $self->stash('diff', undef);
   if ($best) {
     my $p2     = Spooky::Patterns::XS::normalize($best->{pattern});
     my @words1 = map { $_->[1] } @$p1;
@@ -78,12 +79,14 @@ sub edit_pattern {
       }
       push(@$row, $line);
     }
-    $self->stash('diff',      $diff);
-    $self->stash('next_best', $best->{id});
+    $self->stash('diff',       $diff);
+    $self->stash('next_best',  $best);
+    $self->stash('similarity', int($sim * 1000 + 0.5) / 10);
   }
   else {
     $self->stash('next_best', undef);
   }
+
   return $self->_edit_pattern($pattern);
 }
 
@@ -147,7 +150,6 @@ sub update_pattern {
 
   my $id       = $self->param('id');
   my $patterns = $self->patterns;
-  my $match    = $patterns->find($id);
 
   # expire old license pattern
   $patterns->expire_cache;
@@ -158,14 +160,14 @@ sub update_pattern {
     license   => $self->param('license'),
     patent    => $self->param('patent'),
     trademark => $self->param('trademark'),
-    opinion   => $self->param('opinion')
+    opinion   => $self->param('opinion'),
+    risk      => $self->param('risk')
   );
   $self->packages->mark_matched_for_reindex($id);
-  $match = $patterns->find($id);
+  $self->app->minion->enqueue(pattern_stats => [] => {priority => 9});
   $self->flash(
     success => 'Pattern has been updated, reindexing all affected packages.');
-  my $lic_id = $self->licenses->try_to_match_license($match->{license});
-  $self->redirect_to('license_show', id => $lic_id);
+  $self->redirect_to('edit_pattern', id => $id);
 }
 
 sub _edit_pattern {

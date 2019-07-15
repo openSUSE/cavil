@@ -54,8 +54,6 @@ sub load {
       eula      => $data->{eula}
     ) for @{$data->{patterns}};
   }
-  $patterns->expire_cache;
-
   return 1;
 }
 

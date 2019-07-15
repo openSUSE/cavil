@@ -511,7 +511,14 @@ function setupReviewDetails(url) {
 
     $('#details').on('click', '.code', function() {
       var pid = $(this).data('pid');
-      window.open('/licenses/edit_pattern/' + pid);
+      if (pid) {
+        window.open('/licenses/edit_pattern/' + pid);
+        return false;
+      }
+      pid = $(this).data('snippet-id');
+      if (pid) {
+        window.open('/snippet/edit/' + pid);
+      }
       return false;
     });
   });

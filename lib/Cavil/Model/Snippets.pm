@@ -20,6 +20,12 @@ use Mojo::File 'path';
 
 has [qw(pg)];
 
+sub find {
+  my ($self, $id) = @_;
+
+  return $self->pg->db->select('snippets', '*', {id => $id})->hash;
+}
+
 sub find_or_create {
   my ($self, $hash, $text) = @_;
 
@@ -45,4 +51,12 @@ sub random {
   )->hashes;
 }
 
+sub mark_non_license {
+  my ($self, $id) = @_;
+  $self->pg->db->update(
+    'snippets',
+    {license => 0, approved => 1, classified => 1},
+    {id      => $id}
+  );
+}
 1;

@@ -119,6 +119,7 @@ sub startup {
   $self->plugin('Cavil::Task::Index');
   $self->plugin('Cavil::Task::Analyze');
   $self->plugin('Cavil::Task::Cleanup');
+  $self->plugin('Cavil::Task::ClosestMatch');
 
   $self->plugin('Cavil::Plugin::Linux');
   $self->plugin('Cavil::Plugin::Compression');
@@ -170,9 +171,10 @@ sub startup {
     patterns => sub {
       my $self = shift;
       state $patterns = Cavil::Model::Patterns->new(
-        cache => $cache,
-        pg    => $self->pg,
-        log   => $self->app->log
+        cache  => $cache,
+        pg     => $self->pg,
+        minion => $self->minion,
+        log    => $self->app->log
       );
     }
   );
@@ -270,6 +272,9 @@ sub startup {
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
   $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
+  $admin->get('/snippet/edit/:id')->to('Snippet#edit')->name('edit_snippet');
+  $admin->post('/snippet/decision/:id')->to('Snippet#decision')
+    ->name('snippet_decision');
 }
 
 1;

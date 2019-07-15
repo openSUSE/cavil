@@ -81,7 +81,6 @@ my $pkg_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
   priority        => 5
 );
-$t->app->patterns->expire_cache;
 $t->app->patterns->create(
   pattern => 'You may obtain a copy of the License at',
   license => 'Apache-2.0'

@@ -28,8 +28,17 @@
     <%= text_area pattern => $match->{pattern},
       class => 'mono-textarea form-control', rows => 20 %>
   </div>
-  <div class="row form-group">
-    <div class="col-sm-4">
+
+  <div class="row form-inline">
+    <div class="form-group col-sm-3">
+        <label for="risk" class="mr-2">Risk</label>
+        % my @risks;
+        % for my $r (0..6) {
+            % if ($r == $match->{risk}) { push(@risks, [ $r => $r, selected => 'selected' ]) } else { push(@risks, $r); }
+        % }
+        %= select_field risk => \@risks, class => 'form-control'
+    </div>
+    <div class="col-sm-3">
       <div class="checkbox-inline">
         <label>
           <%= check_box patent => 1,
@@ -38,7 +47,7 @@
         </label>
       </div>
     </div>
-    <div class="col-sm-4">
+    <div class="col-sm-3">
       <div class="checkbox-inline">
         <label>
           <%= check_box trademark => 1,
@@ -46,7 +55,7 @@
         </label>
       </div>
     </div>
-    <div class="col-sm-4">
+    <div class="col-sm-3">
       <div class="checkbox-inline">
         <label>
           <%= check_box opinion => 1,

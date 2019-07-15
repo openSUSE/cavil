@@ -1,0 +1,13 @@
+% layout 'default', title => "Snippet edited";
+
+% if ($pattern) {
+  Created
+  %= link_to 'pattern' => url_for('edit_pattern', id => $pattern->{id})
+% }
+
+% for my $package (@$packages) {
+  <p>
+  Reindexing package
+  %= link_to $package->{name} => url_for('package_details', id => $package->{id})
+  </p>
+% }

@@ -1,0 +1,15 @@
+% layout 'default', title => "Pattern conflict";
+
+<h3 class="alert alert-warning">Conflicting patterns</h3>
+
+The pattern you were trying to save:
+
+<%= text_area pattern => $pattern_text,
+  class => 'mono-textarea form-control', rows => 20 %>
+
+conflicts with this
+%= link_to 'pattern', url_for('edit_pattern', id => $conflicting_pattern->{id})
+already in the database:
+
+<%= text_area pattern => $conflicting_pattern->{pattern},
+  class => 'mono-textarea form-control', rows => 20 %>

@@ -91,7 +91,6 @@ my $three_id = $t->app->packages->add(
 );
 my $product_id = $t->app->products->find_or_create('Cpan')->{id};
 
-$t->app->patterns->expire_cache;
 $t->app->patterns->create(
   pattern => 'The Artistic License 2.0',
   license => "Artistic-2.0",

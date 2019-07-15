@@ -15,6 +15,8 @@
 
 package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller';
+use Mojo::JSON 'decode_json';
+use Cavil::Text 'closest_pattern';
 
 sub list {
   my $self = shift;
@@ -38,6 +40,102 @@ sub update {
     );
   }
   $self->redirect_to('snippets');
+}
+
+sub edit {
+  my $self = shift;
+
+  my $id      = $self->param('id');
+  my $snippet = $self->snippets->find($id);
+
+  Spooky::Patterns::XS::init_matcher();
+
+  my $cache = $self->app->home->child('cache', 'cavil.pattern.words');
+  my $data  = decode_json $cache->slurp;
+
+  my ($best, $sim) = closest_pattern($snippet->{text}, undef, $data);
+  $best = $self->patterns->find($best->{id});
+
+  $self->render(
+    snippet    => $snippet,
+    best       => $best,
+    similarity => int($sim * 1000 + 0.5) / 10
+  );
+}
+
+sub _render_conflict {
+  my ($self, $id) = @_;
+  my $conflicting_pattern = $self->patterns->find($id);
+  say Mojo::Util::dumper $conflicting_pattern;
+  $self->stash('conflicting_pattern', $conflicting_pattern);
+  $self->stash('pattern_text',        $self->param('pattern'));
+  $self->render(template => 'snippet/conflict');
+
+}
+
+sub _create_pattern {
+  my ($self, $packages) = @_;
+
+  my $pattern = $self->patterns->create(
+    license => $self->param('license'),
+    pattern => $self->param('pattern'),
+    risk    => $self->param('risk'),
+
+    # TODO: those checkboxes aren't yet taken over
+    eula      => $self->param('eula'),
+    nonfree   => $self->param('nonfree'),
+    patent    => $self->param('patent'),
+    trademark => $self->param('trademark'),
+    opinion   => $self->param('opinion')
+  );
+  if ($pattern->{conflict}) {
+    $self->_render_conflict($pattern->{conflict});
+    return 1;
+  }
+  $self->flash(success => 'Pattern has been created.');
+  $self->stash(pattern => $pattern);
+
+  my $db = $self->pg->db;
+  for my $pkg (@$packages) {
+    my $pkg = $db->update(
+      'bot_packages',
+      {indexed => undef, checksum => undef},
+      {id        => $pkg, '-not_bool' => 'obsolete', indexed => {'!=', undef}},
+      {returning => 'id'}
+    )->hash;
+    next unless $pkg;
+    $db->delete('bot_reports', {package => $pkg->{id}});
+    $self->packages->index($pkg->{id}, 7);
+  }
+  return undef;
+}
+
+# proxy function
+sub decision {
+  my $self = shift;
+
+  my $db = $self->pg->db;
+
+  my %packages;
+  my $results = $db->query('select package from file_snippets where snippet=?',
+    $self->param('id'));
+  while (my $next = $results->hash) {
+    $packages{$next->{package}} = 1;
+  }
+  my $packages = [keys %packages];
+
+  if ($self->param('create-pattern')) {
+    return if $self->_create_pattern($packages);
+  }
+  elsif ($self->param('mark-non-license')) {
+    $self->snippets->mark_non_license($self->param('id'));
+    for my $pkg (@$packages) {
+      $self->packages->analyze($pkg, 7);
+    }
+  }
+  $packages = [map { $self->packages->find($_) } @$packages];
+  $self->stash(packages => $packages);
+  $self->render;
 }
 
 1;
