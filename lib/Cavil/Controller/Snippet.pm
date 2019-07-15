@@ -56,10 +56,36 @@ sub edit {
   my ($best, $sim) = closest_pattern($snippet->{text}, undef, $data);
   $best = $self->patterns->find($best->{id});
 
+  my $db            = $self->pg->db;
+  my $package_count = $db->query(
+    'select count(distinct package)
+       from file_snippets where snippet=?', $id
+  )->hash->{count};
+  my $file_count = $db->query(
+    'select count(distinct file)
+       from file_snippets where snippet=?', $id
+  )->hash->{count};
+  my $example = $db->query(
+    'select fs.package, file, filename,
+       sline,eline from cavil_staging.file_snippets fs
+       join cavil_staging.matched_files m on m.id=fs.file
+       where snippet=? limit 1', $id
+  )->hash;
+  my $package  = $self->packages->find($example->{package});
+  my $patterns = $db->query(
+    'select * from pattern_matches
+     where file=? and sline>=? and eline<=?', $example->{file},
+    $example->{sline}, $example->{eline}
+  )->hashes;
   $self->render(
-    snippet    => $snippet,
-    best       => $best,
-    similarity => int($sim * 1000 + 0.5) / 10
+    patterns      => $patterns,
+    package       => $package,
+    example       => $example,
+    package_count => $package_count,
+    file_count    => $file_count,
+    snippet       => $snippet,
+    best          => $best,
+    similarity    => int($sim * 1000 + 0.5) / 10
   );
 }
 
@@ -70,7 +96,6 @@ sub _render_conflict {
   $self->stash('conflicting_pattern', $conflicting_pattern);
   $self->stash('pattern_text',        $self->param('pattern'));
   $self->render(template => 'snippet/conflict');
-
 }
 
 sub _create_pattern {
