@@ -40,6 +40,7 @@ sub calculate_tfdifs {
   my $square_sum = 0;
   my @tfidfs_array;
   for my $word (keys %{$wordcounts}) {
+    next unless $word2index->{$word};
     my $tfidf = $wordcounts->{$word} * $idfs->{$word};
     $square_sum += $tfidf * $tfidf;
     push(@tfidfs_array, [$word2index->{$word}, $tfidf]);
