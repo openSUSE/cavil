@@ -208,7 +208,7 @@ $t->get_ok('/licenses/edit_pattern/1')->status_is(200)
   ->element_exists_not('input:checked');
 $t->post_ok('/licenses/update_pattern/1' => form =>
     {license => 'Apache-2.0', pattern => 'real-time web framework'})
-  ->status_is(302)->header_is(Location => '/licenses/1');
+  ->status_is(302)->header_is(Location => '/licenses/edit_pattern/1');
 $t->get_ok('/licenses/1')->status_is(200)
   ->element_exists('li div a[href=/licenses/edit_pattern/1]')
   ->text_is('li pre' => 'real-time web framework')
@@ -217,9 +217,10 @@ $t->get_ok('/licenses/1')->status_is(200)
 
 # Automatic reindexing
 my $list = $t->app->minion->backend->list_jobs(0, 10, {states => ['inactive']});
-is $list->{total}, 1, 'one inactive job';
-is $list->{jobs}[0]{task}, 'reindex_matched_later', 'right task';
-is_deeply $list->{jobs}[0]{args}, [1], 'right arguments';
+is $list->{total}, 2, 'two inactives job';
+is $list->{jobs}[0]{task}, 'pattern_stats', 'right task';
+is $list->{jobs}[1]{task}, 'reindex_matched_later', 'right task';
+is_deeply $list->{jobs}[1]{args}, [1], 'right arguments';
 my $reindex_id = $list->{jobs}[0]{id};
 $t->app->minion->perform_jobs;
 is $t->app->minion->job($reindex_id)->info->{state}, 'finished',
