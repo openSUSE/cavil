@@ -33,6 +33,7 @@ sub _classify {
   my $classifier = $app->classifier;
 
   my $results = $db->select('snippets', ['id', 'text'], {classified => 0});
+  my %packages_affected;
   while (my $next = $results->hash) {
     my $res = $classifier->classify($next->{text});
     $db->update(
@@ -44,8 +45,16 @@ sub _classify {
       },
       {id => $next->{id}}
     );
+    my $packages
+      = $db->select('file_snippets', 'package', {snippet => $next->{id}});
+    while (my $package = $packages->hash) {
+      $packages_affected{$package->{package}} = 1;
+    }
   }
   $results->finish();
+  for my $package (keys %packages_affected) {
+    $app->packages->analyze($package);
+  }
 }
 
 1;

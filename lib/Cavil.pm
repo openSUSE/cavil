@@ -171,10 +171,10 @@ sub startup {
     patterns => sub {
       my $self = shift;
       state $patterns = Cavil::Model::Patterns->new(
-        cache => $cache,
-        pg    => $self->pg,
+        cache  => $cache,
+        pg     => $self->pg,
         minion => $self->minion,
-        log   => $self->app->log
+        log    => $self->app->log
       );
     }
   );
@@ -273,7 +273,8 @@ sub startup {
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
   $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
   $admin->get('/snippet/edit/:id')->to('Snippet#edit')->name('edit_snippet');
-  $admin->post('/snippet/decision/:id')->to('Snippet#decision')->name('snippet_decision');
+  $admin->post('/snippet/decision/:id')->to('Snippet#decision')
+    ->name('snippet_decision');
 }
 
 1;
