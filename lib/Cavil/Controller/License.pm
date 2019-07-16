@@ -45,6 +45,13 @@ sub create_pattern {
     trademark => $self->param('trademark'),
     opinion   => $self->param('opinion')
   );
+  if ($match->{conflict}) {
+    my $conflicting_pattern = $self->patterns->find($match->{conflict});
+    $self->stash('conflicting_pattern', $conflicting_pattern);
+    $self->stash('pattern_text',        $pattern);
+    $self->render(template => 'snippet/conflict');
+    return;
+  }
   $self->flash(success => 'Pattern has been created.');
   $self->redirect_to('edit_pattern', id => $match->{id});
 }
