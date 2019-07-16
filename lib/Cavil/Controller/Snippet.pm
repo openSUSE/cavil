@@ -162,4 +162,23 @@ sub decision {
   $self->render;
 }
 
+sub top {
+  my $self = shift;
+
+  my $db = $self->pg->db;
+
+  my $result = $db->query(
+    'select snippet,count(file) from snippets join file_snippets
+       on file_snippets.snippet=snippets.id where snippets.license=TRUE
+       group by snippet order by count desc limit 20'
+  )->hashes;
+  for my $snippet (@$result) {
+    $snippet->{packages} = $db->query(
+      'select count(distinct package)
+       from file_snippets where snippet=?', $snippet->{snippet}
+    )->hash->{count};
+  }
+  $self->render(snippets => $result);
+}
+
 1;

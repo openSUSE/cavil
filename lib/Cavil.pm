@@ -272,9 +272,11 @@ sub startup {
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
   $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
-  $admin->get('/snippet/edit/:id')->to('Snippet#edit')->name('edit_snippet');
+  $public->get('/snippet/edit/:id')->to('Snippet#edit')->name('edit_snippet');
   $admin->post('/snippet/decision/:id')->to('Snippet#decision')
     ->name('snippet_decision');
+  $public->get('/snippets/top')->to('Snippet#top')->name('top_snippets');
+
 }
 
 1;

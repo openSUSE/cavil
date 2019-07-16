@@ -1,0 +1,12 @@
+% layout 'default', title => "Top snippets";
+
+<ul>
+% my $index = 1;
+% for my $snippet (@$snippets) {
+  <li>
+    %= link_to("Snippet #$index" => url_for('edit_snippet' => id => $snippet->{snippet}))
+    found in <%= $snippet->{count} %> files within <%= $snippet->{packages} %> packages.
+  </li>
+  % $index += 1
+% }
+</ul>
