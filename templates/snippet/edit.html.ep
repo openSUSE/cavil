@@ -35,7 +35,7 @@
 <h3>Edit Snippet</h3>
 
 <p>
-The following snippet was found in <%= $file_count %> files of <%= $package_count %> packages.
+The following snippet was found in <%= $file_count %> files within <%= $package_count %> packages.
 The example shown here is from <%= link_to $package->{name} => url_for('package_details', id => $package->{id}) %>
 </p>
 

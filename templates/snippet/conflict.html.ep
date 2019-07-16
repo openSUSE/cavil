@@ -11,5 +11,5 @@ conflicts with this
 %= link_to 'pattern', url_for('edit_pattern', id => $conflicting_pattern->{id})
 already in the database:
 
-<%= text_area pattern => $conflicting_pattern->{pattern},
+<%= text_area old_pattern => $conflicting_pattern->{pattern},
   class => 'mono-textarea form-control', rows => 20 %>
