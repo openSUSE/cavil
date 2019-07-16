@@ -64,6 +64,9 @@ sub closest_pattern {
 sub _find_best_pattern {
   my ($template, $infos) = @_;
 
+  if (!$template->{square_sum}) {
+    return ($template, 0);
+  }
   my $best = -1;
   my $best_pattern;
   for my $hash (@$infos) {

@@ -92,7 +92,6 @@ sub edit {
 sub _render_conflict {
   my ($self, $id) = @_;
   my $conflicting_pattern = $self->patterns->find($id);
-  say Mojo::Util::dumper $conflicting_pattern;
   $self->stash('conflicting_pattern', $conflicting_pattern);
   $self->stash('pattern_text',        $self->param('pattern'));
   $self->render(template => 'snippet/conflict');
