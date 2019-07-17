@@ -135,6 +135,10 @@ span.diff-added {
   display: none;
 }
 
+.found-pattern {
+  background-color: #dfd;
+}
+
 html {
   position: relative;
   min-height: 100%;
@@ -196,4 +200,3 @@ body {
 
 .license-1 { background-color: #FFA07A };
 .license-0 { background-color: #90EE90 };
-

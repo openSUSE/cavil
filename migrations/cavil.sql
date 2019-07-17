@@ -236,3 +236,9 @@ alter table license_patterns rename column license_string to license;
 -- 8 down
 alter table license_patterns rename column license to license_string;
 alter table license_patterns add column license int not null references licenses (id);
+
+-- 9 up
+create index on file_snippets(snippet);
+
+-- 9 down
+drop index snippets_snippet_idx if exists;

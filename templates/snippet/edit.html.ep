@@ -1,16 +1,58 @@
 % layout 'default', title => "Edit snippet";
+%= asset 'codemirror.css'
+%= asset 'codemirror.js'
+
+% content_for ready_function => begin
+  var mi = CodeMirror.findModeByFileName('<%= $example->{filename} %>');
+  var mode = null;
+  if (mi) {
+     mode = mi.mime;
+  }
+  var mycm = CodeMirror.fromTextArea(document.getElementById("file"), {
+    theme: 'neo',
+    lineNumbers: true,
+    firstLineNumber: <%= $example->{sline} + 1 %>,
+    mode: mode
+  });
+  mycm.on("gutterClick", function(cm, n) {
+    var info = cm.lineInfo(n);
+    if (info['bgClass'].includes('found-pattern')) {
+       matches = info['bgClass'].match(/pattern-(\d+)/);
+       window.location.href = '/licenses/edit_pattern/' + matches[1];
+    }
+
+});
+% end
+
+% for my $pattern (@$patterns) {
+  % my $line = $pattern->{sline};
+  % while ($line <= $pattern->{eline}) {
+    % my $cm_line = $line - $example->{sline} - 1;
+    % content_for ready_function => "mycm.addLineClass($cm_line, 'background', 'found-pattern pattern-$pattern->{pattern}');";
+    % $line += 1;
+  % }
+% }
+<h3>Edit Snippet</h3>
+
+<p>
+The following snippet was found in <%= $file_count %> files within <%= $package_count %> packages.
+The example shown here is from <%= link_to $package->{name} => url_for('package_details', id => $package->{id}) %>
+</p>
 
 %= form_for url_for('snippet_decision') => (method => 'POST') => begin
   %= hidden_field id => $snippet->{id}
-  <div class="form-group">
-    <label for="pattern">License</label>
-    %= text_field license => $best->{license}, class => 'form-control'
-  </div>
 
   <div class="form-group">
-    <label for="pattern">Pattern</label>
+    <label for="pattern"><strong>Snippet</strong></label>
+    <em>(The found patterns are highlighted and you can reach them by clicking on the line number)</em>
     <%= text_area pattern => $snippet->{text},
-      class => 'mono-textarea form-control', rows => 20 %>
+      class => 'mono-textarea form-control', id => 'file', rows => 20 %>
+  </div>
+
+
+  <div class="form-group">
+    <label for="license">License</label>
+    %= text_field license => $best->{license}, class => 'form-control'
   </div>
 
   <div class="row form-inline">

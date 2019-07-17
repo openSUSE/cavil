@@ -40,6 +40,7 @@ sub calculate_tfdifs {
   my $square_sum = 0;
   my @tfidfs_array;
   for my $word (keys %{$wordcounts}) {
+    next unless $word2index->{$word};
     my $tfidf = $wordcounts->{$word} * $idfs->{$word};
     $square_sum += $tfidf * $tfidf;
     push(@tfidfs_array, [$word2index->{$word}, $tfidf]);
@@ -63,6 +64,9 @@ sub closest_pattern {
 sub _find_best_pattern {
   my ($template, $infos) = @_;
 
+  if (!$template->{square_sum}) {
+    return ($template, 0);
+  }
   my $best = -1;
   my $best_pattern;
   for my $hash (@$infos) {

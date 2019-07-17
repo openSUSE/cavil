@@ -218,7 +218,7 @@ $t->get_ok('/licenses/1')->status_is(200)
 # Automatic reindexing
 my $list = $t->app->minion->backend->list_jobs(0, 10, {states => ['inactive']});
 is $list->{total}, 2, 'two inactives job';
-is $list->{jobs}[0]{task}, 'pattern_stats', 'right task';
+is $list->{jobs}[0]{task}, 'pattern_stats',         'right task';
 is $list->{jobs}[1]{task}, 'reindex_matched_later', 'right task';
 is_deeply $list->{jobs}[1]{args}, [1], 'right arguments';
 my $reindex_id = $list->{jobs}[0]{id};

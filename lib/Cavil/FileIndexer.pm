@@ -87,18 +87,28 @@ sub _check_missing_snippets {
   # possible skip between the keyword areas
   my $delta = 6;
 
-  # extend to near matches
-  for my $match (@{$report->{matches}}) {
-    my ($mid, $ls, $le, $pm_id) = @$match;
-    my $prev_line   = _find_near_line(\%needed_lines, $ls - 2, $delta, -1);
-    my $follow_line = _find_near_line(\%needed_lines, $le + 2, $delta, +1);
-    next unless $prev_line || $follow_line;
-    $prev_line   ||= $ls;
-    $follow_line ||= $le;
-    for (my $line = $prev_line; $line <= $follow_line; $line++) {
-      $needed_lines{$line} = 1;
+  my %mids_considered;
+
+  my $extended_needed_lines;
+  do {
+    $extended_needed_lines = 0;
+
+    # extend to near matches
+    for my $match (@{$report->{matches}}) {
+      my ($mid, $ls, $le, $pm_id) = @$match;
+      next if $mids_considered{$mid};
+      my $prev_line   = _find_near_line(\%needed_lines, $ls - 2, $delta, -1);
+      my $follow_line = _find_near_line(\%needed_lines, $le + 2, $delta, +1);
+      next unless $prev_line || $follow_line;
+      $prev_line   ||= $ls;
+      $follow_line ||= $le;
+      for (my $line = $prev_line; $line <= $follow_line; $line++) {
+        $needed_lines{$line} = 1;
+      }
+      $mids_considered{$mid} = 1;
+      $extended_needed_lines = 1;
     }
-  }
+  } while ($extended_needed_lines);
 
   $path = $self->dir->child('.unpacked', $path);
 
