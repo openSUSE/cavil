@@ -102,6 +102,7 @@ sub _analyzed {
 
   # Acceptable risk
   elsif (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname))) {
+
     # risk 0 is spooky
     return unless $risk;
     $pkg->{state}            = 'acceptable';

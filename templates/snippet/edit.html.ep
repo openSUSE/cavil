@@ -18,13 +18,8 @@
 });
 % end
 
-% for my $pattern (@$patterns) {
-  % my $line = $pattern->{sline};
-  % while ($line <= $pattern->{eline}) {
-    % my $cm_line = $line - $example->{sline};
-    % content_for ready_function => "mycm.addLineClass($cm_line, 'background', 'found-pattern pattern-$pattern->{pattern}');";
-    % $line += 1;
-  % }
+% for my $line (keys %$patterns) {
+  % content_for ready_function => "mycm.addLineClass($line, 'background', 'found-pattern pattern-$patterns->{$line}{pattern} found-keyword-$patterns->{$line}{keyword}');";
 % }
 <h3>Edit Snippet</h3>
 
