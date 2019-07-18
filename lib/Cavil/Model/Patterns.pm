@@ -147,7 +147,7 @@ sub update {
   my $checksum = $self->checksum($args{pattern});
   my $conflict
     = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
-  if ($conflict) {
+  if ($conflict && $conflict->{id} != $id) {
     return {conflict => $conflict->{id}};
   }
 
