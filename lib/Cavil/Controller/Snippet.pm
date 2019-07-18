@@ -122,6 +122,7 @@ sub edit {
   $snippet->{text} = $text;
 
   $example->{delta} = 0;
+
   # not preserved by textarea/codemirror
   $example->{delta} = 1 if $text =~ m/^\n/;
   $self->render(

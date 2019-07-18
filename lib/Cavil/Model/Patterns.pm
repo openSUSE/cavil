@@ -142,11 +142,20 @@ sub remove {
 sub update {
   my ($self, $id, %args) = @_;
 
-  $self->pg->db->update(
+  my $db = $self->pg->db;
+
+  my $checksum = $self->checksum($args{pattern});
+  my $id
+    = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
+  if ($id) {
+    return {conflict => $id->{id}};
+  }
+
+  $db->update(
     'license_patterns',
     {
       pattern      => $args{pattern},
-      token_hexsum => $self->checksum($args{pattern}),
+      token_hexsum => $checksum,
       packname     => $args{packname} // '',
       license      => $args{license},
       patent       => $args{patent} // 0,
