@@ -6,7 +6,7 @@
   var mycm = CodeMirror.fromTextArea(document.getElementById("file"), {
     theme: 'neo',
     lineNumbers: true,
-    firstLineNumber: <%= $example->{sline} %>
+    firstLineNumber: <%= $example->{sline} + $example->{delta} %>
   });
   mycm.on("gutterClick", function(cm, n) {
     var info = cm.lineInfo(n);
@@ -19,7 +19,8 @@
 % end
 
 % for my $line (keys %$patterns) {
-  % content_for ready_function => "mycm.addLineClass($line, 'background', 'found-pattern pattern-$patterns->{$line}{pattern} found-keyword-$patterns->{$line}{keyword}');";
+  % my $cm_line = $line - $example->{delta};
+  % content_for ready_function => "mycm.addLineClass($cm_line, 'background', 'found-pattern pattern-$patterns->{$line}{pattern} found-keyword-$patterns->{$line}{keyword}');";
 % }
 <h3>Edit Snippet</h3>
 
