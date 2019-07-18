@@ -617,18 +617,6 @@ function createLicense() {
   return false;
 }
 
-function setupCodeMirror(filename) {
-  var mi = CodeMirror.findModeByFileName(filename);
-  var mode = null;
-  if (mi) {
-    mode = mi.mime;
-  }
-  myCodeMirror = CodeMirror.fromTextArea(document.getElementById("file"), {
-    theme: 'neo',
-    mode: mode
-  });
-}
-
 function fromNow() {
   $('.from-now').each(function () {
     var date = $(this);
