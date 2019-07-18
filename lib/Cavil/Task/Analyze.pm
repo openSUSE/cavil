@@ -67,6 +67,7 @@ sub _analyzed {
   # Only "new" and "acceptable" can be reviewed automatically
   my $pkg = $pkgs->find($id);
   return unless my $pkg_shortname = $pkg->{checksum};
+  return unless $pkg->{indexed};
   return if $pkg->{state} ne 'new' && $pkg->{state} ne 'acceptable';
 
   # Exclude "unacceptable" reviews
@@ -101,6 +102,8 @@ sub _analyzed {
 
   # Acceptable risk
   elsif (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname))) {
+    # risk 0 is spooky
+    return unless $risk;
     $pkg->{state}            = 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{result}           = "Accepted because of low risk ($risk)";
