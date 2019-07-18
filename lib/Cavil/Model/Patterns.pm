@@ -145,10 +145,10 @@ sub update {
   my $db = $self->pg->db;
 
   my $checksum = $self->checksum($args{pattern});
-  my $id
+  my $conflict
     = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
-  if ($id) {
-    return {conflict => $id->{id}};
+  if ($conflict) {
+    return {conflict => $conflict->{id}};
   }
 
   $db->update(
