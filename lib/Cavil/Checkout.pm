@@ -133,7 +133,8 @@ sub unpack {
   local $SIG{QUIT} = 'default';
 
   my $u = File::Unpack->new(
-    verbose              => 0,
+    verbose => 0,
+
     # chromium's tar is 5.4GB (uncompressed, as file::unpack
     # first xz -cd before extracting tar, we need to need that
     # much. And reserve some space for future growth)

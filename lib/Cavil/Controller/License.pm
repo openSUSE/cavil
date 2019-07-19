@@ -160,7 +160,7 @@ sub update_pattern {
 
   # expire old license pattern
   $patterns->expire_cache;
-  $patterns->update(
+  my $result = $patterns->update(
     $id,
     packname  => $self->param('packname'),
     pattern   => $self->param('pattern'),
@@ -170,6 +170,13 @@ sub update_pattern {
     opinion   => $self->param('opinion'),
     risk      => $self->param('risk')
   );
+  if ($result->{conflict}) {
+
+    my $conflicting_pattern = $self->patterns->find($result->{conflict});
+    $self->stash('conflicting_pattern', $conflicting_pattern);
+    $self->stash('pattern_text',        $self->param('pattern'));
+    return $self->render(template => 'snippet/conflict');
+  }
   $self->packages->mark_matched_for_reindex($id);
   $self->app->minion->enqueue(pattern_stats => [] => {priority => 9});
   $self->flash(

@@ -13,6 +13,6 @@
 </textarea>
 
 % content_for 'ready_function' => begin
-    setupCodeMirror('<%=  $filename %>');
+    setupCodeMirror();
     $('#create-pattern').data('licenseName', '<%= $license %>');
 % end

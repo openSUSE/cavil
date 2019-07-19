@@ -75,10 +75,27 @@ sub edit {
   )->hash;
   my $package  = $self->packages->find($example->{package});
   my $patterns = $db->query(
-    'select * from pattern_matches
-     where file=? and sline>=? and eline<=?', $example->{file},
+    'select lp.id,lp.license,sline,eline from pattern_matches
+     join license_patterns lp on lp.id = pattern_matches.pattern
+     where file=? and sline>=? and eline<=? order by sline', $example->{file},
     $example->{sline}, $example->{eline}
   )->hashes;
+  my %lines;
+  for my $pattern (@$patterns) {
+    for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
+      my $cm_line = $line - $example->{sline};
+
+      # keywords overwrite everything
+      if (!$pattern->{license}) {
+        $lines{$cm_line} = {pattern => $pattern->{id}, keyword => 1};
+      }
+      else {
+        $lines{$cm_line} ||= {pattern => $pattern->{id}, keyword => 0};
+      }
+    }
+  }
+  $patterns = \%lines;
+
   my $fn = path(
     $self->app->config->{checkout_dir},
     $package->{name}, $package->{checkout_dir},
@@ -104,8 +121,10 @@ sub edit {
   }
   $snippet->{text} = $text;
 
+  $example->{delta} = 0;
+
   # not preserved by textarea/codemirror
-  $example->{sline} += 1 if $text =~ m/^\n/;
+  $example->{delta} = 1 if $text =~ m/^\n/;
   $self->render(
     patterns      => $patterns,
     package       => $package,

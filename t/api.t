@@ -158,13 +158,13 @@ ok !-d $checkout->child('Mojolicious'), 'directory does not exist yet';
 
 # Package has been created
 $t->get_ok('/package/1' => {Authorization => 'Token test_token'})
-  ->status_is(200)->json_is('/state', 'acceptable')->json_is('/priority', 5);
+  ->status_is(200)->json_is('/state', 'new')->json_is('/priority', 5);
 
 # Update priority
 $t->patch_ok('/package/1' => {Authorization => 'Token test_token'} => form =>
     {priority => 7})->status_is(200);
 $t->get_ok('/package/1' => {Authorization => 'Token test_token'})
-  ->status_is(200)->json_is('/state', 'acceptable')->json_is('/priority', 7);
+  ->status_is(200)->json_is('/state', 'new')->json_is('/priority', 7);
 
 # Request not created yet
 $t->get_ok('/requests' => {Authorization => 'Token test_token'})
