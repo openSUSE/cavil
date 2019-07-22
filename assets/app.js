@@ -576,6 +576,10 @@ function moveSelector() {
   });
 }
 
+function setupCodeMirror() {
+  myCodeMirror = CodeMirror.fromTextArea(document.getElementById("file"), { theme: 'neo' });
+}
+
 function setupCreatePattern() {
   $('#create-pattern').on('click', function(e) {
     e.preventDefault();
