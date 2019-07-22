@@ -20,7 +20,10 @@ use Encode qw(from_to decode);
 use Mojo::File 'path';
 use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
+use Text::Glob 'glob_to_regex';
 use Cavil::Checkout;
+
+$Text::Glob::strict_wildcard_slash = 0;
 
 has [qw(acceptable_risk checkout_dir max_expanded_files pg)];
 
@@ -169,12 +172,21 @@ sub _add_to_snippet_hash {
 sub _dig_report {
   my ($self, $db, $pid_info, $pkg, $ignored_lines) = @_;
 
-  my $report = {};
+  my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] }
+    @{$db->select('ignored_files', 'glob')->arrays};
+  my $report = {matching_globs => []};
   my $files
     = $db->select('matched_files', [qw(id filename)], {package => $pkg->{id}});
 
   while (my $file = $files->hash) {
-    $report->{files}{$file->{id}} = $file->{filename};
+    my $ignored;
+    for my $ifre (keys %ignored_file_res) {
+      next unless $file->{filename} =~ $ifre;
+      push(@{$report->{matching_globs}}, $ignored_file_res{$ifre});
+      $ignored = 1;
+      last;
+    }
+    $report->{files}{$file->{id}} = $file->{filename} unless $ignored;
   }
 
   my $matches = $db->select(
@@ -196,7 +208,9 @@ sub _dig_report {
   my %file_snippets_to_show;
 
   for my $snip_row (@{$snippets->hashes}) {
-    if (!$snip_row->{license} && $snip_row->{classified}) {
+    if (!defined $report->{files}{$snip_row->{file}}
+      || (!$snip_row->{license} && $snip_row->{classified}))
+    {
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
     else {
@@ -233,6 +247,11 @@ sub _dig_report {
 
   while (my $match = $matches->hash) {
     my $pid = $match->{pattern};
+
+    if (!defined $report->{files}{$match->{file}}) {
+      $matches_to_ignore{$match->{id}} = 1;
+      next;
+    }
 
     my $part_of_snippet;
     for my $region (@{$file_snippets_to_ignore{$match->{file}}}) {

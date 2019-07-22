@@ -28,11 +28,11 @@
   setting up a quick development environment. All you need is an empty
   PostgreSQL database and the following dependencies:
 
-    $ sudo zypper in w3m postgresql96-server ruby2.1-rubygem-sass
-    $ sudo zypper in perl-Mojolicious perl-Mojolicious-Plugin-AssetPack \
+    $ sudo zypper in -C postgresql-server 'rubygem(sass)'
+    $ sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-AssetPack \
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
-      perl-Spooky-Patterns-XS perl-Net-OpenID-Consumer perl-LWP-UserAgent \
-      perl-BSD-Resource
+      perl-Spooky-Patterns-XS perl-Net-OpenID-Consumer 'perl(LWP::UserAgent)' \
+      perl-BSD-Resource perl-Text-Glob
 
   Then use these commands to set up and tear down a development environment:
 
