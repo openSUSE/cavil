@@ -69,6 +69,15 @@
     </ul>
   % }
 
+  % if ($report->{matching_globs}) {
+    <h2>Files ignored by glob</h2>
+    <ul>
+      % for my $glob (@{$report->{matching_globs}}) {
+        %= t(li => $glob)
+      % }
+    </ul>
+  % }
+
   <h2>Files</h2>
 
   % if ($report->{visible} < $report->{all}) {

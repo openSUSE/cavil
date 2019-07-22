@@ -174,20 +174,23 @@ sub _dig_report {
 
   my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] }
     @{$db->select('ignored_files', 'glob')->arrays};
-  my $report = {matching_globs => []};
+  my $report = {};
   my $files
     = $db->select('matched_files', [qw(id filename)], {package => $pkg->{id}});
+  my %globs_matched;
 
   while (my $file = $files->hash) {
     my $ignored;
     for my $ifre (keys %ignored_file_res) {
       next unless $file->{filename} =~ $ifre;
-      push(@{$report->{matching_globs}}, $ignored_file_res{$ifre});
+      $globs_matched{$ignored_file_res{$ifre}} = 1;
       $ignored = 1;
       last;
     }
     $report->{files}{$file->{id}} = $file->{filename} unless $ignored;
   }
+
+  $report->{matching_globs} = [ keys %globs_matched ];
 
   my $matches = $db->select(
     'pattern_matches',

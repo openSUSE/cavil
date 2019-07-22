@@ -358,6 +358,8 @@ sub _short_report {
   $short->{urls} = [map { [$_, $urls->{$_}] }
       sort { $urls->{$b} <=> $urls->{$a} } keys %$urls];
 
+  $short->{matching_globs} = $report->{matching_globs};
+
   return $short;
 }
 
