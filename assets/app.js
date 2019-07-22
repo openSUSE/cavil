@@ -523,7 +523,8 @@ function setupReviewDetails(url) {
     });
 
     $('#details').on('click', '.add-to-glob', function() {
-      alert("hi");
+      $('#glob-to-add').val($(this).data('name'));
+      $('#globModal').modal({'focus': true, 'keyboard': true, 'show': true});
       return false;
     });
   });
