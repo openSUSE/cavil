@@ -45,7 +45,20 @@ sub add_ignore {
 
 sub add_glob {
   my $self = shift;
-  say $self->req->body;
+
+  my $validation = $self->validation;
+  $validation->required('glob');
+  $validation->required('package');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  $self->pg->db->insert(
+    'ignored_files',
+    {
+      glob  => $validation->param('glob'),
+      owner => $self->users->find(login => $self->current_user)->{id}
+    }
+  );
+  $self->packages->analyze($validation->param('package'));
   return $self->render(json => 'ok');
 }
 

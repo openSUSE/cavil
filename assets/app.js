@@ -530,7 +530,10 @@ function setupReviewDetails(url) {
 
     $('#globAddButton').click(function() {
       var glob = $('#glob-to-add').val();
-      $.post($('#globModal').data('url'), glob, function() {
+      var data = { 'glob': glob,
+                   'package': $('#globModal').data('package')
+                 };
+      $.post($('#globModal').data('url'), data, function() {
         $('#globModal').hide();
         location.reload();
       });
