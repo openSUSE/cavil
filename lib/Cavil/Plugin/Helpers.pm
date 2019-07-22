@@ -35,6 +35,7 @@ sub register {
   $app->helper('maybe_utf8' => sub { decode('UTF-8', $_[1]) // $_[1] });
   $app->helper('package_checkout_dir'        => \&_pkg_checkout_dir);
   $app->helper('reply.json_validation_error' => \&_json_validation_error);
+  $app->helper('format_file'                 => \&_format_file);
 }
 
 sub _chart_data {
@@ -104,6 +105,17 @@ sub _current_user_has_role {
   my ($c, $role) = @_;
   return undef unless my $user = $c->helpers->current_user;
   return $c->users->has_role($user, $role);
+}
+
+sub _format_file {
+  my ($c, $name) = @_;
+  return Mojo::ByteStream->new(
+    xml_escape($name) . " "
+      . $c->link_to(
+      $c->t(i => (class => 'fas fa-skull-crossbones')) => '#' =>
+        (class => 'add-to-glob', 'data-name' => $name)
+      )
+  );
 }
 
 sub _format_link {

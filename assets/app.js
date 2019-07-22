@@ -521,6 +521,11 @@ function setupReviewDetails(url) {
       }
       return false;
     });
+
+    $('#details').on('click', '.add-to-glob', function() {
+      alert("hi");
+      return false;
+    });
   });
 
   $('#create-pattern-and-continue').click(createPatternAndContinue);

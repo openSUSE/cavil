@@ -54,11 +54,11 @@
                 % if ($expand) {
                   <a href="#file-<%= $id %>" class="file-link"
                     data-file="<%= $id %>">
-                    <%= $name %>
+                    %= format_file $name
                   </a>
                 % }
                 % else {
-                  <%= $name %>
+                  %= format_file $name
                 % }
               </li>
             % }
