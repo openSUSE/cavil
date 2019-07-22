@@ -20,10 +20,7 @@ use Encode qw(from_to decode);
 use Mojo::File 'path';
 use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
-use Text::Glob 'glob_to_regex';
 use Cavil::Checkout;
-
-$Text::Glob::strict_wildcard_slash = 0;
 
 has [qw(acceptable_risk checkout_dir max_expanded_files pg)];
 
@@ -172,25 +169,41 @@ sub _add_to_snippet_hash {
 sub _dig_report {
   my ($self, $db, $pid_info, $pkg, $ignored_lines) = @_;
 
-  my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] }
-    @{$db->select('ignored_files', 'glob')->arrays};
-  my $report = {};
+  my $ignored_file_res = Cavil::Util::load_ignored_files($db);
+  my $report           = {};
   my $files
     = $db->select('matched_files', [qw(id filename)], {package => $pkg->{id}});
   my %globs_matched;
 
   while (my $file = $files->hash) {
     my $ignored;
-    for my $ifre (keys %ignored_file_res) {
+    for my $ifre (keys %$ignored_file_res) {
       next unless $file->{filename} =~ $ifre;
-      $globs_matched{$ignored_file_res{$ifre}} = 1;
+      $globs_matched{$ignored_file_res->{$ifre}} = 1;
       $ignored = 1;
       last;
     }
     $report->{files}{$file->{id}} = $file->{filename} unless $ignored;
   }
 
-  $report->{matching_globs} = [ keys %globs_matched ];
+  # now check the files that were already ignored during indexing
+  my $filenames = $db->query(
+    'select distinct filename from
+                      matched_files mf join pattern_matches pm
+                      on pm.file=mf.id where mf.package=?
+                      and pm.ignored=true', $pkg->{id}
+  );
+
+  while (my $file = $filenames->hash) {
+    for my $ifre (keys %$ignored_file_res) {
+      next unless $file->{filename} =~ $ifre;
+      $globs_matched{$ignored_file_res->{$ifre}} = 1;
+      last;
+    }
+  }
+  $filenames->finish;
+
+  $report->{matching_globs} = [keys %globs_matched];
 
   my $matches = $db->select(
     'pattern_matches',
@@ -303,6 +316,7 @@ sub _dig_report {
       }
     }
   }
+  $matches->finish;
   $report->{flags} = [keys %{$report->{flags}}] if $report->{flags};
 
   for my $license (values %{$report->{licenses}}) {

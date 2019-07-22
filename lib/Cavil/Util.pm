@@ -20,8 +20,10 @@ use Carp 'croak';
 use Exporter 'import';
 use Mojo::Util 'decode';
 use POSIX 'ceil';
+use Text::Glob 'glob_to_regex';
+$Text::Glob::strict_wildcard_slash = 0;
 
-our @EXPORT_OK = qw(buckets slurp_and_decode);
+our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files);
 
 my $MAX_FILE_SIZE = 30000;
 
@@ -49,6 +51,13 @@ sub slurp_and_decode {
 
   return $content if -s $path > $MAX_FILE_SIZE;
   return decode('UTF-8', $content) // $content;
+}
+
+sub load_ignored_files {
+  my $db               = shift;
+  my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] }
+    @{$db->select('ignored_files', 'glob')->arrays};
+  return \%ignored_file_res;
 }
 
 1;

@@ -22,6 +22,7 @@ has 'app';
 has 'checkout';
 has 'db';
 has 'dir';
+has 'ignored_files';
 has 'ignored_lines';
 has 'keywords';
 has 'matcher';
@@ -41,6 +42,7 @@ sub new {
   $app->patterns->load_unspecific($matcher);
   $app->patterns->load_specific($matcher, $packagename);
   $self->matcher($matcher);
+  $self->ignored_files(Cavil::Util::load_ignored_files($db));
 
   my $igls   = $db->select('ignored_lines', 'hash', {packname => $packagename});
   my %hashes = map { $_->{hash} => 1 } @{$igls->hashes};
@@ -194,6 +196,13 @@ sub file {
   my $package  = $self->package;
   my $keyword_missed;
 
+  my $ignored_file = 0;
+  for my $ifre (keys %{$self->ignored_files}) {
+    next unless $path =~ $ifre;
+    $ignored_file = 1;
+    last;
+  }
+
   for my $match (@{$report->{matches}}) {
     $file_id ||= $self->db->insert(
       'matched_files',
@@ -212,11 +221,15 @@ sub file {
         package => $package,
         pattern => $mid,
         sline   => $ls,
-        eline   => $le
+        eline   => $le,
+        ignored => $ignored_file,
       },
       {returning => 'id'}
     )->hash->{id};
     push(@$match, $pm_id);
+
+    # to mark an ignored file, one pattern is enough
+    return if $ignored_file;
   }
   return unless $keyword_missed;
   $self->_check_missing_snippets($file_id, $path, $report);
