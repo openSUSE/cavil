@@ -54,17 +54,26 @@
                 % if ($expand) {
                   <a href="#file-<%= $id %>" class="file-link"
                     data-file="<%= $id %>">
-                    <%= $name %>
+                    %= format_file $name
                   </a>
                 % }
                 % else {
-                  <%= $name %>
+                  %= format_file $name
                 % }
               </li>
             % }
             </ul>
           </div>
         </li>
+      % }
+    </ul>
+  % }
+
+  % if (@{$report->{matching_globs}}) {
+    <h2>Files ignored by glob</h2>
+    <ul>
+      % for my $glob (@{$report->{matching_globs}}) {
+        %= t(li => $glob)
       % }
     </ul>
   % }

@@ -521,6 +521,23 @@ function setupReviewDetails(url) {
       }
       return false;
     });
+
+    $('#details').on('click', '.add-to-glob', function() {
+      $('#glob-to-add').val($(this).data('name'));
+      $('#globModal').modal({'focus': true, 'keyboard': true, 'show': true});
+      return false;
+    });
+
+    $('#globAddButton').click(function() {
+      var glob = $('#glob-to-add').val();
+      var data = { 'glob': glob,
+                   'package': $('#globModal').data('package')
+                 };
+      $.post($('#globModal').data('url'), data, function() {
+        $('#globModal').hide();
+        location.reload();
+      });
+    });
   });
 
   $('#create-pattern-and-continue').click(createPatternAndContinue);

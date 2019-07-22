@@ -43,6 +43,25 @@ sub add_ignore {
   return $self->render(json => 'ok');
 }
 
+sub add_glob {
+  my $self = shift;
+
+  my $validation = $self->validation;
+  $validation->required('glob');
+  $validation->required('package');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  $self->pg->db->insert(
+    'ignored_files',
+    {
+      glob  => $validation->param('glob'),
+      owner => $self->users->find(login => $self->current_user)->{id}
+    }
+  );
+  $self->packages->analyze($validation->param('package'));
+  return $self->render(json => 'ok');
+}
+
 sub calc_report {
   my $self = shift;
 
@@ -338,6 +357,8 @@ sub _short_report {
   my $urls = $report->{urls};
   $short->{urls} = [map { [$_, $urls->{$_}] }
       sort { $urls->{$b} <=> $urls->{$a} } keys %$urls];
+
+  $short->{matching_globs} = $report->{matching_globs};
 
   return $short;
 }

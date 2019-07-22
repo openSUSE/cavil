@@ -225,7 +225,7 @@ sub reindex {
   $db->delete('matched_files', {package => $id});
   $db->delete('urls',          {package => $id});
   $db->delete('emails',        {package => $id});
-  $db->delete('bot_reports', {package => $id});
+  $db->delete('bot_reports',   {package => $id});
 
   my $unpacked = path(
     $self->{checkout_dir}, $pkg->{name},

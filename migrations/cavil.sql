@@ -242,3 +242,14 @@ create index on file_snippets(snippet);
 
 -- 9 down
 drop index snippets_snippet_idx if exists;
+
+-- 10 up
+create table ignored_files (
+  id         serial primary key,
+  glob       text not null,
+  owner      int references bot_users(id) not null,
+  created    timestamp with time zone not null default now()
+);
+
+-- 10 down
+drop table if exists ignored_files;
