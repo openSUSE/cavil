@@ -527,6 +527,14 @@ function setupReviewDetails(url) {
       $('#globModal').modal({'focus': true, 'keyboard': true, 'show': true});
       return false;
     });
+
+    $('#globAddButton').click(function() {
+      var glob = $('#glob-to-add').val();
+      $.post($('#globModal').data('url'), glob, function() {
+        $('#globModal').hide();
+        location.reload();
+      });
+    });
   });
 
   $('#create-pattern-and-continue').click(createPatternAndContinue);

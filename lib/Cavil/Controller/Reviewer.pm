@@ -43,6 +43,12 @@ sub add_ignore {
   return $self->render(json => 'ok');
 }
 
+sub add_glob {
+  my $self = shift;
+  say $self->req->body;
+  return $self->render(json => 'ok');
+}
+
 sub calc_report {
   my $self = shift;
 

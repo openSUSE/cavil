@@ -245,6 +245,7 @@ sub startup {
   $manager->post('/reviews/fasttrack_package/:id')
     ->to('Reviewer#fasttrack_package')->name('fasttrack_package');
   $admin->post('/reviews/add_ignore')->to('Reviewer#add_ignore');
+  $admin->post('/reviews/add_glob')->to('Reviewer#add_glob')->name('add_glob');
   $admin->post('/reviews/reindex/:id')->to('Reviewer#reindex_package')
     ->name('reindex_package');
 
