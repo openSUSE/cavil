@@ -75,6 +75,10 @@ sub new { @_ > 1 ? shift->SUPER::new->parse(@_) : shift->SUPER::new }
 sub parse {
   my ($self, $string) = @_;
 
+  unless ($string) {
+    return $self->tree({license => ''});
+  }
+
   # Normalize licenses, convert ";" to "and" and remove "X with Y" exceptions
   my $before = $string;
   $string =~ s/$TOKEN_RE/$CHANGES{$1}/xgo;
