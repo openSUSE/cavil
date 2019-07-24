@@ -69,7 +69,7 @@
     </ul>
   % }
 
-  % if (@{$report->{matching_globs}}) {
+  % if (@{$report->{matching_globs} || []}) {
     <h2>Files ignored by glob</h2>
     <ul>
       % for my $glob (@{$report->{matching_globs}}) {
