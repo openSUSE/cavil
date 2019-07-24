@@ -57,6 +57,14 @@ sub new {
   return $self;
 }
 
+sub _mark_area {
+  my ($needed_lines, $ls, $le) = @_;
+  for (my $line = $ls; $line <= $le; $line++) {
+    next unless $line > 0;
+    $needed_lines->{$line} = 1;
+  }
+}
+
 sub _calculate_keyword_dict {
   my $self     = shift;
   my $patterns = $self->db->select('license_patterns', 'id', {license => ''});
@@ -76,41 +84,37 @@ sub _check_missing_snippets {
   # extract missed snippets
   my %needed_lines;
 
-  # pick uncategorized matches first
+  # pick the keyword matches first
   for my $match (@{$report->{matches}}) {
     my ($mid, $ls, $le) = @$match;
     next unless $keywords->{$mid};
-    my $line = $ls - 1;
-    while ($line <= $le + 1) {
-      $needed_lines{$line++} = 1;
-    }
+    _mark_area(\%needed_lines, $ls - 1, $le + 1);
   }
 
-  # possible skip between the keyword areas
-  my $delta = 6;
+  while (1) {
+    my $marked_lines = scalar(%needed_lines);
 
-  my %mids_considered;
+    my $delta = 6;
 
-  my $extended_needed_lines;
-  do {
-    $extended_needed_lines = 0;
-
-    # extend to near matches
+    # now check if matches get close to area 9
     for my $match (@{$report->{matches}}) {
-      my ($mid, $ls, $le, $pm_id) = @$match;
-      next if $mids_considered{$mid};
-      my $prev_line   = _find_near_line(\%needed_lines, $ls - 2, $delta, -1);
-      my $follow_line = _find_near_line(\%needed_lines, $le + 2, $delta, +1);
-      next unless $prev_line || $follow_line;
-      $prev_line   ||= $ls;
-      $follow_line ||= $le;
-      for (my $line = $prev_line; $line <= $follow_line; $line++) {
-        $needed_lines{$line} = 1;
+      my ($mid, $ls, $le) = @$match;
+      for (my $line = $ls - $delta; $line <= $ls; $line++) {
+        if (defined $needed_lines{$line}) {
+          _mark_area(\%needed_lines, $line, $le);
+          last;
+        }
       }
-      $mids_considered{$mid} = 1;
-      $extended_needed_lines = 1;
+      for (my $line = $le; $line <= $le + $delta; $line++) {
+        if (defined $needed_lines{$line}) {
+          _mark_area(\%needed_lines, $ls, $line);
+          last;
+        }
+      }
     }
-  } while ($extended_needed_lines);
+    my $now_marked_lines = scalar(%needed_lines);
+    last if $now_marked_lines eq $marked_lines;
+  }
 
   $path = $self->dir->child('.unpacked', $path);
 
@@ -146,6 +150,9 @@ sub _snippet {
     $ctx->add($line);
   }
 
+  # note that the hash is accounting with the newline included
+  chop $text;
+
   my $hash = $ctx->hex;
 
   # ignored lines are easy targets
@@ -173,15 +180,6 @@ sub _snippet {
     }
   );
 
-  return undef;
-}
-
-
-sub _find_near_line {
-  my ($lines, $line, $line_delta, $delta) = @_;
-  for (my $count = 0; $count < $line_delta; $count++, $line += $delta) {
-    return $line if defined $lines->{$line};
-  }
   return undef;
 }
 
@@ -231,6 +229,7 @@ sub file {
     # to mark an ignored file, one pattern is enough
     return if $ignored_file;
   }
+
   return unless $keyword_missed;
   $self->_check_missing_snippets($file_id, $path, $report);
 }
