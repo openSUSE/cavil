@@ -22,6 +22,19 @@ use Mojo::File 'path';
 sub register {
   my ($self, $app) = @_;
   $app->minion->add_task(obs_import => \&_obs);
+  $app->minion->add_task(reimport   => \&_reimport);
+}
+
+sub _reimport {
+  my ($job, $id) = @_;
+
+  my $app = $job->app;
+  my $log = $app->log;
+
+  $app->packages->cleanup($id);
+  $app->pg->db->update('bot_packages', {indexed => undef}, {id => $id});
+  $app->pg->db->delete('bot_reports', {package => $id});
+  $app->packages->reimport($id);
 }
 
 sub _obs {
@@ -33,6 +46,7 @@ sub _obs {
   my $checkout_dir = $app->config->{checkout_dir};
   my ($srcpkg, $verifymd5, $api, $project, $pkg, $srcmd5, $priority)
     = @{$data}{qw(srcpkg verifymd5 api project pkg srcmd5 priority)};
+  die "Missing args" unless $srcpkg && $verifymd5;
   my $dir = path($checkout_dir, $srcpkg, $verifymd5);
 
   my $obs = $app->obs;

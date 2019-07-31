@@ -130,7 +130,8 @@ sub startup {
       state $pkgs = Cavil::Model::Packages->new(
         checkout_dir => $config->{checkout_dir},
         minion       => $self->minion,
-        pg           => shift->pg
+        pg           => shift->pg,
+        log          => $self->log
       );
     }
   );

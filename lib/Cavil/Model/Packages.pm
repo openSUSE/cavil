@@ -19,7 +19,7 @@ use Mojo::Base -base;
 use Mojo::File 'path';
 use Mojo::Util 'dumper';
 
-has [qw(checkout_dir minion pg)];
+has [qw(checkout_dir minion pg log)];
 
 sub add {
   my ($self, %args) = @_;
@@ -228,8 +228,8 @@ sub reindex {
   $db->delete('bot_reports',   {package => $id});
 
   my $unpacked = path(
-    $self->{checkout_dir}, $pkg->{name},
-    $pkg->{checkout_dir},  '.postprocessed.json'
+    $self->checkout_dir,  $pkg->{name},
+    $pkg->{checkout_dir}, '.postprocessed.json'
   );
   -f $unpacked ? $self->index($id, $priority) : $self->unpack($id, $priority);
 
@@ -299,6 +299,64 @@ sub _enqueue {
       notes => {external_link => $pkg->{external_link}, package => $pkg->{name}}
     }
   );
+}
+
+sub cleanup {
+  my ($self, $id) = @_;
+
+  my $db = $self->pg->db;
+  return
+    unless my $pkg
+    = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
+
+  my $tx = $db->begin;
+  $db->query('delete from bot_reports where package = ?',     $id);
+  $db->query('delete from emails where package = ?',          $id);
+  $db->query('delete from urls where package = ?',            $id);
+  $db->query('delete from pattern_matches where package = ?', $id);
+  $db->query('delete from matched_files where package = ?',   $id);
+  $tx->commit;
+
+  my $dir = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  return unless -d $dir;
+
+  $self->log->info("[$id] Remove $pkg->{name}/$pkg->{checkout_dir}");
+  $dir->remove_tree;
+}
+
+sub reimport {
+  my ($self, $id) = @_;
+  my $db = $self->pg->db;
+
+  my $pkg    = $self->find($id);
+  my $source = $db->select('bot_sources', '*', {id => $pkg->{source}})->hash;
+
+  my $priority;
+  for my $opkg (
+    @{
+      $db->select('bot_packages', 'id,priority',
+        {name => $pkg->{name}, id => {'!=', $pkg->{id}}, state => 'new'})
+        ->hashes
+    }
+    )
+  {
+    $priority = 2;
+  }
+  $priority = $pkg->{priority} if $pkg->{state} eq 'new';
+  my $job = $self->obs_import(
+    $pkg->{id},
+    {
+      api       => $source->{api_url},
+      project   => $source->{project},
+      pkg       => $source->{package},
+      srcpkg    => $pkg->{name},
+      srcmd5    => $source->{srcmd5},
+      verifymd5 => $pkg->{checkout_dir},
+      priority  => $priority // 1
+    },
+    9
+  );
+  return $job;
 }
 
 1;
