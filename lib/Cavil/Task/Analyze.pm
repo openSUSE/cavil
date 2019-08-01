@@ -60,7 +60,7 @@ sub _analyze {
         'id',
         {
           name    => $pkg->{name},
-          indexed => 1,
+          indexed => { '!=' => undef },
           id      => {'!=' => $pkg->{id}},
           state   => 'new'
         }
@@ -138,7 +138,50 @@ sub _analyzed {
     $pkgs->update($pkg);
   }
 
+  _look_for_smallest_delta($app, $pkg) if $pkg->{state} eq 'new';
+}
 
+sub _look_for_smallest_delta {
+  my ($app, $pkg) = @_;
+
+  my $db      = $app->pg->db;
+  my $reports = $app->reports;
+
+  my $older_reviews = $db->select(
+    'bot_packages',
+    'id,checksum',
+    {
+      name     => $pkg->{name},
+      state    => [qw(acceptable correct)],
+      id       => {'!=' => $pkg->{id}},
+      obsolete => 0,
+      indexed  => {'!=' => undef}
+    },
+    {-desc => 'id'}
+  );
+
+  my $new_summary = _review_summary($db, $reports, $pkg->{id});
+
+  my $best_score;
+  my $best;
+  my %checked;
+  for my $old (@{$older_reviews->hashes}) {
+    next if $checked{$old->{checksum}};
+    say "compare $old->{id}->$pkg->{id}";
+    my $old_summary = _review_summary($db, $reports, $old->{id});
+    my $score       = _summary_delta_score($old_summary, $new_summary);
+    $checked{$old->{checksum}} = 1;
+    if (!$best || $score < $best_score) {
+      $best       = $old_summary;
+      $best_score = $score;
+    }
+  }
+  return unless $best;
+  $app->pg->db->update(
+    'bot_packages',
+    {result => _summary_delta($best, $new_summary, $best_score)},
+    {id     => $pkg->{id}}
+  );
 }
 
 sub _find_report_summary {
@@ -179,6 +222,91 @@ sub _shortname {
   $l ||= 'Error';
 
   return "$l-$max_risk:$chksum_summary";
+}
+
+sub _review_summary {
+  my ($db, $reports, $id) = @_;
+
+  my %summary  = (id => $id);
+  my $specfile = $reports->specfile_report($id);
+  $summary{specfile}
+    = lic($specfile->{main}{license})->canonicalize->to_string || 'Error';
+  my $report = $reports->dig_report($id);
+
+  my $min_risklevel = 1;
+
+  # it's a bit random but the risk levels are defined a little random too
+  $min_risklevel = 2 if $report->{risks}{3};
+  $summary{licenses} = {};
+  for my $license (sort { $a cmp $b } keys %{$report->{licenses}}) {
+    next if $report->{licenses}{$license}{risk} < $min_risklevel;
+    my $text = "$license";
+    for my $flag (@{$report->{licenses}{$license}{flags}}) {
+      $text .= ":$flag";
+    }
+    $summary{licenses}{$text} = $report->{licenses}{$license}{risk};
+  }
+  my @files = map {
+    $db->select('matched_files', 'filename', {id => $_})->hash->{filename}
+  } keys %{$report->{snippets}};
+  $summary{missed_snippets} = \@files;
+  return \%summary;
+}
+
+sub _summary_delta_score {
+  my ($old, $new) = @_;
+
+  # not an option
+  if ($new->{specfile} ne $old->{specfile}) {
+    return 1000;
+  }
+
+  my $score = 0;
+
+  # if the old had missed, the new ones don't matter
+  unless (@{$old->{missed_snippets}}) {
+    $score = scalar(@{$new->{missed_snippets}});
+  }
+
+  # copy
+  my %lics = %{$new->{licenses}};
+  for my $lic (keys %{$old->{licenses}}) {
+    delete $lics{$lic};
+  }
+  map { $score += $_ * 10 } values %lics;
+  return $score;
+}
+
+sub _summary_delta {
+  my ($old, $new, $score) = @_;
+
+  my $text = "Diff to closest match $old->{id} (Score $score):\n\n";
+
+  if ($new->{specfile} ne $old->{specfile}) {
+    $text .= "  Different spec file license: $old->{specfile}\n\n";
+  }
+
+  # if the old had missed, the new ones don't matter
+  if (!@{$old->{missed_snippets}} && @{$new->{missed_snippets}}) {
+    my @snips = @{$new->{missed_snippets}};
+    $text .= "  New missed snippet in " . (shift @snips);
+    if (@snips) {
+      $text .= " and " . (scalar @snips) . " files more";
+    }
+    $text .= "\n\n";
+  }
+
+  # copy
+  my %lics = %{$new->{licenses}};
+  for my $lic (keys %{$old->{licenses}}) {
+    delete $lics{$lic};
+  }
+  for my $lic (keys %lics) {
+    $text
+      .= "  Found new license $lic (risk $lics{$lic}) not present in old report\n";
+  }
+  say $text;
+  return $text;
 }
 
 1;
