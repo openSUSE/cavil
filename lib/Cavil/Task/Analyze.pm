@@ -33,6 +33,7 @@ sub _analyze {
   $app->plugins->emit_hook('before_task_analyze');
 
   my $reports  = $app->reports;
+  my $pkg      = $app->packages->find($id);
   my $specfile = $reports->specfile_report($id);
   my $dig      = $reports->dig_report($id);
 
@@ -42,18 +43,39 @@ sub _analyze {
   # Free up memory
   undef $specfile;
 
+  my $new_candidates = [];
+
   # Do not leak Postgres connections
   {
     my $db = $app->pg->db;
     $db->update('bot_packages', {checksum => $shortname}, {id => $id});
     $db->update('bot_reports', {ldig_report => to_json($dig)},
       {package => $id});
+    if ($pkg->{state} ne 'new') {
+
+      # in case we reindexed an old pkg, check if 'new' packages now match.
+      # new patterns might change the story
+      $new_candidates = $db->select(
+        'bot_packages',
+        'id',
+        {
+          name    => $pkg->{name},
+          indexed => 1,
+          id      => {'!=' => $pkg->{id}},
+          state   => 'new'
+        }
+      )->hashes;
+    }
   }
 
   my $prio = $job->info->{priority};
   $app->minion->enqueue(
     analyzed => [$id] => {parents => [$job->id], priority => $prio});
 
+  for my $candidate (@$new_candidates) {
+    $app->minion->enqueue(
+      analyzed => [$candidate->{id}] => {parents => [$job->id], priority => 9});
+  }
   $log->info("[$id] Analyzed $shortname");
 }
 
@@ -76,6 +98,9 @@ sub _analyzed {
 
   my ($found_correct, $found_acceptable);
   for my $p (@$packages) {
+
+    # ignore obsolete reviews - possibly harmful as we don't reindex those
+    next if $p->{obsolete};
     $found_correct = $p->{id} if $p->{state} eq 'correct';
     last if $found_correct;
     $found_acceptable = $p->{id} if $p->{state} eq 'acceptable';
@@ -89,28 +114,31 @@ sub _analyzed {
       $pkg->{reviewing_user}   = undef;
       $pkg->{result}
         = "Correct because reviewed under the same license ($c_id)";
+      return $pkgs->update($pkg);
     }
   }
 
   # Previously reviewed and accepted
-  elsif (my $f_id = $found_correct || $found_acceptable) {
+  if (my $f_id = $found_correct || $found_acceptable) {
     $pkg->{state}            = $found_correct ? 'correct' : 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{result}
       = "Accepted because previously reviewed under the same license ($f_id)";
+    return $pkgs->update($pkg);
   }
 
   # Acceptable risk
-  elsif (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname))) {
+  if (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname))) {
 
     # risk 0 is spooky
     return unless $risk;
     $pkg->{state}            = 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{result}           = "Accepted because of low risk ($risk)";
+    $pkgs->update($pkg);
   }
 
-  $pkgs->update($pkg) if $pkg->{state} ne 'new';
+
 }
 
 sub _find_report_summary {
