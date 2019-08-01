@@ -23,7 +23,7 @@
 
 %= form_for tag_snippets => (method => 'POST') => begin
   % for my $snip (@$snippets) {
-    <h3><%= $snip->{license} ? 'Licenses related' : 'Not about licenses' %> (Confidence: <%= $snip->{confidence} %>%)</h3>
+    <h3><a href='<%= url_for('edit_snippet', id => $snip->{id}) %>'><%= $snip->{license} ? 'Licenses related' : 'Not about licenses' %></a> (Confidence: <%= $snip->{confidence} %>%)</h3>
     <pre class='license license-<%= $snip->{license} %>' data-snippet='<%= $snip->{id} %>'><%= $snip->{text} %></pre>
     %= hidden_field('g_' . $snip->{id}, $snip->{license}, id => "good_$snip->{id}")
   % }
