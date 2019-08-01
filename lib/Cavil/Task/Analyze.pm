@@ -170,6 +170,15 @@ sub _look_for_smallest_delta {
     say "compare $old->{id}->$pkg->{id}";
     my $old_summary = _review_summary($db, $reports, $old->{id});
     my $score       = _summary_delta_score($old_summary, $new_summary);
+    if (!$score) {
+
+      # don't look further
+      $pkg->{state}            = 'acceptable';
+      $pkg->{review_timestamp} = 1;
+      $pkg->{result} = "Not found any signficant difference against $old->{id}";
+      $app->packages->update($pkg);
+      return;
+    }
     $checked{$old->{checksum}} = 1;
     if (!$best || $score < $best_score) {
       $best       = $old_summary;
@@ -280,7 +289,7 @@ sub _summary_delta_score {
 sub _summary_delta {
   my ($old, $new, $score) = @_;
 
-  my $text = "Diff to closest match $old->{id} (Score $score):\n\n";
+  my $text = "Diff to closest match $old->{id}:\n\n";
 
   if ($new->{specfile} ne $old->{specfile}) {
     $text .= "  Different spec file license: $old->{specfile}\n\n";
