@@ -60,7 +60,7 @@ sub _analyze {
         'id',
         {
           name    => $pkg->{name},
-          indexed => { '!=' => undef },
+          indexed => {'!=' => undef},
           id      => {'!=' => $pkg->{id}},
           state   => 'new'
         }
@@ -114,8 +114,9 @@ sub _analyzed {
       $pkg->{reviewing_user}   = undef;
       $pkg->{result}
         = "Correct because reviewed under the same license ($c_id)";
-      return $pkgs->update($pkg);
+      $pkgs->update($pkg);
     }
+    return;    # the rest is for 'new'
   }
 
   # Previously reviewed and accepted
