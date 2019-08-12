@@ -27,7 +27,7 @@ has ua => sub {
   $ua->on(
     start => sub {
       my ($ua, $tx) = @_;
-      $tx->res->max_message_size(2147483648);
+      $tx->res->max_message_size(10737418240);
 
       # Work around misconfigured IBS reverse proxy servers that send
       # "Content-Encoding: gzip" without being asked to
