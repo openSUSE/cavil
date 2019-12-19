@@ -83,7 +83,6 @@ like $t->app->packages->find($pkg_id)->{checksum}, qr/^Error-9:\w+/,
   'right shortname';
 
 my $res = $db->select('snippets', 'text', {}, {order_by => 'text'})->hashes;
-say Mojo::Util::dumper $res;
 is_deeply(
   $res,
   [
