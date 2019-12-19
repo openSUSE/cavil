@@ -177,7 +177,7 @@ sub _create_pattern {
     )->hash;
     next unless $pkg;
     $db->delete('bot_reports', {package => $pkg->{id}});
-    $self->packages->index($pkg->{id}, 7);
+    $self->packages->index($pkg->{id}, 3);
   }
   return undef;
 }
@@ -202,7 +202,7 @@ sub decision {
   elsif ($self->param('mark-non-license')) {
     $self->snippets->mark_non_license($self->param('id'));
     for my $pkg (@$packages) {
-      $self->packages->analyze($pkg, 7);
+      $self->packages->analyze($pkg, 4);
     }
   }
   $packages = [map { $self->packages->find($_) } @$packages];
