@@ -168,7 +168,6 @@ sub _look_for_smallest_delta {
   my %checked;
   for my $old (@{$older_reviews->hashes}) {
     next if $checked{$old->{checksum}};
-    say "compare $old->{id}->$pkg->{id}";
     my $old_summary = _review_summary($db, $reports, $old->{id});
     my $score       = _summary_delta_score($old_summary, $new_summary);
     if (!$score) {
@@ -315,7 +314,6 @@ sub _summary_delta {
     $text
       .= "  Found new license $lic (risk $lics{$lic}) not present in old report\n";
   }
-  say $text;
   return $text;
 }
 
