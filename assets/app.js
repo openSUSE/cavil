@@ -330,6 +330,7 @@ function ignoreLine(link) {
     moveSelector();
   }
   cs.removeClass('fa-fire');
+  return false;
 }
 
 function createPatternDialog() {
@@ -508,19 +509,6 @@ function setupReviewDetails(url) {
     Mousetrap.bind('n', moveSelector);
     Mousetrap.bind('i', function() { ignoreLine($('.current-selector')); });
     Mousetrap.bind('c', createPatternDialog);
-
-    $('#details').on('click', '.code', function() {
-      var pid = $(this).data('pid');
-      if (pid) {
-        window.open('/licenses/edit_pattern/' + pid);
-        return false;
-      }
-      pid = $(this).data('snippet-id');
-      if (pid) {
-        window.open('/snippet/edit/' + pid);
-      }
-      return false;
-    });
 
     $('#details').on('click', '.add-to-glob', function() {
       $('#glob-to-add').val($(this).data('name'));
