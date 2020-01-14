@@ -32,14 +32,14 @@
                     data-packname="<%= $packname %>" onclick="return ignoreLine($(this));">Ignore Snippet for '<%= $packname %>'</a>
                   <a class="dropdown-item" data-hash="<%= $hash %>" data-snippet-id="<%= $line->[1]->{snippet} %>" href="#"
                     onclick="return snippetNonLicense($(this));">Ignore Snippet everywhere (not a license)</a>
-                  <a class="dropdown-item" href="#">Create Pattern from selection (TODO)</a>
+                  <a class="dropdown-item" href="<%= url_for('edit_snippet', id => $line->[1]->{snippet}) %>">Create Pattern from selection</a>
                 % } else {
                   <a class="dropdown-item" href="<%= url_for('edit_pattern', id => $line->[1]->{pid}) %>">Edit Pattern</a>
                 % }
-                <a class="dropdown-item" href="#">Merge with above pattern (TODO)</a>
-                <a class="dropdown-item" href="#">Merge with below pattern (TODO)</a>
+                <a class="dropdown-item" href="#">Extend to pattern above (TODO)</a>
                 <a class="dropdown-item" href="#">Extend one line above (TODO)</a>
                 <a class="dropdown-item" href="#">Extend to the top of file (TODO)</a>
+                <a class="dropdown-item" href="#">Extend to pattern below (TODO)</a>
                 <a class="dropdown-item" href="#">Extend one line below (TODO)</a>
                 <a class="dropdown-item" href="#">Extend to the end of the file (TODO)</a>
               </div>
