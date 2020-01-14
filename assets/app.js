@@ -333,6 +333,19 @@ function ignoreLine(link) {
   return false;
 }
 
+function snippetNonLicense(link) {
+  var hash = link.data('hash');
+  var id = link.data('snippet-id');
+  $.post('/snippet/decision/' + id +'?mark-non-license=1');
+  $('.hash-' + hash).removeClass('risk-9');
+  var cs = $('.hash-' + hash + ' .fa-fire');
+  if (link.hasClass('current-selector')) {
+    moveSelector();
+  }
+  cs.removeClass('fa-fire');
+  return false;
+}
+
 function createPatternDialog() {
   var link = $('.current-selector');
   var current_snippet = link.parents('tr').find('.code').data('snippet');
