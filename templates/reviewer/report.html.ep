@@ -94,28 +94,29 @@
   % for my $file (@{$report->{files}}) {
     % my $id = $file->{id};
     % my $path = $file->{path};
-    <a name="file-<%= $id %>"></a>
-    <div class="file">
-      % my $furl = url_for('file_view', id => $package->{id}, file => $path);
-      % if ($file->{expand}) {
-        <a href="#file-details-<%= $id %>" class="collapse-pre"><%= $path %></a>
-      % } else {
-        <a href="#file-details-<%= $id %>" class="expand-pre"><%= $path %></a>
-      % }
-      <div class="float-right">
-        <a href="<%= $furl %>" target="_blank">
-          <i class="fas fa-external-link-alt"></i>
-        </a>
+    <div class="file-container">
+      <a name="file-<%= $id %>"></a>
+      <div class="file">
+        % my $furl = url_for('file_view', id => $package->{id}, file => $path);
+        % if ($file->{expand}) {
+          <a href="#file-details-<%= $id %>" id="expand-link-<%= $id %>" data-file-id="<%= $id %>" class="collapse-pre"><%= $path %></a>
+        % } else {
+          <a href="#file-details-<%= $id %>" id="expand-link-<%= $id %>" data-file-id="<%= $id %>" class="expand-pre"><%= $path %></a>
+        % }
+        <div class="float-right">
+          <a href="<%= $furl %>" target="_blank">
+            <i class="fas fa-external-link-alt"></i>
+          </a>
+        </div>
       </div>
+      % if ($file->{lines}) {
+        <%= include 'reviewer/file_source', file => $id, lines => $file->{lines},
+          hidden => !$file->{expand}, packname => $package->{name} %>
+      % }
+      % else {
+        <div id="file-details-<%= $id %>" class="source"></div>
+      % }
     </div>
-    % if ($file->{lines}) {
-      <%= include 'reviewer/file_source', file => $id, lines => $file->{lines},
-        hidden => !$file->{expand}, packname => $package->{name} %>
-    % }
-    % else {
-      <div data-nls="<%= to_json $file->{need} %>" class="source-not-fetched"
-        id="file-details-<%= $id %>" data-file-id="<%= $id %>"></div>
-    % }
   % }
   <br>
 % }
