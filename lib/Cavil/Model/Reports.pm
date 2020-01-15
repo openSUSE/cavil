@@ -42,7 +42,8 @@ sub dig_report {
     = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
   my %ignored_lines = map { $_->{hash} => 1 } $ignored->hashes->each;
 
-  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
+  my $report
+    = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
 
   # prune match caches
   delete $report->{matches};
@@ -165,12 +166,11 @@ sub _dig_report {
 
   my $ignored_file_res = Cavil::Util::load_ignored_files($db);
   my $report           = {};
-  my $query   = { package => $pkg->{id} };
+  my $query            = {package => $pkg->{id}};
   if ($limit_to_file) {
     $query->{id} = $limit_to_file;
   }
-  my $files
-    = $db->select('matched_files', [qw(id filename)], $query);
+  my $files = $db->select('matched_files', [qw(id filename)], $query);
   my %globs_matched;
 
   while (my $file = $files->hash) {
@@ -207,13 +207,10 @@ sub _dig_report {
   if ($limit_to_file) {
     $query->{file} = $limit_to_file;
   }
-  my $matches = $db->select(
-    'pattern_matches',
-    [qw(id file pattern sline eline)],
-    $query
-  );
+  my $matches
+    = $db->select('pattern_matches', [qw(id file pattern sline eline)], $query);
 
-  $query = {package  => $pkg->{id}};
+  $query = {package => $pkg->{id}};
   if ($limit_to_file) {
     $query->{file} = $limit_to_file;
   }
@@ -231,7 +228,7 @@ sub _dig_report {
   my %snippets_shown;
 
   for my $snip_row (@{$snippets->hashes}) {
-    if (!defined $report->{files}{$snip_row->{file}}
+    if ( !defined $report->{files}{$snip_row->{file}}
       || $snippets_shown{$snip_row->{id}}
       || (!$snip_row->{license} && $snip_row->{classified}))
     {
@@ -353,7 +350,8 @@ sub _dig_report {
   }
 
   if (%matches_to_ignore) {
-    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, $limit_to_file);
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines,
+      $limit_to_file);
   }
 
   if ($limit_to_file) {
