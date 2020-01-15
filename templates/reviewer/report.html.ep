@@ -1,6 +1,6 @@
 % use Mojo::JSON 'to_json';
 
-% if ($report->{all} > 0) {
+% if (%{$report->{risks}}) {
   % if (my @flags = @{$report->{flags}}) {
     <h4>
       Flags:
@@ -25,6 +25,7 @@
   % }
   % my $risks = $report->{risks};
   % my $license_counter = 0;
+
   % for my $risk (reverse sort keys %$risks) {
     <h3>Risk <%= $risk %></h3>
     % my $current = $risks->{$risk};
@@ -49,17 +50,12 @@
           <div id="filelist-<%= $license_counter %>" class="<%= $listclass %>">
             <ul>
             % for my $file (@{$matches->{files}}) {
-              % my ($id, $name, $expand) = @$file;
+              % my ($id, $name) = @$file;
               <li>
-                % if ($expand) {
-                  <a href="#file-<%= $id %>" class="file-link"
-                    data-file="<%= $id %>">
-                    %= format_file $name
-                  </a>
-                % }
-                % else {
+                <a href="#file-<%= $id %>" class="file-link"
+                  data-file="<%= $id %>">
                   %= format_file $name
-                % }
+                </a>
               </li>
             % }
             </ul>
@@ -80,21 +76,10 @@
 
   <h2>Files</h2>
 
-  % if ($report->{visible} < $report->{all}) {
-    <div class="alert alert-warning" role="alert">
-      Showing only the <b><%= $report->{visible} %></b> most relevant files of
-      <b><%= $report->{all} %></b> total to improve responsiveness. You can
-      click
-      <a href="<%= url_for('package_details', id => $id)->query([full => 1]) %>"
-      class="alert-link" id="full_report">here</a> to load the full report, but
-      please be aware that this might take some time.
-    </div>
-  % }
-
   % for my $file (@{$report->{files}}) {
     % my $id = $file->{id};
     % my $path = $file->{path};
-    <div class="file-container">
+    <div class="file-container<%= $file->{expand} ? '' : ' d-none'%>">
       <a name="file-<%= $id %>"></a>
       <div class="file">
         % my $furl = url_for('file_view', id => $package->{id}, file => $path);
@@ -109,9 +94,9 @@
           </a>
         </div>
       </div>
-      % if ($file->{lines}) {
+      % if ($file->{expand}) {
         <%= include 'reviewer/file_source', file => $id, lines => $file->{lines},
-          hidden => !$file->{expand}, packname => $package->{name} %>
+                     packname => $package->{name} %>
       % }
       % else {
         <div id="file-details-<%= $id %>" class="source"></div>

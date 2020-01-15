@@ -332,7 +332,7 @@ sub _dig_report {
   }
 
   for my $file (keys %{$report->{files}}) {
-    next unless $report->{expanded}{$file};
+    next unless $report->{expanded}{$file} || $limit_to_file;
     my $fn = path(
       $self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir},
       '.unpacked',         $report->{files}{$file}

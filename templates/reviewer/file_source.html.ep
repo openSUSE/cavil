@@ -1,8 +1,7 @@
 % my $last;
 % my $lastrisk = 0;
 % my $snippet = 0;
-<div class="source <%= $hidden ? 'hidden' : '' %>"
-  id="file-details-<%= $file %>">
+<div class="source" id="file-details-<%= $file %>">
   <table class="snippet">
     <tbody>
       % for my $line (@$lines) {

@@ -504,6 +504,7 @@ function setupReviewDetails(url) {
     $('#details').on('click', '.file-link', function() {
       var target = $(this).data('file');
       target = $('#expand-link-' + target);
+      target.parents('.file-container').removeClass('d-none');
       fetchSource(target);
       return true;
     });

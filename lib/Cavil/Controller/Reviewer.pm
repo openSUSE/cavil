@@ -80,7 +80,7 @@ sub calc_report {
     json => sub { $self->render(json => {report => $report, package => $pkg}) },
     html => sub {
       my $min = $self->app->config('min_files_short_report');
-      $report = _short_report($report, $self->param('full'), $min);
+      $report = _short_report($report, $min);
       $self->render(
         'reviewer/report',
         report  => $report,
@@ -285,7 +285,7 @@ sub review_package {
 }
 
 sub _short_report {
-  my ($report, $full, $min) = @_;
+  my ($report, $min) = @_;
 
   my $short = {};
 
@@ -294,8 +294,6 @@ sub _short_report {
 
   # Minimum number of files for short report
   my $files = $report->{files};
-  my $all   = $short->{all} = keys %$files;
-  $full = 1 if $all < $min;
 
   my $snippets_sum = 0;
   map { $snippets_sum += @{$_} } values %{$report->{missed_snippets}};
@@ -305,24 +303,15 @@ sub _short_report {
   my $expanded = $report->{expanded};
   my $lines    = $report->{lines};
   my $needed   = $report->{needed_lines};
-  my $visible  = {};
   for my $file (sort { $files->{$a} cmp $files->{$b} } keys %$files) {
     my $path = $files->{$file};
-    next if !$full && !$expanded->{$file} && $path !~ $SMALL_REPORT_RE;
     push @{$short->{files}},
       my $current = {id => $file, path => $path, expand => $expanded->{$file}};
-    $visible->{$file} = 1;
 
     if ($lines->{$file}) {
       $current->{lines} = $lines->{$file};
     }
-    else {
-      my $need = $needed->{$file};
-      $current->{need}
-        = [map { [int $_, $need->{$_}] } sort { $a <=> $b } keys %$need];
-    }
   }
-  $short->{visible} = keys %$visible;
 
   # Risks
   my $chart    = $short->{chart} = {};
@@ -345,7 +334,7 @@ sub _short_report {
 
       my $list = $current->{files} = [];
       for my $file (sort keys %files) {
-        push @$list, [$file, $files->{$file}, $full || $visible->{$file}];
+        push @$list, [$file, $files->{$file}];
       }
     }
   }
