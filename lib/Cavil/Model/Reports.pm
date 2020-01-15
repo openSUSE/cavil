@@ -222,14 +222,17 @@ sub _dig_report {
   );
   my %file_snippets_to_ignore;
   my %file_snippets_to_show;
+  my %snippets_shown;
 
   for my $snip_row (@{$snippets->hashes}) {
     if (!defined $report->{files}{$snip_row->{file}}
+      || $snippets_shown{$snip_row->{id}}
       || (!$snip_row->{license} && $snip_row->{classified}))
     {
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
     else {
+      $snippets_shown{$snip_row->{id}} = 1;
       _add_to_snippet_hash(\%file_snippets_to_show, $snip_row);
     }
   }
