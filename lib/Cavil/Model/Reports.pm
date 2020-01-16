@@ -58,20 +58,39 @@ sub risk_is_acceptable {
 }
 
 sub source_for {
-  my ($self, $id) = @_;
+  my ($self, $fileid, $start, $end) = @_;
 
   my $db   = $self->pg->db;
-  my $file = $db->select('matched_files', '*', {id => $id})->hash;
+  my $file = $db->select('matched_files', '*', {id => $fileid})->hash;
   return undef unless $file;
 
   my $pkg = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
 
-  my $report = $self->dig_report($file->{package}, $id);
-  return {
-    lines    => $report->{lines}{$id},
-    name     => $pkg->{name},
-    filename => $file->{filename}
-  };
+  my $report = $self->dig_report($file->{package}, $fileid);
+  my $lines  = $report->{lines}{$fileid};
+
+  if ($start > 0 && $end > 0) {
+    my $fn = path(
+      $self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir},
+      '.unpacked',         $report->{files}{$fileid}
+    );
+    my %pid_info;    # cache
+    my %needed;
+    for my $line (@$lines) {
+      my ($nr, $pid, $text) = @$line;
+      $needed{$nr} = 0;
+      $needed{$nr} = $pid->{pid} if $pid->{pid};
+    }
+    my $nr = $start;
+    while ($nr < $end) {
+
+      # snippet 0
+      $needed{$nr++} = $pattern_delta;
+    }
+    $lines = $self->_lines($db, \%pid_info, $fn, \%needed);
+  }
+
+  return {lines => $lines, name => $pkg->{name}, filename => $file->{filename}};
 }
 
 sub specfile_report {
@@ -427,7 +446,7 @@ sub _lines {
       from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
-    if ($pid > $pattern_delta) {
+    if ($pid >= $pattern_delta) {
       push(
         @lines,
         [

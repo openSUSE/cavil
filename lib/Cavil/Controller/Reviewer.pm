@@ -155,7 +155,11 @@ sub fetch_source {
 
   my $id = $self->param('id');
   return $self->reply->not_found
-    unless my $source = $self->reports->source_for($id, $self->req->json);
+    unless my $source = $self->reports->source_for(
+    $id,
+    $self->param('start') || 0,
+    $self->param('end')   || 0
+    );
 
   $self->respond_to(
     json => sub { $self->render(json => {source => $source}) },
