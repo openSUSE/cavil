@@ -171,7 +171,7 @@ sub _create_pattern {
   for my $pkg (@$packages) {
     my $pkg = $db->update(
       'bot_packages',
-      {indexed => undef, checksum => undef},
+      {indexed   => undef, checksum => undef},
       {id        => $pkg, '-not_bool' => 'obsolete', indexed => {'!=', undef}},
       {returning => 'id'}
     )->hash;

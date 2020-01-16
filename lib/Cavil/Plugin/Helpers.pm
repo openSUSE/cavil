@@ -107,17 +107,6 @@ sub _current_user_has_role {
   return $c->users->has_role($user, $role);
 }
 
-sub _format_file {
-  my ($c, $name) = @_;
-  return Mojo::ByteStream->new(
-    xml_escape($name) . " "
-      . $c->link_to(
-      $c->t(i => (class => 'fas fa-skull-crossbones')) => '#' =>
-        (class => 'add-to-glob', 'data-name' => $name)
-      )
-  );
-}
-
 sub _format_link {
   my ($c, $link) = @_;
   if ($link =~ /^obs#(.*)$/) {

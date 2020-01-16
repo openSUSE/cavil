@@ -44,7 +44,7 @@ my (%ALLOWED, %CHANGES);
 my $TOKEN_RE;
 {
   my $token = join '|',
-    map  { '(?:(?<=[\s()])|^)' . quotemeta . '(?:(?=[\s()])|$)' }
+    map { '(?:(?<=[\s()])|^)' . quotemeta . '(?:(?=[\s()])|$)' }
     sort { length $b <=> length $a } keys %CHANGES;
   $TOKEN_RE = qr/($token)/;
 }
@@ -81,8 +81,8 @@ sub parse {
 
   # Normalize licenses, convert ";" to "and" and remove "X with Y" exceptions
   my $before = $string;
-  $string =~ s/$TOKEN_RE/$CHANGES{$1}/xgo;
-  $string =~ s/\s*;\s*/ and /g;
+  $string                        =~ s/$TOKEN_RE/$CHANGES{$1}/xgo;
+  $string                        =~ s/\s*;\s*/ and /g;
   $self->exception(1) if $string =~ s/\s+with\s+[^\s)]+/ /ig;
 
   # Tokenize and parse expression

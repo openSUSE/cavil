@@ -239,7 +239,7 @@ sub startup {
     ->name('package_details');
   $public->get('/reviews/calc_report/:id')->to('Reviewer#calc_report')
     ->name('calc_report');
-  $public->post('/reviews/fetch_source/:id')->to('Reviewer#fetch_source');
+  $public->get('/reviews/fetch_source/:id')->to('Reviewer#fetch_source');
   $admin->post('/reviews/review_package/:id')->to('Reviewer#review_package')
     ->name('review_package');
   $manager->post('/reviews/fasttrack_package/:id')

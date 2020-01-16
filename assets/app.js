@@ -461,25 +461,23 @@ function drawLicenseChart() {
 }
 
 function fetchSource(target) {
-  if (target.hasClass('source-not-fetched')) {
-    $.post('/reviews/fetch_source/' + target.data('file-id'),
-	   JSON.stringify(target.data('nls')),
-	   function(data) { target.html(data); });
-  }
-  target.removeClass('hidden');
+  var source = target.parents(".file-container").find('.source');
+  $.get('/reviews/fetch_source/' + target.data('file-id'), {},
+	   function(data) {
+       source.html(data);
+       source.show();
+     });
 }
 
 function expandSources() {
-  fetchSource($($(this).attr('href')));
+  fetchSource($(this));
   $(this).removeClass('expand-pre').addClass('collapse-pre');
-  $(this).click(collapseSources);
   return false;
 }
 
 function collapseSources() {
-  $($(this).attr('href')).addClass('hidden');
+  $(this).parents(".file-container").find('.source').hide();
   $(this).addClass('expand-pre').removeClass('collapse-pre');
-  $(this).click(expandSources);
   return false;
 }
 
@@ -505,7 +503,8 @@ function setupReviewDetails(url) {
 
     $('#details').on('click', '.file-link', function() {
       var target = $(this).data('file');
-      target = $('#file-details-' + target);
+      target = $('#expand-link-' + target);
+      target.parents('.file-container').removeClass('d-none');
       fetchSource(target);
       return true;
     });

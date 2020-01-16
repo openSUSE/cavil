@@ -230,13 +230,13 @@ sub _specfile {
   my $info
     = {file => $file->basename, licenses => [], '%doc' => [], '%license' => []};
   for my $line (split "\n", $file->slurp) {
-    if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}},   $1 }
-    elsif ($line =~ /^\%doc\s*(.+)\s*$/)     { push @{$info->{'%doc'}},     $1 }
+    if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}}, $1 }
+    elsif ($line =~ /^\%doc\s*(.+)\s*$/)     { push @{$info->{'%doc'}}, $1 }
     elsif ($line =~ /^\%license\s*(.+)\s*$/) { push @{$info->{'%license'}}, $1 }
-    elsif ($line =~ /^Version:\s*(.+)\s*$/) { $info->{version} ||= $1 }
-    elsif ($line =~ /^Summary:\s*(.+)\s*$/) { $info->{summary} ||= $1 }
-    elsif ($line =~ /^Group:\s*(.+)\s*$/)   { $info->{group}   ||= $1 }
-    elsif ($line =~ /^Url:\s*(.+)\s*$/)     { $info->{url}     ||= $1 }
+    elsif ($line =~ /^Version:\s*(.+)\s*$/)  { $info->{version} ||= $1 }
+    elsif ($line =~ /^Summary:\s*(.+)\s*$/)  { $info->{summary} ||= $1 }
+    elsif ($line =~ /^Group:\s*(.+)\s*$/)    { $info->{group} ||= $1 }
+    elsif ($line =~ /^Url:\s*(.+)\s*$/)      { $info->{url} ||= $1 }
   }
 
   return $info;

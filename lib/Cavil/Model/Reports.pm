@@ -34,7 +34,7 @@ sub cached_dig_report {
 }
 
 sub dig_report {
-  my ($self, $id) = @_;
+  my ($self, $id, $limit_to_file) = @_;
 
   my $db  = $self->pg->db;
   my $pkg = $db->select('bot_packages', '*', {id => $id})->hash;
@@ -42,7 +42,8 @@ sub dig_report {
     = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
   my %ignored_lines = map { $_->{hash} => 1 } $ignored->hashes->each;
 
-  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines);
+  my $report
+    = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
 
   # prune match caches
   delete $report->{matches};
@@ -57,7 +58,7 @@ sub risk_is_acceptable {
 }
 
 sub source_for {
-  my ($self, $id, $needed) = @_;
+  my ($self, $id) = @_;
 
   my $db   = $self->pg->db;
   my $file = $db->select('matched_files', '*', {id => $id})->hash;
@@ -65,14 +66,12 @@ sub source_for {
 
   my $pkg = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
 
-  my $fn = path(
-    $self->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir},
-    '.unpacked',           $file->{filename}
-  );
-  my %needed_lines = map { $_->[0] => $_->[1] } @$needed;
-  my $lines        = $self->_lines($db, {}, $fn, \%needed_lines);
-
-  return {lines => $lines, name => $pkg->{name}};
+  my $report = $self->dig_report($file->{package}, $id);
+  return {
+    lines    => $report->{lines}{$id},
+    name     => $pkg->{name},
+    filename => $file->{filename}
+  };
 }
 
 sub specfile_report {
@@ -167,12 +166,15 @@ sub _add_to_snippet_hash {
 }
 
 sub _dig_report {
-  my ($self, $db, $pid_info, $pkg, $ignored_lines) = @_;
+  my ($self, $db, $pid_info, $pkg, $ignored_lines, $limit_to_file) = @_;
 
   my $ignored_file_res = Cavil::Util::load_ignored_files($db);
   my $report           = {};
-  my $files
-    = $db->select('matched_files', [qw(id filename)], {package => $pkg->{id}});
+  my $query            = {package => $pkg->{id}};
+  if ($limit_to_file) {
+    $query->{id} = $limit_to_file;
+  }
+  my $files = $db->select('matched_files', [qw(id filename)], $query);
   my %globs_matched;
 
   while (my $file = $files->hash) {
@@ -186,13 +188,20 @@ sub _dig_report {
     $report->{files}{$file->{id}} = $file->{filename} unless $ignored;
   }
 
-  # now check the files that were already ignored during indexing
-  my $filenames = $db->query(
-    'select distinct filename from
+  my $query_string = 'select distinct filename from
                       matched_files mf join pattern_matches pm
                       on pm.file=mf.id where mf.package=?
-                      and pm.ignored=true', $pkg->{id}
-  );
+                      and pm.ignored=true';
+
+  # now check the files that were already ignored during indexing
+  my $filenames;
+  if ($limit_to_file) {
+    $filenames
+      = $db->query("$query_string and mf.id=?", $pkg->{id}, $limit_to_file);
+  }
+  else {
+    $filenames = $db->query($query_string, $pkg->{id});
+  }
 
   while (my $file = $filenames->hash) {
     for my $ifre (keys %$ignored_file_res) {
@@ -205,19 +214,24 @@ sub _dig_report {
 
   $report->{matching_globs} = [keys %globs_matched];
 
-  my $matches = $db->select(
-    'pattern_matches',
-    [qw(id file pattern sline eline)],
-    {package => $pkg->{id}, ignored => 0}
-  );
+  $query = {package => $pkg->{id}, ignored => 0};
+  if ($limit_to_file) {
+    $query->{file} = $limit_to_file;
+  }
+  my $matches
+    = $db->select('pattern_matches', [qw(id file pattern sline eline)], $query);
 
+  $query = {package => $pkg->{id}};
+  if ($limit_to_file) {
+    $query->{file} = $limit_to_file;
+  }
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
     [
       'snippets.id', 'snippets.hash', 'file', 'sline',
       'eline',       'classified',    'license'
     ],
-    {package  => $pkg->{id},},
+    $query,
     {order_by => 'sline'}
   );
   my %file_snippets_to_ignore;
@@ -225,7 +239,7 @@ sub _dig_report {
   my %snippets_shown;
 
   for my $snip_row (@{$snippets->hashes}) {
-    if (!defined $report->{files}{$snip_row->{file}}
+    if ( !defined $report->{files}{$snip_row->{file}}
       || $snippets_shown{$snip_row->{id}}
       || (!$snip_row->{license} && $snip_row->{classified}))
     {
@@ -329,7 +343,7 @@ sub _dig_report {
   }
 
   for my $file (keys %{$report->{files}}) {
-    next unless $report->{expanded}{$file};
+    next unless $report->{expanded}{$file} || $limit_to_file;
     my $fn = path(
       $self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir},
       '.unpacked',         $report->{files}{$file}
@@ -347,7 +361,12 @@ sub _dig_report {
   }
 
   if (%matches_to_ignore) {
-    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines);
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines,
+      $limit_to_file);
+  }
+
+  if ($limit_to_file) {
+    return $report;
   }
 
   if (%snippets_to_remove) {
