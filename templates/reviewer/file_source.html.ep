@@ -16,9 +16,10 @@
 %   $last = $line->[0];
 %   $lastrisk = $risk;
 % }
+% $ends{$currentstart} //= $last if $currentstart;
 % $last = 0;
 % $lastrisk = 0;
-<div class="source" id="file-details-<%= $file %>">
+<div class="source" id="file-details-<%= $file %>" data-file-id="<%= $file %>">
   <table class="snippet">
     <tbody>
       % for my $line (@$lines) {
@@ -56,15 +57,15 @@
                 <a class="dropdown-item add-to-glob" href="#" data-name="<%= $filename %>">Add filename glob...</a>
                 % if ($line->[0] > 1) {
                   <div class="dropdown-divider"></div>
-                  <a class="dropdown-item extend-match-above" href="#">Extend to match above (TODO)</a>
-                  <a class="dropdown-item extend-one-line-above" href="#">Extend one line above</a>
-                  <a class="dropdown-item extend-top" href="#">Extend to the top of file (TODO)</a>
+                  <a class="dropdown-item extend-action extend-match-above" href="#">Extend to match above (TODO)</a>
+                  <a class="dropdown-item extend-action extend-one-line-above" href="#">Extend one line above</a>
+                  <a class="dropdown-item extend-action extend-top" href="#">Extend to the top of file</a>
                 % }
                 % if (defined $ends{$line->[0]}) {
                   <div class="dropdown-divider"></div>
-                  <a class="dropdown-item extend-match-below" href="#">Extend to match below (TODO)</a>
-                  <a class="dropdown-item extend-one-line-below" href="#">Extend one line below (TODO)</a>
-                  <a class="dropdown-item extend-bottom" href="#">Extend to the end of the file (TODO)</a>
+                  <a class="dropdown-item extend-action extend-match-below" href="#">Extend to match below (TODO)</a>
+                  <a class="dropdown-item extend-action extend-one-line-below" href="#">Extend one line below</a>
+                  <a class="dropdown-item extend-action extend-bottom" href="#">Extend to the end of the file</a>
                 % }
               </div>
             </td>

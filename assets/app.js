@@ -462,7 +462,7 @@ function drawLicenseChart() {
 
 function fetchSource(target) {
   var source = target.parents(".file-container").find('.source');
-  $.get('/reviews/fetch_source/' + target.data('file-id'), {},
+  $.get('/reviews/fetch_source/' + source.data('file-id'), {},
 	   function(data) {
        source.html(data);
        source.show();
@@ -481,9 +481,31 @@ function collapseSources() {
   return false;
 }
 
-function extendOneLineAbove() {
-  console.log($(this));
-  console.log($(this).parents('.actions').data());
+function extendMatch() {
+  var actions = $(this).parents('.actions');
+  var target = $(this).parents(".file-container");
+  var source = target.find('.source');
+  var start = Number(actions.data('start'));
+  var end = actions.data('end');
+  if ($(this).hasClass('extend-one-line-above')) {
+    start -= 1;
+  } else if ($(this).hasClass('extend-one-line-below')) {
+    end += 1;
+  } else if ($(this).hasClass('extend-top')) {
+    start = 1;
+  } else if ($(this).hasClass('extend-bottom')) {
+    // this is faking
+    end += 3000;
+  }
+  $.get('/reviews/fetch_source/' + source.data('file-id'),
+    {
+      start: start,
+      end: end
+    },
+     function(data) {
+       source.html(data);
+       source.show();
+     });
   return false;
 }
 
@@ -534,12 +556,7 @@ function setupReviewDetails(url) {
       return false;
     });
 
-    $('#details').on('click', '.extend-one-line-above', extendOneLineAbove);
-    $('#details').on('click', '.extend-match-above', function() { return false});
-    $('#details').on('click', '.extend-top', function() { return false});
-    $('#details').on('click', '.extend-match-below', function() { return false});
-    $('#details').on('click', '.extend-bottom', function() { return false});
-    $('#details').on('click', '.extend-one-line-below', function() { return false});
+    $('#details').on('click', '.extend-action', extendMatch);
 
     $('#globAddButton').click(function() {
       var glob = $('#glob-to-add').val();
