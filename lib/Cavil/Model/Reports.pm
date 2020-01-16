@@ -184,13 +184,20 @@ sub _dig_report {
     $report->{files}{$file->{id}} = $file->{filename} unless $ignored;
   }
 
-  # now check the files that were already ignored during indexing
-  my $filenames = $db->query(
-    'select distinct filename from
+  my $query_string = 'select distinct filename from
                       matched_files mf join pattern_matches pm
                       on pm.file=mf.id where mf.package=?
-                      and pm.ignored=true', $pkg->{id}
-  );
+                      and pm.ignored=true';
+
+  # now check the files that were already ignored during indexing
+  my $filenames;
+  if ($limit_to_file) {
+    $filenames
+      = $db->query("$query_string and mf.id=?", $pkg->{id}, $limit_to_file);
+  }
+  else {
+    $filenames = $db->query($query_string, $pkg->{id});
+  }
 
   while (my $file = $filenames->hash) {
     for my $ifre (keys %$ignored_file_res) {

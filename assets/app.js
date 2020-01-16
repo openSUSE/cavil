@@ -462,7 +462,7 @@ function drawLicenseChart() {
 
 function fetchSource(target) {
   var source = target.parents(".file-container").find('.source');
-  $.post('/reviews/fetch_source/' + target.data('file-id'), {},
+  $.get('/reviews/fetch_source/' + target.data('file-id'), {},
 	   function(data) {
        source.html(data);
        source.show();
