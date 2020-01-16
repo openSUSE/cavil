@@ -80,12 +80,13 @@ sub calc_report {
     json => sub { $self->render(json => {report => $report, package => $pkg}) },
     html => sub {
       my $min = $self->app->config('min_files_short_report');
-      $report = _short_report($report, $min);
+      $report = _short_report($report);
       $self->render(
         'reviewer/report',
-        report  => $report,
-        package => $pkg,
-        gzip    => 1
+        report              => $report,
+        package             => $pkg,
+        max_number_of_files => $min,
+        gzip                => 1
       );
     }
   );
@@ -285,7 +286,7 @@ sub review_package {
 }
 
 sub _short_report {
-  my ($report, $min) = @_;
+  my $report = shift;
 
   my $short = {};
 
