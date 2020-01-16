@@ -73,60 +73,64 @@ sub edit {
        join matched_files m on m.id=fs.file
        where snippet=? limit 1', $id
   )->hash;
-  my $package  = $self->packages->find($example->{package});
-  my $patterns = $db->query(
-    'select lp.id,lp.license,sline,eline from pattern_matches
-     join license_patterns lp on lp.id = pattern_matches.pattern
-     where file=? and sline>=? and eline<=? order by sline', $example->{file},
-    $example->{sline}, $example->{eline}
-  )->hashes;
+
+  my $package;
   my %lines;
-  for my $pattern (@$patterns) {
-    for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
-      my $cm_line = $line - $example->{sline};
 
-      # keywords overwrite everything
-      if (!$pattern->{license}) {
-        $lines{$cm_line} = {pattern => $pattern->{id}, keyword => 1};
-      }
-      else {
-        $lines{$cm_line} ||= {pattern => $pattern->{id}, keyword => 0};
+  if ($example) {
+    $package = $self->packages->find($example->{package});
+    my $patterns = $db->query(
+      'select lp.id,lp.license,sline,eline from pattern_matches
+       join license_patterns lp on lp.id = pattern_matches.pattern
+       where file=? and sline>=? and eline<=? order by sline',
+      $example->{file}, $example->{sline}, $example->{eline}
+    )->hashes;
+
+    for my $pattern (@$patterns) {
+      for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1)
+      {
+        my $cm_line = $line - $example->{sline};
+
+        # keywords overwrite everything
+        if (!$pattern->{license}) {
+          $lines{$cm_line} = {pattern => $pattern->{id}, keyword => 1};
+        }
+        else {
+          $lines{$cm_line} ||= {pattern => $pattern->{id}, keyword => 0};
+        }
       }
     }
-  }
-  $patterns = \%lines;
+    my $fn = path(
+      $self->app->config->{checkout_dir},
+      $package->{name}, $package->{checkout_dir},
+      '.unpacked', $example->{filename}
+    );
 
-  my $fn = path(
-    $self->app->config->{checkout_dir},
-    $package->{name}, $package->{checkout_dir},
-    '.unpacked', $example->{filename}
-  );
-
-  my %needed_lines;
-  for (my $line = $example->{sline}; $line <= $example->{eline}; $line += 1) {
-    $needed_lines{$line} = 1;
-  }
-
-  my $text = '';
-  for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
-    my ($index, $pid, $line) = @$row;
-
-    # Sanitize line - first try UTF-8 strict and then LATIN1
-    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
-    if ($@) {
-      from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
-      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+    my %needed_lines;
+    for (my $line = $example->{sline}; $line <= $example->{eline}; $line += 1) {
+      $needed_lines{$line} = 1;
     }
-    $text .= "$line\n";
-  }
-  $snippet->{text} = $text;
 
-  $example->{delta} = 0;
+    my $text = '';
+    for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
+      my ($index, $pid, $line) = @$row;
+
+      # Sanitize line - first try UTF-8 strict and then LATIN1
+      eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
+      if ($@) {
+        from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
+        $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+      }
+      $text .= "$line\n";
+    }
+    $snippet->{text}  = $text;
+    $example->{delta} = 0;
+  }
 
   # not preserved by textarea/codemirror
-  $example->{delta} = 1 if $text =~ m/^\n/;
+  $example->{delta} = 1 if $snippet->{text} =~ m/^\n/;
   $self->render(
-    patterns      => $patterns,
+    patterns      => \%lines,
     package       => $package,
     example       => $example,
     package_count => $package_count,
@@ -227,6 +231,50 @@ sub top {
     )->hash->{count};
   }
   $self->render(snippets => $result);
+}
+
+sub from_file {
+  my $self = shift;
+
+  my $db = $self->pg->db;
+
+  my $file
+    = $db->select('matched_files', '*', {id => $self->param('file')})->hash;
+  return $self->reply->not_found unless $file;
+
+  my $package
+    = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
+  my $fn = path(
+    $self->app->config->{checkout_dir},
+    $package->{name}, $package->{checkout_dir},
+    '.unpacked', $file->{filename}
+  );
+
+  my %needed_lines;
+  for (
+    my $line = $self->param('start');
+    $line <= $self->param('end');
+    $line += 1
+    )
+  {
+    $needed_lines{$line} = 1;
+  }
+
+  my $text = '';
+  for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
+    my ($index, $pid, $line) = @$row;
+
+    # Sanitize line - first try UTF-8 strict and then LATIN1
+    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
+    if ($@) {
+      from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
+      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+    }
+    $text .= "$line\n";
+  }
+
+  my $id = $self->snippets->find_or_create("manual-" . time, $text);
+  return $self->redirect_to('edit_snippet', id => $id);
 }
 
 1;

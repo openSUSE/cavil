@@ -83,12 +83,13 @@ sub source_for {
     }
     my $nr = $start;
     while ($nr <= $end) {
+
       # snippet 0
       $needed{$nr++} = $pattern_delta;
     }
-    for my $c (1..3) {
-      $needed{$start-$c} //= 0 if $start > $c;
-      $needed{$end+$c} //= 0;
+    for my $c (1 .. 3) {
+      $needed{$start - $c} //= 0 if $start > $c;
+      $needed{$end + $c}   //= 0;
     }
 
     $lines = $self->_lines($db, \%pid_info, $fn, \%needed);
