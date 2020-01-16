@@ -45,7 +45,7 @@
               Flags: <%= join ', ', map { ucfirst } @flags %>
             </p>
           % }
-          % my $listclass = $num > 3 ? 'collapse' : 'collapse in';
+          % my $listclass = $num > 3 ? 'collapse' : 'collapse show';
           % my $count = 0;
           <div id="filelist-<%= $license_counter %>" class="<%= $listclass %>">
             <ul>
