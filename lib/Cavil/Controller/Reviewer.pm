@@ -320,8 +320,9 @@ sub _short_report {
   }
 
   # Risks
-  my $chart    = $short->{chart} = {};
-  my $risks    = $report->{risks};
+  my $chart = $short->{chart} = {};
+  my $risks = $report->{risks};
+  $short->{risks} = {};
   my $licenses = $report->{licenses};
   for my $risk (reverse sort keys %$risks) {
     my $current = $short->{risks}{$risk} = {};
