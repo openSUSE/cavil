@@ -164,6 +164,7 @@ sub fetch_source {
       return $self->render(
         'reviewer/file_source',
         file     => $id,
+        filename => $source->{filename},
         lines    => $source->{lines},
         hidden   => 0,
         packname => $source->{name}

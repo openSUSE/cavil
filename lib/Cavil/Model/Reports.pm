@@ -61,13 +61,17 @@ sub source_for {
   my ($self, $id) = @_;
 
   my $db   = $self->pg->db;
-  my $file = $db->select('matched_files', 'package', {id => $id})->hash;
+  my $file = $db->select('matched_files', '*', {id => $id})->hash;
   return undef unless $file;
 
   my $pkg = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
 
   my $report = $self->dig_report($file->{package}, $id);
-  return {lines => $report->{lines}{$id}, name => $pkg->{name}};
+  return {
+    lines    => $report->{lines}{$id},
+    name     => $pkg->{name},
+    filename => $file->{filename}
+  };
 }
 
 sub specfile_report {

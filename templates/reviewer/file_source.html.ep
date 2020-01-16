@@ -36,7 +36,7 @@
                 % } else {
                   <a class="dropdown-item" href="<%= url_for('edit_pattern', id => $line->[1]->{pid}) %>">Edit Pattern</a>
                 % }
-                <a class="dropdown-item" href="#">Add filename glob... (TODO)</a>
+                <a class="dropdown-item add-to-glob" href="#" data-name="<%= $filename %>">Add filename glob...</a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="#">Extend to match above (TODO)</a>
                 <a class="dropdown-item" href="#">Extend one line above (TODO)</a>
