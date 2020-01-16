@@ -481,6 +481,12 @@ function collapseSources() {
   return false;
 }
 
+function extendOneLineAbove() {
+  console.log($(this));
+  console.log($(this).parents('.actions').data());
+  return false;
+}
+
 function setupReviewDetails(url) {
 
   $('#reindex_button').prop('disabled', false);
@@ -527,6 +533,13 @@ function setupReviewDetails(url) {
       $('#globModal').modal({'focus': true, 'keyboard': true, 'show': true});
       return false;
     });
+
+    $('#details').on('click', '.extend-one-line-above', extendOneLineAbove);
+    $('#details').on('click', '.extend-match-above', function() { return false});
+    $('#details').on('click', '.extend-top', function() { return false});
+    $('#details').on('click', '.extend-match-below', function() { return false});
+    $('#details').on('click', '.extend-bottom', function() { return false});
+    $('#details').on('click', '.extend-one-line-below', function() { return false});
 
     $('#globAddButton').click(function() {
       var glob = $('#glob-to-add').val();
