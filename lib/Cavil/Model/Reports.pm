@@ -389,6 +389,9 @@ sub _dig_report {
       $limit_to_file);
   }
 
+  # we read the lines and that's enough
+  delete $report->{needed_lines};
+
   if ($limit_to_file) {
     return $report;
   }
