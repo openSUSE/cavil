@@ -16,7 +16,7 @@
   <canvas id="license-chart" width="100%" height="18em"></canvas>
 
   % my %linked_files;
-  % if ($report->{missed_snippets}) {
+  % if (%{$report->{missed_snippets}}) {
     <div class="alert alert-warning" role="alert">
       Found unmatched keywords in (at least) <span class="badge badge-secondary"><%= scalar keys %{$report->{missed_snippets}} %></span> files.
       License report is incomplete
