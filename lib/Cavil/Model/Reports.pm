@@ -25,7 +25,7 @@ use Cavil::Checkout;
 has [qw(acceptable_risk checkout_dir max_expanded_files pg)];
 
 # we need a HUGE number because Spooky uses unsigned integers
-my $pattern_delta = 10000000000;
+use constant PATTERN_DELTA => 10000000000;
 
 sub cached_dig_report {
   my ($self, $id) = @_;
@@ -85,7 +85,7 @@ sub source_for {
     while ($nr <= $end) {
 
       # snippet 0
-      $needed{$nr++} = $pattern_delta;
+      $needed{$nr++} = PATTERN_DELTA;
     }
     for my $c (1 .. 3) {
       $needed{$start - $c} //= 0 if $start > $c;
@@ -292,7 +292,7 @@ sub _dig_report {
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;
         if ($i >= $sline && $i <= $eline) {
-          $report->{needed_lines}{$file}{$i} = $pattern_delta + $id;
+          $report->{needed_lines}{$file}{$i} = PATTERN_DELTA + $id;
           $report->{snippets}{$file}{$id}    = $hash;
         }
         else {
@@ -343,7 +343,7 @@ sub _dig_report {
       if ($i >= $match->{sline} && $i <= $match->{eline}) {
 
         my $opid = $report->{needed_lines}{$match->{file}}{$i} // 0;
-        next if $opid > $pattern_delta;
+        next if $opid > PATTERN_DELTA;
 
         # set the risk of the line
         # but make sure we do not lower the risk
@@ -454,14 +454,14 @@ sub _lines {
       from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
-    if ($pid >= $pattern_delta) {
+    if ($pid >= PATTERN_DELTA) {
       push(
         @lines,
         [
           $index,
           {
             risk    => 9,
-            snippet => $pid - $pattern_delta,
+            snippet => $pid - PATTERN_DELTA,
             name    => 'Snippet of missing keywords'
           },
           $line
