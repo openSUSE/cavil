@@ -106,24 +106,7 @@ sub edit {
       '.unpacked', $example->{filename}
     );
 
-    my %needed_lines;
-    for (my $line = $example->{sline}; $line <= $example->{eline}; $line += 1) {
-      $needed_lines{$line} = 1;
-    }
-
-    my $text = '';
-    for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
-      my ($index, $pid, $line) = @$row;
-
-      # Sanitize line - first try UTF-8 strict and then LATIN1
-      eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
-      if ($@) {
-        from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
-        $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
-      }
-      $text .= "$line\n";
-    }
-    $snippet->{text}  = $text;
+    $snippet->{text}  = _read_lines($fn, $example->{sline}, $example->{eline});
     $example->{delta} = 0;
   }
 
@@ -139,6 +122,29 @@ sub edit {
     best          => $best,
     similarity    => int($sim * 1000 + 0.5) / 10
   );
+}
+
+sub _read_lines {
+  my ($fn, $start_line, $end_line) = @_;
+
+  my %needed_lines;
+  for (my $line = $start_line; $line <= $end_line; $line += 1) {
+    $needed_lines{$line} = 1;
+  }
+
+  my $text = '';
+  for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
+    my ($index, $pid, $line) = @$row;
+
+    # Sanitize line - first try UTF-8 strict and then LATIN1
+    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
+    if ($@) {
+      from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
+      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+    }
+    $text .= "$line\n";
+  }
+  return $text;
 }
 
 sub _render_conflict {
@@ -236,10 +242,10 @@ sub top {
 sub from_file {
   my $self = shift;
 
-  my $db = $self->pg->db;
+  my $db      = $self->pg->db;
+  my $file_id = $self->param('file');
 
-  my $file
-    = $db->select('matched_files', '*', {id => $self->param('file')})->hash;
+  my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
   return $self->reply->not_found unless $file;
 
   my $package
@@ -250,31 +256,22 @@ sub from_file {
     '.unpacked', $file->{filename}
   );
 
-  my %needed_lines;
-  for (
-    my $line = $self->param('start');
-    $line <= $self->param('end');
-    $line += 1
-    )
-  {
-    $needed_lines{$line} = 1;
-  }
-
-  my $text = '';
-  for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
-    my ($index, $pid, $line) = @$row;
-
-    # Sanitize line - first try UTF-8 strict and then LATIN1
-    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
-    if ($@) {
-      from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
-      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+  my $first_line = $self->param('start');
+  my $last_line = $self->param('end');
+  my $text    = _read_lines($fn, $first_line, $last_line);
+  my $snippet = $self->snippets->find_or_create("manual-" . time, $text);
+  $db->insert(
+    'file_snippets',
+    {
+      package => $package->{id},
+      snippet => $snippet,
+      sline   => $first_line,
+      eline   => $last_line,
+      file    => $file_id
     }
-    $text .= "$line\n";
-  }
+  );
 
-  my $id = $self->snippets->find_or_create("manual-" . time, $text);
-  return $self->redirect_to('edit_snippet', id => $id);
+  return $self->redirect_to('edit_snippet', id => $snippet);
 }
 
 1;
