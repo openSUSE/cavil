@@ -80,6 +80,7 @@ sub source_for {
       my ($nr, $pid, $text) = @$line;
       $needed{$nr} = 0;
       $needed{$nr} = $pid->{pid} if $pid->{pid};
+      $needed{$nr} = PATTERN_DELTA + $pid->{snippet} if $pid->{snippet};
     }
     my $nr = $start;
     while ($nr <= $end) {
