@@ -19,6 +19,7 @@ use Mojo::Base 'Mojolicious::Controller';
 use Mojo::File 'path';
 use Mojo::JSON 'from_json';
 use Cavil::Licenses 'lic';
+use Cavil::Util 'lines_context';
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -169,7 +170,7 @@ sub fetch_source {
         'reviewer/file_source',
         file     => $id,
         filename => $source->{filename},
-        lines    => $source->{lines},
+        lines    => lines_context($source->{lines}),
         hidden   => 0,
         packname => $source->{name}
       );
@@ -315,7 +316,7 @@ sub _sanitize_report {
       my $current = {id => $file, path => $path, expand => $expanded->{$file}};
 
     if ($lines->{$file}) {
-      $current->{lines} = $lines->{$file};
+      $current->{lines} = lines_context($lines->{$file});
     }
   }
 

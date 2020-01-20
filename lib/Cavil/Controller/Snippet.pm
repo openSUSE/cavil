@@ -257,9 +257,9 @@ sub from_file {
   );
 
   my $first_line = $self->param('start');
-  my $last_line = $self->param('end');
-  my $text    = _read_lines($fn, $first_line, $last_line);
-  my $snippet = $self->snippets->find_or_create("manual-" . time, $text);
+  my $last_line  = $self->param('end');
+  my $text       = _read_lines($fn, $first_line, $last_line);
+  my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
   $db->insert(
     'file_snippets',
     {

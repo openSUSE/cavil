@@ -1,0 +1,257 @@
+{
+   "expected" : [
+      [
+         3,
+         {
+            "risk" : 0
+         },
+         "line3"
+      ],
+      [
+         4,
+         {
+            "risk" : 0
+         },
+         "line4"
+      ],
+      [
+         5,
+         {
+            "risk" : 0
+         },
+         "line5"
+      ],
+      [
+         6,
+         {
+            "end" : 6,
+            "name" : "Public-Domain",
+            "nextend" : 404,
+            "pid" : 726,
+            "risk" : 1
+         },
+         "line6"
+      ],
+      [
+         7,
+         {
+            "risk" : 0
+         },
+         "line7"
+      ],
+      [
+         8,
+         {
+            "risk" : 0
+         },
+         "line8"
+      ],
+      [
+         9,
+         {
+            "risk" : 0
+         },
+         "line9"
+      ],
+      [
+         399,
+         {
+            "risk" : 0,
+            "withgap" : 1
+         },
+         "line399"
+      ],
+      [
+         400,
+         {
+            "risk" : 0
+         },
+         "line400"
+      ],
+      [
+         401,
+         {
+            "risk" : 0
+         },
+         "line401"
+      ],
+      [
+         402,
+         {
+            "end" : 404,
+            "hash" : "b9396eed8812893e8c2b7c77ed3b0f2c",
+            "name" : "Snippet of missing keywords",
+            "prevstart" : 6,
+            "risk" : 9,
+            "snippet" : 4083
+         },
+         "line402"
+      ],
+      [
+         403,
+         {
+            "hash" : "b9396eed8812893e8c2b7c77ed3b0f2c",
+            "name" : "Snippet of missing keywords",
+            "risk" : 9,
+            "snippet" : 4083
+         },
+         "line403"
+      ],
+      [
+         404,
+         {
+            "hash" : "b9396eed8812893e8c2b7c77ed3b0f2c",
+            "name" : "Snippet of missing keywords",
+            "risk" : 9,
+            "snippet" : 4083
+         },
+         "line404"
+      ],
+      [
+         405,
+         {
+            "risk" : 0
+         },
+         "line405"
+      ],
+      [
+         406,
+         {
+            "risk" : 0
+         },
+         "line406"
+      ],
+      [
+         407,
+         {
+            "risk" : 0
+         },
+         "line407"
+      ]
+   ],
+   "original" : [
+      [
+         3,
+         {
+            "risk" : 0
+         },
+         "line3"
+      ],
+      [
+         4,
+         {
+            "risk" : 0
+         },
+         "line4"
+      ],
+      [
+         5,
+         {
+            "risk" : 0
+         },
+         "line5"
+      ],
+      [
+         6,
+         {
+            "name" : "Public-Domain",
+            "pid" : 726,
+            "risk" : 1
+         },
+         "line6"
+      ],
+      [
+         7,
+         {
+            "risk" : 0
+         },
+         "line7"
+      ],
+      [
+         8,
+         {
+            "risk" : 0
+         },
+         "line8"
+      ],
+      [
+         9,
+         {
+            "risk" : 0
+         },
+         "line9"
+      ],
+      [
+         399,
+         {
+            "risk" : 0
+         },
+         "line399"
+      ],
+      [
+         400,
+         {
+            "risk" : 0
+         },
+         "line400"
+      ],
+      [
+         401,
+         {
+            "risk" : 0
+         },
+         "line401"
+      ],
+      [
+         402,
+         {
+            "hash" : "b9396eed8812893e8c2b7c77ed3b0f2c",
+            "name" : "Snippet of missing keywords",
+            "risk" : 9,
+            "snippet" : 4083
+         },
+         "line402"
+      ],
+      [
+         403,
+         {
+            "hash" : "b9396eed8812893e8c2b7c77ed3b0f2c",
+            "name" : "Snippet of missing keywords",
+            "risk" : 9,
+            "snippet" : 4083
+         },
+         "line403"
+      ],
+      [
+         404,
+         {
+            "hash" : "b9396eed8812893e8c2b7c77ed3b0f2c",
+            "name" : "Snippet of missing keywords",
+            "risk" : 9,
+            "snippet" : 4083
+         },
+         "line404"
+      ],
+      [
+         405,
+         {
+            "risk" : 0
+         },
+         "line405"
+      ],
+      [
+         406,
+         {
+            "risk" : 0
+         },
+         "line406"
+      ],
+      [
+         407,
+         {
+            "risk" : 0
+         },
+         "line407"
+      ]
+   ]
+}

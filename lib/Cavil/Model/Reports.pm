@@ -469,8 +469,9 @@ sub _lines {
       );
     }
     else {
-      push(@lines,
-        [$index, $self->_info_for_pattern($db, $pid_info, $pid), $line]);
+      # need to store a deep copy to modify it later adding context
+      my %pinfo = %{$self->_info_for_pattern($db, $pid_info, $pid)};
+      push(@lines, [$index, \%pinfo, $line]);
     }
   }
 
