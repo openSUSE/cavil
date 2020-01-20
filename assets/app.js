@@ -496,6 +496,10 @@ function extendMatch() {
   } else if ($(this).hasClass('extend-bottom')) {
     // this is faking
     end += 3000;
+  } else if ($(this).hasClass('extend-match-above')) {
+    start = actions.data('prev-match');
+  } else if ($(this).hasClass('extend-match-below')) {
+    end = actions.data('next-match');
   }
   $.get('/reviews/fetch_source/' + source.data('file-id'),
     {

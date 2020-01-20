@@ -3,14 +3,20 @@
 % my $snippet = 0;
 % # go through it once
 % my %ends;
+% my %prevmatches;
 % my $currentstart;
+% my %nextmatches;
+% my $prevstart;
 % for my $line (@$lines) {
 %   my $risk = $line->[1]->{risk};
 %   if ($lastrisk != $risk) {
 %     if ($risk) {
+%       $prevmatches{$line->[0]} = $currentstart;
+%       $prevstart = $currentstart;
 %       $currentstart = $line->[0];
 %     } else {
 %       $ends{$currentstart} = $last;
+%       $nextmatches{$prevstart} = $last;
 %     }
 %   }
 %   $last = $line->[0];
@@ -38,7 +44,7 @@
           <tr class="<%= $class %>">
         % }
           % if ($risk != 0 && $risk != $lastrisk) {
-            <td class="actions dropdown show" data-start="<%= $line->[0] %>" data-end="<%= $ends{$line->[0]} %>">
+            %= tag 'td', class => "actions dropdown show" => data => { start => $line->[0], end => $line->[0], 'prev-match' => $prevmatches{$line->[0]}, 'next-match' => $nextmatches{$line->[0]} } => begin
               <a href="#" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="actions-menu fas fa-caret-square-down" title="Open Action Menu"></i>
               </a>
@@ -61,18 +67,22 @@
                 <a class="dropdown-item add-to-glob" href="#" data-name="<%= $filename %>">Add filename glob...</a>
                 % if ($line->[0] > 1) {
                   <div class="dropdown-divider"></div>
-                  <a class="dropdown-item extend-action extend-match-above" href="#">Extend to match above (TODO)</a>
+                  % if ($prevmatches{$line->[0]}) {
+                    <a class="dropdown-item extend-action extend-match-above" href="#">Extend to match above</a>
+                  % }
                   <a class="dropdown-item extend-action extend-one-line-above" href="#">Extend one line above</a>
                   <a class="dropdown-item extend-action extend-top" href="#">Extend to the top of file</a>
                 % }
                 % if (defined $ends{$line->[0]}) {
                   <div class="dropdown-divider"></div>
-                  <a class="dropdown-item extend-action extend-match-below" href="#">Extend to match below (TODO)</a>
+                  % if ($nextmatches{$line->[0]}) {
+                    <a class="dropdown-item extend-action extend-match-below" href="#">Extend to match below</a>
+                  % }
                   <a class="dropdown-item extend-action extend-one-line-below" href="#">Extend one line below</a>
                   <a class="dropdown-item extend-action extend-bottom" href="#">Extend to the end of the file</a>
                 % }
               </div>
-            </td>
+            % end
           % }
           % else {
             <td class="actions"></td>
