@@ -36,7 +36,7 @@ WriteMakefile(
     'Minion'                         => '8.0',
     'File::Unpack'                   => 0,
     'Cpanel::JSON::XS'               => 0,
-    'Spooky::Patterns::XS'           => '1.50',
+    'Spooky::Patterns::XS'           => '1.54',
     'Net::OpenID::Consumer'          => 0,
     'LWP::UserAgent'                 => 0,
     'BSD::Resource'                  => 0
