@@ -23,7 +23,7 @@ use POSIX 'ceil';
 use Text::Glob 'glob_to_regex';
 $Text::Glob::strict_wildcard_slash = 0;
 
-our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files);
+our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files lines_context);
 
 my $MAX_FILE_SIZE = 30000;
 
@@ -51,6 +51,52 @@ sub slurp_and_decode {
 
   return $content if -s $path > $MAX_FILE_SIZE;
   return decode('UTF-8', $content) // $content;
+}
+
+sub _line_tag {
+  my $line = shift;
+  return $line->[1]->{pid}      if defined $line->[1]->{pid};
+  # the actual value does not matter - as long as it differs between snippets
+  return -1 - $line->[1]->{snippet} if defined $line->[1]->{snippet};
+  return 0;
+}
+
+# small helper to simplifying the view code
+# this adds to the line infos where the matches end and
+# what's next
+sub lines_context {
+  my $lines = shift;
+  my $last;
+  my $currentstart;
+  my @starts;
+  for my $line (@$lines) {
+    if ($last && ($line->[0] - $last->[0]) > 1) {
+      $line->[1]->{withgap} = 1;
+    }
+    my $linetag = _line_tag($line);
+    if (_line_tag($last) != $linetag) {
+      $currentstart->[1]->{end} = $last->[0] if $currentstart;
+      if ($linetag) {
+        push(@starts, $line);
+        $currentstart = $line;
+      }
+      else {
+        $currentstart = undef;
+      }
+    }
+    $last = $line;
+  }
+  $currentstart->[1]->{end} = $last->[0] if $currentstart && $last;
+  my $prevstart;
+  for my $start (@starts) {
+    if ($prevstart) {
+      $prevstart->[1]->{nextend} = $start->[1]->{end};
+      $start->[1]->{prevstart}   = $prevstart->[0];
+    }
+    $prevstart = $start;
+  }
+
+  return $lines;
 }
 
 sub load_ignored_files {

@@ -462,7 +462,7 @@ function drawLicenseChart() {
 
 function fetchSource(target) {
   var source = target.parents(".file-container").find('.source');
-  $.get('/reviews/fetch_source/' + target.data('file-id'), {},
+  $.get('/reviews/fetch_source/' + source.data('file-id'), {},
 	   function(data) {
        source.html(data);
        source.show();
@@ -478,6 +478,38 @@ function expandSources() {
 function collapseSources() {
   $(this).parents(".file-container").find('.source').hide();
   $(this).addClass('expand-pre').removeClass('collapse-pre');
+  return false;
+}
+
+function extendMatch() {
+  var actions = $(this).parents('.actions');
+  var target = $(this).parents(".file-container");
+  var source = target.find('.source');
+  var start = Number(actions.data('start'));
+  var end = actions.data('end');
+  if ($(this).hasClass('extend-one-line-above')) {
+    start -= 1;
+  } else if ($(this).hasClass('extend-one-line-below')) {
+    end += 1;
+  } else if ($(this).hasClass('extend-top')) {
+    start = 1;
+  } else if ($(this).hasClass('extend-bottom')) {
+    // this is faking
+    end += 3000;
+  } else if ($(this).hasClass('extend-match-above')) {
+    start = actions.data('prev-match');
+  } else if ($(this).hasClass('extend-match-below')) {
+    end = actions.data('next-match');
+  }
+  $.get('/reviews/fetch_source/' + source.data('file-id'),
+    {
+      start: start,
+      end: end
+    },
+     function(data) {
+       source.html(data);
+       source.show();
+     });
   return false;
 }
 
@@ -527,6 +559,8 @@ function setupReviewDetails(url) {
       $('#globModal').modal({'focus': true, 'keyboard': true, 'show': true});
       return false;
     });
+
+    $('#details').on('click', '.extend-action', extendMatch);
 
     $('#globAddButton').click(function() {
       var glob = $('#glob-to-add').val();

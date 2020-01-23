@@ -1,14 +1,10 @@
-% my $last;
-% my $lastrisk = 0;
-% my $snippet = 0;
-<div class="source" id="file-details-<%= $file %>">
+<div class="source" id="file-details-<%= $file %>" data-file-id="<%= $file %>">
   <table class="snippet">
     <tbody>
       % for my $line (@$lines) {
         % my $hash = $line->[1]->{hash};
-        % if ($last && ($line->[0] - $last) > 1) {
+        % if (defined $line->[1]->{withgap}) {
           <tr><td class="redbar" colspan="3"></td></tr>
-          % $snippet++;
         % }
         % my $risk = $line->[1]->{risk};
         % my $class = "risk-$risk";
@@ -19,15 +15,20 @@
         % else {
           <tr class="<%= $class %>">
         % }
-          % if ($risk != 0 && $risk != $lastrisk) {
-            <td class="actions dropdown show">
+          % if ($line->[1]->{end}) {
+            % my $data = { start => $line->[0], end => $line->[1]->{end}, 'prev-match' => $line->[1]->{prevstart} // 0, 'next-match' => $line->[1]->{nextend} // 0 };
+            %= tag 'td', class => "actions dropdown show" => data => $data => begin
               <a href="#" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="actions-menu fas fa-caret-square-down" title="Open Action Menu"></i>
               </a>
 
               <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
                 % if ($risk == 9) {
-                  <a class="dropdown-item" href="<%= url_for('edit_snippet', id => $line->[1]->{snippet}) %>">Create Pattern from selection</a>
+                  % if ($line->[1]->{snippet}) {
+                    <a class="dropdown-item" href="<%= url_for('edit_snippet', id => $line->[1]->{snippet}) %>">Create Pattern from selection</a>
+                  % } else {
+                    <a class="dropdown-item" href="<%= url_for('new_snippet', file => $file, start => $line->[0], end => $line->[1]->{end}) %>">Create Pattern from selection</a>
+                  % }
                   <div class="dropdown-divider"></div>
                   <a class="dropdown-item" href="#" data-hash="<%= $hash %>"
                     data-packname="<%= $packname %>" onclick="return ignoreLine($(this));">Ignore Snippet for '<%= $packname %>'</a>
@@ -37,26 +38,31 @@
                   <a class="dropdown-item" href="<%= url_for('edit_pattern', id => $line->[1]->{pid}) %>">Edit Pattern</a>
                 % }
                 <a class="dropdown-item add-to-glob" href="#" data-name="<%= $filename %>">Add filename glob...</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="#">Extend to match above (TODO)</a>
-                <a class="dropdown-item" href="#">Extend one line above (TODO)</a>
-                <a class="dropdown-item" href="#">Extend to the top of file (TODO)</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="#">Extend to match below (TODO)</a>
-                <a class="dropdown-item" href="#">Extend one line below (TODO)</a>
-                <a class="dropdown-item" href="#">Extend to the end of the file (TODO)</a>
-
+                % if ($line->[0] > 1) {
+                  <div class="dropdown-divider"></div>
+                  % if ($line->[1]->{prevstart}) {
+                    <a class="dropdown-item extend-action extend-match-above" href="#">Extend to match above</a>
+                  % }
+                  <a class="dropdown-item extend-action extend-one-line-above" href="#">Extend one line above</a>
+                  <a class="dropdown-item extend-action extend-top" href="#">Extend to the top of file</a>
+                % }
+                % if (defined $line->[1]->{end}) {
+                  <div class="dropdown-divider"></div>
+                  % if ($line->[1]->{nextend}) {
+                    <a class="dropdown-item extend-action extend-match-below" href="#">Extend to match below</a>
+                  % }
+                  <a class="dropdown-item extend-action extend-one-line-below" href="#">Extend one line below</a>
+                  <a class="dropdown-item extend-action extend-bottom" href="#">Extend to the end of the file</a>
+                % }
               </div>
-            </td>
+            % end
           % }
           % else {
             <td class="actions"></td>
           % }
           <td class='linenumber'><%= $line->[0] %></td>
           <td class="code"><%= $line->[2] %></td>
-          % $last = $line->[0];
         </tr>
-        % $lastrisk = $risk;
       % }
     </tbody>
   </table>

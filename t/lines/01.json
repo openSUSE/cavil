@@ -1,0 +1,326 @@
+{
+   "expected" : [
+      [
+         1,
+         {
+            "risk" : 0
+         },
+         "@echo off\r"
+      ],
+      [
+         2,
+         {
+            "name" : "SUSE-FSF",
+            "pid" : 23013,
+            "end": 2,
+            "nextend": 8,
+            "risk" : 0
+         },
+         ":: Copyright (C) 1996-2020 Free Software Foundation, Inc.\r"
+      ],
+      [
+         3,
+         {
+            "risk" : 0
+         },
+         ":: This file is part of GNU Make.\r"
+      ],
+      [
+         4,
+         {
+            "risk" : 0
+         },
+         "::\r"
+      ],
+      [
+         5,
+         {
+            "end" : 8,
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "prevstart": 2,
+            "nextend": 11,
+            "risk" : 3
+         },
+         ":: GNU Make is free software; you can redistribute it and/or modify it under\r"
+      ],
+      [
+         6,
+         {
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "risk" : 3
+         },
+         ":: the terms of the GNU General Public License as published by the Free\r"
+      ],
+      [
+         7,
+         {
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "risk" : 3
+         },
+         ":: Software Foundation; either version 3 of the License, or (at your option)\r"
+      ],
+      [
+         8,
+         {
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "risk" : 3
+         },
+         ":: any later version.\r"
+      ],
+      [
+         9,
+         {
+            "risk" : 0
+         },
+         "::\r"
+      ],
+      [
+         10,
+         {
+            "name" : "Any floating warranty",
+            "nextend" : 12,
+            "pid" : 4840,
+            "prevstart" : 5,
+            "end": 11,
+            "nextend": 12,
+            "risk" : 1
+         },
+         ":: GNU Make is distributed in the hope that it will be useful, but WITHOUT\r"
+      ],
+      [
+         11,
+         {
+            "name" : "Any floating warranty",
+            "pid" : 4840,
+            "risk" : 1
+         },
+         ":: ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or\r"
+      ],
+      [
+         12,
+         {
+            "end" : 12,
+            "name" : "GPL-Unspecified",
+            "nextend" : 16,
+            "pid" : 32700,
+            "prevstart" : 10,
+            "risk" : 3
+         },
+         ":: FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for.\r"
+      ],
+      [
+         13,
+         {
+            "risk" : 0
+         },
+         ":: more details.\r"
+      ],
+      [
+         14,
+         {
+            "risk" : 0
+         },
+         "::\r"
+      ],
+      [
+         15,
+         {
+            "end" : 16,
+            "name" : "GPL-Unspecified",
+            "pid" : 16118,
+            "prevstart" : 12,
+            "risk" : 3
+         },
+         ":: You should have received a copy of the GNU General Public License along\r"
+      ],
+      [
+         16,
+         {
+            "name" : "GPL-Unspecified",
+            "pid" : 16118,
+            "risk" : 3
+         },
+         ":: with this program.  If not, see <http://www.gnu.org/licenses/>.\r"
+      ],
+      [
+         17,
+         {
+            "risk" : 0
+         },
+         "\r"
+      ],
+      [
+         18,
+         {
+            "risk" : 0
+         },
+         "setlocal\r"
+      ],
+      [
+         19,
+         {
+            "risk" : 0
+         },
+         "if not \"%RECURSEME%\"==\"%~0\" (\r"
+      ]
+   ],
+   "original" : [
+      [
+         1,
+         {
+            "risk" : 0
+         },
+         "@echo off\r"
+      ],
+      [
+         2,
+         {
+            "name" : "SUSE-FSF",
+            "pid" : 23013,
+            "risk" : 0
+         },
+         ":: Copyright (C) 1996-2020 Free Software Foundation, Inc.\r"
+      ],
+      [
+         3,
+         {
+            "risk" : 0
+         },
+         ":: This file is part of GNU Make.\r"
+      ],
+      [
+         4,
+         {
+            "risk" : 0
+         },
+         "::\r"
+      ],
+      [
+         5,
+         {
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "risk" : 3
+         },
+         ":: GNU Make is free software; you can redistribute it and/or modify it under\r"
+      ],
+      [
+         6,
+         {
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "risk" : 3
+         },
+         ":: the terms of the GNU General Public License as published by the Free\r"
+      ],
+      [
+         7,
+         {
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "risk" : 3
+         },
+         ":: Software Foundation; either version 3 of the License, or (at your option)\r"
+      ],
+      [
+         8,
+         {
+            "name" : "GPL-3.0+",
+            "pid" : 5940,
+            "risk" : 3
+         },
+         ":: any later version.\r"
+      ],
+      [
+         9,
+         {
+            "risk" : 0
+         },
+         "::\r"
+      ],
+      [
+         10,
+         {
+            "name" : "Any floating warranty",
+            "pid" : 4840,
+            "risk" : 1
+         },
+         ":: GNU Make is distributed in the hope that it will be useful, but WITHOUT\r"
+      ],
+      [
+         11,
+         {
+            "name" : "Any floating warranty",
+            "pid" : 4840,
+            "risk" : 1
+         },
+         ":: ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or\r"
+      ],
+      [
+         12,
+         {
+            "name" : "GPL-Unspecified",
+            "pid" : 32700,
+            "risk" : 3
+         },
+         ":: FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for.\r"
+      ],
+      [
+         13,
+         {
+            "risk" : 0
+         },
+         ":: more details.\r"
+      ],
+      [
+         14,
+         {
+            "risk" : 0
+         },
+         "::\r"
+      ],
+      [
+         15,
+         {
+            "name" : "GPL-Unspecified",
+            "pid" : 16118,
+            "risk" : 3
+         },
+         ":: You should have received a copy of the GNU General Public License along\r"
+      ],
+      [
+         16,
+         {
+            "name" : "GPL-Unspecified",
+            "pid" : 16118,
+            "risk" : 3
+         },
+         ":: with this program.  If not, see <http://www.gnu.org/licenses/>.\r"
+      ],
+      [
+         17,
+         {
+            "risk" : 0
+         },
+         "\r"
+      ],
+      [
+         18,
+         {
+            "risk" : 0
+         },
+         "setlocal\r"
+      ],
+      [
+         19,
+         {
+            "risk" : 0
+         },
+         "if not \"%RECURSEME%\"==\"%~0\" (\r"
+      ]
+   ]
+}

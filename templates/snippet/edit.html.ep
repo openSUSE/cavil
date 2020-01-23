@@ -24,10 +24,12 @@
 % }
 <h3>Edit Snippet</h3>
 
-<p>
-The following snippet was found in <%= $file_count %> files within <%= $package_count %> packages.
-The example shown here is from <%= link_to $package->{name} => url_for('package_details', id => $package->{id}) %>
-</p>
+% if ($file_count) {
+  <p>
+  The following snippet was found in <%= $file_count %> files within <%= $package_count %> packages.
+  The example shown here is from <%= link_to $package->{name} => url_for('package_details', id => $package->{id}) %>
+  </p>
+% }
 
 %= form_for url_for('snippet_decision') => (method => 'POST') => begin
   %= hidden_field id => $snippet->{id}

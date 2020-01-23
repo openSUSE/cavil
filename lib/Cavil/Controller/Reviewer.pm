@@ -19,6 +19,7 @@ use Mojo::Base 'Mojolicious::Controller';
 use Mojo::File 'path';
 use Mojo::JSON 'from_json';
 use Cavil::Licenses 'lic';
+use Cavil::Util 'lines_context';
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -75,12 +76,12 @@ sub calc_report {
     unless my $report = $self->reports->cached_dig_report($id);
 
   $report = from_json($report);
+  $self->_sanitize_report($report);
 
   $self->respond_to(
     json => sub { $self->render(json => {report => $report, package => $pkg}) },
     html => sub {
       my $min = $self->app->config('min_files_short_report');
-      $report = _short_report($report);
       $self->render(
         'reviewer/report',
         report              => $report,
@@ -155,7 +156,11 @@ sub fetch_source {
 
   my $id = $self->param('id');
   return $self->reply->not_found
-    unless my $source = $self->reports->source_for($id, $self->req->json);
+    unless my $source = $self->reports->source_for(
+    $id,
+    $self->param('start') || 0,
+    $self->param('end')   || 0
+    );
 
   $self->respond_to(
     json => sub { $self->render(json => {source => $source}) },
@@ -165,7 +170,7 @@ sub fetch_source {
         'reviewer/file_source',
         file     => $id,
         filename => $source->{filename},
-        lines    => $source->{lines},
+        lines    => lines_context($source->{lines}),
         hidden   => 0,
         packname => $source->{name}
       );
@@ -286,41 +291,42 @@ sub review_package {
   $self->render('reviewer/reviewed', package => $pkg);
 }
 
-sub _short_report {
-  my $report = shift;
-
-  my $short = {};
+sub _sanitize_report {
+  my ($self, $report) = @_;
 
   # Flags
-  $short->{flags} = $report->{flags} || [];
-
-  # Minimum number of files for short report
-  my $files = $report->{files};
-
-  my $snippets_sum = 0;
-  map { $snippets_sum += @{$_} } values %{$report->{missed_snippets}};
-  $short->{missed_snippets} = $snippets_sum;
+  $report->{flags} = $report->{flags} || [];
 
   # Files
+  my $files    = $report->{files};
   my $expanded = $report->{expanded};
   my $lines    = $report->{lines};
-  my $needed   = $report->{needed_lines};
+  my $snippets = $report->{missed_snippets};
+
+  $report->{missed_snippets} = {};
+  for my $file (keys %$snippets) {
+    $expanded->{$file} = 1;
+    $report->{missed_snippets}{$files->{$file}} = [$file, $snippets->{$file}];
+  }
+
+  $report->{files} = [];
   for my $file (sort { $files->{$a} cmp $files->{$b} } keys %$files) {
     my $path = $files->{$file};
-    push @{$short->{files}},
+    push @{$report->{files}},
       my $current = {id => $file, path => $path, expand => $expanded->{$file}};
 
     if ($lines->{$file}) {
-      $current->{lines} = $lines->{$file};
+      $current->{lines} = lines_context($lines->{$file});
     }
   }
 
   # Risks
-  my $chart    = $short->{chart} = {};
-  my $risks    = $report->{risks};
+  my $chart = $report->{chart} = {};
+  my $risks = $report->{risks};
+  $report->{risks} = {};
   my $licenses = $report->{licenses};
   for my $risk (reverse sort keys %$risks) {
-    my $current = $short->{risks}{$risk} = {};
+    my $current = $report->{risks}{$risk} = {};
     $risk = $risks->{$risk};
 
     for my $lic (sort keys %$risk) {
@@ -343,15 +349,11 @@ sub _short_report {
 
   # Emails and URLs
   my $emails = $report->{emails};
-  $short->{emails} = [map { [$_, $emails->{$_}] }
+  $report->{emails} = [map { [$_, $emails->{$_}] }
       sort { $emails->{$b} <=> $emails->{$a} } keys %$emails];
   my $urls = $report->{urls};
-  $short->{urls} = [map { [$_, $urls->{$_}] }
+  $report->{urls} = [map { [$_, $urls->{$_}] }
       sort { $urls->{$b} <=> $urls->{$a} } keys %$urls];
-
-  $short->{matching_globs} = $report->{matching_globs};
-
-  return $short;
 }
 
 1;

@@ -73,37 +73,62 @@ sub edit {
        join matched_files m on m.id=fs.file
        where snippet=? limit 1', $id
   )->hash;
-  my $package  = $self->packages->find($example->{package});
-  my $patterns = $db->query(
-    'select lp.id,lp.license,sline,eline from pattern_matches
-     join license_patterns lp on lp.id = pattern_matches.pattern
-     where file=? and sline>=? and eline<=? order by sline', $example->{file},
-    $example->{sline}, $example->{eline}
-  )->hashes;
-  my %lines;
-  for my $pattern (@$patterns) {
-    for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
-      my $cm_line = $line - $example->{sline};
 
-      # keywords overwrite everything
-      if (!$pattern->{license}) {
-        $lines{$cm_line} = {pattern => $pattern->{id}, keyword => 1};
-      }
-      else {
-        $lines{$cm_line} ||= {pattern => $pattern->{id}, keyword => 0};
+  my $package;
+  my %lines;
+
+  if ($example) {
+    $package = $self->packages->find($example->{package});
+    my $patterns = $db->query(
+      'select lp.id,lp.license,sline,eline from pattern_matches
+       join license_patterns lp on lp.id = pattern_matches.pattern
+       where file=? and sline>=? and eline<=? order by sline',
+      $example->{file}, $example->{sline}, $example->{eline}
+    )->hashes;
+
+    for my $pattern (@$patterns) {
+      for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1)
+      {
+        my $cm_line = $line - $example->{sline};
+
+        # keywords overwrite everything
+        if (!$pattern->{license}) {
+          $lines{$cm_line} = {pattern => $pattern->{id}, keyword => 1};
+        }
+        else {
+          $lines{$cm_line} ||= {pattern => $pattern->{id}, keyword => 0};
+        }
       }
     }
-  }
-  $patterns = \%lines;
+    my $fn = path(
+      $self->app->config->{checkout_dir},
+      $package->{name}, $package->{checkout_dir},
+      '.unpacked', $example->{filename}
+    );
 
-  my $fn = path(
-    $self->app->config->{checkout_dir},
-    $package->{name}, $package->{checkout_dir},
-    '.unpacked', $example->{filename}
+    $snippet->{text}  = _read_lines($fn, $example->{sline}, $example->{eline});
+    $example->{delta} = 0;
+  }
+
+  # not preserved by textarea/codemirror
+  $example->{delta} = 1 if $snippet->{text} =~ m/^\n/;
+  $self->render(
+    patterns      => \%lines,
+    package       => $package,
+    example       => $example,
+    package_count => $package_count,
+    file_count    => $file_count,
+    snippet       => $snippet,
+    best          => $best,
+    similarity    => int($sim * 1000 + 0.5) / 10
   );
+}
+
+sub _read_lines {
+  my ($fn, $start_line, $end_line) = @_;
 
   my %needed_lines;
-  for (my $line = $example->{sline}; $line <= $example->{eline}; $line += 1) {
+  for (my $line = $start_line; $line <= $end_line; $line += 1) {
     $needed_lines{$line} = 1;
   }
 
@@ -119,22 +144,7 @@ sub edit {
     }
     $text .= "$line\n";
   }
-  $snippet->{text} = $text;
-
-  $example->{delta} = 0;
-
-  # not preserved by textarea/codemirror
-  $example->{delta} = 1 if $text =~ m/^\n/;
-  $self->render(
-    patterns      => $patterns,
-    package       => $package,
-    example       => $example,
-    package_count => $package_count,
-    file_count    => $file_count,
-    snippet       => $snippet,
-    best          => $best,
-    similarity    => int($sim * 1000 + 0.5) / 10
-  );
+  return $text;
 }
 
 sub _render_conflict {
@@ -227,6 +237,41 @@ sub top {
     )->hash->{count};
   }
   $self->render(snippets => $result);
+}
+
+sub from_file {
+  my $self = shift;
+
+  my $db      = $self->pg->db;
+  my $file_id = $self->param('file');
+
+  my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
+  return $self->reply->not_found unless $file;
+
+  my $package
+    = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
+  my $fn = path(
+    $self->app->config->{checkout_dir},
+    $package->{name}, $package->{checkout_dir},
+    '.unpacked', $file->{filename}
+  );
+
+  my $first_line = $self->param('start');
+  my $last_line  = $self->param('end');
+  my $text       = _read_lines($fn, $first_line, $last_line);
+  my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
+  $db->insert(
+    'file_snippets',
+    {
+      package => $package->{id},
+      snippet => $snippet,
+      sline   => $first_line,
+      eline   => $last_line,
+      file    => $file_id
+    }
+  );
+
+  return $self->redirect_to('edit_snippet', id => $snippet);
 }
 
 1;
