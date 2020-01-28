@@ -185,7 +185,9 @@ sub _add_to_snippet_hash {
   push(
     @{$file_snippets->{$snip_row->{file}}},
     [
-      $snip_row->{sline}, $snip_row->{eline}, $snip_row->{id}, $snip_row->{hash}
+      $snip_row->{sline},      $snip_row->{eline},
+      $snip_row->{id},         $snip_row->{hash},
+      $snip_row->{likelyness}, $snip_row->{like_pattern}
     ]
   );
 }
@@ -253,8 +255,11 @@ sub _dig_report {
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
     [
-      'snippets.id', 'snippets.hash', 'file', 'sline',
-      'eline',       'classified',    'license'
+      'snippets.id',         'snippets.hash',
+      'snippets.likelyness', 'snippets.like_pattern',
+      'file',                'sline',
+      'eline',               'classified',
+      'license'
     ],
     $query,
     {order_by => 'sline'}
@@ -289,7 +294,7 @@ sub _dig_report {
 
     $report->{expanded}{$file} = 1;
     for my $snip_row (@{$file_snippets_to_show{$file}}) {
-      my ($sline, $eline, $id, $hash) = @$snip_row;
+      my ($sline, $eline, $id, $hash, $dummy1, $dummy2) = @$snip_row;
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;
         if ($i >= $sline && $i <= $eline) {
@@ -403,6 +408,28 @@ sub _dig_report {
     }
     return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines);
   }
+
+  my %missed_files;
+
+  for my $file (keys %{$report->{missed_snippets}}) {
+    my $max_risk = 0;
+    my $license_of_max;
+    my $match_of_max;
+    for my $snip_row (@{$report->{missed_snippets}{$file}}) {
+      my ($dummy1, $dummy2, $dummy3, $dummy4, $match, $pattern) = @$snip_row;
+      my $pinfo     = $self->_info_for_pattern($db, $pid_info, $pattern);
+      my $stat_risk = $pinfo->{risk} * $match + 9 * (1 - $match);
+      if ($max_risk < $stat_risk) {
+        $max_risk       = $stat_risk;
+        $match_of_max   = $match;
+        $license_of_max = $pinfo->{name};
+      }
+    }
+    $missed_files{$file}
+      = [int($max_risk + 0.5), $match_of_max, $license_of_max];
+  }
+  $report->{missed_files} = \%missed_files;
+
   my $emails = $db->select('emails', '*', {package => $pkg->{id}});
   while (my $email = $emails->hash) {
     my $key = $email->{email};
