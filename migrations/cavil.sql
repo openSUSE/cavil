@@ -253,3 +253,11 @@ create table ignored_files (
 
 -- 10 down
 drop table if exists ignored_files;
+
+-- 11 up
+alter table snippets add likelyness real not null default 0;
+alter table snippets add like_pattern int references license_patterns(id) on delete set null;
+
+-- 11 down
+alter table drop column likelyness, drop column like_pattern;
+
