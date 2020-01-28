@@ -42,8 +42,7 @@ sub _pattern_stats {
   $bag->dump($cache);
   rename($cache, $app->home->child('cache', 'cavil.pattern.bag'));
 
-  $rows
-    = $db->select('snippets', 'id,text', {license => 1, like_pattern => undef});
+  $rows = $db->select('snippets', 'id,text', {like_pattern => undef});
   while (my $next = $rows->hash) {
     my $best_pattern = $bag->best_for($next->{text}, 1)->[0];
     $db->update(

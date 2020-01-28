@@ -16,22 +16,22 @@
   <canvas id="license-chart" width="100%" height="18em"></canvas>
 
   % my %linked_files;
-  % if (%{$report->{missed_snippets}}) {
+  % if (@{$report->{missed_files}}) {
     <div class="alert alert-warning" role="alert">
-      Found unmatched keywords in (at least) <span class="badge badge-secondary"><%= scalar keys %{$report->{missed_snippets}} %></span> files.
+      Found unmatched keywords in (at least) <span class="badge badge-secondary"><%= scalar @{$report->{missed_files}} %></span> files.
       License report is incomplete
 
       <div id="filelist-snippets" class="collapse show">
         <ul>
-        % for my $name (sort keys %{$report->{missed_snippets}}) {
-          % my ($id, $snippet_infos) = @{$report->{missed_snippets}->{$name}};
+        % for my $file (@{$report->{missed_files}}) {
           <li>
-            <a href="#file-<%= $id %>" class="file-link"
-              data-file="<%= $id %>">
-              %= $name
+            <a href="#file-<%= $file->{id} %>" class="file-link"
+              data-file="<%= $file->{id} %>">
+              %= $file->{name}
             </a>
+            %= "($file->{match}% $file->{license} - estimated risk $file->{max_risk})"
           </li>
-          % $linked_files{$id} = 1;
+          % $linked_files{$file->{id}} = 1;
         % }
         </ul>
       </div>
