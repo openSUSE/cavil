@@ -55,7 +55,8 @@ sub slurp_and_decode {
 
 sub _line_tag {
   my $line = shift;
-  return $line->[1]->{pid}      if defined $line->[1]->{pid};
+  return $line->[1]->{pid} if defined $line->[1]->{pid};
+
   # the actual value does not matter - as long as it differs between snippets
   return -1 - $line->[1]->{snippet} if defined $line->[1]->{snippet};
   return 0;

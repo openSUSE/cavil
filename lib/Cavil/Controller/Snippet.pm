@@ -15,8 +15,6 @@
 
 package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller';
-use Mojo::JSON 'decode_json';
-use Cavil::Text 'closest_pattern';
 use Encode qw(from_to decode);
 use Mojo::File 'path';
 
@@ -50,13 +48,13 @@ sub edit {
   my $id      = $self->param('id');
   my $snippet = $self->snippets->find($id);
 
-  Spooky::Patterns::XS::init_matcher();
+  my $bag   = Spooky::Patterns::XS::init_bag_of_patterns;
+  my $cache = $self->app->home->child('cache', 'cavil.pattern.bag');
+  $bag->load($cache);
 
-  my $cache = $self->app->home->child('cache', 'cavil.pattern.words');
-  my $data  = decode_json $cache->slurp;
-
-  my ($best, $sim) = closest_pattern($snippet->{text}, undef, $data);
-  $best = $self->patterns->find($best->{id});
+  my $best = $bag->best_for($snippet->{text}, 1)->[0];
+  my $sim  = $best->{match};
+  $best = $self->patterns->find($best->{pattern});
 
   my $db            = $self->pg->db;
   my $package_count = $db->query(
