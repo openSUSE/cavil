@@ -21,7 +21,6 @@ use Net::OpenID::Consumer;
 
 sub login {
   my $self = shift;
-  $self->csrf_token;
   $self->redirect_to('openid');
 }
 
@@ -33,7 +32,7 @@ sub openid {
   my $csr = Net::OpenID::Consumer->new(
     ua              => LWP::UserAgent->new,
     required_root   => $base,
-    consumer_secret => $self->csrf_token
+    consumer_secret => $self->app->config->{openid}{secret}
   );
   my $claimed_id
     = $csr->claimed_identity($self->app->config->{openid}{provider});
@@ -73,7 +72,7 @@ sub response {
   my $csr = Net::OpenID::Consumer->new(
     ua              => LWP::UserAgent->new,
     required_root   => $base,
-    consumer_secret => $self->csrf_token,
+    consumer_secret => $self->app->config->{openid}{secret},
     args            => $params
   );
 

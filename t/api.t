@@ -25,13 +25,14 @@ my $online
   = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_api_test'])
   ->to_unsafe_string;
 my $config = {
-  secrets              => ['just_a_test'],
-  checkout_dir         => $dir,
-  openid               => {provider => 'https://www.opensuse.org/openid/user/'},
-  tokens               => ['test_token'],
-  pg                   => $online,
-  acceptable_risk      => 3,
-  index_bucket_average => 100,
+  secrets      => ['just_a_test'],
+  checkout_dir => $dir,
+  openid =>
+    {provider => 'https://www.opensuse.org/openid/user/', secret => 's3cret'},
+  tokens                 => ['test_token'],
+  pg                     => $online,
+  acceptable_risk        => 3,
+  index_bucket_average   => 100,
   cleanup_bucket_average => 50,
   min_files_short_report => 20,
   max_email_url_size     => 26,
