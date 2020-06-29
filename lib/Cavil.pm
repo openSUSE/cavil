@@ -200,7 +200,8 @@ sub startup {
   if ($config->{openid}) {
     $public->get('/login')->to('Auth::OpenID#login')->name('login');
     $public->get('/openid')->to('Auth::OpenID#openid')->name('openid');
-    $public->get('/response')->to('Auth::OpenID#response')->name('response');
+    $public->any(['GET', 'POST'] => '/response')->to('Auth::OpenID#response')
+      ->name('response');
   }
   else { $public->get('/login')->to('Auth::Dummy#login')->name('login') }
   $public->get('/logout')->to('Auth#logout')->name('logout');

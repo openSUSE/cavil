@@ -67,7 +67,7 @@ sub openid {
 sub response {
   my $self = shift;
 
-  my $params = $self->req->url->query->to_hash;
+  my $params = $self->req->params->to_hash;
   my $base   = $self->req->url->base->to_string;
 
   my $csr = Net::OpenID::Consumer->new(
