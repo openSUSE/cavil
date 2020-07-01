@@ -24,7 +24,6 @@ has 'db';
 has 'dir';
 has 'ignored_files';
 has 'ignored_lines';
-has 'keywords';
 has 'matcher';
 has 'package';
 has 'snippets';
@@ -49,10 +48,10 @@ sub new {
   $self->ignored_lines(\%hashes);
 
   $self->db($db);
-  $self->_calculate_keyword_dict;
   $self->dir($app->package_checkout_dir($package));
   $self->checkout(Cavil::Checkout->new($self->dir));
   $self->snippets({});
+  $self->{no_license} = {};
 
   return $self;
 }
@@ -65,21 +64,11 @@ sub _mark_area {
   }
 }
 
-sub _calculate_keyword_dict {
-  my $self     = shift;
-  my $patterns = $self->db->select('license_patterns', 'id', {license => ''});
-  my %keyword_patterns;
-  map { $keyword_patterns{$_->{id}} = 1 } @{$patterns->hashes};
-  $self->keywords(\%keyword_patterns);
-}
-
 # A 'snippet' is a region of a source file containing keywords.
 # The +-1 area around each keyword is taking into it and possible
 # keywordless lines in between near keywords too - to form one text
 sub _check_missing_snippets {
   my ($self, $file_id, $path, $report) = @_;
-
-  my $keywords = $self->keywords;
 
   # extract missed snippets
   my %needed_lines;
@@ -87,7 +76,7 @@ sub _check_missing_snippets {
   # pick the keyword matches first
   for my $match (@{$report->{matches}}) {
     my ($mid, $ls, $le) = @$match;
-    next unless $keywords->{$mid};
+    next unless $self->has_no_license($mid);
     _mark_area(\%needed_lines, $ls - 1, $le + 1);
   }
 
@@ -183,6 +172,15 @@ sub _snippet {
   return undef;
 }
 
+sub has_no_license {
+  my ($self, $pid) = @_;
+  return $self->{no_license}{$pid} if defined $self->{no_license}{$pid};
+  my $row
+    = $self->db->select('license_patterns', 'license', {id => $pid})->hash;
+  $self->{no_license}{$pid} = $row->{license} eq '';
+  return $self->{no_license}{$pid};
+}
+
 sub file {
   my ($self, $meta, $path, $mime) = @_;
 
@@ -190,8 +188,7 @@ sub file {
   return unless $report;
 
   my $file_id;
-  my $keywords = $self->keywords;
-  my $package  = $self->package;
+  my $package = $self->package;
   my $keyword_missed;
 
   my $ignored_file = 0;
@@ -209,7 +206,7 @@ sub file {
     )->hash->{id};
     my ($mid, $ls, $le) = @$match;
 
-    $keyword_missed ||= $keywords->{$mid};
+    $keyword_missed ||= $self->has_no_license($mid);
 
     # package is kind of duplicated in file, but the join is just too expensive
     my $pm_id = $self->db->insert(
