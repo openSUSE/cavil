@@ -14,7 +14,7 @@ env:
 before_install:
   - sudo apt-get install -y libmagic-dev ruby-sass
 install:
-  - cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.54.tar.gz
+  - cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.55.tar.gz
   - cpanm -n --installdeps .
 before_script:
   - psql -U postgres -c 'create database mojo_test'
