@@ -65,9 +65,10 @@ sub edit_pattern {
 
   my $result = $bag->best_for($pattern->{pattern}, 2);
   my $best   = $result->[0];
-  if ($best->{pattern} == $id) {    # likely perfect match
-    $best = $result->[1];
-  }
+
+  # likely perfect match
+  $best = $result->[1] if $best->{pattern} && $best->{pattern} == $id;
+
   my $sim = $best->{match};
   $best = $self->patterns->find($best->{pattern});
 
