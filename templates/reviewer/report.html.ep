@@ -17,8 +17,8 @@
 
   % my %linked_files;
   % if (@{$report->{missed_files}}) {
-    <div class="alert alert-warning" role="alert">
-      Found unmatched keywords in (at least) <span class="badge badge-secondary"><%= scalar @{$report->{missed_files}} %></span> files.
+    <div id="unmatched-files" class="alert alert-warning" role="alert">
+      Found unmatched keywords in (at least) <span id="unmatched-count" class="badge badge-secondary"><%= scalar @{$report->{missed_files}} %></span> files.
       License report is incomplete
 
       <div id="filelist-snippets" class="collapse show">
@@ -45,7 +45,7 @@
     <h3>Risk <%= $risk %></h3>
     % my $current = $risks->{$risk};
 
-    <ul>
+    <ul id="risk-<%= $risk %>">
       % for my $lic (sort keys %$current) {
         % my $matches = $current->{$lic};
         % my $name = $matches->{name};
