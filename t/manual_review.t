@@ -102,6 +102,29 @@ subtest 'Details after import (with login)' => sub {
 $t->app->minion->enqueue(unpack => [$pkg_id]);
 $t->app->minion->perform_jobs;
 
+subtest 'Snippets after indexing' => sub {
+  my $snippets = $t->app->pg->db->select('snippets')->hashes->to_array;
+  is $snippets->[0]{id},           1,     'snippet';
+  is $snippets->[0]{like_pattern}, undef, 'unlike any pattern';
+  ok !$snippets->[0]{likelyness}, 'no likelyness';
+  is $snippets->[1]{id},           2,     'snippet';
+  is $snippets->[1]{like_pattern}, undef, 'unlike any pattern';
+  ok !$snippets->[1]{likelyness}, 'no likelyness';
+  is $snippets->[2]{id},           3,     'snippet';
+  is $snippets->[2]{like_pattern}, undef, 'unlike any pattern';
+  ok !$snippets->[2]{likelyness}, 'no likelyness';
+  is $snippets->[3]{id},           4,     'snippet';
+  is $snippets->[3]{like_pattern}, undef, 'unlike any pattern';
+  ok !$snippets->[3]{likelyness}, 'no likelyness';
+  is $snippets->[4]{id},           5,     'snippet';
+  is $snippets->[4]{like_pattern}, undef, 'unlike any pattern';
+  ok !$snippets->[4]{likelyness}, 'no likelyness';
+  is $snippets->[5]{id},           6,     'snippet';
+  is $snippets->[5]{like_pattern}, undef, 'unlike any pattern';
+  ok !$snippets->[5]{likelyness}, 'no likelyness';
+  is $snippets->[6], undef, 'no more snippets';
+};
+
 subtest 'Details after indexing' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
@@ -125,6 +148,29 @@ $t->app->minion->enqueue('pattern_stats');
 $t->app->minion->perform_jobs;
 $t->app->packages->reindex($pkg_id);
 $t->app->minion->perform_jobs;
+
+subtest 'Snippets after reindexing' => sub {
+  my $snippets = $t->app->pg->db->select('snippets')->hashes->to_array;
+  is $snippets->[0]{id},           1, 'snippet';
+  is $snippets->[0]{like_pattern}, 6, 'like pattern';
+  ok $snippets->[0]{likelyness} > 0, 'likelyness';
+  is $snippets->[1]{id},           2, 'snippet';
+  is $snippets->[1]{like_pattern}, 1, 'like pattern';
+  ok $snippets->[1]{likelyness} > 0, 'likelyness';
+  is $snippets->[2]{id},           3, 'snippet';
+  is $snippets->[2]{like_pattern}, 5, 'like pattern';
+  ok $snippets->[2]{likelyness} > 0, 'likelyness';
+  is $snippets->[3]{id},           4, 'snippet';
+  is $snippets->[3]{like_pattern}, 5, 'like pattern';
+  ok $snippets->[3]{likelyness} > 0, 'likelyness';
+  is $snippets->[4]{id},           5, 'snippet';
+  is $snippets->[4]{like_pattern}, 2, 'like pattern';
+  ok $snippets->[4]{likelyness} > 0, 'likelyness';
+  is $snippets->[5]{id},           6, 'snippet';
+  is $snippets->[5]{like_pattern}, 6, 'like pattern';
+  ok $snippets->[5]{likelyness} > 0, 'likelyness';
+  is $snippets->[6], undef, 'no more snippets';
+};
 
 subtest 'Details after reindexing' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
