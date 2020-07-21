@@ -143,6 +143,54 @@ subtest 'Details after indexing' => sub {
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
+subtest 'JSON report' => sub {
+  $t->get_ok('/reviews/calc_report/1.json')->status_is(200);
+  ok my $json = $t->tx->res->json, 'JSON response';
+
+  ok my $pkg = $json->{package}, 'package';
+  is $pkg->{id},         1,                  'id';
+  is $pkg->{name},       'perl-Mojolicious', 'name';
+  like $pkg->{checksum}, qr!Artistic-2.0-9!, 'checksum';
+  is $pkg->{login},      undef,              'no login';
+  is $pkg->{state},      'new',              'state';
+  is $pkg->{result},     undef,              'no result';
+
+  ok my $report = $json->{report}, 'report';
+  is $report->{emails}[0][0], 'coolo@suse.com',         'right email';
+  ok $report->{emails}[0][1], 'multiple matches';
+  is $report->{urls}[0][0],   'http://mojolicious.org', 'right URL';
+  ok $report->{urls}[0][1],   'multiple matches';
+
+  ok my $missed_files = $report->{missed_files}, 'missed files';
+  is $missed_files->[0]{id},       1,         'id';
+  is $missed_files->[0]{license},  'Snippet', 'license';
+  is $missed_files->[0]{match},    0,         'no match';
+  is $missed_files->[0]{max_risk}, 9,         'max risk';
+  ok $missed_files->[0]{name},     'name';
+  is $missed_files->[1]{id},       2,         'id';
+  is $missed_files->[1]{license},  'Snippet', 'license';
+  is $missed_files->[1]{match},    0,         'no match';
+  is $missed_files->[1]{max_risk}, 9,         'max risk';
+  ok $missed_files->[1]{name},     'name';
+  is $missed_files->[2]{id},       3,         'id';
+  is $missed_files->[2]{license},  'Snippet', 'license';
+  is $missed_files->[2]{match},    0,         'no match';
+  is $missed_files->[2]{max_risk}, 9,         'max risk';
+  ok $missed_files->[2]{name},     'name';
+  is $missed_files->[3]{id},       5,         'id';
+  is $missed_files->[3]{license},  'Snippet', 'license';
+  is $missed_files->[3]{match},    0,         'no match';
+  is $missed_files->[3]{max_risk}, 9,         'max risk';
+  ok $missed_files->[3]{name},     'name';
+  is $missed_files->[4], undef, 'no more missed files';
+
+  ok $report->{files}, 'files';
+  ok my $licenses = $report->{licenses},       'licenses';
+  ok my $apache   = $licenses->{'Apache-2.0'}, 'Apache';
+  is $apache->{name}, 'Apache-2.0', 'name';
+  is $apache->{risk}, 5,            'risk';
+};
+
 # Reindex (with updated stats)
 $t->app->minion->enqueue('pattern_stats');
 $t->app->minion->perform_jobs;
@@ -219,11 +267,60 @@ subtest 'Manual review' => sub {
   $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')
     ->element_exists('#unmatched-files')->text_is('#unmatched-count', '4')
     ->text_like('#unmatched-files li:nth-of-type(4) a', qr!Mojolicious-7.25/lib/Mojolicious.pm!)
-    ->text_like('#unmatched-files li:nth-of-type(4)', qr!57% Apache-2.0 - estimated risk 7!)->element_exists('#risk-5');
+    ->text_like('#unmatched-files li:nth-of-type(4)',   qr![0-9.]+% Apache-2.0 - estimated risk 7!)
+    ->element_exists('#risk-5');
   $t->element_exists('#emails')->text_like('#emails tbody td', qr!coolo\@suse\.com!)->element_exists('#urls')
     ->text_like('#urls tbody td', qr!http://mojolicious.org!);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
+
+subtest 'Final JSON report' => sub {
+  $t->get_ok('/reviews/calc_report/1.json')->status_is(200);
+  ok my $json = $t->tx->res->json, 'JSON response';
+
+  ok my $pkg = $json->{package}, 'package';
+  is $pkg->{id},         1,                  'id';
+  is $pkg->{name},       'perl-Mojolicious', 'name';
+  like $pkg->{checksum}, qr!Artistic-2.0-9!, 'checksum';
+  is $pkg->{login},      'tester',           'login';
+  is $pkg->{state},      'acceptable',       'state';
+  is $pkg->{result},     'Test review',      'result';
+
+  ok my $report = $json->{report}, 'report';
+  is $report->{emails}[0][0], 'coolo@suse.com',         'right email';
+  ok $report->{emails}[0][1], 'multiple matches';
+  is $report->{urls}[0][0],   'http://mojolicious.org', 'right URL';
+  ok $report->{urls}[0][1],   'multiple matches';
+
+  ok my $missed_files = $report->{missed_files}, 'missed files';
+  is $missed_files->[0]{id},       6,         'id';
+  is $missed_files->[0]{license},  'Snippet', 'license';
+  is $missed_files->[0]{match},    100,       'match';
+  is $missed_files->[0]{max_risk}, 9,         'max risk';
+  ok $missed_files->[0]{name},     'name';
+  is $missed_files->[1]{id},       7,         'id';
+  is $missed_files->[1]{license},  'Snippet', 'license';
+  ok $missed_files->[1]{match} > 0, 'match';
+  is $missed_files->[1]{max_risk}, 9,            'max risk';
+  ok $missed_files->[1]{name},     'name';
+  is $missed_files->[2]{id},       10,           'id';
+  is $missed_files->[2]{license},  'Snippet',    'license';
+  is $missed_files->[2]{match},    100,          'match';
+  is $missed_files->[2]{max_risk}, 9,            'max risk';
+  ok $missed_files->[2]{name},     'name';
+  is $missed_files->[3]{id},       8,            'id';
+  is $missed_files->[3]{license},  'Apache-2.0', 'license';
+  ok $missed_files->[3]{match} > 0, 'match';
+  is $missed_files->[3]{max_risk}, 7, 'max risk';
+  ok $missed_files->[3]{name}, 'name';
+  is $missed_files->[4], undef, 'no more missed files';
+
+  ok $report->{files}, 'files';
+  ok my $licenses = $report->{licenses},       'licenses';
+  ok my $apache   = $licenses->{'Apache-2.0'}, 'Apache';
+  is $apache->{name}, 'Apache-2.0', 'name';
+  is $apache->{risk}, 5,            'risk';
 };
 
 # Clean up once we are done
