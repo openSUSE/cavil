@@ -282,7 +282,6 @@ $t->app->minion->perform_jobs;
 
 # Accepted because of low risk
 $pkg = $t->app->packages->find($pkg_id);
-
 is $pkg->{state}, 'acceptable', 'automatically accepted';
 is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
 

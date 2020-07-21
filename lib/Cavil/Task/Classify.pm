@@ -31,17 +31,29 @@ sub _classify {
   my $log        = $app->log;
   my $db         = $app->pg->db;
   my $classifier = $app->classifier;
+  my $cache      = $app->home->child('cache', 'cavil.pattern.bag');
+  my $bag        = Spooky::Patterns::XS::init_bag_of_patterns;
+  $bag->load($cache);
 
   my $results = $db->select('snippets', ['id', 'text'], {classified => 0});
   my %packages_affected;
   while (my $next = $results->hash) {
-    my $res = $classifier->classify($next->{text});
+    my $res          = $classifier->classify($next->{text});
+    my $best_pattern = $bag->best_for($next->{text}, 1);
+    if (@$best_pattern) {
+      $best_pattern = $best_pattern->[0];
+    }
+    else {
+      $best_pattern = {match => 0, pattern => undef};
+    }
     $db->update(
       'snippets',
       {
-        classified => 1,
-        license    => $res->{license},
-        confidence => int($res->{confidence} + 0.5)
+        likelyness   => $best_pattern->{match},
+        like_pattern => $best_pattern->{pattern},
+        classified   => 1,
+        license      => $res->{license},
+        confidence   => int($res->{confidence} + 0.5)
       },
       {id => $next->{id}}
     );

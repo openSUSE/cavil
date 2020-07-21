@@ -37,8 +37,23 @@ sub _pattern_stats {
   my %patterns;
   $patterns{$_->{id}} = $_->{pattern} for $rows->each;
   $bag->set_patterns(\%patterns);
-  my $cache = $app->home->child('cache', 'cavil.pattern.bag');
+
+  my $cache = $app->home->child('cache', 'cavil.pattern.bag.new.' . $job->id);
   $bag->dump($cache);
+  rename($cache, $app->home->child('cache', 'cavil.pattern.bag'));
+
+  $rows = $db->select('snippets', 'id,text', {like_pattern => undef});
+  while (my $next = $rows->hash) {
+    my $best_pattern = $bag->best_for($next->{text}, 1)->[0];
+    $db->update(
+      'snippets',
+      {
+        likelyness   => $best_pattern->{match},
+        like_pattern => $best_pattern->{pattern},
+      },
+      {id => $next->{id}}
+    );
+  }
 }
 
 1;

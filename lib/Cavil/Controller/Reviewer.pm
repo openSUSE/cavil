@@ -303,10 +303,40 @@ sub _sanitize_report {
   my $lines    = $report->{lines};
   my $snippets = $report->{missed_snippets};
 
-  $report->{missed_snippets} = {};
-  for my $file (keys %$snippets) {
-    $expanded->{$file} = 1;
-    $report->{missed_snippets}{$files->{$file}} = [$file, $snippets->{$file}];
+  # old report
+  if (!defined $report->{missed_files}) {
+    $report->{missed_files} = [
+      {
+        id       => 0,
+        name     => "PLEASE REINDEX!",
+        max_risk => 9,
+        license  => '',
+        match    => 0
+      }
+    ];
+  }
+  else {
+    my @missed;
+    for my $file (keys %$snippets) {
+      $expanded->{$file} = 1;
+      my ($max_risk, $match, $license) = @{$report->{missed_files}{$file}};
+      $license = 'Snippet' unless $license;
+      push(
+        @missed,
+        {
+          id       => $file,
+          name     => $files->{$file},
+          max_risk => $max_risk,
+          license  => $license,
+          match    => int($match * 1000 + 0.5) / 10.
+        }
+      );
+    }
+    delete $report->{missed_files};
+    delete $report->{missed_snippets};
+    $report->{missed_files}
+      = [sort { $b->{max_risk} cmp $a->{max_risk} || $a->{name} cmp $b->{name} }
+        @missed];
   }
 
   $report->{files} = [];

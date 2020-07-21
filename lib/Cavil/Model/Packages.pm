@@ -50,7 +50,7 @@ sub actions {
   my ($self, $link, $id) = @_;
 
   # Requests with multiple actions are an OBS thing
-  return [] unless $link =~ /^obs#/ || $link =~ /^ibs#/;
+  return [] if !$link || !($link =~ /^obs#/ || $link =~ /^ibs#/);
 
   return $self->pg->db->query(
     "select p.id, p.name, result, state, login,
