@@ -1,4 +1,4 @@
-# Copyright (C) 2018 SUSE Linux GmbH
+# Copyright (C) 2018-2020 SUSE LLC
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,7 +27,13 @@ sub register {
 sub _obs {
   my ($job, $id, $data) = @_;
 
-  my $app          = $job->app;
+  my $app    = $job->app;
+  my $minion = $app->minion;
+
+  # Protect from race conditions
+  return $job->finish("Package $id is already being processed")
+    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
+
   my $log          = $app->log;
   my $pkgs         = $app->packages;
   my $checkout_dir = $app->config->{checkout_dir};

@@ -37,8 +37,7 @@ sub _index {
   my $app     = $job->app;
   my $log     = $app->log;
   my $dir     = $app->package_checkout_dir($id);
-  my $batches = Cavil::Checkout->new($dir)
-    ->unpacked_files($app->config->{index_bucket_average});
+  my $batches = Cavil::Checkout->new($dir)->unpacked_files($app->config->{index_bucket_average});
 
   # Clean up (make sure not to leak a Postgres connection)
   {
@@ -52,12 +51,9 @@ sub _index {
   my $minion    = $app->minion;
   my $parent_id = $job->id;
   my $prio      = $job->info->{priority};
-  my @children  = map {
-    $minion->enqueue(index_batch => [$id, $_] =>
-        {parents => [$parent_id], priority => $prio + 1})
-  } @$batches;
-  $minion->enqueue(
-    indexed => [$id] => {parents => \@children, priority => $prio + 2});
+  my @children
+    = map { $minion->enqueue(index_batch => [$id, $_] => {parents => [$parent_id], priority => $prio + 1}) } @$batches;
+  $minion->enqueue(indexed => [$id] => {parents => \@children, priority => $prio + 2});
 
   $log->info("[$id] Made @{[scalar @$batches]} batches for $dir");
 }
@@ -100,18 +96,13 @@ sub _index_batch {
       'insert into emails (package, email, name, hits)
            values ($1, $2, $3, $4)
          on conflict (package, md5(email))
-         do update set hits = emails.hits + $4', $id, $email, $e->{name},
-      $e->{count}
+         do update set hits = emails.hits + $4', $id, $email, $e->{name}, $e->{count}
     );
   }
   my $total = time - $start;
   my $dir   = $fi->dir;
   $log->info(
-    sprintf(
-      "[$id] Indexed batch of @{[scalar @$batch]} files from $dir (%.02f prep, %.02f total)",
-      $preptime, $total
-    )
-  );
+    sprintf("[$id] Indexed batch of @{[scalar @$batch]} files from $dir (%.02f prep, %.02f total)", $preptime, $total));
 }
 
 sub _index_later {

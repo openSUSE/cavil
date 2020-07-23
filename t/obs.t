@@ -15,10 +15,17 @@
 
 use Mojo::Base -strict;
 
+use FindBin;
+use lib "$FindBin::Bin/lib";
+
 use Test::More;
+use Test::Mojo;
+use Cavil::Test;
 use Mojo::File 'tempdir';
 use Mojolicious::Lite;
 use Cavil::OBS;
+
+plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 app->log->level('error');
 
@@ -27,8 +34,9 @@ app->routes->add_condition(
     my ($route, $c, $captures, $hash) = @_;
 
     for my $key (keys %$hash) {
-      my $param = $c->req->url->query->param($key);
-      return undef unless defined $param && $param eq $hash->{$key};
+      my $values = ref $hash->{$key} ? $hash->{$key} : [$hash->{$key}];
+      my $param  = $c->req->url->query->param($key);
+      return undef unless defined $param && grep { $param eq $_ } @$values;
     }
 
     return 1;
@@ -105,8 +113,28 @@ get '/public/source/:project/perl-Mojolicious/_meta' => [project => ['openSUSE:F
 </package>
 EOF
 
-get '/public/source/:project/perl-Mojolicious' => [project => ['home:kraih']] => (query => {expand => 1, rev => 1}) =>
+get '/public/source/:project/perl-Mojolicious' => [project => ['home:kraih']] => (query => {view => 'info'}) =>
   {text => <<'EOF'};
+<sourceinfo package="perl-Mojolicious" rev="9199eca9ec0fa5cffe4c3a6cb99a8093"
+vrev="140"
+srcmd5="0e5c2d1c0c4178869cf7fb82482b9c52"
+lsrcmd5="d277e095ec45b64835452d5e87d2d349"
+verifymd5="bb19066400b2b60e2310b45f10d12f56">
+  <filename>perl-Mojolicious.spec</filename>
+</sourceinfo>
+EOF
+
+get '/public/source/:project/perl-Mojolicious/_meta' => [project => ['home:kraih']] => {text => <<'EOF'};
+<package name="postgresql-plr" project="server:database:postgresql">
+  <title>Mojolicious</title>
+  <description>
+    Real-time web framework
+  </description>
+</package>
+EOF
+
+get '/public/source/:project/perl-Mojolicious'                             => [project => ['home:kraih']] =>
+  (query => {expand => 1, rev => [1, '0e5c2d1c0c4178869cf7fb82482b9c52']}) => {text => <<'EOF'};
 <directory name="perl-Mojolicious" rev="9199eca9ec0fa5cffe4c3a6cb99a8093"
   vrev="140" srcmd5="9199eca9ec0fa5cffe4c3a6cb99a8093">
   <linkinfo project="devel:languages:perl" package="perl-Mojolicious"
@@ -371,69 +399,126 @@ get '/*whatever' => {whatever => ''} => {text => '', status => 404};
 my $obs = Cavil::OBS->new;
 my $api = 'http://127.0.0.1:' . $obs->ua->server->app(app)->url->port;
 
-# Package info
-my $info = {
-  srcmd5    => '74ee00bc30bdaf23acbfba25a893b52a',
-  package   => 'kernel-source',
-  verifymd5 => 'bb19066400b2b60e2310b45f10d12f56'
+subtest 'Package info' => sub {
+  my $info = {
+    srcmd5    => '74ee00bc30bdaf23acbfba25a893b52a',
+    package   => 'kernel-source',
+    verifymd5 => 'bb19066400b2b60e2310b45f10d12f56'
+  };
+  is_deeply $obs->package_info($api, 'openSUSE:Factory', 'kernel-default'), $info, 'right structure';
+  $info = {
+    srcmd5    => '09f3db66fc4df14f1160b01ceb4b3e73',
+    package   => 'perl-Mojolicious',
+    verifymd5 => '09f3db66fc4df14f1160b01ceb4b3e73'
+  };
+  is_deeply $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious', {rev => 3}), $info, 'right structure';
 };
-is_deeply $obs->package_info($api, 'openSUSE:Factory', 'kernel-default'), $info, 'right structure';
-$info = {
-  srcmd5    => '09f3db66fc4df14f1160b01ceb4b3e73',
-  package   => 'perl-Mojolicious',
-  verifymd5 => '09f3db66fc4df14f1160b01ceb4b3e73'
+
+subtest 'Package info for missing packages' => sub {
+  eval { $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious', {rev => 4}); };
+  like $@, qr/perl-Mojolicious/, 'right error';
 };
-is_deeply $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious', {rev => 3}), $info, 'right structure';
 
-# Package info for missing packages
-eval { $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious', {rev => 4}); };
-like $@, qr/perl-Mojolicious/, 'right error';
-
-# Package info for missingok=true packages
-$info = {
-  package   => 'python-monascaclient',
-  srcmd5    => 'd023edaef04687af8d487ff4e2eda5f7',
-  verifymd5 => '34d69b093c93614c829c06c075688463'
+subtest 'Package info for missingok=true packages' => sub {
+  my $info = {
+    package   => 'python-monascaclient',
+    srcmd5    => 'd023edaef04687af8d487ff4e2eda5f7',
+    verifymd5 => '34d69b093c93614c829c06c075688463'
+  };
+  is_deeply $obs->package_info($api, 'Cloud:OpenStack:Factory', 'python-monascaclient', {rev => 4}), $info,
+    'right structure';
 };
-is_deeply $obs->package_info($api, 'Cloud:OpenStack:Factory', 'python-monascaclient', {rev => 4}), $info,
-  'right structure';
 
-# obs request 459053
-$info = {
-  package   => 'postgresql96-plr',
-  srcmd5    => 'e9cb3655b11bd63d07210a161240330c',
-  verifymd5 => '8c174a4cd8c85e430378d875aa77c23e'
+subtest 'obs request 459053' => sub {
+  my $info = {
+    package   => 'postgresql96-plr',
+    srcmd5    => 'e9cb3655b11bd63d07210a161240330c',
+    verifymd5 => '8c174a4cd8c85e430378d875aa77c23e'
+  };
+  is_deeply $obs->package_info($api, 'server:database:postgresql', 'postgresql96-plr', {rev => 2}), $info,
+    'right structure';
 };
-is_deeply $obs->package_info($api, 'server:database:postgresql', 'postgresql96-plr', {rev => 2}), $info,
-  'right structure';
 
-# obs request 459054
-$info = {
-  package   => 'postgresql95-plr',
-  srcmd5    => '33fd6e072853f97aa64a205090f55d5e',
-  verifymd5 => '5e2c789dcbe65ad644652455029c1123'
+subtest 'obs request 459054' => sub {
+  my $info = {
+    package   => 'postgresql95-plr',
+    srcmd5    => '33fd6e072853f97aa64a205090f55d5e',
+    verifymd5 => '5e2c789dcbe65ad644652455029c1123'
+  };
+  is_deeply $obs->package_info($api, 'server:database:postgresql', 'postgresql95-plr', {rev => 2}), $info,
+    'right structure';
 };
-is_deeply $obs->package_info($api, 'server:database:postgresql', 'postgresql95-plr', {rev => 2}), $info,
-  'right structure';
 
+subtest 'Source download with revision' => sub {
+  my $dir = tempdir;
+  $obs->download_source($api, 'home:kraih', 'perl-Mojolicious', $dir, {rev => 1});
+  ok -e $dir->child('perl-Mojo#licious.changes'), 'file exists';
+  like $dir->child('perl-Mojo#licious.changes')->slurp, qr/changes!/, 'right content';
+  ok -e $dir->child('perl-Mojolicious.spec'), 'file exists';
+  like $dir->child('perl-Mojolicious.spec')->slurp, qr/spec!/, 'right content';
+  is $dir->list->size, 2, 'only two files';
+};
 
-# Source download with revision
-my $dir = tempdir;
-$obs->download_source($api, 'home:kraih', 'perl-Mojolicious', $dir, {rev => 1});
-ok -e $dir->child('perl-Mojo#licious.changes'), 'file exists';
-like $dir->child('perl-Mojo#licious.changes')->slurp, qr/changes!/, 'right content';
-ok -e $dir->child('perl-Mojolicious.spec'), 'file exists';
-like $dir->child('perl-Mojolicious.spec')->slurp, qr/spec!/, 'right content';
-is $dir->list->size, 2, 'only two files';
+subtest 'Wrong checksum' => sub {
+  my $dir = tempdir;
+  eval { $obs->download_source($api, 'home:kraih', 'perl-WrongChecksum', $dir, {rev => 1}); };
+  like $@, qr/Corrupted file/, 'right error';
+};
 
-# Wrong checksum
-eval { $obs->download_source($api, 'home:kraih', 'perl-WrongChecksum', $dir, {rev => 1}); };
-like $@, qr/Corrupted file/, 'right error';
+subtest 'Source download for missing packages' => sub {
+  my $dir = tempdir;
+  eval { $obs->download_source($api, 'home:kraih', 'does-not-exist', $dir, {rev => 1}); };
+  like $@, qr/does-not-exist/, 'right error';
+  eval { $obs->download_source($api, 'home:kraih', 'perl-Mojo-SQLite', $dir); };
+  like $@, qr/Mojo-SQLite-1.004.tar.gz/, 'right error';
+};
 
-# Source download for missing packages
-eval { $obs->download_source($api, 'home:kraih', 'does-not-exist', $dir, {rev => 1}); };
-like $@, qr/does-not-exist/, 'right error';
-eval { $obs->download_source($api, 'home:kraih', 'perl-Mojo-SQLite', $dir); };
-like $@, qr/Mojo-SQLite-1.004.tar.gz/, 'right error';
+subtest 'Bot API (with Minion background jobs)' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'import_test');
+  my $config     = $cavil_test->default_config;
+  my $t          = Test::Mojo->new(Cavil => $config);
+  $t->app->pg->migrations->migrate;
+
+  # Connect with mock web service
+  $t->app->obs->ua->server->app(app);
+  my $api = 'http://127.0.0.1:' . $t->app->obs->ua->server->app(app)->url->port;
+
+  # Validation errors
+  $t->post_ok('/packages')->status_is(403);
+  my $headers = {Authorization => "Token $config->{tokens}[0]"};
+  $t->post_ok('/packages', $headers)->status_is(400)
+    ->json_is({error => 'Invalid request parameters (api, package, project)'});
+
+  # Standard import
+  $t->post_ok('/packages', $headers,
+    form => {api => $api, package => 'perl-Mojolicious', project => 'home:kraih', rev => 1})->status_is(200)
+    ->json_is('/saved/id' => 1);
+  $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_is('/imported' => undef);
+  my $minion = $t->app->minion;
+  my $worker = $minion->worker->register;
+  my $job_id = $minion->jobs({tasks => ['obs_import']})->next->{id};
+  ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
+  is $job->execute, undef, 'no error';
+  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+  $worker->unregister;
+  $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_like('/imported' => qr/\d/);
+  unlike $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'no race condition';
+
+  # Prevent import race condition
+  ok $minion->job($job_id)->retry, 'import job retried';
+  my $guard = $minion->guard('processing_pkg_1', 172800);
+  ok !$minion->lock('processing_pkg_1', 0), 'lock exists';
+  $worker->register;
+  ok $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
+  is $job->execute, undef, 'no error';
+  like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
+  my $job_id2 = $minion->enqueue('obs_import', [1, {}]);
+  ok my $job2 = $worker->dequeue(0, {id => $job_id2}), 'job dequeued';
+  is $job2->execute, undef, 'no error';
+  like $minion->job($job_id2)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
+  $worker->unregister;
+  undef $guard;
+  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+};
 
 done_testing;

@@ -1,4 +1,4 @@
-# Copyright (C) 2018 SUSE Linux GmbH
+# Copyright (C) 2018-2020 SUSE LLC
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -229,8 +229,7 @@ sub _errors_to_markdown {
 
 sub _log {
   my ($self, $message, $api, $project, $pkg, $rev, $error) = @_;
-  my $target
-    = "api=$api, project=$project, package=$pkg" . ($rev ? ", rev=$rev" : '');
+  my $target = "api=$api, project=$project, package=$pkg" . ($rev ? ", rev=$rev" : '');
   $self->app->log->error("$message ($target): $error");
 }
 
