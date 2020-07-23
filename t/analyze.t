@@ -1,3 +1,18 @@
+# Copyright (C) 2018-2020 SUSE LLC
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <http://www.gnu.org/licenses/>.
+
 use Mojo::Base -strict;
 
 BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
@@ -20,18 +35,15 @@ $pg->db->query('create schema analyze_test');
 my $dir  = tempdir;
 my @src  = ('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
 my $mojo = $dir->child(@src)->make_path;
-$_->copy_to($mojo->child($_->basename))
-  for path(__FILE__)->dirname->child('legal-bot', @src)->list->each;
+$_->copy_to($mojo->child($_->basename)) for path(__FILE__)->dirname->child('legal-bot', @src)->list->each;
 @src  = ('perl-Mojolicious', 'da3e32a3cce8bada03c6a9d63c08cd58');
 $mojo = $dir->child(@src)->make_path;
-$_->copy_to($mojo->child($_->basename))
-  for path(__FILE__)->dirname->child('legal-bot', @src)->list->each;
+$_->copy_to($mojo->child($_->basename)) for path(__FILE__)->dirname->child('legal-bot', @src)->list->each;
 
 app->log->level('error');
 
 # Configure application
-my $online = Mojo::URL->new($ENV{TEST_ONLINE})
-  ->query([search_path => 'analyze_test'])->to_unsafe_string;
+my $online = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'analyze_test'])->to_unsafe_string;
 my $config = {
   secrets                => ['just_a_test'],
   checkout_dir           => $dir,
@@ -50,10 +62,8 @@ my $t = Test::Mojo->new(Cavil => $config);
 $t->app->pg->migrations->migrate;
 
 # Prepare database
-my $db = $t->app->pg->db;
-my $usr_id
-  = $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})
-  ->hash->{id};
+my $db     = $t->app->pg->db;
+my $usr_id = $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 my $pkg_id = $t->app->packages->add(
   name            => 'perl-Mojolicious',
   checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
@@ -64,23 +74,14 @@ my $pkg_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
   priority        => 5
 );
-$t->app->patterns->create(
-  pattern => 'You may obtain a copy of the License at',
-  license => 'Apache-2.0'
-);
+$t->app->patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
 $t->app->patterns->create(
   packname => 'perl-Mojolicious',
   pattern  => 'Licensed under the Apache License, Version 2.0',
   license  => 'Apache-2.0'
 );
-$t->app->patterns->create(
-  pattern => 'License: Artistic-2.0',
-  license => 'Artistic-2.0'
-);
-$t->app->patterns->create(
-  pattern => 'License: GPL-1.0+',
-  license => 'GPL-1.0+'
-);
+$t->app->patterns->create(pattern => 'License: Artistic-2.0', license => 'Artistic-2.0');
+$t->app->patterns->create(pattern => 'License: GPL-1.0+',     license => 'GPL-1.0+');
 $t->app->patterns->create(pattern => 'the terms');
 $t->app->patterns->create(pattern => 'copyright notice');
 
@@ -111,8 +112,12 @@ my $pkg2_id = $t->app->packages->add(
 $t->app->minion->enqueue(unpack => [$pkg2_id]);
 $t->app->minion->perform_jobs;
 
-my $res = $db->select('bot_packages', '*', { id => $pkg2_id })->hashes->[0];
-is($res->{result}, "Diff to closest match $pkg_id:\n\n  Different spec file license: Artistic-2.0\n\n", 'different spec');
+my $res = $db->select('bot_packages', '*', {id => $pkg2_id})->hashes->[0];
+is(
+  $res->{result},
+  "Diff to closest match $pkg_id:\n\n  Different spec file license: Artistic-2.0\n\n",
+  'different spec'
+);
 is($res->{state}, 'new', 'not approved');
 
 # Clean up once we are done

@@ -1,3 +1,18 @@
+# Copyright (C) 2018-2020 SUSE LLC
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <http://www.gnu.org/licenses/>.
+
 use Mojo::Base -strict;
 
 use Test::More;
@@ -20,8 +35,7 @@ app->routes->add_condition(
   }
 );
 
-get '/public/source/:project/kernel-default' =>
-  [project => ['openSUSE:Factory']] => (query => {view => 'info'}) =>
+get '/public/source/:project/kernel-default' => [project => ['openSUSE:Factory']] => (query => {view => 'info'}) =>
   {text => <<'EOF'};
 <sourceinfo package="kernel-default" rev="10" vrev="1"
 srcmd5="74ee00bc30bdaf23acbfba25a893b52a"
@@ -32,10 +46,8 @@ verifymd5="bb19066400b2b60e2310b45f10d12f56">
 </sourceinfo>
 EOF
 
-get '/public/source/:project/kernel-default' =>
-  [project => ['openSUSE:Factory']] =>
-  (query => {expand => 1, rev => '74ee00bc30bdaf23acbfba25a893b52a'}) =>
-  {text => <<'EOF'};
+get '/public/source/:project/kernel-default'                          => [project => ['openSUSE:Factory']] =>
+  (query => {expand => 1, rev => '74ee00bc30bdaf23acbfba25a893b52a'}) => {text => <<'EOF'};
 <directory name="kernel-default" rev="dde505c17d7e2d6b146c2a823f8b3224" vrev="1"
   srcmd5="dde505c17d7e2d6b146c2a823f8b3224">
   <linkinfo project="openSUSE:Factory" package="kernel-source"
@@ -48,10 +60,8 @@ get '/public/source/:project/kernel-default' =>
 </directory>
 EOF
 
-get '/public/source/:project/kernel-source' =>
-  [project => ['openSUSE:Factory']] =>
-  (query => {expand => 1, rev => '75a7d6524faa9d48cd415a62feadea8e'}) =>
-  {text => <<'EOF'};
+get '/public/source/:project/kernel-source'                           => [project => ['openSUSE:Factory']] =>
+  (query => {expand => 1, rev => '75a7d6524faa9d48cd415a62feadea8e'}) => {text => <<'EOF'};
 <directory name="kernel-source" rev="75a7d6524faa9d48cd415a62feadea8e"
   srcmd5="75a7d6524faa9d48cd415a62feadea8e">
   <entry name="README.KSYMS" md5="c3f38df11cd76c6f6fb24c7c1fab880f" size="345"
@@ -63,8 +73,7 @@ get '/public/source/:project/kernel-source' =>
 </directory>
 EOF
 
-get '/public/source/:project/kernel-source' =>
-  [project => ['openSUSE:Factory']] =>
+get '/public/source/:project/kernel-source'              => [project => ['openSUSE:Factory']] =>
   (query => {rev => 'bb19066400b2b60e2310b45f10d12f56'}) => {text => <<'EOF'};
 <directory name="kernel-source" rev="bb19066400b2b60e2310b45f10d12f56"
   srcmd5="bb19066400b2b60e2310b45f10d12f56">
@@ -73,17 +82,15 @@ get '/public/source/:project/kernel-source' =>
 </directory>
 EOF
 
-get '/public/source/:project/kernel-source/_meta' =>
-  [project => ['openSUSE:Factory']] => {text => <<'EOF'};
+get '/public/source/:project/kernel-source/_meta' => [project => ['openSUSE:Factory']] => {text => <<'EOF'};
 <package name="kernel-source" project="openSUSE:Factory">
   <title>The Linux Kernel Sources</title>
   <devel project="Kernel:stable" package="kernel-source" />
 </package>
 EOF
 
-get '/public/source/:project/perl-Mojolicious' =>
-  [project => ['openSUSE:Factory']] =>
-  (query => {view => 'info', rev => '3'}) => {text => <<'EOF'};
+get '/public/source/:project/perl-Mojolicious' => [project => ['openSUSE:Factory']] =>
+  (query => {view => 'info', rev => '3'})      => {text => <<'EOF'};
 <sourceinfo package="perl-Mojolicious" rev="3" vrev="1"
   srcmd5="09f3db66fc4df14f1160b01ceb4b3e73"
   verifymd5="09f3db66fc4df14f1160b01ceb4b3e73">
@@ -91,16 +98,14 @@ get '/public/source/:project/perl-Mojolicious' =>
 </sourceinfo>
 EOF
 
-get '/public/source/:project/perl-Mojolicious/_meta' =>
-  [project => ['openSUSE:Factory']] => {text => <<'EOF'};
+get '/public/source/:project/perl-Mojolicious/_meta' => [project => ['openSUSE:Factory']] => {text => <<'EOF'};
 <package name="perl-Mojolicious" project="openSUSE:Factory">
   <title>The Web In A Box!</title>
   <devel project="devel:languages:perl" package="perl-Mojolicious" />
 </package>
 EOF
 
-get '/public/source/:project/perl-Mojolicious' =>
-  [project => ['home:kraih']] => (query => {expand => 1, rev => 1}) =>
+get '/public/source/:project/perl-Mojolicious' => [project => ['home:kraih']] => (query => {expand => 1, rev => 1}) =>
   {text => <<'EOF'};
 <directory name="perl-Mojolicious" rev="9199eca9ec0fa5cffe4c3a6cb99a8093"
   vrev="140" srcmd5="9199eca9ec0fa5cffe4c3a6cb99a8093">
@@ -116,24 +121,18 @@ get '/public/source/:project/perl-Mojolicious' =>
 EOF
 
 # explicit 404
-get '/public/source/:project/perl-Mojolicious' =>
-  [project => ['openSUSE:Factory']] => (query => {view => 'info', rev => 4}) =>
-  {text => '', status => 404};
+get '/public/source/:project/perl-Mojolicious' => [project => ['openSUSE:Factory']] =>
+  (query => {view => 'info', rev => 4})        => {text => '', status => 404};
 
-get '/public/source/:project/perl-Mojolicious/perl-Mojolicious.spec' =>
-  [project => ['home:kraih']] =>
-  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'}) =>
-  {text => 'Mojolicious spec!'};
+get '/public/source/:project/perl-Mojolicious/perl-Mojolicious.spec' => [project => ['home:kraih']] =>
+  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'})             => {text => 'Mojolicious spec!'};
 
-get '/public/source/:project/perl-Mojolicious/:special' =>
-  [project => ['home:kraih']] =>
-  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'}) =>
-  [special => ['perl-Mojo#licious.changes']] =>
+get '/public/source/:project/perl-Mojolicious/:special'  => [project => ['home:kraih']] =>
+  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'}) => [special => ['perl-Mojo#licious.changes']] =>
   {text => 'Mojolicious changes!'};
 
-get '/public/source/:project/perl-WrongChecksum' =>
-  [project => ['home:kraih']] => (query => {expand => 1, rev => 1}) =>
-  {text => <<'EOF'};
+get '/public/source/:project/perl-WrongChecksum' => [project => ['home:kraih']] =>
+  (query => {expand => 1, rev => 1})             => {text => <<'EOF'};
 <directory name="perl-WrongChecksum" rev="9199eca9ec0fa5cffe4c3a6cb99a8093"
   vrev="140" srcmd5="9199eca9ec0fa5cffe4c3a6cb99a8093">
   <linkinfo project="devel:languages:perl" package="perl-WrongChecksum"
@@ -145,13 +144,11 @@ get '/public/source/:project/perl-WrongChecksum' =>
 </directory>
 EOF
 
-get '/public/source/:project/perl-WrongChecksum/perl-WrongChecksum.changes' =>
-  [project => ['home:kraih']] =>
-  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'}) =>
-  {text => 'Wrong checksum changes!'};
+get '/public/source/:project/perl-WrongChecksum/perl-WrongChecksum.changes' => [project => ['home:kraih']] =>
+  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'})                    => {text => 'Wrong checksum changes!'};
 
-get '/public/source/:project/perl-Mojo-SQLite' => (query => {expand => 1}) =>
-  [project => ['home:kraih']]                  => {text => <<'EOF'};
+get '/public/source/:project/perl-Mojo-SQLite' => (query => {expand => 1}) => [project => ['home:kraih']] =>
+  {text => <<'EOF'};
 <directory name="perl-Mojo-SQLite" rev="51d642346cc9e5f57c43463dd0b1dad9"
   vrev="5" srcmd5="51d642346cc9e5f57c43463dd0b1dad9">
   <linkinfo project="devel:languages:perl" package="perl-Mojo-SQLite"
@@ -169,9 +166,8 @@ get '/public/source/:project/perl-Mojo-SQLite' => (query => {expand => 1}) =>
 </directory>
 EOF
 
-get '/public/source/:project/python-monascaclient' =>
-  [project => ['Cloud:OpenStack:Factory']] =>
-  (query => {view => 'info', rev => 4}) => {text => <<'EOF'};
+get '/public/source/:project/python-monascaclient' => [project => ['Cloud:OpenStack:Factory']] =>
+  (query => {view => 'info', rev => 4})            => {text => <<'EOF'};
 <sourceinfo package="python-monascaclient" rev="4" vrev="4"
   srcmd5="d023edaef04687af8d487ff4e2eda5f7"
   lsrcmd5="4de5b31e259161d9368c9a3c8b6ccecd"
@@ -181,9 +177,8 @@ get '/public/source/:project/python-monascaclient' =>
 </sourceinfo>
 EOF
 
-get '/public/source/:project/python-monascaclient' =>
-  [project => ['Cloud:OpenStack:Factory']] =>
-  (query => {expand => 1, rev => 4}) => {text => <<'EOF'};
+get '/public/source/:project/python-monascaclient' => [project => ['Cloud:OpenStack:Factory']] =>
+  (query => {expand => 1, rev => 4})               => {text => <<'EOF'};
 <directory name="python-monascaclient" rev="d023edaef04687af8d487ff4e2eda5f7"
   vrev="4" srcmd5="d023edaef04687af8d487ff4e2eda5f7">
   <linkinfo project="openSUSE:Factory" package="python-monascaclient"
@@ -202,22 +197,19 @@ get '/public/source/:project/python-monascaclient' =>
 </directory>
 EOF
 
-get '/public/source/:project/python-monascaclient' =>
-  [project => ['openSUSE:Factory']] =>
-  (query => {rev => 'd41d8cd98f00b204e9800998ecf8427e'}) =>
-  {text => '', status => 404};
+get '/public/source/:project/python-monascaclient'       => [project => ['openSUSE:Factory']] =>
+  (query => {rev => 'd41d8cd98f00b204e9800998ecf8427e'}) => {text => '', status => 404};
 
-get '/public/source/:project/python-monascaclient/_meta' =>
-  [project => ['Cloud:OpenStack:Factory']] => {text => <<'EOF'};
+get '/public/source/:project/python-monascaclient/_meta' => [project => ['Cloud:OpenStack:Factory']] =>
+  {text => <<'EOF'};
 <package name="python-monascaclient" project="Cloud:OpenStack:Factory">
   <title/>
   <description/>
 </package>
 EOF
 
-get '/public/source/:project/postgresql95-plr' =>
-  [project => ['server:database:postgresql']] =>
-  (query => {view => 'info', rev => 2}) => {text => <<'EOF'};
+get '/public/source/:project/postgresql95-plr' => [project => ['server:database:postgresql']] =>
+  (query => {view => 'info', rev => 2})        => {text => <<'EOF'};
 <sourceinfo package="postgresql95-plr" rev="2" vrev="30"
   srcmd5="33fd6e072853f97aa64a205090f55d5e"
   lsrcmd5="3cb5f8a6851e65e8f10270f2bbe5dac4"
@@ -227,9 +219,8 @@ get '/public/source/:project/postgresql95-plr' =>
 </sourceinfo>
 EOF
 
-get '/public/source/:project/postgresql96-plr' =>
-  [project => ['server:database:postgresql']] =>
-  (query => {view => 'info', rev => 2}) => {text => <<'EOF'};
+get '/public/source/:project/postgresql96-plr' => [project => ['server:database:postgresql']] =>
+  (query => {view => 'info', rev => 2})        => {text => <<'EOF'};
 <sourceinfo package="postgresql96-plr" rev="2" vrev="30"
   srcmd5="e9cb3655b11bd63d07210a161240330c"
   lsrcmd5="36b5b26094ae578303e70881a7e246b8"
@@ -239,9 +230,8 @@ get '/public/source/:project/postgresql96-plr' =>
 </sourceinfo>
 EOF
 
-get '/public/source/:project/postgresql96-plr' =>
-  [project => ['server:database:postgresql']] =>
-  (query => {rev => 2, expand => 1}) => {text => <<'EOF'};
+get '/public/source/:project/postgresql96-plr' => [project => ['server:database:postgresql']] =>
+  (query => {rev => 2, expand => 1})           => {text => <<'EOF'};
 <directory name="postgresql96-plr" rev="e9cb3655b11bd63d07210a161240330c"
   vrev="30" srcmd5="e9cb3655b11bd63d07210a161240330c">
   <linkinfo project="server:database:postgresql" package="postgresql-plr"
@@ -269,9 +259,8 @@ get '/public/source/:project/postgresql96-plr' =>
 </directory>
 EOF
 
-get '/public/source/:project/postgresql95-plr' =>
-  [project => ['server:database:postgresql']] =>
-  (query => {rev => 2, expand => 1}) => {text => <<'EOF'};
+get '/public/source/:project/postgresql95-plr' => [project => ['server:database:postgresql']] =>
+  (query => {rev => 2, expand => 1})           => {text => <<'EOF'};
 <directory name="postgresql95-plr" rev="33fd6e072853f97aa64a205090f55d5e"
   vrev="30" srcmd5="33fd6e072853f97aa64a205090f55d5e">
   <linkinfo project="server:database:postgresql" package="postgresql-plr"
@@ -299,10 +288,8 @@ get '/public/source/:project/postgresql95-plr' =>
 </directory>
 EOF
 
-get '/public/source/:project/postgresql-plr' =>
-  [project => ['server:database:postgresql']] =>
-  (query => {expand => 1, rev => '7ee96456a79d70a12270cb1d045cca3c'}) =>
-  {text => <<'EOF'};
+get '/public/source/:project/postgresql-plr'                          => [project => ['server:database:postgresql']] =>
+  (query => {expand => 1, rev => '7ee96456a79d70a12270cb1d045cca3c'}) => {text => <<'EOF'};
 <directory name="postgresql-plr" rev="7ee96456a79d70a12270cb1d045cca3c"
   srcmd5="7ee96456a79d70a12270cb1d045cca3c">
   <entry name="REL8_3_0_17.tar.gz" md5="b0aa8e24ddfea33a475c1d0c43a30bf9"
@@ -346,8 +333,7 @@ get '/public/source/:project/postgresql-plr' =>
 </directory>
 EOF
 
-get '/public/source/:project/postgresql-plr/_meta' =>
-  [project => ['server:database:postgresql']] => {text => <<'EOF'};
+get '/public/source/:project/postgresql-plr/_meta' => [project => ['server:database:postgresql']] => {text => <<'EOF'};
 <package name="postgresql-plr" project="server:database:postgresql">
   <title>PL/R - R Procedural Language for PostgreSQL</title>
   <description>
@@ -357,8 +343,8 @@ get '/public/source/:project/postgresql-plr/_meta' =>
 </package>
 EOF
 
-get '/public/source/:project/postgresql95-plr/_meta' =>
-  [project => ['server:database:postgresql']] => {text => <<'EOF'};
+get '/public/source/:project/postgresql95-plr/_meta' => [project => ['server:database:postgresql']] =>
+  {text => <<'EOF'};
 <package name="postgresql95-plr" project="server:database:postgresql">
   <title>PL/R - R Procedural Language for PostgreSQL</title>
   <description>
@@ -368,8 +354,8 @@ get '/public/source/:project/postgresql95-plr/_meta' =>
 </package>
 EOF
 
-get '/public/source/:project/postgresql96-plr/_meta' =>
-  [project => ['server:database:postgresql']] => {text => <<'EOF'};
+get '/public/source/:project/postgresql96-plr/_meta' => [project => ['server:database:postgresql']] =>
+  {text => <<'EOF'};
 <package name="postgresql96-plr" project="server:database:postgresql">
   <title>PL/R - R Procedural Language for PostgreSQL</title>
   <description>
@@ -391,20 +377,16 @@ my $info = {
   package   => 'kernel-source',
   verifymd5 => 'bb19066400b2b60e2310b45f10d12f56'
 };
-is_deeply $obs->package_info($api, 'openSUSE:Factory', 'kernel-default'),
-  $info, 'right structure';
+is_deeply $obs->package_info($api, 'openSUSE:Factory', 'kernel-default'), $info, 'right structure';
 $info = {
   srcmd5    => '09f3db66fc4df14f1160b01ceb4b3e73',
   package   => 'perl-Mojolicious',
   verifymd5 => '09f3db66fc4df14f1160b01ceb4b3e73'
 };
-is_deeply $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious',
-  {rev => 3}), $info, 'right structure';
+is_deeply $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious', {rev => 3}), $info, 'right structure';
 
 # Package info for missing packages
-eval {
-  $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious', {rev => 4});
-};
+eval { $obs->package_info($api, 'openSUSE:Factory', 'perl-Mojolicious', {rev => 4}); };
 like $@, qr/perl-Mojolicious/, 'right error';
 
 # Package info for missingok=true packages
@@ -413,9 +395,8 @@ $info = {
   srcmd5    => 'd023edaef04687af8d487ff4e2eda5f7',
   verifymd5 => '34d69b093c93614c829c06c075688463'
 };
-is_deeply $obs->package_info($api, 'Cloud:OpenStack:Factory',
-  'python-monascaclient', {rev => 4}),
-  $info, 'right structure';
+is_deeply $obs->package_info($api, 'Cloud:OpenStack:Factory', 'python-monascaclient', {rev => 4}), $info,
+  'right structure';
 
 # obs request 459053
 $info = {
@@ -423,9 +404,8 @@ $info = {
   srcmd5    => 'e9cb3655b11bd63d07210a161240330c',
   verifymd5 => '8c174a4cd8c85e430378d875aa77c23e'
 };
-is_deeply $obs->package_info($api, 'server:database:postgresql',
-  'postgresql96-plr', {rev => 2}),
-  $info, 'right structure';
+is_deeply $obs->package_info($api, 'server:database:postgresql', 'postgresql96-plr', {rev => 2}), $info,
+  'right structure';
 
 # obs request 459054
 $info = {
@@ -433,32 +413,25 @@ $info = {
   srcmd5    => '33fd6e072853f97aa64a205090f55d5e',
   verifymd5 => '5e2c789dcbe65ad644652455029c1123'
 };
-is_deeply $obs->package_info($api, 'server:database:postgresql',
-  'postgresql95-plr', {rev => 2}),
-  $info, 'right structure';
+is_deeply $obs->package_info($api, 'server:database:postgresql', 'postgresql95-plr', {rev => 2}), $info,
+  'right structure';
 
 
 # Source download with revision
 my $dir = tempdir;
 $obs->download_source($api, 'home:kraih', 'perl-Mojolicious', $dir, {rev => 1});
 ok -e $dir->child('perl-Mojo#licious.changes'), 'file exists';
-like $dir->child('perl-Mojo#licious.changes')->slurp, qr/changes!/,
-  'right content';
+like $dir->child('perl-Mojo#licious.changes')->slurp, qr/changes!/, 'right content';
 ok -e $dir->child('perl-Mojolicious.spec'), 'file exists';
 like $dir->child('perl-Mojolicious.spec')->slurp, qr/spec!/, 'right content';
 is $dir->list->size, 2, 'only two files';
 
 # Wrong checksum
-eval {
-  $obs->download_source($api, 'home:kraih', 'perl-WrongChecksum', $dir,
-    {rev => 1});
-};
+eval { $obs->download_source($api, 'home:kraih', 'perl-WrongChecksum', $dir, {rev => 1}); };
 like $@, qr/Corrupted file/, 'right error';
 
 # Source download for missing packages
-eval {
-  $obs->download_source($api, 'home:kraih', 'does-not-exist', $dir, {rev => 1});
-};
+eval { $obs->download_source($api, 'home:kraih', 'does-not-exist', $dir, {rev => 1}); };
 like $@, qr/does-not-exist/, 'right error';
 eval { $obs->download_source($api, 'home:kraih', 'perl-Mojo-SQLite', $dir); };
 like $@, qr/Mojo-SQLite-1.004.tar.gz/, 'right error';

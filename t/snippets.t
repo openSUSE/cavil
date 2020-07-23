@@ -1,3 +1,18 @@
+# Copyright (C) 2018-2020 SUSE LLC
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <http://www.gnu.org/licenses/>.
+
 use Mojo::Base -strict;
 
 BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
@@ -20,16 +35,13 @@ $pg->db->query('drop schema if exists bot_index_test cascade');
 $pg->db->query('create schema bot_index_test');
 
 # Create checkout directory
-my $dir = tempdir;
-my @src = ('package-with-snippets', '2a0737e27a3b75590e7fab112b06a76fe7573615');
+my $dir  = tempdir;
+my @src  = ('package-with-snippets', '2a0737e27a3b75590e7fab112b06a76fe7573615');
 my $mojo = $dir->child(@src)->make_path;
-copy "$_", $mojo->child($_->basename)
-  for path(__FILE__)->dirname->child('legal-bot', @src)->list->each;
+copy "$_", $mojo->child($_->basename) for path(__FILE__)->dirname->child('legal-bot', @src)->list->each;
 
 # Configure application
-my $online
-  = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_index_test'])
-  ->to_unsafe_string;
+my $online = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_index_test'])->to_unsafe_string;
 my $config = {
   secrets                => ['just_a_test'],
   checkout_dir           => $dir,
@@ -48,10 +60,8 @@ my $t = Test::Mojo->new(Cavil => $config);
 $t->app->pg->migrations->migrate;
 
 # Prepare database
-my $db = $t->app->pg->db;
-my $usr_id
-  = $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})
-  ->hash->{id};
+my $db     = $t->app->pg->db;
+my $usr_id = $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 my $pkg_id = $t->app->packages->add(
   name            => 'package-with-snippets',
   checkout_dir    => '2a0737e27a3b75590e7fab112b06a76fe7573615',
@@ -66,8 +76,7 @@ my $pkg_id = $t->app->packages->add(
 $t->app->patterns->create(pattern => 'license');
 $t->app->patterns->create(pattern => 'GPL', license => 'GPL');
 $t->app->patterns->create(
-  pattern =>
-    'Permission is granted to copy, distribute and/or modify this document
+  pattern => 'Permission is granted to copy, distribute and/or modify this document
        under the terms of the GNU Free Documentation License, Version 1.1 or any later
        version published by the Free Software Foundation; with no Invariant Sections,
        with no Front-Cover Texts and with no Back-Cover Texts. A copy of the license
@@ -79,27 +88,23 @@ $t->app->patterns->create(
 my $unpack_id = $t->app->minion->enqueue(unpack => [$pkg_id]);
 $t->app->minion->perform_jobs;
 
-like $t->app->packages->find($pkg_id)->{checksum}, qr/^Error-9:\w+/,
-  'right shortname';
+like $t->app->packages->find($pkg_id)->{checksum}, qr/^Error-9:\w+/, 'right shortname';
 
 my $res = $db->select('snippets', 'text', {}, {order_by => 'text'})->hashes;
 is_deeply(
   $res,
   [
     {
-      text =>
-        "\nNow complex: The license might\nbe something cool\nbut we would not\nsay what we can do"
+          text => "\nNow complex: The license might\nbe something cool\nbut we would not\nsay what we can do"
         . "\nand what we can not do\nwith the GPL. The problem\nis that if we continue\nthis line and afterwards"
         . "\ntalk again about the GPL,\nit should really be part\nof the same snippet. We don't\nwant GPL to abort it."
     },
     {
-      text =>
-        "The GPL might be\nsomething cool\nbut we would not\nsay what we can do\nand what we can not do"
+      text => "The GPL might be\nsomething cool\nbut we would not\nsay what we can do\nand what we can not do"
         . "\nwith the license.\n"
     },
     {
-      text =>
-        "The license might be\nsomething cool\nbut we would not\nsay what we can do\nand what we can not do"
+      text => "The license might be\nsomething cool\nbut we would not\nsay what we can do\nand what we can not do"
         . "\nwith the GPL."
     }
   ]

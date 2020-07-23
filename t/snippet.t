@@ -1,3 +1,18 @@
+# Copyright (C) 2018-2020 SUSE LLC
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <http://www.gnu.org/licenses/>.
+
 use Mojo::Base -strict;
 
 BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
@@ -17,8 +32,7 @@ $pg->db->query('create schema bot_snippet_test');
 
 # Configure application
 my $dir    = tempdir;
-my $online = Mojo::URL->new($ENV{TEST_ONLINE})
-  ->query([search_path => 'bot_snippet_test'])->to_unsafe_string;
+my $online = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_snippet_test'])->to_unsafe_string;
 my $config = {
   secrets                => ['just_a_test'],
   checkout_dir           => $dir,
@@ -41,34 +55,24 @@ my $db   = $t->app->pg->db;
 my $pkgs = $t->app->packages;
 
 # Basic search with suggestion
-$t->get_ok('/snippets')->status_is(200)
-  ->content_like(qr/No snippets left/, 'no risk, only fun');
+$t->get_ok('/snippets')->status_is(200)->content_like(qr/No snippets left/, 'no risk, only fun');
 
 my $id = $t->app->snippets->find_or_create('0000', 'Licenses are cool');
-$t->get_ok('/snippets')->status_is(200)
-  ->content_unlike(qr/No snippets left/, 'snippets to check');
-$t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")
-  ->element_exists("input[name=g_$id][value='0']")
+$t->get_ok('/snippets')->status_is(200)->content_unlike(qr/No snippets left/, 'snippets to check');
+$t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")->element_exists("input[name=g_$id][value='0']")
   ->element_exists_not('input[type="submit"]');
 
 $t->post_ok('/snippets' => form => {"g_$id" => 0})->status_is(403);
 
 # now test with login
 $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-$t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")
-  ->element_exists("input[name=g_$id][value='0']")
+$t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")->element_exists("input[name=g_$id][value='0']")
   ->element_exists('input[type="submit"]');
-$t->post_ok('/snippets' => form => {"g_$id" => 0})->status_is(302)
-  ->header_is(Location => '/snippets');
-$t->get_ok('/snippets')->status_is(200)
-  ->content_like(qr/No snippets left/, 'All done');
+$t->post_ok('/snippets' => form => {"g_$id" => 0})->status_is(302)->header_is(Location => '/snippets');
+$t->get_ok('/snippets')->status_is(200)->content_like(qr/No snippets left/, 'All done');
 
 my $res = $db->select('snippets', [qw(classified approved license)])->hash;
-is_deeply(
-  $res,
-  {classified => 1, approved => 1, license => 0},
-  'all fields updated'
-);
+is_deeply($res, {classified => 1, approved => 1, license => 0}, 'all fields updated');
 
 # Clean up once we are done
 $pg->db->query('drop schema bot_snippet_test cascade');

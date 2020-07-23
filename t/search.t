@@ -1,3 +1,18 @@
+# Copyright (C) 2018-2020 SUSE LLC
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, see <http://www.gnu.org/licenses/>.
+
 use Mojo::Base -strict;
 
 BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
@@ -17,8 +32,7 @@ $pg->db->query('create schema bot_search_test');
 
 # Configure application
 my $dir    = tempdir;
-my $online = Mojo::URL->new($ENV{TEST_ONLINE})
-  ->query([search_path => 'bot_search_test'])->to_unsafe_string;
+my $online = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_search_test'])->to_unsafe_string;
 my $config = {
   secrets                => ['just_a_test'],
   checkout_dir           => $dir,
@@ -37,10 +51,8 @@ my $t = Test::Mojo->new(Cavil => $config);
 $t->app->pg->migrations->migrate;
 
 # Prepare database
-my $db = $t->app->pg->db;
-my $usr_id
-  = $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})
-  ->hash->{id};
+my $db     = $t->app->pg->db;
+my $usr_id = $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 my $pkgs   = $t->app->packages;
 my $pkg_id = $pkgs->add(
   name            => 'perl-Mojolicious',
@@ -53,14 +65,7 @@ my $pkg_id = $pkgs->add(
   priority        => 5
 );
 $pkgs->update(
-  {
-    id               => $pkg_id,
-    state            => 'correct',
-    result           => 'Perfect',
-    checksum         => 'Artistic-2.0-3:Hsyo',
-    review_timestamp => 1
-  }
-);
+  {id => $pkg_id, state => 'correct', result => 'Perfect', checksum => 'Artistic-2.0-3:Hsyo', review_timestamp => 1});
 $pkg_id = $pkgs->add(
   name            => 'perl',
   checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
@@ -72,30 +77,17 @@ $pkg_id = $pkgs->add(
   priority        => 5
 );
 $pkgs->update(
-  {
-    id               => $pkg_id,
-    state            => 'correct',
-    result           => 'The best',
-    checksum         => 'Artistic-1.0-3:PeRl',
-    review_timestamp => 1
-  }
-);
+  {id => $pkg_id, state => 'correct', result => 'The best', checksum => 'Artistic-1.0-3:PeRl', review_timestamp => 1});
 
 # Basic search with suggestion
-$t->get_ok('/')->status_is(200)
-  ->element_exists('form[action=/search] input[name=q]');
-$t->get_ok('/search?q=perl')->status_is('200')
-  ->element_exists('form[action=/search] input[name=q][value=perl]')
-  ->text_like('#results .state',      qr/correct/)
-  ->text_like('#results .result',     qr/The best/)
-  ->text_like('#results .checksum a', qr/Artistic-1\.0/)
-  ->text_like('#suggestions td a',    qr/perl-Mojolicious/);
+$t->get_ok('/')->status_is(200)->element_exists('form[action=/search] input[name=q]');
+$t->get_ok('/search?q=perl')->status_is('200')->element_exists('form[action=/search] input[name=q][value=perl]')
+  ->text_like('#results .state',      qr/correct/)->text_like('#results .result', qr/The best/)
+  ->text_like('#results .checksum a', qr/Artistic-1\.0/)->text_like('#suggestions td a', qr/perl-Mojolicious/);
 $t->get_ok('/search?q=perl-Mojolicious')->status_is('200')
   ->element_exists('form[action=/search] input[name=q][value=perl-Mojolicious]')
-  ->text_like('#results .state',      qr/correct/)
-  ->text_like('#results .result',     qr/Perfect/)
-  ->text_like('#results .checksum a', qr/Artistic-2\.0/)
-  ->element_exists_not('#suggestions');
+  ->text_like('#results .state',      qr/correct/)->text_like('#results .result', qr/Perfect/)
+  ->text_like('#results .checksum a', qr/Artistic-2\.0/)->element_exists_not('#suggestions');
 
 # Clean up once we are done
 $pg->db->query('drop schema bot_search_test cascade');
