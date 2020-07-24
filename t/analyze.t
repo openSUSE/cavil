@@ -21,17 +21,12 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path tempdir);
-use Mojo::Pg;
-use Mojolicious::Lite;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'analyze_test');
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
-
-app->log->level('error');
 
 subtest 'Analyze background job' => sub {
   $t->app->minion->enqueue(unpack => [1]);
@@ -51,6 +46,20 @@ subtest 'Analyze background job' => sub {
   my $res = $t->app->pg->db->select('bot_packages', '*', {id => 2})->hashes->[0];
   is $res->{result}, "Diff to closest match 1:\n\n  Different spec file license: Artistic-2.0\n\n", 'different spec';
   is $res->{state},  'new',                                                                         'not approved';
+};
+
+subtest 'Prevent analyze race condition' => sub {
+  my $minion = $t->app->minion;
+  ok my $job_id = $minion->enqueue('analyze', [1]);
+  my $guard = $minion->guard('processing_pkg_1', 172800);
+  ok !$minion->lock('processing_pkg_1', 0), 'lock exists';
+  my $worker = $minion->worker->register;
+  ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
+  is $job->execute, undef, 'no error';
+  like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
+  $worker->unregister;
+  undef $guard;
+  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
 };
 
 done_testing;

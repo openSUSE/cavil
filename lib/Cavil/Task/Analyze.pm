@@ -28,12 +28,21 @@ sub register {
 sub _analyze {
   my ($job, $id) = @_;
 
-  my $app = $job->app;
-  my $log = $app->log;
+  my $app    = $job->app;
+  my $minion = $app->minion;
+  my $pkgs   = $app->packages;
+  my $log    = $app->log;
+
+  # Protect from race conditions
+  return $job->finish("Package $id is already being processed")
+    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
+  return $job->fail("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
+
   $app->plugins->emit_hook('before_task_analyze');
+  $app->pg->db->update('bot_reports', {ldig_report => undef}, {package => $id});
 
   my $reports  = $app->reports;
-  my $pkg      = $app->packages->find($id);
+  my $pkg      = $pkgs->find($id);
   my $specfile = $reports->specfile_report($id);
   my $dig      = $reports->dig_report($id);
 
@@ -49,32 +58,21 @@ sub _analyze {
   {
     my $db = $app->pg->db;
     $db->update('bot_packages', {checksum => $shortname}, {id => $id});
-    $db->update('bot_reports', {ldig_report => to_json($dig)},
-      {package => $id});
+    $db->update('bot_reports', {ldig_report => to_json($dig)}, {package => $id});
     if ($pkg->{state} ne 'new') {
 
       # in case we reindexed an old pkg, check if 'new' packages now match.
       # new patterns might change the story
-      $new_candidates = $db->select(
-        'bot_packages',
-        'id',
-        {
-          name    => $pkg->{name},
-          indexed => {'!=' => undef},
-          id      => {'!=' => $pkg->{id}},
-          state   => 'new'
-        }
-      )->hashes;
+      $new_candidates = $db->select('bot_packages', 'id',
+        {name => $pkg->{name}, indexed => {'!=' => undef}, id => {'!=' => $pkg->{id}}, state => 'new'})->hashes;
     }
   }
 
   my $prio = $job->info->{priority};
-  $app->minion->enqueue(
-    analyzed => [$id] => {parents => [$job->id], priority => $prio});
+  $minion->enqueue(analyzed => [$id] => {parents => [$job->id], priority => $prio});
 
   for my $candidate (@$new_candidates) {
-    $app->minion->enqueue(
-      analyzed => [$candidate->{id}] => {parents => [$job->id], priority => 9});
+    $minion->enqueue(analyzed => [$candidate->{id}] => {parents => [$job->id], priority => 9});
   }
   $log->info("[$id] Analyzed $shortname");
 }
@@ -112,8 +110,7 @@ sub _analyzed {
       $pkg->{state}            = 'correct';
       $pkg->{review_timestamp} = 1;
       $pkg->{reviewing_user}   = undef;
-      $pkg->{result}
-        = "Correct because reviewed under the same license ($c_id)";
+      $pkg->{result}           = "Correct because reviewed under the same license ($c_id)";
       $pkgs->update($pkg);
     }
     return;    # the rest is for 'new'
@@ -123,8 +120,7 @@ sub _analyzed {
   if (my $f_id = $found_correct || $found_acceptable) {
     $pkg->{state}            = $found_correct ? 'correct' : 'acceptable';
     $pkg->{review_timestamp} = 1;
-    $pkg->{result}
-      = "Accepted because previously reviewed under the same license ($f_id)";
+    $pkg->{result}           = "Accepted because previously reviewed under the same license ($f_id)";
     return $pkgs->update($pkg);
   }
 
@@ -175,7 +171,7 @@ sub _look_for_smallest_delta {
       # don't look further
       $pkg->{state}            = 'acceptable';
       $pkg->{review_timestamp} = 1;
-      $pkg->{result} = "Not found any signficant difference against $old->{id}";
+      $pkg->{result}           = "Not found any signficant difference against $old->{id}";
       $app->packages->update($pkg);
       return;
     }
@@ -186,18 +182,14 @@ sub _look_for_smallest_delta {
     }
   }
   return unless $best;
-  $app->pg->db->update(
-    'bot_packages',
-    {result => _summary_delta($best, $new_summary, $best_score)},
-    {id     => $pkg->{id}}
-  );
+  $app->pg->db->update('bot_packages', {result => _summary_delta($best, $new_summary, $best_score)},
+    {id => $pkg->{id}});
 }
 
 sub _find_report_summary {
   my ($db, $chksum) = @_;
 
-  my $lentry
-    = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash;
+  my $lentry = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash;
   if ($lentry) {
     return $lentry->{shortname};
   }
@@ -210,9 +202,7 @@ sub _find_report_summary {
       'insert into report_checksums (checksum, shortname)
        values (?,?) on conflict do nothing', $chksum, $shortname
     );
-    return $shortname
-      if $db->select('report_checksums', 'id',
-      {shortname => $shortname, checksum => $chksum})->hash;
+    return $shortname if $db->select('report_checksums', 'id', {shortname => $shortname, checksum => $chksum})->hash;
   }
 }
 
@@ -247,8 +237,7 @@ sub _review_summary {
 
   my %summary  = (id => $id);
   my $specfile = $reports->specfile_report($id);
-  $summary{specfile}
-    = lic($specfile->{main}{license})->canonicalize->to_string || 'Error';
+  $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Error';
   my $report = $reports->dig_report($id);
 
   my $min_risklevel = 1;
@@ -264,9 +253,8 @@ sub _review_summary {
     }
     $summary{licenses}{$text} = $report->{licenses}{$license}{risk};
   }
-  my @files = map {
-    $db->select('matched_files', 'filename', {id => $_})->hash->{filename}
-  } keys %{$report->{snippets}};
+  my @files
+    = map { $db->select('matched_files', 'filename', {id => $_})->hash->{filename} } keys %{$report->{snippets}};
   $summary{missed_snippets} = \@files;
   return \%summary;
 }
@@ -320,8 +308,7 @@ sub _summary_delta {
     delete $lics{$lic};
   }
   for my $lic (keys %lics) {
-    $text
-      .= "  Found new license $lic (risk $lics{$lic}) not present in old report\n";
+    $text .= "  Found new license $lic (risk $lics{$lic}) not present in old report\n";
   }
   return $text;
 }

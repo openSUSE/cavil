@@ -60,7 +60,6 @@ sub all { shift->pg->db->select('bot_packages')->hashes }
 
 sub analyze {
   my ($self, $id, $priority, $parents) = (shift, shift, shift // 9, shift || []);
-  $self->pg->db->update('bot_reports', {ldig_report => undef}, {package => $id});
   return $self->minion->enqueue(analyze => [$id] => {parents => $parents, priority => $priority});
 }
 
@@ -136,9 +135,9 @@ sub indexed {
   $self->pg->db->update('bot_packages', {indexed => \'now()'}, {id => $id});
 }
 
-sub is_imported { shift->_check_timestamp('imported',  @_) }
-sub is_indexed  { shift->_check_timestamp('indexeded', @_) }
-sub is_unpacked { shift->_check_timestamp('unpacked',  @_) }
+sub is_imported { shift->_check_timestamp('imported', @_) }
+sub is_indexed  { shift->_check_timestamp('indexed',  @_) }
+sub is_unpacked { shift->_check_timestamp('unpacked', @_) }
 
 sub list {
   my ($self, $state, $pkg) = @_;
