@@ -193,14 +193,10 @@ sub reindex {
   return undef
     unless my $pkg = $db->update(
     'bot_packages',
-    {indexed => undef, checksum => undef},
+    {indexed   => undef},
     {id        => $id, indexed => {'!=' => undef}, '-not_bool' => 'obsolete'},
     {returning => '*'}
   )->hash;
-  $db->delete('matched_files', {package => $id});
-  $db->delete('urls',          {package => $id});
-  $db->delete('emails',        {package => $id});
-  $db->delete('bot_reports',   {package => $id});
 
   my $unpacked = path($self->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.postprocessed.json');
   -f $unpacked ? $self->index($id, $priority) : $self->unpack($id, $priority);
