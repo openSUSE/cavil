@@ -136,6 +136,10 @@ sub indexed {
   $self->pg->db->update('bot_packages', {indexed => \'now()'}, {id => $id});
 }
 
+sub is_imported { shift->_check_timestamp('imported',  @_) }
+sub is_indexed  { shift->_check_timestamp('indexeded', @_) }
+sub is_unpacked { shift->_check_timestamp('unpacked',  @_) }
+
 sub list {
   my ($self, $state, $pkg) = @_;
 
@@ -198,8 +202,7 @@ sub reindex {
     {returning => '*'}
   )->hash;
 
-  my $unpacked = path($self->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.postprocessed.json');
-  -f $unpacked ? $self->index($id, $priority) : $self->unpack($id, $priority);
+  $self->index($id, $priority);
 
   return 1;
 }
@@ -247,6 +250,12 @@ sub update {
 sub keyword_files {
   my ($self, $id) = @_;
   return $self->pg->db->select('matched_files', 'id,filename', {package => $id})->hashes;
+}
+
+sub _check_timestamp {
+  my ($self, $field, $id) = @_;
+  return undef unless my $hash = $self->pg->db->select('bot_packages', [$field], {id => $id})->hash;
+  return !!$hash->{$field};
 }
 
 sub _enqueue {

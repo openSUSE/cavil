@@ -26,12 +26,19 @@ sub register {
 sub _unpack {
   my ($job, $id) = @_;
 
+  my $app    = $job->app;
+  my $minion = $app->minion;
+  my $log    = $app->log;
+  my $pkgs   = $app->packages;
+
+  # Protect from race conditions
+  return $job->finish("Package $id is already being processed")
+    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
+  return $job->fail("Package $id is not imported yet") unless $pkgs->is_imported($id);
+
   # Unpack the package
-  my $app = $job->app;
-  my $log = $app->log;
   my $dir = $app->package_checkout_dir($id);
   Cavil::Checkout->new($dir)->unpack;
-  my $pkgs = $app->packages;
   $pkgs->unpacked($id);
   $log->info("[$id] Unpacked $dir");
 

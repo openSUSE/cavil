@@ -29,13 +29,13 @@ sub _obs {
 
   my $app    = $job->app;
   my $minion = $app->minion;
+  my $log    = $app->log;
+  my $pkgs   = $app->packages;
 
   # Protect from race conditions
   return $job->finish("Package $id is already being processed")
     unless my $guard = $minion->guard("processing_pkg_$id", 172800);
 
-  my $log          = $app->log;
-  my $pkgs         = $app->packages;
   my $checkout_dir = $app->config->{checkout_dir};
   my ($srcpkg, $verifymd5, $api, $project, $pkg, $srcmd5, $priority)
     = @{$data}{qw(srcpkg verifymd5 api project pkg srcmd5 priority)};
@@ -53,7 +53,7 @@ sub _obs {
   $log->info("[$id] Imported $dir");
 
   # Next step
-  $pkgs->unpack($id, $priority, [$job->id]);
+  $pkgs->unpack($id, 8, [$job->id]);
 }
 
 1;

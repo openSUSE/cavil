@@ -78,6 +78,7 @@ my $one_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
   priority        => 5
 );
+$t->app->packages->imported($one_id);
 my $two_id = $t->app->packages->add(
   name            => 'perl-Mojolicious',
   checkout_dir    => 'c8cfdab0e71b0bebfdf8b2dc3badfece',
@@ -88,6 +89,7 @@ my $two_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140402',
   priority        => 5
 );
+$t->app->packages->imported($two_id);
 my $three_id = $t->app->packages->add(
   name            => 'perl-Mojolicious',
   checkout_dir    => 'c9cfdab0e71b0bebfdf8b2dc3badfecf',
@@ -98,6 +100,7 @@ my $three_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140403',
   priority        => 5
 );
+$t->app->packages->imported($three_id);
 my $product_id = $t->app->products->find_or_create('Cpan')->{id};
 
 $t->app->patterns->create(pattern => 'The Artistic License 2.0', license => "Artistic-2.0", risk => 2);

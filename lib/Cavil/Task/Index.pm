@@ -34,10 +34,9 @@ sub register {
 sub _index {
   my ($job, $id) = @_;
 
-  my $app     = $job->app;
-  my $log     = $app->log;
-  my $dir     = $app->package_checkout_dir($id);
-  my $batches = Cavil::Checkout->new($dir)->unpacked_files($app->config->{index_bucket_average});
+  my $app    = $job->app;
+  my $minion = $app->minion;
+  my $log    = $app->log;
 
   # Clean up (make sure not to leak a Postgres connection)
   {
@@ -49,7 +48,8 @@ sub _index {
   }
 
   # Split up files into batches
-  my $minion    = $app->minion;
+  my $dir       = $app->package_checkout_dir($id);
+  my $batches   = Cavil::Checkout->new($dir)->unpacked_files($app->config->{index_bucket_average});
   my $parent_id = $job->id;
   my $prio      = $job->info->{priority};
   my @children

@@ -72,6 +72,7 @@ my $pkg_id = $t->app->packages->add(
   srcmd5          => '2a0737e27a3b75590e7fab112b06a76fe7573615',
   priority        => 5
 );
+$t->app->packages->imported($pkg_id);
 
 $t->app->patterns->create(pattern => 'license');
 $t->app->patterns->create(pattern => 'GPL', license => 'GPL');

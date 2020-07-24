@@ -72,6 +72,7 @@ my $pkg_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
   priority        => 5
 );
+$t->app->packages->imported($pkg_id);
 
 $t->app->licenses->create(name    => 'Apache-2.0');
 $t->app->licenses->create(name    => 'Artistic-2.0');

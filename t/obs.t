@@ -477,7 +477,7 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'import_test');
   my $config     = $cavil_test->default_config;
   my $t          = Test::Mojo->new(Cavil => $config);
-  $t->app->pg->migrations->migrate;
+  $cavil_test->no_fixtures($t->app);
 
   # Connect with mock web service
   $t->app->obs->ua->server->app(app);
@@ -493,6 +493,7 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   $t->post_ok('/packages', $headers,
     form => {api => $api, package => 'perl-Mojolicious', project => 'home:kraih', rev => 1})->status_is(200)
     ->json_is('/saved/id' => 1);
+  ok !$t->app->packages->is_imported(1), 'not imported yet';
   $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_is('/imported' => undef);
   my $minion = $t->app->minion;
   my $worker = $minion->worker->register;
@@ -501,6 +502,7 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   is $job->execute, undef, 'no error';
   ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
   $worker->unregister;
+  ok $t->app->packages->is_imported(1), 'imported';
   $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_like('/imported' => qr/\d/);
   unlike $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'no race condition';
 
@@ -512,10 +514,6 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   ok $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
   is $job->execute, undef, 'no error';
   like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
-  my $job_id2 = $minion->enqueue('obs_import', [1, {}]);
-  ok my $job2 = $worker->dequeue(0, {id => $job_id2}), 'job dequeued';
-  is $job2->execute, undef, 'no error';
-  like $minion->job($job_id2)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
   $worker->unregister;
   undef $guard;
   ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';

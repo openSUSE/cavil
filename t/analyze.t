@@ -74,6 +74,7 @@ my $pkg_id = $t->app->packages->add(
   srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
   priority        => 5
 );
+$t->app->packages->imported($pkg_id);
 $t->app->patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
 $t->app->patterns->create(
   packname => 'perl-Mojolicious',
@@ -107,6 +108,7 @@ my $pkg2_id = $t->app->packages->add(
   srcmd5          => 'da3e32a3cce8bada03c6a9d63c08cd58',
   priority        => 5
 );
+$t->app->packages->imported($pkg2_id);
 
 # Unpack and index
 $t->app->minion->enqueue(unpack => [$pkg2_id]);

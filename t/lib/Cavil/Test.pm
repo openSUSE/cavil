@@ -16,7 +16,7 @@
 package Cavil::Test;
 use Mojo::Base -base;
 
-use Mojo::File qw(tempdir);
+use Mojo::File qw(path tempdir);
 use Mojo::Pg;
 use Mojo::URL;
 use Mojo::Util qw(scope_guard);
@@ -27,7 +27,7 @@ sub new {
   # Database
   my $self = $class->SUPER::new(options => \%options);
   $self->{pg}       = Mojo::Pg->new($options{online});
-  $self->{db_guard} = $self->_prepare_db($options{schema});
+  $self->{db_guard} = $self->_prepare_schema($options{schema});
 
   # Checkout dir
   $self->{checkout_dir} = tempdir;
@@ -55,12 +55,55 @@ sub default_config {
   };
 }
 
+sub mojo_fixtures {
+  my ($self, $app) = @_;
+  $self->no_fixtures($app);
+
+  # Create checkout directory
+  my $dir  = $self->checkout_dir;
+  my @src  = ('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
+  my $mojo = $dir->child(@src)->make_path;
+  $_->copy_to($mojo->child($_->basename))
+    for path(__FILE__)->dirname->dirname->dirname->child('legal-bot', @src)->list->each;
+
+  # Create fixtures
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => 'perl-Mojolicious',
+    checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:languages:perl',
+    package         => 'perl-Mojolicious',
+    srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $patterns = $app->patterns;
+  $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
+  $patterns->create(
+    packname => 'perl-Mojolicious',
+    pattern  => 'Licensed under the Apache License, Version 2.0',
+    license  => 'Apache-2.0'
+  );
+  $patterns->create(pattern => 'License: Artistic-2.0',            license => 'Artistic-2.0');
+  $patterns->create(pattern => 'powerful web development toolkit', license => 'SUSE-NotALicense');
+  $patterns->create(pattern => 'the terms');
+  $patterns->create(pattern => 'copyright notice');
+}
+
+sub no_fixtures {
+  my ($self, $app) = @_;
+  $app->pg->migrations->migrate;
+}
+
 sub postgres_url {
   my $self = shift;
   return Mojo::URL->new($self->{options}{online})->query([search_path => $self->{options}{schema}])->to_unsafe_string;
 }
 
-sub _prepare_db {
+sub _prepare_schema {
   my ($self, $name) = @_;
 
   # Isolate tests
