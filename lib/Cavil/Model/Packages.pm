@@ -192,9 +192,11 @@ sub recent {
 sub reindex {
   my ($self, $id, $priority) = @_;
 
-  my $db = $self->pg->db;
+  # Protect from race conditions (even before creating a background job)
+  return undef unless $self->minion->lock("processing_pkg_$id", 0);
+
   return undef
-    unless my $pkg = $db->update(
+    unless my $pkg = $self->pg->db->update(
     'bot_packages',
     {indexed   => undef},
     {id        => $id, indexed => {'!=' => undef}, '-not_bool' => 'obsolete'},

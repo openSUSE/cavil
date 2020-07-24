@@ -202,4 +202,28 @@ $pkg = $t->app->packages->find(1);
 is $pkg->{state},  'acceptable',                       'automatically accepted';
 is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
 
+subtest 'Prevent index race condition' => sub {
+  my $minion = $t->app->minion;
+  ok my $job_id = $minion->enqueue('index', [1]), 'enqueued';
+  $minion->perform_jobs;
+  unlike $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
+  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+
+  ok $job_id = $minion->enqueue('index', [1]), 'enqueued';
+  my $guard = $minion->guard('processing_pkg_1', 172800);
+  ok !$minion->lock('processing_pkg_1', 0), 'lock exists';
+  my $worker = $minion->worker->register;
+  ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
+  is $job->execute, undef, 'no error';
+  like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
+  $worker->unregister;
+  undef $guard;
+  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+
+  $guard = $minion->guard('processing_pkg_1', 172800);
+  ok !$t->app->packages->reindex(1), 'not reindexing';
+  undef $guard;
+  ok $t->app->packages->reindex(1), 'reindexing';
+};
+
 done_testing();

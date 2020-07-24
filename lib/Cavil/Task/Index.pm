@@ -36,7 +36,12 @@ sub _index {
 
   my $app    = $job->app;
   my $minion = $app->minion;
+  my $pkgs   = $app->packages;
   my $log    = $app->log;
+
+  # Protect from race conditions
+  return $job->fail("Package $id is not unpacked yet")          unless $pkgs->is_unpacked($id);
+  return $job->finish("Package $id is already being processed") unless $minion->lock("processing_pkg_$id", 172800);
 
   # Clean up (make sure not to leak a Postgres connection)
   {
@@ -114,7 +119,13 @@ sub _index_later {
 sub _indexed {
   my ($job, $id) = @_;
 
-  my $pkgs = $job->app->packages;
+  my $app    = $job->app;
+  my $minion = $job->minion;
+  my $pkgs   = $job->app->packages;
+
+  # Protect from race conditions
+  $minion->unlock("processing_pkg_$id");
+
   $pkgs->indexed($id);
 
   # Next step - always high prio because the renderer
