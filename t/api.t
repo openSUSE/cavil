@@ -15,45 +15,25 @@
 
 use Mojo::Base -strict;
 
-BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
+use FindBin;
+use lib "$FindBin::Bin/lib";
 
 use Test::More;
+use Test::Mojo;
+use Cavil::Test;
+use Cavil::OBS;
+use Mojo::File qw(path);
+use Mojo::Server::Daemon;
+use Mojolicious;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-use Cavil::OBS;
-use Mojo::File qw(path tempdir);
-use Mojo::IOLoop;
-use Mojo::Pg;
-use Mojo::Server::Daemon;
-use Mojolicious;
-use Test::Mojo;
-
-# Isolate tests
-my $pg = Mojo::Pg->new($ENV{TEST_ONLINE});
-$pg->db->query('drop schema if exists bot_api_test cascade');
-$pg->db->query('create schema bot_api_test');
-
-# Configure application
-my $dir    = tempdir;
-my $online = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_api_test'])->to_unsafe_string;
-my $config = {
-  secrets                => ['just_a_test'],
-  checkout_dir           => $dir,
-  openid                 => {provider => 'https://www.opensuse.org/openid/user/', secret => 's3cret'},
-  tokens                 => ['test_token'],
-  pg                     => $online,
-  acceptable_risk        => 3,
-  index_bucket_average   => 100,
-  cleanup_bucket_average => 50,
-  min_files_short_report => 20,
-  max_email_url_size     => 26,
-  max_task_memory        => 5_000_000_000,
-  max_worker_rss         => 100000,
-  max_expanded_files     => 100
-};
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'api_test');
+my $config     = $cavil_test->default_config;
+$config->{openid} = {provider => 'https://www.opensuse.org/openid/user/', secret => 's3cret'};
 my $t = Test::Mojo->new(Cavil => $config);
-$t->app->pg->migrations->migrate;
+$cavil_test->no_fixtures($t->app);
+my $dir = $cavil_test->checkout_dir;
 
 # Mock OBS
 my $mock_app = Mojolicious->new;
@@ -111,92 +91,101 @@ $routes->get("/public/source/:project/perl-Mojolicious/$_" => [project => ['deve
   for @files;
 my $api = 'http://127.0.0.1:' . $t->app->obs->ua->server->app($mock_app)->url->port;
 
-# Not authenticated
-$t->get_ok('/package/1')->status_is(403)->content_like(qr/Permission/);
+subtest 'Not authenticated' => sub {
+  $t->get_ok('/package/1')->status_is(403)->content_like(qr/Permission/);
+};
 
-# Package not created yet
-$t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/No such package/);
+subtest 'Package not created yet' => sub {
+  $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/No such package/);
+};
 
-# Create package
-my $form = {api => $api, package => 'perl-Mojolicious', project => 'devel:languages:perl'};
-$t->app->patterns->expire_cache;
-$t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
-  ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')->json_is('/saved/id', 1);
-$t->app->minion->on(
-  worker => sub {
-    my ($minion, $worker) = @_;
-    $worker->on(
-      dequeue => sub {
-        my ($worker, $job) = @_;
-        $job->on(
-          start => sub {
-            my $job = shift;
-            return unless $job->task eq 'obs_import';
-            $job->app->obs(Cavil::OBS->new);
-            my $api = 'http://127.0.0.1:' . $job->app->obs->ua->server->app($mock_app)->url->port;
-            $job->args->[1]{api} = $api;
-          }
-        );
-      }
-    );
-  }
-);
-$t->get_ok('/api/1.0/source' => form => $form)->status_is(200)->json_is('/review' => 1, '/history' => []);
-$t->app->minion->perform_jobs;
-my $checkout = $dir->child('perl-Mojolicious', '236d7b56886a0d2799c0d114eddbb7f1');
-ok -d $checkout, 'directory exists';
-ok -f $checkout->child('Mojolicious-7.25.tar.gz'),  'file exists';
-ok -f $checkout->child('perl-Mojolicious.changes'), 'file exists';
-ok -f $checkout->child('perl-Mojolicious.spec'),    'file exists';
-ok !-d $checkout->child('Mojolicious'),             'directory does not exist yet';
+subtest 'Create package' => sub {
+  my $form = {api => $api, package => 'perl-Mojolicious', project => 'devel:languages:perl'};
+  $t->app->patterns->expire_cache;
+  $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
+    ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')->json_is('/saved/id', 1);
+  $t->app->minion->on(
+    worker => sub {
+      my ($minion, $worker) = @_;
+      $worker->on(
+        dequeue => sub {
+          my ($worker, $job) = @_;
+          $job->on(
+            start => sub {
+              my $job = shift;
+              return unless $job->task eq 'obs_import';
+              $job->app->obs(Cavil::OBS->new);
+              my $api = 'http://127.0.0.1:' . $job->app->obs->ua->server->app($mock_app)->url->port;
+              $job->args->[1]{api} = $api;
+            }
+          );
+        }
+      );
+    }
+  );
+  $t->get_ok('/api/1.0/source' => form => $form)->status_is(200)->json_is('/review' => 1, '/history' => []);
+  $t->app->minion->perform_jobs;
+  my $checkout = $dir->child('perl-Mojolicious', '236d7b56886a0d2799c0d114eddbb7f1');
+  ok -d $checkout, 'directory exists';
+  ok -f $checkout->child('Mojolicious-7.25.tar.gz'),  'file exists';
+  ok -f $checkout->child('perl-Mojolicious.changes'), 'file exists';
+  ok -f $checkout->child('perl-Mojolicious.spec'),    'file exists';
+  ok !-d $checkout->child('Mojolicious'),             'directory does not exist yet';
+};
 
-# Package has been created
-$t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
-  ->json_is('/priority', 5);
+subtest 'Package has been created' => sub {
+  $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
+    ->json_is('/priority', 5);
+};
 
-# Update priority
-$t->patch_ok('/package/1' => {Authorization => 'Token test_token'} => form => {priority => 7})->status_is(200);
-$t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
-  ->json_is('/priority', 7);
+subtest 'Update priority' => sub {
+  $t->patch_ok('/package/1' => {Authorization => 'Token test_token'} => form => {priority => 7})->status_is(200);
+  $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
+    ->json_is('/priority', 7);
+};
 
-# Request not created yet
-$t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
+subtest 'Request not created yet' => sub {
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
+};
 
-# Create a requests
-$t->post_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123', package => 1})
-  ->status_is(200)->json_is('/created', 'obs#123');
+subtest 'Create a requests' => sub {
+  $t->post_ok(
+    '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123', package => 1})
+    ->status_is(200)->json_is('/created', 'obs#123');
+};
 
-# Request has been created
-$t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
-  ->json_is('/requests/0/external_link', 'obs#123')->json_is('/requests/0/packages', [1]);
+subtest 'Request has been created' => sub {
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
+    ->json_is('/requests/0/external_link', 'obs#123')->json_is('/requests/0/packages', [1]);
+};
 
-# Remove request again
-$t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123'})
-  ->status_is(200);
-$t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
+subtest 'Remove request again' => sub {
+  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123'})
+    ->status_is(200);
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
+};
 
-# Products
-$t->patch_ok('/products/openSUSE:Factory' => {Authorization => 'Token test_token'} => form => {id => 1})
-  ->status_is(200)->json_is('/updated', 1);
-$t->patch_ok('/products/openSUSE:Leap:15.0' => {Authorization => 'Token test_token'} => form => {id => 1})
-  ->status_is(200)->json_is('/updated', 2);
-is_deeply $t->app->products->for_package(1), ['openSUSE:Factory', 'openSUSE:Leap:15.0'], 'right products';
+subtest 'Products' => sub {
+  $t->patch_ok('/products/openSUSE:Factory' => {Authorization => 'Token test_token'} => form => {id => 1})
+    ->status_is(200)->json_is('/updated', 1);
+  $t->patch_ok('/products/openSUSE:Leap:15.0' => {Authorization => 'Token test_token'} => form => {id => 1})
+    ->status_is(200)->json_is('/updated', 2);
+  is_deeply $t->app->products->for_package(1), ['openSUSE:Factory', 'openSUSE:Leap:15.0'], 'right products';
+};
 
-# Acceptable risk
-is $t->app->reports->risk_is_acceptable(''),                 undef, 'not acceptable';
-is $t->app->reports->risk_is_acceptable('Whatever 123'),     undef, 'not acceptable';
-is $t->app->reports->risk_is_acceptable('Error-9:w6Hs'),     undef, 'not acceptable';
-is $t->app->reports->risk_is_acceptable('GPL-2.0+-9:Hwo6'),  undef, 'not acceptable';
-is $t->app->reports->risk_is_acceptable('GPL-2.0+-10:Hwo6'), undef, 'not acceptable';
-is $t->app->reports->risk_is_acceptable('GPL-2.0+-0:Hwo6'),  0,     'acceptable';
-is $t->app->reports->risk_is_acceptable('Error-0:w6Ht'),     0,     'acceptable';
-is $t->app->reports->risk_is_acceptable('Error-1:w6Ht'),     1,     'acceptable';
-is $t->app->reports->risk_is_acceptable('GPL-2.0+-1:Hwo6'),  1,     'acceptable';
-is $t->app->reports->risk_is_acceptable('GPL-2.0+-2:Hwo6'),  2,     'acceptable';
-is $t->app->reports->risk_is_acceptable('GPL-2.0+-3:Hwo6'),  3,     'acceptable';
-is $t->app->reports->risk_is_acceptable('GPL-2.0+-4:Hwo6'),  undef, 'not acceptable';
-
-# Clean up once we are done
-$pg->db->query('drop schema bot_api_test cascade');
+subtest 'Acceptable risk' => sub {
+  is $t->app->reports->risk_is_acceptable(''),                 undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('Whatever 123'),     undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('Error-9:w6Hs'),     undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-9:Hwo6'),  undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-10:Hwo6'), undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-0:Hwo6'),  0,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('Error-0:w6Ht'),     0,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('Error-1:w6Ht'),     1,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-1:Hwo6'),  1,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-2:Hwo6'),  2,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-3:Hwo6'),  3,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-4:Hwo6'),  undef, 'not acceptable';
+};
 
 done_testing;

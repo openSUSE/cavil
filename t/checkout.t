@@ -159,8 +159,7 @@ subtest 'error-broken-archive' => sub {
 
 subtest 'Unpack background job' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test');
-  my $config     = $cavil_test->default_config;
-  my $t          = Test::Mojo->new(Cavil => $config);
+  my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
   $cavil_test->mojo_fixtures($t->app);
 
   ok !$t->app->packages->is_unpacked(1), 'not unpacked yet';

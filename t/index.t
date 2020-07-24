@@ -15,88 +15,29 @@
 
 use Mojo::Base -strict;
 
-BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
+use FindBin;
+use lib "$FindBin::Bin/lib";
 
 use Test::More;
+use Test::Mojo;
+use Cavil::Test;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-use Cavil::Util;
-use File::Copy 'copy';
-use Mojo::File qw(path tempdir);
-use Mojo::IOLoop;
-use Mojo::Pg;
-use Mojo::URL;
-use Test::Mojo;
-
-# Isolate tests
-my $pg = Mojo::Pg->new($ENV{TEST_ONLINE});
-$pg->db->query('drop schema if exists bot_index_test cascade');
-$pg->db->query('create schema bot_index_test');
-
-# Create checkout directory
-my $dir  = tempdir;
-my @src  = ('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
-my $mojo = $dir->child(@src)->make_path;
-copy "$_", $mojo->child($_->basename) for path(__FILE__)->dirname->child('legal-bot', @src)->list->each;
-
-# Configure application
-my $online = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_index_test'])->to_unsafe_string;
-my $config = {
-  secrets                => ['just_a_test'],
-  checkout_dir           => $dir,
-  tokens                 => [],
-  pg                     => $online,
-  acceptable_risk        => 3,
-  index_bucket_average   => 100,
-  cleanup_bucket_average => 50,
-  min_files_short_report => 20,
-  max_email_url_size     => 26,
-  max_task_memory        => 5_000_000_000,
-  max_worker_rss         => 100000,
-  max_expanded_files     => 100
-};
-my $t = Test::Mojo->new(Cavil => $config);
-$t->app->pg->migrations->migrate;
-
-# Prepare database
-my $db     = $t->app->pg->db;
-my $usr_id = $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
-my $pkg_id = $t->app->packages->add(
-  name            => 'perl-Mojolicious',
-  checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
-  api_url         => 'https://api.opensuse.org',
-  requesting_user => $usr_id,
-  project         => 'devel:languages:perl',
-  package         => 'perl-Mojolicious',
-  srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
-  priority        => 5
-);
-$t->app->packages->imported($pkg_id);
-
-$t->app->licenses->create(name    => 'Apache-2.0');
-$t->app->licenses->create(name    => 'Artistic-2.0');
-$t->app->patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
-$t->app->patterns->create(
-  packname => 'perl-Mojolicious',
-  pattern  => 'Licensed under the Apache License, Version 2.0',
-  license  => 'Apache-2.0'
-);
-$t->app->patterns->create(pattern => 'License: Artistic-2.0',            license => 'Artistic-2.0');
-$t->app->patterns->create(pattern => 'powerful web development toolkit', license => 'SUSE-NotALicense');
-
-# keyword without license
-$t->app->patterns->create(pattern => 'the terms');
-$t->app->patterns->create(pattern => 'copyright notice');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'index_test');
+my $config     = $cavil_test->default_config;
+my $t          = Test::Mojo->new(Cavil => $config);
+$cavil_test->mojo_fixtures($t->app);
 
 # Changes entry about 6.57 fixing copyright notices
 $t->app->packages->ignore_line('perl-Mojolicious', '81efb065de14988c4bd808697de1df51');
 
 # Unpack and index with the job queue
-my $unpack_id = $t->app->minion->enqueue(unpack => [$pkg_id]);
+my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
+my $db        = $t->app->pg->db;
 ok !$db->select('emails', ['id'], {email => 'sri@cpan.org'})->rows,           'email address does not exist';
 ok !$db->select('urls',   ['id'], {url   => 'http://mojolicious.org'})->rows, 'URL does not exist';
-ok !$db->select('bot_packages', ['unpacked'], {id => $pkg_id})->hash->{unpacked}, 'not unpacked';
+ok !$db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'not unpacked';
 $t->app->minion->perform_jobs;
 my $unpack_job = $t->app->minion->job($unpack_id);
 is $unpack_job->task, 'unpack', 'right task';
@@ -134,10 +75,10 @@ my $analyzed_job = $t->app->minion->job($analyzed_id);
 is $analyzed_job->task, 'analyzed', 'right task';
 is $analyzed_job->info->{state},  'finished', 'job is finished';
 is $analyzed_job->info->{result}, undef,      'job was successful';
-is $t->app->packages->find($pkg_id)->{state}, 'new', 'still new';
+is $t->app->packages->find(1)->{state}, 'new', 'still new';
 
 # Check shortname (3 missing snippets)
-like $t->app->packages->find($pkg_id)->{checksum}, qr/^Artistic-2.0-9:\w+/, 'right shortname';
+like $t->app->packages->find(1)->{checksum}, qr/^Artistic-2.0-9:\w+/, 'right shortname';
 
 # Check email addresses and URLs
 ok $db->select('emails', ['id'], {email => 'sri@cpan.org'})->rows, 'email address has been added';
@@ -150,11 +91,11 @@ is $db->select('urls', ['hits'], {url => $long})->hash, undef, 'URL is too long'
 # Check files
 my $file_id = $db->select('matched_files', ['id'], {filename => 'Mojolicious-7.25/lib/Mojolicious.pm'})->hash->{id};
 ok $file_id, 'file has been added';
-ok $db->select('bot_packages', ['unpacked'], {id => $pkg_id})->hash->{unpacked}, 'unpacked';
+ok $db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'unpacked';
 
 # Verify report checksum
-my $specfile = $t->app->reports->specfile_report($pkg_id);
-my $dig      = $t->app->reports->dig_report($pkg_id);
+my $specfile = $t->app->reports->specfile_report(1);
+my $dig      = $t->app->reports->dig_report(1);
 is $t->app->checksum($specfile, $dig), 'b9cd69e1482c6adf4f4dbd6807fc4fc0', 'right checksum';
 
 # Check matches
@@ -229,7 +170,7 @@ is $list->{total}, 1, 'one index_later jobs';
 $reindex_id = $t->app->minion->enqueue('reindex_all');
 $t->app->minion->perform_jobs;
 $list = $t->app->minion->backend->list_jobs(0, 10, {tasks => ['index_later']});
-is $list->{total}, 2, 'two index_later jobs';
+is $list->{total}, 3, 'three index_later jobs';
 is $list->{jobs}[0]{state}, 'finished', 'right state';
 is $list->{jobs}[1]{state}, 'finished', 'right state';
 $res = $db->select(
@@ -248,7 +189,7 @@ $res = $db->select(
 )->arrays;
 is_deeply $res, [[225, 6, 1], [2801, 1, 0]], 'Only one Changes entry is an ignored line';
 
-my $pkg = $t->app->packages->find($pkg_id);
+my $pkg = $t->app->packages->find(1);
 is $pkg->{state}, 'new', 'still snippets left';
 
 # now 'classify'
@@ -257,11 +198,8 @@ $reindex_id = $t->app->minion->enqueue('reindex_all');
 $t->app->minion->perform_jobs;
 
 # Accepted because of low risk
-$pkg = $t->app->packages->find($pkg_id);
+$pkg = $t->app->packages->find(1);
 is $pkg->{state},  'acceptable',                       'automatically accepted';
 is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
-
-# Clean up once we are done
-$pg->db->query('drop schema bot_index_test cascade');
 
 done_testing();

@@ -17,7 +17,7 @@ use Mojo::Base -strict;
 
 use Test::More;
 use Mojo::File;
-use Mojo::JSON 'decode_json';
+use Mojo::JSON qw(decode_json);
 use Cavil::Util qw(buckets lines_context);
 
 is_deeply buckets([1 .. 10], 3), [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10]], 'right buckets';

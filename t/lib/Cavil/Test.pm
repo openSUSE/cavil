@@ -60,11 +60,14 @@ sub mojo_fixtures {
   $self->no_fixtures($app);
 
   # Create checkout directory
-  my $dir  = $self->checkout_dir;
-  my @src  = ('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
-  my $mojo = $dir->child(@src)->make_path;
-  $_->copy_to($mojo->child($_->basename))
-    for path(__FILE__)->dirname->dirname->dirname->child('legal-bot', @src)->list->each;
+  my $dir       = $self->checkout_dir;
+  my @src       = ('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
+  my $mojo      = $dir->child(@src)->make_path;
+  my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
+  $_->copy_to($mojo->child($_->basename)) for $legal_bot->child(@src)->list->each;
+  @src  = ('perl-Mojolicious', 'da3e32a3cce8bada03c6a9d63c08cd58');
+  $mojo = $dir->child(@src)->make_path;
+  $_->copy_to($mojo->child($_->basename)) for $legal_bot->child(@src)->list->each;
 
   # Create fixtures
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
@@ -80,6 +83,20 @@ sub mojo_fixtures {
     priority        => 5
   );
   $pkgs->imported($pkg_id);
+  my $pkg2_id = $pkgs->add(
+    name            => 'perl-Mojolicious',
+    checkout_dir    => 'da3e32a3cce8bada03c6a9d63c08cd58',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => 1,
+    project         => 'devel:languages:perl',
+    package         => 'perl-Mojolicious',
+    srcmd5          => 'da3e32a3cce8bada03c6a9d63c08cd58',
+    priority        => 5
+  );
+  $pkgs->imported($pkg2_id);
+  my $licenses = $app->licenses;
+  $licenses->create(name => 'Apache-2.0');
+  $licenses->create(name => 'Artistic-2.0');
   my $patterns = $app->patterns;
   $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
   $patterns->create(
@@ -96,6 +113,44 @@ sub mojo_fixtures {
 sub no_fixtures {
   my ($self, $app) = @_;
   $app->pg->migrations->migrate;
+}
+
+sub package_with_snippets_fixtures {
+  my ($self, $app) = @_;
+  $self->no_fixtures($app);
+
+  # Create checkout directory
+  my $dir = $self->checkout_dir;
+  my @src = ('package-with-snippets', '2a0737e27a3b75590e7fab112b06a76fe7573615');
+  my $src = $dir->child(@src)->make_path;
+  $_->copy_to($src->child($_->basename))
+    for path(__FILE__)->dirname->dirname->dirname->child('legal-bot', @src)->list->each;
+
+  # Create fixtures
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => 'package-with-snippets',
+    checkout_dir    => '2a0737e27a3b75590e7fab112b06a76fe7573615',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:languages:perl',
+    package         => 'package-with-snippets',
+    srcmd5          => '2a0737e27a3b75590e7fab112b06a76fe7573615',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $patterns = $app->patterns;
+  $patterns->create(pattern => 'license');
+  $patterns->create(pattern => 'GPL', license => 'GPL');
+  $patterns->create(
+    pattern => 'Permission is granted to copy, distribute and/or modify this document
+       under the terms of the GNU Free Documentation License, Version 1.1 or any later
+       version published by the Free Software Foundation; with no Invariant Sections,
+       with no Front-Cover Texts and with no Back-Cover Texts. A copy of the license
+       is included in the section entitled "GNU Free Documentation License"',
+    license => 'GFDL-1.1-or-later'
+  );
 }
 
 sub postgres_url {
