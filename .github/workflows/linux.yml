@@ -1,0 +1,37 @@
+name: linux
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+jobs:
+  perl:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        perl-version:
+          - '5.20'
+          - '5.22'
+          - '5.30'
+    container:
+      image: perl:${{ matrix.perl-version }}
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v2
+      - name: perl -V
+        run: perl -V
+      - name: Install dependencies
+        run: |
+          cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.55.tar.gz
+          cpanm -n --installdeps .
+          cpanm -n Mojo::Pg
+      - name: Run tests
+        env:
+          TEST_ONLINE: postgresql://postgres:postgres@postgres:5432/postgres
+        run: prove -l t
