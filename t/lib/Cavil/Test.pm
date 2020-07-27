@@ -112,7 +112,21 @@ sub mojo_fixtures {
 
 sub no_fixtures {
   my ($self, $app) = @_;
+
   $app->pg->migrations->migrate;
+
+  # Allow Devel::Cover to collect stats for background jobs
+  $app->minion->on(
+    worker => sub {
+      my ($minion, $worker) = @_;
+      $worker->on(
+        dequeue => sub {
+          my ($worker, $job) = @_;
+          $job->on(cleanup => sub { Devel::Cover::report() if Devel::Cover->can('report') });
+        }
+      );
+    }
+  );
 }
 
 sub package_with_snippets_fixtures {

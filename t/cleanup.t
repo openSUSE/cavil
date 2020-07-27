@@ -15,27 +15,28 @@
 
 use Mojo::Base -strict;
 
-BEGIN { $ENV{MOJO_REACTOR} = 'Mojo::Reactor::Poll' }
+use FindBin;
+use lib "$FindBin::Bin/lib";
 
 use Test::More;
-
-plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
-
+use Test::Mojo;
+use Cavil::Test;
 use Cavil::Util;
 use File::Copy 'copy';
 use Mojo::File qw(path tempdir);
 use Mojo::IOLoop;
 use Mojo::Pg;
 use Mojo::URL;
-use Test::Mojo;
 
-# Isolate tests
-my $pg = Mojo::Pg->new($ENV{TEST_ONLINE});
-$pg->db->query('drop schema if exists bot_cleanup_test cascade');
-$pg->db->query('create schema bot_cleanup_test');
+plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
+
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'cleanup_test');
+my $config     = $cavil_test->default_config;
+my $t          = Test::Mojo->new(Cavil => $config);
+$cavil_test->no_fixtures($t->app);
+my $dir = $cavil_test->checkout_dir;
 
 # Create checkout directories
-my $dir = tempdir;
 my @one = ('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
 my $one = $dir->child(@one)->make_path;
 copy "$_", $one->child($_->basename) for path(__FILE__)->dirname->child('legal-bot', @one)->list->each;
@@ -45,25 +46,6 @@ my $two   = $dir->child(@two)->make_path;
 my $three = $dir->child(@three)->make_path;
 copy "$_", $two->child($_->basename)   for path(__FILE__)->dirname->child('legal-bot', @one)->list->each;
 copy "$_", $three->child($_->basename) for path(__FILE__)->dirname->child('legal-bot', @one)->list->each;
-
-# Configure application
-my $online = Mojo::URL->new($ENV{TEST_ONLINE})->query([search_path => 'bot_cleanup_test'])->to_unsafe_string;
-my $config = {
-  secrets                => ['just_a_test'],
-  checkout_dir           => $dir,
-  tokens                 => [],
-  pg                     => $online,
-  acceptable_risk        => 3,
-  index_bucket_average   => 100,
-  cleanup_bucket_average => 1,
-  min_files_short_report => 20,
-  max_email_url_size     => 26,
-  max_task_memory        => 5_000_000_000,
-  max_worker_rss         => 100000,
-  max_expanded_files     => 100
-};
-my $t = Test::Mojo->new(Cavil => $config);
-$t->app->pg->migrations->migrate;
 
 # Prepare database
 my $db     = $t->app->pg->db;
@@ -197,8 +179,5 @@ $t->app->minion->perform_jobs;
 ok $t->app->packages->find($one_id)->{obsolete}, 'still obsolete';
 ok !$t->app->packages->find($two_id)->{obsolete},   'old but part of product';
 ok !$t->app->packages->find($three_id)->{obsolete}, 'still not obsolete';
-
-# Clean up once we are done
-$pg->db->query('drop schema bot_cleanup_test cascade');
 
 done_testing();
