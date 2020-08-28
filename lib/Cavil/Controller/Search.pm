@@ -26,7 +26,7 @@ sub search {
     $results     = $pkgs->find_by_name($query);
   }
 
-  $self->render('search/results', suggestions => $suggestions, results => $results, gzip => 1);
+  $self->render('search/results', suggestions => $suggestions, results => $results);
 }
 
 1;

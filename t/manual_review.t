@@ -103,7 +103,7 @@ subtest 'Details after indexing' => sub {
 };
 
 subtest 'JSON report' => sub {
-  $t->get_ok('/reviews/calc_report/1.json')->status_is(200);
+  $t->get_ok('/reviews/calc_report/1.json')->header_like(Vary => qr/Accept-Encoding/)->status_is(200);
   ok my $json = $t->tx->res->json, 'JSON response';
 
   ok my $pkg = $json->{package}, 'package';
@@ -190,8 +190,8 @@ subtest 'Details after reindexing' => sub {
     ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
     ->element_exists('#unacceptable');
 
-  $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')
-    ->element_exists('#unmatched-files')->text_is('#unmatched-count', '4')
+  $t->get_ok('/reviews/calc_report/1')->header_like(Vary => qr/Accept-Encoding/)->status_is(200)
+    ->element_exists('#license-chart')->element_exists('#unmatched-files')->text_is('#unmatched-count', '4')
     ->text_like('#unmatched-files li:nth-of-type(1) a', qr!Mojolicious-7.25/LICENSE!)
     ->text_like('#unmatched-files li:nth-of-type(1)',   qr![0-9.]+% Snippet - estimated risk 7!)
     ->text_like('#unmatched-files li:nth-of-type(2) a', qr!Mojolicious-7.25/lib/Mojolicious.pm!)

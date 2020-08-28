@@ -10,10 +10,9 @@ WriteMakefile(
   NAME         => 'Cavil',
   VERSION_FROM => 'lib/Cavil.pm',
   ABSTRACT     => 'Legal Reviews',
-  AUTHOR =>
-    ['Sebastian Riedel <sriedel@suse.de>', 'Stephan Kulow <coolo@suse.de>'],
-  LICENSE    => 'gpl_2',
-  META_MERGE => {
+  AUTHOR       => ['Sebastian Riedel <sriedel@suse.de>', 'Stephan Kulow <coolo@suse.de>'],
+  LICENSE      => 'gpl_2',
+  META_MERGE   => {
     dynamic_config => 0,
     'meta-spec' => {version   => 2},
     no_index    => {directory => ['t']},
@@ -30,7 +29,7 @@ WriteMakefile(
     },
   },
   PREREQ_PM => {
-    Mojolicious                      => '7.88',
+    Mojolicious                      => '8.34',
     'Mojolicious::Plugin::AssetPack' => 0,
     'Mojo::Pg'                       => '4.08',
     'Minion'                         => '8.0',

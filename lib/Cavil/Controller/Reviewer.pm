@@ -75,7 +75,7 @@ sub calc_report {
     json => sub { $self->render(json => {report => $report, package => $pkg}) },
     html => sub {
       my $min = $self->app->config('min_files_short_report');
-      $self->render('reviewer/report', report => $report, package => $pkg, max_number_of_files => $min, gzip => 1);
+      $self->render('reviewer/report', report => $report, package => $pkg, max_number_of_files => $min);
     }
   );
 }
@@ -202,9 +202,7 @@ sub list_new_ajax {
   $_->{products} = scalar @{$products->for_package($_->{id})} for @$packages;
 
   $self->render(
-    json => {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1},
-    gzip => 1
-  );
+    json => {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1});
 }
 
 sub list_recent {
@@ -214,7 +212,7 @@ sub list_recent {
 
 sub list_recent_ajax {
   my $self = shift;
-  $self->render(json => {data => $self->packages->recent}, gzip => 1);
+  $self->render(json => {data => $self->packages->recent});
 }
 
 # Just hooking ajax

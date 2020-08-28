@@ -119,7 +119,9 @@ sub startup {
   $self->plugin('Cavil::Task::ClosestMatch');
 
   $self->plugin('Cavil::Plugin::Linux');
-  $self->plugin('Cavil::Plugin::Compression');
+
+  # Compress dynamically generated content
+  $self->renderer->compress(1);
 
   # Model
   $self->helper(
