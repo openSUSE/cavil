@@ -57,8 +57,7 @@ sub _classify {
       },
       {id => $next->{id}}
     );
-    my $packages
-      = $db->select('file_snippets', 'package', {snippet => $next->{id}});
+    my $packages = $db->select('file_snippets', 'package', {snippet => $next->{id}});
     while (my $package = $packages->hash) {
       $packages_affected{$package->{package}} = 1;
     }

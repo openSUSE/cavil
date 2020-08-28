@@ -31,15 +31,11 @@ sub _cleanup {
 
   my $app = $job->app;
   my $ids
-    = $app->pg->db->query(
-    'select id from bot_packages where obsolete is true order by id')
-    ->arrays->flatten->to_array;
-  my $buckets
-    = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
+    = $app->pg->db->query('select id from bot_packages where obsolete is true order by id')->arrays->flatten->to_array;
+  my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 
   my $minion = $app->minion;
-  $minion->enqueue('cleanup_batch', $_, {parents => [$job->id], priority => 1})
-    for @$buckets;
+  $minion->enqueue('cleanup_batch', $_, {parents => [$job->id], priority => 1}) for @$buckets;
 }
 
 sub _cleanup_batch {
@@ -50,13 +46,9 @@ sub _cleanup_batch {
   my $db  = $app->pg->db;
 
   for my $id (@ids) {
-    next
-      unless my $pkg
-      = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})
-      ->hash;
+    next unless my $pkg = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
 
-    my $dir
-      = path($app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
+    my $dir = path($app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
     next unless -d $dir;
 
     $log->info("[$id] Remove $pkg->{name}/$pkg->{checkout_dir}");

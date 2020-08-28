@@ -25,12 +25,7 @@ sub list_packages_ajax {
   my $self = shift;
 
   my $packages = $self->products->list($self->param('name'));
-  my $data     = {
-    data            => $packages,
-    recordsTotal    => scalar(@$packages),
-    recordsFiltered => scalar(@$packages),
-    draw            => 1
-  };
+  my $data = {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1};
   $self->render(json => $data, gzip => 1);
 }
 

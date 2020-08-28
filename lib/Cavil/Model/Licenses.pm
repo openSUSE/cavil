@@ -24,8 +24,7 @@ sub all { shift->pg->db->select('licenses')->hashes->to_array }
 
 sub create {
   my ($self, %args) = @_;
-  return $self->pg->db->insert('licenses', \%args, {returning => 'id'})
-    ->hash->{id};
+  return $self->pg->db->insert('licenses', \%args, {returning => 'id'})->hash->{id};
 }
 
 

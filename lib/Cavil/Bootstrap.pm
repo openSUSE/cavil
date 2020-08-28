@@ -27,21 +27,15 @@ sub load {
 
   # Avoid adding the same data more than once
   my $licenses = $self->app->licenses;
-  return undef
-    if $licenses->pg->db->select('licenses', 'id', {name => 'Apache-2.0'})
-    ->hash;
+  return undef if $licenses->pg->db->select('licenses', 'id', {name => 'Apache-2.0'})->hash;
 
   my $patterns = $self->app->patterns;
   my $dir      = path(__FILE__)->dirname->child('resources', 'bootstrap');
   for my $file ($dir->list->sort->each) {
     my $data = decode_json $file->slurp;
 
-    $licenses->create(
-      name    => $data->{name},
-      risk    => $data->{risk},
-      nonfree => $data->{nonfree},
-      eula    => $data->{eula}
-    ) if $data->{name};
+    $licenses->create(name => $data->{name}, risk => $data->{risk}, nonfree => $data->{nonfree}, eula => $data->{eula})
+      if $data->{name};
 
     $patterns->create(
       pattern   => $_->{pattern},
@@ -60,10 +54,9 @@ sub load {
 sub store {
   my ($self, $dir) = @_;
 
-  my $db = $self->app->pg->db;
-  my $high
-    = $db->select('licenses', '*', {name => 'Higher Risk Keyword'})->hash;
-  my $low = $db->select('licenses', '*', {name => 'Low Risk Keyword'})->hash;
+  my $db   = $self->app->pg->db;
+  my $high = $db->select('licenses', '*', {name => 'Higher Risk Keyword'})->hash;
+  my $low  = $db->select('licenses', '*', {name => 'Low Risk Keyword'})->hash;
   die "Keyword licenses missing" unless $high && $low;
 
   # All keywords
@@ -81,11 +74,7 @@ sub store {
     ['pattern_matches', ['license_patterns', id => 'pattern']],
     ['license_patterns.license', \'count(*) as matches'],
     {'license_patterns.license' => {-not_in => [$low->{id}, $high->{id}]}},
-    {
-      group_by => ['license_patterns.license'],
-      limit    => 98,
-      order_by => {-desc => 'matches'}
-    }
+    {group_by                   => ['license_patterns.license'], limit => 98, order_by => {-desc => 'matches'}}
   )->hashes->to_array;
 
   for my $l (@$popular) {
@@ -97,11 +86,7 @@ sub store {
       ['pattern_matches', ['license_patterns', id => 'pattern']],
       ['pattern_matches.pattern', \'count(*) as matches'],
       {'license_patterns.license' => $l->{id}, packname => ''},
-      {
-        group_by => ['pattern_matches.pattern'],
-        limit    => 20,
-        order_by => {-desc => 'matches'}
-      }
+      {group_by                   => ['pattern_matches.pattern'], limit => 20, order_by => {-desc => 'matches'}}
     )->hashes->map(sub { $_->{pattern} })->to_array;
 
     _store($db, $dir, $prefix, $l, @$top);

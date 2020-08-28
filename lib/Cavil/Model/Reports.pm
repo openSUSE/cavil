@@ -29,21 +29,18 @@ use constant PATTERN_DELTA => 10000000000;
 
 sub cached_dig_report {
   my ($self, $id) = @_;
-  return $self->pg->db->select('bot_reports', 'ldig_report', {package => $id})
-    ->hash->{ldig_report};
+  return $self->pg->db->select('bot_reports', 'ldig_report', {package => $id})->hash->{ldig_report};
 }
 
 sub dig_report {
   my ($self, $id, $limit_to_file) = @_;
 
-  my $db  = $self->pg->db;
-  my $pkg = $db->select('bot_packages', '*', {id => $id})->hash;
-  my $ignored
-    = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
+  my $db            = $self->pg->db;
+  my $pkg           = $db->select('bot_packages', '*', {id => $id})->hash;
+  my $ignored       = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
   my %ignored_lines = map { $_->{hash} => 1 } $ignored->hashes->each;
 
-  my $report
-    = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
+  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
 
   # prune match caches
   delete $report->{matches};
@@ -70,10 +67,7 @@ sub source_for {
   my $lines  = $report->{lines}{$fileid};
 
   if ($start > 0 && $end > 0) {
-    my $fn = path(
-      $self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir},
-      '.unpacked',         $report->{files}{$fileid}
-    );
+    my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$fileid});
     my %pid_info;    # cache
     my %needed;
     for my $line (@$lines) {
@@ -106,10 +100,9 @@ sub specfile_report {
   my $hash = $db->select('bot_reports', '*', {package => $id})->hash;
 
   unless ($hash) {
-    return undef
-      unless my $pkg = $db->select('bot_packages', '*', {id => $id})->hash;
+    return undef unless my $pkg = $db->select('bot_packages', '*', {id => $id})->hash;
 
-    my $dir = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+    my $dir      = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
     my $checkout = Cavil::Checkout->new($dir);
     my $specfile = $checkout->specfile_report;
 
@@ -121,9 +114,7 @@ sub specfile_report {
 }
 
 sub _check_ignores {
-  my ($self, $report, $file, $ignored_lines, $matches_to_ignore,
-    $snippets_to_remove)
-    = @_;
+  my ($self, $report, $file, $ignored_lines, $matches_to_ignore, $snippets_to_remove) = @_;
 
   my $lastline = '';
   my @clines   = @{$report->{lines}{$file}};
@@ -185,9 +176,8 @@ sub _add_to_snippet_hash {
   push(
     @{$file_snippets->{$snip_row->{file}}},
     [
-      $snip_row->{sline},      $snip_row->{eline},
-      $snip_row->{id},         $snip_row->{hash},
-      $snip_row->{likelyness}, $snip_row->{like_pattern}
+      $snip_row->{sline}, $snip_row->{eline},      $snip_row->{id},
+      $snip_row->{hash},  $snip_row->{likelyness}, $snip_row->{like_pattern}
     ]
   );
 }
@@ -223,8 +213,7 @@ sub _dig_report {
   # now check the files that were already ignored during indexing
   my $filenames;
   if ($limit_to_file) {
-    $filenames
-      = $db->query("$query_string and mf.id=?", $pkg->{id}, $limit_to_file);
+    $filenames = $db->query("$query_string and mf.id=?", $pkg->{id}, $limit_to_file);
   }
   else {
     $filenames = $db->query($query_string, $pkg->{id});
@@ -245,8 +234,7 @@ sub _dig_report {
   if ($limit_to_file) {
     $query->{file} = $limit_to_file;
   }
-  my $matches
-    = $db->select('pattern_matches', [qw(id file pattern sline eline)], $query);
+  my $matches = $db->select('pattern_matches', [qw(id file pattern sline eline)], $query);
 
   $query = {package => $pkg->{id}};
   if ($limit_to_file) {
@@ -255,10 +243,8 @@ sub _dig_report {
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
     [
-      'snippets.id',         'snippets.hash',
-      'snippets.likelyness', 'snippets.like_pattern',
-      'file',                'sline',
-      'eline',               'classified',
+      'snippets.id', 'snippets.hash', 'snippets.likelyness', 'snippets.like_pattern',
+      'file',        'sline',         'eline',               'classified',
       'license'
     ],
     $query,
@@ -328,10 +314,8 @@ sub _dig_report {
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
     next if $pattern->{license} eq '';
 
-    $report->{licenses}{$pattern->{license}}
-      ||= {name => $pattern->{license}, risk => $pattern->{risk}};
-    $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
-      for qw(patent trademark opinion);
+    $report->{licenses}{$pattern->{license}} ||= {name => $pattern->{license}, risk => $pattern->{risk}};
+    $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_} for qw(patent trademark opinion);
     $report->{flags}{eula}    = 1 if $pattern->{eula};
     $report->{flags}{nonfree} = 1 if $pattern->{nonfree};
 
@@ -339,8 +323,7 @@ sub _dig_report {
     push(@{$rl->{$pattern->{license}}{$pid}}, $match->{file});
     $report->{risks}{$pattern->{risk}} = $rl;
 
-    $pid_info->{$pid}
-      = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
+    $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
 
     my $risk = $pattern->{risk};
 
@@ -374,14 +357,9 @@ sub _dig_report {
 
   for my $file (keys %{$report->{files}}) {
     next unless $report->{expanded}{$file} || $limit_to_file;
-    my $fn = path(
-      $self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir},
-      '.unpacked',         $report->{files}{$file}
-    );
-    $report->{lines}{$file}
-      = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file});
-    $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore,
-      \%snippets_to_remove);
+    my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$file});
+    $report->{lines}{$file} = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file});
+    $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore, \%snippets_to_remove);
   }
 
   # in case ignored lines found unignored matches (i.e. first load), update them
@@ -391,8 +369,7 @@ sub _dig_report {
   }
 
   if (%matches_to_ignore) {
-    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines,
-      $limit_to_file);
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, $limit_to_file);
   }
 
   # we read the lines and that's enough
@@ -425,8 +402,7 @@ sub _dig_report {
         $license_of_max = $pinfo->{name};
       }
     }
-    $missed_files{$file}
-      = [int($max_risk + 0.5), $match_of_max, $license_of_max];
+    $missed_files{$file} = [int($max_risk + 0.5), $match_of_max, $license_of_max];
   }
   $report->{missed_files} = \%missed_files;
 
@@ -452,8 +428,7 @@ sub _info_for_pattern {
 
   if (!defined $pid_info->{$pid}) {
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
-    $pid_info->{$pid}
-      = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
+    $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
   }
   return $pid_info->{$pid};
 }
@@ -483,18 +458,8 @@ sub _lines {
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
     if ($pid >= PATTERN_DELTA) {
-      push(
-        @lines,
-        [
-          $index,
-          {
-            risk    => 9,
-            snippet => $pid - PATTERN_DELTA,
-            name    => 'Snippet of missing keywords'
-          },
-          $line
-        ]
-      );
+      push(@lines,
+        [$index, {risk => 9, snippet => $pid - PATTERN_DELTA, name => 'Snippet of missing keywords'}, $line]);
     }
     else {
       # need to store a deep copy to modify it later adding context
@@ -508,8 +473,7 @@ sub _lines {
 
 sub _load_pattern_from_cache {
   my ($self, $db, $pid) = @_;
-  $self->{license_cache}->{"pattern-$pid"}
-    ||= $db->select('license_patterns', '*', {id => $pid})->hash;
+  $self->{license_cache}->{"pattern-$pid"} ||= $db->select('license_patterns', '*', {id => $pid})->hash;
   return $self->{license_cache}->{"pattern-$pid"};
 }
 

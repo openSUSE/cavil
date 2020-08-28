@@ -46,8 +46,7 @@ sub slurp_and_decode {
   my $path = shift;
 
   open my $file, '<', $path or croak qq{Can't open file "$path": $!};
-  croak qq{Can't read from file "$path": $!}
-    unless defined(my $ret = $file->sysread(my $content, $MAX_FILE_SIZE, 0));
+  croak qq{Can't read from file "$path": $!} unless defined(my $ret = $file->sysread(my $content, $MAX_FILE_SIZE, 0));
 
   return $content if -s $path > $MAX_FILE_SIZE;
   return decode('UTF-8', $content) // $content;
@@ -102,8 +101,7 @@ sub lines_context {
 
 sub load_ignored_files {
   my $db               = shift;
-  my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] }
-    @{$db->select('ignored_files', 'glob')->arrays};
+  my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] } @{$db->select('ignored_files', 'glob')->arrays};
   return \%ignored_file_res;
 }
 

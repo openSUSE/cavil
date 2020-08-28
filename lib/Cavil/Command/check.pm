@@ -38,8 +38,7 @@ sub run {
   my $new  = _checksum($db, $app->reports, $id);
 
   #print "NEW\n$new\n";
-  my $pkgs = $db->select('bot_packages', '*',
-    {state => [qw(acceptable correct)], name => $name});
+  my $pkgs = $db->select('bot_packages', '*', {state => [qw(acceptable correct)], name => $name});
   while (my $row = $pkgs->hash) {
     print "Row $row->{state}: $row->{id}\n";
     my $old = _checksum($db, $app->reports, $row->{id});

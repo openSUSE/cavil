@@ -21,8 +21,7 @@ has 'pg';
 sub add {
   my ($self, $link, $pkg) = @_;
   my $req = {external_link => $link, package => $pkg};
-  return $self->pg->db->insert('bot_requests', $req, {returning => 'id'})
-    ->hash->{id};
+  return $self->pg->db->insert('bot_requests', $req, {returning => 'id'})->hash->{id};
 }
 
 sub all {
@@ -35,11 +34,8 @@ sub all {
 
 sub remove {
   my ($self, $link) = @_;
-  return $self->pg->db->delete(
-    'bot_requests',
-    {external_link => $link},
-    {returning     => 'package'}
-  )->hashes->map(sub { $_->{package} })->to_array;
+  return $self->pg->db->delete('bot_requests', {external_link => $link}, {returning => 'package'})
+    ->hashes->map(sub { $_->{package} })->to_array;
 }
 
 1;

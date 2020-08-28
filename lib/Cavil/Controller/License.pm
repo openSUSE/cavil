@@ -132,10 +132,7 @@ sub show {
   my $id  = $self->param('id');
   my $lic = $self->licenses->find($id);
   die "No such licence" unless $lic;
-  $self->render(
-    license  => $lic,
-    patterns => $self->patterns->for_license($lic->{name})
-  );
+  $self->render(license => $lic, patterns => $self->patterns->for_license($lic->{name}));
 }
 
 sub update {
@@ -181,8 +178,7 @@ sub update_pattern {
   }
   $self->packages->mark_matched_for_reindex($id);
   $self->app->minion->enqueue(pattern_stats => [] => {priority => 9});
-  $self->flash(
-    success => 'Pattern has been updated, reindexing all affected packages.');
+  $self->flash(success => 'Pattern has been updated, reindexing all affected packages.');
   $self->redirect_to('edit_pattern', id => $id);
 }
 

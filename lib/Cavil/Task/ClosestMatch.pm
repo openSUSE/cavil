@@ -47,11 +47,8 @@ sub _pattern_stats {
     my $best_pattern = $bag->best_for($next->{text}, 1)->[0];
     $db->update(
       'snippets',
-      {
-        likelyness   => $best_pattern->{match},
-        like_pattern => $best_pattern->{pattern},
-      },
-      {id => $next->{id}}
+      {likelyness => $best_pattern->{match}, like_pattern => $best_pattern->{pattern},},
+      {id         => $next->{id}}
     );
   }
 }

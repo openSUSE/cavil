@@ -30,8 +30,7 @@ sub run {
   # List
   my $users = $self->app->users;
   return
-    print tablify [map { [@$_{qw(id login roles)}] }
-    map { $_->{roles} = join ',', @{$_->{roles}}; $_ } @{$users->list}]
+    print tablify [map { [@$_{qw(id login roles)}] } map { $_->{roles} = join ',', @{$_->{roles}}; $_ } @{$users->list}]
     unless $id;
 
   # Add role

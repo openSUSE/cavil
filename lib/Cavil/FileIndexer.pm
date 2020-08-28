@@ -34,9 +34,8 @@ sub new {
 
   my $matcher = Spooky::Patterns::XS::init_matcher();
 
-  my $db = $app->pg->db;
-  my $packagename
-    = $db->select('bot_packages', 'name', {id => $package})->hash->{name};
+  my $db          = $app->pg->db;
+  my $packagename = $db->select('bot_packages', 'name', {id => $package})->hash->{name};
 
   $app->patterns->load_unspecific($matcher);
   $app->patterns->load_specific($matcher, $packagename);
@@ -112,8 +111,7 @@ sub _check_missing_snippets {
   my $first_snippet_line;
   for my $line (sort { $a <=> $b } keys %needed_lines) {
     if ($prev_line && $line - $prev_line > 1) {
-      $self->_snippet($file_id, $report, $path, $first_snippet_line,
-        $prev_line);
+      $self->_snippet($file_id, $report, $path, $first_snippet_line, $prev_line);
       $first_snippet_line = undef;
     }
     $first_snippet_line ||= $line;
@@ -154,20 +152,11 @@ sub _snippet {
     return;
   }
 
-  $self->snippets->{$hash}
-    ||= $self->app->snippets->find_or_create($hash, $text);
+  $self->snippets->{$hash} ||= $self->app->snippets->find_or_create($hash, $text);
 
   my $snippet = $self->snippets->{$hash};
-  $self->db->insert(
-    'file_snippets',
-    {
-      package => $self->package,
-      snippet => $snippet,
-      sline   => $first_line,
-      eline   => $last_line,
-      file    => $file_id
-    }
-  );
+  $self->db->insert('file_snippets',
+    {package => $self->package, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
 
   return undef;
 }
@@ -175,8 +164,7 @@ sub _snippet {
 sub has_no_license {
   my ($self, $pid) = @_;
   return $self->{no_license}{$pid} if defined $self->{no_license}{$pid};
-  my $row
-    = $self->db->select('license_patterns', 'license', {id => $pid})->hash;
+  my $row = $self->db->select('license_patterns', 'license', {id => $pid})->hash;
   $self->{no_license}{$pid} = $row->{license} eq '';
   return $self->{no_license}{$pid};
 }
@@ -211,14 +199,7 @@ sub file {
     # package is kind of duplicated in file, but the join is just too expensive
     my $pm_id = $self->db->insert(
       'pattern_matches',
-      {
-        file    => $file_id,
-        package => $package,
-        pattern => $mid,
-        sline   => $ls,
-        eline   => $le,
-        ignored => $ignored_file,
-      },
+      {file => $file_id, package => $package, pattern => $mid, sline => $ls, eline => $le, ignored => $ignored_file,},
       {returning => 'id'}
     )->hash->{id};
     push(@$match, $pm_id);

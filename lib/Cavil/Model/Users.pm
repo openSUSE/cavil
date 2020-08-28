@@ -20,9 +20,7 @@ has 'pg';
 
 sub add_role {
   my ($self, $id, $role) = @_;
-  $self->pg->db->query(
-    'update bot_users set roles = array_cat(roles, ?) where id = ?',
-    [$role], $id);
+  $self->pg->db->query('update bot_users set roles = array_cat(roles, ?) where id = ?', [$role], $id);
 }
 
 sub find {
@@ -39,26 +37,18 @@ sub find_or_create {
 
 sub has_role {
   my ($self, $user, $role) = @_;
-  return !!$self->pg->db->query(
-    'select id from bot_users where login = ? and ? = any (roles)',
-    $user, $role)->rows;
+  return !!$self->pg->db->query('select id from bot_users where login = ? and ? = any (roles)', $user, $role)->rows;
 }
 
 sub licensedigger {
-  shift->find_or_create(
-    login   => 'licensedigger',
-    roles   => ['bot'],
-    comment => 'Legal-auto bot'
-  );
+  shift->find_or_create(login => 'licensedigger', roles => ['bot'], comment => 'Legal-auto bot');
 }
 
 sub list { shift->pg->db->select('bot_users')->hashes->to_array }
 
 sub remove_role {
   my ($self, $id, $role) = @_;
-  $self->pg->db->query(
-    'update bot_users set roles = array_remove(roles, ?) where id = ?',
-    $role, $id);
+  $self->pg->db->query('update bot_users set roles = array_remove(roles, ?) where id = ?', $role, $id);
 }
 
 1;

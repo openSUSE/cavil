@@ -33,11 +33,7 @@ sub update {
     next unless $param =~ m/g_(\d+)/;
     my $id      = $1;
     my $license = $params->{$param};
-    $db->update(
-      'snippets',
-      {license => $license, approved => 1, classified => 1},
-      {id      => $id}
-    );
+    $db->update('snippets', {license => $license, approved => 1, classified => 1}, {id => $id});
   }
   $self->redirect_to('snippets');
 }
@@ -80,13 +76,11 @@ sub edit {
     my $patterns = $db->query(
       'select lp.id,lp.license,sline,eline from pattern_matches
        join license_patterns lp on lp.id = pattern_matches.pattern
-       where file=? and sline>=? and eline<=? order by sline',
-      $example->{file}, $example->{sline}, $example->{eline}
+       where file=? and sline>=? and eline<=? order by sline', $example->{file}, $example->{sline}, $example->{eline}
     )->hashes;
 
     for my $pattern (@$patterns) {
-      for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1)
-      {
+      for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
         my $cm_line = $line - $example->{sline};
 
         # keywords overwrite everything
@@ -101,7 +95,7 @@ sub edit {
     my $fn = path(
       $self->app->config->{checkout_dir},
       $package->{name}, $package->{checkout_dir},
-      '.unpacked', $example->{filename}
+      '.unpacked',      $example->{filename}
     );
 
     $snippet->{text}  = _read_lines($fn, $example->{sline}, $example->{eline});
@@ -197,8 +191,7 @@ sub decision {
   my $db = $self->pg->db;
 
   my %packages;
-  my $results = $db->query('select package from file_snippets where snippet=?',
-    $self->param('id'));
+  my $results = $db->query('select package from file_snippets where snippet=?', $self->param('id'));
   while (my $next = $results->hash) {
     $packages{$next->{package}} = 1;
   }
@@ -246,28 +239,16 @@ sub from_file {
   my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
   return $self->reply->not_found unless $file;
 
-  my $package
-    = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
-  my $fn = path(
-    $self->app->config->{checkout_dir},
-    $package->{name}, $package->{checkout_dir},
-    '.unpacked', $file->{filename}
-  );
+  my $package = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
+  my $fn      = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked',
+    $file->{filename});
 
   my $first_line = $self->param('start');
   my $last_line  = $self->param('end');
   my $text       = _read_lines($fn, $first_line, $last_line);
   my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
-  $db->insert(
-    'file_snippets',
-    {
-      package => $package->{id},
-      snippet => $snippet,
-      sline   => $first_line,
-      eline   => $last_line,
-      file    => $file_id
-    }
-  );
+  $db->insert('file_snippets',
+    {package => $package->{id}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
 
   return $self->redirect_to('edit_snippet', id => $snippet);
 }

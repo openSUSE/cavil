@@ -45,8 +45,7 @@ sub _split_line_by_whitespace {
   # files with 60K lines are most likley not to be read by humans
   die "too long" if $len > 60000;
   while ($start < $len) {
-    my $index = $self->_split_find_a_good_spot($line, $start, $len,
-      $self->max_line_length);
+    my $index = $self->_split_find_a_good_spot($line, $start, $len, $self->max_line_length);
     if (!$index) {
       print $fh substr($line, $start);
       print $fh "\n";

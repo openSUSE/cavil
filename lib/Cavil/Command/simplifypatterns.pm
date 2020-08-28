@@ -54,8 +54,7 @@ sub _strip_beginning {
   $text =~ s/^copyright \$skip\d+\s+//;
   $text =~ s/^c\s+//;
   $text =~ s/^copyright c \$skip\d+\s+//;
-  $text
-    =~ s/^(this|the) (software|project|file|library|program|script|code|class)\s+//;
+  $text =~ s/^(this|the) (software|project|file|library|program|script|code|class)\s+//;
   $text =~ s/^(this|the) \$skip\d+\s+//;
   $text =~ s/^is\s+//;
   $text =~ s/^may be\s+//;
@@ -103,10 +102,8 @@ sub _strip_ending {
   $text =~ s/foundation inc$/foundation/;
   $text =~ s/675\smass\save\scambridge\sma\s02139\susa$//;
   $text =~ s/59\stemple\splace\ssuite\s330\sboston\sma\s02111\s-\s1307\susa$//;
-  $text
-    =~ s/59\stemple\splace\s-\ssuite\s330\sboston\sma\s02111\s-\s1307\susa$//;
-  $text
-    =~ s/51\sfranklin\sstreet\sfifth\sfloor\sboston\sma\s02110\s-\s1301\susa$//;
+  $text =~ s/59\stemple\splace\s-\ssuite\s330\sboston\sma\s02111\s-\s1307\susa$//;
+  $text =~ s/51\sfranklin\sstreet\sfifth\sfloor\sboston\sma\s02110\s-\s1301\susa$//;
   $text =~ s/51 franklin st fifth floor boston ma 02110 - 1301 usa$//;
   $text =~ s/59 temple place - suite 330\sboston ma 02111 - 1307 usa$//;
   $text =~ s/51 franklin street\sboston ma 02110 - 1301 usa$//;
@@ -133,8 +130,7 @@ sub _remove_end {
 
   # now try to remove even more (possibly eaten by tokenizer)
   while (1) {
-    my $new_text
-      = _normalize_pattern(substr($new_pattern, 0, length($new_pattern) - 1));
+    my $new_text = _normalize_pattern(substr($new_pattern, 0, length($new_pattern) - 1));
     last if $new_text ne $normalized_text;
     $new_pattern = substr($new_pattern, 0, length($new_pattern) - 1);
   }
@@ -145,8 +141,7 @@ sub _remove_end {
 
 sub _find_matching_packages {
   my ($db, $pid, $touched) = @_;
-  my $package = $db->query(
-    'select distinct package from pattern_matches where pattern = ?', $pid);
+  my $package = $db->query('select distinct package from pattern_matches where pattern = ?', $pid);
   for my $row ($package->hashes->each) {
     $touched->{$row->{package}} = 1;
   }
@@ -160,9 +155,7 @@ sub run {
   ReadMode 4;
   Spooky::Patterns::XS::init_matcher;
   my $db = $app->pg->db;
-  for my $pattern (
-    $db->select('license_patterns', '*', {}, {order_by => 'id'})->hashes->each)
-  {
+  for my $pattern ($db->select('license_patterns', '*', {}, {order_by => 'id'})->hashes->each) {
     my $new_pattern = _remove_start($pattern->{pattern});
     $new_pattern = _remove_end($new_pattern);
     my $t1 = $pattern->{pattern} . "\n";
@@ -187,8 +180,7 @@ sub run {
       my $t2 = $cattern->{pattern} . "\n";
 
       my $todelete;
-      my $diff = ($cattern->{license} ne $pattern->{license}
-          || $cattern->{packname} ne $pattern->{packname});
+      my $diff = ($cattern->{license} ne $pattern->{license} || $cattern->{packname} ne $pattern->{packname});
       for my $key (qw(risk eula trademark opinion)) {
         $diff = 1 if $cattern->{$key} != $pattern->{$key};
       }

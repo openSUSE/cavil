@@ -22,8 +22,7 @@ sub check {
   my $tokens = $self->app->config('tokens');
   return 1 unless @$tokens;
 
-  $self->_denied and return undef
-    unless my $auth = $self->req->headers->authorization;
+  $self->_denied and return undef unless my $auth = $self->req->headers->authorization;
   $self->_denied and return undef unless $auth =~ /^Token\ (\S+)$/;
   my $token = $1;
 

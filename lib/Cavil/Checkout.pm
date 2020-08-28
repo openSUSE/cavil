@@ -82,10 +82,7 @@ sub keyword_report {
 
   _urls($file, $meta);
 
-  return {
-    path    => $file->to_rel($base)->to_string,
-    matches => $matcher->find_matches($file)
-  };
+  return {path => $file->to_rel($base)->to_string, matches => $matcher->find_matches($file)};
 }
 
 sub new { shift->SUPER::new(dir => shift) }
@@ -99,8 +96,7 @@ sub specfile_report {
 
   return {errors => ["Main specfile missing: $name"]} unless -f $first;
   my $specfile = _specfile($first);
-  return {errors => ["Main specfile contains no license: $name"]}
-    unless @{$specfile->{licenses}};
+  return {errors => ["Main specfile contains no license: $name"]} unless @{$specfile->{licenses}};
 
   $specfile->{license} = $specfile->{licenses}[0];
   my $info = {main => $specfile, sub => [$specfile]};
@@ -168,9 +164,8 @@ sub unpack {
 sub unpacked_files {
   my ($self, $bucket_size) = @_;
 
-  my $dir = path($self->dir);
-  my $unpacked
-    = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
+  my $dir      = path($self->dir);
+  my $unpacked = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
 
   my @files;
   for my $file (sort keys %{$unpacked}) {
@@ -199,10 +194,8 @@ sub _check {
   my $mlicense = $info->{main}{license};
   my $main     = lic($mlicense);
   if (my $err = $main->error) { push @errors, $err and return }
-  _add_once(\@warnings, "Main license has license exception: $mlicense")
-    if $main->exception;
-  _add_once(\@warnings, "Main license had to be normalized: $mlicense -> $main")
-    if $main->normalized;
+  _add_once(\@warnings, "Main license has license exception: $mlicense")         if $main->exception;
+  _add_once(\@warnings, "Main license had to be normalized: $mlicense -> $main") if $main->normalized;
 
   for my $file (@{$info->{sub}}) {
     my $spec = $file->{file};
@@ -210,16 +203,10 @@ sub _check {
       my $sub = lic($license);
       if (my $err = $sub->error) { push @errors, $err and next }
 
-      _add_once(\@warnings,
-        "License from $spec has license exception: $license")
-        if $sub->exception;
-      _add_once(\@warnings,
-        "License from $spec had to be normalized: $license -> $sub")
-        if $sub->normalized;
+      _add_once(\@warnings, "License from $spec has license exception: $license")        if $sub->exception;
+      _add_once(\@warnings, "License from $spec had to be normalized: $license -> $sub") if $sub->normalized;
 
-      _add_once(\@errors,
-        "License from $spec is not part of main license: $license")
-        unless $main->is_part_of($sub);
+      _add_once(\@errors, "License from $spec is not part of main license: $license") unless $main->is_part_of($sub);
     }
   }
 }
@@ -227,8 +214,7 @@ sub _check {
 sub _specfile {
   my $file = shift;
 
-  my $info
-    = {file => $file->basename, licenses => [], '%doc' => [], '%license' => []};
+  my $info = {file => $file->basename, licenses => [], '%doc' => [], '%license' => []};
   for my $line (split "\n", $file->slurp) {
     if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}}, $1 }
     elsif ($line =~ /^\%doc\s*(.+)\s*$/)     { push @{$info->{'%doc'}}, $1 }
@@ -260,8 +246,7 @@ sub _urls {
 # mark char remains.
 # urls with user@ are currently not supported.
   while ($text =~ /$URL_RE/g) {
-    my ($name, $email, $email2, $name2, $email3, $url)
-      = ($1, $2, $3, $4, $5, $6);
+    my ($name, $email, $email2, $name2, $email3, $url) = ($1, $2, $3, $4, $5, $6);
     $email = $email2 unless defined $email;
     $email = $email3 unless defined $email;
     $name  = $name2  unless defined $name;
@@ -269,15 +254,10 @@ sub _urls {
     # name: want mixed case, no digits, little punctation
     # url and email: skip example.org adresses.
 
-    $email = undef
-      if defined $email and $email =~ m{(\@-|\@.*(\.-|-\.))};  # RFC 822 illegal
-    $email = undef
-      if defined $email
-      and $email =~ m{[\@\.]example\.(net|com|org)};           # RFC 2606
-    $url = undef
-      if defined $url and $url =~ m{[/\.]example\.(net|com|org)};    # RFC 2606
-    $name = undef
-      if defined $name and ($name eq lc $name or $name =~ m{[\(\):\d,\n\r]});
+    $email = undef if defined $email and $email =~ m{(\@-|\@.*(\.-|-\.))};             # RFC 822 illegal
+    $email = undef if defined $email and $email =~ m{[\@\.]example\.(net|com|org)};    # RFC 2606
+    $url   = undef if defined $url   and $url   =~ m{[/\.]example\.(net|com|org)};     # RFC 2606
+    $name = undef if defined $name and ($name eq lc $name or $name =~ m{[\(\):\d,\n\r]});
 
     # file:// urls not wanted in our context.
     $url = undef if defined $url and $url =~ m{^file:/};

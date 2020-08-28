@@ -52,13 +52,8 @@ sub add_glob {
   $validation->required('package');
   return $self->reply->json_validation_error if $validation->has_error;
 
-  $self->pg->db->insert(
-    'ignored_files',
-    {
-      glob  => $validation->param('glob'),
-      owner => $self->users->find(login => $self->current_user)->{id}
-    }
-  );
+  $self->pg->db->insert('ignored_files',
+    {glob => $validation->param('glob'), owner => $self->users->find(login => $self->current_user)->{id}});
   $self->packages->analyze($validation->param('package'));
   return $self->render(json => 'ok');
 }
@@ -69,11 +64,9 @@ sub calc_report {
   my $id  = $self->param('id');
   my $pkg = $self->packages->find($id);
 
-  return $self->render(text => 'not indexed', status => 408)
-    unless $pkg->{indexed};
+  return $self->render(text => 'not indexed', status => 408) unless $pkg->{indexed};
 
-  return $self->render(text => 'no report', status => 408)
-    unless my $report = $self->reports->cached_dig_report($id);
+  return $self->render(text => 'no report', status => 408) unless my $report = $self->reports->cached_dig_report($id);
 
   $report = from_json($report);
   $self->_sanitize_report($report);
@@ -82,13 +75,7 @@ sub calc_report {
     json => sub { $self->render(json => {report => $report, package => $pkg}) },
     html => sub {
       my $min = $self->app->config('min_files_short_report');
-      $self->render(
-        'reviewer/report',
-        report              => $report,
-        package             => $pkg,
-        max_number_of_files => $min,
-        gzip                => 1
-      );
+      $self->render('reviewer/report', report => $report, package => $pkg, max_number_of_files => $min, gzip => 1);
     }
   );
 }
@@ -101,8 +88,7 @@ sub details {
   my $pkg    = $pkgs->find($id);
   my $report = $self->reports->specfile_report($id);
 
-  my $should_reindex
-    = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
+  my $should_reindex = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
 
   my $lic = lic($report->{main}{license});
   my $lid = $self->licenses->try_to_match_license($lic->to_string);
@@ -110,8 +96,7 @@ sub details {
   # TODO: move to helper, kind of duplicated from License controller
   $self->{licenses} ||= $self->licenses->all;
   my @licenses;
-  for my $lic (sort { lc($a->{name}) cmp lc($b->{name}) } @{$self->{licenses}})
-  {
+  for my $lic (sort { lc($a->{name}) cmp lc($b->{name}) } @{$self->{licenses}}) {
     my $val = [$lic->{name} => $lic->{id}];
     if ($lic->{id} == $lid) {
       push(@$val, (selected => 'selected'));
@@ -156,11 +141,7 @@ sub fetch_source {
 
   my $id = $self->param('id');
   return $self->reply->not_found
-    unless my $source = $self->reports->source_for(
-    $id,
-    $self->param('start') || 0,
-    $self->param('end')   || 0
-    );
+    unless my $source = $self->reports->source_for($id, $self->param('start') || 0, $self->param('end') || 0);
 
   $self->respond_to(
     json => sub { $self->render(json => {source => $source}) },
@@ -199,11 +180,8 @@ sub file_view {
   my $lic    = $report->{main}{license};
   $self->stash('license', lic($lic)->to_string);
 
-  my $file = path(
-    $self->app->config->{checkout_dir},
-    $package->{name}, $package->{checkout_dir},
-    '.unpacked', $filename
-  );
+  my $file
+    = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked', $filename);
   return $self->reply->not_found unless -e $file;
 
   if (-d $file) {
@@ -219,18 +197,12 @@ sub file_view {
 sub list_new_ajax {
   my $self = shift;
 
-  my $packages
-    = $self->packages->list($self->param('state'), $self->param('package'));
+  my $packages = $self->packages->list($self->param('state'), $self->param('package'));
   my $products = $self->products;
   $_->{products} = scalar @{$products->for_package($_->{id})} for @$packages;
 
   $self->render(
-    json => {
-      data            => $packages,
-      recordsTotal    => scalar(@$packages),
-      recordsFiltered => scalar(@$packages),
-      draw            => 1
-    },
+    json => {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1},
     gzip => 1
   );
 }
@@ -251,8 +223,7 @@ sub list_reviews { }
 sub reindex_package {
   my $self = shift;
 
-  return $self->reply->not_found
-    unless $self->packages->reindex($self->param('id'));
+  return $self->reply->not_found unless $self->packages->reindex($self->param('id'));
 
   return $self->render(json => {ok => 1});
 }
@@ -285,8 +256,7 @@ sub review_package {
 
   $self->packages->update($pkg);
 
-  $self->app->log->info(
-    qq{Review by $user: $pkg->{name} ($id) is $pkg->{state}:}, $result);
+  $self->app->log->info(qq{Review by $user: $pkg->{name} ($id) is $pkg->{state}:}, $result);
 
   $self->render('reviewer/reviewed', package => $pkg);
 }
@@ -305,15 +275,7 @@ sub _sanitize_report {
 
   # old report
   if (!defined $report->{missed_files}) {
-    $report->{missed_files} = [
-      {
-        id       => 0,
-        name     => "PLEASE REINDEX!",
-        max_risk => 9,
-        license  => '',
-        match    => 0
-      }
-    ];
+    $report->{missed_files} = [{id => 0, name => "PLEASE REINDEX!", max_risk => 9, license => '', match => 0}];
   }
   else {
     my @missed;
@@ -334,16 +296,13 @@ sub _sanitize_report {
     }
     delete $report->{missed_files};
     delete $report->{missed_snippets};
-    $report->{missed_files}
-      = [sort { $b->{max_risk} cmp $a->{max_risk} || $a->{name} cmp $b->{name} }
-        @missed];
+    $report->{missed_files} = [sort { $b->{max_risk} cmp $a->{max_risk} || $a->{name} cmp $b->{name} } @missed];
   }
 
   $report->{files} = [];
   for my $file (sort { $files->{$a} cmp $files->{$b} } keys %$files) {
     my $path = $files->{$file};
-    push @{$report->{files}},
-      my $current = {id => $file, path => $path, expand => $expanded->{$file}};
+    push @{$report->{files}}, my $current = {id => $file, path => $path, expand => $expanded->{$file}};
 
     if ($lines->{$file}) {
       $current->{lines} = lines_context($lines->{$file});
@@ -379,11 +338,9 @@ sub _sanitize_report {
 
   # Emails and URLs
   my $emails = $report->{emails};
-  $report->{emails} = [map { [$_, $emails->{$_}] }
-      sort { $emails->{$b} <=> $emails->{$a} } keys %$emails];
+  $report->{emails} = [map { [$_, $emails->{$_}] } sort { $emails->{$b} <=> $emails->{$a} } keys %$emails];
   my $urls = $report->{urls};
-  $report->{urls} = [map { [$_, $urls->{$_}] }
-      sort { $urls->{$b} <=> $urls->{$a} } keys %$urls];
+  $report->{urls} = [map { [$_, $urls->{$_}] } sort { $urls->{$b} <=> $urls->{$a} } keys %$urls];
 }
 
 1;

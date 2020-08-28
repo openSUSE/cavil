@@ -39,8 +39,7 @@ has ua => sub {
 };
 
 sub download_source {
-  my ($self, $api, $project, $pkg, $dir, $options)
-    = (shift, shift, shift, shift, shift, shift || {});
+  my ($self, $api, $project, $pkg, $dir, $options) = (shift, shift, shift, shift, shift, shift || {});
 
   $dir = path($dir)->make_path;
   my $ua = $self->ua;
@@ -67,34 +66,25 @@ sub download_source {
     my $target = $dir->child($file->{name});
     $res->content->asset->move_to($target);
     my $md5 = _md5($target);
-    croak
-      qq/$url: Corrupted file "$file->{name}": checksum $md5 != $file->{md5}/
-      unless $md5 eq $file->{md5};
+    croak qq/$url: Corrupted file "$file->{name}": checksum $md5 != $file->{md5}/ unless $md5 eq $file->{md5};
   }
 }
 
 sub package_info {
-  my ($self, $api, $project, $pkg, $options)
-    = (shift, shift, shift, shift, shift || {});
+  my ($self, $api, $project, $pkg, $options) = (shift, shift, shift, shift, shift || {});
 
   my $ua = $self->ua;
 
-  my $url
-    = _url($api, 'public', 'source', $project, $pkg)->query(view => 'info');
+  my $url = _url($api, 'public', 'source', $project, $pkg)->query(view => 'info');
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
   my $res = $ua->get($url)->result;
   croak "$url: " . $res->code unless $res->is_success;
 
   my $source = $res->dom->at('sourceinfo');
-  my $info   = {
-    srcmd5    => $source->{srcmd5},
-    verifymd5 => $source->{verifymd5},
-    package   => $pkg
-  };
+  my $info   = {srcmd5 => $source->{srcmd5}, verifymd5 => $source->{verifymd5}, package => $pkg};
 
   # Find the deepest link
-  my $linfo = _find_link_target($ua, $api, $project, $pkg,
-    $options->{rev} || $source->{srcmd5});
+  my $linfo = _find_link_target($ua, $api, $project, $pkg, $options->{rev} || $source->{srcmd5});
   $info->{package} = $linfo->{package} if $linfo;
   return $info;
 }
@@ -110,12 +100,10 @@ sub _find_link_target {
   return undef unless $res->is_success;
 
   # Check if we're on track
-  my $match = grep { $_->{name} eq "$pkg.spec" }
-    $res->dom->find('entry')->map('attr')->each;
+  my $match = grep { $_->{name} eq "$pkg.spec" } $res->dom->find('entry')->map('attr')->each;
 
   if (my $link = $res->dom->at('linkinfo')) {
-    my $linfo = _find_link_target($ua, $api, $link->{project}, $link->{package},
-      $link->{srcmd5});
+    my $linfo = _find_link_target($ua, $api, $link->{project}, $link->{package}, $link->{srcmd5});
     if ($linfo) {
 
       # If the sub package has no matching spec file, we drop it
@@ -128,8 +116,7 @@ sub _find_link_target {
   # This is severe as we already checked the sources
   croak "$url: " . $res->code unless $res->is_success;
 
-  my %linfo
-    = (project => $project, package => $pkg, lrev => $lrev, match => $match);
+  my %linfo = (project => $project, package => $pkg, lrev => $lrev, match => $match);
   return \%linfo unless my $rn = $res->dom->at('releasename');
   return {%linfo, package => $rn->text};
 }

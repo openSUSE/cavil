@@ -34,8 +34,7 @@ sub openid {
     required_root   => $base,
     consumer_secret => $self->app->config->{openid}{secret}
   );
-  my $claimed_id
-    = $csr->claimed_identity($self->app->config->{openid}{provider});
+  my $claimed_id = $csr->claimed_identity($self->app->config->{openid}{provider});
   return $self->render(text => $csr->err, status => 403) unless $claimed_id;
 
   $claimed_id->set_extension_args('http://openid.net/extensions/sreg/1.1',
@@ -84,12 +83,10 @@ sub response {
     verified     => sub {
       my $vident = shift;
 
-      my $sreg = $vident->signed_extension_fields(
-        'http://openid.net/extensions/sreg/1.1');
-      my $ax = $vident->signed_extension_fields('http://openid.net/srv/ax/1.0');
+      my $sreg = $vident->signed_extension_fields('http://openid.net/extensions/sreg/1.1');
+      my $ax   = $vident->signed_extension_fields('http://openid.net/srv/ax/1.0');
 
-      $error = 'Missing username'
-        unless $login = $sreg->{nickname} || $ax->{'value.nickname'};
+      $error = 'Missing username' unless $login = $sreg->{nickname} || $ax->{'value.nickname'};
 
       $email    = $sreg->{email}    || $ax->{'value.email'};
       $fullname = $sreg->{fullname} || $ax->{'value.fullname'};
@@ -103,11 +100,7 @@ sub response {
   return $self->render(text => $error, status => 403) if $error;
 
   # Create in DB
-  my $user = $self->users->find_or_create(
-    login    => $login,
-    email    => $email,
-    fullname => $fullname
-  );
+  my $user = $self->users->find_or_create(login => $login, email => $email, fullname => $fullname);
 
   $self->session(user => $user->{login});
   $self->redirect_to('dashboard');

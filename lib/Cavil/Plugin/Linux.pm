@@ -34,8 +34,7 @@ sub register {
       $worker->on(
         dequeue => sub {
           my ($worker, $job) = @_;
-          $job->on(
-            start => sub { path('/proc', $$, 'oom_score_adj')->spurt('200') });
+          $job->on(start => sub { path('/proc', $$, 'oom_score_adj')->spurt('200') });
         }
       );
     }
@@ -55,8 +54,7 @@ sub register {
           my $rss = (getrusage())[2];
           my $max = $config->{max_worker_rss};
           return unless $rss > $max;
-          $app->log->warn(
-            qq{Worker exceeded RSS limit "$rss > $max", restarting});
+          $app->log->warn(qq{Worker exceeded RSS limit "$rss > $max", restarting});
           Mojo::IOLoop->stop_gracefully;
         }
       ) if $parent ne $$;
@@ -65,8 +63,7 @@ sub register {
 }
 
 sub _task_limit {
-  setrlimit(get_rlimits()->{RLIMIT_VMEM}, shift, -1)
-    or die "Can't change rlimits: $!";
+  setrlimit(get_rlimits()->{RLIMIT_VMEM}, shift, -1) or die "Can't change rlimits: $!";
 }
 
 1;

@@ -33,8 +33,7 @@ sub find_or_create {
 
 sub for_package {
   my ($self, $id) = @_;
-  return $self->pg->db->select(
-    ['bot_package_products', ['bot_products', id => 'product']],
+  return $self->pg->db->select(['bot_package_products', ['bot_products', id => 'product']],
     'name', {'bot_package_products.package' => $id})->arrays->flatten->to_array;
 }
 
@@ -42,9 +41,7 @@ sub list {
   my ($self, $name) = @_;
 
   my $db = $self->pg->db;
-  return []
-    unless my $product
-    = $db->select('bot_products', 'id', {name => $name})->hash;
+  return [] unless my $product = $db->select('bot_products', 'id', {name => $name})->hash;
 
   return $db->query(
     'select bot_packages.name, bot_packages.id,

@@ -45,16 +45,14 @@ sub source {
     unless my $obj = $self->packages->find_by_name_and_md5($srcpkg, $verifymd5);
 
   my $history = [];
-  $history = [map { $_->{id} } @{$pkgs->history(@{$obj}{qw(name checksum id)})}]
-    if $obj->{checksum};
+  $history = [map { $_->{id} } @{$pkgs->history(@{$obj}{qw(name checksum id)})}] if $obj->{checksum};
   $self->render(json => {review => $obj->{id}, history => $history});
 }
 
 sub status {
   my $self = shift;
   my $name = $self->param('name');
-  $self->render(
-    json => {package => $name, requests => $self->packages->states($name)});
+  $self->render(json => {package => $name, requests => $self->packages->states($name)});
 }
 
 1;

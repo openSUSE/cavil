@@ -24,15 +24,15 @@ use Mojo::Util qw(decode md5_sum xml_escape);
 sub register {
   my ($self, $app) = @_;
 
-  $app->helper('chart_data'            => \&_chart_data);
-  $app->helper('checksum'              => \&_checksum);
-  $app->helper('current_user'          => \&_current_user);
-  $app->helper('current_user_has_role' => \&_current_user_has_role);
-  $app->helper('current_package'       => \&_current_package);
-  $app->helper('format_link'           => \&_format_link);
-  $app->helper('highlight_line'        => \&_highlight_line);
-  $app->helper('lic'                   => sub { shift; lic(@_) });
-  $app->helper('maybe_utf8' => sub { decode('UTF-8', $_[1]) // $_[1] });
+  $app->helper('chart_data'                  => \&_chart_data);
+  $app->helper('checksum'                    => \&_checksum);
+  $app->helper('current_user'                => \&_current_user);
+  $app->helper('current_user_has_role'       => \&_current_user_has_role);
+  $app->helper('current_package'             => \&_current_package);
+  $app->helper('format_link'                 => \&_format_link);
+  $app->helper('highlight_line'              => \&_highlight_line);
+  $app->helper('lic'                         => sub { shift; lic(@_) });
+  $app->helper('maybe_utf8'                  => sub { decode('UTF-8', $_[1]) // $_[1] });
   $app->helper('package_checkout_dir'        => \&_pkg_checkout_dir);
   $app->helper('reply.json_validation_error' => \&_json_validation_error);
   $app->helper('format_file'                 => \&_format_file);
@@ -45,10 +45,7 @@ sub _chart_data {
   my @num_files;
   my @colours;
 
-  my @codes = (
-    '#117864', '#85c1e9', '#9b59b6', '#ec7063',
-    '#a3e4d7', '#c39bd3', '#c0392b'
-  );
+  my @codes = ('#117864', '#85c1e9', '#9b59b6', '#ec7063', '#a3e4d7', '#c39bd3', '#c0392b');
 
   my @sorted_keys = sort { $hash->{$b} <=> $hash->{$a} } keys %$hash;
   while (@sorted_keys) {
@@ -71,11 +68,7 @@ sub _chart_data {
     push(@num_files, $rest);
     push(@colours,   'grey');
   }
-  return {
-    licenses    => to_json(\@licenses),
-    'num-files' => to_json(\@num_files),
-    colours     => to_json(\@colours)
-  };
+  return {licenses => to_json(\@licenses), 'num-files' => to_json(\@num_files), colours => to_json(\@colours)};
 }
 
 sub _checksum {
@@ -110,12 +103,10 @@ sub _current_user_has_role {
 sub _format_link {
   my ($c, $link) = @_;
   if ($link =~ /^obs#(.*)$/) {
-    return $c->link_to($link => "https://build.opensuse.org/request/show/$1" =>
-        (target => '_blank'));
+    return $c->link_to($link => "https://build.opensuse.org/request/show/$1" => (target => '_blank'));
   }
   if ($link =~ /^ibs#(.*)$/) {
-    return $c->link_to(
-      $link => "https://build.suse.de/request/show/$1" => (target => '_blank'));
+    return $c->link_to($link => "https://build.suse.de/request/show/$1" => (target => '_blank'));
   }
   return $link;
 }
@@ -132,10 +123,7 @@ sub _json_validation_error {
   my $c = shift;
 
   my $failed = join ', ', @{$c->validation->failed};
-  $c->render(
-    json   => {error => "Invalid request parameters ($failed)"},
-    status => 400
-  );
+  $c->render(json => {error => "Invalid request parameters ($failed)"}, status => 400);
 }
 
 sub _pkg_checkout_dir {

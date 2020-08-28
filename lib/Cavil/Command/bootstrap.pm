@@ -31,11 +31,7 @@ sub run {
   my $bootstrap = $self->app->bootstrap;
   return $bootstrap->store($export) if $export;
 
-  return
-    say $bootstrap->load
-    ? 'Database initialized'
-    : 'Database already initialized'
-    if $import;
+  return say $bootstrap->load ? 'Database initialized' : 'Database already initialized' if $import;
 }
 
 1;

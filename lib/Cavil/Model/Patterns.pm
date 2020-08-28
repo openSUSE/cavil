@@ -27,8 +27,7 @@ sub create {
 
   my $db       = $self->pg->db;
   my $checksum = $self->checksum($args{pattern});
-  my $id
-    = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
+  my $id       = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
   if ($id) {
     return {conflict => $id->{id}};
   }
@@ -71,11 +70,7 @@ sub has_new_patterns {
 sub load_specific {
   my ($self, $matcher, $pname) = @_;
 
-  my $rows = $self->pg->db->select(
-    'license_patterns',
-    ['id', 'pattern'],
-    {packname => $pname}
-  );
+  my $rows = $self->pg->db->select('license_patterns', ['id', 'pattern'], {packname => $pname});
 
   while (my $l = $rows->array) {
     my ($id, $pattern) = @$l;
@@ -130,8 +125,7 @@ sub checksum {
 
 sub for_license {
   my ($self, $license) = @_;
-  return $self->pg->db->select('license_patterns', '*', {license => $license},
-    'created')->hashes->to_array;
+  return $self->pg->db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
 }
 
 sub remove {
@@ -145,8 +139,7 @@ sub update {
   my $db = $self->pg->db;
 
   my $checksum = $self->checksum($args{pattern});
-  my $conflict
-    = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
+  my $conflict = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
   if ($conflict && $conflict->{id} != $id) {
     return {conflict => $conflict->{id}};
   }

@@ -31,8 +31,7 @@ our @EXPORT_OK = ('lic');
 # List from https://github.com/openSUSE/obs-service-format_spec_file
 my (%ALLOWED, %CHANGES);
 {
-  my @lines = split "\n",
-    path(__FILE__)->dirname->child('resources', 'license_changes.txt')->slurp;
+  my @lines = split "\n", path(__FILE__)->dirname->child('resources', 'license_changes.txt')->slurp;
   shift @lines;
   for my $line (@lines) {
     my ($target, $source) = split "\t", $line;
@@ -44,8 +43,7 @@ my (%ALLOWED, %CHANGES);
 my $TOKEN_RE;
 {
   my $token = join '|',
-    map { '(?:(?<=[\s()])|^)' . quotemeta . '(?:(?=[\s()])|$)' }
-    sort { length $b <=> length $a } keys %CHANGES;
+    map { '(?:(?<=[\s()])|^)' . quotemeta . '(?:(?=[\s()])|$)' } sort { length $b <=> length $a } keys %CHANGES;
   $TOKEN_RE = qr/($token)/;
 }
 
@@ -107,13 +105,11 @@ sub _example {
 sub _match {
   my ($main, $sub) = @_;
 
-  return defined $main->{license} && $main->{license} eq $sub->{license}
-    if defined $main->{license};
-  return undef if $sub->{license};
-  return undef if $main->{op} ne $sub->{op};
+  return defined $main->{license} && $main->{license} eq $sub->{license} if defined $main->{license};
+  return undef                                                           if $sub->{license};
+  return undef                                                           if $main->{op} ne $sub->{op};
 
-  return _match($main->{left}, $sub->{left})
-    || _match($main->{left}, $sub->{right});
+  return _match($main->{left}, $sub->{left}) || _match($main->{left}, $sub->{right});
 }
 
 sub _parse {
@@ -128,8 +124,7 @@ sub _parse {
   # Left
   unless (defined $left) {
     $left = shift @tokens;
-    $left
-      = $left =~ /^\(/ ? _parse(_tokenize($left)) : {license => _spdx($left)};
+    $left = $left =~ /^\(/ ? _parse(_tokenize($left)) : {license => _spdx($left)};
     return $left unless @tokens;
   }
 
@@ -144,8 +139,7 @@ sub _parse {
 
 sub _single {
   my ($main, $sub) = @_;
-  return _single($main->{left}, $sub) || _single($main->{right}, $sub)
-    if $main->{op} && $main->{op} eq 'and';
+  return _single($main->{left}, $sub) || _single($main->{right}, $sub) if $main->{op} && $main->{op} eq 'and';
   return _match($main, $sub);
 }
 
@@ -174,8 +168,7 @@ sub _tokenize {
   my $string = shift;
 
   # Ignore outer parentheses
-  $string =~ s/^\s*\((.*)\)\s*$/$1/
-    if ((extract_bracketed($string, '()'))[0] // '') eq $string;
+  $string =~ s/^\s*\((.*)\)\s*$/$1/ if ((extract_bracketed($string, '()'))[0] // '') eq $string;
 
   # Macro
   die "Invalid license expression: $string\n" if index($string, '%') >= 0;
@@ -221,8 +214,7 @@ sub _tree_to_string {
 
 sub _walk {
   my ($main, $sub) = @_;
-  return _walk($main, $sub->{left}) && _walk($main, $sub->{right})
-    if $sub->{op} && $sub->{op} eq 'and';
+  return _walk($main, $sub->{left}) && _walk($main, $sub->{right}) if $sub->{op} && $sub->{op} eq 'and';
   return _single($main, $sub);
 }
 
