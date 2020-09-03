@@ -264,3 +264,4 @@ alter table drop column likelyness, drop column like_pattern;
 -- 12 up
 alter table license_patterns drop column if exists eula;
 alter table license_patterns drop column if exists nonfree;
+create index on license_patterns(license);

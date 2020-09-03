@@ -99,7 +99,7 @@ sub edit_pattern {
 
 sub list {
   my $self = shift;
-  $self->render(licenses => $self->licenses->all);
+  $self->render(licenses => $self->patterns->all_licenses);
 }
 
 sub new_pattern {
@@ -126,25 +126,9 @@ sub remove_pattern {
 
 sub show {
   my $self = shift;
-
-  my $id  = $self->param('id');
-  my $lic = $self->licenses->find($id);
-  die "No such licence" unless $lic;
-  $self->render(license => $lic, patterns => $self->patterns->for_license($lic->{name}));
-}
-
-sub update {
-  my $self = shift;
-
-  $self->licenses->update(
-    $self->param('id'),
-    url         => $self->param('url'),
-    name        => $self->param('name'),
-    risk        => $self->param('risk'),
-    description => $self->param('description')
-  );
-  $self->flash(success => 'License has been updated.');
-  $self->redirect_to('license_show');
+  my $name = $self->param('name');
+  $name = '' if $name eq '*Pattern without license*';
+  $self->render(license => $name, patterns => $self->patterns->for_license($name));
 }
 
 sub update_pattern {

@@ -1,32 +1,13 @@
 % layout 'default';
-% title "License Details of $license->{name}";
+% title "License Details of $license";
 
-%= form_for license_update => begin
-    <div class="form-group">
-        <label for="name">Name</label>
-        %= text_field name => $license->{name}, class => 'form-control'
-    </div>
-    <div class="form-group">
-        <label for="url">URL</label>
-        %= text_field url => $license->{url}, class => 'form-control'
-    </div>
-    <div class="form-group">
-        <label for="risk">Risk</label>
-        % my @risks;
-        % for my $r (1..6) {
-            % if ($r == $license->{risk}) { push(@risks, [ $r => $r, selected => 'selected' ]) } else { push(@risks, $r); }
-        % }
-        %= select_field risk => \@risks, class => 'form-control'
-    </div>
-    <div class="form-group">
-        <label for="description">Description</label>
-        %= text_area description => $license->{description} || '', class => 'form-control'
-    </div>
-    %= submit_button 'Update', class => 'btn btn-primary'
-% end
+<div class="form-group">
+    <label for="name">Name</label>
+    %= text_field name => $license, class => 'form-control', disabled => 'disabled'
+</div>
 
 <h3>Patterns for this license
-    %= link_to '(Add new)' => url_for('new_pattern')->query(license_id => $license->{id}), class => 'btn', role => 'btn'
+    %= link_to '(Add new)' => url_for('new_pattern')->query('license-name' => $license), class => 'btn', role => 'btn'
 </h3>
 
 <ul>

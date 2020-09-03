@@ -126,6 +126,11 @@ sub for_license {
   return $self->pg->db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
 }
 
+sub all_licenses {
+  my $self = shift;
+  return $self->pg->db->query('select distinct(license) from license_patterns')->arrays->map(sub { $_->[0] })->to_array;
+}
+
 sub remove {
   my ($self, $id) = @_;
   $self->pg->db->delete('license_patterns', {id => $id});

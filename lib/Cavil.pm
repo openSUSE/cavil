@@ -235,12 +235,11 @@ sub startup {
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
   $admin->post('/licenses/new_pattern')->to('License#new_pattern');
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
-  $admin->get('/licenses/:id')->to('License#show')->name('license_show');
-  $admin->post('/licenses/:id')->to('License#update')->name('license_update');
 
   $admin->get('/licenses/edit_pattern/:id')->to('License#edit_pattern')->name('edit_pattern');
   $admin->post('/licenses/update_pattern/:id')->to('License#update_pattern')->name('update_pattern');
   $admin->delete('/licenses/remove_pattern/:id')->to('License#remove_pattern')->name('remove_pattern');
+  $admin->get('/licenses/*name')->to('License#show')->name('license_show');
 
   $public->get('/products')->to('Product#list')->name('products');
   $public->get('/products/*name/list_packages')->to('Product#list_packages_ajax')->name('product_packages_ajax');
