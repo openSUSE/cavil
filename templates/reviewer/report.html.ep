@@ -1,17 +1,4 @@
 % if (%{$report->{risks}}) {
-  % if (my @flags = @{$report->{flags}}) {
-    <h4>
-      Flags:
-      % for my $flag (@flags) {
-        % if ($flag eq 'eula') {
-          <span class="badge badge-secondary">EULA</span>
-        % }
-        % elsif ($flag eq 'nonfree') {
-          <span class="badge badge-secondary">NonFree</span>
-        % }
-      % }
-    </h4>
-  % }
 
   <canvas id="license-chart" width="100%" height="18em"></canvas>
 

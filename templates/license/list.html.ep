@@ -39,7 +39,6 @@
   <thead>
     <th>Name</th>
     <th>Risk</th>
-    <th>Flags</th>
   </thead>
   <tbody>
 
@@ -47,9 +46,6 @@
       <tr>
         %= t td => link_to($l->{name} => url_for('license_show', id => $l->{id}))
         %= t td => $l->{risk}
-        % my @flags = ($l->{eula} ? 'EULA' : ());
-        % push @flags, 'NonFree' if $l->{nonfree};
-        %= t td => join(', ', @flags)
       </tr>
     % }
   </tbody>

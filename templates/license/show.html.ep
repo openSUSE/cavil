@@ -22,26 +22,6 @@
         <label for="description">Description</label>
         %= text_area description => $license->{description} || '', class => 'form-control'
     </div>
-    <div class="row form-group">
-      <div class="col-sm-6">
-        <div class="checkbox-inline">
-          <label>
-            <%= check_box eula => 1,
-              $license->{eula} ? (checked => undef) : () %>
-            EULA
-          </label>
-        </div>
-      </div>
-      <div class="col-sm-6">
-        <div class="checkbox-inline">
-          <label>
-            <%= check_box nonfree => 1,
-              $license->{nonfree} ? (checked => undef) : () %>
-            NonFree
-          </label>
-        </div>
-      </div>
-    </div>
     %= submit_button 'Update', class => 'btn btn-primary'
 % end
 

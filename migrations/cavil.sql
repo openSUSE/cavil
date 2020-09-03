@@ -261,3 +261,6 @@ alter table snippets add like_pattern int references license_patterns(id) on del
 -- 11 down
 alter table drop column likelyness, drop column like_pattern;
 
+-- 12 up
+alter table license_patterns drop column if exists eula;
+alter table license_patterns drop column if exists nonfree;

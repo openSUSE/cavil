@@ -173,15 +173,15 @@ sub run {
       $pattern->{packname} = "''" unless $pattern->{packname};
       $cattern->{packname} = "''" unless $cattern->{packname};
       say
-        "Pattern 1: #$cattern->{id} ($cattern->{license} package: $cattern->{packname} risk: $cattern->{risk} eula: $cattern->{eula} trademark: $cattern->{trademark} opinion: $cattern->{opinion})";
+        "Pattern 1: #$cattern->{id} ($cattern->{license} package: $cattern->{packname} risk: $cattern->{risk} trademark: $cattern->{trademark} opinion: $cattern->{opinion})";
       say
-        "Pattern 2: #$pattern->{id} ($pattern->{license} package: $pattern->{packname} risk: $pattern->{risk} eula: $pattern->{eula} trademark: $pattern->{trademark} opinion: $pattern->{opinion})";
+        "Pattern 2: #$pattern->{id} ($pattern->{license} package: $pattern->{packname} risk: $pattern->{risk} trademark: $pattern->{trademark} opinion: $pattern->{opinion})";
       my $t1 = $pattern->{pattern} . "\n";
       my $t2 = $cattern->{pattern} . "\n";
 
       my $todelete;
       my $diff = ($cattern->{license} ne $pattern->{license} || $cattern->{packname} ne $pattern->{packname});
-      for my $key (qw(risk eula trademark opinion)) {
+      for my $key (qw(risk trademark opinion)) {
         $diff = 1 if $cattern->{$key} != $pattern->{$key};
       }
       if ($t1 ne $t2) {

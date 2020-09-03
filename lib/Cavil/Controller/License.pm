@@ -37,8 +37,6 @@ sub create_pattern {
     packname  => $self->param('packname'),
     pattern   => $pattern,
     risk      => $self->param('risk'),
-    eula      => $self->param('eula'),
-    nonfree   => $self->param('nonfree'),
     patent    => $self->param('patent'),
     trademark => $self->param('trademark'),
     opinion   => $self->param('opinion')
@@ -143,9 +141,7 @@ sub update {
     url         => $self->param('url'),
     name        => $self->param('name'),
     risk        => $self->param('risk'),
-    description => $self->param('description'),
-    eula        => $self->param('eula'),
-    nonfree     => $self->param('nonfree')
+    description => $self->param('description')
   );
   $self->flash(success => 'License has been updated.');
   $self->redirect_to('license_show');

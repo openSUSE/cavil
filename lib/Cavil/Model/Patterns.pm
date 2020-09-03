@@ -37,14 +37,12 @@ sub create {
     {
       pattern      => $args{pattern},
       token_hexsum => $checksum,
-      packname     => $args{packname} // '',
-      patent       => $args{patent} // 0,
+      packname     => $args{packname}  // '',
+      patent       => $args{patent}    // 0,
       trademark    => $args{trademark} // 0,
-      opinion      => $args{opinion} // 0,
-      license      => $args{license} // '',
-      nonfree      => $args{nonfree} // 0,
-      eula         => $args{eula} // 0,
-      risk         => $args{risk} // 5
+      opinion      => $args{opinion}   // 0,
+      license      => $args{license}   // '',
+      risk         => $args{risk}      // 5
     },
     {returning => 'id'}
   )->hash->{id};
@@ -151,12 +149,10 @@ sub update {
       token_hexsum => $checksum,
       packname     => $args{packname} // '',
       license      => $args{license},
-      patent       => $args{patent} // 0,
+      patent       => $args{patent}    // 0,
       trademark    => $args{trademark} // 0,
-      opinion      => $args{opinion} // 0,
-      risk         => $args{risk} // 5,
-      eula         => $args{eula} // 0,
-      nonfree      => $args{nonfree} // 0
+      opinion      => $args{opinion}   // 0,
+      risk         => $args{risk}      // 5
     },
     {id => $id}
   );

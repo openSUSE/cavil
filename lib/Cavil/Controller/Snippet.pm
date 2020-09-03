@@ -156,8 +156,6 @@ sub _create_pattern {
     risk    => $self->param('risk'),
 
     # TODO: those checkboxes aren't yet taken over
-    eula      => $self->param('eula'),
-    nonfree   => $self->param('nonfree'),
     patent    => $self->param('patent'),
     trademark => $self->param('trademark'),
     opinion   => $self->param('opinion')
@@ -173,8 +171,8 @@ sub _create_pattern {
   for my $pkg (@$packages) {
     my $pkg = $db->update(
       'bot_packages',
-      {indexed   => undef, checksum => undef},
-      {id        => $pkg, '-not_bool' => 'obsolete', indexed => {'!=', undef}},
+      {indexed   => undef, checksum    => undef},
+      {id        => $pkg,  '-not_bool' => 'obsolete', indexed => {'!=', undef}},
       {returning => 'id'}
     )->hash;
     next unless $pkg;

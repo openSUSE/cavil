@@ -34,8 +34,7 @@ sub load {
   for my $file ($dir->list->sort->each) {
     my $data = decode_json $file->slurp;
 
-    $licenses->create(name => $data->{name}, risk => $data->{risk}, nonfree => $data->{nonfree}, eula => $data->{eula})
-      if $data->{name};
+    $licenses->create(name => $data->{name}, risk => $data->{risk}) if $data->{name};
 
     $patterns->create(
       pattern   => $_->{pattern},
@@ -44,8 +43,6 @@ sub load {
       opinion   => $_->{opinion},
       license   => $data->{name},
       risk      => $data->{risk},
-      nonfree   => $data->{nonfree},
-      eula      => $data->{eula}
     ) for @{$data->{patterns}};
   }
   return 1;
@@ -71,10 +68,10 @@ sub store {
   # Find popular licenses (excluding keywords)
   say '* Popular licenses (this might take a few minutes)';
   my $popular = $db->select(
-    ['pattern_matches', ['license_patterns', id => 'pattern']],
+    ['pattern_matches',          ['license_patterns', id => 'pattern']],
     ['license_patterns.license', \'count(*) as matches'],
     {'license_patterns.license' => {-not_in => [$low->{id}, $high->{id}]}},
-    {group_by                   => ['license_patterns.license'], limit => 98, order_by => {-desc => 'matches'}}
+    {group_by => ['license_patterns.license'], limit => 98, order_by => {-desc => 'matches'}}
   )->hashes->to_array;
 
   for my $l (@$popular) {
@@ -83,10 +80,10 @@ sub store {
 
     # Find popular patterns for license
     my $top = $db->select(
-      ['pattern_matches', ['license_patterns', id => 'pattern']],
+      ['pattern_matches',         ['license_patterns', id => 'pattern']],
       ['pattern_matches.pattern', \'count(*) as matches'],
       {'license_patterns.license' => $l->{id}, packname => ''},
-      {group_by                   => ['pattern_matches.pattern'], limit => 20, order_by => {-desc => 'matches'}}
+      {group_by => ['pattern_matches.pattern'], limit => 20, order_by => {-desc => 'matches'}}
     )->hashes->map(sub { $_->{pattern} })->to_array;
 
     _store($db, $dir, $prefix, $l, @$top);
@@ -110,15 +107,8 @@ sub _store {
     {order_by => {-asc => 'id'}}
   )->hashes->to_array;
 
-  my $data = {
-    name        => $l->{name},
-    url         => $l->{url},
-    description => $l->{description},
-    risk        => $l->{risk},
-    nonfree     => $l->{nonfree},
-    eula        => $l->{eula},
-    patterns    => $all
-  };
+  my $data
+    = {name => $l->{name}, url => $l->{url}, description => $l->{description}, risk => $l->{risk}, patterns => $all};
   my $name = _name($prefix, $l->{name});
   path($dir, $name)->spurt(encode_json $data);
 }

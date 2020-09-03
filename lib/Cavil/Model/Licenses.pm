@@ -57,15 +57,8 @@ sub update {
 
   $self->pg->db->update(
     'licenses',
-    {
-      name        => $args{name},
-      url         => $args{url},
-      risk        => $args{risk},
-      description => $args{description},
-      eula        => $args{eula} // 0,
-      nonfree     => $args{nonfree} // 0
-    },
-    {id => $id}
+    {name => $args{name}, url => $args{url}, risk => $args{risk}, description => $args{description}},
+    {id   => $id}
   );
 }
 

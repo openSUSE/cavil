@@ -36,7 +36,7 @@ sub dig_report {
   my ($self, $id, $limit_to_file) = @_;
 
   my $db            = $self->pg->db;
-  my $pkg           = $db->select('bot_packages', '*', {id => $id})->hash;
+  my $pkg           = $db->select('bot_packages',  '*',    {id       => $id})->hash;
   my $ignored       = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
   my %ignored_lines = map { $_->{hash} => 1 } $ignored->hashes->each;
 
@@ -73,7 +73,7 @@ sub source_for {
     for my $line (@$lines) {
       my ($nr, $pid, $text) = @$line;
       $needed{$nr} = 0;
-      $needed{$nr} = $pid->{pid} if $pid->{pid};
+      $needed{$nr} = $pid->{pid}                     if $pid->{pid};
       $needed{$nr} = PATTERN_DELTA + $pid->{snippet} if $pid->{snippet};
     }
     my $nr = $start;
@@ -316,8 +316,6 @@ sub _dig_report {
 
     $report->{licenses}{$pattern->{license}} ||= {name => $pattern->{license}, risk => $pattern->{risk}};
     $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_} for qw(patent trademark opinion);
-    $report->{flags}{eula}    = 1 if $pattern->{eula};
-    $report->{flags}{nonfree} = 1 if $pattern->{nonfree};
 
     my $rl = $report->{risks}{$pattern->{risk}};
     push(@{$rl->{$pattern->{license}}{$pid}}, $match->{file});

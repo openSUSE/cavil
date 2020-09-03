@@ -49,9 +49,7 @@ sub run {
           # Careful: in migration 7 it's called license_string
           # renamed to license in 10
           license_string => $p->{name},
-          risk           => $p->{risk},
-          eula           => $p->{eula},
-          nonfree        => $p->{nonfree}
+          risk           => $p->{risk}
         },
         {id => $p->{id}}
       );
