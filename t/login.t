@@ -39,8 +39,7 @@ subtest 'Not authenticated' => sub {
   $t->post_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/new_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/create_pattern')->status_is(403)->content_like(qr/Permission/);
-  $t->get_ok('/licenses/1')->status_is(403)->content_like(qr/Permission/);
-  $t->post_ok('/licenses/1')->status_is(403)->content_like(qr/Permission/);
+  $t->get_ok('/licenses/Apache-2.0')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/edit_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->delete_ok('/licenses/remove_pattern/1')->status_is(403)->content_like(qr/Permission/);
@@ -56,6 +55,7 @@ subtest 'Dummy' => sub {
   $t->get_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
   $t->get_ok('/licenses')->status_is(200)->content_like(qr/Licenses/);
+  $t->get_ok('/licenses/Apache-2.0')->status_is(200)->content_like(qr/Apache-2.0/);
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
   $t->get_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
 };

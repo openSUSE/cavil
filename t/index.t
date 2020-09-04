@@ -35,8 +35,8 @@ $t->app->packages->ignore_line('perl-Mojolicious', '81efb065de14988c4bd808697de1
 # Unpack and index with the job queue
 my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
 my $db        = $t->app->pg->db;
-ok !$db->select('emails', ['id'], {email => 'sri@cpan.org'})->rows,           'email address does not exist';
-ok !$db->select('urls',   ['id'], {url   => 'http://mojolicious.org'})->rows, 'URL does not exist';
+ok !$db->select('emails',       ['id'], {email => 'sri@cpan.org'})->rows,           'email address does not exist';
+ok !$db->select('urls',         ['id'], {url   => 'http://mojolicious.org'})->rows, 'URL does not exist';
 ok !$db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'not unpacked';
 $t->app->minion->perform_jobs;
 my $unpack_job = $t->app->minion->job($unpack_id);
@@ -101,7 +101,7 @@ is $t->app->checksum($specfile, $dig), 'b9cd69e1482c6adf4f4dbd6807fc4fc0', 'righ
 # Check matches
 my $res = $db->select(
   ['pattern_matches', ['matched_files', id => 'file']],
-  ['sline', 'pattern'],
+  ['sline',           'pattern'],
   {
         'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious/resources/'
       . 'public/mojo/prettify/run_prettify.processed.js'
@@ -111,7 +111,7 @@ my $res = $db->select(
 is_deeply $res, [[5, 2], [7, 1], [19, 2], [21, 1]], 'JavaScript correctly tagged Apache';
 $res = $db->select(
   ['pattern_matches', ['matched_files', id => 'file']],
-  ['sline', 'pattern'],
+  ['sline',           'pattern'],
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
@@ -127,28 +127,28 @@ $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 $t->get_ok('/licenses')->status_is(200)->content_like(qr/Licenses/);
 
 # Pattern change
-$t->get_ok('/licenses')->status_is(200)->text_is('td a[href=/licenses/1]' => 'Apache-2.0')
-  ->text_is('td a[href=/licenses/2]' => 'Artistic-2.0');
+$t->get_ok('/licenses')->status_is(200)->text_is('td a[href=/licenses/Apache-2.0]' => 'Apache-2.0')
+  ->text_is('td a[href=/licenses/Artistic-2.0]' => 'Artistic-2.0');
 $t->get_ok('/licenses/edit_pattern/1')->status_is(200)->element_exists('input[name=license][value=Apache-2.0]')
   ->text_is('textarea[name=pattern]' => 'You may obtain a copy of the License at')->element_exists_not('input:checked');
 $t->post_ok('/licenses/update_pattern/1' => form => {license => 'Apache-2.0', pattern => 'real-time web framework'})
   ->status_is(302)->header_is(Location => '/licenses/edit_pattern/1');
-$t->get_ok('/licenses/1')->status_is(200)->element_exists('li div a[href=/licenses/edit_pattern/1]')
+$t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('li div a[href=/licenses/edit_pattern/1]')
   ->text_is('li pre' => 'real-time web framework')
   ->text_like('.alert-success' => qr/Pattern has been updated, reindexing all affected packages/);
 
 # Automatic reindexing
 my $list = $t->app->minion->backend->list_jobs(0, 10, {states => ['inactive']});
 is $list->{total}, 2, 'two inactives job';
-is $list->{jobs}[0]{task}, 'pattern_stats',         'right task';
-is $list->{jobs}[1]{task}, 'reindex_matched_later', 'right task';
+is $list->{jobs}[0]{task},        'pattern_stats',         'right task';
+is $list->{jobs}[1]{task},        'reindex_matched_later', 'right task';
 is_deeply $list->{jobs}[1]{args}, [1], 'right arguments';
 my $reindex_id = $list->{jobs}[0]{id};
 $t->app->minion->perform_jobs;
 is $t->app->minion->job($reindex_id)->info->{state}, 'finished', 'job is finished';
 $res = $db->select(
   ['pattern_matches', ['matched_files', id => 'file']],
-  ['sline', 'pattern'],
+  ['sline',           'pattern'],
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
@@ -175,7 +175,7 @@ is $list->{jobs}[0]{state}, 'finished', 'right state';
 is $list->{jobs}[1]{state}, 'finished', 'right state';
 $res = $db->select(
   ['pattern_matches', ['matched_files', id => 'file']],
-  ['sline', 'pattern'],
+  ['sline',           'pattern'],
   {'matched_files.filename' => 'Mojolicious-7.25/lib/Mojolicious.pm'},
   {order_by                 => 'sline'}
 )->arrays;
