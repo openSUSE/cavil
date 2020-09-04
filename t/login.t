@@ -36,7 +36,6 @@ subtest 'Not authenticated' => sub {
   $t->post_ok('/reviews/add_ignore')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/reviews/reindex/1')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
-  $t->post_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/new_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/create_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/Apache-2.0')->status_is(403)->content_like(qr/Permission/);

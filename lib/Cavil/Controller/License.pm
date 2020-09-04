@@ -17,14 +17,6 @@ package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller';
 use Algorithm::Diff 'sdiff';
 
-sub create {
-  my $self       = shift;
-  my $validation = $self->validation;
-  $validation->required('name')->like(qr!\S!);
-  my $lid = $self->licenses->create(name => $validation->param('name'));
-  return $self->render(text => $self->url_for('license_show', id => $lid));
-}
-
 sub create_pattern {
   my $self = shift;
 

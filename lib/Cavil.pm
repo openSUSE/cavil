@@ -231,7 +231,6 @@ sub startup {
   $admin->post('/reviews/reindex/:id')->to('Reviewer#reindex_package')->name('reindex_package');
 
   $admin->get('/licenses')->to('License#list')->name('licenses');
-  $admin->post('/licenses')->to('License#create');
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
   $admin->post('/licenses/new_pattern')->to('License#new_pattern');
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
