@@ -90,20 +90,6 @@ sub details {
 
   my $should_reindex = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
 
-  my $lic = lic($report->{main}{license});
-  my $lid = $self->licenses->try_to_match_license($lic->to_string);
-
-  # TODO: move to helper, kind of duplicated from License controller
-  $self->{licenses} ||= $self->licenses->all;
-  my @licenses;
-  for my $lic (sort { lc($a->{name}) cmp lc($b->{name}) } @{$self->{licenses}}) {
-    my $val = [$lic->{name} => $lic->{id}];
-    if ($lic->{id} == $lid) {
-      push(@$val, (selected => 'selected'));
-    }
-    push(@licenses, $val);
-  }
-
   my $products = $self->products->for_package($id);
   my $history  = $pkgs->history($pkg->{name}, $pkg->{checksum}, $id);
   my $actions  = $pkgs->actions($pkg->{external_link}, $id);
@@ -114,7 +100,6 @@ sub details {
     products       => $products,
     history        => $history,
     actions        => $actions,
-    licenses       => \@licenses,
     should_reindex => $should_reindex
   );
 }

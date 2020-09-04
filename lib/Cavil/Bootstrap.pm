@@ -26,15 +26,11 @@ sub load {
   my $self = shift;
 
   # Avoid adding the same data more than once
-  my $licenses = $self->app->licenses;
-  return undef if $licenses->pg->db->select('licenses', 'id', {name => 'Apache-2.0'})->hash;
-
   my $patterns = $self->app->patterns;
-  my $dir      = path(__FILE__)->dirname->child('resources', 'bootstrap');
+  return undef if $patterns->pg->db->select('license_patterns', 'id', {license => 'Apache-2.0'}, {limit => 1})->hash;
+  my $dir = path(__FILE__)->dirname->child('resources', 'bootstrap');
   for my $file ($dir->list->sort->each) {
     my $data = decode_json $file->slurp;
-
-    $licenses->create(name => $data->{name}, risk => $data->{risk}) if $data->{name};
 
     $patterns->create(
       pattern   => $_->{pattern},

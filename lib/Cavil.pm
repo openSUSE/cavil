@@ -19,7 +19,6 @@ use Mojo::Base 'Mojolicious';
 use Mojo::Pg;
 use Cavil::Bootstrap;
 use Cavil::Classifier;
-use Cavil::Model::Licenses;
 use Cavil::Model::Packages;
 use Cavil::Model::Patterns;
 use Cavil::Model::Products;
@@ -153,12 +152,6 @@ sub startup {
   $self->helper(
     users => sub {
       state $users = Cavil::Model::Users->new(pg => shift->pg);
-    }
-  );
-
-  $self->helper(
-    licenses => sub {
-      state $lics = Cavil::Model::Licenses->new(pg => shift->pg);
     }
   );
 
