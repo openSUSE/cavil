@@ -94,9 +94,6 @@ sub mojo_fixtures {
     priority        => 5
   );
   $pkgs->imported($pkg2_id);
-  my $licenses = $app->licenses;
-  $licenses->create(name => 'Apache-2.0');
-  $licenses->create(name => 'Artistic-2.0');
   my $patterns = $app->patterns;
   $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
   $patterns->create(
