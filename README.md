@@ -26,9 +26,10 @@
 
   The easiest way to get started with Cavil is the included staging scripts for
   setting up a quick development environment. All you need is an empty
-  PostgreSQL database and the following dependencies:
+  PostgreSQL database (with the `pgcrypto` extension activated) and the following
+  dependencies:
 
-    $ sudo zypper in -C postgresql-server 'rubygem(sass)'
+    $ sudo zypper in -C postgresql-server postgresql-contrib 'rubygem(sass)'
     $ sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-AssetPack \
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
       perl-Spooky-Patterns-XS perl-Net-OpenID-Consumer 'perl(LWP::UserAgent)' \

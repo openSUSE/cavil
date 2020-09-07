@@ -28,7 +28,7 @@ my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippe
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
-subtest 'Basic search with suggestion' => sub {
+subtest 'Snippets' => sub {
   my $db   = $t->app->pg->db;
   my $pkgs = $t->app->packages;
 

@@ -262,6 +262,10 @@ alter table snippets add like_pattern int references license_patterns(id) on del
 alter table drop column likelyness, drop column like_pattern;
 
 -- 12 up
+create extension if not exists "pgcrypto";
 alter table license_patterns drop column if exists eula;
 alter table license_patterns drop column if exists nonfree;
+alter table license_patterns add column if not exists unique_id uuid not null default gen_random_uuid();
 create index on license_patterns(license);
+create index on license_patterns(unique_id);
+drop table if exists licenses;

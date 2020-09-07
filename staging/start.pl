@@ -23,20 +23,14 @@ $pg->db->query('create schema cavil_staging');
 $dir->make_path;
 my $checkouts = $dir->child('legal-bot')->make_path->realpath;
 
-my $checkout
-  = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')
-  ->make_path;
-my $test = $dir->child('..', '..', 't', 'legal-bot', 'perl-Mojolicious',
-  'c7cfdab0e71b0bebfdf8b2dc3badfecd')->realpath;
+my $checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')->make_path;
+my $test = $dir->child('..', '..', 't', 'legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')->realpath;
 $_->copy_to($checkout->child($_->basename)) for $test->list->each;
-$checkout
-  = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3bad1234')
-  ->make_path;
+$checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3bad1234')->make_path;
 $_->copy_to($checkout->child($_->basename)) for $test->list->each;
 
-my $online = Mojo::URL->new($postgres)->query([search_path => 'cavil_staging'])
-  ->to_unsafe_string;
-my $conf = $dir->child('cavil.conf')->spurt(<<"EOF");
+my $online = Mojo::URL->new($postgres)->query([search_path => ['cavil_staging', 'public']])->to_unsafe_string;
+my $conf   = $dir->child('cavil.conf')->spurt(<<"EOF");
 {
   secrets              => ['just_a_test'],
   checkout_dir         => '$checkouts',
