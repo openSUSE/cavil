@@ -17,7 +17,6 @@ package Cavil;
 use Mojo::Base 'Mojolicious';
 
 use Mojo::Pg;
-use Cavil::Bootstrap;
 use Cavil::Classifier;
 use Cavil::Model::Packages;
 use Cavil::Model::Patterns;
@@ -27,17 +26,18 @@ use Cavil::Model::Requests;
 use Cavil::Model::Users;
 use Cavil::Model::Snippets;
 use Cavil::OBS;
+use Cavil::Sync;
 use Scalar::Util 'weaken';
 use Time::HiRes ();
 
-has bootstrap => sub {
-  my $self      = shift;
-  my $bootstrap = Cavil::Bootstrap->new(app => $self);
-  weaken $bootstrap->{app};
-  return $bootstrap;
-};
 has classifier => sub { Cavil::Classifier->new };
 has obs        => sub { Cavil::OBS->new };
+has sync       => sub {
+  my $self = shift;
+  my $sync = Cavil::Sync->new(app => $self);
+  weaken $sync->{app};
+  return $sync;
+};
 
 our $VERSION = '0.5';
 

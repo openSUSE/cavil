@@ -1,0 +1,1 @@
+{"license":"GPL-2.0+ OR LGPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"\tChange library license to LGPLv3+\/GPLv2+.\n\t* COPYING.GPLv2, COPYING.GPLv3, COPYING.LGPLv3: New.\n\t* COPYING: Replace text by a reference to the new files.","risk":2,"trademark":0,"unique_id":"9d22b4b0-ccd0-40ae-813d-a8992b913a47"}

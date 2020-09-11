@@ -1,0 +1,1 @@
+{"license":"ErlPL-1.1","opinion":0,"packname":"","patent":0,"pattern":"%% get_total_memory(OS) -> Total\n%% Windows and Freebsd code based on: memsup:get_memory_usage\/1\n%% Original code was part of OTP and released under \"Erlang Public License\".","risk":3,"trademark":0,"unique_id":"dcd1247b-646b-4036-b9a8-1ffb803e7853"}

@@ -1,0 +1,1 @@
+{"license":"LGPL-2.1+ OR Apache-2.0","opinion":0,"packname":"","patent":0,"pattern":"      <zipfileset dir=\".\" includes=\"build.xml,${pom},LICENSE,LGPL2.1,ASL2.0\"\/>","risk":1,"trademark":0,"unique_id":"2a0cf62a-7a97-458f-b17f-15dd43995d3c"}

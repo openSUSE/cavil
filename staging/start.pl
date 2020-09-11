@@ -2,7 +2,7 @@ use Mojo::Base -strict;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use Mojo::File 'path';
+use Mojo::File qw(curfile path);
 use Mojo::Pg;
 use Mojo::Server;
 
@@ -52,7 +52,7 @@ my $app = Mojo::Server->new->build_app('Cavil');
 $app->pg->migrations->migrate;
 
 # Seed licenses and patterns
-$app->bootstrap->load;
+$app->sync->load(curfile->dirname->sibling('lib', 'Cavil', 'resources', 'license_patterns')->to_string);
 
 # "perl-Mojolicious" example data
 my $user_id = $app->users->find_or_create(login => 'test_bot')->{id};
