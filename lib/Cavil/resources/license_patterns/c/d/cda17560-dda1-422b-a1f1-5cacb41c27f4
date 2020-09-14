@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"proftpd","patent":0,"pattern":"Bug 1610 - compiling mod_core.c gives an unneeded\/dazzling msg\n- Removed legacy documentation, updated licence template, licence update\n  in ftp.h to include the SSL clause.  Updated CREDITS (ML","risk":2,"trademark":0,"unique_id":"cda17560-dda1-422b-a1f1-5cacb41c27f4"}

@@ -1,0 +1,1 @@
+{"license":"GPL-Unspecified","opinion":0,"packname":"samba","patent":0,"pattern":"usr\/bin\/perl\n# String tests for pidl\n# (C) 2005 Jelmer Vernooij <jelmer@samba.org>\n# Published under the GNU General Public License\nuse strict","risk":3,"trademark":0,"unique_id":"a209a9e3-8759-452e-b073-80bb3706cdd0"}

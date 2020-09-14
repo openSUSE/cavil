@@ -1,0 +1,1 @@
+{"license":"GPL-Unspecified","opinion":0,"packname":"mftrace","patent":0,"pattern":"mftrace' is a small Python program that lets you trace a TeX bitmap\nfont into a PFA or PFB font (A PostScript Type1 Scalable Font) or TTF\n(TrueType) font.  It is licensed under the GNU GPL","risk":3,"trademark":0,"unique_id":"322c93ec-5b17-4df1-8925-a23a43d14b9c"}

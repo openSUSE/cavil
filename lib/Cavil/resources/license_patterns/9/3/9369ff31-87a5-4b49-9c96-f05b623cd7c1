@@ -1,0 +1,1 @@
+{"license":"Python >=2.0.1","opinion":0,"packname":"","patent":0,"pattern":"argparse is (c) $SKIP19\n\nThe argparse module was contributed to Python as of Python 2.7 and thus\nwas licensed under the Python license. Same license applies to all files in\nthe argparse package project","risk":1,"trademark":0,"unique_id":"9369ff31-87a5-4b49-9c96-f05b623cd7c1"}

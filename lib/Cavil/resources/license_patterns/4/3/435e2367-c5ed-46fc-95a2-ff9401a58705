@@ -1,0 +1,1 @@
+{"license":"Apache-1.1","opinion":0,"packname":"","patent":0,"pattern":"Build mod_jk for a specific web server and OS.  Package it as appropriate for\nthe OS and sign the archive using PGP. Please include the ASF License, the\ngenerated docs, and the tools.  Please name the distribuiton as follows","risk":3,"trademark":0,"unique_id":"435e2367-c5ed-46fc-95a2-ff9401a58705"}

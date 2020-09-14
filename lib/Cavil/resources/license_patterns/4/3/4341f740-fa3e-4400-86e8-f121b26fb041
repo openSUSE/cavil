@@ -1,0 +1,1 @@
+{"license":"EPL-1.0","opinion":1,"packname":"sblim-sfcb","patent":0,"pattern":"COPYING, backend.h, backend_print.c, backend_sfcb.c, hash.c,\n\thash.h, mofc.y, mofdecl.h, mofparse.c, mofs.l, symtab.c, symtab.h:\n\tBug: 1362805. changed all license references to new Eclipse Public license","risk":4,"trademark":0,"unique_id":"4341f740-fa3e-4400-86e8-f121b26fb041"}

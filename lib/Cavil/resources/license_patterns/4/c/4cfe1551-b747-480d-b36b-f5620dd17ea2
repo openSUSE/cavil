@@ -1,0 +1,1 @@
+{"license":"Python >=2.0.1","opinion":0,"packname":"python-iniparse","patent":0,"pattern":"packages = ['iniparse'],\n      data_files = [\n        ('share\/doc\/iniparse-%s' % VERSION, ['README', 'LICENSE-PSF',\n                                             'LICENSE', 'Changelog","risk":1,"trademark":0,"unique_id":"4cfe1551-b747-480d-b36b-f5620dd17ea2"}

@@ -1,0 +1,1 @@
+{"license":"X11","opinion":0,"packname":"pango","patent":0,"pattern":"modules\/indic\/indic-ot-class-tables.c modules\/indic\/indic-ot.[ch]:\n\tlicense on these ICU-derived files is X license, not LGPL.\n\n\t* modules\/khmer\/khmer-fc.c: Add the X license text here in addition \n\tto the LGPL","risk":1,"trademark":0,"unique_id":"aca4a826-3c9e-4392-af6a-e194905e90ed"}

@@ -1,0 +1,1 @@
+{"license":"Any floating warranty","opinion":0,"packname":"vlc","patent":0,"pattern":"There is absolutely no warranty or promise of forward, backward and\n * cross-platform compatibility with regards to libvlc_new() arguments.\n * We recommend that you do not use them, other than when debugging","risk":1,"trademark":0,"unique_id":"3a82edb3-8162-4e25-a5d0-07c84df2b8a4"}

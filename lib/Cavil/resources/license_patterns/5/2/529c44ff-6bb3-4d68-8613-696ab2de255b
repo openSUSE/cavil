@@ -1,0 +1,1 @@
+{"license":"GPL-2.0 WITH FLOSS-exception","opinion":0,"packname":"","patent":0,"pattern":"Added the --confirm-license option to configure.py.\n  - The GPL license now has the same exceptions as Qt","risk":1,"trademark":0,"unique_id":"529c44ff-6bb3-4d68-8613-696ab2de255b"}

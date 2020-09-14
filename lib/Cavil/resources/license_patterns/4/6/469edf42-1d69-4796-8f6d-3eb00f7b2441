@@ -1,0 +1,1 @@
+{"license":"BSD-2-Clause","opinion":0,"packname":"pam_yubico","patent":0,"pattern":"COPYING, Makefile.am, NEWS, README, configure.ac, pam_yubico.c,\n\ttest.c: Change license to 2-clause BSD","risk":1,"trademark":0,"unique_id":"469edf42-1d69-4796-8f6d-3eb00f7b2441"}

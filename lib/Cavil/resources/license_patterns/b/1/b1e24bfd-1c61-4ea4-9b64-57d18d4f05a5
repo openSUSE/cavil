@@ -1,0 +1,1 @@
+{"license":"Definitely not a license","opinion":0,"packname":"curl","patent":1,"pattern":"if 0 \/* Patent-encumbered. *\/\n  else if(curl_strequal(algo, \"ecPublicKey\")) {\n    \/* Left TODO","risk":0,"trademark":0,"unique_id":"b1e24bfd-1c61-4ea4-9b64-57d18d4f05a5"}

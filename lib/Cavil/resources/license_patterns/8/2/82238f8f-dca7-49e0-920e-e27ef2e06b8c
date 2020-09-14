@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"s.files        = Dir.glob('{lib}\/**\/*') + %w[CHANGELOG.md LICENSE README.md","risk":2,"trademark":0,"unique_id":"82238f8f-dca7-49e0-920e-e27ef2e06b8c"}

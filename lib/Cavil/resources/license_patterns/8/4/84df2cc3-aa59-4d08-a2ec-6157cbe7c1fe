@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"ant:fixcrlf srcdir=\"${maven.dist.src.assembly.dir}\" eol=\"lf\" encoding=\"ISO-8859-1\"\n       includes=\"LICENSE README NOTICE RELEASE_NOTES","risk":2,"trademark":0,"unique_id":"84df2cc3-aa59-4d08-a2ec-6157cbe7c1fe"}

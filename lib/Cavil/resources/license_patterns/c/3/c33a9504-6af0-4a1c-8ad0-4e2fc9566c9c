@@ -1,0 +1,1 @@
+{"license":"LGPL Unspecified","opinion":0,"packname":"libxslt","patent":0,"pattern":"Makefile.am libxslt.spec.in libxslt\/Makefile.am tests\/Makefile.am:\n\t  prepared the Makefiles and spec files for a first release.\n\t* COPYING.LIB: added LGPL Licence","risk":3,"trademark":0,"unique_id":"c33a9504-6af0-4a1c-8ad0-4e2fc9566c9c"}

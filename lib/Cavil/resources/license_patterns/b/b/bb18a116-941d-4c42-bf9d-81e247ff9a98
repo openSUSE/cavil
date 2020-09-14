@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"Initialize the OMAP EHCI controller and PHY.\n * Based on \"drivers\/usb\/host\/ehci-omap.c\" from Linux 3.1\n * See there for additional Copyrights","risk":2,"trademark":0,"unique_id":"bb18a116-941d-4c42-bf9d-81e247ff9a98"}

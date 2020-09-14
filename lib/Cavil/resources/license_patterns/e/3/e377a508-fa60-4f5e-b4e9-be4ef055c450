@@ -1,0 +1,1 @@
+{"license":"LGPL-2.1+","opinion":0,"packname":"","patent":0,"pattern":"Licensing\r\n\r\nContributions to KTextEditor shall be licensed under LGPLv2+.\r\n\r\nAt the moment the following source files still have licensing issues:\r\n\r\nfind src -name \"*.[ch]*\" -exec grep -L SPDX-License-Identifier","risk":1,"trademark":0,"unique_id":"e377a508-fa60-4f5e-b4e9-be4ef055c450"}

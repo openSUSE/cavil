@@ -1,0 +1,1 @@
+{"license":"LGPL Unspecified","opinion":0,"packname":"","patent":0,"pattern":"Many files were missing “Public” in “GNU Lesser General Public License”,\n    probably due to a mass replace that went a bit too far. Restore the\n    correct wording in all affected places","risk":3,"trademark":0,"unique_id":"52d0b9c8-2f59-4a80-ba97-40791ce6087a"}

@@ -1,0 +1,1 @@
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"license check ---------------------\r\n\r\n# We don't want any GPL licensed code without an autoconf\/libtool\r\n# exception, or any GPLv3 licensed code","risk":0,"trademark":0,"unique_id":"4ae1a383-fe77-401c-b35c-81d72768c52b"}

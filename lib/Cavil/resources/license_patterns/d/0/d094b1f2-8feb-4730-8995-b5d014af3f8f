@@ -1,0 +1,1 @@
+{"license":"LGPL Unspecified","opinion":0,"packname":"gstreamer-0_10","patent":0,"pattern":"dnl set license and copyright notice\nGST_LICENSE=\"LGPL\"\nAC_DEFINE_UNQUOTED(GST_LICENSE, \"$GST_LICENSE\", [GStreamer license])\nAC_SUBST(GST_LICENSE","risk":3,"trademark":0,"unique_id":"d094b1f2-8feb-4730-8995-b5d014af3f8f"}

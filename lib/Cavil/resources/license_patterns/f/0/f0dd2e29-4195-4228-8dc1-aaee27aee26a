@@ -1,0 +1,1 @@
+{"license":"BSD-3-Clause","opinion":0,"packname":"valgrind","patent":0,"pattern":"compile-time dependency on Valgrind being installed.  The Valgrind headers,\nunlike most of the rest of the code, are under a BSD-style license so you may\ninclude them without worrying about license incompatibility","risk":1,"trademark":0,"unique_id":"f0dd2e29-4195-4228-8dc1-aaee27aee26a"}

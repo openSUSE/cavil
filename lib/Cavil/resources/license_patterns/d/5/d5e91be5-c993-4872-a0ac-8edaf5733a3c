@@ -1,0 +1,1 @@
+{"license":"BSD-3-Clause","opinion":0,"packname":"flac","patent":0,"pattern":"Note that the FLAC format is not changing, native FLAC will continue to exist, and the command-line tools and plugins will continue to work as before.  The codec libraries will now be available under Xiph's BSD-like license.<br","risk":1,"trademark":0,"unique_id":"d5e91be5-c993-4872-a0ac-8edaf5733a3c"}

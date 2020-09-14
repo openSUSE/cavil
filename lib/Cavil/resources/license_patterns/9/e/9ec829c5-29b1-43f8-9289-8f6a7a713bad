@@ -1,0 +1,1 @@
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"contains the class definition for the leash implementation\r\n\/\/ of the UICommandHandler interface.  Its primary responsibility is\r\n\/\/ to accept UI events (i.e., button presses) and perform the","risk":0,"trademark":0,"unique_id":"9ec829c5-29b1-43f8-9289-8f6a7a713bad"}

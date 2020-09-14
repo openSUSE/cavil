@@ -1,0 +1,1 @@
+{"license":"MIT","opinion":0,"packname":"xapian-core","patent":0,"pattern":"HACKING: Include the MIT licence text in HACKING itself.\n\t* COPYING_MIT: Remove external copy of text - it could mislead users\n\t  into thinking that this is the current licence of Xapian","risk":1,"trademark":0,"unique_id":"67083938-d08e-423c-9600-85a109d46dda"}

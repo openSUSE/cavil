@@ -1,0 +1,1 @@
+{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"This header, excluding the #ifdef __KERNEL__ part, is BSD licensed so\n * anyone can use the definitions to implement compatible drivers\/servers","risk":1,"trademark":0,"unique_id":"bbef7c5a-79fc-4410-86e0-491cffd94c15"}

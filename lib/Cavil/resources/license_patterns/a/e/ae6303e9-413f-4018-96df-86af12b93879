@@ -1,0 +1,1 @@
+{"license":"GPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"tests: use GPLv2+, not GPLv3 (Jim Meyering),<br \/>\n      tests: adjust copyrights on scripts: s\/FSF\/Red Hat\/ (Jim Meyering),<br \/>\n      virsh: fix a typo in a diagnostic (Jim Meyering),<br","risk":2,"trademark":0,"unique_id":"ae6303e9-413f-4018-96df-86af12b93879"}

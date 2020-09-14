@@ -1,0 +1,1 @@
+{"license":"BSD-4-clause-UC","opinion":0,"packname":"","patent":0,"pattern":"1999-09-04  Todd C. Miller  <Todd.Miller@courtesan.com>\n\n\t* LICENSE, fnmatch.3, fnmatch.c, getcwd.c, lsearch.c, snprintf.c,\n\tstrcasecmp.c:\n\tUCB has dropped the advertising clause from their license.\n\t[a5602b36a341","risk":1,"trademark":0,"unique_id":"f5fa6092-fd8f-434d-a272-1c5a63d777fa"}

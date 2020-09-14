@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"mysql-connector-java","patent":0,"pattern":"Removed logging integrations with log4j and apache-commons-logging due to license \n      incompatibility. Replacing with SLF4J integration in next release","risk":2,"trademark":0,"unique_id":"ba3068fd-ff02-4a52-abee-feb1d469938c"}

@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"pulseaudio","patent":0,"pattern":"This module is based off Lennart Poettering's LADSPA sink and swaps out\n  LADSPA functionality for a dbus-aware STFT OLA based digital equalizer.\n  All new work is published under PulseAudio's original license","risk":2,"trademark":0,"unique_id":"15d2ed55-f3ee-4b36-8e40-0fd0ce1ac64d"}

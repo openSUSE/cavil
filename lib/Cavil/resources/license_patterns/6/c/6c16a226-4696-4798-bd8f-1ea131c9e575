@@ -1,0 +1,1 @@
+{"license":"LGPL Unspecified","opinion":1,"packname":"kdelibs4","patent":0,"pattern":"show progress widget at the bottom (otherwise the header of e.g.\n\t  the detail-view would be covered).\n\t- Added LGPL copyright header","risk":3,"trademark":0,"unique_id":"6c16a226-4696-4798-bd8f-1ea131c9e575"}

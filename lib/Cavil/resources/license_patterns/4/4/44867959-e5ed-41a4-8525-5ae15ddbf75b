@@ -1,0 +1,1 @@
+{"license":"GPL-Unspecified","opinion":0,"packname":"python-kde4","patent":0,"pattern":"Each files should have its our license header, but generally speaking the code\r\nthat makes up the PyKDE4 Python modules (libraries) are ̈́\"LGPL or later\", and\r\nthe rest is \"GPL or later","risk":3,"trademark":0,"unique_id":"44867959-e5ed-41a4-8525-5ae15ddbf75b"}

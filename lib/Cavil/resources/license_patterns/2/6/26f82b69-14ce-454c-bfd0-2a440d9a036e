@@ -1,0 +1,1 @@
+{"license":"GPL-Unspecified","opinion":0,"packname":"libgcrypt","patent":0,"pattern":"Support for the Camellia cipher.  Note that Camellia is disabled by\n   default, and that enabling it changes the license of libgcrypt from\n   LGPL to GPL","risk":3,"trademark":0,"unique_id":"26f82b69-14ce-454c-bfd0-2a440d9a036e"}

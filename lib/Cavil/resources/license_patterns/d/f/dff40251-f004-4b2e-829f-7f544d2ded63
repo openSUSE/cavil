@@ -1,0 +1,1 @@
+{"license":"Ruby","opinion":0,"packname":"","patent":0,"pattern":"Ruby' here since Ruby 1.9.3 switched to BSD-2-Clause, but we\n  # inherited our license from Mongrel when Ruby was at 1.8.\n  # We cannot automatically switch licenses when Ruby changes","risk":2,"trademark":0,"unique_id":"dff40251-f004-4b2e-829f-7f544d2ded63"}

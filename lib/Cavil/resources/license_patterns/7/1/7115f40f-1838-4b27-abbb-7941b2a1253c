@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"was taken from NetBSD and is used by SunOS because memcmp\n * on that platform does not properly compare negative bytes. The\n * NetBSD copyright terms follow","risk":2,"trademark":0,"unique_id":"7115f40f-1838-4b27-abbb-7941b2a1253c"}

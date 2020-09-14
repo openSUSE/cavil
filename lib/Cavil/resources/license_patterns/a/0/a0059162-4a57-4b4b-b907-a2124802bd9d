@@ -1,0 +1,1 @@
+{"license":"GPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"Mainline libstdc++ has switched to GPL3, a license which the developers\n  of libc++ cannot use.  libstdc++ 4.2 (the last GPL2 version) could be\n  independently extended to support C++11, but this would be a fork of the","risk":3,"trademark":0,"unique_id":"a0059162-4a57-4b4b-b907-a2124802bd9d"}

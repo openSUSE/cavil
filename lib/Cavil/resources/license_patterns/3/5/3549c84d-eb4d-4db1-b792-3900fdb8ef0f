@@ -1,0 +1,1 @@
+{"license":"LGPL Unspecified","opinion":1,"packname":"zziplib","patent":0,"pattern":"dnl set PACKAGE_LICENSE from the given specfile - if no \"license:\" tag\ndnl was given in the spec file then various COPYING files are grepped\ndnl to have a guess and the final fallback will be GNU GPL (or GNU\ndnl LGPL","risk":3,"trademark":0,"unique_id":"3549c84d-eb4d-4db1-b792-3900fdb8ef0f"}

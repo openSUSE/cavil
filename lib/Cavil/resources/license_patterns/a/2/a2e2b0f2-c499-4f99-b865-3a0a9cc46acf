@@ -1,0 +1,1 @@
+{"license":"PHP-3.01","opinion":1,"packname":"raptor","patent":0,"pattern":"1.59 removed this from PHP CVS and replaced it with entirely new\n * code written under the PHP license:\n *   http:\/\/viewcvs.php.net\/viewcvs.cgi\/php-src\/ext\/date\/lib\/\n * That code is not used here and cannot be used","risk":3,"trademark":0,"unique_id":"a2e2b0f2-c499-4f99-b865-3a0a9cc46acf"}

@@ -1,0 +1,1 @@
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"user who does not have AWS credentials or permission to access an S3 object \r\ncan be granted temporary access by using a presigned URL","risk":0,"trademark":0,"unique_id":"7352f5c0-be14-47c2-a26a-9ee6021fc5bb"}

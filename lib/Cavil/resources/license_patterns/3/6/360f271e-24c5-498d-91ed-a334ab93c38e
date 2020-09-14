@@ -1,0 +1,1 @@
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"include \"parser_internal.h\"\r\n\r\n\/** Basil 4.0 'Released' element *\/\r\nstatic void eh_released_4_0(struct ud *ud, const XML_Char **attrs","risk":0,"trademark":0,"unique_id":"360f271e-24c5-498d-91ed-a334ab93c38e"}

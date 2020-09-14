@@ -1,0 +1,1 @@
+{"license":"AGPL-3.0","opinion":0,"packname":"povray","patent":0,"pattern":"sprintf (filename, \"The POV-Ray license was written to the file %sagpl-3.0.txt\", DocumentsPath) ;\n  PovMessageBox (filename, \"agpl-3.0.txt saved","risk":3,"trademark":0,"unique_id":"d93d08d2-991e-4b65-811d-4315d8ddd879"}

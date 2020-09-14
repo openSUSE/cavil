@@ -1,0 +1,1 @@
+{"license":"GPL-2.0+","opinion":0,"packname":"libxslt","patent":0,"pattern":"Tutorial contains GPL-2.0+ code. Either split this off into a subpackage or\n  add GPL-2.0+ as an aggregation to the main licence tag","risk":2,"trademark":0,"unique_id":"9aa58410-194c-4ff7-8c95-127728d0631a"}

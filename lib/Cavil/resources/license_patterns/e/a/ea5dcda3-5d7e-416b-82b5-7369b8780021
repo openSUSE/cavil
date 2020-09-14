@@ -1,0 +1,1 @@
+{"license":"BSD-3-Clause","opinion":0,"packname":"Mesa","patent":0,"pattern":"self.name = \"glX_server_table.py (from Mesa)\"\n\t\tself.license = license.bsd_license_template % ( \"(C) Copyright IBM Corporation 2005, 2006\", \"IBM","risk":1,"trademark":0,"unique_id":"ea5dcda3-5d7e-416b-82b5-7369b8780021"}

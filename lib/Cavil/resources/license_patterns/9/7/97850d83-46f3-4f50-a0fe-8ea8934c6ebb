@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"xfce4-terminal","patent":0,"pattern":"terminal\/terminal-window.c(terminal_window_action_about): Use\n    \t  GPL license text provided by libxfce4util","risk":2,"trademark":0,"unique_id":"97850d83-46f3-4f50-a0fe-8ea8934c6ebb"}

@@ -1,0 +1,1 @@
+{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"BSD-licensed interface to the GEOS geometry routines, implemented purely\n  in Python using ``ctypes","risk":1,"trademark":0,"unique_id":"f4b0adad-13d8-48c8-b9a5-710a82284ee1"}

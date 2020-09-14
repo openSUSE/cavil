@@ -1,0 +1,1 @@
+{"license":"GPL-3.0+ WITH Linking-exception","opinion":0,"packname":"wget","patent":0,"pattern":"Makefile.in, README, autogen.sh, configure.bat, configure.in,\n\tm4\/wget.m4, util\/Makefile.in, util\/dist-wget: Updated license\n\texception for OpenSSL, per the SFLC","risk":1,"trademark":0,"unique_id":"8be93d40-0cd6-41b3-a467-515ec718b62a"}

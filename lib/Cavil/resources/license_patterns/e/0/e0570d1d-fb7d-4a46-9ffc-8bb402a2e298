@@ -1,0 +1,1 @@
+{"license":"Artistic-2.0","opinion":0,"packname":"perl-Tree-DAG_Node","patent":0,"pattern":"Correct the text at L<Tree::DAG_Node\/AUTHOR> so it refers to Artistic License 2.0,\n\t\twhich now matches what it says in Build.PL and Makefile.PL. Resolves RT#83088","risk":2,"trademark":0,"unique_id":"e0570d1d-fb7d-4a46-9ffc-8bb402a2e298"}

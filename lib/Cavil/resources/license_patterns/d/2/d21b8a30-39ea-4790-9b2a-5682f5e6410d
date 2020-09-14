@@ -1,0 +1,1 @@
+{"license":"Public-Domain","opinion":0,"packname":"freeradius-server","patent":0,"pattern":"SHAInit(), SHAUpdate() and SHAFinal() functions are an\n * implementation of Secure Hash Algorithm (SHA-1) [7]. These are\n * available in public domain or can be licensed from\n * RSA Data Security, Inc","risk":1,"trademark":0,"unique_id":"d21b8a30-39ea-4790-9b2a-5682f5e6410d"}

@@ -1,0 +1,1 @@
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"sed on %{name}.files\r\n#license: SUSE-NonFree\r\n#skip_noarch: 1","risk":0,"trademark":0,"unique_id":"b4e5b837-b4ee-46e9-bfae-4527f2e79ba2"}

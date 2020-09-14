@@ -1,0 +1,1 @@
+{"license":"GPL-2.0","opinion":0,"packname":"puppet","patent":0,"pattern":"it \"should support a 'license' attribute\" do\n    mod = Puppet::Module.new(\"mymod\")\n    mod.license = \"GPL2\"\n    mod.license.should == \"GPL2","risk":2,"trademark":0,"unique_id":"16797576-258d-4255-8eee-8cd0f33059c1"}

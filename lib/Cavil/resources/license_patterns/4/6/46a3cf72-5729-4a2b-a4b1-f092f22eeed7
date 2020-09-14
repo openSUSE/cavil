@@ -1,0 +1,1 @@
+{"license":"Apache-2.0","opinion":0,"packname":"rubygem-stomp","patent":0,"pattern":"gem.version = Stomp::Version::STRING\n    gem.summary = %Q{Ruby client for the Stomp messaging protocol}\n    gem.license = \"Apache-2.0","risk":3,"trademark":0,"unique_id":"46a3cf72-5729-4a2b-a4b1-f092f22eeed7"}

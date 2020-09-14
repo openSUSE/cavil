@@ -1,0 +1,1 @@
+{"license":"BSD-3-Clause","opinion":0,"packname":"openvswitch","patent":0,"pattern":"include\/windows\/getopt.h\n\n* The following files are licensed under the 3-clause BSD-license\n\n\tinclude\/windows\/netinet\/icmp6.h\n\tinclude\/windows\/netinet\/ip6.h\n\tlib\/strsep.c","risk":1,"trademark":0,"unique_id":"25b042b3-bc2f-4851-ad6a-2ccb79fe06ac"}

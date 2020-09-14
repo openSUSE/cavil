@@ -1,0 +1,1 @@
+{"license":"GPL-Unspecified","opinion":0,"packname":"gimp","patent":0,"pattern":"app\/dialogs\/about-dialog.c: set the new \"wrap-license\" property\n\ton GtkAboutDialog and remove the explicit newlines from the string\n\tholding the GPL","risk":3,"trademark":0,"unique_id":"87024174-5bce-409e-9449-4956a290db2a"}

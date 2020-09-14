@@ -1,0 +1,1 @@
+{"license":"MIT","opinion":0,"packname":"","patent":0,"pattern":"licenseName := \"MIT\"\r\n\tlicense := gh.License{Name: &licenseName}\r\n\trepository := gh.Repository{License: &license","risk":1,"trademark":0,"unique_id":"a294e171-87e6-436e-9cb7-57a3f6e7ca1f"}

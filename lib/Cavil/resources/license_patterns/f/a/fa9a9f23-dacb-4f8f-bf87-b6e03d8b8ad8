@@ -1,0 +1,1 @@
+{"license":"GPL-2.0","opinion":0,"packname":"tmpwatch","patent":0,"pattern":"tmpwatch.c: Relicense to GPLv2.  Update Red Hat copyright message.\n\t(printCopyright): Update.\n\n\t* tmpwatch.8: Add a copyright message","risk":2,"trademark":0,"unique_id":"fa9a9f23-dacb-4f8f-bf87-b6e03d8b8ad8"}

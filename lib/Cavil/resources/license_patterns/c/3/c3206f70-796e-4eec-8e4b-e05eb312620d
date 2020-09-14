@@ -1,0 +1,1 @@
+{"license":"LGPL-2.1+","opinion":0,"packname":"","patent":0,"pattern":"This patch thus introduces methods virDBusCallMethod &\n\tvirDBusMessageRead, which are based on the code used for\n\tsd_bus_call_method and sd_bus_message_read. This code in\n\tsystemd is under the LGPLv2+, so we're license compatible","risk":1,"trademark":0,"unique_id":"c3206f70-796e-4eec-8e4b-e05eb312620d"}

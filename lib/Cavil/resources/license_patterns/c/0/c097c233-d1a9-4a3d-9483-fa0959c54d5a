@@ -1,0 +1,1 @@
+{"license":"any reference local","opinion":0,"packname":"redland","patent":0,"pattern":"less doc classes; no real need for the implementation classes.\n\tRemoved GFDL.  The docs have the same license as Redland now","risk":2,"trademark":0,"unique_id":"c097c233-d1a9-4a3d-9483-fa0959c54d5a"}

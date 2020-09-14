@@ -1,0 +1,1 @@
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"import \"strings\"\r\n\r\n\/\/ EnvForDir returns a copy of the environment\r\n\/\/ suitable for running in the given directory","risk":0,"trademark":0,"unique_id":"0cbc77fa-5b7e-471f-b697-2d2274b2fabe"}

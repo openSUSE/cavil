@@ -1,0 +1,1 @@
+{"license":"LGPL Unspecified","opinion":0,"packname":"soundtouch","patent":0,"pattern":"li> Moved SoundTouch under lesser GPL license (LGPL). This allows\nusing SoundTouch library in programs that aren't released under GPL\nlicense. <\/li","risk":3,"trademark":0,"unique_id":"10b01cf9-5719-4902-a74e-f665d252ccca"}
