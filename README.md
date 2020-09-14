@@ -1,32 +1,24 @@
 # Cavil [![Build Status](https://travis-ci.com/openSUSE/cavil.svg?branch=master)](https://travis-ci.com/openSUSE/cavil)
 
-  Cavil is a legal review system for the
-  [Open Build Service](https://openbuildservice.org). It is used in the
-  development of openSUSE Tumbleweed, openSUSE Leap, as well as SUSE Linux
-  Enterprise.
+  Cavil is a legal review system for the [Open Build Service](https://openbuildservice.org). It is used in the
+  development of openSUSE Tumbleweed, openSUSE Leap, as well as SUSE Linux Enterprise.
 
 ![Screenshot](https://raw.github.com/openSUSE/cavil/master/examples/report.png?raw=true)
 
-  This distribution contains the two main components of the system. A
-  [Mojolicious](https://mojolicious.org) web application that lawyers can use to
-  efficiently review package contents, and
-  [Minion](https://metacpan.org/pod/Minion) background jobs to process and index
-  packages, to create easy to digest license reports.
+  This distribution contains the two main components of the system. A [Mojolicious](https://mojolicious.org) web
+  application that lawyers can use to efficiently review package contents, and [Minion](https://metacpan.org/pod/Minion)
+  background jobs to process and index packages, to create easy to digest license reports.
 
-  Additionally there is also a small curated subset of the license patterns the
-  SUSE lawyers have created included in this distribution. Currently this subset
-  consists of 20 patterns each for 100 popular licenses. This library of
-  patterns might be expanded in the future however.
+  Additionally there is large curated set of license patterns the SUSE lawyers have created included in this
+  distribution. Currently this et consists of over 20000 patterns for all known Open Source licenses.
 
   The easiest way to connect OBS to Cavil is the `legal-auto.py` bot from the
-  [openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools)
-  repository.
+  [openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools) repository.
 
 ## Getting Started
 
-  The easiest way to get started with Cavil is the included staging scripts for
-  setting up a quick development environment. All you need is an empty
-  PostgreSQL database (with the `pgcrypto` extension activated) and the following
+  The easiest way to get started with Cavil is the included staging scripts for setting up a quick development
+  environment. All you need is an empty PostgreSQL database (with the `pgcrypto` extension activated) and the following
   dependencies:
 
     $ sudo zypper in -C postgresql-server postgresql-contrib 'rubygem(sass)'
@@ -46,6 +38,5 @@
     $ perl staging/stop.pl
     ...
 
-  The `morbo` development web server will make the web application available
-  under `http://127.0.0.1:3000`. And `script/cavil minion worker` will start the
-  job queue for processing background jobs.
+  The `morbo` development web server will make the web application available under `http://127.0.0.1:3000`. And
+  `script/cavil minion worker` will start the job queue for processing background jobs.
