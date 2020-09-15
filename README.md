@@ -25,7 +25,7 @@
     $ sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-AssetPack \
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
       perl-Spooky-Patterns-XS perl-Net-OpenID-Consumer 'perl(LWP::UserAgent)' \
-      perl-BSD-Resource perl-Text-Glob
+      perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob
 
   Then use these commands to set up and tear down a development environment:
 

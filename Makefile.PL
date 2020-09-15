@@ -14,10 +14,10 @@ WriteMakefile(
   LICENSE      => 'gpl_2',
   META_MERGE   => {
     dynamic_config => 0,
-    'meta-spec' => {version   => 2},
-    no_index    => {directory => ['t']},
-    prereqs     => {runtime   => {requires => {perl => '5.010001'}}},
-    resources   => {
+    'meta-spec'    => {version   => 2},
+    no_index       => {directory => ['t']},
+    prereqs        => {runtime   => {requires => {perl => '5.010001'}}},
+    resources      => {
       bugtracker => {web => 'https://github.com/openSUSE/cavil/issues'},
       homepage   => 'https://github.com/openSUSE/cavil',
       repository => {
@@ -39,6 +39,7 @@ WriteMakefile(
     'Net::OpenID::Consumer'          => 0,
     'LWP::UserAgent'                 => 0,
     'BSD::Resource'                  => 0,
+    'Term::ProgressBar'              => 0,
     'Text::Glob'                     => 0
   },
   EXE_FILES => ['script/cavil'],

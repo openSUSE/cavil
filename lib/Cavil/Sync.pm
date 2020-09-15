@@ -16,8 +16,10 @@
 package Cavil::Sync;
 use Mojo::Base -base;
 
+use File::Find qw(find);
 use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json encode_json);
+use Term::ProgressBar;
 
 has 'app';
 has silent => 0;
@@ -30,6 +32,11 @@ sub load {
   my $patterns = $app->patterns;
   die "License pattern directory $dir not found" unless -d ($dir = path($dir));
 
+  my $count = 0;
+  find(sub { -f && $count++ }, $dir->to_string);
+  my $progress = Term::ProgressBar->new(
+    {count => $count, name => "Importing $count patterns", term_width => 80, silent => $self->silent});
+
   my $imported = my $all = 0;
   for my $first ($dir->list({dir => 1})->each) {
     for my $second ($first->list({dir => 1})->each) {
@@ -37,17 +44,17 @@ sub load {
         my $hash = decode_json($target->slurp);
         $hash->{token_hexsum} = $patterns->checksum($hash->{pattern});
         $imported++ if $db->insert('license_patterns', $hash, {on_conflict => undef, returning => 'id'})->rows;
+        $progress->update;
         $all++;
       }
     }
   }
+  say "\n@{[$all - $imported]} duplicates ignored" unless $self->silent;
 
   $patterns->expire_cache;
 
   # reclculate the tf-idfs
   $app->minion->enqueue(pattern_stats => [] => {priority => 9});
-
-  say "Imported $imported license patterns (@{[$all - $imported]} duplicates ignored)." unless $self->silent;
 
   return $imported;
 }
@@ -58,8 +65,12 @@ sub store {
   my $db = $self->app->pg->db;
   die "License pattern directory $dir not found" unless -d ($dir = path($dir));
 
+  my $count    = $db->query('select count(*) from license_patterns')->array->[0];
+  my $progress = Term::ProgressBar->new(
+    {count => $count, name => "Exporting $count patterns", term_width => 80, silent => $self->silent});
+
   my $last  = my $all = 0;
-  my $count = {};
+  my $stats = {};
   while (1) {
     my $results = $db->query('select * from license_patterns where id > ? order by id asc limit 100', $last);
     last unless $results->rows;
@@ -69,7 +80,7 @@ sub store {
 
       my $uuid = $hash->{unique_id};
       my ($first, $second) = (substr($uuid, 0, 1), substr($uuid, 1, 1));
-      $count->{"$first$second"}++;
+      $stats->{"$first$second"}++;
       my $subdir = $dir->child($first, $second);
       $subdir->make_path unless -d $subdir;
 
@@ -89,11 +100,12 @@ sub store {
         )
       );
       $all++;
+      $progress->update;
     }
   }
 
-  my $max = (sort { $a <=> $b } values %$count)[-1];
-  say "Exported $all license patterns (with a maximum of $max files per directory)." unless $self->silent;
+  my $max = (sort { $a <=> $b } values %$stats)[-1];
+  say "\nMaximum of $max files per directory" unless $self->silent;
 
   return $all;
 }
