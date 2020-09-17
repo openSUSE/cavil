@@ -146,6 +146,7 @@ is_deeply $list->{jobs}[1]{args}, [1], 'right arguments';
 my $reindex_id = $list->{jobs}[0]{id};
 $t->app->minion->perform_jobs;
 is $t->app->minion->job($reindex_id)->info->{state}, 'finished', 'job is finished';
+ok -f $cavil_test->cache_dir->child('cavil.tokens'), 'cache initialized';
 $res = $db->select(
   ['pattern_matches', ['matched_files', id => 'file']],
   ['sline',           'pattern'],
