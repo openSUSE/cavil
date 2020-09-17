@@ -1,4 +1,4 @@
-# Cavil [![Build Status](https://travis-ci.com/openSUSE/cavil.svg?branch=master)](https://travis-ci.com/openSUSE/cavil)
+# Cavil [![](https://github.com/openSUSE/cavil/workflows/linux/badge.svg)](https://github.com/openSUSE/cavil/actions)
 
   Cavil is a legal review system for the [Open Build Service](https://openbuildservice.org). It is used in the
   development of openSUSE Tumbleweed, openSUSE Leap, as well as SUSE Linux Enterprise.
