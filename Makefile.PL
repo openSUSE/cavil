@@ -40,6 +40,7 @@ WriteMakefile(
     'LWP::UserAgent'                 => 0,
     'BSD::Resource'                  => 0,
     'Term::ProgressBar'              => 0,
+    'Algorithm::Diff'                => 0,
     'Text::Glob'                     => 0
   },
   EXE_FILES => ['script/cavil'],
