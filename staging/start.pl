@@ -22,6 +22,7 @@ $pg->db->query('create schema cavil_staging');
 
 $dir->make_path;
 my $checkouts = $dir->child('legal-bot')->make_path->realpath;
+my $cache     = $dir->child('cache')->make_path->realpath;
 
 my $checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')->make_path;
 my $test = $dir->child('..', '..', 't', 'legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')->realpath;
@@ -34,6 +35,7 @@ my $conf   = $dir->child('cavil.conf')->spurt(<<"EOF");
 {
   secrets              => ['just_a_test'],
   checkout_dir         => '$checkouts',
+  cache_dir            => '$cache',
   tokens               => [],
   pg                   => '$online',
   acceptable_risk      => 3,

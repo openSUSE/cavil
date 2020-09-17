@@ -29,6 +29,7 @@ use Cavil::OBS;
 use Cavil::Sync;
 use Scalar::Util 'weaken';
 use Time::HiRes ();
+use Mojo::File qw(path);
 
 has classifier => sub { Cavil::Classifier->new };
 has obs        => sub { Cavil::OBS->new };
@@ -155,7 +156,7 @@ sub startup {
     }
   );
 
-  my $cache = $self->home->child('cache')->make_path;
+  my $cache = path($config->{cache_dir})->make_path;
   $self->helper(
     patterns => sub {
       my $self = shift;

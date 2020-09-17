@@ -177,6 +177,7 @@ subtest 'Unpack background job' => sub {
   ok -f $dir->child('.unpacked', 'Mojolicious-7.25', 'LICENSE'), 'license file exists';
   my $module = $dir->child('.unpacked', 'Mojolicious-7.25', 'lib', 'Mojolicious.pm');
   ok -f $module, 'module exists';
+  ok -f $cavil_test->cache_dir->child('cavil.tokens'), 'cache initialized';
 
   # Prevent import race condition
   ok $minion->job($job_id)->retry, 'unpack job retried';

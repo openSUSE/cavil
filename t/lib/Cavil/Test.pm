@@ -29,12 +29,14 @@ sub new {
   $self->{pg}       = Mojo::Pg->new($options{online});
   $self->{db_guard} = $self->_prepare_schema($options{schema});
 
-  # Checkout dir
+  # Temporary directories
   $self->{checkout_dir} = tempdir;
+  $self->{cache_dir}    = tempdir;
 
   return $self;
 }
 
+sub cache_dir    { shift->{cache_dir} }
 sub checkout_dir { shift->{checkout_dir} }
 
 sub default_config {
@@ -42,6 +44,7 @@ sub default_config {
   return {
     secrets                => ['just_a_test'],
     checkout_dir           => $self->checkout_dir,
+    cache_dir              => $self->cache_dir,
     tokens                 => ['test_token'],
     pg                     => $self->postgres_url,
     acceptable_risk        => 3,
