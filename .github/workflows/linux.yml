@@ -32,7 +32,7 @@ jobs:
           apt-get install -y libmagic-dev ruby-sass
           cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.55.tar.gz
           cpanm -n --installdeps .
-          cpanm -n Test::Deep IO::Socket::SSL CSS::Sass CSS::Minifier::XS JavaScript::Minifier::XS
+          cpanm -n Test::Deep
       - name: Run tests
         env:
           TEST_ONLINE: postgresql://postgres:postgres@postgres:5432/postgres

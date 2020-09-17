@@ -19,6 +19,7 @@ use Mojo::Base 'Mojolicious::Plugin';
 use Mojo::JSON 'encode_json';
 use Cavil::Util;
 use Spooky::Patterns::XS 1.54;
+use Mojo::File qw(path);
 
 sub register {
   my ($self, $app) = @_;
@@ -38,9 +39,10 @@ sub _pattern_stats {
   $patterns{$_->{id}} = $_->{pattern} for $rows->each;
   $bag->set_patterns(\%patterns);
 
-  my $cache = $app->home->child('cache', 'cavil.pattern.bag.new.' . $job->id);
+  my $dir   = path($app->config->{cache_dir});
+  my $cache = $dir->child('cavil.pattern.bag.new.' . $job->id);
   $bag->dump($cache);
-  rename($cache, $app->home->child('cache', 'cavil.pattern.bag'));
+  rename($cache, $dir->child('cavil.pattern.bag'));
 
   $rows = $db->select('snippets', 'id,text', {like_pattern => undef});
   while (my $next = $rows->hash) {
