@@ -1,0 +1,31 @@
+% layout 'default';
+
+<h2>Upload</h2>
+
+<div class="alert alert-warning">
+  Please be aware that this is an <b>EXPERIMENTAL</b> developer feature and should not be used in production for now.
+</div>
+
+%= form_for '/upload' => (method => 'POST', enctype => 'multipart/form-data') => begin
+  <div class="form-group">
+    <label>Name</label>
+    %= text_field name => '', class => 'form-control', placeholder => 'perl-Mojolicious'
+  </div>
+
+  <div class="form-group">
+    <label>
+      Licenses (<a href="https://spdx.org/licenses/" target="_blank">SPDX expression</a> with assumed licenses)
+    </label>
+    %= text_field licenses => '', class => 'form-control', placeholder => 'GPL-2.0-or-later OR Artistic-1.0'
+  </div>
+
+  <div class="form-group">
+    <label>Tarball</label>
+    <div class="custom-file">
+      %= file_field 'tarball', class => "custom-file-input"
+      <label class="custom-file-label" for="tarball">Choose file</label>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" type="submit">Upload</button>
+% end

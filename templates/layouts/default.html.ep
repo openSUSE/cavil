@@ -63,6 +63,9 @@
                     class => 'nav-link' %>
                 </li>
               % }
+              <li class="nav-item">
+                %= link_to 'Upload' => '/upload', class => 'nav-link'
+              </li>
             % }
           </ul>
           <form action="<%= url_for 'search' %>" class="form-inline">

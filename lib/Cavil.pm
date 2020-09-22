@@ -53,6 +53,7 @@ sub startup {
 
   # Avoid huge temp files in "/tmp"
   $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};
+  $self->max_request_size(262144000);
 
   # Short logs for systemd
   if ($self->mode eq 'production') {
@@ -244,6 +245,10 @@ sub startup {
   $public->get('/snippets/from_file/:file/:start/:end')->to('Snippet#from_file')->name('new_snippet');
   $admin->post('/snippet/decision/:id')->to('Snippet#decision')->name('snippet_decision');
   $public->get('/snippets/top')->to('Snippet#top')->name('top_snippets');
+
+  # Upload (experimental)
+  $admin->get('/upload')->to('Upload#index')->name('upload');
+  $admin->post('/upload')->to('Upload#store')->name('store_upload');
 
 }
 
