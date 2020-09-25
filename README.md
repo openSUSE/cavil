@@ -10,10 +10,11 @@
   background jobs to process and index packages, to create easy to digest license reports.
 
   Additionally there is large curated set of license patterns the SUSE lawyers have created included in this
-  distribution. Currently this et consists of over 20000 patterns for all known Open Source licenses.
+  distribution. Currently this set consists of over 20000 patterns for all known Open Source licenses.
 
   The easiest way to connect OBS to Cavil is the `legal-auto.py` bot from the
-  [openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools) repository.
+  [openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools) repository. But you can also upload
+  tarballs directly for analysis.
 
 ## Getting Started
 
