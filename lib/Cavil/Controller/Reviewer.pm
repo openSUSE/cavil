@@ -83,9 +83,9 @@ sub calc_report {
 sub details {
   my $self = shift;
 
-  my $id     = $self->param('id');
-  my $pkgs   = $self->packages;
-  my $pkg    = $pkgs->find($id);
+  my $id   = $self->param('id');
+  my $pkgs = $self->packages;
+  return $self->render(text => 'Package not found', status => 404) unless my $pkg = $pkgs->find($id);
   my $report = $self->reports->specfile_report($id);
 
   my $should_reindex = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
