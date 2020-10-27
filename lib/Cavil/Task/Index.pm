@@ -46,6 +46,7 @@ sub _index {
   # Clean up (make sure not to leak a Postgres connection)
   {
     my $db = $app->pg->db;
+    $db->update('bot_packages', {indexed => undef}, {id => $id});
     $db->delete('matched_files', {package => $id});
     $db->delete('urls',          {package => $id});
     $db->delete('emails',        {package => $id});

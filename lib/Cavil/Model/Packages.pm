@@ -195,13 +195,10 @@ sub reindex {
   # Protect from race conditions (even before creating a background job)
   return undef unless $self->minion->lock("processing_pkg_$id", 0);
 
+  # Make sure package exists and is eligible for reindexing
   return undef
-    unless my $pkg = $self->pg->db->update(
-    'bot_packages',
-    {indexed   => undef},
-    {id        => $id, indexed => {'!=' => undef}, '-not_bool' => 'obsolete'},
-    {returning => '*'}
-  )->hash;
+    unless $self->pg->db->select('bot_packages', 'id',
+    {id => $id, indexed => {'!=' => undef}, '-not_bool' => 'obsolete'})->hash;
 
   $self->index($id, $priority);
 

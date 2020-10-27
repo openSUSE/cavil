@@ -225,6 +225,8 @@ subtest 'Prevent index race condition' => sub {
   ok !$t->app->packages->reindex(1), 'not reindexing';
   undef $guard;
   ok $t->app->packages->reindex(1), 'reindexing';
+
+  ok !$t->app->packages->reindex(99999), 'package does not exist';
 };
 
 done_testing();
