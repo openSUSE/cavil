@@ -60,7 +60,7 @@ sub all { shift->pg->db->select('bot_packages')->hashes }
 
 sub analyze {
   my ($self, $id, $priority, $parents) = (shift, shift, shift // 9, shift || []);
-  return $self->minion->enqueue(analyze => [$id] => {parents => $parents, priority => $priority});
+  return $self->_enqueue('analyze', $id, $priority, $parents);
 }
 
 sub find {
@@ -264,7 +264,7 @@ sub _enqueue {
       delay    => $delay,
       parents  => $parents,
       priority => $priority,
-      notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}}
+      notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
     }
   );
 }

@@ -39,7 +39,7 @@ subtest 'Details after import (indexing in progress)' => sub {
     ->element_exists_not('#pkg-review')->element_exists_not('#pkg-shortname')
     ->element_exists_not('#pkg-review label[for=comment]')->element_exists_not('#pkg-review textarea[name=comment]')
     ->element_exists_not('#correct')->element_exists_not('#acceptable')->element_exists_not('#unacceptable');
-  $t->get_ok('/reviews/calc_report/1')->status_is(408);
+  $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/not indexed/);
 };
 
 subtest 'Details after import (with login)' => sub {
@@ -52,7 +52,7 @@ subtest 'Details after import (with login)' => sub {
     ->element_exists('#pkg-review')->element_exists_not('#pkg-shortname')
     ->element_exists('#pkg-review label[for=comment]')->element_exists('#pkg-review textarea[name=comment]')
     ->element_exists('#correct')->element_exists('#acceptable')->element_exists('#unacceptable');
-  $t->get_ok('/reviews/calc_report/1')->status_is(408);
+  $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/not indexed/);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -115,7 +115,7 @@ subtest 'JSON report' => sub {
   is $pkg->{result},     undef,              'no result';
 
   ok my $report = $json->{report}, 'report';
-  is $report->{emails}[0][0], 'coolo@suse.com',         'right email';
+  is $report->{emails}[0][0], 'coolo@suse.com', 'right email';
   ok $report->{emails}[0][1], 'multiple matches';
   is $report->{urls}[0][0],   'http://mojolicious.org', 'right URL';
   ok $report->{urls}[0][1],   'multiple matches';
@@ -154,6 +154,7 @@ subtest 'JSON report' => sub {
 $t->app->minion->enqueue('pattern_stats');
 $t->app->minion->perform_jobs;
 $t->app->packages->reindex(1);
+$t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/package being processed/);
 $t->app->minion->perform_jobs;
 
 subtest 'Snippets after reindexing' => sub {
@@ -247,7 +248,7 @@ subtest 'Final JSON report' => sub {
   is $pkg->{result},     'Test review',      'result';
 
   ok my $report = $json->{report}, 'report';
-  is $report->{emails}[0][0], 'coolo@suse.com',         'right email';
+  is $report->{emails}[0][0], 'coolo@suse.com', 'right email';
   ok $report->{emails}[0][1], 'multiple matches';
   is $report->{urls}[0][0],   'http://mojolicious.org', 'right URL';
   ok $report->{urls}[0][1],   'multiple matches';
@@ -256,12 +257,12 @@ subtest 'Final JSON report' => sub {
   is $missed_files->[0]{id},      9,         'id';
   is $missed_files->[0]{license}, 'Snippet', 'license';
   ok $missed_files->[0]{match} > 0, 'match';
-  is $missed_files->[0]{max_risk}, 7,            'max risk';
+  is $missed_files->[0]{max_risk}, 7, 'max risk';
   ok $missed_files->[0]{name},     'name';
   is $missed_files->[1]{id},       12,           'id';
   is $missed_files->[1]{license},  'Apache-2.0', 'license';
   ok $missed_files->[1]{match} > 0, 'match';
-  is $missed_files->[1]{max_risk}, 7,         'max risk';
+  is $missed_files->[1]{max_risk}, 7, 'max risk';
   ok $missed_files->[1]{name},     'name';
   is $missed_files->[2]{id},       8,         'id';
   is $missed_files->[2]{license},  'Snippet', 'license';

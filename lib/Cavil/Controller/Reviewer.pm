@@ -64,6 +64,10 @@ sub calc_report {
   my $id  = $self->param('id');
   my $pkg = $self->packages->find($id);
 
+  # Covers various jobs that will modify the report
+  return $self->render(text => 'package being processed', status => 408)
+    if $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+
   return $self->render(text => 'not indexed', status => 408) unless $pkg->{indexed};
 
   return $self->render(text => 'no report', status => 408) unless my $report = $self->reports->cached_dig_report($id);
