@@ -32,6 +32,15 @@ $cavil_test->mojo_fixtures($t->app);
 # Changes entry about 6.57 fixing copyright notices
 $t->app->packages->ignore_line('perl-Mojolicious', '81efb065de14988c4bd808697de1df51');
 
+subtest 'Cannot analyze before indexing' => sub {
+  my $analyze_id = $t->app->minion->enqueue(analyze => [1]);
+  $t->app->minion->perform_jobs;
+  my $analyze_job = $t->app->minion->job($analyze_id);
+  is $analyze_job->task, 'analyze', 'right task';
+  is $analyze_job->info->{state},    'finished',                       'job is finished';
+  like $analyze_job->info->{result}, qr/Package 1 is not indexed yet/, 'not yet indexed';
+};
+
 # Unpack and index with the job queue
 my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
 my $db        = $t->app->pg->db;

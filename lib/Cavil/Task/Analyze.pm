@@ -36,7 +36,7 @@ sub _analyze {
   # Protect from race conditions
   return $job->finish("Package $id is already being processed")
     unless my $guard = $minion->guard("processing_pkg_$id", 172800);
-  return $job->fail("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
+  return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
 
   $app->plugins->emit_hook('before_task_analyze');
   $app->pg->db->update('bot_reports', {ldig_report => undef}, {package => $id});
@@ -57,8 +57,8 @@ sub _analyze {
   # Do not leak Postgres connections
   {
     my $db = $app->pg->db;
-    $db->update('bot_packages', {checksum => $shortname}, {id => $id});
-    $db->update('bot_reports', {ldig_report => to_json($dig)}, {package => $id});
+    $db->update('bot_packages', {checksum    => $shortname},    {id      => $id});
+    $db->update('bot_reports',  {ldig_report => to_json($dig)}, {package => $id});
     if ($pkg->{state} ne 'new') {
 
       # in case we reindexed an old pkg, check if 'new' packages now match.
@@ -98,9 +98,9 @@ sub _analyzed {
   for my $p (@$packages) {
 
     # ignore obsolete reviews - possibly harmful as we don't reindex those
-    next if $p->{obsolete};
-    $found_correct = $p->{id} if $p->{state} eq 'correct';
-    last if $found_correct;
+    next                         if $p->{obsolete};
+    $found_correct = $p->{id}    if $p->{state} eq 'correct';
+    last                         if $found_correct;
     $found_acceptable = $p->{id} if $p->{state} eq 'acceptable';
   }
 
