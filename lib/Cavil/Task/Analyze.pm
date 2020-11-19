@@ -34,9 +34,9 @@ sub _analyze {
   my $log    = $app->log;
 
   # Protect from race conditions
+  return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
   return $job->finish("Package $id is already being processed")
     unless my $guard = $minion->guard("processing_pkg_$id", 172800);
-  return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
 
   $app->plugins->emit_hook('before_task_analyze');
   $app->pg->db->update('bot_reports', {ldig_report => undef}, {package => $id});
@@ -81,8 +81,14 @@ sub _analyzed {
   my ($job, $id) = @_;
 
   my $app     = $job->app;
+  my $minion  = $app->minion;
   my $reports = $app->reports;
   my $pkgs    = $app->packages;
+
+  # Protect from race conditions
+  return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
+  return $job->finish("Package $id is already being processed")
+    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
 
   # Only "new" and "acceptable" can be reviewed automatically
   my $pkg = $pkgs->find($id);

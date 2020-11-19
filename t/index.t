@@ -39,6 +39,13 @@ subtest 'Cannot analyze before indexing' => sub {
   is $analyze_job->task, 'analyze', 'right task';
   is $analyze_job->info->{state},    'finished',                       'job is finished';
   like $analyze_job->info->{result}, qr/Package 1 is not indexed yet/, 'not yet indexed';
+
+  my $analyzed_id = $t->app->minion->enqueue(analyzed => [1]);
+  $t->app->minion->perform_jobs;
+  my $analyzed_job = $t->app->minion->job($analyzed_id);
+  is $analyzed_job->task, 'analyzed', 'right task';
+  is $analyzed_job->info->{state},    'finished',                       'job is finished';
+  like $analyzed_job->info->{result}, qr/Package 1 is not indexed yet/, 'not yet indexed';
 };
 
 # Unpack and index with the job queue
