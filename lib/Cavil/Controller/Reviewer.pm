@@ -98,13 +98,19 @@ sub details {
   my $history  = $pkgs->history($pkg->{name}, $pkg->{checksum}, $id);
   my $actions  = $pkgs->actions($pkg->{external_link}, $id);
 
-  $self->render(
-    spec           => $report,
-    package        => $pkg,
-    products       => $products,
-    history        => $history,
-    actions        => $actions,
-    should_reindex => $should_reindex
+  $self->respond_to(
+    json => sub { $self->render(json => {spec => $report, package => $pkg}) },
+    html => sub {
+      $self->render(
+        spec           => $report,
+        package        => $pkg,
+        products       => $products,
+        history        => $history,
+        actions        => $actions,
+        should_reindex => $should_reindex
+      );
+
+    }
   );
 }
 
