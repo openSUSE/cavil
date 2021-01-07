@@ -168,16 +168,8 @@ sub _create_pattern {
   $self->stash(pattern => $pattern);
 
   my $db = $self->pg->db;
-  for my $pkg (@$packages) {
-    my $pkg = $db->update(
-      'bot_packages',
-      {indexed   => undef, checksum    => undef},
-      {id        => $pkg,  '-not_bool' => 'obsolete', indexed => {'!=', undef}},
-      {returning => 'id'}
-    )->hash;
-    next unless $pkg;
-    $db->delete('bot_reports', {package => $pkg->{id}});
-    $self->packages->index($pkg->{id}, 3);
+  for my $id (@$packages) {
+    $self->packages->reindex($id, 3);
   }
   return undef;
 }
