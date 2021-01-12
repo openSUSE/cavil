@@ -14,23 +14,19 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Product;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-sub list {
-  my $self = shift;
+sub list ($self) {
   $self->render(products => $self->products->all);
 }
 
-sub list_packages_ajax {
-  my $self = shift;
-
+sub list_packages_ajax ($self) {
   my $packages = $self->products->list($self->param('name'));
   my $data = {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1};
   $self->render(json => $data);
 }
 
-sub show {
-  my $self = shift;
+sub show ($self) {
   $self->render;
 }
 

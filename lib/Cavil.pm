@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil;
-use Mojo::Base 'Mojolicious';
+use Mojo::Base 'Mojolicious', -signatures;
 
 use Mojo::Pg;
 use Cavil::Classifier;
@@ -33,8 +33,7 @@ use Mojo::File qw(path);
 
 has classifier => sub { Cavil::Classifier->new };
 has obs        => sub { Cavil::OBS->new };
-has sync       => sub {
-  my $self = shift;
+has sync       => sub ($self) {
   my $sync = Cavil::Sync->new(app => $self);
   weaken $sync->{app};
   return $sync;
@@ -42,8 +41,7 @@ has sync       => sub {
 
 our $VERSION = '0.5';
 
-sub startup {
-  my $self = shift;
+sub startup ($self) {
 
   my $file   = $ENV{CAVIL_CONF} || 'cavil.conf';
   my $config = $self->plugin(Config => {file => $file});

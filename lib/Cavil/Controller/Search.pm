@@ -14,11 +14,9 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Search;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-sub search {
-  my $self = shift;
-
+sub search ($self) {
   my ($suggestions, $results) = ([], []);
   if (my $query = $self->param('q')) {
     my $pkgs = $self->packages;

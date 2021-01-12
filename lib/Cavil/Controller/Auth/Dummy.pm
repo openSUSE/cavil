@@ -14,11 +14,9 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Auth::Dummy;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-sub login {
-  my $self = shift;
-
+sub login ($self) {
   my $user = $self->users->find_or_create(
     login    => 'tester',
     email    => 'tester@example.com',

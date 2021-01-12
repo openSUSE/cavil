@@ -14,19 +14,16 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Auth::OpenID;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use LWP::UserAgent;
 use Net::OpenID::Consumer;
 
-sub login {
-  my $self = shift;
+sub login ($self) {
   $self->redirect_to('openid');
 }
 
-sub openid {
-  my $self = shift;
-
+sub openid ($self) {
   my $base = $self->req->url->base->to_string;
 
   my $csr = Net::OpenID::Consumer->new(
@@ -62,9 +59,7 @@ sub openid {
   $self->render(text => $csr->err, status => 403);
 }
 
-sub response {
-  my $self = shift;
-
+sub response ($self) {
   my $params = $self->req->params->to_hash;
   my $base   = $self->req->url->base->to_string;
 

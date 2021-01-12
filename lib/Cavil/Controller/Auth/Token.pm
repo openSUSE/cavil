@@ -14,11 +14,9 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Auth::Token;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-sub check {
-  my $self = shift;
-
+sub check ($self) {
   my $tokens = $self->app->config('tokens');
   return 1 unless @$tokens;
 
@@ -31,8 +29,7 @@ sub check {
   return 1;
 }
 
-sub _denied {
-  my $self = shift;
+sub _denied ($self) {
   $self->render('permissions', status => 403);
 }
 

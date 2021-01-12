@@ -14,20 +14,17 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Upload;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Digest::MD5;
 use Mojo::File qw(path);
 use Mojo::Util qw(md5_sum);
 
-sub index {
-  my $self = shift;
+sub index ($self) {
   $self->render('upload/form');
 }
 
-sub store {
-  my $self = shift;
-
+sub store ($self) {
   my $validation = $self->validation;
   $validation->required('name')->like(qr/^[A-Za-z0-9\-\.]+$/);
   $validation->required('licenses')->like(qr/^[A-Za-z0-9\-\.]+$/);

@@ -14,19 +14,16 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Snippet;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
+
 use Encode qw(from_to decode);
 use Mojo::File 'path';
 
-sub list {
-  my $self = shift;
-
+sub list ($self) {
   $self->render(snippets => $self->snippets->random(100));
 }
 
-sub update {
-  my $self = shift;
-
+sub update ($self) {
   my $db     = $self->pg->db;
   my $params = $self->req->params->to_hash;
   for my $param (sort keys %$params) {
@@ -38,9 +35,7 @@ sub update {
   $self->redirect_to('snippets');
 }
 
-sub edit {
-  my $self = shift;
-
+sub edit ($self) {
   my $id      = $self->param('id');
   my $snippet = $self->snippets->find($id);
 
@@ -116,9 +111,7 @@ sub edit {
   );
 }
 
-sub _read_lines {
-  my ($fn, $start_line, $end_line) = @_;
-
+sub _read_lines ($fn, $start_line, $end_line) {
   my %needed_lines;
   for (my $line = $start_line; $line <= $end_line; $line += 1) {
     $needed_lines{$line} = 1;
@@ -139,17 +132,14 @@ sub _read_lines {
   return $text;
 }
 
-sub _render_conflict {
-  my ($self, $id) = @_;
+sub _render_conflict ($self, $id) {
   my $conflicting_pattern = $self->patterns->find($id);
   $self->stash('conflicting_pattern', $conflicting_pattern);
   $self->stash('pattern_text',        $self->param('pattern'));
   $self->render(template => 'snippet/conflict');
 }
 
-sub _create_pattern {
-  my ($self, $packages) = @_;
-
+sub _create_pattern ($self, $packages) {
   my $pattern = $self->patterns->create(
     license => $self->param('license'),
     pattern => $self->param('pattern'),
@@ -175,9 +165,7 @@ sub _create_pattern {
 }
 
 # proxy function
-sub decision {
-  my $self = shift;
-
+sub decision ($self) {
   my $db = $self->pg->db;
 
   my %packages;
@@ -201,9 +189,7 @@ sub decision {
   $self->render;
 }
 
-sub top {
-  my $self = shift;
-
+sub top ($self) {
   my $db = $self->pg->db;
 
   my $result = $db->query(
@@ -220,9 +206,7 @@ sub top {
   $self->render(snippets => $result);
 }
 
-sub from_file {
-  my $self = shift;
-
+sub from_file ($self) {
   my $db      = $self->pg->db;
   my $file_id = $self->param('file');
 

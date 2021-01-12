@@ -14,11 +14,9 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Auth;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-sub check {
-  my $self = shift;
-
+sub check ($self) {
   my $role = $self->stash('role');
   my $user = $self->current_user;
 
@@ -28,8 +26,7 @@ sub check {
   return 1;
 }
 
-sub logout {
-  my $self = shift;
+sub logout ($self) {
   delete $self->session->{user};
   $self->redirect_to('dashboard');
 }

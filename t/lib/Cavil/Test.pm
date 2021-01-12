@@ -14,15 +14,14 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Test;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use Mojo::File qw(path tempdir);
 use Mojo::Pg;
 use Mojo::URL;
 use Mojo::Util qw(scope_guard);
 
-sub new {
-  my ($class, %options) = @_;
+sub new ($class, %options) {
 
   # Database
   my $self = $class->SUPER::new(options => \%options);
@@ -36,11 +35,10 @@ sub new {
   return $self;
 }
 
-sub cache_dir    { shift->{cache_dir} }
-sub checkout_dir { shift->{checkout_dir} }
+sub cache_dir    ($self) { $self->{cache_dir} }
+sub checkout_dir ($self) { $self->{checkout_dir} }
 
-sub default_config {
-  my $self = shift;
+sub default_config ($self) {
   return {
     secrets                => ['just_a_test'],
     checkout_dir           => $self->checkout_dir,
@@ -58,8 +56,7 @@ sub default_config {
   };
 }
 
-sub mojo_fixtures {
-  my ($self, $app) = @_;
+sub mojo_fixtures ($self, $app) {
   $self->no_fixtures($app);
 
   # Create checkout directory
@@ -110,9 +107,7 @@ sub mojo_fixtures {
   $patterns->create(pattern => 'copyright notice');
 }
 
-sub no_fixtures {
-  my ($self, $app) = @_;
-
+sub no_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 
   # Allow Devel::Cover to collect stats for background jobs
@@ -129,8 +124,7 @@ sub no_fixtures {
   );
 }
 
-sub package_with_snippets_fixtures {
-  my ($self, $app) = @_;
+sub package_with_snippets_fixtures ($self, $app) {
   $self->no_fixtures($app);
 
   # Create checkout directory
@@ -167,14 +161,12 @@ sub package_with_snippets_fixtures {
   );
 }
 
-sub postgres_url {
-  my $self = shift;
+sub postgres_url ($self) {
   return Mojo::URL->new($self->{options}{online})->query([search_path => [$self->{options}{schema}, 'public']])
     ->to_unsafe_string;
 }
 
-sub _prepare_schema {
-  my ($self, $name) = @_;
+sub _prepare_schema ($self, $name) {
 
   # Isolate tests
   my $pg = $self->{pg};

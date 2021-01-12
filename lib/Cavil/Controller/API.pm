@@ -14,10 +14,9 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::API;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-sub source {
-  my $self = shift;
+sub source ($self) {
 
   my $validation = $self->validation;
   $validation->required('api')->like(qr!^https?://.+!i);
@@ -49,8 +48,7 @@ sub source {
   $self->render(json => {review => $obj->{id}, history => $history});
 }
 
-sub status {
-  my $self = shift;
+sub status ($self) {
   my $name = $self->param('name');
   $self->render(json => {package => $name, requests => $self->packages->states($name)});
 }

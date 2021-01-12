@@ -14,12 +14,11 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::License;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
+
 use Algorithm::Diff 'sdiff';
 
-sub create_pattern {
-  my $self = shift;
-
+sub create_pattern ($self) {
   my $license = $self->param('license');
   my $pattern = $self->param('pattern');
 
@@ -44,8 +43,7 @@ sub create_pattern {
   $self->redirect_to('edit_pattern', id => $match->{id});
 }
 
-sub edit_pattern {
-  my $self    = shift;
+sub edit_pattern ($self) {
   my $id      = $self->param('id');
   my $pattern = $self->patterns->find($id);
 
@@ -89,14 +87,11 @@ sub edit_pattern {
   return $self->_edit_pattern($pattern);
 }
 
-sub list {
-  my $self = shift;
+sub list ($self) {
   $self->render(licenses => $self->patterns->all_licenses);
 }
 
-sub new_pattern {
-  my $self = shift;
-
+sub new_pattern ($self) {
   my $lname = $self->param('license-name');
   $self->stash('diff',      undef);
   $self->stash('next_best', 0);
@@ -104,9 +99,7 @@ sub new_pattern {
 }
 
 # AJAX route
-sub remove_pattern {
-  my $self = shift;
-
+sub remove_pattern ($self) {
   my $id       = $self->param('id');
   my $patterns = $self->patterns;
   my $pattern  = $patterns->find($id);
@@ -116,16 +109,13 @@ sub remove_pattern {
   $self->render(json => 'ok');
 }
 
-sub show {
-  my $self = shift;
+sub show ($self) {
   my $name = $self->param('name');
   $name = '' if $name eq '*Pattern without license*';
   $self->render(license => $name, patterns => $self->patterns->for_license($name));
 }
 
-sub update_pattern {
-  my $self = shift;
-
+sub update_pattern ($self) {
   my $id       = $self->param('id');
   my $patterns = $self->patterns;
 
@@ -154,9 +144,7 @@ sub update_pattern {
   $self->redirect_to('edit_pattern', id => $id);
 }
 
-sub _edit_pattern {
-  my ($self, $match) = @_;
-
+sub _edit_pattern ($self, $match) {
   $self->render(template => 'license/edit_pattern', match => $match);
 }
 

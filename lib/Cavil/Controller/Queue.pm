@@ -14,13 +14,11 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Queue;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File 'path';
 
-sub create_package {
-  my $self = shift;
-
+sub create_package ($self) {
   my $validation = $self->validation;
   $validation->required('api')->like(qr!^https?://.+!i);
   $validation->required('project');
@@ -94,9 +92,7 @@ sub create_package {
   $self->render(json => {saved => $obj});
 }
 
-sub create_request {
-  my $self = shift;
-
+sub create_request ($self) {
   my $validation = $self->validation;
   $validation->required('external_link');
   $validation->required('package')->like(qr/^\d+$/);
@@ -111,9 +107,7 @@ sub create_request {
   $self->render(json => {created => $link});
 }
 
-sub import_package {
-  my $self = shift;
-
+sub import_package ($self) {
   my $validation = $self->validation;
   $validation->required('result');
   $validation->optional('approved_by');
@@ -151,23 +145,18 @@ sub import_package {
   return $self->render(json => {imported => $obj});
 }
 
-sub list_requests {
-  my $self = shift;
+sub list_requests ($self) {
   $self->render(json => {requests => $self->requests->all});
 }
 
-sub package_status {
-  my $self = shift;
-
+sub package_status ($self) {
   return $self->render(json => {error => 'No such package'}, status => 404)
     unless my $pkg = $self->packages->find($self->param('id'));
 
   return $self->_render_state($pkg);
 }
 
-sub remove_request {
-  my $self = shift;
-
+sub remove_request ($self) {
   my $validation = $self->validation;
   $validation->required('external_link');
   return $self->reply->json_validation_error if $validation->has_error;
@@ -188,9 +177,7 @@ sub remove_request {
   $self->render(json => {removed => $removed});
 }
 
-sub update_package {
-  my $self = shift;
-
+sub update_package ($self) {
   my $validation = $self->validation;
   $validation->required('priority')->like(qr/^\d+$/);
   return $self->reply->json_validation_error if $validation->has_error;
@@ -203,9 +190,7 @@ sub update_package {
   $self->render(json => {updated => $obj});
 }
 
-sub update_product {
-  my $self = shift;
-
+sub update_product ($self) {
   my $validation = $self->validation;
   $validation->required('id')->like(qr/^\d+$/);
   return $self->reply->json_validation_error if $validation->has_error;
@@ -220,22 +205,18 @@ sub update_product {
   $self->render(json => {updated => $obj->{id}});
 }
 
-sub _errors_to_markdown {
-  my @errors   = @_;
+sub _errors_to_markdown (@errors) {
   my $markdown = '';
   $markdown .= "* $_\n" for @errors;
   return $markdown;
 }
 
-sub _log {
-  my ($self, $message, $api, $project, $pkg, $rev, $error) = @_;
+sub _log ($self, $message, $api, $project, $pkg, $rev, $error) {
   my $target = "api=$api, project=$project, package=$pkg" . ($rev ? ", rev=$rev" : '');
   $self->app->log->error("$message ($target): $error");
 }
 
-sub _render_state {
-  my ($self, $pkg) = @_;
-
+sub _render_state ($self, $pkg) {
   my %reply = %$pkg;
   $reply{result} = $pkg->{result} if $pkg->{result};
   if ($pkg->{reviewing_user}) {

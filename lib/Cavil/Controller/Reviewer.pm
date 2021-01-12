@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Controller::Reviewer;
-use Mojo::Base 'Mojolicious::Controller';
+use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File 'path';
 use Mojo::JSON 'from_json';
@@ -29,9 +29,7 @@ my $SMALL_REPORT_RE = qr/
   )$
 /xi;
 
-sub add_ignore {
-  my $self = shift;
-
+sub add_ignore ($self) {
   my $validation = $self->validation;
   $validation->required('hash')->like(qr/^[a-f0-9]{32}$/i);
   $validation->required('package');
@@ -44,9 +42,7 @@ sub add_ignore {
   return $self->render(json => 'ok');
 }
 
-sub add_glob {
-  my $self = shift;
-
+sub add_glob ($self) {
   my $validation = $self->validation;
   $validation->required('glob');
   $validation->required('package');
@@ -58,9 +54,7 @@ sub add_glob {
   return $self->render(json => 'ok');
 }
 
-sub calc_report {
-  my $self = shift;
-
+sub calc_report ($self) {
   my $id  = $self->param('id');
   my $pkg = $self->packages->find($id);
 
@@ -84,9 +78,7 @@ sub calc_report {
   );
 }
 
-sub details {
-  my $self = shift;
-
+sub details ($self) {
   my $id   = $self->param('id');
   my $pkgs = $self->packages;
   return $self->render(text => 'Package not found', status => 404) unless my $pkg = $pkgs->find($id);
@@ -108,9 +100,7 @@ sub details {
   );
 }
 
-sub fasttrack_package {
-  my $self = shift;
-
+sub fasttrack_package ($self) {
   my $user = $self->session('user');
 
   my $pkg = $self->packages->find($self->param('id'));
@@ -125,9 +115,7 @@ sub fasttrack_package {
   return $self->render(text => "Reviewed $pkg->{name} as acceptable");
 }
 
-sub fetch_source {
-  my $self = shift;
-
+sub fetch_source ($self) {
   my $id = $self->param('id');
   return $self->reply->not_found
     unless my $source = $self->reports->source_for($id, $self->param('start') || 0, $self->param('end') || 0);
@@ -148,9 +136,7 @@ sub fetch_source {
   );
 }
 
-sub file_view {
-  my $self = shift;
-
+sub file_view ($self) {
   my $filename = $self->param('file');
 
   # There are unfortunately few limits on what file can be - but it
@@ -183,9 +169,7 @@ sub file_view {
   else { $self->stash('file', $file) }
 }
 
-sub list_new_ajax {
-  my $self = shift;
-
+sub list_new_ajax ($self) {
   my $packages = $self->packages->list($self->param('state'), $self->param('package'));
   my $products = $self->products;
   $_->{products} = scalar @{$products->for_package($_->{id})} for @$packages;
@@ -194,30 +178,24 @@ sub list_new_ajax {
     json => {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1});
 }
 
-sub list_recent {
-  my $self = shift;
+sub list_recent ($self) {
   $self->render;
 }
 
-sub list_recent_ajax {
-  my $self = shift;
+sub list_recent_ajax ($self) {
   $self->render(json => {data => $self->packages->recent});
 }
 
 # Just hooking ajax
 sub list_reviews { }
 
-sub reindex_package {
-  my $self = shift;
-
+sub reindex_package ($self) {
   return $self->reply->not_found unless $self->packages->reindex($self->param('id'));
 
   return $self->render(json => {ok => 1});
 }
 
-sub review_package {
-  my $self = shift;
-
+sub review_package ($self) {
   my $user = $self->session('user');
 
   my $id  = $self->param('id');
@@ -248,8 +226,7 @@ sub review_package {
   $self->render('reviewer/reviewed', package => $pkg);
 }
 
-sub _sanitize_report {
-  my ($self, $report) = @_;
+sub _sanitize_report ($self, $report) {
 
   # Flags
   $report->{flags} = $report->{flags} || [];
