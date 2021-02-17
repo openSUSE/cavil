@@ -81,7 +81,7 @@ create table if not exists emails (
 create unique index on emails (package, md5(email));
 create index on emails (package);
 create table if not exists urls (
-  id      serial primary key,
+  id      bigserial primary key,
   package int not null references bot_packages(id),
   url     text not null,
   hits    int not null default 0
