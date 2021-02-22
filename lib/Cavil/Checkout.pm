@@ -216,13 +216,13 @@ sub _specfile {
 
   my $info = {file => $file->basename, licenses => [], '%doc' => [], '%license' => []};
   for my $line (split "\n", $file->slurp) {
-    if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}}, $1 }
-    elsif ($line =~ /^\%doc\s*(.+)\s*$/)     { push @{$info->{'%doc'}}, $1 }
+    if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}},   $1 }
+    elsif ($line =~ /^\%doc\s*(.+)\s*$/)     { push @{$info->{'%doc'}},     $1 }
     elsif ($line =~ /^\%license\s*(.+)\s*$/) { push @{$info->{'%license'}}, $1 }
     elsif ($line =~ /^Version:\s*(.+)\s*$/)  { $info->{version} ||= $1 }
     elsif ($line =~ /^Summary:\s*(.+)\s*$/)  { $info->{summary} ||= $1 }
-    elsif ($line =~ /^Group:\s*(.+)\s*$/)    { $info->{group} ||= $1 }
-    elsif ($line =~ /^Url:\s*(.+)\s*$/)      { $info->{url} ||= $1 }
+    elsif ($line =~ /^Group:\s*(.+)\s*$/)    { $info->{group}   ||= $1 }
+    elsif ($line =~ /^Url:\s*(.+)\s*$/)      { $info->{url}     ||= $1 }
   }
 
   return $info;
@@ -257,7 +257,7 @@ sub _urls {
     $email = undef if defined $email and $email =~ m{(\@-|\@.*(\.-|-\.))};             # RFC 822 illegal
     $email = undef if defined $email and $email =~ m{[\@\.]example\.(net|com|org)};    # RFC 2606
     $url   = undef if defined $url   and $url   =~ m{[/\.]example\.(net|com|org)};     # RFC 2606
-    $name = undef if defined $name and ($name eq lc $name or $name =~ m{[\(\):\d,\n\r]});
+    $name  = undef if defined $name  and ($name eq lc $name or $name =~ m{[\(\):\d,\n\r]});
 
     # file:// urls not wanted in our context.
     $url = undef if defined $url and $url =~ m{^file:/};
