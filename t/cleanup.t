@@ -98,10 +98,10 @@ is $t->app->packages->find($one_id)->{state},  'acceptable',                    
 is $t->app->packages->find($one_id)->{result}, 'Accepted because of low risk (2)', 'right result';
 ok !$t->app->packages->find($one_id)->{obsolete}, 'not obsolete';
 ok -e $dir->child(@one), 'checkout exists';
-ok $t->app->pg->db->select('bot_reports',     [\'count(*)'], {package => $one_id})->array->[0], 'has reports';
-ok $t->app->pg->db->select('emails',          [\'count(*)'], {package => $one_id})->array->[0], 'has emails';
-ok $t->app->pg->db->select('urls',            [\'count(*)'], {package => $one_id})->array->[0], 'has URLs';
-ok $t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $one_id})->array->[0], 'has matched files';
+ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $one_id})->array->[0],     'has reports';
+ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})->array->[0],          'has emails';
+ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $one_id})->array->[0],            'has URLs';
+ok $t->app->pg->db->select('matched_files', [\'count(*)'], {package => $one_id})->array->[0],   'has matched files';
 ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $one_id})->array->[0], 'has pattern matches';
 
 # Second package (product)
@@ -113,10 +113,10 @@ is $t->app->packages->find($two_id)->{result}, 'Accepted because previously revi
   'right result';
 ok !$t->app->packages->find($two_id)->{obsolete}, 'not obsolete';
 ok -e $dir->child(@two), 'checkout exists';
-ok $t->app->pg->db->select('bot_reports',     [\'count(*)'], {package => $two_id})->array->[0], 'has reports';
-ok $t->app->pg->db->select('emails',          [\'count(*)'], {package => $two_id})->array->[0], 'has emails';
-ok $t->app->pg->db->select('urls',            [\'count(*)'], {package => $two_id})->array->[0], 'has URLs';
-ok $t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $two_id})->array->[0], 'has matched files';
+ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $two_id})->array->[0],     'has reports';
+ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $two_id})->array->[0],          'has emails';
+ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $two_id})->array->[0],            'has URLs';
+ok $t->app->pg->db->select('matched_files', [\'count(*)'], {package => $two_id})->array->[0],   'has matched files';
 ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $two_id})->array->[0], 'has pattern matches';
 
 # Third package
@@ -126,7 +126,7 @@ is $t->app->packages->find($three_id)->{result}, 'Accepted because previously re
 ok !$t->app->packages->find($three_id)->{obsolete}, 'not obsolete';
 ok -e $dir->child(@three), 'checkout exists';
 ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->array->[0], 'has emails';
-ok $t->app->pg->db->select('urls',   [\'count(*)'], {package => $three_id})->array->[0], 'has URLs';
+ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $three_id})->array->[0],   'has URLs';
 
 # Upgrade from acceptable to correct by reindexing
 $t->app->packages->update({id => $two_id, state => 'correct'});
@@ -146,15 +146,15 @@ $t->app->minion->perform_jobs;
 # First package (still valid)
 my $obsolete = $t->app->minion->job($obsolete_id);
 is $obsolete->info->{state}, 'finished', 'right state';
-is $t->app->packages->find($one_id)->{state},  'correct',                                             'right state';
-is $t->app->packages->find($one_id)->{result}, 'Correct because reviewed under the same license (2)', 'right result';
+is $t->app->packages->find($one_id)->{state},    'correct',                                             'right state';
+is $t->app->packages->find($one_id)->{result},   'Correct because reviewed under the same license (2)', 'right result';
 ok $t->app->packages->find($one_id)->{obsolete}, 'obsolete';
 ok !-e $dir->child(@one), 'checkout does not exist';
-ok !$t->app->pg->db->select('emails',          [\'count(*)'], {package => $one_id})->array->[0], 'no emails';
-ok !$t->app->pg->db->select('urls',            [\'count(*)'], {package => $one_id})->array->[0], 'no URLs';
-ok !$t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $one_id})->array->[0], 'no matched files';
+ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})->array->[0],          'no emails';
+ok !$t->app->pg->db->select('urls', [\'count(*)'], {package => $one_id})->array->[0],            'no URLs';
+ok !$t->app->pg->db->select('matched_files', [\'count(*)'], {package => $one_id})->array->[0],   'no matched files';
 ok !$t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $one_id})->array->[0], 'no pattern matches';
-ok !$t->app->pg->db->select('file_snippets',   [\'count(*)'], {package => $one_id})->array->[0], 'no file snippets';
+ok !$t->app->pg->db->select('file_snippets', [\'count(*)'], {package => $one_id})->array->[0],   'no file snippets';
 
 # Second package (obsolete)
 is $t->app->packages->find($two_id)->{state}, 'correct', 'right state';
@@ -167,10 +167,10 @@ is $t->app->packages->find($three_id)->{state},  'correct',                     
 is $t->app->packages->find($three_id)->{result}, 'Correct because reviewed under the same license (2)', 'right result';
 ok !$t->app->packages->find($three_id)->{obsolete}, 'not obsolete';
 ok -e $dir->child(@three), 'checkout exists';
-ok $t->app->pg->db->select('bot_reports',     [\'count(*)'], {package => $three_id})->array->[0], 'has reports';
-ok $t->app->pg->db->select('emails',          [\'count(*)'], {package => $three_id})->array->[0], 'has emails';
-ok $t->app->pg->db->select('urls',            [\'count(*)'], {package => $three_id})->array->[0], 'has URLs';
-ok $t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $three_id})->array->[0], 'has matched files';
+ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $three_id})->array->[0],     'has reports';
+ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->array->[0],          'has emails';
+ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $three_id})->array->[0],            'has URLs';
+ok $t->app->pg->db->select('matched_files', [\'count(*)'], {package => $three_id})->array->[0],   'has matched files';
 ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $three_id})->array->[0], 'has pattern matches';
 
 # Clean up old packages again

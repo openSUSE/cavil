@@ -155,7 +155,7 @@ get '/public/source/:project/perl-Mojolicious' => [project => ['openSUSE:Factory
 get '/public/source/:project/perl-Mojolicious/perl-Mojolicious.spec' => [project => ['home:kraih']] =>
   (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'})             => {text => 'Mojolicious spec!'};
 
-get '/public/source/:project/perl-Mojolicious/:special'  => [project => ['home:kraih']] =>
+get '/public/source/:project/perl-Mojolicious/:special'  => [project => ['home:kraih']]                =>
   (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'}) => [special => ['perl-Mojo#licious.changes']] =>
   {text => 'Mojolicious changes!'};
 
