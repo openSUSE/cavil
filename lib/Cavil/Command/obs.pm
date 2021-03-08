@@ -14,17 +14,15 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::obs;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Mojo::File 'path';
 use Mojo::Util qw(dumper getopt);
 
 has description => 'Import OBS sources';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run {
-  my ($self, @args) = @_;
-
+sub run ($self, @args) {
   getopt \@args,
     'd|download=s' => \my $download,
     'import'       => \my $import,

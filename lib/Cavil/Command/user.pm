@@ -14,16 +14,14 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::user;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Mojo::Util qw(dumper getopt tablify);
 
 has description => 'Manage Cavil users';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run {
-  my ($self, @args) = @_;
-
+sub run ($self, @args) {
   getopt \@args, 'A|add-role=s' => \my $add, 'R|remove-role=s' => \my $remove;
   my $id = shift @args;
 

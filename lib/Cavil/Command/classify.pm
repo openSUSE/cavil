@@ -14,13 +14,13 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::classify;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 has description => 'Start background jobs to classify snippets';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run {
-  say shift->app->minion->enqueue('classify' => [] => {priority => 10});
+sub run ($self, @args) {
+  say $self->app->minion->enqueue('classify' => [] => {priority => 10});
 }
 
 1;

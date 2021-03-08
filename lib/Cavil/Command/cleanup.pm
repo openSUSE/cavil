@@ -14,12 +14,12 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::cleanup;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 has description => 'Start background jobs to remove obsolete checkouts';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run { say shift->app->minion->enqueue('obsolete') }
+sub run ($self, @args) { say $self->app->minion->enqueue('obsolete') }
 
 1;
 

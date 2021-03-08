@@ -14,16 +14,14 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::sync;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Mojo::Util 'getopt';
 
 has description => 'Import and export licemse patterns';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run {
-  my ($self, @args) = @_;
-
+sub run ($self, @args) {
   getopt \@args,
     'e|export=s' => \my $export,
     'i|import=s' => \my $import;

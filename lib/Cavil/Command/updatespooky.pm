@@ -14,14 +14,12 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::updatespooky;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 has description => 'Update Spooky::Patterns::XS indeces';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run {
-  my ($self, @args) = @_;
-
+sub run ($self, @args) {
   my $app = $self->app;
   my $db  = $app->pg->db;
 

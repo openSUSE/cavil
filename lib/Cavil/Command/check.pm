@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::check;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
@@ -25,11 +25,9 @@ use Text::Diff;
 use Data::Dumper;
 
 has description => 'Show license changes from previous reviews';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run {
-  my ($self, @args) = @_;
-
+sub run ($self, @args) {
   my $app = $self->app;
   my $db  = $app->pg->db;
 
@@ -48,10 +46,7 @@ sub run {
   }
 }
 
-sub _checksum {
-
-  my ($db, $reports, $id) = @_;
-
+sub _checksum ($db, $reports, $id) {
   my $specfile = $reports->specfile_report($id);
 
   my $canon_license = lic($specfile->{main}{license})->canonicalize->to_string;

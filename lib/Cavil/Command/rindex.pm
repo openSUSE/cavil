@@ -14,12 +14,12 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::rindex;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 has description => 'Start background jobs to reindex all packages';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run { say shift->app->minion->enqueue('reindex_all') }
+sub run ($self, @args) { say $self->app->minion->enqueue('reindex_all') }
 
 1;
 

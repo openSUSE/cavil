@@ -14,16 +14,16 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::simplifypatterns;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
+
 use Spooky::Patterns::XS;
 use Text::Diff;
 use Term::ReadKey;
 
 has description => 'Checks and simplifies the pattern texts';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub _normalize_pattern {
-  my $text   = shift;
+sub _normalize_pattern ($text) {
   my $spooky = Spooky::Patterns::XS::normalize($text);
   my $prev_line;
   $text = '';
@@ -48,8 +48,7 @@ sub _normalize_pattern {
   return $text;
 }
 
-sub _strip_beginning {
-  my $text = shift;
+sub _strip_beginning ($text) {
   $text =~ s/^\s+//;
   $text =~ s/^copyright \$skip\d+\s+//;
   $text =~ s/^c\s+//;
@@ -70,8 +69,7 @@ sub _strip_beginning {
   return $text;
 }
 
-sub _remove_start {
-  my $text            = shift;
+sub _remove_start ($text) {
   my $normalized_text = _normalize_pattern($text);
   my $new_text        = $normalized_text;
   do {
@@ -94,8 +92,7 @@ sub _remove_start {
   return $new_pattern;
 }
 
-sub _strip_ending {
-  my $text = shift;
+sub _strip_ending ($text) {
   $text =~ s/[.=-]$//;
   $text =~ s/\s+$//;
   $text =~ s/\$skip\d+$//;
@@ -112,9 +109,7 @@ sub _strip_ending {
   return $text;
 }
 
-sub _remove_end {
-  my $text = shift;
-
+sub _remove_end ($text) {
   my $normalized_text = _normalize_pattern($text);
   my $new_text        = $normalized_text;
   do {
@@ -139,16 +134,15 @@ sub _remove_end {
 
 }
 
-sub _find_matching_packages {
-  my ($db, $pid, $touched) = @_;
+sub _find_matching_packages ($db, $pid, $touched) {
   my $package = $db->query('select distinct package from pattern_matches where pattern = ?', $pid);
   for my $row ($package->hashes->each) {
     $touched->{$row->{package}} = 1;
   }
 }
 
-sub run {
-  my $app = shift->app;
+sub run ($self, @args) {
+  my $app = $self->app;
 
   my %touched;
 

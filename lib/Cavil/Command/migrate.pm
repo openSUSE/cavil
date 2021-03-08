@@ -14,13 +14,13 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Command::migrate;
-use Mojo::Base 'Mojolicious::Command';
+use Mojo::Base 'Mojolicious::Command', -signatures;
 
 has description => 'Migrate the database to latest version';
-has usage       => sub { shift->extract_usage };
+has usage       => sub ($self) { $self->extract_usage };
 
-sub run {
-  my $app        = shift->app;
+sub run ($self, @args) {
+  my $app        = $self->app;
   my $migrations = $app->pg->migrations;
   my $before     = $migrations->active;
   if ($before == $migrations->latest) {
