@@ -14,19 +14,16 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Task::Import;
-use Mojo::Base 'Mojolicious::Plugin';
+use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
 use Mojo::File 'path';
 
-sub register {
-  my ($self, $app) = @_;
+sub register ($self, $app, $config) {
   $app->minion->add_task(obs_import => \&_obs);
 }
 
-sub _obs {
-  my ($job, $id, $data) = @_;
-
+sub _obs ($job, $id, $data) {
   my $app    = $job->app;
   my $minion = $app->minion;
   my $log    = $app->log;

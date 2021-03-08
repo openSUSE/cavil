@@ -14,15 +14,14 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Task::Index;
-use Mojo::Base 'Mojolicious::Plugin';
+use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
 use Cavil::FileIndexer;
 use Spooky::Patterns::XS;
 use Time::HiRes 'time';
 
-sub register {
-  my ($self, $app) = @_;
+sub register ($self, $app, $config) {
   $app->minion->add_task(index                 => \&_index);
   $app->minion->add_task(index_batch           => \&_index_batch);
   $app->minion->add_task(index_later           => \&_index_later);
@@ -31,9 +30,7 @@ sub register {
   $app->minion->add_task(reindex_matched_later => \&_reindex_matched_later);
 }
 
-sub _index {
-  my ($job, $id) = @_;
-
+sub _index ($job, $id) {
   my $app    = $job->app;
   my $minion = $app->minion;
   my $pkgs   = $app->packages;
@@ -65,9 +62,7 @@ sub _index {
   $log->info("[$id] Made @{[scalar @$batches]} batches for $dir");
 }
 
-sub _index_batch {
-  my ($job, $id, $batch) = @_;
-
+sub _index_batch ($job, $id, $batch) {
   my $app = $job->app;
   my $log = $app->log;
   $app->plugins->emit_hook('before_task_index_batch');
@@ -112,14 +107,11 @@ sub _index_batch {
     sprintf("[$id] Indexed batch of @{[scalar @$batch]} files from $dir (%.02f prep, %.02f total)", $preptime, $total));
 }
 
-sub _index_later {
-  my ($job, $id) = @_;
+sub _index_later ($job, $id) {
   $job->app->packages->reindex($id, $job->info->{priority} + 1);
 }
 
-sub _indexed {
-  my ($job, $id) = @_;
-
+sub _indexed ($job, $id) {
   my $app    = $job->app;
   my $minion = $job->minion;
   my $pkgs   = $job->app->packages;
@@ -134,13 +126,11 @@ sub _indexed {
   return $pkgs->analyze($id, 9, [$job->id]);
 }
 
-sub _reindex_all {
-  my $job = shift;
+sub _reindex_all ($job) {
   $job->app->packages->reindex_all;
 }
 
-sub _reindex_matched_later {
-  my ($job, $pid) = @_;
+sub _reindex_matched_later ($job, $pid) {
   $job->app->packages->reindex_matched_packages($pid, $job->info->{priority});
 }
 

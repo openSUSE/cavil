@@ -14,21 +14,18 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Task::Cleanup;
-use Mojo::Base 'Mojolicious::Plugin';
+use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Util;
 use Mojo::File 'path';
 
-sub register {
-  my ($self, $app) = @_;
+sub register ($self, $app, $config) {
   $app->minion->add_task(obsolete      => \&_obsolete);
   $app->minion->add_task(cleanup       => \&_cleanup);
   $app->minion->add_task(cleanup_batch => \&_cleanup_batch);
 }
 
-sub _cleanup {
-  my $job = shift;
-
+sub _cleanup ($job) {
   my $app = $job->app;
   my $ids
     = $app->pg->db->query('select id from bot_packages where obsolete is true order by id')->arrays->flatten->to_array;
@@ -38,9 +35,7 @@ sub _cleanup {
   $minion->enqueue('cleanup_batch', $_, {parents => [$job->id], priority => 1}) for @$buckets;
 }
 
-sub _cleanup_batch {
-  my ($job, @ids) = @_;
-
+sub _cleanup_batch ($job, @ids) {
   my $app = $job->app;
   my $log = $app->log;
   my $db  = $app->pg->db;
@@ -63,9 +58,7 @@ sub _cleanup_batch {
   }
 }
 
-sub _obsolete {
-  my $job = shift;
-
+sub _obsolete ($job) {
   my $app = $job->app;
   my $log = $app->log;
   my $db  = $job->app->pg->db;

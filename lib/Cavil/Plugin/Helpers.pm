@@ -14,16 +14,14 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Plugin::Helpers;
-use Mojo::Base 'Mojolicious::Plugin';
+use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses 'lic';
 use Mojo::File 'path';
 use Mojo::JSON 'to_json';
 use Mojo::Util qw(decode md5_sum xml_escape);
 
-sub register {
-  my ($self, $app) = @_;
-
+sub register ($self, $app, $config) {
   $app->helper('chart_data'                  => \&_chart_data);
   $app->helper('checksum'                    => \&_checksum);
   $app->helper('current_user'                => \&_current_user);
@@ -38,12 +36,8 @@ sub register {
   $app->helper('format_file'                 => \&_format_file);
 }
 
-sub _chart_data {
-  my ($c, $hash) = @_;
-
-  my @licenses;
-  my @num_files;
-  my @colours;
+sub _chart_data ($c, $hash) {
+  my (@licenses, @num_files, @colours);
 
   my @codes = ('#117864', '#85c1e9', '#9b59b6', '#ec7063', '#a3e4d7', '#c39bd3', '#c0392b');
 
@@ -71,9 +65,7 @@ sub _chart_data {
   return {licenses => to_json(\@licenses), 'num-files' => to_json(\@num_files), colours => to_json(\@colours)};
 }
 
-sub _checksum {
-  my ($c, $specfile, $report) = @_;
-
+sub _checksum ($c, $specfile, $report) {
   my $canon_license = lic($specfile->{main}{license})->canonicalize->to_string;
   $canon_license ||= "Unknown";
   my $text = "RPM-License $canon_license\n";
@@ -90,18 +82,16 @@ sub _checksum {
   return md5_sum $text;
 }
 
-sub _current_package { shift->stash('package') }
+sub _current_package ($c) { $c->stash('package') }
 
-sub _current_user { shift->session('user') }
+sub _current_user ($c) { $c->session('user') }
 
-sub _current_user_has_role {
-  my ($c, $role) = @_;
+sub _current_user_has_role ($c, $role) {
   return undef unless my $user = $c->helpers->current_user;
   return $c->users->has_role($user, $role);
 }
 
-sub _format_link {
-  my ($c, $link) = @_;
+sub _format_link ($c, $link) {
   if ($link =~ /^obs#(.*)$/) {
     return $c->link_to($link => "https://build.opensuse.org/request/show/$1" => (target => '_blank'));
   }
@@ -111,23 +101,19 @@ sub _format_link {
   return $link;
 }
 
-sub _highlight_line {
-  my ($c, $line, $pattern) = @_;
+sub _highlight_line ($c, $line, $pattern) {
   my $oline = $line;
   $line = xml_escape($line);
   $line =~ s,(\Q$pattern\E),<span class='lkw'>$1</span>,gi;
   return Mojo::ByteStream->new($line);
 }
 
-sub _json_validation_error {
-  my $c = shift;
-
+sub _json_validation_error ($c) {
   my $failed = join ', ', @{$c->validation->failed};
   $c->render(json => {error => "Invalid request parameters ($failed)"}, status => 400);
 }
 
-sub _pkg_checkout_dir {
-  my ($c, $id) = @_;
+sub _pkg_checkout_dir ($c, $id) {
   my $app = $c->app;
   my $pkg = $app->packages->find($id);
   return path($app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});

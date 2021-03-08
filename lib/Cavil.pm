@@ -60,16 +60,14 @@ sub startup ($self) {
     # All interesting log messages are "info" or higher
     $self->log->level('info');
     $self->hook(
-      before_routes => sub {
-        my $c = shift;
-
+      before_routes => sub ($c) {
         my $req     = $c->req;
         my $method  = $req->method;
         my $url     = $req->url->to_abs->to_string;
         my $started = [Time::HiRes::gettimeofday];
         $c->tx->on(
-          finish => sub {
-            my $code    = shift->res->code;
+          finish => sub ($tx, @args) {
+            my $code    = $tx->res->code;
             my $elapsed = Time::HiRes::tv_interval($started, [Time::HiRes::gettimeofday()]);
             my $rps     = $elapsed == 0 ? '??' : sprintf '%.3f', 1 / $elapsed;
             $self->log->info(qq{$method $url -> $code (${elapsed}s, $rps/s)});
@@ -89,8 +87,7 @@ sub startup ($self) {
 
   $self->plugin(AssetPack => {pipes => [qw(Sass Css JavaScript Fetch Combine)]});
   $self->helper(
-    icon_url => sub {
-      my ($c, $icon) = @_;
+    icon_url => sub ($c, $icon) {
       my $json = $c->app->asset->processed($icon)->[0]->TO_JSON;
       return $c->url_for(assetpack => $json);
     }
@@ -124,51 +121,34 @@ sub startup ($self) {
 
   # Model
   $self->helper(
-    packages => sub {
-      state $pkgs = Cavil::Model::Packages->new(checkout_dir => $config->{checkout_dir}, minion => $self->minion,
-        pg => shift->pg);
+    packages => sub ($c) {
+      state $pkgs
+        = Cavil::Model::Packages->new(checkout_dir => $config->{checkout_dir}, minion => $self->minion, pg => $c->pg);
     }
   );
+  $self->helper(products => sub ($c) { state $pkgs = Cavil::Model::Products->new(pg => $c->pg) });
   $self->helper(
-    products => sub {
-      state $pkgs = Cavil::Model::Products->new(pg => shift->pg);
-    }
-  );
-  $self->helper(
-    reports => sub {
+    reports => sub ($c) {
       state $reps = Cavil::Model::Reports->new(
         acceptable_risk    => $config->{acceptable_risk},
         checkout_dir       => $config->{checkout_dir},
         max_expanded_files => $config->{max_expanded_files},
-        pg                 => shift->pg
+        pg                 => $c->pg
       );
     }
   );
-  $self->helper(
-    requests => sub {
-      state $reqs = Cavil::Model::Requests->new(pg => shift->pg);
-    }
-  );
-  $self->helper(
-    users => sub {
-      state $users = Cavil::Model::Users->new(pg => shift->pg);
-    }
-  );
+  $self->helper(requests => sub ($c) { state $reqs  = Cavil::Model::Requests->new(pg => $c->pg) });
+  $self->helper(users    => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
 
   my $cache = path($config->{cache_dir})->make_path;
   $self->helper(
-    patterns => sub {
-      my $self = shift;
-      state $patterns = Cavil::Model::Patterns->new(cache => $cache, pg => $self->pg, minion => $self->minion,
-        log => $self->app->log);
+    patterns => sub ($c) {
+      state $patterns
+        = Cavil::Model::Patterns->new(cache => $cache, pg => $c->pg, minion => $c->minion, log => $c->app->log);
     }
   );
 
-  $self->helper(
-    snippets => sub {
-      state $snips = Cavil::Model::Snippets->new(pg => shift->pg);
-    }
-  );
+  $self->helper(snippets => sub ($c) { state $snips = Cavil::Model::Snippets->new(pg => $c->pg) });
 
   # Migrations (do not run automatically, use the migrate command)
   #
@@ -203,7 +183,7 @@ sub startup ($self) {
   $bot->delete('/requests')->to('Queue#remove_request');
 
   # Public API
-  $public->get('/api/package/:name' => sub { shift->redirect_to('package_api') });
+  $public->get('/api/package/:name' => sub ($c) { $c->redirect_to('package_api') });
   $public->get('/api/1.0/package/:name')->to('API#status')->name('package_api');
   $public->get('/api/1.0/source')->to('API#source')->name('source_api');
 

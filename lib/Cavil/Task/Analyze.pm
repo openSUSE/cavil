@@ -14,20 +14,17 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Task::Analyze;
-use Mojo::Base 'Mojolicious::Plugin';
+use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses 'lic';
 use Mojo::JSON 'to_json';
 
-sub register {
-  my ($self, $app) = @_;
+sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
   $app->minion->add_task(analyzed => \&_analyzed);
 }
 
-sub _analyze {
-  my ($job, $id) = @_;
-
+sub _analyze ($job, $id) {
   my $app    = $job->app;
   my $minion = $app->minion;
   my $pkgs   = $app->packages;
@@ -77,9 +74,7 @@ sub _analyze {
   $log->info("[$id] Analyzed $shortname");
 }
 
-sub _analyzed {
-  my ($job, $id) = @_;
-
+sub _analyzed ($job, $id) {
   my $app     = $job->app;
   my $minion  = $app->minion;
   my $reports = $app->reports;
@@ -144,9 +139,7 @@ sub _analyzed {
   _look_for_smallest_delta($app, $pkg) if $pkg->{state} eq 'new';
 }
 
-sub _look_for_smallest_delta {
-  my ($app, $pkg) = @_;
-
+sub _look_for_smallest_delta ($app, $pkg) {
   my $db      = $app->pg->db;
   my $reports = $app->reports;
 
@@ -192,9 +185,7 @@ sub _look_for_smallest_delta {
     {id => $pkg->{id}});
 }
 
-sub _find_report_summary {
-  my ($db, $chksum) = @_;
-
+sub _find_report_summary ($db, $chksum) {
   my $lentry = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash;
   if ($lentry) {
     return $lentry->{shortname};
@@ -212,9 +203,7 @@ sub _find_report_summary {
   }
 }
 
-sub _shortname {
-  my ($db, $chksum, $specfile, $report) = @_;
-
+sub _shortname ($db, $chksum, $specfile, $report) {
   my $chksum_summary = _find_report_summary($db, $chksum);
 
   my $max_risk = 0;
@@ -238,9 +227,7 @@ sub _shortname {
   return "$l-$max_risk:$chksum_summary";
 }
 
-sub _review_summary {
-  my ($db, $reports, $id) = @_;
-
+sub _review_summary ($db, $reports, $id) {
   my %summary  = (id => $id);
   my $specfile = $reports->specfile_report($id);
   $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Error';
@@ -265,8 +252,7 @@ sub _review_summary {
   return \%summary;
 }
 
-sub _summary_delta_score {
-  my ($old, $new) = @_;
+sub _summary_delta_score ($old, $new) {
 
   # not an option
   if ($new->{specfile} ne $old->{specfile}) {
@@ -289,9 +275,7 @@ sub _summary_delta_score {
   return $score;
 }
 
-sub _summary_delta {
-  my ($old, $new, $score) = @_;
-
+sub _summary_delta ($old, $new, $score) {
   my $text = "Diff to closest match $old->{id}:\n\n";
 
   if ($new->{specfile} ne $old->{specfile}) {

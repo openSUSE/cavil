@@ -14,19 +14,16 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Task::Classify;
-use Mojo::Base 'Mojolicious::Plugin';
+use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
 use Mojo::File 'path';
 
-sub register {
-  my ($self, $app) = @_;
+sub register ($self, $app, $config) {
   $app->minion->add_task(classify => \&_classify);
 }
 
-sub _classify {
-  my ($job, $id, $data) = @_;
-
+sub _classify ($job) {
   my $app        = $job->app;
   my $log        = $app->log;
   my $db         = $app->pg->db;

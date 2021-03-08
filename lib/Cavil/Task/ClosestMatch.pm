@@ -14,21 +14,18 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Task::ClosestMatch;
-use Mojo::Base 'Mojolicious::Plugin';
+use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Mojo::JSON 'encode_json';
 use Cavil::Util;
 use Spooky::Patterns::XS 1.54;
 use Mojo::File qw(path);
 
-sub register {
-  my ($self, $app) = @_;
+sub register ($self, $app, $config) {
   $app->minion->add_task(pattern_stats => \&_pattern_stats);
 }
 
-sub _pattern_stats {
-  my $job = shift;
-
+sub _pattern_stats ($job) {
   my $app = $job->app;
   my $db  = $app->pg->db;
 
