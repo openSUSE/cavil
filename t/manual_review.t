@@ -40,6 +40,7 @@ subtest 'Details after import (indexing in progress)' => sub {
     ->element_exists_not('#pkg-review label[for=comment]')->element_exists_not('#pkg-review textarea[name=comment]')
     ->element_exists_not('#correct')->element_exists_not('#acceptable')->element_exists_not('#unacceptable');
   $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/not indexed/);
+  $t->get_ok('/reviews/fetch_source/1')->status_is(404);
 };
 
 subtest 'Details after import (with login)' => sub {
@@ -98,6 +99,11 @@ subtest 'Details after indexing' => sub {
   $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')->element_exists('#emails')
     ->text_like('#emails tbody td', qr!coolo\@suse\.com!)->element_exists('#urls')
     ->text_like('#urls tbody td',   qr!http://mojolicious.org!);
+
+  $t->get_ok('/reviews/fetch_source/1')->status_is(200)->content_type_isnt('application/json;charset=UTF-8')
+    ->content_like(qr/perl-Mojolicious/);
+  $t->get_ok('/reviews/fetch_source/1.json')->status_is(200)->content_type_is('application/json;charset=UTF-8')
+    ->content_like(qr/perl-Mojolicious/);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

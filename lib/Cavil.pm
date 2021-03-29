@@ -195,8 +195,10 @@ sub startup ($self) {
   $public->get('/reviews/list_recent')->to('Reviewer#list_recent_ajax')->name('reviews_recent_ajax');
   $public->get('/reviews/file_view/:id/*file')->to('Reviewer#file_view')->name('file_view');
   $public->get('/reviews/details/:id')->to('Reviewer#details')->name('package_details');
-  $public->get('/reviews/calc_report/:id')->to('Reviewer#calc_report')->name('calc_report');
-  $public->get('/reviews/fetch_source/:id')->to('Reviewer#fetch_source');
+  $public->get('/reviews/calc_report/:id' => [format => ['json', 'html']])
+    ->to('Reviewer#calc_report', format => 'html')->name('calc_report');
+  $public->get('/reviews/fetch_source/:id' => [format => ['json', 'html']])
+    ->to('Reviewer#fetch_source', format => 'html');
   $admin->post('/reviews/review_package/:id')->to('Reviewer#review_package')->name('review_package');
   $manager->post('/reviews/fasttrack_package/:id')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
   $admin->post('/reviews/add_ignore')->to('Reviewer#add_ignore');
