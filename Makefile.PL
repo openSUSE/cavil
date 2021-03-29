@@ -42,6 +42,7 @@ WriteMakefile(
     'Term::ProgressBar'              => 0,
     'Algorithm::Diff'                => 0,
     'IO::Socket::SSL'                => 0,
+    'Text::Diff'                     => 0,
     'Text::Glob'                     => 0
   },
   EXE_FILES => ['script/cavil'],
