@@ -40,6 +40,7 @@ sub _unpack ($job, $id) {
   $log->info("[$id] Unpacked $dir");
 
   # Next step
+  undef $guard;
   $pkgs->index($id, $job->info->{priority} + 1, [$job->id]);
 }
 

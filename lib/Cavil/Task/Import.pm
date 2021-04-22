@@ -50,6 +50,7 @@ sub _obs ($job, $id, $data) {
   $log->info("[$id] Imported $dir");
 
   # Next step
+  undef $guard;
   $pkgs->unpack($id, 8, [$job->id]);
 }
 

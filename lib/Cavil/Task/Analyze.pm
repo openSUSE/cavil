@@ -65,6 +65,7 @@ sub _analyze ($job, $id) {
     }
   }
 
+  undef $guard;
   my $prio = $job->info->{priority};
   $minion->enqueue(analyzed => [$id] => {parents => [$job->id], priority => $prio});
 
