@@ -120,6 +120,7 @@ sub startup ($self) {
   $self->renderer->compress(1);
 
   # Model
+  if (my $remove_after = $config->{minion_remove_after}) { $self->minion->remove_after($remove_after) }
   $self->helper(
     packages => sub ($c) {
       state $pkgs
