@@ -41,20 +41,20 @@ sub _cleanup_batch ($job, @ids) {
   my $db  = $app->pg->db;
 
   for my $id (@ids) {
-    next unless my $pkg = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
-
-    my $dir = path($app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
-    next unless -d $dir;
+    my $tx  = $db->begin;
+    my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id}, {for => 'update'})->hash;
+    next if !$pkg || !$pkg->{obsolete};
 
     $log->info("[$id] Remove $pkg->{name}/$pkg->{checkout_dir}");
-    my $tx = $db->begin;
+    my $dir = path($app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
+    $dir->remove_tree if -d $dir;
+
     $db->query('delete from bot_reports where package = ?',     $id);
     $db->query('delete from emails where package = ?',          $id);
     $db->query('delete from urls where package = ?',            $id);
     $db->query('delete from pattern_matches where package = ?', $id);
     $db->query('delete from matched_files where package = ?',   $id);
     $tx->commit;
-    $dir->remove_tree;
   }
 }
 
