@@ -56,6 +56,21 @@ sub default_config ($self) {
   };
 }
 
+sub just_patterns_fixtures ($self, $app) {
+  $self->no_fixtures($app);
+  my $patterns = $app->patterns;
+  $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
+  $patterns->create(
+    packname => 'perl-Mojolicious',
+    pattern  => 'Licensed under the Apache License, Version 2.0',
+    license  => 'Apache-2.0'
+  );
+  $patterns->create(pattern => 'License: Artistic-2.0',            license => 'Artistic-2.0');
+  $patterns->create(pattern => 'powerful web development toolkit', license => 'SUSE-NotALicense');
+  $patterns->create(pattern => 'the terms');
+  $patterns->create(pattern => 'copyright notice');
+}
+
 sub mojo_fixtures ($self, $app) {
   $self->no_fixtures($app);
 

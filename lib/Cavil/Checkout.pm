@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Checkout;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use File::Unpack;
 use Mojo::File 'path';
@@ -71,9 +71,7 @@ my $URL_RE = qr!
   \b((https?|ftp|file)://[\w-]+\.[\w\./:\\\+~-]+\w\??)\b
 !ix;
 
-sub keyword_report {
-  my ($self, $matcher, $meta, $file) = @_;
-
+sub keyword_report ($self, $matcher, $meta, $file) {
   my $dir  = path($self->dir);
   my $base = $dir->child('.unpacked');
 
@@ -85,11 +83,9 @@ sub keyword_report {
   return {path => $file->to_rel($base)->to_string, matches => $matcher->find_matches($file)};
 }
 
-sub new { shift->SUPER::new(dir => shift) }
+sub new ($class, $dir) { $class->SUPER::new(dir => $dir) }
 
-sub specfile_report {
-  my $self = shift;
-
+sub specfile_report ($self) {
   my $dir   = path($self->dir);
   my $name  = $dir->dirname->basename . '.spec';
   my $first = $dir->child($name);
@@ -111,9 +107,7 @@ sub specfile_report {
   return $info;
 }
 
-sub unpack {
-  my $self = shift;
-
+sub unpack ($self) {
   my $dir    = path($self->dir);
   my $unpack = $dir->child('.unpacked')->remove_tree;
   my $log    = $dir->child('.postprocessed.json');
@@ -161,9 +155,7 @@ sub unpack {
   $dir->child('.postprocessed.json')->spurt(encode_json($processor->hash));
 }
 
-sub unpacked_files {
-  my ($self, $bucket_size) = @_;
-
+sub unpacked_files ($self, $bucket_size) {
   my $dir      = path($self->dir);
   my $unpacked = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
 
@@ -179,15 +171,12 @@ sub unpacked_files {
   return buckets(\@files, $bucket_size);
 }
 
-sub _add_once {
-  my ($queue, $msg) = @_;
+sub _add_once ($queue, $msg) {
   return if grep { $_ eq $msg } @$queue;
   push @$queue, $msg;
 }
 
-sub _check {
-  my ($info) = @_;
-
+sub _check ($info) {
   $info->{errors}   = \my @errors;
   $info->{warnings} = \my @warnings;
 
@@ -211,9 +200,7 @@ sub _check {
   }
 }
 
-sub _specfile {
-  my $file = shift;
-
+sub _specfile ($file) {
   my $info = {file => $file->basename, licenses => [], '%doc' => [], '%license' => []};
   for my $line (split "\n", $file->slurp) {
     if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}},   $1 }
@@ -236,9 +223,7 @@ sub _specfile {
 # This can be used to give the filename or other meta data that should match
 # too.
 #
-sub _urls {
-  my ($file, $meta) = @_;
-
+sub _urls ($file, $meta) {
   my $text = slurp_and_decode($file);
   return undef unless defined $text;
 

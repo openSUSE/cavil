@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Sync;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use File::Find qw(find);
 use Mojo::File qw(path);
@@ -24,8 +24,7 @@ use Term::ProgressBar;
 has 'app';
 has silent => 0;
 
-sub load {
-  my ($self, $dir) = @_;
+sub load ($self, $dir) {
 
   my $app      = $self->app;
   my $db       = $app->pg->db;
@@ -59,8 +58,7 @@ sub load {
   return $imported;
 }
 
-sub store {
-  my ($self, $dir) = @_;
+sub store ($self, $dir) {
 
   my $db = $self->app->pg->db;
   die "License pattern directory $dir not found" unless -d ($dir = path($dir));

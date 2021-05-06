@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::FileIndexer;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 
@@ -28,8 +28,7 @@ has 'matcher';
 has 'package';
 has 'snippets';
 
-sub new {
-  my ($class, $app, $package) = @_;
+sub new ($class, $app, $package) {
   my $self = $class->SUPER::new(app => $app, package => $package);
 
   my $matcher = Spooky::Patterns::XS::init_matcher();
@@ -55,8 +54,7 @@ sub new {
   return $self;
 }
 
-sub _mark_area {
-  my ($needed_lines, $ls, $le) = @_;
+sub _mark_area ($needed_lines, $ls, $le) {
   for (my $line = $ls; $line <= $le; $line++) {
     next unless $line > 0;
     $needed_lines->{$line} = 1;
@@ -66,8 +64,7 @@ sub _mark_area {
 # A 'snippet' is a region of a source file containing keywords.
 # The +-1 area around each keyword is taking into it and possible
 # keywordless lines in between near keywords too - to form one text
-sub _check_missing_snippets {
-  my ($self, $file_id, $path, $report) = @_;
+sub _check_missing_snippets ($self, $file_id, $path, $report) {
 
   # extract missed snippets
   my %needed_lines;
@@ -121,9 +118,7 @@ sub _check_missing_snippets {
   $self->_snippet($file_id, $report, $path, $first_snippet_line, $prev_line);
 }
 
-sub _snippet {
-  my ($self, $file_id, $report, $path, $first_line, $last_line) = @_;
-
+sub _snippet ($self, $file_id, $report, $path, $first_line, $last_line) {
   my %lines;
   for (my $line = $first_line; $line <= $last_line; $line += 1) {
     $lines{$line} = 1;
@@ -161,17 +156,14 @@ sub _snippet {
   return undef;
 }
 
-sub has_no_license {
-  my ($self, $pid) = @_;
+sub has_no_license ($self, $pid) {
   return $self->{no_license}{$pid} if defined $self->{no_license}{$pid};
   my $row = $self->db->select('license_patterns', 'license', {id => $pid})->hash;
   $self->{no_license}{$pid} = $row->{license} eq '';
   return $self->{no_license}{$pid};
 }
 
-sub file {
-  my ($self, $meta, $path, $mime) = @_;
-
+sub file ($self, $meta, $path, $mime) {
   my $report = $self->checkout->keyword_report($self->matcher, $meta, $path);
   return unless $report;
 

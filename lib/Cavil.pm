@@ -174,14 +174,16 @@ sub startup ($self) {
   $self->plugin('Minion::Admin' => {route => $admin->any('/minion')});
 
   # API
-  $bot->get('/package/:id')->to('Queue#package_status');
-  $bot->patch('/package/:id')->to('Queue#update_package');
+  $bot->get('/package/<id:num>')->to('Queue#package_status');
+  $bot->patch('/package/<id:num>')->to('Queue#update_package');
   $bot->post('/packages')->to('Queue#create_package');
-  $bot->post('/packages/import/:id')->to('Queue#import_package');
+  $bot->post('/packages/import/<id:num>')->to('Queue#import_package');
   $bot->patch('/products/*name')->to('Queue#update_product');
   $bot->post('/requests')->to('Queue#create_request');
   $bot->get('/requests')->to('Queue#list_requests');
   $bot->delete('/requests')->to('Queue#remove_request');
+  $bot->get('/package/<id:num>/report')->to('Report#calc', format => 'json');
+  $bot->get('/source/<id:num>')->to('Report#source', format => 'json');
 
   # Public API
   $public->get('/api/package/:name' => sub ($c) { $c->redirect_to('package_api') });
@@ -194,26 +196,25 @@ sub startup ($self) {
   $public->get('/reviews/list')->to('Reviewer#list_new_ajax')->name('reviews_ajax');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
   $public->get('/reviews/list_recent')->to('Reviewer#list_recent_ajax')->name('reviews_recent_ajax');
-  $public->get('/reviews/file_view/:id/*file')->to('Reviewer#file_view')->name('file_view');
-  $public->get('/reviews/details/:id')->to('Reviewer#details')->name('package_details');
-  $public->get('/reviews/calc_report/:id' => [format => ['json', 'html']])
-    ->to('Reviewer#calc_report', format => 'html')->name('calc_report');
-  $public->get('/reviews/fetch_source/:id' => [format => ['json', 'html']])
-    ->to('Reviewer#fetch_source', format => 'html');
-  $admin->post('/reviews/review_package/:id')->to('Reviewer#review_package')->name('review_package');
-  $manager->post('/reviews/fasttrack_package/:id')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
+  $public->get('/reviews/file_view/<id:num>/*file')->to('Reviewer#file_view')->name('file_view');
+  $public->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
+  $public->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])->to('Report#calc', format => 'html')
+    ->name('calc_report');
+  $public->get('/reviews/fetch_source/<id:num>' => [format => ['json', 'html']])->to('Report#source', format => 'html');
+  $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
+  $manager->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
   $admin->post('/reviews/add_ignore')->to('Reviewer#add_ignore');
   $admin->post('/reviews/add_glob')->to('Reviewer#add_glob')->name('add_glob');
-  $admin->post('/reviews/reindex/:id')->to('Reviewer#reindex_package')->name('reindex_package');
+  $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
 
   $admin->get('/licenses')->to('License#list')->name('licenses');
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
   $admin->post('/licenses/new_pattern')->to('License#new_pattern');
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
 
-  $admin->get('/licenses/edit_pattern/:id')->to('License#edit_pattern')->name('edit_pattern');
-  $admin->post('/licenses/update_pattern/:id')->to('License#update_pattern')->name('update_pattern');
-  $admin->delete('/licenses/remove_pattern/:id')->to('License#remove_pattern')->name('remove_pattern');
+  $admin->get('/licenses/edit_pattern/<id:num>')->to('License#edit_pattern')->name('edit_pattern');
+  $admin->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
+  $admin->delete('/licenses/remove_pattern/<id:num>')->to('License#remove_pattern')->name('remove_pattern');
   $admin->get('/licenses/*name')->to('License#show')->name('license_show');
 
   $public->get('/products')->to('Product#list')->name('products');
@@ -222,9 +223,9 @@ sub startup ($self) {
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
   $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
-  $public->get('/snippet/edit/:id')->to('Snippet#edit')->name('edit_snippet');
+  $public->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
   $public->get('/snippets/from_file/:file/:start/:end')->to('Snippet#from_file')->name('new_snippet');
-  $admin->post('/snippet/decision/:id')->to('Snippet#decision')->name('snippet_decision');
+  $admin->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
   $public->get('/snippets/top')->to('Snippet#top')->name('top_snippets');
 
   # Upload (experimental)

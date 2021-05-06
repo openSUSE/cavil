@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Classifier;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use Carp 'croak';
 use Mojo::UserAgent;
@@ -22,8 +22,7 @@ use Mojo::UserAgent;
 has ua => sub { Mojo::UserAgent->new(inactivity_timeout => 600) };
 has 'url';
 
-sub classify {
-  my ($self, $text) = @_;
+sub classify ($self, $text) {
   croak 'No classifier configured' unless my $url = $self->url;
   return $self->ua->post($url => json => $text)->result->json;
 }

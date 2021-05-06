@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Licenses;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 use overload bool => sub {1}, '""' => sub { shift->to_string }, fallback => 1;
 
 use Exporter 'import';
@@ -47,32 +47,28 @@ my $TOKEN_RE;
   $TOKEN_RE = qr/($token)/;
 }
 
-sub canonicalize {
-  my $self = shift;
+sub canonicalize ($self) {
   $self->{tree} = _sorted_tree($self->{tree});
   return $self;
 }
 
 # return one of the licenses
-sub example {
-  my $self = shift;
+sub example ($self) {
   return _example(_sorted_tree($self->{tree}));
 }
 
-sub is_part_of { _walk(shift->tree, shift->tree) }
+sub is_part_of ($first, $second) { _walk($first->tree, $second->tree) }
 
-sub is_similar_to {
-  shift->canonicalize->to_string eq shift->canonicalize->to_string;
+sub is_similar_to ($first, $second) {
+  $first->canonicalize->to_string eq $second->canonicalize->to_string;
 }
 
-sub lic { __PACKAGE__->new(@_) }
+sub lic (@args) { __PACKAGE__->new(@args) }
 
-sub new { @_ > 1 ? shift->SUPER::new->parse(@_) : shift->SUPER::new }
+sub new ($class, @args) { @args > 0 ? $class->SUPER::new->parse(@args) : $class->SUPER::new }
 
 # Partial implementation of SPDX 2.1 (with changes for expressions used at SUSE)
-sub parse {
-  my ($self, $string) = @_;
-
+sub parse ($self, $string) {
   unless ($string) {
     return $self->tree({license => ''});
   }
@@ -94,17 +90,14 @@ sub parse {
   return $self->normalized($before ne $string)->tree($tree);
 }
 
-sub to_string { _tree_to_string(shift->{tree}) }
+sub to_string ($self) { _tree_to_string($self->{tree}) }
 
-sub _example {
-  my $tree = shift;
+sub _example ($tree) {
   return _example($tree->{left}) if $tree->{op};
   return $tree->{license};
 }
 
-sub _match {
-  my ($main, $sub) = @_;
-
+sub _match ($main, $sub) {
   return defined $main->{license} && $main->{license} eq $sub->{license} if defined $main->{license};
   return undef                                                           if $sub->{license};
   return undef                                                           if $main->{op} ne $sub->{op};
@@ -112,8 +105,7 @@ sub _match {
   return _match($main->{left}, $sub->{left}) || _match($main->{left}, $sub->{right});
 }
 
-sub _parse {
-  my @tokens = @_;
+sub _parse (@tokens) {
 
   # Or (low precedence)
   my $left;
@@ -137,15 +129,12 @@ sub _parse {
   return {right => $right, op => $op, left => $left};
 }
 
-sub _single {
-  my ($main, $sub) = @_;
+sub _single ($main, $sub) {
   return _single($main->{left}, $sub) || _single($main->{right}, $sub) if $main->{op} && $main->{op} eq 'and';
   return _match($main, $sub);
 }
 
-sub _sorted_tree {
-  my $tree = shift;
-
+sub _sorted_tree ($tree) {
   return $tree unless $tree->{op};
 
   my $lt = _sorted_tree($tree->{left});
@@ -162,10 +151,9 @@ sub _sorted_tree {
   return $tree;
 }
 
-sub _spdx { $ALLOWED{$_[0]} ? $_[0] : die "Invalid SPDX license: $_[0]\n" }
+sub _spdx ($name) { $ALLOWED{$name} ? $name : die "Invalid SPDX license: $name\n" }
 
-sub _tokenize {
-  my $string = shift;
+sub _tokenize ($string) {
 
   # Ignore outer parentheses
   $string =~ s/^\s*\((.*)\)\s*$/$1/ if ((extract_bracketed($string, '()'))[0] // '') eq $string;
@@ -198,9 +186,7 @@ sub _tokenize {
   return @tokens;
 }
 
-sub _tree_to_string {
-  my $tree = shift;
-
+sub _tree_to_string ($tree) {
   if ($tree->{op}) {
     my $ls = _tree_to_string($tree->{left});
     $ls = _wrap_mixed($tree->{left}, $tree->{op}, $ls);
@@ -212,14 +198,12 @@ sub _tree_to_string {
   return $tree->{license};
 }
 
-sub _walk {
-  my ($main, $sub) = @_;
+sub _walk ($main, $sub) {
   return _walk($main, $sub->{left}) && _walk($main, $sub->{right}) if $sub->{op} && $sub->{op} eq 'and';
   return _single($main, $sub);
 }
 
-sub _wrap_mixed {
-  my ($tree, $op, $str) = @_;
+sub _wrap_mixed ($tree, $op, $str) {
   return $tree->{op} && $tree->{op} ne $op ? "($str)" : $str;
 }
 

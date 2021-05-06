@@ -153,7 +153,13 @@ sub package_status ($self) {
   return $self->render(json => {error => 'No such package'}, status => 404)
     unless my $pkg = $self->packages->find($self->param('id'));
 
-  return $self->_render_state($pkg);
+  my %reply = %$pkg;
+  $reply{result} = $pkg->{result} if $pkg->{result};
+  if ($pkg->{reviewing_user}) {
+    my $user = $self->users->find(id => $pkg->{reviewing_user});
+    $reply{reviewing_user} = $user->{login};
+  }
+  return $self->render(json => \%reply);
 }
 
 sub remove_request ($self) {
@@ -214,16 +220,6 @@ sub _errors_to_markdown (@errors) {
 sub _log ($self, $message, $api, $project, $pkg, $rev, $error) {
   my $target = "api=$api, project=$project, package=$pkg" . ($rev ? ", rev=$rev" : '');
   $self->app->log->error("$message ($target): $error");
-}
-
-sub _render_state ($self, $pkg) {
-  my %reply = %$pkg;
-  $reply{result} = $pkg->{result} if $pkg->{result};
-  if ($pkg->{reviewing_user}) {
-    my $user = $self->users->find(id => $pkg->{reviewing_user});
-    $reply{reviewing_user} = $user->{login};
-  }
-  return $self->render(json => \%reply);
 }
 
 1;

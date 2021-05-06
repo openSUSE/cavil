@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::OBS;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use Carp 'croak';
 use Digest::MD5;
@@ -25,8 +25,7 @@ use Mojo::URL;
 has ua => sub {
   my $ua = Mojo::UserAgent->new(inactivity_timeout => 600);
   $ua->on(
-    start => sub {
-      my ($ua, $tx) = @_;
+    start => sub ($ua, $tx) {
       $tx->res->max_message_size(10737418240);
 
       # Work around misconfigured IBS reverse proxy servers that send
@@ -38,9 +37,7 @@ has ua => sub {
   return $ua;
 };
 
-sub download_source {
-  my ($self, $api, $project, $pkg, $dir, $options) = (shift, shift, shift, shift, shift, shift || {});
-
+sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   $dir = path($dir)->make_path;
   my $ua = $self->ua;
 
@@ -70,9 +67,7 @@ sub download_source {
   }
 }
 
-sub package_info {
-  my ($self, $api, $project, $pkg, $options) = (shift, shift, shift, shift, shift || {});
-
+sub package_info ($self, $api, $project, $pkg, $options = {}) {
   my $ua = $self->ua;
 
   my $url = _url($api, 'public', 'source', $project, $pkg)->query(view => 'info');
@@ -89,9 +84,7 @@ sub package_info {
   return $info;
 }
 
-sub _find_link_target {
-  my ($ua, $api, $project, $pkg, $lrev) = @_;
-
+sub _find_link_target ($ua, $api, $project, $pkg, $lrev) {
   my $url   = _url($api, 'public', 'source', $project, $pkg);
   my $query = {expand => 1};
   $query->{rev} = $lrev if defined $lrev;
@@ -121,20 +114,16 @@ sub _find_link_target {
   return {%linfo, package => $rn->text};
 }
 
-sub _md5 {
-  my $file = shift;
-  my $md5  = Digest::MD5->new;
+sub _md5 ($file) {
+  my $md5 = Digest::MD5->new;
   $md5->addfile(path($file)->open('r'));
   return $md5->hexdigest;
 }
 
-sub _url {
-  my ($api, @path) = @_;
-
+sub _url ($api, @path) {
   my $url  = Mojo::URL->new($api);
   my $path = $url->path->leading_slash(1);
   push @{$path->parts}, @path;
-
   return $url;
 }
 

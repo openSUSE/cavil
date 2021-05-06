@@ -14,14 +14,12 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::PostProcess;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 has 'hash';
 has max_line_length => 115;
 
-sub _split_find_a_good_spot {
-  my ($self, $line, $start, $len, $max_line_length) = @_;
-
+sub _split_find_a_good_spot ($self, $line, $start, $len, $max_line_length) {
   my $length = $len - $start;
   my $index  = $max_line_length;
   return $length if ($index > $length);
@@ -35,9 +33,7 @@ sub _split_find_a_good_spot {
   return 0;
 }
 
-sub _split_line_by_whitespace {
-  my ($self, $fh, $line) = @_;
-
+sub _split_line_by_whitespace ($self, $fh, $line) {
   my $changed;
   my $start = 0;
   my $len   = length($line);
@@ -60,8 +56,7 @@ sub _split_line_by_whitespace {
   return $changed;
 }
 
-sub _process_file {
-  my ($self, $from, $mimetype) = @_;
+sub _process_file ($self, $from, $mimetype) {
 
   # avoid doing it again
   return undef if $from =~ m/.processed/;
@@ -115,11 +110,9 @@ sub _process_file {
   return $to;
 }
 
-sub new { shift->SUPER::new(hash => shift) }
+sub new ($class, $hash) { $class->SUPER::new(hash => $hash) }
 
-sub postprocess {
-  my $self = shift;
-
+sub postprocess ($self) {
   my $unpacked = $self->hash->{unpacked};
   for my $file (keys %$unpacked) {
     my $entry = $unpacked->{$file};

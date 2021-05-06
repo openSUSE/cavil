@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Util;
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 
 use Carp 'croak';
 use Exporter 'import';
@@ -27,8 +27,7 @@ our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files lines_context);
 
 my $MAX_FILE_SIZE = 30000;
 
-sub buckets {
-  my ($things, $size) = @_;
+sub buckets ($things, $size) {
 
   my $buckets    = int(@$things / $size) || 1;
   my $per_bucket = ceil @$things / $buckets;
@@ -42,8 +41,7 @@ sub buckets {
   return \@buckets;
 }
 
-sub slurp_and_decode {
-  my $path = shift;
+sub slurp_and_decode ($path) {
 
   open my $file, '<', $path or croak qq{Can't open file "$path": $!};
   croak qq{Can't read from file "$path": $!} unless defined(my $ret = $file->sysread(my $content, $MAX_FILE_SIZE, 0));
@@ -52,8 +50,7 @@ sub slurp_and_decode {
   return decode('UTF-8', $content) // $content;
 }
 
-sub _line_tag {
-  my $line = shift;
+sub _line_tag ($line) {
   return $line->[1]->{pid} if defined $line->[1]->{pid};
 
   # the actual value does not matter - as long as it differs between snippets
@@ -64,8 +61,7 @@ sub _line_tag {
 # small helper to simplifying the view code
 # this adds to the line infos where the matches end and
 # what's next
-sub lines_context {
-  my $lines = shift;
+sub lines_context ($lines) {
   my $last;
   my $currentstart;
   my @starts;
@@ -99,8 +95,7 @@ sub lines_context {
   return $lines;
 }
 
-sub load_ignored_files {
-  my $db               = shift;
+sub load_ignored_files ($db) {
   my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] } @{$db->select('ignored_files', 'glob')->arrays};
   return \%ignored_file_res;
 }

@@ -32,7 +32,7 @@ my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'api_te
 my $config     = $cavil_test->default_config;
 $config->{openid} = {provider => 'https://www.opensuse.org/openid/user/', secret => 's3cret'};
 my $t = Test::Mojo->new(Cavil => $config);
-$cavil_test->no_fixtures($t->app);
+$cavil_test->just_patterns_fixtures($t->app);
 my $dir = $cavil_test->checkout_dir;
 
 # Mock OBS
@@ -97,6 +97,9 @@ subtest 'Not authenticated' => sub {
 
 subtest 'Package not created yet' => sub {
   $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/No such package/);
+  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})->status_is(408)
+    ->content_like(qr/unknown package/);
+  $t->get_ok('/source/1' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/unknown file/);
 };
 
 subtest 'Create package' => sub {
@@ -104,6 +107,8 @@ subtest 'Create package' => sub {
   $t->app->patterns->expire_cache;
   $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
     ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')->json_is('/saved/id', 1);
+  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})->status_is(408)
+    ->content_like(qr/not indexed/);
   $t->app->minion->on(
     worker => sub {
       my ($minion, $worker) = @_;
@@ -136,6 +141,11 @@ subtest 'Create package' => sub {
 subtest 'Package has been created' => sub {
   $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
     ->json_is('/priority', 5);
+  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})->status_is(200)
+    ->content_type_like(qr/application\/json/)->json_is('/package/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')
+    ->json_has('/report/risks');
+  $t->get_ok('/source/1' => {Authorization => 'Token test_token'})->status_is(200)
+    ->content_type_like(qr/application\/json/)->json_has('/source/filename');
 };
 
 subtest 'Update priority' => sub {
