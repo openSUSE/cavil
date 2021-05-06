@@ -30,7 +30,11 @@ sub check ($self) {
 }
 
 sub _denied ($self) {
-  $self->render('permissions', status => 403);
+  $self->respond_to(
+    json =>
+      {json => {error => 'It appears you have insufficient permissions for accessing this resource'}, status => 403},
+    any => {template => 'permissions', status => 403}
+  );
 }
 
 1;

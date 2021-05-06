@@ -92,7 +92,16 @@ $routes->get("/public/source/:project/perl-Mojolicious/$_" => [project => ['deve
 my $api = 'http://127.0.0.1:' . $t->app->obs->ua->server->app($mock_app)->url->port;
 
 subtest 'Not authenticated' => sub {
-  $t->get_ok('/package/1')->status_is(403)->content_like(qr/Permission/);
+  $t->get_ok('/package/1')->status_is(403)->content_like(qr/permission/);
+  $t->patch_ok('/package/1')->status_is(403)->content_like(qr/permission/);
+  $t->post_ok('/packages')->status_is(403)->content_like(qr/permission/);
+  $t->post_ok('/packages/import/1')->status_is(403)->content_like(qr/permission/);
+  $t->patch_ok('/products/Foo')->status_is(403)->content_like(qr/permission/);
+  $t->post_ok('/requests')->status_is(403)->content_like(qr/permission/);
+  $t->get_ok('/requests')->status_is(403)->content_like(qr/permission/);
+  $t->delete_ok('/requests')->status_is(403)->content_like(qr/permission/);
+  $t->get_ok('/package/1/report')->status_is(403)->content_like(qr/permission/);
+  $t->get_ok('/source/1')->status_is(403)->content_like(qr/permission/);
 };
 
 subtest 'Package not created yet' => sub {
