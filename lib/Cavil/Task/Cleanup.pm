@@ -36,14 +36,15 @@ sub _cleanup ($job) {
 }
 
 sub _cleanup_batch ($job, @ids) {
-  my $app = $job->app;
-  my $log = $app->log;
-  my $db  = $app->pg->db;
+  my $app    = $job->app;
+  my $minion = $app->minion;
+  my $log    = $app->log;
+  my $db     = $app->pg->db;
 
   for my $id (@ids) {
     my $tx  = $db->begin;
     my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id}, {for => 'update'})->hash;
-    next if !$pkg || !$pkg->{obsolete};
+    next if !$pkg || !$pkg->{obsolete} || !$minion->lock("processing_pkg_$id", 0);
 
     $log->info("[$id] Remove $pkg->{name}/$pkg->{checkout_dir}");
     my $dir = path($app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
