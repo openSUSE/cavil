@@ -14,7 +14,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Model::Patterns;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use Mojo::File 'path';
 use Spooky::Patterns::XS;
@@ -22,8 +22,7 @@ use Storable;
 
 has [qw(cache log pg minion)];
 
-sub create {
-  my ($self, %args) = @_;
+sub create ($self, %args) {
 
   my $db       = $self->pg->db;
   my $checksum = $self->checksum($args{pattern});
@@ -55,19 +54,16 @@ sub create {
   return $self->find($mid);
 }
 
-sub expire_cache { unlink path(shift->cache, 'cavil.tokens')->to_string }
+sub expire_cache ($self) { unlink path($self->cache, 'cavil.tokens')->to_string }
 
-sub has_new_patterns {
-  my ($self, $packname, $when) = @_;
+sub has_new_patterns ($self, $packname, $when) {
   return $self->pg->db->query(
     "select count(*) from license_patterns
      where created > ? and (packname = '' or packname = ?)", $when, $packname
   )->array->[0];
 }
 
-sub load_specific {
-  my ($self, $matcher, $pname) = @_;
-
+sub load_specific ($self, $matcher, $pname) {
   my $rows = $self->pg->db->select('license_patterns', ['id', 'pattern'], {packname => $pname});
 
   while (my $l = $rows->array) {
@@ -78,9 +74,7 @@ sub load_specific {
 }
 
 # possibly cached
-sub load_unspecific {
-  my ($self, $matcher) = @_;
-
+sub load_unspecific ($self, $matcher) {
   my $cachefile = path($self->cache, 'cavil.tokens')->to_string;
   if (-f $cachefile) {
     $matcher->load($cachefile);
@@ -95,18 +89,15 @@ sub load_unspecific {
   rename $tmp, $cachefile;
 }
 
-sub all {
-  return shift->pg->db->select('license_patterns', '*')->hashes;
+sub all ($self) {
+  return $self->pg->db->select('license_patterns', '*')->hashes;
 }
 
-sub find {
-  my ($self, $id) = @_;
+sub find ($self, $id) {
   return $self->pg->db->select('license_patterns', '*', {id => $id})->hash;
 }
 
-sub checksum {
-  my ($self, $pattern) = @_;
-
+sub checksum ($self, $pattern) {
   Spooky::Patterns::XS::init_matcher();
   my $a   = Spooky::Patterns::XS::parse_tokens($pattern);
   my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
@@ -121,24 +112,19 @@ sub checksum {
   return $ctx->hex;
 }
 
-sub for_license {
-  my ($self, $license) = @_;
+sub for_license ($self, $license) {
   return $self->pg->db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
 }
 
-sub all_licenses {
-  my $self = shift;
+sub all_licenses ($self) {
   return $self->pg->db->query('select distinct(license) from license_patterns')->arrays->map(sub { $_->[0] })->to_array;
 }
 
-sub remove {
-  my ($self, $id) = @_;
+sub remove ($self, $id) {
   $self->pg->db->delete('license_patterns', {id => $id});
 }
 
-sub update {
-  my ($self, $id, %args) = @_;
-
+sub update ($self, $id, %args) {
   my $db = $self->pg->db;
 
   my $checksum = $self->checksum($args{pattern});

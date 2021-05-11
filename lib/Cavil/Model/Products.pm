@@ -14,15 +14,13 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Model::Products;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 has 'pg';
 
-sub all { shift->pg->db->select('bot_products')->hashes->to_array }
+sub all ($self) { $self->pg->db->select('bot_products')->hashes->to_array }
 
-sub find_or_create {
-  my ($self, $name) = @_;
-
+sub find_or_create ($self, $name) {
   my $db = $self->pg->db;
   if (my $product = $db->select('bot_products', '*', {name => $name})->hash) {
     return $product;
@@ -31,15 +29,12 @@ sub find_or_create {
   return $db->insert('bot_products', {name => $name}, {returning => '*'})->hash;
 }
 
-sub for_package {
-  my ($self, $id) = @_;
+sub for_package ($self, $id) {
   return $self->pg->db->select(['bot_package_products', ['bot_products', id => 'product']],
     'name', {'bot_package_products.package' => $id})->arrays->flatten->to_array;
 }
 
-sub list {
-  my ($self, $name) = @_;
-
+sub list ($self, $name) {
   my $db = $self->pg->db;
   return [] unless my $product = $db->select('bot_products', 'id', {name => $name})->hash;
 
@@ -53,8 +48,7 @@ sub list {
   )->hashes->to_array;
 }
 
-sub update {
-  my ($self, $product, $packages) = @_;
+sub update ($self, $product, $packages) {
   my $db = $self->pg->db;
   $db->delete('bot_package_products', {product => $product});
   $db->query(

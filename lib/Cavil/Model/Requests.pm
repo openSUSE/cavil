@@ -14,26 +14,23 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Model::Requests;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 has 'pg';
 
-sub add {
-  my ($self, $link, $pkg) = @_;
+sub add ($self, $link, $pkg) {
   my $req = {external_link => $link, package => $pkg};
   return $self->pg->db->insert('bot_requests', $req, {returning => 'id'})->hash->{id};
 }
 
-sub all {
-  my $self = shift;
+sub all ($self) {
   return $self->pg->db->query(
     'select external_link, array_agg(package) as packages from bot_requests
      group by external_link'
   )->hashes->to_array;
 }
 
-sub remove {
-  my ($self, $link) = @_;
+sub remove ($self, $link) {
   return $self->pg->db->delete('bot_requests', {external_link => $link}, {returning => 'package'})
     ->hashes->map(sub { $_->{package} })->to_array;
 }

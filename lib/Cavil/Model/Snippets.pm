@@ -14,21 +14,17 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Model::Snippets;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use Mojo::File 'path';
 
 has [qw(pg)];
 
-sub find {
-  my ($self, $id) = @_;
-
+sub find ($self, $id) {
   return $self->pg->db->select('snippets', '*', {id => $id})->hash;
 }
 
-sub find_or_create {
-  my ($self, $hash, $text) = @_;
-
+sub find_or_create ($self, $hash, $text) {
   my $db = $self->pg->db;
 
   my $snip = $db->select('snippets', 'id', {hash => $hash})->hash;
@@ -41,9 +37,7 @@ sub find_or_create {
   return $db->select('snippets', 'id', {hash => $hash})->hash->{id};
 }
 
-sub random {
-  my ($self, $limit) = @_;
-
+sub random ($self, $limit) {
   return $self->pg->db->query(
     'select id, text, classified,
     license, confidence from snippets where approved=FALSE
@@ -51,8 +45,7 @@ sub random {
   )->hashes;
 }
 
-sub mark_non_license {
-  my ($self, $id) = @_;
+sub mark_non_license ($self, $id) {
   $self->pg->db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
 }
 1;
