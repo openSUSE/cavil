@@ -176,6 +176,18 @@ sub obs_import {
       {priority => $priority, notes => {external_link => $pkg->{external_link}, package => $pkg->{name}}});
 }
 
+sub obsolete_if_not_in_product {
+  my ($self, $id) = @_;
+
+  my $db = $self->pg->db;
+  return undef if $db->query('select 1 from bot_package_products where package = ? limit 1', $id)->array;
+  $db->query(
+    q{update bot_packages set state = 'obsolete', obsolete = true where id = ? and state in ('new', 'unacceptable')},
+    $id);
+
+  return 1;
+}
+
 sub recent {
   my $self = shift;
   return $self->pg->db->query(

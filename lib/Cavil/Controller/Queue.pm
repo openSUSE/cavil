@@ -170,14 +170,8 @@ sub remove_request ($self) {
   my $link    = $validation->param('external_link');
   my $removed = $self->requests->remove($link);
   my $pkgs    = $self->packages;
-  for my $pkg (@$removed) {
-    $pkg = $pkgs->find($pkg);
-    if ($pkg->{state} eq 'new' || $pkg->{state} eq 'unacceptable') {
-      $pkg->{state}    = 'obsolete';
-      $pkg->{obsolete} = 1;
-
-      $pkgs->update($pkg);
-    }
+  for my $id (@$removed) {
+    $pkgs->obsolete_if_not_in_product($id);
   }
 
   $self->render(json => {removed => $removed});

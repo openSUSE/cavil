@@ -207,7 +207,7 @@ subtest 'Acceptable risk' => sub {
   is $t->app->reports->risk_is_acceptable('GPL-2.0+-4:Hwo6'),  undef, 'not acceptable';
 };
 
-subtest 'Remove product requests (but keep packages that are still part of the product)' => sub {
+subtest 'Remove request (but keep packages that are still part of a product)' => sub {
   my $pkgs = $t->app->packages;
   my @ids;
   for my $i (1 .. 5) {
@@ -228,6 +228,12 @@ subtest 'Remove product requests (but keep packages that are still part of the p
         {external_link => 'openSUSE:Test', package => $id})->status_is(200)->json_is('/created', 'openSUSE:Test');
   }
 
+  is $pkgs->find($ids[0])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[1])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[2])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[3])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[4])->{state}, 'new', 'right state';
+
   $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
     ->json_is('/requests/0/packages' => \@ids);
 
@@ -242,15 +248,13 @@ subtest 'Remove product requests (but keep packages that are still part of the p
 
   $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'openSUSE:Test'})
     ->status_is(200);
-  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
-    ->json_is('/requests/0/packages' => \@in_product);
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
 
-  $t->patch_ok('/products/openSUSE:Test' => {Authorization => 'Token test_token'} => form => {id => [2]})
-    ->status_is(200)->json_is('/updated', 3);
-  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'openSUSE:Test'})
-    ->status_is(200);
-  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
-    ->json_is('/requests/0/packages' => [2]);
+  is $pkgs->find($ids[0])->{state}, 'new',      'right state';
+  is $pkgs->find($ids[1])->{state}, 'obsolete', 'right state';
+  is $pkgs->find($ids[2])->{state}, 'new',      'right state';
+  is $pkgs->find($ids[3])->{state}, 'obsolete', 'right state';
+  is $pkgs->find($ids[4])->{state}, 'new',      'right state';
 };
 
 done_testing;
