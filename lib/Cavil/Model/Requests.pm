@@ -31,8 +31,20 @@ sub all ($self) {
 }
 
 sub remove ($self, $link) {
-  return $self->pg->db->delete('bot_requests', {external_link => $link}, {returning => 'package'})
-    ->hashes->map(sub { $_->{package} })->to_array;
+  my $db = $self->pg->db;
+
+  # External link might be a product, then we only want to remove the packages from it that are not part of the product
+  # anymore
+  my $results = $db->query(
+    'delete from bot_requests as br
+     where external_link = $1 and not exists (
+       select 1 from bot_package_products as bpp join bot_products as bp on bp.id = bpp.product
+       where bp.name = $1 and bpp.package = br.id
+     ) returning id', $link
+  )->arrays->flatten->to_array;
+
+  return $results;
+
 }
 
 1;

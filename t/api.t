@@ -207,4 +207,50 @@ subtest 'Acceptable risk' => sub {
   is $t->app->reports->risk_is_acceptable('GPL-2.0+-4:Hwo6'),  undef, 'not acceptable';
 };
 
+subtest 'Remove product requests (but keep packages that are still part of the product)' => sub {
+  my $pkgs = $t->app->packages;
+  my @ids;
+  for my $i (1 .. 5) {
+    my $id = $pkgs->add(
+      name            => "test-package-$i",
+      checkout_dir    => "2a0737e27a3b75590e7fab112b06a76fe757361$i",
+      api_url         => 'https://api.opensuse.org',
+      requesting_user => 1,
+      project         => 'devel:languages:perl',
+      package         => "test-package-$i",
+      srcmd5          => "2a0737e27a3b75590e7fab112b06a76fe757361$i",
+      priority        => 5
+    );
+    push @ids, $id;
+    $pkgs->imported($id);
+
+    $t->post_ok('/requests' => {Authorization => 'Token test_token'} => form =>
+        {external_link => 'openSUSE:Test', package => $id})->status_is(200)->json_is('/created', 'openSUSE:Test');
+  }
+
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
+    ->json_is('/requests/0/packages' => \@ids);
+
+  my @in_product = @ids[0, 2, 4];
+  $t->patch_ok('/products/openSUSE:Test' => {Authorization => 'Token test_token'} => form => {id => \@in_product})
+    ->status_is(200)->json_is('/updated', 3);
+  is_deeply $t->app->products->for_package($ids[0]), ['openSUSE:Test'], 'right products';
+  is_deeply $t->app->products->for_package($ids[1]), [], 'right products';
+  is_deeply $t->app->products->for_package($ids[2]), ['openSUSE:Test'], 'right products';
+  is_deeply $t->app->products->for_package($ids[3]), [], 'right products';
+  is_deeply $t->app->products->for_package($ids[4]), ['openSUSE:Test'], 'right products';
+
+  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'openSUSE:Test'})
+    ->status_is(200);
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
+    ->json_is('/requests/0/packages' => \@in_product);
+
+  $t->patch_ok('/products/openSUSE:Test' => {Authorization => 'Token test_token'} => form => {id => [2]})
+    ->status_is(200)->json_is('/updated', 3);
+  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'openSUSE:Test'})
+    ->status_is(200);
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
+    ->json_is('/requests/0/packages' => [2]);
+};
+
 done_testing;
