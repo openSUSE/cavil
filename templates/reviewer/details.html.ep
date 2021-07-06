@@ -211,6 +211,12 @@
                       <td><%= c(@{$sub->{licenses}})->uniq->join(', ') %></td>
                     </tr>
                   % }
+                  % if (my $version = $sub->{version}) {
+                    <tr>
+                      <td class="fit text-left noleftpad">Version:</td>
+                      <td><%= $version %></td>
+                    </tr>
+                  % }
                   % if (my $summary = $sub->{summary}) {
                     <tr>
                       <td class="fit text-left noleftpad">Summary:</td>
