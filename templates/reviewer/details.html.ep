@@ -11,21 +11,42 @@
     url_for('search')->query(q => $package->{name}), target => '_blank' %>
 </h2>
 
-% my $lic = lic($spec->{main}{license});
+% my $raw_license = $spec->{main}{license};
+% my $license = lic($raw_license)->to_string;
+% my $display_license = $license || $raw_license;
 % content_for 'ready_function' => begin
-  $('#create-pattern').data('licenseName', '<%= $lic %>');
+  $('#create-pattern').data('licenseName', '<%= $display_license %>');
   fromNow();
   backToTop();
 % end
 <table class="table borderless novertpad">
   <tbody>
-    % if (my $lstr = $lic->to_string) {
+    % if ($display_license) {
       <tr>
         <th class="fit text-left noleftpad" scope="row">
           <i class="fas fa-box"></i>
         </th>
         <th class="fit text-left noleftpad" scope="row">RPM License:</th>
-        <td id="rpm-license"><%= $lstr %></td>
+        <td id="rpm-license">
+          <%= $display_license %>
+          % unless ($license) {
+            <small>(not SPDX)</small>
+          % }
+        </td>
+      </tr>
+    % }
+
+    % if (@{$spec->{sub}}) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-cubes"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">SPEC Files:</th>
+        <td>
+          % if (my $num = @{$spec->{sub}}) {
+            <%= link_to $num == 1 ? '1 file' : "$num files" => "#spec-files", 'data-toggle' => 'collapse' %>
+          % }
+        </td>
       </tr>
     % }
 
@@ -169,6 +190,48 @@
     % }
   </tbody>
 </table>
+
+% if (@{$spec->{sub}}) {
+  <div id="spec-files" class="collapse">
+    <div class="alert alert-secondary">
+      <table class="table borderless novertpad">
+        <tbody>
+          % for my $sub (@{$spec->{sub}}) {
+            <tr>
+              <td class="noleftpad">
+                <table class="table borderless novertpad">
+                  <tr>
+                    <th class="fit text-left noleftpad" colspan="2">
+                      <i class="fas fa-file-alt"></i></i> <%= $sub->{file} %>
+                    </th>
+                  </tr>
+                  % if (@{$sub->{licenses}}) {
+                    <tr>
+                      <td class="fit text-left noleftpad">Licenses:</td>
+                      <td><%= c(@{$sub->{licenses}})->uniq->join(', ') %></td>
+                    </tr>
+                  % }
+                  % if (my $summary = $sub->{summary}) {
+                    <tr>
+                      <td class="fit text-left noleftpad">Summary:</td>
+                      <td><%= $summary %></td>
+                    </tr>
+                  % }
+                  % if (my $group = $sub->{group}) {
+                    <tr>
+                      <td class="fit text-left noleftpad">Group:</td>
+                      <td><%= $group %></td>
+                    </tr>
+                  % }
+                </table>
+              </td>
+            </tr>
+          % }
+        </tbody>
+      </table>
+    </div>
+  </div>
+% }
 
 % if (@$actions) {
   <div id="actions" class="collapse">
