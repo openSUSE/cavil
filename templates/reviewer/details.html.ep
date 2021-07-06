@@ -36,7 +36,7 @@
       </tr>
     % }
 
-    % if (@{$spec->{sub}}) {
+    % if ($spec->{sub} && @{$spec->{sub}}) {
       <tr>
         <th class="fit text-left noleftpad" scope="row">
           <i class="fas fa-cubes"></i>
@@ -191,7 +191,7 @@
   </tbody>
 </table>
 
-% if (@{$spec->{sub}}) {
+% if ($spec->{sub} && @{$spec->{sub}}) {
   <div id="spec-files" class="collapse">
     <div class="alert alert-secondary">
       <table class="table borderless novertpad">
