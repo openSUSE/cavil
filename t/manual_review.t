@@ -39,6 +39,19 @@ subtest 'Details after import (indexing in progress)' => sub {
     ->element_exists_not('#pkg-review')->element_exists_not('#pkg-shortname')
     ->element_exists_not('#pkg-review label[for=comment]')->element_exists_not('#pkg-review textarea[name=comment]')
     ->element_exists_not('#correct')->element_exists_not('#acceptable')->element_exists_not('#unacceptable');
+
+  $t->text_like('#spec-files table tr th',                                     qr/perl-Mojolicious\.spec/)
+    ->text_like('#spec-files table table tr td',                               qr/Licenses/)
+    ->text_like('#spec-files table table tr td:nth-of-type(2)',                qr/Artistic-2.0/)
+    ->text_like('#spec-files table table tr:nth-of-type(3) td',                qr/Version/)
+    ->text_like('#spec-files table table tr:nth-of-type(3) td:nth-of-type(2)', qr/7\.25/)
+    ->text_like('#spec-files table table tr:nth-of-type(4) td',                qr/Summary/)
+    ->text_like('#spec-files table table tr:nth-of-type(4) td:nth-of-type(2)', qr/Real-time web framework/)
+    ->text_like('#spec-files table table tr:nth-of-type(5) td',                qr/Group/)
+    ->text_like('#spec-files table table tr:nth-of-type(5) td:nth-of-type(2)', qr/Development\/Libraries\/Perl/);
+
+  $t->element_exists_not('#spec-errors')->element_exists_not('#spec-warnings');
+
   $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/not indexed/);
   $t->get_ok('/reviews/fetch_source/1')->status_is(404);
 };
@@ -89,8 +102,8 @@ subtest 'Details after indexing' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
   $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Artistic-2.0!)
-    ->text_like('#rpm-version', qr!7\.25!)->text_like('#rpm-summary', qr!Real-time web framework!)
-    ->text_like('#rpm-group',   qr!Development/Libraries/Perl!)
+    ->text_like('#num-spec-files a', qr/1 file/)->text_like('#rpm-version', qr!7\.25!)
+    ->text_like('#rpm-summary', qr!Real-time web framework!)->text_like('#rpm-group', qr!Development/Libraries/Perl!)
     ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
     ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
     ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
