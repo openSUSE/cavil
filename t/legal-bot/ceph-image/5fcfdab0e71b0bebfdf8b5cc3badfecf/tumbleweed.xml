@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<param>
+  <image>obsrepositories:/opensuse/tumbleweed</image>
+  <tags>tumbleweed</tags>
+  <name>opensuse/ceph/ceph</name>
+  <prefix>org.opensuse.ceph</prefix>
+  <title>Ceph container image</title>
+  <url>https://registry.opensuse.org/opensuse/ceph/ceph:%PKG_VERSION%.%RELEASE%</url>
+  <reference>registry.opensuse.org/opensuse/ceph/ceph:%PKG_VERSION%.%RELEASE%</reference>
+  <packages_image>
+    <package>
+      <name>patterns-ceph-containers-ceph_base</name>
+    </package>
+  </packages_image>
+  <packages_boot>
+    <package>
+      <name>kubic-locale-archive</name>
+    </package>
+    <package>
+      <name>openSUSE-release-ftp</name>
+    </package>
+    <package>
+      <name>zabbix-agent</name>
+    </package>
+  </packages_boot>
+</param>

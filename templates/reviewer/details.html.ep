@@ -26,8 +26,8 @@
         <th class="fit text-left noleftpad" scope="row">
           <i class="fas fa-box"></i>
         </th>
-        <th class="fit text-left noleftpad" scope="row">RPM License:</th>
-        <td id="rpm-license">
+        <th class="fit text-left noleftpad" scope="row">License:</th>
+        <td id="pkg-license">
           <%= $display_license %>
           % unless ($license) {
             <small>(not SPDX)</small>
@@ -41,7 +41,7 @@
         <th class="fit text-left noleftpad" scope="row">
           <i class="fas fa-cubes"></i>
         </th>
-        <th class="fit text-left noleftpad" scope="row">SPEC Files:</th>
+        <th class="fit text-left noleftpad" scope="row">Package Files:</th>
         <td id="num-spec-files">
           % if (my $num = @{$spec->{sub}}) {
             <%= link_to $num == 1 ? '1 file' : "$num files" => "#spec-files", 'data-toggle' => 'collapse' %>
@@ -92,7 +92,7 @@
           <i class="fas fa-code-branch"></i>
         </th>
         <th class="fit text-left noleftpad" scope="row">Version:</th>
-        <td id="rpm-version"><%= $version %></td>
+        <td id="pkg-version"><%= $version %></td>
       </tr>
     % }
 
@@ -102,7 +102,7 @@
           <i class="fas fa-edit"></i>
         </th>
         <th class="fit text-left noleftpad" scope="row">Summary:</th>
-        <td id="rpm-summary"><%= $summary %></td>
+        <td id="pkg-summary"><%= $summary %></td>
       </tr>
     % }
 
@@ -112,7 +112,7 @@
           <i class="fas fa-users"></i>
         </th>
         <th class="fit text-left noleftpad" scope="row">Group:</th>
-        <td id="rpm-group"><%= $group %></td>
+        <td id="pkg-group"><%= $group %></td>
       </tr>
     % }
 
@@ -122,7 +122,7 @@
           <i class="fas fa-link"></i>
         </th>
         <th class="fit text-left noleftpad" scope="row">URL:</th>
-        <td id="rpm-url"><%= link_to $url => $url => (target => '_blank') %></td>
+        <td id="pkg-url"><%= link_to $url => $url => (target => '_blank') %></td>
       </tr>
     % }
 

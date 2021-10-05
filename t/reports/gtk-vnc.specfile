@@ -43,7 +43,6 @@
       "%license" => [],
       "file"     => "gtk-vnc.spec",
       "group"    => "Development/Libraries/X11",
-      "license"  => "LGPL-2.1+",
       "licenses" => [
         "LGPL-2.1+",
         "LGPL-2.1 and LGPL-2.1+",

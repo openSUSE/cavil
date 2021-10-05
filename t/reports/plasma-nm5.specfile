@@ -25,7 +25,6 @@
       "%license" => [],
       "file"     => "plasma-nm5.spec",
       "group"    => "System/GUI/KDE",
-      "license"  => "(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)",
       "licenses" => ["(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)"],
       "summary" =>
         "Plasma applet written in QML for managing network connections",

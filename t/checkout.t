@@ -41,6 +41,12 @@ sub temp_copy {
   return $target;
 }
 
+subtest 'ceph-image' => sub {
+  my $ceph     = $dir->child('ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf');
+  my $checkout = Cavil::Checkout->new($ceph);
+  is_deeply $checkout->specfile_report, report('ceph-image.kiwi'), 'right kiwi report';
+};
+
 subtest 'gnome-icon-theme' => sub {
   my $theme    = $dir->child('gnome-icon-theme', '6101f5eb933704aaad5dea63667110ac');
   my $checkout = Cavil::Checkout->new($theme);

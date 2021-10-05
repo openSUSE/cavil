@@ -17,7 +17,6 @@
       "%license" => [],
       "file"     => "gnome-icon-theme.spec",
       "group"    => "System/GUI/GNOME",
-      "license"  => "LGPLv3+ | CC BY-SA V3.0",
       "licenses" => ["LGPLv3+ | CC BY-SA V3.0"],
       "summary"  => "GNOME Icon Theme",
       "url"      => "http://www.gnome.org/",

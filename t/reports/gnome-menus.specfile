@@ -21,7 +21,6 @@
       "%license" => [],
       "file"     => "gnome-menus.spec",
       "group"    => "System/GUI/GNOME",
-      "license"  => "LGPLv2.1+",
       "licenses" => [
         "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+",
         "GPLv2+",    "LGPLv2.1+"

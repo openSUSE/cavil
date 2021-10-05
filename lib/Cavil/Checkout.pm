@@ -17,6 +17,7 @@ package Cavil::Checkout;
 use Mojo::Base -base, -signatures;
 
 use File::Unpack;
+use Mojo::DOM;
 use Mojo::File 'path';
 use Mojo::JSON qw(decode_json encode_json);
 use Mojo::Util 'dumper';
@@ -86,20 +87,40 @@ sub keyword_report ($self, $matcher, $meta, $file) {
 sub new ($class, $dir) { $class->SUPER::new(dir => $dir) }
 
 sub specfile_report ($self) {
-  my $dir   = path($self->dir);
-  my $name  = $dir->dirname->basename . '.spec';
-  my $first = $dir->child($name);
+  my $dir      = path($self->dir);
+  my $basename = $dir->dirname->basename;
 
-  return {errors => ["Main specfile missing: $name"]} unless -f $first;
-  my $specfile = _specfile($first);
-  return {errors => ["Main specfile contains no license: $name"]} unless @{$specfile->{licenses}};
+  my $info = {main => undef, sub => [], errors => [], warnings => []};
 
-  $specfile->{license} = $specfile->{licenses}[0];
-  my $info = {main => $specfile, sub => [$specfile]};
-  for my $spec ($dir->list->grep(qr/\.spec$/)->each) {
-    next if $spec eq $first;
-    push @{$info->{sub}}, _specfile($spec);
+  my $specfile_name = $basename . '.spec';
+  my $main_specfile = $dir->child($specfile_name);
+
+  my $kiwifile_name = $basename . '.kiwi';
+  my $main_kiwifile = $dir->child($kiwifile_name);
+
+  # Main .spec file
+  if (-f $main_specfile) {
+    my $specfile = $info->{main} = _specfile($main_specfile);
+    if (@{$specfile->{licenses}}) { $specfile->{license} = $specfile->{licenses}[0] }
+    else                          { push @{$info->{errors}}, "Main specfile contains no license: $specfile_name" }
   }
+
+  # Main .kiwi file
+  elsif (-f $main_kiwifile) {
+    my $kiwifile = $info->{main} = _kiwifile($main_kiwifile);
+    if (@{$kiwifile->{licenses}}) { $kiwifile->{license} = $kiwifile->{licenses}[0] }
+    else                          { push @{$info->{errors}}, "Main kiwifile contains no license: $kiwifile_name" }
+  }
+
+  # No main files
+  else { push @{$info->{errors}}, "Main package file missing: $specfile_name or $kiwifile_name" }
+
+  # All .spec files
+  my $files = $dir->list;
+  push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
+
+  # All .kiwi files
+  push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
 
   _check($info);
 
@@ -177,27 +198,49 @@ sub _add_once ($queue, $msg) {
 }
 
 sub _check ($info) {
-  $info->{errors}   = \my @errors;
-  $info->{warnings} = \my @warnings;
+  my $errors   = $info->{errors};
+  my $warnings = $info->{warnings};
 
   my $mlicense = $info->{main}{license};
   my $main     = lic($mlicense);
-  if (my $err = $main->error) { push @errors, $err and return }
-  _add_once(\@warnings, "Main license has license exception: $mlicense")         if $main->exception;
-  _add_once(\@warnings, "Main license had to be normalized: $mlicense -> $main") if $main->normalized;
+  if (my $err = $main->error) { push @$errors, $err and return }
+  _add_once($warnings, "Main license has license exception: $mlicense")         if $main->exception;
+  _add_once($warnings, "Main license had to be normalized: $mlicense -> $main") if $main->normalized;
 
   for my $file (@{$info->{sub}}) {
     my $spec = $file->{file};
     for my $license (@{$file->{licenses}}) {
       my $sub = lic($license);
-      if (my $err = $sub->error) { push @errors, $err and next }
+      if (my $err = $sub->error) { push @$errors, $err and next }
 
-      _add_once(\@warnings, "License from $spec has license exception: $license")        if $sub->exception;
-      _add_once(\@warnings, "License from $spec had to be normalized: $license -> $sub") if $sub->normalized;
+      _add_once($warnings, "License from $spec has license exception: $license")        if $sub->exception;
+      _add_once($warnings, "License from $spec had to be normalized: $license -> $sub") if $sub->normalized;
 
-      _add_once(\@errors, "License from $spec is not part of main license: $license") unless $main->is_part_of($sub);
+      _add_once($errors, "License from $spec is not part of main license: $license") unless $main->is_part_of($sub);
     }
   }
+}
+
+sub _kiwifile ($file) {
+  my $info = {file => $file->basename, licenses => []};
+  my $dom  = Mojo::DOM->new($file->slurp);
+
+  # Licenses
+  for my $label ($dom->find('label[name="org.opencontainers.image.licenses"]')->each) {
+    next unless my $value = $label->{value};
+    push @{$info->{licenses}}, $value;
+  }
+
+  # Version
+  if (my $version = $dom->at('image preferences version')) { $info->{version} = $version->text }
+
+  # Summary
+  if (my $summary = $dom->at('image description specification')) { $info->{summary} = $summary->text }
+
+  # URL
+  if (my $url = $dom->at('image description contact')) { $info->{url} = $url->text }
+
+  return $info;
 }
 
 sub _specfile ($file) {

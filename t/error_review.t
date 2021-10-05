@@ -62,33 +62,34 @@ $t->app->minion->perform_jobs;
 subtest 'Details after indexing' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Fake-Artistic!)
-    ->text_like('#rpm-license small', qr/\(not SPDX\)/)->text_like('#pkg-shortname', qr/\w+/)
-    ->text_like('#num-spec-files a',  qr/2 files/)->text_like('#rpm-version', qr!7\.25!)
-    ->text_like('#rpm-summary', qr!Real-time web framework!)->text_like('#rpm-group', qr!Development/Libraries/Perl!)
-    ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
+  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Fake-Artistic!)
+    ->text_like('#pkg-license small', qr/\(not SPDX\)/)->text_like('#pkg-shortname', qr/\w+/)
+    ->text_like('#num-spec-files a',  qr/2 files/)->text_like('#pkg-version', qr!7\.25!)
+    ->text_like('#pkg-summary', qr!Real-time web framework!)->text_like('#pkg-group', qr!Development/Libraries/Perl!)
+    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
     ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
     ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
     ->element_exists('#unacceptable');
 
-  $t->text_like('#spec-files table tr th',                                        qr/perl-Mojolicious\.spec/)
-    ->text_like('#spec-files table table tr td',                                  qr/Licenses/)
-    ->text_like('#spec-files table table tr td:nth-of-type(2)',                   qr/Fake-Artistic/)
-    ->text_like('#spec-files table table tr:nth-of-type(3) td',                   qr/Version/)
-    ->text_like('#spec-files table table tr:nth-of-type(3) td:nth-of-type(2)',    qr/7\.25/)
-    ->text_like('#spec-files table table tr:nth-of-type(4) td',                   qr/Summary/)
-    ->text_like('#spec-files table table tr:nth-of-type(4) td:nth-of-type(2)',    qr/Real-time web framework/)
-    ->text_like('#spec-files table table tr:nth-of-type(5) td',                   qr/Group/)
-    ->text_like('#spec-files table table tr:nth-of-type(5) td:nth-of-type(2)',    qr/Development\/Libraries\/Perl/)
-    ->text_like('#spec-files table tr:nth-of-type(2) th',                         qr/perl-Mojolicious-whatever\.spec/)
+  $t->text_like('#spec-files table tr:nth-of-type(2) th',                         qr/perl-Mojolicious\.spec/)
     ->text_like('#spec-files table tr:nth-of-type(2) table tr td',                qr/Licenses/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr td:nth-of-type(2)', qr/MIT, BSD, Artistic2/)
+    ->text_like('#spec-files table tr:nth-of-type(2) table tr td:nth-of-type(2)', qr/Fake-Artistic/)
     ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(3) td', qr/Version/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(3) td:nth-of-type(2)', qr/1\.2\.3/)
+    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(3) td:nth-of-type(2)', qr/7\.25/)
     ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(4) td',                qr/Summary/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(4) td:nth-of-type(2)', qr/Fake summary/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(5) td',                qr/Group/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(5) td:nth-of-type(2)', qr/Fake group/);
+    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(4) td:nth-of-type(2)',
+    qr/Real-time web framework/)
+    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(5) td', qr/Group/)
+    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(5) td:nth-of-type(2)',
+    qr/Development\/Libraries\/Perl/)->text_like('#spec-files table tr th', qr/perl-Mojolicious-whatever\.spec/)
+    ->text_like('#spec-files table table tr td',                               qr/Licenses/)
+    ->text_like('#spec-files table tr td:nth-of-type(2)',                      qr/MIT, BSD, Artistic2/)
+    ->text_like('#spec-files table tr:nth-of-type(3) td',                      qr/Version/)
+    ->text_like('#spec-files table tr:nth-of-type(3) td:nth-of-type(2)',       qr/1\.2\.3/)
+    ->text_like('#spec-files table tr:nth-of-type(4) td',                      qr/Summary/)
+    ->text_like('#spec-files table tr:nth-of-type(4) td:nth-of-type(2)',       qr/Fake summary/)
+    ->text_like('#spec-files table table tr:nth-of-type(5) td',                qr/Group/)
+    ->text_like('#spec-files table table tr:nth-of-type(5) td:nth-of-type(2)', qr/Fake group/);
 
   $t->text_like('#spec-errors p',     qr/Spec file errors/)
     ->text_like('#spec-errors ul li', qr/Invalid SPDX license: Fake-Artistic/)->element_exists_not('#spec-warnings');
@@ -166,10 +167,10 @@ subtest 'Manual review' => sub {
   $t->post_ok('/reviews/review_package/1' => form => {comment => 'Test review', acceptable => 'Good Enough'})
     ->status_is(200)->text_like('#content a', qr!perl-Mojolicious!)->text_like('#content b', qr!acceptable!);
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Fake-Artistic!)
-    ->text_like('#rpm-version', qr!7\.25!)->text_like('#rpm-summary', qr!Real-time web framework!)
-    ->text_like('#rpm-group',   qr!Development/Libraries/Perl!)
-    ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!acceptable!)
+  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Fake-Artistic!)
+    ->text_like('#pkg-version', qr!7\.25!)->text_like('#pkg-summary', qr!Real-time web framework!)
+    ->text_like('#pkg-group',   qr!Development/Libraries/Perl!)
+    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!acceptable!)
     ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
     ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
     ->element_exists('#unacceptable');

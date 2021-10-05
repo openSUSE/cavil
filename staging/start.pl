@@ -24,10 +24,18 @@ $dir->make_path;
 my $checkouts = $dir->child('legal-bot')->make_path->realpath;
 my $cache     = $dir->child('cache')->make_path->realpath;
 
-my $checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')->make_path;
+# Test checkouts
+my $tests
+  = [['perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd'], ['ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf']];
+for my $co (@$tests) {
+  my $checkout = $checkouts->child(@$co)->make_path;
+  my $test     = $dir->child('..', '..', 't', 'legal-bot', @$co)->realpath;
+  $_->copy_to($checkout->child($_->basename)) for $test->list->each;
+}
+
+# Second copy of perl-Mojolicious test checkout (different checksum but same content)
 my $test = $dir->child('..', '..', 't', 'legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')->realpath;
-$_->copy_to($checkout->child($_->basename)) for $test->list->each;
-$checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3bad1234')->make_path;
+my $checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3bad1234')->make_path;
 $_->copy_to($checkout->child($_->basename)) for $test->list->each;
 
 my $online = Mojo::URL->new($postgres)->query([search_path => ['cavil_staging', 'public']])->to_unsafe_string;
@@ -86,9 +94,27 @@ $pkg_id = $pkgs->add(
 );
 $pkgs->imported($pkg_id);
 $mojo = $pkgs->find($pkg_id);
-$mojo->{external_link} = 'obs#456712';
+$mojo->{external_link} = 'obs#456713';
 $pkgs->update($mojo);
 $pkgs->unpack($pkg_id);
+
+# "ceph-image" example data
+$pkg_id = $pkgs->add(
+  name            => 'ceph-image',
+  checkout_dir    => '5fcfdab0e71b0bebfdf8b5cc3badfecf',
+  api_url         => 'https://api.opensuse.org',
+  requesting_user => $user_id,
+  project         => 'filesystems:ceph',
+  package         => 'ceph-image',
+  srcmd5          => '4d91c36647a5d355883d490da2140404',
+  priority        => 5
+);
+$pkgs->imported($pkg_id);
+my $ceph = $pkgs->find($pkg_id);
+$ceph->{external_link} = 'obs#913219';
+$pkgs->update($ceph);
+$pkgs->unpack($pkg_id);
+
 $app->minion->perform_jobs;
 
 # Update products

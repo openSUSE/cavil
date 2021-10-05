@@ -1,1 +1,20 @@
-{"errors" => ["Main specfile contains no license: error-missing-main.spec"]}
+{
+  "errors" => [
+    "Main specfile contains no license: error-missing-main.spec"
+  ],
+  "main" => {
+    "%doc" => [],
+    "%license" => [],
+    "file" => "error-missing-main.spec",
+    "licenses" => []
+  },
+  "sub" => [
+    {
+      "%doc" => [],
+      "%license" => [],
+      "file" => "error-missing-main.spec",
+      "licenses" => []
+    }
+  ],
+  "warnings" => []
+}

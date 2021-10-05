@@ -1,1 +1,6 @@
-{"errors" => ["Main specfile missing: error-missing-specfile.spec"]}
+{
+  "errors"   => ["Main package file missing: error-missing-specfile.spec or error-missing-specfile.kiwi"],
+  "main"     => {},
+  "sub"      => [{"%doc" => [], "%license" => [], "file" => "wrong-name.spec", "licenses" => []}],
+  "warnings" => []
+}

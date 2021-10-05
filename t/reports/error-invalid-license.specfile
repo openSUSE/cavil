@@ -12,7 +12,6 @@
       "%doc"     => [],
       "%license" => [],
       "file"     => "error-invalid-license.spec",
-      "license"  => "(Artistic",
       "licenses" => ["(Artistic"]
     }
   ],

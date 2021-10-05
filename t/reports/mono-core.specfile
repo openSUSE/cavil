@@ -32,7 +32,6 @@
       "%license" => [],
       "file"     => "mono-core.spec",
       "group"    => "Development/Languages/Mono",
-      "license"  => "LGPL-2.1 and MIT and MS-PL",
       "licenses" => [
         "LGPL-2.1 and MIT and MS-PL", "LGPL-2.1",
         "LGPL-2.1",                   "LGPL-2.1",

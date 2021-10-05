@@ -32,10 +32,10 @@ my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
 subtest 'Details after import (indexing in progress)' => sub {
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Artistic-2.0!)
-    ->text_like('#rpm-version', qr!7\.25!)->text_like('#rpm-summary', qr!Real-time web framework!)
-    ->text_like('#rpm-group',   qr!Development/Libraries/Perl!)
-    ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
+  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Artistic-2.0!)
+    ->text_like('#pkg-version', qr!7\.25!)->text_like('#pkg-summary', qr!Real-time web framework!)
+    ->text_like('#pkg-group',   qr!Development/Libraries/Perl!)
+    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
     ->element_exists_not('#pkg-review')->element_exists_not('#pkg-shortname')
     ->element_exists_not('#pkg-review label[for=comment]')->element_exists_not('#pkg-review textarea[name=comment]')
     ->element_exists_not('#correct')->element_exists_not('#acceptable')->element_exists_not('#unacceptable');
@@ -59,10 +59,10 @@ subtest 'Details after import (indexing in progress)' => sub {
 subtest 'Details after import (with login)' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Artistic-2.0!)
-    ->text_like('#rpm-version', qr!7\.25!)->text_like('#rpm-summary', qr!Real-time web framework!)
-    ->text_like('#rpm-group',   qr!Development/Libraries/Perl!)
-    ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
+  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Artistic-2.0!)
+    ->text_like('#pkg-version', qr!7\.25!)->text_like('#pkg-summary', qr!Real-time web framework!)
+    ->text_like('#pkg-group',   qr!Development/Libraries/Perl!)
+    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
     ->element_exists('#pkg-review')->element_exists_not('#pkg-shortname')
     ->element_exists('#pkg-review label[for=comment]')->element_exists('#pkg-review textarea[name=comment]')
     ->element_exists('#correct')->element_exists('#acceptable')->element_exists('#unacceptable');
@@ -101,10 +101,10 @@ subtest 'Snippets after indexing' => sub {
 subtest 'Details after indexing' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Artistic-2.0!)
-    ->text_like('#num-spec-files a', qr/1 file/)->text_like('#rpm-version', qr!7\.25!)
-    ->text_like('#rpm-summary', qr!Real-time web framework!)->text_like('#rpm-group', qr!Development/Libraries/Perl!)
-    ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
+  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Artistic-2.0!)
+    ->text_like('#num-spec-files a', qr/1 file/)->text_like('#pkg-version', qr!7\.25!)
+    ->text_like('#pkg-summary', qr!Real-time web framework!)->text_like('#pkg-group', qr!Development/Libraries/Perl!)
+    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
     ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
     ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
     ->element_exists('#unacceptable');
@@ -202,10 +202,10 @@ subtest 'Snippets after reindexing' => sub {
 subtest 'Details after reindexing' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Artistic-2.0!)
-    ->text_like('#rpm-version', qr!7\.25!)->text_like('#rpm-summary', qr!Real-time web framework!)
-    ->text_like('#rpm-group',   qr!Development/Libraries/Perl!)
-    ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
+  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Artistic-2.0!)
+    ->text_like('#pkg-version', qr!7\.25!)->text_like('#pkg-summary', qr!Real-time web framework!)
+    ->text_like('#pkg-group',   qr!Development/Libraries/Perl!)
+    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
     ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
     ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
     ->element_exists('#unacceptable');
@@ -235,10 +235,10 @@ subtest 'Manual review' => sub {
   $t->post_ok('/reviews/review_package/1' => form => {comment => 'Test review', acceptable => 'Good Enough'})
     ->status_is(200)->text_like('#content a', qr!perl-Mojolicious!)->text_like('#content b', qr!acceptable!);
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#rpm-license', qr!Artistic-2.0!)
-    ->text_like('#rpm-version', qr!7\.25!)->text_like('#rpm-summary', qr!Real-time web framework!)
-    ->text_like('#rpm-group',   qr!Development/Libraries/Perl!)
-    ->text_like('#rpm-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!acceptable!)
+  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Artistic-2.0!)
+    ->text_like('#pkg-version', qr!7\.25!)->text_like('#pkg-summary', qr!Real-time web framework!)
+    ->text_like('#pkg-group',   qr!Development/Libraries/Perl!)
+    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!acceptable!)
     ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
     ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
     ->element_exists('#unacceptable');
