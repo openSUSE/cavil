@@ -163,6 +163,18 @@ subtest 'error-broken-archive' => sub {
   is_deeply $hash->{unpacked}{'error-broken-archive/test.txt'}, {mime => 'text/plain'}, 'right structure';
 };
 
+subtest 'error-missing-main-kiwi' => sub {
+  my $emmk     = $dir->child('error-missing-main-kiwi', 'aacfdab0e71b0bebfdf8b5cc3badfecf');
+  my $checkout = Cavil::Checkout->new($emmk);
+  is_deeply $checkout->specfile_report, report('error-missing-main-kiwi.kiwi'), 'right kiwi report';
+};
+
+subtest 'error-missing-kiwifile' => sub {
+  my $emmk     = $dir->child('error-missing-kiwifile', 'bbcfdab0e71b0bebfdf8b5cc3badfecf');
+  my $checkout = Cavil::Checkout->new($emmk);
+  is_deeply $checkout->specfile_report, report('error-missing-kiwifile.kiwi'), 'right kiwi report';
+};
+
 subtest 'Unpack background job' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);

@@ -1,0 +1,18 @@
+{
+  "errors" => ["Main kiwifile contains no license: error-missing-main-kiwi.kiwi"],
+  "main"   => {
+    "file"     => "error-missing-main-kiwi.kiwi",
+    "licenses" => [],
+    "url"      => "https://bugs.opensuse.org",
+    "version"  => "1.0.0"
+  },
+  "sub" => [
+    {
+      "file"     => "error-missing-main-kiwi.kiwi",
+      "licenses" => [],
+      "url"      => "https://bugs.opensuse.org",
+      "version"  => "1.0.0"
+    }
+  ],
+  "warnings" => []
+}

@@ -1,0 +1,17 @@
+{
+  "errors" => [
+    "Main package file missing: error-missing-kiwifile.spec or error-missing-kiwifile.kiwi",
+    "License from wrong-name.kiwi is not part of main license: SUSE-Permissive"
+  ],
+  "main" => {},
+  "sub"  => [
+    {
+      "file"     => "wrong-name.kiwi",
+      "licenses" => ["SUSE-Permissive"],
+      "summary"  => "Ceph base container image",
+      "url"      => "https://bugs.opensuse.org",
+      "version"  => "1.0.0"
+    }
+  ],
+  "warnings" => []
+}
