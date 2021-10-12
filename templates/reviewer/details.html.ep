@@ -2,8 +2,17 @@
 
 %= asset 'chart.js'
 
-<div class="float-right help">
-  Press <span class="badge badge-secondary">?</span> for help
+<div class="float-right format">
+  % my @sub = @{$spec->{sub}};
+  % if (grep { ($_->{type} // '') eq 'spec' } @sub) {
+    <i class="fab fa-suse"></i>
+  % }
+  % if (grep { ($_->{type} // '') eq 'kiwi' } @sub) {
+    <i class="fas fa-kiwi-bird"></i>
+  % }
+  % if (grep { ($_->{type} // '') eq 'dockerfile' } @sub) {
+    <i class="fab fa-docker"></i>
+  % }
 </div>
 
 <h2>
@@ -389,42 +398,6 @@
 % content_for 'ready_function' => begin
     setupReviewDetails('<%= $detail_url %>');
 % end
-
-<div class="modal" id="help" tabindex="-1" role="dialog">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title"> Keyboard Shortcuts </h5>
-        <button type="button" class="close" data-dismiss="modal"
-          aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <table>
-          <tr>
-            <td width="80"><span class="badge badge-secondary">?</span></td>
-            <td width="200">Help</td>
-            <td width="80"><span class="badge badge-secondary">c</span></td>
-            <td width="200">Create Pattern</td>
-          </tr>
-          <tr>
-            <td><span class="badge badge-secondary">n</span></td>
-            <td>Next Match</td>
-            <td><span class="badge badge-secondary">i</span></td>
-            <td>Create Ignore-Pattern</td>
-          </tr>
-          <tr>
-            <td><span class="badge badge-secondary">R</span></td>
-            <td>Reindex</td>
-            <td><span class="badge badge-secondary">F</span></td>
-            <td>Load Full Report</td>
-          </tr>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
 
 %= include 'reviewer/_glob_modal'
 
