@@ -6,11 +6,11 @@
     "file"     => "kmod.spec",
     "group"    => "System/Kernel",
     "license"  => "LGPL-2.1+ and GPL-2.0+",
-    "licenses" =>
-      ["LGPL-2.1+ and GPL-2.0+", "GPL-2.0+", "LGPL-2.1+", "LGPL-2.1+"],
-    "summary" => "Utilities to load modules into the kernel",
-    "url"     => "http://www.politreco.com/2011/12/announce-kmod-2/",
-    "version" => 3
+    "licenses" => ["LGPL-2.1+ and GPL-2.0+", "GPL-2.0+", "LGPL-2.1+", "LGPL-2.1+"],
+    "summary"  => "Utilities to load modules into the kernel",
+    "type"     => "spec",
+    "url"      => "http://www.politreco.com/2011/12/announce-kmod-2/",
+    "version"  => 3
   },
   "sub" => [
     {
@@ -18,11 +18,11 @@
       "%license" => [],
       "file"     => "kmod.spec",
       "group"    => "System/Kernel",
-      "licenses" =>
-        ["LGPL-2.1+ and GPL-2.0+", "GPL-2.0+", "LGPL-2.1+", "LGPL-2.1+"],
-      "summary" => "Utilities to load modules into the kernel",
-      "url"     => "http://www.politreco.com/2011/12/announce-kmod-2/",
-      "version" => 3
+      "licenses" => ["LGPL-2.1+ and GPL-2.0+", "GPL-2.0+", "LGPL-2.1+", "LGPL-2.1+"],
+      "summary"  => "Utilities to load modules into the kernel",
+      "type"     => "spec",
+      "url"      => "http://www.politreco.com/2011/12/announce-kmod-2/",
+      "version"  => 3
     }
   ],
   "warnings" => [

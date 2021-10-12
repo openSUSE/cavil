@@ -1,19 +1,16 @@
 {
-  "errors" =>
-    ["License from gnome-menus.spec is not part of main license: GPLv2+"],
-  "main" => {
+  "errors" => [],
+  "main"   => {
     "%doc"     => ["AUTHORS COPYING COPYING.LIB ChangeLog NEWS README"],
     "%license" => [],
     "file"     => "gnome-menus.spec",
     "group"    => "System/GUI/GNOME",
     "license"  => "LGPLv2.1+",
-    "licenses" => [
-      "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+",
-      "GPLv2+",    "LGPLv2.1+"
-    ],
-    "summary" => "The GNOME Desktop Menu",
-    "url"     => "http://www.gnome.org",
-    "version" => "3.0.1"
+    "licenses" => ["LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+", "GPLv2+", "LGPLv2.1+"],
+    "summary"  => "The GNOME Desktop Menu",
+    "type"     => "spec",
+    "url"      => "http://www.gnome.org",
+    "version"  => "3.0.1"
   },
   "sub" => [
     {
@@ -21,18 +18,17 @@
       "%license" => [],
       "file"     => "gnome-menus.spec",
       "group"    => "System/GUI/GNOME",
-      "licenses" => [
-        "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+",
-        "GPLv2+",    "LGPLv2.1+"
-      ],
-      "summary" => "The GNOME Desktop Menu",
-      "url"     => "http://www.gnome.org",
-      "version" => "3.0.1"
+      "licenses" => ["LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+", "LGPLv2.1+", "GPLv2+", "LGPLv2.1+"],
+      "summary"  => "The GNOME Desktop Menu",
+      "type"     => "spec",
+      "url"      => "http://www.gnome.org",
+      "version"  => "3.0.1"
     }
   ],
   "warnings" => [
     "Main license had to be normalized: LGPLv2.1+ -> LGPL-2.1-or-later",
     "License from gnome-menus.spec had to be normalized: LGPLv2.1+ -> LGPL-2.1-or-later",
-    "License from gnome-menus.spec had to be normalized: GPLv2+ -> GPL-2.0-or-later"
+    "License from gnome-menus.spec had to be normalized: GPLv2+ -> GPL-2.0-or-later",
+    "License from gnome-menus.spec is not part of main license: GPLv2+"
   ]
 }

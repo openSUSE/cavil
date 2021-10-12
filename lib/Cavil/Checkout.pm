@@ -98,6 +98,10 @@ sub specfile_report ($self) {
   my $kiwifile_name = $basename . '.kiwi';
   my $main_kiwifile = $dir->child($kiwifile_name);
 
+  my $dockerfile_name  = $basename . '.Dockerfile';
+  my $main_dockerfile  = $dir->child('Dockerfile');
+  my $named_dockerfile = $dir->child($dockerfile_name);
+
   # Main .spec file
   if (-f $main_specfile) {
     my $specfile = $info->{main} = _specfile($main_specfile);
@@ -112,8 +116,23 @@ sub specfile_report ($self) {
     else                          { push @{$info->{errors}}, "Main kiwifile contains no license: $kiwifile_name" }
   }
 
+  # Main .Dockerfile file
+  elsif (-f $main_dockerfile) {
+    my $dockerfile = $info->{main} = _dockerfile($main_dockerfile);
+    if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
+    else                            { push @{$info->{errors}}, "Main Dockerfile contains no license: Dockerfile" }
+  }
+  elsif (-f $named_dockerfile) {
+    my $dockerfile = $info->{main} = _dockerfile($named_dockerfile);
+    if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
+    else                            { push @{$info->{errors}}, "Main Dockerfile contains no license: $dockerfile_name" }
+  }
+
   # No main files
-  else { push @{$info->{errors}}, "Main package file missing: $specfile_name or $kiwifile_name" }
+  else {
+    push @{$info->{errors}},
+      "Main package file missing: expected $specfile_name, $kiwifile_name, $dockerfile_name or Dockerfile";
+  }
 
   # All .spec files
   my $files = $dir->list;
@@ -121,6 +140,10 @@ sub specfile_report ($self) {
 
   # All .kiwi files
   push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
+
+  # All .Dockerfile files
+  push @{$info->{sub}}, _dockerfile($_)
+    for $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
 
   _check($info);
 
@@ -216,13 +239,24 @@ sub _check ($info) {
       _add_once($warnings, "License from $spec has license exception: $license")        if $sub->exception;
       _add_once($warnings, "License from $spec had to be normalized: $license -> $sub") if $sub->normalized;
 
-      _add_once($errors, "License from $spec is not part of main license: $license") unless $main->is_part_of($sub);
+      _add_once($warnings, "License from $spec is not part of main license: $license") unless $main->is_part_of($sub);
     }
   }
 }
 
+sub _dockerfile ($file) {
+  my $info = {file => $file->basename, type => 'dockerfile', licenses => []};
+  for my $line (split "\n", $file->slurp) {
+    if    ($line =~ /^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/)    { push @{$info->{licenses}}, $1 }
+    elsif ($line =~ /^.*org.opencontainers.image.version="(.+)".*$/)     { $info->{'version'} ||= $1 }
+    elsif ($line =~ /^.*org.opencontainers.image.description="(.+)".*$/) { $info->{'summary'} ||= $1 }
+  }
+
+  return $info;
+}
+
 sub _kiwifile ($file) {
-  my $info = {file => $file->basename, licenses => []};
+  my $info = {file => $file->basename, type => 'kiwi', licenses => []};
   my $dom  = Mojo::DOM->new($file->slurp);
 
   # Licenses
@@ -244,7 +278,7 @@ sub _kiwifile ($file) {
 }
 
 sub _specfile ($file) {
-  my $info = {file => $file->basename, licenses => [], '%doc' => [], '%license' => []};
+  my $info = {file => $file->basename, type => 'spec', licenses => [], '%doc' => [], '%license' => []};
   for my $line (split "\n", $file->slurp) {
     if    ($line =~ /^License:\s*(.+)\s*$/)  { push @{$info->{licenses}},   $1 }
     elsif ($line =~ /^\%doc\s*(.+)\s*$/)     { push @{$info->{'%doc'}},     $1 }

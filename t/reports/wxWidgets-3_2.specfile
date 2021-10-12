@@ -8,6 +8,7 @@
     "license"  => "LGPL-2.1+ WITH WxWindows-exception-3.1",
     "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
     "summary"  => "C++ Library for Cross-Platform Development",
+    "type"     => "spec",
     "url"      => "http://www.wxwidgets.org/",
     "version"  => "3.1.1~2640"
   },
@@ -19,6 +20,7 @@
       "group"    => "Development/Libraries/C and C++",
       "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
       "summary"  => "C++ Library for Cross-Platform Development",
+      "type"     => "spec",
       "url"      => "http://www.wxwidgets.org/",
       "version"  => "3.1.1~2640"
     },
@@ -29,6 +31,7 @@
       "group"    => "Development/Libraries/C and C++",
       "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
       "summary"  => "C++ Library for Cross-Platform Development",
+      "type"     => "spec",
       "url"      => "http://www.wxwidgets.org/",
       "version"  => "3.1.1~2640"
     },
@@ -39,6 +42,7 @@
       "group"    => "Development/Libraries/C and C++",
       "licenses" => ["LGPL-2.1+ WITH WxWindows-exception-3.1"],
       "summary"  => "C++ Library for Cross-Platform Development",
+      "type"     => "spec",
       "url"      => "http://www.wxwidgets.org/",
       "version"  => "3.1.1~2640"
     }

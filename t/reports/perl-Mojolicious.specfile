@@ -8,6 +8,7 @@
     "license"  => "Artistic-2.0",
     "licenses" => ["Artistic-2.0"],
     "summary"  => "Real-time web framework",
+    "type"     => "spec",
     "url"      => "http://search.cpan.org/dist/Mojolicious/",
     "version"  => "7.25"
   },
@@ -19,6 +20,7 @@
       "group"    => "Development/Libraries/Perl",
       "licenses" => ["Artistic-2.0"],
       "summary"  => "Real-time web framework",
+      "type"     => "spec",
       "url"      => "http://search.cpan.org/dist/Mojolicious/",
       "version"  => "7.25"
     }

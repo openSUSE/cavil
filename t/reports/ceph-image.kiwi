@@ -5,6 +5,7 @@
     "license"  => "SUSE-Permissive",
     "licenses" => ["SUSE-Permissive"],
     "summary"  => "Ceph base container image",
+    "type"     => "kiwi",
     "url"      => "https://bugs.opensuse.org",
     "version"  => "1.0.0"
   },
@@ -13,6 +14,7 @@
       "file"     => "ceph-image.kiwi",
       "licenses" => ["SUSE-Permissive"],
       "summary"  => "Ceph base container image",
+      "type"     => "kiwi",
       "url"      => "https://bugs.opensuse.org",
       "version"  => "1.0.0"
     }

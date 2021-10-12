@@ -25,8 +25,11 @@ my $checkouts = $dir->child('legal-bot')->make_path->realpath;
 my $cache     = $dir->child('cache')->make_path->realpath;
 
 # Test checkouts
-my $tests
-  = [['perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd'], ['ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf']];
+my $tests = [
+  ['perl-Mojolicious',       'c7cfdab0e71b0bebfdf8b2dc3badfecd'],
+  ['ceph-image',             '5fcfdab0e71b0bebfdf8b5cc3badfecf'],
+  ['go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca']
+];
 for my $co (@$tests) {
   my $checkout = $checkouts->child(@$co)->make_path;
   my $test     = $dir->child('..', '..', 't', 'legal-bot', @$co)->realpath;
@@ -67,7 +70,7 @@ $app->sync->load(curfile->dirname->sibling('lib', 'Cavil', 'resources', 'license
 # "perl-Mojolicious" example data
 my $user_id = $app->users->find_or_create(login => 'test_bot')->{id};
 my $pkgs    = $app->packages;
-my $pkg_id  = $pkgs->add(
+my $mojo_id = my $pkg_id = $pkgs->add(
   name            => 'perl-Mojolicious',
   checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
   api_url         => 'https://api.opensuse.org',
@@ -115,14 +118,31 @@ $ceph->{external_link} = 'obs#913219';
 $pkgs->update($ceph);
 $pkgs->unpack($pkg_id);
 
+# "go1.16-devel-container" example data
+$pkg_id = $pkgs->add(
+  name            => 'go1.16-devel-container',
+  checkout_dir    => 'ffcfdab0e71b1bebfdf8b5cc3badfeca',
+  api_url         => 'https://api.opensuse.org',
+  requesting_user => $user_id,
+  project         => 'devel:kubic:containers',
+  package         => 'go1.16-devel-container',
+  srcmd5          => 'dd91c36647a5d356883d490da2140412',
+  priority        => 5
+);
+$pkgs->imported($pkg_id);
+my $go = $pkgs->find($pkg_id);
+$go->{external_link} = 'obs#881323';
+$pkgs->update($go);
+$pkgs->unpack($pkg_id);
+
 $app->minion->perform_jobs;
 
 # Update products
 my $products   = $app->products;
 my $factory_id = $products->find_or_create('openSUSE:Factory')->{id};
 my $leap_id    = $products->find_or_create('openSUSE:Leap:15.0')->{id};
-$products->update($factory_id, [$pkg_id]);
-$products->update($leap_id,    [$pkg_id]);
+$products->update($factory_id, [$mojo_id]);
+$products->update($leap_id,    [$mojo_id]);
 
 print <<"EOF";
 Staging project created, use the CAVIL_CONF environment variable.

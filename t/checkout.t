@@ -41,10 +41,16 @@ sub temp_copy {
   return $target;
 }
 
-subtest 'ceph-image' => sub {
+subtest 'ceph-image (kiwi)' => sub {
   my $ceph     = $dir->child('ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf');
   my $checkout = Cavil::Checkout->new($ceph);
   is_deeply $checkout->specfile_report, report('ceph-image.kiwi'), 'right kiwi report';
+};
+
+subtest 'go1.16-devel-container (Dockerfile)' => sub {
+  my $go       = $dir->child('go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca');
+  my $checkout = Cavil::Checkout->new($go);
+  is_deeply $checkout->specfile_report, report('go1.16-devel-container.dockerfile'), 'right dockerfile report';
 };
 
 subtest 'gnome-icon-theme' => sub {

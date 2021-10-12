@@ -5,14 +5,16 @@
     "%license" => [],
     "file"     => "error-invalid-license.spec",
     "license"  => "(Artistic",
-    "licenses" => ["(Artistic"]
+    "licenses" => ["(Artistic"],
+    "type"     => "spec"
   },
   "sub" => [
     {
       "%doc"     => [],
       "%license" => [],
       "file"     => "error-invalid-license.spec",
-      "licenses" => ["(Artistic"]
+      "licenses" => ["(Artistic"],
+      "type"     => "spec"
     }
   ],
   "warnings" => []

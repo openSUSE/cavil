@@ -1,6 +1,8 @@
 {
-  "errors"   => ["Main package file missing: error-missing-specfile.spec or error-missing-specfile.kiwi"],
+  "errors" => [
+    "Main package file missing: expected error-missing-specfile.spec, error-missing-specfile.kiwi, error-missing-specfile.Dockerfile or Dockerfile"
+  ],
   "main"     => {},
-  "sub"      => [{"%doc" => [], "%license" => [], "file" => "wrong-name.spec", "licenses" => []}],
+  "sub"      => [{"%doc" => [], "%license" => [], "file" => "wrong-name.spec", "licenses" => [], "type" => "spec"}],
   "warnings" => []
 }

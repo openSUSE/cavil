@@ -1,20 +1,6 @@
 {
-  "errors" => [
-    "Main specfile contains no license: error-missing-main.spec"
-  ],
-  "main" => {
-    "%doc" => [],
-    "%license" => [],
-    "file" => "error-missing-main.spec",
-    "licenses" => []
-  },
-  "sub" => [
-    {
-      "%doc" => [],
-      "%license" => [],
-      "file" => "error-missing-main.spec",
-      "licenses" => []
-    }
-  ],
+  "errors" => ["Main specfile contains no license: error-missing-main.spec"],
+  "main"   => {"%doc" => [], "%license" => [], "file" => "error-missing-main.spec", "licenses" => [], "type" => "spec"},
+  "sub" => [{"%doc" => [], "%license" => [], "file" => "error-missing-main.spec", "licenses" => [], "type" => "spec"}],
   "warnings" => []
 }

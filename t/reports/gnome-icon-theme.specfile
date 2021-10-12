@@ -8,6 +8,7 @@
     "license"  => "LGPLv3+ | CC BY-SA V3.0",
     "licenses" => ["LGPLv3+ | CC BY-SA V3.0"],
     "summary"  => "GNOME Icon Theme",
+    "type"     => "spec",
     "url"      => "http://www.gnome.org/",
     "version"  => "3.0.0"
   },
@@ -19,6 +20,7 @@
       "group"    => "System/GUI/GNOME",
       "licenses" => ["LGPLv3+ | CC BY-SA V3.0"],
       "summary"  => "GNOME Icon Theme",
+      "type"     => "spec",
       "url"      => "http://www.gnome.org/",
       "version"  => "3.0.0"
     }

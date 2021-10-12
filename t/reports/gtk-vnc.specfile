@@ -1,9 +1,6 @@
 {
-  "errors" => [
-    "License from gtk-vnc.spec is not part of main license: LGPL-2.1 and LGPL-2.1+",
-    "License from gtk-vnc2.spec is not part of main license: LGPL-2.1 and LGPL-2.1+"
-  ],
-  "main" => {
+  "errors" => [],
+  "main"   => {
     "%doc" => [
       "AUTHORS COPYING.LIB ChangeLog NEWS README",
       "AUTHORS COPYING.LIB ChangeLog NEWS README",
@@ -28,6 +25,7 @@
       "LGPL-2.1+"
     ],
     "summary" => "A GTK widget for VNC clients",
+    "type"    => "spec",
     "url"     => "http://gtk-vnc.sf.net/",
     "version" => "0.5.2"
   },
@@ -56,6 +54,7 @@
         "LGPL-2.1+"
       ],
       "summary" => "A GTK widget for VNC clients",
+      "type"    => "spec",
       "url"     => "http://gtk-vnc.sf.net/",
       "version" => "0.5.2"
     },
@@ -83,6 +82,7 @@
         "LGPL-2.1+"
       ],
       "summary" => "A GTK widget for VNC clients",
+      "type"    => "spec",
       "url"     => "http://gtk-vnc.sf.net/",
       "version" => "0.5.2"
     }
@@ -91,7 +91,9 @@
     "Main license had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later",
     "License from gtk-vnc.spec had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later",
     "License from gtk-vnc.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only and LGPL-2.1-or-later",
+    "License from gtk-vnc.spec is not part of main license: LGPL-2.1 and LGPL-2.1+",
     "License from gtk-vnc2.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only and LGPL-2.1-or-later",
+    "License from gtk-vnc2.spec is not part of main license: LGPL-2.1 and LGPL-2.1+",
     "License from gtk-vnc2.spec had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later"
   ]
 }
