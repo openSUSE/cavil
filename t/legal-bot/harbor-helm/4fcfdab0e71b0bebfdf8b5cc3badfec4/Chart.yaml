@@ -1,0 +1,23 @@
+#!BuildTag: harbor/harbor:1.2
+#!BuildTag: harbor/harbor:1.2.3
+#!BuildTag: harbor/harbor:1.2.3-build%RELEASE%
+#
+# SPDX-License-Identifier: MIT
+#
+apiVersion: v1
+name: harbor
+version: 1.2.3
+appVersion: 2.1.0
+description: An open source trusted cloud native registry that stores, signs, and scans content
+keywords:
+- docker
+- registry
+- harbor
+home: https://goharbor.io
+icon: https://raw.githubusercontent.com/goharbor/website/master/static/img/logos/harbor-icon-color.png
+sources:
+- https://github.com/goharbor/harbor-helm
+maintainers:
+- name: SUSE
+  email: sales@suse.com
+engine: gotpl

@@ -24,6 +24,7 @@ use Mojo::Util 'dumper';
 use Cavil::Util qw(buckets slurp_and_decode);
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
+use YAML::XS qw(Load);
 
 use constant DEBUG => $ENV{SUSE_CHECKOUT_DEBUG} || 0;
 
@@ -72,6 +73,8 @@ my $URL_RE = qr!
   \b((https?|ftp|file)://[\w-]+\.[\w\./:\\\+~-]+\w\??)\b
 !ix;
 
+my $LICENSE_COMMENT_RE = qr/^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/;
+
 sub keyword_report ($self, $matcher, $meta, $file) {
   my $dir  = path($self->dir);
   my $base = $dir->child('.unpacked');
@@ -102,36 +105,63 @@ sub specfile_report ($self) {
   my $main_dockerfile  = $dir->child('Dockerfile');
   my $named_dockerfile = $dir->child($dockerfile_name);
 
+  my $helmchart_name = 'Chart.yaml';
+  my $main_helmchart = $dir->child($helmchart_name);
+
   # Main .spec file
   if (-f $main_specfile) {
     my $specfile = $info->{main} = _specfile($main_specfile);
     if (@{$specfile->{licenses}}) { $specfile->{license} = $specfile->{licenses}[0] }
-    else                          { push @{$info->{errors}}, "Main specfile contains no license: $specfile_name" }
+    else {
+      push @{$info->{errors}}, qq{Main specfile contains no license: $specfile_name (expected "License: ..." entry)};
+    }
   }
 
   # Main .kiwi file
   elsif (-f $main_kiwifile) {
     my $kiwifile = $info->{main} = _kiwifile($main_kiwifile);
     if (@{$kiwifile->{licenses}}) { $kiwifile->{license} = $kiwifile->{licenses}[0] }
-    else                          { push @{$info->{errors}}, "Main kiwifile contains no license: $kiwifile_name" }
+    else {
+      push @{$info->{errors}},
+        qq{Main kiwifile contains no license: $kiwifile_name (expected <label name="org.opencontainers.image.licenses" value="..."> tag)};
+    }
   }
 
   # Main .Dockerfile file
   elsif (-f $main_dockerfile) {
     my $dockerfile = $info->{main} = _dockerfile($main_dockerfile);
     if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
-    else                            { push @{$info->{errors}}, "Main Dockerfile contains no license: Dockerfile" }
+    else {
+      push @{$info->{errors}},
+        qq{Main Dockerfile contains no license: Dockerfile (expected "# SPDX-License-Identifier: ..." comment)};
+    }
   }
   elsif (-f $named_dockerfile) {
     my $dockerfile = $info->{main} = _dockerfile($named_dockerfile);
     if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
-    else                            { push @{$info->{errors}}, "Main Dockerfile contains no license: $dockerfile_name" }
+    else {
+      push @{$info->{errors}},
+        qq{Main Dockerfile contains no license: $dockerfile_name (expected "# SPDX-License-Identifier: ..." comment)};
+    }
+  }
+
+  # Main Chart.yaml file
+  elsif (-f $main_helmchart) {
+    my $helmchart = $info->{main} = _helmchart($main_helmchart);
+    if (@{$helmchart->{licenses}}) { $helmchart->{license} = $helmchart->{licenses}[0] }
+    else {
+      push @{$info->{errors}},
+        qq{Main Helm chart contains no license: $helmchart_name (expected "# SPDX-License-Identifier: ..." comment)};
+    }
+
+    # For now we only expect one Chart.yaml file
+    push @{$info->{sub}}, $helmchart;
   }
 
   # No main files
   else {
     push @{$info->{errors}},
-      "Main package file missing: expected $specfile_name, $kiwifile_name, $dockerfile_name or Dockerfile";
+      "Main package file missing: expected $specfile_name, $kiwifile_name, $dockerfile_name, Dockerfile, or Chart.yaml";
   }
 
   # All .spec files
@@ -247,9 +277,25 @@ sub _check ($info) {
 sub _dockerfile ($file) {
   my $info = {file => $file->basename, type => 'dockerfile', licenses => []};
   for my $line (split "\n", $file->slurp) {
-    if    ($line =~ /^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/)    { push @{$info->{licenses}}, $1 }
-    elsif ($line =~ /^.*org.opencontainers.image.version="(.+)".*$/)     { $info->{'version'} ||= $1 }
-    elsif ($line =~ /^.*org.opencontainers.image.description="(.+)".*$/) { $info->{'summary'} ||= $1 }
+    if    ($line =~ $LICENSE_COMMENT_RE)                                 { push @{$info->{licenses}}, $1 }
+    elsif ($line =~ /^.*org.opencontainers.image.version="(.+)".*$/)     { $info->{version} ||= $1 }
+    elsif ($line =~ /^.*org.opencontainers.image.description="(.+)".*$/) { $info->{summary} ||= $1 }
+  }
+
+  return $info;
+}
+
+sub _helmchart ($file) {
+  my $info = {file => $file->basename, type => 'helm', licenses => []};
+  for my $line (split "\n", $file->slurp) {
+    if ($line =~ $LICENSE_COMMENT_RE) { push @{$info->{licenses}}, $1 }
+  }
+
+  my $data = eval { Load($file->slurp) };
+  if (ref $data eq 'HASH') {
+    if (my $version = $data->{version})     { $info->{version} = $version }
+    if (my $summary = $data->{description}) { $info->{summary} = $summary }
+    if (my $url     = $data->{home})        { $info->{url}     = $url }
   }
 
   return $info;

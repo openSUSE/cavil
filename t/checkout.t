@@ -53,6 +53,12 @@ subtest 'go1.16-devel-container (Dockerfile)' => sub {
   is_deeply $checkout->specfile_report, report('go1.16-devel-container.dockerfile'), 'right dockerfile report';
 };
 
+subtest 'harbor-helm (Helm)' => sub {
+  my $harbor   = $dir->child('harbor-helm', '4fcfdab0e71b0bebfdf8b5cc3badfec4');
+  my $checkout = Cavil::Checkout->new($harbor);
+  is_deeply $checkout->specfile_report, report('harbor-helm.helm'), 'right helm chart report';
+};
+
 subtest 'gnome-icon-theme' => sub {
   my $theme    = $dir->child('gnome-icon-theme', '6101f5eb933704aaad5dea63667110ac');
   my $checkout = Cavil::Checkout->new($theme);

@@ -43,7 +43,8 @@ WriteMakefile(
     'Algorithm::Diff'                => 0,
     'IO::Socket::SSL'                => 0,
     'Text::Diff'                     => 0,
-    'Text::Glob'                     => 0
+    'Text::Glob'                     => 0,
+    'YAML::XS'                       => 0
   },
   EXE_FILES => ['script/cavil'],
   test      => {TESTS => 't/*.t t/*/*.t'}

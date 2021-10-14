@@ -28,7 +28,8 @@ my $cache     = $dir->child('cache')->make_path->realpath;
 my $tests = [
   ['perl-Mojolicious',       'c7cfdab0e71b0bebfdf8b2dc3badfecd'],
   ['ceph-image',             '5fcfdab0e71b0bebfdf8b5cc3badfecf'],
-  ['go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca']
+  ['go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca'],
+  ['harbor-helm',            '4fcfdab0e71b0bebfdf8b5cc3badfec4']
 ];
 for my $co (@$tests) {
   my $checkout = $checkouts->child(@$co)->make_path;
@@ -133,6 +134,23 @@ $pkgs->imported($pkg_id);
 my $go = $pkgs->find($pkg_id);
 $go->{external_link} = 'obs#881323';
 $pkgs->update($go);
+$pkgs->unpack($pkg_id);
+
+# "harbor-helm" example data
+$pkg_id = $pkgs->add(
+  name            => 'harbor-helm',
+  checkout_dir    => '4fcfdab0e71b0bebfdf8b5cc3badfec4',
+  api_url         => 'https://api.opensuse.org',
+  requesting_user => $user_id,
+  project         => 'just:a:test',
+  package         => 'harbor-helm',
+  srcmd5          => 'abc1c36647a5d356883d490da2140def',
+  priority        => 5
+);
+$pkgs->imported($pkg_id);
+my $harbor = $pkgs->find($pkg_id);
+$harbor->{external_link} = 'obs#123456';
+$pkgs->update($harbor);
 $pkgs->unpack($pkg_id);
 
 $app->minion->perform_jobs;

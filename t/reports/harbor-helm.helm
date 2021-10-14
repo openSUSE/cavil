@@ -1,0 +1,24 @@
+{
+  "errors" => [],
+  "main"   => {
+    "file"     => "Chart.yaml",
+    "license"  => "MIT",
+    "licenses" => ["MIT"],
+    "summary"  => "An open source trusted cloud native registry that stores, signs, and scans content",
+    "type"     => "helm",
+    "url"      => "https://goharbor.io",
+    "version"  => "1.2.3"
+  },
+  "sub" => [
+    {
+      "file"     => "Chart.yaml",
+      "license"  => "MIT",
+      "licenses" => ["MIT"],
+      "summary"  => "An open source trusted cloud native registry that stores, signs, and scans content",
+      "type"     => "helm",
+      "url"      => "https://goharbor.io",
+      "version"  => "1.2.3"
+    }
+  ],
+  "warnings" => []
+}

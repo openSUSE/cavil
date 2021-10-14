@@ -13,6 +13,9 @@
   % if (grep { ($_->{type} // '') eq 'dockerfile' } @sub) {
     <i class="fab fa-docker"></i>
   % }
+  % if (grep { ($_->{type} // '') eq 'helm' } @sub) {
+    <i class="fas fa-dharmachakra"></i>
+  % }
 </div>
 
 <h2>

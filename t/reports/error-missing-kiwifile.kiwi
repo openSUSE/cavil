@@ -1,6 +1,6 @@
 {
   "errors" => [
-    "Main package file missing: expected error-missing-kiwifile.spec, error-missing-kiwifile.kiwi, error-missing-kiwifile.Dockerfile or Dockerfile"
+    "Main package file missing: expected error-missing-kiwifile.spec, error-missing-kiwifile.kiwi, error-missing-kiwifile.Dockerfile, Dockerfile, or Chart.yaml"
   ],
   "main" => {},
   "sub"  => [
