@@ -297,7 +297,7 @@
 
 % if (@{$spec->{errors} // []}) {
   <div id="spec-errors" class="alert alert-danger">
-    <p>Spec file errors:</p>
+    <p>Package file errors:</p>
     <ul>
       % for my $l (@{$spec->{errors}}) {
         %= t li => $l
@@ -307,7 +307,7 @@
 % }
 % if (@{$spec->{warnings} // []}) {
   <div id="spec-warnings" class="alert alert-warning">
-    <p>Spec file warnings:</p>
+    <p>Package file warnings:</p>
     <ul>
       % for my $l (@{$spec->{warnings}}) {
         %= t li => $l

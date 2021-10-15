@@ -91,7 +91,7 @@ subtest 'Details after indexing' => sub {
     ->text_like('#spec-files table table tr:nth-of-type(5) td',                qr/Group/)
     ->text_like('#spec-files table table tr:nth-of-type(5) td:nth-of-type(2)', qr/Fake group/);
 
-  $t->text_like('#spec-errors p',     qr/Spec file errors/)
+  $t->text_like('#spec-errors p',     qr/Package file errors/)
     ->text_like('#spec-errors ul li', qr/Invalid SPDX license: Fake-Artistic/)->element_exists_not('#spec-warnings');
 
   $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')->element_exists('#emails')
