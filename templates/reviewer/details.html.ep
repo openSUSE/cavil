@@ -3,7 +3,7 @@
 %= asset 'chart.js'
 
 <div class="float-right format">
-  % my @sub = @{$spec->{sub}};
+  % my @sub = @{$spec->{sub} // []};
   % if (grep { ($_->{type} // '') eq 'spec' } @sub) {
     <i class="fab fa-suse"></i>
   % }
