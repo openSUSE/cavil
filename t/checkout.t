@@ -187,6 +187,18 @@ subtest 'error-missing-kiwifile' => sub {
   is_deeply $checkout->specfile_report, report('error-missing-kiwifile.kiwi'), 'right kiwi report';
 };
 
+subtest 'error-missing-main-dockerfile' => sub {
+  my $docker   = $dir->child('error-missing-main-dockerfile', '56cfdab0e71b0bebfdf8b5cc3badfe23');
+  my $checkout = Cavil::Checkout->new($docker);
+  is_deeply $checkout->specfile_report, report('error-missing-main-dockerfile.dockerfile'), 'right kiwi report';
+};
+
+subtest 'error-missing-main-helm' => sub {
+  my $helm     = $dir->child('error-missing-main-helm', '86cfdab0e71b0bebfdf8b5cc3badfe2f');
+  my $checkout = Cavil::Checkout->new($helm);
+  is_deeply $checkout->specfile_report, report('error-missing-main-helm.helm'), 'right kiwi report';
+};
+
 subtest 'Unpack background job' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
