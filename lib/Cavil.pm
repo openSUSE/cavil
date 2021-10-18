@@ -121,6 +121,7 @@ sub startup ($self) {
 
   # Model
   if (my $remove_after = $config->{minion_remove_after}) { $self->minion->remove_after($remove_after) }
+  if (my $stuck_after  = $config->{minion_stuck_after})  { $self->minion->stuck_after($stuck_after) }
   $self->helper(
     packages => sub ($c) {
       state $pkgs
