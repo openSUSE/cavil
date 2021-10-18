@@ -94,7 +94,7 @@
           <i class="fas fa-shopping-bag"></i>
         </th>
         <th class="fit text-left noleftpad" scope="row">Products:</th>
-        <td><%= join ', ', @$products %></td>
+        <td><%== join ', ', map { link_to $_ => 'product_show', {name => $_} } @$products %></td>
       </tr>
     % }
 
