@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OBS-ExclusiveArch: aarch64 x86_64 -->
+<!--
+                This file is generated,
+                don't manually modify this file,
+                please check README
+-->
+<image xmlns:suse_label_helper="com.suse.label_helper" schemaversion="6.9" name="ceph-image">
+  <description type="system">
+    <author>SUSE LLC</author>
+    <contact>https://bugs.opensuse.org</contact>
+    <specification>Mixed</specification>
+  </description>
+  <preferences>
+    <type image="docker" derived_from="obsrepositories:/opensuse/tumbleweed">
+      <containerconfig tag="latest" maintainer="SUSE LLC (https://bugs.opensuse.org)" additionaltags="tumbleweed,%PKG_VERSION%,%PKG_VERSION%.%RELEASE%" name="opensuse/ceph/ceph">
+        <subcommand execute="/bin/bash">
+          <argument name="--login"/>
+        </subcommand>
+        <environment>
+          <env name="PATH" value="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/mit/bin:/usr/lib/mit/sbin"/>
+        </environment>
+
+         <labels>
+          <!-- See https://en.opensuse.org/Building_derived_containers#Labels -->
+          <suse_label_helper:add_prefix prefix="org.example.container">
+            <label name="org.opencontainers.image.title" value="Mixed"/>
+            <label name="org.opencontainers.image.description" value="Mixed"/>
+            <label name="org.opencontainers.image.version" value="%PKG_VERSION%.%RELEASE%"/>
+            <label name="org.opencontainers.image.created" value="%BUILDTIME%"/>
+            <label name="org.opencontainers.image.vendor" value="SUSE LLC"/>
+            <label name="org.opencontainers.image.url" value="https://registry.opensuse.org/opensuse/ceph/ceph:%PKG_VERSION%.%RELEASE%"/>
+            <label name="org.openbuildservice.disturl" value="%DISTURL%"/>
+            <label name="org.opensuse.reference" value="registry.opensuse.org/opensuse/ceph/ceph:%PKG_VERSION%.%RELEASE%"/>
+            <!-- Select a correct license from https://github.com/openSUSE/spec-cleaner#spdx-licenses -->
+            <label name="org.opencontainers.image.licenses" value="Whatever"/>
+          </suse_label_helper:add_prefix>
+        </labels>
+
+        <history author="SUSE LLC">Install ceph binaries</history>
+      </containerconfig>
+    </type>
+    <version>1.0.0</version>
+    <packagemanager>zypper</packagemanager>
+    <rpm-check-signatures>false</rpm-check-signatures>
+    <rpm-excludedocs>true</rpm-excludedocs>
+    <locale>en_US</locale>
+    <keytable>us.map.gz</keytable>
+  </preferences>
+  <repository type="rpm-md">
+    <source path="obsrepositories:/"/>
+  </repository>
+  <packages type="image">
+    <namedCollection name="ceph_base"/>
+    <package name="patterns-ceph-containers-ceph_base"/>
+  </packages>
+  <packages type="bootstrap">
+    <package name="filesystem"/>
+    <package name="glibc-locale-base"/>
+    <package name="kubic-locale-archive"/>
+    <package name="openSUSE-release-ftp"/>
+    <package name="zabbix-agent"/>
+  </packages>
+</image>

@@ -1,0 +1,36 @@
+{
+  "errors" => [
+    "Main package file missing: expected error-missing-main-mixed.spec, error-missing-main-mixed.kiwi, error-missing-main-mixed.Dockerfile, Dockerfile, or Chart.yaml"
+  ],
+  "main" => {},
+  "sub"  => [
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "mixed-more.spec",
+      "licenses" => ["MIT AND BSD-3-Clause"],
+      "summary"  => "Just a test",
+      "type"     => "spec"
+    },
+    {
+      "file"     => "mixed-more.kiwi",
+      "licenses" => ["SUSE-Permissive"],
+      "summary"  => "Mixed",
+      "type"     => "kiwi",
+      "url"      => "https://bugs.opensuse.org",
+      "version"  => "1.0.0"
+    },
+    {
+      "file"     => "mixed-more.Dockerfile",
+      "licenses" => ["BSD-2-Clause"],
+      "summary"  => "Mixed Test",
+      "type"     => "dockerfile",
+      "version"  => 5
+    }
+  ],
+  "warnings" => [
+    "License from mixed-more.spec is not part of main license: MIT AND BSD-3-Clause",
+    "License from mixed-more.kiwi is not part of main license: SUSE-Permissive",
+    "License from mixed-more.Dockerfile is not part of main license: BSD-2-Clause"
+  ]
+}

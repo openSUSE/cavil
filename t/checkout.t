@@ -199,6 +199,24 @@ subtest 'error-missing-main-helm' => sub {
   is_deeply $checkout->specfile_report, report('error-missing-main-helm.helm'), 'right kiwi report';
 };
 
+subtest 'mixed (a little bit of everything)' => sub {
+  my $mixed    = $dir->child('mixed', 'fffe100e5a9a3e7f6d1fd97512215282');
+  my $checkout = Cavil::Checkout->new($mixed);
+  is_deeply $checkout->specfile_report, report('mixed.mixed'), 'right mixed report';
+};
+
+subtest 'error-invalid-license-mixed' => sub {
+  my $mixed    = $dir->child('error-invalid-license-mixed', 'fffe100e5a9a3e7f6d1fd97512215283');
+  my $checkout = Cavil::Checkout->new($mixed);
+  is_deeply $checkout->specfile_report, report('error-invalid-license-mixed.mixed'), 'right mixed report';
+};
+
+subtest 'error-missing-main-mixed' => sub {
+  my $mixed    = $dir->child('error-missing-main-mixed', 'fffe100e5a9a3e7f6d1fd97512215284');
+  my $checkout = Cavil::Checkout->new($mixed);
+  is_deeply $checkout->specfile_report, report('error-missing-main-mixed.mixed'), 'right mixed report';
+};
+
 subtest 'Unpack background job' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);

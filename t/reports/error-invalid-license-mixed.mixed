@@ -1,0 +1,38 @@
+{
+  "errors" => ["Invalid SPDX license: Whatever", "Invalid SPDX license: BSD"],
+  "main"   => {
+    "%doc"     => [],
+    "%license" => [],
+    "file"     => "error-invalid-license-mixed.spec",
+    "license"  => "MIT AND BSD-3-Clause",
+    "licenses" => ["MIT AND BSD-3-Clause"],
+    "summary"  => "Just a test",
+    "type"     => "spec"
+  },
+  "sub" => [
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "error-invalid-license-mixed.spec",
+      "licenses" => ["MIT AND BSD-3-Clause"],
+      "summary"  => "Just a test",
+      "type"     => "spec"
+    },
+    {
+      "file"     => "mixed-more.kiwi",
+      "licenses" => ["Whatever"],
+      "summary"  => "Mixed",
+      "type"     => "kiwi",
+      "url"      => "https://bugs.opensuse.org",
+      "version"  => "1.0.0"
+    },
+    {
+      "file"     => "mixed-more.Dockerfile",
+      "licenses" => ["BSD"],
+      "summary"  => "Mixed Test",
+      "type"     => "dockerfile",
+      "version"  => 5
+    }
+  ],
+  "warnings" => []
+}

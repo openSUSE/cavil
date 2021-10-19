@@ -1,0 +1,20 @@
+#
+# SPDX-License-Identifier: MIT
+#
+apiVersion: v1
+name: mixed
+version: 1.2.3
+appVersion: 2.1.0
+description: Helm Test
+keywords:
+- docker
+- registry
+- harbor
+home: https://goharbor.io
+icon: https://raw.githubusercontent.com/goharbor/website/master/static/img/logos/harbor-icon-color.png
+sources:
+- https://github.com/goharbor/harbor-helm
+maintainers:
+- name: SUSE
+  email: sales@suse.com
+engine: gotpl
