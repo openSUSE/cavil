@@ -217,6 +217,18 @@ subtest 'error-missing-main-mixed' => sub {
   is_deeply $checkout->specfile_report, report('error-missing-main-mixed.mixed'), 'right mixed report';
 };
 
+subtest 'error-invalid-yaml-helm' => sub {
+  my $helm     = $dir->child('error-invalid-yaml-helm', 'fffe100e5a9a3e7f6d1fd97512215286');
+  my $checkout = Cavil::Checkout->new($helm);
+  is_deeply $checkout->specfile_report, report('error-invalid-yaml-helm.helm'), 'right helm chart report';
+};
+
+subtest 'error-invalid-xml-kiwi' => sub {
+  my $kiwi     = $dir->child('error-invalid-xml-kiwi', 'fffe100e5a9a3e7f6d1fd97512215287');
+  my $checkout = Cavil::Checkout->new($kiwi);
+  is_deeply $checkout->specfile_report, report('error-invalid-xml-kiwi.kiwi'), 'right kiwi report';
+};
+
 subtest 'Unpack background job' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
