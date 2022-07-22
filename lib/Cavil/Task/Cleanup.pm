@@ -33,7 +33,7 @@ sub _cleanup ($job) {
   $db->query(
     q{
       UPDATE bot_packages
-      SET obsolete = true, result = 'Obsoleted by newer package with same name and external_link'
+      SET obsolete = true, state = 'obsolete', result = 'Obsoleted by newer package with same name and external_link'
       WHERE id IN (
         SELECT a.id FROM (
           SELECT id, ROW_NUMBER() OVER (PARTITION BY external_link, name ORDER BY id DESC) row_no

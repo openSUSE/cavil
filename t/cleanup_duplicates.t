@@ -178,7 +178,7 @@ subtest 'Clean up duplicates' => sub {
   $t->app->minion->perform_jobs;
 
   # First package (cleaned up)
-  is $t->app->packages->find($one_id)->{state}, 'new', 'right state';
+  is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
   ok $t->app->packages->find($one_id)->{obsolete},                                        'obsolete';
   ok !-e $dir->child(@one),                                                               'checkout does not exist';
   ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})->array->[0], 'no emails';
@@ -188,7 +188,7 @@ subtest 'Clean up duplicates' => sub {
   ok !$t->app->pg->db->select('file_snippets', [\'count(*)'], {package => $one_id})->array->[0],   'no file snippets';
 
   # Second package (cleaned up)
-  is $t->app->packages->find($one_id)->{state}, 'new', 'right state';
+  is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
   ok $t->app->packages->find($two_id)->{obsolete},                                        'obsolete';
   ok !-e $dir->child(@two),                                                               'checkout does not exist';
   ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $two_id})->array->[0], 'no emails';
@@ -198,7 +198,7 @@ subtest 'Clean up duplicates' => sub {
   ok !$t->app->pg->db->select('file_snippets', [\'count(*)'], {package => $two_id})->array->[0],   'no file snippets';
 
   # Third package (still valid, because the latest)
-  is $t->app->packages->find($one_id)->{state}, 'new', 'right state';
+  is $t->app->packages->find($three_id)->{state}, 'new', 'right state';
   ok !$t->app->packages->find($three_id)->{obsolete},                                             'not obsolete';
   ok -e $dir->child(@three),                                                                      'checkout exists';
   ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->array->[0],        'has emails';
