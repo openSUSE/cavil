@@ -14,6 +14,7 @@ jobs:
         perl-version:
           - '5.26'
           - '5.30'
+          - '5.36'
     container:
       image: perl:${{ matrix.perl-version }}
     services:
