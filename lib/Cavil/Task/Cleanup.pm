@@ -27,8 +27,25 @@ sub register ($self, $app, $config) {
 
 sub _cleanup ($job) {
   my $app = $job->app;
-  my $ids
-    = $app->pg->db->query('select id from bot_packages where obsolete is true order by id')->arrays->flatten->to_array;
+  my $db  = $app->pg->db;
+
+  # Mark all duplicate new packages as obsolete (same external_link and name)
+  $db->query(
+    q{
+      UPDATE bot_packages
+      SET obsolete = true, result = 'Obsoleted by newer package with same name and external_link'
+      WHERE id IN (
+        SELECT a.id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY external_link, name ORDER BY id DESC) row_no
+          FROM bot_packages
+          WHERE state = 'new' AND external_link IS NOT NULL
+        ) AS a
+        WHERE row_no > 1
+      );
+    }
+  );
+
+  my $ids     = $db->query('select id from bot_packages where obsolete is true order by id')->arrays->flatten->to_array;
   my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 
   my $minion = $app->minion;
