@@ -106,7 +106,7 @@ subtest 'perl-Mojolicious' => sub {
   ok -f $json, 'log file exists';
   my $hash = decode_json($json->slurp);
   is $hash->{destdir}, $mojo_temp_dir->child('.unpacked'), 'right destination';
-  is $hash->{pid}, $$, 'right process id';
+  is $hash->{pid},     $$,                                 'right process id';
   is_deeply $hash->{unpacked}{'Mojolicious-7.25/LICENSE'}, {mime => 'text/plain'}, 'right structure';
   ok -f $mojo_temp_dir->child('.unpacked', 'Mojolicious-7.25', 'LICENSE'), 'license file exists';
   my $module = $mojo_temp_dir->child('.unpacked', 'Mojolicious-7.25', 'lib', 'Mojolicious.pm');
@@ -171,7 +171,7 @@ subtest 'error-broken-archive' => sub {
   ok -f $json, 'log file exists';
   my $hash = decode_json($json->slurp);
   is $hash->{destdir}, $eba->child('.unpacked'), 'right destination';
-  is $hash->{pid}, $$, 'right process id';
+  is $hash->{pid},     $$,                       'right process id';
   is_deeply $hash->{unpacked}{'error-broken-archive/test.txt'}, {mime => 'text/plain'}, 'right structure';
 };
 
@@ -248,7 +248,7 @@ subtest 'Unpack background job' => sub {
   is $hash->{destdir}, $dir->child('.unpacked'), 'right destination';
   ok -f $dir->child('.unpacked', 'Mojolicious-7.25', 'LICENSE'), 'license file exists';
   my $module = $dir->child('.unpacked', 'Mojolicious-7.25', 'lib', 'Mojolicious.pm');
-  ok -f $module, 'module exists';
+  ok -f $module,                                       'module exists';
   ok -f $cavil_test->cache_dir->child('cavil.tokens'), 'cache initialized';
 
   # Prevent import race condition

@@ -43,13 +43,13 @@ subtest 'Export license patterns' => sub {
   my $apache = $patterns->find(1);
   is $apache->{license},  'Apache-2.0', 'right license';
   is $apache->{packname}, '',           'no packname';
-  ok $apache->{pattern},  'has pattern';
+  ok $apache->{pattern}, 'has pattern';
   ok my $uuid = $apache->{unique_id}, 'has UUID';
   my $target = $dir->child(substr($uuid, 0, 1), substr($uuid, 1, 1), $uuid);
   my $hash   = decode_json $target->slurp;
   is $hash->{license},   'Apache-2.0', 'right license';
   is $hash->{packname},  '',           'no packname';
-  is $hash->{unique_id}, $uuid, 'same UUID';
+  is $hash->{unique_id}, $uuid,        'same UUID';
 
   $apache = $patterns->find(2);
   is $apache->{license},  'Apache-2.0',       'right license';
@@ -59,7 +59,7 @@ subtest 'Export license patterns' => sub {
   $hash   = decode_json $target->slurp;
   is $hash->{license},   'Apache-2.0',       'right license';
   is $hash->{packname},  'perl-Mojolicious', 'right packname';
-  is $hash->{unique_id}, $uuid, 'same UUID';
+  is $hash->{unique_id}, $uuid,              'same UUID';
 
   my $artistic = $patterns->find(3);
   is $artistic->{license}, 'Artistic-2.0', 'right license';
@@ -67,8 +67,8 @@ subtest 'Export license patterns' => sub {
   ok $uuid = $artistic->{unique_id}, 'has UUID';
   $target = $dir->child(substr($uuid, 0, 1), substr($uuid, 1, 1), $uuid);
   $hash   = decode_json $target->slurp;
-  is $hash->{license}, 'Artistic-2.0', 'right license';
-  is $hash->{unique_id}, $uuid, 'same UUID';
+  is $hash->{license},   'Artistic-2.0', 'right license';
+  is $hash->{unique_id}, $uuid,          'same UUID';
 };
 
 subtest 'Import license patterns' => sub {

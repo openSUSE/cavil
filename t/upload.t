@@ -98,12 +98,12 @@ subtest 'Indexing' => sub {
   ok my $json = $t->tx->res->json, 'JSON response';
 
   ok my $pkg = $json->{package}, 'package';
-  is $pkg->{id},         3,                  'id';
-  is $pkg->{name},       'perl-Mojolicious', 'name';
+  is $pkg->{id},   3,                  'id';
+  is $pkg->{name}, 'perl-Mojolicious', 'name';
   like $pkg->{checksum}, qr!Artistic-2.0-9!, 'checksum';
-  is $pkg->{login},      undef,              'no login';
-  is $pkg->{state},      'new',              'state';
-  is $pkg->{result},     undef,              'no result';
+  is $pkg->{login},  undef, 'no login';
+  is $pkg->{state},  'new', 'state';
+  is $pkg->{result}, undef, 'no result';
 
   ok my $report = $json->{report}, 'report';
   is $report->{urls}[0][0], 'http://mojolicious.org', 'right URL';

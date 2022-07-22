@@ -59,17 +59,17 @@ $t->app->minion->perform_jobs;
 
 subtest 'Not yet classified' => sub {
   my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
-  is $snippet->{id},         1,                          'right id';
-  is $snippet->{classified}, 0,                          'not classified';
-  is $snippet->{license},    0,                          'not a license';
-  is $snippet->{confidence}, 0,                          'not confidence';
-  like $snippet->{text},     qr/Fixed copyright notice/, 'right text';
+  is $snippet->{id},         1, 'right id';
+  is $snippet->{classified}, 0, 'not classified';
+  is $snippet->{license},    0, 'not a license';
+  is $snippet->{confidence}, 0, 'not confidence';
+  like $snippet->{text}, qr/Fixed copyright notice/, 'right text';
   $snippet = $t->app->pg->db->select('snippets', '*', {id => 2})->hash;
-  is $snippet->{id},         2,                            'right id';
-  is $snippet->{classified}, 0,                            'not classified';
-  is $snippet->{license},    0,                            'not a license';
-  is $snippet->{confidence}, 0,                            'not confidence';
-  like $snippet->{text},     qr/This license establishes/, 'right text';
+  is $snippet->{id},         2, 'right id';
+  is $snippet->{classified}, 0, 'not classified';
+  is $snippet->{license},    0, 'not a license';
+  is $snippet->{confidence}, 0, 'not confidence';
+  like $snippet->{text}, qr/This license establishes/, 'right text';
 };
 
 # Classify
@@ -78,17 +78,17 @@ $t->app->minion->perform_jobs;
 
 subtest 'Classified' => sub {
   my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
-  is $snippet->{id},         1,                          'right id';
-  is $snippet->{classified}, 1,                          'classified';
-  is $snippet->{license},    1,                          'license';
-  is $snippet->{confidence}, 98,                         'confidence';
-  like $snippet->{text},     qr/Fixed copyright notice/, 'right text';
+  is $snippet->{id},         1,  'right id';
+  is $snippet->{classified}, 1,  'classified';
+  is $snippet->{license},    1,  'license';
+  is $snippet->{confidence}, 98, 'confidence';
+  like $snippet->{text}, qr/Fixed copyright notice/, 'right text';
   $snippet = $t->app->pg->db->select('snippets', '*', {id => 2})->hash;
-  is $snippet->{id},         2,                            'right id';
-  is $snippet->{classified}, 1,                            'classified';
-  is $snippet->{license},    0,                            'not a license';
-  is $snippet->{confidence}, 55,                           'confidence';
-  like $snippet->{text},     qr/This license establishes/, 'right text';
+  is $snippet->{id},         2,  'right id';
+  is $snippet->{classified}, 1,  'classified';
+  is $snippet->{license},    0,  'not a license';
+  is $snippet->{confidence}, 55, 'confidence';
+  like $snippet->{text}, qr/This license establishes/, 'right text';
 };
 
 done_testing;

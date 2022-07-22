@@ -140,7 +140,7 @@ subtest 'Create package' => sub {
   $t->get_ok('/api/1.0/source' => form => $form)->status_is(200)->json_is('/review' => 1, '/history' => []);
   $t->app->minion->perform_jobs;
   my $checkout = $dir->child('perl-Mojolicious', '236d7b56886a0d2799c0d114eddbb7f1');
-  ok -d $checkout, 'directory exists';
+  ok -d $checkout,                                    'directory exists';
   ok -f $checkout->child('Mojolicious-7.25.tar.gz'),  'file exists';
   ok -f $checkout->child('perl-Mojolicious.changes'), 'file exists';
   ok -f $checkout->child('perl-Mojolicious.spec'),    'file exists';
@@ -241,9 +241,9 @@ subtest 'Remove request (but keep packages that are still part of a product)' =>
   $t->patch_ok('/products/openSUSE:Test' => {Authorization => 'Token test_token'} => form => {id => \@in_product})
     ->status_is(200)->json_is('/updated', 3);
   is_deeply $t->app->products->for_package($ids[0]), ['openSUSE:Test'], 'right products';
-  is_deeply $t->app->products->for_package($ids[1]), [], 'right products';
+  is_deeply $t->app->products->for_package($ids[1]), [],                'right products';
   is_deeply $t->app->products->for_package($ids[2]), ['openSUSE:Test'], 'right products';
-  is_deeply $t->app->products->for_package($ids[3]), [], 'right products';
+  is_deeply $t->app->products->for_package($ids[3]), [],                'right products';
   is_deeply $t->app->products->for_package($ids[4]), ['openSUSE:Test'], 'right products';
 
   $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'openSUSE:Test'})

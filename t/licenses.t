@@ -50,7 +50,7 @@ ok !$l->exception,  'no exception';
 is $l->error, undef, 'no error';
 is_deeply $l->tree, {license => 'AGPL-3.0-only'}, 'right structure';
 is $l->to_string, 'AGPL-3.0-only', 'right string';
-is "$l", 'AGPL-3.0-only', 'right string';
+is "$l",          'AGPL-3.0-only', 'right string';
 is_deeply $l->canonicalize->tree, {license => 'AGPL-3.0-only'}, 'right canonicalized structure';
 
 # License with whitespace
@@ -75,7 +75,7 @@ is_deeply $l->tree, {license => 'AGPL-3.0-only'}, 'right structure';
 $l = lic('LGPL-2.1-or-later WITH WxWindows-exception-3.1');
 ok $l->normalized, 'normalized';
 ok $l->exception,  'exception';
-is $l->error,      undef, 'no error';
+is $l->error, undef, 'no error';
 is_deeply $l->tree, {license => 'LGPL-2.1-or-later'}, 'right structure';
 
 # SUSE license with exception in name
@@ -99,10 +99,10 @@ is "$l", 'AGPL-3.0-only and Ruby and Artistic-1.0', 'right string';
 is_deeply $l->canonicalize->to_string, 'AGPL-3.0-only and Artistic-1.0 and Ruby', 'right canonicalized string';
 
 $l = lic('AGPL-3.0-only; Ruby;Artistic-1.0');
-ok $l->normalized,  'normalized';
-is $l->error,       undef, 'no error';
+ok $l->normalized, 'normalized';
+is $l->error, undef, 'no error';
 is_deeply $l->tree, $ast, 'right structure';
-is $l->to_string,   'AGPL-3.0-only and Ruby and Artistic-1.0', 'right string';
+is $l->to_string, 'AGPL-3.0-only and Ruby and Artistic-1.0', 'right string';
 
 # Parentheses
 $l = lic('(LGPL-2.1-only or LGPL-3.0-only) and (GPL-3.0-or-later or GPL-2.0-only)');
@@ -127,7 +127,7 @@ $l
     . 'or GPL-2.0-only with Linux-syscall-note )');
 ok $l->normalized, 'normalized';
 ok $l->exception,  'exception';
-is $l->error,      undef, 'no error';
+is $l->error, undef, 'no error';
 $ast = {
   left  => {left => {license => 'LGPL-2.1-only'}, op => 'or', right => {license => 'LGPL-3.0-only'}},
   op    => 'and',
@@ -205,18 +205,18 @@ is_deeply $l->tree, undef, 'no structure';
 # Invalid SPDX license
 $l = lic('SomeLicense-1.0');
 ok !$l->normalized, 'not normalized';
-is $l->error,       'Invalid SPDX license: SomeLicense-1.0', 'right error';
-is_deeply $l->tree, undef,                                   'no structure';
+is $l->error, 'Invalid SPDX license: SomeLicense-1.0', 'right error';
+is_deeply $l->tree, undef, 'no structure';
 $l = lic('Apache-2.0 and MPLv2.0');
 ok !$l->normalized, 'not normalized';
-is $l->error,       'Invalid SPDX license: MPLv2.0', 'right error';
-is_deeply $l->tree, undef,                           'no structure';
+is $l->error, 'Invalid SPDX license: MPLv2.0', 'right error';
+is_deeply $l->tree, undef, 'no structure';
 
 # Macro
 $l = lic('%{license_apache2} and %{license_mit}');
 ok !$l->normalized, 'not normalized';
-is $l->error,       'Invalid license expression: %{license_apache2} and %{license_mit}', 'right error';
-is_deeply $l->tree, undef,                                                               'no structure';
+is $l->error, 'Invalid license expression: %{license_apache2} and %{license_mit}', 'right error';
+is_deeply $l->tree, undef, 'no structure';
 
 # Part of
 is_part_of 'Apache-1.0 and Apache-2.0',            'Apache-1.0';
@@ -232,9 +232,9 @@ isnt_part_of 'Apache-1.0', 'Ruby';
 isnt_part_of 'Apache-1.0', 'Apache-1.0 and Apache-2.0';
 
 # Similar licenses
-is_similar_to 'Apache-1.0',                                     'Apache-1.0';
-isnt_similar_to 'Apache-1.0',                                   'Apache-2.0';
-isnt_similar_to 'Apache-1.0',                                   'Apache-1.0 and Apache-2.0';
+is_similar_to 'Apache-1.0', 'Apache-1.0';
+isnt_similar_to 'Apache-1.0', 'Apache-2.0';
+isnt_similar_to 'Apache-1.0', 'Apache-1.0 and Apache-2.0';
 is_similar_to 'Apache-1.0 and Apache-2.0',                      'Apache-1.0 and Apache-2.0';
 is_similar_to 'Apache-2.0 and Apache-1.0',                      'Apache-1.0 and Apache-2.0';
 is_similar_to 'Ruby and GPL-1.0+ or Artistic-1.0 and AGPL-3.0', ' (AGPL-3.0 and Artistic-1.0) or (Ruby and GPL-1.0+)';

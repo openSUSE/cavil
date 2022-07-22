@@ -111,40 +111,40 @@ subtest 'JSON report' => sub {
   ok my $json = $t->tx->res->json, 'JSON response';
 
   ok my $pkg = $json->{package}, 'package';
-  is $pkg->{id},         1,                  'id';
-  is $pkg->{name},       'perl-Mojolicious', 'name';
-  like $pkg->{checksum}, qr!Error-9!,        'checksum';
-  is $pkg->{login},      undef,              'no login';
-  is $pkg->{state},      'new',              'state';
-  is $pkg->{result},     undef,              'no result';
+  is $pkg->{id},   1,                  'id';
+  is $pkg->{name}, 'perl-Mojolicious', 'name';
+  like $pkg->{checksum}, qr!Error-9!, 'checksum';
+  is $pkg->{login},  undef, 'no login';
+  is $pkg->{state},  'new', 'state';
+  is $pkg->{result}, undef, 'no result';
 
   ok my $report = $json->{report}, 'report';
   is $report->{emails}[0][0], 'coolo@suse.com', 'right email';
   ok $report->{emails}[0][1], 'multiple matches';
-  is $report->{urls}[0][0],   'http://mojolicious.org', 'right URL';
-  ok $report->{urls}[0][1],   'multiple matches';
+  is $report->{urls}[0][0], 'http://mojolicious.org', 'right URL';
+  ok $report->{urls}[0][1], 'multiple matches';
 
   ok my $missed_files = $report->{missed_files}, 'missed files';
   is $missed_files->[0]{id},       1,         'id';
   is $missed_files->[0]{license},  'Snippet', 'license';
   is $missed_files->[0]{match},    0,         'no match';
   is $missed_files->[0]{max_risk}, 9,         'max risk';
-  ok $missed_files->[0]{name},     'name';
+  ok $missed_files->[0]{name}, 'name';
   is $missed_files->[1]{id},       2,         'id';
   is $missed_files->[1]{license},  'Snippet', 'license';
   is $missed_files->[1]{match},    0,         'no match';
   is $missed_files->[1]{max_risk}, 9,         'max risk';
-  ok $missed_files->[1]{name},     'name';
+  ok $missed_files->[1]{name}, 'name';
   is $missed_files->[2]{id},       5,         'id';
   is $missed_files->[2]{license},  'Snippet', 'license';
   is $missed_files->[2]{match},    0,         'no match';
   is $missed_files->[2]{max_risk}, 9,         'max risk';
-  ok $missed_files->[2]{name},     'name';
+  ok $missed_files->[2]{name}, 'name';
   is $missed_files->[3]{id},       7,         'id';
   is $missed_files->[3]{license},  'Snippet', 'license';
   is $missed_files->[3]{match},    0,         'no match';
   is $missed_files->[3]{max_risk}, 9,         'max risk';
-  ok $missed_files->[3]{name},     'name';
+  ok $missed_files->[3]{name}, 'name';
   is $missed_files->[4], undef, 'no more missed files';
 
   ok $report->{files}, 'files';

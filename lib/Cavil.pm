@@ -29,7 +29,7 @@ use Cavil::OBS;
 use Cavil::Sync;
 use Scalar::Util 'weaken';
 use Time::HiRes ();
-use Mojo::File qw(path);
+use Mojo::File  qw(path);
 
 has classifier => sub { Cavil::Classifier->new };
 has obs        => sub { Cavil::OBS->new };

@@ -36,15 +36,15 @@ subtest 'Cannot analyze before indexing' => sub {
   my $analyze_id = $t->app->minion->enqueue(analyze => [1]);
   $t->app->minion->perform_jobs;
   my $analyze_job = $t->app->minion->job($analyze_id);
-  is $analyze_job->task, 'analyze', 'right task';
-  is $analyze_job->info->{state},    'finished',                       'job is finished';
+  is $analyze_job->task,          'analyze',  'right task';
+  is $analyze_job->info->{state}, 'finished', 'job is finished';
   like $analyze_job->info->{result}, qr/Package 1 is not indexed yet/, 'not yet indexed';
 
   my $analyzed_id = $t->app->minion->enqueue(analyzed => [1]);
   $t->app->minion->perform_jobs;
   my $analyzed_job = $t->app->minion->job($analyzed_id);
-  is $analyzed_job->task, 'analyzed', 'right task';
-  is $analyzed_job->info->{state},    'finished',                       'job is finished';
+  is $analyzed_job->task,          'analyzed', 'right task';
+  is $analyzed_job->info->{state}, 'finished', 'job is finished';
   like $analyzed_job->info->{result}, qr/Package 1 is not indexed yet/, 'not yet indexed';
 };
 
@@ -53,45 +53,45 @@ my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
 my $db        = $t->app->pg->db;
 ok !$db->select('emails',       ['id'], {email => 'sri@cpan.org'})->rows,           'email address does not exist';
 ok !$db->select('urls',         ['id'], {url   => 'http://mojolicious.org'})->rows, 'URL does not exist';
-ok !$db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'not unpacked';
+ok !$db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked},         'not unpacked';
 $t->app->minion->perform_jobs;
 my $unpack_job = $t->app->minion->job($unpack_id);
-is $unpack_job->task, 'unpack', 'right task';
+is $unpack_job->task,           'unpack',   'right task';
 is $unpack_job->info->{state},  'finished', 'job is finished';
 is $unpack_job->info->{result}, undef,      'job was successful';
 my $index_id  = $unpack_job->info->{children}[0];
 my $index_job = $t->app->minion->job($index_id);
-is $index_job->task, 'index', 'right task';
+is $index_job->task,           'index',    'right task';
 is $index_job->info->{state},  'finished', 'job is finished';
 is $index_job->info->{result}, undef,      'job was successful';
 my @batch_ids  = @{$index_job->info->{children}};
 my @batch_jobs = map { $t->app->minion->job($_) } @batch_ids;
-is $batch_jobs[0]->task, 'index_batch', 'right task';
-is $batch_jobs[0]->info->{state},  'finished', 'job is finished';
-is $batch_jobs[0]->info->{result}, undef,      'job was successful';
-is $batch_jobs[1]->task, 'index_batch', 'right task';
-is $batch_jobs[1]->info->{state},  'finished', 'job is finished';
-is $batch_jobs[1]->info->{result}, undef,      'job was successful';
-is $batch_jobs[2]->task, 'index_batch', 'right task';
-is $batch_jobs[2]->info->{state},  'finished', 'job is finished';
-is $batch_jobs[2]->info->{result}, undef,      'job was successful';
-is $batch_jobs[3], undef, 'no more jobs';
+is $batch_jobs[0]->task,           'index_batch', 'right task';
+is $batch_jobs[0]->info->{state},  'finished',    'job is finished';
+is $batch_jobs[0]->info->{result}, undef,         'job was successful';
+is $batch_jobs[1]->task,           'index_batch', 'right task';
+is $batch_jobs[1]->info->{state},  'finished',    'job is finished';
+is $batch_jobs[1]->info->{result}, undef,         'job was successful';
+is $batch_jobs[2]->task,           'index_batch', 'right task';
+is $batch_jobs[2]->info->{state},  'finished',    'job is finished';
+is $batch_jobs[2]->info->{result}, undef,         'job was successful';
+is $batch_jobs[3],                 undef,         'no more jobs';
 my $indexed_id  = $batch_jobs[0]->info->{children}[0];
 my $indexed_job = $t->app->minion->job($indexed_id);
-is $indexed_job->task, 'indexed', 'right task';
+is $indexed_job->task,           'indexed',  'right task';
 is $indexed_job->info->{state},  'finished', 'job is finished';
 is $indexed_job->info->{result}, undef,      'job was successful';
 my $analyze_id  = $indexed_job->info->{children}[0];
 my $analyze_job = $t->app->minion->job($analyze_id);
-is $analyze_job->task, 'analyze', 'right task';
+is $analyze_job->task,           'analyze',  'right task';
 is $analyze_job->info->{state},  'finished', 'job is finished';
 is $analyze_job->info->{result}, undef,      'job was successful';
 my $analyzed_id  = $analyze_job->info->{children}[0];
 my $analyzed_job = $t->app->minion->job($analyzed_id);
-is $analyzed_job->task, 'analyzed', 'right task';
-is $analyzed_job->info->{state},  'finished', 'job is finished';
-is $analyzed_job->info->{result}, undef,      'job was successful';
-is $t->app->packages->find(1)->{state}, 'new', 'still new';
+is $analyzed_job->task,                 'analyzed', 'right task';
+is $analyzed_job->info->{state},        'finished', 'job is finished';
+is $analyzed_job->info->{result},       undef,      'job was successful';
+is $t->app->packages->find(1)->{state}, 'new',      'still new';
 
 # Check shortname (3 missing snippets)
 like $t->app->packages->find(1)->{checksum}, qr/^Artistic-2.0-9:\w+/, 'right shortname';
@@ -106,7 +106,7 @@ is $db->select('urls', ['hits'], {url => $long})->hash, undef, 'URL is too long'
 
 # Check files
 my $file_id = $db->select('matched_files', ['id'], {filename => 'Mojolicious-7.25/lib/Mojolicious.pm'})->hash->{id};
-ok $file_id, 'file has been added';
+ok $file_id,                                                               'file has been added';
 ok $db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'unpacked';
 
 # Verify report checksum
@@ -155,9 +155,9 @@ $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('li div a[hre
 
 # Automatic reindexing
 my $list = $t->app->minion->backend->list_jobs(0, 10, {states => ['inactive']});
-is $list->{total}, 2, 'two inactives job';
-is $list->{jobs}[0]{task},        'pattern_stats',         'right task';
-is $list->{jobs}[1]{task},        'reindex_matched_later', 'right task';
+is $list->{total},         2,                       'two inactives job';
+is $list->{jobs}[0]{task}, 'pattern_stats',         'right task';
+is $list->{jobs}[1]{task}, 'reindex_matched_later', 'right task';
 is_deeply $list->{jobs}[1]{args}, [1], 'right arguments';
 my $reindex_id = $list->{jobs}[0]{id};
 $t->app->minion->perform_jobs;
@@ -187,7 +187,7 @@ is $list->{total}, 1, 'one index_later jobs';
 $reindex_id = $t->app->minion->enqueue('reindex_all');
 $t->app->minion->perform_jobs;
 $list = $t->app->minion->backend->list_jobs(0, 10, {tasks => ['index_later']});
-is $list->{total}, 3, 'three index_later jobs';
+is $list->{total},          3,          'three index_later jobs';
 is $list->{jobs}[0]{state}, 'finished', 'right state';
 is $list->{jobs}[1]{state}, 'finished', 'right state';
 $res = $db->select(

@@ -33,8 +33,8 @@ sub buckets ($things, $size) {
   my $per_bucket = ceil @$things / $buckets;
   my @buckets;
   for my $thing (@$things) {
-    push @buckets, [] unless @buckets;
-    push @buckets, [] if @{$buckets[-1]} >= $per_bucket;
+    push @buckets,        [] unless @buckets;
+    push @buckets,        [] if @{$buckets[-1]} >= $per_bucket;
     push @{$buckets[-1]}, $thing;
   }
 

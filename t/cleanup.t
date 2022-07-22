@@ -96,8 +96,8 @@ $t->app->minion->perform_jobs;
 $t->app->pg->db->query('update bot_packages set imported = ? where id=?', '2017-12-24', $one_id);
 is $t->app->packages->find($one_id)->{state},  'acceptable',                       'right state';
 is $t->app->packages->find($one_id)->{result}, 'Accepted because of low risk (2)', 'right result';
-ok !$t->app->packages->find($one_id)->{obsolete}, 'not obsolete';
-ok -e $dir->child(@one), 'checkout exists';
+ok !$t->app->packages->find($one_id)->{obsolete},                                               'not obsolete';
+ok -e $dir->child(@one),                                                                        'checkout exists';
 ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $one_id})->array->[0],     'has reports';
 ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})->array->[0],          'has emails';
 ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $one_id})->array->[0],            'has URLs';
@@ -111,8 +111,8 @@ $t->app->pg->db->insert('bot_package_products', {package => $two_id, product => 
 is $t->app->packages->find($two_id)->{state}, 'acceptable', 'right state';
 is $t->app->packages->find($two_id)->{result}, 'Accepted because previously reviewed under the same license (1)',
   'right result';
-ok !$t->app->packages->find($two_id)->{obsolete}, 'not obsolete';
-ok -e $dir->child(@two), 'checkout exists';
+ok !$t->app->packages->find($two_id)->{obsolete},                                               'not obsolete';
+ok -e $dir->child(@two),                                                                        'checkout exists';
 ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $two_id})->array->[0],     'has reports';
 ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $two_id})->array->[0],          'has emails';
 ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $two_id})->array->[0],            'has URLs';
@@ -123,8 +123,8 @@ ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $two_id
 is $t->app->packages->find($three_id)->{state}, 'acceptable', 'right state';
 is $t->app->packages->find($three_id)->{result}, 'Accepted because previously reviewed under the same license (1)',
   'right result';
-ok !$t->app->packages->find($three_id)->{obsolete}, 'not obsolete';
-ok -e $dir->child(@three), 'checkout exists';
+ok !$t->app->packages->find($three_id)->{obsolete},                                      'not obsolete';
+ok -e $dir->child(@three),                                                               'checkout exists';
 ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->array->[0], 'has emails';
 ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $three_id})->array->[0],   'has URLs';
 
@@ -145,13 +145,13 @@ $t->app->minion->perform_jobs;
 
 # First package (still valid)
 my $obsolete = $t->app->minion->job($obsolete_id);
-is $obsolete->info->{state}, 'finished', 'right state';
-is $t->app->packages->find($one_id)->{state},    'correct',                                             'right state';
-is $t->app->packages->find($one_id)->{result},   'Correct because reviewed under the same license (2)', 'right result';
-ok $t->app->packages->find($one_id)->{obsolete}, 'obsolete';
-ok !-e $dir->child(@one), 'checkout does not exist';
-ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})->array->[0],          'no emails';
-ok !$t->app->pg->db->select('urls', [\'count(*)'], {package => $one_id})->array->[0],            'no URLs';
+is $obsolete->info->{state},                   'finished',                                            'right state';
+is $t->app->packages->find($one_id)->{state},  'correct',                                             'right state';
+is $t->app->packages->find($one_id)->{result}, 'Correct because reviewed under the same license (2)', 'right result';
+ok $t->app->packages->find($one_id)->{obsolete},                                        'obsolete';
+ok !-e $dir->child(@one),                                                               'checkout does not exist';
+ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})->array->[0], 'no emails';
+ok !$t->app->pg->db->select('urls', [\'count(*)'], {package => $one_id})->array->[0],   'no URLs';
 ok !$t->app->pg->db->select('matched_files', [\'count(*)'], {package => $one_id})->array->[0],   'no matched files';
 ok !$t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $one_id})->array->[0], 'no pattern matches';
 ok !$t->app->pg->db->select('file_snippets', [\'count(*)'], {package => $one_id})->array->[0],   'no file snippets';
@@ -165,8 +165,8 @@ ok !$t->app->packages->find($two_id)->{obsolete}, 'obsolete';
 # Third package (obsolete)
 is $t->app->packages->find($three_id)->{state},  'correct',                                             'right state';
 is $t->app->packages->find($three_id)->{result}, 'Correct because reviewed under the same license (2)', 'right result';
-ok !$t->app->packages->find($three_id)->{obsolete}, 'not obsolete';
-ok -e $dir->child(@three), 'checkout exists';
+ok !$t->app->packages->find($three_id)->{obsolete},                                               'not obsolete';
+ok -e $dir->child(@three),                                                                        'checkout exists';
 ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $three_id})->array->[0],     'has reports';
 ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->array->[0],          'has emails';
 ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $three_id})->array->[0],            'has URLs';
@@ -176,7 +176,7 @@ ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $three_
 # Clean up old packages again
 $t->app->minion->enqueue('obsolete');
 $t->app->minion->perform_jobs;
-ok $t->app->packages->find($one_id)->{obsolete}, 'still obsolete';
+ok $t->app->packages->find($one_id)->{obsolete},    'still obsolete';
 ok !$t->app->packages->find($two_id)->{obsolete},   'old but part of product';
 ok !$t->app->packages->find($three_id)->{obsolete}, 'still not obsolete';
 
