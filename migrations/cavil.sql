@@ -269,3 +269,8 @@ alter table license_patterns add column if not exists unique_id uuid unique not 
 create index on license_patterns(license);
 create index on license_patterns(unique_id);
 drop table if exists licenses;
+
+-- 13 up
+ALTER TABLE bot_package_products DROP CONSTRAINT bot_package_products_product_fkey;
+ALTER TABLE bot_package_products ADD CONSTRAINT  bot_package_products_product_fkey FOREIGN KEY (product)
+  REFERENCES bot_products(id) ON DELETE CASCADE;
