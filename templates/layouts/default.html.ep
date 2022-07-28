@@ -4,23 +4,22 @@
     <!-- Meta, title, CSS, favicons, etc. -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <link rel="icon" href="<%= icon_url 'legal-hammer-symbol.svg'%>" sizes="any" type="image/svg+xml">
-    <link rel="icon" type="image/png" href="<%= icon_url 'favicon-32.png' %>" sizes="32x32">
+    <link rel="icon" href="<%= url_for '/images/legal-hammer-symbol.svg' %>" sizes="any" type="image/svg+xml">
 
     <meta name="csrf-token" content="<%= csrf_token %>" />
     <meta name="csrf-param" content="csrf_token" />
 
     <title><%= title() || 'Cavil' %></title>
 
-    %= asset 'app.css'
-    %= asset 'app.js'
+    %= asset 'cavil.css'
+    %= asset 'cavil.js'
 
     %= content_for 'head'
 
     %= javascript begin
       %= content_for 'head_javascript'
       $(function() {
-        setupCreatePattern();
+        legacy.setupCreatePattern();
         %= content_for 'ready_function'
       } );
     % end
@@ -30,8 +29,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light mb-3 border-bottom">
       <div class="container">
         %= link_to '/' => (class => 'navbar-brand') => begin
-          <img src="<%= icon_url 'legal-hammer-symbol.svg'%>" width="20"
-            height="20" alt="Legal Icon">
+          <img src="<%= url_for '/images/legal-hammer-symbol.svg' %>" width="20" height="20" alt="Legal Icon">
         % end
         <button class="navbar-toggler" type="button" data-toggle="collapse"
           data-target="#navbarSupportedContent"

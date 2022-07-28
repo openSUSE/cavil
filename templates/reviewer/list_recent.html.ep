@@ -20,5 +20,5 @@
 </table>
 
 % content_for 'ready_function' => begin
-  setupRecentTable();
+  legacy.setupRecentTable();
 % end

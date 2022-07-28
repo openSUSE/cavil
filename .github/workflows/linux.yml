@@ -7,36 +7,45 @@ on:
       - '*'
   pull_request:
 jobs:
-  perl:
+  test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        perl-version:
-          - '5.26'
-          - '5.30'
-          - '5.36'
-    container:
-      image: perl:${{ matrix.perl-version }}
     services:
       postgres:
         image: postgres
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v2
+      - uses: shogo82148/actions-setup-perl@v1
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      - uses: microsoft/playwright-github-action@v1
+      - name: node -v
+        run: which node; node -v; which npm; npm -v
+      - name: npm install
+        run: npm i
       - name: perl -V
         run: perl -V
-      - name: Fix ExtUtils::MakeMaker (for Perl 5.16 and 5.18)
-        run: cpanm -n App::cpanminus ExtUtils::MakeMaker
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y libmagic-dev ruby-sass
+          sudo apt-get update
+          sudo apt-get install -y libmagic-dev ruby-sass
           cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.55.tar.gz
           cpanm -n --installdeps .
           cpanm -n Test::Deep
+      - name: Build assets
+        run: npm run build
       - name: Run tests
         env:
-          TEST_ONLINE: postgresql://postgres:postgres@postgres:5432/postgres
-        run: prove -l t
-
+          TEST_ONLINE: postgresql://postgres:postgres@localhost:5432/postgres
+        run: prove -l t/*.t

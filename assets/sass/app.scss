@@ -1,3 +1,9 @@
+$fa-font-path: "webfonts"; // destination folder in dist
+@import "~@fortawesome/fontawesome-free/scss/fontawesome.scss";
+@import "~@fortawesome/fontawesome-free/scss/regular.scss";
+@import "~@fortawesome/fontawesome-free/scss/solid.scss";
+@import "~@fortawesome/fontawesome-free/scss/brands.scss";
+
 .navbar-brand img {
   height: 100%
 }
@@ -212,4 +218,8 @@ body {
 
 .field-with-error {
   border: 2px solid #f00 !important;
+}
+
+.CodeMirror {
+  height: 100%;
 }

@@ -85,16 +85,8 @@ sub startup ($self) {
 
   $self->plugin('Cavil::Plugin::Helpers');
 
-  $self->plugin(AssetPack => {pipes => [qw(Sass Css JavaScript Fetch Combine)]});
-  $self->helper(
-    icon_url => sub ($c, $icon) {
-      my $json = $c->app->asset->processed($icon)->[0]->TO_JSON;
-      return $c->url_for(assetpack => $json);
-    }
-  );
-
-  # Read "assets/assetpack.def"
-  $self->asset->process;
+  # Webpack
+  $self->plugin('Webpack');
 
   # Job queue (model)
   #

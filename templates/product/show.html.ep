@@ -14,5 +14,5 @@
 </table>
 
 % content_for 'ready_function' => begin
-  setupProductTable();
+  legacy.setupProductTable();
 % end

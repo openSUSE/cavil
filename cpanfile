@@ -1,0 +1,17 @@
+requires 'Mojolicious', '>= 9.20';
+requires 'Mojolicious::Plugin::Webpack';
+requires 'Mojo::Pg', '>= 4.25';
+requires 'Minion', '>= 8.0';
+requires 'Cpanel::JSON::XS', '>= 4.09';
+requires 'File::Unpack';
+requires 'Spooky::Patterns::XS';
+requires 'Net::OpenID::Consumer';
+requires 'LWP::UserAgent';
+requires 'BSD::Resource';
+requires 'Term::ProgressBar';
+requires 'Algorithm::Diff';
+requires 'IO::Socket::SSL', '>= 2.009';
+requires 'Text::Diff';
+requires 'Text::Glob';
+requires 'YAML::XS';
+requires 'JSON::Validator';
