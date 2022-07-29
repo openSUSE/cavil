@@ -48,4 +48,4 @@ jobs:
       - name: Run tests
         env:
           TEST_ONLINE: postgresql://postgres:postgres@localhost:5432/postgres
-        run: prove -l t/*.t
+        run: prove -l t/*.t t/*.t.js

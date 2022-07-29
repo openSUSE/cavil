@@ -181,6 +181,8 @@ sub postgres_url ($self) {
     ->to_unsafe_string;
 }
 
+sub ui_fixtures ($self, $app) { $self->mojo_fixtures($app) }
+
 sub unpack_fixtures ($self, $app) {
   $self->no_fixtures($app);
 

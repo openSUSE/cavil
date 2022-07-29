@@ -5,27 +5,14 @@
     "jquery": true,
     "es2021": true
   },
+  "extends": ["eslint:recommended", "prettier"],
+  "plugins": ["import", "prettier"],
   "parserOptions": {
+    "ecmaVersion": 2020,
     "sourceType": "module"
   },
-  "extends": ["eslint:all", "plugin:vue/strongly-recommended", "prettier"],
-  "plugins": ["import", "prettier"],
   "rules": {
     "prettier/prettier": "error",
-    "one-var": "off",
-    "require-unicode-regexp": "off",
-    "sort-keys": "off",
-    "id-length": "off",
-    "sort-imports": "off",
-    "no-magic-numbers": "off",
-    "no-shadow": "off",
-    "no-ternary": "off",
-    "prefer-named-capture-group": "off",
-    "max-lines-per-function": "off",
-    "max-statements": "off",
-    "no-continue": "off",
-    "func-names": "off",
-    "no-invalid-this": "off",
     "import/order": [
       "error",
       {
