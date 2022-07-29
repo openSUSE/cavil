@@ -9,7 +9,7 @@ export function setupCodeMirrorForSnippet(line) {
   cm.on('gutterClick', (cm, n) => {
     const info = cm.lineInfo(n);
     if (info.bgClass.includes('found-pattern')) {
-      matches = info.bgClass.match(/pattern-(\d+)/);
+      const matches = info.bgClass.match(/pattern-(\d+)/);
       window.location.href = `/licenses/edit_pattern/${matches[1]}`;
     }
   });

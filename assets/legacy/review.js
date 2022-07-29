@@ -75,7 +75,7 @@ export function setupReviewDetails(url) {
   });
 }
 
-export function setupReviewTable(is_admin) {
+export function setupReviewTable() {
   const columns = [];
   if ($('table#reviews thead th.link').length) {
     columns.push({
@@ -147,7 +147,7 @@ export function setupReviewTable(is_admin) {
       },
       {
         targets: 'package',
-        render(data, type, row) {
+        render(data, type) {
           if (type === 'display') {
             return `<a href='/search?q=${data}'>${data}</a>`;
           }
@@ -156,13 +156,13 @@ export function setupReviewTable(is_admin) {
       },
       {
         targets: 'state',
-        render(data, type, row) {
+        render(data) {
           return data;
         }
       },
       {
         targets: 'result',
-        render(data, type, row) {
+        render(data) {
           return data;
         }
       },
@@ -287,7 +287,7 @@ function createPatternAndReindex(e) {
 
 function drawLicenseChart() {
   const ctx = document.getElementById('license-chart');
-  const myChart = new Chart(ctx, {
+  new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: $('#chart-data').data('licenses'),

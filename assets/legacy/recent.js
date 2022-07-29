@@ -1,7 +1,7 @@
 import {formatLink} from './util.js';
 
 export function setupRecentTable() {
-  const dt = $('#reviews').DataTable({
+  $('#reviews').DataTable({
     processing: true,
     serverSide: false,
     ajax: $('#reviews').data('script'),
@@ -42,7 +42,7 @@ export function setupRecentTable() {
       },
       {
         targets: 'package',
-        render(data, type, row) {
+        render(data, type) {
           if (type === 'display') {
             return `<a href='/search?q=${data}'>${data}</a>`;
           }

@@ -39,7 +39,7 @@ export function moveSelector() {
   $('.current-selector').removeClass('current-selector');
   let cs;
   window.legacy.fireIndex++;
-  $.each(window.legacy.fires, function (index, element) {
+  $.each(window.legacy.fires, function (index) {
     if (index == window.legacy.fireIndex) {
       if ($(this).hasClass('fa-fire')) {
         cs = $(this).parent('a');
