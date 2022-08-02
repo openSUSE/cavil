@@ -22,6 +22,7 @@ import {createLicense, ignoreLine, snippetNonLicense, snippetSwitcher} from './l
 import $ from 'jquery';
 
 window.$ = $;
+window.jQuery = $;
 
 window.legacy = {
   fireIndex: undefined,

@@ -44,7 +44,7 @@ sub edit ($self) {
   $bag->load($cache);
 
   my $best = $bag->best_for($snippet->{text}, 1)->[0];
-  my $sim  = $best->{match};
+  my $sim  = $best->{match} // 0;
   $best = $self->patterns->find($best->{pattern});
 
   my $db            = $self->pg->db;

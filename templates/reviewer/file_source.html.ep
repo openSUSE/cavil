@@ -1,7 +1,9 @@
 <div class="source" id="file-details-<%= $file %>" data-file-id="<%= $file %>">
   <table class="snippet">
     <tbody>
+      % my $i = 0;
       % for my $line (@$lines) {
+        % $i++;
         % my $hash = $line->[1]->{hash};
         % if (defined $line->[1]->{withgap}) {
           <tr><td class="redbar" colspan="3"></td></tr>
@@ -16,13 +18,14 @@
           <tr class="<%= $class %>">
         % }
           % if ($line->[1]->{end}) {
+            % my $end_id = "$file-$i";
             % my $data = { start => $line->[0], end => $line->[1]->{end}, 'prev-match' => $line->[1]->{prevstart} // 0, 'next-match' => $line->[1]->{nextend} // 0 };
             %= tag 'td', class => "actions dropdown show" => data => $data => begin
-              <a href="#" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              <a href="#" id="dropdownMenuLink-<%= $end_id %>" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="actions-menu fas fa-caret-square-down" title="Open Action Menu"></i>
               </a>
 
-              <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuLink-<%= $end_id %>">
                 % if ($risk == 9) {
                   % if ($line->[1]->{snippet}) {
                     <a class="dropdown-item" href="<%= url_for('edit_snippet', id => $line->[1]->{snippet}) %>">Create Pattern from selection</a>

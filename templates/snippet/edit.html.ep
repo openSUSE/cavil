@@ -38,7 +38,7 @@
         <label for="risk" class="mr-2">Risk</label>
         % my @risks;
         % for my $r (0..6) {
-            % if ($r == $best->{risk}) { push(@risks, [ $r => $r, selected => 'selected' ]) } else { push(@risks, $r); }
+            % if ($r == ($best->{risk} // -1)) { push(@risks, [ $r => $r, selected => 'selected' ]) } else { push(@risks, $r); }
         % }
         %= select_field risk => \@risks, class => 'form-control'
     </div>

@@ -97,6 +97,9 @@ sub mojo_fixtures ($self, $app) {
     srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
     priority        => 5
   );
+  my $pkg = $pkgs->find($pkg_id);
+  $pkg->{external_link} = "mojo#1";
+  $pkgs->update($pkg);
   $pkgs->imported($pkg_id);
   my $pkg2_id = $pkgs->add(
     name            => 'perl-Mojolicious',
@@ -108,6 +111,9 @@ sub mojo_fixtures ($self, $app) {
     srcmd5          => 'da3e32a3cce8bada03c6a9d63c08cd58',
     priority        => 5
   );
+  my $pkg2 = $pkgs->find($pkg2_id);
+  $pkg2->{external_link} = "mojo#2";
+  $pkgs->update($pkg2);
   $pkgs->imported($pkg2_id);
   my $patterns = $app->patterns;
   $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
@@ -165,6 +171,7 @@ sub package_with_snippets_fixtures ($self, $app) {
   $pkgs->imported($pkg_id);
   my $patterns = $app->patterns;
   $patterns->create(pattern => 'license');
+  $patterns->create(pattern => 'copyright');
   $patterns->create(pattern => 'GPL', license => 'GPL');
   $patterns->create(
     pattern => 'Permission is granted to copy, distribute and/or modify this document
@@ -181,7 +188,50 @@ sub postgres_url ($self) {
     ->to_unsafe_string;
 }
 
-sub ui_fixtures ($self, $app) { $self->mojo_fixtures($app) }
+sub ui_fixtures ($self, $app) {
+  $app->pg->migrations->migrate;
+
+  $self->mojo_fixtures($app);
+  my $pkgs = $app->packages;
+  $pkgs->unpack($_) for 1 .. 2;
+
+  # Make sure paging is needed
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  for my $i (1 .. 21) {
+    my $pkg_id = $pkgs->add(
+      name            => "perl-UI-Test$i",
+      checkout_dir    => 'doesnotexist',
+      api_url         => 'https://api.opensuse.org',
+      requesting_user => $usr_id,
+      project         => 'devel:languages:perl',
+      package         => "perl-UI-Test$i",
+      srcmd5          => '4041c36647a5d3dd883d490da2140404',
+      priority        => 5
+    );
+    my $pkg = $pkgs->find($pkg_id);
+    $pkg->{external_link} = "test#$i";
+    $pkgs->update($pkg);
+  }
+
+  # "harbor-helm" example data
+  my $pkg_id = $pkgs->add(
+    name            => 'harbor-helm',
+    checkout_dir    => '4fcfdab0e71b0bebfdf8b5cc3badfec4',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'just:a:test',
+    package         => 'harbor-helm',
+    srcmd5          => 'abc1c36647a5d356883d490da2140def',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $harbor = $pkgs->find($pkg_id);
+  $harbor->{external_link} = 'obs#123456';
+  $pkgs->update($harbor);
+  $pkgs->unpack($pkg_id);
+
+  $app->minion->perform_jobs();
+}
 
 sub unpack_fixtures ($self, $app) {
   $self->no_fixtures($app);

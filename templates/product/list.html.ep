@@ -1,4 +1,4 @@
-% layout 'default', title => 'List Products';
+% layout 'default', title => 'List products';
 
 <h2>All Products</h2>
 

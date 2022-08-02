@@ -153,6 +153,23 @@ $harbor->{external_link} = 'obs#123456';
 $pkgs->update($harbor);
 $pkgs->unpack($pkg_id);
 
+# Extra packages to fill up the backlog
+for my $i (1 .. 21) {
+  my $pkg_id = $pkgs->add(
+    name            => "just-a-test-$i.0",
+    checkout_dir    => '404fdab0e71b0bebfdf8b2dc3badf404',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'home:kraih',
+    package         => "just-a-test-$i.0",
+    srcmd5          => '4041c36647a5d3dd883d490da2140404',
+    priority        => 5
+  );
+  my $pkg = $pkgs->find($pkg_id);
+  $pkg->{external_link} = "test#$i";
+  $pkgs->update($pkg);
+}
+
 $app->minion->perform_jobs;
 
 # Update products

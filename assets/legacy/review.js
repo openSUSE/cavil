@@ -6,7 +6,6 @@ export function setupReviewDetails(url) {
 
   getUntilSuccess(url, data => {
     $('#details').html(data);
-    document.title = $('h1').text();
 
     drawLicenseChart();
 

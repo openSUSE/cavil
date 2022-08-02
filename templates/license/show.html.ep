@@ -1,5 +1,5 @@
 % layout 'default';
-% title "License Details of $license";
+% title "License details of $license";
 
 <div class="form-group">
     <label for="name">Name</label>
