@@ -1,4 +1,4 @@
-import {formatLink, ignoreLine, moveSelector} from './util.js';
+import {ignoreLine, moveSelector} from './util.js';
 import Chart from 'chart.js';
 
 export function setupReviewDetails(url) {
@@ -24,8 +24,8 @@ export function setupReviewDetails(url) {
       return true;
     });
 
-    window.legacy.fires = $('.fa-fire');
-    window.legacy.fireIndex = -1;
+    window.cavil.fires = $('.fa-fire');
+    window.cavil.fireIndex = -1;
 
     $('.fa-fire').click(function () {
       const link = $(this).parents('a');
@@ -71,165 +71,6 @@ export function setupReviewDetails(url) {
 
   $('#only-match-local').change(() => {
     $('input[name=packname]').prop('disabled', !$('#only-match-local').prop('checked'));
-  });
-}
-
-export function setupReviewTable() {
-  const columns = [];
-  if ($('table#reviews thead th.link').length) {
-    columns.push({
-      data: 'external_link',
-      class: 'middle-align'
-    });
-  }
-
-  columns.push({
-    data: 'created_epoch',
-    class: 'middle-align'
-  });
-  if ($('table#reviews thead th.package').length) {
-    columns.push({
-      data: 'name',
-      class: 'middle-align'
-    });
-  }
-  let order = [0, 'asc'];
-
-  if ($('table#reviews thead th.state').length) {
-    columns.push({data: 'state'});
-    order = [0, 'desc'];
-  }
-
-  if ($('table#reviews thead th.result').length) {
-    columns.push({data: 'result'});
-  }
-
-  if ($('table#reviews thead th.login').length) {
-    columns.push({data: 'login'});
-  }
-
-  if ($('table#reviews thead th.products').length) {
-    columns.push({
-      data: 'products',
-      class: 'middle-align'
-    });
-  }
-
-  columns.push({
-    data: 'checksum',
-    class: 'middle-align'
-  });
-
-  const dt = $('#reviews').DataTable({
-    processing: true,
-    serverSide: false,
-    ajax: $('#reviews').data('script'),
-    columns,
-    columnDefs: [
-      {
-        targets: 'link',
-        render(data, type, row) {
-          if (type === 'display' && data) {
-            return formatLink(row);
-          }
-          return 10 - row.priority + data;
-        }
-      },
-      {
-        targets: 'created',
-        render(data, type, row) {
-          if (type === 'display') {
-            return `<span title="${row.created}">${$.timeago(new Date(data * 1000))}</span>`;
-          }
-          return data;
-        }
-      },
-      {
-        targets: 'package',
-        render(data, type) {
-          if (type === 'display') {
-            return `<a href='/search?q=${data}'>${data}</a>`;
-          }
-          return data;
-        }
-      },
-      {
-        targets: 'state',
-        render(data) {
-          return data;
-        }
-      },
-      {
-        targets: 'result',
-        render(data) {
-          return data;
-        }
-      },
-      {
-        targets: 'report',
-        render(data, type, row) {
-          if (!row.imported) {
-            return '<i>not yet imported</i>';
-          } else if (!row.unpacked) {
-            return '<i>not yet unpacked</i>';
-          } else if (!row.indexed) {
-            return '<i>not yet indexed</i>';
-          } else if (row.checksum) {
-            return `<a href='/reviews/details/${row.id}'/>${row.checksum}</a>`;
-          }
-          return `<a href='/reviews/details/${row.id}'/>unpacked</a>`;
-        }
-      }
-    ],
-    order: [order]
-  });
-
-  // Array to track the ids of the details displayed rows
-  const detailRows = [];
-
-  const reportUrl = $('#reviews').data('report-url');
-
-  $('#reviews tbody').on('click', 'tr td span.details-control', function () {
-    const tr = $(this).closest('tr');
-    const row = dt.row(tr);
-    const idx = $.inArray(tr.attr('id'), detailRows);
-
-    if (row.child.isShown()) {
-      tr.removeClass('details');
-      $(this).removeClass('fa-minus-square').addClass('fa-plus-square');
-
-      row.child.hide();
-
-      // Remove from the 'open' array
-      detailRows.splice(idx, 1);
-    } else {
-      tr.addClass('details');
-      $(this).addClass('fa-minus-square').removeClass('fa-plus-square');
-
-      $.ajax({
-        url: reportUrl,
-        data: {id: row.data().id},
-        success(data) {
-          row.child(data).show();
-        }
-      });
-
-      // Add to the 'open' array
-      if (idx === -1) {
-        detailRows.push(tr.attr('id'));
-      }
-    }
-  });
-
-  // On each draw, loop over the `detailRows` array and show any child rows
-  dt.on('draw', () => {
-    $.each(detailRows, (i, id) => {
-      $(`#${id} td.details-control`).trigger('click');
-    });
-  });
-
-  dt.on('draw', () => {
-    $('.dataTables_empty').html('<i class="fas fa-check-circle" ' + 'style="color:Green"></i> All reviews are done!');
   });
 }
 

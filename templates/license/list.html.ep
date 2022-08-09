@@ -20,5 +20,5 @@
 
 %content_for 'ready_function' => begin
     $('#licenses').DataTable({paging: false});
-    $('#license-create').click(legacy.createLicense);
+    $('#license-create').click(cavil.createLicense);
 %end

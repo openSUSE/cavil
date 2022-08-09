@@ -9,25 +9,36 @@ import 'bootstrap';
 import 'datatables.net';
 import 'datatables.net-bs4';
 import 'codemirror';
+import 'moment';
 
 import {setupCodeMirrorForFile} from './legacy/file.js';
 import {backToTop} from './legacy/nav.js';
 import {setupCreatePattern} from './legacy/patterns.js';
 import {setupProductTable} from './legacy/product.js';
-import {setupRecentTable} from './legacy/recent.js';
-import {setupReviewDetails, setupReviewTable} from './legacy/review.js';
+import {setupReviewDetails} from './legacy/review.js';
 import {setupCodeMirrorForSnippet} from './legacy/snippet.js';
 import {fromNow} from './legacy/time.js';
 import {createLicense, ignoreLine, snippetNonLicense, snippetSwitcher} from './legacy/util.js';
+import OpenReviews from './vue/OpenReviews.vue';
+import RecentReviews from './vue/RecentReviews.vue';
 import $ from 'jquery';
+import {createApp} from 'vue';
 
 window.$ = $;
 window.jQuery = $;
 
-window.legacy = {
+window.cavil = {
   fireIndex: undefined,
   fires: undefined,
   myCodeMirror: undefined,
+
+  setupOpenReviews() {
+    createApp(OpenReviews).mount('#open-reviews');
+  },
+
+  setupRecentReviews() {
+    createApp(RecentReviews).mount('#recent-reviews');
+  },
 
   backToTop,
   createLicense,
@@ -36,10 +47,8 @@ window.legacy = {
   setupCodeMirrorForFile,
   setupCodeMirrorForSnippet,
   setupCreatePattern,
-  setupRecentTable,
   setupProductTable,
   setupReviewDetails,
-  setupReviewTable,
   snippetNonLicense,
   snippetSwitcher
 };

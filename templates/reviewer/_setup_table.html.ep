@@ -1,3 +1,0 @@
-% content_for 'ready_function' => begin
-    legacy.setupReviewTable(<%= current_user_has_role('admin') ? 'true' : 'false' %>);
-% end

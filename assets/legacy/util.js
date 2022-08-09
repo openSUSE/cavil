@@ -38,13 +38,13 @@ export function formatLink(row) {
 export function moveSelector() {
   $('.current-selector').removeClass('current-selector');
   let cs;
-  window.legacy.fireIndex++;
-  $.each(window.legacy.fires, function (index) {
-    if (index == window.legacy.fireIndex) {
+  window.cavil.fireIndex++;
+  $.each(window.cavil.fires, function (index) {
+    if (index == window.cavil.fireIndex) {
       if ($(this).hasClass('fa-fire')) {
         cs = $(this).parent('a');
       } else {
-        window.legacy.fireIndex++;
+        window.cavil.fireIndex++;
       }
     }
   });

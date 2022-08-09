@@ -122,21 +122,8 @@ sub file_view ($self) {
   else { $self->stash('file', $file) }
 }
 
-sub list_new_ajax ($self) {
-  my $packages = $self->packages->list($self->param('state'), $self->param('package'));
-  my $products = $self->products;
-  $_->{products} = scalar @{$products->for_package($_->{id})} for @$packages;
-
-  $self->render(
-    json => {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1});
-}
-
 sub list_recent ($self) {
   $self->render;
-}
-
-sub list_recent_ajax ($self) {
-  $self->render(json => {data => $self->packages->recent});
 }
 
 # Just hooking ajax

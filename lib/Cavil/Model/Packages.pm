@@ -129,18 +129,66 @@ sub is_imported ($self, @args) { $self->_check_timestamp('imported', @args) }
 sub is_indexed  ($self, @args) { $self->_check_timestamp('indexed',  @args) }
 sub is_unpacked ($self, @args) { $self->_check_timestamp('unpacked', @args) }
 
-sub list ($self, $state, $pkg) {
+sub paginate_open_reviews ($self, $options) {
+  my $db = $self->pg->db;
 
-  # Do not show obsolete packages
-  my %where;
-  $where{'-not_bool'} = 'obsolete';
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "AND (checksum ILIKE $quoted OR external_link ILIKE $quoted OR name ILIKE $quoted)";
+  }
 
-  $where{state} = $state if $state;
-  $where{name}  = $pkg   if $pkg;
+  my $progress = '';
+  if ($options->{in_progress} eq 'true') {
+    $progress = 'AND (unpacked IS NULL OR indexed IS NULL)';
+  }
 
-  return $self->pg->db->select(['bot_packages', [-left => 'bot_users', id => 'reviewing_user']],
-    [\'bot_packages.*', \'extract(epoch from bot_packages.created) as created_epoch', \'bot_users.login'], \%where)
-    ->hashes->to_array;
+  my $results = $db->query(
+    qq{
+      SELECT id, name, EXTRACT(EPOCH FROM created) as created_epoch, EXTRACT(EPOCH FROM imported) as imported_epoch,
+        EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
+        priority, state, checksum, COUNT(*) OVER() AS total
+      FROM bot_packages
+      WHERE state = 'new' AND obsolete = FALSE $search $progress
+      ORDER BY priority DESC, external_link, created DESC, name
+      LIMIT ? OFFSET ?
+    }, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  return _paginate($results, $options);
+}
+
+sub paginate_recent_reviews ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "
+      AND (
+        p.checksum ILIKE $quoted
+        OR p.external_link ILIKE $quoted
+        OR p.name ILIKE $quoted
+        OR p.state::text ILIKE $quoted
+        OR p.result ILIKE $quoted
+      )";
+  }
+
+  my $results = $db->query(
+    qq{
+      SELECT p.id, p.name, u.login, p.result,  EXTRACT(EPOCH FROM p.created) AS created_epoch,
+        EXTRACT(EPOCH FROM p.reviewed) AS reviewed_epoch, EXTRACT(EPOCH FROM p.imported) as imported_epoch,
+        EXTRACT(EPOCH FROM p.unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) as indexed_epoch,
+        external_link, priority, state, checksum, COUNT(*) OVER() AS total
+       FROM bot_packages p
+         LEFT JOIN bot_users u ON p.reviewing_user = u.id
+       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search
+       ORDER BY reviewed DESC
+       LIMIT ? OFFSET ?
+    }, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  return _paginate($results, $options);
 }
 
 sub mark_matched_for_reindex ($self, $pid, $priority = 0) {
@@ -170,18 +218,6 @@ sub obsolete_if_not_in_product ($self, $id) {
     $id);
 
   return 1;
-}
-
-sub recent ($self) {
-  return $self->pg->db->query(
-    'select p.*, u.login, extract(epoch from p.created) as created_epoch,
-       extract(epoch from p.reviewed) as reviewed_epoch
-     from bot_packages p
-       left join bot_users u on p.reviewing_user = u.id
-     where reviewed is not null
-     order by reviewed desc
-     limit 100'
-  )->hashes->to_array;
 }
 
 sub reindex ($self, $id, @args) {
@@ -252,6 +288,17 @@ sub _enqueue ($self, $task, $id, $priority = 5, $parents = [], $delay = 0) {
       notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
     }
   );
+}
+
+sub _paginate ($results, $options) {
+  my $total = @$results ? $results->[0]{total} : 0;
+  delete $_->{total} for @$results;
+  return {
+    total => $total,
+    start => $options->{offset} + 1,
+    end   => $options->{offset} + $options->{limit},
+    page  => $results
+  };
 }
 
 1;

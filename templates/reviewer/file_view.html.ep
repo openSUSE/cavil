@@ -10,6 +10,6 @@
 </textarea>
 
 % content_for 'ready_function' => begin
-    legacy.setupCodeMirrorForFile();
+    cavil.setupCodeMirrorForFile();
     $('#create-pattern').data('licenseName', '<%= $license %>');
 % end

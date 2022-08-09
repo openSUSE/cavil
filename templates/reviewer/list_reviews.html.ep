@@ -5,15 +5,8 @@
   <div class="alert alert-info"><%= $msg %></div>
 % }
 
-<table class="table table-striped table-bordered" id="reviews" data-script="<%= url_for('reviews_ajax')->query(state => 'new') %>" data-report-url="<%= url_for 'ajax_report' %>">
-  <thead>
-    <tr>
-        <th class="link">Link</th>
-        <th class="created">Created</th>
-        <th class="package">Package</th>
-        <th class="report">Report</th>
-    </tr>
-  </thead>
-</table>
+<div id="open-reviews"></div>
 
-%= include 'reviewer/_setup_table';
+% content_for 'ready_function' => begin
+  cavil.setupOpenReviews();
+% end

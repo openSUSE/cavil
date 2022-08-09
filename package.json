@@ -7,7 +7,9 @@
   },
   "scripts": {
     "build": "npx webpack",
-    "lint": "eslint \"assets/*.js\" \"assets/**/*.js\" --ignore-pattern assets/webpack.config.d",
+    "build:clean": "npm run clean && npm run build",
+    "clean": "rm -r public/asset/*",
+    "lint": "eslint \"assets/*.js\" \"assets/**/*.js\" \"**/*.vue\" --ignore-pattern assets/webpack.config.d",
     "lint:fix": "npm run lint -- --fix"
   },
   "engines": {
@@ -35,9 +37,10 @@
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-prettier": "^4.0.0",
+    "eslint-plugin-vue": "^9.3.0",
     "jquery": "^3.6.0",
     "mini-css-extract-plugin": "^2.6.0",
-    "moment": "^2.29.3",
+    "moment": "^2.29.4",
     "playwright": "^1.24.1",
     "prettier": "^2.6.2",
     "sass": "^1.51.0",
@@ -45,6 +48,8 @@
     "tap": "^16.1.0",
     "terser-webpack-plugin": "^5.3.1",
     "timeago": "^1.6.7",
+    "vue": "^3.2.37",
+    "vue-loader": "^17.0.0",
     "webpack": "^5.72.0",
     "webpack-cli": "^4.9.2"
   }

@@ -14,5 +14,5 @@ export function setupCodeMirrorForSnippet(line) {
     }
   });
 
-  window.legacy.myCodeMirror = cm;
+  window.cavil.myCodeMirror = cm;
 }

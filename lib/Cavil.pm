@@ -186,9 +186,7 @@ sub startup ($self) {
   # Review UI
   $public->get('/')->to('Reviewer#list_reviews')->name('dashboard');
   $public->get('/search')->to('Search#search')->name('search');
-  $public->get('/reviews/list')->to('Reviewer#list_new_ajax')->name('reviews_ajax');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
-  $public->get('/reviews/list_recent')->to('Reviewer#list_recent_ajax')->name('reviews_recent_ajax');
   $public->get('/reviews/file_view/<id:num>/*file')->to('Reviewer#file_view')->name('file_view');
   $public->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $public->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])->to('Report#calc', format => 'html')
@@ -199,6 +197,8 @@ sub startup ($self) {
   $admin->post('/reviews/add_ignore')->to('Reviewer#add_ignore');
   $admin->post('/reviews/add_glob')->to('Reviewer#add_glob')->name('add_glob');
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
+  $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
+  $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
 
   $admin->get('/licenses')->to('License#list')->name('licenses');
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');

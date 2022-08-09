@@ -2,10 +2,10 @@ export function setupCreatePattern() {
   $('#create-pattern').on('click', function (e) {
     e.preventDefault();
     let text = '';
-    if (window.legacy.myCodeMirror) {
-      text = window.legacy.myCodeMirror.getSelection();
+    if (window.cavil.myCodeMirror) {
+      text = window.cavil.myCodeMirror.getSelection();
       if (!text.length) {
-        text = window.legacy.myCodeMirror.getValue();
+        text = window.cavil.myCodeMirror.getValue();
       }
     } else if (window.getSelection) {
       $('.linenumber').hide();

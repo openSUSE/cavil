@@ -1,12 +1,12 @@
 % layout 'default', title => "Edit snippet";
 
 % content_for ready_function => begin
-  legacy.setupCodeMirrorForSnippet(<%= $example->{sline} + $example->{delta} %>);
+  cavil.setupCodeMirrorForSnippet(<%= $example->{sline} + $example->{delta} %>);
 % end
 
 % for my $line (keys %$patterns) {
   % my $cm_line = $line - $example->{delta};
-  % content_for ready_function => "legacy.myCodeMirror.addLineClass($cm_line, 'background', 'found-pattern pattern-$patterns->{$line}{pattern} found-keyword-$patterns->{$line}{keyword}');";
+  % content_for ready_function => "cavil.myCodeMirror.addLineClass($cm_line, 'background', 'found-pattern pattern-$patterns->{$line}{pattern} found-keyword-$patterns->{$line}{keyword}');";
 % }
 <h3>Edit Snippet</h3>
 

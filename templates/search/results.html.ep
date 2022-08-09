@@ -62,5 +62,5 @@
 
 %content_for 'ready_function' => begin
   $('#results').DataTable({paging: false, order: [[0, 'desc']]});
-  legacy.fromNow();
+  cavil.fromNow();
 %end
