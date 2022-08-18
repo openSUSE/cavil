@@ -17,6 +17,7 @@ package Cavil::Task::Unpack;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
+use Cavil::Util qw(parse_exclude_file);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(unpack => \&_unpack);
@@ -33,9 +34,16 @@ sub _unpack ($job, $id) {
     unless my $guard = $minion->guard("processing_pkg_$id", 172800);
   return $job->fail("Package $id is not imported yet") unless $pkgs->is_imported($id);
 
+  # Exclude file
+  my $exclude = [];
+  if (my $exclude_file = $app->config->{exclude_file}) {
+    my $name = $app->packages->find($id)->{name};
+    $exclude = parse_exclude_file($exclude_file)->{$name} // [];
+  }
+
   # Unpack the package
   my $dir = $app->package_checkout_dir($id);
-  Cavil::Checkout->new($dir)->unpack;
+  Cavil::Checkout->new($dir)->unpack({exclude => $exclude});
   $pkgs->unpacked($id);
   $log->info("[$id] Unpacked $dir");
 

@@ -181,7 +181,7 @@ sub specfile_report ($self) {
   return $info;
 }
 
-sub unpack ($self) {
+sub unpack ($self, $options = {}) {
   my $dir    = path($self->dir);
   my $unpack = $dir->child('.unpacked')->remove_tree;
   my $log    = $dir->child('.postprocessed.json');
@@ -214,6 +214,9 @@ sub unpack ($self) {
     log_fullpath         => 0
   );
   $u->exclude(vcs => 1);
+  if (my $exclude = $options->{exclude}) {
+    $u->exclude($_) for @$exclude;
+  }
   $u->mime_helper_dir('/usr/share/File-Unpack/helper/');
   eval { $u->unpack($dir) };
   my $err = $@ || ($u->{error} ? join(', ', @{$u->{error}}) : undef);

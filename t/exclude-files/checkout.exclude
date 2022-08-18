@@ -1,0 +1,4 @@
+# actually broken tarball that messes with certain versions of tar
+buildah-synthetic-broken: test-case.tar
+# not broken, just excluded as a test case
+buildah-synthetic-good-too: bar.tar

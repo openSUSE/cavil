@@ -18,10 +18,12 @@ use Mojo::Base -strict;
 use Test::More;
 use Mojo::File;
 use Mojo::JSON  qw(decode_json);
-use Cavil::Util qw(buckets lines_context);
+use Cavil::Util qw(buckets lines_context parse_exclude_file);
 
-is_deeply buckets([1 .. 10], 3), [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10]], 'right buckets';
-is_deeply buckets([1 .. 10], 4), [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]], 'right buckets';
+subtest 'buckets' => sub {
+  is_deeply buckets([1 .. 10], 3), [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10]], 'right buckets';
+  is_deeply buckets([1 .. 10], 4), [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]], 'right buckets';
+};
 
 my $casedir = Mojo::File->new('t/lines');
 
@@ -31,7 +33,15 @@ sub compare_lines {
   is_deeply(lines_context($json->{original}), $json->{expected}, "right context in case $case");
 }
 
-compare_lines("01");
-compare_lines("02");
+subtest 'lines_context' => sub {
+  compare_lines("01");
+  compare_lines("02");
+};
+
+subtest 'parse_exclude_file' => sub {
+  is_deeply parse_exclude_file('t/exclude-files/cavil.exclude'),
+    {buildah => ['test.tar', 'foo.tar'], gcc12 => ['some-broken.tar']};
+  is_deeply parse_exclude_file('t/exclude-files/empty.exclude'), {};
+};
 
 done_testing;

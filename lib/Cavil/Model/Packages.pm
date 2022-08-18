@@ -125,9 +125,9 @@ sub indexed ($self, $id) {
   $self->pg->db->update('bot_packages', {indexed => \'now()'}, {id => $id});
 }
 
-sub is_imported ($self, @args) { shift->_check_timestamp('imported', @args) }
-sub is_indexed  ($self, @args) { shift->_check_timestamp('indexed',  @args) }
-sub is_unpacked ($self, @args) { shift->_check_timestamp('unpacked', @args) }
+sub is_imported ($self, @args) { $self->_check_timestamp('imported', @args) }
+sub is_indexed  ($self, @args) { $self->_check_timestamp('indexed',  @args) }
+sub is_unpacked ($self, @args) { $self->_check_timestamp('unpacked', @args) }
 
 sub list ($self, $state, $pkg) {
 

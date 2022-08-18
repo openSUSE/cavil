@@ -181,6 +181,61 @@ sub postgres_url ($self) {
     ->to_unsafe_string;
 }
 
+sub unpack_fixtures ($self, $app) {
+  $self->no_fixtures($app);
+
+  # Create checkout directory
+  my $dir       = $self->checkout_dir;
+  my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
+  my $good      = $dir->child('buildah-synthetic-good', 'c7cfdab0e71b0bebfdf8b2dc3badfecf')->make_path;
+  $_->copy_to($good->child($_->basename)) for $legal_bot->child('buildah-synthetic-good')->list->each;
+  my $good_too = $dir->child('buildah-synthetic-good-too', 'c7cfdab0e71b0bebfdf8b2dc3badfedf')->make_path;
+  $_->copy_to($good_too->child($_->basename)) for $legal_bot->child('buildah-synthetic-good')->list->each;
+  my $broken = $dir->child('buildah-synthetic-broken', 'da3e32a3cce8bada03c6a9d63c08cd59')->make_path;
+  $_->copy_to($broken->child($_->basename)) for $legal_bot->child('buildah-synthetic-broken')->list->each;
+
+  # Create fixtures
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => 'buildah-synthetic-good',
+    checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecf',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:whatever',
+    package         => 'buildah-synthetic-good',
+    srcmd5          => 'bd91c36647a5d3dd883d490da2140402',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $pkg2_id = $pkgs->add(
+    name            => 'buildah-synthetic-good-too',
+    checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfedf',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:whatever',
+    package         => 'buildah-synthetic-good-too',
+    srcmd5          => 'bd91c36647a5d3dd883d490da2140402',
+    priority        => 5
+  );
+  $pkgs->imported($pkg2_id);
+  my $pkg3_id = $pkgs->add(
+    name            => 'buildah-synthetic-broken',
+    checkout_dir    => 'da3e32a3cce8bada03c6a9d63c08cd59',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => 1,
+    project         => 'devel:whatever',
+    package         => 'buildah-synthetic-broken',
+    srcmd5          => 'da3e32a3cce8bada03c6a9d63c08cd59',
+    priority        => 5
+  );
+  $pkgs->imported($pkg3_id);
+  my $patterns = $app->patterns;
+  $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
+  $patterns->create(pattern => 'License: Artistic-2.0',                   license => 'Artistic-2.0');
+  $patterns->create(pattern => 'copyright');
+}
+
 sub _prepare_schema ($self, $name) {
 
   # Isolate tests

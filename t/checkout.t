@@ -21,7 +21,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path tempdir);
+use Mojo::File qw(path curfile tempdir);
 use Mojo::JSON qw(decode_json);
 use Cavil::Checkout;
 
@@ -230,7 +230,7 @@ subtest 'error-invalid-xml-kiwi' => sub {
 };
 
 subtest 'Unpack background job' => sub {
-  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test');
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test_mojo');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
   $cavil_test->mojo_fixtures($t->app);
 
@@ -262,6 +262,45 @@ subtest 'Unpack background job' => sub {
   $worker->unregister;
   undef $guard;
   ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+};
+
+subtest 'Unpack background job (with exclude file)' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test_buildah');
+  my $config     = $cavil_test->default_config;
+  $config->{exclude_file} = curfile->sibling('exclude-files', 'checkout.exclude')->to_string;
+  my $t = Test::Mojo->new(Cavil => $config);
+  $cavil_test->unpack_fixtures($t->app);
+
+  my $minion = $t->app->minion;
+
+  ok !$t->app->packages->is_unpacked(1), 'not unpacked yet';
+  $minion->enqueue(unpack => [1]);
+  $minion->perform_jobs;
+  ok $t->app->packages->is_unpacked(1), 'unpacked';
+  my $good = path($t->app->package_checkout_dir(1));
+  ok -e $good->child('.unpacked', 'foo', 'bar.txt');
+  ok -e $good->child('.unpacked', 'foo', 'bar', 'bar.tar');
+  ok -e $good->child('.unpacked', 'foo', 'bar', 'bar');
+  ok -e $good->child('.unpacked', 'foo', 'bar', 'bar', 'test.js');
+
+  ok !$t->app->packages->is_unpacked(2), 'not unpacked yet';
+  $minion->enqueue(unpack => [2]);
+  $minion->perform_jobs;
+  ok $t->app->packages->is_unpacked(2), 'unpacked';
+  my $good_too = path($t->app->package_checkout_dir(2));
+  ok -e $good_too->child('.unpacked',  'foo', 'bar.txt');
+  ok -e $good_too->child('.unpacked',  'foo', 'bar', 'bar.tar');
+  ok !-e $good_too->child('.unpacked', 'foo', 'bar', 'bar');
+  ok !-e $good_too->child('.unpacked', 'foo', 'bar', 'bar', 'test.js');
+
+  ok !$t->app->packages->is_unpacked(3), 'not unpacked yet';
+  $minion->enqueue(unpack => [3]);
+  $minion->perform_jobs;
+  ok $t->app->packages->is_unpacked(3), 'unpacked';
+  my $broken = path($t->app->package_checkout_dir(3));
+  ok -e $broken->child('.unpacked',  'foo', 'bar.txt');
+  ok -e $broken->child('.unpacked',  'foo', 'bar', 'test-case.tar');
+  ok !-e $broken->child('.unpacked', 'foo', 'bar', 'test-case');
 };
 
 done_testing;

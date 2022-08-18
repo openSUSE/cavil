@@ -1,0 +1,4 @@
+buildah: test.tar
+# endless unpacking
+gcc12:   some-broken.tar
+buildah: foo.tar         # don't remember what it was
