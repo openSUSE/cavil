@@ -155,10 +155,21 @@ sub startup ($self) {
   my $manager    = $public->under('/' => {role => 'manager'})->to('Auth#check');
   my $admin      = $public->under('/' => {role => 'admin'})->to('Auth#check');
   my $classifier = $public->under('/' => {role => 'classifier'})->to('Auth#check');
-  if ($config->{openid}) {
-    $public->get('/login')->to('Auth::OpenID#login')->name('login');
-    $public->get('/openid')->to('Auth::OpenID#openid')->name('openid');
-    $public->any(['GET', 'POST'] => '/response')->to('Auth::OpenID#response')->name('response');
+  if (my $openid = $config->{openid}) {
+    $self->plugin(
+      OAuth2 => {
+        providers => {
+          opensuse => {
+            key            => $openid->{key},
+            secret         => $openid->{secret},
+            scope          => 'openid email profile',
+            well_known_url => $openid->{well_known_url}
+          },
+        },
+      }
+    );
+    $public->get('/login' => sub ($c) { $c->redirect_to('openid') });
+    $public->any(['GET', 'POST'] => '/oidc/callback')->to('Auth::OpenIDConnect#login')->name('openid');
   }
   else { $public->get('/login')->to('Auth::Dummy#login')->name('login') }
   $public->get('/logout')->to('Auth#logout')->name('logout');

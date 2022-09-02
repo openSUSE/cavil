@@ -26,7 +26,11 @@ plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'login_test');
 my $config     = $cavil_test->default_config;
-$config->{openid} = {provider => 'https://www.opensuse.org/openid/user/', secret => 's3cret'};
+$config->{openid} = {
+  key            => 'APP_NAME',
+  secret         => 'APP_SECRET',
+  well_known_url => 'https://id.opensuse.org/openidc/.well-known/openid-configuration'
+};
 my $t = Test::Mojo->new(Cavil => $config);
 $cavil_test->no_fixtures($t->app);
 
@@ -45,7 +49,7 @@ subtest 'Not authenticated' => sub {
 };
 
 subtest 'OpenID' => sub {
-  $t->get_ok('/login')->status_is(302)->header_is(Location => '/openid');
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/oidc/callback');
 };
 
 subtest 'Dummy' => sub {

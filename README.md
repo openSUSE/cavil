@@ -23,10 +23,12 @@
   dependencies:
 
     $ sudo zypper in -C postgresql-server postgresql-contrib 'rubygem(sass)'
-    $ sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-AssetPack \
+    $ sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
-      perl-Spooky-Patterns-XS perl-Net-OpenID-Consumer 'perl(LWP::UserAgent)' \
+      perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
       perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob
+    $ npm i
+    $ npm run build
 
   Then use these commands to set up and tear down a development environment:
 
