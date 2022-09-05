@@ -190,11 +190,11 @@ sub unpack ($self, $options = {}) {
   unlink $log;
 
   # Reset signals just to be safe
-  local $SIG{PIPE} = 'default';
-  local $SIG{CHLD} = 'default';
-  local $SIG{INT}  = 'default';
-  local $SIG{TERM} = 'default';
-  local $SIG{QUIT} = 'default';
+  local $SIG{PIPE} = 'DEFAULT';
+  local $SIG{CHLD} = 'DEFAULT';
+  local $SIG{INT}  = 'DEFAULT';
+  local $SIG{TERM} = 'DEFAULT';
+  local $SIG{QUIT} = 'DEFAULT';
 
   my $u = File::Unpack->new(
     verbose => 0,
