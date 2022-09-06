@@ -36,7 +36,7 @@ sub update ($self) {
 }
 
 sub edit ($self) {
-  my $id      = $self->param('id');
+  my $id      = $self->stash('id');
   my $snippet = $self->snippets->find($id);
 
   my $bag   = Spooky::Patterns::XS::init_bag_of_patterns;
@@ -132,26 +132,26 @@ sub _read_lines ($fn, $start_line, $end_line) {
   return $text;
 }
 
-sub _render_conflict ($self, $id) {
+sub _render_conflict ($self, $id, $validation) {
   my $conflicting_pattern = $self->patterns->find($id);
   $self->stash('conflicting_pattern', $conflicting_pattern);
-  $self->stash('pattern_text',        $self->param('pattern'));
+  $self->stash('pattern_text',        $validation->param('pattern'));
   $self->render(template => 'snippet/conflict');
 }
 
-sub _create_pattern ($self, $packages) {
+sub _create_pattern ($self, $packages, $validation) {
   my $pattern = $self->patterns->create(
-    license => $self->param('license'),
-    pattern => $self->param('pattern'),
-    risk    => $self->param('risk'),
+    license => $validation->param('license'),
+    pattern => $validation->param('pattern'),
+    risk    => $validation->param('risk'),
 
     # TODO: those checkboxes aren't yet taken over
-    patent    => $self->param('patent'),
-    trademark => $self->param('trademark'),
-    opinion   => $self->param('opinion')
+    patent    => $validation->param('patent'),
+    trademark => $validation->param('trademark'),
+    opinion   => $validation->param('opinion')
   );
   if ($pattern->{conflict}) {
-    $self->_render_conflict($pattern->{conflict});
+    $self->_render_conflict($pattern->{conflict}, $validation);
     return 1;
   }
   $self->flash(success => 'Pattern has been created.');
@@ -166,20 +166,32 @@ sub _create_pattern ($self, $packages) {
 
 # proxy function
 sub decision ($self) {
+  my $validation = $self->validation;
+  $validation->required('id')->num;
+  $validation->required('license');
+  $validation->required('pattern');
+  $validation->required('risk')->num;
+  $validation->optional('patent');
+  $validation->optional('trademark');
+  $validation->optional('opinion');
+  $validation->optional('create-pattern');
+  $validation->optional('mark-non-license');
+  return $self->reply->json_validation_error if $validation->has_error;
+
   my $db = $self->pg->db;
 
   my %packages;
-  my $results = $db->query('select package from file_snippets where snippet=?', $self->param('id'));
+  my $results = $db->query('select package from file_snippets where snippet=?', $validation->param('id'));
   while (my $next = $results->hash) {
     $packages{$next->{package}} = 1;
   }
   my $packages = [keys %packages];
 
-  if ($self->param('create-pattern')) {
-    return if $self->_create_pattern($packages);
+  if ($validation->param('create-pattern')) {
+    return if $self->_create_pattern($packages, $validation);
   }
-  elsif ($self->param('mark-non-license')) {
-    $self->snippets->mark_non_license($self->param('id'));
+  elsif ($validation->param('mark-non-license')) {
+    $self->snippets->mark_non_license($validation->param('id'));
     for my $pkg (@$packages) {
       $self->packages->analyze($pkg, 4);
     }
@@ -208,7 +220,7 @@ sub top ($self) {
 
 sub from_file ($self) {
   my $db      = $self->pg->db;
-  my $file_id = $self->param('file');
+  my $file_id = $self->stash('file');
 
   my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
   return $self->reply->not_found unless $file;
@@ -217,8 +229,8 @@ sub from_file ($self) {
   my $fn      = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked',
     $file->{filename});
 
-  my $first_line = $self->param('start');
-  my $last_line  = $self->param('end');
+  my $first_line = $self->stash('start');
+  my $last_line  = $self->stash('end');
   my $text       = _read_lines($fn, $first_line, $last_line);
   my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
   $db->insert('file_snippets',

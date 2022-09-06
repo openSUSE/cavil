@@ -20,7 +20,7 @@ use Mojo::JSON 'from_json';
 use Cavil::Util 'lines_context';
 
 sub calc ($self) {
-  my $id = $self->param('id');
+  my $id = $self->stash('id');
   return $self->render(text => 'unknown package', status => 408) unless my $pkg = $self->packages->find($id);
 
   # Covers various jobs that will modify the report
@@ -44,9 +44,16 @@ sub calc ($self) {
 }
 
 sub source ($self) {
-  my $id = $self->param('id');
+  my $validation = $self->validation;
+  $validation->optional('start')->num;
+  $validation->optional('end')->num;
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $id    = $self->stash('id');
+  my $start = $validation->param('start') || 0;
+  my $end   = $validation->param('end')   || 0;
   return $self->render(text => 'unknown file', status => 404)
-    unless my $source = $self->reports->source_for($id, $self->param('start') || 0, $self->param('end') || 0);
+    unless my $source = $self->reports->source_for($id, $start, $end);
 
   $self->respond_to(
     json => sub { $self->render(json => {source => $source}) },

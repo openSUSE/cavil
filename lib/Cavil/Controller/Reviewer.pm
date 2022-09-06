@@ -53,7 +53,7 @@ sub add_glob ($self) {
 }
 
 sub details ($self) {
-  my $id   = $self->param('id');
+  my $id   = $self->stash('id');
   my $pkgs = $self->packages;
   return $self->render(text => 'Package not found', status => 404) unless my $pkg = $pkgs->find($id);
   my $report = $self->reports->specfile_report($id);
@@ -75,13 +75,17 @@ sub details ($self) {
 }
 
 sub fasttrack_package ($self) {
+  my $validation = $self->validation;
+  $validation->optional('comment');
+  return $self->reply->json_validation_error if $validation->has_error;
+
   my $user = $self->session('user');
 
-  my $pkg = $self->packages->find($self->param('id'));
+  my $pkg = $self->packages->find($self->stash('id'));
   return $self->reply->not_found unless $pkg;
 
   $pkg->{reviewing_user}   = $self->users->find(login => $user)->{id};
-  $pkg->{result}           = $self->param('comment');
+  $pkg->{result}           = $validation->param('comment');
   $pkg->{state}            = 'acceptable';
   $pkg->{review_timestamp} = 1;
   $self->packages->update($pkg);
@@ -90,7 +94,7 @@ sub fasttrack_package ($self) {
 }
 
 sub file_view ($self) {
-  my $filename = $self->param('file');
+  my $filename = $self->stash('file');
 
   # There are unfortunately few limits on what file can be - but it
   # can't be a backward compat
@@ -100,7 +104,7 @@ sub file_view ($self) {
   $filename =~ s,/$,,;
   $self->stash('filename', $filename);
 
-  my $package = $self->packages->find($self->param('id'));
+  my $package = $self->packages->find($self->stash('id'));
   return $self->reply->not_found unless $package;
   $self->stash('package', $package);
 
@@ -130,28 +134,35 @@ sub list_recent ($self) {
 sub list_reviews { }
 
 sub reindex_package ($self) {
-  return $self->reply->not_found unless $self->packages->reindex($self->param('id'));
+  return $self->reply->not_found unless $self->packages->reindex($self->stash('id'));
 
   return $self->render(json => {ok => 1});
 }
 
 sub review_package ($self) {
+  my $validation = $self->validation;
+  $validation->optional('comment');
+  $validation->optional('unacceptable');
+  $validation->optional('acceptable');
+  $validation->optional('correct');
+  return $self->reply->json_validation_error if $validation->has_error;
+
   my $user = $self->session('user');
 
-  my $id  = $self->param('id');
+  my $id  = $self->stash('id');
   my $pkg = $self->packages->find($id);
   return $self->reply->not_found unless $pkg;
 
   $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
-  my $result = $pkg->{result} = $self->param('comment');
+  my $result = $pkg->{result} = $validation->param('comment');
 
-  if ($self->param('unacceptable')) {
+  if ($validation->param('unacceptable')) {
     $pkg->{state} = 'unacceptable';
   }
-  elsif ($self->param('acceptable')) {
+  elsif ($validation->param('acceptable')) {
     $pkg->{state} = 'acceptable';
   }
-  elsif ($self->param('correct')) {
+  elsif ($validation->param('correct')) {
     $pkg->{state} = 'correct';
   }
   else {

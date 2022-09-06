@@ -19,19 +19,29 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Algorithm::Diff 'sdiff';
 
 sub create_pattern ($self) {
-  my $license = $self->param('license');
-  my $pattern = $self->param('pattern');
+  my $validation = $self->validation;
+  $validation->required('pattern');
+  $validation->optional('license');
+  $validation->optional('packname');
+  $validation->optional('risk')->num;
+  $validation->optional('patent');
+  $validation->optional('trademark');
+  $validation->optional('opinion');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $pattern = $validation->param('pattern');
 
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    license   => $license,
-    packname  => $self->param('packname'),
+    license   => $validation->param('license'),
+    packname  => $validation->param('packname'),
     pattern   => $pattern,
-    risk      => $self->param('risk'),
-    patent    => $self->param('patent'),
-    trademark => $self->param('trademark'),
-    opinion   => $self->param('opinion')
+    risk      => $validation->param('risk'),
+    patent    => $validation->param('patent'),
+    trademark => $validation->param('trademark'),
+    opinion   => $validation->param('opinion')
   );
+
   if ($match->{conflict}) {
     my $conflicting_pattern = $self->patterns->find($match->{conflict});
     $self->stash('conflicting_pattern', $conflicting_pattern);
@@ -44,7 +54,7 @@ sub create_pattern ($self) {
 }
 
 sub edit_pattern ($self) {
-  my $id      = $self->param('id');
+  my $id      = $self->stash('id');
   my $pattern = $self->patterns->find($id);
 
   my $bag   = Spooky::Patterns::XS::init_bag_of_patterns;
@@ -92,7 +102,11 @@ sub list ($self) {
 }
 
 sub new_pattern ($self) {
-  my $lname = $self->param('license-name');
+  my $validation = $self->validation;
+  $validation->required('license-name');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $lname = $validation->param('license-name');
   $self->stash('diff',      undef);
   $self->stash('next_best', 0);
   return $self->_edit_pattern({license => $lname});
@@ -100,7 +114,7 @@ sub new_pattern ($self) {
 
 # AJAX route
 sub remove_pattern ($self) {
-  my $id       = $self->param('id');
+  my $id       = $self->stash('id');
   my $patterns = $self->patterns;
   my $pattern  = $patterns->find($id);
   $self->packages->reindex_matched_packages($id);
@@ -110,32 +124,43 @@ sub remove_pattern ($self) {
 }
 
 sub show ($self) {
-  my $name = $self->param('name');
+  my $name = $self->stash('name');
   $name = '' if $name eq '*Pattern without license*';
   $self->render(license => $name, patterns => $self->patterns->for_license($name));
 }
 
 sub update_pattern ($self) {
-  my $id       = $self->param('id');
+  my $validation = $self->validation;
+  $validation->required('pattern');
+  $validation->optional('license');
+  $validation->optional('packname');
+  $validation->optional('risk')->num;
+  $validation->optional('patent');
+  $validation->optional('trademark');
+  $validation->optional('opinion');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $id       = $self->stash('id');
   my $patterns = $self->patterns;
+  my $pattern  = $validation->param('pattern');
 
   # expire old license pattern
   $patterns->expire_cache;
   my $result = $patterns->update(
     $id,
-    packname  => $self->param('packname'),
-    pattern   => $self->param('pattern'),
-    license   => $self->param('license'),
-    patent    => $self->param('patent'),
-    trademark => $self->param('trademark'),
-    opinion   => $self->param('opinion'),
-    risk      => $self->param('risk')
+    packname  => $validation->param('packname'),
+    pattern   => $pattern,
+    license   => $validation->param('license'),
+    patent    => $validation->param('patent'),
+    trademark => $validation->param('trademark'),
+    opinion   => $validation->param('opinion'),
+    risk      => $validation->param('risk')
   );
   if ($result->{conflict}) {
 
     my $conflicting_pattern = $self->patterns->find($result->{conflict});
     $self->stash('conflicting_pattern', $conflicting_pattern);
-    $self->stash('pattern_text',        $self->param('pattern'));
+    $self->stash('pattern_text',        $pattern);
     return $self->render(template => 'snippet/conflict');
   }
   $self->packages->mark_matched_for_reindex($id);

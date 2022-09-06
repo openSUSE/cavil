@@ -117,7 +117,7 @@ sub import_package ($self) {
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $pkgs = $self->packages;
-  my $id   = $self->param('id');
+  my $id   = $self->stash('id');
   my $obj  = $pkgs->find($id);
 
   my $reindex;
@@ -151,7 +151,7 @@ sub list_requests ($self) {
 
 sub package_status ($self) {
   return $self->render(json => {error => 'No such package'}, status => 404)
-    unless my $pkg = $self->packages->find($self->param('id'));
+    unless my $pkg = $self->packages->find($self->stash('id'));
 
   my %reply = %$pkg;
   $reply{result} = $pkg->{result} if $pkg->{result};
@@ -183,7 +183,7 @@ sub update_package ($self) {
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $pkgs = $self->packages;
-  my $obj  = $pkgs->find($self->param('id'));
+  my $obj  = $pkgs->find($self->stash('id'));
   $obj->{priority} = $validation->param('priority');
   $pkgs->update($obj);
 
@@ -196,11 +196,11 @@ sub update_product ($self) {
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $products = $self->products;
-  my $obj      = $products->find_or_create($self->param('name'));
+  my $obj      = $products->find_or_create($self->stash('name'));
 
   # This might take some time for big products
   $self->inactivity_timeout(600);
-  $products->update($obj->{id}, $self->every_param('id'));
+  $products->update($obj->{id}, $validation->every_param('id'));
 
   $self->render(json => {updated => $obj->{id}});
 }

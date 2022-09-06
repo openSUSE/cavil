@@ -49,7 +49,7 @@ sub source ($self) {
 }
 
 sub status ($self) {
-  my $name = $self->param('name');
+  my $name = $self->stash('name');
   $self->render(json => {package => $name, requests => $self->packages->states($name)});
 }
 

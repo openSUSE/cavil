@@ -21,7 +21,7 @@ sub list ($self) {
 }
 
 sub list_packages_ajax ($self) {
-  my $packages = $self->products->list($self->param('name'));
+  my $packages = $self->products->list($self->stash('name'));
   my $data = {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1};
   $self->render(json => $data);
 }

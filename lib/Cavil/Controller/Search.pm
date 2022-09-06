@@ -17,8 +17,12 @@ package Cavil::Controller::Search;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 sub search ($self) {
+  my $validation = $self->validation;
+  $validation->optional('q');
+  return $self->reply->json_validation_error if $validation->has_error;
+
   my ($suggestions, $results) = ([], []);
-  if (my $query = $self->param('q')) {
+  if (my $query = $validation->param('q')) {
     my $pkgs = $self->packages;
     $suggestions = $pkgs->name_suggestions($query);
     $results     = $pkgs->find_by_name($query);

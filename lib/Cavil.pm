@@ -228,7 +228,7 @@ sub startup ($self) {
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
   $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
   $public->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
-  $public->get('/snippets/from_file/:file/:start/:end')->to('Snippet#from_file')->name('new_snippet');
+  $public->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
   $admin->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
   $public->get('/snippets/top')->to('Snippet#top')->name('top_snippets');
 
