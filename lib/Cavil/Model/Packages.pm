@@ -296,7 +296,7 @@ sub _paginate ($results, $options) {
   return {
     total => $total,
     start => $options->{offset} + 1,
-    end   => $options->{offset} + $options->{limit},
+    end   => $options->{offset} + @$results,
     page  => $results
   };
 }
