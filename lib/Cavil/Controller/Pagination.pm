@@ -37,13 +37,16 @@ sub recent_reviews ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('offset')->num;
+  $v->optional('byUser');
   $v->optional('search');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit  = $v->param('limit')  // 10;
-  my $offset = $v->param('offset') // 0;
-  my $search = $v->param('search') // '';
+  my $limit   = $v->param('limit')  // 10;
+  my $offset  = $v->param('offset') // 0;
+  my $by_user = $v->param('byUser') // 'false';
+  my $search  = $v->param('search') // '';
 
-  my $page = $self->packages->paginate_recent_reviews({limit => $limit, offset => $offset, search => $search});
+  my $page = $self->packages->paginate_recent_reviews(
+    {limit => $limit, offset => $offset, by_user => $by_user, search => $search});
   $self->render(json => $page);
 }
 

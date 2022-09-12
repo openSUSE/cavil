@@ -174,6 +174,11 @@ sub paginate_recent_reviews ($self, $options) {
       )";
   }
 
+  my $user = '';
+  if ($options->{by_user} eq 'true') {
+    $user = 'AND p.reviewing_user IS NOT NULL';
+  }
+
   my $results = $db->query(
     qq{
       SELECT p.id, p.name, u.login, p.result,  EXTRACT(EPOCH FROM p.created) AS created_epoch,
@@ -182,7 +187,7 @@ sub paginate_recent_reviews ($self, $options) {
         external_link, priority, state, checksum, COUNT(*) OVER() AS total
        FROM bot_packages p
          LEFT JOIN bot_users u ON p.reviewing_user = u.id
-       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search
+       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search $user
        ORDER BY reviewed DESC
        LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
