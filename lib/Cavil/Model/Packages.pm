@@ -298,12 +298,7 @@ sub _enqueue ($self, $task, $id, $priority = 5, $parents = [], $delay = 0) {
 sub _paginate ($results, $options) {
   my $total = @$results ? $results->[0]{total} : 0;
   delete $_->{total} for @$results;
-  return {
-    total => $total,
-    start => $options->{offset} + 1,
-    end   => $options->{offset} + @$results,
-    page  => $results
-  };
+  return {total => $total, start => $options->{offset} + 1, end => $options->{offset} + @$results, page => $results};
 }
 
 1;
