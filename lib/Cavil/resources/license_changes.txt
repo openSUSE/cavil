@@ -58,6 +58,9 @@ Apache-2.0	Apache-2.0
 Apache-2.0	The Apache Software License
 Apache-2.0+	ASLv2.0+
 Apache-2.0+	SUSE-Apache-2.0+
+App-s2p	App-s2p
+Arphic-1999	Arphic-1999
+Arphic-1999	SUSE-Arphic
 Artistic-1.0	Artistic
 Artistic-1.0	Artistic 1.0
 Artistic-1.0	Artistic License
@@ -96,6 +99,7 @@ BSD-3-Clause-Attribution	BSD-3-Clause-Attribution
 BSD-3-Clause-Clear	BSD-3-Clause-Clear
 BSD-3-Clause-LBNL	BSD-3-Clause-LBNL
 BSD-3-Clause-Modification	BSD-3-Clause-Modification
+BSD-3-Clause-No-Military-License	BSD-3-Clause-No-Military-License
 BSD-3-Clause-No-Nuclear-License	BSD-3-Clause-No-Nuclear-License
 BSD-3-Clause-No-Nuclear-License-2014	BSD-3-Clause-No-Nuclear-License-2014
 BSD-3-Clause-No-Nuclear-Warranty	BSD-3-Clause-No-Nuclear-Warranty
@@ -109,12 +113,15 @@ BSD-Protection	BSD-Protection
 BSD-Source-Code	BSD-Source-Code
 BSL-1.0	BSL-1.0
 BUSL-1.1	BUSL-1.1
+Baekmuk	Baekmuk
 Bahyph	Bahyph
 Barr	Barr
 Beerware	Beerware
 Beerware	SUSE-Beerware
 BitTorrent-1.0	BitTorrent-1.0
 BitTorrent-1.1	BitTorrent-1.1
+Bitstream-Vera	Bitstream-Vera
+Bitstream-Vera	SUSE-Bitstream-Vera
 BlueOak-1.0.0	BlueOak-1.0.0
 Borceux	Borceux
 C-UDA-1.0	C-UDA-1.0
@@ -124,30 +131,41 @@ CATOSL-1.1	CATOSL-1.1
 CC-BY-1.0	CC-BY-1.0
 CC-BY-2.0	CC-BY-2.0
 CC-BY-2.5	CC-BY-2.5
+CC-BY-2.5-AU	CC-BY-2.5-AU
 CC-BY-3.0	CC-BY-3.0
 CC-BY-3.0-AT	CC-BY-3.0-AT
+CC-BY-3.0-DE	CC-BY-3.0-DE
+CC-BY-3.0-IGO	CC-BY-3.0-IGO
+CC-BY-3.0-NL	CC-BY-3.0-NL
 CC-BY-3.0-US	CC-BY-3.0-US
 CC-BY-4.0	CC-BY-4.0
 CC-BY-NC-1.0	CC-BY-NC-1.0
 CC-BY-NC-2.0	CC-BY-NC-2.0
 CC-BY-NC-2.5	CC-BY-NC-2.5
 CC-BY-NC-3.0	CC-BY-NC-3.0
+CC-BY-NC-3.0-DE	CC-BY-NC-3.0-DE
 CC-BY-NC-4.0	CC-BY-NC-4.0
 CC-BY-NC-ND-1.0	CC-BY-NC-ND-1.0
 CC-BY-NC-ND-2.0	CC-BY-NC-ND-2.0
 CC-BY-NC-ND-2.5	CC-BY-NC-ND-2.5
 CC-BY-NC-ND-3.0	CC-BY-NC-ND-3.0
+CC-BY-NC-ND-3.0-DE	CC-BY-NC-ND-3.0-DE
 CC-BY-NC-ND-3.0-IGO	CC-BY-NC-ND-3.0-IGO
 CC-BY-NC-ND-4.0	CC-BY-NC-ND-4.0
 CC-BY-NC-SA-1.0	CC-BY-NC-SA-1.0
 CC-BY-NC-SA-2.0	CC-BY-NC-SA-2.0
+CC-BY-NC-SA-2.0-FR	CC-BY-NC-SA-2.0-FR
+CC-BY-NC-SA-2.0-UK	CC-BY-NC-SA-2.0-UK
 CC-BY-NC-SA-2.5	CC-BY-NC-SA-2.5
 CC-BY-NC-SA-3.0	CC-BY-NC-SA-3.0
+CC-BY-NC-SA-3.0-DE	CC-BY-NC-SA-3.0-DE
+CC-BY-NC-SA-3.0-IGO	CC-BY-NC-SA-3.0-IGO
 CC-BY-NC-SA-4.0	CC-BY-NC-SA-4.0
 CC-BY-ND-1.0	CC-BY-ND-1.0
 CC-BY-ND-2.0	CC-BY-ND-2.0
 CC-BY-ND-2.5	CC-BY-ND-2.5
 CC-BY-ND-3.0	CC-BY-ND-3.0
+CC-BY-ND-3.0-DE	CC-BY-ND-3.0-DE
 CC-BY-ND-4.0	CC-BY-ND-4.0
 CC-BY-ND-4.0	http://spdx.org/licenses/CC-BY-ND-4.0.html#licenseText
 CC-BY-SA-1.0	CC-BY-SA-1.0
@@ -160,6 +178,7 @@ CC-BY-SA-3.0	CC BY-SA 3.0
 CC-BY-SA-3.0	CC BY-SA V3.0
 CC-BY-SA-3.0	CC-BY-SA-3.0
 CC-BY-SA-3.0-AT	CC-BY-SA-3.0-AT
+CC-BY-SA-3.0-DE	CC-BY-SA-3.0-DE
 CC-BY-SA-4.0	CC-BY-SA-4.0
 CC-BY-SA-4.0	http://creativecommons.org/licenses/by-sa/4.0/legalcode
 CC-PDDC	CC-PDDC
@@ -168,7 +187,9 @@ CDDL-1.0	CDDL
 CDDL-1.0	CDDL 1.0
 CDDL-1.0	CDDL-1.0
 CDDL-1.1	CDDL-1.1
+CDL-1.0	CDL-1.0
 CDLA-Permissive-1.0	CDLA-Permissive-1.0
+CDLA-Permissive-2.0	CDLA-Permissive-2.0
 CDLA-Sharing-1.0	CDLA-Sharing-1.0
 CECILL-1.0	CECILL-1.0
 CECILL-1.1	CECILL-1.1
@@ -184,6 +205,7 @@ CERN-OHL-W-2.0	CERN-OHL-W-2.0
 CNRI-Jython	CNRI-Jython
 CNRI-Python	CNRI-Python
 CNRI-Python-GPL-Compatible	CNRI-Python-GPL-Compatible
+COIL-1.0	COIL-1.0
 CPAL-1.0	CPAL-1.0
 CPL-1.0	CPL (Common Public License) v1
 CPL-1.0	CPL 1.0
@@ -198,11 +220,13 @@ CPOL-1.02	CPOL-1.02
 CUA-OPL-1.0	CUA-OPL-1.0
 Caldera	Caldera
 ClArtistic	ClArtistic
+Community-Spec-1.0	Community-Spec-1.0
 Condor-1.1	Condor-1.1
 Crossword	Crossword
 CrystalStacker	CrystalStacker
 Cube	Cube
 D-FSL-1.0	D-FSL-1.0
+DL-DE-BY-2.0	DL-DE-BY-2.0
 DOC	DOC
 DRL-1.0	DRL-1.0
 DSDP	DSDP
@@ -226,13 +250,16 @@ EUDatagrid	EUDatagrid
 EUPL-1.0	EUPL-1.0
 EUPL-1.1	EUPL-1.1
 EUPL-1.2	EUPL-1.2
+Elastic-2.0	Elastic-2.0
 Entessa	Entessa
 ErlPL-1.1	ErlPL-1.1
 ErlPL-1.1	Erlang Public License
 Eurosym	Eurosym
+FDK-AAC	FDK-AAC
 FSFAP	FSFAP
 FSFUL	FSFUL
 FSFULLR	FSFULLR
+FSFULLRWD	FSFULLRWD
 FTL	FTL
 Fair	Fair
 Frameworx-1.0	Frameworx-1.0
@@ -363,6 +390,7 @@ Interbase-1.0	Interbase-1.0
 JPNIC	JPNIC
 JSON	JSON
 JSON	SUSE-JSON
+Jam	Jam
 JasPer-2.0	JasPer-2.0
 LAL-1.2	LAL-1.2
 LAL-1.2	https://spdx.org/licenses/LAL-1.2.html
@@ -422,6 +450,8 @@ LPPL-1.3a	LPPL-1.3a
 LPPL-1.3c	LPPL ..
 LPPL-1.3c	LPPL-1.3c
 LPPL-1.3c	TeX-License ..
+LZMA-SDK-9.11-to-9.20	LZMA-SDK-9.11-to-9.20
+LZMA-SDK-9.22	LZMA-SDK-9.22
 Latex2e	Latex2e
 Leptonica	Leptonica
 LiLiQ-P-1.1	LiLiQ-P-1.1
@@ -429,6 +459,7 @@ LiLiQ-R-1.1	LiLiQ-R-1.1
 LiLiQ-Rplus-1.1	LiLiQ-Rplus-1.1
 Libpng	Libpng
 Linux-OpenIB	Linux-OpenIB
+Linux-man-pages-copyleft	Linux-man-pages-copyleft
 MIT	Expat
 MIT	Expat License
 MIT	MIT
@@ -457,12 +488,14 @@ MPL-1.1+	MPLv1.1+
 MPL-1.1+	SUSE-MPL-1.1+
 MPL-2.0	MPL-2.0
 MPL-2.0-no-copyleft-exception	MPL-2.0-no-copyleft-exception
+MS-LPL	MS-LPL
 MS-PL	MS-PL
 MS-PL	Ms-Pl
 MS-RL	MS-RL
 MTLL	MTLL
 MakeIndex	MakeIndex
 MakeIndex	SUSE-MakeIndex
+Minpack	Minpack
 MirOS	MirOS
 Motosoto	Motosoto
 MulanPSL-1.0	MulanPSL-1.0
@@ -475,9 +508,11 @@ NBPL-1.0	NBPL-1.0
 NCGL-UK-2.0	NCGL-UK-2.0
 NCSA	NCSA
 NGPL	NGPL
+NICTA-1.0	NICTA-1.0
 NIST-PD	NIST-PD
 NIST-PD-fallback	NIST-PD-fallback
 NLOD-1.0	NLOD-1.0
+NLOD-2.0	NLOD-2.0
 NLPL	NLPL
 NOSL	NOSL
 NPL-1.0	NPL-1.0
@@ -538,6 +573,7 @@ OML	OML
 OML	SUSE-OML
 OPL-1.0	OPL-1.0
 OPL-1.0	Open Public License 1.0
+OPUBL-1.0	OPUBL-1.0
 OSET-PL-2.1	OSET-PL-2.1
 OSL-1.0	OSL-1.0
 OSL-1.1	OSL-1.1
@@ -566,6 +602,7 @@ Python-2.0	Python Copyright
 Python-2.0	Python License ..
 Python-2.0	Python Software Foundation License
 Python-2.0	Python-2.0
+Python-2.0.1	Python-2.0.1
 QPL-1.0	QPL
 QPL-1.0	QPL ..
 QPL-1.0	QPL-1.0
@@ -587,6 +624,7 @@ SCEA	SCEA
 SGI-B-1.0	SGI-B-1.0
 SGI-B-1.1	SGI-B-1.1
 SGI-B-2.0	SGI-B-2.0
+SGI-B-2.0	SUSE-SGI-FreeB-2.0
 SHL-0.5	SHL-0.5
 SHL-0.51	SHL-0.51
 SISSL	SISSL
@@ -598,14 +636,10 @@ SPL-1.0	SPL-1.0
 SSH-OpenSSH	SSH-OpenSSH
 SSH-short	SSH-short
 SSPL-1.0	SSPL-1.0
-SUSE-Arphic	http://ftp.gnu.org/gnu/non-gnu/chinese-fonts-truetype/LICENSE
-SUSE-Arphic+	SUSE-Arphic+
 SUSE-BSD-3-Clause-with-non-nuclear-addition	BSD-3-Clause with addition which clarifies the software is not licensed for use in design, build or operation of nuclear facility
 SUSE-BSD-3-Clause-with-non-nuclear-addition+	SUSE-BSD-3-Clause-with-non-nuclear-addition+
 SUSE-BSD-Mark-Modifications	BSD-Mark-Modifications
 SUSE-BSD-Mark-Modifications+	SUSE-BSD-Mark-Modifications+
-SUSE-Bitstream-Vera	http://www.xfree86.org/current/LICENSE13.html
-SUSE-Bitstream-Vera+	SUSE-Bitstream-Vera+
 SUSE-CC-Sampling-Plus-1.0	Creative Commons Sampling Plus 1.0
 SUSE-CC-Sampling-Plus-1.0+	SUSE-CC-Sampling-Plus-1.0+
 SUSE-CPL-0.5	Common Public License 0.5
@@ -725,8 +759,6 @@ SUSE-Redistributable-Content	This license can _only_ be used for content (i.e. n
 SUSE-Redistributable-Content+	SUSE-Redistributable-Content+
 SUSE-Repoze	http://repoze.org/license.html
 SUSE-Repoze+	SUSE-Repoze+
-SUSE-SGI-FreeB-2.0	Fedora calls this MIT (it is very similar to the MIT)
-SUSE-SGI-FreeB-2.0+	SUSE-SGI-FreeB-2.0+
 SUSE-SIP	http://www.riverbankcomputing.co.uk/software/sip/license
 SUSE-SIP+	SUSE-SIP+
 SUSE-SLIB	http://www-swiss.ai.mit.edu/~jaffer/SLIB_COPYING.txt
@@ -757,12 +789,11 @@ SUSE-Xenonsoft-1.00	http://pastebin.com/PkSpfTbr (part of spectcl)
 SUSE-Xenonsoft-1.00+	SUSE-Xenonsoft-1.00+
 SUSE-mirror	License of the mirror package is quite liberal but prohibits distribution of modified versions. Instead, you should distribute modifications as patches. This is permitted by Section 4 of the Open Source Definition
 SUSE-mirror+	SUSE-mirror+
-SUSE-mplus	http://mplus-fonts.sourceforge.jp/mplus-outline-fonts/index-en.html#license
-SUSE-mplus+	SUSE-mplus+
 SUSE-wxWidgets-3.1	https://www.wxwidgets.org/about/licence/
 SUSE-wxWidgets-3.1+	SUSE-wxWidgets-3.1+
 SWL	SWL
 Saxpath	Saxpath
+SchemeReport	SchemeReport
 Sendmail	SUSE-Sendmail
 Sendmail	Sendmail
 Sendmail-8.23	Sendmail-8.23
@@ -808,6 +839,7 @@ X11	X11
 X11	X11 (BSD like)
 X11	X11 MIT
 X11	X11/MIT
+X11-distribute-modifications-variant	X11-distribute-modifications-variant
 XFree86-1.1	XFree86-1.1
 XSkat	XSkat
 Xerox	Xerox
@@ -829,8 +861,8 @@ Zlib	Zlib License
 Zlib	zlib
 Zlib	zlib/libpng License
 blessing	blessing
-bzip2-1.0.5	bzip2-1.0.5
 bzip2-1.0.6	bzip2-1.0.6
+checkmk	checkmk
 copyleft-next-0.3.0	copyleft-next-0.3.0
 copyleft-next-0.3.1	copyleft-next-0.3.1
 curl	curl
@@ -844,7 +876,10 @@ iMatix	iMatix
 libpng-2.0	libpng-2.0
 libselinux-1.0	libselinux-1.0
 libtiff	libtiff
+mpi-permissive	mpi-permissive
 mpich2	mpich2
+mplus	SUSE-mplus
+mplus	mplus
 psfrag	psfrag
 psutils	psutils
 xinetd	SUSE-xinetd
