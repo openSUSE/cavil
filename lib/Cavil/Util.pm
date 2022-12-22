@@ -101,15 +101,19 @@ sub load_ignored_files ($db) {
   return \%ignored_file_res;
 }
 
-sub parse_exclude_file ($path) {
+sub parse_exclude_file ($path, $name) {
   my $content = path($path)->slurp;
-  my $exclude = {};
+  my $exclude = [];
+
   for my $line (split "\n", $content) {
     next unless $line =~ /^\s*([^\s\#]\S+)\s*:\s*(\S+)(?:\s.*)?$/;
-    my ($name, $file) = ($1, $2);
-    $exclude->{$name} ||= [];
-    push @{$exclude->{$name}}, $file;
+    my ($pattern, $file) = ($1, $2);
+
+    next unless $name =~ glob_to_regex($pattern);
+
+    push @$exclude, $file;
   }
+
   return $exclude;
 }
 

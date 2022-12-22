@@ -38,7 +38,7 @@ sub _unpack ($job, $id) {
   my $exclude = [];
   if (my $exclude_file = $app->config->{exclude_file}) {
     my $name = $app->packages->find($id)->{name};
-    $exclude = parse_exclude_file($exclude_file)->{$name} // [];
+    $exclude = parse_exclude_file($exclude_file, $name);
   }
 
   # Unpack the package

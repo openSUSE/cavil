@@ -39,9 +39,12 @@ subtest 'lines_context' => sub {
 };
 
 subtest 'parse_exclude_file' => sub {
-  is_deeply parse_exclude_file('t/exclude-files/cavil.exclude'),
-    {buildah => ['test.tar', 'foo.tar'], gcc12 => ['some-broken.tar']};
-  is_deeply parse_exclude_file('t/exclude-files/empty.exclude'), {};
+  is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'buildah'), ['test.tar',        'foo.tar'];
+  is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc12'),   ['some-broken.tar', 'another.tar.gz'];
+  is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc13'),   ['another.tar.gz',  'foo*bar.zip'];
+  is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc1'),    ['another.tar.gz',  'specific.zip'];
+  is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc9'),    ['another.tar.gz',  'specific.zip'];
+  is_deeply parse_exclude_file('t/exclude-files/empty.exclude', 'whatever'), [];
 };
 
 done_testing;
