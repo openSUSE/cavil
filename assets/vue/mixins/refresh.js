@@ -1,4 +1,4 @@
-import axios from 'axios';
+import UserAgent from '@mojojs/user-agent';
 
 export default {
   data() {
@@ -16,12 +16,12 @@ export default {
     this.cancelApiRefresh();
   },
   methods: {
-    doApiRefresh() {
-      axios.get(this.refreshUrl, {params: this.params}).then(response => {
-        const {data} = response;
-        this.$emit('last-updated', data.last_updated);
-        this.refreshData(data);
-      });
+    async doApiRefresh() {
+      const ua = new UserAgent({baseURL: window.location.href});
+      const res = await ua.get(this.refreshUrl, {query: this.params});
+      const data = await res.json();
+      this.$emit('last-updated', data.last_updated);
+      this.refreshData(data);
     },
     cancelApiRefresh() {
       clearInterval(this.refreshTimer);
