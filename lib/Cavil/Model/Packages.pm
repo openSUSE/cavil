@@ -190,7 +190,8 @@ sub paginate_review_search ($self, $name, $options) {
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");
-    $search = "AND (checksum ILIKE $quoted OR comment ILIKE $quoted OR login ILIKE $quoted OR state::text ILIKE $quoted)";
+    $search
+      = "AND (checksum ILIKE $quoted OR comment ILIKE $quoted OR login ILIKE $quoted OR state::text ILIKE $quoted)";
   }
 
   my $results = $db->query(
