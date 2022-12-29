@@ -74,19 +74,6 @@ sub find ($self, $id) {
   )->hash;
 }
 
-sub find_by_name ($self, $name) {
-  return $self->pg->db->select(
-    ['bot_packages', [-left => 'bot_users', id => 'reviewing_user']],
-    [
-      'bot_packages.*',
-      \'extract(epoch from bot_packages.created) as created_epoch',
-      \'extract(epoch from bot_packages.reviewed) as reviewed_epoch',
-      \'bot_users.login as login'
-    ],
-    {name => $name}
-  )->hashes;
-}
-
 sub find_by_name_and_md5 ($self, $pkg, $md5) {
   return $self->pg->db->select('bot_packages', '*', {name => $pkg, checkout_dir => $md5})->hash;
 }
@@ -192,6 +179,31 @@ sub paginate_recent_reviews ($self, $options) {
        ORDER BY reviewed DESC
        LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  return paginate($results, $options);
+}
+
+sub paginate_review_search ($self, $name, $options) {
+  my $db = $self->pg->db;
+
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "AND (checksum ILIKE $quoted OR comment ILIKE $quoted OR login ILIKE $quoted OR state::text ILIKE $quoted)";
+  }
+
+  my $results = $db->query(
+    qq{
+      SELECT p.id AS id, state, checksum, p.result AS comment, EXTRACT(EPOCH FROM p.created) AS created_epoch,
+        EXTRACT(EPOCH FROM p.imported) AS imported_epoch, EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch,
+        EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
+        u.login AS login, COUNT(*) OVER() AS total
+      FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
+      WHERE name = ? $search
+      ORDER BY id DESC
+      LIMIT ? OFFSET ?
+    }, $name, $options->{limit}, $options->{offset}
   )->hashes->to_array;
 
   return paginate($results, $options);

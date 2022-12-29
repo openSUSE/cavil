@@ -94,12 +94,12 @@ t.test('Test cavil ui', skip, async t => {
       await page.goto(url);
       await page.click('text=perl-Mojolicious');
       t.equal(await page.innerText('title'), 'Results: perl-Mojolicious');
-      t.match(await page.innerText('#results tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
-      t.equal(await page.innerText('#results tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
-      t.match(await page.innerText('#results tbody > tr:nth-child(1) > td:nth-child(5)'), /GPL/);
-      t.match(await page.innerText('#results tbody > tr:nth-child(2) > td:nth-child(1)'), /ago/);
-      t.equal(await page.innerText('#results tbody > tr:nth-child(2) > td:nth-child(2)'), 'new');
-      t.match(await page.innerText('#results tbody > tr:nth-child(2) > td:nth-child(5)'), /Artistic/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
+      t.equal(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(5)'), /GPL/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(1)'), /ago/);
+      t.equal(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(2)'), 'new');
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(5)'), /Artistic/);
     });
 
     await t.test('Reports', async t => {
@@ -197,12 +197,12 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator('[placeholder="Package Search"]').press('Enter');
       await page.waitForURL(`${url}/search?q=perl-Mojolicious`);
       t.equal(await page.innerText('title'), 'Results: perl-Mojolicious');
-      t.match(await page.innerText('#results tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
-      t.equal(await page.innerText('#results tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
-      t.match(await page.innerText('#results tbody > tr:nth-child(1) > td:nth-child(5)'), /GPL/);
-      t.match(await page.innerText('#results tbody > tr:nth-child(2) > td:nth-child(1)'), /ago/);
-      t.equal(await page.innerText('#results tbody > tr:nth-child(2) > td:nth-child(2)'), 'new');
-      t.match(await page.innerText('#results tbody > tr:nth-child(2) > td:nth-child(5)'), /Artistic/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
+      t.equal(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(5)'), /GPL/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(1)'), /ago/);
+      t.equal(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(2)'), 'new');
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(5)'), /Artistic/);
     });
 
     await t.test('Expand hidden file (and open it in a new tab)', async t => {

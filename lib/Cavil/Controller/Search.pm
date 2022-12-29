@@ -25,10 +25,9 @@ sub search ($self) {
   if (my $query = $validation->param('q')) {
     my $pkgs = $self->packages;
     $suggestions = $pkgs->name_suggestions($query);
-    $results     = $pkgs->find_by_name($query);
   }
 
-  $self->render('search/results', suggestions => $suggestions, results => $results);
+  $self->render('search/results', suggestions => $suggestions);
 }
 
 1;

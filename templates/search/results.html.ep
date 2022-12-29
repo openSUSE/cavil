@@ -2,40 +2,7 @@
 
 <h2>Results for <%= param 'q' %></h2>
 
-<table id="results" class="table table-bordered table-striped">
-  <thead>
-    <th>Created</th>
-    <th>State</th>
-    <th>Comment</th>
-    <th>Reviewing User</th>
-    <th>Report</th>
-  </thead>
-  <tbody>
-    % for my $result (@$results) {
-      <tr>
-        <td class="created from-now"><%= $result->{created_epoch} %></td>
-        <td class="state"><%= $result->{state} %></td>
-        <td class="result"><%= $result->{result} %></td>
-        <td class="user"><%= $result->{login} %></td>
-        <td class="checksum">
-          % if ($result->{obsolete}) {
-            <%= $result->{checksum} || 'not available' %>
-          % }
-          % else {
-            % if (my $checksum = $result->{checksum}) {
-              <%= link_to $checksum => package_details => {id => $result->{id}},
-                target => '_blank' %>
-            % }
-            % else {
-              <%= link_to 'not available' => package_details =>
-                {id => $result->{id}}, target => '_blank' %>
-            % }
-          % }
-        </td>
-      </tr>
-    % }
-  </tbody>
-</table>
+<div id="review-search"></div>
 
 % if (@$suggestions) {
   <br/>
@@ -60,7 +27,6 @@
   <br/>
 % }
 
-%content_for 'ready_function' => begin
-  $('#results').DataTable({paging: false, order: [[0, 'desc']]});
-  cavil.fromNow();
-%end
+% content_for 'ready_function' => begin
+  cavil.setupReviewSearch('<%= param 'q' %>');
+% end

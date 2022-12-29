@@ -22,6 +22,7 @@ import {createLicense, ignoreLine, snippetNonLicense, snippetSwitcher} from './l
 import KnownLicenses from './vue/KnownLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import RecentReviews from './vue/RecentReviews.vue';
+import ReviewSearch from './vue/ReviewSearch.vue';
 import $ from 'jquery';
 import {createApp} from 'vue';
 
@@ -43,6 +44,12 @@ window.cavil = {
 
   setupRecentReviews() {
     createApp(RecentReviews).mount('#recent-reviews');
+  },
+
+  setupReviewSearch(pkg) {
+    const app = createApp(ReviewSearch);
+    app.config.globalProperties.currentPackage = pkg;
+    app.mount('#review-search');
   },
 
   backToTop,

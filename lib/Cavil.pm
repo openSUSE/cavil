@@ -197,6 +197,7 @@ sub startup ($self) {
   # Review UI
   $public->get('/')->to('Reviewer#list_reviews')->name('dashboard');
   $public->get('/search')->to('Search#search')->name('search');
+  $public->get('/pagination/search/*name')->to('Pagination#review_search')->name('pagination_review_search');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
   $public->get('/reviews/file_view/<id:num>/*file')->to('Reviewer#file_view')->name('file_view');
   $public->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');

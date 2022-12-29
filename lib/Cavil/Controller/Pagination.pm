@@ -64,4 +64,19 @@ sub recent_reviews ($self) {
   $self->render(json => $page);
 }
 
+sub review_search ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('search');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('search') // '';
+
+  my $name = $self->stash('name');
+  my $page = $self->packages->paginate_review_search($name, {limit => $limit, offset => $offset, search => $search});
+  $self->render(json => $page);
+}
+
 1;

@@ -39,12 +39,9 @@ $t->app->pg->db->update('bot_packages', {name => 'perl'}, {id => 2});
 subtest 'Basic search with suggestion' => sub {
   $t->get_ok('/')->status_is(200)->element_exists('form[action=/search] input[name=q]');
   $t->get_ok('/search?q=perl')->status_is('200')->element_exists('form[action=/search] input[name=q][value=perl]')
-    ->text_like('#results .state',      qr/correct/)->text_like('#results .result', qr/The best/)
-    ->text_like('#results .checksum a', qr/Artistic-1\.0/)->text_like('#suggestions td a', qr/perl-Mojolicious/);
-  $t->get_ok('/search?q=perl-Mojolicious')->status_is('200')
-    ->element_exists('form[action=/search] input[name=q][value=perl-Mojolicious]')
-    ->text_like('#results .state',      qr/correct/)->text_like('#results .result', qr/Perfect/)
-    ->text_like('#results .checksum a', qr/Artistic-2\.0/)->element_exists_not('#suggestions');
+    ->element_exists('#review-search')->text_like('#suggestions td a', qr/perl-Mojolicious/);
+  $t->get_ok('/search?q=perl-Mojolicious')->status_is('200')->element_exists('#review-search')
+    ->element_exists_not('#suggestions');
 };
 
 done_testing();
