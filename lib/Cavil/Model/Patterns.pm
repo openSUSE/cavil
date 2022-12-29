@@ -16,6 +16,7 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
+use Cavil::Util qw(paginate);
 use Mojo::File 'path';
 use Spooky::Patterns::XS;
 use Storable;
@@ -118,6 +119,30 @@ sub for_license ($self, $license) {
 
 sub all_licenses ($self) {
   return $self->pg->db->query('select distinct(license) from license_patterns')->arrays->map(sub { $_->[0] })->to_array;
+}
+
+sub paginate_known_licenses ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "WHERE license ILIKE $quoted";
+  }
+
+  my $results = $db->query(
+    qq{
+      SELECT license, COUNT(*) OVER() AS total
+      FROM (
+        SELECT DISTINCT(license) FROM license_patterns
+        $search
+      ) AS licenses
+      ORDER BY license
+      LIMIT ? OFFSET ?
+    }, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  return paginate($results, $options);
 }
 
 sub remove ($self, $id) {

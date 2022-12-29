@@ -24,7 +24,7 @@ use POSIX 'ceil';
 use Text::Glob 'glob_to_regex';
 $Text::Glob::strict_wildcard_slash = 0;
 
-our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files lines_context parse_exclude_file);
+our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files lines_context paginate parse_exclude_file);
 
 my $MAX_FILE_SIZE = 30000;
 
@@ -99,6 +99,12 @@ sub lines_context ($lines) {
 sub load_ignored_files ($db) {
   my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] } @{$db->select('ignored_files', 'glob')->arrays};
   return \%ignored_file_res;
+}
+
+sub paginate ($results, $options) {
+  my $total = @$results ? $results->[0]{total} : 0;
+  delete $_->{total} for @$results;
+  return {total => $total, start => $options->{offset} + 1, end => $options->{offset} + @$results, page => $results};
 }
 
 sub parse_exclude_file ($path, $name) {

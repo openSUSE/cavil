@@ -19,6 +19,7 @@ import {setupReviewDetails} from './legacy/review.js';
 import {setupCodeMirrorForSnippet} from './legacy/snippet.js';
 import {fromNow} from './legacy/time.js';
 import {createLicense, ignoreLine, snippetNonLicense, snippetSwitcher} from './legacy/util.js';
+import KnownLicenses from './vue/KnownLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import RecentReviews from './vue/RecentReviews.vue';
 import $ from 'jquery';
@@ -31,6 +32,10 @@ window.cavil = {
   fireIndex: undefined,
   fires: undefined,
   myCodeMirror: undefined,
+
+  setupKnownLicenses() {
+    createApp(KnownLicenses).mount('#known-licenses');
+  },
 
   setupOpenReviews() {
     createApp(OpenReviews).mount('#open-reviews');

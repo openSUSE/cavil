@@ -16,6 +16,20 @@
 package Cavil::Controller::Pagination;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+sub known_licenses ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('search');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('search') // '';
+
+  my $page = $self->patterns->paginate_known_licenses({limit => $limit, offset => $offset, search => $search});
+  $self->render(json => $page);
+}
+
 sub open_reviews ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;

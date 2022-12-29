@@ -12,6 +12,12 @@ export function externalLink(review) {
   return `${prio} ${link}`;
 }
 
+export function licenseLink(license) {
+  let name = license.license;
+  if (name === '') name = '*Pattern without license*';
+  return `<a href='/licenses/${name}'>${name}</a>`;
+}
+
 export function packageLink(review) {
   const name = review.name;
   return `<a href='/search?q=${name}'>${name}</a>`;

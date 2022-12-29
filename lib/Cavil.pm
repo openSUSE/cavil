@@ -212,6 +212,7 @@ sub startup ($self) {
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
 
   $admin->get('/licenses')->to('License#list')->name('licenses');
+  $admin->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
   $admin->post('/licenses/new_pattern')->to('License#new_pattern');
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');

@@ -3,22 +3,9 @@
 
 <h2>All Licenses</h2>
 
-<table id="licenses" class="table table-bordered table-striped">
-  <thead>
-    <th>Name</th>
-  </thead>
-  <tbody>
+<div id="known-licenses"></div>
 
-    % for my $name (sort @$licenses) {
-      % $name = '*Pattern without license*' unless $name;
-      <tr>
-        %= t td => link_to($name => url_for('license_show', name => $name))
-      </tr>
-    % }
-  </tbody>
-</table>
-
-%content_for 'ready_function' => begin
-    $('#licenses').DataTable({paging: false});
-    $('#license-create').click(cavil.createLicense);
-%end
+% content_for 'ready_function' => begin
+  $('#license-create').click(cavil.createLicense);
+  cavil.setupKnownLicenses();
+% end

@@ -143,8 +143,6 @@ $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 $t->get_ok('/licenses')->status_is(200)->content_like(qr/Licenses/);
 
 # Pattern change
-$t->get_ok('/licenses')->status_is(200)->text_is('td a[href=/licenses/Apache-2.0]' => 'Apache-2.0')
-  ->text_is('td a[href=/licenses/Artistic-2.0]' => 'Artistic-2.0');
 $t->get_ok('/licenses/edit_pattern/1')->status_is(200)->element_exists('input[name=license][value=Apache-2.0]')
   ->text_is('textarea[name=pattern]' => 'You may obtain a copy of the License at')->element_exists_not('input:checked');
 $t->post_ok('/licenses/update_pattern/1' => form => {license => 'Apache-2.0', pattern => 'real-time web framework'})

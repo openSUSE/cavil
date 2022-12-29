@@ -16,6 +16,7 @@
 package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
+use Cavil::Util qw(paginate);
 use Mojo::File 'path';
 use Mojo::Util 'dumper';
 
@@ -155,7 +156,7 @@ sub paginate_open_reviews ($self, $options) {
     }, $options->{limit}, $options->{offset}
   )->hashes->to_array;
 
-  return _paginate($results, $options);
+  return paginate($results, $options);
 }
 
 sub paginate_recent_reviews ($self, $options) {
@@ -193,7 +194,7 @@ sub paginate_recent_reviews ($self, $options) {
     }, $options->{limit}, $options->{offset}
   )->hashes->to_array;
 
-  return _paginate($results, $options);
+  return paginate($results, $options);
 }
 
 sub mark_matched_for_reindex ($self, $pid, $priority = 0) {
@@ -293,12 +294,6 @@ sub _enqueue ($self, $task, $id, $priority = 5, $parents = [], $delay = 0) {
       notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
     }
   );
-}
-
-sub _paginate ($results, $options) {
-  my $total = @$results ? $results->[0]{total} : 0;
-  delete $_->{total} for @$results;
-  return {total => $total, start => $options->{offset} + 1, end => $options->{offset} + @$results, page => $results};
 }
 
 1;
