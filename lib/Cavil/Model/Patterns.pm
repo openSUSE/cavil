@@ -117,10 +117,6 @@ sub for_license ($self, $license) {
   return $self->pg->db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
 }
 
-sub all_licenses ($self) {
-  return $self->pg->db->query('select distinct(license) from license_patterns')->arrays->map(sub { $_->[0] })->to_array;
-}
-
 sub paginate_known_licenses ($self, $options) {
   my $db = $self->pg->db;
 

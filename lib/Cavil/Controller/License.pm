@@ -98,7 +98,7 @@ sub edit_pattern ($self) {
 }
 
 sub list ($self) {
-  $self->render(licenses => $self->patterns->all_licenses);
+  $self->render;
 }
 
 sub new_pattern ($self) {
