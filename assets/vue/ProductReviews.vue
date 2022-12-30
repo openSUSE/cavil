@@ -31,30 +31,26 @@
           <table class="table table-striped table-bordered">
             <thead>
               <tr>
-                <th class="created">Created</th>
+                <th class="package">Package</th>
                 <th class="state">State</th>
-                <th class="comment">Comment</th>
-                <th class="user">Reviewing User</th>
                 <th class="report">Report</th>
               </tr>
             </thead>
             <tbody v-if="reviews === null">
               <tr>
-                <td id="all-done" colspan="5"><i class="fas fa-sync fa-spin"></i> Loading reviews...</td>
+                <td id="all-done" colspan="3"><i class="fas fa-sync fa-spin"></i> Loading reviews...</td>
               </tr>
             </tbody>
             <tbody v-else-if="reviews.length > 0">
               <tr v-for="review in reviews" :key="review.id">
-                <td class="timeago">{{ review.created }}</td>
+                <td v-html="review.package"></td>
                 <td v-html="review.state"></td>
-                <td v-html="review.comment"></td>
-                <td v-html="review.user"></td>
                 <td v-html="review.report"></td>
               </tr>
             </tbody>
             <tbody v-else>
               <tr>
-                <td id="all-done" colspan="5">No reviews found.</td>
+                <td id="all-done" colspan="3">No reviews found.</td>
               </tr>
             </tbody>
           </table>
@@ -82,12 +78,11 @@
 <script>
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
-import {reportLink} from './helpers/links.js';
+import {packageLink, reportLink} from './helpers/links.js';
 import Refresh from './mixins/refresh.js';
-import moment from 'moment';
 
 export default {
-  name: 'ReviewSearch',
+  name: 'ProductReviews',
   mixins: [Refresh],
   components: {PaginationLinks, ShownEntries},
   data() {
@@ -95,7 +90,7 @@ export default {
       end: 0,
       params: {limit: 10, offset: 0, search: ''},
       reviews: null,
-      refreshUrl: `/pagination/search/${this.currentPackage}`,
+      refreshUrl: `/pagination/products/${this.currentProduct}`,
       search: '',
       start: 0,
       total: 0
@@ -125,11 +120,9 @@ export default {
       const reviews = [];
       for (const review of data.page) {
         reviews.push({
-          comment: review.comment,
-          created: moment(review.created_epoch * 1000).fromNow(),
+          package: packageLink(review),
           report: reportLink(review),
-          state: review.state,
-          user: review.user
+          state: review.state
         });
       }
       this.reviews = reviews;

@@ -34,20 +34,6 @@ sub for_package ($self, $id) {
     'name', {'bot_package_products.package' => $id})->arrays->flatten->to_array;
 }
 
-sub list ($self, $name) {
-  my $db = $self->pg->db;
-  return [] unless my $product = $db->select('bot_products', 'id', {name => $name})->hash;
-
-  return $db->query(
-    'select bot_packages.name, bot_packages.id,
-       extract(epoch from bot_packages.created) as created_epoch, state,
-       checksum
-     from bot_package_products
-       join bot_packages on (bot_packages.id = bot_package_products.package)
-     where bot_package_products.product = ?', $product->{id}
-  )->hashes->to_array;
-}
-
 sub update ($self, $product, $packages) {
   my $db = $self->pg->db;
   $db->delete('bot_package_products', {product => $product});

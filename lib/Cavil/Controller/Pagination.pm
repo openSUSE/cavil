@@ -47,6 +47,21 @@ sub open_reviews ($self) {
   $self->render(json => $page);
 }
 
+sub product_reviews ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('search');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('search') // '';
+
+  my $name = $self->stash('name');
+  my $page = $self->packages->paginate_product_reviews($name, {limit => $limit, offset => $offset, search => $search});
+  $self->render(json => $page);
+}
+
 sub recent_reviews ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;

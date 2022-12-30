@@ -2,17 +2,8 @@
 
 <h3><%= $name %></h3>
 
-<table class="table table-striped table-bordered" id="reviews"
-  data-script="<%= url_for('product_packages_ajax', name => $name) %>">
-  <thead>
-    <tr>
-      <th class="package">Package</th>
-      <th class="state">State</th>
-      <th class="report">Report</th>
-    </tr>
-  </thead>
-</table>
+<div id="product-reviews"></div>
 
 % content_for 'ready_function' => begin
-  cavil.setupProductTable();
+  cavil.setupProductReviews('<%= $name %>');
 % end

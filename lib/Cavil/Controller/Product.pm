@@ -20,12 +20,6 @@ sub list ($self) {
   $self->render(products => $self->products->all);
 }
 
-sub list_packages_ajax ($self) {
-  my $packages = $self->products->list($self->stash('name'));
-  my $data = {data => $packages, recordsTotal => scalar(@$packages), recordsFiltered => scalar(@$packages), draw => 1};
-  $self->render(json => $data);
-}
-
 sub show ($self) {
   $self->render;
 }

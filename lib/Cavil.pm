@@ -224,8 +224,8 @@ sub startup ($self) {
   $admin->get('/licenses/*name')->to('License#show')->name('license_show');
 
   $public->get('/products')->to('Product#list')->name('products');
-  $public->get('/products/*name/list_packages')->to('Product#list_packages_ajax')->name('product_packages_ajax');
   $public->get('/products/*name')->to('Product#show')->name('product_show');
+  $public->get('/pagination/products/*name')->to('Pagination#product_reviews')->name('pagination_product_reviews');
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
   $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');

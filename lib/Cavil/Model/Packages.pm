@@ -146,6 +146,32 @@ sub paginate_open_reviews ($self, $options) {
   return paginate($results, $options);
 }
 
+sub paginate_product_reviews ($self, $name, $options) {
+  my $db = $self->pg->db;
+
+  return paginate([], $options) unless my $product = $db->select('bot_products', 'id', {name => $name})->hash;
+
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "AND (checksum ILIKE $quoted OR name ILIKE $quoted)";
+  }
+
+  my $results = $db->query(
+    qq{
+      SELECT bot_packages.name, bot_packages.id, EXTRACT(EPOCH FROM imported) as imported_epoch,
+        EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, state,
+        checksum, COUNT(*) OVER() AS total
+      FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
+      WHERE bot_package_products.product = ? $search
+      ORDER BY bot_packages.id DESC
+      LIMIT ? OFFSET ?
+    }, $product->{id}, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  return paginate($results, $options);
+}
+
 sub paginate_recent_reviews ($self, $options) {
   my $db = $self->pg->db;
 

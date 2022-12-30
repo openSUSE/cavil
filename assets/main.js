@@ -14,13 +14,13 @@ import 'moment';
 import {setupCodeMirrorForFile} from './legacy/file.js';
 import {backToTop} from './legacy/nav.js';
 import {setupCreatePattern} from './legacy/patterns.js';
-import {setupProductTable} from './legacy/product.js';
 import {setupReviewDetails} from './legacy/review.js';
 import {setupCodeMirrorForSnippet} from './legacy/snippet.js';
 import {fromNow} from './legacy/time.js';
 import {createLicense, ignoreLine, snippetNonLicense, snippetSwitcher} from './legacy/util.js';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
+import ProductReviews from './vue/ProductReviews.vue';
 import RecentReviews from './vue/RecentReviews.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
 import $ from 'jquery';
@@ -42,6 +42,12 @@ window.cavil = {
     createApp(OpenReviews).mount('#open-reviews');
   },
 
+  setupProductReviews(product) {
+    const app = createApp(ProductReviews);
+    app.config.globalProperties.currentProduct = product;
+    app.mount('#product-reviews');
+  },
+
   setupRecentReviews() {
     createApp(RecentReviews).mount('#recent-reviews');
   },
@@ -59,7 +65,6 @@ window.cavil = {
   setupCodeMirrorForFile,
   setupCodeMirrorForSnippet,
   setupCreatePattern,
-  setupProductTable,
   setupReviewDetails,
   snippetNonLicense,
   snippetSwitcher
