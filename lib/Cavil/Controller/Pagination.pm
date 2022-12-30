@@ -30,6 +30,20 @@ sub known_licenses ($self) {
   $self->render(json => $page);
 }
 
+sub known_products ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('search');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('search') // '';
+
+  my $page = $self->products->paginate_known_products({limit => $limit, offset => $offset, search => $search});
+  $self->render(json => $page);
+}
+
 sub open_reviews ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;

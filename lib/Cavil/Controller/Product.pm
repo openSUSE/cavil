@@ -17,7 +17,7 @@ package Cavil::Controller::Product;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 sub list ($self) {
-  $self->render(products => $self->products->all);
+  $self->render;
 }
 
 sub show ($self) {

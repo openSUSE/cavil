@@ -23,6 +23,11 @@ export function packageLink(review) {
   return `<a href='/search?q=${name}'>${name}</a>`;
 }
 
+export function productLink(product) {
+  let name = product.name;
+  return `<a href='/products/${name}'>${name}</a>`;
+}
+
 export function reportLink(review) {
   if (!review.imported_epoch) return '<i>not yet imported</i>';
   if (!review.unpacked_epoch) return '<i>not yet unpacked</i>';

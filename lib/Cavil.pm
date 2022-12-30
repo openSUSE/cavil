@@ -224,6 +224,7 @@ sub startup ($self) {
   $admin->get('/licenses/*name')->to('License#show')->name('license_show');
 
   $public->get('/products')->to('Product#list')->name('products');
+  $public->get('/pagination/products/known')->to('Pagination#known_products')->name('pagination_known_products');
   $public->get('/products/*name')->to('Product#show')->name('product_show');
   $public->get('/pagination/products/*name')->to('Pagination#product_reviews')->name('pagination_product_reviews');
 

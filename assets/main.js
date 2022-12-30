@@ -19,6 +19,7 @@ import {setupCodeMirrorForSnippet} from './legacy/snippet.js';
 import {fromNow} from './legacy/time.js';
 import {createLicense, ignoreLine, snippetNonLicense, snippetSwitcher} from './legacy/util.js';
 import KnownLicenses from './vue/KnownLicenses.vue';
+import KnownProducts from './vue/KnownProducts.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import ProductReviews from './vue/ProductReviews.vue';
 import RecentReviews from './vue/RecentReviews.vue';
@@ -36,6 +37,10 @@ window.cavil = {
 
   setupKnownLicenses() {
     createApp(KnownLicenses).mount('#known-licenses');
+  },
+
+  setupKnownProducts() {
+    createApp(KnownProducts).mount('#known-products');
   },
 
   setupOpenReviews() {
