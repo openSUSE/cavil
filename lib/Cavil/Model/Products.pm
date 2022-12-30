@@ -49,6 +49,7 @@ sub paginate_known_products ($self, $options) {
     qq{
       SELECT *, COUNT(*) OVER() AS total
       FROM bot_products
+      $search
       ORDER BY id DESC
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}

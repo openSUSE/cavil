@@ -154,7 +154,7 @@ sub paginate_product_reviews ($self, $name, $options) {
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");
-    $search = "AND (checksum ILIKE $quoted OR name ILIKE $quoted)";
+    $search = "AND (checksum ILIKE $quoted OR state::text ILIKE $quoted OR name ILIKE $quoted)";
   }
 
   my $results = $db->query(
