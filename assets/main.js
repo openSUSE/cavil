@@ -1,13 +1,10 @@
 import './sass/app.scss';
 import 'bootstrap/dist/css/bootstrap.css';
-import 'datatables.net-bs4/css/dataTables.bootstrap4.css';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/neo.css';
 
 import 'timeago';
 import 'bootstrap';
-import 'datatables.net';
-import 'datatables.net-bs4';
 import 'codemirror';
 import 'moment';
 
