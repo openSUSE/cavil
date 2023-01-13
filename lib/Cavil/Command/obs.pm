@@ -26,10 +26,27 @@ sub run ($self, @args) {
   getopt \@args,
     'd|download=s' => \my $download,
     'import'       => \my $import,
-    'r|rev=s'      => \my $rev;
-  die "API is required.\n"     unless my $api     = shift @args;
-  die "PROJECT is required.\n" unless my $project = shift @args;
-  die "PACKAGE is required.\n" unless my $pkg     = shift @args;
+    'r|rev=s'      => \my $rev,
+    'reimport=s'   => \my $reimport;
+
+  my $api     = shift @args;
+  my $project = shift @args;
+  my $pkg     = shift @args;
+
+  if ($reimport) {
+    my $result = $self->app->pg->db->query(
+      'SELECT api_url, project, package, srcmd5
+       FROM bot_packages bp JOIN bot_sources bs ON bp.source = bs.id
+       WHERE bp.id = ?', $reimport
+    )->hash;
+    die "Package with the id $reimport not found.\n" unless $result;
+    ($api, $project, $pkg, $rev) = @{$result}{qw(api_url project package srcmd5)};
+    $import = 1;
+  }
+
+  die "API is required.\n"     unless $api;
+  die "PROJECT is required.\n" unless $project;
+  die "PACKAGE is required.\n" unless $pkg;
 
   # Get info
   my $app  = $self->app;
@@ -98,11 +115,13 @@ Cavil::Command::obs - Cavil obs command
     script/cavil obs https://api.opensuse.org Base:System grub2 -r 307
     script/cavil obs https://api.opensuse.org Base:System grub2 -r 307 -d .
     script/cavil obs https://api.opensuse.org Base:System grub2 -r 307 -i
+    script/cavil obs --reimport 123
 
   Options:
     -d, --download <dir>   Resolve and download package from OBS
         --import           Import and index package from OBS
     -h, --help             Show this summary of available options
+        --reimport <id>    Reimport an existing package
     -r, --rev <revision>   Package revision
 
 =cut
