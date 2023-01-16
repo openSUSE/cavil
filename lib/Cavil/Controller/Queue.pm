@@ -71,8 +71,8 @@ sub create_package ($self) {
     );
     $obj = $pkgs->find($id);
   }
-  $obj->{external_link} //= $link;
-  $obj->{obsolete} = 0;
+  $obj->{external_link} = $link;
+  $obj->{obsolete}      = 0;
   $pkgs->update($obj);
   $pkgs->obs_import(
     $obj->{id},
