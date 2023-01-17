@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"- Remove (texlive-)axessibility package as it has a nofree license:\r\n  Creative Commons Attribution-NonCommercial 4.0 License\r\n\r\n","risk":0,"trademark":0,"unique_id":"32af8c4d-cc53-4156-9f21-ce51ca3c0c57"}
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"Remove (texlive-)axessibility package as it has a nofree license:\r\n  Creative Commons Attribution-NonCommercial 4.0 License","risk":0,"trademark":0,"unique_id":"32af8c4d-cc53-4156-9f21-ce51ca3c0c57"}

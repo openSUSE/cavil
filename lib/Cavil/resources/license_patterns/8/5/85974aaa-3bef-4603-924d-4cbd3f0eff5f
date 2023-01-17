@@ -1,0 +1,1 @@
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"        KMessageBox::sorry(d->m_itemView,\r\n                           i18n(\"You do not have permission to \"\r\n                                \"create that folder.\"));\r\n","risk":0,"trademark":0,"unique_id":"85974aaa-3bef-4603-924d-4cbd3f0eff5f"}
