@@ -320,7 +320,7 @@
         %= form_for review_package => (class => 'container', id => 'pkg-review') => begin
             <div class="form-group">
                 <label for="comment">Comment:</label>
-                <textarea name="comment" class="form-control"><%= $package->{result} // 'Reviewed ok' %></textarea>
+                <textarea name="comment" rows="10" class="form-control"><%= $package->{result} // 'Reviewed ok' %></textarea>
             </div>
             %= submit_button 'Checked', class => 'btn btn-success', id => 'correct', name => 'correct'
             %= submit_button 'Good Enough', class => 'btn btn-warning', id => 'acceptable', name => 'acceptable'
@@ -333,7 +333,7 @@
         %= form_for fasttrack_package => (class => 'container') => begin
             <div class="form-group">
                 <label for="comment">Comment:</label>
-                <textarea name="comment" class="form-control"><%= $package->{result} // 'No changes since last review' %></textarea>
+                <textarea name="comment" rows="10" class="form-control"><%= $package->{result} // 'No changes since last review' %></textarea>
             </div>
             %= submit_button 'Accept without legal review', class => 'btn btn-warning', id => 'acceptable', name => 'acceptable'
         % end
@@ -344,7 +344,7 @@
     <form class="container">
       <div class="form-group">
         <label for="comment">Comment:</label>
-        <textarea name="comment" class="form-control" disabled><%= $comment %></textarea>
+        <textarea name="comment" rows="10" class="form-control" disabled><%= $comment %></textarea>
       </div>
     </form>
   </div>
