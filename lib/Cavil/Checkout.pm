@@ -213,6 +213,10 @@ sub unpack ($self, $options = {}) {
     log_type             => 'JSON',
     log_fullpath         => 0
   );
+
+  # Zstandard, requires zstd
+  $u->mime_helper('application=x-zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
+
   $u->exclude(vcs => 1);
   if (my $exclude = $options->{exclude}) {
     $u->exclude($_) for @$exclude;
