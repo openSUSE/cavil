@@ -199,7 +199,7 @@ sub ui_fixtures ($self, $app) {
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
   for my $i (1 .. 21) {
     my $priority = $i > 10 ? 1 : 5;
-    my $pkg_id = $pkgs->add(
+    my $pkg_id   = $pkgs->add(
       name            => "perl-UI-Test$i",
       checkout_dir    => 'doesnotexist',
       api_url         => 'https://api.opensuse.org',
