@@ -126,6 +126,12 @@ sub paginate_open_reviews ($self, $options) {
     $search = "AND (checksum ILIKE $quoted OR external_link ILIKE $quoted OR name ILIKE $quoted)";
   }
 
+  my $priority = '';
+  if ($options->{priority}) {
+    my $quoted = $db->dbh->quote($options->{priority});
+    $priority = "AND priority >= $quoted";
+  }
+
   my $progress = '';
   if ($options->{in_progress} eq 'true') {
     $progress = 'AND (unpacked IS NULL OR indexed IS NULL)';
@@ -137,7 +143,7 @@ sub paginate_open_reviews ($self, $options) {
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
         priority, state, checksum, COUNT(*) OVER() AS total
       FROM bot_packages
-      WHERE state = 'new' AND obsolete = FALSE $search $progress
+      WHERE state = 'new' AND obsolete = FALSE $priority $search $progress
       ORDER BY priority DESC, external_link, created DESC, name
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}

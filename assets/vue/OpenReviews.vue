@@ -16,6 +16,22 @@
                 &nbsp;entries</label
               >
             </div>
+            <div class="form-group mb-2 mr-sm-4">
+              <label
+                >Priority&nbsp;
+                <select v-model="params.priority" @change="gotoPage(1)" class="form-control cavil-pkg-priority">
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4</option>
+                  <option>5</option>
+                  <option>6</option>
+                  <option>7</option>
+                  <option>8</option>
+                </select>
+                &nbsp;and above</label
+              >
+            </div>
             <div class="form-check mb-2 mr-sm-2">
               <input
                 v-model="params.inProgress"
@@ -100,7 +116,7 @@ export default {
   data() {
     return {
       end: 0,
-      params: {limit: 10, offset: 0, inProgress: false, search: ''},
+      params: {limit: 10, offset: 0, inProgress: false, priority: 2, search: ''},
       reviews: null,
       refreshUrl: '/pagination/reviews/open',
       search: '',
