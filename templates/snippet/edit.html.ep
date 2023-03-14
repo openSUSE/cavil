@@ -17,8 +17,7 @@
   </p>
 % }
 
-%= form_for url_for('snippet_decision') => (method => 'POST') => begin
-  %= hidden_field id => $snippet->{id}
+%= form_for url_for('snippet_decision', {id => $snippet->{id}}) => (method => 'POST') => begin
 
   <div class="form-group">
     <label for="pattern"><strong>Snippet</strong></label>

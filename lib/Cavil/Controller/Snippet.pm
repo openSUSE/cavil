@@ -140,6 +140,14 @@ sub _render_conflict ($self, $id, $validation) {
 }
 
 sub _create_pattern ($self, $packages, $validation) {
+  $validation->required('license');
+  $validation->required('pattern');
+  $validation->required('risk')->num;
+  $validation->optional('patent');
+  $validation->optional('trademark');
+  $validation->optional('opinion');
+  return $self->reply->json_validation_error if $validation->has_error;
+
   my $pattern = $self->patterns->create(
     license => $validation->param('license'),
     pattern => $validation->param('pattern'),
@@ -167,21 +175,14 @@ sub _create_pattern ($self, $packages, $validation) {
 # proxy function
 sub decision ($self) {
   my $validation = $self->validation;
-  $validation->required('id')->num;
-  $validation->required('license');
-  $validation->required('pattern');
-  $validation->required('risk')->num;
-  $validation->optional('patent');
-  $validation->optional('trademark');
-  $validation->optional('opinion');
   $validation->optional('create-pattern');
   $validation->optional('mark-non-license');
   return $self->reply->json_validation_error if $validation->has_error;
 
-  my $db = $self->pg->db;
-
   my %packages;
-  my $results = $db->query('select package from file_snippets where snippet=?', $validation->param('id'));
+  my $db      = $self->pg->db;
+  my $id      = $self->param('id');
+  my $results = $db->query('select package from file_snippets where snippet=?', $id);
   while (my $next = $results->hash) {
     $packages{$next->{package}} = 1;
   }
@@ -191,7 +192,7 @@ sub decision ($self) {
     return if $self->_create_pattern($packages, $validation);
   }
   elsif ($validation->param('mark-non-license')) {
-    $self->snippets->mark_non_license($validation->param('id'));
+    $self->snippets->mark_non_license($id);
     for my $pkg (@$packages) {
       $self->packages->analyze($pkg, 4);
     }

@@ -91,4 +91,34 @@ subtest 'Classified' => sub {
   like $snippet->{text}, qr/This license establishes/, 'right text';
 };
 
+subtest 'Classified manually' => sub {
+  $t->app->pg->db->update('snippets', {license => 0, approved => 0, classified => 0});
+  my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
+  is $snippet->{id},         1, 'right id';
+  is $snippet->{classified}, 0, 'classified';
+  is $snippet->{license},    0, 'license';
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => 2})->hash;
+  is $snippet->{id},         2, 'right id';
+  is $snippet->{classified}, 0, 'classified';
+  is $snippet->{license},    0, 'license';
+
+  $t->get_ok('/login')->status_is(302);
+  $t->post_ok('/snippet/decision/2?mark-non-license=1')->status_is(200);
+
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
+  is $snippet->{id},         1, 'right id';
+  is $snippet->{classified}, 0, 'classified';
+  is $snippet->{license},    0, 'license';
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => 2})->hash;
+  is $snippet->{id},         2, 'right id';
+  is $snippet->{classified}, 1, 'classified';
+  is $snippet->{license},    0, 'license';
+
+  $t->post_ok('/snippet/decision/1?mark-non-license=1')->status_is(200);
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
+  is $snippet->{id},         1, 'right id';
+  is $snippet->{classified}, 1, 'classified';
+  is $snippet->{license},    0, 'license';
+};
+
 done_testing;
