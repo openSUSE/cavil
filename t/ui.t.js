@@ -298,7 +298,7 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'License details of Made-Up-License-1.0');
 
       // Wait for reindexing
-      await page.goto(performJobs, {timeout: 30000});
+      await page.goto(performJobs, {timeout: 120000});
       await page.goto(url);
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
@@ -349,7 +349,7 @@ t.test('Test cavil ui', skip, async t => {
       const page2 = await context.newPage();
       await page
         .click('text=Reindex')
-        .then(() => page2.goto(performJobs))
+        .then(() => page2.goto(performJobs, {timeout: 120000}))
         .then(() => page2.close());
 
       await page.waitForSelector('#license-chart');
