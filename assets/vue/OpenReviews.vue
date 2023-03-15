@@ -56,6 +56,7 @@
           <table class="table table-striped table-bordered">
             <thead>
               <tr>
+                <th class="priority">Priority</th>
                 <th class="link">Link</th>
                 <th class="created">Created</th>
                 <th class="package">Package</th>
@@ -64,11 +65,12 @@
             </thead>
             <tbody v-if="reviews === null">
               <tr>
-                <td id="all-done" colspan="4"><i class="fas fa-sync fa-spin"></i> Loading reviews...</td>
+                <td id="all-done" colspan="5"><i class="fas fa-sync fa-spin"></i> Loading reviews...</td>
               </tr>
             </tbody>
             <tbody v-else-if="reviews.length > 0">
               <tr v-for="review in reviews" :key="review.id">
+                <td class="text-center"><PriorityBadge :priority.sync="review.priority" /></td>
                 <td v-html="review.link"></td>
                 <td class="timeago">{{ review.created }}</td>
                 <td v-html="review.package"></td>
@@ -77,7 +79,7 @@
             </tbody>
             <tbody v-else>
               <tr>
-                <td id="all-done" colspan="4">All reviews are done!</td>
+                <td id="all-done" colspan="5">All reviews are done!</td>
               </tr>
             </tbody>
           </table>
@@ -104,6 +106,7 @@
 
 <script>
 import PaginationLinks from './components/PaginationLinks.vue';
+import PriorityBadge from './components/PriorityBadge.vue';
 import ShownEntries from './components/ShownEntries.vue';
 import {externalLink, packageLink, reportLink} from './helpers/links.js';
 import Refresh from './mixins/refresh.js';
@@ -112,7 +115,7 @@ import moment from 'moment';
 export default {
   name: 'OpenReviews',
   mixins: [Refresh],
-  components: {PaginationLinks, ShownEntries},
+  components: {PaginationLinks, PriorityBadge, ShownEntries},
   data() {
     return {
       end: 0,
@@ -151,6 +154,7 @@ export default {
           link: externalLink(review),
           created: moment(review.created_epoch * 1000).fromNow(),
           package: packageLink(review),
+          priority: review.priority,
           report: reportLink(review)
         });
       }

@@ -1,15 +1,14 @@
 export function externalLink(review) {
   const link = review.external_link;
-  const prio = `(${review.priority})`;
 
   if (link.substr(0, 4) === 'obs#') {
-    return `${prio} <a href='https://build.opensuse.org/request/show/${link.substr(4)}' target='_blank'>${link}</a>`;
+    return `<a href='https://build.opensuse.org/request/show/${link.substr(4)}' target='_blank'>${link}</a>`;
   }
   if (link.substr(0, 4) === 'ibs#') {
-    return `${prio} <a href='https://build.suse.de/request/show/${link.substr(4)}' target='_blank'>${link}</a>`;
+    return `<a href='https://build.suse.de/request/show/${link.substr(4)}' target='_blank'>${link}</a>`;
   }
 
-  return `${prio} ${link}`;
+  return link;
 }
 
 export function licenseLink(license) {
