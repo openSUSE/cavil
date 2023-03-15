@@ -43,9 +43,14 @@ jobs:
           cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.55.tar.gz
           cpanm -n --installdeps .
           cpanm -n Test::Deep
+          cpanm -n Devel::Cover::Report::Coveralls
       - name: Build assets
         run: npm run build
       - name: Run tests
         env:
           TEST_ONLINE: postgresql://postgres:postgres@localhost:5432/postgres
-        run: prove -l -v t/*.t t/*.t.js
+        run: prove -l -v t/*.t.js && HARNESS_PERL_SWITCHES=-MDevel::Cover prove -l -v t/*.t
+      - name: Coveralls
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cover -report Coveralls
