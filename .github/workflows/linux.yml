@@ -49,7 +49,13 @@ jobs:
       - name: Run tests
         env:
           TEST_ONLINE: postgresql://postgres:postgres@localhost:5432/postgres
-        run: prove -l -v t/*.t.js && HARNESS_PERL_SWITCHES=-MDevel::Cover prove -l -v t/*.t
+          HARNESS_PERL_SWITCHES: -MDevel::Cover
+        run: prove -l -v t/*.t
+      - name: Run UI tests
+        env:
+          TEST_ONLINE: postgresql://postgres:postgres@localhost:5432/postgres
+          TEST_WRAPPER_COVERAGE: 1
+        run: prove -l -v t/*.t.js
       - name: Coveralls
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
