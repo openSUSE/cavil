@@ -52,6 +52,13 @@ subtest 'obs' => sub {
   like $cmd->usage, qr/obs/, 'has usage information';
 };
 
+subtest 'patterns' => sub {
+  require Cavil::Command::patterns;
+  my $cmd = Cavil::Command::patterns->new;
+  ok $cmd->description, 'has a description';
+  like $cmd->usage, qr/patterns/, 'has usage information';
+};
+
 subtest 'rindex' => sub {
   require Cavil::Command::rindex;
   my $cmd = Cavil::Command::rindex->new;

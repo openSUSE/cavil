@@ -220,7 +220,7 @@ drop index snippets_approved_idx if exists;
 alter table license_patterns add risk int not null default 5;
 alter table license_patterns add eula boolean not null default false;
 alter table license_patterns add nonfree boolean not null default false;
-update license_patterns set license_string='' where license_string is null;
+update license_patterns set license_string = '' where license_string is null;
 alter table license_patterns alter column license_string set default '';
 alter table license_patterns alter column license_string set not null;
 
