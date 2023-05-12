@@ -89,6 +89,24 @@ subtest 'Check risks' => sub {
     }
     like $buffer, qr/MyTestLicense-1.0: 7, 9/, 'multiple risk assessments detected';
   };
+
+  subtest 'Fix risk assessment for license' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '-l', 'MyTestLicense-1.0', '--fix-risk', '8');
+    }
+    like $buffer, qr/2 patterns fixed/, 'two patterns fixed';
+
+    $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--check-risks');
+    }
+    is $buffer, '', 'no noteworthy risk assessments anymore';
+  };
 };
 
 done_testing();

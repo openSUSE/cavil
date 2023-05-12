@@ -22,7 +22,10 @@ has description => 'License pattern management';
 has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
-  getopt \@args, 'check-risks' => \my $check_risks, 'license|l=s' => \my $license;
+  getopt \@args, 'check-risks' => \my $check_risks, 'fix-risk=i' => \my $fix_risk, 'license|l=s' => \my $license;
+
+  # Fix risk assessment for license
+  return $self->_fix_risk($license, $fix_risk) if defined $fix_risk;
 
   # Check for licenses with multiple risk assessments
   return $self->_check_risks if $check_risks;
@@ -32,6 +35,12 @@ sub run ($self, @args) {
 
   # Stats
   return $self->_stats;
+}
+
+sub _fix_risk ($self, $license, $risk) {
+  die 'License name is required' unless $license;
+  my $rows = $self->app->pg->db->query('UPDATE license_patterns SET risk = ? WHERE license = ?', $risk, $license)->rows;
+  say "$rows patterns fixed";
 }
 
 sub _check_risks ($self) {
@@ -83,9 +92,16 @@ Cavil::Command::patterns - Cavil command to manage license patterns
 
     script/cavil patterns
 
+    # Check risk assessments for inconsistencies
+    script/cavil patterns --check-risks
+
+    # Fix risk assessment for a license
+    script/cavil patterns --license MIT --fix-risk 3
+
   Options:
-        --check-risks      Check for licenses with multiple risk assessments
-    -h, --help             Show this summary of available options
-    -l, --license <name>   License name
+        --check-risks       Check for licenses with multiple risk assessments
+        --fix-risk <risk>   Fix risk assessments for a license
+    -h, --help              Show this summary of available options
+    -l, --license <name>    License name
 
 =cut
