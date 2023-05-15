@@ -25,6 +25,7 @@ sub run ($self, @args) {
   getopt \@args,
     'check-risks'     => \my $check_risks,
     'check-unused'    => \my $check_unused,
+    'check-used'      => \my $check_used,
     'fix-risk=i'      => \my $fix_risk,
     'license|l=s'     => \my $license,
     'remove-unused=i' => \my $remove_unused;
@@ -39,7 +40,10 @@ sub run ($self, @args) {
   return $self->_check_risks if $check_risks;
 
   # Check for unused patterns
-  return $self->_check_unused($license) if $check_unused;
+  return $self->_check_use(1, $license) if $check_unused;
+
+  # Check for used patterns
+  return $self->_check_use(0, $license) if $check_used;
 
   # License stats
   return $self->_license_stats($license) if $license;
@@ -75,7 +79,7 @@ sub _check_risks ($self) {
   }
 }
 
-sub _check_unused ($self, $license) {
+sub _check_use ($self, $unused, $license) {
   die 'License name is required' unless defined $license;
 
   my $db      = $self->app->pg->db;
@@ -86,7 +90,14 @@ sub _check_unused ($self, $license) {
   for my $pattern ($results->hashes->each) {
     my ($id, $risk, $pattern) = @{$pattern}{qw(id risk pattern)};
     my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
-    push @$table, [$id, $risk, substr(quotemeta(encode('UTF-8', $pattern)), 0, 60)] if $count == 0;
+
+    my $snippet = substr(quotemeta(encode('UTF-8', $pattern)), 0, 50);
+    if ($unused) {
+      push @$table, [$id, $risk, $snippet] if $count == 0;
+    }
+    else {
+      push @$table, [$id, $count, $risk, $snippet] if $count > 0;
+    }
   }
 
   print tablify $table;
@@ -146,6 +157,7 @@ Cavil::Command::patterns - Cavil command to manage license patterns
   Options:
         --check-risks          Check for licenses with multiple risk assessments
         --check-unused         Check for unused license patterns
+        --check-used           Check for license patterns currently in use
         --fix-risk <risk>      Fix risk assessments for a license
     -h, --help                 Show this summary of available options
     -l, --license <name>       License name
