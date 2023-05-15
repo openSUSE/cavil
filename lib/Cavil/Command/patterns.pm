@@ -91,7 +91,8 @@ sub _check_use ($self, $unused, $license) {
     my ($id, $risk, $pattern) = @{$pattern}{qw(id risk pattern)};
     my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
 
-    my $snippet = substr(quotemeta(encode('UTF-8', $pattern)), 0, 50);
+    $pattern =~ s/[^[:print:]]+//g;
+    my $snippet = substr(encode('UTF-8', $pattern), 0, 57) . (length $pattern > 57 ? '...' : '');
     if ($unused) {
       push @$table, [$id, $risk, $snippet] if $count == 0;
     }
