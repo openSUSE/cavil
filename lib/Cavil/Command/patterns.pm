@@ -16,19 +16,26 @@
 package Cavil::Command::patterns;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
-use Mojo::Util 'getopt';
+use Mojo::Util qw(encode getopt tablify);
 
 has description => 'License pattern management';
 has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
-  getopt \@args, 'check-risks' => \my $check_risks, 'fix-risk=i' => \my $fix_risk, 'license|l=s' => \my $license;
+  getopt \@args,
+    'check-risks'  => \my $check_risks,
+    'check-unused' => \my $check_unused,
+    'fix-risk=i'   => \my $fix_risk,
+    'license|l=s'  => \my $license;
 
   # Fix risk assessment for license
   return $self->_fix_risk($license, $fix_risk) if defined $fix_risk;
 
   # Check for licenses with multiple risk assessments
   return $self->_check_risks if $check_risks;
+
+  # Check for unused patterns
+  return $self->_check_unused($license) if $check_unused;
 
   # License stats
   return $self->_license_stats($license) if $license;
@@ -38,7 +45,7 @@ sub run ($self, @args) {
 }
 
 sub _fix_risk ($self, $license, $risk) {
-  die 'License name is required' unless $license;
+  die 'License name is required' unless defined $license;
   my $rows = $self->app->pg->db->query('UPDATE license_patterns SET risk = ? WHERE license = ?', $risk, $license)->rows;
   say "$rows patterns fixed";
 }
@@ -64,9 +71,27 @@ sub _check_risks ($self) {
   }
 }
 
+sub _check_unused ($self, $license) {
+  die 'License name is required' unless defined $license;
+
+  my $db = $self->app->pg->db;
+  my $results
+    = $db->query('SELECT id, risk, pattern FROM license_patterns WHERE license = ? ORDER BY risk ASC, id ASC',
+    $license);
+
+  my $table = [];
+  for my $pattern ($results->hashes->each) {
+    my ($id, $risk, $pattern) = @{$pattern}{qw(id risk pattern)};
+    my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
+    push @$table, [$id, $risk, substr(quotemeta(encode('UTF-8', $pattern)), 0, 60)] if $count == 0;
+  }
+
+  print tablify $table;
+}
+
 sub _license_stats ($self, $license) {
   my $patterns
-    = $self->app->pg->db->query('SELECT COUNT(*) AS count FROM license_patterns where license = ?', $license)->hash;
+    = $self->app->pg->db->query('SELECT COUNT(*) AS count FROM license_patterns WHERE license = ?', $license)->hash;
   say "$license has $patterns->{count} patterns";
 }
 
@@ -98,8 +123,12 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     # Fix risk assessment for a license
     script/cavil patterns --license MIT --fix-risk 3
 
+    # Check for unused license patterns
+    script/cavil patterns --check-unused --license Artistic-2.0
+
   Options:
         --check-risks       Check for licenses with multiple risk assessments
+        --check-unused      Check for unused license patterns
         --fix-risk <risk>   Fix risk assessments for a license
     -h, --help              Show this summary of available options
     -l, --license <name>    License name
