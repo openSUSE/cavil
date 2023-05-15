@@ -131,6 +131,27 @@ subtest 'Check risks' => sub {
       like $buffer,   qr/7.+8.+My.+test.+license/s, 'first pattern is unused';
       unlike $buffer, qr/8.+8.+My.+license/s,       'second pattern is used';
     };
+
+    subtest 'Only unused patterns can be removed' => sub {
+      my $buffer = '';
+      {
+        open my $handle, '>', \$buffer;
+        local *STDOUT = $handle;
+        $app->start('patterns', '--remove-unused', '7');
+      }
+      is $buffer, '', 'pattern removed';
+
+      $buffer = '';
+      {
+        open my $handle, '>', \$buffer;
+        local *STDOUT = $handle;
+        $app->start('patterns', '--check-unused', '-l', 'MyTestLicense-1.0');
+      }
+      is $buffer, '', 'no unused patterns';
+
+      eval { $app->start('patterns', '--remove-unused', '8') };
+      like $@, qr/Pattern 8 is still in use and cannot be removed/, 'patterns still in use cannot be removed';
+    };
   };
 };
 

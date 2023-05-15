@@ -23,10 +23,14 @@ has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
   getopt \@args,
-    'check-risks'  => \my $check_risks,
-    'check-unused' => \my $check_unused,
-    'fix-risk=i'   => \my $fix_risk,
-    'license|l=s'  => \my $license;
+    'check-risks'     => \my $check_risks,
+    'check-unused'    => \my $check_unused,
+    'fix-risk=i'      => \my $fix_risk,
+    'license|l=s'     => \my $license,
+    'remove-unused=i' => \my $remove_unused;
+
+  # Remove unused license pattern
+  return $self->_remove_unused($remove_unused) if $remove_unused;
 
   # Fix risk assessment for license
   return $self->_fix_risk($license, $fix_risk) if defined $fix_risk;
@@ -74,9 +78,8 @@ sub _check_risks ($self) {
 sub _check_unused ($self, $license) {
   die 'License name is required' unless defined $license;
 
-  my $db = $self->app->pg->db;
-  my $results
-    = $db->query('SELECT id, risk, pattern FROM license_patterns WHERE license = ? ORDER BY risk ASC, id ASC',
+  my $db      = $self->app->pg->db;
+  my $results = $db->query('SELECT id, risk, pattern FROM license_patterns WHERE license = ? ORDER BY risk ASC, id ASC',
     $license);
 
   my $table = [];
@@ -93,6 +96,17 @@ sub _license_stats ($self, $license) {
   my $patterns
     = $self->app->pg->db->query('SELECT COUNT(*) AS count FROM license_patterns WHERE license = ?', $license)->hash;
   say "$license has $patterns->{count} patterns";
+}
+
+sub _remove_unused ($self, $id) {
+  my $db = $self->app->pg->db;
+  my $tx = $db->begin;
+
+  my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
+  die "Pattern $id is still in use and cannot be removed" unless $count == 0;
+  $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
+
+  $tx->commit;
 }
 
 sub _stats ($self) {
@@ -126,11 +140,15 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     # Check for unused license patterns
     script/cavil patterns --check-unused --license Artistic-2.0
 
+    # Remove unused license pattern (cannot remove patterns still in use)
+    script/cavil patterns --remove-unused 23
+
   Options:
-        --check-risks       Check for licenses with multiple risk assessments
-        --check-unused      Check for unused license patterns
-        --fix-risk <risk>   Fix risk assessments for a license
-    -h, --help              Show this summary of available options
-    -l, --license <name>    License name
+        --check-risks          Check for licenses with multiple risk assessments
+        --check-unused         Check for unused license patterns
+        --fix-risk <risk>      Fix risk assessments for a license
+    -h, --help                 Show this summary of available options
+    -l, --license <name>       License name
+        --remove-unused <id>   Remove unused license pattern
 
 =cut
