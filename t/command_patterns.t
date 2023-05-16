@@ -181,7 +181,7 @@ subtest 'Check unused patterns' => sub {
       local *STDOUT = $handle;
       $app->start('patterns', '--remove-used', '8');
     }
-    is $buffer, '', 'pattern removed';
+    like $buffer, qr/1 packages need to be reindexed/, 'pattern removed';
     my $after = $app->minion->jobs({task => 'index'})->total;
     ok $before < $after, 'packages will be reindexed';
 

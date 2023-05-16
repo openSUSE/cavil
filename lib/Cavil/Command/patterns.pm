@@ -141,6 +141,7 @@ sub _remove_used ($self, $id) {
 
   $app->patterns->expire_cache;
   my $pkgs = $app->packages;
+  say "@{[scalar @$packages]} packages need to be reindexed";
   $pkgs->reindex($_) for @$packages;
 }
 
