@@ -111,14 +111,17 @@ sub _license_stats ($self, $license) {
 }
 
 sub _remove_unused ($self, $id) {
-  my $db = $self->app->pg->db;
-  my $tx = $db->begin;
+  my $app = $self->app;
+  my $db  = $app->pg->db;
+  my $tx  = $db->begin;
 
   my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
   die "Pattern $id is still in use and cannot be removed" unless $count == 0;
   $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
 
   $tx->commit;
+
+  $app->patterns->expire_cache;
 }
 
 sub _stats ($self) {
@@ -162,6 +165,7 @@ Cavil::Command::patterns - Cavil command to manage license patterns
         --fix-risk <risk>      Fix risk assessments for a license
     -h, --help                 Show this summary of available options
     -l, --license <name>       License name
-        --remove-unused <id>   Remove unused license pattern
+        --remove-unused <id>   Remove unused license pattern (cannot remove
+                               patterns still in use)
 
 =cut
