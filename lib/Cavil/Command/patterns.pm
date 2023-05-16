@@ -96,7 +96,7 @@ sub _check_use ($self, $unused, $license) {
     my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
 
     $pattern =~ s/[^[:print:]]+//g;
-    my $len = length $pattern;
+    my $len     = length $pattern;
     my $snippet = substr encode('UTF-8', $pattern), 0, 57;
     $snippet .= '...' . ($len - 57) if $len > 57;
     if ($unused) {
@@ -142,7 +142,7 @@ sub _remove_used ($self, $id) {
   $app->patterns->expire_cache;
   my $pkgs = $app->packages;
   say "@{[scalar @$packages]} packages need to be reindexed";
-  $pkgs->reindex($_) for @$packages;
+  $pkgs->reindex($_, 1) for @$packages;
 }
 
 sub _stats ($self) {
