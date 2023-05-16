@@ -28,10 +28,14 @@ sub run ($self, @args) {
     'check-used'      => \my $check_used,
     'fix-risk=i'      => \my $fix_risk,
     'license|l=s'     => \my $license,
-    'remove-unused=i' => \my $remove_unused;
+    'remove-unused=i' => \my $remove_unused,
+    'remove-used=i'   => \my $remove_used;
 
   # Remove unused license pattern
   return $self->_remove_unused($remove_unused) if $remove_unused;
+
+  # Remove license pattern currently in use
+  return $self->_remove_used($remove_used) if $remove_used;
 
   # Fix risk assessment for license
   return $self->_fix_risk($license, $fix_risk) if defined $fix_risk;
@@ -113,15 +117,29 @@ sub _license_stats ($self, $license) {
 sub _remove_unused ($self, $id) {
   my $app = $self->app;
   my $db  = $app->pg->db;
-  my $tx  = $db->begin;
 
+  my $tx    = $db->begin;
   my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
   die "Pattern $id is still in use and cannot be removed" unless $count == 0;
   $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
-
   $tx->commit;
 
   $app->patterns->expire_cache;
+}
+
+sub _remove_used ($self, $id) {
+  my $app = $self->app;
+  my $db  = $app->pg->db;
+
+  my $tx       = $db->begin;
+  my $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE pattern = ?', $id)
+    ->hashes->map(sub { $_->{package} })->to_array;
+  $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
+  $tx->commit;
+
+  $app->patterns->expire_cache;
+  my $pkgs = $app->packages;
+  $pkgs->reindex($_) for @$packages;
 }
 
 sub _stats ($self) {
@@ -167,5 +185,7 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     -l, --license <name>       License name
         --remove-unused <id>   Remove unused license pattern (cannot remove
                                patterns still in use)
+        --remove-used <id>     Remove license pattern despite it being
+                               currently in use
 
 =cut
