@@ -28,6 +28,7 @@ sub run ($self, @args) {
     'check-used'      => \my $check_used,
     'fix-risk=i'      => \my $fix_risk,
     'license|l=s'     => \my $license,
+    'preview|P=i'     => \(my $preview = 57),
     'remove-unused=i' => \my $remove_unused,
     'remove-used=i'   => \my $remove_used;
 
@@ -44,10 +45,10 @@ sub run ($self, @args) {
   return $self->_check_risks if $check_risks;
 
   # Check for unused patterns
-  return $self->_check_use(1, $license) if $check_unused;
+  return $self->_check_use(1, $license, $preview) if $check_unused;
 
   # Check for used patterns
-  return $self->_check_use(0, $license) if $check_used;
+  return $self->_check_use(0, $license, $preview) if $check_used;
 
   # License stats
   return $self->_license_stats($license) if $license;
@@ -83,7 +84,7 @@ sub _check_risks ($self) {
   }
 }
 
-sub _check_use ($self, $unused, $license) {
+sub _check_use ($self, $unused, $license, $preview) {
   die 'License name is required' unless defined $license;
 
   my $db      = $self->app->pg->db;
@@ -97,8 +98,8 @@ sub _check_use ($self, $unused, $license) {
 
     $pattern =~ s/[^[:print:]]+//g;
     my $len     = length $pattern;
-    my $snippet = substr encode('UTF-8', $pattern), 0, 57;
-    $snippet .= '...' . ($len - 57) if $len > 57;
+    my $snippet = substr encode('UTF-8', $pattern), 0, $preview;
+    $snippet .= '...' . ($len - $preview) if $len > $preview;
     if ($unused) {
       push @$table, [$id, $risk, $snippet] if $count == 0;
     }
@@ -190,5 +191,6 @@ Cavil::Command::patterns - Cavil command to manage license patterns
                                patterns still in use)
         --remove-used <id>     Remove license pattern despite it being
                                currently in use
+    -P, --preview <length>     Length of pattern previews, defaults to 57
 
 =cut

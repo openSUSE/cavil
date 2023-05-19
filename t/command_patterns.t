@@ -121,6 +121,16 @@ subtest 'Check unused patterns' => sub {
     like $buffer, qr/7.+8.+My.+test.+license.+8.+8.+My.+license/s, 'both patterns are unused';
   };
 
+  subtest 'Two unused patterns (short preview)' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--check-unused', '-l', 'MyTestLicense-1.0', '--preview', '5');
+    }
+    like $buffer, qr/7.+8.+My.+te\.\.\.14.+8.+8.+My.+li\.\.\.5/s, 'both patterns are unused';
+  };
+
   subtest 'One used and one unused' => sub {
     $app->pg->db->insert('matched_files',   {package => 1, filename => 'test.txt', mimetype => 'text/plain'});
     $app->pg->db->insert('pattern_matches', {file    => 1, package  => 1, pattern => 8, sline => 2, eline => 3});
