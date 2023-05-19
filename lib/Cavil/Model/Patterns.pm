@@ -55,7 +55,11 @@ sub create ($self, %args) {
   return $self->find($mid);
 }
 
-sub expire_cache ($self) { unlink path($self->cache, 'cavil.tokens')->to_string }
+sub expire_cache ($self) {
+  my $cache = path($self->cache);
+  unlink $cache->child('cavil.tokens')->to_string;
+  unlink $cache->child('cavil.pattern.bag')->to_string;
+}
 
 sub has_new_patterns ($self, $packname, $when) {
   return $self->pg->db->query(
