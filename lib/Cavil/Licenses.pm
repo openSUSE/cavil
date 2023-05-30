@@ -151,7 +151,7 @@ sub _sorted_tree ($tree) {
   return $tree;
 }
 
-sub _spdx ($name) { $ALLOWED{$name} ? $name : die "Invalid SPDX license: $name\n" }
+sub _spdx ($name) { $ALLOWED{$name} || $name =~ /^LicenseRef-/ ? $name : die "Invalid SPDX license: $name\n" }
 
 sub _tokenize ($string) {
 

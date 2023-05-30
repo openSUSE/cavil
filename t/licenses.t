@@ -53,6 +53,13 @@ is $l->to_string, 'AGPL-3.0-only', 'right string';
 is "$l",          'AGPL-3.0-only', 'right string';
 is_deeply $l->canonicalize->tree, {license => 'AGPL-3.0-only'}, 'right canonicalized structure';
 
+subtest 'LicenseRef-* (SPDX license identifier not yet part of the spec)' => sub {
+  my $l = lic('LicenseRef-NPSL-0.95');
+  ok !$l->normalized, 'not normalized';
+  is $l->error, undef, 'no error';
+  is_deeply $l->tree, {license => 'LicenseRef-NPSL-0.95'}, 'right structure';
+};
+
 # License with whitespace
 $l = lic('Academic Free License 2.1');
 ok $l->normalized, 'normalized';
