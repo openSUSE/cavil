@@ -2,8 +2,14 @@
 % title "License details of $license";
 
 <div class="form-group">
-    <label for="name">Name</label>
-    %= text_field name => $license, class => 'form-control', disabled => 'disabled'
+    <div class="form-group">
+        <label for="name">Name</label>
+        %= text_field name => $license, class => 'form-control', disabled => 'disabled'
+    </div>
+    <div class="form-group">
+        <label for="name">SPDX</label>
+       %= text_field spdx => $patterns->[0]{spdx}, class => 'form-control', disabled => 'disabled'
+    </div>
 </div>
 
 <h3>Patterns for this license
