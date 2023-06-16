@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"grub2","patent":0,"pattern":"Add missing *BSD copyright headers.\n\n\t* include\/grub\/aout.h: Add BSD licence","risk":1,"trademark":0,"unique_id":"b40662e6-3479-4a20-a167-f1724610a924"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"grub2","patent":0,"pattern":"Add missing *BSD copyright headers.\n\n\t* include\/grub\/aout.h: Add BSD licence","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"b40662e6-3479-4a20-a167-f1724610a924"}

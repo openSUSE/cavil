@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"samba","patent":0,"pattern":"usr\/bin\/perl\n# (C) 2007 Jelmer Vernooij <jelmer@samba.org>\n# Published under the GNU General Public License","risk":3,"trademark":0,"unique_id":"e78cf880-6cc0-4148-8f08-8ef1a95d00fd"}
+{"license":"GPL-Unspecified","opinion":0,"packname":"samba","patent":0,"pattern":"usr\/bin\/perl\n# (C) 2007 Jelmer Vernooij <jelmer@samba.org>\n# Published under the GNU General Public License","risk":3,"spdx":"","trademark":0,"unique_id":"e78cf880-6cc0-4148-8f08-8ef1a95d00fd"}

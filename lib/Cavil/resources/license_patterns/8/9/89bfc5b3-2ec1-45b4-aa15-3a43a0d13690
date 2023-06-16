@@ -1,1 +1,1 @@
-{"license":"Any floating warranty","opinion":0,"packname":"upx","patent":0,"pattern":"fprintf(fp, \"UPX comes with ABSOLUTELY NO WARRANTY; for details type '%s -L'.\\n\", progname","risk":1,"trademark":0,"unique_id":"89bfc5b3-2ec1-45b4-aa15-3a43a0d13690"}
+{"license":"Any floating warranty","opinion":0,"packname":"upx","patent":0,"pattern":"fprintf(fp, \"UPX comes with ABSOLUTELY NO WARRANTY; for details type '%s -L'.\\n\", progname","risk":1,"spdx":"","trademark":0,"unique_id":"89bfc5b3-2ec1-45b4-aa15-3a43a0d13690"}

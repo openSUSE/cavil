@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"super(Apache2License, self).__init__(\r\n            'LICENSE-APACHE","risk":0,"trademark":0,"unique_id":"77569c45-7b1c-4161-a14d-86c38e8ba11e"}
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"super(Apache2License, self).__init__(\r\n            'LICENSE-APACHE","risk":0,"spdx":"","trademark":0,"unique_id":"77569c45-7b1c-4161-a14d-86c38e8ba11e"}

@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"date.c, newstrftime.3, and strftime.c, which contain material derived\nfrom BSD and which use the BSD 3-clause license","risk":1,"trademark":0,"unique_id":"54f47071-d323-4fe7-adf3-36305d474716"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"date.c, newstrftime.3, and strftime.c, which contain material derived\nfrom BSD and which use the BSD 3-clause license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"54f47071-d323-4fe7-adf3-36305d474716"}

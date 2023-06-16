@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"static char copyright[] = \"@(#) Copyright (c) 1993 Regents of the University of Michigan.\\nAll rights reserved","risk":0,"trademark":0,"unique_id":"05f5d8e6-d984-4956-87b1-2510fb7d44d3"}
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"static char copyright[] = \"@(#) Copyright (c) 1993 Regents of the University of Michigan.\\nAll rights reserved","risk":0,"spdx":"","trademark":0,"unique_id":"05f5d8e6-d984-4956-87b1-2510fb7d44d3"}

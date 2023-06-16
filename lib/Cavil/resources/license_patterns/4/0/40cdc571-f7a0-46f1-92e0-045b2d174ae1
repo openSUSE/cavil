@@ -1,1 +1,1 @@
-{"license":"GPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"long-description . \"This is a demo stand-alone QEMU image of the GNU\nsystem.\")\n      (license . ,gpl3+","risk":3,"trademark":0,"unique_id":"40cdc571-f7a0-46f1-92e0-045b2d174ae1"}
+{"license":"GPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"long-description . \"This is a demo stand-alone QEMU image of the GNU\nsystem.\")\n      (license . ,gpl3+","risk":3,"spdx":"","trademark":0,"unique_id":"40cdc571-f7a0-46f1-92e0-045b2d174ae1"}

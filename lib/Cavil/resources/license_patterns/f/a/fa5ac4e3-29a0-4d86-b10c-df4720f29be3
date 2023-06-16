@@ -1,1 +1,1 @@
-{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"EXTRA_DIST = libusnic_verbs.spec.in usnic.driver KNOWN_ISSUES \\\n\tconfig\/depcomp LICENSE","risk":2,"trademark":0,"unique_id":"fa5ac4e3-29a0-4d86-b10c-df4720f29be3"}
+{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"EXTRA_DIST = libusnic_verbs.spec.in usnic.driver KNOWN_ISSUES \\\n\tconfig\/depcomp LICENSE","risk":2,"spdx":"","trademark":0,"unique_id":"fa5ac4e3-29a0-4d86-b10c-df4720f29be3"}

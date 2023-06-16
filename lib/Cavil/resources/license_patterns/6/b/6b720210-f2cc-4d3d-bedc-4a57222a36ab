@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"storage-fixup","patent":0,"pattern":"Wed May 28 09:46:03 CEST $SKIP1 - $SKIP10\n\n- new version 0.2, no longer depends on HAL, License now BSD","risk":1,"trademark":0,"unique_id":"6b720210-f2cc-4d3d-bedc-4a57222a36ab"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"storage-fixup","patent":0,"pattern":"Wed May 28 09:46:03 CEST $SKIP1 - $SKIP10\n\n- new version 0.2, no longer depends on HAL, License now BSD","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"6b720210-f2cc-4d3d-bedc-4a57222a36ab"}

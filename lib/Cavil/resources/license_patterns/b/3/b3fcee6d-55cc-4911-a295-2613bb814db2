@@ -1,1 +1,1 @@
-{"license":"any reference local","opinion":0,"packname":"xonotic","patent":0,"pattern":"try to make the vm more generic, it is mainly based on the progs.h file.\nFor the license refer to progs.h","risk":2,"trademark":0,"unique_id":"b3fcee6d-55cc-4911-a295-2613bb814db2"}
+{"license":"any reference local","opinion":0,"packname":"xonotic","patent":0,"pattern":"try to make the vm more generic, it is mainly based on the progs.h file.\nFor the license refer to progs.h","risk":2,"spdx":"","trademark":0,"unique_id":"b3fcee6d-55cc-4911-a295-2613bb814db2"}

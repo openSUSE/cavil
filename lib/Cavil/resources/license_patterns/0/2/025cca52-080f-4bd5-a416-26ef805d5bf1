@@ -1,1 +1,1 @@
-{"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"Include a copy of the GPLv3 license in the archive.\nSome parts, such as the gnulib self-tests, are licensed under the\nGPLv3","risk":3,"trademark":0,"unique_id":"025cca52-080f-4bd5-a416-26ef805d5bf1"}
+{"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"Include a copy of the GPLv3 license in the archive.\nSome parts, such as the gnulib self-tests, are licensed under the\nGPLv3","risk":3,"spdx":"","trademark":0,"unique_id":"025cca52-080f-4bd5-a416-26ef805d5bf1"}

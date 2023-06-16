@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"libqt5-creator","patent":0,"pattern":"li \\b{Open Source front-end for C++ (license MIT)}, enhanced for use\n            in \\QC.\\br","risk":1,"trademark":0,"unique_id":"2797f31c-5aad-422c-bb88-d559e4321308"}
+{"license":"MIT","opinion":0,"packname":"libqt5-creator","patent":0,"pattern":"li \\b{Open Source front-end for C++ (license MIT)}, enhanced for use\n            in \\QC.\\br","risk":1,"spdx":"MIT","trademark":0,"unique_id":"2797f31c-5aad-422c-bb88-d559e4321308"}

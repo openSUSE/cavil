@@ -1,1 +1,1 @@
-{"license":"LGPL-2.1+","opinion":0,"packname":"spice","patent":0,"pattern":"Drop spice-signed-comparison.patch and \n  0001-server-red_parse_qxl.h-License-should-be-LGPLv2-rath.patch","risk":1,"trademark":0,"unique_id":"217efc12-cd64-4a20-8399-090ec1edd7b6"}
+{"license":"LGPL-2.1+","opinion":0,"packname":"spice","patent":0,"pattern":"Drop spice-signed-comparison.patch and \n  0001-server-red_parse_qxl.h-License-should-be-LGPLv2-rath.patch","risk":1,"spdx":"","trademark":0,"unique_id":"217efc12-cd64-4a20-8399-090ec1edd7b6"}

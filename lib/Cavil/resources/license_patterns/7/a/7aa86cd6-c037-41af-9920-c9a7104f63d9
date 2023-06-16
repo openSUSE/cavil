@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"bcc","patent":0,"pattern":"char _license[4] SEC(\"license\") = \"GPL","risk":3,"trademark":0,"unique_id":"7aa86cd6-c037-41af-9920-c9a7104f63d9"}
+{"license":"GPL-Unspecified","opinion":0,"packname":"bcc","patent":0,"pattern":"char _license[4] SEC(\"license\") = \"GPL","risk":3,"spdx":"","trademark":0,"unique_id":"7aa86cd6-c037-41af-9920-c9a7104f63d9"}

@@ -1,1 +1,1 @@
-{"license":"any reference local","opinion":0,"packname":"icinga","patent":0,"pattern":"packages: fix gpl license text, wrong file encoding (Tim Hardeck) #5698 - MF","risk":2,"trademark":0,"unique_id":"84c9a599-10fe-4554-841e-4ea08102ef93"}
+{"license":"any reference local","opinion":0,"packname":"icinga","patent":0,"pattern":"packages: fix gpl license text, wrong file encoding (Tim Hardeck) #5698 - MF","risk":2,"spdx":"","trademark":0,"unique_id":"84c9a599-10fe-4554-841e-4ea08102ef93"}

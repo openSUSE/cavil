@@ -1,1 +1,1 @@
-{"license":"LGPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"module\/language\/elisp\/runtime\/value-slot.scm: Switch from GPLv2+ to\n\t  LGPLv3+; fix copyright year","risk":2,"trademark":0,"unique_id":"b4aec57c-b019-424f-9d91-18e0fdd5b727"}
+{"license":"LGPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"module\/language\/elisp\/runtime\/value-slot.scm: Switch from GPLv2+ to\n\t  LGPLv3+; fix copyright year","risk":2,"spdx":"","trademark":0,"unique_id":"b4aec57c-b019-424f-9d91-18e0fdd5b727"}

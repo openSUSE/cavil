@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"","patent":0,"pattern":"Fix SLE_11_SP2 build\n- Set license to MIT (SPDX mapping from Expat","risk":1,"trademark":0,"unique_id":"f3482d40-d064-4cef-aaf5-be7fc5da4d21"}
+{"license":"MIT","opinion":0,"packname":"","patent":0,"pattern":"Fix SLE_11_SP2 build\n- Set license to MIT (SPDX mapping from Expat","risk":1,"spdx":"MIT","trademark":0,"unique_id":"f3482d40-d064-4cef-aaf5-be7fc5da4d21"}

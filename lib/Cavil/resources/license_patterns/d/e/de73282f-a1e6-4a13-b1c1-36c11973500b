@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"mysql","patent":0,"pattern":"Any re-implementations of this protocol must also be under GPL\n  unless one has got an license from Oracle stating otherwise","risk":3,"trademark":0,"unique_id":"de73282f-a1e6-4a13-b1c1-36c11973500b"}
+{"license":"GPL-Unspecified","opinion":0,"packname":"mysql","patent":0,"pattern":"Any re-implementations of this protocol must also be under GPL\n  unless one has got an license from Oracle stating otherwise","risk":3,"spdx":"","trademark":0,"unique_id":"de73282f-a1e6-4a13-b1c1-36c11973500b"}

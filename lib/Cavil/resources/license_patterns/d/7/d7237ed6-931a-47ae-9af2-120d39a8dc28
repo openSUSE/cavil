@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"Define a copy of __asan_option_detect_stack_use_after_return that should be","risk":0,"trademark":0,"unique_id":"d7237ed6-931a-47ae-9af2-120d39a8dc28"}
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"Define a copy of __asan_option_detect_stack_use_after_return that should be","risk":0,"spdx":"","trademark":0,"unique_id":"d7237ed6-931a-47ae-9af2-120d39a8dc28"}

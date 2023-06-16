@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"mono-core","patent":0,"pattern":"monop.cs, outline.cs, monop-completion.sh: Add MIT\/X11 License","risk":1,"trademark":0,"unique_id":"97da8724-f740-4449-9892-93d9ca7af7ec"}
+{"license":"MIT","opinion":0,"packname":"mono-core","patent":0,"pattern":"monop.cs, outline.cs, monop-completion.sh: Add MIT\/X11 License","risk":1,"spdx":"MIT","trademark":0,"unique_id":"97da8724-f740-4449-9892-93d9ca7af7ec"}

@@ -1,1 +1,1 @@
-{"license":"LGPL Unspecified","opinion":0,"packname":"mc","patent":0,"pattern":"Please keep in mind that the VFS subsystem is licensed under LGPL, while\nthe rest of the code uses GPL","risk":3,"trademark":0,"unique_id":"07d13ec4-63cd-45e4-b9f3-ed304bbcb3cf"}
+{"license":"LGPL Unspecified","opinion":0,"packname":"mc","patent":0,"pattern":"Please keep in mind that the VFS subsystem is licensed under LGPL, while\nthe rest of the code uses GPL","risk":3,"spdx":"","trademark":0,"unique_id":"07d13ec4-63cd-45e4-b9f3-ed304bbcb3cf"}

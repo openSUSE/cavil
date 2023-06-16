@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"parts based on ks_2samp and kstest from scipy.stats\n(license: Scipy BSD, but were completely rewritten by Josef Perktold","risk":1,"trademark":0,"unique_id":"d5129e52-21ac-49aa-8f6f-22ed677c282a"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"parts based on ks_2samp and kstest from scipy.stats\n(license: Scipy BSD, but were completely rewritten by Josef Perktold","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"d5129e52-21ac-49aa-8f6f-22ed677c282a"}

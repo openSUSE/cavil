@@ -1,1 +1,1 @@
-{"license":"any reference local","opinion":0,"packname":"postfix","patent":0,"pattern":"b>LICENSE<\/b>\n       The Secure Mailer license must be  distributed  with  this\n       software","risk":2,"trademark":0,"unique_id":"c67fe7b2-3731-48e5-a1a3-04ad82a1d2ea"}
+{"license":"any reference local","opinion":0,"packname":"postfix","patent":0,"pattern":"b>LICENSE<\/b>\n       The Secure Mailer license must be  distributed  with  this\n       software","risk":2,"spdx":"","trademark":0,"unique_id":"c67fe7b2-3731-48e5-a1a3-04ad82a1d2ea"}

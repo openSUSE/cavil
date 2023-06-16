@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"redis","patent":0,"pattern":"Hiredis was written by $SKIP10 and\nPieter Noordhuis (pcnoordhuis at gmail) and is released under the BSD license","risk":1,"trademark":0,"unique_id":"f9fc8cfa-d508-4df5-8ab7-3831f37e2894"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"redis","patent":0,"pattern":"Hiredis was written by $SKIP10 and\nPieter Noordhuis (pcnoordhuis at gmail) and is released under the BSD license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"f9fc8cfa-d508-4df5-8ab7-3831f37e2894"}

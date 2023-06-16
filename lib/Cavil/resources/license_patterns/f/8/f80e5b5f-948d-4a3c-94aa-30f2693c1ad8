@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"slf4j","patent":0,"pattern":"href=\"#license\">Why is SLF4J licensed under X11 type\n      license instead of the Apache Software License","risk":1,"trademark":0,"unique_id":"f80e5b5f-948d-4a3c-94aa-30f2693c1ad8"}
+{"license":"MIT","opinion":0,"packname":"slf4j","patent":0,"pattern":"href=\"#license\">Why is SLF4J licensed under X11 type\n      license instead of the Apache Software License","risk":1,"spdx":"MIT","trademark":0,"unique_id":"f80e5b5f-948d-4a3c-94aa-30f2693c1ad8"}

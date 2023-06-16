@@ -1,1 +1,1 @@
-{"license":"Artistic-1.0-Perl OR GPL-1.0+","opinion":0,"packname":"","patent":0,"pattern":"$ExtUtils::MakeMaker::VERSION gt '6.30') ?\n        (LICENSE => 'perl","risk":2,"trademark":0,"unique_id":"9bb73678-8aa1-4e07-8e02-4a0d2b826f3c"}
+{"license":"Artistic-1.0-Perl OR GPL-1.0+","opinion":0,"packname":"","patent":0,"pattern":"$ExtUtils::MakeMaker::VERSION gt '6.30') ?\n        (LICENSE => 'perl","risk":2,"spdx":"","trademark":0,"unique_id":"9bb73678-8aa1-4e07-8e02-4a0d2b826f3c"}

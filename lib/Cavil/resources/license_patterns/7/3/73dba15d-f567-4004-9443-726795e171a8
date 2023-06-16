@@ -1,1 +1,1 @@
-{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"ext\/readline\/extconf.rb: Remove Readline 6 check because\n\t  Ruby's license is now GPLv3 compatible. [ruby-core:28736","risk":2,"trademark":0,"unique_id":"73dba15d-f567-4004-9443-726795e171a8"}
+{"license":"any reference local","opinion":0,"packname":"","patent":0,"pattern":"ext\/readline\/extconf.rb: Remove Readline 6 check because\n\t  Ruby's license is now GPLv3 compatible. [ruby-core:28736","risk":2,"spdx":"","trademark":0,"unique_id":"73dba15d-f567-4004-9443-726795e171a8"}

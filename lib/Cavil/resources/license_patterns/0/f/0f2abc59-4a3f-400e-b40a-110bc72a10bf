@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"all: License cleanup. All 4-clause advertising BSD licenses has been\n\tchanged to the 3-clause version by upstream","risk":1,"trademark":0,"unique_id":"0f2abc59-4a3f-400e-b40a-110bc72a10bf"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"all: License cleanup. All 4-clause advertising BSD licenses has been\n\tchanged to the 3-clause version by upstream","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"0f2abc59-4a3f-400e-b40a-110bc72a10bf"}

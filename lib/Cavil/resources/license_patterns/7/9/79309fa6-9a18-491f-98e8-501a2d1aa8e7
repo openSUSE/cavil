@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"rubygem-puma","patent":0,"pattern":"s.homepage = \"http:\/\/puma.io\"\n  s.license = \"BSD-3-Clause\"\n  s.rdoc_options = [\"--main\", \"README.md","risk":1,"trademark":0,"unique_id":"79309fa6-9a18-491f-98e8-501a2d1aa8e7"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"rubygem-puma","patent":0,"pattern":"s.homepage = \"http:\/\/puma.io\"\n  s.license = \"BSD-3-Clause\"\n  s.rdoc_options = [\"--main\", \"README.md","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"79309fa6-9a18-491f-98e8-501a2d1aa8e7"}

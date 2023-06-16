@@ -1,1 +1,1 @@
-{"license":"ISC","opinion":0,"packname":"","patent":0,"pattern":"spec.extensions.concat This.extension_conf_files\n  spec.license = \"ISC\"\nend","risk":1,"trademark":0,"unique_id":"5237328d-0596-4a96-8da3-d2379dc94865"}
+{"license":"ISC","opinion":0,"packname":"","patent":0,"pattern":"spec.extensions.concat This.extension_conf_files\n  spec.license = \"ISC\"\nend","risk":1,"spdx":"ISC","trademark":0,"unique_id":"5237328d-0596-4a96-8da3-d2379dc94865"}

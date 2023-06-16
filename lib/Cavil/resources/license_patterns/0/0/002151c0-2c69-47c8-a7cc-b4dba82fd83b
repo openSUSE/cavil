@@ -1,1 +1,1 @@
-{"license":"BSD-2-Clause","opinion":0,"packname":"","patent":0,"pattern":"Fix [ 3364658 ] (Change last file with Apache license to BSD-2-Clause)\n    and [ 3395920 ] (correct copyright info for rst.el","risk":1,"trademark":0,"unique_id":"002151c0-2c69-47c8-a7cc-b4dba82fd83b"}
+{"license":"BSD-2-Clause","opinion":0,"packname":"","patent":0,"pattern":"Fix [ 3364658 ] (Change last file with Apache license to BSD-2-Clause)\n    and [ 3395920 ] (correct copyright info for rst.el","risk":1,"spdx":"BSD-2-Clause","trademark":0,"unique_id":"002151c0-2c69-47c8-a7cc-b4dba82fd83b"}

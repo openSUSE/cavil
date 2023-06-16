@@ -1,1 +1,1 @@
-{"license":"All Rights Reserved","opinion":0,"packname":"","patent":0,"pattern":"ctypes includes libffi, which is copyright Red Hat, Inc.  Complete\n    license see below","risk":2,"trademark":0,"unique_id":"d4bed0cc-106c-4d89-969c-1e514fd505a5"}
+{"license":"All Rights Reserved","opinion":0,"packname":"","patent":0,"pattern":"ctypes includes libffi, which is copyright Red Hat, Inc.  Complete\n    license see below","risk":2,"spdx":"","trademark":0,"unique_id":"d4bed0cc-106c-4d89-969c-1e514fd505a5"}

@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"\t\tRpcRequest.__init__(self, 'Trademark', $SKIP10 'trademark')\r\n\r\n","risk":0,"trademark":0,"unique_id":"e233d128-1c68-4be9-9dcb-835880b32be0"}
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"\t\tRpcRequest.__init__(self, 'Trademark', $SKIP10 'trademark')\r\n\r\n","risk":0,"spdx":"","trademark":0,"unique_id":"e233d128-1c68-4be9-9dcb-835880b32be0"}

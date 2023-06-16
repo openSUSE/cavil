@@ -1,1 +1,1 @@
-{"license":"LGPL-2.1+","opinion":0,"packname":"libosinfo","patent":0,"pattern":"Add LGPLv2+ header to all source files\n\t* osinfo\/*.h, osinfo\/*.c: Add license header text\n\t* COPYING.LIB: LGPLv2+ license","risk":1,"trademark":0,"unique_id":"23ca718c-65ab-41c0-9b7b-872156a8c46d"}
+{"license":"LGPL-2.1+","opinion":0,"packname":"libosinfo","patent":0,"pattern":"Add LGPLv2+ header to all source files\n\t* osinfo\/*.h, osinfo\/*.c: Add license header text\n\t* COPYING.LIB: LGPLv2+ license","risk":1,"spdx":"","trademark":0,"unique_id":"23ca718c-65ab-41c0-9b7b-872156a8c46d"}

@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"rsyslog","patent":0,"pattern":"File begun on 2007-08-06 by $SKIP10 (extracted from syslogd.c, which\n * was under BSD license at the time of rsyslog fork","risk":1,"trademark":0,"unique_id":"4a7e098d-fe4c-4af9-a2d3-01bc04596d06"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"rsyslog","patent":0,"pattern":"File begun on 2007-08-06 by $SKIP10 (extracted from syslogd.c, which\n * was under BSD license at the time of rsyslog fork","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"4a7e098d-fe4c-4af9-a2d3-01bc04596d06"}

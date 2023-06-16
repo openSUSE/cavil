@@ -1,1 +1,1 @@
-{"license":"ISC","opinion":0,"packname":"lv2","patent":0,"pattern":"rdfs:label \"Switch to the ISC license, a simple BSD-style license (with permission of all contributors to lv2.h and its ancestor, ladspa.h","risk":1,"trademark":0,"unique_id":"5df3095c-f969-4909-9c69-3f22ca1f1205"}
+{"license":"ISC","opinion":0,"packname":"lv2","patent":0,"pattern":"rdfs:label \"Switch to the ISC license, a simple BSD-style license (with permission of all contributors to lv2.h and its ancestor, ladspa.h","risk":1,"spdx":"ISC","trademark":0,"unique_id":"5df3095c-f969-4909-9c69-3f22ca1f1205"}

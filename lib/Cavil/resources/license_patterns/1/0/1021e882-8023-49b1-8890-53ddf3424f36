@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"The RSA_null_method(), which was a partial attempt to avoid patent issues,\r\nwas replaced to always return NULL in OpenSSL 1.1.1","risk":0,"trademark":0,"unique_id":"1021e882-8023-49b1-8890-53ddf3424f36"}
+{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"The RSA_null_method(), which was a partial attempt to avoid patent issues,\r\nwas replaced to always return NULL in OpenSSL 1.1.1","risk":0,"spdx":"","trademark":0,"unique_id":"1021e882-8023-49b1-8890-53ddf3424f36"}

@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"mono-core","patent":0,"pattern":"winconfig.h: Don't use MONO_XEN_OPT on windows.\n\tContributed under MIT\/X11 license","risk":1,"trademark":0,"unique_id":"8f0ee8ab-612b-462e-bbbd-0044d37c49d6"}
+{"license":"MIT","opinion":0,"packname":"mono-core","patent":0,"pattern":"winconfig.h: Don't use MONO_XEN_OPT on windows.\n\tContributed under MIT\/X11 license","risk":1,"spdx":"MIT","trademark":0,"unique_id":"8f0ee8ab-612b-462e-bbbd-0044d37c49d6"}

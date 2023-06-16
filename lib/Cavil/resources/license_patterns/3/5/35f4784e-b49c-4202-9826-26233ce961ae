@@ -1,1 +1,1 @@
-{"license":"BSL-1.0","opinion":0,"packname":"","patent":0,"pattern":"include\/tr1\/memory: Forward to...\n\t* include\/tr1\/boost_shared_ptr.h: ...here. Add Boost Software License","risk":1,"trademark":0,"unique_id":"35f4784e-b49c-4202-9826-26233ce961ae"}
+{"license":"BSL-1.0","opinion":0,"packname":"","patent":0,"pattern":"include\/tr1\/memory: Forward to...\n\t* include\/tr1\/boost_shared_ptr.h: ...here. Add Boost Software License","risk":1,"spdx":"BSL-1.0","trademark":0,"unique_id":"35f4784e-b49c-4202-9826-26233ce961ae"}

@@ -1,1 +1,1 @@
-{"license":"LGPL-2.1+","opinion":0,"packname":"gpgme","patent":0,"pattern":"gpg\/t-verify.c, Makefile.am, t-data.c, t-engine-info.c,\n\tt-version.c: Change license to LGPL","risk":1,"trademark":0,"unique_id":"00bc7ca9-8274-4128-a9b7-0b8874ab3d88"}
+{"license":"LGPL-2.1+","opinion":0,"packname":"gpgme","patent":0,"pattern":"gpg\/t-verify.c, Makefile.am, t-data.c, t-engine-info.c,\n\tt-version.c: Change license to LGPL","risk":1,"spdx":"","trademark":0,"unique_id":"00bc7ca9-8274-4128-a9b7-0b8874ab3d88"}

@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"python3-pytest","patent":0,"pattern":"_license:\n\nLicense\n-------\n\nDistributed under the terms of the `MIT`_ license, pytest is free and open source software","risk":1,"trademark":0,"unique_id":"8c1643a0-7df5-4fb2-ab1c-53f5c0dd00bb"}
+{"license":"MIT","opinion":0,"packname":"python3-pytest","patent":0,"pattern":"_license:\n\nLicense\n-------\n\nDistributed under the terms of the `MIT`_ license, pytest is free and open source software","risk":1,"spdx":"MIT","trademark":0,"unique_id":"8c1643a0-7df5-4fb2-ab1c-53f5c0dd00bb"}

@@ -1,1 +1,1 @@
-{"license":"Any floating warranty","opinion":0,"packname":"gdb","patent":0,"pattern":"There is absolutely no warranty for @value{GDBN}; type \"show warranty\"\n for details","risk":1,"trademark":0,"unique_id":"3582bc38-5e45-464a-8be0-dc75df63ccd2"}
+{"license":"Any floating warranty","opinion":0,"packname":"gdb","patent":0,"pattern":"There is absolutely no warranty for @value{GDBN}; type \"show warranty\"\n for details","risk":1,"spdx":"","trademark":0,"unique_id":"3582bc38-5e45-464a-8be0-dc75df63ccd2"}

@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"","patent":0,"pattern":"Fix inconsistent licence notices: executables are GPLv2; libraries LGPLv2.1","risk":2,"trademark":0,"unique_id":"ee85ee77-ad51-45e3-a7fd-3832073d7ce8"}
+{"license":"GPL-2.0","opinion":0,"packname":"","patent":0,"pattern":"Fix inconsistent licence notices: executables are GPLv2; libraries LGPLv2.1","risk":2,"spdx":"","trademark":0,"unique_id":"ee85ee77-ad51-45e3-a7fd-3832073d7ce8"}

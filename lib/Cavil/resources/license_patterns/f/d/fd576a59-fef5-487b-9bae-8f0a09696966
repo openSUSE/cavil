@@ -1,1 +1,1 @@
-{"license":"CPL-0.5","opinion":0,"packname":"powerpc-utils","patent":0,"pattern":"Release:\t%{release}\nLicense:\tIBM Common Public License (CPL","risk":4,"trademark":0,"unique_id":"fd576a59-fef5-487b-9bae-8f0a09696966"}
+{"license":"CPL-0.5","opinion":0,"packname":"powerpc-utils","patent":0,"pattern":"Release:\t%{release}\nLicense:\tIBM Common Public License (CPL","risk":4,"spdx":"","trademark":0,"unique_id":"fd576a59-fef5-487b-9bae-8f0a09696966"}

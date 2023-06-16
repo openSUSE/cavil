@@ -1,1 +1,1 @@
-{"license":"CPL-1.0","opinion":0,"packname":"librtas","patent":0,"pattern":"Makefile for libofdt\n#\n# Copyright (C) 2005 IBM Corporation\n# Common Public License Version 1.0 (see COPYRIGHT","risk":4,"trademark":0,"unique_id":"dbabe2f0-8cd5-4801-bf19-77e7ada30402"}
+{"license":"CPL-1.0","opinion":0,"packname":"librtas","patent":0,"pattern":"Makefile for libofdt\n#\n# Copyright (C) 2005 IBM Corporation\n# Common Public License Version 1.0 (see COPYRIGHT","risk":4,"spdx":"CPL-1.0","trademark":0,"unique_id":"dbabe2f0-8cd5-4801-bf19-77e7ada30402"}

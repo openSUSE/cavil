@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"in this file is based on arc4random from\n * openssh-4.0p1\/openbsd-compat\/bsd-arc4random.c\n * That code is also BSD licensed","risk":1,"trademark":0,"unique_id":"628ce8dc-d0fd-453e-9744-5bfa3fee8015"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"in this file is based on arc4random from\n * openssh-4.0p1\/openbsd-compat\/bsd-arc4random.c\n * That code is also BSD licensed","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"628ce8dc-d0fd-453e-9744-5bfa3fee8015"}

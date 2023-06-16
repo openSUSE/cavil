@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"runhaskell Tests.hs\n\nThe code is under the BSD3 license","risk":1,"trademark":0,"unique_id":"8d65490b-261d-4773-9a39-64c3559215e4"}
+{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"runhaskell Tests.hs\n\nThe code is under the BSD3 license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"8d65490b-261d-4773-9a39-64c3559215e4"}
