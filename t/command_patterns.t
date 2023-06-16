@@ -206,4 +206,21 @@ subtest 'Check unused patterns' => sub {
   };
 };
 
+subtest 'Inherit SPDX expressions from license name' => sub {
+  my $before = $app->pg->db->query('SELECT * FROM license_patterns WHERE id = 1')->hash;
+
+  my $buffer = '';
+  {
+    open my $handle, '>', \$buffer;
+    local *STDOUT = $handle;
+    $app->start('patterns', '--inherit-spdx');
+  }
+  like $buffer, qr/Apache-2\.0: 2 patterns updated/,   'Apache-2.0 patterns updated';
+  like $buffer, qr/Artistic-2\.0: 1 patterns updated/, 'Artistic-2.0 patterns updated';
+
+  my $after = $app->pg->db->query('SELECT * FROM license_patterns WHERE id = 1')->hash;
+  is $before->{spdx}, '',           'no SPDX expression';
+  is $after->{spdx},  'Apache-2.0', 'correct SPDX expression';
+};
+
 done_testing();

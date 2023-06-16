@@ -16,7 +16,8 @@
 package Cavil::Command::patterns;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
-use Mojo::Util qw(encode getopt tablify);
+use Cavil::Licenses qw(lic);
+use Mojo::Util      qw(encode getopt tablify);
 
 has description => 'License pattern management';
 has usage       => sub ($self) { $self->extract_usage };
@@ -27,6 +28,7 @@ sub run ($self, @args) {
     'check-unused'    => \my $check_unused,
     'check-used'      => \my $check_used,
     'fix-risk=i'      => \my $fix_risk,
+    'inherit-spdx'    => \my $inherit_spdx,
     'license|l=s'     => \my $license,
     'preview|P=i'     => \(my $preview = 57),
     'remove-unused=i' => \my $remove_unused,
@@ -40,6 +42,9 @@ sub run ($self, @args) {
 
   # Fix risk assessment for license
   return $self->_fix_risk($license, $fix_risk) if defined $fix_risk;
+
+  # Check license names for valid SPDX expressions
+  return $self->_inherit_spdx if $inherit_spdx;
 
   # Check for licenses with multiple risk assessments
   return $self->_check_risks if $check_risks;
@@ -55,12 +60,6 @@ sub run ($self, @args) {
 
   # Stats
   return $self->_stats;
-}
-
-sub _fix_risk ($self, $license, $risk) {
-  die 'License name is required' unless defined $license;
-  my $rows = $self->app->pg->db->query('UPDATE license_patterns SET risk = ? WHERE license = ?', $risk, $license)->rows;
-  say "$rows patterns fixed";
 }
 
 sub _check_risks ($self) {
@@ -109,6 +108,27 @@ sub _check_use ($self, $unused, $license, $preview) {
   }
 
   print tablify $table;
+}
+
+sub _fix_risk ($self, $license, $risk) {
+  die 'License name is required' unless defined $license;
+  my $rows = $self->app->pg->db->query('UPDATE license_patterns SET risk = ? WHERE license = ?', $risk, $license)->rows;
+  say "$rows patterns fixed";
+}
+
+sub _inherit_spdx ($self) {
+  my $db = $self->app->pg->db;
+  my $tx = $db->begin;
+
+  for my $license ($db->query('SELECT DISTINCT(license) AS name FROM license_patterns')->hashes->each) {
+    next unless my $name = $license->{name};
+    my $lic = lic($name);
+    next unless $lic->is_valid_expression;
+    my $rows = $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $name)->rows;
+    say "$name: $rows patterns updated";
+  }
+
+  $tx->commit;
 }
 
 sub _license_stats ($self, $license) {
@@ -186,6 +206,8 @@ Cavil::Command::patterns - Cavil command to manage license patterns
         --check-used           Check for license patterns currently in use
         --fix-risk <risk>      Fix risk assessments for a license
     -h, --help                 Show this summary of available options
+        --inherit-spdx         Reuse the license name for all licenses that are
+                               already valid SPDX expressions
     -l, --license <name>       License name
         --remove-unused <id>   Remove unused license pattern (cannot remove
                                patterns still in use)

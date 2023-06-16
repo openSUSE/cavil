@@ -274,3 +274,7 @@ drop table if exists licenses;
 ALTER TABLE bot_package_products DROP CONSTRAINT bot_package_products_product_fkey;
 ALTER TABLE bot_package_products ADD CONSTRAINT  bot_package_products_product_fkey FOREIGN KEY (product)
   REFERENCES bot_products(id) ON DELETE CASCADE;
+
+-- 14 up
+ALTER TABLE license_patterns ADD COLUMN spdx TEXT NOT NULL DEFAULT '';
+CREATE INDEX ON license_patterns(spdx);

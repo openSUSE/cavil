@@ -57,6 +57,10 @@ sub example ($self) {
   return _example(_sorted_tree($self->{tree}));
 }
 
+sub is_valid_expression ($self) {
+  return !($self->error || $self->normalized);
+}
+
 sub is_part_of ($first, $second) { _walk($first->tree, $second->tree) }
 
 sub is_similar_to ($first, $second) {

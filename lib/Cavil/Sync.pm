@@ -63,14 +63,14 @@ sub store ($self, $dir) {
   my $db = $self->app->pg->db;
   die "License pattern directory $dir not found" unless -d ($dir = path($dir));
 
-  my $count    = $db->query('select count(*) from license_patterns')->array->[0];
+  my $count    = $db->query('SELECT COUNT(*) FROM license_patterns')->array->[0];
   my $progress = Term::ProgressBar->new(
     {count => $count, name => "Exporting $count patterns", term_width => 80, silent => $self->silent});
 
   my $last  = my $all = 0;
   my $stats = {};
   while (1) {
-    my $results = $db->query('select * from license_patterns where id > ? order by id asc limit 100', $last);
+    my $results = $db->query('SELECT * FROM license_patterns WHERE id > ? ORDER BY id ASC LIMIT 100', $last);
     last unless $results->rows;
 
     for my $hash ($results->hashes->each) {
@@ -87,6 +87,7 @@ sub store ($self, $dir) {
         encode_json(
           {
             license   => $hash->{license},
+            spdx      => $hash->{spdx},
             opinion   => $hash->{opinion},
             packname  => $hash->{packname},
             patent    => $hash->{patent},
