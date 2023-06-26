@@ -169,6 +169,22 @@ sub update_pattern ($self) {
   $self->redirect_to('edit_pattern', id => $id);
 }
 
+sub update_patterns ($self) {
+  my $validation = $self->validation;
+  $validation->required('license');
+  $validation->optional('spdx');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $license = $validation->param('license');
+  my $spdx    = $validation->param('spdx') // '';
+
+  my $rows = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $spdx, $license)->rows;
+
+  $self->flash(success => "$rows patterns have been updated.");
+
+  $self->redirect_to('license_show', name => $license);
+}
+
 sub _edit_pattern ($self, $match) {
   $self->render(template => 'license/edit_pattern', match => $match);
 }

@@ -2,14 +2,29 @@
 % title "License details of $license";
 
 <div class="form-group">
+  % if (current_user_has_role 'admin') {
+    %= form_for 'update_patterns' => begin
+      <div class="form-group">
+          <label for="license">Name</label>
+          %= text_field license => $license, class => 'form-control', readonly => 'readonly'
+      </div>
+      <div class="form-group">
+          <label for="name">SPDX</label>
+         %= text_field spdx => $patterns->[0]{spdx}, class => 'form-control'
+      </div>
+      %= submit_button 'Update', class => 'btn btn-secondary'
+    % end
+  % }
+  % else {
     <div class="form-group">
-        <label for="name">Name</label>
-        %= text_field name => $license, class => 'form-control', disabled => 'disabled'
+        <label for="license">Name</label>
+        %= text_field license => $license, class => 'form-control', disabled => 'disabled'
     </div>
     <div class="form-group">
         <label for="name">SPDX</label>
        %= text_field spdx => $patterns->[0]{spdx}, class => 'form-control', disabled => 'disabled'
     </div>
+  % }
 </div>
 
 <h3>Patterns for this license

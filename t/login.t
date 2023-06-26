@@ -45,6 +45,7 @@ subtest 'Not authenticated' => sub {
   $t->get_ok('/licenses/Apache-2.0')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/edit_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_pattern/1')->status_is(403)->content_like(qr/Permission/);
+  $t->post_ok('/licenses/update_patterns')->status_is(403)->content_like(qr/Permission/);
   $t->delete_ok('/licenses/remove_pattern/1')->status_is(403)->content_like(qr/Permission/);
 };
 

@@ -220,6 +220,7 @@ sub startup ($self) {
 
   $admin->get('/licenses/edit_pattern/<id:num>')->to('License#edit_pattern')->name('edit_pattern');
   $admin->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
+  $admin->post('/licenses/update_patterns')->to('License#update_patterns')->name('update_patterns');
   $admin->delete('/licenses/remove_pattern/<id:num>')->to('License#remove_pattern')->name('remove_pattern');
   $admin->get('/licenses/*name')->to('License#show')->name('license_show');
 
@@ -266,7 +267,7 @@ Code:
 Sebastian Riedel, C<sriedel@suse.de>
 
 Stephan Kulow, C<coolo@suse.de>
-
+ 
 =back
 
 License patterns:
