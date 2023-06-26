@@ -165,6 +165,7 @@ sub update ($self, $id, %args) {
       token_hexsum => $checksum,
       packname     => $args{packname} // '',
       license      => $args{license},
+      spdx         => $args{spdx},
       patent       => $args{patent}    // 0,
       trademark    => $args{trademark} // 0,
       opinion      => $args{opinion}   // 0,

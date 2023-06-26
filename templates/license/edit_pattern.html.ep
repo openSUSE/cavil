@@ -20,8 +20,12 @@
 
 %= form_for $url => (method => 'POST') => begin
   <div class="form-group">
-    <label for="pattern">License</label>
+    <label for="license">License</label>
     %= text_field license => $match->{license}, class => 'form-control'
+  </div>
+  <div class="form-group">
+    <label for="spdx">SPDX</label>
+    %= text_field spdx => $match->{spdx}, class => 'form-control'
   </div>
   <div class="form-group">
     <label for="pattern">Pattern</label>
