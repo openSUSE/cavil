@@ -151,6 +151,12 @@ subtest 'Pattern change' => sub {
   $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('li div a[href=/licenses/edit_pattern/1]')
     ->text_is('li pre' => 'real-time web framework')
     ->text_like('.alert-success' => qr/Pattern has been updated, reindexing all affected packages/);
+
+  $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2'})->status_is(302)
+    ->header_is(Location => '/licenses/Apache-2.0');
+  $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('li div a[href=/licenses/edit_pattern/1]')
+    ->text_is('li pre' => 'real-time web framework')->text_like('.alert-danger' => qr/not a valid SPDX expression/);
+
   $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})->status_is(302)
     ->header_is(Location => '/licenses/Apache-2.0');
   $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('li div a[href=/licenses/edit_pattern/1]')

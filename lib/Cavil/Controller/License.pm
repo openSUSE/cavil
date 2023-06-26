@@ -17,6 +17,7 @@ package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Algorithm::Diff 'sdiff';
+use Cavil::Licenses qw(lic);
 
 sub create_pattern ($self) {
   my $validation = $self->validation;
@@ -176,11 +177,17 @@ sub update_patterns ($self) {
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $license = $validation->param('license');
-  my $spdx    = $validation->param('spdx') // '';
 
-  my $rows = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $spdx, $license)->rows;
+  my $spdx = $validation->param('spdx') // '';
+  if ($spdx eq '' || lic($spdx)->is_valid_expression) {
+    my $rows = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $spdx, $license)->rows;
+    $self->flash(success => "$rows patterns have been updated.");
+  }
+  else {
+    $self->flash(danger =>
+        qq{"$spdx" is not a valid SPDX expression. Use a "LicenseRef-*" prefix for licenses not yet part of the spec.});
+  }
 
-  $self->flash(success => "$rows patterns have been updated.");
 
   $self->redirect_to('license_show', name => $license);
 }
