@@ -32,7 +32,7 @@
     %= text_field license => $best->{license}, class => 'form-control'
   </div>
 
-  <div class="row form-inline">
+  <div class="form-group form-inline">
     <div class="form-group col-sm-3">
         <label for="risk" class="mr-2">Risk</label>
         % my @risks;
@@ -47,15 +47,16 @@
         <label>
           <%= check_box patent => 1,
             $best->{patent} ? (checked => undef) : () %>
-          Patent
+          &nbsp;Patent
         </label>
       </div>
     </div>
+
     <div class="col-sm-3">
       <div class="checkbox-inline">
         <label>
           <%= check_box trademark => 1,
-            $best->{trademark} ? (checked => undef) : () %> Trademark
+            $best->{trademark} ? (checked => undef) : () %>&nbsp;Trademark
         </label>
       </div>
     </div>
@@ -63,15 +64,15 @@
       <div class="checkbox-inline">
         <label>
           <%= check_box opinion => 1,
-            $best->{opinion} ? (checked => undef) : () %> Opinion
+            $best->{opinion} ? (checked => undef) : () %>&nbsp;Opinion
         </label>
       </div>
     </div>
   </div>
 
-  <div>
-    <button name="create-pattern" type="submit" value="1" class="btn btn-primary">Create Pattern</button>
-    <button name="mark-non-license" type="submit" value="1" class="btn btn-danger">Mark as Non-License</button>
+  <div class="form-group form-inline">
+    <button name="create-pattern" type="submit" value="1" class="btn btn-primary mb-2">Create Pattern</button>&nbsp;
+    <button name="mark-non-license" type="submit" value="1" class="btn btn-danger mb-2">Mark as Non-License</button>
   </div>
 
 %end

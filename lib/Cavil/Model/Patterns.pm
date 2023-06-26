@@ -32,6 +32,13 @@ sub create ($self, %args) {
     return {conflict => $id->{id}};
   }
 
+  # Get SPDX expression for already known licenses
+  my $spdx = '';
+  if (my $license = $args{license}) {
+    my $pattern = $self->pg->db->query('SELECT spdx FROM license_patterns WHERE license = ? LIMIT 1', $license)->hash;
+    $spdx = $pattern->{spdx} if $pattern;
+  }
+
   my $mid = $db->insert(
     'license_patterns',
     {
@@ -42,7 +49,8 @@ sub create ($self, %args) {
       trademark    => $args{trademark} // 0,
       opinion      => $args{opinion}   // 0,
       license      => $args{license}   // '',
-      risk         => $args{risk}      // 5
+      spdx         => $spdx,
+      risk         => $args{risk} // 5
     },
     {returning => 'id'}
   )->hash->{id};
@@ -165,7 +173,6 @@ sub update ($self, $id, %args) {
       token_hexsum => $checksum,
       packname     => $args{packname} // '',
       license      => $args{license},
-      spdx         => $args{spdx},
       patent       => $args{patent}    // 0,
       trademark    => $args{trademark} // 0,
       opinion      => $args{opinion}   // 0,

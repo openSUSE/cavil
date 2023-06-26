@@ -133,7 +133,6 @@ sub update_pattern ($self) {
   my $validation = $self->validation;
   $validation->required('pattern');
   $validation->optional('license');
-  $validation->optional('spdx');
   $validation->optional('packname');
   $validation->optional('risk')->num;
   $validation->optional('patent');
@@ -152,7 +151,6 @@ sub update_pattern ($self) {
     packname  => $validation->param('packname'),
     pattern   => $pattern,
     license   => $validation->param('license'),
-    spdx      => $validation->param('spdx'),
     patent    => $validation->param('patent'),
     trademark => $validation->param('trademark'),
     opinion   => $validation->param('opinion'),
