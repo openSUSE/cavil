@@ -314,7 +314,8 @@ sub _dig_report {
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
     next if $pattern->{license} eq '';
 
-    $report->{licenses}{$pattern->{license}} ||= {name => $pattern->{license}, risk => $pattern->{risk}};
+    $report->{licenses}{$pattern->{license}}
+      ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
     $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_} for qw(patent trademark opinion);
 
     my $rl = $report->{risks}{$pattern->{risk}};
