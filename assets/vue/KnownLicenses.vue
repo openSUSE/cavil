@@ -31,7 +31,8 @@
           <table class="table table-striped table-bordered">
             <thead>
               <tr>
-                <th class="link">License</th>
+                <th class="link" style="width: 50%">License</th>
+                <th>SPDX</th>
               </tr>
             </thead>
             <tbody v-if="licenses === null">
@@ -42,6 +43,7 @@
             <tbody v-else-if="licenses.length > 0">
               <tr v-for="license in licenses" :key="license.link">
                 <td v-html="license.link"></td>
+                <td v-html="license.spdx"></td>
               </tr>
             </tbody>
             <tbody v-else>
@@ -116,7 +118,8 @@ export default {
       const licenses = [];
       for (const license of data.page) {
         licenses.push({
-          link: licenseLink(license)
+          link: licenseLink(license),
+          spdx: license.spdx
         });
       }
       this.licenses = licenses;

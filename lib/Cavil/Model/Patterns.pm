@@ -140,9 +140,9 @@ sub paginate_known_licenses ($self, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT license, COUNT(*) OVER() AS total
+      SELECT license, spdx, COUNT(*) OVER() AS total
       FROM (
-        SELECT DISTINCT(license) FROM license_patterns
+        SELECT DISTINCT(license), spdx FROM license_patterns
         $search
       ) AS licenses
       ORDER BY license
