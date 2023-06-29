@@ -305,7 +305,7 @@ sub reindex_matched_packages ($self, $pid, $priority = 0) {
 }
 
 sub requests_for ($self, $id) {
-  return $self->pg->db->query('SELECT external_link FROM bot_requests WHERE package = ?', $id)
+  return $self->pg->db->query('SELECT external_link FROM bot_requests WHERE package = ? ORDER BY id DESC', $id)
     ->arrays->flatten->to_array;
 }
 
