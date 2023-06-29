@@ -37,6 +37,7 @@ my (%ALLOWED, %CHANGES);
     my ($target, $source) = split "\t", $line;
     $CHANGES{$source} = $target;
     $ALLOWED{$target}++;
+    $ALLOWED{"$target+"}++;
   }
 }
 
@@ -155,7 +156,11 @@ sub _sorted_tree ($tree) {
   return $tree;
 }
 
-sub _spdx ($name) { $ALLOWED{$name} || $name =~ /^LicenseRef-/ ? $name : die "Invalid SPDX license: $name\n" }
+sub _spdx ($name) {
+  return $name if $ALLOWED{$name};
+  return $name if $name =~ /^LicenseRef-/;
+  die "Invalid SPDX license: $name\n";
+}
 
 sub _tokenize ($string) {
 

@@ -72,6 +72,18 @@ ok $l->normalized, 'normalized';
 is $l->error, undef, 'no error';
 is_deeply $l->tree, {license => 'AGPL-3.0-or-later'}, 'right structure';
 
+subtest 'Valid license expression with "+"' => sub {
+  my $l = lic('CDDL-1.0+');
+  ok !$l->normalized, 'not normalized';
+  is $l->error, undef, 'no error';
+  is_deeply $l->tree, {license => 'CDDL-1.0+'}, 'right structure';
+
+  my $l = lic('MIT OR CDDL-1.0+');
+  ok !$l->normalized, 'not normalized';
+  is $l->error, undef, 'no error';
+  is_deeply $l->tree, {left => {license => 'MIT'}, op => 'or', right => {license => 'CDDL-1.0+'}}, 'right structure';
+};
+
 # Useless operator
 $l = lic('AGPL-3.0-only and');
 ok !$l->normalized, 'not normalized';
