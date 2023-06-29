@@ -61,16 +61,6 @@
       </tr>
     % }
 
-    % if (@$requests) {
-      <tr>
-        <th class="fit text-left noleftpad" scope="row">
-          <i class="fas fa-link"></i>
-        </th>
-        <th class="fit text-left noleftpad" scope="row">Requests:</th>
-        <td><%== join(', ', map { format_link($_) } @$requests) %></td>
-      </tr>
-    % }
-
     % if (my $link = $package->{external_link}) {
       <tr>
         <th class="fit text-left noleftpad" scope="row">
@@ -78,6 +68,16 @@
         </th>
         <th class="fit text-left noleftpad" scope="row">External Link:</th>
         <td><%= format_link($package->{external_link}) %></td>
+      </tr>
+    % }
+
+    % if (@$requests) {
+      <tr>
+        <th class="fit text-left noleftpad" scope="row">
+          <i class="fas fa-link"></i>
+        </th>
+        <th class="fit text-left noleftpad" scope="row">Requests:</th>
+        <td><%== join(', ', map { format_link($_) } @$requests) %></td>
       </tr>
     % }
 
