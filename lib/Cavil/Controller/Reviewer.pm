@@ -61,6 +61,7 @@ sub details ($self) {
   my $should_reindex = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
 
   my $products = $self->products->for_package($id);
+  my $requests = $pkgs->requests_for($id);
   my $history  = $pkgs->history($pkg->{name}, $pkg->{checksum}, $id);
   my $actions  = $pkgs->actions($pkg->{external_link}, $id);
 
@@ -68,6 +69,7 @@ sub details ($self) {
     spec           => $report,
     package        => $pkg,
     products       => $products,
+    requests       => $requests,
     history        => $history,
     actions        => $actions,
     should_reindex => $should_reindex

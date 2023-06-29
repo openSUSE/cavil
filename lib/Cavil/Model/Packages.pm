@@ -304,6 +304,11 @@ sub reindex_matched_packages ($self, $pid, $priority = 0) {
   }
 }
 
+sub requests_for ($self, $id) {
+  return $self->pg->db->query('SELECT external_link FROM bot_requests WHERE package = ?', $id)
+    ->arrays->flatten->to_array;
+}
+
 sub states ($self, $name) {
   return $self->pg->db->query(
     'select checkout_dir as checkout, state from bot_packages
