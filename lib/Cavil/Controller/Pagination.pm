@@ -100,13 +100,16 @@ sub review_search ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('search');
+  $v->optional('notObsolete');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit  = $v->param('limit')  // 10;
-  my $offset = $v->param('offset') // 0;
-  my $search = $v->param('search') // '';
+  my $limit        = $v->param('limit')       // 10;
+  my $offset       = $v->param('offset')      // 0;
+  my $not_obsolete = $v->param('notObsolete') // 'false';
+  my $search       = $v->param('search')      // '';
 
   my $name = $self->stash('name');
-  my $page = $self->packages->paginate_review_search($name, {limit => $limit, offset => $offset, search => $search});
+  my $page = $self->packages->paginate_review_search($name,
+    {limit => $limit, offset => $offset, not_obsolete => $not_obsolete, search => $search});
   $self->render(json => $page);
 }
 

@@ -230,6 +230,11 @@ sub paginate_review_search ($self, $name, $options) {
                  )};
   }
 
+  my $obsolete = '';
+  if ($options->{not_obsolete} eq 'true') {
+    $obsolete = 'AND (obsolete IS FALSE)';
+  }
+
   my $results = $db->query(
     qq{
       SELECT p.id AS id, state, checksum, p.result AS comment, EXTRACT(EPOCH FROM p.created) AS created_epoch,
@@ -237,7 +242,7 @@ sub paginate_review_search ($self, $name, $options) {
         EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
         u.login AS login, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
-      WHERE name = ? $search
+      WHERE name = ? $search $obsolete
       ORDER BY id DESC
       LIMIT ? OFFSET ?
     }, $name, $options->{limit}, $options->{offset}
