@@ -1,6 +1,6 @@
 % if (%{$report->{risks}}) {
 
-  <canvas id="license-chart" width="100%" height="18em"></canvas>
+  <canvas id="license-chart" width="100%" height="18em"></canvas><br>
 
   % my %linked_files;
   % if (@{$report->{missed_files}}) {
