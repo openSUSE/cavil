@@ -28,8 +28,10 @@ has [qw(error exception normalized tree)];
 
 our @EXPORT_OK = ('lic');
 
-# List from https://github.com/openSUSE/obs-service-format_spec_file
-my (%ALLOWED, %CHANGES);
+# License list from https://github.com/openSUSE/obs-service-format_spec_file
+# Exception list created with:
+# $ mojo get https://spdx.org/licenses/exceptions-index.html 'td[typeof=spdx:LicenseException] > code' text
+my (%ALLOWED, %CHANGES, %EXCEPTIONS);
 {
   my @lines = split "\n", path(__FILE__)->dirname->child('resources', 'license_changes.txt')->slurp;
   shift @lines;
@@ -37,7 +39,11 @@ my (%ALLOWED, %CHANGES);
     my ($target, $source) = split "\t", $line;
     $CHANGES{$source} = $target;
     $ALLOWED{$target}++;
-    $ALLOWED{"$target+"}++;
+  }
+
+  my @exceptions = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
+  for my $exception (@exceptions) {
+    $EXCEPTIONS{$exception}++;
   }
 }
 
@@ -82,7 +88,7 @@ sub parse ($self, $string) {
   my $before = $string;
   $string                        =~ s/$TOKEN_RE/$CHANGES{$1}/xgo;
   $string                        =~ s/\s*;\s*/ and /g;
-  $self->exception(1) if $string =~ s/\s+with\s+[^\s)]+/ /ig;
+  $self->exception(1) if $string =~ /\s+with\s/i;
 
   # Tokenize and parse expression
   my $tree = eval { _parse(_tokenize($string)) };
@@ -156,10 +162,23 @@ sub _sorted_tree ($tree) {
   return $tree;
 }
 
-sub _spdx ($name) {
-  return $name if $ALLOWED{$name};
-  return $name if $name =~ /^LicenseRef-/;
-  die "Invalid SPDX license: $name\n";
+sub _spdx ($expression) {
+  die "Invalid SPDX license expression: $expression\n"
+    unless $expression =~ /^([a-z0-9\-.]+)(\+?)(?:\s+with\s+([a-z0-9\-.]+))?$/i;
+  my ($license, $plus, $exception) = ($1, $2, $3);
+  return "$license$plus"                 if _spdx_license($license) && !(defined $exception);
+  return "$license$plus WITH $exception" if _spdx_exception($exception);
+}
+
+sub _spdx_exception ($exception) {
+  return 1 if $EXCEPTIONS{$exception};
+  die "Invalid SPDX license exception: $exception\n";
+}
+
+sub _spdx_license ($license) {
+  return 1 if $ALLOWED{$license};
+  return 1 if $license =~ /^LicenseRef-/;
+  die "Invalid SPDX license: $license\n";
 }
 
 sub _tokenize ($string) {
@@ -201,7 +220,7 @@ sub _tree_to_string ($tree) {
     $ls = _wrap_mixed($tree->{left}, $tree->{op}, $ls);
     my $rs = _tree_to_string($tree->{right});
     $rs = _wrap_mixed($tree->{right}, $tree->{op}, $rs);
-    return sprintf("$ls %s $rs", $tree->{op});
+    return sprintf("$ls %s $rs", uc($tree->{op}));
   }
 
   return $tree->{license};

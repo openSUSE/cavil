@@ -123,9 +123,9 @@ sub _inherit_spdx ($self) {
   for my $license ($db->query('SELECT DISTINCT(license) AS name FROM license_patterns')->hashes->each) {
     next unless my $name = $license->{name};
     my $lic = lic($name);
-    next unless $lic->is_valid_expression;
-    my $rows = $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $name)->rows;
-    say "$name: $rows patterns updated";
+    next if $lic->error;
+    my $rows = $db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $lic->to_string, $name)->rows;
+    say "$name -> $lic: $rows patterns updated";
   }
 
   $tx->commit;

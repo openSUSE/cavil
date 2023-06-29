@@ -78,11 +78,11 @@
     }
   ],
   "warnings" => [
-    "Main license had to be normalized: GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1 -> GPL-3.0-only or SUSE-LGPL-2.1-with-digia-exception-1.1",
-    "License from libqt4-devel-doc.spec had to be normalized: SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0 -> SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0-only",
-    "License from libqt4-sql-plugins.spec had to be normalized: SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0 -> SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0-only",
-    "License from libqt4.spec had to be normalized: GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1 -> GPL-3.0-only or SUSE-LGPL-2.1-with-digia-exception-1.1",
-    "License from libqt4.spec had to be normalized: BSD-3-Clause and LGPL-2.0+ -> BSD-3-Clause and LGPL-2.0-or-later",
+    "Main license had to be normalized: GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1 -> GPL-3.0-only OR SUSE-LGPL-2.1-with-digia-exception-1.1",
+    "License from libqt4-devel-doc.spec had to be normalized: SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0 -> SUSE-LGPL-2.1-with-digia-exception-1.1 OR GPL-3.0-only",
+    "License from libqt4-sql-plugins.spec had to be normalized: SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0 -> SUSE-LGPL-2.1-with-digia-exception-1.1 OR GPL-3.0-only",
+    "License from libqt4.spec had to be normalized: GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1 -> GPL-3.0-only OR SUSE-LGPL-2.1-with-digia-exception-1.1",
+    "License from libqt4.spec had to be normalized: BSD-3-Clause and LGPL-2.0+ -> BSD-3-Clause AND LGPL-2.0-or-later",
     "License from libqt4.spec is not part of main license: BSD-3-Clause and LGPL-2.0+",
     "License from libqt4.spec had to be normalized: LGPL-2.0+ -> LGPL-2.0-or-later",
     "License from libqt4.spec is not part of main license: LGPL-2.0+"

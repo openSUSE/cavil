@@ -42,8 +42,8 @@
     }
   ],
   "warnings" => [
-    "Main license had to be normalized: LGPL-2.1 and MIT and MS-PL -> LGPL-2.1-only and MIT and MS-PL",
-    "License from mono-core.spec had to be normalized: LGPL-2.1 and MIT and MS-PL -> LGPL-2.1-only and MIT and MS-PL",
+    "Main license had to be normalized: LGPL-2.1 and MIT and MS-PL -> LGPL-2.1-only AND MIT AND MS-PL",
+    "License from mono-core.spec had to be normalized: LGPL-2.1 and MIT and MS-PL -> LGPL-2.1-only AND MIT AND MS-PL",
     "License from mono-core.spec had to be normalized: LGPL-2.1 -> LGPL-2.1-only",
     "License from mono-core.spec is not part of main license: Apache-2.0"
   ]

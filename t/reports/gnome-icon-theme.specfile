@@ -1,5 +1,5 @@
 {
-  "errors" => ["Invalid SPDX license: LGPL-3.0-or-later | CC-BY-SA-3.0"],
+  "errors" => ["Invalid SPDX license expression: LGPL-3.0-or-later | CC-BY-SA-3.0"],
   "main"   => {
     "%doc"     => ["AUTHORS COPYING COPYING_LGPL COPYING_CCBYSA3"],
     "%license" => [],

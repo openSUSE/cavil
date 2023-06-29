@@ -26,8 +26,8 @@
     }
   ],
   "warnings" => [
-    "Main license had to be normalized: LGPL-2.1+ and GPL-2.0+ -> LGPL-2.1-or-later and GPL-2.0-or-later",
-    "License from kmod.spec had to be normalized: LGPL-2.1+ and GPL-2.0+ -> LGPL-2.1-or-later and GPL-2.0-or-later",
+    "Main license had to be normalized: LGPL-2.1+ and GPL-2.0+ -> LGPL-2.1-or-later AND GPL-2.0-or-later",
+    "License from kmod.spec had to be normalized: LGPL-2.1+ and GPL-2.0+ -> LGPL-2.1-or-later AND GPL-2.0-or-later",
     "License from kmod.spec had to be normalized: GPL-2.0+ -> GPL-2.0-or-later",
     "License from kmod.spec had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later"
   ]

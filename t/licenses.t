@@ -78,7 +78,7 @@ subtest 'Valid license expression with "+"' => sub {
   is $l->error, undef, 'no error';
   is_deeply $l->tree, {license => 'CDDL-1.0+'}, 'right structure';
 
-  my $l = lic('MIT OR CDDL-1.0+');
+  $l = lic('MIT or CDDL-1.0+');
   ok !$l->normalized, 'not normalized';
   is $l->error, undef, 'no error';
   is_deeply $l->tree, {left => {license => 'MIT'}, op => 'or', right => {license => 'CDDL-1.0+'}}, 'right structure';
@@ -92,10 +92,16 @@ is_deeply $l->tree, {license => 'AGPL-3.0-only'}, 'right structure';
 
 # License exception
 $l = lic('LGPL-2.1-or-later WITH WxWindows-exception-3.1');
-ok $l->normalized, 'normalized';
-ok $l->exception,  'exception';
+ok !$l->normalized, 'not normalized';
+ok $l->exception,   'exception';
 is $l->error, undef, 'no error';
-is_deeply $l->tree, {license => 'LGPL-2.1-or-later'}, 'right structure';
+is_deeply $l->tree, {license => 'LGPL-2.1-or-later WITH WxWindows-exception-3.1'}, 'right structure';
+
+# Invalid license exception
+$l = lic('MIT OR LGPL-2.1-or-later WITH some-unknown-exception OR Artistic-2.0+');
+ok !$l->normalized, 'not normalized';
+ok $l->exception,   'exception';
+is $l->error, 'Invalid SPDX license exception: some-unknown-exception', 'error';
 
 # SUSE license with exception in name
 $l = lic('GPL-3.0-with-Qt-Company-Qt-exception-1.1');
@@ -105,7 +111,7 @@ is $l->error, undef, 'no error';
 is_deeply $l->tree, {license => 'GPL-3.0-with-Qt-Company-Qt-exception-1.1'}, 'right structure';
 
 # Multiple licenses
-$l = lic('AGPL-3.0-only and Ruby and Artistic-1.0');
+$l = lic('AGPL-3.0-only AND Ruby AND Artistic-1.0');
 ok !$l->normalized, 'not normalized';
 is $l->error, undef, 'no error';
 my $ast = {
@@ -114,17 +120,17 @@ my $ast = {
   right => {left => {license => 'Ruby'}, op => 'and', right => {license => 'Artistic-1.0'}}
 };
 is_deeply $l->tree, $ast, 'right structure';
-is "$l", 'AGPL-3.0-only and Ruby and Artistic-1.0', 'right string';
-is_deeply $l->canonicalize->to_string, 'AGPL-3.0-only and Artistic-1.0 and Ruby', 'right canonicalized string';
+is "$l", 'AGPL-3.0-only AND Ruby AND Artistic-1.0', 'right string';
+is_deeply $l->canonicalize->to_string, 'AGPL-3.0-only AND Artistic-1.0 AND Ruby', 'right canonicalized string';
 
 $l = lic('AGPL-3.0-only; Ruby;Artistic-1.0');
 ok $l->normalized, 'normalized';
 is $l->error, undef, 'no error';
 is_deeply $l->tree, $ast, 'right structure';
-is $l->to_string, 'AGPL-3.0-only and Ruby and Artistic-1.0', 'right string';
+is $l->to_string, 'AGPL-3.0-only AND Ruby AND Artistic-1.0', 'right string';
 
 # Parentheses
-$l = lic('(LGPL-2.1-only or LGPL-3.0-only) and (GPL-3.0-or-later or GPL-2.0-only)');
+$l = lic('(LGPL-2.1-only OR LGPL-3.0-only) AND (GPL-3.0-or-later OR GPL-2.0-only)');
 ok !$l->normalized, 'not normalized';
 ok !$l->exception,  'no exception';
 is $l->error, undef, 'no error';
@@ -134,31 +140,42 @@ $ast = {
   right => {left => {license => 'GPL-3.0-or-later'}, op => 'or', right => {license => 'GPL-2.0-only'}}
 };
 is_deeply $l->tree, $ast, 'right structure';
-is $l->to_string, '(LGPL-2.1-only or LGPL-3.0-only) and (GPL-3.0-or-later or GPL-2.0-only)', 'right string';
-is $l->canonicalize->to_string, '(GPL-2.0-only or GPL-3.0-or-later) and (LGPL-2.1-only or LGPL-3.0-only)',
+is $l->to_string, '(LGPL-2.1-only OR LGPL-3.0-only) AND (GPL-3.0-or-later OR GPL-2.0-only)', 'right string';
+is $l->canonicalize->to_string, '(GPL-2.0-only OR GPL-3.0-or-later) AND (LGPL-2.1-only OR LGPL-3.0-only)',
   'right canonicalized string';
 
 # Parentheses and license exceptions
 $l
   = lic('(LGPL-2.1 WITH i2p-gpl-java-exception '
-    . 'or LGPL-3.0-only With Autoconf-exception-2.0) '
+    . 'or LGPL-3.0-only WITH Autoconf-exception-2.0) '
     . 'and (GPL-3.0-or-later with freertos-exception-2.0 '
-    . 'or GPL-2.0-only with Linux-syscall-note )');
+    . 'or GPL-2.0-only With Linux-syscall-note )');
 ok $l->normalized, 'normalized';
 ok $l->exception,  'exception';
 is $l->error, undef, 'no error';
 $ast = {
-  left  => {left => {license => 'LGPL-2.1-only'}, op => 'or', right => {license => 'LGPL-3.0-only'}},
+  left => {
+    left  => {license => 'LGPL-2.1-only WITH i2p-gpl-java-exception'},
+    op    => 'or',
+    right => {license => 'LGPL-3.0-only WITH Autoconf-exception-2.0'}
+  },
   op    => 'and',
-  right => {left => {license => 'GPL-3.0-or-later'}, op => 'or', right => {license => 'GPL-2.0-only'}}
+  right => {
+    left  => {license => 'GPL-3.0-or-later WITH freertos-exception-2.0'},
+    op    => 'or',
+    right => {license => 'GPL-2.0-only WITH Linux-syscall-note'}
+  }
 };
 is_deeply $l->tree, $ast, 'right structure';
-is $l->to_string, '(LGPL-2.1-only or LGPL-3.0-only) and (GPL-3.0-or-later or GPL-2.0-only)', 'right string';
-is $l->canonicalize->to_string, '(GPL-2.0-only or GPL-3.0-or-later) and (LGPL-2.1-only or LGPL-3.0-only)',
+is $l->to_string, '(LGPL-2.1-only WITH i2p-gpl-java-exception OR LGPL-3.0-only WITH Autoconf-exception-2.0)'
+  . ' AND (GPL-3.0-or-later WITH freertos-exception-2.0 OR GPL-2.0-only WITH Linux-syscall-note)', 'right string';
+is $l->canonicalize->to_string,
+  '(GPL-2.0-only WITH Linux-syscall-note OR GPL-3.0-or-later WITH freertos-exception-2.0)'
+  . ' AND (LGPL-2.1-only WITH i2p-gpl-java-exception OR LGPL-3.0-only WITH Autoconf-exception-2.0)',
   'right canonicalized string';
 
 # Nested parentheses, operators and normalized licenses
-$l = lic('(Ruby and (GPL-1.0+ or (Artistic-1.0 and ASL 1.1)) and AGPL-3.0)');
+$l = lic('(Ruby AND (GPL-1.0+ OR (Artistic-1.0 AND ASL 1.1)) AND AGPL-3.0)');
 ok $l->normalized, 'normalized';
 is $l->error, undef, 'no error';
 $ast = {
@@ -175,12 +192,12 @@ $ast = {
   }
 };
 is_deeply $l->tree, $ast, 'right structure';
-is $l->to_string, 'Ruby and (GPL-1.0-or-later or (Artistic-1.0 and Apache-1.1))' . ' and AGPL-3.0-only', 'right string';
-is $l->canonicalize->to_string, '((Apache-1.1 and Artistic-1.0) or GPL-1.0-or-later)' . ' and AGPL-3.0-only and Ruby',
+is $l->to_string, 'Ruby AND (GPL-1.0-or-later OR (Artistic-1.0 AND Apache-1.1))' . ' AND AGPL-3.0-only', 'right string';
+is $l->canonicalize->to_string, '((Apache-1.1 AND Artistic-1.0) OR GPL-1.0-or-later)' . ' AND AGPL-3.0-only AND Ruby',
   'right canonicalized string';
 
 # Operator precedence
-$l->parse('Ruby and GPL-1.0-or-later or Artistic-1.0 and AGPL-3.0-only');
+$l->parse('Ruby AND GPL-1.0-or-later OR Artistic-1.0 AND AGPL-3.0-only');
 ok !$l->normalized, 'not normalized';
 is $l->error, undef, 'no error';
 $ast = {
@@ -189,8 +206,8 @@ $ast = {
   right => {left => {license => 'Artistic-1.0'}, op => 'and', right => {license => 'AGPL-3.0-only'}}
 };
 is_deeply $l->tree, $ast, 'right structure';
-is $l->to_string, '(Ruby and GPL-1.0-or-later) or (Artistic-1.0 and AGPL-3.0-only)', 'right string';
-is $l->canonicalize->to_string, '(AGPL-3.0-only and Artistic-1.0) or (GPL-1.0-or-later and Ruby)',
+is $l->to_string, '(Ruby AND GPL-1.0-or-later) OR (Artistic-1.0 AND AGPL-3.0-only)', 'right string';
+is $l->canonicalize->to_string, '(AGPL-3.0-only AND Artistic-1.0) OR (GPL-1.0-or-later AND Ruby)',
   'right canonicalized string';
 
 # Partial match
@@ -210,14 +227,14 @@ is "$l", 'Apache-2.0+', 'right string';
 is_deeply $l->canonicalize->to_string, 'Apache-2.0+', 'right canonicalized string';
 
 # Bad parentheses
-$l = lic('(LGPL-2.1-only or LGPL-3.0-only and (GPL-2.0-only or GPL-3.0-only');
+$l = lic('(LGPL-2.1-only OR LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only');
 ok !$l->normalized, 'not normalized';
-is $l->error, 'Invalid license expression: (LGPL-2.1-only or LGPL-3.0-only' . ' and (GPL-2.0-only or GPL-3.0-only',
+is $l->error, 'Invalid license expression: (LGPL-2.1-only OR LGPL-3.0-only' . ' AND (GPL-2.0-only OR GPL-3.0-only',
   'right error';
 is_deeply $l->tree, undef, 'no structure';
-$l = lic('(LGPL-2.1-only or LGPL-3.0-only and (GPL-2.0-only or GPL-3.0-only)');
+$l = lic('(LGPL-2.1-only OR LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only)');
 ok !$l->normalized, 'not normalized';
-is $l->error, 'Invalid license expression: (LGPL-2.1-only or LGPL-3.0-only' . ' and (GPL-2.0-only or GPL-3.0-only)',
+is $l->error, 'Invalid license expression: (LGPL-2.1-only OR LGPL-3.0-only' . ' AND (GPL-2.0-only OR GPL-3.0-only)',
   'right error';
 is_deeply $l->tree, undef, 'no structure';
 
@@ -226,41 +243,41 @@ $l = lic('SomeLicense-1.0');
 ok !$l->normalized, 'not normalized';
 is $l->error, 'Invalid SPDX license: SomeLicense-1.0', 'right error';
 is_deeply $l->tree, undef, 'no structure';
-$l = lic('Apache-2.0 and MPLv2.0');
+$l = lic('Apache-2.0 AND MPLv2.0');
 ok !$l->normalized, 'not normalized';
 is $l->error, 'Invalid SPDX license: MPLv2.0', 'right error';
 is_deeply $l->tree, undef, 'no structure';
 
 # Macro
-$l = lic('%{license_apache2} and %{license_mit}');
+$l = lic('%{license_apache2} AND %{license_mit}');
 ok !$l->normalized, 'not normalized';
-is $l->error, 'Invalid license expression: %{license_apache2} and %{license_mit}', 'right error';
+is $l->error, 'Invalid license expression: %{license_apache2} AND %{license_mit}', 'right error';
 is_deeply $l->tree, undef, 'no structure';
 
 # Part of
-is_part_of 'Apache-1.0 and Apache-2.0',            'Apache-1.0';
-is_part_of 'Apache-1.0 and Apache-2.0',            'Apache-2.0';
-is_part_of 'Apache-1.0 and Apache-2.0',            'Apache-2.0 and Apache-1.0';
-is_part_of 'Apache-1.0 or Apache-2.0',             'Apache-1.0 or Apache-2.0';
-is_part_of 'Apache-1.0 or Apache-2.0 and GPL-1.0', 'Apache-1.0 or Apache-2.0';
-is_part_of 'Apache-1.0 or Apache-2.0 and Ruby',    'Apache-1.0 or Apache-2.0 and Ruby';
+is_part_of 'Apache-1.0 AND Apache-2.0',            'Apache-1.0';
+is_part_of 'Apache-1.0 AND Apache-2.0',            'Apache-2.0';
+is_part_of 'Apache-1.0 AND Apache-2.0',            'Apache-2.0 AND Apache-1.0';
+is_part_of 'Apache-1.0 OR Apache-2.0',             'Apache-1.0 OR Apache-2.0';
+is_part_of 'Apache-1.0 OR Apache-2.0 AND GPL-1.0', 'Apache-1.0 OR Apache-2.0';
+is_part_of 'Apache-1.0 OR Apache-2.0 AND Ruby',    'Apache-1.0 OR Apache-2.0 AND Ruby';
 
 # Not part of
 isnt_part_of 'Apache-1.0', 'Apache-2.0';
 isnt_part_of 'Apache-1.0', 'Ruby';
-isnt_part_of 'Apache-1.0', 'Apache-1.0 and Apache-2.0';
+isnt_part_of 'Apache-1.0', 'Apache-1.0 AND Apache-2.0';
 
 # Similar licenses
 is_similar_to 'Apache-1.0', 'Apache-1.0';
 isnt_similar_to 'Apache-1.0', 'Apache-2.0';
-isnt_similar_to 'Apache-1.0', 'Apache-1.0 and Apache-2.0';
-is_similar_to 'Apache-1.0 and Apache-2.0',                      'Apache-1.0 and Apache-2.0';
-is_similar_to 'Apache-2.0 and Apache-1.0',                      'Apache-1.0 and Apache-2.0';
-is_similar_to 'Ruby and GPL-1.0+ or Artistic-1.0 and AGPL-3.0', ' (AGPL-3.0 and Artistic-1.0) or (Ruby and GPL-1.0+)';
+isnt_similar_to 'Apache-1.0', 'Apache-1.0 AND Apache-2.0';
+is_similar_to 'Apache-1.0 AND Apache-2.0',                      'Apache-1.0 AND Apache-2.0';
+is_similar_to 'Apache-2.0 AND Apache-1.0',                      'Apache-1.0 AND Apache-2.0';
+is_similar_to 'Ruby AND GPL-1.0+ OR Artistic-1.0 and AGPL-3.0', ' (AGPL-3.0 and Artistic-1.0) OR (Ruby AND GPL-1.0+)';
 
 is_example 'MIT',                            'MIT';
-is_example 'GPL-1.0+ or Artistic-1.0',       'Artistic-1.0';
-is_example 'Artistic-1.0 and GPL-1.0+',      'Artistic-1.0';
-is_example '(LGPL-2.1+ or MPL-1.1) and MIT', 'LGPL-2.1-or-later';
+is_example 'GPL-1.0+ OR Artistic-1.0',       'Artistic-1.0';
+is_example 'Artistic-1.0 AND GPL-1.0+',      'Artistic-1.0';
+is_example '(LGPL-2.1+ OR MPL-1.1) AND MIT', 'LGPL-2.1-or-later';
 
 done_testing;

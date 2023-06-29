@@ -90,9 +90,9 @@
   "warnings" => [
     "Main license had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later",
     "License from gtk-vnc.spec had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later",
-    "License from gtk-vnc.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only and LGPL-2.1-or-later",
+    "License from gtk-vnc.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only AND LGPL-2.1-or-later",
     "License from gtk-vnc.spec is not part of main license: LGPL-2.1 and LGPL-2.1+",
-    "License from gtk-vnc2.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only and LGPL-2.1-or-later",
+    "License from gtk-vnc2.spec had to be normalized: LGPL-2.1 and LGPL-2.1+ -> LGPL-2.1-only AND LGPL-2.1-or-later",
     "License from gtk-vnc2.spec is not part of main license: LGPL-2.1 and LGPL-2.1+",
     "License from gtk-vnc2.spec had to be normalized: LGPL-2.1+ -> LGPL-2.1-or-later"
   ]

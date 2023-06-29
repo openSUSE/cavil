@@ -49,12 +49,12 @@
   ],
   "warnings" => [
     "Main license has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
-    "Main license had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later",
+    "Main license had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later WITH WxWindows-exception-3.1",
     "License from wxGTK-3_2.spec has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
-    "License from wxGTK-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later",
+    "License from wxGTK-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later WITH WxWindows-exception-3.1",
     "License from wxQT-3_2.spec has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
-    "License from wxQT-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later",
+    "License from wxQT-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later WITH WxWindows-exception-3.1",
     "License from wxWidgets-3_2.spec has license exception: LGPL-2.1+ WITH WxWindows-exception-3.1",
-    "License from wxWidgets-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later"
+    "License from wxWidgets-3_2.spec had to be normalized: LGPL-2.1+ WITH WxWindows-exception-3.1 -> LGPL-2.1-or-later WITH WxWindows-exception-3.1"
   ]
 }
