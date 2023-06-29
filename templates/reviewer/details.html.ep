@@ -67,7 +67,7 @@
           <i class="fas fa-link"></i>
         </th>
         <th class="fit text-left noleftpad" scope="row">Requests:</th>
-        <td><%= join(', ', map { format_link($_) } @$requests) %></td>
+        <td><%== join(', ', map { format_link($_) } @$requests) %></td>
       </tr>
     % }
 
