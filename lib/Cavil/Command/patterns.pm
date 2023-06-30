@@ -25,6 +25,7 @@ has usage       => sub ($self) { $self->extract_usage };
 sub run ($self, @args) {
   getopt \@args,
     'check-risks'     => \my $check_risks,
+    'check-spdx'      => \my $check_spdx,
     'check-unused'    => \my $check_unused,
     'check-used'      => \my $check_used,
     'fix-risk=i'      => \my $fix_risk,
@@ -48,6 +49,9 @@ sub run ($self, @args) {
 
   # Check for licenses with multiple risk assessments
   return $self->_check_risks if $check_risks;
+
+  # Check for licenses patterns with inconsistent SPDX expressions
+  return $self->_check_spdx if $check_spdx;
 
   # Check for unused patterns
   return $self->_check_use(1, $license, $preview) if $check_unused;
@@ -74,6 +78,27 @@ sub _check_risks ($self) {
     }
     else {
       $licenses->{$license} = [$risk];
+    }
+  }
+
+  for my $license (sort keys %$licenses) {
+    next if @{$licenses->{$license}} == 1;
+    say "$license: @{[join(', ', @{$licenses->{$license}})]}";
+  }
+}
+
+sub _check_spdx ($self) {
+  my $results = $self->app->pg->db->query('SELECT license, spdx FROM license_patterns GROUP BY (license, spdx)');
+
+  my $licenses = {};
+  for my $hash ($results->hashes->each) {
+    my $license = $hash->{license};
+    my $spdx    = $hash->{spdx};
+    if (exists $licenses->{$license}) {
+      push @{$licenses->{$license}}, $spdx;
+    }
+    else {
+      $licenses->{$license} = [$spdx];
     }
   }
 
@@ -202,6 +227,8 @@ Cavil::Command::patterns - Cavil command to manage license patterns
 
   Options:
         --check-risks          Check for licenses with multiple risk assessments
+        --check-spdx           Check for licenses patterns with inconsistent
+                               SPDX expressions
         --check-unused         Check for unused license patterns
         --check-used           Check for license patterns currently in use
         --fix-risk <risk>      Fix risk assessments for a license

@@ -223,4 +223,29 @@ subtest 'Inherit SPDX expressions from license name' => sub {
   is $after->{spdx},  'Apache-2.0', 'correct SPDX expression';
 };
 
+subtest 'Check SPDX' => sub {
+  subtest 'Consistent SPDX expressions' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--check-spdx');
+    }
+    is $buffer, '', 'no noteworthy risk assessments';
+  };
+
+  subtest 'License with multiple SPDX expressions' => sub {
+    is $app->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE id = 1', 'LicenseRef-Apache-2.0')->rows, 1,
+      'one row updated';
+
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--check-spdx');
+    }
+    like $buffer, qr/Apache-2.0: Apache-2.0, LicenseRef-Apache-2.0/, 'multiple SPDX expressions detected';
+  };
+};
+
 done_testing();
