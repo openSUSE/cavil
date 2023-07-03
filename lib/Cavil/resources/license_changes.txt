@@ -32,6 +32,7 @@ APSL-1.1	APSL-1.1
 APSL-1.2	APSL-1.2
 APSL-2.0	APSL-2.0
 ASWF-Digital-Assets-1.0	ASWF-Digital-Assets-1.0
+ASWF-Digital-Assets-1.1	ASWF-Digital-Assets-1.1
 Abstyles	Abstyles
 AdaCore-doc	AdaCore-doc
 Adobe-2006	Adobe-2006
@@ -130,6 +131,7 @@ Bitstream-Charter	Bitstream-Charter
 Bitstream-Vera	Bitstream-Vera
 Bitstream-Vera	SUSE-Bitstream-Vera
 BlueOak-1.0.0	BlueOak-1.0.0
+Boehm-GC	Boehm-GC
 Borceux	Borceux
 Brian-Gladman-3-Clause	Brian-Gladman-3-Clause
 C-UDA-1.0	C-UDA-1.0
@@ -405,6 +407,7 @@ ISC	ISC License
 ImageMagick	ImageMagick
 Imlib2	Imlib2
 Info-ZIP	Info-ZIP
+Inner-Net-2.0	Inner-Net-2.0
 Intel	Intel
 Intel-ACPI	Intel-ACPI
 Interbase-1.0	Interbase-1.0
@@ -485,8 +488,10 @@ LiLiQ-R-1.1	LiLiQ-R-1.1
 LiLiQ-Rplus-1.1	LiLiQ-Rplus-1.1
 Libpng	Libpng
 Linux-OpenIB	Linux-OpenIB
+Linux-man-pages-1-para	Linux-man-pages-1-para
 Linux-man-pages-copyleft	Linux-man-pages-copyleft
-Linux-man-pages-one-para	Linux-man-pages-one-para
+Linux-man-pages-copyleft-2-para	Linux-man-pages-copyleft-2-para
+Linux-man-pages-copyleft-var	Linux-man-pages-copyleft-var
 MIT	Expat
 MIT	Expat License
 MIT	MIT
@@ -606,6 +611,7 @@ OML	OML
 OML	SUSE-OML
 OPL-1.0	OPL-1.0
 OPL-1.0	Open Public License 1.0
+OPL-UK-3.0	OPL-UK-3.0
 OPUBL-1.0	OPUBL-1.0
 OSET-PL-2.1	OSET-PL-2.1
 OSL-1.0	OSL-1.0
@@ -912,9 +918,9 @@ bzip2-1.0.6	bzip2-1.0.6
 checkmk	checkmk
 copyleft-next-0.3.0	copyleft-next-0.3.0
 copyleft-next-0.3.1	copyleft-next-0.3.1
-cryptsetup-OpenSSL-exception	cryptsetup-OpenSSL-exception
 curl	curl
 diffmark	diffmark
+dtoa	dtoa
 dvipdfm	dvipdfm
 eGenix	eGenix
 etalab-2.0	etalab-2.0
@@ -922,7 +928,6 @@ gSOAP-1.3b	gSOAP-1.3b
 gnuplot	gnuplot
 iMatix	iMatix
 libpng-2.0	libpng-2.0
-libpri-OpenH323-exception	libpri-OpenH323-exception
 libselinux-1.0	libselinux-1.0
 libtiff	libtiff
 libutil-David-Nugent	libutil-David-Nugent

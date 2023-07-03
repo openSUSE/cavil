@@ -28,9 +28,7 @@ has [qw(error exception normalized tree)];
 
 our @EXPORT_OK = ('lic');
 
-# License list from https://github.com/openSUSE/obs-service-format_spec_file
-# Exception list created with:
-# $ mojo get https://spdx.org/licenses/exceptions-index.html 'td[typeof=spdx:LicenseException] > code' text
+# License and exception lists from https://github.com/openSUSE/obs-service-format_spec_file
 my (%ALLOWED, %CHANGES, %EXCEPTIONS);
 {
   my @lines = split "\n", path(__FILE__)->dirname->child('resources', 'license_changes.txt')->slurp;
