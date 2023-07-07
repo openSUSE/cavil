@@ -31,7 +31,6 @@ sub register ($self, $app, $config) {
   $app->helper('highlight_line'              => \&_highlight_line);
   $app->helper('lic'                         => sub { shift; lic(@_) });
   $app->helper('maybe_utf8'                  => sub { decode('UTF-8', $_[1]) // $_[1] });
-  $app->helper('package_checkout_dir'        => \&_pkg_checkout_dir);
   $app->helper('reply.json_validation_error' => \&_json_validation_error);
   $app->helper('format_file'                 => \&_format_file);
 }
@@ -111,12 +110,6 @@ sub _highlight_line ($c, $line, $pattern) {
 sub _json_validation_error ($c) {
   my $failed = join ', ', @{$c->validation->failed};
   $c->render(json => {error => "Invalid request parameters ($failed)"}, status => 400);
-}
-
-sub _pkg_checkout_dir ($c, $id) {
-  my $app = $c->app;
-  my $pkg = $app->packages->find($id);
-  return path($app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir});
 }
 
 1;

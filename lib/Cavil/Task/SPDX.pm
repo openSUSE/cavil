@@ -1,4 +1,4 @@
-# Copyright (C) 2018 SUSE Linux GmbH
+# Copyright (C) 2023 SUSE LLC
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,43 +13,32 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
-package Cavil::Task::Unpack;
+package Cavil::Task::SPDX;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
-use Cavil::Util qw(parse_exclude_file);
+use Mojo::Util qw(scope_guard);
 
 sub register ($self, $app, $config) {
-  $app->minion->add_task(unpack => \&_unpack);
+  $app->minion->add_task(spdx_report => \&_spdx_report);
 }
 
-sub _unpack ($job, $id) {
+sub _spdx_report ($job, $id) {
   my $app    = $job->app;
   my $minion = $app->minion;
-  my $log    = $app->log;
   my $pkgs   = $app->packages;
+  my $spdx   = $app->spdx;
 
   # Protect from race conditions
+  my $spdx_guard = scope_guard sub { $minion->unlock("spdx_$id") };
   return $job->finish("Package $id is already being processed")
-    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
-  return $job->fail("Package $id is not imported yet") unless $pkgs->is_imported($id);
+    unless my $pkg_guard = $minion->guard("processing_pkg_$id", 172800);
+  return $job->fail("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
 
-  # Exclude file
-  my $exclude = [];
-  if (my $exclude_file = $app->config->{exclude_file}) {
-    my $name = $app->packages->find($id)->{name};
-    $exclude = parse_exclude_file($exclude_file, $name);
-  }
-
-  # Unpack the package
-  my $dir = $pkgs->pkg_checkout_dir($id);
-  Cavil::Checkout->new($dir)->unpack({exclude => $exclude});
-  $pkgs->unpacked($id);
-  $log->info("[$id] Unpacked $dir");
-
-  # Next step
-  undef $guard;
-  $pkgs->index($id, $job->info->{priority} + 1, [$job->id]);
+  # Placeholder
+  $pkgs->remove_spdx_report($id);
+  my $path = $pkgs->spdx_report_path($id);
+  $spdx->generate_to_file($id, $path);
 }
 
 1;

@@ -61,6 +61,11 @@ sub analyze ($self, $id, $priority = 9, $parents = []) {
   return $self->_enqueue('analyze', $id, $priority, $parents);
 }
 
+sub pkg_checkout_dir ($self, $id) {
+  my $pkg = $self->find($id);
+  return path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+}
+
 sub find ($self, $id) {
   return $self->pg->db->select(
     ['bot_packages', [-left => 'bot_users', id => 'reviewing_user']],
@@ -76,6 +81,10 @@ sub find ($self, $id) {
 
 sub find_by_name_and_md5 ($self, $pkg, $md5) {
   return $self->pg->db->select('bot_packages', '*', {name => $pkg, checkout_dir => $md5})->hash;
+}
+
+sub has_spdx_report ($self, $id) {
+  return -f $self->spdx_report_path($id);
 }
 
 sub history ($self, $name, $checksum, $id) {
@@ -309,9 +318,17 @@ sub reindex_matched_packages ($self, $pid, $priority = 0) {
   }
 }
 
+sub remove_spdx_report ($self, $id) {
+  $self->spdx_report_path($id)->remove;
+}
+
 sub requests_for ($self, $id) {
   return $self->pg->db->query('SELECT external_link FROM bot_requests WHERE package = ? ORDER BY id DESC', $id)
     ->arrays->flatten->to_array;
+}
+
+sub spdx_report_path ($self, $id) {
+  return $self->pkg_checkout_dir($id)->child('.report.spdx');
 }
 
 sub states ($self, $name) {

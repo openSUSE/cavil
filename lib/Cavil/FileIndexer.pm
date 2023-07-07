@@ -46,7 +46,7 @@ sub new ($class, $app, $package) {
   $self->ignored_lines(\%hashes);
 
   $self->db($db);
-  $self->dir($app->package_checkout_dir($package));
+  $self->dir($app->packages->pkg_checkout_dir($package));
   $self->checkout(Cavil::Checkout->new($self->dir));
   $self->snippets({});
   $self->{no_license} = {};

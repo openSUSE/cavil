@@ -277,7 +277,7 @@ subtest 'Unpack background job (with exclude file)' => sub {
   $minion->enqueue(unpack => [1]);
   $minion->perform_jobs;
   ok $t->app->packages->is_unpacked(1), 'unpacked';
-  my $good = path($t->app->package_checkout_dir(1));
+  my $good = path($t->app->packages->pkg_checkout_dir(1));
   ok -e $good->child('.unpacked', 'foo', 'bar.txt');
   ok -e $good->child('.unpacked', 'foo', 'bar', 'bar.tar');
   ok -e $good->child('.unpacked', 'foo', 'bar', 'bar');
@@ -287,7 +287,7 @@ subtest 'Unpack background job (with exclude file)' => sub {
   $minion->enqueue(unpack => [2]);
   $minion->perform_jobs;
   ok $t->app->packages->is_unpacked(2), 'unpacked';
-  my $good_too = path($t->app->package_checkout_dir(2));
+  my $good_too = path($t->app->packages->pkg_checkout_dir(2));
   ok -e $good_too->child('.unpacked',  'foo', 'bar.txt');
   ok -e $good_too->child('.unpacked',  'foo', 'bar', 'bar.tar');
   ok !-e $good_too->child('.unpacked', 'foo', 'bar', 'bar');
@@ -297,7 +297,7 @@ subtest 'Unpack background job (with exclude file)' => sub {
   $minion->enqueue(unpack => [3]);
   $minion->perform_jobs;
   ok $t->app->packages->is_unpacked(3), 'unpacked';
-  my $broken = path($t->app->package_checkout_dir(3));
+  my $broken = path($t->app->packages->pkg_checkout_dir(3));
   ok -e $broken->child('.unpacked',  'foo', 'bar.txt');
   ok -e $broken->child('.unpacked',  'foo', 'bar', 'test-case.tar');
   ok !-e $broken->child('.unpacked', 'foo', 'bar', 'test-case');

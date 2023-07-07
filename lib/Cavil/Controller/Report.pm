@@ -16,6 +16,7 @@
 package Cavil::Controller::Report;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+use Mojo::Asset::File;
 use Mojo::JSON 'from_json';
 use Cavil::Util 'lines_context';
 
@@ -69,6 +70,24 @@ sub source ($self) {
       );
     }
   );
+}
+
+sub spdx ($self) {
+  my $id     = $self->stash('id');
+  my $app    = $self->app;
+  my $minion = $app->minion;
+  my $pkgs   = $app->packages;
+
+  return $self->render(template => 'report/waiting', status => 408) unless $pkgs->is_indexed($id);
+
+  if ($pkgs->has_spdx_report($id)) {
+    $self->res->headers->content_type('text/plain');
+    $self->reply->asset(Mojo::Asset::File->new(path => $pkgs->spdx_report_path($id)));
+  }
+
+  return $self->render(template => 'report/waiting', status => 408) if !$minion->lock("spdx_$id", 172800);
+  $minion->enqueue('spdx_report' => [$id]);
+  $self->redirect_to('spdx_report', {id => $id});
 }
 
 sub _sanitize_report ($self, $report) {

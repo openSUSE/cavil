@@ -26,6 +26,7 @@ use Cavil::Model::Requests;
 use Cavil::Model::Users;
 use Cavil::Model::Snippets;
 use Cavil::OBS;
+use Cavil::SPDX;
 use Cavil::Sync;
 use Scalar::Util 'weaken';
 use Time::HiRes ();
@@ -33,7 +34,12 @@ use Mojo::File  qw(path);
 
 has classifier => sub { Cavil::Classifier->new };
 has obs        => sub { Cavil::OBS->new };
-has sync       => sub ($self) {
+has spdx       => sub ($self) {
+  my $spdx = Cavil::SPDX->new(app => $self);
+  weaken $spdx->{app};
+  return $spdx;
+};
+has sync => sub ($self) {
   my $sync = Cavil::Sync->new(app => $self);
   weaken $sync->{app};
   return $sync;
@@ -105,6 +111,7 @@ sub startup ($self) {
   $self->plugin('Cavil::Task::Analyze');
   $self->plugin('Cavil::Task::Cleanup');
   $self->plugin('Cavil::Task::ClosestMatch');
+  $self->plugin('Cavil::Task::SPDX');
 
   $self->plugin('Cavil::Plugin::Linux');
 
@@ -211,6 +218,7 @@ sub startup ($self) {
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
+  $manager->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
 
   $admin->get('/licenses')->to('License#list')->name('licenses');
   $admin->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');

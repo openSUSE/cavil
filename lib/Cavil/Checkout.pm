@@ -236,7 +236,7 @@ sub unpack ($self, $options = {}) {
   $dir->child('.postprocessed.json')->spurt(encode_json($processor->hash));
 }
 
-sub unpacked_files ($self, $bucket_size) {
+sub unpacked_files ($self, $bucket_size = undef) {
   my $dir      = path($self->dir);
   my $unpacked = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
 
@@ -248,6 +248,8 @@ sub unpacked_files ($self, $bucket_size) {
 
     push @files, [$file, $mime];
   }
+
+  return \@files unless defined $bucket_size;
 
   return buckets(\@files, $bucket_size);
 }

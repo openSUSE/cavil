@@ -48,10 +48,12 @@ sub _index ($job, $id) {
     $db->delete('urls',          {package => $id});
     $db->delete('emails',        {package => $id});
     $db->delete('bot_reports',   {package => $id});
+
+    $pkgs->remove_spdx_report($id);
   }
 
   # Split up files into batches
-  my $dir       = $app->package_checkout_dir($id);
+  my $dir       = $pkgs->pkg_checkout_dir($id);
   my $batches   = Cavil::Checkout->new($dir)->unpacked_files($app->config->{index_bucket_average});
   my $parent_id = $job->id;
   my $prio      = $job->info->{priority};
