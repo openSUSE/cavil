@@ -47,7 +47,9 @@ subtest 'Generate SPDX report' => sub {
 };
 
 subtest 'SPDX report contents' => sub {
-  my $path   = $t->app->packages->spdx_report_path(1);
+  my $path = $t->app->packages->spdx_report_path(1);
+  ok !-e "$path.tmp",      'SPDX temp file has been cleaned up';
+  ok !-e "$path.refs.tmp", 'SPDX ref temp file has been cleaned up';
   my $report = decode('UTF-8', $path->slurp);
 
   subtest 'Creation Information' => sub {

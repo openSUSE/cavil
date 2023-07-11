@@ -23,6 +23,7 @@ use Digest::SHA1;
 use Mojo::File qw(path tempfile);
 use Mojo::JSON qw(from_json);
 use Mojo::Date;
+use Mojo::Util qw(scope_guard);
 
 use constant NO_ASSERTION => 'NOASSERTION';
 
@@ -31,6 +32,8 @@ my $SPDX_VERSION = '2.3';
 has 'app';
 
 sub generate_to_file ($self, $id, $file) {
+  path($file)->remove if -e $file;
+
   my $app             = $self->app;
   my $dir             = $app->packages->pkg_checkout_dir($id);
   my $checkout        = Cavil::Checkout->new($dir);
@@ -39,10 +42,12 @@ sub generate_to_file ($self, $id, $file) {
   my $db              = $app->pg->db;
   my $license_ref_num = 0;
 
-  my $spdx_handle = path($file)->open('>>');
-  my $spdx        = _SPDXWriter->new(handle => $spdx_handle);
-  my $tmp         = tempfile(TEMPLATE => 'cavil.spdx.XXXXXXXXXX');
-  my $refs        = _SPDXWriter->new(handle => $tmp->open('>>'));
+  my $spdx_tmp_file = "$file.tmp";
+  my $refs_tmp_file = "$file.refs.tmp";
+  my $spdx_handle   = path($spdx_tmp_file)->open('>');
+  my $spdx          = _SPDXWriter->new(handle => $spdx_handle);
+  my $refs          = _SPDXWriter->new(handle => path($refs_tmp_file)->open('>'));
+  my $cleanup       = scope_guard sub { -e $_ && path($_)->remove for $spdx_tmp_file, $refs_tmp_file };
 
   # Document
   $spdx->tag(SPDXVersion => "SPDX-$SPDX_VERSION");
@@ -137,12 +142,14 @@ sub generate_to_file ($self, $id, $file) {
   }
 
   # Merge license references and main SPDX file
-  if (-s $tmp) {
+  if (-s $refs_tmp_file) {
     $spdx->box('Other Licensing Information');
-    my $tmp_handle = $tmp->open('<');
+    my $tmp_handle = path($refs_tmp_file)->open('<');
     my $buffer;
     $spdx_handle->syswrite($buffer) while $tmp_handle->sysread($buffer, 1024);
   }
+
+  path($spdx_tmp_file)->move_to($file);
 }
 
 sub _matched_snippet ($lines, $match) {
