@@ -82,7 +82,7 @@ sub spdx ($self) {
 
   if ($pkgs->has_spdx_report($id)) {
     $self->res->headers->content_type('text/plain');
-    $self->reply->asset(Mojo::Asset::File->new(path => $pkgs->spdx_report_path($id)));
+    return $self->reply->asset(Mojo::Asset::File->new(path => $pkgs->spdx_report_path($id)));
   }
 
   return $self->render(template => 'report/waiting', status => 408) if !$minion->lock("spdx_$id", 172800);
