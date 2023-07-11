@@ -218,7 +218,7 @@ sub startup ($self) {
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
-  $manager->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
+  $public->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
 
   $admin->get('/licenses')->to('License#list')->name('licenses');
   $admin->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
