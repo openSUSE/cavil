@@ -215,7 +215,7 @@ sub unpack ($self, $options = {}) {
   );
 
   # Zstandard, requires zstd
-  $u->mime_helper('application=x-zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
+  $u->mime_helper('application=zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
 
   $u->exclude(vcs => 1);
   if (my $exclude = $options->{exclude}) {
