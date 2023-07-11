@@ -128,7 +128,7 @@ sub generate_to_file ($self, $id, $file) {
         $spdx->text(FileCopyrightText => join("\n", @copyright));
       }
       else {
-        $refs->tag(FileCopyrightText => NO_ASSERTION);
+        $spdx->tag(FileCopyrightText => NO_ASSERTION);
       }
     }
 
