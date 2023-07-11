@@ -118,7 +118,7 @@ sub generate_to_file ($self, $id, $file) {
           $refs->br();
           $refs->tag(LicenseId      => $license);
           $refs->tag(LicenseName    => $unknown || NO_ASSERTION);
-          $refs->tag(LicenseComment => "Risk: $pattern->{risk}");
+          $refs->tag(LicenseComment => "Risk: $pattern->{risk} ($pattern->{unique_id})");
           $refs->text(ExtractedText => $snippet);
           $refs->br();
         }
