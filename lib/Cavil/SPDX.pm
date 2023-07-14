@@ -94,7 +94,9 @@ sub generate_to_file ($self, $id, $file) {
     if (my $file_id = $matched_files->{$file}) {
 
       my (@copyright, %duplicates);
-      for my $match ($db->query('SELECT * FROM pattern_matches WHERE file = ? ORDER BY id', $file_id)->hashes->each) {
+      my $matches
+        = $db->query('SELECT * FROM pattern_matches WHERE file = ? AND ignored = false ORDER BY id', $file_id)->hashes;
+      for my $match ($matches->each) {
         my $pattern = $db->query('SELECT * FROM license_patterns WHERE id = ?', $match->{pattern})->hash;
         my $snippet = read_lines($path, $match->{sline}, $match->{eline});
         push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_} } split("\n", $snippet);
