@@ -188,6 +188,12 @@ sub postgres_url ($self) {
     ->to_unsafe_string;
 }
 
+sub spdx_fixtures ($self, $app) {
+  $self->mojo_fixtures($app);
+  my $patterns = $app->patterns;
+  $patterns->create(pattern => 'copyright');
+}
+
 sub ui_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 

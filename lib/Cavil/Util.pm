@@ -18,13 +18,15 @@ use Mojo::Base -strict, -signatures;
 
 use Carp 'croak';
 use Exporter 'import';
-use Mojo::Util 'decode';
+use Encode qw(from_to decode);
+use Mojo::Util;
 use Mojo::File qw(path);
 use POSIX 'ceil';
+use Spooky::Patterns::XS;
 use Text::Glob 'glob_to_regex';
 $Text::Glob::strict_wildcard_slash = 0;
 
-our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files lines_context paginate parse_exclude_file);
+our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files lines_context paginate parse_exclude_file read_lines);
 
 my $MAX_FILE_SIZE = 30000;
 
@@ -48,7 +50,7 @@ sub slurp_and_decode ($path) {
   croak qq{Can't read from file "$path": $!} unless defined(my $ret = $file->sysread(my $content, $MAX_FILE_SIZE, 0));
 
   return $content if -s $path > $MAX_FILE_SIZE;
-  return decode('UTF-8', $content) // $content;
+  return Mojo::Util::decode('UTF-8', $content) // $content;
 }
 
 sub _line_tag ($line) {
@@ -121,6 +123,27 @@ sub parse_exclude_file ($path, $name) {
   }
 
   return $exclude;
+}
+
+sub read_lines ($path, $start_line, $end_line) {
+  my %needed_lines;
+  for (my $line = $start_line; $line <= $end_line; $line += 1) {
+    $needed_lines{$line} = 1;
+  }
+
+  my $text = '';
+  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%needed_lines)}) {
+    my ($index, $pid, $line) = @$row;
+
+    # Sanitize line - first try UTF-8 strict and then LATIN1
+    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
+    if ($@) {
+      from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
+      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+    }
+    $text .= "$line\n";
+  }
+  return $text;
 }
 
 1;

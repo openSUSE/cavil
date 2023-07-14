@@ -18,7 +18,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic);
-use Cavil::Util     qw(slurp_and_decode);
+use Cavil::Util     qw(read_lines);
 use Digest::SHA1;
 use Mojo::File qw(path tempfile);
 use Mojo::JSON qw(from_json);
@@ -92,13 +92,12 @@ sub generate_to_file ($self, $id, $file) {
 
     # Matches
     if (my $file_id = $matched_files->{$file}) {
-      my @lines = ('', split "\n", slurp_and_decode($path));
-      my %duplicates;
-      my @copyright = grep { /copyright.*\d+/i && !$duplicates{$_} } @lines;
 
+      my (@copyright, %duplicates);
       for my $match ($db->query('SELECT * FROM pattern_matches WHERE file = ? ORDER BY id', $file_id)->hashes->each) {
         my $pattern = $db->query('SELECT * FROM license_patterns WHERE id = ?', $match->{pattern})->hash;
-        my $snippet = _matched_snippet(\@lines, $match);
+        my $snippet = read_lines($path, $match->{sline}, $match->{eline});
+        push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_} } split("\n", $snippet);
 
         # License or snippet for keyword
         if (my $license = $pattern->{spdx}) {

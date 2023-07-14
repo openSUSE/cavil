@@ -16,8 +16,8 @@
 package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Encode qw(from_to decode);
 use Mojo::File 'path';
+use Cavil::Util qw(read_lines);
 
 sub list ($self) {
   $self->render(snippets => $self->snippets->random(100));
@@ -93,7 +93,7 @@ sub edit ($self) {
       '.unpacked',      $example->{filename}
     );
 
-    $snippet->{text}  = _read_lines($fn, $example->{sline}, $example->{eline});
+    $snippet->{text}  = read_lines($fn, $example->{sline}, $example->{eline});
     $example->{delta} = 0;
   }
 
@@ -109,27 +109,6 @@ sub edit ($self) {
     best          => $best,
     similarity    => int($sim * 1000 + 0.5) / 10
   );
-}
-
-sub _read_lines ($fn, $start_line, $end_line) {
-  my %needed_lines;
-  for (my $line = $start_line; $line <= $end_line; $line += 1) {
-    $needed_lines{$line} = 1;
-  }
-
-  my $text = '';
-  for my $row (@{Spooky::Patterns::XS::read_lines($fn, \%needed_lines)}) {
-    my ($index, $pid, $line) = @$row;
-
-    # Sanitize line - first try UTF-8 strict and then LATIN1
-    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
-    if ($@) {
-      from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
-      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
-    }
-    $text .= "$line\n";
-  }
-  return $text;
 }
 
 sub _render_conflict ($self, $id, $validation) {
@@ -232,7 +211,7 @@ sub from_file ($self) {
 
   my $first_line = $self->stash('start');
   my $last_line  = $self->stash('end');
-  my $text       = _read_lines($fn, $first_line, $last_line);
+  my $text       = read_lines($fn, $first_line, $last_line);
   my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
   $db->insert('file_snippets',
     {package => $package->{id}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});

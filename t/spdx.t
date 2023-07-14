@@ -28,7 +28,7 @@ plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'spdx_test');
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
-$cavil_test->mojo_fixtures($t->app);
+$cavil_test->spdx_fixtures($t->app);
 
 subtest 'Unpack and index' => sub {
   ok !$t->app->packages->is_indexed(1), 'package has not been indexed';
@@ -87,11 +87,11 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/LicenseComment: Risk: 5/,                   'has license reference 1 risk';
     like $report, qr/ExtractedText: .*Fixed copyright notice.*/, 'has license reference 1 text';
 
-    like $report, qr/LicenseId: LicenseRef-Apache-2.0-13/, 'has license reference 13';
-    like $report, qr/LicenseName: Apache-2.0/,             'has license reference 13 name';
-    like $report, qr/LicenseComment: Risk: 5/,             'has license reference 13 risk';
+    like $report, qr/LicenseId: LicenseRef-Apache-2.0-33/, 'has license reference 35';
+    like $report, qr/LicenseName: Apache-2.0/,             'has license reference 35 name';
+    like $report, qr/LicenseComment: Risk: 5/,             'has license reference 35 risk';
     like $report, qr/ExtractedText: .*Licensed under the Apache License, Version 2.0.*/,
-      'has license reference 13 text';
+      'has license reference 35 text';
   };
 };
 
