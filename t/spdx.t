@@ -87,11 +87,11 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/LicenseComment: Risk: 5/,                   'has license reference 1 risk';
     like $report, qr/ExtractedText: .*Fixed copyright notice.*/, 'has license reference 1 text';
 
-    like $report, qr/LicenseId: LicenseRef-Apache-2.0-33/, 'has license reference 35';
-    like $report, qr/LicenseName: Apache-2.0/,             'has license reference 35 name';
-    like $report, qr/LicenseComment: Risk: 5/,             'has license reference 35 risk';
+    like $report, qr/LicenseId: LicenseRef-Apache-2.0-32/, 'has license reference 32';
+    like $report, qr/LicenseName: Apache-2.0/,             'has license reference 32 name';
+    like $report, qr/LicenseComment: Risk: 5/,             'has license reference 32 risk';
     like $report, qr/ExtractedText: .*Licensed under the Apache License, Version 2.0.*/,
-      'has license reference 35 text';
+      'has license reference 32 text';
   };
 };
 

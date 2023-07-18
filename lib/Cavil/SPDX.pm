@@ -94,21 +94,23 @@ sub generate_to_file ($self, $id, $file) {
     if (my $file_id = $matched_files->{$file}) {
 
       my (@copyright, %duplicates);
-      my $matches
-        = $db->query('SELECT * FROM pattern_matches WHERE file = ? AND ignored = false ORDER BY id', $file_id)->hashes;
-      for my $match ($matches->each) {
-        my $pattern = $db->query('SELECT * FROM license_patterns WHERE id = ?', $match->{pattern})->hash;
+      my $sql = qq{
+        SELECT m.*, p.spdx, p.license, p.risk, p.unique_id
+        FROM pattern_matches m LEFT JOIN license_patterns p on m.pattern = p.id
+        WHERE file = ? AND ignored = false ORDER BY p.license, p.id ASC
+      };
+      for my $match ($db->query($sql, $file_id)->hashes->each) {
         my $snippet = read_lines($path, $match->{sline}, $match->{eline});
         push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_} } split("\n", $snippet);
 
         # License or snippet for keyword
-        if (my $license = $pattern->{spdx}) {
+        if (my $license = $match->{spdx}) {
           $spdx->tag(LicenseInfoInFile => $license);
         }
 
         # Non-SPDX license
         else {
-          my $unknown = $pattern->{license};
+          my $unknown = $match->{license};
           $license_ref_num++;
           my $license = "LicenseRef-$unknown-$license_ref_num";
           $license =~ s/[^A-Za-z0-9.]+/-/g;
@@ -119,7 +121,7 @@ sub generate_to_file ($self, $id, $file) {
           $refs->br();
           $refs->tag(LicenseId      => $license);
           $refs->tag(LicenseName    => $unknown || NO_ASSERTION);
-          $refs->tag(LicenseComment => "Risk: $pattern->{risk} ($pattern->{unique_id})");
+          $refs->tag(LicenseComment => "Risk: $match->{risk} ($match->{unique_id})");
           $refs->text(ExtractedText => $snippet);
           $refs->br();
         }
