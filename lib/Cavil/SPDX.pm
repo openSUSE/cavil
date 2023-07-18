@@ -92,14 +92,19 @@ sub generate_to_file ($self, $id, $file) {
 
     # Matches
     if (my $file_id = $matched_files->{$file}) {
+      my (@copyright, %duplicates, %matched_lines);
 
-      my (@copyright, %duplicates);
       my $sql = qq{
         SELECT m.*, p.spdx, p.license, p.risk, p.unique_id
         FROM pattern_matches m LEFT JOIN license_patterns p on m.pattern = p.id
-        WHERE file = ? AND ignored = false ORDER BY p.license, p.id ASC
+        WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
       };
       for my $match ($db->query($sql, $file_id)->hashes->each) {
+
+        # Ignore keyword matches that overlap with other pattern matches
+        next if $matched_lines{$match->{sline}} && $match->{license} eq '';
+        _matched_lines(\%matched_lines, $match->{sline}, $match->{eline});
+
         my $snippet = read_lines($path, $match->{sline}, $match->{eline});
         push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_} } split("\n", $snippet);
 
@@ -155,8 +160,10 @@ sub generate_to_file ($self, $id, $file) {
   path($spdx_tmp_file)->move_to($file);
 }
 
-sub _matched_snippet ($lines, $match) {
-  return join "\n", @{$lines}[$match->{sline} ... $match->{eline}];
+sub _matched_lines ($matched_lines, $start, $end) {
+  for (my $i = $start; $i <= $end; $i++) {
+    $matched_lines->{$i}++;
+  }
 }
 
 package _SPDXWriter;
