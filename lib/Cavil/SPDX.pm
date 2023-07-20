@@ -92,17 +92,34 @@ sub generate_to_file ($self, $id, $file) {
 
     # Matches
     if (my $file_id = $matched_files->{$file}) {
-      my (@copyright, %duplicates, %matched_lines);
+      my (@copyright, %duplicates, %matched_lines, %ignored_lines);
 
-      my $sql = qq{
+      # Snippets the AI lawyer does not think are license text
+      my $snippet_sql = qq{
+        SELECT f.sline, f.eline
+        FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id
+        WHERE file = ? AND classified = true and license = false
+      };
+      for my $snippet ($db->query($snippet_sql, $file_id)->hashes->each) {
+        _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline});
+      }
+
+      my $match_sql = qq{
         SELECT m.*, p.spdx, p.license, p.risk, p.unique_id
-        FROM pattern_matches m LEFT JOIN license_patterns p on m.pattern = p.id
+        FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
         WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
       };
-      for my $match ($db->query($sql, $file_id)->hashes->each) {
+      for my $match ($db->query($match_sql, $file_id)->hashes->each) {
 
-        # Ignore keyword matches that overlap with other pattern matches
-        next if $matched_lines{$match->{sline}} && $match->{license} eq '';
+        # Remove keyword matches when possible
+        if ($match->{license} eq '') {
+
+          # Ignored keyword matches that the AI lawyer does not consider license text
+          next if $ignored_lines{$match->{sline}} && $ignored_lines{$match->{eline}};
+
+          # Ignore keyword matches that overlap with other pattern matches
+          next if $matched_lines{$match->{sline}};
+        }
         _matched_lines(\%matched_lines, $match->{sline}, $match->{eline});
 
         my $snippet = read_lines($path, $match->{sline}, $match->{eline});

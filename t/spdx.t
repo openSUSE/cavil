@@ -39,6 +39,8 @@ subtest 'Unpack and index' => sub {
 };
 
 subtest 'Generate SPDX report' => sub {
+  is $t->app->pg->db->query('UPDATE snippets SET classified = true AND license = false WHERE id = any(?)', [1])->rows,
+    1, 'one snippet is not a license';
   ok !$t->app->packages->has_spdx_report(1), 'package has no SPDX report';
   $t->app->minion->enqueue(spdx_report => [1]);
   $t->app->minion->perform_jobs;
@@ -87,12 +89,12 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/LicenseComment: Risk: 5/,                   'has license reference 1 risk';
     like $report, qr/ExtractedText: .*Fixed copyright notice.*/, 'has license reference 1 text';
 
-    like $report, qr/LicenseId: LicenseRef-Apache-2.0-31/, 'has license reference 31';
-    like $report, qr/LicenseName: Apache-2.0/,             'has license reference 31 name';
-    like $report, qr/LicenseComment: Risk: 5/,             'has license reference 31 risk';
+    like $report, qr/LicenseId: LicenseRef-Apache-2.0-30/, 'has license reference 30';
+    like $report, qr/LicenseName: Apache-2.0/,             'has license reference 30 name';
+    like $report, qr/LicenseComment: Risk: 5/,             'has license reference 30 risk';
     like $report, qr/ExtractedText: .*Licensed under the Apache License, Version 2.0.*/,
-      'has license reference 31 text';
-    unlike $report, qr/LicenseId: LicenseRef.+41/, 'no license reference 41';
+      'has license reference 30 text';
+    unlike $report, qr/LicenseId: LicenseRef.+40/, 'no license reference 40';
   };
 };
 
