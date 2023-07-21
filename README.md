@@ -6,6 +6,20 @@
 
 ![Screenshot](https://raw.github.com/openSUSE/cavil/master/examples/report.png?raw=true)
 
+## Features
+
+* Source code legal review system for RPMs, Tarballs, Kiwi images, Docker images, and Helm charts
+* 25.000 curated patterns for 1000 licenses with 500 distinct SPDX expressions
+* Software Bill of Materials (SBOM) support with SPDX reports
+* Legal risk assessments for every pattern match
+* Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
+* Optional support for machine learning models to classify pattern matches
+* REST API for integration into existing source code management systems
+* Open Build Service integration via bots
+* OpenID Connect (OAuth 2.0) authentication
+
+## Components
+
   This distribution contains the two main components of the system. A [Mojolicious](https://mojolicious.org) web
   application that lawyers can use to efficiently review package contents, and [Minion](https://metacpan.org/pod/Minion)
   background jobs to process and index packages, to create easy to digest license reports.
