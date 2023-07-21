@@ -15,4 +15,4 @@ requires 'Text::Diff';
 requires 'Text::Glob';
 requires 'YAML::XS';
 requires 'JSON::Validator';
-requires 'Digest::Sha1';
+requires 'Digest::SHA1';
