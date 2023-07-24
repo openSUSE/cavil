@@ -1,1 +1,1 @@
-{"license":"LGPL-3.0","opinion":0,"packname":"rubygem-sidekiq","patent":0,"pattern":"gem.homepage      = \"http:\/\/sidekiq.org\"\n  gem.license       = \"LGPL-3.0","risk":2,"spdx":"","trademark":0,"unique_id":"c4e48c78-13b7-4c5f-bc87-1d341f865488"}
+{"license":"LGPL-3.0","opinion":0,"packname":"rubygem-sidekiq","patent":0,"pattern":"gem.homepage      = \"http:\/\/sidekiq.org\"\n  gem.license       = \"LGPL-3.0","risk":2,"spdx":"LGPL-3.0-only","trademark":0,"unique_id":"c4e48c78-13b7-4c5f-bc87-1d341f865488"}

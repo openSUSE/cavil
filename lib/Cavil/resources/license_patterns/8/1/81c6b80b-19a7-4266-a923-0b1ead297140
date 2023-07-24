@@ -1,1 +1,1 @@
-{"license":"GPL-3.0+","opinion":0,"packname":"libisoburn","patent":0,"pattern":"Stating license GPLv3+ if header of libreadline >= 6.x is included","risk":3,"spdx":"","trademark":0,"unique_id":"81c6b80b-19a7-4266-a923-0b1ead297140"}
+{"license":"GPL-3.0+","opinion":0,"packname":"libisoburn","patent":0,"pattern":"Stating license GPLv3+ if header of libreadline >= 6.x is included","risk":3,"spdx":"GPL-3.0-or-later","trademark":0,"unique_id":"81c6b80b-19a7-4266-a923-0b1ead297140"}

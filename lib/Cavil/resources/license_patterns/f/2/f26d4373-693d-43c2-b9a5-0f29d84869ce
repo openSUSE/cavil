@@ -1,1 +1,1 @@
-{"license":"GPL-2.0+","opinion":0,"packname":"pam","patent":0,"pattern":"modules\/pam_unix\/yppasswd.h: Update license to GPLv2 or later","risk":2,"spdx":"","trademark":0,"unique_id":"f26d4373-693d-43c2-b9a5-0f29d84869ce"}
+{"license":"GPL-2.0+","opinion":0,"packname":"pam","patent":0,"pattern":"modules\/pam_unix\/yppasswd.h: Update license to GPLv2 or later","risk":2,"spdx":"GPL-2.0-or-later","trademark":0,"unique_id":"f26d4373-693d-43c2-b9a5-0f29d84869ce"}

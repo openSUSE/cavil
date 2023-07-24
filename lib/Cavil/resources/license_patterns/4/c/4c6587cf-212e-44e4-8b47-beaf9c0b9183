@@ -1,1 +1,1 @@
-{"license":"GPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"t:add(UILabel(<span style=\"color:#bf0303;\">&quot;License: GPL version 2 or later&quot;<\/span","risk":2,"spdx":"","trademark":0,"unique_id":"4c6587cf-212e-44e4-8b47-beaf9c0b9183"}
+{"license":"GPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"t:add(UILabel(<span style=\"color:#bf0303;\">&quot;License: GPL version 2 or later&quot;<\/span","risk":2,"spdx":"GPL-2.0-or-later","trademark":0,"unique_id":"4c6587cf-212e-44e4-8b47-beaf9c0b9183"}

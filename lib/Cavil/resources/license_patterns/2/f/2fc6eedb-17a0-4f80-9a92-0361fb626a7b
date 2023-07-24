@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"kernel-source","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"XCBC keyed hash algorithm","risk":2,"spdx":"","trademark":0,"unique_id":"2fc6eedb-17a0-4f80-9a92-0361fb626a7b"}
+{"license":"GPL-2.0","opinion":0,"packname":"kernel-source","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"XCBC keyed hash algorithm","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"2fc6eedb-17a0-4f80-9a92-0361fb626a7b"}

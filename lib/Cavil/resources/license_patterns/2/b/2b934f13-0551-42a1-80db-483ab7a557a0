@@ -1,1 +1,1 @@
-{"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"aboutdialog.set_license_type(Gtk.License.GPL_3_0","risk":3,"spdx":"","trademark":0,"unique_id":"2b934f13-0551-42a1-80db-483ab7a557a0"}
+{"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"aboutdialog.set_license_type(Gtk.License.GPL_3_0","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"2b934f13-0551-42a1-80db-483ab7a557a0"}

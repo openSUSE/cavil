@@ -1,1 +1,1 @@
-{"license":"LGPL-2.1+","opinion":0,"packname":"gobject-introspection","patent":0,"pattern":"The scanner (giscanner\/) and typelib libraries (girepository\/) are\nlicensed under the LGPLv2+","risk":1,"spdx":"","trademark":0,"unique_id":"75810dbc-afbc-4e7d-a25b-34b667b40d29"}
+{"license":"LGPL-2.1+","opinion":0,"packname":"gobject-introspection","patent":0,"pattern":"The scanner (giscanner\/) and typelib libraries (girepository\/) are\nlicensed under the LGPLv2+","risk":1,"spdx":"LGPL-2.1-or-later","trademark":0,"unique_id":"75810dbc-afbc-4e7d-a25b-34b667b40d29"}

@@ -1,1 +1,1 @@
-{"license":"GPL-3.0+","opinion":0,"packname":"hledger","patent":0,"pattern":"hledger is free\r\nsoftware available under the GNU General Public License v3+","risk":3,"spdx":"","trademark":0,"unique_id":"69d480d9-ea57-4958-9fb8-931b7de76d7a"}
+{"license":"GPL-3.0+","opinion":0,"packname":"hledger","patent":0,"pattern":"hledger is free\r\nsoftware available under the GNU General Public License v3+","risk":3,"spdx":"GPL-3.0-or-later","trademark":0,"unique_id":"69d480d9-ea57-4958-9fb8-931b7de76d7a"}

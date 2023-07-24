@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"","patent":0,"pattern":"section copyright Copyright and License\r\n    $SKIP1 is (c) $SKIP10 It is licensed to you under the terms of the GPL version 2","risk":2,"spdx":"","trademark":0,"unique_id":"ca709c85-1aca-47a0-ab1f-87d0dceb91ac"}
+{"license":"GPL-2.0","opinion":0,"packname":"","patent":0,"pattern":"section copyright Copyright and License\r\n    $SKIP1 is (c) $SKIP10 It is licensed to you under the terms of the GPL version 2","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"ca709c85-1aca-47a0-ab1f-87d0dceb91ac"}

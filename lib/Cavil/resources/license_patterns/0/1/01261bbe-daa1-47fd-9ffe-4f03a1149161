@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"testdisk","patent":0,"pattern":"license update: GPL-2.0\n  src\/ufs.h and src\/xfs.h are GPL-2.0 (only) licensed","risk":2,"spdx":"","trademark":0,"unique_id":"01261bbe-daa1-47fd-9ffe-4f03a1149161"}
+{"license":"GPL-2.0","opinion":0,"packname":"testdisk","patent":0,"pattern":"license update: GPL-2.0\n  src\/ufs.h and src\/xfs.h are GPL-2.0 (only) licensed","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"01261bbe-daa1-47fd-9ffe-4f03a1149161"}

@@ -1,1 +1,1 @@
-{"license":"GPL-3.0+","opinion":0,"packname":"gdb","patent":0,"pattern":"2007-08-23  Joel Brobecker  <brobecker@adacore.com>\n\n\t* configure.ac: Switch license to GPLv3","risk":3,"spdx":"","trademark":0,"unique_id":"31377218-7221-4b8b-8678-25a7eb1ed5bf"}
+{"license":"GPL-3.0+","opinion":0,"packname":"gdb","patent":0,"pattern":"2007-08-23  Joel Brobecker  <brobecker@adacore.com>\n\n\t* configure.ac: Switch license to GPLv3","risk":3,"spdx":"GPL-3.0-or-later","trademark":0,"unique_id":"31377218-7221-4b8b-8678-25a7eb1ed5bf"}

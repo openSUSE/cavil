@@ -1,1 +1,1 @@
-{"license":"GPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"Makefile.in, hostio-errno.c, errno.c, xtensa-xtregs.c: Change to\n\tGPLv3, update license URL","risk":3,"spdx":"","trademark":0,"unique_id":"36d1f450-fe1f-41ef-9593-cdae7b2b2a7c"}
+{"license":"GPL-3.0+","opinion":0,"packname":"","patent":0,"pattern":"Makefile.in, hostio-errno.c, errno.c, xtensa-xtregs.c: Change to\n\tGPLv3, update license URL","risk":3,"spdx":"GPL-3.0-or-later","trademark":0,"unique_id":"36d1f450-fe1f-41ef-9593-cdae7b2b2a7c"}

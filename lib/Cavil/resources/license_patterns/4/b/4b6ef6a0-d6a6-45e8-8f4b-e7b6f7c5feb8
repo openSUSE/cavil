@@ -1,1 +1,1 @@
-{"license":"AGPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"fprintf(kheader,\"\/* This material is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE Version 3","risk":3,"spdx":"","trademark":0,"unique_id":"4b6ef6a0-d6a6-45e8-8f4b-e7b6f7c5feb8"}
+{"license":"AGPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"fprintf(kheader,\"\/* This material is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE Version 3","risk":3,"spdx":"AGPL-3.0-only","trademark":0,"unique_id":"4b6ef6a0-d6a6-45e8-8f4b-e7b6f7c5feb8"}

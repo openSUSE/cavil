@@ -1,1 +1,1 @@
-{"license":"GPL-3.0 WITH GCC-exception-3.1","opinion":0,"packname":"","patent":0,"pattern":"tools\/jarsigner.sh.in: Changed license to GPL + Exception","risk":3,"spdx":"","trademark":0,"unique_id":"b987f04d-1ddf-437b-9d50-896abf95d761"}
+{"license":"GPL-3.0 WITH GCC-exception-3.1","opinion":0,"packname":"","patent":0,"pattern":"tools\/jarsigner.sh.in: Changed license to GPL + Exception","risk":3,"spdx":"GPL-3.0-only WITH GCC-exception-3.1","trademark":0,"unique_id":"b987f04d-1ddf-437b-9d50-896abf95d761"}

@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"keepalived","patent":0,"pattern":"initialize SSL context.\n\t* Ryan O'Hara refreshed GPLv2 license with last FSF file","risk":2,"spdx":"","trademark":0,"unique_id":"b487dae5-b16b-4c5e-8ad4-227398b3b8a4"}
+{"license":"GPL-2.0","opinion":0,"packname":"keepalived","patent":0,"pattern":"initialize SSL context.\n\t* Ryan O'Hara refreshed GPLv2 license with last FSF file","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"b487dae5-b16b-4c5e-8ad4-227398b3b8a4"}

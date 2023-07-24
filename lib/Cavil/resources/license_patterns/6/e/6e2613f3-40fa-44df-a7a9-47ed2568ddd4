@@ -1,1 +1,1 @@
-{"license":"Artistic-1.0-Perl OR GPL-1.0+","opinion":0,"packname":"","patent":0,"pattern":"Same license as Perl itself is GPL+ or Artistic in our rpm license syntax","risk":2,"spdx":"","trademark":0,"unique_id":"6e2613f3-40fa-44df-a7a9-47ed2568ddd4"}
+{"license":"Artistic-1.0-Perl OR GPL-1.0+","opinion":0,"packname":"","patent":0,"pattern":"Same license as Perl itself is GPL+ or Artistic in our rpm license syntax","risk":2,"spdx":"Artistic-1.0-Perl OR GPL-1.0-or-later","trademark":0,"unique_id":"6e2613f3-40fa-44df-a7a9-47ed2568ddd4"}

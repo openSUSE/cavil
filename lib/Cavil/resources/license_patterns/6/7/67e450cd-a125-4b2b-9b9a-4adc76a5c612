@@ -1,1 +1,1 @@
-{"license":"GPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"@HAVE_FUSE_TRUE@\t  --license GPLv2+","risk":2,"spdx":"","trademark":0,"unique_id":"67e450cd-a125-4b2b-9b9a-4adc76a5c612"}
+{"license":"GPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"@HAVE_FUSE_TRUE@\t  --license GPLv2+","risk":2,"spdx":"GPL-2.0-or-later","trademark":0,"unique_id":"67e450cd-a125-4b2b-9b9a-4adc76a5c612"}

@@ -1,1 +1,1 @@
-{"license":"LGPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"s.description = \"Ruby bindings for libvirt.\"\n    s.license = \"LGPLv2","risk":1,"spdx":"","trademark":0,"unique_id":"ba4e5466-9b03-400a-89ee-a1cc5d3cb359"}
+{"license":"LGPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"s.description = \"Ruby bindings for libvirt.\"\n    s.license = \"LGPLv2","risk":1,"spdx":"LGPL-2.0-or-later","trademark":0,"unique_id":"ba4e5466-9b03-400a-89ee-a1cc5d3cb359"}

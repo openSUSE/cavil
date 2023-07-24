@@ -1,1 +1,1 @@
-{"license":"GPL-3.0","opinion":0,"packname":"crash","patent":0,"pattern":"configure.ac: Change license of multi-run.c to GPL version 3","risk":3,"spdx":"","trademark":0,"unique_id":"01e11e92-809e-4d42-b7a9-a163f489e0ed"}
+{"license":"GPL-3.0","opinion":0,"packname":"crash","patent":0,"pattern":"configure.ac: Change license of multi-run.c to GPL version 3","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"01e11e92-809e-4d42-b7a9-a163f489e0ed"}

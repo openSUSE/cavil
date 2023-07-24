@@ -1,1 +1,1 @@
-{"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"The Debian packaging is (C) $SKIP1, $SKIP10 and\n    is licensed under the GPL v3, see above","risk":3,"spdx":"","trademark":0,"unique_id":"3fc52bda-e1f9-407e-86ef-7134f3fc9e24"}
+{"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"The Debian packaging is (C) $SKIP1, $SKIP10 and\n    is licensed under the GPL v3, see above","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"3fc52bda-e1f9-407e-86ef-7134f3fc9e24"}

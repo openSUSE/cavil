@@ -1,1 +1,1 @@
-{"license":"GPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"The .\/COPYING file (GPLv2+) is the default license for code without an explicitly\ndefined license","risk":2,"spdx":"","trademark":0,"unique_id":"d1df8f57-cb24-4a12-b9f8-c431964c661d"}
+{"license":"GPL-2.0+","opinion":0,"packname":"","patent":0,"pattern":"The .\/COPYING file (GPLv2+) is the default license for code without an explicitly\ndefined license","risk":2,"spdx":"GPL-2.0-or-later","trademark":0,"unique_id":"d1df8f57-cb24-4a12-b9f8-c431964c661d"}
