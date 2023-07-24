@@ -4,8 +4,6 @@
   [Open Build Service](https://openbuildservice.org). It is used in the development of openSUSE Tumbleweed,
   openSUSE Leap, as well as SUSE Linux Enterprise.
 
-![Screenshot](https://raw.github.com/openSUSE/cavil/master/examples/report.png?raw=true)
-
 ## Features
 
 * Source code legal review system for RPMs, Tarballs, Kiwi images, Docker images, and Helm charts
@@ -21,6 +19,8 @@
 
 **Important**: Note that most of the data used by Cavil has been curated by lawyers, but the generated reports do not
 count as legal advice and no guarantees are made for their correctness!
+
+![Screenshot](https://raw.github.com/openSUSE/cavil/master/examples/report.png?raw=true)
 
 ## Components
 
