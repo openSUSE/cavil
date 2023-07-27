@@ -147,6 +147,18 @@
       </tr>
     % }
 
+    <tr>
+      <th class="fit text-left noleftpad" scope="row">
+        <i class="far fa-chart-bar"></i>
+      </th>
+      <th class="fit text-left noleftpad" scope="row">SPDX Report:</th>
+      <td>
+        <a href="<%= url_for 'spdx_report', id => $id %>" target="_blank">
+          <%= $has_spdx_report ? 'available' : 'not yet generated' %>
+        </a>
+      </td>
+    </tr>
+
     % if (my $report = $package->{checksum}) {
       % my ($shortname) = $report =~ /:(\w+)$/;
       <tr>
