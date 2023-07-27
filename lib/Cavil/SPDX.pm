@@ -27,7 +27,7 @@ use Mojo::Util qw(scope_guard);
 
 use constant NO_ASSERTION => 'NOASSERTION';
 
-my $SPDX_VERSION = '2.3';
+my $SPDX_VERSION = '2.2';
 
 has 'app';
 
@@ -35,6 +35,8 @@ sub generate_to_file ($self, $id, $file) {
   path($file)->remove if -e $file;
 
   my $app             = $self->app;
+  my $config          = $app->config->{spdx} || {};
+  my $namespace       = $config->{namespace} || 'http://cavil.suse.de/spdx/';
   my $dir             = $app->packages->pkg_checkout_dir($id);
   my $checkout        = Cavil::Checkout->new($dir);
   my $reports         = $app->reports;
@@ -53,6 +55,11 @@ sub generate_to_file ($self, $id, $file) {
   $spdx->tag(SPDXVersion => "SPDX-$SPDX_VERSION");
   $spdx->tag(DataLicense => 'CC0-1.0');
   $spdx->br();
+  $spdx->box('Document Information');
+  $spdx->tag(DocumentNamespace => "$namespace$id");
+  $spdx->tag(DocumentName      => 'report.spdx');
+  $spdx->tag(SPDXID            => 'SPDXRef-DOCUMENT');
+  $spdx->br();
 
   # Creation
   $spdx->box('Creation Information');
@@ -60,10 +67,22 @@ sub generate_to_file ($self, $id, $file) {
   $spdx->tag(Created => Mojo::Date->new->to_datetime);
   $spdx->br();
 
+  # Scan files (needed for verification)
+  my (%files, %paths, @checksums);
+  for my $unpacked (@{$checkout->unpacked_files}) {
+    my ($file, $mime) = @$unpacked;
+    my $path = $paths{$file} = $dir->child('.unpacked', $file)->to_string;
+    push @checksums, $files{$file} = Digest::SHA->new('1')->addfile($path)->hexdigest;
+  }
+  my $verification_code = Digest::SHA->new('1')->add(join('', sort @checksums))->hexdigest;
+
   # Package
   my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
   $spdx->box('Package Information');
-  $spdx->tag(PackageName => $pkg->{name});
+  $spdx->tag(PackageName             => $pkg->{name});
+  $spdx->tag(SPDXID                  => "SPDXRef-pkg$id");
+  $spdx->tag(PackageDownloadLocation => NO_ASSERTION);
+  $spdx->tag(PackageVerificationCode => $verification_code);
   if (my $main = $specfile_report->{main}) {
     my $version = $main->{version} // '';
     $spdx->tag(PackageVersion => $version) if $version =~ /^[0-9.]+$/;
@@ -72,7 +91,11 @@ sub generate_to_file ($self, $id, $file) {
     if (my $summary = $main->{summary}) { $spdx->tag(PackageDescription => $summary) }
     if (my $url     = $main->{url})     { $spdx->tag(PackageHomePage    => $url) }
   }
-  $spdx->tag(PackageChecksum => 'MD5: ' . $pkg->{checkout_dir});
+  $spdx->tag(PackageLicenseInfoFromFiles => NO_ASSERTION);
+  $spdx->tag(PackageLicenseConcluded     => NO_ASSERTION);
+  $spdx->tag(PackageCopyrightText        => NO_ASSERTION);
+  $spdx->tag(PackageChecksum             => 'MD5: ' . $pkg->{checkout_dir});
+  $spdx->tag(Relationship                => "SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg$id");
   $spdx->br();
 
   # Files
@@ -81,14 +104,16 @@ sub generate_to_file ($self, $id, $file) {
   for my $matched ($db->query('SELECT * FROM matched_files WHERE package = ?', $id)->hashes->each) {
     $matched_files->{$matched->{filename}} = $matched->{id};
   }
-  for my $unpacked (@{$checkout->unpacked_files}) {
-    my ($file, $mime) = @$unpacked;
-    my $path = $dir->child('.unpacked', $file)->to_string;
+  my $file_num = 0;
+  for my $file (sort keys %files) {
+    $file_num++;
 
     $spdx->comment('File');
     $spdx->br();
-    $spdx->tag(FileName     => "./$file");
-    $spdx->tag(FileChecksum => 'SHA1: ' . Digest::SHA->new('1')->addfile($path)->hexdigest);
+    $spdx->tag(FileName         => "./$file");
+    $spdx->tag(SPDXID           => "SPDXRef-item$file_num");
+    $spdx->tag(FileChecksum     => 'SHA1: ' . $files{$file});
+    $spdx->tag(LicenseConcluded => NO_ASSERTION);
 
     # Matches
     if (my $file_id = $matched_files->{$file}) {
@@ -122,7 +147,7 @@ sub generate_to_file ($self, $id, $file) {
         }
         _matched_lines(\%matched_lines, $match->{sline}, $match->{eline});
 
-        my $snippet = read_lines($path, $match->{sline}, $match->{eline});
+        my $snippet = read_lines($paths{$file}, $match->{sline}, $match->{eline});
         push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_} } split("\n", $snippet);
 
         # License or snippet for keyword
@@ -141,7 +166,7 @@ sub generate_to_file ($self, $id, $file) {
 
           $refs->comment('License Reference');
           $refs->br();
-          $refs->tag(LicenseId      => $license);
+          $refs->tag(LicenseID      => $license);
           $refs->tag(LicenseName    => $unknown || NO_ASSERTION);
           $refs->tag(LicenseComment => "Risk: $match->{risk} ($match->{unique_id}:$match->{id})");
           $refs->text(ExtractedText => $snippet);

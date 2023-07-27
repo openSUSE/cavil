@@ -54,6 +54,12 @@ subtest 'SPDX report contents' => sub {
   ok !-e "$path.refs.tmp", 'SPDX ref temp file has been cleaned up';
   my $report = decode('UTF-8', $path->slurp);
 
+  subtest 'Document Information' => sub {
+    like $report, qr/DocumentNamespace: http.+cavil.+spdx.+1/, 'has DocumentNamespace';
+    like $report, qr/DocumentName: report.spdx/,               'has DocumentName';
+    like $report, qr/SPDXID: SPDXRef-DOCUMENT/,                'has SPDXID for document';
+  };
+
   subtest 'Creation Information' => sub {
     like $report, qr/SPDXVersion: SPDX-\d.\d/, 'has SPDXVersion';
     like $report, qr/DataLicense: CC0-1.0/,    'has DataLicense';
@@ -62,16 +68,24 @@ subtest 'SPDX report contents' => sub {
   };
 
   subtest 'Package Information' => sub {
-    like $report, qr/PackageName: perl-Mojolicious/,        'has PackageName';
-    like $report, qr/PackageVersion: 7.25/,                 'has PackageVersion';
-    like $report, qr/PackageLicenseDeclared: Artistic-2.0/, 'has PackageLicenseDeclared';
-    like $report, qr/PackageDescription: Real-time/,        'has PackageDescription';
-    like $report, qr/PackageHomePage: http/,                'has PackageHomePage';
-    like $report, qr/PackageChecksum: MD5: .+/,             'has PackageCheckSum';
+    like $report, qr/PackageName: perl-Mojolicious/,                                     'has PackageName';
+    like $report, qr/SPDXID: SPDXRef-pkg1/,                                              'has SPDXID for package';
+    like $report, qr/PackageDownloadLocation: NOASSERTION/,                              'has PackageDownloadLocation';
+    like $report, qr/PackageVerificationCode: e3068898c073fa06a8c46c86e2959f1ae1640f3d/, 'has PackageVerificationCode';
+    like $report, qr/PackageVersion: 7.25/,                                              'has PackageVersion';
+    like $report, qr/PackageLicenseDeclared: Artistic-2.0/,                              'has PackageLicenseDeclared';
+    like $report, qr/PackageDescription: Real-time/,                                     'has PackageDescription';
+    like $report, qr/PackageHomePage: http/,                                             'has PackageHomePage';
+    like $report, qr/PackageLicenseInfoFromFiles: NOASSERTION/,              'has PackageLicenseInfoFromFiles';
+    like $report, qr/PackageLicenseConcluded: NOASSERTION/,                  'has PackageLicenseConcluded';
+    like $report, qr/PackageCopyrightText: NOASSERTION/,                     'has PackageCopyrightText';
+    like $report, qr/PackageChecksum: MD5: .+/,                              'has PackageCheckSum';
+    like $report, qr/Relationship: SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg1/, 'has relationship to document';
   };
 
   subtest 'File Information' => sub {
     like $report, qr/FileName: \.\/Mojolicious-7.25\/\.perltidyrc/, 'has .perltidyrc file';
+    like $report, qr/SPDXID: SPDXRef-item1/,                        'has SPDXID for file';
 
     like $report, qr/FileName: \.\/Mojolicious-7.25\/Changes/,                      'has Changes file';
     like $report, qr/FileChecksum: SHA1: ac24afaef6590f55e1fd90f2d9c57fde4e899ab9/, 'has Changes checksum';
@@ -84,12 +98,12 @@ subtest 'SPDX report contents' => sub {
   };
 
   subtest 'Other Licensing Information' => sub {
-    like $report, qr/LicenseId: LicenseRef-1/,                   'has license reference 1';
+    like $report, qr/LicenseID: LicenseRef-1/,                   'has license reference 1';
     like $report, qr/LicenseName: NOASSERTION/,                  'has license reference 1 without name';
     like $report, qr/LicenseComment: Risk: 5/,                   'has license reference 1 risk';
     like $report, qr/ExtractedText: .*Fixed copyright notice.*/, 'has license reference 1 text';
 
-    like $report, qr/LicenseId: LicenseRef-Apache-2.0-30/, 'has license reference 30';
+    like $report, qr/LicenseID: LicenseRef-Apache-2.0-30/, 'has license reference 30';
     like $report, qr/LicenseName: Apache-2.0/,             'has license reference 30 name';
     like $report, qr/LicenseComment: Risk: 5/,             'has license reference 30 risk';
     like $report, qr/ExtractedText: .*Licensed under the Apache License, Version 2.0.*/,
