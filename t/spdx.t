@@ -55,9 +55,9 @@ subtest 'SPDX report contents' => sub {
   my $report = decode('UTF-8', $path->slurp);
 
   subtest 'Document Information' => sub {
-    like $report, qr/DocumentNamespace: http.+cavil.+spdx.+1/, 'has DocumentNamespace';
-    like $report, qr/DocumentName: report.spdx/,               'has DocumentName';
-    like $report, qr/SPDXID: SPDXRef-DOCUMENT/,                'has SPDXID for document';
+    like $report, qr/DocumentNamespace: http.+legaldb.+spdx.+1/, 'has DocumentNamespace';
+    like $report, qr/DocumentName: report.spdx/,                 'has DocumentName';
+    like $report, qr/SPDXID: SPDXRef-DOCUMENT/,                  'has SPDXID for document';
   };
 
   subtest 'Creation Information' => sub {

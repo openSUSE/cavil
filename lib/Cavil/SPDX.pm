@@ -36,7 +36,7 @@ sub generate_to_file ($self, $id, $file) {
 
   my $app             = $self->app;
   my $config          = $app->config->{spdx} || {};
-  my $namespace       = $config->{namespace} || 'http://cavil.suse.de/spdx/';
+  my $namespace       = $config->{namespace} || 'http://legaldb.suse.de/spdx/';
   my $dir             = $app->packages->pkg_checkout_dir($id);
   my $checkout        = Cavil::Checkout->new($dir);
   my $reports         = $app->reports;
