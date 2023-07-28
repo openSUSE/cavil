@@ -206,6 +206,20 @@ subtest 'Check unused patterns' => sub {
   };
 };
 
+subtest 'Show pattern match' => sub {
+  my $buffer = '';
+  {
+    open my $handle, '>', \$buffer;
+    local *STDOUT = $handle;
+    $app->start('patterns', '--match', '2');
+  }
+  like $buffer, qr/## Pattern Match/,           'header';
+  like $buffer, qr/id: 2/,                      'match id';
+  like $buffer, qr/license: MyTestLicense-1.0/, 'license';
+  like $buffer, qr/pattern: Whatever/,          'pattern';
+  like $buffer, qr/filename: test.txt/,         'filename';
+};
+
 subtest 'Inherit SPDX expressions from license name' => sub {
   my $before = $app->pg->db->query('SELECT * FROM license_patterns WHERE id = 1')->hash;
 

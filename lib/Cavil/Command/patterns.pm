@@ -18,6 +18,7 @@ use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Cavil::Licenses qw(lic);
 use Mojo::Util      qw(encode getopt tablify);
+use YAML::XS        qw(Dump);
 
 has description => 'License pattern management';
 has usage       => sub ($self) { $self->extract_usage };
@@ -31,9 +32,13 @@ sub run ($self, @args) {
     'fix-risk=i'      => \my $fix_risk,
     'inherit-spdx'    => \my $inherit_spdx,
     'license|l=s'     => \my $license,
+    'match=i'         => \my $match,
     'preview|P=i'     => \(my $preview = 57),
     'remove-unused=i' => \my $remove_unused,
     'remove-used=i'   => \my $remove_used;
+
+  # Show pattern match
+  return $self->_match($match, $preview) if $match;
 
   # Remove unused license pattern
   return $self->_remove_unused($remove_unused) if $remove_unused;
@@ -120,10 +125,7 @@ sub _check_use ($self, $unused, $license, $preview) {
     my ($id, $risk, $pattern) = @{$pattern}{qw(id risk pattern)};
     my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
 
-    $pattern =~ s/[^[:print:]]+//g;
-    my $len     = length $pattern;
-    my $snippet = substr encode('UTF-8', $pattern), 0, $preview;
-    $snippet .= '...' . ($len - $preview) if $len > $preview;
+    my $snippet = encode('UTF-8', _preview($pattern, $preview));
     if ($unused) {
       push @$table, [$id, $risk, $snippet] if $count == 0;
     }
@@ -160,6 +162,67 @@ sub _license_stats ($self, $license) {
   my $patterns
     = $self->app->pg->db->query('SELECT COUNT(*) AS count FROM license_patterns WHERE license = ?', $license)->hash;
   say "$license has $patterns->{count} patterns";
+}
+
+sub _match ($self, $id, $preview) {
+
+  # Pattern match
+  die "Pattern match not found" unless my $match = $self->_match_info($id);
+  $match->{pattern} = _preview($match->{pattern}, $preview);
+  say '## Pattern Match';
+  say Dump($match);
+
+  # Overlapping pattern matches
+  my $db = $self->app->pg->db;
+  my @overlapping;
+  my $overlapping_matches
+    = $db->query('SELECT id FROM pattern_matches WHERE file = ? AND sline <= ? AND eline >= ? AND id != ?',
+    @{$match}{qw(file eline sline id)})->hashes;
+  for my $overlapping_match ($overlapping_matches->each) {
+    push @overlapping, $self->_match_info($overlapping_match->{id});
+  }
+  if (@overlapping) {
+    say '## Overlapping Pattern Matches';
+    say Dump(\@overlapping);
+  }
+
+  # Snippets
+  my @snippets;
+  my $snippet_sql = q{
+    SELECT s.*, fs.sline, fs.eline, mf.id AS file_id, mf.filename
+    FROM file_snippets fs
+      LEFT JOIN snippets s ON fs.snippet = s.id
+      LEFT JOIN matched_files mf ON fs.file = mf.id
+    WHERE file = ? AND sline <= ? AND eline >= ?
+  };
+  for my $snippet_match ($db->query($snippet_sql, @{$match}{qw(file eline sline)})->hashes->each) {
+    $snippet_match->{text} = _preview($snippet_match->{text}, $preview);
+    push @snippets, $snippet_match;
+  }
+  if (@snippets) {
+    say '## Related Snippets';
+    say Dump(\@snippets);
+  }
+}
+
+sub _match_info ($self, $id) {
+  my $sql = q{
+    SELECT pm.*, lp.id AS pattern_id, lp.license, lp.opinion, lp.packname, lp.patent, lp.pattern, lp.spdx,
+      lp.token_hexsum, lp.trademark, mf.id AS file_id, mf.filename
+    FROM pattern_matches pm
+      LEFT JOIN license_patterns lp ON pm.pattern = lp.id
+      LEFT JOIN matched_files mf ON pm.file = mf.id
+    WHERE pm.id = ?
+  };
+  return $self->app->pg->db->query($sql, $id)->hash;
+}
+
+sub _preview ($pattern, $preview) {
+  $pattern =~ s/[^[:print:]]+//g;
+  my $len     = length $pattern;
+  my $snippet = substr $pattern, 0, $preview;
+  $snippet .= '...' . ($len - $preview) if $len > $preview;
+  return $snippet;
 }
 
 sub _remove_unused ($self, $id) {
@@ -225,7 +288,11 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     # Remove unused license pattern (cannot remove patterns still in use)
     script/cavil patterns --remove-unused 23
 
+    # Show all known information for a specific pattern match
+    script/cavil patterns --match 12345
+
   Options:
+        --match <id>           Show all known information for a pattern match
         --check-risks          Check for licenses with multiple risk assessments
         --check-spdx           Check for licenses patterns with inconsistent
                                SPDX expressions
