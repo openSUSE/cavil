@@ -86,7 +86,7 @@ sub spdx ($self) {
   }
 
   return $self->render(template => 'report/waiting', status => 408) if !$minion->lock("spdx_$id", 172800);
-  $minion->enqueue('spdx_report' => [$id]);
+  $minion->enqueue('spdx_report' => [$id] => {notes => {user => $self->current_user}});
   $self->redirect_to('spdx_report', {id => $id});
 }
 
