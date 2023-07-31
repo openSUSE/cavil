@@ -229,6 +229,12 @@ subtest 'error-invalid-xml-kiwi' => sub {
   is_deeply $checkout->specfile_report, report('error-invalid-xml-kiwi.kiwi'), 'right kiwi report';
 };
 
+subtest 'Tarball upload' => sub {
+  my $ceph     = $dir->child('tarball-upload', '5fcfdab0e71b0bebfdf8b5cc6bcdfecf');
+  my $checkout = Cavil::Checkout->new($ceph);
+  is_deeply $checkout->specfile_report, report('tarball-upload.cavil'), 'right tarball report';
+};
+
 subtest 'Unpack background job' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test_mojo');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);

@@ -95,6 +95,8 @@ sub specfile_report ($self) {
 
   my $info = {main => undef, sub => [], errors => [], warnings => []};
 
+  my $upload_file = $dir->child('.cavil.json');
+
   my $specfile_name = $basename . '.spec';
   my $main_specfile = $dir->child($specfile_name);
 
@@ -108,74 +110,90 @@ sub specfile_report ($self) {
   my $helmchart_name = 'Chart.yaml';
   my $main_helmchart = $dir->child($helmchart_name);
 
-  # Main .spec file
-  if (-f $main_specfile) {
-    my $specfile = $info->{main} = _specfile($main_specfile);
-    if (@{$specfile->{licenses}}) { $specfile->{license} = $specfile->{licenses}[0] }
-    else {
-      push @{$info->{errors}}, qq{Main specfile contains no license: $specfile_name (expected "License: ..." entry)};
-    }
+  # Tarball upload
+  if (-f $upload_file) {
+    my $upload   = decode_json($upload_file->slurp);
+    my $licenses = $upload->{licenses};
+    $info->{main} = {
+      file     => '.cavil.json',
+      license  => $licenses,
+      licenses => [$licenses],
+      type     => 'upload',
+      version  => $upload->{version}
+    };
   }
 
-  # Main .kiwi file
-  elsif (-f $main_kiwifile) {
-    my $kiwifile = $info->{main} = _kiwifile($main_kiwifile);
-    if (@{$kiwifile->{licenses}}) { $kiwifile->{license} = $kiwifile->{licenses}[0] }
-    else {
-      push @{$info->{errors}},
-        qq{Main kiwifile contains no license: $kiwifile_name (expected <label name="org.opencontainers.image.licenses" value="..."> tag)};
-    }
-  }
-
-  # Main .Dockerfile file
-  elsif (-f $main_dockerfile) {
-    my $dockerfile = $info->{main} = _dockerfile($main_dockerfile);
-    if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
-    else {
-      push @{$info->{errors}},
-        qq{Main Dockerfile contains no license: Dockerfile (expected "# SPDX-License-Identifier: ..." comment)};
-    }
-  }
-  elsif (-f $named_dockerfile) {
-    my $dockerfile = $info->{main} = _dockerfile($named_dockerfile);
-    if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
-    else {
-      push @{$info->{errors}},
-        qq{Main Dockerfile contains no license: $dockerfile_name (expected "# SPDX-License-Identifier: ..." comment)};
-    }
-  }
-
-  # Main Chart.yaml file
-  elsif (-f $main_helmchart) {
-    my $helmchart = $info->{main} = _helmchart($main_helmchart);
-    if (@{$helmchart->{licenses}}) { $helmchart->{license} = $helmchart->{licenses}[0] }
-    else {
-      push @{$info->{errors}},
-        qq{Main Helm chart contains no license: $helmchart_name (expected "# SPDX-License-Identifier: ..." comment)};
-    }
-
-    # For now we only expect one Chart.yaml file
-    push @{$info->{sub}}, $helmchart;
-  }
-
-  # No main files
   else {
-    push @{$info->{errors}},
-      "Main package file missing: expected $specfile_name, $kiwifile_name, $dockerfile_name, Dockerfile, or Chart.yaml";
+
+    # Main .spec file
+    if (-f $main_specfile) {
+      my $specfile = $info->{main} = _specfile($main_specfile);
+      if (@{$specfile->{licenses}}) { $specfile->{license} = $specfile->{licenses}[0] }
+      else {
+        push @{$info->{errors}}, qq{Main specfile contains no license: $specfile_name (expected "License: ..." entry)};
+      }
+    }
+
+    # Main .kiwi file
+    elsif (-f $main_kiwifile) {
+      my $kiwifile = $info->{main} = _kiwifile($main_kiwifile);
+      if (@{$kiwifile->{licenses}}) { $kiwifile->{license} = $kiwifile->{licenses}[0] }
+      else {
+        push @{$info->{errors}},
+          qq{Main kiwifile contains no license: $kiwifile_name (expected <label name="org.opencontainers.image.licenses" value="..."> tag)};
+      }
+    }
+
+    # Main .Dockerfile file
+    elsif (-f $main_dockerfile) {
+      my $dockerfile = $info->{main} = _dockerfile($main_dockerfile);
+      if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
+      else {
+        push @{$info->{errors}},
+          qq{Main Dockerfile contains no license: Dockerfile (expected "# SPDX-License-Identifier: ..." comment)};
+      }
+    }
+    elsif (-f $named_dockerfile) {
+      my $dockerfile = $info->{main} = _dockerfile($named_dockerfile);
+      if (@{$dockerfile->{licenses}}) { $dockerfile->{license} = $dockerfile->{licenses}[0] }
+      else {
+        push @{$info->{errors}},
+          qq{Main Dockerfile contains no license: $dockerfile_name (expected "# SPDX-License-Identifier: ..." comment)};
+      }
+    }
+
+    # Main Chart.yaml file
+    elsif (-f $main_helmchart) {
+      my $helmchart = $info->{main} = _helmchart($main_helmchart);
+      if (@{$helmchart->{licenses}}) { $helmchart->{license} = $helmchart->{licenses}[0] }
+      else {
+        push @{$info->{errors}},
+          qq{Main Helm chart contains no license: $helmchart_name (expected "# SPDX-License-Identifier: ..." comment)};
+      }
+
+      # For now we only expect one Chart.yaml file
+      push @{$info->{sub}}, $helmchart;
+    }
+
+    # No main files
+    else {
+      push @{$info->{errors}},
+        "Main package file missing: expected $specfile_name, $kiwifile_name, $dockerfile_name, Dockerfile, or Chart.yaml";
+    }
+
+    # All .spec files
+    my $files = $dir->list;
+    push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
+
+    # All .kiwi files
+    push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
+
+    # All .Dockerfile files
+    push @{$info->{sub}}, _dockerfile($_)
+      for $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
+
+    _check($info);
   }
-
-  # All .spec files
-  my $files = $dir->list;
-  push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
-
-  # All .kiwi files
-  push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
-
-  # All .Dockerfile files
-  push @{$info->{sub}}, _dockerfile($_)
-    for $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
-
-  _check($info);
 
   warn dumper $info if DEBUG;
   return $info;
@@ -216,6 +234,9 @@ sub unpack ($self, $options = {}) {
 
   # Zstandard, requires zstd
   $u->mime_helper('application=zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
+
+  # Tarball upload metadata
+  $u->exclude('.cavil.json');
 
   $u->exclude(vcs => 1);
   if (my $exclude = $options->{exclude}) {

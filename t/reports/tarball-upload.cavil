@@ -1,0 +1,12 @@
+{
+  "errors" => [],
+  "main"   => {
+    "file"     => ".cavil.json",
+    "license"  => "MIT",
+    "licenses" => ["MIT"],
+    "type"     => "upload",
+    "version"  => "1.0.1"
+  },
+  "sub" => [],
+  "warnings" => []
+}
