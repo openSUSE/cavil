@@ -3,7 +3,7 @@
 <h2>Upload</h2>
 
 <div class="alert alert-warning">
-  Please be aware that this is an <b>EXPERIMENTAL</b> developer feature and should not be used in production for now.
+  Please be aware that this is an <b>EXPERIMENTAL</b> feature.
 </div>
 
 %= form_for '/upload' => (method => 'POST', enctype => 'multipart/form-data') => begin
