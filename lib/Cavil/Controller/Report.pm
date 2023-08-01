@@ -85,9 +85,9 @@ sub spdx ($self) {
     return $self->reply->asset(Mojo::Asset::File->new(path => $pkgs->spdx_report_path($id)));
   }
 
-  return $self->render(template => 'report/waiting', status => 408) if !$minion->lock("spdx_$id", 172800);
-  $minion->enqueue('spdx_report' => [$id] => {notes => {user => $self->current_user}});
-  $self->redirect_to('spdx_report', {id => $id});
+  $minion->enqueue('spdx_report' => [$id] => {notes => {user => $self->current_user}})
+    if $minion->lock("spdx_$id", 172800);
+  $self->render(template => 'report/waiting', status => 408);
 }
 
 sub _sanitize_report ($self, $report) {

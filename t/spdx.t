@@ -41,11 +41,14 @@ subtest 'Unpack and index' => sub {
 subtest 'Generate SPDX report' => sub {
   is $t->app->pg->db->query('UPDATE snippets SET classified = true AND license = false WHERE id = any(?)', [1])->rows,
     1, 'one snippet is not a license';
+
   ok !$t->app->packages->has_spdx_report(1), 'package has no SPDX report';
-  $t->app->minion->enqueue(spdx_report => [1]);
+  $t->get_ok('/spdx/1')->status_is(408)->content_like(qr/generated/)->content_unlike(qr/SPDXVersion/);
+  $t->get_ok('/spdx/1')->status_is(408)->content_like(qr/generated/)->content_unlike(qr/SPDXVersion/);
   $t->app->minion->perform_jobs;
-  ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
   is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
+  ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
+  $t->get_ok('/spdx/1')->status_is(200)->content_unlike(qr/generated/)->content_like(qr/SPDXVersion/);
 };
 
 subtest 'SPDX report contents' => sub {
