@@ -74,7 +74,7 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/PackageName: perl-Mojolicious/,                                     'has PackageName';
     like $report, qr/SPDXID: SPDXRef-pkg1/,                                              'has SPDXID for package';
     like $report, qr/PackageDownloadLocation: NOASSERTION/,                              'has PackageDownloadLocation';
-    like $report, qr/PackageVerificationCode: e3068898c073fa06a8c46c86e2959f1ae1640f3d/, 'has PackageVerificationCode';
+    like $report, qr/PackageVerificationCode: fe1c74622249929a94572734f8fdf1cbb24ab8dd/, 'has PackageVerificationCode';
     like $report, qr/PackageVersion: 7.25/,                                              'has PackageVersion';
     like $report, qr/PackageLicenseDeclared: Artistic-2.0/,                              'has PackageLicenseDeclared';
     like $report, qr/PackageDescription: Real-time/,                                     'has PackageDescription';
@@ -112,6 +112,15 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/ExtractedText: .*Licensed under the Apache License, Version 2.0.*/,
       'has license reference 30 text';
     unlike $report, qr/LicenseId: LicenseRef.+40/, 'no license reference 40';
+  };
+
+  subtest 'Pre-processed files are replaced with the real files' => sub {
+    unlike $report, qr/FileName: .+run_prettify\.processed\.js/,                      'no pre-processed file';
+    unlike $report, qr/FileChecksum: SHA1: f6a8e660f0a8ce1d7458451bdcf76b41fef2a8a7/, 'no pre-processed checksum';
+
+    like $report, qr/FileName: .+prettify\/run_prettify\.js/,                       'has original file name';
+    like $report, qr/FileChecksum: SHA1: face8177a6804506c67c5644c00f3c6e0e50f02b/, 'has original checksum';
+    like $report, qr/FileCopyrightText: .+Copyrigh.+2006.+Google/,                  'has copyright text';
   };
 };
 

@@ -68,11 +68,24 @@ sub generate_to_file ($self, $id, $file) {
   $spdx->br();
 
   # Scan files (needed for verification)
-  my (%files, %paths, @checksums);
+  my (%files, %paths, @checksums, %original_files);
   for my $unpacked (@{$checkout->unpacked_files}) {
     my ($file, $mime) = @$unpacked;
-    my $path = $paths{$file} = $dir->child('.unpacked', $file)->to_string;
-    push @checksums, $files{$file} = Digest::SHA->new('1')->addfile($path)->hexdigest;
+
+    # The indexer pre-processes certain files to allow for them to be scanned (and we want the original checksum)
+    my $checksum_path = $dir->child('.unpacked', $file)->to_string;
+    if ($file =~ /^(.+)\.processed\.(\w+)$/) {
+      my $original      = "$1.$2";
+      my $original_path = $dir->child('.unpacked', $original)->to_string;
+      if (-e $original_path) {
+        $paths{$file}          = $checksum_path;
+        $checksum_path         = $original_path;
+        $original_files{$file} = $original;
+      }
+    }
+    $paths{$file} //= $checksum_path;
+
+    push @checksums, $files{$file} = Digest::SHA->new('1')->addfile($checksum_path)->hexdigest;
   }
   my $verification_code = Digest::SHA->new('1')->add(join('', sort @checksums))->hexdigest;
 
@@ -108,9 +121,10 @@ sub generate_to_file ($self, $id, $file) {
   for my $file (sort keys %files) {
     $file_num++;
 
+    my $real_name = $original_files{$file} // $file;
     $spdx->comment('File');
     $spdx->br();
-    $spdx->tag(FileName         => "./$file");
+    $spdx->tag(FileName         => "./$real_name");
     $spdx->tag(SPDXID           => "SPDXRef-item$file_num");
     $spdx->tag(FileChecksum     => 'SHA1: ' . $files{$file});
     $spdx->tag(LicenseConcluded => NO_ASSERTION);
