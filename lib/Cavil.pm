@@ -29,7 +29,6 @@ use Cavil::OBS;
 use Cavil::SPDX;
 use Cavil::Sync;
 use Scalar::Util 'weaken';
-use Time::HiRes ();
 use Mojo::File  qw(path);
 
 has classifier => sub { Cavil::Classifier->new };
@@ -60,28 +59,7 @@ sub startup ($self) {
   $self->max_request_size(262144000);
 
   # Short logs for systemd
-  if ($self->mode eq 'production') {
-    $self->log->short(1);
-
-    # All interesting log messages are "info" or higher
-    $self->log->level('info');
-    $self->hook(
-      before_routes => sub ($c) {
-        my $req     = $c->req;
-        my $method  = $req->method;
-        my $url     = $req->url->to_abs->to_string;
-        my $started = [Time::HiRes::gettimeofday];
-        $c->tx->on(
-          finish => sub ($tx, @args) {
-            my $code    = $tx->res->code;
-            my $elapsed = Time::HiRes::tv_interval($started, [Time::HiRes::gettimeofday()]);
-            my $rps     = $elapsed == 0 ? '??' : sprintf '%.3f', 1 / $elapsed;
-            $self->log->info(qq{$method $url -> $code (${elapsed}s, $rps/s)});
-          }
-        );
-      }
-    );
-  }
+  $self->log->short(1) if $self->mode eq 'production';
 
   # Application specific commands
   push @{$self->commands->namespaces}, 'Cavil::Command';
