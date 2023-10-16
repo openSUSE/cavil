@@ -199,8 +199,10 @@ sub update_product ($self) {
   $validation->required('id')->like(qr/^\d+$/);
   return $self->reply->json_validation_error if $validation->has_error;
 
+  my $name = $self->stash('name');
+  $self->log->info("Updating product $name");
   my $products = $self->products;
-  my $obj      = $products->find_or_create($self->stash('name'));
+  my $obj      = $products->find_or_create($name);
 
   # This might take some time for big products
   $self->inactivity_timeout(600);
