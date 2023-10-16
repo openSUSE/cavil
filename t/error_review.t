@@ -32,7 +32,7 @@ $cavil_test->mojo_fixtures($t->app);
 # Modify spec files to trigger a few special cases
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, 'perl-Mojolicious', $pkg->{checkout_dir});
-$dir->child('perl-Mojolicious-whatever.spec')->spurt(<<EOF);
+$dir->child('perl-Mojolicious-whatever.spec')->spew(<<EOF);
 License: MIT
 Description: Just a test package
 Version: 1.2.3
@@ -44,7 +44,7 @@ EOF
 my $spec    = $dir->child('perl-Mojolicious.spec');
 my $content = $spec->slurp;
 $content =~ s/Artistic-2.0/Fake-Artistic/g;
-$spec->spurt($content);
+$spec->spew($content);
 
 subtest 'Details after import (with login)' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');

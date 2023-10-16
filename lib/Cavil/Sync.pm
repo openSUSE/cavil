@@ -83,7 +83,7 @@ sub store ($self, $dir) {
       $subdir->make_path unless -d $subdir;
 
       my $target = $subdir->child($uuid);
-      $target->spurt(
+      $target->spew(
         encode_json(
           {
             license   => $hash->{license},

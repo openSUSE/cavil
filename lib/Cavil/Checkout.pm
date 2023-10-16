@@ -254,7 +254,7 @@ sub unpack ($self, $options = {}) {
   my $unpacked  = decode_json($dir->child('.unpacked.json')->slurp);
   my $processor = Cavil::PostProcess->new($unpacked);
   $processor->postprocess;
-  $dir->child('.postprocessed.json')->spurt(encode_json($processor->hash));
+  $dir->child('.postprocessed.json')->spew(encode_json($processor->hash));
 }
 
 sub unpacked_files ($self, $bucket_size = undef) {

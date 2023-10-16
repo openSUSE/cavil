@@ -62,7 +62,7 @@ sub store ($self) {
     srcmd5          => $sum,
   );
   my $dir = path($self->app->config->{checkout_dir}, $name, $sum)->make_path;
-  $dir->child('.cavil.json')->spurt(encode_json({licenses => $licenses, version => $version}));
+  $dir->child('.cavil.json')->spew(encode_json({licenses => $licenses, version => $version}));
   my $filename = path($upload->filename)->basename;
   $file->move_to($dir->child($filename));
   my $obj = $pkgs->find($id);

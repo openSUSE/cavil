@@ -30,7 +30,7 @@ sub register ($self, $app, $config) {
     worker => sub ($minion, $worker) {
       $worker->on(
         dequeue => sub ($worker, $job) {
-          $job->on(start => sub { path('/proc', $$, 'oom_score_adj')->spurt('200') });
+          $job->on(start => sub { path('/proc', $$, 'oom_score_adj')->spew('200') });
         }
       );
     }

@@ -1,4 +1,4 @@
-requires 'Mojolicious', '>= 9.20';
+requires 'Mojolicious', '>= 9.34';
 requires 'Mojolicious::Plugin::Webpack';
 requires 'Mojo::Pg',         '>= 4.25';
 requires 'Minion',           '>= 8.0';
