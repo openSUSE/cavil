@@ -16,13 +16,16 @@
 package Cavil::OBS;
 use Mojo::Base -base, -signatures;
 
-use Carp 'croak';
+use Carp qw(croak);
 use Digest::MD5;
-use Mojo::File 'path';
+use Mojo::File qw(path);
 use Mojo::UserAgent;
 use Mojo::URL;
+use Cavil::Util qw(obs_ssh_auth);
 
-has ua => sub {
+has ssh_hosts => sub { ['api.suse.de'] };
+has ssh_key   => sub { die 'Missing ssh key' };
+has ua        => sub {
   my $ua = Mojo::UserAgent->new(inactivity_timeout => 600);
   $ua->on(
     start => sub ($ua, $tx) {
@@ -36,15 +39,15 @@ has ua => sub {
   );
   return $ua;
 };
+has user => sub { die 'Missing ssh user' };
 
 sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   $dir = path($dir)->make_path;
-  my $ua = $self->ua;
 
   # List files
   my $url = _url($api, 'public', 'source', $project, $pkg)->query(expand => 1);
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
-  my $res = $ua->get($url)->result;
+  my $res = $self->_get($url);
   croak "$url: " . $res->code unless $res->is_success;
   my $dom    = $res->dom;
   my $srcmd5 = $dom->at('directory')->{srcmd5};
@@ -58,7 +61,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
 
     my $url = _url($api, 'public', 'source', $project, $pkg, $file->{name});
     $url->query([expand => 1, rev => $srcmd5]);
-    my $res = $ua->get($url)->result;
+    my $res = $self->_get($url);
     croak "$url: " . $res->code unless $res->is_success;
     my $target = $dir->child($file->{name});
     $res->content->asset->move_to($target);
@@ -68,35 +71,33 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
 }
 
 sub package_info ($self, $api, $project, $pkg, $options = {}) {
-  my $ua = $self->ua;
-
   my $url = _url($api, 'public', 'source', $project, $pkg)->query(view => 'info');
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
-  my $res = $ua->get($url)->result;
+  my $res = $self->_get($url);
   croak "$url: " . $res->code unless $res->is_success;
 
   my $source = $res->dom->at('sourceinfo');
   my $info   = {srcmd5 => $source->{srcmd5}, verifymd5 => $source->{verifymd5}, package => $pkg};
 
   # Find the deepest link
-  my $linfo = _find_link_target($ua, $api, $project, $pkg, $options->{rev} || $source->{srcmd5});
+  my $linfo = $self->_find_link_target($api, $project, $pkg, $options->{rev} || $source->{srcmd5});
   $info->{package} = $linfo->{package} if $linfo;
   return $info;
 }
 
-sub _find_link_target ($ua, $api, $project, $pkg, $lrev) {
+sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
   my $url   = _url($api, 'public', 'source', $project, $pkg);
   my $query = {expand => 1};
   $query->{rev} = $lrev if defined $lrev;
   $url->query($query);
-  my $res = $ua->get($url)->result;
+  my $res = $self->_get($url);
   return undef unless $res->is_success;
 
   # Check if we're on track
   my $match = grep { $_->{name} eq "$pkg.spec" } $res->dom->find('entry')->map('attr')->each;
 
   if (my $link = $res->dom->at('linkinfo')) {
-    my $linfo = _find_link_target($ua, $api, $link->{project}, $link->{package}, $link->{srcmd5});
+    my $linfo = $self->_find_link_target($api, $link->{project}, $link->{package}, $link->{srcmd5});
     if ($linfo) {
 
       # If the sub package has no matching spec file, we drop it
@@ -104,7 +105,7 @@ sub _find_link_target ($ua, $api, $project, $pkg, $lrev) {
     }
   }
   $url = _url($api, 'public', 'source', $project, $pkg, '_meta');
-  $res = $ua->get($url)->result;
+  $res = $self->_get($url);
 
   # This is severe as we already checked the sources
   croak "$url: " . $res->code unless $res->is_success;
@@ -112,6 +113,25 @@ sub _find_link_target ($ua, $api, $project, $pkg, $lrev) {
   my %linfo = (project => $project, package => $pkg, lrev => $lrev, match => $match);
   return \%linfo unless my $rn = $res->dom->at('releasename');
   return {%linfo, package => $rn->text};
+}
+
+sub _get ($self, $url) {
+  my $ua = $self->ua;
+
+  # "api.suse.de" does not have public API endpoints
+  my $host  = $url->host;
+  my $path  = $url->path;
+  my $hosts = $self->ssh_hosts;
+  shift @{$path->parts} if (grep { $host eq $_ } @$hosts) && $path->parts->[0] eq 'public';
+
+  my $tx = $ua->get($url);
+
+  # "api.suse.de" needs ssh authentication
+  my $res = $tx->res;
+  $tx = $ua->get($url, {Authorization => obs_ssh_auth($res->headers->www_authenticate, $self->user, $self->ssh_key)})
+    if $res->code == 401;
+
+  return $tx->result;
 }
 
 sub _md5 ($file) {

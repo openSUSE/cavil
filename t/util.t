@@ -16,9 +16,19 @@
 use Mojo::Base -strict;
 
 use Test::More;
-use Mojo::File;
+use Mojo::File  qw(curfile tempfile);
 use Mojo::JSON  qw(decode_json);
-use Cavil::Util qw(buckets lines_context parse_exclude_file);
+use Cavil::Util qw(buckets lines_context obs_ssh_auth parse_exclude_file ssh_sign);
+
+my $PRIVATE_KEY = tempfile->spew(<<'EOF');
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACAQ1ktyOCFDMUIV9GfaZio8NNPT09mHcG0Wpx3bo7xwzAAAAJBnE+yjZxPs
+owAAAAtzc2gtZWQyNTUxOQAAACAQ1ktyOCFDMUIV9GfaZio8NNPT09mHcG0Wpx3bo7xwzA
+AAAEAnJpCOHj1O0O8oCygQJ6pjDT+827VkQXq98zApns/VYRDWS3I4IUMxQhX0Z9pmKjw0
+09PT2YdwbRanHdujvHDMAAAACmNhdmlsQHRlc3QBAgM=
+-----END OPENSSH PRIVATE KEY-----
+EOF
 
 subtest 'buckets' => sub {
   is_deeply buckets([1 .. 10], 3), [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10]], 'right buckets';
@@ -45,6 +55,25 @@ subtest 'parse_exclude_file' => sub {
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc1'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc9'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/empty.exclude', 'whatever'), [];
+};
+
+subtest 'ssh_sign' => sub {
+  my $signature = ssh_sign($PRIVATE_KEY, 'realm', 'message');
+  like $signature, qr/^[-A-Za-z0-9+\/]+={0,3}$/, 'valid Base64 encoded signature';
+  isnt ssh_sign($PRIVATE_KEY, 'realm2', 'message'),  $signature, 'different signature';
+  isnt ssh_sign($PRIVATE_KEY, 'realm',  'message2'), $signature, 'different signature';
+  is ssh_sign($PRIVATE_KEY, 'realm', 'message'), $signature, 'identical signature';
+};
+
+subtest 'obs_ssh_auth' => sub {
+  my $auth_header
+    = obs_ssh_auth('Signature realm="Use your developer account",headers="(created)"', 'user', $PRIVATE_KEY);
+  isnt obs_ssh_auth('Signature realm="Use your developer account",headers="(created)"', 'user2', $PRIVATE_KEY),
+    $auth_header, 'different header';
+  is obs_ssh_auth('Signature realm="Use your developer account",headers="(created)"', 'user', $PRIVATE_KEY),
+    $auth_header, 'identical header';
+  like $auth_header,
+    qr/^Signature keyId="user",algorithm="ssh",signature="[-A-Za-z0-9+\/]+={0,3}",headers="\(created\)",created="\d+"$/;
 };
 
 done_testing;

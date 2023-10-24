@@ -58,6 +58,12 @@ sub startup ($self) {
   $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};
   $self->max_request_size(262144000);
 
+  # Optional OBS credentials
+  if (my $obs = $config->{obs}) {
+    $self->obs->user($obs->{user})       if $obs->{user};
+    $self->obs->ssh_key($obs->{ssh_key}) if $obs->{ssh_key};
+  }
+
   # Short logs for systemd
   $self->log->short(1) if $self->mode eq 'production';
 

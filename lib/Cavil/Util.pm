@@ -20,13 +20,16 @@ use Carp 'croak';
 use Exporter 'import';
 use Encode qw(from_to decode);
 use Mojo::Util;
-use Mojo::File qw(path);
+use Mojo::File qw(path tempfile);
 use POSIX 'ceil';
 use Spooky::Patterns::XS;
 use Text::Glob 'glob_to_regex';
 $Text::Glob::strict_wildcard_slash = 0;
 
-our @EXPORT_OK = qw(buckets slurp_and_decode load_ignored_files lines_context paginate parse_exclude_file read_lines);
+our @EXPORT_OK = (
+  qw(buckets slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate parse_exclude_file),
+  qw(read_lines ssh_sign)
+);
 
 my $MAX_FILE_SIZE = 30000;
 
@@ -103,6 +106,16 @@ sub load_ignored_files ($db) {
   return \%ignored_file_res;
 }
 
+sub obs_ssh_auth ($challenge, $user, $key) {
+  die "Unexpected OBS challenge: $challenge" unless $challenge =~ /realm="([^"]+)".*headers="\(created\)"/;
+  my $realm = $1;
+
+  my $now       = time;
+  my $signature = ssh_sign($key, $realm, "(created): $now");
+
+  return qq{Signature keyId="$user",algorithm="ssh",signature="$signature",headers="(created)",created="$now"};
+}
+
 sub paginate ($results, $options) {
   my $total = @$results ? $results->[0]{total} : 0;
   delete $_->{total} for @$results;
@@ -144,6 +157,17 @@ sub read_lines ($path, $start_line, $end_line) {
     $text .= "$line\n";
   }
   return $text;
+}
+
+# Based on https://www.suse.com/c/multi-factor-authentication-on-suses-build-service/
+sub ssh_sign ($key, $realm, $value) {
+
+  # This needs to be a bit portable for CI testing
+  my $tmp   = tempfile->spew($value);
+  my @lines = split "\n", qx/ssh-keygen -Y sign -f "$key" -q -n "$realm" < $tmp/;
+  shift @lines;
+  pop @lines;
+  return join '', @lines;
 }
 
 1;

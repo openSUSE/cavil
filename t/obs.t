@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -21,7 +21,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File 'tempdir';
+use Mojo::File qw(tempdir tempfile);
 use Mojolicious::Lite;
 use Cavil::OBS;
 
@@ -393,6 +393,26 @@ get '/public/source/:project/postgresql96-plr/_meta' => [project => ['server:dat
 </package>
 EOF
 
+my $AUTHENTICATED = 0;
+get '/source/:project/kernel-default' => [project => ['openSUSE:Factory']] => (query => {view => 'info'}) => sub ($c) {
+  if (($c->req->headers->authorization // '') =~ /^Signature keyId="legaldb",algorithm="ssh",.+,created="\d+"$/) {
+    $AUTHENTICATED = 1;
+    $c->render(data => <<'EOF');
+<sourceinfo package="kernel-default" rev="10" vrev="1"
+srcmd5="74ee00bc30bdaf23acbfba25a893b52a"
+lsrcmd5="afd761dadb5281cdc26c869324b2ecd2"
+verifymd5="bb19066400b2b60e2310b45f10d12f56">
+  <filename>kernel-default.spec</filename>
+  <linked project="openSUSE:Factory" package="kernel-source" />
+</sourceinfo>
+EOF
+  }
+  else {
+    $c->res->headers->www_authenticate('Signature realm="Use your developer account",headers="(created)"');
+    $c->render(data => '', status => 401);
+  }
+};
+
 get '/*whatever' => {whatever => ''} => {text => '', status => 404};
 
 # Connect mock web service
@@ -517,6 +537,30 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   $worker->unregister;
   undef $guard;
   ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+};
+
+subtest 'Package info (with ssh authentication)' => sub {
+  my $private_key = tempfile->spew(<<'EOF');
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACAQ1ktyOCFDMUIV9GfaZio8NNPT09mHcG0Wpx3bo7xwzAAAAJBnE+yjZxPs
+owAAAAtzc2gtZWQyNTUxOQAAACAQ1ktyOCFDMUIV9GfaZio8NNPT09mHcG0Wpx3bo7xwzA
+AAAEAnJpCOHj1O0O8oCygQJ6pjDT+827VkQXq98zApns/VYRDWS3I4IUMxQhX0Z9pmKjw0
+09PT2YdwbRanHdujvHDMAAAACmNhdmlsQHRlc3QBAgM=
+-----END OPENSSH PRIVATE KEY-----
+EOF
+  $obs->user('legaldb');
+  $obs->ssh_key($private_key->to_string);
+  $obs->ssh_hosts(['127.0.0.1']);
+
+  my $info = {
+    srcmd5    => '74ee00bc30bdaf23acbfba25a893b52a',
+    package   => 'kernel-default',
+    verifymd5 => 'bb19066400b2b60e2310b45f10d12f56'
+  };
+  ok !$AUTHENTICATED, 'not authenticated';
+  is_deeply $obs->package_info($api, 'openSUSE:Factory', 'kernel-default'), $info, 'right structure';
+  ok $AUTHENTICATED, 'authenticated';
 };
 
 done_testing;
