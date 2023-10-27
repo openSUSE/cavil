@@ -107,7 +107,7 @@ sub load_ignored_files ($db) {
 }
 
 sub obs_ssh_auth ($challenge, $user, $key) {
-  die "Unexpected OBS challenge: $challenge" unless $challenge =~ /realm="([^"]+)".*headers="\(created\)"/;
+  die "Unexpected OBS challenge: $challenge" unless $challenge =~ /realm="([\w ]+)".*headers="\(created\)"/;
   my $realm = $1;
 
   my $now       = time;
