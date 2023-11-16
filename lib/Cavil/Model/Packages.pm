@@ -184,6 +184,23 @@ sub paginate_product_reviews ($self, $name, $options) {
     }, $product->{id}, $options->{limit}, $options->{offset}
   )->hashes->to_array;
 
+  # This check is intentionally very broad to make it easier to repeat reviews in regular intervals and potentially
+  # correct errors in previous assessments
+  if ($options->{export_restricted} eq 'true') {
+    my $old = $results;
+    $results = [];
+    for my $result (@$old) {
+      my $num = $db->query(
+        qq{
+          SELECT COUNT(*)
+          FROM pattern_matches pm JOIN license_patterns lp ON pm.pattern = lp.id
+          WHERE pm.package = ? AND lp.export_restricted = true
+        }, $result->{id}
+      )->array->[0];
+      push @$results, $result if $num > 0;
+    }
+  }
+
   return paginate($results, $options);
 }
 

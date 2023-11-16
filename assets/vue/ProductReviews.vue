@@ -16,7 +16,16 @@
                 &nbsp;entries</label
               >
             </div>
-            <div class="form-check mb-2 mr-sm-2"></div>
+            <div class="form-check mb-2 mr-sm-2">
+              <input
+                v-model="params.exportRestricted"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check form-check-inline"
+                id="cavil-pkg-export-restricted"
+              />
+              <label for="cavil-pkg-export-restricted">Export Restricted</label>
+            </div>
           </form>
         </div>
         <div id="cavil-pkg-search" class="col-sm-12 col-md-4">
@@ -88,7 +97,7 @@ export default {
   data() {
     return {
       end: 0,
-      params: {limit: 10, offset: 0, search: ''},
+      params: {limit: 10, offset: 0, exportRestricted: false, search: ''},
       reviews: null,
       refreshUrl: `/pagination/products/${this.currentProduct}`,
       search: '',

@@ -31,6 +31,8 @@ my $SPDX_VERSION = '2.2';
 
 has 'app';
 
+my @FLAGS = qw(trademark patent opinion export_restricted);
+
 sub generate_to_file ($self, $id, $file) {
   path($file)->remove if -e $file;
 
@@ -144,7 +146,7 @@ sub generate_to_file ($self, $id, $file) {
       }
 
       my $match_sql = qq{
-        SELECT m.*, p.spdx, p.license, p.risk, p.unique_id
+        SELECT m.*, p.spdx, p.license, p.risk, p.unique_id, p.trademark, p.patent, p.opinion, p.export_restricted
         FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
         WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
       };
@@ -180,9 +182,15 @@ sub generate_to_file ($self, $id, $file) {
 
           $refs->comment('License Reference');
           $refs->br();
-          $refs->tag(LicenseID      => $license);
-          $refs->tag(LicenseName    => $unknown || NO_ASSERTION);
-          $refs->tag(LicenseComment => "Risk: $match->{risk} ($match->{unique_id}:$match->{id})");
+          $refs->tag(LicenseID   => $license);
+          $refs->tag(LicenseName => $unknown || NO_ASSERTION);
+          my $flags = '';
+          if (grep { $match->{$_} } @FLAGS) {
+            my @flags = map { $match->{$_} ? ("\@$_") : () } @FLAGS;
+            $flags = '; Flags: ' . join(', ', @flags);
+          }
+          my $risk = $unknown eq '' ? 9 : $match->{risk};
+          $refs->tag(LicenseComment => "Risk: $risk$flags ($match->{unique_id}:$match->{id})");
           $refs->text(ExtractedText => $snippet);
           $refs->br();
         }

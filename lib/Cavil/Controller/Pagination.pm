@@ -67,14 +67,17 @@ sub product_reviews ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('offset')->num;
+  $v->optional('exportRestricted');
   $v->optional('search');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit  = $v->param('limit')  // 10;
-  my $offset = $v->param('offset') // 0;
-  my $search = $v->param('search') // '';
+  my $limit             = $v->param('limit')            // 10;
+  my $offset            = $v->param('offset')           // 0;
+  my $export_restricted = $v->param('exportRestricted') // 'false';
+  my $search            = $v->param('search')           // '';
 
   my $name = $self->stash('name');
-  my $page = $self->packages->paginate_product_reviews($name, {limit => $limit, offset => $offset, search => $search});
+  my $page = $self->packages->paginate_product_reviews($name,
+    {limit => $limit, offset => $offset, export_restricted => $export_restricted, search => $search});
   $self->render(json => $page);
 }
 
