@@ -85,7 +85,7 @@ sub spdx ($self) {
     return $self->reply->asset(Mojo::Asset::File->new(path => $pkgs->spdx_report_path($id)));
   }
 
-  $minion->enqueue('spdx_report' => [$id] => {notes => {user => $self->current_user}})
+  $minion->enqueue('spdx_report' => [$id] => {priority => 6, notes => {user => $self->current_user}})
     if $minion->lock("spdx_$id", 172800);
   $self->render(template => 'report/waiting', status => 408);
 }
