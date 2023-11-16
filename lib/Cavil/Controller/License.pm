@@ -42,7 +42,7 @@ sub create_pattern ($self) {
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
     opinion           => $validation->param('opinion'),
-    export_restricted => $validation->Param('export_restricted')
+    export_restricted => $validation->param('export_restricted')
   );
 
   if ($match->{conflict}) {
