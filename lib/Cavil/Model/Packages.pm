@@ -199,6 +199,7 @@ sub paginate_product_reviews ($self, $name, $options) {
       )->array->[0];
       push @$results, $result if $num > 0;
     }
+    map { $_->{total} = @$results } @$results;
   }
 
   return paginate($results, $options);
