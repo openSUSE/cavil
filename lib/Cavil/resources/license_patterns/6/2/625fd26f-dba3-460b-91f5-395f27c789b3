@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"","patent":1,"pattern":"src\/plugins\/mad\/*.[ch]:\n        Licensed under GPL license","risk":3,"spdx":"","trademark":0,"unique_id":"625fd26f-dba3-460b-91f5-395f27c789b3"}
+{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":1,"pattern":"src\/plugins\/mad\/*.[ch]:\n        Licensed under GPL license","risk":3,"spdx":"","trademark":0,"unique_id":"625fd26f-dba3-460b-91f5-395f27c789b3"}

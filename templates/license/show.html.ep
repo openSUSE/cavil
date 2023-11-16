@@ -42,11 +42,12 @@
         % if ($match->{packname}) {
             <div>Package: <%= $match->{packname} %></div>
         % }
-        % if ($match->{opinion} || $match->{patent} || $match->{trademark}) {
+        % if ($match->{opinion} || $match->{patent} || $match->{trademark} || $match->{export_restricted}) {
             <div>Flags:
                 %= $match->{opinion} ? 'Opinion' : ''
                 %= $match->{patent} ? 'Patent' : ''
                 %= $match->{trademark} ? 'Trademark' : ''
+                %= $match->{export_restricted} ? 'Export Restricted' : ''
             </div>
         % }
     </li>

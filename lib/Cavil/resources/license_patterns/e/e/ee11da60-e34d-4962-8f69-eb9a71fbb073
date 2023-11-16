@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"python_module:%define python_module() python-%{**} python3-%{**}}\r\n%{!?license: %global license %doc","risk":0,"spdx":"","trademark":0,"unique_id":"ee11da60-e34d-4962-8f69-eb9a71fbb073"}
+{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"python_module:%define python_module() python-%{**} python3-%{**}}\r\n%{!?license: %global license %doc","risk":0,"spdx":"","trademark":0,"unique_id":"ee11da60-e34d-4962-8f69-eb9a71fbb073"}

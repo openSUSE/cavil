@@ -42,7 +42,7 @@
         % }
         %= select_field risk => \@risks, class => 'form-control'
     </div>
-    <div class="col-sm-3">
+    <div class="col-sm-2">
       <div class="checkbox-inline">
         <label>
           <%= check_box patent => 1,
@@ -51,7 +51,7 @@
         </label>
       </div>
     </div>
-    <div class="col-sm-3">
+    <div class="col-sm-2">
       <div class="checkbox-inline">
         <label>
           <%= check_box trademark => 1,
@@ -59,11 +59,20 @@
         </label>
       </div>
     </div>
-    <div class="col-sm-3">
+    <div class="col-sm-2">
       <div class="checkbox-inline">
         <label>
           <%= check_box opinion => 1,
             $match->{opinion} ? (checked => undef) : () %> Opinion
+        </label>
+      </div>
+    </div>
+    <div class="col-sm-2">
+      <div class="checkbox-inline">
+        <label>
+          <%= check_box export_restricted => 1,
+            $match->{export_restricted} ? (checked => undef) : () %>
+          Export Restricted
         </label>
       </div>
     </div>

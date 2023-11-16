@@ -278,3 +278,6 @@ ALTER TABLE bot_package_products ADD CONSTRAINT  bot_package_products_product_fk
 -- 14 up
 ALTER TABLE license_patterns ADD COLUMN spdx TEXT NOT NULL DEFAULT '';
 CREATE INDEX ON license_patterns(spdx);
+
+-- 15 up
+ALTER TABLE license_patterns ADD COLUMN export_restricted BOOLEAN NOT NULL DEFAULT false;

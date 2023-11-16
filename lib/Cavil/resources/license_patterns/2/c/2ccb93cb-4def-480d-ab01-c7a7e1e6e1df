@@ -1,1 +1,1 @@
-{"license":"GPL-3.0+","opinion":0,"packname":"libxml2","patent":0,"pattern":"SAX.startElement(RPM:Copyright)\nSAX.characters(GPL, 3)\nSAX.endElement(RPM:Copyright","risk":3,"spdx":"GPL-3.0-or-later","trademark":0,"unique_id":"2ccb93cb-4def-480d-ab01-c7a7e1e6e1df"}
+{"export_restricted":0,"license":"GPL-3.0+","opinion":0,"packname":"libxml2","patent":0,"pattern":"SAX.startElement(RPM:Copyright)\nSAX.characters(GPL, 3)\nSAX.endElement(RPM:Copyright","risk":3,"spdx":"GPL-3.0-or-later","trademark":0,"unique_id":"2ccb93cb-4def-480d-ab01-c7a7e1e6e1df"}

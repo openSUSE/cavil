@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"__version__',\r\n    'license',\r\n    'sampledata","risk":0,"spdx":"","trademark":0,"unique_id":"03b2638f-42eb-427c-bf48-6cd24a9740ed"}
+{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"__version__',\r\n    'license',\r\n    'sampledata","risk":0,"spdx":"","trademark":0,"unique_id":"03b2638f-42eb-427c-bf48-6cd24a9740ed"}

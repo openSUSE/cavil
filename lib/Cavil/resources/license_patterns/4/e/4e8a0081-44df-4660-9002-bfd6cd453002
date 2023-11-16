@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"rubygem-bcrypt","patent":0,"pattern":"s.homepage = \"https:\/\/github.com\/codahale\/bcrypt-ruby\"\n  s.license = \"MIT","risk":1,"spdx":"MIT","trademark":0,"unique_id":"4e8a0081-44df-4660-9002-bfd6cd453002"}
+{"export_restricted":0,"license":"MIT","opinion":0,"packname":"rubygem-bcrypt","patent":0,"pattern":"s.homepage = \"https:\/\/github.com\/codahale\/bcrypt-ruby\"\n  s.license = \"MIT","risk":1,"spdx":"MIT","trademark":0,"unique_id":"4e8a0081-44df-4660-9002-bfd6cd453002"}

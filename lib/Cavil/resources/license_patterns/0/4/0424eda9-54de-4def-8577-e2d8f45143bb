@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"Blowfish Cipher Algorithm","risk":3,"spdx":"","trademark":0,"unique_id":"0424eda9-54de-4def-8577-e2d8f45143bb"}
+{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"Blowfish Cipher Algorithm","risk":3,"spdx":"","trademark":0,"unique_id":"0424eda9-54de-4def-8577-e2d8f45143bb"}

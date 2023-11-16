@@ -42,15 +42,16 @@ sub create ($self, %args) {
   my $mid = $db->insert(
     'license_patterns',
     {
-      pattern      => $args{pattern},
-      token_hexsum => $checksum,
-      packname     => $args{packname}  // '',
-      patent       => $args{patent}    // 0,
-      trademark    => $args{trademark} // 0,
-      opinion      => $args{opinion}   // 0,
-      license      => $args{license}   // '',
-      spdx         => $spdx,
-      risk         => $args{risk} // 5
+      pattern           => $args{pattern},
+      token_hexsum      => $checksum,
+      packname          => $args{packname}          // '',
+      patent            => $args{patent}            // 0,
+      trademark         => $args{trademark}         // 0,
+      opinion           => $args{opinion}           // 0,
+      export_restricted => $args{export_restricted} // 0,
+      license           => $args{license}           // '',
+      spdx              => $spdx,
+      risk              => $args{risk} // 5
     },
     {returning => 'id'}
   )->hash->{id};
@@ -169,14 +170,15 @@ sub update ($self, $id, %args) {
   $db->update(
     'license_patterns',
     {
-      pattern      => $args{pattern},
-      token_hexsum => $checksum,
-      packname     => $args{packname} // '',
-      license      => $args{license},
-      patent       => $args{patent}    // 0,
-      trademark    => $args{trademark} // 0,
-      opinion      => $args{opinion}   // 0,
-      risk         => $args{risk}      // 5
+      pattern           => $args{pattern},
+      token_hexsum      => $checksum,
+      packname          => $args{packname} // '',
+      license           => $args{license},
+      patent            => $args{patent}            // 0,
+      trademark         => $args{trademark}         // 0,
+      opinion           => $args{opinion}           // 0,
+      export_restricted => $args{export_restricted} // 0,
+      risk              => $args{risk}              // 5
     },
     {id => $id}
   );

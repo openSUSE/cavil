@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION (\"Salsa20 stream cipher algorithm","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"dfda0f37-3abb-4003-a865-959f26708ef0"}
+{"export_restricted":0,"license":"GPL-2.0","opinion":0,"packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION (\"Salsa20 stream cipher algorithm","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"dfda0f37-3abb-4003-a865-959f26708ef0"}

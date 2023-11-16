@@ -1,1 +1,1 @@
-{"license":"LGPL Unspecified","opinion":0,"packname":"libdbi-drivers","patent":0,"pattern":"drivers\/sqlite3\/dbd_sqlite3.h: changed license from GPL to LGPL","risk":3,"spdx":"","trademark":0,"unique_id":"574bfaf8-98f3-4d07-893e-c2af962dcd84"}
+{"export_restricted":0,"license":"LGPL Unspecified","opinion":0,"packname":"libdbi-drivers","patent":0,"pattern":"drivers\/sqlite3\/dbd_sqlite3.h: changed license from GPL to LGPL","risk":3,"spdx":"","trademark":0,"unique_id":"574bfaf8-98f3-4d07-893e-c2af962dcd84"}

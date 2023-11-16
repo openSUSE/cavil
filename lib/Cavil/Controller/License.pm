@@ -28,19 +28,21 @@ sub create_pattern ($self) {
   $validation->optional('patent');
   $validation->optional('trademark');
   $validation->optional('opinion');
+  $validation->optional('export_restricted');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $pattern = $validation->param('pattern');
 
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    license   => $validation->param('license'),
-    packname  => $validation->param('packname'),
-    pattern   => $pattern,
-    risk      => $validation->param('risk'),
-    patent    => $validation->param('patent'),
-    trademark => $validation->param('trademark'),
-    opinion   => $validation->param('opinion')
+    license           => $validation->param('license'),
+    packname          => $validation->param('packname'),
+    pattern           => $pattern,
+    risk              => $validation->param('risk'),
+    patent            => $validation->param('patent'),
+    trademark         => $validation->param('trademark'),
+    opinion           => $validation->param('opinion'),
+    export_restricted => $validation->Param('export_restricted')
   );
 
   if ($match->{conflict}) {
@@ -139,6 +141,7 @@ sub update_pattern ($self) {
   $validation->optional('patent');
   $validation->optional('trademark');
   $validation->optional('opinion');
+  $validation->optional('export_restricted');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $id       = $self->stash('id');
@@ -149,13 +152,14 @@ sub update_pattern ($self) {
   $patterns->expire_cache;
   my $result = $patterns->update(
     $id,
-    packname  => $validation->param('packname'),
-    pattern   => $pattern,
-    license   => $validation->param('license'),
-    patent    => $validation->param('patent'),
-    trademark => $validation->param('trademark'),
-    opinion   => $validation->param('opinion'),
-    risk      => $validation->param('risk')
+    packname          => $validation->param('packname'),
+    pattern           => $pattern,
+    license           => $validation->param('license'),
+    patent            => $validation->param('patent'),
+    trademark         => $validation->param('trademark'),
+    opinion           => $validation->param('opinion'),
+    export_restricted => $validation->param('export_restricted'),
+    risk              => $validation->param('risk')
   );
   if ($result->{conflict}) {
 

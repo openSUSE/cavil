@@ -1,1 +1,1 @@
-{"license":"LGPL-2.0","opinion":0,"packname":"libdvbpsi","patent":0,"pattern":"libdvbpsi_log(param, DVBINFO_LOG_ERROR, \"License: LGPL v2.1","risk":1,"spdx":"LGPL-2.0-only","trademark":0,"unique_id":"952cb086-71e2-4d11-99c9-0c418180fa71"}
+{"export_restricted":0,"license":"LGPL-2.0","opinion":0,"packname":"libdvbpsi","patent":0,"pattern":"libdvbpsi_log(param, DVBINFO_LOG_ERROR, \"License: LGPL v2.1","risk":1,"spdx":"LGPL-2.0-only","trademark":0,"unique_id":"952cb086-71e2-4d11-99c9-0c418180fa71"}

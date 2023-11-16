@@ -1,1 +1,1 @@
-{"license":"Any floating warranty","opinion":0,"packname":"","patent":0,"pattern":"cout << \"THIS SOFTWARE COMES WITH ABSOLUTELY NO WARRANTY! \" \\\n       << \"USE AT YOUR OWN RISK!\"<<endl","risk":1,"spdx":"","trademark":0,"unique_id":"fda57948-19da-4f30-9647-6e566a188a64"}
+{"export_restricted":0,"license":"Any floating warranty","opinion":0,"packname":"","patent":0,"pattern":"cout << \"THIS SOFTWARE COMES WITH ABSOLUTELY NO WARRANTY! \" \\\n       << \"USE AT YOUR OWN RISK!\"<<endl","risk":1,"spdx":"","trademark":0,"unique_id":"fda57948-19da-4f30-9647-6e566a188a64"}

@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"Note :\nDecompression functions are provided within LZ4 source code (see \"lz4.h\") (BSD license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"1926278b-e970-4400-8fc3-4a7a59863538"}
+{"export_restricted":0,"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"Note :\nDecompression functions are provided within LZ4 source code (see \"lz4.h\") (BSD license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"1926278b-e970-4400-8fc3-4a7a59863538"}

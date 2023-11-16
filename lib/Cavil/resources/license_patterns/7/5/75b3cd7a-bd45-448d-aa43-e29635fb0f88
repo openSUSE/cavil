@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"zsh","patent":0,"pattern":"Fix license to be MIT, zsh seems to be using the \"Modern\" variant\n  of the license text","risk":1,"spdx":"MIT","trademark":0,"unique_id":"75b3cd7a-bd45-448d-aa43-e29635fb0f88"}
+{"export_restricted":0,"license":"MIT","opinion":0,"packname":"zsh","patent":0,"pattern":"Fix license to be MIT, zsh seems to be using the \"Modern\" variant\n  of the license text","risk":1,"spdx":"MIT","trademark":0,"unique_id":"75b3cd7a-bd45-448d-aa43-e29635fb0f88"}

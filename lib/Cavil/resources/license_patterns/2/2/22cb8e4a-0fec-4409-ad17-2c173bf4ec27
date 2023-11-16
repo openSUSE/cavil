@@ -1,1 +1,1 @@
-{"license":"Artistic-1.0-Perl OR GPL-1.0+","opinion":0,"packname":"","patent":0,"pattern":"$mm_ver >= 6.31 ? (LICENSE => 'perl","risk":2,"spdx":"Artistic-1.0-Perl OR GPL-1.0-or-later","trademark":0,"unique_id":"22cb8e4a-0fec-4409-ad17-2c173bf4ec27"}
+{"export_restricted":0,"license":"Artistic-1.0-Perl OR GPL-1.0+","opinion":0,"packname":"","patent":0,"pattern":"$mm_ver >= 6.31 ? (LICENSE => 'perl","risk":2,"spdx":"Artistic-1.0-Perl OR GPL-1.0-or-later","trademark":0,"unique_id":"22cb8e4a-0fec-4409-ad17-2c173bf4ec27"}

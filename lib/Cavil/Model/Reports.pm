@@ -316,7 +316,8 @@ sub _dig_report {
 
     $report->{licenses}{$pattern->{license}}
       ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
-    $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_} for qw(patent trademark opinion);
+    $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
+      for qw(patent trademark opinion export_restricted);
 
     my $rl = $report->{risks}{$pattern->{risk}};
     push(@{$rl->{$pattern->{license}}{$pid}}, $match->{file});

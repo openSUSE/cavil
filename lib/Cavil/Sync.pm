@@ -86,15 +86,16 @@ sub store ($self, $dir) {
       $target->spew(
         encode_json(
           {
-            license   => $hash->{license},
-            spdx      => $hash->{spdx},
-            opinion   => $hash->{opinion},
-            packname  => $hash->{packname},
-            patent    => $hash->{patent},
-            pattern   => $hash->{pattern},
-            risk      => $hash->{risk},
-            trademark => $hash->{trademark},
-            unique_id => $uuid
+            license           => $hash->{license},
+            spdx              => $hash->{spdx},
+            opinion           => $hash->{opinion},
+            packname          => $hash->{packname},
+            patent            => $hash->{patent},
+            pattern           => $hash->{pattern},
+            risk              => $hash->{risk},
+            trademark         => $hash->{trademark},
+            export_restricted => $hash->{export_restricted},
+            unique_id         => $uuid
           }
         )
       );

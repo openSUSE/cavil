@@ -1,1 +1,1 @@
-{"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"gdb.base\/step-line.c: Switch license to GPL version 3, and\n\tupdate copyright year","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"83494cf7-990f-4a1f-a893-c0c3e6e444c8"}
+{"export_restricted":0,"license":"GPL-3.0","opinion":0,"packname":"","patent":0,"pattern":"gdb.base\/step-line.c: Switch license to GPL version 3, and\n\tupdate copyright year","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"83494cf7-990f-4a1f-a893-c0c3e6e444c8"}

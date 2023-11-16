@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"Add GNU license info. Add PMCC4 PCI\/DevIDs.  Implement new\n * musycc reg&bits namings. Use PORTMAP_0 GCD grouping","risk":3,"spdx":"","trademark":0,"unique_id":"2ffae579-9bd2-42ae-972a-9f5bc587657a"}
+{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"Add GNU license info. Add PMCC4 PCI\/DevIDs.  Implement new\n * musycc reg&bits namings. Use PORTMAP_0 GCD grouping","risk":3,"spdx":"","trademark":0,"unique_id":"2ffae579-9bd2-42ae-972a-9f5bc587657a"}

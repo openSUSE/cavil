@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"self.license = license.bsd_license_template % (\"(C) Copyright IBM Corporation 2005\", \"IBM","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"c3ae93b7-f542-45bb-8444-2c47fe1cd72f"}
+{"export_restricted":0,"license":"BSD-3-Clause","opinion":0,"packname":"","patent":0,"pattern":"self.license = license.bsd_license_template % (\"(C) Copyright IBM Corporation 2005\", \"IBM","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"c3ae93b7-f542-45bb-8444-2c47fe1cd72f"}

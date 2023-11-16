@@ -1,1 +1,1 @@
-{"license":"Python >=2.0.1","opinion":0,"packname":"python-iniparse","patent":0,"pattern":"include MANIFEST.in setup.py python-iniparse.spec\ninclude README Changelog LICENSE LICENSE-PSF","risk":1,"spdx":"","trademark":0,"unique_id":"39a99dc2-56ef-432d-a5e7-fb774e8e148b"}
+{"export_restricted":0,"license":"Python >=2.0.1","opinion":0,"packname":"python-iniparse","patent":0,"pattern":"include MANIFEST.in setup.py python-iniparse.spec\ninclude README Changelog LICENSE LICENSE-PSF","risk":1,"spdx":"","trademark":0,"unique_id":"39a99dc2-56ef-432d-a5e7-fb774e8e148b"}

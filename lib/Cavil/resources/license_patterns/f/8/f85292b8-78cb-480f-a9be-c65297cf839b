@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"libvirt","patent":0,"pattern":"GPLv2-only license requries that it be linked into\n# libvirtd and *not* libvirt.so","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"f85292b8-78cb-480f-a9be-c65297cf839b"}
+{"export_restricted":0,"license":"GPL-2.0","opinion":0,"packname":"libvirt","patent":0,"pattern":"GPLv2-only license requries that it be linked into\n# libvirtd and *not* libvirt.so","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"f85292b8-78cb-480f-a9be-c65297cf839b"}

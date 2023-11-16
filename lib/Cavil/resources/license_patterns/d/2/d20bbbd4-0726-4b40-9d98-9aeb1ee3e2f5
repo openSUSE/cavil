@@ -1,1 +1,1 @@
-{"license":"GPL-2.0","opinion":0,"packname":"libnfnetlink","patent":0,"pattern":"Adapted to nfnetlink by $SKIP30\n *\n * This software is free software and licensed under GNU GPLv2","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"d20bbbd4-0726-4b40-9d98-9aeb1ee3e2f5"}
+{"export_restricted":0,"license":"GPL-2.0","opinion":0,"packname":"libnfnetlink","patent":0,"pattern":"Adapted to nfnetlink by $SKIP30\n *\n * This software is free software and licensed under GNU GPLv2","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"d20bbbd4-0726-4b40-9d98-9aeb1ee3e2f5"}

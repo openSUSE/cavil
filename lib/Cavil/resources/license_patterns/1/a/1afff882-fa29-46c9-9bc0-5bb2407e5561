@@ -1,1 +1,1 @@
-{"license":"MPL-2.0","opinion":0,"packname":"rubygem-hashicorp-checkpoint","patent":0,"pattern":"spec.homepage      = \"http:\/\/www.hashicorp.com\"\n  spec.license       = \"MPL2","risk":3,"spdx":"MPL-2.0","trademark":0,"unique_id":"1afff882-fa29-46c9-9bc0-5bb2407e5561"}
+{"export_restricted":0,"license":"MPL-2.0","opinion":0,"packname":"rubygem-hashicorp-checkpoint","patent":0,"pattern":"spec.homepage      = \"http:\/\/www.hashicorp.com\"\n  spec.license       = \"MPL2","risk":3,"spdx":"MPL-2.0","trademark":0,"unique_id":"1afff882-fa29-46c9-9bc0-5bb2407e5561"}

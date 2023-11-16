@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"enum CellState { Released, Pressed, Revealed, Questioned, Flagged, Error, Hint","risk":0,"spdx":"","trademark":0,"unique_id":"36db021d-17b8-4297-9155-70e5d2192cc3"}
+{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"enum CellState { Released, Pressed, Revealed, Questioned, Flagged, Error, Hint","risk":0,"spdx":"","trademark":0,"unique_id":"36db021d-17b8-4297-9155-70e5d2192cc3"}

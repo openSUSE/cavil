@@ -43,7 +43,7 @@ my $checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3b
 $_->copy_to($checkout->child($_->basename)) for $test->list->each;
 
 my $online = Mojo::URL->new($postgres)->query([search_path => ['cavil_staging', 'public']])->to_unsafe_string;
-my $conf   = $dir->child('cavil.conf')->spurt(<<"EOF");
+my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
 {
   secrets              => ['just_a_test'],
   checkout_dir         => '$checkouts',

@@ -1,1 +1,1 @@
-{"license":"MIT","opinion":0,"packname":"","patent":0,"pattern":"std::cerr << \"This program is free software, released under a MIT-like license","risk":1,"spdx":"MIT","trademark":0,"unique_id":"abee8926-2337-41c3-8992-f10a504891b8"}
+{"export_restricted":0,"license":"MIT","opinion":0,"packname":"","patent":0,"pattern":"std::cerr << \"This program is free software, released under a MIT-like license","risk":1,"spdx":"MIT","trademark":0,"unique_id":"abee8926-2337-41c3-8992-f10a504891b8"}

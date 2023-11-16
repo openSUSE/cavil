@@ -1,1 +1,1 @@
-{"license":"Public-Domain","opinion":1,"packname":"digikam","patent":0,"pattern":"strcpy(sys -> hdr.Copyright,   \"No copyright, use freely","risk":1,"spdx":"","trademark":0,"unique_id":"b51d60fb-196b-42e3-8ea4-5c4d4e90eae7"}
+{"export_restricted":0,"license":"Public-Domain","opinion":1,"packname":"digikam","patent":0,"pattern":"strcpy(sys -> hdr.Copyright,   \"No copyright, use freely","risk":1,"spdx":"","trademark":0,"unique_id":"b51d60fb-196b-42e3-8ea4-5c4d4e90eae7"}

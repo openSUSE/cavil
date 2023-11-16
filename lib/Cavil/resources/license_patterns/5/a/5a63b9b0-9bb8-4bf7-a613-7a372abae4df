@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"argyllcms","patent":0,"pattern":"add ajam (argyll patched version of Jam, BSD-license) to source\n  package (needed only for build","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"5a63b9b0-9bb8-4bf7-a613-7a372abae4df"}
+{"export_restricted":0,"license":"BSD-3-Clause","opinion":0,"packname":"argyllcms","patent":0,"pattern":"add ajam (argyll patched version of Jam, BSD-license) to source\n  package (needed only for build","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"5a63b9b0-9bb8-4bf7-a613-7a372abae4df"}

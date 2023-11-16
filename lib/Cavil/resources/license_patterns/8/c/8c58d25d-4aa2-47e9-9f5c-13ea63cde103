@@ -1,1 +1,1 @@
-{"license":"Public-Domain","opinion":0,"packname":"","patent":0,"pattern":"missing\/erf.c: original erf.c by prof. Okumura is confirmed to\n\t  be public domain.  reverted BSD implementation","risk":1,"spdx":"","trademark":0,"unique_id":"8c58d25d-4aa2-47e9-9f5c-13ea63cde103"}
+{"export_restricted":0,"license":"Public-Domain","opinion":0,"packname":"","patent":0,"pattern":"missing\/erf.c: original erf.c by prof. Okumura is confirmed to\n\t  be public domain.  reverted BSD implementation","risk":1,"spdx":"","trademark":0,"unique_id":"8c58d25d-4aa2-47e9-9f5c-13ea63cde103"}

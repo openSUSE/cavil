@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"cout << \" | (C) $SKIP19  GPL license\" << endl","risk":3,"spdx":"","trademark":0,"unique_id":"8923db43-43b6-4b4e-ac7f-ec3b0b02fe1f"}
+{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"cout << \" | (C) $SKIP19  GPL license\" << endl","risk":3,"spdx":"","trademark":0,"unique_id":"8923db43-43b6-4b4e-ac7f-ec3b0b02fe1f"}

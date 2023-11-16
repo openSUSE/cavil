@@ -1,1 +1,1 @@
-{"license":"BSD-3-Clause","opinion":0,"packname":"libssh2_org","patent":0,"pattern":"libssh2 is a library implementing the SSH2 protocol, available under\nthe revised BSD license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"f28f44da-5c79-4b73-a8c4-b88184fab62a"}
+{"export_restricted":0,"license":"BSD-3-Clause","opinion":0,"packname":"libssh2_org","patent":0,"pattern":"libssh2 is a library implementing the SSH2 protocol, available under\nthe revised BSD license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"f28f44da-5c79-4b73-a8c4-b88184fab62a"}

@@ -1,1 +1,1 @@
-{"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"define DRIVER_DESC \"HID core driver\"\n#define DRIVER_LICENSE \"GPL","risk":3,"spdx":"","trademark":0,"unique_id":"552caa2e-7bdf-42dd-901b-55e1dd502742"}
+{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"define DRIVER_DESC \"HID core driver\"\n#define DRIVER_LICENSE \"GPL","risk":3,"spdx":"","trademark":0,"unique_id":"552caa2e-7bdf-42dd-901b-55e1dd502742"}

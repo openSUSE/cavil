@@ -1,1 +1,1 @@
-{"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"linux-sandbox runs commands in a restricted environment where they are\r\n * subject to a few rules","risk":0,"spdx":"","trademark":0,"unique_id":"687b57aa-2dd4-48da-8a5d-39eabf49c207"}
+{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"linux-sandbox runs commands in a restricted environment where they are\r\n * subject to a few rules","risk":0,"spdx":"","trademark":0,"unique_id":"687b57aa-2dd4-48da-8a5d-39eabf49c207"}

@@ -1,1 +1,1 @@
-{"license":"Zlib","opinion":0,"packname":"","patent":0,"pattern":"The gzip module uses the zlib license (see src\/gzip\/zlib.h) which too is\r\ncompatible to the above two licenses","risk":1,"spdx":"Zlib","trademark":0,"unique_id":"498e231c-579b-40a9-94ba-c6b9765adfda"}
+{"export_restricted":0,"license":"Zlib","opinion":0,"packname":"","patent":0,"pattern":"The gzip module uses the zlib license (see src\/gzip\/zlib.h) which too is\r\ncompatible to the above two licenses","risk":1,"spdx":"Zlib","trademark":0,"unique_id":"498e231c-579b-40a9-94ba-c6b9765adfda"}
