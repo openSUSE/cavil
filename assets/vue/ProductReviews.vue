@@ -16,7 +16,27 @@
                 &nbsp;entries</label
               >
             </div>
-            <div class="form-check mb-2 mr-sm-2">
+            <div class="form-check mb-2 mr-sm-4">
+              <input
+                v-model="params.patent"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check form-check-inline"
+                id="cavil-pkg-patent"
+              />
+              <label for="cavil-pkg-patent">Patent</label>
+            </div>
+            <div class="form-check mb-2 mr-sm-4">
+              <input
+                v-model="params.trademark"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check form-check-inline"
+                id="cavil-pkg-trademark"
+              />
+              <label for="cavil-pkg-trademark">Trademark</label>
+            </div>
+            <div class="form-check mb-2 mr-sm-4">
               <input
                 v-model="params.exportRestricted"
                 @change="gotoPage(1)"
@@ -97,7 +117,7 @@ export default {
   data() {
     return {
       end: 0,
-      params: {limit: 10, offset: 0, exportRestricted: false, search: ''},
+      params: {limit: 10, offset: 0, patent: false, trademark: false, exportRestricted: false, search: ''},
       reviews: null,
       refreshUrl: `/pagination/products/${this.currentProduct}`,
       search: '',

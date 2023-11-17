@@ -281,3 +281,8 @@ CREATE INDEX ON license_patterns(spdx);
 
 -- 15 up
 ALTER TABLE license_patterns ADD COLUMN export_restricted BOOLEAN NOT NULL DEFAULT false;
+
+-- 16 up
+ALTER TABLE bot_packages ADD COLUMN patent BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE bot_packages ADD COLUMN trademark BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE bot_packages ADD COLUMN export_restricted BOOLEAN NOT NULL DEFAULT false;

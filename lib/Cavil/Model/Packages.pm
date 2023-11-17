@@ -83,6 +83,28 @@ sub find_by_name_and_md5 ($self, $pkg, $md5) {
   return $self->pg->db->select('bot_packages', '*', {name => $pkg, checkout_dir => $md5})->hash;
 }
 
+sub flags ($self, $id) {
+  # Only include flags that have a field in the bot_packages table
+  my @flags = qw(patent trademark export_restricted);
+  my $flags = {map { $_ => 0 } @flags};
+
+  my $results = $self->pg->db->query(
+    qq{
+      SELECT patent, trademark, export_restricted
+      FROM pattern_matches pm JOIN license_patterns lp ON pm.pattern = lp.id
+      WHERE pm.package = ? AND pm.ignored = false
+        AND (lp.patent = true OR lp.trademark = true OR lp.export_restricted = true)
+    }, $id
+  )->hashes->to_array;
+  for my $result (@$results) {
+    for my $flag (@flags) {
+      $flags->{$flag} = 1 if $result->{$flag};
+    }
+  }
+
+  return $flags;
+}
+
 sub has_spdx_report ($self, $id) {
   return -f $self->spdx_report_path($id);
 }
@@ -173,35 +195,32 @@ sub paginate_product_reviews ($self, $name, $options) {
     $search = "AND (checksum ILIKE $quoted OR state::text ILIKE $quoted OR name ILIKE $quoted)";
   }
 
+  my $patent = '';
+  if ($options->{patent} eq 'true') {
+    $patent = 'AND patent = true';
+  }
+
+  my $trademark = '';
+  if ($options->{trademark} eq 'true') {
+    $patent = 'AND trademark = true';
+  }
+
+  my $export_restricted = '';
+  if ($options->{export_restricted} eq 'true') {
+    $export_restricted = 'AND export_restricted = true';
+  }
+
   my $results = $db->query(
     qq{
       SELECT bot_packages.name, bot_packages.id, EXTRACT(EPOCH FROM imported) as imported_epoch,
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, state,
         checksum, COUNT(*) OVER() AS total
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
-      WHERE bot_package_products.product = ? $search
+      WHERE bot_package_products.product = ? $search $patent $trademark $export_restricted
       ORDER BY bot_packages.id DESC
       LIMIT ? OFFSET ?
     }, $product->{id}, $options->{limit}, $options->{offset}
   )->hashes->to_array;
-
-  # This check is intentionally very broad to make it easier to repeat reviews in regular intervals and potentially
-  # correct errors in previous assessments
-  if ($options->{export_restricted} eq 'true') {
-    my $old = $results;
-    $results = [];
-    for my $result (@$old) {
-      my $num = $db->query(
-        qq{
-          SELECT COUNT(*)
-          FROM pattern_matches pm JOIN license_patterns lp ON pm.pattern = lp.id
-          WHERE pm.package = ? AND lp.export_restricted = true
-        }, $result->{id}
-      )->array->[0];
-      push @$results, $result if $num > 0;
-    }
-    map { $_->{total} = @$results } @$results;
-  }
 
   return paginate($results, $options);
 }

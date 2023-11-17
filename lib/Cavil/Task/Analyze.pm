@@ -45,6 +45,7 @@ sub _analyze ($job, $id) {
 
   my $chksum    = $app->checksum($specfile, $dig);
   my $shortname = _shortname($app->pg->db, $chksum, $specfile, $dig);
+  my $flags     = $pkgs->flags($id);
 
   # Free up memory
   undef $specfile;
@@ -54,8 +55,8 @@ sub _analyze ($job, $id) {
   # Do not leak Postgres connections
   {
     my $db = $app->pg->db;
-    $db->update('bot_packages', {checksum    => $shortname},    {id      => $id});
-    $db->update('bot_reports',  {ldig_report => to_json($dig)}, {package => $id});
+    $db->update('bot_packages', {checksum    => $shortname, %$flags}, {id      => $id});
+    $db->update('bot_reports',  {ldig_report => to_json($dig)},       {package => $id});
     if ($pkg->{state} ne 'new') {
 
       # in case we reindexed an old pkg, check if 'new' packages now match.
