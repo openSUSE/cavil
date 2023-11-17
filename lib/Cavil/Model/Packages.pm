@@ -122,9 +122,10 @@ sub indexed ($self, $id) {
   $self->pg->db->update('bot_packages', {indexed => \'now()'}, {id => $id});
 }
 
-sub is_imported ($self, @args) { $self->_check_timestamp('imported', @args) }
-sub is_indexed  ($self, @args) { $self->_check_timestamp('indexed',  @args) }
-sub is_unpacked ($self, @args) { $self->_check_timestamp('unpacked', @args) }
+sub is_imported ($self, @args) { $self->_check_field('imported', @args) }
+sub is_indexed  ($self, @args) { $self->_check_field('indexed',  @args) }
+sub is_obsolete ($self, @args) { $self->_check_field('obsolete', @args) }
+sub is_unpacked ($self, @args) { $self->_check_field('unpacked', @args) }
 
 sub paginate_open_reviews ($self, $options) {
   my $db = $self->pg->db;
@@ -373,7 +374,7 @@ sub keyword_files ($self, $id) {
   return $self->pg->db->select('matched_files', 'id,filename', {package => $id})->hashes;
 }
 
-sub _check_timestamp ($self, $field, $id) {
+sub _check_field ($self, $field, $id) {
   return undef unless my $hash = $self->pg->db->select('bot_packages', [$field], {id => $id})->hash;
   return !!$hash->{$field};
 }

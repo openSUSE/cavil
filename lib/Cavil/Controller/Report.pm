@@ -78,7 +78,8 @@ sub spdx ($self) {
   my $minion = $app->minion;
   my $pkgs   = $app->packages;
 
-  return $self->render(template => 'report/waiting', status => 408) unless $pkgs->is_indexed($id);
+  return $self->render(text     => 'package is obsolete', status => 410) if $pkgs->is_obsolete($id);
+  return $self->render(template => 'report/waiting',      status => 408) unless $pkgs->is_indexed($id);
 
   if ($pkgs->has_spdx_report($id)) {
     $self->res->headers->content_type('text/plain');

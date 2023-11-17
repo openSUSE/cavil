@@ -124,4 +124,11 @@ subtest 'SPDX report contents' => sub {
   };
 };
 
+subtest 'SPDX report is obsolete' => sub {
+  is $t->app->pg->db->query('UPDATE bot_packages SET obsolete = true WHERE id = any(?)', [1])->rows, 1,
+    'one package obsoleted';
+  $t->get_ok('/spdx/1')->status_is(410)->content_like(qr/package is obsolete/);
+  $t->get_ok('/spdx/1')->status_is(410)->content_like(qr/package is obsolete/);
+};
+
 done_testing;
