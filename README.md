@@ -62,3 +62,10 @@ count as legal advice and no guarantees are made for their correctness!
 
   The `morbo` development web server will make the web application available under `http://127.0.0.1:3000`. And
   `script/cavil minion worker` will start the job queue for processing background jobs.
+
+## Ongoing Maintenance
+
+To keep your reports and checksums fresh even after new license patterns have been added or updated, we recommend
+running `script/cavil rindex` in regular intervals (we do it every weekend). And to free up space you can run
+`script/cavil cleanup` in regular intervals as well. It helps to organize reports into products to exclude them from
+cleanup.
