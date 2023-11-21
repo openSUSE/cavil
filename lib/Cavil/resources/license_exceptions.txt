@@ -3,6 +3,7 @@ Asterisk-exception
 Autoconf-exception-2.0
 Autoconf-exception-3.0
 Autoconf-exception-generic
+Autoconf-exception-generic-3.0
 Autoconf-exception-macro
 Bison-exception-2.2
 Bootloader-exception
@@ -13,8 +14,10 @@ FLTK-exception
 Fawkes-Runtime-exception
 Font-exception-2.0
 GCC-exception-2.0
+GCC-exception-2.0-note
 GCC-exception-3.1
 GNAT-exception
+GNU-compiler-exception
 GPL-3.0-interface-exception
 GPL-3.0-linking-exception
 GPL-3.0-linking-source-exception
@@ -37,10 +40,13 @@ QPL-1.0-INRIA-2004-exception
 Qt-GPL-exception-1.0
 Qt-LGPL-exception-1.1
 Qwt-exception-1.0
+SANE-exception
 SHL-2.0
 SHL-2.1
 SWI-exception
 Swift-exception
+Texinfo-exception
+UBDL-exception
 Universal-FOSS-exception-1.0
 WxWindows-exception-3.1
 cryptsetup-OpenSSL-exception
@@ -51,6 +57,7 @@ i2p-gpl-java-exception
 libpri-OpenH323-exception
 mif-exception
 openvpn-openssl-exception
+stunnel-exception
 u-boot-exception-2.0
 vsftpd-openssl-exception
 x11vnc-openssl-exception

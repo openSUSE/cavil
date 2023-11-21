@@ -21,6 +21,7 @@ AGPL-3.0-or-later	AGPLv3+
 AGPL-3.0-or-later	SUSE-AGPL-3.0+
 AMDPLPA	AMDPLPA
 AML	AML
+AML-glslang	AML-glslang
 AMPAS	AMPAS
 ANTLR-PD	ANTLR-PD
 ANTLR-PD-fallback	ANTLR-PD-fallback
@@ -36,7 +37,9 @@ ASWF-Digital-Assets-1.1	ASWF-Digital-Assets-1.1
 Abstyles	Abstyles
 AdaCore-doc	AdaCore-doc
 Adobe-2006	Adobe-2006
+Adobe-Display-PostScript	Adobe-Display-PostScript
 Adobe-Glyph	Adobe-Glyph
+Adobe-Utopia	Adobe-Utopia
 Afmparse	Afmparse
 Aladdin	Aladdin
 Apache-1.0	Apache-1.0
@@ -100,6 +103,7 @@ BSD-3-Clause	BSD3c(or similar)
 BSD-3-Clause	New BSD License
 BSD-3-Clause-Attribution	BSD-3-Clause-Attribution
 BSD-3-Clause-Clear	BSD-3-Clause-Clear
+BSD-3-Clause-HP	BSD-3-Clause-HP
 BSD-3-Clause-LBNL	BSD-3-Clause-LBNL
 BSD-3-Clause-Modification	BSD-3-Clause-Modification
 BSD-3-Clause-No-Military-License	BSD-3-Clause-No-Military-License
@@ -107,6 +111,8 @@ BSD-3-Clause-No-Nuclear-License	BSD-3-Clause-No-Nuclear-License
 BSD-3-Clause-No-Nuclear-License-2014	BSD-3-Clause-No-Nuclear-License-2014
 BSD-3-Clause-No-Nuclear-Warranty	BSD-3-Clause-No-Nuclear-Warranty
 BSD-3-Clause-Open-MPI	BSD-3-Clause-Open-MPI
+BSD-3-Clause-Sun	BSD-3-Clause-Sun
+BSD-3-Clause-flex	BSD-3-Clause-flex
 BSD-4-Clause	BSD-4-Clause
 BSD-4-Clause	BSD4c
 BSD-4-Clause	BSD4c(or similar)
@@ -116,8 +122,10 @@ BSD-4.3RENO	BSD-4.3RENO
 BSD-4.3TAHOE	BSD-4.3TAHOE
 BSD-Advertising-Acknowledgement	BSD-Advertising-Acknowledgement
 BSD-Attribution-HPND-disclaimer	BSD-Attribution-HPND-disclaimer
+BSD-Inferno-Nettverk	BSD-Inferno-Nettverk
 BSD-Protection	BSD-Protection
 BSD-Source-Code	BSD-Source-Code
+BSD-Systemics	BSD-Systemics
 BSL-1.0	BSL-1.0
 BUSL-1.1	BUSL-1.1
 Baekmuk	Baekmuk
@@ -238,13 +246,17 @@ Clips	Clips
 Community-Spec-1.0	Community-Spec-1.0
 Condor-1.1	Condor-1.1
 Cornell-Lossless-JPEG	Cornell-Lossless-JPEG
+Cronyx	Cronyx
 Crossword	Crossword
 CrystalStacker	CrystalStacker
 Cube	Cube
 D-FSL-1.0	D-FSL-1.0
+DEC-3-Clause	DEC-3-Clause
 DL-DE-BY-2.0	DL-DE-BY-2.0
+DL-DE-ZERO-2.0	DL-DE-ZERO-2.0
 DOC	DOC
 DRL-1.0	DRL-1.0
+DRL-1.1	DRL-1.1
 DSDP	DSDP
 Dotseqn	Dotseqn
 ECL-1.0	ECL-1.0
@@ -271,6 +283,7 @@ Entessa	Entessa
 ErlPL-1.1	ErlPL-1.1
 ErlPL-1.1	Erlang Public License
 Eurosym	Eurosym
+FBM	FBM
 FDK-AAC	FDK-AAC
 FSFAP	FSFAP
 FSFUL	FSFUL
@@ -278,9 +291,12 @@ FSFULLR	FSFULLR
 FSFULLRWD	FSFULLRWD
 FTL	FTL
 Fair	Fair
+Ferguson-Twofish	Ferguson-Twofish
 Frameworx-1.0	Frameworx-1.0
 FreeBSD-DOC	FreeBSD-DOC
 FreeImage	FreeImage
+Furuseth	Furuseth
+GCR-docs	GCR-docs
 GD	GD
 GFDL-1.1-invariants-only	GFDL-1.1-invariants-only
 GFDL-1.1-invariants-or-later	GFDL-1.1-invariants-or-later
@@ -382,9 +398,18 @@ Glide	Glide
 Glulxe	Glulxe
 Graphics-Gems	Graphics-Gems
 HP-1986	HP-1986
+HP-1989	HP-1989
 HPND	HPND
+HPND-DEC	HPND-DEC
 HPND-Markus-Kuhn	HPND-Markus-Kuhn
+HPND-Pbmplus	HPND-Pbmplus
+HPND-UC	HPND-UC
+HPND-doc	HPND-doc
+HPND-doc-sell	HPND-doc-sell
 HPND-export-US	HPND-export-US
+HPND-export-US-modify	HPND-export-US-modify
+HPND-sell-MIT-disclaimer-xserver	HPND-sell-MIT-disclaimer-xserver
+HPND-sell-regexpr	HPND-sell-regexpr
 HPND-sell-variant	HPND-sell-variant
 HPND-sell-variant-MIT-disclaimer	HPND-sell-variant-MIT-disclaimer
 HTMLTIDY	HTMLTIDY
@@ -417,6 +442,7 @@ JSON	JSON
 JSON	SUSE-JSON
 Jam	Jam
 JasPer-2.0	JasPer-2.0
+Kastrup	Kastrup
 Kazlib	Kazlib
 Knuth-CTAN	Knuth-CTAN
 LAL-1.2	LAL-1.2
@@ -492,6 +518,7 @@ Linux-man-pages-1-para	Linux-man-pages-1-para
 Linux-man-pages-copyleft	Linux-man-pages-copyleft
 Linux-man-pages-copyleft-2-para	Linux-man-pages-copyleft-2-para
 Linux-man-pages-copyleft-var	Linux-man-pages-copyleft-var
+Lucida-Bitmap-Fonts	Lucida-Bitmap-Fonts
 MIT	Expat
 MIT	Expat License
 MIT	MIT
@@ -509,7 +536,10 @@ MIT-advertising	MIT-advertising
 MIT-enna	MIT-enna
 MIT-feh	MIT-feh
 MIT-open-group	MIT-open-group
+MIT-testregex	MIT-testregex
 MITNFA	MITNFA
+MMIXware	MMIXware
+MPEG-SSG	MPEG-SSG
 MPL-1.0	MPL-1.0
 MPL-1.0	MPLv1.0
 MPL-1.1	MOZILLA PUBLIC LICENSE (MPL/NPL)
@@ -530,6 +560,7 @@ MTLL	MTLL
 MakeIndex	MakeIndex
 MakeIndex	SUSE-MakeIndex
 Martin-Birgmeier	Martin-Birgmeier
+McPhee-slideshow	McPhee-slideshow
 Minpack	Minpack
 MirOS	MirOS
 Motosoto	Motosoto
@@ -622,6 +653,7 @@ OSL-2.1	OSL-2.1
 OSL-3.0	OSL-3.0
 OpenPBS-2.3	OpenPBS-2.3
 OpenSSL	OpenSSL
+PADL	PADL
 PDDL-1.0	PDDL-1.0
 PHP-3.0	PHP-3.0
 PHP-3.01	PHP License
@@ -631,6 +663,7 @@ PHP-3.01	The PHP License, version 3.01
 PSF-2.0	PSF-2.0
 Parity-6.0.0	Parity-6.0.0
 Parity-7.0.0	Parity-7.0.0
+Pixar	Pixar
 Plexus	Plexus
 PolyForm-Noncommercial-1.0.0	PolyForm-Noncommercial-1.0.0
 PolyForm-Small-Business-1.0.0	PolyForm-Small-Business-1.0.0
@@ -666,11 +699,13 @@ SGI-B-1.0	SGI-B-1.0
 SGI-B-1.1	SGI-B-1.1
 SGI-B-2.0	SGI-B-2.0
 SGI-B-2.0	SUSE-SGI-FreeB-2.0
+SGI-OpenGL	SGI-OpenGL
 SGP4	SGP4
 SHL-0.5	SHL-0.5
 SHL-0.51	SHL-0.51
 SISSL	SISSL
 SISSL-1.2	SISSL-1.2
+SL	SL
 SMLNJ	SMLNJ
 SMPPL	SMPPL
 SNIA	SNIA
@@ -841,6 +876,7 @@ Sendmail	Sendmail
 Sendmail-8.23	Sendmail-8.23
 SimPL-2.0	SimPL-2.0
 Sleepycat	Sleepycat
+Soundex	Soundex
 Spencer-86	Spencer-86
 Spencer-94	Spencer-94
 Spencer-99	Spencer-99
@@ -857,12 +893,14 @@ TOSL	TOSL
 TPDL	TPDL
 TPL-1.0	TPL-1.0
 TTWL	TTWL
+TTYP0	TTYP0
 TU-Berlin-1.0	TU-Berlin-1.0
 TU-Berlin-2.0	TU-Berlin-2.0
 TermReadKey	TermReadKey
 UCAR	UCAR
 UCL-1.0	UCL-1.0
 UPL-1.0	UPL-1.0
+URT-RLE	URT-RLE
 Unicode	http://www.unicode.org/copyright.html
 Unicode-DFS-2015	Unicode-DFS-2015
 Unicode-DFS-2016	Unicode-DFS-2016
@@ -906,6 +944,7 @@ ZPL-2.0	Zope Public License
 ZPL-2.1	ZPL 2.1
 ZPL-2.1	ZPL-2.1
 Zed	Zed
+Zeeff	Zeeff
 Zend-2.0	Zend-2.0
 Zimbra-1.3	Zimbra-1.3
 Zimbra-1.4	Zimbra-1.4
@@ -915,6 +954,7 @@ Zlib	zlib
 Zlib	zlib/libpng License
 blessing	blessing
 bzip2-1.0.6	bzip2-1.0.6
+check-cvs	check-cvs
 checkmk	checkmk
 copyleft-next-0.3.0	copyleft-next-0.3.0
 copyleft-next-0.3.1	copyleft-next-0.3.1
@@ -924,21 +964,30 @@ dtoa	dtoa
 dvipdfm	dvipdfm
 eGenix	eGenix
 etalab-2.0	etalab-2.0
+fwlw	fwlw
 gSOAP-1.3b	gSOAP-1.3b
 gnuplot	gnuplot
+hdparm	hdparm
 iMatix	iMatix
 libpng-2.0	libpng-2.0
 libselinux-1.0	libselinux-1.0
 libtiff	libtiff
 libutil-David-Nugent	libutil-David-Nugent
+lsof	lsof
+magaz	magaz
 metamail	metamail
 mpi-permissive	mpi-permissive
 mpich2	mpich2
 mplus	SUSE-mplus
 mplus	mplus
+pnmstitch	pnmstitch
 psfrag	psfrag
 psutils	psutils
+python-ldap	python-ldap
 snprintf	snprintf
+ssh-keyscan	ssh-keyscan
+swrule	swrule
+ulem	ulem
 w3m	w3m
 xinetd	SUSE-xinetd
 xinetd	xinetd
