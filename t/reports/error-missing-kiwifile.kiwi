@@ -6,12 +6,12 @@
   "sub"  => [
     {
       "file"     => "wrong-name.kiwi",
-      "licenses" => ["SUSE-Permissive"],
+      "licenses" => ["LicenseRef-SUSE-Permissive"],
       "summary"  => "Ceph base container image",
       "type"     => "kiwi",
       "url"      => "https://bugs.opensuse.org",
       "version"  => "1.0.0"
     }
   ],
-  "warnings" => ["License from wrong-name.kiwi is not part of main license: SUSE-Permissive"]
+  "warnings" => ["License from wrong-name.kiwi is not part of main license: LicenseRef-SUSE-Permissive"]
 }

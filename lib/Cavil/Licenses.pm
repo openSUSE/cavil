@@ -34,6 +34,7 @@ my (%ALLOWED, %CHANGES, %EXCEPTIONS);
   my @lines = split "\n", path(__FILE__)->dirname->child('resources', 'license_changes.txt')->slurp;
   shift @lines;
   for my $line (@lines) {
+    next if $line =~ /^SUSE-/;
     my ($target, $source) = split "\t", $line;
     $CHANGES{$source} = $target;
     $ALLOWED{$target}++;

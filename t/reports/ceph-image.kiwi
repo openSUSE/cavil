@@ -1,5 +1,5 @@
 {
-  "errors" => [],
+  "errors" => ["Invalid SPDX license: SUSE-Permissive"],
   "main"   => {
     "file"     => "ceph-image.kiwi",
     "license"  => "SUSE-Permissive",

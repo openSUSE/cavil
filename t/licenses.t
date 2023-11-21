@@ -210,14 +210,14 @@ is $l->to_string, '(Ruby AND GPL-1.0-or-later) OR (Artistic-1.0 AND AGPL-3.0-onl
 is $l->canonicalize->to_string, '(AGPL-3.0-only AND Artistic-1.0) OR (GPL-1.0-or-later AND Ruby)',
   'right canonicalized string';
 
+subtest 'SUSE license' => sub {
+  $l = lic('SUSE-Freeware');
+  ok !$l->normalized, 'not normalized';
+  is $l->error, 'Invalid SPDX license: SUSE-Freeware', 'right error';
+  is_deeply $l->tree, undef, 'no structure';
+};
+
 # Partial match
-$l = lic('SUSE-Freeware');
-ok !$l->normalized, 'not normalized';
-is $l->error, undef, 'no error';
-$ast = {license => 'SUSE-Freeware'};
-is_deeply $l->tree, $ast, 'right structure';
-is "$l", 'SUSE-Freeware', 'right string';
-is_deeply $l->canonicalize->to_string, 'SUSE-Freeware', 'right canonicalized string';
 $l = lic('SUSE-Apache-2.0+');
 ok $l->normalized, 'normalized';
 is $l->error, undef, 'no error';

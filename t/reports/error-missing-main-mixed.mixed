@@ -14,7 +14,7 @@
     },
     {
       "file"     => "mixed-more.kiwi",
-      "licenses" => ["SUSE-Permissive"],
+      "licenses" => ["LicenseRef-SUSE-Permissive"],
       "summary"  => "Mixed",
       "type"     => "kiwi",
       "url"      => "https://bugs.opensuse.org",
@@ -30,7 +30,7 @@
   ],
   "warnings" => [
     "License from mixed-more.spec is not part of main license: MIT AND BSD-3-Clause",
-    "License from mixed-more.kiwi is not part of main license: SUSE-Permissive",
+    "License from mixed-more.kiwi is not part of main license: LicenseRef-SUSE-Permissive",
     "License from mixed-more.Dockerfile is not part of main license: BSD-2-Clause"
   ]
 }

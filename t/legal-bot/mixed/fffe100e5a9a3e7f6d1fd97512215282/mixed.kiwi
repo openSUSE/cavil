@@ -33,7 +33,7 @@
             <label name="org.openbuildservice.disturl" value="%DISTURL%"/>
             <label name="org.opensuse.reference" value="registry.opensuse.org/opensuse/ceph/ceph:%PKG_VERSION%.%RELEASE%"/>
             <!-- Select a correct license from https://github.com/openSUSE/spec-cleaner#spdx-licenses -->
-            <label name="org.opencontainers.image.licenses" value="SUSE-Permissive"/>
+            <label name="org.opencontainers.image.licenses" value="LicenseRef-SUSE-Permissive"/>
           </suse_label_helper:add_prefix>
         </labels>
 
