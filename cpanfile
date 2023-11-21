@@ -1,7 +1,7 @@
 requires 'Mojolicious', '>= 9.34';
 requires 'Mojolicious::Plugin::Webpack';
-requires 'Mojo::Pg',         '>= 4.25';
-requires 'Minion',           '>= 8.0';
+requires 'Mojo::Pg',         '>= 4.27';
+requires 'Minion',           '>= 10.27';
 requires 'Cpanel::JSON::XS', '>= 4.09';
 requires 'File::Unpack';
 requires 'Spooky::Patterns::XS';
