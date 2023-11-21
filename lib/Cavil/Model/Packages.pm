@@ -84,6 +84,7 @@ sub find_by_name_and_md5 ($self, $pkg, $md5) {
 }
 
 sub flags ($self, $id) {
+
   # Only include flags that have a field in the bot_packages table
   my @flags = qw(patent trademark export_restricted);
   my $flags = {map { $_ => 0 } @flags};
