@@ -17,10 +17,10 @@ package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(paginate);
-use Mojo::File 'path';
-use Mojo::Util 'dumper';
+use Mojo::File  qw(path);
+use Mojo::Util  qw(dumper);
 
-has [qw(checkout_dir minion pg)];
+has [qw(checkout_dir log minion pg)];
 
 sub add ($self, %args) {
 
@@ -59,6 +59,27 @@ sub all ($self) { $self->pg->db->select('bot_packages')->hashes }
 
 sub analyze ($self, $id, $priority = 9, $parents = []) {
   return $self->_enqueue('analyze', $id, $priority, $parents);
+}
+
+sub cleanup ($self, $id) {
+  my $db     = $self->pg->db;
+  my $minion = $self->minion;
+  my $log    = $self->log;
+
+  my $tx  = $db->begin;
+  my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id}, {for => 'update'})->hash;
+  return if !$pkg || !$pkg->{obsolete} || !(my $guard = $minion->guard("processing_pkg_$id", 172800));
+
+  $log->info("[$id] Remove $pkg->{name}/$pkg->{checkout_dir}");
+  my $dir = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  $dir->remove_tree if -d $dir;
+
+  $db->query('delete from bot_reports where package = ?',     $id);
+  $db->query('delete from emails where package = ?',          $id);
+  $db->query('delete from urls where package = ?',            $id);
+  $db->query('delete from pattern_matches where package = ?', $id);
+  $db->query('delete from matched_files where package = ?',   $id);
+  $tx->commit;
 }
 
 sub pkg_checkout_dir ($self, $id) {

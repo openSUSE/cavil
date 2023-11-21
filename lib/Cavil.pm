@@ -107,8 +107,12 @@ sub startup ($self) {
   if (my $stuck_after  = $config->{minion_stuck_after})  { $self->minion->stuck_after($stuck_after) }
   $self->helper(
     packages => sub ($c) {
-      state $pkgs
-        = Cavil::Model::Packages->new(checkout_dir => $config->{checkout_dir}, minion => $self->minion, pg => $c->pg);
+      state $pkgs = Cavil::Model::Packages->new(
+        checkout_dir => $config->{checkout_dir},
+        log          => $self->log,
+        minion       => $self->minion,
+        pg           => $c->pg
+      );
     }
   );
   $self->helper(products => sub ($c) { state $pkgs = Cavil::Model::Products->new(pg => $c->pg) });
