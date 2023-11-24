@@ -29,6 +29,7 @@ sub _analyze ($job, $id) {
   my $minion = $app->minion;
   my $pkgs   = $app->packages;
   my $log    = $app->log;
+  my $config = $app->config;
 
   # Protect from race conditions
   return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
@@ -69,6 +70,7 @@ sub _analyze ($job, $id) {
   undef $guard;
   my $prio = $job->info->{priority};
   $minion->enqueue(analyzed => [$id] => {parents => [$job->id], priority => $prio});
+  $pkgs->generate_spdx_report($id) if $config->{always_generate_spdx_reports};
 
   for my $candidate (@$new_candidates) {
     $minion->enqueue(analyzed => [$candidate->{id}] => {parents => [$job->id], priority => 9});

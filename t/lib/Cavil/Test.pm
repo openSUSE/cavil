@@ -40,19 +40,20 @@ sub checkout_dir ($self) { $self->{checkout_dir} }
 
 sub default_config ($self) {
   return {
-    secrets                => ['just_a_test'],
-    checkout_dir           => $self->checkout_dir,
-    cache_dir              => $self->cache_dir,
-    tokens                 => ['test_token'],
-    pg                     => $self->postgres_url,
-    acceptable_risk        => 3,
-    index_bucket_average   => 100,
-    cleanup_bucket_average => 50,
-    min_files_short_report => 20,
-    max_email_url_size     => 26,
-    max_task_memory        => 5_000_000_000,
-    max_worker_rss         => 100000,
-    max_expanded_files     => 100
+    secrets                      => ['just_a_test'],
+    checkout_dir                 => $self->checkout_dir,
+    cache_dir                    => $self->cache_dir,
+    tokens                       => ['test_token'],
+    pg                           => $self->postgres_url,
+    acceptable_risk              => 3,
+    index_bucket_average         => 100,
+    cleanup_bucket_average       => 50,
+    min_files_short_report       => 20,
+    max_email_url_size           => 26,
+    max_task_memory              => 5_000_000_000,
+    max_worker_rss               => 100000,
+    max_expanded_files           => 100,
+    always_generate_spdx_reports => 0
   };
 }
 

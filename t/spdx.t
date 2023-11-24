@@ -51,6 +51,17 @@ subtest 'Generate SPDX report' => sub {
   $t->get_ok('/spdx/1')->status_is(200)->content_unlike(qr/generated/)->content_like(qr/SPDXVersion/);
 };
 
+subtest 'Always generate SPDX reports when reindexing' => sub {
+  $t->app->packages->reindex(1);
+  $t->app->minion->perform_jobs;
+  ok !$t->app->packages->has_spdx_report(1), 'package has no SPDX report';
+
+  $t->app->config->{always_generate_spdx_reports} = 1;
+  $t->app->packages->reindex(1);
+  $t->app->minion->perform_jobs;
+  ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
+};
+
 subtest 'SPDX report contents' => sub {
   my $path = $t->app->packages->spdx_report_path(1);
   ok !-e "$path.tmp",      'SPDX temp file has been cleaned up';

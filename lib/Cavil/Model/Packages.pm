@@ -127,6 +127,13 @@ sub flags ($self, $id) {
   return $flags;
 }
 
+sub generate_spdx_report ($self, $id) {
+  return if $self->has_spdx_report($id);
+
+  my $minion = $self->minion;
+  $minion->enqueue('spdx_report' => [$id] => {priority => 6}) if $minion->lock("spdx_$id", 172800);
+}
+
 sub has_spdx_report ($self, $id) {
   return -f $self->spdx_report_path($id);
 }
