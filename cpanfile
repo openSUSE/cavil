@@ -3,7 +3,7 @@ requires 'Mojolicious::Plugin::Webpack';
 requires 'Mojo::Pg',         '>= 4.27';
 requires 'Minion',           '>= 10.27';
 requires 'Cpanel::JSON::XS', '>= 4.09';
-requires 'File::Unpack';
+requires 'File::Unpack2';
 requires 'Spooky::Patterns::XS';
 requires 'Mojolicious::Plugin::OAuth2';
 requires 'Mojo::JWT';

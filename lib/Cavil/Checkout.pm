@@ -16,7 +16,7 @@
 package Cavil::Checkout;
 use Mojo::Base -base, -signatures;
 
-use File::Unpack;
+use File::Unpack2;
 use Mojo::DOM;
 use Mojo::File 'path';
 use Mojo::JSON qw(decode_json encode_json);
@@ -214,10 +214,10 @@ sub unpack ($self, $options = {}) {
   local $SIG{TERM} = 'DEFAULT';
   local $SIG{QUIT} = 'DEFAULT';
 
-  my $u = File::Unpack->new(
+  my $u = File::Unpack2->new(
     verbose => 0,
 
-    # chromium's tar is 5.4GB (uncompressed, as file::unpack
+    # chromium's tar is 5.4GB (uncompressed, as file::unpack2
     # first xz -cd before extracting tar, we need to need that
     # much. And reserve some space for future growth)
     maxfilesize          => '7G',

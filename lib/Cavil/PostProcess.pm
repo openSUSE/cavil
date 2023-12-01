@@ -117,7 +117,7 @@ sub postprocess ($self) {
   for my $file (keys %$unpacked) {
     my $entry = $unpacked->{$file};
 
-    # clean up after file::unpack
+    # clean up after file::unpack2
     if ($file eq '.unpacked.json' || exists $entry->{unpacked}) {
       delete $unpacked->{$file};
       next;
