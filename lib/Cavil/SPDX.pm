@@ -23,7 +23,7 @@ use Digest::SHA1;
 use Mojo::File qw(path tempfile);
 use Mojo::JSON qw(from_json);
 use Mojo::Date;
-use Mojo::Util qw(scope_guard);
+use Mojo::Util qw(decode scope_guard);
 
 use constant NO_ASSERTION => 'NOASSERTION';
 
@@ -37,6 +37,7 @@ sub generate_to_file ($self, $id, $file) {
   path($file)->remove if -e $file;
 
   my $app             = $self->app;
+  my $log             = $app->log;
   my $config          = $app->config->{spdx} || {};
   my $namespace       = $config->{namespace} || 'http://legaldb.suse.de/spdx/';
   my $dir             = $app->packages->pkg_checkout_dir($id);
@@ -73,6 +74,7 @@ sub generate_to_file ($self, $id, $file) {
   my (%files, %paths, @checksums, %original_files);
   for my $unpacked (@{$checkout->unpacked_files}) {
     my ($file, $mime) = @$unpacked;
+    $file = decode('UTF-8', $file) // $file;
 
     # The indexer pre-processes certain files to allow for them to be scanned (and we want the original checksum)
     my $checksum_path = $dir->child('.unpacked', $file)->to_string;
@@ -87,7 +89,13 @@ sub generate_to_file ($self, $id, $file) {
     }
     $paths{$file} //= $checksum_path;
 
-    push @checksums, $files{$file} = Digest::SHA->new('1')->addfile($checksum_path)->hexdigest;
+    # Make sure encoding errors are logged for debugging
+    if (-e $checksum_path) {
+      push @checksums, $files{$file} = Digest::SHA->new('1')->addfile($checksum_path)->hexdigest;
+    }
+    else {
+      $log->error("Non-existing path in SPDX report $id: $checksum_path");
+    }
   }
   my $verification_code = Digest::SHA->new('1')->add(join('', sort @checksums))->hexdigest;
 
