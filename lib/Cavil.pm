@@ -196,6 +196,7 @@ sub startup ($self) {
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
   $manager->get('/reviews/file_view/<id:num>/*file')->to('Reviewer#file_view')->name('file_view');
   $public->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
+  $public->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
   $public->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])->to('Report#calc', format => 'html')
     ->name('calc_report');
   $public->get('/reviews/fetch_source/<id:num>' => [format => ['json', 'html']])->to('Report#source', format => 'html');

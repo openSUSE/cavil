@@ -16,8 +16,9 @@
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::File 'path';
-use Cavil::Licenses 'lic';
+use Mojo::File      qw(path);
+use Cavil::Licenses qw(lic);
+use List::Util      qw(first uniq);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -60,21 +61,103 @@ sub details ($self) {
 
   my $should_reindex = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
 
-  my $products        = $self->products->for_package($id);
-  my $requests        = $pkgs->requests_for($id);
-  my $history         = $pkgs->history($pkg->{name}, $pkg->{checksum}, $id);
-  my $actions         = $pkgs->actions($pkg->{external_link}, $id);
+  $self->render(spec => $report, package => $pkg, should_reindex => $should_reindex);
+}
+
+sub meta ($self) {
+  my $id   = $self->stash('id');
+  my $pkgs = $self->packages;
+  return $self->render(json => {error => 'Package not found'}, status => 404) unless my $pkg = $pkgs->find($id);
+
+  my $spec = $self->reports->specfile_report($id);
+  my $type = first { length $_ } map { $_->{type} } @{$spec->{sub} // []};
+
+  my $main               = $spec->{main};
+  my $main_license       = $main->{license};
+  my $normalized_license = lic($main_license)->to_string;
+  my $package_license    = $normalized_license || $main_license;
+
+  my $version = $main->{version};
+  my $summary = $main->{summary};
+  my $group   = $main->{group};
+  my $url     = $main->{url};
+
   my $has_spdx_report = $pkgs->has_spdx_report($id);
+  my $report          = $pkg->{checksum} // '';
+  my ($shortname)     = $report =~ /:(\w+)$/;
+
+  my $requests = $pkgs->requests_for($id);
+  my $products = $self->products->for_package($id);
+
+  my $history = [];
+  for my $prev (@{$pkgs->history($pkg->{name}, $pkg->{checksum}, $id)}) {
+    my $entry = {
+      created        => $prev->{created_epoch},
+      external_link  => $prev->{external_link},
+      id             => $prev->{id},
+      result         => $prev->{result} // '',
+      reviewing_user => $prev->{login}  // '',
+      state          => $prev->{state}
+    };
+    push @$history, $entry;
+  }
+
+  my $actions = [];
+  for my $action (@{$pkgs->actions($pkg->{external_link}, $id)}) {
+    my $entry = {
+      created => $action->{created_epoch},
+      id      => $action->{id},
+      name    => $action->{name},
+      result  => $action->{result} // '',
+      state   => $action->{state}
+    };
+    push @$actions, $entry;
+  }
+
+  my (%docs, %lics, @package_files);
+  for my $sub (@{$spec->{sub} // []}) {
+    my $entry = {
+      file     => $sub->{file},
+      group    => $sub->{group},
+      licenses => [uniq @{$sub->{licenses} // []}],
+      summary  => $sub->{summary},
+      version  => $sub->{version}
+    };
+    push @package_files, $entry;
+    for my $line (@{$sub->{'%doc'}}) {
+      $docs{$_} = 1 for split(/ /, $line);
+    }
+    for my $line (@{$sub->{'%license'}}) {
+      $lics{$_} = 1 for split(/ /, $line);
+    }
+  }
 
   $self->render(
-    spec            => $report,
-    package         => $pkg,
-    products        => $products,
-    requests        => $requests,
-    history         => $history,
-    actions         => $actions,
-    should_reindex  => $should_reindex,
-    has_spdx_report => $has_spdx_report
+    json => {
+      actions           => $actions,
+      copied_files      => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
+      created           => $pkg->{created_epoch},
+      errors            => $spec->{errors} // [],
+      external_link     => $pkg->{external_link},
+      has_spdx_report   => \!!$has_spdx_report,
+      history           => $history,
+      package_files     => \@package_files,
+      package_group     => $group,
+      package_license   => {name => $package_license, spdx => \!!$normalized_license},
+      package_name      => $pkg->{name},
+      package_shortname => $shortname,
+      package_summary   => $summary,
+      package_type      => $type,
+      package_url       => $url,
+      package_version   => $version,
+      products          => $products,
+      requests          => $requests,
+      result            => $pkg->{result},
+      reviewed          => $pkg->{reviewed_epoch},
+      reviewing_user    => $pkg->{login},
+      state             => $pkg->{state},
+      warnings          => $spec->{warnings} // []
+    }
   );
 }
 

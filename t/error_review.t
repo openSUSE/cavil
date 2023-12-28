@@ -49,7 +49,7 @@ $spec->spew($content);
 subtest 'Details after import (with login)' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/details/1')->status_is(200);
+  $t->get_ok('/reviews/meta/1')->status_is(200);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -62,37 +62,28 @@ $t->app->minion->perform_jobs;
 subtest 'Details after indexing' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Fake-Artistic!)
-    ->text_like('#pkg-license small', qr/\(not SPDX\)/)->text_like('#pkg-shortname', qr/\w+/)
-    ->text_like('#num-spec-files a',  qr/2 files/)->text_like('#pkg-version', qr!7\.25!)
-    ->text_like('#pkg-summary', qr!Real-time web framework!)->text_like('#pkg-group', qr!Development/Libraries/Perl!)
-    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!new!)
-    ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
-    ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
-    ->element_exists('#unacceptable');
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_like('/package_license/name', qr!Fake-Artistic!)
+    ->json_is('/package_license/spdx', undef)->json_like('/package_shortname', qr/\w+/)->json_has('/package_files/1')
+    ->json_like('/package_version', qr!7\.25!)->json_like('/package_summary', qr!Real-time web framework!)
+    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
+    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)->json_like('/state', qr!new!);
 
-  $t->text_like('#spec-files table tr:nth-of-type(2) th',                         qr/perl-Mojolicious\.spec/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr td',                qr/Licenses/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr td:nth-of-type(2)', qr/Fake-Artistic/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(3) td', qr/Version/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(3) td:nth-of-type(2)', qr/7\.25/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(4) td',                qr/Summary/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(4) td:nth-of-type(2)',
-    qr/Real-time web framework/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(5) td', qr/Group/)
-    ->text_like('#spec-files table tr:nth-of-type(2) table tr:nth-of-type(5) td:nth-of-type(2)',
-    qr/Development\/Libraries\/Perl/)->text_like('#spec-files table tr th', qr/perl-Mojolicious-whatever\.spec/)
-    ->text_like('#spec-files table table tr td',                               qr/Licenses/)
-    ->text_like('#spec-files table tr td:nth-of-type(2)',                      qr/MIT, BSD, Artistic2/)
-    ->text_like('#spec-files table tr:nth-of-type(3) td',                      qr/Version/)
-    ->text_like('#spec-files table tr:nth-of-type(3) td:nth-of-type(2)',       qr/1\.2\.3/)
-    ->text_like('#spec-files table tr:nth-of-type(4) td',                      qr/Summary/)
-    ->text_like('#spec-files table tr:nth-of-type(4) td:nth-of-type(2)',       qr/Fake summary/)
-    ->text_like('#spec-files table table tr:nth-of-type(5) td',                qr/Group/)
-    ->text_like('#spec-files table table tr:nth-of-type(5) td:nth-of-type(2)', qr/Fake group/);
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_like('/package_license/name', qr!Fake-Artistic!)
+    ->json_is('/package_license/spdx', undef)->json_like('/package_shortname', qr/\w+/)->json_has('/package_files/1')
+    ->json_like('/package_version', qr!7\.25!)->json_like('/package_summary', qr!Real-time web framework!)
+    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
+    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)->json_like('/state', qr!new!);
 
-  $t->text_like('#spec-errors p',     qr/Package file errors/)
-    ->text_like('#spec-errors ul li', qr/Invalid SPDX license: Fake-Artistic/)->element_exists_not('#spec-warnings');
+  $t->json_like('/package_files/1/file',       qr/perl-Mojolicious\.spec/)
+    ->json_like('/package_files/1/licenses/0', qr/Fake-Artistic/)->json_like('/package_files/1/version', qr/7\.25/)
+    ->json_like('/package_files/1/summary',    qr/Real-time web framework/)
+    ->json_like('/package_files/1/group',      qr/Development\/Libraries\/Perl/)
+    ->json_like('/package_files/0/file',       qr/perl-Mojolicious-whatever\.spec/)
+    ->json_is('/package_files/0/licenses', ['MIT', 'BSD', 'Artistic2'])
+    ->json_like('/package_files/0/version', qr/1\.2\.3/)->json_like('/package_files/0/summary', qr/Fake summary/)
+    ->json_like('/package_files/0/group',   qr/Fake group/);
+
+  $t->json_like('/errors/0', qr/Invalid SPDX license: Fake-Artistic/)->json_is('/warnings', []);
 
   $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')->element_exists('#emails')
     ->text_like('#emails tbody td', qr!coolo\@suse\.com!)->element_exists('#urls')
@@ -167,13 +158,12 @@ subtest 'Manual review' => sub {
   $t->post_ok('/reviews/review_package/1' => form => {comment => 'Test review', acceptable => 'Good Enough'})
     ->status_is(200)->text_like('#content a', qr!perl-Mojolicious!)->text_like('#content b', qr!acceptable!);
 
-  $t->get_ok('/reviews/details/1')->status_is(200)->text_like('#pkg-license', qr!Fake-Artistic!)
-    ->text_like('#pkg-version', qr!7\.25!)->text_like('#pkg-summary', qr!Real-time web framework!)
-    ->text_like('#pkg-group',   qr!Development/Libraries/Perl!)
-    ->text_like('#pkg-url a',   qr!http://search\.cpan\.org/dist/Mojolicious/!)->text_like('#pkg-state', qr!acceptable!)
-    ->element_exists('#pkg-review')->element_exists('#pkg-shortname')->element_exists('#pkg-review label[for=comment]')
-    ->element_exists('#pkg-review textarea[name=comment]')->element_exists('#correct')->element_exists('#acceptable')
-    ->element_exists('#unacceptable');
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_like('/package_license/name', qr!Fake-Artistic!)
+    ->json_is('/package_license/spdx', undef)->json_like('/package_shortname', qr/\w+/)->json_has('/package_files/1')
+    ->json_like('/package_version', qr!7\.25!)->json_like('/package_summary', qr!Real-time web framework!)
+    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
+    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)->json_like('/state', qr!acceptable!)
+    ->json_like('/result',          qr/Test review/);
 
   $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')
     ->element_exists('#unmatched-files')->text_is('#unmatched-count', '4')

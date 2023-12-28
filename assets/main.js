@@ -20,6 +20,7 @@ import KnownProducts from './vue/KnownProducts.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import ProductReviews from './vue/ProductReviews.vue';
 import RecentReviews from './vue/RecentReviews.vue';
+import ReportMetadata from './vue/ReportMetadata.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
 import $ from 'jquery';
 import {createApp} from 'vue';
@@ -52,6 +53,14 @@ window.cavil = {
 
   setupRecentReviews() {
     createApp(RecentReviews).mount('#recent-reviews');
+  },
+
+  setupReportMetadata(pkgId, hasManagerRole, hasAdminRole) {
+    const app = createApp(ReportMetadata);
+    app.config.globalProperties.pkgId = pkgId;
+    app.config.globalProperties.hasManagerRole = hasManagerRole;
+    app.config.globalProperties.hasAdminRole = hasAdminRole;
+    app.mount('#report-metadata');
   },
 
   setupReviewSearch(pkg) {
