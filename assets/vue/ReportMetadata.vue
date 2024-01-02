@@ -157,12 +157,12 @@
       <table class="table table-striped">
         <tbody>
           <tr v-for="action in actions" :key="action.id">
-            <td>{{ prev.name }}</td>
-            <td>{{ prev.result }}</td>
-            <td>{{ prev.state }}</td>
-            <td>{{ prev.reviewing_user }}</td>
+            <td>{{ action.name }}</td>
+            <td>{{ action.result }}</td>
+            <td>{{ action.state }}</td>
+            <td>{{ action.reviewing_user }}</td>
             <td class="text-right">
-              <a :href="prev.actionUrl" target="_blank">{{ prev.created }}</a>
+              <a :href="action.actionUrl" target="_blank">{{ action.created }}</a>
             </td>
           </tr>
         </tbody>
