@@ -318,7 +318,7 @@ export default {
 
       this.created = moment(data.created * 1000).fromNow();
       this.errors = data.errors;
-      this.externalLink = externalLink({external_link: data.external_link});
+      this.externalLink = externalLink({external_link: data.external_link ?? ''});
       this.hasSpdxReport = data.has_spdx_report;
 
       this.actions = data.actions;
@@ -330,7 +330,7 @@ export default {
       this.history = data.history;
       for (const prev of this.history) {
         prev.created = moment(prev.created * 1000).fromNow();
-        prev.externalLink = externalLink({external_link: prev.external_link});
+        prev.externalLink = externalLink({external_link: prev.external_link ?? ''});
         prev.reportUrl = `/reviews/details/${prev.id}`;
       }
 
