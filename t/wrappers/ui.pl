@@ -29,7 +29,7 @@ $cavil_test->ui_fixtures($app);
 $app->routes->get(
   '/perform_jobs' => sub ($c) {
     $c->minion->perform_jobs;
-    $c->render(text => 'done');
+    $c->render(text => '<div>done</div>');
   }
 );
 

@@ -347,17 +347,20 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#license-chart');
 
       const page2 = await context.newPage();
-      await page
-        .click('text=Reindex')
-        .then(() => page2.goto(performJobs, {timeout: 120000}))
-        .then(() => page2.close());
+      await page.click('text=Reindex');
+      await page2.goto(performJobs, {timeout: 120000});
+      t.match(await page2.innerText('div'), /done/);
+      await page2.close();
 
       await page.waitForSelector('#license-chart');
       t.match(await page.innerText('ul#risk-3 li'), /Made-Up-License-1.0/);
     });
   });
 
-  t.same(errorLogs, []);
+  t.test('Console errors', t => {
+    t.same(errorLogs, []);
+    t.end();
+  });
 
   await context.close();
   await browser.close();
