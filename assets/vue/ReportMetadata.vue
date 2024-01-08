@@ -240,7 +240,7 @@
       </form>
     </div>
     <div v-else-if="hasManagerRole === true" class="row">
-      <form :action="reviewUrl" method="POST" class="container" id="pkg-review">
+      <form :action="fasttrackUrl" method="POST" class="container" id="pkg-review">
         <div class="form-group">
           <label for="comment">Comment:</label>
           <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
@@ -249,7 +249,7 @@
       </form>
     </div>
     <div v-else class="row">
-      <form :action="reviewUrl" method="POST" class="container" id="pkg-review">
+      <form class="container" id="pkg-review">
         <div class="form-group">
           <label for="comment">Comment:</label>
           <textarea v-model="result" name="comment" rows="10" class="form-control" disabled></textarea>
@@ -286,6 +286,7 @@ export default {
       created: null,
       errors: [],
       externalLink: null,
+      fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       hasSpdxReport: false,
       history: [],
       pkgFiles: [],
