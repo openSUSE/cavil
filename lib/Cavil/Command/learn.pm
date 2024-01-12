@@ -23,13 +23,41 @@ has description => 'Training data for machine learning';
 has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
-  getopt \@args, 'e|export=s' => \my $export;
-  die 'Export directory is required' unless defined $export;
+  getopt \@args,
+    'i|input=s'  => \my $input,
+    'o|output=s' => \my $output;
+  die 'Input or output directory is required' unless (defined $output || defined $input);
 
   my $app = $self->app;
   my $db  = $app->pg->db;
 
-  my $root = path($export);
+  return _output($db, $output) if $output;
+  return _input($db, $input);
+}
+
+sub _classify ($db, $name, $license) {
+  return 0 unless $name =~ /^(\w+).txt$/;
+  return $db->query(
+    'UPDATE snippets SET license = ?, classified = true, approved = true WHERE hash = ? AND approved = false',
+    $license, $1)->rows;
+}
+
+sub _input ($db, $input) {
+  my $root = path($input);
+  my $good = $root->child('good');
+  my $bad  = $root->child('bad');
+
+  return unless -d $good && -d $bad;
+
+  my $count = 0;
+  $count += _classify($db, $_->basename, 1) for $good->list->each;
+  $count += _classify($db, $_->basename, 0) for $bad->list->each;
+
+  say "Imported $count snippet classifications";
+}
+
+sub _output ($db, $output) {
+  my $root = path($output);
   my $good = $root->child('good')->make_path;
   my $bad  = $root->child('bad')->make_path;
 
@@ -72,7 +100,7 @@ Cavil::Command::learn - Cavil learn command
     script/cavil learn -e ./input
 
   Options:
-    -e, --export <dir>   Export snippets for training machine learning models
+    -o, --output <dir>   Export snippets for training machine learning models
     -h, --help           Show this summary of available options
 
 =cut

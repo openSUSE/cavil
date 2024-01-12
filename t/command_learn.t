@@ -39,7 +39,7 @@ subtest 'Empty database' => sub {
   {
     open my $handle, '>', \$buffer;
     local *STDOUT = $handle;
-    $app->start('learn', '-e', "$dir");
+    $app->start('learn', '-o', "$dir");
   }
   like $buffer, qr/Exported 0 snippets/, 'no snippets';
   ok -e $dir->child('good'), 'directory exists';
@@ -54,14 +54,14 @@ subtest 'Snippets added' => sub {
   $db->query('UPDATE snippets SET license = false, approved = true WHERE id = 1');
   $db->query('UPDATE snippets SET license = true, approved = true WHERE id = 2');
   $db->query('UPDATE snippets SET license = true, approved = false WHERE id = 3');
+  my $dir = $tmp->child('two');
 
-  subtest 'Export snippets' => sub {
-    my $dir    = $tmp->child('two');
+  subtest 'Output snippets' => sub {
     my $buffer = '';
     {
       open my $handle, '>', \$buffer;
       local *STDOUT = $handle;
-      $app->start('learn', '-e', "$dir");
+      $app->start('learn', '-o', "$dir");
     }
     like $buffer, qr/Exporting snippet 1/, 'first snippet';
     like $buffer, qr/Exporting snippet 2/, 'second snippet';
@@ -73,6 +73,45 @@ subtest 'Snippets added' => sub {
     my $good = $dir->child('good')->list;
     is $good->size, 1, 'one file';
     like $good->first->slurp, qr/Copyright Holder/, 'right content';
+  };
+
+  $db->query('UPDATE snippets SET license = true, approved = false WHERE id = 1');
+  $db->query('UPDATE snippets SET license = false, approved = false WHERE id = 2');
+  $dir->child('good', 'doesnotexist.txt')->spew('Whatever');
+  $dir->child('bad',  'doesnotexist.txt')->spew('Whatever');
+
+  subtest 'Input snippets' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('learn', '-i', "$dir");
+    }
+    like $buffer, qr/Imported 2 snippet classifications/, 'two snippets imported';
+
+    my $first = $db->select('snippets', '*', {id => 1})->hash;
+    is $first->{license},    0, 'is not a license';
+    is $first->{classified}, 1, 'is classified';
+    is $first->{approved},   1, 'is approved';
+
+    my $second = $db->select('snippets', '*', {id => 2})->hash;
+    is $second->{license},    1, 'is license';
+    is $second->{approved},   1, 'is approved';
+    is $second->{classified}, 1, 'is classified';
+
+    my $third = $db->select('snippets', '*', {id => 3})->hash;
+    is $third->{approved},   0, 'not approved';
+    is $third->{classified}, 0, 'not classified';
+  };
+
+  subtest 'Input snippets (repeat does nothing)' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('learn', '-i', "$dir");
+    }
+    like $buffer, qr/Imported 0 snippet classifications/, 'no snippets imported';
   };
 };
 
