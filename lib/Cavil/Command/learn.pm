@@ -95,11 +95,13 @@ Cavil::Command::learn - Cavil learn command
 
 =head1 SYNOPSIS
 
-  Usage: APPLICATION learn
+  Usage: APPLICATION learn [OPTIONS]
 
     script/cavil learn -e ./input
+    script/cavil learn -i ./input
 
   Options:
+    -i, --input <dir>    Import snippet classifications from training data
     -o, --output <dir>   Export snippets for training machine learning models
     -h, --help           Show this summary of available options
 
