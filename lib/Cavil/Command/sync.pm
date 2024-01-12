@@ -18,7 +18,7 @@ use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Mojo::Util 'getopt';
 
-has description => 'Import and export licemse patterns';
+has description => 'Import and export license patterns';
 has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
