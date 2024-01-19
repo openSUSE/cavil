@@ -71,16 +71,3 @@ export function snippetNonLicense(link) {
   cs.removeClass('fa-fire');
   return false;
 }
-
-export function snippetSwitcher() {
-  $('.license').click(function () {
-    if ($(this).hasClass('license-1')) {
-      $(this).removeClass('license-1').addClass('license-0');
-    } else {
-      $(this).removeClass('license-0').addClass('license-1');
-    }
-    const name = `#good_${$(this).data('snippet')}`;
-    const elem = $(name);
-    elem.val(1 - elem.val());
-  });
-}

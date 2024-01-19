@@ -19,7 +19,6 @@
     %= javascript begin
       %= content_for 'head_javascript'
       $(function() {
-        cavil.setupCreatePattern();
         %= content_for 'ready_function'
       } );
     % end
@@ -47,20 +46,15 @@
                 class => 'nav-link' %>
             </li>
             <li class="nav-item">
-              %= link_to 'All Products' => '/products', class => 'nav-link'
+              %= link_to 'Snippets' => '/snippets', class => 'nav-link'
+            </li>
+            <li class="nav-item">
+              %= link_to 'Products' => '/products', class => 'nav-link'
             </li>
             % if (current_user_has_role 'admin') {
               <li class="nav-item">
-                %= link_to 'All Licenses' => '/licenses', class => 'nav-link'
+                %= link_to 'Licenses' => '/licenses', class => 'nav-link'
               </li>
-              % if (current_package) {
-                <li class="nav-item">
-                  <%= link_to 'Create Pattern' => url_for('new_pattern'),
-                    data => {packname => current_package->{name}},
-                    id => 'create-pattern', accesskey => 'c',
-                    class => 'nav-link' %>
-                </li>
-              % }
               <li class="nav-item">
                 %= link_to 'Upload' => '/upload', class => 'nav-link'
               </li>

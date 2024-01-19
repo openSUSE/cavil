@@ -1,6 +1,6 @@
 % layout 'default', title => 'List products';
 
-<h2>All Products</h2>
+<h2>Products</h2>
 
 <div id="known-products"></div>
 

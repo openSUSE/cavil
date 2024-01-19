@@ -36,7 +36,7 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'List open reviews');
       await page.click('text=Recently Reviewed');
       t.equal(await page.innerText('title'), 'List recent reviews');
-      await page.click('text=All Products');
+      await page.click('text=Products');
       t.equal(await page.innerText('title'), 'List products');
     });
 
@@ -188,9 +188,9 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'List open reviews');
       await page.click('text=Recently Reviewed');
       t.equal(await page.innerText('title'), 'List recent reviews');
-      await page.click('text=All Products');
+      await page.click('text=Products');
       t.equal(await page.innerText('title'), 'List products');
-      await page.click('text=All Licenses');
+      await page.click('text=Licenses');
       t.equal(await page.innerText('title'), 'List licenses');
     });
 
@@ -218,7 +218,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Licenses', async t => {
       await page.goto(url);
-      await page.click('text=All Licenses');
+      await page.click('text=Licenses');
       t.equal(await page.innerText('title'), 'List licenses');
       await page.click('text=Artistic-2.0');
       t.equal(await page.innerText('title'), 'License details of Artistic-2.0');
@@ -292,7 +292,7 @@ t.test('Test cavil ui', skip, async t => {
       t.match(await page.innerText('div.alert'), /Pattern has been updated/);
 
       // License now shows up in list
-      await page.click('text=All Licenses');
+      await page.click('text=Licenses');
       t.equal(await page.innerText('title'), 'List licenses');
       await page.click('text=Made-Up-License-1.0');
       t.equal(await page.innerText('title'), 'License details of Made-Up-License-1.0');

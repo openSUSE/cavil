@@ -15,7 +15,6 @@
 % content_for 'ready_function' => begin
   $('#create-pattern').data('licenseName', '<%= $display_license %>');
   cavil.fromNow();
-  cavil.backToTop();
 % end
 
 <h2>Licenses</h2>

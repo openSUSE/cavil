@@ -227,7 +227,8 @@ sub startup ($self) {
   $public->get('/pagination/products/*name')->to('Pagination#product_reviews')->name('pagination_product_reviews');
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
-  $classifier->post('/snippets')->to('Snippet#update')->name('tag_snippets');
+  $public->get('/snippets/meta')->to('Snippet#meta')->name('snippets_meta');
+  $classifier->post('/snippets/<id:num>')->to('Snippet#approve')->name('approve_snippets');
   $public->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
   $public->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
   $admin->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');

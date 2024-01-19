@@ -9,12 +9,11 @@ import 'codemirror';
 import 'moment';
 
 import {setupCodeMirrorForFile} from './legacy/file.js';
-import {backToTop} from './legacy/nav.js';
-import {setupCreatePattern} from './legacy/patterns.js';
 import {setupReviewDetails} from './legacy/review.js';
 import {setupCodeMirrorForSnippet} from './legacy/snippet.js';
 import {fromNow} from './legacy/time.js';
-import {createLicense, ignoreLine, snippetNonLicense, snippetSwitcher} from './legacy/util.js';
+import {createLicense, ignoreLine, snippetNonLicense} from './legacy/util.js';
+import ClassifySnippets from './vue/ClassifySnippets.vue';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
 import OpenReviews from './vue/OpenReviews.vue';
@@ -32,6 +31,12 @@ window.cavil = {
   fireIndex: undefined,
   fires: undefined,
   myCodeMirror: undefined,
+
+  setupClassifySnippets(hasClassifierRole) {
+    const app = createApp(ClassifySnippets);
+    app.config.globalProperties.hasClassifierRole = hasClassifierRole;
+    app.mount('#classify-snippets');
+  },
 
   setupKnownLicenses() {
     createApp(KnownLicenses).mount('#known-licenses');
@@ -69,14 +74,11 @@ window.cavil = {
     app.mount('#review-search');
   },
 
-  backToTop,
   createLicense,
   fromNow,
   ignoreLine,
   setupCodeMirrorForFile,
   setupCodeMirrorForSnippet,
-  setupCreatePattern,
   setupReviewDetails,
-  snippetNonLicense,
-  snippetSwitcher
+  snippetNonLicense
 };

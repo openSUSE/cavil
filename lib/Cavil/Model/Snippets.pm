@@ -45,7 +45,54 @@ sub random ($self, $limit) {
   )->hashes;
 }
 
+sub approve ($self, $id, $license) {
+  my $db = $self->pg->db;
+  $db->update('snippets', {license => $license eq 'true' ? 1 : 0, approved => 1, classified => 1}, {id => $id});
+}
+
+sub unclassified ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $before = '';
+  if ($options->{before} > 0) {
+    my $quoted = $db->dbh->quote($options->{before});
+    $before = "AND id < $quoted";
+  }
+
+  my $is_approved   = 'approved = ' . uc($options->{is_approved});
+  my $is_classified = 'classified = ' . uc($options->{is_classified});
+
+  my $legal = '';
+  if ($options->{is_legal} eq 'true' && $options->{not_legal} eq 'false') {
+    $legal = 'AND license = TRUE';
+  }
+  elsif ($options->{is_legal} eq 'false' && $options->{not_legal} eq 'true') {
+    $legal = 'AND license = FALSE';
+  }
+
+  my $snippets = $db->query(
+    "SELECT * FROM snippets WHERE $is_approved AND $is_classified $before $legal ORDER BY id DESC LIMIT 10")->hashes;
+
+  for my $snippet (@$snippets) {
+    $snippet->{likelyness} = int($snippet->{likelyness} * 100);
+    my $file = $db->query(
+      'SELECT fs.sline, mf.filename, mf.package
+       FROM file_snippets fs JOIN matched_files mf ON (fs.file = mf.id)
+       WHERE fs.snippet = ? ORDER BY fs.id DESC LIMIT 1', $snippet->{id}
+    )->hash // {};
+    $snippet->{$_} = $file->{$_} for qw(filename sline package);
+
+    my $license = $db->query('SELECT license, risk FROM license_patterns WHERE id = ? AND license != ?',
+      $snippet->{like_pattern} // 0, '')->hash // {};
+    $snippet->{license_name} = $license->{license};
+    $snippet->{risk}         = $license->{risk};
+  }
+
+  return $snippets->to_array;
+}
+
 sub mark_non_license ($self, $id) {
   $self->pg->db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
 }
+
 1;

@@ -18,21 +18,55 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File 'path';
 use Cavil::Util qw(read_lines);
+use Mojo::JSON  qw(true false);
 
 sub list ($self) {
   $self->render(snippets => $self->snippets->random(100));
 }
 
-sub update ($self) {
-  my $db     = $self->pg->db;
-  my $params = $self->req->params->to_hash;
-  for my $param (sort keys %$params) {
-    next unless $param =~ m/g_(\d+)/;
-    my $id      = $1;
-    my $license = $params->{$param};
-    $db->update('snippets', {license => $license, approved => 1, classified => 1}, {id => $id});
+sub meta ($self) {
+  my $v = $self->validation;
+  $v->optional('isClassified');
+  $v->optional('isApproved');
+  $v->optional('isLegal');
+  $v->optional('notLegal');
+  $v->optional('before')->num;
+  return $self->reply->json_validation_error if $v->has_error;
+  my $is_classified = $v->param('isClassified') // 'true';
+  my $is_approved   = $v->param('isApproved')   // 'false';
+  my $is_legal      = $v->param('isLegal')      // 'true';
+  my $not_legal     = $v->param('notLegal')     // 'true';
+  my $before        = $v->param('before')       // 0;
+
+  my $unclassified = $self->snippets->unclassified(
+    {
+      before        => $before,
+      is_classified => $is_classified,
+      is_approved   => $is_approved,
+      is_legal      => $is_legal,
+      not_legal     => $not_legal
+    }
+  );
+
+  for my $snippet (@$unclassified) {
+    $snippet->{$_} = $snippet->{$_} ? true : false for qw(license classified approved);
   }
-  $self->redirect_to('snippets');
+  $self->render(json => $unclassified);
+}
+
+sub approve ($self) {
+  my $v = $self->validation;
+  $v->required('license')->in('true', 'false');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $license = $v->param('license');
+
+  my $id = $self->param('id');
+  $self->snippets->approve($id, $license);
+
+  my $user = $self->session('user');
+  $self->app->log->info(qq{Snippet $id approved by $user (License: $license))});
+
+  $self->render(json => {message => 'ok'});
 }
 
 sub edit ($self) {

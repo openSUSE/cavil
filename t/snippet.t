@@ -21,6 +21,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Mojo::JSON qw(true false);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -28,25 +29,22 @@ my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippe
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
-subtest 'Snippets' => sub {
-  my $db   = $t->app->pg->db;
-  my $pkgs = $t->app->packages;
+my $db = $t->app->pg->db;
 
-  $t->get_ok('/snippets')->status_is(200)->content_like(qr/No snippets left/, 'no risk, only fun');
-
+subtest 'Snippet metadata' => sub {
+  $t->get_ok('/snippets/meta?isClassified=false')->status_is(200)->json_hasnt('/0');
   my $id = $t->app->snippets->find_or_create('0000', 'Licenses are cool');
-  $t->get_ok('/snippets')->status_is(200)->content_unlike(qr/No snippets left/, 'snippets to check');
-  $t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")->element_exists("input[name=g_$id][value='0']")
-    ->element_exists_not('input[type="submit"]');
+  $t->get_ok('/snippets/meta?isClassified=false')->status_is(200)->json_has('/0')->json_is('/0/classified', false)
+    ->json_is('/0/approved', false);
+};
 
-  $t->post_ok('/snippets' => form => {"g_$id" => 0})->status_is(403);
+subtest 'Snippet approval' => sub {
+  $t->post_ok('/snippets/1' => form => {license => 'false'})->status_is(403);
 
-  # Now test with login
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-  $t->get_ok('/snippets')->status_is(200)->element_exists("#good_$id")->element_exists("input[name=g_$id][value='0']")
-    ->element_exists('input[type="submit"]');
-  $t->post_ok('/snippets' => form => {"g_$id" => 0})->status_is(302)->header_is(Location => '/snippets');
-  $t->get_ok('/snippets')->status_is(200)->content_like(qr/No snippets left/, 'All done');
+  $t->post_ok('/snippets/1' => form => {license => 'false'})->status_is(200);
+
+  $t->get_ok('/snippets/meta?isClassified=false')->status_is(200)->json_hasnt('/0');
 
   my $res = $db->select('snippets', [qw(classified approved license)])->hash;
   is_deeply($res, {classified => 1, approved => 1, license => 0}, 'all fields updated');

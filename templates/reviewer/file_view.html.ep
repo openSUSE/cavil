@@ -11,5 +11,4 @@
 
 % content_for 'ready_function' => begin
     cavil.setupCodeMirrorForFile();
-    $('#create-pattern').data('licenseName', '<%= $license %>');
 % end
