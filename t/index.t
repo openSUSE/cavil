@@ -138,9 +138,9 @@ $config->{acceptable_risk} = 5;
 $t = Test::Mojo->new(Cavil => $config);
 
 # License management requires a login
-$t->get_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
+$t->get_ok('/licenses/edit_pattern/1')->status_is(403)->content_like(qr/Permission/);
 $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-$t->get_ok('/licenses')->status_is(200)->content_like(qr/Licenses/);
+$t->get_ok('/licenses/edit_pattern/1')->status_is(200)->content_like(qr/License/);
 
 subtest 'Pattern change' => sub {
   $t->get_ok('/licenses/edit_pattern/1')->status_is(200)->element_exists('input[name=license][value=Apache-2.0]')

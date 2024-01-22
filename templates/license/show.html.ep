@@ -28,7 +28,9 @@
 </div>
 
 <h3>Patterns for this license
+  % if (current_user_has_role 'admin') {
     %= link_to '(Add new)' => url_for('new_pattern')->query('license-name' => $license), class => 'btn', role => 'btn'
+  % }
 </h3>
 
 <ul>
@@ -36,7 +38,9 @@
 % for my $match (@$patterns) {
     <li>
         <div>Created <time class="timeago" datetime="<%= $match->{created} %>"><%= $match->{created} %></time>
-            <a href="<%= url_for('edit_pattern', id => $match->{id}) %>" title="Edit" style="float: right"><i class="fas fa-edit"></i></a>
+            % if (current_user_has_role 'admin') {
+              <a href="<%= url_for('edit_pattern', id => $match->{id}) %>" title="Edit" style="float: right"><i class="fas fa-edit"></i></a>
+            % }
         </div>
         <pre><%= $match->{pattern} %></pre>
         % if ($match->{packname}) {

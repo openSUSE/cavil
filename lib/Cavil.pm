@@ -209,8 +209,8 @@ sub startup ($self) {
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
   $public->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
 
-  $admin->get('/licenses')->to('License#list')->name('licenses');
-  $admin->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
+  $public->get('/licenses')->to('License#list')->name('licenses');
+  $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
   $admin->post('/licenses/new_pattern')->to('License#new_pattern');
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
@@ -219,7 +219,7 @@ sub startup ($self) {
   $admin->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
   $admin->post('/licenses/update_patterns')->to('License#update_patterns')->name('update_patterns');
   $admin->delete('/licenses/remove_pattern/<id:num>')->to('License#remove_pattern')->name('remove_pattern');
-  $admin->get('/licenses/*name')->to('License#show')->name('license_show');
+  $public->get('/licenses/*name')->to('License#show')->name('license_show');
 
   $public->get('/products')->to('Product#list')->name('products');
   $public->get('/pagination/products/known')->to('Pagination#known_products')->name('pagination_known_products');

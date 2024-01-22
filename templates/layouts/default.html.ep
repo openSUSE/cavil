@@ -51,10 +51,10 @@
             <li class="nav-item">
               %= link_to 'Products' => '/products', class => 'nav-link'
             </li>
+            <li class="nav-item">
+              %= link_to 'Licenses' => '/licenses', class => 'nav-link'
+            </li>
             % if (current_user_has_role 'admin') {
-              <li class="nav-item">
-                %= link_to 'Licenses' => '/licenses', class => 'nav-link'
-              </li>
               <li class="nav-item">
                 %= link_to 'Upload' => '/upload', class => 'nav-link'
               </li>

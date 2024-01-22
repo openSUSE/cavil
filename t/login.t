@@ -40,10 +40,8 @@ subtest 'Not authenticated' => sub {
   $t->post_ok('/reviews/add_ignore')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/reviews/reindex/1')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/reviews/file_view/1/LICENSE')->status_is(403)->content_like(qr/Permission/);
-  $t->get_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/new_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/create_pattern')->status_is(403)->content_like(qr/Permission/);
-  $t->get_ok('/licenses/Apache-2.0')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/edit_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_patterns')->status_is(403)->content_like(qr/Permission/);
@@ -57,12 +55,11 @@ subtest 'OpenID' => sub {
 subtest 'Dummy' => sub {
   delete $config->{openid};
   $t = Test::Mojo->new(Cavil => $config);
-  $t->get_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
+  $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-  $t->get_ok('/licenses')->status_is(200)->content_like(qr/Licenses/);
-  $t->get_ok('/licenses/Apache-2.0')->status_is(200)->content_like(qr/Apache-2.0/);
+  $t->get_ok('/upload')->status_is(200)->content_like(qr/Upload/);
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
-  $t->get_ok('/licenses')->status_is(403)->content_like(qr/Permission/);
+  $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
 };
 
 done_testing;
