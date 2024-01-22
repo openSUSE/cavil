@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"Parts inspired by https:\/\/github.com\/ryanuber\/go-license\r\n\r\npackage cmd\r\n\r\nfunc initBsdClause3() {\r\n\tLicenses[\"bsd\"] = License{\r\n\t\tName:            \"NewBSD","risk":0,"spdx":"","trademark":0,"unique_id":"b905120f-cab5-420c-97ac-c1d6efbbe67e"}

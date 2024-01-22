@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"contains a copy of samba's ndr_pull_* functions needed\r\n * to parse a security_descriptor. We are copying them here so that we don't","risk":0,"spdx":"","trademark":0,"unique_id":"22a18d66-d09a-4ad1-b160-651726ee58d8"}

@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"module with the minor edit of changing \"SDL\" to \"SDL2\" where necessary. This\r\n# was not created for redistribution, and exists temporarily pending official\r\n# SDL2 CMake modules","risk":0,"spdx":"","trademark":0,"unique_id":"fec9bbc8-0d1a-4ce8-9422-29fb0311c45d"}

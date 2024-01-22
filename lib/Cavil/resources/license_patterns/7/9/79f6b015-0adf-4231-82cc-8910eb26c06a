@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":" * Target of the optimization procedure.\r\n * They are the values which the objective vector function must reproduce\r\n * When the parameters of the model have been optimized.\r\n","risk":0,"spdx":"","trademark":0,"unique_id":"79f6b015-0adf-4231-82cc-8910eb26c06a"}

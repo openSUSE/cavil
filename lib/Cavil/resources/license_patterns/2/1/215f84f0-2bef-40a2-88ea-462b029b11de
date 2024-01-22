@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"SUSE-NotALicense","opinion":0,"packname":"","patent":0,"pattern":"custom implementation of the \"text analysis source\" interface so that\r\n\/\/! we can convey data to the `FontFallback::map_characters` method","risk":0,"spdx":"","trademark":0,"unique_id":"215f84f0-2bef-40a2-88ea-462b029b11de"}
