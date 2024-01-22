@@ -3,10 +3,10 @@
     <div class="row justify-content-center">
       <div v-if="hasClassifierRole === true" class="col-12 alert alert-primary" role="alert">
         These snippets have been pre-processed by our machine learning model to decide if they are legal text or not.
-        You can help us improve the model by voting them up or down.
+        Legal text is highlighted in yellow. You can help us improve the model by voting the decisions up or down.
       </div>
     </div>
-    <div class="row justify-content-center">
+    <div class="row">
       <div class="col-8">
         <form class="form-inline">
           <div class="form-check mb-2 mr-sm-4">
@@ -50,6 +50,9 @@
             <label for="snippet-is-approved">Approved by a human</label>
           </div>
         </form>
+      </div>
+      <div class="col-4">
+        <p class="text-right">{{ total }} snippets found</p>
       </div>
     </div>
     <div v-if="snippets === null">
@@ -132,7 +135,8 @@ export default {
     return {
       params: {isClassified: true, isApproved: false, isLegal: true, notLegal: true, before: 0},
       snippets: null,
-      snippetUrl: '/snippets/meta'
+      snippetUrl: '/snippets/meta',
+      total: 0
     };
   },
   mounted() {
@@ -157,7 +161,10 @@ export default {
       const res = await ua.get(this.snippetUrl, {query});
       const data = await res.json();
 
-      for (const snippet of data) {
+      const snippets = data.snippets;
+      if (this.total < data.total) this.total = data.total;
+
+      for (const snippet of snippets) {
         snippet.buttonPressed = null;
         snippet.fileUrl = `/reviews/file_view/${snippet.package}/${snippet.filename}`;
         let num = snippet.sline ?? 1;
@@ -170,7 +177,7 @@ export default {
       }
 
       if (this.snippets === null) this.snippets = [];
-      this.snippets.push(...data);
+      this.snippets.push(...snippets);
     },
     getClassForArrow(snippet, approve) {
       return {
@@ -195,6 +202,7 @@ export default {
       this.getSnippets();
     },
     refreshPage() {
+      this.total = 0;
       this.snippets = null;
       this.params.before = 0;
       this.getSnippets();
@@ -221,8 +229,8 @@ export default {
   color: red;
 }
 .snippet-container {
-  margin-bottom: 3rem;
-  margin-top: 5rem;
+  margin-bottom: 4rem;
+  margin-top: 1rem;
 }
 .snippet-file {
   background-color: rgb(246, 248, 250);

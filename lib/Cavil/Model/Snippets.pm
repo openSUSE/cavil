@@ -71,9 +71,13 @@ sub unclassified ($self, $options) {
   }
 
   my $snippets = $db->query(
-    "SELECT * FROM snippets WHERE $is_approved AND $is_classified $before $legal ORDER BY id DESC LIMIT 10")->hashes;
+    "SELECT *, COUNT(*) OVER() AS total FROM snippets
+     WHERE $is_approved AND $is_classified $before $legal ORDER BY id DESC LIMIT 10"
+  )->hashes;
 
+  my $total = 0;
   for my $snippet (@$snippets) {
+    $total = delete $snippet->{total};
     $snippet->{likelyness} = int($snippet->{likelyness} * 100);
     my $file = $db->query(
       'SELECT fs.sline, mf.filename, mf.package
@@ -88,7 +92,7 @@ sub unclassified ($self, $options) {
     $snippet->{risk}         = $license->{risk};
   }
 
-  return $snippets->to_array;
+  return {total => $total, snippets => $snippets->to_array};
 }
 
 sub mark_non_license ($self, $id) {

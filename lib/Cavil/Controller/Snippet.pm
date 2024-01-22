@@ -48,10 +48,12 @@ sub meta ($self) {
     }
   );
 
-  for my $snippet (@$unclassified) {
+  my $snippets = $unclassified->{snippets};
+  for my $snippet (@$snippets) {
     $snippet->{$_} = $snippet->{$_} ? true : false for qw(license classified approved);
   }
-  $self->render(json => $unclassified);
+
+  $self->render(json => {snippets => $snippets, total => $unclassified->{total}});
 }
 
 sub approve ($self) {
