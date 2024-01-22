@@ -52,7 +52,7 @@
         </form>
       </div>
       <div class="col-4">
-        <p class="text-right">{{ total }} snippets found</p>
+        <p v-if="total !== null" class="text-right">{{ total }} snippets found</p>
       </div>
     </div>
     <div v-if="snippets === null">
@@ -122,7 +122,6 @@
         ><i class="fas fa-angle-up"></i
       ></a>
     </div>
-    <div v-else>There are currently no snippets to display</div>
   </div>
 </template>
 
@@ -136,7 +135,7 @@ export default {
       params: {isClassified: true, isApproved: false, isLegal: true, notLegal: true, before: 0},
       snippets: null,
       snippetUrl: '/snippets/meta',
-      total: 0
+      total: null
     };
   },
   mounted() {
@@ -162,7 +161,7 @@ export default {
       const data = await res.json();
 
       const snippets = data.snippets;
-      if (this.total < data.total) this.total = data.total;
+      if (this.total === null || this.total < data.total) this.total = data.total;
 
       for (const snippet of snippets) {
         snippet.buttonPressed = null;
@@ -202,7 +201,7 @@ export default {
       this.getSnippets();
     },
     refreshPage() {
-      this.total = 0;
+      this.total = null;
       this.snippets = null;
       this.params.before = 0;
       this.getSnippets();
