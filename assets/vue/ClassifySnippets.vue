@@ -53,12 +53,10 @@
       </div>
       <div class="col-4">
         <p v-if="total !== null" class="text-right">{{ total }} snippets found</p>
+        <p v-else class="text-right"><i class="fas fa-sync fa-spin"></i> Loading snippets</p>
       </div>
     </div>
-    <div v-if="snippets === null">
-      <p><i class="fas fa-sync fa-spin"></i> Loading snippets...</p>
-    </div>
-    <div v-else-if="snippets.length > 0">
+    <div v-if="snippets !== null && snippets.length > 0">
       <div v-for="snippet in snippets" :key="snippet.id" class="row snippet-container">
         <div class="col-11 snippet-file-container">
           <div class="snippet-file">
