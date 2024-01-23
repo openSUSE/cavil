@@ -1,9 +1,13 @@
 <template>
   <div>
-    <div class="row justify-content-center">
-      <div v-if="hasClassifierRole === true" class="col-12 alert alert-primary" role="alert">
+    <div class="row">
+      <div v-if="hasClassifierRole === true" class="col-11 alert alert-primary" role="alert">
         These snippets have been pre-processed by our machine learning model to decide if they are legal text or not.
         Legal text is highlighted in yellow. You can help us improve the model by voting the decisions up or down.
+      </div>
+      <div v-else class="col-11 alert alert-primary" role="alert">
+        These snippets have been pre-processed by our machine learning model to decide if they are legal text or not.
+        Legal text is highlighted in yellow.
       </div>
     </div>
     <div class="row">
@@ -51,7 +55,7 @@
           </div>
         </form>
       </div>
-      <div class="col-4">
+      <div class="col-3">
         <p v-if="total !== null" class="text-right">{{ total }} snippets found</p>
         <p v-else class="text-right"><i class="fas fa-sync fa-spin"></i> Loading snippets</p>
       </div>
