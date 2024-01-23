@@ -84,12 +84,14 @@
           </div>
           <div class="snippet-footer">
             <div class="snippet-likelyness">
-              <div v-if="snippet.license_name !== null">
-                <b>{{ snippet.likelyness }}%</b> similarity to <b>{{ snippet.license_name }}</b
-                >, estimated risk
-                {{ snippet.risk }}
-              </div>
-              <div v-else>No similarity to any known licenses</div>
+              <a :href="snippet.editUrl" target="_blank">
+                <div v-if="snippet.license_name !== null">
+                  <b>{{ snippet.likelyness }}%</b> similarity to <b>{{ snippet.license_name }}</b
+                  >, estimated risk
+                  {{ snippet.risk }}
+                </div>
+                <div v-else>No similarity to any known licenses</div>
+              </a>
             </div>
             <div class="snippet-assessment float-right">
               <div v-if="snippet.classified === true && snippet.license === true">
@@ -170,6 +172,7 @@ export default {
       for (const snippet of snippets) {
         snippet.buttonPressed = null;
         snippet.fileUrl = `/reviews/file_view/${snippet.package}/${snippet.filename}`;
+        snippet.editUrl = `/snippet/edit/${snippet.id}`;
         let num = snippet.sline ?? 1;
         const lines = [];
         for (const line of snippet.text.split('\n')) {
@@ -243,8 +246,9 @@ export default {
   line-height: 20px;
   padding: 10px;
 }
-.snippet-file a {
-  color: #586069;
+.snippet-file a,
+.snippet-likelyness a {
+  color: #212529;
 }
 .snippet-file-container {
   padding: 0;
