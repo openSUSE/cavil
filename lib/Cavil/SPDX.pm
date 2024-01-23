@@ -141,16 +141,25 @@ sub generate_to_file ($self, $id, $file) {
 
     # Matches
     if (my $file_id = $matched_files->{$file}) {
-      my (@copyright, %duplicates, %matched_lines, %ignored_lines);
+      my (@copyright, %duplicates, %matched_lines, %ignored_lines, %similarity);
 
-      # Snippets the AI lawyer does not think are license text
       my $snippet_sql = qq{
-        SELECT f.sline, f.eline
+        SELECT f.sline, f.eline, s.license, s.like_pattern, s.likelyness
         FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id
-        WHERE file = ? AND classified = true and license = false
+        WHERE file = ? AND classified = true
       };
       for my $snippet ($db->query($snippet_sql, $file_id)->hashes->each) {
-        _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline});
+
+        # Snippets the AI lawyer does not think are license text
+        if (!$snippet->{license}) {
+          _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
+        }
+
+        # Snippets the AI lawyer thinks are similar to an exising license pattern
+        elsif ($snippet->{like_pattern}) {
+          _matched_lines(\%similarity, $snippet->{sline}, $snippet->{eline},
+            [$snippet->{like_pattern}, $snippet->{likelyness}]);
+        }
       }
 
       my $match_sql = qq{
@@ -161,6 +170,7 @@ sub generate_to_file ($self, $id, $file) {
       for my $match ($db->query($match_sql, $file_id)->hashes->each) {
 
         # Remove keyword matches when possible
+        my $similar;
         if ($match->{license} eq '') {
 
           # Ignored keyword matches that the AI lawyer does not consider license text
@@ -168,18 +178,26 @@ sub generate_to_file ($self, $id, $file) {
 
           # Ignore keyword matches that overlap with other pattern matches
           next if $matched_lines{$match->{sline}};
+
+          # Keyword match is similar to an existing license pattern
+          if (my $similarity = $similarity{$match->{sline}}) {
+            my ($id, $likelyness) = @$similarity;
+            if ($similar = $db->query('SELECT license, risk FROM license_patterns WHERE id = ?', $id)->hash) {
+              $similar->{likelyness} = int($likelyness * 100);
+            }
+          }
         }
-        _matched_lines(\%matched_lines, $match->{sline}, $match->{eline});
+        _matched_lines(\%matched_lines, $match->{sline}, $match->{eline}, 1);
 
         my $snippet = read_lines($paths{$file}, $match->{sline}, $match->{eline});
         push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_} } split("\n", $snippet);
 
-        # License or snippet for keyword
+        # License
         if (my $license = $match->{spdx}) {
           $spdx->tag(LicenseInfoInFile => $license);
         }
 
-        # Non-SPDX license
+        # Non-SPDX license or keyword
         else {
           my $unknown = $match->{license};
           $license_ref_num++;
@@ -199,6 +217,9 @@ sub generate_to_file ($self, $id, $file) {
           }
           my $risk = $unknown eq '' ? 9 : $match->{risk};
           $refs->tag(LicenseComment => "Risk: $risk$flags ($match->{unique_id}:$match->{id})");
+          $refs->tag(LicenseComment =>
+              "Similar: $similar->{license} ($similar->{likelyness}% similarity, estimated risk $similar->{risk})")
+            if $similar;
           $refs->text(ExtractedText => $snippet);
           $refs->br();
         }
@@ -232,9 +253,9 @@ sub generate_to_file ($self, $id, $file) {
   path($spdx_tmp_file)->move_to($file);
 }
 
-sub _matched_lines ($matched_lines, $start, $end) {
+sub _matched_lines ($matched_lines, $start, $end, $value) {
   for (my $i = $start; $i <= $end; $i++) {
-    $matched_lines->{$i}++;
+    $matched_lines->{$i} ||= $value;
   }
 }
 

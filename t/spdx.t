@@ -39,8 +39,11 @@ subtest 'Unpack and index' => sub {
 };
 
 subtest 'Generate SPDX report' => sub {
-  is $t->app->pg->db->query('UPDATE snippets SET classified = true AND license = false WHERE id = any(?)', [1])->rows,
-    1, 'one snippet is not a license';
+  is $t->app->pg->db->query('UPDATE snippets SET classified = true, license = false WHERE id = any(?)', [1])->rows, 1,
+    'one snippet is not a license';
+  is $t->app->pg->db->query(
+    'UPDATE snippets SET classified = true, license = true, like_pattern = 1, likelyness = 0.95 WHERE id = any(?)', [2])
+    ->rows, 1, 'one snippet is a license';
 
   ok !$t->app->packages->has_spdx_report(1), 'package has no SPDX report';
   $t->get_ok('/spdx/1')->status_is(408)->content_like(qr/generated/)->content_unlike(qr/SPDXVersion/);
@@ -116,6 +119,10 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/LicenseName: NOASSERTION/,                  'has license reference 1 without name';
     like $report, qr/LicenseComment: Risk: 5/,                   'has license reference 1 risk';
     like $report, qr/ExtractedText: .*Fixed copyright notice.*/, 'has license reference 1 text';
+
+    like $report, qr/LicenseID: LicenseRef-6/, 'has license reference 6';
+    like $report, qr/LicenseComment: Similar: Apache-2.0 \(95% similarity, estimated risk 5\)/,
+      'has license reference 6 with similarity';
 
     like $report, qr/LicenseID: LicenseRef-Apache-2.0-30/, 'has license reference 30';
     like $report, qr/LicenseName: Apache-2.0/,             'has license reference 30 name';
