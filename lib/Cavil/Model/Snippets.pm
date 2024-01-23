@@ -79,11 +79,13 @@ sub unclassified ($self, $options) {
   for my $snippet (@$snippets) {
     $total = delete $snippet->{total};
     $snippet->{likelyness} = int($snippet->{likelyness} * 100);
-    my $file = $db->query(
+    my $files = $db->query(
       'SELECT fs.sline, mf.filename, mf.package
        FROM file_snippets fs JOIN matched_files mf ON (fs.file = mf.id)
        WHERE fs.snippet = ? ORDER BY fs.id DESC LIMIT 1', $snippet->{id}
-    )->hash // {};
+    )->hashes;
+    $snippet->{files} = $files->size;
+    my $file = $files->[0] || {};
     $snippet->{$_} = $file->{$_} for qw(filename sline package);
 
     my $license = $db->query('SELECT license, risk FROM license_patterns WHERE id = ? AND license != ?',

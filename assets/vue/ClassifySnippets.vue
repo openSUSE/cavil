@@ -62,6 +62,8 @@
           <div class="snippet-file">
             <a v-if="snippet.filename !== null" :href="snippet.fileUrl" target="_blank">{{ snippet.filename }}</a>
             <a v-else>Unknown file</a>
+            <span v-if="snippet.files === 2">, and 1 other file</span>
+            <span v-else-if="snippet.files > 2">, and {{ snippet.files }} other files</span>
             <div v-if="snippet.approved === true" class="float-right">
               <i class="fas fa-check-circle"></i>
             </div>

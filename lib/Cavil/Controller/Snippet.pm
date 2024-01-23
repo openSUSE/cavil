@@ -26,10 +26,10 @@ sub list ($self) {
 
 sub meta ($self) {
   my $v = $self->validation;
-  $v->optional('isClassified');
-  $v->optional('isApproved');
-  $v->optional('isLegal');
-  $v->optional('notLegal');
+  $v->optional('isClassified')->in('true', 'false');
+  $v->optional('isApproved')->in('true', 'false');
+  $v->optional('isLegal')->in('true', 'false');
+  $v->optional('notLegal')->in('true', 'false');
   $v->optional('before')->num;
   return $self->reply->json_validation_error if $v->has_error;
   my $is_classified = $v->param('isClassified') // 'true';
