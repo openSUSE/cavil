@@ -22,7 +22,7 @@ use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
 
-has [qw(acceptable_risk checkout_dir max_expanded_files pg)];
+has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg)];
 
 # we need a HUGE number because Spooky uses unsigned integers
 use constant PATTERN_DELTA => 10000000000;

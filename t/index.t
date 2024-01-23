@@ -229,6 +229,21 @@ $pkg = $t->app->packages->find(1);
 is $pkg->{state},  'acceptable',                       'automatically accepted';
 is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
 
+subtest 'Accept package because of its name' => sub {
+  $db->update('bot_packages', {state => 'new'}, {id => 1});
+  $pkg = $t->app->packages->find(1);
+  is $pkg->{state}, 'new',              'new again';
+  is $pkg->{name},  'perl-Mojolicious', 'rigth name';
+
+  $t->app->config->{acceptable_packages} = ['perl-Mojolicious'];
+  $t->app->minion->enqueue('reindex_all');
+  $t->app->minion->perform_jobs;
+
+  $pkg = $t->app->packages->find(1);
+  is $pkg->{state},  'acceptable',                                          'automatically accepted';
+  is $pkg->{result}, 'Accepted because of package name (perl-Mojolicious)', 'because of name';
+};
+
 subtest 'Prevent index race condition' => sub {
   my $minion = $t->app->minion;
   ok my $job_id = $minion->enqueue('index', [1]), 'enqueued';

@@ -80,9 +80,11 @@ sub _analyze ($job, $id) {
 
 sub _analyzed ($job, $id) {
   my $app     = $job->app;
+  my $config  = $app->config;
   my $minion  = $app->minion;
   my $reports = $app->reports;
   my $pkgs    = $app->packages;
+
 
   # Protect from race conditions
   return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
@@ -95,8 +97,19 @@ sub _analyzed ($job, $id) {
   return unless $pkg->{indexed};
   return if $pkg->{state} ne 'new' && $pkg->{state} ne 'acceptable';
 
+  # Fast-track packages that are configured to always be acceptable
+  my $name                = $pkg->{name};
+  my $acceptable_packages = $config->{acceptable_packages} || [];
+  if (grep { $name eq $_ } @$acceptable_packages) {
+    $pkg->{state}            = 'acceptable';
+    $pkg->{review_timestamp} = 1;
+    $pkg->{reviewing_user}   = undef;
+    $pkg->{result}           = "Accepted because of package name ($name)";
+    return $pkgs->update($pkg);
+  }
+
   # Exclude "unacceptable" reviews
-  my $packages = $pkgs->history($pkg->{name}, $pkg_shortname, $id);
+  my $packages = $pkgs->history($name, $pkg_shortname, $id);
   return if grep { $_->{state} eq 'unacceptable' } @$packages;
 
   my ($found_correct, $found_acceptable);
