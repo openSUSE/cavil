@@ -156,7 +156,7 @@ sub generate_to_file ($self, $id, $file) {
         }
 
         # Snippets the AI lawyer thinks are similar to an exising license pattern
-        elsif ($snippet->{like_pattern}) {
+        if ($snippet->{like_pattern}) {
           _matched_lines(\%similarity, $snippet->{sline}, $snippet->{eline},
             [$snippet->{like_pattern}, $snippet->{likelyness}]);
         }
