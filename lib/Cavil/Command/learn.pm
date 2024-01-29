@@ -71,7 +71,10 @@ sub _output_patterns ($self, $good, $bad) {
 
   my $count = my $last_id = 0;
   while (1) {
-    my $batch = $db->query('SELECT id, pattern FROM license_patterns WHERE id > ? ORDER BY id ASC LIMIT 100', $last_id);
+    my $batch = $db->query(
+      q{SELECT id, pattern FROM license_patterns
+        WHERE license != '' AND id > ? ORDER BY id ASC LIMIT 100}, $last_id
+    );
     last if $batch->rows == 0;
 
     for my $hash ($batch->hashes->each) {
