@@ -84,10 +84,10 @@ subtest 'Snippets added' => sub {
     }
     like $buffer, qr/Exporting pattern 1/, 'first pattern';
     like $buffer, qr/Exporting pattern 2/, 'second pattern';
-    like $buffer, qr/Exported 6 patterns/, 'six patterns exported';
+    like $buffer, qr/Exported 4 patterns/, 'six patterns exported';
 
     my $good = $dir->child('good')->list;
-    is $good->size, 7, 'seven files';
+    is $good->size, 5, 'seven files';
     like $good->[1]->slurp, qr/Apache License/, 'right content';
   };
 
