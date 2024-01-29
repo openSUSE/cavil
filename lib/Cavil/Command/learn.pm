@@ -25,14 +25,12 @@ has usage       => sub ($self) { $self->extract_usage };
 sub run ($self, @args) {
   getopt \@args,
     'i|input=s'  => \my $input,
-    'o|output=s' => \my $output;
+    'o|output=s' => \my $output,
+    'p|patterns' => \my $patterns;
   die 'Input or output directory is required' unless (defined $output || defined $input);
 
-  my $app = $self->app;
-  my $db  = $app->pg->db;
-
-  return _output($db, $output) if $output;
-  return _input($db, $input);
+  return $self->_output($output, $patterns) if $output;
+  return $self->_input($input);
 }
 
 sub _classify ($db, $name, $license) {
@@ -42,7 +40,9 @@ sub _classify ($db, $name, $license) {
     $license, $1)->rows;
 }
 
-sub _input ($db, $input) {
+sub _input ($self, $input) {
+  my $db = $self->app->pg->db;
+
   my $root = path($input);
   my $good = $root->child('good');
   my $bad  = $root->child('bad');
@@ -56,33 +56,72 @@ sub _input ($db, $input) {
   say "Imported $count snippet classifications";
 }
 
-sub _output ($db, $output) {
+sub _output ($self, $output, $patterns) {
   my $root = path($output);
   my $good = $root->child('good')->make_path;
   my $bad  = $root->child('bad')->make_path;
+  return $self->_output_patterns($good, $bad) if $patterns;
+  return $self->_output_snippets($good, $bad);
+}
 
-  # There can be a lot of snippets, do not load all into memory at once
+sub _output_patterns ($self, $good, $bad) {
+  my $app      = $self->app;
+  my $patterns = $app->patterns;
+  my $db       = $app->pg->db;
+
   my $count = my $last_id = 0;
   while (1) {
-    my $approved
-      = $db->query('SELECT * FROM snippets WHERE approved = true AND id > ? ORDER BY id ASC LIMIT 100', $last_id);
-    last if $approved->rows == 0;
+    my $batch = $db->query('SELECT id, pattern FROM license_patterns WHERE id > ? ORDER BY id ASC LIMIT 100', $last_id);
+    last if $batch->rows == 0;
 
-    for my $hash ($approved->hashes->each) {
+    for my $hash ($batch->hashes->each) {
+      $count++;
+      my $id = $hash->{id};
+      $last_id = $id if $id > $last_id;
+
+      # Some patterns contain "$SKIP19" and similar keywords
+      my $pattern = $hash->{pattern};
+      $pattern =~ s/\ *\$SKIP\d+\ */ /sg;
+
+      my $checksum = $patterns->checksum($pattern);
+      my $file     = $good->child("$checksum.txt");
+      next unless _spew($file, $pattern);
+      say "Exporting pattern $id ($file)";
+    }
+  }
+
+  say "Exported $count patterns";
+}
+
+sub _output_snippets ($self, $good, $bad) {
+  my $db = $self->app->pg->db;
+
+  my $count = my $last_id = 0;
+  while (1) {
+    my $batch
+      = $db->query('SELECT * FROM snippets WHERE approved = true AND id > ? ORDER BY id ASC LIMIT 100', $last_id);
+    last if $batch->rows == 0;
+
+    for my $hash ($batch->hashes->each) {
       $count++;
       my $id = $hash->{id};
       $last_id = $id if $id > $last_id;
       my $dir  = $hash->{license} ? $good : $bad;
       my $file = $dir->child("$hash->{hash}.txt");
-      next if -e $file;
-      open(my $fh, '>', $file) or die "Couldn't open $file: $!";
-      print $fh $hash->{text};
-      close($fh);
+      next unless _spew($file, $hash->{text});
       say "Exporting snippet $id ($file)";
     }
   }
 
   say "Exported $count snippets";
+}
+
+sub _spew ($file, $content) {
+  return 0 if -e $file;
+  open(my $fh, '>', $file) or die "Couldn't open $file: $!";
+  print $fh $content;
+  close($fh);
+  return 1;
 }
 
 1;
@@ -97,12 +136,15 @@ Cavil::Command::learn - Cavil learn command
 
   Usage: APPLICATION learn [OPTIONS]
 
-    script/cavil learn -e ./input
-    script/cavil learn -i ./input
+    script/cavil learn -o ./ml-data
+    script/cavil learn -p -o  ./ml-data
+    script/cavil learn -i ./ml-data
 
   Options:
     -i, --input <dir>    Import snippet classifications from training data
     -o, --output <dir>   Export snippets for training machine learning models
+    -p, --patterns       Convert license patterns into snippets and export
+                         those instead
     -h, --help           Show this summary of available options
 
 =cut

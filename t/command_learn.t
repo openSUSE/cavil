@@ -75,6 +75,22 @@ subtest 'Snippets added' => sub {
     like $good->first->slurp, qr/Copyright Holder/, 'right content';
   };
 
+  subtest 'Output snippets' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('learn', '-p', '-o', "$dir");
+    }
+    like $buffer, qr/Exporting pattern 1/, 'first pattern';
+    like $buffer, qr/Exporting pattern 2/, 'second pattern';
+    like $buffer, qr/Exported 6 patterns/, 'six patterns exported';
+
+    my $good = $dir->child('good')->list;
+    is $good->size, 7, 'seven files';
+    like $good->[1]->slurp, qr/Apache License/, 'right content';
+  };
+
   $db->query('UPDATE snippets SET license = true, approved = false WHERE id = 1');
   $db->query('UPDATE snippets SET license = false, approved = false WHERE id = 2');
   $dir->child('good', 'doesnotexist.txt')->spew('Whatever');
