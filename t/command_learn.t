@@ -75,7 +75,7 @@ subtest 'Snippets added' => sub {
     like $good->first->slurp, qr/Copyright Holder/, 'right content';
   };
 
-  subtest 'Output snippets' => sub {
+  subtest 'Output license patterns' => sub {
     my $buffer = '';
     {
       open my $handle, '>', \$buffer;
