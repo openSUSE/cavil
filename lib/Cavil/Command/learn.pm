@@ -24,11 +24,13 @@ has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
   getopt \@args,
-    'i|input=s'  => \my $input,
-    'o|output=s' => \my $output,
-    'p|patterns' => \my $patterns;
-  die 'Input or output directory is required' unless (defined $output || defined $input);
+    'c|convert=s' => \my $convert,
+    'i|input=s'   => \my $input,
+    'o|output=s'  => \my $output,
+    'p|patterns'  => \my $patterns;
+  die 'Input or output directory is required' unless (defined $output || defined $input || defined $convert);
 
+  return $self->_convert($convert)          if $convert;
   return $self->_output($output, $patterns) if $output;
   return $self->_input($input);
 }
@@ -40,6 +42,20 @@ sub _classify ($db, $name, $license) {
   return $db->query(
     'UPDATE snippets SET license = ?, classified = true, approved = true WHERE hash = ? AND approved = false',
     $license, $checksum)->rows;
+}
+
+sub _convert ($self, $convert) {
+  my $patterns = $self->app->patterns;
+  my $dir      = path($convert);
+
+  for my $old ($dir->list->each) {
+    my $content  = $old->slurp;
+    my $checksum = $patterns->checksum($content);
+    my $new      = $old->sibling("$checksum.txt");
+    $new->spew($content);
+    $old->remove;
+    say "Converted @{[$old->basename]} to @{[$new->basename]}";
+  }
 }
 
 sub _input ($self, $input) {
@@ -144,12 +160,15 @@ Cavil::Command::learn - Cavil learn command
     script/cavil learn -o ./ml-data
     script/cavil learn -p -o  ./ml-data
     script/cavil learn -i ./ml-data
+    script/cavil learn -c ./text-files
 
   Options:
-    -i, --input <dir>    Import snippet classifications from training data
-    -o, --output <dir>   Export snippets for training machine learning models
-    -p, --patterns       Convert license patterns into snippets and export
-                         those instead
-    -h, --help           Show this summary of available options
+    -c, --convert <dir>   Convert a directory with arbitary text files into
+                          training data (this is a destructive operation)
+    -i, --input <dir>     Import snippet classifications from training data
+    -o, --output <dir>    Export snippets for training machine learning models
+    -p, --patterns        Convert license patterns into snippets and export
+                          those instead
+    -h, --help            Show this summary of available options
 
 =cut

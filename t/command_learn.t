@@ -129,6 +129,28 @@ subtest 'Snippets added' => sub {
     }
     like $buffer, qr/Imported 0 snippet classifications/, 'no snippets imported';
   };
+
+  subtest 'Convert arbitrary text files' => sub {
+    my $dir = $tmp->child('convert')->make_path;
+    $dir->child('test.txt')->spew("Hello\nCavil\n");
+    $dir->child('test2')->spew("Hello\nAgain\n");
+    ok -e $dir->child('test.txt'), 'file exists';
+    ok -e $dir->child('test2'),    'file exists';
+
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('learn', '-c', "$dir");
+    }
+    like $buffer, qr/Converted test.txt to c512411bea5f292484180fb72e5ea0f9.txt/, 'first file';
+    like $buffer, qr/Converted test2 to 00911bf540aebe36e7c2908760515b25.txt/,    'second file';
+
+    ok !-e $dir->child('test.txt'), 'file no longer exists';
+    ok !-e $dir->child('test2'),    'file no longer exists';
+    is $dir->child('c512411bea5f292484180fb72e5ea0f9.txt')->slurp, "Hello\nCavil\n", 'right content';
+    is $dir->child('00911bf540aebe36e7c2908760515b25.txt')->slurp, "Hello\nAgain\n", 'right content';
+  };
 };
 
 done_testing();
