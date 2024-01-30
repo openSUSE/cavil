@@ -24,10 +24,10 @@ has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
   getopt \@args,
-    'c|convert=s' => \my $convert,
-    'i|input=s'   => \my $input,
-    'o|output=s'  => \my $output,
-    'p|patterns'  => \my $patterns;
+    'convert=s'  => \my $convert,
+    'i|input=s'  => \my $input,
+    'o|output=s' => \my $output,
+    'p|patterns' => \my $patterns;
   die 'Input or output directory is required' unless (defined $output || defined $input || defined $convert);
 
   return $self->_convert($convert)          if $convert;
@@ -160,10 +160,10 @@ Cavil::Command::learn - Cavil learn command
     script/cavil learn -o ./ml-data
     script/cavil learn -p -o  ./ml-data
     script/cavil learn -i ./ml-data
-    script/cavil learn -c ./text-files
+    script/cavil learn --convert ./text-files
 
   Options:
-    -c, --convert <dir>   Convert a directory with arbitary text files into
+        --convert <dir>   Convert a directory with arbitary text files into
                           training data (this is a destructive operation)
     -i, --input <dir>     Import snippet classifications from training data
     -o, --output <dir>    Export snippets for training machine learning models

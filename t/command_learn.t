@@ -141,7 +141,7 @@ subtest 'Snippets added' => sub {
     {
       open my $handle, '>', \$buffer;
       local *STDOUT = $handle;
-      $app->start('learn', '-c', "$dir");
+      $app->start('learn', '--convert', "$dir");
     }
     like $buffer, qr/Converted test.txt to c512411bea5f292484180fb72e5ea0f9.txt/, 'first file';
     like $buffer, qr/Converted test2 to 00911bf540aebe36e7c2908760515b25.txt/,    'second file';
