@@ -35,9 +35,11 @@ sub run ($self, @args) {
 
 sub _classify ($db, $name, $license) {
   return 0 unless $name =~ /^(\w+).txt$/;
+  my $checksum = $1;
+  return 0 unless $db->query('SELECT id FROM snippets WHERE hash = ? AND approved = false', $checksum)->rows;
   return $db->query(
     'UPDATE snippets SET license = ?, classified = true, approved = true WHERE hash = ? AND approved = false',
-    $license, $1)->rows;
+    $license, $checksum)->rows;
 }
 
 sub _input ($self, $input) {
