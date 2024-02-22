@@ -30,7 +30,7 @@
         </div>
         <div id="cavil-pkg-search" class="col-sm-12 col-md-4">
           <form @submit.prevent="searchNow" class="form-inline">
-            <label class="col-form-label" for="inlineSearch">Search:&nbsp;</label>
+            <label class="col-form-label" for="inlineSearch">Filter:&nbsp;</label>
             <input v-model="search" type="text" class="form-control" id="inlineSearch" />
           </form>
         </div>
