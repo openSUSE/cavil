@@ -172,7 +172,7 @@ sub startup ($self) {
   # Minion admin
   $self->plugin('Minion::Admin' => {route => $admin->any('/minion')});
 
-  # API
+  # API for Open Build Service bots
   $bot->get('/package/<id:num>')->to('Queue#package_status');
   $bot->patch('/package/<id:num>')->to('Queue#update_package');
   $bot->post('/packages')->to('Queue#create_package');
@@ -181,6 +181,8 @@ sub startup ($self) {
   $bot->post('/requests')->to('Queue#create_request');
   $bot->get('/requests')->to('Queue#list_requests');
   $bot->delete('/requests')->to('Queue#remove_request');
+
+  # API for lawyer tools
   $bot->get('/package/<id:num>/report')->to('Report#calc', format => 'json');
   $bot->get('/source/<id:num>')->to('Report#source', format => 'json');
 
