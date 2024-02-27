@@ -67,6 +67,7 @@ sub product_reviews ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('offset')->num;
+  $v->optional('attention');
   $v->optional('patent');
   $v->optional('trademark');
   $v->optional('exportRestricted');
@@ -74,6 +75,7 @@ sub product_reviews ($self) {
   return $self->reply->json_validation_error if $v->has_error;
   my $limit             = $v->param('limit')            // 10;
   my $offset            = $v->param('offset')           // 0;
+  my $attention         = $v->param('attention')        // 'false';
   my $patent            = $v->param('patent')           // 'false';
   my $trademark         = $v->param('trademark')        // 'false';
   my $export_restricted = $v->param('exportRestricted') // 'false';
@@ -85,6 +87,7 @@ sub product_reviews ($self) {
     {
       limit             => $limit,
       offset            => $offset,
+      attention         => $attention,
       patent            => $patent,
       trademark         => $trademark,
       export_restricted => $export_restricted,

@@ -218,6 +218,11 @@ sub paginate_product_reviews ($self, $name, $options) {
 
   return paginate([], $options) unless my $product = $db->select('bot_products', 'id', {name => $name})->hash;
 
+  my $attention = '';
+  if ($options->{attention} eq 'true') {
+    $attention = "AND state IN ('unacceptable', 'new')";
+  }
+
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");
@@ -245,7 +250,7 @@ sub paginate_product_reviews ($self, $name, $options) {
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, state,
         checksum, COUNT(*) OVER() AS total
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
-      WHERE bot_package_products.product = ? $search $patent $trademark $export_restricted
+      WHERE bot_package_products.product = ? $search $attention $patent $trademark $export_restricted
       ORDER BY bot_packages.id DESC
       LIMIT ? OFFSET ?
     }, $product->{id}, $options->{limit}, $options->{offset}

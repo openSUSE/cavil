@@ -16,35 +16,47 @@
                 &nbsp;entries</label
               >
             </div>
-            <div class="form-check mb-2 mr-sm-4">
-              <input
-                v-model="params.patent"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check form-check-inline"
-                id="cavil-pkg-patent"
-              />
-              <label for="cavil-pkg-patent">Patent</label>
-            </div>
-            <div class="form-check mb-2 mr-sm-4">
-              <input
-                v-model="params.trademark"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check form-check-inline"
-                id="cavil-pkg-trademark"
-              />
-              <label for="cavil-pkg-trademark">Trademark</label>
-            </div>
-            <div class="form-check mb-2 mr-sm-4">
-              <input
-                v-model="params.exportRestricted"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check form-check-inline"
-                id="cavil-pkg-export-restricted"
-              />
-              <label for="cavil-pkg-export-restricted">Export Restricted</label>
+            <div class="form-group">
+              <div class="form-check mb-2 mr-sm-4">
+                <input
+                  v-model="params.patent"
+                  @change="gotoPage(1)"
+                  type="checkbox"
+                  class="form-check form-check-inline"
+                  id="cavil-pkg-patent"
+                />
+                <label for="cavil-pkg-patent">Patent</label>
+              </div>
+              <div class="form-check mb-2 mr-sm-4">
+                <input
+                  v-model="params.trademark"
+                  @change="gotoPage(1)"
+                  type="checkbox"
+                  class="form-check form-check-inline"
+                  id="cavil-pkg-trademark"
+                />
+                <label for="cavil-pkg-trademark">Trademark</label>
+              </div>
+              <div class="form-check mb-2 mr-sm-4">
+                <input
+                  v-model="params.exportRestricted"
+                  @change="gotoPage(1)"
+                  type="checkbox"
+                  class="form-check form-check-inline"
+                  id="cavil-pkg-export-restricted"
+                />
+                <label for="cavil-pkg-export-restricted">Export Restricted</label>
+              </div>
+              <div class="form-check mb-2 mr-sm-4">
+                <input
+                  v-model="params.attention"
+                  @change="gotoPage(1)"
+                  type="checkbox"
+                  class="form-check form-check-inline"
+                  id="cavil-pkg-attention"
+                />
+                <label for="cavil-pkg-attention">Needs Attention</label>
+              </div>
             </div>
           </form>
         </div>
@@ -119,6 +131,7 @@ export default {
     const params = getParams({
       limit: 10,
       offset: 0,
+      attention: false,
       patent: false,
       trademark: false,
       exportRestricted: false,
@@ -173,7 +186,7 @@ export default {
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset', 'patent', 'trademark', 'exportRestricted'),
+    ...genParamWatchers('limit', 'offset', 'attention', 'patent', 'trademark', 'exportRestricted'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;
