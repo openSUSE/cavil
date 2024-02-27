@@ -19,10 +19,10 @@
             <div class="form-check mb-2 mr-sm-2"></div>
           </form>
         </div>
-        <div id="cavil-pkg-search" class="col-sm-12 col-md-4">
-          <form @submit.prevent="searchNow" class="form-inline">
-            <label class="col-form-label" for="inlineSearch">Filter:&nbsp;</label>
-            <input v-model="search" type="text" class="form-control" id="inlineSearch" />
+        <div id="cavil-pkg-filter" class="col-sm-12 col-md-4">
+          <form @submit.prevent="filterNow" class="form-inline">
+            <label class="col-form-label" for="inlineFilter">Filter:&nbsp;</label>
+            <input v-model="filter" type="text" class="form-control" id="inlineFilter" />
           </form>
         </div>
       </div>
@@ -75,6 +75,7 @@
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
 import {productLink} from './helpers/links.js';
+import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 
 export default {
@@ -82,12 +83,18 @@ export default {
   mixins: [Refresh],
   components: {PaginationLinks, ShownEntries},
   data() {
+    const params = getParams({
+      limit: 10,
+      offset: 0,
+      filter: ''
+    });
+
     return {
       end: 0,
       products: null,
-      params: {limit: 10, offset: 0, search: ''},
+      params,
       refreshUrl: '/pagination/products/known',
-      search: '',
+      filter: params.filter,
       start: 0,
       total: 0
     };
@@ -121,16 +128,18 @@ export default {
       }
       this.products = products;
     },
-    searchNow() {
+    filterNow() {
       this.cancelApiRefresh();
       this.products = null;
       this.doApiRefresh();
     }
   },
   watch: {
-    search: function (val) {
-      this.params.search = val;
+    ...genParamWatchers('limit', 'offset'),
+    filter: function (val) {
+      this.params.filter = val;
       this.params.offset = 0;
+      setParam('filter', val);
     }
   }
 };
@@ -140,7 +149,7 @@ export default {
 .table {
   margin-top: 1rem;
 }
-#cavil-pkg-search form {
+#cavil-pkg-filter form {
   margin: 2px 0;
   white-space: nowrap;
   justify-content: flex-end;

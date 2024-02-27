@@ -20,11 +20,11 @@ sub known_licenses ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('offset')->num;
-  $v->optional('search');
+  $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit  = $v->param('limit')  // 10;
   my $offset = $v->param('offset') // 0;
-  my $search = $v->param('search') // '';
+  my $search = $v->param('filter') // '';
 
   my $page = $self->patterns->paginate_known_licenses({limit => $limit, offset => $offset, search => $search});
   $self->render(json => $page);
@@ -34,11 +34,11 @@ sub known_products ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('offset')->num;
-  $v->optional('search');
+  $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit  = $v->param('limit')  // 10;
   my $offset = $v->param('offset') // 0;
-  my $search = $v->param('search') // '';
+  my $search = $v->param('filter') // '';
 
   my $page = $self->products->paginate_known_products({limit => $limit, offset => $offset, search => $search});
   $self->render(json => $page);
@@ -50,13 +50,13 @@ sub open_reviews ($self) {
   $v->optional('offset')->num;
   $v->optional('priority')->num;
   $v->optional('inProgress');
-  $v->optional('search');
+  $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit       = $v->param('limit')      // 10;
   my $offset      = $v->param('offset')     // 0;
   my $priority    = $v->param('priority')   // 2;
   my $in_progress = $v->param('inProgress') // 'false';
-  my $search      = $v->param('search')     // '';
+  my $search      = $v->param('filter')     // '';
 
   my $page = $self->packages->paginate_open_reviews(
     {limit => $limit, offset => $offset, in_progress => $in_progress, priority => $priority, search => $search});
@@ -70,14 +70,14 @@ sub product_reviews ($self) {
   $v->optional('patent');
   $v->optional('trademark');
   $v->optional('exportRestricted');
-  $v->optional('search');
+  $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit             = $v->param('limit')            // 10;
   my $offset            = $v->param('offset')           // 0;
   my $patent            = $v->param('patent')           // 'false';
   my $trademark         = $v->param('trademark')        // 'false';
   my $export_restricted = $v->param('exportRestricted') // 'false';
-  my $search            = $v->param('search')           // '';
+  my $search            = $v->param('filter')           // '';
 
   my $name = $self->stash('name');
   my $page = $self->packages->paginate_product_reviews(
@@ -99,12 +99,12 @@ sub recent_reviews ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('byUser');
-  $v->optional('search');
+  $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit   = $v->param('limit')  // 10;
   my $offset  = $v->param('offset') // 0;
   my $by_user = $v->param('byUser') // 'false';
-  my $search  = $v->param('search') // '';
+  my $search  = $v->param('filter') // '';
 
   my $page = $self->packages->paginate_recent_reviews(
     {limit => $limit, offset => $offset, by_user => $by_user, search => $search});
@@ -115,13 +115,13 @@ sub review_search ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('offset')->num;
-  $v->optional('search');
+  $v->optional('filter');
   $v->optional('notObsolete');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit        = $v->param('limit')       // 10;
   my $offset       = $v->param('offset')      // 0;
   my $not_obsolete = $v->param('notObsolete') // 'false';
-  my $search       = $v->param('search')      // '';
+  my $search       = $v->param('filter')      // '';
 
   my $name = $self->stash('name');
   my $page = $self->packages->paginate_review_search($name,

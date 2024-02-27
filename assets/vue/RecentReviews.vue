@@ -28,10 +28,10 @@
             </div>
           </form>
         </div>
-        <div id="cavil-pkg-search" class="col-sm-12 col-md-4">
-          <form @submit.prevent="searchNow" class="form-inline">
-            <label class="col-form-label" for="inlineSearch">Filter:&nbsp;</label>
-            <input v-model="search" type="text" class="form-control" id="inlineSearch" />
+        <div id="cavil-pkg-filter" class="col-sm-12 col-md-4">
+          <form @submit.prevent="filterNow" class="form-inline">
+            <label class="col-form-label" for="inlineFilter">Filter:&nbsp;</label>
+            <input v-model="filter" type="text" class="form-control" id="inlineFearch" />
           </form>
         </div>
       </div>
@@ -101,6 +101,7 @@ import PaginationLinks from './components/PaginationLinks.vue';
 import PriorityBadge from './components/PriorityBadge.vue';
 import ShownEntries from './components/ShownEntries.vue';
 import {externalLink, packageLink, reportLink} from './helpers/links.js';
+import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
 
@@ -109,12 +110,19 @@ export default {
   mixins: [Refresh],
   components: {PaginationLinks, PriorityBadge, ShownEntries},
   data() {
+    const params = getParams({
+      limit: 10,
+      offset: 0,
+      byUser: false,
+      filter: ''
+    });
+
     return {
       end: 0,
-      params: {limit: 10, offset: 0, byUser: false, search: ''},
+      params,
       reviews: null,
       refreshUrl: '/pagination/reviews/recent',
-      search: '',
+      filter: params.filter,
       start: 0,
       total: 0
     };
@@ -156,16 +164,18 @@ export default {
       }
       this.reviews = reviews;
     },
-    searchNow() {
+    filterNow() {
       this.cancelApiRefresh();
       this.reviews = null;
       this.doApiRefresh();
     }
   },
   watch: {
-    search: function (val) {
-      this.params.search = val;
+    ...genParamWatchers('limit', 'offset', 'byUser'),
+    filter: function (val) {
+      this.params.filter = val;
       this.params.offset = 0;
+      setParam('filter', val);
     }
   }
 };
@@ -175,7 +185,7 @@ export default {
 .table {
   margin-top: 1rem;
 }
-#cavil-pkg-search form {
+#cavil-pkg-filter form {
   margin: 2px 0;
   white-space: nowrap;
   justify-content: flex-end;

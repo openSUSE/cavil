@@ -132,13 +132,21 @@
 </template>
 
 <script>
+import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'ClassifySnippets',
   data() {
+    const params = getParams({
+      isClassified: true,
+      isApproved: false,
+      isLegal: true,
+      notLegal: true
+    });
+
     return {
-      params: {isClassified: true, isApproved: false, isLegal: true, notLegal: true, before: 0},
+      params: {...params, before: 0},
       snippets: null,
       snippetUrl: '/snippets/meta',
       total: null
@@ -213,7 +221,8 @@ export default {
       this.params.before = 0;
       this.getSnippets();
     }
-  }
+  },
+  watch: {...genParamWatchers('isClassified', 'isApproved', 'isLegal', 'notLegal')}
 };
 </script>
 
