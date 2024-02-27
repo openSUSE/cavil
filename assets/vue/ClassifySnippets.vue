@@ -58,6 +58,7 @@
               >Confidence:&nbsp;
               <select v-model="params.confidence" @change="refreshPage()" class="form-control cavil-pkg-confidence">
                 <option value="100">Any</option>
+                <option value="70">70% or less</option>
                 <option value="50">50% or less</option>
                 <option value="30">30% or less</option>
                 <option value="20">20% or less</option>
