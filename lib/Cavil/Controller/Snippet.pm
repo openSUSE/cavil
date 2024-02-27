@@ -30,17 +30,20 @@ sub meta ($self) {
   $v->optional('isApproved')->in('true', 'false');
   $v->optional('isLegal')->in('true', 'false');
   $v->optional('notLegal')->in('true', 'false');
+  $v->optional('confidence')->num(0, 100);
   $v->optional('before')->num;
   return $self->reply->json_validation_error if $v->has_error;
   my $is_classified = $v->param('isClassified') // 'true';
   my $is_approved   = $v->param('isApproved')   // 'false';
   my $is_legal      = $v->param('isLegal')      // 'true';
   my $not_legal     = $v->param('notLegal')     // 'true';
+  my $confidence    = $v->param('confidence')   // 100;
   my $before        = $v->param('before')       // 0;
 
   my $unclassified = $self->snippets->unclassified(
     {
       before        => $before,
+      confidence    => $confidence,
       is_classified => $is_classified,
       is_approved   => $is_approved,
       is_legal      => $is_legal,

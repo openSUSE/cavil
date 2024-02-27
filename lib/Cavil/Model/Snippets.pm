@@ -59,6 +59,11 @@ sub unclassified ($self, $options) {
     $before = "AND id < $quoted";
   }
 
+  my $confidence = '';
+  if ($options->{confidence} < 100) {
+    $confidence = "AND confidence <= " . $options->{confidence};
+  }
+
   my $is_approved   = 'approved = ' . uc($options->{is_approved});
   my $is_classified = 'classified = ' . uc($options->{is_classified});
 
@@ -72,7 +77,7 @@ sub unclassified ($self, $options) {
 
   my $snippets = $db->query(
     "SELECT *, COUNT(*) OVER() AS total FROM snippets
-     WHERE $is_approved AND $is_classified $before $legal ORDER BY id DESC LIMIT 10"
+     WHERE $is_approved AND $is_classified $before $legal $confidence ORDER BY id DESC LIMIT 10"
   )->hashes;
 
   my $total = 0;

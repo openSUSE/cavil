@@ -53,6 +53,19 @@
             />
             <label for="snippet-is-approved">Approved by a human</label>
           </div>
+          <div class="form-group mb-2 mr-sm-4">
+            <label
+              >Confidence:&nbsp;
+              <select v-model="params.confidence" @change="refreshPage()" class="form-control cavil-pkg-confidence">
+                <option value="5">5% or less</option>
+                <option value="10">10% or less</option>
+                <option value="20">20% or less</option>
+                <option value="30">30% or less</option>
+                <option value="50">50% or less</option>
+                <option value="100">Any</option>
+              </select>
+              </label>
+          </div>
         </form>
       </div>
       <div class="col-3">
@@ -139,6 +152,7 @@ export default {
   name: 'ClassifySnippets',
   data() {
     const params = getParams({
+      confidence: 100,
       isClassified: true,
       isApproved: false,
       isLegal: true,
@@ -222,7 +236,7 @@ export default {
       this.getSnippets();
     }
   },
-  watch: {...genParamWatchers('isClassified', 'isApproved', 'isLegal', 'notLegal')}
+  watch: {...genParamWatchers('isClassified', 'isApproved', 'isLegal', 'notLegal', 'confidence')}
 };
 </script>
 
