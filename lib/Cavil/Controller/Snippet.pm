@@ -31,7 +31,7 @@ sub meta ($self) {
   $v->optional('isLegal')->in('true', 'false');
   $v->optional('notLegal')->in('true', 'false');
   $v->optional('confidence')->num(0, 100);
-  $v->optional('timeframe')->in('any', 'month', 'week', 'day', 'hour');
+  $v->optional('timeframe')->in('any', 'year', 'month', 'week', 'day', 'hour');
   $v->optional('before')->num;
   return $self->reply->json_validation_error if $v->has_error;
   my $is_classified = $v->param('isClassified') // 'true';

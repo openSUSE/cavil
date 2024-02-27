@@ -71,6 +71,7 @@
               >Timeframe:&nbsp;
               <select v-model="params.timeframe" @change="refreshPage()" class="form-control cavil-pkg-timeframe">
                 <option value="any">Any</option>
+                <option value="year">1 year</option>
                 <option value="month">1 month</option>
                 <option value="week">1 week</option>
                 <option value="day">1 day</option>
