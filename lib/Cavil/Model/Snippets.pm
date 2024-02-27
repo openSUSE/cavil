@@ -64,6 +64,12 @@ sub unclassified ($self, $options) {
     $confidence = "AND confidence <= " . $options->{confidence};
   }
 
+  my $timeframe = '';
+  if ($options->{timeframe} ne 'any') {
+    my $interval = "1 $options->{timeframe}";
+    $timeframe = "AND created > NOW() - INTERVAL '$interval'";
+  }
+
   my $is_approved   = 'approved = ' . uc($options->{is_approved});
   my $is_classified = 'classified = ' . uc($options->{is_classified});
 
@@ -77,7 +83,7 @@ sub unclassified ($self, $options) {
 
   my $snippets = $db->query(
     "SELECT *, COUNT(*) OVER() AS total FROM snippets
-     WHERE $is_approved AND $is_classified $before $legal $confidence ORDER BY id DESC LIMIT 10"
+     WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe ORDER BY id DESC LIMIT 10"
   )->hashes;
 
   my $total = 0;
