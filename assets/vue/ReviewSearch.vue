@@ -1,40 +1,41 @@
 <template>
   <div>
     <div>
-      <div class="row">
-        <div class="col-sm-12 col-md-8">
-          <form class="form-inline">
-            <div class="form-group mb-2 mr-sm-4">
-              <label
-                >Show&nbsp;
-                <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                  <option>10</option>
-                  <option>25</option>
-                  <option>50</option>
-                  <option>100</option>
-                </select>
-                &nbsp;entries</label
-              >
+      <form>
+        <div class="row g-4">
+          <div class="col-lg-2">
+            <div class="form-floating">
+              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
+                <option>10</option>
+                <option>25</option>
+                <option>50</option>
+                <option>100</option>
+              </select>
+              <label class="form-label">Reviews per Page</label>
             </div>
-            <div class="form-check mb-2 mr-sm-2">
+          </div>
+          <div class="col">
+            <div class="form-check">
               <input
                 v-model="params.notObsolete"
                 @change="gotoPage(1)"
                 type="checkbox"
-                class="form-check form-check-inline"
+                class="form-check-input"
                 id="cavil-search-not-obsolete"
               />
-              <label for="cavil-search-not-obsolete">Not Obsolete</label>
+              <label class="form-check-label" for="cavil-search-not-obsolete">Not Obsolete</label>
             </div>
-          </form>
+          </div>
+          <div id="cavil-pkg-filter" class="col-lg-3">
+            <form @submit.prevent="filterNow">
+              <div class="form-floating">
+                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
+                <label class="form-label">Filter</label>
+              </div>
+            </form>
+          </div>
         </div>
-        <div id="cavil-pkg-filter" class="col-sm-12 col-md-4">
-          <form @submit.prevent="filterNow" class="form-inline">
-            <label class="col-form-label" for="inlineFilter">Filter:&nbsp;</label>
-            <input v-model="filter" type="text" class="form-control" id="inlineFilter" />
-          </form>
-        </div>
-      </div>
+      </form>
       <div class="row">
         <div class="col-12">
           <table class="table table-striped table-bordered">

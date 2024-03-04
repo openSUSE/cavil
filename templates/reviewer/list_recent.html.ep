@@ -1,8 +1,6 @@
 % layout 'default';
 % title "List recent reviews";
 
-<h3>Recent Reviews</h3>
-
 <div id="recent-reviews"></div>
 
 % content_for 'ready_function' => begin

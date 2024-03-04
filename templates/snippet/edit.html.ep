@@ -13,77 +13,78 @@
 % if ($file_count) {
   <p>
   The following snippet was found in <%= $file_count %> files within <%= $package_count %> packages.
-  The example shown here is from <%= link_to $package->{name} => url_for('package_details', id => $package->{id}) %>
+  The example shown here is from <%= link_to $package->{name} => url_for('package_details', id => $package->{id}) %>.
   </p>
 % }
 
 %= form_for url_for('snippet_decision', {id => $snippet->{id}}) => (method => 'POST') => begin
 
-  <div class="form-group">
-    <label for="pattern"><strong>Snippet</strong></label>
-    <em>(The found patterns are highlighted and you can reach them by clicking on the line number)</em>
-    <%= text_area pattern => $snippet->{text},
-      class => 'mono-textarea form-control', id => 'file', rows => 20 %>
+  <div class="row">
+    <div class="col mb-3">
+      <label class="form-label" for="pattern">Snippet</label>
+      <%= text_area pattern => $snippet->{text}, class => 'mono-textarea form-control', id => 'file', rows => 20 %>
+      <div id="patternHelp" class="form-text">
+        Keyword patterns within the snippet are highlighted and you can reach them by clicking on the line number
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col mb-3">
+      <label class="fomr-label" for="license">License</label>
+      %= text_field license => $best->{license}, class => 'form-control'
+    </div>
   </div>
 
 
-  <div class="form-group">
-    <label for="license">License</label>
-    %= text_field license => $best->{license}, class => 'form-control'
-  </div>
-
-  <div class="form-group form-inline">
-    <div class="form-group col-sm-3">
-        <label for="risk" class="mr-2">Risk</label>
+  <div class="row">
+    <div class="col-lg-2 mb-3">
+      <div class="form-floating">
         % my @risks;
         % for my $r (0..6) {
             % if ($r == ($best->{risk} // -1)) { push(@risks, [ $r => $r, selected => 'selected' ]) } else { push(@risks, $r); }
         % }
         %= select_field risk => \@risks, class => 'form-control'
-    </div>
-    <div class="col-sm-2">
-      <div class="checkbox-inline">
-        <label>
-          <%= check_box patent => 1,
-            $best->{patent} ? (checked => undef) : () %>
-          &nbsp;Patent
-        </label>
+        <label for="risk" class="form-label">Risk</label>
       </div>
     </div>
-    <div class="col-sm-2">
-      <div class="checkbox-inline">
-        <label>
-          <%= check_box trademark => 1,
-            $best->{trademark} ? (checked => undef) : () %>&nbsp;Trademark
-        </label>
+    <div class="col-lg-2">
+      <div class="form-check">
+        <%= check_box patent => 1, class => 'form-check-input', $best->{patent} ? (checked => undef) : () %>
+        <label class="form-check-label" for="patent">Patent</label>
+      </div>
+      <div class="form-check">
+        <%= check_box trademark => 1, class => 'form-check-input', $best->{trademark} ? (checked => undef) : () %>
+        <label class="form-check-label" for="trademark">Trademark</label>
       </div>
     </div>
-    <div class="col-sm-2">
-      <div class="checkbox-inline">
-        <label>
-          <%= check_box opinion => 1,
-            $best->{opinion} ? (checked => undef) : () %>&nbsp;Opinion
-        </label>
+    <div class="col-lg-2">
+      <div class="form-check">
+        <%= check_box opinion => 1, class => 'form-check-input', $best->{opinion} ? (checked => undef) : () %>
+        <label class="form-check-label" for="opinion">Opinion</label>
       </div>
-    </div>
-    <div class="col-sm-2">
-      <div class="checkbox-inline">
-        <label>
-          <%= check_box export_restricted => 1,
-            $best->{export_restricted} ? (checked => undef) : () %>&nbsp;Export Restricted
-        </label>
+      <div class="form-check">
+        <%= check_box export_restricted => 1, class => 'form-check-input',
+          $best->{export_restricted} ? (checked => undef) : () %>
+        <label class="form-check-label" for="export_restricted">Export Restricted</label>
       </div>
     </div>
   </div>
 
-  <div class="form-group form-inline">
-    <button name="create-pattern" type="submit" value="1" class="btn btn-primary mb-2">Create Pattern</button>&nbsp;
-    <button name="mark-non-license" type="submit" value="1" class="btn btn-danger mb-2">Mark as Non-License</button>
+  <div class="row">
+    <div class="col mb-3">
+      <button name="create-pattern" type="submit" value="1" class="btn btn-primary mb-2">Create Pattern</button>&nbsp;
+      <button name="mark-non-license" type="submit" value="1" class="btn btn-danger mb-2">Mark as Non-License</button>
+    </div>
   </div>
 
 %end
 
-Closest <%= link_to "pattern ($similarity%)" => url_for('edit_pattern', id => $best->{id}) %>:
-<p>
-  <pre class='license license-1'><%= $best->{pattern} %></pre>
-</p>
+  <div class="row">
+    <div class="col">
+      Closest <%= link_to "pattern ($similarity%)" => url_for('edit_pattern', id => $best->{id}) %>:
+      <p>
+        <pre class='license license-1'><%= $best->{pattern} %></pre>
+      </p>
+    </div>
+  </div>

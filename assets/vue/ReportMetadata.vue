@@ -1,7 +1,7 @@
 <template>
   <div v-if="pkgName === null"><i class="fas fa-sync fa-spin"></i> Loading package information...</div>
   <div v-else>
-    <div class="float-right format">
+    <div class="float-end format">
       <i class="fab fa-suse" v-if="pkgType === 'spec'"></i>
       <i class="fas fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
       <i class="fab fa-docker" v-else-if="pkgType === 'docker'"></i>
@@ -29,8 +29,8 @@
           </th>
           <th class="fit text-left noleftpad" scope="row">Package Files:</th>
           <td id="num-spec-files">
-            <a v-if="actions.length === 1" href="#spec-files" data-toggle="collapse">1 file</a>
-            <a v-else href="#spec-files" data-toggle="collapse">{{ pkgFiles.length }} files</a>
+            <a v-if="actions.length === 1" href="#spec-files" data-bs-toggle="collapse">1 file</a>
+            <a v-else href="#spec-files" data-bs-toggle="collapse">{{ pkgFiles.length }} files</a>
           </td>
         </tr>
         <tr v-if="actions.length > 0">
@@ -39,8 +39,8 @@
           </th>
           <th class="fit text-left noleftpad" scope="row">Actions:</th>
           <td>
-            <a v-if="actions.length === 1" href="#actions" data-toggle="collapse">1 related review</a>
-            <a v-else href="#actions" data-toggle="collapse">{{ actions.length }} related reviews</a>
+            <a v-if="actions.length === 1" href="#actions" data-bs-toggle="collapse">1 related review</a>
+            <a v-else href="#actions" data-bs-toggle="collapse">{{ actions.length }} related reviews</a>
           </td>
         </tr>
         <tr v-if="history.length > 0">
@@ -49,8 +49,8 @@
           </th>
           <th class="fit text-left noleftpad" scope="row">History:</th>
           <td>
-            <a v-if="history.length === 1" href="#history" data-toggle="collapse">1 other review</a>
-            <a v-else href="#history" data-toggle="collapse">{{ history.length }} other reviews</a>
+            <a v-if="history.length === 1" href="#history" data-bs-toggle="collapse">1 other review</a>
+            <a v-else href="#history" data-bs-toggle="collapse">{{ history.length }} other reviews</a>
           </td>
         </tr>
         <tr v-if="externalLink !== null">
@@ -154,7 +154,7 @@
       </tbody>
     </table>
     <div v-if="actions.length > 0" id="actions" class="collapse">
-      <table class="table table-striped">
+      <table class="table table-striped transparent-table">
         <tbody>
           <tr v-for="action in actions" :key="action.id">
             <td>{{ action.name }}</td>
@@ -169,7 +169,7 @@
       </table>
     </div>
     <div v-if="history.length > 0" id="history" class="collapse">
-      <table class="table table-striped">
+      <table class="table table-striped transparent-table">
         <tbody>
           <tr v-for="prev in history" :key="prev.id">
             <td v-html="prev.externalLink"></td>
@@ -185,28 +185,28 @@
     </div>
     <div v-if="pkgFiles.length > 0" id="spec-files" class="collapse">
       <div class="alert alert-secondary">
-        <table class="table borderless novertpad">
+        <table class="table borderless novertpad transparent-table">
           <tbody>
             <tr v-for="file in pkgFiles" :key="file.file">
               <td class="noleftpad">
-                <table class="table borderless novertpad">
+                <table class="table borderless novertpad transparent-table">
                   <tr>
                     <th class="fit text-left noleftpad" colspan="2"><i class="fas fa-file-alt"></i> {{ file.file }}</th>
                   </tr>
                   <tr v-if="file.licenses !== null">
-                    <td class="fit text-left noleftpad">Licenses:</td>
+                    <th class="fit text-left noleftpad">Licenses:</th>
                     <td>{{ file.licenses }}</td>
                   </tr>
                   <tr v-if="file.version !== null">
-                    <td class="fit text-left noleftpad">Version:</td>
+                    <th class="fit text-left noleftpad">Version:</th>
                     <td>{{ file.version }}</td>
                   </tr>
                   <tr v-if="file.summary !== null">
-                    <td class="fit text-left noleftpad">Summary:</td>
+                    <th class="fit text-left noleftpad">Summary:</th>
                     <td>{{ file.summary }}</td>
                   </tr>
                   <tr v-if="file.group !== null">
-                    <td class="fit text-left noleftpad">Group:</td>
+                    <th class="fit text-left noleftpad">Group:</th>
                     <td>{{ file.group }}</td>
                   </tr>
                 </table>
@@ -230,28 +230,32 @@
     </div>
     <div v-if="hasAdminRole === true" class="row">
       <form :action="reviewUrl" method="POST" class="container" id="pkg-review">
-        <div class="form-group">
-          <label for="comment">Comment:</label>
+        <div class="col mb-3">
+          <label class="form-label" for="comment">Comment</label>
           <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
         </div>
-        <input class="btn btn-success" id="correct" name="correct" type="submit" value="Checked" />&nbsp;
-        <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />&nbsp;
-        <input class="btn btn-danger" id="unacceptable" name="unacceptable" type="submit" value="Unacceptable" />
+        <div class="col mb-3">
+          <input class="btn btn-success" id="correct" name="correct" type="submit" value="Checked" />&nbsp;
+          <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />&nbsp;
+          <input class="btn btn-danger" id="unacceptable" name="unacceptable" type="submit" value="Unacceptable" />
+        </div>
       </form>
     </div>
     <div v-else-if="hasManagerRole === true" class="row">
       <form :action="fasttrackUrl" method="POST" class="container" id="pkg-review">
-        <div class="form-group">
-          <label for="comment">Comment:</label>
+        <div class="col mb-3">
+          <label class="form-label" for="comment">Comment</label>
           <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
         </div>
-        <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />
+        <div class="col mb-3">
+          <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />
+        </div>
       </form>
     </div>
     <div v-else class="row">
       <form class="container" id="pkg-review">
-        <div class="form-group">
-          <label for="comment">Comment:</label>
+        <div class="col mb-3">
+          <label class="form-label" for="comment">Comment</label>
           <textarea v-model="result" name="comment" rows="10" class="form-control" disabled></textarea>
         </div>
       </form>
@@ -368,3 +372,10 @@ export default {
   }
 };
 </script>
+
+<style>
+.transparent-table {
+  --bs-table-bg: transparent !important;
+}
+</style>
+```

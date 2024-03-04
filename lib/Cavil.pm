@@ -239,7 +239,6 @@ sub startup ($self) {
   # Upload (experimental)
   $admin->get('/upload')->to('Upload#index')->name('upload');
   $admin->post('/upload')->to('Upload#store')->name('store_upload');
-
 }
 
 1;

@@ -21,7 +21,7 @@
             % my $end_id = "$file-$i";
             % my $data = { start => $line->[0], end => $line->[1]->{end}, 'prev-match' => $line->[1]->{prevstart} // 0, 'next-match' => $line->[1]->{nextend} // 0 };
             %= tag 'td', class => "actions dropdown show" => data => $data => begin
-              <a href="#" id="dropdownMenuLink-<%= $end_id %>" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              <a href="#" id="dropdownMenuLink-<%= $end_id %>" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="actions-menu fas fa-caret-square-down" title="Open Action Menu"></i>
               </a>
 

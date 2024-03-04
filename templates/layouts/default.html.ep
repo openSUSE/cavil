@@ -30,38 +30,36 @@
         %= link_to '/' => (class => 'navbar-brand') => begin
           <img src="<%= url_for '/images/legal-hammer-symbol.svg' %>" width="20" height="20" alt="Legal Icon">
         % end
-        <button class="navbar-toggler" type="button" data-toggle="collapse"
-          data-target="#navbarSupportedContent"
-          aria-controls="navbarSupportedContent" aria-expanded="false"
-          aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav mr-auto">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
-              %= link_to 'Open Reviews' => '/', class => 'nav-link'
+              %= link_to 'Open Reviews' => '/', class => current_route('dashboard') ? 'nav-link active' : 'nav-link'
             </li>
             <li class="nav-item">
               <%= link_to 'Recently Reviewed' => 'reviews_recent',
-                class => 'nav-link' %>
+                class => current_route('reviews_recent') ? 'nav-link active' : 'nav-link' %>
             </li>
             <li class="nav-item">
-              %= link_to 'Snippets' => '/snippets', class => 'nav-link'
+              %= link_to 'Snippets' => '/snippets', class => current_route('snippets') ? 'nav-link active' : 'nav-link'
             </li>
             <li class="nav-item">
-              %= link_to 'Products' => '/products', class => 'nav-link'
+              %= link_to 'Products' => '/products', class => current_route('products') ? 'nav-link active' : 'nav-link'
             </li>
             <li class="nav-item">
-              %= link_to 'Licenses' => '/licenses', class => 'nav-link'
+              %= link_to 'Licenses' => '/licenses', class => current_route('licenses') ? 'nav-link active' : 'nav-link'
             </li>
             % if (current_user_has_role 'admin') {
               <li class="nav-item">
-                %= link_to 'Upload' => '/upload', class => 'nav-link'
+                %= link_to 'Upload' => '/upload', class => current_route('upload') ? 'nav-link active' : 'nav-link'
               </li>
             % }
           </ul>
-          <form action="<%= url_for 'search' %>" class="form-inline">
-            <%= text_field 'q', class => 'form-control mr-sm-2',
+          <form action="<%= url_for 'search' %>" class="d-flex">
+            <%= text_field 'q', class => 'form-control me-2',
               placeholder => 'Package Search' %>
           </form>
           <ul class="navbar-nav">

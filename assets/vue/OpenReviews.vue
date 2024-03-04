@@ -1,56 +1,56 @@
 <template>
   <div>
     <div>
-      <div class="row">
-        <div class="col-sm-12 col-md-8">
-          <form class="form-inline">
-            <div class="form-group mb-2 mr-sm-4">
-              <label
-                >Show&nbsp;
-                <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                  <option>10</option>
-                  <option>25</option>
-                  <option>50</option>
-                  <option>100</option>
-                </select>
-                &nbsp;entries</label
-              >
+      <form>
+        <div class="row g-4">
+          <div class="col-lg-2">
+            <div class="form-floating">
+              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
+                <option>10</option>
+                <option>25</option>
+                <option>50</option>
+                <option>100</option>
+              </select>
+              <label class="form-label">Reviews per Page</label>
             </div>
-            <div class="form-group mb-2 mr-sm-4">
-              <label
-                >Priority&nbsp;
-                <select v-model="params.priority" @change="gotoPage(1)" class="form-control cavil-pkg-priority">
-                  <option>1</option>
-                  <option>2</option>
-                  <option>3</option>
-                  <option>4</option>
-                  <option>5</option>
-                  <option>6</option>
-                  <option>7</option>
-                  <option>8</option>
-                </select>
-                &nbsp;and above</label
-              >
+          </div>
+          <div class="col-lg-2">
+            <div class="form-floating">
+              <select v-model="params.priority" @change="gotoPage(1)" class="form-control cavil-pkg-priority">
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>7</option>
+                <option>8</option>
+              </select>
+              <label class="form-label">Minimum Priority</label>
             </div>
-            <div class="form-check mb-2 mr-sm-2">
+          </div>
+          <div class="col">
+            <div class="form-check">
               <input
                 v-model="params.inProgress"
                 @change="gotoPage(1)"
+                class="form-check-input"
                 type="checkbox"
-                class="form-check form-check-inline"
                 id="cavil-pkg-in-progress"
               />
-              <label for="cavil-pkg-in-progress">In Progress</label>
+              <label class="form-check-label" for="cavil-pkg-in-progress"> In Progress </label>
             </div>
-          </form>
+          </div>
+          <div id="cavil-pkg-filter" class="col-lg-3">
+            <form @submit.prevent="filterNow">
+              <div class="form-floating">
+                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
+                <label class="form-label">Filter</label>
+              </div>
+            </form>
+          </div>
         </div>
-        <div id="cavil-pkg-filter" class="col-sm-12 col-md-4">
-          <form @submit.prevent="filterNow" class="form-inline">
-            <label class="col-form-label" for="inlineFilter">Filter:&nbsp;</label>
-            <input v-model="filter" type="text" class="form-control" id="inlineFilter" />
-          </form>
-        </div>
-      </div>
+      </form>
       <div class="row">
         <div class="col-12">
           <table class="table table-striped table-bordered">
@@ -86,10 +86,10 @@
         </div>
       </div>
       <div class="row">
-        <div class="col-6">
+        <div class="col-lg-6">
           <ShownEntries :end.sync="end" :start.sync="start" :total.sync="total" />
         </div>
-        <div class="col-6" id="cavil-pagination">
+        <div class="col-lg-6" id="cavil-pagination">
           <PaginationLinks
             @goto-page="gotoPage"
             :end.sync="end"

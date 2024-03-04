@@ -1,28 +1,36 @@
 % if (%{$report->{risks}}) {
 
-  <canvas id="license-chart" width="100%" height="18em"></canvas><br>
+  <div class="row">
+    <div class="col mb-3">
+      <canvas id="license-chart" width="100%" height="18em"></canvas><br>
+    </div>
+  </div>
 
   % my %linked_files;
   % if (@{$report->{missed_files}}) {
-    <div id="unmatched-files" class="alert alert-warning" role="alert">
-      Found unmatched keywords in (at least) <span id="unmatched-count" class="badge badge-secondary"><%= scalar @{$report->{missed_files}} %></span> files.
-      License report is incomplete
+    <div class="row">
+      <div class="col mb-3">
+        <div id="unmatched-files" class="alert alert-warning" role="alert">
+          Found unmatched keywords in (at least) <span id="unmatched-count" class="badge text-bg-secondary"><%= scalar @{$report->{missed_files}} %></span> files.
+          License report is incomplete.
 
-      <div id="filelist-snippets" class="collapse show">
-        <ul>
-        % for my $file (@{$report->{missed_files}}) {
-          <li>
-            <a href="#file-<%= $file->{id} %>" class="file-link"
-              data-file="<%= $file->{id} %>">
-              %= $file->{name}
-            </a>
-            %= "($file->{match}% $file->{license} - estimated risk $file->{max_risk})"
-          </li>
-          % $linked_files{$file->{id}} = 1;
-        % }
-        </ul>
+          <div id="filelist-snippets" class="collapse show">
+            <ul>
+            % for my $file (@{$report->{missed_files}}) {
+              <li>
+                <a href="#file-<%= $file->{id} %>" class="file-link"
+                  data-file="<%= $file->{id} %>">
+                  %= $file->{name}
+                </a>
+                %= "($file->{match}% $file->{license} - estimated risk $file->{max_risk})"
+              </li>
+              % $linked_files{$file->{id}} = 1;
+            % }
+            </ul>
+          </div>
+
+        </div>
       </div>
-
     </div>
   % }
   % my $risks = $report->{risks};
@@ -40,7 +48,7 @@
         % $license_counter += 1;
         <li>
           <%= $name %>:
-          <a href="#filelist-<%= $license_counter %>" data-toggle="collapse">
+          <a href="#filelist-<%= $license_counter %>" data-bs-toggle="collapse">
             <%= $num %> files
           </a>
           % if (my @flags = @{$matches->{flags}}) {
@@ -97,7 +105,7 @@
         % } else {
           <a href="#file-details-<%= $id %>" id="expand-link-<%= $id %>" class="expand-pre"><%= $path %></a>
         % }
-        <div class="float-right">
+        <div class="float-end">
           <a href="<%= $furl %>" target="_blank">
             <i class="fas fa-external-link-alt"></i>
           </a>
@@ -124,39 +132,31 @@
 % if (@{$report->{emails}}) {
   % my $emails = @{$report->{emails}};
   <h2>
-    %= link_to("$emails Emails" => "#emails" => ('data-toggle', 'collapse'))
+    %= link_to("$emails Emails" => "#emails" => ('data-bs-toggle', 'collapse'))
   </h2>
-  <div id="emails" class="collapse">
-    <table class="table table-striped">
-      <tbody>
-        % for my $email (@{$report->{emails}}) {
-          <tr>
-            <td><%= $email->[0] %></td>
-            <td><%= $email->[1] %></td>
-          </tr>
-        % }
-      </tbody>
-    </table>
-  </div>
+  <table id="emails" class="table table-striped collapse">
+    % for my $email (@{$report->{emails}}) {
+      <tr>
+        <td><%= $email->[0] %></td>
+        <td><%= $email->[1] %></td>
+      </tr>
+    % }
+  </table>
 % }
 
 % if (@{$report->{urls}}) {
   % my $urls = @{$report->{urls}};
   <h2>
-    %= link_to("$urls URLs" => "#urls" => ('data-toggle', 'collapse'))
+    %= link_to("$urls URLs" => "#urls" => ('data-bs-toggle', 'collapse'))
   </h2>
-  <div id="urls" class="collapse">
-    <table class="table table-striped">
-      <tbody>
-        % for my $url (@{$report->{urls}}) {
-          <tr>
-            <td><%= $url->[0] %></td>
-            <td><%= $url->[1] %></td>
-          </tr>
-        % }
-      </tbody>
-    </table>
-  </div>
+  <table id="urls" class="table table-striped collapse">
+    % for my $url (@{$report->{urls}}) {
+      <tr>
+        <td><%= $url->[0] %></td>
+        <td><%= $url->[1] %></td>
+      </tr>
+    % }
+  </table>
 % }
 
 <br>

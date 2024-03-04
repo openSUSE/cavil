@@ -1,15 +1,12 @@
 % if (current_user_has_role 'admin') {
-  <form method="post" id="reindex-form"
-    data-url="<%= url_for 'reindex_package', id => $package->{id} %>">
+  <form method="post" id="reindex-form" data-url="<%= url_for 'reindex_package', id => $package->{id} %>">
     % if ($should_reindex) {
-      <button class="btn btn-primary" id="reindex_button"
-        title="There are new patterns!">
+      <button class="btn btn-primary" id="reindex_button" title="There are new patterns!">
         Reindex
       </button>
     % }
     % else {
-      <button class="btn btn-secondary" id="reindex_button"
-        title="There are no new patterns">
+      <button class="btn btn-secondary" id="reindex_button" title="There are no new patterns">
         Reindex
       </button>
     % }

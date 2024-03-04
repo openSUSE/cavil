@@ -1,72 +1,73 @@
 <template>
   <div>
     <div>
-      <div class="row">
-        <div class="col-sm-12 col-md-8">
-          <form class="form-inline">
-            <div class="form-group mb-2 mr-sm-4">
-              <label
-                >Show&nbsp;
-                <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                  <option>10</option>
-                  <option>25</option>
-                  <option>50</option>
-                  <option>100</option>
-                </select>
-                &nbsp;entries</label
-              >
+      <form>
+        <div class="row g-4">
+          <div class="col-lg-2">
+            <div class="form-floating">
+              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
+                <option>10</option>
+                <option>25</option>
+                <option>50</option>
+                <option>100</option>
+              </select>
+              <label class="form-label">Reviews per Page</label>
             </div>
-            <div class="form-group">
-              <div class="form-check mb-2 mr-sm-4">
-                <input
-                  v-model="params.patent"
-                  @change="gotoPage(1)"
-                  type="checkbox"
-                  class="form-check form-check-inline"
-                  id="cavil-pkg-patent"
-                />
-                <label for="cavil-pkg-patent">Patent</label>
-              </div>
-              <div class="form-check mb-2 mr-sm-4">
-                <input
-                  v-model="params.trademark"
-                  @change="gotoPage(1)"
-                  type="checkbox"
-                  class="form-check form-check-inline"
-                  id="cavil-pkg-trademark"
-                />
-                <label for="cavil-pkg-trademark">Trademark</label>
-              </div>
-              <div class="form-check mb-2 mr-sm-4">
-                <input
-                  v-model="params.exportRestricted"
-                  @change="gotoPage(1)"
-                  type="checkbox"
-                  class="form-check form-check-inline"
-                  id="cavil-pkg-export-restricted"
-                />
-                <label for="cavil-pkg-export-restricted">Export Restricted</label>
-              </div>
-              <div class="form-check mb-2 mr-sm-4">
-                <input
-                  v-model="params.attention"
-                  @change="gotoPage(1)"
-                  type="checkbox"
-                  class="form-check form-check-inline"
-                  id="cavil-pkg-attention"
-                />
-                <label for="cavil-pkg-attention">Needs Attention</label>
-              </div>
+          </div>
+          <div class="col-lg-2">
+            <div class="form-check">
+              <input
+                v-model="params.attention"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-attention"
+              />
+              <label class="form-check-label" for="cavil-pkg-attention">Needs Attention</label>
             </div>
-          </form>
+            <div class="form-check">
+              <input
+                v-model="params.exportRestricted"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-export-restricted"
+              />
+              <label class="form-check-label" for="cavil-pkg-export-restricted">Export Restricted</label>
+            </div>
+          </div>
+          <div class="col">
+            <div class="form-check">
+              <input
+                v-model="params.patent"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-patent"
+              />
+              <label class="form-check-label" for="cavil-pkg-patent">Patent</label>
+            </div>
+            <div class="form-check">
+              <input
+                v-model="params.trademark"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-trademark"
+              />
+              <label class="form-check-label" for="cavil-pkg-trademark">Trademark</label>
+            </div>
+          </div>
+          <div id="cavil-pkg-filter" class="col-lg-3">
+            <form @submit.prevent="filterNow">
+              <div class="form-floating">
+                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
+                <label class="form-label">Filter</label>
+              </div>
+            </form>
+          </div>
         </div>
-        <div id="cavil-pkg-filter" class="col-sm-12 col-md-4">
-          <form @submit.prevent="filterNow" class="form-inline">
-            <label class="col-form-label" for="inlineFilter">Filter:&nbsp;</label>
-            <input v-model="filter" type="text" class="form-control" id="inlineFilter" />
-          </form>
-        </div>
-      </div>
+      </form>
       <div class="row">
         <div class="col-12">
           <table class="table table-striped table-bordered">

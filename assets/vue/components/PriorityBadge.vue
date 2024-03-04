@@ -1,7 +1,7 @@
 <template>
-  <div v-if="priority >= 8" class="cavil-badge badge badge-danger">{{ priority }}</div>
-  <div v-else-if="priority >= 5" class="cavil-badge badge badge-warning">{{ priority }}</div>
-  <div v-else class="cavil-badge badge badge-success">{{ priority }}</div>
+  <div v-if="priority >= 8" class="cavil-badge badge text-bg-danger">{{ priority }}</div>
+  <div v-else-if="priority >= 5" class="cavil-badge badge text-bg-warning">{{ priority }}</div>
+  <div v-else class="cavil-badge badge text-bg-success">{{ priority }}</div>
 </template>
 
 <script>

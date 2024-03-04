@@ -10,75 +10,81 @@
         Legal text is highlighted in yellow.
       </div>
     </div>
-    <div class="row">
+    <div class="row g-4">
       <div class="col-8">
-        <form class="form-inline">
-          <div class="form-check mb-2 mr-sm-4">
-            <input
-              v-model="params.notLegal"
-              @change="refreshPage()"
-              type="checkbox"
-              class="form-check form-check-inline"
-              id="snippet-not-legal"
-            />
-            <label for="snippet-not-legal">Not legal text</label>
-          </div>
-          <div class="form-check mb-2 mr-sm-4">
-            <input
-              v-model="params.isLegal"
-              @change="refreshPage()"
-              type="checkbox"
-              class="form-check form-check-inline"
-              id="snippet-is-legal"
-            />
-            <label for="snippet-is-legal">Is legal text</label>
-          </div>
-          <div class="form-check mb-2 mr-sm-4">
-            <input
-              v-model="params.isClassified"
-              @change="refreshPage()"
-              type="checkbox"
-              class="form-check form-check-inline"
-              id="snippet-is-classified"
-            />
-            <label for="snippet-is-classified">Classified by AI</label>
-          </div>
-          <div class="form-check mb-2 mr-sm-4">
-            <input
-              v-model="params.isApproved"
-              @change="refreshPage()"
-              type="checkbox"
-              class="form-check form-check-inline"
-              id="snippet-is-approved"
-            />
-            <label for="snippet-is-approved">Approved by a human</label>
-          </div>
-          <div class="form-group mb-2 mr-sm-4">
-            <label
-              >Confidence:&nbsp;
-              <select v-model="params.confidence" @change="refreshPage()" class="form-control cavil-pkg-confidence">
-                <option value="100">Any</option>
-                <option value="70">70% or less</option>
-                <option value="50">50% or less</option>
-                <option value="30">30% or less</option>
-                <option value="20">20% or less</option>
-                <option value="10">10% or less</option>
-                <option value="5">5% or less</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-group mb-2 mr-sm-4">
-            <label
-              >Timeframe:&nbsp;
-              <select v-model="params.timeframe" @change="refreshPage()" class="form-control cavil-pkg-timeframe">
-                <option value="any">Any</option>
-                <option value="year">1 year</option>
-                <option value="month">1 month</option>
-                <option value="week">1 week</option>
-                <option value="day">1 day</option>
-                <option value="hour">1 hour</option>
-              </select>
-            </label>
+        <form>
+          <div class="row g-4">
+            <div class="col-lg-2">
+              <div class="form-floating">
+                <select v-model="params.confidence" @change="refreshPage()" class="form-control cavil-pkg-confidence">
+                  <option value="100">Any</option>
+                  <option value="70">70% or less</option>
+                  <option value="50">50% or less</option>
+                  <option value="30">30% or less</option>
+                  <option value="20">20% or less</option>
+                  <option value="10">10% or less</option>
+                  <option value="5">5% or less</option>
+                </select>
+                <label class="form-label">Confidence</label>
+              </div>
+            </div>
+            <div class="col-lg-2">
+              <div class="form-floating">
+                <select v-model="params.timeframe" @change="refreshPage()" class="form-control cavil-pkg-timeframe">
+                  <option value="any">Any</option>
+                  <option value="year">1 year</option>
+                  <option value="month">1 month</option>
+                  <option value="week">1 week</option>
+                  <option value="day">1 day</option>
+                  <option value="hour">1 hour</option>
+                </select>
+                <label class="form-label">Timeframe</label>
+              </div>
+            </div>
+            <div class="col-lg-2">
+              <div class="form-check">
+                <input
+                  v-model="params.notLegal"
+                  @change="refreshPage()"
+                  type="checkbox"
+                  class="form-check-input"
+                  id="snippet-not-legal"
+                />
+                <label class="form-check-label" for="snippet-not-legal">Not legal text</label>
+              </div>
+              <div class="form-check">
+                <input
+                  v-model="params.isLegal"
+                  @change="refreshPage()"
+                  type="checkbox"
+                  class="form-check-input"
+                  id="snippet-is-legal"
+                />
+                <label class="form-check-label" for="snippet-is-legal">Is legal text</label>
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-check">
+                <input
+                  v-model="params.isClassified"
+                  @change="refreshPage()"
+                  type="checkbox"
+                  class="form-check-input"
+                  id="snippet-is-classified"
+                />
+                <label class="form-check-label" for="snippet-is-classified">Classified by AI</label>
+              </div>
+              <div class="form-check">
+                <input
+                  v-model="params.isApproved"
+                  @change="refreshPage()"
+                  type="checkbox"
+                  class="form-check-input"
+                  id="snippet-is-approved"
+                />
+                <label class="form-check-label" for="snippet-is-approved">Approved by a human</label>
+              </div>
+            </div>
           </div>
         </form>
       </div>
@@ -95,7 +101,7 @@
             <a v-else>Unknown file</a>
             <span v-if="snippet.files === 2">, and 1 other file</span>
             <span v-else-if="snippet.files > 2">, and {{ snippet.files }} other files</span>
-            <div v-if="snippet.approved === true" class="float-right">
+            <div v-if="snippet.approved === true" class="float-end">
               <i class="fas fa-check-circle"></i>
             </div>
           </div>
@@ -120,7 +126,7 @@
                 <div v-else>No similarity to any known licenses</div>
               </a>
             </div>
-            <div class="snippet-assessment float-right">
+            <div class="snippet-assessment float-end">
               <div v-if="snippet.classified === true && snippet.license === true">
                 Is legal text, <b>{{ snippet.confidence }}%</b> confidence
               </div>
@@ -150,7 +156,7 @@
         class="btn btn-primary btn-lg back-to-top"
         role="button"
         title="Click to return to the top"
-        data-toggle="tooltip"
+        data-bs-toggle="tooltip"
         data-placement="left"
         ><i class="fas fa-angle-up"></i
       ></a>
@@ -287,6 +293,11 @@ export default {
 .snippet-file a,
 .snippet-likelyness a {
   color: #212529;
+  text-decoration: none;
+}
+.snippet-file a:hover,
+.snippet-likelyness a:hover {
+  text-decoration: underline;
 }
 .snippet-file-container {
   padding: 0;
