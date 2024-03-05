@@ -41,7 +41,7 @@
                 <label class="form-label">Timeframe</label>
               </div>
             </div>
-            <div class="col-lg-2">
+            <div class="col-lg-3">
               <div class="form-check">
                 <input
                   v-model="params.notLegal"
