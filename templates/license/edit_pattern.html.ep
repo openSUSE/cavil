@@ -67,10 +67,9 @@
       </div>
     </div>
     <div class="col mb-3">
-        <label class="form-label">Package</label>
-        <%= text_field packname => $match->{packname}, class => 'form-control' %>
-        <div id="packageHelp" class="form-text">Leave this field empty to apply pattern to all packages</div>
-      </div>
+      <label class="form-label">Package</label>
+      <%= text_field packname => $match->{packname}, class => 'form-control' %>
+      <div id="packageHelp" class="form-text">Leave this field empty to apply pattern to all packages</div>
     </div>
     <div class="col mb-3">
       % if ($match->{id}) {
@@ -88,5 +87,9 @@
 </div>
 
 % if ($next_best) {
-  %= include 'license/_pattern_diff';
+  <div class="row">
+    <div class="col mb-3">
+      %= include 'license/_pattern_diff';
+    </div>
+  </div>
 % }
