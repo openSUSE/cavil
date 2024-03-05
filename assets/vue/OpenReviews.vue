@@ -86,10 +86,10 @@
         </div>
       </div>
       <div class="row">
-        <div class="col-lg-6">
+        <div class="col-lg-6 mb-4">
           <ShownEntries :end.sync="end" :start.sync="start" :total.sync="total" />
         </div>
-        <div class="col-lg-6" id="cavil-pagination">
+        <div class="col-lg-6 mb-4" id="cavil-pagination">
           <PaginationLinks
             @goto-page="gotoPage"
             :end.sync="end"
