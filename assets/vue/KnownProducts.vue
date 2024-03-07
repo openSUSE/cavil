@@ -31,16 +31,23 @@
             <thead>
               <tr>
                 <th class="link">Product</th>
+                <th>Packages</th>
               </tr>
             </thead>
             <tbody v-if="products === null">
               <tr>
-                <td id="all-done" colspan="4"><i class="fas fa-sync fa-spin"></i> Loading products...</td>
+                <td id="all-done" colspan="2"><i class="fas fa-sync fa-spin"></i> Loading products...</td>
               </tr>
             </tbody>
             <tbody v-else-if="products.length > 0">
               <tr v-for="product in products" :key="product.link">
                 <td v-html="product.link"></td>
+                <td>
+                  <div class="cavil-package-badge badge text-bg-success float-end">{{ product.good_packages }}</div>
+                  <div v-if="product.bad_packages > 0" class="cavil-package-badge badge text-bg-danger float-end">
+                    {{ product.bad_packages }}
+                  </div>
+                </td>
               </tr>
             </tbody>
             <tbody v-else>
@@ -122,7 +129,8 @@ export default {
       const products = [];
       for (const product of data.page) {
         products.push({
-          link: productLink(product)
+          link: productLink(product),
+          ...product
         });
       }
       this.products = products;
@@ -147,6 +155,9 @@ export default {
 <style>
 .table {
   margin-top: 1rem;
+}
+.cavil-package-badge {
+  margin-left: 10px;
 }
 #cavil-pkg-filter form {
   margin: 2px 0;
