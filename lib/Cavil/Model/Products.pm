@@ -64,8 +64,8 @@ sub paginate_known_products ($self, $options) {
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
       WHERE bot_package_products.product = ?}, $result->{id}
     )->hash;
-    $result->{reviewed_packages}  = $packages->{reviewed_packages};
-    $result->{new_packages} = $packages->{new_packages};
+    $result->{reviewed_packages}     = $packages->{reviewed_packages};
+    $result->{new_packages}          = $packages->{new_packages};
     $result->{unacceptable_packages} = $packages->{unacceptable_packages};
   }
 
