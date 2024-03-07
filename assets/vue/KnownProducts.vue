@@ -43,12 +43,15 @@
               <tr v-for="product in products" :key="product.link">
                 <td v-html="product.link"></td>
                 <td>
-                  <div v-if="product.bad_packages > 0" class="badge text-bg-danger">
-                    {{ product.bad_packages }}
+                  <div v-if="product.unacceptable_packages > 0" class="badge text-bg-danger">
+                    {{ product.unacceptable_packages }}
+                  </div>
+                  <div v-if="product.new_packages > 0" class="badge text-bg-warning">
+                    {{ product.new_packages }}
                   </div>
                 </td>
                 <td>
-                  <div class="badge text-bg-success">{{ product.good_packages }}</div>
+                  <div class="badge text-bg-success">{{ product.reviewed_packages }}</div>
                 </td>
               </tr>
             </tbody>

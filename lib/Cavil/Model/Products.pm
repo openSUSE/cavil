@@ -58,13 +58,15 @@ sub paginate_known_products ($self, $options) {
   for my $result (@$results) {
     my $packages = $db->query(
       q{
-      SELECT COUNT(*) FILTER (WHERE state = 'new' OR state = 'unacceptable') AS bad_packages,
-        COUNT(*) FILTER (WHERE state = 'acceptable' OR state = 'correct') AS good_packages
+      SELECT COUNT(*) FILTER (WHERE state = 'new') AS new_packages,
+        COUNT(*) FILTER (WHERE state = 'unacceptable') AS unacceptable_packages,
+        COUNT(*) FILTER (WHERE state = 'acceptable' OR state = 'correct') AS reviewed_packages
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
       WHERE bot_package_products.product = ?}, $result->{id}
     )->hash;
-    $result->{bad_packages}  = $packages->{bad_packages};
-    $result->{good_packages} = $packages->{good_packages};
+    $result->{reviewed_packages}  = $packages->{reviewed_packages};
+    $result->{new_packages} = $packages->{new_packages};
+    $result->{unacceptable_packages} = $packages->{unacceptable_packages};
   }
 
   return paginate($results, $options);
