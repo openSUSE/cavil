@@ -43,7 +43,7 @@
               <tr v-for="product in products" :key="product.link">
                 <td v-html="product.link"></td>
                 <td>
-                  <div v-if="product.unacceptable_packages > 0" class="badge text-bg-danger">
+                  <div v-if="product.unacceptable_packages > 0" class="cavil-bad-badge badge text-bg-danger">
                     {{ product.unacceptable_packages }}
                   </div>
                   <div v-if="product.new_packages > 0" class="badge text-bg-warning">
@@ -160,6 +160,9 @@ export default {
 <style>
 .table {
   margin-top: 1rem;
+}
+.cavil-bad-badge {
+  margin-right: 10px;
 }
 #cavil-pkg-filter form {
   margin: 2px 0;
