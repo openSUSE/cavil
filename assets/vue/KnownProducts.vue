@@ -31,7 +31,7 @@
             <thead>
               <tr>
                 <th class="link">Product</th>
-                <th>Packages</th>
+                <th colspan="2">Packages</th>
               </tr>
             </thead>
             <tbody v-if="products === null">
@@ -43,10 +43,12 @@
               <tr v-for="product in products" :key="product.link">
                 <td v-html="product.link"></td>
                 <td>
-                  <div class="cavil-package-badge badge text-bg-success float-end">{{ product.good_packages }}</div>
-                  <div v-if="product.bad_packages > 0" class="cavil-package-badge badge text-bg-danger float-end">
+                  <div v-if="product.bad_packages > 0" class="badge text-bg-danger">
                     {{ product.bad_packages }}
                   </div>
+                </td>
+                <td>
+                  <div class="badge text-bg-success">{{ product.good_packages }}</div>
                 </td>
               </tr>
             </tbody>
@@ -155,9 +157,6 @@ export default {
 <style>
 .table {
   margin-top: 1rem;
-}
-.cavil-package-badge {
-  margin-left: 10px;
 }
 #cavil-pkg-filter form {
   margin: 2px 0;
