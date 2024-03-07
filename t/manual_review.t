@@ -100,8 +100,8 @@ subtest 'Details after indexing' => sub {
     ->json_like('/package_url', qr!http://search\.cpan\.org/dist/Mojolicious/!)->json_like('/state', qr!new!);
 
   $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')->element_exists('#emails')
-    ->text_like('#emails tbody td', qr!coolo\@suse\.com!)->element_exists('#urls')
-    ->text_like('#urls tbody td',   qr!http://mojolicious.org!);
+    ->text_like('#emails tr td', qr!coolo\@suse\.com!)->element_exists('#urls')
+    ->text_like('#urls tr td',   qr!http://mojolicious.org!);
 
   $t->get_ok('/reviews/fetch_source/1')->status_is(200)->content_type_isnt('application/json;charset=UTF-8')
     ->content_like(qr/perl-Mojolicious/);
@@ -211,8 +211,8 @@ subtest 'Details after reindexing' => sub {
     ->text_like('#risk-5 li',                           qr!Apache-2.0!)
     ->text_like('#risk-5 li ul li:nth-of-type(1) a',    qr!Mojolicious-7.25/lib/Mojolicious.pm!)
     ->text_like('#risk-5 li ul li:nth-of-type(2) a',    qr!Mojolicious-7.25/lib/Mojolicious/resources/public/!);
-  $t->element_exists('#emails')->text_like('#emails tbody td', qr!coolo\@suse\.com!)->element_exists('#urls')
-    ->text_like('#urls tbody td', qr!http://mojolicious.org!);
+  $t->element_exists('#emails')->text_like('#emails tr td', qr!coolo\@suse\.com!)->element_exists('#urls')
+    ->text_like('#urls tr td', qr!http://mojolicious.org!);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -235,8 +235,8 @@ subtest 'Manual review' => sub {
     ->text_like('#unmatched-files li:nth-of-type(2) a', qr!Mojolicious-7.25/lib/Mojolicious.pm!)
     ->text_like('#unmatched-files li:nth-of-type(2)',   qr![0-9.]+% Apache-2.0 - estimated risk 7!)
     ->element_exists('#risk-5');
-  $t->element_exists('#emails')->text_like('#emails tbody td', qr!coolo\@suse\.com!)->element_exists('#urls')
-    ->text_like('#urls tbody td', qr!http://mojolicious.org!);
+  $t->element_exists('#emails')->text_like('#emails tr td', qr!coolo\@suse\.com!)->element_exists('#urls')
+    ->text_like('#urls tr td', qr!http://mojolicious.org!);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
