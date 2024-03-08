@@ -35,29 +35,36 @@
   % }
 </h3>
 
-<ul>
-
 % for my $match (@$patterns) {
-    <li>
+  <div class="row pattern-container">
+    <div class="col-12 pattern-file-container">
+      <div class="pattern-header">
         <div>Created <time class="timeago" datetime="<%= $match->{created} %>"><%= $match->{created} %></time>
-            % if (current_user_has_role 'admin') {
-              <a href="<%= url_for('edit_pattern', id => $match->{id}) %>" title="Edit" style="float: right"><i class="fas fa-edit"></i></a>
-            % }
+          % if (current_user_has_role 'admin') {
+            <a href="<%= url_for('edit_pattern', id => $match->{id}) %>" title="Edit" class="float-end">
+              <i class="fas fa-edit"></i>
+            </a>
+          % }
         </div>
+      </div>
+      <div class="pattern-source">
         <pre><%= $match->{pattern} %></pre>
+      </div>
+      <div class="pattern-footer">
         % if ($match->{packname}) {
-            <div>Package: <%= $match->{packname} %></div>
+          <span><b>Package:</b> <%= $match->{packname} %></span>
         % }
         % if ($match->{opinion} || $match->{patent} || $match->{trademark} || $match->{export_restricted}) {
-            <div>Flags:
-                %= $match->{opinion} ? 'Opinion' : ''
-                %= $match->{patent} ? 'Patent' : ''
-                %= $match->{trademark} ? 'Trademark' : ''
-                %= $match->{export_restricted} ? 'Export Restricted' : ''
-            </div>
+          <span><b>Flags:</b>
+              %= $match->{opinion} ? 'Opinion' : ''
+              %= $match->{patent} ? 'Patent' : ''
+              %= $match->{trademark} ? 'Trademark' : ''
+              %= $match->{export_restricted} ? 'Export Restricted' : ''
+          </span>
         % }
-    </li>
+      </div>
+    </div>
+  </div>
 % }
-</ul>
 
 % content_for ready_function => 'jQuery("time.timeago").timeago();'
