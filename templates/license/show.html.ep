@@ -51,6 +51,7 @@
         <pre><%= $match->{pattern} %></pre>
       </div>
       <div class="pattern-footer">
+        <span><b>Risk:</b> <%= $match->{risk} %></span>
         % if ($match->{packname}) {
           <span><b>Package:</b> <%= $match->{packname} %></span>
         % }
