@@ -255,6 +255,12 @@ export default {
 </script>
 
 <style>
+.CodeMirror {
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  height: 600px;
+  padding: 5px;
+}
 .autocomplete {
   height: 220px;
   overflow-x: hidden;
@@ -273,11 +279,6 @@ export default {
 }
 .autocomplete-item:hover {
   background-color: rgba(13, 110, 253, 0.25);
-}
-.CodeMirror {
-  border: 1px solid #dee2e6;
-  border-radius: 5px;
-  padding: 5px;
 }
 .found-pattern {
   background-color: #fdd !important;
