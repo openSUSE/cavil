@@ -18,10 +18,45 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(paginate);
 use Mojo::File 'path';
+use Mojo::JSON qw(true false);
 use Spooky::Patterns::XS;
 use Storable;
 
 has [qw(cache log pg minion)];
+
+sub autocomplete ($self) {
+  my $licenses = {};
+
+  my $patterns = $self->pg->db->query(
+    'SELECT DISTINCT(license), risk, patent, trademark, opinion, export_restricted FROM license_patterns')->hashes;
+  for my $pattern ($patterns->each) {
+    $licenses->{$pattern->{license}} = {
+      risk              => $pattern->{risk},
+      patent            => $pattern->{patent}            ? true : false,
+      trademark         => $pattern->{trademark}         ? true : false,
+      opinion           => $pattern->{opinion}           ? true : false,
+      export_restricted => $pattern->{export_restricted} ? true : false
+    };
+  }
+  delete $licenses->{''};
+
+  return $licenses;
+}
+
+sub closest_pattern ($self, $text) {
+  return undef unless my $match   = $self->closest_match($text);
+  return undef unless my $pattern = $self->find($match->{pattern});
+  $pattern->{similarity} = int(($match->{match} // 0) * 1000 + 0.5) / 10;
+  return $pattern;
+}
+
+sub closest_match ($self, $text) {
+  my $cache = path($self->cache, 'cavil.pattern.bag');
+  return undef unless -r $cache;
+  my $bag = Spooky::Patterns::XS::init_bag_of_patterns;
+  $bag->load($cache);
+  return $bag->best_for($text, 1)->[0];
+}
 
 sub create ($self, %args) {
 

@@ -20,11 +20,33 @@ use Mojo::File 'path';
 use Cavil::Util qw(read_lines);
 use Mojo::JSON  qw(true false);
 
+sub closest ($self) {
+  my $v = $self->validation;
+  $v->required('text');
+  return $self->reply->json_validation_error if $v->has_error;
+
+  my $text = $v->param('text');
+  return $self->render(json => {pattern => undef}) unless my $pattern = $self->patterns->closest_pattern($text);
+
+  $self->render(
+    json => {
+      pattern => {
+        id         => $pattern->{id},
+        text       => $pattern->{pattern},
+        license    => $pattern->{license},
+        risk       => $pattern->{risk},
+        package    => $pattern->{packname},
+        similarity => $pattern->{similarity}
+      }
+    }
+  );
+}
+
 sub list ($self) {
   $self->render(snippets => $self->snippets->random(100));
 }
 
-sub meta ($self) {
+sub list_meta ($self) {
   my $v = $self->validation;
   $v->optional('isClassified')->in('true', 'false');
   $v->optional('isApproved')->in('true', 'false');
@@ -80,77 +102,16 @@ sub approve ($self) {
 sub edit ($self) {
   my $id      = $self->stash('id');
   my $snippet = $self->snippets->find($id);
+  $self->render(snippet => $snippet);
+}
 
-  my $bag   = Spooky::Patterns::XS::init_bag_of_patterns;
-  my $cache = $self->app->home->child('cache', 'cavil.pattern.bag');
-  $bag->load($cache);
-
-  my $best = $bag->best_for($snippet->{text}, 1)->[0];
-  my $sim  = $best->{match} // 0;
-  $best = $self->patterns->find($best->{pattern});
-
-  my $db            = $self->pg->db;
-  my $package_count = $db->query(
-    'select count(distinct package)
-       from file_snippets where snippet=?', $id
-  )->hash->{count};
-  my $file_count = $db->query(
-    'select count(distinct file)
-       from file_snippets where snippet=?', $id
-  )->hash->{count};
-  my $example = $db->query(
-    'select fs.package, file, filename,
-       sline,eline from file_snippets fs
-       join matched_files m on m.id=fs.file
-       where snippet=? limit 1', $id
-  )->hash;
-
-  my $package;
-  my %lines;
-
-  if ($example) {
-    $package = $self->packages->find($example->{package});
-    my $patterns = $db->query(
-      'select lp.id,lp.license,sline,eline from pattern_matches
-       join license_patterns lp on lp.id = pattern_matches.pattern
-       where file=? and sline>=? and eline<=? order by sline', $example->{file}, $example->{sline}, $example->{eline}
-    )->hashes;
-
-    for my $pattern (@$patterns) {
-      for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
-        my $cm_line = $line - $example->{sline};
-
-        # keywords overwrite everything
-        if (!$pattern->{license}) {
-          $lines{$cm_line} = {pattern => $pattern->{id}, keyword => 1};
-        }
-        else {
-          $lines{$cm_line} ||= {pattern => $pattern->{id}, keyword => 0};
-        }
-      }
-    }
-    my $fn = path(
-      $self->app->config->{checkout_dir},
-      $package->{name}, $package->{checkout_dir},
-      '.unpacked',      $example->{filename}
-    );
-
-    $snippet->{text}  = read_lines($fn, $example->{sline}, $example->{eline});
-    $example->{delta} = 0;
-  }
-
-  # not preserved by textarea/codemirror
-  $example->{delta} = 1 if $snippet->{text} =~ m/^\n/;
-  $self->render(
-    patterns      => \%lines,
-    package       => $package,
-    example       => $example,
-    package_count => $package_count,
-    file_count    => $file_count,
-    snippet       => $snippet,
-    best          => $best,
-    similarity    => int($sim * 1000 + 0.5) / 10
-  );
+sub meta ($self) {
+  my $id       = $self->param('id');
+  my $snippet  = $self->snippets->with_context($id);
+  my $patterns = $self->patterns;
+  my $licenses = $patterns->autocomplete;
+  my $pattern  = $patterns->closest_pattern($snippet->{text}) // {};
+  $self->render(json => {snippet => $snippet, licenses => $licenses, closest => $pattern->{license}});
 }
 
 sub _render_conflict ($self, $id, $validation) {

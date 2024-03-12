@@ -378,4 +378,3 @@ export default {
   --bs-table-bg: transparent !important;
 }
 </style>
-```

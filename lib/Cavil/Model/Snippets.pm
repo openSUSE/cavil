@@ -17,8 +17,9 @@ package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
 use Mojo::File 'path';
+use Cavil::Util qw(read_lines);
 
-has [qw(pg)];
+has [qw(checkout_dir pg)];
 
 sub find ($self, $id) {
   return $self->pg->db->select('snippets', '*', {id => $id})->hash;
@@ -110,6 +111,45 @@ sub unclassified ($self, $options) {
 
 sub mark_non_license ($self, $id) {
   $self->pg->db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
+}
+
+sub with_context ($self, $id) {
+  my $db = $self->pg->db;
+  return undef unless my $snippet = $db->select('snippets', '*', {id => $id})->hash;
+
+  my $text     = $snippet->{text};
+  my $sline    = 1;
+  my $package  = undef;
+  my $keywords = {};
+
+  my $example = $db->query(
+    'SELECT fs.package, p.name, sline, eline, file, filename, p.checkout_dir
+     FROM file_snippets fs JOIN matched_files m ON (m.id = fs.file)
+       JOIN bot_packages p ON (p.id = fs.package)
+     WHERE snippet = ? LIMIT 1', $id
+  )->hash;
+
+  if ($example) {
+    $sline   = $example->{sline};
+    $package = {id => $example->{package}, name => $example->{name}};
+
+    my $file = path($self->checkout_dir, $package->{name}, $example->{checkout_dir}, '.unpacked', $example->{filename});
+    $text = read_lines($file, $example->{sline}, $example->{eline});
+
+    my $patterns = $db->query(
+      'SELECT lp.id, lp.license, sline, eline FROM pattern_matches pm JOIN license_patterns lp ON (lp.id = pm.pattern)
+     WHERE file = ? AND sline >= ? AND eline <= ? ORDER BY sline', $example->{file}, $example->{sline},
+      $example->{eline}
+    )->hashes;
+    for my $pattern (@$patterns) {
+      next if $pattern->{license};
+      for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
+        $keywords->{$line - $example->{sline}} = $pattern->{id};
+      }
+    }
+  }
+
+  return {package => $package, keywords => $keywords, sline => $sline, text => $text};
 }
 
 1;

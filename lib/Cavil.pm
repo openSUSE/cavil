@@ -137,7 +137,8 @@ sub startup ($self) {
     }
   );
 
-  $self->helper(snippets => sub ($c) { state $snips = Cavil::Model::Snippets->new(pg => $c->pg) });
+  $self->helper(snippets =>
+      sub ($c) { state $snips = Cavil::Model::Snippets->new(checkout_dir => $config->{checkout_dir}, pg => $c->pg) });
 
   # Migrations (do not run automatically, use the migrate command)
   #
@@ -229,9 +230,11 @@ sub startup ($self) {
   $public->get('/pagination/products/*name')->to('Pagination#product_reviews')->name('pagination_product_reviews');
 
   $public->get('/snippets')->to('Snippet#list')->name('snippets');
-  $public->get('/snippets/meta')->to('Snippet#meta')->name('snippets_meta');
+  $public->get('/snippets/meta')->to('Snippet#list_meta')->name('snippets_meta');
   $classifier->post('/snippets/<id:num>')->to('Snippet#approve')->name('approve_snippets');
   $public->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
+  $public->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
+  $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
   $public->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
   $admin->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
   $public->get('/snippets/top')->to('Snippet#top')->name('top_snippets');

@@ -14,6 +14,7 @@ import {setupCodeMirrorForSnippet} from './legacy/snippet.js';
 import {fromNow} from './legacy/time.js';
 import {createLicense, ignoreLine, snippetNonLicense} from './legacy/util.js';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
+import EditSnippet from './vue/EditSnippet.vue';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
 import OpenReviews from './vue/OpenReviews.vue';
@@ -36,6 +37,12 @@ window.cavil = {
     const app = createApp(ClassifySnippets);
     app.config.globalProperties.hasClassifierRole = hasClassifierRole;
     app.mount('#classify-snippets');
+  },
+
+  setupEditSnippet(snippet) {
+    const app = createApp(EditSnippet);
+    app.config.globalProperties.currentSnippet = snippet;
+    app.mount('#edit-snippet');
   },
 
   setupKnownLicenses() {
