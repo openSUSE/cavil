@@ -71,7 +71,7 @@
       <%= text_field packname => $match->{packname}, class => 'form-control' %>
       <div id="packageHelp" class="form-text">Leave this field empty to apply pattern to all packages</div>
     </div>
-    <div class="col mb-3">
+    <div class="col mb-5">
       % if ($match->{id}) {
         %= submit_button 'Update', class => 'btn btn-primary'
         <a class="del-pattern btn btn-danger btn-sm" title="Remove match" href="#"

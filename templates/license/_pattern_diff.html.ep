@@ -1,25 +1,47 @@
-%= t h4 => begin
-    Diff against closest
-    %= link_to "pattern ($similarity%: $next_best->{license})" => url_for('edit_pattern', id => $next_best->{id})
-% end
 
-% my $lastline = 1;
-% for my $row (@$diff) {
-    % while ($lastline < $row->[3]) {
-        <br/>
-        % $lastline++;
-    % }
-    % if ($row->[0] eq 'u') {
-        %= t span => $row->[1];
-    % } elsif ($row->[0] eq 'c') {
-        %= t span => (class => 'diff-removed') => $row->[1];
-        %= t span => (class => 'diff-added') => $row->[2];
-    % } elsif ($row->[0] eq '-') {
-        %= t span => (class => 'diff-removed') => $row->[1];
-    % } elsif ($row->[0] eq '+') {
-        %= t span => (class => 'diff-added') => $row->[2];
-    % } else {
-        %= $row->[0];
-    % }
-    % $lastline = $row->[3];
-% }
+<div class="row pattern-container">
+  <div class="col-12 pattern-file-container">
+    <div class="pattern-header">
+      <a href="<%= url_for('edit_pattern', id => $next_best->{id}) %>">
+        <b><%= $similarity %>%</b> similarity to <b><%= $next_best->{license} %></b>
+      </a>
+    </div>
+
+    <div class="pattern-source">
+      % my $lastline = 1;
+      % for my $row (@$diff) {
+        % while ($lastline < $row->[3]) {
+          <br/>
+          % $lastline++;
+        % }
+        % if ($row->[0] eq 'u') {
+          %= t span => $row->[1];
+        % } elsif ($row->[0] eq 'c') {
+          %= t span => (class => 'diff-removed') => $row->[1];
+          %= t span => (class => 'diff-added') => $row->[2];
+        % } elsif ($row->[0] eq '-') {
+          %= t span => (class => 'diff-removed') => $row->[1];
+        % } elsif ($row->[0] eq '+') {
+          %= t span => (class => 'diff-added') => $row->[2];
+        % } else {
+          %= $row->[0];
+        % }
+        % $lastline = $row->[3];
+      % }
+    </div>
+    <div class="pattern-footer">
+      <span><b>Risk:</b> <%= $next_best->{risk} %></span>
+      % if ($next_best->{packname}) {
+        <span><b>Package:</b> <%= $next_best->{packname} %></span>
+      % }
+      % if ($next_best->{opinion} || $next_best->{patent} || $next_best->{trademark} || $next_best->{export_restricted}) {
+        <span><b>Flags:</b>
+          %= $next_best->{opinion} ? 'Opinion' : ''
+          %= $next_best->{patent} ? 'Patent' : ''
+          %= $next_best->{trademark} ? 'Trademark' : ''
+          %= $next_best->{export_restricted} ? 'Export Restricted' : ''
+        </span>
+      % }
+    </div>
+  </div>
+</div>

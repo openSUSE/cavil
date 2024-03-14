@@ -50,12 +50,14 @@ sub closest_pattern ($self, $text) {
   return $pattern;
 }
 
-sub closest_match ($self, $text) {
+sub closest_match ($self, $text) { $self->closest_matches($text, 1)->[0] }
+
+sub closest_matches ($self, $text, $num) {
   my $cache = path($self->cache, 'cavil.pattern.bag');
-  return undef unless -r $cache;
+  return [] unless -r $cache;
   my $bag = Spooky::Patterns::XS::init_bag_of_patterns;
   $bag->load($cache);
-  return $bag->best_for($text, 1)->[0];
+  return $bag->best_for($text, $num);
 }
 
 sub create ($self, %args) {

@@ -57,21 +57,18 @@ sub create_pattern ($self) {
 }
 
 sub edit_pattern ($self) {
-  my $id      = $self->stash('id');
-  my $pattern = $self->patterns->find($id);
+  my $id       = $self->stash('id');
+  my $patterns = $self->patterns;
+  my $pattern  = $patterns->find($id);
 
-  my $bag   = Spooky::Patterns::XS::init_bag_of_patterns;
-  my $cache = $self->app->home->child('cache', 'cavil.pattern.bag');
-  $bag->load($cache);
-
-  my $result = $bag->best_for($pattern->{pattern}, 2);
+  my $result = $patterns->closest_matches($pattern->{pattern}, 2);
   my $best   = $result->[0];
 
   # likely perfect match
   $best = $result->[1] if $best->{pattern} && $best->{pattern} == $id;
 
   my $sim = $best->{match};
-  $best = $self->patterns->find($best->{pattern});
+  $best = $patterns->find($best->{pattern});
 
   my $p1 = Spooky::Patterns::XS::normalize($pattern->{pattern});
   $self->stash('diff', undef);
