@@ -3,7 +3,7 @@
   <div class="col-12 pattern-file-container">
     <div class="pattern-header">
       <a href="<%= url_for('edit_pattern', id => $next_best->{id}) %>">
-        <b><%= $similarity %>%</b> similarity to <b><%= $next_best->{license} %></b>
+        <b><%= $similarity %>%</b> similarity to <b><%= $next_best->{license} || 'Keyword Pattern' %></b>
       </a>
     </div>
 
