@@ -3,8 +3,8 @@
     <div class="file-path">
       Source: <a href="<%= url_for('file_view', id => $id, file => '') %>"><%= $package->{name} %></a>
       % my @path;
-      % for my $part (split '/', $filename) {
-        %= '/' if @path;
+      % for my $part (grep {length $_} split '/', $filename) {
+        %= '/';
         % push @path, $part;
         <a href="<%= url_for('file_view', id => $id, file => join('/', @path))->to_abs %>"><%= $part %></a>
       % }
