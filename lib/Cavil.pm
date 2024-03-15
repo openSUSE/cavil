@@ -197,7 +197,7 @@ sub startup ($self) {
   $public->get('/search')->to('Search#search')->name('search');
   $public->get('/pagination/search/*name')->to('Pagination#review_search')->name('pagination_review_search');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
-  $manager->get('/reviews/file_view/<id:num>/*file')->to('Reviewer#file_view')->name('file_view');
+  $manager->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
   $public->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $public->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
   $public->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])->to('Report#calc', format => 'html')
