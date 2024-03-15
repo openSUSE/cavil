@@ -191,7 +191,9 @@
               <td class="noleftpad">
                 <table class="table borderless novertpad transparent-table">
                   <tr>
-                    <th class="fit text-start noleftpad" colspan="2"><i class="fas fa-file-alt"></i> {{ file.file }}</th>
+                    <th class="fit text-start noleftpad" colspan="2">
+                      <i class="fas fa-file-alt"></i> {{ file.file }}
+                    </th>
                   </tr>
                   <tr v-if="file.licenses !== null">
                     <th class="fit text-start noleftpad">Licenses:</th>
