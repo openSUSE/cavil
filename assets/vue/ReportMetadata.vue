@@ -14,101 +14,101 @@
     <table class="table borderless novertpad">
       <tbody>
         <tr v-if="pkgLicense !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-box"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">License:</th>
+          <th class="fit text-start noleftpad" scope="row">License:</th>
           <td id="pkg-license">
             {{ pkgLicense.name }}
             <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
           </td>
         </tr>
         <tr v-if="pkgFiles.length > 0">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-cubes"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Package Files:</th>
+          <th class="fit text-start noleftpad" scope="row">Package Files:</th>
           <td id="num-spec-files">
             <a v-if="actions.length === 1" href="#spec-files" data-bs-toggle="collapse">1 file</a>
             <a v-else href="#spec-files" data-bs-toggle="collapse">{{ pkgFiles.length }} files</a>
           </td>
         </tr>
         <tr v-if="actions.length > 0">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-directions"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Actions:</th>
+          <th class="fit text-start noleftpad" scope="row">Actions:</th>
           <td>
             <a v-if="actions.length === 1" href="#actions" data-bs-toggle="collapse">1 related review</a>
             <a v-else href="#actions" data-bs-toggle="collapse">{{ actions.length }} related reviews</a>
           </td>
         </tr>
         <tr v-if="history.length > 0">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-history"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">History:</th>
+          <th class="fit text-start noleftpad" scope="row">History:</th>
           <td>
             <a v-if="history.length === 1" href="#history" data-bs-toggle="collapse">1 other review</a>
             <a v-else href="#history" data-bs-toggle="collapse">{{ history.length }} other reviews</a>
           </td>
         </tr>
         <tr v-if="externalLink !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-external-link-alt"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">External Link:</th>
+          <th class="fit text-start noleftpad" scope="row">External Link:</th>
           <td v-html="externalLink"></td>
         </tr>
         <tr v-if="requestsHtml !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-link"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Requests:</th>
+          <th class="fit text-start noleftpad" scope="row">Requests:</th>
           <td v-html="requestsHtml"></td>
         </tr>
         <tr v-if="productsHtml !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-shopping-bag"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Products:</th>
+          <th class="fit text-start noleftpad" scope="row">Products:</th>
           <td v-html="productsHtml"></td>
         </tr>
         <tr v-if="pkgVersion !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-code-branch"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Version:</th>
+          <th class="fit text-start noleftpad" scope="row">Version:</th>
           <td id="pkg-version">{{ pkgVersion }}</td>
         </tr>
         <tr v-if="pkgSummary !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-edit"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Summary:</th>
+          <th class="fit text-start noleftpad" scope="row">Summary:</th>
           <td id="pkg-summary">{{ pkgSummary }}</td>
         </tr>
         <tr v-if="pkgGroup !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-users"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Group:</th>
+          <th class="fit text-start noleftpad" scope="row">Group:</th>
           <td id="pkg-group">{{ pkgGroup }}</td>
         </tr>
         <tr v-if="pkgUrl !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-link"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">URL:</th>
+          <th class="fit text-start noleftpad" scope="row">URL:</th>
           <td id="pkg-url">
             <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
           </td>
         </tr>
         <tr>
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="far fa-chart-bar"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">SPDX Report:</th>
+          <th class="fit text-start noleftpad" scope="row">SPDX Report:</th>
           <td>
             <a :href="spdxUrl" target="_blank">
               <span v-if="hasSpdxReport === true">available</span>
@@ -117,38 +117,38 @@
           </td>
         </tr>
         <tr v-if="pkgShortname !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="far fa-file"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Shortname:</th>
+          <th class="fit text-start noleftpad" scope="row">Shortname:</th>
           <td id="pkg-shortname">{{ pkgShortname }}</td>
         </tr>
         <tr v-if="created !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="far fa-plus-square"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Created:</th>
+          <th class="fit text-start noleftpad" scope="row">Created:</th>
           <td class="from-now">{{ created }}</td>
         </tr>
         <tr v-if="reviewed !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-search"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Reviewed:</th>
+          <th class="fit text-start noleftpad" scope="row">Reviewed:</th>
           <td class="from-now">{{ reviewed }}</td>
         </tr>
         <tr v-if="reviewingUser !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-user"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">Reviewing User:</th>
+          <th class="fit text-start noleftpad" scope="row">Reviewing User:</th>
           <td>{{ reviewingUser }}</td>
         </tr>
         <tr v-if="state !== null">
-          <th class="fit text-left noleftpad" scope="row">
+          <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-balance-scale"></i>
           </th>
-          <th class="fit text-left noleftpad" scope="row">State:</th>
+          <th class="fit text-start noleftpad" scope="row">State:</th>
           <td id="pkg-state">{{ state }}</td>
         </tr>
       </tbody>
@@ -161,7 +161,7 @@
             <td>{{ action.result }}</td>
             <td>{{ action.state }}</td>
             <td>{{ action.reviewing_user }}</td>
-            <td class="text-right">
+            <td class="text-end">
               <a :href="action.actionUrl" target="_blank">{{ action.created }}</a>
             </td>
           </tr>
@@ -176,7 +176,7 @@
             <td>{{ prev.result }}</td>
             <td>{{ prev.state }}</td>
             <td>{{ prev.reviewing_user }}</td>
-            <td class="text-right">
+            <td class="text-end">
               <a :href="prev.reportUrl" target="_blank">{{ prev.created }}</a>
             </td>
           </tr>
@@ -191,22 +191,22 @@
               <td class="noleftpad">
                 <table class="table borderless novertpad transparent-table">
                   <tr>
-                    <th class="fit text-left noleftpad" colspan="2"><i class="fas fa-file-alt"></i> {{ file.file }}</th>
+                    <th class="fit text-start noleftpad" colspan="2"><i class="fas fa-file-alt"></i> {{ file.file }}</th>
                   </tr>
                   <tr v-if="file.licenses !== null">
-                    <th class="fit text-left noleftpad">Licenses:</th>
+                    <th class="fit text-start noleftpad">Licenses:</th>
                     <td>{{ file.licenses }}</td>
                   </tr>
                   <tr v-if="file.version !== null">
-                    <th class="fit text-left noleftpad">Version:</th>
+                    <th class="fit text-start noleftpad">Version:</th>
                     <td>{{ file.version }}</td>
                   </tr>
                   <tr v-if="file.summary !== null">
-                    <th class="fit text-left noleftpad">Summary:</th>
+                    <th class="fit text-start noleftpad">Summary:</th>
                     <td>{{ file.summary }}</td>
                   </tr>
                   <tr v-if="file.group !== null">
-                    <th class="fit text-left noleftpad">Group:</th>
+                    <th class="fit text-start noleftpad">Group:</th>
                     <td>{{ file.group }}</td>
                   </tr>
                 </table>

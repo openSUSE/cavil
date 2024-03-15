@@ -89,8 +89,8 @@
         </form>
       </div>
       <div class="col-3">
-        <p v-if="total !== null" class="text-right">{{ total }} snippets found</p>
-        <p v-else class="text-right"><i class="fas fa-sync fa-spin"></i> Loading snippets</p>
+        <p v-if="total !== null" class="text-end">{{ total }} snippets found</p>
+        <p v-else class="text-end"><i class="fas fa-sync fa-spin"></i> Loading snippets</p>
       </div>
     </div>
     <div v-if="snippets !== null && snippets.length > 0">
