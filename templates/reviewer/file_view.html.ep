@@ -1,13 +1,15 @@
 % layout 'default';
 % title "Content of $filename";
 
-<h5>
-    View of <%= $filename %> within package <%= $package->{name} %>
-</h5>
+%= include 'reviewer/_path'
 
+<div class="row">
+  <div class="col-12 mb-4">
 <textarea class="form-control col-xs-12" id="file">
 %= maybe_utf8 $file->slurp
 </textarea>
+  </div>
+</div>
 
 % content_for 'ready_function' => begin
     cavil.setupCodeMirrorForFile();

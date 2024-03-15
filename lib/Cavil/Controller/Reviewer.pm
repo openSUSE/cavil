@@ -204,13 +204,15 @@ sub file_view ($self) {
   return $self->reply->not_found unless -e $file;
 
   if (-d $file) {
-    opendir(my $dh, $file) || die "Can't opendir $file: $!";
-    my @entries = grep {/^[^.]/} readdir($dh);
-    closedir $dh;
-    return $self->render('reviewer/directory_view', entries => \@entries);
+    my (@files, @dirs);
+    for my $entry (path($file)->list({dir => 1})->each) {
+      if   (-d $entry) { push @dirs,  $entry }
+      else             { push @files, $entry }
+    }
+    return $self->render('reviewer/directory_view', dirs => \@dirs, files => \@files);
   }
 
-  else { $self->stash('file', $file) }
+  $self->stash('file', $file);
 }
 
 sub list_recent ($self) {

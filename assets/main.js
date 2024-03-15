@@ -10,7 +10,6 @@ import 'moment';
 
 import {setupCodeMirrorForFile} from './legacy/file.js';
 import {setupReviewDetails} from './legacy/review.js';
-import {setupCodeMirrorForSnippet} from './legacy/snippet.js';
 import {fromNow} from './legacy/time.js';
 import {createLicense, ignoreLine, snippetNonLicense} from './legacy/util.js';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
@@ -85,7 +84,6 @@ window.cavil = {
   fromNow,
   ignoreLine,
   setupCodeMirrorForFile,
-  setupCodeMirrorForSnippet,
   setupReviewDetails,
   snippetNonLicense
 };

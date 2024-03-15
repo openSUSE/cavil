@@ -1,12 +1,30 @@
 % layout 'default';
 % title "Directory listing of $filename";
 
-<h5>
-    List of <%= $filename %> within package <%= $package->{name} %>
-</h5>
+%= include 'reviewer/_path'
 
-<ul>
-    % for my $entry (@$entries) {
-        %= t li => link_to($entry, 'file_view', { id => $package->{id}, file => "$filename/$entry"} )
-    % }
-</ul>
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="file-list">
+        <table>
+        % for my $entry (@$dirs, @$files) {
+            % my $name = $entry->basename;
+            % my $path = "$filename/$name";
+            <tr>
+            <td class="pe-1">
+                % if (-d $entry) {
+                <i class="fa fa-folder"></i>
+                % }
+                % else {
+                <i class="far fa-file"></i>
+                % }
+            </td>
+            <td>
+                <a href="<%= url_for('file_view', id => $id, file => $path) %>"><%= $name %></a>
+            </td>
+            </tr>
+        % }
+        </table>
+    </div>
+  </div>
+</div>
