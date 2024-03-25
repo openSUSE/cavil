@@ -141,6 +141,7 @@ sub meta ($self) {
       external_link     => $pkg->{external_link},
       has_spdx_report   => \!!$has_spdx_report,
       history           => $history,
+      package_checksum  => $pkg->{checkout_dir},
       package_files     => \@package_files,
       package_group     => $group,
       package_license   => {name => $package_license, spdx => \!!$normalized_license},

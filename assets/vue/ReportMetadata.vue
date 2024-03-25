@@ -55,7 +55,7 @@
         </tr>
         <tr v-if="externalLink !== null">
           <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-external-link-alt"></i>
+            <i class="fas fa-anchor"></i>
           </th>
           <th class="fit text-start noleftpad" scope="row">External Link:</th>
           <td v-html="externalLink"></td>
@@ -114,6 +114,15 @@
               <span v-if="hasSpdxReport === true">available</span>
               <span v-else>not yet generated</span>
             </a>
+          </td>
+        </tr>
+        <tr v-if="checkoutUrl !== null">
+          <th class="fit text-start noleftpad" scope="row">
+            <i class="far fa-folder"></i>
+          </th>
+          <th class="fit text-start noleftpad" scope="row">Checkout:</th>
+          <td id="checkout-url">
+            <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
           </td>
         </tr>
         <tr v-if="pkgShortname !== null">
@@ -288,6 +297,7 @@ export default {
   mixins: [Refresh],
   data() {
     return {
+      checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
       created: null,
       errors: [],
@@ -295,6 +305,7 @@ export default {
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       hasSpdxReport: false,
       history: [],
+      pkgChecksum: null,
       pkgFiles: [],
       pkgLicense: null,
       pkgName: null,
@@ -354,6 +365,9 @@ export default {
       this.pkgType = data.package_type;
       this.pkgUrl = data.package_url;
       this.pkgVersion = data.package_version;
+
+      this.pkgChecksum = data.package_checksum;
+      this.checkoutUrl = `/reviews/file_view/${this.pkgId}`;
 
       if (data.products.length > 0) {
         this.productsHtml = data.products.map(name => productLink({name})).join(', ');
