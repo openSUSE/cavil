@@ -116,6 +116,13 @@
             </a>
           </td>
         </tr>
+        <tr v-if="pkgShortname !== null">
+          <th class="fit text-start noleftpad" scope="row">
+            <i class="far fa-file"></i>
+          </th>
+          <th class="fit text-start noleftpad" scope="row">Shortname:</th>
+          <td id="pkg-shortname">{{ pkgShortname }}</td>
+        </tr>
         <tr v-if="checkoutUrl !== null">
           <th class="fit text-start noleftpad" scope="row">
             <i class="far fa-folder"></i>
@@ -124,13 +131,6 @@
           <td id="checkout-url">
             <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
           </td>
-        </tr>
-        <tr v-if="pkgShortname !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="far fa-file"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Shortname:</th>
-          <td id="pkg-shortname">{{ pkgShortname }}</td>
         </tr>
         <tr v-if="created !== null">
           <th class="fit text-start noleftpad" scope="row">
