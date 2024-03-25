@@ -34,6 +34,10 @@ $config->{openid} = {
 my $t = Test::Mojo->new(Cavil => $config);
 $cavil_test->no_fixtures($t->app);
 
+subtest 'Unknown resource' => sub {
+  $t->get_ok('/does_not_exist')->status_is(404)->content_like(qr/The requested resource does not exist/);
+};
+
 subtest 'Not authenticated' => sub {
   $t->post_ok('/reviews/review_package/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/reviews/fasttrack_package/1')->status_is(403)->content_like(qr/Permission/);
