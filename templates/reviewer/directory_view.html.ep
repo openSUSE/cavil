@@ -6,25 +6,28 @@
 <div class="row">
   <div class="col-12 mb-4">
     <div class="file-list">
-        <table>
-        % for my $entry (@$dirs, @$files) {
-            % my $name = $entry->basename;
-            % my $path = "$filename/$name";
-            <tr>
+      <table>
+        % for my $entry (@$dirs, @$files, @$processed) {
+          % my $name = $entry->basename;
+          % my $path = "$filename/$name";
+          <tr>
             <td class="pe-1">
-                % if (-d $entry) {
+              % if (-d $entry) {
                 <i class="fa fa-folder"></i>
-                % }
-                % else {
+              % }
+              % elsif ($name =~ /\.processed(?:\.\w+|$)/) {
                 <i class="far fa-file"></i>
-                % }
+              % }
+              % else {
+                <i class="far fa-file-alt"></i>
+              % }
             </td>
             <td>
-                <a href="<%= url_for('file_view', id => $id, file => $path) %>"><%= $name %></a>
+              <a href="<%= url_for('file_view', id => $id, file => $path) %>"><%= $name %></a>
             </td>
-            </tr>
+          </tr>
         % }
-        </table>
+      </table>
     </div>
   </div>
 </div>

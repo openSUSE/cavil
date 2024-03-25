@@ -205,12 +205,13 @@ sub file_view ($self) {
   return $self->reply->not_found unless -e $file;
 
   if (-d $file) {
-    my (@files, @dirs);
+    my (@files, @dirs, @processed);
     for my $entry (path($file)->list({dir => 1})->each) {
-      if   (-d $entry) { push @dirs,  $entry }
-      else             { push @files, $entry }
+      if    (-d $entry)                          { push @dirs,      $entry }
+      elsif ($entry =~ /\.processed(?:\.\w+|$)/) { push @processed, $entry }
+      else                                       { push @files,     $entry }
     }
-    return $self->render('reviewer/directory_view', dirs => \@dirs, files => \@files);
+    return $self->render('reviewer/directory_view', dirs => \@dirs, files => \@files, processed => \@processed);
   }
 
   $self->stash('file', $file);

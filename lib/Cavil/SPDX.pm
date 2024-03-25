@@ -78,8 +78,8 @@ sub generate_to_file ($self, $id, $file) {
 
     # The indexer pre-processes certain files to allow for them to be scanned (and we want the original checksum)
     my $checksum_path = $dir->child('.unpacked', $file)->to_string;
-    if ($file =~ /^(.+)\.processed\.(\w+)$/) {
-      my $original      = "$1.$2";
+    if ($file =~ /^(.+)\.processed(?:\.(\w+)|$)/) {
+      my $original      = defined $2 ? "$1.$2" : $1;
       my $original_path = $dir->child('.unpacked', $original)->to_string;
       if (-e $original_path) {
         $paths{$file}          = $checksum_path;
