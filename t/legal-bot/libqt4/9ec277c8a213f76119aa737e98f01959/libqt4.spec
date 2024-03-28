@@ -56,7 +56,7 @@ Release:        0
 Summary:        C++ Program Library, Core Components
 License:        GPL-3.0 or SUSE-LGPL-2.1-with-digia-exception-1.1
 Group:          System/Libraries
-Url:            http://qt.digia.com
+URL:            http://qt.digia.com
 # bug437293
 %ifarch ppc64
 Obsoletes:      qt-64bit

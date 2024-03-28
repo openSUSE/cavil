@@ -363,7 +363,7 @@ sub _specfile ($file) {
     elsif ($line =~ /^Version:\s*(.+)\s*$/)        { $info->{version} ||= $1 }
     elsif ($line =~ /^Summary:\s*(.+)\s*$/)        { $info->{summary} ||= $1 }
     elsif ($line =~ /^Group:\s*(.+)\s*$/)          { $info->{group}   ||= $1 }
-    elsif ($line =~ /^Url:\s*(.+)\s*$/)            { $info->{url}     ||= $1 }
+    elsif ($line =~ /^Url:\s*(.+)\s*$/i)           { $info->{url}     ||= $1 }
   }
 
   return $info;
