@@ -134,14 +134,18 @@
   <h2>
     %= link_to("$emails Emails" => "#emails" => ('data-bs-toggle', 'collapse'))
   </h2>
-  <table id="emails" class="table table-striped collapse">
-    % for my $email (@{$report->{emails}}) {
-      <tr>
-        <td><%= $email->[0] %></td>
-        <td><%= $email->[1] %></td>
-      </tr>
-    % }
-  </table>
+  <div class="row collapse" id="emails">
+    <div class="col">
+      <table class="table table-striped transparent-table">
+        % for my $email (@{$report->{emails}}) {
+          <tr>
+            <td><%= $email->[0] %></td>
+            <td><%= $email->[1] %></td>
+          </tr>
+        % }
+      </table>
+    </div>
+  </div>
 % }
 
 % if (@{$report->{urls}}) {
@@ -149,14 +153,18 @@
   <h2>
     %= link_to("$urls URLs" => "#urls" => ('data-bs-toggle', 'collapse'))
   </h2>
-  <table id="urls" class="table table-striped collapse">
-    % for my $url (@{$report->{urls}}) {
-      <tr>
-        <td><%= $url->[0] %></td>
-        <td><%= $url->[1] %></td>
-      </tr>
-    % }
-  </table>
+  <div class="row collapse" id="urls">
+    <div class="col">
+      <table class="table table-striped transparent-table">
+        % for my $url (@{$report->{urls}}) {
+          <tr>
+            <td><%= $url->[0] %></td>
+            <td><%= $url->[1] %></td>
+          </tr>
+        % }
+      </table>
+    </div>
+  </div>
 % }
 
 <br>
