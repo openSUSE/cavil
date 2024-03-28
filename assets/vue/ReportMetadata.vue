@@ -226,7 +226,9 @@
                   </tr>
                   <tr v-if="file.url !== null">
                     <th class="fit text-start align-top noleftpad">URL:</th>
-                    <td>{{ file.url }}</td>
+                    <td class="text-start">
+                      <a :href="file.url" class="p-0" target="_blank">{{ file.url }}</a>
+                    </td>
                   </tr>
                   <tr v-if="file.sources !== null">
                     <th class="fit text-start align-top noleftpad">Sources:</th>
