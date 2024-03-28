@@ -209,23 +209,23 @@
                     </th>
                   </tr>
                   <tr v-if="file.licenses !== null">
-                    <th class="fit text-start noleftpad">Licenses:</th>
+                    <th class="fit text-start align-top noleftpad">Licenses:</th>
                     <td>{{ file.licenses }}</td>
                   </tr>
                   <tr v-if="file.version !== null">
-                    <th class="fit text-start noleftpad">Version:</th>
+                    <th class="fit text-start align-top noleftpad">Version:</th>
                     <td>{{ file.version }}</td>
                   </tr>
                   <tr v-if="file.summary !== null">
-                    <th class="fit text-start noleftpad">Summary:</th>
+                    <th class="fit text-start align-top noleftpad">Summary:</th>
                     <td>{{ file.summary }}</td>
                   </tr>
                   <tr v-if="file.group !== null">
-                    <th class="fit text-start noleftpad">Group:</th>
+                    <th class="fit text-start align-top noleftpad">Group:</th>
                     <td>{{ file.group }}</td>
                   </tr>
                   <tr v-if="file.sources !== null">
-                    <th class="fit text-start noleftpad">Sources:</th>
+                    <th class="fit text-start align-top noleftpad">Sources:</th>
                     <td>{{ file.sources }}</td>
                   </tr>
                 </table>
