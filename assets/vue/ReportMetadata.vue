@@ -162,43 +162,39 @@
         </tr>
       </tbody>
     </table>
-    <div v-if="actions.length > 0" id="actions" class="collapse">
-      <table class="table table-striped transparent-table">
-        <tbody>
-          <tr v-for="action in actions" :key="action.id">
-            <td>{{ action.name }}</td>
-            <td>{{ action.result }}</td>
-            <td>{{ action.state }}</td>
-            <td>{{ action.reviewing_user }}</td>
-            <td class="text-end">
-              <a :href="action.actionUrl" target="_blank">{{ action.created }}</a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div v-if="history.length > 0" id="history" class="collapse">
-      <table class="table table-striped transparent-table">
-        <tbody>
-          <tr v-for="prev in history" :key="prev.id">
-            <td v-html="prev.externalLink"></td>
-            <td>{{ prev.result }}</td>
-            <td>{{ prev.state }}</td>
-            <td>{{ prev.reviewing_user }}</td>
-            <td class="text-end">
-              <a :href="prev.reportUrl" target="_blank">{{ prev.created }}</a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <table v-if="actions.length > 0" id="actions" class="collapse table table-striped transparent-table">
+      <tbody>
+        <tr v-for="action in actions" :key="action.id">
+          <td>{{ action.name }}</td>
+          <td>{{ action.result }}</td>
+          <td>{{ action.state }}</td>
+          <td>{{ action.reviewing_user }}</td>
+          <td class="text-end">
+            <a :href="action.actionUrl" target="_blank">{{ action.created }}</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <table v-if="history.length > 0" id="history" class="collapse table table-striped transparent-table">
+      <tbody>
+        <tr v-for="prev in history" :key="prev.id">
+          <td v-html="prev.externalLink"></td>
+          <td>{{ prev.result }}</td>
+          <td>{{ prev.state }}</td>
+          <td>{{ prev.reviewing_user }}</td>
+          <td class="text-end">
+            <a :href="prev.reportUrl" target="_blank">{{ prev.created }}</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
     <div v-if="pkgFiles.length > 0" id="spec-files" class="collapse">
       <div class="alert alert-secondary">
-        <table class="table borderless novertpad transparent-table">
+        <table class="table borderless transparent-table">
           <tbody>
             <tr v-for="file in pkgFiles" :key="file.file">
               <td class="noleftpad">
-                <table class="table borderless novertpad transparent-table">
+                <table class="table borderless transparent-table">
                   <tr>
                     <th class="fit text-start noleftpad" colspan="2">
                       <i class="fas fa-file-alt"></i> {{ file.file }}
@@ -392,5 +388,11 @@ export default {
 <style>
 .transparent-table {
   --bs-table-bg: transparent !important;
+}
+#spec-files table {
+  margin: 0;
+}
+#spec-files table + table {
+  margin-top: 1rem;
 }
 </style>
