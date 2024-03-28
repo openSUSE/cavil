@@ -6,9 +6,18 @@
     "file"     => "error-no-spdx.spec",
     "license"  => "MPLv2.0",
     "licenses" => ["MPLv2.0"],
+    "sources"  => [],
     "type"     => "spec"
   },
-  "sub" =>
-    [{"%doc" => [], "%license" => [], "file" => "error-no-spdx.spec", "licenses" => ["MPLv2.0"], "type" => "spec"}],
+  "sub" => [
+    {
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "error-no-spdx.spec",
+      "licenses" => ["MPLv2.0"],
+      "sources"  => [],
+      "type"     => "spec"
+    }
+  ],
   "warnings" => []
 }

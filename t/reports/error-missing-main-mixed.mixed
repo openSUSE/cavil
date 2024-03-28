@@ -9,6 +9,7 @@
       "%license" => [],
       "file"     => "mixed-more.spec",
       "licenses" => ["MIT AND BSD-3-Clause"],
+      "sources"  => [],
       "summary"  => "Just a test",
       "type"     => "spec"
     },

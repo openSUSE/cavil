@@ -22,6 +22,11 @@
       "LGPL-2.0+",
       "LGPL-2.0+"
     ],
+    "sources" => [
+      "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
+      "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
+      "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
+    ],
     "summary" => "C++ Program Library, Core Components",
     "type"    => "spec",
     "url"     => "http://qt.digia.com",
@@ -34,10 +39,15 @@
       "file"     => "libqt4-devel-doc.spec",
       "group"    => "Documentation/HTML",
       "licenses" => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
-      "summary"  => "Qt documentation",
-      "type"     => "spec",
-      "url"      => "http://qt.digia.com/",
-      "version"  => "4.8.4"
+      "sources"  => [
+        "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
+        "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
+        "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
+      ],
+      "summary" => "Qt documentation",
+      "type"    => "spec",
+      "url"     => "http://qt.digia.com/",
+      "version" => "4.8.4"
     },
     {
       "%doc"     => [],
@@ -45,10 +55,15 @@
       "file"     => "libqt4-sql-plugins.spec",
       "group"    => "System/Libraries",
       "licenses" => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
-      "summary"  => "Qt 4 SQL related libraries",
-      "type"     => "spec",
-      "url"      => "http://qt.digia.com/",
-      "version"  => "4.8.4"
+      "sources"  => [
+        "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
+        "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
+        "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
+      ],
+      "summary" => "Qt 4 SQL related libraries",
+      "type"    => "spec",
+      "url"     => "http://qt.digia.com/",
+      "version" => "4.8.4"
     },
     {
       "%doc"     => ["*.txt LICENSE.GPL3 LICENSE.LGPL", "changes-*"],
@@ -70,6 +85,11 @@
         "LGPL-2.0+",
         "LGPL-2.0+",
         "LGPL-2.0+"
+      ],
+      "sources" => [
+        "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
+        "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
+        "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
       ],
       "summary" => "C++ Program Library, Core Components",
       "type"    => "spec",

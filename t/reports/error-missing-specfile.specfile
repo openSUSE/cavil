@@ -2,7 +2,9 @@
   "errors" => [
     "Main package file missing: expected error-missing-specfile.spec, error-missing-specfile.kiwi, error-missing-specfile.Dockerfile, Dockerfile, or Chart.yaml"
   ],
-  "main"     => {},
-  "sub"      => [{"%doc" => [], "%license" => [], "file" => "wrong-name.spec", "licenses" => [], "type" => "spec"}],
+  "main" => {},
+  "sub"  => [
+    {"%doc" => [], "%license" => [], "file" => "wrong-name.spec", "licenses" => [], "sources" => [], "type" => "spec"}
+  ],
   "warnings" => []
 }

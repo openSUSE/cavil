@@ -6,6 +6,7 @@
     "file"     => "error-invalid-license.spec",
     "license"  => "(Artistic",
     "licenses" => ["(Artistic"],
+    "sources"  => [],
     "type"     => "spec"
   },
   "sub" => [
@@ -14,6 +15,7 @@
       "%license" => [],
       "file"     => "error-invalid-license.spec",
       "licenses" => ["(Artistic"],
+      "sources"  => [],
       "type"     => "spec"
     }
   ],

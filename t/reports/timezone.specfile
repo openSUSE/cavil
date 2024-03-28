@@ -7,10 +7,14 @@
     "group"    => "System/Base",
     "license"  => "BSD-3-Clause and SUSE-Public-Domain",
     "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
-    "summary"  => "Timezone Descriptions",
-    "type"     => "spec",
-    "url"      => "http://www.gnu.org/software/libc/libc.html",
-    "version"  => "2012f"
+    "sources"  => [
+      "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
+      "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
+    ],
+    "summary" => "Timezone Descriptions",
+    "type"    => "spec",
+    "url"     => "http://www.gnu.org/software/libc/libc.html",
+    "version" => "2012f"
   },
   "sub" => [
     {
@@ -19,10 +23,14 @@
       "file"     => "timezone-java.spec",
       "group"    => "System/Base",
       "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
-      "summary"  => "Timezone Descriptions",
-      "type"     => "spec",
-      "url"      => "http://www.gnu.org/software/libc/libc.html",
-      "version"  => "2012f"
+      "sources"  => [
+        "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
+        "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
+      ],
+      "summary" => "Timezone Descriptions",
+      "type"    => "spec",
+      "url"     => "http://www.gnu.org/software/libc/libc.html",
+      "version" => "2012f"
     },
     {
       "%doc"     => [],
@@ -30,10 +38,14 @@
       "file"     => "timezone.spec",
       "group"    => "System/Base",
       "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
-      "summary"  => "Timezone Descriptions",
-      "type"     => "spec",
-      "url"      => "http://www.gnu.org/software/libc/libc.html",
-      "version"  => "2012f"
+      "sources"  => [
+        "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
+        "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
+      ],
+      "summary" => "Timezone Descriptions",
+      "type"    => "spec",
+      "url"     => "http://www.gnu.org/software/libc/libc.html",
+      "version" => "2012f"
     }
   ],
   "warnings" => []

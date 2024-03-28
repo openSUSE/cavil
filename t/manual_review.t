@@ -40,6 +40,7 @@ subtest 'Details after import (indexing in progress)' => sub {
 
   $t->json_like('/package_files/0/file',       qr/perl-Mojolicious\.spec/)
     ->json_like('/package_files/0/licenses/0', qr/Artistic-2.0/)->json_like('/package_files/0/version', qr/7\.25/)
+    ->json_like('/package_files/0/sources/0',  qr/http:\/\/www\.cpan\.org/)
     ->json_like('/package_files/0/summary',    qr/Real-time web framework/)
     ->json_like('/package_files/0/group',      qr/Development\/Libraries\/Perl/);
 

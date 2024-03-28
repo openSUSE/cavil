@@ -120,6 +120,7 @@ sub meta ($self) {
       file     => $sub->{file},
       group    => $sub->{group},
       licenses => [uniq @{$sub->{licenses} // []}],
+      sources  => [uniq @{$sub->{sources}  // []}],
       summary  => $sub->{summary},
       version  => $sub->{version}
     };

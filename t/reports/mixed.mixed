@@ -6,6 +6,7 @@
     "file"     => "mixed.spec",
     "license"  => "MIT AND BSD-3-Clause",
     "licenses" => ["MIT AND BSD-3-Clause"],
+    "sources"  => [],
     "summary"  => "Just a test",
     "type"     => "spec"
   },
@@ -15,6 +16,7 @@
       "%license" => [],
       "file"     => "mixed-more.spec",
       "licenses" => ["MIT"],
+      "sources"  => [],
       "summary"  => "Just a test",
       "type"     => "spec"
     },
@@ -23,6 +25,7 @@
       "%license" => [],
       "file"     => "mixed.spec",
       "licenses" => ["MIT AND BSD-3-Clause"],
+      "sources"  => [],
       "summary"  => "Just a test",
       "type"     => "spec"
     },

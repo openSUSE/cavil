@@ -224,6 +224,10 @@
                     <th class="fit text-start noleftpad">Group:</th>
                     <td>{{ file.group }}</td>
                   </tr>
+                  <tr v-if="file.sources !== null">
+                    <th class="fit text-start noleftpad">Sources:</th>
+                    <td>{{ file.sources }}</td>
+                  </tr>
                 </table>
               </td>
             </tr>
@@ -359,6 +363,7 @@ export default {
       this.pkgFiles = data.package_files;
       for (const file of this.pkgFiles) {
         file.licenses = file.licenses.length > 0 ? file.licenses.join(' ') : null;
+        file.sources = file.sources.length > 0 ? file.sources.join(' ') : null;
       }
 
       this.pkgGroup = data.package_group;
