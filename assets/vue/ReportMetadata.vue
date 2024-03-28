@@ -224,6 +224,10 @@
                     <th class="fit text-start align-top noleftpad">Group:</th>
                     <td>{{ file.group }}</td>
                   </tr>
+                  <tr v-if="file.url !== null">
+                    <th class="fit text-start align-top noleftpad">URL:</th>
+                    <td>{{ file.url }}</td>
+                  </tr>
                   <tr v-if="file.sources !== null">
                     <th class="fit text-start align-top noleftpad">Sources:</th>
                     <td>{{ file.sources }}</td>

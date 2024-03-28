@@ -122,6 +122,7 @@ sub meta ($self) {
       licenses => [uniq @{$sub->{licenses} // []}],
       sources  => [uniq @{$sub->{sources}  // []}],
       summary  => $sub->{summary},
+      url      => $sub->{url},
       version  => $sub->{version}
     };
     push @package_files, $entry;
