@@ -16,10 +16,10 @@
                 <i class="fa fa-folder"></i>
               % }
               % elsif ($name =~ /\.processed(?:\.\w+|$)/) {
-                <i class="far fa-file"></i>
+                <i class="far fa-copy"></i>
               % }
               % else {
-                <i class="far fa-file-alt"></i>
+                <i class="far fa-file"></i>
               % }
             </td>
             <td>
