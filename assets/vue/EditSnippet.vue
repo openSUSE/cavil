@@ -53,6 +53,18 @@
               </div>
             </div>
           </div>
+          <div href="#" id="patternHelp" class="form-text">
+            Auto-completed license names will also predict the risk value.
+            <a
+              data-bs-html="true"
+              data-bs-toggle="popover"
+              data-bs-trigger="hover focus"
+              data-bs-title="Standard Risks"
+              :data-bs-content="riskHtml"
+            >
+              <i class="fas fa-question-circle"></i>
+            </a>
+          </div>
         </div>
       </div>
       <div class="row">
@@ -150,6 +162,7 @@
 
 <script>
 import UserAgent from '@mojojs/user-agent';
+import {Popover} from 'bootstrap';
 import CodeMirror from 'codemirror';
 
 export default {
@@ -174,6 +187,17 @@ export default {
       package: null,
       patternText: '',
       results: [],
+      riskHtml:
+        '<b>Low risk licenses (auto-accepted)</b><br>' +
+        '<b>1:</b> MIT, BSD-2-clause<br>' +
+        '<b>2:</b> GPL-2.0-or-later, Artistic-2.0<br>' +
+        '<b>3:</b> Apache-2.0, AGPL-3.0-or-later<br>' +
+        '<b>Higher risk licenses</b><br>' +
+        '<b>4:</b> CDDL-1.0, MPL-1.1, Any EULA<br>' +
+        '<b>5:</b> CC-BY-NC-ND-1.0, SSPL-1.0<br>' +
+        '<b>6:</b> Any Proprietary<br>' +
+        '<b>Unknown risk (reserved)</b><br>' +
+        '<b>9:</b> Keyword patterns',
       snippetUrl: `/snippet/meta/${this.currentSnippet}`,
       startLine: null,
       suggestions: [],
@@ -181,6 +205,7 @@ export default {
     };
   },
   async mounted() {
+    this.setupPopover();
     await this.getSnippet();
     this.setupCodeMirror();
     await this.getClosest();
@@ -249,6 +274,10 @@ export default {
       }
 
       this.editor = cm;
+    },
+    setupPopover() {
+      const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+      [...popoverTriggerList].map(popoverTriggerEl => new Popover(popoverTriggerEl));
     }
   }
 };
