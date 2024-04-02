@@ -86,23 +86,23 @@ subtest 'SPDX report contents' => sub {
 
   subtest 'Package Information' => sub {
     like $report, qr/PackageName: perl-Mojolicious/,                                     'has PackageName';
-    like $report, qr/SPDXID: SPDXRef-pkg1/,                                              'has SPDXID for package';
+    like $report, qr/SPDXID: SPDXRef-pkg-1/,                                             'has SPDXID for package';
     like $report, qr/PackageDownloadLocation: NOASSERTION/,                              'has PackageDownloadLocation';
     like $report, qr/PackageVerificationCode: fe1c74622249929a94572734f8fdf1cbb24ab8dd/, 'has PackageVerificationCode';
     like $report, qr/PackageVersion: 7.25/,                                              'has PackageVersion';
     like $report, qr/PackageLicenseDeclared: Artistic-2.0/,                              'has PackageLicenseDeclared';
     like $report, qr/PackageDescription: Real-time/,                                     'has PackageDescription';
     like $report, qr/PackageHomePage: http/,                                             'has PackageHomePage';
-    like $report, qr/PackageLicenseInfoFromFiles: NOASSERTION/,              'has PackageLicenseInfoFromFiles';
-    like $report, qr/PackageLicenseConcluded: NOASSERTION/,                  'has PackageLicenseConcluded';
-    like $report, qr/PackageCopyrightText: NOASSERTION/,                     'has PackageCopyrightText';
-    like $report, qr/PackageChecksum: MD5: .+/,                              'has PackageCheckSum';
-    like $report, qr/Relationship: SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg1/, 'has relationship to document';
+    like $report, qr/PackageLicenseInfoFromFiles: NOASSERTION/,               'has PackageLicenseInfoFromFiles';
+    like $report, qr/PackageLicenseConcluded: NOASSERTION/,                   'has PackageLicenseConcluded';
+    like $report, qr/PackageCopyrightText: NOASSERTION/,                      'has PackageCopyrightText';
+    like $report, qr/PackageChecksum: MD5: .+/,                               'has PackageCheckSum';
+    like $report, qr/Relationship: SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-1/, 'has relationship to document';
   };
 
   subtest 'File Information' => sub {
     like $report, qr/FileName: \.\/Mojolicious-7.25\/\.perltidyrc/, 'has .perltidyrc file';
-    like $report, qr/SPDXID: SPDXRef-item1/,                        'has SPDXID for file';
+    like $report, qr/SPDXID: SPDXRef-item-1-1/,                     'has SPDXID for file';
 
     like $report, qr/FileName: \.\/Mojolicious-7.25\/Changes/,                      'has Changes file';
     like $report, qr/FileChecksum: SHA1: ac24afaef6590f55e1fd90f2d9c57fde4e899ab9/, 'has Changes checksum';
@@ -110,7 +110,7 @@ subtest 'SPDX report contents' => sub {
 
     like $report, qr/FileName: \.\/Mojolicious-7.25\/LICENSE/,                      'has LICENSE file';
     like $report, qr/FileChecksum: SHA1: 2f8018a02043ed1a43f032379e036bb6b88265f2/, 'has LICENSE checksum';
-    like $report, qr/LicenseInfoInFile: LicenseRef-2/,                              'has LICENSE license';
+    like $report, qr/LicenseInfoInFile: LicenseRef-1-2/,                            'has LICENSE license';
     like $report, qr/FileCopyrightText: .*Copyright.*2006.*The Perl Foundation.*/,  'has LICENSE copyright';
   };
 
@@ -120,13 +120,13 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/LicenseComment: Risk: 5/,                   'has license reference 1 risk';
     like $report, qr/ExtractedText: .*Fixed copyright notice.*/, 'has license reference 1 text';
 
-    like $report, qr/LicenseID: LicenseRef-6/, 'has license reference 6';
+    like $report, qr/LicenseID: LicenseRef-1-6/, 'has license reference 6';
     like $report, qr/LicenseComment: Similar: Apache-2.0 \(95% similarity, estimated risk 5\)/,
       'has license reference 6 with similarity';
 
-    like $report, qr/LicenseID: LicenseRef-Apache-2.0-30/, 'has license reference 30';
-    like $report, qr/LicenseName: Apache-2.0/,             'has license reference 30 name';
-    like $report, qr/LicenseComment: Risk: 5/,             'has license reference 30 risk';
+    like $report, qr/LicenseID: LicenseRef-Apache-2.0-1-30/, 'has license reference 30';
+    like $report, qr/LicenseName: Apache-2.0/,               'has license reference 30 name';
+    like $report, qr/LicenseComment: Risk: 5/,               'has license reference 30 risk';
     like $report, qr/ExtractedText: .*Licensed under the Apache License, Version 2.0.*/,
       'has license reference 30 text';
     unlike $report, qr/LicenseId: LicenseRef.+40/, 'no license reference 40';

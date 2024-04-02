@@ -103,7 +103,7 @@ sub generate_to_file ($self, $id, $file) {
   my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
   $spdx->box('Package Information');
   $spdx->tag(PackageName             => $pkg->{name});
-  $spdx->tag(SPDXID                  => "SPDXRef-pkg$id");
+  $spdx->tag(SPDXID                  => "SPDXRef-pkg-$id");
   $spdx->tag(PackageDownloadLocation => NO_ASSERTION);
   $spdx->tag(PackageVerificationCode => $verification_code);
   if (my $main = $specfile_report->{main}) {
@@ -118,7 +118,7 @@ sub generate_to_file ($self, $id, $file) {
   $spdx->tag(PackageLicenseConcluded     => NO_ASSERTION);
   $spdx->tag(PackageCopyrightText        => NO_ASSERTION);
   $spdx->tag(PackageChecksum             => 'MD5: ' . $pkg->{checkout_dir});
-  $spdx->tag(Relationship                => "SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg$id");
+  $spdx->tag(Relationship                => "SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-$id");
   $spdx->br();
 
   # Files
@@ -135,7 +135,7 @@ sub generate_to_file ($self, $id, $file) {
     $spdx->comment('File');
     $spdx->br();
     $spdx->tag(FileName         => "./$real_name");
-    $spdx->tag(SPDXID           => "SPDXRef-item$file_num");
+    $spdx->tag(SPDXID           => "SPDXRef-item-$id-$file_num");
     $spdx->tag(FileChecksum     => 'SHA1: ' . $files{$file});
     $spdx->tag(LicenseConcluded => NO_ASSERTION);
 
@@ -201,7 +201,7 @@ sub generate_to_file ($self, $id, $file) {
         else {
           my $unknown = $match->{license};
           $license_ref_num++;
-          my $license = "LicenseRef-$unknown-$license_ref_num";
+          my $license = "LicenseRef-$unknown-$id-$license_ref_num";
           $license =~ s/[^A-Za-z0-9.]+/-/g;
 
           $spdx->tag(LicenseInfoInFile => $license);
