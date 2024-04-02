@@ -30,13 +30,8 @@ sub autocomplete ($self) {
   my $patterns = $self->pg->db->query(
     'SELECT DISTINCT(license), risk, patent, trademark, opinion, export_restricted FROM license_patterns')->hashes;
   for my $pattern ($patterns->each) {
-    $licenses->{$pattern->{license}} = {
-      risk              => $pattern->{risk},
-      patent            => $pattern->{patent}            ? true : false,
-      trademark         => $pattern->{trademark}         ? true : false,
-      opinion           => $pattern->{opinion}           ? true : false,
-      export_restricted => $pattern->{export_restricted} ? true : false
-    };
+    $licenses->{$pattern->{license}}
+      = {risk => $pattern->{risk}, patent => false, trademark => false, opinion => false, export_restricted => false};
   }
   delete $licenses->{''};
 
