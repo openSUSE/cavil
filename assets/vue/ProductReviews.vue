@@ -23,7 +23,7 @@
                 class="form-check-input"
                 id="cavil-pkg-attention"
               />
-              <label class="form-check-label" for="cavil-pkg-attention">Needs Attention</label>
+              <label class="form-check-label" for="cavil-pkg-attention"><b>Needs Attention</b></label>
             </div>
             <div class="form-check">
               <input
