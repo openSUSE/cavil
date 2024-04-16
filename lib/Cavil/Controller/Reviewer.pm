@@ -148,6 +148,7 @@ sub meta ($self) {
       package_group     => $group,
       package_license   => {name => $package_license, spdx => \!!$normalized_license},
       package_name      => $pkg->{name},
+      package_priority  => $pkg->{priority},
       package_shortname => $shortname,
       package_summary   => $summary,
       package_type      => $type,

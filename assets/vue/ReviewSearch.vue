@@ -105,7 +105,7 @@ export default {
     const params = getParams({
       limit: 10,
       offset: 0,
-      notObsolete: false,
+      notObsolete: true,
       filter: ''
     });
 

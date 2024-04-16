@@ -144,6 +144,13 @@
             <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
           </td>
         </tr>
+        <tr v-if="pkgPriority !== null">
+          <th class="fit text-start noleftpad" scope="row">
+            <i class="far fa-star"></i>
+          </th>
+          <th class="fit text-start noleftpad" scope="row">Priority:</th>
+          <td id="pkg-priority">{{ pkgPriority }}</td>
+        </tr>
         <tr v-if="created !== null">
           <th class="fit text-start noleftpad" scope="row">
             <i class="far fa-plus-square"></i>
@@ -328,6 +335,7 @@ export default {
       pkgFiles: [],
       pkgLicense: null,
       pkgName: null,
+      pkgPriority: null,
       pkgShortname: null,
       pkgSummary: null,
       pkgType: null,
@@ -380,6 +388,7 @@ export default {
       this.pkgGroup = data.package_group;
       this.pkgLicense = data.package_license;
       this.pkgName = data.package_name;
+      this.pkgPriority = data.package_priority;
       this.pkgShortname = data.package_shortname;
       this.pkgSummary = data.package_summary;
       this.pkgType = data.package_type;
