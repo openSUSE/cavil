@@ -46,7 +46,7 @@
                   <div v-if="product.unacceptable_packages > 0" class="cavil-bad-badge badge text-bg-danger">
                     {{ product.unacceptable_packages }}
                   </div>
-                  <div v-if="product.new_packages > 0" class="badge text-bg-warning">
+                  <div v-if="product.new_packages > 0" class="badge text-bg-secondary">
                     {{ product.new_packages }}
                   </div>
                 </td>
