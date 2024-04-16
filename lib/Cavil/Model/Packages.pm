@@ -321,7 +321,7 @@ sub paginate_review_search ($self, $name, $options) {
       SELECT p.id AS id, state, checksum, p.result AS comment, EXTRACT(EPOCH FROM p.created) AS created_epoch,
         EXTRACT(EPOCH FROM p.imported) AS imported_epoch, EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch,
         EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
-        u.login AS login, COUNT(*) OVER() AS total
+        u.login AS user, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
       WHERE name = ? $search $obsolete
       ORDER BY id DESC
