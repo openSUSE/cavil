@@ -13,6 +13,18 @@
     </h2>
     <table class="table borderless novertpad">
       <tbody>
+        <tr v-if="state !== null">
+          <th class="fit text-start noleftpad" scope="row">
+            <i class="fas fa-balance-scale"></i>
+          </th>
+          <th class="fit text-start noleftpad" scope="row">State:</th>
+          <td id="pkg-state">
+            <div v-if="state === 'new'" class="badge text-bg-secondary">{{ state }}</div>
+            <div v-else-if="state === 'correct'" class="badge text-bg-success">{{ state }}</div>
+            <div v-else-if="state === 'acceptable'" class="badge text-bg-warning">{{ state }}</div>
+            <div v-else class="badge text-bg-danger">{{ state }}</div>
+          </td>
+        </tr>
         <tr v-if="pkgLicense !== null">
           <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-box"></i>
@@ -152,13 +164,6 @@
           </th>
           <th class="fit text-start noleftpad" scope="row">Reviewing User:</th>
           <td>{{ reviewingUser }}</td>
-        </tr>
-        <tr v-if="state !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-balance-scale"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">State:</th>
-          <td id="pkg-state">{{ state }}</td>
         </tr>
       </tbody>
     </table>
@@ -396,7 +401,8 @@ export default {
       this.searchUrl = `/search?q=${this.pkgName}`;
 
       // Make sure not to reset the comment field in the middle of a review (unless someone else changed the state)
-      if (data.state !== this.state) this.result = data.result ?? 'Reviewed ok';
+      const defaultResult = this.hasManagerRole === true || this.hasAdminRole === true ? 'Reviewed ok' : '';
+      if (data.state !== this.state) this.result = data.result ?? defaultResult;
       this.state = data.state;
       this.warnings = data.warnings;
     }
