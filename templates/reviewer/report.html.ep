@@ -11,9 +11,8 @@
     <div class="row">
       <div class="col mb-3">
         <div id="unmatched-files" class="alert alert-warning" role="alert">
-          Found unmatched keywords in (at least) <span id="unmatched-count" class="badge text-bg-dark"><%= scalar @{$report->{missed_files}} %></span> files.
-          License report is incomplete.
-
+          License report is incomplete. Found unmatched keywords in (at least)
+          <span id="unmatched-count" class="badge text-bg-dark"><%= scalar @{$report->{missed_files}} %></span> files:
           <div id="filelist-snippets" class="collapse show">
             <ul>
             % for my $file (@{$report->{missed_files}}) {
