@@ -71,12 +71,14 @@
         <div class="col-lg-2 mb-3">
           <div class="form-floating">
             <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control">
+              <option>0</option>
               <option>1</option>
               <option>2</option>
               <option>3</option>
               <option>4</option>
               <option>5</option>
               <option>6</option>
+              <option>9</option>
             </select>
             <label for="risk" class="form-label">Risk</label>
           </div>
@@ -177,6 +179,7 @@ export default {
       results: [],
       riskHtml:
         '<b>Low risk licenses (auto-accepted)</b><br>' +
+        '<b>0:</b> Public Domain<br>' +
         '<b>1:</b> MIT, BSD-2-clause<br>' +
         '<b>2:</b> GPL-2.0-or-later, Artistic-2.0<br>' +
         '<b>3:</b> Apache-2.0, AGPL-3.0-or-later<br>' +

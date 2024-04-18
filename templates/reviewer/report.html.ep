@@ -11,7 +11,7 @@
     <div class="row">
       <div class="col mb-3">
         <div id="unmatched-files" class="alert alert-warning" role="alert">
-          Found unmatched keywords in (at least) <span id="unmatched-count" class="badge text-bg-secondary"><%= scalar @{$report->{missed_files}} %></span> files.
+          Found unmatched keywords in (at least) <span id="unmatched-count" class="badge text-bg-dark"><%= scalar @{$report->{missed_files}} %></span> files.
           License report is incomplete.
 
           <div id="filelist-snippets" class="collapse show">
@@ -37,7 +37,12 @@
   % my $license_counter = 0;
 
   % for my $risk (reverse sort keys %$risks) {
-    <h3>Risk <%= $risk %></h3>
+    % if ($risk <= 3) {
+      <h4><div class="badge text-bg-success">Risk <%= $risk %></badge></h4>
+    % }
+    % else {
+      <h4><div class="badge text-bg-danger">Risk <%= $risk %></badge></h4>
+    % }
     % my $current = $risks->{$risk};
 
     <ul id="risk-<%= $risk %>">
