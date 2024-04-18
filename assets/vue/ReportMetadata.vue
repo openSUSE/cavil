@@ -253,14 +253,14 @@
         </table>
       </div>
     </div>
-    <div v-if="errors.length > 0" id="spec-errors" class="alert alert-danger">
-      <p>Package file errors:</p>
+    <div v-if="errors.length > 0" id="spec-errors" class="alert alert-warning">
+      <p>Package file warnings for packagers:</p>
       <ul>
         <li v-for="error in errors" :key="error">{{ error }}</li>
       </ul>
     </div>
     <div v-if="warnings.length > 0" id="spec-warnings" class="alert alert-warning">
-      <p>Package file warnings:</p>
+      <p>Package file warnings for reviewers:</p>
       <ul>
         <li v-for="warning in warnings" :key="warning">{{ warning }}</li>
       </ul>
