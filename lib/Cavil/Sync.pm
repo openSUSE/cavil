@@ -88,7 +88,6 @@ sub store ($self, $dir) {
           {
             license           => $hash->{license},
             spdx              => $hash->{spdx},
-            opinion           => $hash->{opinion},
             packname          => $hash->{packname},
             patent            => $hash->{patent},
             pattern           => $hash->{pattern},

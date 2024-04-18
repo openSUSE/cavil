@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"addresses this 'new' license feature... *\/\n#ifdef MODULE_LICENSE\nMODULE_LICENSE(\"GPL","risk":3,"spdx":"","trademark":0,"unique_id":"e4130ed8-0b39-4874-80cc-8b8e00b77475"}
+{"export_restricted":0,"license":"GPL-Unspecified","packname":"","patent":0,"pattern":"addresses this 'new' license feature... *\/\n#ifdef MODULE_LICENSE\nMODULE_LICENSE(\"GPL","risk":3,"spdx":"","trademark":0,"unique_id":"e4130ed8-0b39-4874-80cc-8b8e00b77475"}

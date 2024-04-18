@@ -207,7 +207,7 @@ sub _match ($self, $id, $preview) {
 
 sub _match_info ($self, $id) {
   my $sql = q{
-    SELECT pm.*, lp.id AS pattern_id, lp.license, lp.opinion, lp.packname, lp.patent, lp.pattern, lp.spdx,
+    SELECT pm.*, lp.id AS pattern_id, lp.license, lp.packname, lp.patent, lp.pattern, lp.spdx,
       lp.token_hexsum, lp.trademark, mf.id AS file_id, mf.filename
     FROM pattern_matches pm
       LEFT JOIN license_patterns lp ON pm.pattern = lp.id

@@ -55,9 +55,8 @@
         % if ($match->{packname}) {
           <span><b>Package:</b> <%= $match->{packname} %></span>
         % }
-        % if ($match->{opinion} || $match->{patent} || $match->{trademark} || $match->{export_restricted}) {
+        % if ($match->{patent} || $match->{trademark} || $match->{export_restricted}) {
           <span><b>Flags:</b>
-              %= $match->{opinion} ? 'Opinion' : ''
               %= $match->{patent} ? 'Patent' : ''
               %= $match->{trademark} ? 'Trademark' : ''
               %= $match->{export_restricted} ? 'Export Restricted' : ''

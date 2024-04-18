@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-2.0","opinion":0,"packname":"uwsgi","patent":0,"pattern":"Gem::Specification.new do |s|\n  s.name        = 'uwsgi'\n  s.license     = 'GPL-2","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"06492ab6-5a4e-4589-a05d-e9c2dc06cd37"}
+{"export_restricted":0,"license":"GPL-2.0","packname":"uwsgi","patent":0,"pattern":"Gem::Specification.new do |s|\n  s.name        = 'uwsgi'\n  s.license     = 'GPL-2","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"06492ab6-5a4e-4589-a05d-e9c2dc06cd37"}

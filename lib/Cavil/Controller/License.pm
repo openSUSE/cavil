@@ -27,7 +27,6 @@ sub create_pattern ($self) {
   $validation->optional('risk')->num;
   $validation->optional('patent');
   $validation->optional('trademark');
-  $validation->optional('opinion');
   $validation->optional('export_restricted');
   return $self->reply->json_validation_error if $validation->has_error;
 
@@ -41,7 +40,6 @@ sub create_pattern ($self) {
     risk              => $validation->param('risk'),
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
-    opinion           => $validation->param('opinion'),
     export_restricted => $validation->param('export_restricted')
   );
 
@@ -137,7 +135,6 @@ sub update_pattern ($self) {
   $validation->optional('risk')->num;
   $validation->optional('patent');
   $validation->optional('trademark');
-  $validation->optional('opinion');
   $validation->optional('export_restricted');
   return $self->reply->json_validation_error if $validation->has_error;
 
@@ -154,7 +151,6 @@ sub update_pattern ($self) {
     license           => $validation->param('license'),
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
-    opinion           => $validation->param('opinion'),
     export_restricted => $validation->param('export_restricted'),
     risk              => $validation->param('risk')
   );

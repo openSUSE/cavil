@@ -55,10 +55,6 @@
         </div>
         <div class="col-lg-2">
           <div class="form-check">
-            <%= check_box opinion => 1, class => 'form-check-input', $match->{opinion} ? (checked => undef) : () %>
-            <label class="form-check-label" for="opinion">Opinion</label>
-          </div>
-          <div class="form-check">
             <%= check_box export_restricted => 1, class => 'form-check-input',
               $match->{export_restricted} ? (checked => undef) : () %>
             <label class="form-check-label" for="export_restricted">Export Restricted</label>

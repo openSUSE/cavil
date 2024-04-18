@@ -127,7 +127,6 @@ sub _create_pattern ($self, $packages, $validation) {
   $validation->required('risk')->num;
   $validation->optional('patent');
   $validation->optional('trademark');
-  $validation->optional('opinion');
   $validation->optional('export_restricted');
   return $self->reply->json_validation_error if $validation->has_error;
 
@@ -139,7 +138,6 @@ sub _create_pattern ($self, $packages, $validation) {
     # TODO: those checkboxes aren't yet taken over
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
-    opinion           => $validation->param('opinion'),
     export_restricted => $validation->param('export_restricted')
   );
   if ($pattern->{conflict}) {

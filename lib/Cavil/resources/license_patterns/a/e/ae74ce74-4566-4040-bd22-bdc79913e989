@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"crash","patent":0,"pattern":"gnu-regex.c, gnu-regex.h: Change LGPL license to GPL license\n\tto stay consistent with the rest of GDB","risk":3,"spdx":"","trademark":0,"unique_id":"ae74ce74-4566-4040-bd22-bdc79913e989"}
+{"export_restricted":0,"license":"GPL-Unspecified","packname":"crash","patent":0,"pattern":"gnu-regex.c, gnu-regex.h: Change LGPL license to GPL license\n\tto stay consistent with the rest of GDB","risk":3,"spdx":"","trademark":0,"unique_id":"ae74ce74-4566-4040-bd22-bdc79913e989"}

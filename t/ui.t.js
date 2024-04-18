@@ -277,7 +277,7 @@ t.test('Test cavil ui', skip, async t => {
 
       // Select a few options on the creation form
       await page.locator('select[name="risk"]').selectOption('3');
-      await page.locator('input[name="opinion"]').check();
+      await page.locator('input[name="trademark"]').check();
       await page.locator('button:has-text("Create Pattern")').click();
       await page.waitForURL(`${url}/snippet/decision/7`);
 
@@ -288,7 +288,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator('input[name=license]').fill('Made-Up-License-1.0');
       await page.locator('input[value=Update]').click();
       t.equal(await page.innerText('select[name=risk] > option[selected]'), '3');
-      t.same(await page.isVisible('input[name=opinion][checked]'), true);
+      t.same(await page.isVisible('input[name=trademark][checked]'), true);
       t.match(await page.innerText('div.alert'), /Pattern has been updated/);
 
       // License now shows up in list

@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"Python >=2.0.1","opinion":0,"packname":"","patent":0,"pattern":"except ImportError:\n    ## which() function copied from Python 3.4.3; PSF license","risk":1,"spdx":"","trademark":0,"unique_id":"149db0ed-3a7b-4754-aff1-2116d130e6a1"}
+{"export_restricted":0,"license":"Python >=2.0.1","packname":"","patent":0,"pattern":"except ImportError:\n    ## which() function copied from Python 3.4.3; PSF license","risk":1,"spdx":"","trademark":0,"unique_id":"149db0ed-3a7b-4754-aff1-2116d130e6a1"}

@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"CBC block cipher algorithm","risk":3,"spdx":"","trademark":0,"unique_id":"c9dcf221-37da-4631-83f5-7d97d22bad8a"}
+{"export_restricted":0,"license":"GPL-Unspecified","packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"CBC block cipher algorithm","risk":3,"spdx":"","trademark":0,"unique_id":"c9dcf221-37da-4631-83f5-7d97d22bad8a"}

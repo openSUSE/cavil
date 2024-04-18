@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"Zlib","opinion":0,"packname":"","patent":0,"pattern":"License:\r\n\r\n    Zlib\r\n\r\nThe Debian packaging is (C) $SKIP1, $SKIP10 and\r\nis licensed under the Zlib license","risk":1,"spdx":"Zlib","trademark":0,"unique_id":"b0336699-4075-43d0-a016-e25d10ff0647"}
+{"export_restricted":0,"license":"Zlib","packname":"","patent":0,"pattern":"License:\r\n\r\n    Zlib\r\n\r\nThe Debian packaging is (C) $SKIP1, $SKIP10 and\r\nis licensed under the Zlib license","risk":1,"spdx":"Zlib","trademark":0,"unique_id":"b0336699-4075-43d0-a016-e25d10ff0647"}

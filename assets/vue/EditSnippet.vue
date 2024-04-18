@@ -108,17 +108,6 @@
         <div class="col-lg-2">
           <div class="form-check">
             <input
-              v-model="licenseOptions.opinion"
-              type="checkbox"
-              class="form-check-input"
-              id="opinion"
-              name="opinion"
-              value="1"
-            />
-            <label class="form-check-label" for="opinion">Opinion</label>
-          </div>
-          <div class="form-check">
-            <input
               v-model="licenseOptions.export_restricted"
               type="checkbox"
               class="form-check-input"
@@ -179,7 +168,6 @@ export default {
       licenses: {},
       licenseOptions: {
         exportRestricted: false,
-        opinion: false,
         patent: false,
         risk: 1,
         trademark: false

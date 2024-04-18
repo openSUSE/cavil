@@ -34,9 +34,8 @@
       % if ($next_best->{packname}) {
         <span><b>Package:</b> <%= $next_best->{packname} %></span>
       % }
-      % if ($next_best->{opinion} || $next_best->{patent} || $next_best->{trademark} || $next_best->{export_restricted}) {
+      % if ($next_best->{patent} || $next_best->{trademark} || $next_best->{export_restricted}) {
         <span><b>Flags:</b>
-          %= $next_best->{opinion} ? 'Opinion' : ''
           %= $next_best->{patent} ? 'Patent' : ''
           %= $next_best->{trademark} ? 'Trademark' : ''
           %= $next_best->{export_restricted} ? 'Export Restricted' : ''

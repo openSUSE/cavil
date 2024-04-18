@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"ECB block cipher algorithm","risk":3,"spdx":"","trademark":0,"unique_id":"b8a88812-334d-4cd7-816b-9880b91a6780"}
+{"export_restricted":0,"license":"GPL-Unspecified","packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"ECB block cipher algorithm","risk":3,"spdx":"","trademark":0,"unique_id":"b8a88812-334d-4cd7-816b-9880b91a6780"}

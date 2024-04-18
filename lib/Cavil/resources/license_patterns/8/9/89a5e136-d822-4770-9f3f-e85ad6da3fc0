@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"Twofish cipher common functions","risk":3,"spdx":"","trademark":0,"unique_id":"89a5e136-d822-4770-9f3f-e85ad6da3fc0"}
+{"export_restricted":0,"license":"GPL-Unspecified","packname":"","patent":0,"pattern":"MODULE_LICENSE(\"GPL\");\nMODULE_DESCRIPTION(\"Twofish cipher common functions","risk":3,"spdx":"","trademark":0,"unique_id":"89a5e136-d822-4770-9f3f-e85ad6da3fc0"}

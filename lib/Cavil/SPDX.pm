@@ -31,7 +31,7 @@ my $SPDX_VERSION = '2.2';
 
 has 'app';
 
-my @FLAGS = qw(trademark patent opinion export_restricted);
+my @FLAGS = qw(trademark patent export_restricted);
 
 sub generate_to_file ($self, $id, $file) {
   path($file)->remove if -e $file;
@@ -163,7 +163,7 @@ sub generate_to_file ($self, $id, $file) {
       }
 
       my $match_sql = qq{
-        SELECT m.*, p.spdx, p.license, p.risk, p.unique_id, p.trademark, p.patent, p.opinion, p.export_restricted
+        SELECT m.*, p.spdx, p.license, p.risk, p.unique_id, p.trademark, p.patent, p.export_restricted
         FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
         WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
       };

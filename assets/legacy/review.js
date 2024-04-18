@@ -84,7 +84,7 @@ function createPattern(success) {
   const dia = $('#new-license-pattern');
   const data = {license: dia.find('select[name=license]').val()};
   data.pattern = dia.find('textarea').val();
-  $.each(['opinion', 'patent', 'trademark'], (i, val) => {
+  $.each(['patent', 'trademark'], (i, val) => {
     if (dia.find(`input[name=${val}]`).prop('checked')) {
       data[val] = 1;
     }

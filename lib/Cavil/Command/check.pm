@@ -54,16 +54,16 @@ sub _checksum ($db, $reports, $id) {
   my $text = "RPM-License $canon_license\n";
 
   my $matches = $db->query(
-    'select distinct l.name, p.opinion, p.patent, p.trademark
+    'select distinct l.name, p.patent, p.trademark
      from pattern_matches m left join license_patterns p on m.pattern = p.id
        left join licenses l on p.license = l.id
      where package = ? and ignored = false
-     order by name, p.patent, p.opinion, p.trademark', $id
+     order by name, p.patent, p.trademark', $id
   );
 
   while (my $row = $matches->hash) {
     $text .= "LID:$row->{name}";
-    for my $flag (qw(patent trademark opinion)) {
+    for my $flag (qw(patent trademark)) {
       if ($row->{$flag}) {
         $text .= ":$flag";
       }

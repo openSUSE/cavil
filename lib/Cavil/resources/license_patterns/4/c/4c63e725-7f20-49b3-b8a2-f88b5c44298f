@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-3.0","opinion":0,"packname":"tcpreplay","patent":0,"pattern":"fprintf(stderr, \"The entire Tcpreplay Suite is licensed under the GPLv3","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"4c63e725-7f20-49b3-b8a2-f88b5c44298f"}
+{"export_restricted":0,"license":"GPL-3.0","packname":"tcpreplay","patent":0,"pattern":"fprintf(stderr, \"The entire Tcpreplay Suite is licensed under the GPLv3","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"4c63e725-7f20-49b3-b8a2-f88b5c44298f"}

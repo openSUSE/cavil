@@ -286,3 +286,6 @@ ALTER TABLE license_patterns ADD COLUMN export_restricted BOOLEAN NOT NULL DEFAU
 ALTER TABLE bot_packages ADD COLUMN patent BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE bot_packages ADD COLUMN trademark BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE bot_packages ADD COLUMN export_restricted BOOLEAN NOT NULL DEFAULT false;
+
+-- 17 up
+ALTER TABLE license_patterns DROP COLUMN opinion;

@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"OpenSSL","opinion":0,"packname":"","patent":0,"pattern":"copy ..\\..\\openssl-0.9.8l\\LICENSE ..\\Build\\Release\\OpenSSL-LICENSE","risk":3,"spdx":"OpenSSL","trademark":0,"unique_id":"24dbcc11-4871-4c8d-a3cd-5e9da33eaa97"}
+{"export_restricted":0,"license":"OpenSSL","packname":"","patent":0,"pattern":"copy ..\\..\\openssl-0.9.8l\\LICENSE ..\\Build\\Release\\OpenSSL-LICENSE","risk":3,"spdx":"OpenSSL","trademark":0,"unique_id":"24dbcc11-4871-4c8d-a3cd-5e9da33eaa97"}

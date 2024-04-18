@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-3.0","opinion":0,"packname":"crash","patent":0,"pattern":"Switch the license of all .h files to GPLv3.\n\n2007-01-09  Daniel Jacobowitz  <dan@codesourcery.com","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"00e6b5ba-e9fb-47f3-b3fe-59c0bad7c577"}
+{"export_restricted":0,"license":"GPL-3.0","packname":"crash","patent":0,"pattern":"Switch the license of all .h files to GPLv3.\n\n2007-01-09  Daniel Jacobowitz  <dan@codesourcery.com","risk":3,"spdx":"GPL-3.0-only","trademark":0,"unique_id":"00e6b5ba-e9fb-47f3-b3fe-59c0bad7c577"}

@@ -27,11 +27,12 @@ has [qw(cache log pg minion)];
 sub autocomplete ($self) {
   my $licenses = {};
 
-  my $patterns = $self->pg->db->query(
-    'SELECT DISTINCT(license), risk, patent, trademark, opinion, export_restricted FROM license_patterns')->hashes;
+  my $patterns
+    = $self->pg->db->query('SELECT DISTINCT(license), risk, patent, trademark, export_restricted FROM license_patterns')
+    ->hashes;
   for my $pattern ($patterns->each) {
     $licenses->{$pattern->{license}}
-      = {risk => $pattern->{risk}, patent => false, trademark => false, opinion => false, export_restricted => false};
+      = {risk => $pattern->{risk}, patent => false, trademark => false, export_restricted => false};
   }
   delete $licenses->{''};
 
@@ -79,7 +80,6 @@ sub create ($self, %args) {
       packname          => $args{packname}          // '',
       patent            => $args{patent}            // 0,
       trademark         => $args{trademark}         // 0,
-      opinion           => $args{opinion}           // 0,
       export_restricted => $args{export_restricted} // 0,
       license           => $args{license}           // '',
       spdx              => $spdx,
@@ -208,7 +208,6 @@ sub update ($self, $id, %args) {
       license           => $args{license},
       patent            => $args{patent}            // 0,
       trademark         => $args{trademark}         // 0,
-      opinion           => $args{opinion}           // 0,
       export_restricted => $args{export_restricted} // 0,
       risk              => $args{risk}              // 5
     },

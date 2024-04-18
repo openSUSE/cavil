@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-2.0","opinion":0,"packname":"","patent":0,"pattern":"re += tr(\"<p>Distributed by %1 and licensed under the GNU General Public License (GPL) Version 2.0.<br","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"7d13917d-1428-4ae5-81be-d90042476e32"}
+{"export_restricted":0,"license":"GPL-2.0","packname":"","patent":0,"pattern":"re += tr(\"<p>Distributed by %1 and licensed under the GNU General Public License (GPL) Version 2.0.<br","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"7d13917d-1428-4ae5-81be-d90042476e32"}

@@ -1,1 +1,1 @@
-{"export_restricted":0,"license":"GPL-Unspecified","opinion":0,"packname":"maxima","patent":0,"pattern":"License: GPL\n;;;\n;;; A very gross hack to hook up maxima to mcclim","risk":3,"spdx":"","trademark":0,"unique_id":"25cf13ce-e61c-4359-af62-2a07d08d9407"}
+{"export_restricted":0,"license":"GPL-Unspecified","packname":"maxima","patent":0,"pattern":"License: GPL\n;;;\n;;; A very gross hack to hook up maxima to mcclim","risk":3,"spdx":"","trademark":0,"unique_id":"25cf13ce-e61c-4359-af62-2a07d08d9407"}
