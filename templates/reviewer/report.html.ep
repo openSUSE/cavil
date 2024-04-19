@@ -8,6 +8,10 @@
 
   % my %linked_files;
   % if (@{$report->{missed_files}}) {
+    <div v-if="warnings.length > 0" id="spec-warnings" class="alert alert-warning">
+      Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
+      positive matches
+    </div>
     <h4><div class="badge text-bg-dark">Risk 9</div></h4>
     <div class="row">
       <div class="col mb-3" id="unmatched-files">
