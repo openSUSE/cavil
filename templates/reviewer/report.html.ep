@@ -30,7 +30,7 @@
                 <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
               % }
               % else {
-                <div class="badge text-bg-succes estimated-risk">Risk <%= $max_risk %></div>
+                <div class="badge text-bg-success estimated-risk">Risk <%= $max_risk %></div>
               % }
             </li>
             % $linked_files{$file->{id}} = 1;
