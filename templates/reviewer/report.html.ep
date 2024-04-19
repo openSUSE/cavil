@@ -16,15 +16,17 @@
         Unmatched keywords in (at least) <span id="unmatched-count"><%= $unmatched %></span>
         <%= $unmatched == 1 ? 'file' : 'files' %>
         <div id="filelist-snippets" class="collapse show">
-          <table class="table table-borderless m-0 ms-2 hover-table">
+          <table class="table table-borderless m-0 ms-4 hover-table">
           % for my $file (@{$report->{missed_files}}) {
             <tr>
-              <td>
+              <td class="p-0">
                 <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
               </td>
-              <td class="text-end">
+              <td class="p-0">
+                <b><%= $file->{match} %>%</b> similarity to <b><%= $file->{license} %></b>
+              </td>
+              <td class="p-0 text-end">
                 % my $max_risk = $file->{max_risk};
-                <%= $file->{match} %>% similarity to <b><%= $file->{license} %></b>,
                 estimated
                 % if ($max_risk == 9) {
                   <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
