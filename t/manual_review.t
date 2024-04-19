@@ -202,17 +202,21 @@ subtest 'Details after reindexing' => sub {
 
   $t->get_ok('/reviews/calc_report/1')->header_like(Vary => qr/Accept-Encoding/)->status_is(200)
     ->element_exists('#license-chart')->element_exists('#unmatched-files')->text_is('#unmatched-count', '4')
-    ->text_like('#unmatched-files li:nth-of-type(1) a', qr!Mojolicious-7.25/LICENSE!)
-    ->text_like('#unmatched-files li:nth-of-type(1)',   qr![0-9.]+% Snippet - estimated risk 7!)
-    ->text_like('#unmatched-files li:nth-of-type(2) a', qr!Mojolicious-7.25/lib/Mojolicious.pm!)
-    ->text_like('#unmatched-files li:nth-of-type(2)',   qr![0-9.]+% Apache-2.0 - estimated risk 7!)
-    ->text_like('#unmatched-files li:nth-of-type(3) a', qr!Mojolicious-7.25/Changes!)
-    ->text_like('#unmatched-files li:nth-of-type(3)',   qr!100% Snippet - estimated risk 5!)
-    ->text_like('#unmatched-files li:nth-of-type(4) a', qr!perl-Mojolicious.changes!)
-    ->text_like('#unmatched-files li:nth-of-type(4)',   qr!100% Snippet - estimated risk 5!)->element_exists('#risk-5')
-    ->text_like('#risk-5 li',                           qr!Apache-2.0!)
-    ->text_like('#risk-5 li ul li:nth-of-type(1) a',    qr!Mojolicious-7.25/lib/Mojolicious.pm!)
-    ->text_like('#risk-5 li ul li:nth-of-type(2) a',    qr!Mojolicious-7.25/lib/Mojolicious/resources/public/!);
+    ->text_like('#unmatched-files li:nth-of-type(1) a',               qr!Mojolicious-7.25/LICENSE!)
+    ->text_like('#unmatched-files li:nth-of-type(1)',                 qr![0-9.]+% similarity to Snippet!)
+    ->text_like('#unmatched-files li:nth-of-type(1) .estimated-risk', qr!Risk 7!)
+    ->text_like('#unmatched-files li:nth-of-type(2) a',               qr!Mojolicious-7.25/lib/Mojolicious.pm!)
+    ->text_like('#unmatched-files li:nth-of-type(2)',                 qr![0-9.]+% similarity to Apache-2.0!)
+    ->text_like('#unmatched-files li:nth-of-type(2) .estimated-risk', qr!Risk 7!)
+    ->text_like('#unmatched-files li:nth-of-type(3) a',               qr!Mojolicious-7.25/Changes!)
+    ->text_like('#unmatched-files li:nth-of-type(3)',                 qr!100% similarity to Snippet!)
+    ->text_like('#unmatched-files li:nth-of-type(3) .estimated-risk', qr!Risk 5!)
+    ->text_like('#unmatched-files li:nth-of-type(4) a',               qr!perl-Mojolicious.changes!)
+    ->text_like('#unmatched-files li:nth-of-type(4)',                 qr!100% similarity to Snippet!)
+    ->text_like('#unmatched-files li:nth-of-type(4) .estimated-risk', qr!Risk 5!)->element_exists('#risk-5')
+    ->text_like('#risk-5 li',                                         qr!Apache-2.0!)
+    ->text_like('#risk-5 li ul li:nth-of-type(1) a',                  qr!Mojolicious-7.25/lib/Mojolicious.pm!)
+    ->text_like('#risk-5 li ul li:nth-of-type(2) a', qr!Mojolicious-7.25/lib/Mojolicious/resources/public/!);
   $t->element_exists('#emails')->text_like('#emails tr td', qr!coolo\@suse\.com!)->element_exists('#urls')
     ->text_like('#urls tr td', qr!http://mojolicious.org!);
 
@@ -234,9 +238,9 @@ subtest 'Manual review' => sub {
 
   $t->get_ok('/reviews/calc_report/1')->status_is(200)->element_exists('#license-chart')
     ->element_exists('#unmatched-files')->text_is('#unmatched-count', '4')
-    ->text_like('#unmatched-files li:nth-of-type(2) a', qr!Mojolicious-7.25/lib/Mojolicious.pm!)
-    ->text_like('#unmatched-files li:nth-of-type(2)',   qr![0-9.]+% Apache-2.0 - estimated risk 7!)
-    ->element_exists('#risk-5');
+    ->text_like('#unmatched-files li:nth-of-type(2) a',               qr!Mojolicious-7.25/lib/Mojolicious.pm!)
+    ->text_like('#unmatched-files li:nth-of-type(2)',                 qr![0-9.]+% similarity to Apache-2.0!)
+    ->text_like('#unmatched-files li:nth-of-type(2) .estimated-risk', qr!Risk 7!)->element_exists('#risk-5');
   $t->element_exists('#emails')->text_like('#emails tr td', qr!coolo\@suse\.com!)->element_exists('#urls')
     ->text_like('#urls tr td', qr!http://mojolicious.org!);
 

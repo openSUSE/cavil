@@ -8,27 +8,36 @@
 
   % my %linked_files;
   % if (@{$report->{missed_files}}) {
+    <h4><div class="badge text-bg-dark">Risk 9</div></h4>
     <div class="row">
-      <div class="col mb-3">
-        <div id="unmatched-files" class="alert alert-warning" role="alert">
-          License report is incomplete. Found unmatched keywords in (at least)
-          <span id="unmatched-count" class="badge text-bg-dark"><%= scalar @{$report->{missed_files}} %></span> files:
-          <div id="filelist-snippets" class="collapse show">
-            <ul>
-            % for my $file (@{$report->{missed_files}}) {
-              <li>
-                <a href="#file-<%= $file->{id} %>" class="file-link"
-                  data-file="<%= $file->{id} %>">
-                  %= $file->{name}
-                </a>
-                %= "($file->{match}% $file->{license} - estimated risk $file->{max_risk})"
-              </li>
-              % $linked_files{$file->{id}} = 1;
-            % }
-            </ul>
-          </div>
-
+      <div class="col mb-3" id="unmatched-files">
+        % my $unmatched = scalar @{$report->{missed_files}};
+        <i class="fas fa-exclamation-circle"></i>
+        Unmatched keywords in (at least) <span id="unmatched-count"><%= $unmatched %></span>
+        <%= $unmatched == 1 ? 'file' : 'files' %>
+        <div id="filelist-snippets" class="collapse show">
+          <ul>
+          % for my $file (@{$report->{missed_files}}) {
+            <li>
+              <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
+              % my $max_risk = $file->{max_risk};
+              - <%= $file->{match} %>% similarity to <%= $file->{license} %>,
+              estimated
+              % if ($max_risk == 9) {
+                <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
+              % }
+              % elsif ($max_risk > 3) {
+                <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
+              % }
+              % else {
+                <div class="badge text-bg-succes estimated-risk">Risk <%= $max_risk %></div>
+              % }
+            </li>
+            % $linked_files{$file->{id}} = 1;
+          % }
+          </ul>
         </div>
+
       </div>
     </div>
   % }
@@ -37,10 +46,10 @@
 
   % for my $risk (reverse sort keys %$risks) {
     % if ($risk <= 3) {
-      <h4><div class="badge text-bg-success">Risk <%= $risk %></badge></h4>
+      <h4><div class="badge text-bg-success">Risk <%= $risk %></div></h4>
     % }
     % else {
-      <h4><div class="badge text-bg-danger">Risk <%= $risk %></badge></h4>
+      <h4><div class="badge text-bg-danger">Risk <%= $risk %></div></h4>
     % }
     % my $current = $risks->{$risk};
 
