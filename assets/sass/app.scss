@@ -307,3 +307,7 @@ body {
   border-top: 1px solid rgb(208, 215, 222);
   padding-top: 1em;
 }
+
+.hover-table tr:hover td {
+  background-color: #e9ecef;
+}

@@ -16,26 +16,30 @@
         Unmatched keywords in (at least) <span id="unmatched-count"><%= $unmatched %></span>
         <%= $unmatched == 1 ? 'file' : 'files' %>
         <div id="filelist-snippets" class="collapse show">
-          <ul>
+          <table class="table table-borderless m-0 ms-2 hover-table">
           % for my $file (@{$report->{missed_files}}) {
-            <li>
-              <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
-              % my $max_risk = $file->{max_risk};
-              - <%= $file->{match} %>% similarity to <b><%= $file->{license} %></b>,
-              estimated
-              % if ($max_risk == 9) {
-                <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
-              % }
-              % elsif ($max_risk > 3) {
-                <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
-              % }
-              % else {
-                <div class="badge text-bg-success estimated-risk">Risk <%= $max_risk %></div>
-              % }
-            </li>
+            <tr>
+              <td>
+                <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
+              </td>
+              <td class="text-end">
+                % my $max_risk = $file->{max_risk};
+                <%= $file->{match} %>% similarity to <b><%= $file->{license} %></b>,
+                estimated
+                % if ($max_risk == 9) {
+                  <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
+                % }
+                % elsif ($max_risk > 3) {
+                  <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
+                % }
+                % else {
+                  <div class="badge text-bg-success estimated-risk">Risk <%= $max_risk %></div>
+                % }
+              </td>
+            </tr>
             % $linked_files{$file->{id}} = 1;
           % }
-          </ul>
+          </table>
         </div>
 
       </div>
