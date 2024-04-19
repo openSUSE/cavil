@@ -311,3 +311,11 @@ body {
 .hover-table tr:hover td {
   background-color: #e9ecef;
 }
+
+.breakable-column {
+  word-break: break-all;
+}
+
+.static-column {
+  white-space: nowrap;
+}
