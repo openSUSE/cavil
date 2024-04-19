@@ -21,7 +21,7 @@
             <li>
               <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
               % my $max_risk = $file->{max_risk};
-              - <%= $file->{match} %>% similarity to <%= $file->{license} %>,
+              - <%= $file->{match} %>% similarity to <b><%= $file->{license} %></b>,
               estimated
               % if ($max_risk == 9) {
                 <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
