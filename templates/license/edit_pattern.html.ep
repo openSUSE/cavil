@@ -27,7 +27,8 @@
         % my $matches = $match->{matches};
         % my $packages = $match->{packages};
         This pattern has <b><%= $matches %></b> <%= $matches == 1 ? 'match' : 'matches' %>
-        in <b><%= $packages %></b> <%= $packages == 1 ? 'package' : 'packages' %>.
+        in <b><%= $packages %></b>
+        <a href="<%= url_for('search')->query(pattern => $id) %>"><%= $packages == 1 ? 'package' : 'packages' %></a>.
       </div>
     % }
   </div>

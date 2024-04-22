@@ -45,6 +45,7 @@
                 <th class="state">State</th>
                 <th class="comment">Comment</th>
                 <th class="user">Reviewing User</th>
+                <th class="created">Package</th>
                 <th class="report">Report</th>
               </tr>
             </thead>
@@ -59,6 +60,7 @@
                 <td v-html="review.state"></td>
                 <td v-html="review.comment"></td>
                 <td v-html="review.user"></td>
+                <td v-html="review.package"></td>
                 <td v-html="review.report"></td>
               </tr>
             </tbody>
@@ -145,6 +147,7 @@ export default {
         reviews.push({
           comment: review.comment,
           created: moment(review.created_epoch * 1000).fromNow(),
+          package: review.package,
           report: reportLink(review),
           state: review.state,
           user: review.user

@@ -1,6 +1,6 @@
-% layout 'default', title => 'Results: ' . param('q');
+% layout 'default', title => 'Search Results';
 
-<h2>Results for <%= param 'q' %></h2>
+<h2>Search Results</h2>
 
 <div id="review-search"></div>
 

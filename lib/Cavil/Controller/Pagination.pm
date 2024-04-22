@@ -120,15 +120,17 @@ sub review_search ($self) {
   $v->optional('offset')->num;
   $v->optional('filter');
   $v->optional('notObsolete');
+  $v->optional('pattern')->num;
   return $self->reply->json_validation_error if $v->has_error;
   my $limit        = $v->param('limit')       // 10;
   my $offset       = $v->param('offset')      // 0;
   my $not_obsolete = $v->param('notObsolete') // 'false';
   my $search       = $v->param('filter')      // '';
+  my $pattern      = $v->param('pattern');
 
   my $name = $self->stash('name');
   my $page = $self->packages->paginate_review_search($name,
-    {limit => $limit, offset => $offset, not_obsolete => $not_obsolete, search => $search});
+    {limit => $limit, offset => $offset, not_obsolete => $not_obsolete, search => $search, pattern => $pattern});
   $self->render(json => $page);
 }
 

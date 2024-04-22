@@ -300,6 +300,12 @@ sub paginate_recent_reviews ($self, $options) {
 sub paginate_review_search ($self, $name, $options) {
   my $db = $self->pg->db;
 
+  my $packages;
+  if ($options->{pattern}) {
+    $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE pattern = ?', $options->{pattern})
+      ->arrays->flatten;
+  }
+
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");
@@ -318,15 +324,15 @@ sub paginate_review_search ($self, $name, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT p.id AS id, state, checksum, p.result AS comment, EXTRACT(EPOCH FROM p.created) AS created_epoch,
-        EXTRACT(EPOCH FROM p.imported) AS imported_epoch, EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch,
-        EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
+      SELECT p.id AS id, name AS package, state, checksum, p.result AS comment,
+        EXTRACT(EPOCH FROM p.created) AS created_epoch, EXTRACT(EPOCH FROM p.imported) AS imported_epoch,
+        EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
         u.login AS user, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
-      WHERE name = ? $search $obsolete
+      WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) $search $obsolete
       ORDER BY id DESC
-      LIMIT ? OFFSET ?
-    }, $name, $options->{limit}, $options->{offset}
+      LIMIT \$3 OFFSET \$4
+    }, $name || undef, $packages, $options->{limit}, $options->{offset}
   )->hashes->to_array;
 
   return paginate($results, $options);
