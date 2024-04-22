@@ -62,12 +62,6 @@
               %= $match->{export_restricted} ? 'Export Restricted' : ''
           </span>
         % }
-        % my $matches = $match->{matches};
-        % my $packages = $match->{packages};
-        <span class="float-end">
-          <%= $matches %> <%= $matches == 1 ? 'match' : 'matches' %> in
-          <%= $packages %> <%= $packages == 1 ? 'package' : 'packages' %>
-        </span>
       </div>
     </div>
   </div>

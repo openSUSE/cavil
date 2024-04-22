@@ -159,17 +159,7 @@ sub checksum ($self, $pattern) {
 }
 
 sub for_license ($self, $license) {
-  my $db       = $self->pg->db;
-  my $patterns = $db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
-  for my $pattern (@$patterns) {
-    my $count = $db->query(
-      'SELECT COUNT(*) AS matches, COUNT(DISTINCT(package)) AS packages
-       FROM pattern_matches WHERE pattern = ?', $pattern->{id}
-    )->hash;
-    $pattern->{matches}  = $count->{matches};
-    $pattern->{packages} = $count->{packages};
-  }
-  return $patterns;
+  return $self->pg->db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
 }
 
 sub paginate_known_licenses ($self, $options) {
