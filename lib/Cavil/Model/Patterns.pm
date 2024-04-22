@@ -135,6 +135,13 @@ sub load_unspecific ($self, $matcher) {
   rename $tmp, $cachefile;
 }
 
+sub match_count($self, $id) {
+  return $self->pg->db->query(
+    'SELECT COUNT(*) AS matches, COUNT(DISTINCT(package)) AS packages
+       FROM pattern_matches WHERE pattern = ?', $id
+  )->hash;
+}
+
 sub all ($self) {
   return $self->pg->db->select('license_patterns', '*')->hashes;
 }

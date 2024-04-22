@@ -57,7 +57,12 @@ sub create_pattern ($self) {
 sub edit_pattern ($self) {
   my $id       = $self->stash('id');
   my $patterns = $self->patterns;
-  my $pattern  = $patterns->find($id);
+
+  my $pattern = $patterns->find($id);
+
+  my $count = $patterns->match_count($id);
+  $pattern->{matches}   = $count->{matches};
+  $pattern->{packages} = $count->{packages};
 
   my $result = $patterns->closest_matches($pattern->{pattern}, 2);
   my $best   = $result->[0];

@@ -15,6 +15,16 @@
 
 % my $url = url_for($match->{id} ? 'update_pattern' : 'create_pattern');
 
+% if ($match->{matches}) {
+  <div class="row">
+    <div class="col mb-3">
+      % my $matches = $match->{matches};
+      % my $packages = $match->{packages};
+      This pattern has <b><%= $matches %></b> <%= $matches == 1 ? 'match' : 'matches' %>
+      in <b><%= $packages %></b> <%= $packages == 1 ? 'package' : 'packages' %>.
+    </div>
+  </div>
+% }
 <div class="row">
   %= form_for $url => (method => 'POST') => begin
     <div class="col mb-3">
@@ -36,7 +46,7 @@
         <div class="col-lg-2 mb-3">
           <div class="form-floating">
             % my @risks;
-            % for my $r (0..6) {
+            % for my $r (0..9) {
                 % if ($r == $match->{risk}) { push(@risks, [ $r => $r, selected => 'selected' ]) } else { push(@risks, $r); }
             % }
             %= select_field risk => \@risks, class => 'form-control'
