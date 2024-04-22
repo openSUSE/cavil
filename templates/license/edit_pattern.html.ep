@@ -15,14 +15,21 @@
 
 % my $url = url_for($match->{id} ? 'update_pattern' : 'create_pattern');
 
-% if ($match->{matches}) {
+% if (defined $match->{matches}) {
   <div class="row">
-    <div class="col mb-3">
-      % my $matches = $match->{matches};
-      % my $packages = $match->{packages};
-      This pattern has <b><%= $matches %></b> <%= $matches == 1 ? 'match' : 'matches' %>
-      in <b><%= $packages %></b> <%= $packages == 1 ? 'package' : 'packages' %>.
-    </div>
+    % if ($match->{matches} == 0) {
+      <div class="col mb-3">
+        This pattern has no matches.
+      </div>
+    % }
+    % else {
+      <div class="col mb-3">
+        % my $matches = $match->{matches};
+        % my $packages = $match->{packages};
+        This pattern has <b><%= $matches %></b> <%= $matches == 1 ? 'match' : 'matches' %>
+        in <b><%= $packages %></b> <%= $packages == 1 ? 'package' : 'packages' %>.
+      </div>
+    % }
   </div>
 % }
 <div class="row">
