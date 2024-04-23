@@ -217,10 +217,10 @@ sub unpack ($self, $options = {}) {
   my $u = File::Unpack2->new(
     verbose => 0,
 
-    # chromium's tar is 5.4GB (uncompressed, as file::unpack2
+    # chromium's tar is 18GB (uncompressed, as file::unpack2
     # first xz -cd before extracting tar, we need to need that
     # much. And reserve some space for future growth)
-    maxfilesize          => '7G',
+    maxfilesize          => '20G',
     one_shot             => 0,
     no_op                => 0,
     world_readable       => 1,
