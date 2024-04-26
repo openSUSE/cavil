@@ -16,6 +16,14 @@
 package Cavil::Controller::API;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+sub identify ($self) {
+  my $name     = $self->stash('name');
+  my $checksum = $self->stash('checksum');
+  my $pkg      = $self->packages->find_by_name_and_md5($name, $checksum);
+  return $self->render(json => {error => 'Package not found'}, status => 404) unless $pkg;
+  $self->render(json => {id => $pkg->{id}});
+}
+
 sub source ($self) {
 
   my $validation = $self->validation;

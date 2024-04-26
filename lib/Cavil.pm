@@ -189,6 +189,7 @@ sub startup ($self) {
 
   # Public API
   $public->get('/api/package/:name' => sub ($c) { $c->redirect_to('package_api') });
+  $public->get('/api/1.0/identify/:name/:checksum')->to('API#identify')->name('identify_api');
   $public->get('/api/1.0/package/:name')->to('API#status')->name('package_api');
   $public->get('/api/1.0/source')->to('API#source')->name('source_api');
 

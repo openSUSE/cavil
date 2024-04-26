@@ -207,6 +207,14 @@ subtest 'Acceptable risk' => sub {
   is $t->app->reports->risk_is_acceptable('GPL-2.0+-4:Hwo6'),  undef, 'not acceptable';
 };
 
+subtest 'Identify package' => sub {
+  $t->get_ok('/api/1.0/identify/perl-Mojolicious/236d7b56886a0d2799c0d114eddbb7f1')->status_is(200)->json_is('/id', 1);
+  $t->get_ok('/api/1.0/identify/perl-Test/236d7b56886a0d2799c0d114eddbb7f1')->status_is(404)
+    ->json_is('/error', 'Package not found');
+  $t->get_ok('/api/1.0/identify/perl-Mojolicious/236d7b56886a0d2799c0d114eddbb7f2')->status_is(404)
+    ->json_is('/error', 'Package not found');
+};
+
 subtest 'Remove request (but keep packages that are still part of a product)' => sub {
   my $pkgs = $t->app->packages;
   my @ids;
