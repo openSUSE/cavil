@@ -51,7 +51,7 @@
             </thead>
             <tbody v-if="reviews === null">
               <tr>
-                <td id="all-done" colspan="5"><i class="fas fa-sync fa-spin"></i> Loading reviews...</td>
+                <td id="all-done" colspan="6"><i class="fas fa-sync fa-spin"></i> Loading reviews...</td>
               </tr>
             </tbody>
             <tbody v-else-if="reviews.length > 0">
@@ -66,7 +66,7 @@
             </tbody>
             <tbody v-else>
               <tr>
-                <td id="all-done" colspan="5">No reviews found.</td>
+                <td id="all-done" colspan="6">No reviews found.</td>
               </tr>
             </tbody>
           </table>
