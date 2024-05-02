@@ -35,6 +35,17 @@ count as legal advice and no guarantees are made for their correctness!
   [openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools) repository. But you can also upload
   tarballs directly for analysis.
 
+## AI
+
+It is strongly recommended to combine Cavil with a machine learning model for text classification. Because the pattern
+matching system used for identifying clusters of legal keywords (snippets) has a false-positive rate of about 80%. Even
+a simple model can identify almost all of them.
+
+There are currently two example implementations for a companion server application (usually running on port 5000):
+
+1. https://github.com/kraih/Character-level-cnn-pytorch/
+2. https://github.com/kraih/llama-lawyer
+
 ## Getting Started
 
   The easiest way to get started with Cavil is the included staging scripts for setting up a quick development
