@@ -61,7 +61,7 @@ sub edit_pattern ($self) {
   my $pattern = $patterns->find($id);
 
   my $count = $patterns->match_count($id);
-  $pattern->{matches}   = $count->{matches};
+  $pattern->{matches}  = $count->{matches};
   $pattern->{packages} = $count->{packages};
 
   my $result = $patterns->closest_matches($pattern->{pattern}, 2);
