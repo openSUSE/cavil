@@ -429,8 +429,8 @@ sub update ($self, $pkg) {
   return $self->pg->db->update('bot_packages', \%updates, {id => $pkg->{id}});
 }
 
-sub keyword_files ($self, $id) {
-  return $self->pg->db->select('matched_files', 'id,filename', {package => $id})->hashes;
+sub matched_files ($self, $id) {
+  return $self->pg->db->query('SELECT filename FROM matched_files WHERE package = ?', $id)->arrays->flatten->to_array;
 }
 
 sub _check_field ($self, $field, $id) {

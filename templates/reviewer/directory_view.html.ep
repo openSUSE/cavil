@@ -1,5 +1,5 @@
 % layout 'default';
-% title "Directory listing of $filename";
+% title "Directory listing of @{[$filename // '/']}";
 
 %= include 'reviewer/_path'
 
@@ -9,17 +9,28 @@
       <table>
         % for my $entry (@$dirs, @$files, @$processed) {
           % my $name = $entry->basename;
-          % my $path = "$filename/$name";
+          % my $path = length($filename) ? "$filename/$name" : $name;
+          % my $has_match = $matched_files->{$path};
           <tr>
             <td class="pe-1">
               % if (-d $entry) {
                 <i class="fa fa-folder"></i>
               % }
               % elsif ($name =~ /\.processed(?:\.\w+|$)/) {
-                <i class="far fa-copy"></i>
+                % if ($has_match) {
+                  <i class="fas fa-copy file-with-matches"></i>
+                % }
+                % else {
+                  <i class="far fa-copy"></i>
+                % }
               % }
               % else {
-                <i class="far fa-file"></i>
+                % if ($has_match) {
+                  <i class="fas fa-file file-with-matches"></i>
+                % }
+                % else {
+                  <i class="far fa-file"></i>
+                % }
               % }
             </td>
             <td>

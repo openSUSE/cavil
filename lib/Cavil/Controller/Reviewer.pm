@@ -195,7 +195,8 @@ sub file_view ($self) {
   $filename =~ s,/$,,;
   $self->stash('filename', $filename);
 
-  my $package = $self->packages->find($self->stash('id'));
+  my $pkgs    = $self->packages;
+  my $package = $pkgs->find($self->stash('id'));
   return $self->reply->not_found unless $package;
   $self->stash('package', $package);
 
@@ -208,13 +209,20 @@ sub file_view ($self) {
   return $self->reply->not_found unless -e $file;
 
   if (-d $file) {
+    my %matched_files = map { $_ => 1 } @{$pkgs->matched_files($package->{id})};
     my (@files, @dirs, @processed);
     for my $entry (path($file)->list({dir => 1})->each) {
       if    (-d $entry)                          { push @dirs,      $entry }
       elsif ($entry =~ /\.processed(?:\.\w+|$)/) { push @processed, $entry }
       else                                       { push @files,     $entry }
     }
-    return $self->render('reviewer/directory_view', dirs => \@dirs, files => \@files, processed => \@processed);
+    return $self->render(
+      'reviewer/directory_view',
+      dirs          => \@dirs,
+      files         => \@files,
+      processed     => \@processed,
+      matched_files => \%matched_files
+    );
   }
 
   $self->stash('file', $file);
