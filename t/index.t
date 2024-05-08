@@ -21,6 +21,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Mojo::File qw(path);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -132,6 +133,15 @@ $res = $db->select(
   {order_by                 => 'sline'}
 )->arrays;
 is_deeply $res, [[751, 2], [1103, 5]], 'Perl correctly tagged Artistic';
+
+subtest 'Make sure there are no leftover .processed files' => sub {
+  my $dir = path($t->app->config->{checkout_dir}, 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd', '.unpacked');
+  ok -e $dir->child('perl-Mojolicious.spec'),                                'main file exists';
+  ok -e $dir->child('perl-Mojolicious.processed.spec'),                      'processed file exists';
+  ok -e $dir->child('Mojolicious-7.25', 'lib', 'Mojolicious.pm'),            'main file exists';
+  ok !-e $dir->child('Mojolicious-7.25', 'lib', 'Mojolicious.processed.pm'), 'processed file does not exist';
+};
+
 
 # Raise acceptable risk
 $config->{acceptable_risk} = 5;

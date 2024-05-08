@@ -16,6 +16,8 @@
 package Cavil::PostProcess;
 use Mojo::Base -base, -signatures;
 
+use Mojo::File qw(path);
+
 has 'hash';
 has max_line_length => 115;
 
@@ -80,8 +82,9 @@ sub _process_file ($self, $from, $mimetype) {
   if ($from =~ m,.spec$,) {
     $ignore_re = qr(^Name *:);
   }
-  open(my $f_in,  '<', "$destdir/$from") || die "Can't open $from";
-  open(my $f_out, '>', "$destdir/$to")   || die "Can't open $to";
+  open(my $f_in, '<', "$destdir/$from") || die "Can't open $from";
+  my $destination = path($destdir, $to)->to_string;
+  open(my $f_out, '>', $destination) || die "Can't open $to";
 
   my $changed = 0;
   while (<$f_in>) {
@@ -103,8 +106,11 @@ sub _process_file ($self, $from, $mimetype) {
   close($f_in);
   close($f_out);
 
+  #warn "FILE $destination CHANGED: $changed\n";
   if (!$changed) {
-    unlink($to);
+    unlink($destination);
+
+    #warn "UNLINKED $destination: $!\n";
     return undef;
   }
   return $to;
