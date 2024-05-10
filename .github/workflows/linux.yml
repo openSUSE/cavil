@@ -28,7 +28,7 @@ jobs:
       - uses: shogo82148/actions-setup-perl@v1
       - uses: actions/setup-node@v2
         with:
-          node-version: '18'
+          node-version: '20'
       - name: node -v
         run: which node; node -v; which npm; npm -v
       - name: npm install
