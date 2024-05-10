@@ -1,4 +1,4 @@
-name: linux
+name: linux-ui
 on:
   push:
     branches:
@@ -33,6 +33,8 @@ jobs:
         run: which node; node -v; which npm; npm -v
       - name: npm install
         run: npm i
+      - name: Install playwright browsers
+        run: npx playwright install --with-deps
       - name: perl -V
         run: perl -V
       - name: Install dependencies
@@ -47,11 +49,11 @@ jobs:
         env:
           NODE_ENV: production
         run: npm run build
-      - name: Run tests
+      - name: Run UI tests
         env:
           TEST_ONLINE: postgresql://postgres:postgres@localhost:5432/postgres
-          HARNESS_PERL_SWITCHES: -MDevel::Cover
-        run: prove -l -v t/*.t
+          TEST_WRAPPER_COVERAGE: 1
+        run: prove -l -v t/*.t.js
       - name: Check assets
         run: ls public/asset
       - name: Coveralls
