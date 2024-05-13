@@ -215,6 +215,11 @@ subtest 'Identify package' => sub {
     ->json_is('/error', 'Package not found');
 };
 
+subtest 'Package status' => sub {
+  $t->get_ok('/api/1.0/package/perl-Mojolicious')->status_is(200)->json_is('/package', 'perl-Mojolicious')
+    ->json_is('/requests/0/checkout', '236d7b56886a0d2799c0d114eddbb7f1');
+};
+
 subtest 'Remove request (but keep packages that are still part of a product)' => sub {
   my $pkgs = $t->app->packages;
   my @ids;
