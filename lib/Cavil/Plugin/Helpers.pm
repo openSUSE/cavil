@@ -26,7 +26,6 @@ sub register ($self, $app, $config) {
   $app->helper('checksum'                    => \&_checksum);
   $app->helper('current_user'                => \&_current_user);
   $app->helper('current_user_has_role'       => \&_current_user_has_role);
-  $app->helper('current_package'             => \&_current_package);
   $app->helper('lic'                         => sub { shift; lic(@_) });
   $app->helper('maybe_utf8'                  => sub { decode('UTF-8', $_[1]) // $_[1] });
   $app->helper('reply.json_validation_error' => \&_json_validation_error);
@@ -78,8 +77,6 @@ sub _checksum ($c, $specfile, $report) {
 
   return md5_sum $text;
 }
-
-sub _current_package ($c) { $c->stash('package') }
 
 sub _current_user ($c) { $c->session('user') }
 
