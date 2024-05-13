@@ -27,8 +27,6 @@ sub register ($self, $app, $config) {
   $app->helper('current_user'                => \&_current_user);
   $app->helper('current_user_has_role'       => \&_current_user_has_role);
   $app->helper('current_package'             => \&_current_package);
-  $app->helper('format_link'                 => \&_format_link);
-  $app->helper('highlight_line'              => \&_highlight_line);
   $app->helper('lic'                         => sub { shift; lic(@_) });
   $app->helper('maybe_utf8'                  => sub { decode('UTF-8', $_[1]) // $_[1] });
   $app->helper('reply.json_validation_error' => \&_json_validation_error);
@@ -88,23 +86,6 @@ sub _current_user ($c) { $c->session('user') }
 sub _current_user_has_role ($c, $role) {
   return undef unless my $user = $c->helpers->current_user;
   return $c->users->has_role($user, $role);
-}
-
-sub _format_link ($c, $link) {
-  if ($link =~ /^obs#(.*)$/) {
-    return $c->link_to($link => "https://build.opensuse.org/request/show/$1" => (target => '_blank'));
-  }
-  if ($link =~ /^ibs#(.*)$/) {
-    return $c->link_to($link => "https://build.suse.de/request/show/$1" => (target => '_blank'));
-  }
-  return $link;
-}
-
-sub _highlight_line ($c, $line, $pattern) {
-  my $oline = $line;
-  $line = xml_escape($line);
-  $line =~ s,(\Q$pattern\E),<span class='lkw'>$1</span>,gi;
-  return Mojo::ByteStream->new($line);
 }
 
 sub _json_validation_error ($c) {
