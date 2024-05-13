@@ -43,7 +43,7 @@ sub closest ($self) {
 }
 
 sub list ($self) {
-  $self->render(snippets => $self->snippets->random(100));
+  $self->render();
 }
 
 sub list_meta ($self) {

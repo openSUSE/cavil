@@ -38,14 +38,6 @@ sub find_or_create ($self, $hash, $text) {
   return $db->select('snippets', 'id', {hash => $hash})->hash->{id};
 }
 
-sub random ($self, $limit) {
-  return $self->pg->db->query(
-    'select id, text, classified,
-    license, confidence from snippets where approved=FALSE
-    order by hash limit ?', $limit
-  )->hashes;
-}
-
 sub approve ($self, $id, $license) {
   my $db = $self->pg->db;
   $db->update('snippets', {license => $license eq 'true' ? 1 : 0, approved => 1, classified => 1}, {id => $id});
