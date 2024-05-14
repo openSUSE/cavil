@@ -255,6 +255,13 @@ subtest 'Manual review' => sub {
   $t->element_exists('#emails')->text_like('#emails tr td', qr!coolo\@suse\.com!)->element_exists('#urls')
     ->text_like('#urls tr td', qr!http://mojolicious.org!);
 
+  $t->get_ok('/pagination/reviews/recent')->json_is('/start', 1)->json_is('/end', 1)->json_is('/total', 1)
+    ->json_is('/page/0/id', 1)->json_like('/page/0/checksum', qr/Artistic/)->json_is('/page/0/external_link', 'mojo#1')
+    ->json_is('/page/0/login',  'tester')->json_is('/page/0/name', 'perl-Mojolicious')->json_is('/page/0/priority', 5)
+    ->json_is('/page/0/result', 'Test review')->json_is('/page/0/state', 'acceptable')
+    ->json_has('/page/0/created_epoch')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
+    ->json_has('/page/0/unpacked_epoch')->json_hasnt('/page/1');
+
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
