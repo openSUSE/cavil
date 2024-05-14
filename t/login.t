@@ -38,6 +38,15 @@ subtest 'Unknown resource' => sub {
   $t->get_ok('/does_not_exist')->status_is(404)->content_like(qr/The requested resource does not exist/);
 };
 
+subtest 'Public (main menu)' => sub {
+  $t->get_ok('/')->status_is(200);
+  $t->get_ok('/reviews/recent')->status_is(200);
+  $t->get_ok('/snippets')->status_is(200);
+  $t->get_ok('/licenses')->status_is(200);
+  $t->get_ok('/products')->status_is(200);
+  $t->get_ok('/products/openSUSE:Factory')->status_is(200);
+};
+
 subtest 'Not authenticated' => sub {
   $t->post_ok('/reviews/review_package/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/reviews/fasttrack_package/1')->status_is(403)->content_like(qr/Permission/);
@@ -50,6 +59,7 @@ subtest 'Not authenticated' => sub {
   $t->post_ok('/licenses/update_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_patterns')->status_is(403)->content_like(qr/Permission/);
   $t->delete_ok('/licenses/remove_pattern/1')->status_is(403)->content_like(qr/Permission/);
+  $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
 };
 
 subtest 'OpenID' => sub {
