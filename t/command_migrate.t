@@ -42,6 +42,15 @@ subtest 'Migrate' => sub {
   }
   like $buffer, qr/Migrated from/, 'right output';
   is $app->pg->migrations->active, $latest, 'latest version is active';
+
+  $buffer = '';
+  {
+    open my $handle, '>', \$buffer;
+    local *STDOUT = $handle;
+    $app->start('migrate');
+  }
+  like $buffer, qr/Nothing to do/, 'right output';
+  is $app->pg->migrations->active, $latest, 'latest version is active';
 };
 
 done_testing();
