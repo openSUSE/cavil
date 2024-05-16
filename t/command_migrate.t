@@ -24,21 +24,24 @@ use Cavil::Test;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_rindex_test');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_migrate_test');
 my $config     = $cavil_test->default_config;
 my $t          = Test::Mojo->new(Cavil => $config);
 my $app        = $t->app;
 $cavil_test->no_fixtures($app);
+$app->pg->migrations->migrate(0);
 
-subtest 'Reindex' => sub {
-  is $app->minion->jobs({tasks => ['reindex_all']})->total, 0, 'no reindex jobs';
+subtest 'Migrate' => sub {
+  is $app->pg->migrations->active, 0, 'version 0 is active';
+  my $latest = $app->pg->migrations->latest;
   my $buffer = '';
   {
     open my $handle, '>', \$buffer;
     local *STDOUT = $handle;
-    $app->start('rindex');
+    $app->start('migrate');
   }
-  is $app->minion->jobs({tasks => ['reindex_all']})->total, 1, 'one reindex job';
+  like $buffer, qr/Migrated from/, 'right output';
+  is $app->pg->migrations->active, $latest, 'latest version is active';
 };
 
 done_testing();

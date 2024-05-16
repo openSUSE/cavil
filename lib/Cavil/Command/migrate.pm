@@ -30,32 +30,6 @@ sub run ($self, @args) {
 
   my $db = $app->pg->db;
 
-  # special case for migration 7, which copies license properties
-  # to patterns
-  if ($migrations->active < 7) {
-    $migrations->migrate(7);
-    my $patterns = $db->query(
-      "select p.id,l.name,l.risk,l.eula,l.nonfree
-         from license_patterns p join licenses l on p.license = l.id"
-    )->hashes;
-
-    for my $p (@$patterns) {
-      $p->{name} = '' if $p->{name} eq 'Low Risk Keyword';
-      $p->{name} = '' if $p->{name} eq 'Higher Risk Keyword';
-
-      $db->update(
-        'license_patterns',
-        {
-          # Careful: in migration 7 it's called license_string
-          # renamed to license in 10
-          license_string => $p->{name},
-          risk           => $p->{risk}
-        },
-        {id => $p->{id}}
-      );
-    }
-  }
-
   # now the rest
   $migrations->migrate;
 
