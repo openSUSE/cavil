@@ -52,14 +52,14 @@ sub run ($self, @args) {
   my $app  = $self->app;
   my $obs  = $app->obs;
   my $info = $obs->package_info($api, $project, $pkg, {rev => $rev});
-  return say dumper $info unless $download || $import;
+  return print STDOUT dumper $info unless $download || $import;
 
   # Download
   my ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
   my $checkout_dir = $import ? $app->config->{checkout_dir} : $download;
   my $dir          = path($checkout_dir, $srcpkg, $verifymd5)->make_path;
   $obs->download_source($api, $project, $pkg, $dir, {rev => $srcmd5});
-  return say qq{Downloaded $pkg to "$dir".} if $download;
+  return print STDOUT qq{Downloaded $pkg to "$dir".\n} if $download;
 
   # Index
   my $user = $app->users->licensedigger;
@@ -96,7 +96,7 @@ sub run ($self, @args) {
     9
   );
 
-  say "Triggered obs_import job $job";
+  print STDOUT "Triggered obs_import job $job\n";
 }
 
 1;
