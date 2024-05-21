@@ -264,6 +264,9 @@ sub unpacked_files ($self, $bucket_size = undef) {
   my @files;
   for my $file (sort keys %{$unpacked}) {
 
+    # Reports might still be present if checkouts get unpacked more than once
+    next if $file =~ /\.report(?:\.processed)?\.spdx$/;
+
     my $mime = $unpacked->{$file}{mime};
     next if $mime =~ $BLACKLIST_MIME_RE;
 
