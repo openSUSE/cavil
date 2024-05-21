@@ -397,7 +397,12 @@ sub reindex_matched_packages ($self, $pid, $priority = 0) {
 }
 
 sub remove_spdx_report ($self, $id) {
-  $self->spdx_report_path($id)->remove;
+  my $path = $self->spdx_report_path($id);
+  $path->remove;
+
+  # Remove the processed SPDX report as well (if it has been created for some reason)
+  $$path =~ s/\.spdx$/\.processed\.spdx/;
+  $path->remove;
 }
 
 sub requests_for ($self, $id) {
