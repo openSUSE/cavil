@@ -32,19 +32,19 @@ my $app        = $t->app;
 $cavil_test->mojo_fixtures($app);
 
 my $tempdir = tempdir;
-my $dir     = $tempdir->child('license_patterns')->make_path;
+my $path    = $tempdir->child('license_patterns.jsonl');
 
 subtest 'Sync' => sub {
   subtest 'Export' => sub {
-    is $dir->list({dir => 1})->size, 0, 'directory is empty';
+    ok !-f $path, 'file does not exist';
     my $buffer = '';
     {
       open my $handle, '>', \$buffer;
       local *STDERR = $handle;
-      $app->start('sync', '-e', $dir);
+      $app->start('sync', '-e', $path);
     }
     like $buffer, qr/Exporting 6 patterns/, 'right output';
-    isnt $dir->list({dir => 1})->size, 0, 'directories have been created';
+    ok -f $path, 'file exists';
   };
 
   subtest 'Import' => sub {
@@ -52,7 +52,7 @@ subtest 'Sync' => sub {
     {
       open my $handle, '>', \$buffer;
       local *STDERR = $handle;
-      $app->start('sync', '-i', $dir);
+      $app->start('sync', '-i', $path);
     }
     like $buffer, qr/Importing 6 patterns/, 'right output';
   };

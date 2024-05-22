@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"any reference local","packname":"libidn","patent":0,"pattern":"contributed by Stephane Bortzmeyer <bortzmeyer@nic.fr>.  It is\nlicensed under the same licence as Libidn itself.  Note that as of\nversion 2.3 Python has native IDN support, see","risk":2,"spdx":"","trademark":0,"unique_id":"8d24eafb-0372-4626-a703-27565ef798eb"}

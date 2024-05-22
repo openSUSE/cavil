@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"LGPL Unspecified","packname":"","patent":0,"pattern":"Handle the COMPILE_{FIRST,LAST,BEFORE,AFTER} part of Makefile.am\n### in the toplevel. Copied from admin\/cvs.sh. Licence presumed LGPL).\ncreate_subdirs","risk":3,"spdx":"","trademark":0,"unique_id":"a499f60e-60a8-482d-8299-ec04b03b08c0"}

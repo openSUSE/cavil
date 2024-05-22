@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"GPL-Unspecified","packname":"","patent":0,"pattern":"ndiswrapper is under GPL by itself, but loads proprietary modules.\n\t * Don't use add_taint_module(), as it would prevent ndiswrapper from\n\t * using GPL-only symbols it needs","risk":3,"spdx":"","trademark":0,"unique_id":"19b5f0b0-7ecf-4132-832f-fa2f7ad5bd29"}

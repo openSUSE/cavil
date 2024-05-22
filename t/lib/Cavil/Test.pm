@@ -117,16 +117,29 @@ sub mojo_fixtures ($self, $app) {
   $pkgs->update($pkg2);
   $pkgs->imported($pkg2_id);
   my $patterns = $app->patterns;
-  $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
   $patterns->create(
-    packname => 'perl-Mojolicious',
-    pattern  => 'Licensed under the Apache License, Version 2.0',
-    license  => 'Apache-2.0'
+    pattern   => 'You may obtain a copy of the License at',
+    license   => 'Apache-2.0',
+    unique_id => '413430b9-8f04-49d8-93ef-953b68835d50'
   );
-  $patterns->create(pattern => 'License: Artistic-2.0',            license => 'Artistic-2.0');
-  $patterns->create(pattern => 'powerful web development toolkit', license => 'SUSE-NotALicense');
-  $patterns->create(pattern => 'the terms');
-  $patterns->create(pattern => 'copyright notice');
+  $patterns->create(
+    packname  => 'perl-Mojolicious',
+    pattern   => 'Licensed under the Apache License, Version 2.0',
+    license   => 'Apache-2.0',
+    unique_id => '413430b9-8f04-49d8-93ef-953b68835d51'
+  );
+  $patterns->create(
+    pattern   => 'License: Artistic-2.0',
+    license   => 'Artistic-2.0',
+    unique_id => '413430b9-8f04-49d8-93ef-953b68835d52'
+  );
+  $patterns->create(
+    pattern   => 'powerful web development toolkit',
+    license   => 'SUSE-NotALicense',
+    unique_id => '413430b9-8f04-49d8-93ef-953b68835d53'
+  );
+  $patterns->create(pattern => 'the terms',        unique_id => '413430b9-8f04-49d8-93ef-953b68835d54');
+  $patterns->create(pattern => 'copyright notice', unique_id => '413430b9-8f04-49d8-93ef-953b68835d55');
 }
 
 sub no_fixtures ($self, $app) {

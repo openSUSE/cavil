@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"APSL-1.1","packname":"","patent":0,"pattern":"remove powermgt_macosx.c since it is using APSL version 1.1 instead of\n  the BSD-like licence like the other files","risk":4,"spdx":"APSL-1.1","trademark":0,"unique_id":"219e08cb-2ea6-4bb6-821a-68910e096adf"}

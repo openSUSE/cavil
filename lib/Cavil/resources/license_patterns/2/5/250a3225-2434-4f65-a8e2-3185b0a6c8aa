@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"LGPL-2.1+","packname":"gsignond","patent":0,"pattern":"Mon Sep 19 09:12:54 UTC 2016 - sor.alexei@meowr.ru\n\n- Avoid using _service.\n- Correct licence: LGPL-2.1+.\n- Fix building on SLE 12 SP1 and older.\n- Add baselibs.conf","risk":1,"spdx":"LGPL-2.1-or-later","trademark":0,"unique_id":"250a3225-2434-4f65-a8e2-3185b0a6c8aa"}

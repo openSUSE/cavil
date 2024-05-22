@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"BSD-3-Clause","packname":"pure-ftpd","patent":0,"pattern":"Don't drop CAP_CHOWN before login completion, so that on-demand\ndirectories are chown()ed to the right user when capabilities are enabled.\n    fake* files are now under a BSD license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"8be2d09e-d293-4d79-a3b7-15fcb743eb0f"}

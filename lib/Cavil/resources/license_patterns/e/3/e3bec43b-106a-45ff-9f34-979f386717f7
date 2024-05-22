@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"any reference local","packname":"","patent":0,"pattern":"Ram backed block device driver.\n *\n * Copyright (C) $SKIP19\n * Copyright (C) $SKIP19\n *\n * Parts derived from drivers\/block\/rd.c, and drivers\/block\/loop.c, copyright\n * of their respective owners","risk":2,"spdx":"","trademark":0,"unique_id":"e3bec43b-106a-45ff-9f34-979f386717f7"}

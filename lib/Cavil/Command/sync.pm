@@ -43,12 +43,12 @@ Cavil::Command::sync - Cavil sync command
 
   Usage: APPLICATION sync
 
-    script/cavil sync -i lib/Cavil/resources/license_patterns
-    script/cavil sync -e lib/Cavil/resources/license_patterns
+    script/cavil sync -i lib/Cavil/resources/license_patterns.jsonl
+    script/cavil sync -e lib/Cavil/resources/license_patterns.jsonl
 
   Options:
-    -e, --export <dir>   Export license patterns to directory
-    -i, --import <dir>   Import license patterns from directory
-    -h, --help           Show this summary of available options
+    -e, --export <file>   Export license patterns to JSONL file
+    -i, --import <file>   Import license patterns from JSONL file
+    -h, --help            Show this summary of available options
 
 =cut

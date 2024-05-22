@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"BSD-3-Clause","packname":"","patent":0,"pattern":"gmon.c, i386\/gmon-sol2.c, sparc\/gmon-sol2.c: Remove advertising\n\tclause from BSD license, pursuant with\n\n\t  ftp:\/\/ftp.cs.berkeley.edu\/pub\/4bsd\/README.Impt.License.Change","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"8aa16a4d-b8b2-470f-88d7-d53603b148a0"}

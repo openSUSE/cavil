@@ -83,7 +83,8 @@ sub create ($self, %args) {
       export_restricted => $args{export_restricted} // 0,
       license           => $args{license}           // '',
       spdx              => $spdx,
-      risk              => $args{risk} // 5
+      risk              => $args{risk} // 5,
+      $args{unique_id} ? (unique_id => $args{unique_id}) : ()
     },
     {returning => 'id'}
   )->hash->{id};

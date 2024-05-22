@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"MIT","packname":"","patent":0,"pattern":"files = FileList.new(scope('doc-src\/*')).to_a.sort_by {|s| s.size} + %w[MIT-LICENSE VERSION","risk":1,"spdx":"MIT","trademark":0,"unique_id":"c5585e73-1d0d-4c59-9dea-e82209c65543"}

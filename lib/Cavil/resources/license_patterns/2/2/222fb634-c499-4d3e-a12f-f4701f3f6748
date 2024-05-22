@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"any reference local","packname":"gsmartcontrol","patent":0,"pattern":"file\nIntrusive reference-counting smart pointer, based on boost::intrusive_ptr.\nOriginal notes and copyright info follow:\n\nintrusive_ptr.hpp","risk":2,"spdx":"","trademark":0,"unique_id":"222fb634-c499-4d3e-a12f-f4701f3f6748"}

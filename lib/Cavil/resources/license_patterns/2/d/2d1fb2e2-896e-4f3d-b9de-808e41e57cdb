@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"any reference local","packname":"","patent":0,"pattern":"right after the (100 line!) GNU license comment in bison.simple, remove\ngrammar.[co] and fire up make again","risk":2,"spdx":"","trademark":0,"unique_id":"2d1fb2e2-896e-4f3d-b9de-808e41e57cdb"}

@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"TCL","packname":"","patent":0,"pattern":"PostgreSQL adopted the code out of Tcl 8.4.1.  Portions of regc_locale.c\nand re_syntax.n were developed by Tcl developers other than Henry; these\nfiles bear the Tcl copyright and license notice","risk":1,"spdx":"TCL","trademark":0,"unique_id":"93bda33d-3720-469e-be37-3139faed84f9"}

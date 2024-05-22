@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"GPL-2.0","packname":"","patent":0,"pattern":"define CMT_COPYRIGHT(YEARS, AUTHORS)\t\t\t\t\t\\\n\t\"(C)\" YEARS \", \" AUTHORS \". \"                                   \\\n        \"GNU General Public Licence Version 2 applies","risk":2,"spdx":"GPL-2.0-only","trademark":0,"unique_id":"b4b621f1-780e-41fa-b8d8-f7c2155920c9"}

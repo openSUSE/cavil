@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"GPL-Unspecified","packname":"ppc64-diag","patent":0,"pattern":"version update to 2.7.0 (FATE#319557)\n  - Move from EPL to the GNU GPL license\n  - LED support on FSP based PowerNV platform","risk":3,"spdx":"","trademark":0,"unique_id":"e58176d6-a368-43d8-83b7-8538af0a4d4a"}

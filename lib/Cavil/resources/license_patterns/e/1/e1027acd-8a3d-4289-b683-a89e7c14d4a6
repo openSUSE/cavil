@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"XFree86","packname":"","patent":0,"pattern":"utils\/lisp\/emacs\/thai-word.el (thai-word-table): Use Thai word\n\tlist from IBM's ICU4J project; it is slightly larger and uses an\n\tX license","risk":2,"spdx":"","trademark":0,"unique_id":"e1027acd-8a3d-4289-b683-a89e7c14d4a6"}

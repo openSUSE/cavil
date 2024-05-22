@@ -24,29 +24,29 @@ use Term::ProgressBar;
 has 'app';
 has silent => 0;
 
-sub load ($self, $dir) {
+sub load ($self, $path) {
 
   my $app      = $self->app;
   my $db       = $app->pg->db;
   my $patterns = $app->patterns;
-  die "License pattern directory $dir not found" unless -d ($dir = path($dir));
+  die "License pattern file $path not found" unless -r ($path = path($path));
 
-  my $count = 0;
-  find(sub { -f && $count++ }, $dir->to_string);
+  my $handle = $path->open('<');
+  my $count  = 0;
+  $count++ while <$handle>;
+
   my $progress = Term::ProgressBar->new(
     {count => $count, name => "Importing $count patterns", term_width => 80, silent => $self->silent});
 
   my $imported = my $all = 0;
-  for my $first ($dir->list({dir => 1})->each) {
-    for my $second ($first->list({dir => 1})->each) {
-      for my $target ($second->list->each) {
-        my $hash = decode_json($target->slurp);
-        $hash->{token_hexsum} = $patterns->checksum($hash->{pattern});
-        $imported++ if $db->insert('license_patterns', $hash, {on_conflict => undef, returning => 'id'})->rows;
-        $progress->update;
-        $all++;
-      }
-    }
+  $handle->seek(0, 0);
+  for my $line (<$handle>) {
+    chomp $line;
+    my $hash = decode_json($line);
+    $hash->{token_hexsum} = $patterns->checksum($hash->{pattern});
+    $imported++ if $db->insert('license_patterns', $hash, {on_conflict => undef, returning => 'id'})->rows;
+    $progress->update;
+    $all++;
   }
   say "\n@{[$all - $imported]} duplicates ignored" unless $self->silent;
 
@@ -58,53 +58,45 @@ sub load ($self, $dir) {
   return $imported;
 }
 
-sub store ($self, $dir) {
+sub store ($self, $path) {
 
   my $db = $self->app->pg->db;
-  die "License pattern directory $dir not found" unless -d ($dir = path($dir));
+  $path = path($path);
 
   my $count    = $db->query('SELECT COUNT(*) FROM license_patterns')->array->[0];
   my $progress = Term::ProgressBar->new(
     {count => $count, name => "Exporting $count patterns", term_width => 80, silent => $self->silent});
 
-  my $last  = my $all = 0;
-  my $stats = {};
+  my $handle = $path->open('>');
+  my $last   = '00000000-0000-0000-0000-000000000000';
+  my $all    = 0;
   while (1) {
-    my $results = $db->query('SELECT * FROM license_patterns WHERE id > ? ORDER BY id ASC LIMIT 100', $last);
+    my $results
+      = $db->query('SELECT * FROM license_patterns WHERE unique_id > ? ORDER BY unique_id ASC LIMIT 100', $last);
     last unless $results->rows;
 
     for my $hash ($results->hashes->each) {
-      $last = $hash->{id};
+      $last = my $uuid = $hash->{unique_id};
 
-      my $uuid = $hash->{unique_id};
-      my ($first, $second) = (substr($uuid, 0, 1), substr($uuid, 1, 1));
-      $stats->{"$first$second"}++;
-      my $subdir = $dir->child($first, $second);
-      $subdir->make_path unless -d $subdir;
-
-      my $target = $subdir->child($uuid);
-      $target->spew(
-        encode_json(
-          {
-            license           => $hash->{license},
-            spdx              => $hash->{spdx},
-            packname          => $hash->{packname},
-            patent            => $hash->{patent},
-            pattern           => $hash->{pattern},
-            risk              => $hash->{risk},
-            trademark         => $hash->{trademark},
-            export_restricted => $hash->{export_restricted},
-            unique_id         => $uuid
-          }
-        )
+      my $json = encode_json(
+        {
+          license           => $hash->{license},
+          spdx              => $hash->{spdx},
+          packname          => $hash->{packname},
+          patent            => $hash->{patent},
+          pattern           => $hash->{pattern},
+          risk              => $hash->{risk},
+          trademark         => $hash->{trademark},
+          export_restricted => $hash->{export_restricted},
+          unique_id         => $uuid
+        }
       );
+      print $handle "$json\n";
       $all++;
       $progress->update;
     }
   }
-
-  my $max = (sort { $a <=> $b } values %$stats)[-1];
-  say "\nMaximum of $max files per directory" unless $self->silent;
+  say "\n$all license patterns exported to $path" unless $self->silent;
 
   return $all;
 }

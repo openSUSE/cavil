@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"LGPL-2.1+","packname":"","patent":0,"pattern":"The following virStringSplit & virStringJoin methods\n * are derived from g_strsplit \/ g_strjoin in glib2,\n * also available under the LGPLv2+ license terms","risk":1,"spdx":"LGPL-2.1-or-later","trademark":0,"unique_id":"0eb35a7e-5af7-43ee-9009-774d5609c997"}

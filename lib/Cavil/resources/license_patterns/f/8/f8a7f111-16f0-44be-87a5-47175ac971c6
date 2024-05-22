@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"GPL-2.0+","packname":"","patent":0,"pattern":"fprintf(stderr, \"This is free software, and you are welcome to redistribute it under the terms\\n\");\n    fprintf(stderr, \"of the GNU General Public License, version 2 or any later version","risk":2,"spdx":"GPL-2.0-or-later","trademark":0,"unique_id":"f8a7f111-16f0-44be-87a5-47175ac971c6"}

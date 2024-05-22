@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"Apache-2.0","packname":"","patent":0,"pattern":"re-licensed larger parts of the codebase under the Apache license 2.0\n- bugfix: omprog made rsyslog abort on startup if not binary to\n  execute was configured","risk":3,"spdx":"Apache-2.0","trademark":0,"unique_id":"5857e153-3ebb-4b3b-babd-cf63baba6034"}

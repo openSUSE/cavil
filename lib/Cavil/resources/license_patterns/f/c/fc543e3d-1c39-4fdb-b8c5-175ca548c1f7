@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"PHP-3.01","packname":"","patent":0,"pattern":"fix crash when XMLWriter is instantiated but not used\n- Switch from BSD-like license to PHP License 3.01","risk":3,"spdx":"PHP-3.01","trademark":0,"unique_id":"fc543e3d-1c39-4fdb-b8c5-175ca548c1f7"}

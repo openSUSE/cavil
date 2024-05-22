@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"BSD-3-Clause","packname":"smplayer","patent":0,"pattern":"Use QtLockedFile instead of QxtFileLock, so we can get rid of the libqxt\n   dependency on windows.\n   The QtLockedFile is under the BSD license","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"9c616ca0-c335-46fd-b1d0-2bb8b33b62ad"}

@@ -36,17 +36,18 @@ $cavil_test->mojo_fixtures($t->app);
 my $sync     = $t->app->sync->silent(1);
 my $patterns = $t->app->patterns;
 my $tempdir  = tempdir;
-my $dir      = $tempdir->child('license_patterns')->make_path;
+my $path     = $tempdir->child('license_patterns.jsonl');
 
 subtest 'Export license patterns' => sub {
-  ok $sync->store($dir) > 0, 'multuple license patterns stored';
+  ok $sync->store($path) > 0, 'multiple license patterns stored';
+  my $licenses = [map { length $_ ? decode_json($_) : () } split "\n", $path->slurp];
+
   my $apache = $patterns->find(1);
   is $apache->{license},  'Apache-2.0', 'right license';
   is $apache->{packname}, '',           'no packname';
   ok $apache->{pattern}, 'has pattern';
   ok my $uuid = $apache->{unique_id}, 'has UUID';
-  my $target = $dir->child(substr($uuid, 0, 1), substr($uuid, 1, 1), $uuid);
-  my $hash   = decode_json $target->slurp;
+  my $hash = $licenses->[0];
   is $hash->{license},   'Apache-2.0', 'right license';
   is $hash->{packname},  '',           'no packname';
   is $hash->{unique_id}, $uuid,        'same UUID';
@@ -55,8 +56,7 @@ subtest 'Export license patterns' => sub {
   is $apache->{license},  'Apache-2.0',       'right license';
   is $apache->{packname}, 'perl-Mojolicious', 'right packname';
   ok $uuid = $apache->{unique_id}, 'has UUID';
-  $target = $dir->child(substr($uuid, 0, 1), substr($uuid, 1, 1), $uuid);
-  $hash   = decode_json $target->slurp;
+  $hash = $licenses->[1];
   is $hash->{license},   'Apache-2.0',       'right license';
   is $hash->{packname},  'perl-Mojolicious', 'right packname';
   is $hash->{unique_id}, $uuid,              'same UUID';
@@ -65,14 +65,13 @@ subtest 'Export license patterns' => sub {
   is $artistic->{license}, 'Artistic-2.0', 'right license';
   ok $artistic->{pattern}, 'has pattern';
   ok $uuid = $artistic->{unique_id}, 'has UUID';
-  $target = $dir->child(substr($uuid, 0, 1), substr($uuid, 1, 1), $uuid);
-  $hash   = decode_json $target->slurp;
+  $hash = $licenses->[2];
   is $hash->{license},   'Artistic-2.0', 'right license';
   is $hash->{unique_id}, $uuid,          'same UUID';
 };
 
 subtest 'Import license patterns' => sub {
-  is $sync->load($dir), 0, 'no new patterns to import yet';
+  is $sync->load($path), 0, 'no new patterns to import yet';
   my $apache = $patterns->find(1);
   ok my $apache_uuid = $apache->{unique_id}, 'has UUID';
   my $artistic = $patterns->find(3);
@@ -84,7 +83,7 @@ subtest 'Import license patterns' => sub {
   $db->delete('license_patterns', {id => $artistic->{id}});
   is $db->select('license_patterns', '*', {unique_id => $artistic_uuid})->rows, 0, 'pattern with UUID deleted';
 
-  is $sync->load($dir), 2, 'two new patterns imported';
+  is $sync->load($path), 2, 'two new patterns imported';
   is $db->select('license_patterns', '*', {unique_id => $apache_uuid})->rows,   1, 'pattern with UUID exists again';
   is $db->select('license_patterns', '*', {unique_id => $artistic_uuid})->rows, 1, 'pattern with UUID exists again';
 };

@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"BSD-3-Clause","packname":"pure-ftpd","patent":0,"pattern":"Fix non-root mode : don't dereference pw in dopass() if NULL.\n    Include the BSD license in COPYING","risk":1,"spdx":"BSD-3-Clause","trademark":0,"unique_id":"c051f4dc-41e4-429d-a134-98b1b381910e"}

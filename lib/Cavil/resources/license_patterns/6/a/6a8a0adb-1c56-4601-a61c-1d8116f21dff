@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"Artistic-1.0-Perl OR GPL-1.0+","packname":"","patent":0,"pattern":"$ExtUtils::MakeMaker::VERSION >= 6.3002\n      ? ('LICENSE'=> 'perl","risk":2,"spdx":"Artistic-1.0-Perl OR GPL-1.0-or-later","trademark":0,"unique_id":"6a8a0adb-1c56-4601-a61c-1d8116f21dff"}

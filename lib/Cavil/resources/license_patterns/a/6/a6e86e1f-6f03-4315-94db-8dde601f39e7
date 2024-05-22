@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"MPL-1.1 OR LGPL-2.1+ OR GPL-2.0+","packname":"mozilla-xulrunner192","patent":0,"pattern":"my $copyright = \"License: MPL 1.1\/GPL 2.0\/LGPL 2.1\";\nmy $company = \"Mozilla Foundation\";\nmy $trademarks = \"Mozilla","risk":2,"spdx":"MPL-1.1 OR LGPL-2.1-or-later OR GPL-2.0-or-later","trademark":0,"unique_id":"a6e86e1f-6f03-4315-94db-8dde601f39e7"}

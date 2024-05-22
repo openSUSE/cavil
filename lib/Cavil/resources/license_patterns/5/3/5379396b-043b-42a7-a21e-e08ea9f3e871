@@ -1,1 +1,0 @@
-{"export_restricted":0,"license":"any reference local","packname":"","patent":0,"pattern":"System Exclusive Extensions\n\/\/\n\n\/\/ Non-commercial use\n\/\/\nconst MidiByte MIDI_SYSEX_NONCOMMERCIAL    = 0x7D","risk":2,"spdx":"","trademark":0,"unique_id":"5379396b-043b-42a7-a21e-e08ea9f3e871"}
