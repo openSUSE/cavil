@@ -66,7 +66,7 @@ my $app = Mojo::Server->new->build_app('Cavil');
 $app->pg->migrations->migrate;
 
 # Seed licenses and patterns
-$app->sync->load(curfile->dirname->sibling('lib', 'Cavil', 'resources', 'license_patterns')->to_string);
+$app->sync->load(curfile->dirname->sibling('lib', 'Cavil', 'resources', 'license_patterns.jsonl')->to_string);
 
 # "perl-Mojolicious" example data
 my $user_id = $app->users->find_or_create(login => 'test_bot')->{id};
