@@ -152,8 +152,8 @@
 </template>
 
 <script>
+import {setupPopover} from './helpers/links.js';
 import UserAgent from '@mojojs/user-agent';
-import {Popover} from 'bootstrap';
 import CodeMirror from 'codemirror';
 
 export default {
@@ -267,8 +267,7 @@ export default {
       this.editor = cm;
     },
     setupPopover() {
-      const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
-      [...popoverTriggerList].map(popoverTriggerEl => new Popover(popoverTriggerEl));
+      setupPopover();
     }
   }
 };

@@ -60,7 +60,7 @@ sub open_reviews ($self) {
 
   my $page = $self->packages->paginate_open_reviews(
     {limit => $limit, offset => $offset, in_progress => $in_progress, priority => $priority, search => $search});
-  $self->render(json => $page);
+  $self->render(json => $self->_mark_active_packages($page));
 }
 
 sub product_reviews ($self) {
@@ -132,6 +132,16 @@ sub review_search ($self) {
   my $page = $self->packages->paginate_review_search($name,
     {limit => $limit, offset => $offset, not_obsolete => $not_obsolete, search => $search, pattern => $pattern});
   $self->render(json => $page);
+}
+
+sub _mark_active_packages ($self, $page) {
+  my $minion = $self->minion;
+  for my $pkg (@{$page->{page}}) {
+    my $id = $pkg->{id};
+    $pkg->{active_jobs} = $minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+    $pkg->{failed_jobs} = $minion->jobs({states => ['failed'], notes => ["pkg_$id"]})->total;
+  }
+  return $page;
 }
 
 1;

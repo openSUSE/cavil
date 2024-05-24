@@ -1,3 +1,17 @@
+import {Popover} from 'bootstrap';
+
+const tooltip = `
+<a
+  data-bs-html="true"
+  data-bs-toggle="popover"
+  data-bs-trigger="hover focus"
+  data-bs-title="Error"
+  data-bs-content="Error during report generation, please constact an administrator."
+>
+  <i class="fas fa-exclamation-circle"></i>
+</a>
+`;
+
 export function externalLink(review) {
   const link = review.external_link;
 
@@ -28,9 +42,29 @@ export function productLink(product) {
 }
 
 export function reportLink(review) {
-  if (!review.imported_epoch) return '<i>not yet imported</i>';
-  if (!review.unpacked_epoch) return '<i>not yet unpacked</i>';
-  if (!review.indexed_epoch) return '<i>not yet indexed</i>';
-  if (review.checksum) return `<a href='/reviews/details/${review.id}'/>${review.checksum}</a>`;
-  return `<a href='/reviews/details/${review.id}'/>unpacked</a>`;
+  if (!review.imported_epoch) return linkWithContext('<i>not yet imported</i>', review);
+  if (!review.unpacked_epoch) return linkWithContext('<i>not yet unpacked</i>', review);
+  if (!review.indexed_epoch) return linkWithContext('<i>not yet indexed</i>', review);
+  if (review.checksum) {
+    return linkWithContext(`<a href='/reviews/details/${review.id}'/>${review.checksum}</a>`, review);
+  }
+  return linkWithContext(`<a href='/reviews/details/${review.id}'/>unpacked</a>`, review);
+}
+
+export function setupPopover() {
+  const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+  [...popoverTriggerList].map(popoverTriggerEl => new Popover(popoverTriggerEl));
+}
+
+function linkWithContext(html, review) {
+  const activeJobs = review.active_jobs ?? 0;
+  const failedJobs = review.failed_jobs ?? 0;
+
+  if (activeJobs === 0 && failedJobs === 0) return html;
+
+  if (failedJobs > 0) {
+    return `${html} ${tooltip}`;
+  } else {
+    return `${html} <i class="fas fa-sync fa-spin"></i>`;
+  }
 }

@@ -131,7 +131,8 @@ sub generate_spdx_report ($self, $id, $options = {}) {
   return if $self->has_spdx_report($id);
 
   my $minion = $self->minion;
-  $minion->enqueue('spdx_report' => [$id] => {priority => 6, %$options}) if $minion->lock("spdx_$id", 172800);
+  $minion->enqueue('spdx_report' => [$id] => {priority => 6, notes => {"pkg_$id" => 1}, %$options})
+    if $minion->lock("spdx_$id", 172800);
 }
 
 sub has_spdx_report ($self, $id) {
@@ -353,8 +354,12 @@ sub name_suggestions ($self, $partial) {
 
 sub obs_import ($self, $id, $data, $priority = 5) {
   my $pkg = $self->find($id);
-  return $self->minion->enqueue(obs_import => [$id, $data] =>
-      {priority => $priority, notes => {external_link => $pkg->{external_link}, package => $pkg->{name}}});
+  return $self->minion->enqueue(
+    obs_import => [$id, $data] => {
+      priority => $priority,
+      notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
+    }
+  );
 }
 
 sub obsolete_if_not_in_product ($self, $id) {

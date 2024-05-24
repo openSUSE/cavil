@@ -57,9 +57,11 @@ sub _index ($job, $id) {
   my $batches   = Cavil::Checkout->new($dir)->unpacked_files($app->config->{index_bucket_average});
   my $parent_id = $job->id;
   my $prio      = $job->info->{priority};
-  my @children
-    = map { $minion->enqueue(index_batch => [$id, $_] => {parents => [$parent_id], priority => $prio + 1}) } @$batches;
-  $minion->enqueue(indexed => [$id] => {parents => \@children, priority => $prio + 2});
+  my @children  = map {
+    $minion->enqueue(
+      index_batch => [$id, $_] => {parents => [$parent_id], priority => $prio + 1, notes => {"pkg_$id" => 1}})
+  } @$batches;
+  $minion->enqueue(indexed => [$id] => {parents => \@children, priority => $prio + 2, notes => {"pkg_$id" => 1}});
 
   $log->info("[$id] Made @{[scalar @$batches]} batches for $dir");
 }

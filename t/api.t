@@ -117,7 +117,7 @@ subtest 'Create package' => sub {
   $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
     ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')->json_is('/saved/id', 1);
   $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})->status_is(408)
-    ->content_like(qr/not indexed/);
+    ->content_like(qr/package being processed/);
   $t->app->minion->on(
     worker => sub {
       my ($minion, $worker) = @_;
