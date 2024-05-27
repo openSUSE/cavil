@@ -168,7 +168,7 @@ export default {
         });
       }
       this.reviews = reviews;
-      setTimeout(() => setupPopover(), 0);
+      setupPopover();
     },
     filterNow() {
       this.cancelApiRefresh();

@@ -260,7 +260,8 @@ subtest 'Manual review' => sub {
     ->json_is('/page/0/login',  'tester')->json_is('/page/0/name', 'perl-Mojolicious')->json_is('/page/0/priority', 5)
     ->json_is('/page/0/result', 'Test review')->json_is('/page/0/state', 'acceptable')
     ->json_has('/page/0/created_epoch')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
-    ->json_has('/page/0/unpacked_epoch')->json_hasnt('/page/1');
+    ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
+    ->json_hasnt('/page/1');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

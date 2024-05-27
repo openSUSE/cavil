@@ -94,7 +94,7 @@ sub product_reviews ($self) {
       search            => $search
     }
   );
-  $self->render(json => $page);
+  $self->render(json => $self->_mark_active_packages($page));
 }
 
 sub recent_reviews ($self) {
@@ -111,7 +111,7 @@ sub recent_reviews ($self) {
 
   my $page = $self->packages->paginate_recent_reviews(
     {limit => $limit, offset => $offset, by_user => $by_user, search => $search});
-  $self->render(json => $page);
+  $self->render(json => $self->_mark_active_packages($page));
 }
 
 sub review_search ($self) {
@@ -131,7 +131,7 @@ sub review_search ($self) {
   my $name = $self->stash('name');
   my $page = $self->packages->paginate_review_search($name,
     {limit => $limit, offset => $offset, not_obsolete => $not_obsolete, search => $search, pattern => $pattern});
-  $self->render(json => $page);
+  $self->render(json => $self->_mark_active_packages($page));
 }
 
 sub _mark_active_packages ($self, $page) {
