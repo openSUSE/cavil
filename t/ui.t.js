@@ -169,7 +169,8 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'List open reviews');
       await page.click('text=Login');
       t.equal(await page.innerText('title'), 'List open reviews');
-      await page.click('text=Log out tester');
+      await page.click('text="Logged in as tester"');
+      await page.click('text=Logout');
       t.equal(await page.innerText('title'), 'List open reviews');
       await page.click('text=Login');
       t.equal(await page.innerText('title'), 'List open reviews');
@@ -177,6 +178,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Minion dashboard', async t => {
       await page.goto(url);
+      await page.click('text="Logged in as tester"');
       await page.click('text=Minion');
       t.match(await page.innerText('title'), /Minion/);
       await page.click('text=Back to Site');
