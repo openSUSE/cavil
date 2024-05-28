@@ -65,6 +65,7 @@
                 </a>
                 <ul class="dropdown-menu">
                   % if (current_user_has_role 'admin') {
+                    <h3 class="dropdown-header">Administrator Menu</h3>
                     <li>
                       %= link_to 'Upload' => '/upload', class => 'dropdown-item'
                     </li>
