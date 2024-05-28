@@ -64,6 +64,11 @@
                   Logged in as <%= $user %>
                 </a>
                 <ul class="dropdown-menu">
+                  <h3 class="dropdown-header">User Menu</h3>
+                  <li>
+                    %= link_to 'Documentation' => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md', class => 'dropdown-item'
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
                   % if (current_user_has_role 'admin') {
                     <h3 class="dropdown-header">Administrator Menu</h3>
                     <li>
