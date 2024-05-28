@@ -120,7 +120,7 @@
 <script>
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
-import {packageLink, reportLink, setupPopover} from './helpers/links.js';
+import {packageLink, reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 
@@ -179,7 +179,7 @@ export default {
         });
       }
       this.reviews = reviews;
-      setupPopover();
+      setupPopoverDelayed();
     },
     filterNow() {
       this.cancelApiRefresh();

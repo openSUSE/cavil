@@ -152,7 +152,7 @@
 </template>
 
 <script>
-import {setupPopover} from './helpers/links.js';
+import {setupPopoverDelayed} from './helpers/links.js';
 import UserAgent from '@mojojs/user-agent';
 import CodeMirror from 'codemirror';
 
@@ -267,7 +267,7 @@ export default {
       this.editor = cm;
     },
     setupPopover() {
-      setupPopover();
+      setupPopoverDelayed();
     }
   }
 };

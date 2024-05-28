@@ -94,7 +94,7 @@
 <script>
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
-import {reportLink, setupPopover} from './helpers/links.js';
+import {reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
@@ -154,7 +154,7 @@ export default {
         });
       }
       this.reviews = reviews;
-      setupPopover();
+      setupPopoverDelayed();
     },
     filterNow() {
       this.cancelApiRefresh();

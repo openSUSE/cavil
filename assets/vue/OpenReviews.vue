@@ -108,7 +108,7 @@
 import PaginationLinks from './components/PaginationLinks.vue';
 import PriorityBadge from './components/PriorityBadge.vue';
 import ShownEntries from './components/ShownEntries.vue';
-import {externalLink, packageLink, reportLink, setupPopover} from './helpers/links.js';
+import {externalLink, packageLink, reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
@@ -168,7 +168,7 @@ export default {
         });
       }
       this.reviews = reviews;
-      setupPopover();
+      setupPopoverDelayed();
     },
     filterNow() {
       this.cancelApiRefresh();

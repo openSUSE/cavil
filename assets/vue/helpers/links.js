@@ -56,6 +56,10 @@ export function setupPopover() {
   [...popoverTriggerList].map(popoverTriggerEl => new Popover(popoverTriggerEl));
 }
 
+export function setupPopoverDelayed() {
+  setTimeout(setupPopover, 1);
+}
+
 function linkWithContext(html, review) {
   const activeJobs = review.active_jobs ?? 0;
   const failedJobs = review.failed_jobs ?? 0;
