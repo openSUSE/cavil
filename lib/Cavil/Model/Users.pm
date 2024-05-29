@@ -46,4 +46,8 @@ sub remove_role ($self, $id, $role) {
   $self->pg->db->query('update bot_users set roles = array_remove(roles, ?) where id = ?', $role, $id);
 }
 
+sub roles ($self, $user) {
+  return $self->pg->db->query('select roles from bot_users where login = ?', $user)->arrays->flatten->to_array;
+}
+
 1;

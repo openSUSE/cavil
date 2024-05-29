@@ -25,6 +25,7 @@ sub register ($self, $app, $config) {
   $app->helper('chart_data'                  => \&_chart_data);
   $app->helper('checksum'                    => \&_checksum);
   $app->helper('current_user'                => \&_current_user);
+  $app->helper('current_user_roles'          => \&_current_user_roles);
   $app->helper('current_user_has_role'       => \&_current_user_has_role);
   $app->helper('lic'                         => sub { shift; lic(@_) });
   $app->helper('maybe_utf8'                  => sub { decode('UTF-8', $_[1]) // $_[1] });
@@ -83,6 +84,11 @@ sub _current_user ($c) { $c->session('user') }
 sub _current_user_has_role ($c, $role) {
   return undef unless my $user = $c->helpers->current_user;
   return $c->users->has_role($user, $role);
+}
+
+sub _current_user_roles ($c) {
+  return [] unless my $user = $c->helpers->current_user;
+  return $c->users->roles($user);
 }
 
 sub _json_validation_error ($c) {

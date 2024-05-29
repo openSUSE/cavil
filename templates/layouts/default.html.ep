@@ -64,6 +64,17 @@
                   Logged in as <%= $user %>
                 </a>
                 <ul class="dropdown-menu">
+                  % if (my @roles = @{current_user_roles()}) {
+                    <h3 class="dropdown-header">Roles</h3>
+                    <li>
+                      <span class="dropdown-item-text">
+                      % for my $role (sort @roles) {
+                        <div class="badge text-bg-secondary"><%= $role %></div>
+                      % }
+                      </span>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                  % }
                   <h3 class="dropdown-header">User Menu</h3>
                   <li>
                     %= link_to 'Documentation' => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md', class => 'dropdown-item'
