@@ -32,8 +32,12 @@ sub find_or_create ($self, %args) {
   return $self->pg->db->insert('bot_users', \%args, {returning => '*'})->hash;
 }
 
-sub has_role ($self, $user, $role) {
-  return !!$self->pg->db->query('select id from bot_users where login = ? and ? = any (roles)', $user, $role)->rows;
+sub has_role ($self, $user, @roles) {
+  return undef unless my $result = $self->pg->db->query('select roles from bot_users where login = ?', $user)->hash;
+  for my $role (@roles) {
+    return 1 if grep { $_ eq $role } @{$result->{roles}};
+  }
+  return 0;
 }
 
 sub licensedigger ($self) {
