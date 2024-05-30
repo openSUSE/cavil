@@ -81,9 +81,9 @@ sub _checksum ($c, $specfile, $report) {
 
 sub _current_user ($c) { $c->session('user') }
 
-sub _current_user_has_role ($c, $role) {
+sub _current_user_has_role ($c, @roles) {
   return undef unless my $user = $c->helpers->current_user;
-  return $c->users->has_role($user, $role);
+  return $c->users->has_role($user, @roles);
 }
 
 sub _current_user_roles ($c) {

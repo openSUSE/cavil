@@ -125,9 +125,7 @@
         <div class="col mb-3">
           <button name="create-pattern" type="submit" value="1" class="btn btn-primary mb-2">Create Pattern</button
           >&nbsp;
-          <button name="mark-non-license" type="submit" value="1" class="btn btn-danger mb-2">
-            Mark as Non-License
-          </button>
+          <button name="propose-pattern" type="submit" value="1" class="btn btn-secondary mb-2">Propose Pattern</button>
         </div>
       </div>
       <div v-if="closest !== null" class="row closest-container">

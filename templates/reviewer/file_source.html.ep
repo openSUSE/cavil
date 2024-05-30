@@ -17,7 +17,7 @@
         % else {
           <tr class="<%= $class %>">
         % }
-          % if ($line->[1]->{end}) {
+          % if ($is_admin && $line->[1]->{end}) {
             % my $end_id = "$file-$i";
             % my $data = { start => $line->[0], end => $line->[1]->{end}, 'prev-match' => $line->[1]->{prevstart} // 0, 'next-match' => $line->[1]->{nextend} // 0 };
             %= tag 'td', class => "actions dropdown show" => data => $data => begin

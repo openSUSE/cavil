@@ -66,7 +66,8 @@ sub source ($self) {
         filename => $source->{filename},
         lines    => lines_context($source->{lines}),
         hidden   => 0,
-        packname => $source->{name}
+        packname => $source->{name},
+        is_admin => $self->current_user_has_role('admin')
       );
     }
   );
