@@ -42,13 +42,17 @@ export function productLink(product) {
 }
 
 export function reportLink(review) {
-  if (!review.imported_epoch) return linkWithContext('<i>not yet imported</i>', review);
-  if (!review.unpacked_epoch) return linkWithContext('<i>not yet unpacked</i>', review);
-  if (!review.indexed_epoch) return linkWithContext('<i>not yet indexed</i>', review);
+  const id = review.id;
+  if (!review.imported_epoch) return linkWithContext(`<i class="report-${id}">not yet imported</i>`, review);
+  if (!review.unpacked_epoch) return linkWithContext(`<iclass="report-${id}">not yet unpacked</i>`, review);
+  if (!review.indexed_epoch) return linkWithContext(`<i class="report-${id}">not yet indexed</i>`, review);
   if (review.checksum) {
-    return linkWithContext(`<a href='/reviews/details/${review.id}'/>${review.checksum}</a>`, review);
+    return linkWithContext(
+      `<a class="report-${id}" href="/reviews/details/${review.id}">${review.checksum}</a>`,
+      review
+    );
   }
-  return linkWithContext(`<a href='/reviews/details/${review.id}'/>unpacked</a>`, review);
+  return linkWithContext(`<a class="report-${id}" href="/reviews/details/${review.id}">unpacked</a>`, review);
 }
 
 export function setupPopover() {
