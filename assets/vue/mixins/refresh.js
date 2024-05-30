@@ -10,7 +10,6 @@ export default {
   },
   mounted() {
     this.doApiRefresh();
-    this.refreshTimer = setInterval(this.doApiRefresh, this.refreshDelay);
   },
   unmounted() {
     this.cancelApiRefresh();
@@ -22,9 +21,10 @@ export default {
       const data = await res.json();
       this.$emit('last-updated', data.last_updated);
       this.refreshData(data);
+      this.refreshTimer = setTimeout(this.doApiRefresh, this.refreshDelay);
     },
     cancelApiRefresh() {
-      clearInterval(this.refreshTimer);
+      clearTimeout(this.refreshTimer);
     }
   }
 };
