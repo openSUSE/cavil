@@ -58,24 +58,26 @@ subtest 'parse_exclude_file' => sub {
 };
 
 subtest 'pattern_matches' => sub {
-  ok pattern_matches('bar',             'bar'),                 'match';
-  ok pattern_matches('bär',             'bär'),                 'match';
-  ok pattern_matches('bar',             'foo bar baz'),         'match';
-  ok pattern_matches('bar',             'bar baz'),             'match';
-  ok pattern_matches('bar',             "foo bar"),             'match';
-  ok !pattern_matches('foo',            'bar baz'),             'no match';
-  ok !pattern_matches('foo',            'bar'),                 'no match';
-  ok !pattern_matches('foo',            'fooo'),                'no match';
-  ok pattern_matches('# foo',           '## foo bar baz'),      'match';
-  ok pattern_matches('# foo',           'foo'),                 'match';
-  ok pattern_matches('234',             '1 234 56'),            'match';
-  ok pattern_matches('123',             '123'),                 'match';
-  ok pattern_matches('foo $SKIP19 bar', 'foo yada bar baz'),    'match';
-  ok pattern_matches('foo $SKIP1 bar',  'foo yada bar baz'),    'match';
-  ok !pattern_matches('foo $SKIP1 bar', 'foo ya da bar'),       'match';
-  ok pattern_matches('foo $SKIP2 bar',  'foo ya da bar'),       'match';
-  ok pattern_matches('foo $SKIP3 bar',  'foo ya da bar'),       'match';
-  ok !pattern_matches('foo $SKIP3 bar', 'foo ya da ya da bar'), 'no match';
+  ok pattern_matches('bar',             'bar'),                     'match';
+  ok pattern_matches('bär',             'bär'),                     'match';
+  ok pattern_matches('bar',             'foo bar baz'),             'match';
+  ok pattern_matches('bar',             'bar baz'),                 'match';
+  ok pattern_matches('bar',             "foo bar"),                 'match';
+  ok pattern_matches('foo bar',         "foo\nbar"),                'match';
+  ok !pattern_matches('foo',            'bar baz'),                 'no match';
+  ok !pattern_matches('foo',            'bar'),                     'no match';
+  ok !pattern_matches('foo',            'fooo'),                    'no match';
+  ok pattern_matches('# foo',           '## foo bar baz'),          'match';
+  ok pattern_matches('# foo',           'foo'),                     'match';
+  ok pattern_matches('234',             '1 234 56'),                'match';
+  ok pattern_matches('123',             '123'),                     'match';
+  ok pattern_matches('foo $SKIP19 bar', 'foo yada bar baz'),        'match';
+  ok pattern_matches('foo $SKIP1 bar',  'foo yada bar baz'),        'match';
+  ok !pattern_matches('foo $SKIP1 bar', 'foo ya da bar'),           'no match';
+  ok pattern_matches('foo $SKIP2 bar',  'foo ya da bar'),           'match';
+  ok pattern_matches('foo $SKIP3 bar',  'foo ya da bar'),           'match';
+  ok !pattern_matches('foo $SKIP3 bar', 'foo ya da ya da bar'),     'no match';
+  ok !pattern_matches('foo $SKIP3 bar', 'foo ya da ya da bar foo'), 'no match';
 };
 
 subtest 'ssh_sign' => sub {
