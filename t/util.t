@@ -18,7 +18,7 @@ use Mojo::Base -strict;
 use Test::More;
 use Mojo::File  qw(curfile tempfile);
 use Mojo::JSON  qw(decode_json);
-use Cavil::Util qw(buckets lines_context obs_ssh_auth parse_exclude_file ssh_sign);
+use Cavil::Util qw(buckets lines_context obs_ssh_auth parse_exclude_file pattern_matches ssh_sign);
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
 -----BEGIN OPENSSH PRIVATE KEY-----
@@ -55,6 +55,21 @@ subtest 'parse_exclude_file' => sub {
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc1'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc9'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/empty.exclude', 'whatever'), [];
+};
+
+subtest 'pattern_matches' => sub {
+  ok pattern_matches('bar',   'bar'),            'match';
+  ok pattern_matches('bär',   'bär'),            'match';
+  ok pattern_matches('bar',   'foo bar baz'),    'match';
+  ok pattern_matches('bar',   'bar baz'),        'match';
+  ok pattern_matches('bar',   "foo bar"),        'match';
+  ok !pattern_matches('foo',  'bar baz'),        'no match';
+  ok !pattern_matches('foo',  'bar'),            'no match';
+  ok !pattern_matches('foo',  'fooo'),           'no match';
+  ok pattern_matches('# foo', '## foo bar baz'), 'match';
+  ok pattern_matches('# foo', 'foo'),            'match';
+  ok pattern_matches('234',   '1 234 56'),       'match';
+  ok pattern_matches('123',   '123'),            'match';
 };
 
 subtest 'ssh_sign' => sub {

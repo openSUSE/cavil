@@ -28,7 +28,7 @@ $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (
   qw(buckets slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate parse_exclude_file),
-  qw(read_lines ssh_sign)
+  qw(pattern_matches read_lines ssh_sign)
 );
 
 my $MAX_FILE_SIZE = 30000;
@@ -136,6 +136,18 @@ sub parse_exclude_file ($path, $name) {
   }
 
   return $exclude;
+}
+
+sub pattern_matches ($pattern, $text) {
+  my $matcher = Spooky::Patterns::XS::init_matcher();
+  my $parsed  = Spooky::Patterns::XS::parse_tokens($pattern);
+  $matcher->add_pattern(1, $parsed);
+
+  my $file    = tempfile->spew("ABC\n$text\nABC\n", 'UTF-8');
+  my $matches = !!@{$matcher->find_matches($file)};
+  undef $file;
+
+  return $matches;
 }
 
 sub read_lines ($path, $start_line, $end_line) {
