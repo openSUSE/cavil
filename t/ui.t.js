@@ -179,7 +179,7 @@ t.test('Test cavil ui', skip, async t => {
     await t.test('Minion dashboard', async t => {
       await page.goto(url);
       await page.click('text="Logged in as tester"');
-      await page.click('text=Minion');
+      await page.click('text="Minion Dashboard"');
       t.match(await page.innerText('title'), /Minion/);
       await page.click('text=Back to Site');
       t.equal(await page.innerText('title'), 'List open reviews');
@@ -288,8 +288,8 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForURL(`${url}/snippet/decision/7`);
 
       // Update pattern with a made up license
-      t.match(await page.innerText('#content'), /Created/);
-      await page.click('text=pattern');
+      t.match(await page.innerText('#content .alert'), /has been created/);
+      await page.click('text="pattern"');
       await page.locator('input[name=license]').click();
       await page.locator('input[name=license]').fill('Made-Up-License-1.0');
       await page.locator('input[value=Update]').click();
