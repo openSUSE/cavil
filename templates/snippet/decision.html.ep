@@ -1,14 +1,26 @@
-% layout 'default', title => "Snippet edited";
-% my $pattern = stash('pattern');
+% layout 'default', title => 'Snippet edited';
 
-% if ($pattern) {
-  Created
-  %= link_to 'pattern' => url_for('edit_pattern', id => $pattern->{id})
+% if (my $id = stash('pattern')) {
+  <div class="alert alert-success" role="alert">
+    Your <%= link_to 'pattern' => url_for('edit_pattern', id => $id) %> has been created.
+  </div>
 % }
 
-% for my $package (@$packages) {
-  <p>
-  Reindexing package
-  %= link_to $package->{name} => url_for('package_details', id => $package->{id})
-  </p>
+% if (my $id = stash('proposal')) {
+  <div class="alert alert-success" role="alert">
+    Your change has been proposed. Check open <%= link_to 'proposals' => url_for('proposed_patterns') %> for its status.
+  </div>
+% }
+
+% if (my $error = stash('error')) {
+  <div class="alert alert-danger" role="alert">
+    <%= $error %>.
+  </div>
+% }
+
+% if (my @packages = @{stash('packages') // []}) {
+  % my $num = scalar @packages;
+  <div class="alert alert-info" role="alert">
+    Reindexing <%= $num %> <%= $num == 1 ? 'package' : 'packages' %>.
+  </div>
 % }

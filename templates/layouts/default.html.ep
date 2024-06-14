@@ -77,19 +77,31 @@
                   % }
                   <h3 class="dropdown-header">User Menu</h3>
                   <li>
-                    %= link_to 'Documentation' => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md', class => 'dropdown-item'
+                    <a href="<%= url_for('proposed_patterns') %>" class="dropdown-item">
+                      Change Proposals
+                      % my $stats = proposal_stats();
+                      % if ($stats->{waiting} > 0) {
+                        <span class="badge bg-info"><%= $stats->{waiting} %></span>
+                      % }
+                    </a>
+                  </li>
+                  <li>
+                    %= link_to 'Pattern Performance' => 'recent_patterns', class => 'dropdown-item'
                   </li>
                   <li><hr class="dropdown-divider"></li>
                   % if (current_user_has_role 'admin') {
                     <h3 class="dropdown-header">Administrator Menu</h3>
                     <li>
-                      %= link_to 'Upload' => '/upload', class => 'dropdown-item'
+                      %= link_to 'Upload Tarball' => '/upload', class => 'dropdown-item'
                     </li>
                     <li>
-                      %= link_to 'Minion' => '/minion', class => 'dropdown-item'
+                      %= link_to 'Minion Dashboard' => '/minion', class => 'dropdown-item'
                     </li>
                     <li><hr class="dropdown-divider"></li>
                   % }
+                  <li>
+                    <%= link_to 'Documentation' => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md', class => 'dropdown-item' %>
+                  </li>
                   <li>
                     %= link_to 'Logout' => 'logout', class => 'dropdown-item'
                   </li>

@@ -105,6 +105,11 @@ sub mark_non_license ($self, $id) {
   $self->pg->db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
 }
 
+sub packages_for_snippet ($self, $id) {
+  return $self->pg->db->query('SELECT DISTINCT(package) FROM file_snippets WHERE snippet = ?', $id)
+    ->arrays->flatten->to_array;
+}
+
 sub with_context ($self, $id) {
   my $db = $self->pg->db;
   return undef unless my $snippet = $db->select('snippets', '*', {id => $id})->hash;

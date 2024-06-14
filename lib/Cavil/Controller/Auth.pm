@@ -17,11 +17,11 @@ package Cavil::Controller::Auth;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 sub check ($self) {
-  my $role = $self->stash('role');
+  my $role = $self->stash('roles');
   my $user = $self->current_user;
 
   # User needs to log in or a different role
-  $self->render('permissions', status => 403) and return undef unless $user && $self->users->has_role($user, $role);
+  $self->render('permissions', status => 403) and return undef unless $user && $self->users->has_role($user, @$role);
 
   return 1;
 }

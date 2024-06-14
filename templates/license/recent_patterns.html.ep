@@ -1,0 +1,9 @@
+% layout 'default';
+% title 'Pattern Performance';
+
+<div id="recent-patterns"></div>
+
+% content_for 'ready_function' => begin
+  % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
+  cavil.setupRecentPatterns(<%= $has_admin_role %>);
+% end

@@ -1,0 +1,9 @@
+% layout 'default';
+% title 'Change Proposals';
+
+<div id="proposed-patterns"></div>
+
+% content_for 'ready_function' => begin
+  % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
+  cavil.setupProposedPatterns("<%= current_user %>", <%= $has_admin_role %>);
+% end

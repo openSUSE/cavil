@@ -16,7 +16,7 @@
 package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Algorithm::Diff 'sdiff';
+use Algorithm::Diff qw(sdiff);
 use Cavil::Licenses qw(lic);
 
 sub create_pattern ($self) {
@@ -44,11 +44,8 @@ sub create_pattern ($self) {
   );
 
   if ($match->{conflict}) {
-    my $conflicting_pattern = $self->patterns->find($match->{conflict});
-    $self->stash('conflicting_pattern', $conflicting_pattern);
-    $self->stash('pattern_text',        $pattern);
-    $self->render(template => 'snippet/conflict');
-    return;
+    $self->flash(danger => 'Conflicting license pattern already exists.');
+    return $self->redirect_to('new_pattern');
   }
   $self->flash(success => 'Pattern has been created.');
   $self->redirect_to('edit_pattern', id => $match->{id});
@@ -115,6 +112,36 @@ sub new_pattern ($self) {
   return $self->_edit_pattern({license => $lname});
 }
 
+sub proposed ($self) {
+  $self->render('license/proposed_patterns');
+}
+
+sub proposed_meta ($self) {
+  my $v = $self->validation;
+  $v->optional('before')->num;
+  return $self->reply->json_validation_error if $v->has_error;
+  my $before = $v->param('before') // 0;
+
+  my $changes = $self->patterns->proposed_changes({before => $before});
+
+  $self->render(json => {changes => $changes->{changes}, total => $changes->{total}});
+}
+
+sub recent ($self) {
+  $self->render('license/recent_patterns');
+}
+
+sub recent_meta ($self) {
+  my $v = $self->validation;
+  $v->optional('before')->num;
+  return $self->reply->json_validation_error if $v->has_error;
+  my $before = $v->param('before') // 0;
+
+  my $recent = $self->patterns->recent({before => $before});
+
+  $self->render(json => {patterns => $recent->{patterns}, total => $recent->{total}});
+}
+
 # AJAX route
 sub remove_pattern ($self) {
   my $id       = $self->stash('id');
@@ -124,6 +151,18 @@ sub remove_pattern ($self) {
   $patterns->expire_cache;
   $patterns->remove($id);
   $self->render(json => 'ok');
+}
+
+sub remove_proposal ($self) {
+  my $checksum = $self->param('checksum');
+
+  my $patterns = $self->patterns;
+  my $is_admin = $self->current_user_has_role('admin');
+  my $is_owner = $patterns->is_proposal_owner($checksum, $self->current_user);
+  return $self->render('permissions', status => 403) unless $is_owner || $is_admin;
+
+  my $rows = $patterns->remove_proposal($checksum);
+  $self->render(json => {removed => $rows});
 }
 
 sub show ($self) {
@@ -160,11 +199,8 @@ sub update_pattern ($self) {
     risk              => $validation->param('risk')
   );
   if ($result->{conflict}) {
-
-    my $conflicting_pattern = $self->patterns->find($result->{conflict});
-    $self->stash('conflicting_pattern', $conflicting_pattern);
-    $self->stash('pattern_text',        $pattern);
-    return $self->render(template => 'snippet/conflict');
+    $self->flash(danger => 'Conflicting license pattern already exists.');
+    return $self->redirect_to('edit_pattern', id => $id);
   }
   $self->packages->mark_matched_for_reindex($id);
   $self->app->minion->enqueue(pattern_stats => [] => {priority => 9});

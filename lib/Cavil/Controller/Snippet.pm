@@ -16,9 +16,24 @@
 package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::File 'path';
-use Cavil::Util qw(read_lines);
+use Mojo::File  qw(path);
+use Cavil::Util qw(pattern_matches read_lines);
 use Mojo::JSON  qw(true false);
+
+sub approve ($self) {
+  my $v = $self->validation;
+  $v->required('license')->in('true', 'false');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $license = $v->param('license');
+
+  my $id = $self->param('id');
+  $self->snippets->approve($id, $license);
+
+  my $user = $self->session('user');
+  $self->app->log->info(qq{Snippet $id approved by $user (License: $license))});
+
+  $self->render(json => {message => 'ok'});
+}
 
 sub closest ($self) {
   my $v = $self->validation;
@@ -42,8 +57,65 @@ sub closest ($self) {
   );
 }
 
+sub decision ($self) {
+  my $validation = $self->validation;
+  $validation->optional('create-pattern');
+  $validation->optional('propose-pattern');
+  $validation->optional('mark-non-license');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $id       = $self->param('id');
+  my $snippets = $self->snippets;
+  my $packages = $snippets->packages_for_snippet($id);
+
+  # Only admins can create patterns or ignore snippets directly
+  my $is_admin = $self->current_user_has_role('admin');
+  if ($validation->param('create-pattern')) {
+    return $self->render('permissions', status => 403) unless $is_admin;
+    $self->_create_pattern($packages, $validation);
+  }
+
+  elsif ($validation->param('mark-non-license')) {
+    return $self->render('permissions', status => 403) unless $is_admin;
+    $snippets->mark_non_license($id);
+    $self->packages->analyze($_, 4) for @$packages;
+    $self->render(packages => $packages);
+  }
+
+  elsif ($validation->param('propose-pattern')) { $self->_propose_pattern($validation) }
+
+  else { $self->reply->not_found }
+}
+
+sub edit ($self) {
+  my $id      = $self->stash('id');
+  my $snippet = $self->snippets->find($id);
+  $self->render(snippet => $snippet);
+}
+
+sub from_file ($self) {
+  my $db      = $self->pg->db;
+  my $file_id = $self->stash('file');
+
+  my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
+  return $self->reply->not_found unless $file;
+
+  my $package = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
+  my $fn      = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked',
+    $file->{filename});
+
+  my $first_line = $self->stash('start');
+  my $last_line  = $self->stash('end');
+  my $text       = read_lines($fn, $first_line, $last_line);
+  my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
+  $db->insert('file_snippets',
+    {package => $package->{id}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
+
+  return $self->redirect_to('edit_snippet', id => $snippet);
+}
+
 sub list ($self) {
-  $self->render();
+  $self->render;
 }
 
 sub list_meta ($self) {
@@ -84,27 +156,6 @@ sub list_meta ($self) {
   $self->render(json => {snippets => $snippets, total => $unclassified->{total}});
 }
 
-sub approve ($self) {
-  my $v = $self->validation;
-  $v->required('license')->in('true', 'false');
-  return $self->reply->json_validation_error if $v->has_error;
-  my $license = $v->param('license');
-
-  my $id = $self->param('id');
-  $self->snippets->approve($id, $license);
-
-  my $user = $self->session('user');
-  $self->app->log->info(qq{Snippet $id approved by $user (License: $license))});
-
-  $self->render(json => {message => 'ok'});
-}
-
-sub edit ($self) {
-  my $id      = $self->stash('id');
-  my $snippet = $self->snippets->find($id);
-  $self->render(snippet => $snippet);
-}
-
 sub meta ($self) {
   my $id       = $self->param('id');
   my $snippet  = $self->snippets->with_context($id);
@@ -114,112 +165,70 @@ sub meta ($self) {
   $self->render(json => {snippet => $snippet, licenses => $licenses, closest => $pattern->{license}});
 }
 
-sub _render_conflict ($self, $id, $validation) {
-  my $conflicting_pattern = $self->patterns->find($id);
-  $self->stash('conflicting_pattern', $conflicting_pattern);
-  $self->stash('pattern_text',        $validation->param('pattern'));
-  $self->render(template => 'snippet/conflict');
-}
-
 sub _create_pattern ($self, $packages, $validation) {
   $validation->required('license');
   $validation->required('pattern');
   $validation->required('risk')->num;
+  $validation->optional('checksum');
   $validation->optional('patent');
   $validation->optional('trademark');
   $validation->optional('export_restricted');
   return $self->reply->json_validation_error if $validation->has_error;
 
-  my $pattern = $self->patterns->create(
-    license => $validation->param('license'),
-    pattern => $validation->param('pattern'),
-    risk    => $validation->param('risk'),
-
-    # TODO: those checkboxes aren't yet taken over
+  my $patterns = $self->patterns;
+  my $pattern  = $patterns->create(
+    license           => $validation->param('license'),
+    pattern           => $validation->param('pattern'),
+    risk              => $validation->param('risk'),
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
     export_restricted => $validation->param('export_restricted')
   );
-  if ($pattern->{conflict}) {
-    $self->_render_conflict($pattern->{conflict}, $validation);
-    return 1;
-  }
-  $self->flash(success => 'Pattern has been created.');
-  $self->stash(pattern => $pattern);
 
-  my $db = $self->pg->db;
-  for my $id (@$packages) {
-    $self->packages->reindex($id, 3);
-  }
-  return undef;
+  return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $pattern->{conflict};
+
+  if (my $checksum = $validation->param('checksum')) { $patterns->remove_proposal($checksum) }
+  $self->packages->reindex($_, 3) for @$packages;
+  $self->render(packages => $packages, pattern => $pattern->{id});
 }
 
-# proxy function
-sub decision ($self) {
-  my $validation = $self->validation;
-  $validation->optional('create-pattern');
-  $validation->optional('mark-non-license');
+sub _propose_pattern ($self, $validation) {
+  $validation->required('license');
+  $validation->required('pattern');
+  $validation->required('risk')->num;
+  $validation->optional('package');
+  $validation->optional('patent');
+  $validation->optional('trademark');
+  $validation->optional('export_restricted');
   return $self->reply->json_validation_error if $validation->has_error;
 
-  my %packages;
-  my $db      = $self->pg->db;
-  my $id      = $self->param('id');
-  my $results = $db->query('select package from file_snippets where snippet=?', $id);
-  while (my $next = $results->hash) {
-    $packages{$next->{package}} = 1;
-  }
-  my $packages = [keys %packages];
+  my $pattern = $validation->param('pattern');
+  my $snippet = $self->snippets->find($self->param('id'));
+  return $self->render(status => 400, error => 'License pattern does not match the original snippet')
+    unless pattern_matches($pattern, $snippet->{text});
 
-  if ($validation->param('create-pattern')) {
-    return if $self->_create_pattern($packages, $validation);
-  }
-  elsif ($validation->param('mark-non-license')) {
-    $self->snippets->mark_non_license($id);
-    for my $pkg (@$packages) {
-      $self->packages->analyze($pkg, 4);
-    }
-  }
-  $packages = [map { $self->packages->find($_) } @$packages];
-  $self->stash(packages => $packages);
-  $self->render;
-}
+  my $user   = $self->users->find(login => $self->current_user);
+  my $result = $self->patterns->propose_create(
+    snippet           => $snippet->{id},
+    pattern           => $pattern,
+    license           => $validation->param('license'),
+    risk              => $validation->param('risk'),
+    package           => $validation->param('package'),
+    patent            => $validation->param('patent'),
+    trademark         => $validation->param('trademark'),
+    export_restricted => $validation->param('export_restricted'),
+    owner             => $user->{id}
+  );
 
-sub top ($self) {
-  my $db = $self->pg->db;
+  return $self->render(
+    status => 400,
+    error  => 'This license and risk combination is not allowed, only use pre-existing licenses'
+  ) if $result->{license_conflict};
+  return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $result->{conflict};
+  return $self->render(status => 409, error => 'Conflicting license pattern proposal already exists')
+    if $result->{proposal_conflict};
 
-  my $result = $db->query(
-    'select snippet,count(file) from snippets join file_snippets
-       on file_snippets.snippet=snippets.id where snippets.license=TRUE
-       group by snippet order by count desc limit 20'
-  )->hashes;
-  for my $snippet (@$result) {
-    $snippet->{packages} = $db->query(
-      'select count(distinct package)
-       from file_snippets where snippet=?', $snippet->{snippet}
-    )->hash->{count};
-  }
-  $self->render(snippets => $result);
-}
-
-sub from_file ($self) {
-  my $db      = $self->pg->db;
-  my $file_id = $self->stash('file');
-
-  my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
-  return $self->reply->not_found unless $file;
-
-  my $package = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
-  my $fn      = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked',
-    $file->{filename});
-
-  my $first_line = $self->stash('start');
-  my $last_line  = $self->stash('end');
-  my $text       = read_lines($fn, $first_line, $last_line);
-  my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
-  $db->insert('file_snippets',
-    {package => $package->{id}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
-
-  return $self->redirect_to('edit_snippet', id => $snippet);
+  $self->render(proposal => 1);
 }
 
 1;

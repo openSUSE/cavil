@@ -196,3 +196,17 @@ DROP TABLE IF EXISTS bot_packages;
 DROP TABLE IF EXISTS bot_users;
 DROP TABLE IF EXISTS bot_sources;
 DROP TYPE IF EXISTS bot_state;
+
+-- 18 up
+CREATE TABLE proposed_changes (
+  id serial PRIMARY KEY,
+  action text NOT NULL,
+  token_hexsum text NOT NULL,
+  data jsonb NOT NULL,
+  created timestamp with time zone DEFAULT now() NOT NULL,
+  owner int REFERENCES bot_users(id) NOT NULL
+);
+CREATE UNIQUE INDEX ON proposed_changes(token_hexsum);
+
+--18 down
+DROP TABLE IF EXISTS proposed_changes;

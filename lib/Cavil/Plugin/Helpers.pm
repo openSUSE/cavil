@@ -29,6 +29,7 @@ sub register ($self, $app, $config) {
   $app->helper('current_user_has_role'       => \&_current_user_has_role);
   $app->helper('lic'                         => sub { shift; lic(@_) });
   $app->helper('maybe_utf8'                  => sub { decode('UTF-8', $_[1]) // $_[1] });
+  $app->helper('proposal_stats'              => sub { shift->patterns->proposal_stats });
   $app->helper('reply.json_validation_error' => \&_json_validation_error);
   $app->helper('format_file'                 => \&_format_file);
 }

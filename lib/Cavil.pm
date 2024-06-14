@@ -146,11 +146,12 @@ sub startup ($self) {
   $self->pg->migrations->name('legalqueue_api')->from_file($path);
 
   # Authentication
-  my $public     = $self->routes;
-  my $bot        = $public->under('/')->to('Auth::Token#check');
-  my $manager    = $public->under('/' => {role => 'manager'})->to('Auth#check');
-  my $admin      = $public->under('/' => {role => 'admin'})->to('Auth#check');
-  my $classifier = $public->under('/' => {role => 'classifier'})->to('Auth#check');
+  my $public               = $self->routes;
+  my $bot                  = $public->under('/')->to('Auth::Token#check');
+  my $manager              = $public->under('/' => {roles => ['manager']})->to('Auth#check');
+  my $admin                = $public->under('/' => {roles => ['admin']})->to('Auth#check');
+  my $admin_or_contributor = $public->under('/' => {roles => ['admin', 'contributor']})->to('Auth#check');
+  my $classifier           = $public->under('/' => {roles => ['classifier']})->to('Auth#check');
   if (my $openid = $config->{openid}) {
     $self->plugin(
       OAuth2 => {
@@ -217,8 +218,14 @@ sub startup ($self) {
   $public->get('/licenses')->to('License#list')->name('licenses');
   $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
-  $admin->post('/licenses/new_pattern')->to('License#new_pattern');
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
+  $public->get('/licenses/proposed')->to('License#proposed')->name('proposed_patterns');
+  $public->get('/licenses/proposed/meta')->to('License#proposed_meta')->name('proposed_patterns_meta');
+  $public->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
+  $public->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
+
+  # Public because of fine grained access controls (owner of proposal may remove it again)
+  $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');
 
   $admin->get('/licenses/edit_pattern/<id:num>')->to('License#edit_pattern')->name('edit_pattern');
   $admin->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
@@ -238,8 +245,7 @@ sub startup ($self) {
   $public->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
   $public->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
-  $admin->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
-  $public->get('/snippets/top')->to('Snippet#top')->name('top_snippets');
+  $admin_or_contributor->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
 
   # Upload (experimental)
   $admin->get('/upload')->to('Upload#index')->name('upload');

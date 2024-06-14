@@ -18,6 +18,8 @@ import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import ProductReviews from './vue/ProductReviews.vue';
+import ProposedPatterns from './vue/ProposedPatterns.vue';
+import RecentPatterns from './vue/RecentPatterns.vue';
 import RecentReviews from './vue/RecentReviews.vue';
 import ReportMetadata from './vue/ReportMetadata.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
@@ -32,15 +34,24 @@ window.cavil = {
   fires: undefined,
   myCodeMirror: undefined,
 
+  setupProposedPatterns(currentUser, hasAdminRole) {
+    const app = createApp(ProposedPatterns);
+    app.config.globalProperties.currentUser = currentUser;
+    app.config.globalProperties.hasAdminRole = hasAdminRole;
+    app.mount('#proposed-patterns');
+  },
+
   setupClassifySnippets(hasClassifierRole) {
     const app = createApp(ClassifySnippets);
     app.config.globalProperties.hasClassifierRole = hasClassifierRole;
     app.mount('#classify-snippets');
   },
 
-  setupEditSnippet(snippet) {
+  setupEditSnippet(snippet, hasContributorRole, hasAdminRole) {
     const app = createApp(EditSnippet);
     app.config.globalProperties.currentSnippet = snippet;
+    app.config.globalProperties.hasContributorRole = hasContributorRole;
+    app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.mount('#edit-snippet');
   },
 
@@ -50,6 +61,12 @@ window.cavil = {
 
   setupKnownProducts() {
     createApp(KnownProducts).mount('#known-products');
+  },
+
+  setupRecentPatterns(hasAdminRole) {
+    const app = createApp(RecentPatterns);
+    app.config.globalProperties.hasAdminRole = hasAdminRole;
+    app.mount('#recent-patterns');
   },
 
   setupOpenReviews() {

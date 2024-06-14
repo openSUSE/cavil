@@ -58,17 +58,15 @@ sub closest_matches ($self, $text, $num) {
 
 sub create ($self, %args) {
 
-  my $db       = $self->pg->db;
   my $checksum = $self->checksum($args{pattern});
-  my $id       = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
-  if ($id) {
-    return {conflict => $id->{id}};
-  }
+  my $id       = $self->pattern_exists($checksum);
+  return {conflict => $id} if $id;
 
   # Get SPDX expression for already known licenses
+  my $db   = $self->pg->db;
   my $spdx = '';
   if (my $license = $args{license}) {
-    my $pattern = $self->pg->db->query('SELECT spdx FROM license_patterns WHERE license = ? LIMIT 1', $license)->hash;
+    my $pattern = $db->query('SELECT spdx FROM license_patterns WHERE license = ? LIMIT 1', $license)->hash;
     $spdx = $pattern->{spdx} if $pattern;
   }
 
@@ -76,7 +74,7 @@ sub create ($self, %args) {
     'license_patterns',
     {
       pattern           => $args{pattern},
-      token_hexsum      => $checksum,
+      token_hexsum      => $self->checksum($args{pattern}),
       packname          => $args{packname}          // '',
       patent            => $args{patent}            // 0,
       trademark         => $args{trademark}         // 0,
@@ -108,6 +106,13 @@ sub has_new_patterns ($self, $packname, $when) {
     "select count(*) from license_patterns
      where created > ? and (packname = '' or packname = ?)", $when, $packname
   )->array->[0];
+}
+
+sub is_proposal_owner ($self, $checksum, $login) {
+  return !!$self->pg->db->query(
+    'SELECT pc.id FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner) WHERE token_hexsum = ? AND login = ?',
+    $checksum, $login
+  )->hash;
 }
 
 sub load_specific ($self, $matcher, $pname) {
@@ -143,6 +148,10 @@ sub match_count($self, $id) {
   )->hash;
 }
 
+sub remove_proposal ($self, $checksum) {
+  return $self->pg->db->delete('proposed_changes', {token_hexsum => $checksum})->rows;
+}
+
 sub all ($self) {
   return $self->pg->db->select('license_patterns', '*')->hashes;
 }
@@ -170,6 +179,11 @@ sub for_license ($self, $license) {
   return $self->pg->db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
 }
 
+sub pattern_exists ($self, $checksum) {
+  my $hash = $self->pg->db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
+  return $hash ? $hash->{id} : undef;
+}
+
 sub paginate_known_licenses ($self, $options) {
   my $db = $self->pg->db;
 
@@ -192,6 +206,118 @@ sub paginate_known_licenses ($self, $options) {
   )->hashes->to_array;
 
   return paginate($results, $options);
+}
+
+sub proposal_exists ($self, $checksum) {
+  my $hash = $self->pg->db->select('proposed_changes', 'id', {token_hexsum => $checksum})->hash;
+  return $hash ? $hash->{id} : undef;
+}
+
+sub proposal_stats($self) {
+  return $self->pg->db->query('SELECT COUNT(*) AS waiting FROM proposed_changes')->hash;
+}
+
+sub propose_create ($self, %args) {
+
+  my $pattern  = $args{pattern};
+  my $checksum = $self->checksum($pattern);
+  my $id       = $self->pattern_exists($checksum);
+  return {conflict => $id} if $id;
+  my $proposal_id = $self->proposal_exists($checksum);
+  return {proposal_conflict => $proposal_id} if $proposal_id;
+
+  my $db      = $self->pg->db;
+  my $license = $args{license};
+  my $risk    = $args{risk};
+  my $hash
+    = $db->query('SELECT id FROM license_patterns WHERE license = ? AND risk = ? LIMIT 1', $license, $risk)->hash;
+  return {license_conflict => 1} unless $hash;
+
+  $db->insert(
+    'proposed_changes',
+    {
+      action => 'create_pattern',
+      data   => {
+        -json => {
+          snippet           => $args{snippet},
+          pattern           => $pattern,
+          license           => $license,
+          risk              => $risk,
+          package           => $args{package},
+          patent            => $args{patent}            // '0',
+          trademark         => $args{trademark}         // '0',
+          export_restricted => $args{export_restricted} // '0'
+        }
+      },
+      owner        => $args{owner},
+      token_hexsum => $checksum
+    }
+  );
+
+  return {};
+}
+
+sub proposed_changes ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $before = '';
+  if ($options->{before} > 0) {
+    my $quoted = $db->dbh->quote($options->{before});
+    $before = "WHERE id < $quoted";
+  }
+
+  my $changes = $db->query(
+    "SELECT pc.*, EXTRACT(EPOCH FROM created) AS created_epoch, bu.login, COUNT(*) OVER() AS total
+     FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner) $before ORDER BY id ASC LIMIT 10"
+  )->expand->hashes;
+
+  my $total = 0;
+  for my $change (@$changes) {
+    if ($change->{action} eq 'create_pattern') {
+      $change->{closest} = undef;
+      if (my $closest = $self->closest_pattern($change->{data}{pattern})) {
+        $change->{closest} = {
+          id           => $closest->{id},
+          similarity   => $closest->{similarity},
+          license_name => $closest->{license},
+          risk         => $closest->{risk}
+        };
+      }
+      $change->{package} = undef;
+      if (my $id = $change->{data}{package}) {
+        $change->{package} = $db->query('SELECT id, name FROM bot_packages WHERE id = ?', $id)->hash;
+      }
+    }
+
+    $total = delete $change->{total};
+  }
+
+  return {total => $total, changes => $changes->to_array};
+}
+
+sub recent ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $before = '';
+  if ($options->{before} > 0) {
+    my $quoted = $db->dbh->quote($options->{before});
+    $before = "WHERE id < $quoted";
+  }
+
+  my $patterns = $db->query(
+    "SELECT *, EXTRACT(EPOCH FROM created) AS created_epoch, COUNT(*) OVER() AS total
+     FROM license_patterns $before ORDER BY id DESC LIMIT 10"
+  )->hashes;
+
+  my $total = 0;
+  for my $pattern (@$patterns) {
+    $total = delete $pattern->{total};
+    my $count = $self->match_count($pattern->{id});
+    $pattern->{matches}  = $count->{matches};
+    $pattern->{packages} = $count->{packages};
+  }
+
+  return {total => $total, patterns => $patterns->to_array};
 }
 
 sub remove ($self, $id) {

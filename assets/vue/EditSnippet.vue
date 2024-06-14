@@ -1,6 +1,14 @@
 <template>
   <div v-if="patternText === null"><i class="fas fa-sync fa-spin"></i> Loading snippet...</div>
   <div v-else>
+    <div v-if="hasContributorRole === false && hasAdminRole === false" class="alert alert-info">
+      There is no license pattern for this snippet yet. You do not have the necessary permissions to propose new license
+      patterns. To change this contact an administrator and request the "contributor" role.
+    </div>
+    <div v-else-if="hasAdminRole === false" class="alert alert-info">
+      There is no license pattern for this snippet yet, you are welcome to submit a proposal. An administrator will
+      review it and decide if it should be added. However, you may only use existing licenses and risk assessments.
+    </div>
     <div v-if="this.package !== null" class="row">
       <div class="col mb-3">
         The example shown here is from <a :href="this.package.packageUrl">{{ this.package.name }}</a
@@ -8,6 +16,7 @@
       </div>
     </div>
     <form :action="this.decisionUrl" method="POST">
+      <input type="hidden" name="package" :value="this.package.id" v-if="this.package !== null" />
       <div class="row">
         <div class="col mb-3">
           <label class="form-label" for="pattern">Snippet</label>
@@ -21,7 +30,9 @@
           ></textarea>
           <div id="patternHelp" class="form-text">
             Keyword patterns within the snippet are highlighted and you can reach them by clicking on the line number.
-            Use expressions like <code>$SKIP19</code> to skip up to a certain number of character in your pattern.
+            Use expressions like <code>$SKIP5</code> to skip up to a certain number of words in your pattern. The
+            expression <code>$SKIP19</code> represents the upper limit of the matching engine (which will be higher than
+            19), and simply skips as many words as possible.
           </div>
         </div>
       </div>
@@ -123,9 +134,19 @@
       </div>
       <div class="row">
         <div class="col mb-3">
-          <button name="create-pattern" type="submit" value="1" class="btn btn-primary mb-2">Create Pattern</button
-          >&nbsp;
-          <button name="propose-pattern" type="submit" value="1" class="btn btn-secondary mb-2">Propose Pattern</button>
+          <span v-if="hasAdminRole === true">
+            <button name="create-pattern" type="submit" value="1" class="btn btn-primary mb-2">Create Pattern</button>
+            &nbsp;
+          </span>
+          <button
+            v-if="hasContributorRole === true"
+            name="propose-pattern"
+            type="submit"
+            value="1"
+            class="btn btn-success mb-2"
+          >
+            Propose Pattern
+          </button>
         </div>
       </div>
       <div v-if="closest !== null" class="row closest-container">
