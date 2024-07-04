@@ -20,6 +20,8 @@ sub check ($self) {
   my $role = $self->stash('roles');
   my $user = $self->current_user;
 
+  $self->render('login', status => 401) and return undef if !$user && !@$role;
+
   # User needs to log in or a different role
   $self->render('permissions', status => 403) and return undef unless $user && $self->users->has_role($user, @$role);
 

@@ -1,0 +1,3 @@
+% layout 'default', title => 'Login Required';
+
+<a href="<%= url_for('login') %>">Login</a> required for accessing this resource.

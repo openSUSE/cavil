@@ -148,10 +148,12 @@ sub startup ($self) {
   # Authentication
   my $public               = $self->routes;
   my $bot                  = $public->under('/')->to('Auth::Token#check');
+  my $logged_in            = $public->under('/' => {roles => []})->to('Auth#check');
   my $manager              = $public->under('/' => {roles => ['manager']})->to('Auth#check');
   my $admin                = $public->under('/' => {roles => ['admin']})->to('Auth#check');
   my $admin_or_contributor = $public->under('/' => {roles => ['admin', 'contributor']})->to('Auth#check');
   my $classifier           = $public->under('/' => {roles => ['classifier']})->to('Auth#check');
+
   if (my $openid = $config->{openid}) {
     $self->plugin(
       OAuth2 => {
@@ -201,11 +203,12 @@ sub startup ($self) {
     ->name('pagination_review_search');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
   $manager->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
-  $public->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
-  $public->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
-  $public->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])->to('Report#calc', format => 'html')
+  $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
+  $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
+  $logged_in->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])->to('Report#calc', format => 'html')
     ->name('calc_report');
-  $public->get('/reviews/fetch_source/<id:num>' => [format => ['json', 'html']])->to('Report#source', format => 'html');
+  $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json', 'html']])
+    ->to('Report#source', format => 'html');
   $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
   $manager->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
   $admin->post('/reviews/add_ignore')->to('Reviewer#add_ignore');
@@ -213,7 +216,7 @@ sub startup ($self) {
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
-  $public->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
+  $logged_in->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
 
   $public->get('/licenses')->to('License#list')->name('licenses');
   $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
@@ -238,11 +241,11 @@ sub startup ($self) {
   $public->get('/products/*name')->to('Product#show')->name('product_show');
   $public->get('/pagination/products/*name')->to('Pagination#product_reviews')->name('pagination_product_reviews');
 
-  $public->get('/snippets')->to('Snippet#list')->name('snippets');
-  $public->get('/snippets/meta')->to('Snippet#list_meta')->name('snippets_meta');
+  $logged_in->get('/snippets')->to('Snippet#list')->name('snippets');
+  $logged_in->get('/snippets/meta')->to('Snippet#list_meta')->name('snippets_meta');
   $classifier->post('/snippets/<id:num>')->to('Snippet#approve')->name('approve_snippets');
-  $public->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
-  $public->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
+  $logged_in->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
+  $logged_in->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
   $public->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
   $admin_or_contributor->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');

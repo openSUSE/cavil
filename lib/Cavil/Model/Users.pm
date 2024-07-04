@@ -33,6 +33,7 @@ sub find_or_create ($self, %args) {
 }
 
 sub has_role ($self, $user, @roles) {
+  return 1 if !@roles;
   return undef unless my $result = $self->pg->db->query('select roles from bot_users where login = ?', $user)->hash;
   for my $role (@roles) {
     return 1 if grep { $_ eq $role } @{$result->{roles}};

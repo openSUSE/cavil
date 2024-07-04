@@ -33,9 +33,11 @@ sub login ($self) {
       my $data = $tx->res->json;
 
       # Create in DB
-      my $user = $self->users->find_or_create(login => $data->{nickname}, email => $data->{email}, fullname => '');
+      my $user  = $self->users->find_or_create(login => $data->{nickname}, email => $data->{email}, fullname => '');
+      my $login = $user->{login};
 
-      $self->session(user => $user->{login});
+      $self->session(user => $login);
+      $self->log->info(qq{User "$login" logged in});
       $self->redirect_to('dashboard');
     }
   )->catch(
