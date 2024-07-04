@@ -39,6 +39,8 @@ subtest 'Unpack and index' => sub {
 };
 
 subtest 'Generate SPDX report' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
   is $t->app->pg->db->query('UPDATE snippets SET classified = true, license = false WHERE id = any(?)', [1])->rows, 1,
     'one snippet is not a license';
   is $t->app->pg->db->query(
@@ -52,6 +54,8 @@ subtest 'Generate SPDX report' => sub {
   is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
   ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
   $t->get_ok('/spdx/1')->status_is(200)->content_unlike(qr/generated/)->content_like(qr/SPDXVersion/);
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
 subtest 'Always generate SPDX reports when reindexing' => sub {
@@ -143,10 +147,14 @@ subtest 'SPDX report contents' => sub {
 };
 
 subtest 'SPDX report is obsolete' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
   is $t->app->pg->db->query('UPDATE bot_packages SET obsolete = true WHERE id = any(?)', [1])->rows, 1,
     'one package obsoleted';
   $t->get_ok('/spdx/1')->status_is(410)->content_like(qr/package is obsolete/);
   $t->get_ok('/spdx/1')->status_is(410)->content_like(qr/package is obsolete/);
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
 done_testing;

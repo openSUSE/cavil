@@ -32,10 +32,14 @@ $cavil_test->mojo_fixtures($t->app);
 my $db = $t->app->pg->db;
 
 subtest 'Snippet metadata' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
   $t->get_ok('/snippets/meta?isClassified=false')->status_is(200)->json_hasnt('/snippets/0');
   my $id = $t->app->snippets->find_or_create('0000', 'Licenses are cool');
   $t->get_ok('/snippets/meta?isClassified=false')->status_is(200)->json_has('/snippets/0')
     ->json_is('/snippets/0/classified', false)->json_is('/snippets/0/approved', false);
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
 subtest 'Snippet approval' => sub {

@@ -98,6 +98,8 @@ subtest 'Details after indexing' => sub {
 };
 
 subtest 'JSON report' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
   $t->get_ok('/reviews/calc_report/1.json')->header_like(Vary => qr/Accept-Encoding/)->status_is(200);
   ok my $json = $t->tx->res->json, 'JSON response';
 
@@ -143,14 +145,21 @@ subtest 'JSON report' => sub {
   ok my $apache   = $licenses->{'Apache-2.0'}, 'Apache';
   is $apache->{name}, 'Apache-2.0', 'name';
   is $apache->{risk}, 5,            'risk';
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
-# Reindex (with updated stats)
-$t->app->minion->enqueue('pattern_stats');
-$t->app->minion->perform_jobs;
-$t->app->packages->reindex(1);
-$t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/package being processed/);
-$t->app->minion->perform_jobs;
+subtest 'Reindex (with updated stats)' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+  $t->app->minion->enqueue('pattern_stats');
+  $t->app->minion->perform_jobs;
+  $t->app->packages->reindex(1);
+  $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/package being processed/);
+  $t->app->minion->perform_jobs;
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
 
 subtest 'Manual review' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');

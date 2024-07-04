@@ -41,10 +41,21 @@ subtest 'Unknown resource' => sub {
 subtest 'Public (main menu)' => sub {
   $t->get_ok('/')->status_is(200);
   $t->get_ok('/reviews/recent')->status_is(200);
-  $t->get_ok('/snippets')->status_is(200);
   $t->get_ok('/licenses')->status_is(200);
   $t->get_ok('/products')->status_is(200);
   $t->get_ok('/products/openSUSE:Factory')->status_is(200);
+};
+
+subtest 'Login required' => sub {
+  $t->get_ok('/reviews/details/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/reviews/meta/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/reviews/calc_report/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/reviews/fetch_source/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/snippets')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/snippets/meta')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/snippet/edit/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/snippet/meta/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/spdx/1')->status_is(401)->content_like(qr/Login Required/);
 };
 
 subtest 'Not authenticated' => sub {

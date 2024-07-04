@@ -32,6 +32,8 @@ $cavil_test->package_with_snippets_fixtures($t->app);
 my $db = $t->app->pg->db;
 
 subtest 'Snippet metadata' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
   my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
   $t->app->minion->perform_jobs;
   $t->get_ok('/snippet/meta/1')->status_is(200)->json_is('/snippet/sline', 1)
@@ -40,6 +42,8 @@ subtest 'Snippet metadata' => sub {
   $t->get_ok('/snippet/meta/2')->status_is(200)->json_is('/snippet/sline', 29)
     ->json_like('/snippet/text', qr/The GPL might be/)->json_is('/snippet/package/id', 1)
     ->json_is('/snippet/package/name', 'package-with-snippets');
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
 subtest 'Pattern creation' => sub {

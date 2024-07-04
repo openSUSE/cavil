@@ -149,18 +149,6 @@ t.test('Test cavil ui', skip, async t => {
       t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(5)'), /perl-Mojolicious/);
       t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(6)'), /Artistic/);
     });
-
-    await t.test('Reports', async t => {
-      await page.goto(url);
-      await page.click('text=Error');
-      t.equal(await page.innerText('title'), 'Report for harbor-helm');
-      await page.click('text=Open Reviews');
-      t.equal(await page.innerText('title'), 'List open reviews');
-
-      await page.click('text=Artistic');
-      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
-      await page.waitForSelector('#license-chart');
-    });
   });
 
   await t.test('Admin', async t => {
@@ -183,6 +171,18 @@ t.test('Test cavil ui', skip, async t => {
       t.match(await page.innerText('title'), /Minion/);
       await page.click('text=Back to Site');
       t.equal(await page.innerText('title'), 'List open reviews');
+    });
+
+    await t.test('Reports', async t => {
+      await page.goto(url);
+      await page.click('text=Error');
+      t.equal(await page.innerText('title'), 'Report for harbor-helm');
+      await page.click('text=Open Reviews');
+      t.equal(await page.innerText('title'), 'List open reviews');
+
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
     });
 
     await t.test('Navigation (logged in)', async t => {
