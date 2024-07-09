@@ -6,6 +6,9 @@
 
   An architecture overview for Cavil.
 
+* [Maintenance](Maintenance.md)
+
+  How to keep your Cavil instance running smoothly.
 
 * [API](API.md)
 
