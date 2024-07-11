@@ -210,3 +210,6 @@ CREATE UNIQUE INDEX ON proposed_changes(token_hexsum);
 
 --18 down
 DROP TABLE IF EXISTS proposed_changes;
+
+-- 19 up
+ALTER TABLE bot_packages ADD COLUMN unresolved_matches int DEFAULT 0 NOT NULL;

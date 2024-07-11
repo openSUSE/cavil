@@ -65,6 +65,9 @@ export function setupPopoverDelayed() {
 }
 
 function linkWithContext(html, review) {
+  const unresolved = review.unresolved_matches;
+  if (unresolved !== 0) html = `${html} <div class="badge text-bg-dark">${unresolved}</div>`;
+
   const activeJobs = review.active_jobs ?? 0;
   const failedJobs = review.failed_jobs ?? 0;
 

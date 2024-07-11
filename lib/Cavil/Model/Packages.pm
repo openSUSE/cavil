@@ -203,7 +203,7 @@ sub paginate_open_reviews ($self, $options) {
     qq{
       SELECT id, name, EXTRACT(EPOCH FROM created) as created_epoch, EXTRACT(EPOCH FROM imported) as imported_epoch,
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
-        priority, state, checksum, COUNT(*) OVER() AS total
+        priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages
       WHERE state = 'new' AND obsolete = FALSE $priority $search $progress
       ORDER BY priority DESC, external_link, created DESC, name
@@ -249,7 +249,7 @@ sub paginate_product_reviews ($self, $name, $options) {
     qq{
       SELECT bot_packages.name, bot_packages.id, EXTRACT(EPOCH FROM imported) as imported_epoch,
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, state,
-        checksum, COUNT(*) OVER() AS total
+        checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
       WHERE bot_package_products.product = ? $search $attention $patent $trademark $export_restricted
       ORDER BY bot_packages.id DESC
@@ -286,7 +286,7 @@ sub paginate_recent_reviews ($self, $options) {
       SELECT p.id, p.name, u.login, p.result,  EXTRACT(EPOCH FROM p.created) AS created_epoch,
         EXTRACT(EPOCH FROM p.reviewed) AS reviewed_epoch, EXTRACT(EPOCH FROM p.imported) as imported_epoch,
         EXTRACT(EPOCH FROM p.unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) as indexed_epoch,
-        external_link, priority, state, checksum, COUNT(*) OVER() AS total
+        external_link, priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
        FROM bot_packages p
          LEFT JOIN bot_users u ON p.reviewing_user = u.id
        WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search $user
@@ -328,7 +328,7 @@ sub paginate_review_search ($self, $name, $options) {
       SELECT p.id AS id, name AS package, state, checksum, p.result AS comment,
         EXTRACT(EPOCH FROM p.created) AS created_epoch, EXTRACT(EPOCH FROM p.imported) AS imported_epoch,
         EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
-        u.login AS user, COUNT(*) OVER() AS total
+        u.login AS user,  unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
       WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) $search $obsolete
       ORDER BY id DESC

@@ -53,11 +53,19 @@ sub _analyze ($job, $id) {
 
   my $new_candidates = [];
 
+  # Unresolved keyword matches
+  my $unresolved = 0;
+  if (my $snippets = $dig->{snippets}) {
+    for my $file (keys %$snippets) {
+      $unresolved += keys %{$snippets->{$file}};
+    }
+  }
+
   # Do not leak Postgres connections
   {
     my $db = $app->pg->db;
-    $db->update('bot_packages', {checksum    => $shortname, %$flags}, {id      => $id});
-    $db->update('bot_reports',  {ldig_report => to_json($dig)},       {package => $id});
+    $db->update('bot_packages', {checksum => $shortname, unresolved_matches => $unresolved, %$flags}, {id => $id});
+    $db->update('bot_reports', {ldig_report => to_json($dig)}, {package => $id});
     if ($pkg->{state} ne 'new') {
 
       # in case we reindexed an old pkg, check if 'new' packages now match.

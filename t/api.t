@@ -277,7 +277,7 @@ subtest 'Pagination' => sub {
       ->json_has('/page/0/checksum')->json_has('/page/0/comment')->json_has('/page/0/user')
       ->json_has('/page/0/created_epoch')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
       ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
-      ->json_hasnt('/page/1');
+      ->json_is('/page/0/unresolved_matches' => 6)->json_hasnt('/page/1');
     $t->get_ok('/pagination/search/perl-Mojolicious?notObsolete=true')->json_is('/start', 1)->json_is('/end', 0)
       ->json_is('/total', 0)->json_hasnt('/page/0');
     $t->get_ok('/pagination/search/perl-Mojolicious?filter=Artistic')->json_is('/start', 1)->json_is('/end', 1)
@@ -296,7 +296,8 @@ subtest 'Pagination' => sub {
     $t->get_ok('/pagination/products/openSUSE:Test')->json_is('/start', 1)->json_is('/end', 3)->json_is('/total', 3)
       ->json_is('/page/0/id', 6)->json_is('/page/0/state', 'new')->json_is('/page/0/name', 'test-package-5')
       ->json_has('/page/0/checksum')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
-      ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0);
+      ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
+      ->json_is('/page/0/unresolved_matches' => 0);
     $t->get_ok('/pagination/products/openSUSE:Test?filter=package-3')->json_is('/start', 1)->json_is('/end', 1)
       ->json_is('/total', 1)->json_is('/page/0/id', 4)->json_hasnt('/page/1');
   };
@@ -315,7 +316,7 @@ subtest 'Pagination' => sub {
       ->json_is('/page/0/name', 'test-package-1')->json_has('/page/0/checksum')->json_has('/page/0/external_link')
       ->json_has('/page/0/created_epoch')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
       ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
-      ->json_hasnt('/page/3');
+      ->json_is('/page/0/unresolved_matches' => 0)->json_hasnt('/page/3');
     $t->get_ok('/pagination/reviews/open?filter=package-3')->json_is('/start', 1)->json_is('/end', 1)
       ->json_is('/total', 1)->json_is('/page/0/id', 4)->json_hasnt('/page/1');
   };
