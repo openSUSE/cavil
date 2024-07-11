@@ -16,8 +16,9 @@
 package Cavil::Task::Analyze;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::Licenses 'lic';
-use Mojo::JSON 'to_json';
+use Cavil::Licenses qw(lic);
+use Mojo::JSON      qw(to_json);
+use List::Util      qw(uniq);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -56,9 +57,11 @@ sub _analyze ($job, $id) {
   # Unresolved keyword matches
   my $unresolved = 0;
   if (my $snippets = $dig->{snippets}) {
+    my @all;
     for my $file (keys %$snippets) {
-      $unresolved += keys %{$snippets->{$file}};
+      push @all, values %{$snippets->{$file}};
     }
+    $unresolved = scalar uniq @all;
   }
 
   # Do not leak Postgres connections
