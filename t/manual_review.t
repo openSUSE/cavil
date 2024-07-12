@@ -31,6 +31,19 @@ my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'manual
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
+subtest 'Edit globs' => sub {
+  $t->post_ok('/globs')->status_is(403)->content_like(qr/permission/);
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+  is $t->app->minion->jobs({tasks => ['analyze']})->total, 0, 'no jobs';
+  $t->post_ok('/globs' => form => {glob => 'does/not/exist/*', package => 1})->status_is(200)->json_is('ok');
+  is $t->app->pg->db->select('ignored_files')->hashes->to_array->[0]{glob}, 'does/not/exist/*', 'glob added';
+  is $t->app->minion->jobs({tasks => ['analyze']})->total, 1, 'job enqueued';
+  $t->app->minion->perform_jobs;
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
+
 subtest 'Details after import (indexing in progress)' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 

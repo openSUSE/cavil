@@ -18,6 +18,7 @@ use Mojo::Base 'Mojolicious', -signatures;
 
 use Mojo::Pg;
 use Cavil::Classifier;
+use Cavil::Model::IgnoredFiles;
 use Cavil::Model::Packages;
 use Cavil::Model::Patterns;
 use Cavil::Model::Products;
@@ -126,8 +127,9 @@ sub startup ($self) {
       );
     }
   );
-  $self->helper(requests => sub ($c) { state $reqs  = Cavil::Model::Requests->new(pg => $c->pg) });
-  $self->helper(users    => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
+  $self->helper(requests      => sub ($c) { state $reqs  = Cavil::Model::Requests->new(pg => $c->pg) });
+  $self->helper(users         => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
+  $self->helper(ignored_files => sub ($c) { state $pkgs  = Cavil::Model::IgnoredFiles->new(pg => $c->pg) });
 
   my $cache = path($config->{cache_dir})->make_path;
   $self->helper(
@@ -212,7 +214,6 @@ sub startup ($self) {
   $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
   $manager->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
   $admin->post('/reviews/add_ignore')->to('Reviewer#add_ignore');
-  $admin->post('/reviews/add_glob')->to('Reviewer#add_glob')->name('add_glob');
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
@@ -226,6 +227,8 @@ sub startup ($self) {
   $public->get('/licenses/proposed/meta')->to('License#proposed_meta')->name('proposed_patterns_meta');
   $public->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
   $public->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
+
+  $admin->post('/globs')->to('Ignore#add_glob')->name('add_glob');
 
   # Public because of fine grained access controls (owner of proposal may remove it again)
   $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');
