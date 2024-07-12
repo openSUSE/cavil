@@ -33,12 +33,6 @@ export function setupReviewDetails(url) {
       return false;
     });
 
-    $('#details').on('click', '.add-to-glob', function () {
-      $('#glob-to-add').val($(this).data('name'));
-      $('#globModal').modal({focus: true, keyboard: true, show: true});
-      return false;
-    });
-
     $('#details').on('click', '.extend-action', extendMatch);
 
     $('#globAddButton').click(() => {
