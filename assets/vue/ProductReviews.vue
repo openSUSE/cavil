@@ -27,13 +27,13 @@
             </div>
             <div class="form-check">
               <input
-                v-model="params.exportRestricted"
+                v-model="params.unresolvedMatches"
                 @change="gotoPage(1)"
                 type="checkbox"
                 class="form-check-input"
-                id="cavil-pkg-export-restricted"
+                id="cavil-pkg-unresolved-matches"
               />
-              <label class="form-check-label" for="cavil-pkg-export-restricted">Export Restricted</label>
+              <label class="form-check-label" for="cavil-pkg-unresolved-matches">Unresolved Matches</label>
             </div>
           </div>
           <div class="col">
@@ -56,6 +56,18 @@
                 id="cavil-pkg-trademark"
               />
               <label class="form-check-label" for="cavil-pkg-trademark">Trademark</label>
+            </div>
+          </div>
+          <div class="col">
+            <div class="form-check">
+              <input
+                v-model="params.exportRestricted"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-export-restricted"
+              />
+              <label class="form-check-label" for="cavil-pkg-export-restricted">Export Restricted</label>
             </div>
           </div>
           <div id="cavil-pkg-filter" class="col-lg-3">
@@ -133,6 +145,7 @@ export default {
       limit: 10,
       offset: 0,
       attention: false,
+      unresolvedMatches: false,
       patent: false,
       trademark: false,
       exportRestricted: false,
@@ -188,7 +201,7 @@ export default {
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset', 'attention', 'patent', 'trademark', 'exportRestricted'),
+    ...genParamWatchers('limit', 'offset', 'attention', 'unresolvedMatches', 'patent', 'trademark', 'exportRestricted'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;

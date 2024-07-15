@@ -300,6 +300,12 @@ subtest 'Pagination' => sub {
       ->json_is('/page/0/unresolved_matches' => 0);
     $t->get_ok('/pagination/products/openSUSE:Test?filter=package-3')->json_is('/start', 1)->json_is('/end', 1)
       ->json_is('/total', 1)->json_is('/page/0/id', 4)->json_hasnt('/page/1');
+
+    $t->get_ok('/pagination/products/openSUSE:Test?attention=true')->json_is('/start', 1)->json_is('/end', 3)
+      ->json_is('/total', 3)->json_is('/page/0/id', 6)->json_hasnt('/page/3');
+
+    $t->get_ok('/pagination/products/openSUSE:Test?unresolvedMatches=true')->json_is('/start', 1)->json_is('/end', 0)
+      ->json_is('/total', 0)->json_hasnt('/page/0');
   };
 
   subtest 'Licenses' => sub {

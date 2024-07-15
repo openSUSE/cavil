@@ -68,30 +68,33 @@ sub product_reviews ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('attention');
+  $v->optional('unresolvedMatches');
   $v->optional('patent');
   $v->optional('trademark');
   $v->optional('exportRestricted');
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit             = $v->param('limit')            // 10;
-  my $offset            = $v->param('offset')           // 0;
-  my $attention         = $v->param('attention')        // 'false';
-  my $patent            = $v->param('patent')           // 'false';
-  my $trademark         = $v->param('trademark')        // 'false';
-  my $export_restricted = $v->param('exportRestricted') // 'false';
-  my $search            = $v->param('filter')           // '';
+  my $limit              = $v->param('limit')             // 10;
+  my $offset             = $v->param('offset')            // 0;
+  my $attention          = $v->param('attention')         // 'false';
+  my $unresolved_matches = $v->param('unresolvedMatches') // 'false';
+  my $patent             = $v->param('patent')            // 'false';
+  my $trademark          = $v->param('trademark')         // 'false';
+  my $export_restricted  = $v->param('exportRestricted')  // 'false';
+  my $search             = $v->param('filter')            // '';
 
   my $name = $self->stash('name');
   my $page = $self->packages->paginate_product_reviews(
     $name,
     {
-      limit             => $limit,
-      offset            => $offset,
-      attention         => $attention,
-      patent            => $patent,
-      trademark         => $trademark,
-      export_restricted => $export_restricted,
-      search            => $search
+      limit              => $limit,
+      offset             => $offset,
+      attention          => $attention,
+      unresolved_matches => $unresolved_matches,
+      patent             => $patent,
+      trademark          => $trademark,
+      export_restricted  => $export_restricted,
+      search             => $search
     }
   );
   $self->render(json => $self->_mark_active_packages($page));

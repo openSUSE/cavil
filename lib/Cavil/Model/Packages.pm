@@ -224,6 +224,11 @@ sub paginate_product_reviews ($self, $name, $options) {
     $attention = "AND state IN ('unacceptable', 'new')";
   }
 
+  my $unresolved = '';
+  if ($options->{unresolved_matches} eq 'true') {
+    $unresolved = "AND unresolved_matches > 0";
+  }
+
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");
@@ -251,7 +256,7 @@ sub paginate_product_reviews ($self, $name, $options) {
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, state,
         checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
-      WHERE bot_package_products.product = ? $search $attention $patent $trademark $export_restricted
+      WHERE bot_package_products.product = ? $search $attention $unresolved $patent $trademark $export_restricted
       ORDER BY bot_packages.id DESC
       LIMIT ? OFFSET ?
     }, $product->{id}, $options->{limit}, $options->{offset}
