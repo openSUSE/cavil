@@ -37,7 +37,7 @@
               <tr>
                 <th>Glob</th>
                 <th>Created</th>
-                <th>User</th>
+                <th>Owner</th>
                 <th></th>
               </tr>
             </thead>

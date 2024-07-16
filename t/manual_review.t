@@ -49,7 +49,8 @@ subtest 'Globs' => sub {
     $t->app->minion->perform_jobs;
 
     $t->get_ok('/pagination/files/ignored')->status_is(200)->json_is('/start', 1)->json_is('/end', 1)
-      ->json_is('/total', 1)->json_is('/page/0/id', 1)->json_like('/page/0/glob', qr/does/)->json_hasnt('/page/1');
+      ->json_is('/total',        1)->json_is('/page/0/id', 1)->json_like('/page/0/glob', qr/does/)
+      ->json_is('/page/0/login', 'tester')->json_has('/page/0/created_epoch')->json_hasnt('/page/1');
     $t->get_ok('/pagination/files/ignored?filter=does')->status_is(200)->json_is('/start', 1)->json_is('/end', 1)
       ->json_is('/total', 1)->json_is('/page/0/id', 1)->json_like('/page/0/glob', qr/does/)->json_hasnt('/page/1');
     $t->get_ok('/pagination/files/ignored?filter=whatever')->status_is(200)->json_is('/start', 1)->json_is('/end', 0)
