@@ -55,8 +55,10 @@ subtest 'Globs' => sub {
     $t->get_ok('/pagination/files/ignored?filter=whatever')->status_is(200)->json_is('/start', 1)->json_is('/end', 0)
       ->json_is('/total', 0)->json_hasnt('/page/1');
 
+    my $logs = $t->app->log->capture('trace');
     $t->delete_ok('/ignored-files/1')->status_is(200)->json_is('ok');
     $t->delete_ok('/ignored-files/1')->status_is(400)->json_is({error => 'Glob does not exist'});
+    like $logs, qr!User "tester" removed glob "does/not/exist/\*"!, 'right message';
 
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
   };

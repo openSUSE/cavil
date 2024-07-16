@@ -127,9 +127,10 @@ sub startup ($self) {
       );
     }
   );
-  $self->helper(requests      => sub ($c) { state $reqs  = Cavil::Model::Requests->new(pg => $c->pg) });
-  $self->helper(users         => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
-  $self->helper(ignored_files => sub ($c) { state $pkgs  = Cavil::Model::IgnoredFiles->new(pg => $c->pg) });
+  $self->helper(requests => sub ($c) { state $reqs  = Cavil::Model::Requests->new(pg => $c->pg) });
+  $self->helper(users    => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
+  $self->helper(
+    ignored_files => sub ($c) { state $pkgs = Cavil::Model::IgnoredFiles->new(pg => $c->pg, log => $self->log) });
 
   my $cache = path($config->{cache_dir})->make_path;
   $self->helper(

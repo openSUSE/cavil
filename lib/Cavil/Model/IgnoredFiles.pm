@@ -18,7 +18,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(paginate);
 
-has [qw(pg)];
+has [qw(log pg)];
 
 sub add ($self, $glob, $owner) {
   my $db = $self->pg->db;
@@ -48,8 +48,10 @@ sub paginate_ignored_files ($self, $options) {
   return paginate($results, $options);
 }
 
-sub remove ($self, $id) {
-  return $self->pg->db->delete('ignored_files', {id => $id})->rows;
+sub remove ($self, $id, $user) {
+  return undef unless my $hash = $self->pg->db->delete('ignored_files', {id => $id}, {returning => ['glob']})->hash;
+  $self->log->info(qq{User "$user" removed glob "$hash->{glob}"});
+  return 1;
 }
 
 1;
