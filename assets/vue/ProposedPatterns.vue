@@ -144,14 +144,12 @@ export default {
       for (const key of ['patent', 'trademark', 'export_restricted']) {
         change.data[key] = change.data[key] === true ? '1' : '0';
       }
-      console.log('Accept proposal', change);
       const ua = new UserAgent({baseURL: window.location.href});
       const form = change.data;
       form['create-pattern'] = 1;
       form.checksum = change.token_hexsum;
-      const res = await ua.post(change.createUrl, {form});
+      await ua.post(change.createUrl, {form});
       change.state = 'accepted';
-      console.log(res);
     },
     async getChanges() {
       const query = this.params;
@@ -186,7 +184,6 @@ export default {
 
       if (this.changes === null) this.changes = [];
       this.changes.push(...changes);
-      console.log(this.changes);
     },
     handleScroll() {
       if (window.innerHeight + Math.ceil(window.scrollY) >= document.documentElement.scrollHeight) {
@@ -198,11 +195,9 @@ export default {
     },
     async rejectProposal(change) {
       change.state = 'updating';
-      console.log('Remove proposal', change);
       const ua = new UserAgent({baseURL: window.location.href});
-      const res = await ua.post(change.removeUrl);
+      await ua.post(change.removeUrl);
       change.state = 'rejected';
-      console.log(res);
     }
   }
 };

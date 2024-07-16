@@ -71,8 +71,11 @@ sub store ($self, $path) {
   my $last   = '00000000-0000-0000-0000-000000000000';
   my $all    = 0;
   while (1) {
-    my $results
-      = $db->query('SELECT * FROM license_patterns WHERE unique_id > ? ORDER BY unique_id ASC LIMIT 100', $last);
+    my $results = $db->query(
+      'SELECT id, pattern, created, packname, patent, trademark, token_hexsum, license, risk, unique_id, spdx,
+         export_restricted
+       FROM license_patterns WHERE unique_id > ? ORDER BY unique_id ASC LIMIT 100', $last
+    );
     last unless $results->rows;
 
     for my $hash ($results->hashes->each) {

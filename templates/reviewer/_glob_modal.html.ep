@@ -1,8 +1,8 @@
-<div class="modal fade" id="globModal" tabindex="-1" aria-labelledby="globModalLabel" aria-hidden="true" data-url="<%= url_for 'add_glob' %>" data-package="<%= $package->{id} %>">
+<div class="modal fade" id="globModal" tabindex="-1" aria-labelledby="globModalLabel" aria-hidden="true" data-url="<%= url_for 'add_ignore' %>" data-package="<%= $package->{id} %>">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="globModalLabel">Add filename glob to ignore list</h5>
+        <h5 class="modal-title" id="globModalLabel">Add glob to ignored file list</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">

@@ -16,12 +16,40 @@
 package Cavil::Model::IgnoredFiles;
 use Mojo::Base -base, -signatures;
 
+use Cavil::Util qw(paginate);
+
 has [qw(pg)];
 
 sub add ($self, $glob, $owner) {
   my $db = $self->pg->db;
   my $id = $db->query('SELECT id FROM bot_users WHERE login = ?', $owner)->hash->{id};
   $db->insert('ignored_files', {glob => $glob, owner => $id});
+}
+
+sub paginate_ignored_files ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "WHERE glob ILIKE $quoted";
+  }
+
+  my $results = $db->query(
+    qq{
+      SELECT if.id, if.glob, EXTRACT(EPOCH FROM if.created) AS created_epoch, bu.login, COUNT(*) OVER() AS total
+      FROM ignored_files if JOIN bot_users bu ON (if.owner = bu.id)
+      $search
+      ORDER BY if.created DESC
+      LIMIT ? OFFSET ?
+    }, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  return paginate($results, $options);
+}
+
+sub remove ($self, $id) {
+  return $self->pg->db->delete('ignored_files', {id => $id})->rows;
 }
 
 1;

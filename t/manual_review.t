@@ -31,17 +31,35 @@ my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'manual
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
-subtest 'Edit globs' => sub {
-  $t->post_ok('/globs')->status_is(403)->content_like(qr/permission/);
-  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+subtest 'Globs' => sub {
+  subtest 'Permission errors' => sub {
+    $t->get_ok('/ignored-files')->status_is(403)->content_like(qr/permission/);
+    $t->post_ok('/ignored-files')->status_is(403)->content_like(qr/permission/);
+    $t->get_ok('/pagination/files/ignored')->status_is(403)->content_like(qr/permission/);
+    $t->delete_ok('/ignored-files/1')->status_is(403)->content_like(qr/permission/);
+  };
 
-  is $t->app->minion->jobs({tasks => ['analyze']})->total, 0, 'no jobs';
-  $t->post_ok('/globs' => form => {glob => 'does/not/exist/*', package => 1})->status_is(200)->json_is('ok');
-  is $t->app->pg->db->select('ignored_files')->hashes->to_array->[0]{glob}, 'does/not/exist/*', 'glob added';
-  is $t->app->minion->jobs({tasks => ['analyze']})->total, 1, 'job enqueued';
-  $t->app->minion->perform_jobs;
+  subtest 'Edit globs' => sub {
+    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+    is $t->app->minion->jobs({tasks => ['analyze']})->total, 0, 'no jobs';
+    $t->post_ok('/ignored-files' => form => {glob => 'does/not/exist/*', package => 1})->status_is(200)->json_is('ok');
+    is $t->app->pg->db->select('ignored_files')->hashes->to_array->[0]{glob}, 'does/not/exist/*', 'glob added';
+    is $t->app->minion->jobs({tasks => ['analyze']})->total,                  1,                  'job enqueued';
+    $t->app->minion->perform_jobs;
+
+    $t->get_ok('/pagination/files/ignored')->status_is(200)->json_is('/start', 1)->json_is('/end', 1)
+      ->json_is('/total', 1)->json_is('/page/0/id', 1)->json_like('/page/0/glob', qr/does/)->json_hasnt('/page/1');
+    $t->get_ok('/pagination/files/ignored?filter=does')->status_is(200)->json_is('/start', 1)->json_is('/end', 1)
+      ->json_is('/total', 1)->json_is('/page/0/id', 1)->json_like('/page/0/glob', qr/does/)->json_hasnt('/page/1');
+    $t->get_ok('/pagination/files/ignored?filter=whatever')->status_is(200)->json_is('/start', 1)->json_is('/end', 0)
+      ->json_is('/total', 0)->json_hasnt('/page/1');
+
+    $t->delete_ok('/ignored-files/1')->status_is(200)->json_is('ok');
+    $t->delete_ok('/ignored-files/1')->status_is(400)->json_is({error => 'Glob does not exist'});
+
+    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+  };
 };
 
 subtest 'Details after import (indexing in progress)' => sub {

@@ -28,4 +28,14 @@ sub add_glob ($self) {
   return $self->render(json => 'ok');
 }
 
+sub list_globs ($self) {
+  $self->render('ignore/list_globs');
+}
+
+sub remove_glob ($self) {
+  return $self->render(status => 400, json => {error => 'Glob does not exist'})
+    unless $self->ignored_files->remove($self->param('id'));
+  return $self->render(json => 'ok');
+}
+
 1;

@@ -1,0 +1,8 @@
+% layout 'default';
+% title 'List ignored files';
+
+<div id="ignored-files"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupIgnoredFiles();
+% end

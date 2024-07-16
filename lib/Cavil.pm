@@ -228,7 +228,10 @@ sub startup ($self) {
   $public->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
   $public->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
 
-  $admin->post('/globs')->to('Ignore#add_glob')->name('add_glob');
+  $admin->get('/ignored-files')->to('Ignore#list_globs')->name('list_globs');
+  $admin->post('/ignored-files')->to('Ignore#add_glob')->name('add_ignore');
+  $admin->delete('/ignored-files/<id:num>')->to('Ignore#remove_glob')->name('remove_ignore');
+  $admin->get('/pagination/files/ignored')->to('Pagination#ignored_files')->name('pagination_ignored_files');
 
   # Public because of fine grained access controls (owner of proposal may remove it again)
   $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');

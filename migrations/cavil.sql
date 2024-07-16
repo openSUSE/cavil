@@ -213,3 +213,8 @@ DROP TABLE IF EXISTS proposed_changes;
 
 -- 19 up
 ALTER TABLE bot_packages ADD COLUMN unresolved_matches int DEFAULT 0 NOT NULL;
+
+-- 20 up
+CREATE UNIQUE INDEX ON ignored_files(glob);
+ALTER TABLE license_patterns ADD COLUMN owner int REFERENCES bot_users(id);
+ALTER TABLE license_patterns ADD COLUMN contributor int REFERENCES bot_users(id);
