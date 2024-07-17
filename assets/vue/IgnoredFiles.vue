@@ -51,7 +51,7 @@
                 <td>{{ glob.glob }}</td>
                 <td>{{ glob.created }}</td>
                 <td>{{ glob.login }}</td>
-                <td>
+                <td class="text-center">
                   <span class="cavil-action text-center">
                     <a @click="deleteGlob(glob)" href="#"><i class="fas fa-trash"></i></a>
                   </span>
