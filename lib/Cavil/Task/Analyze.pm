@@ -240,15 +240,9 @@ sub _shortname ($db, $chksum, $specfile, $report) {
   for my $risk (keys %{$report->{risks}}) {
     $max_risk = $risk if $risk > $max_risk;
   }
-  if (defined $report->{missed_files}) {
-    for my $file (keys %{$report->{missed_files}}) {
-      my $risk = $report->{missed_files}{$file}[0];
-      $max_risk = $risk if $risk > $max_risk;
-    }
-  }
-  else {
-    # old style
-    $max_risk = 9 if %{$report->{missed_snippets}};
+  for my $file (keys %{$report->{missed_files}}) {
+    my $risk = $report->{missed_files}{$file}[0];
+    $max_risk = $risk if $risk > $max_risk;
   }
 
   my $l = lic($specfile->{main}{license})->example;
