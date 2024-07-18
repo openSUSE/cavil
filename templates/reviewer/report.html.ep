@@ -16,9 +16,10 @@
     <div class="row">
       <div class="col mb-3" id="unmatched-files">
         % my $unmatched = scalar @{$report->{missed_files}};
+        % my $unresolved = $package->{unresolved_matches};
         <i class="fas fa-exclamation-circle"></i>
-        Unmatched keywords in (at least) <span id="unmatched-count"><%= $unmatched %></span>
-        <%= $unmatched == 1 ? 'file' : 'files' %>
+        <%= $unresolved %> unique unresolved <%= $unresolved == 1 ? 'match' : 'matches' %> in (at least)
+        <span id="unmatched-count"><%= $unmatched %></span> <%= $unmatched == 1 ? 'file' : 'files' %>
         <div id="filelist-snippets" class="collapse show">
           <table class="table table-borderless m-0 ms-4 hover-table">
           % for my $file (@{$report->{missed_files}}) {
