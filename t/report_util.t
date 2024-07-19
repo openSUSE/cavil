@@ -60,6 +60,17 @@ subtest 'report_checksum' => sub {
       }
       ),
       '7351d8ac9fd4bbdb1cdda1293984c58d', 'one snippets present';
+    is report_checksum(
+      {main => {license => 'MIT'}},
+      {
+        licenses => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
+        snippets => {
+          2 => {4 => '6d5198bd51f0617d05bf585rb3dc475f', 2 => '9d5198bd51f0a17d05af585rb3dc475e'},
+          3 => {1 => '1f5198bd51fb617d05bf585rb3dc47ae', 4 => '6d5198bd51f0617d05bf585rb3dc475f'}
+        }
+      }
+      ),
+      '7351d8ac9fd4bbdb1cdda1293984c58d', 'exclude duplicate snippets';
   };
 };
 
