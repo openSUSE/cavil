@@ -10,7 +10,8 @@
   % if (@{$report->{missed_files}}) {
     <div v-if="warnings.length > 0" id="spec-warnings" class="alert alert-warning">
       Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
-      positive matches
+      positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its similarity
+      to existing license patterns, the higher the risk will climb above the predicted license.
     </div>
     <h4><div class="badge text-bg-dark">Risk 9</div></h4>
     <div class="row">
