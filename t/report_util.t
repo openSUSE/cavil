@@ -19,8 +19,14 @@ use Test::More;
 use Cavil::ReportUtil qw(report_checksum);
 
 subtest 'report_checksum' => sub {
-  is report_checksum({},                           {}), '1709a28fde41022c01762131a1711875', 'empty report';
-  is report_checksum({main => {license => 'MIT'}}, {}), '2d5198bd51f0617d05bf585eb3dc4758', 'specfile license only';
+  subtest 'Specfile license' => sub {
+    is report_checksum({}, {}), '1709a28fde41022c01762131a1711875', 'empty report';
+    is report_checksum({main => {license => 'MIT'}}, {}), '2d5198bd51f0617d05bf585eb3dc4758', 'specfile license only';
+    is report_checksum({main => {license => 'GPL-2.0+'}}, {}), '10371a26faed4e5fe9bac58c3b7b2c25',
+      'canonicalize license';
+    is report_checksum({main => {license => 'GPL-2.0-or-later'}}, {}), '10371a26faed4e5fe9bac58c3b7b2c25',
+      'already caninicallized license';
+  };
 
   subtest 'Dig licenses' => sub {
     is report_checksum({main => {license => 'MIT'}}, {licenses => {'Apache-2.0' => {risk => 2}}}),
