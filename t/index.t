@@ -21,7 +21,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path);
+use Cavil::ReportUtil qw(report_checksum);
+use Mojo::File        qw(path);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -113,7 +114,7 @@ ok $db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'unpa
 # Verify report checksum
 my $specfile = $t->app->reports->specfile_report(1);
 my $dig      = $t->app->reports->dig_report(1);
-is $t->app->checksum($specfile, $dig), '42af80e97542a008844a74245b19a147', 'right checksum';
+is report_checksum($specfile, $dig), '42af80e97542a008844a74245b19a147', 'right checksum';
 
 # Check matches
 my $res = $db->select(

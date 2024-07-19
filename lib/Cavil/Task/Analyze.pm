@@ -16,9 +16,10 @@
 package Cavil::Task::Analyze;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::Licenses qw(lic);
-use Mojo::JSON      qw(to_json);
-use List::Util      qw(uniq);
+use Cavil::Licenses   qw(lic);
+use Cavil::ReportUtil qw(report_checksum);
+use Mojo::JSON        qw(to_json);
+use List::Util        qw(uniq);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -45,7 +46,7 @@ sub _analyze ($job, $id) {
   my $specfile = $reports->specfile_report($id);
   my $dig      = $reports->dig_report($id);
 
-  my $chksum    = $app->checksum($specfile, $dig);
+  my $chksum    = report_checksum($specfile, $dig);
   my $shortname = _shortname($app->pg->db, $chksum, $specfile, $dig);
   my $flags     = $pkgs->flags($id);
 

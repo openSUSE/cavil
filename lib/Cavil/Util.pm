@@ -24,6 +24,7 @@ use Mojo::File qw(path tempfile);
 use POSIX 'ceil';
 use Spooky::Patterns::XS;
 use Text::Glob 'glob_to_regex';
+
 $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (

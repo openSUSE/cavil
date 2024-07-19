@@ -19,12 +19,10 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Licenses 'lic';
 use Mojo::File 'path';
 use Mojo::JSON 'to_json';
-use Mojo::Util qw(decode md5_sum xml_escape);
-use List::Util 'uniq';
+use Mojo::Util qw(decode xml_escape);
 
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                  => \&_chart_data);
-  $app->helper('checksum'                    => \&_checksum);
   $app->helper('current_user'                => \&_current_user);
   $app->helper('current_user_roles'          => \&_current_user_roles);
   $app->helper('current_user_has_role'       => \&_current_user_has_role);
@@ -62,36 +60,6 @@ sub _chart_data ($c, $hash) {
     push(@colours,   'grey');
   }
   return {licenses => to_json(\@licenses), 'num-files' => to_json(\@num_files), colours => to_json(\@colours)};
-}
-
-sub _checksum ($c, $specfile, $report) {
-
-  # Specfile license
-  my $canon_license = lic($specfile->{main}{license})->canonicalize->to_string;
-  $canon_license ||= "Unknown";
-  my $text = "RPM-License $canon_license\n";
-
-  # Licenses
-  for my $license (sort { $a cmp $b } keys %{$report->{licenses}}) {
-    next if $report->{licenses}{$license}{risk} == 0;
-    $text .= "LIC:$license";
-    for my $flag (@{$report->{licenses}{$license}{flags}}) {
-      $text .= ":$flag";
-    }
-    $text .= "\n";
-  }
-
-  # Unique snippets of unresolved keyword matches
-  if (my $snippets = $report->{snippets}) {
-    my @all;
-    for my $file (sort keys %$snippets) {
-      my $matches = $snippets->{$file};
-      push @all, $matches->{$_} for sort keys %$matches;
-    }
-    $text .= "SNIPPET:$_\n" for uniq @all;
-  }
-
-  return md5_sum $text;
 }
 
 sub _current_user ($c) { $c->session('user') }
