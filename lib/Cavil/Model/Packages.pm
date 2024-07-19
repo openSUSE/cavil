@@ -286,6 +286,11 @@ sub paginate_recent_reviews ($self, $options) {
     $user = 'AND p.reviewing_user IS NOT NULL';
   }
 
+  my $unresolved = '';
+  if ($options->{unresolved_matches} eq 'true') {
+    $unresolved = "AND unresolved_matches > 0";
+  }
+
   my $results = $db->query(
     qq{
       SELECT p.id, p.name, u.login, p.result,  EXTRACT(EPOCH FROM p.created) AS created_epoch,
@@ -294,7 +299,7 @@ sub paginate_recent_reviews ($self, $options) {
         external_link, priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
        FROM bot_packages p
          LEFT JOIN bot_users u ON p.reviewing_user = u.id
-       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search $user
+       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search $user $unresolved
        ORDER BY reviewed DESC
        LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}

@@ -120,15 +120,24 @@ sub recent_reviews ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('byUser');
+  $v->optional('unresolvedMatches');
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit   = $v->param('limit')  // 10;
-  my $offset  = $v->param('offset') // 0;
-  my $by_user = $v->param('byUser') // 'false';
-  my $search  = $v->param('filter') // '';
+  my $limit              = $v->param('limit')             // 10;
+  my $offset             = $v->param('offset')            // 0;
+  my $by_user            = $v->param('byUser')            // 'false';
+  my $unresolved_matches = $v->param('unresolvedMatches') // 'false';
+  my $search             = $v->param('filter')            // '';
 
   my $page = $self->packages->paginate_recent_reviews(
-    {limit => $limit, offset => $offset, by_user => $by_user, search => $search});
+    {
+      limit              => $limit,
+      offset             => $offset,
+      by_user            => $by_user,
+      unresolved_matches => $unresolved_matches,
+      search             => $search
+    }
+  );
   $self->render(json => $self->_mark_active_packages($page));
 }
 

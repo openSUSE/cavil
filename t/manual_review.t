@@ -310,6 +310,9 @@ subtest 'Manual review' => sub {
     ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
     ->json_is('/page/0/unresolved_matches' => 6)->json_hasnt('/page/1');
 
+  $t->get_ok('/pagination/reviews/recent?unresolvedMatches=true')->json_is('/start', 1)->json_is('/end', 1)
+    ->json_is('/total', 1)->json_is('/page/0/unresolved_matches' => 6);
+
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
