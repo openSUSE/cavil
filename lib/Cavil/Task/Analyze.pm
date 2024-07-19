@@ -225,7 +225,7 @@ sub _find_report_summary ($db, $chksum) {
   # try to find a unique name for the checksum
   my $chars = ['a' .. 'z', 'A' .. 'Z', '0' .. '9'];
   while (1) {
-    my $shortname = join('', map { $chars->[rand @$chars] } 1 .. 4);
+    my $shortname = join('', map { $chars->[rand @$chars] } 1 .. 6);
     $db->query(
       'insert into report_checksums (checksum, shortname)
        values (?,?) on conflict do nothing', $chksum, $shortname
