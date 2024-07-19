@@ -14,13 +14,15 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 package Cavil::Model::Reports;
-use Mojo::Base -base;
+use Mojo::Base -base, -signatures;
 
 use Encode qw(from_to decode);
 use Mojo::File 'path';
 use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
+use Cavil::Licenses   qw(lic);
+use Cavil::ReportUtil qw(estimated_risk);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg)];
 
@@ -52,6 +54,25 @@ sub risk_is_acceptable {
   return undef unless $shortname =~ /^(.+)-(\d):[^:]+$/;
   return undef if $2 > $self->acceptable_risk;
   return $2;
+}
+
+sub shortname ($self, $chksum) {
+  my $db     = $self->pg->db;
+  my $lentry = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash;
+  if ($lentry) {
+    return $lentry->{shortname};
+  }
+
+  # try to find a unique name for the checksum
+  my $chars = ['a' .. 'z', 'A' .. 'Z', '0' .. '9'];
+  while (1) {
+    my $shortname = join('', map { $chars->[rand @$chars] } 1 .. 6);
+    $db->query(
+      'insert into report_checksums (checksum, shortname)
+       values (?,?) on conflict do nothing', $chksum, $shortname
+    );
+    return $shortname if $db->select('report_checksums', 'id', {shortname => $shortname, checksum => $chksum})->hash;
+  }
 }
 
 sub source_for {
@@ -111,6 +132,44 @@ sub specfile_report {
   }
 
   return from_json($hash->{specfile_report});
+}
+
+sub summary ($self, $id) {
+  my %summary  = (id => $id);
+  my $specfile = $self->specfile_report($id);
+  $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Error';
+  my $report = $self->dig_report($id);
+
+  my $min_risklevel = 1;
+
+  # it's a bit random but the risk levels are defined a little random too
+  $min_risklevel = 2 if $report->{risks}{3};
+  $summary{licenses} = {};
+  for my $license (sort { $a cmp $b } keys %{$report->{licenses}}) {
+    next if $report->{licenses}{$license}{risk} < $min_risklevel;
+    my $text = "$license";
+    for my $flag (@{$report->{licenses}{$license}{flags}}) {
+      $text .= ":$flag";
+    }
+    $summary{licenses}{$text} = $report->{licenses}{$license}{risk};
+  }
+
+  my $db    = $self->pg->db;
+  my $files = {};
+  for my $id (keys %{$report->{snippets}}) {
+    my $snippets = $db->query(
+      'SELECT mf.filename, s.hash
+       FROM file_snippets fs JOIN matched_files mf ON (fs.file = mf.id) JOIN snippets s ON (fs.snippet = s.id)
+       WHERE mf.id = ?', $id
+    )->hashes;
+    for my $snippet (@$snippets) {
+      my $list = $files->{$snippet->{filename}} ||= [];
+      push @$list, $snippet->{hash};
+    }
+  }
+  $summary{missed_snippets} = $files;
+
+  return \%summary;
 }
 
 sub _check_ignores {
@@ -395,14 +454,14 @@ sub _dig_report {
     for my $snip_row (@{$report->{missed_snippets}{$file}}) {
       my ($dummy1, $dummy2, $dummy3, $dummy4, $match, $pattern) = @$snip_row;
       my $pinfo     = $self->_info_for_pattern($db, $pid_info, $pattern);
-      my $stat_risk = $pinfo->{risk} * $match + 9 * (1 - $match);
-      if ($max_risk < $stat_risk) {
+      my $stat_risk = estimated_risk($pinfo->{risk}, $match);
+      if ($max_risk < $stat_risk || (($max_risk == $stat_risk) && $match_of_max < $match)) {
         $max_risk       = $stat_risk;
         $match_of_max   = $match;
         $license_of_max = $pinfo->{name};
       }
     }
-    $missed_files{$file} = [int($max_risk + 0.5), $match_of_max, $license_of_max];
+    $missed_files{$file} = [$max_risk, $match_of_max, $license_of_max];
   }
   $report->{missed_files} = \%missed_files;
 
