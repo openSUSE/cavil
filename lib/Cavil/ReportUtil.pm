@@ -25,7 +25,8 @@ use Cavil::Licenses 'lic';
 our @EXPORT_OK = (qw(estimated_risk report_checksum report_shortname summary_delta summary_delta_score));
 
 sub estimated_risk ($risk, $match) {
-  return int(($risk * $match + 9 * (1 - $match)) + 0.5);
+  my $estimated = int(($risk * $match + 9 * (1 - $match)) + 0.5);
+  return $match < 0.9 && $estimated <= 3 ? 4 : $estimated;
 }
 
 sub report_checksum ($specfile_report, $dig_report) {
