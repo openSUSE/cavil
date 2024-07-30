@@ -39,7 +39,20 @@
   <div class="row pattern-container">
     <div class="col-12 pattern-file-container">
       <div class="pattern-header">
-        <div>Created <time class="timeago" datetime="<%= $match->{created} %>"><%= $match->{created} %></time>
+        <div>
+          Created <time class="timeago" datetime="<%= $match->{created} %>"><%= $match->{created} %></time
+          % if ($match->{owner_login}) {
+            ><span>, by <b><%= $match->{owner_login}%></b></span
+            % if ($match->{contributor_login}) {
+              ><span>, contributed by <b><%= $match->{contributor_login}%></b></span>
+            % }
+            % else {
+              >
+            % }
+          % }
+          % else {
+            >
+          % }
           % if (current_user_has_role 'admin') {
             <a href="<%= url_for('edit_pattern', id => $match->{id}) %>" title="Edit" class="float-end">
               <i class="fas fa-edit"></i>

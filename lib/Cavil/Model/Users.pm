@@ -41,6 +41,11 @@ sub has_role ($self, $user, @roles) {
   return 0;
 }
 
+sub id_for_login ($self, $login) {
+  return undef unless my $hash = $self->pg->db->query('select id from bot_users where login = ?', $login)->hash;
+  return $hash->{id};
+}
+
 sub licensedigger ($self) {
   $self->find_or_create(login => 'licensedigger', roles => ['bot'], comment => 'Legal-auto bot');
 }

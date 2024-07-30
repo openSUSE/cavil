@@ -13,7 +13,7 @@
           class="col-12 change-file-container"
         >
           <div class="change-header">
-            Create Pattern, from <b>{{ change.login }}</b>
+            Create Pattern, by <b>{{ change.login }}</b>
             <span v-if="change.package !== null"
               >,
               <a :href="change.package.pkgUrl" target="_blank"
@@ -146,6 +146,7 @@ export default {
       }
       const ua = new UserAgent({baseURL: window.location.href});
       const form = change.data;
+      form.contributor = change.login;
       form['create-pattern'] = 1;
       form.checksum = change.token_hexsum;
       await ua.post(change.createUrl, {form});

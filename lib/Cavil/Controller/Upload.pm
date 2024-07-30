@@ -49,12 +49,12 @@ sub store ($self) {
     return $self->render('dashboard');
   }
 
-  my $user = $self->users->find(login => $self->current_user);
-  my $id   = $pkgs->add(
+  my $user_id = $self->users->id_for_login($self->current_user);
+  my $id      = $pkgs->add(
     name            => $name,
     checkout_dir    => $sum,
     api_url         => '',
-    requesting_user => $user->{id},
+    requesting_user => $user_id,
     project         => '',
     priority        => $validation->param('priority'),
     package         => $name,

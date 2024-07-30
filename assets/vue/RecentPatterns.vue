@@ -28,7 +28,15 @@
             <a :href="pattern.searchUrl" target="_blank">
               <b>{{ pattern.matches }}</b> matches in <b>{{ pattern.packages }}</b> packages</a
             >
-            <span class="float-end">Created {{ pattern.created }}</span>
+            <span class="float-end">
+              <span>Created {{ pattern.created }}</span>
+              <span v-if="pattern.owner_login"
+                >, by <b>{{ pattern.owner_login }}</b></span
+              >
+              <span v-if="pattern.contributor_login"
+                >, contributed by <b>{{ pattern.owner_login }}</b></span
+              >
+            </span>
           </div>
         </div>
       </div>

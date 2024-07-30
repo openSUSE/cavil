@@ -224,10 +224,10 @@ sub startup ($self) {
   $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
   $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
-  $public->get('/licenses/proposed')->to('License#proposed')->name('proposed_patterns');
-  $public->get('/licenses/proposed/meta')->to('License#proposed_meta')->name('proposed_patterns_meta');
-  $public->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
-  $public->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
+  $logged_in->get('/licenses/proposed')->to('License#proposed')->name('proposed_patterns');
+  $logged_in->get('/licenses/proposed/meta')->to('License#proposed_meta')->name('proposed_patterns_meta');
+  $logged_in->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
+  $logged_in->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
 
   $admin->get('/ignored-files')->to('Ignore#list_globs')->name('list_globs');
   $admin->post('/ignored-files')->to('Ignore#add_glob')->name('add_ignore');

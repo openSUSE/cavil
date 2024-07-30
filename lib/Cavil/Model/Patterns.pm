@@ -82,7 +82,8 @@ sub create ($self, %args) {
       license           => $args{license}           // '',
       spdx              => $spdx,
       risk              => $args{risk} // 5,
-      $args{unique_id} ? (unique_id => $args{unique_id}) : ()
+      ($args{unique_id}   ? (unique_id   => $args{unique_id})   : ()), ($args{owner} ? (owner => $args{owner}) : ()),
+      ($args{contributor} ? (contributor => $args{contributor}) : ())
     },
     {returning => 'id'}
   )->hash->{id};
@@ -176,7 +177,13 @@ sub checksum ($self, $pattern) {
 }
 
 sub for_license ($self, $license) {
-  return $self->pg->db->select('license_patterns', '*', {license => $license}, 'created')->hashes->to_array;
+  return $self->pg->db->query(
+    'SELECT lp.*, bu1.login AS owner_login, bu2.login AS contributor_login
+     FROM license_patterns lp LEFT JOIN bot_users bu1 ON (bu1.id = lp.owner)
+       LEFT JOIN bot_users bu2 ON (bu2.id = lp.contributor)
+     WHERE license = ?
+     ORDER BY lp.created', $license
+  )->hashes->to_array;
 }
 
 sub pattern_exists ($self, $checksum) {
@@ -301,12 +308,15 @@ sub recent ($self, $options) {
   my $before = '';
   if ($options->{before} > 0) {
     my $quoted = $db->dbh->quote($options->{before});
-    $before = "WHERE id < $quoted";
+    $before = "WHERE lp.id < $quoted";
   }
 
   my $patterns = $db->query(
-    "SELECT *, EXTRACT(EPOCH FROM created) AS created_epoch, COUNT(*) OVER() AS total
-     FROM license_patterns $before ORDER BY id DESC LIMIT 10"
+    "SELECT lp.*, bu1.login AS owner_login, bu2.login AS contributor_login,
+       EXTRACT(EPOCH FROM created) AS created_epoch, COUNT(*) OVER() AS total
+     FROM license_patterns lp LEFT JOIN bot_users bu1 ON (bu1.id = lp.owner)
+       LEFT JOIN bot_users bu2 ON (bu2.id = lp.contributor)
+     $before ORDER BY lp.id DESC LIMIT 10"
   )->hashes;
 
   my $total = 0;

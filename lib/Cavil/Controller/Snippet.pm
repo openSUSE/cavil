@@ -173,7 +173,12 @@ sub _create_pattern ($self, $packages, $validation) {
   $validation->optional('patent');
   $validation->optional('trademark');
   $validation->optional('export_restricted');
+  $validation->optional('contributor');
   return $self->reply->json_validation_error if $validation->has_error;
+
+  my $owner_id       = $self->users->id_for_login($self->current_user);
+  my $contributor    = $validation->param('contributor');
+  my $contributor_id = $contributor ? $self->users->id_for_login($contributor) : undef;
 
   my $patterns = $self->patterns;
   my $pattern  = $patterns->create(
@@ -182,7 +187,9 @@ sub _create_pattern ($self, $packages, $validation) {
     risk              => $validation->param('risk'),
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
-    export_restricted => $validation->param('export_restricted')
+    export_restricted => $validation->param('export_restricted'),
+    owner             => $owner_id,
+    contributor       => $contributor_id
   );
 
   return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $pattern->{conflict};
@@ -207,8 +214,8 @@ sub _propose_pattern ($self, $validation) {
   return $self->render(status => 400, error => 'License pattern does not match the original snippet')
     unless pattern_matches($pattern, $snippet->{text});
 
-  my $user   = $self->users->find(login => $self->current_user);
-  my $result = $self->patterns->propose_create(
+  my $user_id = $self->users->id_for_login($self->current_user);
+  my $result  = $self->patterns->propose_create(
     snippet           => $snippet->{id},
     pattern           => $pattern,
     license           => $validation->param('license'),
@@ -217,7 +224,7 @@ sub _propose_pattern ($self, $validation) {
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
     export_restricted => $validation->param('export_restricted'),
-    owner             => $user->{id}
+    owner             => $user_id
   );
 
   return $self->render(

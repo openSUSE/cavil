@@ -92,14 +92,32 @@ subtest 'Pattern creation' => sub {
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')->json_hasnt('/changes/1');
     my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
     $t->app->users->add_role(2, 'admin');
-    $t->post_ok('/snippet/decision/1' => form =>
-        {'create-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5, checksum => $checksum})
-      ->status_is(200)->content_like(qr/has been created/);
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'create-pattern' => 1,
+        license          => 'GPL',
+        pattern          => 'The license might',
+        risk             => 5,
+        checksum         => $checksum,
+        contributor      => 'tester'
+      }
+    )->status_is(200)->content_like(qr/has been created/);
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
 
     $t->post_ok('/snippet/decision/1' => form =>
         {'create-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(409)
       ->content_like(qr/Conflicting license pattern already exists/);
+  };
+
+  subtest 'Pattern performance' => sub {
+    $t->get_ok('/licenses/recent/meta')->status_is(200)->json_is('/patterns/0/id', 5)
+      ->json_is('/patterns/0/pattern',           'The license might')->json_is('/patterns/0/owner_login', 'tester')
+      ->json_is('/patterns/0/contributor_login', 'tester')->json_is('/patterns/1/id', 4)
+      ->json_like('/patterns/1/pattern', qr/Permission is granted to copy, distribute and/)
+      ->json_is('/patterns/1/owner_login', undef)->json_is('/patterns/1/contributor_login', undef)
+      ->json_is('/total',                  5);
+
+    $t->get_ok('/licenses/recent/meta?before=3')->status_is(200)->json_is('/patterns/0/id', 2)->json_is('/total', 2);
   };
 };
 
