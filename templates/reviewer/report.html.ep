@@ -138,8 +138,10 @@
         </div>
       </div>
       % if ($file->{expand}) {
-        <%= include 'reviewer/file_source', file => $id, filename => $path, lines => $file->{lines},
-                     packname => $package->{name}, is_admin => $is_admin %>
+        <div id="file-details-<%= $id %>" class="source" data-file-id="<%= $id %>">
+          <%= include 'reviewer/file_source', file => $id, filename => $path, lines => $file->{lines},
+                       packname => $package->{name}, is_admin => $is_admin %>
+        </div>
       % }
       % else {
         <div id="file-details-<%= $id %>" class="source" data-file-id="<%= $id %>"></div>
