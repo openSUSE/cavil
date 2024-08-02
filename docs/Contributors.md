@@ -74,10 +74,9 @@ features might be added in the future to allow you to help with these as well.
 ### Propose Pattern
 
 With the snippet editor you can make small adjustments to the soon to be license pattern. Remove sections of text that
-are irrelevant and replace company names or dates with placeholders like `$SKIP7` (`7` is the maximum number of words
-that may be skipped here). Just make sure to include all red lines, because these are the ones that include keyword
-matches. Finding the right balance between larger and smaller patterns is not an exact science and requires some
-experience.
+are irrelevant and replace company names or dates with placeholders like `$SKIP7` (this one will skip up to `7` words).
+Just make sure to include all red lines, because these are the ones that include keyword matches. Finding the right
+balance between larger and smaller patterns is not an exact science and requires some experience.
 
 And don't worry about getting the pattern wrong. You will immediately see an error message if the submitted pattern
 does not match the snippet it was created for.
@@ -96,7 +95,7 @@ submitted license and risk do not match a known combination.
 ![Select License](images/contrib-8-license.png)
 
 Btw. Every time you deselect the snippet editor the license pattern comparison at the bottom of the page will update.
-So you always know that the closest existing license pattern is to the one you are about to create.
+So you always know what the closest existing license pattern is to the one you are about to create.
 
 ![Done](images/contrib-9-done.png)
 
