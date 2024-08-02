@@ -100,7 +100,7 @@ So you always know what the closest existing license pattern is to the one you a
 ![Done](images/contrib-9-done.png)
 
 And if you have second thoughts, just click on the "proposals" link to get to a page where you can delete the proposal
-again with a click on the little "x" in the top right of your proposal.
+again with a click on the little "x" in the top right corner of your proposal.
 
 ## Admin Workflow
 
@@ -129,7 +129,7 @@ Here we measure the performance of the most recently added license patterns. The
 will usually be fairly low in the beginning, since the pattern has only been applied to a small number of packages. For
 best results it is recommended to do the performance review after a full database rebuild (which usually happens during
 the weekend). License patterns that don't live up to expectations can be edited or deleted by clicking on the little
-edit icon in the top right.
+edit icon in the top right corner.
 
 ![Pattern Performance](images/contrib-admin-3-pattern-performance.png)
 
