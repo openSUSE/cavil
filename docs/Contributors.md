@@ -101,7 +101,7 @@ submitted license and risk do not match a known combination.
 
 ![Select License](images/contrib-8-license.png)
 
-Btw. Every time you deselect the snippet editor the license pattern comparison at the bottom of the page will update.
+Every time you deselect the snippet editor, the license pattern comparison at the bottom of the page will update.
 So you always know what the closest existing license pattern is to the one you are about to create.
 
 ![Done](images/contrib-9-done.png)
