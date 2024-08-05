@@ -6,6 +6,31 @@
         metrics are most useful after a full database reindexing.
       </div>
     </div>
+    <div class="row g-4">
+      <div class="col-9">
+        <form>
+          <div class="row g-4">
+            <div class="col-lg-2">
+              <div class="form-floating">
+                <select v-model="params.timeframe" @change="refreshPage()" class="form-control cavil-pkg-timeframe">
+                  <option value="any">Any</option>
+                  <option value="year">1 year</option>
+                  <option value="month">1 month</option>
+                  <option value="week">1 week</option>
+                  <option value="day">1 day</option>
+                  <option value="hour">1 hour</option>
+                </select>
+                <label class="form-label">Timeframe</label>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="col-3">
+        <p v-if="total !== null" class="text-end">{{ total }} patterns found</p>
+        <p v-else class="text-end"><i class="fas fa-sync fa-spin"></i> Loading patterns</p>
+      </div>
+    </div>
     <div v-if="patterns !== null && patterns.length > 0">
       <div v-for="pattern in patterns" :key="pattern.id" class="row recent-pattern-container">
         <div class="col-12 recent-pattern-file-container">
@@ -51,19 +76,23 @@
         ><i class="fas fa-angle-up"></i
       ></a>
     </div>
-    <div v-else><i class="fas fa-sync fa-spin"></i> Loading patterns</div>
   </div>
 </template>
 
 <script>
+import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {
   name: 'RecentPatterns',
   data() {
+    const params = getParams({
+      timeframe: 'any'
+    });
+
     return {
-      params: {before: 0},
+      params: {...params, before: 0},
       patterns: null,
       patternUrl: '/licenses/recent/meta',
       total: null
@@ -109,8 +138,15 @@ export default {
     },
     loadMore() {
       this.getPatterns();
+    },
+    refreshPage() {
+      this.total = null;
+      this.patterns = null;
+      this.params.before = 0;
+      this.getPatterns();
     }
-  }
+  },
+  watch: {...genParamWatchers('timeframe')}
 };
 </script>
 

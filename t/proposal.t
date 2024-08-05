@@ -118,6 +118,16 @@ subtest 'Pattern creation' => sub {
       ->json_is('/total',                  5);
 
     $t->get_ok('/licenses/recent/meta?before=3')->status_is(200)->json_is('/patterns/0/id', 2)->json_is('/total', 2);
+
+    subtest 'Timeframe' => sub {
+      $t->get_ok('/licenses/recent/meta?before=3&timeframe=any')->status_is(200)->json_is('/patterns/0/id', 2)
+        ->json_is('/total', 2);
+      $t->get_ok('/licenses/recent/meta?before=3&timeframe=hour')->status_is(200)->json_is('/patterns/0/id', 2)
+        ->json_is('/total', 2);
+      $t->app->pg->db->query("UPDATE license_patterns SET created = NOW() - INTERVAL '2 weeks' WHERE id = 2");
+      $t->get_ok('/licenses/recent/meta?before=3&timeframe=hour')->status_is(200)->json_is('/patterns/0/id', 1)
+        ->json_is('/total', 1);
+    };
   };
 };
 

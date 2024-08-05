@@ -134,10 +134,12 @@ sub recent ($self) {
 sub recent_meta ($self) {
   my $v = $self->validation;
   $v->optional('before')->num;
+  $v->optional('timeframe')->in('any', 'year', 'month', 'week', 'day', 'hour');
   return $self->reply->json_validation_error if $v->has_error;
-  my $before = $v->param('before') // 0;
+  my $before    = $v->param('before')    // 0;
+  my $timeframe = $v->param('timeframe') // 'any';
 
-  my $recent = $self->patterns->recent({before => $before});
+  my $recent = $self->patterns->recent({before => $before, timeframe => $timeframe});
 
   $self->render(json => {patterns => $recent->{patterns}, total => $recent->{total}});
 }

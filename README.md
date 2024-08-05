@@ -8,7 +8,7 @@
 
 * Source code legal review system for RPMs, Tarballs, Kiwi images, Docker images, and Helm charts
 * High performance source code scanner with support for recursively decompressing almost any archive format
-* 25.000 curated patterns for 1000 licenses with 500 distinct SPDX expressions
+* 28.000 curated patterns for 2000 license combinations with 500 distinct SPDX expressions
 * Software Bill of Materials (SBOM) support with SPDX 2.2 reports
 * Legal risk assessments by lawyers for every pattern match
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk

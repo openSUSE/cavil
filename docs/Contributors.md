@@ -2,7 +2,7 @@
 
 ## Motivation
 
-Cavil depoends on its list of known license patterns for creating reports. By default this is about 26.000 patterns for
+Cavil depoends on its list of known license patterns for creating reports. By default this is about 28.000 patterns for
 2.000 unique license combinations. Open Source developers tend to be quite creative with license declarations however.
 And that means with constant package updates we also require a constant stream of new license patterns, to be able to
 genrate high quality reports that can be reviewed quickly. The creation of these new license patterns is the main

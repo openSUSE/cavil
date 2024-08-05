@@ -308,7 +308,13 @@ sub recent ($self, $options) {
   my $before = '';
   if ($options->{before} > 0) {
     my $quoted = $db->dbh->quote($options->{before});
-    $before = "WHERE lp.id < $quoted";
+    $before = "AND lp.id < $quoted";
+  }
+
+  my $timeframe = '';
+  if ($options->{timeframe} ne 'any') {
+    my $interval = "1 $options->{timeframe}";
+    $timeframe = "AND lp.created > NOW() - INTERVAL '$interval'";
   }
 
   my $patterns = $db->query(
@@ -316,7 +322,7 @@ sub recent ($self, $options) {
        EXTRACT(EPOCH FROM created) AS created_epoch, COUNT(*) OVER() AS total
      FROM license_patterns lp LEFT JOIN bot_users bu1 ON (bu1.id = lp.owner)
        LEFT JOIN bot_users bu2 ON (bu2.id = lp.contributor)
-     $before ORDER BY lp.id DESC LIMIT 10"
+     WHERE lp.id > 0 $before $timeframe ORDER BY lp.id DESC LIMIT 10"
   )->hashes;
 
   my $total = 0;
