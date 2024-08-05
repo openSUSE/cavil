@@ -128,6 +128,15 @@ subtest 'Pattern creation' => sub {
       $t->get_ok('/licenses/recent/meta?before=3&timeframe=hour')->status_is(200)->json_is('/patterns/0/id', 1)
         ->json_is('/total', 1);
     };
+
+    subtest 'Contributor' => sub {
+      $t->get_ok('/licenses/recent/meta?before=3&hasContributor=false')->status_is(200)->json_is('/patterns/0/id', 2)
+        ->json_is('/total', 2);
+      $t->get_ok('/licenses/recent/meta?before=3&hasContributor=true')->status_is(200)->json_is('/total', 0);
+      $t->app->pg->db->query("UPDATE license_patterns SET owner = 2, contributor = 2 WHERE id = 2");
+      $t->get_ok('/licenses/recent/meta?before=3&hasContributor=true')->status_is(200)->json_is('/patterns/0/id', 2)
+        ->json_is('/total', 1);
+    };
   };
 };
 

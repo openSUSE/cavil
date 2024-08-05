@@ -311,6 +311,11 @@ sub recent ($self, $options) {
     $before = "AND lp.id < $quoted";
   }
 
+  my $contributor = '';
+  if ($options->{has_contributor} ne 'false') {
+    $contributor = 'AND lp.contributor IS NOT NULL';
+  }
+
   my $timeframe = '';
   if ($options->{timeframe} ne 'any') {
     my $interval = "1 $options->{timeframe}";
@@ -322,7 +327,7 @@ sub recent ($self, $options) {
        EXTRACT(EPOCH FROM created) AS created_epoch, COUNT(*) OVER() AS total
      FROM license_patterns lp LEFT JOIN bot_users bu1 ON (bu1.id = lp.owner)
        LEFT JOIN bot_users bu2 ON (bu2.id = lp.contributor)
-     WHERE lp.id > 0 $before $timeframe ORDER BY lp.id DESC LIMIT 10"
+     WHERE lp.id > 0 $before $contributor $timeframe ORDER BY lp.id DESC LIMIT 10"
   )->hashes;
 
   my $total = 0;

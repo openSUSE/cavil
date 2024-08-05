@@ -12,7 +12,7 @@
           <div class="row g-4">
             <div class="col-lg-2">
               <div class="form-floating">
-                <select v-model="params.timeframe" @change="refreshPage()" class="form-control cavil-pkg-timeframe">
+                <select v-model="params.timeframe" @change="refreshPage()" class="form-control cavil-pattern-timeframe">
                   <option value="any">Any</option>
                   <option value="year">1 year</option>
                   <option value="month">1 month</option>
@@ -21,6 +21,18 @@
                   <option value="hour">1 hour</option>
                 </select>
                 <label class="form-label">Timeframe</label>
+              </div>
+            </div>
+            <div class="col-lg-3">
+              <div class="form-check">
+                <input
+                  v-model="params.hasContributor"
+                  @change="refreshPage()"
+                  type="checkbox"
+                  class="form-check-input"
+                  id="pattern-has-contributor"
+                />
+                <label class="form-check-label" for="snippet-not-legal">Has contributor</label>
               </div>
             </div>
           </div>
@@ -88,6 +100,7 @@ export default {
   name: 'RecentPatterns',
   data() {
     const params = getParams({
+      hasContributor: false,
       timeframe: 'any'
     });
 
@@ -146,7 +159,7 @@ export default {
       this.getPatterns();
     }
   },
-  watch: {...genParamWatchers('timeframe')}
+  watch: {...genParamWatchers('hasContributor', 'timeframe')}
 };
 </script>
 
