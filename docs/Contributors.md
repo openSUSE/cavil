@@ -61,9 +61,9 @@ Clicking on a file will get you to the file preview.
 ![Low Risk](images/contrib-5-unresolved-matches-2.png)
 
 At the file preview you will see unresolved matches highlighted in black with some context around the snippets.
-Sometimes there will highlighted blocks of text in other colors too, those are matches for known licenses and require
-no actions to be taken. Once you have found a "black match" that you are confident you can assign a license name to,
-just click on the little icon in its upper right corner to open the snippet editor in a new browser tab.
+Sometimes there will be highlighted blocks of text in other colors too, those are matches for known license patterns
+and require no actions to be taken. Once you have found a "black match" that you are confident you can assign a license
+name to, just click on the little icon in its upper right corner to open the snippet editor in a new browser tab.
 
 ![Snippet Preview](images/contrib-6-snippet-preview.png)
 
@@ -75,8 +75,11 @@ features might be added in the future to allow you to help with these as well.
 
 With the snippet editor you can make small adjustments to the soon to be license pattern. Remove sections of text that
 are irrelevant and replace company names or dates with placeholders like `$SKIP7` (this one will skip up to `7` words).
-Just make sure to include all red lines, because these are the ones that include keyword matches. Finding the right
-balance between larger and smaller patterns is not an exact science and requires some experience.
+Just make sure to include all red lines, because these are the ones that include keyword matches.
+
+Finding the right balance between larger and smaller patterns is not an exact science and requires some experience. If
+none of the red lines contain any actual legal text, or if all legal text appears outside the red lines, that would be
+an indicator that this snippet should be ignored.
 
 And don't worry about getting the pattern wrong. You will immediately see an error message if the submitted pattern
 does not match the snippet it was created for.
