@@ -94,8 +94,6 @@ You may select one or more of the available special flags as well, such as "Pate
 clause, "Trademark" if the text contains a trademark, or "Export Restricted" if the text contains any mentions of
 export restrictions. This is rarely necessary however.
 
-Once you are satisfied, just click on the "Propose Pattern" button and you are done.
-
 And don't worry about getting the license name or risk wrong. You will immediately see an error message if the
 submitted license and risk do not match a known combination.
 
@@ -103,6 +101,8 @@ submitted license and risk do not match a known combination.
 
 Every time you deselect the snippet editor, the license pattern comparison at the bottom of the page will update.
 So you always know what the closest existing license pattern is to the one you are about to create.
+
+Once you are satisfied, just click on the "Propose Pattern" button and you are done.
 
 ![Done](images/contrib-9-done.png)
 
