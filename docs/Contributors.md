@@ -88,9 +88,13 @@ does not match the snippet it was created for.
 
 If you scroll down a bit you will reach the license field, here you can select any of the 2.000+ license combinations
 currently known to Cavil. Just start typing the name and multiple options will become available for auto-complete. Once
-selected, the appropriate risk for the license will be assigned automatically. You may select one or more of the
-available special flags as well, such as "Patent" if the license contains a patent clause, but that is rarely
-necessary. Once you are satisfied, just click on the "Propose Pattern" button and you are done.
+selected, the appropriate risk for the license will be assigned automatically.
+
+You may select one or more of the available special flags as well, such as "Patent" if the text contains a patent
+clause, "Trademark" if the text contains a trademark, or "Export Restricted" if the text contains any mentions of
+export restrictions. This is rarely necessary however.
+
+Once you are satisfied, just click on the "Propose Pattern" button and you are done.
 
 And don't worry about getting the license name or risk wrong. You will immediately see an error message if the
 submitted license and risk do not match a known combination.
