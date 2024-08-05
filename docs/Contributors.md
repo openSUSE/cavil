@@ -2,11 +2,11 @@
 
 ## Motivation
 
-Cavil depoends on its list of known license patterns for creating license reports. By default this is about 26.000
-patterns for 2.000 unique license combinations. Open Source developers tend to be quite creative with license
-declarations however. And that means with constant package updates we also require a constant stream of new license
-patterns, to be able to genrate high quality reports that can be quickly reviewed. The creation of these new license
-patterns is the main bottleneck in the whole review process.
+Cavil depoends on its list of known license patterns for creating reports. By default this is about 26.000 patterns for
+2.000 unique license combinations. Open Source developers tend to be quite creative with license declarations however.
+And that means with constant package updates we also require a constant stream of new license patterns, to be able to
+genrate high quality reports that can be reviewed quickly. The creation of these new license patterns is the main
+bottleneck in the whole review process.
 
 While entirely new licenses require an in depth review by a lawyer, who can accurately assess its potential risk, new
 patterns for already known licenses are much easier to add. But they do still require some manual work, and this is
@@ -34,9 +34,9 @@ reports that are of interest to contributors.
 
 ![Open Reviews](images/contrib-2-open-reviews.png)
 
-Once inside the report you will see a lot of information that can be a little overwhelming at first. Most of it can be
-safely ignored by contributors and is only relevant for legal reviewers. Just scroll down until you reach the "License"
-section.
+Once looking at the report you will see a lot of information that can be a little overwhelming at first. Most of it can
+be safely ignored by contributors and is only relevant for legal reviewers. Just scroll down until you reach the
+"License" section.
 
 ![Report](images/contrib-3-report.png)
 
