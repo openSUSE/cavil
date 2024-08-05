@@ -42,19 +42,19 @@ be safely ignored by contributors and is only relevant for legal reviewers. Just
 
 ### Unresolved Matches
 
-The "License" section contains a list of all known licenses and snippets of possible legal text Cavil found in the
-package, ordered by risk. Since snippets of possible legal text (also known as unresolved matches) are always
+The "License" section contains a list of all known licenses and snippets of possible legal text that Cavil has found in
+the package, ordered by risk. Since snippets of possible legal text (also known as unresolved matches) are always
 considered risk 9 (the highest risk), they will be at the very top of the listing.
 
-Under risk 9 you will find links to all files containing unresolved matches, together with a prediction of what Cavil
+Under "Risk 9" you will find links to all files containing unresolved matches, together with a prediction of what Cavil
 believes the license of the highest risk snippet in the file might be. Unfortunately these predictions are still often
 incorrect, but will improve as the system learns from new data.
 
 ![High Risk](images/contrib-4-unresolved-matches.png)
 
 As you scroll down the list of files, the estimated risks will decrease and the similarity between the highest risk
-snippet and known licenses will increase. For this reason creating new license patterns for snippets from files at the
-bottom of the list is often easier than for those at the top.
+snippet and known licenses will increase. For this reason creating new license patterns for snippets from the bottom of
+the list is often easier than for those at the top.
 
 Clicking on a file will get you to the file preview.
 
