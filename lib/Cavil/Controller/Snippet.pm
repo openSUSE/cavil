@@ -174,11 +174,13 @@ sub _create_pattern ($self, $packages, $validation) {
   $validation->optional('trademark');
   $validation->optional('export_restricted');
   $validation->optional('contributor');
+  $validation->optional('delay')->num;
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $owner_id       = $self->users->id_for_login($self->current_user);
   my $contributor    = $validation->param('contributor');
   my $contributor_id = $contributor ? $self->users->id_for_login($contributor) : undef;
+  my $delay          = $validation->param('delay') // 0;
 
   my $patterns = $self->patterns;
   my $pattern  = $patterns->create(
@@ -195,7 +197,7 @@ sub _create_pattern ($self, $packages, $validation) {
   return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $pattern->{conflict};
 
   if (my $checksum = $validation->param('checksum')) { $patterns->remove_proposal($checksum) }
-  $self->packages->reindex($_, 3) for @$packages;
+  $self->packages->reindex($_, 3, [], $delay) for @$packages;
   $self->render(packages => $packages, pattern => $pattern->{id});
 }
 

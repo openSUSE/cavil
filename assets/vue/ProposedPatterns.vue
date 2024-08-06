@@ -96,7 +96,7 @@
           <div class="change-confirmation"><i class="fas fa-sync fa-spin"></i> Updating proposal</div>
         </div>
         <div v-else-if="change.state === 'accepted'" class="col-12">
-          <div class="change-confirmation">Change has been accepted</div>
+          <div class="change-confirmation">Change has been accepted, reindexing related packages in 10 minutes</div>
         </div>
         <div v-else-if="change.state === 'rejected'" class="col-12">
           <div class="change-confirmation">Proposal has been removed</div>
@@ -125,7 +125,7 @@ export default {
   name: 'RecentChanges',
   data() {
     return {
-      params: {before: 0},
+      params: {before: 0, delay: 600},
       changes: null,
       changeUrl: '/licenses/proposed/meta',
       total: null
