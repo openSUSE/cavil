@@ -153,7 +153,8 @@ sub _analyzed ($job, $id) {
     $pkg->{state}            = $found_correct ? 'correct' : 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{result}           = "Accepted because previously reviewed under the same license ($f_id)";
-    return $pkgs->update($pkg);
+    $pkgs->update($pkg);
+    return;
   }
 
   # Acceptable risk
