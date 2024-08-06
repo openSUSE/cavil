@@ -3,7 +3,8 @@
     <div class="row">
       <div class="col-12 alert alert-primary" role="alert">
         These are the most recently added license patterns and some metrics for how well they are performing. The
-        metrics are most useful after a full database reindexing.
+        metrics are most useful after a full database reindexing. License patterns without any matches are highlighted
+        in red.
       </div>
     </div>
     <div class="row g-4">
