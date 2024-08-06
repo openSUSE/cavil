@@ -179,6 +179,21 @@ sub is_indexed  ($self, @args) { $self->_check_field('indexed',  @args) }
 sub is_obsolete ($self, @args) { $self->_check_field('obsolete', @args) }
 sub is_unpacked ($self, @args) { $self->_check_field('unpacked', @args) }
 
+sub old_reviews ($self, $pkg) {
+  return $self->pg->db->select(
+    'bot_packages',
+    'id,checksum',
+    {
+      name     => $pkg->{name},
+      state    => [qw(acceptable correct)],
+      id       => {'!=' => $pkg->{id}},
+      obsolete => 0,
+      indexed  => {'!=' => undef}
+    },
+    {-desc => 'id'}
+  )->hashes->to_array;
+}
+
 sub paginate_open_reviews ($self, $options) {
   my $db = $self->pg->db;
 

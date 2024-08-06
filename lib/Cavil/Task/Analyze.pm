@@ -171,28 +171,16 @@ sub _analyzed ($job, $id) {
 }
 
 sub _look_for_smallest_delta ($app, $pkg) {
-  my $db      = $app->pg->db;
   my $reports = $app->reports;
+  my $pkgs    = $app->packages;
 
-  my $older_reviews = $db->select(
-    'bot_packages',
-    'id,checksum',
-    {
-      name     => $pkg->{name},
-      state    => [qw(acceptable correct)],
-      id       => {'!=' => $pkg->{id}},
-      obsolete => 0,
-      indexed  => {'!=' => undef}
-    },
-    {-desc => 'id'}
-  );
-
-  my $new_summary = $reports->summary($pkg->{id});
+  my $older_reviews = $pkgs->old_reviews($pkg);
+  my $new_summary   = $reports->summary($pkg->{id});
 
   my $best_score;
   my $best;
   my %checked;
-  for my $old (@{$older_reviews->hashes}) {
+  for my $old (@$older_reviews) {
     next if $checked{$old->{checksum}};
     my $old_summary = $reports->summary($old->{id});
     my $score       = summary_delta_score($old_summary, $new_summary);
@@ -202,7 +190,7 @@ sub _look_for_smallest_delta ($app, $pkg) {
       $pkg->{state}            = 'acceptable';
       $pkg->{review_timestamp} = 1;
       $pkg->{result}           = "Not found any signficant difference against $old->{id}";
-      $app->packages->update($pkg);
+      $pkgs->update($pkg);
       return;
     }
     $checked{$old->{checksum}} = 1;
@@ -211,8 +199,9 @@ sub _look_for_smallest_delta ($app, $pkg) {
       $best_score = $score;
     }
   }
+
   return unless $best;
-  $app->pg->db->update('bot_packages', {result => summary_delta($best, $new_summary)}, {id => $pkg->{id}});
+  $pkgs->update({id => $pkg->{id}, result => summary_delta($best, $new_summary)});
 }
 
 1;
