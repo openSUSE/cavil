@@ -71,7 +71,7 @@
                 >, by <b>{{ pattern.owner_login }}</b></span
               >
               <span v-if="pattern.contributor_login"
-                >, contributed by <b>{{ pattern.owner_login }}</b></span
+                >, contributed by <b>{{ pattern.contributor_login }}</b></span
               >
             </span>
           </div>
