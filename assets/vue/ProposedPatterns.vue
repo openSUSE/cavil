@@ -125,7 +125,7 @@ export default {
   name: 'RecentChanges',
   data() {
     return {
-      params: {before: 0, delay: 600},
+      params: {before: 0},
       changes: null,
       changeUrl: '/licenses/proposed/meta',
       total: null
@@ -147,6 +147,7 @@ export default {
       const ua = new UserAgent({baseURL: window.location.href});
       const form = change.data;
       form.contributor = change.login;
+      form.delay = 600;
       form['create-pattern'] = 1;
       form.checksum = change.token_hexsum;
       await ua.post(change.createUrl, {form});
