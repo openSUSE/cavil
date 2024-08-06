@@ -54,7 +54,7 @@
           <div class="recent-pattern-source">
             <table class="pattern">
               <tbody>
-                <tr v-for="line in pattern.lines" :key="line.num">
+                <tr v-for="line in pattern.lines" :key="line.num" :class="getClassForPattern(pattern)">
                   <td class="linenumber">{{ line.num }}</td>
                   <td class="code">{{ line.text }}</td>
                 </tr>
@@ -119,6 +119,12 @@ export default {
     window.removeEventListener('scroll', this.handleScroll);
   },
   methods: {
+    getClassForPattern(pattern) {
+      return {
+        'pattern-without-matches': pattern.matches === 0,
+        'pattern-with-matches': pattern.matches > 0
+      };
+    },
     async getPatterns() {
       const query = this.params;
       const ua = new UserAgent({baseURL: window.location.href});
@@ -231,5 +237,11 @@ export default {
   min-width: 25px;
   color: rgba(27, 31, 35, 0.3);
   user-select: none;
+}
+.pattern-with-matches {
+  background-color: #ffffff;
+}
+.pattern-without-matches {
+  background-color: #ffebe9;
 }
 </style>
