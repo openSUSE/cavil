@@ -13,7 +13,8 @@
           class="col-12 change-file-container"
         >
           <div class="change-header">
-            Create Pattern, by <b>{{ change.login }}</b>
+            Create pattern from <a :href="change.editUrl" target="_blank"><b>snippet</b></a
+            >, by <b>{{ change.login }}</b>
             <span v-if="change.package !== null"
               >,
               <a :href="change.package.pkgUrl" target="_blank"
@@ -164,6 +165,7 @@ export default {
 
       for (const change of changes) {
         change.state = 'proposed';
+        change.editUrl = `/snippet/edit/${change.data.snippet}`;
         change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
         change.createUrl = `/snippet/decision/${change.data.snippet}`;
 
