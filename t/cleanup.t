@@ -91,11 +91,16 @@ $t->app->patterns->create(pattern => 'The Artistic License 2.0', license => "Art
 $t->app->minion->enqueue(unpack => [$_]) for ($one_id, $two_id, $three_id);
 $t->app->minion->perform_jobs;
 
+is $t->app->packages->find($one_id)->{state}, 'new', 'not previously reviewed by a human';
+$t->app->packages->update({id => $one_id, state => 'acceptable', reviewing_user => 1, result => 'Human review ok'});
+$t->app->minion->enqueue('reindex_all');
+$t->app->minion->perform_jobs;
+
 # First package
 # fake import date
 $t->app->pg->db->query('update bot_packages set imported = ? where id=?', '2017-12-24', $one_id);
-is $t->app->packages->find($one_id)->{state},  'acceptable',                       'right state';
-is $t->app->packages->find($one_id)->{result}, 'Accepted because of low risk (2)', 'right result';
+is $t->app->packages->find($one_id)->{state},  'acceptable',      'right state';
+is $t->app->packages->find($one_id)->{result}, 'Human review ok', 'right result';
 ok !$t->app->packages->find($one_id)->{obsolete},                                               'not obsolete';
 ok -e $dir->child(@one),                                                                        'checkout exists';
 ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $one_id})->array->[0],     'has reports';
@@ -129,7 +134,7 @@ ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->arr
 ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $three_id})->array->[0],   'has URLs';
 
 # Upgrade from acceptable to correct by reindexing
-$t->app->packages->update({id => $two_id, state => 'correct'});
+$t->app->packages->update({id => $two_id, state => 'correct', reviewing_user => 1});
 $t->app->minion->enqueue(analyzed => [$one_id]);
 $t->app->minion->perform_jobs;
 is $t->app->packages->find($one_id)->{state},  'correct',                                             'right state';

@@ -135,6 +135,11 @@ sub generate_spdx_report ($self, $id, $options = {}) {
     if $minion->lock("spdx_$id", 172800);
 }
 
+sub has_human_review ($self, $name) {
+  return !!$self->pg->db->query('SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL',
+    $name)->array->[0];
+}
+
 sub has_spdx_report ($self, $id) {
   return -f $self->spdx_report_path($id);
 }

@@ -99,7 +99,6 @@ sub _analyzed ($job, $id) {
   my $reports = $app->reports;
   my $pkgs    = $app->packages;
 
-
   # Protect from race conditions
   return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
   return $job->finish("Package $id is already being processed")
@@ -110,6 +109,12 @@ sub _analyzed ($job, $id) {
   return unless my $pkg_shortname = $pkg->{checksum};
   return unless $pkg->{indexed};
   return if $pkg->{state} ne 'new' && $pkg->{state} ne 'acceptable';
+
+  # Every package needs a human review before future versions can be auto-accepted (still gets a diff)
+  unless ($pkgs->has_human_review($pkg->{name})) {
+    _look_for_smallest_delta($app, $pkg, 0) if $pkg->{state} eq 'new';
+    return;
+  }
 
   # Fast-track packages that are configured to always be acceptable
   my $name                = $pkg->{name};
@@ -168,10 +173,10 @@ sub _analyzed ($job, $id) {
     $pkgs->update($pkg);
   }
 
-  _look_for_smallest_delta($app, $pkg) if $pkg->{state} eq 'new';
+  _look_for_smallest_delta($app, $pkg, 1) if $pkg->{state} eq 'new';
 }
 
-sub _look_for_smallest_delta ($app, $pkg) {
+sub _look_for_smallest_delta ($app, $pkg, $allow_accept) {
   my $reports = $app->reports;
   my $pkgs    = $app->packages;
 
@@ -185,15 +190,18 @@ sub _look_for_smallest_delta ($app, $pkg) {
     next if $checked{$old->{checksum}};
     my $old_summary = $reports->summary($old->{id});
     my $score       = summary_delta_score($old_summary, $new_summary);
-    if (!$score) {
 
-      # don't look further
-      $pkg->{state}            = 'acceptable';
-      $pkg->{review_timestamp} = 1;
-      $pkg->{result}           = "Not found any signficant difference against $old->{id}";
+    # don't look further
+    if (!$score) {
+      if ($allow_accept) {
+        $pkg->{state}            = 'acceptable';
+        $pkg->{review_timestamp} = 1;
+      }
+      $pkg->{result} = "Not found any signficant difference against $old->{id}";
       $pkgs->update($pkg);
       return;
     }
+
     $checked{$old->{checksum}} = 1;
     if (!$best || $score < $best_score) {
       $best       = $old_summary;

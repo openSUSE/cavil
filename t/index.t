@@ -205,7 +205,7 @@ $t->app->pg->db->query("update license_patterns set pattern = 'powerful' where i
 $t->app->patterns->expire_cache;
 $list = $t->app->minion->backend->list_jobs(0, 10, {tasks => ['index_later']});
 is $list->{total}, 1, 'one index_later jobs';
-$reindex_id = $t->app->minion->enqueue('reindex_all');
+$t->app->minion->enqueue('reindex_all');
 $t->app->minion->perform_jobs;
 $list = $t->app->minion->backend->list_jobs(0, 10, {tasks => ['index_later']});
 is $list->{total},          3,          'three index_later jobs';
@@ -232,13 +232,35 @@ is $pkg->{state}, 'new', 'still snippets left';
 
 # now 'classify'
 $db->update('snippets', {classified => 1, license => 0});
-$reindex_id = $t->app->minion->enqueue('reindex_all');
-$t->app->minion->perform_jobs;
 
-# Accepted because of low risk
-$pkg = $t->app->packages->find(1);
-is $pkg->{state},  'acceptable',                       'automatically accepted';
-is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
+subtest 'Accepted because of low risk (with human review)' => sub {
+  $t->app->minion->enqueue('reindex_all');
+  $t->app->minion->perform_jobs;
+
+  my $pkg = $t->app->packages->find(1);
+  is $pkg->{state}, 'new', 'not previously reviewed by a human';
+
+  my $acceptable_id = $t->app->packages->add(
+    name            => 'perl-Mojolicious',
+    checkout_dir    => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => 1,
+    project         => 'devel:languages:perl',
+    package         => 'perl-Mojolicious',
+    srcmd5          => 'bd91c36647a5d3dd883d490da2140401',
+    priority        => 5
+  );
+  $t->app->packages->imported($acceptable_id);
+  $t->app->packages->unpacked($acceptable_id);
+  $t->app->packages->indexed($acceptable_id);
+  $t->app->packages->update({id => $acceptable_id, state => 'acceptable', reviewing_user => 2, obsolete => 1});
+  $t->app->minion->enqueue('reindex_all');
+  $t->app->minion->perform_jobs;
+
+  $pkg = $t->app->packages->find(1);
+  is $pkg->{state},  'acceptable',                       'automatically accepted';
+  is $pkg->{result}, 'Accepted because of low risk (5)', 'because of low risk';
+};
 
 subtest 'Accept package because of its name' => sub {
   $db->update('bot_packages', {state => 'new'}, {id => 1});
