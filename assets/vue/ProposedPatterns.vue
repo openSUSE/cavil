@@ -13,7 +13,10 @@
           class="col-12 change-file-container"
         >
           <div class="change-header">
-            Create pattern from <a :href="change.editUrl" target="_blank"><b>snippet</b></a
+            Create pattern from
+            <a :href="change.editUrl" target="_blank">
+              <b v-if="change.data.edited === true">edited snippet</b>
+              <b v-else>unedited snippet</b> </a
             >, by <b>{{ change.login }}</b>
             <span v-if="change.package !== null"
               >,
@@ -30,7 +33,7 @@
               <tbody>
                 <tr v-for="line in change.lines" :key="line.num">
                   <td class="linenumber">{{ line.num }}</td>
-                  <td class="code">{{ line.text }}</td>
+                  <td :class="getClassForLine(line)">{{ line.text }}</td>
                 </tr>
               </tbody>
             </table>
@@ -172,14 +175,16 @@ export default {
         if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
 
-        for (const key of ['patent', 'trademark', 'export_restricted']) {
+        for (const key of ['edited', 'patent', 'trademark', 'export_restricted']) {
           change.data[key] = change.data[key] === '1' ? true : false;
         }
 
-        let num = 1;
+        const highlighted = change.data.highlighted ?? [];
+        let num = 0;
         const lines = [];
         for (const line of change.data.pattern.split('\n')) {
-          lines.push({num: num++, text: line});
+          const isHighlighted = highlighted.includes(num.toString());
+          lines.push({num: ++num, text: line, highlighted: isHighlighted});
         }
         change.lines = lines;
 
@@ -188,6 +193,12 @@ export default {
 
       if (this.changes === null) this.changes = [];
       this.changes.push(...changes);
+    },
+    getClassForLine(line) {
+      return {
+        'change-highlighted-line code': line.highlighted,
+        code: !line.highlighted
+      };
     },
     handleScroll() {
       if (window.innerHeight + Math.ceil(window.scrollY) >= document.documentElement.scrollHeight) {
@@ -290,5 +301,8 @@ export default {
   min-width: 25px;
   color: rgba(27, 31, 35, 0.3);
   user-select: none;
+}
+.change-highlighted-line {
+  background-color: #ffebe9;
 }
 </style>

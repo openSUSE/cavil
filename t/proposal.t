@@ -80,16 +80,25 @@ subtest 'Pattern creation' => sub {
   };
 
   subtest 'From proposal to pattern' => sub {
-    $t->post_ok('/snippet/decision/1' => form =>
-        {'propose-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(200)
-      ->content_like(qr/Your change has been proposed/);
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-pattern' => 1,
+        license           => 'GPL',
+        pattern           => 'The license might',
+        highlighted       => '0',
+        edited            => '1',
+        risk              => 5
+      }
+    )->status_is(200)->content_like(qr/Your change has been proposed/);
     $t->post_ok('/snippet/decision/1' => form =>
         {'propose-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(409)
       ->content_like(qr/Conflicting license pattern proposal already exists/);
     $t->post_ok('/snippet/decision/1' => form =>
         {'create-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(403);
 
-    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')->json_hasnt('/changes/1');
+    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')
+      ->json_is('/changes/0/data/license'     => 'GPL')->json_is('/changes/0/data/pattern' => 'The license might')
+      ->json_is('/changes/0/data/highlighted' => [0])->json_is('/changes/0/data/edited' => 1)->json_hasnt('/changes/1');
     my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
     $t->app->users->add_role(2, 'admin');
     $t->post_ok(

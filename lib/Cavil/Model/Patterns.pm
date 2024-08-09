@@ -248,6 +248,8 @@ sub propose_create ($self, %args) {
         -json => {
           snippet           => $args{snippet},
           pattern           => $pattern,
+          highlighted       => $args{highlighted},
+          edited            => $args{edited} // '0',
           license           => $license,
           risk              => $risk,
           package           => $args{package},

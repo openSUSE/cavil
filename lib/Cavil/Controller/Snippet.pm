@@ -204,6 +204,8 @@ sub _create_pattern ($self, $packages, $validation) {
 sub _propose_pattern ($self, $validation) {
   $validation->required('license');
   $validation->required('pattern');
+  $validation->optional('highlighted', 'comma_separated');
+  $validation->optional('edited');
   $validation->required('risk')->num;
   $validation->optional('package');
   $validation->optional('patent');
@@ -220,6 +222,8 @@ sub _propose_pattern ($self, $validation) {
   my $result  = $self->patterns->propose_create(
     snippet           => $snippet->{id},
     pattern           => $pattern,
+    highlighted       => $validation->every_param('highlighted'),
+    edited            => $validation->param('edited'),
     license           => $validation->param('license'),
     risk              => $validation->param('risk'),
     package           => $validation->param('package'),

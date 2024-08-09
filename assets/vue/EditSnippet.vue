@@ -17,6 +17,8 @@
     </div>
     <form :action="this.decisionUrl" method="POST">
       <input type="hidden" name="package" :value="this.package.id" v-if="this.package !== null" />
+      <input type="hidden" name="highlighted" :value="this.highlighted" />
+      <input type="hidden" name="edited" :value="this.edited" />
       <div class="row">
         <div class="col mb-3">
           <label class="form-label" for="pattern">Snippet</label>
@@ -182,7 +184,9 @@ export default {
       closest: null,
       closestUrl: '/snippet/closest',
       decisionUrl: `/snippet/decision/${this.currentSnippet}`,
+      edited: '0',
       editor: null,
+      highlighted: '',
       keywords: {},
       license: '',
       licenseFocused: false,
@@ -259,6 +263,17 @@ export default {
 
       if (data.closest !== null) this.fillLicense(data.closest);
     },
+    getHighlightedLines() {
+      const cm = this.editor;
+      const count = cm.lineCount();
+      const lines = [];
+      for (let i = 0; i < count; i++) {
+        const line = cm.getLineHandle(i);
+        const bgClass = line.bgClass ?? '';
+        if (bgClass.match('found-pattern')) lines.push(i);
+      }
+      this.highlighted = lines.join(',');
+    },
     setupCodeMirror() {
       const cm = CodeMirror.fromTextArea(this.$refs.patternText, {
         firstLineNumber: this.startLine,
@@ -266,8 +281,12 @@ export default {
         theme: 'neo'
       });
 
+      cm.on('change', () => {
+        this.edited = '1';
+      });
       cm.on('blur', () => {
         this.getClosest();
+        this.getHighlightedLines();
       });
       cm.on('gutterClick', (cm, n) => {
         const info = cm.lineInfo(n);
@@ -284,6 +303,7 @@ export default {
       }
 
       this.editor = cm;
+      this.getHighlightedLines();
     },
     setupPopover() {
       setupPopoverDelayed();
