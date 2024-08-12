@@ -1,3 +1,4 @@
+% my $stats = proposal_stats();
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -62,6 +63,7 @@
               <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   Logged in as <%= $user %>
+                  <% if ($stats->{waiting} > 0) { %><span class="badge bg-secondary"><%= $stats->{waiting} %></span><% } %>
                 </a>
                 <ul class="dropdown-menu">
                   % if (my @roles = @{current_user_roles()}) {
@@ -79,7 +81,6 @@
                   <li>
                     <a href="<%= url_for('proposed_patterns') %>" class="dropdown-item">
                       Change Proposals
-                      % my $stats = proposal_stats();
                       % if ($stats->{waiting} > 0) {
                         <span class="badge bg-info"><%= $stats->{waiting} %></span>
                       % }
