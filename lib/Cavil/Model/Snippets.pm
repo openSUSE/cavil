@@ -16,8 +16,9 @@
 package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
-use Mojo::File 'path';
-use Cavil::Util qw(read_lines);
+use Mojo::File  qw(path);
+use Cavil::Util qw(read_lines snippet_checksum);
+use Spooky::Patterns::XS;
 
 has [qw(checkout_dir pg)];
 
@@ -36,6 +37,22 @@ sub find_or_create ($self, $hash, $text) {
    on conflict do nothing', $hash, $text
   );
   return $db->select('snippets', 'id', {hash => $hash})->hash->{id};
+}
+
+sub from_file ($self, $file_id, $first_line, $last_line) {
+  my $db   = $self->pg->db;
+  my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
+  return undef unless $file;
+
+  my $package = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
+  my $path    = path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked', $file->{filename});
+
+  my $text       = read_lines($path, $first_line, $last_line);
+  my $snippet_id = $self->find_or_create('manual:' . snippet_checksum($text), $text);
+  $db->insert('file_snippets',
+    {package => $package->{id}, snippet => $snippet_id, sline => $first_line, eline => $last_line, file => $file_id});
+
+  return $snippet_id;
 }
 
 sub approve ($self, $id, $license) {
@@ -111,14 +128,14 @@ sub packages_for_snippet ($self, $id) {
 }
 
 sub with_context ($self, $id) {
-  my $db = $self->pg->db;
-  return undef unless my $snippet = $db->select('snippets', '*', {id => $id})->hash;
+  return undef unless my $snippet = $self->find($id);
 
   my $text     = $snippet->{text};
   my $sline    = 1;
   my $package  = undef;
   my $keywords = {};
 
+  my $db      = $self->pg->db;
   my $example = $db->query(
     'SELECT fs.package, p.name, sline, eline, file, filename, p.checkout_dir
      FROM file_snippets fs JOIN matched_files m ON (m.id = fs.file)

@@ -203,34 +203,37 @@ subtest 'Clean up duplicates' => sub {
 
   # Third package (still valid, because the latest)
   is $t->app->packages->find($three_id)->{state}, 'new', 'right state';
-  ok !$t->app->packages->find($three_id)->{obsolete},                                             'not obsolete';
-  ok !$t->app->packages->find($three_id)->{result},                                               'no result';
-  ok -e $dir->child(@three),                                                                      'checkout exists';
-  ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->array->[0],        'has emails';
-  ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $three_id})->array->[0],          'has URLs';
-  ok $t->app->pg->db->select('matched_files', [\'count(*)'], {package => $three_id})->array->[0], 'has matched files';
+  ok !$t->app->packages->find($three_id)->{obsolete}, 'not obsolete';
+  is $t->app->packages->find($three_id)->{result},
+    'Manual review is required because no previous reports are available', 'requires manual review';
+  ok -e $dir->child(@three), 'checkout exists';
+  ok $t->app->pg->db->select('emails',          [\'count(*)'], {package => $three_id})->array->[0], 'has emails';
+  ok $t->app->pg->db->select('urls',            [\'count(*)'], {package => $three_id})->array->[0], 'has URLs';
+  ok $t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $three_id})->array->[0], 'has matched files';
   ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $three_id})->array->[0],
     'has pattern matches';
 
   # Fourth package (still valid, different external link)
   is $t->app->packages->find($four_id)->{state}, 'new', 'right state';
-  ok !$t->app->packages->find($four_id)->{obsolete},                                             'not obsolete';
-  ok !$t->app->packages->find($four_id)->{result},                                               'no result';
-  ok -e $dir->child(@four),                                                                      'checkout exists';
-  ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $four_id})->array->[0],        'has emails';
-  ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $four_id})->array->[0],          'has URLs';
-  ok $t->app->pg->db->select('matched_files', [\'count(*)'], {package => $four_id})->array->[0], 'has matched files';
+  ok !$t->app->packages->find($four_id)->{obsolete}, 'not obsolete';
+  is $t->app->packages->find($four_id)->{result},
+    'Manual review is required because no previous reports are available', 'requires manual review';
+  ok -e $dir->child(@four), 'checkout exists';
+  ok $t->app->pg->db->select('emails',          [\'count(*)'], {package => $four_id})->array->[0], 'has emails';
+  ok $t->app->pg->db->select('urls',            [\'count(*)'], {package => $four_id})->array->[0], 'has URLs';
+  ok $t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $four_id})->array->[0], 'has matched files';
   ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $four_id})->array->[0],
     'has pattern matches';
 
   # Fifth package (still valid, no external_link)
   is $t->app->packages->find($five_id)->{state}, 'new', 'right state';
-  ok !$t->app->packages->find($five_id)->{obsolete},                                             'not obsolete';
-  ok !$t->app->packages->find($five_id)->{result},                                               'no result';
-  ok -e $dir->child(@five),                                                                      'checkout exists';
-  ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $five_id})->array->[0],        'has emails';
-  ok $t->app->pg->db->select('urls', [\'count(*)'], {package => $five_id})->array->[0],          'has URLs';
-  ok $t->app->pg->db->select('matched_files', [\'count(*)'], {package => $five_id})->array->[0], 'has matched files';
+  ok !$t->app->packages->find($five_id)->{obsolete}, 'not obsolete';
+  is $t->app->packages->find($five_id)->{result},
+    'Manual review is required because no previous reports are available', 'requires manual review';
+  ok -e $dir->child(@five), 'checkout exists';
+  ok $t->app->pg->db->select('emails',          [\'count(*)'], {package => $five_id})->array->[0], 'has emails';
+  ok $t->app->pg->db->select('urls',            [\'count(*)'], {package => $five_id})->array->[0], 'has URLs';
+  ok $t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $five_id})->array->[0], 'has matched files';
   ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $five_id})->array->[0],
     'has pattern matches';
 };

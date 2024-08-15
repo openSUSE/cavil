@@ -16,6 +16,7 @@
 package Cavil::Sync;
 use Mojo::Base -base, -signatures;
 
+use Cavil::Util qw(pattern_checksum);
 use File::Find qw(find);
 use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json encode_json);
@@ -43,7 +44,7 @@ sub load ($self, $path) {
   for my $line (<$handle>) {
     chomp $line;
     my $hash = decode_json($line);
-    $hash->{token_hexsum} = $patterns->checksum($hash->{pattern});
+    $hash->{token_hexsum} = pattern_checksum($hash->{pattern});
     $imported++ if $db->insert('license_patterns', $hash, {on_conflict => undef, returning => 'id'})->rows;
     $progress->update;
     $all++;

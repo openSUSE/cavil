@@ -19,6 +19,8 @@
       <input type="hidden" name="package" :value="this.package.id" v-if="this.package !== null" />
       <input type="hidden" name="highlighted" :value="this.highlighted" />
       <input type="hidden" name="edited" :value="this.edited" />
+      <input type="hidden" name="hash" :value="this.hash" />
+      <input type="hidden" name="from" :value="this.from" />
       <div class="row">
         <div class="col mb-3">
           <label class="form-label" for="pattern">Snippet</label>
@@ -149,6 +151,10 @@
           >
             Propose Pattern
           </button>
+          <span v-if="hasContributorRole === true && this.hash !== null && this.from !== null">
+            &nbsp;
+            <button name="propose-ignore" type="submit" value="1" class="btn btn-danger mb-2">Propose Ignore</button>
+          </span>
         </div>
       </div>
       <div v-if="closest !== null" class="row closest-container">
@@ -174,18 +180,23 @@
 
 <script>
 import {setupPopoverDelayed} from './helpers/links.js';
+import {getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 import CodeMirror from 'codemirror';
 
 export default {
   name: 'EditSnippet',
   data() {
+    const params = getParams();
+
     return {
       closest: null,
       closestUrl: '/snippet/closest',
       decisionUrl: `/snippet/decision/${this.currentSnippet}`,
       edited: '0',
       editor: null,
+      from: params.from ?? null,
+      hash: params.hash ?? null,
       highlighted: '',
       keywords: {},
       license: '',

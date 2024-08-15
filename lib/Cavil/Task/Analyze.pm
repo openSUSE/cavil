@@ -124,7 +124,8 @@ sub _analyzed ($job, $id) {
     $pkg->{review_timestamp} = 1;
     $pkg->{reviewing_user}   = undef;
     $pkg->{result}           = "Accepted because of package name ($name)";
-    return $pkgs->update($pkg);
+    $pkgs->update($pkg);
+    return;
   }
 
   # Exclude "unacceptable" reviews
@@ -166,7 +167,12 @@ sub _analyzed ($job, $id) {
   if (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname))) {
 
     # risk 0 is spooky
-    return unless $risk;
+    unless ($risk) {
+      $pkg->{result} = 'Manual review is required because of unusually low risk (0)';
+      $pkgs->update($pkg);
+      return;
+    }
+
     $pkg->{state}            = 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{result}           = "Accepted because of low risk ($risk)";
@@ -211,7 +217,12 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
     }
   }
 
-  return unless $best;
+  unless ($best) {
+    $pkg->{result} = 'Manual review is required because no previous reports are available';
+    $pkgs->update($pkg);
+    return;
+  }
+
   $pkgs->update({id => $pkg->{id}, result => summary_delta($best, $new_summary)});
 }
 

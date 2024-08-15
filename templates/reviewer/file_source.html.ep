@@ -66,7 +66,7 @@
         <td class="code"><%= $line->[2] %></td>
         % if ($line->[1]->{end} && $risk == 9 && $line->[1]->{snippet}) {
           <td class="quick-actions text-end">
-            <a href="<%= url_for('new_snippet', file => $file, start => $line->[0], end => $line->[1]->{end}) %>"
+            <a href="<%= url_for('new_snippet', file => $file, start => $line->[0], end => $line->[1]->{end})->query(hash => $hash, from => $packname) %>"
               target="_blank">
               <i class="fas fa-external-link-alt"></i>
             </a>

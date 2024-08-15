@@ -16,8 +16,9 @@
 package Cavil::Command::learn;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
-use Mojo::Util qw(getopt);
-use Mojo::File qw(path);
+use Cavil::Util qw(pattern_checksum);
+use Mojo::Util  qw(getopt);
+use Mojo::File  qw(path);
 
 has description => 'Training data for machine learning';
 has usage       => sub ($self) { $self->extract_usage };
@@ -50,7 +51,7 @@ sub _convert ($self, $convert) {
 
   for my $old ($dir->list->each) {
     my $content  = $old->slurp;
-    my $checksum = $patterns->checksum($content);
+    my $checksum = pattern_checksum($content);
     my $new      = $old->sibling("$checksum.txt");
     $new->spew($content);
     $old->remove;
@@ -104,7 +105,7 @@ sub _output_patterns ($self, $good, $bad) {
       my $pattern = $hash->{pattern};
       $pattern =~ s/\ *\$SKIP\d+\ */ /sg;
 
-      my $checksum = $patterns->checksum($pattern);
+      my $checksum = pattern_checksum($pattern);
       my $file     = $good->child("$checksum.txt");
       next unless _spew($file, $pattern);
       say "Exporting pattern $id ($file)";

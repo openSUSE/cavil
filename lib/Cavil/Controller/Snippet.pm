@@ -17,7 +17,7 @@ package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
-use Cavil::Util qw(pattern_matches read_lines);
+use Cavil::Util qw(pattern_matches);
 use Mojo::JSON  qw(true false);
 
 sub approve ($self) {
@@ -61,6 +61,7 @@ sub decision ($self) {
   my $validation = $self->validation;
   $validation->optional('create-pattern');
   $validation->optional('propose-pattern');
+  $validation->optional('propose-ignore');
   $validation->optional('mark-non-license');
   return $self->reply->json_validation_error if $validation->has_error;
 
@@ -83,6 +84,7 @@ sub decision ($self) {
   }
 
   elsif ($validation->param('propose-pattern')) { $self->_propose_pattern($validation) }
+  elsif ($validation->param('propose-ignore'))  { $self->_propose_ignore($validation) }
 
   else { $self->reply->not_found }
 }
@@ -94,24 +96,21 @@ sub edit ($self) {
 }
 
 sub from_file ($self) {
-  my $db      = $self->pg->db;
-  my $file_id = $self->stash('file');
+  my $v = $self->validation;
+  $v->optional('hash')->like(qr/^[a-f0-9]{32}$/i);
+  $v->optional('from');
+  return $self->reply->json_validation_error if $v->has_error;
 
-  my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
-  return $self->reply->not_found unless $file;
-
-  my $package = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
-  my $fn      = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked',
-    $file->{filename});
-
+  my $file_id    = $self->stash('file');
   my $first_line = $self->stash('start');
   my $last_line  = $self->stash('end');
-  my $text       = read_lines($fn, $first_line, $last_line);
-  my $snippet    = $self->snippets->find_or_create("manual-" . time, $text);
-  $db->insert('file_snippets',
-    {package => $package->{id}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
 
-  return $self->redirect_to('edit_snippet', id => $snippet);
+  return $self->reply->not_found
+    unless defined(my $snippet = $self->snippets->from_file($file_id, $first_line, $last_line));
+
+  my $hash = $v->param('hash') // '';
+  my $from = $v->param('from') // '';
+  return $self->redirect_to($self->url_for('edit_snippet', id => $snippet)->query(hash => $hash, from => $from));
 }
 
 sub list ($self) {
@@ -204,9 +203,9 @@ sub _create_pattern ($self, $packages, $validation) {
 sub _propose_pattern ($self, $validation) {
   $validation->required('license');
   $validation->required('pattern');
-  $validation->optional('highlighted', 'comma_separated');
-  $validation->optional('edited');
   $validation->required('risk')->num;
+  $validation->optional('edited');
+  $validation->optional('highlighted', 'comma_separated');
   $validation->optional('package');
   $validation->optional('patent');
   $validation->optional('trademark');
@@ -239,6 +238,37 @@ sub _propose_pattern ($self, $validation) {
   ) if $result->{license_conflict};
   return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $result->{conflict};
   return $self->render(status => 409, error => 'Conflicting license pattern proposal already exists')
+    if $result->{proposal_conflict};
+
+  $self->render(proposal => 1);
+}
+
+sub _propose_ignore ($self, $validation) {
+  $validation->required('hash');
+  $validation->required('from');
+  $validation->required('pattern');
+  $validation->required('edited');
+  $validation->optional('highlighted', 'comma_separated');
+  $validation->optional('package');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $edited = $validation->param('edited');
+  return $self->render(status => 400, error => 'Only unedited snippets can be ignored') if $edited;
+
+  my $user_id = $self->users->id_for_login($self->current_user);
+  my $result  = $self->patterns->propose_ignore(
+    snippet     => $self->param('id'),
+    hash        => $validation->param('hash'),
+    from        => $validation->param('from'),
+    pattern     => $validation->param('pattern'),
+    highlighted => $validation->every_param('highlighted'),
+    edited      => $edited,
+    package     => $validation->param('package'),
+    owner       => $user_id
+  );
+
+  return $self->render(status => 409, error => 'Conflicting ignore pattern already exists') if $result->{conflict};
+  return $self->render(status => 409, error => 'Conflicting ignore pattern proposal already exists')
     if $result->{proposal_conflict};
 
   $self->render(proposal => 1);

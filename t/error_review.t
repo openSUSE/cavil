@@ -107,9 +107,9 @@ subtest 'JSON report' => sub {
   is $pkg->{id},   1,                  'id';
   is $pkg->{name}, 'perl-Mojolicious', 'name';
   like $pkg->{checksum}, qr!Error-9!, 'checksum';
-  is $pkg->{login},  undef, 'no login';
-  is $pkg->{state},  'new', 'state';
-  is $pkg->{result}, undef, 'no result';
+  is $pkg->{login},  undef,                                                                 'no login';
+  is $pkg->{state},  'new',                                                                 'state';
+  is $pkg->{result}, 'Manual review is required because no previous reports are available', 'requires manual review';
 
   ok my $report = $json->{report}, 'report';
   is $report->{emails}[0][0], 'coolo@suse.com', 'right email';

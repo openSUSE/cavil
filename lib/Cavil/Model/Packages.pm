@@ -154,19 +154,18 @@ sub history ($self, $name, $checksum, $id) {
   )->hashes->to_array;
 }
 
-sub ignore_line ($self, $package, $hash) {
+sub ignore_line ($self, $options) {
 
   my $db = $self->pg->db;
   $db->query(
-    'insert into ignored_lines (hash, packname) values (?, ?)
-     on conflict do nothing', $hash, $package
+    'insert into ignored_lines (hash, packname, owner, contributor) values (?, ?, ?, ?)
+     on conflict do nothing', $options->{hash}, $options->{package}, $options->{owner}, $options->{contributor}
   );
 
   # as it affects all packages with the name, we need to update all reports
-  my $ids = $db->select('bot_packages', [qw(id checksum)], {name => $package});
-  while (my $pkg = $ids->hash) {
-    $self->analyze($pkg->{id}) if $pkg->{checksum};
-  }
+  my $delay = $options->{delay} || 0;
+  my $ids   = $db->select('bot_packages', 'id', {name => $options->{package}})->arrays->flatten->to_array;
+  $self->reindex($_, 3, [], $delay) for @$ids;
 }
 
 sub imported ($self, $id) {

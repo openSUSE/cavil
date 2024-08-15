@@ -64,16 +64,15 @@ sub _mark_area ($needed_lines, $ls, $le) {
 # A 'snippet' is a region of a source file containing keywords.
 # The +-1 area around each keyword is taking into it and possible
 # keywordless lines in between near keywords too - to form one text
-sub _check_missing_snippets ($self, $file_id, $path, $report) {
+sub _check_missing_snippets ($self, $file_id, $path, $matches) {
 
   # extract missed snippets
   my %needed_lines;
 
   # pick the keyword matches first
-  for my $match (@{$report->{matches}}) {
-    my ($mid, $ls, $le) = @$match;
-    next unless $self->has_no_license($mid);
-    _mark_area(\%needed_lines, $ls - 1, $le + 1);
+  for my $match (@$matches) {
+    my ($mid, $ls, $le, $pm_id) = @$match;
+    _mark_area(\%needed_lines, $ls - 1, $le + 1) if $pm_id;
   }
 
   while (1) {
@@ -82,7 +81,7 @@ sub _check_missing_snippets ($self, $file_id, $path, $report) {
     my $delta = 6;
 
     # now check if matches get close to area 9
-    for my $match (@{$report->{matches}}) {
+    for my $match (@$matches) {
       my ($mid, $ls, $le) = @$match;
       for (my $line = $ls - $delta; $line <= $ls; $line++) {
         if (defined $needed_lines{$line}) {
@@ -108,17 +107,17 @@ sub _check_missing_snippets ($self, $file_id, $path, $report) {
   my $first_snippet_line;
   for my $line (sort { $a <=> $b } keys %needed_lines) {
     if ($prev_line && $line - $prev_line > 1) {
-      $self->_snippet($file_id, $report, $path, $first_snippet_line, $prev_line);
+      $self->_snippet($file_id, $matches, $path, $first_snippet_line, $prev_line);
       $first_snippet_line = undef;
     }
     $first_snippet_line ||= $line;
     $prev_line = $line;
   }
   return unless $first_snippet_line;
-  $self->_snippet($file_id, $report, $path, $first_snippet_line, $prev_line);
+  $self->_snippet($file_id, $matches, $path, $first_snippet_line, $prev_line);
 }
 
-sub _snippet ($self, $file_id, $report, $path, $first_line, $last_line) {
+sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
   my %lines;
   for (my $line = $first_line; $line <= $last_line; $line += 1) {
     $lines{$line} = 1;
@@ -139,9 +138,9 @@ sub _snippet ($self, $file_id, $report, $path, $first_line, $last_line) {
 
   # ignored lines are easy targets
   if ($self->ignored_lines->{$hash}) {
-    for my $match (@{$report->{matches}}) {
+    for my $match (@$matches) {
       my ($mid, $ls, $le, $pm_id) = @$match;
-      next if $le < $first_line || $ls > $last_line;
+      next if !$pm_id || $le < $first_line || $ls > $last_line;
       $self->db->update('pattern_matches', {ignored => 1}, {id => $pm_id});
     }
     return;
@@ -157,15 +156,14 @@ sub _snippet ($self, $file_id, $report, $path, $first_line, $last_line) {
 }
 
 sub has_no_license ($self, $pid) {
-  return $self->{no_license}{$pid} if defined $self->{no_license}{$pid};
+  return $self->{no_license}{$pid} if exists $self->{no_license}{$pid};
   my $row = $self->db->select('license_patterns', 'license', {id => $pid})->hash;
   $self->{no_license}{$pid} = $row->{license} eq '';
   return $self->{no_license}{$pid};
 }
 
 sub file ($self, $meta, $path, $mime) {
-  my $report = $self->checkout->keyword_report($self->matcher, $meta, $path);
-  return unless $report;
+  return unless my $report = $self->checkout->keyword_report($self->matcher, $meta, $path);
 
   my $file_id;
   my $package = $self->package;
@@ -178,15 +176,18 @@ sub file ($self, $meta, $path, $mime) {
     last;
   }
 
+  my @matches;
   for my $match (@{$report->{matches}}) {
+    my ($mid, $ls, $le) = @$match;
+
     $file_id ||= $self->db->insert(
       'matched_files',
       {package   => $self->package, filename => $path, mimetype => $mime},
       {returning => 'id'}
     )->hash->{id};
-    my ($mid, $ls, $le) = @$match;
 
-    $keyword_missed ||= $self->has_no_license($mid);
+    my $no_license = $self->has_no_license($mid);
+    $keyword_missed ||= $no_license;
 
     # package is kind of duplicated in file, but the join is just too expensive
     my $pm_id = $self->db->insert(
@@ -194,14 +195,15 @@ sub file ($self, $meta, $path, $mime) {
       {file => $file_id, package => $package, pattern => $mid, sline => $ls, eline => $le, ignored => $ignored_file,},
       {returning => 'id'}
     )->hash->{id};
-    push(@$match, $pm_id);
+
+    push @matches, $no_license ? [@$match, $pm_id] : $match;
 
     # to mark an ignored file, one pattern is enough
     return if $ignored_file;
   }
 
   return unless $keyword_missed;
-  $self->_check_missing_snippets($file_id, $path, $report);
+  $self->_check_missing_snippets($file_id, $path, \@matches);
 }
 
 1;

@@ -16,7 +16,7 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate);
+use Cavil::Util qw(paginate pattern_checksum);
 use Mojo::File 'path';
 use Mojo::JSON qw(true false);
 use Spooky::Patterns::XS;
@@ -58,7 +58,7 @@ sub closest_matches ($self, $text, $num) {
 
 sub create ($self, %args) {
 
-  my $checksum = $self->checksum($args{pattern});
+  my $checksum = pattern_checksum($args{pattern});
   my $id       = $self->pattern_exists($checksum);
   return {conflict => $id} if $id;
 
@@ -74,7 +74,7 @@ sub create ($self, %args) {
     'license_patterns',
     {
       pattern           => $args{pattern},
-      token_hexsum      => $self->checksum($args{pattern}),
+      token_hexsum      => $checksum,
       packname          => $args{packname}          // '',
       patent            => $args{patent}            // 0,
       trademark         => $args{trademark}         // 0,
@@ -186,6 +186,11 @@ sub for_license ($self, $license) {
   )->hashes->to_array;
 }
 
+sub ignore_pattern_exists ($self, $checksum) {
+  my $hash = $self->pg->db->select('ignored_lines', 'id', {hash => $checksum})->hash;
+  return $hash ? $hash->{id} : undef;
+}
+
 sub pattern_exists ($self, $checksum) {
   my $hash = $self->pg->db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
   return $hash ? $hash->{id} : undef;
@@ -227,7 +232,7 @@ sub proposal_stats($self) {
 sub propose_create ($self, %args) {
 
   my $pattern  = $args{pattern};
-  my $checksum = $self->checksum($pattern);
+  my $checksum = pattern_checksum($pattern);
   my $id       = $self->pattern_exists($checksum);
   return {conflict => $id} if $id;
   my $proposal_id = $self->proposal_exists($checksum);
@@ -266,6 +271,36 @@ sub propose_create ($self, %args) {
   return {};
 }
 
+sub propose_ignore ($self, %args) {
+
+  my $checksum = $args{hash};
+  my $id       = $self->ignore_pattern_exists($checksum);
+  return {conflict => $id} if $id;
+  my $proposal_id = $self->proposal_exists($checksum);
+  return {proposal_conflict => $proposal_id} if $proposal_id;
+
+  $self->pg->db->insert(
+    'proposed_changes',
+    {
+      action => 'create_ignore',
+      data   => {
+        -json => {
+          snippet     => $args{snippet},
+          from        => $args{from},
+          pattern     => $args{pattern},
+          highlighted => $args{highlighted},
+          edited      => $args{edited} // '0',
+          package     => $args{package},
+        }
+      },
+      owner        => $args{owner},
+      token_hexsum => $checksum
+    }
+  );
+
+  return {};
+}
+
 sub proposed_changes ($self, $options) {
   my $db = $self->pg->db;
 
@@ -282,20 +317,19 @@ sub proposed_changes ($self, $options) {
 
   my $total = 0;
   for my $change (@$changes) {
-    if ($change->{action} eq 'create_pattern') {
-      $change->{closest} = undef;
-      if (my $closest = $self->closest_pattern($change->{data}{pattern})) {
-        $change->{closest} = {
-          id           => $closest->{id},
-          similarity   => $closest->{similarity},
-          license_name => $closest->{license},
-          risk         => $closest->{risk}
-        };
-      }
-      $change->{package} = undef;
-      if (my $id = $change->{data}{package}) {
-        $change->{package} = $db->query('SELECT id, name FROM bot_packages WHERE id = ?', $id)->hash;
-      }
+    $change->{closest} = undef;
+    if (my $closest = $self->closest_pattern($change->{data}{pattern})) {
+      $change->{closest} = {
+        id           => $closest->{id},
+        similarity   => $closest->{similarity},
+        license_name => $closest->{license},
+        risk         => $closest->{risk}
+      };
+    }
+
+    $change->{package} = undef;
+    if (my $id = $change->{data}{package}) {
+      $change->{package} = $db->query('SELECT id, name FROM bot_packages WHERE id = ?', $id)->hash;
     }
 
     $total = delete $change->{total};
@@ -350,7 +384,7 @@ sub remove ($self, $id) {
 sub update ($self, $id, %args) {
   my $db = $self->pg->db;
 
-  my $checksum = $self->checksum($args{pattern});
+  my $checksum = pattern_checksum($args{pattern});
   my $conflict = $db->select('license_patterns', 'id', {token_hexsum => $checksum})->hash;
   if ($conflict && $conflict->{id} != $id) {
     return {conflict => $conflict->{id}};

@@ -8,28 +8,31 @@
     </div>
     <div v-if="changes !== null && changes.length > 0">
       <div v-for="change in changes" :key="change.id" class="row change-container">
-        <div
-          v-if="change.state === 'proposed' && change.action === 'create_pattern'"
-          class="col-12 change-file-container"
-        >
+        <div v-if="change.state === 'proposed'" class="col-12 change-file-container">
           <div class="change-header">
-            Create pattern from
-            <a :href="change.editUrl" target="_blank">
-              <b v-if="change.data.edited === true">edited snippet</b>
-              <b v-else>unedited snippet</b> </a
-            >, by <b>{{ change.login }}</b>
-            <span v-if="change.package !== null"
-              >,
-              <a :href="change.package.pkgUrl" target="_blank"
-                >for <b>{{ change.package.name }}</b></a
-              >
+            <span v-if="change.action === 'create_pattern'">
+              Create license pattern from
+              <a :href="change.editUrl" target="_blank">
+                <b v-if="change.data.edited === true">edited snippet</b>
+                <b v-else>unedited snippet</b> </a
+              >, by <b>{{ change.login }}</b>
+              <span v-if="change.package !== null"
+                >,
+                <a :href="change.package.pkgUrl" target="_blank"
+                  >for <b>{{ change.package.name }}</b></a
+                >
+              </span>
+            </span>
+            <span v-else-if="change.action === 'create_ignore'">
+              Create ignore pattern from <a :href="change.editUrl" target="_blank"> <b>snippet</b></a
+              >, by <b>{{ change.login }}</b>
             </span>
             <span v-if="currentUser === change.login" class="float-end">
               <a @click="rejectProposal(change)" href="#"><i class="fas fa-times"></i></a>
             </span>
           </div>
           <div class="change-source">
-            <table class="pattern">
+            <table :class="getClassForCode(change)">
               <tbody>
                 <tr v-for="line in change.lines" :key="line.num">
                   <td class="linenumber">{{ line.num }}</td>
@@ -39,42 +42,52 @@
             </table>
           </div>
           <div class="change-form">
-            <div class="row">
-              <div class="col mb-3">
-                <label class="fomr-label" for="license">License</label>
-                <input v-model="change.data.license" type="text" class="form-control" />
+            <div v-if="change.action === 'create_pattern'">
+              <div class="row">
+                <div class="col mb-3">
+                  <label class="fomr-label" for="license">License</label>
+                  <input v-model="change.data.license" type="text" class="form-control" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-lg-2 mb-3">
+                  <div class="form-floating">
+                    <select v-model="change.data.risk" class="form-control">
+                      <option>0</option>
+                      <option>1</option>
+                      <option>2</option>
+                      <option>3</option>
+                      <option>4</option>
+                      <option>5</option>
+                      <option>6</option>
+                      <option>9</option>
+                    </select>
+                    <label for="risk" class="form-label">Risk</label>
+                  </div>
+                </div>
+                <div class="col-lg-2">
+                  <div class="form-check">
+                    <input v-model="change.data.patent" type="checkbox" class="form-check-input" />
+                    <label class="form-check-label" for="patent">Patent</label>
+                  </div>
+                  <div class="form-check">
+                    <input v-model="change.data.trademark" type="checkbox" class="form-check-input" />
+                    <label class="form-check-label" for="trademark">Trademark</label>
+                  </div>
+                </div>
+                <div class="col-lg-2">
+                  <div class="form-check">
+                    <input v-model="change.data.export_restricted" type="checkbox" class="form-check-input" />
+                    <label class="form-check-label" for="export_restricted">Export Restricted</label>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="row">
-              <div class="col-lg-2 mb-3">
-                <div class="form-floating">
-                  <select v-model="change.data.risk" class="form-control">
-                    <option>0</option>
-                    <option>1</option>
-                    <option>2</option>
-                    <option>3</option>
-                    <option>4</option>
-                    <option>5</option>
-                    <option>6</option>
-                    <option>9</option>
-                  </select>
-                  <label for="risk" class="form-label">Risk</label>
-                </div>
-              </div>
-              <div class="col-lg-2">
-                <div class="form-check">
-                  <input v-model="change.data.patent" type="checkbox" class="form-check-input" />
-                  <label class="form-check-label" for="patent">Patent</label>
-                </div>
-                <div class="form-check">
-                  <input v-model="change.data.trademark" type="checkbox" class="form-check-input" />
-                  <label class="form-check-label" for="trademark">Trademark</label>
-                </div>
-              </div>
-              <div class="col-lg-2">
-                <div class="form-check">
-                  <input v-model="change.data.export_restricted" type="checkbox" class="form-check-input" />
-                  <label class="form-check-label" for="export_restricted">Export Restricted</label>
+            <div v-else-if="change.action === 'create_ignore'">
+              <div class="row">
+                <div class="col mb-3">
+                  <label class="fomr-label" for="license">Package</label>
+                  <input v-model="change.data.from" type="text" class="form-control" />
                 </div>
               </div>
             </div>
@@ -100,7 +113,9 @@
           <div class="change-confirmation"><i class="fas fa-sync fa-spin"></i> Updating proposal</div>
         </div>
         <div v-else-if="change.state === 'accepted'" class="col-12">
-          <div class="change-confirmation">Change has been accepted, reindexing related packages in 10 minutes</div>
+          <div class="change-confirmation">
+            Change has been accepted, reindexing related packages in 10 minutes if necessary
+          </div>
         </div>
         <div v-else-if="change.state === 'rejected'" class="col-12">
           <div class="change-confirmation">Proposal has been removed</div>
@@ -145,16 +160,22 @@ export default {
   methods: {
     async acceptProposal(change) {
       change.state = 'updating';
-      for (const key of ['patent', 'trademark', 'export_restricted']) {
-        change.data[key] = change.data[key] === true ? '1' : '0';
-      }
+
       const ua = new UserAgent({baseURL: window.location.href});
       const form = change.data;
       form.contributor = change.login;
       form.delay = 600;
-      form['create-pattern'] = 1;
-      form.checksum = change.token_hexsum;
-      await ua.post(change.createUrl, {form});
+      if (change.action === 'create_pattern') {
+        for (const key of ['patent', 'trademark', 'export_restricted']) {
+          change.data[key] = change.data[key] === true ? '1' : '0';
+        }
+        form['create-pattern'] = 1;
+        form.checksum = change.token_hexsum;
+        await ua.post(change.createUrl, {form});
+      } else if (change.action === 'create_ignore') {
+        await ua.post(change.ignoreUrl, {form: {...form, hash: change.token_hexsum, package: change.data.from}});
+      }
+
       change.state = 'accepted';
     },
     async getChanges() {
@@ -171,12 +192,17 @@ export default {
         change.editUrl = `/snippet/edit/${change.data.snippet}`;
         change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
         change.createUrl = `/snippet/decision/${change.data.snippet}`;
+        change.ignoreUrl = '/reviews/add_ignore';
 
         if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
 
-        for (const key of ['edited', 'patent', 'trademark', 'export_restricted']) {
-          change.data[key] = change.data[key] === '1' ? true : false;
+        if (change.action === 'create_pattern') {
+          for (const key of ['edited', 'patent', 'trademark', 'export_restricted']) {
+            change.data[key] = change.data[key] === '1' ? true : false;
+          }
+        } else if (change.action === 'create_ignore') {
+          change.editUrl = `${change.editUrl}?hash=${change.token_hexsum}&from=${change.data.from}`;
         }
 
         const highlighted = change.data.highlighted ?? [];
@@ -198,6 +224,12 @@ export default {
       return {
         'change-highlighted-line code': line.highlighted,
         code: !line.highlighted
+      };
+    },
+    getClassForCode(change) {
+      return {
+        'change-code-ignore': change.action === 'create_ignore',
+        'change-code-pattern': change.action === 'create_pattern'
       };
     },
     handleScroll() {
@@ -304,5 +336,8 @@ export default {
 }
 .change-highlighted-line {
   background-color: #ffebe9;
+}
+.change-code-ignore {
+  background: repeating-linear-gradient(-45deg, #ffebe9, #ffebe9 1px, #fff 1px, #fff 5px);
 }
 </style>

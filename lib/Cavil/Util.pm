@@ -29,7 +29,7 @@ $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (
   qw(buckets slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate parse_exclude_file),
-  qw(pattern_matches read_lines ssh_sign)
+  qw(pattern_checksum pattern_matches read_lines snippet_checksum ssh_sign)
 );
 
 my $MAX_FILE_SIZE = 30000;
@@ -46,6 +46,27 @@ sub buckets ($things, $size) {
   }
 
   return \@buckets;
+}
+
+sub pattern_checksum ($text) {
+  Spooky::Patterns::XS::init_matcher();
+  my $a   = Spooky::Patterns::XS::parse_tokens($text);
+  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  for my $n (@$a) {
+
+    # map the skips to each other
+    $n = 99 if $n < 99;
+    my $s = pack('q', $n);
+    $ctx->add($s);
+  }
+
+  return $ctx->hex;
+}
+
+sub snippet_checksum ($text) {
+  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  $ctx->add($text);
+  return $ctx->hex;
 }
 
 sub slurp_and_decode ($path) {

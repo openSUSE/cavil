@@ -99,9 +99,9 @@ subtest 'Indexing' => sub {
   is $pkg->{id},   3,                  'id';
   is $pkg->{name}, 'perl-Mojolicious', 'name';
   like $pkg->{checksum}, qr!Artistic-2.0-9!, 'checksum';
-  is $pkg->{login},  undef, 'no login';
-  is $pkg->{state},  'new', 'state';
-  is $pkg->{result}, undef, 'no result';
+  is $pkg->{login},  undef,                                                                 'no login';
+  is $pkg->{state},  'new',                                                                 'state';
+  is $pkg->{result}, 'Manual review is required because no previous reports are available', 'requires manual review';
 
   ok my $report = $json->{report}, 'report';
   is $report->{urls}[0][0], 'http://mojolicious.org', 'right URL';

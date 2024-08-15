@@ -218,3 +218,7 @@ ALTER TABLE bot_packages ADD COLUMN unresolved_matches int DEFAULT 0 NOT NULL;
 CREATE UNIQUE INDEX ON ignored_files(glob);
 ALTER TABLE license_patterns ADD COLUMN owner int REFERENCES bot_users(id);
 ALTER TABLE license_patterns ADD COLUMN contributor int REFERENCES bot_users(id);
+
+-- 21 up
+ALTER TABLE ignored_lines ADD COLUMN owner int REFERENCES bot_users(id);
+ALTER TABLE ignored_lines ADD COLUMN contributor int REFERENCES bot_users(id);

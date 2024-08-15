@@ -254,7 +254,8 @@ sub startup ($self) {
   $logged_in->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
   $logged_in->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
-  $public->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
+  $admin_or_contributor->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')
+    ->name('new_snippet');
   $admin_or_contributor->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
 
   # Upload (experimental)

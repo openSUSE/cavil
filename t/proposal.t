@@ -53,6 +53,7 @@ subtest 'Pattern creation' => sub {
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
     $t->post_ok('/snippet/decision/1' => form => {'create-pattern'   => 1})->status_is(403);
     $t->post_ok('/snippet/decision/1' => form => {'propose-pattern'  => 1})->status_is(403);
+    $t->post_ok('/snippet/decision/1' => form => {'propose-ignore'   => 1})->status_is(403);
     $t->post_ok('/snippet/decision/1' => form => {'mark-non-license' => 1})->status_is(403);
 
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
@@ -60,6 +61,15 @@ subtest 'Pattern creation' => sub {
         {'create-pattern' => 1, license => 'Test', pattern => 'This is a license', risk => 5})->status_is(403);
     $t->post_ok('/snippet/decision/1' => form =>
         {'propose-pattern' => 1, license => 'Test', pattern => 'This is a license', risk => 5})->status_is(403);
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-ignore' => 1,
+        hash             => '39e8204ddebdc31a4d0e77aa647f4241',
+        from             => 'perl-Mojolicious',
+        pattern          => 'This is a license',
+        edited           => 0
+      }
+    )->status_is(403);
     $t->post_ok('/snippet/decision/1' => form => {'mark-non-license' => 1})->status_is(403);
 
     $t->app->users->add_role(2, 'contributor');
@@ -77,6 +87,18 @@ subtest 'Pattern creation' => sub {
     $t->post_ok('/snippet/decision/1' => form =>
         {'propose-pattern' => 1, license => 'Test', pattern => 'The license might', risk => 5})->status_is(400)
       ->content_like(qr/This license and risk combination is not allowed, only use pre-existing licenses/);
+  };
+
+  subtest 'Edited patterns cannot be ignored' => sub {
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-ignore' => 1,
+        hash             => '39e8204ddebdc31a4d0e77aa647f4241',
+        from             => 'perl-Mojolicious',
+        pattern          => 'This is a license',
+        edited           => 1
+      }
+    )->status_is(400)->content_like(qr/Only unedited snippets can be ignored/);
   };
 
   subtest 'From proposal to pattern' => sub {
@@ -97,8 +119,9 @@ subtest 'Pattern creation' => sub {
         {'create-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(403);
 
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')
-      ->json_is('/changes/0/data/license'     => 'GPL')->json_is('/changes/0/data/pattern' => 'The license might')
-      ->json_is('/changes/0/data/highlighted' => [0])->json_is('/changes/0/data/edited' => 1)->json_hasnt('/changes/1');
+      ->json_is('/changes/0/action'       => 'create_pattern')->json_is('/changes/0/data/license' => 'GPL')
+      ->json_is('/changes/0/data/pattern' => 'The license might')->json_is('/changes/0/data/highlighted' => [0])
+      ->json_is('/changes/0/data/edited'  => 1)->json_hasnt('/changes/1');
     my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
     $t->app->users->add_role(2, 'admin');
     $t->post_ok(
@@ -116,6 +139,42 @@ subtest 'Pattern creation' => sub {
     $t->post_ok('/snippet/decision/1' => form =>
         {'create-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(409)
       ->content_like(qr/Conflicting license pattern already exists/);
+    $t->app->users->remove_role(2, 'admin');
+  };
+
+  subtest 'From proposal to ignore pattern' => sub {
+    my $form = {
+      'propose-ignore' => 1,
+      hash             => '39e8204ddebdc31a4d0e77aa647f4241',
+      from             => 'perl-Mojolicious',
+      pattern          => 'This is a license',
+      edited           => 0,
+      highlighted      => 0
+    };
+    $t->post_ok('/snippet/decision/1' => form => $form)->status_is(200)
+      ->content_like(qr/Your change has been proposed/);
+    $t->post_ok('/snippet/decision/1' => form => $form)->status_is(409)
+      ->content_like(qr/Conflicting ignore pattern proposal already exists/);
+    my $ignore_form
+      = {hash => '39e8204ddebdc31a4d0e77aa647f4241', package => 'perl-Mojolicious', contributor => 'tester'};
+    $t->post_ok('/reviews/add_ignore' => form => $ignore_form)->status_is(403);
+
+    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')
+      ->json_is('/changes/0/action' => 'create_ignore')->json_is('/changes/0/data/pattern' => 'This is a license')
+      ->json_is('/changes/0/data/highlighted' => [0])->json_is('/changes/0/data/edited' => 0)->json_hasnt('/changes/1');
+    $t->app->users->add_role(2, 'admin');
+    $t->post_ok('/reviews/add_ignore' => form => $ignore_form)->status_is(200)->content_like(qr/ok/);
+    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
+
+    $t->post_ok('/snippet/decision/1' => form => $form)->status_is(409)
+      ->content_like(qr/Conflicting ignore pattern already exists/);
+
+    my $ignore
+      = $t->app->pg->db->query('SELECT * FROM ignored_lines WHERE hash = ?', '39e8204ddebdc31a4d0e77aa647f4241')->hash;
+    is $ignore->{id},          1,                  'right id';
+    is $ignore->{packname},    'perl-Mojolicious', 'right package';
+    is $ignore->{owner},       2,                  'right owner';
+    is $ignore->{contributor}, 2,                  'right contributor';
   };
 
   subtest 'Pattern performance' => sub {
@@ -153,15 +212,30 @@ subtest 'Cancelled proposal' => sub {
   $t->app->users->remove_role(2, 'admin');
   $t->post_ok("/licenses/proposed/remove/123")->status_is(403);
 
-  $t->post_ok(
-    '/snippet/decision/2' => form => {'propose-pattern' => 1, license => 'GPL', pattern => 'The GPL', risk => 5})
-    ->status_is(200)->content_like(qr/Your change has been proposed/);
-  $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')->json_hasnt('/changes/1');
-  my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
-  $t->post_ok("/licenses/proposed/remove/$checksum")->status_is(200)->json_is('/removed', 1);
+  subtest 'License pattern' => sub {
+    $t->post_ok(
+      '/snippet/decision/2' => form => {'propose-pattern' => 1, license => 'GPL', pattern => 'The GPL', risk => 5})
+      ->status_is(200)->content_like(qr/Your change has been proposed/);
+    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')->json_hasnt('/changes/1');
+    my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
+    $t->post_ok("/licenses/proposed/remove/$checksum")->status_is(200)->json_is('/removed', 1);
 
-  $t->app->users->add_role(2, 'admin');
-  $t->post_ok("/licenses/proposed/remove/123")->status_is(200)->json_is('/removed', 0);
+    $t->app->users->add_role(2, 'admin');
+    $t->post_ok("/licenses/proposed/remove/123")->status_is(200)->json_is('/removed', 0);
+  };
+
+  subtest 'Ignore pattern' => sub {
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-ignore' => 1,
+        hash             => '39e8204ddebdc31a4d0e77aa647f4243',
+        from             => 'perl-Mojolicious',
+        pattern          => 'This is a license',
+        edited           => 0
+      }
+    )->status_is(200)->content_like(qr/Your change has been proposed/);
+    $t->post_ok("/licenses/proposed/remove/39e8204ddebdc31a4d0e77aa647f4243")->status_is(200)->json_is('/removed', 1);
+  };
 };
 
 done_testing();

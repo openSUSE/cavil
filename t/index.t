@@ -32,7 +32,7 @@ my $t          = Test::Mojo->new(Cavil => $config);
 $cavil_test->mojo_fixtures($t->app);
 
 # Changes entry about 6.57 fixing copyright notices
-$t->app->packages->ignore_line('perl-Mojolicious', '81efb065de14988c4bd808697de1df51');
+$t->app->packages->ignore_line({package => 'perl-Mojolicious', hash => '81efb065de14988c4bd808697de1df51'});
 
 subtest 'Cannot analyze before indexing' => sub {
   my $analyze_id = $t->app->minion->enqueue(analyze => [1]);
