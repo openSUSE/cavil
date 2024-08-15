@@ -112,7 +112,7 @@ sub _analyzed ($job, $id) {
 
   # Every package needs a human review before future versions can be auto-accepted (still gets a diff)
   unless ($pkgs->has_human_review($pkg->{name})) {
-    _look_for_smallest_delta($app, $pkg, 0) if $pkg->{state} eq 'new';
+    _look_for_smallest_delta($app, $pkg, 0, 0) if $pkg->{state} eq 'new';
     return;
   }
 
@@ -173,10 +173,10 @@ sub _analyzed ($job, $id) {
     $pkgs->update($pkg);
   }
 
-  _look_for_smallest_delta($app, $pkg, 1) if $pkg->{state} eq 'new';
+  _look_for_smallest_delta($app, $pkg, 1, 1) if $pkg->{state} eq 'new';
 }
 
-sub _look_for_smallest_delta ($app, $pkg, $allow_accept) {
+sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
   my $reports = $app->reports;
   my $pkgs    = $app->packages;
 
@@ -198,6 +198,8 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept) {
         $pkg->{review_timestamp} = 1;
       }
       $pkg->{result} = "Not found any signficant difference against $old->{id}";
+      $pkg->{result} .= ', manual review is required because previous reports are missing a reviewing user'
+        unless $has_human_review;
       $pkgs->update($pkg);
       return;
     }
