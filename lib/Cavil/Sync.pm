@@ -17,9 +17,9 @@ package Cavil::Sync;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(pattern_checksum);
-use File::Find qw(find);
-use Mojo::File qw(path);
-use Mojo::JSON qw(decode_json encode_json);
+use File::Find  qw(find);
+use Mojo::File  qw(path);
+use Mojo::JSON  qw(decode_json encode_json);
 use Term::ProgressBar;
 
 has 'app';
