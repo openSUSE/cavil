@@ -140,6 +140,10 @@ result in immediate reindexing of the relevant packages.
 
 ![Change Proposals](images/contrib-admin-2-proposals.png)
 
+If ignore patterns are present in the proposals, it is often a good idea to look for related pattern proposals as well,
+since it can be a lot easier to review them together. They will all be for the same package, since contributors can
+only create package specific ignore patterns.
+
 ### Pattern Performance
 
 Here we measure the performance of the most recently added license patterns. The number of matching files and packages
