@@ -53,9 +53,6 @@ sub load ($self, $path) {
 
   $patterns->expire_cache;
 
-  # reclculate the tf-idfs
-  $app->minion->enqueue(pattern_stats => [] => {priority => 9});
-
   return $imported;
 }
 

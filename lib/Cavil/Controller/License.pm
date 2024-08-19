@@ -192,7 +192,6 @@ sub update_pattern ($self) {
   my $pattern  = $validation->param('pattern');
 
   # expire old license pattern
-  $patterns->expire_cache;
   my $result = $patterns->update(
     $id,
     packname          => $validation->param('packname'),
@@ -207,8 +206,8 @@ sub update_pattern ($self) {
     $self->flash(danger => 'Conflicting license pattern already exists.');
     return $self->redirect_to('edit_pattern', id => $id);
   }
+  $patterns->expire_cache;
   $self->packages->mark_matched_for_reindex($id);
-  $self->app->minion->enqueue(pattern_stats => [] => {priority => 9});
   $self->flash(success => 'Pattern has been updated, reindexing all affected packages.');
   $self->redirect_to('edit_pattern', id => $id);
 }

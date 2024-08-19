@@ -90,9 +90,6 @@ sub create ($self, %args) {
 
   $self->expire_cache;
 
-  # reclculate the tf-idfs
-  $self->minion->enqueue(pattern_stats => [] => {priority => 9});
-
   return $self->find($mid);
 }
 
@@ -100,6 +97,9 @@ sub expire_cache ($self) {
   my $cache = path($self->cache);
   unlink $cache->child('cavil.tokens')->to_string;
   unlink $cache->child('cavil.pattern.bag')->to_string;
+
+  # Reclculate the tf-idfs
+  $self->minion->enqueue(pattern_stats => [] => {priority => 9});
 }
 
 sub has_new_patterns ($self, $packname, $when) {
