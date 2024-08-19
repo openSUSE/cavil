@@ -67,9 +67,9 @@ name to, just click on the little icon in its upper right corner to open the sni
 
 ![Snippet Preview](images/contrib-6-snippet-preview.png)
 
-You will probably not be able to resolve all "black matches" yourself, and that's ok. Some will simply be false
-positives that need to be ignored. Others might represent new licenses that require the attention of a lawyer. New
-features might be added in the future to allow you to help with these as well.
+Some keyword matches will be false positives, for these you can propose ignore patterns. You will probably not be able
+to resolve all "black matches" yourself, and that's ok. Some will simply represent new licenses that require the
+attention of a lawyer.
 
 ### Propose Pattern
 
@@ -80,6 +80,11 @@ Just make sure to include all red lines, because these are the ones that include
 Finding the right balance between larger and smaller patterns is not an exact science and requires some experience. If
 none of the red lines contain any actual legal text, or if all legal text appears outside the red lines, that would be
 an indicator that this snippet should be ignored.
+
+You also have the option to create a license pattern as well as an ignore pattern for the same snippet. Because when
+license pattern matches overlap with ignore patterns, the license patterns always win. That means, if for example you
+created a license pattern for the upper half of a snippet, and then an ignore pattern for the whole snippet, only the
+bottom half would end up being ignored.
 
 And don't worry about getting the pattern wrong. You will immediately see an error message if the submitted pattern
 does not match the snippet it was created for.
@@ -103,6 +108,11 @@ Every time you deselect the snippet editor, the license pattern comparison at th
 So you always know what the closest existing license pattern is to the one you are about to create.
 
 Once you are satisfied, just click on the "Propose Pattern" button and you are done.
+
+![Select License](images/contrib-8b-ignore.png)
+
+For unedited patterns there will also be a "Propose Ignore" button that you can use to propose an ignore pattern
+instead. Or after you have already created a license pattern for part of the snippet and just want to ignore the rest.
 
 ![Done](images/contrib-9-done.png)
 
