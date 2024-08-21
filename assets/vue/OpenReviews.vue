@@ -122,7 +122,7 @@ export default {
       limit: 10,
       offset: 0,
       inProgress: false,
-      priority: 2,
+      priority: 1,
       filter: ''
     });
 
