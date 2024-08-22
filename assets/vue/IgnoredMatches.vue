@@ -2,8 +2,9 @@
   <div>
     <div class="row">
       <div class="col-12 alert alert-primary" role="alert">
-        These ignored matches are used to decide which snippets the indexer should ignore when scanning for new keyword
-        matches.
+        These ignored matches are snippets that contain enough legal text so they cannot be ignored by the machine
+        learning model, but are not relevant enough to be turned into license patterns, or the relevant parts are
+        already covered by overlapping pattern matches.
       </div>
     </div>
     <div>
