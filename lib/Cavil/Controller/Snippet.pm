@@ -97,7 +97,7 @@ sub edit ($self) {
 
 sub from_file ($self) {
   my $v = $self->validation;
-  $v->optional('hash')->like(qr/^(?:[a-f0-9]{32}|manual-\w+)$/i);
+  $v->optional('hash')->like(qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i);
   $v->optional('from');
   return $self->reply->json_validation_error if $v->has_error;
 
