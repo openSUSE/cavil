@@ -30,7 +30,7 @@ sub add_glob ($self) {
 
 sub add_match ($self) {
   my $validation = $self->validation;
-  $validation->required('hash')->like(qr/^[a-f0-9]{32}$/i);
+  $validation->required('hash')->like(qr/^(?:[a-f0-9]{32}|manual-\w+)$/i);
   $validation->required('package');
   $validation->optional('delay')->num;
   $validation->optional('contributor');
