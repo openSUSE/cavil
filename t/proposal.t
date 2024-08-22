@@ -157,13 +157,13 @@ subtest 'Pattern creation' => sub {
       ->content_like(qr/Conflicting ignore pattern proposal already exists/);
     my $ignore_form
       = {hash => '39e8204ddebdc31a4d0e77aa647f4241', package => 'perl-Mojolicious', contributor => 'tester'};
-    $t->post_ok('/reviews/add_ignore' => form => $ignore_form)->status_is(403);
+    $t->post_ok('/ignored-matches' => form => $ignore_form)->status_is(403);
 
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')
       ->json_is('/changes/0/action' => 'create_ignore')->json_is('/changes/0/data/pattern' => 'This is a license')
       ->json_is('/changes/0/data/highlighted' => [0])->json_is('/changes/0/data/edited' => 0)->json_hasnt('/changes/1');
     $t->app->users->add_role(2, 'admin');
-    $t->post_ok('/reviews/add_ignore' => form => $ignore_form)->status_is(200)->content_like(qr/ok/);
+    $t->post_ok('/ignored-matches' => form => $ignore_form)->status_is(200)->content_like(qr/ok/);
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
 
     $t->post_ok('/snippet/decision/1' => form => $form)->status_is(409)
@@ -236,6 +236,33 @@ subtest 'Cancelled proposal' => sub {
     )->status_is(200)->content_like(qr/Your change has been proposed/);
     $t->post_ok("/licenses/proposed/remove/39e8204ddebdc31a4d0e77aa647f4243")->status_is(200)->json_is('/removed', 1);
   };
+};
+
+subtest 'Remove ignored match' => sub {
+  $t->app->minion->perform_jobs;
+  $t->app->users->add_role(2, 'admin');
+
+  is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, 'no jobs';
+  $t->post_ok(
+    '/ignored-matches' => form => {hash => 'abe8204ddebdc31a4d0e77aa647f42cd', package => 'package-with-snippets'})
+    ->status_is(200)->content_like(qr/ok/);
+  is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
+  $t->get_ok('/pagination/matches/ignored')->status_is(200)->json_has('/page/0')->json_is('/start', 1)
+    ->json_is('/end', 2)->json_is('/total', 2)->json_is('/page/0/hash', 'abe8204ddebdc31a4d0e77aa647f42cd')
+    ->json_is('/page/0/packname', 'package-with-snippets');
+  my $id = $t->tx->res->json->{page}[0]{id};
+
+  $t->get_ok('/pagination/matches/ignored?filter=with-snippets')->status_is(200)->json_has('/page/0')
+    ->json_is('/start', 1)->json_is('/end', 1)->json_is('/total', 1)
+    ->json_is('/page/0/hash', 'abe8204ddebdc31a4d0e77aa647f42cd');
+  $t->get_ok('/pagination/matches/ignored?filter=does_not_exist')->status_is(200)->json_is('/start', 1)
+    ->json_is('/end', 0)->json_is('/total', 0);
+
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, 'no jobs';
+  $t->delete_ok("/ignored-matches/$id")->status_is(200)->json_is('ok');
+  $t->delete_ok("/ignored-matches/$id")->status_is(400)->json_is({error => 'Ignored match does not exist'});
+  is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
 };
 
 done_testing();

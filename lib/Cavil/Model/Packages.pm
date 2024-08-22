@@ -162,10 +162,17 @@ sub ignore_line ($self, $options) {
      on conflict do nothing', $options->{hash}, $options->{package}, $options->{owner}, $options->{contributor}
   );
 
-  # as it affects all packages with the name, we need to update all reports
-  my $delay = $options->{delay} || 0;
-  my $ids   = $db->select('bot_packages', 'id', {name => $options->{package}})->arrays->flatten->to_array;
-  $self->reindex($_, 3, [], $delay) for @$ids;
+  $self->reindex_packages($options->{package}, {delay => $options->{delay}});
+}
+
+sub remove_ignored_line ($self, $id, $user) {
+  return undef
+    unless my $hash = $self->pg->db->delete('ignored_lines', {id => $id}, {returning => ['hash', 'packname']})->hash;
+  $self->log->info(qq{User "$user" removed ignored match "$hash->{hash}"});
+
+  $self->reindex_packages($hash->{packname});
+
+  return 1;
 }
 
 sub imported ($self, $id) {
@@ -428,6 +435,12 @@ sub reindex_matched_packages ($self, $pid, $priority = 0) {
   for my $row ($package->hashes->each) {
     $minion->enqueue('index_later', [$row->{package}], {priority => $priority});
   }
+}
+
+sub reindex_packages ($self, $name, $options = {}) {
+  my $delay = $options->{delay} || 0;
+  my $ids   = $self->pg->db->select('bot_packages', 'id', {name => $name})->arrays->flatten->to_array;
+  $self->reindex($_, 3, [], $delay) for @$ids;
 }
 
 sub remove_spdx_report ($self, $id) {

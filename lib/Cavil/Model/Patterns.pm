@@ -196,6 +196,34 @@ sub pattern_exists ($self, $checksum) {
   return $hash ? $hash->{id} : undef;
 }
 
+sub paginate_ignored_matches ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "WHERE packname ILIKE $quoted";
+  }
+
+  my $results = $db->query(
+    qq{
+      SELECT il.id, il.hash, il.packname, EXTRACT(EPOCH FROM il.created) AS created_epoch, bu1.login AS owner_login,
+        bu2.login AS contributor_login, COUNT(*) OVER() AS total
+      FROM ignored_lines il LEFT JOIN bot_users bu1 ON (bu1.id = il.owner)
+        LEFT JOIN bot_users bu2 ON (bu2.id = il.contributor)
+      $search
+      ORDER BY il.created DESC
+      LIMIT ? OFFSET ?
+    }, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  for my $result (@$results) {
+    $result->{snippet} = $db->query('SELECT id FROM snippets WHERE hash = ?', $result->{hash})->hash;
+  }
+
+  return paginate($results, $options);
+}
+
 sub paginate_known_licenses ($self, $options) {
   my $db = $self->pg->db;
 

@@ -96,6 +96,9 @@
                       %= link_to 'Upload Tarball' => '/upload', class => 'dropdown-item'
                     </li>
                     <li>
+                      %= link_to 'Ignored Matches' => '/ignored-matches', class => 'dropdown-item'
+                    </li>
+                    <li>
                       %= link_to 'Ignored Files' => '/ignored-files', class => 'dropdown-item'
                     </li>
                     <li>

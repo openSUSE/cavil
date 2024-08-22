@@ -15,6 +15,7 @@ import {createLicense, ignoreLine, snippetNonLicense} from './legacy/util.js';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
 import EditSnippet from './vue/EditSnippet.vue';
 import IgnoredFiles from './vue/IgnoredFiles.vue';
+import IgnoredMatches from './vue/IgnoredMatches.vue';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
 import OpenReviews from './vue/OpenReviews.vue';
@@ -54,6 +55,10 @@ window.cavil = {
     app.config.globalProperties.hasContributorRole = hasContributorRole;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.mount('#edit-snippet');
+  },
+
+  setupIgnoredMatches() {
+    createApp(IgnoredMatches).mount('#ignored-matches');
   },
 
   setupIgnoredFiles() {

@@ -214,7 +214,6 @@ sub startup ($self) {
     ->to('Report#source', format => 'html');
   $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
   $manager->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
-  $admin->post('/reviews/add_ignore')->to('Reviewer#add_ignore');
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
@@ -229,9 +228,14 @@ sub startup ($self) {
   $logged_in->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
   $logged_in->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
 
+  $admin->get('/ignored-matches')->to('Ignore#list_matches')->name('list_ignored_matches');
+  $admin->post('/ignored-matches')->to('Ignore#add_match');
+  $admin->delete('/ignored-matches/<id:num>')->to('Ignore#remove_match')->name('remove_ignored_match');
+  $admin->get('/pagination/matches/ignored')->to('Pagination#ignored_matches')->name('pagination_ignored_matches');
+
   $admin->get('/ignored-files')->to('Ignore#list_globs')->name('list_globs');
   $admin->post('/ignored-files')->to('Ignore#add_glob')->name('add_ignore');
-  $admin->delete('/ignored-files/<id:num>')->to('Ignore#remove_glob')->name('remove_ignore');
+  $admin->delete('/ignored-files/<id:num>')->to('Ignore#remove_glob')->name('remove_ignored_file');
   $admin->get('/pagination/files/ignored')->to('Pagination#ignored_files')->name('pagination_ignored_files');
 
   # Public because of fine grained access controls (owner of proposal may remove it again)

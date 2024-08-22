@@ -13,7 +13,7 @@ export function createLicense() {
 
 export function ignoreLine(link) {
   const hash = link.data('hash');
-  $.post(`/reviews/add_ignore?hash=${hash}&package=${link.data('packname')}`);
+  $.post(`/ignored-matches?hash=${hash}&package=${link.data('packname')}`);
   $(`.hash-${hash}`).removeClass('risk-9');
   const cs = $(`.hash-${hash} .fa-fire`);
   if (link.hasClass('current-selector')) {

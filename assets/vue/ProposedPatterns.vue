@@ -192,7 +192,7 @@ export default {
         change.editUrl = `/snippet/edit/${change.data.snippet}`;
         change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
         change.createUrl = `/snippet/decision/${change.data.snippet}`;
-        change.ignoreUrl = '/reviews/add_ignore';
+        change.ignoreUrl = '/ignored-matches';
 
         if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;

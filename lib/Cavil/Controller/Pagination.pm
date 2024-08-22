@@ -16,6 +16,21 @@
 package Cavil::Controller::Pagination;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+sub ignored_matches ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('filter');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('filter') // '';
+
+  my $page
+    = $self->helpers->patterns->paginate_ignored_matches({limit => $limit, offset => $offset, search => $search});
+  $self->render(json => $page);
+}
+
 sub ignored_files ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;

@@ -1,0 +1,8 @@
+% layout 'default';
+% title 'List ignored matches';
+
+<div id="ignored-matches"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupIgnoredMatches();
+% end
