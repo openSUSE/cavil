@@ -55,7 +55,7 @@
                   <a :href="match.snippetUrl">{{ match.hash }}</a>
                 </td>
                 <td v-else>{{ match.hash }}</td>
-                <td>{{ match.packname }}</td>
+                <td v-html="match.package"></td>
                 <td>{{ match.created }}</td>
                 <td>{{ match.contributor_login }}</td>
                 <td>{{ match.owner_login }}</td>
@@ -96,6 +96,7 @@
 <script>
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
+import {packageLink} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
@@ -153,7 +154,7 @@ export default {
         matches.push({
           id: match.id,
           hash: match.hash,
-          packname: match.packname,
+          package: packageLink({name: match.packname}),
           created: moment(match.created_epoch * 1000).fromNow(),
           contributor_login: match.contributor_login,
           owner_login: match.owner_login,
