@@ -260,8 +260,10 @@ subtest 'Remove ignored match' => sub {
 
   $t->app->minion->perform_jobs;
   is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, 'no jobs';
+  my $logs = $t->app->log->capture('trace');
   $t->delete_ok("/ignored-matches/$id")->status_is(200)->json_is('ok');
   $t->delete_ok("/ignored-matches/$id")->status_is(400)->json_is({error => 'Ignored match does not exist'});
+  like $logs, qr!User "tester" removed ignored match "abe8204ddebdc31a4d0e77aa647f42cd"!, 'right message';
   is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
 };
 
