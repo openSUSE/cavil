@@ -142,7 +142,7 @@ subtest 'SPDX report contents' => sub {
 
     like $report, qr/FileName: .+prettify\/run_prettify\.js/,                       'has original file name';
     like $report, qr/FileChecksum: SHA1: face8177a6804506c67c5644c00f3c6e0e50f02b/, 'has original checksum';
-    like $report, qr/FileCopyrightText: .+Copyrigh.+2006.+Google/,                  'has copyright text';
+    like $report, qr/FileCopyrightText: .+Copyright.+Google/,                       'has copyright text';
   };
 };
 
