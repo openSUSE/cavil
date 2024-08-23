@@ -219,6 +219,12 @@ sub paginate_ignored_matches ($self, $options) {
 
   for my $result (@$results) {
     $result->{snippet} = $db->query('SELECT id FROM snippets WHERE hash = ?', $result->{hash})->hash;
+    my $matches = $db->query(
+      'SELECT COUNT(*) AS matches, COUNT(DISTINCT(package)) AS packages
+       FROM pattern_matches WHERE ignored_line = ?', $result->{id}
+    )->hash;
+    $result->{matches}  = $matches->{matches};
+    $result->{packages} = $matches->{packages};
   }
 
   return paginate($results, $options);

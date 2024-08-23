@@ -248,8 +248,9 @@ subtest 'Remove ignored match' => sub {
     ->status_is(200)->content_like(qr/ok/);
   is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
   $t->get_ok('/pagination/matches/ignored')->status_is(200)->json_has('/page/0')->json_is('/start', 1)
-    ->json_is('/end', 2)->json_is('/total', 2)->json_is('/page/0/hash', 'abe8204ddebdc31a4d0e77aa647f42cd')
-    ->json_is('/page/0/packname', 'package-with-snippets');
+    ->json_is('/end',             2)->json_is('/total', 2)->json_is('/page/0/hash', 'abe8204ddebdc31a4d0e77aa647f42cd')
+    ->json_is('/page/0/packname', 'package-with-snippets')->json_is('/page/0/matches', 0)
+    ->json_is('/page/0/packages', 0);
   my $id = $t->tx->res->json->{page}[0]{id};
 
   $t->get_ok('/pagination/matches/ignored?filter=with-snippets')->status_is(200)->json_has('/page/0')

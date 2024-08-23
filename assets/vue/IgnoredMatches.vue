@@ -37,8 +37,9 @@
           <table class="table table-striped table-bordered">
             <thead>
               <tr>
-                <th>Ignored Match</th>
+                <th>Snippet</th>
                 <th>Package</th>
+                <th>Matches</th>
                 <th>Created</th>
                 <th>Contributor</th>
                 <th>Owner</th>
@@ -57,6 +58,9 @@
                 </td>
                 <td v-else>{{ match.hash }}</td>
                 <td v-html="match.package"></td>
+                <td>
+                  <a :href="match.searchUrl"> {{ match.matches }} matches in {{ match.packages }} packages</a>
+                </td>
                 <td>{{ match.created }}</td>
                 <td>{{ match.contributor_login }}</td>
                 <td>{{ match.owner_login }}</td>
@@ -156,9 +160,12 @@ export default {
           id: match.id,
           hash: match.hash,
           package: packageLink({name: match.packname}),
+          matches: match.matches,
+          packages: match.packages,
           created: moment(match.created_epoch * 1000).fromNow(),
           contributor_login: match.contributor_login,
           owner_login: match.owner_login,
+          searchUrl: `/search?ignore=${match.id}`,
           removeUrl: `/ignored-matches/${match.id}`,
           snippetUrl: match.snippet === null ? null : `/snippet/edit/${match.snippet.id}`
         });

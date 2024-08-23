@@ -18,15 +18,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 
-has 'app';
-has 'checkout';
-has 'db';
 has 'dir';
-has 'ignored_files';
-has 'ignored_lines';
-has 'matcher';
-has 'package';
-has 'snippets';
 
 sub new ($class, $app, $package) {
   my $self = $class->SUPER::new(app => $app, package => $package);
@@ -38,27 +30,62 @@ sub new ($class, $app, $package) {
 
   $app->patterns->load_unspecific($matcher);
   $app->patterns->load_specific($matcher, $packagename);
-  $self->matcher($matcher);
-  $self->ignored_files(Cavil::Util::load_ignored_files($db));
+  $self->{matcher}       = $matcher;
+  $self->{ignored_files} = Cavil::Util::load_ignored_files($db);
 
-  my $igls   = $db->select('ignored_lines', 'hash', {packname => $packagename});
-  my %hashes = map { $_->{hash} => 1 } @{$igls->hashes};
-  $self->ignored_lines(\%hashes);
+  my $igls   = $db->select('ignored_lines', ['id', 'hash'], {packname => $packagename});
+  my %hashes = map { $_->{hash} => $_->{id} } @{$igls->hashes};
+  $self->{ignored_lines} = \%hashes;
 
-  $self->db($db);
+  $self->{db} = $db;
   $self->dir($app->packages->pkg_checkout_dir($package));
-  $self->checkout(Cavil::Checkout->new($self->dir));
-  $self->snippets({});
+  $self->{checkout}   = Cavil::Checkout->new($self->dir);
+  $self->{snippets}   = {};
   $self->{no_license} = {};
 
   return $self;
 }
 
-sub _mark_area ($needed_lines, $ls, $le) {
-  for (my $line = $ls; $line <= $le; $line++) {
-    next unless $line > 0;
-    $needed_lines->{$line} = 1;
+sub file ($self, $meta, $path, $mime) {
+  return unless my $report = $self->{checkout}->keyword_report($self->{matcher}, $meta, $path);
+
+  my ($file_id, $keyword_missed);
+  my $package = $self->{package};
+
+  my $ignored_file = 0;
+  for my $ifre (keys %{$self->{ignored_files}}) {
+    next unless $path =~ $ifre;
+    $ignored_file = 1;
+    last;
   }
+
+  my @matches;
+  for my $match (@{$report->{matches}}) {
+    my ($mid, $ls, $le) = @$match;
+
+    $file_id
+      ||= $self->{db}
+      ->insert('matched_files', {package => $package, filename => $path, mimetype => $mime}, {returning => 'id'})
+      ->hash->{id};
+
+    my $no_license = $self->_has_no_license($mid);
+    $keyword_missed ||= $no_license;
+
+    # package is kind of duplicated in file, but the join is just too expensive
+    my $pm_id = $self->{db}->insert(
+      'pattern_matches',
+      {file => $file_id, package => $package, pattern => $mid, sline => $ls, eline => $le, ignored => $ignored_file},
+      {returning => 'id'}
+    )->hash->{id};
+
+    push @matches, $no_license ? [@$match, $pm_id] : $match;
+
+    # to mark an ignored file, one pattern is enough
+    return if $ignored_file;
+  }
+
+  return unless $keyword_missed;
+  $self->_check_missing_snippets($file_id, $path, \@matches);
 }
 
 # A 'snippet' is a region of a source file containing keywords.
@@ -117,6 +144,21 @@ sub _check_missing_snippets ($self, $file_id, $path, $matches) {
   $self->_snippet($file_id, $matches, $path, $first_snippet_line, $prev_line);
 }
 
+sub _has_no_license ($self, $pid) {
+  return $self->{no_license}{$pid} if exists $self->{no_license}{$pid};
+
+  my $row = $self->{db}->select('license_patterns', 'license', {id => $pid})->hash;
+  $self->{no_license}{$pid} = $row->{license} eq '';
+  return $self->{no_license}{$pid};
+}
+
+sub _mark_area ($needed_lines, $ls, $le) {
+  for (my $line = $ls; $line <= $le; $line++) {
+    next unless $line > 0;
+    $needed_lines->{$line} = 1;
+  }
+}
+
 sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
   my %lines;
   for (my $line = $first_line; $line <= $last_line; $line += 1) {
@@ -137,73 +179,20 @@ sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
   my $hash = $ctx->hex;
 
   # ignored lines are easy targets
-  if ($self->ignored_lines->{$hash}) {
+  if (my $ignore_id = $self->{ignored_lines}->{$hash}) {
     for my $match (@$matches) {
       my ($mid, $ls, $le, $pm_id) = @$match;
       next if !$pm_id || $le < $first_line || $ls > $last_line;
-      $self->db->update('pattern_matches', {ignored => 1}, {id => $pm_id});
+      $self->{db}->update('pattern_matches', {ignored => 1, ignored_line => $ignore_id}, {id => $pm_id});
     }
     return;
   }
 
-  $self->snippets->{$hash} ||= $self->app->snippets->find_or_create($hash, $text);
-
-  my $snippet = $self->snippets->{$hash};
-  $self->db->insert('file_snippets',
-    {package => $self->package, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
+  my $snippet = $self->{snippets}->{$hash} ||= $self->{app}->snippets->find_or_create($hash, $text);
+  $self->{db}->insert('file_snippets',
+    {package => $self->{package}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
 
   return undef;
-}
-
-sub has_no_license ($self, $pid) {
-  return $self->{no_license}{$pid} if exists $self->{no_license}{$pid};
-  my $row = $self->db->select('license_patterns', 'license', {id => $pid})->hash;
-  $self->{no_license}{$pid} = $row->{license} eq '';
-  return $self->{no_license}{$pid};
-}
-
-sub file ($self, $meta, $path, $mime) {
-  return unless my $report = $self->checkout->keyword_report($self->matcher, $meta, $path);
-
-  my $file_id;
-  my $package = $self->package;
-  my $keyword_missed;
-
-  my $ignored_file = 0;
-  for my $ifre (keys %{$self->ignored_files}) {
-    next unless $path =~ $ifre;
-    $ignored_file = 1;
-    last;
-  }
-
-  my @matches;
-  for my $match (@{$report->{matches}}) {
-    my ($mid, $ls, $le) = @$match;
-
-    $file_id ||= $self->db->insert(
-      'matched_files',
-      {package   => $self->package, filename => $path, mimetype => $mime},
-      {returning => 'id'}
-    )->hash->{id};
-
-    my $no_license = $self->has_no_license($mid);
-    $keyword_missed ||= $no_license;
-
-    # package is kind of duplicated in file, but the join is just too expensive
-    my $pm_id = $self->db->insert(
-      'pattern_matches',
-      {file => $file_id, package => $package, pattern => $mid, sline => $ls, eline => $le, ignored => $ignored_file,},
-      {returning => 'id'}
-    )->hash->{id};
-
-    push @matches, $no_license ? [@$match, $pm_id] : $match;
-
-    # to mark an ignored file, one pattern is enough
-    return if $ignored_file;
-  }
-
-  return unless $keyword_missed;
-  $self->_check_missing_snippets($file_id, $path, \@matches);
 }
 
 1;

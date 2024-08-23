@@ -343,6 +343,11 @@ sub paginate_review_search ($self, $name, $options) {
       ->arrays->flatten;
   }
 
+  if ($options->{ignore}) {
+    $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE ignored_line = ?', $options->{ignore})
+      ->arrays->flatten;
+  }
+
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");

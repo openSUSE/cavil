@@ -62,4 +62,17 @@ subtest 'Pattern search' => sub {
   $t->get_ok('/pagination/search/?pattern=3')->status_is(200)->json_is('/total' => 0);
 };
 
+subtest 'Ignore pattern search' => sub {
+  $t->get_ok('/pagination/search/?ignore=1')->status_is(200)->json_is('/total' => 0);
+
+  $t->app->pg->db->insert('ignored_lines',
+    {hash => 'abe8204ddebdc31a4d0e77aa647f42cd', packname => 'perl-Mojolicious'});
+  is $t->app->pg->db->update('pattern_matches', {ignored => 1, ignored_line => 1}, {id => 1})->rows, 1,
+    'one row updated';
+  $t->get_ok('/pagination/search/?ignore=1')->status_is(200)->json_is('/total' => 1)->json_is('/start' => 1)
+    ->json_is('/end' => 1)->json_is('/page/0/checksum' => 'Artistic-1.0-3:PeRl')->json_is('/page/0/package' => 'perl');
+
+  $t->get_ok('/pagination/search/?ignore=2')->status_is(200)->json_is('/total' => 0);
+};
+
 done_testing();

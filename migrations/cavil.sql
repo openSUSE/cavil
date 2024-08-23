@@ -222,3 +222,7 @@ ALTER TABLE license_patterns ADD COLUMN contributor int REFERENCES bot_users(id)
 -- 21 up
 ALTER TABLE ignored_lines ADD COLUMN owner int REFERENCES bot_users(id);
 ALTER TABLE ignored_lines ADD COLUMN contributor int REFERENCES bot_users(id);
+
+-- 22 up
+ALTER TABLE pattern_matches ADD COLUMN ignored_line int REFERENCES ignored_lines(id) ON DELETE SET NULL;
+CREATE INDEX ON pattern_matches(ignored_line);
