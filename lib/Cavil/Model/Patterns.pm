@@ -434,7 +434,8 @@ sub update ($self, $id, %args) {
       patent            => $args{patent}            // 0,
       trademark         => $args{trademark}         // 0,
       export_restricted => $args{export_restricted} // 0,
-      risk              => $args{risk}              // 5
+      risk              => $args{risk}              // 5,
+      ($args{owner} ? (owner => $args{owner}) : ())
     },
     {id => $id}
   );

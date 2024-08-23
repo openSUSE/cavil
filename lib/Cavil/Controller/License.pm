@@ -190,6 +190,7 @@ sub update_pattern ($self) {
   my $id       = $self->stash('id');
   my $patterns = $self->patterns;
   my $pattern  = $validation->param('pattern');
+  my $owner_id = $self->users->id_for_login($self->current_user);
 
   # expire old license pattern
   my $result = $patterns->update(
@@ -200,7 +201,8 @@ sub update_pattern ($self) {
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
     export_restricted => $validation->param('export_restricted'),
-    risk              => $validation->param('risk')
+    risk              => $validation->param('risk'),
+    owner             => $owner_id
   );
   if ($result->{conflict}) {
     $self->flash(danger => 'Conflicting license pattern already exists.');
