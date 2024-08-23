@@ -317,7 +317,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
-      await page.click('text=Good Enough');
+      await page.click('text=Acceptable');
       t.equal(await page.innerText('div.alert b'), 'acceptable');
 
       await page.click('text=Recently Reviewed');
@@ -333,7 +333,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
-      await page.click('text=Checked');
+      await page.click('text=Correct');
       t.equal(await page.innerText('div.alert b'), 'correct');
 
       await page.click('text=Recently Reviewed');

@@ -272,9 +272,9 @@
           <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
         </div>
         <div class="col mb-3">
-          <input class="btn btn-success" id="correct" name="correct" type="submit" value="Checked" />&nbsp;
+          <input class="btn btn-success" id="correct" name="correct" type="submit" value="Correct" />&nbsp;
           <span v-if="hasLawyerRole === false">
-            <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />&nbsp;
+            <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Acceptable" />&nbsp;
           </span>
           <input class="btn btn-danger" id="unacceptable" name="unacceptable" type="submit" value="Unacceptable" />
         </div>
@@ -287,7 +287,7 @@
           <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
         </div>
         <div class="col mb-3">
-          <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />
+          <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Acceptable" />
         </div>
       </form>
     </div>
