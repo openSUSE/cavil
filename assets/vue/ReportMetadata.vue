@@ -273,7 +273,9 @@
         </div>
         <div class="col mb-3">
           <input class="btn btn-success" id="correct" name="correct" type="submit" value="Checked" />&nbsp;
-          <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />&nbsp;
+          <span v-if="hasLawyerRole === false">
+            <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Good Enough" />&nbsp;
+          </span>
           <input class="btn btn-danger" id="unacceptable" name="unacceptable" type="submit" value="Unacceptable" />
         </div>
       </form>

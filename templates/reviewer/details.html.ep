@@ -6,7 +6,8 @@
 % content_for 'ready_function' => begin
   % my $has_manager_role = current_user_has_role('manager') ? 'true' : 'false';
   % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
-  cavil.setupReportMetadata(<%= $id %>, <%= $has_manager_role %> ,<%= $has_admin_role %>);
+  % my $has_lawyer_role = current_user_has_role('lawyer') ? 'true' : 'false';
+  cavil.setupReportMetadata(<%= $id %>, <%= $has_manager_role %> ,<%= $has_admin_role %>, <%= $has_lawyer_role %>);
 % end
 
 % my $raw_license = $spec->{main}{license};

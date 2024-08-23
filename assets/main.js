@@ -93,11 +93,12 @@ window.cavil = {
     createApp(RecentReviews).mount('#recent-reviews');
   },
 
-  setupReportMetadata(pkgId, hasManagerRole, hasAdminRole) {
+  setupReportMetadata(pkgId, hasManagerRole, hasAdminRole, hasLawyerRole) {
     const app = createApp(ReportMetadata);
     app.config.globalProperties.pkgId = pkgId;
     app.config.globalProperties.hasManagerRole = hasManagerRole;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
+    app.config.globalProperties.hasLawyerRole = hasLawyerRole;
     app.mount('#report-metadata');
   },
 

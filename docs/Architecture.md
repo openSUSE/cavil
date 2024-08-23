@@ -95,11 +95,11 @@ Legal reports can be in one of four states:
 
 * `new`: Initial state, report ready for review.
 
-* `acceptable`: Reviewed and accepted by a human expert, no in-dept review has been performed however.
+* `acceptable`: Reviewed and accepted by a human expert, but not a lawyer.
 
-* `correct`: In-depth review by a lawyer that resulted in accepting the report.
+* `correct`: Review by a lawyer that resulted in accepting the report.
 
-* `rejected`: In-depth review by a lawyer that resulted in rejecting the report.
+* `rejected`: Review by a lawyer that resulted in rejecting the report.
 
 ### UI
 
