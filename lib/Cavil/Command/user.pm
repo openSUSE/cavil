@@ -58,7 +58,9 @@ Cavil::Command::user - Cavil user command
     script/cavil user -A admin 23
 
   Options:
-    -A, --add-role <name>      Add a role to a user, such as "admin", "manager" or "classifier"
+    -A, --add-role <name>      Add a role to a user, such as "admin",
+                               "manager", "contributor", "lawyer" or
+                               "classifier"
     -R, --remove-role <name>   Remove a role from a user
     -h, --help                 Show this summary of available options
 
