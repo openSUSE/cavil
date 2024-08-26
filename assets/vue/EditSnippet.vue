@@ -34,11 +34,11 @@
             rows="20"
           ></textarea>
           <div id="patternHelp" class="form-text">
-            Keyword matches are highlighted in red and should be included in the license pattern. Overlapping matches of
-            exisitng license patterns are highlighted in green and safe to ignore. Use expressions like
-            <code>$SKIP5</code> to skip up to a certain number of words in your pattern. The expression
-            <code>$SKIP19</code> represents the upper limit of the matching engine (which will be higher than 19), and
-            simply skips as many words as possible.
+            Keyword matches are highlighted in <span class="keyword-line">red</span> and should be included in the
+            license pattern. Overlapping matches of exisitng license patterns are highlighted in
+            <span class="license-line">green</span> and safe to ignore. Use expressions like <code>$SKIP5</code> to skip
+            up to a certain number of words in your pattern. The expression <code>$SKIP19</code> represents the upper
+            limit of the matching engine (which will be higher than 19), and simply skips as many words as possible.
           </div>
         </div>
       </div>
