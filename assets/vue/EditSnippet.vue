@@ -36,9 +36,11 @@
           <div id="patternHelp" class="form-text">
             Keyword matches are highlighted in <span class="keyword-line">red</span> and should be included in the
             license pattern. Overlapping matches of exisitng license patterns are highlighted in
-            <span class="license-line">green</span> and safe to ignore. Use expressions like <code>$SKIP5</code> to skip
-            up to a certain number of words in your pattern. The expression <code>$SKIP19</code> represents the upper
-            limit of the matching engine (which will be higher than 19), and simply skips as many words as possible.
+            <span class="license-line">green</span> and safe to ignore.
+            <span v-if="hasAdminRole === true"> Click on the line number to see the matching pattern.</span> Use
+            expressions like <code>$SKIP5</code> to skip up to a certain number of words in your pattern. The expression
+            <code>$SKIP19</code> represents the upper limit of the matching engine (which will be higher than 19), and
+            simply skips as many words as possible.
           </div>
         </div>
       </div>
@@ -365,6 +367,10 @@ export default {
 }
 .license-line {
   background-color: #dfd !important;
+}
+span.keyword-line,
+span.license-line {
+  padding: 0.25em;
 }
 
 .closest-container {
