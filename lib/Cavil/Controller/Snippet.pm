@@ -205,7 +205,8 @@ sub _propose_pattern ($self, $validation) {
   $validation->required('pattern');
   $validation->required('risk')->num;
   $validation->optional('edited');
-  $validation->optional('highlighted', 'comma_separated');
+  $validation->optional('highlighted-keywords', 'comma_separated');
+  $validation->optional('highlighted-licenses', 'comma_separated');
   $validation->optional('package');
   $validation->optional('patent');
   $validation->optional('trademark');
@@ -219,17 +220,18 @@ sub _propose_pattern ($self, $validation) {
 
   my $user_id = $self->users->id_for_login($self->current_user);
   my $result  = $self->patterns->propose_create(
-    snippet           => $snippet->{id},
-    pattern           => $pattern,
-    highlighted       => $validation->every_param('highlighted'),
-    edited            => $validation->param('edited'),
-    license           => $validation->param('license'),
-    risk              => $validation->param('risk'),
-    package           => $validation->param('package'),
-    patent            => $validation->param('patent'),
-    trademark         => $validation->param('trademark'),
-    export_restricted => $validation->param('export_restricted'),
-    owner             => $user_id
+    snippet              => $snippet->{id},
+    pattern              => $pattern,
+    highlighted_keywords => $validation->every_param('highlighted-keywords'),
+    highlighted_licenses => $validation->every_param('highlighted-licenses'),
+    edited               => $validation->param('edited'),
+    license              => $validation->param('license'),
+    risk                 => $validation->param('risk'),
+    package              => $validation->param('package'),
+    patent               => $validation->param('patent'),
+    trademark            => $validation->param('trademark'),
+    export_restricted    => $validation->param('export_restricted'),
+    owner                => $user_id
   );
 
   return $self->render(
@@ -248,7 +250,8 @@ sub _propose_ignore ($self, $validation) {
   $validation->required('from');
   $validation->required('pattern');
   $validation->required('edited');
-  $validation->optional('highlighted', 'comma_separated');
+  $validation->optional('highlighted-keywords', 'comma_separated');
+  $validation->optional('highlighted-licenses', 'comma_separated');
   $validation->optional('package');
   return $self->reply->json_validation_error if $validation->has_error;
 
@@ -257,14 +260,15 @@ sub _propose_ignore ($self, $validation) {
 
   my $user_id = $self->users->id_for_login($self->current_user);
   my $result  = $self->patterns->propose_ignore(
-    snippet     => $self->param('id'),
-    hash        => $validation->param('hash'),
-    from        => $validation->param('from'),
-    pattern     => $validation->param('pattern'),
-    highlighted => $validation->every_param('highlighted'),
-    edited      => $edited,
-    package     => $validation->param('package'),
-    owner       => $user_id
+    snippet              => $self->param('id'),
+    hash                 => $validation->param('hash'),
+    from                 => $validation->param('from'),
+    pattern              => $validation->param('pattern'),
+    highlighted_keywords => $validation->every_param('highlighted-keywords'),
+    highlighted_licenses => $validation->every_param('highlighted-licenses'),
+    edited               => $edited,
+    package              => $validation->param('package'),
+    owner                => $user_id
   );
 
   return $self->render(status => 409, error => 'Conflicting ignore pattern already exists') if $result->{conflict};

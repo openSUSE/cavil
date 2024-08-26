@@ -205,12 +205,15 @@ export default {
           change.editUrl = `${change.editUrl}?hash=${change.token_hexsum}&from=${change.data.from}`;
         }
 
-        const highlighted = change.data.highlighted ?? [];
+        const highlightedKeywords = change.data.highlighted_keywords ?? [];
+        const highlightedLicenses = change.data.highlighted_licenses ?? [];
         let num = 0;
         const lines = [];
-        for (const line of change.data.pattern.split('\n')) {
-          const isHighlighted = highlighted.includes(num.toString());
-          lines.push({num: ++num, text: line, highlighted: isHighlighted});
+        for (const text of change.data.pattern.split('\n')) {
+          const isKeyword = highlightedKeywords.includes(num.toString());
+          const isLicense = highlightedLicenses.includes(num.toString());
+          const highlighted = isLicense ? 'license' : isKeyword ? 'keyword' : null;
+          lines.push({num: ++num, text, highlighted});
         }
         change.lines = lines;
 
@@ -222,8 +225,9 @@ export default {
     },
     getClassForLine(line) {
       return {
-        'change-highlighted-line code': line.highlighted,
-        code: !line.highlighted
+        'change-keyword-line code': line.highlighted === 'keyword',
+        'change-license-line code': line.highlighted === 'license',
+        code: line.highlighted === null
       };
     },
     getClassForCode(change) {
@@ -334,8 +338,11 @@ export default {
   color: rgba(27, 31, 35, 0.3);
   user-select: none;
 }
-.change-highlighted-line {
+.change-keyword-line {
   background-color: #ffebe9;
+}
+.change-license-line {
+  background-color: #ebffe9;
 }
 .change-code-ignore {
   background: repeating-linear-gradient(-45deg, #ffebe9, #ffebe9 1px, #fff 1px, #fff 5px);

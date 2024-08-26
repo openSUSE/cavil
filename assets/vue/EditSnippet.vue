@@ -17,7 +17,8 @@
     </div>
     <form :action="this.decisionUrl" method="POST">
       <input type="hidden" name="package" :value="this.package.id" v-if="this.package !== null" />
-      <input type="hidden" name="highlighted" :value="this.highlighted" />
+      <input type="hidden" name="highlighted-keywords" :value="this.highlightedKeywords" />
+      <input type="hidden" name="highlighted-licenses" :value="this.highlightedLicenses" />
       <input type="hidden" name="edited" :value="this.edited" />
       <input type="hidden" name="hash" :value="this.hash" />
       <input type="hidden" name="from" :value="this.from" />
@@ -197,7 +198,8 @@ export default {
       editor: null,
       from: params.from ?? null,
       hash: params.hash ?? null,
-      highlighted: '',
+      highlightedKeywords: '',
+      highlightedLicenses: '',
       keywords: {},
       license: '',
       licenseFocused: false,
@@ -208,6 +210,7 @@ export default {
         risk: 1,
         trademark: false
       },
+      matches: {},
       package: null,
       patternText: '',
       results: [],
@@ -267,6 +270,7 @@ export default {
       if (this.package !== null) this.package.packageUrl = `/reviews/details/${this.package.id}`;
       this.patternText = snippet.text;
       this.startLine = snippet.sline;
+      this.matches = snippet.matches;
       this.keywords = snippet.keywords;
       this.licenses = data.licenses;
       this.suggestions = Object.keys(this.licenses);
@@ -277,13 +281,16 @@ export default {
     getHighlightedLines() {
       const cm = this.editor;
       const count = cm.lineCount();
-      const lines = [];
+      const keywordLines = [];
+      const licenseLines = [];
       for (let i = 0; i < count; i++) {
         const line = cm.getLineHandle(i);
         const bgClass = line.bgClass ?? '';
-        if (bgClass.match('found-pattern')) lines.push(i);
+        if (bgClass.match('keyword-line')) keywordLines.push(i);
+        if (bgClass.match('license-line')) licenseLines.push(i);
       }
-      this.highlighted = lines.join(',');
+      this.highlightedKeywords = keywordLines.join(',');
+      this.highlightedLicenses = licenseLines.join(',');
     },
     setupCodeMirror() {
       const cm = CodeMirror.fromTextArea(this.$refs.patternText, {
@@ -308,9 +315,12 @@ export default {
         }
       });
 
-      const keywords = this.keywords;
-      for (const [line, pattern] of Object.entries(keywords)) {
-        cm.addLineClass(parseInt(line), 'background', `found-pattern pattern-${pattern}`);
+      for (const [line, pattern] of Object.entries(this.matches)) {
+        cm.addLineClass(parseInt(line), 'background', `license-line found-pattern pattern-${pattern}`);
+      }
+
+      for (const [line, pattern] of Object.entries(this.keywords)) {
+        cm.addLineClass(parseInt(line), 'background', `keyword-line found-pattern pattern-${pattern}`);
       }
 
       this.editor = cm;
@@ -349,8 +359,11 @@ export default {
 .autocomplete-item:hover {
   background-color: rgba(13, 110, 253, 0.25);
 }
-.found-pattern {
+.keyword-line {
   background-color: #fdd !important;
+}
+.license-line {
+  background-color: #dfd !important;
 }
 
 .closest-container {

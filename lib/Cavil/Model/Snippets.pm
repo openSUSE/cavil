@@ -133,6 +133,7 @@ sub with_context ($self, $id) {
   my $text     = $snippet->{text};
   my $sline    = 1;
   my $package  = undef;
+  my $matches  = {};
   my $keywords = {};
 
   my $db      = $self->pg->db;
@@ -156,14 +157,14 @@ sub with_context ($self, $id) {
       $example->{eline}
     )->hashes;
     for my $pattern (@$patterns) {
-      next if $pattern->{license};
+      my $map = $pattern->{license} ? $matches : $keywords;
       for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
-        $keywords->{$line - $example->{sline}} = $pattern->{id};
+        $map->{$line - $example->{sline}} = $pattern->{id};
       }
     }
   }
 
-  return {package => $package, keywords => $keywords, sline => $sline, text => $text};
+  return {package => $package, matches => $matches, keywords => $keywords, sline => $sline, text => $text};
 }
 
 1;

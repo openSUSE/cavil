@@ -285,16 +285,17 @@ sub propose_create ($self, %args) {
       action => 'create_pattern',
       data   => {
         -json => {
-          snippet           => $args{snippet},
-          pattern           => $pattern,
-          highlighted       => $args{highlighted},
-          edited            => $args{edited} // '0',
-          license           => $license,
-          risk              => $risk,
-          package           => $args{package},
-          patent            => $args{patent}            // '0',
-          trademark         => $args{trademark}         // '0',
-          export_restricted => $args{export_restricted} // '0'
+          snippet              => $args{snippet},
+          pattern              => $pattern,
+          highlighted_keywords => $args{highlighted_keywords},
+          highlighted_licenses => $args{highlighted_licenses},
+          edited               => $args{edited} // '0',
+          license              => $license,
+          risk                 => $risk,
+          package              => $args{package},
+          patent               => $args{patent}            // '0',
+          trademark            => $args{trademark}         // '0',
+          export_restricted    => $args{export_restricted} // '0'
         }
       },
       owner        => $args{owner},
@@ -319,12 +320,13 @@ sub propose_ignore ($self, %args) {
       action => 'create_ignore',
       data   => {
         -json => {
-          snippet     => $args{snippet},
-          from        => $args{from},
-          pattern     => $args{pattern},
-          highlighted => $args{highlighted},
-          edited      => $args{edited} // '0',
-          package     => $args{package},
+          snippet              => $args{snippet},
+          from                 => $args{from},
+          pattern              => $args{pattern},
+          highlighted_keywords => $args{highlighted_keywords},
+          highlighted_licenses => $args{highlighted_licenses},
+          edited               => $args{edited} // '0',
+          package              => $args{package},
         }
       },
       owner        => $args{owner},

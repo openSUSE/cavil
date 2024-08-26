@@ -37,7 +37,7 @@ subtest 'Snippet metadata' => sub {
   my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
   $t->app->minion->perform_jobs;
   $t->get_ok('/snippet/meta/1')->status_is(200)->json_is('/snippet/sline', 1)
-    ->json_like('/snippet/text', qr/The license might be/)->json_is('/snippet/package/id', 1)
+    ->json_like('/snippet/text', qr/The license might be\nsomething cool/)->json_is('/snippet/package/id', 1)
     ->json_is('/snippet/package/name', 'package-with-snippets')->json_is('/snippet/keywords', {0 => 1});
   $t->get_ok('/snippet/meta/2')->status_is(200)->json_is('/snippet/sline', 29)
     ->json_like('/snippet/text', qr/The GPL might be/)->json_is('/snippet/package/id', 1)
@@ -85,7 +85,8 @@ subtest 'Pattern creation' => sub {
 
   subtest 'Bad license and risk combinations' => sub {
     $t->post_ok('/snippet/decision/1' => form =>
-        {'propose-pattern' => 1, license => 'Test', pattern => 'The license might', risk => 5})->status_is(400)
+        {'propose-pattern' => 1, license => 'Test', pattern => "The license might be\nsomething cool", risk => 5})
+      ->status_is(400)
       ->content_like(qr/This license and risk combination is not allowed, only use pre-existing licenses/);
   };
 
@@ -104,31 +105,34 @@ subtest 'Pattern creation' => sub {
   subtest 'From proposal to pattern' => sub {
     $t->post_ok(
       '/snippet/decision/1' => form => {
-        'propose-pattern' => 1,
-        license           => 'GPL',
-        pattern           => 'The license might',
-        highlighted       => '0',
-        edited            => '1',
-        risk              => 5
+        'propose-pattern'      => 1,
+        license                => 'GPL',
+        pattern                => "The license might be\nsomething cool",
+        'highlighted-keywords' => '0',
+        'highlighted-licenses' => '1',
+        edited                 => '1',
+        risk                   => 5
       }
     )->status_is(200)->content_like(qr/Your change has been proposed/);
     $t->post_ok('/snippet/decision/1' => form =>
-        {'propose-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(409)
-      ->content_like(qr/Conflicting license pattern proposal already exists/);
+        {'propose-pattern' => 1, license => 'GPL', pattern => "The license might be\nsomething cool", risk => 5})
+      ->status_is(409)->content_like(qr/Conflicting license pattern proposal already exists/);
     $t->post_ok('/snippet/decision/1' => form =>
-        {'create-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(403);
+        {'create-pattern' => 1, license => 'GPL', pattern => "The license might be\nsomething cool", risk => 5})
+      ->status_is(403);
 
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')
-      ->json_is('/changes/0/action'       => 'create_pattern')->json_is('/changes/0/data/license' => 'GPL')
-      ->json_is('/changes/0/data/pattern' => 'The license might')->json_is('/changes/0/data/highlighted' => [0])
-      ->json_is('/changes/0/data/edited'  => 1)->json_hasnt('/changes/1');
+      ->json_is('/changes/0/action'                    => 'create_pattern')->json_is('/changes/0/data/license' => 'GPL')
+      ->json_is('/changes/0/data/pattern'              => "The license might be\nsomething cool")
+      ->json_is('/changes/0/data/highlighted_keywords' => [0])->json_is('/changes/0/data/highlighted_licenses' => [1])
+      ->json_is('/changes/0/data/edited'               => 1)->json_hasnt('/changes/1');
     my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
     $t->app->users->add_role(2, 'admin');
     $t->post_ok(
       '/snippet/decision/1' => form => {
         'create-pattern' => 1,
         license          => 'GPL',
-        pattern          => 'The license might',
+        pattern          => "The license might be\nsomething cool",
         risk             => 5,
         checksum         => $checksum,
         contributor      => 'tester'
@@ -137,19 +141,20 @@ subtest 'Pattern creation' => sub {
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
 
     $t->post_ok('/snippet/decision/1' => form =>
-        {'create-pattern' => 1, license => 'GPL', pattern => 'The license might', risk => 5})->status_is(409)
-      ->content_like(qr/Conflicting license pattern already exists/);
+        {'create-pattern' => 1, license => 'GPL', pattern => "The license might be\nsomething cool", risk => 5})
+      ->status_is(409)->content_like(qr/Conflicting license pattern already exists/);
     $t->app->users->remove_role(2, 'admin');
   };
 
   subtest 'From proposal to ignore pattern' => sub {
     my $form = {
-      'propose-ignore' => 1,
-      hash             => '39e8204ddebdc31a4d0e77aa647f4241',
-      from             => 'perl-Mojolicious',
-      pattern          => 'This is a license',
-      edited           => 0,
-      highlighted      => 0
+      'propose-ignore'       => 1,
+      hash                   => '39e8204ddebdc31a4d0e77aa647f4241',
+      from                   => 'perl-Mojolicious',
+      pattern                => "This is\na license",
+      edited                 => 0,
+      'highlighted-keywords' => 1,
+      'highlighted-licenses' => 0
     };
     $t->post_ok('/snippet/decision/1' => form => $form)->status_is(200)
       ->content_like(qr/Your change has been proposed/);
@@ -160,8 +165,9 @@ subtest 'Pattern creation' => sub {
     $t->post_ok('/ignored-matches' => form => $ignore_form)->status_is(403);
 
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')
-      ->json_is('/changes/0/action' => 'create_ignore')->json_is('/changes/0/data/pattern' => 'This is a license')
-      ->json_is('/changes/0/data/highlighted' => [0])->json_is('/changes/0/data/edited' => 0)->json_hasnt('/changes/1');
+      ->json_is('/changes/0/action' => 'create_ignore')->json_is('/changes/0/data/pattern' => "This is\na license")
+      ->json_is('/changes/0/data/highlighted_keywords' => [1])->json_is('/changes/0/data/highlighted_licenses' => [0])
+      ->json_is('/changes/0/data/edited'               => 0)->json_hasnt('/changes/1');
     $t->app->users->add_role(2, 'admin');
     $t->post_ok('/ignored-matches' => form => $ignore_form)->status_is(200)->content_like(qr/ok/);
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
@@ -179,8 +185,9 @@ subtest 'Pattern creation' => sub {
 
   subtest 'Pattern performance' => sub {
     $t->get_ok('/licenses/recent/meta')->status_is(200)->json_is('/patterns/0/id', 5)
-      ->json_is('/patterns/0/pattern',           'The license might')->json_is('/patterns/0/owner_login', 'tester')
-      ->json_is('/patterns/0/contributor_login', 'tester')->json_is('/patterns/1/id', 4)
+      ->json_is('/patterns/0/pattern',     "The license might be\nsomething cool")
+      ->json_is('/patterns/0/owner_login', 'tester')->json_is('/patterns/0/contributor_login', 'tester')
+      ->json_is('/patterns/1/id',          4)
       ->json_like('/patterns/1/pattern', qr/Permission is granted to copy, distribute and/)
       ->json_is('/patterns/1/owner_login', undef)->json_is('/patterns/1/contributor_login', undef)
       ->json_is('/total',                  5);

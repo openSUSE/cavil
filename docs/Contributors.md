@@ -75,7 +75,8 @@ attention of a lawyer.
 
 With the snippet editor you can make small adjustments to the soon to be license pattern. Remove sections of text that
 are irrelevant and replace company names or dates with placeholders like `$SKIP7` (this one will skip up to `7` words).
-Just make sure to include all red lines, because these are the ones that include keyword matches.
+Just make sure to include all red lines, because these are the ones that include keyword matches. Green lines indicate
+an overlapping match for an existing license pattern and can be safely removed.
 
 Finding the right balance between larger and smaller patterns is not an exact science and requires some experience. If
 none of the red lines contain any actual legal text, or if all legal text appears outside the red lines, that would be
