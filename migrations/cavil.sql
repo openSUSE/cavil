@@ -226,3 +226,7 @@ ALTER TABLE ignored_lines ADD COLUMN contributor int REFERENCES bot_users(id);
 -- 22 up
 ALTER TABLE pattern_matches ADD COLUMN ignored_line int REFERENCES ignored_lines(id) ON DELETE SET NULL;
 CREATE INDEX ON pattern_matches(ignored_line);
+
+--23 up
+ALTER TYPE bot_state RENAME VALUE 'correct' TO 'acceptable_by_lawyer';
+ALTER TABLE bot_packages ADD COLUMN notice text;

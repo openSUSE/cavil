@@ -118,6 +118,7 @@ sub meta ($self) {
       external_link     => $pkg->{external_link},
       has_spdx_report   => \!!$has_spdx_report,
       history           => $history,
+      notice            => $pkg->{notice},
       package_checksum  => $pkg->{checkout_dir},
       package_files     => \@package_files,
       package_group     => $group,
@@ -221,7 +222,7 @@ sub review_package ($self) {
   $validation->optional('comment');
   $validation->optional('unacceptable');
   $validation->optional('acceptable');
-  $validation->optional('correct');
+  $validation->optional('acceptable_by_lawyer');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $user = $self->session('user');
@@ -239,8 +240,8 @@ sub review_package ($self) {
   elsif ($validation->param('acceptable')) {
     $pkg->{state} = 'acceptable';
   }
-  elsif ($validation->param('correct')) {
-    $pkg->{state} = 'correct';
+  elsif ($validation->param('acceptable_by_lawyer')) {
+    $pkg->{state} = 'acceptable_by_lawyer';
   }
   else {
     die "Unknown state";

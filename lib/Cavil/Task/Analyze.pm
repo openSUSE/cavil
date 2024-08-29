@@ -132,31 +132,31 @@ sub _analyzed ($job, $id) {
   my $packages = $pkgs->history($name, $pkg_shortname, $id);
   return if grep { $_->{state} eq 'unacceptable' } @$packages;
 
-  my ($found_correct, $found_acceptable);
+  my ($found_acceptable_by_lawyer, $found_acceptable);
   for my $p (@$packages) {
 
     # ignore obsolete reviews - possibly harmful as we don't reindex those
-    next                         if $p->{obsolete};
-    $found_correct = $p->{id}    if $p->{state} eq 'correct';
-    last                         if $found_correct;
-    $found_acceptable = $p->{id} if $p->{state} eq 'acceptable';
+    next                                   if $p->{obsolete};
+    $found_acceptable_by_lawyer = $p->{id} if $p->{state} eq 'acceptable_by_lawyer';
+    last                                   if $found_acceptable_by_lawyer;
+    $found_acceptable = $p->{id}           if $p->{state} eq 'acceptable';
   }
 
-  # Try to upgrade from "acceptable" to "correct"
+  # Try to upgrade from "acceptable" to "acceptable_by_lawyer"
   if ($pkg->{state} eq 'acceptable') {
-    if (my $c_id = $found_correct) {
-      $pkg->{state}            = 'correct';
+    if (my $c_id = $found_acceptable_by_lawyer) {
+      $pkg->{state}            = 'acceptable_by_lawyer';
       $pkg->{review_timestamp} = 1;
       $pkg->{reviewing_user}   = undef;
-      $pkg->{result}           = "Correct because reviewed under the same license ($c_id)";
+      $pkg->{result}           = "Accepted because reviewed by lawyer under the same license ($c_id)";
       $pkgs->update($pkg);
     }
     return;    # the rest is for 'new'
   }
 
   # Previously reviewed and accepted
-  if (my $f_id = $found_correct || $found_acceptable) {
-    $pkg->{state}            = $found_correct ? 'correct' : 'acceptable';
+  if (my $f_id = $found_acceptable_by_lawyer || $found_acceptable) {
+    $pkg->{state}            = $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{result}           = "Accepted because previously reviewed under the same license ($f_id)";
     $pkgs->update($pkg);
@@ -168,7 +168,7 @@ sub _analyzed ($job, $id) {
 
     # risk 0 is spooky
     unless ($risk) {
-      $pkg->{result} = 'Manual review is required because of unusually low risk (0)';
+      $pkg->{notice} = 'Manual review is required because of unusually low risk (0)';
       $pkgs->update($pkg);
       return;
     }
@@ -203,8 +203,8 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
         $pkg->{state}            = 'acceptable';
         $pkg->{review_timestamp} = 1;
       }
-      $pkg->{result} = "Not found any significant difference against $old->{id}";
-      $pkg->{result} .= ', manual review is required because previous reports are missing a reviewing user'
+      $pkg->{notice} = "Not found any significant difference against $old->{id}";
+      $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user'
         unless $has_human_review;
       $pkgs->update($pkg);
       return;
@@ -218,12 +218,12 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
   }
 
   unless ($best) {
-    $pkg->{result} = 'Manual review is required because no previous reports are available';
+    $pkg->{notice} = 'Manual review is required because no previous reports are available';
     $pkgs->update($pkg);
     return;
   }
 
-  $pkgs->update({id => $pkg->{id}, result => summary_delta($best, $new_summary)});
+  $pkgs->update({id => $pkg->{id}, notice => summary_delta($best, $new_summary)});
 }
 
 1;

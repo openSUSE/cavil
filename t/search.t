@@ -31,9 +31,23 @@ $cavil_test->mojo_fixtures($t->app);
 # Modify fixtures so there are packages with different names to search for
 my $pkgs = $t->app->packages;
 $pkgs->update(
-  {id => 1, state => 'correct', result => 'Perfect', checksum => 'Artistic-2.0-3:Hsyo', review_timestamp => 1});
+  {
+    id               => 1,
+    state            => 'acceptable_by_lawyer',
+    result           => 'Perfect',
+    checksum         => 'Artistic-2.0-3:Hsyo',
+    review_timestamp => 1
+  }
+);
 $pkgs->update(
-  {id => 2, state => 'correct', result => 'The best', checksum => 'Artistic-1.0-3:PeRl', review_timestamp => 1});
+  {
+    id               => 2,
+    state            => 'acceptable_by_lawyer',
+    result           => 'The best',
+    checksum         => 'Artistic-1.0-3:PeRl',
+    review_timestamp => 1
+  }
+);
 $t->app->pg->db->update('bot_packages', {name => 'perl'}, {id => 2});
 my $file_id = $t->app->pg->db->insert(
   'matched_files',
@@ -51,14 +65,16 @@ subtest 'Basic search with suggestion' => sub {
 
   $t->get_ok('/pagination/search/perl')->status_is(200)->json_is('/total' => 1)->json_is('/start' => 1)
     ->json_is('/end' => 1)->json_is('/page/0/checksum' => 'Artistic-1.0-3:PeRl')->json_is('/page/0/package' => 'perl')
-    ->json_is('/page/0/comment' => 'The best')->json_is('/page/0/state' => 'correct')->json_hasnt('/page/1');
+    ->json_is('/page/0/comment' => 'The best')->json_is('/page/0/state' => 'acceptable_by_lawyer')
+    ->json_hasnt('/page/1');
 };
 
 subtest 'Pattern search' => sub {
   $t->get_ok('/pagination/search/?pattern=1')->status_is(200)->json_is('/total' => 0);
   $t->get_ok('/pagination/search/?pattern=2')->status_is(200)->json_is('/total' => 1)->json_is('/start' => 1)
     ->json_is('/end' => 1)->json_is('/page/0/checksum' => 'Artistic-1.0-3:PeRl')->json_is('/page/0/package' => 'perl')
-    ->json_is('/page/0/comment' => 'The best')->json_is('/page/0/state' => 'correct')->json_hasnt('/page/1');
+    ->json_is('/page/0/comment' => 'The best')->json_is('/page/0/state' => 'acceptable_by_lawyer')
+    ->json_hasnt('/page/1');
   $t->get_ok('/pagination/search/?pattern=3')->status_is(200)->json_is('/total' => 0);
 };
 

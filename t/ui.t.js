@@ -317,7 +317,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
-      await page.click('text=Acceptable');
+      await page.click('text="Acceptable"');
       t.equal(await page.innerText('div.alert b'), 'acceptable');
 
       await page.click('text=Recently Reviewed');
@@ -333,14 +333,18 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
-      await page.click('text=Correct');
-      t.equal(await page.innerText('div.alert b'), 'correct');
+      await page.click('text="Acceptable by Lawyer"');
+      await page.waitForSelector('#reviewed');
+      t.equal(await page.innerText('div.alert b'), 'acceptable_by_lawyer');
 
       await page.click('text=Recently Reviewed');
       t.equal(await page.innerText('title'), 'List recent reviews');
       await page.waitForSelector('#recent-reviews tbody > tr:nth-child(1)');
       t.equal(await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(5)'), 'perl-Mojolicious');
-      t.equal(await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(6)'), 'correct');
+      t.equal(
+        await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(6)'),
+        'acceptable_by_lawyer'
+      );
       t.match(await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(9)'), /Artistic/);
     });
 

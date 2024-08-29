@@ -196,7 +196,7 @@ sub old_reviews ($self, $pkg) {
     'id,checksum',
     {
       name     => $pkg->{name},
-      state    => [qw(acceptable correct)],
+      state    => [qw(acceptable acceptable_by_lawyer)],
       id       => {'!=' => $pkg->{id}},
       obsolete => 0,
       indexed  => {'!=' => undef}
@@ -481,7 +481,7 @@ sub unpacked ($self, $id) {
 
 sub update ($self, $pkg) {
   my %updates = map { exists $pkg->{$_} ? ($_ => $pkg->{$_}) : () }
-    (qw(created checksum priority state obsolete result), qw(reviewing_user external_link));
+    (qw(created checksum priority state obsolete result notice reviewing_user external_link));
   $updates{reviewed} = \'now()' if $pkg->{review_timestamp};
   return $self->pg->db->update('bot_packages', \%updates, {id => $pkg->{id}});
 }

@@ -60,7 +60,7 @@ sub paginate_known_products ($self, $options) {
       q{
       SELECT COUNT(*) FILTER (WHERE state = 'new') AS new_packages,
         COUNT(*) FILTER (WHERE state = 'unacceptable') AS unacceptable_packages,
-        COUNT(*) FILTER (WHERE state = 'acceptable' OR state = 'correct') AS reviewed_packages
+        COUNT(*) FILTER (WHERE state = 'acceptable' OR state = 'acceptable_by_lawyer') AS reviewed_packages
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
       WHERE bot_package_products.product = ?}, $result->{id}
     )->hash;

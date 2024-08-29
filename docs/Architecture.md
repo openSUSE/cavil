@@ -97,7 +97,7 @@ Legal reports can be in one of five states:
 
 * `acceptable`: Reviewed and accepted by a human expert or automated system, but not a lawyer.
 
-* `correct`: Same as `acceptable`, but review was performend by a lawyer.
+* `acceptable_by_lawyer`: Same as `acceptable`, but review was performend by a lawyer.
 
 * `unacceptable`: Review by a lawyer that resulted in rejecting the report.
 
@@ -129,7 +129,7 @@ These are currently available:
 * `contributor`: Human expert who can propose new license patterns to be added for reports. These proposals need to be
                  reviewed and accepted by an `admin` however before they become active.
 * `manager`: Human expert who can change reports from the state `new` to `acceptable`.
-* `lawyer`: Lawyers can change reports from the state `new` to `correct`.
+* `lawyer`: Lawyers can change reports from the state `new` to `acceptable_by_lawyer`.
 * `admin`: Full access to all features.
 
 ### Automatic Acceptance

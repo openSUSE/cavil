@@ -20,7 +20,7 @@
           <th class="fit text-start noleftpad" scope="row">State:</th>
           <td id="pkg-state">
             <div v-if="state === 'new'" class="badge text-bg-secondary">{{ state }}</div>
-            <div v-else-if="state === 'correct'" class="badge text-bg-success">{{ state }}</div>
+            <div v-else-if="state === 'acceptable_by_lawyer'" class="badge text-bg-success">{{ state }}</div>
             <div v-else-if="state === 'acceptable'" class="badge text-bg-warning">{{ state }}</div>
             <div v-else class="badge text-bg-danger">{{ state }}</div>
           </td>
@@ -265,6 +265,11 @@
         <li v-for="warning in warnings" :key="warning">{{ warning }}</li>
       </ul>
     </div>
+    <div v-if="notice !== null" class="row">
+      <div class="col mb-3">
+        <div class="alert alert-info">{{ notice }}</div>
+      </div>
+    </div>
     <div v-if="hasAdminRole === true" class="row">
       <form :action="reviewUrl" method="POST" class="container" id="pkg-review">
         <div class="col mb-3">
@@ -272,7 +277,13 @@
           <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
         </div>
         <div class="col mb-3">
-          <input class="btn btn-success" id="correct" name="correct" type="submit" value="Correct" />&nbsp;
+          <input
+            class="btn btn-success"
+            id="acceptable_by_lawyer"
+            name="acceptable_by_lawyer"
+            type="submit"
+            value="Acceptable by Lawyer"
+          />&nbsp;
           <span v-if="hasLawyerRole === false">
             <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Acceptable" />&nbsp;
           </span>
@@ -333,6 +344,7 @@ export default {
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       hasSpdxReport: false,
       history: [],
+      notice: null,
       pkgChecksum: null,
       pkgFiles: [],
       pkgLicense: null,
@@ -414,6 +426,7 @@ export default {
       // Make sure not to reset the comment field in the middle of a review (unless someone else changed the state)
       const defaultResult = this.hasManagerRole === true || this.hasAdminRole === true ? 'Reviewed ok' : '';
       if (data.state !== this.state) this.result = data.result ?? defaultResult;
+      this.notice = data.notice;
       this.state = data.state;
       this.warnings = data.warnings;
     }
