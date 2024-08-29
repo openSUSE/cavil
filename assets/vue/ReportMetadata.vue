@@ -267,7 +267,9 @@
     </div>
     <div v-if="notice !== null" class="row">
       <div class="col mb-3">
-        <div class="alert alert-info">{{ notice }}</div>
+        <div class="alert alert-info">
+          <pre>{{ notice }}</pre>
+        </div>
       </div>
     </div>
     <div v-if="hasAdminRole === true" class="row">

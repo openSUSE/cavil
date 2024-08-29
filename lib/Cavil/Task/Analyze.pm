@@ -203,6 +203,7 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
         $pkg->{state}            = 'acceptable';
         $pkg->{review_timestamp} = 1;
       }
+      $pkg->{result} = '';
       $pkg->{notice} = "Not found any significant difference against $old->{id}";
       $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user'
         unless $has_human_review;
@@ -223,7 +224,7 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
     return;
   }
 
-  $pkgs->update({id => $pkg->{id}, notice => summary_delta($best, $new_summary)});
+  $pkgs->update({id => $pkg->{id}, result => '', notice => summary_delta($best, $new_summary)});
 }
 
 1;
