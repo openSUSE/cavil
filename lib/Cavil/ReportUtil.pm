@@ -95,7 +95,7 @@ sub summary_delta ($old, $new) {
     }
   }
   if (@files_with_new_snippets) {
-    $text .= "  New missed snippets in " . (shift @files_with_new_snippets);
+    $text .= "  New unresolved matches in " . (shift @files_with_new_snippets);
     if (@files_with_new_snippets) {
       my $num = scalar @files_with_new_snippets;
       $text .= " and $num " . ($num > 1 ? 'files' : 'file') . ' more';

@@ -495,7 +495,8 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New missed snippets in Mojolicious-7.25/LICENSE\n\n", 'new file with snippets';
+        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/LICENSE\n\n",
+        'new file with snippets';
       is summary_delta(
         {
           id              => 1,
@@ -516,7 +517,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New missed snippets in Mojolicious-7.25/COPYING\n\n",
+        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/COPYING\n\n",
         'different file with snippets';
       is summary_delta(
         {
@@ -538,7 +539,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New missed snippets in Mojolicious-7.25/README\n\n",
+        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/README\n\n",
         'different snippets in same files';
       is summary_delta(
         {
@@ -563,7 +564,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New missed snippets in Mojolicious-7.25/LEGAL\n\n",
+        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/LEGAL\n\n",
         'additional snippets in same files';
       is summary_delta(
         {
@@ -584,7 +585,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New missed snippets in Mojolicious-7.25/COPYING and 1 file more\n\n",
+        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/COPYING and 1 file more\n\n",
         'two new files';
       is summary_delta(
         {
@@ -606,7 +607,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New missed snippets in Mojolicious-7.25/COPYING and 2 files more\n\n",
+        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/COPYING and 2 files more\n\n",
         'three new files';
     };
   };
