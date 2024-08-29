@@ -91,7 +91,7 @@ Cavil.
 
 ### States
 
-Legal reports can be in one of four states:
+Legal reports can be in one of five states:
 
 * `new`: Initial state, report ready for review.
 
@@ -100,6 +100,8 @@ Legal reports can be in one of four states:
 * `correct`: Review by a lawyer that resulted in accepting the report.
 
 * `unacceptable`: Review by a lawyer that resulted in rejecting the report.
+
+* `obsolete`: Report no longer exists.
 
 ### UI
 
