@@ -168,7 +168,7 @@ sub _analyzed ($job, $id) {
 
     # risk 0 is spooky
     unless ($risk) {
-      $pkg->{result} = '';
+      $pkg->{result} = undef;
       $pkg->{notice} = 'Manual review is required because of unusually low risk (0)';
       $pkgs->update($pkg);
       return;
@@ -204,7 +204,7 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
         $pkg->{state}            = 'acceptable';
         $pkg->{review_timestamp} = 1;
       }
-      $pkg->{result} = '';
+      $pkg->{result} = undef;
       $pkg->{notice} = "Not found any significant difference against $old->{id}";
       $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user'
         unless $has_human_review;
@@ -220,13 +220,13 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
   }
 
   unless ($best) {
-    $pkg->{result} = '';
+    $pkg->{result} = undef;
     $pkg->{notice} = 'Manual review is required because no previous reports are available';
     $pkgs->update($pkg);
     return;
   }
 
-  $pkgs->update({id => $pkg->{id}, result => '', notice => summary_delta($best, $new_summary)});
+  $pkgs->update({id => $pkg->{id}, result => undef, notice => summary_delta($best, $new_summary)});
 }
 
 1;
