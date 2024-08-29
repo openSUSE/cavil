@@ -99,7 +99,7 @@ Legal reports can be in one of four states:
 
 * `correct`: Review by a lawyer that resulted in accepting the report.
 
-* `rejected`: Review by a lawyer that resulted in rejecting the report.
+* `unacceptable`: Review by a lawyer that resulted in rejecting the report.
 
 ### UI
 
