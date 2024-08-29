@@ -138,10 +138,14 @@ Reports may be automatically accepted by the system under these conditions:
 
 * `Previous Result`: A previous report with the same checksum (based on licenses and keyword matches) exists for the
                      same package. In this case the previous result will be inherited.
+* `No Differences`: A previous report exists where the checksum does not match but there are no significant differences
+                    between licenses and unique keyword matches.
 * `Low Risk`: The maximum risk of any given license in the report is not higher than **3**. And there are no unresolved
-              keyword matches, which are always considered risk **9**. The resulting state can only be `acceptable.`
+              keyword matches with a risk higher than **3**. The resulting state can only be `acceptable.`
 * `Package Name`: The package has been configured to always be `acceptable`. For SUSE instances of OBS this is usually
                   done for empty metadata packages like `000product`.
+
+For all of these conditions a prior review by a human expert or lawyer needs to be present in the system however.
 
 ## Report Creation
 
