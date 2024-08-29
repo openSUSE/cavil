@@ -168,6 +168,7 @@ sub _analyzed ($job, $id) {
 
     # risk 0 is spooky
     unless ($risk) {
+      $pkg->{result} = '';
       $pkg->{notice} = 'Manual review is required because of unusually low risk (0)';
       $pkgs->update($pkg);
       return;
@@ -219,6 +220,7 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
   }
 
   unless ($best) {
+    $pkg->{result} = '';
     $pkg->{notice} = 'Manual review is required because no previous reports are available';
     $pkgs->update($pkg);
     return;
