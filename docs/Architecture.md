@@ -129,7 +129,8 @@ These are currently available:
 * `contributor`: Human expert who can propose new license patterns to be added for reports. These proposals need to be
                  reviewed and accepted by an `admin` however before they become active.
 * `manager`: Human expert who can change reports from the state `new` to `acceptable`.
-* `admin`: Full access to all features. System admins and lawyers.
+* `lawyer`: Lawyers can change reports from the state `new` to `correct`.
+* `admin`: Full access to all features.
 
 ### Automatic Acceptance
 
