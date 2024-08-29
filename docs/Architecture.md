@@ -95,7 +95,7 @@ Legal reports can be in one of five states:
 
 * `new`: Initial state, report ready for review.
 
-* `acceptable`: Reviewed and accepted by a human expert, but not a lawyer.
+* `acceptable`: Reviewed and accepted by a human expert or automated system, but not a lawyer.
 
 * `correct`: Review by a lawyer that resulted in accepting the report.
 
