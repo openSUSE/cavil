@@ -97,7 +97,7 @@ Legal reports can be in one of five states:
 
 * `acceptable`: Reviewed and accepted by a human expert or automated system, but not a lawyer.
 
-* `correct`: Review by a lawyer that resulted in accepting the report.
+* `correct`: Same as `acceptable`, but review was performend by a lawyer.
 
 * `unacceptable`: Review by a lawyer that resulted in rejecting the report.
 
