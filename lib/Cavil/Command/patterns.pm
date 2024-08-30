@@ -25,17 +25,19 @@ has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
   getopt \@args,
-    'check-risks'     => \my $check_risks,
-    'check-spdx'      => \my $check_spdx,
-    'check-unused'    => \my $check_unused,
-    'check-used'      => \my $check_used,
-    'fix-risk=i'      => \my $fix_risk,
-    'inherit-spdx'    => \my $inherit_spdx,
-    'license|l=s'     => \my $license,
-    'match=i'         => \my $match,
-    'preview|P=i'     => \(my $preview = 57),
-    'remove-unused=i' => \my $remove_unused,
-    'remove-used=i'   => \my $remove_used;
+    'check-risks'          => \my $check_risks,
+    'check-spdx'           => \my $check_spdx,
+    'check-unused'         => \my $check_unused,
+    'check-unused-ignore'  => \my $check_unused_ignore,
+    'check-used'           => \my $check_used,
+    'fix-risk=i'           => \my $fix_risk,
+    'inherit-spdx'         => \my $inherit_spdx,
+    'license|l=s'          => \my $license,
+    'match=i'              => \my $match,
+    'preview|P=i'          => \(my $preview = 57),
+    'remove-unused=i'      => \my $remove_unused,
+    'remove-unused-ignore' => \my $remove_unused_ignore,
+    'remove-used=i'        => \my $remove_used;
 
   # Show pattern match
   return $self->_match($match, $preview) if $match;
@@ -45,6 +47,9 @@ sub run ($self, @args) {
 
   # Remove license pattern currently in use
   return $self->_remove_used($remove_used) if $remove_used;
+
+  # Remove unused ignore patterns
+  return $self->_check_ignore(1) if $remove_unused_ignore;
 
   # Fix risk assessment for license
   return $self->_fix_risk($license, $fix_risk) if defined $fix_risk;
@@ -61,6 +66,9 @@ sub run ($self, @args) {
   # Check for unused patterns
   return $self->_check_use(1, $license, $preview) if $check_unused;
 
+  # Check for unused ignore patterns
+  return $self->_check_ignore(0) if $check_unused_ignore;
+
   # Check for used patterns
   return $self->_check_use(0, $license, $preview) if $check_used;
 
@@ -69,6 +77,33 @@ sub run ($self, @args) {
 
   # Stats
   return $self->_stats;
+}
+
+sub _check_ignore ($self, $remove) {
+  my $db      = $self->app->pg->db;
+  my $ignored = $db->query('SELECT id FROM ignored_lines')->arrays->flatten->to_array;
+
+  my $unused = [];
+  my $total  = 0;
+  for my $id (@$ignored) {
+    my $found
+      = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE ignored_line = ?', $id)->hash->{count} > 0;
+    push @$unused, $id unless $found;
+    $total++;
+  }
+
+  if ($remove) {
+    if (@$unused) {
+      $db->query('DELETE FROM ignored_lines WHERE id = ANY(?)', $unused);
+      say "Removed @{[scalar @$unused]} unused ignore patterns";
+    }
+    else {
+      say 'No unused ignore patterns found';
+    }
+  }
+  else {
+    say "Found @{[scalar @$unused]} unused ignore patterns ($total total)";
+  }
 }
 
 sub _check_risks ($self) {
@@ -292,21 +327,24 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     script/cavil patterns --match 12345
 
   Options:
-        --match <id>           Show all known information for a pattern match
-        --check-risks          Check for licenses with multiple risk assessments
-        --check-spdx           Check for licenses patterns with inconsistent
-                               SPDX expressions
-        --check-unused         Check for unused license patterns
-        --check-used           Check for license patterns currently in use
-        --fix-risk <risk>      Fix risk assessments for a license
-    -h, --help                 Show this summary of available options
-        --inherit-spdx         Reuse the license name for all licenses that are
-                               already valid SPDX expressions
-    -l, --license <name>       License name
-        --remove-unused <id>   Remove unused license pattern (cannot remove
-                               patterns still in use)
-        --remove-used <id>     Remove license pattern despite it being
-                               currently in use
-    -P, --preview <length>     Length of pattern previews, defaults to 57
+        --match <id>             Show all known information for a pattern match
+        --check-risks            Check for licenses with multiple risk
+                                 assessments
+        --check-spdx             Check for licenses patterns with inconsistent
+                                 SPDX expressions
+        --check-unused           Check for unused license patterns
+        --check-unused-ignore    Check for unused ignore patterns
+        --check-used             Check for license patterns currently in use
+        --fix-risk <risk>        Fix risk assessments for a license
+    -h, --help                   Show this summary of available options
+        --inherit-spdx           Reuse the license name for all licenses that
+                                 are already valid SPDX expressions
+    -l, --license <name>         License name
+        --remove-unused <id>     Remove unused license pattern (cannot remove
+                                 patterns still in use)
+        --remove-used <id>       Remove license pattern despite it being
+                                 currently in use
+        --remove-unused-ignore   Remove all unused ignore patterns
+    -P, --preview <length>       Length of pattern previews, defaults to 57
 
 =cut
