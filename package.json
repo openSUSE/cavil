@@ -49,7 +49,7 @@
     "timeago": "^1.6.7",
     "vue": "^3.2.37",
     "vue-loader": "^17.0.0",
-    "webpack": "^5.72.0",
+    "webpack": "^5.94.0",
     "webpack-cli": "^5.1.4"
   }
 }
