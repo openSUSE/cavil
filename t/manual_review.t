@@ -43,10 +43,8 @@ subtest 'Globs' => sub {
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
     is $t->app->minion->jobs({tasks => ['analyze']})->total, 0, 'no jobs';
-    $t->post_ok('/ignored-files' => form => {glob => 'does/not/exist/*', package => 1})->status_is(200)->json_is('ok');
+    $t->post_ok('/ignored-files' => form => {glob => 'does/not/exist/*'})->status_is(200)->json_is('ok');
     is $t->app->pg->db->select('ignored_files')->hashes->to_array->[0]{glob}, 'does/not/exist/*', 'glob added';
-    is $t->app->minion->jobs({tasks => ['analyze']})->total,                  1,                  'job enqueued';
-    $t->app->minion->perform_jobs;
 
     $t->get_ok('/pagination/files/ignored')->status_is(200)->json_is('/start', 1)->json_is('/end', 1)
       ->json_is('/total',        1)->json_is('/page/0/id', 1)->json_like('/page/0/glob', qr/does/)

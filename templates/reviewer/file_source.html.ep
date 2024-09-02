@@ -39,7 +39,6 @@
               % } else {
                 <a class="dropdown-item" href="<%= url_for('edit_pattern', id => $line->[1]->{pid}) %>">Edit Pattern</a>
               % }
-              <a class="dropdown-item add-to-glob" href="#" data-name="<%= $filename %>" data-bs-toggle="modal" data-bs-target="#globModal">Add filename glob</a>
               % if ($line->[0] > 1) {
                 <div class="dropdown-divider"></div>
                 % if ($line->[1]->{prevstart}) {

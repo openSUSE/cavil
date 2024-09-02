@@ -19,11 +19,9 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 sub add_glob ($self) {
   my $validation = $self->validation;
   $validation->required('glob');
-  $validation->required('package')->num;
   return $self->reply->json_validation_error if $validation->has_error;
 
   $self->ignored_files->add($validation->param('glob'), $self->current_user);
-  $self->packages->analyze($validation->param('package'));
 
   return $self->render(json => 'ok');
 }

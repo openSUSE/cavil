@@ -48,7 +48,7 @@
             </thead>
             <tbody v-if="matches === null">
               <tr>
-                <td id="all-done" colspan="6"><i class="fas fa-sync fa-spin"></i> Loading ignored matches...</td>
+                <td id="all-done" colspan="7"><i class="fas fa-sync fa-spin"></i> Loading ignored matches...</td>
               </tr>
             </tbody>
             <tbody v-else-if="matches.length > 0">
@@ -73,7 +73,7 @@
             </tbody>
             <tbody v-else>
               <tr>
-                <td id="all-done" colspan="6">No ignored matches found.</td>
+                <td id="all-done" colspan="7">No ignored matches found.</td>
               </tr>
             </tbody>
           </table>

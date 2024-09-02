@@ -3,6 +3,9 @@
     <div class="row">
       <div class="col-12 alert alert-primary" role="alert">
         These globs are used to decide which files the indexer should ignore when scanning for license pattern matches.
+        <button name="add-glob" class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#globModal">
+          Add Glob
+        </button>
       </div>
     </div>
     <div>
@@ -82,6 +85,30 @@
         </div>
       </div>
     </div>
+    <div class="modal fade" id="globModal" tabindex="-1" aria-labelledby="globModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="globModalLabel">Add Glob</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="mb-3">
+                <label for="glob-to-add" class="col-form-label">Glob</label>
+                <input v-model="globToAdd" class="form-control" id="glob-to-add" />
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button @click="addGlob()" type="button" id="globAddButton" class="btn btn-primary" data-bs-dismiss="modal">
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -105,8 +132,10 @@ export default {
     });
 
     return {
+      addGlobUrl: '/ignored-files',
       end: 0,
       globs: null,
+      globToAdd: '',
       params,
       refreshUrl: '/pagination/files/ignored',
       filter: params.filter,
@@ -123,6 +152,12 @@ export default {
     }
   },
   methods: {
+    async addGlob() {
+      console.log('Add Glob!');
+      const ua = new UserAgent({baseURL: window.location.href});
+      await ua.post(this.addGlobUrl, {form: {glob: this.globToAdd}});
+      this.doApiRefresh();
+    },
     async deleteGlob(glob) {
       const ua = new UserAgent({baseURL: window.location.href});
       await ua.post(glob.removeUrl, {query: {_method: 'DELETE'}});

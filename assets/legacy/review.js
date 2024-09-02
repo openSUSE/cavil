@@ -1,4 +1,4 @@
-import {ignoreLine, moveSelector} from './util.js';
+import {ignoreLine} from './util.js';
 import Chart from 'chart.js';
 
 export function setupReviewDetails(url) {
@@ -33,21 +33,7 @@ export function setupReviewDetails(url) {
       return false;
     });
 
-    $('#details').on('click', '.add-to-glob', function () {
-      $('#glob-to-add').val($(this).data('name'));
-      return false;
-    });
-
     $('#details').on('click', '.extend-action', extendMatch);
-
-    $('#globAddButton').click(() => {
-      const glob = $('#glob-to-add').val();
-      const data = {glob, package: $('#globModal').data('package')};
-      $.post($('#globModal').data('url'), data, () => {
-        $('#globModal').hide();
-        location.reload();
-      });
-    });
 
     $('.dropdown').hover(
       function () {
@@ -58,9 +44,6 @@ export function setupReviewDetails(url) {
       }
     );
   });
-
-  $('#create-pattern-and-continue').click(createPatternAndContinue);
-  $('#create-pattern-and-reindex').click(createPatternAndReindex);
 
   $('#reindex_button').click(e => {
     e.preventDefault();
@@ -77,51 +60,6 @@ function collapseSources() {
   $(this).parents('.file-container').find('.source').hide();
   $(this).addClass('expand-pre').removeClass('collapse-pre');
   return false;
-}
-
-function createPattern(success) {
-  const dia = $('#new-license-pattern');
-  const data = {license: dia.find('select[name=license]').val()};
-  data.pattern = dia.find('textarea').val();
-  $.each(['patent', 'trademark'], (i, val) => {
-    if (dia.find(`input[name=${val}]`).prop('checked')) {
-      data[val] = 1;
-    }
-  });
-
-  if (dia.find('#only-match-local').prop('checked')) {
-    data.packname = dia.find('input[name=packname]').val();
-  }
-
-  $.ajax({
-    type: 'POST',
-    url: dia.data('create-url'),
-    data,
-    success,
-    error(jqXHR, exception) {
-      alert(formatAjaxError(jqXHR, exception));
-    }
-  });
-}
-
-function createPatternAndContinue(e) {
-  $('#new-license-pattern').modal('hide');
-  const link = $('.current-selector');
-  const hash = link.data('hash');
-  e.preventDefault();
-  createPattern(() => {
-    $(`.hash-${hash}`).removeClass('risk-9');
-    const cs = $(`.hash-${hash} .fa-fire`);
-    if (link.hasClass('current-selector')) {
-      moveSelector();
-    }
-    cs.removeClass('fa-fire');
-  });
-}
-
-function createPatternAndReindex(e) {
-  e.preventDefault();
-  createPattern(triggerReindex);
 }
 
 function drawLicenseChart() {
@@ -190,23 +128,6 @@ function fetchSource(target) {
     source.html(data);
     source.show();
   });
-}
-
-function formatAjaxError(jqXHR, exception) {
-  if (jqXHR.status === 0) {
-    return 'Not connected. Please check your network connection.';
-  } else if (jqXHR.status == 404) {
-    return 'Page not found (404).';
-  } else if (jqXHR.status == 500) {
-    return 'Server error (500).';
-  } else if (exception === 'parsererror') {
-    return 'Could not parse response.';
-  } else if (exception === 'timeout') {
-    return 'Timeout error.';
-  } else if (exception === 'abort') {
-    return 'Ajax request aborted.';
-  }
-  return `Error: ${jqXHR.responseText}`;
 }
 
 function getUntilSuccess(url, cb) {
