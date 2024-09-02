@@ -7,5 +7,5 @@
 % content_for ready_function => begin
   % my $has_contributor_role = current_user_has_role('contributor') ? 'true' : 'false';
   % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
-  cavil.setupEditSnippet(<%= $snippet->{id} %>, <%= $has_contributor_role %> ,<%= $has_admin_role %>);
+  cavil.setupEditSnippet(<%= $id %>, <%= $has_contributor_role %> ,<%= $has_admin_role %>);
 % end

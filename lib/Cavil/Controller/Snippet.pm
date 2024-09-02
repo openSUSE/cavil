@@ -90,9 +90,7 @@ sub decision ($self) {
 }
 
 sub edit ($self) {
-  my $id      = $self->stash('id');
-  my $snippet = $self->snippets->find($id);
-  $self->render(snippet => $snippet);
+  $self->render;
 }
 
 sub from_file ($self) {
