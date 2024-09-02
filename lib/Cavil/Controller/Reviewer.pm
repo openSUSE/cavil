@@ -232,7 +232,7 @@ sub review_package ($self) {
   return $self->reply->not_found unless $pkg;
 
   $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
-  my $result = $pkg->{result} = $validation->param('comment');
+  my $result = $pkg->{result} = $validation->param('comment') || 'Reviewed ok';
 
   if ($validation->param('unacceptable')) {
     $pkg->{state} = 'unacceptable';

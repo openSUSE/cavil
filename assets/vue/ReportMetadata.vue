@@ -276,7 +276,7 @@
       <form :action="reviewUrl" method="POST" class="container" id="pkg-review">
         <div class="col mb-3">
           <label class="form-label" for="comment">Comment</label>
-          <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
+          <textarea v-model="result" name="comment" placeholder="Reviewed ok" rows="10" class="form-control"></textarea>
         </div>
         <div class="col mb-3">
           <input
@@ -297,7 +297,7 @@
       <form :action="fasttrackUrl" method="POST" class="container" id="pkg-review">
         <div class="col mb-3">
           <label class="form-label" for="comment">Comment</label>
-          <textarea v-model="result" name="comment" rows="10" class="form-control"></textarea>
+          <textarea v-model="result" name="comment" placeholder="Reviewed ok" rows="10" class="form-control"></textarea>
         </div>
         <div class="col mb-3">
           <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Acceptable" />
@@ -361,7 +361,7 @@ export default {
       refreshDelay: 30000,
       refreshUrl: `/reviews/meta/${this.pkgId}`,
       requestsHtml: null,
-      result: 'Reviewed ok',
+      result: '',
       reviewed: null,
       reviewingUser: null,
       reviewUrl: `/reviews/review_package/${this.pkgId}`,
@@ -426,8 +426,7 @@ export default {
       this.searchUrl = `/search?q=${this.pkgName}`;
 
       // Make sure not to reset the comment field in the middle of a review (unless someone else changed the state)
-      const defaultResult = this.hasManagerRole === true || this.hasAdminRole === true ? 'Reviewed ok' : '';
-      if (data.state !== this.state) this.result = data.result ?? defaultResult;
+      if (data.state !== this.state) this.result = data.result ?? '';
       this.notice = data.notice;
       this.state = data.state;
       this.warnings = data.warnings;
