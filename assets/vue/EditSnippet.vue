@@ -362,11 +362,11 @@ export default {
 .autocomplete-item:hover {
   background-color: rgba(13, 110, 253, 0.25);
 }
-.keyword-line {
-  background-color: #fdd !important;
-}
 .license-line {
   background-color: #dfd !important;
+}
+.keyword-line {
+  background-color: #fdd !important;
 }
 span.keyword-line,
 span.license-line {

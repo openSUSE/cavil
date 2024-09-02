@@ -338,11 +338,11 @@ export default {
   color: rgba(27, 31, 35, 0.3);
   user-select: none;
 }
-.change-keyword-line {
-  background-color: #ffebe9;
-}
 .change-license-line {
   background-color: #ebffe9;
+}
+.change-keyword-line {
+  background-color: #ffebe9;
 }
 .change-code-ignore {
   background: repeating-linear-gradient(-45deg, #ffebe9, #ffebe9 1px, #fff 1px, #fff 5px);
