@@ -1,10 +1,10 @@
-# Cavil [![](https://github.com/openSUSE/cavil/workflows/linux/badge.svg)](https://github.com/openSUSE/cavil/actions) [![Coverage Status](https://coveralls.io/repos/github/openSUSE/cavil/badge.svg?branch=master)](https://coveralls.io/github/openSUSE/cavil?branch=master)
+# [![](https://github.com/openSUSE/cavil/workflows/linux/badge.svg)](https://github.com/openSUSE/cavil/actions) [![Coverage Status](https://coveralls.io/repos/github/openSUSE/cavil/badge.svg?branch=master)](https://coveralls.io/github/openSUSE/cavil?branch=master)
+
+![Cavil](docs/images/cavil.png)
 
   Cavil is a legal review and Software Bill of Materials (SBOM) system for the
   [Open Build Service](https://openbuildservice.org). It is used in the development of openSUSE Tumbleweed,
   openSUSE Leap, as well as SUSE Linux Enterprise.
-
-![Report](docs/images/cavil.png)
 
 ## Features
 
