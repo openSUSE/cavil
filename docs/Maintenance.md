@@ -23,3 +23,17 @@ names like `processing_pkg_$id`, and release them (simialr to how you would retr
 job.
 
 Not all failures will be as self explanatory as HTTP timeouts and might require more investigation.
+
+## Automated Maintenance
+
+Maintenance tasks that can be automated.
+
+### Weekly reindexing
+
+To keep your reports and checksums fresh even after new license patterns have been added or updated, we recommend
+running `script/cavil rindex` in regular intervals (we do it every weekend).
+
+### Weekly cleanup
+
+To free up space you can run `script/cavil cleanup` in regular intervals. It helps to organize reports into products to
+exclude them from cleanup.
