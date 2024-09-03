@@ -171,10 +171,12 @@ export default {
         }
         form['create-pattern'] = 1;
         form.checksum = change.token_hexsum;
-        await ua.post(change.createUrl, {form});
       } else if (change.action === 'create_ignore') {
-        await ua.post(change.ignoreUrl, {form: {...form, hash: change.token_hexsum, package: change.data.from}});
+        form['create-ignore'] = 1;
+        form.hash = change.token_hexsum;
+        form.from = change.data.from;
       }
+      await ua.post(change.createUrl, {form});
 
       change.state = 'accepted';
     },
@@ -192,7 +194,6 @@ export default {
         change.editUrl = `/snippet/edit/${change.data.snippet}`;
         change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
         change.createUrl = `/snippet/decision/${change.data.snippet}`;
-        change.ignoreUrl = '/ignored-matches';
 
         if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;

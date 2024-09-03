@@ -279,7 +279,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator('#dropdownMenuLink-1-4 ~ div :has-text("Extend one line below")').click();
       await page.locator('#dropdownMenuLink-1-4 i').click();
       await page.locator('#dropdownMenuLink-1-4 ~ div :has-text("Create Pattern from selection")').click();
-      await page.waitForURL(`${url}/snippet/edit/7?hash=&from=`);
+      await page.waitForURL(`${url}/snippet/edit/7?hash=&from=perl-Mojolicious`);
 
       // Select a few options on the creation form
       await page.locator('select[name="risk"]').selectOption('3');

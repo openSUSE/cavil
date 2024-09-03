@@ -1,4 +1,3 @@
-import {ignoreLine} from './util.js';
 import Chart from 'chart.js';
 
 export function setupReviewDetails(url) {
@@ -26,12 +25,6 @@ export function setupReviewDetails(url) {
 
     window.cavil.fires = $('.fa-fire');
     window.cavil.fireIndex = -1;
-
-    $('.fa-fire').click(function () {
-      const link = $(this).parents('a');
-      ignoreLine(link);
-      return false;
-    });
 
     $('#details').on('click', '.extend-action', extendMatch);
 

@@ -1,28 +1,3 @@
-export function createLicense() {
-  const name = $('#name').val();
-  $.ajax({
-    type: 'POST',
-    url: '/licenses',
-    data: {name},
-    success(data) {
-      window.location = data;
-    }
-  });
-  return false;
-}
-
-export function ignoreLine(link) {
-  const hash = link.data('hash');
-  $.post(`/ignored-matches?hash=${hash}&package=${link.data('packname')}`);
-  $(`.hash-${hash}`).removeClass('risk-9');
-  const cs = $(`.hash-${hash} .fa-fire`);
-  if (link.hasClass('current-selector')) {
-    moveSelector();
-  }
-  cs.removeClass('fa-fire');
-  return false;
-}
-
 export function formatLink(row) {
   const link = row.external_link;
   const prio = `(${row.priority}) `;
@@ -57,17 +32,4 @@ export function moveSelector() {
   $('html, body').animate({
     scrollTop: offset.top
   });
-}
-
-export function snippetNonLicense(link) {
-  const hash = link.data('hash');
-  const id = link.data('snippet-id');
-  $.post(`/snippet/decision/${id}?mark-non-license=1`);
-  $(`.hash-${hash}`).removeClass('risk-9');
-  const cs = $(`.hash-${hash} .fa-fire`);
-  if (link.hasClass('current-selector')) {
-    moveSelector();
-  }
-  cs.removeClass('fa-fire');
-  return false;
 }

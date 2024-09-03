@@ -60,6 +60,7 @@ sub closest ($self) {
 sub decision ($self) {
   my $validation = $self->validation;
   $validation->optional('create-pattern');
+  $validation->optional('create-ignore');
   $validation->optional('propose-pattern');
   $validation->optional('propose-ignore');
   $validation->optional('mark-non-license');
@@ -74,6 +75,11 @@ sub decision ($self) {
   if ($validation->param('create-pattern')) {
     return $self->render('permissions', status => 403) unless $is_admin;
     $self->_create_pattern($packages, $validation);
+  }
+
+  elsif ($validation->param('create-ignore')) {
+    return $self->render('permissions', status => 403) unless $is_admin;
+    $self->_create_ignore;
   }
 
   elsif ($validation->param('mark-non-license')) {
@@ -103,8 +109,8 @@ sub from_file ($self) {
   my $first_line = $self->stash('start');
   my $last_line  = $self->stash('end');
 
-  return $self->reply->not_found
-    unless defined(my $snippet = $self->snippets->from_file($file_id, $first_line, $last_line));
+  my $snippets = $self->snippets;
+  return $self->reply->not_found unless defined(my $snippet = $snippets->from_file($file_id, $first_line, $last_line));
 
   my $hash = $v->param('hash') // '';
   my $from = $v->param('from') // '';
@@ -164,7 +170,7 @@ sub meta ($self) {
 
 sub _create_pattern ($self, $packages, $validation) {
   $validation->required('license');
-  $validation->required('pattern');
+  $validation->required('pattern', 'not_empty');
   $validation->required('risk')->num;
   $validation->optional('checksum');
   $validation->optional('patent');
@@ -198,9 +204,37 @@ sub _create_pattern ($self, $packages, $validation) {
   $self->render(packages => $packages, pattern => $pattern->{id});
 }
 
+sub _create_ignore ($self) {
+  my $validation = $self->validation;
+  $validation->required('hash', 'not_empty')->like(qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i);
+  $validation->required('from', 'not_empty');
+  $validation->optional('delay')->num;
+  $validation->optional('contributor');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $owner_id       = $self->users->id_for_login($self->current_user);
+  my $contributor    = $validation->param('contributor');
+  my $contributor_id = $contributor ? $self->users->id_for_login($contributor) : undef;
+  my $delay          = $validation->param('delay') // 0;
+
+  my $hash = $validation->param('hash');
+  $self->packages->ignore_line(
+    {
+      package     => $validation->param('from'),
+      hash        => $hash,
+      owner       => $owner_id,
+      contributor => $contributor_id,
+      delay       => $delay
+    }
+  );
+  $self->patterns->remove_proposal($hash);
+
+  return $self->render(ignore => 1);
+}
+
 sub _propose_pattern ($self, $validation) {
   $validation->required('license');
-  $validation->required('pattern');
+  $validation->required('pattern', 'not_empty');
   $validation->required('risk')->num;
   $validation->optional('edited');
   $validation->optional('highlighted-keywords', 'comma_separated');
@@ -244,10 +278,10 @@ sub _propose_pattern ($self, $validation) {
 }
 
 sub _propose_ignore ($self, $validation) {
-  $validation->required('hash');
-  $validation->required('from');
-  $validation->required('pattern');
-  $validation->required('edited');
+  $validation->required('hash',    'not_empty')->like(qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i);
+  $validation->required('from',    'not_empty');
+  $validation->required('pattern', 'not_empty');
+  $validation->required('edited',  'not_empty');
   $validation->optional('highlighted-keywords', 'comma_separated');
   $validation->optional('highlighted-licenses', 'comma_separated');
   $validation->optional('package');

@@ -229,7 +229,6 @@ sub startup ($self) {
   $logged_in->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
 
   $admin->get('/ignored-matches')->to('Ignore#list_matches')->name('list_ignored_matches');
-  $admin->post('/ignored-matches')->to('Ignore#add_match');
   $admin->delete('/ignored-matches/<id:num>')->to('Ignore#remove_match')->name('remove_ignored_match');
   $admin->get('/pagination/matches/ignored')->to('Pagination#ignored_matches')->name('pagination_ignored_matches');
 

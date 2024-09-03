@@ -4,6 +4,5 @@
 <div id="known-licenses"></div>
 
 % content_for 'ready_function' => begin
-  $('#license-create').click(cavil.createLicense);
   cavil.setupKnownLicenses();
 % end

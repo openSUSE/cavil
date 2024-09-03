@@ -26,34 +26,6 @@ sub add_glob ($self) {
   return $self->render(json => 'ok');
 }
 
-sub add_match ($self) {
-  my $validation = $self->validation;
-  $validation->required('hash')->like(qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i);
-  $validation->required('package');
-  $validation->optional('delay')->num;
-  $validation->optional('contributor');
-  return $self->reply->json_validation_error if $validation->has_error;
-
-  my $owner_id       = $self->users->id_for_login($self->current_user);
-  my $contributor    = $validation->param('contributor');
-  my $contributor_id = $contributor ? $self->users->id_for_login($contributor) : undef;
-  my $delay          = $validation->param('delay') // 0;
-
-  my $hash = $validation->param('hash');
-  $self->packages->ignore_line(
-    {
-      package     => $validation->param('package'),
-      hash        => $hash,
-      owner       => $owner_id,
-      contributor => $contributor_id,
-      delay       => $delay
-    }
-  );
-  $self->patterns->remove_proposal($hash);
-
-  return $self->render(json => 'ok');
-}
-
 sub list_globs ($self) {
   $self->render('ignore/list_globs');
 }

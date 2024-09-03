@@ -65,7 +65,6 @@ subtest 'Login required' => sub {
 subtest 'Not authenticated' => sub {
   $t->post_ok('/reviews/review_package/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/reviews/fasttrack_package/1')->status_is(403)->content_like(qr/Permission/);
-  $t->post_ok('/ignored-matches')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/ignored-files')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/reviews/reindex/1')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/reviews/file_view/1/LICENSE')->status_is(403)->content_like(qr/Permission/);

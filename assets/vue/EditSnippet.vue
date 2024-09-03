@@ -143,8 +143,12 @@
       <div class="row">
         <div class="col mb-3">
           <span v-if="hasAdminRole === true">
-            <button name="create-pattern" type="submit" value="1" class="btn btn-primary mb-2">Create Pattern</button>
+            <button name="create-pattern" type="submit" value="1" class="btn btn-success mb-2">Create Pattern</button>
             &nbsp;
+            <span v-if="this.hash !== null && this.from !== null">
+              <button name="create-ignore" type="submit" value="1" class="btn btn-danger mb-2">Ignore Pattern</button>
+              &nbsp;
+            </span>
           </span>
           <button
             v-if="hasContributorRole === true"
@@ -192,6 +196,7 @@ export default {
   name: 'EditSnippet',
   data() {
     const params = getParams();
+    console.log(params);
 
     return {
       closest: null,
@@ -199,8 +204,8 @@ export default {
       decisionUrl: `/snippet/decision/${this.currentSnippet}`,
       edited: '0',
       editor: null,
-      from: params.from ?? null,
-      hash: params.hash ?? null,
+      from: params.from === '' ? null : params.from ?? null,
+      hash: params.hash === '' ? null : params.hash ?? null,
       highlightedKeywords: '',
       highlightedLicenses: '',
       keywords: {},

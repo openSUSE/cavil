@@ -62,12 +62,12 @@ sub source ($self) {
 
       return $self->render(
         'reviewer/file_source',
-        file     => $id,
-        filename => $source->{filename},
-        lines    => lines_context($source->{lines}),
-        hidden   => 0,
-        packname => $source->{name},
-        is_admin => $self->current_user_has_role('admin')
+        file                    => $id,
+        filename                => $source->{filename},
+        lines                   => lines_context($source->{lines}),
+        hidden                  => 0,
+        packname                => $source->{name},
+        is_admin_or_contributor => $self->current_user_has_role('admin', 'contributor')
       );
     }
   );

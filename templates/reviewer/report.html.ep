@@ -117,7 +117,7 @@
 
   <h2>Files</h2>
 
-  % my $is_admin = current_user_has_role 'admin';
+  % my $is_admin_or_contributor = current_user_has_role('admin', 'contributor');
   % for my $file (@{$report->{files}}) {
     % my $id = $file->{id};
     % next unless defined $linked_files{$id};
@@ -140,7 +140,7 @@
       % if ($file->{expand}) {
         <div id="file-details-<%= $id %>" class="source" data-file-id="<%= $id %>">
           <%= include 'reviewer/file_source', file => $id, filename => $path, lines => $file->{lines},
-                       packname => $package->{name}, is_admin => $is_admin %>
+                       packname => $package->{name}, is_admin_or_contributor => $is_admin_or_contributor %>
         </div>
       % }
       % else {

@@ -11,7 +11,6 @@ import 'moment';
 import {setupCodeMirrorForFile} from './legacy/file.js';
 import {setupReviewDetails} from './legacy/review.js';
 import {fromNow} from './legacy/time.js';
-import {createLicense, ignoreLine, snippetNonLicense} from './legacy/util.js';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
 import EditSnippet from './vue/EditSnippet.vue';
 import IgnoredFiles from './vue/IgnoredFiles.vue';
@@ -108,10 +107,7 @@ window.cavil = {
     app.mount('#review-search');
   },
 
-  createLicense,
   fromNow,
-  ignoreLine,
   setupCodeMirrorForFile,
-  setupReviewDetails,
-  snippetNonLicense
+  setupReviewDetails
 };

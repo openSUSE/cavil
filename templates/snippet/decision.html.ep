@@ -6,6 +6,12 @@
   </div>
 % }
 
+% if (my $id = stash('ignore')) {
+  <div class="alert alert-success" role="alert">
+    Your ignore pattern has been created.
+  </div>
+% }
+
 % if (my $id = stash('proposal')) {
   <div class="alert alert-success" role="alert">
     Your change has been proposed. Check open <%= link_to 'proposals' => url_for('proposed_patterns') %> for its status.

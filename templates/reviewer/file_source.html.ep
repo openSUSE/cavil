@@ -16,7 +16,7 @@
       % else {
         <tr class="<%= $class %>">
       % }
-        % if ($is_admin && $line->[1]->{end}) {
+        % if ($is_admin_or_contributor && $line->[1]->{end}) {
           % my $end_id = "$file-$i";
           % my $data = { start => $line->[0], end => $line->[1]->{end}, 'prev-match' => $line->[1]->{prevstart} // 0, 'next-match' => $line->[1]->{nextend} // 0 };
           %= tag 'td', class => "actions dropdown show" => data => $data => begin
@@ -27,17 +27,12 @@
             <div class="dropdown-menu" aria-labelledby="dropdownMenuLink-<%= $end_id %>">
               % if ($risk == 9) {
                 % if ($line->[1]->{snippet}) {
-                  <a class="dropdown-item" href="<%= url_for('edit_snippet', id => $line->[1]->{snippet}) %>">Create Pattern from selection</a>
+                  <a class="dropdown-item" href="<%= url_for('edit_snippet', id => $line->[1]->{snippet})->query(from => $packname, hash => $hash) %>">Create Pattern from selection</a>
                 % } else {
-                  <a class="dropdown-item" href="<%= url_for('new_snippet', file => $file, start => $line->[0], end => $line->[1]->{end}) %>">Create Pattern from selection</a>
+                  <a class="dropdown-item" href="<%= url_for('new_snippet', file => $file, start => $line->[0], end => $line->[1]->{end})->query(from => $packname) %>">Create Pattern from selection</a>
                 % }
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="#" data-hash="<%= $hash %>"
-                  data-packname="<%= $packname %>" onclick="return cavil.ignoreLine($(this));">Ignore Snippet for '<%= $packname %>'</a>
-                <a class="dropdown-item" data-hash="<%= $hash %>" data-snippet-id="<%= $line->[1]->{snippet} %>" href="#"
-                  onclick="return cavil.snippetNonLicense($(this));">Ignore Snippet everywhere (not a license)</a>
               % } else {
-                <a class="dropdown-item" href="<%= url_for('edit_pattern', id => $line->[1]->{pid}) %>">Edit Pattern</a>
+                <a class="dropdown-item" href="<%= url_for('edit_pattern', id => $line->[1]->{pid}) %>">Show Pattern</a>
               % }
               % if ($line->[0] > 1) {
                 <div class="dropdown-divider"></div>

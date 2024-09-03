@@ -160,16 +160,21 @@ subtest 'Pattern creation' => sub {
       ->content_like(qr/Your change has been proposed/);
     $t->post_ok('/snippet/decision/1' => form => $form)->status_is(409)
       ->content_like(qr/Conflicting ignore pattern proposal already exists/);
-    my $ignore_form
-      = {hash => '39e8204ddebdc31a4d0e77aa647f4241', package => 'perl-Mojolicious', contributor => 'tester'};
-    $t->post_ok('/ignored-matches' => form => $ignore_form)->status_is(403);
+    my $ignore_form = {
+      'create-ignore' => 1,
+      hash            => '39e8204ddebdc31a4d0e77aa647f4241',
+      from            => 'perl-Mojolicious',
+      contributor     => 'tester'
+    };
+    $t->post_ok('/snippet/decision/1' => form => $ignore_form)->status_is(403);
 
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')
       ->json_is('/changes/0/action' => 'create_ignore')->json_is('/changes/0/data/pattern' => "This is\na license")
       ->json_is('/changes/0/data/highlighted_keywords' => [1])->json_is('/changes/0/data/highlighted_licenses' => [0])
       ->json_is('/changes/0/data/edited'               => 0)->json_hasnt('/changes/1');
     $t->app->users->add_role(2, 'admin');
-    $t->post_ok('/ignored-matches' => form => $ignore_form)->status_is(200)->content_like(qr/ok/);
+    $t->post_ok('/snippet/decision/1' => form => $ignore_form)->status_is(200)
+      ->content_like(qr/ignore pattern has been created/);
     $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
 
     $t->post_ok('/snippet/decision/1' => form => $form)->status_is(409)
@@ -250,9 +255,9 @@ subtest 'Remove ignored match' => sub {
   $t->app->users->add_role(2, 'admin');
 
   is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, 'no jobs';
-  $t->post_ok(
-    '/ignored-matches' => form => {hash => 'abe8204ddebdc31a4d0e77aa647f42cd', package => 'package-with-snippets'})
-    ->status_is(200)->content_like(qr/ok/);
+  $t->post_ok('/snippet/decision/1' => form =>
+      {'create-ignore' => 1, hash => 'abe8204ddebdc31a4d0e77aa647f42cd', from => 'package-with-snippets'})
+    ->status_is(200)->content_like(qr/ignore pattern has been created/);
   is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
   $t->get_ok('/pagination/matches/ignored')->status_is(200)->json_has('/page/0')->json_is('/start', 1)
     ->json_is('/end',             2)->json_is('/total', 2)->json_is('/page/0/hash', 'abe8204ddebdc31a4d0e77aa647f42cd')
