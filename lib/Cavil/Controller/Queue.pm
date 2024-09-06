@@ -113,9 +113,7 @@ sub create_request ($self) {
 
 sub import_package ($self) {
   my $validation = $self->validation;
-  $validation->required('result');
-  $validation->optional('approved_by');
-  $validation->optional('state');
+  $validation->optional('state')->in('new');
   $validation->optional('priority');
   $validation->optional('external_link');
   return $self->reply->json_validation_error if $validation->has_error;
@@ -131,17 +129,12 @@ sub import_package ($self) {
   if (my $priority = $validation->param('priority')) {
     $obj->{priority} = $priority;
   }
-  $obj->{result} = $validation->param('result');
   if (my $state = $validation->param('state')) {
     $obj->{state} = $state;
     if ($state eq 'new') {
       $obj->{obsolete} = 0;
       $reindex = 1;
     }
-  }
-  if (my $approved = $validation->param('approved_by')) {
-    my $user = $self->users->find_or_create(login => $approved);
-    $obj->{reviewing_user} = $user->{id};
   }
   $pkgs->update($obj);
   $pkgs->reindex($id) if $reindex;

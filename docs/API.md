@@ -249,11 +249,7 @@ Re-import package. Usually used to reopen a review after it has already been obs
 
 **Request parameters:**
 
-* `result` (required): String to replace the current review result. Usually the reason for reopening the review.
-
-* `approved_by` (optional): Login name of approving user.
-
-* `state` (optional): State to put package review in.
+* `state` (optional): State to put package review in, currently limited to `new`.
 
 * `priority` (optional): Priority of this package review.
 
@@ -264,10 +260,10 @@ Re-import package. Usually used to reopen a review after it has already been obs
 POST /packages/import/23
 Authorization: Token configured_access_token_here
 Accept: application/json
-Content-Length: 92
+Content-Length: 22
 Content-Type: application/x-www-form-urlencoded
 
-result=Reopened%2Fin%2FOBS&external_link=obs#5678
+external_link=obs#5678
 ```
 
 **Request body:**

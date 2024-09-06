@@ -180,8 +180,7 @@ subtest 'Clean up duplicates' => sub {
   # First package (cleaned up)
   is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
   ok $t->app->packages->find($one_id)->{obsolete}, 'obsolete';
-  is $t->app->packages->find($one_id)->{result}, 'Obsoleted by newer package with same name and external_link',
-    'right result';
+  is $t->app->packages->find($one_id)->{result}, undef, 'right result';
   ok !-e $dir->child(@one), 'checkout does not exist';
   ok !$t->app->pg->db->select('emails',          [\'count(*)'], {package => $one_id})->array->[0], 'no emails';
   ok !$t->app->pg->db->select('urls',            [\'count(*)'], {package => $one_id})->array->[0], 'no URLs';
@@ -192,8 +191,7 @@ subtest 'Clean up duplicates' => sub {
   # Second package (cleaned up)
   is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
   ok $t->app->packages->find($two_id)->{obsolete}, 'obsolete';
-  is $t->app->packages->find($two_id)->{result}, 'Obsoleted by newer package with same name and external_link',
-    'right result';
+  is $t->app->packages->find($two_id)->{result}, undef, 'right result';
   ok !-e $dir->child(@two), 'checkout does not exist';
   ok !$t->app->pg->db->select('emails',          [\'count(*)'], {package => $two_id})->array->[0], 'no emails';
   ok !$t->app->pg->db->select('urls',            [\'count(*)'], {package => $two_id})->array->[0], 'no URLs';
