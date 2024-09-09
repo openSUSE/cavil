@@ -149,7 +149,7 @@
               <button name="create-ignore" type="submit" value="1" class="btn btn-danger mb-2">Ignore Pattern</button>
               &nbsp;
               <button name="mark-non-license" type="submit" value="1" class="btn btn-primary mb-2">
-                Not a License
+                No Legal Text
               </button>
               &nbsp; &nbsp; &nbsp;
             </span>
