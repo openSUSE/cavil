@@ -70,7 +70,8 @@ subtest 'Pattern creation' => sub {
         edited           => 0
       }
     )->status_is(403);
-    $t->post_ok('/snippet/decision/1' => form => {'mark-non-license' => 1})->status_is(403);
+    $t->post_ok('/snippet/decision/1' => form => {'mark-non-license' => 1, hash => '39e8204ddebdc31a4d0e77aa647f4241'})
+      ->status_is(403);
 
     $t->app->users->add_role(2, 'contributor');
     $t->post_ok('/snippet/decision/1' => form =>
@@ -186,6 +187,27 @@ subtest 'Pattern creation' => sub {
     is $ignore->{packname},    'perl-Mojolicious', 'right package';
     is $ignore->{owner},       2,                  'right owner';
     is $ignore->{contributor}, 2,                  'right contributor';
+  };
+
+  subtest 'From proposal to not a license snippet' => sub {
+    is $t->app->pg->db->query('SELECT * FROM snippets WHERE id = 3')->hash->{classified}, 0, 'not classified';
+    my $form = {
+      'propose-ignore'       => 1,
+      hash                   => '399908965a4311ddd48a9440a66365e0',
+      from                   => 'perl-Mojolicious',
+      pattern                => "Now complex: The license might",
+      edited                 => 0,
+      'highlighted-keywords' => 1,
+      'highlighted-licenses' => 0
+    };
+    $t->post_ok('/snippet/decision/1' => form => $form)->status_is(200)
+      ->content_like(qr/Your change has been proposed/);
+    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0');
+
+    my $ignore_form = {'mark-non-license' => 1, hash => '399908965a4311ddd48a9440a66365e0'};
+    $t->post_ok('/snippet/decision/1' => form => $ignore_form)->status_is(200)->content_like(qr/Reindexing 1 package/);
+    is $t->app->pg->db->query('SELECT * FROM snippets WHERE id = 3')->hash->{classified}, 1, 'classified';
+    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
   };
 
   subtest 'Pattern performance' => sub {

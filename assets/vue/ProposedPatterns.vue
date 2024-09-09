@@ -86,8 +86,23 @@
             <div v-else-if="change.action === 'create_ignore'">
               <div class="row">
                 <div class="col mb-3">
-                  <label class="fomr-label" for="license">Package</label>
-                  <input v-model="change.data.from" type="text" class="form-control" />
+                  <label class="form-label" for="license">Package</label>
+                  <div class="d-flex form-check align-items-center form-check">
+                    <input
+                      class="form-check-input"
+                      id="ignore-one"
+                      type="checkbox"
+                      name="ignore-for"
+                      value="one"
+                      v-model="ignoreForPackage"
+                    />
+                    <input
+                      v-model="change.data.from"
+                      type="text"
+                      class="form-control ms-2"
+                      :disabled="!ignoreForPackage"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -144,6 +159,7 @@ export default {
   name: 'RecentChanges',
   data() {
     return {
+      ignoreForPackage: true,
       params: {before: 0},
       changes: null,
       changeUrl: '/licenses/proposed/meta',
@@ -172,9 +188,13 @@ export default {
         form['create-pattern'] = 1;
         form.checksum = change.token_hexsum;
       } else if (change.action === 'create_ignore') {
-        form['create-ignore'] = 1;
         form.hash = change.token_hexsum;
-        form.from = change.data.from;
+        if (this.ignoreForPackage === true) {
+          form['create-ignore'] = 1;
+          form.from = change.data.from;
+        } else {
+          form['mark-non-license'] = 1;
+        }
       }
       await ua.post(change.createUrl, {form});
 

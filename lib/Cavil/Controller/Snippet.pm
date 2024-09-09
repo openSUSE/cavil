@@ -20,6 +20,8 @@ use Mojo::File  qw(path);
 use Cavil::Util qw(pattern_matches);
 use Mojo::JSON  qw(true false);
 
+my $CHECKSUM_RE = qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i;
+
 sub approve ($self) {
   my $v = $self->validation;
   $v->required('license')->in('true', 'false');
@@ -28,7 +30,6 @@ sub approve ($self) {
 
   my $id = $self->param('id');
   $self->snippets->approve($id, $license);
-
   my $user = $self->session('user');
   $self->app->log->info(qq{Snippet $id approved by $user (License: $license))});
 
@@ -66,15 +67,11 @@ sub decision ($self) {
   $validation->optional('mark-non-license');
   return $self->reply->json_validation_error if $validation->has_error;
 
-  my $id       = $self->param('id');
-  my $snippets = $self->snippets;
-  my $packages = $snippets->packages_for_snippet($id);
-
   # Only admins can create patterns or ignore snippets directly
   my $is_admin = $self->current_user_has_role('admin');
   if ($validation->param('create-pattern')) {
     return $self->render('permissions', status => 403) unless $is_admin;
-    $self->_create_pattern($packages, $validation);
+    $self->_create_pattern;
   }
 
   elsif ($validation->param('create-ignore')) {
@@ -84,13 +81,11 @@ sub decision ($self) {
 
   elsif ($validation->param('mark-non-license')) {
     return $self->render('permissions', status => 403) unless $is_admin;
-    $snippets->mark_non_license($id);
-    $self->packages->analyze($_, 4) for @$packages;
-    $self->render(packages => $packages);
+    $self->_mark_non_license;
   }
 
-  elsif ($validation->param('propose-pattern')) { $self->_propose_pattern($validation) }
-  elsif ($validation->param('propose-ignore'))  { $self->_propose_ignore($validation) }
+  elsif ($validation->param('propose-pattern')) { $self->_propose_pattern }
+  elsif ($validation->param('propose-ignore'))  { $self->_propose_ignore }
 
   else { $self->reply->not_found }
 }
@@ -101,7 +96,7 @@ sub edit ($self) {
 
 sub from_file ($self) {
   my $v = $self->validation;
-  $v->optional('hash')->like(qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i);
+  $v->optional('hash')->like($CHECKSUM_RE);
   $v->optional('from');
   return $self->reply->json_validation_error if $v->has_error;
 
@@ -168,7 +163,8 @@ sub meta ($self) {
   $self->render(json => {snippet => $snippet, licenses => $licenses, closest => $pattern->{license}});
 }
 
-sub _create_pattern ($self, $packages, $validation) {
+sub _create_pattern ($self) {
+  my $validation = $self->validation;
   $validation->required('license');
   $validation->required('pattern', 'not_empty');
   $validation->required('risk')->num;
@@ -179,6 +175,8 @@ sub _create_pattern ($self, $packages, $validation) {
   $validation->optional('contributor');
   $validation->optional('delay')->num;
   return $self->reply->json_validation_error if $validation->has_error;
+
+  my $packages = $self->snippets->packages_for_snippet($self->stash('id'));
 
   my $owner_id       = $self->users->id_for_login($self->current_user);
   my $contributor    = $validation->param('contributor');
@@ -206,7 +204,7 @@ sub _create_pattern ($self, $packages, $validation) {
 
 sub _create_ignore ($self) {
   my $validation = $self->validation;
-  $validation->required('hash', 'not_empty')->like(qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i);
+  $validation->required('hash', 'not_empty')->like($CHECKSUM_RE);
   $validation->required('from', 'not_empty');
   $validation->optional('delay')->num;
   $validation->optional('contributor');
@@ -232,7 +230,28 @@ sub _create_ignore ($self) {
   return $self->render(ignore => 1);
 }
 
-sub _propose_pattern ($self, $validation) {
+sub _mark_non_license ($self) {
+  my $validation = $self->validation;
+  $validation->required('hash')->like($CHECKSUM_RE);
+  $validation->optional('delay')->num;
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $delay    = $validation->param('delay') // 0;
+  my $hash     = $validation->param('hash');
+  my $snippets = $self->snippets;
+  return $self->reply->not_found unless my $id = $snippets->id_for_checksum($hash);
+
+  $self->patterns->remove_proposal($hash);
+  $snippets->mark_non_license($id);
+
+  my $packages = $snippets->packages_for_snippet($id);
+  $self->packages->reindex($_, 3, [], $delay) for @$packages;
+
+  $self->render(packages => $packages);
+}
+
+sub _propose_pattern ($self) {
+  my $validation = $self->validation;
   $validation->required('license');
   $validation->required('pattern', 'not_empty');
   $validation->required('risk')->num;
@@ -277,8 +296,9 @@ sub _propose_pattern ($self, $validation) {
   $self->render(proposal => 1);
 }
 
-sub _propose_ignore ($self, $validation) {
-  $validation->required('hash',    'not_empty')->like(qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i);
+sub _propose_ignore ($self) {
+  my $validation = $self->validation;
+  $validation->required('hash',    'not_empty')->like($CHECKSUM_RE);
   $validation->required('from',    'not_empty');
   $validation->required('pattern', 'not_empty');
   $validation->required('edited',  'not_empty');

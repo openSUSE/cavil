@@ -103,7 +103,7 @@ subtest 'Classified manually' => sub {
   is $snippet->{license},    0, 'license';
 
   $t->get_ok('/login')->status_is(302);
-  $t->post_ok('/snippet/decision/2?mark-non-license=1')->status_is(200);
+  $t->post_ok('/snippet/decision/2?mark-non-license=1&hash=3c376fca10ff8a41d0d51c9d46a3bdae')->status_is(200);
 
   $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
   is $snippet->{id},         1, 'right id';
@@ -114,7 +114,7 @@ subtest 'Classified manually' => sub {
   is $snippet->{classified}, 1, 'classified';
   is $snippet->{license},    0, 'license';
 
-  $t->post_ok('/snippet/decision/1?mark-non-license=1')->status_is(200);
+  $t->post_ok('/snippet/decision/1?mark-non-license=1&hash=81efb065de14988c4bd808697de1df51')->status_is(200);
   $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
   is $snippet->{id},         1, 'right id';
   is $snippet->{classified}, 1, 'classified';

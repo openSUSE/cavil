@@ -22,6 +22,11 @@ use Spooky::Patterns::XS;
 
 has [qw(checkout_dir pg)];
 
+sub approve ($self, $id, $license) {
+  my $db = $self->pg->db;
+  $db->update('snippets', {license => $license eq 'true' ? 1 : 0, approved => 1, classified => 1}, {id => $id});
+}
+
 sub find ($self, $id) {
   return $self->pg->db->select('snippets', '*', {id => $id})->hash;
 }
@@ -55,9 +60,9 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   return $snippet_id;
 }
 
-sub approve ($self, $id, $license) {
-  my $db = $self->pg->db;
-  $db->update('snippets', {license => $license eq 'true' ? 1 : 0, approved => 1, classified => 1}, {id => $id});
+sub id_for_checksum ($self, $checksum) {
+  return undef unless my $hash = $self->pg->db->select('snippets', 'id', {hash => $checksum})->hash;
+  return $hash->{id};
 }
 
 sub unclassified ($self, $options) {
