@@ -31,7 +31,7 @@ sub find ($self, $id) {
   return $self->pg->db->select('snippets', '*', {id => $id})->hash;
 }
 
-sub find_or_create ($self, $hash, $text) {
+sub find_or_create ($self, $hash, $text, $prefix = '') {
   my $db = $self->pg->db;
 
   my $snip = $db->select('snippets', 'id', {hash => $hash})->hash;
@@ -39,9 +39,9 @@ sub find_or_create ($self, $hash, $text) {
 
   $db->query(
     'insert into snippets (hash, text) values (?, ?)
-   on conflict do nothing', $hash, $text
+   on conflict do nothing', "$prefix$hash", $text
   );
-  return $db->select('snippets', 'id', {hash => $hash})->hash->{id};
+  return $db->select('snippets', 'id', {hash => "$prefix$hash"})->hash->{id};
 }
 
 sub from_file ($self, $file_id, $first_line, $last_line) {
@@ -53,7 +53,7 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   my $path    = path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked', $file->{filename});
 
   my ($text, $hash) = file_and_checksum($path, $first_line, $last_line);
-  my $snippet_id = $self->find_or_create("manual:$hash", $text);
+  my $snippet_id = $self->find_or_create($hash, $text, 'manual:');
   $db->insert('file_snippets',
     {package => $package->{id}, snippet => $snippet_id, sline => $first_line, eline => $last_line, file => $file_id});
 
