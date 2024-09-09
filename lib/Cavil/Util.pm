@@ -28,8 +28,8 @@ use Text::Glob 'glob_to_regex';
 $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (
-  qw(buckets slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate parse_exclude_file),
-  qw(pattern_checksum pattern_matches read_lines snippet_checksum ssh_sign)
+  qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
+  qw(parse_exclude_file pattern_checksum pattern_matches read_lines snippet_checksum ssh_sign)
 );
 
 my $MAX_FILE_SIZE = 30000;
@@ -46,6 +46,29 @@ sub buckets ($things, $size) {
   }
 
   return \@buckets;
+}
+
+sub file_and_checksum ($path, $first_line, $last_line) {
+  my %lines;
+  for (my $line = $first_line; $line <= $last_line; $line += 1) {
+    $lines{$line} = 1;
+  }
+
+  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+
+  my $text = '';
+  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%lines)}) {
+    my $line = $row->[2] . "\n";
+    $text .= $line;
+    $ctx->add($line);
+  }
+
+  # note that the hash is accounting with the newline included
+  chop $text;
+
+  my $hash = $ctx->hex;
+
+  return ($text, $hash);
 }
 
 sub pattern_checksum ($text) {

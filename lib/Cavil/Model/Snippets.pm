@@ -17,7 +17,7 @@ package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
 use Mojo::File  qw(path);
-use Cavil::Util qw(read_lines snippet_checksum);
+use Cavil::Util qw(file_and_checksum read_lines snippet_checksum);
 use Spooky::Patterns::XS;
 
 has [qw(checkout_dir pg)];
@@ -52,8 +52,8 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   my $package = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
   my $path    = path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked', $file->{filename});
 
-  my $text       = read_lines($path, $first_line, $last_line);
-  my $snippet_id = $self->find_or_create('manual:' . snippet_checksum($text), $text);
+  my ($text, $hash) = file_and_checksum($path, $first_line, $last_line);
+  my $snippet_id = $self->find_or_create("manual:$hash", $text);
   $db->insert('file_snippets',
     {package => $package->{id}, snippet => $snippet_id, sline => $first_line, eline => $last_line, file => $file_id});
 

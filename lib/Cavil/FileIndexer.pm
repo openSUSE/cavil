@@ -17,6 +17,7 @@ package Cavil::FileIndexer;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
+use Cavil::Util qw(file_and_checksum);
 
 has 'dir';
 
@@ -160,23 +161,7 @@ sub _mark_area ($needed_lines, $ls, $le) {
 }
 
 sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
-  my %lines;
-  for (my $line = $first_line; $line <= $last_line; $line += 1) {
-    $lines{$line} = 1;
-  }
-
-  my $ctx  = Spooky::Patterns::XS::init_hash(0, 0);
-  my $text = '';
-  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%lines)}) {
-    my $line = $row->[2] . "\n";
-    $text .= $line;
-    $ctx->add($line);
-  }
-
-  # note that the hash is accounting with the newline included
-  chop $text;
-
-  my $hash = $ctx->hex;
+  my ($text, $hash) = file_and_checksum($path, $first_line, $last_line);
 
   # ignored lines are easy targets
   if (my $ignore_id = $self->{ignored_lines}->{$hash}) {
