@@ -152,7 +152,7 @@ sub fasttrack_package ($self) {
   return $self->reply->not_found unless $pkg;
 
   $pkg->{reviewing_user}   = $self->users->find(login => $user)->{id};
-  $pkg->{result}           = $validation->param('comment');
+  $pkg->{result}           = $validation->param('comment') || 'Reviewed ok';
   $pkg->{state}            = 'acceptable';
   $pkg->{review_timestamp} = 1;
   $self->packages->update($pkg);
