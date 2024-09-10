@@ -200,11 +200,12 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
 
     # don't look further
     if (!$score) {
+      $pkg->{result} = undef;
       if ($allow_accept) {
+        $pkg->{result}           = "Accepted because of no significant difference ($old->{id})";
         $pkg->{state}            = 'acceptable';
         $pkg->{review_timestamp} = 1;
       }
-      $pkg->{result} = undef;
       $pkg->{notice} = "Not found any significant difference against $old->{id}";
       $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user'
         unless $has_human_review;
