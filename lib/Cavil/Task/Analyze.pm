@@ -158,6 +158,7 @@ sub _analyzed ($job, $id) {
   if (my $f_id = $found_acceptable_by_lawyer || $found_acceptable) {
     $pkg->{state}            = $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable';
     $pkg->{review_timestamp} = 1;
+    $pkg->{reviewing_user}   = undef;
     $pkg->{result}           = "Accepted because previously reviewed under the same license ($f_id)";
     $pkgs->update($pkg);
     return;
@@ -176,6 +177,7 @@ sub _analyzed ($job, $id) {
 
     $pkg->{state}            = 'acceptable';
     $pkg->{review_timestamp} = 1;
+    $pkg->{reviewing_user}   = undef;
     $pkg->{result}           = "Accepted because of low risk ($risk)";
     $pkgs->update($pkg);
   }
@@ -205,6 +207,7 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
         $pkg->{result}           = "Accepted because of no significant difference ($old->{id})";
         $pkg->{state}            = 'acceptable';
         $pkg->{review_timestamp} = 1;
+        $pkg->{reviewing_user}   = undef;
       }
       $pkg->{notice} = "Not found any significant difference against $old->{id}";
       $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user'

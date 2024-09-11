@@ -132,8 +132,9 @@ sub import_package ($self) {
   if (my $state = $validation->param('state')) {
     $obj->{state} = $state;
     if ($state eq 'new') {
-      $obj->{obsolete} = 0;
-      $reindex = 1;
+      $obj->{reviewing_user} = undef;
+      $obj->{obsolete}       = 0;
+      $reindex               = 1;
     }
   }
   $pkgs->update($obj);
