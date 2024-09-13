@@ -107,8 +107,7 @@ is $l->error, 'Invalid SPDX license exception: some-unknown-exception', 'error';
 $l = lic('GPL-3.0-with-Qt-Company-Qt-exception-1.1');
 ok !$l->normalized, 'not normalized';
 ok !$l->exception,  'no exception';
-is $l->error, undef, 'no error';
-is_deeply $l->tree, {license => 'GPL-3.0-with-Qt-Company-Qt-exception-1.1'}, 'right structure';
+is $l->error, 'Invalid SPDX license: GPL-3.0-with-Qt-Company-Qt-exception-1.1', 'error';
 
 # Multiple licenses
 $l = lic('AGPL-3.0-only AND Ruby AND Artistic-1.0');

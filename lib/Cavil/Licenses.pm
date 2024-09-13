@@ -28,7 +28,7 @@ has [qw(error exception normalized tree)];
 
 our @EXPORT_OK = ('lic');
 
-# License and exception lists from https://github.com/openSUSE/obs-service-format_spec_file
+# Licenses and exceptions are updated with "perl tools/update_licenses.pl"
 my (%ALLOWED, %CHANGES, %EXCEPTIONS);
 {
   my @lines = split "\n", path(__FILE__)->dirname->child('resources', 'license_changes.txt')->slurp;
@@ -37,13 +37,13 @@ my (%ALLOWED, %CHANGES, %EXCEPTIONS);
     next if $line =~ /^SUSE-/;
     my ($target, $source) = split "\t", $line;
     $CHANGES{$source} = $target;
-    $ALLOWED{$target}++;
   }
 
+  my @licenses = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;
+  $ALLOWED{$_}++ for @licenses;
+
   my @exceptions = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
-  for my $exception (@exceptions) {
-    $EXCEPTIONS{$exception}++;
-  }
+  $EXCEPTIONS{$_}++ for @exceptions;
 }
 
 my $TOKEN_RE;

@@ -1,6 +1,5 @@
 First line
 0BSD	0BSD
-3D-Slicer-1.0	3D-Slicer-1.0
 AAL	AAL
 ADSL	ADSL
 AFL-1.1	AFL-1.1
@@ -20,7 +19,6 @@ AGPL-3.0-or-later	AGPL-3.0+
 AGPL-3.0-or-later	AGPL-3.0-or-later
 AGPL-3.0-or-later	AGPLv3+
 AGPL-3.0-or-later	SUSE-AGPL-3.0+
-AMD-newlib	AMD-newlib
 AMDPLPA	AMDPLPA
 AML	AML
 AML-glslang	AML-glslang
@@ -89,11 +87,9 @@ BSD-2-Clause	BSD 2-clause
 BSD-2-Clause	BSD-2-Clause
 BSD-2-Clause	BSD-2c
 BSD-2-Clause	BSD2c
-BSD-2-Clause-Darwin	BSD-2-Clause-Darwin
 BSD-2-Clause-Patent	BSD-2-Clause-Patent
 BSD-2-Clause-Patent	https://opensource.org/licenses/BSDplusPatent
 BSD-2-Clause-Views	BSD-2-Clause-Views
-BSD-2-Clause-first-lines	BSD-2-Clause-first-lines
 BSD-3-Clause	BSD (3-Clause)
 BSD-3-Clause	BSD 3-Clause
 BSD-3-Clause	BSD 3-clause (or similar)
@@ -116,7 +112,6 @@ BSD-3-Clause-No-Nuclear-License-2014	BSD-3-Clause-No-Nuclear-License-2014
 BSD-3-Clause-No-Nuclear-Warranty	BSD-3-Clause-No-Nuclear-Warranty
 BSD-3-Clause-Open-MPI	BSD-3-Clause-Open-MPI
 BSD-3-Clause-Sun	BSD-3-Clause-Sun
-BSD-3-Clause-acpica	BSD-3-Clause-acpica
 BSD-3-Clause-flex	BSD-3-Clause-flex
 BSD-4-Clause	BSD-4-Clause
 BSD-4-Clause	BSD4c
@@ -148,7 +143,6 @@ Bitstream-Vera	SUSE-Bitstream-Vera
 BlueOak-1.0.0	BlueOak-1.0.0
 Boehm-GC	Boehm-GC
 Borceux	Borceux
-Brian-Gladman-2-Clause	Brian-Gladman-2-Clause
 Brian-Gladman-3-Clause	Brian-Gladman-3-Clause
 C-UDA-1.0	C-UDA-1.0
 CAL-1.0	CAL-1.0
@@ -233,7 +227,6 @@ CERN-OHL-S-2.0	CERN-OHL-S-2.0
 CERN-OHL-W-2.0	CERN-OHL-W-2.0
 CFITSIO	CFITSIO
 CMU-Mach	CMU-Mach
-CMU-Mach-nodoc	CMU-Mach-nodoc
 CNRI-Jython	CNRI-Jython
 CNRI-Python	CNRI-Python
 CNRI-Python-GPL-Compatible	CNRI-Python-GPL-Compatible
@@ -252,7 +245,6 @@ CPOL-1.02	CPOL-1.02
 CUA-OPL-1.0	CUA-OPL-1.0
 Caldera	Caldera
 Caldera-no-preamble	Caldera-no-preamble
-Catharon	Catharon
 ClArtistic	ClArtistic
 Clips	Clips
 Community-Spec-1.0	Community-Spec-1.0
@@ -270,8 +262,6 @@ DOC	DOC
 DRL-1.0	DRL-1.0
 DRL-1.1	DRL-1.1
 DSDP	DSDP
-DocBook-Schema	DocBook-Schema
-DocBook-XML	DocBook-XML
 Dotseqn	Dotseqn
 ECL-1.0	ECL-1.0
 ECL-2.0	ECL-2.0
@@ -412,34 +402,23 @@ Giftware	Giftware
 Glide	Glide
 Glulxe	Glulxe
 Graphics-Gems	Graphics-Gems
-Gutmann	Gutmann
-HIDAPI	HIDAPI
 HP-1986	HP-1986
 HP-1989	HP-1989
 HPND	HPND
 HPND-DEC	HPND-DEC
-HPND-Fenneberg-Livingston	HPND-Fenneberg-Livingston
-HPND-INRIA-IMAG	HPND-INRIA-IMAG
-HPND-Intel	HPND-Intel
 HPND-Kevlin-Henney	HPND-Kevlin-Henney
 HPND-MIT-disclaimer	HPND-MIT-disclaimer
 HPND-Markus-Kuhn	HPND-Markus-Kuhn
-HPND-Netrek	HPND-Netrek
 HPND-Pbmplus	HPND-Pbmplus
 HPND-UC	HPND-UC
-HPND-UC-export-US	HPND-UC-export-US
 HPND-doc	HPND-doc
 HPND-doc-sell	HPND-doc-sell
 HPND-export-US	HPND-export-US
-HPND-export-US-acknowledgement	HPND-export-US-acknowledgement
 HPND-export-US-modify	HPND-export-US-modify
-HPND-export2-US	HPND-export2-US
-HPND-merchantability-variant	HPND-merchantability-variant
 HPND-sell-MIT-disclaimer-xserver	HPND-sell-MIT-disclaimer-xserver
 HPND-sell-regexpr	HPND-sell-regexpr
 HPND-sell-variant	HPND-sell-variant
 HPND-sell-variant-MIT-disclaimer	HPND-sell-variant-MIT-disclaimer
-HPND-sell-variant-MIT-disclaimer-rev	HPND-sell-variant-MIT-disclaimer-rev
 HTMLTIDY	HTMLTIDY
 HaskellReport	HaskellReport
 Hippocratic-2.1	Hippocratic-2.1
@@ -560,7 +539,6 @@ MIT	MIT-Licence
 MIT-0	MIT-0
 MIT-CMU	MIT-CMU
 MIT-Festival	MIT-Festival
-MIT-Khronos-old	MIT-Khronos-old
 MIT-Modern-Variant	MIT-Modern-Variant
 MIT-Wu	MIT-Wu
 MIT-advertising	MIT-advertising
@@ -588,8 +566,6 @@ MS-PL	MS-PL
 MS-PL	Ms-Pl
 MS-RL	MS-RL
 MTLL	MTLL
-Mackerras-3-Clause	Mackerras-3-Clause
-Mackerras-3-Clause-acknowledgment	Mackerras-3-Clause-acknowledgment
 MakeIndex	MakeIndex
 MakeIndex	SUSE-MakeIndex
 Martin-Birgmeier	Martin-Birgmeier
@@ -604,9 +580,7 @@ Mup	Mup
 NAIST-2003	NAIST-2003
 NASA-1.3	NASA-1.3
 NBPL-1.0	NBPL-1.0
-NCBI-PD	NCBI-PD
 NCGL-UK-2.0	NCGL-UK-2.0
-NCL	NCL
 NCSA	NCSA
 NGPL	NGPL
 NICTA-1.0	NICTA-1.0
@@ -624,6 +598,7 @@ NRL	NRL
 NTP	NTP
 NTP-0	NTP-0
 Naumen	Naumen
+Net-SNMP	Net-SNMP
 NetCDF	NetCDF
 NetCDF	SUSE-NetCDF
 Newsletr	Newsletr
@@ -632,7 +607,6 @@ NonFree	NonFree licenses
 NonFree	SUSE-NonFree
 Noweb	Noweb
 O-UDA-1.0	O-UDA-1.0
-OAR	OAR
 OCCT-PL	OCCT-PL
 OCLC-2.0	OCLC-2.0
 ODC-By-1.0	ODC-By-1.0
@@ -688,8 +662,6 @@ OSL-2.1	OSL-2.1
 OSL-3.0	OSL-3.0
 OpenPBS-2.3	OpenPBS-2.3
 OpenSSL	OpenSSL
-OpenSSL-standalone	OpenSSL-standalone
-OpenVision	OpenVision
 PADL	PADL
 PDDL-1.0	PDDL-1.0
 PHP-3.0	PHP-3.0
@@ -697,7 +669,6 @@ PHP-3.01	PHP License
 PHP-3.01	PHP-3.0.1
 PHP-3.01	PHP-3.01
 PHP-3.01	The PHP License, version 3.01
-PPL	PPL
 PSF-2.0	PSF-2.0
 Parity-6.0.0	Parity-6.0.0
 Parity-7.0.0	Parity-7.0.0
@@ -731,7 +702,6 @@ Ruby	GPL-2.0+ or Ruby
 Ruby	GPLv2+ or Ruby
 Ruby	Ruby
 Ruby	same as ruby's
-Ruby-pty	Ruby-pty
 SAX-PD	SAX-PD
 SAX-PD-2.0	SAX-PD-2.0
 SCEA	SCEA
@@ -752,7 +722,6 @@ SNIA	SNIA
 SPL-1.0	SPL-1.0
 SSH-OpenSSH	SSH-OpenSSH
 SSH-short	SSH-short
-SSLeay-standalone	SSLeay-standalone
 SSPL-1.0	SSPL-1.0
 SUSE-BSD-3-Clause-with-non-nuclear-addition	BSD-3-Clause with addition which clarifies the software is not licensed for use in design, build or operation of nuclear facility
 SUSE-BSD-3-Clause-with-non-nuclear-addition+	SUSE-BSD-3-Clause-with-non-nuclear-addition+
@@ -889,8 +858,6 @@ SUSE-Scrot	Scrot license (advertising clause)
 SUSE-Scrot+	SUSE-Scrot+
 SUSE-Sun-Laboratories	http://pastebin.com/UubnS3se
 SUSE-Sun-Laboratories+	SUSE-Sun-Laboratories+
-SUSE-TGPPL-1.0	https://zooko.com/uri/URI:DIR2-RO:d23ekhh2b4xashf53ycrfoynkq:y4vpazbrt2beddyhgwcch4sduhnmmefdotlyelojxg4tyzllhb4a/tgppl.html
-SUSE-TGPPL-1.0+	SUSE-TGPPL-1.0+
 SUSE-TeX	http://en.wikipedia.org/wiki/TeX#License
 SUSE-TeX+	SUSE-TeX+
 SUSE-Ubuntu-Font-License-1.0	http://font.ubuntu.com/licence/
@@ -922,8 +889,6 @@ Spencer-86	Spencer-86
 Spencer-94	Spencer-94
 Spencer-99	Spencer-99
 SugarCRM-1.1.3	SugarCRM-1.1.3
-Sun-PPP	Sun-PPP
-Sun-PPP-2000	Sun-PPP-2000
 SunPro	SunPro
 Symlinks	Symlinks
 TAPR-OHL-1.0	TAPR-OHL-1.0
@@ -943,7 +908,6 @@ TU-Berlin-2.0	TU-Berlin-2.0
 TermReadKey	TermReadKey
 UCAR	UCAR
 UCL-1.0	UCL-1.0
-UMich-Merit	UMich-Merit
 UPL-1.0	UPL-1.0
 URT-RLE	URT-RLE
 Unicode	http://www.unicode.org/copyright.html
@@ -975,7 +939,6 @@ X11	X11 (BSD like)
 X11	X11 MIT
 X11	X11/MIT
 X11-distribute-modifications-variant	X11-distribute-modifications-variant
-X11-swapped	X11-swapped
 XFree86-1.1	XFree86-1.1
 XSkat	XSkat
 Xdebug-1.03	Xdebug-1.03
@@ -999,8 +962,6 @@ Zlib	Zlib
 Zlib	Zlib License
 Zlib	zlib
 Zlib	zlib/libpng License
-any-OSI	any-OSI
-bcrypt-Solar-Designer	bcrypt-Solar-Designer
 blessing	blessing
 bzip2-1.0.6	bzip2-1.0.6
 check-cvs	check-cvs
@@ -1008,7 +969,6 @@ checkmk	checkmk
 copyleft-next-0.3.0	copyleft-next-0.3.0
 copyleft-next-0.3.1	copyleft-next-0.3.1
 curl	curl
-cve-tou	cve-tou
 diffmark	diffmark
 dtoa	dtoa
 dvipdfm	dvipdfm
@@ -1017,7 +977,6 @@ etalab-2.0	etalab-2.0
 fwlw	fwlw
 gSOAP-1.3b	gSOAP-1.3b
 gnuplot	gnuplot
-gtkbook	gtkbook
 hdparm	hdparm
 iMatix	iMatix
 libpng-2.0	libpng-2.0
@@ -1032,17 +991,14 @@ mpi-permissive	mpi-permissive
 mpich2	mpich2
 mplus	SUSE-mplus
 mplus	mplus
-pkgconf	pkgconf
 pnmstitch	pnmstitch
 psfrag	psfrag
 psutils	psutils
 python-ldap	python-ldap
 radvd	radvd
 snprintf	snprintf
-softSurfer	softSurfer
 ssh-keyscan	ssh-keyscan
 swrule	swrule
-threeparttable	threeparttable
 ulem	ulem
 w3m	w3m
 xinetd	SUSE-xinetd
@@ -1050,5 +1006,4 @@ xinetd	xinetd
 xkeyboard-config-Zinoviev	xkeyboard-config-Zinoviev
 xlock	xlock
 xpp	xpp
-xzoom	xzoom
 zlib-acknowledgement	zlib-acknowledgement
