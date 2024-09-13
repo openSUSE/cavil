@@ -18,7 +18,7 @@ my $ua = Mojo::UserAgent->new;
 # Licenses
 my $dom = $ua->get($LICENSE_URL)->result->dom;
 my @licenses;
-for my $license ($dom->find('code[property="spdx:licenseId"]')->each) {
+for my $license ($dom->at('table')->find('code[property="spdx:licenseId"]')->each) {
   push @licenses, $license->text;
 }
 $license_file->spew(join("\n", sort @licenses) . "\n");
@@ -27,7 +27,7 @@ say qq(Updated @{[scalar @licenses]} licenses in "$license_file");
 # Exceptions
 $dom = $ua->get($EXCEPTION_URL)->result->dom;
 my @exceptions;
-for my $exception ($dom->find('code[property="spdx:licenseExceptionId"]')->each) {
+for my $exception ($dom->at('table')->find('code[property="spdx:licenseExceptionId"]')->each) {
   push @exceptions, $exception->text;
 }
 $exception_file->spew(join("\n", sort @exceptions) . "\n");
