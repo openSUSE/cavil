@@ -35,7 +35,6 @@ LLVM-exception
 LZMA-exception
 Libtool-exception
 Linux-syscall-note
-Nokia-Qt-exception-1.1
 OCCT-exception-1.0
 OCaml-LGPL-linking-exception
 OpenJDK-assembly-exception-1.0
