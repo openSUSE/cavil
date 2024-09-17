@@ -256,7 +256,12 @@ export default {
       if (license === '') {
         this.results = this.suggestions;
       } else {
-        this.results = this.suggestions.filter(name => name.toLowerCase().includes(license.toLowerCase()));
+        const words = license.split(' ');
+        let results = this.suggestions;
+        for (const word of words) {
+          results = results.filter(name => name.toLowerCase().includes(word.toLowerCase()));
+        }
+        this.results = results;
       }
     },
     fillLicense(result) {
