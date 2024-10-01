@@ -101,8 +101,9 @@
             <a v-else>Unknown file</a>
             <span v-if="snippet.files === 2">, and 1 other file</span>
             <span v-else-if="snippet.files > 2">, and {{ snippet.files }} other files</span>
-            <div v-if="snippet.approved === true" class="float-end">
-              <i class="fas fa-check-circle"></i>
+            <div class="float-end">
+              <i v-if="snippet.embargoed === true" class="fas fa-lock" title="Embargoed"></i>
+              <i v-if="snippet.approved === true" class="fas fa-check-circle ms-2" title="Approved by a human"></i>
             </div>
           </div>
           <div class="snippet-source">
@@ -214,7 +215,7 @@ export default {
 
       for (const snippet of snippets) {
         snippet.buttonPressed = null;
-        snippet.fileUrl = `/reviews/file_view/${snippet.package}/${snippet.filename}`;
+        snippet.fileUrl = `/reviews/file_view/${snippet.filepackage}/${snippet.filename}`;
         snippet.editUrl = `/snippet/edit/${snippet.id}`;
         let num = snippet.sline ?? 1;
         const lines = [];

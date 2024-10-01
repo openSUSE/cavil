@@ -35,6 +35,14 @@
             <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
           </td>
         </tr>
+        <tr>
+          <th class="fit text-start noleftpad" scope="row">
+            <i class="fas fa-lock"></i>
+          </th>
+          <th class="fit text-start noleftpad" scope="row">Embargoed:</th>
+          <td v-if="pkgEmbargoed === true" id="pkg-embargoed">Yes</td>
+          <td v-else id="pkg-embargoed">No</td>
+        </tr>
         <tr v-if="pkgFiles.length > 0">
           <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-cubes"></i>
@@ -348,6 +356,7 @@ export default {
       history: [],
       notice: null,
       pkgChecksum: null,
+      pkgEmbargoed: false,
       pkgFiles: [],
       pkgLicense: null,
       pkgName: null,
@@ -410,6 +419,7 @@ export default {
       this.pkgType = data.package_type;
       this.pkgUrl = data.package_url;
       this.pkgVersion = data.package_version;
+      this.pkgEmbargoed = data.embargoed;
 
       this.pkgChecksum = data.package_checksum;
       this.checkoutUrl = `/reviews/file_view/${this.pkgId}`;

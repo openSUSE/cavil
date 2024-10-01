@@ -29,7 +29,8 @@ $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
-  qw(parse_exclude_file pattern_checksum pattern_matches read_lines snippet_checksum ssh_sign)
+  qw(parse_exclude_file pattern_checksum pattern_matches read_lines request_id_from_external_link snippet_checksum),
+  qw(ssh_sign)
 );
 
 my $MAX_FILE_SIZE = 30000;
@@ -214,6 +215,11 @@ sub read_lines ($path, $start_line, $end_line) {
     $text .= "$line\n";
   }
   return $text;
+}
+
+sub request_id_from_external_link ($link) {
+  return $1 if $link =~ /^(?:obs|ibs)#(\d+)$/;
+  return undef;
 }
 
 # Based on https://www.suse.com/c/multi-factor-authentication-on-suses-build-service/

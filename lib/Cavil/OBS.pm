@@ -41,6 +41,22 @@ has ua        => sub {
 };
 has user => sub { die 'Missing ssh user' };
 
+sub check_for_embargo ($self, $api, $request) {
+  my $url = _url($api, 'public', 'request', $request);
+  my $res = $self->_get($url);
+  croak "$url: " . $res->code unless $res->is_success;
+
+  for my $project ($res->dom->find('action [project]')->map('attr', 'project')->uniq->each) {
+    my $url = _url($api, 'public', 'source', $project, '_attribute');
+    my $res = $self->_get($url);
+    next if $res->code == 404;
+    croak "$url: " . $res->code unless $res->is_success;
+    return 1 if $res->dom->at('attributes attribute[name=EmbargoDate]');
+  }
+
+  return 0;
+}
+
 sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   $dir = path($dir)->make_path;
 

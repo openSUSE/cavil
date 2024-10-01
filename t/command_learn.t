@@ -153,4 +153,84 @@ subtest 'Snippets added' => sub {
   };
 };
 
+subtest 'Embargo handling' => sub {
+  my $dir = $tmp->child('embargo')->make_path;
+
+  my $pkg_id = $app->packages->add(
+    name            => 'some-security-package',
+    checkout_dir    => 'f51a419bea8f272484680fb72e5e1234',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => 1,
+    project         => 'openSUSE:Factory',
+    priority        => 3,
+    package         => 'some-security-package',
+    srcmd5          => 'a51a419bea8f272484680fb72e5e123f',
+    embargoed       => 1
+  );
+  my $snippets       = $app->snippets;
+  my $snippet_one_id = $snippets->find_or_create(
+    {hash => 'b51a469b6a8f2624866806b7265e123c', text => 'This is an embargo test', package => $pkg_id});
+  my $snippet_two_id = $snippets->find_or_create(
+    {hash => '751746976a8f7624766807b7265e1237', text => 'This is another embargo test', package => $pkg_id});
+  my $snippet_three_id
+    = $snippets->find_or_create({hash => 'abcd46976a8f7624766807b7265e12cd', text => 'Abandoned unembargoed snippet'});
+  $snippets->approve($snippet_one_id,   'true');
+  $snippets->approve($snippet_two_id,   'false');
+  $snippets->approve($snippet_three_id, 'true');
+
+  subtest 'Embargoed snippets are not exported' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('learn', '-o', "$dir");
+    }
+    like $buffer, qr/Exporting snippet 1/, 'first snippet';
+    like $buffer, qr/Exporting snippet 2/, 'second snippet';
+    like $buffer, qr/Exporting snippet 9/, 'third snippet';
+    like $buffer, qr/Exported 3 snippets/, 'two snippets exported';
+
+    ok !-e $dir->child('bad',  '751746976a8f7624766807b7265e1237.txt'), 'embargoed file does not exist';
+    ok !-e $dir->child('good', 'b51a469b6a8f2624866806b7265e123c.txt'), 'embargoed file does not exist';
+
+    my $bad = $dir->child('bad')->list;
+    is $bad->size, 1, 'one file';
+    like $bad->first->slurp, qr/Fixed copyright notice/, 'right content';
+    my $good = $dir->child('good')->list;
+    is $good->size, 2, 'two files';
+    like $good->first->slurp, qr/Copyright Holder/,              'right content';
+    like $good->last->slurp,  qr/Abandoned unembargoed snippet/, 'right content';
+  };
+
+  subtest 'Snippets are exported once the embargo status has been lifted' => sub {
+    $snippets->find_or_create(
+      {hash => 'b51a469b6a8f2624866806b7265e123c', text => 'This is an embargo test', package => 1});
+    $snippets->find_or_create(
+      {hash => '751746976a8f7624766807b7265e1237', text => 'This is another embargo test', package => 1});
+
+
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('learn', '-o', "$dir");
+    }
+    like $buffer, qr/Exporting snippet 7/, 'first unembargoed snippet';
+    like $buffer, qr/Exporting snippet 8/, 'second unembargoed snippet';
+    like $buffer, qr/Exported 5 snippets/, 'five snippets exported';
+
+    ok -e $dir->child('bad',  '751746976a8f7624766807b7265e1237.txt'), 'unembargoed file does exist';
+    ok -e $dir->child('good', 'b51a469b6a8f2624866806b7265e123c.txt'), 'unembargoed file does exist';
+
+    my $bad = $dir->child('bad')->list;
+    is $bad->size, 2, 'two files';
+    my $good = $dir->child('good')->list;
+    is $good->size, 3, 'three files';
+    like $dir->child('bad', '751746976a8f7624766807b7265e1237.txt')->slurp, qr/This is another embargo test/,
+      'right content';
+    like $dir->child('good', 'b51a469b6a8f2624866806b7265e123c.txt')->slurp, qr/This is an embargo test/,
+      'right content';
+  };
+};
+
 done_testing();

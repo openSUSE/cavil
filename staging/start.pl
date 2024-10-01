@@ -145,7 +145,8 @@ $pkg_id = $pkgs->add(
   project         => 'just:a:test',
   package         => 'harbor-helm',
   srcmd5          => 'abc1c36647a5d356883d490da2140def',
-  priority        => 5
+  priority        => 5,
+  embargoed       => 1
 );
 $pkgs->imported($pkg_id);
 my $harbor = $pkgs->find($pkg_id);

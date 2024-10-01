@@ -173,7 +173,8 @@ sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
     return;
   }
 
-  my $snippet = $self->{snippets}->{$hash} ||= $self->{app}->snippets->find_or_create($hash, $text);
+  my $snippet = $self->{snippets}->{$hash}
+    ||= $self->{app}->snippets->find_or_create({hash => $hash, text => $text, package => $self->{package}});
   $self->{db}->insert('file_snippets',
     {package => $self->{package}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
 

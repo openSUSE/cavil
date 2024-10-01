@@ -295,7 +295,7 @@ sub _dig_report {
   }
   my $matches = $db->select('pattern_matches', [qw(id file pattern sline eline)], $query);
 
-  $query = {package => $pkg->{id}};
+  $query = {'file_snippets.package' => $pkg->{id}};
   if ($limit_to_file) {
     $query->{file} = $limit_to_file;
   }

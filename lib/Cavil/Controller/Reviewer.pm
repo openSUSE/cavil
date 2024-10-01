@@ -114,6 +114,7 @@ sub meta ($self) {
       actions           => $actions,
       copied_files      => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
       created           => $pkg->{created_epoch},
+      embargoed         => \!!$pkg->{embargoed},
       errors            => $spec->{errors} // [],
       external_link     => $pkg->{external_link},
       has_spdx_report   => \!!$has_spdx_report,

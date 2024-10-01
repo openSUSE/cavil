@@ -31,17 +31,25 @@ sub find ($self, $id) {
   return $self->pg->db->select('snippets', '*', {id => $id})->hash;
 }
 
-sub find_or_create ($self, $hash, $text, $prefix = '') {
+sub find_or_create ($self, $new) {
+  $new->{prefix} //= '';
   my $db = $self->pg->db;
 
-  my $snip = $db->select('snippets', 'id', {hash => $hash})->hash;
-  return $snip->{id} if $snip;
+  my $old = $db->query(
+    'SELECT s.id, bp.embargoed FROM snippets s LEFT JOIN bot_packages bp ON (bp.id = s.package)
+     WHERE hash = ?', $new->{hash}
+  )->hash;
 
-  $db->query(
-    'insert into snippets (hash, text) values (?, ?)
-   on conflict do nothing', "$prefix$hash", $text
-  );
-  return $db->select('snippets', 'id', {hash => "$prefix$hash"})->hash->{id};
+  # Inherit embargo status until there is no embargo anymore (the value will tell us which package lifted the embargo)
+  if ($old) {
+    $db->query('UPDATE snippets SET package = ? WHERE id = ?', $new->{package}, $old->{id}) if $old->{embargoed};
+    return $old->{id};
+  }
+
+  my $hash = "$new->{prefix}$new->{hash}";
+  $db->query('INSERT INTO snippets (hash, text, package) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',
+    $hash, $new->{text}, $new->{package});
+  return $db->select('snippets', 'id', {hash => $hash})->hash->{id};
 }
 
 sub from_file ($self, $file_id, $first_line, $last_line) {
@@ -53,7 +61,8 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   my $path    = path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked', $file->{filename});
 
   my ($text, $hash) = file_and_checksum($path, $first_line, $last_line);
-  my $snippet_id = $self->find_or_create($hash, $text, 'manual:');
+  my $snippet_id
+    = $self->find_or_create({hash => $hash, text => $text, package => $package->{id}, prefix => 'manual:'});
   $db->insert('file_snippets',
     {package => $package->{id}, snippet => $snippet_id, sline => $first_line, eline => $last_line, file => $file_id});
 
@@ -97,7 +106,8 @@ sub unclassified ($self, $options) {
   }
 
   my $snippets = $db->query(
-    "SELECT *, COUNT(*) OVER() AS total FROM snippets
+    "SELECT s.*, bp.embargoed, COUNT(*) OVER() AS total
+     FROM snippets s LEFT JOIN bot_packages bp ON (bp.id = s.package)
      WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe ORDER BY id DESC LIMIT 10"
   )->hashes;
 
@@ -106,13 +116,13 @@ sub unclassified ($self, $options) {
     $total = delete $snippet->{total};
     $snippet->{likelyness} = int($snippet->{likelyness} * 100);
     my $files = $db->query(
-      'SELECT fs.sline, mf.filename, mf.package
+      'SELECT fs.sline, mf.filename, mf.package AS filepackage
        FROM file_snippets fs JOIN matched_files mf ON (fs.file = mf.id)
        WHERE fs.snippet = ? ORDER BY fs.id DESC LIMIT 1', $snippet->{id}
     )->hashes;
     $snippet->{files} = $files->size;
     my $file = $files->[0] || {};
-    $snippet->{$_} = $file->{$_} for qw(filename sline package);
+    $snippet->{$_} = $file->{$_} for qw(filename sline filepackage);
 
     my $license = $db->query('SELECT license, risk FROM license_patterns WHERE id = ? AND license != ?',
       $snippet->{like_pattern} // 0, '')->hash // {};

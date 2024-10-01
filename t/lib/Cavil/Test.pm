@@ -57,6 +57,14 @@ sub default_config ($self) {
   };
 }
 
+sub embargo_fixtures ($self, $app) {
+  $self->mojo_fixtures($app);
+  my $patterns = $app->patterns;
+
+  # A pattern that will create new snippets with embargo
+  $patterns->create(pattern => 'Added EXPERIMENTAL');
+}
+
 sub just_patterns_fixtures ($self, $app) {
   $self->no_fixtures($app);
   my $patterns = $app->patterns;

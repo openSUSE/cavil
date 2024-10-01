@@ -78,20 +78,26 @@ sub create_package ($self) {
 
   $obj->{obsolete} = 0;
   $pkgs->update($obj);
-  $pkgs->obs_import(
-    $obj->{id},
-    {
-      api       => $api,
-      project   => $project,
-      pkg       => $pkg,
-      srcpkg    => $srcpkg,
-      rev       => $rev,
-      srcmd5    => $srcmd5,
-      verifymd5 => $verifymd5,
-      priority  => $prio
-    },
-    $prio + 10
-  ) if $create;
+  if ($create) {
+    $pkgs->obs_import(
+      $obj->{id},
+      {
+        api           => $api,
+        project       => $project,
+        pkg           => $pkg,
+        srcpkg        => $srcpkg,
+        rev           => $rev,
+        srcmd5        => $srcmd5,
+        verifymd5     => $verifymd5,
+        external_link => $obj->{external_link},
+        priority      => $prio
+      },
+      $prio + 10
+    );
+  }
+  else {
+    $pkgs->obs_embargo($obj->{id}, {api => $api, external_link => $obj->{external_link}});
+  }
 
   $self->render(json => {saved => $obj});
 }

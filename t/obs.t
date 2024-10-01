@@ -393,6 +393,168 @@ get '/public/source/:project/postgresql96-plr/_meta' => [project => ['server:dat
 </package>
 EOF
 
+get '/public/request/1234' => {text => <<'EOF'};
+<request id="1234" creator="test2">
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:4321" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
+      rev="961b20692bc317a3c6ab3166312425da"/>
+    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33127"/>
+  </action>
+  <description>requesting release</description>
+</request>
+EOF
+
+get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:4321'] => {text => <<'EOF'};
+<attributes>
+  <attribute name="EmbargoDate" namespace="OBS">
+    <value>2024-03-27 07:00 UTC</value>
+  </attribute>
+</attributes>
+EOF
+
+get '/public/request/1235' => {text => <<'EOF'};
+<request id="1234" creator="test2">
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:5321" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
+      rev="961b20693bc397a3c65a3164312425db"/>
+    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33127"/>
+  </action>
+  <description>requesting release</description>
+</request>
+EOF
+
+get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:5321'] => {text => <<'EOF'};
+<attributes/>
+EOF
+
+get '/public/request/324874' => {text => <<'EOF'};
+<request id="324874" creator="test2">
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:34725" package="curl-mini.SUSE_SLE-15-SP2_Update"
+      rev="9698206925c397a3c6a43166312425dc"/>
+    <target project="SUSE:SLE-15-SP2:Update" package="curl-mini.33127"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:34725" package="curl.SUSE_SLE-15-SP2_Update"
+      rev="7b1b7765b09ae0622ee1f444a03b1dee"/>
+    <target project="SUSE:SLE-15-SP2:Update" package="curl.33127"/>
+    <acceptinfo rev="1" srcmd5="38d742c3eb1b4d27d95003c647b7ffa2" oproject="SUSE:SLE-15-SP2:Update"
+      opackage="curl.31896" osrcmd5="6f2bce80ce9601ae0544ebfab8ca1cbe" oxsrcmd5="6f2bce80ce9601ae0544ebfab8ca1cbe"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:34725" package="patchinfo"/>
+    <target project="SUSE:SLE-15-SP2:Update" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SUSE-MicroOS:5.1:aarch64" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SUSE-MicroOS:5.1:s390x" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SUSE-MicroOS:5.1:x86_64" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SUSE-MicroOS:5.2:aarch64" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SUSE-MicroOS:5.2:s390x" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SUSE-MicroOS:5.2:x86_64" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:aarch64" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:ppc64le" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:s390x" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
+    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:x86_64" package="patchinfo.33127"/>
+    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
+  </action>
+  <state name="accepted" who="test1" when="2024-04-05T12:03:55" created="2024-03-26T10:52:47" approver="eroca">
+    <comment>Auto accept</comment>
+  </state>
+  <review state="accepted" created="2024-03-26T10:52:50" when="2024-03-26T12:36:42" who="test1"
+    by_group="autobuild-team">
+    <comment>reviewed_okay</comment>
+    <history who="test1" when="2024-03-26T12:36:42">
+      <description>Review got accepted</description>
+      <comment>reviewed_okay</comment>
+    </history>
+  </review>
+  <review state="accepted" created="2024-03-26T10:52:50" when="2024-04-03T11:54:34" who="test2"
+    by_group="maintenance-release-approver">
+    <comment>OK</comment>
+    <history who="test2" when="2024-04-03T11:54:34">
+      <description>Review got accepted</description>
+      <comment>OK</comment>
+    </history>
+  </review>
+  <review state="accepted" created="2024-03-26T10:52:50" when="2024-03-26T11:00:03" who="maintenance-robot"
+    by_group="qam-auto">
+    <comment>reviewers added: qam-openqa</comment>
+    <history who="maintenance-robot" when="2024-03-26T11:00:03">
+      <description>Review got accepted</description>
+      <comment>reviewers added: qam-openqa</comment>
+    </history>
+  </review>
+  <review state="accepted" created="2024-03-26T11:00:03" when="2024-04-05T12:03:30" who="sle-qam-openqa"
+    by_group="qam-openqa">
+    <comment>Request accepted for 'qam-openqa' based on data in http://dashboard.qam.suse.de/</comment>
+    <history who="sle-qam-openqa" when="2024-04-05T12:03:30">
+      <description>Review got accepted</description>
+      <comment>Request accepted for 'qam-openqa' based on data in http://dashboard.qam.suse.de/</comment>
+    </history>
+  </review>
+  <description>requesting release</description>
+</request>
+EOF
+
+get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:33127'] => {text => <<'EOF'};
+<attributes/>
+EOF
+
+get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:34725'] => {text => <<'EOF'};
+<attributes>
+  <attribute name="ScheduledReleaseDate" namespace="MAINT">
+    <value>2024-07-16 12:00 UTC</value>
+  </attribute>
+  <attribute name="RejectReason" namespace="MAINT">
+    <value>338592:admin</value>
+    <value>341702:admin</value>
+  </attribute>
+  <attribute name="EmbargoDate" namespace="OBS">
+    <value>2024-09-24 12:00 UTC</value>
+  </attribute>
+  <attribute name="MaintenanceProject" namespace="CPE"/>
+</attributes>
+EOF
+
 my $AUTHENTICATED = 0;
 get '/source/:project/kernel-default' => [project => ['openSUSE:Factory']] => (query => {view => 'info'}) => sub ($c) {
   if (($c->req->headers->authorization // '') =~ /^Signature keyId="legaldb",algorithm="ssh",.+,created="\d+"$/) {
@@ -491,6 +653,12 @@ subtest 'Source download for missing packages' => sub {
   like $@, qr/does-not-exist/, 'right error';
   eval { $obs->download_source($api, 'home:kraih', 'perl-Mojo-SQLite', $dir); };
   like $@, qr/Mojo-SQLite-1.004.tar.gz/, 'right error';
+};
+
+subtest 'Embargo' => sub {
+  is $obs->check_for_embargo($api, 1234),   1, 'embargoed';
+  is $obs->check_for_embargo($api, 1235),   0, 'not embargoed';
+  is $obs->check_for_embargo($api, 324874), 1, 'embargoed';
 };
 
 subtest 'Bot API (with Minion background jobs)' => sub {

@@ -36,7 +36,8 @@ sub add ($self, %args) {
     source          => $source_id,
     requesting_user => $args{requesting_user},
     priority        => $args{priority},
-    state           => 'new'
+    state           => 'new',
+    embargoed       => $args{embargoed} ? 1 : 0
   };
   return $db->insert('bot_packages', $pkg, {returning => 'id'})->hash->{id};
 }
@@ -393,6 +394,16 @@ sub name_suggestions ($self, $partial) {
   )->arrays->flatten->to_array;
 }
 
+sub obs_embargo ($self, $id, $data, $priority = 5) {
+  my $pkg = $self->find($id);
+  return $self->minion->enqueue(
+    obs_embargo => [$id, $data] => {
+      priority => $priority,
+      notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
+    }
+  );
+}
+
 sub obs_import ($self, $id, $data, $priority = 5) {
   my $pkg = $self->find($id);
   return $self->minion->enqueue(
@@ -481,7 +492,7 @@ sub unpacked ($self, $id) {
 
 sub update ($self, $pkg) {
   my %updates = map { exists $pkg->{$_} ? ($_ => $pkg->{$_}) : () }
-    (qw(created checksum priority state obsolete result notice reviewed reviewing_user external_link));
+    (qw(created checksum priority state obsolete result notice reviewed reviewing_user external_link embargoed));
   $updates{reviewed} = \'now()' if $pkg->{review_timestamp};
   return $self->pg->db->update('bot_packages', \%updates, {id => $pkg->{id}});
 }

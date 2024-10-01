@@ -120,14 +120,19 @@ sub _output_snippets ($self, $good, $bad) {
 
   my $count = my $last_id = 0;
   while (1) {
-    my $batch
-      = $db->query('SELECT * FROM snippets WHERE approved = true AND id > ? ORDER BY id ASC LIMIT 100', $last_id);
+    my $batch = $db->query(
+      'SELECT s.*, bp.embargoed FROM snippets s LEFT JOIN bot_packages bp ON (bp.id = s.package)
+       WHERE approved = true AND s.id > ? ORDER BY s.id ASC LIMIT 100', $last_id
+    );
     last if $batch->rows == 0;
 
     for my $hash ($batch->hashes->each) {
-      $count++;
       my $id = $hash->{id};
       $last_id = $id if $id > $last_id;
+
+      next if $hash->{embargoed};
+
+      $count++;
       my $dir  = $hash->{license} ? $good : $bad;
       my $file = $dir->child("$hash->{hash}.txt");
       next unless _spew($file, $hash->{text});
