@@ -80,7 +80,7 @@ sub unclassified ($self, $options) {
   my $before = '';
   if ($options->{before} > 0) {
     my $quoted = $db->dbh->quote($options->{before});
-    $before = "AND id < $quoted";
+    $before = "AND s.id < $quoted";
   }
 
   my $confidence = '';
@@ -108,7 +108,7 @@ sub unclassified ($self, $options) {
   my $snippets = $db->query(
     "SELECT s.*, bp.embargoed, COUNT(*) OVER() AS total
      FROM snippets s LEFT JOIN bot_packages bp ON (bp.id = s.package)
-     WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe ORDER BY id DESC LIMIT 10"
+     WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe ORDER BY s.id DESC LIMIT 10"
   )->hashes;
 
   my $total = 0;
