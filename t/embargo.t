@@ -232,6 +232,8 @@ subtest 'Embargoed snippets' => sub {
         ->json_like('/snippets/1/text', qr/added EXPERIMENTAL support for IPv6/)->json_is('/snippets/2/package', 1)
         ->json_is('/snippets/2/filepackage', 2)->json_is('/snippets/2/embargoed', 0)
         ->json_like('/snippets/2/text', qr/added EXPERIMENTAL xml attribute/);
+      $t->get_ok('/snippets/meta?before=5&onfidence=100&isClassified=false&isApproved=false&isLegal=true&notLegal=true')
+        ->status_is(200)->json_is('/total', 4);
     };
 
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
