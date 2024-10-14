@@ -555,6 +555,40 @@ get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:34725'
 </attributes>
 EOF
 
+get '/public/request/5678' => {text => <<'EOF'};
+<request id="5678" creator="test2">
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:5678" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
+      rev="961b20692bc318a3c6ab3166312425dc"/>
+    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33128"/>
+  </action>
+  <description>requesting release</description>
+</request>
+EOF
+
+get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:5678'] => {status => 400, text => <<'EOF'};
+<status code="remote_project">
+  <summary>Attribute access to remote project is not yet supported</summary>
+</status
+EOF
+
+get '/public/request/6789' => {text => <<'EOF'};
+<request id="5678" creator="test2">
+  <action type="maintenance_release">
+    <source project="SUSE:Maintenance:6789" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
+      rev="961b20692bc318a3c6ab3166312425df"/>
+    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33129"/>
+  </action>
+  <description>requesting release</description>
+</request>
+EOF
+
+get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:6789'] => {status => 501, text => <<'EOF'};
+<status code="remote_project">
+  <summary>Attribute access to remote project is not yet supported</summary>
+</status
+EOF
+
 my $AUTHENTICATED = 0;
 get '/source/:project/kernel-default' => [project => ['openSUSE:Factory']] => (query => {view => 'info'}) => sub ($c) {
   if (($c->req->headers->authorization // '') =~ /^Signature keyId="legaldb",algorithm="ssh",.+,created="\d+"$/) {
@@ -659,6 +693,8 @@ subtest 'Embargo' => sub {
   is $obs->check_for_embargo($api, 1234),   1, 'embargoed';
   is $obs->check_for_embargo($api, 1235),   0, 'not embargoed';
   is $obs->check_for_embargo($api, 324874), 1, 'embargoed';
+  is $obs->check_for_embargo($api, 5678),   0, 'not embargoed';
+  is $obs->check_for_embargo($api, 6789),   0, 'not embargoed';
 };
 
 subtest 'Bot API (with Minion background jobs)' => sub {

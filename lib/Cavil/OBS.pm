@@ -47,9 +47,16 @@ sub check_for_embargo ($self, $api, $request) {
   croak "$url: " . $res->code unless $res->is_success;
 
   for my $project ($res->dom->find('action [project]')->map('attr', 'project')->uniq->each) {
-    my $url = _url($api, 'public', 'source', $project, '_attribute');
-    my $res = $self->_get($url);
-    next if $res->code == 404;
+    my $url  = _url($api, 'public', 'source', $project, '_attribute');
+    my $res  = $self->_get($url);
+    my $code = $res->code;
+    next if $code == 404;
+
+    # Looks like OBS has repo types that do not support attributes yet and produces a bad 400 response in such cases
+    # (501 is supposed to treplace it in the future)
+    next if $code == 400 && $res->dom->at('status[code=remote_project]');
+    next if $code == 501;
+
     croak "$url: " . $res->code unless $res->is_success;
     return 1 if $res->dom->at('attributes attribute[name=EmbargoDate]');
   }
