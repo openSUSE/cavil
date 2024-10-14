@@ -14,6 +14,12 @@
     </div>
     <div class="col-md-2">
       <div class="stats">
+        <div class="stats-body">{{ manualReviews }}</div>
+        <div class="stats-description">Manual Reviews</div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="stats">
         <div class="stats-body">{{ rejectedPackages }}</div>
         <div class="stats-description">Rejected Packages</div>
       </div>
@@ -37,6 +43,7 @@ export default {
     return {
       activePackages: 0,
       embargoedPackages: 0,
+      manualReviews: 0,
       openReviews: 0,
       refreshDelay: 120000,
       refreshUrl: '/stats/meta',
@@ -48,6 +55,7 @@ export default {
       this.activePackages = data.active_packages;
       this.embargoedPackages = data.embargoed_packages;
       this.openReviews = data.open_reviews;
+      this.manualReviews = data.manual_reviews;
       this.rejectedPackages = data.rejected_packages;
     }
   }

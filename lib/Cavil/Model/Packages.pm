@@ -492,7 +492,8 @@ sub stats {
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false) AS active_packages,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND embargoed = true) AS embargoed_packages,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'unacceptable') AS rejected_packages,
-       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'new') AS open_reviews"
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'new') AS open_reviews,
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND reviewing_user IS NOT NULL) AS manual_reviews"
   )->hash;
 
   return $stats;
