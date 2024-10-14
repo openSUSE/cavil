@@ -11,6 +11,7 @@ import 'moment';
 import {setupCodeMirrorForFile} from './legacy/file.js';
 import {setupReviewDetails} from './legacy/review.js';
 import {fromNow} from './legacy/time.js';
+import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
 import EditSnippet from './vue/EditSnippet.vue';
 import IgnoredFiles from './vue/IgnoredFiles.vue';
@@ -105,6 +106,10 @@ window.cavil = {
     const app = createApp(ReviewSearch);
     app.config.globalProperties.currentPackage = pkg;
     app.mount('#review-search');
+  },
+
+  setupStatistics() {
+    createApp(CavilStatistics).mount('#statistics');
   },
 
   fromNow,

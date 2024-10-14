@@ -1,0 +1,9 @@
+% layout 'default';
+% title 'Statistics';
+
+<div id="statistics"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupStatistics();
+% end
+

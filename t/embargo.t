@@ -105,7 +105,7 @@ EOF
 
 get '/*whatever' => {whatever => ''} => {text => '', status => 404};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'manual_review_test');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'embargo_test');
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->embargo_fixtures($t->app);
 my $dir = $cavil_test->checkout_dir;

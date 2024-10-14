@@ -60,6 +60,8 @@ subtest 'Login required' => sub {
   $t->get_ok('/licenses/recent')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/recent/meta')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/spdx/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/stats')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/stats/meta')->status_is(401)->content_like(qr/Login Required/);
 };
 
 subtest 'Not authenticated' => sub {

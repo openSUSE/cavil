@@ -261,6 +261,9 @@ sub startup ($self) {
     ->name('new_snippet');
   $admin_or_contributor->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
 
+  $logged_in->get('/stats')->to('Stats#index')->name('stats');
+  $logged_in->get('/stats/meta')->to('Stats#meta')->name('stats_meta');
+
   # Upload (experimental)
   $admin->get('/upload')->to('Upload#index')->name('upload');
   $admin->post('/upload')->to('Upload#store')->name('store_upload');

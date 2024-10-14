@@ -484,6 +484,19 @@ sub states ($self, $name) {
   )->hashes->to_array;
 }
 
+sub stats {
+  my $self = shift;
+
+  my $stats = $self->pg->db->query(
+    "SELECT
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false) AS active_packages,
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND embargoed = true) AS embargoed_packages,
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'new') AS open_reviews"
+  )->hash;
+
+  return $stats;
+}
+
 sub unpack ($self, @args) { $self->_enqueue('unpack', @args) }
 
 sub unpacked ($self, $id) {
