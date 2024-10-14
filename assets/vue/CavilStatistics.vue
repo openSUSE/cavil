@@ -2,14 +2,20 @@
   <div class="row">
     <div class="col-md-2">
       <div class="stats">
+        <div class="stats-body">{{ activePackages }}</div>
+        <div class="stats-description">Active Packages</div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="stats">
         <div class="stats-body">{{ openReviews }}</div>
         <div class="stats-description">Open Reviews</div>
       </div>
     </div>
     <div class="col-md-2">
       <div class="stats">
-        <div class="stats-body">{{ activePackages }}</div>
-        <div class="stats-description">Active Packages</div>
+        <div class="stats-body">{{ rejectedPackages }}</div>
+        <div class="stats-description">Rejected Packages</div>
       </div>
     </div>
     <div class="col-md-2">
@@ -33,7 +39,8 @@ export default {
       embargoedPackages: 0,
       openReviews: 0,
       refreshDelay: 120000,
-      refreshUrl: '/stats/meta'
+      refreshUrl: '/stats/meta',
+      rejectedPackages: 0
     };
   },
   methods: {
@@ -41,6 +48,7 @@ export default {
       this.activePackages = data.active_packages;
       this.embargoedPackages = data.embargoed_packages;
       this.openReviews = data.open_reviews;
+      this.rejectedPackages = data.rejected_packages;
     }
   }
 };

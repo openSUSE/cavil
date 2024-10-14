@@ -33,7 +33,7 @@ subtest 'Statistics' => sub {
 
   $t->get_ok('/stats')->status_is(200)->content_like(qr/id="statistics"/);
   $t->get_ok('/stats/meta')->status_is(200)->json_is('/active_packages', 2)->json_is('/embargoed_packages', 0)
-    ->json_is('/open_reviews' => 2);
+    ->json_is('/open_reviews' => 2)->json_is('/rejected_packages' => 0);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
