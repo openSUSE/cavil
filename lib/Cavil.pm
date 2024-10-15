@@ -61,8 +61,7 @@ sub startup ($self) {
 
   # Optional OBS credentials
   if (my $obs = $config->{obs}) {
-    $self->obs->user($obs->{user})       if $obs->{user};
-    $self->obs->ssh_key($obs->{ssh_key}) if $obs->{ssh_key};
+    $self->obs->config($obs);
   }
 
   # Short logs for systemd

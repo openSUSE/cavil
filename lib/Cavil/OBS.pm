@@ -23,9 +23,8 @@ use Mojo::UserAgent;
 use Mojo::URL;
 use Cavil::Util qw(obs_ssh_auth);
 
-has ssh_hosts => sub { ['api.suse.de'] };
-has ssh_key   => sub { die 'Missing ssh key' };
-has ua        => sub {
+has config => sub { {} };
+has ua     => sub {
   my $ua = Mojo::UserAgent->new(inactivity_timeout => 600);
   $ua->on(
     start => sub ($ua, $tx) {
@@ -39,15 +38,14 @@ has ua        => sub {
   );
   return $ua;
 };
-has user => sub { die 'Missing ssh user' };
 
 sub check_for_embargo ($self, $api, $request) {
-  my $url = _url($api, 'public', 'request', $request);
+  my $url = _url($api, 'request', $request);
   my $res = $self->_get($url);
   croak "$url: " . $res->code unless $res->is_success;
 
   for my $project ($res->dom->find('action [project]')->map('attr', 'project')->uniq->each) {
-    my $url  = _url($api, 'public', 'source', $project, '_attribute');
+    my $url  = _url($api, 'source', $project, '_attribute');
     my $res  = $self->_get($url);
     my $code = $res->code;
     next if $code == 404;
@@ -68,7 +66,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   $dir = path($dir)->make_path;
 
   # List files
-  my $url = _url($api, 'public', 'source', $project, $pkg)->query(expand => 1);
+  my $url = _url($api, 'source', $project, $pkg)->query(expand => 1);
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
   my $res = $self->_get($url);
   croak "$url: " . $res->code unless $res->is_success;
@@ -82,7 +80,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
     # We've actually seen this in IBS (usually a checksum mismatch)
     next if $file->{name} eq '_meta';
 
-    my $url = _url($api, 'public', 'source', $project, $pkg, $file->{name});
+    my $url = _url($api, 'source', $project, $pkg, $file->{name});
     $url->query([expand => 1, rev => $srcmd5]);
     my $res = $self->_get($url);
     croak "$url: " . $res->code unless $res->is_success;
@@ -94,7 +92,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
 }
 
 sub package_info ($self, $api, $project, $pkg, $options = {}) {
-  my $url = _url($api, 'public', 'source', $project, $pkg)->query(view => 'info');
+  my $url = _url($api, 'source', $project, $pkg)->query(view => 'info');
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
   my $res = $self->_get($url);
   croak "$url: " . $res->code unless $res->is_success;
@@ -109,7 +107,7 @@ sub package_info ($self, $api, $project, $pkg, $options = {}) {
 }
 
 sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
-  my $url   = _url($api, 'public', 'source', $project, $pkg);
+  my $url   = _url($api, 'source', $project, $pkg);
   my $query = {expand => 1};
   $query->{rev} = $lrev if defined $lrev;
   $url->query($query);
@@ -127,7 +125,7 @@ sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
       return $linfo unless $match && !$linfo->{match};
     }
   }
-  $url = _url($api, 'public', 'source', $project, $pkg, '_meta');
+  $url = _url($api, 'source', $project, $pkg, '_meta');
   $res = $self->_get($url);
 
   # This is severe as we already checked the sources
@@ -141,18 +139,24 @@ sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
 sub _get ($self, $url) {
   my $ua = $self->ua;
 
-  # "api.suse.de" does not have public API endpoints
-  my $host  = $url->host;
-  my $path  = $url->path;
-  my $hosts = $self->ssh_hosts;
-  shift @{$path->parts} if (grep { $host eq $_ } @$hosts) && $path->parts->[0] eq 'public';
-
-  my $tx = $ua->get($url);
+  my $host = $url->host;
+  die "Missing configuration for OBS instance: $host" unless my $config = $self->config->{$host};
+  die "Missing user for OBS instance: $host"          unless my $user   = $config->{user};
 
   # "api.suse.de" needs ssh authentication
-  my $res = $tx->res;
-  $tx = $ua->get($url, {Authorization => obs_ssh_auth($res->headers->www_authenticate, $self->user, $self->ssh_key)})
-    if $res->code == 401;
+  my $tx;
+  if (my $ssh_key = $config->{ssh_key}) {
+    $tx = $ua->get($url);
+    my $res = $tx->res;
+    $tx = $ua->get($url, {Authorization => obs_ssh_auth($res->headers->www_authenticate, $user, $ssh_key)})
+      if $res->code == 401;
+  }
+
+  # All other instances should use basic authentication
+  else {
+    die "Missing password for OBS instance: $host" unless my $password = $config->{password};
+    $tx = $ua->get($url->userinfo("$user:$password"));
+  }
 
   return $tx->result;
 }

@@ -43,8 +43,8 @@ app->routes->add_condition(
   }
 );
 
-get '/public/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update' => [project => ['SUSE:Maintenance:4321']] =>
-  (query => {view => 'info'})                                         => {text => <<'EOF'};
+get '/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update' => [project => ['SUSE:Maintenance:4321']] =>
+  (query => {view => 'info'})                                  => {text => <<'EOF'};
 <sourceinfo package="perl-Mojolicious" rev="69" vrev="1"
   srcmd5="236d7b56886a0d2799c0d114eddbb7ff"
   verifymd5="236d7b56886a0d2799c0d114eddbb7ff">
@@ -52,8 +52,8 @@ get '/public/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update' => [projec
 </sourceinfo>
 EOF
 
-get '/public/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update' => [project => ['SUSE:Maintenance:4321']] =>
-  (query => {expand => 1})                                            => {text => <<'EOF'};
+get '/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update' => [project => ['SUSE:Maintenance:4321']] =>
+  (query => {expand => 1})                                     => {text => <<'EOF'};
 <directory name="perl-Mojolicious.SUSE_SLE-15-SP2_Update" rev="4bf9ea937901cae5816321f8ebbf2ee1"
   vrev="160" srcmd5="4bf9ea937901cae5816321f8ebbf2ee1">
   <linkinfo project="openSUSE:Factory" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
@@ -69,8 +69,8 @@ get '/public/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update' => [projec
 </directory>
 EOF
 
-get '/public/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update/_meta' =>
-  [project => ['SUSE:Maintenance:4321']] => {text => <<'EOF'};
+get '/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update/_meta' => [project => ['SUSE:Maintenance:4321']] =>
+  {text => <<'EOF'};
 <package name="perl-Mojolicious.SUSE_SLE-15-SP2_Update" project="SUSE:Maintenance:4321">
   <title>Job Queue</title>
   <description>Test package</description>
@@ -80,11 +80,11 @@ get '/public/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update/_meta' =>
 EOF
 
 my @files = qw(Mojolicious-7.25.tar.gz perl-Mojolicious.changes perl-Mojolicious.spec);
-get("/public/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update//$_" => [project => ['SUSE:Maintenance:4321']] =>
+get("/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update//$_" => [project => ['SUSE:Maintenance:4321']] =>
     {data => path(__FILE__)->sibling('legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd', $_)->slurp})
   for @files;
 
-get '/public/request/4321' => {text => <<'EOF'};
+get '/request/4321' => {text => <<'EOF'};
 <request id="4321" creator="test2">
   <action type="maintenance_release">
     <source project="SUSE:Maintenance:4321" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
@@ -95,7 +95,7 @@ get '/public/request/4321' => {text => <<'EOF'};
 </request>
 EOF
 
-get '/public/source/:project/_attribute' => [project => 'SUSE:Maintenance:4321'] => {text => <<'EOF'};
+get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:4321'] => {text => <<'EOF'};
 <attributes>
   <attribute name="EmbargoDate" namespace="OBS">
     <value>2024-03-27 07:00 UTC</value>
@@ -113,6 +113,7 @@ my $dir = $cavil_test->checkout_dir;
 # Connect mock web service
 my $mock_app = app;
 my $api      = 'http://127.0.0.1:' . $t->app->obs->ua->server->app($mock_app)->url->port;
+$t->app->obs->config({'127.0.0.1' => {user => 'test', password => 'testing'}});
 
 subtest 'Embargoed package does not existy yet' => sub {
   $t->get_ok('/package/3' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/No such package/);
@@ -141,7 +142,7 @@ subtest 'Embargoed packages' => sub {
               my $job  = shift;
               my $task = $job->task;
               return unless $task eq 'obs_import' || $task eq 'obs_embargo';
-              $job->app->obs(Cavil::OBS->new);
+              $job->app->obs(Cavil::OBS->new(config => $job->app->obs->config));
               my $api = 'http://127.0.0.1:' . $job->app->obs->ua->server->app($mock_app)->url->port;
               $job->args->[1]{api} = $api;
             }

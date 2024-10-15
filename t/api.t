@@ -51,7 +51,7 @@ $routes->add_condition(
   }
 );
 $routes->get(
-  '/public/source/:project/perl-Mojolicious' => [project => ['devel:languages:perl']] => (query => {view => 'info'}) =>
+  '/source/:project/perl-Mojolicious' => [project => ['devel:languages:perl']] => (query => {view => 'info'}) =>
     {text => <<'EOF'});
 <sourceinfo package="perl-Mojolicious" rev="69" vrev="1"
   srcmd5="236d7b56886a0d2799c0d114eddbb7f1"
@@ -59,8 +59,7 @@ $routes->get(
   <filename>perl-Mojolicious.spec</filename>
 </sourceinfo>
 EOF
-$routes->get(
-  '/public/source/:project/perl-Mojolicious' => [project => ['devel:languages:perl']] => (query => {expand => 1}) =>
+$routes->get('/source/:project/perl-Mojolicious' => [project => ['devel:languages:perl']] => (query => {expand => 1}) =>
     {text => <<'EOF'});
 <directory name="perl-Mojolicious" rev="4bf9ea937901cae5816321f8ebbf2ee1"
   vrev="160" srcmd5="4bf9ea937901cae5816321f8ebbf2ee1">
@@ -76,8 +75,7 @@ $routes->get(
     size="2420" mtime="1496988145" />
 </directory>
 EOF
-$routes->get(
-  '/public/source/:project/perl-Mojolicious/_meta' => [project => ['devel:languages:perl']] => {text => <<'EOF'});
+$routes->get('/source/:project/perl-Mojolicious/_meta' => [project => ['devel:languages:perl']] => {text => <<'EOF'});
 <package name="perl-Mojolicious" project="devel:languages:perl">
   <title>The Web In A Box!</title>
   <description>Test package</description>
@@ -86,10 +84,11 @@ $routes->get(
 </package>
 EOF
 my @files = qw(Mojolicious-7.25.tar.gz perl-Mojolicious.changes perl-Mojolicious.spec);
-$routes->get("/public/source/:project/perl-Mojolicious/$_" => [project => ['devel:languages:perl']] =>
+$routes->get("/source/:project/perl-Mojolicious/$_" => [project => ['devel:languages:perl']] =>
     {data => path(__FILE__)->sibling('legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd', $_)->slurp})
   for @files;
 my $api = 'http://127.0.0.1:' . $t->app->obs->ua->server->app($mock_app)->url->port;
+$t->app->obs->config({'127.0.0.1' => {user => 'test', password => 'testing'}});
 
 subtest 'Not authenticated' => sub {
   $t->get_ok('/package/1')->status_is(403)->content_like(qr/permission/);
@@ -128,7 +127,7 @@ subtest 'Create package' => sub {
             start => sub {
               my $job = shift;
               return unless $job->task eq 'obs_import';
-              $job->app->obs(Cavil::OBS->new);
+              $job->app->obs(Cavil::OBS->new(config => $job->app->obs->config));
               my $api = 'http://127.0.0.1:' . $job->app->obs->ua->server->app($mock_app)->url->port;
               $job->args->[1]{api} = $api;
             }

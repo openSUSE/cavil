@@ -48,7 +48,7 @@ app->routes->add_condition(
   }
 );
 
-get '/public/source/:project/perl-Mojolicious' => [project => ['home:kraih']] => (query => {view => 'info'}) =>
+get '/source/:project/perl-Mojolicious' => [project => ['home:kraih']] => (query => {view => 'info'}) =>
   {text => <<'EOF'};
 <sourceinfo package="perl-Mojolicious" rev="9199eca9ec0fa5cffe4c3a6cb99a8093"
 vrev="140"
@@ -59,7 +59,7 @@ verifymd5="bb19066400b2b60e2310b45f10d12f56">
 </sourceinfo>
 EOF
 
-get '/public/source/:project/perl-Mojolicious/_meta' => [project => ['home:kraih']] => {text => <<'EOF'};
+get '/source/:project/perl-Mojolicious/_meta' => [project => ['home:kraih']] => {text => <<'EOF'};
 <package name="postgresql-plr" project="server:database:postgresql">
   <title>Mojolicious</title>
   <description>
@@ -68,7 +68,7 @@ get '/public/source/:project/perl-Mojolicious/_meta' => [project => ['home:kraih
 </package>
 EOF
 
-get '/public/source/:project/perl-Mojolicious'                             => [project => ['home:kraih']] =>
+get '/source/:project/perl-Mojolicious'                                    => [project => ['home:kraih']] =>
   (query => {expand => 1, rev => [1, '0e5c2d1c0c4178869cf7fb82482b9c52']}) => {text => <<'EOF'};
 <directory name="perl-Mojolicious" rev="9199eca9ec0fa5cffe4c3a6cb99a8093"
   vrev="140" srcmd5="9199eca9ec0fa5cffe4c3a6cb99a8093">
@@ -83,14 +83,15 @@ get '/public/source/:project/perl-Mojolicious'                             => [p
 </directory>
 EOF
 
-get '/public/source/:project/perl-Mojolicious/perl-Mojolicious.spec' => [project => ['home:kraih']] =>
-  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'})             => {text => 'Mojolicious spec!'};
+get '/source/:project/perl-Mojolicious/perl-Mojolicious.spec' => [project => ['home:kraih']] =>
+  (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'})      => {text => 'Mojolicious spec!'};
 
-get '/public/source/:project/perl-Mojolicious/:special'  => [project => ['home:kraih']]                =>
+get '/source/:project/perl-Mojolicious/:special'         => [project => ['home:kraih']]                =>
   (query => {rev => '9199eca9ec0fa5cffe4c3a6cb99a8093'}) => [special => ['perl-Mojo#licious.changes']] =>
   {text => 'Mojolicious changes!'};
 
-my $api = 'http://127.0.0.1:' . $app->obs->ua->server->app(app)->url->port;
+my $api = 'http://127.0.0.1:'
+  . $app->obs->config({'127.0.0.1' => {user => 'test', password => 'testing'}})->ua->server->app(app)->url->port;
 
 subtest 'OBS' => sub {
   subtest 'Info' => sub {
