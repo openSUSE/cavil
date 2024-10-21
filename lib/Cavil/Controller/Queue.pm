@@ -95,9 +95,6 @@ sub create_package ($self) {
       $prio + 10
     );
   }
-  else {
-    $pkgs->obs_embargo($obj->{id}, {api => $api, external_link => $obj->{external_link}});
-  }
 
   $self->render(json => {saved => $obj});
 }

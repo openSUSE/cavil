@@ -394,16 +394,6 @@ sub name_suggestions ($self, $partial) {
   )->arrays->flatten->to_array;
 }
 
-sub obs_embargo ($self, $id, $data, $priority = 5) {
-  my $pkg = $self->find($id);
-  return $self->minion->enqueue(
-    obs_embargo => [$id, $data] => {
-      priority => $priority,
-      notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
-    }
-  );
-}
-
 sub obs_import ($self, $id, $data, $priority = 5) {
   my $pkg = $self->find($id);
   return $self->minion->enqueue(

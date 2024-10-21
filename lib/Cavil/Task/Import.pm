@@ -21,8 +21,7 @@ use Mojo::File  qw(path);
 use Cavil::Util qw(request_id_from_external_link);
 
 sub register ($self, $app, $config) {
-  $app->minion->add_task(obs_embargo => \&_embargo);
-  $app->minion->add_task(obs_import  => \&_obs);
+  $app->minion->add_task(obs_import => \&_obs);
 }
 
 sub _embargo ($job, $id, $data) {

@@ -141,7 +141,7 @@ subtest 'Embargoed packages' => sub {
             start => sub {
               my $job  = shift;
               my $task = $job->task;
-              return unless $task eq 'obs_import' || $task eq 'obs_embargo';
+              return unless $task eq 'obs_import';
               $job->app->obs(Cavil::OBS->new(config => $job->app->obs->config));
               my $api = 'http://127.0.0.1:' . $job->app->obs->ua->server->app($mock_app)->url->port;
               $job->args->[1]{api} = $api;
@@ -179,8 +179,7 @@ subtest 'Embargoed packages' => sub {
 
   subtest 'Check embargo status on re-import' => sub {
     $t->app->packages->obsolete_if_not_in_product(3);
-    is $t->app->minion->jobs({tasks => ['obs_import']})->total,  1, 'one import job';
-    is $t->app->minion->jobs({tasks => ['obs_embargo']})->total, 0, 'no embargo jobs';
+    is $t->app->minion->jobs({tasks => ['obs_import']})->total, 1, 'one import job';
 
     $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
       ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7ff')->json_is('/saved/id', 3);
@@ -189,8 +188,7 @@ subtest 'Embargoed packages' => sub {
       ->status_is(200)->json_is('/imported/id', 3)->json_is('/imported/state', 'new');
     $t->get_ok('/package/3' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
       ->json_is('/priority', 5)->json_is('/embargoed', 1)->json_is('/external_link', 'ibs#4321');
-    is $t->app->minion->jobs({tasks => ['obs_import']})->total,  1, 'one import job';
-    is $t->app->minion->jobs({tasks => ['obs_embargo']})->total, 1, 'one embargo job';
+    is $t->app->minion->jobs({tasks => ['obs_import']})->total, 1, 'one import job';
   };
 };
 
