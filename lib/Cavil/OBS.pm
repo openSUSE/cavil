@@ -40,26 +40,53 @@ has ua     => sub {
 };
 
 sub check_for_embargo ($self, $api, $request) {
-  my $url = _url($api, 'request', $request);
-  my $res = $self->_get($url);
-  croak "$url: " . $res->code unless $res->is_success;
+  my $bugrefs           = $self->get_bugrefs_for_request($api, $request);
+  my $embargoed_bugrefs = $self->get_embargoed_bugrefs($api);
 
-  for my $project ($res->dom->find('action [project]')->map('attr', 'project')->uniq->each) {
-    my $url  = _url($api, 'source', $project, '_attribute');
-    my $res  = $self->_get($url);
-    my $code = $res->code;
-    next if $code == 404;
-
-    # Looks like OBS has repo types that do not support attributes yet and produces a bad 400 response in such cases
-    # (501 is supposed to treplace it in the future)
-    next if $code == 400 && $res->dom->at('status[code=remote_project]');
-    next if $code == 501;
-
-    croak "$url: " . $res->code unless $res->is_success;
-    return 1 if $res->dom->at('attributes attribute[name=EmbargoDate]');
+  my %enbargoed = map { $_ => 1 } @$embargoed_bugrefs;
+  for my $bugref (@$bugrefs) {
+    return 1 if $enbargoed{$bugref};
   }
 
   return 0;
+}
+
+sub get_bugrefs_for_request ($self, $api, $request) {
+  my $url = _url($api, 'request', $request)
+    ->query({cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1});
+  my $res = $self->_request($url, 'POST');
+  croak "$url: " . $res->code unless $res->is_success;
+
+  my $dom     = $res->dom;
+  my $bugrefs = {};
+  for my $issue ($dom->find('issues > issue[label]')->each) {
+    my $label = $issue->{label};
+    $bugrefs->{$label}++;
+
+    # Labels in SMASH and IBS can be inconsistent with "bnc#" and "bsc#" (so we generate both)
+    $bugrefs->{"bnc#$1"}++ if $label =~ /^bsc#(\d+)$/;
+  }
+
+  return [sort keys %$bugrefs];
+}
+
+sub get_embargoed_bugrefs ($self, $api) {
+  my $ua = $self->ua;
+
+  my $host = _url($api)->host;
+  die "Missing configuration for OBS instance: $host" unless my $config         = $self->config->{$host};
+  return []                                           unless my $embargoed_bugs = $config->{embargoed_bugs};
+
+  my $bugs    = $ua->get($embargoed_bugs)->result->json;
+  my $bugrefs = {};
+  for my $bug (@$bugs) {
+    $bugrefs->{$bug->{bug}{name}}++;
+    for my $cve (@{$bug->{cves}}) {
+      $bugrefs->{$cve->{name}}++;
+    }
+  }
+
+  return [sort keys %$bugrefs];
 }
 
 sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
@@ -68,7 +95,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   # List files
   my $url = _url($api, 'source', $project, $pkg)->query(expand => 1);
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
-  my $res = $self->_get($url);
+  my $res = $self->_request($url);
   croak "$url: " . $res->code unless $res->is_success;
   my $dom    = $res->dom;
   my $srcmd5 = $dom->at('directory')->{srcmd5};
@@ -82,7 +109,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
 
     my $url = _url($api, 'source', $project, $pkg, $file->{name});
     $url->query([expand => 1, rev => $srcmd5]);
-    my $res = $self->_get($url);
+    my $res = $self->_request($url);
     croak "$url: " . $res->code unless $res->is_success;
     my $target = $dir->child($file->{name});
     $res->content->asset->move_to($target);
@@ -94,7 +121,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
 sub package_info ($self, $api, $project, $pkg, $options = {}) {
   my $url = _url($api, 'source', $project, $pkg)->query(view => 'info');
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
-  my $res = $self->_get($url);
+  my $res = $self->_request($url);
   croak "$url: " . $res->code unless $res->is_success;
 
   my $source = $res->dom->at('sourceinfo');
@@ -111,7 +138,7 @@ sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
   my $query = {expand => 1};
   $query->{rev} = $lrev if defined $lrev;
   $url->query($query);
-  my $res = $self->_get($url);
+  my $res = $self->_request($url);
   return undef unless $res->is_success;
 
   # Check if we're on track
@@ -126,7 +153,7 @@ sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
     }
   }
   $url = _url($api, 'source', $project, $pkg, '_meta');
-  $res = $self->_get($url);
+  $res = $self->_request($url);
 
   # This is severe as we already checked the sources
   croak "$url: " . $res->code unless $res->is_success;
@@ -136,7 +163,13 @@ sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
   return {%linfo, package => $rn->text};
 }
 
-sub _get ($self, $url) {
+sub _md5 ($file) {
+  my $md5 = Digest::MD5->new;
+  $md5->addfile(path($file)->open('r'));
+  return $md5->hexdigest;
+}
+
+sub _request ($self, $url, $method = 'GET') {
   my $ua = $self->ua;
 
   my $host = $url->host;
@@ -146,25 +179,22 @@ sub _get ($self, $url) {
   # "api.suse.de" needs ssh authentication
   my $tx;
   if (my $ssh_key = $config->{ssh_key}) {
-    $tx = $ua->get($url);
+    $tx = $ua->start($ua->build_tx($method => $url));
     my $res = $tx->res;
-    $tx = $ua->get($url, {Authorization => obs_ssh_auth($res->headers->www_authenticate, $user, $ssh_key)})
-      if $res->code == 401;
+    $tx = $ua->start(
+      $ua->build_tx(
+        $method => $url => {Authorization => obs_ssh_auth($res->headers->www_authenticate, $user, $ssh_key)}
+      )
+    ) if $res->code == 401;
   }
 
   # All other instances should use basic authentication
   else {
     die "Missing password for OBS instance: $host" unless my $password = $config->{password};
-    $tx = $ua->get($url->userinfo("$user:$password"));
+    $tx = $ua->start($ua->build_tx($method => $url->userinfo("$user:$password")));
   }
 
   return $tx->result;
-}
-
-sub _md5 ($file) {
-  my $md5 = Digest::MD5->new;
-  $md5->addfile(path($file)->open('r'));
-  return $md5->hexdigest;
 }
 
 sub _url ($api, @path) {

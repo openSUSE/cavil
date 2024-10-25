@@ -389,200 +389,115 @@ get '/source/:project/postgresql96-plr/_meta' => [project => ['server:database:p
 </package>
 EOF
 
-get '/request/1234' => {text => <<'EOF'};
-<request id="1234" creator="test2">
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:4321" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
-      rev="961b20692bc317a3c6ab3166312425da"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33127"/>
+post '/request/1235' => (query => {cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1}) =>
+  {status => 200, text => <<'EOF'};
+EOF
+
+post '/request/344036' => (query => {cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1}) =>
+  {status => 200, text => <<'EOF'};
+<request id="344036" actions="0">
+  <action type="maintenance_incident">
+    <source project="SUSE:Maintenance:REQUEST:344036" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update" rev="e107785743567f297d622fabab3db71c"/>
+    <target project="SUSE:Maintenance" releaseproject="SUSE:SLE-15-SP2:Update"/>
+    <sourcediff key="08943b6f0b415b013042f01b8c0fabdd">
+      <old project="SUSE:SLE-15-SP2:Update" package="perl-Mojolicious.24434" rev="1" srcmd5="c41f992a6f5997cc30649019cb57ad78"/>
+      <new project="SUSE:Maintenance:REQUEST:344036" package="perl-Mojolicious..SUSE_SLE-15-SP2_Update" rev="e107785743567f297d622fabab3db71c" srcmd5="b7451ed1d847d67fd497df8c5b0ad3b9"/>
+      <files>
+        <file state="changed">
+          <old name="perl-Mojolicious..changes" md5="c6ca632ea4982747c36834f1873ec43d" size="136059"/>
+          <new name="perl-Mojolicious..changes" md5="a845059bf4311c9379fa5892d15e05b1" size="152330"/>
+          <diff lines="266">@@ -1,4 +1,265 @@
+    -------------------------------------------------------------------
+    +Wed Sep 03 02:01:10 UTC 2023 - tester@suse.com
+    +
+    +- bsc#1225312 - CVE-2024-3654 - Stuff
+    </diff>
+        </file>
+      </files>
+      <issues>
+        <issue state="added" tracker="cve" name="2022-2850" label="CVE-2022-2850" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-2850"/>
+        <issue state="added" tracker="cve" name="2024-1062" label="CVE-2024-1062" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-1062"/>
+        <issue state="added" tracker="cve" name="2024-2199" label="CVE-2024-2199" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-2199"/>
+        <issue state="added" tracker="cve" name="2024-3657" label="CVE-2024-3657" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-3657"/>
+        <issue state="added" tracker="cve" name="2024-5953" label="CVE-2024-5953" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-5953"/>
+        <issue state="added" tracker="bnc" name="1202470" label="bsc#1202470" url="https://bugzilla.suse.com/show_bug.cgi?id=1202470"/>
+        <issue state="added" tracker="bnc" name="1219836" label="bsc#1219836" url="https://bugzilla.suse.com/show_bug.cgi?id=1219836"/>
+        <issue state="added" tracker="bnc" name="1225512" label="bsc#1225512" url="https://bugzilla.suse.com/show_bug.cgi?id=1225512"/>
+      </issues>
+    </sourcediff>
   </action>
-  <description>requesting release</description>
+  <action type="delete">
+    <target project="SUSE:Maintenance:REQUEST:344036"/>
+  </action>
+  <issues>
+    <issue tracker="cve" name="2024-2199" label="CVE-2024-2199" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-2199"/>
+    <issue tracker="cve" name="2024-3657" label="CVE-2024-3657" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-3657"/>
+    <issue tracker="cve" name="2024-5953" label="CVE-2024-5953" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-5953"/>
+    <issue tracker="bnc" name="1225512" label="bsc#1225512" url="https://bugzilla.suse.com/show_bug.cgi?id=1225512"/>
+  </issues>
 </request>
 EOF
 
-get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:4321'] => {text => <<'EOF'};
-<attributes>
-  <attribute name="EmbargoDate" namespace="OBS">
-    <value>2024-03-27 07:00 UTC</value>
-  </attribute>
-</attributes>
-EOF
-
-get '/request/1235' => {text => <<'EOF'};
-<request id="1234" creator="test2">
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:5321" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
-      rev="961b20693bc397a3c65a3164312425db"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33127"/>
+post '/request/1236' => (query => {cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1}) =>
+  {status => 200, text => <<'EOF'};
+<request id="1235" actions="0">
+  <action type="maintenance_incident">
+    <sourcediff key="08943b6f0b415b013042f01b8c0fabdd">
+      <issues>
+        <issue state="added" tracker="cve" name="2024-22038" label="CVE-2024-22038" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-22038"/>
+      </issues>
+    </sourcediff>
   </action>
-  <description>requesting release</description>
 </request>
 EOF
 
-get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:5321'] => {text => <<'EOF'};
-<attributes/>
-EOF
-
-get '/request/324874' => {text => <<'EOF'};
-<request id="324874" creator="test2">
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:34725" package="curl-mini.SUSE_SLE-15-SP2_Update"
-      rev="9698206925c397a3c6a43166312425dc"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="curl-mini.33127"/>
+post '/request/1237' => (query => {cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1}) =>
+  {status => 200, text => <<'EOF'};
+<request id="1235" actions="0">
+  <action type="maintenance_incident">
+    <sourcediff key="08943b6f0b415b013042f01b8c0fabdd">
+    </sourcediff>
   </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:34725" package="curl.SUSE_SLE-15-SP2_Update"
-      rev="7b1b7765b09ae0622ee1f444a03b1dee"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="curl.33127"/>
-    <acceptinfo rev="1" srcmd5="38d742c3eb1b4d27d95003c647b7ffa2" oproject="SUSE:SLE-15-SP2:Update"
-      opackage="curl.31896" osrcmd5="6f2bce80ce9601ae0544ebfab8ca1cbe" oxsrcmd5="6f2bce80ce9601ae0544ebfab8ca1cbe"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:34725" package="patchinfo"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SUSE-MicroOS:5.1:aarch64" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SUSE-MicroOS:5.1:s390x" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SUSE-MicroOS:5.1:x86_64" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SUSE-MicroOS:5.2:aarch64" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SUSE-MicroOS:5.2:s390x" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SUSE-MicroOS:5.2:x86_64" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:aarch64" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:ppc64le" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:s390x" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:33127" package="patchinfo"/>
-    <target project="SUSE:Updates:SLE-Module-Development-Tools-OBS:15-SP5:x86_64" package="patchinfo.33127"/>
-    <acceptinfo rev="1" srcmd5="d4e961c88c26a5552dc7f075361b3c87" osrcmd5="d41d8cd98f00b204e9800998ecf8427e"/>
-  </action>
-  <state name="accepted" who="test1" when="2024-04-05T12:03:55" created="2024-03-26T10:52:47" approver="eroca">
-    <comment>Auto accept</comment>
-  </state>
-  <review state="accepted" created="2024-03-26T10:52:50" when="2024-03-26T12:36:42" who="test1"
-    by_group="autobuild-team">
-    <comment>reviewed_okay</comment>
-    <history who="test1" when="2024-03-26T12:36:42">
-      <description>Review got accepted</description>
-      <comment>reviewed_okay</comment>
-    </history>
-  </review>
-  <review state="accepted" created="2024-03-26T10:52:50" when="2024-04-03T11:54:34" who="test2"
-    by_group="maintenance-release-approver">
-    <comment>OK</comment>
-    <history who="test2" when="2024-04-03T11:54:34">
-      <description>Review got accepted</description>
-      <comment>OK</comment>
-    </history>
-  </review>
-  <review state="accepted" created="2024-03-26T10:52:50" when="2024-03-26T11:00:03" who="maintenance-robot"
-    by_group="qam-auto">
-    <comment>reviewers added: qam-openqa</comment>
-    <history who="maintenance-robot" when="2024-03-26T11:00:03">
-      <description>Review got accepted</description>
-      <comment>reviewers added: qam-openqa</comment>
-    </history>
-  </review>
-  <review state="accepted" created="2024-03-26T11:00:03" when="2024-04-05T12:03:30" who="sle-qam-openqa"
-    by_group="qam-openqa">
-    <comment>Request accepted for 'qam-openqa' based on data in http://dashboard.qam.suse.de/</comment>
-    <history who="sle-qam-openqa" when="2024-04-05T12:03:30">
-      <description>Review got accepted</description>
-      <comment>Request accepted for 'qam-openqa' based on data in http://dashboard.qam.suse.de/</comment>
-    </history>
-  </review>
-  <description>requesting release</description>
 </request>
 EOF
 
-get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:33127'] => {text => <<'EOF'};
-<attributes/>
+get '/api/embargoed-bugs' => {format => 'json', text => <<'EOF'};
+[
+  {
+    "bug": {
+      "name": "bnc#1196706",
+      "url": "https://bugzilla.suse.com/show_bug.cgi?id=1196706",
+      "source": "SUSE Bugzilla"
+    },
+    "cves": []
+  },
+  {
+    "bug": {
+      "name": "bnc#1202470",
+      "url": "https://bugzilla.suse.com/show_bug.cgi?id=1202470",
+      "source": "SUSE Bugzilla"
+    },
+    "cves":[]
+  },
+  {
+    "bug": {
+      "name": "bnc#1230469",
+      "url": "https://bugzilla.suse.com/show_bug.cgi?id=1230469",
+      "source":"SUSE Bugzilla"
+    },
+    "cves": [
+      {
+        "name": "CVE-2024-22038",
+        "url": "http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-22038",
+        "source": "NVD"
+      }
+    ]
+  }
+]
 EOF
 
-get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:34725'] => {text => <<'EOF'};
-<attributes>
-  <attribute name="ScheduledReleaseDate" namespace="MAINT">
-    <value>2024-07-16 12:00 UTC</value>
-  </attribute>
-  <attribute name="RejectReason" namespace="MAINT">
-    <value>338592:admin</value>
-    <value>341702:admin</value>
-  </attribute>
-  <attribute name="EmbargoDate" namespace="OBS">
-    <value>2024-09-24 12:00 UTC</value>
-  </attribute>
-  <attribute name="MaintenanceProject" namespace="CPE"/>
-</attributes>
-EOF
-
-get '/request/5678' => {text => <<'EOF'};
-<request id="5678" creator="test2">
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:5678" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
-      rev="961b20692bc318a3c6ab3166312425dc"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33128"/>
-  </action>
-  <description>requesting release</description>
-</request>
-EOF
-
-get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:5678'] => {status => 400, text => <<'EOF'};
-<status code="remote_project">
-  <summary>Attribute access to remote project is not yet supported</summary>
-</status
-EOF
-
-get '/request/6789' => {text => <<'EOF'};
-<request id="5678" creator="test2">
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:6789" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
-      rev="961b20692bc318a3c6ab3166312425df"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="curl-perl-Mojolicious.33129"/>
-  </action>
-  <description>requesting release</description>
-</request>
-EOF
-
-get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:6789'] => {status => 501, text => <<'EOF'};
-<status code="remote_project">
-  <summary>Attribute access to remote project is not yet supported</summary>
-</status
+get '/api/embargoed-bugs/none' => {format => 'json', text => <<'EOF'};
+[]
 EOF
 
 my $AUTHENTICATED = 0;
@@ -610,7 +525,7 @@ get '/*whatever' => {whatever => ''} => {text => '', status => 404};
 # Connect mock web service
 my $obs = Cavil::OBS->new;
 my $api = 'http://127.0.0.1:' . $obs->ua->server->app(app)->url->port;
-$obs->config({'127.0.0.1' => {user => 'test', password => 'testing'}});
+$obs->config({'127.0.0.1' => {user => 'test', password => 'testing', embargoed_bugs => "$api/api/embargoed-bugs"}});
 
 subtest 'Package info' => sub {
   my $info = {
@@ -687,11 +602,40 @@ subtest 'Source download for missing packages' => sub {
 };
 
 subtest 'Embargo' => sub {
-  is $obs->check_for_embargo($api, 1234),   1, 'embargoed';
-  is $obs->check_for_embargo($api, 1235),   0, 'not embargoed';
-  is $obs->check_for_embargo($api, 324874), 1, 'embargoed';
-  is $obs->check_for_embargo($api, 5678),   0, 'not embargoed';
-  is $obs->check_for_embargo($api, 6789),   0, 'not embargoed';
+  subtest 'SMASH bugrefs' => sub {
+    subtest 'Realistic example' => sub {
+      is_deeply $obs->get_embargoed_bugrefs($api), ['CVE-2024-22038', 'bnc#1196706', 'bnc#1202470', 'bnc#1230469'],
+        'right bugrefs';
+    };
+
+    subtest 'No embargoed bugs' => sub {
+      local $obs->config->{'127.0.0.1'}{embargoed_bugs} = "$api/api/embargoed-bugs/none";
+      is_deeply $obs->get_embargoed_bugrefs($api), [], 'right bugrefs';
+    };
+
+    subtest 'Not configured' => sub {
+      local $obs->config->{'127.0.0.1'}{embargoed_bugs} = undef;
+      is_deeply $obs->get_embargoed_bugrefs($api), [], 'right bugrefs';
+    };
+  };
+
+  subtest 'OBS bugrefs' => sub {
+    is_deeply $obs->get_bugrefs_for_request($api, 1236), ['CVE-2024-22038'], 'right bugrefs';
+    is_deeply $obs->get_bugrefs_for_request($api, 1237), [],                 'no bugrefs';
+    is_deeply $obs->get_bugrefs_for_request($api, 344036),
+      [
+      'CVE-2022-2850', 'CVE-2024-1062', 'CVE-2024-2199', 'CVE-2024-3657', 'CVE-2024-5953', 'bnc#1202470',
+      'bnc#1219836',   'bnc#1225512',   'bsc#1202470',   'bsc#1219836',   'bsc#1225512'
+      ],
+      'right bugrefs';
+  };
+
+  subtest 'Check for embargo' => sub {
+    is $obs->check_for_embargo($api, 1235),   0, 'not embargoed';
+    is $obs->check_for_embargo($api, 1236),   1, 'embargoed';
+    is $obs->check_for_embargo($api, 1237),   0, 'not embargoed';
+    is $obs->check_for_embargo($api, 344036), 1, 'embargoed';
+  };
 };
 
 subtest 'Bot API (with Minion background jobs)' => sub {

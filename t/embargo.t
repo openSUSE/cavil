@@ -84,23 +84,30 @@ get("/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update//$_" => [project =
     {data => path(__FILE__)->sibling('legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd', $_)->slurp})
   for @files;
 
-get '/request/4321' => {text => <<'EOF'};
-<request id="4321" creator="test2">
-  <action type="maintenance_release">
-    <source project="SUSE:Maintenance:4321" package="perl-Mojolicious.SUSE_SLE-15-SP2_Update"
-      rev="961b20692bc317a3c6ab3166312425da"/>
-    <target project="SUSE:SLE-15-SP2:Update" package="perl-Mojolicious.33127"/>
+post '/request/4321' => (query => {cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1}) =>
+  {status => 200, text => <<'EOF'};
+<request id="4321" actions="0">
+  <action type="maintenance_incident">
+    <sourcediff key="08943b6f0b415b013042f01b23fabdd">
+      <issues>
+        <issue state="added" tracker="bnc" name="1196706" label="bsc#1196706" url="https://bugzilla.suse.com/show_bug.cgi?id=1196706"/>
+      </issues>
+    </sourcediff>
   </action>
-  <description>requesting release</description>
 </request>
 EOF
 
-get '/source/:project/_attribute' => [project => 'SUSE:Maintenance:4321'] => {text => <<'EOF'};
-<attributes>
-  <attribute name="EmbargoDate" namespace="OBS">
-    <value>2024-03-27 07:00 UTC</value>
-  </attribute>
-</attributes>
+get '/api/embargoed-bugs' => {format => 'json', text => <<'EOF'};
+[
+  {
+    "bug": {
+      "name": "bnc#1196706",
+      "url": "https://bugzilla.suse.com/show_bug.cgi?id=1196706",
+      "source": "SUSE Bugzilla"
+    },
+    "cves": []
+  }
+]
 EOF
 
 get '/*whatever' => {whatever => ''} => {text => '', status => 404};
@@ -113,7 +120,8 @@ my $dir = $cavil_test->checkout_dir;
 # Connect mock web service
 my $mock_app = app;
 my $api      = 'http://127.0.0.1:' . $t->app->obs->ua->server->app($mock_app)->url->port;
-$t->app->obs->config({'127.0.0.1' => {user => 'test', password => 'testing'}});
+$t->app->obs->config(
+  {'127.0.0.1' => {user => 'test', password => 'testing', embargoed_bugs => "$api/api/embargoed-bugs"}});
 
 subtest 'Embargoed package does not existy yet' => sub {
   $t->get_ok('/package/3' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/No such package/);
@@ -144,6 +152,7 @@ subtest 'Embargoed packages' => sub {
               return unless $task eq 'obs_import';
               $job->app->obs(Cavil::OBS->new(config => $job->app->obs->config));
               my $api = 'http://127.0.0.1:' . $job->app->obs->ua->server->app($mock_app)->url->port;
+              $job->app->obs->config->{'127.0.0.1'}{embargoed_bugs} = "$api/api/embargoed-bugs";
               $job->args->[1]{api} = $api;
             }
           );
