@@ -636,6 +636,14 @@ subtest 'Embargo' => sub {
     is $obs->check_for_embargo($api, 1237),   0, 'not embargoed';
     is $obs->check_for_embargo($api, 344036), 1, 'embargoed';
   };
+
+  subtest 'Check for embargo without embargo server (bails out early)' => sub {
+    local $obs->config->{'127.0.0.1'}{embargoed_bugs} = undef;
+    is $obs->check_for_embargo($api, 1236), 0, 'not embargoed';
+
+    local $obs->config->{'127.0.0.1'} = undef;
+    is $obs->check_for_embargo($api, 1236), 0, 'not embargoed';
+  };
 };
 
 subtest 'Bot API (with Minion background jobs)' => sub {

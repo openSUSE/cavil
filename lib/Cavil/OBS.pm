@@ -40,10 +40,15 @@ has ua     => sub {
 };
 
 sub check_for_embargo ($self, $api, $request) {
-  my $bugrefs           = $self->get_bugrefs_for_request($api, $request);
-  my $embargoed_bugrefs = $self->get_embargoed_bugrefs($api);
+  my $host = _url($api)->host;
+  return 0 unless my $config = $self->config->{$host};
+  return 0 unless $config->{embargoed_bugs};
 
-  my %enbargoed = map { $_ => 1 } @$embargoed_bugrefs;
+  my $bugrefs = $self->get_bugrefs_for_request($api, $request);
+  return 0 unless @$bugrefs;
+
+  my $embargoed_bugrefs = $self->get_embargoed_bugrefs($api);
+  my %enbargoed         = map { $_ => 1 } @$embargoed_bugrefs;
   for my $bugref (@$bugrefs) {
     return 1 if $enbargoed{$bugref};
   }
