@@ -59,8 +59,10 @@ sub check_for_embargo ($self, $api, $request) {
 sub get_bugrefs_for_request ($self, $api, $request) {
   my $url = _url($api, 'request', $request)
     ->query({cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1});
-  my $res = $self->_request($url, 'POST');
-  croak "$url: " . $res->code unless $res->is_success;
+  my $res  = $self->_request($url, 'POST');
+  my $code = $res->code;
+  return [] if $code == 404;
+  croak "$url: " . $code unless $res->is_success;
 
   my $dom     = $res->dom;
   my $bugrefs = {};
