@@ -20,17 +20,29 @@ use Mojo::File 'path';
 
 sub create_package ($self) {
   my $validation = $self->validation;
+
+  $validation->optional('type')->in('obs', 'git');
+  my $type = $validation->param('type') || 'obs';
+
+  if ($type eq 'git') {
+    $validation->required('rev')->like(qr/^[a-f0-9]+$/i);
+    $validation->optional('project');
+  }
+  else {
+    $validation->optional('rev')->like(qr/^[a-f0-9]+$/i);
+    $validation->required('project');
+  }
+
   $validation->required('api')->like(qr!^https?://.+!i);
-  $validation->required('project');
   $validation->required('package');
-  $validation->optional('rev')->like(qr/^[a-f0-9]+$/i);
   $validation->optional('created');
   $validation->optional('external_link');
   $validation->optional('priority')->like(qr/^\d+$/);
+
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $api     = $validation->param('api');
-  my $project = $validation->param('project');
+  my $project = $validation->param('project') // '';
   my $pkg     = $validation->param('package');
   my $rev     = $validation->param('rev');
   my $created = $validation->param('created');
@@ -39,18 +51,25 @@ sub create_package ($self) {
 
   my $app    = $self->app;
   my $config = $app->config;
-  my $obs    = $app->obs;
+
+  my ($srcpkg, $srcmd5, $verifymd5);
+  if ($type eq 'git') {
+    ($srcpkg, $srcmd5, $verifymd5) = ($pkg, $rev, $rev);
+  }
 
   # Get package infomation, rev may be pointing to link, so we need the
   # canonical srcmd5
-  my $info = eval { $obs->package_info($api, $project, $pkg, {rev => $rev}) };
-  unless ($info && $info->{verifymd5}) {
-    $self->_log("Couldn't get package info", $api, $project, $pkg, $rev, $@);
-    return $self->render(json => {error => 'Package not found'}, status => 404);
+  else {
+    my $obs  = $app->obs;
+    my $info = eval { $obs->package_info($api, $project, $pkg, {rev => $rev}) };
+    unless ($info && $info->{verifymd5}) {
+      $self->_log("Couldn't get package info", $api, $project, $pkg, $rev, $@);
+      return $self->render(json => {error => 'Package not found'}, status => 404);
+    }
+    ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
   }
-  my ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
 
-  # Check if we need to import from OBS
+  # Check if we need to import
   my $dir    = path($config->{checkout_dir}, $srcpkg, $verifymd5);
   my $create = !-e $dir;
 
@@ -68,6 +87,7 @@ sub create_package ($self) {
       package         => $pkg,
       created         => $created,
       srcmd5          => $srcmd5,
+      type            => $type
     );
     $obj = $pkgs->find($id);
   }
@@ -79,21 +99,28 @@ sub create_package ($self) {
   $obj->{obsolete} = 0;
   $pkgs->update($obj);
   if ($create) {
-    $pkgs->obs_import(
-      $obj->{id},
-      {
-        api           => $api,
-        project       => $project,
-        pkg           => $pkg,
-        srcpkg        => $srcpkg,
-        rev           => $rev,
-        srcmd5        => $srcmd5,
-        verifymd5     => $verifymd5,
-        external_link => $obj->{external_link},
-        priority      => $prio
-      },
-      $prio + 10
-    );
+    if ($type eq 'git') {
+      $pkgs->git_import($obj->{id},
+        {url => $api, pkg => $pkg, hash => $rev, external_link => $obj->{external_link}, priority => $prio},
+        $prio + 10);
+    }
+    else {
+      $pkgs->obs_import(
+        $obj->{id},
+        {
+          api           => $api,
+          project       => $project,
+          pkg           => $pkg,
+          srcpkg        => $srcpkg,
+          rev           => $rev,
+          srcmd5        => $srcmd5,
+          verifymd5     => $verifymd5,
+          external_link => $obj->{external_link},
+          priority      => $prio
+        },
+        $prio + 10
+      );
+    }
   }
 
   $self->render(json => {saved => $obj});

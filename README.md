@@ -2,9 +2,8 @@
 
 ![Cavil](docs/images/cavil.png)
 
-  Cavil is a legal review and Software Bill of Materials (SBOM) system for the
-  [Open Build Service](https://openbuildservice.org). It is used in the development of openSUSE Tumbleweed,
-  openSUSE Leap, as well as SUSE Linux Enterprise.
+  Cavil is a legal review and Software Bill of Materials (SBOM) system. It is used in the development of
+  openSUSE Tumbleweed, openSUSE Leap, as well as SUSE Linux Enterprise.
 
 ## Features
 
@@ -16,7 +15,7 @@
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
 * Optional support for machine learning models to classify pattern matches
 * REST API for integration into existing source code management systems
-* Open Build Service integration via bots
+* [Open Build Service](https://openbuildservice.org) and [Gitea](https://gitea.com) integration via bots
 * OpenID Connect (OAuth 2.0) authentication
 
 **Important**: Note that most of the data used by Cavil has been curated by lawyers, but the generated reports do not
@@ -58,7 +57,8 @@ There are currently two example implementations for a companion server applicati
     $ sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
       perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
-      perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob
+      perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
+      perl-Try-Tiny git git-lfs
     $ npm i
     $ npm run build
 

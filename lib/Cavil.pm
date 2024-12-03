@@ -18,6 +18,7 @@ use Mojo::Base 'Mojolicious', -signatures;
 
 use Mojo::Pg;
 use Cavil::Classifier;
+use Cavil::Git;
 use Cavil::Model::IgnoredFiles;
 use Cavil::Model::Packages;
 use Cavil::Model::Patterns;
@@ -33,6 +34,7 @@ use Scalar::Util 'weaken';
 use Mojo::File qw(path);
 
 has classifier => sub { Cavil::Classifier->new };
+has git        => sub { Cavil::Git->new };
 has obs        => sub { Cavil::OBS->new };
 has spdx       => sub ($self) {
   my $spdx = Cavil::SPDX->new(app => $self);

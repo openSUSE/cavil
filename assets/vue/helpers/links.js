@@ -21,6 +21,14 @@ export function externalLink(review) {
   if (link.substr(0, 4) === 'ibs#') {
     return `<a href='https://build.suse.de/request/show/${link.substr(4)}' target='_blank'>${link}</a>`;
   }
+  const sooMatch = link.match(/soo#([^!]+)!(\d+)/);
+  if (sooMatch !== null) {
+    return `<a href='https://src.opensuse.org/${sooMatch[1]}/pulls/${sooMatch[2]}' target='_blank'>${sooMatch[0]}</a>`;
+  }
+  const ssdMatch = link.match(/ssd#([^!]+)!(\d+)/);
+  if (ssdMatch !== null) {
+    return `<a href='https://src.suse.de/${ssdMatch[1]}/pulls/${ssdMatch[2]}' target='_blank'>${ssdMatch[0]}</a>`;
+  }
 
   return link;
 }

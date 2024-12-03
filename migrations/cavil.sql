@@ -235,3 +235,6 @@ ALTER TABLE bot_packages ADD COLUMN notice text;
 ALTER TABLE bot_packages ADD COLUMN embargoed boolean DEFAULT false NOT NULL;
 CREATE INDEX ON bot_packages(embargoed);
 ALTER TABLE snippets ADD COLUMN package int REFERENCES bot_packages(id) ON DELETE SET NULL;
+
+-- 25 up
+ALTER TABLE bot_sources ADD COLUMN type text DEFAULT 'obs' NOT NULL;

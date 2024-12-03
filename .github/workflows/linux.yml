@@ -43,6 +43,10 @@ jobs:
           cpanm -n --installdeps .
           cpanm -n Test::Deep
           cpanm -n Devel::Cover::Report::Coveralls
+      - name: Git setup
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "nospam@github.com"
       - name: Build assets
         env:
           NODE_ENV: production

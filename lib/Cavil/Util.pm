@@ -18,19 +18,21 @@ use Mojo::Base -strict, -signatures;
 
 use Carp 'croak';
 use Exporter 'import';
-use Encode qw(from_to decode);
+use Encode   qw(from_to decode);
+use IPC::Run ();
 use Mojo::Util;
 use Mojo::File qw(path tempfile);
 use POSIX 'ceil';
 use Spooky::Patterns::XS;
 use Text::Glob 'glob_to_regex';
+use Try::Tiny;
 
 $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
-  qw(parse_exclude_file pattern_checksum pattern_matches read_lines request_id_from_external_link snippet_checksum),
-  qw(ssh_sign)
+  qw(parse_exclude_file pattern_checksum pattern_matches read_lines request_id_from_external_link run_cmd),
+  qw(snippet_checksum ssh_sign)
 );
 
 my $MAX_FILE_SIZE = 30000;
@@ -85,6 +87,25 @@ sub pattern_checksum ($text) {
   }
 
   return $ctx->hex;
+}
+
+sub run_cmd ($dir, $cmd) {
+  my $cwd = path;
+  chdir $dir;
+  my $guard = Mojo::Util::scope_guard sub { chdir $cwd };
+
+  try {
+    my ($stdin, $stdout, $stderr) = ('', '', '');
+    my $success = IPC::Run::run($cmd, \$stdin, \$stdout, \$stderr);
+    my $status  = $?;
+    return {status => $success, exit_code => $status >> 8, stdout => $stdout, stderr => $stderr};
+  }
+  catch {
+    return {status => 0, exit_code => undef, stdout => '', stderr => $_ // 'Unknown error'};
+  }
+  finally {
+    undef $guard;
+  };
 }
 
 sub snippet_checksum ($text) {

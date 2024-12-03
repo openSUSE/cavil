@@ -24,9 +24,14 @@ has [qw(checkout_dir log minion pg)];
 
 sub add ($self, %args) {
 
-  my $db = $self->pg->db;
-  my $source
-    = {api_url => $args{api_url}, project => $args{project}, package => $args{package}, srcmd5 => $args{srcmd5}};
+  my $db     = $self->pg->db;
+  my $source = {
+    api_url => $args{api_url},
+    project => $args{project},
+    package => $args{package},
+    srcmd5  => $args{srcmd5},
+    type    => $args{type} // 'obs'
+  };
   my $source_id = $db->insert('bot_sources', $source, {returning => 'id'})->hash->{id};
 
   my $pkg = {
@@ -392,6 +397,16 @@ sub name_suggestions ($self, $partial) {
     {-and  => [{name => \[' ilike ?', $like]}, {name => {'!=' => $partial}}]},
     {limit => 100}
   )->arrays->flatten->to_array;
+}
+
+sub git_import ($self, $id, $data, $priority = 5) {
+  my $pkg = $self->find($id);
+  return $self->minion->enqueue(
+    git_import => [$id, $data] => {
+      priority => $priority,
+      notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
+    }
+  );
 }
 
 sub obs_import ($self, $id, $data, $priority = 5) {

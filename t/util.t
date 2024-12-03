@@ -16,10 +16,10 @@
 use Mojo::Base -strict;
 
 use Test::More;
-use Mojo::File qw(curfile tempfile);
+use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
-use Cavil::Util
-  qw(buckets lines_context obs_ssh_auth parse_exclude_file pattern_matches request_id_from_external_link ssh_sign);
+use Cavil::Util (qw(buckets lines_context obs_ssh_auth parse_exclude_file pattern_matches),
+  qw(request_id_from_external_link run_cmd ssh_sign));
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
 -----BEGIN OPENSSH PRIVATE KEY-----
@@ -86,6 +86,15 @@ subtest 'request_id_from_external_link' => sub {
   is request_id_from_external_link('ibs#4321'),     4321,  'right id';
   is request_id_from_external_link('unknown#4321'), undef, 'no id';
   is request_id_from_external_link(''),             undef, 'no id';
+};
+
+subtest 'run_cmd' => sub {
+  my $cwd    = path;
+  my $result = run_cmd($cwd, ['echo', 'foo']);
+  is $result->{status},    !!1,     'right status';
+  is $result->{exit_code}, 0,       'right exit code';
+  is $result->{stderr},    '',      'right stderr';
+  is $result->{stdout},    "foo\n", 'right stdout';
 };
 
 subtest 'ssh_sign' => sub {

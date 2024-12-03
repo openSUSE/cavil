@@ -31,6 +31,13 @@ subtest 'cleanup' => sub {
   like $cmd->usage, qr/cleanup/, 'has usage information';
 };
 
+subtest 'git' => sub {
+  require Cavil::Command::git;
+  my $cmd = Cavil::Command::git->new;
+  ok $cmd->description, 'has a description';
+  like $cmd->usage, qr/git/, 'has usage information';
+};
+
 subtest 'migrate' => sub {
   require Cavil::Command::migrate;
   my $cmd = Cavil::Command::migrate->new;
