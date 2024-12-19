@@ -174,7 +174,8 @@ subtest 'Create a requests' => sub {
 
 subtest 'Request has been created' => sub {
   $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
-    ->json_is('/requests/0/external_link', 'obs#123')->json_is('/requests/0/packages', [1]);
+    ->json_is('/requests/0/external_link', 'obs#123')->json_is('/requests/0/packages', [1])
+    ->json_is('/requests/0/checkouts',     ['236d7b56886a0d2799c0d114eddbb7f1']);
 };
 
 subtest 'Remove request again' => sub {

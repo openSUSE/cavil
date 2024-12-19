@@ -25,8 +25,9 @@ sub add ($self, $link, $pkg) {
 
 sub all ($self) {
   return $self->pg->db->query(
-    'select external_link, array_agg(package) as packages from bot_requests
-     group by external_link'
+    'SELECT br.external_link, array_agg(br.package) AS packages, array_agg(bp.checkout_dir) AS checkouts
+     FROM bot_requests br JOIN bot_packages bp ON (br.package = bp.id)
+     GROUP BY br.external_link'
   )->hashes->to_array;
 }
 
