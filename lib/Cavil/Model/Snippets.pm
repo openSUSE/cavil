@@ -91,7 +91,7 @@ sub unclassified ($self, $options) {
   my $timeframe = '';
   if ($options->{timeframe} ne 'any') {
     my $interval = "1 $options->{timeframe}";
-    $timeframe = "AND created > NOW() - INTERVAL '$interval'";
+    $timeframe = "AND s.created > NOW() - INTERVAL '$interval'";
   }
 
   my $is_approved   = 'approved = ' . uc($options->{is_approved});
