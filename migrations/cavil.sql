@@ -238,3 +238,6 @@ ALTER TABLE snippets ADD COLUMN package int REFERENCES bot_packages(id) ON DELET
 
 -- 25 up
 ALTER TABLE bot_sources ADD COLUMN type text DEFAULT 'obs' NOT NULL;
+
+-- 26 up
+CREATE UNIQUE INDEX ON bot_requests(external_link, package);

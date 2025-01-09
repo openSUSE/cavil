@@ -19,8 +19,9 @@ use Mojo::Base -base, -signatures;
 has 'pg';
 
 sub add ($self, $link, $pkg) {
-  my $req = {external_link => $link, package => $pkg};
-  return $self->pg->db->insert('bot_requests', $req, {returning => 'id'})->hash->{id};
+  my $db = $self->pg->db;
+  $db->query('INSERT INTO bot_requests (external_link, package) VALUES (?, ?) ON CONFLICT DO NOTHING', $link, $pkg);
+  return $db->query('SELECT id FROM bot_requests WHERE external_link = ? AND package = ?', $link, $pkg)->hash->{id};
 }
 
 sub all ($self) {
