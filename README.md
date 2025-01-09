@@ -15,7 +15,8 @@
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
 * Optional support for machine learning models to classify pattern matches
 * REST API for integration into existing source code management systems
-* [Open Build Service](https://openbuildservice.org) and [Gitea](https://gitea.com) integration via bots
+* [Open Build Service](https://openbuildservice.org) and [Gitea](https://github.com/openSUSE/cavil-gitea) integration
+  via bots
 * OpenID Connect (OAuth 2.0) authentication
 
 **Important**: Note that most of the data used by Cavil has been curated by lawyers, but the generated reports do not
