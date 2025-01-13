@@ -1,5 +1,4 @@
-These are scripts to quickly set up and tear down a staging environment for
-development.
+These are scripts to quickly set up and tear down a staging environment for development.
 
   $ perl staging/start.pl postgresql://tester:testing@/test
   ...
@@ -10,5 +9,5 @@ development.
   $ perl staging/stop.pl
   ...
 
-You just need an already existing but empty PostgreSQL database, and we will
-create seed data for you.
+You just need an already existing but empty PostgreSQL database, and we will create seed data for you. If you don't
+want any example reports in your staging environment you can also append the `--clean` option to `staging/start.pl`.
