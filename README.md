@@ -15,7 +15,7 @@
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
 * Optional support for machine learning models to classify pattern matches
 * REST API for integration into existing source code management systems
-* [Open Build Service](https://openbuildservice.org) and [Gitea](https://github.com/openSUSE/cavil-gitea) integration
+* [Open Build Service](https://github.com/openSUSE/openSUSE-release-tools) and [Gitea](https://github.com/openSUSE/cavil-gitea) integration
   via bots
 * OpenID Connect (OAuth 2.0) authentication
 
