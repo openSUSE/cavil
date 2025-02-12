@@ -80,9 +80,11 @@ subtest 'Local git' => sub {
 
     subtest 'Validation errors' => sub {
       $t->post_ok('/packages')->status_is(403);
-      $t->post_ok('/packages', $headers)->status_is(400)
+      $t->post_ok('/packages', $headers)
+        ->status_is(400)
         ->json_is({error => 'Invalid request parameters (api, package, project)'});
-      $t->post_ok('/packages', $headers, form => {type => 'git'})->status_is(400)
+      $t->post_ok('/packages', $headers, form => {type => 'git'})
+        ->status_is(400)
         ->json_is({error => 'Invalid request parameters (api, package, rev)'});
     };
 

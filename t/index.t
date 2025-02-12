@@ -154,24 +154,37 @@ $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 $t->get_ok('/licenses/edit_pattern/1')->status_is(200)->content_like(qr/License/);
 
 subtest 'Pattern change' => sub {
-  $t->get_ok('/licenses/edit_pattern/1')->status_is(200)->element_exists('input[name=license][value=Apache-2.0]')
+  $t->get_ok('/licenses/edit_pattern/1')
+    ->status_is(200)
+    ->element_exists('input[name=license][value=Apache-2.0]')
     ->text_is('textarea[name=pattern]' => 'You may obtain a copy of the License at')
     ->element_exists_not('input:checked');
   $t->post_ok('/licenses/update_pattern/1' => form => {license => 'Apache-2.0', pattern => 'real-time web framework'})
-    ->status_is(302)->header_is(Location => '/licenses/edit_pattern/1');
-  $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('div div a[href=/licenses/edit_pattern/1]')
+    ->status_is(302)
+    ->header_is(Location => '/licenses/edit_pattern/1');
+  $t->get_ok('/licenses/Apache-2.0')
+    ->status_is(200)
+    ->element_exists('div div a[href=/licenses/edit_pattern/1]')
     ->text_is('div pre' => 'real-time web framework')
     ->text_like('.alert-success' => qr/Pattern has been updated, reindexing all affected packages/);
 
-  $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2'})->status_is(302)
+  $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2'})
+    ->status_is(302)
     ->header_is(Location => '/licenses/Apache-2.0');
-  $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('div div a[href=/licenses/edit_pattern/1]')
-    ->text_is('div pre' => 'real-time web framework')->text_like('.alert-danger' => qr/not a valid SPDX expression/);
+  $t->get_ok('/licenses/Apache-2.0')
+    ->status_is(200)
+    ->element_exists('div div a[href=/licenses/edit_pattern/1]')
+    ->text_is('div pre' => 'real-time web framework')
+    ->text_like('.alert-danger' => qr/not a valid SPDX expression/);
 
-  $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})->status_is(302)
+  $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})
+    ->status_is(302)
     ->header_is(Location => '/licenses/Apache-2.0');
-  $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('div div a[href=/licenses/edit_pattern/1]')
-    ->text_is('div pre' => 'real-time web framework')->text_like('.alert-success' => qr/2 patterns have been updated/);
+  $t->get_ok('/licenses/Apache-2.0')
+    ->status_is(200)
+    ->element_exists('div div a[href=/licenses/edit_pattern/1]')
+    ->text_is('div pre' => 'real-time web framework')
+    ->text_like('.alert-success' => qr/2 patterns have been updated/);
 };
 
 # Automatic reindexing

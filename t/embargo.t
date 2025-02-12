@@ -162,9 +162,12 @@ subtest 'Embargoed packages' => sub {
   );
 
   subtest 'Create package with embargo (detected via OBS API)' => sub {
-    $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
-      ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7ff')->json_is('/saved/id', 3);
-    $t->get_ok('/package/3/report' => {Authorization => 'Token test_token'})->status_is(408)
+    $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)
+      ->status_is(200)
+      ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7ff')
+      ->json_is('/saved/id',           3);
+    $t->get_ok('/package/3/report' => {Authorization => 'Token test_token'})
+      ->status_is(408)
       ->content_like(qr/package being processed/);
     $t->get_ok('/api/1.0/source' => form => $form)->status_is(200)->json_is('/review' => 3, '/history' => []);
     $t->app->minion->perform_jobs;
@@ -177,26 +180,42 @@ subtest 'Embargoed packages' => sub {
   };
 
   subtest 'Embargoed package has been created' => sub {
-    $t->get_ok('/package/3' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
-      ->json_is('/priority', 5)->json_is('/embargoed', 1)->json_is('/external_link', 'ibs#4321');
-    $t->get_ok('/package/3/report' => {Authorization => 'Token test_token'})->status_is(200)
-      ->content_type_like(qr/application\/json/)->json_is('/package/checkout_dir', '236d7b56886a0d2799c0d114eddbb7ff')
+    $t->get_ok('/package/3' => {Authorization => 'Token test_token'})
+      ->status_is(200)
+      ->json_is('/state',         'new')
+      ->json_is('/priority',      5)
+      ->json_is('/embargoed',     1)
+      ->json_is('/external_link', 'ibs#4321');
+    $t->get_ok('/package/3/report' => {Authorization => 'Token test_token'})
+      ->status_is(200)
+      ->content_type_like(qr/application\/json/)
+      ->json_is('/package/checkout_dir', '236d7b56886a0d2799c0d114eddbb7ff')
       ->json_has('/report/risks');
-    $t->get_ok('/source/3' => {Authorization => 'Token test_token'})->status_is(200)
-      ->content_type_like(qr/application\/json/)->json_has('/source/filename');
+    $t->get_ok('/source/3' => {Authorization => 'Token test_token'})
+      ->status_is(200)
+      ->content_type_like(qr/application\/json/)
+      ->json_has('/source/filename');
   };
 
   subtest 'Check embargo status on re-import' => sub {
     $t->app->packages->obsolete_if_not_in_product(3);
     is $t->app->minion->jobs({tasks => ['obs_import']})->total, 1, 'one import job';
 
-    $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
-      ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7ff')->json_is('/saved/id', 3);
+    $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)
+      ->status_is(200)
+      ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7ff')
+      ->json_is('/saved/id',           3);
     $t->app->minion->perform_jobs;
     $t->post_ok('/packages/import/3' => {Authorization => 'Token test_token'} => form => {state => 'new'})
-      ->status_is(200)->json_is('/imported/id', 3)->json_is('/imported/state', 'new');
-    $t->get_ok('/package/3' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
-      ->json_is('/priority', 5)->json_is('/embargoed', 1)->json_is('/external_link', 'ibs#4321');
+      ->status_is(200)
+      ->json_is('/imported/id',    3)
+      ->json_is('/imported/state', 'new');
+    $t->get_ok('/package/3' => {Authorization => 'Token test_token'})
+      ->status_is(200)
+      ->json_is('/state',         'new')
+      ->json_is('/priority',      5)
+      ->json_is('/embargoed',     1)
+      ->json_is('/external_link', 'ibs#4321');
     is $t->app->minion->jobs({tasks => ['obs_import']})->total, 1, 'one import job';
   };
 };
@@ -218,10 +237,15 @@ subtest 'Embargoed snippets' => sub {
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
     $t->get_ok('/snippets/meta?confidence=100&isClassified=false&isApproved=false&isLegal=true&notLegal=true')
-      ->status_is(200)->json_is('/snippets/0/embargoed', 0)->json_like('/snippets/0/text', qr/This is an embargo test/)
-      ->json_is('/snippets/1/package', 3)->json_is('/snippets/1/embargoed', 1)
-      ->json_like('/snippets/1/text', qr/added EXPERIMENTAL support for IPv6/)->json_is('/snippets/2/package', 3)
-      ->json_is('/snippets/2/embargoed', 1)->json_like('/snippets/2/text', qr/added EXPERIMENTAL xml attribute/);
+      ->status_is(200)
+      ->json_is('/snippets/0/embargoed', 0)
+      ->json_like('/snippets/0/text', qr/This is an embargo test/)
+      ->json_is('/snippets/1/package',   3)
+      ->json_is('/snippets/1/embargoed', 1)
+      ->json_like('/snippets/1/text', qr/added EXPERIMENTAL support for IPv6/)
+      ->json_is('/snippets/2/package',   3)
+      ->json_is('/snippets/2/embargoed', 1)
+      ->json_like('/snippets/2/text', qr/added EXPERIMENTAL xml attribute/);
 
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
   };
@@ -234,14 +258,20 @@ subtest 'Embargoed snippets' => sub {
       ok $t->app->packages->unpack(2), 'indexing second unembargoed package';
       $t->app->minion->perform_jobs;
       $t->get_ok('/snippets/meta?confidence=100&isClassified=false&isApproved=false&isLegal=true&notLegal=true')
-        ->status_is(200)->json_is('/snippets/0/embargoed', 0)
-        ->json_like('/snippets/0/text', qr/This is an embargo test/)->json_is('/snippets/1/package', 1)
-        ->json_is('/snippets/1/filepackage', 2)->json_is('/snippets/1/embargoed', 0)
-        ->json_like('/snippets/1/text', qr/added EXPERIMENTAL support for IPv6/)->json_is('/snippets/2/package', 1)
-        ->json_is('/snippets/2/filepackage', 2)->json_is('/snippets/2/embargoed', 0)
+        ->status_is(200)
+        ->json_is('/snippets/0/embargoed', 0)
+        ->json_like('/snippets/0/text', qr/This is an embargo test/)
+        ->json_is('/snippets/1/package',     1)
+        ->json_is('/snippets/1/filepackage', 2)
+        ->json_is('/snippets/1/embargoed',   0)
+        ->json_like('/snippets/1/text', qr/added EXPERIMENTAL support for IPv6/)
+        ->json_is('/snippets/2/package',     1)
+        ->json_is('/snippets/2/filepackage', 2)
+        ->json_is('/snippets/2/embargoed',   0)
         ->json_like('/snippets/2/text', qr/added EXPERIMENTAL xml attribute/);
       $t->get_ok('/snippets/meta?before=5&onfidence=100&isClassified=false&isApproved=false&isLegal=true&notLegal=true')
-        ->status_is(200)->json_is('/total', 4);
+        ->status_is(200)
+        ->json_is('/total', 4);
     };
 
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

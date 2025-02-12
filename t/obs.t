@@ -660,12 +660,14 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   # Validation errors
   $t->post_ok('/packages')->status_is(403);
   my $headers = {Authorization => "Token $config->{tokens}[0]"};
-  $t->post_ok('/packages', $headers)->status_is(400)
+  $t->post_ok('/packages', $headers)
+    ->status_is(400)
     ->json_is({error => 'Invalid request parameters (api, package, project)'});
 
   # Standard import
   $t->post_ok('/packages', $headers,
-    form => {api => $api, package => 'perl-Mojolicious', project => 'home:kraih', rev => 1})->status_is(200)
+    form => {api => $api, package => 'perl-Mojolicious', project => 'home:kraih', rev => 1})
+    ->status_is(200)
     ->json_is('/saved/id' => 1);
   ok !$t->app->packages->is_imported(1), 'not imported yet';
   $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_is('/imported' => undef);

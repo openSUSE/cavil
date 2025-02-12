@@ -203,13 +203,15 @@ sub startup ($self) {
   # Review UI
   $public->get('/')->to('Reviewer#list_reviews')->name('dashboard');
   $public->get('/search')->to('Search#search')->name('search');
-  $public->get('/pagination/search/*name' => {name => ''})->to('Pagination#review_search')
+  $public->get('/pagination/search/*name' => {name => ''})
+    ->to('Pagination#review_search')
     ->name('pagination_review_search');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
   $manager->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
   $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
-  $logged_in->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])->to('Report#calc', format => 'html')
+  $logged_in->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])
+    ->to('Report#calc', format => 'html')
     ->name('calc_report');
   $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json', 'html']])
     ->to('Report#source', format => 'html');
@@ -258,7 +260,8 @@ sub startup ($self) {
   $logged_in->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
   $logged_in->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
-  $admin_or_contributor->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')
+  $admin_or_contributor->get('/snippets/from_file/:file/<start:num>/<end:num>')
+    ->to('Snippet#from_file')
     ->name('new_snippet');
   $admin_or_contributor->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
 

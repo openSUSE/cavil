@@ -42,10 +42,12 @@ subtest 'Permissions' => sub {
 subtest 'Validation' => sub {
   $t->get_ok('/upload')->status_is(200)->element_exists_not('input[class~=field-with-error]');
   $t->post_ok('/upload')->status_is(200)->element_exists('input[name=name][class~=field-with-error]');
-  $t->post_ok('/upload', form => {name => 'perl-Mojolicious'})->status_is(200)
+  $t->post_ok('/upload', form => {name => 'perl-Mojolicious'})
+    ->status_is(200)
     ->element_exists_not('input[name=name][class~=field-with-error]')
     ->element_exists('input[name=licenses][class~=field-with-error]');
-  $t->post_ok('/upload', form => {name => 'perl-Mojolicious', licenses => 'Artistic-2.0'})->status_is(200)
+  $t->post_ok('/upload', form => {name => 'perl-Mojolicious', licenses => 'Artistic-2.0'})
+    ->status_is(200)
     ->element_exists_not('input[name=name][class~=field-with-error]')
     ->element_exists_not('input[name=licenses][class~=field-with-error]')
     ->element_exists('input[name=tarball][class~=field-with-error]');
@@ -68,7 +70,8 @@ subtest 'Upload' => sub {
       }
     }
   )->status_is(302)->header_is(Location => '/');
-  $t->get_ok('/')->status_is(200)
+  $t->get_ok('/')
+    ->status_is(200)
     ->content_like(qr/Package perl-Mojolicious has been uploaded and is now being processed/);
   $t->get_ok('/reviews/details/3')->status_is(200);
   $t->get_ok('/reviews/calc_report/3.json')->status_is(408);

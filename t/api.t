@@ -105,7 +105,8 @@ subtest 'Not authenticated' => sub {
 
 subtest 'Package not created yet' => sub {
   $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/No such package/);
-  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})->status_is(408)
+  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})
+    ->status_is(408)
     ->content_like(qr/unknown package/);
   $t->get_ok('/source/1' => {Authorization => 'Token test_token'})->status_is(404)->content_like(qr/unknown file/);
 };
@@ -113,9 +114,12 @@ subtest 'Package not created yet' => sub {
 subtest 'Create package' => sub {
   my $form = {api => $api, package => 'perl-Mojolicious', project => 'devel:languages:perl'};
   $t->app->patterns->expire_cache;
-  $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200)
-    ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')->json_is('/saved/id', 1);
-  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})->status_is(408)
+  $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)
+    ->status_is(200)
+    ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')
+    ->json_is('/saved/id',           1);
+  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})
+    ->status_is(408)
     ->content_like(qr/package being processed/);
   $t->app->minion->on(
     worker => sub {
@@ -147,18 +151,26 @@ subtest 'Create package' => sub {
 };
 
 subtest 'Package has been created' => sub {
-  $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
+  $t->get_ok('/package/1' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->json_is('/state',    'new')
     ->json_is('/priority', 5);
-  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})->status_is(200)
-    ->content_type_like(qr/application\/json/)->json_is('/package/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')
+  $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->content_type_like(qr/application\/json/)
+    ->json_is('/package/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')
     ->json_has('/report/risks');
-  $t->get_ok('/source/1' => {Authorization => 'Token test_token'})->status_is(200)
-    ->content_type_like(qr/application\/json/)->json_has('/source/filename');
+  $t->get_ok('/source/1' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->content_type_like(qr/application\/json/)
+    ->json_has('/source/filename');
 };
 
 subtest 'Update priority' => sub {
   $t->patch_ok('/package/1' => {Authorization => 'Token test_token'} => form => {priority => 7})->status_is(200);
-  $t->get_ok('/package/1' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/state', 'new')
+  $t->get_ok('/package/1' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->json_is('/state',    'new')
     ->json_is('/priority', 7);
 };
 
@@ -169,12 +181,15 @@ subtest 'Request not created yet' => sub {
 subtest 'Create a requests' => sub {
   $t->post_ok(
     '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123', package => 1})
-    ->status_is(200)->json_is('/created', 'obs#123');
+    ->status_is(200)
+    ->json_is('/created', 'obs#123');
 };
 
 subtest 'Request has been created' => sub {
-  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
-    ->json_is('/requests/0/external_link', 'obs#123')->json_is('/requests/0/packages', [1])
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->json_is('/requests/0/external_link', 'obs#123')
+    ->json_is('/requests/0/packages',      [1])
     ->json_is('/requests/0/checkouts',     ['236d7b56886a0d2799c0d114eddbb7f1']);
 };
 
@@ -186,9 +201,11 @@ subtest 'Remove request again' => sub {
 
 subtest 'Products' => sub {
   $t->patch_ok('/products/openSUSE:Factory' => {Authorization => 'Token test_token'} => form => {id => 1})
-    ->status_is(200)->json_is('/updated', 1);
+    ->status_is(200)
+    ->json_is('/updated', 1);
   $t->patch_ok('/products/openSUSE:Leap:15.0' => {Authorization => 'Token test_token'} => form => {id => 1})
-    ->status_is(200)->json_is('/updated', 2);
+    ->status_is(200)
+    ->json_is('/updated', 2);
   is_deeply $t->app->products->for_package(1), ['openSUSE:Factory', 'openSUSE:Leap:15.0'], 'right products';
 };
 
@@ -209,14 +226,18 @@ subtest 'Acceptable risk' => sub {
 
 subtest 'Identify package' => sub {
   $t->get_ok('/api/1.0/identify/perl-Mojolicious/236d7b56886a0d2799c0d114eddbb7f1')->status_is(200)->json_is('/id', 1);
-  $t->get_ok('/api/1.0/identify/perl-Test/236d7b56886a0d2799c0d114eddbb7f1')->status_is(404)
+  $t->get_ok('/api/1.0/identify/perl-Test/236d7b56886a0d2799c0d114eddbb7f1')
+    ->status_is(404)
     ->json_is('/error', 'Package not found');
-  $t->get_ok('/api/1.0/identify/perl-Mojolicious/236d7b56886a0d2799c0d114eddbb7f2')->status_is(404)
+  $t->get_ok('/api/1.0/identify/perl-Mojolicious/236d7b56886a0d2799c0d114eddbb7f2')
+    ->status_is(404)
     ->json_is('/error', 'Package not found');
 };
 
 subtest 'Package status' => sub {
-  $t->get_ok('/api/1.0/package/perl-Mojolicious')->status_is(200)->json_is('/package', 'perl-Mojolicious')
+  $t->get_ok('/api/1.0/package/perl-Mojolicious')
+    ->status_is(200)
+    ->json_is('/package',             'perl-Mojolicious')
     ->json_is('/requests/0/checkout', '236d7b56886a0d2799c0d114eddbb7f1');
 };
 
@@ -247,12 +268,14 @@ subtest 'Remove request (but keep packages that are still part of a product)' =>
   is $pkgs->find($ids[3])->{state}, 'new', 'right state';
   is $pkgs->find($ids[4])->{state}, 'new', 'right state';
 
-  $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})
+    ->status_is(200)
     ->json_is('/requests/0/packages' => \@ids);
 
   my @in_product = @ids[0, 2, 4];
   $t->patch_ok('/products/openSUSE:Test' => {Authorization => 'Token test_token'} => form => {id => \@in_product})
-    ->status_is(200)->json_is('/updated', 3);
+    ->status_is(200)
+    ->json_is('/updated', 3);
   is_deeply $t->app->products->for_package($ids[0]), ['openSUSE:Test'], 'right products';
   is_deeply $t->app->products->for_package($ids[1]), [],                'right products';
   is_deeply $t->app->products->for_package($ids[2]), ['openSUSE:Test'], 'right products';
@@ -272,59 +295,138 @@ subtest 'Remove request (but keep packages that are still part of a product)' =>
 
 subtest 'Pagination' => sub {
   subtest 'Search' => sub {
-    $t->get_ok('/pagination/search/perl-Mojolicious')->json_is('/start', 1)->json_is('/end', 1)->json_is('/total', 1)
-      ->json_is('/page/0/package', 'perl-Mojolicious')->json_is('/page/0/id', 1)->json_is('/page/0/state', 'obsolete')
-      ->json_has('/page/0/checksum')->json_has('/page/0/comment')->json_has('/page/0/user')
-      ->json_has('/page/0/created_epoch')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
-      ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
-      ->json_is('/page/0/unresolved_matches' => 6)->json_hasnt('/page/1');
-    $t->get_ok('/pagination/search/perl-Mojolicious?notObsolete=true')->json_is('/start', 1)->json_is('/end', 0)
-      ->json_is('/total', 0)->json_hasnt('/page/0');
-    $t->get_ok('/pagination/search/perl-Mojolicious?filter=Artistic')->json_is('/start', 1)->json_is('/end', 1)
-      ->json_is('/total', 1)->json_is('/page/0/id', 1)->json_hasnt('/page/1');
-    $t->get_ok('/pagination/search/perl-Mojolicious?filter=MIT')->json_is('/start', 1)->json_is('/end', 0)
-      ->json_is('/total', 0)->json_hasnt('/page/0');
+    $t->get_ok('/pagination/search/perl-Mojolicious')
+      ->json_is('/start',          1)
+      ->json_is('/end',            1)
+      ->json_is('/total',          1)
+      ->json_is('/page/0/package', 'perl-Mojolicious')
+      ->json_is('/page/0/id',      1)
+      ->json_is('/page/0/state',   'obsolete')
+      ->json_has('/page/0/checksum')
+      ->json_has('/page/0/comment')
+      ->json_has('/page/0/user')
+      ->json_has('/page/0/created_epoch')
+      ->json_has('/page/0/imported_epoch')
+      ->json_has('/page/0/indexed_epoch')
+      ->json_has('/page/0/unpacked_epoch')
+      ->json_is('/page/0/active_jobs'        => 0)
+      ->json_is('/page/0/failed_jobs'        => 0)
+      ->json_is('/page/0/unresolved_matches' => 6)
+      ->json_hasnt('/page/1');
+    $t->get_ok('/pagination/search/perl-Mojolicious?notObsolete=true')
+      ->json_is('/start', 1)
+      ->json_is('/end',   0)
+      ->json_is('/total', 0)
+      ->json_hasnt('/page/0');
+    $t->get_ok('/pagination/search/perl-Mojolicious?filter=Artistic')
+      ->json_is('/start',     1)
+      ->json_is('/end',       1)
+      ->json_is('/total',     1)
+      ->json_is('/page/0/id', 1)
+      ->json_hasnt('/page/1');
+    $t->get_ok('/pagination/search/perl-Mojolicious?filter=MIT')
+      ->json_is('/start', 1)
+      ->json_is('/end',   0)
+      ->json_is('/total', 0)
+      ->json_hasnt('/page/0');
   };
 
   subtest 'Products' => sub {
-    $t->get_ok('/pagination/products/known')->json_is('/start', 1)->json_is('/end', 3)->json_is('/total', 3)
-      ->json_is('/page/0/id', 3)->json_is('/page/0/name', 'openSUSE:Test')->json_is('/page/0/new_packages', 3)
-      ->json_is('/page/0/reviewed_packages', 0)->json_is('/page/0/unacceptable_packages', 0)->json_hasnt('/page/3');
-    $t->get_ok('/pagination/products/known?filter=Factory')->json_is('/start', 1)->json_is('/end', 1)
-      ->json_is('/total', 1)->json_is('/page/0/id', 1)->json_hasnt('/page/1');
+    $t->get_ok('/pagination/products/known')
+      ->json_is('/start',                        1)
+      ->json_is('/end',                          3)
+      ->json_is('/total',                        3)
+      ->json_is('/page/0/id',                    3)
+      ->json_is('/page/0/name',                  'openSUSE:Test')
+      ->json_is('/page/0/new_packages',          3)
+      ->json_is('/page/0/reviewed_packages',     0)
+      ->json_is('/page/0/unacceptable_packages', 0)
+      ->json_hasnt('/page/3');
+    $t->get_ok('/pagination/products/known?filter=Factory')
+      ->json_is('/start',     1)
+      ->json_is('/end',       1)
+      ->json_is('/total',     1)
+      ->json_is('/page/0/id', 1)
+      ->json_hasnt('/page/1');
 
-    $t->get_ok('/pagination/products/openSUSE:Test')->json_is('/start', 1)->json_is('/end', 3)->json_is('/total', 3)
-      ->json_is('/page/0/id', 6)->json_is('/page/0/state', 'new')->json_is('/page/0/name', 'test-package-5')
-      ->json_has('/page/0/checksum')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
-      ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
+    $t->get_ok('/pagination/products/openSUSE:Test')
+      ->json_is('/start',        1)
+      ->json_is('/end',          3)
+      ->json_is('/total',        3)
+      ->json_is('/page/0/id',    6)
+      ->json_is('/page/0/state', 'new')
+      ->json_is('/page/0/name',  'test-package-5')
+      ->json_has('/page/0/checksum')
+      ->json_has('/page/0/imported_epoch')
+      ->json_has('/page/0/indexed_epoch')
+      ->json_has('/page/0/unpacked_epoch')
+      ->json_is('/page/0/active_jobs'        => 0)
+      ->json_is('/page/0/failed_jobs'        => 0)
       ->json_is('/page/0/unresolved_matches' => 0);
-    $t->get_ok('/pagination/products/openSUSE:Test?filter=package-3')->json_is('/start', 1)->json_is('/end', 1)
-      ->json_is('/total', 1)->json_is('/page/0/id', 4)->json_hasnt('/page/1');
+    $t->get_ok('/pagination/products/openSUSE:Test?filter=package-3')
+      ->json_is('/start',     1)
+      ->json_is('/end',       1)
+      ->json_is('/total',     1)
+      ->json_is('/page/0/id', 4)
+      ->json_hasnt('/page/1');
 
-    $t->get_ok('/pagination/products/openSUSE:Test?attention=true')->json_is('/start', 1)->json_is('/end', 3)
-      ->json_is('/total', 3)->json_is('/page/0/id', 6)->json_hasnt('/page/3');
+    $t->get_ok('/pagination/products/openSUSE:Test?attention=true')
+      ->json_is('/start',     1)
+      ->json_is('/end',       3)
+      ->json_is('/total',     3)
+      ->json_is('/page/0/id', 6)
+      ->json_hasnt('/page/3');
 
-    $t->get_ok('/pagination/products/openSUSE:Test?unresolvedMatches=true')->json_is('/start', 1)->json_is('/end', 0)
-      ->json_is('/total', 0)->json_hasnt('/page/0');
+    $t->get_ok('/pagination/products/openSUSE:Test?unresolvedMatches=true')
+      ->json_is('/start', 1)
+      ->json_is('/end',   0)
+      ->json_is('/total', 0)
+      ->json_hasnt('/page/0');
   };
 
   subtest 'Licenses' => sub {
-    $t->get_ok('/pagination/licenses/known')->json_is('/start', 1)->json_is('/end', 4)->json_is('/total', 4)
-      ->json_is('/page/0/license', '')->json_is('/page/0/spdx', '')->json_is('/page/1/license', 'Apache-2.0')
-      ->json_is('/page/1/spdx',    '')->json_hasnt('/page/4');
-    $t->get_ok('/pagination/licenses/known?filter=Artistic')->json_is('/start', 1)->json_is('/end', 1)
-      ->json_is('/total', 1)->json_is('/page/0/license', 'Artistic-2.0')->json_hasnt('/page/1');
+    $t->get_ok('/pagination/licenses/known')
+      ->json_is('/start',          1)
+      ->json_is('/end',            4)
+      ->json_is('/total',          4)
+      ->json_is('/page/0/license', '')
+      ->json_is('/page/0/spdx',    '')
+      ->json_is('/page/1/license', 'Apache-2.0')
+      ->json_is('/page/1/spdx',    '')
+      ->json_hasnt('/page/4');
+    $t->get_ok('/pagination/licenses/known?filter=Artistic')
+      ->json_is('/start',          1)
+      ->json_is('/end',            1)
+      ->json_is('/total',          1)
+      ->json_is('/page/0/license', 'Artistic-2.0')
+      ->json_hasnt('/page/1');
   };
 
   subtest 'Reviews' => sub {
-    $t->get_ok('/pagination/reviews/open')->json_is('/start', 1)->json_is('/end', 3)->json_is('/total', 3)
-      ->json_is('/page/0/id',   2)->json_is('/page/0/state', 'new')->json_is('/page/0/priority', 5)
-      ->json_is('/page/0/name', 'test-package-1')->json_has('/page/0/checksum')->json_has('/page/0/external_link')
-      ->json_has('/page/0/created_epoch')->json_has('/page/0/imported_epoch')->json_has('/page/0/indexed_epoch')
-      ->json_has('/page/0/unpacked_epoch')->json_is('/page/0/active_jobs' => 0)->json_is('/page/0/failed_jobs' => 0)
-      ->json_is('/page/0/unresolved_matches' => 0)->json_hasnt('/page/3');
-    $t->get_ok('/pagination/reviews/open?filter=package-3')->json_is('/start', 1)->json_is('/end', 1)
-      ->json_is('/total', 1)->json_is('/page/0/id', 4)->json_hasnt('/page/1');
+    $t->get_ok('/pagination/reviews/open')
+      ->json_is('/start',           1)
+      ->json_is('/end',             3)
+      ->json_is('/total',           3)
+      ->json_is('/page/0/id',       2)
+      ->json_is('/page/0/state',    'new')
+      ->json_is('/page/0/priority', 5)
+      ->json_is('/page/0/name',     'test-package-1')
+      ->json_has('/page/0/checksum')
+      ->json_has('/page/0/external_link')
+      ->json_has('/page/0/created_epoch')
+      ->json_has('/page/0/imported_epoch')
+      ->json_has('/page/0/indexed_epoch')
+      ->json_has('/page/0/unpacked_epoch')
+      ->json_is('/page/0/active_jobs'        => 0)
+      ->json_is('/page/0/failed_jobs'        => 0)
+      ->json_is('/page/0/unresolved_matches' => 0)
+      ->json_hasnt('/page/3');
+    $t->get_ok('/pagination/reviews/open?filter=package-3')
+      ->json_is('/start',     1)
+      ->json_is('/end',       1)
+      ->json_is('/total',     1)
+      ->json_is('/page/0/id', 4)
+      ->json_hasnt('/page/1');
   };
 };
 

@@ -206,7 +206,8 @@ sub package_with_snippets_fixtures ($self, $app) {
 }
 
 sub postgres_url ($self) {
-  return Mojo::URL->new($self->{options}{online})->query([search_path => [$self->{options}{schema}, 'public']])
+  return Mojo::URL->new($self->{options}{online})
+    ->query([search_path => [$self->{options}{schema}, 'public']])
     ->to_unsafe_string;
 }
 
