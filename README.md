@@ -46,7 +46,7 @@ a simple model can identify almost all of them.
 There are currently two example implementations for a companion server application (usually running on port 5000):
 
 1. https://github.com/kraih/Character-level-cnn-pytorch/
-2. https://github.com/kraih/llama-lawyer
+2. https://github.com/kraih/llm-lawyer
 
 ## Getting Started
 
