@@ -310,6 +310,35 @@ Content-Type: application/json
 }
 ```
 
+---
+
+`GET /package/<package_id>/report.txt`
+
+Get package legal report in plain text format.
+
+**Request parameters:**
+
+None
+
+**Request body:**
+
+None
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Length: 1034
+Content-Type: application/json
+
+# Legal Report
+
+Package:  perl-Mojolicious
+Checkout: 4fcfdab0e71b0bebfdf8b5cc3badfec4
+
+...
+```
+
 ### Requests
 
 `POST /requests`

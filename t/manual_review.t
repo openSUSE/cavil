@@ -103,7 +103,7 @@ subtest 'Details after import (indexing in progress)' => sub {
 
   $t->json_is('/errors', [])->json_is('/warnings', []);
 
-  $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/not indexed/);
+  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/not indexed/);
   $t->get_ok('/reviews/fetch_source/1')->status_is(404);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
@@ -122,7 +122,7 @@ subtest 'Details after import (with login)' => sub {
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!new!);
 
-  $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/not indexed/);
+  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/not indexed/);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -167,7 +167,7 @@ subtest 'Details after indexing' => sub {
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!new!);
 
-  $t->get_ok('/reviews/calc_report/1')
+  $t->get_ok('/reviews/report/1')
     ->status_is(200)
     ->element_exists('#license-chart')
     ->element_exists('#emails')
@@ -190,7 +190,7 @@ subtest 'Details after indexing' => sub {
 subtest 'JSON report' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/calc_report/1.json')->header_like(Vary => qr/Accept-Encoding/)->status_is(200);
+  $t->get_ok('/reviews/report/1.json')->header_like(Vary => qr/Accept-Encoding/)->status_is(200);
   ok my $json = $t->tx->res->json, 'JSON response';
 
   ok my $pkg = $json->{package}, 'package';
@@ -245,7 +245,7 @@ subtest 'Reindex (with updated stats)' => sub {
   $t->app->minion->enqueue('pattern_stats');
   $t->app->minion->perform_jobs;
   $t->app->packages->reindex(1);
-  $t->get_ok('/reviews/calc_report/1')->status_is(408)->content_like(qr/package being processed/);
+  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/package being processed/);
   $t->app->minion->perform_jobs;
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
@@ -288,7 +288,7 @@ subtest 'Details after reindexing' => sub {
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!new!);
 
-  $t->get_ok('/reviews/calc_report/1')
+  $t->get_ok('/reviews/report/1')
     ->header_like(Vary => qr/Accept-Encoding/)
     ->status_is(200)
     ->element_exists('#license-chart')
@@ -346,7 +346,7 @@ subtest 'Manual review' => sub {
     ->json_like('/state',           qr!acceptable!)
     ->json_like('/result',          qr/Test review/);
 
-  $t->get_ok('/reviews/calc_report/1')
+  $t->get_ok('/reviews/report/1')
     ->status_is(200)
     ->element_exists('#license-chart')
     ->element_exists('#unmatched-files')
@@ -395,7 +395,7 @@ subtest 'Manual review' => sub {
 subtest 'Final JSON report' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/calc_report/1.json')->status_is(200);
+  $t->get_ok('/reviews/report/1.json')->status_is(200);
   ok my $json = $t->tx->res->json, 'JSON response';
 
   ok my $pkg = $json->{package}, 'package';

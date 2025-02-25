@@ -20,7 +20,7 @@ use Mojo::Asset::File;
 use Mojo::JSON 'from_json';
 use Cavil::Util 'lines_context';
 
-sub calc ($self) {
+sub report ($self) {
   my $id = $self->stash('id');
   return $self->render(text => 'unknown package', status => 408) unless my $pkg = $self->packages->find($id);
 
@@ -36,7 +36,8 @@ sub calc ($self) {
   $self->_sanitize_report($report);
 
   $self->respond_to(
-    json => sub { $self->render(json => {report => $report, package => $pkg}) },
+    json => sub { $self->render(json                      => {report => $report, package => $pkg}) },
+    txt  => sub { $self->render('reviewer/report', report => $report, package => $pkg) },
     html => sub {
       my $min = $self->app->config('min_files_short_report');
       $self->render('reviewer/report', report => $report, package => $pkg, max_number_of_files => $min);

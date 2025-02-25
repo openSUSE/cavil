@@ -32,7 +32,7 @@
     % }
 </div>
 
-% my $detail_url = url_for('calc_report', id => $package->{id})->to_abs;
+% my $detail_url = url_for('report', id => $package->{id})->to_abs;
 % $detail_url->query([full => 1]) if param 'full';
 % content_for 'ready_function' => begin
     cavil.setupReviewDetails('<%= $detail_url %>');

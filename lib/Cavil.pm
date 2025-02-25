@@ -189,9 +189,9 @@ sub startup ($self) {
   $bot->post('/requests')->to('Queue#create_request');
   $bot->get('/requests')->to('Queue#list_requests');
   $bot->delete('/requests')->to('Queue#remove_request');
+  $bot->get('/package/<id:num>/report' => [format => ['json', 'txt']])->to('Report#report', format => 'json');
 
   # API for lawyer tools
-  $bot->get('/package/<id:num>/report')->to('Report#calc', format => 'json');
   $bot->get('/source/<id:num>')->to('Report#source', format => 'json');
 
   # Public API
@@ -210,9 +210,9 @@ sub startup ($self) {
   $manager->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
   $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
-  $logged_in->get('/reviews/calc_report/<id:num>' => [format => ['json', 'html']])
-    ->to('Report#calc', format => 'html')
-    ->name('calc_report');
+  $logged_in->get('/reviews/report/<id:num>' => [format => ['json', 'txt', 'html']])
+    ->to('Report#report', format => 'html')
+    ->name('report');
   $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json', 'html']])
     ->to('Report#source', format => 'html');
   $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');

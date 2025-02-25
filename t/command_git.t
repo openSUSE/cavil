@@ -24,6 +24,8 @@ use Cavil::Test;
 use Cavil::Util qw(run_cmd);
 use Mojo::File  qw(tempdir);
 
+plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
+
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_git_test');
 my $config     = $cavil_test->default_config;
 my $t          = Test::Mojo->new(Cavil => $config);

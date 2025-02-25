@@ -74,7 +74,7 @@ subtest 'Upload' => sub {
     ->status_is(200)
     ->content_like(qr/Package perl-Mojolicious has been uploaded and is now being processed/);
   $t->get_ok('/reviews/details/3')->status_is(200);
-  $t->get_ok('/reviews/calc_report/3.json')->status_is(408);
+  $t->get_ok('/reviews/report/3.json')->status_is(408);
 
   my $pkg  = $t->app->packages->find(3);
   my $json = path($cavil_test->checkout_dir)->child('perl-Mojolicious', $pkg->{checkout_dir}, '.cavil.json');
@@ -95,7 +95,7 @@ subtest 'Indexing' => sub {
     ->child('perl-Mojolicious', $t->app->packages->find(3)->{checkout_dir}, '.unpacked');
   ok -d $unpacked, 'unpacked';
 
-  $t->get_ok('/reviews/calc_report/3.json')->header_like(Vary => qr/Accept-Encoding/)->status_is(200);
+  $t->get_ok('/reviews/report/3.json')->header_like(Vary => qr/Accept-Encoding/)->status_is(200);
   ok my $json = $t->tx->res->json, 'JSON response';
 
   ok my $pkg = $json->{package}, 'package';
