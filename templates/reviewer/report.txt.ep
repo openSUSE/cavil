@@ -1,8 +1,8 @@
 
 # Legal Report
 
-Package:  <%= $package->{name} %>
-Checkout: <%= $package->{checkout_dir} %>
+Package:  <%== $package->{name} %>
+Checkout: <%== $package->{checkout_dir} %>
 
 
 
@@ -26,7 +26,7 @@ existing license patterns, the higher the risk will climb above the predicted li
 ### Risk 9 (Unknown)
 
 %     for my $file (@{$report->{missed_files}}) {
-* `<%= $file->{name} %>`: <%= $file->{match} %>% similarity to "<%= $file->{license} %>", estimated risk <%= $file->{max_risk} %>
+* `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $file->{license} %>", estimated risk <%== $file->{max_risk} %>
 %     }
 
 
@@ -34,12 +34,12 @@ existing license patterns, the higher the risk will climb above the predicted li
 %   my $risks = $report->{risks};
 %   for my $risk (reverse sort keys %$risks) {
 %     my $current = $risks->{$risk};
-### Risk <%= $risk %> (<%= $risk <= 3 ? 'Low' : 'High'%>)
+### Risk <%== $risk %> (<%== $risk <= 3 ? 'Low' : 'High'%>)
 
 %     for my $lic (sort keys %$current) {
 %       my $matches = $current->{$lic};
 %       my $num = scalar @{$matches->{files}};
-* <%= $lic %>: <%= $num %> <%= $num == 1 ? 'file' : 'files' %>
+* <%== $lic %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %>
 %     }
 
 
