@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmagic-dev ruby-sass openssh-client
+          sudo apt-get install -y libmagic-dev liblzma-dev ruby-sass openssh-client
           cpanm -n https://github.com/openSUSE/Spooky-Patterns-XS/archive/1.55.tar.gz
           cpanm -n --installdeps .
           cpanm -n Test::Deep
