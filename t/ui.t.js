@@ -139,6 +139,7 @@ t.test('Test cavil ui', skip, async t => {
     await t.test('Search', async t => {
       await page.goto(url);
       await page.click('text=perl-Mojolicious');
+      await page.waitForSelector('#review-search tbody > tr:nth-child(1)');
       t.equal(await page.innerText('title'), 'Search Results');
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
       t.equal(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
