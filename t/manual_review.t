@@ -209,22 +209,22 @@ subtest 'JSON report' => sub {
 
   ok my $missed_files = $report->{missed_files}, 'missed files';
   is $missed_files->[0]{id},       1,         'id';
-  is $missed_files->[0]{license},  'Snippet', 'license';
+  is $missed_files->[0]{license},  'Keyword', 'license';
   is $missed_files->[0]{match},    0,         'no match';
   is $missed_files->[0]{max_risk}, 9,         'max risk';
   ok $missed_files->[0]{name}, 'name';
   is $missed_files->[1]{id},       2,         'id';
-  is $missed_files->[1]{license},  'Snippet', 'license';
+  is $missed_files->[1]{license},  'Keyword', 'license';
   is $missed_files->[1]{match},    0,         'no match';
   is $missed_files->[1]{max_risk}, 9,         'max risk';
   ok $missed_files->[1]{name}, 'name';
   is $missed_files->[2]{id},       5,         'id';
-  is $missed_files->[2]{license},  'Snippet', 'license';
+  is $missed_files->[2]{license},  'Keyword', 'license';
   is $missed_files->[2]{match},    0,         'no match';
   is $missed_files->[2]{max_risk}, 9,         'max risk';
   ok $missed_files->[2]{name}, 'name';
   is $missed_files->[3]{id},       7,         'id';
-  is $missed_files->[3]{license},  'Snippet', 'license';
+  is $missed_files->[3]{license},  'Keyword', 'license';
   is $missed_files->[3]{match},    0,         'no match';
   is $missed_files->[3]{max_risk}, 9,         'max risk';
   ok $missed_files->[3]{name}, 'name';
@@ -297,7 +297,7 @@ subtest 'Details after reindexing' => sub {
     ->text_like('#unmatched-files tr:nth-of-type(1) td:nth-of-type(1) a',                qr!Mojolicious-7.25/LICENSE!)
     ->text_like('#unmatched-files tr:nth-of-type(1) td:nth-of-type(2) b',                qr![0-9.]+%!)
     ->text_like('#unmatched-files tr:nth-of-type(1) td:nth-of-type(2)',                  qr!similarity to!)
-    ->text_like('#unmatched-files tr:nth-of-type(1) td:nth-of-type(2) b:nth-of-type(2)', qr!Snippet!)
+    ->text_like('#unmatched-files tr:nth-of-type(1) td:nth-of-type(2) b:nth-of-type(2)', qr!Keyword!)
     ->text_like('#unmatched-files tr:nth-of-type(1) td:nth-of-type(3) .estimated-risk',  qr!Risk 7!)
     ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(1) a', qr!Mojolicious-7.25/lib/Mojolicious.pm!)
     ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(2) b', qr![0-9.]+%!)
@@ -307,12 +307,12 @@ subtest 'Details after reindexing' => sub {
     ->text_like('#unmatched-files tr:nth-of-type(3) td:nth-of-type(1) a',                qr!Mojolicious-7.25/Changes!)
     ->text_like('#unmatched-files tr:nth-of-type(3) td:nth-of-type(2) b',                qr!100%!)
     ->text_like('#unmatched-files tr:nth-of-type(3) td:nth-of-type(2)',                  qr!similarity to!)
-    ->text_like('#unmatched-files tr:nth-of-type(3) td:nth-of-type(2) b:nth-of-type(2)', qr!Snippet!)
+    ->text_like('#unmatched-files tr:nth-of-type(3) td:nth-of-type(2) b:nth-of-type(2)', qr!Keyword!)
     ->text_like('#unmatched-files tr:nth-of-type(3) td:nth-of-type(3) .estimated-risk',  qr!Risk 5!)
     ->text_like('#unmatched-files tr:nth-of-type(4) td:nth-of-type(1) a',                qr!perl-Mojolicious.changes!)
     ->text_like('#unmatched-files tr:nth-of-type(4) td:nth-of-type(2) b',                qr!100%!)
     ->text_like('#unmatched-files tr:nth-of-type(4) td:nth-of-type(2)',                  qr!similarity to!)
-    ->text_like('#unmatched-files tr:nth-of-type(4) td:nth-of-type(2) b:nth-of-type(2)', qr!Snippet!)
+    ->text_like('#unmatched-files tr:nth-of-type(4) td:nth-of-type(2) b:nth-of-type(2)', qr!Keyword!)
     ->text_like('#unmatched-files tr:nth-of-type(4) td:nth-of-type(3) .estimated-risk',  qr!Risk 5!)
     ->element_exists('#risk-5')
     ->text_like('#risk-5 li',                        qr!Apache-2.0!)
@@ -414,7 +414,7 @@ subtest 'Final JSON report' => sub {
 
   ok my $missed_files = $report->{missed_files}, 'missed files';
   is $missed_files->[0]{id},      9,         'id';
-  is $missed_files->[0]{license}, 'Snippet', 'license';
+  is $missed_files->[0]{license}, 'Keyword', 'license';
   ok $missed_files->[0]{match} > 0, 'match';
   is $missed_files->[0]{max_risk}, 7, 'max risk';
   ok $missed_files->[0]{name}, 'name';
@@ -424,12 +424,12 @@ subtest 'Final JSON report' => sub {
   is $missed_files->[1]{max_risk}, 7, 'max risk';
   ok $missed_files->[1]{name}, 'name';
   is $missed_files->[2]{id},       8,         'id';
-  is $missed_files->[2]{license},  'Snippet', 'license';
+  is $missed_files->[2]{license},  'Keyword', 'license';
   is $missed_files->[2]{match},    100,       'match';
   is $missed_files->[2]{max_risk}, 5,         'max risk';
   ok $missed_files->[2]{name}, 'name';
   is $missed_files->[3]{id},      14,        'id';
-  is $missed_files->[3]{license}, 'Snippet', 'license';
+  is $missed_files->[3]{license}, 'Keyword', 'license';
   ok $missed_files->[3]{match} > 0, 'match';
   is $missed_files->[3]{max_risk}, 5, 'max risk';
   ok $missed_files->[3]{name}, 'name';

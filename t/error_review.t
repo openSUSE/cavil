@@ -141,22 +141,22 @@ subtest 'JSON report' => sub {
 
   ok my $missed_files = $report->{missed_files}, 'missed files';
   is $missed_files->[0]{id},       1,         'id';
-  is $missed_files->[0]{license},  'Snippet', 'license';
+  is $missed_files->[0]{license},  'Keyword', 'license';
   is $missed_files->[0]{match},    0,         'no match';
   is $missed_files->[0]{max_risk}, 9,         'max risk';
   ok $missed_files->[0]{name}, 'name';
   is $missed_files->[1]{id},       2,         'id';
-  is $missed_files->[1]{license},  'Snippet', 'license';
+  is $missed_files->[1]{license},  'Keyword', 'license';
   is $missed_files->[1]{match},    0,         'no match';
   is $missed_files->[1]{max_risk}, 9,         'max risk';
   ok $missed_files->[1]{name}, 'name';
   is $missed_files->[2]{id},       5,         'id';
-  is $missed_files->[2]{license},  'Snippet', 'license';
+  is $missed_files->[2]{license},  'Keyword', 'license';
   is $missed_files->[2]{match},    0,         'no match';
   is $missed_files->[2]{max_risk}, 9,         'max risk';
   ok $missed_files->[2]{name}, 'name';
   is $missed_files->[3]{id},       7,         'id';
-  is $missed_files->[3]{license},  'Snippet', 'license';
+  is $missed_files->[3]{license},  'Keyword', 'license';
   is $missed_files->[3]{match},    0,         'no match';
   is $missed_files->[3]{max_risk}, 9,         'max risk';
   ok $missed_files->[3]{name}, 'name';

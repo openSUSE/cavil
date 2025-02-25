@@ -175,7 +175,7 @@ subtest 'Package has been created' => sub {
     ->content_like(qr/Checkout:.+236d7b56886a0d2799c0d114eddbb7f1/)
     ->content_like(qr/Manual review is required because no previous reports are available/)
     ->content_like(qr/### Risk 9 \(Unknown\)/)
-    ->content_like(qr/\* .+: 0% similarity to "Snippet", estimated risk 9/)
+    ->content_like(qr/\* .+: 0% similarity to "Keyword", estimated risk 9/)
     ->content_like(qr/### Risk 5 \(High\)/)
     ->content_like(qr/\* Apache-2.0: 2 files/)
     ->content_like(qr/## About/)

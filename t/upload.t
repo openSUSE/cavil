@@ -112,7 +112,7 @@ subtest 'Indexing' => sub {
 
   ok my $missed_files = $report->{missed_files}, 'missed files';
   is $missed_files->[0]{id},       1,         'id';
-  is $missed_files->[0]{license},  'Snippet', 'license';
+  is $missed_files->[0]{license},  'Keyword', 'license';
   is $missed_files->[0]{match},    0,         'no match';
   is $missed_files->[0]{max_risk}, 9,         'max risk';
 
