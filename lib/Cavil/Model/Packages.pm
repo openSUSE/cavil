@@ -80,6 +80,7 @@ sub cleanup ($self, $id) {
   if (-d $dir) {
     $log->info("[$id] Removing checkout $pkg->{name}/$pkg->{checkout_dir}");
     $dir->remove_tree;
+    $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
   }
 
   $db->query('delete from bot_reports where package = ?',     $id);
@@ -184,7 +185,7 @@ sub remove_ignored_line ($self, $id, $user) {
 }
 
 sub imported ($self, $id) {
-  $self->pg->db->update('bot_packages', {imported => \'now()'}, {id => $id});
+  $self->pg->db->query('UPDATE bot_packages SET imported = NOW(), cleaned = NULL WHERE id = ?', $id);
 }
 
 sub index ($self, @args) { $self->_enqueue('index', @args) }

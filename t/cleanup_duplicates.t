@@ -180,6 +180,7 @@ subtest 'Clean up duplicates' => sub {
   # First package (cleaned up)
   is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
   ok $t->app->packages->find($one_id)->{obsolete}, 'obsolete';
+  ok $t->app->packages->find($one_id)->{cleaned},  'cleanup done';
   is $t->app->packages->find($one_id)->{result}, undef, 'right result';
   ok !-e $dir->child(@one), 'checkout does not exist';
   ok !$t->app->pg->db->select('emails',          [\'count(*)'], {package => $one_id})->array->[0], 'no emails';
@@ -191,6 +192,7 @@ subtest 'Clean up duplicates' => sub {
   # Second package (cleaned up)
   is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
   ok $t->app->packages->find($two_id)->{obsolete}, 'obsolete';
+  ok $t->app->packages->find($two_id)->{cleaned},  'cleanup done';
   is $t->app->packages->find($two_id)->{result}, undef, 'right result';
   ok !-e $dir->child(@two), 'checkout does not exist';
   ok !$t->app->pg->db->select('emails',          [\'count(*)'], {package => $two_id})->array->[0], 'no emails';
@@ -202,6 +204,7 @@ subtest 'Clean up duplicates' => sub {
   # Third package (still valid, because the latest)
   is $t->app->packages->find($three_id)->{state}, 'new', 'right state';
   ok !$t->app->packages->find($three_id)->{obsolete}, 'not obsolete';
+  ok !$t->app->packages->find($three_id)->{cleaned},  'no cleanup done';
   is $t->app->packages->find($three_id)->{notice},
     'Manual review is required because no previous reports are available', 'requires manual review';
   ok -e $dir->child(@three), 'checkout exists';
@@ -214,6 +217,7 @@ subtest 'Clean up duplicates' => sub {
   # Fourth package (still valid, different external link)
   is $t->app->packages->find($four_id)->{state}, 'new', 'right state';
   ok !$t->app->packages->find($four_id)->{obsolete}, 'not obsolete';
+  ok !$t->app->packages->find($four_id)->{cleaned},  'no cleanup done';
   is $t->app->packages->find($four_id)->{notice},
     'Manual review is required because no previous reports are available', 'requires manual review';
   ok -e $dir->child(@four), 'checkout exists';
@@ -226,6 +230,7 @@ subtest 'Clean up duplicates' => sub {
   # Fifth package (still valid, no external_link)
   is $t->app->packages->find($five_id)->{state}, 'new', 'right state';
   ok !$t->app->packages->find($five_id)->{obsolete}, 'not obsolete';
+  ok !$t->app->packages->find($five_id)->{cleaned},  'no cleanup done';
   is $t->app->packages->find($five_id)->{notice},
     'Manual review is required because no previous reports are available', 'requires manual review';
   ok -e $dir->child(@five), 'checkout exists';

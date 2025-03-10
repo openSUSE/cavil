@@ -157,6 +157,7 @@ is $t->app->packages->find($one_id)->{state}, 'acceptable_by_lawyer', 'right sta
 is $t->app->packages->find($one_id)->{result}, 'Accepted because reviewed by lawyer under the same license (2)',
   'right result';
 ok $t->app->packages->find($one_id)->{obsolete},                                        'obsolete';
+ok $t->app->packages->find($one_id)->{cleaned},                                         'cleanup done';
 ok !-e $dir->child(@one),                                                               'checkout does not exist';
 ok !$t->app->pg->db->select('emails', [\'count(*)'], {package => $one_id})->array->[0], 'no emails';
 ok !$t->app->pg->db->select('urls', [\'count(*)'], {package => $one_id})->array->[0],   'no URLs';
@@ -168,13 +169,15 @@ ok !$t->app->pg->db->select('file_snippets', [\'count(*)'], {package => $one_id}
 is $t->app->packages->find($two_id)->{state}, 'acceptable_by_lawyer', 'right state';
 is $t->app->packages->find($two_id)->{result}, 'Accepted because previously reviewed under the same license (1)',
   'right result';
-ok !$t->app->packages->find($two_id)->{obsolete}, 'obsolete';
+ok !$t->app->packages->find($two_id)->{obsolete}, 'not obsolete';
+ok !$t->app->packages->find($two_id)->{cleaned},  'no cleanup done';
 
 # Third package (obsolete)
 is $t->app->packages->find($three_id)->{state}, 'acceptable_by_lawyer', 'right state';
 is $t->app->packages->find($three_id)->{result}, 'Accepted because reviewed by lawyer under the same license (2)',
   'right result';
 ok !$t->app->packages->find($three_id)->{obsolete},                                               'not obsolete';
+ok !$t->app->packages->find($three_id)->{cleaned},                                                'no clanup done';
 ok -e $dir->child(@three),                                                                        'checkout exists';
 ok $t->app->pg->db->select('bot_reports', [\'count(*)'], {package => $three_id})->array->[0],     'has reports';
 ok $t->app->pg->db->select('emails', [\'count(*)'], {package => $three_id})->array->[0],          'has emails';
