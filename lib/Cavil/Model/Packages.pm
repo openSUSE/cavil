@@ -76,9 +76,11 @@ sub cleanup ($self, $id) {
   my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id}, {for => 'update'})->hash;
   return if !$pkg || !$pkg->{obsolete} || !(my $guard = $minion->guard("processing_pkg_$id", 172800));
 
-  $log->info("[$id] Remove $pkg->{name}/$pkg->{checkout_dir}");
   my $dir = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
-  $dir->remove_tree if -d $dir;
+  if (-d $dir) {
+    $log->info("[$id] Removing checkout $pkg->{name}/$pkg->{checkout_dir}");
+    $dir->remove_tree;
+  }
 
   $db->query('delete from bot_reports where package = ?',     $id);
   $db->query('delete from emails where package = ?',          $id);
