@@ -45,7 +45,8 @@ sub _cleanup ($job) {
     }
   );
 
-  my $ids     = $db->query('select id from bot_packages where obsolete is true order by id')->arrays->flatten->to_array;
+  my $ids = $db->query('SELECT id FROM bot_packages WHERE obsolete IS TRUE AND cleaned IS NULL ORDER BY ID')
+    ->arrays->flatten->to_array;
   my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 
   my $minion = $app->minion;

@@ -80,8 +80,8 @@ sub cleanup ($self, $id) {
   if (-d $dir) {
     $log->info("[$id] Removing checkout $pkg->{name}/$pkg->{checkout_dir}");
     $dir->remove_tree;
-    $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
   }
+  $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
 
   $db->query('delete from bot_reports where package = ?',     $id);
   $db->query('delete from emails where package = ?',          $id);
