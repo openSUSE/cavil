@@ -227,6 +227,18 @@ subtest 'Products' => sub {
     ->status_is(200)
     ->json_is('/updated', 2);
   is_deeply $t->app->products->for_package(1), ['openSUSE:Factory', 'openSUSE:Leap:15.0'], 'right products';
+
+  $t->patch_ok('/products/openSUSE:RemoveMe' => {Authorization => 'Token test_token'} => form => {id => 1})
+    ->status_is(200)
+    ->json_is('/updated', 3);
+  $t->delete_ok('/products' => {Authorization => 'Token test_token'} => form => {name => 'openSUSE:RemoveMe'})
+    ->status_is(200)
+    ->json_is({removed => 1});
+  $t->delete_ok('/products' => {Authorization => 'Token test_token'} => form => {name => 'openSUSE:DoesNotExist'})
+    ->status_is(200)
+    ->json_is({removed => 0});
+  $t->delete_ok('/products' => {Authorization => 'Token test_token'})->status_is(400);
+  is_deeply $t->app->products->for_package(1), ['openSUSE:Factory', 'openSUSE:Leap:15.0'], 'right products';
 };
 
 subtest 'Acceptable risk' => sub {
@@ -295,7 +307,7 @@ subtest 'Remove request (but keep packages that are still part of a product)' =>
   my @in_product = @ids[0, 2, 4];
   $t->patch_ok('/products/openSUSE:Test' => {Authorization => 'Token test_token'} => form => {id => \@in_product})
     ->status_is(200)
-    ->json_is('/updated', 3);
+    ->json_is('/updated', 4);
   is_deeply $t->app->products->for_package($ids[0]), ['openSUSE:Test'], 'right products';
   is_deeply $t->app->products->for_package($ids[1]), [],                'right products';
   is_deeply $t->app->products->for_package($ids[2]), ['openSUSE:Test'], 'right products';
@@ -356,7 +368,7 @@ subtest 'Pagination' => sub {
       ->json_is('/start',                        1)
       ->json_is('/end',                          3)
       ->json_is('/total',                        3)
-      ->json_is('/page/0/id',                    3)
+      ->json_is('/page/0/id',                    4)
       ->json_is('/page/0/name',                  'openSUSE:Test')
       ->json_is('/page/0/new_packages',          3)
       ->json_is('/page/0/reviewed_packages',     0)

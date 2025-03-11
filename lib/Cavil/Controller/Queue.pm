@@ -207,6 +207,15 @@ sub remove_request ($self) {
   $self->render(json => {removed => $removed});
 }
 
+sub remove_product ($self) {
+  my $validation = $self->validation;
+  $validation->required('name');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $removed = $self->products->remove($validation->param('name'));
+  $self->render(json => {removed => $removed});
+}
+
 sub update_package ($self) {
   my $validation = $self->validation;
   $validation->required('priority')->like(qr/^\d+$/);

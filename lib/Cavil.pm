@@ -186,6 +186,7 @@ sub startup ($self) {
   $bot->post('/packages')->to('Queue#create_package');
   $bot->post('/packages/import/<id:num>')->to('Queue#import_package');
   $bot->patch('/products/*name')->to('Queue#update_product');
+  $bot->delete('/products')->to('Queue#remove_product');
   $bot->post('/requests')->to('Queue#create_request');
   $bot->get('/requests')->to('Queue#list_requests');
   $bot->delete('/requests')->to('Queue#remove_request');

@@ -486,3 +486,39 @@ Content-Type: application/json
   "updated": 12
 }
 ```
+
+---
+
+`DELETE /products`
+
+Delete product.
+
+**Request parameters:**
+
+* `name` (required): Product name.
+
+```
+DELETE /products
+Authorization: Token configured_access_token_here
+Accept: application/json
+Content-Length: 23
+Content-Type: application/x-www-form-urlencoded
+
+name=openSUSE:Factory
+```
+
+**Request body:**
+
+See request parameters. You can use `application/x-www-form-urlencoded` encoded form values as request body.
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Length: 19
+Content-Type: application/json
+
+{
+  "removed": 1
+}
+```
