@@ -208,7 +208,7 @@ sub startup ($self) {
     ->to('Pagination#review_search')
     ->name('pagination_review_search');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
-  $manager->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
+  $logged_in->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
   $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
   $logged_in->get('/reviews/report/<id:num>' => [format => ['json', 'txt', 'html']])

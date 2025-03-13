@@ -51,6 +51,7 @@ subtest 'Login required' => sub {
   $t->get_ok('/reviews/meta/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/report/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/fetch_source/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/reviews/file_view/1/LICENSE')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippets')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippets/meta')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippet/edit/1')->status_is(401)->content_like(qr/Login Required/);
@@ -69,7 +70,6 @@ subtest 'Not authenticated' => sub {
   $t->post_ok('/reviews/fasttrack_package/1')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/ignored-files')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/reviews/reindex/1')->status_is(403)->content_like(qr/Permission/);
-  $t->get_ok('/reviews/file_view/1/LICENSE')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/new_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/create_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/edit_pattern/1')->status_is(403)->content_like(qr/Permission/);
