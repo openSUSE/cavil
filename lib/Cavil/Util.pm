@@ -169,7 +169,7 @@ sub lines_context ($lines) {
 }
 
 sub load_ignored_files ($db) {
-  my %ignored_file_res = map { glob_to_regex($_->[0]) => $_->[0] } @{$db->select('ignored_files', 'glob')->arrays};
+  my %ignored_file_res = map { $_->[0] => glob_to_regex($_->[0]) } @{$db->select('ignored_files', 'glob')->arrays};
   return \%ignored_file_res;
 }
 

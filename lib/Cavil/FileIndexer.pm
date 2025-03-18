@@ -54,7 +54,7 @@ sub file ($self, $meta, $path, $mime) {
   my $package = $self->{package};
 
   my $ignored_file = 0;
-  for my $ifre (keys %{$self->{ignored_files}}) {
+  for my $ifre (values %{$self->{ignored_files}}) {
     next unless $path =~ $ifre;
     $ignored_file = 1;
     last;

@@ -31,7 +31,8 @@ use constant PATTERN_DELTA => 10000000000;
 
 sub cached_dig_report {
   my ($self, $id) = @_;
-  return $self->pg->db->select('bot_reports', 'ldig_report', {package => $id})->hash->{ldig_report};
+  return undef unless my $hash = $self->pg->db->select('bot_reports', 'ldig_report', {package => $id})->hash;
+  return $hash->{ldig_report};
 }
 
 sub dig_report {
@@ -138,7 +139,7 @@ sub summary ($self, $id) {
   my %summary  = (id => $id);
   my $specfile = $self->specfile_report($id);
   $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Error';
-  my $report = $self->dig_report($id);
+  my $report = $self->cached_dig_report || $self->dig_report($id);
 
   my $min_risklevel = 1;
 
@@ -255,9 +256,9 @@ sub _dig_report {
 
   while (my $file = $files->hash) {
     my $ignored;
-    for my $ifre (keys %$ignored_file_res) {
-      next unless $file->{filename} =~ $ifre;
-      $globs_matched{$ignored_file_res->{$ifre}} = 1;
+    for my $ifname (keys %$ignored_file_res) {
+      next unless $file->{filename} =~ $ignored_file_res->{$ifname};
+      $globs_matched{$ifname} = 1;
       $ignored = 1;
       last;
     }
@@ -278,7 +279,7 @@ sub _dig_report {
     $filenames = $db->query($query_string, $pkg->{id});
   }
 
-  while (my $file = $filenames->hash) {
+  for my $file ($filenames->hashes->each) {
     for my $ifre (keys %$ignored_file_res) {
       next unless $file->{filename} =~ $ifre;
       $globs_matched{$ignored_file_res->{$ifre}} = 1;
@@ -313,7 +314,7 @@ sub _dig_report {
   my %file_snippets_to_show;
   my %snippets_shown;
 
-  for my $snip_row (@{$snippets->hashes}) {
+  for my $snip_row ($snippets->hashes->each) {
     if ( !defined $report->{files}{$snip_row->{file}}
       || $snippets_shown{$snip_row->{id}}
       || (!$snip_row->{license} && $snip_row->{classified}))
@@ -353,7 +354,7 @@ sub _dig_report {
     }
   }
 
-  while (my $match = $matches->hash) {
+  for my $match ($matches->hashes->each) {
     my $pid = $match->{pattern};
 
     if (!defined $report->{files}{$match->{file}}) {
@@ -466,7 +467,7 @@ sub _dig_report {
   $report->{missed_files} = \%missed_files;
 
   my $emails = $db->select('emails', '*', {package => $pkg->{id}});
-  while (my $email = $emails->hash) {
+  for my $email ($emails->hashes->each) {
     my $key = $email->{email};
     if ($email->{name}) {
       $key = "$email->{name} <$email->{email}>";
@@ -474,7 +475,7 @@ sub _dig_report {
     $report->{emails}{$key} = $email->{hits};
   }
   my $urls = $db->select('urls', '*', {package => $pkg->{id}});
-  while (my $url = $urls->hash) {
+  for my $url ($urls->hashes->each) {
     $report->{urls}{$url->{url}} = $url->{hits};
   }
 
