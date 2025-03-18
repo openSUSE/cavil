@@ -280,9 +280,9 @@ sub _dig_report {
   }
 
   for my $file ($filenames->hashes->each) {
-    for my $ifre (keys %$ignored_file_res) {
-      next unless $file->{filename} =~ $ifre;
-      $globs_matched{$ignored_file_res->{$ifre}} = 1;
+    for my $ifname (keys %$ignored_file_res) {
+      next unless $file->{filename} =~ $ignored_file_res->{$ifname};
+      $globs_matched{$ifname} = 1;
       last;
     }
   }
