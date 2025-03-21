@@ -92,6 +92,34 @@ subtest 'Pattern creation' => sub {
       ->content_like(qr/License pattern does not match the original snippet/);
   };
 
+  subtest 'Pattern with misplaced skip' => sub {
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-pattern' => 1,
+        license           => 'Test',
+        pattern           => "\$SKIP1 The license might be\nsomething cool",
+        risk              => 5
+      }
+    )->status_is(400)->content_like(qr/License pattern contains redundant \$SKIP at beginning or end/);
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-pattern' => 1,
+        license           => 'Test',
+        pattern           => " \$SKIP1 The license might be\nsomething cool",
+        risk              => 5
+      }
+    )->status_is(400)->content_like(qr/License pattern contains redundant \$SKIP at beginning or end/);
+
+    $t->post_ok('/snippet/decision/1' => form =>
+        {'propose-pattern' => 1, license => 'Test', pattern => "The license might be\nsomething \$SKIP11", risk => 5})
+      ->status_is(400)
+      ->content_like(qr/License pattern contains redundant \$SKIP at beginning or end/);
+    $t->post_ok('/snippet/decision/1' => form =>
+        {'propose-pattern' => 1, license => 'Test', pattern => "The license might be\nsomething \$SKIP11 ", risk => 5})
+      ->status_is(400)
+      ->content_like(qr/License pattern contains redundant \$SKIP at beginning or end/);
+  };
+
   subtest 'Bad license and risk combinations' => sub {
     $t->post_ok('/snippet/decision/1' => form =>
         {'propose-pattern' => 1, license => 'Test', pattern => "The license might be\nsomething cool", risk => 5})

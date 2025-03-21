@@ -268,6 +268,8 @@ sub _propose_pattern ($self) {
   my $snippet = $self->snippets->find($self->param('id'));
   return $self->render(status => 400, error => 'License pattern does not match the original snippet')
     unless pattern_matches($pattern, $snippet->{text});
+  return $self->render(status => 400, error => 'License pattern contains redundant $SKIP at beginning or end')
+    if $pattern =~ /^\s*\$SKIP/ || $pattern =~ /\$SKIP\d*\s*$/;
 
   my $user_id = $self->users->id_for_login($self->current_user);
   my $result  = $self->patterns->propose_create(
