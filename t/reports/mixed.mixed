@@ -1,33 +1,36 @@
 {
   "errors" => [],
   "main"   => {
-    "%doc"     => [],
-    "%license" => [],
-    "file"     => "mixed.spec",
-    "license"  => "MIT AND BSD-3-Clause",
-    "licenses" => ["MIT AND BSD-3-Clause"],
-    "sources"  => [],
-    "summary"  => "Just a test",
-    "type"     => "spec"
+    "%doc"          => [],
+    "%license"      => [],
+    "file"          => "mixed.spec",
+    "license"       => "MIT AND BSD-3-Clause",
+    "licenses"      => ["MIT AND BSD-3-Clause"],
+    "remote_assets" => 0,
+    "sources"       => [],
+    "summary"       => "Just a test",
+    "type"          => "spec"
   },
   "sub" => [
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "mixed-more.spec",
-      "licenses" => ["MIT"],
-      "sources"  => [],
-      "summary"  => "Just a test",
-      "type"     => "spec"
+      "%doc"          => [],
+      "%license"      => [],
+      "file"          => "mixed-more.spec",
+      "licenses"      => ["MIT"],
+      "remote_assets" => 0,
+      "sources"       => [],
+      "summary"       => "Just a test",
+      "type"          => "spec"
     },
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "mixed.spec",
-      "licenses" => ["MIT AND BSD-3-Clause"],
-      "sources"  => [],
-      "summary"  => "Just a test",
-      "type"     => "spec"
+      "%doc"          => [],
+      "%license"      => [],
+      "file"          => "mixed.spec",
+      "licenses"      => ["MIT AND BSD-3-Clause"],
+      "remote_assets" => 0,
+      "sources"       => [],
+      "summary"       => "Just a test",
+      "type"          => "spec"
     },
     {
       "file"     => "mixed-more.kiwi",

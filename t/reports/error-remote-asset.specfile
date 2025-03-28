@@ -1,13 +1,13 @@
 {
-  "errors" => [],
+  "errors" => ["Specfile contains RemoteAsset"],
   "main"   => {
     "%doc"          => ["Changes examples README.md"],
     "%license"      => ["LICENSE"],
-    "file"          => "perl-Mojolicious.spec",
+    "file"          => "error-remote-asset.spec",
     "group"         => "Development/Libraries/Perl",
     "license"       => "Artistic-2.0",
     "licenses"      => ["Artistic-2.0"],
-    "remote_assets" => 0,
+    "remote_assets" => 2,
     "sources"       => ["http://www.cpan.org/authors/id/S/SR/SRI/%{cpan_name}-%{version}.tar.gz", "cpanspec.yml"],
     "summary"       => "Real-time web framework",
     "type"          => "spec",
@@ -18,10 +18,10 @@
     {
       "%doc"          => ["Changes examples README.md"],
       "%license"      => ["LICENSE"],
-      "file"          => "perl-Mojolicious.spec",
+      "file"          => "error-remote-asset.spec",
       "group"         => "Development/Libraries/Perl",
       "licenses"      => ["Artistic-2.0"],
-      "remote_assets" => 0,
+      "remote_assets" => 2,
       "sources"       => ["http://www.cpan.org/authors/id/S/SR/SRI/%{cpan_name}-%{version}.tar.gz", "cpanspec.yml"],
       "summary"       => "Real-time web framework",
       "type"          => "spec",
@@ -31,3 +31,4 @@
   ],
   "warnings" => []
 }
+

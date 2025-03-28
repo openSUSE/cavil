@@ -184,6 +184,11 @@ sub specfile_report ($self) {
     # All .spec files
     my $files = $dir->list;
     push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
+    for my $file (@{$info->{sub}}) {
+      next unless $file->{remote_assets};
+      push @{$info->{errors}}, qq{Specfile contains RemoteAsset};
+      last;
+    }
 
     # All .kiwi files
     push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
@@ -357,8 +362,17 @@ sub _kiwifile ($file) {
 }
 
 sub _specfile ($file) {
-  my $info = {file => $file->basename, type => 'spec', licenses => [], sources => [], '%doc' => [], '%license' => []};
+  my $info = {
+    file          => $file->basename,
+    type          => 'spec',
+    licenses      => [],
+    sources       => [],
+    '%doc'        => [],
+    '%license'    => [],
+    remote_assets => 0
+  };
   for my $line (split "\n", $file->slurp) {
+    if    ($line =~ /^\s*\#\!RemoteAsset/)         { $info->{remote_assets}++ }
     if    ($line =~ /^License:\s*(.+)\s*$/)        { push @{$info->{licenses}},   $1 }
     elsif ($line =~ /^Source(?:\d+)?:\s*(.+)\s*$/) { push @{$info->{sources}},    $1 }
     elsif ($line =~ /^\%doc\s*(.+)\s*$/)           { push @{$info->{'%doc'}},     $1 }

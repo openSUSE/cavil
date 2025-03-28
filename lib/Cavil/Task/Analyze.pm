@@ -110,6 +110,18 @@ sub _analyzed ($job, $id) {
   return unless $pkg->{indexed};
   return if $pkg->{state} ne 'new' && $pkg->{state} ne 'acceptable';
 
+  # Reject packages with remote assets
+  my $specfile = $reports->specfile_report($id);
+  for my $sub (@{$specfile->{sub}}) {
+    next unless $sub->{remote_assets};
+    $pkg->{state}            = 'unacceptable';
+    $pkg->{review_timestamp} = 1;
+    $pkg->{reviewing_user}   = undef;
+    $pkg->{result}           = 'Rejected because package contains RemoteAsset';
+    $pkgs->update($pkg);
+    return;
+  }
+
   # Every package needs a human review before future versions can be auto-accepted (still gets a diff)
   unless ($pkgs->has_human_review($pkg->{name})) {
     _look_for_smallest_delta($app, $pkg, 0, 0) if $pkg->{state} eq 'new';

@@ -1,22 +1,24 @@
 {
   "errors" => ["Invalid SPDX license: MPLv2.0"],
   "main"   => {
-    "%doc"     => [],
-    "%license" => [],
-    "file"     => "error-no-spdx.spec",
-    "license"  => "MPLv2.0",
-    "licenses" => ["MPLv2.0"],
-    "sources"  => [],
-    "type"     => "spec"
+    "%doc"          => [],
+    "%license"      => [],
+    "file"          => "error-no-spdx.spec",
+    "license"       => "MPLv2.0",
+    "licenses"      => ["MPLv2.0"],
+    "remote_assets" => 0,
+    "sources"       => [],
+    "type"          => "spec"
   },
   "sub" => [
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "error-no-spdx.spec",
-      "licenses" => ["MPLv2.0"],
-      "sources"  => [],
-      "type"     => "spec"
+      "%doc"          => [],
+      "%license"      => [],
+      "file"          => "error-no-spdx.spec",
+      "licenses"      => ["MPLv2.0"],
+      "remote_assets" => 0,
+      "sources"       => [],
+      "type"          => "spec"
     }
   ],
   "warnings" => []

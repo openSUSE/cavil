@@ -229,6 +229,12 @@ subtest 'error-invalid-xml-kiwi' => sub {
   is_deeply $checkout->specfile_report, report('error-invalid-xml-kiwi.kiwi'), 'right kiwi report';
 };
 
+subtest 'error-remote-asset' => sub {
+  my $remote   = $dir->child('error-remote-asset', 'cb5e100e5a9a3e7f6d1fabc5abc152cd');
+  my $checkout = Cavil::Checkout->new($remote);
+  is_deeply $checkout->specfile_report, report('error-remote-asset.specfile'), 'right specfile report';
+};
+
 subtest 'Tarball upload' => sub {
   my $ceph     = $dir->child('tarball-upload', '5fcfdab0e71b0bebfdf8b5cc6bcdfecf');
   my $checkout = Cavil::Checkout->new($ceph);

@@ -4,7 +4,15 @@
   ],
   "main" => {},
   "sub"  => [
-    {"%doc" => [], "%license" => [], "file" => "wrong-name.spec", "licenses" => [], "sources" => [], "type" => "spec"}
+    {
+      "%doc"          => [],
+      "%license"      => [],
+      "file"          => "wrong-name.spec",
+      "licenses"      => [],
+      "remote_assets" => 0,
+      "sources"       => [],
+      "type"          => "spec"
+    }
   ],
   "warnings" => []
 }

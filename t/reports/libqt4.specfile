@@ -22,7 +22,8 @@
       "LGPL-2.0+",
       "LGPL-2.0+"
     ],
-    "sources" => [
+    "remote_assets" => 0,
+    "sources"       => [
       "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
       "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
       "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
@@ -34,12 +35,13 @@
   },
   "sub" => [
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "libqt4-devel-doc.spec",
-      "group"    => "Documentation/HTML",
-      "licenses" => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
-      "sources"  => [
+      "%doc"          => [],
+      "%license"      => [],
+      "file"          => "libqt4-devel-doc.spec",
+      "group"         => "Documentation/HTML",
+      "licenses"      => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
+      "remote_assets" => 0,
+      "sources"       => [
         "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
         "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
         "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
@@ -50,12 +52,13 @@
       "version" => "4.8.4"
     },
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "libqt4-sql-plugins.spec",
-      "group"    => "System/Libraries",
-      "licenses" => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
-      "sources"  => [
+      "%doc"          => [],
+      "%license"      => [],
+      "file"          => "libqt4-sql-plugins.spec",
+      "group"         => "System/Libraries",
+      "licenses"      => ["SUSE-LGPL-2.1-with-digia-exception-1.1 or GPL-3.0"],
+      "remote_assets" => 0,
+      "sources"       => [
         "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
         "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
         "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
@@ -86,7 +89,8 @@
         "LGPL-2.0+",
         "LGPL-2.0+"
       ],
-      "sources" => [
+      "remote_assets" => 0,
+      "sources"       => [
         "qt-%{tar_version}.tar.bz2", "libqt4.changes",    "baselibs.conf",     "macros.qt4",
         "qt4config.desktop",         "designer4.desktop", "linguist4.desktop", "assistant4.desktop",
         "assistant.png",             "designer.png",      "linguist.png",      "qt_lt.ts"
