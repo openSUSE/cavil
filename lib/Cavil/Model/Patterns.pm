@@ -186,8 +186,8 @@ sub for_license ($self, $license) {
   )->hashes->to_array;
 }
 
-sub ignore_pattern_exists ($self, $checksum) {
-  my $hash = $self->pg->db->select('ignored_lines', 'id', {hash => $checksum})->hash;
+sub ignore_pattern_exists ($self, $name, $checksum) {
+  my $hash = $self->pg->db->select('ignored_lines', 'id', {packname => $name, hash => $checksum})->hash;
   return $hash ? $hash->{id} : undef;
 }
 
@@ -308,8 +308,9 @@ sub propose_create ($self, %args) {
 
 sub propose_ignore ($self, %args) {
 
+  my $from     = $args{from};
   my $checksum = $args{hash};
-  my $id       = $self->ignore_pattern_exists($checksum);
+  my $id       = $self->ignore_pattern_exists($from, $checksum);
   return {conflict => $id} if $id;
   my $proposal_id = $self->proposal_exists($checksum);
   return {proposal_conflict => $proposal_id} if $proposal_id;
@@ -321,7 +322,7 @@ sub propose_ignore ($self, %args) {
       data   => {
         -json => {
           snippet              => $args{snippet},
-          from                 => $args{from},
+          from                 => $from,
           pattern              => $args{pattern},
           highlighted_keywords => $args{highlighted_keywords},
           highlighted_licenses => $args{highlighted_licenses},

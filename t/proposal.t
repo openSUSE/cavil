@@ -233,6 +233,15 @@ subtest 'Pattern creation' => sub {
       ->status_is(409)
       ->content_like(qr/Conflicting ignore pattern already exists/);
 
+    subtest 'Same checksum and a different package' => sub {
+      $t->post_ok('/snippet/decision/1' => form => {%$form, from => 'perl-AnotherPackage'})
+        ->status_is(200)
+        ->content_like(qr/Your change has been proposed/);
+      $t->post_ok('/snippet/decision/2' => form => {%$ignore_form, from => 'perl-AnotherPackage'})
+        ->status_is(200)
+        ->content_like(qr/ignore pattern has been created/);
+    };
+
     my $ignore
       = $t->app->pg->db->query('SELECT * FROM ignored_lines WHERE hash = ?', '39e8204ddebdc31a4d0e77aa647f4241')->hash;
     is $ignore->{id},          1,                  'right id';
@@ -354,8 +363,8 @@ subtest 'Remove ignored match' => sub {
     ->status_is(200)
     ->json_has('/page/0')
     ->json_is('/start',           1)
-    ->json_is('/end',             2)
-    ->json_is('/total',           2)
+    ->json_is('/end',             3)
+    ->json_is('/total',           3)
     ->json_is('/page/0/hash',     'abe8204ddebdc31a4d0e77aa647f42cd')
     ->json_is('/page/0/packname', 'package-with-snippets')
     ->json_is('/page/0/matches',  0)
