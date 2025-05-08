@@ -1,120 +1,123 @@
-% if (%{$report->{risks}}) {
+<br>
+% my $risks = $report->{risks};
+% if (keys %$risks) {
 
   <div class="row">
     <div class="col mb-3">
       <canvas id="license-chart" width="100%" height="18em"></canvas><br>
     </div>
   </div>
+% }
 
-  % my %linked_files;
-  % if (@{$report->{missed_files}}) {
-    <div v-if="warnings.length > 0" id="spec-warnings" class="alert alert-warning">
-      Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
-      positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its similarity
-      to existing license patterns, the higher the risk will climb above the predicted license.
-    </div>
-    <h4><div class="badge text-bg-dark">Risk 9</div></h4>
-    <div class="row">
-      <div class="col mb-3" id="unmatched-files">
-        % my $unmatched = scalar @{$report->{missed_files}};
-        % my $unresolved = $package->{unresolved_matches};
-        <i class="fas fa-exclamation-circle"></i>
-        <%= $unresolved %> unique unresolved <%= $unresolved == 1 ? 'match' : 'matches' %> in (at least)
-        <span id="unmatched-count"><%= $unmatched %></span> <%= $unmatched == 1 ? 'file' : 'files' %>
-        <div id="filelist-snippets" class="collapse show">
-          <table class="table table-borderless m-0 ms-4 hover-table">
-          % for my $file (@{$report->{missed_files}}) {
-            <tr>
-              <td class="breakable-column p-0">
-                <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
-              </td>
-              <td class="p-0">
-                <b><%= $file->{match} %>%</b> similarity to <b><%= $file->{license} %></b>
-              </td>
-              <td class="static-column p-0 text-end">
-                % my $max_risk = $file->{max_risk};
-                estimated
-                % if ($max_risk == 9) {
-                  <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
-                % }
-                % elsif ($max_risk > 3) {
-                  <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
-                % }
-                % else {
-                  <div class="badge text-bg-success estimated-risk">Risk <%= $max_risk %></div>
-                % }
-              </td>
-            </tr>
-            % $linked_files{$file->{id}} = 1;
-          % }
-          </table>
-        </div>
-
-      </div>
-    </div>
-  % }
-  % my $risks = $report->{risks};
-  % my $license_counter = 0;
-
-  % for my $risk (reverse sort keys %$risks) {
-    % if ($risk <= 3) {
-      <h4><div class="badge text-bg-success">Risk <%= $risk %></div></h4>
-    % }
-    % else {
-      <h4><div class="badge text-bg-danger">Risk <%= $risk %></div></h4>
-    % }
-    % my $current = $risks->{$risk};
-
-    <ul id="risk-<%= $risk %>">
-      % for my $lic (sort keys %$current) {
-        % my $matches = $current->{$lic};
-        % my $name = $matches->{name};
-        % my $num = scalar @{$matches->{files}};
-        % $license_counter += 1;
-        <li>
-          <%= $name %>:
-          <a href="#filelist-<%= $license_counter %>" data-bs-toggle="collapse">
-            <%= $num %> files
-          </a>
-          % if (my @flags = @{$matches->{flags}}) {
-            <p>
-              Flags: <%= join ', ', map { ucfirst } @flags %>
-            </p>
-          % }
-          % my $listclass = $num > 3 ? 'collapse' : 'collapse show';
-          % my $count = 0;
-          <div id="filelist-<%= $license_counter %>" class="<%= $listclass %>">
-            <ul>
-            % for my $file (@{$matches->{files}}) {
-              % my ($id, $name) = @$file;
-              <li>
-                <a href="#file-<%= $id %>" class="file-link"
-                  data-file="<%= $id %>">
-                  %= $name
-                </a>
-              </li>
-              % $linked_files{$id} = 1;
-              % if (++$count > $max_number_of_files) {
-                <li><%= $num - $count %> more</li>
-                % last;
+% my %linked_files;
+% if (@{$report->{missed_files}}) {
+  <div v-if="warnings.length > 0" id="spec-warnings" class="alert alert-warning">
+    Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
+    positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its similarity
+    to existing license patterns, the higher the risk will climb above the predicted license.
+  </div>
+  <h4><div class="badge text-bg-dark">Risk 9</div></h4>
+  <div class="row">
+    <div class="col mb-3" id="unmatched-files">
+      % my $unmatched = scalar @{$report->{missed_files}};
+      % my $unresolved = $package->{unresolved_matches};
+      <i class="fas fa-exclamation-circle"></i>
+      <%= $unresolved %> unique unresolved <%= $unresolved == 1 ? 'match' : 'matches' %> in (at least)
+      <span id="unmatched-count"><%= $unmatched %></span> <%= $unmatched == 1 ? 'file' : 'files' %>
+      <div id="filelist-snippets" class="collapse show">
+        <table class="table table-borderless m-0 ms-4 hover-table">
+        % for my $file (@{$report->{missed_files}}) {
+          <tr>
+            <td class="breakable-column p-0">
+              <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
+            </td>
+            <td class="p-0">
+              <b><%= $file->{match} %>%</b> similarity to <b><%= $file->{license} %></b>
+            </td>
+            <td class="static-column p-0 text-end">
+              % my $max_risk = $file->{max_risk};
+              estimated
+              % if ($max_risk == 9) {
+                <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
               % }
+              % elsif ($max_risk > 3) {
+                <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
+              % }
+              % else {
+                <div class="badge text-bg-success estimated-risk">Risk <%= $max_risk %></div>
+              % }
+            </td>
+          </tr>
+          % $linked_files{$file->{id}} = 1;
+        % }
+        </table>
+      </div>
+
+    </div>
+  </div>
+% }
+
+% my $license_counter = 0;
+% for my $risk (reverse sort keys %$risks) {
+  % if ($risk <= 3) {
+    <h4><div class="badge text-bg-success">Risk <%= $risk %></div></h4>
+  % }
+  % else {
+    <h4><div class="badge text-bg-danger">Risk <%= $risk %></div></h4>
+  % }
+  % my $current = $risks->{$risk};
+
+  <ul id="risk-<%= $risk %>">
+    % for my $lic (sort keys %$current) {
+      % my $matches = $current->{$lic};
+      % my $name = $matches->{name};
+      % my $num = scalar @{$matches->{files}};
+      % $license_counter += 1;
+      <li>
+        <%= $name %>:
+        <a href="#filelist-<%= $license_counter %>" data-bs-toggle="collapse">
+          <%= $num %> files
+        </a>
+        % if (my @flags = @{$matches->{flags}}) {
+          <p>
+            Flags: <%= join ', ', map { ucfirst } @flags %>
+          </p>
+        % }
+        % my $listclass = $num > 3 ? 'collapse' : 'collapse show';
+        % my $count = 0;
+        <div id="filelist-<%= $license_counter %>" class="<%= $listclass %>">
+          <ul>
+          % for my $file (@{$matches->{files}}) {
+            % my ($id, $name) = @$file;
+            <li>
+              <a href="#file-<%= $id %>" class="file-link"
+                data-file="<%= $id %>">
+                %= $name
+              </a>
+            </li>
+            % $linked_files{$id} = 1;
+            % if (++$count > $max_number_of_files) {
+              <li><%= $num - $count %> more</li>
+              % last;
             % }
-            </ul>
-          </div>
-        </li>
-      % }
-    </ul>
-  % }
+          % }
+          </ul>
+        </div>
+      </li>
+    % }
+  </ul>
+% }
 
-  % if (@{$report->{matching_globs} || []}) {
-    <h2>Files ignored by glob</h2>
-    <ul>
-      % for my $glob (sort @{$report->{matching_globs}}) {
-        %= t(li => $glob)
-      % }
-    </ul>
-  % }
+% if (@{$report->{matching_globs} || []}) {
+  <h2>Files ignored by glob</h2>
+  <ul>
+    % for my $glob (sort @{$report->{matching_globs}}) {
+      %= t(li => $glob)
+    % }
+  </ul>
+% }
 
+% if (@{$report->{files}}) {
   <h2>Files</h2>
 
   % my $is_admin_or_contributor = current_user_has_role('admin', 'contributor');
@@ -150,7 +153,7 @@
   % }
   <br>
 % }
-% else {
+% elsif (!(keys %$risks)) {
   <br>
   <div class="alert alert-success" role="alert">
     No files matching any known license patterns or keywords have been found.
