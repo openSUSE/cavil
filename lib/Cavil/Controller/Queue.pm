@@ -33,7 +33,7 @@ sub create_package ($self) {
     $validation->required('project');
   }
 
-  $validation->required('api')->like(qr!^https?://.+!i);
+  $validation->required('api');
   $validation->required('package');
   $validation->optional('created');
   $validation->optional('external_link');
