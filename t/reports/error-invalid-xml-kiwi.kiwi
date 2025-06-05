@@ -2,7 +2,8 @@
   "errors" => [
     "Main kiwifile contains no license: error-invalid-xml-kiwi.kiwi (expected <label name=\"org.opencontainers.image.licenses\" value=\"...\"> tag)"
   ],
-  "main"     => {"file" => "error-invalid-xml-kiwi.kiwi", "licenses" => [], "type" => "kiwi"},
-  "sub"      => [{"file" => "error-invalid-xml-kiwi.kiwi", "licenses" => [], "type" => "kiwi"}],
-  "warnings" => []
+  "incomplete_checkout" => 0,
+  "main"                => {"file" => "error-invalid-xml-kiwi.kiwi", "licenses" => [], "type" => "kiwi"},
+  "sub"                 => [{"file" => "error-invalid-xml-kiwi.kiwi", "licenses" => [], "type" => "kiwi"}],
+  "warnings"            => []
 }

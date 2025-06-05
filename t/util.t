@@ -18,7 +18,7 @@ use Mojo::Base -strict;
 use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
-use Cavil::Util (qw(buckets lines_context obs_ssh_auth parse_exclude_file pattern_matches),
+use Cavil::Util (qw(buckets lines_context obs_ssh_auth parse_exclude_file parse_service_file pattern_matches),
   qw(request_id_from_external_link run_cmd ssh_sign));
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -56,6 +56,48 @@ subtest 'parse_exclude_file' => sub {
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc1'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc9'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/empty.exclude', 'whatever'), [];
+};
+
+subtest 'parse_service_file' => sub {
+  is_deeply parse_service_file(''),                      [], 'empty service file';
+  is_deeply parse_service_file(" \n \n "),               [], 'empty service file';
+  is_deeply parse_service_file('<services></services>'), [], 'empty service file';
+  is_deeply parse_service_file('<services>'),            [], 'empty service file';
+  is_deeply parse_service_file('services'),              [], 'empty service file';
+
+  my $services1 = [{name => 'download_files', mode => 'trylocal', safe => 0},
+    {name => 'verify_file', mode => 'Default', safe => 0}];
+  is_deeply parse_service_file(<<EOF), $services1, 'unsafe services';
+<services>
+  <service name="download_files" mode="trylocal" />
+  <service name="verify_file">
+    <param name="file">krabber-1.0.tar.gz</param>
+    <param name="verifier">sha256</param>
+    <param name="checksum">7f535a96a834b31ba2201a90c4d365990785dead92be02d4cf846713be938b78</param>
+  </service>
+</services>
+EOF
+
+  my $services2 = [
+    {name => 'one',   mode => 'Default',    safe => 0},
+    {name => 'two',   mode => 'trylocal',   safe => 0},
+    {name => 'three', mode => 'localonly',  safe => 1},
+    {name => 'four',  mode => 'serveronly', safe => 0},
+    {name => 'five',  mode => 'buildtime',  safe => 1},
+    {name => 'six',   mode => 'manual',     safe => 1},
+    {name => 'seven', mode => 'disabled',   safe => 1}
+  ];
+  is_deeply parse_service_file(<<EOF), $services2, 'all modes';
+<services>
+  <service name="one" />
+  <service name="two" mode="trylocal" />
+  <service name="three" mode="localonly" />
+  <service name="four" mode="serveronly" />
+  <service name="five" mode="buildtime" />
+  <service name="six" mode="manual" />
+  <service name="seven" mode="disabled" />
+</services>
+EOF
 };
 
 subtest 'pattern_matches' => sub {

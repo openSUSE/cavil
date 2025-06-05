@@ -110,21 +110,10 @@ sub _analyzed ($job, $id) {
   return unless $pkg->{indexed};
   return if $pkg->{state} ne 'new' && $pkg->{state} ne 'acceptable';
 
-  # Reject packages with remote assets
+  # Every package needs a human review before future versions can be auto-accepted, and checkouts need to be complete
   my $specfile = $reports->specfile_report($id);
-  for my $sub (@{$specfile->{sub}}) {
-    next unless $sub->{remote_assets};
-    $pkg->{state}            = 'unacceptable';
-    $pkg->{review_timestamp} = 1;
-    $pkg->{reviewing_user}   = undef;
-    $pkg->{result}           = 'Rejected because package contains RemoteAsset';
-    $pkgs->update($pkg);
-    return;
-  }
-
-  # Every package needs a human review before future versions can be auto-accepted (still gets a diff)
-  unless ($pkgs->has_human_review($pkg->{name})) {
-    _look_for_smallest_delta($app, $pkg, 0, 0) if $pkg->{state} eq 'new';
+  if (!$pkgs->has_human_review($pkg->{name}) || $specfile->{incomplete_checkout}) {
+    _look_for_smallest_delta($app, $pkg, 0, 0, !!$specfile->{incomplete_checkout}) if $pkg->{state} eq 'new';
     return;
   }
 
@@ -194,10 +183,10 @@ sub _analyzed ($job, $id) {
     $pkgs->update($pkg);
   }
 
-  _look_for_smallest_delta($app, $pkg, 1, 1) if $pkg->{state} eq 'new';
+  _look_for_smallest_delta($app, $pkg, 1, 1, 0) if $pkg->{state} eq 'new';
 }
 
-sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
+sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review, $incomplete_checkout) {
   my $reports = $app->reports;
   my $pkgs    = $app->packages;
 
@@ -221,9 +210,15 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review) {
         $pkg->{review_timestamp} = 1;
         $pkg->{reviewing_user}   = undef;
       }
+
       $pkg->{notice} = "Not found any significant difference against $old->{id}";
-      $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user'
-        unless $has_human_review;
+      if ($incomplete_checkout) {
+        $pkg->{notice} .= ', manual review is required because the checkout might be incomplete';
+      }
+      elsif (!$has_human_review) {
+        $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user';
+      }
+
       $pkgs->update($pkg);
       return;
     }

@@ -1,14 +1,14 @@
 {
-  "errors" => ["Invalid SPDX license: SUSE-Public-Domain"],
-  "main"   => {
-    "%doc"          => [],
-    "%license"      => [],
-    "file"          => "timezone.spec",
-    "group"         => "System/Base",
-    "license"       => "BSD-3-Clause and SUSE-Public-Domain",
-    "licenses"      => ["BSD-3-Clause and SUSE-Public-Domain"],
-    "remote_assets" => 0,
-    "sources"       => [
+  "errors"              => ["Invalid SPDX license: SUSE-Public-Domain"],
+  "incomplete_checkout" => 0,
+  "main"                => {
+    "%doc"     => [],
+    "%license" => [],
+    "file"     => "timezone.spec",
+    "group"    => "System/Base",
+    "license"  => "BSD-3-Clause and SUSE-Public-Domain",
+    "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
+    "sources"  => [
       "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
       "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
     ],
@@ -19,13 +19,12 @@
   },
   "sub" => [
     {
-      "%doc"          => [],
-      "%license"      => [],
-      "file"          => "timezone-java.spec",
-      "group"         => "System/Base",
-      "licenses"      => ["BSD-3-Clause and SUSE-Public-Domain"],
-      "remote_assets" => 0,
-      "sources"       => [
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "timezone-java.spec",
+      "group"    => "System/Base",
+      "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
+      "sources"  => [
         "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
         "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
       ],
@@ -35,13 +34,12 @@
       "version" => "2012f"
     },
     {
-      "%doc"          => [],
-      "%license"      => [],
-      "file"          => "timezone.spec",
-      "group"         => "System/Base",
-      "licenses"      => ["BSD-3-Clause and SUSE-Public-Domain"],
-      "remote_assets" => 0,
-      "sources"       => [
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "timezone.spec",
+      "group"    => "System/Base",
+      "licenses" => ["BSD-3-Clause and SUSE-Public-Domain"],
+      "sources"  => [
         "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
         "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
       ],

@@ -1,12 +1,8 @@
 {
-  "errors" => [],
-  "main"   => {
-    "file"     => ".cavil.json",
-    "license"  => "MIT",
-    "licenses" => ["MIT"],
-    "type"     => "upload",
-    "version"  => "1.0.1"
-  },
-  "sub" => [],
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                =>
+    {"file" => ".cavil.json", "license" => "MIT", "licenses" => ["MIT"], "type" => "upload", "version" => "1.0.1"},
+  "sub"      => [],
   "warnings" => []
 }

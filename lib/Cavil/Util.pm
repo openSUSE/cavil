@@ -21,6 +21,7 @@ use Exporter 'import';
 use Encode   qw(from_to decode);
 use IPC::Run ();
 use Mojo::Util;
+use Mojo::DOM;
 use Mojo::File qw(path tempfile);
 use POSIX 'ceil';
 use Spooky::Patterns::XS;
@@ -31,11 +32,14 @@ $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
-  qw(parse_exclude_file pattern_checksum pattern_matches read_lines request_id_from_external_link run_cmd),
-  qw(snippet_checksum ssh_sign)
+  qw(parse_exclude_file parse_service_file pattern_checksum pattern_matches read_lines request_id_from_external_link),
+  qw(run_cmd snippet_checksum ssh_sign)
 );
 
 my $MAX_FILE_SIZE = 30000;
+
+# Service modes that guarantee checkouts are complete and not amended by the OBS server
+my $SAFE_OBS_SRVICE_MODES = {buildtime => 1, localonly => 1, manual => 1, disabled => 1};
 
 sub buckets ($things, $size) {
 
@@ -203,6 +207,20 @@ sub parse_exclude_file ($path, $name) {
   }
 
   return $exclude;
+}
+
+sub parse_service_file ($file) {
+  my $dom = Mojo::DOM->new($file);
+
+  my $services = [];
+  for my $node ($dom->find('services service[name]')->each) {
+    my $name = $node->attr('name');
+    my $mode = $node->attr('mode') // 'Default';
+    my $safe = $SAFE_OBS_SRVICE_MODES->{$mode} ? 1 : 0;
+    push @$services, {name => $name, mode => $mode, safe => $safe};
+  }
+
+  return $services;
 }
 
 sub pattern_matches ($pattern, $text) {

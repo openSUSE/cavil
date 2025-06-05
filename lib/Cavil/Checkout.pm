@@ -21,7 +21,7 @@ use Mojo::DOM;
 use Mojo::File 'path';
 use Mojo::JSON qw(decode_json encode_json);
 use Mojo::Util 'dumper';
-use Cavil::Util qw(buckets slurp_and_decode);
+use Cavil::Util qw(buckets parse_service_file slurp_and_decode);
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
 use YAML::XS qw(Load);
@@ -93,9 +93,10 @@ sub specfile_report ($self) {
   my $dir      = path($self->dir);
   my $basename = $dir->dirname->basename;
 
-  my $info = {main => undef, sub => [], errors => [], warnings => []};
+  my $info = {main => undef, sub => [], errors => [], warnings => [], incomplete_checkout => 0};
 
-  my $upload_file = $dir->child('.cavil.json');
+  my $upload_file  = $dir->child('.cavil.json');
+  my $service_file = $dir->child('_service');
 
   my $specfile_name = $basename . '.spec';
   my $main_specfile = $dir->child($specfile_name);
@@ -124,6 +125,17 @@ sub specfile_report ($self) {
   }
 
   else {
+
+    # Service file
+    if (-f $service_file) {
+      my $services = parse_service_file($service_file->slurp);
+      for my $service (@$services) {
+        next if $service->{safe};
+        $info->{incomplete_checkout} = 1;
+        push @{$info->{errors}},
+          "Checkout might be incomplete, remote service in _service file: $service->{name} (mode: $service->{mode})";
+      }
+    }
 
     # Main .spec file
     if (-f $main_specfile) {
@@ -184,11 +196,6 @@ sub specfile_report ($self) {
     # All .spec files
     my $files = $dir->list;
     push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
-    for my $file (@{$info->{sub}}) {
-      next unless $file->{remote_assets};
-      push @{$info->{errors}}, qq{Specfile contains RemoteAsset};
-      last;
-    }
 
     # All .kiwi files
     push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
@@ -362,17 +369,8 @@ sub _kiwifile ($file) {
 }
 
 sub _specfile ($file) {
-  my $info = {
-    file          => $file->basename,
-    type          => 'spec',
-    licenses      => [],
-    sources       => [],
-    '%doc'        => [],
-    '%license'    => [],
-    remote_assets => 0
-  };
+  my $info = {file => $file->basename, type => 'spec', licenses => [], sources => [], '%doc' => [], '%license' => []};
   for my $line (split "\n", $file->slurp) {
-    if    ($line =~ /^\s*\#\!RemoteAsset/)         { $info->{remote_assets}++ }
     if    ($line =~ /^License:\s*(.+)\s*$/)        { push @{$info->{licenses}},   $1 }
     elsif ($line =~ /^Source(?:\d+)?:\s*(.+)\s*$/) { push @{$info->{sources}},    $1 }
     elsif ($line =~ /^\%doc\s*(.+)\s*$/)           { push @{$info->{'%doc'}},     $1 }

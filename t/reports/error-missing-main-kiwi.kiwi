@@ -2,7 +2,8 @@
   "errors" => [
     "Main kiwifile contains no license: error-missing-main-kiwi.kiwi (expected <label name=\"org.opencontainers.image.licenses\" value=\"...\"> tag)"
   ],
-  "main" => {
+  "incomplete_checkout" => 0,
+  "main"                => {
     "file"     => "error-missing-main-kiwi.kiwi",
     "licenses" => [],
     "type"     => "kiwi",

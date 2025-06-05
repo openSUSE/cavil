@@ -1,6 +1,7 @@
 {
   "errors" => ["Main Helm chart contains no license: Chart.yaml (expected \"# SPDX-License-Identifier: ...\" comment)"],
-  "main"   => {
+  "incomplete_checkout" => 0,
+  "main"                => {
     "file"     => "Chart.yaml",
     "licenses" => [],
     "summary"  => "Just a test",

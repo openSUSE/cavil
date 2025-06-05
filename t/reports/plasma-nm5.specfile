@@ -1,21 +1,21 @@
 {
-  "errors" => [],
-  "main"   => {
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                => {
     "%doc" => [
       "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*",
       "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*"
     ],
-    "%license"      => [],
-    "remote_assets" => 0,
-    "file"          => "plasma-nm5.spec",
-    "group"         => "System/GUI/KDE",
-    "license"       => "(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)",
-    "licenses"      => ["(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)"],
-    "sources"       => ["http://download.kde.org/stable/plasma/%{version}/plasma-nm-%{version}.tar.xz"],
-    "summary"       => "Plasma applet written in QML for managing network connections",
-    "type"          => "spec",
-    "url"           => "https://projects.kde.org/projects/playground/network/plasma-nm",
-    "version"       => "5.9.2"
+    "%license" => [],
+    "file"     => "plasma-nm5.spec",
+    "group"    => "System/GUI/KDE",
+    "license"  => "(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)",
+    "licenses" => ["(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)"],
+    "sources"  => ["http://download.kde.org/stable/plasma/%{version}/plasma-nm-%{version}.tar.xz"],
+    "summary"  => "Plasma applet written in QML for managing network connections",
+    "type"     => "spec",
+    "url"      => "https://projects.kde.org/projects/playground/network/plasma-nm",
+    "version"  => "5.9.2"
   },
   "sub" => [
     {
@@ -23,16 +23,15 @@
         "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*",
         "COPYING*", "COPYING*", "COPYING*", "COPYING*", "COPYING*"
       ],
-      "%license"      => [],
-      "remote_assets" => 0,
-      "file"          => "plasma-nm5.spec",
-      "group"         => "System/GUI/KDE",
-      "licenses"      => ["(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)"],
-      "sources"       => ["http://download.kde.org/stable/plasma/%{version}/plasma-nm-%{version}.tar.xz"],
-      "summary"       => "Plasma applet written in QML for managing network connections",
-      "type"          => "spec",
-      "url"           => "https://projects.kde.org/projects/playground/network/plasma-nm",
-      "version"       => "5.9.2"
+      "%license" => [],
+      "file"     => "plasma-nm5.spec",
+      "group"    => "System/GUI/KDE",
+      "licenses" => ["(LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0)"],
+      "sources"  => ["http://download.kde.org/stable/plasma/%{version}/plasma-nm-%{version}.tar.xz"],
+      "summary"  => "Plasma applet written in QML for managing network connections",
+      "type"     => "spec",
+      "url"      => "https://projects.kde.org/projects/playground/network/plasma-nm",
+      "version"  => "5.9.2"
     }
   ],
   "warnings" => [

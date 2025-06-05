@@ -1,6 +1,7 @@
 {
-  "errors" => [],
-  "main"   => {
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                => {
     "%doc" => [
       "AUTHORS COPYING.LIB ChangeLog NEWS README",
       "AUTHORS COPYING.LIB ChangeLog NEWS README",
@@ -24,12 +25,11 @@
       "LGPL-2.1+",
       "LGPL-2.1+"
     ],
-    "remote_assets" => 0,
-    "sources"       => ["http://download.gnome.org/sources/gtk-vnc/0.5/%{_name}-%{version}.tar.xz"],
-    "summary"       => "A GTK widget for VNC clients",
-    "type"          => "spec",
-    "url"           => "http://gtk-vnc.sf.net/",
-    "version"       => "0.5.2"
+    "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/%{_name}-%{version}.tar.xz"],
+    "summary" => "A GTK widget for VNC clients",
+    "type"    => "spec",
+    "url"     => "http://gtk-vnc.sf.net/",
+    "version" => "0.5.2"
   },
   "sub" => [
     {
@@ -40,11 +40,10 @@
         "examples/gvncviewer-bindings.py",
         "examples/gvncviewer-introspection.py"
       ],
-      "%license"      => [],
-      "remote_assets" => 0,
-      "file"          => "gtk-vnc.spec",
-      "group"         => "Development/Libraries/X11",
-      "licenses"      => [
+      "%license" => [],
+      "file"     => "gtk-vnc.spec",
+      "group"    => "Development/Libraries/X11",
+      "licenses" => [
         "LGPL-2.1+",
         "LGPL-2.1 and LGPL-2.1+",
         "LGPL-2.1 and LGPL-2.1+",
@@ -85,12 +84,11 @@
         "LGPL-2.1+",
         "LGPL-2.1+"
       ],
-      "remote_assets" => 0,
-      "sources"       => ["http://download.gnome.org/sources/gtk-vnc/0.5/%{_name}-%{version}.tar.xz"],
-      "summary"       => "A GTK widget for VNC clients",
-      "type"          => "spec",
-      "url"           => "http://gtk-vnc.sf.net/",
-      "version"       => "0.5.2"
+      "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/%{_name}-%{version}.tar.xz"],
+      "summary" => "A GTK widget for VNC clients",
+      "type"    => "spec",
+      "url"     => "http://gtk-vnc.sf.net/",
+      "version" => "0.5.2"
     }
   ],
   "warnings" => [

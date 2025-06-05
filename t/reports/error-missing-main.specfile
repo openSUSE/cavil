@@ -1,23 +1,22 @@
 {
   "errors" => ["Main specfile contains no license: error-missing-main.spec (expected \"License: ...\" entry)"],
-  "main"   => {
-    "%doc"          => [],
-    "%license"      => [],
-    "file"          => "error-missing-main.spec",
-    "licenses"      => [],
-    "remote_assets" => 0,
-    "sources"       => [],
-    "type"          => "spec"
+  "incomplete_checkout" => 0,
+  "main"                => {
+    "%doc"     => [],
+    "%license" => [],
+    "file"     => "error-missing-main.spec",
+    "licenses" => [],
+    "sources"  => [],
+    "type"     => "spec"
   },
   "sub" => [
     {
-      "%doc"          => [],
-      "%license"      => [],
-      "file"          => "error-missing-main.spec",
-      "licenses"      => [],
-      "remote_assets" => 0,
-      "sources"       => [],
-      "type"          => "spec"
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "error-missing-main.spec",
+      "licenses" => [],
+      "sources"  => [],
+      "type"     => "spec"
     }
   ],
   "warnings" => []

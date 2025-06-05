@@ -1,6 +1,7 @@
 {
-  "errors" => ["Invalid SPDX license: SUSE-Permissive"],
-  "main"   => {
+  "errors"              => ["Invalid SPDX license: SUSE-Permissive"],
+  "incomplete_checkout" => 0,
+  "main"                => {
     "file"     => "ceph-image.kiwi",
     "license"  => "SUSE-Permissive",
     "licenses" => ["SUSE-Permissive"],

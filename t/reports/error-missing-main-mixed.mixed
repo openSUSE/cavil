@@ -2,17 +2,17 @@
   "errors" => [
     "Main package file missing: expected error-missing-main-mixed.spec, error-missing-main-mixed.kiwi, error-missing-main-mixed.Dockerfile, Dockerfile, or Chart.yaml"
   ],
-  "main" => {},
-  "sub"  => [
+  "incomplete_checkout" => 0,
+  "main"                => {},
+  "sub"                 => [
     {
-      "%doc"          => [],
-      "%license"      => [],
-      "file"          => "mixed-more.spec",
-      "licenses"      => ["MIT AND BSD-3-Clause"],
-      "remote_assets" => 0,
-      "sources"       => [],
-      "summary"       => "Just a test",
-      "type"          => "spec"
+      "%doc"     => [],
+      "%license" => [],
+      "file"     => "mixed-more.spec",
+      "licenses" => ["MIT AND BSD-3-Clause"],
+      "sources"  => [],
+      "summary"  => "Just a test",
+      "type"     => "spec"
     },
     {
       "file"     => "mixed-more.kiwi",

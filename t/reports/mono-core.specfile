@@ -1,6 +1,7 @@
 {
-  "errors" => [],
-  "main"   => {
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                => {
     "%doc"     => ["AUTHORS COPYING.LIB ChangeLog NEWS README"],
     "%license" => [],
     "file"     => "mono-core.spec",
@@ -15,12 +16,11 @@
       "LGPL-2.1",                   "LGPL-2.1",      "Apache-2.0",    "Apache-2.0",
       "LGPL-2.1",                   "LGPL-2.1"
     ],
-    "remote_assets" => 0,
-    "sources"       => ["http://download.mono-project.com/sources/mono/mono-%{version}.tar.bz2"],
-    "summary"       => "Cross-platform, Open Source, .NET development framework",
-    "type"          => "spec",
-    "url"           => "http://www.mono-project.com",
-    "version"       => "3.2.1"
+    "sources" => ["http://download.mono-project.com/sources/mono/mono-%{version}.tar.bz2"],
+    "summary" => "Cross-platform, Open Source, .NET development framework",
+    "type"    => "spec",
+    "url"     => "http://www.mono-project.com",
+    "version" => "3.2.1"
   },
   "sub" => [
     {
@@ -37,12 +37,11 @@
         "LGPL-2.1",                   "LGPL-2.1",      "Apache-2.0",    "Apache-2.0",
         "LGPL-2.1",                   "LGPL-2.1"
       ],
-      "remote_assets" => 0,
-      "sources"       => ["http://download.mono-project.com/sources/mono/mono-%{version}.tar.bz2"],
-      "summary"       => "Cross-platform, Open Source, .NET development framework",
-      "type"          => "spec",
-      "url"           => "http://www.mono-project.com",
-      "version"       => "3.2.1"
+      "sources" => ["http://download.mono-project.com/sources/mono/mono-%{version}.tar.bz2"],
+      "summary" => "Cross-platform, Open Source, .NET development framework",
+      "type"    => "spec",
+      "url"     => "http://www.mono-project.com",
+      "version" => "3.2.1"
     }
   ],
   "warnings" => [

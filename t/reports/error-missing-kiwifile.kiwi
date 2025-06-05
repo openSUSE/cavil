@@ -2,8 +2,9 @@
   "errors" => [
     "Main package file missing: expected error-missing-kiwifile.spec, error-missing-kiwifile.kiwi, error-missing-kiwifile.Dockerfile, Dockerfile, or Chart.yaml"
   ],
-  "main" => {},
-  "sub"  => [
+  "incomplete_checkout" => 0,
+  "main"                => {},
+  "sub"                 => [
     {
       "file"     => "wrong-name.kiwi",
       "licenses" => ["LicenseRef-SUSE-Permissive"],

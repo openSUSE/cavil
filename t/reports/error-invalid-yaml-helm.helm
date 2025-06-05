@@ -1,6 +1,7 @@
 {
-  "errors"   => [],
-  "main"     => {"file" => "Chart.yaml", "license" => "MIT", "licenses" => ["MIT"], "type" => "helm"},
-  "sub"      => [{"file" => "Chart.yaml", "license" => "MIT", "licenses" => ["MIT"], "type" => "helm"}],
-  "warnings" => []
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                => {"file" => "Chart.yaml", "license" => "MIT", "licenses" => ["MIT"], "type" => "helm"},
+  "sub"                 => [{"file" => "Chart.yaml", "license" => "MIT", "licenses" => ["MIT"], "type" => "helm"}],
+  "warnings"            => []
 }
