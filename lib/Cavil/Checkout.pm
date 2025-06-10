@@ -101,6 +101,8 @@ sub specfile_report ($self) {
   my $specfile_name = $basename . '.spec';
   my $main_specfile = $dir->child($specfile_name);
 
+  my $debian_control_file = $dir->child('debian/control');
+
   my $kiwifile_name = $basename . '.kiwi';
   my $main_kiwifile = $dir->child($kiwifile_name);
 
@@ -143,6 +145,15 @@ sub specfile_report ($self) {
       if (@{$specfile->{licenses}}) { $specfile->{license} = $specfile->{licenses}[0] }
       else {
         push @{$info->{errors}}, qq{Main specfile contains no license: $specfile_name (expected "License: ..." entry)};
+      }
+    }
+
+    # Debian files
+    elsif (-f $debian_control_file) {
+      my $debian_files = $info->{main} = _debian_files($debian_control_file);
+      if (@{$debian_files->{licenses}}) { $debian_files->{license} = $debian_files->{licenses}[0] }
+      else {
+        push @{$info->{errors}}, qq{Package contains no license: debian/copyright (expected "License: ..." entry)};
       }
     }
 
@@ -189,9 +200,12 @@ sub specfile_report ($self) {
 
     # No main files
     else {
-      push @{$info->{errors}},
-        "Main package file missing: expected $specfile_name, $kiwifile_name, $dockerfile_name, Dockerfile, or Chart.yaml";
+      push @{$info->{errors}}, "Main package file missing: expected $specfile_name, debian/control, $kiwifile_name,"
+        . " $dockerfile_name, Dockerfile, or Chart.yaml";
     }
+
+    # Debian files
+    push @{$info->{sub}}, _debian_files($debian_control_file) if -f $debian_control_file;
 
     # All .spec files
     my $files = $dir->list;
@@ -317,6 +331,24 @@ sub _check ($info) {
       _add_once($warnings, "License from $spec is not part of main license: $license") unless $main->is_part_of($sub);
     }
   }
+}
+
+sub _debian_files ($file) {
+  my $info = {file => 'debian', type => 'debian', licenses => []};
+
+  for my $line (split "\n", $file->slurp) {
+    if    ($line =~ /^Homepage:\s*(.+)\s*$/)          { $info->{url} = $1 }
+    elsif ($line =~ /^Standards-Version:\s*(.+)\s*$/) { $info->{version} ||= $1 }
+  }
+
+  my $copyright_file = $file->sibling('copyright');
+  if (-f $copyright_file) {
+    for my $line (split "\n", $copyright_file->slurp) {
+      if ($line =~ /^License:\s*(.+)\s*$/) { push @{$info->{licenses}}, $1 }
+    }
+  }
+
+  return $info;
 }
 
 sub _dockerfile ($file) {

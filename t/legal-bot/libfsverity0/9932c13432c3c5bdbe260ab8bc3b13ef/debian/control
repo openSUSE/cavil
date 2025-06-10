@@ -1,0 +1,52 @@
+Source: fsverity-utils
+Section: admin
+Priority: optional
+Maintainer: Romain Perier <romain.perier@gmail.com>
+Build-Depends: debhelper-compat (= 13), libssl-dev (>= 1.0), pkg-config, pandoc
+Standards-Version: 4.5.1
+Rules-Requires-Root: no
+Homepage: https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/fsverity-utils.git
+Vcs-Browser: https://salsa.debian.org/debian/fsverity-utils
+Vcs-Git: https://salsa.debian.org/debian/fsverity-utils.git
+
+Package: fsverity
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libfsverity0 (= ${binary:Version})
+Description: Userspace utilities for fs-verity
+ fs-verity is a Linux kernel feature that does transparent on-demand
+ integrity/authenticity verification of the contents of read-only files,
+ using a hidden Merkle tree (hash tree) associated with the file. The
+ mechanism is similar to dm-verity, but implemented at the file level
+ rather than at the block device level.
+ .
+ This package contains the fsverity utility
+
+Package: libfsverity0
+Architecture: linux-any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Multi-Arch: same
+Description: Shared library for fs-verity
+ fs-verity is a Linux kernel feature that does transparent on-demand
+ integrity/authenticity verification of the contents of read-only files,
+ using a hidden Merkle tree (hash tree) associated with the file. The
+ mechanism is similar to dm-verity, but implemented at the file level
+ rather than at the block device level.
+ .
+ This package contains the libfsverity shared library.
+
+Package: libfsverity-dev
+Architecture: linux-any
+Section: libdevel
+Depends: ${shlibs:Depends}, ${misc:Depends}, libfsverity0 (= ${binary:Version})
+Multi-Arch: same
+Description: Development files for fs-verity
+ fs-verity is a Linux kernel feature that does transparent on-demand
+ integrity/authenticity verification of the contents of read-only files,
+ using a hidden Merkle tree (hash tree) associated with the file. The
+ mechanism is similar to dm-verity, but implemented at the file level
+ rather than at the block device level.
+ .
+ This package contains the libfsverity development libraries and header files.
+

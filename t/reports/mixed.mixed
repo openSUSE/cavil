@@ -13,6 +13,13 @@
   },
   "sub" => [
     {
+      "file"     => "debian",
+      "licenses" => ["Apache-2.0"],
+      "type"     => "debian",
+      "url"      => "https://example.com",
+      "version"  => "1.0.0"
+    },
+    {
       "%doc"     => [],
       "%license" => [],
       "file"     => "mixed-more.spec",
@@ -69,6 +76,7 @@
     }
   ],
   "warnings" => [
+    "License from debian is not part of main license: Apache-2.0",
     "License from mixed-more.kiwi is not part of main license: Apache-2.0",
     "License from mixed.kiwi is not part of main license: LicenseRef-SUSE-Permissive",
     "License from Dockerfile is not part of main license: BSD-2-Clause"

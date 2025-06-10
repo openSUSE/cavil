@@ -1,0 +1,22 @@
+{
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                => {
+    "file"     => "debian",
+    "license"  => "MIT",
+    "licenses" => ["MIT", "MIT", "MIT"],
+    "type"     => "debian",
+    "url"      => "https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/fsverity-utils.git",
+    "version"  => "4.5.1"
+  },
+  "sub" => [
+    {
+      "file"     => "debian",
+      "licenses" => ["MIT", "MIT", "MIT"],
+      "type"     => "debian",
+      "url"      => "https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/fsverity-utils.git",
+      "version"  => "4.5.1"
+    }
+  ],
+  "warnings" => []
+}

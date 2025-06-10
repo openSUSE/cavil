@@ -65,12 +65,18 @@ unless ($clean) {
     ['perl-Mojolicious',       'c7cfdab0e71b0bebfdf8b2dc3badfecd'],
     ['ceph-image',             '5fcfdab0e71b0bebfdf8b5cc3badfecf'],
     ['go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca'],
-    ['harbor-helm',            '4fcfdab0e71b0bebfdf8b5cc3badfec4']
+    ['harbor-helm',            '4fcfdab0e71b0bebfdf8b5cc3badfec4'],
+    ['libfsverity0',           '9932c13432c3c5bdbe260ab8bc3b13ef']
   ];
   for my $co (@$tests) {
     my $checkout = $checkouts->child(@$co)->make_path;
     my $test     = $dir->child('..', '..', 't', 'legal-bot', @$co)->realpath;
     $_->copy_to($checkout->child($_->basename)) for $test->list->each;
+    my $deb_test = $test->child('debian');
+    if (-d $deb_test) {
+      my $deb_checkout = $checkout->child('debian')->make_path;
+      $_->copy_to($deb_checkout->child($_->basename)) for $deb_test->list->each;
+    }
   }
 
 # Second copy of perl-Mojolicious test checkout (different checksum but same content)
@@ -163,6 +169,23 @@ unless ($clean) {
   my $harbor = $pkgs->find($pkg_id);
   $harbor->{external_link} = 'obs#123456';
   $pkgs->update($harbor);
+  $pkgs->unpack($pkg_id);
+
+# "libfsverity0" debian example data
+  $pkg_id = $pkgs->add(
+    name            => 'libfsverity0',
+    checkout_dir    => '9932c13432c3c5bdbe260ab8bc3b13ef',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'just:a:test',
+    package         => 'harbor-helm',
+    srcmd5          => 'abc1c3664321d356883d490da2141234',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $deb = $pkgs->find($pkg_id);
+  $deb->{external_link} = 'obs#395678';
+  $pkgs->update($deb);
   $pkgs->unpack($pkg_id);
 
 # Extra packages to fill up the backlog

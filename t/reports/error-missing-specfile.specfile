@@ -1,6 +1,6 @@
 {
   "errors" => [
-    "Main package file missing: expected error-missing-specfile.spec, error-missing-specfile.kiwi, error-missing-specfile.Dockerfile, Dockerfile, or Chart.yaml"
+    "Main package file missing: expected error-missing-specfile.spec, debian/control, error-missing-specfile.kiwi, error-missing-specfile.Dockerfile, Dockerfile, or Chart.yaml"
   ],
   "incomplete_checkout" => 0,
   "main"                => {},

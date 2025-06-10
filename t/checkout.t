@@ -59,6 +59,12 @@ subtest 'harbor-helm (Helm)' => sub {
   is_deeply $checkout->specfile_report, report('harbor-helm.helm'), 'right helm chart report';
 };
 
+subtest 'libfsverity0 (DEB)' => sub {
+  my $libfs    = $dir->child('libfsverity0', '9932c13432c3c5bdbe260ab8bc3b13ef');
+  my $checkout = Cavil::Checkout->new($libfs);
+  is_deeply $checkout->specfile_report, report('libfsverity0.deb'), 'right deb report';
+};
+
 subtest 'gnome-icon-theme' => sub {
   my $theme    = $dir->child('gnome-icon-theme', '6101f5eb933704aaad5dea63667110ac');
   my $checkout = Cavil::Checkout->new($theme);
