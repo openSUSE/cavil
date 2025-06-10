@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -34,76 +34,96 @@ sub report {
   return $@ ? die $@ : $report;
 }
 
-sub temp_copy {
-  my $from   = $dir->child(@_);
-  my $target = tempdir;
-  $_->copy_to($target->child($_->basename)) for $from->list->each;
+my $TMP = tempdir;
+
+sub temp_copy (@path) {
+  my $from   = $dir->child(@path);
+  my $target = $TMP->child(@path)->make_path;
+  $_->copy_to($target->child($_->basename)) for $from->list({hidden => 1})->each;
+
+  my $deb_test = $from->child('debian');
+  if (-d $deb_test) {
+    my $deb_dir = $target->child('debian')->make_path;
+    $_->copy_to($deb_dir->child($_->basename)) for $deb_test->list->each;
+  }
+
   return $target;
 }
 
 subtest 'ceph-image (kiwi)' => sub {
-  my $ceph     = $dir->child('ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf');
+  my $ceph     = temp_copy('ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf');
   my $checkout = Cavil::Checkout->new($ceph);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('ceph-image.kiwi'), 'right kiwi report';
 };
 
 subtest 'go1.16-devel-container (Dockerfile)' => sub {
-  my $go       = $dir->child('go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca');
+  my $go       = temp_copy('go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca');
   my $checkout = Cavil::Checkout->new($go);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('go1.16-devel-container.dockerfile'), 'right dockerfile report';
 };
 
 subtest 'harbor-helm (Helm)' => sub {
-  my $harbor   = $dir->child('harbor-helm', '4fcfdab0e71b0bebfdf8b5cc3badfec4');
+  my $harbor   = temp_copy('harbor-helm', '4fcfdab0e71b0bebfdf8b5cc3badfec4');
   my $checkout = Cavil::Checkout->new($harbor);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('harbor-helm.helm'), 'right helm chart report';
 };
 
 subtest 'libfsverity0 (DEB)' => sub {
-  my $libfs    = $dir->child('libfsverity0', '9932c13432c3c5bdbe260ab8bc3b13ef');
+  my $libfs    = temp_copy('libfsverity0', '9932c13432c3c5bdbe260ab8bc3b13ef');
   my $checkout = Cavil::Checkout->new($libfs);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('libfsverity0.deb'), 'right deb report';
 };
 
 subtest 'gnome-icon-theme' => sub {
-  my $theme    = $dir->child('gnome-icon-theme', '6101f5eb933704aaad5dea63667110ac');
+  my $theme    = temp_copy('gnome-icon-theme', '6101f5eb933704aaad5dea63667110ac');
   my $checkout = Cavil::Checkout->new($theme);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('gnome-icon-theme.specfile'), 'right specfile report';
 };
 
 subtest 'gnome-menus' => sub {
-  my $menus    = $dir->child('gnome-menus', 'aaacabb87b4356ac167f1a19458bc412');
+  my $menus    = temp_copy('gnome-menus', 'aaacabb87b4356ac167f1a19458bc412');
   my $checkout = Cavil::Checkout->new($menus);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('gnome-menus.specfile'), 'right specfile report';
 };
 
 subtest 'gtk-vnc' => sub {
-  my $vnc      = $dir->child('gtk-vnc', 'dbc35628c22fb9537a187e338c5e7007');
+  my $vnc      = temp_copy('gtk-vnc', 'dbc35628c22fb9537a187e338c5e7007');
   my $checkout = Cavil::Checkout->new($vnc);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('gtk-vnc.specfile'), 'right specfile report';
 };
 
 subtest 'kmod' => sub {
-  my $kmod     = $dir->child('kmod', 'a91003b451a34fe24defecdde1f2902e');
+  my $kmod     = temp_copy('kmod', 'a91003b451a34fe24defecdde1f2902e');
   my $checkout = Cavil::Checkout->new($kmod);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('kmod.specfile'), 'right specfile report';
 };
 
 subtest 'libqt4' => sub {
-  my $qt       = $dir->child('libqt4', '9ec277c8a213f76119aa737e98f01959');
+  my $qt       = temp_copy('libqt4', '9ec277c8a213f76119aa737e98f01959');
   my $checkout = Cavil::Checkout->new($qt);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('libqt4.specfile'), 'right specfile report';
 };
 
 subtest 'mono-core' => sub {
-  my $mono     = $dir->child('mono-core', '610dad1a6b8dd8e36b021ab0291cd1d9');
+  my $mono     = temp_copy('mono-core', '610dad1a6b8dd8e36b021ab0291cd1d9');
   my $checkout = Cavil::Checkout->new($mono);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('mono-core.specfile'), 'right specfile report';
 };
 
 subtest 'perl-Mojolicious' => sub {
-  my $mojo     = $dir->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
+  my $mojo     = temp_copy('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
   my $checkout = Cavil::Checkout->new($mojo);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('perl-Mojolicious.specfile'), 'right specfile report';
   my $mojo_temp_dir = temp_copy('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
   $checkout = Cavil::Checkout->new($mojo_temp_dir);
@@ -128,44 +148,51 @@ subtest 'perl-Mojolicious' => sub {
 };
 
 subtest 'plasma-nm5' => sub {
-  my $nm5      = $dir->child('plasma-nm5', '4df243e211552e65b7146523c2f7051c');
+  my $nm5      = temp_copy('plasma-nm5', '4df243e211552e65b7146523c2f7051c');
   my $checkout = Cavil::Checkout->new($nm5);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('plasma-nm5.specfile'), 'right specfile report';
 };
 
 subtest 'timezone' => sub {
-  my $tz       = $dir->child('timezone', '2724cdf3fada2aba427132fee8327b0f');
+  my $tz       = temp_copy('timezone', '2724cdf3fada2aba427132fee8327b0f');
   my $checkout = Cavil::Checkout->new($tz);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('timezone.specfile'), 'right specfile report';
 };
 
 subtest 'wxWidgets-3_2' => sub {
-  my $wx       = $dir->child('wxWidgets-3_2', '25014ee9d3640ebd9bc2370a2bbb5a63');
+  my $wx       = temp_copy('wxWidgets-3_2', '25014ee9d3640ebd9bc2370a2bbb5a63');
   my $checkout = Cavil::Checkout->new($wx);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('wxWidgets-3_2.specfile'), 'right specfile report';
 };
 
 subtest 'error-invalid-license' => sub {
-  my $eil      = $dir->child('error-invalid-license', 'cb5e100e5a9a3e7f6d1fd97512215282');
+  my $eil      = temp_copy('error-invalid-license', 'cb5e100e5a9a3e7f6d1fd97512215282');
   my $checkout = Cavil::Checkout->new($eil);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-invalid-license.specfile'), 'right specfile report';
 };
 
 subtest 'error-no-spdx' => sub {
-  my $ens      = $dir->child('error-no-spdx', 'cb5e100e5a9a3e7f6d1fd97512215282');
+  my $ens      = temp_copy('error-no-spdx', 'cb5e100e5a9a3e7f6d1fd97512215282');
   my $checkout = Cavil::Checkout->new($ens);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-no-spdx.specfile'), 'right specfile report';
 };
 
 subtest 'error-missing-main' => sub {
-  my $emm      = $dir->child('error-missing-main', 'cb5e100e5a9a3e7f6d1fd97512215282');
+  my $emm      = temp_copy('error-missing-main', 'cb5e100e5a9a3e7f6d1fd97512215282');
   my $checkout = Cavil::Checkout->new($emm);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-missing-main.specfile'), 'right specfile report';
 };
 
 subtest 'error-missing-specfile' => sub {
-  my $ems      = $dir->child('error-missing-specfile', 'cb5e100e5a9a3e7f6d1fd97512215282');
+  my $ems      = temp_copy('error-missing-specfile', 'cb5e100e5a9a3e7f6d1fd97512215282');
   my $checkout = Cavil::Checkout->new($ems);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-missing-specfile.specfile'), 'right specfile report';
 };
 
@@ -182,68 +209,79 @@ subtest 'error-broken-archive' => sub {
 };
 
 subtest 'error-missing-main-kiwi' => sub {
-  my $emmk     = $dir->child('error-missing-main-kiwi', 'aacfdab0e71b0bebfdf8b5cc3badfecf');
+  my $emmk     = temp_copy('error-missing-main-kiwi', 'aacfdab0e71b0bebfdf8b5cc3badfecf');
   my $checkout = Cavil::Checkout->new($emmk);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-missing-main-kiwi.kiwi'), 'right kiwi report';
 };
 
 subtest 'error-missing-kiwifile' => sub {
-  my $emmk     = $dir->child('error-missing-kiwifile', 'bbcfdab0e71b0bebfdf8b5cc3badfecf');
+  my $emmk     = temp_copy('error-missing-kiwifile', 'bbcfdab0e71b0bebfdf8b5cc3badfecf');
   my $checkout = Cavil::Checkout->new($emmk);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-missing-kiwifile.kiwi'), 'right kiwi report';
 };
 
 subtest 'error-missing-main-dockerfile' => sub {
-  my $docker   = $dir->child('error-missing-main-dockerfile', '56cfdab0e71b0bebfdf8b5cc3badfe23');
+  my $docker   = temp_copy('error-missing-main-dockerfile', '56cfdab0e71b0bebfdf8b5cc3badfe23');
   my $checkout = Cavil::Checkout->new($docker);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-missing-main-dockerfile.dockerfile'), 'right kiwi report';
 };
 
 subtest 'error-missing-main-helm' => sub {
-  my $helm     = $dir->child('error-missing-main-helm', '86cfdab0e71b0bebfdf8b5cc3badfe2f');
+  my $helm     = temp_copy('error-missing-main-helm', '86cfdab0e71b0bebfdf8b5cc3badfe2f');
   my $checkout = Cavil::Checkout->new($helm);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-missing-main-helm.helm'), 'right kiwi report';
 };
 
 subtest 'mixed (a little bit of everything)' => sub {
-  my $mixed    = $dir->child('mixed', 'fffe100e5a9a3e7f6d1fd97512215282');
+  my $mixed    = temp_copy('mixed', 'fffe100e5a9a3e7f6d1fd97512215282');
   my $checkout = Cavil::Checkout->new($mixed);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('mixed.mixed'), 'right mixed report';
 };
 
 subtest 'error-invalid-license-mixed' => sub {
-  my $mixed    = $dir->child('error-invalid-license-mixed', 'fffe100e5a9a3e7f6d1fd97512215283');
+  my $mixed    = temp_copy('error-invalid-license-mixed', 'fffe100e5a9a3e7f6d1fd97512215283');
   my $checkout = Cavil::Checkout->new($mixed);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-invalid-license-mixed.mixed'), 'right mixed report';
 };
 
 subtest 'error-missing-main-mixed' => sub {
-  my $mixed    = $dir->child('error-missing-main-mixed', 'fffe100e5a9a3e7f6d1fd97512215284');
+  my $mixed    = temp_copy('error-missing-main-mixed', 'fffe100e5a9a3e7f6d1fd97512215284');
   my $checkout = Cavil::Checkout->new($mixed);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-missing-main-mixed.mixed'), 'right mixed report';
 };
 
 subtest 'error-invalid-yaml-helm' => sub {
-  my $helm     = $dir->child('error-invalid-yaml-helm', 'fffe100e5a9a3e7f6d1fd97512215286');
+  my $helm     = temp_copy('error-invalid-yaml-helm', 'fffe100e5a9a3e7f6d1fd97512215286');
   my $checkout = Cavil::Checkout->new($helm);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-invalid-yaml-helm.helm'), 'right helm chart report';
 };
 
 subtest 'error-invalid-xml-kiwi' => sub {
-  my $kiwi     = $dir->child('error-invalid-xml-kiwi', 'fffe100e5a9a3e7f6d1fd97512215287');
+  my $kiwi     = temp_copy('error-invalid-xml-kiwi', 'fffe100e5a9a3e7f6d1fd97512215287');
   my $checkout = Cavil::Checkout->new($kiwi);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-invalid-xml-kiwi.kiwi'), 'right kiwi report';
 };
 
 subtest 'error-incomplete-checkout' => sub {
-  my $remote   = $dir->child('error-incomplete-checkout', 'cb5e100e5a9a3e7f6d1fd97512215282');
+  my $remote   = temp_copy('error-incomplete-checkout', 'cb5e100e5a9a3e7f6d1fd97512215282');
   my $checkout = Cavil::Checkout->new($remote);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('error-incomplete-checkout.specfile'), 'right specfile report';
 };
 
 subtest 'Tarball upload' => sub {
-  my $ceph     = $dir->child('tarball-upload', '5fcfdab0e71b0bebfdf8b5cc6bcdfecf');
+  my $ceph     = temp_copy('tarball-upload', '5fcfdab0e71b0bebfdf8b5cc6bcdfecf');
   my $checkout = Cavil::Checkout->new($ceph);
+  $checkout->unpack;
   is_deeply $checkout->specfile_report, report('tarball-upload.cavil'), 'right tarball report';
 };
 

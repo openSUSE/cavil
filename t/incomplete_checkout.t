@@ -40,8 +40,9 @@ is $t->app->packages->find(2)->{state}, 'new', 'still new';
 subtest 'Do not auto-accept incomplete checkouts' => sub {
   my $dir = $cavil_test->checkout_dir;
   $dir->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd', 'perl-Mojolicious.spec')
-    ->copy_to($dir->child('perl-Mojolicious', 'da3e32a3cce8bada03c6a9d63c08cd58', 'perl-Mojolicious.spec'));
-  my $file = $dir->child('perl-Mojolicious', 'da3e32a3cce8bada03c6a9d63c08cd58', '_service');
+    ->copy_to(
+    $dir->child('perl-Mojolicious', 'da3e32a3cce8bada03c6a9d63c08cd58', '.unpacked', 'perl-Mojolicious.spec'));
+  my $file = $dir->child('perl-Mojolicious', 'da3e32a3cce8bada03c6a9d63c08cd58', '.unpacked', '_service');
   $file->spew(<<EOF);
 <services>
   <service name="download_files" mode="trylocal" />

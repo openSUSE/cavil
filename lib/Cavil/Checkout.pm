@@ -75,6 +75,8 @@ my $URL_RE = qr!
 
 my $LICENSE_COMMENT_RE = qr/^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/;
 
+sub is_unpacked ($self) { -d path($self->dir)->child('.unpacked') }
+
 sub keyword_report ($self, $matcher, $meta, $file) {
   my $dir  = path($self->dir);
   my $base = $dir->child('.unpacked');
@@ -92,26 +94,27 @@ sub new ($class, $dir) { $class->SUPER::new(dir => $dir) }
 sub specfile_report ($self) {
   my $dir      = path($self->dir);
   my $basename = $dir->dirname->basename;
+  my $unpacked = $dir->child('.unpacked');
 
   my $info = {main => undef, sub => [], errors => [], warnings => [], incomplete_checkout => 0};
 
   my $upload_file  = $dir->child('.cavil.json');
-  my $service_file = $dir->child('_service');
+  my $service_file = $unpacked->child('_service');
 
   my $specfile_name = $basename . '.spec';
-  my $main_specfile = $dir->child($specfile_name);
+  my $main_specfile = $unpacked->child($specfile_name);
 
-  my $debian_control_file = $dir->child('debian/control');
+  my $debian_control_file = $unpacked->child('debian/control');
 
   my $kiwifile_name = $basename . '.kiwi';
-  my $main_kiwifile = $dir->child($kiwifile_name);
+  my $main_kiwifile = $unpacked->child($kiwifile_name);
 
   my $dockerfile_name  = $basename . '.Dockerfile';
-  my $main_dockerfile  = $dir->child('Dockerfile');
-  my $named_dockerfile = $dir->child($dockerfile_name);
+  my $main_dockerfile  = $unpacked->child('Dockerfile');
+  my $named_dockerfile = $unpacked->child($dockerfile_name);
 
   my $helmchart_name = 'Chart.yaml';
-  my $main_helmchart = $dir->child($helmchart_name);
+  my $main_helmchart = $unpacked->child($helmchart_name);
 
   # Tarball upload
   if (-f $upload_file) {
@@ -208,7 +211,7 @@ sub specfile_report ($self) {
     push @{$info->{sub}}, _debian_files($debian_control_file) if -f $debian_control_file;
 
     # All .spec files
-    my $files = $dir->list;
+    my $files = $unpacked->list->grep(sub { $_ !~ /\.processed\./ });
     push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
 
     # All .kiwi files

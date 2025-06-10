@@ -126,6 +126,7 @@ sub specfile_report {
 
     my $dir      = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
     my $checkout = Cavil::Checkout->new($dir);
+    return {} unless $checkout->is_unpacked;
     my $specfile = $checkout->specfile_report;
 
     my $report = {package => $id, specfile_report => to_json($specfile)};

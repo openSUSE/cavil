@@ -21,7 +21,6 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path tempdir);
 use Mojo::Pg;
 use Mojolicious::Lite;
 
@@ -83,6 +82,23 @@ subtest 'Globs' => sub {
 subtest 'Details after import (indexing in progress)' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/package_name', 'perl-Mojolicious')->json_is('/state', 'new');
+
+  $t->json_is('/errors', [])->json_is('/warnings', []);
+
+  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/not indexed/);
+  $t->get_ok('/reviews/fetch_source/1')->status_is(404);
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
+
+# Unpack and index
+$t->app->minion->enqueue(unpack => [1]);
+$t->app->minion->perform_jobs;
+
+subtest 'Details after indexing' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
     ->json_like('/package_license/name', qr!Artistic-2.0!)
@@ -103,33 +119,8 @@ subtest 'Details after import (indexing in progress)' => sub {
 
   $t->json_is('/errors', [])->json_is('/warnings', []);
 
-  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/not indexed/);
-  $t->get_ok('/reviews/fetch_source/1')->status_is(404);
-
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
-
-subtest 'Details after import (with login)' => sub {
-  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-
-  $t->get_ok('/reviews/meta/1')
-    ->status_is(200)
-    ->json_like('/package_license/name', qr!Artistic-2.0!)
-    ->json_is('/package_license/spdx', 1)
-    ->json_like('/package_version', qr!7\.25!)
-    ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
-    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
-    ->json_like('/state',           qr!new!);
-
-  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/not indexed/);
-
-  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
-};
-
-# Unpack and index
-$t->app->minion->enqueue(unpack => [1]);
-$t->app->minion->perform_jobs;
 
 subtest 'Snippets after indexing' => sub {
   my $snippets = $t->app->pg->db->select('snippets')->hashes->to_array;
