@@ -3,7 +3,7 @@
   <div v-else>
     <div class="float-end format">
       <i class="fab fa-suse" v-if="pkgType === 'spec'"></i>
-      <i class="fab fa-ubuntu" v-if="pkgType === 'debian'"></i>
+      <i class="fab fa-ubuntu" v-else-if="pkgType === 'debian'"></i>
       <i class="fas fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
       <i class="fab fa-docker" v-else-if="pkgType === 'docker'"></i>
       <i class="fas fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
