@@ -56,6 +56,14 @@ $classifier->url($url);
 # Unpack and index
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
+$t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 2});
+my $embargoed_id = $t->app->pg->db->insert(
+  'snippets',
+  {hash      => 'manual:12345678890abcdef', text => 'Embargoed license text', package => 2},
+  {returning => 'id'}
+)->hash->{id};
+$t->app->minion->enqueue(unpack => [2]);
+$t->app->minion->perform_jobs;
 
 subtest 'Not yet classified' => sub {
   my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
@@ -70,13 +78,19 @@ subtest 'Not yet classified' => sub {
   is $snippet->{license},    0, 'not a license';
   is $snippet->{confidence}, 0, 'not confidence';
   like $snippet->{text}, qr/This license establishes/, 'right text';
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => $embargoed_id})->hash;
+  is $snippet->{id},         $embargoed_id, 'right id';
+  is $snippet->{classified}, 0,             'not classified';
+  is $snippet->{license},    0,             'not a license';
+  is $snippet->{confidence}, 0,             'not confidence';
+  like $snippet->{text}, qr/Embargoed license text/, 'right text';
 };
 
 # Classify
 my $classify_id = $t->app->minion->enqueue('classify');
 $t->app->minion->perform_jobs;
 
-subtest 'Classified' => sub {
+subtest 'Classified (if unembargoed)' => sub {
   my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
   is $snippet->{id},         1,  'right id';
   is $snippet->{classified}, 1,  'classified';
@@ -89,6 +103,12 @@ subtest 'Classified' => sub {
   is $snippet->{license},    0,  'not a license';
   is $snippet->{confidence}, 55, 'confidence';
   like $snippet->{text}, qr/This license establishes/, 'right text';
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => $embargoed_id})->hash;
+  is $snippet->{id},         $embargoed_id, 'right id';
+  is $snippet->{classified}, 0,             'not classified';
+  is $snippet->{license},    0,             'not a license';
+  is $snippet->{confidence}, 0,             'not confidence';
+  like $snippet->{text}, qr/Embargoed license text/, 'right text';
 };
 
 subtest 'Classified manually' => sub {
@@ -101,6 +121,10 @@ subtest 'Classified manually' => sub {
   is $snippet->{id},         2, 'right id';
   is $snippet->{classified}, 0, 'classified';
   is $snippet->{license},    0, 'license';
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => $embargoed_id})->hash;
+  is $snippet->{id},         $embargoed_id, 'right id';
+  is $snippet->{classified}, 0,             'classified';
+  is $snippet->{license},    0,             'license';
 
   $t->get_ok('/login')->status_is(302);
   $t->post_ok('/snippet/decision/2?mark-non-license=1&hash=3c376fca10ff8a41d0d51c9d46a3bdae')->status_is(200);
@@ -119,6 +143,12 @@ subtest 'Classified manually' => sub {
   is $snippet->{id},         1, 'right id';
   is $snippet->{classified}, 1, 'classified';
   is $snippet->{license},    0, 'license';
+
+  $t->post_ok("/snippet/decision/$embargoed_id?mark-non-license=1&hash=manual:12345678890abcdef")->status_is(200);
+  $snippet = $t->app->pg->db->select('snippets', '*', {id => $embargoed_id})->hash;
+  is $snippet->{id},         $embargoed_id, 'right id';
+  is $snippet->{classified}, 1,             'classified';
+  is $snippet->{license},    0,             'license';
 };
 
 done_testing;

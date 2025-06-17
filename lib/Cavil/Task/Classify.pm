@@ -37,8 +37,11 @@ sub _classify ($job) {
   my %packages_affected;
   while (1) {
 
-    my $tx      = $db->begin;
-    my $results = $db->select('snippets', ['id', 'text'], {classified => 0}, {for => 'update', limit => 100});
+    # Embargoed snippets should be reviewed by humans
+    my $results = $db->query(
+      'SELECT s.id, s.text FROM snippets s JOIN bot_packages bp ON (s.package = bp.id)
+       WHERE classified = FALSE AND bp.embargoed = FALSE LIMIT 100'
+    );
     last unless $results->rows;
 
     for my $next ($results->hashes->each) {
@@ -57,14 +60,13 @@ sub _classify ($job) {
           license      => $res->{license},
           confidence   => int($res->{confidence} + 0.5)
         },
-        {id => $next->{id}}
+        {id => $next->{id}, approved => 0}
       );
 
       my $packages = $db->query('SELECT DISTINCT(package) FROM file_snippets WHERE snippet = ?', $next->{id});
       $packages_affected{$_->{package}} = 1 for $packages->hashes->each;
     }
 
-    $tx->commit;
   }
 
   my $pkgs = $app->packages;
