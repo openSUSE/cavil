@@ -19,12 +19,13 @@ use Mojo::Base -base, -signatures;
 use Carp 'croak';
 use Mojo::UserAgent;
 
-has ua => sub { Mojo::UserAgent->new(inactivity_timeout => 600) };
+has ua    => sub { Mojo::UserAgent->new(inactivity_timeout => 600) };
+has token => sub {''};
 has 'url';
 
 sub classify ($self, $text) {
   croak 'No classifier configured' unless my $url = $self->url;
-  return $self->ua->post($url => json => $text)->result->json;
+  return $self->ua->post($url => {Authorization => 'Token ' . $self->token} => json => $text)->result->json;
 }
 
 1;

@@ -55,7 +55,9 @@ sub startup ($self) {
   my $config = $self->plugin(Config => {file => $file});
   $self->secrets($config->{secrets});
 
-  $self->classifier->url($config->{classifier});
+  if (my $classifier = $config->{classifier}) {
+    $self->classifier->url($classifier->{url})->token($classifier->{token});
+  }
 
   # Avoid huge temp files in "/tmp"
   $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};

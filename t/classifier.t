@@ -27,14 +27,18 @@ plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'classifier_test');
 my $config     = $cavil_test->default_config;
-$config->{classifier} = 'http://127.0.0.1:5000';
+$config->{classifier} = {url => 'http://127.0.0.1:5000', token => 'TEST:TOKEN:12345'};
 my $t = Test::Mojo->new(Cavil => $config);
 $cavil_test->mojo_fixtures($t->app);
 
 app->log->level('error');
 
+my $TOKEN = 'MISSING TOKEN';
+
 post '/' => sub {
   my $c = shift;
+
+  $TOKEN = $1 if ($c->req->headers->authorization // '') =~ /Token\s+(\S+)$/;
 
   my $text = $c->req->body;
   if ($text =~ /Fixed copyright notice/) {
@@ -49,7 +53,8 @@ get '/*whatever' => {whatever => ''} => {text => '', status => 404};
 
 # Connect mock server
 my $classifier = $t->app->classifier;
-is $classifier->url, 'http://127.0.0.1:5000', 'URL has been configured';
+is $classifier->url,   'http://127.0.0.1:5000', 'URL has been configured';
+is $classifier->token, 'TEST:TOKEN:12345',      'token has been configured';
 my $url = 'http://127.0.0.1:' . $classifier->ua->server->app(app)->url->port;
 $classifier->url($url);
 
@@ -86,9 +91,17 @@ subtest 'Not yet classified' => sub {
   like $snippet->{text}, qr/Embargoed license text/, 'right text';
 };
 
-# Classify
-my $classify_id = $t->app->minion->enqueue('classify');
-$t->app->minion->perform_jobs;
+subtest 'Classify' => sub {
+  my $classify_id = $t->app->minion->enqueue('classify');
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->job($classify_id)->info->{state}, 'finished', 'job is finished';
+};
+
+subtest 'Token authentication' => sub {
+  is_deeply $t->app->classifier->classify('Fixed copyright notice'), {confidence => '98.123', license => 1},
+    'is legal text';
+  is $TOKEN, 'TEST:TOKEN:12345', 'right token';
+};
 
 subtest 'Classified (if unembargoed)' => sub {
   my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;

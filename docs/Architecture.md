@@ -178,7 +178,10 @@ Text classification via machine learning model is implemented as an optional HTT
 before it can be used. It usually runs on port `5000`.
 
 ```
-classifier => 'http://localhost:5000'
+classifier => {
+  url.  => 'http://localhost:5000',
+  token => 'API_TOKEN'
+}
 ```
 
 The `classify` background job needs to be created with the `classify` command. Which can be triggered via cron job or

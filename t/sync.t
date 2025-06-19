@@ -29,7 +29,7 @@ plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'sync_test');
 my $config     = $cavil_test->default_config;
-$config->{classifier} = 'http://127.0.0.1:5000';
+$config->{classifier} = {url => 'http://127.0.0.1:5000', token => 'TEST:TOKEN:12345'};
 my $t = Test::Mojo->new(Cavil => $config);
 $cavil_test->mojo_fixtures($t->app);
 
