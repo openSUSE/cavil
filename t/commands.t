@@ -73,6 +73,13 @@ subtest 'sync' => sub {
   like $cmd->usage, qr/sync/, 'has usage information';
 };
 
+subtest 'unpack' => sub {
+  require Cavil::Command::unpack;
+  my $cmd = Cavil::Command::unpack->new;
+  ok $cmd->description, 'has a description';
+  like $cmd->usage, qr/unpack/, 'has usage information';
+};
+
 subtest 'user' => sub {
   require Cavil::Command::user;
   my $cmd = Cavil::Command::user->new;
