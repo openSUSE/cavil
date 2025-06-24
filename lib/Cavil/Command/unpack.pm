@@ -20,19 +20,18 @@ has description => 'Unpack sources';
 has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
-  my $pkg = shift @args;
+  my $id = shift @args;
 
-  die "PACKAGE is required.\n" unless $pkg;
+  die "ID is required.\n" unless $id;
 
   my $app    = $self->app;
   my $minion = $app->minion;
-  if ($minion->is_locked("processing_pkg_$pkg")) {
-    print STDOUT "Releasing locks for package $pkg\n";
-    $minion->unlock("processing_pkg_$pkg");
+  if ($minion->is_locked("processing_pkg_$id")) {
+    print STDOUT "Releasing locks for package $id\n";
+    $minion->unlock("processing_pkg_$id");
   }
 
-  my $job = $app->packages->unpack($pkg);
-
+  my $job = $app->packages->unpack($id);
   print STDOUT "Triggered unpack job $job\n";
 }
 
@@ -46,7 +45,7 @@ Cavil::Command::unpack - Cavil unpack command
 
 =head1 SYNOPSIS
 
-  Usage: APPLICATION unpack [PACKAGE]
+  Usage: APPLICATION unpack [ID]
 
     script/cavil unpack 12345
 
