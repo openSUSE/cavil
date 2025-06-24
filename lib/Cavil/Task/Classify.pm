@@ -39,8 +39,9 @@ sub _classify ($job) {
 
     # Embargoed snippets should be reviewed by humans
     my $results = $db->query(
-      'SELECT s.id, s.text FROM snippets s JOIN bot_packages bp ON (s.package = bp.id)
-       WHERE classified = FALSE AND bp.embargoed = FALSE LIMIT 100'
+      'SELECT s.id, s.text FROM snippets s LEFT JOIN bot_packages bp ON (s.package = bp.id)
+       WHERE classified = FALSE AND approved = FALSE AND (bp.embargoed = FALSE OR s.package IS NULL)
+       ORDER BY s.id DESC LIMIT 100'
     );
     last unless $results->rows;
 
