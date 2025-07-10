@@ -65,8 +65,11 @@ subtest 'parse_service_file' => sub {
   is_deeply parse_service_file('<services>'),            [], 'empty service file';
   is_deeply parse_service_file('services'),              [], 'empty service file';
 
-  my $services1 = [{name => 'download_files', mode => 'trylocal', safe => 0},
-    {name => 'verify_file', mode => 'Default', safe => 0}];
+  my $services1 = [
+    {name => 'download_files',    mode => 'trylocal', safe => 0},
+    {name => 'verify_file',       mode => 'Default',  safe => 0},
+    {name => 'product_converter', mode => 'Default',  safe => 1}
+  ];
   is_deeply parse_service_file(<<EOF), $services1, 'unsafe services';
 <services>
   <service name="download_files" mode="trylocal" />
@@ -75,6 +78,7 @@ subtest 'parse_service_file' => sub {
     <param name="verifier">sha256</param>
     <param name="checksum">7f535a96a834b31ba2201a90c4d365990785dead92be02d4cf846713be938b78</param>
   </service>
+  <service name="product_converter">
 </services>
 EOF
 

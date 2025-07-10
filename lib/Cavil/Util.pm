@@ -41,6 +41,9 @@ my $MAX_FILE_SIZE = 30000;
 # Service modes that guarantee checkouts are complete and not amended by the OBS server
 my $SAFE_OBS_SRVICE_MODES = {buildtime => 1, localonly => 1, manual => 1, disabled => 1};
 
+# According to Adrian, this is the only exception currently
+my $SAFE_OBS_SRVICE_NAMES = {product_converter => 1};
+
 sub buckets ($things, $size) {
 
   my $buckets    = int(@$things / $size) || 1;
@@ -216,7 +219,7 @@ sub parse_service_file ($file) {
   for my $node ($dom->find('services service[name]')->each) {
     my $name = $node->attr('name');
     my $mode = $node->attr('mode') // 'Default';
-    my $safe = $SAFE_OBS_SRVICE_MODES->{$mode} ? 1 : 0;
+    my $safe = $SAFE_OBS_SRVICE_MODES->{$mode} || $SAFE_OBS_SRVICE_NAMES->{$name} ? 1 : 0;
     push @$services, {name => $name, mode => $mode, safe => $safe};
   }
 
