@@ -11,7 +11,8 @@
     </div>
     <div v-if="this.package !== null" class="row">
       <div class="col mb-3">
-        The example shown here is from <a :href="this.package.packageUrl">{{ this.package.name }}</a
+        The example shown here is from the file <a :href="this.package.fileUrl">{{ this.package.file }}</a> in the
+        package <a :href="this.package.packageUrl">{{ this.package.name }}</a
         >.
       </div>
     </div>
@@ -166,6 +167,8 @@
           <span v-if="hasContributorRole === true && this.hash !== null && this.from !== null">
             &nbsp;
             <button name="propose-ignore" type="submit" value="1" class="btn btn-danger mb-2">Propose Ignore</button>
+            &nbsp;
+            <button name="propose-missing" type="submit" value="1" class="btn btn-primary mb-2">Missing License</button>
           </span>
         </div>
       </div>
@@ -284,7 +287,11 @@ export default {
 
       const snippet = data.snippet;
       this.package = snippet.package;
-      if (this.package !== null) this.package.packageUrl = `/reviews/details/${this.package.id}`;
+      if (this.package !== null) {
+        this.package.packageUrl = `/reviews/details/${this.package.id}`;
+        this.package.fileUrl = `/reviews/file_view/${this.package.id}/${this.package.filename}`;
+        this.package.file = this.package.filename.split('/').pop();
+      }
       this.patternText = snippet.text;
       this.startLine = snippet.sline;
       this.matches = snippet.matches;

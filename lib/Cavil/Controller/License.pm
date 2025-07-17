@@ -101,6 +101,10 @@ sub list ($self) {
   $self->render;
 }
 
+sub missing ($self) {
+  $self->render('license/missing_licenses');
+}
+
 sub new_pattern ($self) {
   my $validation = $self->validation;
   $validation->required('license-name');
@@ -118,11 +122,13 @@ sub proposed ($self) {
 
 sub proposed_meta ($self) {
   my $v = $self->validation;
+  $v->required('action')->in('missing_license', 'create_pattern', 'create_ignore');
   $v->optional('before')->num;
   return $self->reply->json_validation_error if $v->has_error;
-  my $before = $v->param('before') // 0;
+  my $before  = $v->param('before') // 0;
+  my $actions = $v->every_param('action');
 
-  my $changes = $self->patterns->proposed_changes({before => $before});
+  my $changes = $self->patterns->proposed_changes({actions => $actions, before => $before});
 
   $self->render(json => {changes => $changes->{changes}, total => $changes->{total}});
 }

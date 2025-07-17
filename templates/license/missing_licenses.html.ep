@@ -1,0 +1,9 @@
+% layout 'default';
+% title 'Missing Licenses';
+
+<div id="missing-licenses"></div>
+
+% content_for 'ready_function' => begin
+  % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
+  cavil.setupMissingLicenses("<%= current_user %>", <%= $has_admin_role %>);
+% end

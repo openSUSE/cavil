@@ -224,37 +224,39 @@
             <tr v-for="file in pkgFiles" :key="file.file">
               <td class="noleftpad">
                 <table class="table borderless transparent-table">
-                  <tr>
-                    <th class="fit text-start noleftpad" colspan="2">
-                      <i class="fas fa-file-alt"></i> {{ file.file }}
-                    </th>
-                  </tr>
-                  <tr v-if="file.licenses !== null">
-                    <th class="fit text-start align-top noleftpad">Licenses:</th>
-                    <td>{{ file.licenses }}</td>
-                  </tr>
-                  <tr v-if="file.version !== null">
-                    <th class="fit text-start align-top noleftpad">Version:</th>
-                    <td>{{ file.version }}</td>
-                  </tr>
-                  <tr v-if="file.summary !== null">
-                    <th class="fit text-start align-top noleftpad">Summary:</th>
-                    <td>{{ file.summary }}</td>
-                  </tr>
-                  <tr v-if="file.group !== null">
-                    <th class="fit text-start align-top noleftpad">Group:</th>
-                    <td>{{ file.group }}</td>
-                  </tr>
-                  <tr v-if="file.url !== null">
-                    <th class="fit text-start align-top noleftpad">URL:</th>
-                    <td class="text-start">
-                      <a :href="file.url" class="p-0" target="_blank">{{ file.url }}</a>
-                    </td>
-                  </tr>
-                  <tr v-if="file.sources !== null">
-                    <th class="fit text-start align-top noleftpad">Sources:</th>
-                    <td>{{ file.sources }}</td>
-                  </tr>
+                  <tbody>
+                    <tr>
+                      <th class="fit text-start noleftpad" colspan="2">
+                        <i class="fas fa-file-alt"></i> {{ file.file }}
+                      </th>
+                    </tr>
+                    <tr v-if="file.licenses !== null">
+                      <th class="fit text-start align-top noleftpad">Licenses:</th>
+                      <td>{{ file.licenses }}</td>
+                    </tr>
+                    <tr v-if="file.version !== null">
+                      <th class="fit text-start align-top noleftpad">Version:</th>
+                      <td>{{ file.version }}</td>
+                    </tr>
+                    <tr v-if="file.summary !== null">
+                      <th class="fit text-start align-top noleftpad">Summary:</th>
+                      <td>{{ file.summary }}</td>
+                    </tr>
+                    <tr v-if="file.group !== null">
+                      <th class="fit text-start align-top noleftpad">Group:</th>
+                      <td>{{ file.group }}</td>
+                    </tr>
+                    <tr v-if="file.url !== null">
+                      <th class="fit text-start align-top noleftpad">URL:</th>
+                      <td class="text-start">
+                        <a :href="file.url" class="p-0" target="_blank">{{ file.url }}</a>
+                      </td>
+                    </tr>
+                    <tr v-if="file.sources !== null">
+                      <th class="fit text-start align-top noleftpad">Sources:</th>
+                      <td>{{ file.sources }}</td>
+                    </tr>
+                  </tbody>
                 </table>
               </td>
             </tr>

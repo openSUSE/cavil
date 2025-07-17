@@ -57,7 +57,6 @@ sub closest_matches ($self, $text, $num) {
 }
 
 sub create ($self, %args) {
-
   my $checksum = pattern_checksum($args{pattern});
   my $id       = $self->pattern_exists($checksum);
   return {conflict => $id} if $id;
@@ -260,15 +259,19 @@ sub proposal_exists ($self, $checksum) {
 }
 
 sub proposal_stats($self) {
-  return $self->pg->db->query('SELECT COUNT(*) AS waiting FROM proposed_changes')->hash;
+  return $self->pg->db->query(
+    "SELECT
+       (SELECT COUNT(*) FROM proposed_changes WHERE action = 'create_pattern' OR action = 'create_ignore') AS proposals,
+       (SELECT COUNT(*) FROM proposed_changes WHERE action = 'missing_license') AS missing"
+  )->hash;
 }
 
 sub propose_create ($self, %args) {
-
   my $pattern  = $args{pattern};
   my $checksum = pattern_checksum($pattern);
   my $id       = $self->pattern_exists($checksum);
   return {conflict => $id} if $id;
+
   my $proposal_id = $self->proposal_exists($checksum);
   return {proposal_conflict => $proposal_id} if $proposal_id;
 
@@ -307,11 +310,11 @@ sub propose_create ($self, %args) {
 }
 
 sub propose_ignore ($self, %args) {
-
   my $from     = $args{from};
   my $checksum = $args{hash};
   my $id       = $self->ignore_pattern_exists($from, $checksum);
   return {conflict => $id} if $id;
+
   my $proposal_id = $self->proposal_exists($checksum);
   return {proposal_conflict => $proposal_id} if $proposal_id;
 
@@ -338,18 +341,51 @@ sub propose_ignore ($self, %args) {
   return {};
 }
 
+sub propose_missing ($self, %args) {
+  my $from     = $args{from};
+  my $checksum = $args{hash};
+  my $id       = $self->pattern_exists($checksum);
+  return {conflict => $id} if $id;
+
+  my $proposal_id = $self->proposal_exists($checksum);
+  return {proposal_conflict => $proposal_id} if $proposal_id;
+
+  $self->pg->db->insert(
+    'proposed_changes',
+    {
+      action => 'missing_license',
+      data   => {
+        -json => {
+          snippet              => $args{snippet},
+          from                 => $from,
+          pattern              => $args{pattern},
+          highlighted_keywords => $args{highlighted_keywords},
+          highlighted_licenses => $args{highlighted_licenses},
+          edited               => $args{edited} // '0',
+          package              => $args{package},
+        }
+      },
+      owner        => $args{owner},
+      token_hexsum => $checksum
+    }
+  );
+
+  return {};
+}
+
 sub proposed_changes ($self, $options) {
   my $db = $self->pg->db;
 
   my $before = '';
   if ($options->{before} > 0) {
     my $quoted = $db->dbh->quote($options->{before});
-    $before = "WHERE id < $quoted";
+    $before = "AND pc.id < $quoted";
   }
 
   my $changes = $db->query(
     "SELECT pc.*, EXTRACT(EPOCH FROM created) AS created_epoch, bu.login, COUNT(*) OVER() AS total
-     FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner) $before ORDER BY id ASC LIMIT 10"
+     FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner)
+     WHERE action = ANY (?) $before ORDER BY pc.id ASC LIMIT 10", $options->{actions}
   )->expand->hashes;
 
   my $total = 0;

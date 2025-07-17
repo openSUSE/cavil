@@ -18,6 +18,13 @@
   </div>
 % }
 
+% if (my $id = stash('missing')) {
+  <div class="alert alert-success" role="alert">
+    Missing license has been reported. Check <%= link_to 'missing licenses' => url_for('missing_licenses') %> for its
+    status.
+  </div>
+% }
+
 % if (my $error = stash('error')) {
   <div class="alert alert-danger" role="alert">
     <%= $error %>.

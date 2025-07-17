@@ -161,7 +161,7 @@ sub with_context ($self, $id) {
 
   if ($example) {
     $sline   = $example->{sline};
-    $package = {id => $example->{package}, name => $example->{name}};
+    $package = {id => $example->{package}, name => $example->{name}, filename => $example->{filename}};
 
     my $file = path($self->checkout_dir, $package->{name}, $example->{checkout_dir}, '.unpacked', $example->{filename});
     $text = read_lines($file, $example->{sline}, $example->{eline});

@@ -2,20 +2,16 @@
   <div>
     <div class="row">
       <div class="col-12 alert alert-primary" role="alert">
-        These are license pattern changes proposed by contributors. New patterns are guaranted to match the snippet they
-        were created for, and can only use an existing license and risk combination.
+        These are snippets with possibly missing licenses or license combinations that have been flagged by contributors
+        for risk assessment.
       </div>
     </div>
     <div v-if="changes !== null && changes.length > 0">
       <div v-for="change in changes" :key="change.id" class="row change-container">
         <div v-if="change.state === 'proposed'" class="col-12 change-file-container">
           <div class="change-header">
-            <span v-if="change.action === 'create_pattern'">
-              Create license pattern from
-              <a :href="change.editUrl" target="_blank">
-                <b v-if="change.data.edited === true">edited snippet</b>
-                <b v-else>unedited snippet</b> </a
-              >, by <b>{{ change.login }}</b>
+            <span v-if="change.action === 'missing_license'">
+              Missing license reported by <b>{{ change.login }}</b>
               <span v-if="change.package !== null"
                 >,
                 <a :href="change.package.pkgUrl" target="_blank"
@@ -23,16 +19,12 @@
                 >
               </span>
             </span>
-            <span v-else-if="change.action === 'create_ignore'">
-              Create ignore pattern from <a :href="change.editUrl" target="_blank"> <b>snippet</b></a
-              >, by <b>{{ change.login }}</b>
-            </span>
             <span v-if="currentUser === change.login" class="float-end">
-              <a @click="rejectProposal(change)" href="#"><i class="fas fa-times"></i></a>
+              <a @click="dismissProposal(change)" href="#"><i class="fas fa-times"></i></a>
             </span>
           </div>
           <div class="change-source">
-            <table :class="getClassForCode(change)">
+            <table>
               <tbody>
                 <tr v-for="line in change.lines" :key="line.num">
                   <td class="linenumber">{{ line.num }}</td>
@@ -42,74 +34,10 @@
             </table>
           </div>
           <div class="change-form">
-            <div v-if="change.action === 'create_pattern'">
-              <div class="row">
-                <div class="col mb-3">
-                  <label class="fomr-label" for="license">License</label>
-                  <input v-model="change.data.license" type="text" class="form-control" />
-                </div>
-              </div>
-              <div class="row">
-                <div class="col-lg-2 mb-3">
-                  <div class="form-floating">
-                    <select v-model="change.data.risk" class="form-control">
-                      <option>0</option>
-                      <option>1</option>
-                      <option>2</option>
-                      <option>3</option>
-                      <option>4</option>
-                      <option>5</option>
-                      <option>6</option>
-                      <option>9</option>
-                    </select>
-                    <label for="risk" class="form-label">Risk</label>
-                  </div>
-                </div>
-                <div class="col-lg-2">
-                  <div class="form-check">
-                    <input v-model="change.data.patent" type="checkbox" class="form-check-input" />
-                    <label class="form-check-label" for="patent">Patent</label>
-                  </div>
-                  <div class="form-check">
-                    <input v-model="change.data.trademark" type="checkbox" class="form-check-input" />
-                    <label class="form-check-label" for="trademark">Trademark</label>
-                  </div>
-                </div>
-                <div class="col-lg-2">
-                  <div class="form-check">
-                    <input v-model="change.data.export_restricted" type="checkbox" class="form-check-input" />
-                    <label class="form-check-label" for="export_restricted">Export Restricted</label>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-else-if="change.action === 'create_ignore'">
-              <div class="row">
-                <div class="col mb-3">
-                  <label class="form-label" for="license">Package</label>
-                  <div class="d-flex form-check align-items-center form-check">
-                    <input
-                      class="form-check-input"
-                      id="ignore-one"
-                      type="checkbox"
-                      name="ignore-for"
-                      value="one"
-                      v-model="ignoreForPackage"
-                    />
-                    <input
-                      v-model="change.data.from"
-                      type="text"
-                      class="form-control ms-2"
-                      :disabled="!ignoreForPackage"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
             <span v-if="hasAdminRole">
-              <button @click="acceptProposal(change)" class="btn btn-success mb-2">Accept</button>
+              <a class="btn btn-primary mb-2" :href="change.editUrl" target="_blank" role="button">Edit Pattern</a>
               &nbsp;
-              <button @click="rejectProposal(change)" class="btn btn-danger btn-sm mb-2">Reject</button>
+              <button @click="dismissProposal(change)" class="btn btn-danger btn-sm mb-2">Dismiss</button>
             </span>
           </div>
           <div class="change-footer">
@@ -132,8 +60,8 @@
             Change has been accepted, reindexing related packages in 10 minutes if necessary
           </div>
         </div>
-        <div v-else-if="change.state === 'rejected'" class="col-12">
-          <div class="change-confirmation">Proposal has been removed</div>
+        <div v-else-if="change.state === 'dismissed'" class="col-12">
+          <div class="change-confirmation">Proposal has been dismissed</div>
         </div>
       </div>
       <a
@@ -147,8 +75,8 @@
         ><i class="fas fa-angle-up"></i
       ></a>
     </div>
-    <div v-else-if="changes === null"><i class="fas fa-sync fa-spin"></i> Loading changes</div>
-    <div v-else>There are currently no proposed changes.</div>
+    <div v-else-if="changes === null"><i class="fas fa-sync fa-spin"></i> Loading missing licenses</div>
+    <div v-else>There are currently no missing licenses.</div>
   </div>
 </template>
 
@@ -156,13 +84,13 @@
 import UserAgent from '@mojojs/user-agent';
 
 export default {
-  name: 'ProposedPatterns',
+  name: 'MissingLicenses',
   data() {
     return {
       ignoreForPackage: true,
       params: {before: 0},
       changes: null,
-      changeUrl: '/licenses/proposed/meta?action=create_pattern&action=create_ignore',
+      changeUrl: '/licenses/proposed/meta?action=missing_license',
       total: null
     };
   },
@@ -174,32 +102,6 @@ export default {
     window.removeEventListener('scroll', this.handleScroll);
   },
   methods: {
-    async acceptProposal(change) {
-      change.state = 'updating';
-
-      const ua = new UserAgent({baseURL: window.location.href});
-      const form = change.data;
-      form.contributor = change.login;
-      form.delay = 600;
-      if (change.action === 'create_pattern') {
-        for (const key of ['patent', 'trademark', 'export_restricted']) {
-          change.data[key] = change.data[key] === true ? '1' : '0';
-        }
-        form['create-pattern'] = 1;
-        form.checksum = change.token_hexsum;
-      } else if (change.action === 'create_ignore') {
-        form.hash = change.token_hexsum;
-        if (this.ignoreForPackage === true) {
-          form['create-ignore'] = 1;
-          form.from = change.data.from;
-        } else {
-          form['mark-non-license'] = 1;
-        }
-      }
-      await ua.post(change.createUrl, {form});
-
-      change.state = 'accepted';
-    },
     async getChanges() {
       const query = this.params;
       const ua = new UserAgent({baseURL: window.location.href});
@@ -211,20 +113,11 @@ export default {
 
       for (const change of changes) {
         change.state = 'proposed';
-        change.editUrl = `/snippet/edit/${change.data.snippet}`;
+        change.editUrl = `/snippet/edit/${change.data.snippet}?hash=${change.token_hexsum}&from=${change.data.from}`;
         change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
-        change.createUrl = `/snippet/decision/${change.data.snippet}`;
 
         if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
-
-        if (change.action === 'create_pattern') {
-          for (const key of ['edited', 'patent', 'trademark', 'export_restricted']) {
-            change.data[key] = change.data[key] === '1' ? true : false;
-          }
-        } else if (change.action === 'create_ignore') {
-          change.editUrl = `${change.editUrl}?hash=${change.token_hexsum}&from=${change.data.from}`;
-        }
 
         const highlightedKeywords = change.data.highlighted_keywords ?? [];
         const highlightedLicenses = change.data.highlighted_licenses ?? [];
@@ -251,12 +144,6 @@ export default {
         code: line.highlighted === null
       };
     },
-    getClassForCode(change) {
-      return {
-        'change-code-ignore': change.action === 'create_ignore',
-        'change-code-pattern': change.action === 'create_pattern'
-      };
-    },
     handleScroll() {
       if (window.innerHeight + Math.ceil(window.scrollY) >= document.documentElement.scrollHeight) {
         this.loadMore();
@@ -265,11 +152,11 @@ export default {
     loadMore() {
       this.getChanges();
     },
-    async rejectProposal(change) {
+    async dismissProposal(change) {
       change.state = 'updating';
       const ua = new UserAgent({baseURL: window.location.href});
       await ua.post(change.removeUrl);
-      change.state = 'rejected';
+      change.state = 'dismissed';
     }
   }
 };
@@ -364,8 +251,5 @@ export default {
 }
 .change-keyword-line {
   background-color: #ffebe9;
-}
-.change-code-ignore {
-  background: repeating-linear-gradient(-45deg, #ffebe9, #ffebe9 1px, #fff 1px, #fff 5px);
 }
 </style>

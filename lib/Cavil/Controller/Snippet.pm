@@ -64,6 +64,7 @@ sub decision ($self) {
   $validation->optional('create-ignore');
   $validation->optional('propose-pattern');
   $validation->optional('propose-ignore');
+  $validation->optional('propose-missing');
   $validation->optional('mark-non-license');
   return $self->reply->json_validation_error if $validation->has_error;
 
@@ -86,6 +87,7 @@ sub decision ($self) {
 
   elsif ($validation->param('propose-pattern')) { $self->_propose_pattern }
   elsif ($validation->param('propose-ignore'))  { $self->_propose_ignore }
+  elsif ($validation->param('propose-missing')) { $self->_propose_missing }
 
   else { $self->reply->not_found }
 }
@@ -330,6 +332,40 @@ sub _propose_ignore ($self) {
     if $result->{proposal_conflict};
 
   $self->render(proposal => 1);
+}
+
+sub _propose_missing ($self) {
+  my $validation = $self->validation;
+  $validation->required('hash',    'not_empty')->like($CHECKSUM_RE);
+  $validation->required('from',    'not_empty');
+  $validation->required('pattern', 'not_empty');
+  $validation->required('edited',  'not_empty');
+  $validation->optional('highlighted-keywords', 'comma_separated');
+  $validation->optional('highlighted-licenses', 'comma_separated');
+  $validation->optional('package');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $edited = $validation->param('edited');
+  return $self->render(status => 400, error => 'Only unedited snippets can be reported as missing license') if $edited;
+
+  my $user_id = $self->users->id_for_login($self->current_user);
+  my $result  = $self->patterns->propose_missing(
+    snippet              => $self->param('id'),
+    hash                 => $validation->param('hash'),
+    from                 => $validation->param('from'),
+    pattern              => $validation->param('pattern'),
+    highlighted_keywords => $validation->every_param('highlighted-keywords'),
+    highlighted_licenses => $validation->every_param('highlighted-licenses'),
+    edited               => $edited,
+    package              => $validation->param('package'),
+    owner                => $user_id
+  );
+
+  return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $result->{conflict};
+  return $self->render(status => 409, error => 'Conflicting pattern proposal already exists')
+    if $result->{proposal_conflict};
+
+  $self->render(missing => 1);
 }
 
 1;

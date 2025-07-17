@@ -63,7 +63,12 @@
               <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   Logged in as <%= $user %>
-                  <% if ($stats->{waiting} > 0) { %><span class="badge bg-secondary"><%= $stats->{waiting} %></span><% } %>
+                  % if ($stats->{missing} > 0) {
+                    <span class="badge bg-danger"><%= $stats->{missing} + $stats->{proposals} %></span>
+                  % }
+                  % elsif ($stats->{proposals} > 0) {
+                    <span class="badge bg-secondary"><%= $stats->{proposals} %></span>
+                  % }
                 </a>
                 <ul class="dropdown-menu">
                   % if (my @roles = @{current_user_roles()}) {
@@ -79,10 +84,18 @@
                   % }
                   <h3 class="dropdown-header">User Menu</h3>
                   <li>
+                    <a href="<%= url_for('missing_licenses') %>" class="dropdown-item">
+                      Missing Licenses
+                      % if ($stats->{missing} > 0) {
+                        <span class="badge bg-danger"><%= $stats->{missing} %></span>
+                      % }
+                    </a>
+                  </li>
+                  <li>
                     <a href="<%= url_for('proposed_patterns') %>" class="dropdown-item">
                       Change Proposals
-                      % if ($stats->{waiting} > 0) {
-                        <span class="badge bg-info"><%= $stats->{waiting} %></span>
+                      % if ($stats->{proposals} > 0) {
+                        <span class="badge bg-secondary"><%= $stats->{proposals} %></span>
                       % }
                     </a>
                   </li>

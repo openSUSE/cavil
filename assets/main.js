@@ -18,6 +18,7 @@ import IgnoredFiles from './vue/IgnoredFiles.vue';
 import IgnoredMatches from './vue/IgnoredMatches.vue';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
+import MissingLicenses from './vue/MissingLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import ProductReviews from './vue/ProductReviews.vue';
 import ProposedPatterns from './vue/ProposedPatterns.vue';
@@ -41,6 +42,13 @@ window.cavil = {
     app.config.globalProperties.currentUser = currentUser;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.mount('#proposed-patterns');
+  },
+
+  setupMissingLicenses(currentUser, hasAdminRole) {
+    const app = createApp(MissingLicenses);
+    app.config.globalProperties.currentUser = currentUser;
+    app.config.globalProperties.hasAdminRole = hasAdminRole;
+    app.mount('#missing-licenses');
   },
 
   setupClassifySnippets(hasClassifierRole) {

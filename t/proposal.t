@@ -61,6 +61,7 @@ subtest 'Pattern creation' => sub {
     $t->post_ok('/snippet/decision/1' => form => {'create-pattern'   => 1})->status_is(403);
     $t->post_ok('/snippet/decision/1' => form => {'propose-pattern'  => 1})->status_is(403);
     $t->post_ok('/snippet/decision/1' => form => {'propose-ignore'   => 1})->status_is(403);
+    $t->post_ok('/snippet/decision/1' => form => {'propose-missing'  => 1})->status_is(403);
     $t->post_ok('/snippet/decision/1' => form => {'mark-non-license' => 1})->status_is(403);
 
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
@@ -139,6 +140,18 @@ subtest 'Pattern creation' => sub {
     )->status_is(400)->content_like(qr/Only unedited snippets can be ignored/);
   };
 
+  subtest 'Edited patterns cannot be flagged as missing license' => sub {
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-missing' => 1,
+        hash              => '39e8204ddebdc31a4d0e77aa647f4241',
+        from              => 'perl-Mojolicious',
+        pattern           => 'This is a license',
+        edited            => 1
+      }
+    )->status_is(400)->content_like(qr/Only unedited snippets can be reported as missing license/);
+  };
+
   subtest 'From proposal to pattern' => sub {
     $t->post_ok(
       '/snippet/decision/1' => form => {
@@ -159,7 +172,7 @@ subtest 'Pattern creation' => sub {
         {'create-pattern' => 1, license => 'GPL', pattern => "The license might be\nsomething cool", risk => 5})
       ->status_is(403);
 
-    $t->get_ok('/licenses/proposed/meta')
+    $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
       ->status_is(200)
       ->json_has('/changes/0')
       ->json_is('/changes/0/action'                    => 'create_pattern')
@@ -181,7 +194,9 @@ subtest 'Pattern creation' => sub {
         contributor      => 'tester'
       }
     )->status_is(200)->content_like(qr/has been created/);
-    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
+    $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
+      ->status_is(200)
+      ->json_hasnt('/changes/0');
 
     $t->post_ok('/snippet/decision/1' => form =>
         {'create-pattern' => 1, license => 'GPL', pattern => "The license might be\nsomething cool", risk => 5})
@@ -214,7 +229,7 @@ subtest 'Pattern creation' => sub {
     };
     $t->post_ok('/snippet/decision/1' => form => $ignore_form)->status_is(403);
 
-    $t->get_ok('/licenses/proposed/meta')
+    $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
       ->status_is(200)
       ->json_has('/changes/0')
       ->json_is('/changes/0/action'                    => 'create_ignore')
@@ -227,7 +242,9 @@ subtest 'Pattern creation' => sub {
     $t->post_ok('/snippet/decision/1' => form => $ignore_form)
       ->status_is(200)
       ->content_like(qr/ignore pattern has been created/);
-    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
+    $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
+      ->status_is(200)
+      ->json_hasnt('/changes/0');
 
     $t->post_ok('/snippet/decision/1' => form => $form)
       ->status_is(409)
@@ -250,6 +267,46 @@ subtest 'Pattern creation' => sub {
     is $ignore->{contributor}, 2,                  'right contributor';
   };
 
+  subtest 'Report missing license' => sub {
+    my $form = {
+      'propose-missing'      => 1,
+      hash                   => '39e8204ddebdc31a4d0e77aa647f4241',
+      from                   => 'perl-Mojolicious',
+      pattern                => "This is\na license",
+      edited                 => 0,
+      'highlighted-keywords' => 1,
+      'highlighted-licenses' => 0
+    };
+    $t->post_ok('/snippet/decision/1' => form => $form)
+      ->status_is(200)
+      ->content_like(qr/Missing license has been reported/);
+    $t->post_ok('/snippet/decision/1' => form => $form)
+      ->status_is(409)
+      ->content_like(qr/Conflicting pattern proposal already exists/);
+
+    $t->get_ok('/licenses/proposed/meta?action=missing_license')
+      ->status_is(200)
+      ->json_has('/changes/0')
+      ->json_is('/changes/0/action'                    => 'missing_license')
+      ->json_is('/changes/0/data/pattern'              => "This is\na license")
+      ->json_is('/changes/0/data/highlighted_keywords' => [1])
+      ->json_is('/changes/0/data/highlighted_licenses' => [0])
+      ->json_is('/changes/0/data/edited'               => 0)
+      ->json_hasnt('/changes/1');
+
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'create-pattern' => 1,
+        license          => 'MyCustomLicense',
+        pattern          => "This is\na license",
+        risk             => 5,
+        checksum         => '39e8204ddebdc31a4d0e77aa647f4241',
+        contributor      => 'tester'
+      }
+    )->status_is(200)->content_like(qr/has been created/);
+    $t->get_ok('/licenses/proposed/meta?action=missing_license')->status_is(200)->json_hasnt('/changes/0');
+  };
+
   subtest 'From proposal to not a license snippet' => sub {
     is $t->app->pg->db->query('SELECT * FROM snippets WHERE id = 3')->hash->{classified}, 0, 'not classified';
     my $form = {
@@ -264,26 +321,34 @@ subtest 'Pattern creation' => sub {
     $t->post_ok('/snippet/decision/1' => form => $form)
       ->status_is(200)
       ->content_like(qr/Your change has been proposed/);
-    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0');
+    $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
+      ->status_is(200)
+      ->json_has('/changes/0');
 
     my $ignore_form = {'mark-non-license' => 1, hash => '399908965a4311ddd48a9440a66365e0'};
     $t->post_ok('/snippet/decision/1' => form => $ignore_form)->status_is(200)->content_like(qr/Reindexing 1 package/);
     is $t->app->pg->db->query('SELECT * FROM snippets WHERE id = 3')->hash->{classified}, 1, 'classified';
-    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_hasnt('/changes/0');
+    $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
+      ->status_is(200)
+      ->json_hasnt('/changes/0');
   };
 
   subtest 'Pattern performance' => sub {
     $t->get_ok('/licenses/recent/meta')
       ->status_is(200)
-      ->json_is('/patterns/0/id',                5)
-      ->json_is('/patterns/0/pattern',           "The license might be\nsomething cool")
+      ->json_is('/patterns/0/id',                6)
+      ->json_is('/patterns/0/pattern',           "This is\na license")
       ->json_is('/patterns/0/owner_login',       'tester')
       ->json_is('/patterns/0/contributor_login', 'tester')
-      ->json_is('/patterns/1/id',                4)
-      ->json_like('/patterns/1/pattern', qr/Permission is granted to copy, distribute and/)
-      ->json_is('/patterns/1/owner_login',       undef)
-      ->json_is('/patterns/1/contributor_login', undef)
-      ->json_is('/total',                        5);
+      ->json_is('/patterns/1/id',                5)
+      ->json_is('/patterns/1/pattern',           "The license might be\nsomething cool")
+      ->json_is('/patterns/1/owner_login',       'tester')
+      ->json_is('/patterns/1/contributor_login', 'tester')
+      ->json_is('/patterns/2/id',                4)
+      ->json_like('/patterns/2/pattern', qr/Permission is granted to copy, distribute and/)
+      ->json_is('/patterns/2/owner_login',       undef)
+      ->json_is('/patterns/2/contributor_login', undef)
+      ->json_is('/total',                        6);
 
     $t->get_ok('/licenses/recent/meta?before=3')->status_is(200)->json_is('/patterns/0/id', 2)->json_is('/total', 2);
 
@@ -327,7 +392,10 @@ subtest 'Cancelled proposal' => sub {
       '/snippet/decision/2' => form => {'propose-pattern' => 1, license => 'GPL', pattern => 'The GPL', risk => 5})
       ->status_is(200)
       ->content_like(qr/Your change has been proposed/);
-    $t->get_ok('/licenses/proposed/meta')->status_is(200)->json_has('/changes/0')->json_hasnt('/changes/1');
+    $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
+      ->status_is(200)
+      ->json_has('/changes/0')
+      ->json_hasnt('/changes/1');
     my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
     $t->post_ok("/licenses/proposed/remove/$checksum")->status_is(200)->json_is('/removed', 1);
 
@@ -345,6 +413,19 @@ subtest 'Cancelled proposal' => sub {
         edited           => 0
       }
     )->status_is(200)->content_like(qr/Your change has been proposed/);
+    $t->post_ok("/licenses/proposed/remove/39e8204ddebdc31a4d0e77aa647f4243")->status_is(200)->json_is('/removed', 1);
+  };
+
+  subtest 'Missing license' => sub {
+    $t->post_ok(
+      '/snippet/decision/1' => form => {
+        'propose-missing' => 1,
+        hash              => '39e8204ddebdc31a4d0e77aa647f4243',
+        from              => 'perl-Mojolicious',
+        pattern           => 'This is a license',
+        edited            => 0
+      }
+    )->status_is(200)->content_like(qr/Missing license has been reported/);
     $t->post_ok("/licenses/proposed/remove/39e8204ddebdc31a4d0e77aa647f4243")->status_is(200)->json_is('/removed', 1);
   };
 };
