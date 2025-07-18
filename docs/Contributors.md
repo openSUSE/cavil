@@ -112,8 +112,9 @@ Once you are satisfied, just click on the "Propose Pattern" button and you are d
 
 ![Select License](images/contrib-8b-ignore.png)
 
-For unedited patterns there will also be a "Propose Ignore" button that you can use to propose an ignore pattern
-instead. Or after you have already created a license pattern for part of the snippet and just want to ignore the rest.
+For unedited patterns there will also be "Propose Ignore" and "Missing License" buttons. These can be used to propose
+an ignore pattern or to report completely new licenses. Ignore patterns may also be used after you have already created
+a license pattern for part of the snippet and just want to ignore the rest.
 
 ![Done](images/contrib-9-done.png)
 
@@ -126,7 +127,7 @@ This is the workflow admins use to review proposed license patterns and decide i
 
 ### Proposed Changes
 
-Every time there is a proposal waiting for approval you will see a blue badge in the "logged in as ..." menu. Just
+Every time there is a proposal waiting for approval you will see a gray badge in the "logged in as ..." menu. Just
 click on "Change Proposals" to start reviewing them. Once approved you can check their performance by clicking on
 "Pattern Performance".
 
@@ -144,6 +145,44 @@ result in immediate reindexing of the relevant packages.
 If ignore patterns are present in the proposals, it is often a good idea to look for related pattern proposals as well,
 since it can be a lot easier to review them together. They will all be for the same package, since contributors can
 only create package specific ignore patterns.
+
+### Missing Licenses
+
+And every time a contributor reports an entirely new license or license combination for risk assessment, you will see
+a red badge in the "logged in as ..." menu. Click on "Missing Licenses" to start the risk assessment.
+
+![Notification](images/contrib-admin-1b-notification.png)
+
+The "Edit Pattern" button will open a new window with the standard pattern editor. Here you can edit the pattern, pick
+a license identifier, and assign a numeric legal risk between `0` and `9`. The file and package the snippet originated
+from will be linked at the top to allow for more in depth research. Whenever possible we recommend using a standard
+[SPDX license identifier](https://spdx.org/licenses/). Once the new license pattern has been created the risk
+assessment is finished and you can click "Dismiss" to remove the report from the missing license list. Reports for
+affected packages will be automatically regenerated.
+
+![Missing Licenses](images/contrib-admin-3-missing.png)
+
+Here are some example risk assessments for very common licenses:
+```
+Low risk licenses (auto-accepted)
+0: Public Domain
+1: MIT, BSD-2-clause
+2: GPL-2.0-or-later, Artistic-2.0
+3: Apache-2.0, AGPL-3.0-or-later
+
+Higher risk licenses
+4: CDDL-1.0, MPL-1.1, Any EULA
+5: CC-BY-NC-ND-1.0, SSPL-1.0
+6: Any Proprietary
+
+Unknown risk (reserved)
+9: Keyword patterns
+```
+
+Risk values `0` to `3` are considered low risk, and allow for reviews to be auto accepted if a previous report has been
+reviewed by a human, and it contains only low risk licenses. Risks `4` to `8` are classified as high risk and will only
+allow for reviews to be auto-accepted when there have been no licensing changes since the last review. Risk `9` is
+reserved for keywords used to identify legally relevant text.
 
 ### Pattern Performance
 
