@@ -385,7 +385,7 @@ sub proposed_changes ($self, $options) {
   my $changes = $db->query(
     "SELECT pc.*, EXTRACT(EPOCH FROM created) AS created_epoch, bu.login, COUNT(*) OVER() AS total
      FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner)
-     WHERE action = ANY (?) $before ORDER BY pc.id ASC LIMIT 10", $options->{actions}
+     WHERE action = ANY (?) $before ORDER BY pc.id DESC LIMIT 10", $options->{actions}
   )->expand->hashes;
 
   my $total = 0;
