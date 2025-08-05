@@ -242,8 +242,13 @@ ALTER TABLE bot_sources ADD COLUMN type text DEFAULT 'obs' NOT NULL;
 -- 26 up
 CREATE UNIQUE INDEX ON bot_requests(external_link, package);
 
---27 up
+-- 27 up
 ALTER TABLE bot_packages ADD COLUMN cleaned timestamp with time zone;
 
---28 up
+-- 28 up
 CREATE INDEX ON bot_packages(cleaned);
+
+-- 29 up
+CREATE INDEX ON pattern_matches (ignored);
+CREATE INDEX ON bot_packages (name);
+CREATE INDEX ON bot_packages (obsolete);
