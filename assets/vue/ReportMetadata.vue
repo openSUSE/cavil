@@ -153,7 +153,7 @@
             <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
           </td>
         </tr>
-        <tr v-if="unplackedFiles > 0">
+        <tr v-if="unpackedFiles > 0">
           <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-sitemap"></i>
           </th>
