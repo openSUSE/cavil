@@ -144,6 +144,10 @@ sub generate_spdx_report ($self, $id, $options = {}) {
     if $minion->lock("spdx_$id", 172800);
 }
 
+sub has_file_stats ($self, $id) {
+  return defined($self->pg->db->select('bot_packages', 'unpacked_files', {id => $id})->hash->{unpacked_files});
+}
+
 sub has_human_review ($self, $name) {
   return !!$self->pg->db->query('SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL',
     $name)->array->[0];
@@ -510,7 +514,11 @@ sub stats {
 sub unpack ($self, @args) { $self->_enqueue('unpack', @args) }
 
 sub unpacked ($self, $id) {
-  $self->pg->db->update('bot_packages', {unpacked => \'now()'}, {id => $id});
+  $self->pg->db->update(
+    'bot_packages',
+    {unpacked => \'now()', unpacked_files => undef, unpacked_size => undef},
+    {id       => $id}
+  );
 }
 
 sub update ($self, $pkg) {
@@ -518,6 +526,11 @@ sub update ($self, $pkg) {
     (qw(created checksum priority state obsolete result notice reviewed reviewing_user external_link embargoed));
   $updates{reviewed} = \'now()' if $pkg->{review_timestamp};
   return $self->pg->db->update('bot_packages', \%updates, {id => $pkg->{id}});
+}
+
+sub update_file_stats ($self, $id, $stats) {
+  my $db = $self->pg->db;
+  $db->update('bot_packages', {unpacked_files => $stats->{files}, unpacked_size => $stats->{size}}, {id => $id});
 }
 
 sub matched_files ($self, $id) {

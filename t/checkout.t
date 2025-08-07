@@ -54,6 +54,9 @@ subtest 'ceph-image (kiwi)' => sub {
   my $ceph     = temp_copy('ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf');
   my $checkout = Cavil::Checkout->new($ceph);
   $checkout->unpack;
+  my $stats = $checkout->unpacked_file_stats;
+  is $stats->{files}, 5,    'right number of files';
+  is $stats->{size},  4964, 'right size';
   is_deeply $checkout->specfile_report, report('ceph-image.kiwi'), 'right kiwi report';
 };
 

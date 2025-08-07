@@ -17,6 +17,7 @@ package Cavil::Checkout;
 use Mojo::Base -base, -signatures;
 
 use File::Unpack2;
+use File::Spec::Functions qw(catfile);
 use Mojo::DOM;
 use Mojo::File 'path';
 use Mojo::JSON qw(decode_json encode_json);
@@ -284,6 +285,18 @@ sub unpack ($self, $options = {}) {
   my $processor = Cavil::PostProcess->new($unpacked);
   $processor->postprocess;
   $dir->child('.postprocessed.json')->spew(encode_json($processor->hash));
+}
+
+sub unpacked_file_stats ($self) {
+  my $dir      = scalar $self->dir;
+  my $unpacked = decode_json(path($self->dir)->child('.postprocessed.json')->slurp)->{unpacked};
+
+  my $stats = {files => scalar keys %$unpacked, size => 0};
+  for my $file (keys %{$unpacked}) {
+    $stats->{size} += (-s catfile($dir, '.unpacked', $file)) // 0;
+  }
+
+  return $stats;
 }
 
 sub unpacked_files ($self, $bucket_size = undef) {

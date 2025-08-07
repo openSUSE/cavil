@@ -153,6 +153,14 @@
             <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
           </td>
         </tr>
+        <tr v-if="unplackedFiles !== null">
+          <th class="fit text-start noleftpad" scope="row">
+            <i class="fas fa-sitemap"></i>
+          </th>
+          <th class="fit text-start noleftpad" scope="row">Unpacked:</th>
+          <td v-if="unpackedFiles == 1" id="unpacked-files">1 file ({{ unpackedSize }})</td>
+          <td v-else id="unpacked-files">{{ unpackedFilesWithSeparator }} files ({{ unpackedSize }})</td>
+        </tr>
         <tr v-if="pkgPriority !== null">
           <th class="fit text-start noleftpad" scope="row">
             <i class="far fa-star"></i>
@@ -380,8 +388,15 @@ export default {
       searchUrl: null,
       spdxUrl: `/spdx/${this.pkgId}`,
       state: null,
+      unpackedFiles: null,
+      unpackedSize: 'n/a',
       warnings: []
     };
+  },
+  computed: {
+    unpackedFilesWithSeparator() {
+      return this.unpackedFiles.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
   },
   methods: {
     refreshData(data) {
@@ -442,6 +457,12 @@ export default {
       if (data.state !== this.state) this.result = data.result ?? '';
       this.notice = data.notice;
       this.state = data.state;
+
+      if (data.unpacked_files !== null) {
+        this.unpackedFiles = data.unpacked_files;
+        this.unpackedSize = data.unpacked_size;
+      }
+
       this.warnings = data.warnings;
     }
   }

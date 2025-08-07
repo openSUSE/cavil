@@ -252,3 +252,7 @@ CREATE INDEX ON bot_packages(cleaned);
 CREATE INDEX ON pattern_matches (ignored);
 CREATE INDEX ON bot_packages (name);
 CREATE INDEX ON bot_packages (obsolete);
+
+--30 up
+ALTER TABLE bot_packages ADD COLUMN unpacked_files bigint;
+ALTER TABLE bot_packages ADD COLUMN unpacked_size bigint;

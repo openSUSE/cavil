@@ -17,6 +17,7 @@ package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File      qw(path);
+use Mojo::Util      qw(humanize_bytes);
 use Cavil::Licenses qw(lic);
 use List::Util      qw(first uniq);
 
@@ -137,6 +138,8 @@ sub meta ($self) {
       reviewed          => $pkg->{reviewed_epoch},
       reviewing_user    => $pkg->{login},
       state             => $pkg->{state},
+      unpacked_files    => $pkg->{unpacked_files},
+      unpacked_size     => humanize_bytes($pkg->{unpacked_size} // 0),
       warnings          => $spec->{warnings} // []
     }
   );

@@ -82,7 +82,11 @@ subtest 'Globs' => sub {
 subtest 'Details after import (indexing in progress)' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/package_name', 'perl-Mojolicious')->json_is('/state', 'new');
+  $t->get_ok('/reviews/meta/1')
+    ->status_is(200)
+    ->json_is('/package_name',   'perl-Mojolicious')
+    ->json_is('/state',          'new')
+    ->json_is('/unpacked_files', undef);
 
   $t->json_is('/errors', [])->json_is('/warnings', []);
 
@@ -107,7 +111,9 @@ subtest 'Details after indexing' => sub {
     ->json_like('/package_summary', qr!Real-time web framework!)
     ->json_like('/package_group',   qr!Development/Libraries/Perl!)
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
-    ->json_like('/state',           qr!new!);
+    ->json_like('/state',           qr!new!)
+    ->json_is('/unpacked_files', 339)
+    ->json_is('/unpacked_size',  '2.5MiB');
 
   $t->json_like('/package_files/0/file',       qr/perl-Mojolicious\.spec/)
     ->json_like('/package_files/0/licenses/0', qr/Artistic-2.0/)
