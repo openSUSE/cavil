@@ -153,7 +153,7 @@
             <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
           </td>
         </tr>
-        <tr v-if="unplackedFiles !== null">
+        <tr v-if="unplackedFiles > 0">
           <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-sitemap"></i>
           </th>
@@ -388,7 +388,7 @@ export default {
       searchUrl: null,
       spdxUrl: `/spdx/${this.pkgId}`,
       state: null,
-      unpackedFiles: null,
+      unpackedFiles: 0,
       unpackedSize: 'n/a',
       warnings: []
     };
