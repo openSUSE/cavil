@@ -48,6 +48,21 @@ subtest 'Unpack' => sub {
     is $app->minion->jobs({tasks => ['unpack']})->total, 2, 'two unpack jobs';
   };
 
+  subtest 'Unpacking in progress' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('unpack', '2');
+    }
+    like $buffer, qr/Unpacking already in progress/, 'in progress';
+    is $app->minion->jobs({tasks => ['unpack']})->total, 2, 'two unpack jobs';
+  };
+
+  my $worker = $app->minion->worker->register;
+  my $job    = $worker->dequeue(0);
+  $job->fail('Something went wrong');
+
   subtest 'Unlock failed prior attempt' => sub {
     is $app->minion->jobs({tasks => ['unpack']})->total, 2, 'two unpack jobs';
     $minion->lock('processing_pkg_2', 172800);

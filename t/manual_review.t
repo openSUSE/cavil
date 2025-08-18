@@ -241,7 +241,14 @@ subtest 'Reindex (with updated stats)' => sub {
 
   $t->app->minion->enqueue('pattern_stats');
   $t->app->minion->perform_jobs;
-  $t->app->packages->reindex(1);
+
+  subtest 'Index jobs are deduplicated' => sub {
+    $t->app->packages->reindex(1);
+    is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'one index job';
+    $t->app->packages->reindex(1);
+    is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'one index job';
+  };
+
   $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/package being processed/);
   $t->app->minion->perform_jobs;
 

@@ -543,8 +543,13 @@ sub _check_field ($self, $field, $id) {
 }
 
 sub _enqueue ($self, $task, $id, $priority = 5, $parents = [], $delay = 0) {
+  my $minion = $self->minion;
+
+  # Deduplicate jobs for same package
+  return undef if $self->minion->jobs({tasks => [$task], states => ['inactive'], notes => ["pkg_$id"]})->total;
+
   my $pkg = $self->find($id);
-  return $self->minion->enqueue(
+  return $minion->enqueue(
     $task => [$id] => {
       delay    => $delay,
       parents  => $parents,

@@ -31,8 +31,8 @@ sub run ($self, @args) {
     $minion->unlock("processing_pkg_$id");
   }
 
-  my $job = $app->packages->unpack($id);
-  print STDOUT "Triggered unpack job $job\n";
+  if   (my $job = $app->packages->unpack($id)) { print STDOUT "Triggered unpack job $job\n" }
+  else                                         { print STDOUT "Unpacking already in progress\n" }
 }
 
 1;
