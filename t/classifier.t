@@ -44,6 +44,9 @@ post '/' => sub {
   if ($text =~ /Fixed copyright notice/) {
     return $c->render(json => {license => \1, confidence => '98.123'});
   }
+  elsif ($text =~ /This one is broken/) {
+    return $c->render(json => {error => 'Classifier is broken'}, status => 400);
+  }
   else {
     $c->render(json => {license => \0, confidence => '55.321'});
   }
@@ -65,6 +68,11 @@ $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 2});
 my $embargoed_id = $t->app->pg->db->insert(
   'snippets',
   {hash      => 'manual:12345678890abcdef', text => 'Embargoed license text', package => 2},
+  {returning => 'id'}
+)->hash->{id};
+my $broken_id = $t->app->pg->db->insert(
+  'snippets',
+  {hash      => 'manual:12345678890abcde1', text => 'This one is broken', package => 1},
   {returning => 'id'}
 )->hash->{id};
 $t->app->minion->enqueue(unpack => [2]);
@@ -93,8 +101,19 @@ subtest 'Not yet classified' => sub {
 
 subtest 'Classify' => sub {
   my $classify_id = $t->app->minion->enqueue('classify');
-  $t->app->minion->perform_jobs;
-  is $t->app->minion->job($classify_id)->info->{state}, 'finished', 'job is finished';
+
+  subtest 'Broken classifier' => sub {
+    $t->app->minion->perform_jobs;
+    is $t->app->minion->job($classify_id)->info->{state}, 'failed', 'job is failed';
+    like $t->app->minion->job($classify_id)->info->{result}, qr/Classifier is broken/, 'right error message';
+    $t->app->pg->db->delete('snippets', {id => $broken_id});
+    $t->app->minion->job($classify_id)->retry;
+  };
+
+  subtest 'Working classifier' => sub {
+    $t->app->minion->perform_jobs;
+    is $t->app->minion->job($classify_id)->info->{state}, 'finished', 'job is finished';
+  };
 };
 
 subtest 'Token authentication' => sub {

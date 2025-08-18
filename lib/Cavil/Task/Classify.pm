@@ -18,6 +18,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
 use Mojo::File 'path';
+use Mojo::Util qw(dumper);
 use Spooky::Patterns::XS;
 
 sub register ($self, $app, $config) {
@@ -47,6 +48,8 @@ sub _classify ($job) {
 
     for my $next ($results->hashes->each) {
       my $res = $classifier->classify($next->{text});
+      die "Unexpected result from classifier: @{[dumper($res)]}"
+        unless ref $res eq 'HASH' && defined($res->{license}) && defined($res->{confidence});
 
       my $best_pattern = $bag->best_for($next->{text}, 1);
       if   (@$best_pattern) { $best_pattern = $best_pattern->[0] }
