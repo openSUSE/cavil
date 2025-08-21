@@ -26,6 +26,12 @@ sub register ($self, $app, $config) {
 }
 
 sub _classify ($job) {
+  my $minion = $job->minion;
+
+  # One classify job can handle all snippets
+  return $job->finish('Classifier is already running')
+    unless my $guard = $minion->guard('classify_in_progress', 172800);
+
   my $app        = $job->app;
   my $db         = $app->pg->db;
   my $classifier = $app->classifier;
