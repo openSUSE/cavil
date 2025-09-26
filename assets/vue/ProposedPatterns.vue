@@ -6,6 +6,32 @@
         were created for, and can only use an existing license and risk combination.
       </div>
     </div>
+    <div class="row g-4">
+      <div class="col-9">
+        <form>
+          <div class="row g-4">
+            <div class="col-lg-3">
+              <div class="form-check">
+                <input v-model="createPattern" @change="refreshPage()" type="checkbox" class="form-check-input" />
+                <label class="form-check-label" for="snippet-not-legal">License patterns</label>
+              </div>
+              <div class="form-check">
+                <input v-model="createIgnore" @change="refreshPage()" type="checkbox" class="form-check-input" />
+                <label class="form-check-label" for="snippet-is-legal">Ignore patterns</label>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="col-lg-3">
+        <form @submit.prevent="refreshPage()">
+          <div class="form-floating">
+            <input v-model="params.filter" type="text" class="form-control" placeholder="Filter" />
+            <label class="form-label">Filter</label>
+          </div>
+        </form>
+      </div>
+    </div>
     <div v-if="changes !== null && changes.length > 0">
       <div v-for="change in changes" :key="change.id" class="row change-container">
         <div v-if="change.state === 'proposed'" class="col-12 change-file-container">
@@ -159,10 +185,12 @@ export default {
   name: 'ProposedPatterns',
   data() {
     return {
-      ignoreForPackage: true,
-      params: {before: 0},
       changes: null,
-      changeUrl: '/licenses/proposed/meta?action=create_pattern&action=create_ignore',
+      changeUrl: '/licenses/proposed/meta',
+      createPattern: true,
+      createIgnore: true,
+      ignoreForPackage: true,
+      params: {before: 0, filter: ''},
       total: null
     };
   },
@@ -201,9 +229,13 @@ export default {
       change.state = 'accepted';
     },
     async getChanges() {
+      const url = new URL(this.changeUrl, window.location.href);
+      if (this.createPattern === true) url.searchParams.append('action', 'create_pattern');
+      if (this.createIgnore === true) url.searchParams.append('action', 'create_ignore');
+
       const query = this.params;
-      const ua = new UserAgent({baseURL: window.location.href});
-      const res = await ua.get(this.changeUrl, {query});
+      const ua = new UserAgent();
+      const res = await ua.get(url, {query});
       const data = await res.json();
 
       const changes = data.changes;
@@ -270,6 +302,12 @@ export default {
       const ua = new UserAgent({baseURL: window.location.href});
       await ua.post(change.removeUrl);
       change.state = 'rejected';
+    },
+    refreshPage() {
+      this.total = null;
+      this.changes = null;
+      this.params.before = 0;
+      this.getChanges();
     }
   }
 };

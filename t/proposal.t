@@ -172,6 +172,18 @@ subtest 'Pattern creation' => sub {
         {'create-pattern' => 1, license => 'GPL', pattern => "The license might be\nsomething cool", risk => 5})
       ->status_is(403);
 
+    subtest 'Filtering' => sub {
+      $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore&filter=license')
+        ->status_is(200)
+        ->json_has('/changes/0')
+        ->json_is('/changes/0/action'       => 'create_pattern')
+        ->json_is('/changes/0/data/license' => 'GPL')
+        ->json_hasnt('/changes/1');
+      $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore&filter=Apache')
+        ->status_is(200)
+        ->json_hasnt('/changes/0');
+    };
+
     $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
       ->status_is(200)
       ->json_has('/changes/0')

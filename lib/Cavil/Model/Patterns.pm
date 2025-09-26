@@ -382,10 +382,16 @@ sub proposed_changes ($self, $options) {
     $before = "AND pc.id < $quoted";
   }
 
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "AND (bu.login ILIKE $quoted OR pc.data::text ILIKE $quoted)";
+  }
+
   my $changes = $db->query(
     "SELECT pc.*, EXTRACT(EPOCH FROM created) AS created_epoch, bu.login, COUNT(*) OVER() AS total
      FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner)
-     WHERE action = ANY (?) $before ORDER BY pc.id DESC LIMIT 10", $options->{actions}
+     WHERE action = ANY (?) $before $search ORDER BY pc.id DESC LIMIT 10", $options->{actions}
   )->expand->hashes;
 
   my $total = 0;
