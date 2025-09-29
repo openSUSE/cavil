@@ -281,6 +281,13 @@ subtest 'error-incomplete-checkout' => sub {
   is_deeply $checkout->specfile_report, report('error-incomplete-checkout.specfile'), 'right specfile report';
 };
 
+subtest 'error-incomplete-sources' => sub {
+  my $remote   = temp_copy('error-incomplete-sources', 'cb5e100e5a9a3e7f6d1fd97512215282');
+  my $checkout = Cavil::Checkout->new($remote);
+  $checkout->unpack;
+  is_deeply $checkout->specfile_report, report('error-incomplete-sources.specfile'), 'right specfile report';
+};
+
 subtest 'Tarball upload' => sub {
   my $ceph     = temp_copy('tarball-upload', '5fcfdab0e71b0bebfdf8b5cc6bcdfecf');
   my $checkout = Cavil::Checkout->new($ceph);
