@@ -12,11 +12,16 @@
           <div class="row g-4">
             <div class="col-lg-3">
               <div class="form-check">
-                <input v-model="createPattern" @change="refreshPage()" type="checkbox" class="form-check-input" />
+                <input
+                  v-model="params.createPattern"
+                  @change="refreshPage()"
+                  type="checkbox"
+                  class="form-check-input"
+                />
                 <label class="form-check-label" for="snippet-not-legal">License patterns</label>
               </div>
               <div class="form-check">
-                <input v-model="createIgnore" @change="refreshPage()" type="checkbox" class="form-check-input" />
+                <input v-model="params.createIgnore" @change="refreshPage()" type="checkbox" class="form-check-input" />
                 <label class="form-check-label" for="snippet-is-legal">Ignore patterns</label>
               </div>
             </div>
@@ -179,18 +184,19 @@
 </template>
 
 <script>
+import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'ProposedPatterns',
   data() {
+    const params = getParams({createIgnore: true, createPattern: true, filter: ''});
+
     return {
       changes: null,
       changeUrl: '/licenses/proposed/meta',
-      createPattern: true,
-      createIgnore: true,
       ignoreForPackage: true,
-      params: {before: 0, filter: ''},
+      params: {...params, before: 0},
       total: null
     };
   },
@@ -230,10 +236,12 @@ export default {
     },
     async getChanges() {
       const url = new URL(this.changeUrl, window.location.href);
-      if (this.createPattern === true) url.searchParams.append('action', 'create_pattern');
-      if (this.createIgnore === true) url.searchParams.append('action', 'create_ignore');
-
       const query = this.params;
+      if (query.createPattern === true || query.createPattern === 'true')
+        url.searchParams.append('action', 'create_pattern');
+      if (query.createIgnore === true || query.createIgnore === 'true')
+        url.searchParams.append('action', 'create_ignore');
+
       const ua = new UserAgent();
       const res = await ua.get(url, {query});
       const data = await res.json();
@@ -309,7 +317,8 @@ export default {
       this.params.before = 0;
       this.getChanges();
     }
-  }
+  },
+  watch: {...genParamWatchers('createIgnore', 'createPattern', 'filter')}
 };
 </script>
 
