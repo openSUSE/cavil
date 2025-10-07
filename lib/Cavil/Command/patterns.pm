@@ -149,7 +149,10 @@ sub _check_spdx ($self) {
 }
 
 sub _check_use ($self, $unused, $license, $preview) {
-  die 'License name is required' unless defined $license;
+  unless (defined $license) {
+    die 'License name is required' unless $unused;
+    return $self->_list_unused_licenses;
+  }
 
   my $db      = $self->app->pg->db;
   my $results = $db->query('SELECT id, risk, pattern FROM license_patterns WHERE license = ? ORDER BY risk ASC, id ASC',
@@ -197,6 +200,16 @@ sub _license_stats ($self, $license) {
   my $patterns
     = $self->app->pg->db->query('SELECT COUNT(*) AS count FROM license_patterns WHERE license = ?', $license)->hash;
   say "$license has $patterns->{count} patterns";
+}
+
+sub _list_unused_licenses ($self) {
+  my $db       = $self->app->pg->db;
+  my $licenses = $db->query(
+    'SELECT DISTINCT(license) FROM license_patterns lp
+     WHERE NOT EXISTS (SELECT FROM pattern_matches pm WHERE pattern = lp.id)
+     ORDER BY license ASC'
+  )->hashes;
+  say $_->{license} for $licenses->each;
 }
 
 sub _match ($self, $id, $preview) {
@@ -317,7 +330,10 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     # Fix risk assessment for a license
     script/cavil patterns --license MIT --fix-risk 3
 
-    # Check for unused license patterns
+    # Check for licenses with unused patterns
+    script/cavil patterns --check-unused
+
+    # Check for unused license patterns of a specific license
     script/cavil patterns --check-unused --license Artistic-2.0
 
     # Remove unused license pattern (cannot remove patterns still in use)

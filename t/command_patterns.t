@@ -183,6 +183,16 @@ subtest 'Check unused patterns' => sub {
     like $@, qr/Pattern 8 is still in use and cannot be removed/, 'patterns still in use cannot be removed';
   };
 
+  subtest 'Three licenses with unused patterns remaining' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--check-unused');
+    }
+    like $buffer, qr/Apache.*Artistic.*NotALicense/s, 'three licenses';
+  };
+
   subtest 'Remove used patterns' => sub {
     my $before = $app->minion->jobs({task => 'index'})->total;
     my $buffer = '';
