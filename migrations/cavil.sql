@@ -256,3 +256,7 @@ CREATE INDEX ON bot_packages (obsolete);
 --30 up
 ALTER TABLE bot_packages ADD COLUMN unpacked_files bigint;
 ALTER TABLE bot_packages ADD COLUMN unpacked_size bigint;
+
+--31 up
+ALTER TABLE bot_products ADD COLUMN updated timestamp with time zone DEFAULT now() NOT NULL;
+CREATE INDEX ON bot_products (updated);

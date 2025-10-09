@@ -365,11 +365,12 @@ subtest 'Pagination' => sub {
 
   subtest 'Products' => sub {
     $t->get_ok('/pagination/products/known')
-      ->json_is('/start',                        1)
-      ->json_is('/end',                          3)
-      ->json_is('/total',                        3)
-      ->json_is('/page/0/id',                    4)
-      ->json_is('/page/0/name',                  'openSUSE:Test')
+      ->json_is('/start',       1)
+      ->json_is('/end',         3)
+      ->json_is('/total',       3)
+      ->json_is('/page/0/id',   4)
+      ->json_is('/page/0/name', 'openSUSE:Test')
+      ->json_like('/page/0/updated_epoch', qr/\d+/)
       ->json_is('/page/0/new_packages',          3)
       ->json_is('/page/0/reviewed_packages',     0)
       ->json_is('/page/0/unacceptable_packages', 0)

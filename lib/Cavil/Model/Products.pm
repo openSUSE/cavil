@@ -47,10 +47,10 @@ sub paginate_known_products ($self, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT *, COUNT(*) OVER() AS total
+      SELECT id, name, EXTRACT(EPOCH FROM updated) as updated_epoch, COUNT(*) OVER() AS total
       FROM bot_products
       $search
-      ORDER BY id DESC
+      ORDER BY updated DESC, id DESC
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
   )->hashes->to_array;
@@ -78,6 +78,12 @@ sub remove ($self, $name) {
 
 sub update ($self, $product, $packages) {
   my $db = $self->pg->db;
+
+  my $updated
+    = $db->query('SELECT created FROM bot_packages WHERE id = ANY(?) ORDER BY created DESC LIMIT 1', $packages)
+    ->hash->{created};
+  $db->query('UPDATE bot_products SET updated = ? WHERE id = ?', $updated, $product);
+
   $db->delete('bot_package_products', {product => $product});
   $db->query(
     'insert into bot_package_products (product, package) values (?, ?)

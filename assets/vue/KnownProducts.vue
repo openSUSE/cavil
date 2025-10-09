@@ -31,6 +31,7 @@
             <thead>
               <tr>
                 <th class="link">Product</th>
+                <th class="created">Updated</th>
                 <th colspan="2">Packages</th>
               </tr>
             </thead>
@@ -42,6 +43,7 @@
             <tbody v-else-if="products.length > 0">
               <tr v-for="product in products" :key="product.link">
                 <td v-html="product.link"></td>
+                <td class="timeago">{{ product.updated }}</td>
                 <td>
                   <div v-if="product.unacceptable_packages > 0" class="cavil-bad-badge badge text-bg-danger">
                     {{ product.unacceptable_packages }}
@@ -88,6 +90,7 @@ import ShownEntries from './components/ShownEntries.vue';
 import {productLink} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
+import moment from 'moment';
 
 export default {
   name: 'KnownProducts',
@@ -135,6 +138,7 @@ export default {
       for (const product of data.page) {
         products.push({
           link: productLink(product),
+          updated: moment(product.updated_epoch * 1000).fromNow(),
           ...product
         });
       }
