@@ -32,7 +32,7 @@ subtest 'Unpack and index with the job queue' => sub {
   my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
   $t->app->minion->perform_jobs;
 
-  like $t->app->packages->find(1)->{checksum}, qr/^Error-9:\w+/, 'right shortname';
+  like $t->app->packages->find(1)->{checksum}, qr/^Unknown-9:\w+/, 'right shortname';
 
   my $res = $t->app->pg->db->select('snippets', 'text', {}, {order_by => 'text'})->hashes;
   is_deeply(

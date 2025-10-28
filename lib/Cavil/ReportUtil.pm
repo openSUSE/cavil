@@ -70,7 +70,7 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
   }
 
   my $l = lic($specfile_report->{main}{license})->example;
-  $l ||= 'Error';
+  $l ||= 'Unknown';
 
   return "$l-$max_risk:$chksum";
 }

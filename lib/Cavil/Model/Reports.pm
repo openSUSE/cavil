@@ -139,7 +139,7 @@ sub specfile_report {
 sub summary ($self, $id) {
   my %summary  = (id => $id);
   my $specfile = $self->specfile_report($id);
-  $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Error';
+  $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Unknown';
   my $report = $self->cached_dig_report || $self->dig_report($id);
 
   my $min_risklevel = 1;

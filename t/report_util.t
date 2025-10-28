@@ -660,7 +660,7 @@ subtest 'summary_delta' => sub {
 
 
 subtest 'report_shortname' => sub {
-  is report_shortname('jemn9u', {}, {}), 'Error-0:jemn9u', 'minimal shortname';
+  is report_shortname('jemn9u', {}, {}), 'Unknown-0:jemn9u', 'minimal shortname';
   is report_shortname('jemn8u', {main => {license => 'Artistic-2.0'}}, {}), 'Artistic-2.0-0:jemn8u', 'same license';
   is report_shortname('jemn7u', {main => {license => 'MIT OR BSD-2-Clause'}}, {}), 'BSD-2-Clause-0:jemn7u',
     'multiple licenses';
