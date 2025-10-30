@@ -60,13 +60,14 @@ $app->sync->load(curfile->dirname->sibling('lib', 'Cavil', 'resources', 'license
 # Fill instance with test data
 unless ($clean) {
 
-# Test checkouts
+  # Test checkouts
   my $tests = [
     ['perl-Mojolicious',       'c7cfdab0e71b0bebfdf8b2dc3badfecd'],
     ['ceph-image',             '5fcfdab0e71b0bebfdf8b5cc3badfecf'],
     ['go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca'],
     ['harbor-helm',            '4fcfdab0e71b0bebfdf8b5cc3badfec4'],
-    ['libfsverity0',           '9932c13432c3c5bdbe260ab8bc3b13ef']
+    ['libfsverity0',           '9932c13432c3c5bdbe260ab8bc3b13ef'],
+    ['PackageHub',             '280b37a43ba9dc09c563a5c4e99349c07414c9f46a8e8f8636d3ef8aaf63650b']
   ];
   for my $co (@$tests) {
     my $checkout = $checkouts->child(@$co)->make_path;
@@ -79,13 +80,13 @@ unless ($clean) {
     }
   }
 
-# Second copy of perl-Mojolicious test checkout (different checksum but same content)
+  # Second copy of perl-Mojolicious test checkout (different checksum but same content)
   my $test
     = $dir->child('..', '..', 't', 'legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd')->realpath;
   my $checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3bad1234')->make_path;
   $_->copy_to($checkout->child($_->basename)) for $test->list->each;
 
-# "perl-Mojolicious" example data
+  # "perl-Mojolicious" example data
   my $user_id = $app->users->find_or_create(login => 'test_bot')->{id};
   my $pkgs    = $app->packages;
   my $mojo_id = my $pkg_id = $pkgs->add(
@@ -119,7 +120,7 @@ unless ($clean) {
   $pkgs->update($mojo);
   $pkgs->unpack($pkg_id);
 
-# "ceph-image" example data
+  # "ceph-image" example data
   $pkg_id = $pkgs->add(
     name            => 'ceph-image',
     checkout_dir    => '5fcfdab0e71b0bebfdf8b5cc3badfecf',
@@ -136,7 +137,7 @@ unless ($clean) {
   $pkgs->update($ceph);
   $pkgs->unpack($pkg_id);
 
-# "go1.16-devel-container" example data
+  # "go1.16-devel-container" example data
   $pkg_id = $pkgs->add(
     name            => 'go1.16-devel-container',
     checkout_dir    => 'ffcfdab0e71b1bebfdf8b5cc3badfeca',
@@ -153,7 +154,7 @@ unless ($clean) {
   $pkgs->update($go);
   $pkgs->unpack($pkg_id);
 
-# "harbor-helm" example data
+  # "harbor-helm" example data
   $pkg_id = $pkgs->add(
     name            => 'harbor-helm',
     checkout_dir    => '4fcfdab0e71b0bebfdf8b5cc3badfec4',
@@ -171,14 +172,14 @@ unless ($clean) {
   $pkgs->update($harbor);
   $pkgs->unpack($pkg_id);
 
-# "libfsverity0" debian example data
+  # "libfsverity0" debian example data
   $pkg_id = $pkgs->add(
     name            => 'libfsverity0',
     checkout_dir    => '9932c13432c3c5bdbe260ab8bc3b13ef',
     api_url         => 'https://api.opensuse.org',
     requesting_user => $user_id,
     project         => 'just:a:test',
-    package         => 'harbor-helm',
+    package         => 'libfsverity0',
     srcmd5          => 'abc1c3664321d356883d490da2141234',
     priority        => 5
   );
@@ -188,7 +189,24 @@ unless ($clean) {
   $pkgs->update($deb);
   $pkgs->unpack($pkg_id);
 
-# Extra packages to fill up the backlog
+  # "PackageHub" ObsPrj example data
+  $pkg_id = $pkgs->add(
+    name            => 'PackageHub',
+    checkout_dir    => '280b37a43ba9dc09c563a5c4e99349c07414c9f46a8e8f8636d3ef8aaf63650b',
+    api_url         => 'gitea@src.opensuse.org:products/PackageHub.git',
+    requesting_user => $user_id,
+    project         => '',
+    package         => 'PackageHub',
+    srcmd5          => '280b37a43ba9dc09c563a5c4e99349c07414c9f46a8e8f8636d3ef8aaf63650b',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $obsprj = $pkgs->find($pkg_id);
+  $obsprj->{external_link} = 'soo#products/PackageHub!123';
+  $pkgs->update($obsprj);
+  $pkgs->unpack($pkg_id);
+
+  # Extra packages to fill up the backlog
   for my $i (1 .. 21) {
     my $pkg_id = $pkgs->add(
       name            => "just-a-test-$i.0",
@@ -205,7 +223,7 @@ unless ($clean) {
     $pkgs->update($pkg);
   }
 
-# Update products
+  # Update products
   my $products   = $app->products;
   my $factory_id = $products->find_or_create('openSUSE:Factory')->{id};
   my $leap_id    = $products->find_or_create('openSUSE:Leap:15.0')->{id};

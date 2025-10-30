@@ -7,6 +7,7 @@
       <i class="fas fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
       <i class="fab fa-docker" v-else-if="pkgType === 'docker'"></i>
       <i class="fas fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
+      <i class="fas fa-industry" v-else-if="pkgType === 'obsprj'"></i>
       <i class="far fa-question-circle" v-else></i>
     </div>
     <h2 v-if="pkgName !== null">
@@ -26,7 +27,7 @@
             <div v-else class="badge text-bg-danger">{{ state }}</div>
           </td>
         </tr>
-        <tr v-if="pkgLicense !== null">
+        <tr v-if="pkgLicense !== null && pkgLicense.name !== null">
           <th class="fit text-start noleftpad" scope="row">
             <i class="fas fa-box"></i>
           </th>

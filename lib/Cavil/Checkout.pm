@@ -118,6 +118,8 @@ sub specfile_report ($self) {
   my $helmchart_name = 'Chart.yaml';
   my $main_helmchart = $unpacked->child($helmchart_name);
 
+  my $is_obsprj = _is_obsprj($unpacked);
+
   # Tarball upload
   if (-f $upload_file) {
     my $upload   = decode_json($upload_file->slurp);
@@ -150,8 +152,14 @@ sub specfile_report ($self) {
       push @{$info->{errors}}, "Checkout might be incomplete, Fedora sources file present: sources";
     }
 
+    # ObsPrj
+    if ($is_obsprj) {
+      push @{$info->{sub}},      $info->{main} = {file => 'workflow.config', type => 'obsprj', licenses => []};
+      push @{$info->{warnings}}, 'Checkout is a product in ObsPrj format and might contain packages in subdirectories';
+    }
+
     # Main .spec file
-    if (-f $main_specfile) {
+    elsif (-f $main_specfile) {
       my $specfile = $info->{main} = _specfile($main_specfile);
       if (@{$specfile->{licenses}}) { $specfile->{license} = $specfile->{licenses}[0] }
       else {
@@ -399,6 +407,14 @@ sub _helmchart ($file) {
   }
 
   return $info;
+}
+
+sub _is_obsprj ($unpacked) {
+  my $config = $unpacked->child('workflow.config');
+  return 0 unless -f $config;
+  return 0 unless my $data = eval { decode_json($config->slurp) };
+  return 0 unless ref $data eq 'HASH' && exists $data->{Workflows} && exists $data->{GitProjectName};
+  return 1;
 }
 
 sub _kiwifile ($file) {

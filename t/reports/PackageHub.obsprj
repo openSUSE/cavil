@@ -1,0 +1,7 @@
+{
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                => {"file" => "workflow.config", "licenses" => [], "type" => "obsprj"},
+  "sub"                 => [{"file" => "workflow.config", "licenses" => [], "type" => "obsprj"}],
+  "warnings"            => ["Checkout is a product in ObsPrj format and might contain packages in subdirectories"]
+}

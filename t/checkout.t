@@ -171,6 +171,13 @@ subtest 'wxWidgets-3_2' => sub {
   is_deeply $checkout->specfile_report, report('wxWidgets-3_2.specfile'), 'right specfile report';
 };
 
+subtest 'PackageHub (ObsPrj)' => sub {
+  my $hub      = temp_copy('PackageHub', '280b37a43ba9dc09c563a5c4e99349c07414c9f46a8e8f8636d3ef8aaf63650b');
+  my $checkout = Cavil::Checkout->new($hub);
+  $checkout->unpack;
+  is_deeply $checkout->specfile_report, report('PackageHub.obsprj'), 'right ObsPrj report';
+};
+
 subtest 'error-invalid-license' => sub {
   my $eil      = temp_copy('error-invalid-license', 'cb5e100e5a9a3e7f6d1fd97512215282');
   my $checkout = Cavil::Checkout->new($eil);
