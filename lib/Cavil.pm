@@ -63,10 +63,9 @@ sub startup ($self) {
   $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};
   $self->max_request_size(262144000);
 
-  # Optional OBS credentials
-  if (my $obs = $config->{obs}) {
-    $self->obs->config($obs);
-  }
+  # OBS/git configuration
+  if (my $obs = $config->{obs}) { $self->obs->config($obs) }
+  if (my $git = $config->{git}) { $self->git->config($git) }
 
   # Short logs for systemd
   $self->log->short(1) if $self->mode eq 'production';

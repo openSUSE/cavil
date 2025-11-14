@@ -62,6 +62,17 @@ subtest 'Local git' => sub {
     is $dir->child('test.txt')->slurp, 'one', 'right content';
   };
 
+  subtest 'Download first commit (with extra commands)' => sub {
+    my $dir = tempdir;
+    local $git->config->{extra_commands} = [['touch', '_cavil_extra1'], ['touch', '_cavil_extra2']];
+    $git->download_source($src_dir, $dir, {hash => $first_hash});
+    my $files = $dir->list_tree({hidden => 1});
+    is scalar @$files,                 3,     '1 file in the tree';
+    is $dir->child('test.txt')->slurp, 'one', 'right content';
+    ok -e $dir->child('_cavil_extra1'), 'extra command 1 executed';
+    ok -e $dir->child('_cavil_extra2'), 'extra command 2 executed';
+  };
+
   subtest 'Download third commit' => sub {
     my $dir = tempdir;
     $git->download_source($src_dir, $dir, {hash => $third_hash});

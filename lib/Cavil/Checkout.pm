@@ -101,7 +101,6 @@ sub specfile_report ($self) {
 
   my $upload_file         = $dir->child('.cavil.json');
   my $service_file        = $unpacked->child('_service');
-  my $fedora_sources_file = $unpacked->child('sources');
 
   my $specfile_name = $basename . '.spec';
   my $main_specfile = $unpacked->child($specfile_name);
@@ -144,12 +143,6 @@ sub specfile_report ($self) {
         push @{$info->{errors}},
           "Checkout might be incomplete, remote service in _service file: $service->{name} (mode: $service->{mode})";
       }
-    }
-
-    # Fedora sources file
-    if (-f $fedora_sources_file) {
-      $info->{incomplete_checkout} = 1;
-      push @{$info->{errors}}, "Checkout might be incomplete, Fedora sources file present: sources";
     }
 
     # ObsPrj
