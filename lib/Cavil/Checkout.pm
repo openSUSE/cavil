@@ -99,8 +99,8 @@ sub specfile_report ($self) {
 
   my $info = {main => undef, sub => [], errors => [], warnings => [], incomplete_checkout => 0};
 
-  my $upload_file         = $dir->child('.cavil.json');
-  my $service_file        = $unpacked->child('_service');
+  my $upload_file  = $dir->child('.cavil.json');
+  my $service_file = $unpacked->child('_service');
 
   my $specfile_name = $basename . '.spec';
   my $main_specfile = $unpacked->child($specfile_name);
