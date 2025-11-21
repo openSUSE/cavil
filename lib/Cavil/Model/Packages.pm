@@ -397,6 +397,11 @@ sub mark_matched_for_reindex ($self, $pid, $priority = 0) {
   $self->minion->enqueue(reindex_matched_later => [$pid] => {priority => $priority});
 }
 
+sub need_cleanup ($self) {
+  return $self->pg->db->query('SELECT id FROM bot_packages WHERE obsolete IS TRUE AND cleaned IS NULL ORDER BY ID')
+    ->arrays->flatten->to_array;
+}
+
 sub name_suggestions ($self, $partial) {
   my $like = '%' . $partial . '%';
   return $self->pg->db->select(
@@ -426,6 +431,26 @@ sub obs_import ($self, $id, $data, $priority = 5) {
   );
 }
 
+sub obsolete_duplicate_new ($self) {
+  my $db = $self->pg->db;
+
+  # Mark all duplicate new packages as obsolete (same external_link and name)
+  $db->query(
+    q{
+      UPDATE bot_packages
+      SET obsolete = true, state = 'obsolete'
+      WHERE id IN (
+        SELECT a.id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY external_link, name ORDER BY id DESC) row_no
+          FROM bot_packages
+          WHERE state = 'new' AND external_link IS NOT NULL
+        ) AS a
+        WHERE row_no > 1
+      );
+    }
+  );
+}
+
 sub obsolete_if_not_in_product ($self, $id) {
   my $db = $self->pg->db;
   return undef if $db->query('select 1 from bot_package_products where package = ? limit 1', $id)->array;
@@ -434,6 +459,35 @@ sub obsolete_if_not_in_product ($self, $id) {
     $id);
 
   return 1;
+}
+
+sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned_duplicates) {
+  my $db = $self->pg->db;
+
+  # Mark duplicate old packages not in products as obsolete
+  $db->query(
+    "UPDATE bot_packages SET obsolete = true WHERE id IN (
+       SELECT id FROM (
+         SELECT id, ROW_NUMBER() OVER (PARTITION BY name ORDER BY id DESC) row_no
+         FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
+         WHERE state != 'new' AND checksum IS NOT NULL
+           AND imported < NOW() - (INTERVAL '1 days' * ?)
+           AND bot_package_products.product IS NULL
+       ) AS a
+       WHERE row_no > 1
+     )", $days_to_keep_orphaned_duplicates
+  );
+
+  # Mark all old packages not in products as obsolete
+  $db->query(
+    "UPDATE bot_packages SET obsolete = true WHERE id IN (
+       SELECT id
+       FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
+       WHERE state != 'new' AND obsolete != true AND checksum IS NOT NULL
+         AND imported < NOW() - (INTERVAL '1 days' * ?)
+         AND bot_package_products.product IS NULL
+     )", $days_to_keep_orphaned
+  );
 }
 
 sub reindex ($self, $id, @args) {

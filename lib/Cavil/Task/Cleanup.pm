@@ -26,27 +26,11 @@ sub register ($self, $app, $config) {
 }
 
 sub _cleanup ($job) {
-  my $app = $job->app;
-  my $db  = $app->pg->db;
+  my $app  = $job->app;
+  my $pkgs = $app->packages;
 
-  # Mark all duplicate new packages as obsolete (same external_link and name)
-  $db->query(
-    q{
-      UPDATE bot_packages
-      SET obsolete = true, state = 'obsolete'
-      WHERE id IN (
-        SELECT a.id FROM (
-          SELECT id, ROW_NUMBER() OVER (PARTITION BY external_link, name ORDER BY id DESC) row_no
-          FROM bot_packages
-          WHERE state = 'new' AND external_link IS NOT NULL
-        ) AS a
-        WHERE row_no > 1
-      );
-    }
-  );
-
-  my $ids = $db->query('SELECT id FROM bot_packages WHERE obsolete IS TRUE AND cleaned IS NULL ORDER BY ID')
-    ->arrays->flatten->to_array;
+  $pkgs->obsolete_duplicate_new;
+  my $ids     = $pkgs->need_cleanup;
   my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 
   my $minion = $app->minion;
@@ -59,22 +43,10 @@ sub _cleanup_batch ($job, @ids) {
 }
 
 sub _obsolete ($job) {
-  my $app = $job->app;
-  my $log = $app->log;
-  my $db  = $job->app->pg->db;
-
-  my $leave_untagged_imports = 7;
-
-  my $list = $db->query(
-    "update bot_packages set obsolete = true where id in
-       (select id from bot_packages
-        left join bot_package_products on bot_package_products.package=bot_packages.id
-        where state != 'new' and checksum is not null and
-        imported < now() - Interval '$leave_untagged_imports days' and
-        bot_package_products.product is null
-       )"
-  );
-
+  my $app    = $job->app;
+  my $config = $app->config;
+  $app->packages->obsolete_old_packages($config->{days_to_keep_orphaned_packages},
+    $config->{days_to_keep_orphaned_duplicate_packages});
   $app->minion->enqueue('cleanup' => [] => {parents => [$job->id]});
 }
 

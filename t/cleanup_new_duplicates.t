@@ -30,7 +30,7 @@ use Mojo::URL;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'cleanup_duplicates_test');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'cleanup_new_duplicates_test');
 my $config     = $cavil_test->default_config;
 my $t          = Test::Mojo->new(Cavil => $config);
 $cavil_test->no_fixtures($t->app);
@@ -190,7 +190,7 @@ subtest 'Clean up duplicates' => sub {
   ok !$t->app->pg->db->select('file_snippets',   [\'count(*)'], {package => $one_id})->array->[0], 'no file snippets';
 
   # Second package (cleaned up)
-  is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
+  is $t->app->packages->find($two_id)->{state}, 'obsolete', 'right state';
   ok $t->app->packages->find($two_id)->{obsolete}, 'obsolete';
   ok $t->app->packages->find($two_id)->{cleaned},  'cleanup done';
   is $t->app->packages->find($two_id)->{result}, undef, 'right result';
