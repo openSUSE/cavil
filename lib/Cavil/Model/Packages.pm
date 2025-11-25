@@ -470,7 +470,7 @@ sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned
        SELECT id FROM (
          SELECT id, ROW_NUMBER() OVER (PARTITION BY name ORDER BY id DESC) row_no
          FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
-         WHERE state != 'new' AND checksum IS NOT NULL
+         WHERE state != 'new' AND checksum IS NOT NULL AND obsolete = false
            AND imported < NOW() - (INTERVAL '1 days' * ?)
            AND bot_package_products.product IS NULL
        ) AS a
@@ -483,7 +483,7 @@ sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned
     "UPDATE bot_packages SET obsolete = true WHERE id IN (
        SELECT id
        FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
-       WHERE state != 'new' AND obsolete != true AND checksum IS NOT NULL
+       WHERE state != 'new' AND obsolete != true AND checksum IS NOT NULL AND obsolete = false
          AND imported < NOW() - (INTERVAL '1 days' * ?)
          AND bot_package_products.product IS NULL
      )", $days_to_keep_orphaned
