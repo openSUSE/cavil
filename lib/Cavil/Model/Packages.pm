@@ -468,13 +468,14 @@ sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned
   $db->query(
     "UPDATE bot_packages SET obsolete = true WHERE id IN (
        SELECT id FROM (
-         SELECT id, ROW_NUMBER() OVER (PARTITION BY name ORDER BY id DESC) row_no
-         FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
-         WHERE state != 'new' AND checksum IS NOT NULL AND obsolete = false
-           AND imported < NOW() - (INTERVAL '1 days' * ?)
-           AND bot_package_products.product IS NULL
-       ) AS a
-       WHERE row_no > 1
+         SELECT id, imported FROM (
+           SELECT id, imported, ROW_NUMBER() OVER (PARTITION BY name ORDER BY id DESC) AS row_no
+           FROM bot_packages LEFT JOIN bot_package_products ON bot_package_products.package = bot_packages.id
+           WHERE state != 'new' AND checksum IS NOT NULL AND obsolete = false AND bot_package_products.product IS NULL
+         ) AS a
+         WHERE row_no > 1
+       ) AS b
+       WHERE imported < NOW() - (INTERVAL '1 days' * ?)
      )", $days_to_keep_orphaned_duplicates
   );
 

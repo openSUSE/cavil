@@ -237,8 +237,8 @@ subtest 'Clean up duplicates (imported timestamps too new)' => sub {
     'has pattern matches';
 };
 
-subtest 'Clean up duplicates (imported timestamps two days old)' => sub {
-  $t->app->pg->db->query('UPDATE bot_packages SET imported = NOW() - INTERVAL \'2 days\'');
+subtest 'Clean up duplicates (imported timestamps three days old)' => sub {
+  $t->app->pg->db->query('UPDATE bot_packages SET imported = NOW() - INTERVAL \'3 days\'');
   $t->app->minion->enqueue('obsolete');
   $t->app->minion->perform_jobs;
 
