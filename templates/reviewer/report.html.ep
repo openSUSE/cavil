@@ -9,9 +9,20 @@
   </div>
 % }
 
+% if ($report->{incompatible_licenses} && @{$report->{incompatible_licenses}}) {
+  <div id="incompatible-licenses" class="alert alert-danger">
+    <p>Elevated risk, package might contain incompatible licenses:</p>
+    <ul>
+    % for my $match (@{$report->{incompatible_licenses}}) {
+      <li><%= join(', ', @{$match->{licenses}}) %></li>
+    % }
+    </ul>
+  </div>
+% }
+
 % my %linked_files;
 % if (@{$report->{missed_files}}) {
-  <div v-if="warnings.length > 0" id="spec-warnings" class="alert alert-warning">
+  <div id="incomplete-warning" class="alert alert-warning">
     Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
     positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its similarity
     to existing license patterns, the higher the risk will climb above the predicted license.

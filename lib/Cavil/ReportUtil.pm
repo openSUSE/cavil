@@ -18,15 +18,51 @@ package Cavil::ReportUtil;
 use Mojo::Base -strict, -signatures;
 
 use Exporter 'import';
-use List::Util 'uniq';
+use List::Util qw(uniq);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
 
-our @EXPORT_OK = (qw(estimated_risk report_checksum report_shortname summary_delta summary_delta_score));
+our @EXPORT_OK
+  = (qw(estimated_risk incompatible_licenses report_checksum report_shortname summary_delta summary_delta_score));
+
+# For now we only watch out for GPL-2.0-only and Apache-2.0
+my $INCOMPATIBLE_LICENSE_RULES = [{licenses => ['GPL-2.0-only', 'Apache-2.0']}];
 
 sub estimated_risk ($risk, $match) {
   my $estimated = int(($risk * $match + 9 * (1 - $match)) + 0.5);
   return $match < 0.9 && $estimated <= 3 ? 4 : $estimated;
+}
+
+sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
+  return [] unless @$rules && (my $licenses = $dig_report->{licenses});
+
+  my @spdx = map { $_->{spdx} } grep { $_->{spdx} } values %$licenses;
+
+  my @regexes;
+  for my $rule (@$rules) {
+    push @regexes, [qr/\Q$_\E/i, $_] for @{$rule->{licenses}};
+  }
+
+  my %matches;
+  for my $spdx (@spdx) {
+    for my $pair (@regexes) {
+      next unless $spdx =~ $pair->[0];
+      $matches{$pair->[1]}++;
+    }
+  }
+
+  my @results;
+  for my $rule (@$rules) {
+    my $licenses = $rule->{licenses};
+    my $found    = 0;
+    for my $license (@$licenses) {
+      last unless $matches{$license};
+      $found++;
+    }
+    push @results, {licenses => [@$licenses]} if $found == @$licenses;
+  }
+
+  return \@results;
 }
 
 sub report_checksum ($specfile_report, $dig_report) {
@@ -56,6 +92,13 @@ sub report_checksum ($specfile_report, $dig_report) {
     $text .= "SNIPPET:$_\n" for uniq @all;
   }
 
+  # License incompatibilities
+  if (my $incompat = $dig_report->{incompatible_licenses}) {
+    for my $rule (@$incompat) {
+      $text .= "INCOMPAT:" . join(':', sort @{$rule->{licenses}}) . "\n";
+    }
+  }
+
   return Mojo::Util::md5_sum $text;
 }
 
@@ -68,6 +111,7 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
     my $risk = $dig_report->{missed_files}{$file}[0];
     $max_risk = $risk if $risk > $max_risk;
   }
+  $max_risk = 9 if $dig_report->{incompatible_licenses} && @{$dig_report->{incompatible_licenses}};
 
   my $l = lic($specfile_report->{main}{license})->example;
   $l ||= 'Unknown';
@@ -114,6 +158,12 @@ sub summary_delta ($old, $new) {
     $text .= join("\n", @lines) . "\n\n";
   }
 
+  # License incompatibilities
+  if (my @licenses = _new_incompatibilities($old, $new)) {
+    my $licenses = join(', ', @licenses);
+    $text .= "  Found new possible license incompatibility involving: $licenses\n\n";
+  }
+
   return length $text ? "Diff to closest match $old->{id}:\n\n$text" : '';
 }
 
@@ -125,6 +175,9 @@ sub summary_delta_score ($old, $new) {
   }
 
   my $score = 0;
+
+  # License incompatibilities
+  $score += 500 for _new_incompatibilities($old, $new);
 
   # New files with missed snippets (count)
   if (keys %{$new->{missed_snippets}} > keys %{$old->{missed_snippets}}) {
@@ -157,6 +210,19 @@ sub summary_delta_score ($old, $new) {
   }
 
   return $score;
+}
+
+sub _new_incompatibilities ($old, $new) {
+  my @old_incompat = map { @{$_->{licenses}} } @{$old->{incompatible_licenses} || []};
+  my @new_incompat = uniq(map { @{$_->{licenses}} } @{$new->{incompatible_licenses} || []});
+  my %old          = map { $_ => 1 } @old_incompat;
+
+  my @new;
+  for my $lic (@new_incompat) {
+    push @new, $lic unless $old{$lic};
+  }
+
+  return @new;
 }
 
 1;

@@ -1,8 +1,12 @@
+% use Mojo::Util qw(humanize_bytes);
 
 # Legal Report
 
 Package:  <%== $package->{name} %>
 Checkout: <%== $package->{checkout_dir} %>
+% my $num_files = $package->{unpacked_files};
+% my $size = humanize_bytes($package->{unpacked_size} // 0);
+Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $size %>)
 
 
 
@@ -15,6 +19,12 @@ Checkout: <%== $package->{checkout_dir} %>
 
 % }
 ## Licenses
+% if ($report->{incompatible_licenses} && @{$report->{incompatible_licenses}}) {
+
+% my $licenses = join(', ', map { @{$_->{licenses}} } @{$report->{incompatible_licenses}});
+**Warning** Elevated risk, package might contain incompatible licenses: <%= $licenses %>
+
+% }
 % if (@{$report->{missed_files}}) {
 
 Note: Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
@@ -28,11 +38,11 @@ existing license patterns, the higher the risk will climb above the predicted li
 * `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $file->{license} %>", estimated risk <%== $file->{max_risk} %>
 %   }
 
-
 % }
 % my $risks = $report->{risks};
 % for my $risk (reverse sort keys %$risks) {
 %   my $current = $risks->{$risk};
+
 ### Risk <%== $risk %> (<%== $risk <= 3 ? 'Low' : 'High'%>)
 
 %   for my $lic (sort keys %$current) {

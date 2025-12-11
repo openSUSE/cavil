@@ -22,7 +22,7 @@ use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk);
+use Cavil::ReportUtil qw(estimated_risk incompatible_licenses);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg)];
 
@@ -44,6 +44,9 @@ sub dig_report {
   my %ignored_lines = map { $_->{hash} => 1 } $ignored->hashes->each;
 
   my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
+
+  # Incompatible licenses
+  $report->{incompatible_licenses} = incompatible_licenses($report);
 
   # prune match caches
   delete $report->{matches};
@@ -170,6 +173,8 @@ sub summary ($self, $id) {
     }
   }
   $summary{missed_snippets} = $files;
+
+  $summary{incompatible_licenses} = $report->{incompatible_licenses};
 
   return \%summary;
 }
