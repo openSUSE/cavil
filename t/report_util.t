@@ -421,6 +421,25 @@ subtest 'summary_delta_score' => sub {
         {
           id              => 1,
           specfile        => 'MIT',
+          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
+          licenses        => {}
+        },
+        {
+          id              => 2,
+          specfile        => 'MIT',
+          missed_snippets => {
+            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
+            'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
+            'Mojolicious-7.25/README'             => ['441e8cc6ac467ffcbb5b2c27088def9a']
+          },
+          licenses => {}
+        }
+        ),
+        500, 'new file with snippets';
+      is summary_delta_score(
+        {
+          id              => 1,
+          specfile        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/Changes'            => ['641e8cc6ac467ffcbb5b2c27088def99']

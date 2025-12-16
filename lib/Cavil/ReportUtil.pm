@@ -182,8 +182,10 @@ sub summary_delta_score ($old, $new) {
   $score += 500 for _new_incompatibilities($old, $new);
 
   # New files with missed snippets (count)
-  if (keys %{$new->{missed_snippets}} > keys %{$old->{missed_snippets}}) {
-    $score += 250;
+  my $new_count = keys %{$new->{missed_snippets}};
+  my $old_count = keys %{$old->{missed_snippets}};
+  if ($new_count > $old_count) {
+    $score += ($new_count - $old_count) * 250;
   }
 
   # Check each file
