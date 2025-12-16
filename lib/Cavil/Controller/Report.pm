@@ -147,6 +147,7 @@ sub _sanitize_report ($self, $report) {
       my $current = $current->{$lic} = {};
       my $license = $licenses->{$lic};
       my $name    = $current->{name} = $license->{name};
+      $current->{spdx} = $license->{spdx};
 
       my $matches = $risk->{$lic};
       my %files   = map { $_ => 1 } map {@$_} values %$matches;

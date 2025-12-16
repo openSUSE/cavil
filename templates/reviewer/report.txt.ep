@@ -49,7 +49,7 @@ existing license patterns, the higher the risk will climb above the predicted li
 %   for my $lic (sort keys %$current) {
 %     my $matches = $current->{$lic};
 %     my $num = scalar @{$matches->{files}};
-* <%== $lic %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %>
+* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %>
 %   }
 
 

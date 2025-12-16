@@ -81,7 +81,7 @@
   <ul id="risk-<%= $risk %>">
     % for my $lic (sort keys %$current) {
       % my $matches = $current->{$lic};
-      % my $name = $matches->{name};
+      % my $name = $matches->{spdx} || $matches->{name};
       % my $num = scalar @{$matches->{files}};
       % $license_counter += 1;
       <li>
