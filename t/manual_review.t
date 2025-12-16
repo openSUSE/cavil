@@ -443,6 +443,7 @@ subtest 'Final JSON report' => sub {
   ok my $licenses = $report->{licenses},       'licenses';
   ok my $apache   = $licenses->{'Apache-2.0'}, 'Apache';
   is $apache->{name}, 'Apache-2.0', 'name';
+  is $apache->{spdx}, 'Apache-2.0', 'spdx';
   is $apache->{risk}, 5,            'risk';
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

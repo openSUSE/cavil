@@ -155,16 +155,28 @@ subtest 'incompatible_licenses' => sub {
   };
 
   subtest 'Incompatible licenses' => sub {
-    my $report = {
-      licenses => {
-        'MIT AND GPL-2.0+' => {risk => 1, spdx => 'MIT AND GPL-2.0-only'},
-        'BSD-3-Clause'     => {risk => 1},
-        'Apache-2.0'       => {risk => 2, spdx => 'Apache-2.0'}
-      }
+    subtest 'Main licenses' => sub {
+      my $report = {
+        licenses => {
+          'MIT AND GPL-2.0+' => {risk => 1, spdx => 'MIT AND GPL-2.0-only'},
+          'BSD-3-Clause'     => {risk => 1},
+          'Apache-2.0'       => {risk => 2, spdx => 'Apache-2.0'}
+        }
+      };
+      my $rules = [{licenses => ['GPL-2.0-only', 'Apache-2.0', 'MIT']}];
+      is_deeply incompatible_licenses($report, $rules), [{licenses => ['GPL-2.0-only', 'Apache-2.0', 'MIT']}],
+        'incompatible licenses found';
     };
-    my $rules = [{licenses => ['GPL-2.0-only', 'Apache-2.0', 'MIT']}];
-    is_deeply incompatible_licenses($report, $rules), [{licenses => ['GPL-2.0-only', 'Apache-2.0', 'MIT']}],
-      'incompatible licenses found';
+
+    subtest 'Keyword matches' => sub {
+      my $report = {
+        licenses     => {'BSD-3-Clause' => {risk => 1}, 'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}},
+        missed_files => {14 => [5, 1, "", ""], 8 => [5, 1, "", ""], 9 => [7, '0.5902', 'GPL-2.0', 'GPL-2.0-only']},
+      };
+      my $rules = [{licenses => ['GPL-2.0-only', 'Apache-2.0']}];
+      is_deeply incompatible_licenses($report, $rules), [{licenses => ['GPL-2.0-only', 'Apache-2.0']}],
+        'incompatible licenses found';
+    };
   };
 
   subtest 'Defaults' => sub {

@@ -106,7 +106,7 @@ sub _sanitize_report ($self, $report) {
   my @missed;
   for my $file (keys %$snippets) {
     $expanded->{$file} = 1;
-    my ($max_risk, $match, $license) = @{$report->{missed_files}{$file}};
+    my ($max_risk, $match, $license, $spdx) = @{$report->{missed_files}{$file}};
     $license = 'Keyword' unless $license;
     push(
       @missed,
@@ -115,6 +115,7 @@ sub _sanitize_report ($self, $report) {
         name     => $files->{$file},
         max_risk => $max_risk,
         license  => $license,
+        spdx     => $spdx,
         match    => int($match * 1000 + 0.5) / 10.
       }
     );

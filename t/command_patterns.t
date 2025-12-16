@@ -231,6 +231,7 @@ subtest 'Show pattern match' => sub {
 };
 
 subtest 'Inherit SPDX expressions from license name' => sub {
+  $app->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE id = 1', '');
   my $before = $app->pg->db->query('SELECT * FROM license_patterns WHERE id = 1')->hash;
 
   my $buffer = '';

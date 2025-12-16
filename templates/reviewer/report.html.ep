@@ -43,7 +43,7 @@
               <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
             </td>
             <td class="p-0">
-              <b><%= $file->{match} %>%</b> similarity to <b><%= $file->{license} %></b>
+              <b><%= $file->{match} %>%</b> similarity to <b><%= $file->{spdx} || $file->{license} %></b>
             </td>
             <td class="static-column p-0 text-end">
               % my $max_risk = $file->{max_risk};

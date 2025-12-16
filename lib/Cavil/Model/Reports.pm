@@ -456,8 +456,7 @@ sub _dig_report {
 
   for my $file (keys %{$report->{missed_snippets}}) {
     my $max_risk = 0;
-    my $license_of_max;
-    my $match_of_max;
+    my ($license_of_max, $spdx_of_max, $match_of_max);
     for my $snip_row (@{$report->{missed_snippets}{$file}}) {
       my ($dummy1, $dummy2, $dummy3, $dummy4, $match, $pattern) = @$snip_row;
       my $pinfo     = $self->_info_for_pattern($db, $pid_info, $pattern);
@@ -466,9 +465,10 @@ sub _dig_report {
         $max_risk       = $stat_risk;
         $match_of_max   = $match;
         $license_of_max = $pinfo->{name};
+        $spdx_of_max    = $pinfo->{spdx};
       }
     }
-    $missed_files{$file} = [$max_risk, $match_of_max, $license_of_max];
+    $missed_files{$file} = [$max_risk, $match_of_max, $license_of_max, $spdx_of_max];
   }
   $report->{missed_files} = \%missed_files;
 
@@ -494,7 +494,7 @@ sub _info_for_pattern {
 
   if (!defined $pid_info->{$pid}) {
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
-    $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
+    $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, spdx => $pattern->{spdx}, pid => $pid};
   }
   return $pid_info->{$pid};
 }

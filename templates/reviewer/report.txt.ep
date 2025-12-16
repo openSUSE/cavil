@@ -35,7 +35,8 @@ existing license patterns, the higher the risk will climb above the predicted li
 ### Risk 9 (Unknown)
 
 %   for my $file (@{$report->{missed_files}}) {
-* `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $file->{license} %>", estimated risk <%== $file->{max_risk} %>
+%     my $license = $file->{spdx} || $file->{license};
+* `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $license %>", estimated risk <%== $file->{max_risk} %>
 %   }
 
 % }

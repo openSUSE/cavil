@@ -150,6 +150,8 @@ sub mojo_fixtures ($self, $app) {
   );
   $patterns->create(pattern => 'the terms',        unique_id => '413430b9-8f04-49d8-93ef-953b68835d54');
   $patterns->create(pattern => 'copyright notice', unique_id => '413430b9-8f04-49d8-93ef-953b68835d55');
+
+  $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 Artistic-2.0);
 }
 
 sub no_fixtures ($self, $app) {

@@ -34,9 +34,11 @@ sub estimated_risk ($risk, $match) {
 }
 
 sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
-  return [] unless @$rules && (my $licenses = $dig_report->{licenses});
+  return [] unless @$rules;
 
-  my @spdx = map { $_->{spdx} } grep { $_->{spdx} } values %$licenses;
+  my @spdx;
+  push @spdx, map { $_->{spdx} } grep { $_->{spdx} } values %{$dig_report->{licenses}  || {}};
+  push @spdx, map { $_->[3] } grep    { $_->[3] } values %{$dig_report->{missed_files} || {}};
 
   my @regexes;
   for my $rule (@$rules) {
@@ -44,7 +46,7 @@ sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
   }
 
   my %matches;
-  for my $spdx (@spdx) {
+  for my $spdx (uniq @spdx) {
     for my $pair (@regexes) {
       next unless $spdx =~ $pair->[0];
       $matches{$pair->[1]}++;
