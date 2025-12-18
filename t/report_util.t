@@ -396,46 +396,6 @@ subtest 'summary_delta_score' => sub {
         }
         ),
         0, 'removed file';
-    };
-
-    subtest 'Noteworthy' => sub {
-      is summary_delta_score(
-        {
-          id              => 1,
-          specfile        => 'MIT',
-          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
-          licenses        => {}
-        },
-        {
-          id              => 2,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
-          },
-          licenses => {}
-        }
-        ),
-        250, 'new file with snippets';
-      is summary_delta_score(
-        {
-          id              => 1,
-          specfile        => 'MIT',
-          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
-          licenses        => {}
-        },
-        {
-          id              => 2,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
-            'Mojolicious-7.25/README'             => ['441e8cc6ac467ffcbb5b2c27088def9a']
-          },
-          licenses => {}
-        }
-        ),
-        500, 'new file with snippets';
       is summary_delta_score(
         {
           id              => 1,
@@ -456,7 +416,47 @@ subtest 'summary_delta_score' => sub {
           licenses => {}
         }
         ),
-        150, 'different file with snippets';
+        0, 'different file with same snippets';
+    };
+
+    subtest 'Noteworthy' => sub {
+      is summary_delta_score(
+        {
+          id              => 1,
+          specfile        => 'MIT',
+          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
+          licenses        => {}
+        },
+        {
+          id              => 2,
+          specfile        => 'MIT',
+          missed_snippets => {
+            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
+            'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
+          },
+          licenses => {}
+        }
+        ),
+        10, 'new file with snippets';
+      is summary_delta_score(
+        {
+          id              => 1,
+          specfile        => 'MIT',
+          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
+          licenses        => {}
+        },
+        {
+          id              => 2,
+          specfile        => 'MIT',
+          missed_snippets => {
+            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
+            'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
+            'Mojolicious-7.25/README'             => ['441e8cc6ac467ffcbb5b2c27088def9a']
+          },
+          licenses => {}
+        }
+        ),
+        20, 'new file with snippets';
       is summary_delta_score(
         {
           id              => 1,
@@ -477,7 +477,7 @@ subtest 'summary_delta_score' => sub {
           licenses => {}
         }
         ),
-        20, 'different snippets in same files';
+        10, 'different snippets in same files';
       is summary_delta_score(
         {
           id              => 1,
@@ -501,7 +501,7 @@ subtest 'summary_delta_score' => sub {
           licenses => {}
         }
         ),
-        40, 'additional snippets in same files';
+        20, 'additional snippets in same files';
     };
   };
 
@@ -683,7 +683,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/LICENSE\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved match in Mojolicious-7.25/LICENSE\n\n",
         'new file with snippets';
       is summary_delta(
         {
@@ -700,12 +700,12 @@ subtest 'summary_delta' => sub {
           specfile        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/COPYING'            => ['641e8cc6ac467ffcbb5b2c27088def99']
+            'Mojolicious-7.25/COPYING'            => ['641e8cc6ac467ffcbb5b2c27088def9a']
           },
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/COPYING\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved match in Mojolicious-7.25/COPYING\n\n",
         'different file with snippets';
       is summary_delta(
         {
@@ -727,7 +727,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/README\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved match in Mojolicious-7.25/README\n\n",
         'different snippets in same files';
       is summary_delta(
         {
@@ -752,7 +752,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/LEGAL\n\n",
+        "Diff to closest match 1:\n\n  Found 2 new unresolved matches in Mojolicious-7.25/LEGAL\n\n",
         'additional snippets in same files';
       is summary_delta(
         {
@@ -773,7 +773,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/COPYING and 1 file more\n\n",
+        "Diff to closest match 1:\n\n  Found 2 unresolved matches in Mojolicious-7.25/COPYING and other files\n\n",
         'two new files';
       is summary_delta(
         {
@@ -795,7 +795,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  New unresolved matches in Mojolicious-7.25/COPYING and 2 files more\n\n",
+        "Diff to closest match 1:\n\n  Found 2 unresolved matches in Mojolicious-7.25/COPYING and other files\n\n",
         'three new files';
     };
   };

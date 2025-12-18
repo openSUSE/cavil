@@ -129,36 +129,29 @@ sub summary_delta ($old, $new) {
     $text .= "  Different spec file license: $old->{specfile}\n\n";
   }
 
-  # Files with new missed snippets
-  my @files_with_new_snippets;
-  my $new_snippets = $new->{missed_snippets};
-  for my $file (sort keys %$new_snippets) {
-    my %old_snippets = map { $_ => 1 } @{$old->{missed_snippets}{$file} || []};
-    for my $snippet (@{$new_snippets->{$file}}) {
-      next if $old_snippets{$snippet};
-      push @files_with_new_snippets, $file;
-      last;
+  # New snippet matches
+  my $new_snippets = _new_snippets($old, $new);
+  for my $file (sort values %$new_snippets) {
+    my $num = keys %$new_snippets;
+    if ($num == 1) {
+      $text .= "  Found new unresolved match in $file\n\n";
     }
-  }
-  if (@files_with_new_snippets) {
-    $text .= "  New unresolved matches in " . (shift @files_with_new_snippets);
-    if (@files_with_new_snippets) {
-      my $num = scalar @files_with_new_snippets;
-      $text .= " and $num " . ($num > 1 ? 'files' : 'file') . ' more';
+    elsif (uniq(values %$new_snippets) == 1) {
+      $text .= "  Found $num new unresolved matches in $file\n\n";
     }
-    $text .= "\n\n";
+    else {
+      $text .= "  Found $num unresolved matches in $file and other files\n\n";
+    }
+    last;
   }
 
   # New licenses
-  my %lics = %{$new->{licenses}};
-  delete $lics{$_} for keys %{$old->{licenses}};
-  if (keys %lics) {
-    my @lines;
-    for my $lic (sort keys %lics) {
-      push @lines, "  Found new license $lic (risk $lics{$lic}) not present in old report";
-    }
-    $text .= join("\n", @lines) . "\n\n";
+  my $new_licenses = _new_licenses($old, $new);
+  my @lines;
+  for my $lic (sort keys %$new_licenses) {
+    push @lines, "  Found new license $lic (risk $new_licenses->{$lic}) not present in old report";
   }
+  $text .= join("\n", @lines) . "\n\n" if @lines;
 
   # License incompatibilities
   if (my @licenses = _new_incompatibilities($old, $new)) {
@@ -170,48 +163,21 @@ sub summary_delta ($old, $new) {
 }
 
 sub summary_delta_score ($old, $new) {
+  my $score = 0;
 
   # Specfile license change
-  if ($new->{specfile} ne $old->{specfile}) {
-    return 1000;
-  }
+  $score += 1000 if $new->{specfile} ne $old->{specfile};
 
-  my $score = 0;
+  # New snippet matches
+  my $new_snippets = _new_snippets($old, $new);
+  $score += 10 * keys %$new_snippets;
+
+  # New licenses
+  my $new_licenses = _new_licenses($old, $new);
+  $score += 10 * $new_licenses->{$_} for keys %$new_licenses;
 
   # License incompatibilities
   $score += 500 for _new_incompatibilities($old, $new);
-
-  # New files with missed snippets (count)
-  my $new_count = keys %{$new->{missed_snippets}};
-  my $old_count = keys %{$old->{missed_snippets}};
-  if ($new_count > $old_count) {
-    $score += ($new_count - $old_count) * 250;
-  }
-
-  # Check each file
-  else {
-    my $new_snippets = $new->{missed_snippets};
-    for my $file (sort keys %$new_snippets) {
-      if (my $old_snippets = $old->{missed_snippets}{$file}) {
-        my %old_snippets = map { $_ => 1 } @$old_snippets;
-        for my $snippet (@{$new_snippets->{$file}}) {
-          $score += 20 unless $old_snippets{$snippet};
-        }
-      }
-
-      # New file with missed snippets (filename)
-      else {
-        $score += 150;
-      }
-    }
-  }
-
-  # New licenses
-  my %lics = %{$new->{licenses}};
-  delete $lics{$_} for keys %{$old->{licenses}};
-  for my $risk (values %lics) {
-    $score += $risk * 10;
-  }
 
   return $score;
 }
@@ -227,6 +193,29 @@ sub _new_incompatibilities ($old, $new) {
   }
 
   return @new;
+}
+
+sub _new_licenses ($old, $new) {
+  my %old_licenses = map { $_ => 1 } keys %{$old->{licenses} || {}};
+
+  my %new_licenses;
+  for my $lic (keys %{$new->{licenses}}) {
+    $new_licenses{$lic} ||= $new->{licenses}{$lic} unless $old_licenses{$lic};
+  }
+  return \%new_licenses;
+}
+
+sub _new_snippets ($old, $new) {
+  my $new_snippets = $new->{missed_snippets};
+  my %old_snippets = map { $_ => 1 } map { @{$_} } values %{$old->{missed_snippets} || {}};
+
+  my %files_with_new_snippets;
+  for my $file (sort keys %$new_snippets) {
+    for my $snippet (@{$new_snippets->{$file}}) {
+      $files_with_new_snippets{$snippet} ||= $file unless $old_snippets{$snippet};
+    }
+  }
+  return \%files_with_new_snippets;
 }
 
 1;
