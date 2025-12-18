@@ -131,18 +131,18 @@ sub summary_delta ($old, $new) {
 
   # New snippet matches
   my $new_snippets = _new_snippets($old, $new);
-  for my $file (sort values %$new_snippets) {
-    my $num = keys %$new_snippets;
-    if ($num == 1) {
-      $text .= "  Found new unresolved match in $file\n\n";
+  if (my @files = sort values %$new_snippets) {
+    my $file = $files[0];
+    my $num  = uniq(@files) - 1;
+    if ($num == 0) {
+      $text .= "  Found new unresolved matches in $file\n\n";
     }
-    elsif (uniq(values %$new_snippets) == 1) {
-      $text .= "  Found $num new unresolved matches in $file\n\n";
+    elsif ($num == 1) {
+      $text .= "  Found new unresolved matches in $file and 1 other file\n\n";
     }
     else {
-      $text .= "  Found $num unresolved matches in $file and other files\n\n";
+      $text .= "  Found new unresolved matches in $file and $num other files\n\n";
     }
-    last;
   }
 
   # New licenses

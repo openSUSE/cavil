@@ -683,7 +683,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved match in Mojolicious-7.25/LICENSE\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/LICENSE\n\n",
         'new file with snippets';
       is summary_delta(
         {
@@ -705,7 +705,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved match in Mojolicious-7.25/COPYING\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/COPYING\n\n",
         'different file with snippets';
       is summary_delta(
         {
@@ -727,7 +727,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved match in Mojolicious-7.25/README\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/README\n\n",
         'different snippets in same files';
       is summary_delta(
         {
@@ -752,7 +752,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found 2 new unresolved matches in Mojolicious-7.25/LEGAL\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/LEGAL\n\n",
         'additional snippets in same files';
       is summary_delta(
         {
@@ -773,7 +773,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found 2 unresolved matches in Mojolicious-7.25/COPYING and other files\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/COPYING and 1 other file\n\n",
         'two new files';
       is summary_delta(
         {
@@ -789,13 +789,14 @@ subtest 'summary_delta' => sub {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
             'Mojolicious-7.25/COPYING'            => ['741e8cc6ac467ffcbb5b2c27088def9a'],
-            'Mojolicious-7.25/README'             => ['741e8cc6ac467ffcbb5b2c27088def9a']
+            'Mojolicious-7.25/README'             => ['741e8cc6ac467ffcbb5b2c27088def9a'],
+            'Mojolicious-7.25/README.txt'         => ['741e8cc6ac467ffcbb5b2c27088def9e']
 
           },
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found 2 unresolved matches in Mojolicious-7.25/COPYING and other files\n\n",
+        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/COPYING and 2 other files\n\n",
         'three new files';
     };
   };
