@@ -303,6 +303,14 @@ body {
   padding: 10px;
 }
 
+a.spdx-link {
+  color: inherit;
+  text-decoration: inherit;
+}
+a.spdx-link:hover {
+  text-decoration: underline;
+}
+
 .file-list {
   border-top: 1px solid rgb(208, 215, 222);
   padding-top: 1em;

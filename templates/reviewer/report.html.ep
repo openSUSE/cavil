@@ -1,3 +1,4 @@
+% use Cavil::Util qw(spdx_link);
 <br>
 % my $risks = $report->{risks};
 % if (keys %$risks) {
@@ -43,7 +44,7 @@
               <a href="#file-<%= $file->{id} %>" class="file-link"data-file="<%= $file->{id} %>"><%= $file->{name} %></a>
             </td>
             <td class="p-0">
-              <b><%= $file->{match} %>%</b> similarity to <b><%= $file->{spdx} || $file->{license} %></b>
+              <b><%= $file->{match} %>%</b> similarity to <b><%== spdx_link($file->{spdx} || $file->{license}) %></b>
             </td>
             <td class="static-column p-0 text-end">
               % my $max_risk = $file->{max_risk};
@@ -85,7 +86,7 @@
       % my $num = scalar @{$matches->{files}};
       % $license_counter += 1;
       <li>
-        <%= $name %>:
+        <%== spdx_link($name) %>:
         <a href="#filelist-<%= $license_counter %>" data-bs-toggle="collapse">
           <%= $num %> files
         </a>

@@ -33,7 +33,7 @@ $Text::Glob::strict_wildcard_slash = 0;
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
   qw(parse_exclude_file parse_service_file pattern_checksum pattern_matches read_lines request_id_from_external_link),
-  qw(run_cmd snippet_checksum ssh_sign)
+  qw(run_cmd snippet_checksum spdx_link ssh_sign @SPDX_LICENSES @SPDX_EXCEPTIONS)
 );
 
 my $MAX_FILE_SIZE = 30000;
@@ -43,6 +43,13 @@ my $SAFE_OBS_SRVICE_MODES = {buildtime => 1, localonly => 1, manual => 1, disabl
 
 # According to Adrian, this is the only exception currently
 my $SAFE_OBS_SRVICE_NAMES = {product_converter => 1};
+
+# Licenses and exceptions are updated with "perl tools/update_licenses.pl"
+our @SPDX_LICENSES   = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;
+our @SPDX_EXCEPTIONS = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
+
+# Fast lookup
+my %SPDX_LICENSES = map { $_ => 1 } @SPDX_LICENSES;
 
 sub buckets ($things, $size) {
 
@@ -128,6 +135,11 @@ sub slurp_and_decode ($path) {
 
   return $content if -s $path > $MAX_FILE_SIZE;
   return Mojo::Util::decode('UTF-8', $content) // $content;
+}
+
+sub spdx_link ($text) {
+  return $text unless $SPDX_LICENSES{$text};
+  return qq{<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/$text.html">$text</a>};
 }
 
 sub _line_tag ($line) {

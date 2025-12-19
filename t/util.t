@@ -19,7 +19,7 @@ use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (qw(buckets lines_context obs_ssh_auth parse_exclude_file parse_service_file pattern_matches),
-  qw(request_id_from_external_link run_cmd ssh_sign));
+  qw(request_id_from_external_link run_cmd spdx_link ssh_sign));
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
 -----BEGIN OPENSSH PRIVATE KEY-----
@@ -141,6 +141,15 @@ subtest 'run_cmd' => sub {
   is $result->{exit_code}, 0,       'right exit code';
   is $result->{stderr},    '',      'right stderr';
   is $result->{stdout},    "foo\n", 'right stdout';
+};
+
+subtest 'spdx_link' => sub {
+  is spdx_link('MIT'), '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>',
+    'known license';
+  is spdx_link('Apache-2.0'),
+    '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a>',
+    'known license';
+  is spdx_link('Unknown-License'), 'Unknown-License', 'unknown license';
 };
 
 subtest 'ssh_sign' => sub {

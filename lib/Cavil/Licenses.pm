@@ -18,6 +18,7 @@ use Mojo::Base -base, -signatures;
 use overload bool => sub {1}, '""' => sub { shift->to_string }, fallback => 1;
 
 use Exporter 'import';
+use Cavil::Util qw(@SPDX_LICENSES @SPDX_EXCEPTIONS);
 use Mojo::File 'path';
 use Text::Balanced 'extract_bracketed';
 use Mojo::Util qw(dumper trim);
@@ -26,7 +27,7 @@ use constant DEBUG => $ENV{SUSE_LICENSES_DEBUG} || 0;
 
 has [qw(error exception normalized tree)];
 
-our @EXPORT_OK = ('lic');
+our @EXPORT_OK = qw(lic);
 
 # Licenses and exceptions are updated with "perl tools/update_licenses.pl"
 my (%ALLOWED, %CHANGES, %EXCEPTIONS);
@@ -39,11 +40,8 @@ my (%ALLOWED, %CHANGES, %EXCEPTIONS);
     $CHANGES{$source} = $target;
   }
 
-  my @licenses = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;
-  $ALLOWED{$_}++ for @licenses;
-
-  my @exceptions = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
-  $EXCEPTIONS{$_}++ for @exceptions;
+  $ALLOWED{$_}++    for @SPDX_LICENSES;
+  $EXCEPTIONS{$_}++ for @SPDX_EXCEPTIONS;
 }
 
 my $TOKEN_RE;
