@@ -213,7 +213,7 @@ subtest 'Manual review' => sub {
     ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(2) b', qr![0-9.]+%!)
     ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(2)',   qr!similarity to!)
     ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(2) b:nth-of-type(2) a', qr!Apache-2.0!)
-    ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(3) .estimated-risk',  qr!Risk 7!)
+    ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(3) .estimated-risk',    qr!Risk 7!)
     ->element_exists('#risk-5');
   $t->element_exists('#emails')
     ->text_like('#emails tr td', qr!coolo\@suse\.com!)
