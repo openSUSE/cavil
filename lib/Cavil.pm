@@ -26,6 +26,7 @@ use Cavil::Model::Products;
 use Cavil::Model::Reports;
 use Cavil::Model::Requests;
 use Cavil::Model::Users;
+use Cavil::Model::APIKeys;
 use Cavil::Model::Snippets;
 use Cavil::OBS;
 use Cavil::SPDX;
@@ -145,6 +146,8 @@ sub startup ($self) {
   $self->helper(snippets =>
       sub ($c) { state $snips = Cavil::Model::Snippets->new(checkout_dir => $config->{checkout_dir}, pg => $c->pg) });
 
+  $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
+
   # Migrations (do not run automatically, use the migrate command)
   #
   my $path = $self->home->child('migrations', 'cavil.sql');
@@ -153,6 +156,7 @@ sub startup ($self) {
   # Authentication
   my $public               = $self->routes;
   my $bot                  = $public->under('/')->to('Auth::Token#check');
+  my $api_key              = $public->under('/')->to('Auth::APIKey#check');
   my $logged_in            = $public->under('/' => {roles => []})->to('Auth#check');
   my $manager              = $public->under('/' => {roles => ['manager']})->to('Auth#check');
   my $admin                = $public->under('/' => {roles => ['admin']})->to('Auth#check');
@@ -201,6 +205,15 @@ sub startup ($self) {
   $public->get('/api/1.0/identify/:name/:checksum')->to('API#identify')->name('identify_api');
   $public->get('/api/1.0/package/:name')->to('API#status')->name('package_api');
   $public->get('/api/1.0/source')->to('API#source')->name('source_api');
+
+  # API with key
+  $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
+
+  # API Keys
+  $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');
+  $logged_in->get('/api_keys/meta')->to('APIKeys#list_meta')->name('list_api_keys_meta');
+  $logged_in->post('/api_keys')->to('APIKeys#create')->name('create_api_keys');
+  $logged_in->delete('/api_keys/:id')->to('APIKeys#remove')->name('remove_api_keys');
 
   # Review UI
   $public->get('/')->to('Reviewer#list_reviews')->name('dashboard');

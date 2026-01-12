@@ -61,4 +61,10 @@ sub status ($self) {
   $self->render(json => {package => $name, requests => $self->packages->states($name)});
 }
 
+sub whoami ($self) {
+  my $user = $self->current_user;
+  my $id   = $self->users->id_for_login($user);
+  $self->render(json => {id => $id, user => $user});
+}
+
 1;

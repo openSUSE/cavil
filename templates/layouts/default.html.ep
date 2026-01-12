@@ -126,6 +126,9 @@
                     <%= link_to 'Documentation' => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md', class => 'dropdown-item' %>
                   </li>
                   <li>
+                    %= link_to 'API Keys' => 'list_api_keys', class => 'dropdown-item'
+                  </li>
+                  <li>
                     %= link_to 'Logout' => 'logout', class => 'dropdown-item'
                   </li>
                 </ul>

@@ -153,7 +153,6 @@ export default {
   },
   methods: {
     async addGlob() {
-      console.log('Add Glob!');
       const ua = new UserAgent({baseURL: window.location.href});
       await ua.post(this.addGlobUrl, {form: {glob: this.globToAdd}});
       this.doApiRefresh();

@@ -1,0 +1,8 @@
+% layout 'default';
+% title 'API Keys';
+
+<div id="api-keys"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupApiKeys();
+% end

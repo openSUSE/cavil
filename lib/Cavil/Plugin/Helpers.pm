@@ -62,7 +62,7 @@ sub _chart_data ($c, $hash) {
   return {licenses => to_json(\@licenses), 'num-files' => to_json(\@num_files), colours => to_json(\@colours)};
 }
 
-sub _current_user ($c) { $c->session('user') }
+sub _current_user ($c) { $c->stash->{'api.user'} // $c->session('user') }
 
 sub _current_user_has_role ($c, @roles) {
   return undef unless my $user = $c->helpers->current_user;

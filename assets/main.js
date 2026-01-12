@@ -11,6 +11,7 @@ import 'moment';
 import {setupCodeMirrorForFile} from './legacy/file.js';
 import {setupReviewDetails} from './legacy/review.js';
 import {fromNow} from './legacy/time.js';
+import ApiKeys from './vue/ApiKeys.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
 import EditSnippet from './vue/EditSnippet.vue';
@@ -71,6 +72,10 @@ window.cavil = {
 
   setupIgnoredFiles() {
     createApp(IgnoredFiles).mount('#ignored-files');
+  },
+
+  setupApiKeys() {
+    createApp(ApiKeys).mount('#api-keys');
   },
 
   setupKnownLicenses() {
