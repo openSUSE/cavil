@@ -100,5 +100,18 @@ Package: perl-Mojolicious
 Checkout: c7cfdab0e71b0bebfdf8b2dc3badfecd
 Unpacked: 341 files (2.5MiB)
 
+## System Notice
+
+Diff to closest match 12345:
+
+  Found new license MIT (risk 1) not present in old report
+
+
+## Licenses
+
+### Risk 1 (Low)
+
+* BSD-3-Clause: 30 files
+* MIT: 10 files
 ...
 ```
