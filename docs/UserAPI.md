@@ -49,7 +49,15 @@ Content-Encoding: gzip
 
 `GET /api/v1/whoami`
 
-Get user information in JSON format.
+Get information about the user this API key belongs to in JSON format.
+
+**Request:**
+
+```
+GET /api/v1/whoami
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+```
 
 **Response:**
 
@@ -59,8 +67,8 @@ Content-Length: 24
 Content-Type: application/json
 
 {
-  "id": 15,
-  "user": "kraih"
+  "id": 23,
+  "user": "tester"
 }
 ```
 
