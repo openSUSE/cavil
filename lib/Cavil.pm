@@ -200,7 +200,7 @@ sub startup ($self) {
   # API for lawyer tools
   $bot->get('/source/<id:num>')->to('Report#source', format => 'json');
 
-  # Public API
+  # Public API (legacy)
   $public->get('/api/package/:name' => sub ($c) { $c->redirect_to('package_api') });
   $public->get('/api/1.0/identify/:name/:checksum')->to('API#identify')->name('identify_api');
   $public->get('/api/1.0/package/:name')->to('API#status')->name('package_api');
@@ -208,6 +208,7 @@ sub startup ($self) {
 
   # API with key
   $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
+  $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt']])->to('Report#report');
 
   # API Keys
   $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');

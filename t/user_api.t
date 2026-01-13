@@ -21,6 +21,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Mojo::File qw(path);
 use Mojo::Date;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -28,6 +29,21 @@ plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'user_api_test');
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
+
+# Add patterns for known incompatible licenses
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',   license => 'Apache-2.0');
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-2.0-only', license => 'GPL-2.0-only');
+$t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 GPL-2.0-only);
+
+# Add files with incompatible licenses
+my $pkg = $t->app->packages->find(1);
+my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+$dir->child('apache_file.txt')->spurt("# SPDX-License-Identifier: Apache-2.0\n\nThis is a test file.\n");
+$dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nThis is another test file.\n");
+
+# Unpack and index
+$t->app->minion->enqueue(unpack => [1]);
+$t->app->minion->perform_jobs;
 
 subtest 'API keys' => sub {
   my $key           = '';
@@ -52,15 +68,38 @@ subtest 'API keys' => sub {
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
   };
 
-  subtest 'Access API with key' => sub {
+  subtest 'Access API without key' => sub {
     $t->get_ok('/api/v1/whoami')
       ->status_is(403)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/report/1.json')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/report/1.txt')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+  };
 
+  subtest 'Access API with key' => sub {
     $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
       ->status_is(200)
       ->json_is('/id', 2)
       ->json_is('/user' => 'tester');
+  };
+
+  subtest 'Access reports with API key' => sub {
+    $t->get_ok('/api/v1/report/1.json' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->json_is('/package/id'                      => 1)
+      ->json_is('/package/checkout_dir'            => 'c7cfdab0e71b0bebfdf8b2dc3badfecd')
+      ->json_is('/report/licenses/Apache-2.0/spdx' => 'Apache-2.0');
+
+    $t->get_ok('/api/v1/report/1.txt' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_like(qr/Package:.+perl-Mojolicious/)
+      ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
+      ->content_like(qr/Unpacked:.+files/)
+      ->content_like(qr/Apache-2.0:.+3 files/);
   };
 
   subtest 'API keys from multiple users' => sub {

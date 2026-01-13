@@ -3,8 +3,8 @@
     <div class="row">
       <div class="col-12 alert alert-primary" role="alert">
         These API keys can be used to authenticate API requests. See
-        <a target="_blank" href="https://github.com/openSUSE/cavil/blob/master/docs/API.md">API documentation</a> for
-        more details.
+        <a target="_blank" href="https://github.com/openSUSE/cavil/blob/master/docs/UserAPI.md">API documentation</a>
+        for more details.
         <button
           name="add-api-key"
           class="btn btn-primary float-end"
