@@ -14,7 +14,7 @@
 * Legal risk assessments by lawyers for every pattern match
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
 * Optional support for machine learning models to classify pattern matches
-* MCP support for integration into AI assisted legal review workflows
+* [MCP](https://modelcontextprotocol.io/) support for integration into AI assisted legal review workflows
 * REST API for integration into existing source code management systems
 * [Open Build Service](https://github.com/openSUSE/openSUSE-release-tools) and [Gitea](https://github.com/openSUSE/cavil-gitea) integration
   via bots
