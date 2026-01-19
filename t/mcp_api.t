@@ -95,9 +95,11 @@ subtest 'MCP' => sub {
       my $result = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious'});
       ok !$result->{isError}, 'not an error';
       my $text = $result->{content}[0]{text};
-      like $text, qr/1\..+perl-Mojolicious/, 'contains package name';
-      like $text, qr/Id:.+1/,                'contains id';
-      like $text, qr/External-Link:.+mojo/,  'contains external link';
+      like $text, qr/1\..+perl-Mojolicious/,  'contains package name';
+      like $text, qr/Id:.+1/,                 'contains id';
+      like $text, qr/External-Link:.+mojo/,   'contains external link';
+      like $text, qr/Priority:.+5/,           'contains priority';
+      like $text, qr/Unresolved-Matches:.+6/, 'contains unresolved matches';
       note $text;
     };
 

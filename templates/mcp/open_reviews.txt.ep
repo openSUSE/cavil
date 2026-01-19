@@ -9,7 +9,7 @@ Note: External links contain references to external source code management syste
 
 %   for (my $i = 0; $i <= $#{$reviews}; $i++) {
 %     my $review = $reviews->[$i];
-<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>)
+<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>, Unresolved-Matches: <%== $review->{unresolved_matches} %>)
 
 %   }
 % }
