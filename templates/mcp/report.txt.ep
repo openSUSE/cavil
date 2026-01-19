@@ -1,0 +1,133 @@
+
+# Legal Report
+
+Package: <%== $summary->{package_name} %>
+Id: <%== $summary->{id} %>
+State: <%== $summary->{state} %>
+External-Link: <%== $summary->{external_link} %>
+% if (my $version = $summary->{package_version}) {
+Version: <%== $version %>
+% }
+% if (my $sum = $summary->{package_summary}) {
+Summary: <%== $sum %>
+% }
+% if (my $group = $summary->{package_group}) {
+Group: <%== $group %>
+% }
+% if (my $url = $summary->{package_url}) {
+URL: <%== $url %>
+% }
+Shortname: <%== $summary->{package_shortname} %>
+Checkout: <%== $summary->{package_checksum} %>
+% my $num_files = $summary->{unpacked_files};
+Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%== $summary->{unpacked_size} %>)
+Priority: <%== $summary->{package_priority} %>
+Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
+
+
+
+% if (my $notice = $summary->{notice}) {
+## System Notice
+
+%== $notice
+
+
+
+% }
+% if (@{$summary->{errors}}) {
+## Package File Warnings for Packagers
+
+% for my $error (@{$summary->{errors}}) {
+* <%== $error %>
+% }
+
+
+
+% }
+% if (@{$summary->{warnings}}) {
+## Package File Warnings for Reviewers
+
+% for my $warning (@{$summary->{warnings}}) {
+* <%== $warning %>
+% }
+
+
+
+% }
+## Licenses
+% if ($report->{incompatible_licenses} && @{$report->{incompatible_licenses}}) {
+
+% my $licenses = join(', ', map { @{$_->{licenses}} } @{$report->{incompatible_licenses}});
+**Warning** Elevated risk, package might contain incompatible licenses: <%== $licenses %>
+
+% }
+% if (@{$report->{missed_files}}) {
+
+Note: Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
+positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its similarity to
+existing license patterns, the higher the risk will climb above the predicted license.
+
+
+### Risk 9 (Unknown)
+
+%   for my $file (@{$report->{missed_files}}) {
+%     my $license = $file->{spdx} || $file->{license};
+* `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $license %>", estimated risk <%== $file->{max_risk} %>
+%   }
+
+% }
+% my $risks = $report->{risks};
+% for my $risk (reverse sort keys %$risks) {
+%   my $current = $risks->{$risk};
+
+### Risk <%== $risk %> (<%== $risk <= 3 ? 'Low' : 'High'%>)
+
+%   for my $lic (sort keys %$current) {
+%     my $matches = $current->{$lic};
+%     my $num = scalar @{$matches->{files}};
+* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %>
+%   }
+
+% }
+% if (!(keys %{$report->{risks}}) && !@{$report->{missed_files}}) {
+
+No files matching any known license patterns or keywords have been found.
+
+% }
+
+% if (@{$report->{emails}}) {
+
+% if (@$unmatched_keywords) {
+## Unmatched Keywords
+
+%   for my $unmatched (@$unmatched_keywords) {
+* `<%== $unmatched->{path} %>` (Snippet: <%= $unmatched->{snippet} %>, Hash: <%= $unmatched->{hash} %>):
+```
+%     for my $line (@{$unmatched->{lines}}) {
+<%== $line->[1] %>
+%     }
+```
+
+%   }
+
+% }
+
+## Email Addresses
+
+Ordered by number of occurrences.
+
+%   for my $email (@{$report->{emails}}) {
+* `<%== $email->[0] %>`: <%== $email->[1] %>
+%   }
+% }
+
+% if (@{$report->{urls}}) {
+
+## URLs
+
+Ordered by number of occurrences.
+
+%   for my $url (@{$report->{urls}}) {
+* `<%== $url->[0] %>`: <%== $url->[1] %>
+%   }
+% }

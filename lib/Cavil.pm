@@ -1,18 +1,5 @@
-# Copyright (C) 2018-2022 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
-
+# Copyright SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 package Cavil;
 use Mojo::Base 'Mojolicious', -signatures;
 
@@ -102,6 +89,9 @@ sub startup ($self) {
   $self->plugin('Cavil::Task::SPDX');
 
   $self->plugin('Cavil::Plugin::Linux');
+
+  my $mcp_action = $self->plugin('Cavil::Plugin::MCP');
+  $self->types->type(mcp => 'text/plain;charset=utf-8');
 
   # Compress dynamically generated content
   $self->renderer->compress(1);
@@ -207,8 +197,9 @@ sub startup ($self) {
   $public->get('/api/1.0/source')->to('API#source')->name('source_api');
 
   # API with key
+  $api_key->any('/mcp' => $mcp_action)->name('mcp');
   $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
-  $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt']])->to('Report#report');
+  $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
 
   # API Keys
   $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');

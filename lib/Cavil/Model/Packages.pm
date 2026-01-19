@@ -238,13 +238,18 @@ sub paginate_open_reviews ($self, $options) {
     $progress = 'AND (unpacked IS NULL OR indexed IS NULL)';
   }
 
+  my $embargoed = '';
+  if ($options->{not_embargoed} eq 'true') {
+    $embargoed = 'AND embargoed = false';
+  }
+
   my $results = $db->query(
     qq{
       SELECT id, name, EXTRACT(EPOCH FROM created) as created_epoch, EXTRACT(EPOCH FROM imported) as imported_epoch,
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
         priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages
-      WHERE state = 'new' AND obsolete = FALSE $priority $search $progress
+      WHERE state = 'new' AND obsolete = FALSE $priority $search $progress $embargoed
       ORDER BY priority DESC, external_link, created DESC, name
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}

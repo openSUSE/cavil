@@ -80,16 +80,26 @@ sub open_reviews ($self) {
   $v->optional('offset')->num;
   $v->optional('priority')->num;
   $v->optional('inProgress');
+  $v->optional('notEmbargoed');
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit       = $v->param('limit')      // 10;
-  my $offset      = $v->param('offset')     // 0;
-  my $priority    = $v->param('priority')   // 2;
-  my $in_progress = $v->param('inProgress') // 'false';
-  my $search      = $v->param('filter')     // '';
+  my $limit         = $v->param('limit')        // 10;
+  my $offset        = $v->param('offset')       // 0;
+  my $priority      = $v->param('priority')     // 2;
+  my $in_progress   = $v->param('inProgress')   // 'false';
+  my $not_embargoed = $v->param('notEmbargoed') // 'false';
+  my $search        = $v->param('filter')       // '';
 
   my $page = $self->packages->paginate_open_reviews(
-    {limit => $limit, offset => $offset, in_progress => $in_progress, priority => $priority, search => $search});
+    {
+      limit         => $limit,
+      offset        => $offset,
+      in_progress   => $in_progress,
+      not_embargoed => $not_embargoed,
+      priority      => $priority,
+      search        => $search
+    }
+  );
   $self->render(json => $self->_mark_active_packages($page));
 }
 

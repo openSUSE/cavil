@@ -14,6 +14,7 @@
 * Legal risk assessments by lawyers for every pattern match
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
 * Optional support for machine learning models to classify pattern matches
+* MCP support for integration into AI assisted legal review workflows
 * REST API for integration into existing source code management systems
 * [Open Build Service](https://github.com/openSUSE/openSUSE-release-tools) and [Gitea](https://github.com/openSUSE/cavil-gitea) integration
   via bots
@@ -59,7 +60,7 @@ There are currently two example implementations for a companion server applicati
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
       perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
       perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
-      perl-Try-Tiny git git-lfs
+      perl-Try-Tiny perl-MCP git git-lfs
     $ npm i
     $ npm run build
 

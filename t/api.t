@@ -460,6 +460,12 @@ subtest 'Pagination' => sub {
       ->json_is('/total',     1)
       ->json_is('/page/0/id', 4)
       ->json_hasnt('/page/1');
+    $t->get_ok('/pagination/reviews/open?notEmbargoed=true')
+      ->json_is('/start',     1)
+      ->json_is('/end',       3)
+      ->json_is('/total',     3)
+      ->json_is('/page/0/id', 2)
+      ->json_hasnt('/page/3');
   };
 };
 

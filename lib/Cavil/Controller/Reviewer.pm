@@ -17,9 +17,7 @@ package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File      qw(path);
-use Mojo::Util      qw(humanize_bytes);
 use Cavil::Licenses qw(lic);
-use List::Util      qw(first uniq);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -41,108 +39,10 @@ sub details ($self) {
 }
 
 sub meta ($self) {
-  my $id   = $self->stash('id');
-  my $pkgs = $self->packages;
-  return $self->render(json => {error => 'Package not found'}, status => 404) unless my $pkg = $pkgs->find($id);
-
-  my $spec = $self->reports->specfile_report($id);
-  my $type = first { length $_ } map { $_->{type} } @{$spec->{sub} // []};
-
-  my $main               = $spec->{main};
-  my $main_license       = $main->{license};
-  my $normalized_license = lic($main_license)->to_string;
-  my $package_license    = $normalized_license || $main_license;
-
-  my $version = $main->{version};
-  my $summary = $main->{summary};
-  my $group   = $main->{group};
-  my $url     = $main->{url};
-
-  my $has_spdx_report = $pkgs->has_spdx_report($id);
-  my $report          = $pkg->{checksum} // '';
-  my ($shortname)     = $report =~ /:(\w+)$/;
-
-  my $requests = $pkgs->requests_for($id);
-  my $products = $self->products->for_package($id);
-
-  my $history = [];
-  for my $prev (@{$pkgs->history($pkg->{name}, $pkg->{checksum}, $id)}) {
-    my $entry = {
-      created        => $prev->{created_epoch},
-      external_link  => $prev->{external_link},
-      id             => $prev->{id},
-      result         => $prev->{result} // '',
-      reviewing_user => $prev->{login}  // '',
-      state          => $prev->{state}
-    };
-    push @$history, $entry;
-  }
-
-  my $actions = [];
-  for my $action (@{$pkgs->actions($pkg->{external_link}, $id)}) {
-    my $entry = {
-      created => $action->{created_epoch},
-      id      => $action->{id},
-      name    => $action->{name},
-      result  => $action->{result} // '',
-      state   => $action->{state}
-    };
-    push @$actions, $entry;
-  }
-
-  my (%docs, %lics, @package_files);
-  for my $sub (@{$spec->{sub} // []}) {
-    my $entry = {
-      file     => $sub->{file},
-      group    => $sub->{group},
-      licenses => [uniq @{$sub->{licenses} // []}],
-      sources  => [uniq @{$sub->{sources}  // []}],
-      summary  => $sub->{summary},
-      url      => $sub->{url},
-      version  => $sub->{version}
-    };
-    push @package_files, $entry;
-    for my $line (@{$sub->{'%doc'}}) {
-      $docs{$_} = 1 for split(/ /, $line);
-    }
-    for my $line (@{$sub->{'%license'}}) {
-      $lics{$_} = 1 for split(/ /, $line);
-    }
-  }
-
-  $self->render(
-    json => {
-      actions           => $actions,
-      copied_files      => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
-      created           => $pkg->{created_epoch},
-      embargoed         => \!!$pkg->{embargoed},
-      errors            => $spec->{errors} // [],
-      external_link     => $pkg->{external_link},
-      has_spdx_report   => \!!$has_spdx_report,
-      history           => $history,
-      notice            => $pkg->{notice},
-      package_checksum  => $pkg->{checkout_dir},
-      package_files     => \@package_files,
-      package_group     => $group,
-      package_license   => {name => $package_license, spdx => \!!$normalized_license},
-      package_name      => $pkg->{name},
-      package_priority  => $pkg->{priority},
-      package_shortname => $shortname,
-      package_summary   => $summary,
-      package_type      => $type,
-      package_url       => $url,
-      package_version   => $version,
-      products          => $products,
-      requests          => $requests,
-      result            => $pkg->{result},
-      reviewed          => $pkg->{reviewed_epoch},
-      reviewing_user    => $pkg->{login},
-      state             => $pkg->{state},
-      unpacked_files    => $pkg->{unpacked_files},
-      unpacked_size     => humanize_bytes($pkg->{unpacked_size} // 0),
-      warnings          => $spec->{warnings} // []
-    }
-  );
+  my $id = $self->stash('id');
+  return $self->render(json => {error => 'Package not found'}, status => 404)
+    unless my $summary = $self->helpers->package_summary($id);
+  $self->render(json => $summary);
 }
 
 sub fasttrack_package ($self) {

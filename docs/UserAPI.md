@@ -1,8 +1,6 @@
 # Cavil User API
 
-## REST API
-
-### Authentication
+## Authentication
 
 All user API endpoints use bearer tokens you can generate with the "API Keys" menu entry after logging into Cavil.
 These bearer tokens are passed with every request via the `Authorization` header.
@@ -30,6 +28,88 @@ You can use any HTTP user-agent to access API endpoints, `curl` for example is g
 $ curl -H 'Authorization: Bearer generated_api_key_here' https://legaldb.suse.de/api/v1/whoami
 ...
 ```
+
+## MCP API
+
+The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a standard that allows Large Language Models
+(LLMs) to interact with web services. MCP is supported natively by Cavil. An MCP endpoint is available with API key
+authentication under the path `/mcp`.
+
+Many features have access restrictions, and which are available to you will depend on the type of API key being used
+(read-only or read-write), and which roles your user account has assigned. Embargoed package updates may not be
+processed with AI and are always excluded.
+
+Most MCP clients today support Bearer token authentication, so that is what Cavil relies on as well. More
+authentication mechanisms will be added as the technology evolves.
+
+This example configuration in the `mcp.json` format, which is commonly used by MCP clients, shows how to include a
+Cavil API key by setting the Authorization HTTP header:
+
+```
+{
+  "mcpServers": {
+    "cavil": {
+      "url": "https://legaldb.suse.de/mcp",
+      "headers": {
+        "Authorization": "Bearer generated_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### 3rd Party MCP Clients
+
+While most MCP clients will work with Cavil, we recommend the use of models specifically designed for legal
+professionals.
+
+#### gemini-cli
+
+Once you have installed and set up [gemini-cli](https://github.com/google-gemini/gemini-cli), you can use the gemini
+mcp command to add Cavil:
+
+```
+gemini mcp add cavil https://legaldb.suse.de/mcp -H 'Authorization: Bearer generated_api_key_here' -t http
+```
+
+After restarting gemini-cli, it will automatically discover available Cavil tools and make use of them on its own:
+
+```
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  > You are a legal reviewer for SUSE Linux Enterprise. Take a look at legal  │
+│    report 1 and make a recommendation if that package update should be       │
+│    accepted for distribution to customers.                                   │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+ ╭─────────────────────────────────────────────────────────────────────────────╮
+ │ ✔ cavil_get_report (cavil MCP Server) {"package_id":1}.                     │
+ │                                                                             │
+ │    ...                                                                      │
+ ╰─────────────────────────────────────────────────────────────────────────────╯
+
+✦ Based on my review of the legal report for perl-Mojolicious version 7.25, I
+  recommend acceptance of the package for distribution.
+
+  Justification:
+
+   1. Licenses: The package is primarily licensed under the Artistic License
+      2.0, with other files covered by compatible and acceptable licenses
+      such as Apache-2.0, MIT, and CC-BY-SA-4.0. These are all standard and
+      approved open-source licenses.
+   2. High-Risk Item: The single file flagged with "Risk 9 (Unknown)",
+      Mojolicious-7.25/lib/Mojolicious/Guides/Contributing.pod, is a false
+      positive. The flagged text is a standard part of a contributor's guide,
+      instructing on code review practices, and is not a license.
+   3. No Other Issues: The report does not indicate any other legal
+      encumbrances. The email addresses and URLs are standard for an
+      open-source project and do not present any concerns.
+
+  The package is legally sound and meets the criteria for inclusion in SUSE
+  Linux Enterprise.
+
+```
+
+## REST API
 
 ### Compression
 
@@ -76,7 +156,8 @@ Content-Type: application/json
 
 `GET /api/v1/report/<package_id>.<format>`
 
-Get legal report in plain text or JSON format. Note that the exact report format is not static and will change from
+Get legal report in plain text or JSON format. Additionally to `txt` and `json`, the extended report format used for
+MCP is available with the format identifier `mcp`. Note that the exact report format is not static and will change from
 time to time.
 
 **Request:**

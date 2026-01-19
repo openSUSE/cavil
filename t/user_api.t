@@ -78,6 +78,9 @@ subtest 'API keys' => sub {
     $t->get_ok('/api/v1/report/1.txt')
       ->status_is(403)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/report/1.mcp')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
   };
 
   subtest 'Access API with key' => sub {
@@ -100,6 +103,13 @@ subtest 'API keys' => sub {
       ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
       ->content_like(qr/Unpacked:.+files/)
       ->content_like(qr/Apache-2.0:.+3 files/);
+
+    $t->get_ok('/api/v1/report/1.mcp' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_like(qr/Package:.+perl-Mojolicious/)
+      ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
+      ->content_like(qr/Apache-2.0:.+3 files/)
+      ->content_like(qr/LICENSE.+Snippet: 2.+Hash: 3c/);
   };
 
   subtest 'API keys from multiple users' => sub {

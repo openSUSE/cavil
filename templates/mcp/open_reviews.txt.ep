@@ -1,0 +1,18 @@
+# Open Reviews
+
+% if (@$reviews) {
+Ordered by priority, <%== $total %> review<%== $total == 1 ? '' : 's' %> found, showing top <%== scalar @$reviews %>.
+
+
+Note: External links contain references to external source code management systems or codestreams the reviews
+      originate from.
+
+%   for (my $i = 0; $i <= $#{$reviews}; $i++) {
+%     my $review = $reviews->[$i];
+<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>)
+
+%   }
+% }
+% else {
+There are currently no open reviews.
+% }

@@ -22,6 +22,7 @@
             <thead>
               <tr>
                 <th>API Key</th>
+                <th>Type</th>
                 <th>Description</th>
                 <th>Expires</th>
                 <th></th>
@@ -47,6 +48,7 @@
                     <span class="real">{{ key.apiKey }}</span>
                   </span>
                 </td>
+                <td>read-only</td>
                 <td>{{ key.description }}</td>
                 <td>{{ key.expires }}</td>
                 <td class="text-center">
@@ -58,7 +60,7 @@
             </tbody>
             <tbody v-else>
               <tr>
-                <td id="all-done" colspan="4">No API keys found.</td>
+                <td id="all-done" colspan="5">No API keys found.</td>
               </tr>
             </tbody>
           </table>
