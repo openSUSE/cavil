@@ -36,8 +36,9 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a standa
 authentication under the path `/mcp`.
 
 Many features have access restrictions, and which are available to you will depend on the type of API key being used
-(read-only or read-write), and which roles your user account has assigned. Embargoed package updates may not be
-processed with AI and are always excluded.
+(read-only or read-write), and which roles your user account has assigned.
+
+**Important**: Embargoed package updates cannot be processed with AI and are completely hidden from MCP tools.
 
 Most MCP clients today support Bearer token authentication, so that is what Cavil relies on as well. More
 authentication mechanisms will be added as the technology evolves.
