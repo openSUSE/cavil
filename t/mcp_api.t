@@ -171,6 +171,9 @@ subtest 'MCP' => sub {
       like $text, qr/Created:.+/,                                                          'created';
       like $text, qr/Manual review is required because no previous reports are available/, 'system notice';
       like $text, qr/Elevated risk, package might contain incompatible licenses/,          'risk notice';
+      like $text, qr/\* GPL-2.0-only: 1 file/,                                             'license summary';
+      like $text, qr/- `gpl2_file.txt`/,                                                   'matched file';
+      like $text, qr/- And 1 file more/,                                                   'more matched files';
       like $text, qr/Mojolicious-7\.25\/Changes/,                                          'file with unknown match';
       like $text, qr/- Fixed copyright notice/,                                            'unknown match preview';
       like $text, qr/sri\@cpan\.org/,                                                      'email found';

@@ -1,4 +1,6 @@
 
+% my $MAX_FILES_PER_LICENSE = 2;
+%
 # Legal Report
 
 Package: <%== $summary->{package_name} %>
@@ -84,8 +86,17 @@ existing license patterns, the higher the risk will climb above the predicted li
 
 %   for my $lic (sort keys %$current) {
 %     my $matches = $current->{$lic};
-%     my $num = scalar @{$matches->{files}};
+%     my $files = [sort @{$matches->{files}}];
+%     my $num = scalar @$files;
+%     my $max_files = $MAX_FILES_PER_LICENSE > $num ? $num : $MAX_FILES_PER_LICENSE;
 * <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %>
+%     for (my $i = $max_files - 1; $i >= 0; $i--) {
+  - `<%== $files->[$i][1] %>`
+%     }
+%     my $diff = $num - $max_files;
+%     if ($diff > 0) {
+  - And <%== $diff %> file<%== $diff > 1 ? 's' : '' %> more
+% }
 %   }
 
 % }
