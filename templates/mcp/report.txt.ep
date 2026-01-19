@@ -95,7 +95,7 @@ existing license patterns, the higher the risk will climb above the predicted li
 %     }
 %     my $diff = $num - $max_files;
 %     if ($diff > 0) {
-  - And <%== $diff %> file<%== $diff > 1 ? 's' : '' %> more
+  - ...
 % }
 %   }
 
