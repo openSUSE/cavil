@@ -38,7 +38,8 @@ authentication under the path `/mcp`.
 Many features have access restrictions, and which are available to you will depend on the type of API key being used
 (read-only or read-write), and which roles your user account has assigned.
 
-**Important**: Embargoed package updates cannot be processed with AI and are completely hidden from MCP tools.
+**Important**: Embargoed package updates cannot be processed with AI and are completely hidden from MCP tools. That
+means you have manually review them in the UI.
 
 Most MCP clients today support Bearer token authentication, so that is what Cavil relies on as well. More
 authentication mechanisms will be added as the technology evolves.
@@ -83,7 +84,7 @@ After restarting gemini-cli, it will automatically discover available Cavil tool
 ╰──────────────────────────────────────────────────────────────────────────────╯
 
  ╭─────────────────────────────────────────────────────────────────────────────╮
- │ ✔ cavil_get_report (cavil MCP Server) {"package_id":1}.                     │
+ │ ✔ cavil_get_report (cavil MCP Server) {"package_id":1}                      │
  │                                                                             │
  │    ...                                                                      │
  ╰─────────────────────────────────────────────────────────────────────────────╯
