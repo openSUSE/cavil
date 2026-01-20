@@ -39,7 +39,7 @@ Many features have access restrictions, and which are available to you will depe
 (read-only or read-write), and which roles your user account has assigned.
 
 **Important**: Embargoed package updates cannot be processed with AI and are completely hidden from MCP tools. That
-means you have manually review them in the UI.
+means you have to manually review them in the UI.
 
 Most MCP clients today support Bearer token authentication, so that is what Cavil relies on as well. More
 authentication mechanisms will be added as the technology evolves.
