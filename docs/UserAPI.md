@@ -135,19 +135,19 @@ Cavil to the "mcp" section of the `opencode.json` config file:
 After restarting opencode, it will automatically discover available Cavil tools and make use of them on its own:
 
 ```
-> You are a legal reviewer for SUSE Linux Enterprise. Take a look at report 476346 and make a recommendation if that
-> package update should be accepted for distribution to customers. Don't be too critical of legal risks classified as
-> low by the license scanner. Only give a short summary with the reason for your decision.
+> You are a legal reviewer for SUSE Linux Enterprise. Take a look at report 476346 and make a recommendation
+> if that package update should be accepted for distribution to customers. Don't be too critical of legal
+> risks classified as low by the license scanner. Only give a short summary with the reason for your decision.
 
 * cavil_get_report [package_id=476346]
 
 Recommendation: Accept the update for distribution.
 
-Reason: The legal report for perl-Mojolicious (report 476346) shows all detected license risks as low. The main license
-findings are standard open source licenses (MIT, Artistic-2.0, BSD-3-Clause, CC-BY-SA-4.0, OFL-1.1), which are
-compatible with SUSE's distribution policies. There is one unmatched keyword related to mixed license statements, but
-it references recognized open source and documentation licenses only. No significant legal or compliance barriers are
-present.
+Reason: The legal report for perl-Mojolicious (report 476346) shows all detected license risks as low. The main
+license findings are standard open source licenses (MIT, Artistic-2.0, BSD-3-Clause, CC-BY-SA-4.0, OFL-1.1),
+which are compatible with SUSE's distribution policies. There is one unmatched keyword related to mixed license
+statements, but it references recognized open source and documentation licenses only. No significant legal or
+compliance barriers are present.
 ```
 
 ## REST API
