@@ -71,7 +71,7 @@ Once you have installed and set up [gemini-cli](https://github.com/google-gemini
 mcp command to add Cavil:
 
 ```
-gemini mcp add cavil https://legaldb.suse.de/mcp -H 'Authorization: Bearer generated_api_key_here' -t http
+$ gemini mcp add cavil https://legaldb.suse.de/mcp -H 'Authorization: Bearer generated_api_key_here' -t http
 ```
 
 After restarting gemini-cli, it will automatically discover available Cavil tools and make use of them on its own:
@@ -148,6 +148,77 @@ license findings are standard open source licenses (MIT, Artistic-2.0, BSD-3-Cla
 which are compatible with SUSE's distribution policies. There is one unmatched keyword related to mixed license
 statements, but it references recognized open source and documentation licenses only. No significant legal or
 compliance barriers are present.
+```
+
+#### goose
+
+Once you have installed and set up [goose](https://github.com/block/goose) for use with your preferred model, you can
+add Cavil with the `goose configure` command:
+
+```
+$ goose configure
+
+This will update your existing config files
+  if you prefer, you can edit them directly at /home/user/.config/goose
+
+┌   goose-configure
+│
+◇  What would you like to configure?
+│  Add Extension
+│
+◇  What type of extension would you like to add?
+│  Remote Extension (Streamable HTTP)
+│
+◇  What would you like to call this extension?
+│  cavil
+│
+◇  What is the Streaming HTTP endpoint URI?
+│  https://legaldb.suse.de/mcp
+│
+◇  Please set the timeout for this tool (in secs):
+│  300
+│
+◇  Enter a description for this extension:
+│  Cavil
+│
+◇  Would you like to add custom headers?
+│  Yes
+│
+◇  Header name:
+│  Authorization
+│
+◇  Header value:
+│  Bearer generated_api_key_here
+│
+◇  Add another header?
+│  No
+│
+└  Added cavil extension
+└  Configuration saved successfully to /home/user/.config/goose/config.yaml
+```
+
+After restarting goose, it will automatically discover available Cavil tools and make use of them on its own:
+
+```
+( O)> You are a legal reviewer for SUSE Linux Enterprise. Take a look at report 476346 and make a
+recommendation if that package update should be accepted for distribution to customers. Don't be too
+critical of legal risks classified as low by the license scanner. Only give a short summary with the
+reason for your decision.
+
+─── cavil_get_report | cavil ──────────────────────────
+package_id: 476346
+
+### Recommendation: Accept for Distribution
+
+**Summary:**
+The legal report for the update to `perl-Mojolicious` (version 9.420.0) indicates only low risks according
+to the license scanner. All detected licenses (Artistic-2.0, BSD-3-Clause, MIT, OFL-1.1, and CC-BY-SA-4.0)
+are compatible with SUSE’s distribution policies. Unmatched license keyword snippets also reference
+well-known open-source licenses without red flags. There are no significant unresolved legal issues.
+
+**Reason:**
+All risk findings are classified as low or minor. No action is required beyond the routine, and the update
+should be approved for release to customers.
 ```
 
 ## REST API
