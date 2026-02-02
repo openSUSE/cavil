@@ -127,8 +127,8 @@ Cavil to the "mcp" section of the `opencode.json` config file:
       "headers": {
         "Authorization": "Bearer generated_api_key_here"
       }
-    },
-  },
+    }
+  }
 }
 ```
 
