@@ -151,6 +151,7 @@ sub review_package ($self) {
     die "Unknown state";
   }
   $pkg->{review_timestamp} = 1;
+  $pkg->{ai_assisted}      = 0;
 
   $self->packages->update($pkg);
 

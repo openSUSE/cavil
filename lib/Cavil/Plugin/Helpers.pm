@@ -23,17 +23,18 @@ use Mojo::Util qw(decode humanize_bytes xml_escape);
 use List::Util qw(first uniq);
 
 sub register ($self, $app, $config) {
-  $app->helper('chart_data'                  => \&_chart_data);
-  $app->helper('current_user'                => \&_current_user);
-  $app->helper('current_user_roles'          => \&_current_user_roles);
-  $app->helper('current_user_has_role'       => \&_current_user_has_role);
-  $app->helper('lic'                         => sub { shift; lic(@_) });
-  $app->helper('maybe_utf8'                  => sub { decode('UTF-8', $_[1]) // $_[1] });
-  $app->helper('mcp_report'                  => \&_mcp_report);
-  $app->helper('package_summary'             => \&_package_summary);
-  $app->helper('proposal_stats'              => sub { shift->patterns->proposal_stats });
-  $app->helper('reply.json_validation_error' => \&_json_validation_error);
-  $app->helper('format_file'                 => \&_format_file);
+  $app->helper('chart_data'                    => \&_chart_data);
+  $app->helper('current_user'                  => \&_current_user);
+  $app->helper('current_user_roles'            => \&_current_user_roles);
+  $app->helper('current_user_has_role'         => \&_current_user_has_role);
+  $app->helper('current_user_has_write_access' => \&_current_user_has_write_access);
+  $app->helper('lic'                           => sub { shift; lic(@_) });
+  $app->helper('maybe_utf8'                    => sub { decode('UTF-8', $_[1]) // $_[1] });
+  $app->helper('mcp_report'                    => \&_mcp_report);
+  $app->helper('package_summary'               => \&_package_summary);
+  $app->helper('proposal_stats'                => sub { shift->patterns->proposal_stats });
+  $app->helper('reply.json_validation_error'   => \&_json_validation_error);
+  $app->helper('format_file'                   => \&_format_file);
 }
 
 sub _chart_data ($c, $hash) {
@@ -65,12 +66,14 @@ sub _chart_data ($c, $hash) {
   return {licenses => to_json(\@licenses), 'num-files' => to_json(\@num_files), colours => to_json(\@colours)};
 }
 
-sub _current_user ($c) { $c->stash->{'api.user'} // $c->session('user') }
+sub _current_user ($c) { $c->stash->{'cavil.api.user'} // $c->session('user') }
 
 sub _current_user_has_role ($c, @roles) {
   return undef unless my $user = $c->helpers->current_user;
   return $c->users->has_role($user, @roles);
 }
+
+sub _current_user_has_write_access ($c) { $c->stash->{'cavil.api.write_access'} ? 1 : 0 }
 
 sub _current_user_roles ($c) {
   return [] unless my $user = $c->helpers->current_user;
@@ -168,6 +171,7 @@ sub _package_summary ($c, $id) {
     copied_files      => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
     created           => $pkg->{created_epoch},
     embargoed         => \!!$pkg->{embargoed},
+    ai_assisted       => \!!$pkg->{ai_assisted},
     errors            => $spec->{errors} // [],
     external_link     => $pkg->{external_link},
     has_spdx_report   => \!!$has_spdx_report,

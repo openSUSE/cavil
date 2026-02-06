@@ -188,7 +188,10 @@
             <i class="fas fa-user"></i>
           </th>
           <th class="fit text-start noleftpad" scope="row">Reviewing User:</th>
-          <td>{{ reviewingUser }}</td>
+          <td>
+            {{ reviewingUser }}
+            <span v-if="pkgAiAssisted" class="ai-assisted-badge">(with AI Assistant <i class="fas fa-robot"></i>)</span>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -367,6 +370,7 @@ export default {
       hasSpdxReport: false,
       history: [],
       notice: null,
+      pkgAiAssisted: false,
       pkgChecksum: null,
       pkgEmbargoed: false,
       pkgFiles: [],
@@ -439,6 +443,7 @@ export default {
       this.pkgUrl = data.package_url;
       this.pkgVersion = data.package_version;
       this.pkgEmbargoed = data.embargoed;
+      this.pkgAiAssisted = data.ai_assisted;
 
       this.pkgChecksum = data.package_checksum;
       this.checkoutUrl = `/reviews/file_view/${this.pkgId}`;

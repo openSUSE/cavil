@@ -48,7 +48,7 @@
                     <span class="real">{{ key.apiKey }}</span>
                   </span>
                 </td>
-                <td>read-only</td>
+                <td>{{ key.type }}</td>
                 <td>{{ key.description }}</td>
                 <td>{{ key.expires }}</td>
                 <td class="text-center">
@@ -79,6 +79,13 @@
               <div class="mb-3">
                 <label for="api-key-description" class="col-form-label">Description</label>
                 <input v-model="apiKeyDescription" class="form-control" id="api-key-description" />
+              </div>
+              <div class="mb-3">
+                <label for="api-key-type" class="col-form-label">Type</label>
+                <select v-model="apiKeyType" class="form-select" id="api-key-type">
+                  <option value="read-only">Read-Only</option>
+                  <option value="read-write">Read-Write</option>
+                </select>
               </div>
               <div class="mb-3">
                 <label for="api-key-expires" class="col-form-label">Expires</label>
@@ -117,6 +124,7 @@ export default {
       addApiKeyUrl: '/api_keys',
       apiKeys: null,
       apiKeyDescription: 'User API Key',
+      apiKeyType: 'read-only',
       apiKeyExpires: new moment().add(365, 'days').format('YYYY-MM-DDTHH:mm'),
       lastCopied: null,
       refreshUrl: '/api_keys/meta'
@@ -132,7 +140,8 @@ export default {
     },
     async addApiKey() {
       const ua = new UserAgent({baseURL: window.location.href});
-      await ua.post(this.addApiKeyUrl, {form: {description: this.apiKeyDescription, expires: this.apiKeyExpires}});
+      const form = {description: this.apiKeyDescription, type: this.apiKeyType, expires: this.apiKeyExpires};
+      await ua.post(this.addApiKeyUrl, {form});
       this.doApiRefresh();
     },
     async deleteApiKey(key) {
@@ -147,6 +156,7 @@ export default {
           id: key.id,
           apiKey: key.api_key,
           description: key.description,
+          type: key.write_access ? 'read-write' : 'read-only',
           expires: moment(key.expires_epoch * 1000).fromNow(),
           removeUrl: `/api_keys/${key.id}`
         });

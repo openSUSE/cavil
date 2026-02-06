@@ -273,3 +273,8 @@ CREATE TABLE api_keys (
 
 -- 32 down
 DROP TABLE IF EXISTS api_keys CASCADE;
+
+-- 33 up
+ALTER TABLE bot_packages ADD COLUMN ai_assisted boolean DEFAULT false NOT NULL;
+ALTER TABLE api_keys ADD COLUMN write_access boolean DEFAULT false NOT NULL;
+CREATE INDEX ON bot_packages (ai_assisted);

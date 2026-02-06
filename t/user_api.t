@@ -23,6 +23,7 @@ use Test::Mojo;
 use Cavil::Test;
 use Mojo::File qw(path);
 use Mojo::Date;
+use Mojo::JSON qw(true false);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -53,7 +54,7 @@ subtest 'API keys' => sub {
   subtest 'Create API key' => sub {
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-    $t->post_ok('/api_keys' => form => {expires => $expires, description => 'Test key'})
+    $t->post_ok('/api_keys' => form => {expires => $expires, type => 'read-only', description => 'Test key'})
       ->status_is(200)
       ->json_is('/created' => 1);
     $t->get_ok('/api_keys/meta')
@@ -61,7 +62,8 @@ subtest 'API keys' => sub {
       ->json_is('/keys/0/id'    => 1)
       ->json_is('/keys/0/owner' => 2)
       ->json_like('/keys/0/api_key' => qr/^[a-f0-9\-]{20,}$/i)
-      ->json_is('/keys/0/description' => 'Test key')
+      ->json_is('/keys/0/description'  => 'Test key')
+      ->json_is('/keys/0/write_access' => 0)
       ->json_has('/keys/0/expires_epoch');
     $key = $t->tx->res->json('/keys/0/api_key');
 
@@ -87,7 +89,9 @@ subtest 'API keys' => sub {
     $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
       ->status_is(200)
       ->json_is('/id', 2)
-      ->json_is('/user' => 'tester');
+      ->json_is('/user'         => 'tester')
+      ->json_is('/roles'        => ['admin', 'classifier', 'manager'])
+      ->json_is('/write_access' => false);
   };
 
   subtest 'Access reports with API key' => sub {
@@ -113,7 +117,8 @@ subtest 'API keys' => sub {
   };
 
   subtest 'API keys from multiple users' => sub {
-    my $key = $t->app->api_keys->create(owner => 1, description => 'Other user key', expires => $expires);
+    my $key = $t->app->api_keys->create(owner => 1, description => 'Other user key', type => 'read-write',
+      expires => $expires);
 
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
     $t->get_ok('/api_keys/meta')
@@ -126,7 +131,9 @@ subtest 'API keys' => sub {
     $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key->{api_key}"})
       ->status_is(200)
       ->json_is('/id', 1)
-      ->json_is('/user' => 'test_bot');
+      ->json_is('/user'         => 'test_bot')
+      ->json_is('/roles'        => ['user'])
+      ->json_is('/write_access' => true);
   };
 
   subtest 'Expired API key' => sub {

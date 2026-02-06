@@ -19,6 +19,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 sub create ($self) {
   my $validation = $self->validation;
   $validation->optional('description');
+  $validation->required('type')->in(qw(read-only read-write));
   $validation->required('expires')->like(qr/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
   return $self->reply->json_validation_error if $validation->has_error;
 
@@ -26,6 +27,7 @@ sub create ($self) {
   my $api_key = $self->api_keys->create(
     owner       => $owner,
     description => $validation->param('description'),
+    type        => $validation->param('type'),
     expires     => $validation->param('expires')
   );
 

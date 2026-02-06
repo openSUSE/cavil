@@ -57,7 +57,7 @@ sub remove_role ($self, $id, $role) {
 }
 
 sub roles ($self, $user) {
-  return $self->pg->db->query('select roles from bot_users where login = ?', $user)->arrays->flatten->to_array;
+  return $self->pg->db->query('select roles from bot_users where login = ?', $user)->arrays->flatten->sort->to_array;
 }
 
 1;

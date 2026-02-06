@@ -4,7 +4,12 @@ use Mojo::Base -base, -signatures;
 has 'pg';
 
 sub create ($self, %args) {
-  my %data = (owner => $args{owner}, description => $args{description} // '', expires => $args{expires});
+  my %data = (
+    owner        => $args{owner},
+    description  => $args{description} // '',
+    write_access => $args{type} eq 'read-write' ? 1 : 0,
+    expires      => $args{expires}
+  );
   return $self->pg->db->insert('api_keys', \%data, {returning => '*'})->hash;
 }
 
@@ -13,7 +18,7 @@ sub find_by_key ($self, $key) {
     'SELECT * FROM api_keys ak JOIN bot_users bu ON ak.owner = bu.id
      WHERE ak.api_key = ? AND expires > NOW()', $key
   )->hash;
-  return $user->{login};
+  return {login => $user->{login}, write_access => $user->{write_access}};
 }
 
 sub list ($self, $owner) {
