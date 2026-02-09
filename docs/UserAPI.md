@@ -197,6 +197,24 @@ This will update your existing config files
 └  Configuration saved successfully to /home/user/.config/goose/config.yaml
 ```
 
+Additionally, we strongly recommend running goose in "Approve Mode", so you can carefully review all MCP tool calls
+before they are performed.
+
+```
+┌   goose-configure
+│
+◇  What would you like to configure?
+│  goose settings
+│
+◇  What setting would you like to configure?
+│  goose mode
+│
+◇  Which goose mode would you like to configure?
+│  Approve Mode
+│
+└  Set to Approve Mode - all tools and modifications require approval
+```
+
 After restarting goose, it will automatically discover available Cavil tools and make use of them on its own:
 
 ```
