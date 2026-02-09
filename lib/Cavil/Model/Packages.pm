@@ -148,7 +148,7 @@ sub has_file_stats ($self, $id) {
   return defined($self->pg->db->select('bot_packages', 'unpacked_files', {id => $id})->hash->{unpacked_files});
 }
 
-sub has_human_review ($self, $name) {
+sub has_manual_review ($self, $name) {
   return !!$self->pg->db->query('SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL',
     $name)->array->[0];
 }
@@ -330,6 +330,11 @@ sub paginate_recent_reviews ($self, $options) {
     $user = 'AND p.reviewing_user IS NOT NULL';
   }
 
+  my $ai_assisted = '';
+  if ($options->{ai_assisted} eq 'true') {
+    $ai_assisted = 'AND p.ai_assisted = true';
+  }
+
   my $unresolved = '';
   if ($options->{unresolved_matches} eq 'true') {
     $unresolved = "AND unresolved_matches > 0";
@@ -337,13 +342,13 @@ sub paginate_recent_reviews ($self, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT p.id, p.name, u.login, p.result,  EXTRACT(EPOCH FROM p.created) AS created_epoch,
+      SELECT p.id, p.name, u.login, p.result, p.ai_assisted, EXTRACT(EPOCH FROM p.created) AS created_epoch,
         EXTRACT(EPOCH FROM p.reviewed) AS reviewed_epoch, EXTRACT(EPOCH FROM p.imported) as imported_epoch,
         EXTRACT(EPOCH FROM p.unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) as indexed_epoch,
         external_link, priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
        FROM bot_packages p
          LEFT JOIN bot_users u ON p.reviewing_user = u.id
-       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search $user $unresolved
+       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search $user $ai_assisted $unresolved
        ORDER BY reviewed DESC
        LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}

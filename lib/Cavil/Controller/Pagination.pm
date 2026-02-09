@@ -145,12 +145,14 @@ sub recent_reviews ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('byUser');
+  $v->optional('aiAssisted');
   $v->optional('unresolvedMatches');
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit              = $v->param('limit')             // 10;
   my $offset             = $v->param('offset')            // 0;
   my $by_user            = $v->param('byUser')            // 'false';
+  my $ai_assisted        = $v->param('aiAssisted')        // 'false';
   my $unresolved_matches = $v->param('unresolvedMatches') // 'false';
   my $search             = $v->param('filter')            // '';
 
@@ -159,6 +161,7 @@ sub recent_reviews ($self) {
       limit              => $limit,
       offset             => $offset,
       by_user            => $by_user,
+      ai_assisted        => $ai_assisted,
       unresolved_matches => $unresolved_matches,
       search             => $search
     }

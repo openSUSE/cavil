@@ -112,7 +112,7 @@ sub _analyzed ($job, $id) {
 
   # Every package needs a human review before future versions can be auto-accepted, and checkouts need to be complete
   my $specfile = $reports->specfile_report($id);
-  if (!$pkgs->has_human_review($pkg->{name}) || $specfile->{incomplete_checkout}) {
+  if (!$pkgs->has_manual_review($pkg->{name}) || $specfile->{incomplete_checkout}) {
     _look_for_smallest_delta($app, $pkg, 0, 0, !!$specfile->{incomplete_checkout}) if $pkg->{state} eq 'new';
     return;
   }
@@ -149,6 +149,7 @@ sub _analyzed ($job, $id) {
       $pkg->{state}            = 'acceptable_by_lawyer';
       $pkg->{review_timestamp} = 1;
       $pkg->{reviewing_user}   = undef;
+      $pkg->{ai_assisted}      = 0;
       $pkg->{result}           = "Accepted because reviewed by lawyer under the same license ($c_id)";
       $pkgs->update($pkg);
     }
@@ -186,7 +187,7 @@ sub _analyzed ($job, $id) {
   _look_for_smallest_delta($app, $pkg, 1, 1, 0) if $pkg->{state} eq 'new';
 }
 
-sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review, $incomplete_checkout) {
+sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $incomplete_checkout) {
   my $reports = $app->reports;
   my $pkgs    = $app->packages;
 
@@ -215,7 +216,7 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_human_review, $inc
       if ($incomplete_checkout) {
         $pkg->{notice} .= ', manual review is required because the checkout might be incomplete';
       }
-      elsif (!$has_human_review) {
+      elsif (!$has_manual_review) {
         $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user';
       }
 

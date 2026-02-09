@@ -14,7 +14,7 @@
               <label class="form-label">Reviews per Page</label>
             </div>
           </div>
-          <div class="col">
+          <div class="col-lg-2">
             <div class="form-check">
               <input
                 v-model="params.byUser"
@@ -25,6 +25,18 @@
               />
               <label class="form-check-label" for="cavil-pkg-by-user">Reviewed By User</label>
             </div>
+            <div class="form-check">
+              <input
+                v-model="params.aiAssisted"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-ai-assisted"
+              />
+              <label class="form-check-label" for="cavil-pkg-ai-assisted">Reviewed With AI</label>
+            </div>
+          </div>
+          <div class="col">
             <div class="form-check">
               <input
                 v-model="params.unresolvedMatches"
@@ -161,6 +173,12 @@ export default {
 
       const reviews = [];
       for (const review of data.page) {
+        const login = [];
+        if (review.login) {
+          login.push(review.login);
+          if (review.ai_assisted) login.push('<i class="fas fa-robot"></i>');
+        }
+
         reviews.push({
           link: externalLink(review),
           created: moment(review.created_epoch * 1000).fromNow(),
@@ -168,7 +186,7 @@ export default {
           package: packageLink(review),
           priority: review.priority,
           report: reportLink(review),
-          login: review.login,
+          login: login.join(' '),
           result: review.result,
           state: review.state
         });
@@ -183,7 +201,7 @@ export default {
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset', 'byUser', 'unresolvedMatches'),
+    ...genParamWatchers('limit', 'offset', 'byUser', 'aiAssisted', 'unresolvedMatches'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;
