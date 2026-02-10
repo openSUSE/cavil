@@ -86,9 +86,9 @@ After restarting gemini-cli, it will automatically discover available Cavil tool
   its distribution suitability.
 
 ╭────────────────────────────────────────────────────────────────────╮
-│ ✓  cavil_get_report (cavil MCP Server) {"package_id":472890}       │
-│                                                                    │
-│    ...                                                             │
+│ ✓  cavil_get_report (cavil MCP Server) {"package_id":472890}      │
+│                                                                   │
+│    ...                                                            │
 ╰────────────────────────────────────────────────────────────────────╯
 ✦ The legal report for perl-Mojo-JWT (ID 472890) indicates that all
   identified risks are classified as "Low". The primary license is
@@ -99,9 +99,9 @@ After restarting gemini-cli, it will automatically discover available Cavil tool
 
 
 ╭────────────────────────────────────────────────────────────────────╮
-│ ✓  cavil_accept_review (cavil MCP Server) {"reason":"Standard Per… │
-│                                                                    │
-│    ...                                                             │
+│ ✓  cavil_accept_review (cavil MCP Server) {"reason":"Standard Pe… │
+│                                                                   │
+│    ...                                                            │
 ╰────────────────────────────────────────────────────────────────────╯
 ✦ I have reviewed report 472890 for the perl-Mojo-JWT package. The
   licenses found (Artistic-1.0-Perl OR GPL-1.0-or-later) are standard
