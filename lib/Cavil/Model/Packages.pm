@@ -250,7 +250,7 @@ sub paginate_open_reviews ($self, $options) {
         priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages
       WHERE state = 'new' AND obsolete = FALSE $priority $search $progress $embargoed
-      ORDER BY priority DESC, external_link, created DESC, name
+      ORDER BY priority DESC, external_link, unresolved_matches, name
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
   )->hashes->to_array;
