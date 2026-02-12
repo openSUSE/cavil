@@ -2,24 +2,26 @@
   "errors"              => ["Invalid SPDX license: Whatever", "Invalid SPDX license: BSD"],
   "incomplete_checkout" => 0,
   "main"                => {
-    "%doc"     => [],
-    "%license" => [],
-    "file"     => "error-invalid-license-mixed.spec",
-    "license"  => "MIT AND BSD-3-Clause",
-    "licenses" => ["MIT AND BSD-3-Clause"],
-    "sources"  => [],
-    "summary"  => "Just a test",
-    "type"     => "spec"
+    "%doc"                 => [],
+    "%license"             => [],
+    "file"                 => "error-invalid-license-mixed.spec",
+    "legal_review_notices" => [],
+    "license"              => "MIT AND BSD-3-Clause",
+    "licenses"             => ["MIT AND BSD-3-Clause"],
+    "sources"              => [],
+    "summary"              => "Just a test",
+    "type"                 => "spec"
   },
   "sub" => [
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "error-invalid-license-mixed.spec",
-      "licenses" => ["MIT AND BSD-3-Clause"],
-      "sources"  => [],
-      "summary"  => "Just a test",
-      "type"     => "spec"
+      "%doc"                 => [],
+      "%license"             => [],
+      "file"                 => "error-invalid-license-mixed.spec",
+      "legal_review_notices" => [],
+      "licenses"             => ["MIT AND BSD-3-Clause"],
+      "sources"              => [],
+      "summary"              => "Just a test",
+      "type"                 => "spec"
     },
     {
       "file"     => "mixed-more.kiwi",

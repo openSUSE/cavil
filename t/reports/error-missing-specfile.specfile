@@ -5,7 +5,15 @@
   "incomplete_checkout" => 0,
   "main"                => {},
   "sub"                 => [
-    {"%doc" => [], "%license" => [], "file" => "wrong-name.spec", "licenses" => [], "sources" => [], "type" => "spec"}
+    {
+      "%doc"                 => [],
+      "%license"             => [],
+      "file"                 => "wrong-name.spec",
+      "legal_review_notices" => [],
+      "licenses"             => [],
+      "sources"              => [],
+      "type"                 => "spec"
+    }
   ],
   "warnings" => []
 }

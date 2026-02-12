@@ -288,6 +288,12 @@
         <li v-for="warning in warnings" :key="warning">{{ warning }}</li>
       </ul>
     </div>
+    <div v-if="legalReviewNotices.length > 0" id="spec-legal-review-notices" class="alert alert-success">
+      <p>Legal review notices from packagers:</p>
+      <ul>
+        <li v-for="notice in legalReviewNotices" :key="notice">{{ notice }}</li>
+      </ul>
+    </div>
     <div v-if="notice !== null" class="row">
       <div class="col mb-3">
         <div class="alert alert-info">
@@ -369,6 +375,7 @@ export default {
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       hasSpdxReport: false,
       history: [],
+      legalReviewNotices: [],
       notice: null,
       pkgAiAssisted: false,
       pkgChecksum: null,
@@ -413,6 +420,7 @@ export default {
       this.errors = data.errors;
       this.externalLink = externalLink({external_link: data.external_link});
       this.hasSpdxReport = data.has_spdx_report;
+      this.legalReviewNotices = data.legal_review_notices;
 
       this.actions = data.actions;
       for (const action of this.actions) {

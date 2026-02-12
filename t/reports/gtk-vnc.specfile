@@ -9,11 +9,12 @@
       "examples/gvncviewer-bindings.py",
       "examples/gvncviewer-introspection.py"
     ],
-    "%license" => [],
-    "file"     => "gtk-vnc.spec",
-    "group"    => "Development/Libraries/X11",
-    "license"  => "LGPL-2.1+",
-    "licenses" => [
+    "%license"             => [],
+    "file"                 => "gtk-vnc.spec",
+    "group"                => "Development/Libraries/X11",
+    "legal_review_notices" => [],
+    "license"              => "LGPL-2.1+",
+    "licenses"             => [
       "LGPL-2.1+",
       "LGPL-2.1 and LGPL-2.1+",
       "LGPL-2.1 and LGPL-2.1+",
@@ -40,10 +41,11 @@
         "examples/gvncviewer-bindings.py",
         "examples/gvncviewer-introspection.py"
       ],
-      "%license" => [],
-      "file"     => "gtk-vnc.spec",
-      "group"    => "Development/Libraries/X11",
-      "licenses" => [
+      "%license"             => [],
+      "file"                 => "gtk-vnc.spec",
+      "group"                => "Development/Libraries/X11",
+      "legal_review_notices" => [],
+      "licenses"             => [
         "LGPL-2.1+",
         "LGPL-2.1 and LGPL-2.1+",
         "LGPL-2.1 and LGPL-2.1+",
@@ -69,10 +71,11 @@
         "examples/gvncviewer-bindings.py",
         "examples/gvncviewer-introspection.py"
       ],
-      "%license" => [],
-      "file"     => "gtk-vnc2.spec",
-      "group"    => "Development/Libraries/X11",
-      "licenses" => [
+      "%license"             => [],
+      "file"                 => "gtk-vnc2.spec",
+      "group"                => "Development/Libraries/X11",
+      "legal_review_notices" => [],
+      "licenses"             => [
         "LGPL-2.1 and LGPL-2.1+",
         "LGPL-2.1 and LGPL-2.1+",
         "LGPL-2.1 and LGPL-2.1+",

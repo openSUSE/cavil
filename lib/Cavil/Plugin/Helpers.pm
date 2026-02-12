@@ -146,7 +146,7 @@ sub _package_summary ($c, $id) {
     push @$actions, $entry;
   }
 
-  my (%docs, %lics, @package_files);
+  my (%docs, %lics, @package_files, @legal_review_notices);
   for my $sub (@{$spec->{sub} // []}) {
     my $entry = {
       file     => $sub->{file},
@@ -164,40 +164,42 @@ sub _package_summary ($c, $id) {
     for my $line (@{$sub->{'%license'}}) {
       $lics{$_} = 1 for split(/ /, $line);
     }
+    push @legal_review_notices, @{$sub->{'legal_review_notices'} // []};
   }
 
   return {
-    actions           => $actions,
-    copied_files      => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
-    created           => $pkg->{created_epoch},
-    embargoed         => \!!$pkg->{embargoed},
-    ai_assisted       => \!!$pkg->{ai_assisted},
-    errors            => $spec->{errors} // [],
-    external_link     => $pkg->{external_link},
-    has_spdx_report   => \!!$has_spdx_report,
-    history           => $history,
-    id                => $pkg->{id},
-    notice            => $pkg->{notice},
-    package_checksum  => $pkg->{checkout_dir},
-    package_files     => \@package_files,
-    package_group     => $group,
-    package_license   => {name => $package_license, spdx => \!!$normalized_license},
-    package_name      => $pkg->{name},
-    package_priority  => $pkg->{priority},
-    package_shortname => $shortname,
-    package_summary   => $summary,
-    package_type      => $type,
-    package_url       => $url,
-    package_version   => $version,
-    products          => $products,
-    requests          => $requests,
-    result            => $pkg->{result},
-    reviewed          => $pkg->{reviewed_epoch},
-    reviewing_user    => $pkg->{login},
-    state             => $pkg->{state},
-    unpacked_files    => $pkg->{unpacked_files},
-    unpacked_size     => humanize_bytes($pkg->{unpacked_size} // 0),
-    warnings          => $spec->{warnings} // []
+    actions              => $actions,
+    copied_files         => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
+    created              => $pkg->{created_epoch},
+    embargoed            => \!!$pkg->{embargoed},
+    ai_assisted          => \!!$pkg->{ai_assisted},
+    errors               => $spec->{errors} // [],
+    external_link        => $pkg->{external_link},
+    has_spdx_report      => \!!$has_spdx_report,
+    history              => $history,
+    id                   => $pkg->{id},
+    legal_review_notices => \@legal_review_notices,
+    notice               => $pkg->{notice},
+    package_checksum     => $pkg->{checkout_dir},
+    package_files        => \@package_files,
+    package_group        => $group,
+    package_license      => {name => $package_license, spdx => \!!$normalized_license},
+    package_name         => $pkg->{name},
+    package_priority     => $pkg->{priority},
+    package_shortname    => $shortname,
+    package_summary      => $summary,
+    package_type         => $type,
+    package_url          => $url,
+    package_version      => $version,
+    products             => $products,
+    requests             => $requests,
+    result               => $pkg->{result},
+    reviewed             => $pkg->{reviewed_epoch},
+    reviewing_user       => $pkg->{login},
+    state                => $pkg->{state},
+    unpacked_files       => $pkg->{unpacked_files},
+    unpacked_size        => humanize_bytes($pkg->{unpacked_size} // 0),
+    warnings             => $spec->{warnings} // []
   };
 }
 

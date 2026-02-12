@@ -433,8 +433,18 @@ sub _kiwifile ($file) {
 }
 
 sub _specfile ($file) {
-  my $info = {file => $file->basename, type => 'spec', licenses => [], sources => [], '%doc' => [], '%license' => []};
+  my $info = {
+    file                 => $file->basename,
+    type                 => 'spec',
+    licenses             => [],
+    sources              => [],
+    '%doc'               => [],
+    '%license'           => [],
+    legal_review_notices => []
+  };
   for my $line (split "\n", $file->slurp) {
+
+    # Standard metadata fields
     if    ($line =~ /^License:\s*(.+)\s*$/)        { push @{$info->{licenses}},   $1 }
     elsif ($line =~ /^Source(?:\d+)?:\s*(.+)\s*$/) { push @{$info->{sources}},    $1 }
     elsif ($line =~ /^\%doc\s*(.+)\s*$/)           { push @{$info->{'%doc'}},     $1 }
@@ -443,6 +453,9 @@ sub _specfile ($file) {
     elsif ($line =~ /^Summary:\s*(.+)\s*$/)        { $info->{summary} ||= $1 }
     elsif ($line =~ /^Group:\s*(.+)\s*$/)          { $info->{group}   ||= $1 }
     elsif ($line =~ /^Url:\s*(.+)\s*$/i)           { $info->{url}     ||= $1 }
+
+    # Legal review notices, non-standard but used in SUSE packages
+    elsif ($line =~ /^\s*#+\s*Legal-Review-Notice:\s*(.+)\s*$/i) { push @{$info->{legal_review_notices}}, $1 }
   }
 
   return $info;

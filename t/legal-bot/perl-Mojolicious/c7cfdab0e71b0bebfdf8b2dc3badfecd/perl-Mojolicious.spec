@@ -71,3 +71,7 @@ find . -type f ! -name \*.pl -print0 | xargs -0 chmod 644
 %license LICENSE
 
 %changelog
+
+#
+# Legal-Review-Notice: Upstream project maintained by SUSE employee
+#

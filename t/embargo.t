@@ -64,7 +64,7 @@ get '/source/:project/perl-Mojolicious.SUSE_SLE-15-SP2_Update' => [project => ['
     size="675142" mtime="1496988144" />
   <entry name="perl-Mojolicious.changes" md5="46c99c12bdce7adad475de28916975ef"
     size="81924" mtime="1496988145" />
-  <entry name="perl-Mojolicious.spec" md5="4d480d6329a7ea52f7bb3a479d72b8fe"
+  <entry name="perl-Mojolicious.spec" md5="efab031c960c314a31f39a4a5e68ca50"
     size="2420" mtime="1496988145" />
 </directory>
 EOF

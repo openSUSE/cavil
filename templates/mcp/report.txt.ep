@@ -36,12 +36,22 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 
 
 % }
+% if (@{$summary->{legal_review_notices}}) {
+## Legal Review Notices from Packagers
+
+%   for my $notice (@{$summary->{legal_review_notices}}) {
+* <%== $notice %>
+%   }
+
+
+
+% }
 % if (@{$summary->{errors}}) {
 ## Package File Warnings for Packagers
 
-% for my $error (@{$summary->{errors}}) {
+%   for my $error (@{$summary->{errors}}) {
 * <%== $error %>
-% }
+%   }
 
 
 
@@ -49,9 +59,9 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 % if (@{$summary->{warnings}}) {
 ## Package File Warnings for Reviewers
 
-% for my $warning (@{$summary->{warnings}}) {
+%   for my $warning (@{$summary->{warnings}}) {
 * <%== $warning %>
-% }
+%   }
 
 
 

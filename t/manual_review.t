@@ -107,11 +107,12 @@ subtest 'Details after indexing' => sub {
     ->status_is(200)
     ->json_like('/package_license/name', qr!Artistic-2.0!)
     ->json_is('/package_license/spdx', 1)
-    ->json_like('/package_version', qr!7\.25!)
-    ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
-    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
-    ->json_like('/state',           qr!new!)
+    ->json_like('/package_version',        qr!7\.25!)
+    ->json_like('/package_summary',        qr!Real-time web framework!)
+    ->json_like('/package_group',          qr!Development/Libraries/Perl!)
+    ->json_like('/package_url',            qr!http://search\.cpan\.org/dist/Mojolicious/!)
+    ->json_like('/state',                  qr!new!)
+    ->json_like('/legal_review_notices/0', qr!Upstream project maintained by SUSE employee!)
     ->json_is('/unpacked_files', 339)
     ->json_is('/unpacked_size',  '2.5MiB');
 

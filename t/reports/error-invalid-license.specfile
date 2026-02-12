@@ -2,22 +2,24 @@
   "errors"              => ["Invalid license expression: (Artistic-1.0"],
   "incomplete_checkout" => 0,
   "main"                => {
-    "%doc"     => [],
-    "%license" => [],
-    "file"     => "error-invalid-license.spec",
-    "license"  => "(Artistic",
-    "licenses" => ["(Artistic"],
-    "sources"  => [],
-    "type"     => "spec"
+    "%doc"                 => [],
+    "%license"             => [],
+    "file"                 => "error-invalid-license.spec",
+    "legal_review_notices" => [],
+    "license"              => "(Artistic",
+    "licenses"             => ["(Artistic"],
+    "sources"              => [],
+    "type"                 => "spec"
   },
   "sub" => [
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "error-invalid-license.spec",
-      "licenses" => ["(Artistic"],
-      "sources"  => [],
-      "type"     => "spec"
+      "%doc"                 => [],
+      "%license"             => [],
+      "file"                 => "error-invalid-license.spec",
+      "legal_review_notices" => [],
+      "licenses"             => ["(Artistic"],
+      "sources"              => [],
+      "type"                 => "spec"
     }
   ],
   "warnings" => []

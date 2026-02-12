@@ -2,30 +2,32 @@
   "errors"              => ["Invalid SPDX license expression: LGPL-3.0-or-later | CC-BY-SA-3.0"],
   "incomplete_checkout" => 0,
   "main"                => {
-    "%doc"     => ["AUTHORS COPYING COPYING_LGPL COPYING_CCBYSA3"],
-    "%license" => [],
-    "file"     => "gnome-icon-theme.spec",
-    "group"    => "System/GUI/GNOME",
-    "license"  => "LGPLv3+ | CC BY-SA V3.0",
-    "licenses" => ["LGPLv3+ | CC BY-SA V3.0"],
-    "sources"  => ["ftp://ftp.gnome.org/pub/gnome/sources/%{name}/2.20/%{name}-%{version}.tar.bz2"],
-    "summary"  => "GNOME Icon Theme",
-    "type"     => "spec",
-    "url"      => "http://www.gnome.org/",
-    "version"  => "3.0.0"
+    "%doc"                 => ["AUTHORS COPYING COPYING_LGPL COPYING_CCBYSA3"],
+    "%license"             => [],
+    "file"                 => "gnome-icon-theme.spec",
+    "group"                => "System/GUI/GNOME",
+    "legal_review_notices" => [],
+    "license"              => "LGPLv3+ | CC BY-SA V3.0",
+    "licenses"             => ["LGPLv3+ | CC BY-SA V3.0"],
+    "sources"              => ["ftp://ftp.gnome.org/pub/gnome/sources/%{name}/2.20/%{name}-%{version}.tar.bz2"],
+    "summary"              => "GNOME Icon Theme",
+    "type"                 => "spec",
+    "url"                  => "http://www.gnome.org/",
+    "version"              => "3.0.0"
   },
   "sub" => [
     {
-      "%doc"     => ["AUTHORS COPYING COPYING_LGPL COPYING_CCBYSA3"],
-      "%license" => [],
-      "file"     => "gnome-icon-theme.spec",
-      "group"    => "System/GUI/GNOME",
-      "licenses" => ["LGPLv3+ | CC BY-SA V3.0"],
-      "sources"  => ["ftp://ftp.gnome.org/pub/gnome/sources/%{name}/2.20/%{name}-%{version}.tar.bz2"],
-      "summary"  => "GNOME Icon Theme",
-      "type"     => "spec",
-      "url"      => "http://www.gnome.org/",
-      "version"  => "3.0.0"
+      "%doc"                 => ["AUTHORS COPYING COPYING_LGPL COPYING_CCBYSA3"],
+      "%license"             => [],
+      "file"                 => "gnome-icon-theme.spec",
+      "group"                => "System/GUI/GNOME",
+      "legal_review_notices" => [],
+      "licenses"             => ["LGPLv3+ | CC BY-SA V3.0"],
+      "sources"              => ["ftp://ftp.gnome.org/pub/gnome/sources/%{name}/2.20/%{name}-%{version}.tar.bz2"],
+      "summary"              => "GNOME Icon Theme",
+      "type"                 => "spec",
+      "url"                  => "http://www.gnome.org/",
+      "version"              => "3.0.0"
     }
   ],
   "warnings" => []

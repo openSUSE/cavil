@@ -2,12 +2,13 @@
   "errors"              => [],
   "incomplete_checkout" => 0,
   "main"                => {
-    "%doc"     => ["AUTHORS COPYING.LIB ChangeLog NEWS README"],
-    "%license" => [],
-    "file"     => "mono-core.spec",
-    "group"    => "Development/Languages/Mono",
-    "license"  => "LGPL-2.1 and MIT and MS-PL",
-    "licenses" => [
+    "%doc"                 => ["AUTHORS COPYING.LIB ChangeLog NEWS README"],
+    "%license"             => [],
+    "file"                 => "mono-core.spec",
+    "group"                => "Development/Languages/Mono",
+    "legal_review_notices" => [],
+    "license"              => "LGPL-2.1 and MIT and MS-PL",
+    "licenses"             => [
       "LGPL-2.1 and MIT and MS-PL", "LGPL-2.1",      "LGPL-2.1",      "LGPL-2.1",
       "LGPL-2.1",                   "LGPL-2.1",      "LGPL-2.1",      "LGPL-2.1",
       "LGPL-2.1",                   "LGPL-2.1",      "LGPL-2.1",      "LGPL-2.1",
@@ -24,11 +25,12 @@
   },
   "sub" => [
     {
-      "%doc"     => ["AUTHORS COPYING.LIB ChangeLog NEWS README"],
-      "%license" => [],
-      "file"     => "mono-core.spec",
-      "group"    => "Development/Languages/Mono",
-      "licenses" => [
+      "%doc"                 => ["AUTHORS COPYING.LIB ChangeLog NEWS README"],
+      "%license"             => [],
+      "file"                 => "mono-core.spec",
+      "group"                => "Development/Languages/Mono",
+      "legal_review_notices" => [],
+      "licenses"             => [
         "LGPL-2.1 and MIT and MS-PL", "LGPL-2.1",      "LGPL-2.1",      "LGPL-2.1",
         "LGPL-2.1",                   "LGPL-2.1",      "LGPL-2.1",      "LGPL-2.1",
         "LGPL-2.1",                   "LGPL-2.1",      "LGPL-2.1",      "LGPL-2.1",

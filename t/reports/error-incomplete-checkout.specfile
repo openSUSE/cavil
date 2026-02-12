@@ -2,24 +2,26 @@
   "errors" => ["Checkout might be incomplete, remote service in _service file: download_files (mode: trylocal)"],
   "incomplete_checkout" => 1,
   "main"                => {
-    "%doc"     => [],
-    "%license" => [],
-    "file"     => "error-incomplete-checkout.spec",
-    "license"  => "MIT AND BSD-3-Clause",
-    "licenses" => ["MIT AND BSD-3-Clause"],
-    "sources"  => [],
-    "summary"  => "Just a test",
-    "type"     => "spec"
+    "%doc"                 => [],
+    "%license"             => [],
+    "file"                 => "error-incomplete-checkout.spec",
+    "legal_review_notices" => [],
+    "license"              => "MIT AND BSD-3-Clause",
+    "licenses"             => ["MIT AND BSD-3-Clause"],
+    "sources"              => [],
+    "summary"              => "Just a test",
+    "type"                 => "spec"
   },
   "sub" => [
     {
-      "%doc"     => [],
-      "%license" => [],
-      "file"     => "error-incomplete-checkout.spec",
-      "licenses" => ["MIT AND BSD-3-Clause"],
-      "sources"  => [],
-      "summary"  => "Just a test",
-      "type"     => "spec"
+      "%doc"                 => [],
+      "%license"             => [],
+      "file"                 => "error-incomplete-checkout.spec",
+      "legal_review_notices" => [],
+      "licenses"             => ["MIT AND BSD-3-Clause"],
+      "sources"              => [],
+      "summary"              => "Just a test",
+      "type"                 => "spec"
     }
   ],
   "warnings" => []

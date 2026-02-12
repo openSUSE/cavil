@@ -172,6 +172,7 @@ subtest 'MCP' => sub {
         like $text, qr/Priority:.+5/,                                                        'priority';
         like $text, qr/Created:.+/,                                                          'created';
         like $text, qr/Manual review is required because no previous reports are available/, 'system notice';
+        like $text, qr/Upstream project maintained by SUSE employee/,                        'legal review notice';
         like $text, qr/Elevated risk, package might contain incompatible licenses/,          'risk notice';
         like $text, qr/\* GPL-2.0-only: 1 file/,                                             'license summary';
         like $text, qr/- `gpl2_file.txt`/,                                                   'matched file';

@@ -93,7 +93,7 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/PackageName: perl-Mojolicious/,                                     'has PackageName';
     like $report, qr/SPDXID: SPDXRef-pkg-1/,                                             'has SPDXID for package';
     like $report, qr/PackageDownloadLocation: NOASSERTION/,                              'has PackageDownloadLocation';
-    like $report, qr/PackageVerificationCode: fe1c74622249929a94572734f8fdf1cbb24ab8dd/, 'has PackageVerificationCode';
+    like $report, qr/PackageVerificationCode: 18e5ffc40dd3a06717d15fa74608bbbfbe9ae8e4/, 'has PackageVerificationCode';
     like $report, qr/PackageVersion: 7.25/,                                              'has PackageVersion';
     like $report, qr/PackageLicenseDeclared: Artistic-2.0/,                              'has PackageLicenseDeclared';
     like $report, qr/PackageDescription: Real-time/,                                     'has PackageDescription';
