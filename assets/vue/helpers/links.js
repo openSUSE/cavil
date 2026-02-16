@@ -6,7 +6,7 @@ const tooltip = `
   data-bs-toggle="popover"
   data-bs-trigger="hover focus"
   data-bs-title="Error"
-  data-bs-content="Error during report generation, please constact an administrator."
+  data-bs-content="Error during report generation, please contact an administrator."
 >
   <i class="fas fa-exclamation-circle"></i>
 </a>
