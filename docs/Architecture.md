@@ -4,7 +4,7 @@
 
 Cavil has three primary components:
 
-1. Web Application providing the UI and REST API
+1. Web Application providing the UI, MCP and REST API
 2. Job queue for processing background jobs
 3. AI text classification server
 
@@ -23,9 +23,9 @@ Bots --> |         |     |                     |     |                |
                          |                     |     |                |
                          |                     | --> |                |
                          |                     |     |                |
-                         |                     |     +----------------+
-OBS <------------------- |      Job Queue      |
-                         |                     |     +----------------+
+OBS <------------------- |                     |     +----------------+
+                         |      Job Queue      |
+Git <------------------- |                     |     +----------------+
                          |                     |     |                |
                          |                     | --> |       AI       |
                          |                     |     |                |
@@ -149,14 +149,15 @@ For all of these conditions a prior review by a human expert or lawyer needs to 
 
 ## Report Creation
 
-Report creation is triggered via REST [API](API.md), usually by an OBS bot like
-[legal-auto](https://github.com/openSUSE/openSUSE-release-tools/blob/master/legal-auto.py). This results in various
-background jobs being created that are then performed by the jobs queue. Jobs can often be processed in parallel to
-make the best use of all available resources.
+Report creation is triggered via REST [API](API.md), usually by bots like
+[legal-auto](https://github.com/openSUSE/openSUSE-release-tools/blob/master/legal-auto.py) and
+[cavil-gitea](https://github.com/openSUSE/cavil-gitea). This results in various background jobs being created that are
+then performed by the jobs queue. Jobs can often be processed in parallel to make the best use of all available
+resources.
 
 These jobs are involved in report creation and usually run in the listed order:
 
-1. `obs_import`: Checks out the package sources from OBS.
+1. `obs_import` or `git_import`: Checks out the package sources from OBS or git repo.
 2. `unpack`: Recursively unpacks all archives contained in package sources.
 3. `index`: Creates file lists and splits them up into batches for parallel processing.
 4. `index_batch`: Performs two phase pattern matching on all files in the batch with license and keyword patterns.
