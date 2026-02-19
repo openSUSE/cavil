@@ -16,8 +16,8 @@
 use Mojo::Base -strict;
 
 use Test::More;
-use Cavil::ReportUtil
-  qw(estimated_risk incompatible_licenses report_checksum report_shortname summary_delta summary_delta_score);
+use Cavil::ReportUtil (qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
+  qw( summary_delta summary_delta_score));
 
 subtest 'estimated_risk' => sub {
   subtest 'Risk 0' => sub {
@@ -189,6 +189,107 @@ subtest 'incompatible_licenses' => sub {
     };
     is_deeply incompatible_licenses($report), [{licenses => ['GPL-2.0-only', 'Apache-2.0']}],
       'incompatible licenses found';
+  };
+};
+
+subtest 'minimal_snippet' => sub {
+  subtest 'Minimal snippets' => sub {
+    is minimal_snippet({text => 'foo'}),             'foo',             'minimal snippet';
+    is minimal_snippet({text => "foo\nbar\nbaz\n"}), "foo\nbar\nbaz\n", 'minimal snippet';
+    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {}}), "foo\nbar\nbaz\n", 'minimal snippet';
+    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {}, matches => {}}), "foo\nbar\nbaz\n",
+      'minimal snippet';
+    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 1}, matches => {}}), "foo\nbar\nbaz\n",
+      'minimal snippet';
+    is minimal_snippet({text => "foo", keywords => {0 => 1}, matches => {}}),       'foo', 'minimal snippet';
+    is minimal_snippet({text => "foo", keywords => {0 => 1}, matches => {0 => 1}}), 'foo', 'minimal snippet';
+  };
+
+  subtest 'Overlapping license at beginning' => sub {
+    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 24}, matches => {0 => 23}}), "bar\nbaz\n",
+      'minimal snippet';
+
+    my $snippet = {
+      "keywords" => {"30" => 22897},
+      "matches"  => {
+        "0"  => 28495,
+        "1"  => 28495,
+        "10" => 28495,
+        "11" => 28495,
+        "12" => 28495,
+        "13" => 28495,
+        "14" => 28495,
+        "15" => 28495,
+        "16" => 28495,
+        "17" => 28495,
+        "18" => 28495,
+        "19" => 28495,
+        "2"  => 28495,
+        "20" => 28495,
+        "21" => 28495,
+        "22" => 28495,
+        "23" => 28495,
+        "3"  => 28495,
+        "4"  => 28495,
+        "5"  => 28495,
+        "6"  => 28495,
+        "7"  => 28495,
+        "8"  => 28495,
+        "9"  => 28495
+      },
+      "package" => {
+        "filename" => "rustc-1.88.0-src/vendor/encoding_rs-0.8.35/src/lib.processed.rs",
+        "id"       => 467294,
+        "name"     => "rust-1.88"
+      },
+      "sline" => 16,
+      "text"  => "// Redistribution and use in source and binary forms, with or without\n// modification,"
+        . " are permitted provided that the following conditions are met:\n//\n// 1. Redistributions"
+        . " of source code must retain the above copyright notice, this\n//    list of conditions and"
+        . " the following disclaimer.\n//\n// 2. Redistributions in binary form must reproduce the"
+        . " above copyright notice,\n//    this list of conditions and the following disclaimer in the"
+        . " documentation\n//    and/or other materials provided with the distribution.\n//\n// 3."
+        . " Neither the name of the copyright holder nor the names of its\n//    contributors may be"
+        . " used to endorse or promote products derived from\n//    this software without specific prior"
+        . " written permission.\n//\n// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND"
+        . " CONTRIBUTORS \"AS IS\"\n// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED"
+        . " TO, THE\n// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE"
+        . " ARE\n// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\n//"
+        . "FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\n// DAMAGES"
+        . " (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\n// SERVICES; LOSS OF"
+        . " USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\n// CAUSED AND ON ANY THEORY OF"
+        . " LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\n// OR TORT (INCLUDING NEGLIGENCE OR"
+        . " OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\n// OF THIS SOFTWARE, EVEN IF ADVISED OF THE"
+        . " POSSIBILITY OF SUCH DAMAGE.\n\n#![cfg_attr(\n    feature = \"cargo-clippy\",\n    "
+        . "allow(doc_markdown, inline_always, new_ret_no_self)\n)]\n\n//! encoding_rs is a Gecko-oriented"
+        . " Free Software / Open Source implementation\n//! of the"
+        . " [Encoding Standard](https://encoding.spec.whatwg.org/) in Rust.\n"
+    };
+    my $expected_text
+      = "\n#![cfg_attr(\n    feature = \"cargo-clippy\",\n    allow(doc_markdown, inline_always, "
+      . "new_ret_no_self)\n)]\n\n//! encoding_rs is a Gecko-oriented Free Software / Open Source"
+      . " implementation\n//! of the [Encoding Standard](https://encoding.spec.whatwg.org/) in Rust.\n";
+    is minimal_snippet($snippet), $expected_text, 'overlapping license at beginning removed';
+  };
+
+  subtest 'Multiple overlapping licenses at beginning' => sub {
+    my $snippet = {
+      text     => "one\ntwo\nthree\nfour\nfive\nsix\nseven\n",
+      keywords => {5 => 24},
+      matches  => {0 => 23, 2 => 27, 3 => 34}
+    };
+    is minimal_snippet($snippet), "five\nsix\nseven\n", 'minimal snippet';
+  };
+
+  subtest 'Overlapping license at end' => sub {
+    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 24}, matches => {2 => 23}}), "foo\nbar",
+      'minimal snippet';
+  };
+
+  subtest 'Multiple overlapping licenses at end' => sub {
+    my $snippet
+      = {text => "one\ntwo\nthree\nfour\nfive\nsix\nseven\n", keywords => {2 => 24}, matches => {6 => 23, 4 => 27}};
+    is minimal_snippet($snippet), "one\ntwo\nthree\nfour", 'minimal snippet';
   };
 };
 

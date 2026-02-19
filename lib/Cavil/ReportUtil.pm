@@ -22,8 +22,10 @@ use List::Util qw(uniq);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
 
-our @EXPORT_OK
-  = (qw(estimated_risk incompatible_licenses report_checksum report_shortname summary_delta summary_delta_score));
+our @EXPORT_OK = (
+  qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
+  qw(summary_delta summary_delta_score)
+);
 
 # For now we only watch out for GPL-2.0-only and Apache-2.0
 my $INCOMPATIBLE_LICENSE_RULES = [{licenses => ['GPL-2.0-only', 'Apache-2.0']}];
@@ -65,6 +67,29 @@ sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
   }
 
   return \@results;
+}
+
+sub minimal_snippet ($snippet) {
+  my $keywords = $snippet->{keywords} // {};
+  my $matches  = $snippet->{matches}  // {};
+  return $snippet->{text} unless keys %$keywords;
+  return $snippet->{text} unless keys %$matches;
+
+  my $lines = [split("\n", $snippet->{text}, -1)];
+
+  my $start = 0;
+  for (my $i = 0; $i < @$lines; $i++) {
+    last            if $keywords->{$i};
+    $start = $i + 1 if $matches->{$i};
+  }
+
+  my $end = $#$lines;
+  for (my $i = $#$lines; $i >= 0; $i--) {
+    last          if $keywords->{$i};
+    $end = $i - 1 if $matches->{$i};
+  }
+
+  return join "\n", @$lines[$start .. $end];
 }
 
 sub report_checksum ($specfile_report, $dig_report) {

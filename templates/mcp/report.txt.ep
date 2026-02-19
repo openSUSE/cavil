@@ -124,9 +124,7 @@ No files matching any known license patterns or keywords have been found.
 %   for my $unmatched (@$unmatched_keywords) {
 * `<%== $unmatched->{path} %>` (Snippet: <%= $unmatched->{snippet} %>, Hash: <%= $unmatched->{hash} %>):
 ```
-%     for my $line (@{$unmatched->{lines}}) {
-<%== $line->[1] %>
-%     }
+%== $unmatched->{text} 
 ```
 
 %   }

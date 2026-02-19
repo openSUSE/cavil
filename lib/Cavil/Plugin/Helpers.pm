@@ -16,11 +16,12 @@
 package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::Licenses 'lic';
-use Mojo::File 'path';
-use Mojo::JSON 'to_json';
-use Mojo::Util qw(decode humanize_bytes xml_escape);
-use List::Util qw(first uniq);
+use Cavil::Licenses   qw(lic);
+use Cavil::ReportUtil qw(minimal_snippet);
+use Mojo::File        qw(path);
+use Mojo::JSON        qw(to_json);
+use Mojo::Util        qw(decode humanize_bytes xml_escape);
+use List::Util        qw(first uniq);
 
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                    => \&_chart_data);
@@ -93,7 +94,7 @@ sub _mcp_report ($c, $id) {
     format             => 'txt',
     report             => $report,
     summary            => $summary,
-    unmatched_keywords => _unmatched_keywords($report)
+    unmatched_keywords => _unmatched_keywords($c, $report)
   );
 }
 
@@ -203,7 +204,9 @@ sub _package_summary ($c, $id) {
   };
 }
 
-sub _unmatched_keywords ($report) {
+sub _unmatched_keywords ($c, $report) {
+  my $snippets = $c->snippets;
+
   my $unmatched = {};
   for my $file (@{$report->{files}}) {
     next unless $file->{expand};
@@ -214,8 +217,8 @@ sub _unmatched_keywords ($report) {
       my $snippet = $line->[1]->{snippet};
       my $hash    = $line->[1]->{hash};
 
-      $unmatched->{$snippet} //= {path => $path, snippet => $snippet, hash => $hash, lines => []};
-      push @{$unmatched->{$snippet}->{lines}}, [$line->[0], $line->[2]];
+      $unmatched->{$snippet} ||= {path => $path, snippet => $snippet, hash => $hash,
+        text => minimal_snippet($snippets->with_context($snippet))};
     }
   }
 
