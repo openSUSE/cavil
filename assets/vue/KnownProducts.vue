@@ -37,7 +37,7 @@
             </thead>
             <tbody v-if="products === null">
               <tr>
-                <td id="all-done" colspan="2"><i class="fas fa-sync fa-spin"></i> Loading products...</td>
+                <td id="all-done" colspan="4"><i class="fas fa-sync fa-spin"></i> Loading products...</td>
               </tr>
             </tbody>
             <tbody v-else-if="products.length > 0">
