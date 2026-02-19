@@ -60,6 +60,25 @@ Cavil API key by setting the Authorization HTTP header:
 }
 ```
 
+### MCP tools
+
+These tools are currently available:
+
+- *cavil_get_open_reviews* - Get list of 20 highest priority open reviews
+  - **Required Roles**: `user` (read-only)
+  - `search`: Filter results by package name or external link. (string, optional)
+- *cavil_get_report* - Get legal report for a specific package
+  - **Required Roles**: `user` (read-only)
+  - `package_id`: ID of package to get report for. (number, required)
+- *cavil_accept_review* - Accept a legal review for a specific package
+  - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
+  - `package_id`: ID of package to accept. (number, required)
+  - `reason`: Reason for package acceptance. (string, optional)
+- *cavil_reject_review* - Reject a legal review for a specific package
+  - **Required Roles**: `lawyer` or `admin` (read-write)
+  - `package_id`: ID of package to reject. (number, required)
+  - `reason`: Reason for package rejection. (string, required)
+
 ### 3rd Party MCP Clients
 
 While most MCP clients will work with Cavil, we recommend the use of models specifically designed for legal
