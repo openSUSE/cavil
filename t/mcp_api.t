@@ -228,11 +228,12 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 4,                        'four tools available';
-      is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
-      is $result->{tools}[2]{name},  'cavil_accept_review',    'right tool name';
-      is $result->{tools}[3]{name},  'cavil_reject_review',    'right tool name';
+      is scalar @{$result->{tools}}, 5,                              'five tools available';
+      is $result->{tools}[0]{name},  'cavil_get_open_reviews',       'right tool name';
+      is $result->{tools}[1]{name},  'cavil_get_report',             'right tool name';
+      is $result->{tools}[2]{name},  'cavil_accept_review',          'right tool name';
+      is $result->{tools}[3]{name},  'cavil_reject_review',          'right tool name';
+      is $result->{tools}[4]{name},  'cavil_propose_ignore_snippet', 'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -258,6 +259,37 @@ subtest 'MCP' => sub {
       is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
       is $result->{tools}[2]{name},  'cavil_accept_review',    'right tool name';
 
+      $t->app->users->add_role(2, 'admin');
+    };
+
+    subtest 'List tools (contributor)' => sub {
+      $t->app->users->remove_role(2, 'admin');
+      $t->app->users->remove_role(2, 'manager');
+      $t->app->users->add_role(2, 'contributor');
+
+      my $result = $client->list_tools;
+      is scalar @{$result->{tools}}, 3,                              'three tools available';
+      is $result->{tools}[0]{name},  'cavil_get_open_reviews',       'right tool name';
+      is $result->{tools}[1]{name},  'cavil_get_report',             'right tool name';
+      is $result->{tools}[2]{name},  'cavil_propose_ignore_snippet', 'right tool name';
+
+      $t->app->users->remove_role(2, 'contributor');
+      $t->app->users->add_role(2, 'manager');
+      $t->app->users->add_role(2, 'admin');
+    };
+
+    subtest 'List tools (contributor and manager)' => sub {
+      $t->app->users->remove_role(2, 'admin');
+      $t->app->users->add_role(2, 'contributor');
+
+      my $result = $client->list_tools;
+      is scalar @{$result->{tools}}, 4,                              'four tools available';
+      is $result->{tools}[0]{name},  'cavil_get_open_reviews',       'right tool name';
+      is $result->{tools}[1]{name},  'cavil_get_report',             'right tool name';
+      is $result->{tools}[2]{name},  'cavil_accept_review',          'right tool name';
+      is $result->{tools}[3]{name},  'cavil_propose_ignore_snippet', 'right tool name';
+
+      $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');
     };
 
@@ -297,7 +329,9 @@ subtest 'MCP' => sub {
 
         $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
       };
+    };
 
+    subtest 'cavil_accept_review tool' => sub {
       subtest 'Accept review' => sub {
         $t->app->pg->db->update('bot_packages', {state => 'new', reviewing_user => undef, ai_assisted => 0}, {id => 1});
 
@@ -373,6 +407,89 @@ subtest 'MCP' => sub {
           ->json_like('/result', qr/AI Assistant: Test review acceptance by lawyer/)
           ->json_is('/ai_assisted', 1);
         $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+      };
+    };
+
+    subtest 'cavil_propose_ignore_snippet tool' => sub {
+      subtest 'Propose ignore' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_snippet',
+          {package_id => 1, snippet_id => 1, reason => 'Just a test ignore proposal'});
+        ok !$result->{isError}, 'not an error';
+        is $result->{content}[0]{text}, 'Proposal to ignore snippet has been successfully submitted',
+          'proposal message';
+
+        $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+        $t->get_ok('/licenses/proposed/meta?action=create_ignore')
+          ->status_is(200)
+          ->json_is('/changes/0/action',                    'create_ignore')
+          ->json_is('/changes/0/login',                     'tester')
+          ->json_is('/changes/0/data/ai_assisted',          1)
+          ->json_is('/changes/0/data/edited',               0)
+          ->json_is('/changes/0/data/from',                 'perl-Mojolicious')
+          ->json_is('/changes/0/data/highlighted_keywords', [1])
+          ->json_is('/changes/0/data/package',              1)
+          ->json_like('/changes/0/data/pattern', qr/Fixed copyright notice/)
+          ->json_like('/changes/0/data/reason',  qr/AI Assistant: Just a test ignore proposal/)
+          ->json_is('/changes/0/data/snippet', 1);
+        $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+      };
+
+      subtest 'Propose ignore (conflicting proposal)' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_snippet',
+          {package_id => 1, snippet_id => 1, reason => 'Just a test ignore proposal'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Conflicting ignore pattern proposal already exists', 'conflict message';
+      };
+
+      subtest 'Propose ignore (conflicting pattern)' => sub {
+        $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+        $t->get_ok('/licenses/proposed/meta?action=create_ignore')
+          ->status_is(200)
+          ->json_is('/changes/0/action',           'create_ignore')
+          ->json_is('/changes/0/login',            'tester')
+          ->json_is('/changes/0/data/ai_assisted', 1)
+          ->json_is('/changes/0/data/package',     1)
+          ->json_is('/changes/0/data/snippet',     1);
+        my $json = $t->tx->res->json;
+        my $form = {
+          'create-ignore' => 1,
+          hash            => $json->{changes}[0]{token_hexsum},
+          from            => $json->{changes}[0]{data}{from},
+          contributor     => $json->{changes}[0]{login}
+        };
+        $t->post_ok('/snippet/decision/1' => form => $form)
+          ->status_is(200)
+          ->content_like(qr/ignore pattern has been created/);
+        $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+
+        my $result = $client->call_tool('cavil_propose_ignore_snippet',
+          {package_id => 1, snippet_id => 1, reason => 'Just a test ignore proposal'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Conflicting ignore pattern already exists', 'conflict message';
+      };
+
+      subtest 'Propose ignore (non-existent package)' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_snippet',
+          {package_id => 23, snippet_id => 1, reason => 'Just a test ignore proposal'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package not found', 'not found message';
+      };
+
+      subtest 'Propose ignore (embargoed package)' => sub {
+        $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+        my $result = $client->call_tool('cavil_propose_ignore_snippet',
+          {package_id => 1, snippet_id => 2, reason => 'Just a test ignore proposal'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
+        $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
+      };
+
+
+      subtest 'Propose ignore (non-existent snippet)' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_snippet',
+          {package_id => 1, snippet_id => 23, reason => 'Just a test ignore proposal'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Snippet not found', 'not found message';
       };
     };
   }

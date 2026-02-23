@@ -57,6 +57,7 @@
             <span v-else-if="change.action === 'create_ignore'">
               Create ignore pattern from <a :href="change.editUrl" target="_blank"> <b>snippet</b></a
               >, by <b>{{ change.login }}</b>
+              <span v-if="change.data.ai_assisted">&nbsp;<i class="fas fa-robot"></i></span>
             </span>
             <span v-if="currentUser === change.login" class="float-end">
               <a @click="rejectProposal(change)" href="#"><i class="fas fa-times"></i></a>
@@ -135,6 +136,12 @@
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+            <div v-if="change.data.reason" class="row">
+              <div class="col mb-3">
+                <label class="form-label" for="reason">Reason</label>
+                <textarea v-model="change.data.reason" class="form-control" disabled="disabled" rows="3"></textarea>
               </div>
             </div>
             <span v-if="hasAdminRole">

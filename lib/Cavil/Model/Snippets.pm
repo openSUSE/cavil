@@ -179,7 +179,14 @@ sub with_context ($self, $id) {
     }
   }
 
-  return {package => $package, matches => $matches, keywords => $keywords, sline => $sline, text => $text};
+  return {
+    package  => $package,
+    matches  => $matches,
+    keywords => $keywords,
+    sline    => $sline,
+    text     => $text,
+    hash     => $snippet->{hash}
+  };
 }
 
 1;

@@ -5,8 +5,11 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
 
-my $TOOL_ROLES
-  = {cavil_accept_review => {admin => 1, lawyer => 1, manager => 1}, cavil_reject_review => {admin => 1, lawyer => 1}};
+my $WRITE_TOOL_ROLES = {
+  cavil_accept_review          => {admin => 1, lawyer => 1, manager => 1},
+  cavil_reject_review          => {admin => 1, lawyer => 1},
+  cavil_propose_ignore_snippet => {admin => 1, lawyer => 1, contributor => 1}
+};
 
 sub register ($self, $app, $config) {
   my $mcp = MCP::Server->new;
@@ -53,6 +56,20 @@ sub register ($self, $app, $config) {
       required   => ['package_id', 'reason']
     },
     code => \&tool_cavil_reject_review
+  );
+  $mcp->tool(
+    name         => 'cavil_propose_ignore_snippet',
+    description  => 'Propose to ignore a specific snippet in the legal review',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        package_id => {type => 'integer', minimum => 1},
+        snippet_id => {type => 'integer', minimum => 1},
+        reason     => {type => 'string'}
+      },
+      required => ['package_id', 'snippet_id', 'reason']
+    },
+    code => \&tool_cavil_propose_ignore_snippet
   );
 
   return $mcp->to_action;
@@ -103,6 +120,35 @@ sub tool_cavil_get_report ($tool, $args) {
   return $tool->text_result($report);
 }
 
+sub tool_cavil_propose_ignore_snippet ($tool, $args) {
+  my $package_id = $args->{package_id};
+  my $snippet_id = $args->{snippet_id};
+  my $reason     = $args->{reason};
+  my $c          = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($package_id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+  return $tool->text_result('Snippet not found', 1) unless my $snippet = $c->snippets->with_context($snippet_id);
+
+  my $user_id = $c->users->id_for_login($c->current_user);
+  my $result  = $c->patterns->propose_ignore(
+    snippet              => $snippet_id,
+    hash                 => $snippet->{hash},
+    from                 => $pkg->{name},
+    pattern              => $snippet->{text},
+    highlighted_keywords => [sort keys %{$snippet->{keywords}}],
+    highlighted_licenses => [sort keys %{$snippet->{matches}}],
+    package              => $pkg->{id},
+    owner                => $user_id,
+    ai_assisted          => 1,
+    reason               => "AI Assistant: $reason"
+  );
+
+  return $tool->text_result('Conflicting ignore pattern already exists',          1) if $result->{conflict};
+  return $tool->text_result('Conflicting ignore pattern proposal already exists', 1) if $result->{proposal_conflict};
+
+  return 'Proposal to ignore snippet has been successfully submitted';
+}
+
 sub tool_cavil_reject_review ($tool, $args) {
   my $id   = $args->{package_id};
   my $c    = _get_controller($tool);
@@ -131,13 +177,10 @@ sub _filter_tools ($server, $tools, $context) {
 
   my $filtered = [];
   for my $tool (@$tools) {
-    if ($tool->name eq 'cavil_accept_review') {
+    my $name = $tool->name;
+    if (my $check = $WRITE_TOOL_ROLES->{$name}) {
       next unless $write_access;
-      next unless grep { $TOOL_ROLES->{cavil_accept_review}{$_} } @$roles;
-    }
-    elsif ($tool->name eq 'cavil_reject_review') {
-      next unless $write_access;
-      next unless grep { $TOOL_ROLES->{cavil_reject_review}{$_} } @$roles;
+      next unless grep { $check->{$_} } @$roles;
     }
     push @$filtered, $tool;
   }

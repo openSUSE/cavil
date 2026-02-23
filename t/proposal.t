@@ -176,8 +176,9 @@ subtest 'Pattern creation' => sub {
       $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore&filter=license')
         ->status_is(200)
         ->json_has('/changes/0')
-        ->json_is('/changes/0/action'       => 'create_pattern')
-        ->json_is('/changes/0/data/license' => 'GPL')
+        ->json_is('/changes/0/action'           => 'create_pattern')
+        ->json_is('/changes/0/data/ai_assisted' => undef)
+        ->json_is('/changes/0/data/license'     => 'GPL')
         ->json_hasnt('/changes/1');
       $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore&filter=Apache')
         ->status_is(200)

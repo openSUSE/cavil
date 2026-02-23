@@ -78,6 +78,11 @@ These tools are currently available:
   - **Required Roles**: `lawyer` or `admin` (read-write)
   - `package_id`: ID of package to reject. (number, required)
   - `reason`: Reason for package rejection. (string, required)
+- *cavil_propose_ignore_snippet* - Propose to ignore a specific snippet in the legal review
+  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+  - `package_id`: ID of package to ignore snippet for. (number, required)
+  - `snippet_id`: ID of snippet to ignore. (number, required)
+  - `reason`: Reason for snippet to be ignored. (string, required)
 
 ### 3rd Party MCP Clients
 
