@@ -67,17 +67,21 @@ These tools are currently available:
 - *cavil_get_open_reviews* - Get list of 20 highest priority open reviews
   - **Required Roles**: `user` (read-only)
   - `search`: Filter results by package name or external link. (string, optional)
+
 - *cavil_get_report* - Get legal report for a specific package
   - **Required Roles**: `user` (read-only)
   - `package_id`: ID of package to get report for. (number, required)
+
 - *cavil_accept_review* - Accept a legal review for a specific package
   - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
   - `package_id`: ID of package to accept. (number, required)
   - `reason`: Reason for package acceptance. (string, optional)
+
 - *cavil_reject_review* - Reject a legal review for a specific package
   - **Required Roles**: `lawyer` or `admin` (read-write)
   - `package_id`: ID of package to reject. (number, required)
   - `reason`: Reason for package rejection. (string, required)
+
 - *cavil_propose_ignore_snippet* - Propose to ignore a specific snippet in the legal review
   - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
   - `package_id`: ID of package to ignore snippet for. (number, required)
