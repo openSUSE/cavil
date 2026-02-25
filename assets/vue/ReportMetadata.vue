@@ -2,7 +2,7 @@
   <div v-if="pkgName === null"><i class="fas fa-sync fa-spin"></i> Loading package information...</div>
   <div v-else>
     <div class="row">
-      <div class="col mb-3">
+      <div class="col-10">
         <h2 v-if="pkgName !== null">
           <a :href="searchUrl" target="_blank">{{ pkgName }}</a>
           <span class="cavil-package-format-icon"
@@ -201,7 +201,7 @@
           </tbody>
         </table>
       </div>
-      <div class="col mb-3">
+      <div class="col-2">
         <div v-if="pkgRisk !== null" class="cavil-ribbon float-end" :class="ribbonColor">
           <div class="cavil-ribbon-risk">{{ pkgRisk }}</div>
           <div class="cavil-ribbon-description">{{ ribbonDescription }}</div>
