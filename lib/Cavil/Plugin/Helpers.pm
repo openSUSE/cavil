@@ -117,7 +117,7 @@ sub _package_summary ($c, $id) {
 
   my $has_spdx_report = $pkgs->has_spdx_report($id);
   my $report          = $pkg->{checksum} // '';
-  my ($shortname)     = $report =~ /:(\w+)$/;
+  my ($risk, $shortname) = $report =~ /-(\d+):(\w+)$/;
 
   my $requests = $pkgs->requests_for($id);
   my $products = $c->products->for_package($id);
@@ -187,6 +187,7 @@ sub _package_summary ($c, $id) {
     package_license      => {name => $package_license, spdx => \!!$normalized_license},
     package_name         => $pkg->{name},
     package_priority     => $pkg->{priority},
+    package_risk         => $risk,
     package_shortname    => $shortname,
     package_summary      => $summary,
     package_type         => $type,

@@ -1,200 +1,213 @@
 <template>
   <div v-if="pkgName === null"><i class="fas fa-sync fa-spin"></i> Loading package information...</div>
   <div v-else>
-    <div class="float-end format">
-      <i class="fab fa-suse" v-if="pkgType === 'spec'"></i>
-      <i class="fab fa-ubuntu" v-else-if="pkgType === 'debian'"></i>
-      <i class="fas fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
-      <i class="fab fa-docker" v-else-if="pkgType === 'docker'"></i>
-      <i class="fas fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
-      <i class="fas fa-industry" v-else-if="pkgType === 'obsprj'"></i>
-      <i class="far fa-question-circle" v-else></i>
+    <div class="row">
+      <div class="col mb-3">
+        <h2 v-if="pkgName !== null">
+          <a :href="searchUrl" target="_blank">{{ pkgName }}</a>
+          <span class="cavil-package-format-icon"
+            >&nbsp;
+            <i class="fab fa-suse" v-if="pkgType === 'spec'"></i>
+            <i class="fab fa-ubuntu" v-else-if="pkgType === 'debian'"></i>
+            <i class="fas fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
+            <i class="fab fa-docker" v-else-if="pkgType === 'docker'"></i>
+            <i class="fas fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
+            <i class="fas fa-industry" v-else-if="pkgType === 'obsprj'"></i>
+            <i class="far fa-question-circle" v-else></i>
+          </span>
+        </h2>
+        <table class="table borderless novertpad">
+          <tbody>
+            <tr v-if="pkgLicense !== null && pkgLicense.name !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-box"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">License:</th>
+              <td id="pkg-license">
+                {{ pkgLicense.name }}
+                <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
+              </td>
+            </tr>
+            <tr v-if="state !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-balance-scale"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">State:</th>
+              <td id="pkg-state">
+                <div v-if="state === 'new'" class="badge text-bg-secondary">{{ state }}</div>
+                <div v-else-if="state === 'acceptable_by_lawyer'" class="badge text-bg-success">{{ state }}</div>
+                <div v-else-if="state === 'acceptable'" class="badge text-bg-warning">{{ state }}</div>
+                <div v-else class="badge text-bg-danger">{{ state }}</div>
+              </td>
+            </tr>
+            <tr>
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-lock"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Embargoed:</th>
+              <td v-if="pkgEmbargoed === true" id="pkg-embargoed">Yes</td>
+              <td v-else id="pkg-embargoed">No</td>
+            </tr>
+            <tr v-if="pkgFiles.length > 0">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-cubes"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Package Files:</th>
+              <td id="num-spec-files">
+                <a v-if="actions.length === 1" href="#spec-files" data-bs-toggle="collapse">1 file</a>
+                <a v-else href="#spec-files" data-bs-toggle="collapse">{{ pkgFiles.length }} files</a>
+              </td>
+            </tr>
+            <tr v-if="actions.length > 0">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-directions"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Actions:</th>
+              <td>
+                <a v-if="actions.length === 1" href="#actions" data-bs-toggle="collapse">1 related review</a>
+                <a v-else href="#actions" data-bs-toggle="collapse">{{ actions.length }} related reviews</a>
+              </td>
+            </tr>
+            <tr v-if="history.length > 0">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-history"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">History:</th>
+              <td>
+                <a v-if="history.length === 1" href="#history" data-bs-toggle="collapse">1 other review</a>
+                <a v-else href="#history" data-bs-toggle="collapse">{{ history.length }} other reviews</a>
+              </td>
+            </tr>
+            <tr v-if="externalLink !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-anchor"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">External Link:</th>
+              <td v-html="externalLink"></td>
+            </tr>
+            <tr v-if="requestsHtml !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-link"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Requests:</th>
+              <td v-html="requestsHtml"></td>
+            </tr>
+            <tr v-if="productsHtml !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-shopping-bag"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Products:</th>
+              <td v-html="productsHtml"></td>
+            </tr>
+            <tr v-if="pkgVersion !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-code-branch"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Version:</th>
+              <td id="pkg-version">{{ pkgVersion }}</td>
+            </tr>
+            <tr v-if="pkgSummary !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-edit"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Summary:</th>
+              <td id="pkg-summary">{{ pkgSummary }}</td>
+            </tr>
+            <tr v-if="pkgGroup !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-users"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Group:</th>
+              <td id="pkg-group">{{ pkgGroup }}</td>
+            </tr>
+            <tr v-if="pkgUrl !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-link"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">URL:</th>
+              <td id="pkg-url">
+                <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
+              </td>
+            </tr>
+            <tr>
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="far fa-chart-bar"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">SPDX Report:</th>
+              <td>
+                <a :href="spdxUrl" target="_blank">
+                  <span v-if="hasSpdxReport === true">available</span>
+                  <span v-else>not yet generated</span>
+                </a>
+              </td>
+            </tr>
+            <tr v-if="pkgShortname !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="far fa-file"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Shortname:</th>
+              <td id="pkg-shortname">{{ pkgShortname }}</td>
+            </tr>
+            <tr v-if="checkoutUrl !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="far fa-folder"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Checkout:</th>
+              <td id="checkout-url">
+                <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
+              </td>
+            </tr>
+            <tr v-if="unpackedFiles > 0">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-sitemap"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Unpacked:</th>
+              <td v-if="unpackedFiles == 1" id="unpacked-files">1 file ({{ unpackedSize }})</td>
+              <td v-else id="unpacked-files">{{ unpackedFilesWithSeparator }} files ({{ unpackedSize }})</td>
+            </tr>
+            <tr v-if="pkgPriority !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="far fa-star"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Priority:</th>
+              <td id="pkg-priority">{{ pkgPriority }}</td>
+            </tr>
+            <tr v-if="created !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="far fa-plus-square"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Created:</th>
+              <td class="from-now">{{ created }}</td>
+            </tr>
+            <tr v-if="reviewed !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-search"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Reviewed:</th>
+              <td class="from-now">{{ reviewed }}</td>
+            </tr>
+            <tr v-if="reviewingUser !== null">
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-user"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Reviewing User:</th>
+              <td>
+                {{ reviewingUser }}
+                <span v-if="pkgAiAssisted" class="ai-assisted-badge"
+                  >(with AI Assistant <i class="fas fa-robot"></i>)</span
+                >
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col mb-3">
+        <div v-if="pkgRisk !== null" class="cavil-ribbon float-end" :class="ribbonColor">
+          <div class="cavil-ribbon-risk">{{ pkgRisk }}</div>
+          <div class="cavil-ribbon-description">{{ ribbonDescription }}</div>
+        </div>
+      </div>
     </div>
-    <h2 v-if="pkgName !== null">
-      <a :href="searchUrl" target="_blank">{{ pkgName }}</a>
-    </h2>
-    <table class="table borderless novertpad">
-      <tbody>
-        <tr v-if="state !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-balance-scale"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">State:</th>
-          <td id="pkg-state">
-            <div v-if="state === 'new'" class="badge text-bg-secondary">{{ state }}</div>
-            <div v-else-if="state === 'acceptable_by_lawyer'" class="badge text-bg-success">{{ state }}</div>
-            <div v-else-if="state === 'acceptable'" class="badge text-bg-warning">{{ state }}</div>
-            <div v-else class="badge text-bg-danger">{{ state }}</div>
-          </td>
-        </tr>
-        <tr v-if="pkgLicense !== null && pkgLicense.name !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-box"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">License:</th>
-          <td id="pkg-license">
-            {{ pkgLicense.name }}
-            <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
-          </td>
-        </tr>
-        <tr>
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-lock"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Embargoed:</th>
-          <td v-if="pkgEmbargoed === true" id="pkg-embargoed">Yes</td>
-          <td v-else id="pkg-embargoed">No</td>
-        </tr>
-        <tr v-if="pkgFiles.length > 0">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-cubes"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Package Files:</th>
-          <td id="num-spec-files">
-            <a v-if="actions.length === 1" href="#spec-files" data-bs-toggle="collapse">1 file</a>
-            <a v-else href="#spec-files" data-bs-toggle="collapse">{{ pkgFiles.length }} files</a>
-          </td>
-        </tr>
-        <tr v-if="actions.length > 0">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-directions"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Actions:</th>
-          <td>
-            <a v-if="actions.length === 1" href="#actions" data-bs-toggle="collapse">1 related review</a>
-            <a v-else href="#actions" data-bs-toggle="collapse">{{ actions.length }} related reviews</a>
-          </td>
-        </tr>
-        <tr v-if="history.length > 0">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-history"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">History:</th>
-          <td>
-            <a v-if="history.length === 1" href="#history" data-bs-toggle="collapse">1 other review</a>
-            <a v-else href="#history" data-bs-toggle="collapse">{{ history.length }} other reviews</a>
-          </td>
-        </tr>
-        <tr v-if="externalLink !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-anchor"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">External Link:</th>
-          <td v-html="externalLink"></td>
-        </tr>
-        <tr v-if="requestsHtml !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-link"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Requests:</th>
-          <td v-html="requestsHtml"></td>
-        </tr>
-        <tr v-if="productsHtml !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-shopping-bag"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Products:</th>
-          <td v-html="productsHtml"></td>
-        </tr>
-        <tr v-if="pkgVersion !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-code-branch"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Version:</th>
-          <td id="pkg-version">{{ pkgVersion }}</td>
-        </tr>
-        <tr v-if="pkgSummary !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-edit"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Summary:</th>
-          <td id="pkg-summary">{{ pkgSummary }}</td>
-        </tr>
-        <tr v-if="pkgGroup !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-users"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Group:</th>
-          <td id="pkg-group">{{ pkgGroup }}</td>
-        </tr>
-        <tr v-if="pkgUrl !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-link"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">URL:</th>
-          <td id="pkg-url">
-            <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
-          </td>
-        </tr>
-        <tr>
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="far fa-chart-bar"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">SPDX Report:</th>
-          <td>
-            <a :href="spdxUrl" target="_blank">
-              <span v-if="hasSpdxReport === true">available</span>
-              <span v-else>not yet generated</span>
-            </a>
-          </td>
-        </tr>
-        <tr v-if="pkgShortname !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="far fa-file"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Shortname:</th>
-          <td id="pkg-shortname">{{ pkgShortname }}</td>
-        </tr>
-        <tr v-if="checkoutUrl !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="far fa-folder"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Checkout:</th>
-          <td id="checkout-url">
-            <a :href="checkoutUrl" target="_blank">{{ pkgChecksum }}</a>
-          </td>
-        </tr>
-        <tr v-if="unpackedFiles > 0">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-sitemap"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Unpacked:</th>
-          <td v-if="unpackedFiles == 1" id="unpacked-files">1 file ({{ unpackedSize }})</td>
-          <td v-else id="unpacked-files">{{ unpackedFilesWithSeparator }} files ({{ unpackedSize }})</td>
-        </tr>
-        <tr v-if="pkgPriority !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="far fa-star"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Priority:</th>
-          <td id="pkg-priority">{{ pkgPriority }}</td>
-        </tr>
-        <tr v-if="created !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="far fa-plus-square"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Created:</th>
-          <td class="from-now">{{ created }}</td>
-        </tr>
-        <tr v-if="reviewed !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-search"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Reviewed:</th>
-          <td class="from-now">{{ reviewed }}</td>
-        </tr>
-        <tr v-if="reviewingUser !== null">
-          <th class="fit text-start noleftpad" scope="row">
-            <i class="fas fa-user"></i>
-          </th>
-          <th class="fit text-start noleftpad" scope="row">Reviewing User:</th>
-          <td>
-            {{ reviewingUser }}
-            <span v-if="pkgAiAssisted" class="ai-assisted-badge">(with AI Assistant <i class="fas fa-robot"></i>)</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
     <div v-if="actions.length > 0" class="row collapse" id="actions">
       <div class="col">
         <table class="table table-striped transparent-table">
@@ -384,6 +397,7 @@ export default {
       pkgLicense: null,
       pkgName: null,
       pkgPriority: null,
+      pkgRisk: null,
       pkgShortname: null,
       pkgSummary: null,
       pkgType: null,
@@ -408,6 +422,20 @@ export default {
   computed: {
     unpackedFilesWithSeparator() {
       return this.unpackedFiles.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    },
+    ribbonColor() {
+      if (this.pkgRisk === '1' || this.pkgRisk === '2' || this.pkgRisk === '3') return 'cavil-green-ribbon';
+      if (this.pkgRisk === '4' || this.pkgRisk === '5' || this.pkgRisk === '6') return 'cavil-red-ribbon';
+      return 'cavil-gray-ribbon';
+    },
+    ribbonDescription() {
+      if (this.pkgRisk === '1') return 'Public Domain';
+      if (this.pkgRisk === '2') return 'Permissive';
+      if (this.pkgRisk === '3') return 'Weak Copyleft';
+      if (this.pkgRisk === '4') return 'Managed Obligations';
+      if (this.pkgRisk === '5') return 'Strong Copyleft';
+      if (this.pkgRisk === '6') return 'Non-Commercial';
+      return 'Unknown Risk';
     }
   },
   methods: {
@@ -445,6 +473,7 @@ export default {
       this.pkgLicense = data.package_license;
       this.pkgName = data.package_name;
       this.pkgPriority = data.package_priority;
+      this.pkgRisk = data.package_risk;
       this.pkgShortname = data.package_shortname;
       this.pkgSummary = data.package_summary;
       this.pkgType = data.package_type;
@@ -492,5 +521,77 @@ export default {
 }
 #spec-files table + table {
   margin-top: 1rem;
+}
+.cavil-classification-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 1rem;
+  background-color: #0b374d;
+  color: #ffffff;
+  width: 150px;
+}
+.cavil-package-format-icon i {
+  color: gray;
+}
+
+.cavil-green-ribbon {
+  --cavil-ribbon-color: #198754;
+}
+.cavil-red-ribbon {
+  --cavil-ribbon-color: #dc3545;
+}
+.cavil-gray-ribbon {
+  --cavil-ribbon-color: #6c757d;
+}
+.cavil-ribbon {
+  color: #fff;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    'Noto Sans',
+    'Liberation Sans',
+    Arial,
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol',
+    'Noto Color Emoji';
+  width: 110px;
+}
+.cavil-ribbon {
+  --r: 0.8em;
+  border-inline: 0.5em solid #0000;
+  padding: 0.5em 0.2em calc(var(--r) + 0.2em);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 100%,
+    calc(100% - 0.5em) calc(100% - var(--r)),
+    50% 100%,
+    0.5em calc(100% - var(--r)),
+    0 100%
+  );
+  background:
+    radial-gradient(50% 0.2em at top, #000a, #0000) border-box,
+    var(--cavil-ribbon-color) padding-box;
+}
+
+.cavil-ribbon-risk {
+  font-size: 2.5rem;
+  font-weight: bold;
+  padding: 0.3em;
+  text-align: center;
+}
+.cavil-ribbon-description {
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 0.6rem;
+  text-align: center;
+  word-break: break-word;
 }
 </style>
