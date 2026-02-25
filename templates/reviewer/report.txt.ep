@@ -44,7 +44,7 @@ existing license patterns, the higher the risk will climb above the predicted li
 % for my $risk (reverse sort keys %$risks) {
 %   my $current = $risks->{$risk};
 
-### Risk <%== $risk %> (<%== $risk <= 3 ? 'Low' : 'High'%>)
+### Risk <%== $risk %> (<%== $risk <= 3 ? 'Low' : $risk == 4 ? 'Medium' : 'High'%>)
 
 %   for my $lic (sort keys %$current) {
 %     my $matches = $current->{$lic};

@@ -425,7 +425,8 @@ export default {
     },
     ribbonColor() {
       if (this.pkgRisk === '1' || this.pkgRisk === '2' || this.pkgRisk === '3') return 'cavil-green-ribbon';
-      if (this.pkgRisk === '4' || this.pkgRisk === '5' || this.pkgRisk === '6') return 'cavil-red-ribbon';
+      if (this.pkgRisk === '4') return 'cavil-orange-ribbon';
+      if (this.pkgRisk === '5' || this.pkgRisk === '6') return 'cavil-red-ribbon';
       return 'cavil-gray-ribbon';
     },
     ribbonDescription() {
@@ -538,6 +539,9 @@ export default {
 
 .cavil-green-ribbon {
   --cavil-ribbon-color: #198754;
+}
+.cavil-orange-ribbon {
+  --cavil-ribbon-color: #ffc107;
 }
 .cavil-red-ribbon {
   --cavil-ribbon-color: #dc3545;

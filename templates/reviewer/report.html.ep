@@ -52,8 +52,11 @@
               % if ($max_risk == 9) {
                 <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
               % }
-              % elsif ($max_risk > 3) {
+              % elsif ($max_risk > 4) {
                 <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
+              % }
+              % elsif ($max_risk == 4) {
+                <div class="badge text-bg-warning estimated-risk">Risk <%= $max_risk %></div>
               % }
               % else {
                 <div class="badge text-bg-success estimated-risk">Risk <%= $max_risk %></div>
@@ -73,6 +76,9 @@
 % for my $risk (reverse sort keys %$risks) {
   % if ($risk <= 3) {
     <h4><div class="badge text-bg-success">Risk <%= $risk %></div></h4>
+  % }
+  % elsif ($risk == 4) {
+    <h4><div class="badge text-bg-warning">Risk <%= $risk %></div></h4>
   % }
   % else {
     <h4><div class="badge text-bg-danger">Risk <%= $risk %></div></h4>
