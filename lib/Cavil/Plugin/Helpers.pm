@@ -119,6 +119,8 @@ sub _package_summary ($c, $id) {
   my $report          = $pkg->{checksum} // '';
   my ($risk, $shortname) = $report =~ /-(\d+):(\w+)$/;
 
+  $risk = 9 if ($pkg->{unresolved_matches} || 0) > 0;
+
   my $requests = $pkgs->requests_for($id);
   my $products = $c->products->for_package($id);
 
