@@ -28,6 +28,14 @@
                 <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
               </td>
             </tr>
+            <tr>
+              <th class="fit text-start noleftpad" scope="row">
+                <i class="fas fa-lock"></i>
+              </th>
+              <th class="fit text-start noleftpad" scope="row">Embargoed:</th>
+              <td v-if="pkgEmbargoed === true" id="pkg-embargoed">Yes</td>
+              <td v-else id="pkg-embargoed">No</td>
+            </tr>
             <tr v-if="state !== null">
               <th class="fit text-start noleftpad" scope="row">
                 <i class="fas fa-balance-scale"></i>
@@ -39,14 +47,6 @@
                 <div v-else-if="state === 'acceptable'" class="badge text-bg-warning">{{ state }}</div>
                 <div v-else class="badge text-bg-danger">{{ state }}</div>
               </td>
-            </tr>
-            <tr>
-              <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-lock"></i>
-              </th>
-              <th class="fit text-start noleftpad" scope="row">Embargoed:</th>
-              <td v-if="pkgEmbargoed === true" id="pkg-embargoed">Yes</td>
-              <td v-else id="pkg-embargoed">No</td>
             </tr>
             <tr v-if="pkgFiles.length > 0">
               <th class="fit text-start noleftpad" scope="row">
