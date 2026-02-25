@@ -533,7 +533,7 @@ export default {
   width: 150px;
 }
 .cavil-package-format-icon i {
-  color: gray;
+  color: #6c757d;
 }
 
 .cavil-green-ribbon {
