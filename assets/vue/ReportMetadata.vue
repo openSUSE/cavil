@@ -538,19 +538,20 @@ export default {
 }
 
 .cavil-green-ribbon {
-  --cavil-ribbon-color: #198754;
+  --cavil-ribbon-bg-color: #198754;
 }
 .cavil-orange-ribbon {
-  --cavil-ribbon-color: #ffc107;
+  --cavil-ribbon-bg-color: #ffc107;
+  --cavil-ribbon-color: #000;
 }
 .cavil-red-ribbon {
-  --cavil-ribbon-color: #dc3545;
+  --cavil-ribbon-bg-color: #dc3545;
 }
 .cavil-gray-ribbon {
-  --cavil-ribbon-color: #6c757d;
+  --cavil-ribbon-bg-color: #6c757d;
 }
 .cavil-ribbon {
-  color: #fff;
+  color: var(--cavil-ribbon-color, #fff);
   font-family:
     system-ui,
     -apple-system,
@@ -582,7 +583,7 @@ export default {
   );
   background:
     radial-gradient(50% 0.2em at top, #000a, #0000) border-box,
-    var(--cavil-ribbon-color) padding-box;
+    var(--cavil-ribbon-bg-color) padding-box;
 }
 
 .cavil-ribbon-risk {
