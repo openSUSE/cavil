@@ -424,8 +424,10 @@ subtest 'Pagination' => sub {
       ->json_is('/total',          4)
       ->json_is('/page/0/license', '')
       ->json_is('/page/0/spdx',    '')
+      ->json_is('/page/0/risks',   [5])
       ->json_is('/page/1/license', 'Apache-2.0')
       ->json_is('/page/1/spdx',    '')
+      ->json_is('/page/1/risks',   [5])
       ->json_hasnt('/page/4');
     $t->get_ok('/pagination/licenses/known?filter=Artistic')
       ->json_is('/start',          1)

@@ -240,11 +240,12 @@ sub paginate_known_licenses ($self, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT license, spdx, COUNT(*) OVER() AS total
+      SELECT license, spdx, ARRAY_AGG(DISTINCT(risk)) AS risks, COUNT(*) OVER() AS total
       FROM (
-        SELECT DISTINCT(license), spdx FROM license_patterns
+        SELECT DISTINCT(license), spdx, risk FROM license_patterns
         $search
       ) AS licenses
+      GROUP BY license, spdx
       ORDER BY license
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
