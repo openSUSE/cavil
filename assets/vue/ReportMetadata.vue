@@ -582,7 +582,7 @@ export default {
     0 100%
   );
   background:
-    radial-gradient(50% 0.2em at top, #000a, #0000) border-box,
+    radial-gradient(50% 0.2em at top, rgba(0, 0, 0, 0), #0000) border-box,
     var(--cavil-ribbon-bg-color) padding-box;
 }
 
