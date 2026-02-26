@@ -122,7 +122,7 @@ sub _analyzed ($job, $id) {
 
     my $auto_accept_risk = $config->{auto_accept_risk};
     my $risk             = $reports->risk_is_acceptable($pkg_shortname);
-    if (defined($risk) && $risk > 0 && $auto_accept_risk && $risk < $auto_accept_risk) {
+    if (defined($risk) && $risk > 0 && $auto_accept_risk && $risk <= $auto_accept_risk) {
       $pkg->{state}            = 'acceptable';
       $pkg->{review_timestamp} = 1;
       $pkg->{reviewing_user}   = undef;
