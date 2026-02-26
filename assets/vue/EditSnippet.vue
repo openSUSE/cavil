@@ -1,195 +1,200 @@
 <template>
-  <div v-if="patternText === null"><i class="fas fa-sync fa-spin"></i> Loading snippet...</div>
-  <div v-else>
-    <div v-if="hasContributorRole === false && hasAdminRole === false" class="alert alert-info">
-      There is no license pattern for this snippet yet. You do not have the necessary permissions to propose new license
-      patterns. To change this contact an administrator and request the "contributor" role.
-    </div>
-    <div v-else-if="hasAdminRole === false" class="alert alert-info">
-      There is no license pattern for this snippet yet, you are welcome to submit a proposal. An administrator will
-      review it and decide if it should be added. However, you may only use existing licenses and risk assessments.
-    </div>
-    <div v-if="this.package !== null" class="row">
-      <div class="col mb-3">
-        The example shown here is from the file <a :href="this.package.fileUrl">{{ this.package.file }}</a> in the
-        package <a :href="this.package.packageUrl">{{ this.package.name }}</a
-        >.
+  <div class="row mt-3">
+    <h3>Edit Snippet</h3>
+    <div v-if="patternText === null"><i class="fas fa-sync fa-spin"></i> Loading snippet...</div>
+    <div v-else>
+      <div v-if="hasContributorRole === false && hasAdminRole === false" class="alert alert-info">
+        There is no license pattern for this snippet yet. You do not have the necessary permissions to propose new
+        license patterns. To change this contact an administrator and request the "contributor" role.
       </div>
-    </div>
-    <form :action="this.decisionUrl" method="POST">
-      <input type="hidden" name="package" :value="this.package.id" v-if="this.package !== null" />
-      <input type="hidden" name="highlighted-keywords" :value="this.highlightedKeywords" />
-      <input type="hidden" name="highlighted-licenses" :value="this.highlightedLicenses" />
-      <input type="hidden" name="edited" :value="this.edited" />
-      <input type="hidden" name="hash" :value="this.hash" />
-      <input type="hidden" name="from" :value="this.from" />
-      <div class="row">
+      <div v-else-if="hasAdminRole === false" class="alert alert-info">
+        There is no license pattern for this snippet yet, you are welcome to submit a proposal. An administrator will
+        review it and decide if it should be added. However, you may only use existing licenses and risk assessments.
+      </div>
+      <div v-if="this.package !== null" class="row">
         <div class="col mb-3">
-          <label class="form-label" for="pattern">Snippet</label>
-          <textarea
-            ref="patternText"
-            v-model="patternText"
-            class="mono-text form-control"
-            id="pattern"
-            name="pattern"
-            rows="20"
-          ></textarea>
-          <div id="patternHelp" class="form-text">
-            Keyword matches are <span class="keyword-line">red</span> and should be included in the license pattern.
-            Overlapping matches of exisitng license patterns are <span class="license-line">green</span> and safe to
-            ignore. Use expressions like <code>$SKIP5</code> to skip up to a certain number of words.
-            <code>$SKIP19</code> represents the upper limit of the matching engine (which will be higher than 19), and
-            simply skips as many words as possible.<span v-if="hasAdminRole === true">
-              Click on line numbers to see patterns.</span
-            >
-          </div>
+          The example shown here is from the file <a :href="this.package.fileUrl">{{ this.package.file }}</a> in the
+          package <a :href="this.package.packageUrl">{{ this.package.name }}</a
+          >.
         </div>
       </div>
-      <div class="row">
-        <div class="col mb-3">
-          <label class="fomr-label" for="license">License</label>
-          <input
-            v-model="license"
-            @input="autocomplete"
-            @keydown="licenseFocused = true"
-            @focus="licenseFocused = true"
-            @blur="licenseFocused = false"
-            ref="license"
-            type="text"
-            class="form-control"
-            id="license"
-            name="license"
-            autocomplete="off"
-          />
-          <div v-show="licenseFocused" class="autocomplete-container">
-            <div class="autocomplete">
-              <div
-                v-for="(result, i) in results"
-                :key="i"
-                @mousedown.prevent="fillLicense(result)"
-                class="autocomplete-item"
+      <form :action="this.decisionUrl" method="POST">
+        <input type="hidden" name="package" :value="this.package.id" v-if="this.package !== null" />
+        <input type="hidden" name="highlighted-keywords" :value="this.highlightedKeywords" />
+        <input type="hidden" name="highlighted-licenses" :value="this.highlightedLicenses" />
+        <input type="hidden" name="edited" :value="this.edited" />
+        <input type="hidden" name="hash" :value="this.hash" />
+        <input type="hidden" name="from" :value="this.from" />
+        <div class="row">
+          <div class="col mb-3">
+            <label class="form-label" for="pattern">Snippet</label>
+            <textarea
+              ref="patternText"
+              v-model="patternText"
+              class="mono-text form-control"
+              id="pattern"
+              name="pattern"
+              rows="20"
+            ></textarea>
+            <div id="patternHelp" class="form-text">
+              Keyword matches are <span class="keyword-line">red</span> and should be included in the license pattern.
+              Overlapping matches of exisitng license patterns are <span class="license-line">green</span> and safe to
+              ignore. Use expressions like <code>$SKIP5</code> to skip up to a certain number of words.
+              <code>$SKIP19</code> represents the upper limit of the matching engine (which will be higher than 19), and
+              simply skips as many words as possible.<span v-if="hasAdminRole === true">
+                Click on line numbers to see patterns.</span
               >
-                {{ result }}
-              </div>
             </div>
           </div>
-          <div href="#" id="patternHelp" class="form-text">
-            Auto-completed license names will also predict the risk value.
-            <a
-              data-bs-html="true"
-              data-bs-toggle="popover"
-              data-bs-trigger="hover focus"
-              data-bs-title="Standard Risks"
-              :data-bs-content="riskHtml"
-            >
-              <i class="fas fa-question-circle"></i>
-            </a>
-          </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-lg-2 mb-3">
-          <div class="form-floating">
-            <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control">
-              <option>0</option>
-              <option>1</option>
-              <option>2</option>
-              <option>3</option>
-              <option>4</option>
-              <option>5</option>
-              <option>6</option>
-              <option>9</option>
-            </select>
-            <label for="risk" class="form-label">Risk</label>
-          </div>
-        </div>
-        <div class="col-lg-2">
-          <div class="form-check">
+        <div class="row">
+          <div class="col mb-3">
+            <label class="fomr-label" for="license">License</label>
             <input
-              v-model="licenseOptions.patent"
-              type="checkbox"
-              class="form-check-input"
-              id="patent"
-              name="patent"
-              value="1"
+              v-model="license"
+              @input="autocomplete"
+              @keydown="licenseFocused = true"
+              @focus="licenseFocused = true"
+              @blur="licenseFocused = false"
+              ref="license"
+              type="text"
+              class="form-control"
+              id="license"
+              name="license"
+              autocomplete="off"
             />
-            <label class="form-check-label" for="patent">Patent</label>
-          </div>
-          <div class="form-check">
-            <input
-              v-model="licenseOptions.trademark"
-              type="checkbox"
-              class="form-check-input"
-              id="trademark"
-              name="trademark"
-              value="1"
-            />
-            <label class="form-check-label" for="trademark">Trademark</label>
+            <div v-show="licenseFocused" class="autocomplete-container">
+              <div class="autocomplete">
+                <div
+                  v-for="(result, i) in results"
+                  :key="i"
+                  @mousedown.prevent="fillLicense(result)"
+                  class="autocomplete-item"
+                >
+                  {{ result }}
+                </div>
+              </div>
+            </div>
+            <div href="#" id="patternHelp" class="form-text">
+              Auto-completed license names will also predict the risk value.
+              <a
+                data-bs-html="true"
+                data-bs-toggle="popover"
+                data-bs-trigger="hover focus"
+                data-bs-title="Standard Risks"
+                :data-bs-content="riskHtml"
+              >
+                <i class="fas fa-question-circle"></i>
+              </a>
+            </div>
           </div>
         </div>
-        <div class="col-lg-2">
-          <div class="form-check">
-            <input
-              v-model="licenseOptions.export_restricted"
-              type="checkbox"
-              class="form-check-input"
-              id="export_restricted"
-              name="export_restricted"
-              value="1"
-            />
-            <label class="form-check-label" for="export_restricted">Export Restricted</label>
+        <div class="row">
+          <div class="col-lg-2 mb-3">
+            <div class="form-floating">
+              <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control">
+                <option>0</option>
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>9</option>
+              </select>
+              <label for="risk" class="form-label">Risk</label>
+            </div>
+          </div>
+          <div class="col-lg-2">
+            <div class="form-check">
+              <input
+                v-model="licenseOptions.patent"
+                type="checkbox"
+                class="form-check-input"
+                id="patent"
+                name="patent"
+                value="1"
+              />
+              <label class="form-check-label" for="patent">Patent</label>
+            </div>
+            <div class="form-check">
+              <input
+                v-model="licenseOptions.trademark"
+                type="checkbox"
+                class="form-check-input"
+                id="trademark"
+                name="trademark"
+                value="1"
+              />
+              <label class="form-check-label" for="trademark">Trademark</label>
+            </div>
+          </div>
+          <div class="col-lg-2">
+            <div class="form-check">
+              <input
+                v-model="licenseOptions.export_restricted"
+                type="checkbox"
+                class="form-check-input"
+                id="export_restricted"
+                name="export_restricted"
+                value="1"
+              />
+              <label class="form-check-label" for="export_restricted">Export Restricted</label>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col mb-3">
-          <span v-if="hasAdminRole === true">
-            <button name="create-pattern" type="submit" value="1" class="btn btn-success mb-2">Create Pattern</button>
-            &nbsp;
-            <span v-if="this.hash !== null && this.from !== null">
-              <button name="create-ignore" type="submit" value="1" class="btn btn-danger mb-2">Ignore Pattern</button>
+        <div class="row">
+          <div class="col mb-3">
+            <span v-if="hasAdminRole === true">
+              <button name="create-pattern" type="submit" value="1" class="btn btn-success mb-2">Create Pattern</button>
               &nbsp;
-              <button name="mark-non-license" type="submit" value="1" class="btn btn-primary mb-2">
-                No Legal Text
-              </button>
-              &nbsp; &nbsp; &nbsp;
+              <span v-if="this.hash !== null && this.from !== null">
+                <button name="create-ignore" type="submit" value="1" class="btn btn-danger mb-2">Ignore Pattern</button>
+                &nbsp;
+                <button name="mark-non-license" type="submit" value="1" class="btn btn-primary mb-2">
+                  No Legal Text
+                </button>
+                &nbsp; &nbsp; &nbsp;
+              </span>
             </span>
-          </span>
-          <button
-            v-if="hasContributorRole === true"
-            name="propose-pattern"
-            type="submit"
-            value="1"
-            class="btn btn-success mb-2"
-          >
-            Propose Pattern
-          </button>
-          <span v-if="hasContributorRole === true && this.hash !== null && this.from !== null">
-            &nbsp;
-            <button name="propose-ignore" type="submit" value="1" class="btn btn-danger mb-2">Propose Ignore</button>
-            &nbsp;
-            <button name="propose-missing" type="submit" value="1" class="btn btn-primary mb-2">Missing License</button>
-          </span>
-        </div>
-      </div>
-      <div v-if="closest !== null" class="row closest-container">
-        <div class="col">
-          <div class="closest-header">
-            <a :href="closest.url">
-              <b>{{ closest.similarity }}%</b> similarity to
-              <b>{{ closest.license === '' ? 'Keyword Pattern' : closest.license }}</b
-              >, estimated risk {{ closest.license === '' ? 9 : closest.risk }}
-            </a>
-          </div>
-          <div class="closest-source">
-            <pre>{{ closest.text }}</pre>
-          </div>
-          <div class="closest-footer">
-            <span v-if="closest.package !== ''"><b>Package:</b> {{ closest.package }}</span>
+            <button
+              v-if="hasContributorRole === true"
+              name="propose-pattern"
+              type="submit"
+              value="1"
+              class="btn btn-success mb-2"
+            >
+              Propose Pattern
+            </button>
+            <span v-if="hasContributorRole === true && this.hash !== null && this.from !== null">
+              &nbsp;
+              <button name="propose-ignore" type="submit" value="1" class="btn btn-danger mb-2">Propose Ignore</button>
+              &nbsp;
+              <button name="propose-missing" type="submit" value="1" class="btn btn-primary mb-2">
+                Missing License
+              </button>
+            </span>
           </div>
         </div>
-      </div>
-    </form>
+        <div v-if="closest !== null" class="row closest-container">
+          <div class="col">
+            <div class="closest-header">
+              <a :href="closest.url">
+                <b>{{ closest.similarity }}%</b> similarity to
+                <b>{{ closest.license === '' ? 'Keyword Pattern' : closest.license }}</b
+                >, estimated risk {{ closest.license === '' ? 9 : closest.risk }}
+              </a>
+            </div>
+            <div class="closest-source">
+              <pre>{{ closest.text }}</pre>
+            </div>
+            <div class="closest-footer">
+              <span v-if="closest.package !== ''"><b>Package:</b> {{ closest.package }}</span>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 

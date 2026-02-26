@@ -1,6 +1,6 @@
 % layout 'default';
 
-<div class="alert alert-warning">
+<div class="mt-3 alert alert-warning">
   Please be aware that this is an <b>EXPERIMENTAL</b> feature.
 </div>
 

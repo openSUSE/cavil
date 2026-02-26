@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="row">
+    <div class="row mt-3">
       <div class="col-12 alert alert-primary" role="alert">
         These are license pattern changes proposed by contributors. New patterns are guaranted to match the snippet they
         were created for, and can only use an existing license and risk combination.

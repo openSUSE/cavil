@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="row">
+    <div class="row mt-3">
       <div v-if="hasClassifierRole === true" class="col-11 alert alert-primary" role="alert">
         These snippets have been pre-processed by our machine learning model to decide if they are legal text or not.
         Legal text is highlighted in yellow. You can help us improve the model by voting the decisions up or down.

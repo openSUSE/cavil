@@ -1,5 +1,6 @@
 % layout 'default', title => 'Snippet edited';
 
+<div class="row mt-3">
 % if (my $id = stash('pattern')) {
   <div class="alert alert-success" role="alert">
     Your <%= link_to 'pattern' => url_for('edit_pattern', id => $id) %> has been created.
@@ -37,3 +38,4 @@
     Reindexing <%= $num %> <%= $num == 1 ? 'package' : 'packages' %>.
   </div>
 % }
+</div>

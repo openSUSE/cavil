@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="row">
+    <div class="row mt-3">
       <div class="col-12 alert alert-primary" role="alert">
         These ignored matches are snippets that contain enough legal text so they cannot be ignored by the machine
         learning model, but are not relevant enough to be turned into license patterns, or the relevant parts are

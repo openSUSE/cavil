@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="row">
+    <div class="row mt-3">
       <div class="col-12 alert alert-primary" role="alert">
         These globs are used to decide which files the indexer should ignore when scanning for license pattern matches.
         <button name="add-glob" class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#globModal">

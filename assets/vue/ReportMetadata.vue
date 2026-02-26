@@ -2,7 +2,7 @@
   <div v-if="pkgName === null"><i class="fas fa-sync fa-spin"></i> Loading package information...</div>
   <div v-else>
     <div class="row">
-      <div class="col-10">
+      <div class="col-10 mt-3">
         <h2 v-if="pkgName !== null">
           <a :href="searchUrl" target="_blank">{{ pkgName }}</a>
           <span class="cavil-package-format-icon"

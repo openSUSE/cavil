@@ -1,3 +1,5 @@
 % layout 'default', title => 'Not found';
 
-The requested resource does not exist.
+<div class="row mt-3">
+  The requested resource does not exist.
+</div>

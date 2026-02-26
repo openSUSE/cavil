@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="row">
+    <div class="row mt-3">
       <div class="col-12 alert alert-primary" role="alert">
         These are snippets with possibly missing licenses or license combinations that have been flagged by contributors
         for risk assessment.

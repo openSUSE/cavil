@@ -1,6 +1,6 @@
 % layout 'default', title => "$package->{name}: $package->{state}";
 
-<div class="row">
+<div class="row mt-3">
   <div class="col-md-12 align-middle">
     <div class="alert alert-success" id="reviewed" role="alert">
       Reviewed <%= link_to $package->{name} =>

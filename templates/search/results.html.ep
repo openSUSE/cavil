@@ -1,6 +1,6 @@
 % layout 'default', title => 'Search Results';
 
-<h2>Search Results</h2>
+<h2 class="mt-3">Search Results</h2>
 
 <div id="review-search"></div>
 

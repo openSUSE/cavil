@@ -1,5 +1,5 @@
 <template>
-  <div class="row">
+  <div class="row mt-3">
     <div class="col-md-2">
       <div class="stats">
         <div class="stats-body">{{ activePackages }}</div>
