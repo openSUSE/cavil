@@ -137,9 +137,14 @@ sub slurp_and_decode ($path) {
   return Mojo::Util::decode('UTF-8', $content) // $content;
 }
 
+sub _spdx_link ($license) {
+  return qq{<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/$license.html">$license</a>};
+}
+
 sub spdx_link ($text) {
-  return $text unless $SPDX_LICENSES{$text};
-  return qq{<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/$text.html">$text</a>};
+  state $spdx_re = join '|', map {quotemeta} sort { length($b) <=> length($a) } @SPDX_LICENSES;
+  $text =~ s{($spdx_re)}{_spdx_link($1)}geo;
+  return $text;
 }
 
 sub _line_tag ($line) {

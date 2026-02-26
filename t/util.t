@@ -150,6 +150,27 @@ subtest 'spdx_link' => sub {
     '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a>',
     'known license';
   is spdx_link('Unknown-License'), 'Unknown-License', 'unknown license';
+
+  subtest 'Expression with AND' => sub {
+    is spdx_link('Apache-2.0 AND MIT'),
+      '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a>' . ' AND '
+      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>';
+  };
+
+  subtest 'Expression with OR' => sub {
+    is spdx_link('MIT OR GPL-2.0-only'),
+      '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>' . ' OR '
+      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/GPL-2.0-only.html">GPL-2.0-only</a>';
+  };
+
+  subtest 'Expression with parentheses and AND/OR' => sub {
+    is spdx_link('(MIT OR Apache-2.0) AND GPL-2.0-only'),
+        '('
+      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>' . ' OR '
+      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a>'
+      . ') AND '
+      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/GPL-2.0-only.html">GPL-2.0-only</a>';
+  };
 };
 
 subtest 'ssh_sign' => sub {
