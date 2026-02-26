@@ -48,9 +48,6 @@ my $SAFE_OBS_SRVICE_NAMES = {product_converter => 1};
 our @SPDX_LICENSES   = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;
 our @SPDX_EXCEPTIONS = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
 
-# Fast lookup
-my %SPDX_LICENSES = map { $_ => 1 } @SPDX_LICENSES;
-
 sub buckets ($things, $size) {
 
   my $buckets    = int(@$things / $size) || 1;
@@ -137,12 +134,12 @@ sub slurp_and_decode ($path) {
   return Mojo::Util::decode('UTF-8', $content) // $content;
 }
 
-sub _spdx_link ($license) {
-  return qq{<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/$license.html">$license</a>};
+sub _spdx_link ($match) {
+  return qq{<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/$match.html">$match</a>};
 }
 
 sub spdx_link ($text) {
-  state $spdx_re = join '|', map {quotemeta} sort { length($b) <=> length($a) } @SPDX_LICENSES;
+  state $spdx_re = join '|', map {quotemeta} sort { length($b) <=> length($a) } (@SPDX_LICENSES, @SPDX_EXCEPTIONS);
   $text =~ s{($spdx_re)}{_spdx_link($1)}geo;
   return $text;
 }
