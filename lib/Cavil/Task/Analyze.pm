@@ -110,10 +110,28 @@ sub _analyzed ($job, $id) {
   return unless $pkg->{indexed};
   return if $pkg->{state} ne 'new' && $pkg->{state} ne 'acceptable';
 
-  # Every package needs a human review before future versions can be auto-accepted, and checkouts need to be complete
+  # Incomplete checkout
   my $specfile = $reports->specfile_report($id);
-  if (!$pkgs->has_manual_review($pkg->{name}) || $specfile->{incomplete_checkout}) {
-    _look_for_smallest_delta($app, $pkg, 0, 0, !!$specfile->{incomplete_checkout}) if $pkg->{state} eq 'new';
+  if ($specfile->{incomplete_checkout}) {
+    _look_for_smallest_delta($app, $pkg, 0, 0, 1) if $pkg->{state} eq 'new';
+    return;
+  }
+
+  # Every package above threshold needs a human review before future versions can be auto-accepted
+  if (!$pkgs->has_manual_review($pkg->{name})) {
+
+    my $auto_accept_risk = $config->{auto_accept_risk};
+    my $risk             = $reports->risk_is_acceptable($pkg_shortname);
+    if (defined($risk) && $risk > 0 && $auto_accept_risk && $risk < $auto_accept_risk) {
+      $pkg->{state}            = 'acceptable';
+      $pkg->{review_timestamp} = 1;
+      $pkg->{reviewing_user}   = undef;
+      $pkg->{result} = "Accepted because of low risk ($risk) and auto-accept risk threshold ($auto_accept_risk)";
+      $pkgs->update($pkg);
+      return;
+    }
+
+    _look_for_smallest_delta($app, $pkg, 0, 0, 0) if $pkg->{state} eq 'new';
     return;
   }
 

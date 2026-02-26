@@ -95,6 +95,7 @@ is $analyzed_job->info->{state},        'finished', 'job is finished';
 is $analyzed_job->info->{result},       undef,      'job was successful';
 is $t->app->packages->find(1)->{state}, 'new',      'still new';
 
+
 # Check shortname (3 missing snippets)
 like $t->app->packages->find(1)->{checksum}, qr/^Artistic-2.0-9:\w+/, 'right shortname';
 
@@ -284,10 +285,40 @@ subtest 'Accept package because of its name' => sub {
   $t->app->config->{acceptable_packages} = ['perl-Mojolicious'];
   $t->app->minion->enqueue('reindex_all');
   $t->app->minion->perform_jobs;
+  $t->app->config->{acceptable_packages} = [];
 
   $pkg = $t->app->packages->find(1);
   is $pkg->{state},  'acceptable',                                          'automatically accepted';
   is $pkg->{result}, 'Accepted because of package name (perl-Mojolicious)', 'because of name';
+};
+
+subtest 'Accept package because of auto-accept risk threshold' => sub {
+  $db->update(
+    'bot_packages',
+    {
+      state          => 'new',
+      checksum       => 'Unknown-1:autotest',
+      result         => undef,
+      notice         => undef,
+      reviewed       => undef,
+      reviewing_user => undef
+    },
+    {id => 1}
+  );
+  my $pkg = $t->app->packages->find(1);
+  is $pkg->{state}, 'new', 'new again';
+
+  # Ensure no previous human review exists for this package name
+  $db->query('UPDATE bot_packages SET reviewing_user = NULL WHERE name = ?', $pkg->{name});
+
+  local $t->app->config->{auto_accept_risk} = 2;
+  $t->app->minion->enqueue(analyzed => [1]);
+  $t->app->minion->perform_jobs;
+
+  $pkg = $t->app->packages->find(1);
+  is $pkg->{state}, 'acceptable', 'automatically accepted';
+  is $pkg->{result}, 'Accepted because of low risk (1) and auto-accept risk threshold (2)',
+    'because of low risk threshold';
 };
 
 subtest 'Prevent index race condition' => sub {
