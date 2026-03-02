@@ -16,7 +16,7 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate pattern_checksum);
+use Cavil::Util qw(paginate pattern_checksum spdx_link);
 use Mojo::File 'path';
 use Mojo::JSON qw(true false);
 use Spooky::Patterns::XS;
@@ -250,6 +250,7 @@ sub paginate_known_licenses ($self, $options) {
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
   )->hashes->to_array;
+  $_->{spdx_html} = spdx_link($_->{spdx}) for @$results;
 
   return paginate($results, $options);
 }

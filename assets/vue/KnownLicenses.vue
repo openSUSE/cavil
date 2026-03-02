@@ -50,7 +50,7 @@
             <tbody v-else-if="licenses.length > 0">
               <tr v-for="license in licenses" :key="license.link">
                 <td v-html="license.link"></td>
-                <td v-html="license.spdx"></td>
+                <td v-html="license.spdxHtml"></td>
                 <td>
                   <span v-for="risk in license.risks" :key="risk" class="badge me-1" :class="badgeClass(risk)">{{
                     risk
@@ -145,6 +145,7 @@ export default {
         licenses.push({
           link: licenseLink(license),
           spdx: license.spdx,
+          spdxHtml: license.spdx_html,
           risks: license.risks
         });
       }
