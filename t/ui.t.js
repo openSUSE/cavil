@@ -269,6 +269,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Create pattern from report match', async t => {
       await page.goto(url);
+      await page.waitForSelector('#open-reviews tbody > tr:nth-child(2)');
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
