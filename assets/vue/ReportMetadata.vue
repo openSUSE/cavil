@@ -433,7 +433,7 @@ export default {
       if (this.pkgRisk === '1') return 'Public Domain';
       if (this.pkgRisk === '2') return 'Permissive';
       if (this.pkgRisk === '3') return 'Copyleft';
-      if (this.pkgRisk === '4') return 'Weak Obligations';
+      if (this.pkgRisk === '4') return 'Obligations';
       if (this.pkgRisk === '5') return 'Strong Obligations';
       if (this.pkgRisk === '6') return 'Non-Commercial';
       return 'Unknown Risk';

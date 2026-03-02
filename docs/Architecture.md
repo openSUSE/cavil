@@ -158,8 +158,8 @@ These are the standard risk levels used for license patterns included with Cavil
 * 2 - `Permissive`: (e.g., MIT, Apache 2.0, BSD-3-Clause). These require attribution but minimal other obligations.
 * 3 - `Copyleft`: (e.g., LGPL, MPL, EPL). These require that modifications to the library itself be shared, but
                   generally allow linking to proprietary code. Share modifications.
-* 4 - `Weak Obligations`: (e.g., legacy advertising clauses, AGPL). These may contain clauses that are
-                          administratively painful (e.g., requiring specific advertising acknowledgments).
+* 4 - `Obligations`: (e.g., legacy advertising clauses, AGPL). These may contain clauses that are
+                     administratively painful (e.g., requiring specific advertising acknowledgments).
 * 5 - `Strong Obligations`: (e.g.,SSPL). These usually trigger source disclosure obligations for the entire software
                             stack if distributed or accessed over a network.
 * 6 - `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
