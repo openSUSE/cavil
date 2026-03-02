@@ -366,6 +366,57 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#license-chart');
       t.match(await page.innerText('ul#risk-3 li'), /Made-Up-License-1.0/);
     });
+
+    await t.test('Missing Licenses', async t => {
+      await page.goto(url);
+      await page.click('text="Logged in as tester"');
+      await page.click('text=Missing Licenses');
+      t.equal(await page.innerText('title'), 'Missing Licenses');
+      await page.waitForSelector('#missing-licenses > div > div:nth-child(2)');
+      t.equal(
+        await page.innerText('#missing-licenses > div > div:nth-child(2)'),
+        'There are currently no missing licenses.'
+      );
+    });
+
+    await t.test('Change Proposals', async t => {
+      await page.goto(url);
+      await page.click('text="Logged in as tester"');
+      await page.click('text=Change Proposals');
+      t.equal(await page.innerText('title'), 'Change Proposals');
+      await page.waitForSelector('#proposed-patterns > div > div:nth-child(3)');
+      t.equal(
+        await page.innerText('#proposed-patterns > div > div:nth-child(3)'),
+        'There are currently no proposed changes.'
+      );
+    });
+
+    await t.test('Pattern Performance', async t => {
+      await page.goto(url);
+      await page.click('text="Logged in as tester"');
+      await page.click('text=Pattern Performance');
+      t.equal(await page.innerText('title'), 'Pattern Performance');
+      await page.waitForSelector('#recent-patterns .recent-pattern-header');
+      t.equal(await page.innerText('#recent-patterns .recent-pattern-header b'), 'Made-Up-License-1.0');
+    });
+
+    await t.test('Statistics', async t => {
+      await page.goto(url);
+      await page.click('text="Logged in as tester"');
+      await page.click('text=Statistics');
+      t.equal(await page.innerText('title'), 'Statistics');
+      await page.waitForSelector('#statistics .stats-body');
+      t.equal(await page.innerText('#statistics .stats-body'), '24');
+    });
+
+    await t.test('API Keys', async t => {
+      await page.goto(url);
+      await page.click('text="Logged in as tester"');
+      await page.click('text=API Keys');
+      t.equal(await page.innerText('title'), 'API Keys');
+      await page.waitForSelector('#api-keys tbody > tr:nth-child(1)');
+      t.equal(await page.innerText('#api-keys tbody > tr:nth-child(1) > td:nth-child(1)'), 'No API keys found.');
+    });
   });
 
   t.test('Console errors', t => {
