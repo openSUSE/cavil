@@ -154,17 +154,17 @@ Reports may be automatically accepted by the system under these conditions:
 
 These are the standard risk levels used for license patterns included with Cavil:
 
-1. `Public Domain`: (e.g., Public domain, CC0, Unlicense).
-2. `Permissive`: (e.g., MIT, Apache 2.0, BSD-3-Clause). These require attribution but minimal other obligations.
-3. `Weak Copyleft`: (e.g., LGPL, MPL, EPL). These require that modifications to the library itself be
-                    shared, but generally allow linking to proprietary code. share modifications.
-4. `Managed Obligations`: (e.g., legacy advertising clauses, AGPL). These may contain clauses that are administratively
-                          painful (e.g., requiring specific advertising acknowledgments).
-5. `Strong Copyleft`: (e.g.,SSPL). These usually trigger source disclosure obligations for the entire software stack if
-                      distributed or accessed over a network.
-6. `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
-                     customers can use the software.
-9. `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.
+* 1 - `Public Domain`: (e.g., Public domain, CC0, Unlicense).
+* 2 - `Permissive`: (e.g., MIT, Apache 2.0, BSD-3-Clause). These require attribution but minimal other obligations.
+* 3 - `Weak Copyleft`: (e.g., LGPL, MPL, EPL). These require that modifications to the library itself be
+                       shared, but generally allow linking to proprietary code. share modifications.
+* 4 - `Managed Obligations`: (e.g., legacy advertising clauses, AGPL). These may contain clauses that are administratively
+                             painful (e.g., requiring specific advertising acknowledgments).
+* 5 - `Strong Copyleft`: (e.g.,SSPL). These usually trigger source disclosure obligations for the entire software stack if
+                         distributed or accessed over a network.
+* 6 - `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
+                        customers can use the software.
+* 9 - `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.
 
 ## Report Creation
 
