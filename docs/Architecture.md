@@ -164,6 +164,7 @@ These are the standard risk levels used for license patterns included with Cavil
                       distributed or accessed over a network.
 6. `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
                      customers can use the software.
+9. `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.
 
 ## Report Creation
 
