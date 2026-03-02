@@ -45,10 +45,10 @@
                 class => current_route('reviews_recent') ? 'nav-link active' : 'nav-link' %>
             </li>
             <li class="nav-item">
-              %= link_to 'Snippets' => '/snippets', class => current_route('snippets') ? 'nav-link active' : 'nav-link'
+              %= link_to 'Products' => '/products', class => current_route('products') ? 'nav-link active' : 'nav-link'
             </li>
             <li class="nav-item">
-              %= link_to 'Products' => '/products', class => current_route('products') ? 'nav-link active' : 'nav-link'
+              %= link_to 'Snippets' => '/snippets', class => current_route('snippets') ? 'nav-link active' : 'nav-link'
             </li>
             <li class="nav-item">
               %= link_to 'Licenses' => '/licenses', class => current_route('licenses') ? 'nav-link active' : 'nav-link'

@@ -1,5 +1,12 @@
 <template>
   <div class="mt-3">
+    <div class="row">
+      <div class="alert alert-primary" role="alert">
+        These patterns are used to identify relevant legal text in source code. This may be license text, copyright
+        statements, EULAs, CLAs, or other legal text. Patterns without license identifiers (keyword patterns) are used
+        to locate potential new license patterns.
+      </div>
+    </div>
     <div>
       <form>
         <div class="row g-4">
