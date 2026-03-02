@@ -117,6 +117,18 @@ sub _analyzed ($job, $id) {
     return;
   }
 
+  # Fast-track packages that are configured to always be acceptable
+  my $name                = $pkg->{name};
+  my $acceptable_packages = $config->{acceptable_packages} || [];
+  if (grep { $name eq $_ } @$acceptable_packages) {
+    $pkg->{state}            = 'acceptable';
+    $pkg->{review_timestamp} = 1;
+    $pkg->{reviewing_user}   = undef;
+    $pkg->{result}           = "Accepted because of package name ($name)";
+    $pkgs->update($pkg);
+    return;
+  }
+
   # Every package above threshold needs a human review before future versions can be auto-accepted
   if (!$pkgs->has_manual_review($pkg->{name})) {
 
@@ -132,18 +144,6 @@ sub _analyzed ($job, $id) {
     }
 
     _look_for_smallest_delta($app, $pkg, 0, 0, 0) if $pkg->{state} eq 'new';
-    return;
-  }
-
-  # Fast-track packages that are configured to always be acceptable
-  my $name                = $pkg->{name};
-  my $acceptable_packages = $config->{acceptable_packages} || [];
-  if (grep { $name eq $_ } @$acceptable_packages) {
-    $pkg->{state}            = 'acceptable';
-    $pkg->{review_timestamp} = 1;
-    $pkg->{reviewing_user}   = undef;
-    $pkg->{result}           = "Accepted because of package name ($name)";
-    $pkgs->update($pkg);
     return;
   }
 
