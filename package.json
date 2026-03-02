@@ -19,7 +19,7 @@
     "@babel/core": "^7.17.10",
     "@babel/plugin-transform-runtime": "^7.17.10",
     "@babel/preset-env": "^7.17.10",
-    "@fortawesome/fontawesome-free": "^5.12.0",
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "@mojojs/core": "^1.23.2",
     "@mojojs/path": "^1.4.2",
     "@mojojs/user-agent": "^0.11.0",

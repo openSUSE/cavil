@@ -1,7 +1,7 @@
 <div class="row mt-3">
   <div class="col mb-2">
     <div class="file-path">
-      <a href="<%= url_for('package_details', id => $id) %>"><i class="fas fa-box"></i></a>
+      <a href="<%= url_for('package_details', id => $id) %>"><i class="fa-solid fa-box"></i></a>
       <a href="<%= url_for('file_view', id => $id, file => '') %>"><%= $package->{name} %></a>
       % my @path;
       % for my $part (grep {length $_} split '/', $filename) {

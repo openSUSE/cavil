@@ -55,7 +55,7 @@
           % }
           % if (current_user_has_role 'admin') {
             <a href="<%= url_for('edit_pattern', id => $match->{id}) %>" title="Edit" class="float-end">
-              <i class="fas fa-edit"></i>
+              <i class="fa-solid fa-pen-to-square"></i>
             </a>
           % }
         </div>

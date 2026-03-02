@@ -48,7 +48,7 @@
             </thead>
             <tbody v-if="matches === null">
               <tr>
-                <td id="all-done" colspan="7"><i class="fas fa-sync fa-spin"></i> Loading ignored matches...</td>
+                <td id="all-done" colspan="7"><i class="fa-solid fa-rotate fa-spin"></i> Loading ignored matches...</td>
               </tr>
             </tbody>
             <tbody v-else-if="matches.length > 0">
@@ -66,7 +66,7 @@
                 <td>{{ match.owner_login }}</td>
                 <td class="text-center">
                   <span class="cavil-action text-center">
-                    <a @click="deleteMatch(match)" href="#"><i class="fas fa-trash"></i></a>
+                    <a @click="deleteMatch(match)" href="#"><i class="fa-solid fa-trash"></i></a>
                   </span>
                 </td>
               </tr>

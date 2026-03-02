@@ -1,5 +1,5 @@
 <template>
-  <div v-if="pkgName === null"><i class="fas fa-sync fa-spin"></i> Loading package information...</div>
+  <div v-if="pkgName === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading package information...</div>
   <div v-else>
     <div class="row">
       <div class="col-10 mt-3">
@@ -7,20 +7,20 @@
           <a :href="searchUrl" target="_blank">{{ pkgName }}</a>
           <span class="cavil-package-format-icon"
             >&nbsp;
-            <i class="fab fa-suse" v-if="pkgType === 'spec'"></i>
-            <i class="fab fa-ubuntu" v-else-if="pkgType === 'debian'"></i>
-            <i class="fas fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
-            <i class="fab fa-docker" v-else-if="pkgType === 'docker'"></i>
-            <i class="fas fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
-            <i class="fas fa-industry" v-else-if="pkgType === 'obsprj'"></i>
-            <i class="far fa-question-circle" v-else></i>
+            <i class="fa-brands fa-suse" v-if="pkgType === 'spec'"></i>
+            <i class="fa-brands fa-ubuntu" v-else-if="pkgType === 'debian'"></i>
+            <i class="fa-solid fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
+            <i class="fa-brands fa-docker" v-else-if="pkgType === 'docker'"></i>
+            <i class="fa-solid fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
+            <i class="fa-solid fa-industry" v-else-if="pkgType === 'obsprj'"></i>
+            <i class="fa-regular fa-circle-question" v-else></i>
           </span>
         </h2>
         <table class="table borderless novertpad">
           <tbody>
             <tr v-if="pkgLicense !== null && pkgLicense.name !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-box"></i>
+                <i class="fa-solid fa-box"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">License:</th>
               <td id="pkg-license">
@@ -30,7 +30,7 @@
             </tr>
             <tr>
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-lock"></i>
+                <i class="fa-solid fa-lock"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Embargoed:</th>
               <td v-if="pkgEmbargoed === true" id="pkg-embargoed">Yes</td>
@@ -38,7 +38,7 @@
             </tr>
             <tr v-if="state !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-balance-scale"></i>
+                <i class="fa-solid fa-balance-scale"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">State:</th>
               <td id="pkg-state">
@@ -50,7 +50,7 @@
             </tr>
             <tr v-if="pkgFiles.length > 0">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-cubes"></i>
+                <i class="fa-solid fa-cubes"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Package Files:</th>
               <td id="num-spec-files">
@@ -60,7 +60,7 @@
             </tr>
             <tr v-if="actions.length > 0">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-directions"></i>
+                <i class="fa-solid fa-directions"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Actions:</th>
               <td>
@@ -70,7 +70,7 @@
             </tr>
             <tr v-if="history.length > 0">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-history"></i>
+                <i class="fa-solid fa-history"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">History:</th>
               <td>
@@ -80,49 +80,49 @@
             </tr>
             <tr v-if="externalLink !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-anchor"></i>
+                <i class="fa-solid fa-anchor"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">External Link:</th>
               <td v-html="externalLink"></td>
             </tr>
             <tr v-if="requestsHtml !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-link"></i>
+                <i class="fa-solid fa-link"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Requests:</th>
               <td v-html="requestsHtml"></td>
             </tr>
             <tr v-if="productsHtml !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-shopping-bag"></i>
+                <i class="fa-solid fa-shopping-bag"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Products:</th>
               <td v-html="productsHtml"></td>
             </tr>
             <tr v-if="pkgVersion !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-code-branch"></i>
+                <i class="fa-solid fa-code-branch"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Version:</th>
               <td id="pkg-version">{{ pkgVersion }}</td>
             </tr>
             <tr v-if="pkgSummary !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-edit"></i>
+                <i class="fa-solid fa-pen-to-square"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Summary:</th>
               <td id="pkg-summary">{{ pkgSummary }}</td>
             </tr>
             <tr v-if="pkgGroup !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-users"></i>
+                <i class="fa-solid fa-users"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Group:</th>
               <td id="pkg-group">{{ pkgGroup }}</td>
             </tr>
             <tr v-if="pkgUrl !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-link"></i>
+                <i class="fa-solid fa-link"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">URL:</th>
               <td id="pkg-url">
@@ -131,7 +131,7 @@
             </tr>
             <tr>
               <th class="fit text-start noleftpad" scope="row">
-                <i class="far fa-chart-bar"></i>
+                <i class="fa-regular fa-chart-column"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">SPDX Report:</th>
               <td>
@@ -143,14 +143,14 @@
             </tr>
             <tr v-if="pkgShortname !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="far fa-file"></i>
+                <i class="fa-regular fa-file"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Shortname:</th>
               <td id="pkg-shortname">{{ pkgShortname }}</td>
             </tr>
             <tr v-if="checkoutUrl !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="far fa-folder"></i>
+                <i class="fa-regular fa-folder"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Checkout:</th>
               <td id="checkout-url">
@@ -159,7 +159,7 @@
             </tr>
             <tr v-if="unpackedFiles > 0">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-sitemap"></i>
+                <i class="fa-solid fa-sitemap"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Unpacked:</th>
               <td v-if="unpackedFiles == 1" id="unpacked-files">1 file ({{ unpackedSize }})</td>
@@ -167,34 +167,34 @@
             </tr>
             <tr v-if="pkgPriority !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="far fa-star"></i>
+                <i class="fa-regular fa-star"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Priority:</th>
               <td id="pkg-priority">{{ pkgPriority }}</td>
             </tr>
             <tr v-if="created !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="far fa-plus-square"></i>
+                <i class="fa-regular fa-square-plus"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Created:</th>
               <td class="from-now">{{ created }}</td>
             </tr>
             <tr v-if="reviewed !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-search"></i>
+                <i class="fa-solid fa-search"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Reviewed:</th>
               <td class="from-now">{{ reviewed }}</td>
             </tr>
             <tr v-if="reviewingUser !== null">
               <th class="fit text-start noleftpad" scope="row">
-                <i class="fas fa-user"></i>
+                <i class="fa-solid fa-user"></i>
               </th>
               <th class="fit text-start noleftpad" scope="row">Reviewing User:</th>
               <td>
                 {{ reviewingUser }}
                 <span v-if="pkgAiAssisted" class="ai-assisted-badge"
-                  >(with AI Assistant <i class="fas fa-robot"></i>)</span
+                  >(with AI Assistant <i class="fa-solid fa-robot"></i>)</span
                 >
               </td>
             </tr>
@@ -252,7 +252,7 @@
                   <tbody>
                     <tr>
                       <th class="fit text-start noleftpad" colspan="2">
-                        <i class="fas fa-file-alt"></i> {{ file.file }}
+                        <i class="fa-solid fa-file-lines"></i> {{ file.file }}
                       </th>
                     </tr>
                     <tr v-if="file.licenses !== null">

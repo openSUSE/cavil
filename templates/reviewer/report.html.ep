@@ -33,7 +33,7 @@
     <div class="col mb-3" id="unmatched-files">
       % my $unmatched = scalar @{$report->{missed_files}};
       % my $unresolved = $package->{unresolved_matches};
-      <i class="fas fa-exclamation-circle"></i>
+      <i class="fa-solid fa-circle-exclamation"></i>
       <%= $unresolved %> unique unresolved <%= $unresolved == 1 ? 'match' : 'matches' %> in (at least)
       <span id="unmatched-count"><%= $unmatched %></span> <%= $unmatched == 1 ? 'file' : 'files' %>
       <div id="filelist-snippets" class="collapse show">
@@ -154,7 +154,7 @@
         % }
         <div class="float-end">
           <a href="<%= $furl %>" target="_blank">
-            <i class="fas fa-external-link-alt"></i>
+            <i class="fa-solid fa-up-right-from-square"></i>
           </a>
         </div>
       </div>

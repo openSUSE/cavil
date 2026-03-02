@@ -57,10 +57,10 @@
             <span v-else-if="change.action === 'create_ignore'">
               Create ignore pattern from <a :href="change.editUrl" target="_blank"> <b>snippet</b></a
               >, by <b>{{ change.login }}</b>
-              <span v-if="change.data.ai_assisted">&nbsp;<i class="fas fa-robot"></i></span>
+              <span v-if="change.data.ai_assisted">&nbsp;<i class="fa-solid fa-robot"></i></span>
             </span>
             <span v-if="currentUser === change.login" class="float-end">
-              <a @click="rejectProposal(change)" href="#"><i class="fas fa-times"></i></a>
+              <a @click="rejectProposal(change)" href="#"><i class="fa-solid fa-xmark"></i></a>
             </span>
           </div>
           <div class="change-source">
@@ -163,7 +163,7 @@
           </div>
         </div>
         <div v-else-if="change.state === 'updating'" class="col-12">
-          <div class="change-confirmation"><i class="fas fa-sync fa-spin"></i> Updating proposal</div>
+          <div class="change-confirmation"><i class="fa-solid fa-rotate fa-spin"></i> Updating proposal</div>
         </div>
         <div v-else-if="change.state === 'accepted'" class="col-12">
           <div class="change-confirmation">
@@ -182,10 +182,10 @@
         title="Click to return to the top"
         data-bs-toggle="tooltip"
         data-placement="left"
-        ><i class="fas fa-angle-up"></i
+        ><i class="fa-solid fa-angle-up"></i
       ></a>
     </div>
-    <div v-else-if="changes === null"><i class="fas fa-sync fa-spin"></i> Loading changes</div>
+    <div v-else-if="changes === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading changes</div>
     <div v-else>There are currently no proposed changes.</div>
   </div>
 </template>

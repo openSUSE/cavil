@@ -8,7 +8,7 @@ const tooltip = `
   data-bs-title="Error"
   data-bs-content="Error during report generation, please contact an administrator."
 >
-  <i class="fas fa-exclamation-circle"></i>
+  <i class="fa-solid fa-circle-exclamation"></i>
 </a>
 `;
 
@@ -84,6 +84,6 @@ function linkWithContext(html, review) {
   if (failedJobs > 0) {
     return `${html} ${tooltip}`;
   } else {
-    return `${html} <i class="fas fa-sync fa-spin"></i>`;
+    return `${html} <i class="fa-solid fa-rotate fa-spin"></i>`;
   }
 }

@@ -30,7 +30,7 @@
             </thead>
             <tbody v-if="apiKeys === null">
               <tr>
-                <td id="all-done" colspan="4"><i class="fas fa-sync fa-spin"></i> Loading API keys...</td>
+                <td id="all-done" colspan="4"><i class="fa-solid fa-rotate fa-spin"></i> Loading API keys...</td>
               </tr>
             </tbody>
             <tbody v-else-if="apiKeys.length > 0">
@@ -53,7 +53,7 @@
                 <td>{{ key.expires }}</td>
                 <td class="text-center">
                   <span class="cavil-action text-center">
-                    <a @click="deleteApiKey(key)" href="#"><i class="fas fa-trash"></i></a>
+                    <a @click="deleteApiKey(key)" href="#"><i class="fa-solid fa-trash"></i></a>
                   </span>
                 </td>
               </tr>

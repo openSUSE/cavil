@@ -14,22 +14,22 @@
           <tr>
             <td class="pe-1">
               % if (-d $entry) {
-                <i class="fa fa-folder"></i>
+                <i class="fa-solid fa-folder"></i>
               % }
               % elsif ($name =~ /\.processed(?:\.\w+|$)/) {
                 % if ($has_match) {
-                  <i class="fas fa-copy file-with-matches"></i>
+                  <i class="fa-solid fa-copy file-with-matches"></i>
                 % }
                 % else {
-                  <i class="far fa-copy"></i>
+                  <i class="fa-regular fa-copy"></i>
                 % }
               % }
               % else {
                 % if ($has_match) {
-                  <i class="fas fa-file file-with-matches"></i>
+                  <i class="fa-solid fa-file file-with-matches"></i>
                 % }
                 % else {
-                  <i class="far fa-file"></i>
+                  <i class="fa-regular fa-file"></i>
                 % }
               % }
             </td>

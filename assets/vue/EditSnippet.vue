@@ -1,7 +1,7 @@
 <template>
   <div class="row mt-3">
     <h3>Edit Snippet</h3>
-    <div v-if="patternText === null"><i class="fas fa-sync fa-spin"></i> Loading snippet...</div>
+    <div v-if="patternText === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading snippet...</div>
     <div v-else>
       <div v-if="hasContributorRole === false && hasAdminRole === false" class="alert alert-info">
         There is no license pattern for this snippet yet. You do not have the necessary permissions to propose new
@@ -84,7 +84,7 @@
                 data-bs-title="Standard Risks"
                 :data-bs-content="riskHtml"
               >
-                <i class="fas fa-question-circle"></i>
+                <i class="fa-solid fa-circle-question"></i>
               </a>
             </div>
           </div>

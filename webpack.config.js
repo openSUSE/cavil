@@ -61,7 +61,7 @@ const config = {
   output,
   plugins: [
     new CopyWebpackPlugin({
-      patterns: [{from: './node_modules/@fortawesome/fontawesome-free/webfonts', to: './webfonts'}]
+      patterns: [{from: './node_modules/@fortawesome/fontawesome-free/webfonts', to: '../webfonts'}]
     }),
     new MiniCssExtractPlugin({filename: isDev ? '[name].development.css' : '[name].[contenthash].css'}),
     new VueLoaderPlugin(),

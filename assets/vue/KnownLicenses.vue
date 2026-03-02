@@ -44,7 +44,7 @@
             </thead>
             <tbody v-if="licenses === null">
               <tr>
-                <td id="all-done" colspan="4"><i class="fas fa-sync fa-spin"></i> Loading licenses...</td>
+                <td id="all-done" colspan="4"><i class="fa-solid fa-rotate fa-spin"></i> Loading licenses...</td>
               </tr>
             </tbody>
             <tbody v-else-if="licenses.length > 0">

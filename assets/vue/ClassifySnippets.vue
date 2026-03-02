@@ -90,7 +90,7 @@
       </div>
       <div class="col-3">
         <p v-if="total !== null" class="text-end">{{ total }} snippets found</p>
-        <p v-else class="text-end"><i class="fas fa-sync fa-spin"></i> Loading snippets</p>
+        <p v-else class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading snippets</p>
       </div>
     </div>
     <div v-if="snippets !== null && snippets.length > 0">
@@ -102,8 +102,8 @@
             <span v-if="snippet.files === 2">, and 1 other file</span>
             <span v-else-if="snippet.files > 2">, and {{ snippet.files }} other files</span>
             <div class="float-end">
-              <i v-if="snippet.embargoed === true" class="fas fa-lock" title="Embargoed"></i>
-              <i v-if="snippet.approved === true" class="fas fa-check-circle ms-2" title="Approved by a human"></i>
+              <i v-if="snippet.embargoed === true" class="fa-solid fa-lock" title="Embargoed"></i>
+              <i v-if="snippet.approved === true" class="fa-solid fa-circle-check ms-2" title="Approved by a human"></i>
             </div>
           </div>
           <div class="snippet-source">
@@ -141,11 +141,13 @@
         <div class="col-1 snippet-approval">
           <div v-if="hasClassifierRole === true" class="snippet-arrows">
             <div :class="getClassForArrow(snippet, true)">
-              <a @click="approveSnippet(snippet, true)" href="javascript:;"><i class="fas fa-chevron-circle-up"></i></a>
+              <a @click="approveSnippet(snippet, true)" href="javascript:;"
+                ><i class="fa-solid fa-circle-chevron-up"></i
+              ></a>
             </div>
             <div :class="getClassForArrow(snippet, false)">
               <a @click="approveSnippet(snippet, false)" href="javascript:;"
-                ><i class="fas fa-chevron-circle-down"></i
+                ><i class="fa-solid fa-circle-chevron-down"></i
               ></a>
             </div>
           </div>
@@ -159,7 +161,7 @@
         title="Click to return to the top"
         data-bs-toggle="tooltip"
         data-placement="left"
-        ><i class="fas fa-angle-up"></i
+        ><i class="fa-solid fa-angle-up"></i
       ></a>
     </div>
   </div>

@@ -21,7 +21,7 @@
           % my $data = { start => $line->[0], end => $line->[1]->{end}, 'prev-match' => $line->[1]->{prevstart} // 0, 'next-match' => $line->[1]->{nextend} // 0 };
           %= tag 'td', class => "actions dropdown show" => data => $data => begin
             <a href="#" id="dropdownMenuLink-<%= $end_id %>" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-              <i class="actions-menu fas fa-caret-square-down" title="Open Action Menu"></i>
+              <i class="actions-menu fa-solid fa-square-caret-down" title="Open Action Menu"></i>
             </a>
 
             <div class="dropdown-menu" aria-labelledby="dropdownMenuLink-<%= $end_id %>">
@@ -62,7 +62,7 @@
           <td class="quick-actions text-end">
             <a href="<%= url_for('new_snippet', file => $file, start => $line->[0], end => $line->[1]->{end})->query(hash => $hash, from => $packname) %>"
               target="_blank">
-              <i class="fas fa-external-link-alt"></i>
+              <i class="fa-solid fa-up-right-from-square"></i>
             </a>
           </td>
         % }

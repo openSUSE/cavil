@@ -27,7 +27,7 @@
         <span>This report is obsolete and might not exist anymore.</span>
     % }
     % else {
-        <i class="fas fa-spinner fa-pulse"></i>
+        <i class="fa-solid fa-spinner fa-pulse"></i>
         <span id="ajax-status">Preparing the report, this may take a moment...</span>
     % }
 </div>
@@ -40,4 +40,4 @@
 
 <a id="back-to-top" href="#" class="btn btn-primary btn-lg back-to-top"
   role="button" title="Click to return to the top" data-bs-toggle="tooltip"
-  data-placement="left"><i class="fas fa-angle-up"></i></a>
+  data-placement="left"><i class="fa-solid fa-angle-up"></i></a>

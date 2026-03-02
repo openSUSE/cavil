@@ -1,7 +1,7 @@
 % layout 'default';
 % title 'SPDX report is being generated';
 
-Your SPDX report is being generated. This can take a few minutes. <i class="fas fa-spinner fa-spin"></i>
+Your SPDX report is being generated. This can take a few minutes. <i class="fa-solid fa-spinner fa-spin"></i>
 
 % content_for 'head' => begin
   <meta http-equiv="refresh" content="3">

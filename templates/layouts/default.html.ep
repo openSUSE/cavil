@@ -156,7 +156,7 @@
             <div class="col-sm align-self-center text-center cavil-copy">
               <b>Cavil</b> is maintained by
               <a href="https://github.com/openSUSE/cavil/issues"><b>Sebastian Riedel</b></a>.
-              <small><i class="far fa-copyright"></i> SUSE LLC.</small>
+              <small><i class="fa-regular fa-copyright"></i> SUSE LLC.</small>
             </div>
             <!--
               Logo made by Freepik (http://www.freepik.com) from flaticon.com,

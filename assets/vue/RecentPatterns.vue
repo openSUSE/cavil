@@ -41,7 +41,7 @@
       </div>
       <div class="col-3">
         <p v-if="total !== null" class="text-end">{{ total }} patterns found</p>
-        <p v-else class="text-end"><i class="fas fa-sync fa-spin"></i> Loading patterns</p>
+        <p v-else class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading patterns</p>
       </div>
     </div>
     <div v-if="patterns !== null && patterns.length > 0">
@@ -50,7 +50,9 @@
           <div class="recent-pattern-header">
             <b>{{ pattern.license }}</b
             >, risk {{ pattern.risk }}
-            <a v-if="hasAdminRole === true" :href="pattern.editUrl" class="float-end"><i class="fas fa-edit"></i></a>
+            <a v-if="hasAdminRole === true" :href="pattern.editUrl" class="float-end"
+              ><i class="fa-solid fa-pen-to-square"></i
+            ></a>
           </div>
           <div class="recent-pattern-source">
             <table class="pattern">
@@ -86,7 +88,7 @@
         title="Click to return to the top"
         data-bs-toggle="tooltip"
         data-placement="left"
-        ><i class="fas fa-angle-up"></i
+        ><i class="fa-solid fa-angle-up"></i
       ></a>
     </div>
   </div>

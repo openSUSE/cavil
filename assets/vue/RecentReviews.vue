@@ -76,7 +76,7 @@
             </thead>
             <tbody v-if="reviews === null">
               <tr>
-                <td id="all-done" colspan="9"><i class="fas fa-sync fa-spin"></i> Loading reviews...</td>
+                <td id="all-done" colspan="9"><i class="fa-solid fa-rotate fa-spin"></i> Loading reviews...</td>
               </tr>
             </tbody>
             <tbody v-else-if="reviews.length > 0">
@@ -176,7 +176,7 @@ export default {
         const login = [];
         if (review.login) {
           login.push(review.login);
-          if (review.ai_assisted) login.push('<i class="fas fa-robot"></i>');
+          if (review.ai_assisted) login.push('<i class="fa-solid fa-robot"></i>');
         }
 
         reviews.push({
