@@ -136,16 +136,34 @@ These are currently available:
 
 Reports may be automatically accepted by the system under these conditions:
 
+* `Low Risk with Manual Review`: There was a prior manual review of the package by a human expert or lawyer. The
+                                 maximum risk of any given license in the report is not higher than **3**. And there
+                                 are no unresolved keyword matches with a risk higher than **3**. The resulting state
+                                 can only be `acceptable.`
+* `Low Risk without Manual Review`: The maximum risk of any given license in the report is not higher than **2**. And
+                                    there are no unresolved keyword matches with a risk higher than **2**. The
+                                    resulting state can only be `acceptable.`
 * `Previous Result`: A previous report with the same checksum (based on licenses and keyword matches) exists for the
                      same package. In this case the previous result will be inherited.
 * `No Differences`: A previous report exists where the checksum does not match but there are no significant differences
                     between licenses and unique keyword matches.
-* `Low Risk`: The maximum risk of any given license in the report is not higher than **3**. And there are no unresolved
-              keyword matches with a risk higher than **3**. The resulting state can only be `acceptable.`
 * `Package Name`: The package has been configured to always be `acceptable`. For SUSE instances of OBS this is usually
                   done for empty metadata packages like `000product`.
 
-For all of these conditions a prior review by a human expert or lawyer needs to be present in the system however.
+### Standard Risk Levels
+
+These are the standard risk levels used for license patterns included with Cavil:
+
+1. `Public Domain`: (e.g., Public domain, CC0, Unlicense).
+2. `Permissive`: (e.g., MIT, Apache 2.0, BSD-3-Clause). These require attribution but minimal other obligations.
+3. `Weak Copyleft`: (e.g., LGPL, MPL, EPL). These require that modifications to the library itself be
+                    shared, but generally allow linking to proprietary code. share modifications.
+4. `Managed Obligations`: (e.g., legacy advertising clauses, AGPL). These may contain clauses that are administratively
+                          painful (e.g., requiring specific advertising acknowledgments).
+5. `Strong Copyleft`: (e.g.,SSPL). These usually trigger source disclosure obligations for the entire software stack if
+                      distributed or accessed over a network.
+6. `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
+                     customers can use the software.
 
 ## Report Creation
 

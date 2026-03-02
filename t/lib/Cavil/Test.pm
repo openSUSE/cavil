@@ -46,6 +46,7 @@ sub default_config ($self) {
     tokens                                   => ['test_token'],
     pg                                       => $self->postgres_url,
     acceptable_risk                          => 3,
+    auto_accept_risk                         => 0,
     index_bucket_average                     => 100,
     cleanup_bucket_average                   => 50,
     days_to_keep_orphaned_packages           => 7,
