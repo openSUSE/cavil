@@ -2,6 +2,7 @@ assets/assetpack.db
 assets/cache
 assets/webpack.config.d
 public/asset
+public/webfonts
 node_modules
 staging
 blib
