@@ -8,9 +8,9 @@
           <span class="cavil-package-format-icon"
             >&nbsp;
             <i class="fa-brands fa-suse" v-if="pkgType === 'spec'"></i>
-            <i class="fa-brands fa-ubuntu" v-else-if="pkgType === 'debian'"></i>
+            <i class="fa-brands fa-debian" v-else-if="pkgType === 'debian'"></i>
             <i class="fa-solid fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
-            <i class="fa-brands fa-docker" v-else-if="pkgType === 'docker'"></i>
+            <i class="fa-brands fa-docker" v-else-if="pkgType === 'dockerfile'"></i>
             <i class="fa-solid fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
             <i class="fa-solid fa-industry" v-else-if="pkgType === 'obsprj'"></i>
             <i class="fa-regular fa-circle-question" v-else></i>
