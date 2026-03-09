@@ -28,7 +28,7 @@
     % }
     % else {
         <i class="fa-solid fa-spinner fa-pulse"></i>
-        <span id="ajax-status">Preparing the report, this may take a moment...</span>
+        <span id="ajax-status" class="mt-2 mb-2">Preparing the report, this may take a moment...</span>
     % }
 </div>
 
