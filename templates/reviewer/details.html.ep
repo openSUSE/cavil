@@ -23,13 +23,14 @@
 %= include 'reviewer/_reindex'
 
 <div id="details">
+  <div class="row mb-3 mt-3">
     % if ($package->{obsolete}) {
         <span>This report is obsolete and might not exist anymore.</span>
     % }
     % else {
-        <i class="fa-solid fa-spinner fa-pulse"></i>
-        <span id="ajax-status" class="mt-2 mb-2">Preparing the report, this may take a moment...</span>
+        <span id="ajax-status"><i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...</span>
     % }
+  </div>
 </div>
 
 % my $detail_url = url_for('report', id => $package->{id})->to_abs;
