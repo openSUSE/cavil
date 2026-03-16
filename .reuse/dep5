@@ -1,0 +1,22 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Cavil
+Upstream-Contact: Sebastian Riedel  <s@kraih.com>
+Source: https://github.com/openSUSE/cavil
+
+#Files:
+# t/legal-bot/error-invalid-xml-kiwi/fffe100e5a9a3e7f6d1fd97512215287/error-invalid-xml-kiwi.kiwi
+# t/legal-bot/error-invalid-yaml-helm/fffe100e5a9a3e7f6d1fd97512215286/Chart.yaml
+# t/legal-bot/go1.16-devel-container/ffcfdab0e71b1bebfdf8b5cc3badfeca/Dockerfile
+# t/legal-bot/harbor-helm/4fcfdab0e71b0bebfdf8b5cc3badfec4/Chart.yaml
+# t/legal-bot/mixed/fffe100e5a9a3e7f6d1fd97512215282/Chart.yaml
+# t/legal-bot/mixed/fffe100e5a9a3e7f6d1fd97512215282/mixed.Dockerfile
+# t/legal-bot/go1.16-devel-container/ffcfdab0e71b1bebfdf8b5cc3badfeca/Dockerfile
+# t/legal-bot/go1.16-devel-container/ffcfdab0e71b1bebfdf8b5cc3badfeca/dummy.Dockerfile
+# t/legal-bot/mixed/fffe100e5a9a3e7f6d1fd97512215282/mixed-more.Dockerfile
+# t/legal-bot/error-missing-main-mixed/fffe100e5a9a3e7f6d1fd97512215284/mixed-more.Dockerfile
+# t/legal-bot/mixed/fffe100e5a9a3e7f6d1fd97512215282/Dockerfile
+#are reported as MIT or BSD-3-Clause or BSD-2-Clause but they are just test
+
+Files: *
+Copyright: 2018 SUSE GmbH
+License: GPL-2.0-only
