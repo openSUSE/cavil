@@ -44,7 +44,7 @@ sub startup ($self) {
   $self->secrets($config->{secrets});
 
   if (my $classifier = $config->{classifier}) {
-    $self->classifier->url($classifier->{url})->token($classifier->{token});
+    $self->classifier->type($classifier->{type})->url($classifier->{url})->token($classifier->{token});
   }
 
   # Avoid huge temp files in "/tmp"

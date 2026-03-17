@@ -44,7 +44,30 @@ It is strongly recommended to combine Cavil with a machine learning model for te
 matching system used for identifying clusters of legal keywords (snippets) has a false-positive rate of about 80%. Even
 a simple model can identify almost all of them.
 
-There are currently two example implementations for a companion server application (usually running on port 5000):
+The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) has a collection of models fine-tuned specifically for
+this task, such as `Cavil-Qwen3.5-4B`.
+
+### Llama.cpp
+
+The recommended deployment method for these models is a [llama.cpp](https://github.com/ggml-org/llama.cpp) server.
+
+```
+$ llama-server Cavil-Qwen3.5-4B.f16.gguf --host localhost --port 5000 --api-key TOKEN
+```
+
+Just start the server and add a `classifier` section like this to your `cavil.conf`.
+
+```
+classifier => {
+  type  => 'llama_cpp',
+  url   => 'http://localhost:5000',
+  token => 'TOKEN'
+}
+```
+
+### Legacy
+
+Alternatively there are also two implementations for our legacy classifier API:
 
 1. https://github.com/kraih/Character-level-cnn-pytorch/
 2. https://github.com/kraih/llm-lawyer

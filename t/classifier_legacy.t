@@ -1,17 +1,5 @@
-# Copyright (C) 2018-2020 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# Copyright 2018-2026 SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict;
 
@@ -25,9 +13,9 @@ use Mojolicious::Lite;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'classifier_test');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'classifier_legacy_test');
 my $config     = $cavil_test->default_config;
-$config->{classifier} = {url => 'http://127.0.0.1:5000', token => 'TEST:TOKEN:12345'};
+$config->{classifier} = {type => 'legacy', url => 'http://127.0.0.1:5000', token => 'TEST:TOKEN:12345'};
 my $t = Test::Mojo->new(Cavil => $config);
 $cavil_test->mojo_fixtures($t->app);
 
@@ -56,6 +44,7 @@ get '/*whatever' => {whatever => ''} => {text => '', status => 404};
 
 # Connect mock server
 my $classifier = $t->app->classifier;
+is $classifier->type,  'legacy',                'type has been configured';
 is $classifier->url,   'http://127.0.0.1:5000', 'URL has been configured';
 is $classifier->token, 'TEST:TOKEN:12345',      'token has been configured';
 my $url = 'http://127.0.0.1:' . $classifier->ua->server->app(app)->url->port;

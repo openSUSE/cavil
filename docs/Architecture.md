@@ -77,10 +77,9 @@ The use of machine learning models for text classification is entirely optional,
 pattern matching system used for identifying clusters of legal keywords (snippets) has a false-positive rate of about
 80%. And even a simple model can identify almost all of them.
 
-There are currently two example implementations for a companion text classification server application:
-
-1. https://github.com/kraih/Character-level-cnn-pytorch/
-2. https://github.com/kraih/llama-lawyer
+The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) has a collection of models fine-tuned specifically for
+this task, such as `Cavil-Qwen3.5-4B`. These models are usually deployed with a
+[llama.cpp](https://github.com/ggml-org/llama.cpp) server.
 
 ## Review Workflow
 
