@@ -233,10 +233,10 @@ subtest 'Products' => sub {
     ->json_is('/updated', 3);
   $t->delete_ok('/products' => {Authorization => 'Token test_token'} => form => {name => 'openSUSE:RemoveMe'})
     ->status_is(200)
-    ->json_is({removed => 1});
-  $t->delete_ok('/products' => {Authorization => 'Token test_token'} => form => {name => 'openSUSE:DoesNotExist'})
+    ->json_is('/removed', 1);
+  $t->delete_ok('/products' => {Authorization => 'Token test_token'} => form => {name => 'openSUSE:DoesNotExistAtAll'})
     ->status_is(200)
-    ->json_is({removed => 0});
+    ->json_is('/removed', 0);
   $t->delete_ok('/products' => {Authorization => 'Token test_token'})->status_is(400);
   is_deeply $t->app->products->for_package(1), ['openSUSE:Factory', 'openSUSE:Leap:15.0'], 'right products';
 };

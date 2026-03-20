@@ -174,8 +174,8 @@ sub remove_proposal ($self) {
   my $is_owner = $patterns->is_proposal_owner($checksum, $self->current_user);
   return $self->render('permissions', status => 403) unless $is_owner || $is_admin;
 
-  my $rows = $patterns->remove_proposal($checksum);
-  $self->render(json => {removed => $rows});
+  my $removed = $patterns->remove_proposal($checksum);
+  $self->render(json => {removed => $removed ? 1 : 0});
 }
 
 sub show ($self) {

@@ -48,7 +48,7 @@ sub remove ($self) {
   my $api_key_id = $self->param('id');
   my $owner_id   = $self->users->id_for_login($self->current_user);
   my $removed    = $self->api_keys->remove($api_key_id, $owner_id);
-  $self->render(json => {removed => $removed});
+  $self->render(json => {removed => $removed ? 1 : 0});
 }
 
 1;

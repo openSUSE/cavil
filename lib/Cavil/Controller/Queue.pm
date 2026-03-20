@@ -213,7 +213,7 @@ sub remove_product ($self) {
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $removed = $self->products->remove($validation->param('name'));
-  $self->render(json => {removed => $removed});
+  $self->render(json => {removed => $removed ? 1 : 0});
 }
 
 sub update_package ($self) {
