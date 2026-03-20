@@ -149,7 +149,9 @@ sub match_count($self, $id) {
 }
 
 sub remove_proposal ($self, $checksum) {
-  return $self->pg->db->delete('proposed_changes', {token_hexsum => $checksum})->rows > 0;
+  my $sth = $self->pg->db->dbh->prepare('DELETE FROM proposed_changes WHERE token_hexsum = ?');
+  my $rc  = $sth->execute($checksum);
+  return $rc > 0;
 }
 
 sub all ($self) {

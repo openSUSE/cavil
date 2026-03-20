@@ -73,7 +73,9 @@ sub paginate_known_products ($self, $options) {
 }
 
 sub remove ($self, $name) {
-  return $self->pg->db->query('DELETE FROM bot_products WHERE name = ?', $name)->rows > 0;
+  my $sth = $self->pg->db->dbh->prepare('DELETE FROM bot_products WHERE name = ?');
+  my $rc  = $sth->execute($name);
+  return $rc > 0;
 }
 
 sub update ($self, $product, $packages) {

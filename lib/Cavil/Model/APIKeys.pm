@@ -27,7 +27,9 @@ sub list ($self, $owner) {
 }
 
 sub remove ($self, $id, $owner) {
-  return $self->pg->db->delete('api_keys', {id => $id, owner => $owner})->rows > 0;
+  my $sth = $self->pg->db->dbh->prepare('DELETE FROM api_keys WHERE id = ? AND owner = ?');
+  my $rc  = $sth->execute($id, $owner);
+  return $rc > 0;
 }
 
 1;
