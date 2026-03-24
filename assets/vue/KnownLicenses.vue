@@ -123,9 +123,9 @@ export default {
   },
   methods: {
     badgeClass(risk) {
-      if (risk === 1 || risk === 2 || risk === 3) return 'text-bg-success';
-      if (risk === 4) return 'text-bg-warning';
-      if (risk === 5 || risk === 6) return 'text-bg-danger';
+      if (risk === 1 || risk === 2 || risk === 3 || risk === 4) return 'text-bg-success';
+      if (risk === 5) return 'text-bg-warning';
+      if (risk === 6 || risk === 7) return 'text-bg-danger';
       return 'text-bg-dark';
     },
     gotoPage(num) {

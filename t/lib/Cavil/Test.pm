@@ -45,7 +45,7 @@ sub default_config ($self) {
     cache_dir                                => $self->cache_dir,
     tokens                                   => ['test_token'],
     pg                                       => $self->postgres_url,
-    acceptable_risk                          => 3,
+    acceptable_risk                          => 4,
     auto_accept_risk                         => 0,
     index_bucket_average                     => 100,
     cleanup_bucket_average                   => 50,

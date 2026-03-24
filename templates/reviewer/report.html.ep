@@ -52,10 +52,10 @@
               % if ($max_risk == 9) {
                 <div class="badge text-bg-dark estimated-risk">Risk <%= $max_risk %></div>
               % }
-              % elsif ($max_risk > 4) {
+              % elsif ($max_risk > 5) {
                 <div class="badge text-bg-danger estimated-risk">Risk <%= $max_risk %></div>
               % }
-              % elsif ($max_risk == 4) {
+              % elsif ($max_risk == 5) {
                 <div class="badge text-bg-warning estimated-risk">Risk <%= $max_risk %></div>
               % }
               % else {

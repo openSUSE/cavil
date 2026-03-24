@@ -235,15 +235,16 @@ export default {
       patternText: '',
       results: [],
       riskHtml:
-        '<b>Low risk licenses (auto-accepted)</b><br>' +
-        '<b>0:</b> Public Domain<br>' +
-        '<b>1:</b> MIT, BSD-2-clause<br>' +
-        '<b>2:</b> GPL-2.0-or-later, Artistic-2.0<br>' +
-        '<b>3:</b> Apache-2.0, AGPL-3.0-or-later<br>' +
-        '<b>Higher risk licenses</b><br>' +
-        '<b>4:</b> CDDL-1.0, MPL-1.1, Any EULA<br>' +
-        '<b>5:</b> CC-BY-NC-ND-1.0, SSPL-1.0<br>' +
-        '<b>6:</b> Any Proprietary<br>' +
+        '<b>Low risk licenses</b><br>' +
+        '<b>1:</b> Public-Domain<br>' +
+        '<b>2:</b> BSD-2-Clause, MIT<br>' +
+        '<b>3:</b> LGPL-2.0-only, LGPL-2.1-or-later<br>' +
+        '<b>4:</b> GPL-2.0-only, GPL-3.0-or-later<br>' +
+        '<b>Medium risk licenses</b><br>' +
+        '<b>5:</b> AGPL-3.0-or-later<br>' +
+        '<b>High risk licenses</b><br>' +
+        '<b>6:</b> SSPL-1.0<br>' +
+        '<b>7:</b> Non-Commercial<br>' +
         '<b>Unknown risk (reserved)</b><br>' +
         '<b>9:</b> Keyword patterns',
       snippetUrl: `/snippet/meta/${this.currentSnippet}`,

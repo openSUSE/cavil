@@ -424,18 +424,21 @@ export default {
       return this.unpackedFiles.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     },
     ribbonColor() {
-      if (this.pkgRisk === '1' || this.pkgRisk === '2' || this.pkgRisk === '3') return 'cavil-green-ribbon';
-      if (this.pkgRisk === '4') return 'cavil-orange-ribbon';
-      if (this.pkgRisk === '5' || this.pkgRisk === '6') return 'cavil-red-ribbon';
+      if (this.pkgRisk === '1' || this.pkgRisk === '2' || this.pkgRisk === '3' || this.pkgRisk === '4') {
+        return 'cavil-green-ribbon';
+      }
+      if (this.pkgRisk === '5') return 'cavil-orange-ribbon';
+      if (this.pkgRisk === '6' || this.pkgRisk === '7') return 'cavil-red-ribbon';
       return 'cavil-gray-ribbon';
     },
     ribbonDescription() {
       if (this.pkgRisk === '1') return 'Public Domain';
       if (this.pkgRisk === '2') return 'Permissive';
-      if (this.pkgRisk === '3') return 'Copyleft';
-      if (this.pkgRisk === '4') return 'Obligations';
-      if (this.pkgRisk === '5') return 'Strong Obligations';
-      if (this.pkgRisk === '6') return 'Non-Commercial';
+      if (this.pkgRisk === '3') return 'Weak Copyleft';
+      if (this.pkgRisk === '4') return 'Strong Copyleft';
+      if (this.pkgRisk === '5') return 'Managed Obligations';
+      if (this.pkgRisk === '6') return 'Obligations';
+      if (this.pkgRisk === '7') return 'Non-Commercial';
       return 'Unknown Risk';
     }
   },
