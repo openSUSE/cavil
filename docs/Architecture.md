@@ -153,15 +153,17 @@ Reports may be automatically accepted by the system under these conditions:
 
 These are the standard risk levels used for license patterns included with Cavil:
 
-* 1 - `Public Domain`: (e.g., Public domain, CC0, Unlicense).
-* 2 - `Permissive`: (e.g., MIT, Apache 2.0, BSD-3-Clause). These require attribution but minimal other obligations.
-* 3 - `Weak Copyleft`: (e.g., LGPL, MPL, EPL). These require that modifications to the library itself be shared, but
-                       generally allow linking to proprietary code. Share modifications.
-* 4 - `Strong Copyleft`: (e.g., GPL-2.0-only, GPL-3.0-or-later).
-* 5 - `Managed Obligations`: (e.g., legacy advertising clauses, AGPL). These may contain clauses that are
-                             administratively painful (e.g., requiring specific advertising acknowledgments).
-* 6 - `Obligations`: (e.g.,SSPL). These usually trigger source disclosure obligations for the entire software stack if
-                     distributed or accessed over a network.
+* 1 - `Public Domain`: (e.g., Public-Domain, CC0, Unlicense). Code is safe for any use with zero compliance overhead.
+* 2 - `Permissive`: (e.g., MIT, Apache 2.0, BSD-3-Clause). Attribution is required, but there are minimal restrictions
+                    on modification or distribution.
+* 3 - `Weak Copyleft`: (e.g., LGPL, MPL, EPL). Reciprocity applies at the file level. Changes to the library itself
+                       must be shared, but linking to non-copyleft code is permitted.
+* 4 - `Strong Copyleft`: (e.g., GPL-2.0-only, GPL-3.0-or-later). Reciprocity applies at the component or derivative
+                         work level.
+* 5 - `Managed Obligations`: (e.g., legacy advertising clauses, AGPL). Requires specialized compliance workflows.
+                             Includes network source disclosure or burdensome advertising clauses.
+* 6 - `Obligations`: (e.g.,SSPL). Extreme reciprocity or non-free terms. Licenses may trigger source disclosure for the
+                     entire stack.
 * 7 - `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
                         customers can use the software.
 * 9 - `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.
