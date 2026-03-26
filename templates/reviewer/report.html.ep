@@ -74,10 +74,10 @@
 
 % my $license_counter = 0;
 % for my $risk (reverse sort keys %$risks) {
-  % if ($risk <= 3) {
+  % if ($risk <= 4) {
     <h4><div class="badge text-bg-success">Risk <%= $risk %></div></h4>
   % }
-  % elsif ($risk == 4) {
+  % elsif ($risk == 5) {
     <h4><div class="badge text-bg-warning">Risk <%= $risk %></div></h4>
   % }
   % else {
