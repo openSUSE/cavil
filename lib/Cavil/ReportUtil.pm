@@ -32,7 +32,7 @@ my $INCOMPATIBLE_LICENSE_RULES = [{licenses => ['GPL-2.0-only', 'Apache-2.0']}];
 
 sub estimated_risk ($risk, $match) {
   my $estimated = int(($risk * $match + 9 * (1 - $match)) + 0.5);
-  return $match < 0.9 && $estimated <= 3 ? 4 : $estimated;
+  return $match < 0.9 && $estimated <= 4 ? 5 : $estimated;
 }
 
 sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
