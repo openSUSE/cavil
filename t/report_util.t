@@ -24,12 +24,12 @@ subtest 'estimated_risk' => sub {
     is estimated_risk(0, 0.10), 8, 'high risk';
     is estimated_risk(0, 0.20), 7, 'high risk';
     is estimated_risk(0, 0.30), 6, 'high risk';
-    is estimated_risk(0, 0.40), 5, 'high risk';
-    is estimated_risk(0, 0.50), 5, 'high risk';
-    is estimated_risk(0, 0.60), 5, 'high risk';
-    is estimated_risk(0, 0.70), 5, 'high risk';
-    is estimated_risk(0, 0.80), 5, 'high risk';
-    is estimated_risk(0, 0.89), 5, 'high risk';
+    is estimated_risk(0, 0.40), 5, 'medium risk';
+    is estimated_risk(0, 0.50), 5, 'medium risk';
+    is estimated_risk(0, 0.60), 5, 'medium risk';
+    is estimated_risk(0, 0.70), 5, 'medium risk';
+    is estimated_risk(0, 0.80), 5, 'medium risk';
+    is estimated_risk(0, 0.89), 5, 'medium risk';
     is estimated_risk(0, 0.90), 1, 'low risk';
     is estimated_risk(0, 0.94), 1, 'low risk';
     is estimated_risk(0, 0.95), 0, 'low risk';
@@ -44,8 +44,8 @@ subtest 'estimated_risk' => sub {
     is estimated_risk(1, 0.50), 5, 'high risk';
     is estimated_risk(1, 0.60), 5, 'high risk';
     is estimated_risk(1, 0.70), 5, 'high risk';
-    is estimated_risk(1, 0.80), 5, 'high risk';
-    is estimated_risk(1, 0.89), 5, 'high risk';
+    is estimated_risk(1, 0.80), 5, 'medium risk';
+    is estimated_risk(1, 0.89), 5, 'medium risk';
     is estimated_risk(1, 0.90), 2, 'low risk';
     is estimated_risk(1, 0.93), 2, 'low risk';
     is estimated_risk(1, 0.94), 1, 'low risk';
@@ -60,8 +60,8 @@ subtest 'estimated_risk' => sub {
     is estimated_risk(2, 0.50), 6, 'high risk';
     is estimated_risk(2, 0.60), 5, 'high risk';
     is estimated_risk(2, 0.70), 5, 'high risk';
-    is estimated_risk(2, 0.80), 5, 'high risk';
-    is estimated_risk(2, 0.89), 5, 'high risk';
+    is estimated_risk(2, 0.80), 5, 'medium risk';
+    is estimated_risk(2, 0.89), 5, 'medium risk';
     is estimated_risk(2, 0.90), 3, 'low risk';
     is estimated_risk(2, 0.92), 3, 'low risk';
     is estimated_risk(2, 0.93), 2, 'low risk';
@@ -74,11 +74,11 @@ subtest 'estimated_risk' => sub {
     is estimated_risk(3, 0.30), 7, 'high risk';
     is estimated_risk(3, 0.40), 7, 'high risk';
     is estimated_risk(3, 0.50), 6, 'high risk';
-    is estimated_risk(3, 0.60), 5, 'high risk';
-    is estimated_risk(3, 0.70), 5, 'high risk';
-    is estimated_risk(3, 0.80), 5, 'high risk';
-    is estimated_risk(3, 0.90), 4, 'high risk';
-    is estimated_risk(3, 0.91), 4, 'high risk';
+    is estimated_risk(3, 0.60), 5, 'medium risk';
+    is estimated_risk(3, 0.70), 5, 'medium risk';
+    is estimated_risk(3, 0.80), 5, 'medium risk';
+    is estimated_risk(3, 0.90), 4, 'low risk';
+    is estimated_risk(3, 0.91), 4, 'low risk';
     is estimated_risk(3, 0.92), 3, 'low risk';
     is estimated_risk(3, 0.99), 3, 'low risk';
   };
@@ -91,10 +91,10 @@ subtest 'estimated_risk' => sub {
     is estimated_risk(4, 0.50), 7, 'high risk';
     is estimated_risk(4, 0.60), 6, 'high risk';
     is estimated_risk(4, 0.70), 6, 'high risk';
-    is estimated_risk(4, 0.80), 5, 'high risk';
-    is estimated_risk(4, 0.90), 5, 'high risk';
-    is estimated_risk(4, 0.91), 4, 'high risk';
-    is estimated_risk(4, 0.99), 4, 'high risk';
+    is estimated_risk(4, 0.80), 5, 'medium risk';
+    is estimated_risk(4, 0.90), 5, 'medium risk';
+    is estimated_risk(4, 0.91), 4, 'low risk';
+    is estimated_risk(4, 0.99), 4, 'low risk';
   };
 
   subtest 'Risk 5' => sub {
@@ -108,8 +108,8 @@ subtest 'estimated_risk' => sub {
     is estimated_risk(5, 0.80), 6, 'high risk';
     is estimated_risk(5, 0.87), 6, 'high risk';
     is estimated_risk(5, 0.88), 5, 'high risk';
-    is estimated_risk(5, 0.90), 5, 'high risk';
-    is estimated_risk(5, 0.99), 5, 'high risk';
+    is estimated_risk(5, 0.90), 5, 'medium risk';
+    is estimated_risk(5, 0.99), 5, 'medium risk';
   };
 
   subtest 'Risk 6' => sub {
