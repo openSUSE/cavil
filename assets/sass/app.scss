@@ -101,7 +101,7 @@ textarea.mono-textarea {
     }
   }
 
-  tr.risk-9, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1 {
+  tr.risk-9, tr.risk-8, tr.risk-7, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1 {
     .code {
       color: white;
     }
@@ -111,19 +111,19 @@ textarea.mono-textarea {
     }
   }
 
-  tr.risk-6 {
+  tr.risk-7, tr.risk-8 {
     background-color: #d7252a;
   }
 
-  tr.risk-5 {
+  tr.risk-6 {
     background-color: #eb882c;
   }
 
-  tr.risk-4 {
+  tr.risk-5 {
     background-color: #d8a223;
   }
 
-  tr.risk-3 {
+  tr.risk-3, tr.risk-4 {
     background-color: #029f93;
   }
 
