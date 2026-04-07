@@ -88,6 +88,14 @@ These tools are currently available:
   - `snippet_id`: ID of snippet to ignore. (number, required)
   - `reason`: Reason for snippet to be ignored. (string, required)
 
+- *cavil_propose_license_pattern* - Propose a new license pattern to be added
+  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+  - `package_id`: ID of package to ignore snippet for. (number, required)
+  - `snippet_id`: ID of snippet to ignore. (number, required)
+  - `pattern`: License pattern to be added. (string, required)
+  - `license`: License expression. (string, required)
+  - `reason`: Reason for snippet to be ignored. (string, required)
+
 ### 3rd Party MCP Clients
 
 While most MCP clients will work with Cavil, we recommend the use of models specifically designed for legal

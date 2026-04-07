@@ -17,10 +17,11 @@ package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(paginate pattern_checksum spdx_link);
-use Mojo::File 'path';
-use Mojo::JSON qw(true false);
+use Mojo::File  qw(path);
+use Mojo::JSON  qw(true false);
 use Spooky::Patterns::XS;
 use Storable;
+use List::Util ();
 
 has [qw(cache log pg minion)];
 
@@ -31,12 +32,34 @@ sub autocomplete ($self) {
     = $self->pg->db->query('SELECT DISTINCT(license), risk, patent, trademark, export_restricted FROM license_patterns')
     ->hashes;
   for my $pattern ($patterns->each) {
-    $licenses->{$pattern->{license}}
-      = {risk => $pattern->{risk}, patent => false, trademark => false, export_restricted => false};
+    $licenses->{$pattern->{license}} = {
+      risk              => $pattern->{risk},
+      patent            => $pattern->{patent},
+      trademark         => $pattern->{trademark},
+      export_restricted => $pattern->{export_restricted}
+    };
   }
   delete $licenses->{''};
 
   return $licenses;
+}
+
+sub closest_licenses ($self, $expr) {
+  my $license  = lc($expr);
+  my $licenses = $self->autocomplete;
+  my %lookup   = map { lc($_) => $_ } keys %$licenses;
+
+  # Exact match
+  return {exact => {license => $lookup{$license}, %{$licenses->{$lookup{$license}}}}} if $lookup{$license};
+
+  # Closest matches
+  my $words = [grep { $_ ne 'and' && $_ ne 'or' && $_ ne 'with' } split /\s+/, $license];
+  my @matches;
+  for my $candidate (sort { length($b) <=> length($a) } keys %lookup) {
+    next unless List::Util::all { index($candidate, $_) >= 0 } @$words;
+    push @matches, {license => $lookup{$candidate}};
+  }
+  return {closest => \@matches};
 }
 
 sub closest_pattern ($self, $text) {
@@ -302,7 +325,9 @@ sub propose_create ($self, %args) {
           package              => $args{package},
           patent               => $args{patent}            // '0',
           trademark            => $args{trademark}         // '0',
-          export_restricted    => $args{export_restricted} // '0'
+          export_restricted    => $args{export_restricted} // '0',
+          ai_assisted          => $args{ai_assisted}       // '0',
+          reason               => $args{reason}            // ''
         }
       },
       owner        => $args{owner},

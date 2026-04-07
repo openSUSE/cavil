@@ -47,6 +47,7 @@
                 <b v-if="change.data.edited === true">edited snippet</b>
                 <b v-else>unedited snippet</b> </a
               >, by <b>{{ change.login }}</b>
+              <span v-if="change.data.ai_assisted">&nbsp;<i class="fa-solid fa-robot"></i></span>
               <span v-if="change.package !== null"
                 >,
                 <a :href="change.package.pkgUrl" target="_blank"

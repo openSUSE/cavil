@@ -228,12 +228,13 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 5,                              'five tools available';
-      is $result->{tools}[0]{name},  'cavil_get_open_reviews',       'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',             'right tool name';
-      is $result->{tools}[2]{name},  'cavil_accept_review',          'right tool name';
-      is $result->{tools}[3]{name},  'cavil_reject_review',          'right tool name';
-      is $result->{tools}[4]{name},  'cavil_propose_ignore_snippet', 'right tool name';
+      is scalar @{$result->{tools}}, 6,                               'six tools available';
+      is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
+      is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
+      is $result->{tools}[2]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[3]{name},  'cavil_reject_review',           'right tool name';
+      is $result->{tools}[4]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[5]{name},  'cavil_propose_license_pattern', 'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -268,10 +269,11 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 3,                              'three tools available';
-      is $result->{tools}[0]{name},  'cavil_get_open_reviews',       'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',             'right tool name';
-      is $result->{tools}[2]{name},  'cavil_propose_ignore_snippet', 'right tool name';
+      is scalar @{$result->{tools}}, 4,                               'four tools available';
+      is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
+      is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
+      is $result->{tools}[2]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[3]{name},  'cavil_propose_license_pattern', 'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -283,11 +285,12 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 4,                              'four tools available';
-      is $result->{tools}[0]{name},  'cavil_get_open_reviews',       'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',             'right tool name';
-      is $result->{tools}[2]{name},  'cavil_accept_review',          'right tool name';
-      is $result->{tools}[3]{name},  'cavil_propose_ignore_snippet', 'right tool name';
+      is scalar @{$result->{tools}}, 5,                               'five tools available';
+      is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
+      is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
+      is $result->{tools}[2]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[3]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[4]{name},  'cavil_propose_license_pattern', 'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');
@@ -490,6 +493,228 @@ subtest 'MCP' => sub {
           {package_id => 1, snippet_id => 23, reason => 'Just a test ignore proposal'});
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text}, 'Snippet not found', 'not found message';
+      };
+    };
+
+    subtest 'cavil_propose_license_pattern tool' => sub {
+      subtest 'Propose license pattern' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok !$result->{isError}, 'not an error';
+        is $result->{content}[0]{text}, 'Proposal for new license pattern has been successfully submitted',
+          'proposal message';
+
+        $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+        $t->get_ok('/licenses/proposed/meta?action=create_pattern')
+          ->status_is(200)
+          ->json_is('/changes/0/action',                    'create_pattern')
+          ->json_is('/changes/0/login',                     'tester')
+          ->json_is('/changes/0/data/ai_assisted',          1)
+          ->json_is('/changes/0/data/edited',               1)
+          ->json_is('/changes/0/data/license',              'Artistic-2.0')
+          ->json_is('/changes/0/data/risk',                 5)
+          ->json_is('/changes/0/data/patent',               0)
+          ->json_is('/changes/0/data/trademark',            0)
+          ->json_is('/changes/0/data/export_restricted',    0)
+          ->json_is('/changes/0/data/highlighted_keywords', [])
+          ->json_is('/changes/0/data/package',              1)
+          ->json_like('/changes/0/data/pattern', qr/terms of the Artistic License version 2.0/)
+          ->json_like('/changes/0/data/reason',  qr/AI Assistant: Just a test pattern proposal/)
+          ->json_is('/changes/0/data/snippet', 5);
+        $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+      };
+
+      subtest 'Propose license pattern (with flags)' => sub {
+        $t->app->pg->db->delete('proposed_changes');
+        $t->app->pg->db->update(
+          'license_patterns',
+          {trademark => 1, patent => 1, export_restricted => 1},
+          {license   => 'Artistic-2.0'}
+        );
+
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok !$result->{isError}, 'not an error';
+        is $result->{content}[0]{text}, 'Proposal for new license pattern has been successfully submitted',
+          'proposal message';
+
+        $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+        $t->get_ok('/licenses/proposed/meta?action=create_pattern')
+          ->status_is(200)
+          ->json_is('/changes/0/action',                    'create_pattern')
+          ->json_is('/changes/0/login',                     'tester')
+          ->json_is('/changes/0/data/ai_assisted',          1)
+          ->json_is('/changes/0/data/edited',               1)
+          ->json_is('/changes/0/data/license',              'Artistic-2.0')
+          ->json_is('/changes/0/data/risk',                 5)
+          ->json_is('/changes/0/data/patent',               1)
+          ->json_is('/changes/0/data/trademark',            1)
+          ->json_is('/changes/0/data/export_restricted',    1)
+          ->json_is('/changes/0/data/highlighted_keywords', [])
+          ->json_is('/changes/0/data/package',              1)
+          ->json_like('/changes/0/data/pattern', qr/terms of the Artistic License version 2.0/)
+          ->json_like('/changes/0/data/reason',  qr/AI Assistant: Just a test pattern proposal/)
+          ->json_is('/changes/0/data/snippet', 5);
+        $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+      };
+
+      subtest 'Propose license pattern (conflicting proposal)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Conflicting license pattern proposal already exists', 'conflict message';
+        $t->app->pg->db->delete('proposed_changes');
+      };
+
+      subtest 'Propose license pattern (conflicting license pattern)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 1,
+            pattern    => 'copyright notice',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Conflicting license pattern already exists', 'conflict message';
+      };
+
+      subtest 'Propose license pattern (pattern mismatch)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'Artistic-2.0',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'License pattern does not match the original snippet',
+          'pattern mismatch message';
+      };
+
+      subtest 'Propose license pattern (redundant skip)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0 $SKIP9',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'License pattern contains redundant $SKIP at beginning or end',
+          'redundant skip message';
+      };
+
+      subtest 'Propose license pattern (unknown license)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-1.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'License expression is not in the list of known licenses',
+          'unknown license message';
+      };
+
+      subtest 'Propose license pattern (unknown license with suggestions)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text},
+          "License expression is not in the list of known licenses, closest matches are:\n* Artistic-2.0",
+          'unknown license message';
+      };
+
+      subtest 'Propose ignore (non-existent package)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 23,
+            snippet_id => 1,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package not found', 'not found message';
+      };
+
+      subtest 'Propose ignore (non-existent snippet)' => sub {
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 200,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Snippet not found', 'not found message';
+      };
+
+      subtest 'Propose ignore (embargoed package)' => sub {
+        $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-2.0',
+            reason     => 'Just a test pattern proposal'
+          }
+        );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
+        $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
       };
     };
   }

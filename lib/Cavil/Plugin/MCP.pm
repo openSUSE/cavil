@@ -4,11 +4,13 @@ package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
+use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip);
 
 my $WRITE_TOOL_ROLES = {
-  cavil_accept_review          => {admin => 1, lawyer => 1, manager => 1},
-  cavil_reject_review          => {admin => 1, lawyer => 1},
-  cavil_propose_ignore_snippet => {admin => 1, lawyer => 1, contributor => 1}
+  cavil_accept_review           => {admin => 1, lawyer => 1, manager => 1},
+  cavil_reject_review           => {admin => 1, lawyer => 1},
+  cavil_propose_ignore_snippet  => {admin => 1, lawyer => 1, contributor => 1},
+  cavil_propose_license_pattern => {admin => 1, lawyer => 1, contributor => 1}
 };
 
 sub register ($self, $app, $config) {
@@ -70,6 +72,22 @@ sub register ($self, $app, $config) {
       required => ['package_id', 'snippet_id', 'reason']
     },
     code => \&tool_cavil_propose_ignore_snippet
+  );
+  $mcp->tool(
+    name         => 'cavil_propose_license_pattern',
+    description  => 'Propose a new license pattern to be added to the system',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        package_id => {type => 'integer', minimum => 1},
+        snippet_id => {type => 'integer', minimum => 1},
+        pattern    => {type => 'string'},
+        license    => {type => 'string'},
+        reason     => {type => 'string'}
+      },
+      required => ['package_id', 'snippet_id', 'pattern', 'license', 'reason']
+    },
+    code => \&tool_cavil_propose_license_pattern
   );
 
   return $mcp->to_action;
@@ -147,6 +165,56 @@ sub tool_cavil_propose_ignore_snippet ($tool, $args) {
   return $tool->text_result('Conflicting ignore pattern proposal already exists', 1) if $result->{proposal_conflict};
 
   return 'Proposal to ignore snippet has been successfully submitted';
+}
+
+sub tool_cavil_propose_license_pattern ($tool, $args) {
+  my $package_id = $args->{package_id};
+  my $snippet_id = $args->{snippet_id};
+  my $pattern    = $args->{pattern};
+  my $license    = $args->{license};
+  my $reason     = $args->{reason};
+  my $c          = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($package_id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+  return $tool->text_result('Snippet not found', 1) unless my $snippet = $c->snippets->with_context($snippet_id);
+
+  return $tool->text_result('License pattern does not match the original snippet', 1)
+    unless pattern_matches($pattern, $snippet->{text});
+  return $tool->text_result('License pattern contains redundant $SKIP at beginning or end', 1)
+    if pattern_contains_redundant_skip($pattern);
+
+  my $matches = $c->patterns->closest_licenses($license);
+  my $match   = $matches->{exact};
+  unless ($match) {
+    my $closest = $matches->{closest};
+    return $tool->text_result('License expression is not in the list of known licenses', 1) unless @$closest;
+    my $closest_list = join("\n", map {"* $_->{license}"} @$closest);
+    return $tool->text_result(
+      "License expression is not in the list of known licenses, closest matches are:\n$closest_list", 1);
+  }
+
+  my $user_id = $c->users->id_for_login($c->current_user);
+  my $result  = $c->patterns->propose_create(
+    snippet              => $snippet_id,
+    pattern              => $pattern,
+    highlighted_keywords => [],
+    highlighted_licenses => [],
+    edited               => 1,
+    license              => $license,
+    risk                 => $match->{risk},
+    package              => $package_id,
+    patent               => $match->{patent},
+    trademark            => $match->{trademark},
+    export_restricted    => $match->{export_restricted},
+    owner                => $user_id,
+    ai_assisted          => 1,
+    reason               => "AI Assistant: $reason"
+  );
+
+  return $tool->text_result('Conflicting license pattern already exists',          1) if $result->{conflict};
+  return $tool->text_result('Conflicting license pattern proposal already exists', 1) if $result->{proposal_conflict};
+
+  return 'Proposal for new license pattern has been successfully submitted';
 }
 
 sub tool_cavil_reject_review ($tool, $args) {

@@ -17,7 +17,7 @@ package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
-use Cavil::Util qw(pattern_matches);
+use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip);
 use Mojo::JSON  qw(true false);
 
 my $CHECKSUM_RE = qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i;
@@ -271,7 +271,7 @@ sub _propose_pattern ($self) {
   return $self->render(status => 400, error => 'License pattern does not match the original snippet')
     unless pattern_matches($pattern, $snippet->{text});
   return $self->render(status => 400, error => 'License pattern contains redundant $SKIP at beginning or end')
-    if $pattern =~ /^\s*\$SKIP/ || $pattern =~ /\$SKIP\d*\s*$/;
+    if pattern_contains_redundant_skip($pattern);
 
   my $user_id = $self->users->id_for_login($self->current_user);
   my $result  = $self->patterns->propose_create(

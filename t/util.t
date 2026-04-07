@@ -18,8 +18,10 @@ use Mojo::Base -strict;
 use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
-use Cavil::Util (qw(buckets lines_context obs_ssh_auth parse_exclude_file parse_service_file pattern_matches),
-  qw(request_id_from_external_link run_cmd spdx_link ssh_sign));
+use Cavil::Util (
+  qw(buckets lines_context obs_ssh_auth parse_exclude_file parse_service_file pattern_matches),
+  qw(pattern_contains_redundant_skip request_id_from_external_link run_cmd spdx_link ssh_sign)
+);
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
 -----BEGIN OPENSSH PRIVATE KEY-----
@@ -125,6 +127,12 @@ subtest 'pattern_matches' => sub {
   ok pattern_matches('foo $SKIP3 bar',  'foo ya da bar'),           'match';
   ok !pattern_matches('foo $SKIP3 bar', 'foo ya da ya da bar'),     'no match';
   ok !pattern_matches('foo $SKIP3 bar', 'foo ya da ya da bar foo'), 'no match';
+};
+
+subtest 'pattern_contains_redundant_skip' => sub {
+  ok pattern_contains_redundant_skip('$SKIP foo'),        'redundant $SKIP at beginning';
+  ok pattern_contains_redundant_skip('foo $SKIP'),        'redundant $SKIP at end';
+  ok !pattern_contains_redundant_skip('foo $SKIP19 bar'), 'no redundant $SKIP';
 };
 
 subtest 'request_id_from_external_link' => sub {

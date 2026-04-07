@@ -32,8 +32,9 @@ $Text::Glob::strict_wildcard_slash = 0;
 
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
-  qw(parse_exclude_file parse_service_file pattern_checksum pattern_matches read_lines request_id_from_external_link),
-  qw(run_cmd snippet_checksum spdx_link ssh_sign @SPDX_LICENSES @SPDX_EXCEPTIONS)
+  qw(parse_exclude_file parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip),
+  qw(read_lines request_id_from_external_link run_cmd snippet_checksum spdx_link ssh_sign),
+  qw(@SPDX_LICENSES @SPDX_EXCEPTIONS)
 );
 
 my $MAX_FILE_SIZE = 30000;
@@ -250,6 +251,10 @@ sub pattern_matches ($pattern, $text) {
   undef $file;
 
   return $matches;
+}
+
+sub pattern_contains_redundant_skip ($pattern) {
+  return $pattern =~ /^\s*\$SKIP/ || $pattern =~ /\$SKIP\d*\s*$/;
 }
 
 sub read_lines ($path, $start_line, $end_line) {
