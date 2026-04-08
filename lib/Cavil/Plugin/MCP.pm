@@ -200,7 +200,7 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
     highlighted_keywords => [],
     highlighted_licenses => [],
     edited               => 1,
-    license              => $license,
+    license              => $match->{license},
     risk                 => $match->{risk},
     package              => $package_id,
     patent               => $match->{patent},
