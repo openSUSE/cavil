@@ -194,20 +194,24 @@ subtest 'incompatible_licenses' => sub {
 
 subtest 'minimal_snippet' => sub {
   subtest 'Minimal snippets' => sub {
-    is minimal_snippet({text => 'foo'}),             'foo',             'minimal snippet';
-    is minimal_snippet({text => "foo\nbar\nbaz\n"}), "foo\nbar\nbaz\n", 'minimal snippet';
-    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {}}), "foo\nbar\nbaz\n", 'minimal snippet';
-    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {}, matches => {}}), "foo\nbar\nbaz\n",
-      'minimal snippet';
-    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 1}, matches => {}}), "foo\nbar\nbaz\n",
-      'minimal snippet';
-    is minimal_snippet({text => "foo", keywords => {0 => 1}, matches => {}}),       'foo', 'minimal snippet';
-    is minimal_snippet({text => "foo", keywords => {0 => 1}, matches => {0 => 1}}), 'foo', 'minimal snippet';
+    is_deeply minimal_snippet({text => 'foo'}), {'text' => 'foo', start_line => 1}, 'minimal snippet';
+    is_deeply minimal_snippet({text => "foo\nbar\nbaz\n", sline => 23}),
+      {'text' => "foo\nbar\nbaz\n", start_line => 23}, 'minimal snippet';
+    is_deeply minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {}}),
+      {'text' => "foo\nbar\nbaz\n", start_line => 1}, 'minimal snippet';
+    is_deeply minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {}, matches => {}}),
+      {'text' => "foo\nbar\nbaz\n", start_line => 1}, 'minimal snippet';
+    is_deeply minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 1}, matches => {}}),
+      {'text' => "foo\nbar\nbaz\n", start_line => 1}, 'minimal snippet';
+    is_deeply minimal_snippet({text => "foo", keywords => {0 => 1}, matches => {}}),
+      {'text' => 'foo', start_line => 1}, 'minimal snippet';
+    is_deeply minimal_snippet({text => "foo", keywords => {0 => 1}, matches => {0 => 1}}),
+      {'text' => 'foo', start_line => 1}, 'minimal snippet';
   };
 
   subtest 'Overlapping license at beginning' => sub {
-    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 24}, matches => {0 => 23}}), "bar\nbaz\n",
-      'minimal snippet';
+    is_deeply minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 24}, matches => {0 => 23}}),
+      {'text' => "bar\nbaz\n", start_line => 2}, 'minimal snippet';
 
     my $snippet = {
       "keywords" => {"30" => 22897},
@@ -269,7 +273,8 @@ subtest 'minimal_snippet' => sub {
       = "\n#![cfg_attr(\n    feature = \"cargo-clippy\",\n    allow(doc_markdown, inline_always, "
       . "new_ret_no_self)\n)]\n\n//! encoding_rs is a Gecko-oriented Free Software / Open Source"
       . " implementation\n//! of the [Encoding Standard](https://encoding.spec.whatwg.org/) in Rust.\n";
-    is minimal_snippet($snippet), $expected_text, 'overlapping license at beginning removed';
+    is_deeply minimal_snippet($snippet), {text => $expected_text, start_line => 40},
+      'overlapping license at beginning removed';
   };
 
   subtest 'Multiple overlapping licenses at beginning' => sub {
@@ -278,18 +283,18 @@ subtest 'minimal_snippet' => sub {
       keywords => {5 => 24},
       matches  => {0 => 23, 2 => 27, 3 => 34}
     };
-    is minimal_snippet($snippet), "five\nsix\nseven\n", 'minimal snippet';
+    is minimal_snippet($snippet)->{text}, "five\nsix\nseven\n", 'minimal snippet';
   };
 
   subtest 'Overlapping license at end' => sub {
-    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 24}, matches => {2 => 23}}), "foo\nbar",
+    is minimal_snippet({text => "foo\nbar\nbaz\n", keywords => {1 => 24}, matches => {2 => 23}})->{text}, "foo\nbar",
       'minimal snippet';
   };
 
   subtest 'Multiple overlapping licenses at end' => sub {
     my $snippet
       = {text => "one\ntwo\nthree\nfour\nfive\nsix\nseven\n", keywords => {2 => 24}, matches => {6 => 23, 4 => 27}};
-    is minimal_snippet($snippet), "one\ntwo\nthree\nfour", 'minimal snippet';
+    is minimal_snippet($snippet)->{text}, "one\ntwo\nthree\nfour", 'minimal snippet';
   };
 };
 

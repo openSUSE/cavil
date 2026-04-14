@@ -10,6 +10,7 @@ use Test::Mojo;
 use Cavil::Test;
 use Mojo::File qw(path);
 use Mojo::Date;
+use Mojo::Util qw(encode);
 use MCP::Client;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -32,6 +33,12 @@ $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\n
 # Unpack and index
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
+
+# Add deterministic test file for cavil_get_file MCP tool
+my $unpacked_dir = $dir->child('.unpacked');
+$unpacked_dir->make_path;
+my $mcp_dir = $unpacked_dir->child('mcp_get_file_dir')->make_path;
+$mcp_dir->child('mcp_get_file.txt')->spurt(encode('UTF-8', "first line\nsecond 👌 line\nthird line\nfourth line\n"));
 
 subtest 'MCP' => sub {
   my $key           = '';
@@ -80,9 +87,10 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 2,                        'two tools available';
+      is scalar @{$result->{tools}}, 3,                        'three tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
     };
 
     subtest 'cavil_get_open_reviews tool' => sub {
@@ -184,6 +192,90 @@ subtest 'MCP' => sub {
         note $text;
       };
     };
+
+    subtest 'cavil_get_file tool' => sub {
+      subtest 'Embargoed package' => sub {
+        $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+        my $result = $client->call_tool('cavil_get_file', {package_id => 1, file_path => 'mcp_get_file.txt'});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
+        $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
+      };
+
+      subtest 'Non-existent package' => sub {
+        my $result = $client->call_tool('cavil_get_file', {package_id => 99999, file_path => 'mcp_get_file.txt'});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text}, 'Package not found', 'not found message';
+      };
+
+      subtest 'Invalid file path' => sub {
+        subtest 'Path traversal attempt (start)' => sub {
+          my $result = $client->call_tool('cavil_get_file', {package_id => 1, file_path => '../etc/passwd'});
+          ok $result->{isError}, 'is error';
+          is $result->{content}[0]{text}, 'Invalid file path', 'invalid path message';
+        };
+
+        subtest 'Path traversal attempt (end)' => sub {
+          my $result
+            = $client->call_tool('cavil_get_file', {package_id => 1, file_path => 'mcp_get_file.txt/../../etc/passwd'});
+          ok $result->{isError}, 'is error';
+          is $result->{content}[0]{text}, 'Invalid file path', 'invalid path message';
+        };
+      };
+
+      subtest 'Maximum line range exceeded' => sub {
+        my $result = $client->call_tool('cavil_get_file',
+          {package_id => 1, file_path => 'mcp_get_file.txt', start_line => 1, end_line => 1002});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text}, 'Maximum line range exceeded', 'line range limit message';
+      };
+
+      subtest 'Invalid line range' => sub {
+        my $result = $client->call_tool('cavil_get_file',
+          {package_id => 1, file_path => 'mcp_get_file.txt', start_line => 4, end_line => 3});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text}, 'Invalid line range', 'invalid range message';
+      };
+
+      subtest 'File not found' => sub {
+        my $result = $client->call_tool('cavil_get_file', {package_id => 1, file_path => 'missing_file.txt'});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text}, 'File not found', 'missing file message';
+      };
+
+      subtest 'Path is a directory' => sub {
+        my $result = $client->call_tool('cavil_get_file', {package_id => 1, file_path => 'mcp_get_file_dir'});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text}, 'Path is a directory, not a file', 'directory path message';
+      };
+
+      subtest 'Get file content (one line)' => sub {
+        my $result = $client->call_tool('cavil_get_file',
+          {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt', start_line => 2, end_line => 2});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        is $text, "second 👌 line\n", 'returns expected line';
+      };
+
+      subtest 'Get file content (line range)' => sub {
+        my $result = $client->call_tool('cavil_get_file',
+          {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt', start_line => 2, end_line => 3});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        is $text, "second 👌 line\nthird line\n", 'returns expected line range';
+      };
+
+      subtest 'Get file content (with trailing slash)' => sub {
+        my $result
+          = $client->call_tool('cavil_get_file', {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt/'});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text, qr/^first line$/m,    'contains first line';
+        like $text, qr/^second 👌 line$/m, 'contains second line';
+        like $text, qr/^third line$/m,    'contains third line';
+        like $text, qr/^fourth line$/m,   'contains fourth line';
+      };
+    };
   };
 
   subtest 'Read-write' => sub {
@@ -228,13 +320,14 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 6,                               'six tools available';
+      is scalar @{$result->{tools}}, 7,                               'seven tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
-      is $result->{tools}[2]{name},  'cavil_accept_review',           'right tool name';
-      is $result->{tools}[3]{name},  'cavil_reject_review',           'right tool name';
-      is $result->{tools}[4]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[5]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
+      is $result->{tools}[3]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[4]{name},  'cavil_reject_review',           'right tool name';
+      is $result->{tools}[5]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[6]{name},  'cavil_propose_license_pattern', 'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -242,9 +335,10 @@ subtest 'MCP' => sub {
       $t->app->users->remove_role(2, 'manager');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 2,                        'two tools available';
+      is scalar @{$result->{tools}}, 3,                        'three tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
 
       $t->app->users->add_role(2, 'admin');
       $t->app->users->add_role(2, 'manager');
@@ -255,10 +349,11 @@ subtest 'MCP' => sub {
       $t->app->users->remove_role(2, 'admin');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 3,                        'three tools available';
+      is scalar @{$result->{tools}}, 4,                        'four tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
-      is $result->{tools}[2]{name},  'cavil_accept_review',    'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
+      is $result->{tools}[3]{name},  'cavil_accept_review',    'right tool name';
 
       $t->app->users->add_role(2, 'admin');
     };
@@ -269,11 +364,12 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 4,                               'four tools available';
+      is scalar @{$result->{tools}}, 5,                               'five tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
-      is $result->{tools}[2]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[3]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
+      is $result->{tools}[3]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[4]{name},  'cavil_propose_license_pattern', 'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -285,12 +381,13 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 5,                               'five tools available';
+      is scalar @{$result->{tools}}, 6,                               'six tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
-      is $result->{tools}[2]{name},  'cavil_accept_review',           'right tool name';
-      is $result->{tools}[3]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[4]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
+      is $result->{tools}[3]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[4]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[5]{name},  'cavil_propose_license_pattern', 'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');

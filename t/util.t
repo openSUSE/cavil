@@ -20,7 +20,7 @@ use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets lines_context obs_ssh_auth parse_exclude_file parse_service_file pattern_matches),
-  qw(pattern_contains_redundant_skip request_id_from_external_link run_cmd spdx_link ssh_sign)
+  qw(pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd spdx_link ssh_sign)
 );
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -149,6 +149,19 @@ subtest 'run_cmd' => sub {
   is $result->{exit_code}, 0,       'right exit code';
   is $result->{stderr},    '',      'right stderr';
   is $result->{stdout},    "foo\n", 'right stdout';
+};
+
+subtest 'read_lines' => sub {
+  my $file = tempfile;
+  my $fh   = $file->open('>:raw');
+  print $fh "alpha\n";
+  print $fh "b\xC3\xA4r\n";
+  print $fh "caf\xE9\n";
+  close $fh;
+
+  is read_lines($file, 1, 3),  "alpha\nb\x{e4}r\ncaf\x{e9}\n", 'reads all requested lines and decodes mixed encodings';
+  is read_lines($file, 2, 2),  "b\x{e4}r\n",                   'reads a single line range';
+  is read_lines($file, 2, 10), "b\x{e4}r\ncaf\x{e9}\n",        'ignores non-existent lines beyond file end';
 };
 
 subtest 'spdx_link' => sub {

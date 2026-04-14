@@ -72,6 +72,13 @@ These tools are currently available:
   - **Required Roles**: `user` (read-only)
   - `package_id`: ID of package to get report for. (number, required)
 
+- *cavil_get_file* - Get content of a specific file in the package
+  - **Required Roles**: `user` (read-only)
+  - `package_id`: ID of package to read file from. (number, required)
+  - `file_path`: Path to file inside the package checkout. (string, required)
+  - `start_line`: First line to read. Defaults to `1`. (number, optional)
+  - `end_line`: Last line to read. Defaults to `100` and maximum range is 1000 lines. (number, optional)
+
 - *cavil_accept_review* - Accept a legal review for a specific package
   - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
   - `package_id`: ID of package to accept. (number, required)

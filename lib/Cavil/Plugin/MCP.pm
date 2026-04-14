@@ -4,7 +4,8 @@ package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
-use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip);
+use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip read_lines);
+use Mojo::File  qw(path);
 
 my $WRITE_TOOL_ROLES = {
   cavil_accept_review           => {admin => 1, lawyer => 1, manager => 1},
@@ -36,6 +37,22 @@ sub register ($self, $app, $config) {
     input_schema =>
       {type => 'object', properties => {package_id => {type => 'integer', minimum => 1}}, required => ['package_id']},
     code => \&tool_cavil_get_report
+  );
+  $mcp->tool(
+    name        => 'cavil_get_file',
+    description =>
+      'Get the content of a specific file in the package, no more than 1000 lines can be retrieved at once',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        package_id => {type => 'integer', minimum => 1},
+        file_path  => {type => 'string'},
+        start_line => {type => 'integer', minimum => 1, default => 1},
+        end_line   => {type => 'integer', minimum => 1, default => 100}
+      },
+      required => ['package_id', 'file_path']
+    },
+    code => \&tool_cavil_get_file
   );
   $mcp->tool(
     name        => 'cavil_accept_review',
@@ -136,6 +153,26 @@ sub tool_cavil_get_report ($tool, $args) {
 
   return $tool->text_result('No report available', 1) unless defined((my $report = $c->helpers->mcp_report($id)));
   return $tool->text_result($report);
+}
+
+sub tool_cavil_get_file ($tool, $args) {
+  my $id         = $args->{package_id};
+  my $path       = $args->{file_path};
+  my $start_line = $args->{start_line} // 1;
+  my $end_line   = $args->{end_line}   // 100;
+  my $c          = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+
+  $path =~ s,/$,,;
+  return $tool->text_result('Invalid file path', 1) if $path =~ qr/\.\./;
+  my $file = path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $path);
+  return $tool->text_result('Maximum line range exceeded',     1) if ($end_line - $start_line) > 1000;
+  return $tool->text_result('Invalid line range',              1) if $start_line > $end_line;
+  return $tool->text_result('File not found',                  1) unless -e $file;
+  return $tool->text_result('Path is a directory, not a file', 1) if -d $file;
+
+  return $tool->text_result(read_lines($file, $start_line, $end_line));
 }
 
 sub tool_cavil_propose_ignore_snippet ($tool, $args) {

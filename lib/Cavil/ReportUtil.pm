@@ -70,10 +70,11 @@ sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
 }
 
 sub minimal_snippet ($snippet) {
-  my $keywords = $snippet->{keywords} // {};
-  my $matches  = $snippet->{matches}  // {};
-  return $snippet->{text} unless keys %$keywords;
-  return $snippet->{text} unless keys %$matches;
+  my $start_line = $snippet->{sline}    // 1;
+  my $keywords   = $snippet->{keywords} // {};
+  my $matches    = $snippet->{matches}  // {};
+  return {text => $snippet->{text}, start_line => $start_line} unless keys %$keywords;
+  return {text => $snippet->{text}, start_line => $start_line} unless keys %$matches;
 
   my $lines = [split("\n", $snippet->{text}, -1)];
 
@@ -89,7 +90,7 @@ sub minimal_snippet ($snippet) {
     $end = $i - 1 if $matches->{$i};
   }
 
-  return join "\n", @$lines[$start .. $end];
+  return {text => join("\n", @$lines[$start .. $end]), start_line => $start_line + $start};
 }
 
 sub report_checksum ($specfile_report, $dig_report) {

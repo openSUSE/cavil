@@ -113,7 +113,7 @@ subtest 'API keys' => sub {
       ->content_like(qr/Package:.+perl-Mojolicious/)
       ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
       ->content_like(qr/Apache-2.0:.+3 files/)
-      ->content_like(qr/LICENSE.+Snippet: 2.+Hash: 3c/);
+      ->content_like(qr/LICENSE.+Line: \d+.+Snippet: 2/);
   };
 
   subtest 'API keys from multiple users' => sub {
