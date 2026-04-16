@@ -54,6 +54,7 @@ sub closest_licenses ($self, $expr) {
 
   # Closest matches
   my $words = [grep { $_ ne 'and' && $_ ne 'or' && $_ ne 'with' } split /\s+/, $license];
+  s/(?:-only|-or-later|\+)$// for @$words;
   my @matches;
   for my $candidate (sort { length($b) <=> length($a) } keys %lookup) {
     next unless List::Util::all { index($candidate, $_) >= 0 } @$words;

@@ -36,6 +36,27 @@ $t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',   li
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-2.0-only', license => 'GPL-2.0-only');
 $t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 GPL-2.0-only);
 
+# Add licenses for prediction
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: LGPL-2.1-or-later', license => 'LGPL-2.1-or-later');
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-2.0-only',      license => 'MPL-2.0-only');
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-2.0-or-later',  license => 'MPL-2.0-or-later');
+$t->app->patterns->create(
+  pattern => 'SPDX-License-Identifier: MIT AND LGPL-2.1-or-later',
+  license => 'MIT AND LGPL-2.1-or-later'
+);
+$t->app->patterns->create(
+  pattern => 'SPDX-License-Identifier: MIT AND MPL-2.0-only',
+  license => 'MIT AND MPL-2.0-only'
+);
+$t->app->patterns->create(
+  pattern => 'SPDX-License-Identifier: MIT AND MPL-2.0-or-later',
+  license => 'MIT AND MPL-2.0-or-later'
+);
+$t->app->patterns->create(
+  pattern => 'SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0',
+  license => 'GPL-2.0-only WITH Classpath-exception-2.0'
+);
+
 # Add files with incompatible licenses
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
@@ -45,6 +66,73 @@ $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\n
 # Unpack and index
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
+
+subtest 'License prediction' => sub {
+  subtest 'Exact matches' => sub {
+    my $exact = $t->app->patterns->closest_licenses('GPL-2.0-only');
+    is $exact->{exact}{license}, 'GPL-2.0-only', 'exact identifier match returns -only license';
+
+    $exact = $t->app->patterns->closest_licenses('LGPL-2.1-or-later');
+    is $exact->{exact}{license}, 'LGPL-2.1-or-later', 'exact identifier match returns -or-later license';
+  };
+
+  subtest 'Close matches' => sub {
+    my $matches = $t->app->patterns->closest_licenses('MIT LGPL-2.1');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND LGPL-2.1-or-later'],
+      'partial expression matches longer known license';
+
+    $matches = $t->app->patterns->closest_licenses('MIT LGPL-2.1+');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND LGPL-2.1-or-later'],
+      'partial expression matches longer known license';
+
+    $matches = $t->app->patterns->closest_licenses('mit lgpl-2.1-or-later');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND LGPL-2.1-or-later'],
+      'partial expression case-insensitive matches longer known license';
+
+    $matches = $t->app->patterns->closest_licenses('GPL-2.0 Classpath-exception-2.0');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['GPL-2.0-only WITH Classpath-exception-2.0'],
+      'partial expression matches longer exception license';
+
+    $matches = $t->app->patterns->closest_licenses('MPL-2.0');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
+      'returns standalone and compound expressions containing the same base identifier';
+
+    $matches = $t->app->patterns->closest_licenses('MPL-2+');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
+      'returns standalone and compound expressions containing the same base identifier';
+
+    $matches = $t->app->patterns->closest_licenses('MPL-2-only');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
+      'returns standalone and compound expressions containing the same base identifier';
+
+    $matches = $t->app->patterns->closest_licenses('MPL-2-or-later');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
+      'returns standalone and compound expressions containing the same base identifier';
+
+    $matches = $t->app->patterns->closest_licenses('mpl');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
+      'returns standalone and compound expressions containing the same base identifier';
+
+    $matches = $t->app->patterns->closest_licenses('MIT OR MPL-2.0');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only'],
+      'returns all longer expressions that partially match the query';
+
+    $matches = $t->app->patterns->closest_licenses('MIT AND MPL-2.0');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only'],
+      'returns all longer expressions that partially match the query';
+  };
+
+  subtest 'No matches' => sub {
+    my $matches = $t->app->patterns->closest_licenses('BSD-2-Clause');
+    ok !$matches->{exact}, 'unknown expression has no exact match';
+    is_deeply $matches->{closest}, [], 'unknown expression has no close matches';
+  };
+};
 
 subtest 'API keys' => sub {
   my $key           = '';
