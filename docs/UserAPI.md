@@ -153,6 +153,17 @@ After restarting gemini-cli, it will automatically discover available Cavil tool
   I have accepted the review for distribution.
 ```
 
+#### claude
+
+Once you have installed and set up [Claude Code](https://code.claude.com/docs/en/quickstart), you can use the clause
+mcp command to add Cavil:
+
+```
+claude mcp add --transport http cavil https://legaldb.suse.de/mcp --header "Authorization: Bearer generated_api_key_here"
+```
+
+After restarting claude, it will automatically discover available Cavil tools and make use of them on its own.
+
 #### opencode
 
 Once you have installed and set up [opencode](https://opencode.ai/) for use with your preferred model, you can add
