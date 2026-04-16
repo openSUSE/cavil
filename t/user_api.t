@@ -98,6 +98,11 @@ subtest 'License prediction' => sub {
       ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
       'returns standalone and compound expressions containing the same base identifier';
 
+    $matches = $t->app->patterns->closest_licenses('LicenseRef-MPL-2');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
+      'returns standalone and compound expressions containing the same base identifier';
+
     $matches = $t->app->patterns->closest_licenses('MPL-2+');
     is_deeply [map { $_->{license} } @{$matches->{closest}}],
       ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
