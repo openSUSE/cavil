@@ -328,8 +328,8 @@ subtest 'MCP' => sub {
 
       subtest 'List files with no matches' => sub {
         my $result = $client->call_tool('cavil_list_files', {package_id => 1, file_glob => '*.does-not-exist'});
-        ok !$result->{isError}, 'not an error';
-        is $result->{content}[0]{text}, '', 'returns empty result';
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text}, 'No files found', 'no matches message';
       };
 
       subtest 'File list limit' => sub {

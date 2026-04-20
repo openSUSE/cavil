@@ -8,9 +8,6 @@ use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip read_lines);
 use File::Find  qw(find);
 use Mojo::File  qw(path);
 use Text::Glob  qw(glob_to_regex);
-use Try::Tiny;
-
-$Text::Glob::strict_wildcard_slash = 0;
 
 my $WRITE_TOOL_ROLES = {
   cavil_accept_review           => {admin => 1, lawyer => 1, manager => 1},
@@ -197,13 +194,14 @@ sub tool_cavil_list_files ($tool, $args) {
   return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
   return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
 
+  local $Text::Glob::strict_wildcard_slash = 0;
   my $regex = glob_to_regex($glob);
   my $root  = path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
   return $tool->text_result('Package is not yet unpacked', 1) unless -d $root;
 
   my @files;
   my $file_limit_reached = "__CAVIL_MCP_LIST_FILES_LIMIT_REACHED__\n";
-  try {
+  eval {
     find(
       {
         wanted => sub {
@@ -217,12 +215,13 @@ sub tool_cavil_list_files ($tool, $args) {
       },
       $root->to_string
     );
-  }
-  catch {
-    return $tool->text_result('Maximum file list size exceeded', 1) if $_ eq $file_limit_reached;
-    die $_;
+  };
+  if ($@) {
+    return $tool->text_result('Maximum file list size exceeded', 1) if $@ eq $file_limit_reached;
+    die $@;
   }
 
+  return $tool->text_result('No files found', 1) unless @files;
   return $tool->text_result(join("\n", sort @files));
 }
 

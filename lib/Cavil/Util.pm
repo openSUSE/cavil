@@ -28,8 +28,6 @@ use Spooky::Patterns::XS;
 use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
-$Text::Glob::strict_wildcard_slash = 0;
-
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
   qw(parse_exclude_file parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip),
@@ -191,6 +189,7 @@ sub lines_context ($lines) {
 }
 
 sub load_ignored_files ($db) {
+  local $Text::Glob::strict_wildcard_slash = 0;
   my %ignored_file_res = map { $_->[0] => glob_to_regex($_->[0]) } @{$db->select('ignored_files', 'glob')->arrays};
   return \%ignored_file_res;
 }
@@ -215,6 +214,7 @@ sub parse_exclude_file ($path, $name) {
   my $content = path($path)->slurp;
   my $exclude = [];
 
+  local $Text::Glob::strict_wildcard_slash = 0;
   for my $line (split "\n", $content) {
     next unless $line =~ /^\s*([^\s\#]\S+)\s*:\s*(\S+)(?:\s.*)?$/;
     my ($pattern, $file) = ($1, $2);
