@@ -5,7 +5,12 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
 use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip read_lines);
+use File::Find  qw(find);
 use Mojo::File  qw(path);
+use Text::Glob  qw(glob_to_regex);
+use Try::Tiny;
+
+$Text::Glob::strict_wildcard_slash = 0;
 
 my $WRITE_TOOL_ROLES = {
   cavil_accept_review           => {admin => 1, lawyer => 1, manager => 1},
@@ -53,6 +58,16 @@ sub register ($self, $app, $config) {
       required => ['package_id', 'file_path']
     },
     code => \&tool_cavil_get_file
+  );
+  $mcp->tool(
+    name         => 'cavil_list_files',
+    description  => 'List files in the package (optionally filtered by glob), up to 1000 files',
+    input_schema => {
+      type       => 'object',
+      properties => {package_id => {type => 'integer', minimum => 1}, file_glob => {type => 'string', default => '*'}},
+      required   => ['package_id']
+    },
+    code => \&tool_cavil_list_files
   );
   $mcp->tool(
     name        => 'cavil_accept_review',
@@ -173,6 +188,42 @@ sub tool_cavil_get_file ($tool, $args) {
   return $tool->text_result('Path is a directory, not a file', 1) if -d $file;
 
   return $tool->text_result(read_lines($file, $start_line, $end_line));
+}
+
+sub tool_cavil_list_files ($tool, $args) {
+  my $id   = $args->{package_id};
+  my $glob = $args->{file_glob} // '*';
+  my $c    = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+
+  my $regex = glob_to_regex($glob);
+  my $root  = path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
+  return $tool->text_result('Package is not yet unpacked', 1) unless -d $root;
+
+  my @files;
+  my $file_limit_reached = "__CAVIL_MCP_LIST_FILES_LIMIT_REACHED__\n";
+  try {
+    find(
+      {
+        wanted => sub {
+          return if -d $File::Find::name;
+          my $relative = path($File::Find::name)->to_rel($root)->to_string;
+          return unless $relative =~ $regex;
+          push @files, $relative;
+          die $file_limit_reached if @files > 1000;
+        },
+        no_chdir => 1
+      },
+      $root->to_string
+    );
+  }
+  catch {
+    return $tool->text_result('Maximum file list size exceeded', 1) if $_ eq $file_limit_reached;
+    die $_;
+  }
+
+  return $tool->text_result(join("\n", sort @files));
 }
 
 sub tool_cavil_propose_ignore_snippet ($tool, $args) {

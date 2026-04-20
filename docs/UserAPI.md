@@ -79,6 +79,11 @@ These tools are currently available:
   - `start_line`: First line to read. Defaults to `1`. (number, optional)
   - `end_line`: Last line to read. Defaults to `100` and maximum range is 1000 lines. (number, optional)
 
+- *cavil_list_files* - List files in the package
+  - **Required Roles**: `user` (read-only)
+  - `package_id`: ID of package to list files from. (number, required)
+  - `file_glob`: Optional glob pattern used to filter listed files. Defaults to `*` (all files). (string, optional)
+
 - *cavil_accept_review* - Accept a legal review for a specific package
   - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
   - `package_id`: ID of package to accept. (number, required)
