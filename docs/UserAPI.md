@@ -108,6 +108,23 @@ These tools are currently available:
   - `license`: License expression. (string, required)
   - `reason`: Reason for snippet to be ignored. (string, required)
 
+### Agent Skills
+
+We strongly recommend the use of [Agent Skills](https://agentskills.io) for more advanced legal review workflows
+involving MCP tools. Cavil includes a few examples you can use for inspiration:
+
+- [cavil-refine](../examples/skills/cavil-refine) - Helps you review and refine license detection results in Cavil by
+                                                    proposing ignore snippets or license patterns to clean up license
+                                                    reports.
+
+- [cavil-review](../examples/skills/cavil-review/) - Guides you through performing IP license reviews of package
+                                                     updates in Cavil for SUSE Linux Enterprise, helping you accept or
+                                                     reject reviews based on the package's license report.
+
+Most agents support skills automatically when you copy them into the skills directory of the current workspace, like
+`.claude/skills/cavil-refine` or `.gemini/skills/cavil-review`. Just make sure MCP support has been configured
+correctly and all the necessary tools are available to the agent.
+
 ### 3rd Party MCP Clients
 
 While most MCP clients will work with Cavil, we recommend the use of models specifically designed for legal
