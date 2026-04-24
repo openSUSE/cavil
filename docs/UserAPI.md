@@ -341,7 +341,42 @@ Content-Type: application/json
 }
 ```
 
-### Reports
+### Locate Reports
+
+`GET /api/v1/reports`
+
+Get the package ids for legal reports.
+
+**Request parameters:**
+
+* `external_link` (required): Short string describing the package source. Usually special values like `obs#123`,
+                              `ibs#123`, `soo#org/package!123` and `ssd#org/package!123`.
+
+```
+GET /api/v1/reports
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+Accept: application/json
+Content-Length: 22
+Content-Type: application/x-www-form-urlencoded
+
+external_link=obs#123
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Length: 44
+Content-Type: application/json
+
+[
+  {"id": 23},
+  ...
+]
+```
+
+### Retrieve Reports
 
 `GET /api/v1/report/<package_id>.<format>`
 

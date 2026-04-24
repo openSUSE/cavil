@@ -16,6 +16,7 @@
 package Cavil::Controller::API;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+use List::Util qw(uniq);
 use Mojo::JSON qw(true false);
 
 sub identify ($self) {
@@ -26,8 +27,20 @@ sub identify ($self) {
   $self->render(json => {id => $pkg->{id}});
 }
 
-sub source ($self) {
+sub reports ($self) {
+  my $validation = $self->validation;
+  $validation->required('external_link');
+  return $self->reply->json_validation_error if $validation->has_error;
 
+  my $external_link = $validation->param('external_link');
+  my $request_ids   = $self->requests->find_by_link($external_link);
+  my $package_ids   = $self->packages->find_by_link($external_link);
+  my @ids           = sort { $a <=> $b } uniq(@$request_ids, @$package_ids);
+
+  $self->render(json => {reports => [map { {id => $_} } @ids]});
+}
+
+sub source ($self) {
   my $validation = $self->validation;
   $validation->required('api')->like(qr!^https?://.+!i);
   $validation->required('project');

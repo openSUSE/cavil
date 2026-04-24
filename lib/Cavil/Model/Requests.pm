@@ -32,6 +32,11 @@ sub all ($self) {
   )->hashes->to_array;
 }
 
+sub find_by_link ($self, $link) {
+  return $self->pg->db->query('SELECT package FROM bot_requests WHERE external_link = ?', $link)
+    ->arrays->flatten->to_array;
+}
+
 sub remove ($self, $link) {
   return $self->pg->db->delete('bot_requests', {external_link => $link}, {returning => 'package'})
     ->hashes->map(sub { $_->{package} })->to_array;

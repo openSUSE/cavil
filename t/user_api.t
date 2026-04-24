@@ -67,6 +67,170 @@ $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\n
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
 
+subtest 'API keys' => sub {
+  my $key           = '';
+  my $expires_epoch = time + 36000;
+  my $expires       = Mojo::Date->new($expires_epoch)->to_datetime =~ s/:\d{2}Z$//r;
+
+  subtest 'Create API key' => sub {
+    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+    $t->post_ok('/api_keys' => form => {expires => $expires, type => 'read-only', description => 'Test key'})
+      ->status_is(200)
+      ->json_is('/created' => 1);
+    $t->get_ok('/api_keys/meta')
+      ->status_is(200)
+      ->json_is('/keys/0/id'    => 1)
+      ->json_is('/keys/0/owner' => 2)
+      ->json_like('/keys/0/api_key' => qr/^[a-f0-9\-]{20,}$/i)
+      ->json_is('/keys/0/description'  => 'Test key')
+      ->json_is('/keys/0/write_access' => 0)
+      ->json_has('/keys/0/expires_epoch');
+    $key = $t->tx->res->json('/keys/0/api_key');
+
+    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+  };
+
+  subtest 'Access API without key' => sub {
+    $t->get_ok('/api/v1/whoami')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/reports')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/report/1.json')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/report/1.txt')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/report/1.mcp')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+  };
+
+  subtest 'Access API with key' => sub {
+    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->json_is('/id', 2)
+      ->json_is('/user'         => 'tester')
+      ->json_is('/roles'        => ['admin', 'classifier', 'manager'])
+      ->json_is('/write_access' => false);
+  };
+
+  subtest 'Access reports with API key' => sub {
+    $t->get_ok('/api/v1/report/1.json' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->json_is('/package/id'                      => 1)
+      ->json_is('/package/checkout_dir'            => 'c7cfdab0e71b0bebfdf8b2dc3badfecd')
+      ->json_is('/report/licenses/Apache-2.0/spdx' => 'Apache-2.0');
+
+    $t->get_ok('/api/v1/report/1.txt' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_like(qr/Package:.+perl-Mojolicious/)
+      ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
+      ->content_like(qr/Unpacked:.+files/)
+      ->content_like(qr/Apache-2.0:.+3 files/);
+
+    $t->get_ok('/api/v1/report/1.mcp' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_like(qr/Package:.+perl-Mojolicious/)
+      ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
+      ->content_like(qr/Apache-2.0:.+3 files/)
+      ->content_like(qr/LICENSE.+Line: \d+.+Snippet: 2/);
+  };
+
+  subtest 'List reports by external link' => sub {
+    subtest 'Find by open request link' => sub {
+      $t->post_ok(
+        '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123', package => 2})
+        ->status_is(200)
+        ->json_is('/created', 'obs#123');
+      $t->post_ok(
+        '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123', package => 1})
+        ->status_is(200)
+        ->json_is('/created', 'obs#123');
+      $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {external_link => 'obs#123'})
+        ->status_is(200)
+        ->json_is('/reports/0/id', 1)
+        ->json_is('/reports/1/id', 2)
+        ->json_hasnt('/reports/2');
+      $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123'})
+        ->status_is(200);
+    };
+
+    subtest 'Find by package link' => sub {
+      $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {external_link => 'mojo#1'})
+        ->status_is(200)
+        ->json_is('/reports/0/id', 1)
+        ->json_hasnt('/reports/1');
+    };
+
+    subtest 'Find by mixed links' => sub {
+      $t->post_ok(
+        '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'mojo#1', package => 1})
+        ->status_is(200)
+        ->json_is('/created', 'mojo#1');
+      $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {external_link => 'mojo#1'})
+        ->status_is(200)
+        ->json_is('/reports/0/id', 1)
+        ->json_hasnt('/reports/1');
+      $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'mojo#1'})
+        ->status_is(200);
+    };
+  };
+
+  subtest 'API keys from multiple users' => sub {
+    my $key = $t->app->api_keys->create(owner => 1, description => 'Other user key', type => 'read-write',
+      expires => $expires);
+
+    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+    $t->get_ok('/api_keys/meta')
+      ->status_is(200)
+      ->json_is('/keys/0/id'    => 1)
+      ->json_is('/keys/0/owner' => 2)
+      ->json_hasnt('/keys/1');
+    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+
+    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key->{api_key}"})
+      ->status_is(200)
+      ->json_is('/id', 1)
+      ->json_is('/user'         => 'test_bot')
+      ->json_is('/roles'        => ['user'])
+      ->json_is('/write_access' => true);
+  };
+
+  subtest 'Expired API key' => sub {
+    $t->app->pg->db->query("UPDATE api_keys SET expires = NOW() - INTERVAL '1 hour' WHERE api_key = ?", $key);
+    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+
+    $t->app->pg->db->query("UPDATE api_keys SET expires = NOW() + INTERVAL '10 hours' WHERE api_key = ?", $key);
+    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->json_is('/id', 2)
+      ->json_is('/user' => 'tester');
+  };
+
+  subtest 'Remove API key' => sub {
+    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+    $t->delete_ok('/api_keys/1')->status_is(200)->json_is('/removed' => 1);
+    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+
+    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+  };
+
+  subtest 'Removing another users keys is not allowed' => sub {
+    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+    $t->delete_ok('/api_keys/2')->status_is(200)->json_is('/removed' => 0);
+    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+  }
+};
+
 subtest 'License prediction' => sub {
   subtest 'Exact matches' => sub {
     my $exact = $t->app->patterns->closest_licenses('GPL-2.0-only');
@@ -137,127 +301,6 @@ subtest 'License prediction' => sub {
     ok !$matches->{exact}, 'unknown expression has no exact match';
     is_deeply $matches->{closest}, [], 'unknown expression has no close matches';
   };
-};
-
-subtest 'API keys' => sub {
-  my $key           = '';
-  my $expires_epoch = time + 36000;
-  my $expires       = Mojo::Date->new($expires_epoch)->to_datetime =~ s/:\d{2}Z$//r;
-
-  subtest 'Create API key' => sub {
-    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-
-    $t->post_ok('/api_keys' => form => {expires => $expires, type => 'read-only', description => 'Test key'})
-      ->status_is(200)
-      ->json_is('/created' => 1);
-    $t->get_ok('/api_keys/meta')
-      ->status_is(200)
-      ->json_is('/keys/0/id'    => 1)
-      ->json_is('/keys/0/owner' => 2)
-      ->json_like('/keys/0/api_key' => qr/^[a-f0-9\-]{20,}$/i)
-      ->json_is('/keys/0/description'  => 'Test key')
-      ->json_is('/keys/0/write_access' => 0)
-      ->json_has('/keys/0/expires_epoch');
-    $key = $t->tx->res->json('/keys/0/api_key');
-
-    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
-  };
-
-  subtest 'Access API without key' => sub {
-    $t->get_ok('/api/v1/whoami')
-      ->status_is(403)
-      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
-    $t->get_ok('/api/v1/report/1.json')
-      ->status_is(403)
-      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
-    $t->get_ok('/api/v1/report/1.txt')
-      ->status_is(403)
-      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
-    $t->get_ok('/api/v1/report/1.mcp')
-      ->status_is(403)
-      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
-  };
-
-  subtest 'Access API with key' => sub {
-    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
-      ->status_is(200)
-      ->json_is('/id', 2)
-      ->json_is('/user'         => 'tester')
-      ->json_is('/roles'        => ['admin', 'classifier', 'manager'])
-      ->json_is('/write_access' => false);
-  };
-
-  subtest 'Access reports with API key' => sub {
-    $t->get_ok('/api/v1/report/1.json' => {Authorization => "Bearer $key"})
-      ->status_is(200)
-      ->json_is('/package/id'                      => 1)
-      ->json_is('/package/checkout_dir'            => 'c7cfdab0e71b0bebfdf8b2dc3badfecd')
-      ->json_is('/report/licenses/Apache-2.0/spdx' => 'Apache-2.0');
-
-    $t->get_ok('/api/v1/report/1.txt' => {Authorization => "Bearer $key"})
-      ->status_is(200)
-      ->content_like(qr/Package:.+perl-Mojolicious/)
-      ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
-      ->content_like(qr/Unpacked:.+files/)
-      ->content_like(qr/Apache-2.0:.+3 files/);
-
-    $t->get_ok('/api/v1/report/1.mcp' => {Authorization => "Bearer $key"})
-      ->status_is(200)
-      ->content_like(qr/Package:.+perl-Mojolicious/)
-      ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
-      ->content_like(qr/Apache-2.0:.+3 files/)
-      ->content_like(qr/LICENSE.+Line: \d+.+Snippet: 2/);
-  };
-
-  subtest 'API keys from multiple users' => sub {
-    my $key = $t->app->api_keys->create(owner => 1, description => 'Other user key', type => 'read-write',
-      expires => $expires);
-
-    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-    $t->get_ok('/api_keys/meta')
-      ->status_is(200)
-      ->json_is('/keys/0/id'    => 1)
-      ->json_is('/keys/0/owner' => 2)
-      ->json_hasnt('/keys/1');
-    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
-
-    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key->{api_key}"})
-      ->status_is(200)
-      ->json_is('/id', 1)
-      ->json_is('/user'         => 'test_bot')
-      ->json_is('/roles'        => ['user'])
-      ->json_is('/write_access' => true);
-  };
-
-  subtest 'Expired API key' => sub {
-    $t->app->pg->db->query("UPDATE api_keys SET expires = NOW() - INTERVAL '1 hour' WHERE api_key = ?", $key);
-    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
-      ->status_is(403)
-      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
-
-    $t->app->pg->db->query("UPDATE api_keys SET expires = NOW() + INTERVAL '10 hours' WHERE api_key = ?", $key);
-    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
-      ->status_is(200)
-      ->json_is('/id', 2)
-      ->json_is('/user' => 'tester');
-  };
-
-  subtest 'Remove API key' => sub {
-    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-
-    $t->delete_ok('/api_keys/1')->status_is(200)->json_is('/removed' => 1);
-    $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
-      ->status_is(403)
-      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
-
-    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
-  };
-
-  subtest 'Removing another users keys is not allowed' => sub {
-    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-    $t->delete_ok('/api_keys/2')->status_is(200)->json_is('/removed' => 0);
-    $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
-  }
 };
 
 done_testing;

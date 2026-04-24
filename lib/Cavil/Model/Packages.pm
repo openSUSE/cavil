@@ -109,6 +109,10 @@ sub find ($self, $id) {
   )->hash;
 }
 
+sub find_by_link ($self, $link) {
+  return $self->pg->db->query('SELECT id FROM bot_packages WHERE external_link = ?', $link)->arrays->flatten->to_array;
+}
+
 sub find_by_name_and_md5 ($self, $pkg, $md5) {
   return $self->pg->db->select('bot_packages', '*', {name => $pkg, checkout_dir => $md5})->hash;
 }
