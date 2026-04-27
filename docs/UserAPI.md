@@ -370,14 +370,11 @@ Get the package ids for legal reports.
                               `ibs#123`, `soo#org/package!123` and `ssd#org/package!123`.
 
 ```
-GET /api/v1/reports
+GET /api/v1/reports?external_link=ibs%23123
 Host: legaldb.suse.de
 Authorization: Bearer generated_api_key_here
 Accept: application/json
-Content-Length: 22
-Content-Type: application/x-www-form-urlencoded
 
-external_link=obs#123
 ```
 
 **Response:**
