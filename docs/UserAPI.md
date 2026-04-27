@@ -387,10 +387,10 @@ HTTP/1.1 200 OK
 Content-Length: 44
 Content-Type: application/json
 
-[
+{"reports": [
   {"id": 23},
   ...
-]
+]}
 ```
 
 ### Retrieve License Reports
