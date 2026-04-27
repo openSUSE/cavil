@@ -393,7 +393,7 @@ Content-Type: application/json
 ]
 ```
 
-### Retrieve Reports
+### Retrieve License Reports
 
 `GET /api/v1/report/<package_id>.<format>`
 
@@ -436,5 +436,47 @@ Diff to closest match 12345:
 
 * BSD-3-Clause: 30 files
 * MIT: 10 files
+...
+```
+
+### Retrieve SPDX Reports
+
+`GET /api/v1/spdx/<package_id>`
+
+Get legal report in SPDX format. Note that this report may be generated on demand, and in such cases the server will
+return a `408` error code until the report has been generated.
+
+**Request:**
+
+```
+GET /api/v1/spdx/23
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Length: 1024
+Content-Type: text/plain
+
+SPDXVersion: SPDX-2.2
+DataLicense: CC0-1.0
+
+##-----------------------------
+## Document Information
+##-----------------------------
+
+DocumentNamespace: http://legaldb.suse.de/spdx/23
+DocumentName: report.spdx
+SPDXID: SPDXRef-DOCUMENT
+
+##-----------------------------
+## Creation Information
+##-----------------------------
+
+Creator: Tool: Cavil
+Created: 2026-04-26T00:06:19Z
 ...
 ```

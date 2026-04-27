@@ -1,4 +1,4 @@
-% layout 'default';
+% layout 'empty';
 % title 'SPDX report is being generated';
 
 Your SPDX report is being generated. This can take a few minutes. <i class="fa-solid fa-spinner fa-spin"></i>

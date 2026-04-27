@@ -201,6 +201,7 @@ sub startup ($self) {
   $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
   $api_key->get('/api/v1/reports')->to('API#reports');
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
+  $api_key->get('/api/v1/spdx/<id:num>')->to('Report#spdx');
 
   # API Keys
   $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');

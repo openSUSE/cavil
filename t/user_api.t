@@ -107,6 +107,9 @@ subtest 'API keys' => sub {
     $t->get_ok('/api/v1/report/1.mcp')
       ->status_is(403)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/spdx/1')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
   };
 
   subtest 'Access API with key' => sub {
@@ -138,6 +141,21 @@ subtest 'API keys' => sub {
       ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
       ->content_like(qr/Apache-2.0:.+3 files/)
       ->content_like(qr/LICENSE.+Line: \d+.+Snippet: 2/);
+  };
+
+  subtest 'Access SPDX with API key' => sub {
+    $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
+      ->status_is(408)
+      ->content_like(qr/Your SPDX report is being generated/)
+      ->content_unlike(qr/<nav>/);
+    $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
+      ->status_is(408)
+      ->content_like(qr/Your SPDX report is being generated/)
+      ->content_unlike(qr/<nav>/);
+    $t->app->minion->perform_jobs;
+    $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_like(qr/SPDXVersion: SPDX-2.2/);
   };
 
   subtest 'List reports by external link' => sub {
