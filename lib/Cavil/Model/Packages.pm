@@ -110,7 +110,8 @@ sub find ($self, $id) {
 }
 
 sub find_by_link ($self, $link) {
-  return $self->pg->db->query('SELECT id FROM bot_packages WHERE external_link = ?', $link)->arrays->flatten->to_array;
+  return $self->pg->db->query('SELECT id FROM bot_packages WHERE external_link = ? AND obsolete = FALSE', $link)
+    ->arrays->flatten->to_array;
 }
 
 sub find_by_name_and_md5 ($self, $pkg, $md5) {

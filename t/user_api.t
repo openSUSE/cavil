@@ -178,10 +178,21 @@ subtest 'API keys' => sub {
     };
 
     subtest 'Find by package link' => sub {
-      $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {external_link => 'mojo#1'})
-        ->status_is(200)
-        ->json_is('/reports/0/id', 1)
-        ->json_hasnt('/reports/1');
+      subtest 'Not obsolete' => sub {
+        $t->app->pg->db->query('UPDATE bot_packages SET obsolete = false WHERE id = 1');
+        $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {external_link => 'mojo#1'})
+          ->status_is(200)
+          ->json_is('/reports/0/id', 1)
+          ->json_hasnt('/reports/1');
+      };
+
+      subtest 'Obsolete' => sub {
+        $t->app->pg->db->query('UPDATE bot_packages SET obsolete = true WHERE id = 1');
+        $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {external_link => 'mojo#1'})
+          ->status_is(200)
+          ->json_hasnt('/reports/0');
+        $t->app->pg->db->query('UPDATE bot_packages SET obsolete = false WHERE id = 1');
+      };
     };
 
     subtest 'Find by mixed links' => sub {
