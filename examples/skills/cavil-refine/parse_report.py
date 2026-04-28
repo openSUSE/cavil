@@ -58,17 +58,10 @@ def parse_unresolved_snippets(markdown_text: str) -> List[Dict]:
     if not unmatched_match:
         return snippets
 
-    # Find the next section (starts with ##)
-    next_section_match = re.search(
-        r'^## ',
-        markdown_text[unmatched_match.end():],
-        re.MULTILINE
-    )
-
-    if next_section_match:
-        section_text = markdown_text[unmatched_match.end():unmatched_match.end() + next_section_match.start()]
-    else:
-        section_text = markdown_text[unmatched_match.end():]
+    # Search to end of document — do NOT try to find the next ## section boundary,
+    # because ## headings can appear inside snippet code blocks and would cause
+    # premature cutoff (e.g. a README snippet containing "## Licensing").
+    section_text = markdown_text[unmatched_match.end():]
 
     # Pattern to match snippet entries:
     # * `file_path` (Line: X Snippet: Y):
