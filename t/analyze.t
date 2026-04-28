@@ -1,17 +1,5 @@
-# Copyright (C) 2018-2020 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict;
 
@@ -47,6 +35,38 @@ subtest 'Analyze background job' => sub {
   is $res->{result}, undef,                                                                         'result cleared';
   is $res->{notice}, "Diff to closest match 1:\n\n  Different spec file license: Artistic-2.0\n\n", 'different spec';
   is $res->{state},  'new',                                                                         'not approved';
+};
+
+subtest 'Analyze clears stale notice when reusing a previous accepted review' => sub {
+  my $pkgs = $t->app->packages;
+  my $db   = $t->app->pg->db;
+  my $pkg1 = $pkgs->find(1);
+
+  my $pkg3_id = $pkgs->add(
+    name            => 'perl-Mojolicious',
+    checkout_dir    => $pkg1->{checkout_dir},
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => 1,
+    project         => 'devel:languages:perl',
+    package         => 'perl-Mojolicious',
+    srcmd5          => $pkg1->{checkout_dir},
+    priority        => 5
+  );
+
+  $db->query(
+    'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
+     SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg3_id, 1
+  );
+  $db->query('UPDATE bot_packages SET indexed = NOW(), checksum = ?, notice = ? WHERE id = ?',
+    $pkg1->{checksum}, 'stale notice', $pkg3_id);
+
+  $t->app->minion->enqueue(analyzed => [$pkg3_id]);
+  $t->app->minion->perform_jobs;
+
+  my $res = $pkgs->find($pkg3_id);
+  is $res->{state},  'acceptable',                                                      'approved from previous review';
+  is $res->{notice}, undef,                                                             'stale notice cleared';
+  is $res->{result}, 'Accepted because previously reviewed under the same license (1)', 'reused previous review';
 };
 
 subtest 'Prevent analyze race condition' => sub {
