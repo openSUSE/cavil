@@ -22,7 +22,8 @@ sub login ($self) {
   # Required for id.opensuse.org
   $config->{authorize_url} .= '?response_type=code' unless $config->{authorize_url} =~ /response_type=/;
 
-  $self->oauth2->get_token_p('opensuse', {redirect_uri => 'https://legaldb.suse.de/oidc/callback'})->then(
+  my $callback_url = $self->url_for('openid')->to_abs->to_string;
+  $self->oauth2->get_token_p('opensuse', {redirect_uri => $callback_url})->then(
     sub ($result) {
       return undef unless my $token = $result->{access_token};
       $self->ua->get_p($config->{userinfo_url} => {Authorization => "Bearer $token"});
