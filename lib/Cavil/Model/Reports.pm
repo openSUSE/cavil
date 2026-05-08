@@ -59,22 +59,29 @@ sub sanitized_dig_report {
 }
 
 sub shortname ($self, $chksum) {
-  my $db     = $self->pg->db;
-  my $lentry = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash;
-  if ($lentry) {
+  my $db = $self->pg->db;
+  if (my $lentry = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash) {
     return $lentry->{shortname};
   }
 
   # try to find a unique name for the checksum
   my $chars = ['a' .. 'z', 'A' .. 'Z', '0' .. '9'];
-  while (1) {
+  for (1 .. 100) {
     my $shortname = join('', map { $chars->[rand @$chars] } 1 .. 6);
-    $db->query(
+    my $inserted  = $db->query(
       'insert into report_checksums (checksum, shortname)
-       values (?,?) on conflict do nothing', $chksum, $shortname
-    );
-    return $shortname if $db->select('report_checksums', 'id', {shortname => $shortname, checksum => $chksum})->hash;
+       values (?,?) on conflict do nothing returning shortname', $chksum, $shortname
+    )->hash;
+    return $inserted->{shortname} if $inserted;
+
+    # The insert was a no-op. The conflict could be on either unique index:
+    # if another writer already assigned a shortname to this checksum, use it;
+    # otherwise our random shortname was taken, so loop and try a new one.
+    if (my $existing = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash) {
+      return $existing->{shortname};
+    }
   }
+  die "Could not allocate a shortname for checksum $chksum after 100 attempts";
 }
 
 sub source_for {
