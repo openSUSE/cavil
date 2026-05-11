@@ -344,10 +344,10 @@ subtest 'Unpack background job (with exclude file)' => sub {
   $minion->perform_jobs;
   ok $t->app->packages->is_unpacked(1), 'unpacked';
   my $good = path($t->app->packages->pkg_checkout_dir(1));
-  ok -e $good->child('.unpacked', 'foo', 'bar.txt');
-  ok -e $good->child('.unpacked', 'foo', 'bar', 'bar.tar');
-  ok -e $good->child('.unpacked', 'foo', 'bar', 'bar');
-  ok -e $good->child('.unpacked', 'foo', 'bar', 'bar', 'test.js');
+  ok -e $good->child('.unpacked',  'foo', 'bar.txt');
+  ok !-e $good->child('.unpacked', 'foo', 'bar', 'bar.tar');
+  ok -e $good->child('.unpacked',  'foo', 'bar', 'bar');
+  ok -e $good->child('.unpacked',  'foo', 'bar', 'bar', 'test.js');
 
   ok !$t->app->packages->is_unpacked(2), 'not unpacked yet';
   $minion->enqueue(unpack => [2]);
