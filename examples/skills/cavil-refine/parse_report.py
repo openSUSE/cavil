@@ -70,7 +70,7 @@ def parse_unresolved_snippets(markdown_text: str) -> List[Dict]:
     # ```
     # Note: The closing ``` may be missing for the last snippet
     pattern = re.compile(
-        r'\* `([^`]+)` \(Line: (\d+) Snippet: (\d+)\):\s*\n```\n(.*?)(?:\n```|$)',
+        r'\* `([^`]+)` \(Line: (\d+),? Snippet: (\d+)\):\s*\n```\n(.*?)(?:\n```|$)',
         re.DOTALL
     )
 
