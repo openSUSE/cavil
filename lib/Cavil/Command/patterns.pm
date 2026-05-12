@@ -25,25 +25,27 @@ has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
   getopt \@args,
-    'check-risks'          => \my $check_risks,
-    'check-spdx'           => \my $check_spdx,
-    'check-unused'         => \my $check_unused,
-    'check-unused-ignore'  => \my $check_unused_ignore,
-    'check-used'           => \my $check_used,
-    'fix-risk=i'           => \my $fix_risk,
-    'inherit-spdx'         => \my $inherit_spdx,
-    'license|l=s'          => \my $license,
-    'match=i'              => \my $match,
-    'preview|P=i'          => \(my $preview = 57),
-    'remove-unused=i'      => \my $remove_unused,
-    'remove-unused-ignore' => \my $remove_unused_ignore,
-    'remove-used=i'        => \my $remove_used;
+    'check-risks'            => \my $check_risks,
+    'check-spdx'             => \my $check_spdx,
+    'check-unused'           => \my $check_unused,
+    'check-unused-ignore'    => \my $check_unused_ignore,
+    'check-used'             => \my $check_used,
+    'fix-risk=i'             => \my $fix_risk,
+    'inherit-spdx'           => \my $inherit_spdx,
+    'license|l=s'            => \my $license,
+    'match=i'                => \my $match,
+    'preview|P=i'            => \(my $preview = 57),
+    'remove-unused=i'        => \my $remove_unused,
+    'remove-unused-extras=s' => \my $remove_unused_extras,
+    'remove-unused-ignore'   => \my $remove_unused_ignore,
+    'remove-used=i'          => \my $remove_used;
 
   # Show pattern match
   return $self->_match($match, $preview) if $match;
 
   # Remove unused license pattern
-  return $self->_remove_unused($remove_unused) if $remove_unused;
+  return $self->_remove_unused($remove_unused)               if $remove_unused;
+  return $self->_remove_unused_extras($remove_unused_extras) if $remove_unused_extras;
 
   # Remove license pattern currently in use
   return $self->_remove_used($remove_used) if $remove_used;
@@ -286,6 +288,32 @@ sub _remove_unused ($self, $id) {
   $app->patterns->expire_cache;
 }
 
+sub _remove_unused_extras ($self, $license) {
+  my $app = $self->app;
+  my $db  = $app->pg->db;
+
+  my $tx = $db->begin;
+
+  my $used_count = $db->query(
+    'SELECT count(*) AS count
+     FROM license_patterns lp
+     WHERE lp.license = ?
+       AND EXISTS (SELECT FROM pattern_matches pm WHERE pm.pattern = lp.id)', $license
+  )->hash->{count};
+  die qq{No patterns in use found for license "$license"} unless $used_count > 0;
+
+  my $removed = $db->query(
+    'DELETE FROM license_patterns lp
+     WHERE lp.license = ?
+       AND NOT EXISTS (SELECT FROM pattern_matches pm WHERE pm.pattern = lp.id)', $license
+  )->rows;
+
+  $tx->commit;
+
+  $app->patterns->expire_cache;
+  say qq{Removed $removed unused patterns for license "$license"};
+}
+
 sub _remove_used ($self, $id) {
   my $app = $self->app;
   my $db  = $app->pg->db;
@@ -343,24 +371,32 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     script/cavil patterns --match 12345
 
   Options:
-        --match <id>             Show all known information for a pattern match
-        --check-risks            Check for licenses with multiple risk
-                                 assessments
-        --check-spdx             Check for licenses patterns with inconsistent
-                                 SPDX expressions
-        --check-unused           Check for unused license patterns
-        --check-unused-ignore    Check for unused ignore patterns
-        --check-used             Check for license patterns currently in use
-        --fix-risk <risk>        Fix risk assessments for a license
-    -h, --help                   Show this summary of available options
-        --inherit-spdx           Reuse the license name for all licenses that
-                                 are already valid SPDX expressions
-    -l, --license <name>         License name
-        --remove-unused <id>     Remove unused license pattern (cannot remove
-                                 patterns still in use)
-        --remove-used <id>       Remove license pattern despite it being
-                                 currently in use
-        --remove-unused-ignore   Remove all unused ignore patterns
-    -P, --preview <length>       Length of pattern previews, defaults to 57
+        --match <id>                    Show all known information for a
+                                        pattern match
+        --check-risks                   Check for licenses with multiple
+                                        risk assessments
+        --check-spdx                    Check for licenses patterns with
+                                        inconsistent SPDX expressions
+        --check-unused                  Check for unused license patterns
+        --check-unused-ignore           Check for unused ignore patterns
+        --check-used                    Check for license patterns currently
+                                        in use
+        --fix-risk <risk>               Fix risk assessments for a license
+    -h, --help                          Show this summary of available
+                                        options
+        --inherit-spdx                  Reuse the license name for all
+                                        licenses that are already valid SPDX
+                                        expressions
+    -l, --license <name>                License name
+        --remove-unused <id>            Remove unused license pattern (cannot
+                                        remove patterns still in use)
+        --remove-used <id>              Remove license pattern despite it
+                                        being currently in use
+        --remove-unused-extras <name>   Remove all unused license patterns
+                                        for a specific license, but only if
+                                        there are patterns in use remaining
+        --remove-unused-ignore          Remove all unused ignore patterns
+    -P, --preview <length>              Length of pattern previews, defaults
+                                        to 57
 
 =cut
