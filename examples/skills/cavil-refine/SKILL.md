@@ -42,6 +42,7 @@ This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON st
 3. **Initial triage**: Quickly scan all snippets and identify which ones are clearly actionable vs. which need context
    - Clearly actionable: Simple SPDX declarations, obvious log messages, complete license statements
    - Need context: Truncated snippets, unclear fragments, potential license text without clear boundaries
+   - **Group by file path**: Cluster snippets that share a directory or path pattern. If multiple snippets come from a path that obviously contains test fixtures or license-detection reference data (see "FILE-LEVEL EXCLUSIONS" below), set them aside as glob candidates instead of triaging them individually
 4. **Gather context AUTOMATICALLY**: 
    - **MANDATORY**: For ANY snippet that appears truncated, unclear, or potentially part of a larger text, retrieve file context using `mcp__cavil__cavil_get_file` BEFORE making a decision
    - Retrieve ±10-20 lines around the snippet location
@@ -55,7 +56,7 @@ This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON st
    - Use `mcp__cavil__cavil_propose_license_pattern` for pattern creation - **create the pattern ONCE from one representative snippet**
    - **IMPORTANT**: When multiple snippets match the same pattern, create the pattern from ONE snippet only. DO NOT propose to ignore the duplicates - Cavil will automatically match them when it reindexes the report after the pattern is created
    - **NEVER use Cavil tools** for snippets flagged as REPORT_TO_USER - only report them in your summary to the user
-8. **Report summary**: Provide metrics (X ignored, Y patterns created, Z flagged for review) and a concise table or list of all actions taken. Note how many duplicate snippets will be automatically resolved by pattern reindexing.
+8. **Report summary**: Provide metrics (X ignored, Y patterns created, Z flagged for review, G globs proposed) and a concise table or list of all actions taken. Note how many duplicate snippets will be automatically resolved by pattern reindexing. If any glob candidates were identified during triage, include a "PROPOSED GLOBS TO EXCLUDE" section (see "FILE-LEVEL EXCLUSIONS" below).
 
 ## BATCH PROCESSING
 - Process all snippets in one pass rather than one-by-one
@@ -63,6 +64,49 @@ This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON st
 - Group similar decisions together in your analysis
 - When you identify duplicate snippets (identical text), create ONE pattern and note the duplicates will be auto-resolved
 - **Operate autonomously** - do not pause for user confirmation, execute all actions immediately after analysis
+
+## FILE-LEVEL EXCLUSIONS: PROPOSE GLOBS FOR LICENSE-DATA FIXTURES
+
+Some packages include files whose **path or name makes it obvious** that any license-like text inside them is *data*, not a license declaration for the software being packaged. These files generate many spurious unresolved snippets that should never have been indexed.
+
+The right fix is not to ignore each snippet individually — it is to exclude the **entire file or directory** from Cavil indexing system-wide via a glob, so future versions of this package (and similar packages) skip them automatically. Globs are added by a human administrator, so your job is to **propose** the glob in your summary, not to call any Cavil tool.
+
+### When to propose a glob
+
+Propose a glob when ALL of the following hold:
+1. The file path contains a strong hint that the contents are test fixtures, license-detection reference data, or sample log/data output. Common signals:
+   - Test-fixture path segments: `testdata/`, `test/`, `tests/`, `fixtures/`, `samples/`, `examples/`
+   - License-data directories inside packages whose evident purpose is license detection or SBOM tooling: `license_data/`, `licenses/`, `spdx/`, `license-list/`
+   - File extensions for captured sample output: `.log` test logs, captured response bodies, recorded fixtures
+2. **Two or more** unresolved snippets in the report come from that path. A single snippet is more likely a coincidence — handle it per-snippet via the normal decision framework.
+3. The package's own licensing is declared elsewhere (LICENSE file, source headers, package manifest) — i.e. excluding these files would not lose a real license signal.
+
+### Examples of good glob proposals
+
+- alloy log fixtures: `alloy-*/internal/component/loki/source/file/testdata/*.log`
+  *Reason: log files under a Loki source-file component's testdata directory are captured log output used as test input, not source files with license headers.*
+- lib4sbom license reference data: `lib4sbom-*/lib4sbom/license_data/*.*`
+  *Reason: lib4sbom is itself a license-detection library; its `license_data/` directory bundles license texts as reference data for matching, not as a declaration of how lib4sbom is licensed.*
+
+Use a leading `pkgname-*/` prefix to match the versioned top-level directory typical of Cavil source trees. Use `*` for the version segment so the glob applies to all future versions.
+
+### Protocol
+
+1. During initial triage (workflow step 3), group unresolved snippets by file path.
+2. For any path matching the signals above with 2+ snippets, mark it as a **glob candidate** and design the narrowest glob that captures the offending files without over-matching.
+3. **Do NOT call `cavil_propose_ignore_snippet` or `cavil_propose_license_pattern`** for snippets in glob-candidate paths. The correct action is system-wide exclusion via a human-added glob, not per-snippet handling. These snippets will disappear once the glob is added and the package is re-indexed.
+4. In your final report summary, add a **"PROPOSED GLOBS TO EXCLUDE"** section listing each proposed glob with:
+   - The glob pattern (ready to paste)
+   - The matching file(s) seen in this report
+   - The number of snippets it would resolve
+   - A one-sentence rationale explaining why these files contain data rather than declarations
+5. State explicitly that the human reviewer must add the glob to Cavil's system configuration; once added and the package is re-indexed, these snippets will be skipped entirely.
+
+### When NOT to propose a glob
+
+- A single snippet from an otherwise normal-looking path — handle per-snippet.
+- The path looks like a fixture but the file is the package's own LICENSE/COPYING/README rendered for tests — that file probably IS the license declaration.
+- The matching files are real source files (`.c`, `.py`, `.go`, etc.) that happen to live under `tests/` — source files can carry real license headers, so prefer per-snippet handling unless the file is clearly captured/sample data rather than written code.
 
 ## DECISION FRAMEWORK
 
