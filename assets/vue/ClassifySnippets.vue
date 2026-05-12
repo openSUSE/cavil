@@ -18,6 +18,9 @@
               <div class="form-floating">
                 <select v-model="params.confidence" @change="refreshPage()" class="form-control cavil-pkg-confidence">
                   <option value="100">Any</option>
+                  <option value="95">95% or less</option>
+                  <option value="90">90% or less</option>
+                  <option value="80">80% or less</option>
                   <option value="70">70% or less</option>
                   <option value="50">50% or less</option>
                   <option value="30">30% or less</option>
