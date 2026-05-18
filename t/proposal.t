@@ -447,12 +447,13 @@ subtest 'Remove ignored match' => sub {
   $t->app->minion->perform_jobs;
   $t->app->users->add_role(2, 'admin');
 
-  is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, 'no jobs';
+  is $t->app->minion->jobs({tasks => ['index', 'analyze'], states => ['inactive']})->total, 0, 'no jobs';
   $t->post_ok('/snippet/decision/1' => form =>
       {'create-ignore' => 1, hash => 'abe8204ddebdc31a4d0e77aa647f42cd', from => 'package-with-snippets'})
     ->status_is(200)
     ->content_like(qr/ignore pattern has been created/);
-  is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
+  is $t->app->minion->jobs({tasks => ['index'],   states => ['inactive']})->total, 0, 'no reindex enqueued';
+  is $t->app->minion->jobs({tasks => ['analyze'], states => ['inactive']})->total, 1, 'analyze job enqueued';
   $t->get_ok('/pagination/matches/ignored')
     ->status_is(200)
     ->json_has('/page/0')
@@ -485,6 +486,81 @@ subtest 'Remove ignored match' => sub {
   $t->delete_ok("/ignored-matches/$id")->status_is(400)->json_is({error => 'Ignored match does not exist'});
   like $logs, qr!User "tester" removed ignored match "abe8204ddebdc31a4d0e77aa647f42cd"!, 'right message';
   is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
+};
+
+subtest 'Ignore with real snippet (analyze-only path)' => sub {
+  $t->app->minion->perform_jobs;
+
+  # Pick a real snippet hash with at least one overlapping pattern_match
+  my $hash = $db->query(
+    'SELECT s.hash FROM snippets s
+       JOIN file_snippets fs ON fs.snippet = s.id
+       JOIN pattern_matches pm ON pm.file = fs.file AND pm.package = fs.package
+                              AND pm.sline <= fs.eline AND pm.eline >= fs.sline
+       WHERE fs.package = 1 AND pm.ignored = FALSE LIMIT 1'
+  )->hash->{hash};
+  ok $hash, 'fixture has an unignored pattern_match overlapping a snippet';
+
+  is $t->app->minion->jobs({tasks => ['index', 'analyze'], states => ['inactive']})->total, 0, 'no jobs';
+  $t->post_ok('/snippet/decision/1' => form => {'create-ignore' => 1, hash => $hash, from => 'package-with-snippets'})
+    ->status_is(200)
+    ->content_like(qr/ignore pattern has been created/);
+  is $t->app->minion->jobs({tasks => ['index'],   states => ['inactive']})->total, 0, 'no reindex enqueued';
+  is $t->app->minion->jobs({tasks => ['analyze'], states => ['inactive']})->total, 1, 'analyze job enqueued';
+  $t->app->minion->perform_jobs;
+
+  $t->get_ok('/pagination/matches/ignored?filter=with-snippets')
+    ->status_is(200)
+    ->json_has('/page/0')
+    ->json_is('/page/0/hash',     $hash)
+    ->json_is('/page/0/packname', 'package-with-snippets')
+    ->json_is('/page/0/packages', 1);
+  my $marked = $t->tx->res->json->{page}[0]{matches};
+  my $id     = $t->tx->res->json->{page}[0]{id};
+  ok $marked > 0, "pattern_matches marked ignored via analyze ($marked rows)";
+
+  subtest 'Re-ignoring the same hash is idempotent' => sub {
+    $t->post_ok('/snippet/decision/1' => form => {'create-ignore' => 1, hash => $hash, from => 'package-with-snippets'})
+      ->status_is(200)
+      ->content_like(qr/ignore pattern has been created/);
+    $t->get_ok('/pagination/matches/ignored?filter=with-snippets')
+      ->status_is(200)
+      ->json_is('/page/0/id',      $id)
+      ->json_is('/page/0/matches', $marked);
+  };
+
+  subtest 'Removing the ignore un-ignores the matches' => sub {
+    $t->app->minion->perform_jobs;
+    $t->delete_ok("/ignored-matches/$id")->status_is(200)->json_is('ok');
+    is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'reindex enqueued on removal';
+    $t->app->minion->perform_jobs;
+
+    $t->get_ok('/pagination/matches/ignored?filter=with-snippets')->status_is(200)->json_is('/total', 0);
+    my $still = $db->query('SELECT COUNT(*) AS c FROM pattern_matches WHERE ignored_line = ?', $id)->hash->{c};
+    is $still, 0, 'no pattern_matches still reference the removed ignored_line';
+    my $unignored = $db->query(
+      'SELECT COUNT(*) AS c FROM pattern_matches pm
+         JOIN file_snippets fs ON pm.file = fs.file AND pm.package = fs.package
+                              AND pm.sline <= fs.eline AND pm.eline >= fs.sline
+         JOIN snippets s ON fs.snippet = s.id
+         WHERE pm.package = 1 AND s.hash = ? AND pm.ignored = FALSE', $hash
+    )->hash->{c};
+    ok $unignored > 0, "matches now unignored ($unignored rows)";
+  };
+
+  subtest 'Re-creating the ignore after removal marks again' => sub {
+    $t->post_ok('/snippet/decision/1' => form => {'create-ignore' => 1, hash => $hash, from => 'package-with-snippets'})
+      ->status_is(200)
+      ->content_like(qr/ignore pattern has been created/);
+    $t->app->minion->perform_jobs;
+    $t->get_ok('/pagination/matches/ignored?filter=with-snippets')
+      ->status_is(200)
+      ->json_is('/page/0/hash',     $hash)
+      ->json_is('/page/0/packages', 1);
+    my $remarked = $t->tx->res->json->{page}[0]{matches};
+    isnt $t->tx->res->json->{page}[0]{id}, $id, 'new ignored_lines id';
+    ok $remarked > 0, "matches re-marked after recreating the ignore ($remarked rows)";
+  };
 };
 
 done_testing();

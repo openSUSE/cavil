@@ -208,25 +208,16 @@ sub _create_ignore ($self) {
   my $validation = $self->validation;
   $validation->required('hash', 'not_empty')->like($CHECKSUM_RE);
   $validation->required('from', 'not_empty');
-  $validation->optional('delay')->num;
   $validation->optional('contributor');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $owner_id       = $self->users->id_for_login($self->current_user);
   my $contributor    = $validation->param('contributor');
   my $contributor_id = $contributor ? $self->users->id_for_login($contributor) : undef;
-  my $delay          = $validation->param('delay') // 0;
 
   my $hash = $validation->param('hash');
   $self->packages->ignore_line(
-    {
-      package     => $validation->param('from'),
-      hash        => $hash,
-      owner       => $owner_id,
-      contributor => $contributor_id,
-      delay       => $delay
-    }
-  );
+    {package => $validation->param('from'), hash => $hash, owner => $owner_id, contributor => $contributor_id});
   $self->patterns->remove_proposal($hash);
 
   return $self->render(ignore => 1);

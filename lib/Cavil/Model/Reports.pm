@@ -27,9 +27,9 @@ sub dig_report {
   my ($self, $id, $limit_to_file) = @_;
 
   my $db            = $self->pg->db;
-  my $pkg           = $db->select('bot_packages',  '*',    {id       => $id})->hash;
-  my $ignored       = $db->select('ignored_lines', 'hash', {packname => $pkg->{name}});
-  my %ignored_lines = map { $_->{hash} => 1 } $ignored->hashes->each;
+  my $pkg           = $db->select('bot_packages',  '*',            {id       => $id})->hash;
+  my $ignored       = $db->select('ignored_lines', ['id', 'hash'], {packname => $pkg->{name}});
+  my %ignored_lines = map { $_->{hash} => $_->{id} } $ignored->hashes->each;
 
   my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
 
@@ -224,7 +224,7 @@ sub _check_ignores {
         for my $m (@marks) {
           $m->[1]->{risk} = 0;
           next unless $freport->{$m->[0]};
-          $matches_to_ignore->{$freport->{$m->[0]}} = 1;
+          $matches_to_ignore->{$freport->{$m->[0]}} = $ignored_lines->{$hex};
         }
       }
       else {
@@ -436,7 +436,7 @@ sub _dig_report {
   # in case ignored lines found unignored matches (i.e. first load), update them
   # and restart the report
   for my $mig (keys %matches_to_ignore) {
-    $db->update('pattern_matches', {ignored => 1}, {id => $mig});
+    $db->update('pattern_matches', {ignored => 1, ignored_line => $matches_to_ignore{$mig}}, {id => $mig});
   }
 
   if (%matches_to_ignore) {

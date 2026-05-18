@@ -173,14 +173,38 @@ sub history ($self, $name, $checksum, $id) {
 }
 
 sub ignore_line ($self, $options) {
-
-  my $db = $self->pg->db;
-  $db->query(
+  my $db       = $self->pg->db;
+  my $inserted = $db->query(
     'insert into ignored_lines (hash, packname, owner, contributor) values (?, ?, ?, ?)
-     on conflict do nothing', $options->{hash}, $options->{package}, $options->{owner}, $options->{contributor}
+     on conflict do nothing returning id', $options->{hash}, $options->{package}, $options->{owner},
+    $options->{contributor}
+  )->hash;
+  my $ignore_id
+    = $inserted
+    ? $inserted->{id}
+    : $db->select('ignored_lines', 'id', {hash => $options->{hash}, packname => $options->{package}})->hash->{id};
+
+  # A new ignored_lines row does not change file contents or pattern definitions, so a full reindex is unnecessary
+  $db->query(
+    'update pattern_matches pm
+       set ignored = true, ignored_line = ?
+       from file_snippets fs, snippets s, bot_packages bp
+       where pm.file = fs.file
+         and pm.package = fs.package
+         and fs.snippet = s.id
+         and pm.package = bp.id
+         and s.hash = ?
+         and bp.name = ?
+         and bp.obsolete = false
+         and bp.indexed is not null
+         and pm.sline <= fs.eline
+         and pm.eline >= fs.sline
+         and pm.ignored = false', $ignore_id, $options->{hash}, $options->{package}
   );
 
-  $self->reindex_packages($options->{package}, {delay => $options->{delay}});
+  my $ids = $db->select('bot_packages', 'id', {name => $options->{package}, obsolete => 0, indexed => {'!=' => undef}})
+    ->arrays->flatten->to_array;
+  $self->analyze($_, 9) for @$ids;
 }
 
 sub remove_ignored_line ($self, $id, $user) {
@@ -535,10 +559,9 @@ sub reindex_matched_packages ($self, $pid, $priority = 0) {
   }
 }
 
-sub reindex_packages ($self, $name, $options = {}) {
-  my $delay = $options->{delay} || 0;
-  my $ids   = $self->pg->db->select('bot_packages', 'id', {name => $name})->arrays->flatten->to_array;
-  $self->reindex($_, 3, [], $delay) for @$ids;
+sub reindex_packages ($self, $name) {
+  my $ids = $self->pg->db->select('bot_packages', 'id', {name => $name})->arrays->flatten->to_array;
+  $self->reindex($_, 3) for @$ids;
 }
 
 sub remove_spdx_report ($self, $id) {
