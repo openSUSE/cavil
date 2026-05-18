@@ -122,7 +122,8 @@ involving MCP tools. Cavil includes a few examples you can use for inspiration:
                                                      reject reviews based on the package's license report.
 
 Most agents support skills automatically when you copy them into the skills directory of the current workspace, like
-`.claude/skills/cavil-refine` or `.gemini/skills/cavil-review`. Just make sure MCP support has been configured
+`.claude/skills/cavil-refine` or `.gemini/skills/cavil-review`. Then you just type a command like
+`/cavil-refine perl-Mojolicious` and the agent will figure out the rest. Just make sure MCP support has been configured
 correctly and all the necessary tools are available to the agent.
 
 ### 3rd Party MCP Clients
