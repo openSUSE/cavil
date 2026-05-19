@@ -184,6 +184,28 @@ subtest 'Details after indexing' => sub {
     ->json_has('/chart/colours')
     ->json_has('/risks');
 
+  subtest 'Expanded file limit' => sub {
+    my $db       = $t->app->pg->db;
+    my $row      = $db->select('bot_reports', 'ldig_report', {package => 1})->hash;
+    my $original = $row->{ldig_report};
+    my $dig      = Mojo::JSON::from_json($original);
+    my $fpid     = 999998;
+    for my $id (9100 .. 9249) {
+      $dig->{files}{$id}           = "fake/missed/missed$id.txt";
+      $dig->{missed_snippets}{$id} = [[1, 1, $id, 'deadbeef', 0.1, $fpid]];
+      $dig->{missed_files}{$id}    = [9, 0.1, 'Keyword', undef];
+    }
+    $db->update('bot_reports', {ldig_report => Mojo::JSON::to_json($dig)}, {package => 1});
+
+    $t->get_ok('/reviews/report_details/1')->status_is(200);
+    my $details = $t->tx->res->json;
+    my $expand  = grep { $_->{expand} } @{$details->{files}};
+    cmp_ok $expand,                     '<=', 100,     'expand=true count capped at max_expanded_files';
+    cmp_ok scalar @{$details->{files}}, '>',  $expand, 'remaining files are sent collapsed';
+
+    $db->update('bot_reports', {ldig_report => $original}, {package => 1});
+  };
+
   $t->get_ok('/reviews/fetch_source/1')
     ->status_is(200)
     ->content_type_is('application/json;charset=UTF-8')
@@ -317,16 +339,16 @@ subtest 'Details after reindexing' => sub {
     ->json_is('/missed_files/0/license',  'Keyword')
     ->json_is('/missed_files/0/max_risk', 7)
     ->json_like('/missed_files/0/license_html', qr!Keyword!)
-    ->json_is('/missed_files/1/name',           'Mojolicious-7.25/lib/Mojolicious.pm')
-    ->json_is('/missed_files/1/license',        'Apache-2.0')
-    ->json_is('/missed_files/1/max_risk',       7)
+    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/lib/Mojolicious.pm')
+    ->json_is('/missed_files/1/license',  'Apache-2.0')
+    ->json_is('/missed_files/1/max_risk', 7)
     ->json_like('/missed_files/1/license_html', qr!<a class="spdx-link"!)
-    ->json_is('/missed_files/2/name',           'Mojolicious-7.25/Changes')
-    ->json_is('/missed_files/2/max_risk',       5)
-    ->json_is('/missed_files/3/name',           'perl-Mojolicious.changes')
-    ->json_is('/missed_files/3/max_risk',       5)
-    ->json_is('/missed_files/4', undef)
-    ->json_is('/risks/5/0/name', 'Apache-2.0')
+    ->json_is('/missed_files/2/name',     'Mojolicious-7.25/Changes')
+    ->json_is('/missed_files/2/max_risk', 5)
+    ->json_is('/missed_files/3/name',     'perl-Mojolicious.changes')
+    ->json_is('/missed_files/3/max_risk', 5)
+    ->json_is('/missed_files/4',          undef)
+    ->json_is('/risks/5/0/name',          'Apache-2.0')
     ->json_like('/risks/5/0/name_html', qr!Apache-2.0!);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

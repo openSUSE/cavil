@@ -251,8 +251,16 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
+
+      // File 6 lives in the Apache-2.0 risk-5 bucket. With the inflated
+      // fixture the bucket holds many files so its file list starts collapsed —
+      // expand it first to reveal the in-bucket file-link.
+      const apache = page.locator('#risk-5 > li').filter({hasText: 'Apache-2.0'}).first();
+      await apache.locator('a[data-bs-toggle="collapse"]').click();
+      await apache.locator('a[href="#file-6"]').waitFor();
+
       t.same(await page.isVisible('#file-details-6'), false);
-      await page.locator('a[href="#file-6"]').click();
+      await apache.locator('a[href="#file-6"]').click();
       t.match(await page.innerText('#expand-link-6'), /Mojolicious.+js/);
       t.same(await page.isVisible('#file-details-6'), true);
 
@@ -309,13 +317,33 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
 
-      // File 6 lives in the Apache-2.0 risk-5 bucket and starts hidden. Click
-      // the in-bucket file-link and verify the preview expands and loads
-      // source (FileSource renders a table.snippet inside the details div).
+      // File 6 lives in the Apache-2.0 risk-5 bucket. With the inflated
+      // fixture the bucket holds many files so its file list starts collapsed —
+      // expand it first, then click the in-bucket file-link and verify the
+      // preview expands and loads source (FileSource renders a table.snippet
+      // inside the details div).
+      const apache = page.locator('#risk-5 > li').filter({hasText: 'Apache-2.0'}).first();
+      await apache.locator('a[data-bs-toggle="collapse"]').click();
+      await apache.locator('a[href="#file-6"]').waitFor();
       t.same(await page.isVisible('#file-details-6'), false);
-      await page.locator('#risk-5 a[href="#file-6"]').click();
+      await apache.locator('a[href="#file-6"]').click();
       t.same(await page.isVisible('#file-details-6'), true);
       await page.waitForSelector('#file-details-6 table.snippet');
+    });
+
+    await t.test('File list cap per license (min_files_short_report)', async t => {
+      // The Apache-2.0 bucket has been inflated to 102 unique files by the test
+      // fixture. The in-bucket file list must be capped to
+      // min_files_short_report + 1 = 21 to keep huge reports navigable.
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      const apache = page.locator('#risk-5 > li').filter({hasText: 'Apache-2.0'}).first();
+      t.match(await apache.innerText(), /102 files/);
+      t.equal(await apache.locator('a.file-link').count(), 21);
+      t.match(await apache.textContent(), /81 more/);
     });
 
     await t.test('Create pattern from report match', async t => {

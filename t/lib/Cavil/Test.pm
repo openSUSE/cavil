@@ -17,6 +17,7 @@ package Cavil::Test;
 use Mojo::Base -base, -signatures;
 
 use Mojo::File qw(path tempdir);
+use Mojo::JSON qw(from_json to_json);
 use Mojo::Pg;
 use Mojo::URL;
 use Mojo::Util qw(scope_guard);
@@ -266,6 +267,20 @@ sub ui_fixtures ($self, $app) {
   $pkgs->unpack($pkg_id);
 
   $app->minion->perform_jobs();
+
+  # Inflate the perl-Mojolicious Apache-2.0 risk-5 bucket with 100 fake files
+  # so the UI test can verify the per-license file-list cap
+  # (min_files_short_report) keeps the in-bucket file list manageable.
+  my $db     = $app->pg->db;
+  my $row    = $db->select('bot_reports', 'ldig_report', {package => 1})->hash;
+  my $report = from_json($row->{ldig_report});
+
+  my $fake_pid = 999999;
+  my @fake_ids = 9000 .. 9099;
+  $report->{files}{$_} = "fake/lots-of-files/file$_.txt" for @fake_ids;
+  $report->{risks}{5}{'Apache-2.0'}{$fake_pid} = [@fake_ids];
+
+  $db->update('bot_reports', {ldig_report => to_json($report)}, {package => 1});
 }
 
 sub unpack_fixtures ($self, $app) {

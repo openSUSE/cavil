@@ -70,7 +70,9 @@ sub _chart_data ($c, $hash) {
 }
 
 sub _report_details ($c, $pkg, $report) {
-  my $max = $c->app->config('min_files_short_report');
+  my $config       = $c->app->config;
+  my $max          = $config->{min_files_short_report};
+  my $expand_limit = $config->{max_expanded_files};
 
   my %linked;
   $linked{$_->{id}} = 1 for @{$report->{missed_files} // []};
@@ -84,14 +86,17 @@ sub _report_details ($c, $pkg, $report) {
     }
   }
 
+  my $num_expanded = 0;
   my @files;
   for my $file (@{$report->{files} // []}) {
     next unless $linked{$file->{id}};
+    my $expand = $file->{expand} && $num_expanded < $expand_limit ? 1 : 0;
+    $num_expanded++ if $expand;
     push @files,
       {
       id       => $file->{id},
       path     => $file->{path},
-      expand   => $file->{expand} ? \1 : \0,
+      expand   => $expand ? \1 : \0,
       file_url => $c->url_for('file_view', id => $pkg->{id}, file => $file->{path})->to_string
       };
   }
@@ -128,11 +133,7 @@ sub _report_details ($c, $pkg, $report) {
   }
 
   return {
-    package => {
-      id                 => $pkg->{id},
-      name               => $pkg->{name},
-      unresolved_matches => $pkg->{unresolved_matches}
-    },
+    package               => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
     chart                 => $chart,
     incompatible_licenses => $report->{incompatible_licenses} // [],
     missed_files          => \@missed,
@@ -140,8 +141,8 @@ sub _report_details ($c, $pkg, $report) {
     max_files_per_license => $max,
     matching_globs        => $report->{matching_globs} // [],
     files                 => \@files,
-    emails                => $report->{emails}         // [],
-    urls                  => $report->{urls}           // []
+    emails                => $report->{emails} // [],
+    urls                  => $report->{urls}   // []
   };
 }
 
