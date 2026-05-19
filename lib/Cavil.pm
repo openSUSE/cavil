@@ -220,11 +220,11 @@ sub startup ($self) {
   $logged_in->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
   $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
-  $logged_in->get('/reviews/report/<id:num>' => [format => ['json', 'txt', 'html']])
-    ->to('Report#report', format => 'html')
+  $logged_in->get('/reviews/report/<id:num>' => [format => ['json', 'txt']])
+    ->to('Report#report', format => 'json')
     ->name('report');
-  $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json', 'html']])
-    ->to('Report#source', format => 'html');
+  $logged_in->get('/reviews/report_details/<id:num>')->to('Report#details')->name('report_details');
+  $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json']])->to('Report#source', format => 'json');
   $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
   $manager->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');

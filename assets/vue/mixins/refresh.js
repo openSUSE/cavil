@@ -21,7 +21,7 @@ export default {
       const data = await res.json();
       this.$emit('last-updated', data.last_updated);
       this.refreshData(data);
-      this.refreshTimer = setTimeout(this.doApiRefresh, this.refreshDelay);
+      if (this.refreshDelay > 0) this.refreshTimer = setTimeout(this.doApiRefresh, this.refreshDelay);
     },
     cancelApiRefresh() {
       clearTimeout(this.refreshTimer);

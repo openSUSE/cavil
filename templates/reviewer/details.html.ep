@@ -22,21 +22,18 @@
 
 %= include 'reviewer/_reindex'
 
-<div id="details">
-  <div class="row mb-3 mt-3">
-    % if ($package->{obsolete}) {
-        <span>This report is obsolete and might not exist anymore.</span>
-    % }
-    % else {
-        <span id="ajax-status"><i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...</span>
-    % }
-  </div>
-</div>
-
-% my $detail_url = url_for('report', id => $package->{id})->to_abs;
-% $detail_url->query([full => 1]) if param 'full';
+% if ($package->{obsolete}) {
+  <div class="row mb-3 mt-3"><span>This report is obsolete and might not exist anymore.</span></div>
+% }
+% else {
+  <div id="report-details"></div>
+  % content_for 'ready_function' => begin
+    % my $is_admin_or_contributor = current_user_has_role('admin', 'contributor') ? 'true' : 'false';
+    cavil.setupReportDetails(<%= $id %>, <%= $is_admin_or_contributor %>);
+  % end
+% }
 % content_for 'ready_function' => begin
-    cavil.setupReviewDetails('<%= $detail_url %>');
+  cavil.setupReindex();
 % end
 
 <a id="back-to-top" href="#" class="btn btn-primary btn-lg back-to-top"

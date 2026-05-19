@@ -76,6 +76,23 @@ subtest 'Unpack' => sub {
     like $buffer, qr/Triggered unpack job/,          'unpack job triggered';
     is $app->minion->jobs({tasks => ['unpack']})->total, 3, 'three unpack jobs';
   };
+
+  subtest 'Re-unpack clears indexed timestamp for progress bar' => sub {
+    my $pkg = $app->packages->find(2);
+    ok $pkg->{imported}, 'imported timestamp set';
+    ok $pkg->{unpacked}, 'unpacked timestamp set';
+    ok $pkg->{indexed},  'indexed timestamp set';
+
+    my $worker = $minion->worker->register;
+    my $job    = $worker->dequeue(0);
+    is $job->task,    'unpack', 'right task';
+    is $job->execute, undef,    'no error';
+    $worker->unregister;
+
+    $pkg = $app->packages->find(2);
+    ok $pkg->{unpacked}, 'unpacked timestamp set again';
+    is $pkg->{indexed}, undef, 'indexed timestamp cleared';
+  };
 };
 
 done_testing();

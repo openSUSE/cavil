@@ -18,6 +18,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(minimal_snippet);
+use Cavil::Util       qw(spdx_link);
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(to_json);
 use Mojo::Util        qw(decode humanize_bytes xml_escape);
@@ -34,6 +35,7 @@ sub register ($self, $app, $config) {
   $app->helper('mcp_report'                    => \&_mcp_report);
   $app->helper('package_summary'               => \&_package_summary);
   $app->helper('proposal_stats'                => sub { shift->patterns->proposal_stats });
+  $app->helper('report_details'                => \&_report_details);
   $app->helper('reply.json_validation_error'   => \&_json_validation_error);
   $app->helper('format_file'                   => \&_format_file);
 }
@@ -65,6 +67,82 @@ sub _chart_data ($c, $hash) {
     push(@colours,   'grey');
   }
   return {licenses => to_json(\@licenses), 'num-files' => to_json(\@num_files), colours => to_json(\@colours)};
+}
+
+sub _report_details ($c, $pkg, $report) {
+  my $max = $c->app->config('min_files_short_report');
+
+  my %linked;
+  $linked{$_->{id}} = 1 for @{$report->{missed_files} // []};
+  for my $bucket (values %{$report->{risks} // {}}) {
+    for my $lic (values %$bucket) {
+      my $count = 0;
+      for my $file (@{$lic->{files} // []}) {
+        $linked{$file->[0]} = 1;
+        last if ++$count > $max;
+      }
+    }
+  }
+
+  my @files;
+  for my $file (@{$report->{files} // []}) {
+    next unless $linked{$file->{id}};
+    push @files,
+      {
+      id       => $file->{id},
+      path     => $file->{path},
+      expand   => $file->{expand} ? \1 : \0,
+      file_url => $c->url_for('file_view', id => $pkg->{id}, file => $file->{path})->to_string
+      };
+  }
+
+  # _chart_data() mutates its input hash, so pass a shallow copy
+  my %chart_copy = %{$report->{chart} // {}};
+  my $chart      = keys(%chart_copy) ? $c->helpers->chart_data(\%chart_copy) : undef;
+
+  my $risks = $report->{risks} // {};
+  my %risk_buckets;
+  for my $risk (keys %$risks) {
+    my @licenses;
+    my $bucket = $risks->{$risk};
+    for my $lic (sort keys %$bucket) {
+      my $matches = $bucket->{$lic};
+      my $display = $matches->{spdx} || $matches->{name};
+      push @licenses,
+        {
+        name      => $matches->{name},
+        spdx      => $matches->{spdx},
+        name_html => spdx_link($display),
+        flags     => $matches->{flags} // [],
+        files     => $matches->{files}
+        };
+    }
+    $risk_buckets{$risk} = \@licenses;
+  }
+
+  my @missed;
+  for my $f (@{$report->{missed_files} // []}) {
+    my %copy = %$f;
+    $copy{license_html} = spdx_link($f->{spdx} || $f->{license});
+    push @missed, \%copy;
+  }
+
+  return {
+    package => {
+      id                 => $pkg->{id},
+      name               => $pkg->{name},
+      unresolved_matches => $pkg->{unresolved_matches}
+    },
+    chart                 => $chart,
+    incompatible_licenses => $report->{incompatible_licenses} // [],
+    missed_files          => \@missed,
+    risks                 => \%risk_buckets,
+    max_files_per_license => $max,
+    matching_globs        => $report->{matching_globs} // [],
+    files                 => \@files,
+    emails                => $report->{emails}         // [],
+    urls                  => $report->{urls}           // []
+  };
 }
 
 sub _current_user ($c) { $c->stash->{'cavil.api.user'} // $c->session('user') }

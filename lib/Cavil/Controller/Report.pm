@@ -22,12 +22,39 @@ sub report ($self) {
   $self->respond_to(
     json => sub { $self->render(json                      => {report => $report, package => $pkg}) },
     txt  => sub { $self->render('reviewer/report', report => $report, package => $pkg) },
-    mcp  => sub { $self->render(text                      => $self->helpers->mcp_report($id)) },
-    html => sub {
-      my $min = $self->app->config('min_files_short_report');
-      $self->render('reviewer/report', report => $report, package => $pkg, max_number_of_files => $min);
-    }
+    mcp  => sub { $self->render(text                      => $self->helpers->mcp_report($id)) }
   );
+}
+
+sub details ($self) {
+  my $id = $self->stash('id');
+  return $self->render(json => {error => 'unknown package', stage => 1}, status => 408)
+    unless my $pkg = $self->packages->find($id);
+
+  return $self->render(json => {error => 'package being processed', %{_stage_payload($pkg)}}, status => 408)
+    if $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+
+  return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408)
+    unless $pkg->{indexed};
+
+  return $self->render(json => {error => 'no report', %{_stage_payload($pkg)}}, status => 408)
+    unless my $report = $self->reports->sanitized_dig_report($id);
+
+  $self->render(json => $self->helpers->report_details($pkg, $report));
+}
+
+sub _stage_payload ($pkg) {
+  my $stage
+    = !$pkg->{imported} ? 1
+    : !$pkg->{unpacked} ? 2
+    : !$pkg->{indexed}  ? 3
+    :                     4;
+  return {
+    stage          => $stage,
+    imported_epoch => $pkg->{imported_epoch},
+    unpacked_epoch => $pkg->{unpacked_epoch},
+    indexed_epoch  => $pkg->{indexed_epoch}
+  };
 }
 
 sub source ($self) {
@@ -39,24 +66,11 @@ sub source ($self) {
   my $id    = $self->stash('id');
   my $start = $validation->param('start') || 0;
   my $end   = $validation->param('end')   || 0;
-  return $self->render(text => 'unknown file', status => 404)
+  return $self->render(json => {error => 'unknown file'}, status => 404)
     unless my $source = $self->reports->source_for($id, $start, $end);
 
-  $self->respond_to(
-    json => sub { $self->render(json => {source => $source}) },
-    html => sub {
-
-      return $self->render(
-        'reviewer/file_source',
-        file                    => $id,
-        filename                => $source->{filename},
-        lines                   => lines_context($source->{lines}),
-        hidden                  => 0,
-        packname                => $source->{name},
-        is_admin_or_contributor => $self->current_user_has_role('admin', 'contributor')
-      );
-    }
-  );
+  $source->{lines} = lines_context($source->{lines});
+  $self->render(json => {source => $source});
 }
 
 sub spdx ($self) {

@@ -1,0 +1,125 @@
+<template>
+  <table class="snippet">
+    <tbody>
+      <!-- eslint-disable-next-line vue/no-v-for-template-key -->
+      <template v-for="(line, idx) in lines" :key="idx">
+        <tr v-if="line[1].withgap">
+          <td class="redbar" colspan="4"></td>
+        </tr>
+        <tr :class="rowClass(line[1])" :title="line[1].risk > 0 ? line[1].name : null">
+          <td v-if="!showActions(line[1])" class="actions"></td>
+          <td v-else class="actions dropdown show">
+            <a
+              href="#"
+              :id="'dropdownMenuLink-' + fileId + '-' + line[0]"
+              data-bs-toggle="dropdown"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              <i class="actions-menu fa-solid fa-square-caret-down" title="Open Action Menu"></i>
+            </a>
+            <div class="dropdown-menu" :aria-labelledby="'dropdownMenuLink-' + fileId + '-' + line[0]">
+              <template v-if="line[1].risk === 9">
+                <a v-if="line[1].snippet" class="dropdown-item" :href="editSnippetUrl(line[1].snippet, line[1].hash)"
+                  >Create Pattern from selection</a
+                >
+                <a v-else class="dropdown-item" :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
+                  >Create Pattern from selection</a
+                >
+              </template>
+              <a v-else class="dropdown-item" :href="editPatternUrl(line[1].pid)">Show Pattern</a>
+
+              <template v-if="line[0] > 1">
+                <div class="dropdown-divider"></div>
+                <a
+                  v-if="line[1].prevstart"
+                  href="#"
+                  class="dropdown-item"
+                  @click.prevent="emitExtend('match-above', line)"
+                  >Extend to match above</a
+                >
+                <a href="#" class="dropdown-item" @click.prevent="emitExtend('one-line-above', line)"
+                  >Extend one line above</a
+                >
+                <a href="#" class="dropdown-item" @click.prevent="emitExtend('top', line)">Extend to the top of file</a>
+              </template>
+
+              <template v-if="line[1].end">
+                <div class="dropdown-divider"></div>
+                <a
+                  v-if="line[1].nextend"
+                  href="#"
+                  class="dropdown-item"
+                  @click.prevent="emitExtend('match-below', line)"
+                  >Extend to match below</a
+                >
+                <a href="#" class="dropdown-item" @click.prevent="emitExtend('one-line-below', line)"
+                  >Extend one line below</a
+                >
+                <a href="#" class="dropdown-item" @click.prevent="emitExtend('bottom', line)"
+                  >Extend to the end of the file</a
+                >
+              </template>
+            </div>
+          </td>
+
+          <td class="linenumber">{{ line[0] }}</td>
+          <td class="code">{{ line[2] }}</td>
+
+          <td v-if="line[1].end && line[1].risk === 9 && line[1].snippet" class="quick-actions text-end">
+            <a :href="newSnippetUrl(line[0], line[1].end, line[1].hash)" target="_blank">
+              <i class="fa-solid fa-up-right-from-square"></i>
+            </a>
+          </td>
+          <td v-else class="quick-actions"></td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+</template>
+
+<script>
+export default {
+  name: 'FileSource',
+  props: {
+    lines: {type: Array, required: true},
+    fileId: {type: Number, required: true},
+    filename: {type: String, default: ''},
+    packname: {type: String, default: ''},
+    isAdminOrContributor: {type: Boolean, default: false}
+  },
+  emits: ['extend'],
+  methods: {
+    rowClass(info) {
+      const classes = [`risk-${info.risk}`];
+      if (info.hash) classes.push(`hash-${info.hash}`);
+      return classes;
+    },
+    showActions(info) {
+      return this.isAdminOrContributor && info.end;
+    },
+    newSnippetUrl(start, end, hash) {
+      const qs = new URLSearchParams({from: this.packname});
+      if (hash) qs.set('hash', hash);
+      return `/snippets/from_file/${this.fileId}/${start}/${end}?${qs.toString()}`;
+    },
+    editSnippetUrl(id, hash) {
+      const params = {from: this.packname};
+      if (hash) params.hash = hash;
+      return `/snippet/edit/${id}?${new URLSearchParams(params).toString()}`;
+    },
+    editPatternUrl(id) {
+      return `/licenses/edit_pattern/${id}`;
+    },
+    emitExtend(kind, line) {
+      this.$emit('extend', {
+        kind,
+        start: line[0],
+        end: line[1].end,
+        prevstart: line[1].prevstart || 0,
+        nextend: line[1].nextend || 0
+      });
+    }
+  }
+};
+</script>

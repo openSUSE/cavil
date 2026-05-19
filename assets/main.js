@@ -9,7 +9,7 @@ import 'codemirror';
 import 'moment';
 
 import {setupCodeMirrorForFile} from './legacy/file.js';
-import {setupReviewDetails} from './legacy/review.js';
+import {setupReindex} from './legacy/review.js';
 import {fromNow} from './legacy/time.js';
 import ApiKeys from './vue/ApiKeys.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
@@ -25,6 +25,7 @@ import ProductReviews from './vue/ProductReviews.vue';
 import ProposedPatterns from './vue/ProposedPatterns.vue';
 import RecentPatterns from './vue/RecentPatterns.vue';
 import RecentReviews from './vue/RecentReviews.vue';
+import ReportDetails from './vue/ReportDetails.vue';
 import ReportMetadata from './vue/ReportMetadata.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
 import $ from 'jquery';
@@ -34,8 +35,6 @@ window.$ = $;
 window.jQuery = $;
 
 window.cavil = {
-  fireIndex: undefined,
-  fires: undefined,
   myCodeMirror: undefined,
 
   setupProposedPatterns(currentUser, hasAdminRole) {
@@ -115,6 +114,13 @@ window.cavil = {
     app.mount('#report-metadata');
   },
 
+  setupReportDetails(pkgId, isAdminOrContributor) {
+    const app = createApp(ReportDetails);
+    app.config.globalProperties.pkgId = pkgId;
+    app.config.globalProperties.isAdminOrContributor = isAdminOrContributor;
+    app.mount('#report-details');
+  },
+
   setupReviewSearch(pkg) {
     const app = createApp(ReviewSearch);
     app.config.globalProperties.currentPackage = pkg;
@@ -127,5 +133,5 @@ window.cavil = {
 
   fromNow,
   setupCodeMirrorForFile,
-  setupReviewDetails
+  setupReindex
 };

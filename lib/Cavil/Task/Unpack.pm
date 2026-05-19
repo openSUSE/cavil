@@ -34,6 +34,9 @@ sub _unpack ($job, $id) {
     unless my $guard = $minion->guard("processing_pkg_$id", 172800);
   return $job->fail("Package $id is not imported yet") unless $pkgs->is_imported($id);
 
+  # Reset state so re-unpacking is reflected in the progress bar
+  $app->pg->db->update('bot_packages', {unpacked => undef, indexed => undef}, {id => $id});
+
   # Exclude file
   my $exclude = [];
   if (my $exclude_file = $app->config->{exclude_file}) {

@@ -101,8 +101,11 @@ sub find ($self, $id) {
     ['bot_packages', [-left => 'bot_users', id => 'reviewing_user']],
     [
       'bot_packages.*',
-      \'extract(epoch from bot_packages.created) as created_epoch',
+      \'extract(epoch from bot_packages.created)  as created_epoch',
       \'extract(epoch from bot_packages.reviewed) as reviewed_epoch',
+      \'extract(epoch from bot_packages.imported) as imported_epoch',
+      \'extract(epoch from bot_packages.unpacked) as unpacked_epoch',
+      \'extract(epoch from bot_packages.indexed)  as indexed_epoch',
       \'bot_users.login as login'
     ],
     {'bot_packages.id' => $id}

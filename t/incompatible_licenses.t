@@ -86,6 +86,9 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     ok my $report = $json->{report}, 'report';
     is_deeply $report->{incompatible_licenses}, [{licenses => ['GPL-2.0-only', 'Apache-2.0']}], 'incompatible licenses';
 
+    $t->get_ok('/reviews/report_details/1')
+      ->status_is(200)
+      ->json_is('/incompatible_licenses', [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]);
   };
 
   subtest 'Text report' => sub {

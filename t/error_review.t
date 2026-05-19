@@ -99,22 +99,22 @@ subtest 'Details after indexing' => sub {
 
   $t->json_like('/errors/0', qr/Invalid SPDX license: Fake-Artistic/)->json_is('/warnings', []);
 
-  $t->get_ok('/reviews/report/1')
+  $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->element_exists('#license-chart')
-    ->element_exists('#emails')
-    ->text_like('#emails tr td', qr!coolo\@suse\.com!)
-    ->element_exists('#urls')
-    ->text_like('#urls tr td', qr!http://mojolicious.org!);
+    ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
+    ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
+    ->json_has('/chart/licenses')
+    ->json_is('/missed_files/0/max_risk', 9)
+    ->json_has('/risks');
 
   $t->get_ok('/reviews/fetch_source/1')
     ->status_is(200)
-    ->content_type_isnt('application/json;charset=UTF-8')
-    ->content_like(qr/perl-Mojolicious/);
+    ->content_type_is('application/json;charset=UTF-8')
+    ->json_like('/source/name', qr/perl-Mojolicious/);
   $t->get_ok('/reviews/fetch_source/1.json')
     ->status_is(200)
     ->content_type_is('application/json;charset=UTF-8')
-    ->content_like(qr/perl-Mojolicious/);
+    ->json_like('/source/name', qr/perl-Mojolicious/);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -204,21 +204,15 @@ subtest 'Manual review' => sub {
     ->json_like('/state',           qr!acceptable!)
     ->json_like('/result',          qr/Test review/);
 
-  $t->get_ok('/reviews/report/1')
+  $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->element_exists('#license-chart')
-    ->element_exists('#unmatched-files')
-    ->text_is('#unmatched-count', '4')
-    ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(1) a', qr!Mojolicious-7.25/lib/Mojolicious.pm!)
-    ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(2) b', qr![0-9.]+%!)
-    ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(2)',   qr!similarity to!)
-    ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(2) b:nth-of-type(2) a', qr!Apache-2.0!)
-    ->text_like('#unmatched-files tr:nth-of-type(2) td:nth-of-type(3) .estimated-risk',    qr!Risk 7!)
-    ->element_exists('#risk-5');
-  $t->element_exists('#emails')
-    ->text_like('#emails tr td', qr!coolo\@suse\.com!)
-    ->element_exists('#urls')
-    ->text_like('#urls tr td', qr!http://mojolicious.org!);
+    ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
+    ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
+    ->json_has('/chart/licenses')
+    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/lib/Mojolicious.pm')
+    ->json_is('/missed_files/1/license',  'Apache-2.0')
+    ->json_is('/missed_files/1/max_risk', 7)
+    ->json_has('/risks/5');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

@@ -259,12 +259,63 @@ t.test('Test cavil ui', skip, async t => {
       // Open whole file in new tab
       const [page2] = await Promise.all([
         context.waitForEvent('page'),
-        page.locator('a[href="#file-details-6"] ~ div a[target="_blank"]').click()
+        page.locator('#expand-link-6 ~ div a[target="_blank"]').click()
       ]);
       await page2.waitForLoadState();
       t.match(await page2.innerText('title'), /Content of Mojolicious.+js/);
       t.match(await page2.innerText('textarea'), /Apache.+indexOf/s);
       await page2.close();
+    });
+
+    await t.test('Report sections (chart, risks, missed files, emails, urls)', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // Chart canvas is rendered
+      t.same(await page.isVisible('#license-chart'), true);
+
+      // Risk 5 bucket lists Apache-2.0 and SUSE-NotALicense
+      await page.waitForSelector('#risk-5');
+      const risk5 = await page.innerText('#risk-5');
+      t.match(risk5, /Apache-2\.0/);
+      t.match(risk5, /SUSE-NotALicense/);
+
+      // Unresolved matches block shows file count and license/match info
+      const unmatched = await page.innerText('#unmatched-files');
+      t.match(unmatched, /unresolved match/);
+      t.match(unmatched, /4 files/);
+
+      // Click a missed-file link (file 7 is auto-expanded as a risk-9 file) —
+      // verifies the click handler runs and the preview stays visible.
+      await page.locator('#filelist-snippets a[href="#file-7"]').click();
+      t.same(await page.isVisible('#file-details-7'), true);
+
+      // Emails section: 14 entries, collapsed by default, click to expand
+      await page.click('text=14 Emails');
+      await page.waitForSelector('#emails.show');
+      t.match(await page.innerText('#emails'), /coolo@suse\.com/);
+
+      // URLs section: 53 entries
+      await page.click('text=53 URLs');
+      await page.waitForSelector('#urls.show');
+      t.match(await page.innerText('#urls'), /https?:\/\//);
+    });
+
+    await t.test('Click file in license list expands hidden preview', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // File 6 lives in the Apache-2.0 risk-5 bucket and starts hidden. Click
+      // the in-bucket file-link and verify the preview expands and loads
+      // source (FileSource renders a table.snippet inside the details div).
+      t.same(await page.isVisible('#file-details-6'), false);
+      await page.locator('#risk-5 a[href="#file-6"]').click();
+      t.same(await page.isVisible('#file-details-6'), true);
+      await page.waitForSelector('#file-details-6 table.snippet');
     });
 
     await t.test('Create pattern from report match', async t => {
@@ -274,13 +325,16 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
 
-      // Use menu to select a pattern
-      await page.locator('#dropdownMenuLink-1-4 i').click();
-      await page.locator('#dropdownMenuLink-1-4 ~ div :has-text("Extend one line above")').click();
-      await page.locator('#dropdownMenuLink-1-4 i').click();
-      await page.locator('#dropdownMenuLink-1-4 ~ div :has-text("Extend one line below")').click();
-      await page.locator('#dropdownMenuLink-1-4 i').click();
-      await page.locator('#dropdownMenuLink-1-4 ~ div :has-text("Create Pattern from selection")').click();
+      // Use menu to select a pattern (the action line shifts after each extend, so
+      // use a position-stable selector rooted at the file's source container).
+      const actionTrigger = '#file-details-1 a[data-bs-toggle="dropdown"]';
+      const actionMenuItem = label => `#file-details-1 .dropdown-menu :has-text("${label}")`;
+      await page.locator(actionTrigger).click();
+      await page.locator(actionMenuItem('Extend one line above')).click();
+      await page.locator(actionTrigger).click();
+      await page.locator(actionMenuItem('Extend one line below')).click();
+      await page.locator(actionTrigger).click();
+      await page.locator(actionMenuItem('Create Pattern from selection')).click();
       await page.waitForURL(`${url}/snippet/edit/7?hash=&from=perl-Mojolicious`);
 
       // Select a few options on the creation form
@@ -358,8 +412,13 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
 
+      // Wait for the reindex POST to complete before triggering job processing —
+      // otherwise page2.goto(performJobs) can race ahead of the job being queued.
       const page2 = await context.newPage();
-      await page.click('text=Reindex');
+      await Promise.all([
+        page.waitForResponse(resp => /reindex/.test(resp.url()) && resp.request().method() === 'POST'),
+        page.click('text=Reindex')
+      ]);
       await page2.goto(performJobs, {timeout: 120000});
       t.match(await page2.innerText('div'), /done/);
       await page2.close();
