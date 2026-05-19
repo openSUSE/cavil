@@ -1,6 +1,6 @@
 <template>
   <div class="report-progress my-3">
-    <div class="progress" style="height: 1.75rem">
+    <div class="progress">
       <div
         v-for="(label, idx) in labels"
         :key="label"
@@ -38,3 +38,10 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.report-progress .progress {
+  height: 1.75rem;
+  border: 1px solid #dee2e6;
+}
+</style>
