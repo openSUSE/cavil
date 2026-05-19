@@ -23,8 +23,7 @@ sub check ($self) {
   $self->render('login', status => 401, format => 'html') and return undef if !$user && !@$role;
 
   # User needs to log in or a different role
-  $self->render('permissions', status => 403, format => 'html')
-    and return undef
+  $self->render('permissions', status => 403, format => 'html') and return undef
     unless $user && $self->users->has_role($user, @$role);
 
   return 1;

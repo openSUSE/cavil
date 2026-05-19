@@ -34,8 +34,7 @@ sub details ($self) {
   return $self->render(json => {error => 'package being processed', %{_stage_payload($pkg)}}, status => 408)
     if $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
 
-  return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408)
-    unless $pkg->{indexed};
+  return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408) unless $pkg->{indexed};
 
   return $self->render(json => {error => 'no report', %{_stage_payload($pkg)}}, status => 408)
     unless my $report = $self->reports->sanitized_dig_report($id);
@@ -44,11 +43,7 @@ sub details ($self) {
 }
 
 sub _stage_payload ($pkg) {
-  my $stage
-    = !$pkg->{imported} ? 1
-    : !$pkg->{unpacked} ? 2
-    : !$pkg->{indexed}  ? 3
-    :                     4;
+  my $stage = !$pkg->{imported} ? 1 : !$pkg->{unpacked} ? 2 : !$pkg->{indexed} ? 3 : 4;
   return {
     stage          => $stage,
     imported_epoch => $pkg->{imported_epoch},
