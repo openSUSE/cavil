@@ -365,20 +365,20 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator(actionMenuItem('Create Pattern from selection')).click();
 
       // Modal opens with the snippet editor instead of navigating away
-      await page.waitForSelector('#snippet-editor-modal.show');
-      await page.waitForSelector('#snippet-editor-modal .cm-editor');
-      await page.waitForSelector('#snippet-editor-modal input[name=license]');
-      // Modal hides the source-file/package origin line (only the page version shows it).
-      t.notMatch(await page.innerText('#snippet-editor-modal'), /The example shown here is from the file/);
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+      // Inline editor hides the source-file/package origin line (only the page version shows it).
+      t.notMatch(await page.innerText('#inline-snippet-editor'), /The example shown here is from the file/);
 
-      // Fill the pattern metadata right in the modal
-      await page.locator('#snippet-editor-modal input[name=license]').fill('Made-Up-License-1.0');
-      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
-      await page.locator('#snippet-editor-modal input[name="trademark"]').check();
+      // Fill the pattern metadata right in the inline editor
+      await page.locator('#inline-snippet-editor input[name=license]').fill('Made-Up-License-1.0');
+      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+      await page.locator('#inline-snippet-editor input[name="trademark"]').check();
 
-      // Queue the create-pattern action (modal closes, indicator + widget appear)
-      await page.locator('#snippet-editor-modal button[data-action="create-pattern"]').click();
-      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      // Queue the create-pattern action (editor closes, indicator + widget appear)
+      await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
       await page.waitForSelector('#pending-actions-widget');
       await page.waitForSelector('#file-details-1 .pending-action-badge');
       t.match(await page.innerText('#pending-actions-widget'), /Pending changes/);
@@ -432,12 +432,12 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector(`#file-details-${fileA} table.snippet`);
       await page.waitForSelector(`#file-details-${fileB} table.snippet`);
 
-      // Helper: queue a create-pattern via the modal. A file can host multiple
+      // Helper: queue a create-pattern via the inline editor. A file can host multiple
       // risk-9 dropdowns; bypass the dropdown UI entirely and invoke the
       // matching item handler directly so we don't depend on Bootstrap's menu
       // animation/positioning settling between iterations.
       const queueAction = async (fileId, licenseName) => {
-        await page.waitForFunction(() => !document.body.classList.contains('modal-open'));
+        await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
         await page.evaluate(id => {
           const root = document.getElementById(`file-details-${id}`);
           const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
@@ -449,12 +449,12 @@ t.test('Test cavil ui', skip, async t => {
           }
           throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
         }, fileId);
-        await page.waitForSelector('#snippet-editor-modal.show');
-        await page.waitForSelector('#snippet-editor-modal .cm-editor');
-        await page.locator('#snippet-editor-modal input[name=license]').fill(licenseName);
-        await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
-        await page.locator('#snippet-editor-modal button[data-action="create-pattern"]').click();
-        await page.waitForSelector('#snippet-editor-modal:not(.show)');
+        await page.waitForSelector('#inline-snippet-editor');
+        await page.waitForSelector('#inline-snippet-editor .cm-editor');
+        await page.locator('#inline-snippet-editor input[name=license]').fill(licenseName);
+        await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+        await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
+        await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
       };
 
       // Names start with "Z" so they sort after Made-Up-License-1.0 in alphabetised
@@ -522,22 +522,22 @@ t.test('Test cavil ui', skip, async t => {
         }
         throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
       }, fileId);
-      await page.waitForSelector('#snippet-editor-modal.show');
-      await page.waitForSelector('#snippet-editor-modal .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
 
       // Replace the CodeMirror contents so the proposed pattern cannot match the
       // original snippet text (triggers the server's pattern_matches guard)
       await page.evaluate(() => {
-        const view = document.querySelector('#snippet-editor-modal .cm-editor').cmView;
+        const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
         view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}});
       });
 
-      await page.locator('#snippet-editor-modal input[name=license]').fill('Error-Test-License');
-      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
+      await page.locator('#inline-snippet-editor input[name=license]').fill('Error-Test-License');
+      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
 
       // Use the propose-pattern path - it runs the pattern_matches validation
-      await page.locator('#snippet-editor-modal button[data-action="propose-pattern"]').click();
-      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      await page.locator('#inline-snippet-editor button[data-action="propose-pattern"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
 
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
       const [decisionResp] = await Promise.all([
@@ -580,24 +580,24 @@ t.test('Test cavil ui', skip, async t => {
         }
         throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
       }, fileId);
-      await page.waitForSelector('#snippet-editor-modal.show');
-      await page.waitForSelector('#snippet-editor-modal .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
 
       // Capture the original snippet text so we can restore it during edit
       const originalSnippetText = await page.evaluate(() => {
-        return document.querySelector('#snippet-editor-modal .cm-editor').cmView.state.doc.toString();
+        return document.querySelector('#inline-snippet-editor .cm-editor').cmView.state.doc.toString();
       });
       t.ok(originalSnippetText.length > 0, 'captured original snippet text');
 
       // First pass: queue a propose-pattern with a deliberately bad pattern
       await page.evaluate(() => {
-        const view = document.querySelector('#snippet-editor-modal .cm-editor').cmView;
+        const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
         view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}});
       });
-      await page.locator('#snippet-editor-modal input[name=license]').fill('Edit-Recovery-License');
-      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
-      await page.locator('#snippet-editor-modal button[data-action="propose-pattern"]').click();
-      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      await page.locator('#inline-snippet-editor input[name=license]').fill('Edit-Recovery-License');
+      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+      await page.locator('#inline-snippet-editor button[data-action="propose-pattern"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
 
       // Submit and confirm the validation error puts the action into error state
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
@@ -609,35 +609,35 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#pending-actions-widget .pending-actions-item.state-error');
       t.match(await page.innerText('#pending-actions-widget'), /Edit-Recovery-License/);
 
-      // Click Edit on the failed action - the modal re-opens with the prior data
+      // Click Edit on the failed action - the inline editor re-opens with the prior data
       await page.locator('#pending-actions-widget button[data-action-control="edit"]').click();
-      await page.waitForSelector('#snippet-editor-modal.show');
-      await page.waitForSelector('#snippet-editor-modal .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
 
       // Verify the form was pre-filled with the failed action's data
       t.equal(
-        await page.inputValue('#snippet-editor-modal input[name=license]'),
+        await page.inputValue('#inline-snippet-editor input[name=license]'),
         'Edit-Recovery-License',
         'license pre-filled from failed action'
       );
       t.equal(
-        await page.inputValue('#snippet-editor-modal select[name="risk"]'),
+        await page.inputValue('#inline-snippet-editor select[name="risk"]'),
         '3',
         'risk pre-filled from failed action'
       );
       const cmTextInEdit = await page.evaluate(() => {
-        return document.querySelector('#snippet-editor-modal .cm-editor').cmView.state.doc.toString();
+        return document.querySelector('#inline-snippet-editor .cm-editor').cmView.state.doc.toString();
       });
       t.match(cmTextInEdit, /zzz nothing here matches/, 'pattern pre-filled from failed action');
 
       // Restore the matchable snippet text so the resubmission passes validation
       await page.evaluate(text => {
-        const view = document.querySelector('#snippet-editor-modal .cm-editor').cmView;
+        const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
         view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: text}});
       }, originalSnippetText);
 
-      await page.locator('#snippet-editor-modal button[data-action="propose-pattern"]').click();
-      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      await page.locator('#inline-snippet-editor button[data-action="propose-pattern"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
 
       // The edit must REPLACE the original entry, not append a new one
       const countAfterEdit = await page.locator('#pending-actions-widget .pending-actions-item').count();
@@ -736,12 +736,12 @@ t.test('Test cavil ui', skip, async t => {
         }
         throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
       }, fileId);
-      await page.waitForSelector('#snippet-editor-modal.show');
-      await page.waitForSelector('#snippet-editor-modal .cm-editor');
-      await page.locator('#snippet-editor-modal input[name=license]').fill('Scroll-Link-Test');
-      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
-      await page.locator('#snippet-editor-modal button[data-action="create-pattern"]').click();
-      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await page.locator('#inline-snippet-editor input[name=license]').fill('Scroll-Link-Test');
+      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+      await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
       await page.waitForSelector('#pending-actions-widget');
 
       // Collapse the file again so we can verify the widget link re-expands it
@@ -797,7 +797,7 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
 
-      // Open the modal so we land on a snippet that's guaranteed to have at least
+      // Open the inline editor so we land on a snippet that's guaranteed to have at least
       // one highlighted match line (a real license hit from the report view).
       const fileId = (await page.locator('#filelist-snippets a.file-link').first().getAttribute('href')).replace(
         '#file-',
@@ -807,7 +807,7 @@ t.test('Test cavil ui', skip, async t => {
         await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
       }
       await page.waitForSelector(`#file-details-${fileId} table.snippet`);
-      await page.waitForFunction(() => !document.body.classList.contains('modal-open'));
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
       await page.evaluate(id => {
         const root = document.getElementById(`file-details-${id}`);
         const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
@@ -819,15 +819,15 @@ t.test('Test cavil ui', skip, async t => {
         }
         throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
       }, fileId);
-      await page.waitForSelector('#snippet-editor-modal.show');
-      await page.waitForSelector('#snippet-editor-modal .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
 
       // Find a line CM6 marked with a found-pattern decoration and grab the
       // displayed line number from the matching gutter element. CM6's
       // lineNumbers() formats numbers via our formatNumber hook, so the gutter
       // element's textContent is the user-visible line number.
       const lineInfo = await page.evaluate(() => {
-        const root = document.querySelector('#snippet-editor-modal .cm-editor');
+        const root = document.querySelector('#inline-snippet-editor .cm-editor');
         if (root == null) return null;
         const highlighted = root.querySelector('.cm-line.found-pattern');
         if (highlighted == null) return null;
@@ -838,13 +838,13 @@ t.test('Test cavil ui', skip, async t => {
         const gutter = gutters[idx + 1];
         return {displayed: gutter ? gutter.textContent.trim() : null, index: idx};
       });
-      t.ok(lineInfo !== null && lineInfo.displayed !== null, 'modal snippet has at least one highlighted line');
+      t.ok(lineInfo !== null && lineInfo.displayed !== null, 'inline editor snippet has at least one highlighted line');
 
       const hostUrlBefore = page.url();
       const [patternPage] = await Promise.all([
         context.waitForEvent('page'),
         page
-          .locator(`#snippet-editor-modal .cm-lineNumbers .cm-gutterElement:text-is("${lineInfo.displayed}")`)
+          .locator(`#inline-snippet-editor .cm-lineNumbers .cm-gutterElement:text-is("${lineInfo.displayed}")`)
           .first()
           .click()
       ]);
@@ -853,13 +853,13 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await patternPage.innerText('title'), 'Edit license pattern');
       await patternPage.close();
 
-      // The original page must not have navigated; modal still mounted.
+      // The original page must not have navigated; inline editor still mounted.
       t.equal(page.url(), hostUrlBefore, 'host page URL unchanged');
-      t.ok(await page.isVisible('#snippet-editor-modal.show'), 'modal still open');
+      t.ok(await page.isVisible('#inline-snippet-editor'), 'inline editor still open');
 
-      // Clean up so the next subtest starts from a closed modal.
-      await page.locator('#snippet-editor-modal .btn-close').click();
-      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      // Clean up so the next subtest starts from a closed editor.
+      await page.locator('#inline-snippet-editor button[data-action="cancel"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
     });
 
     await t.test('Hover tooltip on highlighted line shows pattern metadata', async t => {
@@ -876,7 +876,7 @@ t.test('Test cavil ui', skip, async t => {
         await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
       }
       await page.waitForSelector(`#file-details-${fileId} table.snippet`);
-      await page.waitForFunction(() => !document.body.classList.contains('modal-open'));
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
       await page.evaluate(id => {
         const root = document.getElementById(`file-details-${id}`);
         const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
@@ -888,12 +888,13 @@ t.test('Test cavil ui', skip, async t => {
         }
         throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
       }, fileId);
-      await page.waitForSelector('#snippet-editor-modal.show');
-      await page.waitForSelector('#snippet-editor-modal .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
 
       // Make sure at least one match-decorated line is in the editor.
-      const highlighted = page.locator('#snippet-editor-modal .cm-line.found-pattern').first();
+      const highlighted = page.locator('#inline-snippet-editor .cm-line.found-pattern').first();
       await highlighted.waitFor();
+      await highlighted.scrollIntoViewIfNeeded();
 
       // CM6's hoverTooltip requires a mousemove event within the editor over
       // actual text. Use a manual mouse.move sequence into the line's box so
@@ -918,10 +919,10 @@ t.test('Test cavil ui', skip, async t => {
       const href = await card.locator('a').first().getAttribute('href');
       t.match(href, /\/licenses\/edit_pattern\/\d+/, 'tooltip link points to pattern editor');
 
-      // Tidy up: move the mouse away so the tooltip closes, then close modal.
+      // Tidy up: move the mouse away so the tooltip closes, then close the editor.
       await page.mouse.move(0, 0);
-      await page.locator('#snippet-editor-modal .btn-close').click();
-      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      await page.locator('#inline-snippet-editor button[data-action="cancel"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
     });
 
     await t.test('Accept request', async t => {
@@ -1009,7 +1010,7 @@ t.test('Test cavil ui', skip, async t => {
         await editorPage.innerText('#edit-snippet button[data-action="create-pattern"]'),
         /Create Pattern/
       );
-      // Page mode shows the source-file/package origin line (modal mode hides it).
+      // Page mode shows the source-file/package origin line (inline mode hides it).
       t.match(await editorPage.innerText('#edit-snippet'), /The example shown here is from the file/);
 
       // Error path: submit with the license field empty - server returns 400 and

@@ -116,9 +116,12 @@
               :packname="file.source.name"
               :is-admin-or-contributor="isAdminOrContributor"
               :pending-actions="pendingActionsForFile(file.id)"
+              :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
               @extend="onExtend(file, $event)"
               @open-editor="openEditor"
               @dismiss-action="dismissAction"
+              @close-editor="closeInlineEditor"
+              @editor-submit="onEditorSubmit"
             />
           </div>
         </div>
@@ -163,13 +166,6 @@
 
       <br />
     </div>
-    <SnippetEditorModal
-      v-if="isAdminOrContributor"
-      ref="editorModal"
-      :has-contributor-role="isAdminOrContributor"
-      :has-admin-role="isAdminOrContributor"
-      @submit="onEditorSubmit"
-    />
     <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
   </div>
 </template>
@@ -178,16 +174,16 @@
 import FileSource from './components/FileSource.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
-import SnippetEditorModal from './components/SnippetEditorModal.vue';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import Chart from 'chart.js';
 
 let pendingActionIdSeq = 0;
+let openEditorKeySeq = 0;
 
 export default {
   name: 'ReportDetails',
-  components: {FileSource, PendingActionsWidget, ProgressBar, SnippetEditorModal},
+  components: {FileSource, PendingActionsWidget, ProgressBar},
   mixins: [Refresh],
   provide() {
     return {
@@ -217,6 +213,7 @@ export default {
       loading: true,
       matchingGlobs: [],
       missedFiles: [],
+      openInlineEditor: null,
       pendingActions: [],
       hashHandled: false,
       refreshDelay: 5000,
@@ -431,31 +428,45 @@ export default {
         const data = await res.json();
         snippetId = data.snippet;
       }
-      this.$refs.editorModal.open({
+      await this.showInlineEditor({
         snippetId,
-        hash: meta.hash,
-        from: meta.from,
-        context: {
-          fileId: meta.fileId,
-          startLine: meta.startLine,
-          endLine: meta.endLine,
-          filePath: meta.filePath
-        }
+        fileId: meta.fileId,
+        startLine: meta.startLine,
+        endLine: meta.endLine,
+        hash: meta.hash ?? null,
+        from: meta.from ?? null,
+        filePath: meta.filePath ?? null,
+        initial: null,
+        editingId: null
       });
     },
+    async showInlineEditor(payload) {
+      const file = this.files.find(f => f.id === payload.fileId);
+      if (file) {
+        if (!file.expanded) file.expanded = true;
+        if (!file.source) await this.fetchSource(file);
+      }
+      this.openInlineEditor = {...payload, key: ++openEditorKeySeq};
+      await this.$nextTick();
+      const el = document.getElementById('inline-snippet-editor');
+      if (el) el.scrollIntoView({block: 'center'});
+    },
+    closeInlineEditor() {
+      this.openInlineEditor = null;
+    },
     onEditorSubmit(payload) {
-      const ctx = payload.context ?? {};
-      const editingId = payload.editingId ?? null;
+      const ctx = this.openInlineEditor ?? {};
+      const editingId = ctx.editingId ?? null;
       const existingIdx = editingId !== null ? this.pendingActions.findIndex(a => a.id === editingId) : -1;
       const baseId = existingIdx >= 0 ? this.pendingActions[existingIdx].id : ++pendingActionIdSeq;
       const action = {
         id: baseId,
-        snippetId: payload.snippetId,
+        snippetId: ctx.snippetId,
         fileId: ctx.fileId,
         startLine: ctx.startLine,
         endLine: ctx.endLine,
-        hash: payload.hash,
-        from: payload.from,
+        hash: ctx.hash,
+        from: ctx.from,
         action: payload.action,
         formData: payload.formData,
         license: payload.license || (payload.formData && payload.formData.license) || '',
@@ -468,24 +479,23 @@ export default {
       } else {
         this.pendingActions.push(action);
       }
+      this.closeInlineEditor();
     },
     dismissAction(id) {
       const idx = this.pendingActions.findIndex(a => a.id === id);
       if (idx >= 0) this.pendingActions.splice(idx, 1);
     },
-    editAction(id) {
+    async editAction(id) {
       const action = this.pendingActions.find(a => a.id === id);
       if (!action) return;
-      this.$refs.editorModal.open({
+      await this.showInlineEditor({
         snippetId: action.snippetId,
+        fileId: action.fileId,
+        startLine: action.startLine,
+        endLine: action.endLine,
         hash: action.hash,
         from: action.from,
-        context: {
-          fileId: action.fileId,
-          startLine: action.startLine,
-          endLine: action.endLine,
-          filePath: action.locationLabel.split(':')[0]
-        },
+        filePath: action.locationLabel.split(':')[0],
         initial: action.formData,
         editingId: action.id
       });

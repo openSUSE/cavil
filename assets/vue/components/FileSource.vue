@@ -1,12 +1,12 @@
 <template>
-  <table class="snippet">
+  <table class="snippet" :class="{'editor-open': inlineEditor}">
     <tbody>
       <!-- eslint-disable-next-line vue/no-v-for-template-key -->
       <template v-for="(line, idx) in lines" :key="idx">
         <tr v-if="line[1].withgap">
           <td class="redbar" colspan="4"></td>
         </tr>
-        <tr :class="rowClass(line[1])" :title="line[1].risk > 0 ? line[1].name : null">
+        <tr v-if="!isHiddenByEditor(line)" :class="rowClass(line[1])" :title="line[1].risk > 0 ? line[1].name : null">
           <td v-if="!showActions(line[1])" class="actions"></td>
           <td v-else class="actions dropdown show">
             <a
@@ -94,6 +94,24 @@
           </td>
           <td v-else class="quick-actions"></td>
         </tr>
+        <tr v-if="inlineEditor && inlineEditor.startLine === line[0]" class="inline-editor-row">
+          <td colspan="4">
+            <div id="inline-snippet-editor">
+              <SnippetEditor
+                :key="inlineEditor.key"
+                :snippet-id="inlineEditor.snippetId"
+                :hash="inlineEditor.hash"
+                :from="inlineEditor.from"
+                :initial="inlineEditor.initial"
+                :has-contributor-role="isAdminOrContributor"
+                :has-admin-role="isAdminOrContributor"
+                mode="inline"
+                @submit="$emit('editor-submit', $event)"
+                @cancel="$emit('close-editor')"
+              />
+            </div>
+          </td>
+        </tr>
       </template>
     </tbody>
   </table>
@@ -101,19 +119,21 @@
 
 <script>
 import PendingActionIndicator from './PendingActionIndicator.vue';
+import SnippetEditor from './SnippetEditor.vue';
 
 export default {
   name: 'FileSource',
-  components: {PendingActionIndicator},
+  components: {PendingActionIndicator, SnippetEditor},
   props: {
     lines: {type: Array, required: true},
     fileId: {type: Number, required: true},
     filename: {type: String, default: ''},
     packname: {type: String, default: ''},
     isAdminOrContributor: {type: Boolean, default: false},
-    pendingActions: {type: Array, default: () => []}
+    pendingActions: {type: Array, default: () => []},
+    inlineEditor: {type: Object, default: null}
   },
-  emits: ['extend', 'open-editor', 'dismiss-action'],
+  emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   methods: {
     rowClass(info) {
       const classes = [`risk-${info.risk}`];
@@ -122,6 +142,10 @@ export default {
     },
     showActions(info) {
       return this.isAdminOrContributor && info.end;
+    },
+    isHiddenByEditor(line) {
+      if (!this.inlineEditor) return false;
+      return line[0] >= this.inlineEditor.startLine && line[0] <= this.inlineEditor.endLine;
     },
     actionsForLine(line) {
       const start = line[0];
@@ -174,3 +198,19 @@ export default {
   }
 };
 </script>
+
+<style>
+.snippet .inline-editor-row > td {
+  background: #ffffff;
+  border-top: 1px solid #d0d7de !important;
+  border-bottom: 1px solid #d0d7de !important;
+  padding: 12px 16px !important;
+}
+.snippet .inline-editor-row #inline-snippet-editor .snippet-editor {
+  margin-top: 0;
+}
+.snippet.editor-open tr:not(.inline-editor-row) {
+  opacity: 0.4;
+  transition: opacity 0.15s ease-in-out;
+}
+</style>
