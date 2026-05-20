@@ -55,7 +55,7 @@
         </div>
         <div class="row">
           <div class="col mb-3">
-            <label class="fomr-label" for="license">License</label>
+            <label class="form-label" for="license">License</label>
             <input
               v-model="license"
               @input="autocomplete"
@@ -96,56 +96,62 @@
           </div>
         </div>
         <div class="row">
-          <div class="col-lg-2 mb-3">
-            <div class="form-floating">
-              <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control">
-                <option>0</option>
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-                <option>4</option>
-                <option>5</option>
-                <option>6</option>
-                <option>9</option>
-              </select>
-              <label for="risk" class="form-label">Risk</label>
-            </div>
-          </div>
-          <div class="col-lg-2">
-            <div class="form-check">
-              <input
-                v-model="licenseOptions.patent"
-                type="checkbox"
-                class="form-check-input"
-                id="patent"
-                name="patent"
-                value="1"
-              />
-              <label class="form-check-label" for="patent">Patent</label>
-            </div>
-            <div class="form-check">
-              <input
-                v-model="licenseOptions.trademark"
-                type="checkbox"
-                class="form-check-input"
-                id="trademark"
-                name="trademark"
-                value="1"
-              />
-              <label class="form-check-label" for="trademark">Trademark</label>
-            </div>
-          </div>
-          <div class="col-lg-2">
-            <div class="form-check">
-              <input
-                v-model="licenseOptions.export_restricted"
-                type="checkbox"
-                class="form-check-input"
-                id="export_restricted"
-                name="export_restricted"
-                value="1"
-              />
-              <label class="form-check-label" for="export_restricted">Export Restricted</label>
+          <div class="col mb-3">
+            <div class="snippet-editor-attributes">
+              <div class="snippet-editor-attributes-header">Attributes</div>
+              <div class="snippet-editor-attributes-body">
+                <div class="snippet-editor-attribute snippet-editor-attribute-risk">
+                  <label for="risk" class="form-label">Risk</label>
+                  <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control form-select">
+                    <option>0</option>
+                    <option>1</option>
+                    <option>2</option>
+                    <option>3</option>
+                    <option>4</option>
+                    <option>5</option>
+                    <option>6</option>
+                    <option>9</option>
+                  </select>
+                </div>
+                <div class="snippet-editor-attribute snippet-editor-attribute-flags">
+                  <label class="form-label">Flags</label>
+                  <div class="snippet-editor-attribute-flag-list">
+                    <div class="form-check">
+                      <input
+                        v-model="licenseOptions.patent"
+                        type="checkbox"
+                        class="form-check-input"
+                        id="patent"
+                        name="patent"
+                        value="1"
+                      />
+                      <label class="form-check-label" for="patent">Patent</label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        v-model="licenseOptions.trademark"
+                        type="checkbox"
+                        class="form-check-input"
+                        id="trademark"
+                        name="trademark"
+                        value="1"
+                      />
+                      <label class="form-check-label" for="trademark">Trademark</label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        v-model="licenseOptions.export_restricted"
+                        type="checkbox"
+                        class="form-check-input"
+                        id="export_restricted"
+                        name="export_restricted"
+                        value="1"
+                      />
+                      <label class="form-check-label" for="export_restricted">Export Restricted</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -760,24 +766,183 @@ export default {
   gap: 0.5rem;
   align-items: center;
 }
-.snippet-editor .autocomplete {
-  height: 220px;
-  overflow-x: hidden;
-  overflow-y: scroll;
+
+/* Primer form chrome */
+.snippet-editor .form-label {
+  color: #1f2328;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
 }
-.snippet-editor .autocomplete-container {
-  border: 1px solid #dee2e6;
-  border-top: 0;
-  border-radius: 0 0 5px 5px;
-  cursor: pointer;
-  padding: 3px;
-  padding-top: 8px;
-  padding-right: 0;
+.snippet-editor .form-control,
+.snippet-editor .form-select {
+  background-color: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(208, 215, 222, 0.2);
+  color: #1f2328;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 5px 12px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.snippet-editor .form-control:focus,
+.snippet-editor .form-select:focus {
+  background-color: #ffffff;
+  border-color: #0969da;
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+  color: #1f2328;
+  outline: none;
+}
+.snippet-editor .form-check-input {
+  background-color: #ffffff;
+  border: 1px solid #6e7781;
+  border-radius: 3px;
+  box-shadow: none;
+  height: 16px;
+  margin-top: 0.2rem;
+  width: 16px;
+}
+.snippet-editor .form-check-input:checked {
+  background-color: #0969da;
+  border-color: #0969da;
+}
+.snippet-editor .form-check-input:focus {
+  border-color: #0969da;
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+  outline: none;
+}
+.snippet-editor .form-check-label {
+  color: #1f2328;
+  font-size: 14px;
+  padding-left: 2px;
+  user-select: none;
+}
+
+/* Attributes card */
+.snippet-editor .snippet-editor-attributes {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.snippet-editor .snippet-editor-attributes-header {
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  color: #1f2328;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 6px 12px;
+  text-transform: uppercase;
+}
+.snippet-editor .snippet-editor-attributes-body {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 12px 14px 14px;
+}
+.snippet-editor .snippet-editor-attribute-risk {
+  width: 140px;
+}
+.snippet-editor .snippet-editor-attribute-flag-list {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  min-height: 32px;
+}
+.snippet-editor .snippet-editor-attribute-flag-list .form-check {
   margin: 0;
+  min-height: 0;
+  padding-left: 22px;
+}
+.snippet-editor .snippet-editor-attribute-flag-list .form-check-input {
+  margin-left: -22px;
+}
+
+/* Primer-style green buttons */
+.snippet-editor .btn-success {
+  background-color: #1f883d;
+  border: 1px solid rgba(31, 35, 40, 0.15);
+  box-shadow: 0 1px 0 rgba(31, 35, 40, 0.04);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  padding: 5px 16px;
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s;
+}
+.snippet-editor .btn-success:hover {
+  background-color: #1a7f37;
+  border-color: rgba(31, 35, 40, 0.15);
+  color: #ffffff;
+}
+.snippet-editor .btn-success:focus,
+.snippet-editor .btn-success.focus {
+  background-color: #1a7f37;
+  border-color: rgba(31, 35, 40, 0.15);
+  box-shadow: 0 0 0 3px rgba(31, 136, 61, 0.4);
+  color: #ffffff;
+}
+.snippet-editor .btn-success:active,
+.snippet-editor .btn-success.active {
+  background-color: #187432;
+  border-color: rgba(31, 35, 40, 0.15);
+  box-shadow: inset 0 1px 0 rgba(0, 45, 17, 0.2);
+  color: #ffffff;
+}
+.snippet-editor .btn-success.dropdown-toggle-split {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.snippet-editor .dropdown-menu {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  font-size: 14px;
+  padding: 4px 0;
+}
+.snippet-editor .dropdown-item {
+  color: #1f2328;
+  padding: 6px 14px;
+}
+.snippet-editor .dropdown-item:hover,
+.snippet-editor .dropdown-item:focus {
+  background-color: #f6f8fa;
+  color: #1f2328;
+}
+
+/* Primer-style autocomplete popover */
+.snippet-editor .autocomplete-container {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  cursor: pointer;
+  margin: 4px 0 0;
+  padding: 4px 0;
   z-index: 1000;
 }
+.snippet-editor .autocomplete {
+  max-height: 220px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.snippet-editor .autocomplete-item {
+  color: #1f2328;
+  font-size: 14px;
+  padding: 6px 14px;
+}
 .snippet-editor .autocomplete-item:hover {
-  background-color: rgba(13, 110, 253, 0.25);
+  background-color: #f6f8fa;
+  color: #1f2328;
 }
 
 /* Highlight palette - applies both to legend swatches and CM lines */

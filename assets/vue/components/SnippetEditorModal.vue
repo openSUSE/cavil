@@ -11,7 +11,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="snippet-editor-modal-label">
-            <i class="fa-solid fa-code-compare"></i>
+            <i class="fa-solid fa-pen-to-square"></i>
             {{ title }}
           </h5>
           <button type="button" class="btn-close" aria-label="Close" @click="close"></button>
@@ -127,7 +127,41 @@ export default {
 #snippet-editor-modal .modal-dialog {
   max-width: 1200px;
 }
+#snippet-editor-modal .modal-content {
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+}
+#snippet-editor-modal .modal-header {
+  align-items: center;
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  border-radius: 8px 8px 0 0;
+  padding: 12px 16px;
+}
+#snippet-editor-modal .modal-title {
+  align-items: center;
+  color: #1f2328;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  margin: 0;
+}
+#snippet-editor-modal .modal-title i {
+  color: #57606a;
+  font-size: 13px;
+}
+#snippet-editor-modal .btn-close {
+  font-size: 11px;
+  opacity: 0.55;
+  padding: 6px;
+  transition: opacity 0.15s;
+}
+#snippet-editor-modal .btn-close:hover {
+  opacity: 1;
+}
 #snippet-editor-modal .modal-body {
-  padding-top: 0;
+  padding: 16px 20px;
 }
 </style>
