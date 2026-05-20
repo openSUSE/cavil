@@ -72,8 +72,7 @@
                     <span class="snippet-editor-hints-swatch license-line"></span> existing pattern
                   </span>
                   <span class="snippet-editor-hints-item">
-                    <code>$SKIPn</code> skips up to n words at this position &mdash; <code>$SKIP19</code> skips as many
-                    as the matching engine allows
+                    <code>$SKIPn</code> skips up to n words at this position
                   </span>
                 </div>
               </div>
@@ -125,57 +124,54 @@
             <div class="row">
               <div class="col mb-3">
                 <div class="snippet-editor-attributes">
-                  <div class="snippet-editor-attributes-header">Attributes</div>
-                  <div class="snippet-editor-attributes-body">
-                    <div class="snippet-editor-attribute snippet-editor-attribute-risk">
-                      <label for="risk" class="form-label">Risk</label>
-                      <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control form-select">
-                        <option>0</option>
-                        <option>1</option>
-                        <option>2</option>
-                        <option>3</option>
-                        <option>4</option>
-                        <option>5</option>
-                        <option>6</option>
-                        <option>9</option>
-                      </select>
-                    </div>
-                    <div class="snippet-editor-attribute snippet-editor-attribute-flags">
-                      <label class="form-label">Flags</label>
-                      <div class="snippet-editor-attribute-flag-list">
-                        <div class="form-check">
-                          <input
-                            v-model="licenseOptions.patent"
-                            type="checkbox"
-                            class="form-check-input"
-                            id="patent"
-                            name="patent"
-                            value="1"
-                          />
-                          <label class="form-check-label" for="patent">Patent</label>
-                        </div>
-                        <div class="form-check">
-                          <input
-                            v-model="licenseOptions.trademark"
-                            type="checkbox"
-                            class="form-check-input"
-                            id="trademark"
-                            name="trademark"
-                            value="1"
-                          />
-                          <label class="form-check-label" for="trademark">Trademark</label>
-                        </div>
-                        <div class="form-check">
-                          <input
-                            v-model="licenseOptions.export_restricted"
-                            type="checkbox"
-                            class="form-check-input"
-                            id="export_restricted"
-                            name="export_restricted"
-                            value="1"
-                          />
-                          <label class="form-check-label" for="export_restricted">Export Restricted</label>
-                        </div>
+                  <div class="snippet-editor-attribute snippet-editor-attribute-risk">
+                    <label for="risk" class="form-label">Risk</label>
+                    <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control form-select">
+                      <option>0</option>
+                      <option>1</option>
+                      <option>2</option>
+                      <option>3</option>
+                      <option>4</option>
+                      <option>5</option>
+                      <option>6</option>
+                      <option>9</option>
+                    </select>
+                  </div>
+                  <div class="snippet-editor-attribute snippet-editor-attribute-flags">
+                    <label class="form-label">Flags</label>
+                    <div class="snippet-editor-attribute-flag-list">
+                      <div class="form-check">
+                        <input
+                          v-model="licenseOptions.patent"
+                          type="checkbox"
+                          class="form-check-input"
+                          id="patent"
+                          name="patent"
+                          value="1"
+                        />
+                        <label class="form-check-label" for="patent">Patent</label>
+                      </div>
+                      <div class="form-check">
+                        <input
+                          v-model="licenseOptions.trademark"
+                          type="checkbox"
+                          class="form-check-input"
+                          id="trademark"
+                          name="trademark"
+                          value="1"
+                        />
+                        <label class="form-check-label" for="trademark">Trademark</label>
+                      </div>
+                      <div class="form-check">
+                        <input
+                          v-model="licenseOptions.export_restricted"
+                          type="checkbox"
+                          class="form-check-input"
+                          id="export_restricted"
+                          name="export_restricted"
+                          value="1"
+                        />
+                        <label class="form-check-label" for="export_restricted">Export Restricted</label>
                       </div>
                     </div>
                   </div>
@@ -870,29 +866,12 @@ export default {
   user-select: none;
 }
 
-/* Attributes card */
+/* Attributes row */
 .snippet-editor .snippet-editor-attributes {
-  background: transparent;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  overflow: hidden;
-}
-.snippet-editor .snippet-editor-attributes-header {
-  background: transparent;
-  border-bottom: 1px solid #d0d7de;
-  color: #1f2328;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 6px 12px;
-  text-transform: uppercase;
-}
-.snippet-editor .snippet-editor-attributes-body {
   align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
   gap: 24px;
-  padding: 12px 14px 14px;
 }
 .snippet-editor .snippet-editor-attribute-risk {
   width: 140px;
