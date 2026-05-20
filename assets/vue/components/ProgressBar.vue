@@ -1,8 +1,8 @@
 <template>
   <div class="report-progress my-3" :style="{'--segment-count': labels.length}">
     <div class="progress-meta">
-      <span class="progress-title">Preparing Report</span>
-      <span class="progress-stage">Step {{ normalizedStage }} / {{ labels.length }}</span>
+      <span class="progress-title">Preparing report</span>
+      <span class="progress-stage">{{ currentLabel }} · Step {{ normalizedStage }} of {{ labels.length }}</span>
     </div>
     <div class="progress">
       <div
@@ -15,9 +15,11 @@
         :aria-valuenow="idx + 1 <= stage ? 100 : 0"
         aria-valuemin="0"
         aria-valuemax="100"
+        :aria-label="label"
       >
         <span>
           <i v-if="idx + 1 < stage" class="fa-solid fa-check me-1"></i>
+          <i v-else-if="idx + 1 === stage" class="fa-solid fa-spinner fa-pulse me-1"></i>
           {{ label }}
         </span>
       </div>
@@ -40,15 +42,18 @@ export default {
     normalizedStage() {
       return Math.max(1, Math.min(this.stage, this.labels.length));
     },
+    currentLabel() {
+      return this.labels[this.normalizedStage - 1];
+    },
     segmentWidth() {
       return `${100 / this.labels.length}%`;
     }
   },
   methods: {
     barClass(idx) {
-      if (idx < this.stage) return 'bg-success';
-      if (idx === this.stage) return 'progress-bar-striped progress-bar-animated bg-info';
-      return 'bg-light text-muted';
+      if (idx < this.stage) return 'progress-segment is-done';
+      if (idx === this.stage) return 'progress-segment is-active';
+      return 'progress-segment is-pending';
     }
   }
 };
@@ -56,52 +61,92 @@ export default {
 
 <style scoped>
 .report-progress {
-  background: var(--bs-tertiary-bg, #f8f9fa);
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  border-radius: 0.9rem;
-  padding: 0.85rem 0.95rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 14px 16px 12px;
+  box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
 }
 
 .progress-meta {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.55rem;
-  padding: 0 0.2rem;
+  align-items: baseline;
+  margin-bottom: 10px;
+  gap: 12px;
 }
 
 .progress-title {
-  color: var(--bs-emphasis-color, #212529);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.progress-stage {
-  color: var(--bs-secondary-color, #6c757d);
-  font-size: 0.78rem;
+  color: #1f2328;
+  font-size: 13px;
   font-weight: 600;
 }
 
-.report-progress .progress {
-  height: 1.75rem;
-  border: 1px solid var(--bs-border-color, #dee2e6);
+.progress-stage {
+  color: #59636e;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.report-progress .progress-bar.bg-light.text-muted {
-  background-color: var(--bs-secondary-bg-subtle, #e2e3e5) !important;
-  color: var(--bs-secondary-color, #6c757d) !important;
+.report-progress .progress {
+  height: 22px;
+  background: #eaeef2;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 0;
+}
+
+.report-progress .progress-bar {
+  border-right: 1px solid rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+.report-progress .progress-bar:last-child {
+  border-right: 0;
+}
+
+.report-progress .progress-segment.is-done {
+  background-color: #1f883d;
+  color: #ffffff;
+}
+.report-progress .progress-segment.is-active {
+  background-color: #54aeff;
+  color: #0a3069;
+  animation: cavil-progress-pulse 1.6s ease-in-out infinite;
+}
+.report-progress .progress-segment.is-pending {
+  background-color: transparent;
+  color: #59636e;
+}
+
+@keyframes cavil-progress-pulse {
+  0%, 100% { background-color: #54aeff; }
+  50% { background-color: #80ccff; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-progress .progress-segment.is-active {
+    animation: none;
+  }
 }
 
 .progress-bar span {
-  padding: 0 0.2rem;
+  padding: 0 6px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 767px) {
   .progress-bar {
-    font-size: 0.66rem;
+    font-size: 10px;
+  }
+  .progress-stage {
+    display: none;
   }
 }
 </style>
