@@ -101,6 +101,13 @@ sub list ($self) {
   $self->render;
 }
 
+sub pattern_detail ($self) {
+  my $id      = $self->stash('id');
+  my $pattern = $self->patterns->find($id);
+  return $self->reply->not_found unless $pattern;
+  $self->render(json => $pattern);
+}
+
 sub missing ($self) {
   $self->render('license/missing_licenses');
 }

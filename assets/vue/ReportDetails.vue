@@ -330,8 +330,8 @@ export default {
       if (!file.expanded) file.expanded = true;
       if (!file.source) await this.fetchSource(file);
       await this.$nextTick();
-      const el = document.getElementById('file-details-' + file.id) ||
-        document.querySelector('[name="file-' + file.id + '"]');
+      const el =
+        document.getElementById('file-details-' + file.id) || document.querySelector('[name="file-' + file.id + '"]');
       if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
     },
     async scrollToAction(id) {
@@ -446,8 +446,7 @@ export default {
     onEditorSubmit(payload) {
       const ctx = payload.context ?? {};
       const editingId = payload.editingId ?? null;
-      const existingIdx =
-        editingId !== null ? this.pendingActions.findIndex(a => a.id === editingId) : -1;
+      const existingIdx = editingId !== null ? this.pendingActions.findIndex(a => a.id === editingId) : -1;
       const baseId = existingIdx >= 0 ? this.pendingActions[existingIdx].id : ++pendingActionIdSeq;
       const action = {
         id: baseId,

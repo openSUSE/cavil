@@ -155,14 +155,6 @@ span.diff-added {
   display: none;
 }
 
-.found-pattern {
-  background-color: #dfd;
-}
-
-.found-keyword-1 {
-  background-color: #fdd !important;
-}
-
 html {
   position: relative;
   height: 100%;
@@ -244,10 +236,6 @@ body {
 
 .field-with-error {
   border: 2px solid #f00 !important;
-}
-
-.CodeMirror {
-  height: 100%;
 }
 
 .cavil-copy {

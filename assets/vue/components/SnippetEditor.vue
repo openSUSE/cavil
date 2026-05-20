@@ -22,10 +22,11 @@
         <div class="row">
           <div class="col mb-3">
             <label class="form-label" for="pattern">Snippet</label>
+            <div ref="editorHost" class="snippet-editor-host"></div>
             <textarea
               ref="patternText"
               v-model="patternText"
-              class="mono-text form-control"
+              class="mono-text form-control snippet-editor-textarea"
               id="pattern"
               name="pattern"
               rows="20"
@@ -45,8 +46,8 @@
                 <dt><code>$SKIP19</code></dt>
                 <dd>Skip as many words as the matching engine allows</dd>
                 <template v-if="hasAdminRole === true">
-                  <dt>Line number</dt>
-                  <dd>Click to open the pattern that matched on that line</dd>
+                  <dt>Hover / gutter</dt>
+                  <dd>Hover a highlighted line for pattern details, or click the line number to open it</dd>
                 </template>
               </dl>
             </div>
@@ -260,8 +261,9 @@
 
 <script>
 import {setupPopoverDelayed} from '../helpers/links.js';
+import {EditorState, StateField} from '@codemirror/state';
+import {Decoration, EditorView, hoverTooltip, lineNumbers} from '@codemirror/view';
 import UserAgent from '@mojojs/user-agent';
-import CodeMirror from 'codemirror';
 
 export default {
   name: 'SnippetEditor',
@@ -279,6 +281,7 @@ export default {
     return {
       closest: null,
       closestUrl: '/snippet/closest',
+      decorationsField: null,
       edited: '0',
       editor: null,
       editorReady: this.mode !== 'batch',
@@ -296,6 +299,8 @@ export default {
       },
       matches: {},
       package: null,
+      patternMeta: new Map(),
+      patternMetaPromises: new Map(),
       patternText: null,
       results: [],
       riskHtml:
@@ -326,7 +331,7 @@ export default {
   },
   beforeUnmount() {
     if (this.editor) {
-      this.editor.toTextArea();
+      this.editor.destroy();
       this.editor = null;
     }
   },
@@ -384,7 +389,7 @@ export default {
       this.licenseFocused = false;
     },
     async getClosest() {
-      const text = this.editor ? this.editor.getValue() : this.patternText;
+      const text = this.editor ? this.editor.state.doc.toString() : this.patternText;
       if (text == null) return;
       const res = await this.ua.post(this.closestUrl, {form: {text}});
       const data = await res.json();
@@ -423,8 +428,7 @@ export default {
       if (initial.risk !== undefined) this.licenseOptions.risk = Number(initial.risk);
       this.licenseOptions.patent = initial.patent === '1' || initial.patent === true;
       this.licenseOptions.trademark = initial.trademark === '1' || initial.trademark === true;
-      this.licenseOptions.export_restricted =
-        initial.export_restricted === '1' || initial.export_restricted === true;
+      this.licenseOptions.export_restricted = initial.export_restricted === '1' || initial.export_restricted === true;
       if (initial.edited !== undefined) this.edited = String(initial.edited);
       if (initial['highlighted-keywords'] !== undefined) {
         this.highlightedKeywords = initial['highlighted-keywords'];
@@ -434,26 +438,27 @@ export default {
       }
     },
     getHighlightedLines() {
-      const cm = this.editor;
-      const count = cm.lineCount();
+      if (!this.editor || !this.decorationsField) return;
+      const matchLines = [];
       const keywordLines = [];
-      const licenseLines = [];
-      for (let i = 0; i < count; i++) {
-        const line = cm.getLineHandle(i);
-        const bgClass = line.bgClass ?? '';
-        if (bgClass.match('keyword-line')) keywordLines.push(i);
-        if (bgClass.match('license-line')) licenseLines.push(i);
-      }
+      const state = this.editor.state;
+      const set = state.field(this.decorationsField);
+      set.between(0, state.doc.length, (from, _to, deco) => {
+        const cls = deco.spec.attributes?.class ?? '';
+        const lineNo = state.doc.lineAt(from).number - 1;
+        if (cls.includes('license-line')) matchLines.push(lineNo);
+        if (cls.includes('keyword-line')) keywordLines.push(lineNo);
+      });
       this.highlightedKeywords = keywordLines.join(',');
-      this.highlightedLicenses = licenseLines.join(',');
+      this.highlightedLicenses = matchLines.join(',');
     },
     refreshEditor() {
       // Modal host signals the modal is fully shown. In batch mode this is our
-      // cue that the textarea has its real dimensions, so it's now safe to
-      // attach CodeMirror (or refresh it if it was already attached).
+      // cue that the host has its real dimensions, so it is now safe to
+      // attach CodeMirror (or remeasure it if it was already attached).
       this.editorReady = true;
       if (this.editor) {
-        this.editor.refresh();
+        this.editor.requestMeasure();
         return;
       }
       this.maybeSetupCodeMirror();
@@ -463,44 +468,198 @@ export default {
       this.setupCodeMirror();
     },
     setupCodeMirror() {
-      if (this.editor || !this.$refs.patternText) return;
-      const cm = CodeMirror.fromTextArea(this.$refs.patternText, {
-        firstLineNumber: this.startLine,
-        lineNumbers: true,
-        theme: 'neo'
-      });
+      if (this.editor || !this.$refs.patternText || !this.$refs.editorHost) return;
 
-      cm.on('change', () => {
-        this.edited = '1';
-        this.patternText = cm.getValue();
+      const matchLineSet = {};
+      const keywordLineSet = {};
+      const idsByLine = new Map();
+      const collect = (map, into) => {
+        for (const [line, pid] of Object.entries(map)) {
+          const i = parseInt(line);
+          into[i] = true;
+          const list = idsByLine.get(i) ?? [];
+          if (!list.includes(String(pid))) list.push(String(pid));
+          idsByLine.set(i, list);
+        }
+      };
+      collect(this.matches, matchLineSet);
+      collect(this.keywords, keywordLineSet);
+
+      const startLine = this.startLine ?? 1;
+      const decoField = StateField.define({
+        create: state => {
+          const ranges = [];
+          const sorted = [...idsByLine.keys()].sort((a, b) => a - b);
+          for (const lineIdx of sorted) {
+            const cmLineNo = lineIdx + 1;
+            if (cmLineNo < 1 || cmLineNo > state.doc.lines) continue;
+            const line = state.doc.line(cmLineNo);
+            const classes = ['found-pattern'];
+            if (matchLineSet[lineIdx]) classes.push('license-line');
+            if (keywordLineSet[lineIdx]) classes.push('keyword-line');
+            ranges.push(
+              Decoration.line({
+                attributes: {
+                  class: classes.join(' '),
+                  'data-pattern-ids': (idsByLine.get(lineIdx) ?? []).join(' ')
+                }
+              }).range(line.from)
+            );
+          }
+          return Decoration.set(ranges, true);
+        },
+        update: (decos, tr) => (tr.docChanged ? decos.map(tr.changes) : decos),
+        provide: f => EditorView.decorations.from(f)
       });
-      cm.on('blur', () => {
-        this.getClosest();
-        this.getHighlightedLines();
-      });
-      cm.on('gutterClick', (cm, n) => {
-        const info = cm.lineInfo(n);
-        const bgClass = info.bgClass ?? '';
-        if (bgClass.includes('found-pattern') === true) {
-          const matches = bgClass.match(/pattern-(\d+)/);
-          window.open(`/licenses/edit_pattern/${matches[1]}`, '_blank', 'noopener');
+      this.decorationsField = decoField;
+
+      const baseTheme = EditorView.theme({
+        '&': {fontSize: '13px', height: '600px'},
+        '.cm-scroller': {fontFamily: 'monospace, monospace', overflow: 'auto'},
+        '.cm-gutters': {
+          backgroundColor: '#f6f8fa',
+          color: '#6e7781',
+          borderRight: '1px solid #d0d7de'
+        },
+        '.cm-lineNumbers .cm-gutterElement': {padding: '0 8px 0 6px'},
+        '.cm-lineNumbers .cm-gutterElement.has-pattern': {
+          color: '#0969da',
+          cursor: 'pointer',
+          fontWeight: '600'
         }
       });
 
-      for (const [line, pattern] of Object.entries(this.matches)) {
-        cm.addLineClass(parseInt(line), 'background', `license-line found-pattern pattern-${pattern}`);
-      }
+      const state = EditorState.create({
+        doc: this.patternText ?? '',
+        extensions: [
+          lineNumbers({
+            formatNumber: n => String(n + startLine - 1),
+            domEventHandlers: {
+              click: (view, line) => this.onGutterClick(view, line)
+            }
+          }),
+          decoField,
+          hoverTooltip((view, pos) => this.makeHoverTooltip(view, pos), {hideOnChange: true}),
+          EditorView.updateListener.of(update => this.onCmUpdate(update)),
+          baseTheme
+        ]
+      });
 
-      for (const [line, pattern] of Object.entries(this.keywords)) {
-        cm.addLineClass(parseInt(line), 'background', `keyword-line found-pattern pattern-${pattern}`);
-      }
-
-      this.editor = cm;
+      this.editor = new EditorView({parent: this.$refs.editorHost, state});
+      // Expose the view on the .cm-editor element so external code (e.g. tests)
+      // can reach the EditorView the same way CM5 attached .CodeMirror.
+      this.editor.dom.cmView = this.editor;
+      this.$refs.patternText.classList.add('snippet-editor-textarea-hidden');
       this.getHighlightedLines();
+    },
+    onCmUpdate(update) {
+      if (update.docChanged) {
+        this.edited = '1';
+        this.patternText = update.state.doc.toString();
+      }
+      if (update.focusChanged && !update.view.hasFocus) {
+        this.getClosest();
+        this.getHighlightedLines();
+      }
+    },
+    onGutterClick(view, line) {
+      const ids = this.patternIdsAtPos(view, line.from);
+      if (ids.length === 0) return false;
+      window.open(`/licenses/edit_pattern/${ids[0]}`, '_blank', 'noopener');
+      return true;
+    },
+    patternIdsAtPos(view, pos) {
+      if (!this.decorationsField) return [];
+      const lineStart = view.state.doc.lineAt(pos).from;
+      let ids = [];
+      view.state.field(this.decorationsField).between(lineStart, lineStart, (_from, _to, deco) => {
+        const attr = deco.spec.attributes?.['data-pattern-ids'];
+        if (attr) ids = attr.split(' ').filter(Boolean);
+      });
+      return ids;
+    },
+    makeHoverTooltip(view, pos) {
+      const ids = this.patternIdsAtPos(view, pos);
+      if (ids.length === 0) return null;
+      const lineStart = view.state.doc.lineAt(pos).from;
+      return {
+        pos: lineStart,
+        above: true,
+        create: () => {
+          const dom = document.createElement('div');
+          dom.className = 'cavil-pattern-tip';
+          this.renderTooltip(dom, ids);
+          return {dom};
+        }
+      };
+    },
+    async renderTooltip(dom, ids) {
+      dom.innerHTML =
+        '<div class="cavil-pattern-tip-loading"><i class="fa-solid fa-spinner fa-pulse"></i> Loading…</div>';
+      try {
+        const metas = await Promise.all(ids.map(id => this.fetchPatternMeta(id)));
+        const valid = metas.filter(m => m);
+        if (valid.length === 0) {
+          dom.innerHTML = '<div class="cavil-pattern-tip-error">No pattern info available.</div>';
+          return;
+        }
+        dom.innerHTML = '';
+        for (const meta of valid) dom.appendChild(this.buildTooltipCard(meta));
+      } catch (e) {
+        dom.innerHTML = '<div class="cavil-pattern-tip-error">Failed to load pattern info.</div>';
+      }
+    },
+    fetchPatternMeta(id) {
+      if (this.patternMeta.has(id)) return Promise.resolve(this.patternMeta.get(id));
+      if (this.patternMetaPromises.has(id)) return this.patternMetaPromises.get(id);
+      const promise = (async () => {
+        const res = await this.ua.get(`/licenses/pattern/${id}.json`);
+        if (!res.isSuccess) return null;
+        const meta = await res.json();
+        this.patternMeta.set(id, meta);
+        return meta;
+      })();
+      this.patternMetaPromises.set(id, promise);
+      return promise;
+    },
+    buildTooltipCard(meta) {
+      const card = document.createElement('div');
+      card.className = 'cavil-pattern-tip-card';
+
+      const header = document.createElement('div');
+      header.className = 'cavil-pattern-tip-header';
+      const title = document.createElement('span');
+      title.className = 'cavil-pattern-tip-title';
+      title.textContent = meta.license && meta.license !== '' ? meta.license : 'Keyword pattern';
+      header.appendChild(title);
+      const risk = document.createElement('span');
+      risk.className = `cavil-pattern-tip-risk risk-${meta.risk ?? 0}`;
+      risk.textContent = `risk ${meta.risk ?? '?'}`;
+      header.appendChild(risk);
+      card.appendChild(header);
+
+      const preview = document.createElement('pre');
+      preview.className = 'cavil-pattern-tip-preview';
+      const allLines = (meta.pattern ?? '').split('\n');
+      const shown = allLines.slice(0, 6).join('\n');
+      preview.textContent = shown + (allLines.length > 6 ? '\n…' : '');
+      card.appendChild(preview);
+
+      const footer = document.createElement('div');
+      footer.className = 'cavil-pattern-tip-footer';
+      const link = document.createElement('a');
+      link.href = `/licenses/edit_pattern/${meta.id}`;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Open pattern →';
+      footer.appendChild(link);
+      card.appendChild(footer);
+
+      return card;
     },
     emitAction(action) {
       if (this.editor) {
-        this.patternText = this.editor.getValue();
+        this.patternText = this.editor.state.doc.toString();
         this.getHighlightedLines();
       }
       const formData = {
@@ -524,11 +683,22 @@ export default {
 </script>
 
 <style>
-.snippet-editor .CodeMirror {
-  border: 1px solid #dee2e6;
-  border-radius: 5px;
+.snippet-editor .snippet-editor-host {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.snippet-editor .snippet-editor-host .cm-editor {
   height: 600px;
-  padding: 5px;
+}
+.snippet-editor .snippet-editor-host .cm-editor.cm-focused {
+  outline: none;
+}
+.snippet-editor .snippet-editor-textarea {
+  margin-top: 0.5rem;
+}
+.snippet-editor .snippet-editor-textarea-hidden {
+  display: none;
 }
 .snippet-editor-hints {
   background: #f6f8fa;
@@ -609,15 +779,114 @@ export default {
 .snippet-editor .autocomplete-item:hover {
   background-color: rgba(13, 110, 253, 0.25);
 }
+
+/* Highlight palette - applies both to legend swatches and CM lines */
 .snippet-editor .license-line {
-  background-color: #dfd !important;
+  background-color: rgba(31, 136, 61, 0.12);
 }
 .snippet-editor .keyword-line {
-  background-color: #fdd !important;
+  background-color: rgba(191, 135, 0, 0.14);
 }
-.snippet-editor span.keyword-line,
-.snippet-editor span.license-line {
-  padding: 0.25em;
+.snippet-editor .cm-line.license-line {
+  box-shadow: inset 3px 0 0 #1f883d;
+}
+.snippet-editor .cm-line.keyword-line {
+  box-shadow: inset 3px 0 0 #bf8700;
+}
+.snippet-editor .cm-line.license-line.keyword-line {
+  box-shadow:
+    inset 3px 0 0 #1f883d,
+    inset 6px 0 0 #bf8700;
+}
+.snippet-editor .cm-line.found-pattern {
+  cursor: help;
+}
+
+/* Hover tooltip card */
+.cavil-pattern-tip {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  color: #1f2328;
+  font-size: 12px;
+  max-width: 360px;
+  min-width: 220px;
+  overflow: hidden;
+}
+.cavil-pattern-tip-loading,
+.cavil-pattern-tip-error {
+  padding: 10px 12px;
+  color: #57606a;
+}
+.cavil-pattern-tip-error {
+  color: #cf222e;
+}
+.cavil-pattern-tip-card {
+  border-bottom: 1px solid #eaeef2;
+}
+.cavil-pattern-tip-card:last-child {
+  border-bottom: 0;
+}
+.cavil-pattern-tip-header {
+  align-items: center;
+  background: #f6f8fa;
+  border-bottom: 1px solid #eaeef2;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 6px 10px;
+}
+.cavil-pattern-tip-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cavil-pattern-tip-risk {
+  background: #ddf4ff;
+  border-radius: 10px;
+  color: #0969da;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 8px;
+  text-transform: uppercase;
+}
+.cavil-pattern-tip-risk.risk-5,
+.cavil-pattern-tip-risk.risk-6,
+.cavil-pattern-tip-risk.risk-7 {
+  background: #fff8c5;
+  color: #9a6700;
+}
+.cavil-pattern-tip-risk.risk-8,
+.cavil-pattern-tip-risk.risk-9 {
+  background: #ffebe9;
+  color: #cf222e;
+}
+.cavil-pattern-tip-preview {
+  background: #f6f8fa;
+  border: 0;
+  color: #1f2328;
+  font-family: monospace, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0;
+  max-height: 140px;
+  overflow: auto;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.cavil-pattern-tip-footer {
+  padding: 6px 10px;
+  text-align: right;
+}
+.cavil-pattern-tip-footer a {
+  color: #0969da;
+  text-decoration: none;
+}
+.cavil-pattern-tip-footer a:hover {
+  text-decoration: underline;
 }
 
 .snippet-editor .closest-container {

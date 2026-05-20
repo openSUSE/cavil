@@ -1,11 +1,8 @@
 import './sass/app.scss';
 import 'bootstrap/dist/css/bootstrap.css';
-import 'codemirror/lib/codemirror.css';
-import 'codemirror/theme/neo.css';
 
 import 'timeago';
 import 'bootstrap';
-import 'codemirror';
 import 'moment';
 
 import {setupCodeMirrorForFile} from './legacy/file.js';

@@ -61,6 +61,7 @@ subtest 'Login required' => sub {
   $t->get_ok('/snippets/meta')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippet/edit/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippet/meta/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/licenses/pattern/1.json')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/missing')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/proposed')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/proposed/meta')->status_is(401)->content_like(qr/Login Required/);

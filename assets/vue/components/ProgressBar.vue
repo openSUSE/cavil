@@ -124,8 +124,13 @@ export default {
 }
 
 @keyframes cavil-progress-pulse {
-  0%, 100% { background-color: #54aeff; }
-  50% { background-color: #80ccff; }
+  0%,
+  100% {
+    background-color: #54aeff;
+  }
+  50% {
+    background-color: #80ccff;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

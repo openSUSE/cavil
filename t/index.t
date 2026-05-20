@@ -188,6 +188,23 @@ subtest 'Pattern change' => sub {
     ->text_like('.alert-success' => qr/2 patterns have been updated/);
 };
 
+subtest 'Pattern detail JSON endpoint' => sub {
+  $t->get_ok('/licenses/pattern/1.json')
+    ->status_is(200)
+    ->json_is('/id'      => 1)
+    ->json_is('/license' => 'Apache-2.0')
+    ->json_is('/pattern' => 'real-time web framework')
+    ->json_has('/risk')
+    ->json_has('/spdx');
+
+  $t->get_ok('/licenses/pattern/999999.json')->status_is(404);
+
+  # Logging out must put the JSON endpoint back behind the login wall.
+  $t->get_ok('/logout')->status_is(302);
+  $t->get_ok('/licenses/pattern/1.json')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/login')->status_is(302);
+};
+
 # Automatic reindexing
 my $list = $t->app->minion->backend->list_jobs(0, 10, {states => ['inactive']});
 is $list->{total},         2,                       'two inactives job';
