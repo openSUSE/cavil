@@ -20,10 +20,18 @@
             </a>
             <div class="dropdown-menu" :aria-labelledby="'dropdownMenuLink-' + fileId + '-' + line[0]">
               <template v-if="line[1].risk === 9">
-                <a v-if="line[1].snippet" class="dropdown-item" :href="editSnippetUrl(line[1].snippet, line[1].hash)"
+                <a
+                  v-if="line[1].snippet"
+                  class="dropdown-item"
+                  :href="editSnippetUrl(line[1].snippet, line[1].hash)"
+                  @click="onCreateClick($event, line, line[1].snippet)"
                   >Create Pattern from selection</a
                 >
-                <a v-else class="dropdown-item" :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
+                <a
+                  v-else
+                  class="dropdown-item"
+                  :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
+                  @click="onCreateClick($event, line, null)"
                   >Create Pattern from selection</a
                 >
               </template>
@@ -64,11 +72,24 @@
           </td>
 
           <td class="linenumber">{{ line[0] }}</td>
-          <td class="code">{{ line[2] }}</td>
+          <td class="code">
+            {{ line[2]
+            }}<PendingActionIndicator
+              v-for="action in actionsForLine(line)"
+              :key="action.id"
+              :action="action"
+              @dismiss="onDismiss"
+            />
+          </td>
 
           <td v-if="line[1].end && line[1].risk === 9 && line[1].snippet" class="quick-actions text-end">
-            <a :href="newSnippetUrl(line[0], line[1].end, line[1].hash)" target="_blank">
-              <i class="fa-solid fa-up-right-from-square"></i>
+            <a
+              :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
+              target="_blank"
+              title="Create pattern from selection"
+              @click="onCreateClick($event, line, line[1].snippet)"
+            >
+              <i class="fa-solid fa-square-plus"></i>
             </a>
           </td>
           <td v-else class="quick-actions"></td>
@@ -79,16 +100,20 @@
 </template>
 
 <script>
+import PendingActionIndicator from './PendingActionIndicator.vue';
+
 export default {
   name: 'FileSource',
+  components: {PendingActionIndicator},
   props: {
     lines: {type: Array, required: true},
     fileId: {type: Number, required: true},
     filename: {type: String, default: ''},
     packname: {type: String, default: ''},
-    isAdminOrContributor: {type: Boolean, default: false}
+    isAdminOrContributor: {type: Boolean, default: false},
+    pendingActions: {type: Array, default: () => []}
   },
-  emits: ['extend'],
+  emits: ['extend', 'open-editor', 'dismiss-action'],
   methods: {
     rowClass(info) {
       const classes = [`risk-${info.risk}`];
@@ -97,6 +122,32 @@ export default {
     },
     showActions(info) {
       return this.isAdminOrContributor && info.end;
+    },
+    actionsForLine(line) {
+      const start = line[0];
+      const end = line[1].end;
+      const hash = line[1].hash;
+      if (!end) return [];
+      return this.pendingActions.filter(a => {
+        if (a.startLine === start && a.endLine === end) return true;
+        if (hash && a.hash === hash) return true;
+        return false;
+      });
+    },
+    onDismiss(action) {
+      this.$emit('dismiss-action', action.id);
+    },
+    onCreateClick(event, line, snippetId) {
+      event.preventDefault();
+      this.$emit('open-editor', {
+        snippetId: snippetId ?? null,
+        fileId: this.fileId,
+        startLine: line[0],
+        endLine: line[1].end,
+        hash: line[1].hash ?? null,
+        from: this.packname,
+        filePath: this.filename
+      });
     },
     newSnippetUrl(start, end, hash) {
       const qs = new URLSearchParams({from: this.packname});

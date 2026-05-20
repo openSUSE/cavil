@@ -1,176 +1,212 @@
 <template>
-  <div v-if="loading">
-    <ProgressBar v-if="stage" :stage="stage" />
+  <div>
+    <div v-if="loading">
+      <ProgressBar v-if="stage" :stage="stage" />
+      <div v-else>
+        <span id="ajax-status">
+          <i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...
+        </span>
+      </div>
+    </div>
+    <div v-else-if="emptyReport" class="alert alert-success" role="alert">
+      No files matching any known license patterns or keywords have been found.
+    </div>
     <div v-else>
-      <span id="ajax-status">
-        <i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...
-      </span>
-    </div>
-  </div>
-  <div v-else-if="emptyReport" class="alert alert-success" role="alert">
-    No files matching any known license patterns or keywords have been found.
-  </div>
-  <div v-else>
-    <br />
-    <div v-if="chart !== null" class="row">
-      <div class="col mb-3">
-        <canvas id="license-chart" ref="chartCanvas" width="100%" height="18em"></canvas><br />
+      <br />
+      <div v-if="chart !== null" class="row">
+        <div class="col mb-3">
+          <canvas id="license-chart" ref="chartCanvas" width="100%" height="18em"></canvas><br />
+        </div>
       </div>
-    </div>
 
-    <div v-if="incompatibleLicenses.length > 0" id="incompatible-licenses" class="alert alert-danger">
-      <p>Elevated risk, package might contain incompatible licenses:</p>
-      <ul>
-        <li v-for="(match, idx) in incompatibleLicenses" :key="idx">{{ match.licenses.join(', ') }}</li>
-      </ul>
-    </div>
-
-    <div v-if="missedFiles.length > 0">
-      <div id="incomplete-warning" class="alert alert-warning">
-        Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
-        positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its similarity
-        to existing license patterns, the higher the risk will climb above the predicted license.
+      <div v-if="incompatibleLicenses.length > 0" id="incompatible-licenses" class="alert alert-danger">
+        <p>Elevated risk, package might contain incompatible licenses:</p>
+        <ul>
+          <li v-for="(match, idx) in incompatibleLicenses" :key="idx">{{ match.licenses.join(', ') }}</li>
+        </ul>
       </div>
-      <h4>
-        <div class="badge text-bg-dark">Risk 9</div>
-      </h4>
-      <div class="row">
-        <div class="col mb-3" id="unmatched-files">
-          <i class="fa-solid fa-circle-exclamation"></i>
-          {{ unresolvedMatches }} unique unresolved {{ unresolvedMatches === 1 ? 'match' : 'matches' }} in (at least)
-          <span id="unmatched-count">{{ missedFiles.length }}</span>
-          {{ missedFiles.length === 1 ? 'file' : 'files' }}
-          <div id="filelist-snippets" class="collapse show">
-            <table class="table table-borderless m-0 ms-4 hover-table">
+
+      <div v-if="missedFiles.length > 0">
+        <div id="incomplete-warning" class="alert alert-warning">
+          Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
+          positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its
+          similarity to existing license patterns, the higher the risk will climb above the predicted license.
+        </div>
+        <h4>
+          <div class="badge text-bg-dark">Risk 9</div>
+        </h4>
+        <div class="row">
+          <div class="col mb-3" id="unmatched-files">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            {{ unresolvedMatches }} unique unresolved {{ unresolvedMatches === 1 ? 'match' : 'matches' }} in (at least)
+            <span id="unmatched-count">{{ missedFiles.length }}</span>
+            {{ missedFiles.length === 1 ? 'file' : 'files' }}
+            <div id="filelist-snippets" class="collapse show">
+              <table class="table table-borderless m-0 ms-4 hover-table">
+                <tbody>
+                  <tr v-for="file in missedFiles" :key="file.id">
+                    <td class="breakable-column p-0">
+                      <a :href="'#file-' + file.id" class="file-link" @click="onFileLinkClick(file.id)">{{
+                        file.name
+                      }}</a>
+                    </td>
+                    <td class="p-0">
+                      <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
+                    </td>
+                    <td class="static-column p-0 text-end">
+                      estimated
+                      <div :class="['badge', 'estimated-risk', estimatedRiskClass(file.max_risk)]">
+                        Risk {{ file.max_risk }}
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-for="risk in sortedRisks" :key="risk">
+        <h4>
+          <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
+        </h4>
+        <ul :id="'risk-' + risk">
+          <li v-for="lic in risks[risk]" :key="lic.list_id">
+            <span v-html="lic.name_html"></span>:
+            <a :href="'#' + lic.list_id" data-bs-toggle="collapse"> {{ lic.files.length }} files </a>
+            <p v-if="lic.flags.length > 0">Flags: {{ lic.flags.map(capitalize).join(', ') }}</p>
+            <div :id="lic.list_id" :class="lic.list_class">
+              <ul>
+                <li v-for="file in lic.shown_files" :key="file[0]">
+                  <a :href="'#file-' + file[0]" class="file-link" @click="onFileLinkClick(file[0])">{{ file[1] }}</a>
+                </li>
+                <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div v-if="matchingGlobs.length > 0">
+        <h2>Files ignored by glob</h2>
+        <ul>
+          <li v-for="glob in matchingGlobs" :key="glob">{{ glob }}</li>
+        </ul>
+      </div>
+
+      <div v-if="files.length > 0">
+        <h2>Files</h2>
+        <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
+          <a :name="'file-' + file.id"></a>
+          <div class="file">
+            <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
+            <div class="float-end">
+              <a :href="file.file_url" target="_blank">
+                <i class="fa-solid fa-up-right-from-square"></i>
+              </a>
+            </div>
+          </div>
+          <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
+            <FileSource
+              v-if="file.source"
+              :lines="file.source.lines"
+              :file-id="file.id"
+              :filename="file.source.filename"
+              :packname="file.source.name"
+              :is-admin-or-contributor="isAdminOrContributor"
+              :pending-actions="pendingActionsForFile(file.id)"
+              @extend="onExtend(file, $event)"
+              @open-editor="openEditor"
+              @dismiss-action="dismissAction"
+            />
+          </div>
+        </div>
+        <br />
+      </div>
+
+      <div v-if="emails.length > 0">
+        <h2>
+          <a href="#emails" data-bs-toggle="collapse">{{ emails.length }} Emails</a>
+        </h2>
+        <div class="row collapse" id="emails">
+          <div class="col">
+            <table class="table table-striped transparent-table">
               <tbody>
-                <tr v-for="file in missedFiles" :key="file.id">
-                  <td class="breakable-column p-0">
-                    <a :href="'#file-' + file.id" class="file-link" @click="onFileLinkClick(file.id)">{{
-                      file.name
-                    }}</a>
-                  </td>
-                  <td class="p-0">
-                    <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
-                  </td>
-                  <td class="static-column p-0 text-end">
-                    estimated
-                    <div :class="['badge', 'estimated-risk', estimatedRiskClass(file.max_risk)]">
-                      Risk {{ file.max_risk }}
-                    </div>
-                  </td>
+                <tr v-for="email in emails" :key="email[0]">
+                  <td>{{ email[0] }}</td>
+                  <td>{{ email[1] }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
       </div>
-    </div>
 
-    <div v-for="risk in sortedRisks" :key="risk">
-      <h4>
-        <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
-      </h4>
-      <ul :id="'risk-' + risk">
-        <li v-for="lic in risks[risk]" :key="lic.list_id">
-          <span v-html="lic.name_html"></span>:
-          <a :href="'#' + lic.list_id" data-bs-toggle="collapse"> {{ lic.files.length }} files </a>
-          <p v-if="lic.flags.length > 0">Flags: {{ lic.flags.map(capitalize).join(', ') }}</p>
-          <div :id="lic.list_id" :class="lic.list_class">
-            <ul>
-              <li v-for="file in lic.shown_files" :key="file[0]">
-                <a :href="'#file-' + file[0]" class="file-link" @click="onFileLinkClick(file[0])">{{ file[1] }}</a>
-              </li>
-              <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
-            </ul>
+      <div v-if="urls.length > 0">
+        <h2>
+          <a href="#urls" data-bs-toggle="collapse">{{ urls.length }} URLs</a>
+        </h2>
+        <div class="row collapse" id="urls">
+          <div class="col">
+            <table class="table table-striped transparent-table">
+              <tbody>
+                <tr v-for="url in urls" :key="url[0]">
+                  <td>{{ url[0] }}</td>
+                  <td>{{ url[1] }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </li>
-      </ul>
-    </div>
-
-    <div v-if="matchingGlobs.length > 0">
-      <h2>Files ignored by glob</h2>
-      <ul>
-        <li v-for="glob in matchingGlobs" :key="glob">{{ glob }}</li>
-      </ul>
-    </div>
-
-    <div v-if="files.length > 0">
-      <h2>Files</h2>
-      <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
-        <a :name="'file-' + file.id"></a>
-        <div class="file">
-          <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
-          <div class="float-end">
-            <a :href="file.file_url" target="_blank">
-              <i class="fa-solid fa-up-right-from-square"></i>
-            </a>
-          </div>
-        </div>
-        <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
-          <FileSource
-            v-if="file.source"
-            :lines="file.source.lines"
-            :file-id="file.id"
-            :filename="file.source.filename"
-            :packname="file.source.name"
-            :is-admin-or-contributor="isAdminOrContributor"
-            @extend="onExtend(file, $event)"
-          />
         </div>
       </div>
+
       <br />
     </div>
-
-    <div v-if="emails.length > 0">
-      <h2>
-        <a href="#emails" data-bs-toggle="collapse">{{ emails.length }} Emails</a>
-      </h2>
-      <div class="row collapse" id="emails">
-        <div class="col">
-          <table class="table table-striped transparent-table">
-            <tbody>
-              <tr v-for="email in emails" :key="email[0]">
-                <td>{{ email[0] }}</td>
-                <td>{{ email[1] }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="urls.length > 0">
-      <h2>
-        <a href="#urls" data-bs-toggle="collapse">{{ urls.length }} URLs</a>
-      </h2>
-      <div class="row collapse" id="urls">
-        <div class="col">
-          <table class="table table-striped transparent-table">
-            <tbody>
-              <tr v-for="url in urls" :key="url[0]">
-                <td>{{ url[0] }}</td>
-                <td>{{ url[1] }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <br />
+    <SnippetEditorModal
+      v-if="isAdminOrContributor"
+      ref="editorModal"
+      :has-contributor-role="isAdminOrContributor"
+      :has-admin-role="isAdminOrContributor"
+      @submit="onEditorSubmit"
+    />
+    <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
   </div>
 </template>
 
 <script>
 import FileSource from './components/FileSource.vue';
+import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
+import SnippetEditorModal from './components/SnippetEditorModal.vue';
 import Refresh from './mixins/refresh.js';
+import UserAgent from '@mojojs/user-agent';
 import Chart from 'chart.js';
+
+let pendingActionIdSeq = 0;
 
 export default {
   name: 'ReportDetails',
-  components: {FileSource, ProgressBar},
+  components: {FileSource, PendingActionsWidget, ProgressBar, SnippetEditorModal},
   mixins: [Refresh],
+  provide() {
+    return {
+      pendingActionsStore: {
+        actions: this.pendingActions,
+        add: action => this.pendingActions.push(action),
+        remove: id => {
+          const idx = this.pendingActions.findIndex(a => a.id === id);
+          if (idx >= 0) this.pendingActions.splice(idx, 1);
+        },
+        clear: () => {
+          this.pendingActions.splice(0, this.pendingActions.length);
+        },
+        edit: id => this.editAction(id),
+        scrollTo: id => this.scrollToAction(id),
+        submitAll: () => this.submitAllActions()
+      }
+    };
+  },
   data() {
     return {
       chart: null,
@@ -181,6 +217,8 @@ export default {
       loading: true,
       matchingGlobs: [],
       missedFiles: [],
+      pendingActions: [],
+      hashHandled: false,
       refreshDelay: 5000,
       refreshUrl: `/reviews/report_details/${this.pkgId}`,
       risks: {},
@@ -273,7 +311,41 @@ export default {
         for (const file of this.files) {
           if (file.expanded && !file.source) this.fetchSource(file);
         }
+        this.handleInitialHash();
       });
+    },
+    handleInitialHash() {
+      if (this.hashHandled) return;
+      const match = (window.location.hash || '').match(/^#file-(\d+)$/);
+      if (!match) {
+        this.hashHandled = true;
+        return;
+      }
+      const file = this.files.find(f => String(f.id) === match[1]);
+      if (!file) return;
+      this.hashHandled = true;
+      this.scrollToFile(file);
+    },
+    async scrollToFile(file) {
+      if (!file.expanded) file.expanded = true;
+      if (!file.source) await this.fetchSource(file);
+      await this.$nextTick();
+      const el = document.getElementById('file-details-' + file.id) ||
+        document.querySelector('[name="file-' + file.id + '"]');
+      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+    },
+    async scrollToAction(id) {
+      const action = this.pendingActions.find(a => a.id === id);
+      if (!action) return;
+      const file = this.files.find(f => f.id === action.fileId);
+      if (!file) return;
+      if (!file.expanded) file.expanded = true;
+      if (!file.source) await this.fetchSource(file);
+      await this.$nextTick();
+      const indicator = document.getElementById('pending-indicator-' + id);
+      const fallback = document.getElementById('file-details-' + file.id);
+      const target = indicator || fallback;
+      if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
     },
     renderChart() {
       const canvas = this.$refs.chartCanvas;
@@ -338,9 +410,146 @@ export default {
     onFileLinkClick(id) {
       const file = this.files.find(f => f.id === id);
       if (!file) return;
-      if (!file.expanded) {
-        file.expanded = true;
-        if (!file.source) this.fetchSource(file);
+      this.scrollToFile(file);
+    },
+    pendingActionsForFile(fileId) {
+      return this.pendingActions.filter(a => a.fileId === fileId);
+    },
+    async openEditor(meta) {
+      let snippetId = meta.snippetId;
+      if (snippetId === null) {
+        const qs = new URLSearchParams({from: meta.from});
+        if (meta.hash) qs.set('hash', meta.hash);
+        const url = `/snippets/from_file/${meta.fileId}/${meta.startLine}/${meta.endLine}?${qs.toString()}`;
+        const ua = new UserAgent({baseURL: window.location.href});
+        const res = await ua.get(url, {headers: {Accept: 'application/json'}});
+        if (!res.isSuccess) {
+          // eslint-disable-next-line no-alert
+          alert(`Could not load snippet (HTTP ${res.statusCode})`);
+          return;
+        }
+        const data = await res.json();
+        snippetId = data.snippet;
+      }
+      this.$refs.editorModal.open({
+        snippetId,
+        hash: meta.hash,
+        from: meta.from,
+        context: {
+          fileId: meta.fileId,
+          startLine: meta.startLine,
+          endLine: meta.endLine,
+          filePath: meta.filePath
+        }
+      });
+    },
+    onEditorSubmit(payload) {
+      const ctx = payload.context ?? {};
+      const editingId = payload.editingId ?? null;
+      const existingIdx =
+        editingId !== null ? this.pendingActions.findIndex(a => a.id === editingId) : -1;
+      const baseId = existingIdx >= 0 ? this.pendingActions[existingIdx].id : ++pendingActionIdSeq;
+      const action = {
+        id: baseId,
+        snippetId: payload.snippetId,
+        fileId: ctx.fileId,
+        startLine: ctx.startLine,
+        endLine: ctx.endLine,
+        hash: payload.hash,
+        from: payload.from,
+        action: payload.action,
+        formData: payload.formData,
+        license: payload.license || (payload.formData && payload.formData.license) || '',
+        locationLabel: `${ctx.filePath ?? `file ${ctx.fileId}`}:${ctx.startLine}-${ctx.endLine}`,
+        state: 'pending',
+        error: null
+      };
+      if (existingIdx >= 0) {
+        this.pendingActions.splice(existingIdx, 1, action);
+      } else {
+        this.pendingActions.push(action);
+      }
+    },
+    dismissAction(id) {
+      const idx = this.pendingActions.findIndex(a => a.id === id);
+      if (idx >= 0) this.pendingActions.splice(idx, 1);
+    },
+    editAction(id) {
+      const action = this.pendingActions.find(a => a.id === id);
+      if (!action) return;
+      this.$refs.editorModal.open({
+        snippetId: action.snippetId,
+        hash: action.hash,
+        from: action.from,
+        context: {
+          fileId: action.fileId,
+          startLine: action.startLine,
+          endLine: action.endLine,
+          filePath: action.locationLabel.split(':')[0]
+        },
+        initial: action.formData,
+        editingId: action.id
+      });
+    },
+    async submitAllActions() {
+      const queue = this.pendingActions.filter(a => a.state !== 'done');
+      if (queue.length === 0) return;
+
+      for (const action of queue) {
+        action.state = 'submitting';
+        action.error = null;
+      }
+
+      const body = {
+        actions: queue.map(a => ({
+          kind: a.action,
+          snippetId: a.snippetId,
+          formData: a.formData
+        }))
+      };
+      const ua = new UserAgent({baseURL: window.location.href});
+      let res;
+      try {
+        res = await ua.post('/snippet/batch_decision', {json: body, headers: {Accept: 'application/json'}});
+      } catch (err) {
+        for (const action of queue) {
+          action.state = 'error';
+          action.error = err.message ?? String(err);
+        }
+        return;
+      }
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (e) {
+        // ignore JSON parse errors; handled below
+      }
+      const results = data && Array.isArray(data.results) ? data.results : [];
+
+      if (res.isSuccess && data && data.ok) {
+        // All actions committed - reload to show fresh report.
+        window.location.reload();
+        return;
+      }
+
+      // Partial or full failure - surface per-action errors. Nothing was
+      // written if the failure was at the validation phase, so leave the
+      // queue alone for the user to fix and resubmit.
+      for (let i = 0; i < queue.length; i++) {
+        const action = queue[i];
+        const result = results[i];
+        if (result && result.error) {
+          action.state = 'error';
+          action.error = result.error;
+        } else if (result && result.ok) {
+          // Validation passed but the batch as a whole was rejected; treat as
+          // rolled-back and reset the state so the user can resubmit.
+          action.state = 'pending';
+          action.error = null;
+        } else {
+          action.state = 'error';
+          action.error = (data && data.error) || `Request failed (HTTP ${res.statusCode})`;
+        }
       }
     }
   }

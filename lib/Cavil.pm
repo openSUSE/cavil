@@ -274,7 +274,7 @@ sub startup ($self) {
   $admin_or_contributor->get('/snippets/from_file/:file/<start:num>/<end:num>')
     ->to('Snippet#from_file')
     ->name('new_snippet');
-  $admin_or_contributor->post('/snippet/decision/<id:num>')->to('Snippet#decision')->name('snippet_decision');
+  $admin_or_contributor->post('/snippet/batch_decision')->to('Snippet#batch_decision')->name('snippet_batch_decision');
 
   $logged_in->get('/stats')->to('Stats#index')->name('stats');
   $logged_in->get('/stats/meta')->to('Stats#meta')->name('stats_meta');

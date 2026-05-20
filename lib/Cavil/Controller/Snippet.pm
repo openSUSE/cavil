@@ -17,7 +17,7 @@ package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
-use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip);
+use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip pattern_checksum);
 use Mojo::JSON  qw(true false);
 
 my $CHECKSUM_RE = qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i;
@@ -58,38 +58,65 @@ sub closest ($self) {
   );
 }
 
-sub decision ($self) {
-  my $validation = $self->validation;
-  $validation->optional('create-pattern');
-  $validation->optional('create-ignore');
-  $validation->optional('propose-pattern');
-  $validation->optional('propose-ignore');
-  $validation->optional('propose-missing');
-  $validation->optional('mark-non-license');
-  return $self->reply->json_validation_error if $validation->has_error;
+my %BATCH_KINDS = map { $_ => 1 } qw(
+  create-pattern create-ignore mark-non-license
+  propose-pattern propose-ignore propose-missing
+);
 
-  # Only admins can create patterns or ignore snippets directly
+my %ADMIN_ONLY_KINDS = map { $_ => 1 } qw(create-pattern create-ignore mark-non-license);
+
+# Apply a list of snippet decisions as a single batch.
+#
+# All actions are validated up front. If any action fails validation, nothing
+# is written and the response carries a per-action error list. Otherwise the
+# actions are applied sequentially with reindex calls suppressed, then one
+# reindex job is queued per affected package - so a batch of N create-pattern
+# actions on the same package produces exactly one reindex, never a race.
+sub batch_decision ($self) {
+  my $body = $self->req->json;
+  return $self->render(json => {error => 'Request body must be JSON'}, status => 400)
+    unless $body && ref $body eq 'HASH' && ref $body->{actions} eq 'ARRAY';
+
+  my $actions = $body->{actions};
+  return $self->render(json => {error => 'No actions provided'}, status => 400) unless @$actions;
+
   my $is_admin = $self->current_user_has_role('admin');
-  if ($validation->param('create-pattern')) {
-    return $self->render('permissions', status => 403) unless $is_admin;
-    $self->_create_pattern;
+
+  # Phase 1: validate everything up front; surface all errors at once.
+  my @results;
+  my $worst_status = 200;
+  for my $a (@$actions) {
+    my $error = $self->_validate_action($a, $is_admin);
+    if (defined $error) {
+      push @results, {error => $error->{message}};
+      $worst_status = $error->{status} if $error->{status} > $worst_status;
+    }
+    else {
+      push @results, {ok => \1};
+    }
+  }
+  if ($worst_status != 200) {
+    return $self->render(json => {ok => \0, results => \@results}, status => $worst_status);
   }
 
-  elsif ($validation->param('create-ignore')) {
-    return $self->render('permissions', status => 403) unless $is_admin;
-    $self->_create_ignore;
+  # Phase 2: apply each action, deferring per-package reindex jobs until the
+  # whole batch is done. If any application step fails we still report what
+  # succeeded but mark the failed index so the caller can show errors.
+  my %packages_to_reindex;
+  for my $i (0 .. $#$actions) {
+    my $result = $self->_apply_action($actions->[$i], \%packages_to_reindex);
+    $results[$i] = $result;
+    if ($result->{error}) {
+      my $s = delete($result->{status}) // 409;
+      $worst_status = $s if $s > $worst_status;
+    }
   }
 
-  elsif ($validation->param('mark-non-license')) {
-    return $self->render('permissions', status => 403) unless $is_admin;
-    $self->_mark_non_license;
-  }
+  # Trigger reindex once per affected package, after all writes are done.
+  $self->packages->reindex($_, 3) for sort { $a <=> $b } keys %packages_to_reindex;
 
-  elsif ($validation->param('propose-pattern')) { $self->_propose_pattern }
-  elsif ($validation->param('propose-ignore'))  { $self->_propose_ignore }
-  elsif ($validation->param('propose-missing')) { $self->_propose_missing }
-
-  else { $self->reply->not_found }
+  my $status = $worst_status == 200 ? 200 : $worst_status;
+  $self->render(json => {ok => $status == 200 ? \1 : \0, results => \@results}, status => $status);
 }
 
 sub edit ($self) {
@@ -111,7 +138,12 @@ sub from_file ($self) {
 
   my $hash = $v->param('hash') // '';
   my $from = $v->param('from') // '';
-  return $self->redirect_to($self->url_for('edit_snippet', id => $snippet)->query(hash => $hash, from => $from));
+  $self->respond_to(
+    json => sub { $self->render(json => {snippet => $snippet, hash => $hash, from => $from}) },
+    any  => sub {
+      $self->redirect_to($self->url_for('edit_snippet', id => $snippet)->query(hash => $hash, from => $from));
+    }
+  );
 }
 
 sub list ($self) {
@@ -165,198 +197,184 @@ sub meta ($self) {
   $self->render(json => {snippet => $snippet, licenses => $licenses, closest => $pattern->{license}});
 }
 
-sub _create_pattern ($self) {
-  my $validation = $self->validation;
-  $validation->required('license');
-  $validation->required('pattern', 'not_empty');
-  $validation->required('risk')->num;
-  $validation->optional('checksum');
-  $validation->optional('patent');
-  $validation->optional('trademark');
-  $validation->optional('export_restricted');
-  $validation->optional('contributor');
-  $validation->optional('delay')->num;
-  return $self->reply->json_validation_error if $validation->has_error;
+sub _check_form_keys ($form, @required) {
+  for my $key (@required) {
+    return "Missing required field: $key"
+      unless defined $form->{$key} && (ref $form->{$key} ? 1 : length $form->{$key});
+  }
+  return undef;
+}
 
-  my $packages = $self->snippets->packages_for_snippet($self->stash('id'));
+sub _bad       ($message) { return {message => $message, status => 400} }
+sub _forbidden ($message) { return {message => $message, status => 403} }
+sub _conflict  ($message) { return {message => $message, status => 409} }
 
-  my $owner_id       = $self->users->id_for_login($self->current_user);
-  my $contributor    = $validation->param('contributor');
-  my $contributor_id = $contributor ? $self->users->id_for_login($contributor) : undef;
-  my $delay          = $validation->param('delay') // 0;
+sub _validate_action ($self, $a, $is_admin) {
+  return _bad('Missing action kind')        unless ref $a eq 'HASH' && defined(my $kind = $a->{kind});
+  return _bad("Unknown action kind: $kind") unless $BATCH_KINDS{$kind};
+  return _forbidden('Permission denied') if $ADMIN_ONLY_KINDS{$kind} && !$is_admin;
+  return _bad('Missing snippet id') unless defined $a->{snippetId} && $a->{snippetId} =~ /^\d+\z/;
+  return _bad('Missing form data') unless ref(my $form = $a->{formData}) eq 'HASH';
+
+  if ($kind eq 'create-pattern') {
+    if (my $err = _check_form_keys($form, qw(license pattern risk))) { return _bad($err) }
+    return _bad('Risk must be numeric') unless $form->{risk} =~ /^\d+\z/;
+  }
+  elsif ($kind eq 'propose-pattern') {
+    if (my $err = _check_form_keys($form, qw(license pattern risk))) { return _bad($err) }
+    return _bad('Risk must be numeric') unless $form->{risk} =~ /^\d+\z/;
+
+    my $snippet = $self->snippets->find($a->{snippetId});
+    return _bad('Snippet not found') unless $snippet;
+    return _bad('License pattern does not match the original snippet')
+      unless pattern_matches($form->{pattern}, $snippet->{text});
+    return _bad('License pattern contains redundant $SKIP at beginning or end')
+      if pattern_contains_redundant_skip($form->{pattern});
+  }
+  elsif ($kind eq 'propose-missing') {
+    if (my $err = _check_form_keys($form, qw(hash from pattern))) { return _bad($err) }
+    return _bad('Invalid hash format') unless $form->{hash} =~ $CHECKSUM_RE;
+    my $edited = $form->{edited} // '0';
+    return _bad('Only unedited snippets can be reported as missing license') if $edited && $edited ne '0';
+  }
+  elsif ($kind eq 'create-ignore') {
+    if (my $err = _check_form_keys($form, qw(hash from))) { return _bad($err) }
+    return _bad('Invalid hash format') unless $form->{hash} =~ $CHECKSUM_RE;
+  }
+  elsif ($kind eq 'mark-non-license') {
+    if (my $err = _check_form_keys($form, qw(hash))) { return _bad($err) }
+    return _bad('Invalid hash format')        unless $form->{hash} =~ $CHECKSUM_RE;
+    return _bad('Snippet not found for hash') unless $self->snippets->id_for_checksum($form->{hash});
+  }
+  elsif ($kind eq 'propose-ignore') {
+    if (my $err = _check_form_keys($form, qw(hash from pattern))) { return _bad($err) }
+    return _bad('Invalid hash format') unless $form->{hash} =~ $CHECKSUM_RE;
+    my $edited = $form->{edited} // '0';
+    return _bad('Only unedited snippets can be ignored') if $edited && $edited ne '0';
+  }
+
+  return undef;
+}
+
+sub _apply_action ($self, $a, $packages_to_reindex) {
+  my $kind = $a->{kind};
+  my $form = $a->{formData};
+  my $id   = $a->{snippetId};
 
   my $patterns = $self->patterns;
-  my $pattern  = $patterns->create(
-    license           => $validation->param('license'),
-    pattern           => $validation->param('pattern'),
-    risk              => $validation->param('risk'),
-    patent            => $validation->param('patent'),
-    trademark         => $validation->param('trademark'),
-    export_restricted => $validation->param('export_restricted'),
-    owner             => $owner_id,
-    contributor       => $contributor_id
-  );
-
-  return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $pattern->{conflict};
-
-  if (my $checksum = $validation->param('checksum')) { $patterns->remove_proposal($checksum) }
-  $self->packages->reindex($_, 3, [], $delay) for @$packages;
-  $self->render(packages => $packages, pattern => $pattern->{id});
-}
-
-sub _create_ignore ($self) {
-  my $validation = $self->validation;
-  $validation->required('hash', 'not_empty')->like($CHECKSUM_RE);
-  $validation->required('from', 'not_empty');
-  $validation->optional('contributor');
-  return $self->reply->json_validation_error if $validation->has_error;
-
-  my $owner_id       = $self->users->id_for_login($self->current_user);
-  my $contributor    = $validation->param('contributor');
-  my $contributor_id = $contributor ? $self->users->id_for_login($contributor) : undef;
-
-  my $hash = $validation->param('hash');
-  $self->packages->ignore_line(
-    {package => $validation->param('from'), hash => $hash, owner => $owner_id, contributor => $contributor_id});
-  $self->patterns->remove_proposal($hash);
-
-  return $self->render(ignore => 1);
-}
-
-sub _mark_non_license ($self) {
-  my $validation = $self->validation;
-  $validation->required('hash')->like($CHECKSUM_RE);
-  $validation->optional('delay')->num;
-  return $self->reply->json_validation_error if $validation->has_error;
-
-  my $delay    = $validation->param('delay') // 0;
-  my $hash     = $validation->param('hash');
   my $snippets = $self->snippets;
-  return $self->reply->not_found unless my $id = $snippets->id_for_checksum($hash);
+  my $packages = $self->packages;
+  my $users    = $self->users;
+  my $owner_id = $users->id_for_login($self->current_user);
 
-  $self->patterns->remove_proposal($hash);
-  $snippets->mark_non_license($id);
+  my $every = sub ($key) {
+    my $v = $form->{$key};
+    return [] unless defined $v;
+    return $v if ref $v eq 'ARRAY';
+    return [split /,/, $v];
+  };
 
-  my $packages = $snippets->packages_for_snippet($id);
-  $self->packages->reindex($_, 3, [], $delay) for @$packages;
+  if ($kind eq 'create-pattern') {
+    my $contributor_id = $form->{contributor} ? $users->id_for_login($form->{contributor}) : undef;
+    my $pattern        = $patterns->create(
+      license           => $form->{license},
+      pattern           => $form->{pattern},
+      risk              => $form->{risk},
+      patent            => $form->{patent},
+      trademark         => $form->{trademark},
+      export_restricted => $form->{export_restricted},
+      owner             => $owner_id,
+      contributor       => $contributor_id
+    );
+    return {kind => $kind, error => 'Conflicting license pattern already exists'} if $pattern->{conflict};
 
-  $self->render(packages => $packages);
-}
+    if (my $checksum = $form->{checksum}) { $patterns->remove_proposal($checksum) }
+    my $pkgs = $snippets->packages_for_snippet($id);
+    $packages_to_reindex->{$_} = 1 for @$pkgs;
+    return {kind => 'pattern', id => $pattern->{id}, packages => $pkgs};
+  }
 
-sub _propose_pattern ($self) {
-  my $validation = $self->validation;
-  $validation->required('license');
-  $validation->required('pattern', 'not_empty');
-  $validation->required('risk')->num;
-  $validation->optional('edited');
-  $validation->optional('highlighted-keywords', 'comma_separated');
-  $validation->optional('highlighted-licenses', 'comma_separated');
-  $validation->optional('package');
-  $validation->optional('patent');
-  $validation->optional('trademark');
-  $validation->optional('export_restricted');
-  return $self->reply->json_validation_error if $validation->has_error;
+  if ($kind eq 'create-ignore') {
+    my $contributor_id = $form->{contributor} ? $users->id_for_login($form->{contributor}) : undef;
+    $packages->ignore_line(
+      {package => $form->{from}, hash => $form->{hash}, owner => $owner_id, contributor => $contributor_id});
+    $patterns->remove_proposal($form->{hash});
+    return {kind => 'ignore'};
+  }
 
-  my $pattern = $validation->param('pattern');
-  my $snippet = $self->snippets->find($self->param('id'));
-  return $self->render(status => 400, error => 'License pattern does not match the original snippet')
-    unless pattern_matches($pattern, $snippet->{text});
-  return $self->render(status => 400, error => 'License pattern contains redundant $SKIP at beginning or end')
-    if pattern_contains_redundant_skip($pattern);
+  if ($kind eq 'mark-non-license') {
+    my $sid = $snippets->id_for_checksum($form->{hash});
+    return {kind => $kind, error => 'Snippet not found for hash'} unless $sid;
+    $patterns->remove_proposal($form->{hash});
+    $snippets->mark_non_license($sid);
+    my $pkgs = $snippets->packages_for_snippet($sid);
+    $packages_to_reindex->{$_} = 1 for @$pkgs;
+    return {kind => 'non-license', packages => $pkgs};
+  }
 
-  my $user_id = $self->users->id_for_login($self->current_user);
-  my $result  = $self->patterns->propose_create(
-    snippet              => $snippet->{id},
-    pattern              => $pattern,
-    highlighted_keywords => $validation->every_param('highlighted-keywords'),
-    highlighted_licenses => $validation->every_param('highlighted-licenses'),
-    edited               => $validation->param('edited'),
-    license              => $validation->param('license'),
-    risk                 => $validation->param('risk'),
-    package              => $validation->param('package'),
-    patent               => $validation->param('patent'),
-    trademark            => $validation->param('trademark'),
-    export_restricted    => $validation->param('export_restricted'),
-    owner                => $user_id
-  );
+  if ($kind eq 'propose-pattern') {
+    my $result = $patterns->propose_create(
+      snippet              => $id,
+      pattern              => $form->{pattern},
+      highlighted_keywords => $every->('highlighted-keywords'),
+      highlighted_licenses => $every->('highlighted-licenses'),
+      edited               => $form->{edited},
+      license              => $form->{license},
+      risk                 => $form->{risk},
+      package              => $form->{package},
+      patent               => $form->{patent},
+      trademark            => $form->{trademark},
+      export_restricted    => $form->{export_restricted},
+      owner                => $owner_id
+    );
+    return {
+      kind   => $kind,
+      status => 400,
+      error  => 'This license and risk combination is not allowed, only use pre-existing licenses'
+      }
+      if $result->{license_conflict};
+    return {kind => $kind, error => 'Conflicting license pattern already exists'} if $result->{conflict};
+    return {kind => $kind, error => 'Conflicting license pattern proposal already exists'}
+      if $result->{proposal_conflict};
+    return {kind => 'proposal'};
+  }
 
-  return $self->render(
-    status => 400,
-    error  => 'This license and risk combination is not allowed, only use pre-existing licenses'
-  ) if $result->{license_conflict};
-  return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $result->{conflict};
-  return $self->render(status => 409, error => 'Conflicting license pattern proposal already exists')
-    if $result->{proposal_conflict};
+  if ($kind eq 'propose-ignore') {
+    my $result = $patterns->propose_ignore(
+      snippet              => $id,
+      hash                 => $form->{hash},
+      from                 => $form->{from},
+      pattern              => $form->{pattern},
+      highlighted_keywords => $every->('highlighted-keywords'),
+      highlighted_licenses => $every->('highlighted-licenses'),
+      edited               => $form->{edited},
+      package              => $form->{package},
+      owner                => $owner_id
+    );
+    return {kind => $kind, error => 'Conflicting ignore pattern already exists'} if $result->{conflict};
+    return {kind => $kind, error => 'Conflicting ignore pattern proposal already exists'}
+      if $result->{proposal_conflict};
+    return {kind => 'proposal'};
+  }
 
-  $self->render(proposal => 1);
-}
+  if ($kind eq 'propose-missing') {
+    my $result = $patterns->propose_missing(
+      snippet              => $id,
+      hash                 => $form->{hash},
+      from                 => $form->{from},
+      pattern              => $form->{pattern},
+      highlighted_keywords => $every->('highlighted-keywords'),
+      highlighted_licenses => $every->('highlighted-licenses'),
+      edited               => $form->{edited},
+      package              => $form->{package},
+      owner                => $owner_id
+    );
+    return {kind => $kind, error => 'Conflicting license pattern already exists'}  if $result->{conflict};
+    return {kind => $kind, error => 'Conflicting pattern proposal already exists'} if $result->{proposal_conflict};
+    return {kind => 'missing'};
+  }
 
-sub _propose_ignore ($self) {
-  my $validation = $self->validation;
-  $validation->required('hash',    'not_empty')->like($CHECKSUM_RE);
-  $validation->required('from',    'not_empty');
-  $validation->required('pattern', 'not_empty');
-  $validation->required('edited',  'not_empty');
-  $validation->optional('highlighted-keywords', 'comma_separated');
-  $validation->optional('highlighted-licenses', 'comma_separated');
-  $validation->optional('package');
-  return $self->reply->json_validation_error if $validation->has_error;
-
-  my $edited = $validation->param('edited');
-  return $self->render(status => 400, error => 'Only unedited snippets can be ignored') if $edited;
-
-  my $user_id = $self->users->id_for_login($self->current_user);
-  my $result  = $self->patterns->propose_ignore(
-    snippet              => $self->param('id'),
-    hash                 => $validation->param('hash'),
-    from                 => $validation->param('from'),
-    pattern              => $validation->param('pattern'),
-    highlighted_keywords => $validation->every_param('highlighted-keywords'),
-    highlighted_licenses => $validation->every_param('highlighted-licenses'),
-    edited               => $edited,
-    package              => $validation->param('package'),
-    owner                => $user_id
-  );
-
-  return $self->render(status => 409, error => 'Conflicting ignore pattern already exists') if $result->{conflict};
-  return $self->render(status => 409, error => 'Conflicting ignore pattern proposal already exists')
-    if $result->{proposal_conflict};
-
-  $self->render(proposal => 1);
-}
-
-sub _propose_missing ($self) {
-  my $validation = $self->validation;
-  $validation->required('hash',    'not_empty')->like($CHECKSUM_RE);
-  $validation->required('from',    'not_empty');
-  $validation->required('pattern', 'not_empty');
-  $validation->required('edited',  'not_empty');
-  $validation->optional('highlighted-keywords', 'comma_separated');
-  $validation->optional('highlighted-licenses', 'comma_separated');
-  $validation->optional('package');
-  return $self->reply->json_validation_error if $validation->has_error;
-
-  my $edited = $validation->param('edited');
-  return $self->render(status => 400, error => 'Only unedited snippets can be reported as missing license') if $edited;
-
-  my $user_id = $self->users->id_for_login($self->current_user);
-  my $result  = $self->patterns->propose_missing(
-    snippet              => $self->param('id'),
-    hash                 => $validation->param('hash'),
-    from                 => $validation->param('from'),
-    pattern              => $validation->param('pattern'),
-    highlighted_keywords => $validation->every_param('highlighted-keywords'),
-    highlighted_licenses => $validation->every_param('highlighted-licenses'),
-    edited               => $edited,
-    package              => $validation->param('package'),
-    owner                => $user_id
-  );
-
-  return $self->render(status => 409, error => 'Conflicting license pattern already exists') if $result->{conflict};
-  return $self->render(status => 409, error => 'Conflicting pattern proposal already exists')
-    if $result->{proposal_conflict};
-
-  $self->render(missing => 1);
+  return {kind => $kind, error => "Unknown action kind: $kind"};
 }
 
 1;

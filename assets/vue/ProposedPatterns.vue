@@ -222,25 +222,27 @@ export default {
       change.state = 'updating';
 
       const ua = new UserAgent({baseURL: window.location.href});
-      const form = change.data;
-      form.contributor = change.login;
-      form.delay = 600;
+      const formData = {...change.data};
+      formData.contributor = change.login;
+      formData.delay = 600;
+      let kind = null;
       if (change.action === 'create_pattern') {
         for (const key of ['patent', 'trademark', 'export_restricted']) {
-          change.data[key] = change.data[key] === true ? '1' : '0';
+          formData[key] = change.data[key] === true ? '1' : '0';
         }
-        form['create-pattern'] = 1;
-        form.checksum = change.token_hexsum;
+        formData.checksum = change.token_hexsum;
+        kind = 'create-pattern';
       } else if (change.action === 'create_ignore') {
-        form.hash = change.token_hexsum;
+        formData.hash = change.token_hexsum;
         if (this.ignoreForPackage === true) {
-          form['create-ignore'] = 1;
-          form.from = change.data.from;
+          formData.from = change.data.from;
+          kind = 'create-ignore';
         } else {
-          form['mark-non-license'] = 1;
+          kind = 'mark-non-license';
         }
       }
-      await ua.post(change.createUrl, {form});
+      const body = {actions: [{kind, snippetId: change.data.snippet, formData}]};
+      await ua.post('/snippet/batch_decision', {json: body, headers: {Accept: 'application/json'}});
 
       change.state = 'accepted';
     },
@@ -263,7 +265,6 @@ export default {
         change.state = 'proposed';
         change.editUrl = `/snippet/edit/${change.data.snippet}`;
         change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
-        change.createUrl = `/snippet/decision/${change.data.snippet}`;
 
         if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;

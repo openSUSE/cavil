@@ -188,13 +188,28 @@ body {
 .top-buffer {
   margin-top:20px;
 }
-.back-to-top {
+.btn.back-to-top {
+  align-items: center;
   bottom: 20px;
+  box-shadow: 0 4px 12px rgba(27, 31, 36, 0.3);
   cursor: pointer;
-  display: none;
+  display: inline-flex;
+  font-size: 14px;
+  height: 40px;
+  justify-content: center;
+  line-height: 1;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
   position: fixed;
   right: 20px;
-  z-index: 1000;
+  transition: opacity 0.2s ease-in-out;
+  width: 40px;
+  z-index: 1040;
+}
+.back-to-top.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 .file {
   background-color: #f1f8ff;

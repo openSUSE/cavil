@@ -11,6 +11,7 @@ use Cavil::Test;
 use Mojo::File qw(path);
 use Mojo::Date;
 use Mojo::Util qw(encode);
+use Mojo::JSON qw(true);
 use MCP::Client;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -631,14 +632,15 @@ subtest 'MCP' => sub {
           ->json_is('/changes/0/data/snippet',     1);
         my $json = $t->tx->res->json;
         my $form = {
-          'create-ignore' => 1,
-          hash            => $json->{changes}[0]{token_hexsum},
-          from            => $json->{changes}[0]{data}{from},
-          contributor     => $json->{changes}[0]{login}
+          hash        => $json->{changes}[0]{token_hexsum},
+          from        => $json->{changes}[0]{data}{from},
+          contributor => $json->{changes}[0]{login}
         };
-        $t->post_ok('/snippet/decision/1' => form => $form)
+        $t->post_ok('/snippet/batch_decision' => json =>
+            {actions => [{kind => 'create-ignore', snippetId => 1, formData => $form}]})
           ->status_is(200)
-          ->content_like(qr/ignore pattern has been created/);
+          ->json_is('/ok',             true)
+          ->json_is('/results/0/kind', 'ignore');
         $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 
         my $result = $client->call_tool('cavil_propose_ignore_snippet',

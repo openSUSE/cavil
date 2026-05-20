@@ -34,6 +34,15 @@ import {createApp} from 'vue';
 window.$ = $;
 window.jQuery = $;
 
+function updateBackToTopVisibility() {
+  const visible = window.scrollY > 200;
+  document.querySelectorAll('.back-to-top').forEach(el => {
+    el.classList.toggle('visible', visible);
+  });
+}
+window.addEventListener('scroll', updateBackToTopVisibility, {passive: true});
+document.addEventListener('DOMContentLoaded', updateBackToTopVisibility);
+
 window.cavil = {
   myCodeMirror: undefined,
 

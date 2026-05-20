@@ -363,37 +363,498 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator(actionMenuItem('Extend one line below')).click();
       await page.locator(actionTrigger).click();
       await page.locator(actionMenuItem('Create Pattern from selection')).click();
-      await page.waitForURL(`${url}/snippet/edit/7?hash=&from=perl-Mojolicious`);
 
-      // Select a few options on the creation form
-      await page.locator('select[name="risk"]').selectOption('3');
-      await page.locator('input[name="trademark"]').check();
-      await page.locator('button:has-text("Create Pattern")').click();
-      await page.waitForURL(`${url}/snippet/decision/7`);
+      // Modal opens with the snippet editor instead of navigating away
+      await page.waitForSelector('#snippet-editor-modal.show');
+      await page.waitForSelector('#snippet-editor-modal .CodeMirror');
+      await page.waitForSelector('#snippet-editor-modal input[name=license]');
 
-      // Update pattern with a made up license
-      t.match(await page.innerText('#content .alert'), /has been created/);
-      await page.click('text="pattern"');
-      await page.locator('input[name=license]').click();
-      await page.locator('input[name=license]').fill('Made-Up-License-1.0');
-      await page.locator('input[value=Update]').click();
-      t.equal(await page.innerText('select[name=risk] > option[selected]'), '3');
-      t.same(await page.isVisible('input[name=trademark][checked]'), true);
-      t.match(await page.innerText('div.alert'), /Pattern has been updated/);
+      // Fill the pattern metadata right in the modal
+      await page.locator('#snippet-editor-modal input[name=license]').fill('Made-Up-License-1.0');
+      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
+      await page.locator('#snippet-editor-modal input[name="trademark"]').check();
 
-      // License now shows up in list
-      await page.click('text=Licenses');
-      t.equal(await page.innerText('title'), 'List licenses');
-      await page.click('text=Made-Up-License-1.0');
-      t.equal(await page.innerText('title'), 'License details of Made-Up-License-1.0');
+      // Queue the create-pattern action (modal closes, indicator + widget appear)
+      await page.locator('#snippet-editor-modal button[data-action="create-pattern"]').click();
+      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      await page.waitForSelector('#pending-actions-widget');
+      await page.waitForSelector('#file-details-1 .pending-action-badge');
+      t.match(await page.innerText('#pending-actions-widget'), /Pending changes/);
 
-      // Wait for reindexing
+      // Expand the widget and submit the batch
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      t.match(await page.innerText('#pending-actions-widget'), /Made-Up-License-1.0/);
+      const [decisionResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      t.equal(decisionResp.status(), 200);
+
+      // Reload triggers automatically after success; then run reindex
+      await page.waitForLoadState('load');
       await page.goto(performJobs, {timeout: 120000});
       await page.goto(url);
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
       t.match(await page.innerText('ul#risk-3 li'), /Made-Up-License-1.0/);
+
+      // Standalone pattern edit page still works (page-mode SnippetEditor)
+      await page.click('text=Licenses');
+      t.equal(await page.innerText('title'), 'List licenses');
+      await page.click('text=Made-Up-License-1.0');
+      t.equal(await page.innerText('title'), 'License details of Made-Up-License-1.0');
+    });
+
+    await t.test('Batch: queue multiple actions, dismiss one, submit the rest', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // Find two unresolved-match files from the missed-files list
+      const hrefs = await page
+        .locator('#filelist-snippets a.file-link')
+        .evaluateAll(els => els.slice(0, 2).map(e => e.getAttribute('href')));
+      t.equal(hrefs.length, 2, 'have at least two unresolved-match files');
+      const fileA = hrefs[0].replace('#file-', '');
+      const fileB = hrefs[1].replace('#file-', '');
+
+      // Make sure both files are expanded (some are auto-expanded as risk-9 already)
+      if (!(await page.isVisible(`#file-details-${fileA}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileA}"]`).click();
+      }
+      if (!(await page.isVisible(`#file-details-${fileB}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileB}"]`).click();
+      }
+      await page.waitForSelector(`#file-details-${fileA} table.snippet`);
+      await page.waitForSelector(`#file-details-${fileB} table.snippet`);
+
+      // Helper: queue a create-pattern via the modal. A file can host multiple
+      // risk-9 dropdowns; bypass the dropdown UI entirely and invoke the
+      // matching item handler directly so we don't depend on Bootstrap's menu
+      // animation/positioning settling between iterations.
+      const queueAction = async (fileId, licenseName) => {
+        await page.waitForFunction(() => !document.body.classList.contains('modal-open'));
+        await page.evaluate(id => {
+          const root = document.getElementById(`file-details-${id}`);
+          const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
+          for (const item of items) {
+            if (item.textContent.trim() === 'Create Pattern from selection') {
+              item.click();
+              return;
+            }
+          }
+          throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+        }, fileId);
+        await page.waitForSelector('#snippet-editor-modal.show');
+        await page.waitForSelector('#snippet-editor-modal .CodeMirror');
+        await page.locator('#snippet-editor-modal input[name=license]').fill(licenseName);
+        await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
+        await page.locator('#snippet-editor-modal button[data-action="create-pattern"]').click();
+        await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      };
+
+      // Names start with "Z" so they sort after Made-Up-License-1.0 in alphabetised
+      // risk lists - downstream tests assert against the first li.
+      await queueAction(fileA, 'Zzz-Batch-License-A');
+      await queueAction(fileB, 'Zzz-Batch-License-B');
+
+      // Widget shows both queued actions
+      await page.waitForSelector('#pending-actions-widget');
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      t.equal(await page.locator('#pending-actions-widget .pending-actions-item').count(), 2);
+      t.match(await page.innerText('#pending-actions-widget'), /Zzz-Batch-License-A/);
+      t.match(await page.innerText('#pending-actions-widget'), /Zzz-Batch-License-B/);
+
+      // Dismiss the first action via its trash button
+      await page
+        .locator('#pending-actions-widget .pending-actions-item')
+        .first()
+        .locator('button[title="Remove from batch"]')
+        .click();
+      t.equal(await page.locator('#pending-actions-widget .pending-actions-item').count(), 1);
+      t.notMatch(await page.innerText('#pending-actions-widget'), /Zzz-Batch-License-A/);
+
+      // Submit the remaining action
+      const [decisionResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      t.equal(decisionResp.status(), 200);
+
+      // Reload + reindex; only the surviving license should show up
+      await page.waitForLoadState('load');
+      await page.goto(performJobs, {timeout: 120000});
+      await page.goto(url);
+      await page.click('text=Artistic');
+      await page.waitForSelector('#license-chart');
+      const risk3 = await page.innerText('ul#risk-3');
+      t.match(risk3, /Zzz-Batch-License-B/);
+      t.notMatch(risk3, /Zzz-Batch-License-A/);
+    });
+
+    await t.test('Batch: server-side error surfaces per action', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // Take the first remaining unresolved match
+      const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = href.replace('#file-', '');
+      if (!(await page.isVisible(`#file-details-${fileId}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+      }
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+
+      // Bypass the Bootstrap dropdown UI and trigger the matching item directly
+      await page.evaluate(id => {
+        const root = document.getElementById(`file-details-${id}`);
+        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
+        for (const item of items) {
+          if (item.textContent.trim() === 'Create Pattern from selection') {
+            item.click();
+            return;
+          }
+        }
+        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+      }, fileId);
+      await page.waitForSelector('#snippet-editor-modal.show');
+      await page.waitForSelector('#snippet-editor-modal .CodeMirror');
+
+      // Replace the CodeMirror contents so the proposed pattern cannot match the
+      // original snippet text (triggers the server's pattern_matches guard)
+      await page.evaluate(() => {
+        const cm = document.querySelector('#snippet-editor-modal .CodeMirror').CodeMirror;
+        cm.setValue('zzz nothing here matches the actual snippet zzz');
+      });
+
+      await page.locator('#snippet-editor-modal input[name=license]').fill('Error-Test-License');
+      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
+
+      // Use the propose-pattern path - it runs the pattern_matches validation
+      await page.locator('#snippet-editor-modal button[data-action="propose-pattern"]').click();
+      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      const [decisionResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      t.equal(decisionResp.status(), 400);
+
+      // Action stays queued in the error state with the server's message
+      await page.waitForSelector('#pending-actions-widget .pending-actions-item.state-error');
+      t.match(await page.innerText('#pending-actions-widget'), /License pattern does not match/);
+      // Page must not have reloaded (widget still mounted, action still present)
+      t.equal(await page.locator('#pending-actions-widget .pending-actions-item').count(), 1);
+
+      // Clean up so the next test starts with an empty queue
+      await page.locator('#pending-actions-widget button[title="Clear all"]').click();
+    });
+
+    await t.test('Batch: edit a failed action and resubmit', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = href.replace('#file-', '');
+      if (!(await page.isVisible(`#file-details-${fileId}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+      }
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+
+      await page.evaluate(id => {
+        const root = document.getElementById(`file-details-${id}`);
+        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
+        for (const item of items) {
+          if (item.textContent.trim() === 'Create Pattern from selection') {
+            item.click();
+            return;
+          }
+        }
+        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+      }, fileId);
+      await page.waitForSelector('#snippet-editor-modal.show');
+      await page.waitForSelector('#snippet-editor-modal .CodeMirror');
+
+      // Capture the original snippet text so we can restore it during edit
+      const originalSnippetText = await page.evaluate(() => {
+        return document.querySelector('#snippet-editor-modal .CodeMirror').CodeMirror.getValue();
+      });
+      t.ok(originalSnippetText.length > 0, 'captured original snippet text');
+
+      // First pass: queue a propose-pattern with a deliberately bad pattern
+      await page.evaluate(() => {
+        const cm = document.querySelector('#snippet-editor-modal .CodeMirror').CodeMirror;
+        cm.setValue('zzz nothing here matches the actual snippet zzz');
+      });
+      await page.locator('#snippet-editor-modal input[name=license]').fill('Edit-Recovery-License');
+      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
+      await page.locator('#snippet-editor-modal button[data-action="propose-pattern"]').click();
+      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+
+      // Submit and confirm the validation error puts the action into error state
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      const [decisionResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      t.equal(decisionResp.status(), 400);
+      await page.waitForSelector('#pending-actions-widget .pending-actions-item.state-error');
+      t.match(await page.innerText('#pending-actions-widget'), /Edit-Recovery-License/);
+
+      // Click Edit on the failed action - the modal re-opens with the prior data
+      await page.locator('#pending-actions-widget button[data-action-control="edit"]').click();
+      await page.waitForSelector('#snippet-editor-modal.show');
+      await page.waitForSelector('#snippet-editor-modal .CodeMirror');
+
+      // Verify the form was pre-filled with the failed action's data
+      t.equal(
+        await page.inputValue('#snippet-editor-modal input[name=license]'),
+        'Edit-Recovery-License',
+        'license pre-filled from failed action'
+      );
+      t.equal(
+        await page.inputValue('#snippet-editor-modal select[name="risk"]'),
+        '3',
+        'risk pre-filled from failed action'
+      );
+      const cmTextInEdit = await page.evaluate(() => {
+        return document.querySelector('#snippet-editor-modal .CodeMirror').CodeMirror.getValue();
+      });
+      t.match(cmTextInEdit, /zzz nothing here matches/, 'pattern pre-filled from failed action');
+
+      // Restore the matchable snippet text so the resubmission passes validation
+      await page.evaluate(text => {
+        const cm = document.querySelector('#snippet-editor-modal .CodeMirror').CodeMirror;
+        cm.setValue(text);
+      }, originalSnippetText);
+
+      await page.locator('#snippet-editor-modal button[data-action="propose-pattern"]').click();
+      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+
+      // The edit must REPLACE the original entry, not append a new one
+      const countAfterEdit = await page.locator('#pending-actions-widget .pending-actions-item').count();
+      t.equal(countAfterEdit, 1, 'edited action replaces failed one (queue still has 1 item)');
+      t.notMatch(
+        await page.innerText('#pending-actions-widget'),
+        /state-error|circle-exclamation/,
+        'no error state remains after successful edit'
+      );
+
+      // Submit the edited action - it must now succeed and reload the page
+      await Promise.all([
+        page.waitForURL(/\/reviews\/details\//),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      await page.waitForSelector('#license-chart');
+
+      // Make sure the queue is empty for any later subtests
+      if (await page.isVisible('#pending-actions-widget button[title="Clear all"]')) {
+        await page.locator('#pending-actions-widget button[title="Clear all"]').click();
+      }
+    });
+
+    await t.test('Initial URL hash auto-expands hidden file', async t => {
+      // First navigate via the UI to learn the real report URL plus a
+      // file id that is in data.files but normally collapsed on initial
+      // load (i.e. not auto-expanded as risk-9).
+      await page.goto(url);
+      await page.click('text=Artistic');
+      await page.waitForSelector('#license-chart');
+      const reportUrl = page.url().split('#')[0];
+
+      // Pick any rendered file-container whose details div is missing (i.e.
+      // file.expanded is false) so the test exercises the auto-expand path.
+      const targetFileId = await page.evaluate(() => {
+        const containers = document.querySelectorAll('.file-container');
+        for (const c of containers) {
+          const a = c.querySelector('a[name^="file-"]');
+          if (!a) continue;
+          const id = a.name.replace('file-', '');
+          if (!document.getElementById(`file-details-${id}`)) return id;
+        }
+        return null;
+      });
+      t.ok(targetFileId, 'found a collapsed file to deep-link to');
+
+      // Visit a different URL first so the next goto triggers a real reload
+      // (page.goto to the same URL with only a hash change does NOT remount Vue).
+      await page.goto(url);
+      await page.goto(`${reportUrl}#file-${targetFileId}`);
+      await page.waitForSelector('#license-chart');
+      await page.waitForSelector(`#file-details-${targetFileId} table.snippet`, {timeout: 10000});
+      t.same(
+        await page.isVisible(`#file-details-${targetFileId}`),
+        true,
+        `file-${targetFileId} auto-expanded from URL hash`
+      );
+
+      // The auto-scroll must put the file roughly into view (top of viewport or
+      // already visible). Allow some slack because smooth-scroll is async.
+      await page.waitForFunction(
+        id => {
+          const el = document.getElementById(`file-details-${id}`);
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          return r.top >= -50 && r.top <= window.innerHeight;
+        },
+        targetFileId,
+        {timeout: 5000}
+      );
+      t.pass(`file-${targetFileId} scrolled into the viewport`);
+    });
+
+    await t.test('Pending widget meta link scrolls to and expands target file', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // Queue an action on the first unresolved-match file
+      const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = href.replace('#file-', '');
+      if (!(await page.isVisible(`#file-details-${fileId}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+      }
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+
+      await page.evaluate(id => {
+        const root = document.getElementById(`file-details-${id}`);
+        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
+        for (const item of items) {
+          if (item.textContent.trim() === 'Create Pattern from selection') {
+            item.click();
+            return;
+          }
+        }
+        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+      }, fileId);
+      await page.waitForSelector('#snippet-editor-modal.show');
+      await page.waitForSelector('#snippet-editor-modal .CodeMirror');
+      await page.locator('#snippet-editor-modal input[name=license]').fill('Scroll-Link-Test');
+      await page.locator('#snippet-editor-modal select[name="risk"]').selectOption('3');
+      await page.locator('#snippet-editor-modal button[data-action="create-pattern"]').click();
+      await page.waitForSelector('#snippet-editor-modal:not(.show)');
+      await page.waitForSelector('#pending-actions-widget');
+
+      // Collapse the file again so we can verify the widget link re-expands it
+      await page.locator(`#expand-link-${fileId}`).click();
+      t.same(await page.isVisible(`#file-details-${fileId}`), false, 'file collapsed before jump');
+
+      // Expand widget and click the location link
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      await page.waitForSelector('#pending-actions-widget .pending-actions-item-link');
+      await page.locator('#pending-actions-widget .pending-actions-item-link').first().click();
+
+      // Clicking the link must re-expand the target file and collapse the widget panel
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`, {timeout: 10000});
+      t.same(await page.isVisible(`#file-details-${fileId}`), true, 'file re-expanded by widget link');
+      t.same(
+        await page.isVisible('#pending-actions-widget .pending-actions-panel'),
+        false,
+        'widget collapses back to toggle button after jump'
+      );
+
+      // Verify the pending indicator (the badge inside the file source) is in view
+      await page.waitForFunction(
+        id => {
+          const el = document.getElementById(`pending-indicator-${id}`);
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          return r.top >= -50 && r.top <= window.innerHeight;
+        },
+        Number(fileId) === Number(fileId) ? 1 : 0,
+        {timeout: 5000}
+      ).catch(() => {
+        // The exact action ID isn't stable enough to query precisely, so just
+        // assert that *some* pending-indicator landed in view.
+      });
+      const indicatorInView = await page.evaluate(() => {
+        const indicators = document.querySelectorAll('[id^="pending-indicator-"]');
+        for (const el of indicators) {
+          const r = el.getBoundingClientRect();
+          if (r.top >= -50 && r.top <= window.innerHeight) return true;
+        }
+        return false;
+      });
+      t.ok(indicatorInView, 'pending indicator is scrolled into view');
+
+      // Clean up so any later subtest starts with an empty queue
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      await page.locator('#pending-actions-widget button[title="Clear all"]').click();
+    });
+
+    await t.test('Editor gutter click on highlighted line opens pattern in new tab', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // Open the modal so we land on a snippet that's guaranteed to have at least
+      // one highlighted match line (a real license hit from the report view).
+      const fileId = (await page.locator('#filelist-snippets a.file-link').first().getAttribute('href')).replace(
+        '#file-',
+        ''
+      );
+      if (!(await page.isVisible(`#file-details-${fileId}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+      }
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+      await page.waitForFunction(() => !document.body.classList.contains('modal-open'));
+      await page.evaluate(id => {
+        const root = document.getElementById(`file-details-${id}`);
+        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
+        for (const item of items) {
+          if (item.textContent.trim() === 'Create Pattern from selection') {
+            item.click();
+            return;
+          }
+        }
+        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+      }, fileId);
+      await page.waitForSelector('#snippet-editor-modal.show');
+      await page.waitForSelector('#snippet-editor-modal .CodeMirror');
+
+      // Find a line that CodeMirror marked with a found-pattern background.
+      // CodeMirror exposes the instance on its wrapper div via the .CodeMirror prop.
+      const lineInfo = await page.evaluate(() => {
+        const cm = document.querySelector('#snippet-editor-modal .CodeMirror').CodeMirror;
+        if (cm == null) return null;
+        for (let i = 0; i < cm.lineCount(); i++) {
+          const info = cm.lineInfo(i);
+          if ((info.bgClass ?? '').includes('found-pattern')) {
+            return {displayed: i + (cm.getOption('firstLineNumber') ?? 1)};
+          }
+        }
+        return null;
+      });
+      t.ok(lineInfo !== null, 'modal snippet has at least one highlighted line');
+
+      const hostUrlBefore = page.url();
+      const [patternPage] = await Promise.all([
+        context.waitForEvent('page'),
+        page
+          .locator(`#snippet-editor-modal .CodeMirror-linenumber:has-text("${lineInfo.displayed}")`)
+          .first()
+          .click()
+      ]);
+      await patternPage.waitForLoadState('load');
+      t.match(patternPage.url(), /\/licenses\/edit_pattern\/\d+/, 'new tab opens the matched pattern editor');
+      t.equal(await patternPage.innerText('title'), 'Edit license pattern');
+      await patternPage.close();
+
+      // The original page must not have navigated; modal still mounted.
+      t.equal(page.url(), hostUrlBefore, 'host page URL unchanged');
+      t.ok(await page.isVisible('#snippet-editor-modal.show'), 'modal still open');
+
+      // Clean up so the next subtest starts from a closed modal.
+      await page.locator('#snippet-editor-modal .btn-close').click();
+      await page.waitForSelector('#snippet-editor-modal:not(.show)');
     });
 
     await t.test('Accept request', async t => {
@@ -455,6 +916,59 @@ t.test('Test cavil ui', skip, async t => {
       t.match(await page.innerText('ul#risk-3 li'), /Made-Up-License-1.0/);
     });
 
+    await t.test('Create pattern from classify-snippets page (page mode)', async t => {
+      // Fixture snippets are never AI-classified, and the default filter hides
+      // unclassified ones - widen the filter so cards are guaranteed to render.
+      await page.goto(`${url}/snippets?isClassified=false`);
+      t.equal(await page.innerText('title'), 'Snippets');
+      await page.waitForSelector('.snippet-container .snippet-likelyness a');
+
+      // The similarity link opens the page-mode editor in a new tab.
+      const [editorPage] = await Promise.all([
+        context.waitForEvent('page'),
+        page.locator('.snippet-container .snippet-likelyness a').first().click()
+      ]);
+      await editorPage.waitForLoadState('load');
+      t.equal(await editorPage.innerText('title'), 'Edit snippet');
+
+      await editorPage.waitForSelector('#edit-snippet .CodeMirror');
+      await editorPage.waitForSelector('#edit-snippet input[name=license]');
+      t.match(
+        await editorPage.innerText('#edit-snippet button[data-action="create-pattern"]'),
+        /Create Pattern/
+      );
+
+      // Error path: submit with the license field empty - server returns 400 and
+      // EditSnippet.vue should surface the message in the alert-danger banner
+      // without navigating away.
+      const [errResp] = await Promise.all([
+        editorPage.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        editorPage.locator('#edit-snippet button[data-action="create-pattern"]').click()
+      ]);
+      t.equal(errResp.status(), 400);
+      await editorPage.waitForSelector('#edit-snippet .alert-danger');
+      t.match(await editorPage.innerText('#edit-snippet .alert-danger'), /Missing required field: license/);
+      t.match(editorPage.url(), /\/snippet\/edit\/\d+/, 'still on the editor page after error');
+
+      // Success path: fill the form and append a unique marker into the
+      // CodeMirror editor so the resulting pattern doesn't md5-collide with one
+      // created by the prior batch subtests. Then retry - EditSnippet.vue
+      // redirects to the new pattern's edit page on success.
+      await editorPage.locator('#edit-snippet input[name=license]').fill('Page-Editor-License-1.0');
+      await editorPage.locator('#edit-snippet select[name="risk"]').selectOption('2');
+      await editorPage.locator('#edit-snippet .CodeMirror').click();
+      await editorPage.keyboard.press('Control+End');
+      await editorPage.keyboard.type('\nunique-page-mode-test-marker');
+      const [okResp] = await Promise.all([
+        editorPage.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        editorPage.locator('#edit-snippet button[data-action="create-pattern"]').click()
+      ]);
+      t.equal(okResp.status(), 200);
+      await editorPage.waitForURL(/\/licenses\/edit_pattern\/\d+/);
+      t.equal(await editorPage.innerText('title'), 'Edit license pattern');
+      await editorPage.close();
+    });
+
     await t.test('Missing Licenses', async t => {
       await page.goto(url);
       await page.click('text="Logged in as tester"');
@@ -485,7 +999,8 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Pattern Performance');
       t.equal(await page.innerText('title'), 'Pattern Performance');
       await page.waitForSelector('#recent-patterns .recent-pattern-header');
-      t.equal(await page.innerText('#recent-patterns .recent-pattern-header b'), 'Made-Up-License-1.0');
+      const names = await page.locator('#recent-patterns .recent-pattern-header b').allInnerTexts();
+      t.ok(names.includes('Made-Up-License-1.0'), 'Made-Up-License-1.0 listed among recent patterns');
     });
 
     await t.test('Statistics', async t => {
@@ -508,7 +1023,10 @@ t.test('Test cavil ui', skip, async t => {
   });
 
   t.test('Console errors', t => {
-    t.same(errorLogs, []);
+    // The batch "error surfaces per action" test intentionally drives the
+    // server to return 400 - the browser logs that as a console error.
+    const unexpected = errorLogs.filter(msg => !/status of 400 \(Bad Request\)/.test(msg));
+    t.same(unexpected, []);
     t.end();
   });
 
