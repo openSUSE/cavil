@@ -48,6 +48,13 @@ textarea.mono-textarea {
   td.quick-actions {
     padding-right: 10px;
     font-size: 13px;
+    position: relative;
+
+    a::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+    }
   }
 
   td.linenumber, td.code {

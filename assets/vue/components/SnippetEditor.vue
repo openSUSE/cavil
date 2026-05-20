@@ -11,7 +11,7 @@
         There is no license pattern for this snippet yet, you are welcome to submit a proposal. An administrator will
         review it and decide if it should be added. However, you may only use existing licenses and risk assessments.
       </div>
-      <div v-if="this.package !== null" class="row">
+      <div v-if="mode === 'page' && this.package !== null" class="row">
         <div class="col mb-3">
           The example shown here is from the file <a :href="this.package.fileUrl">{{ this.package.file }}</a> in the
           package <a :href="this.package.packageUrl">{{ this.package.name }}</a
@@ -32,52 +32,46 @@
               rows="20"
             ></textarea>
             <div id="patternHelp" class="snippet-editor-hints">
-              <div class="snippet-editor-hints-header">
-                <i class="fa-solid fa-circle-info"></i>
-                Editing tips
-              </div>
-              <dl class="snippet-editor-hints-list">
-                <dt><span class="snippet-editor-hints-swatch keyword-line"></span></dt>
-                <dd>Keyword match &mdash; include in the license pattern</dd>
-                <dt><span class="snippet-editor-hints-swatch license-line"></span></dt>
-                <dd>Existing pattern match &mdash; safe to remove</dd>
-                <dt><code>$SKIP5</code></dt>
-                <dd>Skip up to 5 words at this position</dd>
-                <dt><code>$SKIP19</code></dt>
-                <dd>Skip as many words as the matching engine allows</dd>
-                <template v-if="hasAdminRole === true">
-                  <dt>Hover / gutter</dt>
-                  <dd>Hover a highlighted line for pattern details, or click the line number to open it</dd>
-                </template>
-              </dl>
+              <span class="snippet-editor-hints-item">
+                <span class="snippet-editor-hints-swatch keyword-line"></span> keyword
+              </span>
+              <span class="snippet-editor-hints-item">
+                <span class="snippet-editor-hints-swatch license-line"></span> existing pattern
+              </span>
+              <span class="snippet-editor-hints-item">
+                <code>$SKIPn</code> skips up to n words at this position &mdash; <code>$SKIP19</code> skips as many
+                as the matching engine allows
+              </span>
             </div>
           </div>
         </div>
         <div class="row">
           <div class="col mb-3">
             <label class="form-label" for="license">License</label>
-            <input
-              v-model="license"
-              @input="autocomplete"
-              @keydown="licenseFocused = true"
-              @focus="licenseFocused = true"
-              @blur="licenseFocused = false"
-              ref="license"
-              type="text"
-              class="form-control"
-              id="license"
-              name="license"
-              autocomplete="off"
-            />
-            <div v-show="licenseFocused" class="autocomplete-container">
-              <div class="autocomplete">
-                <div
-                  v-for="(result, i) in results"
-                  :key="i"
-                  @mousedown.prevent="fillLicense(result)"
-                  class="autocomplete-item"
-                >
-                  {{ result }}
+            <div class="snippet-editor-autocomplete-anchor">
+              <input
+                v-model="license"
+                @input="autocomplete"
+                @keydown="licenseFocused = true"
+                @focus="licenseFocused = true"
+                @blur="licenseFocused = false"
+                ref="license"
+                type="text"
+                class="form-control"
+                id="license"
+                name="license"
+                autocomplete="off"
+              />
+              <div v-show="licenseFocused" class="autocomplete-container">
+                <div class="autocomplete">
+                  <div
+                    v-for="(result, i) in results"
+                    :key="i"
+                    @mousedown.prevent="fillLicense(result)"
+                    class="autocomplete-item"
+                  >
+                    {{ result }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -520,7 +514,7 @@ export default {
       this.decorationsField = decoField;
 
       const baseTheme = EditorView.theme({
-        '&': {fontSize: '13px', height: '600px'},
+        '&': {fontSize: '13px'},
         '.cm-scroller': {fontFamily: 'monospace, monospace', overflow: 'auto'},
         '.cm-gutters': {
           backgroundColor: '#f6f8fa',
@@ -695,7 +689,8 @@ export default {
   overflow: hidden;
 }
 .snippet-editor .snippet-editor-host .cm-editor {
-  height: 600px;
+  height: auto;
+  max-height: 70vh;
 }
 .snippet-editor .snippet-editor-host .cm-editor.cm-focused {
   outline: none;
@@ -707,38 +702,22 @@ export default {
   display: none;
 }
 .snippet-editor-hints {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  color: #57606a;
-  font-size: 12px;
-  margin-top: 0.5rem;
-  padding: 10px 14px;
-}
-.snippet-editor-hints-header {
   align-items: center;
-  color: #1f2328;
+  color: #57606a;
+  column-gap: 16px;
   display: flex;
-  font-weight: 600;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.snippet-editor-hints-list {
-  align-items: baseline;
-  column-gap: 12px;
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  margin: 0;
+  flex-wrap: wrap;
+  font-size: 12px;
+  margin-top: 6px;
   row-gap: 4px;
 }
-.snippet-editor-hints-list dt {
-  font-weight: 500;
-  text-align: right;
+.snippet-editor-hints-item {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
 }
-.snippet-editor-hints-list dd {
-  margin: 0;
-}
-.snippet-editor-hints-list code {
+.snippet-editor-hints code {
   background: rgba(175, 184, 193, 0.2);
   border-radius: 4px;
   color: #1f2328;
@@ -749,9 +728,9 @@ export default {
   border: 1px solid rgba(27, 31, 36, 0.1);
   border-radius: 3px;
   display: inline-block;
-  height: 12px;
+  height: 10px;
   vertical-align: middle;
-  width: 22px;
+  width: 18px;
 }
 .snippet-editor-actions {
   display: flex;
@@ -920,14 +899,20 @@ export default {
 }
 
 /* Primer-style autocomplete popover */
+.snippet-editor .snippet-editor-autocomplete-anchor {
+  position: relative;
+}
 .snippet-editor .autocomplete-container {
   background: #ffffff;
   border: 1px solid #d0d7de;
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
   cursor: pointer;
+  left: 0;
   margin: 4px 0 0;
   padding: 4px 0;
+  position: absolute;
+  right: 0;
   z-index: 1000;
 }
 .snippet-editor .autocomplete {

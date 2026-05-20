@@ -368,6 +368,8 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#snippet-editor-modal.show');
       await page.waitForSelector('#snippet-editor-modal .cm-editor');
       await page.waitForSelector('#snippet-editor-modal input[name=license]');
+      // Modal hides the source-file/package origin line (only the page version shows it).
+      t.notMatch(await page.innerText('#snippet-editor-modal'), /The example shown here is from the file/);
 
       // Fill the pattern metadata right in the modal
       await page.locator('#snippet-editor-modal input[name=license]').fill('Made-Up-License-1.0');
@@ -988,10 +990,15 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'Snippets');
       await page.waitForSelector('.snippet-container .snippet-likelyness a');
 
-      // The similarity link opens the page-mode editor in a new tab.
+      // Pick a snippet card with a real file origin so the page-mode editor
+      // has package context to render the "example shown here is from..." line.
+      const cardWithFile = page
+        .locator('.snippet-container')
+        .filter({has: page.locator('.snippet-file a[href*="/reviews/file_view/"]')})
+        .first();
       const [editorPage] = await Promise.all([
         context.waitForEvent('page'),
-        page.locator('.snippet-container .snippet-likelyness a').first().click()
+        cardWithFile.locator('.snippet-likelyness a').click()
       ]);
       await editorPage.waitForLoadState('load');
       t.equal(await editorPage.innerText('title'), 'Edit snippet');
@@ -1002,6 +1009,8 @@ t.test('Test cavil ui', skip, async t => {
         await editorPage.innerText('#edit-snippet button[data-action="create-pattern"]'),
         /Create Pattern/
       );
+      // Page mode shows the source-file/package origin line (modal mode hides it).
+      t.match(await editorPage.innerText('#edit-snippet'), /The example shown here is from the file/);
 
       // Error path: submit with the license field empty - server returns 400 and
       // EditSnippet.vue should surface the message in the alert-danger banner
