@@ -46,152 +46,162 @@
             <span v-if="closest !== null" class="snippet-editor-tab-badge">{{ closest.similarity }}%</span>
           </button>
         </div>
-        <div v-show="activeTab === 'edit'">
-          <div class="row">
-            <div class="col mb-3">
-              <label class="form-label" for="pattern">Snippet</label>
-              <div ref="editorHost" class="snippet-editor-host"></div>
-              <textarea
-                ref="patternText"
-                v-model="patternText"
-                class="mono-text form-control snippet-editor-textarea"
-                id="pattern"
-                name="pattern"
-                rows="20"
-              ></textarea>
-              <div id="patternHelp" class="snippet-editor-hints">
-                <span class="snippet-editor-hints-item">
-                  <span class="snippet-editor-hints-swatch keyword-line"></span> keyword
-                </span>
-                <span class="snippet-editor-hints-item">
-                  <span class="snippet-editor-hints-swatch license-line"></span> existing pattern
-                </span>
-                <span class="snippet-editor-hints-item">
-                  <code>$SKIPn</code> skips up to n words at this position &mdash; <code>$SKIP19</code> skips as many as
-                  the matching engine allows
-                </span>
+        <div class="snippet-editor-tab-content">
+          <div
+            class="snippet-editor-tab-pane"
+            :class="{'is-active': activeTab === 'edit'}"
+            :aria-hidden="activeTab !== 'edit'"
+          >
+            <div class="row">
+              <div class="col mb-3">
+                <label class="form-label" for="pattern">Snippet</label>
+                <div ref="editorHost" class="snippet-editor-host"></div>
+                <textarea
+                  ref="patternText"
+                  v-model="patternText"
+                  class="mono-text form-control snippet-editor-textarea"
+                  id="pattern"
+                  name="pattern"
+                  rows="20"
+                ></textarea>
+                <div id="patternHelp" class="snippet-editor-hints">
+                  <span class="snippet-editor-hints-item">
+                    <span class="snippet-editor-hints-swatch keyword-line"></span> keyword
+                  </span>
+                  <span class="snippet-editor-hints-item">
+                    <span class="snippet-editor-hints-swatch license-line"></span> existing pattern
+                  </span>
+                  <span class="snippet-editor-hints-item">
+                    <code>$SKIPn</code> skips up to n words at this position &mdash; <code>$SKIP19</code> skips as many
+                    as the matching engine allows
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="row">
-            <div class="col mb-3">
-              <label class="form-label" for="license">License</label>
-              <div class="snippet-editor-autocomplete-anchor">
-                <input
-                  v-model="license"
-                  @input="autocomplete"
-                  @keydown="licenseFocused = true"
-                  @focus="licenseFocused = true"
-                  @blur="licenseFocused = false"
-                  ref="license"
-                  type="text"
-                  class="form-control"
-                  id="license"
-                  name="license"
-                  autocomplete="off"
-                />
-                <div v-show="licenseFocused" class="autocomplete-container">
-                  <div class="autocomplete">
-                    <div
-                      v-for="(result, i) in results"
-                      :key="i"
-                      @mousedown.prevent="fillLicense(result)"
-                      class="autocomplete-item"
-                    >
-                      {{ result }}
+            <div class="row">
+              <div class="col mb-3">
+                <label class="form-label" for="license">License</label>
+                <div class="snippet-editor-autocomplete-anchor">
+                  <input
+                    v-model="license"
+                    @input="autocomplete"
+                    @keydown="licenseFocused = true"
+                    @focus="licenseFocused = true"
+                    @blur="licenseFocused = false"
+                    ref="license"
+                    type="text"
+                    class="form-control"
+                    id="license"
+                    name="license"
+                    autocomplete="off"
+                  />
+                  <div v-show="licenseFocused" class="autocomplete-container">
+                    <div class="autocomplete">
+                      <div
+                        v-for="(result, i) in results"
+                        :key="i"
+                        @mousedown.prevent="fillLicense(result)"
+                        class="autocomplete-item"
+                      >
+                        {{ result }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="patternHelp" class="form-text">
+                  Auto-completed license names will also predict the risk value.
+                  <a
+                    data-bs-html="true"
+                    data-bs-toggle="popover"
+                    data-bs-trigger="hover focus"
+                    data-bs-title="Standard Risks"
+                    :data-bs-content="riskHtml"
+                  >
+                    <i class="fa-solid fa-circle-question"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col mb-3">
+                <div class="snippet-editor-attributes">
+                  <div class="snippet-editor-attributes-header">Attributes</div>
+                  <div class="snippet-editor-attributes-body">
+                    <div class="snippet-editor-attribute snippet-editor-attribute-risk">
+                      <label for="risk" class="form-label">Risk</label>
+                      <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control form-select">
+                        <option>0</option>
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                        <option>4</option>
+                        <option>5</option>
+                        <option>6</option>
+                        <option>9</option>
+                      </select>
+                    </div>
+                    <div class="snippet-editor-attribute snippet-editor-attribute-flags">
+                      <label class="form-label">Flags</label>
+                      <div class="snippet-editor-attribute-flag-list">
+                        <div class="form-check">
+                          <input
+                            v-model="licenseOptions.patent"
+                            type="checkbox"
+                            class="form-check-input"
+                            id="patent"
+                            name="patent"
+                            value="1"
+                          />
+                          <label class="form-check-label" for="patent">Patent</label>
+                        </div>
+                        <div class="form-check">
+                          <input
+                            v-model="licenseOptions.trademark"
+                            type="checkbox"
+                            class="form-check-input"
+                            id="trademark"
+                            name="trademark"
+                            value="1"
+                          />
+                          <label class="form-check-label" for="trademark">Trademark</label>
+                        </div>
+                        <div class="form-check">
+                          <input
+                            v-model="licenseOptions.export_restricted"
+                            type="checkbox"
+                            class="form-check-input"
+                            id="export_restricted"
+                            name="export_restricted"
+                            value="1"
+                          />
+                          <label class="form-check-label" for="export_restricted">Export Restricted</label>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div id="patternHelp" class="form-text">
-                Auto-completed license names will also predict the risk value.
-                <a
-                  data-bs-html="true"
-                  data-bs-toggle="popover"
-                  data-bs-trigger="hover focus"
-                  data-bs-title="Standard Risks"
-                  :data-bs-content="riskHtml"
-                >
-                  <i class="fa-solid fa-circle-question"></i>
+            </div>
+          </div>
+          <div
+            class="snippet-editor-tab-pane snippet-editor-closest-pane"
+            :class="{'is-active': activeTab === 'closest'}"
+            :aria-hidden="activeTab !== 'closest'"
+          >
+            <div v-if="closest !== null" class="closest-container">
+              <div class="closest-header">
+                <a :href="closest.url">
+                  Similar to
+                  <b>{{ closest.license === '' ? 'Keyword Pattern' : closest.license }}</b
+                  >, estimated risk {{ closest.license === '' ? 9 : closest.risk }}
                 </a>
               </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col mb-3">
-              <div class="snippet-editor-attributes">
-                <div class="snippet-editor-attributes-header">Attributes</div>
-                <div class="snippet-editor-attributes-body">
-                  <div class="snippet-editor-attribute snippet-editor-attribute-risk">
-                    <label for="risk" class="form-label">Risk</label>
-                    <select v-model="licenseOptions.risk" name="risk" id="risk" class="form-control form-select">
-                      <option>0</option>
-                      <option>1</option>
-                      <option>2</option>
-                      <option>3</option>
-                      <option>4</option>
-                      <option>5</option>
-                      <option>6</option>
-                      <option>9</option>
-                    </select>
-                  </div>
-                  <div class="snippet-editor-attribute snippet-editor-attribute-flags">
-                    <label class="form-label">Flags</label>
-                    <div class="snippet-editor-attribute-flag-list">
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.patent"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="patent"
-                          name="patent"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="patent">Patent</label>
-                      </div>
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.trademark"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="trademark"
-                          name="trademark"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="trademark">Trademark</label>
-                      </div>
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.export_restricted"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="export_restricted"
-                          name="export_restricted"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="export_restricted">Export Restricted</label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div class="closest-source">
+                <pre>{{ closest.text }}</pre>
               </div>
-            </div>
-          </div>
-        </div>
-        <div v-show="activeTab === 'closest'" class="snippet-editor-closest-pane">
-          <div v-if="closest !== null" class="closest-container">
-            <div class="closest-header">
-              <a :href="closest.url">
-                Similar to
-                <b>{{ closest.license === '' ? 'Keyword Pattern' : closest.license }}</b
-                >, estimated risk {{ closest.license === '' ? 9 : closest.risk }}
-              </a>
-            </div>
-            <div class="closest-source">
-              <pre>{{ closest.text }}</pre>
-            </div>
-            <div class="closest-footer">
-              <span v-if="closest.package !== ''"><b>Package:</b> {{ closest.package }}</span>
+              <div class="closest-footer">
+                <span v-if="closest.package !== ''"><b>Package:</b> {{ closest.package }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -745,6 +755,11 @@ export default {
   margin-top: 6px;
   row-gap: 4px;
 }
+.snippet-editor .form-text {
+  color: #57606a;
+  font-size: 12px;
+  margin-top: 6px;
+}
 .snippet-editor-hints-item {
   align-items: center;
   display: inline-flex;
@@ -1145,6 +1160,18 @@ export default {
 .snippet-editor-tab:disabled .snippet-editor-tab-badge {
   background: #eaeef2;
   color: #8c959f;
+}
+.snippet-editor-tab-content {
+  display: grid;
+}
+.snippet-editor-tab-pane {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  visibility: hidden;
+}
+.snippet-editor-tab-pane.is-active {
+  visibility: visible;
 }
 .snippet-editor-closest-pane {
   margin-bottom: 1rem;
