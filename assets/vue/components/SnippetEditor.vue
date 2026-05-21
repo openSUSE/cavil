@@ -1057,6 +1057,8 @@ export default {
   white-space: nowrap;
 }
 .cavil-pattern-tip-risk {
+  /* Matches the badge palette used elsewhere in the report UI:
+     0-4 green, 5 yellow, 6-8 red, 9 black. */
   border: 1px solid transparent;
   border-radius: 2em;
   font-size: 11px;
@@ -1064,22 +1066,26 @@ export default {
   line-height: 18px;
   padding: 0 7px;
   white-space: nowrap;
-  background: rgba(9, 105, 218, 0.1);
-  color: #0969da;
-  border-color: rgba(9, 105, 218, 0.2);
+  background: rgba(31, 136, 61, 0.1);
+  color: #1a7f37;
+  border-color: rgba(31, 136, 61, 0.2);
 }
-.cavil-pattern-tip-risk.risk-5,
-.cavil-pattern-tip-risk.risk-6,
-.cavil-pattern-tip-risk.risk-7 {
+.cavil-pattern-tip-risk.risk-5 {
   background: rgba(154, 103, 0, 0.1);
   color: #9a6700;
   border-color: rgba(154, 103, 0, 0.2);
 }
-.cavil-pattern-tip-risk.risk-8,
-.cavil-pattern-tip-risk.risk-9 {
+.cavil-pattern-tip-risk.risk-6,
+.cavil-pattern-tip-risk.risk-7,
+.cavil-pattern-tip-risk.risk-8 {
   background: rgba(207, 34, 46, 0.1);
   color: #cf222e;
   border-color: rgba(207, 34, 46, 0.2);
+}
+.cavil-pattern-tip-risk.risk-9 {
+  background: #1f2328;
+  color: #ffffff;
+  border-color: #1f2328;
 }
 .cavil-pattern-tip-preview {
   background: #f6f8fa;

@@ -52,7 +52,7 @@
             </button>
             <button
               type="button"
-              class="btn btn-sm btn-link text-danger"
+              class="btn btn-sm btn-link"
               @click="store.remove(action.id)"
               :disabled="submitting"
               title="Remove from batch"
@@ -202,6 +202,14 @@ export default {
 }
 .pending-actions-controls .btn {
   padding: 0.125rem 0.375rem;
+  color: #59636e;
+  text-decoration: none;
+}
+.pending-actions-controls .btn:hover {
+  color: #1f2328;
+}
+.pending-actions-controls .btn:disabled {
+  color: #8c959f;
 }
 .pending-actions-item-label {
   display: flex;
