@@ -177,6 +177,9 @@
           <div class="change-confirmation">Proposal has been removed</div>
         </div>
       </div>
+      <div v-if="loadingMore" class="text-center text-muted my-3">
+        <i class="fa-solid fa-rotate fa-spin"></i> Loading more changes
+      </div>
       <a
         id="back-to-top"
         href="#"
@@ -207,7 +210,8 @@ export default {
       changeUrl: '/licenses/proposed/meta',
       ignoreForPackage: true,
       params: {...params, before: 0},
-      total: null
+      total: null,
+      loadingMore: false
     };
   },
   mounted() {
@@ -315,8 +319,15 @@ export default {
         this.loadMore();
       }
     },
-    loadMore() {
-      this.getChanges();
+    async loadMore() {
+      if (this.loadingMore) return;
+      if (this.changes !== null && this.total !== null && this.changes.length >= this.total) return;
+      this.loadingMore = true;
+      try {
+        await this.getChanges();
+      } finally {
+        this.loadingMore = false;
+      }
     },
     async rejectProposal(change) {
       change.state = 'updating';

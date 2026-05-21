@@ -80,6 +80,9 @@
           </div>
         </div>
       </div>
+      <div v-if="loadingMore" class="text-center text-muted my-3">
+        <i class="fa-solid fa-rotate fa-spin"></i> Loading more patterns
+      </div>
       <a
         id="back-to-top"
         href="#"
@@ -111,7 +114,8 @@ export default {
       params: {...params, before: 0},
       patterns: null,
       patternUrl: '/licenses/recent/meta',
-      total: null
+      total: null,
+      loadingMore: false
     };
   },
   mounted() {
@@ -158,8 +162,15 @@ export default {
         this.loadMore();
       }
     },
-    loadMore() {
-      this.getPatterns();
+    async loadMore() {
+      if (this.loadingMore) return;
+      if (this.patterns !== null && this.total !== null && this.patterns.length >= this.total) return;
+      this.loadingMore = true;
+      try {
+        await this.getPatterns();
+      } finally {
+        this.loadingMore = false;
+      }
     },
     refreshPage() {
       this.total = null;

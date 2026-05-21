@@ -64,6 +64,9 @@
           <div class="change-confirmation">Proposal has been dismissed</div>
         </div>
       </div>
+      <div v-if="loadingMore" class="text-center text-muted my-3">
+        <i class="fa-solid fa-rotate fa-spin"></i> Loading more missing licenses
+      </div>
       <a
         id="back-to-top"
         href="#"
@@ -91,7 +94,8 @@ export default {
       params: {before: 0},
       changes: null,
       changeUrl: '/licenses/proposed/meta?action=missing_license',
-      total: null
+      total: null,
+      loadingMore: false
     };
   },
   mounted() {
@@ -149,8 +153,15 @@ export default {
         this.loadMore();
       }
     },
-    loadMore() {
-      this.getChanges();
+    async loadMore() {
+      if (this.loadingMore) return;
+      if (this.changes !== null && this.total !== null && this.changes.length >= this.total) return;
+      this.loadingMore = true;
+      try {
+        await this.getChanges();
+      } finally {
+        this.loadingMore = false;
+      }
     },
     async dismissProposal(change) {
       change.state = 'updating';

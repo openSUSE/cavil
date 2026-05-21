@@ -156,6 +156,9 @@
           </div>
         </div>
       </div>
+      <div v-if="loadingMore" class="text-center text-muted my-3">
+        <i class="fa-solid fa-rotate fa-spin"></i> Loading more snippets
+      </div>
       <a
         id="back-to-top"
         href="#"
@@ -190,7 +193,8 @@ export default {
       params: {...params, before: 0},
       snippets: null,
       snippetUrl: '/snippets/meta',
-      total: null
+      total: null,
+      loadingMore: false
     };
   },
   mounted() {
@@ -253,8 +257,15 @@ export default {
         this.loadMore();
       }
     },
-    loadMore() {
-      this.getSnippets();
+    async loadMore() {
+      if (this.loadingMore) return;
+      if (this.snippets !== null && this.total !== null && this.snippets.length >= this.total) return;
+      this.loadingMore = true;
+      try {
+        await this.getSnippets();
+      } finally {
+        this.loadingMore = false;
+      }
     },
     refreshPage() {
       this.total = null;
