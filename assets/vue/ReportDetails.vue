@@ -544,26 +544,22 @@ export default {
       }
     },
     matchTargets() {
-      // Flat ordered list of every unresolved match across all files with
-      // missed snippets. Files whose source hasn't loaded yet only contribute
-      // a single fallback target so navigation can still reach them; once
-      // their source loads, subsequent presses naturally pick up the
-      // additional in-file matches.
+      // Flat ordered list of every unresolved match across all files. We
+      // intentionally use the snippet positions the server attaches to each
+      // missed file (rather than scanning the rendered source) - the source
+      // is loaded lazily for files past max_expanded_files, and when adjacent
+      // snippets share context lines the rendered source can drop one of
+      // them, so the DOM is not authoritative.
       const targets = [];
       for (const missed of this.missedFiles) {
-        const file = this.files.find(f => f.id === missed.id);
-        const lines = file && file.source && file.source.lines;
-        const starts = lines ? lines.filter(l => l[1].risk === 9 && l[1].end) : [];
-        if (starts.length > 0) {
-          for (const l of starts) targets.push({fileId: missed.id, startLine: l[0]});
-        } else {
-          targets.push({fileId: missed.id, startLine: null});
+        for (const snip of missed.snippets || []) {
+          targets.push({fileId: missed.id, startLine: snip[0]});
         }
       }
       return targets;
     },
     matchKey(target) {
-      return target.startLine === null ? `f:${target.fileId}` : `m:${target.fileId}:${target.startLine}`;
+      return `${target.fileId}:${target.startLine}`;
     },
     async gotoMatch(direction) {
       const targets = this.matchTargets();
@@ -586,15 +582,10 @@ export default {
       if (!file.expanded) file.expanded = true;
       if (!file.source) await this.fetchSource(file);
       await this.$nextTick();
-      let el = null;
-      if (target.startLine !== null) {
-        el = document.getElementById(`match-${target.fileId}-${target.startLine}`);
-      }
-      if (!el) {
-        el =
-          document.getElementById('file-details-' + target.fileId) ||
-          document.querySelector('[name="file-' + target.fileId + '"]');
-      }
+      const el =
+        document.getElementById(`line-${target.fileId}-${target.startLine}`) ||
+        document.getElementById('file-details-' + target.fileId) ||
+        document.querySelector('[name="file-' + target.fileId + '"]');
       if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
     },
     showShortcuts() {

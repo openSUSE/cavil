@@ -8,7 +8,7 @@
         </tr>
         <tr
           v-if="!isHiddenByEditor(line)"
-          :id="line[1].end && line[1].risk === 9 ? 'match-' + fileId + '-' + line[0] : null"
+          :id="'line-' + fileId + '-' + line[0]"
           :class="rowClass(line[1])"
           :title="line[1].risk > 0 ? line[1].name : null"
         >

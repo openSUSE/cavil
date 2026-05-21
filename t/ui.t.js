@@ -338,52 +338,34 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#license-chart');
       await page.waitForSelector('#filelist-snippets a.file-link');
 
-      // Wait for every auto-expanded risk-9 file to finish loading its source
-      // so we can see all unresolved match starts (rows tagged with the
-      // match-<fileId>-<line> id by FileSource.vue).
-      await page.waitForFunction(() => {
-        const links = document.querySelectorAll('#filelist-snippets a.file-link');
-        if (!links.length) return false;
-        for (const a of links) {
-          const id = a.getAttribute('href').replace('#file-', '');
-          if (!document.querySelector(`#file-details-${id} table.snippet`)) return false;
-        }
-        return true;
-      });
-
-      // Build the full ordered jump list across all missed files. The fixture
-      // is expected to contain at least one file with multiple risk-9 starts
-      // (the Mojolicious LICENSE file has three) so we can verify the within-
-      // file walk - the regression we're guarding against is 'n' skipping
-      // straight to the next file after the first match.
-      const targets = await page.evaluate(() => {
-        const out = [];
-        for (const a of document.querySelectorAll('#filelist-snippets a.file-link')) {
-          const fileId = a.getAttribute('href').replace('#file-', '');
-          const rows = document.querySelectorAll(`#file-details-${fileId} tr[id^="match-${fileId}-"]`);
-          for (const tr of rows) out.push({fileId, line: Number(tr.id.replace(`match-${fileId}-`, ''))});
-        }
-        return out;
-      });
-      t.ok(targets.length >= 4, 'have at least four unresolved match starts');
-      const multiMatchFile = targets.reduce((acc, t) => {
-        acc[t.fileId] = (acc[t.fileId] || 0) + 1;
-        return acc;
-      }, {});
-      t.ok(
-        Object.values(multiMatchFile).some(n => n > 1),
-        'at least one missed file has multiple risk-9 starts'
-      );
+      // Source the authoritative jump list from the same JSON the page is
+      // rendering - the navigation walks every missed snippet position the
+      // server attaches to each missed file, regardless of whether that
+      // file's source has been auto-expanded. The Mojolicious LICENSE file
+      // in the fixture contributes three snippet positions, so a single 'n'
+      // press must NOT carry the user past those siblings.
+      const reportUrl = page.url().replace(/\/reviews\/details\//, '/reviews/report_details/');
+      const details = await (await page.evaluate(u => fetch(u).then(r => r.json()), reportUrl)) ?? {};
+      const targets = [];
+      for (const missed of details.missed_files || []) {
+        for (const snip of missed.snippets || []) targets.push({fileId: missed.id, line: snip[0]});
+      }
+      t.ok(targets.length >= 4, 'have at least four unresolved match positions');
+      const perFile = targets.reduce((acc, t) => ((acc[t.fileId] = (acc[t.fileId] || 0) + 1), acc), {});
+      t.ok(Object.values(perFile).some(n => n > 1), 'at least one missed file has multiple snippet positions');
       const firstId = targets[0].fileId;
       const secondId = targets[1].fileId;
 
-      // 'n' must visit every match in order - including subsequent matches in
-      // the same file before crossing to the next file.
+      // 'n' walks every snippet in document order - including siblings in the
+      // same file. Each press waits for the matching <tr id="line-<f>-<l>">
+      // (added by FileSource.vue) to land in the viewport, which also covers
+      // the previously-broken case where the file was past
+      // max_expanded_files and the source needed an on-demand fetch.
       for (const [i, target] of targets.entries()) {
         await page.keyboard.press('n');
         await page.waitForFunction(
           ({fileId, line}) => {
-            const el = document.getElementById(`match-${fileId}-${line}`);
+            const el = document.getElementById(`line-${fileId}-${line}`);
             if (!el) return false;
             const r = el.getBoundingClientRect();
             return r.top >= -50 && r.top <= window.innerHeight;
@@ -391,7 +373,7 @@ t.test('Test cavil ui', skip, async t => {
           target,
           {timeout: 5000}
         );
-        t.pass(`'n' #${i + 1} landed on match-${target.fileId}-${target.line}`);
+        t.pass(`'n' #${i + 1} landed on line-${target.fileId}-${target.line}`);
       }
 
       // 'p' walks back through the same list in reverse.
@@ -400,7 +382,7 @@ t.test('Test cavil ui', skip, async t => {
         const target = targets[i];
         await page.waitForFunction(
           ({fileId, line}) => {
-            const el = document.getElementById(`match-${fileId}-${line}`);
+            const el = document.getElementById(`line-${fileId}-${line}`);
             if (!el) return false;
             const r = el.getBoundingClientRect();
             return r.top >= -50 && r.top <= window.innerHeight;
@@ -409,7 +391,7 @@ t.test('Test cavil ui', skip, async t => {
           {timeout: 5000}
         );
       }
-      t.pass(`'p' walked back to match-${targets[0].fileId}-${targets[0].line}`);
+      t.pass(`'p' walked back to line-${targets[0].fileId}-${targets[0].line}`);
 
       // Sanity-check the original assertion that both files end up visible.
       t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file visible');
