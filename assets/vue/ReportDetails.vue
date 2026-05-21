@@ -167,6 +167,34 @@
       <br />
     </div>
     <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
+
+    <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="shortcutsModalLabel">Keyboard shortcuts</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body shortcuts-modal-body">
+            <h6 class="shortcuts-section-title">Report navigation</h6>
+            <dl class="shortcuts-list">
+              <div class="shortcuts-row">
+                <dt>Jump to next unresolved match</dt>
+                <dd><kbd>n</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
+                <dt>Jump to previous unresolved match</dt>
+                <dd><kbd>p</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
+                <dt>Show this help dialog</dt>
+                <dd><kbd>?</kbd></dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -176,6 +204,7 @@ import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
+import {Modal} from 'bootstrap';
 import Chart from 'chart.js';
 
 let pendingActionIdSeq = 0;
@@ -221,7 +250,9 @@ export default {
       risks: {},
       stage: null,
       unresolvedMatches: 0,
-      urls: []
+      urls: [],
+      currentMissedIdx: -1,
+      shortcutsModal: null
     };
   },
   computed: {
@@ -232,8 +263,16 @@ export default {
       return this.sortedRisks.length === 0 && this.missedFiles.length === 0;
     }
   },
+  mounted() {
+    window.addEventListener('keydown', this.handleKeydown);
+  },
   beforeUnmount() {
     if (this.chartInstance) this.chartInstance.destroy();
+    window.removeEventListener('keydown', this.handleKeydown);
+    if (this.shortcutsModal) {
+      this.shortcutsModal.dispose();
+      this.shortcutsModal = null;
+    }
   },
   methods: {
     capitalize(str) {
@@ -449,7 +488,7 @@ export default {
       this.openInlineEditor = {...payload, key: ++openEditorKeySeq};
       await this.$nextTick();
       const el = document.getElementById('inline-snippet-editor');
-      if (el) el.scrollIntoView({block: 'center'});
+      if (el) el.scrollIntoView({block: 'nearest'});
     },
     closeInlineEditor() {
       this.openInlineEditor = null;
@@ -484,6 +523,38 @@ export default {
     dismissAction(id) {
       const idx = this.pendingActions.findIndex(a => a.id === id);
       if (idx >= 0) this.pendingActions.splice(idx, 1);
+    },
+    handleKeydown(event) {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const t = event.target;
+      if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) {
+        return;
+      }
+      if (event.key === 'n') {
+        if (this.missedFiles.length === 0) return;
+        event.preventDefault();
+        this.gotoMissed(Math.min(this.currentMissedIdx + 1, this.missedFiles.length - 1));
+      } else if (event.key === 'p') {
+        if (this.missedFiles.length === 0) return;
+        event.preventDefault();
+        this.gotoMissed(Math.max(this.currentMissedIdx - 1, 0));
+      } else if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
+        event.preventDefault();
+        this.showShortcuts();
+      }
+    },
+    gotoMissed(idx) {
+      this.currentMissedIdx = idx;
+      const missed = this.missedFiles[idx];
+      if (!missed) return;
+      const file = this.files.find(f => f.id === missed.id);
+      if (file) this.scrollToFile(file);
+    },
+    showShortcuts() {
+      const el = document.getElementById('shortcutsModal');
+      if (!el) return;
+      if (!this.shortcutsModal) this.shortcutsModal = Modal.getOrCreateInstance(el);
+      this.shortcutsModal.show();
     },
     async editAction(id) {
       const action = this.pendingActions.find(a => a.id === id);
@@ -564,3 +635,49 @@ export default {
   }
 };
 </script>
+
+<style>
+.shortcuts-modal-body {
+  padding: 1rem 1.25rem 1.25rem;
+}
+.shortcuts-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #57606a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.shortcuts-list {
+  margin: 0;
+}
+.shortcuts-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eaeef2;
+}
+.shortcuts-row:last-child {
+  border-bottom: none;
+}
+.shortcuts-row dt {
+  font-weight: 400;
+}
+.shortcuts-row dd {
+  margin: 0;
+}
+.shortcuts-row kbd {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: inset 0 -1px 0 #d0d7de;
+  color: #1f2328;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.75rem;
+  padding: 3px 6px;
+  min-width: 1.5em;
+  text-align: center;
+  display: inline-block;
+}
+</style>

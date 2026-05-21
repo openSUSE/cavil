@@ -210,7 +210,7 @@ export default {
   margin-top: 0;
 }
 .snippet.editor-open tr:not(.inline-editor-row) {
-  opacity: 0.4;
+  opacity: 0.2;
   transition: opacity 0.15s ease-in-out;
 }
 </style>

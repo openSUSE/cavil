@@ -331,6 +331,63 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#file-details-6 table.snippet');
     });
 
+    await t.test('Keyboard shortcuts for unresolved match navigation', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+      await page.waitForSelector('#filelist-snippets a.file-link');
+
+      const hrefs = await page
+        .locator('#filelist-snippets a.file-link')
+        .evaluateAll(els => els.map(a => a.getAttribute('href')));
+      t.ok(hrefs.length >= 2, 'have at least two unresolved-match files');
+      const firstId = hrefs[0].replace('#file-', '');
+      const secondId = hrefs[1].replace('#file-', '');
+
+      // 'n' advances through the unresolved matches
+      await page.keyboard.press('n');
+      await page.waitForSelector(`#file-details-${firstId}`);
+      t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file visible after n');
+
+      await page.keyboard.press('n');
+      await page.waitForSelector(`#file-details-${secondId}`);
+      t.same(await page.isVisible(`#file-details-${secondId}`), true, 'second missed file visible after n');
+
+      // 'p' walks back
+      await page.keyboard.press('p');
+      t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file still visible after p');
+
+      // '?' opens the shortcuts help modal
+      await page.keyboard.press('Shift+/');
+      await page.waitForSelector('#shortcutsModal.show');
+      const modalText = await page.innerText('#shortcutsModal');
+      t.match(modalText, /Keyboard shortcuts/);
+      t.match(modalText, /Jump to next unresolved match/);
+      t.match(modalText, /Jump to previous unresolved match/);
+
+      await page.locator('#shortcutsModal .btn-close').click();
+      await page.waitForFunction(() => {
+        const m = document.getElementById('shortcutsModal');
+        return !m || !m.classList.contains('show');
+      });
+
+      // Shortcut must not fire while typing into an editor input — open the
+      // inline editor on file 1 and confirm pressing 'n' inside the license
+      // field inserts the letter instead of jumping to the next match.
+      await page.locator('#file-details-1 .quick-actions a').first().click();
+      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+      await page.locator('#inline-snippet-editor input[name=license]').click();
+      await page.keyboard.type('np');
+      t.equal(
+        await page.locator('#inline-snippet-editor input[name=license]').inputValue(),
+        'np',
+        'shortcut keys are typed normally inside the license input'
+      );
+      await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+    });
+
     await t.test('File list cap per license (min_files_short_report)', async t => {
       // The Apache-2.0 bucket has been inflated to 102 unique files by the test
       // fixture. The in-bucket file list must be capped to
@@ -529,7 +586,9 @@ t.test('Test cavil ui', skip, async t => {
       // original snippet text (triggers the server's pattern_matches guard)
       await page.evaluate(() => {
         const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
-        view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}});
+        view.dispatch({
+          changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}
+        });
       });
 
       await page.locator('#inline-snippet-editor input[name=license]').fill('Error-Test-License');
@@ -592,7 +651,9 @@ t.test('Test cavil ui', skip, async t => {
       // First pass: queue a propose-pattern with a deliberately bad pattern
       await page.evaluate(() => {
         const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
-        view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}});
+        view.dispatch({
+          changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}
+        });
       });
       await page.locator('#inline-snippet-editor input[name=license]').fill('Edit-Recovery-License');
       await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
@@ -649,10 +710,7 @@ t.test('Test cavil ui', skip, async t => {
       );
 
       // Submit the edited action - it must now succeed and reload the page
-      await Promise.all([
-        page.waitForURL(/\/reviews\/details\//),
-        page.locator('#pending-actions-submit').click()
-      ]);
+      await Promise.all([page.waitForURL(/\/reviews\/details\//), page.locator('#pending-actions-submit').click()]);
       await page.waitForSelector('#license-chart');
 
       // Make sure the queue is empty for any later subtests
@@ -763,19 +821,21 @@ t.test('Test cavil ui', skip, async t => {
       );
 
       // Verify the pending indicator (the badge inside the file source) is in view
-      await page.waitForFunction(
-        id => {
-          const el = document.getElementById(`pending-indicator-${id}`);
-          if (!el) return false;
-          const r = el.getBoundingClientRect();
-          return r.top >= -50 && r.top <= window.innerHeight;
-        },
-        Number(fileId) === Number(fileId) ? 1 : 0,
-        {timeout: 5000}
-      ).catch(() => {
-        // The exact action ID isn't stable enough to query precisely, so just
-        // assert that *some* pending-indicator landed in view.
-      });
+      await page
+        .waitForFunction(
+          id => {
+            const el = document.getElementById(`pending-indicator-${id}`);
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            return r.top >= -50 && r.top <= window.innerHeight;
+          },
+          Number(fileId) === Number(fileId) ? 1 : 0,
+          {timeout: 5000}
+        )
+        .catch(() => {
+          // The exact action ID isn't stable enough to query precisely, so just
+          // assert that *some* pending-indicator landed in view.
+        });
       const indicatorInView = await page.evaluate(() => {
         const indicators = document.querySelectorAll('[id^="pending-indicator-"]');
         for (const el of indicators) {
@@ -1006,10 +1066,7 @@ t.test('Test cavil ui', skip, async t => {
 
       await editorPage.waitForSelector('#edit-snippet .cm-editor');
       await editorPage.waitForSelector('#edit-snippet input[name=license]');
-      t.match(
-        await editorPage.innerText('#edit-snippet button[data-action="create-pattern"]'),
-        /Create Pattern/
-      );
+      t.match(await editorPage.innerText('#edit-snippet button[data-action="create-pattern"]'), /Create Pattern/);
       // Page mode shows the source-file/package origin line (inline mode hides it).
       t.match(await editorPage.innerText('#edit-snippet'), /The example shown here is from the file/);
 
