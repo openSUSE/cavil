@@ -95,11 +95,39 @@ sub minimal_snippet ($snippet) {
   return {text => join("\n", @$lines[$start .. $end]), start_line => $start_line + $start};
 }
 
+# Anchor for the start of a copyright line. Matches optional leading whitespace
+# and common comment markers (#, *, //, ;), then one of: Copyright [optional
+# (c)/(C)/©], a bare (c)/(C)/©, or an SPDX-FileCopyrightText: /
+# SPDX-SnippetCopyrightText: prefix.
+my $COPYRIGHT_ANCHOR = qr{
+  ^
+  (                                                       # $1: prefix to preserve
+    \s* (?: [\#*/;]+ \s* )?
+    (?:
+      SPDX-(?:File|Snippet)CopyrightText:
+      | Copyright (?: \s* (?: \(c\) | \(C\) | © ) )?
+      | (?: \(c\) | \(C\) | © ) (?: \s* Copyright )?
+    )
+  )
+  \s+ \S .* $                                             # at least one word follows
+}x;
+
+# Collapse the variable part of a copyright line (holders, years, emails, URLs)
+# to $SKIP10. Returns the original line unchanged if it does not look like a
+# copyright declaration. Operates on a single line (no embedded newlines).
+sub _collapse_copyright_line ($line) {
+  return $line unless $line =~ $COPYRIGHT_ANCHOR;
+  return "$1 \$SKIP10";
+}
+
 # Auto-trim a snippet down to its legally meaningful core: strip license-match
 # lines at the boundaries (via minimal_snippet), then trim word-by-word outside
 # the keyword span, keeping at most PAD_WORDS words of padding on each side.
-# The result is a contiguous slice of the original snippet text, so a pattern
-# built from it still matches the original via Cavil::Util::pattern_matches.
+# Finally, collapse the variable portion of any copyright lines in the result
+# to $SKIP10. The text is no longer a strict substring of the original, but
+# still matches the original via Cavil::Util::pattern_matches because $SKIP10
+# is a wildcard. Line count is preserved so frontend line decorations remain
+# valid.
 sub smart_edit_snippet ($snippet) {
   my $original_text  = $snippet->{text}     // '';
   my $original_sline = $snippet->{sline}    // 1;
@@ -109,21 +137,22 @@ sub smart_edit_snippet ($snippet) {
   my $text          = $minimal->{text};
   my $minimal_sline = $minimal->{start_line};
 
-  my $no_op = sub {
-    return {text => $text, start_line => $minimal_sline, changed => $text eq $original_text ? 0 : 1};
+  my $finalize = sub ($result_text, $start_line) {
+    my $collapsed = join "\n", map { _collapse_copyright_line($_) } split /\n/, $result_text, -1;
+    return {text => $collapsed, start_line => $start_line, changed => $collapsed eq $original_text ? 0 : 1};
   };
 
-  return $no_op->() unless keys %$keywords;
+  return $finalize->($text, $minimal_sline) unless keys %$keywords;
 
   # Rebase keyword line indices into the trimmed text
   my $offset   = $minimal_sline - $original_sline;
   my @kw_lines = sort { $a <=> $b } grep { $_ >= 0 } map { $_ - $offset } keys %$keywords;
-  return $no_op->() unless @kw_lines;
+  return $finalize->($text, $minimal_sline) unless @kw_lines;
 
   my @lines    = split /\n/, $text, -1;
   my $first_kw = $kw_lines[0];
   my $last_kw  = $kw_lines[-1];
-  return $no_op->() if $last_kw >= @lines;
+  return $finalize->($text, $minimal_sline) if $last_kw >= @lines;
 
   # Byte offsets for the start of the first keyword line and the end of the
   # last keyword line (without the trailing newline)
@@ -156,11 +185,7 @@ sub smart_edit_snippet ($snippet) {
   # Adjust start_line by the number of complete lines dropped from the front
   my $dropped_lines = (substr($text, 0, $new_start) =~ tr/\n//);
 
-  return {
-    text       => $trimmed,
-    start_line => $minimal_sline + $dropped_lines,
-    changed    => $trimmed eq $original_text ? 0 : 1,
-  };
+  return $finalize->($trimmed, $minimal_sline + $dropped_lines);
 }
 
 sub report_checksum ($specfile_report, $dig_report) {

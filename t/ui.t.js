@@ -1069,12 +1069,11 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(smartResp.status(), 200, 'smart edit endpoint returns 200');
 
       await page.waitForFunction(
-        orig => document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString().length < orig.length,
+        orig => document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString() !== orig,
         originalText
       );
       const trimmedText = await docText();
-      t.ok(trimmedText.length < originalText.length, 'doc shrank after smart edit');
-      t.ok(originalText.includes(trimmedText), 'trimmed text is a substring of the original');
+      t.notEqual(trimmedText, originalText, 'doc changed after smart edit');
       t.equal(await restoreBtn.isDisabled(), false, 'restore-original is enabled after smart edit');
       if (originalHighlights > 0) {
         t.ok((await highlightCount()) > 0, 'highlights are preserved after smart edit');

@@ -367,6 +367,105 @@ subtest 'smart_edit_snippet' => sub {
     is $result->{start_line}, 12, 'start line follows minimal_snippet offset';
     is $result->{changed},    1,  'snippet was trimmed';
   };
+
+  subtest 'Collapses copyright lines to $SKIP10' => sub {
+    my @cases = (
+      ['Copyright (c) 2018 Foo Bar',                               'Copyright (c) $SKIP10'],
+      ['Copyright (C) 2024 SUSE LLC',                              'Copyright (C) $SKIP10'],
+      ['Copyright © 2019 John Doe',                                'Copyright © $SKIP10'],
+      ['Copyright 2016, 2018-2019 Joe Anybody',                    'Copyright $SKIP10'],
+      ['Copyright (c) 2003-2018 Foo',                              'Copyright (c) $SKIP10'],
+      ['Copyright (c) 2003, 2005, 2018 Foo',                       'Copyright (c) $SKIP10'],
+      ['Copyright (c) 2018 Jane Doe <jane@example.org>',           'Copyright (c) $SKIP10'],
+      ['Copyright (c) Alice, some rights reserved',                'Copyright (c) $SKIP10'],
+      ['Copyright 2018-present Foo Project',                       'Copyright $SKIP10'],
+      ['(c) 2018 Foo',                                             '(c) $SKIP10'],
+      ['(C) Copyright 2018 Foo',                                   '(C) Copyright $SKIP10'],
+      ['© 2019 Example Corporation <https://corp.example.com>',    '© $SKIP10'],
+      ['SPDX-FileCopyrightText: 2019 Jane Doe <jane@example.com>', 'SPDX-FileCopyrightText: $SKIP10'],
+      ['SPDX-FileCopyrightText: Contributors to Example Project',  'SPDX-FileCopyrightText: $SKIP10'],
+      ['SPDX-SnippetCopyrightText: (C) Example Cooperative',       'SPDX-SnippetCopyrightText: $SKIP10'],
+    );
+    for my $case (@cases) {
+      my ($input, $expected) = @$case;
+      my $snippet = {text => $input, keywords => {0 => 1}, sline => 1};
+      is smart_edit_snippet($snippet)->{text}, $expected, "collapsed: $input";
+    }
+  };
+
+  subtest 'Preserves comment-marker prefixes on copyright lines' => sub {
+    my @cases = (
+      ['# Copyright (C) 2024 SUSE LLC', '# Copyright (C) $SKIP10'],
+      ['// Copyright (c) 2018 Foo',     '// Copyright (c) $SKIP10'],
+      [' * Copyright (c) 2018 Foo',     ' * Copyright (c) $SKIP10'],
+      ['## Copyright 2018 Foo',         '## Copyright $SKIP10'],
+      ['; Copyright (c) 2018 Foo',      '; Copyright (c) $SKIP10'],
+    );
+    for my $case (@cases) {
+      my ($input, $expected) = @$case;
+      my $snippet = {text => $input, keywords => {0 => 1}, sline => 1};
+      is smart_edit_snippet($snippet)->{text}, $expected, "preserved prefix on: $input";
+    }
+  };
+
+  subtest 'Does not collapse non-copyright text' => sub {
+    my @cases = (
+      'Copyright',                              # bare anchor with nothing after
+      'The Copyright Office should be sent',    # anchor not at line start
+      'Licensed under the Apache License',      # no copyright anchor at all
+      'see Copyright notice above',             # anchor mid-sentence
+    );
+    for my $line (@cases) {
+      my $snippet = {text => $line, keywords => {0 => 1}, sline => 1};
+      is smart_edit_snippet($snippet)->{text}, $line, "not collapsed: $line";
+    }
+  };
+
+  subtest 'Collapses each line of a multi-line copyright stack independently' => sub {
+    my $snippet = {
+      text     => "Copyright (c) 2018 Foo\nCopyright (c) 2019 Bar\nCopyright (c) 2020 Baz <baz\@x>\n",
+      keywords => {0 => 1, 1 => 1, 2 => 1},
+      sline    => 1
+    };
+    is smart_edit_snippet($snippet)->{text}, "Copyright (c) \$SKIP10\nCopyright (c) \$SKIP10\nCopyright (c) \$SKIP10\n",
+      'each line collapsed, line count preserved';
+  };
+
+  subtest 'Mixed copyright and non-copyright lines' => sub {
+    my $snippet = {
+      text     => "Copyright (c) 2018 Foo\nLicensed under MIT\nSee Copyright notice\n",
+      keywords => {1 => 1},
+      sline    => 1
+    };
+    is smart_edit_snippet($snippet)->{text}, "Copyright (c) \$SKIP10\nLicensed under MIT\nSee Copyright notice\n",
+      'only the copyright line is collapsed';
+  };
+
+  subtest 'Collapse applies even when nothing else is trimmed' => sub {
+    my $snippet = {text => "Copyright (c) 2018 Foo\n", keywords => {0 => 1}, sline => 1};
+    my $result  = smart_edit_snippet($snippet);
+    is $result->{text},    "Copyright (c) \$SKIP10\n", 'short text still gets copyright collapsed';
+    is $result->{changed}, 1,                          'reported as changed';
+  };
+
+  subtest 'No-op when text has no copyright lines and no trimming applies' => sub {
+    my $snippet = {text => "ab cd\nKEYWORD\nef gh\n", keywords => {1 => 1}, sline => 1};
+    my $result  = smart_edit_snippet($snippet);
+    is $result->{text},    "ab cd\nKEYWORD\nef gh\n", 'unchanged';
+    is $result->{changed}, 0,                         'no change reported';
+  };
+
+  subtest 'Combines trimming with copyright collapse' => sub {
+    my $snippet = {
+      text     => "noise one two three four five\nCopyright (c) 2018 Foo Bar\nKEYWORD\ntrail one two three four five\n",
+      keywords => {2 => 1},
+      sline    => 1
+    };
+    my $result = smart_edit_snippet($snippet);
+    is $result->{text}, "Copyright (c) \$SKIP10\nKEYWORD\ntrail one two three four",
+      'trimmed leading noise and collapsed copyright';
+    is $result->{changed}, 1, 'reported as changed';
+  };
 };
 
 subtest 'report_checksum' => sub {
