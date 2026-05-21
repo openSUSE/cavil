@@ -17,7 +17,7 @@ use Mojo::Base -strict;
 
 use Test::More;
 use Cavil::ReportUtil (qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
-  qw( summary_delta summary_delta_score));
+  qw(smart_edit_snippet summary_delta summary_delta_score));
 
 subtest 'estimated_risk' => sub {
   subtest 'Risk 0' => sub {
@@ -295,6 +295,77 @@ subtest 'minimal_snippet' => sub {
     my $snippet
       = {text => "one\ntwo\nthree\nfour\nfive\nsix\nseven\n", keywords => {2 => 24}, matches => {6 => 23, 4 => 27}};
     is minimal_snippet($snippet)->{text}, "one\ntwo\nthree\nfour", 'minimal snippet';
+  };
+};
+
+subtest 'smart_edit_snippet' => sub {
+  subtest 'No keywords is a no-op' => sub {
+    is_deeply smart_edit_snippet({text => "foo\nbar\nbaz\n", sline => 5}),
+      {text => "foo\nbar\nbaz\n", start_line => 5, changed => 0}, 'no keywords, no change';
+    is_deeply smart_edit_snippet({text => "foo\nbar\nbaz\n", sline => 5, keywords => {}, matches => {}}),
+      {text => "foo\nbar\nbaz\n", start_line => 5, changed => 0}, 'empty keywords, no change';
+  };
+
+  subtest 'Keywords in the middle, both sides trimmed' => sub {
+    my $snippet = {
+      text =>
+        "line one\nline two\nline three\nKEYWORD HERE\nafter one\nafter two\nafter three\nafter four\nafter five\nafter six\nafter seven\n",
+      keywords => {3 => 42},
+      sline    => 1
+    };
+    my $result = smart_edit_snippet($snippet);
+    is $result->{text}, "one\nline two\nline three\nKEYWORD HERE\nafter one\nafter two\nafter",
+      'trimmed to keyword core with PAD_WORDS padding';
+    is $result->{start_line}, 1, 'start line unchanged (still on line 1)';
+    is $result->{changed},    1, 'snippet was trimmed';
+  };
+
+  subtest 'Padding shorter than PAD_WORDS keeps everything' => sub {
+    my $snippet = {text => "ab cd\nKEYWORD\nef gh\n", keywords => {1 => 1}, sline => 1};
+    is_deeply smart_edit_snippet($snippet), {text => "ab cd\nKEYWORD\nef gh\n", start_line => 1, changed => 0},
+      'short padding kept as-is';
+  };
+
+  subtest 'Keyword at the start: only trailing side trimmed' => sub {
+    my $snippet = {text => "KEYWORD\none\ntwo three four five six\n", keywords => {0 => 1}, sline => 7};
+    my $result  = smart_edit_snippet($snippet);
+    is $result->{text},       "KEYWORD\none\ntwo three four five", 'tail trimmed to 5 tokens';
+    is $result->{start_line}, 7,                                   'start line preserved';
+    is $result->{changed},    1,                                   'snippet was trimmed';
+  };
+
+  subtest 'Keyword at the end: only leading side trimmed' => sub {
+    my $snippet = {text => "ab cd ef gh ij kl\nmn\nKEYWORD\n", keywords => {2 => 1}, sline => 1};
+    my $result  = smart_edit_snippet($snippet);
+    is $result->{text},       "ef gh ij kl\nmn\nKEYWORD\n", 'leading trimmed to 5 tokens';
+    is $result->{start_line}, 1,                            'start line still 1 (trimmed within first line)';
+    is $result->{changed},    1,                            'snippet was trimmed';
+  };
+
+  subtest 'Dropping entire leading lines bumps start_line' => sub {
+    my $snippet = {
+      text     => "alpha\nbeta\ngamma\ndelta\nepsilon\nzeta eta theta iota kappa\nKEYWORD\nlambda mu nu xi omicron\n",
+      keywords => {6 => 1},
+      sline    => 1
+    };
+    my $result = smart_edit_snippet($snippet);
+    is $result->{text}, "zeta eta theta iota kappa\nKEYWORD\nlambda mu nu xi omicron\n", 'leading whole lines dropped';
+    is $result->{start_line}, 6, 'start line bumped by 5 dropped lines';
+    is $result->{changed},    1, 'snippet was trimmed';
+  };
+
+  subtest 'Delegates overlapping license boundary trim to minimal_snippet' => sub {
+    my $snippet = {
+      text     => "MATCH ONE\nMATCH TWO\nKEYWORD\ntrail one two three four five six seven\n",
+      keywords => {2 => 24},
+      matches  => {0 => 23, 1 => 23},
+      sline    => 10
+    };
+    my $result = smart_edit_snippet($snippet);
+    is $result->{text}, "KEYWORD\ntrail one two three four",
+      'minimal_snippet strips leading match lines, then trailing pad trimmed';
+    is $result->{start_line}, 12, 'start line follows minimal_snippet offset';
+    is $result->{changed},    1,  'snippet was trimmed';
   };
 };
 

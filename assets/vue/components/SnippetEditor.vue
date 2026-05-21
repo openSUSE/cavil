@@ -55,7 +55,33 @@
             <div class="row">
               <div class="col mb-3">
                 <label class="form-label" for="pattern">Snippet</label>
-                <div ref="editorHost" class="snippet-editor-host"></div>
+                <div ref="editorHost" class="snippet-editor-host">
+                  <div class="snippet-editor-tools">
+                    <button
+                      type="button"
+                      class="snippet-editor-tool-btn"
+                      data-action="smart-edit"
+                      :disabled="smartEditBusy"
+                      :title="smartEditBusy ? 'Smart edit in progress…' : 'Smart edit (auto-trim to core pattern)'"
+                      aria-label="Smart edit"
+                      @click="smartEdit"
+                    >
+                      <i v-if="smartEditBusy" class="fa-solid fa-rotate fa-spin"></i>
+                      <i v-else class="fa-solid fa-wand-magic-sparkles"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="snippet-editor-tool-btn"
+                      data-action="restore-original"
+                      :disabled="!canRestoreOriginal"
+                      title="Restore original snippet"
+                      aria-label="Restore original snippet"
+                      @click="restoreOriginal"
+                    >
+                      <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                  </div>
+                </div>
                 <textarea
                   ref="patternText"
                   v-model="patternText"
@@ -292,9 +318,11 @@
 <script>
 import ClosestPattern from './ClosestPattern.vue';
 import {setupPopoverDelayed} from '../helpers/links.js';
-import {EditorState, StateField} from '@codemirror/state';
+import {EditorState, StateEffect, StateField} from '@codemirror/state';
 import {Decoration, EditorView, hoverTooltip, lineNumbers} from '@codemirror/view';
 import UserAgent from '@mojojs/user-agent';
+
+const setDecoLinesEffect = StateEffect.define();
 
 export default {
   name: 'SnippetEditor',
@@ -329,11 +357,14 @@ export default {
         trademark: false
       },
       matches: {},
+      originalDecorations: null,
+      originalSnippetText: null,
       package: null,
       patternMeta: new Map(),
       patternMetaPromises: new Map(),
       patternText: null,
       results: [],
+      smartEditBusy: false,
       riskHtml:
         '<b>Low risk licenses</b><br>' +
         '<b>1:</b> Public-Domain<br>' +
@@ -363,6 +394,11 @@ export default {
     if (this.editor) {
       this.editor.destroy();
       this.editor = null;
+    }
+  },
+  computed: {
+    canRestoreOriginal() {
+      return this.originalSnippetText !== null && this.patternText !== this.originalSnippetText;
     }
   },
   methods: {
@@ -506,30 +542,43 @@ export default {
       collect(this.matches, matchLineSet);
       collect(this.keywords, keywordLineSet);
 
+      this.originalDecorations = {matchLineSet, keywordLineSet, idsByLine};
+      this.originalSnippetText = this.patternText ?? '';
+
+      const buildRanges = (state, mSet, kSet, idsMap) => {
+        const ranges = [];
+        const sorted = [...idsMap.keys()].sort((a, b) => a - b);
+        for (const lineIdx of sorted) {
+          const cmLineNo = lineIdx + 1;
+          if (cmLineNo < 1 || cmLineNo > state.doc.lines) continue;
+          const line = state.doc.line(cmLineNo);
+          const classes = ['found-pattern'];
+          if (mSet[lineIdx]) classes.push('license-line');
+          if (kSet[lineIdx]) classes.push('keyword-line');
+          ranges.push(
+            Decoration.line({
+              attributes: {
+                class: classes.join(' '),
+                'data-pattern-ids': (idsMap.get(lineIdx) ?? []).join(' ')
+              }
+            }).range(line.from)
+          );
+        }
+        return Decoration.set(ranges, true);
+      };
+
       const startLine = this.startLine ?? 1;
       const decoField = StateField.define({
-        create: state => {
-          const ranges = [];
-          const sorted = [...idsByLine.keys()].sort((a, b) => a - b);
-          for (const lineIdx of sorted) {
-            const cmLineNo = lineIdx + 1;
-            if (cmLineNo < 1 || cmLineNo > state.doc.lines) continue;
-            const line = state.doc.line(cmLineNo);
-            const classes = ['found-pattern'];
-            if (matchLineSet[lineIdx]) classes.push('license-line');
-            if (keywordLineSet[lineIdx]) classes.push('keyword-line');
-            ranges.push(
-              Decoration.line({
-                attributes: {
-                  class: classes.join(' '),
-                  'data-pattern-ids': (idsByLine.get(lineIdx) ?? []).join(' ')
-                }
-              }).range(line.from)
-            );
+        create: state => buildRanges(state, matchLineSet, keywordLineSet, idsByLine),
+        update: (decos, tr) => {
+          for (const effect of tr.effects) {
+            if (effect.is(setDecoLinesEffect)) {
+              const v = effect.value;
+              return buildRanges(tr.state, v.matchLineSet, v.keywordLineSet, v.idsByLine);
+            }
           }
-          return Decoration.set(ranges, true);
+          return tr.docChanged ? decos.map(tr.changes) : decos;
         },
-        update: (decos, tr) => (tr.docChanged ? decos.map(tr.changes) : decos),
         provide: f => EditorView.decorations.from(f)
       });
       this.decorationsField = decoField;
@@ -581,6 +630,59 @@ export default {
       if (update.focusChanged && !update.view.hasFocus) {
         this.getHighlightedLines();
       }
+    },
+    async smartEdit() {
+      if (!this.editor || this.smartEditBusy) return;
+      this.smartEditBusy = true;
+      try {
+        const res = await this.ua.get(`/snippet/smart_edit/${this.snippetId}`);
+        if (!res.isSuccess) return;
+        const data = await res.json();
+        const pattern = data.pattern;
+        if (typeof pattern !== 'string') return;
+        const currentDoc = this.editor.state.doc.toString();
+        if (pattern === currentDoc) return;
+
+        const offset = data.start_line - this.startLine;
+        const od = this.originalDecorations;
+        const shiftSet = src => {
+          const out = {};
+          for (const k of Object.keys(src)) {
+            const i = parseInt(k) - offset;
+            if (i >= 0) out[i] = true;
+          }
+          return out;
+        };
+        const shiftMap = src => {
+          const out = new Map();
+          for (const [k, v] of src.entries()) {
+            const i = k - offset;
+            if (i >= 0) out.set(i, v);
+          }
+          return out;
+        };
+        const trimmedDecorations = {
+          matchLineSet: shiftSet(od.matchLineSet),
+          keywordLineSet: shiftSet(od.keywordLineSet),
+          idsByLine: shiftMap(od.idsByLine)
+        };
+
+        this.editor.dispatch({
+          changes: {from: 0, to: this.editor.state.doc.length, insert: pattern},
+          effects: setDecoLinesEffect.of(trimmedDecorations),
+          selection: {anchor: 0}
+        });
+      } finally {
+        this.smartEditBusy = false;
+      }
+    },
+    restoreOriginal() {
+      this.editor.dispatch({
+        changes: {from: 0, to: this.editor.state.doc.length, insert: this.originalSnippetText},
+        effects: setDecoLinesEffect.of(this.originalDecorations),
+        selection: {anchor: 0}
+      });
+      this.editor.focus();
     },
     onGutterClick(view, line) {
       const ids = this.patternIdsAtPos(view, line.from);
@@ -707,6 +809,49 @@ export default {
   border: 1px solid #d0d7de;
   border-radius: 6px;
   overflow: hidden;
+  position: relative;
+}
+.snippet-editor .snippet-editor-tools {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 5;
+}
+.snippet-editor .snippet-editor-tool-btn {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
+  color: #1f2328;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s,
+    color 0.15s;
+  width: 28px;
+}
+.snippet-editor .snippet-editor-tool-btn:hover:not(:disabled) {
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(31, 35, 40, 0.12);
+  color: #0969da;
+}
+.snippet-editor .snippet-editor-tool-btn:focus {
+  border-color: #0969da;
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+  color: #0969da;
+  outline: none;
+}
+.snippet-editor .snippet-editor-tool-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 .snippet-editor .snippet-editor-host .cm-editor {
   height: auto;

@@ -274,6 +274,7 @@ sub startup ($self) {
   $classifier->post('/snippets/<id:num>')->to('Snippet#approve')->name('approve_snippets');
   $logged_in->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
   $logged_in->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
+  $logged_in->get('/snippet/smart_edit/<id:num>')->to('Snippet#smart_edit')->name('snippet_smart_edit');
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
   $admin_or_contributor->get('/snippets/from_file/:file/<start:num>/<end:num>')
     ->to('Snippet#from_file')

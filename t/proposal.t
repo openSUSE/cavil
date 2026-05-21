@@ -61,6 +61,24 @@ subtest 'Snippet metadata' => sub {
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
+subtest 'Smart edit' => sub {
+  $t->get_ok('/snippet/smart_edit/1')->status_is(401);
+
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+  $t->get_ok('/snippet/smart_edit/1')
+    ->status_is(200)
+    ->json_has('/pattern')
+    ->json_has('/start_line')
+    ->json_is('/changed', true)
+    ->json_like('/pattern', qr/license/)
+    ->json_unlike('/pattern', qr/Must you with him from him/);
+
+  $t->get_ok('/snippet/smart_edit/999999')->status_is(404);
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
+
 subtest 'Pattern creation' => sub {
   subtest 'Permission errors' => sub {
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');

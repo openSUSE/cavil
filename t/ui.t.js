@@ -1031,6 +1031,69 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
     });
 
+    await t.test('Smart edit button trims snippet, restore-original recovers initial text', async t => {
+      // Page-mode editor exposes the same SnippetEditor component used inline.
+      // Pick a snippet with keywords so smart_edit actually trims the text.
+      const trimmableId = await page.evaluate(async () => {
+        for (let id = 1; id <= 50; id++) {
+          const r = await fetch(`/snippet/smart_edit/${id}`);
+          if (!r.ok) continue;
+          const j = await r.json();
+          if (j.changed) return id;
+        }
+        return null;
+      });
+      t.ok(trimmableId !== null, `found a fixture snippet that smart_edit trims (id=${trimmableId})`);
+
+      await page.goto(`${url}/snippet/edit/${trimmableId}`);
+      t.equal(await page.innerText('title'), 'Edit snippet');
+      await page.waitForSelector('#edit-snippet .cm-editor');
+
+      const smartBtn = page.locator('#edit-snippet button[data-action="smart-edit"]');
+      const restoreBtn = page.locator('#edit-snippet button[data-action="restore-original"]');
+      await smartBtn.waitFor();
+      await restoreBtn.waitFor();
+      t.equal(await restoreBtn.isDisabled(), true, 'restore-original is disabled before any edits');
+
+      const docText = () =>
+        page.evaluate(() => document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString());
+      const highlightCount = () => page.locator('#edit-snippet .cm-line.found-pattern').count();
+
+      const originalText = await docText();
+      const originalHighlights = await highlightCount();
+
+      const [smartResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/smart_edit\//.test(resp.url())),
+        smartBtn.click()
+      ]);
+      t.equal(smartResp.status(), 200, 'smart edit endpoint returns 200');
+
+      await page.waitForFunction(
+        orig => document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString().length < orig.length,
+        originalText
+      );
+      const trimmedText = await docText();
+      t.ok(trimmedText.length < originalText.length, 'doc shrank after smart edit');
+      t.ok(originalText.includes(trimmedText), 'trimmed text is a substring of the original');
+      t.equal(await restoreBtn.isDisabled(), false, 'restore-original is enabled after smart edit');
+      if (originalHighlights > 0) {
+        t.ok((await highlightCount()) > 0, 'highlights are preserved after smart edit');
+      }
+
+      // Type a stray character on top of the trimmed text, then click restore.
+      await page.locator('#edit-snippet .cm-editor .cm-content').click();
+      await page.keyboard.press('End');
+      await page.keyboard.type('x');
+      await restoreBtn.click();
+      await page.waitForFunction(
+        orig => document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString() === orig,
+        originalText
+      );
+      t.equal(await docText(), originalText, 'doc restored to original after restore-original');
+      t.equal(await highlightCount(), originalHighlights, 'highlights restored after restore-original');
+      t.equal(await restoreBtn.isDisabled(), true, 'restore-original disables again once back at original');
+    });
+
     await t.test('Accept request', async t => {
       await page.goto(url);
       await page.click('text=Artistic');
