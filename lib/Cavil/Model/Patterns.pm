@@ -327,7 +327,7 @@ sub propose_create ($self, %args) {
           patent               => $args{patent}            // '0',
           trademark            => $args{trademark}         // '0',
           export_restricted    => $args{export_restricted} // '0',
-          ai_assisted          => $args{ai_assisted}       // '0',
+          ai_assisted          => $args{ai_assisted}       // 0,
           reason               => $args{reason}            // ''
         }
       },
@@ -361,7 +361,7 @@ sub propose_ignore ($self, %args) {
           highlighted_licenses => $args{highlighted_licenses},
           edited               => $args{edited} // '0',
           package              => $args{package},
-          ai_assisted          => $args{ai_assisted} // '0',
+          ai_assisted          => $args{ai_assisted} // 0,
           reason               => $args{reason}      // ''
         }
       },

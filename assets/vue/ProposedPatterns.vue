@@ -277,6 +277,8 @@ export default {
           change.editUrl = `${change.editUrl}?hash=${change.token_hexsum}&from=${change.data.from}`;
         }
 
+        if (change.data.ai_assisted !== undefined) change.data.ai_assisted = change.data.ai_assisted == 1;
+
         const highlightedKeywords = change.data.highlighted_keywords ?? [];
         const highlightedLicenses = change.data.highlighted_licenses ?? [];
         let num = 0;
