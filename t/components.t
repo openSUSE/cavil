@@ -129,7 +129,7 @@ JSON
   my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
   is scalar @$rows,       1,     'one row';
   is $rows->[0]{license}, undef, 'license left undef when vendored package.json is unparseable';
-  is $rows->[0]{present}, 1,     'still marked present (the directory exists)';
+  is $rows->[0]{present}, 0,     'cannot confirm presence without a parseable package.json';
 };
 
 subtest 'NPM detector: non-object root JSON is rejected' => sub {
@@ -255,6 +255,129 @@ JSON
   ok $child,             'nested child extracted';
   is $child->{license},  'BSD-3-Clause', 'license fallback walks nested path';
   is $child->{present},  1,              'nested v1 dep is found on disk';
+};
+
+subtest 'NPM detector: OBS cpio->tgz layout (tarball-name dirs with package/ inside)' => sub {
+
+  # Derived from observation: OBS _service ships node_modules as a cpio of
+  # one .tgz per dep. Cavil's recursive unpacker extracts each tarball, and
+  # because each .tgz has a literal "package/" toplevel, the result lives
+  # under a tarball-name dir, NOT under node_modules/<name>/. Content-based
+  # resolution must still find these.
+  my $tmp = tempdir;
+  my $obs = $tmp->child('node_modules', '@babel-code-frame-7.22.10', 'package')->make_path;
+  $obs->child('package.json')->spew('{"name":"@babel/code-frame","version":"7.22.10","license":"MIT"}');
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name":"demo"},
+    "node_modules/@babel/code-frame": {"version":"7.22.10"}
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  is scalar @$rows,       1,                  'one component';
+  is $rows->[0]{name},    '@babel/code-frame', 'name from lockfile';
+  is $rows->[0]{version}, '7.22.10',          'version from lockfile';
+  is $rows->[0]{license}, 'MIT',              'license from indexed package.json in OBS-shaped layout';
+  is $rows->[0]{present}, 1,                  'resolved by content, not by path';
+};
+
+subtest 'NPM detector: mixed standard and OBS layouts in one package' => sub {
+  my $tmp = tempdir;
+
+  # Standard layout for leftpad
+  $tmp->child('node_modules', 'leftpad')->make_path
+    ->child('package.json')->spew('{"name":"leftpad","version":"1.3.0","license":"MIT"}');
+
+  # OBS-shaped layout for chalk
+  $tmp->child('node_modules', 'chalk-5.3.0', 'package')->make_path
+    ->child('package.json')->spew('{"name":"chalk","version":"5.3.0","license":"MIT"}');
+
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name":"demo"},
+    "node_modules/leftpad": {"version":"1.3.0"},
+    "node_modules/chalk":   {"version":"5.3.0"}
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  is scalar @$rows, 2, 'both layouts resolved';
+  my %by_name = map { $_->{name} => $_ } @$rows;
+  is $by_name{leftpad}{present}, 1, 'standard-layout dep present';
+  is $by_name{leftpad}{license}, 'MIT', 'standard-layout license';
+  is $by_name{chalk}{present},   1, 'OBS-layout dep present';
+  is $by_name{chalk}{license},   'MIT', 'OBS-layout license';
+};
+
+subtest 'NPM detector: hoisted/nested duplicates of the same name@version collapse to one row' => sub {
+  my $tmp = tempdir;
+  $tmp->child('node_modules', 'ansi-styles')->make_path
+    ->child('package.json')->spew('{"name":"ansi-styles","version":"3.2.1","license":"MIT"}');
+  # Same name+version also appears nested under another dep — npm hoisting case
+  $tmp->child('node_modules', 'chalk', 'node_modules', 'ansi-styles')->make_path
+    ->child('package.json')->spew('{"name":"ansi-styles","version":"3.2.1","license":"MIT"}');
+
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name":"demo"},
+    "node_modules/ansi-styles": {"version":"3.2.1"},
+    "node_modules/chalk": {"version":"2.4.2"},
+    "node_modules/chalk/node_modules/ansi-styles": {"version":"3.2.1"}
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  my @ansi     = grep { $_->{name} eq 'ansi-styles' } @$rows;
+  is scalar @ansi,        1,        'ansi-styles@3.2.1 collapsed to single row';
+  is $ansi[0]{version},   '3.2.1',  'version preserved';
+  is $ansi[0]{present},   1,        'still resolved';
+};
+
+subtest 'NPM detector: index disambiguates multiple versions of the same name' => sub {
+  my $tmp = tempdir;
+
+  # Two on-disk copies of lodash at different versions, in unrelated locations
+  $tmp->child('node_modules', 'lodash')->make_path
+    ->child('package.json')->spew('{"name":"lodash","version":"4.17.21","license":"MIT"}');
+  $tmp->child('node_modules', 'tool', 'node_modules', 'lodash')->make_path
+    ->child('package.json')->spew('{"name":"lodash","version":"3.10.0","license":"MIT"}');
+
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name":"demo"},
+    "node_modules/lodash": {"version":"4.17.21"},
+    "node_modules/tool":   {"version":"1.0.0"},
+    "node_modules/tool/node_modules/lodash": {"version":"3.10.0"}
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  my @lodash   = grep { $_->{name} eq 'lodash' } @$rows;
+  is scalar @lodash, 2, 'both lodash versions recorded';
+  my %by_version = map { $_->{version} => $_ } @lodash;
+  is $by_version{'4.17.21'}{present}, 1, 'top-level lodash present';
+  is $by_version{'3.10.0'}{present},  1, 'nested lodash present (different on-disk dir)';
 };
 
 subtest 'NPM detector: purl construction' => sub {

@@ -54,4 +54,55 @@ subtest 'gnome-icon-theme' => sub {
     'Correctly stripped spec file';
 };
 
+subtest 'structured manifests are not line-split (would corrupt JSON/TOML/YAML)' => sub {
+  my $tmp = tempdir;
+
+  # Build a package-lock.json with a string value long enough to trigger the
+  # post-processor's line-splitting if it ran. Splitting inside a JSON string
+  # literal injects a raw newline that JSON parsers reject.
+  my $long_integrity = 'sha512-' . ('A' x 800) . '==';
+  $tmp->child('package-lock.json')->spew(<<"JSON");
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name": "demo", "version": "1.0.0"},
+    "node_modules/leftpad": {
+      "version": "1.3.0",
+      "integrity": "$long_integrity",
+      "license": "MIT"
+    }
+  }
+}
+JSON
+
+  # Sanity check: this file would trigger line-splitting if it weren't a manifest
+  ok((-s $tmp->child('package-lock.json')) > 800, 'fixture has long-line content');
+  my $before = $tmp->child('package-lock.json')->slurp;
+
+  my $processor = Cavil::PostProcess->new(
+    {destdir => $tmp, unpacked => {'package-lock.json' => {mime => 'text/plain'}}});
+  $processor->postprocess;
+
+  is_deeply $processor->hash,
+    {destdir => $tmp, unpacked => {'package-lock.json' => {mime => 'text/plain'}}},
+    'manifest still references the original .json filename';
+  ok !-e $tmp->child('package-lock.processed.json'),
+    'no .processed.json sibling was created';
+  is $tmp->child('package-lock.json')->slurp, $before, 'file bytes are unchanged';
+
+  my $parsed = eval { decode_json($tmp->child('package-lock.json')->slurp) };
+  is $parsed->{packages}{'node_modules/leftpad'}{version}, '1.3.0',
+    'JSON still parses end-to-end';
+
+  # Spot-check the other extensions in the skip list
+  for my $ext (qw(toml yaml yml lock)) {
+    my $sub  = tempdir;
+    my $name = "Cargo.$ext";
+    $sub->child($name)->spew(('x' x 5000) . "\n");
+    my $p = Cavil::PostProcess->new({destdir => $sub, unpacked => {$name => {mime => 'text/plain'}}});
+    $p->postprocess;
+    is_deeply $p->hash->{unpacked}, {$name => {mime => 'text/plain'}}, "$ext also skipped";
+  }
+};
+
 done_testing;

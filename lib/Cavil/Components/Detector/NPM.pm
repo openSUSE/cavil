@@ -41,18 +41,29 @@ sub detect ($self, $manifest_abs, $unpacked_root, $manifest_rel) {
     @entries = $self->_from_dependencies_v1($data->{dependencies});
   }
 
+  # Build a content-based index once per manifest. This lets us match
+  # lockfile entries against any on-disk layout: standard node_modules/,
+  # OBS cpio->tgz (where each .tgz lands as <tarball-name>/package/),
+  # pnpm flat stores, etc. The lockfile is the source of truth for which
+  # components belong; the index is purely enrichment.
+  my $index = $self->_build_package_index($manifest_dir);
+
+  # npm hoisting/nesting means the same name+version can appear at multiple
+  # lockfile keys (top-level + nested transitive); collapse to one row each.
+  my %seen;
   my @components;
   for my $entry (@entries) {
     next unless defined $entry->{name} && length $entry->{name};
+    my $key = ($entry->{name} // '') . "\@" . ($entry->{version} // '');
+    next if $seen{$key}++;
 
-    my @path_parts = $entry->{path} ? split(m{/}, $entry->{path}) : ('node_modules', split(m{/}, $entry->{name}));
-    my $dep_dir    = $manifest_dir->child(@path_parts);
-    my $present    = -d $dep_dir ? 1 : 0;
+    my $hit = $self->_index_lookup($index, $entry->{name}, $entry->{version});
+    my $present = $hit ? 1 : 0;
 
     next if $entry->{is_dev} && !$present;
 
-    if ($present && (!defined $entry->{license} || $entry->{license} eq '')) {
-      $entry->{license} = $self->_license_from_pkg($dep_dir->child('package.json'));
+    if ($hit && (!defined $entry->{license} || $entry->{license} eq '')) {
+      $entry->{license} = $hit->{license};
     }
 
     push @components,
@@ -71,6 +82,47 @@ sub detect ($self, $manifest_abs, $unpacked_root, $manifest_rel) {
   return \@components;
 }
 
+# Defensive ceiling: refuse to keep collecting if a tree is pathologically large
+use constant _MAX_PACKAGE_JSON => 50_000;
+
+sub _build_package_index ($self, $root) {
+  my %by_nv;
+  my %by_name;
+  my $count = 0;
+
+  for my $file (@{$root->list_tree}) {
+    next unless -f $file && $file->basename eq 'package.json';
+    if (++$count > _MAX_PACKAGE_JSON) {
+      $self->log->warn("[components/npm] package.json count exceeded ceiling at $root, truncating index")
+        if $self->log;
+      last;
+    }
+
+    my $data = eval { decode_json($file->slurp) };
+    next unless ref $data eq 'HASH';
+    my $name = $data->{name};
+    next unless defined $name && length $name;
+    my $version = $data->{version};
+    my $license = _normalize_license($data->{license});
+
+    my $record = {dir => $file->dirname, license => $license};
+    if (defined $version && length $version) {
+      $by_nv{"$name\@$version"} //= $record;
+    }
+    push @{$by_name{$name}}, $record;
+  }
+
+  return {by_nv => \%by_nv, by_name => \%by_name};
+}
+
+sub _index_lookup ($self, $index, $name, $version) {
+  if (defined $version && length $version) {
+    return $index->{by_nv}{"$name\@$version"};
+  }
+  my $matches = $index->{by_name}{$name};
+  return $matches && @$matches ? $matches->[0] : undef;
+}
+
 sub _from_packages ($self, $packages) {
   my @entries;
   for my $key (sort keys %$packages) {
@@ -81,8 +133,7 @@ sub _from_packages ($self, $packages) {
     # Workspace entries (no node_modules/ segment) are first-party sources, not vendored deps
     next unless $key =~ m{(?:^|/)node_modules/};
 
-    # The npm v2/v3 key IS the on-disk path relative to the manifest. The
-    # name is everything after the LAST "node_modules/" segment so nested
+    # Name is the segment after the LAST "node_modules/" so nested
     # transitive deps like "node_modules/a/node_modules/b" yield "b", and
     # scoped names like "node_modules/@scope/foo" yield "@scope/foo".
     my $name = $entry->{name};
@@ -93,7 +144,6 @@ sub _from_packages ($self, $packages) {
     push @entries,
       {
       name       => $name,
-      path       => $key,
       version    => $entry->{version},
       license    => _normalize_license($entry->{license}),
       source_url => $entry->{resolved},
@@ -104,17 +154,14 @@ sub _from_packages ($self, $packages) {
   return @entries;
 }
 
-sub _from_dependencies_v1 ($self, $deps, $entries = [], $parent_path = '') {
+sub _from_dependencies_v1 ($self, $deps, $entries = []) {
   for my $name (sort keys %$deps) {
     my $entry = $deps->{$name};
     next unless ref $entry eq 'HASH';
 
-    my $path = $parent_path eq '' ? "node_modules/$name" : "$parent_path/node_modules/$name";
-
     push @$entries,
       {
       name       => $name,
-      path       => $path,
       version    => $entry->{version},
       license    => _normalize_license($entry->{license}),
       source_url => $entry->{resolved},
@@ -122,16 +169,9 @@ sub _from_dependencies_v1 ($self, $deps, $entries = [], $parent_path = '') {
       is_dev     => $entry->{dev} ? 1 : 0
       };
 
-    $self->_from_dependencies_v1($entry->{dependencies}, $entries, $path) if ref $entry->{dependencies} eq 'HASH';
+    $self->_from_dependencies_v1($entry->{dependencies}, $entries) if ref $entry->{dependencies} eq 'HASH';
   }
   return @$entries;
-}
-
-sub _license_from_pkg ($self, $pkg_json) {
-  return undef unless -e $pkg_json;
-  my $data = eval { decode_json(path($pkg_json)->slurp) };
-  return undef unless ref $data eq 'HASH';
-  return _normalize_license($data->{license});
 }
 
 sub _normalize_license ($value) {
