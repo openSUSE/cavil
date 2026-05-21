@@ -20,7 +20,7 @@
               <td>{{ component.ecosystem }}</td>
               <td>{{ component.name }}</td>
               <td>{{ component.version || '-' }}</td>
-              <td>{{ component.license || 'NOASSERTION' }}</td>
+              <td v-html="component.license_html"></td>
               <td class="text-muted small">{{ component.manifest_path }}</td>
             </tr>
           </tbody>

@@ -153,10 +153,11 @@ subtest 'NPM detector: empty lockfile yields no components' => sub {
 };
 
 subtest 'NPM detector: nested transitive dep extracts name from last node_modules segment' => sub {
-  my $tmp      = tempdir;
-  my $nested   = $tmp->child('node_modules', 'parent', 'node_modules', 'child')->make_path;
+  my $tmp    = tempdir;
+  my $nested = $tmp->child('node_modules', 'parent', 'node_modules', 'child')->make_path;
   $nested->child('package.json')->spew('{"name":"child","version":"2.0.0","license":"MIT"}');
-  $tmp->child('node_modules', 'parent')->child('package.json')
+  $tmp->child('node_modules', 'parent')
+    ->child('package.json')
     ->spew('{"name":"parent","version":"1.0.0","license":"Apache-2.0"}');
   my $manifest = $tmp->child('package-lock.json');
   $manifest->spew(<<'JSON');
@@ -175,12 +176,12 @@ JSON
   is scalar @$rows, 2, 'parent and nested child both recorded';
   my ($parent) = grep { $_->{name} eq 'parent' } @$rows;
   my ($child)  = grep { $_->{name} eq 'child' } @$rows;
-  ok $parent,             'parent extracted';
-  ok $child,              'child extracted (not "parent/node_modules/child")';
-  is $parent->{license},  'Apache-2.0', 'parent license from vendored package.json';
-  is $parent->{present},  1,            'parent present at node_modules/parent';
-  is $child->{license},   'MIT',        'child license from nested vendored package.json';
-  is $child->{present},   1,            'child present at nested path';
+  ok $parent, 'parent extracted';
+  ok $child,  'child extracted (not "parent/node_modules/child")';
+  is $parent->{license}, 'Apache-2.0', 'parent license from vendored package.json';
+  is $parent->{present}, 1,            'parent present at node_modules/parent';
+  is $child->{license},  'MIT',        'child license from nested vendored package.json';
+  is $child->{present},  1,            'child present at nested path';
 };
 
 subtest 'NPM detector: scoped name inside nested node_modules keeps the scope' => sub {
@@ -252,9 +253,9 @@ JSON
   my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
   is scalar @$rows, 2, 'parent and nested child both recorded';
   my ($child) = grep { $_->{name} eq 'child' } @$rows;
-  ok $child,             'nested child extracted';
-  is $child->{license},  'BSD-3-Clause', 'license fallback walks nested path';
-  is $child->{present},  1,              'nested v1 dep is found on disk';
+  ok $child, 'nested child extracted';
+  is $child->{license}, 'BSD-3-Clause', 'license fallback walks nested path';
+  is $child->{present}, 1,              'nested v1 dep is found on disk';
 };
 
 subtest 'NPM detector: OBS cpio->tgz layout (tarball-name dirs with package/ inside)' => sub {
@@ -280,23 +281,23 @@ JSON
 
   my $detector = Cavil::Components::Detector::NPM->new;
   my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
-  is scalar @$rows,       1,                  'one component';
+  is scalar @$rows,       1,                   'one component';
   is $rows->[0]{name},    '@babel/code-frame', 'name from lockfile';
-  is $rows->[0]{version}, '7.22.10',          'version from lockfile';
-  is $rows->[0]{license}, 'MIT',              'license from indexed package.json in OBS-shaped layout';
-  is $rows->[0]{present}, 1,                  'resolved by content, not by path';
+  is $rows->[0]{version}, '7.22.10',           'version from lockfile';
+  is $rows->[0]{license}, 'MIT',               'license from indexed package.json in OBS-shaped layout';
+  is $rows->[0]{present}, 1,                   'resolved by content, not by path';
 };
 
 subtest 'NPM detector: mixed standard and OBS layouts in one package' => sub {
   my $tmp = tempdir;
 
   # Standard layout for leftpad
-  $tmp->child('node_modules', 'leftpad')->make_path
-    ->child('package.json')->spew('{"name":"leftpad","version":"1.3.0","license":"MIT"}');
+  $tmp->child('node_modules', 'leftpad')->make_path->child('package.json')
+    ->spew('{"name":"leftpad","version":"1.3.0","license":"MIT"}');
 
   # OBS-shaped layout for chalk
-  $tmp->child('node_modules', 'chalk-5.3.0', 'package')->make_path
-    ->child('package.json')->spew('{"name":"chalk","version":"5.3.0","license":"MIT"}');
+  $tmp->child('node_modules', 'chalk-5.3.0', 'package')->make_path->child('package.json')
+    ->spew('{"name":"chalk","version":"5.3.0","license":"MIT"}');
 
   my $manifest = $tmp->child('package-lock.json');
   $manifest->spew(<<'JSON');
@@ -314,19 +315,20 @@ JSON
   my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
   is scalar @$rows, 2, 'both layouts resolved';
   my %by_name = map { $_->{name} => $_ } @$rows;
-  is $by_name{leftpad}{present}, 1, 'standard-layout dep present';
+  is $by_name{leftpad}{present}, 1,     'standard-layout dep present';
   is $by_name{leftpad}{license}, 'MIT', 'standard-layout license';
-  is $by_name{chalk}{present},   1, 'OBS-layout dep present';
+  is $by_name{chalk}{present},   1,     'OBS-layout dep present';
   is $by_name{chalk}{license},   'MIT', 'OBS-layout license';
 };
 
 subtest 'NPM detector: hoisted/nested duplicates of the same name@version collapse to one row' => sub {
   my $tmp = tempdir;
-  $tmp->child('node_modules', 'ansi-styles')->make_path
-    ->child('package.json')->spew('{"name":"ansi-styles","version":"3.2.1","license":"MIT"}');
+  $tmp->child('node_modules', 'ansi-styles')->make_path->child('package.json')
+    ->spew('{"name":"ansi-styles","version":"3.2.1","license":"MIT"}');
+
   # Same name+version also appears nested under another dep — npm hoisting case
-  $tmp->child('node_modules', 'chalk', 'node_modules', 'ansi-styles')->make_path
-    ->child('package.json')->spew('{"name":"ansi-styles","version":"3.2.1","license":"MIT"}');
+  $tmp->child('node_modules', 'chalk', 'node_modules', 'ansi-styles')->make_path->child('package.json')
+    ->spew('{"name":"ansi-styles","version":"3.2.1","license":"MIT"}');
 
   my $manifest = $tmp->child('package-lock.json');
   $manifest->spew(<<'JSON');
@@ -344,19 +346,19 @@ JSON
   my $detector = Cavil::Components::Detector::NPM->new;
   my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
   my @ansi     = grep { $_->{name} eq 'ansi-styles' } @$rows;
-  is scalar @ansi,        1,        'ansi-styles@3.2.1 collapsed to single row';
-  is $ansi[0]{version},   '3.2.1',  'version preserved';
-  is $ansi[0]{present},   1,        'still resolved';
+  is scalar @ansi,      1,       'ansi-styles@3.2.1 collapsed to single row';
+  is $ansi[0]{version}, '3.2.1', 'version preserved';
+  is $ansi[0]{present}, 1,       'still resolved';
 };
 
 subtest 'NPM detector: index disambiguates multiple versions of the same name' => sub {
   my $tmp = tempdir;
 
   # Two on-disk copies of lodash at different versions, in unrelated locations
-  $tmp->child('node_modules', 'lodash')->make_path
-    ->child('package.json')->spew('{"name":"lodash","version":"4.17.21","license":"MIT"}');
-  $tmp->child('node_modules', 'tool', 'node_modules', 'lodash')->make_path
-    ->child('package.json')->spew('{"name":"lodash","version":"3.10.0","license":"MIT"}');
+  $tmp->child('node_modules', 'lodash')->make_path->child('package.json')
+    ->spew('{"name":"lodash","version":"4.17.21","license":"MIT"}');
+  $tmp->child('node_modules', 'tool', 'node_modules', 'lodash')->make_path->child('package.json')
+    ->spew('{"name":"lodash","version":"3.10.0","license":"MIT"}');
 
   my $manifest = $tmp->child('package-lock.json');
   $manifest->spew(<<'JSON');
@@ -488,7 +490,12 @@ SKIP: {
       ->json_is('/components/0/ecosystem', 'npm')
       ->json_is('/components/0/name',      'leftpad')
       ->json_is('/components/0/version',   '1.3.0')
-      ->json_is('/components/0/license',   'MIT');
+      ->json_is('/components/0/license',   'MIT')
+      ->json_like(
+      '/components/0/license_html',
+      qr!<a class="spdx-link"[^>]*>MIT</a>!,
+      'license rendered with SPDX link'
+      );
 
     $t->get_ok('/logout');
   };

@@ -135,6 +135,7 @@ sub _report_details ($c, $pkg, $report) {
   my $components = $c->app->components->for_package($pkg->{id}, {present_only => 1});
   for my $component (@$components) {
     delete $component->{$_} for qw(is_dev present);
+    $component->{license_html} = spdx_link($component->{license} // 'NOASSERTION');
   }
 
   return {

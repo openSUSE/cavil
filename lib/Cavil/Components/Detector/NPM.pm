@@ -57,7 +57,7 @@ sub detect ($self, $manifest_abs, $unpacked_root, $manifest_rel) {
     my $key = ($entry->{name} // '') . "\@" . ($entry->{version} // '');
     next if $seen{$key}++;
 
-    my $hit = $self->_index_lookup($index, $entry->{name}, $entry->{version});
+    my $hit     = $self->_index_lookup($index, $entry->{name}, $entry->{version});
     my $present = $hit ? 1 : 0;
 
     next if $entry->{is_dev} && !$present;
@@ -93,8 +93,7 @@ sub _build_package_index ($self, $root) {
   for my $file (@{$root->list_tree}) {
     next unless -f $file && $file->basename eq 'package.json';
     if (++$count > _MAX_PACKAGE_JSON) {
-      $self->log->warn("[components/npm] package.json count exceeded ceiling at $root, truncating index")
-        if $self->log;
+      $self->log->warn("[components/npm] package.json count exceeded ceiling at $root, truncating index") if $self->log;
       last;
     }
 
