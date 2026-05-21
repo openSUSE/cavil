@@ -16,7 +16,7 @@ sub purl ($self, $component) {
   # the version separator "@" stays raw.
   my $name = $component->{name};
   $name =~ s/\@/%40/g;
-  my $purl = "pkg:npm/$name";
+  my $purl    = "pkg:npm/$name";
   my $version = $component->{version};
   $purl .= "\@$version" if defined $version && length $version;
   return $purl;

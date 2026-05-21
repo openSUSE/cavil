@@ -31,8 +31,7 @@ sub detect_for_package ($self, $id) {
 
       my $components = eval { $detector->detect($abs_path, $unpacked, $rel_path) // [] };
       if (my $err = $@) {
-        $self->log->warn(
-          "[components] Detector @{[ref $detector]} died on $rel_path: $err");
+        $self->log->warn("[components] Detector @{[ref $detector]} died on $rel_path: $err");
         next;
       }
 

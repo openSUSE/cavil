@@ -24,7 +24,7 @@ sub report ($self) {
   $self->respond_to(
     json => sub { $self->render(json => {report => $report, package => $pkg, components => $components}) },
     txt  => sub { $self->render('reviewer/report', report => $report, package => $pkg, components => $components) },
-    mcp  => sub { $self->render(text => $self->helpers->mcp_report($id)) }
+    mcp  => sub { $self->render(text                      => $self->helpers->mcp_report($id)) }
   );
 }
 

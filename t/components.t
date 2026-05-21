@@ -154,9 +154,10 @@ subtest 'NPM detector: empty lockfile yields no components' => sub {
 
 subtest 'NPM detector: purl construction' => sub {
   my $detector = Cavil::Components::Detector::NPM->new;
-  is $detector->purl({name => 'leftpad',        version => '1.3.0'}),  'pkg:npm/leftpad@1.3.0',           'plain purl';
-  is $detector->purl({name => '@angular/core',  version => '17.0.0'}), 'pkg:npm/%40angular/core@17.0.0',  'scoped name encodes leading @';
-  is $detector->purl({name => 'leftpad',        version => undef}),    'pkg:npm/leftpad',                 'omits version when missing';
+  is $detector->purl({name => 'leftpad', version => '1.3.0'}), 'pkg:npm/leftpad@1.3.0', 'plain purl';
+  is $detector->purl({name => '@angular/core', version => '17.0.0'}), 'pkg:npm/%40angular/core@17.0.0',
+    'scoped name encodes leading @';
+  is $detector->purl({name => 'leftpad', version => undef}), 'pkg:npm/leftpad', 'omits version when missing';
 };
 
 SKIP: {
@@ -205,7 +206,7 @@ SKIP: {
     is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
 
     my $report = decode 'UTF-8', $t->app->packages->spdx_report_path($pkg_id)->slurp;
-    like $report, qr/^## Components/m,                                   'component box header present';
+    like $report, qr/^## Components/m,                                            'component box header present';
     like $report, qr/PackageName: leftpad/,                                       'component PackageName';
     like $report, qr/SPDXID: SPDXRef-component-$pkg_id-\d+/,                      'component SPDXID';
     like $report, qr/PackageVersion: 1\.3\.0/,                                    'component version';
@@ -227,30 +228,35 @@ SKIP: {
     my $key = $t->tx->res->json('/keys/0/api_key');
     $t->get_ok('/logout');
 
-    $t->get_ok("/api/v1/report/$pkg_id.json" => {Authorization => "Bearer $key"})->status_is(200)
+    $t->get_ok("/api/v1/report/$pkg_id.json" => {Authorization => "Bearer $key"})
+      ->status_is(200)
       ->json_has('/components/0')
       ->json_is('/components/0/ecosystem', 'npm')
       ->json_is('/components/0/name',      'leftpad')
       ->json_is('/components/0/version',   '1.3.0')
       ->json_is('/components/0/license',   'MIT');
 
-    $t->get_ok("/api/v1/report/$pkg_id.txt" => {Authorization => "Bearer $key"})->status_is(200)
-      ->content_like(qr/^## Components/m,             'txt has component section')
+    $t->get_ok("/api/v1/report/$pkg_id.txt" => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_like(qr/^## Components/m,               'txt has component section')
       ->content_like(qr/\[npm\] leftpad\@1\.3\.0: MIT/, 'txt lists leftpad');
 
-    $t->get_ok("/api/v1/report/$pkg_id.mcp" => {Authorization => "Bearer $key"})->status_is(200)
-      ->content_like(qr/^## Components/m,             'mcp has component section')
+    $t->get_ok("/api/v1/report/$pkg_id.mcp" => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_like(qr/^## Components/m,               'mcp has component section')
       ->content_like(qr/\[npm\] leftpad\@1\.3\.0: MIT/, 'mcp lists leftpad');
   };
 
   subtest 'Review details page mounts Vue and exposes components in JSON payload' => sub {
     $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-    $t->get_ok("/reviews/details/$pkg_id")->status_is(200)
+    $t->get_ok("/reviews/details/$pkg_id")
+      ->status_is(200)
       ->element_exists('#report-details', 'Vue mount point present');
 
-    $t->get_ok("/reviews/report_details/$pkg_id")->status_is(200)
-      ->json_has('/components/0',          'components in JSON payload')
+    $t->get_ok("/reviews/report_details/$pkg_id")
+      ->status_is(200)
+      ->json_has('/components/0', 'components in JSON payload')
       ->json_is('/components/0/ecosystem', 'npm')
       ->json_is('/components/0/name',      'leftpad')
       ->json_is('/components/0/version',   '1.3.0')
