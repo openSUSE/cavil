@@ -565,7 +565,6 @@ sub _sanitize_report {
     $expanded->{$file} = 1;
     my ($max_risk, $match, $license, $spdx) = @{$report->{missed_files}{$file}};
     $license = 'Keyword' unless $license;
-    my @positions = sort { $a->[0] <=> $b->[0] } map { [$_->[0], $_->[1]] } @{$snippets->{$file}};
     push(
       @missed,
       {
@@ -574,8 +573,7 @@ sub _sanitize_report {
         max_risk => $max_risk,
         license  => $license,
         spdx     => $spdx,
-        match    => int($match * 1000 + 0.5) / 10.,
-        snippets => \@positions
+        match    => int($match * 1000 + 0.5) / 10.
       }
     );
   }

@@ -338,60 +338,64 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#license-chart');
       await page.waitForSelector('#filelist-snippets a.file-link');
 
-      // Source the authoritative jump list from the same JSON the page is
-      // rendering - the navigation walks every missed snippet position the
-      // server attaches to each missed file, regardless of whether that
-      // file's source has been auto-expanded. The Mojolicious LICENSE file
-      // in the fixture contributes three snippet positions, so a single 'n'
-      // press must NOT carry the user past those siblings.
-      const reportUrl = page.url().replace(/\/reviews\/details\//, '/reviews/report_details/');
-      const details = await (await page.evaluate(u => fetch(u).then(r => r.json()), reportUrl)) ?? {};
-      const targets = [];
-      for (const missed of details.missed_files || []) {
-        for (const snip of missed.snippets || []) targets.push({fileId: missed.id, line: snip[0]});
-      }
-      t.ok(targets.length >= 4, 'have at least four unresolved match positions');
-      const perFile = targets.reduce((acc, t) => ((acc[t.fileId] = (acc[t.fileId] || 0) + 1), acc), {});
-      t.ok(Object.values(perFile).some(n => n > 1), 'at least one missed file has multiple snippet positions');
-      const firstId = targets[0].fileId;
-      const secondId = targets[1].fileId;
+      // Wait for every previewed file's source to finish loading. Navigation
+      // walks the DOM, so a snippet only becomes a target once its row is
+      // rendered.
+      await page.waitForFunction(() => {
+        const containers = document.querySelectorAll('.file-container:not(.d-none) .source');
+        if (containers.length === 0) return false;
+        for (const c of containers) {
+          if (!c.querySelector('table.snippet')) return false;
+        }
+        return true;
+      });
 
-      // 'n' walks every snippet in document order - including siblings in the
-      // same file. Each press waits for the matching <tr id="line-<f>-<l>">
-      // (added by FileSource.vue) to land in the viewport, which also covers
-      // the previously-broken case where the file was past
-      // max_expanded_files and the source needed an on-demand fetch.
-      for (const [i, target] of targets.entries()) {
+      // Collect the ordered list of match-start anchors the page actually
+      // rendered. Pressing 'n' must visit each in document order, including
+      // siblings inside the same file, and including files that contain
+      // license-pattern matches alongside unresolved snippets.
+      const matchIds = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('.match-start')).map(el => el.id)
+      );
+      t.ok(matchIds.length >= 4, 'have at least four unresolved match anchors');
+      const perFile = matchIds.reduce((acc, id) => {
+        const fileId = id.split('-')[1];
+        acc[fileId] = (acc[fileId] || 0) + 1;
+        return acc;
+      }, {});
+      t.ok(Object.values(perFile).some(n => n > 1), 'at least one file has multiple match anchors');
+      const firstId = matchIds[0].split('-')[1];
+      const secondId = matchIds[matchIds.findIndex(id => id.split('-')[1] !== firstId)].split('-')[1];
+
+      const inViewport = id => async () => {
+        return await page.evaluate(elId => {
+          const el = document.getElementById(elId);
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          return r.top >= -50 && r.top <= window.innerHeight;
+        }, id);
+      };
+      const waitForMatchInView = async id => {
+        const check = inViewport(id);
+        const start = Date.now();
+        while (Date.now() - start < 5000) {
+          if (await check()) return;
+          await new Promise(r => setTimeout(r, 50));
+        }
+        throw new Error(`Timed out waiting for ${id} to enter viewport`);
+      };
+
+      for (const [i, id] of matchIds.entries()) {
         await page.keyboard.press('n');
-        await page.waitForFunction(
-          ({fileId, line}) => {
-            const el = document.getElementById(`line-${fileId}-${line}`);
-            if (!el) return false;
-            const r = el.getBoundingClientRect();
-            return r.top >= -50 && r.top <= window.innerHeight;
-          },
-          target,
-          {timeout: 5000}
-        );
-        t.pass(`'n' #${i + 1} landed on line-${target.fileId}-${target.line}`);
+        await waitForMatchInView(id);
+        t.pass(`'n' #${i + 1} landed on ${id}`);
       }
 
-      // 'p' walks back through the same list in reverse.
-      for (let i = targets.length - 2; i >= 0; i--) {
+      for (let i = matchIds.length - 2; i >= 0; i--) {
         await page.keyboard.press('p');
-        const target = targets[i];
-        await page.waitForFunction(
-          ({fileId, line}) => {
-            const el = document.getElementById(`line-${fileId}-${line}`);
-            if (!el) return false;
-            const r = el.getBoundingClientRect();
-            return r.top >= -50 && r.top <= window.innerHeight;
-          },
-          target,
-          {timeout: 5000}
-        );
+        await waitForMatchInView(matchIds[i]);
       }
-      t.pass(`'p' walked back to line-${targets[0].fileId}-${targets[0].line}`);
+      t.pass(`'p' walked back to ${matchIds[0]}`);
 
       // Sanity-check the original assertion that both files end up visible.
       t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file visible');

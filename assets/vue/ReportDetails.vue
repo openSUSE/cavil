@@ -251,7 +251,7 @@ export default {
       stage: null,
       unresolvedMatches: 0,
       urls: [],
-      currentMatchKey: null,
+      currentMatchId: null,
       shortcutsModal: null
     };
   },
@@ -543,50 +543,35 @@ export default {
         this.showShortcuts();
       }
     },
-    matchTargets() {
-      // Flat ordered list of every unresolved match across all files. We
-      // intentionally use the snippet positions the server attaches to each
-      // missed file (rather than scanning the rendered source) - the source
-      // is loaded lazily for files past max_expanded_files, and when adjacent
-      // snippets share context lines the rendered source can drop one of
-      // them, so the DOM is not authoritative.
-      const targets = [];
-      for (const missed of this.missedFiles) {
-        for (const snip of missed.snippets || []) {
-          targets.push({fileId: missed.id, startLine: snip[0]});
+    gotoMatch(direction) {
+      // Walk the DOM in document order. Each unresolved match start carries a
+      // `match-start` class (added by FileSource.vue). This is more reliable
+      // than a pre-computed target list: files load asynchronously past
+      // max_expanded_files, the rendered source can drop snippet lines when
+      // adjacent snippets overlap, and the missed-file sort order does not
+      // match the order files appear on screen.
+      const els = Array.from(document.querySelectorAll('.match-start'));
+      if (els.length === 0) return;
+
+      let currentIdx = -1;
+      if (this.currentMatchId) {
+        currentIdx = els.findIndex(el => el.id === this.currentMatchId);
+      }
+      if (currentIdx < 0) {
+        // No remembered position (or it's gone from the DOM): fall back to the
+        // last match-start that's at or above the viewport top. A small
+        // positive threshold absorbs the in-flight position of a still-
+        // animating smooth scroll.
+        for (let i = 0; i < els.length; i++) {
+          if (els[i].getBoundingClientRect().top < 5) currentIdx = i;
+          else break;
         }
       }
-      return targets;
-    },
-    matchKey(target) {
-      return `${target.fileId}:${target.startLine}`;
-    },
-    async gotoMatch(direction) {
-      const targets = this.matchTargets();
-      if (targets.length === 0) return;
-      let idx;
-      if (this.currentMatchKey === null) {
-        idx = direction > 0 ? 0 : targets.length - 1;
-      } else {
-        let current = targets.findIndex(t => this.matchKey(t) === this.currentMatchKey);
-        if (current < 0) current = direction > 0 ? -1 : targets.length;
-        idx = Math.max(0, Math.min(targets.length - 1, current + direction));
-      }
-      const target = targets[idx];
-      this.currentMatchKey = this.matchKey(target);
-      await this.scrollToMatch(target);
-    },
-    async scrollToMatch(target) {
-      const file = this.files.find(f => f.id === target.fileId);
-      if (!file) return;
-      if (!file.expanded) file.expanded = true;
-      if (!file.source) await this.fetchSource(file);
-      await this.$nextTick();
-      const el =
-        document.getElementById(`line-${target.fileId}-${target.startLine}`) ||
-        document.getElementById('file-details-' + target.fileId) ||
-        document.querySelector('[name="file-' + target.fileId + '"]');
-      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+      const idx = Math.max(0, Math.min(els.length - 1, currentIdx + direction));
+      const target = els[idx];
+      this.currentMatchId = target.id;
+      target.scrollIntoView({behavior: 'smooth', block: 'start'});
     },
     showShortcuts() {
       const el = document.getElementById('shortcutsModal');

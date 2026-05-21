@@ -8,7 +8,7 @@
         </tr>
         <tr
           v-if="!isHiddenByEditor(line)"
-          :id="'line-' + fileId + '-' + line[0]"
+          :id="matchStartId(line)"
           :class="rowClass(line[1])"
           :title="line[1].risk > 0 ? line[1].name : null"
         >
@@ -143,7 +143,18 @@ export default {
     rowClass(info) {
       const classes = [`risk-${info.risk}`];
       if (info.hash) classes.push(`hash-${info.hash}`);
+      // The first line of an unresolved snippet has both risk 9 and the `end`
+      // marker added by Cavil::Util::lines_context. Keyboard navigation walks
+      // these in document order.
+      if (info.risk === 9 && info.end) classes.push('match-start');
       return classes;
+    },
+    matchStartId(line) {
+      // Stable anchor for ReportDetails' navigation state - only emitted on
+      // rows that begin an unresolved match.
+      const info = line[1];
+      if (info.risk !== 9 || !info.end) return null;
+      return `line-${this.fileId}-${line[0]}`;
     },
     showActions(info) {
       return this.isAdminOrContributor && info.end;
