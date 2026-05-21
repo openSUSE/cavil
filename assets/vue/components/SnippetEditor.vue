@@ -1001,74 +1001,101 @@ export default {
   cursor: help;
 }
 
-/* Hover tooltip card */
+/* Hover tooltip card - GitHub-style overlay */
+.cm-tooltip.cm-tooltip-hover:has(.cavil-pattern-tip) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
 .cavil-pattern-tip {
   background: #ffffff;
   border: 1px solid #d0d7de;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  border-radius: 8px;
+  box-shadow:
+    0 1px 3px rgba(31, 35, 40, 0.08),
+    0 8px 24px rgba(66, 74, 83, 0.12);
   color: #1f2328;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
   font-size: 12px;
-  max-width: 360px;
-  min-width: 220px;
+  line-height: 1.5;
+  max-width: 380px;
+  min-width: 240px;
   overflow: hidden;
 }
 .cavil-pattern-tip-loading,
 .cavil-pattern-tip-error {
-  padding: 10px 12px;
-  color: #57606a;
+  align-items: center;
+  color: #59636e;
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
 }
 .cavil-pattern-tip-error {
   color: #cf222e;
 }
 .cavil-pattern-tip-card {
-  border-bottom: 1px solid #eaeef2;
+  border-top: 1px solid #d1d9e0b3;
+  padding: 12px 14px;
 }
-.cavil-pattern-tip-card:last-child {
-  border-bottom: 0;
+.cavil-pattern-tip-card:first-child {
+  border-top: 0;
 }
 .cavil-pattern-tip-header {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #eaeef2;
   display: flex;
   gap: 8px;
   justify-content: space-between;
-  padding: 6px 10px;
+  margin-bottom: 8px;
 }
 .cavil-pattern-tip-title {
+  color: #1f2328;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.05px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .cavil-pattern-tip-risk {
-  background: #ddf4ff;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: 2em;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  padding: 0 7px;
+  white-space: nowrap;
+  background: rgba(9, 105, 218, 0.1);
   color: #0969da;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 8px;
-  text-transform: uppercase;
+  border-color: rgba(9, 105, 218, 0.2);
 }
 .cavil-pattern-tip-risk.risk-5,
 .cavil-pattern-tip-risk.risk-6,
 .cavil-pattern-tip-risk.risk-7 {
-  background: #fff8c5;
+  background: rgba(154, 103, 0, 0.1);
   color: #9a6700;
+  border-color: rgba(154, 103, 0, 0.2);
 }
 .cavil-pattern-tip-risk.risk-8,
 .cavil-pattern-tip-risk.risk-9 {
-  background: #ffebe9;
+  background: rgba(207, 34, 46, 0.1);
   color: #cf222e;
+  border-color: rgba(207, 34, 46, 0.2);
 }
 .cavil-pattern-tip-preview {
   background: #f6f8fa;
-  border: 0;
+  border: 1px solid #d1d9e0b3;
+  border-radius: 6px;
   color: #1f2328;
-  font-family: monospace, monospace;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    SF Mono,
+    Menlo,
+    Consolas,
+    Liberation Mono,
+    monospace;
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1.45;
   margin: 0;
   max-height: 140px;
   overflow: auto;
@@ -1077,11 +1104,12 @@ export default {
   word-break: break-word;
 }
 .cavil-pattern-tip-footer {
-  padding: 6px 10px;
-  text-align: right;
+  margin-top: 10px;
 }
 .cavil-pattern-tip-footer a {
   color: #0969da;
+  font-size: 12px;
+  font-weight: 500;
   text-decoration: none;
 }
 .cavil-pattern-tip-footer a:hover {
