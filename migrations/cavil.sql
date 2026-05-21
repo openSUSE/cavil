@@ -278,3 +278,26 @@ DROP TABLE IF EXISTS api_keys CASCADE;
 ALTER TABLE bot_packages ADD COLUMN ai_assisted boolean DEFAULT false NOT NULL;
 ALTER TABLE api_keys ADD COLUMN write_access boolean DEFAULT false NOT NULL;
 CREATE INDEX ON bot_packages (ai_assisted);
+
+-- 34 up
+CREATE TABLE bot_package_components (
+  id            bigserial PRIMARY KEY,
+  package       int REFERENCES bot_packages(id) ON DELETE CASCADE NOT NULL,
+  ecosystem     text NOT NULL,
+  manifest_path text NOT NULL,
+  name          text NOT NULL,
+  version       text,
+  license       text,
+  source_url    text,
+  checksum      text,
+  is_dev        boolean DEFAULT false NOT NULL,
+  present       boolean DEFAULT false NOT NULL,
+  relation      text DEFAULT 'CONTAINS' NOT NULL,
+  created       timestamp with time zone DEFAULT now() NOT NULL
+);
+CREATE INDEX ON bot_package_components(package);
+CREATE INDEX ON bot_package_components(ecosystem);
+CREATE UNIQUE INDEX ON bot_package_components(package, ecosystem, manifest_path, name, version);
+
+-- 34 down
+DROP TABLE IF EXISTS bot_package_components;

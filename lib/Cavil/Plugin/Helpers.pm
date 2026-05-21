@@ -132,6 +132,11 @@ sub _report_details ($c, $pkg, $report) {
     push @missed, \%copy;
   }
 
+  my $components = $c->app->components->for_package($pkg->{id}, {present_only => 1});
+  for my $component (@$components) {
+    delete $component->{$_} for qw(is_dev present);
+  }
+
   return {
     package               => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
     chart                 => $chart,
@@ -142,7 +147,8 @@ sub _report_details ($c, $pkg, $report) {
     matching_globs        => $report->{matching_globs} // [],
     files                 => \@files,
     emails                => $report->{emails} // [],
-    urls                  => $report->{urls}   // []
+    urls                  => $report->{urls}   // [],
+    components            => $components
   };
 }
 
@@ -167,12 +173,14 @@ sub _json_validation_error ($c) {
 
 sub _mcp_report ($c, $id) {
   return undef unless my $report = $c->reports->sanitized_dig_report($id);
-  my $summary = $c->helpers->package_summary($id);
+  my $summary    = $c->helpers->package_summary($id);
+  my $components = $c->app->components->for_package($id, {present_only => 1});
   return $c->render_to_string(
     'mcp/report',
     format             => 'txt',
     report             => $report,
     summary            => $summary,
+    components         => $components,
     unmatched_keywords => _unmatched_keywords($c, $report)
   );
 }

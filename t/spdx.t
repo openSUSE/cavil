@@ -74,9 +74,9 @@ subtest 'Always generate SPDX reports when reindexing' => sub {
 
 subtest 'SPDX report contents' => sub {
   my $path = $t->app->packages->spdx_report_path(1);
-  ok !-e "$path.tmp",      'SPDX temp file has been cleaned up';
+  ok !-e "$path.tmp",       'SPDX temp file has been cleaned up';
   ok !-e "$path.files.tmp", 'SPDX file section temp file has been cleaned up';
-  ok !-e "$path.refs.tmp", 'SPDX ref temp file has been cleaned up';
+  ok !-e "$path.refs.tmp",  'SPDX ref temp file has been cleaned up';
   my $report = decode('UTF-8', $path->slurp);
 
   subtest 'Document Information' => sub {
@@ -87,9 +87,9 @@ subtest 'SPDX report contents' => sub {
 
   subtest 'Creation Information' => sub {
     like $report, qr/SPDXVersion: SPDX-2.3/, 'has SPDXVersion 2.3';
-    like $report, qr/DataLicense: CC0-1.0/,    'has DataLicense';
-    like $report, qr/Creator: Tool: Cavil/,    'has Creator';
-    like $report, qr/Created: .+T.+Z/,         'has Created';
+    like $report, qr/DataLicense: CC0-1.0/,  'has DataLicense';
+    like $report, qr/Creator: Tool: Cavil/,  'has Creator';
+    like $report, qr/Created: .+T.+Z/,       'has Created';
   };
 
   subtest 'Package Information' => sub {
@@ -101,14 +101,13 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/PackageLicenseDeclared: Artistic-2.0/,                              'has PackageLicenseDeclared';
     like $report, qr/PackageDescription: Real-time/,                                     'has PackageDescription';
     like $report, qr/PackageHomePage: http/,                                             'has PackageHomePage';
-    like $report, qr/PackageLicenseInfoFromFiles: LicenseRef-1-1/,            'has PackageLicenseInfoFromFiles';
-    unlike $report, qr/PackageLicenseInfoFromFiles: NOASSERTION/,             'does not fall back to NOASSERTION';
-    like $report, qr/PackageLicenseConcluded: NOASSERTION/,                   'has PackageLicenseConcluded';
-    like $report, qr/PackageCopyrightText: NOASSERTION/,                      'has PackageCopyrightText';
-    like $report, qr/PackageChecksum: MD5: .+/,                               'has PackageCheckSum';
-    like $report, qr/Relationship: SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-1/, 'has relationship to document';
-    like $report,
-      qr/Package Information.+PackageChecksum: MD5:.+File Information/s,
+    like $report,   qr/PackageLicenseInfoFromFiles: LicenseRef-1-1/,            'has PackageLicenseInfoFromFiles';
+    unlike $report, qr/PackageLicenseInfoFromFiles: NOASSERTION/,               'does not fall back to NOASSERTION';
+    like $report,   qr/PackageLicenseConcluded: NOASSERTION/,                   'has PackageLicenseConcluded';
+    like $report,   qr/PackageCopyrightText: NOASSERTION/,                      'has PackageCopyrightText';
+    like $report,   qr/PackageChecksum: MD5: .+/,                               'has PackageCheckSum';
+    like $report,   qr/Relationship: SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-1/, 'has relationship to document';
+    like $report, qr/Package Information.+PackageChecksum: MD5:.+File Information/s,
       'has package section before file section';
   };
 
@@ -145,6 +144,12 @@ subtest 'SPDX report contents' => sub {
     unlike $report, qr/LicenseId: LicenseRef.+40/, 'no license reference 40';
   };
 
+  subtest 'No component box when no components have been detected' => sub {
+    unlike $report, qr/^## Components/m,                       'no component box header';
+    unlike $report, qr/SPDXID: SPDXRef-component-/,            'no component SPDXID';
+    unlike $report, qr/ExternalRef: PACKAGE-MANAGER purl pkg/, 'no purl ExternalRef';
+  };
+
   subtest 'Pre-processed files are replaced with the real files' => sub {
     unlike $report, qr/FileName: .+run_prettify\.processed\.js/,                      'no pre-processed file';
     unlike $report, qr/FileChecksum: SHA1: f6a8e660f0a8ce1d7458451bdcf76b41fef2a8a7/, 'no pre-processed checksum';
@@ -164,8 +169,7 @@ subtest 'SPDX writer escapes closing text tag in text values' => sub {
   close $handle;
 
   my $content = path($tmp_file)->slurp;
-  like $content, qr/ExtractedText: <text>foo< \/text>bar<\/text>/,
-    'escaped embedded closing text tag';
+  like $content, qr/ExtractedText: <text>foo< \/text>bar<\/text>/, 'escaped embedded closing text tag';
 };
 
 subtest 'SPDX report is obsolete' => sub {

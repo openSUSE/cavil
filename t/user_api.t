@@ -155,7 +155,7 @@ subtest 'API keys' => sub {
     $t->app->minion->perform_jobs;
     $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
       ->status_is(200)
-      ->content_like(qr/SPDXVersion: SPDX-2.2/);
+      ->content_like(qr/SPDXVersion: SPDX-2.3/);
   };
 
   subtest 'List reports by external link' => sub {

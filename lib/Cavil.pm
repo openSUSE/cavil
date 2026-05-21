@@ -7,6 +7,7 @@ use Mojo::Base 'Mojolicious', -signatures;
 use Mojo::Pg;
 use Cavil::Classifier;
 use Cavil::Git;
+use Cavil::Model::Components;
 use Cavil::Model::IgnoredFiles;
 use Cavil::Model::Packages;
 use Cavil::Model::Patterns;
@@ -84,6 +85,7 @@ sub startup ($self) {
   $self->plugin('Cavil::Task::Import');
   $self->plugin('Cavil::Task::Unpack');
   $self->plugin('Cavil::Task::Index');
+  $self->plugin('Cavil::Task::Components');
   $self->plugin('Cavil::Task::Analyze');
   $self->plugin('Cavil::Task::Cleanup');
   $self->plugin('Cavil::Task::ClosestMatch');
@@ -138,6 +140,15 @@ sub startup ($self) {
       sub ($c) { state $snips = Cavil::Model::Snippets->new(checkout_dir => $config->{checkout_dir}, pg => $c->pg) });
 
   $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
+  $self->helper(
+    components => sub ($c) {
+      state $comps = do {
+        my $m = Cavil::Model::Components->new(app => $self, log => $self->log, pg => $c->pg);
+        weaken $m->{app};
+        $m;
+      };
+    }
+  );
 
   # Migrations (do not run automatically, use the migrate command)
   #

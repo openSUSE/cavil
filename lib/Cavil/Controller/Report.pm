@@ -19,10 +19,12 @@ sub report ($self) {
   return $self->render(text => 'no report', status => 408)
     unless my $report = $self->reports->sanitized_dig_report($id);
 
+  my $components = $self->app->components->for_package($id, {present_only => 1});
+
   $self->respond_to(
-    json => sub { $self->render(json                      => {report => $report, package => $pkg}) },
-    txt  => sub { $self->render('reviewer/report', report => $report, package => $pkg) },
-    mcp  => sub { $self->render(text                      => $self->helpers->mcp_report($id)) }
+    json => sub { $self->render(json => {report => $report, package => $pkg, components => $components}) },
+    txt  => sub { $self->render('reviewer/report', report => $report, package => $pkg, components => $components) },
+    mcp  => sub { $self->render(text => $self->helpers->mcp_report($id)) }
   );
 }
 

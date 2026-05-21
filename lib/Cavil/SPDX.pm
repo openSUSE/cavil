@@ -54,8 +54,7 @@ sub generate_to_file ($self, $id, $file) {
   my $spdx           = _SPDXWriter->new(handle => $spdx_handle);
   my $files_section  = _SPDXWriter->new(handle => path($files_tmp_file)->open('>'));
   my $refs           = _SPDXWriter->new(handle => path($refs_tmp_file)->open('>'));
-  my $cleanup
-    = scope_guard sub { -e $_ && path($_)->remove for $spdx_tmp_file, $files_tmp_file, $refs_tmp_file };
+  my $cleanup = scope_guard sub { -e $_ && path($_)->remove for $spdx_tmp_file, $files_tmp_file, $refs_tmp_file };
 
   # Document
   $spdx->tag(SPDXVersion => "SPDX-$SPDX_VERSION");
@@ -254,6 +253,13 @@ sub generate_to_file ($self, $id, $file) {
   $spdx->tag(Relationship            => "SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-$id");
   $spdx->br();
 
+  # Detected sub-components (only the ones actually shipped in the artifact)
+  my $components = $app->components->for_package($id, {present_only => 1});
+  if (@$components) {
+    $spdx->box('Components');
+    _write_component($spdx, $app, $id, $_) for @$components;
+  }
+
   # Merge buffered file section into main SPDX file
   _concat_into($spdx_handle, $files_tmp_file);
 
@@ -276,6 +282,43 @@ sub _matched_lines ($matched_lines, $start, $end, $value) {
   for (my $i = $start; $i <= $end; $i++) {
     $matched_lines->{$i} ||= $value;
   }
+}
+
+sub _write_component ($spdx, $app, $pkg_id, $component) {
+  my $comp_id  = $component->{id};
+  my $spdx_ref = "SPDXRef-component-$pkg_id-$comp_id";
+
+  $spdx->comment('Component');
+  $spdx->br();
+  $spdx->tag(PackageName    => $component->{name});
+  $spdx->tag(SPDXID         => $spdx_ref);
+  $spdx->tag(PackageVersion => $component->{version}) if defined $component->{version} && length $component->{version};
+  $spdx->tag(PackageDownloadLocation => $component->{source_url} // NO_ASSERTION);
+  $spdx->tag(PackageLicenseConcluded => NO_ASSERTION);
+
+  my $declared = $component->{license};
+  if (defined $declared && length $declared) {
+    my $parsed = lic($declared);
+    $declared = $parsed->is_valid_expression ? $parsed->to_string : $declared;
+  }
+  else {
+    $declared = NO_ASSERTION;
+  }
+  $spdx->tag(PackageLicenseDeclared => $declared);
+  $spdx->tag(PackageCopyrightText   => NO_ASSERTION);
+
+  my $checksum = $component->{checksum};
+  if (defined $checksum && length $checksum) {
+    $spdx->tag(PackageComment => "Integrity: $checksum");
+  }
+
+  if (my $purl = $app->components->purl_for($component)) {
+    $spdx->tag(ExternalRef => "PACKAGE-MANAGER purl $purl");
+  }
+
+  my $relation = $component->{relation} || 'CONTAINS';
+  $spdx->tag(Relationship => "SPDXRef-pkg-$pkg_id $relation $spdx_ref");
+  $spdx->br();
 }
 
 package _SPDXWriter;

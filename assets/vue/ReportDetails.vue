@@ -128,9 +128,11 @@
         <br />
       </div>
 
+      <ComponentList :components="components" />
+
       <div v-if="emails.length > 0">
         <h2>
-          <a href="#emails" data-bs-toggle="collapse">{{ emails.length }} Emails</a>
+          <a href="#emails" data-bs-toggle="collapse">{{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}</a>
         </h2>
         <div class="row collapse" id="emails">
           <div class="col">
@@ -148,7 +150,7 @@
 
       <div v-if="urls.length > 0">
         <h2>
-          <a href="#urls" data-bs-toggle="collapse">{{ urls.length }} URLs</a>
+          <a href="#urls" data-bs-toggle="collapse">{{ urls.length }} {{ urls.length === 1 ? 'URL' : 'URLs' }}</a>
         </h2>
         <div class="row collapse" id="urls">
           <div class="col">
@@ -199,6 +201,7 @@
 </template>
 
 <script>
+import ComponentList from './components/ComponentList.vue';
 import FileSource from './components/FileSource.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
@@ -212,7 +215,7 @@ let openEditorKeySeq = 0;
 
 export default {
   name: 'ReportDetails',
-  components: {FileSource, PendingActionsWidget, ProgressBar},
+  components: {ComponentList, FileSource, PendingActionsWidget, ProgressBar},
   mixins: [Refresh],
   provide() {
     return {
@@ -236,6 +239,7 @@ export default {
     return {
       chart: null,
       chartInstance: null,
+      components: [],
       emails: [],
       files: [],
       incompatibleLicenses: [],
@@ -307,6 +311,7 @@ export default {
       this.matchingGlobs = data.matching_globs;
       this.emails = data.emails;
       this.urls = data.urls;
+      this.components = data.components ?? [];
 
       const max = data.max_files_per_license;
       let counter = 0;
