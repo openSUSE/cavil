@@ -27,7 +27,7 @@ use Mojo::Util qw(decode scope_guard);
 
 use constant NO_ASSERTION => 'NOASSERTION';
 
-my $SPDX_VERSION = '2.2';
+my $SPDX_VERSION = '2.3';
 
 has 'app';
 
@@ -47,12 +47,15 @@ sub generate_to_file ($self, $id, $file) {
   my $db              = $app->pg->db;
   my $license_ref_num = 0;
 
-  my $spdx_tmp_file = "$file.tmp";
-  my $refs_tmp_file = "$file.refs.tmp";
-  my $spdx_handle   = path($spdx_tmp_file)->open('>');
-  my $spdx          = _SPDXWriter->new(handle => $spdx_handle);
-  my $refs          = _SPDXWriter->new(handle => path($refs_tmp_file)->open('>'));
-  my $cleanup       = scope_guard sub { -e $_ && path($_)->remove for $spdx_tmp_file, $refs_tmp_file };
+  my $spdx_tmp_file  = "$file.tmp";
+  my $files_tmp_file = "$file.files.tmp";
+  my $refs_tmp_file  = "$file.refs.tmp";
+  my $spdx_handle    = path($spdx_tmp_file)->open('>');
+  my $spdx           = _SPDXWriter->new(handle => $spdx_handle);
+  my $files_section  = _SPDXWriter->new(handle => path($files_tmp_file)->open('>'));
+  my $refs           = _SPDXWriter->new(handle => path($refs_tmp_file)->open('>'));
+  my $cleanup
+    = scope_guard sub { -e $_ && path($_)->remove for $spdx_tmp_file, $files_tmp_file, $refs_tmp_file };
 
   # Document
   $spdx->tag(SPDXVersion => "SPDX-$SPDX_VERSION");
@@ -99,45 +102,24 @@ sub generate_to_file ($self, $id, $file) {
   }
   my $verification_code = Digest::SHA->new('1')->add(join('', sort @checksums))->hexdigest;
 
-  # Package
-  my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
-  $spdx->box('Package Information');
-  $spdx->tag(PackageName             => $pkg->{name});
-  $spdx->tag(SPDXID                  => "SPDXRef-pkg-$id");
-  $spdx->tag(PackageDownloadLocation => NO_ASSERTION);
-  $spdx->tag(PackageVerificationCode => $verification_code);
-  if (my $main = $specfile_report->{main}) {
-    my $version = $main->{version} // '';
-    $spdx->tag(PackageVersion => $version) if $version =~ /^[0-9.]+$/;
-    my $license = lic($main->{license} // '');
-    $spdx->tag(PackageLicenseDeclared => $license->is_valid_expression ? $license->to_string : NO_ASSERTION);
-    if (my $summary = $main->{summary}) { $spdx->tag(PackageDescription => $summary) }
-    if (my $url     = $main->{url})     { $spdx->tag(PackageHomePage    => $url) }
-  }
-  $spdx->tag(PackageLicenseInfoFromFiles => NO_ASSERTION);
-  $spdx->tag(PackageLicenseConcluded     => NO_ASSERTION);
-  $spdx->tag(PackageCopyrightText        => NO_ASSERTION);
-  $spdx->tag(PackageChecksum             => 'MD5: ' . $pkg->{checkout_dir});
-  $spdx->tag(Relationship                => "SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-$id");
-  $spdx->br();
-
-  # Files
-  $spdx->box('File Information');
+  # Files (buffered so the Package section can aggregate license info from files)
+  $files_section->box('File Information');
   my $matched_files = {};
   for my $matched ($db->query('SELECT * FROM matched_files WHERE package = ?', $id)->hashes->each) {
     $matched_files->{$matched->{filename}} = $matched->{id};
   }
+  my %license_info_from_files;
   my $file_num = 0;
   for my $file (sort keys %files) {
     $file_num++;
 
     my $real_name = $original_files{$file} // $file;
-    $spdx->comment('File');
-    $spdx->br();
-    $spdx->tag(FileName         => "./$real_name");
-    $spdx->tag(SPDXID           => "SPDXRef-item-$id-$file_num");
-    $spdx->tag(FileChecksum     => 'SHA1: ' . $files{$file});
-    $spdx->tag(LicenseConcluded => NO_ASSERTION);
+    $files_section->comment('File');
+    $files_section->br();
+    $files_section->tag(FileName         => "./$real_name");
+    $files_section->tag(SPDXID           => "SPDXRef-item-$id-$file_num");
+    $files_section->tag(FileChecksum     => 'SHA1: ' . $files{$file});
+    $files_section->tag(LicenseConcluded => NO_ASSERTION);
 
     # Matches
     if (my $file_id = $matched_files->{$file}) {
@@ -194,7 +176,8 @@ sub generate_to_file ($self, $id, $file) {
 
         # License
         if (my $license = $match->{spdx}) {
-          $spdx->tag(LicenseInfoInFile => $license);
+          $files_section->tag(LicenseInfoInFile => $license);
+          $license_info_from_files{$license} = 1;
         }
 
         # Non-SPDX license or keyword
@@ -204,7 +187,8 @@ sub generate_to_file ($self, $id, $file) {
           my $license = "LicenseRef-$unknown-$id-$license_ref_num";
           $license =~ s/[^A-Za-z0-9.]+/-/g;
 
-          $spdx->tag(LicenseInfoInFile => $license);
+          $files_section->tag(LicenseInfoInFile => $license);
+          $license_info_from_files{$license} = 1;
 
           $refs->comment('License Reference');
           $refs->br();
@@ -215,42 +199,77 @@ sub generate_to_file ($self, $id, $file) {
             my @flags = map { $match->{$_} ? ("\@$_") : () } @FLAGS;
             $flags = '; Flags: ' . join(', ', @flags);
           }
-          my $risk = $unknown eq '' ? 9 : $match->{risk};
-          $refs->tag(LicenseComment => "Risk: $risk$flags ($match->{unique_id}:$match->{id})");
-          $refs->tag(LicenseComment =>
-              "Similar: $similar->{license} ($similar->{likelyness}% similarity, estimated risk $similar->{risk})")
+          my $risk    = $unknown eq '' ? 9 : $match->{risk};
+          my $comment = "Risk: $risk$flags ($match->{unique_id}:$match->{id})";
+          $comment
+            .= "\nSimilar: $similar->{license} ($similar->{likelyness}% similarity, estimated risk $similar->{risk})"
             if $similar;
+          $refs->tag(LicenseComment => $comment);
           $refs->text(ExtractedText => $snippet);
           $refs->br();
         }
       }
 
       if (@copyright) {
-        $spdx->text(FileCopyrightText => join("\n", @copyright));
+        $files_section->text(FileCopyrightText => join("\n", @copyright));
       }
       else {
-        $spdx->tag(FileCopyrightText => NO_ASSERTION);
+        $files_section->tag(FileCopyrightText => NO_ASSERTION);
       }
     }
 
     # No matches
     else {
-      $spdx->tag(LicenseInfoInFile => NO_ASSERTION);
-      $spdx->tag(FileCopyrightText => NO_ASSERTION);
+      $files_section->tag(LicenseInfoInFile => NO_ASSERTION);
+      $files_section->tag(FileCopyrightText => NO_ASSERTION);
     }
 
-    $spdx->br();
+    $files_section->br();
   }
 
-  # Merge license references and main SPDX file
+  # Package
+  my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
+  $spdx->box('Package Information');
+  $spdx->tag(PackageName             => $pkg->{name});
+  $spdx->tag(SPDXID                  => "SPDXRef-pkg-$id");
+  $spdx->tag(PackageDownloadLocation => NO_ASSERTION);
+  $spdx->tag(PackageVerificationCode => $verification_code);
+  if (my $main = $specfile_report->{main}) {
+    my $version = $main->{version} // '';
+    $spdx->tag(PackageVersion => $version) if $version =~ /^[0-9.]+$/;
+    my $license = lic($main->{license} // '');
+    $spdx->tag(PackageLicenseDeclared => $license->is_valid_expression ? $license->to_string : NO_ASSERTION);
+    if (my $summary = $main->{summary}) { $spdx->tag(PackageDescription => $summary) }
+    if (my $url     = $main->{url})     { $spdx->tag(PackageHomePage    => $url) }
+  }
+  if (my @from_files = sort keys %license_info_from_files) {
+    $spdx->tag(PackageLicenseInfoFromFiles => $_) for @from_files;
+  }
+  else {
+    $spdx->tag(PackageLicenseInfoFromFiles => NO_ASSERTION);
+  }
+  $spdx->tag(PackageLicenseConcluded => NO_ASSERTION);
+  $spdx->tag(PackageCopyrightText    => NO_ASSERTION);
+  $spdx->tag(PackageChecksum         => 'MD5: ' . $pkg->{checkout_dir});
+  $spdx->tag(Relationship            => "SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-$id");
+  $spdx->br();
+
+  # Merge buffered file section into main SPDX file
+  _concat_into($spdx_handle, $files_tmp_file);
+
+  # Merge license references into main SPDX file
   if (-s $refs_tmp_file) {
     $spdx->box('Other Licensing Information');
-    my $tmp_handle = path($refs_tmp_file)->open('<');
-    my $buffer;
-    $spdx_handle->syswrite($buffer) while $tmp_handle->sysread($buffer, 1024);
+    _concat_into($spdx_handle, $refs_tmp_file);
   }
 
   path($spdx_tmp_file)->move_to($file);
+}
+
+sub _concat_into ($dst_handle, $src_path) {
+  my $tmp_handle = path($src_path)->open('<');
+  my $buffer;
+  $dst_handle->syswrite($buffer) while $tmp_handle->sysread($buffer, 1024);
 }
 
 sub _matched_lines ($matched_lines, $start, $end, $value) {
@@ -278,6 +297,7 @@ sub tag ($self, $name, $value) {
 }
 
 sub text ($self, $name, $value) {
+  $value =~ s{</text>}{< /text>}g;
   $self->append("$name: <text>$value</text>\n");
 }
 

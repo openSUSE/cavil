@@ -21,7 +21,9 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Cavil::SPDX;
 use Mojolicious::Lite;
+use Mojo::File qw(path tempfile);
 use Mojo::Util qw(decode);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -73,6 +75,7 @@ subtest 'Always generate SPDX reports when reindexing' => sub {
 subtest 'SPDX report contents' => sub {
   my $path = $t->app->packages->spdx_report_path(1);
   ok !-e "$path.tmp",      'SPDX temp file has been cleaned up';
+  ok !-e "$path.files.tmp", 'SPDX file section temp file has been cleaned up';
   ok !-e "$path.refs.tmp", 'SPDX ref temp file has been cleaned up';
   my $report = decode('UTF-8', $path->slurp);
 
@@ -83,7 +86,7 @@ subtest 'SPDX report contents' => sub {
   };
 
   subtest 'Creation Information' => sub {
-    like $report, qr/SPDXVersion: SPDX-\d.\d/, 'has SPDXVersion';
+    like $report, qr/SPDXVersion: SPDX-2.3/, 'has SPDXVersion 2.3';
     like $report, qr/DataLicense: CC0-1.0/,    'has DataLicense';
     like $report, qr/Creator: Tool: Cavil/,    'has Creator';
     like $report, qr/Created: .+T.+Z/,         'has Created';
@@ -98,11 +101,15 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/PackageLicenseDeclared: Artistic-2.0/,                              'has PackageLicenseDeclared';
     like $report, qr/PackageDescription: Real-time/,                                     'has PackageDescription';
     like $report, qr/PackageHomePage: http/,                                             'has PackageHomePage';
-    like $report, qr/PackageLicenseInfoFromFiles: NOASSERTION/,               'has PackageLicenseInfoFromFiles';
+    like $report, qr/PackageLicenseInfoFromFiles: LicenseRef-1-1/,            'has PackageLicenseInfoFromFiles';
+    unlike $report, qr/PackageLicenseInfoFromFiles: NOASSERTION/,             'does not fall back to NOASSERTION';
     like $report, qr/PackageLicenseConcluded: NOASSERTION/,                   'has PackageLicenseConcluded';
     like $report, qr/PackageCopyrightText: NOASSERTION/,                      'has PackageCopyrightText';
     like $report, qr/PackageChecksum: MD5: .+/,                               'has PackageCheckSum';
     like $report, qr/Relationship: SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-1/, 'has relationship to document';
+    like $report,
+      qr/Package Information.+PackageChecksum: MD5:.+File Information/s,
+      'has package section before file section';
   };
 
   subtest 'File Information' => sub {
@@ -126,8 +133,9 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/ExtractedText: .*Fixed copyright notice.*/, 'has license reference 1 text';
 
     like $report, qr/LicenseID: LicenseRef-1-6/, 'has license reference 6';
-    like $report, qr/LicenseComment: Similar: Apache-2.0 \(95% similarity, estimated risk 5\)/,
-      'has license reference 6 with similarity';
+    like $report,
+      qr/LicenseComment: <text>Risk: 9 \(.+\)\nSimilar: Apache-2.0 \(95% similarity, estimated risk 5\)<\/text>/,
+      'has license reference with risk and similarity in one multiline comment';
 
     like $report, qr/LicenseID: LicenseRef-Apache-2.0-1-30/, 'has license reference 30';
     like $report, qr/LicenseName: Apache-2.0/,               'has license reference 30 name';
@@ -145,6 +153,19 @@ subtest 'SPDX report contents' => sub {
     like $report, qr/FileChecksum: SHA1: face8177a6804506c67c5644c00f3c6e0e50f02b/, 'has original checksum';
     like $report, qr/FileCopyrightText: .+Copyright.+Google/,                       'has copyright text';
   };
+};
+
+subtest 'SPDX writer escapes closing text tag in text values' => sub {
+  my $tmp_file = tempfile;
+  my $handle   = path($tmp_file)->open('>');
+  my $writer   = _SPDXWriter->new(handle => $handle);
+
+  $writer->text(ExtractedText => 'foo</text>bar');
+  close $handle;
+
+  my $content = path($tmp_file)->slurp;
+  like $content, qr/ExtractedText: <text>foo< \/text>bar<\/text>/,
+    'escaped embedded closing text tag';
 };
 
 subtest 'SPDX report is obsolete' => sub {
