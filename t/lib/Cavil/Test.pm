@@ -156,43 +156,6 @@ sub mojo_fixtures ($self, $app) {
   $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 Artistic-2.0);
 }
 
-sub npm_vendored_fixtures ($self, $app) {
-  $self->no_fixtures($app);
-
-  my $dir       = $self->checkout_dir;
-  my @src       = ('npm-vendored', 'a1b2c3d4e5f6789012345678901234ab');
-  my $pkg_dir   = $dir->child(@src)->make_path;
-  my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
-  $_->copy_to($pkg_dir->child($_->basename)) for $legal_bot->child(@src)->list->each;
-
-  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
-  my $pkgs   = $app->packages;
-  my $pkg_id = $pkgs->add(
-    name            => 'npm-vendored',
-    checkout_dir    => 'a1b2c3d4e5f6789012345678901234ab',
-    api_url         => 'https://api.opensuse.org',
-    requesting_user => $usr_id,
-    project         => 'devel:languages:javascript',
-    package         => 'npm-vendored',
-    srcmd5          => 'a1b2c3d4e5f6789012345678901234ab',
-    priority        => 5
-  );
-  my $pkg = $pkgs->find($pkg_id);
-  $pkg->{external_link} = 'obs#555111';
-  $pkgs->update($pkg);
-  $pkgs->imported($pkg_id);
-
-  my $patterns = $app->patterns;
-  $patterns->create(
-    pattern   => 'Permission is hereby granted, free of charge, to any person obtaining a copy',
-    license   => 'MIT',
-    unique_id => '413430b9-8f04-49d8-93ef-953b68835d60'
-  );
-  $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'MIT');
-
-  return $pkg_id;
-}
-
 sub no_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 

@@ -69,8 +69,7 @@ unless ($clean) {
     ['go1.16-devel-container', 'ffcfdab0e71b1bebfdf8b5cc3badfeca'],
     ['harbor-helm',            '4fcfdab0e71b0bebfdf8b5cc3badfec4'],
     ['libfsverity0',           '9932c13432c3c5bdbe260ab8bc3b13ef'],
-    ['PackageHub',             '280b37a43ba9dc09c563a5c4e99349c07414c9f46a8e8f8636d3ef8aaf63650b'],
-    ['npm-vendored',           'a1b2c3d4e5f6789012345678901234ab']
+    ['PackageHub',             '280b37a43ba9dc09c563a5c4e99349c07414c9f46a8e8f8636d3ef8aaf63650b']
   ];
   for my $co (@$tests) {
     my $checkout = $checkouts->child(@$co)->make_path;
@@ -190,23 +189,6 @@ unless ($clean) {
   my $deb = $pkgs->find($pkg_id);
   $deb->{external_link} = 'obs#395678';
   $pkgs->update($deb);
-  $pkgs->unpack($pkg_id);
-
-  # "npm-vendored" example data (exercises the NPM component detector)
-  $pkg_id = $pkgs->add(
-    name            => 'npm-vendored',
-    checkout_dir    => 'a1b2c3d4e5f6789012345678901234ab',
-    api_url         => 'https://api.opensuse.org',
-    requesting_user => $user_id,
-    project         => 'devel:languages:nodejs',
-    package         => 'npm-vendored',
-    srcmd5          => 'a1b2c36647a5d3dd883d490da2140abc',
-    priority        => 5
-  );
-  $pkgs->imported($pkg_id);
-  my $npm = $pkgs->find($pkg_id);
-  $npm->{external_link} = 'obs#555111';
-  $pkgs->update($npm);
   $pkgs->unpack($pkg_id);
 
   # "PackageHub" ObsPrj example data

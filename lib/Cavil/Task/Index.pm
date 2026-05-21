@@ -48,7 +48,6 @@ sub _index ($job, $id) {
     $db->delete('urls',          {package => $id});
     $db->delete('emails',        {package => $id});
     $db->delete('bot_reports',   {package => $id});
-    $app->components->clear($id);
 
     $pkgs->remove_spdx_report($id);
   }
@@ -135,8 +134,8 @@ sub _indexed ($job, $id) {
   $pkgs->indexed($id);
 
   # Next step - always high prio because the renderer
-  # relies on it; component detection chains analyze itself
-  return $pkgs->detect_components($id, 9, [$job->id]);
+  # relies on it
+  return $pkgs->analyze($id, 9, [$job->id]);
 }
 
 sub _reindex_all ($job) {

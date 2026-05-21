@@ -184,19 +184,15 @@ These jobs are involved in report creation and usually run in the listed order:
 4. `index_batch`: Performs two phase pattern matching on all files in the batch with license and keyword patterns.
                   There can be thousands of `index_batch` jobs at the same time.
 5. `indexed`: Synchronizes all pattern matching results.
-6. `detect_components`: Detects sub-components vendored into the package (e.g. NPM dependencies under
-                        `node_modules/`) by parsing ecosystem manifests like `package-lock.json`. Each detected
-                        component is recorded with its ecosystem, name, version and declared license, and surfaced in
-                        all report formats (HTML, SPDX, JSON, TXT, MCP).
-7. `analyze`: Combines patterns matching results to create the license report.
-8. `analyzed`: Checks the report for reasons to automatically accept it.
-9. `spdx_report`: Creates report in SPDX format.
+6. `analyze`: Combines patterns matching results to create the license report.
+7. `analyzed`: Checks the report for reasons to automatically accept it.
+8. `spdx_report`: Creates report in SPDX format.
 
 If AI text classification has been configured there will also be another background job running in irregular intervals.
 This one is not specific to one package checkout.
 
-10. `classify`: Sends all unclassified snippets of potential legal text to the text classification server, and if
-                necessary updates reports.
+9. `classify`: Sends all unclassified snippets of potential legal text to the text classification server, and if
+               necessary updates reports.
 
 ## AI Text Classification
 

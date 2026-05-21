@@ -116,21 +116,6 @@ No files matching any known license patterns or keywords have been found.
 
 % }
 
-% if ($components && @$components) {
-## Components
-
-Sub-components vendored into the package, grouped by ecosystem.
-
-%   for my $component (@$components) {
-%     my $name    = $component->{name};
-%     my $version = $component->{version};
-%     my $license = $component->{license} // 'NOASSERTION';
-%     my $label   = defined $version && length $version ? "$name\@$version" : $name;
-* [<%== $component->{ecosystem} %>] <%== $label %>: <%== $license %>
-%   }
-
-% }
-
 % if (@{$report->{emails}}) {
 
 % if (@$unmatched_keywords) {

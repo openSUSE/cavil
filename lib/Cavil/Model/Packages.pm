@@ -67,10 +67,6 @@ sub analyze ($self, $id, $priority = 9, $parents = []) {
   return $self->_enqueue('analyze', $id, $priority, $parents);
 }
 
-sub detect_components ($self, $id, $priority = 9, $parents = []) {
-  return $self->_enqueue('detect_components', $id, $priority, $parents);
-}
-
 sub cleanup ($self, $id) {
   my $db     = $self->pg->db;
   my $minion = $self->minion;

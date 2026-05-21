@@ -144,12 +144,6 @@ subtest 'SPDX report contents' => sub {
     unlike $report, qr/LicenseId: LicenseRef.+40/, 'no license reference 40';
   };
 
-  subtest 'No component box when no components have been detected' => sub {
-    unlike $report, qr/^## Components/m,                       'no component box header';
-    unlike $report, qr/SPDXID: SPDXRef-component-/,            'no component SPDXID';
-    unlike $report, qr/ExternalRef: PACKAGE-MANAGER purl pkg/, 'no purl ExternalRef';
-  };
-
   subtest 'Pre-processed files are replaced with the real files' => sub {
     unlike $report, qr/FileName: .+run_prettify\.processed\.js/,                      'no pre-processed file';
     unlike $report, qr/FileChecksum: SHA1: f6a8e660f0a8ce1d7458451bdcf76b41fef2a8a7/, 'no pre-processed checksum';

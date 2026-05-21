@@ -62,13 +62,6 @@ sub _process_file ($self, $from, $mimetype) {
 
   # avoid doing it again
   return undef if $from =~ m/.processed/;
-
-  # Structured manifest formats (JSON/TOML/YAML and *.lock) get corrupted by
-  # arbitrary newline insertion — newlines inside JSON/TOML string literals
-  # are illegal, YAML indentation is significant. Component detection and
-  # other downstream tools need these bytes intact.
-  return undef if $from =~ /\.(?:json|toml|ya?ml|lock)$/i;
-
   my $to;
   if ($from =~ m,^(.*)\.([^./]+$),) {
     $to = "$1.processed.$2";
