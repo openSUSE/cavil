@@ -1175,11 +1175,9 @@ export default {
   color: #8c959f;
 }
 .snippet-editor-tab-content {
-  display: grid;
+  position: relative;
 }
 .snippet-editor-tab-pane {
-  grid-column: 1;
-  grid-row: 1;
   min-width: 0;
   visibility: hidden;
 }
@@ -1187,7 +1185,9 @@ export default {
   visibility: visible;
 }
 .snippet-editor-closest-pane {
-  margin-bottom: 1rem;
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
 }
 .snippet-editor .closest-container {
   margin-bottom: 1rem;
