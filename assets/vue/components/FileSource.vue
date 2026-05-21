@@ -6,7 +6,12 @@
         <tr v-if="line[1].withgap">
           <td class="redbar" colspan="4"></td>
         </tr>
-        <tr v-if="!isHiddenByEditor(line)" :class="rowClass(line[1])" :title="line[1].risk > 0 ? line[1].name : null">
+        <tr
+          v-if="!isHiddenByEditor(line)"
+          :id="line[1].end && line[1].risk === 9 ? 'match-' + fileId + '-' + line[0] : null"
+          :class="rowClass(line[1])"
+          :title="line[1].risk > 0 ? line[1].name : null"
+        >
           <td v-if="!showActions(line[1])" class="actions"></td>
           <td v-else class="actions dropdown show">
             <a

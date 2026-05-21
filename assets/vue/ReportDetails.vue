@@ -251,7 +251,7 @@ export default {
       stage: null,
       unresolvedMatches: 0,
       urls: [],
-      currentMissedIdx: -1,
+      currentMatchKey: null,
       shortcutsModal: null
     };
   },
@@ -533,22 +533,69 @@ export default {
       if (event.key === 'n') {
         if (this.missedFiles.length === 0) return;
         event.preventDefault();
-        this.gotoMissed(Math.min(this.currentMissedIdx + 1, this.missedFiles.length - 1));
+        this.gotoMatch(1);
       } else if (event.key === 'p') {
         if (this.missedFiles.length === 0) return;
         event.preventDefault();
-        this.gotoMissed(Math.max(this.currentMissedIdx - 1, 0));
+        this.gotoMatch(-1);
       } else if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
         event.preventDefault();
         this.showShortcuts();
       }
     },
-    gotoMissed(idx) {
-      this.currentMissedIdx = idx;
-      const missed = this.missedFiles[idx];
-      if (!missed) return;
-      const file = this.files.find(f => f.id === missed.id);
-      if (file) this.scrollToFile(file);
+    matchTargets() {
+      // Flat ordered list of every unresolved match across all files with
+      // missed snippets. Files whose source hasn't loaded yet only contribute
+      // a single fallback target so navigation can still reach them; once
+      // their source loads, subsequent presses naturally pick up the
+      // additional in-file matches.
+      const targets = [];
+      for (const missed of this.missedFiles) {
+        const file = this.files.find(f => f.id === missed.id);
+        const lines = file && file.source && file.source.lines;
+        const starts = lines ? lines.filter(l => l[1].risk === 9 && l[1].end) : [];
+        if (starts.length > 0) {
+          for (const l of starts) targets.push({fileId: missed.id, startLine: l[0]});
+        } else {
+          targets.push({fileId: missed.id, startLine: null});
+        }
+      }
+      return targets;
+    },
+    matchKey(target) {
+      return target.startLine === null ? `f:${target.fileId}` : `m:${target.fileId}:${target.startLine}`;
+    },
+    async gotoMatch(direction) {
+      const targets = this.matchTargets();
+      if (targets.length === 0) return;
+      let idx;
+      if (this.currentMatchKey === null) {
+        idx = direction > 0 ? 0 : targets.length - 1;
+      } else {
+        let current = targets.findIndex(t => this.matchKey(t) === this.currentMatchKey);
+        if (current < 0) current = direction > 0 ? -1 : targets.length;
+        idx = Math.max(0, Math.min(targets.length - 1, current + direction));
+      }
+      const target = targets[idx];
+      this.currentMatchKey = this.matchKey(target);
+      await this.scrollToMatch(target);
+    },
+    async scrollToMatch(target) {
+      const file = this.files.find(f => f.id === target.fileId);
+      if (!file) return;
+      if (!file.expanded) file.expanded = true;
+      if (!file.source) await this.fetchSource(file);
+      await this.$nextTick();
+      let el = null;
+      if (target.startLine !== null) {
+        el = document.getElementById(`match-${target.fileId}-${target.startLine}`);
+      }
+      if (!el) {
+        el =
+          document.getElementById('file-details-' + target.fileId) ||
+          document.querySelector('[name="file-' + target.fileId + '"]');
+      }
+      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
     },
     showShortcuts() {
       const el = document.getElementById('shortcutsModal');

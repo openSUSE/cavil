@@ -338,25 +338,82 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#license-chart');
       await page.waitForSelector('#filelist-snippets a.file-link');
 
-      const hrefs = await page
-        .locator('#filelist-snippets a.file-link')
-        .evaluateAll(els => els.map(a => a.getAttribute('href')));
-      t.ok(hrefs.length >= 2, 'have at least two unresolved-match files');
-      const firstId = hrefs[0].replace('#file-', '');
-      const secondId = hrefs[1].replace('#file-', '');
+      // Wait for every auto-expanded risk-9 file to finish loading its source
+      // so we can see all unresolved match starts (rows tagged with the
+      // match-<fileId>-<line> id by FileSource.vue).
+      await page.waitForFunction(() => {
+        const links = document.querySelectorAll('#filelist-snippets a.file-link');
+        if (!links.length) return false;
+        for (const a of links) {
+          const id = a.getAttribute('href').replace('#file-', '');
+          if (!document.querySelector(`#file-details-${id} table.snippet`)) return false;
+        }
+        return true;
+      });
 
-      // 'n' advances through the unresolved matches
-      await page.keyboard.press('n');
-      await page.waitForSelector(`#file-details-${firstId}`);
-      t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file visible after n');
+      // Build the full ordered jump list across all missed files. The fixture
+      // is expected to contain at least one file with multiple risk-9 starts
+      // (the Mojolicious LICENSE file has three) so we can verify the within-
+      // file walk - the regression we're guarding against is 'n' skipping
+      // straight to the next file after the first match.
+      const targets = await page.evaluate(() => {
+        const out = [];
+        for (const a of document.querySelectorAll('#filelist-snippets a.file-link')) {
+          const fileId = a.getAttribute('href').replace('#file-', '');
+          const rows = document.querySelectorAll(`#file-details-${fileId} tr[id^="match-${fileId}-"]`);
+          for (const tr of rows) out.push({fileId, line: Number(tr.id.replace(`match-${fileId}-`, ''))});
+        }
+        return out;
+      });
+      t.ok(targets.length >= 4, 'have at least four unresolved match starts');
+      const multiMatchFile = targets.reduce((acc, t) => {
+        acc[t.fileId] = (acc[t.fileId] || 0) + 1;
+        return acc;
+      }, {});
+      t.ok(
+        Object.values(multiMatchFile).some(n => n > 1),
+        'at least one missed file has multiple risk-9 starts'
+      );
+      const firstId = targets[0].fileId;
+      const secondId = targets[1].fileId;
 
-      await page.keyboard.press('n');
-      await page.waitForSelector(`#file-details-${secondId}`);
-      t.same(await page.isVisible(`#file-details-${secondId}`), true, 'second missed file visible after n');
+      // 'n' must visit every match in order - including subsequent matches in
+      // the same file before crossing to the next file.
+      for (const [i, target] of targets.entries()) {
+        await page.keyboard.press('n');
+        await page.waitForFunction(
+          ({fileId, line}) => {
+            const el = document.getElementById(`match-${fileId}-${line}`);
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            return r.top >= -50 && r.top <= window.innerHeight;
+          },
+          target,
+          {timeout: 5000}
+        );
+        t.pass(`'n' #${i + 1} landed on match-${target.fileId}-${target.line}`);
+      }
 
-      // 'p' walks back
-      await page.keyboard.press('p');
-      t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file still visible after p');
+      // 'p' walks back through the same list in reverse.
+      for (let i = targets.length - 2; i >= 0; i--) {
+        await page.keyboard.press('p');
+        const target = targets[i];
+        await page.waitForFunction(
+          ({fileId, line}) => {
+            const el = document.getElementById(`match-${fileId}-${line}`);
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            return r.top >= -50 && r.top <= window.innerHeight;
+          },
+          target,
+          {timeout: 5000}
+        );
+      }
+      t.pass(`'p' walked back to match-${targets[0].fileId}-${targets[0].line}`);
+
+      // Sanity-check the original assertion that both files end up visible.
+      t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file visible');
+      t.same(await page.isVisible(`#file-details-${secondId}`), true, 'second missed file visible');
 
       // '?' opens the shortcuts help modal
       await page.keyboard.press('Shift+/');
