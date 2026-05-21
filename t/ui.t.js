@@ -363,7 +363,10 @@ t.test('Test cavil ui', skip, async t => {
         acc[fileId] = (acc[fileId] || 0) + 1;
         return acc;
       }, {});
-      t.ok(Object.values(perFile).some(n => n > 1), 'at least one file has multiple match anchors');
+      t.ok(
+        Object.values(perFile).some(n => n > 1),
+        'at least one file has multiple match anchors'
+      );
       const firstId = matchIds[0].split('-')[1];
       const secondId = matchIds[matchIds.findIndex(id => id.split('-')[1] !== firstId)].split('-')[1];
 
@@ -1142,6 +1145,135 @@ t.test('Test cavil ui', skip, async t => {
       await editorPage.waitForURL(/\/licenses\/edit_pattern\/\d+/);
       t.equal(await editorPage.innerText('title'), 'Edit license pattern');
       await editorPage.close();
+    });
+
+    await t.test('Edit pattern page (Vue) - match count, editor, closest, update', async t => {
+      // Pattern 1 is the Apache-2.0 fixture row ("You may obtain a copy of the
+      // License at"). Visit the Vue page directly to exercise the same mount
+      // that production links use.
+      await page.goto(`${url}/licenses/edit_pattern/1`);
+      t.equal(await page.innerText('title'), 'Edit license pattern');
+      await page.waitForSelector('#edit-pattern[data-pattern]');
+
+      // Form hydrates synchronously from the currentPattern global property.
+      await page.waitForSelector('#edit-pattern input[name=license]');
+      t.equal(await page.inputValue('#edit-pattern input[name=license]'), 'Apache-2.0');
+      t.equal(await page.locator('#edit-pattern input#spdx').isDisabled(), true);
+
+      // PatternCodeMirror mounts and is pre-filled with the saved pattern text.
+      await page.waitForSelector('#edit-pattern .cm-editor');
+      await page.waitForFunction(() => {
+        const editor = document.querySelector('#edit-pattern .cm-editor');
+        const view = editor && editor.cmView;
+        return view && view.state.doc.toString().includes('You may obtain a copy of the License at');
+      });
+
+      // The match-count block opens in a loading state and then renders the
+      // controller's count text. The spinner can resolve quickly, so just wait
+      // until the loading icon is gone and assert on the final wording.
+      await page.waitForFunction(() => {
+        const el = document.querySelector('.edit-pattern-match-count');
+        return el && !el.querySelector('i.fa-spin');
+      });
+      const countText = await page.innerText('.edit-pattern-match-count');
+      t.match(countText, /(no matches|This pattern has)/, 'match count rendered after async load');
+
+      // Editing the pattern text in the CodeMirror editor must re-trigger
+      // ClosestPattern's debounced fetch.
+      const [refetchResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/closest/.test(resp.url())),
+        page.evaluate(() => {
+          const view = document.querySelector('#edit-pattern .cm-editor').cmView;
+          view.dispatch({changes: {from: view.state.doc.length, insert: '\nedit-pattern-test-marker'}});
+        })
+      ]);
+      t.equal(refetchResp.status(), 200, 'closest-match refetches after pattern edit');
+
+      // Restore the original pattern text so the Update we're about to submit
+      // doesn't drift fixture state for later tests.
+      await page.evaluate(() => {
+        const view = document.querySelector('#edit-pattern .cm-editor').cmView;
+        const doc = view.state.doc.toString();
+        view.dispatch({changes: {from: 0, to: doc.length, insert: doc.replace(/\nedit-pattern-test-marker$/, '')}});
+      });
+
+      // Dismissing the confirm dialog must leave us on the edit page (no DELETE
+      // request fires).
+      page.once('dialog', dialog => dialog.dismiss());
+      await page.locator('#edit-pattern .del-pattern').click();
+      t.match(page.url(), /\/licenses\/edit_pattern\/1/, 'cancelled delete stays on edit page');
+
+      // Update button submits the standard form POST; the controller redirects
+      // back to the same edit page with a flash message.
+      await Promise.all([
+        page.waitForURL(/\/licenses\/edit_pattern\/1/),
+        page.locator('#edit-pattern button[type=submit]').click()
+      ]);
+      await page.waitForSelector('#edit-pattern[data-pattern]');
+      t.equal(await page.innerText('title'), 'Edit license pattern');
+    });
+
+    await t.test('New pattern page (Vue) - create form posts to /licenses/create_pattern', async t => {
+      // Drive the same Vue mount with no pattern.id so it switches to "create" mode.
+      await page.goto(`${url}/licenses/new_pattern?license-name=Vue-Create-Test-License`);
+      t.equal(await page.innerText('title'), 'New license pattern');
+      await page.waitForSelector('#edit-pattern[data-pattern]');
+
+      // License field is pre-filled from the license-name query parameter.
+      await page.waitForSelector('#edit-pattern input[name=license]');
+      t.equal(await page.inputValue('#edit-pattern input[name=license]'), 'Vue-Create-Test-License');
+
+      // Match count block and SPDX field are hidden in create mode (no pattern id yet).
+      t.equal(await page.locator('.edit-pattern-match-count').count(), 0, 'no match count in create mode');
+      t.equal(await page.locator('#edit-pattern #spdx').count(), 0, 'no SPDX field in create mode');
+
+      // Delete button is hidden; submit button reads "Create".
+      t.equal(await page.locator('#edit-pattern .del-pattern').count(), 0, 'no delete button in create mode');
+      t.equal(await page.innerText('#edit-pattern button[type=submit]'), 'Create');
+
+      // Form posts to the create endpoint.
+      const action = await page.locator('#edit-pattern form').getAttribute('action');
+      t.match(action, /\/licenses\/create_pattern$/, 'form action targets create endpoint');
+
+      // PatternCodeMirror mounts empty; type a unique pattern body so the create succeeds
+      // without colliding with any existing fixture pattern.
+      await page.waitForSelector('#edit-pattern .cm-editor');
+      await page.evaluate(() => {
+        const view = document.querySelector('#edit-pattern .cm-editor').cmView;
+        view.dispatch({changes: {from: 0, insert: 'unique-vue-create-test-pattern-body'}});
+      });
+
+      // Submit redirects to /licenses/edit_pattern/<new-id> with a flash message.
+      await Promise.all([
+        page.waitForURL(/\/licenses\/edit_pattern\/\d+/),
+        page.locator('#edit-pattern button[type=submit]').click()
+      ]);
+      t.equal(await page.innerText('title'), 'Edit license pattern');
+      // Now in edit mode: SPDX field and Delete button must be present.
+      await page.waitForSelector('#edit-pattern #spdx');
+      await page.waitForSelector('#edit-pattern .del-pattern');
+      t.equal(await page.inputValue('#edit-pattern input[name=license]'), 'Vue-Create-Test-License');
+    });
+
+    await t.test('Edit pattern page (Vue) - delete redirects to /licenses', async t => {
+      // Use the throwaway pattern created in the classify-snippets subtest
+      // above so we can exercise the destructive DELETE path without breaking
+      // later assertions (Pattern Performance only checks Made-Up-License-1.0).
+      await page.goto(`${url}/licenses/Page-Editor-License-1.0`);
+      t.equal(await page.innerText('title'), 'License details of Page-Editor-License-1.0');
+      const editHref = await page.locator('a[href*="/licenses/edit_pattern/"]').first().getAttribute('href');
+      t.ok(editHref, 'license details page links to pattern editor');
+
+      await page.goto(`${url}${editHref}`);
+      t.equal(await page.innerText('title'), 'Edit license pattern');
+      await page.waitForSelector('#edit-pattern[data-pattern]');
+      await page.waitForSelector('#edit-pattern .del-pattern');
+
+      // Accept the confirm dialog so the AJAX DELETE fires; the component
+      // then navigates to /licenses.
+      page.once('dialog', dialog => dialog.accept());
+      await Promise.all([page.waitForURL(/\/licenses\/?(\?|#|$)/), page.locator('#edit-pattern .del-pattern').click()]);
+      t.equal(await page.innerText('title'), 'List licenses', 'redirected to license list after delete');
     });
 
     await t.test('Missing Licenses', async t => {

@@ -255,6 +255,9 @@ sub startup ($self) {
   $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');
 
   $logged_in->get('/licenses/pattern/<id:num>.json')->to('License#pattern_detail')->name('pattern_detail');
+  $logged_in->get('/licenses/pattern/<id:num>/match_count.json')
+    ->to('License#match_count_json')
+    ->name('pattern_match_count');
   $admin->get('/licenses/edit_pattern/<id:num>')->to('License#edit_pattern')->name('edit_pattern');
   $admin->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
   $admin->post('/licenses/update_patterns')->to('License#update_patterns')->name('update_patterns');

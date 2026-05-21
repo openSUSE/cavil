@@ -39,10 +39,22 @@ sub approve ($self) {
 sub closest ($self) {
   my $v = $self->validation;
   $v->required('text');
+  $v->optional('exclude')->num;
   return $self->reply->json_validation_error if $v->has_error;
 
-  my $text = $v->param('text');
-  return $self->render(json => {pattern => undef}) unless my $pattern = $self->patterns->closest_pattern($text);
+  my $text     = $v->param('text');
+  my $exclude  = $v->param('exclude');
+  my $patterns = $self->patterns;
+
+  # Ask for 2 matches when excluding, in case the best match is the excluded pattern itself
+  my $matches = $patterns->closest_matches($text, defined $exclude ? 2 : 1);
+  my $match   = $matches->[0];
+  $match = $matches->[1] if defined $exclude && $match && $match->{pattern} == $exclude;
+
+  return $self->render(json => {pattern => undef}) unless $match;
+  my $pattern = $patterns->find($match->{pattern});
+  return $self->render(json => {pattern => undef}) unless $pattern;
+  $pattern->{similarity} = int(($match->{match} // 0) * 1000 + 0.5) / 10;
 
   $self->render(
     json => {

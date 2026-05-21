@@ -11,6 +11,7 @@ import {fromNow} from './legacy/time.js';
 import ApiKeys from './vue/ApiKeys.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
+import EditPattern from './vue/EditPattern.vue';
 import EditSnippet from './vue/EditSnippet.vue';
 import IgnoredFiles from './vue/IgnoredFiles.vue';
 import IgnoredMatches from './vue/IgnoredMatches.vue';
@@ -69,6 +70,12 @@ window.cavil = {
     app.config.globalProperties.hasContributorRole = hasContributorRole;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.mount('#edit-snippet');
+  },
+
+  setupEditPattern(pattern) {
+    const app = createApp(EditPattern);
+    app.config.globalProperties.currentPattern = pattern;
+    app.mount('#edit-pattern');
   },
 
   setupIgnoredMatches() {

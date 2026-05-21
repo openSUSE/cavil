@@ -184,21 +184,7 @@
             :class="{'is-active': activeTab === 'closest'}"
             :aria-hidden="activeTab !== 'closest'"
           >
-            <div v-if="closest !== null" class="closest-container">
-              <div class="closest-header">
-                <a :href="closest.url">
-                  Similar to
-                  <b>{{ closest.license === '' ? 'Keyword Pattern' : closest.license }}</b
-                  >, estimated risk {{ closest.license === '' ? 9 : closest.risk }}
-                </a>
-              </div>
-              <div class="closest-source">
-                <pre>{{ closest.text }}</pre>
-              </div>
-              <div class="closest-footer">
-                <span v-if="closest.package !== ''"><b>Package:</b> {{ closest.package }}</span>
-              </div>
-            </div>
+            <ClosestPattern :pattern="patternText" @loaded="onClosestLoaded" />
           </div>
         </div>
         <div class="row">
@@ -304,6 +290,7 @@
 </template>
 
 <script>
+import ClosestPattern from './ClosestPattern.vue';
 import {setupPopoverDelayed} from '../helpers/links.js';
 import {EditorState, StateField} from '@codemirror/state';
 import {Decoration, EditorView, hoverTooltip, lineNumbers} from '@codemirror/view';
@@ -311,6 +298,7 @@ import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'SnippetEditor',
+  components: {ClosestPattern},
   props: {
     snippetId: {type: Number, required: true},
     hash: {type: String, default: null},
@@ -325,7 +313,6 @@ export default {
     return {
       activeTab: 'edit',
       closest: null,
-      closestUrl: '/snippet/closest',
       decorationsField: null,
       edited: '0',
       editor: null,
@@ -371,7 +358,6 @@ export default {
     await this.$nextTick();
     setupPopoverDelayed();
     this.setupCodeMirror();
-    await this.getClosest();
   },
   beforeUnmount() {
     if (this.editor) {
@@ -432,13 +418,8 @@ export default {
       this.results = this.suggestions;
       this.licenseFocused = false;
     },
-    async getClosest() {
-      const text = this.editor ? this.editor.state.doc.toString() : this.patternText;
-      if (text == null) return;
-      const res = await this.ua.post(this.closestUrl, {form: {text}});
-      const data = await res.json();
-      this.closest = data.pattern;
-      if (this.closest !== null) this.closest.url = `/licenses/edit_pattern/${this.closest.id}`;
+    onClosestLoaded(closest) {
+      this.closest = closest;
     },
     async getSnippet() {
       const res = await this.ua.get(this.snippetUrl);
@@ -598,7 +579,6 @@ export default {
         this.patternText = update.state.doc.toString();
       }
       if (update.focusChanged && !update.view.hasFocus) {
-        this.getClosest();
         this.getHighlightedLines();
       }
     },
@@ -1188,53 +1168,5 @@ export default {
   position: absolute;
   inset: 0;
   overflow-y: auto;
-}
-.snippet-editor .closest-container {
-  margin-bottom: 1rem;
-}
-.snippet-editor .closest-header {
-  background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0.25rem 0.25rem 0 0;
-  font-size: 13px;
-  line-height: 20px;
-  padding: 10px;
-}
-.snippet-editor .closest-header a {
-  color: #212529;
-  text-decoration: none;
-}
-.snippet-editor .closest-header a:hover {
-  text-decoration: underline;
-}
-.snippet-editor .closest-source {
-  border: 1px solid #dfe2e5 !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
-}
-.snippet-editor .closest-source pre {
-  font-family: monospace;
-  padding: 0;
-  margin: 0;
-  font-size: 12px;
-  line-height: 20px;
-  color: rgba(27, 31, 35, 0.3);
-  border: 0 !important;
-  padding-left: 0.5em;
-  color: #24292e;
-  margin-left: 0.5em;
-  white-space: -moz-pre-wrap;
-  white-space: -o-pre-wrap;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  word-break: break-all;
-}
-.snippet-editor .closest-footer {
-  border: 1px solid rgb(208, 215, 222);
-  border-top: 0;
-  border-radius: 0 0 0.25rem 0.25rem;
-  font-size: 13px;
-  line-height: 20px;
-  padding: 10px;
 }
 </style>

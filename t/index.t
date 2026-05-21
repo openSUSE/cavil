@@ -155,11 +155,13 @@ $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 $t->get_ok('/licenses/edit_pattern/1')->status_is(200)->content_like(qr/License/);
 
 subtest 'Pattern change' => sub {
-  $t->get_ok('/licenses/edit_pattern/1')
+  $t->get_ok('/licenses/edit_pattern/1')->status_is(200)->element_exists('#edit-pattern[data-pattern]');
+  $t->get_ok('/licenses/pattern/1.json')
     ->status_is(200)
-    ->element_exists('input[name=license][value=Apache-2.0]')
-    ->text_is('textarea[name=pattern]' => 'You may obtain a copy of the License at')
-    ->element_exists_not('input:checked');
+    ->json_is('/license'   => 'Apache-2.0')
+    ->json_is('/pattern'   => 'You may obtain a copy of the License at')
+    ->json_is('/patent'    => 0)
+    ->json_is('/trademark' => 0);
   $t->post_ok('/licenses/update_pattern/1' => form => {license => 'Apache-2.0', pattern => 'real-time web framework'})
     ->status_is(302)
     ->header_is(Location => '/licenses/edit_pattern/1');
@@ -202,6 +204,15 @@ subtest 'Pattern detail JSON endpoint' => sub {
   # Logging out must put the JSON endpoint back behind the login wall.
   $t->get_ok('/logout')->status_is(302);
   $t->get_ok('/licenses/pattern/1.json')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/login')->status_is(302);
+};
+
+subtest 'Pattern match count JSON endpoint' => sub {
+  $t->get_ok('/licenses/pattern/1/match_count.json')->status_is(200)->json_has('/matches')->json_has('/packages');
+
+  # Logging out must put the JSON endpoint back behind the login wall.
+  $t->get_ok('/logout')->status_is(302);
+  $t->get_ok('/licenses/pattern/1/match_count.json')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/login')->status_is(302);
 };
 

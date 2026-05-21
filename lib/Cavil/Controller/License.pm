@@ -16,7 +16,6 @@
 package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Algorithm::Diff qw(sdiff);
 use Cavil::Licenses qw(lic);
 
 sub create_pattern ($self) {
@@ -52,49 +51,16 @@ sub create_pattern ($self) {
 }
 
 sub edit_pattern ($self) {
-  my $id       = $self->stash('id');
-  my $patterns = $self->patterns;
+  my $id      = $self->stash('id');
+  my $pattern = $self->patterns->find($id);
+  return $self->reply->not_found unless $pattern;
+  $self->render(template => 'license/edit_pattern', match => $pattern);
+}
 
-  my $pattern = $patterns->find($id);
-
-  my $count = $patterns->match_count($id);
-  $pattern->{matches}  = $count->{matches};
-  $pattern->{packages} = $count->{packages};
-
-  my $result = $patterns->closest_matches($pattern->{pattern}, 2);
-  my $best   = $result->[0];
-
-  # likely perfect match
-  $best = $result->[1] if $best->{pattern} && $best->{pattern} == $id;
-
-  my $sim = $best->{match};
-  $best = $patterns->find($best->{pattern});
-
-  my $p1 = Spooky::Patterns::XS::normalize($pattern->{pattern});
-  $self->stash('diff', undef);
-  if ($best) {
-    my $p2     = Spooky::Patterns::XS::normalize($best->{pattern});
-    my @words1 = map { $_->[1] } @$p1;
-    my @words2 = map { $_->[1] } @$p2;
-    my $diff   = sdiff(\@words1, \@words2);
-
-    my $line = 1;
-    for my $row (@$diff) {
-      if ($row->[0] eq 'u' || $row->[0] eq 'c' || $row->[0] eq '-') {
-        my $w1 = shift @$p1;
-        $line = $w1->[0];
-      }
-      push(@$row, $line);
-    }
-    $self->stash('diff',       $diff);
-    $self->stash('next_best',  $best);
-    $self->stash('similarity', int($sim * 1000 + 0.5) / 10);
-  }
-  else {
-    $self->stash('next_best', undef);
-  }
-
-  return $self->_edit_pattern($pattern);
+sub match_count_json ($self) {
+  my $id    = $self->stash('id');
+  my $count = $self->patterns->match_count($id);
+  $self->render(json => {matches => $count->{matches}, packages => $count->{packages}});
 }
 
 sub list ($self) {
@@ -118,9 +84,18 @@ sub new_pattern ($self) {
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $lname = $validation->param('license-name');
-  $self->stash('diff',      undef);
-  $self->stash('next_best', 0);
-  return $self->_edit_pattern({license => $lname});
+  $self->render(
+    template => 'license/edit_pattern',
+    match    => {
+      license           => $lname,
+      pattern           => '',
+      risk              => 0,
+      patent            => 0,
+      trademark         => 0,
+      export_restricted => 0,
+      packname          => ''
+    }
+  );
 }
 
 sub proposed ($self) {
@@ -249,10 +224,6 @@ sub update_patterns ($self) {
 
 
   $self->redirect_to('license_show', name => $license);
-}
-
-sub _edit_pattern ($self, $match) {
-  $self->render(template => 'license/edit_pattern', match => $match);
 }
 
 1;
