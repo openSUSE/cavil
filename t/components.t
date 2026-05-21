@@ -152,6 +152,111 @@ subtest 'NPM detector: empty lockfile yields no components' => sub {
   is_deeply $rows, [], 'lockfile with only the root entry yields no components';
 };
 
+subtest 'NPM detector: nested transitive dep extracts name from last node_modules segment' => sub {
+  my $tmp      = tempdir;
+  my $nested   = $tmp->child('node_modules', 'parent', 'node_modules', 'child')->make_path;
+  $nested->child('package.json')->spew('{"name":"child","version":"2.0.0","license":"MIT"}');
+  $tmp->child('node_modules', 'parent')->child('package.json')
+    ->spew('{"name":"parent","version":"1.0.0","license":"Apache-2.0"}');
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name":"demo","version":"1.0.0"},
+    "node_modules/parent": {"version":"1.0.0"},
+    "node_modules/parent/node_modules/child": {"version":"2.0.0"}
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  is scalar @$rows, 2, 'parent and nested child both recorded';
+  my ($parent) = grep { $_->{name} eq 'parent' } @$rows;
+  my ($child)  = grep { $_->{name} eq 'child' } @$rows;
+  ok $parent,             'parent extracted';
+  ok $child,              'child extracted (not "parent/node_modules/child")';
+  is $parent->{license},  'Apache-2.0', 'parent license from vendored package.json';
+  is $parent->{present},  1,            'parent present at node_modules/parent';
+  is $child->{license},   'MIT',        'child license from nested vendored package.json';
+  is $child->{present},   1,            'child present at nested path';
+};
+
+subtest 'NPM detector: scoped name inside nested node_modules keeps the scope' => sub {
+  my $tmp    = tempdir;
+  my $nested = $tmp->child('node_modules', '@babel', 'code-frame', 'node_modules', '@scope', 'tool')->make_path;
+  $nested->child('package.json')->spew('{"name":"@scope/tool","version":"3.0.0","license":"ISC"}');
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name":"demo"},
+    "node_modules/@babel/code-frame/node_modules/@scope/tool": {"version":"3.0.0"}
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  is scalar @$rows,       1,             'scoped nested dep recorded';
+  is $rows->[0]{name},    '@scope/tool', 'scope preserved, parent stripped';
+  is $rows->[0]{license}, 'ISC',         'license fallback from nested package.json';
+  is $rows->[0]{present}, 1,             'present at nested scoped path';
+};
+
+subtest 'NPM detector: workspace entries (no node_modules prefix) are skipped' => sub {
+  my $tmp      = tempdir;
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "": {"name":"monorepo"},
+    "packages/app":  {"name":"app","version":"1.0.0"},
+    "packages/lib":  {"name":"lib","version":"1.0.0"},
+    "node_modules/leftpad": {"version":"1.3.0","license":"MIT"}
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  is scalar @$rows,    1,         'only the vendored dep is recorded';
+  is $rows->[0]{name}, 'leftpad', 'workspaces (packages/app, packages/lib) skipped';
+};
+
+subtest 'NPM detector: v1 nested dependencies resolve at nested on-disk path' => sub {
+  my $tmp    = tempdir;
+  my $parent = $tmp->child('node_modules', 'parent')->make_path;
+  $parent->child('package.json')->spew('{"name":"parent","version":"1.0.0"}');
+  my $nested = $parent->child('node_modules', 'child')->make_path;
+  $nested->child('package.json')->spew('{"name":"child","version":"2.0.0","license":"BSD-3-Clause"}');
+  my $manifest = $tmp->child('package-lock.json');
+  $manifest->spew(<<'JSON');
+{
+  "lockfileVersion": 1,
+  "dependencies": {
+    "parent": {
+      "version": "1.0.0",
+      "dependencies": {
+        "child": {"version": "2.0.0"}
+      }
+    }
+  }
+}
+JSON
+
+  my $detector = Cavil::Components::Detector::NPM->new;
+  my $rows     = $detector->detect("$manifest", "$tmp", 'package-lock.json');
+  is scalar @$rows, 2, 'parent and nested child both recorded';
+  my ($child) = grep { $_->{name} eq 'child' } @$rows;
+  ok $child,             'nested child extracted';
+  is $child->{license},  'BSD-3-Clause', 'license fallback walks nested path';
+  is $child->{present},  1,              'nested v1 dep is found on disk';
+};
+
 subtest 'NPM detector: purl construction' => sub {
   my $detector = Cavil::Components::Detector::NPM->new;
   is $detector->purl({name => 'leftpad', version => '1.3.0'}), 'pkg:npm/leftpad@1.3.0', 'plain purl';

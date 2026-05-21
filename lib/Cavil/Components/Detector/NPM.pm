@@ -45,8 +45,9 @@ sub detect ($self, $manifest_abs, $unpacked_root, $manifest_rel) {
   for my $entry (@entries) {
     next unless defined $entry->{name} && length $entry->{name};
 
-    my $dep_dir = $manifest_dir->child('node_modules', split(m{/}, $entry->{name}));
-    my $present = -d $dep_dir ? 1 : 0;
+    my @path_parts = $entry->{path} ? split(m{/}, $entry->{path}) : ('node_modules', split(m{/}, $entry->{name}));
+    my $dep_dir    = $manifest_dir->child(@path_parts);
+    my $present    = -d $dep_dir ? 1 : 0;
 
     next if $entry->{is_dev} && !$present;
 
@@ -77,15 +78,22 @@ sub _from_packages ($self, $packages) {
     my $entry = $packages->{$key};
     next unless ref $entry eq 'HASH';
 
+    # Workspace entries (no node_modules/ segment) are first-party sources, not vendored deps
+    next unless $key =~ m{(?:^|/)node_modules/};
+
+    # The npm v2/v3 key IS the on-disk path relative to the manifest. The
+    # name is everything after the LAST "node_modules/" segment so nested
+    # transitive deps like "node_modules/a/node_modules/b" yield "b", and
+    # scoped names like "node_modules/@scope/foo" yield "@scope/foo".
     my $name = $entry->{name};
     unless (defined $name && length $name) {
-      if   ($key =~ m{(?:^|/)node_modules/(.+)$}) { $name = $1 }
-      else                                        { $name = $key }
+      ($name) = $key =~ m{.*node_modules/(.+)$};
     }
 
     push @entries,
       {
       name       => $name,
+      path       => $key,
       version    => $entry->{version},
       license    => _normalize_license($entry->{license}),
       source_url => $entry->{resolved},
@@ -96,14 +104,17 @@ sub _from_packages ($self, $packages) {
   return @entries;
 }
 
-sub _from_dependencies_v1 ($self, $deps, $entries = []) {
+sub _from_dependencies_v1 ($self, $deps, $entries = [], $parent_path = '') {
   for my $name (sort keys %$deps) {
     my $entry = $deps->{$name};
     next unless ref $entry eq 'HASH';
 
+    my $path = $parent_path eq '' ? "node_modules/$name" : "$parent_path/node_modules/$name";
+
     push @$entries,
       {
       name       => $name,
+      path       => $path,
       version    => $entry->{version},
       license    => _normalize_license($entry->{license}),
       source_url => $entry->{resolved},
@@ -111,7 +122,7 @@ sub _from_dependencies_v1 ($self, $deps, $entries = []) {
       is_dev     => $entry->{dev} ? 1 : 0
       };
 
-    $self->_from_dependencies_v1($entry->{dependencies}, $entries) if ref $entry->{dependencies} eq 'HASH';
+    $self->_from_dependencies_v1($entry->{dependencies}, $entries, $path) if ref $entry->{dependencies} eq 'HASH';
   }
   return @$entries;
 }
