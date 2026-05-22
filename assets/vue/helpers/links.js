@@ -46,7 +46,7 @@ export function packageLink(review) {
 
 export function productLink(product) {
   let name = product.name;
-  return `<a href='/products/${name}'>${name}</a>`;
+  return `<a href='/products/${name}' target='_blank' rel='noopener'>${name}</a>`;
 }
 
 export function reportLink(review) {
