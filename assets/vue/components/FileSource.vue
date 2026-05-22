@@ -11,17 +11,22 @@
           :id="matchStartId(line)"
           :class="rowClass(line[1])"
           :title="line[1].risk > 0 ? line[1].name : null"
+          @mouseenter="onRowEnter(line[1])"
+          @mouseleave="onRowLeave"
         >
           <td v-if="!showActions(line[1])" class="actions"></td>
           <td v-else class="actions dropdown show">
             <a
               href="#"
               :id="'dropdownMenuLink-' + fileId + '-' + line[0]"
+              class="snippet-tool-btn"
               data-bs-toggle="dropdown"
               aria-haspopup="true"
               aria-expanded="false"
+              title="Open action menu"
+              aria-label="Open action menu"
             >
-              <i class="actions-menu fa-solid fa-square-caret-down" title="Open Action Menu"></i>
+              <i class="actions-menu fa-solid fa-caret-down"></i>
             </a>
             <div class="dropdown-menu" :aria-labelledby="'dropdownMenuLink-' + fileId + '-' + line[0]">
               <template v-if="line[1].risk === 9">
@@ -87,14 +92,16 @@
             />
           </td>
 
-          <td v-if="line[1].end && line[1].risk === 9 && line[1].snippet" class="quick-actions text-end">
+          <td v-if="line[1].end && line[1].risk === 9 && line[1].snippet" class="quick-actions">
             <a
               :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
+              class="snippet-tool-btn"
               target="_blank"
               title="Create pattern from selection"
+              aria-label="Create pattern from selection"
               @click="onCreateClick($event, line, line[1].snippet)"
             >
-              <i class="fa-solid fa-square-plus"></i>
+              <i class="fa-solid fa-plus"></i>
             </a>
           </td>
           <td v-else class="quick-actions"></td>
@@ -139,6 +146,9 @@ export default {
     inlineEditor: {type: Object, default: null}
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
+  data() {
+    return {hoveredGroup: null};
+  },
   methods: {
     rowClass(info) {
       const classes = [`risk-${info.risk}`];
@@ -147,7 +157,22 @@ export default {
       // marker added by Cavil::Util::lines_context. Keyboard navigation walks
       // these in document order.
       if (info.risk === 9 && info.end) classes.push('match-start');
+      const group = this.groupKey(info);
+      if (group !== null && group === this.hoveredGroup) classes.push('group-hovered');
       return classes;
+    },
+    groupKey(info) {
+      // Matches a row of a license pattern (pid) or unresolved snippet
+      // (snippet) so hovering anywhere in the block reveals its buttons.
+      if (info.pid != null) return `p${info.pid}`;
+      if (info.snippet != null) return `s${info.snippet}`;
+      return null;
+    },
+    onRowEnter(info) {
+      this.hoveredGroup = this.groupKey(info);
+    },
+    onRowLeave() {
+      this.hoveredGroup = null;
     },
     matchStartId(line) {
       // Stable anchor for ReportDetails' navigation state - only emitted on
@@ -226,7 +251,77 @@ export default {
   margin-top: 0;
 }
 .snippet.editor-open tr:not(.inline-editor-row) {
-  opacity: 0.2;
+  opacity: 0.1;
   transition: opacity 0.15s ease-in-out;
+}
+.snippet td.actions,
+.snippet td.quick-actions {
+  padding-bottom: 0;
+  padding-top: 0;
+  position: relative;
+  width: 28px;
+}
+.snippet .snippet-tool-btn {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
+  color: #1f2328;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  height: 24px;
+  justify-content: center;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  text-decoration: none;
+  top: 50%;
+  transform: translateY(-50%);
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s,
+    color 0.15s,
+    opacity 0.15s;
+  width: 24px;
+  z-index: 2;
+}
+.snippet tr:hover .snippet-tool-btn,
+.snippet tr.group-hovered .snippet-tool-btn,
+.snippet .snippet-tool-btn:focus,
+.snippet .snippet-tool-btn[aria-expanded='true'] {
+  opacity: 1;
+}
+@media (hover: none) {
+  .snippet .snippet-tool-btn {
+    opacity: 1;
+  }
+}
+.snippet td.actions .snippet-tool-btn {
+  left: -4px;
+}
+.snippet td.quick-actions .snippet-tool-btn {
+  right: -4px;
+}
+.source .snippet .snippet-tool-btn i {
+  color: #1f2328;
+}
+.snippet .snippet-tool-btn:hover {
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(31, 35, 40, 0.12);
+  color: #0969da;
+}
+.source .snippet .snippet-tool-btn:hover i {
+  color: #0969da;
+}
+.snippet .snippet-tool-btn:focus {
+  border-color: #0969da;
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+  color: #0969da;
+  outline: none;
+}
+.source .snippet .snippet-tool-btn:focus i {
+  color: #0969da;
 }
 </style>
