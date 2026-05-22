@@ -45,7 +45,9 @@
                   >Create Pattern from selection</a
                 >
               </template>
-              <a v-else class="dropdown-item" :href="editPatternUrl(line[1].pid)">Show Pattern</a>
+              <a v-else class="dropdown-item" :href="editPatternUrl(line[1].pid)" target="_blank" rel="noopener"
+                >Show Pattern</a
+              >
 
               <template v-if="line[0] > 1">
                 <div class="dropdown-divider"></div>
