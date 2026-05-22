@@ -130,7 +130,9 @@
 
       <div v-if="emails.length > 0">
         <h2>
-          <a href="#emails" data-bs-toggle="collapse">{{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}</a>
+          <a href="#emails" data-bs-toggle="collapse"
+            >{{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}</a
+          >
         </h2>
         <div class="row collapse" id="emails">
           <div class="col">

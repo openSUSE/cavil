@@ -319,7 +319,7 @@
 import ClosestPattern from './ClosestPattern.vue';
 import {setupPopoverDelayed} from '../helpers/links.js';
 import {EditorState, StateEffect, StateField} from '@codemirror/state';
-import {Decoration, EditorView, hoverTooltip, lineNumbers} from '@codemirror/view';
+import {Decoration, EditorView, hoverTooltip} from '@codemirror/view';
 import UserAgent from '@mojojs/user-agent';
 
 const setDecoLinesEffect = StateEffect.define();
@@ -567,7 +567,6 @@ export default {
         return Decoration.set(ranges, true);
       };
 
-      const startLine = this.startLine ?? 1;
       const decoField = StateField.define({
         create: state => buildRanges(state, matchLineSet, keywordLineSet, idsByLine),
         update: (decos, tr) => {
@@ -585,29 +584,12 @@ export default {
 
       const baseTheme = EditorView.theme({
         '&': {fontSize: '13px'},
-        '.cm-scroller': {fontFamily: 'monospace, monospace', overflow: 'auto'},
-        '.cm-gutters': {
-          backgroundColor: '#f6f8fa',
-          color: '#6e7781',
-          borderRight: '1px solid #d0d7de'
-        },
-        '.cm-lineNumbers .cm-gutterElement': {padding: '0 8px 0 6px'},
-        '.cm-lineNumbers .cm-gutterElement.has-pattern': {
-          color: '#0969da',
-          cursor: 'pointer',
-          fontWeight: '600'
-        }
+        '.cm-scroller': {fontFamily: 'monospace, monospace', overflow: 'auto'}
       });
 
       const state = EditorState.create({
         doc: this.patternText ?? '',
         extensions: [
-          lineNumbers({
-            formatNumber: n => String(n + startLine - 1),
-            domEventHandlers: {
-              click: (view, line) => this.onGutterClick(view, line)
-            }
-          }),
           decoField,
           hoverTooltip((view, pos) => this.makeHoverTooltip(view, pos), {hideOnChange: true}),
           EditorView.updateListener.of(update => this.onCmUpdate(update)),
@@ -683,12 +665,6 @@ export default {
         selection: {anchor: 0}
       });
       this.editor.focus();
-    },
-    onGutterClick(view, line) {
-      const ids = this.patternIdsAtPos(view, line.from);
-      if (ids.length === 0) return false;
-      window.open(`/licenses/edit_pattern/${ids[0]}`, '_blank', 'noopener');
-      return true;
     },
     patternIdsAtPos(view, pos) {
       if (!this.decorationsField) return [];

@@ -8,8 +8,8 @@
         <span v-else-if="matchCountError !== null" class="text-danger">{{ matchCountError }}</span>
         <span v-else-if="matchCount.matches === 0">This pattern has no matches.</span>
         <span v-else>
-          This pattern has <b>{{ matchCount.matches }}</b> {{ matchCount.matches === 1 ? 'match' : 'matches' }}
-          in <b>{{ matchCount.packages }}</b>
+          This pattern has <b>{{ matchCount.matches }}</b> {{ matchCount.matches === 1 ? 'match' : 'matches' }} in
+          <b>{{ matchCount.packages }}</b>
           <a :href="`/search?pattern=${pattern.id}`">{{ matchCount.packages === 1 ? 'package' : 'packages' }}</a
           >.
         </span>

@@ -458,6 +458,7 @@ sub git_import ($self, $id, $data, $priority = 5) {
   return $self->minion->enqueue(
     git_import => [$id, $data] => {
       priority => $priority,
+      attempts => 5,
       notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
     }
   );
@@ -468,6 +469,7 @@ sub obs_import ($self, $id, $data, $priority = 5) {
   return $self->minion->enqueue(
     obs_import => [$id, $data] => {
       priority => $priority,
+      attempts => 5,
       notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
     }
   );
