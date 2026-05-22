@@ -225,7 +225,7 @@
                 >
                   {{ actionLabel('create-pattern') }}
                 </button>
-                <template v-if="hash !== null && from !== null && edited === '0'">
+                <template v-if="hash !== null && from !== null">
                   <button
                     type="button"
                     class="btn btn-success dropdown-toggle dropdown-toggle-split"
