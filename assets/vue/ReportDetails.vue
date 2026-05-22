@@ -114,7 +114,8 @@
               :file-id="file.id"
               :filename="file.source.filename"
               :packname="file.source.name"
-              :is-admin-or-contributor="isAdminOrContributor"
+              :has-admin-role="hasAdminRole"
+              :has-contributor-role="hasContributorRole"
               :pending-actions="pendingActionsForFile(file.id)"
               :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
               @extend="onExtend(file, $event)"
@@ -263,6 +264,9 @@ export default {
     },
     emptyReport() {
       return this.sortedRisks.length === 0 && this.missedFiles.length === 0;
+    },
+    isAdminOrContributor() {
+      return this.hasAdminRole || this.hasContributorRole;
     }
   },
   mounted() {

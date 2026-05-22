@@ -28,8 +28,9 @@
 % else {
   <div id="report-details"></div>
   % content_for 'ready_function' => begin
-    % my $is_admin_or_contributor = current_user_has_role('admin', 'contributor') ? 'true' : 'false';
-    cavil.setupReportDetails(<%= $id %>, <%= $is_admin_or_contributor %>);
+    % my $has_admin_role_rd = current_user_has_role('admin') ? 'true' : 'false';
+    % my $has_contributor_role_rd = current_user_has_role('contributor') ? 'true' : 'false';
+    cavil.setupReportDetails(<%= $id %>, <%= $has_admin_role_rd %>, <%= $has_contributor_role_rd %>);
   % end
 % }
 % content_for 'ready_function' => begin

@@ -216,83 +216,36 @@
         <div class="row">
           <div class="col mb-3 snippet-editor-actions">
             <div class="snippet-editor-action-buttons">
-              <div v-if="hasAdminRole === true" class="btn-group">
+              <div v-if="availableActions.length > 0" class="btn-group">
                 <button
                   type="button"
                   class="btn btn-success"
-                  data-action="create-pattern"
-                  @click="emitAction('create-pattern')"
+                  :data-action="availableActions[0]"
+                  @click="emitAction(availableActions[0])"
                 >
-                  {{ actionLabel('create-pattern') }}
+                  {{ actionLabel(availableActions[0]) }}
                 </button>
-                <template v-if="hash !== null && from !== null">
-                  <button
-                    type="button"
-                    class="btn btn-success dropdown-toggle dropdown-toggle-split"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                    aria-label="More admin actions"
-                  ></button>
-                  <ul class="dropdown-menu">
-                    <li>
-                      <a
-                        class="dropdown-item"
-                        href="#"
-                        data-action="create-ignore"
-                        @click.prevent="emitAction('create-ignore')"
-                      >
-                        {{ actionLabel('create-ignore') }}
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        class="dropdown-item"
-                        href="#"
-                        data-action="mark-non-license"
-                        @click.prevent="emitAction('mark-non-license')"
-                      >
-                        {{ actionLabel('mark-non-license') }}
-                      </a>
-                    </li>
-                  </ul>
-                </template>
-              </div>
-              <div v-if="hasContributorRole === true" class="btn-group">
                 <button
+                  v-if="availableActions.length > 1"
                   type="button"
-                  class="btn btn-success"
-                  data-action="propose-pattern"
-                  @click="emitAction('propose-pattern')"
+                  class="btn snippet-editor-neutral"
+                  :data-action="availableActions[1]"
+                  @click="emitAction(availableActions[1])"
                 >
-                  {{ actionLabel('propose-pattern') }}
+                  {{ actionLabel(availableActions[1]) }}
                 </button>
-                <template v-if="hash !== null && from !== null && edited === '0'">
+                <template v-if="availableActions.length > 2">
                   <button
                     type="button"
-                    class="btn btn-success dropdown-toggle dropdown-toggle-split"
+                    class="btn snippet-editor-neutral dropdown-toggle dropdown-toggle-split"
                     data-bs-toggle="dropdown"
                     aria-expanded="false"
-                    aria-label="More proposal actions"
+                    aria-label="More actions"
                   ></button>
                   <ul class="dropdown-menu">
-                    <li>
-                      <a
-                        class="dropdown-item"
-                        href="#"
-                        data-action="propose-ignore"
-                        @click.prevent="emitAction('propose-ignore')"
-                      >
-                        {{ actionLabel('propose-ignore') }}
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        class="dropdown-item"
-                        href="#"
-                        data-action="propose-missing"
-                        @click.prevent="emitAction('propose-missing')"
-                      >
-                        {{ actionLabel('propose-missing') }}
+                    <li v-for="action in availableActions.slice(2)" :key="action">
+                      <a class="dropdown-item" href="#" :data-action="action" @click.prevent="emitAction(action)">
+                        {{ actionLabel(action) }}
                       </a>
                     </li>
                   </ul>
@@ -301,7 +254,7 @@
               <button
                 v-if="mode === 'inline'"
                 type="button"
-                class="btn snippet-editor-cancel"
+                class="btn snippet-editor-neutral"
                 data-action="cancel"
                 @click="$emit('cancel')"
               >
@@ -399,6 +352,30 @@ export default {
   computed: {
     canRestoreOriginal() {
       return this.originalSnippetText !== null && this.patternText !== this.originalSnippetText;
+    },
+    availableActions() {
+      const hasContext = this.hash !== null && this.from !== null;
+      const isUnmodified = this.edited === '0';
+      const canPropose = this.hasAdminRole || this.hasContributorRole;
+      const actions = [];
+
+      // Primary (green) slot: immediate-create for admins, propose-create otherwise.
+      if (this.hasAdminRole) actions.push('create-pattern');
+      else if (this.hasContributorRole) actions.push('propose-pattern');
+
+      // Secondary (neutral) slot: immediate-ignore for admins with context, propose-ignore otherwise.
+      if (this.hasAdminRole && hasContext) actions.push('create-ignore');
+      else if (this.hasContributorRole && isUnmodified) actions.push('propose-ignore');
+
+      // Shared dropdown: weaker proposal variants (admins see them too, since
+      // their permissions are a superset of contributors') and the admin-only
+      // "No Legal Text" action at the end.
+      if (this.hasAdminRole) actions.push('propose-pattern');
+      if (canPropose && hasContext && isUnmodified) actions.push('propose-missing');
+      if (this.hasAdminRole && isUnmodified) actions.push('propose-ignore');
+      if (this.hasAdminRole && hasContext) actions.push('mark-non-license');
+
+      return actions;
     }
   },
   methods: {
@@ -891,7 +868,7 @@ export default {
   gap: 0.5rem;
   align-items: center;
 }
-.snippet-editor .snippet-editor-cancel {
+.snippet-editor .snippet-editor-neutral {
   background-color: #f6f8fa;
   border: 1px solid rgba(31, 35, 40, 0.15);
   color: #1f2328;
@@ -900,12 +877,12 @@ export default {
   line-height: 20px;
   padding: 5px 16px;
 }
-.snippet-editor .snippet-editor-cancel:hover {
+.snippet-editor .snippet-editor-neutral:hover {
   background-color: #eef0f3;
   border-color: rgba(31, 35, 40, 0.15);
   color: #1f2328;
 }
-.snippet-editor .snippet-editor-cancel:focus {
+.snippet-editor .snippet-editor-neutral:focus {
   background-color: #f6f8fa;
   border-color: rgba(31, 35, 40, 0.15);
   box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
@@ -1026,7 +1003,7 @@ export default {
   box-shadow: inset 0 1px 0 rgba(0, 45, 17, 0.2);
   color: #ffffff;
 }
-.snippet-editor .btn-success.dropdown-toggle-split {
+.snippet-editor .dropdown-toggle-split {
   padding-left: 8px;
   padding-right: 8px;
 }

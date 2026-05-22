@@ -640,8 +640,11 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator('#inline-snippet-editor input[name=license]').fill('Error-Test-License');
       await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
 
-      // Use the propose-pattern path - it runs the pattern_matches validation
-      await page.locator('#inline-snippet-editor button[data-action="propose-pattern"]').click();
+      // Use the propose-pattern path - it runs the pattern_matches validation.
+      // For admin+contributor users, propose-pattern lives in the shared
+      // More actions dropdown.
+      await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
+      await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
       await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
 
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
@@ -703,7 +706,8 @@ t.test('Test cavil ui', skip, async t => {
       });
       await page.locator('#inline-snippet-editor input[name=license]').fill('Edit-Recovery-License');
       await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
-      await page.locator('#inline-snippet-editor button[data-action="propose-pattern"]').click();
+      await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
+      await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
       await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
 
       // Submit and confirm the validation error puts the action into error state
@@ -743,7 +747,8 @@ t.test('Test cavil ui', skip, async t => {
         view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: text}});
       }, originalSnippetText);
 
-      await page.locator('#inline-snippet-editor button[data-action="propose-pattern"]').click();
+      await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
+      await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
       await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
 
       // The edit must REPLACE the original entry, not append a new one
@@ -1081,6 +1086,74 @@ t.test('Test cavil ui', skip, async t => {
       t.match(await page.innerText('ul#risk-3 li'), /Made-Up-License-1.0/);
     });
 
+    await t.test('Propose missing license → page → dismiss', async t => {
+      // Use perl-Mojolicious mojo#2 (id=2) - earlier subtests resolved snippets
+      // in mojo#1, but mojo#2 is untouched and still has unmatched snippets.
+      await page.goto(`${url}/reviews/details/2`);
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // Pick the first unresolved-match file from the missed-files list and
+      // expand its container if needed (low-risk files start collapsed).
+      const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = href.replace('#file-', '');
+      if (!(await page.isVisible(`#file-details-${fileId}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+      }
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+
+      // Bypass Bootstrap's dropdown UI and trigger the menu item directly
+      await page.evaluate(id => {
+        const root = document.getElementById(`file-details-${id}`);
+        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
+        for (const item of items) {
+          if (item.textContent.trim() === 'Create Pattern from selection') {
+            item.click();
+            return;
+          }
+        }
+        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+      }, fileId);
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+
+      // Missing License lives in the shared More actions dropdown
+      await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
+      await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-missing"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+
+      // Submit the queued proposal
+      await page.waitForSelector('#pending-actions-widget');
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      t.match(await page.innerText('#pending-actions-widget'), /Propose missing license/);
+      const [decisionResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      t.equal(decisionResp.status(), 200);
+      await page.waitForLoadState('load');
+
+      // Navigate to the Missing Licenses page from the user menu
+      await page.click('text="Logged in as tester"');
+      await page.click('text=Missing Licenses');
+      t.equal(await page.innerText('title'), 'Missing Licenses');
+
+      await page.waitForSelector('#missing-licenses .change-container');
+      const headerText = await page.innerText('#missing-licenses .change-header');
+      t.match(headerText, /Missing license reported by/, 'proposal listed on the page');
+      t.match(headerText, /tester/, 'reporter shown as tester');
+
+      // Dismiss the proposal (admin sees the red Dismiss button)
+      await page.locator('#missing-licenses button:has-text("Dismiss")').click();
+      await page.waitForSelector('#missing-licenses .change-confirmation');
+      t.match(
+        await page.innerText('#missing-licenses .change-confirmation'),
+        /Proposal has been dismissed/,
+        'dismissal confirmed in-place'
+      );
+    });
+
     await t.test('Create pattern from classify-snippets page (page mode)', async t => {
       // Fixture snippets are never AI-classified, and the default filter hides
       // unclassified ones - widen the filter so cards are guaranteed to render.
@@ -1317,6 +1390,97 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'API Keys');
       await page.waitForSelector('#api-keys tbody > tr:nth-child(1)');
       t.equal(await page.innerText('#api-keys tbody > tr:nth-child(1) > td:nth-child(1)'), 'No API keys found.');
+    });
+  });
+
+  await t.test('Contributor', async t => {
+    await t.test('Snippet editor action layout', async t => {
+      // Switch to a contributor-only user via the wrapper helper. The dummy
+      // login always picks up the admin "tester"; this route logs in as a
+      // user that only has the 'contributor' role.
+      await page.goto(`${url}/login_as_contributor`);
+      await page.waitForSelector('text="Logged in as contrib_tester"');
+
+      // Pattern create/delete in earlier subtests enqueues reindex jobs
+      // noted as pkg_2 - drain them so /reviews/report_details/2 does not
+      // 408 with "package being processed".
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
+
+      // mojo#2 still has unresolved files - earlier subtests only *proposed*
+      // against it (a non-resolving action).
+      await page.goto(`${url}/reviews/details/2`);
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = href.replace('#file-', '');
+      if (!(await page.isVisible(`#file-details-${fileId}`))) {
+        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+      }
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+
+      await page.evaluate(id => {
+        const root = document.getElementById(`file-details-${id}`);
+        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
+        for (const item of items) {
+          if (item.textContent.trim() === 'Create Pattern from selection') {
+            item.click();
+            return;
+          }
+        }
+        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+      }, fileId);
+      await page.waitForSelector('#inline-snippet-editor');
+      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+
+      // No admin-only "Create Pattern" / "Ignore Pattern" buttons for contributor
+      t.equal(
+        await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').count(),
+        0,
+        'no admin Create Pattern button'
+      );
+      t.equal(
+        await page.locator('#inline-snippet-editor button[data-action="create-ignore"]').count(),
+        0,
+        'no admin Ignore Pattern button'
+      );
+
+      // Primary slot: Propose Pattern (green)
+      const propose = page.locator('#inline-snippet-editor button[data-action="propose-pattern"]');
+      t.equal(await propose.count(), 1);
+      t.match(await propose.innerText(), /Propose Pattern/);
+      t.ok(
+        await propose.evaluate(el => el.classList.contains('btn-success')),
+        'Propose Pattern is the green primary'
+      );
+
+      // Secondary slot: Propose Ignore (neutral)
+      const ignore = page.locator('#inline-snippet-editor button[data-action="propose-ignore"]');
+      t.equal(await ignore.count(), 1);
+      t.match(await ignore.innerText(), /Propose Ignore/);
+      t.ok(
+        await ignore.evaluate(el => el.classList.contains('snippet-editor-neutral')),
+        'Propose Ignore is neutral'
+      );
+
+      // Shared More actions dropdown contains exactly "Missing License"
+      await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
+      const items = await page
+        .locator('#inline-snippet-editor .dropdown-menu a.dropdown-item')
+        .allInnerTexts();
+      t.same(
+        items.map(s => s.trim()),
+        ['Missing License'],
+        'contributor More actions dropdown holds just Missing License'
+      );
+      await page.keyboard.press('Escape');
+
+      // Cancel closes the inline editor
+      await page.locator('#inline-snippet-editor button[data-action="cancel"]').click();
+      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
     });
   });
 

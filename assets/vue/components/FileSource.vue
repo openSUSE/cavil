@@ -117,8 +117,8 @@
                 :hash="inlineEditor.hash"
                 :from="inlineEditor.from"
                 :initial="inlineEditor.initial"
-                :has-contributor-role="isAdminOrContributor"
-                :has-admin-role="isAdminOrContributor"
+                :has-contributor-role="hasContributorRole"
+                :has-admin-role="hasAdminRole"
                 mode="inline"
                 @submit="$emit('editor-submit', $event)"
                 @cancel="$emit('close-editor')"
@@ -143,13 +143,19 @@ export default {
     fileId: {type: Number, required: true},
     filename: {type: String, default: ''},
     packname: {type: String, default: ''},
-    isAdminOrContributor: {type: Boolean, default: false},
+    hasAdminRole: {type: Boolean, default: false},
+    hasContributorRole: {type: Boolean, default: false},
     pendingActions: {type: Array, default: () => []},
     inlineEditor: {type: Object, default: null}
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
     return {hoveredGroup: null};
+  },
+  computed: {
+    isAdminOrContributor() {
+      return this.hasAdminRole || this.hasContributorRole;
+    }
   },
   methods: {
     rowClass(info) {

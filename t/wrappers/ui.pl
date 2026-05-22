@@ -33,4 +33,17 @@ $app->routes->get(
   }
 );
 
+$app->routes->get(
+  '/login_as_contributor' => sub ($c) {
+    my $user = $c->users->find_or_create(
+      login    => 'contrib_tester',
+      email    => 'contrib_tester@example.com',
+      fullname => 'Dummy Contributor User',
+      roles    => ['contributor']
+    );
+    $c->session(user => $user->{login});
+    $c->redirect_to('dashboard');
+  }
+);
+
 $daemon->run;
