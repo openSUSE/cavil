@@ -305,7 +305,8 @@ sub _remove_unused_extras ($self, $license) {
   my $removed = $db->query(
     'DELETE FROM license_patterns lp
      WHERE lp.license = ?
-       AND NOT EXISTS (SELECT FROM pattern_matches pm WHERE pm.pattern = lp.id)', $license
+       AND NOT EXISTS (SELECT FROM pattern_matches pm WHERE pm.pattern = lp.id)
+     RETURNING id', $license
   )->rows;
 
   $tx->commit;
