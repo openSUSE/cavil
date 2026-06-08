@@ -115,7 +115,7 @@ ok $db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'unpa
 # Verify report checksum
 my $specfile = $t->app->reports->specfile_report(1);
 my $dig      = $t->app->reports->dig_report(1);
-is report_checksum($specfile, $dig), '42af80e97542a008844a74245b19a147', 'right checksum';
+is report_checksum($specfile, $dig), '7d2fa36eff75adc8d7c309b8ff025992', 'right checksum';
 
 # Check matches
 my $res = $db->select(

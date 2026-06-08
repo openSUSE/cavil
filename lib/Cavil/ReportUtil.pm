@@ -205,14 +205,16 @@ sub report_checksum ($specfile_report, $dig_report) {
     $text .= "\n";
   }
 
-  # Unique snippets of unresolved keyword matches
-  if (my $snippets = $dig_report->{snippets}) {
+  # Unique snippets of unresolved keyword matches. Walk missed_snippets (the
+  # full set of winning files) rather than snippets (the expansion-truncated
+  # subset), and sort the resulting hashes so two content-equivalent
+  # packages produce the same checksum regardless of file_id ordering.
+  if (my $snippets = $dig_report->{missed_snippets}) {
     my @all;
-    for my $file (sort keys %$snippets) {
-      my $matches = $snippets->{$file};
-      push @all, $matches->{$_} for sort keys %$matches;
+    for my $file (keys %$snippets) {
+      push @all, $_->[3] for @{$snippets->{$file}};
     }
-    $text .= "SNIPPET:$_\n" for uniq @all;
+    $text .= "SNIPPET:$_\n" for sort +uniq @all;
   }
 
   # License incompatibilities

@@ -500,33 +500,33 @@ subtest 'report_checksum' => sub {
     is report_checksum(
       {main => {license => 'MIT'}},
       {
-        licenses => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
-        snippets => {2            => {4    => '6d5198bd51f0617d05bf585rb3dc475f'}}
+        licenses        => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
+        missed_snippets => {2            => [[10, 20, 4, '6d5198bd51f0617d05bf585rb3dc475f']]}
       }
       ),
-      'e53a9998d69ce6a27f198c415abaf363', 'one snippets present';
+      'e53a9998d69ce6a27f198c415abaf363', 'one snippet present';
     is report_checksum(
       {main => {license => 'MIT'}},
       {
-        licenses => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
-        snippets => {
-          2 => {4 => '6d5198bd51f0617d05bf585rb3dc475f', 2 => '9d5198bd51f0a17d05af585rb3dc475e'},
-          3 => {1 => '1f5198bd51fb617d05bf585rb3dc47ae'}
+        licenses        => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
+        missed_snippets => {
+          2 => [[10, 20, 4, '6d5198bd51f0617d05bf585rb3dc475f'], [30, 40, 2, '9d5198bd51f0a17d05af585rb3dc475e']],
+          3 => [[10, 20, 1, '1f5198bd51fb617d05bf585rb3dc47ae']]
         }
       }
       ),
-      '7351d8ac9fd4bbdb1cdda1293984c58d', 'one snippets present';
+      '1715f865453e0ab679688cf0c219fbe4', 'multiple snippets present';
     is report_checksum(
       {main => {license => 'MIT'}},
       {
-        licenses => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
-        snippets => {
-          2 => {4 => '6d5198bd51f0617d05bf585rb3dc475f', 2 => '9d5198bd51f0a17d05af585rb3dc475e'},
-          3 => {1 => '1f5198bd51fb617d05bf585rb3dc47ae', 4 => '6d5198bd51f0617d05bf585rb3dc475f'}
+        licenses        => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
+        missed_snippets => {
+          2 => [[10, 20, 4, '6d5198bd51f0617d05bf585rb3dc475f'], [30, 40, 2, '9d5198bd51f0a17d05af585rb3dc475e']],
+          3 => [[10, 20, 1, '1f5198bd51fb617d05bf585rb3dc47ae'], [30, 40, 4, '6d5198bd51f0617d05bf585rb3dc475f']]
         }
       }
       ),
-      '7351d8ac9fd4bbdb1cdda1293984c58d', 'exclude duplicate snippets';
+      '1715f865453e0ab679688cf0c219fbe4', 'duplicate snippet hashes deduped';
   };
 
   subtest 'License incompatibility' => sub {
