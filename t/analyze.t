@@ -69,6 +69,27 @@ subtest 'Analyze clears stale notice when reusing a previous accepted review' =>
   is $res->{result}, 'Accepted because previously reviewed under the same license (1)', 'reused previous review';
 };
 
+subtest 'Re-analyze refreshes notice on already-reviewed packages' => sub {
+  my $pkgs = $t->app->packages;
+  my $db   = $t->app->pg->db;
+
+  # Mark package 2 as lawyer-reviewed with a stale notice from before the
+  # package was approved, and a result the lawyer set manually.
+  $db->query(
+    "UPDATE bot_packages SET state = 'acceptable_by_lawyer', reviewing_user = 1, reviewed = NOW(),
+     result = 'lawyer approved', notice = 'Found new unresolved matches in something' WHERE id = 2"
+  );
+
+  $t->app->minion->enqueue(analyzed => [2]);
+  $t->app->minion->perform_jobs;
+
+  my $res = $pkgs->find(2);
+  is $res->{state},          'acceptable_by_lawyer', 'state preserved';
+  is $res->{result},         'lawyer approved',      'result preserved';
+  is $res->{reviewing_user}, 1,                      'reviewing user preserved';
+  like $res->{notice}, qr/Diff to closest match \d+/, 'notice refreshed to current delta';
+};
+
 subtest 'Prevent analyze race condition' => sub {
   my $minion = $t->app->minion;
   ok my $job_id = $minion->enqueue('analyze', [1]);
