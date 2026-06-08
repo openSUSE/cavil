@@ -130,7 +130,7 @@ subtest 'Byte-identical packages have a zero summary_delta_score' => sub {
   is summary_delta_score($reports->summary(1), $reports->summary($pkg2_id)), 0, 'zero delta';
 };
 
-subtest 'Expanded file selection is stable when truncated by max_expanded_files' => sub {
+subtest 'Summary covers all snippet hashes regardless of max_expanded_files' => sub {
   my @filenames      = map { sprintf 'file%02d.txt', $_ } 1 .. 10;
   my %snippet_id_for = map {
     ($_ => $db->insert('snippets', {hash => "snippet-$_", text => "text $_"}, {returning => 'id'})->hash->{id})
@@ -169,11 +169,12 @@ subtest 'Expanded file selection is stable when truncated by max_expanded_files'
   my $reverse_id = $build_pkg->('reversed', [reverse @filenames]);
 
   $reports->max_expanded_files(3);
-  my @forward = sort keys %{$reports->summary($forward_id)->{missed_snippets}};
-  my @reverse = sort keys %{$reports->summary($reverse_id)->{missed_snippets}};
+  my $forward = $reports->summary($forward_id)->{missed_snippets};
+  my $reverse = $reports->summary($reverse_id)->{missed_snippets};
 
-  cmp_ok scalar @forward, '<', 10, 'truncated below total file count';
-  is_deeply \@reverse, \@forward, 'same files picked regardless of insertion order';
+  is scalar keys %$forward, 10, 'summary covers every winning file, not just the expanded subset';
+  is summary_delta_score({missed_snippets => $forward}, {missed_snippets => $reverse}), 0,
+    'two content-identical packages have a zero delta regardless of expansion order';
 };
 
 done_testing;

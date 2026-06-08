@@ -164,17 +164,18 @@ sub summary ($self, $id) {
     $summary{licenses}{$text} = $report->{licenses}{$license}{risk};
   }
 
-  my $db    = $self->pg->db;
+  # Walk the full set of winning files (file_snippets_to_show), not the
+  # expansion-truncated subset in $report->{snippets}. max_expanded_files
+  # only caps how many file blocks the renderer shows; the diff/score
+  # must compare every snippet hash, otherwise two content-equivalent
+  # packages can produce different scores just because their first-N
+  # alphabetical files happen to contain different subsets of the global
+  # winning set.
   my $files = {};
-  for my $id (keys %{$report->{snippets}}) {
-    my $snippets = $db->query(
-      'SELECT mf.filename, s.hash
-       FROM file_snippets fs JOIN matched_files mf ON (fs.file = mf.id) JOIN snippets s ON (fs.snippet = s.id)
-       WHERE mf.id = ?', $id
-    )->hashes;
-    for my $snippet (@$snippets) {
-      my $list = $files->{$snippet->{filename}} ||= [];
-      push @$list, $snippet->{hash};
+  for my $file_id (keys %{$report->{missed_snippets}}) {
+    my $filename = $report->{files}{$file_id};
+    for my $snip_row (@{$report->{missed_snippets}{$file_id}}) {
+      push @{$files->{$filename}}, $snip_row->[3];
     }
   }
   $summary{missed_snippets} = $files;
@@ -321,13 +322,15 @@ sub _dig_report {
     $query
   );
 
-  # Order by content-stable keys (sline, filename, snippet id) so the dedup
-  # winner is the same regardless of how matched_files ids ended up being
-  # assigned by parallel index workers
+  # Order by content-stable keys (filename, then snippet id, then sline) so
+  # the dedup winner for each snippet is the same across packages with the
+  # same content. sline is package-local because it shifts when surrounding
+  # non-keyword text differs even slightly, so it must not be the primary
+  # key. snippet id is hash-derived and stable.
   my @snip_rows = sort {
-         $a->{sline} <=> $b->{sline}
-      || ($report->{files}{$a->{file}} // '') cmp($report->{files}{$b->{file}} // '')
-      || $a->{id} <=> $b->{id}
+         ($report->{files}{$a->{file}} // '') cmp($report->{files}{$b->{file}} // '')
+      || $a->{id}    <=> $b->{id}
+      || $a->{sline} <=> $b->{sline}
   } $snippets->hashes->each;
 
   my %file_snippets_to_ignore;
