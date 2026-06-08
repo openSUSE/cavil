@@ -318,14 +318,23 @@ sub _dig_report {
       'file',        'sline',         'eline',               'classified',
       'license'
     ],
-    $query,
-    {order_by => ['sline', 'file', 'snippets.id']}
+    $query
   );
+
+  # Order by content-stable keys (sline, filename, snippet id) so the dedup
+  # winner is the same regardless of how matched_files ids ended up being
+  # assigned by parallel index workers
+  my @snip_rows = sort {
+         $a->{sline} <=> $b->{sline}
+      || ($report->{files}{$a->{file}} // '') cmp($report->{files}{$b->{file}} // '')
+      || $a->{id} <=> $b->{id}
+  } $snippets->hashes->each;
+
   my %file_snippets_to_ignore;
   my %file_snippets_to_show;
   my %snippets_shown;
 
-  for my $snip_row ($snippets->hashes->each) {
+  for my $snip_row (@snip_rows) {
     if ( !defined $report->{files}{$snip_row->{file}}
       || $snippets_shown{$snip_row->{id}}
       || (!$snip_row->{license} && $snip_row->{classified}))
@@ -346,7 +355,7 @@ sub _dig_report {
   my %matches_to_ignore;
   my %snippets_to_remove;
 
-  for my $file (sort { $a <=> $b } keys %file_snippets_to_show) {
+  for my $file (sort { $report->{files}{$a} cmp $report->{files}{$b} } keys %file_snippets_to_show) {
     last if $num_expanded++ > $expanded_limit;
 
     $report->{expanded}{$file} = 1;

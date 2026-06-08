@@ -131,40 +131,49 @@ subtest 'Byte-identical packages have a zero summary_delta_score' => sub {
 };
 
 subtest 'Expanded file selection is stable when truncated by max_expanded_files' => sub {
-  my $pkg3_id = $pkgs->add(
-    name            => 'manyfiles',
-    checkout_dir    => 'manyfiles-checkout',
-    api_url         => 'https://api.opensuse.org',
-    requesting_user => 1,
-    project         => 'devel:languages:perl',
-    package         => 'manyfiles',
-    srcmd5          => 'manyfiles-checkout',
-    priority        => 5
-  );
-  $db->query(
-    'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
-     SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg3_id, 1
-  );
+  my @filenames      = map { sprintf 'file%02d.txt', $_ } 1 .. 10;
+  my %snippet_id_for = map {
+    ($_ => $db->insert('snippets', {hash => "snippet-$_", text => "text $_"}, {returning => 'id'})->hash->{id})
+  } @filenames;
 
-  for my $n (1 .. 10) {
-    my $file_id = $db->insert(
-      'matched_files',
-      {package   => $pkg3_id, filename => "file$n.txt", mimetype => 'text/plain'},
-      {returning => 'id'}
-    )->hash->{id};
-    my $snippet_id
-      = $db->insert('snippets', {hash => "manyfiles-snippet-$n", text => "snippet text $n"}, {returning => 'id'})
-      ->hash->{id};
-    $db->insert('file_snippets',
-      {package => $pkg3_id, file => $file_id, snippet => $snippet_id, sline => 1, eline => 5});
-  }
+  # Build two packages with the same filenames but reversed insertion order
+  # so the matched_files ids end up assigned to different files
+  my $build_pkg = sub {
+    my ($name, $order) = @_;
+    my $pkg_id = $pkgs->add(
+      name            => $name,
+      checkout_dir    => "$name-checkout",
+      api_url         => 'https://api.opensuse.org',
+      requesting_user => 1,
+      project         => 'devel:languages:perl',
+      package         => $name,
+      srcmd5          => "$name-checkout",
+      priority        => 5
+    );
+    $db->query(
+      'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
+       SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg_id, 1
+    );
+    for my $name (@$order) {
+      my $file_id = $db->insert(
+        'matched_files',
+        {package   => $pkg_id, filename => $name, mimetype => 'text/plain'},
+        {returning => 'id'}
+      )->hash->{id};
+      $db->insert('file_snippets',
+        {package => $pkg_id, file => $file_id, snippet => $snippet_id_for{$name}, sline => 1, eline => 5});
+    }
+    return $pkg_id;
+  };
+  my $forward_id = $build_pkg->('forward',  [@filenames]);
+  my $reverse_id = $build_pkg->('reversed', [reverse @filenames]);
 
   $reports->max_expanded_files(3);
-  my @first  = sort keys %{$reports->summary($pkg3_id)->{missed_snippets}};
-  my @second = sort keys %{$reports->summary($pkg3_id)->{missed_snippets}};
+  my @forward = sort keys %{$reports->summary($forward_id)->{missed_snippets}};
+  my @reverse = sort keys %{$reports->summary($reverse_id)->{missed_snippets}};
 
-  cmp_ok scalar @first, '<', 10, 'truncated below total file count';
-  is_deeply \@second, \@first, 'same files picked across calls';
+  cmp_ok scalar @forward, '<', 10, 'truncated below total file count';
+  is_deeply \@reverse, \@forward, 'same files picked regardless of insertion order';
 };
 
 done_testing;
