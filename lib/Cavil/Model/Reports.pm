@@ -319,7 +319,7 @@ sub _dig_report {
       'license'
     ],
     $query,
-    {order_by => 'sline'}
+    {order_by => ['sline', 'file', 'snippets.id']}
   );
   my %file_snippets_to_ignore;
   my %file_snippets_to_show;
@@ -621,9 +621,9 @@ sub _sanitize_report {
 
   # Emails and URLs
   my $emails = $report->{emails};
-  $report->{emails} = [map { [$_, $emails->{$_}] } sort { $emails->{$b} <=> $emails->{$a} } keys %$emails];
+  $report->{emails} = [map { [$_, $emails->{$_}] } sort { $emails->{$b} <=> $emails->{$a} || $a cmp $b } keys %$emails];
   my $urls = $report->{urls};
-  $report->{urls} = [map { [$_, $urls->{$_}] } sort { $urls->{$b} <=> $urls->{$a} } keys %$urls];
+  $report->{urls} = [map { [$_, $urls->{$_}] } sort { $urls->{$b} <=> $urls->{$a} || $a cmp $b } keys %$urls];
 }
 
 1;

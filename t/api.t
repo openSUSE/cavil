@@ -167,6 +167,10 @@ subtest 'Package has been created' => sub {
     ->content_type_like(qr/application\/json/)
     ->json_is('/package/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')
     ->json_has('/report/risks');
+  for my $field (qw(emails urls)) {
+    my $got = $t->tx->res->json("/report/$field");
+    is_deeply $got, [sort { $b->[1] <=> $a->[1] || $a->[0] cmp $b->[0] } @$got], "$field stably sorted";
+  }
   $t->get_ok('/package/1/report.txt' => {Authorization => 'Token test_token'})
     ->status_is(200)
     ->content_type_like(qr/text\/plain/)

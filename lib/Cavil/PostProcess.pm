@@ -63,7 +63,7 @@ sub _process_file ($self, $from, $mimetype) {
   # avoid doing it again
   return undef if $from =~ m/.processed/;
   my $to;
-  if ($from =~ m,^(.*)\.([^./]+$),) {
+  if ($from =~ m,^(.*)\.([A-Za-z0-9][^./]*$),) {
     $to = "$1.processed.$2";
   }
   else {

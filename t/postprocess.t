@@ -18,6 +18,7 @@ use Mojo::Base -strict;
 use Test::More;
 use Mojo::File qw(path tempdir);
 use Cavil::Checkout;
+use Cavil::PostProcess;
 
 my $dir = path(__FILE__)->dirname->child('legal-bot');
 
@@ -51,6 +52,18 @@ subtest 'gnome-icon-theme' => sub {
   is $pwt->child('test.processed.po')->slurp, $pwt->child('test.stripped')->slurp, 'Correctly stripped msgid';
   is $pwt->child('package.processed.spec')->slurp, $pwt->child('package.stripped')->slurp,
     'Correctly stripped spec file';
+};
+
+subtest 'Filenames without alphanumeric extensions do not gain .processed._' => sub {
+  my $tmp = tempdir;
+  $tmp->child('config.guess._')->spew(join(' ', ('xxxxx') x 30) . "\n");
+
+  my $processor = Cavil::PostProcess->new({destdir => $tmp, unpacked => {'config.guess._' => {mime => 'text/plain'}}});
+  $processor->postprocess;
+
+  my @produced = sort keys %{$processor->hash->{unpacked}};
+  ok !(grep {/\.processed\._$/} @produced), 'no phantom .processed._ entry'
+    or diag 'unpacked entries: ' . join(', ', @produced);
 };
 
 done_testing;
