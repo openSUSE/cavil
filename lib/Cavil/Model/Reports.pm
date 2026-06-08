@@ -346,7 +346,7 @@ sub _dig_report {
   my %matches_to_ignore;
   my %snippets_to_remove;
 
-  for my $file (keys %file_snippets_to_show) {
+  for my $file (sort { $a <=> $b } keys %file_snippets_to_show) {
     last if $num_expanded++ > $expanded_limit;
 
     $report->{expanded}{$file} = 1;
