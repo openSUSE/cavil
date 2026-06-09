@@ -128,8 +128,8 @@
         </div>
         <p v-if="hiddenInlinePreviews > 0" id="hidden-previews-notice" class="text-muted small ms-1 mb-3">
           <i class="fa-solid fa-circle-info"></i>
-          Showing inline previews for {{ shownInlinePreviews }} of {{ missedFiles.length }} files with unresolved
-          matches. Click any file above to load the rest on demand.
+          Showing inline previews for {{ shownInlinePreviews }} of {{ missedFiles.length }} files with matches. Click
+          any file above to load the rest on demand.
         </p>
         <br />
       </div>
