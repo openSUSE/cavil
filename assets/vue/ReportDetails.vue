@@ -126,6 +126,11 @@
             />
           </div>
         </div>
+        <p v-if="hiddenInlinePreviews > 0" id="hidden-previews-notice" class="text-muted small ms-1 mb-3">
+          <i class="fa-solid fa-circle-info"></i>
+          Showing inline previews for {{ shownInlinePreviews }} of {{ missedFiles.length }} files with unresolved
+          matches. Click any file above to load the rest on demand.
+        </p>
         <br />
       </div>
 
@@ -253,6 +258,8 @@ export default {
       risks: {},
       stage: null,
       unresolvedMatches: 0,
+      hiddenInlinePreviews: 0,
+      shownInlinePreviews: 0,
       urls: [],
       currentMatchId: null,
       shortcutsModal: null
@@ -310,6 +317,8 @@ export default {
       this.incompatibleLicenses = data.incompatible_licenses;
       this.missedFiles = data.missed_files;
       this.unresolvedMatches = data.package.unresolved_matches;
+      this.hiddenInlinePreviews = data.hidden_inline_previews ?? 0;
+      this.shownInlinePreviews = Math.max(0, this.missedFiles.length - this.hiddenInlinePreviews);
       this.matchingGlobs = data.matching_globs;
       this.emails = data.emails;
       this.urls = data.urls;

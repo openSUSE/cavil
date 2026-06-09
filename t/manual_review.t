@@ -202,6 +202,10 @@ subtest 'Details after indexing' => sub {
     my $expand  = grep { $_->{expand} } @{$details->{files}};
     cmp_ok $expand,                     '<=', 100,     'expand=true count capped at max_expanded_files';
     cmp_ok scalar @{$details->{files}}, '>',  $expand, 'remaining files are sent collapsed';
+    is $details->{max_expanded_files}, 100, 'max_expanded_files reported in response';
+    cmp_ok $details->{hidden_inline_previews}, '>', 0, 'hidden_inline_previews counts missed files past the inline cap';
+    is $details->{hidden_inline_previews}, scalar(@{$details->{missed_files}}) - $expand,
+      'hidden_inline_previews equals total missed files minus inline-expanded ones';
 
     $db->update('bot_reports', {ldig_report => $original}, {package => 1});
   };

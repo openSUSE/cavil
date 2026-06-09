@@ -449,6 +449,32 @@ t.test('Test cavil ui', skip, async t => {
       t.match(await apache.textContent(), /81 more/);
     });
 
+    await t.test('Hidden inline previews indicator (max_expanded_files)', async t => {
+      // mojo#1 has only a handful of unresolved matches, well under the
+      // max_expanded_files cap — the indicator must stay out of the DOM and
+      // the backend must report 0 hidden previews alongside the cap value.
+      // (The "indicator renders with a non-zero count" path is covered by
+      // the Perl JSON test in t/manual_review.t — exercising it from the
+      // browser would require synthetic missed_files whose source fetches
+      // would 404 and trip the global Console errors check.)
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+      t.equal(
+        await page.locator('#hidden-previews-notice').count(),
+        0,
+        'no indicator when missed-file count is under the cap'
+      );
+
+      const details = await page.evaluate(async () => {
+        const res = await fetch('/reviews/report_details/1');
+        return res.json();
+      });
+      t.equal(details.max_expanded_files, 100, 'max_expanded_files in JSON response');
+      t.equal(details.hidden_inline_previews, 0, 'no hidden previews when under the cap');
+    });
+
     await t.test('Create pattern from report match', async t => {
       await page.goto(url);
       await page.waitForSelector('#open-reviews tbody > tr:nth-child(2)');
@@ -1452,25 +1478,17 @@ t.test('Test cavil ui', skip, async t => {
       const propose = page.locator('#inline-snippet-editor button[data-action="propose-pattern"]');
       t.equal(await propose.count(), 1);
       t.match(await propose.innerText(), /Propose Pattern/);
-      t.ok(
-        await propose.evaluate(el => el.classList.contains('btn-success')),
-        'Propose Pattern is the green primary'
-      );
+      t.ok(await propose.evaluate(el => el.classList.contains('btn-success')), 'Propose Pattern is the green primary');
 
       // Secondary slot: Propose Ignore (neutral)
       const ignore = page.locator('#inline-snippet-editor button[data-action="propose-ignore"]');
       t.equal(await ignore.count(), 1);
       t.match(await ignore.innerText(), /Propose Ignore/);
-      t.ok(
-        await ignore.evaluate(el => el.classList.contains('snippet-editor-neutral')),
-        'Propose Ignore is neutral'
-      );
+      t.ok(await ignore.evaluate(el => el.classList.contains('snippet-editor-neutral')), 'Propose Ignore is neutral');
 
       // Shared More actions dropdown contains exactly "Missing License"
       await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
-      const items = await page
-        .locator('#inline-snippet-editor .dropdown-menu a.dropdown-item')
-        .allInnerTexts();
+      const items = await page.locator('#inline-snippet-editor .dropdown-menu a.dropdown-item').allInnerTexts();
       t.same(
         items.map(s => s.trim()),
         ['Missing License'],

@@ -86,12 +86,15 @@ sub _report_details ($c, $pkg, $report) {
     }
   }
 
-  my $num_expanded = 0;
+  my $num_expanded  = 0;
+  my $hidden_inline = 0;
   my @files;
   for my $file (@{$report->{files} // []}) {
     next unless $linked{$file->{id}};
-    my $expand = $file->{expand} && $num_expanded < $expand_limit ? 1 : 0;
-    $num_expanded++ if $expand;
+    my $wants_expand = $file->{expand}                                ? 1 : 0;
+    my $expand       = $wants_expand && $num_expanded < $expand_limit ? 1 : 0;
+    $num_expanded++  if $expand;
+    $hidden_inline++ if $wants_expand && !$expand;
     push @files,
       {
       id       => $file->{id},
@@ -139,10 +142,12 @@ sub _report_details ($c, $pkg, $report) {
     missed_files          => \@missed,
     risks                 => \%risk_buckets,
     max_files_per_license => $max,
-    matching_globs        => $report->{matching_globs} // [],
-    files                 => \@files,
-    emails                => $report->{emails} // [],
-    urls                  => $report->{urls}   // []
+    max_expanded_files    => $expand_limit,
+    hidden_inline_previews => $hidden_inline,
+    matching_globs         => $report->{matching_globs} // [],
+    files                  => \@files,
+    emails                 => $report->{emails} // [],
+    urls                   => $report->{urls}   // []
   };
 }
 
