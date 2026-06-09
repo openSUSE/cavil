@@ -104,4 +104,34 @@ subtest 'Prevent analyze race condition' => sub {
   ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
 };
 
+subtest 'dig_report tolerates pattern_matches in files covered by an ignored_files glob' => sub {
+  my $app = $t->app;
+  my $db  = $app->pg->db;
+
+  my $filename = $db->query(
+    'SELECT mf.filename FROM matched_files mf
+       JOIN pattern_matches pm ON pm.file = mf.id
+      WHERE pm.package = 1 AND pm.ignored = false
+      LIMIT 1'
+  )->hash->{filename};
+  ok $filename, "file with unignored pattern_match available ($filename)";
+
+  $app->ignored_files->add($filename, 'test_bot');
+  is $db->select('ignored_lines')->rows, 0, 'no ignored_lines row backs the glob';
+
+  my $report = eval { $app->reports->dig_report(1) };
+  ok !$@,     'dig_report does not raise an FK violation' or diag $@;
+  ok $report, 'got a report';
+
+  my $still_unignored = $db->query(
+    'SELECT COUNT(*) AS c FROM pattern_matches pm
+       JOIN matched_files mf ON pm.file = mf.id
+      WHERE pm.package = 1 AND mf.filename = ? AND pm.ignored = false', $filename
+  )->hash->{c};
+  is $still_unignored, 0, 'matches in the ignored-glob file are now marked ignored';
+
+  my $with_fake_fk = $db->query('SELECT COUNT(*) AS c FROM pattern_matches WHERE ignored_line IS NOT NULL')->hash->{c};
+  is $with_fake_fk, 0, 'glob-ignored matches do not invent an ignored_lines reference';
+};
+
 done_testing;

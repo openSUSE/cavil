@@ -381,7 +381,10 @@ sub _dig_report {
     my $pid = $match->{pattern};
 
     if (!defined $report->{files}{$match->{file}}) {
-      $matches_to_ignore{$match->{id}} = 1;
+
+      # File is hidden by an ignored_files glob; there is no ignored_lines
+      # row backing this, so leave the FK column NULL
+      $matches_to_ignore{$match->{id}} = undef;
       next;
     }
 
