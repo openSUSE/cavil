@@ -536,9 +536,17 @@ sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned
 }
 
 sub reindex ($self, $id, @args) {
+  my $minion = $self->minion;
 
   # Protect from race conditions (even before creating a background job)
-  return undef unless $self->minion->lock("processing_pkg_$id", 0);
+  return undef unless $minion->lock("processing_pkg_$id", 0);
+
+  # Skip if an import or unpack is already queued or running - that chain will
+  # index the package itself, and an orphan reindex would race the unpack and
+  # fail "is not unpacked yet" once the unpack clears the field
+  return undef
+    if $minion->jobs(
+    {tasks => ['obs_import', 'git_import', 'unpack'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
 
   # Make sure package exists and is eligible for reindexing
   return undef

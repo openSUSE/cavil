@@ -375,4 +375,77 @@ subtest 'Prevent index race condition' => sub {
   ok !$t->app->packages->reindex(99999), 'package does not exist';
 };
 
+subtest 'Reindex skips when an import or unpack is queued' => sub {
+  my $minion = $t->app->minion;
+
+  # Drain anything left over from prior subtests
+  $minion->perform_jobs;
+
+  for my $task (qw(obs_import git_import unpack)) {
+    my $blocker = $minion->enqueue($task => [1] => {notes => {pkg_1 => 1}});
+    ok !$t->app->packages->reindex(1), "reindex skipped while $task is inactive";
+    is $minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, "no orphan index enqueued ($task)";
+    $minion->backend->remove_job($blocker);
+  }
+
+  ok $t->app->packages->reindex(1), 'reindex proceeds once the queue is clear';
+  $minion->perform_jobs;
+};
+
+subtest 'Index retries instead of failing when unpacked is transiently null' => sub {
+  my $minion = $t->app->minion;
+  my $db     = $t->app->pg->db;
+
+  $minion->perform_jobs;
+
+  # Simulate an unpack-in-progress: unpacked has just been cleared by _unpack
+  # but the actual unpack work has not finished yet
+  $db->update('bot_packages', {unpacked => undef}, {id => 1});
+
+  my $job_id = $minion->enqueue('index', [1]);
+  my $worker = $minion->worker->register;
+  my $job    = $worker->dequeue(0, {id => $job_id});
+  is $job->execute, undef, 'no error from execute';
+  $worker->unregister;
+
+  my $info = $minion->job($job_id)->info;
+  is $info->{state},   'inactive', 'job was retried instead of failed';
+  is $info->{retries}, 1,          'retried once';
+  is $info->{result},  undef,      'no failure result yet';
+
+  # Simulate the unpack finishing (sets unpacked) and the delay expiring so the
+  # retried job becomes ready for a worker again
+  $db->update('bot_packages', {unpacked => \'now()'}, {id => 1});
+  $db->update('minion_jobs',  {delayed  => \'now()'}, {id => $job_id});
+
+  $minion->perform_jobs;
+  is $minion->job($job_id)->info->{state}, 'finished', 'retried job eventually succeeds';
+};
+
+subtest 'Index gives up after too many retries' => sub {
+  my $minion = $t->app->minion;
+  my $db     = $t->app->pg->db;
+
+  $minion->perform_jobs;
+  $db->update('bot_packages', {unpacked => undef}, {id => 1});
+
+  my $job_id = $minion->enqueue('index', [1]);
+
+  # Burn through the retry budget without waiting on real delays
+  for my $attempt (1 .. 11) {
+    $db->update('minion_jobs', {delayed => \'now()'}, {id => $job_id});
+    my $worker = $minion->worker->register;
+    my $job    = $worker->dequeue(0, {id => $job_id});
+    last unless $job;
+    $job->execute;
+    $worker->unregister;
+  }
+
+  my $info = $minion->job($job_id)->info;
+  is $info->{state}, 'failed', 'job eventually fails when unpack never completes';
+  like $info->{result}, qr/gave up after \d+ retries/, 'result mentions retry exhaustion';
+
+  $db->update('bot_packages', {unpacked => \'now()'}, {id => 1});
+};
+
 done_testing();

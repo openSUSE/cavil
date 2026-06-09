@@ -36,8 +36,14 @@ sub _index ($job, $id) {
   my $pkgs   = $app->packages;
   my $log    = $app->log;
 
-  # Protect from race conditions
-  return $job->fail("Package $id is not unpacked yet")          unless $pkgs->is_unpacked($id);
+  # Protect from race conditions: an orphan reindex job can race a concurrent
+  # re-import that has reset "unpacked" to NULL; back off and let the unpack
+  # chain finish instead of failing (which would queue duplicate work on retry)
+  unless ($pkgs->is_unpacked($id)) {
+    my $retries = $job->retries;
+    return $job->fail("Package $id is not unpacked yet (gave up after $retries retries)") if $retries >= 10;
+    return $job->retry({delay => 60});
+  }
   return $job->finish("Package $id is already being processed") unless $minion->lock("processing_pkg_$id", 172800);
 
   # Clean up (make sure not to leak a Postgres connection)
