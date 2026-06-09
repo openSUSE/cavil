@@ -285,7 +285,7 @@ export default {
   padding: 0;
   position: absolute;
   text-decoration: none;
-  top: 50%;
+  top: 10px;
   transform: translateY(-50%);
   transition:
     background-color 0.15s,
