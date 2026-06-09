@@ -451,12 +451,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Hidden inline previews indicator (max_expanded_files)', async t => {
       // mojo#1 has only a handful of unresolved matches, well under the
-      // max_expanded_files cap — the indicator must stay out of the DOM and
-      // the backend must report 0 hidden previews alongside the cap value.
-      // (The "indicator renders with a non-zero count" path is covered by
-      // the Perl JSON test in t/manual_review.t — exercising it from the
-      // browser would require synthetic missed_files whose source fetches
-      // would 404 and trip the global Console errors check.)
+      // max_expanded_files cap — the indicator must stay out of the DOM.
       await page.goto(url);
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
@@ -467,12 +462,25 @@ t.test('Test cavil ui', skip, async t => {
         'no indicator when missed-file count is under the cap'
       );
 
-      const details = await page.evaluate(async () => {
-        const res = await fetch('/reviews/report_details/1');
-        return res.json();
-      });
-      t.equal(details.max_expanded_files, 100, 'max_expanded_files in JSON response');
-      t.equal(details.hidden_inline_previews, 0, 'no hidden previews when under the cap');
+      // synthetic-many-unresolved is a fixture package with 110 files, each
+      // containing one unresolved keyword match (real index pipeline, real
+      // sources). The report must show the indicator with the inline-preview
+      // cap as the "shown" number and a strictly larger "total". Navigate via
+      // URL because the fixture parks the package on the priority-1 page to
+      // avoid shifting the Open Reviews row-index assertions. The report has
+      // no license matches, so there's no #license-chart to wait on — wait
+      // for the unmatched-files block (which only renders once data loads).
+      await page.goto(`${url}/reviews/details/25`);
+      t.equal(await page.innerText('title'), 'Report for synthetic-many-unresolved');
+      await page.waitForSelector('#unmatched-files');
+      await page.waitForSelector('#hidden-previews-notice');
+      const text = await page.innerText('#hidden-previews-notice');
+      const match = text.match(/Showing inline previews for (\d+) of (\d+) files/);
+      t.ok(match, 'indicator text matches the expected shape');
+      const shown = Number(match[1]);
+      const total = Number(match[2]);
+      t.equal(shown, 100, 'shown count equals max_expanded_files');
+      t.ok(total > shown, 'total exceeds shown so the notice is needed');
     });
 
     await t.test('Create pattern from report match', async t => {
@@ -1406,7 +1414,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Statistics');
       t.equal(await page.innerText('title'), 'Statistics');
       await page.waitForSelector('#statistics .stats-body');
-      t.equal(await page.innerText('#statistics .stats-body'), '24');
+      t.equal(await page.innerText('#statistics .stats-body'), '25');
     });
 
     await t.test('API Keys', async t => {
