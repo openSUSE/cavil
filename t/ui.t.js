@@ -464,23 +464,23 @@ t.test('Test cavil ui', skip, async t => {
 
       // synthetic-many-unresolved is a fixture package with 110 files, each
       // containing one unresolved keyword match (real index pipeline, real
-      // sources). The report must show the indicator with the inline-preview
-      // cap as the "shown" number and a strictly larger "total". Navigate via
-      // URL because the fixture parks the package on the priority-1 page to
-      // avoid shifting the Open Reviews row-index assertions. The report has
-      // no license matches, so there's no #license-chart to wait on — wait
-      // for the unmatched-files block (which only renders once data loads).
-      await page.goto(`${url}/reviews/details/25`);
+      // sources). Navigate via the priority-1 open-reviews page → row link
+      // so we cover the actual user flow, not just the report URL. The
+      // report has no license matches, so there's no #license-chart to wait
+      // on — wait for the unmatched-files block to confirm the report loaded.
+      await page.goto(url);
+      await page.selectOption('select.cavil-pkg-priority', '1');
+      await page.locator('#cavil-pkg-filter input[placeholder="Filter"]').fill('synth');
+      const synthRow = page.locator('#open-reviews tbody > tr').filter({hasText: 'zzz_synth#1'}).first();
+      await synthRow.waitFor();
+      await synthRow.locator('a[href^="/reviews/details/"]').click();
       t.equal(await page.innerText('title'), 'Report for synthetic-many-unresolved');
       await page.waitForSelector('#unmatched-files');
       await page.waitForSelector('#hidden-previews-notice');
       const text = await page.innerText('#hidden-previews-notice');
-      const match = text.match(/Showing inline previews for (\d+) of (\d+) files/);
-      t.ok(match, 'indicator text matches the expected shape');
-      const shown = Number(match[1]);
-      const total = Number(match[2]);
-      t.equal(shown, 100, 'shown count equals max_expanded_files');
-      t.ok(total > shown, 'total exceeds shown so the notice is needed');
+      const [, shown, total] = text.match(/Showing inline previews for (\d+) of (\d+) files/);
+      t.equal(Number(shown), 100, 'shown count equals max_expanded_files');
+      t.ok(Number(total) > Number(shown), 'total exceeds shown so the notice is needed');
     });
 
     await t.test('Create pattern from report match', async t => {
