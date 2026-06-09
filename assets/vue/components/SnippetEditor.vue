@@ -568,6 +568,7 @@ export default {
         doc: this.patternText ?? '',
         extensions: [
           decoField,
+          EditorView.lineWrapping,
           hoverTooltip((view, pos) => this.makeHoverTooltip(view, pos), {hideOnChange: true}),
           EditorView.updateListener.of(update => this.onCmUpdate(update)),
           baseTheme

@@ -33,6 +33,7 @@ export default {
       doc: this.modelValue,
       extensions: [
         lineNumbers(),
+        EditorView.lineWrapping,
         theme,
         EditorView.updateListener.of(update => {
           if (!update.docChanged || this.suppressEmit) return;
