@@ -1146,11 +1146,11 @@ t.test('Test cavil ui', skip, async t => {
 
       // Dismiss the proposal (admin sees the red Dismiss button)
       await page.locator('#missing-licenses button:has-text("Dismiss")').click();
-      await page.waitForSelector('#missing-licenses .change-confirmation');
+      await page.waitForSelector('#missing-licenses .change-container', {state: 'detached'});
       t.match(
-        await page.innerText('#missing-licenses .change-confirmation'),
-        /Proposal has been dismissed/,
-        'dismissal confirmed in-place'
+        await page.innerText('#missing-licenses .toast-item'),
+        /Proposal dismissed/,
+        'dismissal confirmed via toast'
       );
     });
 
