@@ -87,6 +87,7 @@ subtest 'Create + list a public note' => sub {
     ->json_is('/note/body' => "Hello **world**\n")
     ->json_like('/note/body_html' => qr{<strong>world</strong>})
     ->json_is('/note/lawyer_only'            => false)
+    ->json_is('/note/ai_assisted'            => false)
     ->json_is('/note/author/login'           => 'tester')
     ->json_is('/note/author/badge'           => 'admin')
     ->json_is('/note/original_package/id'    => 1)
@@ -95,10 +96,25 @@ subtest 'Create + list a public note' => sub {
 
   $t->get_ok('/reviews/notes/1')
     ->status_is(200)
-    ->json_is('/total'              => 1)
-    ->json_is('/notes/0/body'       => "Hello **world**\n")
-    ->json_is('/notes/0/can_delete' => true);
+    ->json_is('/total'               => 1)
+    ->json_is('/notes/0/body'        => "Hello **world**\n")
+    ->json_is('/notes/0/ai_assisted' => false)
+    ->json_is('/notes/0/can_delete'  => true);
   logout($t);
+};
+
+subtest 'AI-assisted notes are exposed in API responses' => sub {
+  my $ai_note = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'generated note', 0, 1);
+
+  login_admin($t);
+  $t->get_ok('/reviews/notes/1')
+    ->status_is(200)
+    ->json_is('/notes/0/id'          => $ai_note->{id})
+    ->json_is('/notes/0/body'        => 'generated note')
+    ->json_is('/notes/0/ai_assisted' => true);
+  logout($t);
+
+  ok $app->notes->remove($ai_note->{id}), 'removed AI-assisted fixture note';
 };
 
 subtest 'Validation' => sub {

@@ -11,13 +11,14 @@ has 'pg';
 # package row is later removed, and the note still belongs to the package
 # name.
 
-sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only) {
+sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only, $ai_assisted = 0) {
   my $row = $self->pg->db->insert(
     'package_notes',
     {
       package      => $package_id,
       package_name => $package_name,
       author       => $author_id,
+      ai_assisted  => $ai_assisted ? 1 : 0,
       body         => $body,
       lawyer_only  => $lawyer_only ? 1 : 0
     },
@@ -73,7 +74,7 @@ sub edit ($self, $id, $body) {
 
 sub _query ($self, $extra_sql, $extra_args, $tail_sql = '', $tail_args = []) {
   my $sql = qq{
-    SELECT c.id, c.body, c.lawyer_only, c.package AS package_id, c.package_name,
+    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.package AS package_id, c.package_name,
            c.author AS author_id, u.login AS author_login, u.fullname AS author_fullname,
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,

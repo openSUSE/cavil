@@ -309,7 +309,7 @@ sub ui_fixtures ($self, $app) {
       = $i == 25
       ? "Latest review notes.\n\n* check Apache-2.0 obligations\n* verify shipped LICENSE"
       : "Seed note #$i for **perl-Mojolicious**.";
-    $notes->add(1, 'perl-Mojolicious', $bot_id, $body, $lawyer);
+    $notes->add(1, 'perl-Mojolicious', $bot_id, $body, $lawyer, $i == 25 ? 1 : 0);
   }
 }
 

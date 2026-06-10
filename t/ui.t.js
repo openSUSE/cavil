@@ -1457,6 +1457,7 @@ t.test('Test cavil ui', skip, async t => {
       await newest.waitFor();
       t.match(await newest.locator('.report-note-body').innerText(), /Latest review notes/);
       t.ok(await newest.locator('.report-note-body ul li').count(), 'markdown list rendered as <ul><li>');
+      t.ok(await newest.locator('[data-note-ai-assisted]').count(), 'AI-assisted seed note shows the badge');
       // Seed notes are authored by test_bot (role: user) - role chip renders.
       t.equal(await newest.locator('[data-note-role]').getAttribute('data-note-role'), 'user');
 

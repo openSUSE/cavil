@@ -59,6 +59,14 @@
             </div>
             <div class="report-note-badges">
               <span
+                v-if="c.ai_assisted"
+                class="report-note-badge ai-assisted-badge"
+                title="Created with AI assistance"
+                data-note-ai-assisted
+              >
+                <i class="fa-solid fa-robot"></i> AI assisted
+              </span>
+              <span
                 v-if="c.lawyer_only"
                 class="report-note-badge lawyer-only-badge"
                 title="Visible to lawyers and admins only"
@@ -549,6 +557,12 @@ export default {
   background: #fff8c5;
   border-color: #d4a72c66;
   color: #7d4e00;
+  text-transform: none;
+}
+.report-note-badge.ai-assisted-badge {
+  background: #ddf4ff;
+  border-color: #54aeff66;
+  color: #0550ae;
   text-transform: none;
 }
 .badge-state-acceptable {

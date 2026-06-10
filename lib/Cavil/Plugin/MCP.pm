@@ -15,6 +15,7 @@ my $WRITE_TOOL_ROLES = {
   cavil_propose_ignore_snippet  => {admin => 1, lawyer => 1, contributor => 1},
   cavil_propose_license_pattern => {admin => 1, lawyer => 1, contributor => 1}
 };
+my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
 
 sub register ($self, $app, $config) {
   my $mcp = MCP::Server->new;
@@ -65,6 +66,16 @@ sub register ($self, $app, $config) {
       required   => ['package_id']
     },
     code => \&tool_cavil_list_files
+  );
+  $mcp->tool(
+    name         => 'cavil_create_note',
+    description  => 'Create a public AI-assisted note for a specific package',
+    input_schema => {
+      type       => 'object',
+      properties => {package_id => {type => 'integer', minimum => 1}, body => {type => 'string'}},
+      required   => ['package_id', 'body']
+    },
+    code => \&tool_cavil_create_note
   );
   $mcp->tool(
     name        => 'cavil_accept_review',
@@ -225,6 +236,21 @@ sub tool_cavil_list_files ($tool, $args) {
   return $tool->text_result(join("\n", sort @files));
 }
 
+sub tool_cavil_create_note ($tool, $args) {
+  my $id   = $args->{package_id};
+  my $body = $args->{body};
+  my $c    = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+  return $tool->text_result('Note body is required', 1) unless defined $body && length $body;
+
+  my $author = $c->users->find(login => $c->current_user);
+  return $tool->text_result('Unknown user', 1) unless $author;
+
+  my $note = $c->notes->add($id, $pkg->{name}, $author->{id}, $body, 0, 1);
+  return $tool->text_result("Note #$note->{id} has been successfully created");
+}
+
 sub tool_cavil_propose_ignore_snippet ($tool, $args) {
   my $package_id = $args->{package_id};
   my $snippet_id = $args->{snippet_id};
@@ -333,6 +359,9 @@ sub _filter_tools ($server, $tools, $context) {
   my $filtered = [];
   for my $tool (@$tools) {
     my $name = $tool->name;
+    if ($WRITE_ACCESS_TOOLS->{$name}) {
+      next unless $write_access;
+    }
     if (my $check = $WRITE_TOOL_ROLES->{$name}) {
       next unless $write_access;
       next unless grep { $check->{$_} } @$roles;

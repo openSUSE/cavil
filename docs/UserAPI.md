@@ -84,6 +84,11 @@ These tools are currently available:
   - `package_id`: ID of package to list files from. (number, required)
   - `file_glob`: Optional glob pattern used to filter listed files. Defaults to `*` (all files). (string, optional)
 
+- *cavil_create_note* - Create a public note for a specific package, marked as AI-assisted
+  - **Required Roles**: `user` (read-write)
+  - `package_id`: ID of package to add a note to. (number, required)
+  - `body`: Note body in Markdown format. (string, required)
+
 - *cavil_accept_review* - Accept a legal review for a specific package
   - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
   - `package_id`: ID of package to accept. (number, required)
@@ -120,6 +125,10 @@ involving MCP tools. Cavil includes a few examples you can use for inspiration:
 - [cavil-review](../examples/skills/cavil-review/) - Guides you through performing IP license reviews of package
                                                      updates in Cavil for SUSE Linux Enterprise, helping you accept or
                                                      reject reviews based on the package's license report.
+
+- [cavil-review-note](../examples/skills/cavil-review-note/) - Creates brief AI-assisted review notes in Cavil with a
+                                                               recommendation and key issues for a human legal reviewer
+                                                               to inspect before deciding on a package update.
 
 Most agents support skills automatically when you copy them into the skills directory of the current workspace, like
 `.claude/skills/cavil-refine` or `.gemini/skills/cavil-review`. Then you just type a command like
