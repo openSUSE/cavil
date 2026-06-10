@@ -288,6 +288,29 @@ sub ui_fixtures ($self, $app) {
   $report->{risks}{5}{'Apache-2.0'}{$fake_pid} = [@fake_ids];
 
   $db->update('bot_reports', {ldig_report => to_json($report)}, {package => 1});
+
+  # Seed notes on perl-Mojolicious so the Notes tab has data the moment
+  # the UI test opens either review #1 (mojo#1) or review #2 (mojo#2). The two
+  # bot_packages rows share the package name and the notes are stored under
+  # the name, so both reports should show the same list. The dummy auth flow
+  # creates "tester" only on first login, so all seeds are authored by the
+  # existing test_bot user; tests verify admin-delete by logging in as tester
+  # and self-delete by writing a new note first.
+  my $bot_id = $app->users->find(login => 'test_bot')->{id};
+  my $notes  = $app->notes;
+
+  # 25 seeded notes so endless scroll must fetch a second page (default
+  # page size is 20). The oldest entry doubles as a lawyer-only fixture so
+  # the lawyer-only highlighting + tab-badge tinting always have data when
+  # an admin views the second page.
+  for my $i (1 .. 25) {
+    my $lawyer = $i == 1 ? 1 : 0;
+    my $body
+      = $i == 25
+      ? "Latest review notes.\n\n* check Apache-2.0 obligations\n* verify shipped LICENSE"
+      : "Seed note #$i for **perl-Mojolicious**.";
+    $notes->add(1, 'perl-Mojolicious', $bot_id, $body, $lawyer);
+  }
 }
 
 # Builds a real, indexable test package whose files each contain one

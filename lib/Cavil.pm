@@ -7,6 +7,7 @@ use Mojo::Base 'Mojolicious', -signatures;
 use Mojo::Pg;
 use Cavil::Classifier;
 use Cavil::Git;
+use Cavil::Model::Notes;
 use Cavil::Model::IgnoredFiles;
 use Cavil::Model::Packages;
 use Cavil::Model::Patterns;
@@ -139,6 +140,8 @@ sub startup ($self) {
 
   $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
 
+  $self->helper(notes => sub ($c) { state $nts = Cavil::Model::Notes->new(pg => $c->pg) });
+
   # Migrations (do not run automatically, use the migrate command)
   #
   my $path = $self->home->child('migrations', 'cavil.sql');
@@ -225,6 +228,11 @@ sub startup ($self) {
     ->name('report');
   $logged_in->get('/reviews/report_details/<id:num>')->to('Report#details')->name('report_details');
   $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json']])->to('Report#source', format => 'json');
+  $logged_in->get('/reviews/notes/<id:num>')->to('Notes#list')->name('list_notes');
+  $logged_in->post('/reviews/notes/<id:num>')->to('Notes#create')->name('create_note');
+  $logged_in->patch('/reviews/notes/<id:num>')->to('Notes#update')->name('update_note');
+  $logged_in->delete('/reviews/notes/<id:num>')->to('Notes#remove')->name('remove_note');
+  $logged_in->post('/reviews/notes/preview')->to('Notes#preview')->name('preview_note');
   $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
   $manager->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
   $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');

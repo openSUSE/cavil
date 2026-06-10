@@ -19,3 +19,4 @@ requires 'YAML::XS';
 requires 'JSON::Validator';
 requires 'Digest::SHA1';
 requires 'MCP', '>= 0.07';
+requires 'CommonMark';

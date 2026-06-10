@@ -83,7 +83,7 @@ Alternatively there are also two implementations for our legacy classifier API:
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
       perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
       perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
-      perl-Try-Tiny perl-MCP git git-lfs
+      perl-Try-Tiny perl-MCP perl-CommonMark git git-lfs
     $ npm i
     $ npm run build
 

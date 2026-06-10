@@ -278,3 +278,21 @@ DROP TABLE IF EXISTS api_keys CASCADE;
 ALTER TABLE bot_packages ADD COLUMN ai_assisted boolean DEFAULT false NOT NULL;
 ALTER TABLE api_keys ADD COLUMN write_access boolean DEFAULT false NOT NULL;
 CREATE INDEX ON bot_packages (ai_assisted);
+
+-- 34 up
+CREATE TABLE package_notes (
+  id           bigserial PRIMARY KEY,
+  package_name text NOT NULL,
+  package      int REFERENCES bot_packages(id) ON DELETE SET NULL,
+  author       int REFERENCES bot_users(id) NOT NULL,
+  ai_assisted  boolean DEFAULT false NOT NULL,
+  body         text NOT NULL,
+  lawyer_only  boolean DEFAULT false NOT NULL,
+  created      timestamp with time zone DEFAULT now() NOT NULL,
+  edited       timestamp with time zone
+);
+CREATE INDEX ON package_notes (package_name, id DESC);
+CREATE INDEX ON package_notes (author);
+
+-- 34 down
+DROP TABLE IF EXISTS package_notes;

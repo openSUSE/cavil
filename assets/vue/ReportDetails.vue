@@ -1,180 +1,234 @@
 <template>
   <div>
-    <div v-if="loading">
-      <ProgressBar v-if="stage" :stage="stage" />
+    <div class="report-tabs" role="tablist" id="report-tabs">
+      <button
+        type="button"
+        class="report-tab"
+        :class="{active: activeTab === 'review'}"
+        role="tab"
+        :aria-selected="activeTab === 'review'"
+        data-tab="review"
+        @click="setActiveTab('review')"
+      >
+        <i class="fa-solid fa-scale-balanced"></i> Report
+      </button>
+      <button
+        type="button"
+        class="report-tab"
+        :class="{active: activeTab === 'notes'}"
+        role="tab"
+        :aria-selected="activeTab === 'notes'"
+        data-tab="notes"
+        @click="setActiveTab('notes')"
+      >
+        <i class="fa-regular fa-note-sticky"></i>
+        Notes
+        <span
+          v-if="noteTotal !== null"
+          :class="['report-tab-badge', {'report-tab-badge-lawyer': noteLawyerCount > 0}]"
+          data-note-count
+          >{{ noteTotal }}</span
+        >
+      </button>
+    </div>
+    <div
+      class="report-tab-pane"
+      :class="{'is-active': activeTab === 'review'}"
+      :aria-hidden="activeTab !== 'review'"
+      role="tabpanel"
+    >
+      <div v-if="loading">
+        <ProgressBar v-if="stage" :stage="stage" />
+        <div v-else>
+          <span id="ajax-status">
+            <i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...
+          </span>
+        </div>
+      </div>
+      <div v-else-if="emptyReport" class="alert alert-success" role="alert">
+        No files matching any known license patterns or keywords have been found.
+      </div>
       <div v-else>
-        <span id="ajax-status">
-          <i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...
-        </span>
-      </div>
-    </div>
-    <div v-else-if="emptyReport" class="alert alert-success" role="alert">
-      No files matching any known license patterns or keywords have been found.
-    </div>
-    <div v-else>
-      <br />
-      <div v-if="chart !== null" class="row">
-        <div class="col mb-3">
-          <canvas id="license-chart" ref="chartCanvas" width="100%" height="18em"></canvas><br />
+        <br />
+        <div v-if="chart !== null" class="row">
+          <div class="col mb-3">
+            <canvas id="license-chart" ref="chartCanvas" width="100%" height="18em"></canvas><br />
+          </div>
         </div>
-      </div>
 
-      <div v-if="incompatibleLicenses.length > 0" id="incompatible-licenses" class="alert alert-danger">
-        <p>Elevated risk, package might contain incompatible licenses:</p>
-        <ul>
-          <li v-for="(match, idx) in incompatibleLicenses" :key="idx">{{ match.licenses.join(', ') }}</li>
-        </ul>
-      </div>
-
-      <div v-if="missedFiles.length > 0">
-        <div id="incomplete-warning" class="alert alert-warning">
-          Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
-          positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its
-          similarity to existing license patterns, the higher the risk will climb above the predicted license.
+        <div v-if="incompatibleLicenses.length > 0" id="incompatible-licenses" class="alert alert-danger">
+          <p>Elevated risk, package might contain incompatible licenses:</p>
+          <ul>
+            <li v-for="(match, idx) in incompatibleLicenses" :key="idx">{{ match.licenses.join(', ') }}</li>
+          </ul>
         </div>
-        <h4>
-          <div class="badge text-bg-dark">Risk 9</div>
-        </h4>
-        <div class="row">
-          <div class="col mb-3" id="unmatched-files">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            {{ unresolvedMatches }} unique unresolved {{ unresolvedMatches === 1 ? 'match' : 'matches' }} in (at least)
-            <span id="unmatched-count">{{ missedFiles.length }}</span>
-            {{ missedFiles.length === 1 ? 'file' : 'files' }}
-            <div id="filelist-snippets" class="collapse show">
-              <table class="table table-borderless m-0 ms-4 hover-table">
+
+        <div v-if="missedFiles.length > 0">
+          <div id="incomplete-warning" class="alert alert-warning">
+            Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
+            positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its
+            similarity to existing license patterns, the higher the risk will climb above the predicted license.
+          </div>
+          <h4>
+            <div class="badge text-bg-dark">Risk 9</div>
+          </h4>
+          <div class="row">
+            <div class="col mb-3" id="unmatched-files">
+              <i class="fa-solid fa-circle-exclamation"></i>
+              {{ unresolvedMatches }} unique unresolved {{ unresolvedMatches === 1 ? 'match' : 'matches' }} in (at
+              least)
+              <span id="unmatched-count">{{ missedFiles.length }}</span>
+              {{ missedFiles.length === 1 ? 'file' : 'files' }}
+              <div id="filelist-snippets" class="collapse show">
+                <table class="table table-borderless m-0 ms-4 hover-table">
+                  <tbody>
+                    <tr v-for="file in missedFiles" :key="file.id">
+                      <td class="breakable-column p-0">
+                        <a :href="'#file-' + file.id" class="file-link" @click="onFileLinkClick(file.id)">{{
+                          file.name
+                        }}</a>
+                      </td>
+                      <td class="p-0">
+                        <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
+                      </td>
+                      <td class="static-column p-0 text-end">
+                        estimated
+                        <div :class="['badge', 'estimated-risk', estimatedRiskClass(file.max_risk)]">
+                          Risk {{ file.max_risk }}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-for="risk in sortedRisks" :key="risk">
+          <h4>
+            <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
+          </h4>
+          <ul :id="'risk-' + risk">
+            <li v-for="lic in risks[risk]" :key="lic.list_id">
+              <span v-html="lic.name_html"></span>:
+              <a :href="'#' + lic.list_id" data-bs-toggle="collapse"> {{ lic.files.length }} files </a>
+              <p v-if="lic.flags.length > 0">Flags: {{ lic.flags.map(capitalize).join(', ') }}</p>
+              <div :id="lic.list_id" :class="lic.list_class">
+                <ul>
+                  <li v-for="file in lic.shown_files" :key="file[0]">
+                    <a :href="'#file-' + file[0]" class="file-link" @click="onFileLinkClick(file[0])">{{ file[1] }}</a>
+                  </li>
+                  <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
+                </ul>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="matchingGlobs.length > 0">
+          <h2>Files ignored by glob</h2>
+          <ul>
+            <li v-for="glob in matchingGlobs" :key="glob">{{ glob }}</li>
+          </ul>
+        </div>
+
+        <div v-if="files.length > 0">
+          <h2>Files</h2>
+          <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
+            <a :name="'file-' + file.id"></a>
+            <div class="file">
+              <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
+              <div class="float-end">
+                <a :href="file.file_url" target="_blank">
+                  <i class="fa-solid fa-up-right-from-square"></i>
+                </a>
+              </div>
+            </div>
+            <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
+              <FileSource
+                v-if="file.source"
+                :lines="file.source.lines"
+                :file-id="file.id"
+                :filename="file.source.filename"
+                :packname="file.source.name"
+                :has-admin-role="hasAdminRole"
+                :has-contributor-role="hasContributorRole"
+                :pending-actions="pendingActionsForFile(file.id)"
+                :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
+                @extend="onExtend(file, $event)"
+                @open-editor="openEditor"
+                @dismiss-action="dismissAction"
+                @close-editor="closeInlineEditor"
+                @editor-submit="onEditorSubmit"
+              />
+            </div>
+          </div>
+          <p v-if="hiddenInlinePreviews > 0" id="hidden-previews-notice" class="text-muted small ms-1 mb-3">
+            <i class="fa-solid fa-circle-info"></i>
+            Showing inline previews for {{ shownInlinePreviews }} of {{ missedFiles.length }} files with matches. Click
+            any file above to load the rest on demand.
+          </p>
+          <br />
+        </div>
+
+        <div v-if="emails.length > 0">
+          <h2>
+            <a href="#emails" data-bs-toggle="collapse"
+              >{{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}</a
+            >
+          </h2>
+          <div class="row collapse" id="emails">
+            <div class="col">
+              <table class="table table-striped transparent-table">
                 <tbody>
-                  <tr v-for="file in missedFiles" :key="file.id">
-                    <td class="breakable-column p-0">
-                      <a :href="'#file-' + file.id" class="file-link" @click="onFileLinkClick(file.id)">{{
-                        file.name
-                      }}</a>
-                    </td>
-                    <td class="p-0">
-                      <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
-                    </td>
-                    <td class="static-column p-0 text-end">
-                      estimated
-                      <div :class="['badge', 'estimated-risk', estimatedRiskClass(file.max_risk)]">
-                        Risk {{ file.max_risk }}
-                      </div>
-                    </td>
+                  <tr v-for="email in emails" :key="email[0]">
+                    <td>{{ email[0] }}</td>
+                    <td>{{ email[1] }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
-      </div>
 
-      <div v-for="risk in sortedRisks" :key="risk">
-        <h4>
-          <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
-        </h4>
-        <ul :id="'risk-' + risk">
-          <li v-for="lic in risks[risk]" :key="lic.list_id">
-            <span v-html="lic.name_html"></span>:
-            <a :href="'#' + lic.list_id" data-bs-toggle="collapse"> {{ lic.files.length }} files </a>
-            <p v-if="lic.flags.length > 0">Flags: {{ lic.flags.map(capitalize).join(', ') }}</p>
-            <div :id="lic.list_id" :class="lic.list_class">
-              <ul>
-                <li v-for="file in lic.shown_files" :key="file[0]">
-                  <a :href="'#file-' + file[0]" class="file-link" @click="onFileLinkClick(file[0])">{{ file[1] }}</a>
-                </li>
-                <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
-              </ul>
+        <div v-if="urls.length > 0">
+          <h2>
+            <a href="#urls" data-bs-toggle="collapse">{{ urls.length }} {{ urls.length === 1 ? 'URL' : 'URLs' }}</a>
+          </h2>
+          <div class="row collapse" id="urls">
+            <div class="col">
+              <table class="table table-striped transparent-table">
+                <tbody>
+                  <tr v-for="url in urls" :key="url[0]">
+                    <td>{{ url[0] }}</td>
+                    <td>{{ url[1] }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </li>
-        </ul>
-      </div>
-
-      <div v-if="matchingGlobs.length > 0">
-        <h2>Files ignored by glob</h2>
-        <ul>
-          <li v-for="glob in matchingGlobs" :key="glob">{{ glob }}</li>
-        </ul>
-      </div>
-
-      <div v-if="files.length > 0">
-        <h2>Files</h2>
-        <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
-          <a :name="'file-' + file.id"></a>
-          <div class="file">
-            <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
-            <div class="float-end">
-              <a :href="file.file_url" target="_blank">
-                <i class="fa-solid fa-up-right-from-square"></i>
-              </a>
-            </div>
-          </div>
-          <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
-            <FileSource
-              v-if="file.source"
-              :lines="file.source.lines"
-              :file-id="file.id"
-              :filename="file.source.filename"
-              :packname="file.source.name"
-              :has-admin-role="hasAdminRole"
-              :has-contributor-role="hasContributorRole"
-              :pending-actions="pendingActionsForFile(file.id)"
-              :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
-              @extend="onExtend(file, $event)"
-              @open-editor="openEditor"
-              @dismiss-action="dismissAction"
-              @close-editor="closeInlineEditor"
-              @editor-submit="onEditorSubmit"
-            />
           </div>
         </div>
-        <p v-if="hiddenInlinePreviews > 0" id="hidden-previews-notice" class="text-muted small ms-1 mb-3">
-          <i class="fa-solid fa-circle-info"></i>
-          Showing inline previews for {{ shownInlinePreviews }} of {{ missedFiles.length }} files with matches. Click
-          any file above to load the rest on demand.
-        </p>
+
         <br />
       </div>
-
-      <div v-if="emails.length > 0">
-        <h2>
-          <a href="#emails" data-bs-toggle="collapse"
-            >{{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}</a
-          >
-        </h2>
-        <div class="row collapse" id="emails">
-          <div class="col">
-            <table class="table table-striped transparent-table">
-              <tbody>
-                <tr v-for="email in emails" :key="email[0]">
-                  <td>{{ email[0] }}</td>
-                  <td>{{ email[1] }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="urls.length > 0">
-        <h2>
-          <a href="#urls" data-bs-toggle="collapse">{{ urls.length }} {{ urls.length === 1 ? 'URL' : 'URLs' }}</a>
-        </h2>
-        <div class="row collapse" id="urls">
-          <div class="col">
-            <table class="table table-striped transparent-table">
-              <tbody>
-                <tr v-for="url in urls" :key="url[0]">
-                  <td>{{ url[0] }}</td>
-                  <td>{{ url[1] }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <br />
+      <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
     </div>
-    <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
+    <div
+      class="report-tab-pane"
+      :class="{'is-active': activeTab === 'notes'}"
+      :aria-hidden="activeTab !== 'notes'"
+      id="report-notes-pane"
+      role="tabpanel"
+    >
+      <ReportNotes
+        v-if="notesMounted"
+        :pkg-id="pkgId"
+        :can-post-lawyer-only="canPostLawyerOnly"
+        :seek-note-id="seekNoteId"
+        @counts-changed="onNotesCountsChanged"
+      />
+    </div>
 
     <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
       <div class="modal-dialog">
@@ -210,6 +264,7 @@
 import FileSource from './components/FileSource.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
+import ReportNotes from './components/ReportNotes.vue';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import {Modal} from 'bootstrap';
@@ -220,7 +275,7 @@ let openEditorKeySeq = 0;
 
 export default {
   name: 'ReportDetails',
-  components: {FileSource, PendingActionsWidget, ProgressBar},
+  components: {FileSource, PendingActionsWidget, ProgressBar, ReportNotes},
   mixins: [Refresh],
   provide() {
     return {
@@ -253,6 +308,12 @@ export default {
       openInlineEditor: null,
       pendingActions: [],
       hashHandled: false,
+      activeTab: 'review',
+      notesMounted: false,
+      noteTotal: null,
+      noteLawyerCount: 0,
+      canPostLawyerOnly: false,
+      seekNoteId: null,
       refreshDelay: 5000,
       refreshUrl: `/reviews/report_details/${this.pkgId}`,
       risks: {},
@@ -278,6 +339,8 @@ export default {
   },
   mounted() {
     window.addEventListener('keydown', this.handleKeydown);
+    this.applyInitialNoteHash();
+    this.loadInitialNoteCount();
   },
   beforeUnmount() {
     if (this.chartInstance) this.chartInstance.destroy();
@@ -288,6 +351,44 @@ export default {
     }
   },
   methods: {
+    setActiveTab(tab) {
+      this.activeTab = tab;
+      if (tab === 'notes') this.notesMounted = true;
+    },
+    applyInitialNoteHash() {
+      // Permalink format: #note-<id>. Switch to the Notes tab on mount
+      // so the deep link resolves before the user has to click anything.
+      const m = (window.location.hash || '').match(/^#note-(\d+)$/);
+      if (!m) return;
+      this.seekNoteId = Number(m[1]);
+      this.activeTab = 'notes';
+      this.notesMounted = true;
+    },
+    async loadInitialNoteCount() {
+      // Cheap one-shot count fetch so the tab badge appears before the user
+      // clicks on Notes. Endless-scroll page fetches re-emit counts.
+      try {
+        const ua = new UserAgent({baseURL: window.location.href});
+        const res = await ua.get(`/reviews/notes/${this.pkgId}`, {query: {limit: 1}});
+        if (!res.isSuccess) return;
+        const data = await res.json();
+        this.noteTotal = data.total;
+        this.noteLawyerCount = data.lawyer_only;
+        this.canPostLawyerOnly = !!data.can_lawyer_only;
+      } catch (_) {
+        // Silent: note count is informational.
+      }
+    },
+    onNotesCountsChanged(payload) {
+      if (typeof payload.total === 'number') this.noteTotal = payload.total;
+      if (typeof payload.lawyer_only === 'number') this.noteLawyerCount = payload.lawyer_only;
+      if (typeof payload.bump === 'number') {
+        this.noteTotal = Math.max(0, (this.noteTotal ?? 0) + payload.bump);
+      }
+      if (typeof payload.lawyer_only_bump === 'number') {
+        this.noteLawyerCount = Math.max(0, this.noteLawyerCount + payload.lawyer_only_bump);
+      }
+    },
     capitalize(str) {
       return str.charAt(0).toUpperCase() + str.slice(1);
     },
@@ -675,6 +776,68 @@ export default {
 </script>
 
 <style>
+.report-tabs {
+  align-items: stretch;
+  border-bottom: 1px solid #d0d7de;
+  display: flex;
+  gap: 4px;
+  margin: 24px 0 16px;
+}
+.report-tab {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: #57606a;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 8px;
+  margin-bottom: -1px;
+  padding: 10px 16px;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.report-tab:hover:not(:disabled):not(.active) {
+  background: #f3f5f7;
+  color: #1f2328;
+}
+.report-tab.active {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #1f2328;
+  font-weight: 600;
+}
+.report-tab-badge {
+  background: #eaeef2;
+  border-radius: 10px;
+  color: #57606a;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 8px;
+}
+.report-tab.active .report-tab-badge {
+  background: #ddf4ff;
+  color: #0969da;
+}
+.report-tab-badge.report-tab-badge-lawyer {
+  background: #fff8c5;
+  color: #7d4e00;
+}
+.report-tab.active .report-tab-badge.report-tab-badge-lawyer {
+  background: #fbeec0;
+  color: #5c3a00;
+}
+.report-tab-pane {
+  display: none;
+}
+.report-tab-pane.is-active {
+  display: block;
+}
 .shortcuts-modal-body {
   padding: 1rem 1.25rem 1.25rem;
 }

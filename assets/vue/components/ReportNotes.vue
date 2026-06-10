@@ -1,0 +1,661 @@
+<template>
+  <div class="report-notes">
+    <div v-if="initialLoading" class="report-notes-loading">
+      <i class="fa-solid fa-spinner fa-pulse"></i> Loading notes...
+    </div>
+    <div v-else>
+      <div v-if="notes.length === 0 && !loadError" class="report-notes-empty">
+        <i class="fa-regular fa-note-sticky"></i>
+        <p class="mb-0">No notes yet. Leave the first one to help future reviewers.</p>
+      </div>
+      <ul v-else class="report-notes-list">
+        <li
+          v-for="c in notes"
+          :key="c.id"
+          :id="`note-${c.id}`"
+          :class="['report-note', {'report-note-lawyer-only': c.lawyer_only}]"
+          :data-note-id="c.id"
+        >
+          <div class="report-note-header">
+            <span class="report-note-avatar" :title="authorTitle(c)">
+              {{ initial(c) }}
+            </span>
+            <div class="report-note-byline">
+              <span class="report-note-author" :title="authorTitle(c)">{{ c.author.login }}</span>
+              <span
+                v-if="c.author.badge"
+                :class="['report-note-role', `report-note-role-${c.author.badge}`]"
+                :title="`Role: ${c.author.badge}`"
+                :data-note-role="c.author.badge"
+                >{{ c.author.badge }}</span
+              >
+              wrote
+              <a
+                class="report-note-permalink"
+                :href="permalink(c)"
+                :title="formatExact(c.created_epoch)"
+                data-note-permalink
+                >{{ formatRelative(c.created_epoch) }}</a
+              >
+              <span
+                v-if="c.edited_epoch"
+                class="report-note-edited"
+                :title="`Edited ${formatExact(c.edited_epoch)}`"
+                data-note-edited
+                >· edited {{ formatRelative(c.edited_epoch) }}</span
+              >
+              <template v-if="c.original_package && c.original_package.id !== null && c.original_package.state">
+                on
+                <a
+                  :class="['report-note-state-link', stateBadgeClass(c.original_package.state)]"
+                  :href="reportUrl(c.original_package.id)"
+                  target="_blank"
+                  rel="noopener"
+                  :title="originTitle(c)"
+                  data-note-state-link
+                  >{{ c.original_package.state }}</a
+                >
+              </template>
+            </div>
+            <div class="report-note-badges">
+              <span
+                v-if="c.lawyer_only"
+                class="report-note-badge lawyer-only-badge"
+                title="Visible to lawyers and admins only"
+              >
+                <i class="fa-solid fa-scale-balanced"></i> Lawyers only
+              </span>
+              <button
+                v-if="c.can_edit && editingId !== c.id"
+                type="button"
+                class="report-note-edit"
+                :disabled="savingId === c.id"
+                title="Edit this note"
+                :data-note-edit="c.id"
+                @click="startEdit(c)"
+              >
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button
+                v-if="c.can_delete && editingId !== c.id"
+                type="button"
+                class="report-note-delete"
+                :disabled="deletingId === c.id"
+                title="Delete this note"
+                :data-note-delete="c.id"
+                @click="deleteNote(c)"
+              >
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div v-if="editingId === c.id" class="report-note-edit-pane" data-note-edit-pane>
+            <MarkdownComposer
+              v-model="editDraft"
+              :saving="savingId === c.id"
+              :error="editError"
+              save-label="Save"
+              save-busy-label="Saving…"
+              :data-attr="`edit-${c.id}`"
+              @save="saveEdit(c)"
+              @cancel="cancelEdit"
+            />
+          </div>
+          <div v-else class="report-note-body markdown-body" v-html="c.body_html"></div>
+        </li>
+      </ul>
+
+      <div v-if="loadError" class="report-notes-error">
+        <i class="fa-solid fa-triangle-exclamation"></i> {{ loadError }}
+        <button type="button" class="report-note-retry" @click="loadMore">Retry</button>
+      </div>
+
+      <div v-if="!loadError && hasMore" ref="sentinel" class="report-notes-sentinel" data-notes-sentinel>
+        <i v-if="loadingMore" class="fa-solid fa-spinner fa-pulse"></i>
+        <span v-else>Scroll to load more</span>
+      </div>
+
+      <div class="report-note-form" data-note-form>
+        <label class="report-note-form-label">Add a note</label>
+        <MarkdownComposer
+          v-model="draft"
+          :saving="submitting"
+          :error="submitError"
+          :placeholder="formPlaceholder"
+          save-label="Note"
+          save-busy-label="Posting…"
+          data-attr="new"
+          @save="submit"
+        >
+          <template #leading>
+            <label v-if="canPostLawyerOnly" class="report-note-lawyer-toggle">
+              <input type="checkbox" v-model="lawyerOnly" class="form-check-input" data-note-lawyer-only />
+              Lawyers only
+            </label>
+          </template>
+        </MarkdownComposer>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import MarkdownComposer from './MarkdownComposer.vue';
+import UserAgent from '@mojojs/user-agent';
+import moment from 'moment';
+
+const STATE_CLASS = {
+  new: 'badge-state-new',
+  acceptable: 'badge-state-acceptable',
+  acceptable_by_lawyer: 'badge-state-acceptable-lawyer',
+  unacceptable: 'badge-state-unacceptable',
+  waiting: 'badge-state-new',
+  obsolete: 'badge-state-new'
+};
+
+export default {
+  name: 'ReportNotes',
+  components: {MarkdownComposer},
+  props: {
+    pkgId: {type: Number, required: true},
+    canPostLawyerOnly: {type: Boolean, default: false},
+    seekNoteId: {type: Number, default: null}
+  },
+  emits: ['counts-changed'],
+  computed: {
+    formPlaceholder() {
+      return this.canPostLawyerOnly
+        ? 'Use Markdown for formatting. Lawyer-only notes stay visible to lawyers and admins.'
+        : 'Use Markdown for formatting.';
+    }
+  },
+  data() {
+    return {
+      notes: [],
+      hasMore: false,
+      initialLoading: true,
+      loadingMore: false,
+      loadError: null,
+      submitting: false,
+      submitError: null,
+      deletingId: null,
+      draft: '',
+      lawyerOnly: false,
+      editingId: null,
+      editDraft: '',
+      editError: null,
+      savingId: null,
+      observer: null,
+      ua: new UserAgent({baseURL: window.location.href})
+    };
+  },
+  async mounted() {
+    await this.loadMore();
+    if (this.seekNoteId !== null) await this.seekToNote(this.seekNoteId);
+    this.setupObserver();
+  },
+  beforeUnmount() {
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+  },
+  methods: {
+    formatRelative(epoch) {
+      return moment(epoch * 1000).fromNow();
+    },
+    formatExact(epoch) {
+      return moment(epoch * 1000).format('YYYY-MM-DD HH:mm');
+    },
+    initial(c) {
+      return (c.author.login || '?').charAt(0).toUpperCase();
+    },
+    authorTitle(c) {
+      return c.author.fullname ? `${c.author.login} (${c.author.fullname})` : c.author.login;
+    },
+    reportUrl(id) {
+      return `/reviews/details/${id}`;
+    },
+    permalink(c) {
+      // Anchor on this review (notes are shared across versions, so the
+      // anchor resolves no matter which version the user shares).
+      return `/reviews/details/${this.pkgId}#note-${c.id}`;
+    },
+    originTitle(c) {
+      const link = c.original_package.external_link ? ` (${c.original_package.external_link})` : '';
+      return `Opens originating report${link} in a new tab`;
+    },
+    stateBadgeClass(state) {
+      return STATE_CLASS[state] || 'badge-state-new';
+    },
+    setupObserver() {
+      const target = this.$refs.sentinel;
+      if (!target || typeof IntersectionObserver === 'undefined') return;
+      this.observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && this.hasMore && !this.loadingMore) this.loadMore();
+        }
+      });
+      this.observer.observe(target);
+    },
+    async loadMore() {
+      if (this.loadingMore) return;
+      this.loadError = null;
+      if (this.notes.length === 0) this.initialLoading = true;
+      else this.loadingMore = true;
+      try {
+        const qs = {limit: 20};
+        if (this.notes.length > 0) qs.before_id = this.notes[this.notes.length - 1].id;
+        const res = await this.ua.get(`/reviews/notes/${this.pkgId}`, {query: qs});
+        if (!res.isSuccess) {
+          this.loadError = `Failed to load notes (HTTP ${res.statusCode})`;
+          return;
+        }
+        const data = await res.json();
+        this.notes.push(...data.notes);
+        this.hasMore = !!data.has_more;
+        this.$emit('counts-changed', {total: data.total, lawyer_only: data.lawyer_only});
+        await this.$nextTick();
+        this.setupObserver();
+      } catch (err) {
+        this.loadError = err.message || 'Failed to load notes';
+      } finally {
+        this.initialLoading = false;
+        this.loadingMore = false;
+      }
+    },
+    async submit() {
+      const body = this.draft.trim();
+      if (!body || this.submitting) return;
+      this.submitting = true;
+      this.submitError = null;
+      try {
+        const res = await this.ua.post(`/reviews/notes/${this.pkgId}`, {
+          form: {body, lawyer_only: this.lawyerOnly ? '1' : '0'}
+        });
+        if (!res.isSuccess) {
+          let msg = `Failed (HTTP ${res.statusCode})`;
+          try {
+            const data = await res.json();
+            if (data && data.error) msg = data.error;
+          } catch (_) {
+            // ignore
+          }
+          this.submitError = msg;
+          return;
+        }
+        const data = await res.json();
+        this.notes.unshift(data.note);
+        this.draft = '';
+        this.lawyerOnly = false;
+        // Re-fetch counts via a HEAD-like call would be cheap; piggyback on
+        // the next page request instead: refresh counts by re-counting locally
+        // + bumping totals from the server's lawyer flag.
+        this.$emit('counts-changed', {bump: 1, lawyer_only_bump: data.note.lawyer_only ? 1 : 0});
+      } catch (err) {
+        this.submitError = err.message || 'Failed to submit note';
+      } finally {
+        this.submitting = false;
+      }
+    },
+    async seekToNote(targetId) {
+      // Paginate until the note shows up or the list is exhausted. Bounded
+      // by a safety limit so a non-existent (or someone-else's-package) id
+      // can't trigger an infinite loop.
+      let safety = 50;
+      while (!this.notes.find(c => c.id === targetId) && this.hasMore && safety-- > 0) {
+        await this.loadMore();
+        if (this.loadError) return;
+      }
+      await this.$nextTick();
+      const el = document.getElementById(`note-${targetId}`);
+      if (!el) return;
+      el.scrollIntoView({behavior: 'smooth', block: 'center'});
+      el.classList.add('report-note-highlight');
+      setTimeout(() => el.classList.remove('report-note-highlight'), 2000);
+    },
+    startEdit(c) {
+      this.editingId = c.id;
+      this.editDraft = c.body;
+      this.editError = null;
+    },
+    cancelEdit() {
+      this.editingId = null;
+      this.editDraft = '';
+      this.editError = null;
+    },
+    async saveEdit(c) {
+      const body = (this.editDraft || '').trim();
+      if (!body || this.savingId === c.id) return;
+      this.savingId = c.id;
+      this.editError = null;
+      try {
+        const res = await this.ua.patch(`/reviews/notes/${c.id}`, {form: {body}});
+        if (!res.isSuccess) {
+          let msg = `Failed (HTTP ${res.statusCode})`;
+          try {
+            const data = await res.json();
+            if (data && data.error) msg = data.error;
+          } catch (_) {
+            // ignore
+          }
+          this.editError = msg;
+          return;
+        }
+        const data = await res.json();
+        const idx = this.notes.findIndex(x => x.id === c.id);
+        if (idx >= 0) this.notes.splice(idx, 1, data.note);
+        this.cancelEdit();
+      } catch (err) {
+        this.editError = err.message || 'Failed to save edit';
+      } finally {
+        this.savingId = null;
+      }
+    },
+    async deleteNote(c) {
+      // eslint-disable-next-line no-alert
+      if (!window.confirm('Delete this note?')) return;
+      this.deletingId = c.id;
+      try {
+        const res = await this.ua.delete(`/reviews/notes/${c.id}`);
+        if (!res.isSuccess) return;
+        const idx = this.notes.findIndex(x => x.id === c.id);
+        if (idx >= 0) this.notes.splice(idx, 1);
+        this.$emit('counts-changed', {bump: -1, lawyer_only_bump: c.lawyer_only ? -1 : 0});
+      } finally {
+        this.deletingId = null;
+      }
+    }
+  }
+};
+</script>
+
+<style>
+.report-notes {
+  padding-bottom: 24px;
+}
+.report-notes-loading,
+.report-notes-empty {
+  align-items: center;
+  border: 1px dashed #d0d7de;
+  border-radius: 8px;
+  color: #57606a;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  margin: 24px 0;
+  padding: 40px 20px;
+  text-align: center;
+}
+.report-notes-empty i {
+  color: #afb8c1;
+  font-size: 28px;
+}
+.report-notes-error {
+  align-items: center;
+  background: #ffebe9;
+  border: 1px solid #ff818266;
+  border-radius: 6px;
+  color: #82071e;
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 8px 12px;
+}
+.report-note-retry {
+  background: transparent;
+  border: 1px solid #cf222e;
+  border-radius: 6px;
+  color: #cf222e;
+  cursor: pointer;
+  margin-left: auto;
+  padding: 2px 10px;
+}
+.report-notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.report-note {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  position: relative;
+}
+.report-note-lawyer-only {
+  border-left: 4px solid #bf8700;
+  background: linear-gradient(180deg, rgba(255, 244, 207, 0.45) 0%, #ffffff 60px);
+}
+.report-note-header {
+  align-items: center;
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.report-note-lawyer-only .report-note-header {
+  background: #fff8e1;
+  border-bottom-color: #e9c46a;
+}
+.report-note-avatar {
+  align-items: center;
+  background: #0969da;
+  border-radius: 50%;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+.report-note-byline {
+  color: #57606a;
+  flex: 1 1 auto;
+  font-size: 13px;
+  min-width: 0;
+}
+.report-note-author {
+  color: #1f2328;
+  font-weight: 600;
+}
+.report-note-role {
+  border: 1px solid transparent;
+  border-radius: 2em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 16px;
+  margin-left: 4px;
+  padding: 0 7px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.report-note-role-lawyer {
+  background: #fff8c5;
+  border-color: #d4a72c66;
+  color: #7d4e00;
+}
+.report-note-role-admin {
+  background: #ddf4ff;
+  border-color: #54aeff66;
+  color: #0550ae;
+}
+.report-note-role-user {
+  background: #eaeef2;
+  border-color: rgba(110, 119, 129, 0.25);
+  color: #57606a;
+}
+.report-note-date {
+  color: #57606a;
+}
+.report-note-permalink {
+  color: #57606a;
+  text-decoration: none;
+}
+.report-note-permalink:hover {
+  color: #0969da;
+  text-decoration: underline;
+}
+.report-note-state-link {
+  border: 1px solid transparent;
+  border-radius: 2em;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  padding: 0 7px;
+  text-decoration: none;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+.report-note-state-link:hover {
+  filter: brightness(0.95);
+  text-decoration: none;
+}
+.report-note-highlight {
+  animation: report-note-flash 2s ease-out;
+}
+@keyframes report-note-flash {
+  0% {
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(9, 105, 218, 0);
+  }
+}
+.report-note-badges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.report-note-badge {
+  border: 1px solid transparent;
+  border-radius: 2em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 18px;
+  padding: 0 8px;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+.report-note-badge.lawyer-only-badge {
+  background: #fff8c5;
+  border-color: #d4a72c66;
+  color: #7d4e00;
+  text-transform: none;
+}
+.badge-state-acceptable {
+  background: rgba(154, 103, 0, 0.12);
+  border-color: rgba(154, 103, 0, 0.25);
+  color: #9a6700;
+}
+.badge-state-acceptable-lawyer {
+  background: rgba(31, 136, 61, 0.12);
+  border-color: rgba(31, 136, 61, 0.25);
+  color: #1a7f37;
+}
+.badge-state-unacceptable {
+  background: rgba(207, 34, 46, 0.12);
+  border-color: rgba(207, 34, 46, 0.25);
+  color: #cf222e;
+}
+.badge-state-new {
+  background: rgba(110, 119, 129, 0.12);
+  border-color: rgba(110, 119, 129, 0.25);
+  color: #57606a;
+}
+.report-note-edit,
+.report-note-delete {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #57606a;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.report-note-edit:hover:not(:disabled) {
+  background: #ddf4ff;
+  border-color: #54aeff66;
+  color: #0550ae;
+}
+.report-note-delete:hover:not(:disabled) {
+  background: #ffebe9;
+  border-color: #ffcecb;
+  color: #cf222e;
+}
+.report-note-edited {
+  color: #57606a;
+  font-size: 12px;
+  margin-left: 6px;
+}
+.report-note-edit-pane {
+  padding: 12px 16px;
+}
+.report-note-body {
+  color: #1f2328;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 14px 16px;
+}
+.report-note-body p:last-child {
+  margin-bottom: 0;
+}
+.report-note-body pre {
+  background: #f6f8fa;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow: auto;
+  padding: 12px;
+}
+.report-note-body code {
+  background: rgba(175, 184, 193, 0.2);
+  border-radius: 4px;
+  font-size: 85%;
+  padding: 0.2em 0.4em;
+}
+.report-note-body pre code {
+  background: transparent;
+  padding: 0;
+}
+.report-note-body blockquote {
+  border-left: 3px solid #d0d7de;
+  color: #57606a;
+  margin: 0 0 12px;
+  padding-left: 12px;
+}
+.report-notes-sentinel {
+  color: #57606a;
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}
+.report-note-form {
+  margin-top: 24px;
+}
+.report-note-form-label {
+  color: #1f2328;
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.report-note-lawyer-toggle {
+  align-items: center;
+  color: #57606a;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 6px;
+  margin-right: auto;
+}
+.report-note-lawyer-toggle .form-check-input {
+  margin: 0;
+}
+</style>

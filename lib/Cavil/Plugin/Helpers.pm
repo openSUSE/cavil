@@ -19,6 +19,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(minimal_snippet);
 use Cavil::Util       qw(spdx_link);
+use CommonMark        ();
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(to_json);
 use Mojo::Util        qw(decode humanize_bytes xml_escape);
@@ -38,6 +39,14 @@ sub register ($self, $app, $config) {
   $app->helper('report_details'                => \&_report_details);
   $app->helper('reply.json_validation_error'   => \&_json_validation_error);
   $app->helper('format_file'                   => \&_format_file);
+  $app->helper('markdown_to_safe_html'         => \&_markdown_to_safe_html);
+}
+
+sub _markdown_to_safe_html ($c, $text) {
+  return '' unless defined $text && length $text;
+
+  # OPT_SAFE strips raw HTML and dangerous URL schemes (javascript:, data:, vbscript:).
+  return CommonMark->markdown_to_html($text, CommonMark::OPT_SAFE());
 }
 
 sub _chart_data ($c, $hash) {
