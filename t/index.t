@@ -167,17 +167,21 @@ subtest 'Pattern change' => sub {
     ->header_is(Location => '/licenses/edit_pattern/1');
   $t->get_ok('/licenses/Apache-2.0')
     ->status_is(200)
-    ->element_exists('div div a[href=/licenses/edit_pattern/1]')
-    ->text_is('div pre' => 'real-time web framework')
+    ->element_exists('#license-details')
     ->text_like('.alert-success' => qr/Pattern has been updated, reindexing all affected packages/);
+  $t->get_ok('/licenses/meta/Apache-2.0')->status_is(200)->json_is('/display_license' => 'Apache-2.0');
+  my $patterns = $t->tx->res->json->{patterns};
+  my ($pattern) = grep { $_->{id} == 1 } @$patterns;
+  is $pattern->{pattern}, 'real-time web framework', 'license meta includes updated pattern';
+  ok exists $pattern->{matches_capped},  'license meta includes match cap marker';
+  ok exists $pattern->{packages_capped}, 'license meta includes package cap marker';
 
   $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2'})
     ->status_is(302)
     ->header_is(Location => '/licenses/Apache-2.0');
   $t->get_ok('/licenses/Apache-2.0')
     ->status_is(200)
-    ->element_exists('div div a[href=/licenses/edit_pattern/1]')
-    ->text_is('div pre' => 'real-time web framework')
+    ->element_exists('#license-details')
     ->text_like('.alert-danger' => qr/not a valid SPDX expression/);
 
   $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})
@@ -185,9 +189,9 @@ subtest 'Pattern change' => sub {
     ->header_is(Location => '/licenses/Apache-2.0');
   $t->get_ok('/licenses/Apache-2.0')
     ->status_is(200)
-    ->element_exists('div div a[href=/licenses/edit_pattern/1]')
-    ->text_is('div pre' => 'real-time web framework')
+    ->element_exists('#license-details')
     ->text_like('.alert-success' => qr/2 patterns have been updated/);
+  $t->get_ok('/licenses/meta/Apache-2.0')->status_is(200)->json_is('/spdx' => 'Apache-2.0');
 };
 
 subtest 'Pattern detail JSON endpoint' => sub {
@@ -213,6 +217,30 @@ subtest 'Pattern match count JSON endpoint' => sub {
   # Logging out must put the JSON endpoint back behind the login wall.
   $t->get_ok('/logout')->status_is(302);
   $t->get_ok('/licenses/pattern/1/match_count.json')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/login')->status_is(302);
+};
+
+subtest 'License detail JSON endpoint permissions' => sub {
+  $t->get_ok('/licenses/meta/Apache-2.0')
+    ->status_is(200)
+    ->json_is('/license'   => 'Apache-2.0')
+    ->json_is('/can_admin' => 1);
+
+  $t->post_ok('/licenses/meta/Apache-2.0' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})
+    ->status_is(200)
+    ->json_is('/updated' => 2);
+
+  $t->get_ok('/logout')->status_is(302);
+  $t->get_ok('/licenses/meta/Apache-2.0')
+    ->status_is(200)
+    ->json_is('/license'   => 'Apache-2.0')
+    ->json_is('/can_admin' => 0);
+  $t->post_ok('/licenses/meta/Apache-2.0' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})
+    ->status_is(403)
+    ->content_like(qr/Permission/);
+  $t->post_ok('/licenses/pattern/1.json' => form => {license => 'Apache-2.0', pattern => 'real-time web framework'})
+    ->status_is(403)
+    ->content_like(qr/Permission/);
   $t->get_ok('/login')->status_is(302);
 };
 

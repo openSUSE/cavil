@@ -92,7 +92,7 @@
               <button
                 v-if="allowActions && c.can_edit && editingId !== c.id"
                 type="button"
-                class="report-note-edit"
+                class="report-note-edit cavil-icon-action"
                 :disabled="savingId === c.id"
                 title="Edit this note"
                 :data-note-edit="c.id"
@@ -103,7 +103,7 @@
               <button
                 v-if="allowActions && c.can_delete && editingId !== c.id"
                 type="button"
-                class="report-note-delete"
+                class="report-note-delete cavil-icon-action cavil-icon-action-danger"
                 :disabled="deletingId === c.id"
                 title="Delete this note"
                 :data-note-delete="c.id"
@@ -466,12 +466,6 @@ export default {
   border-left: 4px solid #bf8700;
   background: linear-gradient(180deg, rgba(255, 244, 207, 0.45) 0%, #ffffff 60px);
 }
-.report-note-other-report {
-  border-left: 4px solid #0969da;
-}
-.report-note-lawyer-only.report-note-other-report {
-  border-left-color: #8250df;
-}
 .report-note-header {
   align-items: center;
   background: #f6f8fa;
@@ -609,24 +603,10 @@ export default {
   background: #b6e3ff;
   text-decoration: none;
 }
-.report-note-edit,
-.report-note-delete {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: #57606a;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 6px;
-}
 .report-note-edit:hover:not(:disabled) {
-  background: #ddf4ff;
-  border-color: #54aeff66;
   color: #0550ae;
 }
 .report-note-delete:hover:not(:disabled) {
-  background: #ffebe9;
-  border-color: #ffcecb;
   color: #cf222e;
 }
 .report-note-edited {

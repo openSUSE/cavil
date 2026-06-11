@@ -43,7 +43,7 @@
             <tbody v-else-if="products.length > 0">
               <tr v-for="product in products" :key="product.link">
                 <td v-html="product.link"></td>
-                <td class="timeago">{{ product.updated }}</td>
+                <td class="relative-time">{{ product.updated }}</td>
                 <td>
                   <div v-if="product.unacceptable_packages > 0" class="cavil-bad-badge badge text-bg-danger">
                     {{ product.unacceptable_packages }}

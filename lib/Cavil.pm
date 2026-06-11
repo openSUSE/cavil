@@ -221,6 +221,9 @@ sub startup ($self) {
     ->name('pagination_review_search');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
   $logged_in->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
+  $logged_in->get('/reviews/file_view_meta/<id:num>/*file' => {file => ''})
+    ->to('Reviewer#file_view_meta')
+    ->name('file_view_meta');
   $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
   $logged_in->get('/reviews/report/<id:num>' => [format => ['json', 'txt']])
@@ -249,6 +252,7 @@ sub startup ($self) {
   $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
   $logged_in->get('/licenses/proposed')->to('License#proposed')->name('proposed_patterns');
   $logged_in->get('/licenses/missing')->to('License#missing')->name('missing_licenses');
+  $logged_in->get('/licenses/proposed/stats')->to('License#proposal_stats')->name('proposed_patterns_stats');
   $logged_in->get('/licenses/proposed/meta')->to('License#proposed_meta')->name('proposed_patterns_meta');
   $logged_in->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
   $logged_in->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
@@ -266,9 +270,14 @@ sub startup ($self) {
   $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');
 
   $logged_in->get('/licenses/pattern/<id:num>.json')->to('License#pattern_detail')->name('pattern_detail');
+  $admin->post('/licenses/pattern/<id:num>.json')->to('License#update_pattern_json')->name('update_pattern_json');
   $logged_in->get('/licenses/pattern/<id:num>/match_count.json')
     ->to('License#match_count_json')
     ->name('pattern_match_count');
+  $public->get('/licenses/meta/*name' => {name => ''})->to('License#show_meta')->name('license_show_meta');
+  $admin->post('/licenses/meta/*name' => {name => ''})
+    ->to('License#update_patterns_json')
+    ->name('update_patterns_json');
   $admin->get('/licenses/edit_pattern/<id:num>')->to('License#edit_pattern')->name('edit_pattern');
   $admin->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
   $admin->post('/licenses/update_patterns')->to('License#update_patterns')->name('update_patterns');

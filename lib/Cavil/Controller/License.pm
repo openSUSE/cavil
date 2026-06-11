@@ -17,6 +17,7 @@ package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Cavil::Licenses qw(lic);
+use Cavil::Util     qw(spdx_link);
 
 sub create_pattern ($self) {
   my $validation = $self->validation;
@@ -74,6 +75,24 @@ sub pattern_detail ($self) {
   $self->render(json => $pattern);
 }
 
+sub show_meta ($self) {
+  my $name = $self->stash('name');
+  $name = '' if $name eq '*Pattern without license*';
+  my $patterns = $self->patterns->for_license($name);
+  return $self->reply->not_found unless @$patterns;
+  my $spdx = $patterns->[0]{spdx} // '';
+  $self->render(
+    json => {
+      license         => $name,
+      display_license => $name eq '' ? '*Pattern without license*' : $name,
+      spdx            => $spdx,
+      spdx_html       => spdx_link($spdx),
+      patterns        => $patterns,
+      can_admin       => $self->current_user_has_role('admin') ? \1 : \0
+    }
+  );
+}
+
 sub missing ($self) {
   $self->render('license/missing_licenses');
 }
@@ -100,6 +119,10 @@ sub new_pattern ($self) {
 
 sub proposed ($self) {
   $self->render('license/proposed_patterns');
+}
+
+sub proposal_stats ($self) {
+  $self->render(json => $self->patterns->proposal_stats);
 }
 
 sub proposed_meta ($self) {
@@ -141,7 +164,6 @@ sub recent_meta ($self) {
 sub remove_pattern ($self) {
   my $id       = $self->stash('id');
   my $patterns = $self->patterns;
-  my $pattern  = $patterns->find($id);
   $self->packages->reindex_matched_packages($id);
   $patterns->expire_cache;
   $patterns->remove($id);
@@ -163,7 +185,7 @@ sub remove_proposal ($self) {
 sub show ($self) {
   my $name = $self->stash('name');
   $name = '' if $name eq '*Pattern without license*';
-  $self->render(license => $name, patterns => $self->patterns->for_license($name));
+  $self->render(license => $name);
 }
 
 sub update_pattern ($self) {
@@ -204,6 +226,41 @@ sub update_pattern ($self) {
   $self->redirect_to('edit_pattern', id => $id);
 }
 
+sub update_pattern_json ($self) {
+  my $validation = $self->validation;
+  $validation->required('pattern');
+  $validation->optional('license');
+  $validation->optional('packname');
+  $validation->optional('risk')->num;
+  $validation->optional('patent');
+  $validation->optional('trademark');
+  $validation->optional('export_restricted');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $id       = $self->stash('id');
+  my $patterns = $self->patterns;
+  my $pattern  = $validation->param('pattern');
+  my $owner_id = $self->users->id_for_login($self->current_user);
+
+  my $result = $patterns->update(
+    $id,
+    packname          => $validation->param('packname'),
+    pattern           => $pattern,
+    license           => $validation->param('license'),
+    patent            => $validation->param('patent'),
+    trademark         => $validation->param('trademark'),
+    export_restricted => $validation->param('export_restricted'),
+    risk              => $validation->param('risk'),
+    owner             => $owner_id
+  );
+  return $self->render(json => {error => 'Conflicting license pattern already exists.'}, status => 409)
+    if $result->{conflict};
+
+  $patterns->expire_cache;
+  $self->packages->mark_matched_for_reindex($id);
+  $self->render(json => {updated => 1});
+}
+
 sub update_patterns ($self) {
   my $validation = $self->validation;
   $validation->required('license');
@@ -224,6 +281,26 @@ sub update_patterns ($self) {
 
 
   $self->redirect_to('license_show', name => $license);
+}
+
+sub update_patterns_json ($self) {
+  my $validation = $self->validation;
+  $validation->required('license');
+  $validation->optional('spdx');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $license = $validation->param('license');
+  my $spdx    = $validation->param('spdx') // '';
+  return $self->render(
+    json => {
+      error =>
+        qq{"$spdx" is not a valid SPDX expression. Use a "LicenseRef-*" prefix for licenses not yet part of the spec.}
+    },
+    status => 400
+  ) unless $spdx eq '' || lic($spdx)->is_valid_expression;
+
+  my $rows = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $spdx, $license)->rows;
+  $self->render(json => {updated => $rows, spdx => $spdx, spdx_html => spdx_link($spdx)});
 }
 
 1;

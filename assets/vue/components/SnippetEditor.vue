@@ -271,6 +271,7 @@
 <script>
 import ClosestPattern from './ClosestPattern.vue';
 import {setupPopoverDelayed} from '../helpers/links.js';
+import {renderPatternTooltip, showPatternTooltip} from '../helpers/patternTooltip.js';
 import {EditorState, StateEffect, StateField} from '@codemirror/state';
 import {Decoration, EditorView, hoverTooltip} from '@codemirror/view';
 import UserAgent from '@mojojs/user-agent';
@@ -313,8 +314,7 @@ export default {
       originalDecorations: null,
       originalSnippetText: null,
       package: null,
-      patternMeta: new Map(),
-      patternMetaPromises: new Map(),
+      patternTooltip: null,
       patternText: null,
       results: [],
       smartEditBusy: false,
@@ -347,6 +347,10 @@ export default {
     if (this.editor) {
       this.editor.destroy();
       this.editor = null;
+    }
+    if (this.patternTooltip) {
+      this.patternTooltip.destroy();
+      this.patternTooltip = null;
     }
   },
   computed: {
@@ -570,6 +574,9 @@ export default {
           decoField,
           EditorView.lineWrapping,
           hoverTooltip((view, pos) => this.makeHoverTooltip(view, pos), {hideOnChange: true}),
+          EditorView.domEventHandlers({
+            mousedown: (event, view) => this.onPatternLineClick(event, view)
+          }),
           EditorView.updateListener.of(update => this.onCmUpdate(update)),
           baseTheme
         ]
@@ -657,81 +664,36 @@ export default {
     makeHoverTooltip(view, pos) {
       const ids = this.patternIdsAtPos(view, pos);
       if (ids.length === 0) return null;
-      const lineStart = view.state.doc.lineAt(pos).from;
+      const line = view.state.doc.lineAt(pos);
       return {
-        pos: lineStart,
+        pos: line.from,
+        end: line.to,
         above: true,
         create: () => {
           const dom = document.createElement('div');
           dom.className = 'cavil-pattern-tip';
-          this.renderTooltip(dom, ids);
+          renderPatternTooltip(dom, ids);
           return {dom};
         }
       };
     },
-    async renderTooltip(dom, ids) {
-      dom.innerHTML =
-        '<div class="cavil-pattern-tip-loading"><i class="fa-solid fa-spinner fa-pulse"></i> Loading…</div>';
-      try {
-        const metas = await Promise.all(ids.map(id => this.fetchPatternMeta(id)));
-        const valid = metas.filter(m => m);
-        if (valid.length === 0) {
-          dom.innerHTML = '<div class="cavil-pattern-tip-error">No pattern info available.</div>';
-          return;
+    onPatternLineClick(event, view) {
+      const pos = view.posAtCoords({x: event.clientX, y: event.clientY});
+      if (pos === null) return false;
+      const ids = this.patternIdsAtPos(view, pos);
+      if (ids.length === 0) return false;
+      if (this.patternTooltip) this.patternTooltip.destroy();
+      const target = event.target instanceof Element ? event.target : event.target.parentElement;
+      const anchor = target?.closest('.cm-line') || view.dom;
+      const tooltip = showPatternTooltip(anchor, ids, {
+        persistent: true,
+        offsetLeft: 24,
+        onDestroy: () => {
+          if (this.patternTooltip === tooltip) this.patternTooltip = null;
         }
-        dom.innerHTML = '';
-        for (const meta of valid) dom.appendChild(this.buildTooltipCard(meta));
-      } catch (e) {
-        dom.innerHTML = '<div class="cavil-pattern-tip-error">Failed to load pattern info.</div>';
-      }
-    },
-    fetchPatternMeta(id) {
-      if (this.patternMeta.has(id)) return Promise.resolve(this.patternMeta.get(id));
-      if (this.patternMetaPromises.has(id)) return this.patternMetaPromises.get(id);
-      const promise = (async () => {
-        const res = await this.ua.get(`/licenses/pattern/${id}.json`);
-        if (!res.isSuccess) return null;
-        const meta = await res.json();
-        this.patternMeta.set(id, meta);
-        return meta;
-      })();
-      this.patternMetaPromises.set(id, promise);
-      return promise;
-    },
-    buildTooltipCard(meta) {
-      const card = document.createElement('div');
-      card.className = 'cavil-pattern-tip-card';
-
-      const header = document.createElement('div');
-      header.className = 'cavil-pattern-tip-header';
-      const title = document.createElement('span');
-      title.className = 'cavil-pattern-tip-title';
-      title.textContent = meta.license && meta.license !== '' ? meta.license : 'Keyword pattern';
-      header.appendChild(title);
-      const risk = document.createElement('span');
-      risk.className = `cavil-pattern-tip-risk risk-${meta.risk ?? 0}`;
-      risk.textContent = `risk ${meta.risk ?? '?'}`;
-      header.appendChild(risk);
-      card.appendChild(header);
-
-      const preview = document.createElement('pre');
-      preview.className = 'cavil-pattern-tip-preview';
-      const allLines = (meta.pattern ?? '').split('\n');
-      const shown = allLines.slice(0, 6).join('\n');
-      preview.textContent = shown + (allLines.length > 6 ? '\n…' : '');
-      card.appendChild(preview);
-
-      const footer = document.createElement('div');
-      footer.className = 'cavil-pattern-tip-footer';
-      const link = document.createElement('a');
-      link.href = `/licenses/edit_pattern/${meta.id}`;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.textContent = 'Open pattern →';
-      footer.appendChild(link);
-      card.appendChild(footer);
-
-      return card;
+      });
+      this.patternTooltip = tooltip;
+      return false;
     },
     emitAction(action) {
       if (this.editor) {

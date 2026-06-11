@@ -22,6 +22,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::Pg;
+use Mojo::Util qw(url_escape);
 use Mojolicious::Lite;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -219,6 +220,37 @@ subtest 'Details after indexing' => sub {
     ->status_is(200)
     ->content_type_is('application/json;charset=UTF-8')
     ->json_like('/source/name', qr/perl-Mojolicious/);
+
+  subtest 'Vue file browser metadata' => sub {
+    $t->get_ok('/reviews/file_view_meta/1/')
+      ->status_is(200)
+      ->content_type_is('application/json;charset=UTF-8')
+      ->json_is('/kind', 'directory')
+      ->json_is('/package/name', 'perl-Mojolicious')
+      ->json_has('/entries/0/name')
+      ->json_has('/breadcrumbs/0/url');
+
+    $t->get_ok('/reviews/report_details/1')->status_is(200);
+    my $path = $t->tx->res->json->{files}[0]{path};
+    my $url  = join '/', map { url_escape $_ } split '/', $path;
+    $t->get_ok("/reviews/file_view_meta/1/$url")
+      ->status_is(200)
+      ->content_type_is('application/json;charset=UTF-8')
+      ->json_is('/kind', 'file')
+      ->json_is('/source/filename', $path)
+      ->json_has('/source/id')
+      ->json_has('/source/lines/0/0')
+      ->json_has('/source/lines/0/1/risk')
+      ->json_has('/source/lines/0/2');
+
+    $t->get_ok('/reviews/file_view_meta/1/Mojolicious-7.25/lib/Mojolicious.pm')->status_is(200);
+    my $source = $t->tx->res->json->{source};
+    cmp_ok scalar @{$source->{lines}}, '>', 1000, 'file browser returns the whole source file';
+    ok grep({ $_->[1]{pid} } @{$source->{lines}}), 'whole source file keeps pattern annotations';
+
+    $t->get_ok('/reviews/file_view_meta/1/does-not-exist')->status_is(404);
+    $t->get_ok('/reviews/file_view_meta/1/../COPYING')->status_is(400);
+  };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

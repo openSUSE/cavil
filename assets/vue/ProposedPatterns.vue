@@ -1,10 +1,10 @@
 <template>
   <div>
     <div class="row mt-3">
-      <div class="col-12 alert alert-primary" role="alert">
+      <cavil-notice-panel intro class="col-12">
         These are license pattern changes proposed by contributors. New patterns are guaranted to match the snippet they
         were created for, and can only use an existing license and risk combination.
-      </div>
+      </cavil-notice-panel>
     </div>
     <div class="row g-4">
       <div class="col-9">
@@ -42,28 +42,51 @@
         <div v-for="change in changes" :key="change.id" class="row change-container">
           <div v-if="change.state === 'proposed'" class="col-12 change-file-container">
             <div class="change-header">
-              <span v-if="change.action === 'create_pattern'">
-                Create license pattern from
-                <a :href="change.editUrl" target="_blank">
-                  <b v-if="change.data.edited === true">edited snippet</b>
-                  <b v-else>unedited snippet</b> </a
-                >, by <b>{{ change.login }}</b>
-                <span v-if="change.data.ai_assisted">&nbsp;<i class="fa-solid fa-robot"></i></span>
-                <span v-if="change.package !== null"
-                  >,
-                  <a :href="change.package.pkgUrl" target="_blank"
-                    >for <b>{{ change.package.name }}</b></a
-                  >
+              <div class="change-title">
+                <span v-if="change.action === 'create_pattern'">
+                  Proposed by <b>{{ change.login }}</b>
+                  <span class="cavil-meta-badges change-meta-badges">
+                    <span class="cavil-meta-badge cavil-meta-badge-info">license pattern</span>
+                    <a :href="change.editUrl" target="_blank" class="cavil-meta-badge cavil-meta-badge-muted">
+                      {{ change.data.edited === true ? 'edited snippet' : 'unedited snippet' }}
+                    </a>
+                    <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
+                      <i class="fa-solid fa-robot"></i> AI assisted
+                    </span>
+                    <a
+                      v-if="change.package !== null"
+                      :href="change.package.pkgUrl"
+                      target="_blank"
+                      class="cavil-meta-badge cavil-meta-badge-muted"
+                    >
+                      {{ change.package.name }}
+                    </a>
+                  </span>
                 </span>
-              </span>
-              <span v-else-if="change.action === 'create_ignore'">
-                Create ignore pattern from <a :href="change.editUrl" target="_blank"> <b>snippet</b></a
-                >, by <b>{{ change.login }}</b>
-                <span v-if="change.data.ai_assisted">&nbsp;<i class="fa-solid fa-robot"></i></span>
-              </span>
-              <span v-if="currentUser === change.login" class="float-end">
-                <a @click="rejectProposal(change)" href="#"><i class="fa-solid fa-xmark"></i></a>
-              </span>
+                <span v-else-if="change.action === 'create_ignore'">
+                  Proposed by <b>{{ change.login }}</b>
+                  <span class="cavil-meta-badges change-meta-badges">
+                    <span class="cavil-meta-badge cavil-meta-badge-warning">ignore pattern</span>
+                    <a :href="change.editUrl" target="_blank" class="cavil-meta-badge cavil-meta-badge-muted">
+                      snippet
+                    </a>
+                    <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
+                      <i class="fa-solid fa-robot"></i> AI assisted
+                    </span>
+                  </span>
+                </span>
+              </div>
+              <div v-if="currentUser === change.login" class="change-actions">
+                <button
+                  @click="rejectProposal(change)"
+                  type="button"
+                  class="cavil-icon-action cavil-icon-action-danger"
+                  title="Reject proposal"
+                  aria-label="Reject proposal"
+                >
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
             </div>
             <div class="change-source">
               <table :class="getClassForCode(change)">
@@ -192,13 +215,14 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'ProposedPatterns',
-  components: {ToastNotifier},
+  components: {CavilNoticePanel, ToastNotifier},
   data() {
     const params = getParams({createIgnore: true, createPattern: true, filter: ''});
 
@@ -386,12 +410,33 @@ export default {
   transition: transform 0.3s ease;
 }
 .change-header {
+  align-items: center;
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0.25rem 0.25rem 0 0;
+  border-bottom: 1px solid rgb(208, 215, 222);
+  display: flex;
   font-size: 13px;
+  gap: 0.75rem;
+  justify-content: space-between;
   line-height: 20px;
   padding: 10px;
+}
+.change-title {
+  min-width: 0;
+}
+.change-title > span {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.change-meta-badges {
+  margin-left: 0.25rem;
+}
+.change-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.4rem;
 }
 .change-header a,
 .change-file a,
@@ -405,26 +450,26 @@ export default {
   text-decoration: underline;
 }
 .change-file-container {
+  border: 1px solid rgb(208, 215, 222);
+  border-radius: 6px;
+  overflow: hidden;
   padding: 0;
 }
 .change-form {
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-bottom: 0;
+  border-top: 1px solid rgb(208, 215, 222);
   padding: 10px;
 }
 .change-footer {
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0 0.25rem 0.25rem;
+  border-top: 1px solid rgb(208, 215, 222);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
 }
 .change-source {
-  border: 1px solid #dfe2e5 !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
+  background: #fff;
+  overflow: auto;
 }
 .change-source td.linenumber,
 .change-source td.code {
@@ -437,7 +482,8 @@ export default {
   border: 0 !important;
 }
 .change-source td.code {
-  padding-left: 0.5em;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
   color: #24292e;
   margin-left: 0.5em;
   white-space: -moz-pre-wrap;

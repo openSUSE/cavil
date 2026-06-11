@@ -56,7 +56,7 @@
             </tbody>
             <tbody v-else-if="reviews.length > 0">
               <tr v-for="review in reviews" :key="review.id">
-                <td class="timeago">{{ review.created }}</td>
+                <td class="relative-time">{{ review.created }}</td>
                 <td v-html="review.state"></td>
                 <td v-html="review.comment"></td>
                 <td v-html="review.user"></td>

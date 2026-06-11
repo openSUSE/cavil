@@ -1,12 +1,12 @@
 <template>
   <div>
     <div class="row mt-3">
-      <div class="col-12 alert alert-primary" role="alert">
+      <cavil-notice-panel intro class="col-12">
         These globs are used to decide which files the indexer should ignore when scanning for license pattern matches.
-        <button name="add-glob" class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#globModal">
+        <button name="add-glob" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#globModal">
           Add Glob
         </button>
-      </div>
+      </cavil-notice-panel>
     </div>
     <div>
       <form>
@@ -55,9 +55,15 @@
                 <td>{{ glob.created }}</td>
                 <td>{{ glob.login }}</td>
                 <td class="text-center">
-                  <span class="cavil-action text-center">
-                    <a @click="deleteGlob(glob)" href="#"><i class="fa-solid fa-trash"></i></a>
-                  </span>
+                  <button
+                    @click="deleteGlob(glob)"
+                    type="button"
+                    class="cavil-icon-action cavil-icon-action-danger"
+                    title="Delete ignored file glob"
+                    aria-label="Delete ignored file glob"
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -113,6 +119,7 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
@@ -123,7 +130,7 @@ import moment from 'moment';
 export default {
   name: 'IgnoredFiles',
   mixins: [Refresh],
-  components: {PaginationLinks, ShownEntries},
+  components: {CavilNoticePanel, PaginationLinks, ShownEntries},
   data() {
     const params = getParams({
       limit: 10,
@@ -206,10 +213,6 @@ export default {
 <style>
 .table {
   margin-top: 1rem;
-}
-.cavil-action a {
-  color: #212529;
-  text-decoration: none;
 }
 #cavil-pkg-filter form {
   margin: 2px 0;

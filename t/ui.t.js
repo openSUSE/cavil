@@ -7,6 +7,72 @@ import t from 'tap';
 // eslint-disable-next-line no-undefined
 const skip = process.env.TEST_ONLINE === undefined ? {skip: 'set TEST_ONLINE to enable this test'} : {};
 
+async function waitForInlineSnippetEditor(page) {
+  await page.waitForSelector('#inline-snippet-editor');
+  await page.waitForFunction(() => {
+    const root = document.querySelector('#inline-snippet-editor');
+    const editor = root?.querySelector('.cm-editor');
+    return editor?.cmView && root.querySelector('input[name=license]') && root.querySelector('select[name="risk"]');
+  });
+}
+
+async function waitForInlineSnippetEditorClosed(page) {
+  await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+}
+
+async function expandFileDetails(page, fileId) {
+  if (!(await page.isVisible(`#file-details-${fileId}`))) {
+    await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+  }
+  await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+}
+
+async function openCreatePatternEditor(page, fileId, options = {}) {
+  await waitForInlineSnippetEditorClosed(page);
+  await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+
+  if (options.triggerSelector) {
+    await page.locator(options.triggerSelector).click();
+    await page
+      .locator(`#file-details-${fileId} .dropdown-menu.show a.dropdown-item`)
+      .filter({hasText: 'Create Pattern from selection'})
+      .first()
+      .click();
+    await waitForInlineSnippetEditor(page);
+    return;
+  }
+
+  await page.evaluate(id => {
+    const root = document.getElementById(`file-details-${id}`);
+    if (!root) throw new Error(`No #file-details-${id}`);
+    const items = [...root.querySelectorAll('.dropdown-menu a.dropdown-item')];
+    const item = items.find(el => el.textContent.trim() === 'Create Pattern from selection');
+    if (!item) throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+    item.click();
+  }, fileId);
+  await waitForInlineSnippetEditor(page);
+}
+
+async function fillInlinePatternBasics(page, licenseName, risk = '3') {
+  await page.locator('#inline-snippet-editor input[name=license]').fill(licenseName);
+  await page.locator('#inline-snippet-editor select[name="risk"]').selectOption(risk);
+}
+
+async function inlineEditorDoc(page) {
+  return page.evaluate(() => document.querySelector('#inline-snippet-editor .cm-editor').cmView.state.doc.toString());
+}
+
+async function replaceInlineEditorDoc(page, text) {
+  await page.evaluate(value => {
+    const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
+    view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: value}});
+  }, text);
+}
+
+async function openAccountMenu(page) {
+  await page.locator('#cavil-menubar .cavil-user-menu > .nav-link').click();
+}
+
 // Wrapper script with fixtures can be found in "t/wrappers/ui.pl"
 t.test('Test cavil ui', skip, async t => {
   const server = await ServerStarter.newServer();
@@ -158,7 +224,7 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'List open reviews');
       await page.click('text=Login');
       t.equal(await page.innerText('title'), 'List open reviews');
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=Logout');
       t.equal(await page.innerText('title'), 'List open reviews');
       await page.click('text=Login');
@@ -167,7 +233,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Minion dashboard', async t => {
       await page.goto(url);
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text="Minion Dashboard"');
       t.match(await page.innerText('title'), /Minion/);
       await page.click('text=Back to Site');
@@ -184,6 +250,101 @@ t.test('Test cavil ui', skip, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
+    });
+
+    await t.test('Checkout file browser renders directories, full files, and match tooltips', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+      await page.waitForSelector('#checkout-url a');
+
+      const [browserPage] = await Promise.all([context.waitForEvent('page'), page.locator('#checkout-url a').click()]);
+      await browserPage.waitForLoadState('load');
+      await browserPage.waitForSelector('.file-browser-table');
+      t.equal(await browserPage.innerText('title'), 'Directory listing of /');
+      t.match(await browserPage.innerText('.file-browser-breadcrumb'), /perl-Mojolicious/);
+      t.match(
+        await browserPage.innerText('.file-browser-count'),
+        /\d+ items?/,
+        'directory count is shown in breadcrumb row'
+      );
+      t.equal(await browserPage.locator('.file-browser-panel-header').count(), 0, 'directory summary header is hidden');
+
+      const rootRows = await browserPage.innerText('.file-browser-table');
+      t.match(rootRows, /Mojolicious-7\.25/, 'root directory lists unpacked source directory');
+      t.ok(
+        (await browserPage.locator('.file-browser-table tr.has-match').count()) > 0,
+        'directory tree marks entries containing matched files'
+      );
+
+      await browserPage
+        .locator('.file-browser-table tr')
+        .filter({has: browserPage.locator('.file-browser-name a', {hasText: 'Mojolicious-7.25'})})
+        .locator('.file-browser-name a')
+        .click();
+      await browserPage.waitForURL(/\/reviews\/file_view\/1\/Mojolicious-7\.25$/);
+      await browserPage.waitForSelector('.file-browser-table');
+      t.match(browserPage.url(), /\/reviews\/file_view\/1\/Mojolicious-7\.25$/);
+      await browserPage
+        .locator('.file-browser-table tr')
+        .filter({has: browserPage.locator('.file-browser-name a', {hasText: 'lib'})})
+        .locator('.file-browser-name a')
+        .click();
+      await browserPage.waitForURL(/\/reviews\/file_view\/1\/Mojolicious-7\.25\/lib$/);
+      await browserPage.waitForSelector('.file-browser-table');
+      await browserPage
+        .locator('.file-browser-table tr')
+        .filter({has: browserPage.locator('.file-browser-name a', {hasText: 'Mojolicious.pm'})})
+        .locator('.file-browser-name a')
+        .click();
+      await browserPage.waitForURL(/\/reviews\/file_view\/1\/Mojolicious-7\.25\/lib\/Mojolicious\.pm$/);
+      await browserPage.waitForSelector('.file-browser-source table.snippet');
+      t.match(browserPage.url(), /\/reviews\/file_view\/1\/Mojolicious-7\.25\/lib\/Mojolicious\.pm$/);
+      t.equal(await browserPage.innerText('title'), 'Content of Mojolicious-7.25/lib/Mojolicious.pm');
+      t.match(
+        await browserPage.innerText('.file-browser-count'),
+        /\d+ lines?/,
+        'file line count is shown in breadcrumb row'
+      );
+      t.equal(await browserPage.locator('.file-browser-panel-header').count(), 0, 'file source header is hidden');
+
+      const sourceText = await browserPage.innerText('.file-browser-source');
+      t.match(sourceText, /package Mojolicious;/, 'full source includes file beginning');
+      t.match(sourceText, /sub new \{/, 'full source includes later file content');
+      t.ok(
+        (await browserPage.locator('.file-browser-source tr.has-pattern-tooltip').count()) > 0,
+        'source rows expose pattern tooltip markers'
+      );
+
+      const highlighted = browserPage.locator('.file-browser-source tr.has-pattern-tooltip').first();
+      await highlighted.scrollIntoViewIfNeeded();
+      t.equal(await highlighted.getAttribute('title'), null, 'matched source row has no native title tooltip');
+      await highlighted.hover();
+      const card = browserPage.locator('.cavil-pattern-tip-floating .cavil-pattern-tip-card').first();
+      await card.waitFor({timeout: 5000});
+      const fileTooltipClear = await browserPage.evaluate(() => {
+        const row = document.querySelector('.file-browser-source tr.has-pattern-tooltip');
+        const tip = document.querySelector('.cavil-pattern-tip-floating');
+        const rowRect = row.getBoundingClientRect();
+        const tipRect = tip.getBoundingClientRect();
+        return tipRect.bottom <= rowRect.top || tipRect.top >= rowRect.bottom;
+      });
+      t.ok(fileTooltipClear, 'file browser tooltip does not cover the active source row');
+      t.match(await card.innerText(), /risk \d/i, 'file browser tooltip shows pattern risk');
+      t.equal(await card.locator('a').count(), 0, 'file browser tooltip is informational only');
+
+      await browserPage.mouse.wheel(0, 200);
+      await browserPage.waitForSelector('.cavil-pattern-tip-floating', {state: 'detached'});
+      await highlighted.scrollIntoViewIfNeeded();
+      await highlighted.hover();
+      await card.waitFor({timeout: 5000});
+
+      await browserPage.mouse.move(0, 0);
+      await browserPage.goBack();
+      await browserPage.waitForSelector('.file-browser-table');
+      t.match(browserPage.url(), /\/reviews\/file_view\/1\/Mojolicious-7\.25\/lib$/);
+      await browserPage.close();
     });
 
     await t.test('Navigation (logged in)', async t => {
@@ -227,13 +388,37 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.innerText('title'), 'List licenses');
       await page.click('text=Artistic-2.0');
       t.equal(await page.innerText('title'), 'License details of Artistic-2.0');
+      await page.waitForSelector('#license-details .license-pattern-card');
+      t.match(await page.innerText('#license-details .license-details-header'), /Artistic-2.0/);
+      t.match(await page.innerText('#license-details .license-details-header'), /patterns/);
+      t.ok(
+        (await page.locator('#license-details button[data-action="edit-pattern-inline"]').count()) > 0,
+        'admin sees inline edit buttons'
+      );
+
+      const initialCards = await page.locator('#license-details .license-pattern-card').count();
+      t.ok(initialCards > 0, 'license detail has pattern cards');
+      await page.locator('#license-details input[placeholder="Filter patterns"]').fill('this-filter-matches-nothing');
+      await page.waitForSelector('#license-details .license-empty-state');
+      t.equal(await page.locator('#license-details .license-pattern-card').count(), 0, 'filter can hide all cards');
+      await page.locator('#license-details input[placeholder="Filter patterns"]').fill('');
+      await page.waitForFunction(
+        count => document.querySelectorAll('#license-details .license-pattern-card').length === count,
+        initialCards
+      );
+
+      const spdx = await page.locator('#license-details input[name="spdx"]').inputValue();
+      await page.locator('#license-details input[name="spdx"]').fill(spdx);
+      await page.locator('#license-details .license-spdx-form button[type="submit"]').click();
+      await page.waitForSelector('#license-details .toast-item.toast-success');
+      t.match(await page.innerText('#license-details .toast-item'), /patterns updated/);
     });
 
     await t.test('Search (logged in)', async t => {
       await page.goto(url);
-      await page.locator('[placeholder="Package Search"]').click();
-      await page.locator('[placeholder="Package Search"]').fill('perl-Mojolicious');
-      await page.locator('[placeholder="Package Search"]').press('Enter');
+      await page.locator('[placeholder="Search packages"]').click();
+      await page.locator('[placeholder="Search packages"]').fill('perl-Mojolicious');
+      await page.locator('[placeholder="Search packages"]').press('Enter');
       await page.waitForURL(`${url}/search?q=perl-Mojolicious`);
       t.equal(await page.innerText('title'), 'Search Results');
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
@@ -261,6 +446,7 @@ t.test('Test cavil ui', skip, async t => {
 
       t.same(await page.isVisible('#file-details-6'), false);
       await apache.locator('a[href="#file-6"]').click();
+      await page.waitForSelector('#file-details-6');
       t.match(await page.innerText('#expand-link-6'), /Mojolicious.+js/);
       t.same(await page.isVisible('#file-details-6'), true);
 
@@ -271,7 +457,8 @@ t.test('Test cavil ui', skip, async t => {
       ]);
       await page2.waitForLoadState();
       t.match(await page2.innerText('title'), /Content of Mojolicious.+js/);
-      t.match(await page2.innerText('textarea'), /Apache.+indexOf/s);
+      await page2.waitForSelector('.file-browser-source table.snippet');
+      t.match(await page2.innerText('.file-browser-source'), /Apache.+indexOf/s);
       await page2.close();
     });
 
@@ -298,6 +485,7 @@ t.test('Test cavil ui', skip, async t => {
       // Click a missed-file link (file 7 is auto-expanded as a risk-9 file) —
       // verifies the click handler runs and the preview stays visible.
       await page.locator('#filelist-snippets a[href="#file-7"]').click();
+      await page.waitForSelector('#file-details-7');
       t.same(await page.isVisible('#file-details-7'), true);
 
       // Emails section: 14 entries, collapsed by default, click to expand
@@ -327,6 +515,7 @@ t.test('Test cavil ui', skip, async t => {
       await apache.locator('a[href="#file-6"]').waitFor();
       t.same(await page.isVisible('#file-details-6'), false);
       await apache.locator('a[href="#file-6"]').click();
+      await page.waitForSelector('#file-details-6');
       t.same(await page.isVisible('#file-details-6'), true);
       await page.waitForSelector('#file-details-6 table.snippet');
     });
@@ -422,7 +611,7 @@ t.test('Test cavil ui', skip, async t => {
       // inline editor on file 1 and confirm pressing 'n' inside the license
       // field inserts the letter instead of jumping to the next match.
       await page.locator('#file-details-1 .quick-actions a').first().click();
-      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+      await waitForInlineSnippetEditor(page);
       await page.locator('#inline-snippet-editor input[name=license]').click();
       await page.keyboard.type('np');
       t.equal(
@@ -431,7 +620,7 @@ t.test('Test cavil ui', skip, async t => {
         'shortcut keys are typed normally inside the license input'
       );
       await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
     });
 
     await t.test('File list cap per license (min_files_short_report)', async t => {
@@ -449,7 +638,7 @@ t.test('Test cavil ui', skip, async t => {
       t.match(await apache.textContent(), /81 more/);
     });
 
-    await t.test('Hidden inline previews indicator (max_expanded_files)', async t => {
+    await t.test('Large unresolved report omits inline preview indicator', async t => {
       // mojo#1 has only a handful of unresolved matches, well under the
       // max_expanded_files cap — the indicator must stay out of the DOM.
       await page.goto(url);
@@ -476,11 +665,8 @@ t.test('Test cavil ui', skip, async t => {
       await synthRow.locator('a[href^="/reviews/details/"]').click();
       t.equal(await page.innerText('title'), 'Report for synthetic-many-unresolved');
       await page.waitForSelector('#unmatched-files');
-      await page.waitForSelector('#hidden-previews-notice');
-      const text = await page.innerText('#hidden-previews-notice');
-      const [, shown, total] = text.match(/Showing inline previews for (\d+) of (\d+) files/);
-      t.equal(Number(shown), 100, 'shown count equals max_expanded_files');
-      t.ok(Number(total) > Number(shown), 'total exceeds shown so the notice is needed');
+      t.match(await page.innerText('#unmatched-files'), /110 files/);
+      t.equal(await page.locator('#hidden-previews-notice').count(), 0, 'inline preview indicator is not shown');
     });
 
     await t.test('Create pattern from report match', async t => {
@@ -498,26 +684,21 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator(actionMenuItem('Extend one line above')).click();
       await page.locator(actionTrigger).click();
       await page.locator(actionMenuItem('Extend one line below')).click();
-      await page.locator(actionTrigger).click();
-      await page.locator(actionMenuItem('Create Pattern from selection')).click();
+      await openCreatePatternEditor(page, 1, {triggerSelector: actionTrigger});
 
       // Modal opens with the snippet editor instead of navigating away
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
-      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+      await waitForInlineSnippetEditor(page);
       // Inline editor hides the source-file/package origin line (only the page version shows it).
       t.notMatch(await page.innerText('#inline-snippet-editor'), /The example shown here is from the file/);
 
       // Fill the pattern metadata right in the inline editor
-      await page.locator('#inline-snippet-editor input[name=license]').fill('Made-Up-License-1.0');
-      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+      await fillInlinePatternBasics(page, 'Made-Up-License-1.0');
       await page.locator('#inline-snippet-editor input[name="trademark"]').check();
 
       // Queue the create-pattern action (editor closes, indicator + widget appear)
       await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
       await page.waitForSelector('#pending-actions-widget');
-      await page.waitForSelector('#file-details-1 .pending-action-badge');
       t.match(await page.innerText('#pending-actions-widget'), /Pending changes/);
 
       // Expand the widget and submit the batch
@@ -531,7 +712,9 @@ t.test('Test cavil ui', skip, async t => {
 
       // Reload triggers automatically after success; then run reindex
       await page.waitForLoadState('load');
-      await page.goto(performJobs, {timeout: 120000});
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
       await page.goto(url);
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
@@ -560,38 +743,18 @@ t.test('Test cavil ui', skip, async t => {
       const fileB = hrefs[1].replace('#file-', '');
 
       // Make sure both files are expanded (some are auto-expanded as risk-9 already)
-      if (!(await page.isVisible(`#file-details-${fileA}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileA}"]`).click();
-      }
-      if (!(await page.isVisible(`#file-details-${fileB}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileB}"]`).click();
-      }
-      await page.waitForSelector(`#file-details-${fileA} table.snippet`);
-      await page.waitForSelector(`#file-details-${fileB} table.snippet`);
+      await expandFileDetails(page, fileA);
+      await expandFileDetails(page, fileB);
 
       // Helper: queue a create-pattern via the inline editor. A file can host multiple
       // risk-9 dropdowns; bypass the dropdown UI entirely and invoke the
       // matching item handler directly so we don't depend on Bootstrap's menu
       // animation/positioning settling between iterations.
       const queueAction = async (fileId, licenseName) => {
-        await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
-        await page.evaluate(id => {
-          const root = document.getElementById(`file-details-${id}`);
-          const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
-          for (const item of items) {
-            if (item.textContent.trim() === 'Create Pattern from selection') {
-              item.click();
-              return;
-            }
-          }
-          throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
-        }, fileId);
-        await page.waitForSelector('#inline-snippet-editor');
-        await page.waitForSelector('#inline-snippet-editor .cm-editor');
-        await page.locator('#inline-snippet-editor input[name=license]').fill(licenseName);
-        await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+        await openCreatePatternEditor(page, fileId);
+        await fillInlinePatternBasics(page, licenseName);
         await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
-        await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+        await waitForInlineSnippetEditorClosed(page);
       };
 
       // Names start with "Z" so they sort after Made-Up-License-1.0 in alphabetised
@@ -624,7 +787,9 @@ t.test('Test cavil ui', skip, async t => {
 
       // Reload + reindex; only the surviving license should show up
       await page.waitForLoadState('load');
-      await page.goto(performJobs, {timeout: 120000});
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
       await page.goto(url);
       await page.click('text=Artistic');
       await page.waitForSelector('#license-chart');
@@ -642,44 +807,23 @@ t.test('Test cavil ui', skip, async t => {
       // Take the first remaining unresolved match
       const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
       const fileId = href.replace('#file-', '');
-      if (!(await page.isVisible(`#file-details-${fileId}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
-      }
-      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+      await expandFileDetails(page, fileId);
 
       // Bypass the Bootstrap dropdown UI and trigger the matching item directly
-      await page.evaluate(id => {
-        const root = document.getElementById(`file-details-${id}`);
-        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
-        for (const item of items) {
-          if (item.textContent.trim() === 'Create Pattern from selection') {
-            item.click();
-            return;
-          }
-        }
-        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
-      }, fileId);
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await openCreatePatternEditor(page, fileId);
 
       // Replace the CodeMirror contents so the proposed pattern cannot match the
       // original snippet text (triggers the server's pattern_matches guard)
-      await page.evaluate(() => {
-        const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
-        view.dispatch({
-          changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}
-        });
-      });
+      await replaceInlineEditorDoc(page, 'zzz nothing here matches the actual snippet zzz');
 
-      await page.locator('#inline-snippet-editor input[name=license]').fill('Error-Test-License');
-      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+      await fillInlinePatternBasics(page, 'Error-Test-License');
 
       // Use the propose-pattern path - it runs the pattern_matches validation.
       // For admin+contributor users, propose-pattern lives in the shared
       // More actions dropdown.
       await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
       await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
 
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
       const [decisionResp] = await Promise.all([
@@ -706,43 +850,20 @@ t.test('Test cavil ui', skip, async t => {
 
       const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
       const fileId = href.replace('#file-', '');
-      if (!(await page.isVisible(`#file-details-${fileId}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
-      }
-      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+      await expandFileDetails(page, fileId);
 
-      await page.evaluate(id => {
-        const root = document.getElementById(`file-details-${id}`);
-        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
-        for (const item of items) {
-          if (item.textContent.trim() === 'Create Pattern from selection') {
-            item.click();
-            return;
-          }
-        }
-        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
-      }, fileId);
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await openCreatePatternEditor(page, fileId);
 
       // Capture the original snippet text so we can restore it during edit
-      const originalSnippetText = await page.evaluate(() => {
-        return document.querySelector('#inline-snippet-editor .cm-editor').cmView.state.doc.toString();
-      });
+      const originalSnippetText = await inlineEditorDoc(page);
       t.ok(originalSnippetText.length > 0, 'captured original snippet text');
 
       // First pass: queue a propose-pattern with a deliberately bad pattern
-      await page.evaluate(() => {
-        const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
-        view.dispatch({
-          changes: {from: 0, to: view.state.doc.length, insert: 'zzz nothing here matches the actual snippet zzz'}
-        });
-      });
-      await page.locator('#inline-snippet-editor input[name=license]').fill('Edit-Recovery-License');
-      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+      await replaceInlineEditorDoc(page, 'zzz nothing here matches the actual snippet zzz');
+      await fillInlinePatternBasics(page, 'Edit-Recovery-License');
       await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
       await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
 
       // Submit and confirm the validation error puts the action into error state
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
@@ -756,8 +877,7 @@ t.test('Test cavil ui', skip, async t => {
 
       // Click Edit on the failed action - the inline editor re-opens with the prior data
       await page.locator('#pending-actions-widget button[data-action-control="edit"]').click();
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await waitForInlineSnippetEditor(page);
 
       // Verify the form was pre-filled with the failed action's data
       t.equal(
@@ -770,20 +890,15 @@ t.test('Test cavil ui', skip, async t => {
         '3',
         'risk pre-filled from failed action'
       );
-      const cmTextInEdit = await page.evaluate(() => {
-        return document.querySelector('#inline-snippet-editor .cm-editor').cmView.state.doc.toString();
-      });
+      const cmTextInEdit = await inlineEditorDoc(page);
       t.match(cmTextInEdit, /zzz nothing here matches/, 'pattern pre-filled from failed action');
 
       // Restore the matchable snippet text so the resubmission passes validation
-      await page.evaluate(text => {
-        const view = document.querySelector('#inline-snippet-editor .cm-editor').cmView;
-        view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: text}});
-      }, originalSnippetText);
+      await replaceInlineEditorDoc(page, originalSnippetText);
 
       await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
       await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
 
       // The edit must REPLACE the original entry, not append a new one
       const countAfterEdit = await page.locator('#pending-actions-widget .pending-actions-item').count();
@@ -846,7 +961,7 @@ t.test('Test cavil ui', skip, async t => {
           const el = document.getElementById(`file-details-${id}`);
           if (!el) return false;
           const r = el.getBoundingClientRect();
-          return r.top >= -50 && r.top <= window.innerHeight;
+          return r.bottom >= 0 && r.top <= window.innerHeight;
         },
         targetFileId,
         {timeout: 5000}
@@ -863,28 +978,12 @@ t.test('Test cavil ui', skip, async t => {
       // Queue an action on the first unresolved-match file
       const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
       const fileId = href.replace('#file-', '');
-      if (!(await page.isVisible(`#file-details-${fileId}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
-      }
-      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+      await expandFileDetails(page, fileId);
 
-      await page.evaluate(id => {
-        const root = document.getElementById(`file-details-${id}`);
-        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
-        for (const item of items) {
-          if (item.textContent.trim() === 'Create Pattern from selection') {
-            item.click();
-            return;
-          }
-        }
-        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
-      }, fileId);
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
-      await page.locator('#inline-snippet-editor input[name=license]').fill('Scroll-Link-Test');
-      await page.locator('#inline-snippet-editor select[name="risk"]').selectOption('3');
+      await openCreatePatternEditor(page, fileId);
+      await fillInlinePatternBasics(page, 'Scroll-Link-Test');
       await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
       await page.waitForSelector('#pending-actions-widget');
 
       // Collapse the file again so we can verify the widget link re-expands it
@@ -936,34 +1035,54 @@ t.test('Test cavil ui', skip, async t => {
       await page.locator('#pending-actions-widget button[title="Clear all"]').click();
     });
 
-    await t.test('Hover tooltip on highlighted line shows pattern metadata', async t => {
+    await t.test('Pattern tooltip links are reachable in reports and inline editor', async t => {
       await page.goto(url);
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
 
+      const reportFileId = await page.evaluate(() => {
+        for (const toggle of document.querySelectorAll('[id^="risk-"] a[data-bs-toggle="collapse"]')) toggle.click();
+        const link = document.querySelector('[id^="risk-"] a.file-link[href^="#file-"]');
+        if (!link) throw new Error('No license-match file link found in risk buckets');
+        link.click();
+        return link.getAttribute('href').replace('#file-', '');
+      });
+      await page.waitForSelector(`#file-details-${reportFileId} table.snippet`);
+      const reportRows = page.locator(`#file-details-${reportFileId} tr.has-pattern-tooltip`);
+      await reportRows.first().waitFor();
+      const reportCard = page.locator('.cavil-pattern-tip-floating .cavil-pattern-tip-card').first();
+      for (let i = 0; i < (await reportRows.count()); i++) {
+        const row = reportRows.nth(i);
+        await row.scrollIntoViewIfNeeded();
+        await row.locator('td.code').hover({position: {x: 24, y: 8}});
+        try {
+          await reportCard.waitFor({timeout: 1000});
+          break;
+        } catch (_error) {
+          await page.mouse.move(0, 0);
+        }
+      }
+      await reportCard.waitFor({timeout: 5000});
+      const reportTooltipClear = await page.evaluate(fileId => {
+        const row = document.querySelector(`#file-details-${fileId} tr.has-pattern-tooltip`);
+        const tip = document.querySelector('.cavil-pattern-tip-floating');
+        const rowRect = row.getBoundingClientRect();
+        const tipRect = tip.getBoundingClientRect();
+        return tipRect.bottom <= rowRect.top || tipRect.top >= rowRect.bottom;
+      }, reportFileId);
+      t.ok(reportTooltipClear, 'report tooltip does not cover the active source row');
+      t.match(await reportCard.innerText(), /risk \d/i, 'report tooltip shows pattern risk');
+      t.equal(await reportCard.locator('a').count(), 0, 'report tooltip is informational only');
+      await page.mouse.move(0, 0);
+      await page.waitForSelector('.cavil-pattern-tip-floating', {state: 'detached'});
+
       const fileId = (await page.locator('#filelist-snippets a.file-link').first().getAttribute('href')).replace(
         '#file-',
         ''
       );
-      if (!(await page.isVisible(`#file-details-${fileId}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
-      }
-      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
-      await page.evaluate(id => {
-        const root = document.getElementById(`file-details-${id}`);
-        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
-        for (const item of items) {
-          if (item.textContent.trim() === 'Create Pattern from selection') {
-            item.click();
-            return;
-          }
-        }
-        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
-      }, fileId);
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
+      await expandFileDetails(page, fileId);
+      await openCreatePatternEditor(page, fileId);
 
       // Make sure at least one match-decorated line is in the editor.
       const highlighted = page.locator('#inline-snippet-editor .cm-line.found-pattern').first();
@@ -993,10 +1112,16 @@ t.test('Test cavil ui', skip, async t => {
       const href = await card.locator('a').first().getAttribute('href');
       t.match(href, /\/licenses\/edit_pattern\/\d+/, 'tooltip link points to pattern editor');
 
+      const [inlinePatternPage] = await Promise.all([context.waitForEvent('page'), card.locator('a').first().click()]);
+      await inlinePatternPage.waitForLoadState('load');
+      t.match(inlinePatternPage.url(), /\/licenses\/edit_pattern\/\d+/, 'inline editor tooltip link can be clicked');
+      await inlinePatternPage.close();
+
       // Tidy up: move the mouse away so the tooltip closes, then close the editor.
       await page.mouse.move(0, 0);
+      await page.keyboard.press('Escape');
       await page.locator('#inline-snippet-editor button[data-action="cancel"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
     });
 
     await t.test('Smart edit button trims snippet, restore-original recovers initial text', async t => {
@@ -1131,31 +1256,15 @@ t.test('Test cavil ui', skip, async t => {
       // expand its container if needed (low-risk files start collapsed).
       const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
       const fileId = href.replace('#file-', '');
-      if (!(await page.isVisible(`#file-details-${fileId}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
-      }
-      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+      await expandFileDetails(page, fileId);
 
       // Bypass Bootstrap's dropdown UI and trigger the menu item directly
-      await page.evaluate(id => {
-        const root = document.getElementById(`file-details-${id}`);
-        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
-        for (const item of items) {
-          if (item.textContent.trim() === 'Create Pattern from selection') {
-            item.click();
-            return;
-          }
-        }
-        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
-      }, fileId);
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
-      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+      await openCreatePatternEditor(page, fileId);
 
       // Missing License lives in the shared More actions dropdown
       await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
       await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-missing"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
 
       // Submit the queued proposal
       await page.waitForSelector('#pending-actions-widget');
@@ -1169,7 +1278,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForLoadState('load');
 
       // Navigate to the Missing Licenses page from the user menu
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=Missing Licenses');
       t.equal(await page.innerText('title'), 'Missing Licenses');
 
@@ -1275,6 +1384,26 @@ t.test('Test cavil ui', skip, async t => {
       });
       const countText = await page.innerText('.edit-pattern-match-count');
       t.match(countText, /(no matches|This pattern has)/, 'match count rendered after async load');
+      t.equal(
+        await page.locator('#edit-pattern .pattern-editor-tab[data-tab="edit"]').count(),
+        1,
+        'pattern editor shows the edit tab'
+      );
+      t.equal(
+        await page.locator('#edit-pattern .pattern-editor-tab[data-tab="closest"]').count(),
+        1,
+        'pattern editor shows the closest-match tab'
+      );
+      t.equal(
+        await page.locator('#edit-pattern .pattern-editor-tab-pane.is-active .cm-editor').count(),
+        1,
+        'edit form is active by default'
+      );
+      t.equal(
+        await page.locator('#edit-pattern > .closest-container').count(),
+        0,
+        'closest match is not rendered below the pattern editor'
+      );
 
       // Editing the pattern text in the CodeMirror editor must re-trigger
       // ClosestPattern's debounced fetch.
@@ -1353,16 +1482,51 @@ t.test('Test cavil ui', skip, async t => {
       t.equal(await page.inputValue('#edit-pattern input[name=license]'), 'Vue-Create-Test-License');
     });
 
+    await t.test('License details page (Vue) - inline edit updates pattern card', async t => {
+      await page.goto(`${url}/licenses/Vue-Create-Test-License`);
+      t.equal(await page.innerText('title'), 'License details of Vue-Create-Test-License');
+      const card = page.locator('#license-details .license-pattern-card').first();
+      await card.waitFor();
+      await card.locator('button[data-action="edit-pattern-inline"]').click();
+      await page.waitForSelector('#license-details .license-inline-editor .cm-editor');
+      t.equal(await card.locator('.license-pattern-code').count(), 0, 'inline editor replaces the pattern preview');
+      t.equal(
+        await card.locator('.license-pattern-footer').count(),
+        0,
+        'inline editor replaces the pattern metadata footer'
+      );
+      t.equal(
+        await card.locator('.pattern-editor-tab[data-tab="edit"]').count(),
+        1,
+        'inline editor shows the edit tab'
+      );
+      t.equal(
+        await card.locator('.pattern-editor-tab[data-tab="closest"]').count(),
+        1,
+        'inline editor shows the closest-match tab'
+      );
+      await page.locator('#license-details .license-inline-editor input[name="packname"]').fill('ui-inline-package');
+      await page.locator('#license-details .license-inline-editor select[name="risk"]').selectOption('4');
+      await page.locator('#license-details .license-inline-editor button[type="submit"]').click();
+      await page.waitForSelector('#license-details .license-inline-editor', {state: 'detached'});
+      await page.waitForSelector('#license-details .toast-item.toast-success');
+      t.match(await page.innerText('#license-details'), /ui-inline-package/);
+      t.match(await page.innerText('#license-details .license-pattern-card'), /Risk 4/);
+    });
+
     await t.test('Edit pattern page (Vue) - delete redirects to /licenses', async t => {
       // Use the throwaway pattern created in the classify-snippets subtest
       // above so we can exercise the destructive DELETE path without breaking
       // later assertions (Pattern Performance only checks Made-Up-License-1.0).
       await page.goto(`${url}/licenses/Page-Editor-License-1.0`);
       t.equal(await page.innerText('title'), 'License details of Page-Editor-License-1.0');
-      const editHref = await page.locator('a[href*="/licenses/edit_pattern/"]').first().getAttribute('href');
-      t.ok(editHref, 'license details page links to pattern editor');
+      const patternId = await page
+        .locator('#license-details .license-pattern-card')
+        .first()
+        .getAttribute('data-pattern-id');
+      t.ok(patternId, 'license details page exposes the pattern id');
 
-      await page.goto(`${url}${editHref}`);
+      await page.goto(`${url}/licenses/edit_pattern/${patternId}`);
       t.equal(await page.innerText('title'), 'Edit license pattern');
       await page.waitForSelector('#edit-pattern[data-pattern]');
       await page.waitForSelector('#edit-pattern .del-pattern');
@@ -1376,7 +1540,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Missing Licenses', async t => {
       await page.goto(url);
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=Missing Licenses');
       t.equal(await page.innerText('title'), 'Missing Licenses');
       await page.waitForSelector('#missing-licenses > div > div:nth-child(2)');
@@ -1388,7 +1552,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Change Proposals', async t => {
       await page.goto(url);
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=Change Proposals');
       t.equal(await page.innerText('title'), 'Change Proposals');
       await page.waitForSelector('#proposed-patterns > div > div:nth-child(3)');
@@ -1400,7 +1564,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Pattern Performance', async t => {
       await page.goto(url);
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=Pattern Performance');
       t.equal(await page.innerText('title'), 'Pattern Performance');
       await page.waitForSelector('#recent-patterns .recent-pattern-header');
@@ -1410,7 +1574,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Statistics', async t => {
       await page.goto(url);
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=Statistics');
       t.equal(await page.innerText('title'), 'Statistics');
       await page.waitForSelector('#statistics .stats-body');
@@ -1419,7 +1583,7 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('API Keys', async t => {
       await page.goto(url);
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=API Keys');
       t.equal(await page.innerText('title'), 'API Keys');
       await page.waitForSelector('#api-keys tbody > tr:nth-child(1)');
@@ -1679,16 +1843,16 @@ t.test('Test cavil ui', skip, async t => {
 
     await t.test('Recent Notes page (admin)', async t => {
       await page.goto(url);
-      await page.click('text="Logged in as tester"');
+      await openAccountMenu(page);
       await page.click('text=Recent Notes');
       t.equal(await page.innerText('title'), 'Recent Notes');
       t.match(
-        await page.locator('#recent-notes .alert').innerText(),
+        await page.locator('#recent-notes .cavil-notice-panel-intro').innerText(),
         /most recently added reviewer notes/,
         'recent notes page explains what is listed'
       );
       t.match(
-        await page.locator('#recent-notes .alert').innerText(),
+        await page.locator('#recent-notes .cavil-notice-panel-intro').innerText(),
         /Lawyer-only notes are shown only to lawyers and admins/,
         'recent notes page explains lawyer-only visibility to admins'
       );
@@ -1731,7 +1895,7 @@ t.test('Test cavil ui', skip, async t => {
       // login always picks up the admin "tester"; this route logs in as a
       // user that only has the 'contributor' role.
       await page.goto(`${url}/login_as_contributor`);
-      await page.waitForSelector('text="Logged in as contrib_tester"');
+      await page.locator('#cavil-menubar .cavil-user-name', {hasText: 'contrib_tester'}).waitFor();
 
       // Pattern create/delete in earlier subtests enqueues reindex jobs
       // noted as pkg_2 - drain them so /reviews/report_details/2 does not
@@ -1748,25 +1912,9 @@ t.test('Test cavil ui', skip, async t => {
 
       const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
       const fileId = href.replace('#file-', '');
-      if (!(await page.isVisible(`#file-details-${fileId}`))) {
-        await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
-      }
-      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+      await expandFileDetails(page, fileId);
 
-      await page.evaluate(id => {
-        const root = document.getElementById(`file-details-${id}`);
-        const items = root.querySelectorAll('.dropdown-menu a.dropdown-item');
-        for (const item of items) {
-          if (item.textContent.trim() === 'Create Pattern from selection') {
-            item.click();
-            return;
-          }
-        }
-        throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
-      }, fileId);
-      await page.waitForSelector('#inline-snippet-editor');
-      await page.waitForSelector('#inline-snippet-editor .cm-editor');
-      await page.waitForSelector('#inline-snippet-editor input[name=license]');
+      await openCreatePatternEditor(page, fileId);
 
       // No admin-only "Create Pattern" / "Ignore Pattern" buttons for contributor
       t.equal(
@@ -1804,7 +1952,7 @@ t.test('Test cavil ui', skip, async t => {
 
       // Cancel closes the inline editor
       await page.locator('#inline-snippet-editor button[data-action="cancel"]').click();
-      await page.waitForSelector('#inline-snippet-editor', {state: 'detached'});
+      await waitForInlineSnippetEditorClosed(page);
     });
 
     await t.test('Notes tab hides lawyer-only data from contributors', async t => {
@@ -1870,7 +2018,7 @@ t.test('Test cavil ui', skip, async t => {
       await page.goto(`${url}/reviews/notes/recent`);
       t.equal(await page.innerText('title'), 'Recent Notes');
       t.notMatch(
-        await page.locator('#recent-notes .alert').innerText(),
+        await page.locator('#recent-notes .cavil-notice-panel-intro').innerText(),
         /Lawyer-only notes are shown only to lawyers and admins/,
         'recent notes page does not disclose lawyer-only notes to contributors'
       );

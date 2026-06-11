@@ -18,6 +18,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File      qw(path);
 use Cavil::Licenses qw(lic);
+use Cavil::Util     qw(lines_context);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -65,47 +66,185 @@ sub fasttrack_package ($self) {
 }
 
 sub file_view ($self) {
+  my $ctx = $self->_file_browser_context;
+  return unless $ctx;
+
+  $self->stash(filename => $ctx->{filename}, package => $ctx->{package}, license => $ctx->{license});
+}
+
+sub file_view_meta ($self) {
+  my $ctx = $self->_file_browser_context;
+  return unless $ctx;
+
+  my $file     = $ctx->{file};
+  my $filename = $ctx->{filename};
+  my $package  = $ctx->{package};
+  my $payload  = {
+    package => {
+      id         => $package->{id},
+      name       => $package->{name},
+      detailsUrl => $self->url_for('package_details', id => $package->{id})->to_string
+    },
+    checkoutDir => $package->{checkout_dir},
+    currentPath => $filename,
+    breadcrumbs => $self->_file_browser_breadcrumbs($package, $filename),
+    license     => $ctx->{license}
+  };
+
+  if (-d $file) {
+    $payload->{kind}    = 'directory';
+    $payload->{entries} = $self->_file_browser_entries($package, $file, $filename);
+  }
+  else {
+    $payload->{kind}   = 'file';
+    $payload->{source} = $self->_file_browser_source($package, $file, $filename);
+  }
+
+  return $self->render(json => $payload);
+}
+
+sub _file_browser_context ($self) {
   my $filename = $self->stash('file');
 
   # There are unfortunately few limits on what file can be - but it
   # can't be a backward compat
   # technically Foo..bar is allowed as file name, but we forbid this
   # here for simplicity
-  return $self->render(error => 400) if $filename =~ qr/\.\./;
+  if ($filename =~ qr/\.\./) {
+    $self->render(text => 'Bad Request', status => 400);
+    return undef;
+  }
   $filename =~ s,/$,,;
-  $self->stash('filename', $filename);
 
   my $pkgs    = $self->packages;
   my $package = $pkgs->find($self->stash('id'));
-  return $self->reply->not_found unless $package;
-  $self->stash('package', $package);
+  unless ($package) {
+    $self->reply->not_found;
+    return undef;
+  }
 
   my $report = $self->reports->specfile_report($package->{id});
   my $lic    = $report->{main}{license};
-  $self->stash('license', lic($lic)->to_string);
 
   my $file
     = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked', $filename);
-  return $self->reply->not_found unless -e $file;
-
-  if (-d $file) {
-    my %matched_files = map { $_ => 1 } @{$pkgs->matched_files($package->{id})};
-    my (@files, @dirs, @processed);
-    for my $entry (path($file)->list({dir => 1})->each) {
-      if    (-d $entry)                          { push @dirs,      $entry }
-      elsif ($entry =~ /\.processed(?:\.\w+|$)/) { push @processed, $entry }
-      else                                       { push @files,     $entry }
-    }
-    return $self->render(
-      'reviewer/directory_view',
-      dirs          => \@dirs,
-      files         => \@files,
-      processed     => \@processed,
-      matched_files => \%matched_files
-    );
+  unless (-e $file) {
+    $self->reply->not_found;
+    return undef;
   }
 
-  $self->stash('file', $file);
+  return {filename => $filename, package => $package, file => $file, license => lic($lic)->to_string};
+}
+
+sub _file_browser_breadcrumbs ($self, $package, $filename) {
+  my @breadcrumbs = (
+    {
+      name => $package->{name},
+      path => '',
+      url  => $self->url_for('file_view', id => $package->{id}, file => '')->to_string
+    }
+  );
+  my @path;
+  for my $part (grep { length $_ } split '/', $filename) {
+    push @path, $part;
+    push @breadcrumbs,
+      {
+      name => $part,
+      path => join('/', @path),
+      url  => $self->url_for('file_view', id => $package->{id}, file => join('/', @path))->to_string
+      };
+  }
+  return \@breadcrumbs;
+}
+
+sub _file_browser_entries ($self, $package, $file, $filename) {
+  my %matched_files = map { $_ => 1 } @{$self->packages->matched_files($package->{id})};
+  my (@files, @dirs, @processed);
+  for my $entry (sort { lc($a->basename) cmp lc($b->basename) } $file->list({dir => 1})->each) {
+    if    (-d $entry)                          { push @dirs,      $entry }
+    elsif ($entry =~ /\.processed(?:\.\w+|$)/) { push @processed, $entry }
+    else                                       { push @files,     $entry }
+  }
+
+  my @entries;
+  for my $entry (@dirs, @files, @processed) {
+    my $name      = $entry->basename;
+    my $path      = length($filename)                 ? "$filename/$name" : $name;
+    my $processed = $name =~ /\.processed(?:\.\w+|$)/ ? 1                 : 0;
+    my $has_match = $matched_files{$path}             ? 1                 : 0;
+    if (-d $entry && !$has_match) {
+      my $prefix = "$path/";
+      $has_match = grep { index($_, $prefix) == 0 } keys %matched_files ? 1 : 0;
+    }
+    push @entries,
+      {
+      name      => $name,
+      path      => $path,
+      kind      => -d $entry ? 'directory' : 'file',
+      processed => $processed,
+      hasMatch  => $has_match,
+      url       => $self->url_for('file_view', id => $package->{id}, file => $path)->to_string
+      };
+  }
+  return \@entries;
+}
+
+sub _file_browser_source ($self, $package, $file, $filename) {
+  my $file_id = 0;
+  my %info_by_line;
+  if (my $matched
+    = $self->app->pg->db->select('matched_files', ['id'], {package => $package->{id}, filename => $filename})->hash)
+  {
+    $file_id      = $matched->{id};
+    %info_by_line = %{$self->_file_browser_line_info($package, $file_id)};
+  }
+
+  my @lines;
+  my $number = 1;
+  my @text   = split /\n/, $self->maybe_utf8($file->slurp), -1;
+  pop @text if @text && $text[-1] eq '';
+  for my $line (@text) {
+    push @lines, [$number, {%{$info_by_line{$number} // {risk => 0}}}, $line];
+    $number++;
+  }
+
+  return {id => $file_id, lines => lines_context(\@lines), name => $package->{name}, filename => $filename};
+}
+
+sub _file_browser_line_info ($self, $package, $file_id) {
+  my $db   = $self->app->pg->db;
+  my $info = {};
+
+  my $matches = $db->query(
+    'SELECT pm.sline, pm.eline, lp.id, lp.license, lp.spdx, lp.risk
+       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.package = ? AND pm.file = ? AND pm.ignored = false AND lp.license <> ?', $package->{id}, $file_id, ''
+  );
+  for my $match ($matches->hashes->each) {
+    for my $line ($match->{sline} .. $match->{eline}) {
+      my $current = $info->{$line} // {risk => 0};
+      next if $current->{risk} > $match->{risk};
+      $info->{$line} = {risk => $match->{risk}, name => $match->{license}, spdx => $match->{spdx}, pid => $match->{id}};
+    }
+  }
+
+  my $snippets = $db->query(
+    'SELECT fs.sline, fs.eline, s.id, s.hash, s.like_pattern
+       FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
+      WHERE fs.package = ? AND fs.file = ?', $package->{id}, $file_id
+  );
+  for my $snippet ($snippets->hashes->each) {
+    for my $line ($snippet->{sline} .. $snippet->{eline}) {
+      my $current = $info->{$line} // {risk => 0};
+      next if $current->{risk} >= 9;
+      my $line_info
+        = {risk => 9, snippet => $snippet->{id}, hash => $snippet->{hash}, name => 'Snippet of missing keywords'};
+      $line_info->{pids} = [$snippet->{like_pattern}] if $snippet->{like_pattern};
+      $info->{$line} = $line_info;
+    }
+  }
+
+  return $info;
 }
 
 sub list_recent ($self) {

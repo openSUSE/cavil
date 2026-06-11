@@ -1,19 +1,14 @@
 <template>
   <div>
     <div class="row mt-3">
-      <div class="col-12 alert alert-primary" role="alert">
+      <cavil-notice-panel intro class="col-12">
         These API keys can be used to authenticate API requests. See
         <a target="_blank" href="https://github.com/openSUSE/cavil/blob/master/docs/UserAPI.md">API documentation</a>
         for more details.
-        <button
-          name="add-api-key"
-          class="btn btn-primary float-end"
-          data-bs-toggle="modal"
-          data-bs-target="#apiKeyModal"
-        >
+        <button name="add-api-key" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
           Add API Key
         </button>
-      </div>
+      </cavil-notice-panel>
     </div>
     <div>
       <div class="row">
@@ -112,12 +107,14 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {
   name: 'ApiKeys',
+  components: {CavilNoticePanel},
   mixins: [Refresh],
   data() {
     return {

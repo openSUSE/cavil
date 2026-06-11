@@ -2,10 +2,10 @@
   <div>
     <div class="row mt-3">
       <div class="col-11">
-        <div class="alert alert-primary" role="alert">
+        <cavil-notice-panel intro>
           These are the most recently added reviewer notes for packages you can access.
           <span v-if="canSeeLawyerOnly === true">Lawyer-only notes are shown only to lawyers and admins.</span>
-        </div>
+        </cavil-notice-panel>
       </div>
     </div>
     <div class="row mt-3">
@@ -24,11 +24,13 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import ReportNotes from './components/ReportNotes.vue';
 
 export default {
   name: 'RecentNotes',
   components: {
+    CavilNoticePanel,
     ReportNotes
   }
 };

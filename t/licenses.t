@@ -211,9 +211,10 @@ is $l->canonicalize->to_string, '(AGPL-3.0-only AND Artistic-1.0) OR (GPL-1.0-or
 
 subtest 'SUSE license' => sub {
   $l = lic('SUSE-Freeware');
-  ok !$l->normalized, 'not normalized';
-  is $l->error, 'Invalid SPDX license: SUSE-Freeware', 'right error';
-  is_deeply $l->tree, undef, 'no structure';
+  ok $l->normalized, 'normalized';
+  is $l->error, undef, 'no error';
+  is_deeply $l->tree, {license => 'LicenseRef-SUSE-Freeware'}, 'right structure';
+  is $l->to_string, 'LicenseRef-SUSE-Freeware', 'right string';
 };
 
 # Partial match

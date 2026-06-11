@@ -1,16 +1,8 @@
 % layout 'default';
 % title "Content of $filename";
 
-%= include 'reviewer/_path'
-
-<div class="row">
-  <div class="col-12 mb-4">
-<textarea class="form-control col-xs-12" id="file">
-%= maybe_utf8 $file->slurp
-</textarea>
-  </div>
-</div>
+<div id="file-browser" data-initial-path="<%= Mojo::JSON::encode_json($filename) %>"></div>
 
 % content_for 'ready_function' => begin
-    cavil.setupCodeMirrorForFile();
+  cavil.setupFileBrowser(<%= $id %>, JSON.parse(document.getElementById('file-browser').dataset.initialPath));
 % end

@@ -25,6 +25,9 @@ use List::Util ();
 
 has [qw(cache log pg minion)];
 
+use constant LICENSE_DETAIL_MATCH_LIMIT   => 10_000;
+use constant LICENSE_DETAIL_PACKAGE_LIMIT => 1_000;
+
 sub autocomplete ($self) {
   my $licenses = {};
 
@@ -202,13 +205,34 @@ sub checksum ($self, $pattern) {
 }
 
 sub for_license ($self, $license) {
-  return $self->pg->db->query(
-    'SELECT lp.*, bu1.login AS owner_login, bu2.login AS contributor_login
+  my $match_limit   = LICENSE_DETAIL_MATCH_LIMIT;
+  my $package_limit = LICENSE_DETAIL_PACKAGE_LIMIT;
+  my $patterns      = $self->pg->db->query(
+    'SELECT lp.*, bu1.login AS owner_login, bu2.login AS contributor_login,
+       match_counts.matches, match_counts.matches_capped,
+       package_counts.packages, package_counts.packages_capped
      FROM license_patterns lp LEFT JOIN bot_users bu1 ON (bu1.id = lp.owner)
        LEFT JOIN bot_users bu2 ON (bu2.id = lp.contributor)
+       LEFT JOIN LATERAL (
+         SELECT LEAST(COUNT(*)::int, ?) AS matches, COUNT(*) > ? AS matches_capped
+         FROM (SELECT 1 FROM pattern_matches pm WHERE pm.pattern = lp.id LIMIT ?) limited_matches
+       ) match_counts ON true
+       LEFT JOIN LATERAL (
+         SELECT LEAST(COUNT(*)::int, ?) AS packages, COUNT(*) > ? AS packages_capped
+         FROM (SELECT DISTINCT pm.package FROM pattern_matches pm WHERE pm.pattern = lp.id LIMIT ?) limited_packages
+       ) package_counts ON true
      WHERE license = ?
-     ORDER BY lp.created', $license
+     ORDER BY lp.created', $match_limit, $match_limit, $match_limit + 1, $package_limit, $package_limit,
+    $package_limit + 1, $license
   )->hashes->to_array;
+  for my $pattern (@$patterns) {
+    $pattern->{spdx_html}       = spdx_link($pattern->{spdx});
+    $pattern->{matches}         = 0 + ($pattern->{matches}  // 0);
+    $pattern->{packages}        = 0 + ($pattern->{packages} // 0);
+    $pattern->{matches_capped}  = $pattern->{matches_capped}  ? true : false;
+    $pattern->{packages_capped} = $pattern->{packages_capped} ? true : false;
+  }
+  return $patterns;
 }
 
 sub ignore_pattern_exists ($self, $name, $checksum) {

@@ -19,7 +19,7 @@ This is the workflow contributors use to propose new license patterns.
 ### Contributor Role
 
 Before you can get started, you need to make sure you have the right permissions. This can be checked by logging into
-Cavil and looking at the assigned roles in the "Logged in as ..." menu. Here you should see the "contributor" role. If
+Cavil and looking at the assigned roles in the account menu. Here you should see the "contributor" role. If
 you don't see the role you will have to contact the admin of your Cavil instance and ask for the role to be assigned to
 you.
 
@@ -127,7 +127,7 @@ This is the workflow admins use to review proposed license patterns and decide i
 
 ### Proposed Changes
 
-Every time there is a proposal waiting for approval you will see a gray badge in the "logged in as ..." menu. Just
+Every time there is a proposal waiting for approval you will see a gray badge in the account menu. Just
 click on "Change Proposals" to start reviewing them. Once approved you can check their performance by clicking on
 "Pattern Performance".
 
@@ -149,7 +149,7 @@ only create package specific ignore patterns.
 ### Missing Licenses
 
 And every time a contributor reports an entirely new license or license combination for risk assessment, you will see
-a red badge in the "logged in as ..." menu. Click on "Missing Licenses" to start the risk assessment.
+a red badge in the account menu. Click on "Missing Licenses" to start the risk assessment.
 
 ![Notification](images/contrib-admin-1b-notification.png)
 

@@ -54,8 +54,12 @@
               </th>
               <th class="fit text-start noleftpad" scope="row">Package Files:</th>
               <td id="num-spec-files">
-                <a v-if="actions.length === 1" href="#spec-files" data-bs-toggle="collapse">1 file</a>
-                <a v-else href="#spec-files" data-bs-toggle="collapse">{{ pkgFiles.length }} files</a>
+                <a v-if="pkgFiles.length === 1" href="#spec-files" class="metadata-count-pill" data-bs-toggle="collapse"
+                  >1 file</a
+                >
+                <a v-else href="#spec-files" class="metadata-count-pill" data-bs-toggle="collapse"
+                  >{{ pkgFiles.length }} files</a
+                >
               </td>
             </tr>
             <tr v-if="actions.length > 0">
@@ -64,8 +68,12 @@
               </th>
               <th class="fit text-start noleftpad" scope="row">Actions:</th>
               <td>
-                <a v-if="actions.length === 1" href="#actions" data-bs-toggle="collapse">1 related review</a>
-                <a v-else href="#actions" data-bs-toggle="collapse">{{ actions.length }} related reviews</a>
+                <a v-if="actions.length === 1" href="#actions" class="metadata-count-pill" data-bs-toggle="collapse"
+                  >1 related review</a
+                >
+                <a v-else href="#actions" class="metadata-count-pill" data-bs-toggle="collapse"
+                  >{{ actions.length }} related reviews</a
+                >
               </td>
             </tr>
             <tr v-if="history.length > 0">
@@ -74,8 +82,12 @@
               </th>
               <th class="fit text-start noleftpad" scope="row">History:</th>
               <td>
-                <a v-if="history.length === 1" href="#history" data-bs-toggle="collapse">1 other review</a>
-                <a v-else href="#history" data-bs-toggle="collapse">{{ history.length }} other reviews</a>
+                <a v-if="history.length === 1" href="#history" class="metadata-count-pill" data-bs-toggle="collapse"
+                  >1 other review</a
+                >
+                <a v-else href="#history" class="metadata-count-pill" data-bs-toggle="collapse"
+                  >{{ history.length }} other reviews</a
+                >
               </td>
             </tr>
             <tr v-if="externalLink !== null">
@@ -208,119 +220,97 @@
         </div>
       </div>
     </div>
-    <div v-if="actions.length > 0" class="row collapse" id="actions">
-      <div class="col">
-        <table class="table table-striped transparent-table">
-          <tbody>
-            <tr v-for="action in actions" :key="action.id">
-              <td>{{ action.name }}</td>
-              <td>{{ action.result }}</td>
-              <td>{{ action.state }}</td>
-              <td>{{ action.reviewing_user }}</td>
-              <td class="text-end">
-                <a :href="action.actionUrl" target="_blank">{{ action.created }}</a>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div v-if="actions.length > 0" class="collapse metadata-related-panel" id="actions">
+      <ul class="metadata-related-list">
+        <li v-for="action in actions" :key="action.id" class="metadata-related-item">
+          <span class="metadata-related-name">{{ action.name }}</span>
+          <span class="metadata-related-pill">{{ action.result }}</span>
+          <span class="metadata-related-pill">{{ action.state }}</span>
+          <span class="metadata-related-user">{{ action.reviewing_user }}</span>
+          <a :href="action.actionUrl" class="metadata-related-date" target="_blank">{{ action.created }}</a>
+        </li>
+      </ul>
     </div>
-    <div v-if="history.length > 0" class="row collapse" id="history">
-      <div class="col">
-        <table class="table table-striped transparent-table">
-          <tbody>
-            <tr v-for="prev in history" :key="prev.id">
-              <td v-html="prev.externalLink"></td>
-              <td>{{ prev.result }}</td>
-              <td>{{ prev.state }}</td>
-              <td>{{ prev.reviewing_user }}</td>
-              <td class="text-end">
-                <a :href="prev.reportUrl" target="_blank">{{ prev.created }}</a>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div v-if="history.length > 0" class="collapse metadata-related-panel" id="history">
+      <ul class="metadata-related-list">
+        <li v-for="prev in history" :key="prev.id" class="metadata-related-item">
+          <span class="metadata-related-name" v-html="prev.externalLink"></span>
+          <span class="metadata-related-pill">{{ prev.result }}</span>
+          <span class="metadata-related-pill">{{ prev.state }}</span>
+          <span class="metadata-related-user">{{ prev.reviewing_user }}</span>
+          <a :href="prev.reportUrl" class="metadata-related-date" target="_blank">{{ prev.created }}</a>
+        </li>
+      </ul>
     </div>
     <div v-if="pkgFiles.length > 0" id="spec-files" class="collapse">
-      <div class="alert alert-secondary">
-        <table class="table borderless transparent-table">
-          <tbody>
-            <tr v-for="file in pkgFiles" :key="file.file">
-              <td class="noleftpad">
-                <table class="table borderless transparent-table">
-                  <tbody>
-                    <tr>
-                      <th class="fit text-start noleftpad" colspan="2">
-                        <i class="fa-solid fa-file-lines"></i> {{ file.file }}
-                      </th>
-                    </tr>
-                    <tr v-if="file.licenses !== null">
-                      <th class="fit text-start align-top noleftpad">Licenses:</th>
-                      <td>{{ file.licenses }}</td>
-                    </tr>
-                    <tr v-if="file.version !== null">
-                      <th class="fit text-start align-top noleftpad">Version:</th>
-                      <td>{{ file.version }}</td>
-                    </tr>
-                    <tr v-if="file.summary !== null">
-                      <th class="fit text-start align-top noleftpad">Summary:</th>
-                      <td>{{ file.summary }}</td>
-                    </tr>
-                    <tr v-if="file.group !== null">
-                      <th class="fit text-start align-top noleftpad">Group:</th>
-                      <td>{{ file.group }}</td>
-                    </tr>
-                    <tr v-if="file.url !== null">
-                      <th class="fit text-start align-top noleftpad">URL:</th>
-                      <td class="text-start">
-                        <a :href="file.url" class="p-0" target="_blank">{{ file.url }}</a>
-                      </td>
-                    </tr>
-                    <tr v-if="file.sources !== null">
-                      <th class="fit text-start align-top noleftpad">Sources:</th>
-                      <td>{{ file.sources }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div v-if="errors.length > 0" id="spec-errors" class="alert alert-warning">
-      <p>Package file warnings for packagers:</p>
-      <ul>
-        <li v-for="error in errors" :key="error">{{ error }}</li>
+      <ul class="metadata-file-list">
+        <li v-for="file in pkgFiles" :key="file.file" class="metadata-file-item">
+          <h3 class="metadata-file-title"><i class="fa-solid fa-file-lines"></i> {{ file.file }}</h3>
+          <dl class="metadata-file-details">
+            <template v-if="file.licenses !== null">
+              <dt>Licenses</dt>
+              <dd>{{ file.licenses }}</dd>
+            </template>
+            <template v-if="file.version !== null">
+              <dt>Version</dt>
+              <dd>{{ file.version }}</dd>
+            </template>
+            <template v-if="file.summary !== null">
+              <dt>Summary</dt>
+              <dd>{{ file.summary }}</dd>
+            </template>
+            <template v-if="file.group !== null">
+              <dt>Group</dt>
+              <dd>{{ file.group }}</dd>
+            </template>
+            <template v-if="file.url !== null">
+              <dt>URL</dt>
+              <dd>
+                <a :href="file.url" target="_blank">{{ file.url }}</a>
+              </dd>
+            </template>
+            <template v-if="file.sources !== null">
+              <dt>Sources</dt>
+              <dd>{{ file.sources }}</dd>
+            </template>
+          </dl>
+        </li>
       </ul>
     </div>
-    <div v-if="warnings.length > 0" id="spec-warnings" class="alert alert-warning">
-      <p>Package file warnings for reviewers:</p>
-      <ul>
-        <li v-for="warning in warnings" :key="warning">{{ warning }}</li>
-      </ul>
-    </div>
-    <div v-if="legalReviewNotices.length > 0" id="spec-legal-review-notices" class="alert alert-success">
-      <p>Legal review notices from packagers:</p>
-      <ul>
-        <li v-for="notice in legalReviewNotices" :key="notice">{{ notice }}</li>
-      </ul>
-    </div>
-    <div v-if="notice !== null" class="row">
-      <div class="col mb-3">
-        <div class="alert alert-info">
-          <pre>{{ notice }}</pre>
-        </div>
-      </div>
-    </div>
-    <div v-if="hasAdminRole === true" class="row">
-      <form :action="reviewUrl" method="POST" class="container" id="pkg-review">
-        <div class="col mb-3">
+    <cavil-notice-panel
+      v-if="errors.length > 0"
+      id="spec-errors"
+      icon="fa-solid fa-triangle-exclamation"
+      :items="errors"
+      title="Package file warnings for packagers"
+      tone="warning"
+    />
+    <cavil-notice-panel
+      v-if="warnings.length > 0"
+      id="spec-warnings"
+      icon="fa-solid fa-clipboard-check"
+      :items="warnings"
+      title="Package file warnings for reviewers"
+      tone="warning"
+    />
+    <cavil-notice-panel
+      v-if="legalReviewNotices.length > 0"
+      id="spec-legal-review-notices"
+      icon="fa-solid fa-scale-balanced"
+      :items="legalReviewNotices"
+      title="Legal review notices"
+      tone="success"
+    />
+    <cavil-notice-panel v-if="notice !== null" icon="fa-solid fa-circle-info" title="Review information" tone="info">
+      <pre class="cavil-notice-pre">{{ notice }}</pre>
+    </cavil-notice-panel>
+    <div v-if="hasAdminRole === true" class="metadata-review-section">
+      <form :action="reviewUrl" method="POST" class="container metadata-review-form" id="pkg-review">
+        <div class="col metadata-review-editor">
           <label class="form-label" for="comment">Comment</label>
           <textarea v-model="result" name="comment" placeholder="Reviewed ok" rows="10" class="form-control"></textarea>
         </div>
-        <div class="col mb-3">
+        <div class="col mb-3 metadata-review-actions">
           <input
             class="btn btn-success"
             id="acceptable_by_lawyer"
@@ -335,48 +325,53 @@
         </div>
       </form>
     </div>
-    <div v-else-if="hasManagerRole === true" class="row">
-      <form :action="fasttrackUrl" method="POST" class="container" id="pkg-review">
-        <div class="col mb-3">
+    <div v-else-if="hasManagerRole === true" class="metadata-review-section">
+      <form :action="fasttrackUrl" method="POST" class="container metadata-review-form" id="pkg-review">
+        <div class="col metadata-review-editor">
           <label class="form-label" for="comment">Comment</label>
           <textarea v-model="result" name="comment" placeholder="Reviewed ok" rows="10" class="form-control"></textarea>
         </div>
-        <div class="col mb-3">
+        <div class="col mb-3 metadata-review-actions">
           <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Acceptable" />
         </div>
       </form>
     </div>
-    <div v-else class="row">
-      <form class="container" id="pkg-review">
-        <div class="col mb-3">
+    <div v-else class="metadata-review-section">
+      <form class="container metadata-review-form" id="pkg-review">
+        <div class="col metadata-review-editor">
           <label class="form-label" for="comment">Comment</label>
           <textarea v-model="result" name="comment" rows="10" class="form-control" disabled></textarea>
         </div>
       </form>
     </div>
-    <div
+    <cavil-notice-panel
       v-if="copiedFiles['%doc'] !== null || copiedFiles['%license'] !== null"
-      class="alert alert-secondary top-buffer"
+      icon="fa-regular fa-copy"
+      title="Copied files"
     >
-      <p v-if="copiedFiles['%doc'] !== null">
-        <b>Files copied as %doc:</b>
-        {{ copiedFiles['%doc'] }}
-      </p>
-      <p v-if="copiedFiles['%license'] !== null">
-        <b>Files copied as %license:</b>
-        {{ copiedFiles['%license'] }}
-      </p>
-    </div>
+      <dl class="cavil-notice-definition-list">
+        <template v-if="copiedFiles['%doc'] !== null">
+          <dt>%doc</dt>
+          <dd>{{ copiedFiles['%doc'] }}</dd>
+        </template>
+        <template v-if="copiedFiles['%license'] !== null">
+          <dt>%license</dt>
+          <dd>{{ copiedFiles['%license'] }}</dd>
+        </template>
+      </dl>
+    </cavil-notice-panel>
   </div>
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import {externalLink, productLink} from './helpers/links.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
 
 export default {
   name: 'ReportMetadata',
+  components: {CavilNoticePanel},
   mixins: [Refresh],
   data() {
     return {
@@ -517,14 +512,242 @@ export default {
 </script>
 
 <style>
-.transparent-table {
-  --bs-table-bg: transparent !important;
+.borderless.novertpad th.fit:first-child i {
+  color: #6e7781;
+  font-size: 0.95em;
 }
-#spec-files table {
+.borderless.novertpad th,
+.borderless.novertpad td {
+  line-height: 1.35;
+  padding-bottom: 0.28rem !important;
+  padding-top: 0.28rem !important;
+}
+.metadata-count-pill {
+  align-items: center;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  color: #57606a;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.35rem 0.6rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.metadata-count-pill:hover,
+.metadata-count-pill:focus {
+  background: #eef6ff;
+  border-color: #b6e3ff;
+  color: #0969da;
+  text-decoration: none;
+}
+.metadata-related-panel,
+#spec-files {
+  margin: 0.85rem 0 1.1rem;
+}
+.metadata-related-list,
+.metadata-file-list {
+  list-style: none;
   margin: 0;
+  padding: 0;
 }
-#spec-files table + table {
-  margin-top: 1rem;
+.metadata-related-item {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto auto minmax(120px, auto) auto;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  padding: 0.65rem 0.85rem;
+  transition: background-color 0.15s ease;
+}
+.metadata-related-item:hover,
+.metadata-file-item:hover {
+  background: #f6f8fa;
+}
+.metadata-related-name {
+  color: #1f2328;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.metadata-related-pill {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  color: #57606a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.35rem 0.6rem;
+  white-space: nowrap;
+}
+.metadata-related-user,
+.metadata-related-date {
+  color: #57606a;
+  font-size: 13px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.metadata-related-date {
+  justify-self: end;
+  text-decoration-color: transparent;
+  white-space: nowrap;
+}
+.metadata-related-date:hover,
+.metadata-related-date:focus {
+  color: #0550ae;
+  text-decoration-color: currentColor;
+}
+.metadata-file-item {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  margin-bottom: 0.85rem;
+  overflow: hidden;
+  transition: background-color 0.15s ease;
+}
+.metadata-file-title {
+  align-items: center;
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  color: #1f2328;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 0.45rem;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 0.65rem 0.85rem;
+}
+.metadata-file-title i {
+  color: #6e7781;
+}
+.metadata-file-details {
+  display: grid;
+  font-size: 13px;
+  gap: 0.35rem 0.85rem;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+}
+.metadata-file-details dt {
+  color: #57606a;
+  font-weight: 600;
+}
+.metadata-file-details dd {
+  color: #1f2328;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.metadata-file-details a {
+  text-decoration-color: transparent;
+}
+.metadata-file-details a:hover,
+.metadata-file-details a:focus {
+  text-decoration-color: currentColor;
+}
+.metadata-review-section {
+  margin: 1.25rem 0;
+}
+.metadata-review-form {
+  padding: 0;
+}
+.metadata-review-editor {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.metadata-review-editor .form-label {
+  align-items: center;
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  color: #1f2328;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+}
+.metadata-review-editor .form-control {
+  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: #1f2328;
+  font-size: 14px;
+  line-height: 1.45;
+  min-height: 12rem;
+  padding: 0.75rem;
+  resize: vertical;
+}
+.metadata-review-editor:focus-within {
+  border-color: #0969da;
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.18);
+}
+.metadata-review-editor .form-control:focus {
+  box-shadow: none;
+  outline: none;
+}
+.metadata-review-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 0.75rem;
+}
+.metadata-review-actions .btn {
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  position: relative;
+}
+.metadata-review-actions span {
+  display: inline-flex;
+}
+.metadata-review-actions > * + * {
+  margin-left: -1px;
+}
+.metadata-review-actions > *:not(:first-child) .btn,
+.metadata-review-actions > .btn:not(:first-child) {
+  border-bottom-left-radius: 0;
+  border-top-left-radius: 0;
+}
+.metadata-review-actions > *:not(:last-child) .btn,
+.metadata-review-actions > .btn:not(:last-child) {
+  border-bottom-right-radius: 0;
+  border-top-right-radius: 0;
+}
+.metadata-review-actions .btn:hover,
+.metadata-review-actions .btn:focus {
+  z-index: 1;
+}
+@media (max-width: 900px) {
+  .metadata-related-item {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+  .metadata-related-date {
+    justify-self: start;
+  }
+}
+@media (max-width: 700px) {
+  .metadata-file-details {
+    grid-template-columns: 1fr;
+  }
+  .metadata-file-details dd + dt {
+    margin-top: 0.25rem;
+  }
 }
 .cavil-classification-badge {
   display: flex;

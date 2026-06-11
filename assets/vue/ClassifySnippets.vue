@@ -1,14 +1,14 @@
 <template>
   <div>
     <div class="row mt-3">
-      <div v-if="hasClassifierRole === true" class="col-11 alert alert-primary" role="alert">
+      <cavil-notice-panel v-if="hasClassifierRole === true" intro class="col-11">
         These snippets have been pre-processed by our machine learning model to decide if they are legal text or not.
         Legal text is highlighted in yellow. You can help us improve the model by voting the decisions up or down.
-      </div>
-      <div v-else class="col-11 alert alert-primary" role="alert">
+      </cavil-notice-panel>
+      <cavil-notice-panel v-else intro class="col-11">
         These snippets have been pre-processed by our machine learning model to decide if they are legal text or not.
         Legal text is highlighted in yellow.
-      </div>
+      </cavil-notice-panel>
     </div>
     <div class="row g-4">
       <div class="col-8">
@@ -174,11 +174,13 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'ClassifySnippets',
+  components: {CavilNoticePanel},
   data() {
     const params = getParams({
       confidence: 100,
@@ -301,8 +303,7 @@ export default {
 }
 .snippet-file {
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0.25rem 0.25rem 0 0;
+  border-bottom: 1px solid rgb(208, 215, 222);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
@@ -317,12 +318,14 @@ export default {
   text-decoration: underline;
 }
 .snippet-file-container {
+  border: 1px solid rgb(208, 215, 222);
+  border-radius: 6px;
+  overflow: hidden;
   padding: 0;
 }
 .snippet-footer {
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0 0.25rem 0.25rem;
+  border-top: 1px solid rgb(208, 215, 222);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
@@ -339,9 +342,8 @@ export default {
 }
 
 .snippet-source {
-  border: 1px solid #dfe2e5 !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
+  background: #fff;
+  overflow: auto;
 }
 
 .snippet-source td.linenumber,
@@ -356,7 +358,8 @@ export default {
 }
 
 .snippet-source td.code {
-  padding-left: 0.5em;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
   color: #24292e;
   margin-left: 0.5em;
   white-space: -moz-pre-wrap;

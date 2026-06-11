@@ -14,13 +14,13 @@
 % my $license = lic($raw_license)->to_string;
 % my $display_license = $license || $raw_license;
 % content_for 'ready_function' => begin
-  $('#create-pattern').data('licenseName', '<%= $display_license %>');
   cavil.fromNow();
 % end
 
-<h2>Licenses</h2>
-
-%= include 'reviewer/_reindex'
+<div class="report-license-titlebar">
+  <h2>Licenses</h2>
+  %= include 'reviewer/_reindex'
+</div>
 
 % if ($package->{obsolete}) {
   <div class="row mb-3 mt-3"><span>This report is obsolete and might not exist anymore.</span></div>

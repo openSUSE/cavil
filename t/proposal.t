@@ -214,6 +214,7 @@ subtest 'Pattern creation' => sub {
       ->json_is('/changes/0/data/edited'               => 1)
       ->json_hasnt('/changes/1');
     my $checksum = $t->tx->res->json->{changes}[0]{token_hexsum};
+    $t->get_ok('/licenses/proposed/stats')->status_is(200)->json_is('/missing' => 0)->json_is('/proposals' => 1);
     $t->app->users->add_role(2, 'admin');
     dec(
       1,
@@ -229,6 +230,7 @@ subtest 'Pattern creation' => sub {
     $t->get_ok('/licenses/proposed/meta?action=create_pattern&action=create_ignore')
       ->status_is(200)
       ->json_hasnt('/changes/0');
+    $t->get_ok('/licenses/proposed/stats')->status_is(200)->json_is('/missing' => 0)->json_is('/proposals' => 0);
 
     dec(1, 'create-pattern', {license => 'GPL', pattern => "The license might be\nsomething cool", risk => 5})
       ->status_is(409)

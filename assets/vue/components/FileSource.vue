@@ -4,18 +4,17 @@
       <!-- eslint-disable-next-line vue/no-v-for-template-key -->
       <template v-for="(line, idx) in lines" :key="idx">
         <tr v-if="line[1].withgap">
-          <td class="redbar" colspan="4"></td>
+          <td class="redbar" :colspan="readOnly ? 2 : 4"></td>
         </tr>
         <tr
           v-if="!isHiddenByEditor(line)"
           :id="matchStartId(line)"
           :class="rowClass(line[1])"
-          :title="line[1].risk > 0 ? line[1].name : null"
-          @mouseenter="onRowEnter(line[1])"
+          @mouseenter="onRowEnter($event, line[1])"
           @mouseleave="onRowLeave"
         >
-          <td v-if="!showActions(line[1])" class="actions"></td>
-          <td v-else class="actions dropdown show">
+          <td v-if="!readOnly && !showActions(line[1])" class="actions"></td>
+          <td v-else-if="!readOnly" class="actions dropdown show">
             <a
               href="#"
               :id="'dropdownMenuLink-' + fileId + '-' + line[0]"
@@ -94,7 +93,7 @@
             />
           </td>
 
-          <td v-if="line[1].end && line[1].risk === 9 && line[1].snippet" class="quick-actions">
+          <td v-if="!readOnly && line[1].end && line[1].risk === 9 && line[1].snippet" class="quick-actions">
             <a
               :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
               class="snippet-tool-btn"
@@ -106,9 +105,9 @@
               <i class="fa-solid fa-plus"></i>
             </a>
           </td>
-          <td v-else class="quick-actions"></td>
+          <td v-else-if="!readOnly" class="quick-actions"></td>
         </tr>
-        <tr v-if="inlineEditor && inlineEditor.startLine === line[0]" class="inline-editor-row">
+        <tr v-if="!readOnly && inlineEditor && inlineEditor.startLine === line[0]" class="inline-editor-row">
           <td colspan="4">
             <div id="inline-snippet-editor">
               <SnippetEditor
@@ -134,6 +133,7 @@
 <script>
 import PendingActionIndicator from './PendingActionIndicator.vue';
 import SnippetEditor from './SnippetEditor.vue';
+import {patternIdsFromInfo, showPatternTooltip} from '../helpers/patternTooltip.js';
 
 export default {
   name: 'FileSource',
@@ -146,21 +146,26 @@ export default {
     hasAdminRole: {type: Boolean, default: false},
     hasContributorRole: {type: Boolean, default: false},
     pendingActions: {type: Array, default: () => []},
-    inlineEditor: {type: Object, default: null}
+    inlineEditor: {type: Object, default: null},
+    readOnly: {type: Boolean, default: false}
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
-    return {hoveredGroup: null};
+    return {hoveredGroup: null, patternTooltip: null};
   },
   computed: {
     isAdminOrContributor() {
       return this.hasAdminRole || this.hasContributorRole;
     }
   },
+  beforeUnmount() {
+    if (this.patternTooltip) this.patternTooltip.destroy();
+  },
   methods: {
     rowClass(info) {
       const classes = [`risk-${info.risk}`];
       if (info.hash) classes.push(`hash-${info.hash}`);
+      if (patternIdsFromInfo(info).length > 0) classes.push('has-pattern-tooltip');
       // The first line of an unresolved snippet has both risk 9 and the `end`
       // marker added by Cavil::Util::lines_context. Keyboard navigation walks
       // these in document order.
@@ -176,11 +181,30 @@ export default {
       if (info.snippet != null) return `s${info.snippet}`;
       return null;
     },
-    onRowEnter(info) {
+    onRowEnter(event, info) {
       this.hoveredGroup = this.groupKey(info);
+      if (this.patternTooltip) {
+        this.patternTooltip.destroy();
+        this.patternTooltip = null;
+      }
+      const ids = patternIdsFromInfo(info);
+      if (ids.length > 0) {
+        const anchor = event.currentTarget.querySelector('td.code') || event.currentTarget;
+        const tooltip = showPatternTooltip(anchor, ids, {
+          hideDelay: 1000,
+          interactive: false,
+          link: false,
+          placement: 'source-row',
+          onDestroy: () => {
+            if (this.patternTooltip === tooltip) this.patternTooltip = null;
+          }
+        });
+        this.patternTooltip = tooltip;
+      }
     },
     onRowLeave() {
       this.hoveredGroup = null;
+      if (this.patternTooltip) this.patternTooltip.scheduleDestroy();
     },
     matchStartId(line) {
       // Stable anchor for ReportDetails' navigation state - only emitted on
@@ -190,7 +214,7 @@ export default {
       return `line-${this.fileId}-${line[0]}`;
     },
     showActions(info) {
-      return this.isAdminOrContributor && info.end;
+      return !this.readOnly && this.isAdminOrContributor && info.end;
     },
     isHiddenByEditor(line) {
       if (!this.inlineEditor) return false;

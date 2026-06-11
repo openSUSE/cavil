@@ -78,12 +78,14 @@ export default {
 
 <style scoped>
 .closest-container {
+  border: 1px solid rgb(208, 215, 222);
+  border-radius: 6px;
   margin-bottom: 1rem;
+  overflow: hidden;
 }
 .closest-header {
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0.25rem 0.25rem 0 0;
+  border-bottom: 1px solid rgb(208, 215, 222);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
@@ -96,20 +98,17 @@ export default {
   text-decoration: underline;
 }
 .closest-source {
-  border: 1px solid #dfe2e5 !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
+  background: #fff;
+  overflow: auto;
 }
 .closest-source pre {
   font-family: monospace;
-  padding: 0;
+  padding: 0 0.75rem;
   margin: 0;
   font-size: 12px;
   line-height: 20px;
   color: #24292e;
   border: 0 !important;
-  padding-left: 0.5em;
-  margin-left: 0.5em;
   white-space: -moz-pre-wrap;
   white-space: -o-pre-wrap;
   white-space: pre-wrap;
@@ -117,9 +116,8 @@ export default {
   word-break: break-all;
 }
 .closest-footer {
-  border: 1px solid rgb(208, 215, 222);
-  border-top: 0;
-  border-radius: 0 0 0.25rem 0.25rem;
+  background-color: rgb(246, 248, 250);
+  border-top: 1px solid rgb(208, 215, 222);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;

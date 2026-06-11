@@ -1,28 +1,46 @@
 <template>
   <div>
     <div class="row mt-3">
-      <div class="col-12 alert alert-primary" role="alert">
+      <cavil-notice-panel intro class="col-12">
         These are snippets with possibly missing licenses or license combinations that have been flagged by contributors
         for risk assessment.
-      </div>
+      </cavil-notice-panel>
     </div>
     <div v-if="changes !== null && changes.length > 0">
       <transition-group name="row" tag="div" @before-leave="onBeforeLeave" @leave="onLeave">
         <div v-for="change in changes" :key="change.id" class="row change-container">
           <div v-if="change.state === 'proposed'" class="col-12 change-file-container">
             <div class="change-header">
-              <span v-if="change.action === 'missing_license'">
-                Missing license reported by <b>{{ change.login }}</b>
-                <span v-if="change.package !== null"
-                  >,
-                  <a :href="change.package.pkgUrl" target="_blank"
-                    >for <b>{{ change.package.name }}</b></a
-                  >
+              <div class="change-title">
+                <span v-if="change.action === 'missing_license'">
+                  Missing license reported by <b>{{ change.login }}</b>
+                  <span class="cavil-meta-badges change-meta-badges">
+                    <span class="cavil-meta-badge cavil-meta-badge-danger">missing license</span>
+                    <a :href="change.editUrl" target="_blank" class="cavil-meta-badge cavil-meta-badge-muted">
+                      snippet
+                    </a>
+                    <a
+                      v-if="change.package !== null"
+                      :href="change.package.pkgUrl"
+                      target="_blank"
+                      class="cavil-meta-badge cavil-meta-badge-muted"
+                    >
+                      {{ change.package.name }}
+                    </a>
+                  </span>
                 </span>
-              </span>
-              <span v-if="currentUser === change.login" class="float-end">
-                <a @click="dismissProposal(change)" href="#"><i class="fa-solid fa-xmark"></i></a>
-              </span>
+              </div>
+              <div v-if="currentUser === change.login" class="change-actions">
+                <button
+                  @click="dismissProposal(change)"
+                  type="button"
+                  class="cavil-icon-action cavil-icon-action-danger"
+                  title="Dismiss proposal"
+                  aria-label="Dismiss proposal"
+                >
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
             </div>
             <div class="change-source">
               <table>
@@ -79,12 +97,13 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'MissingLicenses',
-  components: {ToastNotifier},
+  components: {CavilNoticePanel, ToastNotifier},
   data() {
     return {
       ignoreForPackage: true,
@@ -209,12 +228,33 @@ export default {
   transition: transform 0.3s ease;
 }
 .change-header {
+  align-items: center;
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0.25rem 0.25rem 0 0;
+  border-bottom: 1px solid rgb(208, 215, 222);
+  display: flex;
   font-size: 13px;
+  gap: 0.75rem;
+  justify-content: space-between;
   line-height: 20px;
   padding: 10px;
+}
+.change-title {
+  min-width: 0;
+}
+.change-title > span {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.change-meta-badges {
+  margin-left: 0.25rem;
+}
+.change-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.4rem;
 }
 .change-header a,
 .change-file a,
@@ -228,26 +268,26 @@ export default {
   text-decoration: underline;
 }
 .change-file-container {
+  border: 1px solid rgb(208, 215, 222);
+  border-radius: 6px;
+  overflow: hidden;
   padding: 0;
 }
 .change-form {
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-bottom: 0;
+  border-top: 1px solid rgb(208, 215, 222);
   padding: 10px;
 }
 .change-footer {
   background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
-  border-radius: 0 0.25rem 0.25rem;
+  border-top: 1px solid rgb(208, 215, 222);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
 }
 .change-source {
-  border: 1px solid #dfe2e5 !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
+  background: #fff;
+  overflow: auto;
 }
 .change-source td.linenumber,
 .change-source td.code {
@@ -260,7 +300,8 @@ export default {
   border: 0 !important;
 }
 .change-source td.code {
-  padding-left: 0.5em;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
   color: #24292e;
   margin-left: 0.5em;
   white-space: -moz-pre-wrap;

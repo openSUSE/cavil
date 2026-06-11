@@ -83,8 +83,8 @@
               <tr v-for="review in reviews" :key="review.id">
                 <td class="text-center"><PriorityBadge :priority.sync="review.priority" /></td>
                 <td v-html="review.link"></td>
-                <td class="timeago">{{ review.created }}</td>
-                <td class="timeago">{{ review.reviewed }}</td>
+                <td class="relative-time">{{ review.created }}</td>
+                <td class="relative-time">{{ review.reviewed }}</td>
                 <td v-html="review.package"></td>
                 <td v-html="review.state"></td>
                 <td v-html="review.result"></td>

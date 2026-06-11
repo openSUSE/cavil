@@ -57,11 +57,13 @@ subtest 'Login required' => sub {
   $t->get_ok('/reviews/report_details/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/fetch_source/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/file_view/1/LICENSE')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/reviews/file_view_meta/1/LICENSE')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippets')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippets/meta')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippet/edit/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippet/meta/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/pattern/1.json')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/licenses/pattern/1/match_count.json')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/missing')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/proposed')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/licenses/proposed/meta')->status_is(401)->content_like(qr/Login Required/);
@@ -80,7 +82,9 @@ subtest 'Not authenticated' => sub {
   $t->get_ok('/licenses/new_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/create_pattern')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/licenses/edit_pattern/1')->status_is(403)->content_like(qr/Permission/);
+  $t->post_ok('/licenses/pattern/1.json')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_pattern/1')->status_is(403)->content_like(qr/Permission/);
+  $t->post_ok('/licenses/meta/Apache-2.0')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_patterns')->status_is(403)->content_like(qr/Permission/);
   $t->delete_ok('/licenses/remove_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);

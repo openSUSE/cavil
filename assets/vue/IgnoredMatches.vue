@@ -1,11 +1,11 @@
 <template>
   <div>
     <div class="row mt-3">
-      <div class="col-12 alert alert-primary" role="alert">
+      <cavil-notice-panel intro class="col-12">
         These ignored matches are snippets that contain enough legal text so they cannot be ignored by the machine
         learning model, but are not relevant enough to be turned into license patterns, or the relevant parts are
         already covered by overlapping pattern matches.
-      </div>
+      </cavil-notice-panel>
     </div>
     <div>
       <form>
@@ -65,9 +65,15 @@
                 <td>{{ match.contributor_login }}</td>
                 <td>{{ match.owner_login }}</td>
                 <td class="text-center">
-                  <span class="cavil-action text-center">
-                    <a @click="deleteMatch(match)" href="#"><i class="fa-solid fa-trash"></i></a>
-                  </span>
+                  <button
+                    @click="deleteMatch(match)"
+                    type="button"
+                    class="cavil-icon-action cavil-icon-action-danger"
+                    title="Delete ignored match"
+                    aria-label="Delete ignored match"
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -99,6 +105,7 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
 import {packageLink} from './helpers/links.js';
@@ -110,7 +117,7 @@ import moment from 'moment';
 export default {
   name: 'IgnoredMatches',
   mixins: [Refresh],
-  components: {PaginationLinks, ShownEntries},
+  components: {CavilNoticePanel, PaginationLinks, ShownEntries},
   data() {
     const params = getParams({
       limit: 10,
@@ -192,10 +199,6 @@ export default {
 <style>
 .table {
   margin-top: 1rem;
-}
-.cavil-action a {
-  color: #212529;
-  text-decoration: none;
 }
 #cavil-pkg-filter form {
   margin: 2px 0;

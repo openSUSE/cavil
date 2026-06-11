@@ -1,22 +1,18 @@
 import './sass/app.scss';
 import 'bootstrap/dist/css/bootstrap.css';
-
-import 'timeago';
 import 'bootstrap';
-import 'moment';
-
-import {setupCodeMirrorForFile} from './legacy/file.js';
-import {setupReindex} from './legacy/review.js';
-import {fromNow} from './legacy/time.js';
 import ApiKeys from './vue/ApiKeys.vue';
+import CavilMenu from './vue/CavilMenu.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
 import EditPattern from './vue/EditPattern.vue';
 import EditSnippet from './vue/EditSnippet.vue';
+import FileBrowser from './vue/FileBrowser.vue';
 import IgnoredFiles from './vue/IgnoredFiles.vue';
 import IgnoredMatches from './vue/IgnoredMatches.vue';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
+import LicenseDetails from './vue/LicenseDetails.vue';
 import MissingLicenses from './vue/MissingLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import ProductReviews from './vue/ProductReviews.vue';
@@ -27,11 +23,8 @@ import RecentReviews from './vue/RecentReviews.vue';
 import ReportDetails from './vue/ReportDetails.vue';
 import ReportMetadata from './vue/ReportMetadata.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
-import $ from 'jquery';
+import moment from 'moment';
 import {createApp} from 'vue';
-
-window.$ = $;
-window.jQuery = $;
 
 function updateBackToTopVisibility() {
   const visible = window.scrollY > 200;
@@ -42,8 +35,53 @@ function updateBackToTopVisibility() {
 window.addEventListener('scroll', updateBackToTopVisibility, {passive: true});
 document.addEventListener('DOMContentLoaded', updateBackToTopVisibility);
 
+function fromNow(selector = '.from-now') {
+  document.querySelectorAll(selector).forEach(el => {
+    const epoch = Number(el.textContent);
+    const value = Number.isFinite(epoch) ? epoch * 1000 : el.getAttribute('datetime') || el.textContent;
+    el.textContent = moment(value).fromNow();
+  });
+}
+
+function setupReindex() {
+  const button = document.getElementById('reindex_button');
+  const form = document.getElementById('reindex-form');
+  if (!button || !form) return;
+
+  button.disabled = false;
+
+  button.addEventListener('click', async e => {
+    e.preventDefault();
+    button.disabled = true;
+    const response = await fetch(form.dataset.url, {method: 'POST', cache: 'no-store'});
+    if (response.ok) {
+      button.classList.add('btn-success');
+      window.location.reload();
+    } else {
+      button.classList.add('btn-danger');
+    }
+  });
+}
+
+function parseJsonData(el, name, fallback) {
+  const value = el.dataset[name];
+  if (!value) return fallback;
+  return JSON.parse(value);
+}
+
 window.cavil = {
-  myCodeMirror: undefined,
+  setupMenu() {
+    const el = document.getElementById('cavil-menubar');
+    if (!el) return;
+
+    createApp(CavilMenu, {
+      currentUser: el.dataset.currentUser,
+      hasAdminRole: el.dataset.hasAdminRole === '1',
+      initialStats: parseJsonData(el, 'stats', {missing: 0, proposals: 0}),
+      roles: parseJsonData(el, 'roles', []),
+      urls: parseJsonData(el, 'urls', {})
+    }).mount(el);
+  },
 
   setupProposedPatterns(currentUser, hasAdminRole) {
     const app = createApp(ProposedPatterns);
@@ -99,6 +137,12 @@ window.cavil = {
     createApp(KnownProducts).mount('#known-products');
   },
 
+  setupLicenseDetails(licenseName) {
+    const app = createApp(LicenseDetails);
+    app.config.globalProperties.licenseName = licenseName;
+    app.mount('#license-details');
+  },
+
   setupRecentPatterns(hasAdminRole) {
     const app = createApp(RecentPatterns);
     app.config.globalProperties.hasAdminRole = hasAdminRole;
@@ -148,11 +192,17 @@ window.cavil = {
     app.mount('#review-search');
   },
 
+  setupFileBrowser(pkgId, initialPath) {
+    const app = createApp(FileBrowser);
+    app.config.globalProperties.pkgId = pkgId;
+    app.config.globalProperties.fileBrowserInitialPath = initialPath;
+    app.mount('#file-browser');
+  },
+
   setupStatistics() {
     createApp(CavilStatistics).mount('#statistics');
   },
 
   fromNow,
-  setupCodeMirrorForFile,
   setupReindex
 };

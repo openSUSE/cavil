@@ -1,4 +1,6 @@
+% use Mojo::JSON qw(encode_json);
 % my $stats = proposal_stats();
+% my $roles = current_user_roles();
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -19,17 +21,22 @@
 
     %= javascript begin
       %= content_for 'head_javascript'
-      $(function() {
+      document.addEventListener('DOMContentLoaded', () => {
+        cavil.setupMenu();
         %= content_for 'ready_function'
-      } );
+      });
     % end
 
   </head>
   <body class="d-flex flex-column h-100">
     <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
       <div class="container">
-        %= link_to '/' => (class => 'navbar-brand') => begin
-          <img src="<%= url_for '/images/legal-hammer-symbol.svg' %>" width="20" height="20" alt="Legal Icon">
+        %= link_to '/' => (class => 'navbar-brand cavil-brand') => begin
+          <img src="<%= url_for '/images/legal-hammer-symbol.svg' %>" width="32" height="32" alt="Cavil">
+          <span class="cavil-brand-text">
+            <span class="cavil-brand-name">Cavil</span>
+            <span class="cavil-brand-subtitle">Legal Review</span>
+          </span>
         % end
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
           aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,95 +61,47 @@
               %= link_to 'Licenses' => '/licenses', class => current_route('licenses') ? 'nav-link active' : 'nav-link'
             </li>
           </ul>
-          <form action="<%= url_for 'search' %>" class="d-flex">
-            <%= text_field 'q', class => 'form-control me-2',
-              placeholder => 'Package Search' %>
+          <form action="<%= url_for 'search' %>" class="d-flex cavil-navbar-search">
+            <%= text_field 'q', class => 'form-control cavil-search-input',
+              placeholder => 'Search packages', 'aria-label' => 'Search packages' %>
           </form>
-          <ul class="navbar-nav">
-            % if (my $user = current_user) {
-              <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  Logged in as <%= $user %>
-                  % if ($stats->{missing} > 0) {
-                    <span class="badge bg-danger"><%= $stats->{missing} + $stats->{proposals} %></span>
-                  % }
-                  % elsif ($stats->{proposals} > 0) {
-                    <span class="badge bg-secondary"><%= $stats->{proposals} %></span>
-                  % }
+          % if (my $user = current_user) {
+            <ul
+              class="navbar-nav"
+              id="cavil-menubar"
+              data-current-user="<%= $user %>"
+              data-has-admin-role="<%= current_user_has_role('admin') ? 1 : 0 %>"
+              data-roles='<%= encode_json($roles) %>'
+              data-stats='<%= encode_json($stats) %>'
+              data-urls='<%= encode_json({
+                missing        => url_for('missing_licenses')->to_string,
+                proposed       => url_for('proposed_patterns')->to_string,
+                recentPatterns => url_for('recent_patterns')->to_string,
+                recentNotes    => url_for('recent_notes')->to_string,
+                stats          => url_for('stats')->to_string,
+                upload         => url_for('/upload')->to_string,
+                ignoredMatches => url_for('/ignored-matches')->to_string,
+                ignoredFiles   => url_for('/ignored-files')->to_string,
+                minion         => url_for('/minion')->to_string,
+                documentation  => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md',
+                apiKeys        => url_for('list_api_keys')->to_string,
+                logout         => url_for('logout')->to_string
+              }) %>'
+            >
+              <li class="nav-item dropdown cavil-user-menu cavil-user-menu-fallback">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Open account menu" title="Open account menu">
+                  <i class="fa-regular fa-circle-user cavil-user-menu-icon" aria-hidden="true"></i><span class="cavil-user-name"><%= $user %></span>
                 </a>
-                <ul class="dropdown-menu">
-                  % if (my @roles = @{current_user_roles()}) {
-                    <h3 class="dropdown-header">Roles</h3>
-                    <li>
-                      <span class="dropdown-item-text">
-                      % for my $role (sort @roles) {
-                        <div class="badge text-bg-secondary"><%= $role %></div>
-                      % }
-                      </span>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                  % }
-                  <h3 class="dropdown-header">User Menu</h3>
-                  <li>
-                    <a href="<%= url_for('missing_licenses') %>" class="dropdown-item">
-                      Missing Licenses
-                      % if ($stats->{missing} > 0) {
-                        <span class="badge bg-danger"><%= $stats->{missing} %></span>
-                      % }
-                    </a>
-                  </li>
-                  <li>
-                    <a href="<%= url_for('proposed_patterns') %>" class="dropdown-item">
-                      Change Proposals
-                      % if ($stats->{proposals} > 0) {
-                        <span class="badge bg-secondary"><%= $stats->{proposals} %></span>
-                      % }
-                    </a>
-                  </li>
-                  <li>
-                    %= link_to 'Pattern Performance' => 'recent_patterns', class => 'dropdown-item'
-                  </li>
-                  <li>
-                    %= link_to 'Recent Notes' => 'recent_notes', class => 'dropdown-item'
-                  </li>
-                  <li>
-                    %= link_to 'Statistics' => 'stats', class => 'dropdown-item'
-                  </li>
-                  <li><hr class="dropdown-divider"></li>
-                  % if (current_user_has_role 'admin') {
-                    <h3 class="dropdown-header">Administrator Menu</h3>
-                    <li>
-                      %= link_to 'Upload Tarball' => '/upload', class => 'dropdown-item'
-                    </li>
-                    <li>
-                      %= link_to 'Ignored Matches' => '/ignored-matches', class => 'dropdown-item'
-                    </li>
-                    <li>
-                      %= link_to 'Ignored Files' => '/ignored-files', class => 'dropdown-item'
-                    </li>
-                    <li>
-                      %= link_to 'Minion Dashboard' => '/minion', class => 'dropdown-item'
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                  % }
-                  <li>
-                    <%= link_to 'Documentation' => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md', class => 'dropdown-item' %>
-                  </li>
-                  <li>
-                    %= link_to 'API Keys' => 'list_api_keys', class => 'dropdown-item'
-                  </li>
-                  <li>
-                    %= link_to 'Logout' => 'logout', class => 'dropdown-item'
-                  </li>
-                </ul>
               </li>
-            % }
-            % else {
+            </ul>
+          % }
+          % else {
+            <ul class="navbar-nav">
               <li class="nav-item">
                 %= link_to Login => '/login', class => 'nav-link'
               </li>
-            % }
-          </ul>
+            </ul>
+          % }
         </div>
       </div>
     </nav>
@@ -161,10 +120,6 @@
               <a href="https://github.com/openSUSE/cavil/issues"><b>Sebastian Riedel</b></a>.
               <small><i class="fa-regular fa-copyright"></i> SUSE LLC.</small>
             </div>
-            <!--
-              Logo made by Freepik (http://www.freepik.com) from flaticon.com,
-              is licensed by CC BY 3.0 (http://creativecommons.org/licenses/by/3.0/)
-            -->
           </div>
         </div>
       </div>

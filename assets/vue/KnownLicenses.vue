@@ -1,11 +1,11 @@
 <template>
   <div class="mt-3">
     <div class="row">
-      <div class="alert alert-primary" role="alert">
+      <cavil-notice-panel intro class="col-12">
         These patterns are used to identify relevant legal text in source code. This may be license text, copyright
         statements, EULAs, CLAs, or other legal text. Patterns without license identifiers (keyword patterns) are used
         to locate potential new license patterns.
-      </div>
+      </cavil-notice-panel>
     </div>
     <div>
       <form>
@@ -86,6 +86,7 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import PaginationLinks from './components/PaginationLinks.vue';
 import ShownEntries from './components/ShownEntries.vue';
 import {licenseLink} from './helpers/links.js';
@@ -95,7 +96,7 @@ import Refresh from './mixins/refresh.js';
 export default {
   name: 'KnownLicenses',
   mixins: [Refresh],
-  components: {PaginationLinks, ShownEntries},
+  components: {CavilNoticePanel, PaginationLinks, ShownEntries},
   data() {
     const params = getParams({
       limit: 10,
