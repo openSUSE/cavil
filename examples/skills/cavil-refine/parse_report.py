@@ -44,9 +44,16 @@ def extract_markdown_from_json(file_path: str) -> str:
     raise ValueError("Could not extract markdown from file")
 
 
+def report_body(markdown_text: str) -> str:
+    """Return the report body starting at the Licenses section."""
+    licenses_match = re.search(r'^## Licenses\s*$', markdown_text, re.MULTILINE)
+    return markdown_text[licenses_match.start():] if licenses_match else markdown_text
+
+
 def parse_unresolved_snippets(markdown_text: str) -> List[Dict]:
     """Parse unresolved snippets from Cavil markdown report."""
     snippets = []
+    markdown_text = report_body(markdown_text)
 
     # Find the Unmatched Keywords section
     unmatched_match = re.search(
@@ -99,6 +106,7 @@ def parse_license_predictions(markdown_text: str) -> Dict[str, List[Dict]]:
     A file may have multiple predictions; all are collected.
     """
     predictions: Dict[str, List[Dict]] = {}
+    markdown_text = report_body(markdown_text)
 
     licenses_match = re.search(r'^## Licenses\s*$', markdown_text, re.MULTILINE)
     if not licenses_match:

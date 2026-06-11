@@ -53,6 +53,40 @@ sub list ($self, $package_name, %opts) {
   return {notes => $rows, has_more => $has_more};
 }
 
+sub review_context_for_report ($self, $package_name, $current_author_id, %opts) {
+  my $where = {'package_notes.package_name' => $package_name};
+  $where->{'package_notes.lawyer_only'} = 0 unless $opts{include_lawyer_only};
+  if (defined $current_author_id) {
+    $where->{-or}
+      = [{'package_notes.author' => $current_author_id}, \q{bot_users.roles && ARRAY['admin', 'lawyer']::text[]}];
+  }
+  else {
+    $where->{-bool} = \q{bot_users.roles && ARRAY['admin', 'lawyer']::text[]};
+  }
+
+  return $self->pg->db->select(
+    ['package_notes', ['bot_users', id => 'author'], [-left => 'bot_packages', id => 'package']],
+    [
+      'package_notes.id',
+      'package_notes.body',
+      'package_notes.lawyer_only',
+      'package_notes.ai_assisted',
+      \'package_notes.package AS package_id',
+      'package_notes.package_name',
+      \'package_notes.author AS author_id',
+      \'bot_users.login AS author_login',
+      \'bot_users.fullname AS author_fullname',
+      \'bot_users.roles AS author_roles',
+      \'EXTRACT(EPOCH FROM package_notes.created) AS created_epoch',
+      \'EXTRACT(EPOCH FROM package_notes.edited)  AS edited_epoch',
+      \'bot_packages.state AS package_state',
+      \'bot_packages.external_link AS package_external_link'
+    ],
+    $where,
+    {order_by => {-desc => 'package_notes.id'}}
+  )->hashes->to_array;
+}
+
 sub counts ($self, $package_name) {
   return $self->pg->db->query(
     'SELECT COUNT(*)::int AS total,

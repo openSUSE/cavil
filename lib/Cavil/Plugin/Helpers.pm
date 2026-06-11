@@ -182,11 +182,16 @@ sub _json_validation_error ($c) {
 sub _mcp_report ($c, $id) {
   return undef unless my $report = $c->reports->sanitized_dig_report($id);
   my $summary = $c->helpers->package_summary($id);
+  my $user_id = undef;
+  $user_id = $c->users->id_for_login($c->current_user) if $c->current_user;
+  my $notes = $c->notes->review_context_for_report($summary->{package_name},
+    $user_id, include_lawyer_only => $c->current_user_has_role('admin', 'lawyer'));
   return $c->render_to_string(
     'mcp/report',
     format             => 'txt',
     report             => $report,
     summary            => $summary,
+    notes              => $notes,
     unmatched_keywords => _unmatched_keywords($c, $report)
   );
 }

@@ -32,7 +32,7 @@ A Python script `parse_report.py` is available in the skill directory to extract
 python3 parse_report.py <report_file> --pretty --output unresolved.json
 ```
 
-This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON structure containing only unresolved snippets. Use this when the report is too large to process directly.
+This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON structure containing only unresolved snippets. Use this when the report is too large to process directly. The parser starts at the report's `## Licenses` section, so quoted reviewer notes above it are ignored even if they contain text that looks like unresolved snippet entries.
 
 ## WORKFLOW STEPS
 1. **Fetch the report**: Use `mcp__cavil__cavil_get_report(package_id)` to retrieve the legal report
