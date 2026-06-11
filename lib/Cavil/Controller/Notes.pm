@@ -3,7 +3,8 @@
 package Cavil::Controller::Notes;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::JSON qw(true false);
+use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
+use Mojo::JSON          qw(true false);
 
 sub list ($self) {
   my $id  = $self->stash('id');
@@ -46,7 +47,7 @@ sub create ($self) {
   return $self->render(json => {error => 'Package not found'}, status => 404) unless $pkg;
 
   my $v = $self->validation;
-  $v->required('body')->size(1, 65535);
+  $v->required('body')->size(1, NOTE_BODY_MAX_LENGTH);
   $v->optional('lawyer_only')->in('0', '1');
   return $self->reply->json_validation_error if $v->has_error;
 
@@ -84,7 +85,7 @@ sub update ($self) {
   return $self->render(json => {error => 'Note not found'}, status => 404) unless $note;
 
   my $v = $self->validation;
-  $v->required('body')->size(1, 65535);
+  $v->required('body')->size(1, NOTE_BODY_MAX_LENGTH);
   return $self->reply->json_validation_error if $v->has_error;
 
   my $author = $self->users->find(login => $self->current_user)
@@ -107,7 +108,7 @@ sub update ($self) {
 # form's Write/Preview tabs.
 sub preview ($self) {
   my $v = $self->validation;
-  $v->required('body')->size(1, 65535);
+  $v->required('body')->size(1, NOTE_BODY_MAX_LENGTH);
   return $self->reply->json_validation_error if $v->has_error;
   $self->render(json => {html => $self->markdown_to_safe_html($v->param('body'))});
 }

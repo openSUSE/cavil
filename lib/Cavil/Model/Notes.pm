@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 package Cavil::Model::Notes;
 use Mojo::Base -base, -signatures;
+use Exporter 'import';
+
+our @EXPORT_OK = qw(NOTE_BODY_MAX_LENGTH);
+use constant NOTE_BODY_MAX_LENGTH => 65535;
 
 has 'pg';
 

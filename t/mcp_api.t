@@ -8,7 +8,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path);
+use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
+use Mojo::File          qw(path);
 use Mojo::Date;
 use Mojo::Util qw(encode);
 use Mojo::JSON qw(true false);
@@ -559,6 +560,10 @@ subtest 'MCP' => sub {
         $result = $client->call_tool('cavil_create_note', {package_id => 1, body => ''});
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text}, 'Note body is required', 'empty body message';
+
+        $result = $client->call_tool('cavil_create_note', {package_id => 1, body => 'x' x (NOTE_BODY_MAX_LENGTH + 1)});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Note body is too long', 'long body message';
 
         $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
         $result = $client->call_tool('cavil_create_note', {package_id => 1, body => 'embargoed'});

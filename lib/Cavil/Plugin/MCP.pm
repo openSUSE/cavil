@@ -4,10 +4,11 @@ package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
-use Cavil::Util qw(pattern_matches pattern_contains_redundant_skip read_lines);
-use File::Find  qw(find);
-use Mojo::File  qw(path);
-use Text::Glob  qw(glob_to_regex);
+use Cavil::Util         qw(pattern_matches pattern_contains_redundant_skip read_lines);
+use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
+use File::Find          qw(find);
+use Mojo::File          qw(path);
+use Text::Glob          qw(glob_to_regex);
 
 my $WRITE_TOOL_ROLES = {
   cavil_accept_review           => {admin => 1, lawyer => 1, manager => 1},
@@ -243,6 +244,7 @@ sub tool_cavil_create_note ($tool, $args) {
   return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
   return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
   return $tool->text_result('Note body is required', 1) unless defined $body && length $body;
+  return $tool->text_result('Note body is too long', 1) if length($body) > NOTE_BODY_MAX_LENGTH;
 
   my $author = $c->users->find(login => $c->current_user);
   return $tool->text_result('Unknown user', 1) unless $author;
