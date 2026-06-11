@@ -13,7 +13,10 @@
           v-for="c in notes"
           :key="c.id"
           :id="`note-${c.id}`"
-          :class="['report-note', {'report-note-lawyer-only': c.lawyer_only}]"
+          :class="[
+            'report-note',
+            {'report-note-lawyer-only': c.lawyer_only, 'report-note-other-report': isFromOtherReport(c)}
+          ]"
           :data-note-id="c.id"
         >
           <div class="report-note-header">
@@ -58,20 +61,19 @@
                 </template>
                 <span v-else class="report-note-package-name">{{ c.package_name }}</span>
               </span>
-              <template v-if="c.original_package && c.original_package.id !== null && c.original_package.state">
-                <span class="report-note-separator" aria-hidden="true">·</span>
-                <a
-                  :class="['report-note-state-link', stateBadgeClass(c.original_package.state)]"
-                  :href="reportUrl(c.original_package.id)"
-                  target="_blank"
-                  rel="noopener"
-                  :title="originTitle(c)"
-                  data-note-state-link
-                  >{{ c.original_package.state }}</a
-                >
-              </template>
             </div>
             <div class="report-note-badges">
+              <a
+                v-if="isFromOtherReport(c)"
+                class="report-note-badge origin-report-badge"
+                :href="reportUrl(c.original_package.id)"
+                target="_blank"
+                rel="noopener"
+                :title="originBadgeTitle(c)"
+                data-note-origin-badge
+              >
+                <i class="fa-solid fa-code-branch" aria-hidden="true"></i> from review #{{ c.original_package.id }}
+              </a>
               <span
                 v-if="c.ai_assisted"
                 class="report-note-badge ai-assisted-badge"
@@ -166,15 +168,6 @@ import MarkdownComposer from './MarkdownComposer.vue';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
-const STATE_CLASS = {
-  new: 'badge-state-new',
-  acceptable: 'badge-state-acceptable',
-  acceptable_by_lawyer: 'badge-state-acceptable-lawyer',
-  unacceptable: 'badge-state-unacceptable',
-  waiting: 'badge-state-new',
-  obsolete: 'badge-state-new'
-};
-
 export default {
   name: 'ReportNotes',
   components: {MarkdownComposer},
@@ -260,8 +253,16 @@ export default {
       const link = c.original_package.external_link ? ` (${c.original_package.external_link})` : '';
       return `Opens originating report${link} in a new tab`;
     },
-    stateBadgeClass(state) {
-      return STATE_CLASS[state] || 'badge-state-new';
+    isFromOtherReport(c) {
+      return (
+        this.pkgId !== null &&
+        c.original_package &&
+        c.original_package.id !== null &&
+        c.original_package.id !== this.pkgId
+      );
+    },
+    originBadgeTitle(c) {
+      return `This note was created on another review for the same package. ${this.originTitle(c)}`;
     },
     setupObserver() {
       const target = this.$refs.sentinel;
@@ -465,6 +466,12 @@ export default {
   border-left: 4px solid #bf8700;
   background: linear-gradient(180deg, rgba(255, 244, 207, 0.45) 0%, #ffffff 60px);
 }
+.report-note-other-report {
+  border-left: 4px solid #0969da;
+}
+.report-note-lawyer-only.report-note-other-report {
+  border-left-color: #8250df;
+}
 .report-note-header {
   align-items: center;
   background: #f6f8fa;
@@ -551,21 +558,6 @@ export default {
   color: #57606a;
   font-weight: 600;
 }
-.report-note-state-link {
-  border: 1px solid transparent;
-  border-radius: 2em;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 16px;
-  padding: 0 7px;
-  text-decoration: none;
-  text-transform: lowercase;
-  white-space: nowrap;
-}
-.report-note-state-link:hover {
-  filter: brightness(0.95);
-  text-decoration: none;
-}
 .report-note-highlight {
   animation: report-note-flash 2s ease-out;
 }
@@ -606,25 +598,16 @@ export default {
   color: #0550ae;
   text-transform: none;
 }
-.badge-state-acceptable {
-  background: rgba(154, 103, 0, 0.12);
-  border-color: rgba(154, 103, 0, 0.25);
-  color: #9a6700;
+.report-note-badge.origin-report-badge {
+  background: #ddf4ff;
+  border-color: #54aeff66;
+  color: #0550ae;
+  text-decoration: none;
+  text-transform: none;
 }
-.badge-state-acceptable-lawyer {
-  background: rgba(31, 136, 61, 0.12);
-  border-color: rgba(31, 136, 61, 0.25);
-  color: #1a7f37;
-}
-.badge-state-unacceptable {
-  background: rgba(207, 34, 46, 0.12);
-  border-color: rgba(207, 34, 46, 0.25);
-  color: #cf222e;
-}
-.badge-state-new {
-  background: rgba(110, 119, 129, 0.12);
-  border-color: rgba(110, 119, 129, 0.25);
-  color: #57606a;
+.report-note-badge.origin-report-badge:hover {
+  background: #b6e3ff;
+  text-decoration: none;
 }
 .report-note-edit,
 .report-note-delete {

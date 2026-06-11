@@ -1489,6 +1489,11 @@ t.test('Test cavil ui', skip, async t => {
       const adminNew = page.locator('.report-note').first();
       t.match(await adminNew.locator('.report-note-body').innerText(), /First admin reply with/);
       t.equal(
+        await adminNew.locator('[data-note-origin-badge]').count(),
+        0,
+        'originating review note has no origin badge'
+      );
+      t.equal(
         await adminNew.locator('[data-note-role]').getAttribute('data-note-role'),
         'admin',
         'admin author gets the admin role chip'
@@ -1507,11 +1512,14 @@ t.test('Test cavil ui', skip, async t => {
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
       const sharedNewest = page.locator('.report-note').first();
       t.match(await sharedNewest.locator('.report-note-body').innerText(), /First admin reply/);
-      // The originating-report link (rendered on the state badge) points back
-      // at mojo#1 even though we are viewing the note on mojo#2.
-      t.equal(await sharedNewest.locator('[data-note-state-link]').getAttribute('href'), '/reviews/details/1');
+      t.match(
+        await sharedNewest.locator('[data-note-origin-badge]').innerText(),
+        /from review #1/,
+        'note from another review gets an origin badge'
+      );
+      t.equal(await sharedNewest.locator('[data-note-origin-badge]').getAttribute('href'), '/reviews/details/1');
       t.equal(
-        await sharedNewest.locator('[data-note-state-link]').getAttribute('target'),
+        await sharedNewest.locator('[data-note-origin-badge]').getAttribute('target'),
         '_blank',
         'originating-report link opens in a new tab'
       );
@@ -1694,7 +1702,6 @@ t.test('Test cavil ui', skip, async t => {
         'recent note shows the package name'
       );
       t.equal(await newest.locator('.report-note-package-link').getAttribute('href'), '/reviews/details/1');
-      t.equal(await newest.locator('[data-note-state-link]').getAttribute('href'), '/reviews/details/1');
       t.match(
         await newest.locator('[data-note-permalink]').getAttribute('href'),
         /^\/reviews\/details\/1#note-\d+$/,
