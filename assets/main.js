@@ -21,6 +21,7 @@ import MissingLicenses from './vue/MissingLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
 import ProductReviews from './vue/ProductReviews.vue';
 import ProposedPatterns from './vue/ProposedPatterns.vue';
+import RecentNotes from './vue/RecentNotes.vue';
 import RecentPatterns from './vue/RecentPatterns.vue';
 import RecentReviews from './vue/RecentReviews.vue';
 import ReportDetails from './vue/ReportDetails.vue';
@@ -116,6 +117,12 @@ window.cavil = {
 
   setupRecentReviews() {
     createApp(RecentReviews).mount('#recent-reviews');
+  },
+
+  setupRecentNotes(canSeeLawyerOnly) {
+    const app = createApp(RecentNotes);
+    app.config.globalProperties.canSeeLawyerOnly = canSeeLawyerOnly;
+    app.mount('#recent-notes');
   },
 
   setupReportMetadata(pkgId, hasManagerRole, hasAdminRole, hasLawyerRole) {

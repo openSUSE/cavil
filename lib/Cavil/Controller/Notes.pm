@@ -63,6 +63,32 @@ sub create ($self) {
   $self->render(json => {note => $self->_format_note($note, $author->{id})});
 }
 
+sub recent ($self) {
+  return $self->render unless ($self->stash('format') // 'html') eq 'json';
+
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('before_id')->num;
+  return $self->reply->json_validation_error if $v->has_error;
+
+  my $include_lawyer_only = $self->_can_see_lawyer_only;
+  my $page                = $self->notes->recent(
+    include_lawyer_only => $include_lawyer_only,
+    limit               => $v->param('limit'),
+    before_id           => $v->param('before_id')
+  );
+  my $user_id = $self->_current_user_id;
+
+  $self->render(
+    json => {
+      notes               => [map { $self->_format_note($_, $user_id) } @{$page->{notes}}],
+      has_more            => $page->{has_more}            ? \1 : \0,
+      can_lawyer_only     => $self->_can_post_lawyer_only ? \1 : \0,
+      can_see_lawyer_only => $include_lawyer_only         ? \1 : \0
+    }
+  );
+}
+
 sub remove ($self) {
   my $id   = $self->stash('id');
   my $note = $self->notes->find($id);
@@ -129,8 +155,9 @@ sub _format_note ($self, $row, $user_id) {
     id            => $row->{id},
     body          => $row->{body},
     body_html     => $body_html,
-    lawyer_only   => $row->{lawyer_only}      ? \1 : \0,
-    ai_assisted   => $row->{ai_assisted}      ? \1 : \0,
+    lawyer_only   => $row->{lawyer_only} ? \1 : \0,
+    ai_assisted   => $row->{ai_assisted} ? \1 : \0,
+    package_name  => $row->{package_name},
     can_delete    => ($is_owner || $is_admin) ? \1 : \0,
     can_edit      => ($is_owner || $is_admin) ? \1 : \0,
     created_epoch => $row->{created_epoch} + 0,

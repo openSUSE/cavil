@@ -64,6 +64,8 @@ sub logout ($t) { $t->get_ok('/logout')->status_is(302); }
 
 subtest 'Unauthenticated users cannot use the notes API' => sub {
   $t->get_ok('/reviews/notes/1')->status_is(401);
+  $t->get_ok('/reviews/notes/recent')->status_is(401);
+  $t->get_ok('/reviews/notes/recent.json')->status_is(401);
   $t->post_ok('/reviews/notes/1' => form => {body => 'nope'})->status_is(401);
   $t->delete_ok('/reviews/notes/1')->status_is(401);
 };
@@ -185,6 +187,53 @@ subtest 'Lawyer-only visibility + posting permissions' => sub {
 
   # Cleanup so later subtests see a predictable count.
   ok $app->notes->remove($lawyer_note_id), 'removed seeded lawyer-only note';
+};
+
+subtest 'Recent notes page and JSON feed' => sub {
+  my $recent_public_id = $app->notes->add(2, 'perl-Mojolicious', $contrib_id, 'recent public note',      0)->{id};
+  my $recent_lawyer_id = $app->notes->add(1, 'perl-Mojolicious', $lawyer_id,  'recent lawyer-only note', 1)->{id};
+
+  login_admin($t);
+  $t->get_ok('/reviews/notes/recent')
+    ->status_is(200)
+    ->content_like(qr/id="recent-notes"/)
+    ->content_like(qr/cavil\.setupRecentNotes\(true\)/);
+  $t->get_ok('/reviews/notes/recent.json?limit=abc')
+    ->status_is(400)
+    ->json_like('/error' => qr/Invalid request parameters/);
+  $t->get_ok('/reviews/notes/recent.json?before_id=abc')
+    ->status_is(400)
+    ->json_like('/error' => qr/Invalid request parameters/);
+  logout($t);
+
+  $t->get_ok('/test/become/contrib_user')->status_is(200);
+  $t->get_ok('/reviews/notes/recent')
+    ->status_is(200)
+    ->content_like(qr/id="recent-notes"/)
+    ->content_like(qr/cavil\.setupRecentNotes\(false\)/)
+    ->content_unlike(qr/Lawyer-only notes/);
+  $t->get_ok('/reviews/notes/recent.json?limit=2')
+    ->status_is(200)
+    ->json_is('/can_see_lawyer_only'         => false)
+    ->json_is('/notes/0/id'                  => $recent_public_id)
+    ->json_is('/notes/0/body'                => 'recent public note')
+    ->json_is('/notes/0/package_name'        => 'perl-Mojolicious')
+    ->json_is('/notes/0/original_package/id' => 2);
+  my $contrib_notes = $t->tx->res->json('/notes');
+  ok !(grep { $_->{id} == $recent_lawyer_id } @$contrib_notes), 'contributor feed hides lawyer-only notes';
+
+  $t->get_ok("/reviews/notes/recent.json?limit=2&before_id=$recent_public_id")->status_is(200);
+  my $older = $t->tx->res->json('/notes');
+  ok !@$older || $older->[0]{id} < $recent_public_id, 'recent notes cursor moves backward';
+  logout($t);
+
+  $t->get_ok('/test/become/lawyer_user')->status_is(200);
+  $t->get_ok('/reviews/notes/recent.json?limit=1')
+    ->status_is(200)
+    ->json_is('/can_see_lawyer_only' => true)
+    ->json_is('/notes/0/id'          => $recent_lawyer_id)
+    ->json_is('/notes/0/lawyer_only' => true);
+  logout($t);
 };
 
 subtest 'Pagination via before_id cursor' => sub {

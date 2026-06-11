@@ -228,6 +228,9 @@ sub startup ($self) {
     ->name('report');
   $logged_in->get('/reviews/report_details/<id:num>')->to('Report#details')->name('report_details');
   $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json']])->to('Report#source', format => 'json');
+  $logged_in->get('/reviews/notes/recent'          => [format => ['html', 'json']])
+    ->to('Notes#recent', format => 'html')
+    ->name('recent_notes');
   $logged_in->get('/reviews/notes/<id:num>')->to('Notes#list')->name('list_notes');
   $logged_in->post('/reviews/notes/<id:num>')->to('Notes#create')->name('create_note');
   $logged_in->patch('/reviews/notes/<id:num>')->to('Notes#update')->name('update_note');

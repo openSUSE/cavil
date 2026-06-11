@@ -6,7 +6,7 @@
     <div v-else>
       <div v-if="notes.length === 0 && !loadError" class="report-notes-empty">
         <i class="fa-regular fa-note-sticky"></i>
-        <p class="mb-0">No notes yet. Leave the first one to help future reviewers.</p>
+        <p class="mb-0">{{ emptyMessage }}</p>
       </div>
       <ul v-else class="report-notes-list">
         <li
@@ -44,8 +44,22 @@
                 data-note-edited
                 >· edited {{ formatRelative(c.edited_epoch) }}</span
               >
+              <span v-if="showPackageName && c.package_name">
+                for
+                <template v-if="c.original_package && c.original_package.id !== null">
+                  <a
+                    :href="reportUrl(c.original_package.id)"
+                    target="_blank"
+                    rel="noopener"
+                    class="report-note-package-link"
+                    :title="originTitle(c)"
+                    >{{ c.package_name }}</a
+                  >
+                </template>
+                <span v-else class="report-note-package-name">{{ c.package_name }}</span>
+              </span>
               <template v-if="c.original_package && c.original_package.id !== null && c.original_package.state">
-                on
+                <span class="report-note-separator" aria-hidden="true">·</span>
                 <a
                   :class="['report-note-state-link', stateBadgeClass(c.original_package.state)]"
                   :href="reportUrl(c.original_package.id)"
@@ -74,7 +88,7 @@
                 <i class="fa-solid fa-scale-balanced"></i> Lawyers only
               </span>
               <button
-                v-if="c.can_edit && editingId !== c.id"
+                v-if="allowActions && c.can_edit && editingId !== c.id"
                 type="button"
                 class="report-note-edit"
                 :disabled="savingId === c.id"
@@ -85,7 +99,7 @@
                 <i class="fa-solid fa-pen"></i>
               </button>
               <button
-                v-if="c.can_delete && editingId !== c.id"
+                v-if="allowActions && c.can_delete && editingId !== c.id"
                 type="button"
                 class="report-note-delete"
                 :disabled="deletingId === c.id"
@@ -123,7 +137,7 @@
         <span v-else>Scroll to load more</span>
       </div>
 
-      <div class="report-note-form" data-note-form>
+      <div v-if="showComposer" class="report-note-form" data-note-form>
         <label class="report-note-form-label">Add a note</label>
         <MarkdownComposer
           v-model="draft"
@@ -165,9 +179,15 @@ export default {
   name: 'ReportNotes',
   components: {MarkdownComposer},
   props: {
-    pkgId: {type: Number, required: true},
+    pkgId: {type: Number, default: null},
+    endpoint: {type: String, default: null},
     canPostLawyerOnly: {type: Boolean, default: false},
-    seekNoteId: {type: Number, default: null}
+    seekNoteId: {type: Number, default: null},
+    showComposer: {type: Boolean, default: true},
+    allowActions: {type: Boolean, default: true},
+    emptyMessage: {type: String, default: 'No notes yet. Leave the first one to help future reviewers.'},
+    showPackageName: {type: Boolean, default: false},
+    permalinkToOrigin: {type: Boolean, default: false}
   },
   emits: ['counts-changed'],
   computed: {
@@ -175,6 +195,9 @@ export default {
       return this.canPostLawyerOnly
         ? 'Use Markdown for formatting. Lawyer-only notes stay visible to lawyers and admins.'
         : 'Use Markdown for formatting.';
+    },
+    listEndpoint() {
+      return this.endpoint || `/reviews/notes/${this.pkgId}`;
     }
   },
   data() {
@@ -225,6 +248,10 @@ export default {
       return `/reviews/details/${id}`;
     },
     permalink(c) {
+      if (this.permalinkToOrigin && c.original_package && c.original_package.id !== null) {
+        return `${this.reportUrl(c.original_package.id)}#note-${c.id}`;
+      }
+
       // Anchor on this review (notes are shared across versions, so the
       // anchor resolves no matter which version the user shares).
       return `/reviews/details/${this.pkgId}#note-${c.id}`;
@@ -254,7 +281,7 @@ export default {
       try {
         const qs = {limit: 20};
         if (this.notes.length > 0) qs.before_id = this.notes[this.notes.length - 1].id;
-        const res = await this.ua.get(`/reviews/notes/${this.pkgId}`, {query: qs});
+        const res = await this.ua.get(this.listEndpoint, {query: qs});
         if (!res.isSuccess) {
           this.loadError = `Failed to load notes (HTTP ${res.statusCode})`;
           return;
@@ -273,6 +300,7 @@ export default {
       }
     },
     async submit() {
+      if (!this.showComposer || this.pkgId === null) return;
       const body = this.draft.trim();
       if (!body || this.submitting) return;
       this.submitting = true;
@@ -510,6 +538,19 @@ export default {
   color: #0969da;
   text-decoration: underline;
 }
+.report-note-package-link {
+  color: #57606a;
+  font-weight: 600;
+  text-decoration: none;
+}
+.report-note-package-link:hover {
+  color: #0969da;
+  text-decoration: underline;
+}
+.report-note-package-name {
+  color: #57606a;
+  font-weight: 600;
+}
 .report-note-state-link {
   border: 1px solid transparent;
   border-radius: 2em;
@@ -609,6 +650,10 @@ export default {
   color: #57606a;
   font-size: 12px;
   margin-left: 6px;
+}
+.report-note-separator {
+  color: #57606a;
+  margin: 0 4px;
 }
 .report-note-edit-pane {
   padding: 12px 16px;

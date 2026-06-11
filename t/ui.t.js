@@ -1668,6 +1668,54 @@ t.test('Test cavil ui', skip, async t => {
       await linkedPage.waitForSelector(`#${noteDomId}.report-note-highlight`);
       await linkedPage.close();
     });
+
+    await t.test('Recent Notes page (admin)', async t => {
+      await page.goto(url);
+      await page.click('text="Logged in as tester"');
+      await page.click('text=Recent Notes');
+      t.equal(await page.innerText('title'), 'Recent Notes');
+      t.match(
+        await page.locator('#recent-notes .alert').innerText(),
+        /most recently added reviewer notes/,
+        'recent notes page explains what is listed'
+      );
+      t.match(
+        await page.locator('#recent-notes .alert').innerText(),
+        /Lawyer-only notes are shown only to lawyers and admins/,
+        'recent notes page explains lawyer-only visibility to admins'
+      );
+      await page.waitForSelector('#recent-notes .report-note');
+
+      const newest = page.locator('#recent-notes .report-note').first();
+      t.match(await newest.locator('.report-note-body').innerText(), /Edited body with/);
+      t.equal(
+        await newest.locator('.report-note-package-link').innerText(),
+        'perl-Mojolicious',
+        'recent note shows the package name'
+      );
+      t.equal(await newest.locator('.report-note-package-link').getAttribute('href'), '/reviews/details/1');
+      t.equal(await newest.locator('[data-note-state-link]').getAttribute('href'), '/reviews/details/1');
+      t.match(
+        await newest.locator('[data-note-permalink]').getAttribute('href'),
+        /^\/reviews\/details\/1#note-\d+$/,
+        'recent note permalink targets the originating report'
+      );
+      t.equal(await page.locator('#recent-notes [data-note-form]').count(), 0, 'recent notes page has no composer');
+      t.equal(await page.locator('#recent-notes [data-note-edit]').count(), 0, 'recent notes page has no edit buttons');
+      t.equal(
+        await page.locator('#recent-notes [data-note-delete]').count(),
+        0,
+        'recent notes page has no delete buttons'
+      );
+
+      await page.locator('#recent-notes [data-notes-sentinel]').scrollIntoViewIfNeeded();
+      await page.waitForFunction(() => document.querySelectorAll('#recent-notes .report-note').length >= 25);
+      t.equal(
+        await page.locator('#recent-notes .report-note-lawyer-only').count(),
+        1,
+        'admin recent notes include lawyer-only notes'
+      );
+    });
   });
 
   await t.test('Contributor', async t => {
@@ -1809,6 +1857,39 @@ t.test('Test cavil ui', skip, async t => {
         const first = document.querySelector('.report-note .report-note-body');
         return first && !first.textContent.includes('Contributor feedback');
       });
+    });
+
+    await t.test('Recent Notes page hides lawyer-only data from contributors', async t => {
+      await page.goto(`${url}/reviews/notes/recent`);
+      t.equal(await page.innerText('title'), 'Recent Notes');
+      t.notMatch(
+        await page.locator('#recent-notes .alert').innerText(),
+        /Lawyer-only notes are shown only to lawyers and admins/,
+        'recent notes page does not disclose lawyer-only notes to contributors'
+      );
+      await page.waitForSelector('#recent-notes .report-note');
+      t.equal(await page.locator('#recent-notes [data-note-form]').count(), 0, 'recent notes page has no composer');
+
+      const newest = page.locator('#recent-notes .report-note').first();
+      t.match(await newest.locator('.report-note-body').innerText(), /Edited body with/);
+      t.equal(await newest.locator('.report-note-package-link').innerText(), 'perl-Mojolicious');
+      t.equal(
+        await newest.locator('[data-note-permalink]').getAttribute('href'),
+        (await newest.locator('.report-note-package-link').getAttribute('href')) + `#${await newest.getAttribute('id')}`
+      );
+
+      await page.locator('#recent-notes [data-notes-sentinel]').scrollIntoViewIfNeeded();
+      await page.waitForFunction(() => document.querySelectorAll('#recent-notes .report-note').length >= 24);
+      t.equal(
+        await page.locator('#recent-notes .report-note-lawyer-only').count(),
+        0,
+        'contributor recent notes hide lawyer-only notes'
+      );
+      t.equal(
+        await page.locator('#recent-notes .lawyer-only-badge').count(),
+        0,
+        'contributor recent notes do not show lawyer-only badges'
+      );
     });
   });
 

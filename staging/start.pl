@@ -122,6 +122,9 @@ unless ($clean) {
   $pkgs->update($mojo);
   $pkgs->unpack($pkg_id);
 
+  my $notes = $app->notes;
+  $notes->add($mojo_id, 'perl-Mojolicious', $user_id, "Just a note $_", 0) for 1 .. 25;
+
   # "ceph-image" example data
   $pkg_id = $pkgs->add(
     name            => 'ceph-image',

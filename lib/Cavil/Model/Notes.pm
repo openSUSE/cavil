@@ -57,6 +57,27 @@ sub list ($self, $package_name, %opts) {
   return {notes => $rows, has_more => $has_more};
 }
 
+sub recent ($self, %opts) {
+  my $limit = $opts{limit} // 20;
+  $limit = 1   if $limit < 1;
+  $limit = 100 if $limit > 100;
+
+  my @sql;
+  my @args;
+
+  push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
+  if (defined $opts{before_id}) {
+    push @sql,  'AND c.id < ?';
+    push @args, $opts{before_id};
+  }
+
+  my $rows = $self->_query(join(' ', @sql), \@args, 'ORDER BY c.id DESC LIMIT ?', [$limit + 1]);
+
+  my $has_more = @$rows > $limit ? 1 : 0;
+  splice @$rows, $limit if $has_more;
+  return {notes => $rows, has_more => $has_more};
+}
+
 sub review_context_for_report ($self, $package_name, $current_author_id, %opts) {
   my $where = {'package_notes.package_name' => $package_name};
   $where->{'package_notes.lawyer_only'} = 0 unless $opts{include_lawyer_only};

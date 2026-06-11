@@ -103,6 +103,9 @@
                     %= link_to 'Pattern Performance' => 'recent_patterns', class => 'dropdown-item'
                   </li>
                   <li>
+                    %= link_to 'Recent Notes' => 'recent_notes', class => 'dropdown-item'
+                  </li>
+                  <li>
                     %= link_to 'Statistics' => 'stats', class => 'dropdown-item'
                   </li>
                   <li><hr class="dropdown-divider"></li>
