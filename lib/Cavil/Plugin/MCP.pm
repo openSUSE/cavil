@@ -27,11 +27,16 @@ sub register ($self, $app, $config) {
 
   $mcp->tool(
     name         => 'cavil_get_open_reviews',
-    description  => 'Get list of 20 highest priority open reviews, use "search" to limit results',
+    description  => 'Get a paginated list of highest priority open reviews, use "search" to limit results',
     input_schema => {
       type       => 'object',
-      properties => {search => {type => 'string', description => 'Filter results by package name or external link'}},
-      required   => []
+      properties => {
+        search       => {type => 'string',  description => 'Filter results by package name, checksum or external link'},
+        limit        => {type => 'integer', minimum     => 1, maximum => 100, default => 20},
+        offset       => {type => 'integer', minimum     => 0, default => 0},
+        min_priority => {type => 'integer', minimum     => 1, maximum => 10, default => 1}
+      },
+      required => []
     },
     code => \&tool_cavil_get_open_reviews
   );
@@ -156,12 +161,36 @@ sub tool_cavil_accept_review ($tool, $args) {
 }
 
 sub tool_cavil_get_open_reviews ($tool, $args) {
-  my $c       = _get_controller($tool);
+  my $c = _get_controller($tool);
+  my ($limit, $limit_error) = _bounded_int_arg($args->{limit}, 20, 1, 100, 'limit');
+  return $tool->text_result($limit_error, 1) if $limit_error;
+  my ($offset, $offset_error) = _bounded_int_arg($args->{offset}, 0, 0, undef, 'offset');
+  return $tool->text_result($offset_error, 1) if $offset_error;
+  my ($min_priority, $priority_error) = _bounded_int_arg($args->{min_priority}, 1, 1, 10, 'min_priority');
+  return $tool->text_result($priority_error, 1) if $priority_error;
   my $reviews = $c->packages->paginate_open_reviews(
-    {limit => 20, offset => 0, in_progress => 'false', not_embargoed => 'true', search => $args->{search} // ''});
-  return
-    return $c->render_to_string('mcp/open_reviews', format => 'txt', reviews => $reviews->{page},
-    total => $reviews->{total});
+    {
+      limit         => $limit,
+      offset        => $offset,
+      priority      => $min_priority,
+      in_progress   => 'false',
+      not_embargoed => 'true',
+      search        => $args->{search} // ''
+    }
+  );
+  my $next_offset = $reviews->{end} < $reviews->{total} ? $offset + $limit : undef;
+  return $c->render_to_string(
+    'mcp/open_reviews',
+    format       => 'txt',
+    reviews      => $reviews->{page},
+    total        => $reviews->{total},
+    start        => $reviews->{start},
+    end          => $reviews->{end},
+    limit        => $limit,
+    offset       => $offset,
+    next_offset  => $next_offset,
+    min_priority => $min_priority
+  );
 }
 
 sub tool_cavil_get_report ($tool, $args) {
@@ -372,6 +401,15 @@ sub _filter_tools ($server, $tools, $context) {
   }
 
   @$tools = @$filtered;
+}
+
+sub _bounded_int_arg ($value, $default, $min, $max, $name) {
+  return ($default, undef) unless defined $value;
+  my $range = defined $max ? "between $min and $max" : "greater than or equal to $min";
+  return (undef, "$name must be an integer $range") unless "$value" =~ /^\d+$/;
+  my $int = int $value;
+  return (undef, "$name must be an integer $range") if $int < $min || (defined $max && $int > $max);
+  return ($int,  undef);
 }
 
 sub _get_controller ($tool) { $tool->context->{controller} }

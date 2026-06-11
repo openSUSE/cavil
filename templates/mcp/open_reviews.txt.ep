@@ -1,7 +1,10 @@
 # Open Reviews
 
 % if (@$reviews) {
-Ordered by priority, <%== $total %> review<%== $total == 1 ? '' : 's' %> found, showing top <%== scalar @$reviews %>.
+Ordered by priority, <%== $total %> review<%== $total == 1 ? '' : 's' %> found, showing <%== $start %>-<%== $end %>.
+
+Pagination: limit=<%== $limit %>, offset=<%== $offset %><% if (defined $next_offset) { %>, next_offset=<%== $next_offset %><% } else { %>, next_offset=none<% } %>
+Filters: min_priority=<%== $min_priority %>
 
 
 Note: External links contain references to external source code management systems or codestreams the reviews

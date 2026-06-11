@@ -110,11 +110,14 @@ subtest 'MCP' => sub {
         my $result = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious'});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        like $text, qr/1\..+perl-Mojolicious/,  'contains package name';
-        like $text, qr/Id:.+1/,                 'contains id';
-        like $text, qr/External-Link:.+mojo/,   'contains external link';
-        like $text, qr/Priority:.+5/,           'contains priority';
-        like $text, qr/Unresolved-Matches:.+6/, 'contains unresolved matches';
+        like $text, qr/Ordered by priority, 2 reviews found, showing 1-2/, 'contains result range';
+        like $text, qr/Pagination: limit=20, offset=0, next_offset=none/,  'contains pagination metadata';
+        like $text, qr/Filters: min_priority=1/,                           'contains filter metadata';
+        like $text, qr/1\..+perl-Mojolicious/,                             'contains package name';
+        like $text, qr/Id:.+1/,                                            'contains id';
+        like $text, qr/External-Link:.+mojo/,                              'contains external link';
+        like $text, qr/Priority:.+5/,                                      'contains priority';
+        like $text, qr/Unresolved-Matches:.+6/,                            'contains unresolved matches';
         note $text;
       };
 
@@ -125,6 +128,52 @@ subtest 'MCP' => sub {
         like $text,   qr/1\..+perl-Mojolicious/, 'contains package name';
         like $text,   qr/Id:.+2/,                'contains id';
         unlike $text, qr/Id:.+1/,                'does not contain other matches';
+      };
+
+      subtest 'With pagination' => sub {
+        my $result = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious', limit => 1});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text,   qr/Ordered by priority, 2 reviews found, showing 1-1/, 'contains first page range';
+        like $text,   qr/Pagination: limit=1, offset=0, next_offset=1/,      'contains next offset';
+        like $text,   qr/Id:.+1/,                                            'contains first page id';
+        unlike $text, qr/Id:.+2/,                                            'does not contain second page id';
+
+        $result = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious', limit => 1, offset => 1});
+        ok !$result->{isError}, 'not an error';
+        $text = $result->{content}[0]{text};
+        like $text,   qr/Ordered by priority, 2 reviews found, showing 2-2/, 'contains second page range';
+        like $text,   qr/Pagination: limit=1, offset=1, next_offset=none/,   'contains final page metadata';
+        like $text,   qr/Id:.+2/,                                            'contains second page id';
+        unlike $text, qr/Id:.+1/,                                            'does not contain first page id';
+      };
+
+      subtest 'With minimum priority' => sub {
+        my $result = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious', min_priority => 6});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text, qr/There are currently no open reviews/, 'priority filter removes lower priority reviews';
+      };
+
+      subtest 'Invalid limit' => sub {
+        eval { $client->call_tool('cavil_get_open_reviews', {limit => 0}) };
+        like $@, qr/Invalid arguments/, 'minimum limit rejected';
+
+        eval { $client->call_tool('cavil_get_open_reviews', {limit => 101}) };
+        like $@, qr/Invalid arguments/, 'maximum limit rejected';
+      };
+
+      subtest 'Invalid offset' => sub {
+        eval { $client->call_tool('cavil_get_open_reviews', {offset => -1}) };
+        like $@, qr/Invalid arguments/, 'negative offset rejected';
+      };
+
+      subtest 'Invalid minimum priority' => sub {
+        eval { $client->call_tool('cavil_get_open_reviews', {min_priority => 0}) };
+        like $@, qr/Invalid arguments/, 'minimum priority rejected';
+
+        eval { $client->call_tool('cavil_get_open_reviews', {min_priority => 11}) };
+        like $@, qr/Invalid arguments/, 'maximum priority rejected';
       };
     };
 

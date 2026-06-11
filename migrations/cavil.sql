@@ -296,3 +296,7 @@ CREATE INDEX ON package_notes (author);
 
 -- 34 down
 DROP TABLE IF EXISTS package_notes;
+
+-- 35 up
+CREATE INDEX bot_packages_open_reviews_idx ON bot_packages (priority DESC, external_link, unresolved_matches, name)
+WHERE state = 'new' AND obsolete = false;
