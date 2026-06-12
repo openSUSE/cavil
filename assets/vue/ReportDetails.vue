@@ -31,284 +31,291 @@
         >
       </button>
     </div>
-    <div
-      class="report-tab-pane"
-      :class="{'is-active': activeTab === 'review'}"
-      :aria-hidden="activeTab !== 'review'"
-      role="tabpanel"
-    >
-      <div v-if="loading">
-        <ProgressBar v-if="stage" :stage="stage" />
-        <div v-else>
-          <span id="ajax-status">
-            <i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...
-          </span>
-        </div>
-      </div>
-      <div v-else-if="emptyReport" class="alert alert-success" role="alert">
-        No files matching any known license patterns or keywords have been found.
-      </div>
-      <div v-else>
-        <br />
-        <section v-if="licenseDistribution.length > 0" id="license-chart" class="license-composition-card mb-3">
-          <header class="license-composition-header">
-            <div>
-              <div class="license-composition-kicker">Package overview</div>
-              <h3>License composition</h3>
-            </div>
-            <div class="license-composition-total">
-              <span class="license-composition-total-value">{{ licenseChartTotal }}</span>
-              <span class="license-composition-total-label">{{ licenseChartTotal === 1 ? 'file' : 'files' }}</span>
-            </div>
-          </header>
-          <div class="license-composition-body">
-            <div class="license-composition-chart">
-              <svg class="license-composition-donut" viewBox="0 0 120 120" :aria-label="licenseChartSummary" role="img">
-                <circle class="license-composition-donut-track" cx="60" cy="60" r="44" />
-                <circle
-                  v-for="entry in licenseDistribution"
-                  :key="`slice-${entry.name}`"
-                  class="license-composition-slice"
-                  cx="60"
-                  cy="60"
-                  r="44"
-                  pathLength="100"
-                  :stroke="entry.color"
-                  :stroke-dasharray="`${entry.share} ${100 - entry.share}`"
-                  :stroke-dashoffset="-entry.offset"
-                  tabindex="0"
-                  :aria-label="licenseChartSliceLabel(entry)"
-                  @blur="hideLicenseChartTooltip"
-                  @focus="showLicenseChartTooltip(entry, $event)"
-                  @pointerenter="showLicenseChartTooltip(entry, $event)"
-                  @pointerleave="hideLicenseChartTooltip"
-                  @pointermove="moveLicenseChartTooltip($event)"
-                ></circle>
-              </svg>
-              <div v-if="dominantLicense" class="license-composition-chart-label">
-                <b>{{ dominantLicense.percent }}%</b>
-                <span>{{ dominantLicense.name }}</span>
-              </div>
-              <div
-                v-if="licenseChartTooltip"
-                class="license-composition-tooltip"
-                :style="{left: `${licenseChartTooltip.x}px`, top: `${licenseChartTooltip.y}px`}"
-              >
-                <b>{{ licenseChartTooltip.percent }}%</b>
-                <span>{{ licenseChartTooltip.name }}</span>
-              </div>
-            </div>
-            <ol class="license-composition-list">
-              <li v-for="entry in licenseDistribution" :key="entry.name" class="license-composition-item">
-                <div class="license-composition-item-header">
-                  <span class="license-composition-swatch" :style="{backgroundColor: entry.color}"></span>
-                  <span class="license-composition-name">{{ entry.name }}</span>
-                  <span class="license-composition-percent">{{ entry.percent }}%</span>
-                </div>
-                <div class="license-composition-meter" aria-hidden="true">
-                  <span :style="{width: `${entry.share}%`, backgroundColor: entry.color}"></span>
-                </div>
-              </li>
-            </ol>
-          </div>
-        </section>
-
-        <CavilNoticePanel
-          v-if="incompatibleLicenses.length > 0"
-          id="incompatible-licenses"
-          title="Elevated risk"
-          tone="warning"
-          icon="fa-solid fa-triangle-exclamation"
-        >
-          <p class="cavil-notice-summary">Package might contain incompatible licenses.</p>
-          <ul class="cavil-notice-list">
-            <li v-for="(match, idx) in incompatibleLicenses" :key="idx" class="cavil-notice-item">
-              {{ match.licenses.join(', ') }}
-            </li>
-          </ul>
-        </CavilNoticePanel>
-
-        <p v-if="missedFiles.length > 0" id="incomplete-warning" class="risk-license-help-text">
-          Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
-          positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its
-          similarity to existing license patterns, the higher the risk will climb above the predicted license.
-        </p>
-
-        <div v-if="missedFiles.length > 0" class="risk-license-section risk-license-section-unresolved">
-          <h4 id="unmatched-files" class="risk-license-heading">
-            <div class="badge text-bg-dark">Risk 9</div>
-            <span class="risk-license-summary">
-              {{ unresolvedMatches }} unresolved {{ unresolvedMatches === 1 ? 'match' : 'matches' }} across
-              <span id="unmatched-count">{{ missedFiles.length }}</span>
-              {{ missedFiles.length === 1 ? 'file' : 'files' }}
+    <div class="report-tab-content">
+      <div
+        class="report-tab-pane"
+        :class="{'is-active': activeTab === 'review'}"
+        :aria-hidden="activeTab !== 'review'"
+        role="tabpanel"
+      >
+        <div v-if="loading">
+          <ProgressBar v-if="stage" :stage="stage" />
+          <div v-else>
+            <span id="ajax-status">
+              <i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...
             </span>
-          </h4>
-          <div id="filelist-snippets" class="collapse show">
-            <ul class="risk-license-list risk-unresolved-list">
-              <li v-for="file in missedFiles" :key="file.id" class="risk-license-item risk-unresolved-item">
-                <div class="risk-unresolved-row">
-                  <a
-                    :href="'#file-' + file.id"
-                    class="file-link risk-unresolved-file"
-                    @click.prevent="onFileLinkClick(file.id)"
-                    >{{ file.name }}</a
-                  >
-                  <span class="risk-unresolved-match">
-                    <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
-                  </span>
-                  <span class="risk-unresolved-estimate">
-                    <span>estimated</span>
-                    <span :class="['badge', 'estimated-risk', estimatedRiskClass(file.max_risk)]">
-                      Risk {{ file.max_risk }}
+          </div>
+        </div>
+        <div v-else-if="emptyReport" class="alert alert-success" role="alert">
+          No files matching any known license patterns or keywords have been found.
+        </div>
+        <div v-else>
+          <br />
+          <section v-if="licenseDistribution.length > 0" id="license-chart" class="license-composition-card mb-3">
+            <header class="license-composition-header">
+              <div>
+                <div class="license-composition-kicker">Package overview</div>
+                <h3>License composition</h3>
+              </div>
+              <div class="license-composition-total">
+                <span class="license-composition-total-value">{{ licenseChartTotal }}</span>
+                <span class="license-composition-total-label">{{ licenseChartTotal === 1 ? 'file' : 'files' }}</span>
+              </div>
+            </header>
+            <div class="license-composition-body">
+              <div class="license-composition-chart">
+                <svg
+                  class="license-composition-donut"
+                  viewBox="0 0 120 120"
+                  :aria-label="licenseChartSummary"
+                  role="img"
+                >
+                  <circle class="license-composition-donut-track" cx="60" cy="60" r="44" />
+                  <circle
+                    v-for="entry in licenseDistribution"
+                    :key="`slice-${entry.name}`"
+                    class="license-composition-slice"
+                    cx="60"
+                    cy="60"
+                    r="44"
+                    pathLength="100"
+                    :stroke="entry.color"
+                    :stroke-dasharray="`${entry.share} ${100 - entry.share}`"
+                    :stroke-dashoffset="-entry.offset"
+                    tabindex="0"
+                    :aria-label="licenseChartSliceLabel(entry)"
+                    @blur="hideLicenseChartTooltip"
+                    @focus="showLicenseChartTooltip(entry, $event)"
+                    @pointerenter="showLicenseChartTooltip(entry, $event)"
+                    @pointerleave="hideLicenseChartTooltip"
+                    @pointermove="moveLicenseChartTooltip($event)"
+                  ></circle>
+                </svg>
+                <div v-if="dominantLicense" class="license-composition-chart-label">
+                  <b>{{ dominantLicense.percent }}%</b>
+                  <span>{{ dominantLicense.name }}</span>
+                </div>
+                <div
+                  v-if="licenseChartTooltip"
+                  class="license-composition-tooltip"
+                  :style="{left: `${licenseChartTooltip.x}px`, top: `${licenseChartTooltip.y}px`}"
+                >
+                  <b>{{ licenseChartTooltip.percent }}%</b>
+                  <span>{{ licenseChartTooltip.name }}</span>
+                </div>
+              </div>
+              <ol class="license-composition-list">
+                <li v-for="entry in licenseDistribution" :key="entry.name" class="license-composition-item">
+                  <div class="license-composition-item-header">
+                    <span class="license-composition-swatch" :style="{backgroundColor: entry.color}"></span>
+                    <span class="license-composition-name">{{ entry.name }}</span>
+                    <span class="license-composition-percent">{{ entry.percent }}%</span>
+                  </div>
+                  <div class="license-composition-meter" aria-hidden="true">
+                    <span :style="{width: `${entry.share}%`, backgroundColor: entry.color}"></span>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </section>
+
+          <CavilNoticePanel
+            v-if="incompatibleLicenses.length > 0"
+            id="incompatible-licenses"
+            title="Elevated risk"
+            tone="warning"
+            icon="fa-solid fa-triangle-exclamation"
+          >
+            <p class="cavil-notice-summary">Package might contain incompatible licenses.</p>
+            <ul class="cavil-notice-list">
+              <li v-for="(match, idx) in incompatibleLicenses" :key="idx" class="cavil-notice-item">
+                {{ match.licenses.join(', ') }}
+              </li>
+            </ul>
+          </CavilNoticePanel>
+
+          <p v-if="missedFiles.length > 0" id="incomplete-warning" class="risk-license-help-text">
+            Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
+            positive matches. Estimated risks for each file are based on the highest risk snippet. The lower its
+            similarity to existing license patterns, the higher the risk will climb above the predicted license.
+          </p>
+
+          <div v-if="missedFiles.length > 0" class="risk-license-section risk-license-section-unresolved">
+            <h4 id="unmatched-files" class="risk-license-heading">
+              <div class="badge text-bg-dark">Risk 9</div>
+              <span class="risk-license-summary">
+                {{ unresolvedMatches }} unresolved {{ unresolvedMatches === 1 ? 'match' : 'matches' }} across
+                <span id="unmatched-count">{{ missedFiles.length }}</span>
+                {{ missedFiles.length === 1 ? 'file' : 'files' }}
+              </span>
+            </h4>
+            <div id="filelist-snippets" class="collapse show">
+              <ul class="risk-license-list risk-unresolved-list">
+                <li v-for="file in missedFiles" :key="file.id" class="risk-license-item risk-unresolved-item">
+                  <div class="risk-unresolved-row">
+                    <a
+                      :href="'#file-' + file.id"
+                      class="file-link risk-unresolved-file"
+                      @click.prevent="onFileLinkClick(file.id)"
+                      >{{ file.name }}</a
+                    >
+                    <span class="risk-unresolved-match">
+                      <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
                     </span>
-                  </span>
+                    <span class="risk-unresolved-estimate">
+                      <span>estimated</span>
+                      <span :class="['badge', 'estimated-risk', estimatedRiskClass(file.max_risk)]">
+                        Risk {{ file.max_risk }}
+                      </span>
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div v-for="risk in sortedRisks" :key="risk" class="risk-license-section">
+            <h4 class="risk-license-heading">
+              <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
+            </h4>
+            <ul :id="'risk-' + risk" class="risk-license-list">
+              <li v-for="lic in risks[risk]" :key="lic.list_id" class="risk-license-item">
+                <div class="risk-license-row">
+                  <span class="risk-license-name" v-html="lic.name_html"></span>
+                  <a :href="'#' + lic.list_id" class="risk-license-count" data-bs-toggle="collapse">
+                    {{ lic.files.length }} {{ lic.files.length === 1 ? 'file' : 'files' }}
+                  </a>
+                </div>
+                <p v-if="lic.flags.length > 0" class="risk-license-flags">
+                  Flags: {{ lic.flags.map(capitalize).join(', ') }}
+                </p>
+                <div :id="lic.list_id" :class="lic.list_class">
+                  <ul class="risk-file-list">
+                    <li v-for="file in lic.shown_files" :key="file[0]">
+                      <a :href="'#file-' + file[0]" class="file-link" @click.prevent="onFileLinkClick(file[0])">
+                        {{ file[1] }}
+                      </a>
+                    </li>
+                    <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
+                  </ul>
                 </div>
               </li>
             </ul>
           </div>
-        </div>
 
-        <div v-for="risk in sortedRisks" :key="risk" class="risk-license-section">
-          <h4 class="risk-license-heading">
-            <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
-          </h4>
-          <ul :id="'risk-' + risk" class="risk-license-list">
-            <li v-for="lic in risks[risk]" :key="lic.list_id" class="risk-license-item">
-              <div class="risk-license-row">
-                <span class="risk-license-name" v-html="lic.name_html"></span>
-                <a :href="'#' + lic.list_id" class="risk-license-count" data-bs-toggle="collapse">
-                  {{ lic.files.length }} {{ lic.files.length === 1 ? 'file' : 'files' }}
-                </a>
+          <div v-if="matchingGlobs.length > 0" class="report-artifact-section">
+            <h2 class="report-artifact-heading">
+              <span class="report-artifact-label report-artifact-label-static">
+                <i class="fa-solid fa-filter-circle-xmark"></i>
+                {{ matchingGlobs.length }} ignored {{ matchingGlobs.length === 1 ? 'glob' : 'globs' }}
+              </span>
+            </h2>
+            <ul class="report-artifact-list report-glob-list">
+              <li v-for="glob in matchingGlobs" :key="glob" class="report-artifact-item report-glob-item">
+                <code class="report-glob-pattern">{{ glob }}</code>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="files.length > 0">
+            <h2>Files</h2>
+            <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
+              <a :name="'file-' + file.id"></a>
+              <div class="file">
+                <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
+                <div class="float-end">
+                  <a :href="file.file_url" target="_blank">
+                    <i class="fa-solid fa-up-right-from-square"></i>
+                  </a>
+                </div>
               </div>
-              <p v-if="lic.flags.length > 0" class="risk-license-flags">
-                Flags: {{ lic.flags.map(capitalize).join(', ') }}
-              </p>
-              <div :id="lic.list_id" :class="lic.list_class">
-                <ul class="risk-file-list">
-                  <li v-for="file in lic.shown_files" :key="file[0]">
-                    <a :href="'#file-' + file[0]" class="file-link" @click.prevent="onFileLinkClick(file[0])">
-                      {{ file[1] }}
-                    </a>
-                  </li>
-                  <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
-                </ul>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div v-if="matchingGlobs.length > 0" class="report-artifact-section">
-          <h2 class="report-artifact-heading">
-            <span class="report-artifact-label report-artifact-label-static">
-              <i class="fa-solid fa-filter-circle-xmark"></i>
-              {{ matchingGlobs.length }} ignored {{ matchingGlobs.length === 1 ? 'glob' : 'globs' }}
-            </span>
-          </h2>
-          <ul class="report-artifact-list report-glob-list">
-            <li v-for="glob in matchingGlobs" :key="glob" class="report-artifact-item report-glob-item">
-              <code class="report-glob-pattern">{{ glob }}</code>
-            </li>
-          </ul>
-        </div>
-
-        <div v-if="files.length > 0">
-          <h2>Files</h2>
-          <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
-            <a :name="'file-' + file.id"></a>
-            <div class="file">
-              <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
-              <div class="float-end">
-                <a :href="file.file_url" target="_blank">
-                  <i class="fa-solid fa-up-right-from-square"></i>
-                </a>
+              <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
+                <FileSource
+                  v-if="file.source"
+                  :lines="file.source.lines"
+                  :file-id="file.id"
+                  :filename="file.source.filename"
+                  :packname="file.source.name"
+                  :has-admin-role="hasAdminRole"
+                  :has-contributor-role="hasContributorRole"
+                  :pending-actions="pendingActionsForFile(file.id)"
+                  :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
+                  @extend="onExtend(file, $event)"
+                  @open-editor="openEditor"
+                  @dismiss-action="dismissAction"
+                  @close-editor="closeInlineEditor"
+                  @editor-submit="onEditorSubmit"
+                />
               </div>
             </div>
-            <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
-              <FileSource
-                v-if="file.source"
-                :lines="file.source.lines"
-                :file-id="file.id"
-                :filename="file.source.filename"
-                :packname="file.source.name"
-                :has-admin-role="hasAdminRole"
-                :has-contributor-role="hasContributorRole"
-                :pending-actions="pendingActionsForFile(file.id)"
-                :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
-                @extend="onExtend(file, $event)"
-                @open-editor="openEditor"
-                @dismiss-action="dismissAction"
-                @close-editor="closeInlineEditor"
-                @editor-submit="onEditorSubmit"
-              />
+            <br />
+          </div>
+
+          <div v-if="emails.length > 0" class="report-artifact-section">
+            <h2 class="report-artifact-heading">
+              <a
+                href="#emails"
+                class="report-artifact-label collapsed"
+                data-bs-toggle="collapse"
+                aria-expanded="false"
+                aria-controls="emails"
+              >
+                <i class="fa-regular fa-envelope"></i>
+                {{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}
+              </a>
+            </h2>
+            <div class="collapse" id="emails">
+              <ul class="report-artifact-list">
+                <li v-for="email in emails" :key="email[0]" class="report-artifact-item">
+                  <span class="report-artifact-value">{{ email[0] }}</span>
+                  <span class="report-artifact-source">{{ email[1] }}</span>
+                </li>
+              </ul>
             </div>
           </div>
+
+          <div v-if="urls.length > 0" class="report-artifact-section">
+            <h2 class="report-artifact-heading">
+              <a
+                href="#urls"
+                class="report-artifact-label collapsed"
+                data-bs-toggle="collapse"
+                aria-expanded="false"
+                aria-controls="urls"
+              >
+                <i class="fa-solid fa-link"></i>
+                {{ urls.length }} {{ urls.length === 1 ? 'URL' : 'URLs' }}
+              </a>
+            </h2>
+            <div class="collapse" id="urls">
+              <ul class="report-artifact-list">
+                <li v-for="url in urls" :key="url[0]" class="report-artifact-item">
+                  <span class="report-artifact-value">{{ url[0] }}</span>
+                  <span class="report-artifact-source">{{ url[1] }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <br />
         </div>
-
-        <div v-if="emails.length > 0" class="report-artifact-section">
-          <h2 class="report-artifact-heading">
-            <a
-              href="#emails"
-              class="report-artifact-label collapsed"
-              data-bs-toggle="collapse"
-              aria-expanded="false"
-              aria-controls="emails"
-            >
-              <i class="fa-regular fa-envelope"></i>
-              {{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}
-            </a>
-          </h2>
-          <div class="collapse" id="emails">
-            <ul class="report-artifact-list">
-              <li v-for="email in emails" :key="email[0]" class="report-artifact-item">
-                <span class="report-artifact-value">{{ email[0] }}</span>
-                <span class="report-artifact-source">{{ email[1] }}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div v-if="urls.length > 0" class="report-artifact-section">
-          <h2 class="report-artifact-heading">
-            <a
-              href="#urls"
-              class="report-artifact-label collapsed"
-              data-bs-toggle="collapse"
-              aria-expanded="false"
-              aria-controls="urls"
-            >
-              <i class="fa-solid fa-link"></i>
-              {{ urls.length }} {{ urls.length === 1 ? 'URL' : 'URLs' }}
-            </a>
-          </h2>
-          <div class="collapse" id="urls">
-            <ul class="report-artifact-list">
-              <li v-for="url in urls" :key="url[0]" class="report-artifact-item">
-                <span class="report-artifact-value">{{ url[0] }}</span>
-                <span class="report-artifact-source">{{ url[1] }}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <br />
+        <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
       </div>
-      <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
-    </div>
-    <div
-      class="report-tab-pane"
-      :class="{'is-active': activeTab === 'notes'}"
-      :aria-hidden="activeTab !== 'notes'"
-      id="report-notes-pane"
-      role="tabpanel"
-    >
-      <ReportNotes
-        v-if="notesMounted"
-        :pkg-id="pkgId"
-        :can-post-lawyer-only="canPostLawyerOnly"
-        :seek-note-id="seekNoteId"
-        @counts-changed="onNotesCountsChanged"
-      />
+      <div
+        class="report-tab-pane"
+        :class="{'is-active': activeTab === 'notes'}"
+        :aria-hidden="activeTab !== 'notes'"
+        id="report-notes-pane"
+        role="tabpanel"
+      >
+        <ReportNotes
+          v-if="notesMounted"
+          :pkg-id="pkgId"
+          :can-post-lawyer-only="canPostLawyerOnly"
+          :seek-note-id="seekNoteId"
+          @counts-changed="onNotesCountsChanged"
+        />
+      </div>
     </div>
 
     <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
@@ -957,11 +964,16 @@ export default {
   background: #fbeec0;
   color: #5c3a00;
 }
+.report-tab-content {
+  display: grid;
+}
 .report-tab-pane {
-  display: none;
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
 }
 .report-tab-pane.is-active {
-  display: block;
+  visibility: visible;
 }
 .license-composition-card {
   border: 1px solid #d0d7de;
