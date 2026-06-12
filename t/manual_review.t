@@ -225,7 +225,7 @@ subtest 'Details after indexing' => sub {
     $t->get_ok('/reviews/file_view_meta/1/')
       ->status_is(200)
       ->content_type_is('application/json;charset=UTF-8')
-      ->json_is('/kind', 'directory')
+      ->json_is('/kind',         'directory')
       ->json_is('/package/name', 'perl-Mojolicious')
       ->json_has('/entries/0/name')
       ->json_has('/breadcrumbs/0/url');
@@ -236,7 +236,7 @@ subtest 'Details after indexing' => sub {
     $t->get_ok("/reviews/file_view_meta/1/$url")
       ->status_is(200)
       ->content_type_is('application/json;charset=UTF-8')
-      ->json_is('/kind', 'file')
+      ->json_is('/kind',            'file')
       ->json_is('/source/filename', $path)
       ->json_has('/source/id')
       ->json_has('/source/lines/0/0')
