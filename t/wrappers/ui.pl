@@ -19,7 +19,7 @@ use Test::Mojo;
 use Cavil::Test;
 use Mojo::IOLoop;
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'js_ui_test');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => $ENV{JS_UI_SCHEMA} // 'js_ui_test');
 my $daemon     = Mojo::Server::Daemon->new(listen => ['http://*?fd=3'], silent => 1);
 
 my $app = Test::Mojo->new(Cavil => $cavil_test->default_config)->app;
