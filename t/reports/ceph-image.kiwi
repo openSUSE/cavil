@@ -1,5 +1,5 @@
 {
-  "errors"              => ["Invalid SPDX license: SUSE-Permissive"],
+  "errors"              => [],
   "incomplete_checkout" => 0,
   "main"                => {
     "file"     => "ceph-image.kiwi",
@@ -20,5 +20,8 @@
       "version"  => "1.0.0"
     }
   ],
-  "warnings" => []
+  "warnings" => [
+    "Main license had to be normalized: SUSE-Permissive -> LicenseRef-SUSE-Permissive",
+    "License from ceph-image.kiwi had to be normalized: SUSE-Permissive -> LicenseRef-SUSE-Permissive"
+  ]
 }

@@ -1,5 +1,5 @@
 {
-  "errors"              => ["Invalid SPDX license: SUSE-Public-Domain"],
+  "errors"              => [],
   "incomplete_checkout" => 0,
   "main"                => {
     "%doc"                 => [],
@@ -52,5 +52,9 @@
       "version" => "2012f"
     }
   ],
-  "warnings" => []
+  "warnings" => [
+    "Main license had to be normalized: BSD-3-Clause and SUSE-Public-Domain -> BSD-3-Clause AND LicenseRef-SUSE-Public-Domain",
+    "License from timezone-java.spec had to be normalized: BSD-3-Clause and SUSE-Public-Domain -> BSD-3-Clause AND LicenseRef-SUSE-Public-Domain",
+    "License from timezone.spec had to be normalized: BSD-3-Clause and SUSE-Public-Domain -> BSD-3-Clause AND LicenseRef-SUSE-Public-Domain"
+  ]
 }
