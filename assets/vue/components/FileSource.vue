@@ -1,5 +1,11 @@
 <template>
   <table class="snippet" :class="{'editor-open': inlineEditor}">
+    <colgroup>
+      <col v-if="!readOnly" class="snippet-col-actions" />
+      <col class="snippet-col-linenumber" />
+      <col class="snippet-col-code" />
+      <col v-if="!readOnly" class="snippet-col-quick-actions" />
+    </colgroup>
     <tbody>
       <!-- eslint-disable-next-line vue/no-v-for-template-key -->
       <template v-for="(line, idx) in lines" :key="idx">
@@ -273,6 +279,23 @@ export default {
 </script>
 
 <style>
+/* Stabilise the snippet table layout. With table-layout: auto, CodeMirror's
+   measure cycle inside the inline pattern editor (in a <td colspan="4">)
+   would feed its intrinsic content width back into the table's column
+   distribution, and the editor would visibly resize while the user scrolled
+   through long patterns. Fixed layout with explicit col widths breaks that
+   loop — the editor's content can never push the column wider. */
+.source .snippet {
+  table-layout: fixed;
+  width: 100%;
+}
+.source .snippet .snippet-col-actions,
+.source .snippet .snippet-col-quick-actions {
+  width: 28px;
+}
+.source .snippet .snippet-col-linenumber {
+  width: 3.5em;
+}
 .snippet .inline-editor-row > td {
   background: #ffffff;
   border-top: 1px solid #d0d7de !important;
