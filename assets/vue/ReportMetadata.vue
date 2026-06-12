@@ -215,6 +215,13 @@
         </ul>
       </div>
     </div>
+    <section v-if="notice !== null" id="review-information" class="review-information-card">
+      <header class="review-information-card-bar">
+        <i class="fa-solid fa-caret-right"></i>
+        <span>why this needs review</span>
+      </header>
+      <pre class="review-information-card-body">{{ notice }}</pre>
+    </section>
     <cavil-notice-panel
       v-if="errors.length > 0"
       id="spec-errors"
@@ -239,9 +246,6 @@
       title="Legal review notices"
       tone="success"
     />
-    <cavil-notice-panel v-if="notice !== null" icon="fa-solid fa-circle-info" title="Review information" tone="info">
-      <pre class="cavil-notice-pre">{{ notice }}</pre>
-    </cavil-notice-panel>
     <div v-if="hasAdminRole === true" class="metadata-review-section">
       <form :action="reviewUrl" method="POST" class="container metadata-review-form" id="pkg-review">
         <div class="col metadata-review-editor">
@@ -724,6 +728,44 @@ export default {
 .metadata-file-details a:hover,
 .metadata-file-details a:focus {
   text-decoration-color: currentColor;
+}
+/* Review-information card. Rendered as a terminal/console panel — a small
+   dark title bar with a prompt-style caret + label, then the freeform
+   monospace body as if it were tool output. Visually distinct from the
+   surrounding notice stack so reviewers and packagers can't miss it,
+   regardless of whether the body is a single sentence or a multi-line diff. */
+.review-information-card {
+  background: #ffffff;
+  border: 1px solid #1f2328;
+  border-radius: 6px;
+  margin: 1.25rem 0;
+  overflow: hidden;
+}
+.review-information-card-bar {
+  align-items: center;
+  background: #1f2328;
+  color: #d0d7de;
+  display: flex;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 0.45rem;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 0.85rem;
+  text-transform: lowercase;
+}
+.review-information-card-bar i {
+  color: #7d8590;
+  font-size: 11px;
+}
+.review-information-card-body {
+  color: #1f2328;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+  overflow-x: auto;
+  padding: 0.85rem 0.95rem;
+  white-space: pre-wrap;
 }
 .metadata-review-section {
   margin: 1.25rem 0;
