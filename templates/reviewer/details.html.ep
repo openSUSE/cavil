@@ -7,7 +7,9 @@
   % my $has_manager_role = current_user_has_role('manager') ? 'true' : 'false';
   % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
   % my $has_lawyer_role = current_user_has_role('lawyer') ? 'true' : 'false';
-  cavil.setupReportMetadata(<%= $id %>, <%= $has_manager_role %> ,<%= $has_admin_role %>, <%= $has_lawyer_role %>);
+  % my $reindex_url = url_for 'reindex_package', id => $package->{id};
+  % my $should_reindex_js = $should_reindex ? 'true' : 'false';
+  cavil.setupReportMetadata(<%= $id %>, <%= $has_manager_role %>, <%= $has_admin_role %>, <%= $has_lawyer_role %>, '<%= $reindex_url %>', <%= $should_reindex_js %>);
 % end
 
 % my $raw_license = $spec->{main}{license} // 'Unknown';
@@ -17,33 +19,12 @@
   cavil.fromNow();
 % end
 
-<div class="report-license-titlebar">
-  <h2>Licenses</h2>
-  % if (current_user_has_role 'admin') {
-    <form method="post" id="reindex-form" data-url="<%= url_for 'reindex_package', id => $package->{id} %>">
-      % if ($should_reindex) {
-        <button class="btn btn-primary" id="reindex_button" title="There are new patterns!">
-          Reindex
-        </button>
-      % }
-      % else {
-        <button class="btn btn-secondary" id="reindex_button" title="There are no new patterns">
-          Reindex
-        </button>
-      % }
-    </form>
-  % }
-</div>
-
 <div id="report-details"></div>
 % content_for 'ready_function' => begin
   % my $has_admin_role_rd = current_user_has_role('admin') ? 'true' : 'false';
   % my $has_contributor_role_rd = current_user_has_role('contributor') ? 'true' : 'false';
   % my $is_obsolete_rd = $package->{obsolete} ? 'true' : 'false';
   cavil.setupReportDetails(<%= $id %>, <%= $has_admin_role_rd %>, <%= $has_contributor_role_rd %>, <%= $is_obsolete_rd %>);
-% end
-% content_for 'ready_function' => begin
-  cavil.setupReindex();
 % end
 
 <a id="back-to-top" href="#" class="btn btn-primary btn-lg back-to-top"

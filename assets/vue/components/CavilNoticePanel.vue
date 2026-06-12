@@ -75,7 +75,7 @@ export default {
   color: #1f2328;
   display: flex;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   gap: 0.45rem;
   line-height: 1.35;
   padding: 0.65rem 0.85rem;
@@ -135,7 +135,7 @@ export default {
 .cavil-notice-item {
   background: #ffffff;
   color: #1f2328;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   overflow-wrap: anywhere;
   padding: 0.75rem 0.85rem;

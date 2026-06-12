@@ -160,28 +160,6 @@ select.state-box {
 h2 a {
   text-decoration: none;
 }
-.report-license-titlebar {
-  align-items: flex-start;
-  display: flex;
-  gap: .75rem;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-.report-license-titlebar h2,
-.report-license-titlebar form {
-  margin: 0;
-}
-.report-license-titlebar #reindex_button {
-  margin-top: .15rem;
-  white-space: nowrap;
-}
-@media (max-width: 575.98px) {
-  .report-license-titlebar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
 /* license key word */
 pre .lkw {
   background-color: #FCF8B2;

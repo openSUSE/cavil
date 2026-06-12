@@ -31,17 +31,14 @@
             <tbody v-else-if="apiKeys.length > 0">
               <tr v-for="key in apiKeys" :key="key.id">
                 <td>
-                  <span
+                  <copyable-text
+                    :value="key.apiKey"
                     class="api-key"
-                    :class="{copied: lastCopied === key.id}"
-                    tabindex="0"
-                    role="button"
-                    aria-label="Reveal API key on hover, click to copy"
                     title="Click to copy"
-                    @click.prevent="copyApiKey(key.id, key.apiKey)"
+                    aria-label="Reveal API key on hover, click to copy"
                   >
                     <span class="real">{{ key.apiKey }}</span>
-                  </span>
+                  </copyable-text>
                 </td>
                 <td>{{ key.type }}</td>
                 <td>{{ key.description }}</td>
@@ -108,13 +105,14 @@
 
 <script>
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
+import CopyableText from './components/CopyableText.vue';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {
   name: 'ApiKeys',
-  components: {CavilNoticePanel},
+  components: {CavilNoticePanel, CopyableText},
   mixins: [Refresh],
   data() {
     return {
@@ -123,18 +121,10 @@ export default {
       apiKeyDescription: 'User API Key',
       apiKeyType: 'read-only',
       apiKeyExpires: new moment().add(365, 'days').format('YYYY-MM-DDTHH:mm'),
-      lastCopied: null,
       refreshUrl: '/api_keys/meta'
     };
   },
   methods: {
-    async copyApiKey(keyId, apiKey) {
-      await navigator.clipboard.writeText(apiKey);
-      this.lastCopied = keyId;
-      setTimeout(() => {
-        if (this.lastCopied === keyId) this.lastCopied = null;
-      }, 2000);
-    },
     async addApiKey() {
       const ua = new UserAgent({baseURL: window.location.href});
       const form = {description: this.apiKeyDescription, type: this.apiKeyType, expires: this.apiKeyExpires};
@@ -175,24 +165,15 @@ export default {
 #all-done {
   text-align: center;
 }
-.api-key {
-  cursor: pointer;
-  display: inline-block;
-}
 .api-key .real {
   display: inline-block;
   filter: blur(6px);
   transition: filter 0.15s ease;
   user-select: none;
 }
-.api-key:hover .real {
+.api-key:hover .real,
+.api-key:focus .real {
   filter: none;
   user-select: text;
-}
-.api-key.copied::after {
-  content: ' Copied!';
-  color: #28a745;
-  font-weight: 500;
-  margin-left: 0.5rem;
 }
 </style>

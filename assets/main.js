@@ -43,26 +43,6 @@ function fromNow(selector = '.from-now') {
   });
 }
 
-function setupReindex() {
-  const button = document.getElementById('reindex_button');
-  const form = document.getElementById('reindex-form');
-  if (!button || !form) return;
-
-  button.disabled = false;
-
-  button.addEventListener('click', async e => {
-    e.preventDefault();
-    button.disabled = true;
-    const response = await fetch(form.dataset.url, {method: 'POST', cache: 'no-store'});
-    if (response.ok) {
-      button.classList.add('btn-success');
-      window.location.reload();
-    } else {
-      button.classList.add('btn-danger');
-    }
-  });
-}
-
 function parseJsonData(el, name, fallback) {
   const value = el.dataset[name];
   if (!value) return fallback;
@@ -169,12 +149,14 @@ window.cavil = {
     app.mount('#recent-notes');
   },
 
-  setupReportMetadata(pkgId, hasManagerRole, hasAdminRole, hasLawyerRole) {
+  setupReportMetadata(pkgId, hasManagerRole, hasAdminRole, hasLawyerRole, reindexUrl, shouldReindex) {
     const app = createApp(ReportMetadata);
     app.config.globalProperties.pkgId = pkgId;
     app.config.globalProperties.hasManagerRole = hasManagerRole;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.config.globalProperties.hasLawyerRole = hasLawyerRole;
+    app.config.globalProperties.reindexUrl = reindexUrl;
+    app.config.globalProperties.shouldReindex = shouldReindex;
     app.mount('#report-metadata');
   },
 
@@ -204,6 +186,5 @@ window.cavil = {
     createApp(CavilStatistics).mount('#statistics');
   },
 
-  fromNow,
-  setupReindex
+  fromNow
 };

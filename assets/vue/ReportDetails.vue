@@ -79,10 +79,7 @@
           <br />
           <section v-if="licenseDistribution.length > 0" id="license-chart" class="license-composition-card mb-3">
             <header class="license-composition-header">
-              <div>
-                <div class="license-composition-kicker">Package overview</div>
-                <h3>License composition</h3>
-              </div>
+              <h3>License composition</h3>
               <div class="license-composition-total">
                 <span class="license-composition-total-value">{{ licenseChartTotal }}</span>
                 <span class="license-composition-total-label">{{ licenseChartTotal === 1 ? 'file' : 'files' }}</span>
@@ -244,7 +241,6 @@
           </div>
 
           <div v-if="files.length > 0">
-            <h2>Files</h2>
             <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
               <a :name="'file-' + file.id"></a>
               <div class="file">
@@ -274,7 +270,6 @@
                 />
               </div>
             </div>
-            <br />
           </div>
 
           <div v-if="emails.length > 0" class="report-artifact-section">
@@ -1037,13 +1032,6 @@ export default {
   justify-content: space-between;
   padding: 0.75rem 1rem;
 }
-.license-composition-kicker {
-  color: #57606a;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 .license-composition-header h3 {
   font-size: 1rem;
   line-height: 1.3;
@@ -1280,11 +1268,16 @@ export default {
   padding: 0.45rem 0.7rem;
 }
 .risk-license-summary {
-  color: #6e7781;
-  font-size: 13px;
-  font-weight: 400;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: #57606a;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
   line-height: 1;
-  padding: 0;
+  padding: 0.45rem 0.7rem;
   white-space: nowrap;
 }
 .risk-license-list {
@@ -1295,6 +1288,9 @@ export default {
   margin: 0;
   overflow: hidden;
   padding: 0;
+}
+.risk-license-section-unresolved .risk-license-list {
+  border-top-right-radius: 0;
 }
 .risk-license-item {
   background: #ffffff;
