@@ -14,6 +14,7 @@ use lib "$FindBin::Bin/../../lib";
 
 use Mojo::Server::Daemon;
 use Mojo::File qw(curfile);
+use Mojo::JSON qw(from_json to_json);
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::IOLoop;
@@ -25,7 +26,16 @@ my $app = Test::Mojo->new(Cavil => $cavil_test->default_config)->app;
 $daemon->app($app);
 $app->log->level('warn');
 $cavil_test->ui_fixtures($app);
-my %obsolete_without_report_original;
+my %report_state_original;
+
+sub _save_report_state ($c, $id) {
+  my $db     = $c->app->pg->db;
+  my $pkg    = $db->select('bot_packages', ['obsolete', 'state'], {id      => $id})->hash;
+  my $report = $db->select('bot_reports',  'ldig_report',         {package => $id})->hash;
+
+  $report_state_original{$id}
+    //= {obsolete => $pkg->{obsolete}, state => $pkg->{state}, ldig_report => $report->{ldig_report}};
+}
 
 $app->routes->get(
   '/perform_jobs' => sub ($c) {
@@ -48,15 +58,21 @@ $app->routes->get(
 );
 
 $app->routes->get(
+  '/test/obsolete_with_report/:id' => sub ($c) {
+    my $id = $c->stash('id');
+    _save_report_state($c, $id);
+
+    $c->app->pg->db->update('bot_packages', {obsolete => 1, state => 'obsolete'}, {id => $id});
+    $c->render(text => 'ok');
+  }
+);
+
+$app->routes->get(
   '/test/obsolete_without_report/:id' => sub ($c) {
-    my $id     = $c->stash('id');
-    my $db     = $c->app->pg->db;
-    my $pkg    = $db->select('bot_packages', ['obsolete', 'state'], {id      => $id})->hash;
-    my $report = $db->select('bot_reports',  'ldig_report',         {package => $id})->hash;
+    my $id = $c->stash('id');
+    _save_report_state($c, $id);
 
-    $obsolete_without_report_original{$id}
-      //= {obsolete => $pkg->{obsolete}, state => $pkg->{state}, ldig_report => $report->{ldig_report}};
-
+    my $db = $c->app->pg->db;
     $db->update('bot_packages', {obsolete => 1, state => 'obsolete'}, {id => $id});
     $db->update('bot_reports', {ldig_report => undef}, {package => $id});
     $c->render(text => 'ok');
@@ -64,9 +80,33 @@ $app->routes->get(
 );
 
 $app->routes->get(
-  '/test/restore_obsolete_without_report/:id' => sub ($c) {
+  '/test/empty_report/:id' => sub ($c) {
+    my $id = $c->stash('id');
+    _save_report_state($c, $id);
+
+    my $db     = $c->app->pg->db;
+    my $report = from_json($db->select('bot_reports', 'ldig_report', {package => $id})->hash->{ldig_report});
+    $report->{emails}                = {};
+    $report->{expanded}              = {};
+    $report->{files}                 = {};
+    $report->{incompatible_licenses} = [];
+    $report->{licenses}              = {};
+    $report->{lines}                 = {};
+    $report->{matching_globs}        = [];
+    $report->{missed_files}          = {};
+    $report->{missed_snippets}       = {};
+    $report->{risks}                 = {};
+    $report->{urls}                  = {};
+    $db->update('bot_packages', {obsolete => 0, state => 'new'}, {id => $id});
+    $db->update('bot_reports', {ldig_report => to_json($report)}, {package => $id});
+    $c->render(text => 'ok');
+  }
+);
+
+$app->routes->get(
+  '/test/restore_report_state/:id' => sub ($c) {
     my $id       = $c->stash('id');
-    my $original = delete $obsolete_without_report_original{$id};
+    my $original = delete $report_state_original{$id};
     return $c->render(text => 'nothing to restore', status => 404) unless $original;
 
     my $db = $c->app->pg->db;
@@ -75,5 +115,8 @@ $app->routes->get(
     $c->render(text => 'ok');
   }
 );
+
+$app->routes->get('/test/restore_obsolete_without_report/:id' =>
+    sub ($c) { $c->redirect_to('/test/restore_report_state/' . $c->stash('id')) });
 
 $daemon->run;

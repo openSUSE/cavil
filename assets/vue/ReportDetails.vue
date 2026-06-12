@@ -38,13 +38,27 @@
         :aria-hidden="activeTab !== 'review'"
         role="tabpanel"
       >
-        <div v-if="packageObsolete" class="alert alert-warning mt-3" role="alert" data-obsolete-report-notice>
-          This report is obsolete and might not exist anymore.
-        </div>
-        <div v-if="reportUnavailable" class="alert alert-warning" role="alert" data-report-unavailable>
-          This report is obsolete and is no longer available. Notes remain available.
-        </div>
-        <div v-if="loading">
+        <CavilNoticePanel
+          v-if="packageObsolete && !reportUnavailable"
+          title="Obsolete report"
+          tone="warning"
+          icon="fa-solid fa-triangle-exclamation"
+          data-obsolete-report-notice
+        >
+          <p class="cavil-notice-summary">This report is obsolete and might not exist anymore.</p>
+        </CavilNoticePanel>
+        <CavilNoticePanel
+          v-if="reportUnavailable"
+          title="Report unavailable"
+          tone="warning"
+          icon="fa-solid fa-triangle-exclamation"
+          data-report-unavailable
+        >
+          <p class="cavil-notice-summary">
+            This report is obsolete and is no longer available. Notes remain available.
+          </p>
+        </CavilNoticePanel>
+        <div v-else-if="loading">
           <ProgressBar v-if="stage" :stage="stage" />
           <div v-else>
             <span id="ajax-status">
@@ -52,9 +66,15 @@
             </span>
           </div>
         </div>
-        <div v-else-if="emptyReport" class="alert alert-success" role="alert">
-          No files matching any known license patterns or keywords have been found.
-        </div>
+        <CavilNoticePanel
+          v-else-if="emptyReport"
+          title="No matching files"
+          tone="success"
+          icon="fa-solid fa-circle-check"
+          data-empty-report-notice
+        >
+          <p class="cavil-notice-summary">No files matching any known license patterns or keywords have been found.</p>
+        </CavilNoticePanel>
         <div v-else>
           <br />
           <section v-if="licenseDistribution.length > 0" id="license-chart" class="license-composition-card mb-3">

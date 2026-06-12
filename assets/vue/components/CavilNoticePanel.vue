@@ -105,8 +105,16 @@ export default {
 .cavil-notice-panel-info .cavil-notice-heading i {
   color: #0550ae;
 }
+.cavil-notice-panel-success {
+  border-color: #aceebb;
+}
+.cavil-notice-panel-success .cavil-notice-heading {
+  background: #dafbe1;
+  border-bottom-color: #aceebb;
+  color: #116329;
+}
 .cavil-notice-panel-success .cavil-notice-heading i {
-  color: #1a7f37;
+  color: #116329;
 }
 .cavil-notice-list {
   list-style: none;
