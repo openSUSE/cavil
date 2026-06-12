@@ -113,12 +113,20 @@
           </div>
         </section>
 
-        <div v-if="incompatibleLicenses.length > 0" id="incompatible-licenses" class="alert alert-danger">
-          <p>Elevated risk, package might contain incompatible licenses:</p>
-          <ul>
-            <li v-for="(match, idx) in incompatibleLicenses" :key="idx">{{ match.licenses.join(', ') }}</li>
+        <CavilNoticePanel
+          v-if="incompatibleLicenses.length > 0"
+          id="incompatible-licenses"
+          title="Elevated risk"
+          tone="warning"
+          icon="fa-solid fa-triangle-exclamation"
+        >
+          <p class="cavil-notice-summary">Package might contain incompatible licenses.</p>
+          <ul class="cavil-notice-list">
+            <li v-for="(match, idx) in incompatibleLicenses" :key="idx" class="cavil-notice-item">
+              {{ match.licenses.join(', ') }}
+            </li>
           </ul>
-        </div>
+        </CavilNoticePanel>
 
         <p v-if="missedFiles.length > 0" id="incomplete-warning" class="risk-license-help-text">
           Report is incomplete, reviewers need to create new license patterns for unmatched keywords or ignore false
@@ -334,6 +342,7 @@
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import FileSource from './components/FileSource.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
@@ -348,7 +357,7 @@ const LICENSE_CHART_COLORS = ['#0969da', '#1a7f37', '#9a6700', '#cf222e', '#8250
 
 export default {
   name: 'ReportDetails',
-  components: {FileSource, PendingActionsWidget, ProgressBar, ReportNotes},
+  components: {CavilNoticePanel, FileSource, PendingActionsWidget, ProgressBar, ReportNotes},
   mixins: [Refresh],
   provide() {
     return {

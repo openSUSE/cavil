@@ -113,6 +113,17 @@ export default {
   margin: 0;
   padding: 0;
 }
+.cavil-notice-summary {
+  background: #ffffff;
+  color: #57606a;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+}
+.cavil-notice-summary + .cavil-notice-list {
+  border-top: 1px solid #d8dee4;
+}
 .cavil-notice-item {
   background: #ffffff;
   color: #1f2328;
