@@ -152,7 +152,12 @@
             <p class="cavil-notice-summary">Package might contain incompatible licenses.</p>
             <ul class="cavil-notice-list">
               <li v-for="(match, idx) in incompatibleLicenses" :key="idx" class="cavil-notice-item">
-                {{ match.licenses.join(', ') }}
+                <template v-for="(name, i) in match.licenses" :key="name">
+                  <span v-if="i > 0">, </span>
+                  <a class="spdx-link" :href="spdxLicenseUrl(name)" target="_blank" rel="noopener noreferrer">{{
+                    name
+                  }}</a>
+                </template>
               </li>
             </ul>
           </CavilNoticePanel>
@@ -548,6 +553,9 @@ export default {
       if (r <= 4) return 'text-bg-success';
       if (r === 5) return 'text-bg-warning';
       return 'text-bg-danger';
+    },
+    spdxLicenseUrl(name) {
+      return `https://spdx.org/licenses/${encodeURIComponent(name)}.html`;
     },
     refreshData(data) {
       if (data.obsolete) this.packageObsolete = true;
