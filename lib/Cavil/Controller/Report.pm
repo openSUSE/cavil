@@ -34,10 +34,15 @@ sub details ($self) {
   return $self->render(json => {error => 'package being processed', %{_stage_payload($pkg)}}, status => 408)
     if $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
 
+  my $report = $self->reports->sanitized_dig_report($id);
+  return $self->render(json => {error => 'no report', obsolete => \1, report_unavailable => \1})
+    if !$report && $pkg->{obsolete};
+
   return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408) unless $pkg->{indexed};
 
-  return $self->render(json => {error => 'no report', %{_stage_payload($pkg)}}, status => 408)
-    unless my $report = $self->reports->sanitized_dig_report($id);
+  unless ($report) {
+    return $self->render(json => {error => 'no report', %{_stage_payload($pkg)}}, status => 408);
+  }
 
   $self->render(json => $self->helpers->report_details($pkg, $report));
 }

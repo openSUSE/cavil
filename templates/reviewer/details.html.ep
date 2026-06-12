@@ -10,7 +10,7 @@
   cavil.setupReportMetadata(<%= $id %>, <%= $has_manager_role %> ,<%= $has_admin_role %>, <%= $has_lawyer_role %>);
 % end
 
-% my $raw_license = $spec->{main}{license};
+% my $raw_license = $spec->{main}{license} // 'Unknown';
 % my $license = lic($raw_license)->to_string;
 % my $display_license = $license || $raw_license;
 % content_for 'ready_function' => begin
@@ -19,20 +19,29 @@
 
 <div class="report-license-titlebar">
   <h2>Licenses</h2>
-  %= include 'reviewer/_reindex'
+  % if (current_user_has_role 'admin') {
+    <form method="post" id="reindex-form" data-url="<%= url_for 'reindex_package', id => $package->{id} %>">
+      % if ($should_reindex) {
+        <button class="btn btn-primary" id="reindex_button" title="There are new patterns!">
+          Reindex
+        </button>
+      % }
+      % else {
+        <button class="btn btn-secondary" id="reindex_button" title="There are no new patterns">
+          Reindex
+        </button>
+      % }
+    </form>
+  % }
 </div>
 
-% if ($package->{obsolete}) {
-  <div class="row mb-3 mt-3"><span>This report is obsolete and might not exist anymore.</span></div>
-% }
-% else {
-  <div id="report-details"></div>
-  % content_for 'ready_function' => begin
-    % my $has_admin_role_rd = current_user_has_role('admin') ? 'true' : 'false';
-    % my $has_contributor_role_rd = current_user_has_role('contributor') ? 'true' : 'false';
-    cavil.setupReportDetails(<%= $id %>, <%= $has_admin_role_rd %>, <%= $has_contributor_role_rd %>);
-  % end
-% }
+<div id="report-details"></div>
+% content_for 'ready_function' => begin
+  % my $has_admin_role_rd = current_user_has_role('admin') ? 'true' : 'false';
+  % my $has_contributor_role_rd = current_user_has_role('contributor') ? 'true' : 'false';
+  % my $is_obsolete_rd = $package->{obsolete} ? 'true' : 'false';
+  cavil.setupReportDetails(<%= $id %>, <%= $has_admin_role_rd %>, <%= $has_contributor_role_rd %>, <%= $is_obsolete_rd %>);
+% end
 % content_for 'ready_function' => begin
   cavil.setupReindex();
 % end

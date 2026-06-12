@@ -178,11 +178,12 @@ window.cavil = {
     app.mount('#report-metadata');
   },
 
-  setupReportDetails(pkgId, hasAdminRole, hasContributorRole) {
+  setupReportDetails(pkgId, hasAdminRole, hasContributorRole, isObsolete = false) {
     const app = createApp(ReportDetails);
     app.config.globalProperties.pkgId = pkgId;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.config.globalProperties.hasContributorRole = hasContributorRole;
+    app.config.globalProperties.isObsolete = isObsolete;
     app.mount('#report-details');
   },
 

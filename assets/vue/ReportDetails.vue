@@ -38,6 +38,12 @@
         :aria-hidden="activeTab !== 'review'"
         role="tabpanel"
       >
+        <div v-if="packageObsolete" class="alert alert-warning mt-3" role="alert" data-obsolete-report-notice>
+          This report is obsolete and might not exist anymore.
+        </div>
+        <div v-if="reportUnavailable" class="alert alert-warning" role="alert" data-report-unavailable>
+          This report is obsolete and is no longer available. Notes remain available.
+        </div>
         <div v-if="loading">
           <ProgressBar v-if="stage" :stage="stage" />
           <div v-else>
@@ -401,6 +407,8 @@ export default {
       noteTotal: null,
       noteLawyerCount: 0,
       canPostLawyerOnly: false,
+      packageObsolete: !!this.isObsolete,
+      reportUnavailable: false,
       seekNoteId: null,
       refreshDelay: 5000,
       refreshUrl: `/reviews/report_details/${this.pkgId}`,
@@ -527,6 +535,24 @@ export default {
       return 'text-bg-danger';
     },
     refreshData(data) {
+      if (data.obsolete) this.packageObsolete = true;
+      if (data.report_unavailable) {
+        this.loading = false;
+        this.stage = null;
+        this.refreshDelay = 0;
+        this.reportUnavailable = true;
+        this.chart = null;
+        this.incompatibleLicenses = [];
+        this.missedFiles = [];
+        this.unresolvedMatches = 0;
+        this.matchingGlobs = [];
+        this.emails = [];
+        this.urls = [];
+        this.risks = {};
+        this.files = [];
+        return;
+      }
+
       if (data.error) {
         this.loading = true;
         this.stage = data.stage ?? null;
@@ -536,6 +562,7 @@ export default {
 
       this.loading = false;
       this.refreshDelay = 0;
+      this.reportUnavailable = false;
       this.chart = data.chart;
       this.incompatibleLicenses = data.incompatible_licenses;
       this.missedFiles = data.missed_files;

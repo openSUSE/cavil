@@ -1841,6 +1841,30 @@ t.test('Test cavil ui', skip, async t => {
       await linkedPage.close();
     });
 
+    await t.test('Obsolete package without legal report still opens Notes tab', async t => {
+      await page.goto(`${url}/test/obsolete_without_report/2`);
+      t.equal(await page.locator('body').innerText(), 'ok');
+
+      await page.goto(`${url}/reviews/details/2`);
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#report-tabs');
+      await page.waitForSelector('[data-obsolete-report-notice]');
+      await page.waitForSelector('[data-report-unavailable]');
+      t.match(
+        await page.locator('[data-report-unavailable]').innerText(),
+        /no longer available/,
+        'missing obsolete report is terminal instead of a spinner'
+      );
+      t.equal(await page.locator('#ajax-status').count(), 0, 'report pane is not left polling forever');
+
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      t.ok(await page.locator('#report-notes-pane.is-active .report-note').count(), 'notes load for obsolete package');
+
+      await page.goto(`${url}/test/restore_obsolete_without_report/2`);
+      t.equal(await page.locator('body').innerText(), 'ok');
+    });
+
     await t.test('Recent Notes page (admin)', async t => {
       await page.goto(url);
       await openAccountMenu(page);
