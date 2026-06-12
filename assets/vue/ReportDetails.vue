@@ -1240,7 +1240,7 @@ export default {
 .risk-license-item {
   background: #ffffff;
   border-top: 1px solid #d8dee4;
-  padding: 0.85rem 1rem;
+  padding: 0.5rem 1rem;
   position: relative;
   transition: background-color 0.15s ease;
 }
@@ -1337,8 +1337,8 @@ export default {
 }
 .risk-unresolved-item {
   background: linear-gradient(90deg, rgba(191, 135, 0, 0.08), #ffffff 2.5rem);
-  padding-bottom: 0.6rem;
-  padding-top: 0.6rem;
+  padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
 }
 .risk-unresolved-item:hover {
   background: linear-gradient(90deg, rgba(191, 135, 0, 0.12), #f6f8fa 2.5rem);
