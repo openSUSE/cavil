@@ -20,11 +20,11 @@
             ><b>{{ patterns.length }}</b> {{ patterns.length === 1 ? 'pattern' : 'patterns' }}</span
           >
           <span class="license-details-stat"
-            ><b>{{ formatCount(totalMatches, totalMatchesCapped) }}</b>
+            ><b>{{ formatCount(totalMatches, totalMatchesCapped, countsPending) }}</b>
             {{ totalMatches === 1 && !totalMatchesCapped ? 'match' : 'matches' }}</span
           >
           <span class="license-details-stat"
-            ><b>{{ formatCount(totalPackages, totalPackagesCapped) }}</b>
+            ><b>{{ formatCount(totalPackages, totalPackagesCapped, countsPending) }}</b>
             {{ totalPackages === 1 && !totalPackagesCapped ? 'package' : 'packages' }}</span
           >
           <span v-for="risk in risks" :key="risk" class="badge" :class="riskClass(risk)">Risk {{ risk }}</span>
@@ -139,12 +139,13 @@
           </button>
 
           <footer class="license-pattern-footer">
-            <span
+            <span v-if="countsKnown(pattern)"
               ><b>{{ formatCount(pattern.matches, pattern.matches_capped) }}</b>
               {{ pattern.matches === 1 && !pattern.matches_capped ? 'match' : 'matches' }} in
               <b>{{ formatCount(pattern.packages, pattern.packages_capped) }}</b>
               {{ pattern.packages === 1 && !pattern.packages_capped ? 'package' : 'packages' }}</span
             >
+            <span v-else><i class="fa-solid fa-rotate fa-spin"></i> Loading counts</span>
             <span>
               Created {{ createdFromNow(pattern) }}
               <template v-if="pattern.owner_login">
@@ -186,6 +187,7 @@ export default {
       editorVersion: 0,
       expandedIds: new Set(),
       previewLineLimit: 12,
+      countLoadVersion: 0,
       ua: new UserAgent({baseURL: window.location.href})
     };
   },
@@ -204,6 +206,9 @@ export default {
     },
     risks() {
       return [...new Set(this.patterns.map(pattern => Number(pattern.risk)))].sort((a, b) => a - b);
+    },
+    countsPending() {
+      return this.patterns.some(pattern => !this.countsKnown(pattern));
     },
     totalMatches() {
       return this.patterns.reduce((sum, pattern) => sum + Number(pattern.matches || 0), 0);
@@ -239,6 +244,7 @@ export default {
     async loadDetails() {
       this.error = null;
       this.loading = true;
+      let loaded = false;
       try {
         const res = await this.ua.get(this.detailUrl);
         if (!res.isSuccess) throw new Error(`Could not load license details (HTTP ${res.statusCode}).`);
@@ -246,10 +252,29 @@ export default {
         this.details = details;
         this.patterns = details.patterns;
         this.spdx = details.spdx ?? '';
+        loaded = true;
       } catch (error) {
         this.error = error.message;
       } finally {
         this.loading = false;
+        if (loaded) this.$nextTick(() => this.loadPatternCounts());
+      }
+    },
+    async loadPatternCounts() {
+      const version = ++this.countLoadVersion;
+      for (const pattern of [...this.patterns]) {
+        if (version !== this.countLoadVersion) return;
+        try {
+          const res = await this.ua.get(`/licenses/pattern/${pattern.id}/match_count.json?capped=1`);
+          if (!res.isSuccess) throw new Error(`HTTP ${res.statusCode}`);
+          const count = await res.json();
+          Object.assign(pattern, count);
+        } catch (_error) {
+          pattern.matches = 0;
+          pattern.packages = 0;
+          pattern.matches_capped = false;
+          pattern.packages_capped = false;
+        }
       }
     },
     riskClass(risk) {
@@ -266,7 +291,16 @@ export default {
       if (pattern.export_restricted) flags.push('Export restricted');
       return flags;
     },
-    formatCount(value, capped = false) {
+    countsKnown(pattern) {
+      return (
+        pattern.matches !== null &&
+        pattern.matches !== undefined &&
+        pattern.packages !== null &&
+        pattern.packages !== undefined
+      );
+    },
+    formatCount(value, capped = false, pending = false) {
+      if (pending) return '...';
       return `${Number(value || 0).toLocaleString()}${capped ? '+' : ''}`;
     },
     patternLines(pattern) {

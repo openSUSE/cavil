@@ -168,11 +168,37 @@ sub load_unspecific ($self, $matcher) {
   rename $tmp, $cachefile;
 }
 
-sub match_count($self, $id) {
+sub match_count ($self, $id) {
   return $self->pg->db->query(
     'SELECT COUNT(*) AS matches, COUNT(DISTINCT(package)) AS packages
        FROM pattern_matches WHERE pattern = ?', $id
   )->hash;
+}
+
+sub capped_match_count ($self, $id) {
+  my $match_limit   = LICENSE_DETAIL_MATCH_LIMIT;
+  my $package_limit = LICENSE_DETAIL_PACKAGE_LIMIT;
+  my $count         = $self->pg->db->query(
+    'SELECT match_counts.matches, match_counts.matches_capped,
+       package_counts.packages, package_counts.packages_capped
+     FROM (SELECT 1) base
+       LEFT JOIN LATERAL (
+         SELECT LEAST(COUNT(*)::int, ?) AS matches, COUNT(*) > ? AS matches_capped
+         FROM (SELECT 1 FROM pattern_matches pm WHERE pm.pattern = ? LIMIT ?) limited_matches
+       ) match_counts ON true
+       LEFT JOIN LATERAL (
+         SELECT LEAST(COUNT(*)::int, ?) AS packages, COUNT(*) > ? AS packages_capped
+         FROM (SELECT DISTINCT pm.package FROM pattern_matches pm WHERE pm.pattern = ? LIMIT ?) limited_packages
+       ) package_counts ON true', $match_limit, $match_limit, $id, $match_limit + 1, $package_limit, $package_limit,
+    $id, $package_limit + 1
+  )->hash;
+
+  return {
+    matches         => 0 + ($count->{matches}  // 0),
+    packages        => 0 + ($count->{packages} // 0),
+    matches_capped  => $count->{matches_capped}  ? true : false,
+    packages_capped => $count->{packages_capped} ? true : false
+  };
 }
 
 sub remove_proposal ($self, $checksum) {
@@ -205,32 +231,17 @@ sub checksum ($self, $pattern) {
 }
 
 sub for_license ($self, $license) {
-  my $match_limit   = LICENSE_DETAIL_MATCH_LIMIT;
-  my $package_limit = LICENSE_DETAIL_PACKAGE_LIMIT;
-  my $patterns      = $self->pg->db->query(
+  my $patterns = $self->pg->db->query(
     'SELECT lp.*, bu1.login AS owner_login, bu2.login AS contributor_login,
-       match_counts.matches, match_counts.matches_capped,
-       package_counts.packages, package_counts.packages_capped
+       NULL AS matches, NULL AS matches_capped,
+       NULL AS packages, NULL AS packages_capped
      FROM license_patterns lp LEFT JOIN bot_users bu1 ON (bu1.id = lp.owner)
        LEFT JOIN bot_users bu2 ON (bu2.id = lp.contributor)
-       LEFT JOIN LATERAL (
-         SELECT LEAST(COUNT(*)::int, ?) AS matches, COUNT(*) > ? AS matches_capped
-         FROM (SELECT 1 FROM pattern_matches pm WHERE pm.pattern = lp.id LIMIT ?) limited_matches
-       ) match_counts ON true
-       LEFT JOIN LATERAL (
-         SELECT LEAST(COUNT(*)::int, ?) AS packages, COUNT(*) > ? AS packages_capped
-         FROM (SELECT DISTINCT pm.package FROM pattern_matches pm WHERE pm.pattern = lp.id LIMIT ?) limited_packages
-       ) package_counts ON true
      WHERE license = ?
-     ORDER BY lp.created', $match_limit, $match_limit, $match_limit + 1, $package_limit, $package_limit,
-    $package_limit + 1, $license
+     ORDER BY lp.created', $license
   )->hashes->to_array;
   for my $pattern (@$patterns) {
-    $pattern->{spdx_html}       = spdx_link($pattern->{spdx});
-    $pattern->{matches}         = 0 + ($pattern->{matches}  // 0);
-    $pattern->{packages}        = 0 + ($pattern->{packages} // 0);
-    $pattern->{matches_capped}  = $pattern->{matches_capped}  ? true : false;
-    $pattern->{packages_capped} = $pattern->{packages_capped} ? true : false;
+    $pattern->{spdx_html} = spdx_link($pattern->{spdx});
   }
   return $patterns;
 }

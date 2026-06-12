@@ -60,8 +60,8 @@ sub edit_pattern ($self) {
 
 sub match_count_json ($self) {
   my $id    = $self->stash('id');
-  my $count = $self->patterns->match_count($id);
-  $self->render(json => {matches => $count->{matches}, packages => $count->{packages}});
+  my $count = $self->param('capped') ? $self->patterns->capped_match_count($id) : $self->patterns->match_count($id);
+  $self->render(json => $count);
 }
 
 sub list ($self) {
