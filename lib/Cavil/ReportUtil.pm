@@ -29,8 +29,29 @@ our @EXPORT_OK = (
 
 use constant PAD_WORDS => 5;
 
-# For now we only watch out for GPL-2.0-only and Apache-2.0
-my $INCOMPATIBLE_LICENSE_RULES = [{licenses => ['GPL-2.0-only', 'Apache-2.0']}];
+# Each rule triggers when ALL of its SPDX identifiers are present in the
+# package's digest report. The hint above each rule is a starting point for
+# further reading - the actual legal analysis is more nuanced.
+my $INCOMPATIBLE_LICENSE_RULES = [
+
+  # Apache 2.0's patent termination and indemnification clauses add
+  # restrictions that GPL-2.0-only does not permit. Resolved in GPLv3.
+  {licenses => ['GPL-2.0-only', 'Apache-2.0']},
+
+  # GPL-2.0-only forbids the "or any later version" upgrade, so v2-only code
+  # cannot be combined with v3-family code in a single work. v2-or-later is
+  # fine because it can be relicensed to v3 at distribution time.
+  {licenses => ['GPL-2.0-only', 'GPL-3.0-only']}, {licenses => ['GPL-2.0-only', 'GPL-3.0-or-later']},
+
+  # AGPL-3.0 is GPL-3.0 plus the network-use clause; same v2-only conflict
+  # as above.
+  {licenses => ['GPL-2.0-only', 'AGPL-3.0-only']}, {licenses => ['GPL-2.0-only', 'AGPL-3.0-or-later']},
+
+  # CDDL is a file-scoped weak copyleft (MPL-derived). The classic
+  # "ZFS-on-Linux" combination - FSF, SFC and most distributions treat
+  # GPL+CDDL as incompatible.
+  {licenses => ['GPL-2.0-only', 'CDDL-1.0']}, {licenses => ['GPL-2.0-only', 'CDDL-1.1']},
+];
 
 sub estimated_risk ($risk, $match) {
   my $estimated = int(($risk * $match + 9 * (1 - $match)) + 0.5);
@@ -44,9 +65,18 @@ sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
   push @spdx, map { $_->{spdx} } grep { $_->{spdx} } values %{$dig_report->{licenses}  || {}};
   push @spdx, map { $_->[3] } grep    { $_->[3] } values %{$dig_report->{missed_files} || {}};
 
+  # The Classpath exception was created specifically to permit combining GPL
+  # code with code under otherwise-incompatible licenses (typically Apache-2.0
+  # Java libraries), so strip "GPL... WITH Classpath-exception-2.0" fragments
+  # before the substring match below.
+  s/\b(?:A|L)?GPL-[\d.]+(?:-only|-or-later|\+)?\s+WITH\s+Classpath-exception-2\.0\b//gi for @spdx;
+
+  # Anchor against adjacent SPDX identifier characters so that e.g.
+  # "GPL-3.0-or-later" does not match inside "AGPL-3.0-or-later", and
+  # "GPL-2.0-only" does not match inside "LGPL-2.0-only".
   my @regexes;
   for my $rule (@$rules) {
-    push @regexes, [qr/\Q$_\E/i, $_] for @{$rule->{licenses}};
+    push @regexes, [qr/(?<![\w.+-])\Q$_\E(?![\w.+-])/i, $_] for @{$rule->{licenses}};
   }
 
   my %matches;

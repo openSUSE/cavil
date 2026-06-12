@@ -190,6 +190,63 @@ subtest 'incompatible_licenses' => sub {
     is_deeply incompatible_licenses($report), [{licenses => ['GPL-2.0-only', 'Apache-2.0']}],
       'incompatible licenses found';
   };
+
+  subtest 'GPL-2.0-only vs v3 family' => sub {
+    my $report = {
+      licenses => {
+        'GPL-2.0-only'     => {risk => 5, spdx => 'GPL-2.0-only'},
+        'GPL-3.0-or-later' => {risk => 5, spdx => 'GPL-3.0-or-later'}
+      }
+    };
+    is_deeply incompatible_licenses($report), [{licenses => ['GPL-2.0-only', 'GPL-3.0-or-later']}],
+      'GPL-2.0-only and GPL-3.0-or-later flagged';
+
+    $report = {
+      licenses => {
+        'GPL-2.0-only'      => {risk => 5, spdx => 'GPL-2.0-only'},
+        'AGPL-3.0-or-later' => {risk => 5, spdx => 'AGPL-3.0-or-later'}
+      }
+    };
+    is_deeply incompatible_licenses($report), [{licenses => ['GPL-2.0-only', 'AGPL-3.0-or-later']}],
+      'GPL-2.0-only and AGPL-3.0-or-later flagged';
+  };
+
+  subtest 'GPL-2.0-only vs CDDL' => sub {
+    my $report
+      = {
+      licenses => {'GPL-2.0-only' => {risk => 5, spdx => 'GPL-2.0-only'}, 'CDDL-1.0' => {risk => 5, spdx => 'CDDL-1.0'}}
+      };
+    is_deeply incompatible_licenses($report), [{licenses => ['GPL-2.0-only', 'CDDL-1.0']}],
+      'GPL-2.0-only and CDDL-1.0 flagged (ZFS-on-Linux case)';
+
+    $report
+      = {
+      licenses => {'GPL-2.0-only' => {risk => 5, spdx => 'GPL-2.0-only'}, 'CDDL-1.1' => {risk => 5, spdx => 'CDDL-1.1'}}
+      };
+    is_deeply incompatible_licenses($report), [{licenses => ['GPL-2.0-only', 'CDDL-1.1']}],
+      'GPL-2.0-only and CDDL-1.1 flagged';
+  };
+
+  subtest 'Classpath exception is not flagged' => sub {
+    my $report = {
+      licenses => {
+        'GPL-2.0 with Classpath exception' => {risk => 5, spdx => 'GPL-2.0-only WITH Classpath-exception-2.0'},
+        'Apache-2.0'                       => {risk => 2, spdx => 'Apache-2.0'}
+      }
+    };
+    is_deeply incompatible_licenses($report), [], 'Classpath exception permits combining GPL with Apache-2.0';
+
+    # The Classpath-exception strip must not also remove a sibling GPL term
+    # that appears elsewhere in the same SPDX expression.
+    $report = {
+      licenses => {
+        'Mixed'      => {risk => 5, spdx => '(GPL-2.0-only WITH Classpath-exception-2.0) AND GPL-2.0-only'},
+        'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}
+      }
+    };
+    is_deeply incompatible_licenses($report), [{licenses => ['GPL-2.0-only', 'Apache-2.0']}],
+      'plain GPL-2.0-only alongside an excepted variant is still flagged';
+  };
 };
 
 subtest 'minimal_snippet' => sub {

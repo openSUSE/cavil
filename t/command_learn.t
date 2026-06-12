@@ -26,7 +26,7 @@ use Mojo::File qw(tempdir);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_patterns_test');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_learn_test');
 my $config     = $cavil_test->default_config;
 my $t          = Test::Mojo->new(Cavil => $config);
 my $app        = $t->app;
