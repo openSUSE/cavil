@@ -94,8 +94,7 @@ sub _analyzed ($job, $id) {
 
   # Only "new" and "acceptable" can be reviewed automatically. Already
   # reviewed packages still need their notice refreshed so it doesn't
-  # display stale "Found new unresolved matches ..." text from before the
-  # package was approved.
+  # display a stale diff from before the package was approved.
   my $pkg = $pkgs->find($id);
   return unless my $pkg_shortname = $pkg->{checksum};
   return unless $pkg->{indexed};

@@ -32,9 +32,10 @@ subtest 'Analyze background job' => sub {
   $t->app->minion->perform_jobs;
 
   my $res = $t->app->pg->db->select('bot_packages', '*', {id => 2})->hashes->[0];
-  is $res->{result}, undef,                                                                         'result cleared';
-  is $res->{notice}, "Diff to closest match 1:\n\n  Different spec file license: Artistic-2.0\n\n", 'different spec';
-  is $res->{state},  'new',                                                                         'not approved';
+  is $res->{result}, undef, 'result cleared';
+  is $res->{notice}, "Diff to closest match 1\n\n  Spec file license  Artistic-2.0 -> GPL-1.0-or-later\n",
+    'different spec';
+  is $res->{state}, 'new', 'not approved';
 };
 
 subtest 'Analyze clears stale notice when reusing a previous accepted review' => sub {

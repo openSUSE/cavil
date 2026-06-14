@@ -275,44 +275,45 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
 }
 
 sub summary_delta ($old, $new) {
-  my $text = '';
+  my @blocks;
 
   # Specfile license change
   if ($new->{specfile} ne $old->{specfile}) {
-    $text .= "  Different spec file license: $old->{specfile}\n\n";
+    push @blocks, "  Spec file license  $old->{specfile} -> $new->{specfile}";
   }
 
   # New snippet matches
   my $new_snippets = _new_snippets($old, $new);
   if (my @files = sort values %$new_snippets) {
-    my $file = $files[0];
-    my $num  = uniq(@files) - 1;
-    if ($num == 0) {
-      $text .= "  Found new unresolved matches in $file\n\n";
-    }
-    elsif ($num == 1) {
-      $text .= "  Found new unresolved matches in $file and 1 other file\n\n";
+    my $first = $files[0];
+    my $num   = uniq @files;
+    if ($num == 1) {
+      push @blocks, "  New unresolved matches\n    $first";
     }
     else {
-      $text .= "  Found new unresolved matches in $file and $num other files\n\n";
+      my $more = $num - 1;
+      push @blocks, "  New unresolved matches in $num files\n    $first\n    + $more more";
     }
   }
 
-  # New licenses
+  # New licenses, sorted by risk desc then SPDX alphabetical
   my $new_licenses = _new_licenses($old, $new);
-  my @lines;
-  for my $lic (sort keys %$new_licenses) {
-    push @lines, "  Found new license $lic (risk $new_licenses->{$lic}) not present in old report";
+  if (my @lics = keys %$new_licenses) {
+    my @sorted = sort { $new_licenses->{$b} <=> $new_licenses->{$a} || $a cmp $b } @lics;
+    my $count  = scalar @sorted;
+    my @lines  = ("  New licenses ($count, by risk)");
+    push @lines,  map {"    $new_licenses->{$_}  $_"} @sorted;
+    push @blocks, join("\n", @lines);
   }
-  $text .= join("\n", @lines) . "\n\n" if @lines;
 
   # License incompatibilities
   if (my @licenses = _new_incompatibilities($old, $new)) {
     my $licenses = join(', ', @licenses);
-    $text .= "  Found new possible license incompatibility involving: $licenses\n\n";
+    push @blocks, "  Possible license incompatibility\n    $licenses";
   }
 
-  return length $text ? "Diff to closest match $old->{id}:\n\n$text" : '';
+  return '' unless @blocks;
+  return "Diff to closest match $old->{id}\n\n" . join("\n\n", @blocks) . "\n";
 }
 
 sub summary_delta_score ($old, $new) {

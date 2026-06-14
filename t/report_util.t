@@ -893,7 +893,7 @@ subtest 'summary_delta' => sub {
       {id => 1, specfile => 'MIT',      missed_snippets => {}, licenses => {}},
       {id => 2, specfile => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
       ),
-      "Diff to closest match 1:\n\n  Different spec file license: MIT\n\n", 'different specfile';
+      "Diff to closest match 1\n\n  Spec file license  MIT -> GPL-2.0+\n", 'different specfile';
   };
 
   subtest 'Incompatible licenses' => sub {
@@ -929,9 +929,8 @@ subtest 'summary_delta' => sub {
         incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
       }
       ),
-      "Diff to closest match 1:\n\n  Found new license GPL-2.0-only (risk 1) not present in old report\n\n"
-      . "  Found new possible license incompatibility involving: GPL-2.0-only, Apache-2.0\n\n",
-      'new incompatible licenses';
+      "Diff to closest match 1\n\n  New licenses (1, by risk)\n    1  GPL-2.0-only\n\n"
+      . "  Possible license incompatibility\n    GPL-2.0-only, Apache-2.0\n", 'new incompatible licenses';
   };
 
   subtest 'Snippets' => sub {
@@ -1016,8 +1015,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/LICENSE\n\n",
-        'new file with snippets';
+        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/LICENSE\n", 'new file with snippets';
       is summary_delta(
         {
           id              => 1,
@@ -1038,7 +1036,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/COPYING\n\n",
+        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/COPYING\n",
         'different file with snippets';
       is summary_delta(
         {
@@ -1060,7 +1058,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/README\n\n",
+        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/README\n",
         'different snippets in same files';
       is summary_delta(
         {
@@ -1085,7 +1083,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/LEGAL\n\n",
+        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/LEGAL\n",
         'additional snippets in same files';
       is summary_delta(
         {
@@ -1106,7 +1104,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/COPYING and 1 other file\n\n",
+        "Diff to closest match 1\n\n  New unresolved matches in 2 files\n    Mojolicious-7.25/COPYING\n    + 1 more\n",
         'two new files';
       is summary_delta(
         {
@@ -1129,7 +1127,7 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new unresolved matches in Mojolicious-7.25/COPYING and 2 other files\n\n",
+        "Diff to closest match 1\n\n  New unresolved matches in 3 files\n    Mojolicious-7.25/COPYING\n    + 2 more\n",
         'three new files';
     };
   };
@@ -1158,7 +1156,7 @@ subtest 'summary_delta' => sub {
         {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
         {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
-        "Diff to closest match 1:\n\n  Found new license MIT (risk 3) not present in old report\n\n", 'new license';
+        "Diff to closest match 1\n\n  New licenses (1, by risk)\n    3  MIT\n", 'new license';
       is summary_delta(
         {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
         {
@@ -1168,14 +1166,12 @@ subtest 'summary_delta' => sub {
           licenses        => {'Apache-2.0' => 5, 'MIT' => 3, 'GPL-2.0+' => 1}
         }
         ),
-        "Diff to closest match 1:\n\n  Found new license GPL-2.0+ (risk 1) not present in old report\n"
-        . "  Found new license MIT (risk 3) not present in old report\n\n", 'new licenses';
+        "Diff to closest match 1\n\n  New licenses (2, by risk)\n    3  MIT\n    1  GPL-2.0+\n", 'new licenses';
       is summary_delta(
         {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}},
         {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
-        "Diff to closest match 1:\n\n  Found new license Apache-2.0 (risk 5) not present in old report\n"
-        . "  Found new license MIT (risk 3) not present in old report\n\n", 'more new licenses';
+        "Diff to closest match 1\n\n  New licenses (2, by risk)\n    5  Apache-2.0\n    3  MIT\n", 'more new licenses';
     };
   };
 };
