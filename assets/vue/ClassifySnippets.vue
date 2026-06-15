@@ -159,28 +159,20 @@
       <div v-if="loadingMore" class="text-center text-muted my-3">
         <i class="fa-solid fa-rotate fa-spin"></i> Loading more snippets
       </div>
-      <a
-        id="back-to-top"
-        href="#"
-        class="btn btn-primary btn-lg back-to-top"
-        role="button"
-        title="Click to return to the top"
-        data-bs-toggle="tooltip"
-        data-placement="left"
-        ><i class="fa-solid fa-angle-up"></i
-      ></a>
+      <BackToTop />
     </div>
   </div>
 </template>
 
 <script>
+import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'ClassifySnippets',
-  components: {CavilNoticePanel},
+  components: {BackToTop, CavilNoticePanel},
   data() {
     const params = getParams({
       confidence: 100,

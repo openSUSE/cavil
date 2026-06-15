@@ -197,16 +197,7 @@
       <div v-if="loadingMore" class="text-center text-muted my-3">
         <i class="fa-solid fa-rotate fa-spin"></i> Loading more changes
       </div>
-      <a
-        id="back-to-top"
-        href="#"
-        class="btn btn-primary btn-lg back-to-top"
-        role="button"
-        title="Click to return to the top"
-        data-bs-toggle="tooltip"
-        data-placement="left"
-        ><i class="fa-solid fa-angle-up"></i
-      ></a>
+      <BackToTop />
     </div>
     <div v-else-if="changes === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading changes</div>
     <div v-else>There are currently no proposed changes.</div>
@@ -215,6 +206,7 @@
 </template>
 
 <script>
+import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
@@ -222,7 +214,7 @@ import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'ProposedPatterns',
-  components: {CavilNoticePanel, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, ToastNotifier},
   data() {
     const params = getParams({createIgnore: true, createPattern: true, filter: ''});
 

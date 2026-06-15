@@ -79,16 +79,7 @@
       <div v-if="loadingMore" class="text-center text-muted my-3">
         <i class="fa-solid fa-rotate fa-spin"></i> Loading more missing licenses
       </div>
-      <a
-        id="back-to-top"
-        href="#"
-        class="btn btn-primary btn-lg back-to-top"
-        role="button"
-        title="Click to return to the top"
-        data-bs-toggle="tooltip"
-        data-placement="left"
-        ><i class="fa-solid fa-angle-up"></i
-      ></a>
+      <BackToTop />
     </div>
     <div v-else-if="changes === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading missing licenses</div>
     <div v-else>There are currently no missing licenses.</div>
@@ -97,13 +88,14 @@
 </template>
 
 <script>
+import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'MissingLicenses',
-  components: {CavilNoticePanel, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, ToastNotifier},
   data() {
     return {
       ignoreForPackage: true,

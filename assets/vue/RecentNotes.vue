@@ -20,16 +20,19 @@
         />
       </div>
     </div>
+    <BackToTop />
   </div>
 </template>
 
 <script>
+import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import ReportNotes from './components/ReportNotes.vue';
 
 export default {
   name: 'RecentNotes',
   components: {
+    BackToTop,
     CavilNoticePanel,
     ReportNotes
   }
