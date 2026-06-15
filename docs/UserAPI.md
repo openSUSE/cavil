@@ -127,37 +127,137 @@ These tools are currently available:
   - `license`: License expression. (string, required)
   - `reason`: Reason for snippet to be ignored. (string, required)
 
-### Note Tags
-
-Notes can carry free-form string tags (set via `cavil_create_note` or in the Notes tab UI) and queried back via
-`cavil_get_notes`. Tags are how skills mark notes they own so future runs can find them again without re-fetching the
-full report.
-
-The bundled `cavil-review-note` skill uses the tag `review` to mark its advisory triage notes. Other skills should
-adopt their own conventions and avoid reusing `review` for unrelated note kinds, so the bundled skill's idempotent
-re-run behavior keeps working in production.
-
 ### Agent Skills
 
-We strongly recommend the use of [Agent Skills](https://agentskills.io) for more advanced legal review workflows
-involving MCP tools. Cavil includes a few examples you can use for inspiration:
+An [Agent Skill](https://agentskills.io) is a short, pre-written instruction sheet that tells an AI agent exactly how
+to perform a recurring legal-review task in Cavil. Think of it like a checklist a colleague would follow: when you ask
+the agent to "review report 472890" with a skill enabled, it knows which Cavil tools to use, what to look at, what
+recommendation styles are acceptable, and what _not_ to do (like never accept or reject a review on your behalf).
 
-- [cavil-refine](../examples/skills/cavil-refine) - Helps you review and refine license detection results in Cavil by
-                                                    proposing ignore snippets or license patterns to clean up license
-                                                    reports.
+You don't need to write or edit the skill files yourself. They ship inside this repository under
+[`examples/skills/`](../examples/skills/), ready to be downloaded and dropped into a folder on your laptop. After that,
+running one is as simple as typing a short command at the agent prompt.
 
-- [cavil-review](../examples/skills/cavil-review/) - Guides you through performing IP license reviews of package
-                                                     updates in Cavil for SUSE Linux Enterprise, helping you accept or
-                                                     reject reviews based on the package's license report.
+#### What each bundled skill does
 
-- [cavil-review-note](../examples/skills/cavil-review-note/) - Creates brief AI-assisted review notes in Cavil with a
-                                                               recommendation and key issues for a human legal reviewer
-                                                               to inspect before deciding on a package update.
+- **[cavil-review-note](../examples/skills/cavil-review-note/)** — produces a short advisory note on a package review
+  and posts it to the Notes tab, tagged `review`. The note tells you the AI's recommendation
+  (**ACCEPT** / **REJECT** / **NEEDS HUMAN REVIEW**), a few specific things to look at, and how confident the AI is.
+  **The skill never accepts or rejects the review itself** — that decision stays with you. Run it interactively on
+  packages you're about to read, or kick it off against the whole backlog each morning so you arrive at your desk
+  with a curated reading list. Most reviewers will want to learn this skill first.
 
-Most agents support skills automatically when you copy them into the skills directory of the current workspace, like
-`.claude/skills/cavil-refine` or `.gemini/skills/cavil-review`. Then you just type a command like
-`/cavil-refine perl-Mojolicious` and the agent will figure out the rest. Just make sure MCP support has been configured
-correctly and all the necessary tools are available to the agent.
+- **[cavil-review](../examples/skills/cavil-review/)** — walks you through a full review of one package end to end, and
+  (only if you confirm) actually accepts or rejects it. Use this when you're sitting at your desk working on a single
+  package interactively, not for unattended backlog runs.
+
+- **[cavil-refine](../examples/skills/cavil-refine/)** — helps clean up the license database by proposing new license
+  patterns or marking irrelevant snippets to be ignored, so future reviews of similar packages have fewer false
+  positives. The proposals still need a human to approve them in the admin UI.
+
+#### Setting up a skill on your own laptop
+
+You can do this end to end yourself. Three one-time steps:
+
+1. **Create a Cavil API key.** Log into the Cavil web UI, open your user menu, click **API Keys**, and create a
+   **read-write** key — all three bundled skills need to write something back (notes, decisions, or pattern proposals).
+   Copy the generated key somewhere safe and treat it like a password. Anything the AI does with this key shows up
+   under your name in Cavil, so don't share it.
+
+2. **Install an AI agent that supports MCP.** Pick one from the [3rd Party MCP Clients](#3rd-party-mcp-clients) section
+   below. Claude Code is the easiest starting point for most reviewers — its install page at
+   <https://code.claude.com/docs/en/quickstart> walks you through it. After installing, follow the matching
+   sub-section in this document to tell the agent how to talk to Cavil with your API key (a single `claude mcp add ...`
+   command for Claude Code, similar one-liners for Gemini CLI, opencode, and goose).
+
+3. **Download the skill folders and put them in the right place.** From the [Cavil GitHub repository](https://github.com/openSUSE/cavil)
+   you need the three folders under `examples/skills/`: `cavil-review-note`, `cavil-review`, and `cavil-refine`. The
+   easiest way to grab them is to download the repository as a ZIP (the green "Code" button on GitHub → "Download ZIP"),
+   unzip it, and then move each folder into your agent's skills directory:
+
+   - **Claude Code**: copy each folder into `~/.claude/skills/` (on Windows: `%USERPROFILE%\.claude\skills\`). Create
+     that folder first if it doesn't exist yet. The final paths should look like `~/.claude/skills/cavil-review-note/`.
+   - **Gemini CLI**: same idea, but the folder is `~/.gemini/skills/`.
+   - **opencode / goose**: see those clients' own documentation for the skills-directory location — they evolve
+     faster than this doc; the rest of the workflow is identical.
+
+After those three steps, restart the agent. Every time you launch it from then on it picks the skill up automatically.
+You invoke it by typing `/cavil-review-note` (or `/cavil-review`, `/cavil-refine`) followed by what you'd like reviewed.
+
+**Troubleshooting.** If `/cavil-review-note` doesn't appear in the agent's auto-complete, the most common causes are
+(a) the folder name is wrong (it must match exactly, including the dash), (b) the folder is in the wrong place
+(`~/.claude/skills/cavil-review-note/SKILL.md` must exist), or (c) the agent was already running when you copied the
+files — restart it. If the skill runs but the agent says it can't see Cavil, the MCP setup from step 2 isn't active;
+re-run the `mcp add` command and double-check the API key was pasted correctly.
+
+#### Example uses for cavil-review-note
+
+**Take a look at one specific package.** When a maintainer pings you about a particular update and you want a quick
+second opinion before opening the report:
+
+```
+/cavil-review-note 472890
+```
+
+You can also pass the package name if you can't remember the id:
+
+```
+/cavil-review-note perl-Mojo-JWT
+```
+
+The agent looks the package up, checks whether it has already left a `review` note (and skips it if so, to avoid
+duplicates), otherwise reads the report and posts a short note for you. You then open the report in your browser, read
+the note in the Notes tab, and make the call.
+
+**Clear the top of the backlog before standup.** Same idea, but you let the agent walk the backlog and write notes for
+the highest-priority reviews so you arrive at your desk with a curated reading list:
+
+```
+/cavil-review-note process the top 20 open reviews with priority 5 or higher
+```
+
+Each new package gets its own advisory note. Packages that already have a `review` note from a previous run are
+skipped, so you can re-issue this command every morning without the agent re-doing work.
+
+**Re-check a package after something changed.** Maybe the package was re-indexed against a freshly added license
+pattern, or you got a smarter model since the last note was written, and you want the AI to take another look:
+
+```
+/cavil-review-note re-review perl-Mojolicious even if a review note already exists
+```
+
+This is the explicit "redo" override. Without that phrase the agent assumes the existing note still applies and skips.
+
+**What you'll see in the Notes tab.** Every note left by this skill is tagged `review` (the small grey chip in the
+note header) and marked **AI assisted** (the blue badge). Click any note for the full body. Notes are advisory only —
+nothing changes the package state until a human reviewer accepts or rejects it in the normal UI.
+
+#### Example uses for the other two skills
+
+**cavil-review (interactive single-package review).** When you have decided to actually finish a review at your desk:
+
+```
+/cavil-review perl-Mojo-JWT
+```
+
+The agent walks you through what it found, recommends ACCEPT or REJECT, and asks for your go-ahead before calling the
+accept/reject action. You stay in the driver's seat for every state change.
+
+**cavil-refine (clean-up proposals).** When a report has lots of repeated false-positive matches and you want
+the AI to propose pattern fixes that an admin can later approve:
+
+```
+/cavil-refine perl-Mojolicious
+```
+
+The proposals show up in the Cavil admin UI for review, just as if a contributor had submitted them.
+
+#### Finding a package id
+
+Skill examples often want a numeric package id. The id is the number in the report URL — for example, in
+`https://legaldb.suse.de/reviews/details/472890` the id is `472890`. If you don't have a URL handy, you can also just
+pass the package name and the agent will use `cavil_get_open_reviews` to look it up; if more than one match comes
+back, it'll ask you to pick.
 
 ### 3rd Party MCP Clients
 
