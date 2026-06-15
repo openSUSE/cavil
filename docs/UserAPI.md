@@ -91,6 +91,17 @@ These tools are currently available:
   - **Required Roles**: `user` (read-write)
   - `package_id`: ID of package to add a note to. (number, required)
   - `body`: Note body in Markdown format. (string, required)
+  - `tags`: Optional array of tag strings. Each tag is at most 32 characters, with at most 16 tags per note. The
+           `cavil-review-note` example skill uses the tag `review` to mark advisory review notes. (array of strings,
+           optional)
+
+- *cavil_get_notes* - Get a paginated list of notes for a specific package, optionally filtered by tags
+  - **Required Roles**: `user` (read-only)
+  - `package_id`: ID of package to list notes for. (number, required)
+  - `tags`: Filter notes to those carrying all of the given tags (AND semantics). Defaults to no filter.
+           (array of strings, optional)
+  - `limit`: Maximum number of notes to return. Defaults to `20`, maximum `100`. (number, optional)
+  - `offset`: Number of notes to skip for pagination. Defaults to `0`. (number, optional)
 
 - *cavil_accept_review* - Accept a legal review for a specific package
   - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
@@ -115,6 +126,16 @@ These tools are currently available:
   - `pattern`: License pattern to be added. (string, required)
   - `license`: License expression. (string, required)
   - `reason`: Reason for snippet to be ignored. (string, required)
+
+### Note Tags
+
+Notes can carry free-form string tags (set via `cavil_create_note` or in the Notes tab UI) and queried back via
+`cavil_get_notes`. Tags are how skills mark notes they own so future runs can find them again without re-fetching the
+full report.
+
+The bundled `cavil-review-note` skill uses the tag `review` to mark its advisory triage notes. Other skills should
+adopt their own conventions and avoid reusing `review` for unrelated note kinds, so the bundled skill's idempotent
+re-run behavior keeps working in production.
 
 ### Agent Skills
 

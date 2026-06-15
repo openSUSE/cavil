@@ -4,7 +4,7 @@ package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
-use Cavil::Util         qw(pattern_matches pattern_contains_redundant_skip read_lines);
+use Cavil::Util         qw(pattern_matches pattern_contains_redundant_skip read_lines validate_tags);
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
 use File::Find          qw(find);
 use Mojo::File          qw(path);
@@ -78,10 +78,29 @@ sub register ($self, $app, $config) {
     description  => 'Create a public AI-assisted note for a specific package',
     input_schema => {
       type       => 'object',
-      properties => {package_id => {type => 'integer', minimum => 1}, body => {type => 'string'}},
-      required   => ['package_id', 'body']
+      properties => {
+        package_id => {type => 'integer', minimum => 1},
+        body       => {type => 'string'},
+        tags       => {type => 'array', items => {type => 'string'}, default => []}
+      },
+      required => ['package_id', 'body']
     },
     code => \&tool_cavil_create_note
+  );
+  $mcp->tool(
+    name         => 'cavil_get_notes',
+    description  => 'Get a paginated list of notes for a specific package, optionally filtered by tags',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        package_id => {type => 'integer', minimum => 1},
+        tags       => {type => 'array',   items   => {type => 'string'}, default => []},
+        limit      => {type => 'integer', minimum => 1, maximum => 100, default => 20},
+        offset     => {type => 'integer', minimum => 0, default => 0}
+      },
+      required => ['package_id']
+    },
+    code => \&tool_cavil_get_notes
   );
   $mcp->tool(
     name        => 'cavil_accept_review',
@@ -275,11 +294,51 @@ sub tool_cavil_create_note ($tool, $args) {
   return $tool->text_result('Note body is required', 1) unless defined $body && length $body;
   return $tool->text_result('Note body is too long', 1) if length($body) > NOTE_BODY_MAX_LENGTH;
 
+  my ($tags, $tag_error) = validate_tags($args->{tags});
+  return $tool->text_result($tag_error, 1) if $tag_error;
+
   my $author = $c->users->find(login => $c->current_user);
   return $tool->text_result('Unknown user', 1) unless $author;
 
-  my $note = $c->notes->add($id, $pkg->{name}, $author->{id}, $body, 0, 1);
+  my $note = $c->notes->add($id, $pkg->{name}, $author->{id}, $body, 0, 1, $tags);
   return $tool->text_result("Note #$note->{id} has been successfully created");
+}
+
+sub tool_cavil_get_notes ($tool, $args) {
+  my $id = $args->{package_id};
+  my $c  = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+
+  my ($limit, $limit_error) = _bounded_int_arg($args->{limit}, 20, 1, 100, 'limit');
+  return $tool->text_result($limit_error, 1) if $limit_error;
+  my ($offset, $offset_error) = _bounded_int_arg($args->{offset}, 0, 0, undef, 'offset');
+  return $tool->text_result($offset_error, 1) if $offset_error;
+  my ($tags, $tag_error) = validate_tags($args->{tags});
+  return $tool->text_result($tag_error, 1) if $tag_error;
+
+  my $include_lawyer_only = $c->current_user_has_role('admin', 'lawyer') ? 1 : 0;
+  my $page                = $c->notes->paginate_for_package(
+    $pkg->{name},
+    limit               => $limit,
+    offset              => $offset,
+    tags                => $tags,
+    include_lawyer_only => $include_lawyer_only
+  );
+  my $next_offset = $page->{end} < $page->{total} ? $offset + $limit : undef;
+
+  return $c->render_to_string(
+    'mcp/notes',
+    format      => 'txt',
+    notes       => $page->{page},
+    total       => $page->{total},
+    start       => $page->{start},
+    end         => $page->{end},
+    limit       => $limit,
+    offset      => $offset,
+    next_offset => $next_offset,
+    tags        => $tags
+  );
 }
 
 sub tool_cavil_propose_ignore_snippet ($tool, $args) {

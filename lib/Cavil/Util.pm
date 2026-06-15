@@ -31,11 +31,13 @@ use Try::Tiny;
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
   qw(parse_exclude_file parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip),
-  qw(read_lines request_id_from_external_link run_cmd snippet_checksum spdx_link ssh_sign),
+  qw(read_lines request_id_from_external_link run_cmd snippet_checksum spdx_link ssh_sign validate_tags),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS)
 );
 
 my $MAX_FILE_SIZE = 30000;
+use constant MAX_TAG_LENGTH => 32;
+use constant MAX_TAGS       => 16;
 
 # Service modes that guarantee checkouts are complete and not amended by the OBS server
 my $SAFE_OBS_SRVICE_MODES = {buildtime => 1, localonly => 1, manual => 1, disabled => 1};
@@ -202,6 +204,24 @@ sub obs_ssh_auth ($challenge, $user, $key) {
   my $signature = ssh_sign($key, $realm, "(created): $now");
 
   return qq{Signature keyId="$user",algorithm="ssh",signature="$signature",headers="(created)",created="$now"};
+}
+
+sub validate_tags ($tags) {
+  return ([],    undef)                              unless defined $tags;
+  return (undef, 'tags must be an array of strings') unless ref $tags eq 'ARRAY';
+
+  my (@clean, %seen);
+  for my $tag (@$tags) {
+    return (undef, 'tags must be an array of strings') if ref $tag || !defined $tag;
+    my $trimmed = $tag;
+    $trimmed =~ s/^\s+|\s+$//g;
+    next                                                            if $trimmed eq '';
+    return (undef, 'tag exceeds ' . MAX_TAG_LENGTH . ' characters') if length($trimmed) > MAX_TAG_LENGTH;
+    next                                                            if $seen{$trimmed}++;
+    push @clean, $trimmed;
+  }
+  return (undef,   'too many tags, maximum is ' . MAX_TAGS) if @clean > MAX_TAGS;
+  return (\@clean, undef);
 }
 
 sub paginate ($results, $options) {

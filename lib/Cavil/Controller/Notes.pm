@@ -4,7 +4,8 @@ package Cavil::Controller::Notes;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
-use Mojo::JSON          qw(true false);
+use Cavil::Util         qw(validate_tags);
+use Mojo::JSON          qw(from_json true false);
 
 sub list ($self) {
   my $id  = $self->stash('id');
@@ -56,10 +57,13 @@ sub create ($self) {
   return $self->render(json => {error => 'Not allowed to post lawyer-only notes'}, status => 403)
     if $lawyer_only && !$self->_can_post_lawyer_only;
 
+  my ($tags, $tag_error) = validate_tags($self->_tags_from_params);
+  return $self->render(json => {error => $tag_error}, status => 400) if $tag_error;
+
   my $author = $self->users->find(login => $self->current_user)
     or return $self->render(json => {error => 'Unknown user'}, status => 403);
 
-  my $note = $self->notes->add($id, $pkg->{name}, $author->{id}, $body, $lawyer_only);
+  my $note = $self->notes->add($id, $pkg->{name}, $author->{id}, $body, $lawyer_only, 0, $tags);
   $self->render(json => {note => $self->_format_note($note, $author->{id})});
 }
 
@@ -125,7 +129,12 @@ sub update ($self) {
   my $is_admin = $self->current_user_has_role('admin');
   return $self->render(json => {error => 'Not allowed to edit this note'}, status => 403) unless $is_owner || $is_admin;
 
-  my $updated = $self->notes->edit($id, $v->param('body'));
+  my $raw_tags = $self->_tags_from_params;
+  my ($tags, $tag_error) = validate_tags($raw_tags);
+  return $self->render(json => {error => $tag_error}, status => 400) if $tag_error;
+  my $tags_arg = defined $raw_tags ? $tags : undef;
+
+  my $updated = $self->notes->edit($id, $v->param('body'), $tags_arg);
   return $self->render(json => {error => 'Edit failed'}, status => 500) unless $updated;
   $self->render(json => {note => $self->_format_note($updated, $author->{id})});
 }
@@ -157,6 +166,7 @@ sub _format_note ($self, $row, $user_id) {
     body_html     => $body_html,
     lawyer_only   => $row->{lawyer_only} ? \1 : \0,
     ai_assisted   => $row->{ai_assisted} ? \1 : \0,
+    tags          => $row->{tags} // [],
     package_name  => $row->{package_name},
     can_delete    => ($is_owner || $is_admin) ? \1 : \0,
     can_edit      => ($is_owner || $is_admin) ? \1 : \0,
@@ -183,6 +193,26 @@ sub _author_badge ($roles) {
   return 'admin'  if $has{admin};
   return 'user'   if $has{user};
   return undef;
+}
+
+sub _tags_from_params ($self) {
+  my $req = $self->req;
+
+  # The Vue UI ships tags as a JSON-encoded string because mojojs/user-agent
+  # comma-joins arrayref form values instead of repeating the param. Try the
+  # JSON shape first so the UI round-trip is exact, then fall back to the
+  # repeating-param convention used by Perl test clients.
+  if (defined(my $json = $req->param('tags_json'))) {
+    return [] if $json eq '';
+    my $parsed = eval { from_json($json) };
+    return undef if $@ || ref $parsed ne 'ARRAY';
+    return $parsed;
+  }
+
+  my @keys = $req->params->names->@*;
+  return undef unless grep { $_ eq 'tags' || $_ eq 'tags[]' } @keys;
+  my @values = map { $req->every_param($_)->@* } grep { $_ eq 'tags' || $_ eq 'tags[]' } @keys;
+  return \@values;
 }
 
 sub _current_user_id ($self) {

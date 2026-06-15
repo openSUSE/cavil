@@ -20,7 +20,8 @@ use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets lines_context obs_ssh_auth parse_exclude_file parse_service_file pattern_matches),
-  qw(pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd spdx_link ssh_sign)
+  qw(pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd spdx_link ssh_sign),
+  qw(validate_tags)
 );
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -218,6 +219,80 @@ subtest 'ssh_sign' => sub {
   isnt ssh_sign($PRIVATE_KEY, 'realm2', 'message'),  $signature, 'different signature';
   isnt ssh_sign($PRIVATE_KEY, 'realm',  'message2'), $signature, 'different signature';
   is ssh_sign($PRIVATE_KEY, 'realm', 'message'), $signature, 'identical signature';
+};
+
+subtest 'validate_tags' => sub {
+  subtest 'undef and empty inputs' => sub {
+    my ($clean, $error) = validate_tags(undef);
+    is_deeply $clean, [], 'undef yields empty array';
+    is $error, undef, 'no error';
+
+    ($clean, $error) = validate_tags([]);
+    is_deeply $clean, [], 'empty array stays empty';
+    is $error, undef, 'no error';
+  };
+
+  subtest 'happy paths' => sub {
+    my ($clean, $error) = validate_tags(['review']);
+    is_deeply $clean, ['review'], 'single tag passes through';
+    is $error, undef, 'no error';
+
+    ($clean, $error) = validate_tags(['review', 'demo', 'triage']);
+    is_deeply $clean, ['review', 'demo', 'triage'], 'multiple tags preserve order';
+
+    ($clean, $error) = validate_tags(['  review  ']);
+    is_deeply $clean, ['review'], 'whitespace trimmed';
+
+    ($clean, $error) = validate_tags(['review', 'review', 'demo', 'review']);
+    is_deeply $clean, ['review', 'demo'], 'duplicates collapsed, first occurrence wins';
+
+    ($clean, $error) = validate_tags(['review', '', '   ', 'demo']);
+    is_deeply $clean, ['review', 'demo'], 'empty and whitespace-only tags dropped';
+  };
+
+  subtest 'length cap (32 characters)' => sub {
+    my ($clean, $error) = validate_tags(['x' x 32]);
+    is_deeply $clean, ['x' x 32], 'exactly 32 characters accepted';
+    is $error, undef, 'no error at the boundary';
+
+    ($clean, $error) = validate_tags(['x' x 33]);
+    is $clean, undef, 'over-cap returns undef';
+    like $error, qr/tag exceeds 32 characters/, 'error mentions the cap';
+  };
+
+  subtest 'count cap (16 tags)' => sub {
+    my @sixteen = map {"t$_"} 1 .. 16;
+    my ($clean, $error) = validate_tags([@sixteen]);
+    is_deeply $clean, [@sixteen], 'exactly 16 tags accepted';
+    is $error, undef, 'no error at the boundary';
+
+    ($clean, $error) = validate_tags([@sixteen, 't17']);
+    is $clean, undef, 'over-cap returns undef';
+    like $error, qr/too many tags, maximum is 16/, 'error mentions the cap';
+
+    # Whitespace-only entries don't count toward the cap.
+    ($clean, $error) = validate_tags([@sixteen, '', '   ']);
+    is_deeply $clean, [@sixteen], 'blank fillers do not consume the budget';
+    is $error, undef, 'no error';
+  };
+
+  subtest 'rejects non-string elements' => sub {
+    my ($clean, $error) = validate_tags('review');
+    is $clean, undef, 'scalar input rejected';
+    like $error, qr/tags must be an array of strings/, 'error explains';
+
+    ($clean, $error) = validate_tags({review => 1});
+    is $clean, undef, 'hashref input rejected';
+    like $error, qr/tags must be an array of strings/, 'error explains';
+
+    ($clean, $error) = validate_tags(['review', [], 'demo']);
+    is $clean, undef, 'arrayref element rejected';
+    like $error, qr/tags must be an array of strings/, 'error explains';
+
+    ($clean, $error) = validate_tags(['review', undef]);
+    is $clean, undef, 'undef element rejected';
+    like $error, qr/tags must be an array of strings/, 'error explains';
+  };
 };
 
 subtest 'obs_ssh_auth' => sub {

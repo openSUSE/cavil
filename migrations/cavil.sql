@@ -300,3 +300,11 @@ DROP TABLE IF EXISTS package_notes;
 -- 35 up
 CREATE INDEX bot_packages_open_reviews_idx ON bot_packages (priority DESC, external_link, unresolved_matches, name)
 WHERE state = 'new' AND obsolete = false;
+
+-- 36 up
+ALTER TABLE package_notes ADD COLUMN tags text[] NOT NULL DEFAULT '{}';
+CREATE INDEX package_notes_tags_idx ON package_notes USING gin (tags);
+
+-- 36 down
+DROP INDEX IF EXISTS package_notes_tags_idx;
+ALTER TABLE package_notes DROP COLUMN IF EXISTS tags;

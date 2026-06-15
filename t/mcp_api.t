@@ -91,11 +91,12 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 4,                        'four tools available';
+      is scalar @{$result->{tools}}, 5,                        'five tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
       is $result->{tools}[3]{name},  'cavil_list_files',       'right tool name';
+      is $result->{tools}[4]{name},  'cavil_get_notes',        'right tool name';
     };
 
     subtest 'cavil_get_open_reviews tool' => sub {
@@ -475,16 +476,17 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 9,                               'nine tools available';
+      is scalar @{$result->{tools}}, 10,                              'ten tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
       is $result->{tools}[3]{name},  'cavil_list_files',              'right tool name';
       is $result->{tools}[4]{name},  'cavil_create_note',             'right tool name';
-      is $result->{tools}[5]{name},  'cavil_accept_review',           'right tool name';
-      is $result->{tools}[6]{name},  'cavil_reject_review',           'right tool name';
-      is $result->{tools}[7]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[8]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
+      is $result->{tools}[6]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[7]{name},  'cavil_reject_review',           'right tool name';
+      is $result->{tools}[8]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[9]{name},  'cavil_propose_license_pattern', 'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -492,12 +494,13 @@ subtest 'MCP' => sub {
       $t->app->users->remove_role(2, 'manager');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 5,                        'five tools available';
+      is scalar @{$result->{tools}}, 6,                        'six tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
       is $result->{tools}[3]{name},  'cavil_list_files',       'right tool name';
       is $result->{tools}[4]{name},  'cavil_create_note',      'right tool name';
+      is $result->{tools}[5]{name},  'cavil_get_notes',        'right tool name';
 
       $t->app->users->add_role(2, 'admin');
       $t->app->users->add_role(2, 'manager');
@@ -508,13 +511,14 @@ subtest 'MCP' => sub {
       $t->app->users->remove_role(2, 'admin');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 6,                        'six tools available';
+      is scalar @{$result->{tools}}, 7,                        'seven tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
       is $result->{tools}[3]{name},  'cavil_list_files',       'right tool name';
       is $result->{tools}[4]{name},  'cavil_create_note',      'right tool name';
-      is $result->{tools}[5]{name},  'cavil_accept_review',    'right tool name';
+      is $result->{tools}[5]{name},  'cavil_get_notes',        'right tool name';
+      is $result->{tools}[6]{name},  'cavil_accept_review',    'right tool name';
 
       $t->app->users->add_role(2, 'admin');
     };
@@ -525,14 +529,15 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 7,                               'seven tools available';
+      is scalar @{$result->{tools}}, 8,                               'eight tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
       is $result->{tools}[3]{name},  'cavil_list_files',              'right tool name';
       is $result->{tools}[4]{name},  'cavil_create_note',             'right tool name';
-      is $result->{tools}[5]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[6]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
+      is $result->{tools}[6]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[7]{name},  'cavil_propose_license_pattern', 'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -544,15 +549,16 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 8,                               'eight tools available';
+      is scalar @{$result->{tools}}, 9,                               'nine tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
       is $result->{tools}[3]{name},  'cavil_list_files',              'right tool name';
       is $result->{tools}[4]{name},  'cavil_create_note',             'right tool name';
-      is $result->{tools}[5]{name},  'cavil_accept_review',           'right tool name';
-      is $result->{tools}[6]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[7]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
+      is $result->{tools}[6]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[7]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[8]{name},  'cavil_propose_license_pattern', 'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');
@@ -620,6 +626,112 @@ subtest 'MCP' => sub {
         is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
         $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
       };
+
+      subtest 'Create note with tags' => sub {
+        my $result
+          = $client->call_tool('cavil_create_note', {package_id => 1, body => 'tagged AI note', tags => ['review']});
+        ok !$result->{isError}, 'not an error';
+        like $result->{content}[0]{text}, qr/^Note #(\d+) has been successfully created$/, 'create message';
+
+        $t->get_ok('/login')->status_is(302);
+        $t->get_ok('/reviews/notes/1')
+          ->status_is(200)
+          ->json_is('/notes/0/body' => 'tagged AI note')
+          ->json_is('/notes/0/tags' => ['review']);
+        $t->get_ok('/logout')->status_is(302);
+      };
+
+      subtest 'Create note rejects invalid tags' => sub {
+        my $too_long = 'x' x 33;
+        my $result
+          = $client->call_tool('cavil_create_note', {package_id => 1, body => 'over-long tag', tags => [$too_long]});
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/tag exceeds/, 'rejects over-long tag';
+
+        $result = $client->call_tool('cavil_create_note',
+          {package_id => 1, body => 'too many tags', tags => [map {"t$_"} 1 .. 17]});
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/too many tags/, 'rejects too many tags';
+      };
+    };
+
+    subtest 'cavil_get_notes tool' => sub {
+
+      # The fixture block seeded ~17 public reviewer notes; this subtest adds a
+      # handful of distinctively tagged ones so the tag filters have meaningful
+      # signal to assert against.
+      my $notes         = $t->app->notes;
+      my $first         = $notes->add(1, 'perl-Mojolicious', 2, 'tag-filter alpha',  0, 1, ['review'])->{id};
+      my $second        = $notes->add(1, 'perl-Mojolicious', 2, 'tag-filter beta',   0, 1, ['review', 'demo'])->{id};
+      my $third         = $notes->add(1, 'perl-Mojolicious', 2, 'tag-filter gamma',  0, 1, ['demo'])->{id};
+      my $lawyer_tagged = $notes->add(1, 'perl-Mojolicious', 2, 'tag-filter lawyer', 1, 1, ['review'])->{id};
+
+      subtest 'List all notes (no filter)' => sub {
+        my $result = $client->call_tool('cavil_get_notes', {package_id => 1, limit => 5});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text, qr/notes found, showing 1-5/,                     'pagination header';
+        like $text, qr/Pagination: limit=5, offset=0, next_offset=5/, 'next_offset advances';
+      };
+
+      subtest 'Filter by tag' => sub {
+        my $result = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['review']});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text,   qr/Filters: tags=review/, 'filter line present';
+        like $text,   qr/tag-filter alpha/,     'review-tagged note included';
+        like $text,   qr/tag-filter beta/,      'multi-tagged note included';
+        unlike $text, qr/tag-filter gamma/,     'demo-only note excluded';
+      };
+
+      subtest 'AND filter narrows to multi-tagged note' => sub {
+        my $result = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['review', 'demo']});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text,   qr/tag-filter beta/,  'multi-tagged note returned';
+        unlike $text, qr/tag-filter alpha/, 'single-tag note excluded';
+        unlike $text, qr/tag-filter gamma/, 'other single-tag note excluded';
+      };
+
+      subtest 'limit=1 returns one note with next_offset' => sub {
+        my $result = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['review'], limit => 1});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text, qr/notes found, showing 1-1/,                     'one-of-many shown';
+        like $text, qr/Pagination: limit=1, offset=0, next_offset=1/, 'next_offset advertised';
+      };
+
+      subtest 'Lawyer-only visibility (admin sees, normal user does not)' => sub {
+        my $admin_result = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['review']});
+        like $admin_result->{content}[0]{text}, qr/tag-filter lawyer/, 'admin sees lawyer-only review note';
+
+        $t->app->users->remove_role(2, 'admin');
+        $t->app->users->remove_role(2, 'manager');
+
+        my $user_result = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['review']});
+        unlike $user_result->{content}[0]{text}, qr/tag-filter lawyer/, 'normal user does not see lawyer-only note';
+
+        $t->app->users->add_role(2, 'admin');
+        $t->app->users->add_role(2, 'manager');
+      };
+
+      subtest 'Error cases' => sub {
+        my $result = $client->call_tool('cavil_get_notes', {package_id => 99999});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package not found', 'not found message';
+
+        $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+        $result = $client->call_tool('cavil_get_notes', {package_id => 1});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed';
+        $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
+
+        $result = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['x' x 33]});
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/tag exceeds/, 'over-long tag rejected';
+      };
+
+      $notes->remove($_) for ($lawyer_tagged, $third, $second, $first);
     };
 
     subtest 'cavil_reject_review tool' => sub {

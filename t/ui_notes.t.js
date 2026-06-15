@@ -228,6 +228,98 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       );
     });
 
+    await t.test('Tag chip input in the composer and edit pane (admin)', async t => {
+      await page.goto(`${url}/reviews/details/1`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+
+      // Commit one chip via Enter, post a note, and verify the saved card
+      // renders the new .report-note-tag chip with the same value.
+      const composerTags = page.locator('[data-note-tag-editor="new"]');
+      await composerTags.locator('[data-note-tag-input]').fill('review');
+      await composerTags.locator('[data-note-tag-input]').press('Enter');
+      await composerTags.locator('[data-note-tag-chip="review"]').waitFor();
+      t.equal(
+        await composerTags.locator('[data-note-tag-input]').inputValue(),
+        '',
+        'tag input clears after Enter commits the chip'
+      );
+
+      await page.locator('[data-composer-input="new"]').fill('Tag chip baseline');
+      const [postResp] = await Promise.all([
+        page.waitForResponse(resp => /\/reviews\/notes\/1$/.test(resp.url()) && resp.request().method() === 'POST'),
+        page.locator('[data-composer-save="new"]').click()
+      ]);
+      t.equal(postResp.status(), 200);
+      await page.waitForFunction(() => {
+        const first = document.querySelector('.report-note .report-note-body');
+        return first && first.textContent.includes('Tag chip baseline');
+      });
+      const newest = page.locator('.report-note').first();
+      const id = await newest.getAttribute('data-note-id');
+      t.equal(
+        await newest.locator('[data-note-tag="review"]').innerText(),
+        'review',
+        'saved note renders the review tag chip'
+      );
+
+      // Composer state resets after posting.
+      t.equal(await composerTags.locator('[data-note-tag-chip]').count(), 0, 'composer chip list resets after post');
+
+      // Multi-tag commit: comma + Enter. Then click × on one chip to remove it
+      // before posting; the remaining chip should still go through.
+      await composerTags.locator('[data-note-tag-input]').fill('kind-a');
+      await composerTags.locator('[data-note-tag-input]').press(',');
+      await composerTags.locator('[data-note-tag-input]').fill('kind-b');
+      await composerTags.locator('[data-note-tag-input]').press('Enter');
+      await composerTags.locator('[data-note-tag-chip="kind-b"]').waitFor();
+      t.equal(await composerTags.locator('[data-note-tag-chip]').count(), 2, 'comma and Enter both commit chips');
+
+      await composerTags.locator('[data-note-tag-remove="kind-a"]').click();
+      await page.waitForFunction(() => !document.querySelector('[data-note-tag-chip="kind-a"]'));
+      t.equal(
+        await composerTags.locator('[data-note-tag-chip="kind-a"]').count(),
+        0,
+        'remove × drops the chip before submission'
+      );
+
+      // Posting from the edit pane: open the tagged note we just created,
+      // add another tag, save, and confirm both chips render afterwards.
+      const editTarget = page.locator(`#note-${id}`);
+      await editTarget.locator('[data-note-edit]').click();
+      await page.waitForSelector(`[data-note-edit-pane] [data-composer-input="edit-${id}"]`);
+      const editTags = page.locator(`[data-note-tag-editor="edit-${id}"]`);
+      await editTags.locator('[data-note-tag-chip="review"]').waitFor();
+      await editTags.locator('[data-note-tag-input]').fill('triage');
+      await editTags.locator('[data-note-tag-input]').press('Enter');
+      await editTags.locator('[data-note-tag-chip="triage"]').waitFor();
+
+      const [patchResp] = await Promise.all([
+        page.waitForResponse(
+          resp => new RegExp(`/reviews/notes/${id}$`).test(resp.url()) && resp.request().method() === 'PATCH'
+        ),
+        page.locator(`[data-composer-save="edit-${id}"]`).click()
+      ]);
+      t.equal(patchResp.status(), 200);
+      await page.waitForSelector(`[data-note-edit-pane]`, {state: 'detached'});
+      const updatedTags = page.locator(`#note-${id} [data-note-tag]`);
+      const tagValues = await updatedTags.evaluateAll(els => els.map(el => el.getAttribute('data-note-tag')).sort());
+      t.same(tagValues, ['review', 'triage'], 'edit-flow adds a tag without losing the existing one');
+
+      // Cleanup: delete the test note so the contributor subtest still sees
+      // exactly 25 notes (24 public + 1 lawyer-only).
+      page.once('dialog', dialog => dialog.accept());
+      const [deleteResp] = await Promise.all([
+        page.waitForResponse(
+          resp => new RegExp(`/reviews/notes/${id}$`).test(resp.url()) && resp.request().method() === 'DELETE'
+        ),
+        page.locator(`#note-${id} .report-note-delete`).click()
+      ]);
+      t.equal(deleteResp.status(), 200);
+      await page.waitForSelector(`#note-${id}`, {state: 'detached'});
+      t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '25', 'note count restored to 25');
+    });
+
     await t.test('Permalink deep-link auto-activates Notes tab and scrolls', async t => {
       // Pick the permalink of a note that lives on the *second* page
       // ("Seed note #2" was inserted second, so it's near the bottom of

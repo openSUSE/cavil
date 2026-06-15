@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 package Cavil::Model::Notes;
 use Mojo::Base -base, -signatures;
+use Cavil::Util qw(paginate);
 use Exporter 'import';
 
 our @EXPORT_OK = qw(NOTE_BODY_MAX_LENGTH);
@@ -15,7 +16,7 @@ has 'pg';
 # package row is later removed, and the note still belongs to the package
 # name.
 
-sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only, $ai_assisted = 0) {
+sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only, $ai_assisted = 0, $tags = undef) {
   my $row = $self->pg->db->insert(
     'package_notes',
     {
@@ -24,7 +25,8 @@ sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only, $ai
       author       => $author_id,
       ai_assisted  => $ai_assisted ? 1 : 0,
       body         => $body,
-      lawyer_only  => $lawyer_only ? 1 : 0
+      lawyer_only  => $lawyer_only ? 1 : 0,
+      tags         => $tags // []
     },
     {returning => 'id'}
   )->hash;
@@ -96,6 +98,7 @@ sub review_context_for_report ($self, $package_name, $current_author_id, %opts) 
       'package_notes.body',
       'package_notes.lawyer_only',
       'package_notes.ai_assisted',
+      'package_notes.tags',
       \'package_notes.package AS package_id',
       'package_notes.package_name',
       \'package_notes.author AS author_id',
@@ -112,6 +115,39 @@ sub review_context_for_report ($self, $package_name, $current_author_id, %opts) 
   )->hashes->to_array;
 }
 
+sub paginate_for_package ($self, $package_name, %opts) {
+  my $limit  = $opts{limit}  // 20;
+  my $offset = $opts{offset} // 0;
+
+  my @sql  = ('AND c.package_name = ?');
+  my @args = ($package_name);
+
+  push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
+  if (defined $opts{tags} && @{$opts{tags}}) {
+    push @sql,  'AND c.tags @> ?::text[]';
+    push @args, $opts{tags};
+  }
+
+  my $sql = qq{
+    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.tags, c.package AS package_id, c.package_name,
+           c.author AS author_id, u.login AS author_login, u.fullname AS author_fullname,
+           u.roles AS author_roles,
+           EXTRACT(EPOCH FROM c.created) AS created_epoch,
+           EXTRACT(EPOCH FROM c.edited)  AS edited_epoch,
+           p.state AS package_state, p.external_link AS package_external_link,
+           COUNT(*) OVER() AS total
+      FROM package_notes c
+      JOIN bot_users u ON c.author = u.id
+      LEFT JOIN bot_packages p ON c.package = p.id
+     WHERE 1 = 1 } . join(' ', @sql) . qq{
+     ORDER BY c.id DESC
+     LIMIT ? OFFSET ?
+  };
+
+  my $rows = $self->pg->db->query($sql, @args, $limit, $offset)->hashes->to_array;
+  return paginate($rows, {offset => $offset});
+}
+
 sub counts ($self, $package_name) {
   return $self->pg->db->query(
     'SELECT COUNT(*)::int AS total,
@@ -124,16 +160,25 @@ sub remove ($self, $id) {
   return $self->pg->db->query('DELETE FROM package_notes WHERE id = ? RETURNING id', $id)->rows;
 }
 
-sub edit ($self, $id, $body) {
-  return undef
-    unless $self->pg->db->query('UPDATE package_notes SET body = ?, edited = now() WHERE id = ? RETURNING id', $body,
-    $id)->rows;
+sub edit ($self, $id, $body, $tags = undef) {
+  my $rows;
+  if (defined $tags) {
+    $rows
+      = $self->pg->db->query('UPDATE package_notes SET body = ?, tags = ?, edited = now() WHERE id = ? RETURNING id',
+      $body, $tags, $id)->rows;
+  }
+  else {
+    $rows
+      = $self->pg->db->query('UPDATE package_notes SET body = ?, edited = now() WHERE id = ? RETURNING id', $body, $id)
+      ->rows;
+  }
+  return undef unless $rows;
   return $self->find($id);
 }
 
 sub _query ($self, $extra_sql, $extra_args, $tail_sql = '', $tail_args = []) {
   my $sql = qq{
-    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.package AS package_id, c.package_name,
+    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.tags, c.package AS package_id, c.package_name,
            c.author AS author_id, u.login AS author_login, u.fullname AS author_fullname,
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,

@@ -89,6 +89,14 @@
               >
                 <i class="fa-solid fa-scale-balanced"></i> Lawyers only
               </span>
+              <span
+                v-for="t in c.tags || []"
+                :key="t"
+                class="report-note-tag"
+                :title="`Tag: ${t}`"
+                :data-note-tag="t"
+                >{{ t }}</span
+              >
               <button
                 v-if="allowActions && c.can_edit && editingId !== c.id"
                 type="button"
@@ -114,6 +122,35 @@
             </div>
           </div>
           <div v-if="editingId === c.id" class="report-note-edit-pane" data-note-edit-pane>
+            <div class="report-note-tag-editor" :data-note-tag-editor="`edit-${c.id}`">
+              <span
+                v-for="(t, i) in editTags"
+                :key="t"
+                class="report-note-tag report-note-tag-removable"
+                :data-note-tag-chip="t"
+              >
+                {{ t }}
+                <button
+                  type="button"
+                  class="report-note-tag-remove"
+                  :data-note-tag-remove="t"
+                  :aria-label="`Remove tag ${t}`"
+                  @click="removeEditTag(i)"
+                >
+                  ×
+                </button>
+              </span>
+              <input
+                v-model="editTagDraft"
+                type="text"
+                class="report-note-tag-input"
+                :class="{'report-note-tag-input-error': editTagError}"
+                placeholder="Add a tag…"
+                data-note-tag-input
+                @keydown="onEditTagKeydown"
+                @blur="commitEditTag"
+              />
+            </div>
             <MarkdownComposer
               v-model="editDraft"
               :saving="savingId === c.id"
@@ -141,6 +178,35 @@
 
       <div v-if="showComposer" class="report-note-form" data-note-form>
         <label class="report-note-form-label">Add a note</label>
+        <div class="report-note-tag-editor" data-note-tag-editor="new">
+          <span
+            v-for="(t, i) in tags"
+            :key="t"
+            class="report-note-tag report-note-tag-removable"
+            :data-note-tag-chip="t"
+          >
+            {{ t }}
+            <button
+              type="button"
+              class="report-note-tag-remove"
+              :data-note-tag-remove="t"
+              :aria-label="`Remove tag ${t}`"
+              @click="removeTag(i)"
+            >
+              ×
+            </button>
+          </span>
+          <input
+            v-model="tagDraft"
+            type="text"
+            class="report-note-tag-input"
+            :class="{'report-note-tag-input-error': tagError}"
+            placeholder="Add a tag…"
+            data-note-tag-input
+            @keydown="onTagKeydown"
+            @blur="commitTag"
+          />
+        </div>
         <MarkdownComposer
           v-model="draft"
           :saving="submitting"
@@ -205,9 +271,15 @@ export default {
       deletingId: null,
       draft: '',
       lawyerOnly: false,
+      tags: [],
+      tagDraft: '',
+      tagError: false,
       editingId: null,
       editDraft: '',
       editError: null,
+      editTags: [],
+      editTagDraft: '',
+      editTagError: false,
       savingId: null,
       observer: null,
       ua: new UserAgent({baseURL: window.location.href})
@@ -302,14 +374,15 @@ export default {
     },
     async submit() {
       if (!this.showComposer || this.pkgId === null) return;
+      this.commitTag();
       const body = this.draft.trim();
       if (!body || this.submitting) return;
       this.submitting = true;
       this.submitError = null;
       try {
-        const res = await this.ua.post(`/reviews/notes/${this.pkgId}`, {
-          form: {body, lawyer_only: this.lawyerOnly ? '1' : '0'}
-        });
+        const form = {body, lawyer_only: this.lawyerOnly ? '1' : '0'};
+        if (this.tags.length) form.tags_json = JSON.stringify(this.tags);
+        const res = await this.ua.post(`/reviews/notes/${this.pkgId}`, {form});
         if (!res.isSuccess) {
           let msg = `Failed (HTTP ${res.statusCode})`;
           try {
@@ -325,6 +398,9 @@ export default {
         this.notes.unshift(data.note);
         this.draft = '';
         this.lawyerOnly = false;
+        this.tags = [];
+        this.tagDraft = '';
+        this.tagError = false;
         // Re-fetch counts via a HEAD-like call would be cheap; piggyback on
         // the next page request instead: refresh counts by re-counting locally
         // + bumping totals from the server's lawyer flag.
@@ -355,19 +431,27 @@ export default {
       this.editingId = c.id;
       this.editDraft = c.body;
       this.editError = null;
+      this.editTags = Array.isArray(c.tags) ? c.tags.slice() : [];
+      this.editTagDraft = '';
+      this.editTagError = false;
     },
     cancelEdit() {
       this.editingId = null;
       this.editDraft = '';
       this.editError = null;
+      this.editTags = [];
+      this.editTagDraft = '';
+      this.editTagError = false;
     },
     async saveEdit(c) {
+      this.commitEditTag();
       const body = (this.editDraft || '').trim();
       if (!body || this.savingId === c.id) return;
       this.savingId = c.id;
       this.editError = null;
       try {
-        const res = await this.ua.patch(`/reviews/notes/${c.id}`, {form: {body}});
+        const form = {body, tags_json: JSON.stringify(this.editTags)};
+        const res = await this.ua.patch(`/reviews/notes/${c.id}`, {form});
         if (!res.isSuccess) {
           let msg = `Failed (HTTP ${res.statusCode})`;
           try {
@@ -388,6 +472,53 @@ export default {
       } finally {
         this.savingId = null;
       }
+    },
+    commitTag() {
+      const value = (this.tagDraft || '').trim();
+      this.tagDraft = '';
+      if (!value) return;
+      this._addTag(this.tags, value, 'tagError');
+    },
+    removeTag(index) {
+      this.tags.splice(index, 1);
+    },
+    onTagKeydown(event) {
+      if (event.key === 'Enter' || event.key === ',') {
+        event.preventDefault();
+        this.commitTag();
+      } else if (event.key === 'Backspace' && !this.tagDraft && this.tags.length) {
+        event.preventDefault();
+        this.tags.pop();
+      }
+    },
+    commitEditTag() {
+      const value = (this.editTagDraft || '').trim();
+      this.editTagDraft = '';
+      if (!value) return;
+      this._addTag(this.editTags, value, 'editTagError');
+    },
+    removeEditTag(index) {
+      this.editTags.splice(index, 1);
+    },
+    onEditTagKeydown(event) {
+      if (event.key === 'Enter' || event.key === ',') {
+        event.preventDefault();
+        this.commitEditTag();
+      } else if (event.key === 'Backspace' && !this.editTagDraft && this.editTags.length) {
+        event.preventDefault();
+        this.editTags.pop();
+      }
+    },
+    _addTag(bucket, value, errorKey) {
+      // Mirrors server-side caps in Cavil::Util::validate_tags so the UI fails
+      // loudly here instead of silently dropping at the API.
+      if (value.length > 32 || bucket.length >= 16) {
+        this[errorKey] = true;
+        setTimeout(() => (this[errorKey] = false), 600);
+        return;
+      }
+      if (bucket.includes(value)) return;
+      bucket.push(value);
     },
     async deleteNote(c) {
       // eslint-disable-next-line no-alert
@@ -602,6 +733,78 @@ export default {
 .report-note-badge.origin-report-badge:hover {
   background: #b6e3ff;
   text-decoration: none;
+}
+.report-note-tag {
+  background: #eaeef2;
+  border: 1px solid rgba(110, 119, 129, 0.25);
+  border-radius: 2em;
+  color: #57606a;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 18px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.report-note-tag-editor {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+}
+.report-note-tag-editor:focus-within {
+  border-color: #0969da;
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+}
+.report-note-tag.report-note-tag-removable {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  padding-right: 4px;
+}
+.report-note-tag-remove {
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: #57606a;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.report-note-tag-remove:hover {
+  background: rgba(208, 215, 222, 0.5);
+  color: #1f2328;
+}
+.report-note-tag-input {
+  background: transparent;
+  border: 0;
+  color: #1f2328;
+  flex: 1 1 120px;
+  font-size: 13px;
+  min-width: 80px;
+  outline: none;
+  padding: 2px 4px;
+}
+.report-note-tag-input::placeholder {
+  color: #8c959f;
+}
+.report-note-tag-input-error {
+  animation: report-note-tag-shake 0.3s ease-in-out;
+}
+@keyframes report-note-tag-shake {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: #ffebe9;
+  }
 }
 .report-note-edit:hover:not(:disabled) {
   color: #0550ae;

@@ -446,6 +446,98 @@ subtest 'Authorization error paths' => sub {
   };
 };
 
+subtest 'Tags persist through add and surface in the JSON serializer' => sub {
+  my $tagged = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'tagged via model', 0, 0, ['review', 'demo']);
+  is_deeply [sort @{$tagged->{tags}}], ['demo', 'review'], 'tags persisted on add';
+
+  login_admin($t);
+  $t->get_ok('/reviews/notes/1')->status_is(200)->json_is('/notes/0/id' => $tagged->{id});
+  my $serialized = $t->tx->res->json('/notes/0/tags');
+  is_deeply [sort @$serialized], ['demo', 'review'], 'tags surfaced on /reviews/notes/:id';
+  logout($t);
+
+  ok $app->notes->remove($tagged->{id}), 'removed tagged fixture';
+};
+
+subtest 'Notes::edit updates tags only when explicitly provided' => sub {
+  my $note = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'tag edit fixture', 0, 0, ['review']);
+
+  my $body_only = $app->notes->edit($note->{id}, 'new body');
+  is $body_only->{body}, 'new body', 'body edit applied';
+  is_deeply $body_only->{tags}, ['review'], 'tags untouched when omitted';
+
+  my $with_tags = $app->notes->edit($note->{id}, 'new body', ['demo']);
+  is_deeply $with_tags->{tags}, ['demo'], 'tags replaced when provided';
+
+  my $cleared = $app->notes->edit($note->{id}, 'new body', []);
+  is_deeply $cleared->{tags}, [], 'tags cleared with empty array';
+
+  $app->notes->remove($note->{id});
+};
+
+subtest 'paginate_for_package honors tag AND filter and visibility' => sub {
+  $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'review only',   0, 0, ['review']);
+  $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'demo only',     0, 0, ['demo']);
+  $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'review + demo', 0, 0, ['review', 'demo']);
+  $app->notes->add(1, 'perl-Mojolicious', $lawyer_id,  'lawyer review', 1, 0, ['review']);
+
+  my $page = $app->notes->paginate_for_package('perl-Mojolicious', tags => ['review']);
+  is $page->{total}, 2, 'public review-tagged notes (lawyer-only hidden)';
+  ok((grep { $_->{body} eq 'review only' } @{$page->{page}}),   'review-only note present');
+  ok((grep { $_->{body} eq 'review + demo' } @{$page->{page}}), 'multi-tagged note present');
+
+  my $both = $app->notes->paginate_for_package('perl-Mojolicious', tags => ['review', 'demo']);
+  is $both->{total},         1,               'AND filter narrows to multi-tagged note';
+  is $both->{page}[0]{body}, 'review + demo', 'right note returned';
+
+  my $with_lawyer = $app->notes->paginate_for_package('perl-Mojolicious', tags => ['review'], include_lawyer_only => 1);
+  is $with_lawyer->{total}, 3, 'lawyer-only review note included when flag set';
+
+  my $no_filter = $app->notes->paginate_for_package('perl-Mojolicious');
+  cmp_ok $no_filter->{total}, '>=', 3, 'empty filter returns everything (at least the public seeds)';
+
+  for my $n (@{$no_filter->{page}}, @{$with_lawyer->{page}}) {
+    next unless $n->{body} =~ /^(review only|demo only|review \+ demo|lawyer review)$/;
+    $app->notes->remove($n->{id});
+  }
+};
+
+subtest 'PATCH accepts a tags update and persists it' => sub {
+  my $note = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'patch tags fixture', 0);
+
+  login_admin($t);
+
+  # Repeating-param form (Perl/Mojo idiom).
+  $t->patch_ok("/reviews/notes/$note->{id}" => form => {body => 'patched', tags => ['review', 'demo']})->status_is(200);
+  my $tags = $t->tx->res->json('/note/tags');
+  is_deeply [sort @$tags], ['demo', 'review'], 'PATCH applies tag set';
+
+  # JSON-encoded form (the Vue UI's idiom; mojojs comma-joins arrays so it
+  # ships tags this way instead).
+  $t->patch_ok("/reviews/notes/$note->{id}" => form => {body => 'patched again', tags_json => '[]'})->status_is(200);
+  is_deeply $t->tx->res->json('/note/tags'), [], 'tags_json=[] clears the list';
+
+  $t->patch_ok("/reviews/notes/$note->{id}" => form => {body => 'no tag intent'})->status_is(200);
+  is_deeply $t->tx->res->json('/note/tags'), [], 'omitting tags fields leaves them unchanged';
+  logout($t);
+
+  $app->notes->remove($note->{id});
+};
+
+subtest 'POST rejects malformed tags' => sub {
+  login_admin($t);
+
+  my $too_long = 'x' x 33;
+  $t->post_ok('/reviews/notes/1' => form => {body => 'over-long tag', tags => [$too_long]})
+    ->status_is(400)
+    ->json_like('/error' => qr/tag exceeds/);
+
+  $t->post_ok('/reviews/notes/1' => form => {body => 'too many', tags => [map {"t$_"} 1 .. 17]})
+    ->status_is(400)
+    ->json_like('/error' => qr/too many tags/);
+  logout($t);
+};
+
 subtest 'CommonMark renders safely' => sub {
   login_admin($t);
   my $body = "Click [me](javascript:alert(1)) or visit <https://example.com>.\n\n<script>alert(1)</script>";
