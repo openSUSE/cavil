@@ -717,6 +717,10 @@ export default {
       file.source = data.source;
     },
     onExtend(file, payload) {
+      // Reset re-fetches with no start/end so source_for returns the report's
+      // default view (original match boundaries + a few lines of context).
+      if (payload.kind === 'reset') return this.fetchSource(file);
+
       let start = Number(payload.start);
       let end = Number(payload.end);
       switch (payload.kind) {

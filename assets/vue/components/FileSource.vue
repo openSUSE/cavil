@@ -31,7 +31,7 @@
               title="Open action menu"
               aria-label="Open action menu"
             >
-              <i class="actions-menu fa-solid fa-caret-down"></i>
+              <i class="actions-menu fa-solid fa-ellipsis-vertical"></i>
             </a>
             <div class="dropdown-menu" :aria-labelledby="'dropdownMenuLink-' + fileId + '-' + line[0]">
               <template v-if="line[1].risk === 9">
@@ -85,6 +85,9 @@
                   >Extend to the end of the file</a
                 >
               </template>
+
+              <div class="dropdown-divider"></div>
+              <a href="#" class="dropdown-item" @click.prevent="emitExtend('reset', line)">Reset selection</a>
             </div>
           </td>
 
@@ -97,18 +100,40 @@
               :action="action"
               @dismiss="onDismiss"
             />
+            <a
+              v-if="canExtendUp(line)"
+              :id="`extend-up-${fileId}-${line[0]}`"
+              href="#"
+              class="snippet-tool-btn extend-vert-btn extend-up-btn"
+              :title="`Extend one line above (line ${line[0] - 1})`"
+              aria-label="Extend one line above"
+              @click.prevent="onExtendUp($event, line)"
+            >
+              <i class="fa-solid fa-caret-up"></i>
+            </a>
+            <a
+              v-if="canExtendDown(line)"
+              :id="`extend-down-${fileId}-${line[0]}`"
+              href="#"
+              class="snippet-tool-btn extend-vert-btn extend-down-btn"
+              :title="`Extend one line below (line ${line[0] + 1})`"
+              aria-label="Extend one line below"
+              @click.prevent="onExtendDown($event, line[0])"
+            >
+              <i class="fa-solid fa-caret-down"></i>
+            </a>
           </td>
 
-          <td v-if="!readOnly && line[1].end && line[1].risk === 9 && line[1].snippet" class="quick-actions">
+          <td v-if="!readOnly && line[1].end && line[1].risk === 9" class="quick-actions">
             <a
               :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
               class="snippet-tool-btn"
               target="_blank"
               title="Create pattern from selection"
               aria-label="Create pattern from selection"
-              @click="onCreateClick($event, line, line[1].snippet)"
+              @click="onCreateClick($event, line, line[1].snippet || null)"
             >
-              <i class="fa-solid fa-plus"></i>
+              <i class="fa-solid fa-pen-to-square"></i>
             </a>
           </td>
           <td v-else-if="!readOnly" class="quick-actions"></td>
@@ -157,11 +182,55 @@ export default {
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
-    return {hoveredGroup: null, patternTooltip: null};
+    return {hoveredGroup: null, patternTooltip: null, pendingCompensation: null};
   },
   computed: {
     isAdminOrContributor() {
       return this.hasAdminRole || this.hasContributorRole;
+    },
+    matchExtents() {
+      // Map keyed by match-end line number → metadata from the match-start
+      // row. Lets the ▼ button on the match-end row identify which match to
+      // extend and pass the original boundaries through to onExtend.
+      const map = new Map();
+      for (const line of this.lines) {
+        const info = line[1];
+        if (info.risk === 9 && info.end) {
+          map.set(info.end, {
+            startLine: line[0],
+            endLine: info.end,
+            prevstart: info.prevstart || 0,
+            nextend: info.nextend || 0
+          });
+        }
+      }
+      return map;
+    }
+  },
+  watch: {
+    lines() {
+      if (!this.pendingCompensation) return;
+      const {kind, targetLine, beforeTop} = this.pendingCompensation;
+      this.pendingCompensation = null;
+      this.$nextTick(() => {
+        // Two rAFs: the first lands after Vue's DOM patch; layout reflow
+        // for the freshly-inserted/removed table rows finishes by the second.
+        // Measuring on the first frame can produce ~5px drift for ▼ on
+        // multi-click sequences when the row above settles late.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const id =
+              kind === 'one-line-above'
+                ? `extend-up-${this.fileId}-${targetLine}`
+                : `extend-down-${this.fileId}-${targetLine}`;
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const afterTop = btn.getBoundingClientRect().top;
+            const delta = afterTop - beforeTop;
+            if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+          });
+        });
+      });
     }
   },
   beforeUnmount() {
@@ -273,6 +342,37 @@ export default {
         prevstart: line[1].prevstart || 0,
         nextend: line[1].nextend || 0
       });
+    },
+    canExtendUp(line) {
+      return !this.readOnly && this.isAdminOrContributor && line[1].risk === 9 && line[1].end && line[0] > 1;
+    },
+    canExtendDown(line) {
+      return !this.readOnly && this.isAdminOrContributor && this.matchExtents.has(line[0]);
+    },
+    onExtendUp(event, line) {
+      this.scheduleCompensation(event, 'one-line-above', line[0] - 1);
+      this.emitExtend('one-line-above', line);
+    },
+    onExtendDown(event, endLine) {
+      const meta = this.matchExtents.get(endLine);
+      if (!meta) return;
+      this.scheduleCompensation(event, 'one-line-below', endLine + 1);
+      this.$emit('extend', {
+        kind: 'one-line-below',
+        start: meta.startLine,
+        end: meta.endLine,
+        prevstart: meta.prevstart,
+        nextend: meta.nextend
+      });
+    },
+    scheduleCompensation(event, kind, targetLine) {
+      // Capture the button's viewport y BEFORE the re-render. The watcher on
+      // `lines` measures again after the new source lands and scrolls the
+      // window so the equivalent button lands at the same screen position,
+      // letting the user hammer the affordance without re-aiming.
+      const btn = event.currentTarget;
+      if (!btn) return;
+      this.pendingCompensation = {kind, targetLine, beforeTop: btn.getBoundingClientRect().top};
     }
   }
 };
@@ -316,6 +416,9 @@ export default {
   position: relative;
   width: 28px;
 }
+.snippet td.code {
+  position: relative;
+}
 .snippet .snippet-tool-btn {
   align-items: center;
   background: rgba(255, 255, 255, 0.92);
@@ -358,6 +461,19 @@ export default {
 }
 .snippet td.quick-actions .snippet-tool-btn {
   right: -4px;
+}
+.snippet td.code .extend-vert-btn {
+  left: 50%;
+  top: auto;
+  bottom: auto;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+.snippet td.code .extend-up-btn {
+  top: -12px;
+}
+.snippet td.code .extend-down-btn {
+  bottom: -12px;
 }
 .source .snippet .snippet-tool-btn i {
   color: #1f2328;
