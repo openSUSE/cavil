@@ -105,11 +105,13 @@ These tools are currently available:
 
 - *cavil_accept_review* - Accept a legal review for a specific package
   - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
+  - **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.
   - `package_id`: ID of package to accept. (number, required)
   - `reason`: Reason for package acceptance. (string, optional)
 
 - *cavil_reject_review* - Reject a legal review for a specific package
   - **Required Roles**: `lawyer` or `admin` (read-write)
+  - **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.
   - `package_id`: ID of package to reject. (number, required)
   - `reason`: Reason for package rejection. (string, required)
 

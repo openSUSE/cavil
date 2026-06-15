@@ -308,3 +308,9 @@ CREATE INDEX package_notes_tags_idx ON package_notes USING gin (tags);
 -- 36 down
 DROP INDEX IF EXISTS package_notes_tags_idx;
 ALTER TABLE package_notes DROP COLUMN IF EXISTS tags;
+
+-- 37 up
+ALTER TABLE api_keys ADD COLUMN can_finalize_reviews boolean DEFAULT false NOT NULL;
+
+-- 37 down
+ALTER TABLE api_keys DROP COLUMN IF EXISTS can_finalize_reviews;

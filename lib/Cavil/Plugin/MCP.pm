@@ -18,6 +18,8 @@ my $WRITE_TOOL_ROLES = {
 };
 my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
 
+my $FINALIZE_REVIEW_TOOLS = {cavil_accept_review => 1, cavil_reject_review => 1};
+
 sub register ($self, $app, $config) {
   my $mcp = MCP::Server->new;
   $mcp->name('Cavil');
@@ -442,9 +444,10 @@ sub tool_cavil_reject_review ($tool, $args) {
 }
 
 sub _filter_tools ($server, $tools, $context) {
-  my $c            = $context->{controller};
-  my $write_access = $c->current_user_has_write_access;
-  my $roles        = $c->current_user_roles;
+  my $c                    = $context->{controller};
+  my $write_access         = $c->current_user_has_write_access;
+  my $can_finalize_reviews = $c->current_user_can_finalize_reviews;
+  my $roles                = $c->current_user_roles;
 
   my $filtered = [];
   for my $tool (@$tools) {
@@ -455,6 +458,9 @@ sub _filter_tools ($server, $tools, $context) {
     if (my $check = $WRITE_TOOL_ROLES->{$name}) {
       next unless $write_access;
       next unless grep { $check->{$_} } @$roles;
+    }
+    if ($FINALIZE_REVIEW_TOOLS->{$name}) {
+      next unless $can_finalize_reviews;
     }
     push @$filtered, $tool;
   }

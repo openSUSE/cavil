@@ -40,13 +40,28 @@
                     <span class="real">{{ key.apiKey }}</span>
                   </copyable-text>
                 </td>
-                <td>{{ key.type }}</td>
+                <td>
+                  {{ key.type }}
+                  <span
+                    v-if="key.canFinalizeReviews"
+                    class="badge bg-warning text-dark ms-1"
+                    title="This key can accept or reject reviews via MCP"
+                    data-can-finalize-reviews
+                    >accept/reject</span
+                  >
+                </td>
                 <td>{{ key.description }}</td>
                 <td>{{ key.expires }}</td>
                 <td class="text-center">
-                  <span class="cavil-action text-center">
-                    <a @click="deleteApiKey(key)" href="#"><i class="fa-solid fa-trash"></i></a>
-                  </span>
+                  <button
+                    @click="deleteApiKey(key)"
+                    type="button"
+                    class="cavil-icon-action cavil-icon-action-danger"
+                    title="Delete API key"
+                    aria-label="Delete API key"
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -78,6 +93,21 @@
                   <option value="read-only">Read-Only</option>
                   <option value="read-write">Read-Write</option>
                 </select>
+              </div>
+              <div v-if="apiKeyType === 'read-write'" class="mb-3 form-check">
+                <input
+                  v-model="apiKeyCanFinalizeReviews"
+                  type="checkbox"
+                  class="form-check-input"
+                  id="api-key-can-finalize-reviews"
+                />
+                <label class="form-check-label" for="api-key-can-finalize-reviews">
+                  Allow accept/reject of reviews
+                </label>
+                <div class="form-text">
+                  Leave off unless you intend to use the <code>cavil_accept_review</code> /
+                  <code>cavil_reject_review</code> MCP tools.
+                </div>
               </div>
               <div class="mb-3">
                 <label for="api-key-expires" class="col-form-label">Expires</label>
@@ -120,6 +150,7 @@ export default {
       apiKeys: null,
       apiKeyDescription: 'User API Key',
       apiKeyType: 'read-only',
+      apiKeyCanFinalizeReviews: false,
       apiKeyExpires: new moment().add(365, 'days').format('YYYY-MM-DDTHH:mm'),
       refreshUrl: '/api_keys/meta'
     };
@@ -127,8 +158,14 @@ export default {
   methods: {
     async addApiKey() {
       const ua = new UserAgent({baseURL: window.location.href});
-      const form = {description: this.apiKeyDescription, type: this.apiKeyType, expires: this.apiKeyExpires};
+      const form = {
+        description: this.apiKeyDescription,
+        type: this.apiKeyType,
+        expires: this.apiKeyExpires,
+        can_finalize_reviews: this.apiKeyType === 'read-write' && this.apiKeyCanFinalizeReviews ? '1' : '0'
+      };
       await ua.post(this.addApiKeyUrl, {form});
+      this.apiKeyCanFinalizeReviews = false;
       this.doApiRefresh();
     },
     async deleteApiKey(key) {
@@ -144,6 +181,7 @@ export default {
           apiKey: key.api_key,
           description: key.description,
           type: key.write_access ? 'read-write' : 'read-only',
+          canFinalizeReviews: !!key.can_finalize_reviews,
           expires: moment(key.expires_epoch * 1000).fromNow(),
           removeUrl: `/api_keys/${key.id}`
         });
@@ -157,10 +195,6 @@ export default {
 <style>
 .table {
   margin-top: 1rem;
-}
-.cavil-action a {
-  color: #212529;
-  text-decoration: none;
 }
 #all-done {
   text-align: center;

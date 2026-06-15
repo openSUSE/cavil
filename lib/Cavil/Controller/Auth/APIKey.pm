@@ -22,7 +22,11 @@ sub check ($self) {
   my $token = $1;
 
   $self->_denied and return undef unless defined(my $user = $self->api_keys->find_by_key($token));
-  $self->stash('cavil.api.user' => $user->{login}, 'cavil.api.write_access' => $user->{write_access});
+  $self->stash(
+    'cavil.api.user'                 => $user->{login},
+    'cavil.api.write_access'         => $user->{write_access},
+    'cavil.api.can_finalize_reviews' => $user->{can_finalize_reviews}
+  );
 
   return 1;
 }

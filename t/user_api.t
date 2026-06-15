@@ -83,12 +83,48 @@ subtest 'API keys' => sub {
       ->json_is('/keys/0/id'    => 1)
       ->json_is('/keys/0/owner' => 2)
       ->json_like('/keys/0/api_key' => qr/^[a-f0-9\-]{20,}$/i)
-      ->json_is('/keys/0/description'  => 'Test key')
-      ->json_is('/keys/0/write_access' => 0)
+      ->json_is('/keys/0/description'          => 'Test key')
+      ->json_is('/keys/0/write_access'         => 0)
+      ->json_is('/keys/0/can_finalize_reviews' => 0)
       ->json_has('/keys/0/expires_epoch');
     $key = $t->tx->res->json('/keys/0/api_key');
 
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+  };
+
+  subtest 'can_finalize_reviews flag respects type and explicit opt-in' => sub {
+    $t->get_ok('/login')->status_is(302);
+
+    # Read-only key with the flag asserted true: flag must be coerced off.
+    $t->post_ok('/api_keys' => form =>
+        {expires => $expires, type => 'read-only', description => 'RO with flag attempt', can_finalize_reviews => '1'})
+      ->status_is(200);
+
+    # Read-write key without the flag: default off.
+    $t->post_ok('/api_keys' => form => {expires => $expires, type => 'read-write', description => 'RW default'})
+      ->status_is(200);
+
+    # Read-write key with the explicit opt-in: flag on.
+    $t->post_ok('/api_keys' => form =>
+        {expires => $expires, type => 'read-write', description => 'RW with finalize', can_finalize_reviews => '1'})
+      ->status_is(200);
+
+    $t->get_ok('/api_keys/meta')->status_is(200);
+    my $keys    = $t->tx->res->json('/keys');
+    my %by_desc = map { $_->{description} => $_ } @$keys;
+    is $by_desc{'RO with flag attempt'}{can_finalize_reviews}, 0, 'read-only ignores opt-in';
+    is $by_desc{'RO with flag attempt'}{write_access},         0, 'still read-only';
+    is $by_desc{'RW default'}{can_finalize_reviews},           0, 'read-write defaults off';
+    is $by_desc{'RW default'}{write_access},                   1, 'is read-write';
+    is $by_desc{'RW with finalize'}{can_finalize_reviews},     1, 'opt-in respected';
+
+    # Cleanup so other subtests still see a known key set.
+    for my $k (@$keys) {
+      next if $k->{description} eq 'Test key';
+      $t->delete_ok("/api_keys/$k->{id}")->status_is(200);
+    }
+
+    $t->get_ok('/logout')->status_is(302);
   };
 
   subtest 'Access API without key' => sub {

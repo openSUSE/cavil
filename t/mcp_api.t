@@ -438,16 +438,19 @@ subtest 'MCP' => sub {
     subtest 'Create API key (write)' => sub {
       $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
-      $t->post_ok('/api_keys' => form => {expires => $expires, type => 'read-write', description => 'Write key'})
+      $t->post_ok('/api_keys' => form =>
+          {expires => $expires, type => 'read-write', description => 'Write key', can_finalize_reviews => '1'})
         ->status_is(200)
         ->json_is('/created' => 2);
       $t->get_ok('/api_keys/meta')
         ->status_is(200)
-        ->json_is('/keys/0/id'          => 1)
-        ->json_is('/keys/0/owner'       => 2)
-        ->json_is('/keys/1/id'          => 2)
-        ->json_is('/keys/1/owner'       => 2)
-        ->json_is('/keys/1/description' => 'Write key');
+        ->json_is('/keys/0/id'                   => 1)
+        ->json_is('/keys/0/owner'                => 2)
+        ->json_is('/keys/0/can_finalize_reviews' => 0)
+        ->json_is('/keys/1/id'                   => 2)
+        ->json_is('/keys/1/owner'                => 2)
+        ->json_is('/keys/1/description'          => 'Write key')
+        ->json_is('/keys/1/can_finalize_reviews' => 1);
       $write_key = $t->tx->res->json('/keys/1/api_key');
 
       $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
@@ -1155,6 +1158,43 @@ subtest 'MCP' => sub {
         is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
         $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
       };
+    };
+
+    subtest 'Note-only read-write key (no finalize-reviews permission)' => sub {
+
+      # A read-write key without the can_finalize_reviews opt-in should NOT see
+      # cavil_accept_review or cavil_reject_review, even when the owning user
+      # has admin/lawyer/manager roles. This is the safe default new keys get.
+      my $note_only_key = $t->app->api_keys->create(
+        owner                => 2,
+        description          => 'Note-only key',
+        type                 => 'read-write',
+        can_finalize_reviews => 0,
+        expires              => $expires
+      );
+
+      $t->ua->unsubscribe('start');
+      $t->ua->on(start => sub ($ua, $tx) { $tx->req->headers->authorization("Bearer $note_only_key->{api_key}") });
+
+      my $client = MCP::Client->new(ua => $t->ua, url => $t->ua->server->url->path('/mcp'));
+      $client->initialize_session;
+
+      my $result = $client->list_tools;
+      my %names  = map { $_->{name} => 1 } @{$result->{tools}};
+      ok !$names{cavil_accept_review}, 'cavil_accept_review hidden';
+      ok !$names{cavil_reject_review}, 'cavil_reject_review hidden';
+      ok $names{cavil_create_note},    'cavil_create_note still available';
+      ok $names{cavil_get_notes},      'cavil_get_notes still available';
+
+      eval { $client->call_tool('cavil_accept_review', {package_id => 1}) };
+      like $@, qr/not found/i, 'calling cavil_accept_review fails when not authorized';
+
+      eval { $client->call_tool('cavil_reject_review', {package_id => 1, reason => 'test'}) };
+      like $@, qr/not found/i, 'calling cavil_reject_review fails when not authorized';
+
+      # Restore the prior write_key auth for any later subtests.
+      $t->ua->unsubscribe('start');
+      $t->ua->on(start => sub ($ua, $tx) { $tx->req->headers->authorization("Bearer $write_key") });
     };
   }
 };
