@@ -16,9 +16,8 @@
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::File      qw(path);
-use Cavil::Licenses qw(lic);
-use Cavil::Util     qw(lines_context);
+use Mojo::File  qw(path);
+use Cavil::Util qw(lines_context);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -69,7 +68,7 @@ sub file_view ($self) {
   my $ctx = $self->_file_browser_context;
   return unless $ctx;
 
-  $self->stash(filename => $ctx->{filename}, package => $ctx->{package}, license => $ctx->{license});
+  $self->stash(filename => $ctx->{filename}, package => $ctx->{package});
 }
 
 sub file_view_meta ($self) {
@@ -87,8 +86,7 @@ sub file_view_meta ($self) {
     },
     checkoutDir => $package->{checkout_dir},
     currentPath => $filename,
-    breadcrumbs => $self->_file_browser_breadcrumbs($package, $filename),
-    license     => $ctx->{license}
+    breadcrumbs => $self->_file_browser_breadcrumbs($package, $filename)
   };
 
   if (-d $file) {
@@ -123,9 +121,6 @@ sub _file_browser_context ($self) {
     return undef;
   }
 
-  my $report = $self->reports->specfile_report($package->{id});
-  my $lic    = $report->{main}{license};
-
   my $file
     = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked', $filename);
   unless (-e $file) {
@@ -133,7 +128,7 @@ sub _file_browser_context ($self) {
     return undef;
   }
 
-  return {filename => $filename, package => $package, file => $file, license => lic($lic)->to_string};
+  return {filename => $filename, package => $package, file => $file};
 }
 
 sub _file_browser_breadcrumbs ($self, $package, $filename) {

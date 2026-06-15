@@ -238,7 +238,12 @@ export default {
   },
   methods: {
     rowClass(info) {
-      const classes = [`risk-${info.risk}`];
+      // Only tag rows that actually correspond to a match (license pattern
+      // or unresolved snippet). The server hands back `risk: 0` for plain
+      // context lines too — coloring those would paint the entire snippet
+      // preview, defeating the highlight.
+      const classes = [];
+      if (info.pid != null || info.snippet != null) classes.push(`risk-${info.risk}`);
       if (info.hash) classes.push(`hash-${info.hash}`);
       if (patternIdsFromInfo(info).length > 0) classes.push('has-pattern-tooltip');
       // The first line of an unresolved snippet has both risk 9 and the `end`

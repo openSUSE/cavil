@@ -13,7 +13,6 @@
           </a>
           <span class="file-browser-checkout">{{ meta.checkoutDir }}</span>
         </div>
-        <div v-if="meta.license" class="file-browser-license">{{ meta.license }}</div>
       </div>
 
       <nav class="file-browser-breadcrumb" aria-label="File path">
@@ -184,7 +183,6 @@ export default {
   text-decoration: underline;
 }
 .file-browser-checkout,
-.file-browser-license,
 .file-browser-match-badge {
   border: 1px solid #d0d7de;
   border-radius: 2em;
@@ -193,10 +191,6 @@ export default {
   line-height: 18px;
   padding: 0 7px;
   white-space: nowrap;
-}
-.file-browser-license {
-  background: #f6f8fa;
-  margin-left: 12px;
 }
 .file-browser-breadcrumb {
   align-items: center;
@@ -300,9 +294,6 @@ export default {
     align-items: flex-start;
     flex-direction: column;
     gap: 8px;
-  }
-  .file-browser-license {
-    margin-left: 0;
   }
   .file-browser-kind {
     display: none;

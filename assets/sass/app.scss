@@ -231,7 +231,7 @@ textarea.mono-textarea {
     }
   }
 
-  tr.risk-9, tr.risk-8, tr.risk-7, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1 {
+  tr.risk-9, tr.risk-8, tr.risk-7, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1, tr.risk-0 {
     .code {
       color: white;
     }
@@ -263,6 +263,12 @@ textarea.mono-textarea {
 
   tr.risk-1 {
     background-color: #016396;
+  }
+
+  // Risk 0 = explicitly approved / no-risk patterns. Matches the
+  // .license-0 green used elsewhere for the same semantic.
+  tr.risk-0 {
+    background-color: #1f883d;
   }
 }
 
