@@ -94,12 +94,22 @@ These tools are currently available:
   - `tags`: Optional array of tag strings. Each tag is at most 32 characters, with at most 16 tags per note. The
            `cavil-review-note` example skill uses the tag `review` to mark advisory review notes. (array of strings,
            optional)
+  - `skip_if_existing_tag`: Makes the call idempotent. If a note carrying this tag already applies to the package's
+           current report — written on this report, or on another review with an identical license report — no note is
+           created; instead a `Skipped: …` message naming the existing note is returned (not an error). Used by the
+           `cavil-review-note` skill with `review` to guarantee one review note per report, even across same-named
+           package versions. Omit it to force an additional note. (string, optional)
 
 - *cavil_get_notes* - Get a paginated list of notes for a specific package, optionally filtered by tags
   - **Required Roles**: `user` (read-only)
+  - Each note is marked by its relevance to this package's report: `[this report]` (written on it), `[same report]`
+    (from another review with an identical license report), or `[other report]` (different licensing). Notes are shared
+    across every package row with the same name, so these markers identify which ones actually apply here.
   - `package_id`: ID of package to list notes for. (number, required)
   - `tags`: Filter notes to those carrying all of the given tags (AND semantics). Defaults to no filter.
            (array of strings, optional)
+  - `relevant_only`: When `true`, return only notes that apply to this report (`[this report]` or `[same report]`).
+           Defaults to `false`. (boolean, optional)
   - `limit`: Maximum number of notes to return. Defaults to `20`, maximum `100`. (number, optional)
   - `offset`: Number of notes to skip for pagination. Defaults to `0`. (number, optional)
 

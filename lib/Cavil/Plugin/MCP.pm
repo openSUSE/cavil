@@ -76,29 +76,37 @@ sub register ($self, $app, $config) {
     code => \&tool_cavil_list_files
   );
   $mcp->tool(
-    name         => 'cavil_create_note',
-    description  => 'Create a public AI-assisted note for a specific package',
+    name        => 'cavil_create_note',
+    description => 'Create a public AI-assisted note for a specific package. Pass skip_if_existing_tag to make '
+      . 'the call idempotent: if a note carrying that tag already applies to this report (it was written on this '
+      . 'report, or on another review with an identical license report), no note is created and the existing one '
+      . 'is reported instead.',
     input_schema => {
       type       => 'object',
       properties => {
-        package_id => {type => 'integer', minimum => 1},
-        body       => {type => 'string'},
-        tags       => {type => 'array', items => {type => 'string'}, default => []}
+        package_id           => {type => 'integer', minimum => 1},
+        body                 => {type => 'string'},
+        tags                 => {type => 'array', items => {type => 'string'}, default => []},
+        skip_if_existing_tag => {type => 'string'}
       },
       required => ['package_id', 'body']
     },
     code => \&tool_cavil_create_note
   );
   $mcp->tool(
-    name         => 'cavil_get_notes',
-    description  => 'Get a paginated list of notes for a specific package, optionally filtered by tags',
+    name        => 'cavil_get_notes',
+    description => 'Get a paginated list of notes for a specific package, optionally filtered by tags. Each note is '
+      . 'marked by relevance to this package report: [this report] (written on it), [same report] (from another '
+      . 'review with an identical license report), or [other report] (different licensing). Pass relevant_only=true '
+      . 'to return only the first two.',
     input_schema => {
       type       => 'object',
       properties => {
-        package_id => {type => 'integer', minimum => 1},
-        tags       => {type => 'array',   items   => {type => 'string'}, default => []},
-        limit      => {type => 'integer', minimum => 1, maximum => 100, default => 20},
-        offset     => {type => 'integer', minimum => 0, default => 0}
+        package_id    => {type => 'integer', minimum => 1},
+        tags          => {type => 'array',   items   => {type => 'string'}, default => []},
+        relevant_only => {type => 'boolean', default => \0},
+        limit         => {type => 'integer', minimum => 1, maximum => 100, default => 20},
+        offset        => {type => 'integer', minimum => 0, default => 0}
       },
       required => ['package_id']
     },
@@ -299,6 +307,21 @@ sub tool_cavil_create_note ($tool, $args) {
   my ($tags, $tag_error) = validate_tags($args->{tags});
   return $tool->text_result($tag_error, 1) if $tag_error;
 
+  # Server-enforced idempotency guard: if a note carrying skip_if_existing_tag
+  # already applies to this report (written on it, or on another review with an
+  # identical license report), skip the write. Returned as a non-error so the
+  # caller treats it as "already done" rather than retrying into a duplicate.
+  my $include_lawyer_only = $c->current_user_has_role('admin', 'lawyer') ? 1 : 0;
+  my $gate                = $args->{skip_if_existing_tag};
+  if (defined $gate && length $gate) {
+    my $existing = $c->notes->relevant_tagged_note($pkg->{name}, $id, $pkg->{checksum}, $gate,
+      include_lawyer_only => $include_lawyer_only);
+    return $tool->text_result(
+      "Skipped: package already has an up-to-date '$gate' note (#$existing) for this report's current license findings."
+        . ' No new note was created.')
+      if $existing;
+  }
+
   my $author = $c->users->find(login => $c->current_user);
   return $tool->text_result('Unknown user', 1) unless $author;
 
@@ -318,6 +341,7 @@ sub tool_cavil_get_notes ($tool, $args) {
   return $tool->text_result($offset_error, 1) if $offset_error;
   my ($tags, $tag_error) = validate_tags($args->{tags});
   return $tool->text_result($tag_error, 1) if $tag_error;
+  my $relevant_only = $args->{relevant_only} ? 1 : 0;
 
   my $include_lawyer_only = $c->current_user_has_role('admin', 'lawyer') ? 1 : 0;
   my $page                = $c->notes->paginate_for_package(
@@ -325,21 +349,27 @@ sub tool_cavil_get_notes ($tool, $args) {
     limit               => $limit,
     offset              => $offset,
     tags                => $tags,
-    include_lawyer_only => $include_lawyer_only
+    include_lawyer_only => $include_lawyer_only,
+    relevant_only       => $relevant_only,
+    package_id          => $id,
+    checksum            => $pkg->{checksum}
   );
   my $next_offset = $page->{end} < $page->{total} ? $offset + $limit : undef;
 
   return $c->render_to_string(
     'mcp/notes',
-    format      => 'txt',
-    notes       => $page->{page},
-    total       => $page->{total},
-    start       => $page->{start},
-    end         => $page->{end},
-    limit       => $limit,
-    offset      => $offset,
-    next_offset => $next_offset,
-    tags        => $tags
+    format             => 'txt',
+    notes              => $page->{page},
+    total              => $page->{total},
+    start              => $page->{start},
+    end                => $page->{end},
+    limit              => $limit,
+    offset             => $offset,
+    next_offset        => $next_offset,
+    tags               => $tags,
+    relevant_only      => $relevant_only,
+    current_package_id => $id,
+    current_checksum   => $pkg->{checksum}
   );
 }
 

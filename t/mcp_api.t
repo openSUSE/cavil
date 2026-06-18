@@ -656,6 +656,68 @@ subtest 'MCP' => sub {
         ok $result->{isError}, 'is an error';
         like $result->{content}[0]{text}, qr/too many tags/, 'rejects too many tags';
       };
+
+      subtest 'Idempotency guard (skip_if_existing_tag)' => sub {
+        my $db    = $t->app->pg->db;
+        my $notes = $t->app->notes;
+
+        # Control the license-report checksums of the two same-name packages so
+        # the relevance logic is deterministic; restore at the end.
+        my $orig1 = $t->app->packages->find(1)->{checksum};
+        my $orig2 = $t->app->packages->find(2)->{checksum};
+        $db->update('bot_packages', {checksum => 'GUARD-A'}, {id => 1});
+        $db->update('bot_packages', {checksum => 'GUARD-A'}, {id => 2});
+
+        # First create with a fresh gate tag: nothing relevant yet -> created.
+        my $r = $client->call_tool('cavil_create_note',
+          {package_id => 1, body => 'guard first', tags => ['guardtag'], skip_if_existing_tag => 'guardtag'});
+        ok !$r->{isError}, 'first create is not an error';
+        like $r->{content}[0]{text}, qr/^Note #\d+ has been successfully created$/, 'first note created';
+        my ($created_id) = $r->{content}[0]{text} =~ /#(\d+)/;
+
+        # Second create with the same gate tag: a native relevant note now exists
+        # -> skipped, reported as success (not an error) citing the existing id.
+        $r = $client->call_tool('cavil_create_note',
+          {package_id => 1, body => 'guard duplicate', tags => ['guardtag'], skip_if_existing_tag => 'guardtag'});
+        ok !$r->{isError}, 'skip is reported as success, not an error';
+        like $r->{content}[0]{text}, qr/^Skipped:.*#$created_id\b/, 'skip cites the existing note id';
+
+        my $cnt
+          = $db->query(
+          q{SELECT COUNT(*)::int AS c FROM package_notes WHERE package_name = 'perl-Mojolicious' AND tags @> ARRAY['guardtag']}
+          )->hash->{c};
+        is $cnt, 1, 'guard prevented a duplicate note';
+
+        # Identical-report sibling also blocks: a note on review #2 (same checksum)
+        # is relevant to review #1, so the write is skipped.
+        $notes->add(2, 'perl-Mojolicious', 2, 'sibling same report', 0, 1, ['guardsib']);
+        $r = $client->call_tool(
+          'cavil_create_note',
+          {
+            package_id           => 1,
+            body                 => 'should skip via same report',
+            tags                 => ['guardsib'],
+            skip_if_existing_tag => 'guardsib'
+          }
+        );
+        ok !$r->{isError}, 'same-report skip is not an error';
+        like $r->{content}[0]{text}, qr/^Skipped:/, 'identical-report sibling note blocks the write';
+
+        # Report changed: make review #2 a different report -> the sibling note is
+        # no longer relevant -> a genuine re-review note is allowed.
+        $db->update('bot_packages', {checksum => 'GUARD-B'}, {id => 2});
+        $r = $client->call_tool('cavil_create_note',
+          {package_id => 1, body => 're-review after change', tags => ['guardsib'], skip_if_existing_tag => 'guardsib'}
+        );
+        ok !$r->{isError}, 're-review create is not an error';
+        like $r->{content}[0]{text}, qr/^Note #\d+ has been successfully created$/, 'changed report allows a new note';
+
+        $db->query(
+          q{DELETE FROM package_notes WHERE package_name = 'perl-Mojolicious' AND (tags @> ARRAY['guardtag'] OR tags @> ARRAY['guardsib'])}
+        );
+        $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+        $db->update('bot_packages', {checksum => $orig2}, {id => 2});
+      };
     };
 
     subtest 'cavil_get_notes tool' => sub {
@@ -735,6 +797,51 @@ subtest 'MCP' => sub {
       };
 
       $notes->remove($_) for ($lawyer_tagged, $third, $second, $first);
+    };
+
+    subtest 'cavil_get_notes relevance markers and relevant_only' => sub {
+      my $db    = $t->app->pg->db;
+      my $notes = $t->app->notes;
+
+      my $orig1 = $t->app->packages->find(1)->{checksum};
+      my $orig2 = $t->app->packages->find(2)->{checksum};
+      $db->update('bot_packages', {checksum => 'MARK-A'}, {id => 1});
+      $db->update('bot_packages', {checksum => 'MARK-A'}, {id => 2});
+
+      my $native  = $notes->add(1, 'perl-Mojolicious', 2, 'relevance native marker',  0, 1, ['relmark'])->{id};
+      my $sibling = $notes->add(2, 'perl-Mojolicious', 2, 'relevance sibling marker', 0, 1, ['relmark'])->{id};
+
+      subtest 'Markers reflect relevance to the viewed report' => sub {
+        my $r = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['relmark']});
+        ok !$r->{isError}, 'not an error';
+        my $text = $r->{content}[0]{text};
+        like $text, qr/## Note #${native}\b[^\n]*\[this report\]/,
+          'note written on this report is marked [this report]';
+        like $text, qr/## Note #${sibling}\b[^\n]*\[same report\]/, 'identical-report sibling is marked [same report]';
+      };
+
+      subtest 'relevant_only keeps same-report, drops it once the report differs' => sub {
+        my $r    = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['relmark'], relevant_only => true});
+        my $text = $r->{content}[0]{text};
+        like $text, qr/relevance native marker/,  'native note kept';
+        like $text, qr/relevance sibling marker/, 'identical-report sibling kept';
+
+        # Make review #2 a different license report.
+        $db->update('bot_packages', {checksum => 'MARK-B'}, {id => 2});
+        $r    = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['relmark'], relevant_only => true});
+        $text = $r->{content}[0]{text};
+        like $text,   qr/relevance native marker/,  'native note still kept';
+        unlike $text, qr/relevance sibling marker/, 'different-report sibling excluded by relevant_only';
+
+        # Without relevant_only it reappears, now marked [other report].
+        $r = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['relmark']});
+        like $r->{content}[0]{text}, qr/## Note #${sibling}\b[^\n]*\[other report\]/,
+          'different-report sibling is marked [other report]';
+      };
+
+      $notes->remove($_) for ($native, $sibling);
+      $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+      $db->update('bot_packages', {checksum => $orig2}, {id => 2});
     };
 
     subtest 'cavil_reject_review tool' => sub {

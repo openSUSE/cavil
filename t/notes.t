@@ -688,6 +688,54 @@ subtest 'Relevance: same_report flag and relevant_only filter' => sub {
   $db->update('bot_packages', {checksum => $orig2}, {id => 2});
 };
 
+subtest 'relevant_tagged_note powers the create guard' => sub {
+  my $db    = $app->pg->db;
+  my $orig1 = $app->packages->find(1)->{checksum};
+  my $orig2 = $app->packages->find(2)->{checksum};
+  $db->update('bot_packages', {checksum => 'GUARD-A'}, {id => 1});
+  $db->update('bot_packages', {checksum => 'GUARD-A'}, {id => 2});
+
+  my $native  = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'guard native',  0, 0, ['gt'])->{id};
+  my $sibling = $app->notes->add(2, 'perl-Mojolicious', $contrib_id, 'guard sibling', 0, 0, ['gt2'])->{id};
+
+  # Native tagged note is relevant to its own review.
+  is $app->notes->relevant_tagged_note('perl-Mojolicious', 1, 'GUARD-A', 'gt'), $native,
+    'native tagged note is found for its own review';
+
+  # Identical-report sibling counts as relevant to review #1.
+  is $app->notes->relevant_tagged_note('perl-Mojolicious', 1, 'GUARD-A', 'gt2'), $sibling,
+    'identical-report sibling tagged note is relevant';
+
+  # Different report -> sibling no longer relevant.
+  is $app->notes->relevant_tagged_note('perl-Mojolicious', 1, 'GUARD-B', 'gt2'), undef,
+    'sibling from a different report is not relevant';
+
+  # Unknown tag -> nothing.
+  is $app->notes->relevant_tagged_note('perl-Mojolicious', 1, 'GUARD-A', 'nope'), undef, 'unknown tag returns undef';
+
+  # paginate_for_package relevant_only mirrors the same predicate.
+  my $rel = $app->notes->paginate_for_package(
+    'perl-Mojolicious',
+    relevant_only => 1,
+    package_id    => 1,
+    checksum      => 'GUARD-A',
+    tags          => ['gt2']
+  );
+  is $rel->{total}, 1, 'identical-report sibling included under relevant_only';
+  my $none = $app->notes->paginate_for_package(
+    'perl-Mojolicious',
+    relevant_only => 1,
+    package_id    => 1,
+    checksum      => 'GUARD-B',
+    tags          => ['gt2']
+  );
+  is $none->{total}, 0, 'different-report sibling excluded under relevant_only';
+
+  $app->notes->remove($_) for ($native, $sibling);
+  $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+  $db->update('bot_packages', {checksum => $orig2}, {id => 2});
+};
+
 subtest 'CommonMark renders safely' => sub {
   login_admin($t);
   my $body = "Click [me](javascript:alert(1)) or visit <https://example.com>.\n\n<script>alert(1)</script>";

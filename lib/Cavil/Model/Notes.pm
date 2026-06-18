@@ -160,6 +160,16 @@ sub paginate_for_package ($self, $package_name, %opts) {
     push @sql,  'AND c.tags @> ?::text[]';
     push @args, $opts{tags};
   }
+  if ($opts{relevant_only}) {
+    if (defined $opts{checksum}) {
+      push @sql, 'AND (c.package = ? OR p.checksum = ?)';
+      push @args, $opts{package_id}, $opts{checksum};
+    }
+    else {
+      push @sql,  'AND c.package = ?';
+      push @args, $opts{package_id};
+    }
+  }
 
   my $sql = qq{
     SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.tags, c.package AS package_id, c.package_name,
@@ -167,7 +177,7 @@ sub paginate_for_package ($self, $package_name, %opts) {
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,
            EXTRACT(EPOCH FROM c.edited)  AS edited_epoch,
-           p.state AS package_state, p.external_link AS package_external_link,
+           p.state AS package_state, p.external_link AS package_external_link, p.checksum AS package_checksum,
            COUNT(*) OVER() AS total
       FROM package_notes c
       JOIN bot_users u ON c.author = u.id
@@ -207,6 +217,30 @@ sub relevant_count ($self, $package_name, $package_id, $checksum, %opts) {
   my $sql = 'SELECT COUNT(*)::int AS relevant FROM package_notes c
               LEFT JOIN bot_packages p ON c.package = p.id WHERE ' . join(' AND ', @sql);
   return $self->pg->db->query($sql, @args)->hash->{relevant};
+}
+
+# Newest note id that carries $tag AND is relevant to the given review (native or
+# identical license report), or undef. Powers the server-side idempotency guard
+# in cavil_create_note: a relevant tagged note means this exact report (or one
+# with identical license findings) was already annotated, so a re-run must skip.
+sub relevant_tagged_note ($self, $package_name, $package_id, $checksum, $tag, %opts) {
+  my @sql  = ('c.package_name = ?', 'c.tags @> ?::text[]');
+  my @args = ($package_name, [$tag]);
+  push @sql, 'c.lawyer_only = false' unless $opts{include_lawyer_only};
+  if (defined $checksum) {
+    push @sql, '(c.package = ? OR p.checksum = ?)';
+    push @args, $package_id, $checksum;
+  }
+  else {
+    push @sql,  'c.package = ?';
+    push @args, $package_id;
+  }
+  my $sql = 'SELECT c.id FROM package_notes c
+              LEFT JOIN bot_packages p ON c.package = p.id WHERE '
+    . join(' AND ', @sql)
+    . ' ORDER BY c.id DESC LIMIT 1';
+  my $row = $self->pg->db->query($sql, @args)->hash;
+  return $row ? $row->{id} : undef;
 }
 
 sub remove ($self, $id) {

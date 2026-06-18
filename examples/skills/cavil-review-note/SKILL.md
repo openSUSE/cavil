@@ -12,32 +12,35 @@ You do NOT finalize reviews. You do NOT accept or reject packages. You do NOT pr
 
 ## AVAILABLE TOOLS
 - `mcp__cavil__cavil_get_open_reviews(search)` - List open reviews waiting for legal review; use to find the package_id if not provided
-- `mcp__cavil__cavil_get_notes(package_id, tags?, limit?, offset?)` - List existing notes on a package, optionally filtered by tag
+- `mcp__cavil__cavil_get_notes(package_id, tags?, relevant_only?, limit?, offset?)` - List existing notes on a package, optionally filtered by tag. Each note is marked `[this report]`, `[same report]` (another review with an identical license report), or `[other report]`. Pass `relevant_only=true` to return only notes that apply to this report.
 - `mcp__cavil__cavil_get_report(package_id)` - Fetch the full legal report for a package
 - `mcp__cavil__cavil_get_file(package_id, file_path, start_line, end_line)` - Retrieve file content for context (max 1000 lines per call)
 - `mcp__cavil__cavil_list_files(package_id, glob?)` - List files in a package, with optional glob filter
-- `mcp__cavil__cavil_create_note(package_id, body, tags?)` - Create a public AI-assisted note for the package; tag review notes with `["review"]`
+- `mcp__cavil__cavil_create_note(package_id, body, tags?, skip_if_existing_tag?)` - Create a public AI-assisted note for the package; tag review notes with `["review"]`. Pass `skip_if_existing_tag="review"` so the server refuses to create a duplicate when an up-to-date review note already applies to this report (returns a `Skipped:` message instead).
 
 ## WORKFLOW
 
 ### Step 1 - Identify the package
 If no package_id was provided, use `cavil_get_open_reviews` to find the package. Ask the user to choose if the package is ambiguous.
 
-### Step 2 - Check for an existing review note
-Immediately before fetching the report, call `cavil_get_notes(package_id, tags=["review"], limit=1)` to see whether a previous run of this skill already left an advisory note for this package.
+### Step 2 - Check whether this report was already reviewed
+Before fetching the report, call `cavil_get_notes(package_id, tags=["review"], relevant_only=true, limit=1)`.
 
-**Important:** call this fresh for each package at the moment you start working on it. Do NOT pre-fetch this probe for the whole backlog in one pass at the start of a multi-package run — see the "Processing a backlog" note below for why.
+`relevant_only=true` returns only review notes that apply to *this* report — written on it
+(`[this report]`) or on another review with an identical license report (`[same report]`).
+If it returns a note, a previous run already reviewed these exact license findings: **stop**,
+tell the user an existing AI-assisted review note already covers this report (cite the id and
+author), and do NOT fetch the report or write a note. This is the cheap fast-path that makes
+daily runs over the backlog idempotent.
 
-If a `review`-tagged note is returned, stop and tell the user that an existing AI-assisted review note already covers this package (cite the note id and author). Do not call `cavil_get_report` and do not create a new note. This makes the skill idempotent and safe to run daily over the open-review backlog.
+Continue past this step when either:
+- The probe returned no notes (no review applies to the current report yet — first review, or
+  the report's licensing changed since an older review).
+- The user explicitly asked to force a redo (e.g. "redo even if a review note exists").
 
-Only continue past this step when one of the following is true:
-- The probe returned no notes.
-- The user explicitly asked for a redo (for example "redo even if a review note exists", "force re-review", or naming the package after seeing the skip message).
-
-#### Processing a backlog (multiple packages in one run)
-**Notes in Cavil are shared across every package row that has the same `package_name`.** That means three open reviews for `perl-Mojolicious` (different versions, different package_ids) share one note list. If you check all three for existing notes up front, then write to all three in sequence, you end up with three duplicate notes visible on every one of them.
-
-To avoid that, process the backlog **strictly one package at a time**: pick a package, run Step 2 → Step 6 to completion (including the re-check in Step 6), and only then move on to the next package. After you create a note for one version of `perl-Mojolicious`, the next version's Step 2 probe will find it and the skill will correctly skip — exactly the behavior you want.
+You do not need to worry about duplicates beyond this probe: the write in Step 6 is
+**server-guarded** (see below), so even across same-name siblings or parallel runs, a duplicate
+review note cannot be created. There is no need to process the backlog one package at a time.
 
 ### Step 3 - Fetch the report
 Use `cavil_get_report(package_id)` to retrieve the legal report. Review the package metadata, existing reviewer notes, declared primary license, license breakdown, risk notices, and unresolved matches.
@@ -66,9 +69,29 @@ When uncertain, choose NEEDS HUMAN REVIEW.
 
 ### Step 6 - Create a concise note
 
-**Re-check first.** Right before calling `cavil_create_note`, call `cavil_get_notes(package_id, tags=["review"], limit=1)` one more time. If a `review`-tagged note now exists (it may have been added by a sibling package with the same name earlier in this same run, or by a parallel agent), stop and skip the write — do not create a duplicate. This re-check is the load-bearing guard against the same-name-shared-notes race described in Step 2; the Step 2 probe alone is not sufficient because investigation between Step 2 and Step 6 takes time, during which a sibling package's note may have been written.
+Always call it exactly like this:
 
-If the re-check is clear, call `cavil_create_note(package_id, body, tags=["review"])` with a brief Markdown note. The `review` tag is required so future runs of this skill see the note via the Step 2 probe and skip the package. Keep the note readable in the Cavil Notes tab and useful for scanning. Aim for 5-10 lines, not a full report.
+```
+cavil_create_note(package_id, body, tags=["review"], skip_if_existing_tag="review")
+```
+
+`skip_if_existing_tag="review"` makes the write **server-guarded and idempotent**: if an
+up-to-date review note already applies to this report, the server creates nothing and returns a
+message starting with `Skipped:`. Treat a `Skipped:` result as **success** — the existing review
+still stands; report it to the user and move on. Do NOT retry, reword, or try to force the write
+around it. A new note is created only when no review note applies to the current report (first
+review, or the report's licensing changed since the last one). This is the load-bearing guard, so
+you never have to reason about same-name sharing or races yourself.
+
+Add any extra tags the user requested (for example a model tag like `model:gemini-3.5-flash`)
+alongside `review`: `tags=["review", "model:gemini-3.5-flash"]`. The gate keys on `review`.
+
+**Force path:** only if the user explicitly asked to add a note even when one already exists, omit
+`skip_if_existing_tag` so the guard is bypassed.
+
+The `review` tag is required so future runs see the note via the Step 2 probe and the Step 6
+guard. Keep the note readable in the Cavil Notes tab and useful for scanning. Aim for 5-10 lines,
+not a full report.
 
 Use this format:
 
@@ -97,9 +120,8 @@ Confidence: Medium - AI-assisted triage, not a final legal decision.
 ```
 
 ## NOTE WRITING GUIDELINES
-- Always tag the note with `["review"]` so the Step 2 probe can find it next time.
+- Always tag the note with `["review"]` and always pass `skip_if_existing_tag="review"` so the server keeps it to one review note per report.
 - Be brief and specific. Prefer concrete file paths, snippet ids, and license names over general impressions.
-- Before writing, compare your planned note with existing reviewer notes from the report. Avoid duplicate notes. Remember that notes are shared across every package row with the same `package_name`, so a "duplicate" can come from a sibling package_id you handled minutes ago.
 - Use SPDX identifiers where possible, such as MIT, Apache-2.0, GPL-2.0-only, GPL-2.0-or-later, LGPL-2.1-or-later, or AGPL-3.0-only.
 - Do not paste long license excerpts. Summarize why the text matters.
 - Do not include speculative accusations. Use wording like "appears to", "may indicate", or "should verify" for uncertain findings.
@@ -111,6 +133,6 @@ Confidence: Medium - AI-assisted triage, not a final legal decision.
 - Never call `cavil_accept_review` or `cavil_reject_review`.
 - Never call `cavil_propose_ignore_snippet` or `cavil_propose_license_pattern`.
 - Never create lawyer-only notes. `cavil_create_note` creates public AI-assisted notes.
-- Never create a `review`-tagged note on a package that already has one. Notes are shared by `package_name`, so always verify by calling `cavil_get_notes(package_id, tags=["review"], limit=1)` immediately before writing, not just at the start of the workflow.
+- Never try to defeat the duplicate guard. Always create review notes with `skip_if_existing_tag="review"`; if the result is `Skipped:`, accept it and move on — do not reword the note or retry to force a second one. Omit the parameter only when the user explicitly asked to force an additional note.
 - Be conservative. If the situation is ambiguous, recommend NEEDS HUMAN REVIEW.
 - The note should help a lawyer decide what to inspect next, not replace the lawyer's judgment.
