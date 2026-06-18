@@ -1,11 +1,11 @@
 <template>
   <div class="report-notes">
-    <div v-if="showRelevanceFilter" class="report-notes-toolbar" data-notes-toolbar>
+    <div v-if="isMixed" class="report-notes-toolbar" data-notes-toolbar>
       <label class="report-notes-relevance-toggle">
         <input type="checkbox" v-model="relevantOnly" class="form-check-input" data-notes-relevant-only />
         Only relevant notes
       </label>
-      <span class="report-notes-relevance-hint">{{ relevant }} of {{ total }} relevant to this review</span>
+      <span class="report-notes-relevance-hint">{{ relevant }} of {{ total }} relevant to this report</span>
     </div>
     <div v-if="initialLoading" class="report-notes-loading">
       <i class="fa-solid fa-spinner fa-pulse"></i> Loading notes...
@@ -23,9 +23,8 @@
           :class="[
             'report-note',
             {
-              'report-note-relevant': isRelevant(c),
               'report-note-lawyer-only': c.lawyer_only,
-              'report-note-other-report': isFromOtherReport(c) && !isRelevant(c)
+              'report-note-deemphasized': isMixed && isNonRelevant(c)
             }
           ]"
           :data-note-id="c.id"
@@ -74,25 +73,16 @@
               </span>
             </div>
             <div class="report-note-badges">
-              <span
-                v-if="isCurrentReview(c)"
-                class="report-note-badge this-review-badge"
-                title="Written on the review you're viewing"
-                data-note-this-review
-              >
-                <i class="fa-solid fa-location-dot" aria-hidden="true"></i> this review
-              </span>
               <a
                 v-if="isFromOtherReport(c)"
                 class="report-note-badge origin-report-badge"
-                :class="c.same_report ? 'origin-report-badge-relevant' : 'origin-report-badge-other'"
                 :href="reportUrl(c.original_package.id)"
                 target="_blank"
                 rel="noopener"
                 :title="originBadgeTitle(c)"
                 data-note-origin-badge
               >
-                <i class="fa-solid fa-code-branch" aria-hidden="true"></i> from review #{{ c.original_package.id
+                <i class="fa-solid fa-code-branch" aria-hidden="true"></i> from report #{{ c.original_package.id
                 }}<span v-if="isObsoleteOrigin(c)" class="report-note-origin-state" data-note-origin-obsolete>
                   · obsolete</span
                 >
@@ -227,15 +217,18 @@ export default {
     listEndpoint() {
       return this.endpoint || `/reviews/notes/${this.pkgId}`;
     },
-    // Offer the "Only relevant notes" toggle in the per-package view only when
-    // there are non-relevant (other-review) notes to hide.
-    showRelevanceFilter() {
+    // A "mixed" list has both relevant and non-relevant notes. Relevance cues
+    // (de-emphasis + the "Only relevant notes" toggle) only make sense then:
+    // an all-relevant list (the common case during rollout) stays plain, and an
+    // all-irrelevant list isn't dimmed wholesale.
+    isMixed() {
       return (
         this.pkgId !== null &&
         !this.showPackageName &&
         this.total !== null &&
         this.relevant !== null &&
-        this.total > this.relevant
+        this.relevant > 0 &&
+        this.relevant < this.total
       );
     }
   },
@@ -328,21 +321,26 @@ export default {
     isCurrentReview(c) {
       return this.pkgId !== null && c.original_package && c.original_package.id === this.pkgId;
     },
-    // Relevant = written on this review, or inherited from a review with an
+    // Relevant = written on this report, or inherited from a report with an
     // identical license report (so the note applies verbatim).
     isRelevant(c) {
       return this.isCurrentReview(c) || c.same_report === true;
+    },
+    // Inherited from a report with different licensing - de-emphasized in a
+    // mixed list so the relevant notes stand out by contrast.
+    isNonRelevant(c) {
+      return this.isFromOtherReport(c) && !this.isRelevant(c);
     },
     isObsoleteOrigin(c) {
       return !!(c.original_package && c.original_package.state === 'obsolete');
     },
     originBadgeTitle(c) {
       if (c.same_report === true) {
-        return `Identical license report — this note applies to your review. ${this.originTitle(c)}`;
+        return `Identical license report — this note applies to your report. ${this.originTitle(c)}`;
       }
       const state = c.original_package && c.original_package.state;
-      const stateText = state ? ` (review state: ${state})` : '';
-      return `From a review with a different license report${stateText}. ${this.originTitle(c)}`;
+      const stateText = state ? ` (report state: ${state})` : '';
+      return `From a report with different licensing${stateText}. ${this.originTitle(c)}`;
     },
     reloadFromTop() {
       if (this.observer) {
@@ -574,16 +572,16 @@ export default {
   overflow: hidden;
   position: relative;
 }
-/* Relevant = native to this review or identical license report. A calm blue
-   left-border + faint tint, mirroring the lawyer-only treatment. Declared
-   BEFORE .report-note-lawyer-only so amber wins when a note is both. */
-.report-note-relevant {
-  border-left: 4px solid #4493f8;
-  background: linear-gradient(180deg, rgba(221, 244, 255, 0.4) 0%, #ffffff 60px);
+/* In a mixed list, notes inherited from a report with different licensing
+   recede so the relevant ones stand out by contrast. Gentle, and restored on
+   hover/focus so the content stays fully readable when engaged with. */
+.report-note-deemphasized {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
 }
-.report-note-relevant .report-note-header {
-  background: #f3f8ff;
-  border-bottom-color: #cfe3ff;
+.report-note-deemphasized:hover,
+.report-note-deemphasized:focus-within {
+  opacity: 1;
 }
 .report-note-lawyer-only {
   border-left: 4px solid #bf8700;
@@ -715,34 +713,16 @@ export default {
   color: #0550ae;
   text-transform: none;
 }
-/* "this review" badge: blue, the positive counterpart to the origin badge. */
-.report-note-badge.this-review-badge {
-  background: #ddf4ff;
-  border-color: #54aeff66;
-  color: #0550ae;
-  text-transform: none;
-}
+/* Origin badge: a neutral provenance link. Relevance is conveyed by the row
+   (relevant = full contrast, non-relevant = de-emphasized), not the badge. */
 .report-note-badge.origin-report-badge {
-  text-decoration: none;
-  text-transform: none;
-}
-/* Identical license report: blue, "relevant to you". */
-.report-note-badge.origin-report-badge-relevant {
-  background: #ddf4ff;
-  border-color: #54aeff66;
-  color: #0550ae;
-}
-.report-note-badge.origin-report-badge-relevant:hover {
-  background: #b6e3ff;
-  text-decoration: none;
-}
-/* Different license report: muted grey, de-emphasized. */
-.report-note-badge.origin-report-badge-other {
   background: #eaeef2;
   border-color: rgba(110, 119, 129, 0.25);
   color: #57606a;
+  text-decoration: none;
+  text-transform: none;
 }
-.report-note-badge.origin-report-badge-other:hover {
+.report-note-badge.origin-report-badge:hover {
   background: #dde3ea;
   text-decoration: none;
 }

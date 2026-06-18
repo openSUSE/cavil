@@ -88,6 +88,11 @@ unless ($clean) {
   my $checkout = $checkouts->child('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3bad1234')->make_path;
   $_->copy_to($checkout->child($_->basename)) for $test->list->each;
 
+  # Third copy of perl-Mojolicious test checkout (different checksum and content)
+  my $checkout2 = $checkouts->child('perl-Mojolicious', 'ffcfdab0e71b0bebfdf8b2dc3bad12ff')->make_path;
+  $_->copy_to($checkout2->child($_->basename)) for $test->list->each;
+  $checkout2->child('JustATest.pm')->spurt("# SPDX-License-Identifier: BSD-3-Clause\n\n\npackage JustATest;\n\n1;\n");
+
   # "perl-Mojolicious" example data
   my $user_id = $app->users->find_or_create(login => 'test_bot')->{id};
   my $pkgs    = $app->packages;
@@ -121,9 +126,25 @@ unless ($clean) {
   $mojo->{external_link} = 'obs#456713';
   $pkgs->update($mojo);
   $pkgs->unpack($pkg_id);
+  my $mojo3_id = $pkg_id = $pkgs->add(
+    name            => 'perl-Mojolicious',
+    checkout_dir    => 'ffcfdab0e71b0bebfdf8b2dc3bad12ff',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'devel:languages:perl',
+    package         => 'perl-Mojolicious',
+    srcmd5          => 'eecfdab0e71b0bebfdf8b2dc3bad12ff',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  $mojo = $pkgs->find($pkg_id);
+  $mojo->{external_link} = 'obs#456714';
+  $pkgs->update($mojo);
+  $pkgs->unpack($pkg_id);
 
   my $notes = $app->notes;
-  $notes->add($mojo_id, 'perl-Mojolicious', $user_id, "Just a note $_", 0) for 1 .. 25;
+  $notes->add($mojo_id,  'perl-Mojolicious', $user_id, "Just a note $_", 0) for 1 .. 25;
+  $notes->add($mojo3_id, 'perl-Mojolicious', $user_id, 'Another test',   0);
 
   # "ceph-image" example data
   $pkg_id = $pkgs->add(

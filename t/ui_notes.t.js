@@ -104,8 +104,8 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       t.match(await sharedNewest.locator('.report-note-body').innerText(), /First admin reply/);
       t.match(
         await sharedNewest.locator('[data-note-origin-badge]').innerText(),
-        /from review #1/,
-        'note from another review gets an origin badge'
+        /from report #1/,
+        'note from another report gets an origin badge'
       );
       t.equal(await sharedNewest.locator('[data-note-origin-badge]').getAttribute('href'), '/reviews/details/1');
       t.equal(
@@ -228,25 +228,17 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       );
     });
 
-    await t.test('Note relevance cues + Only relevant filter (admin)', async t => {
-      // Native notes (originated on the review being viewed) are highlighted
-      // blue and carry a "this review" badge.
+    await t.test('Note relevance: de-emphasis + Only relevant filter (admin)', async t => {
+      // All-relevant list (the common case): nothing is de-emphasized and there
+      // is no toggle, so the page stays plain.
       await page.goto(`${url}/reviews/details/1`);
       await page.click('[data-tab="notes"]');
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
-      const firstNote = page.locator('.report-note').first();
-      await firstNote.waitFor();
-      t.ok(
-        await firstNote.evaluate(el => el.classList.contains('report-note-relevant')),
-        'native note is highlighted as relevant'
-      );
       t.equal(
-        await firstNote.locator('[data-note-this-review]').count(),
-        1,
-        'native note carries the "this review" badge'
+        await page.locator('.report-note-deemphasized').count(),
+        0,
+        'nothing is de-emphasized when every note is relevant'
       );
-
-      // With every note native there is nothing to hide, so no toggle.
       t.equal(
         await page.locator('[data-notes-relevant-only]').count(),
         0,
@@ -267,37 +259,35 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       t.equal(postResp.status(), 200);
       const inheritedId = (await postResp.json()).note.id;
 
-      // On review #1 that note is inherited: grey origin badge, not relevant.
+      // On review #1 the list is now mixed: the inherited note is de-emphasized
+      // and carries a neutral origin badge back to report #2, while native notes
+      // stay at full contrast.
       await page.goto(`${url}/reviews/details/1`);
       await page.click('[data-tab="notes"]');
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
       const inherited = page.locator(`#note-${inheritedId}`);
       await inherited.waitFor();
-      t.notOk(
-        await inherited.evaluate(el => el.classList.contains('report-note-relevant')),
-        'inherited note from a different report is not marked relevant'
-      );
-      t.equal(
-        await inherited.locator('[data-note-this-review]').count(),
-        0,
-        'inherited note has no "this review" badge'
+      t.ok(
+        await inherited.evaluate(el => el.classList.contains('report-note-deemphasized')),
+        'inherited note from a different report is de-emphasized in a mixed list'
       );
       const originBadge = inherited.locator('[data-note-origin-badge]');
-      t.match(await originBadge.innerText(), /from review #2/, 'inherited note links back to review #2');
-      t.ok(
-        await originBadge.evaluate(el => el.classList.contains('origin-report-badge-other')),
-        'different-report origin badge uses the muted grey variant'
+      t.match(await originBadge.innerText(), /from report #2/, 'inherited note links back to report #2');
+      const nativeNote = page.locator('.report-note').filter({hasText: 'Edited body with'}).first();
+      t.notOk(
+        await nativeNote.evaluate(el => el.classList.contains('report-note-deemphasized')),
+        'a native note stays at full contrast'
       );
 
-      // The toggle now appears; enabling it hides the inherited (grey) note.
+      // The toggle now appears; enabling it hides the inherited note entirely.
       const toggle = page.locator('[data-notes-relevant-only]');
       await toggle.waitFor();
       await toggle.check();
       await page.waitForSelector(`#note-${inheritedId}`, {state: 'detached'});
       t.equal(
-        await page.locator('.report-note:not(.report-note-relevant)').count(),
+        await page.locator('.report-note-deemphasized').count(),
         0,
-        'only relevant notes remain while the filter is on'
+        'no de-emphasized notes remain while the filter is on'
       );
 
       // Turning it off brings the inherited note back.
