@@ -190,6 +190,28 @@
                       </div>
                       <div class="form-check">
                         <input
+                          v-model="licenseOptions.cla"
+                          type="checkbox"
+                          class="form-check-input"
+                          id="cla"
+                          name="cla"
+                          value="1"
+                        />
+                        <label class="form-check-label" for="cla">CLA</label>
+                      </div>
+                      <div class="form-check">
+                        <input
+                          v-model="licenseOptions.eula"
+                          type="checkbox"
+                          class="form-check-input"
+                          id="eula"
+                          name="eula"
+                          value="1"
+                        />
+                        <label class="form-check-label" for="eula">EULA</label>
+                      </div>
+                      <div class="form-check">
+                        <input
                           v-model="licenseOptions.export_restricted"
                           type="checkbox"
                           class="form-check-input"
@@ -305,6 +327,8 @@ export default {
       licenseFocused: false,
       licenses: {},
       licenseOptions: {
+        cla: false,
+        eula: false,
         export_restricted: false,
         patent: false,
         risk: 1,
@@ -471,6 +495,8 @@ export default {
       this.licenseOptions.patent = initial.patent === '1' || initial.patent === true;
       this.licenseOptions.trademark = initial.trademark === '1' || initial.trademark === true;
       this.licenseOptions.export_restricted = initial.export_restricted === '1' || initial.export_restricted === true;
+      this.licenseOptions.cla = initial.cla === '1' || initial.cla === true;
+      this.licenseOptions.eula = initial.eula === '1' || initial.eula === true;
       if (initial.edited !== undefined) this.edited = String(initial.edited);
       if (initial['highlighted-keywords'] !== undefined) {
         this.highlightedKeywords = initial['highlighted-keywords'];
@@ -711,6 +737,8 @@ export default {
       if (this.licenseOptions.patent) formData.patent = '1';
       if (this.licenseOptions.trademark) formData.trademark = '1';
       if (this.licenseOptions.export_restricted) formData.export_restricted = '1';
+      if (this.licenseOptions.cla) formData.cla = '1';
+      if (this.licenseOptions.eula) formData.eula = '1';
       if (this.hash !== null) formData.hash = this.hash;
       if (this.from !== null) formData.from = this.from;
       if (this.package !== null) formData.package = this.package.id;

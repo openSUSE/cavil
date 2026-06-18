@@ -124,15 +124,16 @@ sub find_by_name_and_md5 ($self, $pkg, $md5) {
 sub flags ($self, $id) {
 
   # Only include flags that have a field in the bot_packages table
-  my @flags = qw(patent trademark export_restricted);
+  my @flags = qw(patent trademark export_restricted cla eula);
   my $flags = {map { $_ => 0 } @flags};
 
   my $results = $self->pg->db->query(
     qq{
-      SELECT patent, trademark, export_restricted
+      SELECT patent, trademark, export_restricted, cla, eula
       FROM pattern_matches pm JOIN license_patterns lp ON pm.pattern = lp.id
       WHERE pm.package = ? AND pm.ignored = false
-        AND (lp.patent = true OR lp.trademark = true OR lp.export_restricted = true)
+        AND (lp.patent = true OR lp.trademark = true OR lp.export_restricted = true
+             OR lp.cla = true OR lp.eula = true)
     }, $id
   )->hashes->to_array;
   for my $result (@$results) {
@@ -318,12 +319,22 @@ sub paginate_product_reviews ($self, $name, $options) {
 
   my $trademark = '';
   if ($options->{trademark} eq 'true') {
-    $patent = 'AND trademark = true';
+    $trademark = 'AND trademark = true';
   }
 
   my $export_restricted = '';
   if ($options->{export_restricted} eq 'true') {
     $export_restricted = 'AND export_restricted = true';
+  }
+
+  my $cla = '';
+  if ($options->{cla} eq 'true') {
+    $cla = 'AND cla = true';
+  }
+
+  my $eula = '';
+  if ($options->{eula} eq 'true') {
+    $eula = 'AND eula = true';
   }
 
   my $results = $db->query(
@@ -333,6 +344,7 @@ sub paginate_product_reviews ($self, $name, $options) {
         checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
       WHERE bot_package_products.product = ? $search $attention $unresolved $patent $trademark $export_restricted
+        $cla $eula
       ORDER BY bot_packages.id DESC
       LIMIT ? OFFSET ?
     }, $product->{id}, $options->{limit}, $options->{offset}

@@ -31,15 +31,16 @@ use constant LICENSE_DETAIL_PACKAGE_LIMIT => 1_000;
 sub autocomplete ($self) {
   my $licenses = {};
 
-  my $patterns
-    = $self->pg->db->query('SELECT DISTINCT(license), risk, patent, trademark, export_restricted FROM license_patterns')
-    ->hashes;
+  my $patterns = $self->pg->db->query(
+    'SELECT DISTINCT(license), risk, patent, trademark, export_restricted, cla, eula FROM license_patterns')->hashes;
   for my $pattern ($patterns->each) {
     $licenses->{$pattern->{license}} = {
       risk              => $pattern->{risk},
       patent            => $pattern->{patent},
       trademark         => $pattern->{trademark},
-      export_restricted => $pattern->{export_restricted}
+      export_restricted => $pattern->{export_restricted},
+      cla               => $pattern->{cla},
+      eula              => $pattern->{eula}
     };
   }
   delete $licenses->{''};
@@ -105,6 +106,8 @@ sub create ($self, %args) {
       patent            => $args{patent}            // 0,
       trademark         => $args{trademark}         // 0,
       export_restricted => $args{export_restricted} // 0,
+      cla               => $args{cla}               // 0,
+      eula              => $args{eula}              // 0,
       license           => $args{license}           // '',
       spdx              => $spdx,
       risk              => $args{risk} // 5,
@@ -362,6 +365,8 @@ sub propose_create ($self, %args) {
           patent               => $args{patent}            // '0',
           trademark            => $args{trademark}         // '0',
           export_restricted    => $args{export_restricted} // '0',
+          cla                  => $args{cla}               // '0',
+          eula                 => $args{eula}              // '0',
           ai_assisted          => $args{ai_assisted}       // 0,
           reason               => $args{reason}            // ''
         }
@@ -546,6 +551,8 @@ sub update ($self, $id, %args) {
       patent            => $args{patent}            // 0,
       trademark         => $args{trademark}         // 0,
       export_restricted => $args{export_restricted} // 0,
+      cla               => $args{cla}               // 0,
+      eula              => $args{eula}              // 0,
       risk              => $args{risk}              // 5,
       ($args{owner} ? (owner => $args{owner}) : ())
     },

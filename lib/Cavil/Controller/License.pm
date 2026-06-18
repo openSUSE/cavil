@@ -28,6 +28,8 @@ sub create_pattern ($self) {
   $validation->optional('patent');
   $validation->optional('trademark');
   $validation->optional('export_restricted');
+  $validation->optional('cla');
+  $validation->optional('eula');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $pattern = $validation->param('pattern');
@@ -40,7 +42,9 @@ sub create_pattern ($self) {
     risk              => $validation->param('risk'),
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
-    export_restricted => $validation->param('export_restricted')
+    export_restricted => $validation->param('export_restricted'),
+    cla               => $validation->param('cla'),
+    eula              => $validation->param('eula')
   );
 
   if ($match->{conflict}) {
@@ -112,6 +116,8 @@ sub new_pattern ($self) {
       patent            => 0,
       trademark         => 0,
       export_restricted => 0,
+      cla               => 0,
+      eula              => 0,
       packname          => ''
     }
   );
@@ -197,6 +203,8 @@ sub update_pattern ($self) {
   $validation->optional('patent');
   $validation->optional('trademark');
   $validation->optional('export_restricted');
+  $validation->optional('cla');
+  $validation->optional('eula');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $id       = $self->stash('id');
@@ -213,6 +221,8 @@ sub update_pattern ($self) {
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
     export_restricted => $validation->param('export_restricted'),
+    cla               => $validation->param('cla'),
+    eula              => $validation->param('eula'),
     risk              => $validation->param('risk'),
     owner             => $owner_id
   );
@@ -235,6 +245,8 @@ sub update_pattern_json ($self) {
   $validation->optional('patent');
   $validation->optional('trademark');
   $validation->optional('export_restricted');
+  $validation->optional('cla');
+  $validation->optional('eula');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $id       = $self->stash('id');
@@ -250,6 +262,8 @@ sub update_pattern_json ($self) {
     patent            => $validation->param('patent'),
     trademark         => $validation->param('trademark'),
     export_restricted => $validation->param('export_restricted'),
+    cla               => $validation->param('cla'),
+    eula              => $validation->param('eula'),
     risk              => $validation->param('risk'),
     owner             => $owner_id
   );

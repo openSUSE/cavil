@@ -54,6 +54,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       // Fill the pattern metadata right in the inline editor
       await fillInlinePatternBasics(page, 'Made-Up-License-1.0');
       await page.locator('#inline-snippet-editor input[name="trademark"]').check();
+      await page.locator('#inline-snippet-editor input[name="cla"]').check();
+      await page.locator('#inline-snippet-editor input[name="eula"]').check();
 
       // Queue the create-pattern action (editor closes, indicator + widget appear)
       await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
@@ -86,6 +88,71 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'List licenses');
       await page.click('text=Made-Up-License-1.0');
       t.equal(await page.innerText('title'), 'License details of Made-Up-License-1.0');
+
+      // Flags ticked in the inline editor are persisted and rendered as chips
+      const flagChips = await page.locator('.license-chip-flag').allInnerTexts();
+      t.ok(flagChips.includes('Trademark'), 'Trademark flag chip rendered');
+      t.ok(flagChips.includes('CLA'), 'CLA flag chip rendered');
+      t.ok(flagChips.includes('EULA'), 'EULA flag chip rendered');
+    });
+
+    await t.test('Propose pattern: CLA/EULA flow through proposals page to accepted pattern', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = href.replace('#file-', '');
+      await expandFileDetails(page, fileId);
+
+      // Propose a pattern (Made-Up-License-1.0 at risk 3 was registered in the previous
+      // subtest, satisfying propose-pattern's license+risk existence requirement)
+      await openCreatePatternEditor(page, fileId);
+      await fillInlinePatternBasics(page, 'Made-Up-License-1.0');
+      await page.locator('#inline-snippet-editor input[name="cla"]').check();
+      await page.locator('#inline-snippet-editor input[name="eula"]').check();
+      await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
+      await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
+      await waitForInlineSnippetEditorClosed(page);
+
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      const [proposeResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      t.equal(proposeResp.status(), 200, 'propose-pattern submission succeeds');
+
+      // Proposal arrives on the change proposals page with CLA/EULA pre-checked
+      await page.goto(`${url}/licenses/proposed`);
+      t.equal(await page.innerText('title'), 'Change Proposals');
+      await page.waitForSelector('#proposed-patterns .change-container');
+      const proposal = page.locator('#proposed-patterns .change-container').first();
+      const claCheckbox = proposal.locator('.form-check', {hasText: 'CLA'}).locator('input[type=checkbox]');
+      const eulaCheckbox = proposal.locator('.form-check', {hasText: 'EULA'}).locator('input[type=checkbox]');
+      t.equal(await claCheckbox.isChecked(), true, 'CLA checkbox pre-checked in proposal row');
+      t.equal(await eulaCheckbox.isChecked(), true, 'EULA checkbox pre-checked in proposal row');
+
+      // Accept the proposal and capture the resulting pattern id
+      const [acceptResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        proposal.locator('button.btn-success', {hasText: 'Accept'}).click()
+      ]);
+      t.equal(acceptResp.status(), 200, 'accept request succeeds');
+      const acceptBody = await acceptResp.json();
+      const patternId = acceptBody?.results?.[0]?.id;
+      t.ok(patternId, 'accept response carries the new pattern id');
+
+      // Drain the reindex jobs the accept queued so later subtests see a settled report
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
+
+      // The created pattern's own editor page must show CLA/EULA as set
+      await page.goto(`${url}/licenses/edit_pattern/${patternId}`);
+      await page.waitForSelector('#edit-pattern input[name=cla]');
+      t.equal(await page.locator('#edit-pattern input[name=cla]').isChecked(), true, 'CLA checked on pattern editor');
+      t.equal(await page.locator('#edit-pattern input[name=eula]').isChecked(), true, 'EULA checked on pattern editor');
     });
 
     await t.test('Batch: queue multiple actions, dismiss one, submit the rest', async t => {

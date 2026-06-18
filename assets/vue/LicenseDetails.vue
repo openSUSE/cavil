@@ -289,6 +289,8 @@ export default {
       if (pattern.patent) flags.push('Patent');
       if (pattern.trademark) flags.push('Trademark');
       if (pattern.export_restricted) flags.push('Export restricted');
+      if (pattern.cla) flags.push('CLA');
+      if (pattern.eula) flags.push('EULA');
       return flags;
     },
     countsKnown(pattern) {

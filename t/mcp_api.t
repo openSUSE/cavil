@@ -966,6 +966,8 @@ subtest 'MCP' => sub {
           ->json_is('/changes/0/data/patent',               0)
           ->json_is('/changes/0/data/trademark',            0)
           ->json_is('/changes/0/data/export_restricted',    0)
+          ->json_is('/changes/0/data/cla',                  0)
+          ->json_is('/changes/0/data/eula',                 0)
           ->json_is('/changes/0/data/highlighted_keywords', [])
           ->json_is('/changes/0/data/package',              1)
           ->json_like('/changes/0/data/pattern', qr/terms of the Artistic License version 2.0/)
@@ -978,7 +980,7 @@ subtest 'MCP' => sub {
         $t->app->pg->db->delete('proposed_changes');
         $t->app->pg->db->update(
           'license_patterns',
-          {trademark => 1, patent => 1, export_restricted => 1},
+          {trademark => 1, patent => 1, export_restricted => 1, cla => 1, eula => 1},
           {license   => 'Artistic-2.0'}
         );
 
@@ -1008,6 +1010,8 @@ subtest 'MCP' => sub {
           ->json_is('/changes/0/data/patent',               1)
           ->json_is('/changes/0/data/trademark',            1)
           ->json_is('/changes/0/data/export_restricted',    1)
+          ->json_is('/changes/0/data/cla',                  1)
+          ->json_is('/changes/0/data/eula',                 1)
           ->json_is('/changes/0/data/highlighted_keywords', [])
           ->json_is('/changes/0/data/package',              1)
           ->json_like('/changes/0/data/pattern', qr/terms of the Artistic License version 2.0/)

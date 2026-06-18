@@ -112,6 +112,8 @@ sub product_reviews ($self) {
   $v->optional('patent');
   $v->optional('trademark');
   $v->optional('exportRestricted');
+  $v->optional('cla');
+  $v->optional('eula');
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit              = $v->param('limit')             // 10;
@@ -121,6 +123,8 @@ sub product_reviews ($self) {
   my $patent             = $v->param('patent')            // 'false';
   my $trademark          = $v->param('trademark')         // 'false';
   my $export_restricted  = $v->param('exportRestricted')  // 'false';
+  my $cla                = $v->param('cla')               // 'false';
+  my $eula               = $v->param('eula')              // 'false';
   my $search             = $v->param('filter')            // '';
 
   my $name = $self->stash('name');
@@ -134,6 +138,8 @@ sub product_reviews ($self) {
       patent             => $patent,
       trademark          => $trademark,
       export_restricted  => $export_restricted,
+      cla                => $cla,
+      eula               => $eula,
       search             => $search
     }
   );

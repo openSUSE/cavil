@@ -303,6 +303,8 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
       patent            => $form->{patent},
       trademark         => $form->{trademark},
       export_restricted => $form->{export_restricted},
+      cla               => $form->{cla},
+      eula              => $form->{eula},
       owner             => $owner_id,
       contributor       => $contributor_id
     );
@@ -345,6 +347,8 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
       patent               => $form->{patent},
       trademark            => $form->{trademark},
       export_restricted    => $form->{export_restricted},
+      cla                  => $form->{cla},
+      eula                 => $form->{eula},
       owner                => $owner_id
     );
     return {

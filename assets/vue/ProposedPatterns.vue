@@ -136,6 +136,16 @@
                   </div>
                   <div class="col-lg-2">
                     <div class="form-check">
+                      <input v-model="change.data.cla" type="checkbox" class="form-check-input" />
+                      <label class="form-check-label" for="cla">CLA</label>
+                    </div>
+                    <div class="form-check">
+                      <input v-model="change.data.eula" type="checkbox" class="form-check-input" />
+                      <label class="form-check-label" for="eula">EULA</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-2">
+                    <div class="form-check">
                       <input v-model="change.data.export_restricted" type="checkbox" class="form-check-input" />
                       <label class="form-check-label" for="export_restricted">Export Restricted</label>
                     </div>
@@ -244,7 +254,7 @@ export default {
       formData.delay = 600;
       let kind = null;
       if (change.action === 'create_pattern') {
-        for (const key of ['patent', 'trademark', 'export_restricted']) {
+        for (const key of ['patent', 'trademark', 'export_restricted', 'cla', 'eula']) {
           formData[key] = change.data[key] === true ? '1' : '0';
         }
         formData.checksum = change.token_hexsum;
@@ -291,7 +301,7 @@ export default {
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
 
         if (change.action === 'create_pattern') {
-          for (const key of ['edited', 'patent', 'trademark', 'export_restricted']) {
+          for (const key of ['edited', 'patent', 'trademark', 'export_restricted', 'cla', 'eula']) {
             change.data[key] = change.data[key] === '1' ? true : false;
           }
         } else if (change.action === 'create_ignore') {

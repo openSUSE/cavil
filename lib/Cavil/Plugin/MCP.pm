@@ -411,6 +411,8 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
     patent               => $match->{patent},
     trademark            => $match->{trademark},
     export_restricted    => $match->{export_restricted},
+    cla                  => $match->{cla},
+    eula                 => $match->{eula},
     owner                => $user_id,
     ai_assisted          => 1,
     reason               => "AI Assistant: $reason"

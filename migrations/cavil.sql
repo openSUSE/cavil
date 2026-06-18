@@ -314,3 +314,15 @@ ALTER TABLE api_keys ADD COLUMN can_finalize_reviews boolean DEFAULT false NOT N
 
 -- 37 down
 ALTER TABLE api_keys DROP COLUMN IF EXISTS can_finalize_reviews;
+
+-- 38 up
+ALTER TABLE bot_packages     ADD COLUMN cla  boolean DEFAULT false NOT NULL,
+                             ADD COLUMN eula boolean DEFAULT false NOT NULL;
+ALTER TABLE license_patterns ADD COLUMN cla  boolean DEFAULT false NOT NULL,
+                             ADD COLUMN eula boolean DEFAULT false NOT NULL;
+
+-- 38 down
+ALTER TABLE bot_packages     DROP COLUMN IF EXISTS cla,
+                             DROP COLUMN IF EXISTS eula;
+ALTER TABLE license_patterns DROP COLUMN IF EXISTS cla,
+                             DROP COLUMN IF EXISTS eula;

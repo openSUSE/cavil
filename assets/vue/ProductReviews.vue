@@ -61,6 +61,28 @@
           <div class="col">
             <div class="form-check">
               <input
+                v-model="params.cla"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-cla"
+              />
+              <label class="form-check-label" for="cavil-pkg-cla">CLA</label>
+            </div>
+            <div class="form-check">
+              <input
+                v-model="params.eula"
+                @change="gotoPage(1)"
+                type="checkbox"
+                class="form-check-input"
+                id="cavil-pkg-eula"
+              />
+              <label class="form-check-label" for="cavil-pkg-eula">EULA</label>
+            </div>
+          </div>
+          <div class="col">
+            <div class="form-check">
+              <input
                 v-model="params.exportRestricted"
                 @change="gotoPage(1)"
                 type="checkbox"
@@ -149,6 +171,8 @@ export default {
       patent: false,
       trademark: false,
       exportRestricted: false,
+      cla: false,
+      eula: false,
       filter: ''
     });
 
@@ -201,7 +225,17 @@ export default {
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset', 'attention', 'unresolvedMatches', 'patent', 'trademark', 'exportRestricted'),
+    ...genParamWatchers(
+      'limit',
+      'offset',
+      'attention',
+      'unresolvedMatches',
+      'patent',
+      'trademark',
+      'exportRestricted',
+      'cla',
+      'eula'
+    ),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;

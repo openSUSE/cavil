@@ -104,6 +104,23 @@
                 </div>
                 <div class="col-lg-2">
                   <div class="form-check">
+                    <input v-model="form.cla" type="checkbox" class="form-check-input" id="cla" name="cla" value="1" />
+                    <label class="form-check-label" for="cla">CLA</label>
+                  </div>
+                  <div class="form-check">
+                    <input
+                      v-model="form.eula"
+                      type="checkbox"
+                      class="form-check-input"
+                      id="eula"
+                      name="eula"
+                      value="1"
+                    />
+                    <label class="form-check-label" for="eula">EULA</label>
+                  </div>
+                </div>
+                <div class="col-lg-2">
+                  <div class="form-check">
                     <input
                       v-model="form.export_restricted"
                       type="checkbox"
@@ -203,6 +220,8 @@ export default {
         patent: !!pattern.patent,
         trademark: !!pattern.trademark,
         export_restricted: !!pattern.export_restricted,
+        cla: !!pattern.cla,
+        eula: !!pattern.eula,
         packname: pattern.packname ?? ''
       };
     },
@@ -216,6 +235,8 @@ export default {
       if (this.form.patent) form.patent = '1';
       if (this.form.trademark) form.trademark = '1';
       if (this.form.export_restricted) form.export_restricted = '1';
+      if (this.form.cla) form.cla = '1';
+      if (this.form.eula) form.eula = '1';
       return form;
     },
     async loadMatchCount() {
