@@ -234,6 +234,7 @@ sub startup ($self) {
   $logged_in->get('/reviews/notes/recent'          => [format => ['html', 'json']])
     ->to('Notes#recent', format => 'html')
     ->name('recent_notes');
+  $logged_in->get('/reviews/notes/tags' => [format => ['json']])->to('Notes#tags', format => 'json')->name('note_tags');
   $logged_in->get('/reviews/notes/<id:num>')->to('Notes#list')->name('list_notes');
   $logged_in->post('/reviews/notes/<id:num>')->to('Notes#create')->name('create_note');
   $logged_in->patch('/reviews/notes/<id:num>')->to('Notes#update')->name('update_note');

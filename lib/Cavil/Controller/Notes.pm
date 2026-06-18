@@ -75,11 +75,16 @@ sub recent ($self) {
   $v->optional('before_id')->num;
   return $self->reply->json_validation_error if $v->has_error;
 
+  # An invalid filter (too many/long tags) shouldn't 400 a list view; just
+  # ignore it and show the unfiltered page.
+  my ($tags) = validate_tags($self->_tags_from_params);
+
   my $include_lawyer_only = $self->_can_see_lawyer_only;
   my $page                = $self->notes->recent(
     include_lawyer_only => $include_lawyer_only,
     limit               => $v->param('limit'),
-    before_id           => $v->param('before_id')
+    before_id           => $v->param('before_id'),
+    tags                => $tags
   );
   my $user_id = $self->_current_user_id;
 
@@ -91,6 +96,11 @@ sub recent ($self) {
       can_see_lawyer_only => $include_lawyer_only         ? \1 : \0
     }
   );
+}
+
+sub tags ($self) {
+  my $tags = $self->notes->all_tags(include_lawyer_only => $self->_can_see_lawyer_only);
+  $self->render(json => {tags => $tags});
 }
 
 sub remove ($self) {

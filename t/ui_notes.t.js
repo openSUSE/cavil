@@ -406,6 +406,89 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       );
     });
 
+    await t.test('Recent Notes tag filter + autocomplete (admin)', async t => {
+      // Author two tagged notes through the composer (real user flow) so the
+      // filter and its autocomplete have data: both carry uitag-x, one also
+      // carries uitag-y.
+      await page.goto(`${url}/reviews/details/1`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      const composerTags = page.locator('[data-note-tag-editor="new"]');
+
+      const postNote = async (body, tags) => {
+        for (const tag of tags) {
+          await composerTags.locator('[data-note-tag-input]').fill(tag);
+          await composerTags.locator('[data-note-tag-input]').press('Enter');
+          await composerTags.locator(`[data-note-tag-chip="${tag}"]`).waitFor();
+        }
+        await page.locator('[data-composer-input="new"]').fill(body);
+        const [resp] = await Promise.all([
+          page.waitForResponse(r => /\/reviews\/notes\/1$/.test(r.url()) && r.request().method() === 'POST'),
+          page.locator('[data-composer-save="new"]').click()
+        ]);
+        t.equal(resp.status(), 200);
+        return (await resp.json()).note.id;
+      };
+
+      const idX = await postNote('Filter fixture X only', ['uitag-x']);
+      const idXY = await postNote('Filter fixture X and Y', ['uitag-x', 'uitag-y']);
+
+      // On the Recent Notes page, typing into the filter shows autocomplete
+      // suggestions sourced from the known-tags endpoint.
+      await page.goto(`${url}/reviews/notes/recent`);
+      await page.waitForSelector('#recent-notes .report-note');
+      const filter = page.locator('[data-recent-notes-filter] [data-note-tag-editor="filter"]');
+      await filter.locator('[data-note-tag-input]').fill('uitag-x');
+      await page.locator('[data-tag-suggestion="uitag-x"]').click();
+      await filter.locator('[data-note-tag-chip="uitag-x"]').waitFor();
+
+      // The list narrows to the two notes carrying uitag-x and the URL records
+      // the active filter so the view is shareable.
+      await page.waitForFunction(() => document.querySelectorAll('#recent-notes .report-note').length === 2);
+      t.match(page.url(), /[?&]tags=uitag-x/, 'selected tag is reflected in the URL');
+      const bodies = await page.locator('#recent-notes .report-note-body').allInnerTexts();
+      t.ok(
+        bodies.some(b => b.includes('Filter fixture X only')),
+        'single-tag note shown'
+      );
+      t.ok(
+        bodies.some(b => b.includes('Filter fixture X and Y')),
+        'multi-tag note shown'
+      );
+
+      // Adding a second tag applies an AND filter, narrowing to one note.
+      await filter.locator('[data-note-tag-input]').fill('uitag-y');
+      await page.locator('[data-tag-suggestion="uitag-y"]').click();
+      await filter.locator('[data-note-tag-chip="uitag-y"]').waitFor();
+      await page.waitForFunction(() => document.querySelectorAll('#recent-notes .report-note').length === 1);
+      t.match(
+        await page.locator('#recent-notes .report-note-body').first().innerText(),
+        /Filter fixture X and Y/,
+        'AND filter keeps only the note carrying both tags'
+      );
+
+      // Removing a chip broadens the result set again.
+      await filter.locator('[data-note-tag-remove="uitag-y"]').click();
+      await page.waitForFunction(() => document.querySelectorAll('#recent-notes .report-note').length === 2);
+
+      // Cleanup: delete both fixtures so later subtests see the original counts.
+      await page.goto(`${url}/reviews/details/1`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      for (const id of [idX, idXY]) {
+        page.once('dialog', dialog => dialog.accept());
+        const [resp] = await Promise.all([
+          page.waitForResponse(
+            r => new RegExp(`/reviews/notes/${id}$`).test(r.url()) && r.request().method() === 'DELETE'
+          ),
+          page.locator(`#note-${id} .report-note-delete`).click()
+        ]);
+        t.equal(resp.status(), 200);
+        await page.waitForSelector(`#note-${id}`, {state: 'detached'});
+      }
+      t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '25', 'note count restored to 25');
+    });
+
     await t.test('Notes tab hides lawyer-only data from contributors', async t => {
       // Switch to a contributor-only user; the wrapper route logs in as
       // "contrib_tester" with just the 'contributor' role.

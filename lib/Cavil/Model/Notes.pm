@@ -72,12 +72,31 @@ sub recent ($self, %opts) {
     push @sql,  'AND c.id < ?';
     push @args, $opts{before_id};
   }
+  if (defined $opts{tags} && @{$opts{tags}}) {
+    push @sql,  'AND c.tags @> ?::text[]';
+    push @args, $opts{tags};
+  }
 
   my $rows = $self->_query(join(' ', @sql), \@args, 'ORDER BY c.id DESC LIMIT ?', [$limit + 1]);
 
   my $has_more = @$rows > $limit ? 1 : 0;
   splice @$rows, $limit if $has_more;
   return {notes => $rows, has_more => $has_more};
+}
+
+# Distinct tags across all notes with usage counts, most-used first. Powers the
+# autocomplete suggestions in the note tag editor and the recent-notes filter.
+sub all_tags ($self, %opts) {
+  my $where = $opts{include_lawyer_only} ? '' : 'WHERE lawyer_only = false';
+  return $self->pg->db->query(
+    qq{
+    SELECT unnest(tags) AS tag, COUNT(*)::int AS count
+      FROM package_notes
+      $where
+     GROUP BY tag
+     ORDER BY count DESC, tag
+  }
+  )->hashes->to_array;
 }
 
 sub review_context_for_report ($self, $package_name, $current_author_id, %opts) {

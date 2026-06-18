@@ -538,6 +538,95 @@ subtest 'POST rejects malformed tags' => sub {
   logout($t);
 };
 
+subtest 'all_tags reports distinct tags with counts and honors visibility' => sub {
+
+  # Unique tag names so the assertions stay deterministic regardless of notes
+  # left behind by earlier subtests.
+  my @ids;
+  push @ids,
+    $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'tagstat a', 0, 0, ['zztag-pop', 'zztag-shared'])->{id};
+  push @ids, $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'tagstat b', 0, 0, ['zztag-shared'])->{id};
+  push @ids, $app->notes->add(1, 'perl-Mojolicious', $lawyer_id,  'tagstat c', 1, 0, ['zztag-secret'])->{id};
+
+  my %public = map { $_->{tag} => $_->{count} } @{$app->notes->all_tags};
+  is $public{'zztag-shared'}, 2,     'shared tag counted across both public notes';
+  is $public{'zztag-pop'},    1,     'single-use public tag counted once';
+  is $public{'zztag-secret'}, undef, 'tag only on a lawyer-only note is hidden from the public list';
+
+  my %all = map { $_->{tag} => $_->{count} } @{$app->notes->all_tags(include_lawyer_only => 1)};
+  is $all{'zztag-secret'}, 1, 'lawyer-only tag surfaces when the flag is set';
+
+  # Ordering is count-desc: the shared tag must precede the single-use one.
+  my @ordered     = grep {/^zztag-/} map { $_->{tag} } @{$app->notes->all_tags};
+  my ($pop_at)    = grep { $ordered[$_] eq 'zztag-pop' } 0 .. $#ordered;
+  my ($shared_at) = grep { $ordered[$_] eq 'zztag-shared' } 0 .. $#ordered;
+  ok $shared_at < $pop_at, 'more-used tag is ordered ahead of the less-used one';
+
+  $app->notes->remove($_) for @ids;
+};
+
+subtest 'Tags endpoint gates lawyer-only tags by role' => sub {
+  my @ids;
+  push @ids, $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'ep public', 0, 0, ['zzep-public'])->{id};
+  push @ids, $app->notes->add(1, 'perl-Mojolicious', $lawyer_id,  'ep secret', 1, 0, ['zzep-secret'])->{id};
+
+  login_admin($t);
+  $t->get_ok('/reviews/notes/tags.json')->status_is(200);
+  my %admin = map { $_->{tag} => $_->{count} } @{$t->tx->res->json('/tags')};
+  is $admin{'zzep-public'}, 1, 'admin sees the public tag';
+  is $admin{'zzep-secret'}, 1, 'admin sees the lawyer-only tag';
+  logout($t);
+
+  $t->get_ok('/test/become/contrib_user')->status_is(200);
+  $t->get_ok('/reviews/notes/tags.json')->status_is(200);
+  my %contrib = map { $_->{tag} => $_->{count} } @{$t->tx->res->json('/tags')};
+  is $contrib{'zzep-public'}, 1,     'contributor sees the public tag';
+  is $contrib{'zzep-secret'}, undef, 'contributor never sees the lawyer-only tag';
+  logout($t);
+
+  # Unauthenticated callers are bounced like the rest of the notes API.
+  $t->get_ok('/reviews/notes/tags.json')->status_is(401);
+
+  $app->notes->remove($_) for @ids;
+};
+
+subtest 'Recent feed filters by tag containment' => sub {
+  my $a = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'recent a', 0, 0, ['zzr-pop', 'zzr-shared'])->{id};
+  my $b = $app->notes->add(2, 'perl-Mojolicious', $contrib_id, 'recent b', 0, 0, ['zzr-shared'])->{id};
+  my $c = $app->notes->add(1, 'perl-Mojolicious', $lawyer_id,  'recent c', 1, 0, ['zzr-shared'])->{id};
+
+  # Model: AND semantics + lawyer-only visibility.
+  my $shared = $app->notes->recent(tags => ['zzr-shared']);
+  is scalar(@{$shared->{notes}}), 2, 'public notes carrying the shared tag (lawyer-only hidden)';
+  my $both = $app->notes->recent(tags => ['zzr-pop', 'zzr-shared']);
+  is scalar(@{$both->{notes}}), 1,          'AND filter narrows to the multi-tagged note';
+  is $both->{notes}[0]{body},   'recent a', 'right note returned';
+  my $with_lawyer = $app->notes->recent(tags => ['zzr-shared'], include_lawyer_only => 1);
+  is scalar(@{$with_lawyer->{notes}}), 3, 'lawyer-only note included when the flag is set';
+
+  # HTTP: the Vue UI ships the filter as a tags_json query param.
+  login_admin($t);
+  $t->get_ok('/reviews/notes/recent.json?tags_json=' . '%5B%22zzr-pop%22%5D')->status_is(200);
+  my $popped = $t->tx->res->json('/notes');
+  is scalar(@$popped),   1,          'tags_json filter returns the single matching note';
+  is $popped->[0]{body}, 'recent a', 'correct note over HTTP';
+
+  # A malformed filter degrades to "no filter" rather than erroring.
+  $t->get_ok('/reviews/notes/recent.json?tags_json=' . '%5B%22' . ('x' x 33) . '%22%5D')->status_is(200);
+  ok scalar(@{$t->tx->res->json('/notes')}) >= 1, 'over-long filter tag is ignored, list still returned';
+  logout($t);
+
+  # Contributor filtering the shared tag never sees the lawyer-only note.
+  $t->get_ok('/test/become/contrib_user')->status_is(200);
+  $t->get_ok('/reviews/notes/recent.json?tags_json=' . '%5B%22zzr-shared%22%5D')->status_is(200);
+  my $contrib = $t->tx->res->json('/notes');
+  ok !(grep { $_->{id} == $c } @$contrib), 'contributor tag filter excludes the lawyer-only note';
+  is scalar(@$contrib), 2, 'contributor sees both public shared-tag notes';
+  logout($t);
+
+  $app->notes->remove($_) for ($a, $b, $c);
+};
+
 subtest 'CommonMark renders safely' => sub {
   login_admin($t);
   my $body = "Click [me](javascript:alert(1)) or visit <https://example.com>.\n\n<script>alert(1)</script>";
