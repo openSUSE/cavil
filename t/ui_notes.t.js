@@ -229,8 +229,29 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
     });
 
     await t.test('Note relevance: de-emphasis + Only relevant filter (admin)', async t => {
-      // All-relevant list (the common case): nothing is de-emphasized and there
-      // is no toggle, so the page stays plain.
+      // Every non-relevant note recedes, even when NONE are relevant: review #2
+      // only carries notes inherited from review #1 (different report), so all of
+      // them are de-emphasized and there is no toggle (nothing relevant to keep).
+      await page.goto(`${url}/reviews/details/2`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      t.ok(
+        (await page.locator('.report-note-deemphasized').count()) > 0,
+        'inherited notes are de-emphasized even with no relevant notes present'
+      );
+      t.equal(
+        await page.locator('.report-note:not(.report-note-deemphasized)').count(),
+        0,
+        'all notes recede when every one is inherited from a different report'
+      );
+      t.equal(
+        await page.locator('[data-notes-relevant-only]').count(),
+        0,
+        'no toggle when there are no relevant notes to filter down to'
+      );
+
+      // All-relevant list (review #1, the common case): nothing is de-emphasized
+      // and there is no toggle, so the page stays plain.
       await page.goto(`${url}/reviews/details/1`);
       await page.click('[data-tab="notes"]');
       await page.waitForSelector('#report-notes-pane.is-active .report-note');

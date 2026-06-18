@@ -1,6 +1,6 @@
 <template>
   <div class="report-notes">
-    <div v-if="isMixed" class="report-notes-toolbar" data-notes-toolbar>
+    <div v-if="showRelevanceFilter" class="report-notes-toolbar" data-notes-toolbar>
       <label class="report-notes-relevance-toggle">
         <input type="checkbox" v-model="relevantOnly" class="form-check-input" data-notes-relevant-only />
         Only relevant notes
@@ -24,7 +24,7 @@
             'report-note',
             {
               'report-note-lawyer-only': c.lawyer_only,
-              'report-note-deemphasized': isMixed && isNonRelevant(c)
+              'report-note-deemphasized': isNonRelevant(c)
             }
           ]"
           :data-note-id="c.id"
@@ -217,11 +217,11 @@ export default {
     listEndpoint() {
       return this.endpoint || `/reviews/notes/${this.pkgId}`;
     },
-    // A "mixed" list has both relevant and non-relevant notes. Relevance cues
-    // (de-emphasis + the "Only relevant notes" toggle) only make sense then:
-    // an all-relevant list (the common case during rollout) stays plain, and an
-    // all-irrelevant list isn't dimmed wholesale.
-    isMixed() {
+    // Show the "Only relevant notes" toggle only when filtering would actually
+    // help: there must be both relevant notes to keep and non-relevant ones to
+    // hide. (De-emphasis itself is unconditional - any non-relevant note recedes
+    // whether or not relevant siblings exist.)
+    showRelevanceFilter() {
       return (
         this.pkgId !== null &&
         !this.showPackageName &&
@@ -572,9 +572,9 @@ export default {
   overflow: hidden;
   position: relative;
 }
-/* In a mixed list, notes inherited from a report with different licensing
-   recede so the relevant ones stand out by contrast. Gentle, and restored on
-   hover/focus so the content stays fully readable when engaged with. */
+/* Notes inherited from a report with different licensing recede so the relevant
+   ones stand out. Gentle, and restored on hover/focus so the content stays
+   fully readable when engaged with. */
 .report-note-deemphasized {
   opacity: 0.55;
   transition: opacity 0.15s ease;
