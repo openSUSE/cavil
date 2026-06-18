@@ -116,7 +116,7 @@
                 </svg>
                 <div v-if="dominantLicense" class="license-composition-chart-label">
                   <b>{{ dominantLicense.percent }}%</b>
-                  <span>{{ dominantLicense.name }}</span>
+                  <span v-html="dominantLicense.name_html"></span>
                 </div>
                 <div
                   v-if="licenseChartTooltip"
@@ -131,7 +131,7 @@
                 <li v-for="entry in licenseDistribution" :key="entry.name" class="license-composition-item">
                   <div class="license-composition-item-header">
                     <span class="license-composition-swatch" :style="{backgroundColor: entry.color}"></span>
-                    <span class="license-composition-name">{{ entry.name }}</span>
+                    <span class="license-composition-name" v-html="entry.name_html"></span>
                     <span class="license-composition-percent">{{ entry.percent }}%</span>
                   </div>
                   <div class="license-composition-meter" aria-hidden="true">
@@ -445,8 +445,9 @@ export default {
     licenseDistribution() {
       if (this.chart === null) return [];
 
-      const licenses = this.parseChartArray(this.chart.licenses);
-      const files = this.parseChartArray(this.chart['num-files']).map(value => Number(value));
+      const licenses = this.chart.licenses ?? [];
+      const licensesHtml = this.chart.licenses_html ?? [];
+      const files = (this.chart['num-files'] ?? []).map(value => Number(value));
       const total = files.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
       if (licenses.length === 0 || total === 0) return [];
 
@@ -454,8 +455,10 @@ export default {
       return licenses
         .map((name, index) => {
           const count = Number.isFinite(files[index]) ? files[index] : 0;
+          const cleanName = this.normalizeChartLicenseName(name);
           return {
-            name: this.normalizeChartLicenseName(name),
+            name: cleanName,
+            name_html: licensesHtml[index] ?? cleanName,
             files: count,
             percent: Math.round((count / total) * 100),
             share: (count / total) * 100
@@ -662,16 +665,6 @@ export default {
       const fallback = document.getElementById('file-details-' + file.id);
       const target = indicator || fallback;
       if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
-    },
-    parseChartArray(value) {
-      if (Array.isArray(value)) return value;
-      if (typeof value !== 'string') return [];
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (_) {
-        return [];
-      }
     },
     licenseChartSliceLabel(entry) {
       return `${entry.name}: ${entry.percent}%`;

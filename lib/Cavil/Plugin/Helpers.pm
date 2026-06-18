@@ -21,7 +21,6 @@ use Cavil::ReportUtil qw(minimal_snippet);
 use Cavil::Util       qw(spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
-use Mojo::JSON        qw(to_json);
 use Mojo::Util        qw(decode humanize_bytes xml_escape);
 use List::Util        qw(first uniq);
 
@@ -51,16 +50,17 @@ sub _markdown_to_safe_html ($c, $text) {
 }
 
 sub _chart_data ($c, $hash) {
-  my (@licenses, @num_files, @colours);
+  my (@licenses, @licenses_html, @num_files, @colours);
 
   my @codes = ('#117864', '#85c1e9', '#9b59b6', '#ec7063', '#a3e4d7', '#c39bd3', '#c0392b');
 
   my @sorted_keys = sort { $hash->{$b} <=> $hash->{$a} } keys %$hash;
   while (@sorted_keys) {
     my $first = shift @sorted_keys;
-    push(@licenses,  "$first: $hash->{$first} files");
-    push(@num_files, $hash->{$first});
-    push(@colours,   shift @codes);
+    push(@licenses,      "$first: $hash->{$first} files");
+    push(@licenses_html, spdx_link($first));
+    push(@num_files,     $hash->{$first});
+    push(@colours,       shift @codes);
     delete $hash->{$first};
     last unless @codes;
   }
@@ -72,11 +72,12 @@ sub _chart_data ($c, $hash) {
     $rest += $hash->{$lic};
   }
   if ($rest) {
-    push(@licenses,  "Misc: $rest files");
-    push(@num_files, $rest);
-    push(@colours,   'grey');
+    push(@licenses,      "Misc: $rest files");
+    push(@licenses_html, 'Misc');
+    push(@num_files,     $rest);
+    push(@colours,       'grey');
   }
-  return {licenses => to_json(\@licenses), 'num-files' => to_json(\@num_files), colours => to_json(\@colours)};
+  return {licenses => \@licenses, licenses_html => \@licenses_html, 'num-files' => \@num_files, colours => \@colours};
 }
 
 sub _report_details ($c, $pkg, $report) {
