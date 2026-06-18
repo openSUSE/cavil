@@ -52,6 +52,20 @@ sub list ($self, $package_name, %opts) {
     push @args, $opts{before_id};
   }
 
+  # "Only relevant notes" = native to this review OR from a review with an
+  # identical license report (same bot_packages.checksum). Degrades to
+  # native-only when the current package has no report checksum yet.
+  if ($opts{relevant_only}) {
+    if (defined $opts{checksum}) {
+      push @sql, 'AND (c.package = ? OR p.checksum = ?)';
+      push @args, $opts{package_id}, $opts{checksum};
+    }
+    else {
+      push @sql,  'AND c.package = ?';
+      push @args, $opts{package_id};
+    }
+  }
+
   my $rows = $self->_query(join(' ', @sql), \@args, 'ORDER BY c.id DESC LIMIT ?', [$limit + 1]);
 
   my $has_more = @$rows > $limit ? 1 : 0;
@@ -175,6 +189,26 @@ sub counts ($self, $package_name) {
   )->hash;
 }
 
+# Count of visible notes "relevant" to the given review (native or identical
+# license report), so the UI can gate the "Only relevant notes" toggle and show
+# "N of M". Mirrors the relevant_only predicate in list().
+sub relevant_count ($self, $package_name, $package_id, $checksum, %opts) {
+  my @sql  = ('c.package_name = ?');
+  my @args = ($package_name);
+  push @sql, 'c.lawyer_only = false' unless $opts{include_lawyer_only};
+  if (defined $checksum) {
+    push @sql, '(c.package = ? OR p.checksum = ?)';
+    push @args, $package_id, $checksum;
+  }
+  else {
+    push @sql,  'c.package = ?';
+    push @args, $package_id;
+  }
+  my $sql = 'SELECT COUNT(*)::int AS relevant FROM package_notes c
+              LEFT JOIN bot_packages p ON c.package = p.id WHERE ' . join(' AND ', @sql);
+  return $self->pg->db->query($sql, @args)->hash->{relevant};
+}
+
 sub remove ($self, $id) {
   return $self->pg->db->query('DELETE FROM package_notes WHERE id = ? RETURNING id', $id)->rows;
 }
@@ -202,7 +236,7 @@ sub _query ($self, $extra_sql, $extra_args, $tail_sql = '', $tail_args = []) {
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,
            EXTRACT(EPOCH FROM c.edited)  AS edited_epoch,
-           p.state AS package_state, p.external_link AS package_external_link
+           p.state AS package_state, p.external_link AS package_external_link, p.checksum AS package_checksum
       FROM package_notes c
       JOIN bot_users u ON c.author = u.id
       LEFT JOIN bot_packages p ON c.package = p.id

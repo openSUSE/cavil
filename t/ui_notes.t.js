@@ -228,6 +228,94 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       );
     });
 
+    await t.test('Note relevance cues + Only relevant filter (admin)', async t => {
+      // Native notes (originated on the review being viewed) are highlighted
+      // blue and carry a "this review" badge.
+      await page.goto(`${url}/reviews/details/1`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      const firstNote = page.locator('.report-note').first();
+      await firstNote.waitFor();
+      t.ok(
+        await firstNote.evaluate(el => el.classList.contains('report-note-relevant')),
+        'native note is highlighted as relevant'
+      );
+      t.equal(
+        await firstNote.locator('[data-note-this-review]').count(),
+        1,
+        'native note carries the "this review" badge'
+      );
+
+      // With every note native there is nothing to hide, so no toggle.
+      t.equal(
+        await page.locator('[data-notes-relevant-only]').count(),
+        0,
+        'relevance toggle hidden when all notes are relevant'
+      );
+
+      // Post a note from review #2 so review #1 inherits a non-relevant note
+      // (the fixtures give the two reviews different/empty report checksums, so
+      // it is NOT an identical-report match).
+      await page.goto(`${url}/reviews/details/2`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      await page.locator('[data-composer-input="new"]').fill('Inherited from the version 2 review');
+      const [postResp] = await Promise.all([
+        page.waitForResponse(r => /\/reviews\/notes\/2$/.test(r.url()) && r.request().method() === 'POST'),
+        page.locator('[data-composer-save="new"]').click()
+      ]);
+      t.equal(postResp.status(), 200);
+      const inheritedId = (await postResp.json()).note.id;
+
+      // On review #1 that note is inherited: grey origin badge, not relevant.
+      await page.goto(`${url}/reviews/details/1`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      const inherited = page.locator(`#note-${inheritedId}`);
+      await inherited.waitFor();
+      t.notOk(
+        await inherited.evaluate(el => el.classList.contains('report-note-relevant')),
+        'inherited note from a different report is not marked relevant'
+      );
+      t.equal(
+        await inherited.locator('[data-note-this-review]').count(),
+        0,
+        'inherited note has no "this review" badge'
+      );
+      const originBadge = inherited.locator('[data-note-origin-badge]');
+      t.match(await originBadge.innerText(), /from review #2/, 'inherited note links back to review #2');
+      t.ok(
+        await originBadge.evaluate(el => el.classList.contains('origin-report-badge-other')),
+        'different-report origin badge uses the muted grey variant'
+      );
+
+      // The toggle now appears; enabling it hides the inherited (grey) note.
+      const toggle = page.locator('[data-notes-relevant-only]');
+      await toggle.waitFor();
+      await toggle.check();
+      await page.waitForSelector(`#note-${inheritedId}`, {state: 'detached'});
+      t.equal(
+        await page.locator('.report-note:not(.report-note-relevant)').count(),
+        0,
+        'only relevant notes remain while the filter is on'
+      );
+
+      // Turning it off brings the inherited note back.
+      await toggle.uncheck();
+      await page.waitForSelector(`#note-${inheritedId}`);
+
+      // Cleanup: delete the inherited note so downstream counts stay at 25.
+      page.once('dialog', dialog => dialog.accept());
+      await Promise.all([
+        page.waitForResponse(
+          r => new RegExp(`/reviews/notes/${inheritedId}$`).test(r.url()) && r.request().method() === 'DELETE'
+        ),
+        inherited.locator('.report-note-delete').click()
+      ]);
+      await page.waitForSelector(`#note-${inheritedId}`, {state: 'detached'});
+      t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '25', 'note count restored to 25');
+    });
+
     await t.test('Tag chip input in the composer and edit pane (admin)', async t => {
       await page.goto(`${url}/reviews/details/1`);
       await page.click('[data-tab="notes"]');

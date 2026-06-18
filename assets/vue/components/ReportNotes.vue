@@ -1,5 +1,12 @@
 <template>
   <div class="report-notes">
+    <div v-if="showRelevanceFilter" class="report-notes-toolbar" data-notes-toolbar>
+      <label class="report-notes-relevance-toggle">
+        <input type="checkbox" v-model="relevantOnly" class="form-check-input" data-notes-relevant-only />
+        Only relevant notes
+      </label>
+      <span class="report-notes-relevance-hint">{{ relevant }} of {{ total }} relevant to this review</span>
+    </div>
     <div v-if="initialLoading" class="report-notes-loading">
       <i class="fa-solid fa-spinner fa-pulse"></i> Loading notes...
     </div>
@@ -15,7 +22,11 @@
           :id="`note-${c.id}`"
           :class="[
             'report-note',
-            {'report-note-lawyer-only': c.lawyer_only, 'report-note-other-report': isFromOtherReport(c)}
+            {
+              'report-note-relevant': isRelevant(c),
+              'report-note-lawyer-only': c.lawyer_only,
+              'report-note-other-report': isFromOtherReport(c) && !isRelevant(c)
+            }
           ]"
           :data-note-id="c.id"
         >
@@ -63,16 +74,28 @@
               </span>
             </div>
             <div class="report-note-badges">
+              <span
+                v-if="isCurrentReview(c)"
+                class="report-note-badge this-review-badge"
+                title="Written on the review you're viewing"
+                data-note-this-review
+              >
+                <i class="fa-solid fa-location-dot" aria-hidden="true"></i> this review
+              </span>
               <a
                 v-if="isFromOtherReport(c)"
                 class="report-note-badge origin-report-badge"
+                :class="c.same_report ? 'origin-report-badge-relevant' : 'origin-report-badge-other'"
                 :href="reportUrl(c.original_package.id)"
                 target="_blank"
                 rel="noopener"
                 :title="originBadgeTitle(c)"
                 data-note-origin-badge
               >
-                <i class="fa-solid fa-code-branch" aria-hidden="true"></i> from review #{{ c.original_package.id }}
+                <i class="fa-solid fa-code-branch" aria-hidden="true"></i> from review #{{ c.original_package.id
+                }}<span v-if="isObsoleteOrigin(c)" class="report-note-origin-state" data-note-origin-obsolete>
+                  · obsolete</span
+                >
               </a>
               <span
                 v-if="c.ai_assisted"
@@ -203,6 +226,17 @@ export default {
     },
     listEndpoint() {
       return this.endpoint || `/reviews/notes/${this.pkgId}`;
+    },
+    // Offer the "Only relevant notes" toggle in the per-package view only when
+    // there are non-relevant (other-review) notes to hide.
+    showRelevanceFilter() {
+      return (
+        this.pkgId !== null &&
+        !this.showPackageName &&
+        this.total !== null &&
+        this.relevant !== null &&
+        this.total > this.relevant
+      );
     }
   },
   data() {
@@ -219,6 +253,9 @@ export default {
       lawyerOnly: false,
       tags: [],
       knownTags: [],
+      relevantOnly: false,
+      total: null,
+      relevant: null,
       editingId: null,
       editDraft: '',
       editError: null,
@@ -242,17 +279,13 @@ export default {
     }
   },
   watch: {
-    // Changing the tag filter restarts the keyset scroll from the top, the same
-    // reset semantics the other filtered infinite-scroll pages use.
+    // Changing a filter restarts the keyset scroll from the top, the same reset
+    // semantics the other filtered infinite-scroll pages use.
     filterTags() {
-      if (this.observer) {
-        this.observer.disconnect();
-        this.observer = null;
-      }
-      this.notes = [];
-      this.hasMore = false;
-      this.initialLoading = true;
-      this.loadMore().then(() => this.setupObserver());
+      this.reloadFromTop();
+    },
+    relevantOnly() {
+      this.reloadFromTop();
     }
   },
   methods: {
@@ -292,8 +325,34 @@ export default {
         c.original_package.id !== this.pkgId
       );
     },
+    isCurrentReview(c) {
+      return this.pkgId !== null && c.original_package && c.original_package.id === this.pkgId;
+    },
+    // Relevant = written on this review, or inherited from a review with an
+    // identical license report (so the note applies verbatim).
+    isRelevant(c) {
+      return this.isCurrentReview(c) || c.same_report === true;
+    },
+    isObsoleteOrigin(c) {
+      return !!(c.original_package && c.original_package.state === 'obsolete');
+    },
     originBadgeTitle(c) {
-      return `This note was created on another review for the same package. ${this.originTitle(c)}`;
+      if (c.same_report === true) {
+        return `Identical license report — this note applies to your review. ${this.originTitle(c)}`;
+      }
+      const state = c.original_package && c.original_package.state;
+      const stateText = state ? ` (review state: ${state})` : '';
+      return `From a review with a different license report${stateText}. ${this.originTitle(c)}`;
+    },
+    reloadFromTop() {
+      if (this.observer) {
+        this.observer.disconnect();
+        this.observer = null;
+      }
+      this.notes = [];
+      this.hasMore = false;
+      this.initialLoading = true;
+      this.loadMore().then(() => this.setupObserver());
     },
     setupObserver() {
       const target = this.$refs.sentinel;
@@ -314,6 +373,7 @@ export default {
         const qs = {limit: 20};
         if (this.notes.length > 0) qs.before_id = this.notes[this.notes.length - 1].id;
         if (this.filterTags.length) qs.tags_json = JSON.stringify(this.filterTags);
+        if (this.relevantOnly) qs.relevant_only = 1;
         const res = await this.ua.get(this.listEndpoint, {query: qs});
         if (!res.isSuccess) {
           this.loadError = `Failed to load notes (HTTP ${res.statusCode})`;
@@ -322,6 +382,8 @@ export default {
         const data = await res.json();
         this.notes.push(...data.notes);
         this.hasMore = !!data.has_more;
+        if (data.total !== undefined) this.total = data.total;
+        if (data.relevant !== undefined) this.relevant = data.relevant;
         this.$emit('counts-changed', {total: data.total, lawyer_only: data.lawyer_only});
         await this.$nextTick();
         this.setupObserver();
@@ -512,6 +574,17 @@ export default {
   overflow: hidden;
   position: relative;
 }
+/* Relevant = native to this review or identical license report. A calm blue
+   left-border + faint tint, mirroring the lawyer-only treatment. Declared
+   BEFORE .report-note-lawyer-only so amber wins when a note is both. */
+.report-note-relevant {
+  border-left: 4px solid #4493f8;
+  background: linear-gradient(180deg, rgba(221, 244, 255, 0.4) 0%, #ffffff 60px);
+}
+.report-note-relevant .report-note-header {
+  background: #f3f8ff;
+  border-bottom-color: #cfe3ff;
+}
 .report-note-lawyer-only {
   border-left: 4px solid #bf8700;
   background: linear-gradient(180deg, rgba(255, 244, 207, 0.45) 0%, #ffffff 60px);
@@ -642,16 +715,62 @@ export default {
   color: #0550ae;
   text-transform: none;
 }
-.report-note-badge.origin-report-badge {
+/* "this review" badge: blue, the positive counterpart to the origin badge. */
+.report-note-badge.this-review-badge {
   background: #ddf4ff;
   border-color: #54aeff66;
   color: #0550ae;
+  text-transform: none;
+}
+.report-note-badge.origin-report-badge {
   text-decoration: none;
   text-transform: none;
 }
-.report-note-badge.origin-report-badge:hover {
+/* Identical license report: blue, "relevant to you". */
+.report-note-badge.origin-report-badge-relevant {
+  background: #ddf4ff;
+  border-color: #54aeff66;
+  color: #0550ae;
+}
+.report-note-badge.origin-report-badge-relevant:hover {
   background: #b6e3ff;
   text-decoration: none;
+}
+/* Different license report: muted grey, de-emphasized. */
+.report-note-badge.origin-report-badge-other {
+  background: #eaeef2;
+  border-color: rgba(110, 119, 129, 0.25);
+  color: #57606a;
+}
+.report-note-badge.origin-report-badge-other:hover {
+  background: #dde3ea;
+  text-decoration: none;
+}
+.report-note-origin-state {
+  color: #8c959f;
+  font-style: italic;
+}
+.report-notes-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.report-notes-relevance-toggle {
+  align-items: center;
+  color: #1f2328;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 6px;
+  margin: 0;
+}
+.report-notes-relevance-toggle .form-check-input {
+  margin: 0;
+}
+.report-notes-relevance-hint {
+  color: #57606a;
+  font-size: 12px;
 }
 /* Tag chip + editor styles live in TagInput.vue (imported here), which is the
    canonical home of the tag widget and supplies these .report-note-tag* rules. */

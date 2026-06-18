@@ -15,23 +15,34 @@ sub list ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('before_id')->num;
+  $v->optional('relevant_only')->in('0', '1');
   return $self->reply->json_validation_error if $v->has_error;
 
+  my $relevant_only       = ($v->param('relevant_only') // '0') eq '1';
   my $include_lawyer_only = $self->_can_see_lawyer_only;
   my $page                = $self->notes->list(
     $pkg->{name},
     include_lawyer_only => $include_lawyer_only,
     limit               => $v->param('limit'),
-    before_id           => $v->param('before_id')
+    before_id           => $v->param('before_id'),
+    relevant_only       => $relevant_only,
+    package_id          => $id,
+    checksum            => $pkg->{checksum}
   );
   my $counts  = $self->notes->counts($pkg->{name});
   my $user_id = $self->_current_user_id;
 
+  # Visible relevant count drives the "Only relevant notes" toggle (shown only
+  # when there are non-relevant notes to hide) and its "N of M" hint.
+  my $relevant
+    = $self->notes->relevant_count($pkg->{name}, $id, $pkg->{checksum}, include_lawyer_only => $include_lawyer_only);
+
   $self->render(
     json => {
-      notes    => [map { $self->_format_note($_, $user_id) } @{$page->{notes}}],
+      notes    => [map { $self->_format_note($_, $user_id, $pkg->{checksum}) } @{$page->{notes}}],
       has_more => $page->{has_more}    ? \1               : \0,
       total    => $include_lawyer_only ? $counts->{total} : $counts->{total} - $counts->{lawyer_only},
+      relevant => $relevant,
 
       # Hide the lawyer-only count from viewers who can't see those notes,
       # otherwise the tab amber tint leaks their existence.
@@ -166,16 +177,26 @@ sub _can_post_lawyer_only ($self) {
 # sees the public subset.
 sub _can_see_lawyer_only ($self) { $self->_can_post_lawyer_only }
 
-sub _format_note ($self, $row, $user_id) {
+sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
   my $body_html = $self->markdown_to_safe_html($row->{body});
   my $is_admin  = $self->current_user_has_role('admin');
   my $is_owner  = $user_id && $row->{author_id} == $user_id;
+
+  # True when this note comes from a review with a license report identical to
+  # the one being viewed (same bot_packages.checksum) - so it applies verbatim.
+  # Only meaningful in the per-package report view, which passes a checksum.
+  my $same_report
+    = (defined $current_checksum && defined $row->{package_checksum} && $row->{package_checksum} eq $current_checksum)
+    ? \1
+    : \0;
+
   return {
     id            => $row->{id},
     body          => $row->{body},
     body_html     => $body_html,
     lawyer_only   => $row->{lawyer_only} ? \1 : \0,
     ai_assisted   => $row->{ai_assisted} ? \1 : \0,
+    same_report   => $same_report,
     tags          => $row->{tags} // [],
     package_name  => $row->{package_name},
     can_delete    => ($is_owner || $is_admin) ? \1 : \0,

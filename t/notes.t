@@ -627,6 +627,67 @@ subtest 'Recent feed filters by tag containment' => sub {
   $app->notes->remove($_) for ($a, $b, $c);
 };
 
+subtest 'Relevance: same_report flag and relevant_only filter' => sub {
+  my $db = $app->pg->db;
+
+  # Control the license-report checksums of the two same-name packages so the
+  # relevance logic is deterministic, then restore them at the end.
+  my $orig1 = $app->packages->find(1)->{checksum};
+  my $orig2 = $app->packages->find(2)->{checksum};
+  $db->update('bot_packages', {checksum => 'rep-IDENT'}, {id => 1});
+  $db->update('bot_packages', {checksum => 'rep-IDENT'}, {id => 2});
+
+  # A native note (origin = review #1) and an inherited note from review #2
+  # whose report is currently identical. These two are the newest, so they sit
+  # at the top of the list.
+  my $native = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'relevance native note',    0)->{id};
+  my $ident  = $app->notes->add(2, 'perl-Mojolicious', $contrib_id, 'relevance identical note', 0)->{id};
+
+  login_admin($t);
+
+  # Identical report -> inherited note is flagged relevant; native note too.
+  $t->get_ok('/reviews/notes/1')
+    ->status_is(200)
+    ->json_is('/notes/0/body'                => 'relevance identical note')
+    ->json_is('/notes/0/same_report'         => true)
+    ->json_is('/notes/0/original_package/id' => 2)
+    ->json_is('/notes/1/body'                => 'relevance native note')
+    ->json_is('/notes/1/same_report'         => true)
+    ->json_is('/notes/1/original_package/id' => 1);
+
+  # Make review #2 a DIFFERENT report; its note stops being relevant, the native
+  # one stays relevant (its origin is the current review).
+  $db->update('bot_packages', {checksum => 'rep-OTHER'}, {id => 2});
+  $t->get_ok('/reviews/notes/1')
+    ->status_is(200)
+    ->json_is('/notes/0/body'        => 'relevance identical note')
+    ->json_is('/notes/0/same_report' => false)
+    ->json_is('/notes/1/body'        => 'relevance native note')
+    ->json_is('/notes/1/same_report' => true);
+
+  # The relevant count is below the visible total now that a non-relevant note
+  # exists, which is what gates the "Only relevant notes" toggle in the UI.
+  my $total    = $t->tx->res->json('/total');
+  my $relevant = $t->tx->res->json('/relevant');
+  ok $relevant < $total, 'relevant count is below total when a different-report note exists';
+
+  # relevant_only hides the different-report note and keeps the native one.
+  $t->get_ok('/reviews/notes/1?relevant_only=1')->status_is(200);
+  my $filtered = $t->tx->res->json('/notes');
+  ok((grep { $_->{body} eq 'relevance native note' } @$filtered), 'native note kept under relevant_only');
+  ok(
+    !(grep { $_->{body} eq 'relevance identical note' } @$filtered),
+    'different-report note hidden under relevant_only'
+  );
+  ok(!(grep { $_->{same_report} == false && $_->{original_package}{id} != 1 } @$filtered),
+    'no non-relevant notes survive the relevant_only filter');
+  logout($t);
+
+  $app->notes->remove($_) for ($native, $ident);
+  $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+  $db->update('bot_packages', {checksum => $orig2}, {id => 2});
+};
+
 subtest 'CommonMark renders safely' => sub {
   login_admin($t);
   my $body = "Click [me](javascript:alert(1)) or visit <https://example.com>.\n\n<script>alert(1)</script>";
