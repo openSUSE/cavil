@@ -104,6 +104,19 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
     await t.test('Extend down multiple times — selection grows, button stays under cursor', async t => {
       t.ok(end0, `match has a ▼ button at line ${end0}`);
 
+      // Guarantee room below the report so the cursor-stick watcher's
+      // `window.scrollBy(0, +12)` isn't clipped to zero. Without this, in CI
+      // the ▼ button sits close enough to the document's scroll-max that the
+      // compensation can't actually scroll, drift stays at one row height,
+      // and the test fails. The match-start case above works without help
+      // because it scrolls upward (room above is plentiful).
+      await page.evaluate(() => {
+        const spacer = document.createElement('div');
+        spacer.id = 'test-extend-down-spacer';
+        spacer.style.height = '2000px';
+        document.body.appendChild(spacer);
+      });
+
       let currentLine = end0;
       let referenceTop = null;
 
@@ -132,6 +145,8 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       }
 
       t.equal(currentLine, end0 + 3, 'three clicks incremented the match-end by exactly 3');
+
+      await page.evaluate(() => document.getElementById('test-extend-down-spacer')?.remove());
     });
 
     await t.test('Reset selection in the pulldown undoes the extensions', async t => {
