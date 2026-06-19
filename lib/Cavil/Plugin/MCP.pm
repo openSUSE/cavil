@@ -476,23 +476,22 @@ sub tool_cavil_reject_review ($tool, $args) {
 }
 
 sub _filter_tools ($server, $tools, $context) {
-  my $c                    = $context->{controller};
-  my $write_access         = $c->current_user_has_write_access;
-  my $can_finalize_reviews = $c->current_user_can_finalize_reviews;
-  my $roles                = $c->current_user_roles;
+  my $c      = $context->{controller};
+  my %scopes = map { $_ => 1 } @{$c->current_user_scopes};
+  my $roles  = $c->current_user_roles;
 
   my $filtered = [];
   for my $tool (@$tools) {
     my $name = $tool->name;
     if ($WRITE_ACCESS_TOOLS->{$name}) {
-      next unless $write_access;
+      next unless $scopes{'cavil:write'};
     }
     if (my $check = $WRITE_TOOL_ROLES->{$name}) {
-      next unless $write_access;
+      next unless $scopes{'cavil:write'};
       next unless grep { $check->{$_} } @$roles;
     }
     if ($FINALIZE_REVIEW_TOOLS->{$name}) {
-      next unless $can_finalize_reviews;
+      next unless $scopes{'cavil:reviews.finalize'};
     }
     push @$filtered, $tool;
   }
