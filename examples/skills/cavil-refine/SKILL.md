@@ -72,13 +72,18 @@ Procedure:
 
 When to expand vs. report:
 - **Expand** when you can mark off one complete, coherent license declaration that the fragment belongs to — regardless of its length or numbered structure.
-- **REPORT_TO_USER** only when no single clean license can be isolated: a single snippet itself **straddles two licenses**, the boundaries between licenses stay unclear even with context, the full text is **not actually present** in the file (genuinely truncated, nothing to expand into), or the case needs human legal judgment.
+- **REPORT_TO_USER** only when a block genuinely cannot be patterned as a recognized license: it is **non-standard custom prose** with no clean license, its boundaries stay unclear even with context, the full text is **not actually present** in the file (genuinely truncated, nothing to expand into), or it needs human legal judgment. (A snippet that merely *straddles* two standard blocks is **not** a report case — cover each block and the straddle dissolves; see "Multi-license files".)
 
 Multi-license files (several licenses concatenated):
 - Large `LICENSE` / `COPYING` / dependency files often **concatenate several distinct licenses** (e.g. a full Apache-2.0 body, then a full MIT body, then CC-BY-4.0). A multi-license file is **not** an automatic REPORT_TO_USER, and you must **not** expand across the whole file.
-- Expand the selection to cover **only the single license block that contains your partial match**, then create a pattern for that one license. Use the surrounding context to find that block's real start and end — a heading line ("Apache License, Version 2.0"), a separator, or the blank line before the next license — and stop at the boundary. **Expand cautiously: never spill into the neighboring license.**
-- Handle every other unresolved match in the same file the same way — each fragment is scoped to its own license block and its own pattern. One multi-license file can legitimately yield several patterns, one per license.
-- Only REPORT_TO_USER when a single snippet itself spans the boundary between two licenses (so no single-license selection can contain it), or when the block boundaries genuinely cannot be determined.
+- **Find the block boundaries before choosing line numbers.** Scan the fetched context for the delimiters between licenses:
+  - a **separator line** (`---`, `====`, `* * *`, a row of symbols, or a run of blank lines),
+  - an **end-of-license marker** (e.g. `END OF TERMS AND CONDITIONS`),
+  - the **title line of the next license** (e.g. `MIT License`, `Apache License`, `Creative Commons ...`).
+  The block your fragment belongs to **starts** at its own title/first line (include the title — it is the strongest license signal) and **ends** at the line just before the next delimiter. Pick `start_line`/`end_line` from those exact boundaries.
+- The strategy for the whole file is **cover every block the unresolved snippets touch, do not report the overlaps.** Create one correctly-bounded pattern per such license block (each from its own `cavil_create_snippet` selection). You do **not** need a clean anchor fragment sitting inside each block — a single straddling snippet may be the only thing pointing at a block (e.g. a full MIT body and a CC-BY notice reached only via one straddling match); create a selection and pattern for each block anyway.
+- A snippet that **straddles** two blocks (its keywords span a boundary) does **not** need to be reported and does **not** need its own pattern: once every block it touches is covered by a per-block pattern, those keywords are consumed and the straddling snippet simply disappears on reindex. Reserve REPORT_TO_USER for a block you genuinely cannot pattern — non-standard custom prose (e.g. a project's bespoke relicensing-transition preamble), not a standard license body.
+- **Verify after each `cavil_create_snippet` (this is mandatory for multi-license files).** Read the returned text and confirm it contains **exactly one** license: it must not contain a separator line, must not contain a second license's title, and must not continue past an end-of-license marker. If any of those appear, your `end_line` is too large — recreate with a tighter range. Also sanity-check your line numbers against the file (an `end_line` past the end of the file is a sign you guessed instead of reading the boundary).
 
 Partial matches inside the block do NOT mean it is resolved:
 - A large coherent license text often **already has smaller real pattern matches inside it** — for example the title line declaring the license name ("Apache License, Version 2.0", "Mozilla Public License Version 2.0") may already match an existing pattern, while the body around it is still unresolved. The presence of those partial matches does **not** mean the license is handled; the unresolved fragment in the middle still needs resolving.
@@ -167,7 +172,7 @@ If the file contains the complete, coherent license block, **expand and create o
 
 ### DO NOT ACT ON (Inform User But Take No Action)
 Report to the user (no Cavil action) only when no single clean license can be isolated:
-- A single snippet itself **straddles two or more licenses** in a concatenated file, so no single-license selection can contain it (if instead each license sits in its own block, expand per block — see "Multi-license files" above)
+- A block you cannot pattern as a recognized license: **non-standard custom prose** (e.g. a project's bespoke relicensing-transition preamble) — note that a snippet which merely *straddles* two standard blocks is NOT this case; cover each block per "Multi-license files" above and the straddle dissolves on reindex
 - The full license text is **not actually present** in the file (genuinely truncated — there is nothing to expand into)
 - Ambiguous excerpts whose boundaries or identity stay unclear even after fetching file context
 - Anything else that genuinely needs human legal judgment
@@ -184,15 +189,32 @@ Example (expand if the rest is present, otherwise report):
 - Required action: Fetch context. If the next lines complete the declaration (e.g. "... terms of the GPL-2.0-or-later"), expand and create a pattern; if the text is genuinely truncated and the license is not stated nearby, REPORT_TO_USER.
 - Reason: An unfinished fragment is only a human-review item when the file does not contain the rest of the declaration.
 
-Example (multi-license file — expand per license, do NOT report the file):
-- Input: a concatenated LICENSE file with a full Apache-2.0 body followed by a full MIT body; your fragment matched inside the Apache section.
-- Required action: EXPAND to cover only the Apache-2.0 block (stop before the MIT heading) and create an Apache-2.0 pattern. Handle any fragment in the MIT section the same way, scoped to the MIT block.
-- Reason: Each license sits in its own block, so each can be isolated and patterned individually.
+Example (multi-license file — cover every block, do NOT report the file):
+- Input: a concatenated LICENSE file: a bespoke relicensing preamble, then `---`, a full Apache-2.0 body (title through `END OF TERMS AND CONDITIONS`), then `---`, a full MIT body, then `---`, a short `CC-BY-4.0` notice. One unresolved match landed in the Apache section and another straddles Apache→MIT→CC-BY.
+- Required action: Create one pattern per standard block — Apache-2.0 (selection: its title line through `END OF TERMS AND CONDITIONS`, stopping before the `---`), MIT (its title through the end of its text), and CC-BY-4.0 (the short notice). The straddling snippet needs no action: once all three blocks are patterned its keywords are consumed and it disappears on reindex. REPORT_TO_USER only the bespoke relicensing preamble, which is non-standard prose with no clean SPDX license.
+- Reason: Each standard license is isolated and patterned; overlaps resolve automatically; only the genuinely unpatternable custom prose goes to a human.
 
-Example (no action):
-- Input snippet: one snippet whose text begins inside an Apache-2.0 body and runs into the following MIT body (it crosses the boundary)
-- Required action: REPORT_TO_USER
-- Reason: A single snippet that straddles two licenses cannot be reduced to one clean pattern; this needs human judgment.
+Example (verify the selection):
+- You intended the Apache-2.0 block but `cavil_create_snippet` returned text that includes a `---` line and then `MIT License` / `Creative Commons ...`.
+- Required action: Your `end_line` was too large (it ran past `END OF TERMS AND CONDITIONS` into the next licenses). Recreate with `end_line` at the Apache block's last line.
+- Reason: A snippet must contain exactly one license; a separator or a second license title inside it means the range overshot the boundary.
+
+## LEGALLY-RELEVANT NON-LICENSE TEXT (pseudo-licenses)
+Some snippets are not a software license but are still **legally relevant** and must be captured — not ignored, and (usually) not punted to a human. Cavil ships a set of **pseudo-license names** for exactly this. Treat them like any other license: build a pattern from the snippet and call `cavil_propose_license_pattern` with the pseudo-license as the `license` value. Cavil recognizes these names and applies the correct legal flag (trademark / patent / cla / eula) automatically — you do not set flags yourself. (License names match case-insensitively, and if you get a name slightly wrong the tool replies with the closest matches.)
+
+| Use this `license` value | For standalone … | Typical text |
+| --- | --- | --- |
+| `Any trademark` | trademark ownership notices / disclaimers | "X is a trademark of Y", "All other trademarks are the property of their respective owners", a "Trademark disclaimer" block |
+| `Any Patent` | patent notices / grants / warnings not tied to a specific license | "This product is protected by patents …", standalone patent grant or warning text |
+| `Any CLA` | references to a Contributor License Agreement | "Contributors must sign the … Contributor License Agreement" |
+| `Any EULA` | End User License Agreement text/references | "End User License Agreement", click-through EULA terms |
+
+Build the pattern the same way as for a real license: strip the incidental subject (company/product names, dates, URLs) with `$SKIP` generics and keep the legally meaningful core. Example — snippet "The names and logos for The Kompanee are trademarks of The Kompanee, Ltd." → pattern `The names and logos for $SKIP5 are trademarks of` with `license` = `Any trademark`.
+
+Caveats:
+- Use a pseudo-license only for **standalone** notices. A trademark or patent clause that is **part of a real license body** (e.g. Apache-2.0 §6 "Trademarks", its §3 patent grant) belongs to that license — do not pattern it separately; it is covered when the whole license is recognized/patterned.
+- This **supersedes** REPORT_TO_USER for clear trademark / patent / CLA / EULA notices: prefer the pseudo-license pattern. Only fall back to REPORT_TO_USER when you are unsure whether the text is legally relevant at all.
+- Do not confuse this with merely **descriptive** keyword use ("patent-free codec", "proprietary format" in a product list) — that is still handled by the IGNORE rules below, not a pseudo-license.
 
 ## ⚠️ CRITICAL: When to IGNORE vs REPORT_TO_USER
 
@@ -216,7 +238,8 @@ The ignore tool is ONLY for text that is definitively NOT license-related. If th
 - **Preserved keywords used descriptively in product or project listings**: When preserved keywords (such as "proprietary", "commercial", "Free Software", "patent") appear in README or documentation sections that enumerate products, companies, or projects that use the software — where the keyword describes the product type or business model, not a license grant or restriction. Key signal: no license action verb accompanies the keyword (no "licensed under", "distributed under", "subject to", "permitted", etc.), and the surrounding context is clearly a list of users or examples rather than a license section.
 - **Empty or whitespace-only snippet text**: If the snippet's text field is empty or contains only whitespace, it carries no legal content and is a Cavil indexing artifact. Ignore with reason "empty snippet text, likely a Cavil indexing artifact".
 
-### ❌ NEVER IGNORE - Use REPORT_TO_USER for:
+### ❌ NEVER IGNORE - Use REPORT_TO_USER for (unless a pseudo-license fits — see "LEGALLY-RELEVANT NON-LICENSE TEXT"):
+- **Trademark / patent / CLA / EULA notices** - these are NOT ignorable; prefer a pseudo-license pattern (`Any trademark` / `Any Patent` / `Any CLA` / `Any EULA`), and only REPORT_TO_USER if unsure they are legally relevant
 - **SPDX identifiers not recognized by Cavil** - even if they look like custom references (LicenseRef-*)
 - **Any text containing license keywords** - even if incomplete or unclear
 - **License fragments** - even if you cannot determine which license they belong to
@@ -232,6 +255,13 @@ The ignore tool is ONLY for text that is definitively NOT license-related. If th
 Taking no Cavil action (REPORT_TO_USER) is safe - a human can review it. Using ignore incorrectly removes potentially valid license information from review.
 
 ## PATTERN CREATION GUIDELINES
+
+### Hard tool constraints (the proposal is rejected otherwise)
+`cavil_propose_license_pattern` validates every proposal. Avoid these or the call fails:
+- **The pattern must still match the snippet it is proposed against.** After trimming and inserting `$SKIP` generics, the pattern still has to match the referenced snippet's text (the new expanded snippet, when you expanded). If you stripped too much or changed wording, you get "License pattern does not match the original snippet". When expanding, pattern against the **new** snippet_id, not the original fragment.
+- **A pattern may not begin or end with a `$SKIP` generic** — that is rejected as "redundant $SKIP at beginning or end". Trim the ends to real, legally meaningful words; use `$SKIP` only *between* tokens.
+- **The `license` value must be a known Cavil license** (real SPDX id, SPDX expression, or a pseudo-license like `Any trademark`). On a miss the tool returns the closest matches — pick from those rather than inventing a name.
+- `cavil_create_snippet` only works on files that appear in the report (matched files) and caps the range at 1000 lines.
 
 ### License Identifiers
 - Use SPDX expressions whenever possible (e.g., "MIT", "Apache-2.0", "GPL-2.0-or-later")
@@ -305,6 +335,7 @@ Before creating a new license pattern, verify all of the following:
 - The pattern is shorter than the source snippet and trimmed to the relevant legal fragment
 - Variable text such as names and dates has been removed or replaced with $SKIP5 or $SKIP19 where needed
 - SPDX identifiers are used when the license can be recognized confidently
+- The pattern still **matches** the snippet text and does **not** start or end with `$SKIP` (see "Hard tool constraints")
 - The snippet is a complete, self-contained legal statement and not an unfinished sentence fragment
 - If the source was a fragment of a larger license, you expanded it with `cavil_create_snippet` to cover the complete, coherent license block before patterning (a long or numbered body is fine once it is the whole, single license — but never a fragment of one, and never two licenses at once)
 - **If the snippet contains both a declaration keyword AND a license identifier, verify both are in the pattern**
@@ -329,10 +360,10 @@ publicly perform, list of conditions, under the terms, under the same terms, per
 
 ### How to retrieve context:
 - **Batch approach**: Identify ALL snippets needing context upfront, then retrieve them in parallel (multiple `mcp__cavil__cavil_get_file` calls in one message)
-- Request ±10-20 lines around the snippet's location
+- Request ±10-20 lines around the snippet's location for triage — but when you intend to expand a full license block, fetch enough to see the block's **entire** extent and **both** boundaries (its start title and the next separator/end-marker), widening and re-fetching as needed up to the 1000-line limit. Do not guess an `end_line` you have not actually seen
 - Don't artificially limit yourself - if 8 snippets need context, retrieve all 8
 - Show snippet line numbers in context for clarity
-- If context reveals it's part of a complete license block present in the file, expand it with `cavil_create_snippet` and create one pattern from the full block (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"). In a concatenated multi-license file, scope the expansion to just the one license block containing the match. Only flag as REPORT_TO_USER when the snippet straddles a boundary between two licenses or the full text is not actually present
+- If context reveals it's part of a complete license block present in the file, expand it with `cavil_create_snippet` and create one pattern from the full block (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"). In a concatenated multi-license file, scope each selection to one block and cover every block the unresolved snippets touch — a straddling snippet then dissolves on reindex. Only flag as REPORT_TO_USER for a block you cannot pattern (non-standard custom prose) or text that is not actually present
 
 ### What context often reveals:
 - Truncated snippets may be complete license declarations when viewed with surrounding lines
@@ -354,7 +385,7 @@ publicly perform, list of conditions, under the terms, under the same terms, per
   - Example: "SPDX-License-Identifier: LicenseRef-Qt-Commercial" is a real license reference, not irrelevant text
 - **Multiple licenses in one snippet**:
   - A single *declaration* offering a choice (e.g. "licensed under GPL-2.0-only or MIT") is one pattern — use SPDX expression syntax (e.g., "GPL-2.0-only OR MIT")
-  - Several *full license texts concatenated* in one file are NOT one declaration — expand to and pattern each license block separately (see "Multi-license files" under "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"). Only REPORT_TO_USER when a single snippet straddles the boundary between two of them
+  - Several *full license texts concatenated* in one file are NOT one declaration — expand to and pattern each license block separately (see "Multi-license files" under "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"). A snippet that straddles a boundary needs no separate action; it dissolves once every block it touches is patterned. REPORT_TO_USER only a block you cannot pattern (non-standard custom prose)
 - **Non-English text**: Flag as REPORT_TO_USER if the snippet is not in English or contains non-English legal terms
 - **Code snippets with license macros**: Treat MODULE_LICENSE(), SPDX-License-Identifier:, and similar programmatic declarations as valid license identifiers
 - **Generic redistribution statements**: 
