@@ -154,7 +154,21 @@ sub packages_for_snippet ($self, $id) {
     ->arrays->flatten->to_array;
 }
 
-sub with_context ($self, $id) {
+sub _occurrence ($db, $id, $file_id) {
+  my $sql = 'SELECT fs.package, p.name, sline, eline, file, filename, p.checkout_dir
+     FROM file_snippets fs JOIN matched_files m ON (m.id = fs.file)
+       JOIN bot_packages p ON (p.id = fs.package)
+     WHERE snippet = ?';
+  my @bind = ($id);
+  if (defined $file_id) {
+    $sql .= ' AND fs.file = ?';
+    push @bind, $file_id;
+  }
+  $sql .= ' LIMIT 1';
+  return $db->query($sql, @bind)->hash;
+}
+
+sub with_context ($self, $id, $file_id = undef) {
   return undef unless my $snippet = $self->find($id);
 
   my $text     = $snippet->{text};
@@ -163,13 +177,16 @@ sub with_context ($self, $id) {
   my $matches  = {};
   my $keywords = {};
 
-  my $db      = $self->pg->db;
-  my $example = $db->query(
-    'SELECT fs.package, p.name, sline, eline, file, filename, p.checkout_dir
-     FROM file_snippets fs JOIN matched_files m ON (m.id = fs.file)
-       JOIN bot_packages p ON (p.id = fs.package)
-     WHERE snippet = ? LIMIT 1', $id
-  )->hash;
+  my $db = $self->pg->db;
+
+  # Snippets are deduplicated by content hash, so the same snippet can occur in
+  # many files across many packages, each with its own line numbers. When a
+  # caller knows which occurrence it is showing (file_id), scope the lookup to
+  # that file so the reported line numbers and context match it; otherwise fall
+  # back to an arbitrary occurrence (standalone snippet views).
+  my $example;
+  $example = _occurrence($db, $id, $file_id) if defined $file_id;
+  $example //= _occurrence($db, $id, undef);
 
   if ($example) {
     $sline   = $example->{sline};

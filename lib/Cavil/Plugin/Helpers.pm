@@ -322,7 +322,7 @@ sub _unmatched_keywords ($c, $report) {
       my $snippet = $line->[1]->{snippet};
       my $hash    = $line->[1]->{hash};
 
-      my $minimal = minimal_snippet($snippets->with_context($snippet));
+      my $minimal = minimal_snippet($snippets->with_context($snippet, $file->{id}));
       $unmatched->{$snippet} ||= {path => $path, snippet => $snippet, hash => $hash, text => $minimal->{text},
         line => $minimal->{start_line}};
     }
