@@ -1200,7 +1200,7 @@ subtest 'MCP' => sub {
             package_id => 1,
             snippet_id => 5,
             pattern    => 'terms of the Artistic License version 2.0',
-            license    => 'Artistic-1.0',
+            license    => 'BSD-2-Clause',
             reason     => 'Just a test pattern proposal'
           }
         );
@@ -1222,7 +1222,7 @@ subtest 'MCP' => sub {
         );
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text},
-          "License expression is not in the list of known licenses, closest matches are:\n* Artistic-2.0",
+          "License expression is not in the list of known licenses, closest matches are:\n* Artistic-2.0 (69% match)",
           'unknown license message';
       };
 

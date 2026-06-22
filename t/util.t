@@ -19,9 +19,9 @@ use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
-  qw(buckets lines_context obs_ssh_auth parse_exclude_file parse_service_file pattern_matches),
-  qw(pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd spdx_link ssh_sign),
-  qw(validate_tags)
+  qw(buckets lines_context normalize_license_expr obs_ssh_auth parse_exclude_file parse_service_file),
+  qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
+  qw(spdx_link ssh_sign validate_tags)
 );
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -134,6 +134,40 @@ subtest 'pattern_contains_redundant_skip' => sub {
   ok pattern_contains_redundant_skip('$SKIP foo'),        'redundant $SKIP at beginning';
   ok pattern_contains_redundant_skip('foo $SKIP'),        'redundant $SKIP at end';
   ok !pattern_contains_redundant_skip('foo $SKIP19 bar'), 'no redundant $SKIP';
+};
+
+subtest 'normalize_license_expr' => sub {
+  is normalize_license_expr('MIT'),                 'mit',             'lower-cases a simple identifier';
+  is normalize_license_expr('  GPL-2.0-only '),     'gpl-2.0-only',    'trims surrounding whitespace';
+  is normalize_license_expr("MIT\t AND   MPL-2.0"), 'mit and mpl-2.0', 'collapses internal whitespace';
+  is normalize_license_expr(''),                    '',                'empty string stays empty';
+  is normalize_license_expr('   '),                 '',                'whitespace-only string normalizes to empty';
+
+  subtest '"+" is treated as the SPDX "-or-later"' => sub {
+    is normalize_license_expr('GPL-2.0+'),        'gpl-2.0-or-later',        'trailing "+" on a lone token';
+    is normalize_license_expr('MIT OR GPL-2.0+'), 'gpl-2.0-or-later or mit', 'trailing "+" inside an expression';
+  };
+
+  subtest '"LicenseRef-" prefixes are dropped' => sub {
+    is normalize_license_expr('LicenseRef-MPL-2'),    'mpl-2',    'strips a LicenseRef- prefix';
+    is normalize_license_expr('licenseref-Custom-1'), 'custom-1', 'strips a lower-case licenseref- prefix';
+  };
+
+  subtest 'flat "OR" lists are sorted (commutative)' => sub {
+    is normalize_license_expr('MIT OR Apache-2.0'), 'apache-2.0 or mit', 'two operands are reordered';
+    is normalize_license_expr('GPL-2.0-or-later OR Artistic-1.0-Perl OR MIT'),
+      'artistic-1.0-perl or gpl-2.0-or-later or mit', 'three operands are sorted alphabetically';
+    is normalize_license_expr('Apache-2.0 OR MIT'), normalize_license_expr('MIT OR Apache-2.0'),
+      'reordered OR expressions normalize identically';
+  };
+
+  subtest '"AND"/"WITH"/parentheses are left in original order' => sub {
+    is normalize_license_expr('MIT AND Apache-2.0'), 'mit and apache-2.0', 'AND is not reordered';
+    is normalize_license_expr('GPL-2.0-only WITH Classpath-exception-2.0'),
+      'gpl-2.0-only with classpath-exception-2.0', 'WITH is not reordered';
+    is normalize_license_expr('(MIT OR Apache-2.0) AND GPL-2.0-only'), '(mit or apache-2.0) and gpl-2.0-only',
+      'expressions with parentheses are not reordered';
+  };
 };
 
 subtest 'request_id_from_external_link' => sub {

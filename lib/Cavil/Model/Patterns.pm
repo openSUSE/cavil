@@ -16,17 +16,18 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate pattern_checksum spdx_link);
+use Cavil::Util qw(normalize_license_expr paginate pattern_checksum spdx_link);
 use Mojo::File  qw(path);
 use Mojo::JSON  qw(true false);
 use Spooky::Patterns::XS;
 use Storable;
-use List::Util ();
 
 has [qw(cache log pg minion)];
 
 use constant LICENSE_DETAIL_MATCH_LIMIT   => 10_000;
 use constant LICENSE_DETAIL_PACKAGE_LIMIT => 1_000;
+use constant LICENSE_PREDICTION_THRESHOLD => 0.3;
+use constant LICENSE_PREDICTION_LIMIT     => 10;
 
 sub autocomplete ($self) {
   my $licenses = {};
@@ -49,22 +50,27 @@ sub autocomplete ($self) {
 }
 
 sub closest_licenses ($self, $expr) {
-  my $license  = lc($expr);
   my $licenses = $self->autocomplete;
-  my %lookup   = map { lc($_) => $_ } keys %$licenses;
 
-  # Exact match
-  return {exact => {license => $lookup{$license}, %{$licenses->{$lookup{$license}}}}} if $lookup{$license};
-
-  # Closest matches
-  my $words = [grep { $_ ne 'and' && $_ ne 'or' && $_ ne 'with' } split /\s+/, $license];
-  s/(?:^licenseref-)|(?:(?:-only|-or-later|\+)$)// for @$words;
-  my @matches;
-  for my $candidate (sort { length($b) <=> length($a) } keys %lookup) {
-    next unless List::Util::all { index($candidate, $_) >= 0 } @$words;
-    push @matches, {license => $lookup{$candidate}};
+  # Exact match after normalization (case, whitespace, "+"/"-or-later", "OR" order)
+  my %canonical;
+  $canonical{normalize_license_expr($_)} //= $_ for sort keys %$licenses;
+  my $normalized = normalize_license_expr($expr);
+  return {closest => []} unless length $normalized;
+  if (my $exact = $canonical{$normalized}) {
+    return {exact => {license => $exact, %{$licenses->{$exact}}}};
   }
-  return {closest => \@matches};
+
+  # Otherwise rank known licenses by trigram similarity to the normalized expression
+  my $matches = $self->pg->db->query(
+    "SELECT license, similarity(LOWER(license), ?) AS score
+       FROM (SELECT DISTINCT license FROM license_patterns WHERE license != '') AS known
+      WHERE similarity(LOWER(license), ?) >= ?
+      ORDER BY score DESC, license ASC
+      LIMIT ?", $normalized, $normalized, LICENSE_PREDICTION_THRESHOLD, LICENSE_PREDICTION_LIMIT
+  )->hashes;
+
+  return {closest => [map { {license => $_->{license}, score => $_->{score}} } @$matches]};
 }
 
 sub closest_pattern ($self, $text) {

@@ -326,3 +326,6 @@ ALTER TABLE bot_packages     DROP COLUMN IF EXISTS cla,
                              DROP COLUMN IF EXISTS eula;
 ALTER TABLE license_patterns DROP COLUMN IF EXISTS cla,
                              DROP COLUMN IF EXISTS eula;
+
+-- 39 up
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";

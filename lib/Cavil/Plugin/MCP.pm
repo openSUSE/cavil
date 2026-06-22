@@ -445,7 +445,8 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
   unless ($match) {
     my $closest = $matches->{closest};
     return $tool->text_result('License expression is not in the list of known licenses', 1) unless @$closest;
-    my $closest_list = join("\n", map {"* $_->{license}"} @$closest);
+    my $closest_list
+      = join("\n", map { sprintf('* %s (%d%% match)', $_->{license}, int($_->{score} * 100 + 0.5)) } @$closest);
     return $tool->text_result(
       "License expression is not in the list of known licenses, closest matches are:\n$closest_list", 1);
   }

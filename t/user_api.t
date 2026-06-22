@@ -303,62 +303,77 @@ subtest 'License prediction' => sub {
 
     $exact = $t->app->patterns->closest_licenses('LGPL-2.1-or-later');
     is $exact->{exact}{license}, 'LGPL-2.1-or-later', 'exact identifier match returns -or-later license';
+
+    $exact = $t->app->patterns->closest_licenses('MPL-2.0+');
+    is $exact->{exact}{license}, 'MPL-2.0-or-later', '"+" is treated as the SPDX "-or-later" suffix';
+
+    $exact = $t->app->patterns->closest_licenses('  mit AND   mpl-2.0-only ');
+    is $exact->{exact}{license}, 'MIT AND MPL-2.0-only', 'case and whitespace differences still match exactly';
   };
 
   subtest 'Close matches' => sub {
     my $matches = $t->app->patterns->closest_licenses('MIT LGPL-2.1');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND LGPL-2.1-or-later'],
-      'partial expression matches longer known license';
-
-    $matches = $t->app->patterns->closest_licenses('MIT LGPL-2.1+');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND LGPL-2.1-or-later'],
-      'partial expression matches longer known license';
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND LGPL-2.1-or-later', 'LGPL-2.1-or-later'],
+      'ranks the compound expression above the bare identifier';
 
     $matches = $t->app->patterns->closest_licenses('mit lgpl-2.1-or-later');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND LGPL-2.1-or-later'],
-      'partial expression case-insensitive matches longer known license';
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MIT AND LGPL-2.1-or-later', 'LGPL-2.1-or-later', 'MIT AND MPL-2.0-or-later', 'MPL-2.0-or-later'],
+      'case-insensitive ranking by trigram similarity';
 
     $matches = $t->app->patterns->closest_licenses('GPL-2.0 Classpath-exception-2.0');
     is_deeply [map { $_->{license} } @{$matches->{closest}}], ['GPL-2.0-only WITH Classpath-exception-2.0'],
-      'partial expression matches longer exception license';
+      'ranks the matching WITH-exception license first';
 
     $matches = $t->app->patterns->closest_licenses('MPL-2.0');
     is_deeply [map { $_->{license} } @{$matches->{closest}}],
-      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
-      'returns standalone and compound expressions containing the same base identifier';
+      ['MPL-2.0-only', 'MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MIT AND MPL-2.0-or-later', 'GPL-2.0-only'],
+      'closest standalone identifier ranks ahead of compound expressions';
 
     $matches = $t->app->patterns->closest_licenses('LicenseRef-MPL-2');
     is_deeply [map { $_->{license} } @{$matches->{closest}}],
-      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
-      'returns standalone and compound expressions containing the same base identifier';
-
-    $matches = $t->app->patterns->closest_licenses('MPL-2+');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}],
-      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
-      'returns standalone and compound expressions containing the same base identifier';
-
-    $matches = $t->app->patterns->closest_licenses('MPL-2-only');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}],
-      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
-      'returns standalone and compound expressions containing the same base identifier';
+      ['MPL-2.0-only', 'MPL-2.0-or-later', 'MIT AND MPL-2.0-only'], 'LicenseRef- prefix is stripped before ranking';
 
     $matches = $t->app->patterns->closest_licenses('MPL-2-or-later');
     is_deeply [map { $_->{license} } @{$matches->{closest}}],
-      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
-      'returns standalone and compound expressions containing the same base identifier';
+      ['MPL-2.0-or-later', 'MIT AND MPL-2.0-or-later', 'LGPL-2.1-or-later', 'MIT AND LGPL-2.1-or-later',
+      'MPL-2.0-only'], 'ranks the matching -or-later identifier first';
+
+    $matches = $t->app->patterns->closest_licenses('MPL-2+');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MPL-2.0-or-later', 'MIT AND MPL-2.0-or-later', 'LGPL-2.1-or-later', 'MIT AND LGPL-2.1-or-later',
+      'MPL-2.0-only'], '"+" normalizes to "-or-later" and ranks identically to MPL-2-or-later';
+
+    $matches = $t->app->patterns->closest_licenses('MPL-2-only');
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      ['MPL-2.0-only', 'MIT AND MPL-2.0-only', 'GPL-2.0-only', 'MPL-2.0-or-later'],
+      'ranks the matching -only identifier first';
 
     $matches = $t->app->patterns->closest_licenses('mpl');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}],
-      ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only', 'MPL-2.0-or-later', 'MPL-2.0-only'],
-      'returns standalone and compound expressions containing the same base identifier';
+    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MPL-2.0-only'],
+      'a short fragment only matches the closest identifier above threshold';
 
     $matches = $t->app->patterns->closest_licenses('MIT OR MPL-2.0');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only'],
-      'returns all longer expressions that partially match the query';
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      [
+      'MIT AND MPL-2.0-or-later',
+      'MPL-2.0-or-later',
+      'MIT AND MPL-2.0-only',
+      'MPL-2.0-only',
+      'MIT AND LGPL-2.1-or-later'
+      ],
+      'suggests the closest known expressions for an unknown OR expression';
 
     $matches = $t->app->patterns->closest_licenses('MIT AND MPL-2.0');
-    is_deeply [map { $_->{license} } @{$matches->{closest}}], ['MIT AND MPL-2.0-or-later', 'MIT AND MPL-2.0-only'],
-      'returns all longer expressions that partially match the query';
+    is_deeply [map { $_->{license} } @{$matches->{closest}}],
+      [
+      'MIT AND MPL-2.0-only',
+      'MIT AND MPL-2.0-or-later',
+      'MPL-2.0-only',
+      'MIT AND LGPL-2.1-or-later',
+      'MPL-2.0-or-later'
+      ],
+      'suggests the closest known expressions for an unknown AND expression';
   };
 
   subtest 'No matches' => sub {

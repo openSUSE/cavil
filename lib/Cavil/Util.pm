@@ -29,9 +29,10 @@ use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
 our @EXPORT_OK = (
-  qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context obs_ssh_auth paginate),
-  qw(parse_exclude_file parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip),
-  qw(read_lines request_id_from_external_link run_cmd snippet_checksum spdx_link ssh_sign validate_tags),
+  qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
+  qw(obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum pattern_matches),
+  qw(pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd snippet_checksum),
+  qw(spdx_link ssh_sign validate_tags),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS)
 );
 
@@ -275,6 +276,22 @@ sub pattern_matches ($pattern, $text) {
 
 sub pattern_contains_redundant_skip ($pattern) {
   return $pattern =~ /^\s*\$SKIP/ || $pattern =~ /\$SKIP\d*\s*$/;
+}
+
+# Normalize a license expression for matching: lower-case, collapse whitespace, drop "LicenseRef-"
+# prefixes, treat a trailing "+" as the SPDX "-or-later", and sort the operands of a flat "OR" list
+# (which is commutative, unlike "AND"/"WITH" or anything with parentheses)
+sub normalize_license_expr ($expr) {
+  my $norm = lc $expr;
+  $norm =~ s/^\s+|\s+$//g;
+  $norm =~ s/\s+/ /g;
+  return '' if $norm eq '';
+  $norm =~ s/licenseref-//g;
+  $norm =~ s/\+(?=\s|$)/-or-later/g;
+  if ($norm !~ /[()]/ && $norm !~ /\band\b/ && $norm !~ /\bwith\b/ && $norm =~ /\bor\b/) {
+    $norm = join ' or ', sort split / or /, $norm;
+  }
+  return $norm;
 }
 
 sub read_lines ($path, $start_line, $end_line, $with_line_numbers = 0) {
