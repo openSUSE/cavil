@@ -222,6 +222,10 @@ import ToastNotifier from './components/ToastNotifier.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
+// Accept/reject removes changes from the top without firing a scroll event, so refill the
+// buffer proactively once it drops below this many remaining changes.
+const REFILL_THRESHOLD = 5;
+
 export default {
   name: 'ProposedPatterns',
   components: {BackToTop, CavilNoticePanel, ToastNotifier},
@@ -366,6 +370,13 @@ export default {
     removeChange(change) {
       const i = this.changes.indexOf(change);
       if (i !== -1) this.changes.splice(i, 1);
+      if (this.total !== null && this.total > 0) this.total--;
+      this.refillBuffer();
+    },
+    refillBuffer() {
+      // The list shrinks from the top as proposals are accepted/rejected, which does not trigger
+      // the scroll handler. Pull in the next page before the user runs out of changes to act on.
+      if (this.changes !== null && this.changes.length < REFILL_THRESHOLD) this.loadMore();
     },
     onBeforeLeave(el) {
       el.style.maxHeight = el.scrollHeight + 'px';
