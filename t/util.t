@@ -163,6 +163,15 @@ subtest 'read_lines' => sub {
   is read_lines($file, 1, 3),  "alpha\nb\x{e4}r\ncaf\x{e9}\n", 'reads all requested lines and decodes mixed encodings';
   is read_lines($file, 2, 2),  "b\x{e4}r\n",                   'reads a single line range';
   is read_lines($file, 2, 10), "b\x{e4}r\ncaf\x{e9}\n",        'ignores non-existent lines beyond file end';
+
+  subtest 'with line numbers' => sub {
+    is read_lines($file, 1, 3, 1), "     1  alpha\n     2  b\x{e4}r\n     3  caf\x{e9}\n",
+      'prefixes each line with its absolute line number';
+    is read_lines($file, 2, 2, 1), "     2  b\x{e4}r\n", 'single line keeps its absolute number';
+    is read_lines($file, 2, 10, 1), "     2  b\x{e4}r\n     3  caf\x{e9}\n",
+      'numbering reflects file position, not offset within the range';
+    is read_lines($file, 1, 3, 0), "alpha\nb\x{e4}r\ncaf\x{e9}\n", 'falsy flag is identical to omitting it';
+  };
 };
 
 subtest 'spdx_link' => sub {

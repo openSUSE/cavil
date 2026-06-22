@@ -339,7 +339,7 @@ subtest 'MCP' => sub {
           {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt', start_line => 2, end_line => 2});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        is $text, "second 👌 line\n", 'returns expected line';
+        is $text, "     2  second 👌 line\n", 'returns expected line with line number prefix';
       };
 
       subtest 'Get file content (line range)' => sub {
@@ -347,7 +347,7 @@ subtest 'MCP' => sub {
           {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt', start_line => 2, end_line => 3});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        is $text, "second 👌 line\nthird line\n", 'returns expected line range';
+        is $text, "     2  second 👌 line\n     3  third line\n", 'returns expected line range with line numbers';
       };
 
       subtest 'Get file content (with trailing slash)' => sub {
@@ -355,10 +355,10 @@ subtest 'MCP' => sub {
           = $client->call_tool('cavil_get_file', {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt/'});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        like $text, qr/^first line$/m,    'contains first line';
-        like $text, qr/^second 👌 line$/m, 'contains second line';
-        like $text, qr/^third line$/m,    'contains third line';
-        like $text, qr/^fourth line$/m,   'contains fourth line';
+        like $text, qr/^\s+1  first line$/m,    'contains first line with line number';
+        like $text, qr/^\s+2  second 👌 line$/m, 'contains second line with line number';
+        like $text, qr/^\s+3  third line$/m,    'contains third line with line number';
+        like $text, qr/^\s+4  fourth line$/m,   'contains fourth line with line number';
       };
     };
 
@@ -479,7 +479,7 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 10,                              'ten tools available';
+      is scalar @{$result->{tools}}, 11,                              'eleven tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -490,6 +490,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[7]{name},  'cavil_reject_review',           'right tool name';
       is $result->{tools}[8]{name},  'cavil_propose_ignore_snippet',  'right tool name';
       is $result->{tools}[9]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[10]{name}, 'cavil_create_snippet',          'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -532,7 +533,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 8,                               'eight tools available';
+      is scalar @{$result->{tools}}, 9,                               'nine tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -541,6 +542,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
       is $result->{tools}[6]{name},  'cavil_propose_ignore_snippet',  'right tool name';
       is $result->{tools}[7]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[8]{name},  'cavil_create_snippet',          'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -552,7 +554,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 9,                               'nine tools available';
+      is scalar @{$result->{tools}}, 10,                              'ten tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -562,6 +564,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[6]{name},  'cavil_accept_review',           'right tool name';
       is $result->{tools}[7]{name},  'cavil_propose_ignore_snippet',  'right tool name';
       is $result->{tools}[8]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[9]{name},  'cavil_create_snippet',          'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');
@@ -1265,6 +1268,102 @@ subtest 'MCP' => sub {
             reason     => 'Just a test pattern proposal'
           }
         );
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
+        $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
+      };
+    };
+
+    subtest 'cavil_create_snippet tool' => sub {
+      my $db = $t->app->pg->db;
+
+      subtest 'Create snippet from a matched file' => sub {
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => 'gpl2_file.txt', start_line => 1, end_line => 3});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        my ($snippet_id, $body) = $text =~ /^Snippet (\d+) created:\n\n(.*)$/s;
+        ok $snippet_id, 'returns a new snippet id';
+        $snippet_id = int $snippet_id;
+
+        # Returned snippet text is the raw file content, WITHOUT cavil_get_file line-number prefixes
+        is $body, "# SPDX-License-Identifier: GPL-2.0-only\n\nThis is another test file.",
+          'captured text has no line-number prefixes';
+
+        subtest 'Retrying the same range is idempotent' => sub {
+          my $before
+            = $db->query('SELECT COUNT(*)::int AS c FROM file_snippets WHERE snippet = ?', $snippet_id)->hash->{c};
+          my $again = $client->call_tool('cavil_create_snippet',
+            {package_id => 1, file_path => 'gpl2_file.txt', start_line => 1, end_line => 3});
+          ok !$again->{isError}, 'not an error';
+          my ($again_id) = $again->{content}[0]{text} =~ /^Snippet (\d+) created:/;
+          is $again_id, $snippet_id, 'returns the same snippet id';
+          my $after
+            = $db->query('SELECT COUNT(*)::int AS c FROM file_snippets WHERE snippet = ?', $snippet_id)->hash->{c};
+          is $after, $before, 'no duplicate file_snippets link row created';
+        };
+
+        subtest 'New snippet can drive a license pattern proposal' => sub {
+          $db->delete('proposed_changes');
+          my $propose = $client->call_tool(
+            'cavil_propose_license_pattern',
+            {
+              package_id => 1,
+              snippet_id => $snippet_id,
+              pattern    => 'SPDX-License-Identifier: GPL-2.0-only This is another test file',
+              license    => 'GPL-2.0-only',
+              reason     => 'Captured the full declaration with a larger snippet'
+            }
+          );
+          ok !$propose->{isError}, 'not an error';
+          is $propose->{content}[0]{text}, 'Proposal for new license pattern has been successfully submitted',
+            'proposal submitted from the newly created snippet';
+
+          $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+          $t->get_ok('/licenses/proposed/meta?action=create_pattern')
+            ->status_is(200)
+            ->json_is('/changes/0/data/license', 'GPL-2.0-only')
+            ->json_is('/changes/0/data/snippet', $snippet_id)
+            ->json_like('/changes/0/data/pattern', qr/This is another test file/);
+          $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+          $db->delete('proposed_changes');
+        };
+      };
+
+      subtest 'File not in matched files' => sub {
+
+        # File exists on disk under .unpacked but was never indexed/matched
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt', start_line => 1, end_line => 2});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'File not found in matched files', 'not a matched file message';
+      };
+
+      subtest 'Non-existent package' => sub {
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 99999, file_path => 'gpl2_file.txt', start_line => 1, end_line => 3});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package not found', 'not found message';
+      };
+
+      subtest 'Invalid line range' => sub {
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => 'gpl2_file.txt', start_line => 3, end_line => 1});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Invalid line range', 'invalid range message';
+      };
+
+      subtest 'Maximum line range exceeded' => sub {
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => 'gpl2_file.txt', start_line => 1, end_line => 1002});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Maximum line range exceeded', 'line range limit message';
+      };
+
+      subtest 'Embargoed package' => sub {
+        $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => 'gpl2_file.txt', start_line => 1, end_line => 3});
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
         $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});

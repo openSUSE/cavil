@@ -63,10 +63,22 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   my ($text, $hash) = file_and_checksum($path, $first_line, $last_line);
   my $snippet_id
     = $self->find_or_create({hash => $hash, text => $text, package => $package->{id}, prefix => 'manual:'});
+
+  # Avoid duplicate links when the same range is requested again (e.g. an agent retry)
+  my $exists = $db->select('file_snippets', 'id',
+    {file => $file_id, snippet => $snippet_id, sline => $first_line, eline => $last_line})->hash;
   $db->insert('file_snippets',
-    {package => $package->{id}, snippet => $snippet_id, sline => $first_line, eline => $last_line, file => $file_id});
+    {package => $package->{id}, snippet => $snippet_id, sline => $first_line, eline => $last_line, file => $file_id})
+    unless $exists;
 
   return $snippet_id;
+}
+
+sub from_file_path ($self, $package_id, $filename, $first_line, $last_line) {
+  return undef
+    unless my $file
+    = $self->pg->db->select('matched_files', 'id', {package => $package_id, filename => $filename})->hash;
+  return $self->from_file($file->{id}, $first_line, $last_line);
 }
 
 sub id_for_checksum ($self, $checksum) {

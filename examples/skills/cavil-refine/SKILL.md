@@ -16,9 +16,10 @@ You assist in resolving unresolved matches (snippets of text with identified key
 ## AVAILABLE TOOLS
 You have access to the following MCP tools:
 - `mcp__cavil__cavil_get_report(package_id)` - Fetch the legal report for a package
-- `mcp__cavil__cavil_get_file(package_id, file_path, start_line, end_line)` - Retrieve file content for context (max 1000 lines per call)
+- `mcp__cavil__cavil_get_file(package_id, file_path, start_line, end_line)` - Retrieve file content for context (max 1000 lines per call). Each line is prefixed with its absolute line number for reference; these prefixes are display-only and must NEVER be copied into patterns or snippet text
 - `mcp__cavil__cavil_propose_ignore_snippet(package_id, snippet_id, reason)` - Ignore irrelevant snippets
 - `mcp__cavil__cavil_propose_license_pattern(package_id, snippet_id, pattern, license, reason)` - Create new license patterns
+- `mcp__cavil__cavil_create_snippet(package_id, file_path, start_line, end_line)` - Create a new, larger snippet from a line range in a matched file (for capturing a full license when a match is only a fragment); returns the new snippet_id to use with `cavil_propose_license_pattern`
 - `mcp__cavil__cavil_list_files(package_id, glob?)` - List all files in a package, with an optional glob pattern to filter results (useful to explore available files before fetching content)
 - `mcp__cavil__cavil_get_open_reviews(search)` - List open reviews (if needed to find package_id)
 
@@ -57,6 +58,19 @@ This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON st
    - **IMPORTANT**: When multiple snippets match the same pattern, create the pattern from ONE snippet only. DO NOT propose to ignore the duplicates - Cavil will automatically match them when it reindexes the report after the pattern is created
    - **NEVER use Cavil tools** for snippets flagged as REPORT_TO_USER - only report them in your summary to the user
 8. **Report summary**: Provide metrics (X ignored, Y patterns created, Z flagged for review, G globs proposed) and a concise table or list of all actions taken. Note how many duplicate snippets will be automatically resolved by pattern reindexing. If any glob candidates were identified during triage, include a "PROPOSED GLOBS TO EXCLUDE" section (see "FILE-LEVEL EXCLUSIONS" below).
+
+## EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS
+Many unresolved matches are only a fragment from the **middle** of a larger license text — a few keywords matched, so the snippet captured just those lines, not the whole declaration. A pattern built from such a fragment is weak. When the surrounding context (from `cavil_get_file`) shows the snippet is part of a complete, self-contained license block, create a larger snippet covering the whole block and build the pattern from that instead.
+
+Procedure:
+1. From the report, note the fragment's anchor line (the `Line:` marker) and `file_path`.
+2. Call `cavil_get_file` around that anchor to read the full block. Use the **line-number prefixes** in the output to read off the exact first and last line of the complete license text (extend the range and re-fetch if the block runs past what you retrieved).
+3. Call `cavil_create_snippet(package_id, file_path, first_line, last_line)` with those boundaries. It returns the new `snippet_id` and the captured text — verify the text covers the whole declaration and nothing extraneous.
+4. Call `cavil_propose_license_pattern` against the **new** `snippet_id`.
+
+Notes:
+- NEVER include the `cavil_get_file` line-number prefixes in the pattern or in your reasoning about snippet text — they are not part of the file content. (A pattern containing them will be rejected because it won't match the stored snippet.)
+- Only expand when the larger region is genuinely a single coherent license declaration. Do not expand to engulf unrelated code, multiple separate licenses, or long numbered-condition prose that you would not turn into a pattern anyway.
 
 ## BATCH PROCESSING
 - Process all snippets in one pass rather than one-by-one

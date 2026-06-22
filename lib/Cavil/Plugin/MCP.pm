@@ -14,7 +14,8 @@ my $WRITE_TOOL_ROLES = {
   cavil_accept_review           => {admin => 1, lawyer => 1, manager => 1},
   cavil_reject_review           => {admin => 1, lawyer => 1},
   cavil_propose_ignore_snippet  => {admin => 1, lawyer => 1, contributor => 1},
-  cavil_propose_license_pattern => {admin => 1, lawyer => 1, contributor => 1}
+  cavil_propose_license_pattern => {admin => 1, lawyer => 1, contributor => 1},
+  cavil_create_snippet          => {admin => 1, lawyer => 1, contributor => 1}
 };
 my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
 
@@ -52,7 +53,9 @@ sub register ($self, $app, $config) {
   $mcp->tool(
     name        => 'cavil_get_file',
     description =>
-      'Get the content of a specific file in the package, no more than 1000 lines can be retrieved at once',
+      'Get the content of a specific file in the package, no more than 1000 lines can be retrieved at once. Each'
+      . ' line is prefixed with its absolute line number for reference (e.g. when calling cavil_create_snippet);'
+      . ' these prefixes are display-only and must never be included in license patterns or snippet text',
     input_schema => {
       type       => 'object',
       properties => {
@@ -164,6 +167,25 @@ sub register ($self, $app, $config) {
     },
     code => \&tool_cavil_propose_license_pattern
   );
+  $mcp->tool(
+    name        => 'cavil_create_snippet',
+    description =>
+      'Create a new snippet from a line range in a matched file. Use this to capture a larger region than an existing'
+      . ' snippet covers, e.g. when an unresolved match is only a fragment in the middle of a full license text. Use'
+      . ' cavil_get_file to locate the exact start and end line numbers first. Returns the new snippet id, which can'
+      . ' then be used with cavil_propose_license_pattern',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        package_id => {type => 'integer', minimum => 1},
+        file_path  => {type => 'string'},
+        start_line => {type => 'integer', minimum => 1},
+        end_line   => {type => 'integer', minimum => 1}
+      },
+      required => ['package_id', 'file_path', 'start_line', 'end_line']
+    },
+    code => \&tool_cavil_create_snippet
+  );
 
   return $mcp->to_action;
 }
@@ -254,7 +276,7 @@ sub tool_cavil_get_file ($tool, $args) {
   return $tool->text_result('File not found',                  1) unless -e $file;
   return $tool->text_result('Path is a directory, not a file', 1) if -d $file;
 
-  return $tool->text_result(read_lines($file, $start_line, $end_line));
+  return $tool->text_result(read_lines($file, $start_line, $end_line, 1));
 }
 
 sub tool_cavil_list_files ($tool, $args) {
@@ -452,6 +474,26 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
   return $tool->text_result('Conflicting license pattern proposal already exists', 1) if $result->{proposal_conflict};
 
   return 'Proposal for new license pattern has been successfully submitted';
+}
+
+sub tool_cavil_create_snippet ($tool, $args) {
+  my $id         = $args->{package_id};
+  my $path       = $args->{file_path};
+  my $start_line = $args->{start_line};
+  my $end_line   = $args->{end_line};
+  my $c          = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+
+  return $tool->text_result('Invalid line range',          1) if $start_line > $end_line;
+  return $tool->text_result('Maximum line range exceeded', 1) if ($end_line - $start_line) > 1000;
+
+  # A matched file is required (it also guarantees the file was unpacked and indexed)
+  return $tool->text_result('File not found in matched files', 1)
+    unless defined(my $snippet_id = $c->snippets->from_file_path($id, $path, $start_line, $end_line));
+
+  my $snippet = $c->snippets->find($snippet_id);
+  return "Snippet $snippet_id created:\n\n$snippet->{text}";
 }
 
 sub tool_cavil_reject_review ($tool, $args) {

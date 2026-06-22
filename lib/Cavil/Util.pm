@@ -277,7 +277,7 @@ sub pattern_contains_redundant_skip ($pattern) {
   return $pattern =~ /^\s*\$SKIP/ || $pattern =~ /\$SKIP\d*\s*$/;
 }
 
-sub read_lines ($path, $start_line, $end_line) {
+sub read_lines ($path, $start_line, $end_line, $with_line_numbers = 0) {
   my %needed_lines;
   for (my $line = $start_line; $line <= $end_line; $line += 1) {
     $needed_lines{$line} = 1;
@@ -293,7 +293,9 @@ sub read_lines ($path, $start_line, $end_line) {
       from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
-    $text .= "$line\n";
+
+    # Prefix the absolute line number for reference (display-only, must not leak into patterns/snippets)
+    $text .= $with_line_numbers ? sprintf("%6d  %s\n", $index, $line) : "$line\n";
   }
   return $text;
 }
