@@ -237,8 +237,7 @@ sub relevant_tagged_note ($self, $package_name, $package_id, $checksum, $tag, %o
   }
   my $sql = 'SELECT c.id FROM package_notes c
               LEFT JOIN bot_packages p ON c.package = p.id WHERE '
-    . join(' AND ', @sql)
-    . ' ORDER BY c.id DESC LIMIT 1';
+    . join(' AND ', @sql) . ' ORDER BY c.id DESC LIMIT 1';
   my $row = $self->pg->db->query($sql, @args)->hash;
   return $row ? $row->{id} : undef;
 }
