@@ -56,13 +56,28 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
         return el ? el.getBoundingClientRect().top : null;
       }, id);
 
-    // After a click, the source refetch is async; once the new button is in
-    // the DOM the scroll-compensation watcher still has a $nextTick + 2 rAF
-    // tail to run before measuring is meaningful. Match that wait plus one
-    // extra to ensure the scroll itself is applied.
+    // After a click, the source refetch is async and the scroll-compensation
+    // watcher re-aligns the button across several frames (it keeps correcting
+    // until the freshly laid-out rows stop shifting). A fixed rAF count races
+    // that on a loaded machine, so wait for the page to actually go quiescent:
+    // poll until window.scrollY holds steady for two consecutive frames.
     const waitForCompensation = () =>
       page.evaluate(
-        () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))))
+        () =>
+          new Promise(resolve => {
+            let prev = null;
+            let stable = 0;
+            let frames = 0;
+            const tick = () => {
+              const y = window.scrollY;
+              if (prev !== null && Math.abs(y - prev) <= 0.5) stable += 1;
+              else stable = 0;
+              prev = y;
+              if (stable >= 2 || (frames += 1) > 60) resolve();
+              else requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+          })
       );
 
     const start0 = await readStartLine();

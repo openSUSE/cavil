@@ -213,23 +213,29 @@ export default {
       const {kind, targetLine, beforeTop} = this.pendingCompensation;
       this.pendingCompensation = null;
       this.$nextTick(() => {
-        // Two rAFs: the first lands after Vue's DOM patch; layout reflow
-        // for the freshly-inserted/removed table rows finishes by the second.
-        // Measuring on the first frame can produce ~5px drift for ▼ on
-        // multi-click sequences when the row above settles late.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const id =
-              kind === 'one-line-above'
-                ? `extend-up-${this.fileId}-${targetLine}`
-                : `extend-down-${this.fileId}-${targetLine}`;
-            const btn = document.getElementById(id);
-            if (!btn) return;
-            const afterTop = btn.getBoundingClientRect().top;
-            const delta = afterTop - beforeTop;
-            if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
-          });
-        });
+        const id =
+          kind === 'one-line-above'
+            ? `extend-up-${this.fileId}-${targetLine}`
+            : `extend-down-${this.fileId}-${targetLine}`;
+        // Re-align every frame until the button sits back under the cursor and
+        // stays there. A single deferred measurement is fragile: on a loaded
+        // machine the freshly inserted/removed rows can still be mid-reflow,
+        // and measuring then yields a wildly wrong delta that hurls the page
+        // hundreds of px away. Correcting each frame instead means the first
+        // pass (off the synchronous getBoundingClientRect layout flush) absorbs
+        // the bulk of the shift immediately, and any residual from a late
+        // reflow (web-font / row-height settling) is mopped up on following
+        // frames. Stop once aligned, capped so it can never spin forever.
+        let frames = 0;
+        const align = () => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          const delta = btn.getBoundingClientRect().top - beforeTop;
+          if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+          else if (frames > 0) return;
+          if (++frames <= 10) requestAnimationFrame(align);
+        };
+        align();
       });
     }
   },
