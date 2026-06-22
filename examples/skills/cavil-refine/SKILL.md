@@ -71,8 +71,14 @@ Procedure:
 4. Call `cavil_propose_license_pattern` against the **new** `snippet_id`. For a long body you may still trim an incidental lead-in/trail-off and replace variable parts (names, dates, URLs) with `$SKIP` generics, but keep the legally meaningful body intact.
 
 When to expand vs. report:
-- **Expand** when the file contains one complete, coherent license declaration that the fragment belongs to — regardless of its length or numbered structure.
-- **REPORT_TO_USER** only when expansion cannot produce a single clean license: the region mixes **multiple distinct licenses**, the full text is **not actually present** in the file (genuinely truncated, nothing to expand into), the boundaries stay unclear even with context, or the case needs human legal judgment.
+- **Expand** when you can mark off one complete, coherent license declaration that the fragment belongs to — regardless of its length or numbered structure.
+- **REPORT_TO_USER** only when no single clean license can be isolated: a single snippet itself **straddles two licenses**, the boundaries between licenses stay unclear even with context, the full text is **not actually present** in the file (genuinely truncated, nothing to expand into), or the case needs human legal judgment.
+
+Multi-license files (several licenses concatenated):
+- Large `LICENSE` / `COPYING` / dependency files often **concatenate several distinct licenses** (e.g. a full Apache-2.0 body, then a full MIT body, then CC-BY-4.0). A multi-license file is **not** an automatic REPORT_TO_USER, and you must **not** expand across the whole file.
+- Expand the selection to cover **only the single license block that contains your partial match**, then create a pattern for that one license. Use the surrounding context to find that block's real start and end — a heading line ("Apache License, Version 2.0"), a separator, or the blank line before the next license — and stop at the boundary. **Expand cautiously: never spill into the neighboring license.**
+- Handle every other unresolved match in the same file the same way — each fragment is scoped to its own license block and its own pattern. One multi-license file can legitimately yield several patterns, one per license.
+- Only REPORT_TO_USER when a single snippet itself spans the boundary between two licenses (so no single-license selection can contain it), or when the block boundaries genuinely cannot be determined.
 
 Partial matches inside the block do NOT mean it is resolved:
 - A large coherent license text often **already has smaller real pattern matches inside it** — for example the title line declaring the license name ("Apache License, Version 2.0", "Mozilla Public License Version 2.0") may already match an existing pattern, while the body around it is still unresolved. The presence of those partial matches does **not** mean the license is handled; the unresolved fragment in the middle still needs resolving.
@@ -81,7 +87,7 @@ Partial matches inside the block do NOT mean it is resolved:
 
 Notes:
 - NEVER include the `cavil_get_file` line-number prefixes in the pattern or in your reasoning about snippet text — they are not part of the file content. (A pattern containing them will be rejected because it won't match the stored snippet.)
-- Expand to exactly **one** coherent license. Do not expand to engulf unrelated code or two separate license blocks in a single snippet.
+- Expand to exactly **one** coherent license block — even inside a multi-license file. Do not engulf unrelated code or a neighboring license.
 
 ## BATCH PROCESSING
 - Process all snippets in one pass rather than one-by-one
@@ -160,8 +166,8 @@ Snippets that look like fragments of a larger license text are **expansion candi
 If the file contains the complete, coherent license block, **expand and create one pattern from the full block — even if it is long or numbered.** Reserve REPORT_TO_USER for the cases below.
 
 ### DO NOT ACT ON (Inform User But Take No Action)
-Report to the user (no Cavil action) only when expansion cannot produce a single clean license:
-- The region mixes **multiple distinct licenses** that cannot be captured as one declaration
+Report to the user (no Cavil action) only when no single clean license can be isolated:
+- A single snippet itself **straddles two or more licenses** in a concatenated file, so no single-license selection can contain it (if instead each license sits in its own block, expand per block — see "Multi-license files" above)
 - The full license text is **not actually present** in the file (genuinely truncated — there is nothing to expand into)
 - Ambiguous excerpts whose boundaries or identity stay unclear even after fetching file context
 - Anything else that genuinely needs human legal judgment
@@ -178,10 +184,15 @@ Example (expand if the rest is present, otherwise report):
 - Required action: Fetch context. If the next lines complete the declaration (e.g. "... terms of the GPL-2.0-or-later"), expand and create a pattern; if the text is genuinely truncated and the license is not stated nearby, REPORT_TO_USER.
 - Reason: An unfinished fragment is only a human-review item when the file does not contain the rest of the declaration.
 
+Example (multi-license file — expand per license, do NOT report the file):
+- Input: a concatenated LICENSE file with a full Apache-2.0 body followed by a full MIT body; your fragment matched inside the Apache section.
+- Required action: EXPAND to cover only the Apache-2.0 block (stop before the MIT heading) and create an Apache-2.0 pattern. Handle any fragment in the MIT section the same way, scoped to the MIT block.
+- Reason: Each license sits in its own block, so each can be isolated and patterned individually.
+
 Example (no action):
-- Input snippet: a single region containing two different licenses (e.g. an Apache-2.0 body immediately followed by an MIT body)
+- Input snippet: one snippet whose text begins inside an Apache-2.0 body and runs into the following MIT body (it crosses the boundary)
 - Required action: REPORT_TO_USER
-- Reason: Expansion must yield a single coherent license; mixed licenses need human judgment.
+- Reason: A single snippet that straddles two licenses cannot be reduced to one clean pattern; this needs human judgment.
 
 ## ⚠️ CRITICAL: When to IGNORE vs REPORT_TO_USER
 
@@ -321,7 +332,7 @@ publicly perform, list of conditions, under the terms, under the same terms, per
 - Request ±10-20 lines around the snippet's location
 - Don't artificially limit yourself - if 8 snippets need context, retrieve all 8
 - Show snippet line numbers in context for clarity
-- If context reveals it's part of a complete license block present in the file, expand it with `cavil_create_snippet` and create one pattern from the full block (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"); only flag as REPORT_TO_USER when it cannot be cleanly expanded (multiple distinct licenses, or the full text is not actually present)
+- If context reveals it's part of a complete license block present in the file, expand it with `cavil_create_snippet` and create one pattern from the full block (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"). In a concatenated multi-license file, scope the expansion to just the one license block containing the match. Only flag as REPORT_TO_USER when the snippet straddles a boundary between two licenses or the full text is not actually present
 
 ### What context often reveals:
 - Truncated snippets may be complete license declarations when viewed with surrounding lines
@@ -341,7 +352,9 @@ publicly perform, list of conditions, under the terms, under the same terms, per
   - ❌ WRONG: Use `cavil_propose_ignore_snippet` with reason "not in Cavil database"
   - ✅ RIGHT: Flag as REPORT_TO_USER - these are valid licenses that need to be added to Cavil's database
   - Example: "SPDX-License-Identifier: LicenseRef-Qt-Commercial" is a real license reference, not irrelevant text
-- **Multiple licenses in one snippet**: If snippet references multiple licenses (e.g., "GPL-2.0-only or MIT"), use SPDX expression syntax (e.g., "GPL-2.0-only OR MIT")
+- **Multiple licenses in one snippet**:
+  - A single *declaration* offering a choice (e.g. "licensed under GPL-2.0-only or MIT") is one pattern — use SPDX expression syntax (e.g., "GPL-2.0-only OR MIT")
+  - Several *full license texts concatenated* in one file are NOT one declaration — expand to and pattern each license block separately (see "Multi-license files" under "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"). Only REPORT_TO_USER when a single snippet straddles the boundary between two of them
 - **Non-English text**: Flag as REPORT_TO_USER if the snippet is not in English or contains non-English legal terms
 - **Code snippets with license macros**: Treat MODULE_LICENSE(), SPDX-License-Identifier:, and similar programmatic declarations as valid license identifiers
 - **Generic redistribution statements**: 
