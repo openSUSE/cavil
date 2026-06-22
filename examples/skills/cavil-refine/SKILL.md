@@ -60,17 +60,28 @@ This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON st
 8. **Report summary**: Provide metrics (X ignored, Y patterns created, Z flagged for review, G globs proposed) and a concise table or list of all actions taken. Note how many duplicate snippets will be automatically resolved by pattern reindexing. If any glob candidates were identified during triage, include a "PROPOSED GLOBS TO EXCLUDE" section (see "FILE-LEVEL EXCLUSIONS" below).
 
 ## EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS
-Many unresolved matches are only a fragment from the **middle** of a larger license text — a few keywords matched, so the snippet captured just those lines, not the whole declaration. A pattern built from such a fragment is weak. When the surrounding context (from `cavil_get_file`) shows the snippet is part of a complete, self-contained license block, create a larger snippet covering the whole block and build the pattern from that instead.
+Many unresolved matches are only a fragment from the **middle** of a larger license text — a few keywords matched, so the snippet captured just those lines, not the whole declaration. A pattern built from such a fragment is weak, and reporting it to a human is wasteful when the full license is sitting right there in the file. **This is the primary remedy for "middle-of-license" fragments: prefer expanding over REPORT_TO_USER whenever the file contains the complete license block.**
+
+When the surrounding context (from `cavil_get_file`) shows the snippet is part of a complete, self-contained license block, create a larger snippet covering the whole block and build the pattern from that instead. **This applies even when the full block is long, multi-paragraph, or has numbered conditions** — a complete standard license body (Apache-2.0, MPL-2.0, a BSD variant with numbered clauses, etc.) is a valid expansion target and should become a single pattern, not a human-review item.
 
 Procedure:
 1. From the report, note the fragment's anchor line (the `Line:` marker) and `file_path`.
 2. Call `cavil_get_file` around that anchor to read the full block. Use the **line-number prefixes** in the output to read off the exact first and last line of the complete license text (extend the range and re-fetch if the block runs past what you retrieved).
 3. Call `cavil_create_snippet(package_id, file_path, first_line, last_line)` with those boundaries. It returns the new `snippet_id` and the captured text — verify the text covers the whole declaration and nothing extraneous.
-4. Call `cavil_propose_license_pattern` against the **new** `snippet_id`.
+4. Call `cavil_propose_license_pattern` against the **new** `snippet_id`. For a long body you may still trim an incidental lead-in/trail-off and replace variable parts (names, dates, URLs) with `$SKIP` generics, but keep the legally meaningful body intact.
+
+When to expand vs. report:
+- **Expand** when the file contains one complete, coherent license declaration that the fragment belongs to — regardless of its length or numbered structure.
+- **REPORT_TO_USER** only when expansion cannot produce a single clean license: the region mixes **multiple distinct licenses**, the full text is **not actually present** in the file (genuinely truncated, nothing to expand into), the boundaries stay unclear even with context, or the case needs human legal judgment.
+
+Partial matches inside the block do NOT mean it is resolved:
+- A large coherent license text often **already has smaller real pattern matches inside it** — for example the title line declaring the license name ("Apache License, Version 2.0", "Mozilla Public License Version 2.0") may already match an existing pattern, while the body around it is still unresolved. The presence of those partial matches does **not** mean the license is handled; the unresolved fragment in the middle still needs resolving.
+- The correct fix is still **one new pattern spanning the whole license text** (expand across the entire block, including the lines that already match). Do not skip expansion just because a sub-part is recognized, and do not settle for the small existing match.
+- Within that whole-block pattern, treat copyright holders, years, dates, URLs, and other variable text exactly as you would for any other license pattern: strip them or replace them with `$SKIP5`/`$SKIP19` generics. They are resolved by the same generics, not by leaving them out of the span.
 
 Notes:
 - NEVER include the `cavil_get_file` line-number prefixes in the pattern or in your reasoning about snippet text — they are not part of the file content. (A pattern containing them will be rejected because it won't match the stored snippet.)
-- Only expand when the larger region is genuinely a single coherent license declaration. Do not expand to engulf unrelated code, multiple separate licenses, or long numbered-condition prose that you would not turn into a pattern anyway.
+- Expand to exactly **one** coherent license. Do not expand to engulf unrelated code or two separate license blocks in a single snippet.
 
 ## BATCH PROCESSING
 - Process all snippets in one pass rather than one-by-one
@@ -133,31 +144,44 @@ Focus on SIMPLER cases with clear license declarations:
 - Direct copyright and license notices
 
 Simple-case gate for CREATE_PATTERN:
-- Create patterns only from short, self-contained declarations (typically one short sentence or two short related sentences)
-- If the snippet is long, structured, or multi-clause legal prose, do not create a pattern
+- Create patterns directly only from short, self-contained declarations (typically one short sentence or two short related sentences)
+- If the snippet is long, structured, or multi-clause legal prose, do not pattern the fragment as-is — if it is part of one complete license block present in the file, expand it first (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS") and pattern the expanded snippet; otherwise REPORT_TO_USER
 
-### DO NOT ACT ON (Inform User But Take No Action)
-For snippets that appear to be fragments from larger license texts:
+### EXPAND FIRST (fragments of a larger license — NOT automatic human-review items)
+Snippets that look like fragments of a larger license text are **expansion candidates**, not REPORT_TO_USER cases. Before reporting any of these, fetch file context and check whether the complete license block is present, then expand it with `cavil_create_snippet` and pattern the whole block (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"):
 - Middle sections of full license documents
 - Partial license clauses or terms
-- Ambiguous excerpts without clear context
 - Snippets that cannot stand alone as patterns
 - Incomplete or truncated license statements (for example, text ending in "under the", "subject to", "provided that", or similar unfinished legal phrasing)
 - Long structured excerpts with numbered conditions/clauses (for example sections starting with "1.", "2.", "3.")
 - Continuation fragments that appear to begin in the middle of a sentence (for example starting with lowercase words after punctuation such as "modification, are permitted ...")
-- Large license-body excerpts that combine redistribution conditions, disclaimer text, and patent text without the full surrounding context
+- Large license-body excerpts that combine redistribution conditions, disclaimer text, and patent text
+
+If the file contains the complete, coherent license block, **expand and create one pattern from the full block — even if it is long or numbered.** Reserve REPORT_TO_USER for the cases below.
+
+### DO NOT ACT ON (Inform User But Take No Action)
+Report to the user (no Cavil action) only when expansion cannot produce a single clean license:
+- The region mixes **multiple distinct licenses** that cannot be captured as one declaration
+- The full license text is **not actually present** in the file (genuinely truncated — there is nothing to expand into)
+- Ambiguous excerpts whose boundaries or identity stay unclear even after fetching file context
+- Anything else that genuinely needs human legal judgment
 
 When encountering these cases, report them to the user with an explanation of the issue, but do not attempt pattern creation or ignoring.
 
-Example (no action):
+Example (expand, then create pattern):
+- Input snippet: "modification, are permitted ... provided that the following conditions are met: 1. Redistributions ... 2. Redistributions ... 3. Neither the name ... NO EXPRESS OR IMPLIED LICENSES ..."
+- Required action: EXPAND with `cavil_create_snippet` to cover the full BSD license block, then create one pattern from the expanded snippet.
+- Reason: A fragment from the middle of a complete, coherent license body that is present in the file — capture the whole block instead of reporting it.
+
+Example (expand if the rest is present, otherwise report):
 - Input snippet: "This module is free software, you may distribute it under the"
-- Required action: REPORT_TO_USER
-- Reason: The snippet is incomplete and likely part of a larger surrounding license text.
+- Required action: Fetch context. If the next lines complete the declaration (e.g. "... terms of the GPL-2.0-or-later"), expand and create a pattern; if the text is genuinely truncated and the license is not stated nearby, REPORT_TO_USER.
+- Reason: An unfinished fragment is only a human-review item when the file does not contain the rest of the declaration.
 
 Example (no action):
-- Input snippet: "modification, are permitted ... provided that the following conditions are met: 1. Redistributions ... 2. Redistributions ... 3. Neither the name ... NO EXPRESS OR IMPLIED LICENSES ..."
+- Input snippet: a single region containing two different licenses (e.g. an Apache-2.0 body immediately followed by an MIT body)
 - Required action: REPORT_TO_USER
-- Reason: This is a long, structured excerpt from the middle of larger license text. Do not create a pattern.
+- Reason: Expansion must yield a single coherent license; mixed licenses need human judgment.
 
 ## ⚠️ CRITICAL: When to IGNORE vs REPORT_TO_USER
 
@@ -271,7 +295,7 @@ Before creating a new license pattern, verify all of the following:
 - Variable text such as names and dates has been removed or replaced with $SKIP5 or $SKIP19 where needed
 - SPDX identifiers are used when the license can be recognized confidently
 - The snippet is a complete, self-contained legal statement and not an unfinished sentence fragment
-- The snippet is not a long numbered-condition block or multi-paragraph license-body excerpt
+- If the source was a fragment of a larger license, you expanded it with `cavil_create_snippet` to cover the complete, coherent license block before patterning (a long or numbered body is fine once it is the whole, single license — but never a fragment of one, and never two licenses at once)
 - **If the snippet contains both a declaration keyword AND a license identifier, verify both are in the pattern**
 
 ## PRESERVED KEYWORDS AND PHRASES
@@ -297,7 +321,7 @@ publicly perform, list of conditions, under the terms, under the same terms, per
 - Request ±10-20 lines around the snippet's location
 - Don't artificially limit yourself - if 8 snippets need context, retrieve all 8
 - Show snippet line numbers in context for clarity
-- If context reveals it's part of a full license, flag as REPORT_TO_USER
+- If context reveals it's part of a complete license block present in the file, expand it with `cavil_create_snippet` and create one pattern from the full block (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS"); only flag as REPORT_TO_USER when it cannot be cleanly expanded (multiple distinct licenses, or the full text is not actually present)
 
 ### What context often reveals:
 - Truncated snippets may be complete license declarations when viewed with surrounding lines
@@ -312,7 +336,7 @@ publicly perform, list of conditions, under the terms, under the same terms, per
   - DO NOT create the same pattern multiple times
   - **Why**: Cavil automatically reindexes the report after a pattern is created, and all matching snippets will be resolved automatically
   - In your summary, note: "X additional snippets will be automatically resolved when Cavil reindexes with the new pattern"
-- **Similar existing patterns**: If you notice the snippet resembles an existing pattern in the report, explain the relationship and whether a new pattern adds value
+- **Similar existing patterns**: If you notice the snippet resembles an existing pattern in the report, explain the relationship and whether a new pattern adds value. **Exception**: a small existing match *inside* a larger unresolved license block (e.g. the license-title line is already recognized) does NOT make the block resolved — still expand and create one pattern spanning the whole license text (see "EXPANDING FRAGMENTS INTO FULL-LICENSE SNIPPETS").
 - **SPDX identifiers not in Cavil's database**: 
   - ❌ WRONG: Use `cavil_propose_ignore_snippet` with reason "not in Cavil database"
   - ✅ RIGHT: Flag as REPORT_TO_USER - these are valid licenses that need to be added to Cavil's database
