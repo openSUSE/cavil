@@ -135,7 +135,7 @@ sub specfile_report {
     my $dir      = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
     my $checkout = Cavil::Checkout->new($dir);
     return {} unless $checkout->is_unpacked;
-    my $specfile = $checkout->specfile_report;
+    my $specfile = $checkout->specfile_report({upload => (($pkg->{external_link} // '') eq 'upload')});
 
     my $report = {package => $id, specfile_report => to_json($specfile)};
     $hash = $db->insert('bot_reports', $report, {returning => '*'})->hash;

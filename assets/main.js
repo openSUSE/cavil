@@ -23,6 +23,7 @@ import RecentReviews from './vue/RecentReviews.vue';
 import ReportDetails from './vue/ReportDetails.vue';
 import ReportMetadata from './vue/ReportMetadata.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
+import Upload from './vue/Upload.vue';
 import moment from 'moment';
 import {createApp} from 'vue';
 
@@ -184,6 +185,12 @@ window.cavil = {
 
   setupStatistics() {
     createApp(CavilStatistics).mount('#statistics');
+  },
+
+  setupUpload(storeUrl) {
+    const app = createApp(Upload);
+    app.config.globalProperties.storeUrl = storeUrl;
+    app.mount('#upload');
   },
 
   fromNow

@@ -288,11 +288,68 @@ subtest 'error-incomplete-checkout' => sub {
   is_deeply $checkout->specfile_report, report('error-incomplete-checkout.specfile'), 'right specfile report';
 };
 
-subtest 'Tarball upload' => sub {
-  my $ceph     = temp_copy('tarball-upload', '5fcfdab0e71b0bebfdf8b5cc6bcdfecf');
-  my $checkout = Cavil::Checkout->new($ceph);
-  $checkout->unpack;
-  is_deeply $checkout->specfile_report, report('tarball-upload.cavil'), 'right tarball report';
+subtest 'Tarball upload auto-detection' => sub {
+
+  # Build a synthetic upload checkout: an archive created from $tree (a list of
+  # [relative-path, content] pairs), then unpack and return the upload report.
+  my $upload_report = sub ($case, $tree) {
+    my $src = $TMP->child("auto-src-$case");
+    for my $entry (@$tree) {
+      my $file = $src->child(split('/', $entry->[0]));
+      $file->dirname->make_path;
+      $file->spew($entry->[1]);
+    }
+    my $co  = $TMP->child("auto-co-$case", 'hash')->make_path;
+    my @top = map { $_->basename } $src->list({dir => 1, hidden => 1})->each;
+    is system('tar', '-czf', $co->child('archive.tar.gz')->to_string, '-C', $src->to_string, @top), 0,
+      "$case archive created";
+    my $checkout = Cavil::Checkout->new($co);
+    $checkout->unpack;
+    return $checkout->specfile_report({upload => 1});
+  };
+
+  subtest 'archive without any package file falls back to a minimal main' => sub {
+    my $info = $upload_report->('bare', [['src/hello.c', "int main() { return 0; }\n"], ['README', "hi\n"]]);
+    is $info->{main}{type},    'upload', 'minimal upload main';
+    is $info->{main}{license}, undef,    'no license without a package file';
+    is $info->{main}{version}, undef,    'no version without a package file';
+    is_deeply $info->{errors}, [], 'no missing-main error for an upload';
+  };
+
+  subtest 'spec inside a single wrapper directory is detected' => sub {
+    my $info = $upload_report->('wrapper', [['demo-1.0/demo.spec', "Name: demo\nVersion: 1.0\nLicense: MIT\n"]]);
+    is $info->{main}{type},    'spec',      'main is the spec';
+    is $info->{main}{file},    'demo.spec', 'right file';
+    is $info->{main}{license}, 'MIT',       'license auto-detected from the spec';
+    is $info->{main}{version}, '1.0',       'version from the spec';
+    is_deeply $info->{errors}, [], 'no errors for an upload';
+  };
+
+  subtest 'spec directly at the archive root (no wrapper) is detected' => sub {
+    my $info = $upload_report->(
+      'flat', [['demo.spec', "Name: demo\nVersion: 2.0\nLicense: Apache-2.0\n"], ['README', "hello\n"]]
+    );
+    is $info->{main}{type},    'spec',       'main is the spec';
+    is $info->{main}{license}, 'Apache-2.0', 'license auto-detected without a wrapper';
+    is $info->{main}{version}, '2.0',        'version from the spec';
+  };
+
+  subtest 'multiple top-level directories are not descended into' => sub {
+    my $info = $upload_report->('multi', [['a/demo.spec', "License: MIT\n"], ['b/notes.txt', "hi\n"]]);
+    is $info->{main}{type},    'upload', 'falls back to the synthetic upload main';
+    is $info->{main}{license}, undef,    'no license is guessed from a nested spec';
+  };
+
+  subtest 'Helm chart is detected and listed as a sub package' => sub {
+    my $info = $upload_report->(
+      'helm', [['chart-1.0/Chart.yaml', "name: demo\nversion: 3.2.1\n# SPDX-License-Identifier: Apache-2.0\n"]]
+    );
+    is $info->{main}{type},     'helm',       'main is the helm chart';
+    is $info->{main}{license},  'Apache-2.0', 'license from the SPDX comment';
+    is $info->{main}{version},  '3.2.1',      'version from the chart';
+    is scalar(@{$info->{sub}}), 1,            'chart is also listed as a sub package';
+    is $info->{sub}[0]{type},   'helm',       'sub package is the chart';
+  };
 };
 
 subtest 'Unpack background job' => sub {

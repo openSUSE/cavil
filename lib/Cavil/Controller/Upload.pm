@@ -18,35 +18,47 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Digest::MD5;
 use Mojo::File qw(path);
-use Mojo::JSON qw(encode_json);
-use Mojo::Util qw(md5_sum);
 
 sub index ($self) {
   $self->render('upload/form');
 }
 
 sub store ($self) {
+  my $wants_json = ($self->req->headers->accept // '') =~ /application\/json/;
+
+  # No package metadata is required for an arbitrary archive upload; the name is only used
+  # for the checkout directory and queue, and is prefilled from the filename in the UI
   my $validation = $self->validation;
   $validation->required('name')->like(qr/^[A-Za-z0-9\-\.]+$/);
-  $validation->required('licenses')->like(qr/^[A-Za-z0-9\-\.]+$/);
-  $validation->required('version')->like(qr/^[0-9\.]+$/);
   $validation->required('priority')->num;
   $validation->required('tarball')->upload->size(1, undef);
-  return $self->render('upload/form') if $validation->has_error;
+  if ($validation->has_error) {
+    my $failed = join(', ', @{$validation->failed});
+    return $self->render(json => {error => "Invalid upload ($failed)"}, status => 400) if $wants_json;
+    $self->flash(message => "Invalid upload ($failed)");
+    return $self->redirect_to('upload');
+  }
 
   my $upload = $validation->param('tarball');
   my $file   = $upload->asset->to_file;
-  my $md5    = Digest::MD5->new;
-  $md5->addfile($file->handle);
+
   my $name     = $validation->param('name');
-  my $licenses = $validation->param('licenses');
-  my $version  = $validation->param('version');
-  my $sum      = md5_sum($name . $version . $licenses . $md5->hexdigest);
+  my $filename = path($upload->filename)->basename;
+
+  # The checkout directory is a content hash of the uploaded archive (stream from the start
+  # of the file, the asset handle may be positioned at EOF after the upload was stored)
+  my $md5    = Digest::MD5->new;
+  my $handle = $file->handle;
+  seek $handle, 0, 0;
+  $md5->addfile($handle);
+  my $sum = $md5->hexdigest;
 
   my $pkgs = $self->packages;
   if (my $obj = $pkgs->find_by_name_and_md5($name, $sum)) {
-    $self->flash(message => "Package $name with checksum $sum already exists");
-    return $self->render('dashboard');
+    my $msg = "Package $name with checksum $sum already exists";
+    return $self->render(json => {error => $msg}, status => 409) if $wants_json;
+    $self->flash(message => $msg);
+    return $self->redirect_to('upload');
   }
 
   my $user_id = $self->users->id_for_login($self->current_user);
@@ -62,16 +74,18 @@ sub store ($self) {
     srcmd5          => $sum,
   );
   my $dir = path($self->app->config->{checkout_dir}, $name, $sum)->make_path;
-  $dir->child('.cavil.json')->spew(encode_json({licenses => $licenses, version => $version}));
-  my $filename = path($upload->filename)->basename;
   $file->move_to($dir->child($filename));
   my $obj = $pkgs->find($id);
   $obj->{external_link} = 'upload';
   $pkgs->update($obj);
   $pkgs->imported($id);
-
   $pkgs->unpack($id);
-  $self->flash(message => "Package $name has been uploaded and is now being processed");
+
+  my $msg = "Package $name has been uploaded and is now being processed";
+  if ($wants_json) {
+    return $self->render(json => {id => $id, name => $name, url => $self->url_for('package_details', id => $id)});
+  }
+  $self->flash(message => $msg);
   $self->redirect_to('dashboard');
 }
 

@@ -92,14 +92,13 @@ sub keyword_report ($self, $matcher, $meta, $file) {
 
 sub new ($class, $dir) { $class->SUPER::new(dir => $dir) }
 
-sub specfile_report ($self) {
+sub specfile_report ($self, $opts = {}) {
   my $dir      = path($self->dir);
   my $basename = $dir->dirname->basename;
   my $unpacked = $dir->child('.unpacked');
 
   my $info = {main => undef, sub => [], errors => [], warnings => [], incomplete_checkout => 0};
 
-  my $upload_file  = $dir->child('.cavil.json');
   my $service_file = $unpacked->child('_service');
 
   my $specfile_name = $basename . '.spec';
@@ -119,17 +118,41 @@ sub specfile_report ($self) {
 
   my $is_obsprj = _is_obsprj($unpacked);
 
-  # Tarball upload
-  if (-f $upload_file) {
-    my $upload   = decode_json($upload_file->slurp);
-    my $licenses = $upload->{licenses};
-    $info->{main} = {
-      file     => '.cavil.json',
-      license  => $licenses,
-      licenses => [$licenses],
-      type     => 'upload',
-      version  => $upload->{version}
-    };
+  # Archive upload (no user-provided package metadata)
+  if ($opts->{upload}) {
+
+    # Look one level into the unpacked tree (through a single wrapper directory like
+    # "foo-1.0.0/") for a package file we can auto-detect metadata from
+    my $root    = $unpacked;
+    my @entries = $unpacked->list({dir => 1})->each;
+    $root = $entries[0] if @entries == 1 && -d $entries[0];
+
+    my $files          = $root->list->grep(sub { $_ !~ /\.processed\./ });
+    my $debian_control = $root->child('debian/control');
+    my $chart          = $root->child('Chart.yaml');
+    my ($spec)         = $files->grep(qr/\.spec$/)->each;
+    my ($kiwi)         = $files->grep(qr/\.kiwi$/)->each;
+    my ($dockerfile)   = $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
+
+    # Auto-detect a main package file (any name), in priority order
+    my $main;
+    if    ($spec)              { $main = _specfile($spec) }
+    elsif (-f $debian_control) { $main = _debian_files($debian_control) }
+    elsif ($kiwi)              { $main = _kiwifile($kiwi) }
+    elsif ($dockerfile)        { $main = _dockerfile($dockerfile) }
+    elsif (-f $chart)          { $main = _helmchart($chart) }
+    $main->{license} = $main->{licenses}[0] if $main && @{$main->{licenses}};
+
+    # A package file is not required for an upload, so fall back to a minimal main
+    $info->{main} = $main // {file => 'upload', type => 'upload', license => undef, licenses => []};
+
+    # List all detected package files for display
+    push @{$info->{sub}}, _debian_files($debian_control) if -f $debian_control;
+    push @{$info->{sub}}, _helmchart($chart)             if -f $chart;
+    push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
+    push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
+    push @{$info->{sub}}, _dockerfile($_)
+      for $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
   }
 
   else {
@@ -272,9 +295,6 @@ sub unpack ($self, $options = {}) {
 
   # Zstandard, requires zstd
   $u->mime_helper('application=zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
-
-  # Tarball upload metadata
-  $u->exclude('.cavil.json');
 
   $u->exclude(vcs => 1);
   if (my $exclude = $options->{exclude}) {
