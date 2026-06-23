@@ -78,25 +78,35 @@ Alternatively there are also two implementations for our legacy classifier API:
   environment. All you need is an empty PostgreSQL database (with the `pgcrypto` and `pg_trgm` extensions
   activated) and the following dependencies:
 
-    $ sudo zypper in -C postgresql-server postgresql-contrib 'rubygem(sass)'
-    $ sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
+```sh
+    # Install dependencies
+    sudo zypper in -C postgresql-server postgresql-contrib 'rubygem(sass)'
+    sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
       perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
       perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
       perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
       perl-Try-Tiny perl-MCP perl-CommonMark git git-lfs
-    $ npm i
-    $ npm run build
+    npm i
+
+    # Build JavaScript assets
+    npm run build
+```
 
   Then use these commands to set up and tear down a development environment:
 
-    $ perl staging/start.pl postgresql://tester:testing@/test
-    ...
-    $ CAVIL_CONF=staging/do_not_commit/cavil.conf morbo script/cavil
-    ...
-    $ CAVIL_CONF=staging/do_not_commit/cavil.conf script/cavil minion worker
-    ...
-    $ perl staging/stop.pl
-    ...
+```sh
+    # Initialize staging environment (remove --clean to include example fixtures)
+    perl staging/start.pl --clean postgresql://tester:testing@/test
+
+    # Start HTTP application server on port 3000
+    CAVIL_CONF=staging/do_not_commit/cavil.conf morbo script/cavil
+
+    # Start background job queue (separate process that does all the actual work)
+    CAVIL_CONF=staging/do_not_commit/cavil.conf script/cavil minion worker
+
+    # Tear down staging environment once you are done
+    perl staging/stop.pl
+```
 
   The `morbo` development web server will make the web application available under `http://127.0.0.1:3000`. And
   `script/cavil minion worker` will start the job queue for processing background jobs.
