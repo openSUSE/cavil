@@ -299,6 +299,45 @@ most resemble?". It scores a piece of text against every known pattern and retur
 "this snippet looks like pattern X" hints in the review UI. Unlike the prefix tree, this comparison looks at every
 pattern on every query, so its cost grows directly with the number of patterns.
 
+On its own this raw score is a blunt instrument. It compares text against individual pattern fragments, treats every
+word as equally important, and does no clean-up first, so the ubiquitous boilerplate that appears in nearly every
+license ("software", "redistribution", "license") drowns out the handful of phrases that actually tell one license from
+another. Cavil refines the score in three ways, all layered on top of the same engine and rebuilt whenever the patterns
+change:
+
+* It **normalises the text first** — stripping markup, comment markers and copyright, author and URL lines — much as the
+  SPDX license matching guidelines prescribe, so only the legally meaningful wording is compared.
+* It compares a snippet against a **license's combined fingerprint**, built from all of that license's patterns at once,
+  rather than against one arbitrary fragment.
+* It **weights rare, license-specific phrases far more heavily** than common boilerplate, and measures how much of the
+  snippet is contained in the license (a snippet is usually only a fragment of the full text).
+
+The result — the best-matching license, a confidence score, and the runner-up's score — is stored on the snippet and
+reused both for risk estimation and for the fold-in described next.
+
+### Folding High-Confidence Snippets into Reports
+
+Hand-writing a pattern for every one of the hundreds of thousands of unresolved snippets will never happen, and the
+curated pattern corpus has to stay clean — it is the source of truth and cannot be diluted with mediocre auto-generated
+patterns. So instead of creating a pattern, Cavil can simply treat a snippet as resolved when its refined similarity to
+a known license is confident enough: the snippet folds into the report as if it had matched that license, while the
+corpus is left untouched.
+
+The decision is made fresh each time a report is built, purely from the metadata already on the snippet, so it costs
+nothing extra and re-evaluates itself whenever the model or the thresholds change. It never writes anything back to the
+pattern or match tables — fold-in is a derived view, not stored data, so turning it off simply makes the reports revert.
+
+Because this is making a legal call, the gate is deliberately conservative. A snippet only folds when the text
+classifier has already judged it to be legal text, its similarity clears the configured threshold, the best-matching
+license beats the runner-up by a clear margin (genuine coin-flips between two plausible licenses are left for a human),
+and the license is not high-risk — risk 4 is safe to fold and 5 is acceptable, but anything riskier is always left
+unresolved for review. A snippet is also only trusted if it was scored by the current scorer, so stale scores left over
+from before an upgrade can never fold by accident.
+
+Fold-in ships switched off. Before it is enabled, the thresholds are calibrated against the existing corpus — the
+`eval_fold` command reports precision and recall at each threshold — and it is then rolled out gradually, allowing
+progressively higher-risk licenses to fold as confidence in the numbers grows.
+
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 
 Two mechanisms keep known false positives out of reports, at different granularities:

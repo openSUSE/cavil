@@ -21,10 +21,11 @@ use Exporter 'import';
 use List::Util qw(uniq);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
+use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 our @EXPORT_OK = (
   qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
-  qw(smart_edit_snippet summary_delta summary_delta_score)
+  qw(should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -56,6 +57,25 @@ my $INCOMPATIBLE_LICENSE_RULES = [
 sub estimated_risk ($risk, $match) {
   my $estimated = int(($risk * $match + 9 * (1 - $match)) + 0.5);
   return $match < 0.9 && $estimated <= 4 ? 5 : $estimated;
+}
+
+# Shared, precision-first decision for whether an unresolved snippet is confident enough to be
+# treated as resolved to its closest license ("folded"). Used by both the report and the file
+# browser so the two views agree. $cfg is the snippet_fold config; $snippet carries the scorer
+# metadata (license = "is legal text", likelyness, second_match, score_version); $pattern is the
+# closest license's pattern (license + risk). See docs/Architecture.md for the rationale.
+sub should_fold_snippet ($cfg, $snippet, $pattern) {
+  return 0 unless $cfg && $cfg->{enabled};
+  return 0 unless $snippet->{license};                                                    # classifier says legal text
+  return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # scored by current model
+  return 0 unless $pattern && defined $pattern->{license} && $pattern->{license} ne '';
+
+  my $match = $snippet->{likelyness} // 0;
+  return 0 unless $match >= ($cfg->{threshold} // 1);
+  return 0 unless ($match - ($snippet->{second_match} // 0)) >= ($cfg->{min_margin} // 0);
+  return 0 if defined $cfg->{max_risk} && $pattern->{risk} > $cfg->{max_risk};
+
+  return 1;
 }
 
 sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {

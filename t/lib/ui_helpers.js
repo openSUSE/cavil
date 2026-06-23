@@ -128,5 +128,8 @@ export function assertNoUnexpectedConsoleErrors(t, errorLogs) {
   // Some subtests intentionally drive the server to return 400 - the browser
   // logs that as a console error.
   const unexpected = errorLogs.filter(msg => !/status of 400 \(Bad Request\)/.test(msg));
-  t.same(unexpected, []);
+  for (const message of unexpected) {
+    t.comment(`Unexpected console error: ${message.replace(/\s+/g, ' ')}`);
+  }
+  t.equal(unexpected.length, 0, 'no unexpected console errors');
 }

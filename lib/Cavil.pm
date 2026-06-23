@@ -118,6 +118,7 @@ sub startup ($self) {
         acceptable_risk    => $config->{acceptable_risk},
         checkout_dir       => $config->{checkout_dir},
         max_expanded_files => $config->{max_expanded_files},
+        snippet_fold       => $config->{snippet_fold},
         pg                 => $c->pg
       );
     }

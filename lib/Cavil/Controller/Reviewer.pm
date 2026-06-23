@@ -16,8 +16,9 @@
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::File  qw(path);
-use Cavil::Util qw(lines_context);
+use Mojo::File        qw(path);
+use Cavil::Util       qw(lines_context);
+use Cavil::ReportUtil qw(should_fold_snippet);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -223,18 +224,33 @@ sub _file_browser_line_info ($self, $package, $file_id) {
     }
   }
 
+  my $fold     = $self->app->config->{snippet_fold};
   my $snippets = $db->query(
-    'SELECT fs.sline, fs.eline, s.id, s.hash, s.like_pattern
-       FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
+    'SELECT fs.sline, fs.eline, s.id, s.hash, s.like_pattern, s.license, s.likelyness, s.second_match,
+            s.score_version, lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
+       FROM file_snippets fs
+       JOIN snippets s ON s.id = fs.snippet
+       LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
       WHERE fs.package = ? AND fs.file = ?', $package->{id}, $file_id
   );
   for my $snippet ($snippets->hashes->each) {
+
+    # A folded snippet is shown as its inferred license, exactly like the report does; everything
+    # else stays an unresolved (risk 9) snippet.
+    my $folded    = should_fold_snippet($fold, $snippet, {license => $snippet->{plicense}, risk => $snippet->{prisk}});
+    my $line_info = $folded
+      ? {
+      risk => $snippet->{prisk},
+      name => $snippet->{plicense},
+      spdx => $snippet->{pspdx},
+      pid  => $snippet->{like_pattern}
+      }
+      : {risk => 9, snippet => $snippet->{id}, hash => $snippet->{hash}, name => 'Snippet of missing keywords'};
+    $line_info->{pids} = [$snippet->{like_pattern}] if !$folded && $snippet->{like_pattern};
+
     for my $line ($snippet->{sline} .. $snippet->{eline}) {
       my $current = $info->{$line} // {risk => 0};
-      next if $current->{risk} >= 9;
-      my $line_info
-        = {risk => 9, snippet => $snippet->{id}, hash => $snippet->{hash}, name => 'Snippet of missing keywords'};
-      $line_info->{pids} = [$snippet->{like_pattern}] if $snippet->{like_pattern};
+      next if $current->{risk} > $line_info->{risk};    # do not hide a higher-risk match
       $info->{$line} = $line_info;
     }
   }

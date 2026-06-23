@@ -20,8 +20,9 @@ use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets lines_context normalize_license_expr obs_ssh_auth parse_exclude_file parse_service_file),
-  qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
-  qw(spdx_link ssh_sign validate_tags)
+  qw(normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
+  qw(request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles validate_tags),
+  qw(weighted_containment)
 );
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -134,6 +135,46 @@ subtest 'pattern_contains_redundant_skip' => sub {
   ok pattern_contains_redundant_skip('$SKIP foo'),        'redundant $SKIP at beginning';
   ok pattern_contains_redundant_skip('foo $SKIP'),        'redundant $SKIP at end';
   ok !pattern_contains_redundant_skip('foo $SKIP19 bar'), 'no redundant $SKIP';
+};
+
+subtest 'normalize_license_text' => sub {
+  is normalize_license_text('Permission is hereby granted'), 'Permission is hereby granted', 'plain text is unchanged';
+  is normalize_license_text('<p>Permission is <b>hereby</b> granted</p>'), 'Permission is hereby granted',
+    'strips html tags';
+  is normalize_license_text('Creative Commons &amp; friends'), 'Creative Commons friends', 'strips html entities';
+  is normalize_license_text(" * Permission is granted\n * to use"), 'Permission is granted to use',
+    'strips comment leaders and collapses whitespace';
+  is normalize_license_text("Copyright (c) 2021 John Smith\nPermission is granted"), 'Permission is granted',
+    'drops copyright lines';
+  is normalize_license_text("see https://example.org/LICENSE\nlicensed under MIT"), 'licensed under MIT',
+    'drops url lines';
+  is normalize_license_text("contact foo\@bar.com\nlicensed under MIT"), 'licensed under MIT', 'drops email lines';
+};
+
+subtest 'text_shingles' => sub {
+  my $a = text_shingles('Permission is hereby granted to all', 3);
+  is scalar(keys %$a), 4, 'four 3-token shingles from six tokens';
+
+  # Case and punctuation are folded by the tokenizer, so these are identical
+  my $b = text_shingles('PERMISSION is HEREBY granted, to all!!!', 3);
+  is_deeply [sort keys %$a], [sort keys %$b], 'case/punctuation normalized away';
+
+  my $short = text_shingles('MIT license', 3);
+  is scalar(keys %$short), 2, 'short text falls back to unigrams';
+};
+
+subtest 'weighted_containment' => sub {
+  my $snippet = {a => 1, b => 1, c => 1, d => 1};
+  is weighted_containment($snippet, {a => 1, b => 1, c => 1, d => 1}), 1,   'full containment scores 1';
+  is weighted_containment($snippet, {}),                               0,   'no overlap scores 0';
+  is weighted_containment($snippet, {a => 1, b => 1}),                 0.5, 'half the shingles present';
+  is weighted_containment({},       {a => 1}),                         0, 'empty snippet scores 0 (no divide by zero)';
+
+  # IDF weighting: a rare shingle counts far more than common boilerplate
+  my $idf = {rare => 100, common => 1};
+  my $s   = {rare => 1,   common => 1};
+  ok weighted_containment($s, {rare   => 1}, $idf) > 0.9, 'matching the rare shingle dominates';
+  ok weighted_containment($s, {common => 1}, $idf) < 0.1, 'matching only boilerplate scores low';
 };
 
 subtest 'normalize_license_expr' => sub {

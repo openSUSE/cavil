@@ -30,11 +30,17 @@ use Try::Tiny;
 
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
-  qw(obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum pattern_matches),
-  qw(pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd snippet_checksum),
-  qw(spdx_link ssh_sign validate_tags),
+  qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
+  qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
+  qw(snippet_checksum spdx_link ssh_sign text_shingles validate_tags weighted_containment),
+  qw(SNIPPET_SCORE_VERSION),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS)
 );
+
+# Bumped whenever the snippet similarity scorer's semantics change. snippets carry the version they
+# were scored with; fold-in only trusts rows scored by the *current* version, so a scorer change (or
+# rows scored before a full rescore) can never silently fold on stale scoring.
+use constant SNIPPET_SCORE_VERSION => 1;
 
 my $MAX_FILE_SIZE = 30000;
 use constant MAX_TAG_LENGTH => 32;
@@ -125,6 +131,63 @@ sub snippet_checksum ($text) {
   my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
   $ctx->add($text);
   return $ctx->hex;
+}
+
+# Normalize license-ish text for *similarity* comparison (not for storing as a pattern). Removes
+# the noise that parse_tokens would otherwise keep as tokens (markup, comment leaders, and
+# copyright/author/url/email lines), following the spirit of the SPDX matching guidelines. Case
+# folding and punctuation stripping are left to parse_tokens, which already does them.
+sub normalize_license_text ($text) {
+  $text =~ s/<[^>]+>/ /g;                                      # html tags
+  $text =~ s/&[a-zA-Z][a-zA-Z0-9]*;|&#\d+;/ /g;                # html entities
+  $text =~ s{^[ \t]*(?:[*#;>|=-]+|//+|dnl|rem)[ \t]?}{}gim;    # comment / markup leaders
+
+  my @keep;
+  for my $line (split /\n/, $text) {
+
+    # Drop variable noise that does not identify a license
+    next if $line =~ /copyright|\(c\)|\x{00a9}|all rights reserved/i;
+    next if $line =~ /[\w.+-]+@[\w.-]+\.\w+/;                           # emails
+    next if $line =~ m{https?://};                                      # urls
+    push @keep, $line;
+  }
+
+  $text = join "\n", @keep;
+  $text =~ s/\s+/ /g;
+  $text =~ s/^\s+|\s+$//g;
+  return $text;
+}
+
+# Set of token-shingles (k consecutive normalized tokens) for similarity scoring. Returns a hashref
+# keyed by shingle so callers can do set overlap / containment. Reuses the Spooky tokenizer so the
+# vocabulary matches the bag-of-patterns engine. Very short texts fall back to unigrams so that
+# one-line declarations still compare.
+sub text_shingles ($text, $k = 3) {
+  Spooky::Patterns::XS::init_matcher();
+  my $toks = Spooky::Patterns::XS::parse_tokens(normalize_license_text($text));
+
+  my %shingles;
+  if (@$toks < $k) {
+    $shingles{$_} = 1 for @$toks;
+    return \%shingles;
+  }
+  for my $i (0 .. @$toks - $k) {
+    $shingles{join ',', @{$toks}[$i .. $i + $k - 1]} = 1;
+  }
+  return \%shingles;
+}
+
+# IDF-weighted containment of $snippet within $reference (both shingle sets from text_shingles).
+# Containment (asymmetric) because a snippet is usually a *fragment* of a license. $idf maps a
+# shingle to its weight (rare, license-specific shingles weigh more); missing shingles default to 1.
+sub weighted_containment ($snippet, $reference, $idf = {}) {
+  my ($hit, $total) = (0, 0);
+  for my $shingle (keys %$snippet) {
+    my $w = $idf->{$shingle} // 1;
+    $total += $w;
+    $hit   += $w if $reference->{$shingle};
+  }
+  return $total > 0 ? $hit / $total : 0;
 }
 
 sub slurp_and_decode ($path) {

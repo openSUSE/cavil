@@ -16,8 +16,11 @@
 use Mojo::Base -strict;
 
 use Test::More;
-use Cavil::ReportUtil (qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
-  qw(smart_edit_snippet summary_delta summary_delta_score));
+use Cavil::ReportUtil (
+  qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
+  qw(should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
+);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 subtest 'estimated_risk' => sub {
   subtest 'Risk 0' => sub {
@@ -1206,6 +1209,36 @@ subtest 'report_shortname' => sub {
     }
     ),
     'BSD-2-Clause-9:jemn5u', 'incompatible license risk';
+};
+
+subtest 'should_fold_snippet' => sub {
+  my $cfg = {enabled => 1, threshold => 0.9, min_margin => 0.15, max_risk => 5};
+
+  # A confident, classified, current-version snippet whose closest pattern is a low-risk license
+  my %snippet = (license => 1, likelyness => 0.97, second_match => 0.4, score_version => SNIPPET_SCORE_VERSION);
+  my $pattern = {license => 'MIT', risk => 4};
+
+  ok should_fold_snippet($cfg, \%snippet, $pattern), 'confident, low-risk, current-version snippet folds';
+
+  subtest 'configuration gating' => sub {
+    ok !should_fold_snippet({%$cfg, enabled => 0}, \%snippet, $pattern), 'never folds when disabled';
+    ok !should_fold_snippet(undef,                 \%snippet, $pattern), 'never folds without config';
+  };
+
+  subtest 'snippet gating' => sub {
+    ok !should_fold_snippet($cfg, {%snippet, license       => 0},   $pattern), 'needs the legal-text classifier flag';
+    ok !should_fold_snippet($cfg, {%snippet, score_version => 0},   $pattern), 'needs the current score version';
+    ok !should_fold_snippet($cfg, {%snippet, likelyness    => 0.8}, $pattern), 'needs to clear the threshold';
+    ok !should_fold_snippet($cfg, {%snippet, second_match  => 0.9}, $pattern), 'needs a margin over the runner-up';
+  };
+
+  subtest 'pattern gating' => sub {
+    ok !should_fold_snippet($cfg, \%snippet, undef), 'needs a closest pattern';
+    ok !should_fold_snippet($cfg, \%snippet, {license => '', risk => 4}), 'ignores empty-license (keyword) patterns';
+    ok !should_fold_snippet($cfg, \%snippet, {license => 'GPL-3.0-or-later', risk => 6}),
+      'never folds a license above max_risk';
+    ok should_fold_snippet($cfg, \%snippet, {license => 'GPL-2.0-or-later', risk => 5}), 'folds at exactly max_risk';
+  };
 };
 
 done_testing;

@@ -9,10 +9,10 @@ use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk incompatible_licenses);
-use Cavil::Util 'lines_context';
+use Cavil::ReportUtil qw(estimated_risk incompatible_licenses should_fold_snippet);
+use Cavil::Util       qw(lines_context);
 
-has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg)];
+has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
 # we need a HUGE number because Spooky uses unsigned integers
 use constant PATTERN_DELTA => 10000000000;
@@ -315,9 +315,9 @@ sub _dig_report {
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
     [
-      'snippets.id', 'snippets.hash', 'snippets.likelyness', 'snippets.like_pattern',
-      'file',        'sline',         'eline',               'classified',
-      'license'
+      'snippets.id',           'snippets.hash',          'snippets.likelyness', 'snippets.like_pattern',
+      'snippets.second_match', 'snippets.score_version', 'file',                'sline',
+      'eline',                 'classified',             'license'
     ],
     $query
   );
@@ -335,6 +335,7 @@ sub _dig_report {
 
   my %file_snippets_to_ignore;
   my %file_snippets_to_show;
+  my %file_snippets_to_fold;
   my %snippets_shown;
 
   for my $snip_row (@snip_rows) {
@@ -343,6 +344,12 @@ sub _dig_report {
       || (!$snip_row->{license} && $snip_row->{classified}))
     {
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
+    }
+
+    # High-confidence snippets fold in as if they had matched a license pattern (derived only)
+    elsif ($self->_should_fold($db, $snip_row)) {
+      $snippets_shown{$snip_row->{id}} = 1;
+      _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
     }
     else {
       $snippets_shown{$snip_row->{id}} = 1;
@@ -433,6 +440,47 @@ sub _dig_report {
     }
   }
   $matches->finish;
+
+  # Fold high-confidence snippets into the resolved licenses/risks as if they had matched their
+  # closest license's pattern. This is a *derived* resolution computed at report time from snippet
+  # metadata (similarity, classifier flag); nothing is written to license_patterns/pattern_matches.
+  for my $file (keys %file_snippets_to_fold) {
+    for my $snip_row (@{$file_snippets_to_fold{$file}}) {
+      my ($sline, $eline, $sid, $hash, $match, $pid) = @$snip_row;
+      next unless $pid;
+      my $pattern = $self->_load_pattern_from_cache($db, $pid);
+      next if $pattern->{license} eq '';
+
+      $report->{licenses}{$pattern->{license}}
+        ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
+      $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
+        for qw(patent trademark export_restricted cla eula);
+
+      my $rl = $report->{risks}{$pattern->{risk}};
+      push(@{$rl->{$pattern->{license}}{$pid}}, $file);
+      $report->{risks}{$pattern->{risk}} = $rl;
+
+      $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
+      $report->{folded}{$file} = 1;
+
+      # Highlight the folded region exactly like a real match so the file's source view shows why
+      # the license is listed: expand the file and mark its lines with the (inferred) pattern id.
+      $report->{expanded}{$file} = 1;
+      for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
+        next if $i < 1;
+        if ($i >= $sline && $i <= $eline) {
+          my $opid = $report->{needed_lines}{$file}{$i} // 0;
+          next if $opid > PATTERN_DELTA;    # keep an unresolved-snippet highlight
+          next if $pattern->{risk} < $self->_info_for_pattern($pid_info, $opid)->{risk};
+          $report->{needed_lines}{$file}{$i} = $pid;
+        }
+        else {
+          $report->{needed_lines}{$file}{$i} ||= 0;
+        }
+      }
+    }
+  }
+
   $report->{flags} = [keys %{$report->{flags}}] if $report->{flags};
 
   for my $license (values %{$report->{licenses}}) {
@@ -561,6 +609,15 @@ sub _load_pattern_from_cache {
   my ($self, $db, $pid) = @_;
   $self->{license_cache}->{"pattern-$pid"} ||= $db->select('license_patterns', '*', {id => $pid})->hash;
   return $self->{license_cache}->{"pattern-$pid"};
+}
+
+# Decide whether an unresolved snippet is confident enough to fold into the report as resolved.
+# The actual gate lives in Cavil::ReportUtil::should_fold_snippet so the file browser applies the
+# exact same rules; here we just look up the closest license's pattern and delegate.
+sub _should_fold {
+  my ($self, $db, $snip_row) = @_;
+  return 0 unless my $pid = $snip_row->{like_pattern};
+  return should_fold_snippet($self->snippet_fold, $snip_row, $self->_load_pattern_from_cache($db, $pid));
 }
 
 sub _sanitize_report {

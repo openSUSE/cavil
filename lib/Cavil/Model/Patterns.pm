@@ -16,12 +16,27 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(normalize_license_expr paginate pattern_checksum spdx_link);
+use Cavil::Util qw(normalize_license_expr paginate pattern_checksum spdx_link text_shingles weighted_containment);
+use List::Util  qw(min);
 use Mojo::File  qw(path);
 use Mojo::JSON  qw(true false);
 use Mojo::Util  qw(md5_sum);
 use Spooky::Patterns::XS;
 use Storable;
+
+# Candidate licenses pulled from a snippet's most distinctive shingles before precise re-scoring
+use constant SIMILARITY_PROBE_SHINGLES => 20;
+
+# Tokens per shingle for the snippet similarity scorer. Empirically (eval_fold on the full corpus)
+# k=3 gives the best precision; larger k trades precision for recall.
+use constant SIMILARITY_SHINGLE_SIZE => 3;
+
+# Required-phrase gate: the winning license must share at least MIN_DISTINCTIVE shingles this
+# distinctive (IDF, i.e. present in few licenses) with the snippet. The count requirement (>=2) kills
+# the dominant real-world false fold: tiny generic header fragments ("Disclaimer", "Attribution")
+# matching a pseudo-license on a single token. Calibrate with "cavil eval_fold" / staging snippets.
+use constant SIMILARITY_DISTINCTIVE_IDF => 4.0;
+use constant SIMILARITY_MIN_DISTINCTIVE => 2;
 
 has [qw(cache log pg minion)];
 
@@ -91,6 +106,109 @@ sub closest_matches ($self, $text, $num) {
   return $bag->best_for($text, $num);
 }
 
+# Rebuild the per-license similarity signatures that back the improved snippet scoring. This is an
+# extension of the Spooky bag (built alongside it in the pattern_stats task): for every license we
+# union the normalized token-shingles of all its patterns, so a snippet is later compared against a
+# license's *combined* signature instead of one arbitrary fragment. Stored as a rebuildable sidecar
+# next to the bag - no database tables. Empty-license keyword patterns are skipped (they are the
+# keyword-detection layer, not fold-in targets).
+sub rebuild_similarity_data ($self, $k = SIMILARITY_SHINGLE_SIZE) {
+  my $rows = $self->pg->db->select('license_patterns', 'id,license,pattern')->hashes;
+
+  my (%signatures, %representative);
+  for my $row (@$rows) {
+    my $license = $row->{license};
+    next unless defined $license && length $license;
+    my $shingles = text_shingles($row->{pattern}, $k);
+    $signatures{$license}{$_} = 1 for keys %$shingles;
+    $representative{$license} //= $row->{id};
+  }
+
+  # Write atomically (temp + rename) so readers never see a half-written Storable file, mirroring
+  # how the pattern bag is published.
+  my $data  = {signatures => \%signatures, representative => \%representative, k => $k};
+  my $cache = path($self->cache);
+  my $temp  = $cache->child("cavil.license.signatures.new.$$");
+  store($data, $temp->to_string);
+  rename($temp->to_string, $cache->child('cavil.license.signatures')->to_string);
+  return $data;
+}
+
+# Load the similarity signatures and derive the inverted index (shingle -> licenses) and IDF
+# weights (rare shingles weigh more). Returns undef if the sidecar has not been built yet, so
+# callers can fall back to the plain bag.
+sub similarity_context ($self) {
+  my $file = path($self->cache, 'cavil.license.signatures');
+  return undef unless -r $file;
+  my $data = retrieve($file->to_string);
+
+  my %index;
+  for my $license (keys %{$data->{signatures}}) {
+    $index{$_}{$license} = 1 for keys %{$data->{signatures}{$license}};
+  }
+
+  my $total = scalar keys %{$data->{signatures}};
+  my %idf;
+  for my $shingle (keys %index) {
+    my $df = scalar keys %{$index{$shingle}};
+    $idf{$shingle} = log(($total + 1) / ($df + 1)) + 1;
+  }
+
+  return {
+    signatures      => $data->{signatures},
+    representative  => $data->{representative},
+    index           => \%index,
+    idf             => \%idf,
+    k               => $data->{k} // SIMILARITY_SHINGLE_SIZE,
+    distinctive_idf => SIMILARITY_DISTINCTIVE_IDF,
+    min_distinctive => SIMILARITY_MIN_DISTINCTIVE
+  };
+}
+
+# Best matching license for a snippet, using IDF-weighted containment against per-license
+# signatures. Candidate licenses are gathered from the snippet's most distinctive shingles (so we
+# never score against all licenses), then re-ranked precisely. Returns the winning license, its
+# score, a representative pattern id (for risk/name/spdx lookup) and the runner-up score (margin).
+sub best_license_for ($self, $text, $ctx) {
+  my $shingles = text_shingles($text, $ctx->{k} // SIMILARITY_SHINGLE_SIZE);
+  return {license => undef, match => 0, pattern => undef, second => 0} unless %$shingles;
+
+  my @distinctive = sort { ($ctx->{idf}{$b} // 0) <=> ($ctx->{idf}{$a} // 0) } keys %$shingles;
+  my %candidates;
+  for my $shingle (@distinctive[0 .. min(SIMILARITY_PROBE_SHINGLES, scalar @distinctive) - 1]) {
+    next unless my $licenses = $ctx->{index}{$shingle};
+    $candidates{$_} = 1 for keys %$licenses;
+  }
+
+  my @scored;
+  for my $license (keys %candidates) {
+    push @scored, [$license, weighted_containment($shingles, $ctx->{signatures}{$license}, $ctx->{idf})];
+  }
+  @scored = sort { $b->[1] <=> $a->[1] } @scored;
+
+  my $best   = $scored[0] // [undef, 0];
+  my $second = $scored[1] // [undef, 0];
+
+  # Required-phrase gate (borrowed from ScanCode's "required phrases"): a confident match must share
+  # at least one *distinctive* (high-IDF) shingle with the winning license, not rest entirely on
+  # common legal boilerplate. Boilerplate-only matches are dropped to no-confidence, which is the
+  # safe direction - the snippet stays unresolved and its estimated risk rises rather than folding.
+  if (defined $best->[0]) {
+    my $floor       = $ctx->{distinctive_idf} // SIMILARITY_DISTINCTIVE_IDF;
+    my $min         = $ctx->{min_distinctive} // SIMILARITY_MIN_DISTINCTIVE;
+    my $sig         = $ctx->{signatures}{$best->[0]};
+    my $distinctive = grep { $sig->{$_} && ($ctx->{idf}{$_} // 0) >= $floor } keys %$shingles;
+    $best = [undef, 0] if $distinctive < $min;
+  }
+
+  return {
+    license => $best->[0],
+    match   => $best->[1],
+    pattern => defined $best->[0] ? $ctx->{representative}{$best->[0]} : undef,
+    second  => defined $best->[0] ? $second->[1]                       : 0
+  };
+}
+
 sub create ($self, %args) {
   my $checksum = pattern_checksum($args{pattern});
   my $id       = $self->pattern_exists($checksum);
@@ -133,6 +251,10 @@ sub expire_cache ($self) {
   my $cache = path($self->cache);
   unlink $cache->child('cavil.tokens')->to_string;
   unlink $cache->child('cavil.pattern.bag')->to_string;
+
+  # Drop the similarity sidecar too, so stale per-license signatures / representative ids are not
+  # used until pattern_stats rebuilds them.
+  unlink $cache->child('cavil.license.signatures')->to_string;
 
   # Reclculate the tf-idfs
   $self->minion->enqueue(pattern_stats => [] => {priority => 9});

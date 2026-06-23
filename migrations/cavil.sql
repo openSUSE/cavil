@@ -335,3 +335,7 @@ CREATE INDEX bot_packages_name_trgm_idx ON bot_packages USING gin (name gin_trgm
 
 -- 41 up
 ALTER TABLE ignored_files ADD COLUMN contributor int REFERENCES bot_users(id);
+
+-- 42 up
+ALTER TABLE snippets ADD COLUMN second_match real NOT NULL DEFAULT 0;
+ALTER TABLE snippets ADD COLUMN score_version int NOT NULL DEFAULT 0;

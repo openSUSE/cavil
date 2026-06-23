@@ -16,8 +16,9 @@
 package Cavil::Test;
 use Mojo::Base -base, -signatures;
 
-use Mojo::File qw(path tempdir);
-use Mojo::JSON qw(from_json to_json);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Mojo::File  qw(path tempdir);
+use Mojo::JSON  qw(from_json to_json);
 use Mojo::Pg;
 use Mojo::URL;
 use Mojo::Util qw(scope_guard);
@@ -57,7 +58,8 @@ sub default_config ($self) {
     max_task_memory                          => 5_000_000_000,
     max_worker_rss                           => 100000,
     max_expanded_files                       => 100,
-    always_generate_spdx_reports             => 0
+    always_generate_spdx_reports             => 0,
+    snippet_fold                             => {enabled => 0, threshold => 0.95, min_margin => 0.15, max_risk => 5}
   };
 }
 
@@ -209,6 +211,26 @@ sub package_with_snippets_fixtures ($self, $app) {
        is included in the section entitled "GNU Free Documentation License"',
     license => 'GFDL-1.1-or-later'
   );
+}
+
+# Synthetic fixture for the snippet fold-in UI test: index a package, make every snippet a
+# confident, current-version GPL match, and regenerate the report so it folds. Requires the app to
+# be built with snippet_fold enabled.
+sub snippet_fold_fixtures ($self, $app) {
+  $self->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+
+  my $db  = $app->pg->db;
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash;
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0,
+       score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $gpl->{id}
+  );
+
+  # Regenerate the cached report so the fold is reflected in what the UI loads
+  $app->minion->enqueue(analyze => [1]);
+  $app->minion->perform_jobs;
 }
 
 sub postgres_url ($self) {

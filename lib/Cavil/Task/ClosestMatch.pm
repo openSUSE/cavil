@@ -17,7 +17,7 @@ package Cavil::Task::ClosestMatch;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Mojo::JSON 'encode_json';
-use Cavil::Util;
+use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 use Spooky::Patterns::XS 1.54;
 use Mojo::File qw(path);
 
@@ -41,13 +41,34 @@ sub _pattern_stats ($job) {
   $bag->dump($cache);
   rename($cache, $dir->child('cavil.pattern.bag'));
 
+  # Rebuild the per-license similarity signatures (extension of the bag) used for snippet fold-in,
+  # then re-score unscored snippets with the improved normalized/IDF-weighted containment metric.
+  # Falls back to the plain bag if signatures are unavailable.
+  my $patterns = $app->patterns;
+  $patterns->rebuild_similarity_data;
+  my $ctx = $patterns->similarity_context;
+
+  # Only the improved scorer stamps the current score version; the plain-bag fallback leaves it at 0
+  # so fold-in will not trust those rows.
+  my $version = $ctx ? SNIPPET_SCORE_VERSION : 0;
+
   $rows = $db->select('snippets', 'id,text', {like_pattern => undef});
   while (my $next = $rows->hash) {
-    my $best_pattern = $bag->best_for($next->{text}, 1)->[0];
+    my $best;
+    if ($ctx) { $best = $patterns->best_license_for($next->{text}, $ctx) }
+    else {
+      my $b = $bag->best_for($next->{text}, 1)->[0];
+      $best = {match => $b->{match}, pattern => $b->{pattern}, second => 0};
+    }
     $db->update(
       'snippets',
-      {likelyness => $best_pattern->{match}, like_pattern => $best_pattern->{pattern},},
-      {id         => $next->{id}}
+      {
+        likelyness    => $best->{match},
+        like_pattern  => $best->{pattern},
+        second_match  => $best->{second} // 0,
+        score_version => $version
+      },
+      {id => $next->{id}}
     );
   }
 }

@@ -17,8 +17,9 @@ package Cavil::SPDX;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
-use Cavil::Licenses qw(lic);
-use Cavil::Util     qw(read_lines);
+use Cavil::Licenses   qw(lic);
+use Cavil::ReportUtil qw(should_fold_snippet);
+use Cavil::Util       qw(read_lines);
 use Digest::SHA1;
 use Mojo::File qw(path tempfile);
 use Mojo::JSON qw(from_json);
@@ -46,6 +47,7 @@ sub generate_to_file ($self, $id, $file) {
   my $specfile_report = $reports->specfile_report($id);
   my $db              = $app->pg->db;
   my $license_ref_num = 0;
+  my $fold            = $app->config->{snippet_fold};
 
   my $spdx_tmp_file  = "$file.tmp";
   my $files_tmp_file = "$file.files.tmp";
@@ -108,6 +110,33 @@ sub generate_to_file ($self, $id, $file) {
     $matched_files->{$matched->{filename}} = $matched->{id};
   }
   my %license_info_from_files;
+
+  # Emit a license for the current file: a plain SPDX id when we have one, otherwise a LicenseRef
+  # declaration. Shared by the pattern-match path's folded snippets below.
+  my $record_file_license = sub ($spdx_id, $name, $risk, $flag_src, $comment) {
+    if ($spdx_id) {
+      $files_section->tag(LicenseInfoInFile => $spdx_id);
+      $license_info_from_files{$spdx_id} = 1;
+      return;
+    }
+    $license_ref_num++;
+    my $ref = "LicenseRef-$name-$id-$license_ref_num";
+    $ref =~ s/[^A-Za-z0-9.]+/-/g;
+    $files_section->tag(LicenseInfoInFile => $ref);
+    $license_info_from_files{$ref} = 1;
+    $refs->comment('License Reference');
+    $refs->br();
+    $refs->tag(LicenseID   => $ref);
+    $refs->tag(LicenseName => $name || NO_ASSERTION);
+    my $flags = '';
+
+    if ($flag_src && grep { $flag_src->{$_} } @FLAGS) {
+      $flags = '; Flags: ' . join(', ', map { $flag_src->{$_} ? "\@$_" : () } @FLAGS);
+    }
+    $refs->tag(LicenseComment => "Risk: $risk$flags" . ($comment ? "\n$comment" : ''));
+    $refs->br();
+  };
+
   my $file_num = 0;
   for my $file (sort keys %files) {
     $file_num++;
@@ -122,11 +151,13 @@ sub generate_to_file ($self, $id, $file) {
 
     # Matches
     if (my $file_id = $matched_files->{$file}) {
-      my (@copyright, %duplicates, %matched_lines, %ignored_lines, %similarity);
+      my (@copyright, @folded, %duplicates, %matched_lines, %ignored_lines, %similarity);
 
       my $snippet_sql = qq{
-        SELECT f.sline, f.eline, s.license, s.like_pattern, s.likelyness
-        FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id
+        SELECT f.sline, f.eline, s.license, s.like_pattern, s.likelyness, s.second_match, s.score_version,
+               p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
+               p.trademark, p.patent, p.export_restricted, p.cla, p.eula
+        FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
         WHERE file = ? AND classified = true
       };
       for my $snippet ($db->query($snippet_sql, $file_id)->hashes->each) {
@@ -141,6 +172,10 @@ sub generate_to_file ($self, $id, $file) {
           _matched_lines(\%similarity, $snippet->{sline}, $snippet->{eline},
             [$snippet->{like_pattern}, $snippet->{likelyness}]);
         }
+
+        # Confident enough to fold in as a resolved license (same gate as the report/file browser)
+        push @folded, $snippet
+          if should_fold_snippet($fold, $snippet, {license => $snippet->{plicense}, risk => $snippet->{prisk}});
       }
 
       my $match_sql = qq{
@@ -207,6 +242,13 @@ sub generate_to_file ($self, $id, $file) {
           $refs->text(ExtractedText => $snippet);
           $refs->br();
         }
+      }
+
+      # Folded snippets contribute their inferred license to the file (and so to the package
+      # license list), just like a real match would.
+      for my $snippet (@folded) {
+        my $comment = sprintf 'Folded from snippet (%d%% similarity)', int(($snippet->{likelyness} // 0) * 100);
+        $record_file_license->($snippet->{pspdx}, $snippet->{plicense}, $snippet->{prisk}, $snippet, $comment);
       }
 
       if (@copyright) {

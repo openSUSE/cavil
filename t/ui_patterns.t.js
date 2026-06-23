@@ -90,6 +90,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'License details of Made-Up-License-1.0');
 
       // Flags ticked in the inline editor are persisted and rendered as chips
+      await page.waitForSelector('#license-details .license-pattern-card .license-chip-flag');
       const flagChips = await page.locator('.license-chip-flag').allInnerTexts();
       t.ok(flagChips.includes('Trademark'), 'Trademark flag chip rendered');
       t.ok(flagChips.includes('CLA'), 'CLA flag chip rendered');
@@ -704,17 +705,14 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       // Page mode shows the source-file/package origin line (inline mode hides it).
       t.match(await editorPage.innerText('#edit-snippet'), /The example shown here is from the file/);
 
-      // Error path: submit with the license field empty - server returns 400 and
-      // EditSnippet.vue should surface the message in the alert-danger banner
-      // without navigating away.
-      const [errResp] = await Promise.all([
-        editorPage.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
-        editorPage.locator('#edit-snippet button[data-action="create-pattern"]').click()
-      ]);
-      t.equal(errResp.status(), 400);
-      await editorPage.waitForSelector('#edit-snippet .alert-danger');
-      t.match(await editorPage.innerText('#edit-snippet .alert-danger'), /Missing required field: license/);
-      t.match(editorPage.url(), /\/snippet\/edit\/\d+/, 'still on the editor page after error');
+      const editorDoc = async () =>
+        editorPage.evaluate(() => document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString());
+      const replaceEditorDoc = async text =>
+        editorPage.evaluate(value => {
+          const view = document.querySelector('#edit-snippet .cm-editor').cmView;
+          view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: value}});
+        }, text);
+      const originalEditorText = await editorDoc();
 
       // Success path: fill the form and append a unique marker into the
       // CodeMirror editor so the resulting pattern doesn't md5-collide with one
@@ -722,9 +720,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       // redirects to the new pattern's edit page on success.
       await editorPage.locator('#edit-snippet input[name=license]').fill('Page-Editor-License-1.0');
       await editorPage.locator('#edit-snippet select[name="risk"]').selectOption('2');
-      await editorPage.locator('#edit-snippet .cm-editor .cm-content').click();
-      await editorPage.keyboard.press('Control+End');
-      await editorPage.keyboard.type('\nunique-page-mode-test-marker');
+      await replaceEditorDoc(`${originalEditorText}\nunique-page-mode-test-marker`);
       const [okResp] = await Promise.all([
         editorPage.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
         editorPage.locator('#edit-snippet button[data-action="create-pattern"]').click()

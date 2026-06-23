@@ -119,6 +119,10 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await page.locator('[placeholder="Search packages"]').press('Enter');
       await page.waitForURL(`${url}/search?q=perl-Mojolicious`);
       t.equal(await page.innerText('title'), 'Search Results');
+      await page.waitForFunction(() => {
+        const row = document.querySelector('#review-search tbody > tr:nth-child(1)');
+        return row && !/Loading reviews/.test(row.textContent);
+      });
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
       t.equal(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(5)'), /perl-Mojolicious/);
@@ -166,6 +170,12 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await page.goto(url);
       await page.selectOption('select.cavil-pkg-priority', '1');
       await page.locator('#cavil-pkg-filter input[placeholder="Filter"]').fill('synth');
+      await Promise.all([
+        page.waitForResponse(
+          resp => /\/pagination\/reviews\/open/.test(resp.url()) && resp.url().includes('filter=synth')
+        ),
+        page.locator('#cavil-pkg-filter input[placeholder="Filter"]').press('Enter')
+      ]);
       const synthRow = page.locator('#open-reviews tbody > tr').filter({hasText: 'zzz_synth#1'}).first();
       await synthRow.waitFor();
       await synthRow.locator('a[href^="/reviews/details/"]').click();
@@ -180,7 +190,9 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await openAccountMenu(page);
       await page.click('text=Missing Licenses');
       t.equal(await page.innerText('title'), 'Missing Licenses');
-      await page.waitForSelector('#missing-licenses > div > div:nth-child(2)');
+      await page.waitForFunction(() =>
+        /All caught up!\s+No missing licenses have been flagged/.test(document.body.innerText)
+      );
       t.match(
         await page.innerText('#missing-licenses > div > div:nth-child(2)'),
         /All caught up!\s+No missing licenses have been flagged/
@@ -192,7 +204,9 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await openAccountMenu(page);
       await page.click('text=Change Proposals');
       t.equal(await page.innerText('title'), 'Change Proposals');
-      await page.waitForSelector('#proposed-patterns > div > div:nth-child(3)');
+      await page.waitForFunction(() =>
+        /All caught up!\s+No proposed changes are waiting for review/.test(document.body.innerText)
+      );
       t.match(
         await page.innerText('#proposed-patterns > div > div:nth-child(3)'),
         /All caught up!\s+No proposed changes are waiting for review/
