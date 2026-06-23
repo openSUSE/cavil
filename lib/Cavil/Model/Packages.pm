@@ -456,12 +456,25 @@ sub need_cleanup ($self) {
     ->arrays->flatten->to_array;
 }
 
-sub name_suggestions ($self, $partial) {
-  my $like = '%' . $partial . '%';
-  return $self->pg->db->select(
-    'bot_packages', [\'distinct(name)'],
-    {-and  => [{name => \[' ilike ?', $like]}, {name => {'!=' => $partial}}]},
-    {limit => 100}
+sub name_autocomplete ($self, $partial, $limit = 10) {
+  return [] unless defined $partial && length $partial;
+
+  my $prefix    = $partial . '%';
+  my $substring = '%' . $partial . '%';
+
+  # Blend prefix, substring and trigram matches (typo tolerance) into a single
+  # ranking: exact prefixes first, then by trigram similarity, then by length.
+  # The inner DISTINCT collapses the per-version rows in bot_packages down to
+  # unique names and lets the gin_trgm_ops index serve both the ILIKE and the
+  # "%" (similarity) lookups.
+  return $self->pg->db->query(
+    q{SELECT name FROM (
+        SELECT DISTINCT name, similarity(name, ?) AS sml
+          FROM bot_packages
+         WHERE name ILIKE ? OR name % ?
+      ) AS matches
+      ORDER BY (name ILIKE ?) DESC, sml DESC, length(name), name
+      LIMIT ?}, $partial, $substring, $partial, $prefix, $limit
   )->arrays->flatten->to_array;
 }
 

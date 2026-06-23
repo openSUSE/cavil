@@ -23,6 +23,7 @@
       %= content_for 'head_javascript'
       document.addEventListener('DOMContentLoaded', () => {
         cavil.setupMenu();
+        cavil.setupPackageSearch();
         %= content_for 'ready_function'
       });
     % end
@@ -61,10 +62,13 @@
               %= link_to 'Licenses' => '/licenses', class => current_route('licenses') ? 'nav-link active' : 'nav-link'
             </li>
           </ul>
-          <form action="<%= url_for 'search' %>" class="d-flex cavil-navbar-search">
-            <%= text_field 'q', class => 'form-control cavil-search-input',
-              placeholder => 'Search packages', 'aria-label' => 'Search packages' %>
-          </form>
+          <div
+            id="cavil-package-search"
+            class="cavil-navbar-search"
+            data-search-url="<%= url_for 'search' %>"
+            data-autocomplete-url="<%= url_for 'package_autocomplete' %>"
+            data-query="<%= param 'q' %>"
+          ></div>
           % if (my $user = current_user) {
             <ul
               class="navbar-nav"

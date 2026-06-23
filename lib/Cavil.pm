@@ -216,6 +216,7 @@ sub startup ($self) {
   # Review UI
   $public->get('/')->to('Reviewer#list_reviews')->name('dashboard');
   $public->get('/search')->to('Search#search')->name('search');
+  $public->get('/package/autocomplete')->to('Search#autocomplete')->name('package_autocomplete');
   $public->get('/pagination/search/*name' => {name => ''})
     ->to('Pagination#review_search')
     ->name('pagination_review_search');

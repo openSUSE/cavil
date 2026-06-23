@@ -5,6 +5,7 @@ import ApiKeys from './vue/ApiKeys.vue';
 import CavilMenu from './vue/CavilMenu.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
+import PackageSearch from './vue/components/PackageSearch.vue';
 import EditPattern from './vue/EditPattern.vue';
 import EditSnippet from './vue/EditSnippet.vue';
 import FileBrowser from './vue/FileBrowser.vue';
@@ -132,6 +133,17 @@ window.cavil = {
 
   setupOpenReviews() {
     createApp(OpenReviews).mount('#open-reviews');
+  },
+
+  setupPackageSearch() {
+    const el = document.getElementById('cavil-package-search');
+    if (!el) return;
+
+    const app = createApp(PackageSearch);
+    app.config.globalProperties.searchUrl = el.dataset.searchUrl;
+    app.config.globalProperties.autocompleteUrl = el.dataset.autocompleteUrl;
+    app.config.globalProperties.initialQuery = el.dataset.query ?? '';
+    app.mount(el);
   },
 
   setupProductReviews(product) {

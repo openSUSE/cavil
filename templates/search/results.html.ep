@@ -4,29 +4,6 @@
 
 <div id="review-search"></div>
 
-% if (@$suggestions) {
-  <br/>
-  <h4>Similar Packages</h4>
-  <table id="suggestions" class="table borderless novertpad">
-    <tbody>
-      % while (@$suggestions) {
-        <tr>
-          % for (1 .. 4) {
-            % if (my $s = shift @$suggestions) {
-              % my $url = url_for('search')->query(q => $s);
-              <td><%= link_to $s => $url, target => '_blank' %></td>
-            % }
-            % else {
-              <td></td>
-            % }
-          % }
-        </tr>
-      % }
-    </tbody>
-  </table>
-  <br/>
-% }
-
 % content_for 'ready_function' => begin
   cavil.setupReviewSearch('<%= param 'q' %>');
 % end

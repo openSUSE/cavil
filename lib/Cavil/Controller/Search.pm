@@ -21,13 +21,20 @@ sub search ($self) {
   $validation->optional('q');
   return $self->reply->json_validation_error if $validation->has_error;
 
-  my ($suggestions, $results) = ([], []);
-  if (my $query = $validation->param('q')) {
-    my $pkgs = $self->packages;
-    $suggestions = $pkgs->name_suggestions($query);
+  $self->render('search/results');
+}
+
+sub autocomplete ($self) {
+  my $validation = $self->validation;
+  $validation->optional('q');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my $suggestions = [];
+  if (defined(my $query = $validation->param('q'))) {
+    $suggestions = $self->packages->name_autocomplete($query);
   }
 
-  $self->render('search/results', suggestions => $suggestions);
+  $self->render(json => $suggestions);
 }
 
 1;

@@ -329,3 +329,6 @@ ALTER TABLE license_patterns DROP COLUMN IF EXISTS cla,
 
 -- 39 up
 CREATE EXTENSION IF NOT EXISTS "pg_trgm" WITH SCHEMA public;
+
+-- 40 up
+CREATE INDEX bot_packages_name_trgm_idx ON bot_packages USING gin (name gin_trgm_ops);
