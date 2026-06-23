@@ -477,6 +477,8 @@ sub propose_missing ($self, %args) {
           highlighted_licenses => $args{highlighted_licenses},
           edited               => $args{edited} // '0',
           package              => $args{package},
+          ai_assisted          => $args{ai_assisted} // 0,
+          reason               => $args{reason}      // ''
         }
       },
       owner        => $args{owner},

@@ -6,6 +6,11 @@
 
   An architecture overview for Cavil.
 
+* [License Pattern Lifecycle](PatternLifecycle.md)
+
+  A plain-language guide, written for lawyers and reviewers, to how a piece of text becomes a reusable license
+  pattern — the review queues, who proposes what, and what "missing license" means.
+
 * [Contributors](Contributors.md)
 
   The contributor workflow for volunteers to help with curating license paterns.

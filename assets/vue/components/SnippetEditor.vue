@@ -310,7 +310,8 @@ export default {
     hasContributorRole: {type: Boolean, default: false},
     hasAdminRole: {type: Boolean, default: false},
     mode: {type: String, default: 'page'},
-    initial: {type: Object, default: null}
+    initial: {type: Object, default: null},
+    allowedActions: {type: Array, default: null}
   },
   emits: ['submit', 'cancel'],
   data() {
@@ -402,6 +403,11 @@ export default {
       if (canPropose && hasContext && isUnmodified) actions.push('propose-missing');
       if (this.hasAdminRole && isUnmodified) actions.push('propose-ignore');
       if (this.hasAdminRole && hasContext) actions.push('mark-non-license');
+
+      // A host can narrow the offered actions (e.g. the Missing Licenses page only
+      // wants "Create Pattern"); always filtered against the role-derived set above
+      // so a restriction can never surface an action the user lacks permission for.
+      if (this.allowedActions !== null) return actions.filter(action => this.allowedActions.includes(action));
 
       return actions;
     }

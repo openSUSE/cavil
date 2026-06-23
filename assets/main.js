@@ -72,10 +72,11 @@ window.cavil = {
     app.mount('#proposed-patterns');
   },
 
-  setupMissingLicenses(currentUser, hasAdminRole) {
+  setupMissingLicenses(currentUser, hasAdminRole, hasContributorRole) {
     const app = createApp(MissingLicenses);
     app.config.globalProperties.currentUser = currentUser;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
+    app.config.globalProperties.hasContributorRole = hasContributorRole;
     app.mount('#missing-licenses');
   },
 

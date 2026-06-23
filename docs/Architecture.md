@@ -196,6 +196,10 @@ This one is not specific to one package checkout.
 
 ## Pattern Matching
 
+> For a non-technical, lawyer-facing overview of how a piece of text becomes a reusable pattern — the review queues,
+> who proposes what, and what "missing license" means — see [PatternLifecycle.md](PatternLifecycle.md). This section
+> is the technical detail behind that life cycle.
+
 Pattern matching is the heart of Cavil. It is how the `index_batch` job turns raw source files into the license and
 keyword matches that every report is built from. The matching itself is done by a separate, performance-critical C++
 library ([Spooky::Patterns::XS](https://github.com/openSUSE/Spooky-Patterns-XS)); Cavil provides the glue that loads

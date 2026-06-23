@@ -16,6 +16,9 @@
                   Missing license reported by <b>{{ change.login }}</b>
                   <span class="cavil-meta-badges change-meta-badges">
                     <span class="cavil-meta-badge cavil-meta-badge-danger">missing license</span>
+                    <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
+                      <i class="fa-solid fa-robot"></i> AI assisted
+                    </span>
                     <a :href="change.editUrl" target="_blank" class="cavil-meta-badge cavil-meta-badge-muted">
                       snippet
                     </a>
@@ -53,11 +56,31 @@
               </table>
             </div>
             <div class="change-form">
-              <span v-if="hasAdminRole">
-                <a class="btn btn-primary mb-2" :href="change.editUrl" target="_blank" role="button">Edit Pattern</a>
+              <div v-if="change.data.reason" class="row">
+                <div class="col mb-3">
+                  <label class="form-label">Reason</label>
+                  <textarea v-model="change.data.reason" class="form-control" disabled="disabled" rows="3"></textarea>
+                </div>
+              </div>
+              <span v-if="hasAdminRole && editingId !== change.id">
+                <button @click="toggleEditor(change)" type="button" class="btn btn-primary mb-2">Edit Pattern</button>
                 &nbsp;
                 <button @click="dismissProposal(change)" class="btn btn-danger btn-sm mb-2">Dismiss</button>
               </span>
+              <div v-if="editingId === change.id" id="inline-snippet-editor" class="missing-inline-editor">
+                <SnippetEditor
+                  :key="`missing-editor-${change.id}-${editorVersion}`"
+                  :snippet-id="Number(change.data.snippet)"
+                  :hash="change.token_hexsum"
+                  :from="change.data.from"
+                  :has-admin-role="hasAdminRole"
+                  :has-contributor-role="hasContributorRole"
+                  :allowed-actions="['create-pattern']"
+                  mode="inline"
+                  @submit="onEditorSubmit(change, $event)"
+                  @cancel="editingId = null"
+                />
+              </div>
             </div>
             <div class="change-footer">
               <div v-if="change.closest !== null">
@@ -91,12 +114,13 @@
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
+import SnippetEditor from './components/SnippetEditor.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'MissingLicenses',
-  components: {BackToTop, CavilNoticePanel, EmptyState, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, EmptyState, SnippetEditor, ToastNotifier},
   data() {
     return {
       ignoreForPackage: true,
@@ -104,7 +128,9 @@ export default {
       changes: null,
       changeUrl: '/licenses/proposed/meta?action=missing_license',
       total: null,
-      loadingMore: false
+      loadingMore: false,
+      editingId: null,
+      editorVersion: 0
     };
   },
   mounted() {
@@ -131,6 +157,8 @@ export default {
 
         if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
+
+        if (change.data.ai_assisted !== undefined) change.data.ai_assisted = change.data.ai_assisted == 1;
 
         const highlightedKeywords = change.data.highlighted_keywords ?? [];
         const highlightedLicenses = change.data.highlighted_licenses ?? [];
@@ -178,6 +206,40 @@ export default {
       await ua.post(change.removeUrl);
       this.removeChange(change);
       this.$refs.toaster?.notify('Proposal dismissed', 'danger');
+    },
+    toggleEditor(change) {
+      this.editingId = this.editingId === change.id ? null : change.id;
+      this.editorVersion++;
+    },
+    async onEditorSubmit(change, payload) {
+      const formData = {...payload.formData};
+
+      // Creating a real pattern from the snippet should also clear the missing-license report. The
+      // create-pattern handler removes the proposal when given its checksum (the snippet hash, which is
+      // this proposal's token); the ignore/non-license actions already remove it via the same hash.
+      if (payload.action === 'create-pattern') formData.checksum = change.token_hexsum;
+
+      const ua = new UserAgent({baseURL: window.location.href});
+      const body = {actions: [{kind: payload.action, snippetId: change.data.snippet, formData}]};
+      const res = await ua.post('/snippet/batch_decision', {json: body, headers: {Accept: 'application/json'}});
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (e) {
+        // handled below
+      }
+
+      if (res.isSuccess && data && data.ok) {
+        this.editingId = null;
+        this.removeChange(change);
+        this.$refs.toaster?.notify('Pattern created, reindexing related packages in 10 minutes if necessary');
+        return;
+      }
+
+      const result = data && data.results && data.results[0];
+      const message = (result && result.error) || (data && data.error) || `Request failed (HTTP ${res.statusCode})`;
+      this.$refs.toaster?.notify(message, 'danger', 5000);
     },
     removeChange(change) {
       const i = this.changes.indexOf(change);
@@ -270,6 +332,13 @@ export default {
   background-color: rgb(246, 248, 250);
   border-top: 1px solid rgb(208, 215, 222);
   padding: 10px;
+}
+.missing-inline-editor {
+  background: #ffffff;
+  border: 1px solid rgb(208, 215, 222);
+  border-radius: 6px;
+  margin-top: 0.5rem;
+  padding: 1rem;
 }
 .change-footer {
   background-color: rgb(246, 248, 250);

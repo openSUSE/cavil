@@ -479,7 +479,7 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 12,                              'twelve tools available';
+      is scalar @{$result->{tools}}, 13,                              'thirteen tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -492,6 +492,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[9]{name},  'cavil_propose_license_pattern', 'right tool name';
       is $result->{tools}[10]{name}, 'cavil_propose_ignore_glob',     'right tool name';
       is $result->{tools}[11]{name}, 'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[12]{name}, 'cavil_report_missing_license',  'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -534,7 +535,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 10,                              'ten tools available';
+      is scalar @{$result->{tools}}, 11,                              'eleven tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -545,6 +546,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[7]{name},  'cavil_propose_license_pattern', 'right tool name';
       is $result->{tools}[8]{name},  'cavil_propose_ignore_glob',     'right tool name';
       is $result->{tools}[9]{name},  'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[10]{name}, 'cavil_report_missing_license',  'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -556,7 +558,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 11,                              'eleven tools available';
+      is scalar @{$result->{tools}}, 12,                              'twelve tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -568,6 +570,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[8]{name},  'cavil_propose_license_pattern', 'right tool name';
       is $result->{tools}[9]{name},  'cavil_propose_ignore_glob',     'right tool name';
       is $result->{tools}[10]{name}, 'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[11]{name}, 'cavil_report_missing_license',  'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');
@@ -1049,6 +1052,62 @@ subtest 'MCP' => sub {
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text}, 'Snippet not found', 'not found message';
       };
+    };
+
+    subtest 'cavil_report_missing_license tool' => sub {
+      subtest 'Report missing license' => sub {
+        my $result = $client->call_tool('cavil_report_missing_license',
+          {package_id => 1, snippet_id => 5, reason => 'Looks like a custom license, recommend LicenseRef-Custom'});
+        ok !$result->{isError}, 'not an error';
+        is $result->{content}[0]{text}, 'Missing license has been successfully reported', 'reported message';
+
+        $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+        $t->get_ok('/licenses/proposed/meta?action=missing_license')
+          ->status_is(200)
+          ->json_is('/changes/0/action',           'missing_license')
+          ->json_is('/changes/0/login',            'tester')
+          ->json_is('/changes/0/data/ai_assisted', 1)
+          ->json_is('/changes/0/data/edited',      0)
+          ->json_is('/changes/0/data/from',        'perl-Mojolicious')
+          ->json_is('/changes/0/data/package',     1)
+          ->json_is('/changes/0/data/snippet',     5)
+          ->json_like('/changes/0/data/reason',
+          qr/AI Assistant: Looks like a custom license, recommend LicenseRef-Custom/);
+        $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+      };
+
+      subtest 'Report missing license (conflicting report)' => sub {
+        my $result = $client->call_tool('cavil_report_missing_license',
+          {package_id => 1, snippet_id => 5, reason => 'Looks like a custom license, recommend LicenseRef-Custom'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'A missing license report already exists', 'conflict message';
+      };
+
+      subtest 'Report missing license (non-existent package)' => sub {
+        my $result
+          = $client->call_tool('cavil_report_missing_license', {package_id => 999, snippet_id => 5, reason => 'Test'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package not found', 'not found message';
+      };
+
+      subtest 'Report missing license (non-existent snippet)' => sub {
+        my $result
+          = $client->call_tool('cavil_report_missing_license', {package_id => 1, snippet_id => 23, reason => 'Test'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Snippet not found', 'not found message';
+      };
+
+      subtest 'Report missing license (embargoed package)' => sub {
+        $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+        my $result
+          = $client->call_tool('cavil_report_missing_license', {package_id => 1, snippet_id => 5, reason => 'Test'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
+        $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
+      };
+
+      # Clean up the staged report so later assertions are not affected
+      $t->app->pg->db->query("DELETE FROM proposed_changes WHERE action = 'missing_license'");
     };
 
     subtest 'cavil_propose_ignore_glob tool' => sub {

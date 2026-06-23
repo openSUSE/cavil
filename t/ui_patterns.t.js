@@ -585,6 +585,99 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       );
     });
 
+    await t.test('Missing license -> inline editor -> create pattern -> performance page', async t => {
+      // Full lawyer journey: a snippet is reported as a missing license, then an
+      // admin authors the real pattern in the inline editor right on the Missing
+      // Licenses page, and finally browses the new pattern on its performance page.
+      const licenseName = 'Missing-Flow-License-1.0';
+      const patternText = 'missing flow unique license pattern body for ui coverage';
+
+      // 1. Proposal: report a missing license against an unresolved mojo#2 snippet.
+      await page.goto(`${url}/reviews/details/2`);
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+      const href = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = href.replace('#file-', '');
+      await expandFileDetails(page, fileId);
+      await openCreatePatternEditor(page, fileId);
+      await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
+      await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-missing"]').click();
+      await waitForInlineSnippetEditorClosed(page);
+      await page.waitForSelector('#pending-actions-widget');
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      const [proposeResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#pending-actions-submit').click()
+      ]);
+      t.equal(proposeResp.status(), 200);
+      await page.waitForLoadState('load');
+
+      // 2. License editing: open the inline editor on the Missing Licenses page.
+      await openAccountMenu(page);
+      await page.click('text=Missing Licenses');
+      t.equal(await page.innerText('title'), 'Missing Licenses');
+      await page.waitForSelector('#missing-licenses .change-container');
+      await page.locator('#missing-licenses button:has-text("Edit Pattern")').first().click();
+      await waitForInlineSnippetEditor(page);
+      t.equal(
+        await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').count(),
+        1,
+        'admin gets the Create Pattern action in the inline editor'
+      );
+      // The missing-licenses editor is intentionally narrowed to Create Pattern + Cancel.
+      t.equal(
+        await page.locator('#inline-snippet-editor button[data-action="cancel"]').count(),
+        1,
+        'Cancel button present'
+      );
+      t.equal(
+        await page.locator('#inline-snippet-editor button[aria-label="More actions"]').count(),
+        0,
+        'no extra actions dropdown on the missing-licenses editor'
+      );
+      for (const action of [
+        'create-ignore',
+        'propose-pattern',
+        'propose-ignore',
+        'propose-missing',
+        'mark-non-license'
+      ]) {
+        t.equal(
+          await page.locator(`#inline-snippet-editor button[data-action="${action}"]`).count(),
+          0,
+          `no ${action} action on the missing-licenses editor`
+        );
+      }
+
+      // Author a unique pattern so it cannot md5-collide with earlier fixtures.
+      await replaceInlineEditorDoc(page, patternText);
+      await fillInlinePatternBasics(page, licenseName, '3');
+      const [createResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
+        page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click()
+      ]);
+      t.equal(createResp.status(), 200);
+      await page.waitForSelector('#missing-licenses .change-container', {state: 'detached'});
+      t.match(
+        await page.innerText('#missing-licenses .toast-item'),
+        /Pattern created/,
+        'pattern creation confirmed via toast and report cleared from the queue'
+      );
+
+      // Drain the reindex job queued by the new pattern so its match counts populate.
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
+
+      // 3. Pattern performance: the new pattern shows on its license details page.
+      await page.goto(`${url}/licenses/${licenseName}`);
+      t.equal(await page.innerText('title'), `License details of ${licenseName}`);
+      const card = page.locator('#license-details .license-pattern-card').first();
+      await card.waitFor();
+      t.match(await card.innerText(), /missing flow unique license pattern body/, 'new pattern body shown');
+      t.match(await card.innerText(), /Risk 3/, 'new pattern risk shown');
+    });
+
     await t.test('Create pattern from classify-snippets page (page mode)', async t => {
       // Fixture snippets are never AI-classified, and the default filter hides
       // unclassified ones - widen the filter so cards are guaranteed to render.

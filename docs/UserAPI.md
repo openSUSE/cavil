@@ -134,6 +134,12 @@ These tools are currently available:
   - `glob`: File path glob, e.g. `pkgname-*/testdata/*.log`. (string, required)
   - `reason`: Reason the matched files should be ignored. (string, required)
 
+- *cavil_report_missing_license* - Report a snippet as genuine license text that cannot be confidently patterned, so a lawyer can author the real pattern (it lands on the Missing Licenses review queue)
+  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+  - `package_id`: ID of package the snippet belongs to. (number, required)
+  - `snippet_id`: ID of snippet to report as a missing license. (number, required)
+  - `reason`: Reason the snippet needs human review. (string, required)
+
 ### Agent Skills
 
 An [Agent Skill](https://agentskills.io) is a short, pre-written instruction sheet that tells an AI agent exactly how

@@ -16,7 +16,8 @@ my $WRITE_TOOL_ROLES = {
   cavil_propose_ignore_snippet  => {admin => 1, lawyer => 1, contributor => 1},
   cavil_propose_license_pattern => {admin => 1, lawyer => 1, contributor => 1},
   cavil_propose_ignore_glob     => {admin => 1, lawyer => 1, contributor => 1},
-  cavil_create_snippet          => {admin => 1, lawyer => 1, contributor => 1}
+  cavil_create_snippet          => {admin => 1, lawyer => 1, contributor => 1},
+  cavil_report_missing_license  => {admin => 1, lawyer => 1, contributor => 1}
 };
 my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
 
@@ -201,6 +202,29 @@ sub register ($self, $app, $config) {
       required => ['package_id', 'file_path', 'start_line', 'end_line']
     },
     code => \&tool_cavil_create_snippet
+  );
+  $mcp->tool(
+    name        => 'cavil_report_missing_license',
+    description =>
+      'Report a snippet as a missing license: text that is clearly license-relevant but that you cannot confidently'
+      . ' turn into a license pattern yourself, so that a human lawyer can author the real pattern. Use this instead'
+      . ' of guessing a pattern when the license cannot be cleanly isolated (e.g. non-standard custom prose, or text'
+      . ' whose identity stays unclear even with file context). The snippet is added to the Missing Licenses review'
+      . ' queue. The "reason" should clearly explain in one or two sentences why this needs human judgement and,'
+      . ' whenever possible, recommend the SPDX license identifier you believe applies (e.g. "Looks like a custom'
+      . ' variant of BSD-3-Clause; recommend a lawyer confirm BSD-3-Clause"). Do not use this for text that is'
+      . ' definitely not a license (use cavil_propose_ignore_snippet) or for clear declarations you can pattern'
+      . ' (use cavil_propose_license_pattern)',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        package_id => {type => 'integer', minimum => 1},
+        snippet_id => {type => 'integer', minimum => 1},
+        reason     => {type => 'string'}
+      },
+      required => ['package_id', 'snippet_id', 'reason']
+    },
+    code => \&tool_cavil_report_missing_license
   );
 
   return $mcp->to_action;
@@ -438,6 +462,35 @@ sub tool_cavil_propose_ignore_snippet ($tool, $args) {
   return $tool->text_result('Conflicting ignore pattern proposal already exists', 1) if $result->{proposal_conflict};
 
   return 'Proposal to ignore snippet has been successfully submitted';
+}
+
+sub tool_cavil_report_missing_license ($tool, $args) {
+  my $package_id = $args->{package_id};
+  my $snippet_id = $args->{snippet_id};
+  my $reason     = $args->{reason};
+  my $c          = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($package_id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+  return $tool->text_result('Snippet not found', 1) unless my $snippet = $c->snippets->with_context($snippet_id);
+
+  my $user_id = $c->users->id_for_login($c->current_user);
+  my $result  = $c->patterns->propose_missing(
+    snippet              => $snippet_id,
+    hash                 => $snippet->{hash},
+    from                 => $pkg->{name},
+    pattern              => $snippet->{text},
+    highlighted_keywords => [sort keys %{$snippet->{keywords}}],
+    highlighted_licenses => [sort keys %{$snippet->{matches}}],
+    package              => $pkg->{id},
+    owner                => $user_id,
+    ai_assisted          => 1,
+    reason               => "AI Assistant: $reason"
+  );
+
+  return $tool->text_result('Conflicting license pattern already exists', 1) if $result->{conflict};
+  return $tool->text_result('A missing license report already exists',    1) if $result->{proposal_conflict};
+
+  return 'Missing license has been successfully reported';
 }
 
 sub tool_cavil_propose_license_pattern ($tool, $args) {
