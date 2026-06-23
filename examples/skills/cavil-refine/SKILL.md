@@ -54,14 +54,21 @@ extract the reusable declaration core (the license name + the granting verb), dr
 subject and chatter, and make a **short pattern** keeping the identifier and declaration; `$SKIP`
 the rest. Examples:
 
+- `SPDX-License-Identifier: Apache-2.0` → pattern it verbatim. **SPDX tags are the single
+  highest-value pattern** — also manifest forms like `license: 'MIT` / `License: Apache-2.0`.
+  Always pattern an SPDX/manifest license tag when you see one.
 - `# My shitty code is licensed under MIT if you need a license` → `licensed under MIT`
 - `psgi is licensed under Apache-2.0` → `licensed under Apache-2.0`
 - `jRworkspaceSDK from http://www.sechel.de can be licensed with the BSD` → `can be licensed with the BSD` (`BSD-3-Clause`)
 - `foobar.c is free software; you can redistribute it under the terms of the GPL-2.0-or-later` → `free software; you can redistribute it under the terms of the GPL-2.0-or-later`
 
-A casual one-off still needs the license **named** in the pattern. If a sentence mentions
-licensing but names no license (`see the LICENSE file for details`), it is not patternable on
-its own → Note.
+A casual one-off still needs a license **named** in the pattern — but "named" includes a
+*pointer* to one. A sentence that refers to a license elsewhere is patternable with a reference
+pseudo-license (the corpus's single largest category), not a Note:
+- `distributed under the same license as the $SKIP8 package`, `see $SKIP5 for licensing info` → `Any reference local`
+- `License: http://example.org/LICENSE`, `released under the terms of the NTP license, <http://ntp.org/license>` → `Any reference remote`
+
+Only when a snippet has *no* license name and *no* pointer to one is it a Note.
 
 **Mode A — the file *is* a license text (less common, but do not short-pattern it).** Signals: a
 `LICENSE`/`COPYING`/`NOTICE` file, a `*_License.txt`, an `*license*.html`, a file under
@@ -87,7 +94,10 @@ larger block. Then, for **each** snippet, take the **first** action that applies
    tied to shipped code (e.g. the Linux kernel's master `LICENSES/` list, `linux-*/LICENSES/*`).
    Do **not** glob bundled-component licenses (`3rd-party/`, `lib/<vendor>/`) — those are mode A,
    pattern them.
-3. **Standalone trademark / patent / CLA / EULA notice** → pattern with a pseudo-license.
+3. **Standalone notice / reference / generic grant** → pattern with a pseudo-license: trademark /
+   patent / CLA / EULA, a pointer to a license elsewhere (`Any reference local` / `remote`), a
+   permissive grant naming no license (`Any Permissive`), a bare warranty disclaimer, or a family
+   named without a version (`GPL-Unspecified` …). See PSEUDO-LICENSES.
 4. **Mode A (the file is a license text)** → capture the full body and pattern it. Rarer, but
    check for it before step 5 so a snippet from inside a license body is not short-patterned.
 5. **Mode B (inline/casual license declaration)** → short identifier pattern. **The common case.**
@@ -113,15 +123,21 @@ Capturing a body is a **copy** job, not an authoring job — that is why it is r
    `snippet_id` and the captured text. Verify the text covers the whole license and nothing
    extraneous (no second license title, no separator line past the end).
 4. `cavil_propose_license_pattern` against the **new** `snippet_id`. Take the captured body
-   **largely verbatim** and replace only copyright holders, years, names, and URLs with `$SKIP5`
-   / `$SKIP19`. Do **not** paraphrase — exact wording is required or the pattern will not match.
-   Trim the ends to real words (no leading/trailing `$SKIP`). Set `license` to the SPDX id of
-   the license you captured.
+   **verbatim** and collapse the **whole variable copyright/holder/year clause into a single
+   `$SKIPn`** — do not skip the legal wording, only the variable preamble. Do **not** paraphrase;
+   exact wording is required or the pattern will not match. Trim the ends to real words (no
+   leading/trailing `$SKIP`). Set `license` to the SPDX id of the license you captured.
 
-Example (jython_license.processed.html contains the full PSF license): create a snippet over the
-entire `PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2` body (clauses 1–8), then pattern it
-near-verbatim with `$SKIP` for the year and the "Python Software Foundation" holder →
-`license` = `Python-2.0`. Patterning just the title, one clause, or the disclaimer is wrong.
+This is the empirically best shape — these are among the highest-matching patterns in the whole
+database, body kept intact with one `$SKIP` for the copyright line:
+- Apache-2.0: `Copyright $SKIP5 ... Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. ...`
+- MIT: `Copyright (c) $SKIP19 ... Permission is hereby granted, free of charge, to any person obtaining a copy of this software ...`
+- LGPL-2.1-or-later: `part of $SKIP20 ... is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License ... version 2.1 ...`
+
+So for jython's full PSF license: snippet the entire `PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2`
+body (clauses 1–8), pattern it verbatim with `$SKIP19` for the `Copyright (c) … Python Software
+Foundation` line → `license` = `Python-2.0`. Patterning just the title, one clause, or the
+disclaimer is wrong.
 
 **Concatenated files** (several full licenses in one file): create one snippet + one pattern per
 license block (its title through its end), never one pattern across the whole file. A snippet
@@ -129,10 +145,19 @@ that straddles two blocks needs no separate action once both blocks are patterne
 
 ## PATTERN CREATION
 
-- **Strip the incidental subject.** Drop program/package/project/file/module names, copyright
-  holders, dates, URLs — replace with `$SKIP5` (≤5 words) or `$SKIP19` (greedy) where removing
-  them would break grammar. Keep the legal core and the license identifier.
+- **Be rigorous with `$SKIP` — this is where you beat the humans.** The curated corpus is lazy
+  about it (only ~⅓ of copyright-bearing patterns genericise the holder), so do **not** copy that
+  laziness. Replace every variable token with `$SKIPn`: copyright holders, years, author names,
+  emails, URLs, version numbers, project/package names. Use `$SKIP5` (≤5 words) up to `$SKIP19`
+  (greedy); one `$SKIPn` can swallow a whole variable clause. Canonical slots: right after
+  `Copyright (c)`/`(C)`, after `by` / `Author:` / `version`, and the BSD `Neither the name of
+  $SKIP nor …` slot.
+- **No HTML/markup in patterns.** If the snippet came from `.html`/markup, pattern the underlying
+  text, not the tags. Markup is a low-quality marker.
 - **No leading/trailing `$SKIP`** (rejected as redundant) — `$SKIP` only goes *between* tokens.
+- **Do not pattern a single bare keyword** (`guarantees`, `responsibility`, `attribution`,
+  `permission to`). Cavil maintains those separately as keyword detectors; a one-word `license`
+  pattern is not your job.
 - **The pattern must still match** the snippet it is proposed against (the *new* snippet id when
   you expanded), or the proposal is rejected. Keep wording exact; do not invent text.
 - **`license` must be a known Cavil value** — a real SPDX id, an SPDX expression
@@ -159,12 +184,21 @@ correct flag automatically (names match case-insensitively):
 | `Any Patent` | patent notices/grants not tied to a license — **including media patent-portfolio notices** (MPEG-4 Visual / AVC / H.264 / MPEG-2 / VC-1 / HEVC), in **any language** |
 | `Any CLA` | references to a Contributor License Agreement |
 | `Any EULA` | End User License Agreement text / references |
+| `Any reference local` | a pointer to a license file/header elsewhere ("see the LICENSE file", "same license as the $SKIP8 package") — **the corpus's largest category** |
+| `Any reference remote` | a pointer to a license at a URL ("License: http://…") |
+| `Any Permissive` | a permissive grant that names no specific license ("free to use for any purpose", "may be freely copied and distributed") |
+| `Any floating warranty` / `Any no warranty` | a standalone warranty disclaimer with no license ("no warranty; not even for MERCHANTABILITY…") |
+| `GPL-Unspecified` / `LGPL Unspecified` / `BSD-Unspecified` | the license family named without a resolvable version |
+| `Public-Domain` / `Any Proprietary` | public-domain dedications / proprietary-license notices |
 
 Build the pattern as usual: `$SKIP` the subject, keep the legally meaningful core. These are
 **language-independent** — a recognizable patent/trademark/CLA/EULA notice in any language gets
 patterned, not noted. The MPEG-style portfolio notices are common and widely translated;
-recognise them by the portfolio name + personal/non-commercial-use wording. Caveat: only for
-**standalone** notices — a trademark/patent clause that is part of a full license body (e.g.
+recognise them by the portfolio name + personal/non-commercial-use wording. The table above is
+not exhaustive — Cavil has a rich catch-all vocabulary; when a snippet is clearly licensey but
+fits no specific SPDX id, try a descriptive `Any …` value and let the tool's closest-match
+suggestions correct the exact spelling, rather than falling back to Note. Caveat: use these only
+for **standalone** notices — a trademark/patent clause that is part of a full license body (e.g.
 Apache-2.0 §6) is covered when that whole license is patterned (mode A).
 
 ## GLOBS
