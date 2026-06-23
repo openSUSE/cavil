@@ -19,6 +19,7 @@ use Mojo::Base -base, -signatures;
 use Cavil::Util qw(normalize_license_expr paginate pattern_checksum spdx_link);
 use Mojo::File  qw(path);
 use Mojo::JSON  qw(true false);
+use Mojo::Util  qw(md5_sum);
 use Spooky::Patterns::XS;
 use Storable;
 
@@ -333,7 +334,8 @@ sub proposal_exists ($self, $checksum) {
 sub proposal_stats($self) {
   return $self->pg->db->query(
     "SELECT
-       (SELECT COUNT(*) FROM proposed_changes WHERE action = 'create_pattern' OR action = 'create_ignore') AS proposals,
+       (SELECT COUNT(*) FROM proposed_changes
+          WHERE action = 'create_pattern' OR action = 'create_ignore' OR action = 'create_glob') AS proposals,
        (SELECT COUNT(*) FROM proposed_changes WHERE action = 'missing_license') AS missing"
   )->hash;
 }
@@ -419,6 +421,40 @@ sub propose_ignore ($self, %args) {
   return {};
 }
 
+sub propose_glob ($self, %args) {
+  my $glob = $args{glob};
+
+  # A glob has no snippet to checksum, so the glob string itself is the dedupe key (the unique
+  # index on proposed_changes.token_hexsum then prevents duplicate proposals for the same glob).
+  my $checksum = md5_sum($glob);
+
+  my $existing = $self->pg->db->select('ignored_files', 'id', {glob => $glob})->hash;
+  return {conflict => $existing->{id}} if $existing;
+
+  my $proposal_id = $self->proposal_exists($checksum);
+  return {proposal_conflict => $proposal_id} if $proposal_id;
+
+  $self->pg->db->insert(
+    'proposed_changes',
+    {
+      action => 'create_glob',
+      data   => {
+        -json => {
+          glob        => $glob,
+          from        => $args{from},
+          package     => $args{package},
+          ai_assisted => $args{ai_assisted} // 0,
+          reason      => $args{reason}      // ''
+        }
+      },
+      owner        => $args{owner},
+      token_hexsum => $checksum
+    }
+  );
+
+  return {};
+}
+
 sub propose_missing ($self, %args) {
   my $from     = $args{from};
   my $checksum = $args{hash};
@@ -475,7 +511,7 @@ sub proposed_changes ($self, $options) {
   my $total = 0;
   for my $change (@$changes) {
     $change->{closest} = undef;
-    if (my $closest = $self->closest_pattern($change->{data}{pattern})) {
+    if (defined $change->{data}{pattern} && (my $closest = $self->closest_pattern($change->{data}{pattern}))) {
       $change->{closest} = {
         id           => $closest->{id},
         similarity   => $closest->{similarity},

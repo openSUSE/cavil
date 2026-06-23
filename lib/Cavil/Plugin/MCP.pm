@@ -15,6 +15,7 @@ my $WRITE_TOOL_ROLES = {
   cavil_reject_review           => {admin => 1, lawyer => 1},
   cavil_propose_ignore_snippet  => {admin => 1, lawyer => 1, contributor => 1},
   cavil_propose_license_pattern => {admin => 1, lawyer => 1, contributor => 1},
+  cavil_propose_ignore_glob     => {admin => 1, lawyer => 1, contributor => 1},
   cavil_create_snippet          => {admin => 1, lawyer => 1, contributor => 1}
 };
 my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
@@ -166,6 +167,21 @@ sub register ($self, $app, $config) {
       required => ['package_id', 'snippet_id', 'pattern', 'license', 'reason']
     },
     code => \&tool_cavil_propose_license_pattern
+  );
+  $mcp->tool(
+    name        => 'cavil_propose_ignore_glob',
+    description =>
+      'Propose a file path glob to ignore during license scanning system-wide. Use this instead of proposing'
+      . ' individual snippet ignores when an entire file or directory is obviously test fixtures, license-detection'
+      . ' reference data or captured sample output (e.g. "pkgname-*/path/to/testdata/*.log"). Use a leading'
+      . ' "pkgname-*/" prefix to match the versioned top-level directory and "*" for the version segment',
+    input_schema => {
+      type       => 'object',
+      properties =>
+        {package_id => {type => 'integer', minimum => 1}, glob => {type => 'string'}, reason => {type => 'string'}},
+      required => ['package_id', 'glob', 'reason']
+    },
+    code => \&tool_cavil_propose_ignore_glob
   );
   $mcp->tool(
     name        => 'cavil_create_snippet',
@@ -475,6 +491,33 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
   return $tool->text_result('Conflicting license pattern proposal already exists', 1) if $result->{proposal_conflict};
 
   return 'Proposal for new license pattern has been successfully submitted';
+}
+
+sub tool_cavil_propose_ignore_glob ($tool, $args) {
+  my $package_id = $args->{package_id};
+  my $glob       = $args->{glob};
+  my $reason     = $args->{reason};
+  my $c          = _get_controller($tool);
+  return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($package_id);
+  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+  return $tool->text_result('Glob is required', 1) unless defined $glob && length $glob;
+  return $tool->text_result('Glob does not match any files in the package report', 1)
+    unless $c->packages->glob_matches_report_files($pkg->{id}, $glob);
+
+  my $user_id = $c->users->id_for_login($c->current_user);
+  my $result  = $c->patterns->propose_glob(
+    glob        => $glob,
+    from        => $pkg->{name},
+    package     => $pkg->{id},
+    owner       => $user_id,
+    ai_assisted => 1,
+    reason      => "AI Assistant: $reason"
+  );
+
+  return $tool->text_result('Conflicting ignore glob already exists',          1) if $result->{conflict};
+  return $tool->text_result('Conflicting ignore glob proposal already exists', 1) if $result->{proposal_conflict};
+
+  return 'Proposal to ignore glob has been successfully submitted';
 }
 
 sub tool_cavil_create_snippet ($tool, $args) {

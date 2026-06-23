@@ -91,25 +91,14 @@ These tools are currently available:
   - **Required Roles**: `user` (read-write)
   - `package_id`: ID of package to add a note to. (number, required)
   - `body`: Note body in Markdown format. (string, required)
-  - `tags`: Optional array of tag strings. Each tag is at most 32 characters, with at most 16 tags per note. The
-           `cavil-review-note` example skill uses the tag `review` to mark advisory review notes. (array of strings,
-           optional)
-  - `skip_if_existing_tag`: Makes the call idempotent. If a note carrying this tag already applies to the package's
-           current report — written on this report, or on another review with an identical license report — no note is
-           created; instead a `Skipped: …` message naming the existing note is returned (not an error). Used by the
-           `cavil-review-note` skill with `review` to guarantee one review note per report, even across same-named
-           package versions. Omit it to force an additional note. (string, optional)
+  - `tags`: Array of tag strings, at most 32 characters each and 16 per note. (array of strings, optional)
+  - `skip_if_existing_tag`: Skip the write if a note with this tag already applies to the report, making the call idempotent. (string, optional)
 
 - *cavil_get_notes* - Get a paginated list of notes for a specific package, optionally filtered by tags
   - **Required Roles**: `user` (read-only)
-  - Each note is marked by its relevance to this package's report: `[this report]` (written on it), `[same report]`
-    (from another review with an identical license report), or `[other report]` (different licensing). Notes are shared
-    across every package row with the same name, so these markers identify which ones actually apply here.
   - `package_id`: ID of package to list notes for. (number, required)
-  - `tags`: Filter notes to those carrying all of the given tags (AND semantics). Defaults to no filter.
-           (array of strings, optional)
-  - `relevant_only`: When `true`, return only notes that apply to this report (`[this report]` or `[same report]`).
-           Defaults to `false`. (boolean, optional)
+  - `tags`: Return only notes carrying all of the given tags. (array of strings, optional)
+  - `relevant_only`: When `true`, return only notes that apply to this report. Defaults to `false`. (boolean, optional)
   - `limit`: Maximum number of notes to return. Defaults to `20`, maximum `100`. (number, optional)
   - `offset`: Number of notes to skip for pagination. Defaults to `0`. (number, optional)
 
@@ -139,6 +128,12 @@ These tools are currently available:
   - `license`: License expression. (string, required)
   - `reason`: Reason for snippet to be ignored. (string, required)
 
+- *cavil_propose_ignore_glob* - Propose a file path glob to exclude whole files from scanning system-wide
+  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+  - `package_id`: ID of package the glob is proposed from; rejected unless it matches a reported file. (number, required)
+  - `glob`: File path glob, e.g. `pkgname-*/testdata/*.log`. (string, required)
+  - `reason`: Reason the matched files should be ignored. (string, required)
+
 ### Agent Skills
 
 An [Agent Skill](https://agentskills.io) is a short, pre-written instruction sheet that tells an AI agent exactly how
@@ -164,8 +159,9 @@ running one is as simple as typing a short command at the agent prompt.
   package interactively, not for unattended backlog runs.
 
 - **[cavil-refine](../examples/skills/cavil-refine/)** — helps clean up the license database by proposing new license
-  patterns or marking irrelevant snippets to be ignored, so future reviews of similar packages have fewer false
-  positives. The proposals still need a human to approve them in the admin UI.
+  patterns, marking irrelevant snippets to be ignored, or proposing globs to exclude whole fixture/data files, so
+  future reviews of similar packages have fewer false positives. The proposals still need a human to approve them in
+  the admin UI.
 
 #### Setting up a skill on your own laptop
 

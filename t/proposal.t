@@ -22,6 +22,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::JSON qw(true false);
+use Mojo::Util qw(md5_sum);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -570,6 +571,109 @@ subtest 'Ignore with real snippet (analyze-only path)' => sub {
     isnt $t->tx->res->json->{page}[0]{id}, $id, 'new ignored_lines id';
     ok $remarked > 0, "matches re-marked after recreating the ignore ($remarked rows)";
   };
+};
+
+subtest 'Propose ignore glob' => sub {
+  $t->app->minion->perform_jobs;
+
+  # Clean role baseline: contributor proposes, admin accepts (mirrors the pattern proposal flow)
+  $t->app->users->remove_role(2, 'admin');
+  $t->app->users->add_role(2, 'contributor');
+
+  # The fixture package has a single matched file "README"; globs are validated against the
+  # package's matched files, so the proposed glob has to actually cover it.
+  ok $db->query('SELECT 1 AS ok FROM matched_files WHERE package = 1 AND filename = ?', 'README')->hash,
+    'fixture has a matched README file';
+  my $glob = 'READ*';
+
+  # Glob proposals are file-path based and carry no snippet id
+  my $glob_dec = sub ($kind, $form) {
+    return $t->post_ok('/snippet/batch_decision' => json => {actions => [{kind => $kind, formData => $form}]});
+  };
+
+  subtest 'Contributor proposes a glob' => sub {
+    $glob_dec->('propose-glob', {glob => $glob, from => 'package-with-snippets', package => 1})
+      ->status_is(200)
+      ->json_is('/ok',             true)
+      ->json_is('/results/0/kind', 'proposal');
+
+    # Duplicate proposal is rejected
+    $glob_dec->('propose-glob', {glob => $glob, from => 'package-with-snippets', package => 1})
+      ->status_is(409)
+      ->json_like('/results/0/error', qr/Conflicting ignore glob proposal already exists/);
+  };
+
+  subtest 'Glob proposal on the Change Proposals page' => sub {
+    $t->get_ok('/licenses/proposed/meta?action=create_glob')
+      ->status_is(200)
+      ->json_has('/changes/0')
+      ->json_is('/changes/0/action'       => 'create_glob')
+      ->json_is('/changes/0/data/glob'    => $glob)
+      ->json_is('/changes/0/data/from'    => 'package-with-snippets')
+      ->json_is('/changes/0/package/name' => 'package-with-snippets')
+      ->json_is('/changes/0/closest'      => undef)
+      ->json_hasnt('/changes/1');
+    is $t->tx->res->json->{changes}[0]{token_hexsum}, md5_sum($glob), 'token is the glob checksum';
+
+    # Counted by the proposal stats (drives the menu badge)
+    $t->get_ok('/licenses/proposed/stats')->status_is(200)->json_is('/proposals' => 1);
+  };
+
+  subtest 'Only admins may accept a glob' => sub {
+    $glob_dec->('create-glob', {glob => $glob, package => 1, checksum => md5_sum($glob)})->status_is(403);
+  };
+
+  subtest 'Admin accepts the glob' => sub {
+    is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, 'no reindex yet';
+    $t->app->users->add_role(2, 'admin');
+    $glob_dec->('create-glob', {glob => $glob, package => 1, checksum => md5_sum($glob), contributor => 'tester'})
+      ->status_is(200)
+      ->json_is('/ok',             true)
+      ->json_is('/results/0/kind', 'glob');
+
+    # Originating package is reindexed so its report picks up the new glob
+    is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1,
+      'reindex enqueued for originating package';
+
+    my $ignored = $db->query('SELECT * FROM ignored_files WHERE glob = ?', $glob)->hash;
+    ok $ignored, 'glob stored in ignored_files';
+    is $ignored->{owner},       2, 'owner is the accepting admin';
+    is $ignored->{contributor}, 2, 'contributor is the original proposer';
+
+    # Proposal is gone once accepted
+    $t->get_ok('/licenses/proposed/meta?action=create_glob')->status_is(200)->json_hasnt('/changes/0');
+  };
+
+  subtest 'Proposing an existing glob conflicts' => sub {
+    $glob_dec->('propose-glob', {glob => $glob, from => 'package-with-snippets', package => 1})
+      ->status_is(409)
+      ->json_like('/results/0/error', qr/Conflicting ignore glob already exists/);
+  };
+
+  subtest 'Missing glob is rejected' => sub {
+    $glob_dec->('propose-glob', {from => 'package-with-snippets', package => 1})
+      ->status_is(400)
+      ->json_like('/results/0/error', qr/Missing required field: glob/);
+  };
+
+  subtest 'Glob that matches no reported file is rejected' => sub {
+    $glob_dec->(
+      'propose-glob',
+      {glob => 'package-with-snippets-*/does/not/exist-*.xyz', from => 'package-with-snippets', package => 1}
+    )->status_is(400)->json_like('/results/0/error', qr/Glob does not match any files in the package report/);
+    $t->get_ok('/licenses/proposed/meta?action=create_glob')->status_is(200)->json_hasnt('/changes/0');
+  };
+
+  subtest 'Rejecting a glob proposal' => sub {
+    my $other = 'R*';
+    $glob_dec->('propose-glob', {glob => $other, from => 'package-with-snippets', package => 1})
+      ->status_is(200)
+      ->json_is('/results/0/kind', 'proposal');
+    $t->post_ok('/licenses/proposed/remove/' . md5_sum($other))->status_is(200)->json_is('/removed', 1);
+    $t->get_ok('/licenses/proposed/meta?action=create_glob')->status_is(200)->json_hasnt('/changes/0');
+  };
+
+  $t->app->minion->perform_jobs;
 };
 
 done_testing();

@@ -82,7 +82,7 @@
       <BackToTop />
     </div>
     <div v-else-if="changes === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading missing licenses</div>
-    <div v-else>There are currently no missing licenses.</div>
+    <EmptyState v-else message="No missing licenses have been flagged. Nice work keeping the queue clear." />
     <ToastNotifier ref="toaster" />
   </div>
 </template>
@@ -90,12 +90,13 @@
 <script>
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
+import EmptyState from './components/EmptyState.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'MissingLicenses',
-  components: {BackToTop, CavilNoticePanel, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, EmptyState, ToastNotifier},
   data() {
     return {
       ignoreForPackage: true,

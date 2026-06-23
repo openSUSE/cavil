@@ -250,8 +250,27 @@
               <a :name="'file-' + file.id"></a>
               <div class="file">
                 <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
-                <div class="float-end">
-                  <a :href="file.file_url" target="_blank">
+                <div class="float-end file-actions">
+                  <span v-if="isAdminOrContributor" class="dropdown file-action-menu">
+                    <a
+                      href="#"
+                      :id="'file-menu-' + file.id"
+                      class="file-action-link"
+                      data-bs-toggle="dropdown"
+                      aria-haspopup="true"
+                      aria-expanded="false"
+                      title="File actions"
+                      aria-label="File actions"
+                    >
+                      <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end" :aria-labelledby="'file-menu-' + file.id">
+                      <a href="#" class="dropdown-item" @click.prevent="openGlobProposal(file)">
+                        Propose ignore glob&hellip;
+                      </a>
+                    </div>
+                  </span>
+                  <a :href="file.file_url" target="_blank" title="Open file" aria-label="Open file">
                     <i class="fa-solid fa-up-right-from-square"></i>
                   </a>
                 </div>
@@ -326,6 +345,7 @@
           <br />
         </div>
         <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
+        <GlobProposalModal ref="globProposalModal" @submit="onGlobProposalSubmit" />
       </div>
       <div
         class="report-tab-pane"
@@ -377,6 +397,7 @@
 <script>
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import FileSource from './components/FileSource.vue';
+import GlobProposalModal from './components/GlobProposalModal.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
 import ReportNotes from './components/ReportNotes.vue';
@@ -390,7 +411,7 @@ const LICENSE_CHART_COLORS = ['#0969da', '#1a7f37', '#9a6700', '#cf222e', '#8250
 
 export default {
   name: 'ReportDetails',
-  components: {CavilNoticePanel, FileSource, PendingActionsWidget, ProgressBar, ReportNotes},
+  components: {CavilNoticePanel, FileSource, GlobProposalModal, PendingActionsWidget, ProgressBar, ReportNotes},
   mixins: [Refresh],
   provide() {
     return {
@@ -420,6 +441,9 @@ export default {
       matchingGlobs: [],
       missedFiles: [],
       openInlineEditor: null,
+      packageName: '',
+      globProposalFileId: null,
+      globProposalEditingId: null,
       pendingActions: [],
       hashHandled: false,
       activeTab: 'review',
@@ -593,6 +617,7 @@ export default {
       this.incompatibleLicenses = data.incompatible_licenses;
       this.missedFiles = data.missed_files;
       this.unresolvedMatches = data.package.unresolved_matches;
+      if (data.package.name) this.packageName = data.package.name;
       this.matchingGlobs = data.matching_globs;
       this.emails = data.emails;
       this.urls = data.urls;
@@ -819,6 +844,46 @@ export default {
       const idx = this.pendingActions.findIndex(a => a.id === id);
       if (idx >= 0) this.pendingActions.splice(idx, 1);
     },
+    suggestGlob(path) {
+      // Pre-fill with the file path, but replace the versioned top-level directory's version with
+      // "*" so the glob applies to future versions too (e.g. alloy-1.2.3/x/y.log -> alloy-*/x/y.log).
+      const parts = String(path).split('/');
+      parts[0] = parts[0].replace(/-[0-9][^/]*$/, '-*');
+      return parts.join('/');
+    },
+    openGlobProposal(file) {
+      this.globProposalFileId = file.id;
+      this.globProposalEditingId = null;
+      this.$refs.globProposalModal.open({glob: this.suggestGlob(file.path), reason: ''});
+    },
+    onGlobProposalSubmit({glob, reason}) {
+      const editingIdx =
+        this.globProposalEditingId !== null
+          ? this.pendingActions.findIndex(a => a.id === this.globProposalEditingId)
+          : -1;
+      const baseId = editingIdx >= 0 ? this.pendingActions[editingIdx].id : ++pendingActionIdSeq;
+      const action = {
+        id: baseId,
+        snippetId: null,
+        fileId: this.globProposalFileId,
+        startLine: null,
+        endLine: null,
+        hash: null,
+        from: this.packageName,
+        action: 'propose-glob',
+        formData: {glob, reason, from: this.packageName, package: this.pkgId},
+        license: '',
+        locationLabel: glob,
+        state: 'pending',
+        error: null
+      };
+      if (editingIdx >= 0) {
+        this.pendingActions.splice(editingIdx, 1, action);
+      } else {
+        this.pendingActions.push(action);
+      }
+      this.globProposalEditingId = null;
+    },
     handleKeydown(event) {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const t = event.target;
@@ -877,6 +942,12 @@ export default {
     async editAction(id) {
       const action = this.pendingActions.find(a => a.id === id);
       if (!action) return;
+      if (action.action === 'propose-glob') {
+        this.globProposalFileId = action.fileId;
+        this.globProposalEditingId = action.id;
+        this.$refs.globProposalModal.open({glob: action.formData.glob, reason: action.formData.reason ?? ''});
+        return;
+      }
       await this.showInlineEditor({
         snippetId: action.snippetId,
         fileId: action.fileId,
@@ -1558,6 +1629,19 @@ export default {
   font-size: 13px;
   overflow-wrap: anywhere;
   padding: 0;
+}
+.file-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.75rem;
+}
+.file-action-link {
+  color: #57606a;
+  text-decoration: none;
+}
+.file-action-link:hover,
+.file-action-link:focus {
+  color: #0969da;
 }
 @media (max-width: 700px) {
   .license-composition-body {

@@ -295,6 +295,18 @@ most resemble?". It scores a piece of text against every known pattern and retur
 "this snippet looks like pattern X" hints in the review UI. Unlike the prefix tree, this comparison looks at every
 pattern on every query, so its cost grows directly with the number of patterns.
 
+### Suppressing Noise: Ignored Lines and Ignored File Globs
+
+Two mechanisms keep known false positives out of reports, at different granularities:
+
+* **Ignored lines** suppress an individual snippet region by content checksum, regardless of which file or package it
+  turns up in. This is the snippet-level "I have seen this before and it is not a license" decision.
+* **Ignored file globs** suppress *whole files* by path pattern, system-wide. A glob such as
+  `somepkg-*/testdata/*.log` excludes captured test fixtures and license-detection reference data that should never have
+  been indexed in the first place — the `*` in the top-level segment lets one glob cover every version of a package.
+  Globs are evaluated both while indexing (matched files are skipped) and while building a report (matching files are
+  filtered out), so a newly added glob takes effect on a package's next reindex.
+
 ### Data Model
 
 For readers who want to trace this through the database, the tables involved are:
@@ -304,6 +316,7 @@ For readers who want to trace this through the database, the tables involved are
 * `pattern_matches` — one row per match found in a file, recording the pattern, the file, and the line range.
 * `snippets` and `file_snippets` — the extracted keyword regions and where they were found.
 * `ignored_lines` — checksums of snippet regions that experts have chosen to suppress.
+* `ignored_files` — file path globs that exclude whole files from indexing.
 
 ### Scaling Characteristics and Limits
 

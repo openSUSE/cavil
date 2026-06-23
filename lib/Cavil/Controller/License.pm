@@ -133,7 +133,7 @@ sub proposal_stats ($self) {
 
 sub proposed_meta ($self) {
   my $v = $self->validation;
-  $v->optional('action')->in('missing_license', 'create_pattern', 'create_ignore');
+  $v->optional('action')->in('missing_license', 'create_pattern', 'create_ignore', 'create_glob');
   $v->optional('before')->num;
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;

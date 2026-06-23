@@ -20,10 +20,24 @@ use Cavil::Util qw(paginate);
 
 has [qw(log pg)];
 
-sub add ($self, $glob, $owner) {
+sub add ($self, $glob, $owner, $contributor = undef) {
   my $db = $self->pg->db;
   my $id = $db->query('SELECT id FROM bot_users WHERE login = ?', $owner)->hash->{id};
-  $db->insert('ignored_files', {glob => $glob, owner => $id});
+
+  # When a glob was proposed by someone else and accepted by an admin, credit the proposer as
+  # contributor (owner stays the accepting admin), mirroring how license patterns are recorded.
+  my $contributor_id;
+  if (defined $contributor) {
+    $contributor_id = $db->query('SELECT id FROM bot_users WHERE login = ?', $contributor)->hash->{id};
+  }
+
+  $db->insert('ignored_files',
+    {glob => $glob, owner => $id, (defined $contributor_id ? (contributor => $contributor_id) : ())});
+}
+
+sub find_glob ($self, $glob) {
+  my $hash = $self->pg->db->select('ignored_files', 'id', {glob => $glob})->hash;
+  return $hash ? $hash->{id} : undef;
 }
 
 sub paginate_ignored_files ($self, $options) {
@@ -37,8 +51,10 @@ sub paginate_ignored_files ($self, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT if.id, if.glob, EXTRACT(EPOCH FROM if.created) AS created_epoch, bu.login, COUNT(*) OVER() AS total
+      SELECT if.id, if.glob, EXTRACT(EPOCH FROM if.created) AS created_epoch, bu.login,
+        bu2.login AS contributor_login, COUNT(*) OVER() AS total
       FROM ignored_files if JOIN bot_users bu ON (if.owner = bu.id)
+        LEFT JOIN bot_users bu2 ON (if.contributor = bu2.id)
       $search
       ORDER BY if.created DESC
       LIMIT ? OFFSET ?

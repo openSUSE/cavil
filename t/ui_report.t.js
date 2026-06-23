@@ -17,7 +17,7 @@ import t from 'tap';
 // tooltips.
 t.test('Cavil UI - report view', skipUnlessOnline, async t => {
   const ui = await launchUi('js_ui_report');
-  const {page, context, url, errorLogs} = ui;
+  const {page, context, url, performJobs, errorLogs} = ui;
 
   try {
     // Make sure we're logged in (the wrapper's dummy auth creates the admin
@@ -442,6 +442,107 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.keyboard.press('Escape');
       await page.locator('#inline-snippet-editor button[data-action="cancel"]').click();
       await waitForInlineSnippetEditorClosed(page);
+    });
+
+    await t.test('Propose ignore glob: reject, redo, accept, confirm', async t => {
+      // Drive the whole human lifecycle: propose a glob from a file header, reject it on the
+      // Change Proposals page, propose it again, accept it, and confirm it lands on the admin
+      // Ignored Files page with the proposer credited as contributor.
+      const proposeGlobFromFile6 = async () => {
+        await page.goto(url);
+        await page.click('text=Artistic');
+        await page.waitForSelector('#license-chart');
+
+        // Expand file 6 (Apache-2.0 risk-5 bucket) so its file header - and the file-actions
+        // dropdown that lives in it - becomes visible.
+        const apache = page.locator('#risk-5 > li').filter({hasText: 'Apache-2.0'}).first();
+        await apache.locator('a[data-bs-toggle="collapse"]').click();
+        await apache.locator('a[href="#file-6"]').click();
+        await page.waitForSelector('#file-details-6');
+
+        // Open the file-actions pulldown and choose "Propose ignore glob". Scope to file 6's own
+        // menu - every expanded file renders its own dropdown, so a global selector would match a
+        // closed menu from another file.
+        await page.locator('#file-menu-6').click();
+        const fileMenu = page.locator('[aria-labelledby="file-menu-6"]');
+        await fileMenu.waitFor({state: 'visible'});
+        await fileMenu.locator('.dropdown-item', {hasText: 'Propose ignore glob'}).click();
+
+        // The modal opens pre-filled with a glob derived from the file path, with the versioned
+        // top-level directory turned into a wildcard.
+        await page.waitForSelector('#globProposalModal.show');
+        const value = await page.locator('#glob-proposal-input').inputValue();
+        await page.locator('#glob-proposal-reason').fill('Bundled jQuery, not part of the package license');
+        await page.locator('#glob-proposal-submit').click();
+        await page.waitForSelector('#globProposalModal', {state: 'hidden'});
+
+        // The proposal is queued in the floating pending-changes widget; submitting posts it and
+        // reloads the report.
+        await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+        const item = page.locator('.pending-actions-item').filter({hasText: 'Propose ignore glob'}).first();
+        await item.waitFor();
+        t.match(await item.innerText(), /Mojolicious-\*\//, 'queued action is labelled with the glob');
+        await Promise.all([page.waitForNavigation(), page.locator('#pending-actions-submit').click()]);
+
+        return value;
+      };
+
+      const globCard = () => page.locator('.change-file-container').filter({hasText: 'ignore glob'}).first();
+
+      // Propose, then reject it on the Change Proposals page.
+      const suggested = await proposeGlobFromFile6();
+      t.match(suggested, /^Mojolicious-\*\//, 'suggested glob wildcards the versioned top-level directory');
+
+      await page.goto(new URL('licenses/proposed', url).toString());
+      await page.waitForSelector('#proposed-patterns');
+      await globCard().waitFor();
+      t.equal(
+        await globCard().locator('.change-glob-input').inputValue(),
+        suggested,
+        'proposed glob is shown for the reviewer'
+      );
+      await globCard().locator('button.btn-danger', {hasText: 'Reject'}).click();
+      await page.locator('.change-file-container').filter({hasText: 'ignore glob'}).waitFor({state: 'detached'});
+      t.equal(
+        await page.locator('.change-file-container').filter({hasText: 'ignore glob'}).count(),
+        0,
+        'rejected glob proposal is gone'
+      );
+
+      // Propose the same glob again and this time accept it.
+      const suggestedAgain = await proposeGlobFromFile6();
+      t.equal(suggestedAgain, suggested, 'same glob is suggested on the second proposal');
+
+      await page.goto(new URL('licenses/proposed', url).toString());
+      await page.waitForSelector('#proposed-patterns');
+      await globCard().waitFor();
+      await globCard().locator('button.btn-success', {hasText: 'Accept'}).click();
+      await page.locator('.change-file-container').filter({hasText: 'ignore glob'}).waitFor({state: 'detached'});
+
+      // The accepted glob now appears on the admin Ignored Files page, crediting the proposer.
+      await page.goto(new URL('ignored-files', url).toString());
+      await page.waitForSelector('#ignored-files tbody tr');
+      const row = page.locator('#ignored-files tbody tr').filter({hasText: suggested}).first();
+      await row.waitFor();
+      t.equal(await row.locator('td').nth(0).innerText(), suggested, 'accepted glob is listed');
+      t.equal(await row.locator('td').nth(3).innerText(), 'tester', 'proposer is credited as contributor');
+
+      // Accepting enqueued a reindex of the originating package; run it, then confirm the report
+      // now reports the file as suppressed by the new glob.
+      const jobs = await context.newPage();
+      await jobs.goto(performJobs, {timeout: 120000});
+      t.match(await jobs.innerText('div'), /done/);
+      await jobs.close();
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+      await page.waitForSelector('#license-chart');
+      const globList = page.locator('.report-glob-list');
+      await globList.waitFor();
+      t.ok(
+        (await globList.innerText()).includes(suggested),
+        'report lists the accepted glob as matching after reindexing'
+      );
     });
 
     t.test('Console errors', t => {

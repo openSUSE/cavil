@@ -25,6 +25,12 @@
                 <label class="form-check-label" for="snippet-is-legal">Ignore patterns</label>
               </div>
             </div>
+            <div class="col-lg-3">
+              <div class="form-check">
+                <input v-model="params.createGlob" @change="refreshPage()" type="checkbox" class="form-check-input" />
+                <label class="form-check-label" for="snippet-glob">Ignore globs</label>
+              </div>
+            </div>
           </div>
         </form>
       </div>
@@ -75,6 +81,23 @@
                     </span>
                   </span>
                 </span>
+                <span v-else-if="change.action === 'create_glob'">
+                  Proposed by <b>{{ change.login }}</b>
+                  <span class="cavil-meta-badges change-meta-badges">
+                    <span class="cavil-meta-badge cavil-meta-badge-warning">ignore glob</span>
+                    <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
+                      <i class="fa-solid fa-robot"></i> AI assisted
+                    </span>
+                    <a
+                      v-if="change.package !== null"
+                      :href="change.package.pkgUrl"
+                      target="_blank"
+                      class="cavil-meta-badge cavil-meta-badge-muted"
+                    >
+                      {{ change.package.name }}
+                    </a>
+                  </span>
+                </span>
               </div>
               <div v-if="currentUser === change.login" class="change-actions">
                 <button
@@ -88,7 +111,7 @@
                 </button>
               </div>
             </div>
-            <div class="change-source">
+            <div v-if="change.lines" class="change-source">
               <table :class="getClassForCode(change)">
                 <tbody>
                   <tr v-for="line in change.lines" :key="line.num">
@@ -98,7 +121,7 @@
                 </tbody>
               </table>
             </div>
-            <div class="change-form">
+            <div class="change-form" :class="{'change-form-flush': !change.lines}">
               <div v-if="change.action === 'create_pattern'">
                 <div class="row">
                   <div class="col mb-3">
@@ -175,6 +198,14 @@
                   </div>
                 </div>
               </div>
+              <div v-else-if="change.action === 'create_glob'">
+                <div class="row">
+                  <div class="col mb-3">
+                    <label class="form-label" for="glob">Glob</label>
+                    <input v-model="change.data.glob" type="text" class="form-control change-glob-input" />
+                  </div>
+                </div>
+              </div>
               <div v-if="change.data.reason" class="row">
                 <div class="col mb-3">
                   <label class="form-label" for="reason">Reason</label>
@@ -187,7 +218,7 @@
                 <button @click="rejectProposal(change)" class="btn btn-danger btn-sm mb-2">Reject</button>
               </span>
             </div>
-            <div class="change-footer">
+            <div v-if="change.action !== 'create_glob'" class="change-footer">
               <div v-if="change.closest !== null">
                 <a :href="change.closest.licenseUrl" target="_blank">
                   <b>{{ change.closest.similarity }}%</b> similarity to
@@ -210,7 +241,7 @@
       <BackToTop />
     </div>
     <div v-else-if="changes === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading changes</div>
-    <div v-else>There are currently no proposed changes.</div>
+    <EmptyState v-else message="No proposed changes are waiting for review. Nice work keeping the queue clear." />
     <ToastNotifier ref="toaster" />
   </div>
 </template>
@@ -218,6 +249,7 @@
 <script>
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
+import EmptyState from './components/EmptyState.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
@@ -228,9 +260,9 @@ const REFILL_THRESHOLD = 5;
 
 export default {
   name: 'ProposedPatterns',
-  components: {BackToTop, CavilNoticePanel, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, EmptyState, ToastNotifier},
   data() {
-    const params = getParams({createIgnore: true, createPattern: true, filter: ''});
+    const params = getParams({createIgnore: true, createPattern: true, createGlob: true, filter: ''});
 
     return {
       changes: null,
@@ -271,8 +303,14 @@ export default {
         } else {
           kind = 'mark-non-license';
         }
+      } else if (change.action === 'create_glob') {
+        formData.checksum = change.token_hexsum;
+        formData.glob = change.data.glob;
+        formData.from = change.data.from;
+        formData.package = change.data.package;
+        kind = 'create-glob';
       }
-      const body = {actions: [{kind, snippetId: change.data.snippet, formData}]};
+      const body = {actions: [{kind, snippetId: change.data.snippet ?? null, formData}]};
       await ua.post('/snippet/batch_decision', {json: body, headers: {Accept: 'application/json'}});
 
       this.removeChange(change);
@@ -288,6 +326,7 @@ export default {
         url.searchParams.append('action', 'create_pattern');
       if (query.createIgnore === true || query.createIgnore === 'true')
         url.searchParams.append('action', 'create_ignore');
+      if (query.createGlob === true || query.createGlob === 'true') url.searchParams.append('action', 'create_glob');
 
       const ua = new UserAgent();
       const res = await ua.get(url, {query});
@@ -314,17 +353,22 @@ export default {
 
         if (change.data.ai_assisted !== undefined) change.data.ai_assisted = change.data.ai_assisted == 1;
 
-        const highlightedKeywords = change.data.highlighted_keywords ?? [];
-        const highlightedLicenses = change.data.highlighted_licenses ?? [];
-        let num = 0;
-        const lines = [];
-        for (const text of change.data.pattern.split('\n')) {
-          const isKeyword = highlightedKeywords.includes(num.toString());
-          const isLicense = highlightedLicenses.includes(num.toString());
-          const highlighted = isLicense ? 'license' : isKeyword ? 'keyword' : null;
-          lines.push({num: ++num, text, highlighted});
+        // Glob proposals have no snippet pattern, so there is no source preview to render.
+        if (typeof change.data.pattern === 'string') {
+          const highlightedKeywords = change.data.highlighted_keywords ?? [];
+          const highlightedLicenses = change.data.highlighted_licenses ?? [];
+          let num = 0;
+          const lines = [];
+          for (const text of change.data.pattern.split('\n')) {
+            const isKeyword = highlightedKeywords.includes(num.toString());
+            const isLicense = highlightedLicenses.includes(num.toString());
+            const highlighted = isLicense ? 'license' : isKeyword ? 'keyword' : null;
+            lines.push({num: ++num, text, highlighted});
+          }
+          change.lines = lines;
+        } else {
+          change.lines = null;
         }
-        change.lines = lines;
 
         query.before = change.id;
       }
@@ -396,7 +440,7 @@ export default {
       this.getChanges();
     }
   },
-  watch: {...genParamWatchers('createIgnore', 'createPattern', 'filter')}
+  watch: {...genParamWatchers('createIgnore', 'createPattern', 'createGlob', 'filter')}
 };
 </script>
 
@@ -472,6 +516,11 @@ export default {
   background-color: rgb(246, 248, 250);
   border-top: 1px solid rgb(208, 215, 222);
   padding: 10px;
+}
+/* Glob proposals have no source preview, so the header's bottom border and the form's top border
+   would sit directly on top of each other and read as a double-thick rule. Drop the duplicate. */
+.change-form-flush {
+  border-top: 0;
 }
 .change-footer {
   background-color: rgb(246, 248, 250);

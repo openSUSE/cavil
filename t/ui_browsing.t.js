@@ -181,9 +181,9 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await page.click('text=Missing Licenses');
       t.equal(await page.innerText('title'), 'Missing Licenses');
       await page.waitForSelector('#missing-licenses > div > div:nth-child(2)');
-      t.equal(
+      t.match(
         await page.innerText('#missing-licenses > div > div:nth-child(2)'),
-        'There are currently no missing licenses.'
+        /All caught up!\s+No missing licenses have been flagged/
       );
     });
 
@@ -193,9 +193,9 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await page.click('text=Change Proposals');
       t.equal(await page.innerText('title'), 'Change Proposals');
       await page.waitForSelector('#proposed-patterns > div > div:nth-child(3)');
-      t.equal(
+      t.match(
         await page.innerText('#proposed-patterns > div > div:nth-child(3)'),
-        'There are currently no proposed changes.'
+        /All caught up!\s+No proposed changes are waiting for review/
       );
     });
 

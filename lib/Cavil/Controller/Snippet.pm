@@ -72,11 +72,14 @@ sub closest ($self) {
 }
 
 my %BATCH_KINDS = map { $_ => 1 } qw(
-  create-pattern create-ignore mark-non-license
-  propose-pattern propose-ignore propose-missing
+  create-pattern create-ignore create-glob mark-non-license
+  propose-pattern propose-ignore propose-glob propose-missing
 );
 
-my %ADMIN_ONLY_KINDS = map { $_ => 1 } qw(create-pattern create-ignore mark-non-license);
+my %ADMIN_ONLY_KINDS = map { $_ => 1 } qw(create-pattern create-ignore create-glob mark-non-license);
+
+# Glob proposals are file-path based, not snippet based, so they carry no snippet id.
+my %SNIPPETLESS_KINDS = map { $_ => 1 } qw(propose-glob create-glob);
 
 # Apply a list of snippet decisions as a single batch.
 #
@@ -233,7 +236,8 @@ sub _validate_action ($self, $a, $is_admin) {
   return _bad('Missing action kind')        unless ref $a eq 'HASH' && defined(my $kind = $a->{kind});
   return _bad("Unknown action kind: $kind") unless $BATCH_KINDS{$kind};
   return _forbidden('Permission denied') if $ADMIN_ONLY_KINDS{$kind} && !$is_admin;
-  return _bad('Missing snippet id') unless defined $a->{snippetId} && $a->{snippetId} =~ /^\d+\z/;
+  return _bad('Missing snippet id')
+    unless $SNIPPETLESS_KINDS{$kind} || (defined $a->{snippetId} && $a->{snippetId} =~ /^\d+\z/);
   return _bad('Missing form data') unless ref(my $form = $a->{formData}) eq 'HASH';
 
   if ($kind eq 'create-pattern') {
@@ -271,6 +275,19 @@ sub _validate_action ($self, $a, $is_admin) {
     return _bad('Invalid hash format') unless $form->{hash} =~ $CHECKSUM_RE;
     my $edited = $form->{edited} // '0';
     return _bad('Only unedited snippets can be ignored') if $edited && $edited ne '0';
+  }
+  elsif ($kind eq 'propose-glob' || $kind eq 'create-glob') {
+    if (my $err = _check_form_keys($form, qw(glob))) { return _bad($err) }
+
+    # A glob only helps if it actually covers files in this package's report. Check it at propose
+    # time (the cheap, bounded matched_files set) so a typo or wrong prefix is caught before it
+    # ever reaches the Change Proposals page. Skipped for create-glob: by acceptance time the
+    # proposal already passed this gate, and a reindex could legitimately have changed the files.
+    my $package = $form->{package};
+    if ($kind eq 'propose-glob' && defined $package && $package =~ /^\d+\z/) {
+      return _bad('Glob does not match any files in the package report')
+        unless $self->packages->glob_matches_report_files($package, $form->{glob});
+    }
   }
 
   return undef;
@@ -379,6 +396,35 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
     return {kind => $kind, error => 'Conflicting ignore pattern proposal already exists'}
       if $result->{proposal_conflict};
     return {kind => 'proposal'};
+  }
+
+  if ($kind eq 'propose-glob') {
+    my $result = $patterns->propose_glob(
+      glob        => $form->{glob},
+      from        => $form->{from},
+      package     => $form->{package},
+      reason      => $form->{reason},
+      ai_assisted => $form->{ai_assisted},
+      owner       => $owner_id
+    );
+    return {kind => $kind, error => 'Conflicting ignore glob already exists'}          if $result->{conflict};
+    return {kind => $kind, error => 'Conflicting ignore glob proposal already exists'} if $result->{proposal_conflict};
+    return {kind => 'proposal'};
+  }
+
+  if ($kind eq 'create-glob') {
+
+    # Pre-check so a concurrent accept of the same glob fails cleanly instead of hitting the
+    # unique index on ignored_files.glob with a database exception.
+    return {kind => $kind, error => 'Conflicting ignore glob already exists'}
+      if $self->ignored_files->find_glob($form->{glob});
+
+    $self->ignored_files->add($form->{glob}, $self->current_user, $form->{contributor});
+    $patterns->remove_proposal($form->{checksum}) if $form->{checksum};
+
+    # Globs are global but apply lazily; reindex the originating package so its report updates now.
+    $packages_to_reindex->{$form->{package}} = 1 if $form->{package};
+    return {kind => 'glob'};
   }
 
   if ($kind eq 'propose-missing') {

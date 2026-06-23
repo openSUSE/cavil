@@ -332,3 +332,6 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm" WITH SCHEMA public;
 
 -- 40 up
 CREATE INDEX bot_packages_name_trgm_idx ON bot_packages USING gin (name gin_trgm_ops);
+
+-- 41 up
+ALTER TABLE ignored_files ADD COLUMN contributor int REFERENCES bot_users(id);

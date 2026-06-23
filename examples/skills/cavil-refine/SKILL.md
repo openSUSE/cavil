@@ -19,6 +19,7 @@ You have access to the following MCP tools:
 - `mcp__cavil__cavil_get_file(package_id, file_path, start_line, end_line)` - Retrieve file content for context (max 1000 lines per call). Each line is prefixed with its absolute line number for reference; these prefixes are display-only and must NEVER be copied into patterns or snippet text
 - `mcp__cavil__cavil_propose_ignore_snippet(package_id, snippet_id, reason)` - Ignore irrelevant snippets
 - `mcp__cavil__cavil_propose_license_pattern(package_id, snippet_id, pattern, license, reason)` - Create new license patterns
+- `mcp__cavil__cavil_propose_ignore_glob(package_id, glob, reason)` - Propose a file path glob to exclude whole files/directories of fixtures or license-data from scanning system-wide (see "FILE-LEVEL EXCLUSIONS" below)
 - `mcp__cavil__cavil_create_snippet(package_id, file_path, start_line, end_line)` - Create a new, larger snippet from a line range in a matched file (for capturing a full license when a match is only a fragment); returns the new snippet_id to use with `cavil_propose_license_pattern`
 - `mcp__cavil__cavil_list_files(package_id, glob?)` - List all files in a package, with an optional glob pattern to filter results (useful to explore available files before fetching content)
 - `mcp__cavil__cavil_get_open_reviews(search)` - List open reviews (if needed to find package_id)
@@ -105,7 +106,7 @@ Notes:
 
 Some packages include files whose **path or name makes it obvious** that any license-like text inside them is *data*, not a license declaration for the software being packaged. These files generate many spurious unresolved snippets that should never have been indexed.
 
-The right fix is not to ignore each snippet individually — it is to exclude the **entire file or directory** from Cavil indexing system-wide via a glob, so future versions of this package (and similar packages) skip them automatically. Globs are added by a human administrator, so your job is to **propose** the glob in your summary, not to call any Cavil tool.
+The right fix is not to ignore each snippet individually — it is to exclude the **entire file or directory** from Cavil indexing system-wide via a glob, so future versions of this package (and similar packages) skip them automatically. Propose the glob with `mcp__cavil__cavil_propose_ignore_glob(package_id, glob, reason)`; it goes onto the Change Proposals page where a human administrator accepts it (just like a proposed pattern or ignore). Always also list the proposed glob in your summary so the reviewer has the rationale at hand.
 
 ### When to propose a glob
 
@@ -126,17 +127,28 @@ Propose a glob when ALL of the following hold:
 
 Use a leading `pkgname-*/` prefix to match the versioned top-level directory typical of Cavil source trees. Use `*` for the version segment so the glob applies to all future versions.
 
+### How globs are matched (so you design them correctly)
+
+Cavil compiles globs with `Text::Glob` (wildcard-slash mode off) and matches them against the file's **full path relative to the package's unpacked root** — which includes the versioned top-level directory (`pkgname-1.2.3/...`). The match is anchored at both ends, so a glob must describe the *entire* path, not a substring. The wildcard rules are:
+
+- `*` matches any run of characters **including `/`**. So `*` spans directory boundaries: `pkgname-*/testdata/*.log` also matches `pkgname-1.2.3/testdata/deep/sub/x.log`. There is no separate `**`; a single `*` already crosses directories.
+- `?` matches exactly one character (also including `/`).
+- `{a,b,c}` is brace alternation, and `[...]` is a character class — e.g. `pkgname-*/license_data/*.{txt,dat}`.
+- A wildcard at the **start of a path segment does not match a leading dot**. `pkgname-*/data/*` will NOT match `pkgname-1.2.3/data/.hidden`; to cover dotfiles or dot-directories write the dot literally (e.g. `pkgname-*/.git/*`).
+
+Practical consequences: prefer anchoring on a directory and a concrete extension (`.../testdata/*.log`) over a bare `*`, since `*` reaches into nested directories and can over-match. Always include the `pkgname-*/` prefix — without it the glob won't line up with the versioned top-level and will simply never match.
+
 ### Protocol
 
 1. During initial triage (workflow step 3), group unresolved snippets by file path.
 2. For any path matching the signals above with 2+ snippets, mark it as a **glob candidate** and design the narrowest glob that captures the offending files without over-matching.
-3. **Do NOT call `cavil_propose_ignore_snippet` or `cavil_propose_license_pattern`** for snippets in glob-candidate paths. The correct action is system-wide exclusion via a human-added glob, not per-snippet handling. These snippets will disappear once the glob is added and the package is re-indexed.
+3. Call `cavil_propose_ignore_glob(package_id, glob, reason)` once per glob candidate. **Do NOT call `cavil_propose_ignore_snippet` or `cavil_propose_license_pattern`** for snippets in glob-candidate paths — the correct action is the system-wide glob, not per-snippet handling. These snippets will disappear once the glob is accepted and the package is re-indexed. (A duplicate glob, or one that already exists, is reported back as a conflict — just move on.)
 4. In your final report summary, add a **"PROPOSED GLOBS TO EXCLUDE"** section listing each proposed glob with:
    - The glob pattern (ready to paste)
    - The matching file(s) seen in this report
    - The number of snippets it would resolve
    - A one-sentence rationale explaining why these files contain data rather than declarations
-5. State explicitly that the human reviewer must add the glob to Cavil's system configuration; once added and the package is re-indexed, these snippets will be skipped entirely.
+5. State explicitly that a human reviewer still has to accept the proposed glob on the Change Proposals page; once accepted and the package is re-indexed, these snippets will be skipped entirely.
 
 ### When NOT to propose a glob
 

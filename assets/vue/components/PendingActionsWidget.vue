@@ -96,6 +96,7 @@ const ACTION_LABELS = {
   'mark-non-license': 'Mark non-license',
   'propose-pattern': 'Propose pattern',
   'propose-ignore': 'Propose ignore',
+  'propose-glob': 'Propose ignore glob',
   'propose-missing': 'Propose missing license'
 };
 

@@ -19,6 +19,7 @@ use Mojo::Base -base, -signatures;
 use Cavil::Util qw(paginate);
 use Mojo::File  qw(path);
 use Mojo::Util  qw(dumper);
+use Text::Glob  qw(glob_to_regex);
 
 has [qw(checkout_dir log minion pg)];
 
@@ -94,6 +95,23 @@ sub cleanup ($self, $id) {
 sub pkg_checkout_dir ($self, $id) {
   my $pkg = $self->find($id);
   return path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+}
+
+# Does the glob match at least one of the package's matched (reported) files? A glob only reduces
+# noise if it covers files that actually appear in the report, and matched_files is a small,
+# bounded set - so this check stays cheap even for packages with millions of files on disk, and
+# it uses the same filename basis that dig_report applies globs against.
+sub glob_matches_report_files ($self, $id, $glob) {
+  local $Text::Glob::strict_wildcard_slash = 0;
+  my $regex = glob_to_regex($glob);
+
+  my $files = $self->pg->db->select('matched_files', ['filename'], {package => $id});
+  while (my $file = $files->hash) {
+    next unless $file->{filename} =~ $regex;
+    $files->finish;
+    return 1;
+  }
+  return 0;
 }
 
 sub find ($self, $id) {

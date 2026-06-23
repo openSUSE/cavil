@@ -41,12 +41,13 @@
                 <th>Glob</th>
                 <th>Created</th>
                 <th>Owner</th>
+                <th>Contributor</th>
                 <th></th>
               </tr>
             </thead>
             <tbody v-if="globs === null">
               <tr>
-                <td id="all-done" colspan="4"><i class="fa-solid fa-rotate fa-spin"></i> Loading globs...</td>
+                <td id="all-done" colspan="5"><i class="fa-solid fa-rotate fa-spin"></i> Loading globs...</td>
               </tr>
             </tbody>
             <tbody v-else-if="globs.length > 0">
@@ -54,6 +55,7 @@
                 <td>{{ glob.glob }}</td>
                 <td>{{ glob.created }}</td>
                 <td>{{ glob.login }}</td>
+                <td>{{ glob.contributor }}</td>
                 <td class="text-center">
                   <button
                     @click="deleteGlob(glob)"
@@ -69,7 +71,7 @@
             </tbody>
             <tbody v-else>
               <tr>
-                <td id="all-done" colspan="4">No globs found.</td>
+                <td id="all-done" colspan="5">No globs found.</td>
               </tr>
             </tbody>
           </table>
@@ -188,6 +190,7 @@ export default {
           glob: glob.glob,
           created: moment(glob.created_epoch * 1000).fromNow(),
           login: glob.login,
+          contributor: glob.contributor_login ?? '',
           removeUrl: `/ignored-files/${glob.id}`
         });
       }

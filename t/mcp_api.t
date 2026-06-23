@@ -479,7 +479,7 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 11,                              'eleven tools available';
+      is scalar @{$result->{tools}}, 12,                              'twelve tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -490,7 +490,8 @@ subtest 'MCP' => sub {
       is $result->{tools}[7]{name},  'cavil_reject_review',           'right tool name';
       is $result->{tools}[8]{name},  'cavil_propose_ignore_snippet',  'right tool name';
       is $result->{tools}[9]{name},  'cavil_propose_license_pattern', 'right tool name';
-      is $result->{tools}[10]{name}, 'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[10]{name}, 'cavil_propose_ignore_glob',     'right tool name';
+      is $result->{tools}[11]{name}, 'cavil_create_snippet',          'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -533,7 +534,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 9,                               'nine tools available';
+      is scalar @{$result->{tools}}, 10,                              'ten tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -542,7 +543,8 @@ subtest 'MCP' => sub {
       is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
       is $result->{tools}[6]{name},  'cavil_propose_ignore_snippet',  'right tool name';
       is $result->{tools}[7]{name},  'cavil_propose_license_pattern', 'right tool name';
-      is $result->{tools}[8]{name},  'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[8]{name},  'cavil_propose_ignore_glob',     'right tool name';
+      is $result->{tools}[9]{name},  'cavil_create_snippet',          'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -554,7 +556,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 10,                              'ten tools available';
+      is scalar @{$result->{tools}}, 11,                              'eleven tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
@@ -564,7 +566,8 @@ subtest 'MCP' => sub {
       is $result->{tools}[6]{name},  'cavil_accept_review',           'right tool name';
       is $result->{tools}[7]{name},  'cavil_propose_ignore_snippet',  'right tool name';
       is $result->{tools}[8]{name},  'cavil_propose_license_pattern', 'right tool name';
-      is $result->{tools}[9]{name},  'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[9]{name},  'cavil_propose_ignore_glob',     'right tool name';
+      is $result->{tools}[10]{name}, 'cavil_create_snippet',          'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');
@@ -1046,6 +1049,59 @@ subtest 'MCP' => sub {
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text}, 'Snippet not found', 'not found message';
       };
+    };
+
+    subtest 'cavil_propose_ignore_glob tool' => sub {
+      subtest 'Propose glob' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_glob',
+          {package_id => 1, glob => 'apache_file.txt', reason => 'Test fixture, not a real license'});
+        ok !$result->{isError}, 'not an error';
+        is $result->{content}[0]{text}, 'Proposal to ignore glob has been successfully submitted', 'proposal message';
+
+        $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+        $t->get_ok('/licenses/proposed/meta?action=create_glob')
+          ->status_is(200)
+          ->json_is('/changes/0/action',           'create_glob')
+          ->json_is('/changes/0/login',            'tester')
+          ->json_is('/changes/0/data/ai_assisted', 1)
+          ->json_is('/changes/0/data/glob',        'apache_file.txt')
+          ->json_is('/changes/0/data/package',     1)
+          ->json_like('/changes/0/data/reason', qr/AI Assistant: Test fixture, not a real license/);
+        $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+      };
+
+      subtest 'Propose glob (conflicting proposal)' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_glob',
+          {package_id => 1, glob => 'apache_file.txt', reason => 'Test fixture, not a real license'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Conflicting ignore glob proposal already exists', 'conflict message';
+      };
+
+      subtest 'Propose glob (no matching file)' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_glob',
+          {package_id => 1, glob => 'no-such-dir-*/missing.xyz', reason => 'Typo glob'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Glob does not match any files in the package report', 'no match message';
+      };
+
+      subtest 'Propose glob (non-existent package)' => sub {
+        my $result = $client->call_tool('cavil_propose_ignore_glob',
+          {package_id => 999, glob => 'apache_file.txt', reason => 'Test'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package not found', 'not found message';
+      };
+
+      subtest 'Propose glob (embargoed package)' => sub {
+        $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+        my $result = $client->call_tool('cavil_propose_ignore_glob',
+          {package_id => 1, glob => 'gpl2_file.txt', reason => 'Test'});
+        ok $result->{isError}, 'is an error';
+        is $result->{content}[0]{text}, 'Package is embargoed and may not be processed with AI', 'embargoed message';
+        $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
+      };
+
+      # Clean up the staged proposal so later assertions are not affected
+      $t->app->pg->db->query("DELETE FROM proposed_changes WHERE action = 'create_glob'");
     };
 
     subtest 'cavil_propose_license_pattern tool' => sub {
