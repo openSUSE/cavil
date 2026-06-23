@@ -1357,7 +1357,7 @@ export default {
   color: #57606a;
   font-size: 13px;
   list-style: none;
-  margin: 0.75rem 0 0 0.35rem;
+  margin: 0.3rem 0 0.1rem 0.35rem;
   padding-left: 0.9rem;
 }
 .risk-file-list li {
