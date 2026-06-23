@@ -6,7 +6,7 @@ Usage:
     python parse_report.py <report_file> [--output <output_file>]
 
 The report_file can be either:
-    - Raw JSON from mcp__cavil__cavil_get_report tool result
+    - Raw JSON from cavil_get_report tool result
     - Plain markdown text of a Cavil report
 """
 
