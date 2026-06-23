@@ -194,6 +194,150 @@ This one is not specific to one package checkout.
 9. `classify`: Sends all unclassified snippets of potential legal text to the text classification server, and if
                necessary updates reports.
 
+## Pattern Matching
+
+Pattern matching is the heart of Cavil. It is how the `index_batch` job turns raw source files into the license and
+keyword matches that every report is built from. The matching itself is done by a separate, performance-critical C++
+library ([Spooky::Patterns::XS](https://github.com/openSUSE/Spooky-Patterns-XS)); Cavil provides the glue that loads
+patterns into it, runs files through it, and stores the results.
+
+### Patterns and Keywords
+
+There are two kinds of patterns, and this is the "two phase" matching referred to under
+[Report Creation](#report-creation):
+
+* **License patterns** are named after a license (for example MIT or GPL-2.0-or-later) and carry a risk level from 1 to
+  7. When one matches, that license is added to the report.
+* **Keyword patterns** have no license name and always carry risk level 9. Rather than identifying a license, they flag a
+  region of a file as *potential* legal text that no license pattern has recognised. These regions become **snippets**
+  (see [AI Text Classification](#ai-text-classification)) — the candidates from which experts propose new license
+  patterns. Keyword matching is deliberately broad and has a false-positive rate of about 80%, which is exactly why AI
+  classification is so useful for sifting the snippets.
+
+A pattern can also be either **global**, in which case it applies to every package, or scoped to a **single package**.
+Package-scoped patterns let an expert refine or silence matches for one troublesome package without affecting everyone
+else.
+
+### The Pattern Language
+
+Patterns are neither regular expressions nor plain substrings. Before any comparison happens, patterns and the files
+being scanned are put through the same normalisation, which is what makes matching survive reformatting and reflowing of
+license texts:
+
+* Everything is lower-cased and split into words on whitespace and the usual punctuation and markup characters.
+* Words that carry no meaning are thrown away — punctuation-only fragments and a small fixed set of comment and markup
+  noise words. Comment markers and layout therefore never have to be matched literally.
+* Each remaining word is reduced to a numeric hash; only those hashes are ever compared, never the original text.
+
+The one wildcard is `$SKIP<n>`, which matches up to *n* arbitrary words (the limit is 99). It lets a single pattern
+absorb the parts of a license text that legitimately vary, such as copyright holders, years or addresses:
+
+```
+Permission is hereby granted $SKIP30 to deal in the Software without restriction
+```
+
+A pattern may not start or end with a `$SKIP`, because a match has to be anchored on real words at both ends.
+
+### The Matching Engine
+
+All of a package's patterns are loaded into one shared **prefix tree**, keyed on the word hashes described above.
+Patterns that begin with the same words share the same branch, and only diverge where the words diverge:
+
+```
+(start)
+  ├─ permission ─ is ─ hereby ─ granted ─ $SKIP30 ─ to ─ ...   →  (MIT-style pattern)
+  ├─ gnu ─ general ─ public ─ license ─ ...                    →  (a GPL pattern)
+  └─ copyright ─ ...
+```
+
+Scanning a file means walking its words through this tree and noting every place a complete pattern is reached. The
+important consequence of this design is that **matching speed barely depends on how many patterns there are**: 29,000
+patterns are not meaningfully slower to scan against than 2,900, because shared beginnings are walked only once and only
+branches that actually occur in the file are explored. The exception is `$SKIP`, which forces the scanner to try several
+continuations at once, so patterns built from many skips are the ones that cost extra.
+
+When two patterns match overlapping regions of a file, the longer match wins; an exact tie is resolved in favour of the
+more recently added pattern, on the assumption that newer patterns are the more specific ones. A couple of safety limits
+guard against pathological input: very long lines are truncated, and the scanner only keeps a sliding window of recent
+words in memory. That window is sized relative to the longest known pattern, so a single enormous pattern quietly makes
+scanning heavier for *every* file — something to keep in mind when adding patterns.
+
+### Indexing a File
+
+Each `index_batch` job builds its matcher once: it loads all the global patterns (almost always from a cache, described
+below), then adds the handful that are scoped to the package being indexed. Every file in the batch is then scanned, and
+each match is recorded for the report.
+
+Matches against named license patterns are finished at that point. A match against a keyword pattern instead kicks off
+**snippet extraction**: Cavil takes the lines immediately around the keyword, merges nearby keyword regions that are only
+a few lines apart into one block, and stores each resulting block as a snippet for later classification. If a block's
+content matches one an expert has previously marked as uninteresting, it is silently dropped instead — this is how known
+false positives stay out of the queue.
+
+### Caches
+
+Re-reading and re-tokenising every pattern from the database for each of the thousands of `index_batch` jobs would be far
+too expensive, so two files are kept in Cavil's cache directory:
+
+* The serialised prefix tree of all global patterns, which is what indexing jobs load instead of rebuilding it. It is
+  written once and then reused; each worker still holds its own copy in memory.
+* A serialised "bag of patterns" similarity model, used for the closest-match lookups described below.
+
+Both caches are discarded whenever any pattern is created or edited, which also schedules a background job to rebuild the
+similarity model and refresh the closest-match suggestion for every snippet. The prefix tree is simply rebuilt the next
+time an indexing job notices it is gone. This "rebuild everything on any change" behaviour is simple and reliable, but it
+is also the part most sensitive to growth (see below).
+
+### Closest Match
+
+Alongside the prefix tree, Cavil keeps a separate similarity model that can answer "which existing pattern does this text
+most resemble?". It scores a piece of text against every known pattern and returns the best matches, which powers the
+"this snippet looks like pattern X" hints in the review UI. Unlike the prefix tree, this comparison looks at every
+pattern on every query, so its cost grows directly with the number of patterns.
+
+### Data Model
+
+For readers who want to trace this through the database, the tables involved are:
+
+* `license_patterns` — the patterns themselves, including their license name, risk, global-vs-package scope, and a
+  uniquely-indexed checksum that prevents duplicates from being stored.
+* `pattern_matches` — one row per match found in a file, recording the pattern, the file, and the line range.
+* `snippets` and `file_snippets` — the extracted keyword regions and where they were found.
+* `ignored_lines` — checksums of snippet regions that experts have chosen to suppress.
+
+### Scaling Characteristics and Limits
+
+Because the prefix tree keeps scanning speed roughly independent of pattern count, Cavil has scaled comfortably to around
+29,000 patterns (about 5.7 million words, a roughly 128 MB cache). The limits that matter are therefore about memory and a
+few count-sensitive side paths, not the core matching loop. Roughly in the order they will be felt:
+
+1. **Memory per worker — the practical ceiling.** Every indexing worker loads its own full copy of the pattern tree, so
+   the memory it needs grows in step with the total amount of pattern text, multiplied by how many workers run at once. As
+   a rough extrapolation from today's ~128 MB cache (~0.3 GB resident per worker): about 1 GB per worker at 100k
+   patterns, ~3 GB at 250k, and 10–15 GB at 1M. Somewhere near **one million patterns** a fleet of workers stops fitting
+   on ordinary hardware. The eventual fix is to share one copy of the tree between workers rather than giving each its
+   own.
+
+2. **Rebuilding the caches on every change — felt first.** Because any pattern edit throws away both caches and triggers
+   a full rebuild, the cost of those rebuilds rises with the pattern count, and bulk imports can have several workers
+   rebuilding at the same time. This is the first thing likely to become annoying, and it is a software issue (rebuild
+   less eagerly, or just once in the background) rather than a fundamental limit.
+
+3. **Closest-match lookups.** These already scan every pattern per query; fine into the hundreds of thousands, then
+   increasingly sluggish in the review UI.
+
+4. **Built-in numeric ceilings — very far off.** Internal identifiers for tree nodes and patterns are 32-bit, which only
+   becomes a problem in the range of tens of millions to a couple of billion patterns — roughly thirty times beyond the
+   memory ceiling above, so memory gives out long before.
+
+5. **Pattern shape, not just count.** One pathologically long pattern enlarges the scanner's working window for every
+   file, and skip-heavy patterns make the tree branch more. It is worth watching the *shape* of new patterns, not only
+   how many there are.
+
+In short: the design is comfortable to a few hundred thousand patterns with no real change, can probably be pushed toward
+a million before memory forces a redesign, and the first thing likely to actually hurt — well before any hard limit — is
+the rebuild-everything-on-any-change cache behaviour.
+
 ## AI Text Classification
 
 Text classification via machine learning model is implemented as an optional HTTP service that needs to be configured
