@@ -98,7 +98,7 @@ Alternatively there are also two implementations for our legacy classifier API:
     # Initialize staging environment (remove --clean to include example fixtures)
     perl staging/start.pl --clean postgresql://tester:testing@/test
 
-    # Start HTTP application server on port 3000
+    # Start HTTP application server under http://127.0.0.1:3000
     CAVIL_CONF=staging/do_not_commit/cavil.conf morbo script/cavil
 
     # Start background job queue (separate process that does all the actual work)
@@ -107,9 +107,6 @@ Alternatively there are also two implementations for our legacy classifier API:
     # Tear down staging environment once you are done
     perl staging/stop.pl
 ```
-
-  The `morbo` development web server will make the web application available under `http://127.0.0.1:3000`. And
-  `script/cavil minion worker` will start the job queue for processing background jobs.
 
 ## Documentation
 
