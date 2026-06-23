@@ -56,6 +56,7 @@ This converts large Cavil reports (which can be 1M+ tokens) into a clean JSON st
 7. **Execute actions**: 
    - Use `mcp__cavil__cavil_propose_ignore_snippet` ONLY for definitively irrelevant non-license text (see critical guidelines below)
    - Use `mcp__cavil__cavil_propose_license_pattern` for pattern creation - **create the pattern ONCE from one representative snippet**
+   - Use `mcp__cavil__cavil_propose_ignore_glob` to exclude an entire fixture/data file or directory system-wide when 2+ unresolved snippets share such a path - prefer this over ignoring those snippets one by one (see "FILE-LEVEL EXCLUSIONS")
    - **IMPORTANT**: When multiple snippets match the same pattern, create the pattern from ONE snippet only. DO NOT propose to ignore the duplicates - Cavil will automatically match them when it reindexes the report after the pattern is created
    - **NEVER use Cavil tools** for snippets flagged as REPORT_TO_USER - only report them in your summary to the user
 8. **Report summary**: Provide metrics (X ignored, Y patterns created, Z flagged for review, G globs proposed) and a concise table or list of all actions taken. Note how many duplicate snippets will be automatically resolved by pattern reindexing. If any glob candidates were identified during triage, include a "PROPOSED GLOBS TO EXCLUDE" section (see "FILE-LEVEL EXCLUSIONS" below).
@@ -138,17 +139,10 @@ Cavil compiles globs with `Text::Glob` (wildcard-slash mode off) and matches the
 
 Practical consequences: prefer anchoring on a directory and a concrete extension (`.../testdata/*.log`) over a bare `*`, since `*` reaches into nested directories and can over-match. Always include the `pkgname-*/` prefix — without it the glob won't line up with the versioned top-level and will simply never match.
 
-### Protocol
-
-1. During initial triage (workflow step 3), group unresolved snippets by file path.
-2. For any path matching the signals above with 2+ snippets, mark it as a **glob candidate** and design the narrowest glob that captures the offending files without over-matching.
-3. Call `cavil_propose_ignore_glob(package_id, glob, reason)` once per glob candidate. **Do NOT call `cavil_propose_ignore_snippet` or `cavil_propose_license_pattern`** for snippets in glob-candidate paths — the correct action is the system-wide glob, not per-snippet handling. These snippets will disappear once the glob is accepted and the package is re-indexed. (A duplicate glob, or one that already exists, is reported back as a conflict — just move on.)
-4. In your final report summary, add a **"PROPOSED GLOBS TO EXCLUDE"** section listing each proposed glob with:
-   - The glob pattern (ready to paste)
-   - The matching file(s) seen in this report
-   - The number of snippets it would resolve
-   - A one-sentence rationale explaining why these files contain data rather than declarations
-5. State explicitly that a human reviewer still has to accept the proposed glob on the Change Proposals page; once accepted and the package is re-indexed, these snippets will be skipped entirely.
+Design the narrowest glob that captures the offending files without over-matching, and call
+`cavil_propose_ignore_glob` once per candidate path. (A glob that already exists, or a duplicate proposal, comes back
+as a conflict — just move on.) Then record each one in the summary's **"PROPOSED GLOBS TO EXCLUDE"** section with the
+glob pattern, the matching file(s) seen, the number of snippets it resolves, and a one-sentence rationale.
 
 ### When NOT to propose a glob
 
@@ -233,6 +227,8 @@ Caveats:
 **NEVER use `cavil_propose_ignore_snippet` for anything that might be license-related.**
 
 The ignore tool is ONLY for text that is definitively NOT license-related. If there is ANY doubt, use REPORT_TO_USER instead.
+
+**Before per-snippet ignoring, check for a file-level fix:** if 2+ of the snippets below come from the same fixture or license-data file/directory, propose a glob with `cavil_propose_ignore_glob` instead of ignoring each one (see "FILE-LEVEL EXCLUSIONS"). Per-snippet ignore is for one-off scattered cases.
 
 ### ✅ USE IGNORE (cavil_propose_ignore_snippet) for:
 - Log messages or debug output: "DEBUG: Processing file...", "Error: connection timeout"
