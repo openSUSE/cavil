@@ -535,7 +535,25 @@ sub recent ($self, $options) {
 }
 
 sub remove ($self, $id) {
-  $self->pg->db->delete('license_patterns', {id => $id});
+  my $db = $self->pg->db;
+
+  # Capture the affected packages and delete the pattern in one transaction. The "ON DELETE
+  # CASCADE" on pattern_matches removes the matches along with the pattern, so we have to
+  # remember which packages need reindexing before that information is gone, and the
+  # transaction keeps the captured list consistent with the cascade even while other packages
+  # are being indexed concurrently.
+  my $tx       = $db->begin;
+  my $packages = [map { $_->{package} }
+      $db->query('SELECT DISTINCT package FROM pattern_matches WHERE pattern = ?', $id)->hashes->each];
+  $db->delete('license_patterns', {id => $id});
+  $tx->commit;
+
+  # Only expire the caches once the row is actually gone, otherwise a concurrent index job
+  # could rebuild cavil.tokens with the just-deleted pattern still in it (and then keep
+  # producing matches for a pattern id that no longer exists).
+  $self->expire_cache;
+
+  return $packages;
 }
 
 sub update ($self, $id, %args) {

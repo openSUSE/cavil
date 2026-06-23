@@ -64,12 +64,17 @@ sub file ($self, $meta, $path, $mime) {
   for my $match (@{$report->{matches}}) {
     my ($mid, $ls, $le) = @$match;
 
+    # The matcher cache can lag behind the database when a pattern is removed while packages
+    # are still being indexed. The database is the source of truth, so skip any match we can
+    # no longer resolve instead of inserting a dangling (and FK-violating) pattern_matches row.
+    my $no_license = $self->_has_no_license($mid);
+    next unless defined $no_license;
+
     $file_id
       ||= $self->{db}
       ->insert('matched_files', {package => $package, filename => $path, mimetype => $mime}, {returning => 'id'})
       ->hash->{id};
 
-    my $no_license = $self->_has_no_license($mid);
     $keyword_missed ||= $no_license;
 
     # package is kind of duplicated in file, but the join is just too expensive
@@ -149,8 +154,11 @@ sub _has_no_license ($self, $pid) {
   return $self->{no_license}{$pid} if exists $self->{no_license}{$pid};
 
   my $row = $self->{db}->select('license_patterns', 'license', {id => $pid})->hash;
-  $self->{no_license}{$pid} = $row->{license} eq '';
-  return $self->{no_license}{$pid};
+
+  # Pattern has been removed while indexing was in progress; cache undef so callers skip it
+  return $self->{no_license}{$pid} = undef unless $row;
+
+  return $self->{no_license}{$pid} = $row->{license} eq '' ? 1 : 0;
 }
 
 sub _mark_area ($needed_lines, $ls, $le) {

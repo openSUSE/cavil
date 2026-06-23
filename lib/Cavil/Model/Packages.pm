@@ -602,6 +602,11 @@ sub reindex_packages ($self, $name) {
   $self->reindex($_, 3) for @$ids;
 }
 
+sub reindex_package_ids ($self, $ids, $priority = 0) {
+  my $minion = $self->minion;
+  $minion->enqueue('index_later', [$_], {priority => $priority}) for @$ids;
+}
+
 sub remove_spdx_report ($self, $id) {
   my $path = $self->spdx_report_path($id);
   $path->remove;

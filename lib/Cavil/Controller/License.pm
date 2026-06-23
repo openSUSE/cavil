@@ -168,11 +168,13 @@ sub recent_meta ($self) {
 
 # AJAX route
 sub remove_pattern ($self) {
-  my $id       = $self->stash('id');
-  my $patterns = $self->patterns;
-  $self->packages->reindex_matched_packages($id);
-  $patterns->expire_cache;
-  $patterns->remove($id);
+  my $id = $self->stash('id');
+
+  # Delete the pattern first (this captures the affected packages and expires the caches
+  # atomically), then reindex those packages once the pattern can no longer be matched
+  my $packages = $self->patterns->remove($id);
+  $self->packages->reindex_package_ids($packages);
+
   $self->render(json => 'ok');
 }
 
