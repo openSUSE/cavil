@@ -110,4 +110,80 @@ subtest 'fold-in gate (via the report)' => sub {
   ok !$off->app->reports->dig_report(1)->{folded}, 'nothing folds when snippet_fold is disabled';
 };
 
+subtest 'boilerplate-clear (via the report)' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_clear_test');
+  my $config     = {
+    %{$cavil_test->default_config},
+    snippet_fold => {enabled => 1, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0.97}
+  };
+  my $t   = Test::Mojo->new(Cavil => $config);
+  my $app = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # Point at a synthetic license that cannot otherwise appear in the report, so its absence proves
+  # clearing asserts nothing.
+  my $pattern = $app->patterns->create(pattern => 'a distinct clearable boilerplate marker', license => 'Clear-Test');
+
+  # Ambiguous boilerplate: high containment but zero margin, so it can't fold - it should clear.
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0.99,
+       score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $pattern->{id}
+  );
+
+  my $report = $app->reports->dig_report(1);
+  ok $report->{cleared},                 'snippet cleared as recognized license boilerplate';
+  ok !$report->{folded},                 'not folded (no margin)';
+  ok !$report->{licenses}{'Clear-Test'}, 'clearing asserts no license';
+  is_deeply $report->{missed_files}, {}, 'nothing left in the unresolved list';
+
+  # The file browser agrees: cleared regions render as resolved, not as risk-9 unresolved snippets
+  $t->get_ok('/login')->status_is(302);
+  my $source = $t->get_ok('/reviews/file_view_meta/1/README')->status_is(200)->tx->res->json->{source};
+  is scalar(grep { ($_->[1]{risk} // 0) == 9 } @{$source->{lines}}), 0,
+    'file browser shows no unresolved (risk 9) lines once boilerplate is cleared';
+
+  # With clearing disabled the same boilerplate stays unresolved
+  my $off = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, clear_threshold => 0}});
+  ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'stays unresolved when clearing is off';
+};
+
+# A snippet that appears in several files must fold/clear in EVERY file, like a real pattern match -
+# the per-snippet-id dedup applies only to the unresolved backlog display, not to resolved results.
+subtest 'fold applies to every file occurrence of a duplicated snippet' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_dup_test');
+  my $config     = {
+    %{$cavil_test->default_config},
+    snippet_fold => {enabled => 1, threshold => 0.9, min_margin => 0.1, max_risk => 9, clear_threshold => 0}
+  };
+  my $t   = Test::Mojo->new(Cavil => $config);
+  my $app = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # Attach an existing snippet to a second file, on disk and in the database
+  my $fs       = $db->query('SELECT snippet, sline, eline FROM file_snippets ORDER BY id LIMIT 1')->hash;
+  my $unpacked = $cavil_test->checkout_dir->child('package-with-snippets', '2a0737e27a3b75590e7fab112b06a76fe7573615',
+    '.unpacked');
+  $unpacked->child('README')->copy_to($unpacked->child('README2'));
+  my $fid2
+    = $db->insert('matched_files', {package => 1, filename => 'README2', mimetype => 'text/plain'}, {returning => 'id'})
+    ->hash->{id};
+  $db->insert('file_snippets',
+    {package => 1, file => $fid2, snippet => $fs->{snippet}, sline => $fs->{sline}, eline => $fs->{eline}});
+
+  # Fold that snippet to a synthetic license; it must fold in BOTH files, not just the first
+  my $p = $app->patterns->create(pattern => 'a unique duplicated foldable marker', license => 'Dup-Test');
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0, score_version = ?,
+       like_pattern = ? WHERE id = ?', SNIPPET_SCORE_VERSION, $p->{id}, $fs->{snippet}
+  );
+
+  is scalar(keys %{$app->reports->dig_report(1)->{folded}}), 2, 'the duplicated snippet folds in both files';
+};
+
 done_testing;

@@ -18,7 +18,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File        qw(path);
 use Cavil::Util       qw(lines_context);
-use Cavil::ReportUtil qw(should_fold_snippet);
+use Cavil::ReportUtil qw(should_clear_boilerplate should_fold_snippet);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -235,18 +235,26 @@ sub _file_browser_line_info ($self, $package, $file_id) {
   );
   for my $snippet ($snippets->hashes->each) {
 
-    # A folded snippet is shown as its inferred license, exactly like the report does; everything
-    # else stays an unresolved (risk 9) snippet.
-    my $folded    = should_fold_snippet($fold, $snippet, {license => $snippet->{plicense}, risk => $snippet->{prisk}});
-    my $line_info = $folded
-      ? {
-      risk => $snippet->{prisk},
-      name => $snippet->{plicense},
-      spdx => $snippet->{pspdx},
-      pid  => $snippet->{like_pattern}
-      }
-      : {risk => 9, snippet => $snippet->{id}, hash => $snippet->{hash}, name => 'Snippet of missing keywords'};
-    $line_info->{pids} = [$snippet->{like_pattern}] if !$folded && $snippet->{like_pattern};
+    # Mirror the report exactly: a folded snippet shows as its inferred license; recognized
+    # boilerplate is cleared (resolved, no highlight); everything else stays an unresolved snippet.
+    my $pattern = {license => $snippet->{plicense}, risk => $snippet->{prisk}};
+    my $line_info;
+    if (should_fold_snippet($fold, $snippet, $pattern)) {
+      $line_info = {
+        risk => $snippet->{prisk},
+        name => $snippet->{plicense},
+        spdx => $snippet->{pspdx},
+        pid  => $snippet->{like_pattern}
+      };
+    }
+    elsif (should_clear_boilerplate($fold, $snippet, $pattern)) {
+      $line_info = {risk => 0};
+    }
+    else {
+      $line_info
+        = {risk => 9, snippet => $snippet->{id}, hash => $snippet->{hash}, name => 'Snippet of missing keywords'};
+      $line_info->{pids} = [$snippet->{like_pattern}] if $snippet->{like_pattern};
+    }
 
     for my $line ($snippet->{sline} .. $snippet->{eline}) {
       my $current = $info->{$line} // {risk => 0};

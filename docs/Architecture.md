@@ -338,6 +338,26 @@ Fold-in ships switched off. Before it is enabled, the thresholds are calibrated 
 `eval_fold` command reports precision and recall at each threshold — and it is then rolled out gradually, allowing
 progressively higher-risk licenses to fold as confidence in the numbers grows.
 
+### Clearing License Boilerplate
+
+In practice almost none of the unresolved backlog is a genuinely new license — new licenses appear only a few times a
+year, while thousands of new snippets arrive every month. The overwhelming majority are awkwardly-formatted sentences
+from the *middle* of well-known license texts, in license files, documentation and translations. Cavil already
+identifies the licenses themselves from their title text, so this leftover body text is essentially noise: whether it is
+matched or ignored makes no difference to the report.
+
+Folding does not help here, because middle-of-license boilerplate is shared word-for-word between sibling licenses (the
+GPL and LGPL disclaimers, for instance), so no single license wins by a margin — and guessing one would just be wrong.
+The right move is not to label such a snippet but to recognise it as known license boilerplate and clear it from the
+backlog without recording any license. The real license is already on the report from its title, so nothing is lost, and
+because no license is asserted there is no risk of inventing one that is not actually present.
+
+The recognition reuses the same similarity score: a snippet that is highly similar to some known license, and that the
+classifier considers legal text, is treated as resolved noise rather than an unresolved match. Genuinely novel licenses
+score low and so are never cleared — they continue to surface for human review. Like folding, clearing is derived at
+report time, asserts nothing, and is reversible by turning it off; it is governed by its own threshold and ships
+disabled.
+
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 
 Two mechanisms keep known false positives out of reports, at different granularities:

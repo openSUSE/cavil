@@ -56,3 +56,38 @@ t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
     await ui.teardown();
   }
 });
+
+// Boilerplate clearing resolves recognized license body text WITHOUT asserting a license: the
+// snippets drop out of the unresolved list and nothing new appears in the license list. The
+// "snippet_clear" fixture makes every snippet a zero-margin match of a synthetic "Clear-Test"
+// license, so it can only clear (never fold) and its name must never show up.
+t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
+  process.env.JS_UI_FIXTURES = 'snippet_clear';
+  const ui = await launchUi('js_ui_snippet_clear');
+  const {page, url, errorLogs} = ui;
+
+  try {
+    await page.goto(url);
+    await page.click('text=Login');
+
+    await t.test('cleared snippets leave no unresolved matches and assert no license', async t => {
+      await page.goto(`${url}/reviews/details/1`);
+      await page.waitForSelector('#license-chart');
+
+      t.equal(await page.locator('#unmatched-files').count(), 0, 'no unresolved-matches section remains');
+      t.equal(await page.locator('text=Clear-Test').count(), 0, 'clearing did not assert a license');
+    });
+
+    await t.test('file browser shows the cleared region as resolved, not unresolved', async t => {
+      await page.goto(`${url}/reviews/file_view/1/README`);
+      const src = page.locator('.file-browser-source');
+      await src.locator('table.snippet').waitFor();
+      t.equal(await src.locator('tr.risk-9').count(), 0, 'no unresolved (risk 9) lines after clearing');
+    });
+
+    assertNoUnexpectedConsoleErrors(t, errorLogs);
+  } finally {
+    delete process.env.JS_UI_FIXTURES;
+    await ui.teardown();
+  }
+});

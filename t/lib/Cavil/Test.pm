@@ -59,7 +59,7 @@ sub default_config ($self) {
     max_worker_rss                           => 100000,
     max_expanded_files                       => 100,
     always_generate_spdx_reports             => 0,
-    snippet_fold                             => {enabled => 0, threshold => 0.95, min_margin => 0.15, max_risk => 5}
+    snippet_fold => {enabled => 0, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0}
   };
 }
 
@@ -229,6 +229,28 @@ sub snippet_fold_fixtures ($self, $app) {
   );
 
   # Regenerate the cached report so the fold is reflected in what the UI loads
+  $app->minion->enqueue(analyze => [1]);
+  $app->minion->perform_jobs;
+}
+
+# Synthetic fixture for the boilerplate-clear UI test: index a package, then make every snippet a
+# high-containment but zero-margin match of a synthetic license so it can only *clear* (never fold).
+# The synthetic license cannot appear from any real match, so its absence proves clearing asserts
+# nothing. Requires the app to be built with snippet_fold clear_threshold enabled.
+sub snippet_clear_fixtures ($self, $app) {
+  $self->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+
+  my $db = $app->pg->db;
+  my $pattern
+    = $app->patterns->create(pattern => 'a unique clearable license marker for the ui', license => 'Clear-Test');
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0.99,
+       score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $pattern->{id}
+  );
+
+  # Regenerate the cached report so the clearing is reflected in what the UI loads
   $app->minion->enqueue(analyze => [1]);
   $app->minion->perform_jobs;
 }

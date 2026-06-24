@@ -58,4 +58,34 @@ subtest 'a folded snippet contributes its license to the SPDX report' => sub {
   like $report, qr/PackageLicenseInfoFromFiles:\s*Fold-Test-SPDX/, 'folded license is in the package license list';
 };
 
+subtest 'a cleared boilerplate snippet asserts no license in the SPDX report' => sub {
+  my $ct  = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'spdx_clear_test');
+  my $cfg = {
+    %{$ct->default_config},
+    snippet_fold => {enabled => 1, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0.95}
+  };
+  my $tt = Test::Mojo->new(Cavil => $cfg);
+  my $a  = $tt->app;
+  my $d  = $a->pg->db;
+  $ct->spdx_fixtures($a);
+  $a->minion->enqueue(unpack => [1]);
+  $a->minion->perform_jobs;
+  $tt->get_ok('/login')->status_is(302);
+
+  my $p = $a->patterns->create(pattern => 'a unique clearable license marker phrase', license => 'Clear-Test');
+  $d->query('UPDATE license_patterns SET spdx = ?, risk = 2 WHERE id = ?', 'Clear-Test-SPDX', $p->{id});
+
+  # Zero margin so it cannot fold; high containment so it clears -> no license asserted.
+  $d->query(
+    'UPDATE snippets SET classified = TRUE, license = TRUE, like_pattern = ?, likelyness = 0.99, second_match = 0.99,
+       score_version = ? WHERE id = (SELECT min(id) FROM snippets)', $p->{id}, SNIPPET_SCORE_VERSION
+  );
+
+  $tt->get_ok('/spdx/1')->status_is(408);
+  $a->minion->perform_jobs;
+  my $report = $tt->get_ok('/spdx/1')->status_is(200)->tx->res->text;
+  like $report,   qr/SPDXVersion/,     'is a real SPDX report';
+  unlike $report, qr/Clear-Test-SPDX/, 'cleared boilerplate asserts no license';
+};
+
 done_testing;

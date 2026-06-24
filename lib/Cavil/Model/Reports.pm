@@ -9,7 +9,7 @@ use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk incompatible_licenses should_fold_snippet);
+use Cavil::ReportUtil qw(estimated_risk incompatible_licenses should_clear_boilerplate should_fold_snippet);
 use Cavil::Util       qw(lines_context);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
@@ -339,17 +339,28 @@ sub _dig_report {
   my %snippets_shown;
 
   for my $snip_row (@snip_rows) {
-    if ( !defined $report->{files}{$snip_row->{file}}
-      || $snippets_shown{$snip_row->{id}}
-      || (!$snip_row->{license} && $snip_row->{classified}))
-    {
+
+    # Files hidden by an ignored-files glob, or snippets the classifier rejects as non-legal text,
+    # are always ignored.
+    if (!defined $report->{files}{$snip_row->{file}} || (!$snip_row->{license} && $snip_row->{classified})) {
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
 
-    # High-confidence snippets fold in as if they had matched a license pattern (derived only)
+    # Fold and clear are decided *per file occurrence*, exactly like real pattern matches: they run
+    # before the dedup below and never set snippets_shown, so the same snippet appearing in several
+    # files folds/clears in every one of them (matching the file browser and the SPDX report).
     elsif ($self->_should_fold($db, $snip_row)) {
-      $snippets_shown{$snip_row->{id}} = 1;
       _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
+    }
+    elsif ($self->_should_clear($db, $snip_row)) {
+      $report->{cleared}{$snip_row->{file}} = 1;
+      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
+    }
+
+    # Only the unresolved backlog display is deduplicated by snippet id, so the same text is shown
+    # to a human just once across files.
+    elsif ($snippets_shown{$snip_row->{id}}) {
+      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
     else {
       $snippets_shown{$snip_row->{id}} = 1;
@@ -618,6 +629,14 @@ sub _should_fold {
   my ($self, $db, $snip_row) = @_;
   return 0 unless my $pid = $snip_row->{like_pattern};
   return should_fold_snippet($self->snippet_fold, $snip_row, $self->_load_pattern_from_cache($db, $pid));
+}
+
+# Recognized license boilerplate to clear from the backlog (no license asserted); shares the gate in
+# Cavil::ReportUtil with the file browser and SPDX report.
+sub _should_clear {
+  my ($self, $db, $snip_row) = @_;
+  return 0 unless my $pid = $snip_row->{like_pattern};
+  return should_clear_boilerplate($self->snippet_fold, $snip_row, $self->_load_pattern_from_cache($db, $pid));
 }
 
 sub _sanitize_report {

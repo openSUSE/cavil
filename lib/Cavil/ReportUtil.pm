@@ -25,7 +25,7 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 our @EXPORT_OK = (
   qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
-  qw(should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
+  qw(should_clear_boilerplate should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -76,6 +76,22 @@ sub should_fold_snippet ($cfg, $snippet, $pattern) {
   return 0 if defined $cfg->{max_risk} && $pattern->{risk} > $cfg->{max_risk};
 
   return 1;
+}
+
+# Decide whether an unresolved snippet is recognizable known-license *body text* ("boilerplate")
+# that can be cleared from the backlog WITHOUT asserting a license. Unlike folding, there is no
+# margin or risk gate and no license is recorded: most backlog snippets are middle-of-license
+# boilerplate shared across sibling licenses (high similarity, no margin) whose real license is
+# already on the report from its title match, so clearing them is safe and we deliberately do not
+# guess which sibling it is. Novel licenses score low and stay below clear_threshold.
+sub should_clear_boilerplate ($cfg, $snippet, $pattern) {
+  return 0 unless $cfg && $cfg->{enabled};
+  return 0 unless my $threshold = $cfg->{clear_threshold};                                # 0/undef disables clearing
+  return 0 unless $snippet->{license};                                                    # classifier says legal text
+  return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # scored by current model
+  return 0 unless $pattern && defined $pattern->{license} && $pattern->{license} ne '';
+
+  return ($snippet->{likelyness} // 0) >= $threshold ? 1 : 0;
 }
 
 sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {

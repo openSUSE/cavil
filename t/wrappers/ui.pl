@@ -22,18 +22,21 @@ use Mojo::IOLoop;
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => $ENV{JS_UI_SCHEMA} // 'js_ui_test');
 my $daemon     = Mojo::Server::Daemon->new(listen => ['http://*?fd=3'], silent => 1);
 
-# Optional fixture selection (default: the full UI fixtures). The snippet-fold set also needs the
-# feature switched on in the app config.
+# Optional fixture selection (default: the full UI fixtures). The snippet-fold/clear sets also need
+# the feature switched on in the app config.
 my $fixtures = $ENV{JS_UI_FIXTURES} // 'default';
 my $config   = $cavil_test->default_config;
 $config->{snippet_fold} = {enabled => 1, threshold => 0.9, min_margin => 0.1, max_risk => 9}
   if $fixtures eq 'snippet_fold';
+$config->{snippet_fold} = {enabled => 1, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0.95}
+  if $fixtures eq 'snippet_clear';
 
 my $app = Test::Mojo->new(Cavil => $config)->app;
 $daemon->app($app);
 $app->log->level('warn');
-if   ($fixtures eq 'snippet_fold') { $cavil_test->snippet_fold_fixtures($app) }
-else                               { $cavil_test->ui_fixtures($app) }
+if    ($fixtures eq 'snippet_fold')  { $cavil_test->snippet_fold_fixtures($app) }
+elsif ($fixtures eq 'snippet_clear') { $cavil_test->snippet_clear_fixtures($app) }
+else                                 { $cavil_test->ui_fixtures($app) }
 my %report_state_original;
 
 sub _save_report_state ($c, $id) {

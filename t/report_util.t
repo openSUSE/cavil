@@ -18,7 +18,7 @@ use Mojo::Base -strict;
 use Test::More;
 use Cavil::ReportUtil (
   qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
-  qw(should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
+  qw(should_clear_boilerplate should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
@@ -1238,6 +1238,37 @@ subtest 'should_fold_snippet' => sub {
     ok !should_fold_snippet($cfg, \%snippet, {license => 'GPL-3.0-or-later', risk => 6}),
       'never folds a license above max_risk';
     ok should_fold_snippet($cfg, \%snippet, {license => 'GPL-2.0-or-later', risk => 5}), 'folds at exactly max_risk';
+  };
+};
+
+subtest 'should_clear_boilerplate' => sub {
+  my $cfg = {enabled => 1, clear_threshold => 0.97};
+
+  # Recognized license boilerplate: high containment, ANY margin, any risk - we assert nothing
+  my %snippet = (license => 1, likelyness => 0.98, second_match => 0.97, score_version => SNIPPET_SCORE_VERSION);
+  my $pattern = {license => 'GPL-2.0-or-later', risk => 6};
+
+  ok should_clear_boilerplate($cfg, \%snippet, $pattern),
+    'high-containment legal text clears regardless of margin/risk';
+
+  subtest 'configuration gating' => sub {
+    ok !should_clear_boilerplate({enabled => 1, clear_threshold => 0},    \%snippet, $pattern), 'threshold 0 disables';
+    ok !should_clear_boilerplate({enabled => 0, clear_threshold => 0.97}, \%snippet, $pattern), 'disabled feature';
+    ok !should_clear_boilerplate(undef, \%snippet, $pattern), 'no config';
+  };
+
+  subtest 'snippet/pattern gating' => sub {
+    ok !should_clear_boilerplate($cfg, {%snippet, license       => 0},    $pattern), 'needs the legal-text flag';
+    ok !should_clear_boilerplate($cfg, {%snippet, score_version => 0},    $pattern), 'needs the current score version';
+    ok !should_clear_boilerplate($cfg, {%snippet, likelyness    => 0.96}, $pattern),
+      'below clear_threshold does not clear';
+    ok !should_clear_boilerplate($cfg, \%snippet, undef),                      'needs a recognized pattern';
+    ok !should_clear_boilerplate($cfg, \%snippet, {license => '', risk => 2}), 'ignores empty-license patterns';
+  };
+
+  subtest 'unlike folding, margin and risk are irrelevant' => sub {
+    ok should_clear_boilerplate($cfg, {%snippet, second_match => 0.98}, $pattern), 'zero margin still clears';
+    ok should_clear_boilerplate($cfg, \%snippet, {license => 'GPL-3.0-or-later', risk => 9}), 'high risk still clears';
   };
 };
 

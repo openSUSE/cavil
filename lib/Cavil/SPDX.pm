@@ -18,7 +18,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(should_fold_snippet);
+use Cavil::ReportUtil qw(should_clear_boilerplate should_fold_snippet);
 use Cavil::Util       qw(read_lines);
 use Digest::SHA1;
 use Mojo::File qw(path tempfile);
@@ -173,9 +173,16 @@ sub generate_to_file ($self, $id, $file) {
             [$snippet->{like_pattern}, $snippet->{likelyness}]);
         }
 
-        # Confident enough to fold in as a resolved license (same gate as the report/file browser)
-        push @folded, $snippet
-          if should_fold_snippet($fold, $snippet, {license => $snippet->{plicense}, risk => $snippet->{prisk}});
+        # Confident enough to fold in as a resolved license (same gate as the report/file browser),
+        # or recognized license boilerplate to clear: cleared snippets assert no license but suppress
+        # the keyword matches they overlap, just like the "not legal text" case above.
+        my $pattern = {license => $snippet->{plicense}, risk => $snippet->{prisk}};
+        if (should_fold_snippet($fold, $snippet, $pattern)) {
+          push @folded, $snippet;
+        }
+        elsif (should_clear_boilerplate($fold, $snippet, $pattern)) {
+          _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
+        }
       }
 
       my $match_sql = qq{
