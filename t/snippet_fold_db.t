@@ -89,6 +89,20 @@ subtest 'fold-in gate (via the report)' => sub {
   my $highlighted_as_gpl = grep { ($_->[1]{name} // '') eq 'GPL' } @{$report->{lines}{$expanded_file} // []};
   ok $highlighted_as_gpl, 'the folded region is highlighted as GPL in the source view';
 
+  # The folded line carries the originating snippet handle + "folded" marker so the source view can
+  # flag it as derived and offer an inline correction (create pattern / ignore).
+  my ($folded_line) = grep { $_->[1]{folded} } @{$report->{lines}{$expanded_file} // []};
+  ok $folded_line,                    'folded line is tagged as a derived (folded) resolution';
+  ok $folded_line->[1]{snippet},      'folded line carries the originating snippet id for correction';
+  ok defined $folded_line->[1]{hash}, 'folded line carries the snippet hash';
+
+  # The file browser marks and exposes the same handle (the primary correction surface)
+  $t->get_ok('/login')->status_is(302);
+  my $fb = $t->get_ok('/reviews/file_view_meta/1/README')->status_is(200)->tx->res->json->{source};
+  my ($fb_folded) = grep { $_->[1]{folded} } @{$fb->{lines}};
+  ok $fb_folded,                                                'file browser marks the folded region';
+  ok $fb_folded->[1]{snippet} && defined $fb_folded->[1]{hash}, 'file browser folded line carries the snippet handle';
+
   ok !$folds->($app, license      => 0),            'does not fold unless classified as legal text';
   ok !$folds->($app, likelyness   => 0.5),          'does not fold below the similarity threshold';
   ok !$folds->($app, second_match => 0.95),         'does not fold on a thin margin to the runner-up';
@@ -145,6 +159,13 @@ subtest 'boilerplate-clear (via the report)' => sub {
   is scalar(grep { ($_->[1]{risk} // 0) == 9 } @{$source->{lines}}), 0,
     'file browser shows no unresolved (risk 9) lines once boilerplate is cleared';
 
+  # Cleared regions stay findable + editable in the file browser (reviewers review negatives there):
+  # tagged "cleared" and carrying the snippet handle for correction.
+  my ($cleared_line) = grep { $_->[1]{cleared} } @{$source->{lines}};
+  ok $cleared_line, 'file browser marks the cleared region';
+  ok $cleared_line->[1]{snippet} && defined $cleared_line->[1]{hash},
+    'cleared line carries the snippet handle for review';
+
   # With clearing disabled the same boilerplate stays unresolved
   my $off = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, clear_threshold => 0}});
   ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'stays unresolved when clearing is off';
@@ -184,6 +205,39 @@ subtest 'fold applies to every file occurrence of a duplicated snippet' => sub {
   );
 
   is scalar(keys %{$app->reports->dig_report(1)->{folded}}), 2, 'the duplicated snippet folds in both files';
+};
+
+# The correction loop: folding is derived, so a reviewer's ignore/pattern decision removes the fold
+# with no dedicated un-fold logic. This proves the end-to-end behaviour the inline correction relies on.
+subtest 'correcting a fold removes it (derived un-fold)' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_unfold_test');
+  my $config     = {
+    %{$cavil_test->default_config},
+    snippet_fold => {enabled => 1, threshold => 0.9, min_margin => 0.1, max_risk => 9, clear_threshold => 0}
+  };
+  my $t   = Test::Mojo->new(Cavil => $config);
+  my $app = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash;
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0,
+       score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $gpl->{id}
+  );
+  ok $app->reports->dig_report(1)->{folded}, 'snippet folds before correction';
+
+  # The reviewer opens the folded region and ignores it (the editor's "create ignore" action). Because
+  # the fold is derived from the snippet, ignoring the snippet makes the report stop folding it right
+  # away - no reindex needed.
+  my $pkg   = $db->select('bot_packages', 'name', {id => 1})->hash->{name};
+  my $snips = $db->query(
+    'SELECT DISTINCT s.hash FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id WHERE fs.package = 1')->hashes;
+  $app->packages->ignore_line({hash => $_->{hash}, package => $pkg, owner => undef, contributor => undef}) for @$snips;
+
+  ok !$app->reports->dig_report(1)->{folded}, 'the fold is gone once the snippets are ignored';
 };
 
 done_testing;

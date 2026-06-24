@@ -240,15 +240,25 @@ sub _file_browser_line_info ($self, $package, $file_id) {
     my $pattern = {license => $snippet->{plicense}, risk => $snippet->{prisk}};
     my $line_info;
     if (should_fold_snippet($fold, $snippet, $pattern)) {
+
+      # Keep the snippet handle (id + hash) so reviewers can correct a wrong fold inline; "folded"
+      # tags it as a derived resolution (dashed in the UI), not a curated pattern match.
       $line_info = {
-        risk => $snippet->{prisk},
-        name => $snippet->{plicense},
-        spdx => $snippet->{pspdx},
-        pid  => $snippet->{like_pattern}
+        risk    => $snippet->{prisk},
+        name    => $snippet->{plicense},
+        spdx    => $snippet->{pspdx},
+        pid     => $snippet->{like_pattern},
+        snippet => $snippet->{id},
+        hash    => $snippet->{hash},
+        folded  => 1
       };
     }
     elsif (should_clear_boilerplate($fold, $snippet, $pattern)) {
-      $line_info = {risk => 0};
+
+      # Cleared boilerplate asserts no license, but must stay findable/editable here (the file
+      # browser is where reviewers review negatives) - keep the snippet handle and a "cleared" tag.
+      $line_info
+        = {risk => 0, name => 'Cleared boilerplate', snippet => $snippet->{id}, hash => $snippet->{hash}, cleared => 1};
     }
     else {
       $line_info

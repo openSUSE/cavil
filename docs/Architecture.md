@@ -358,6 +358,15 @@ score low and so are never cleared — they continue to surface for human review
 report time, asserts nothing, and is reversible by turning it off; it is governed by its own threshold and ships
 disabled.
 
+Because both folding and clearing are automatic, reviewers can be shown what was decided for them and given a way to
+overrule it. Folded and cleared regions are marked as derived (a dashed accent that sets them apart from curated pattern
+matches) and carry a direct link to the snippet editor, so a reviewer who spots a mistake can write a proper pattern,
+ignore the text, or mark it as non-legal in one step. The file browser is the main place for this, since it is where
+reviewers go digging through a package and where cleared text — which never appears in the report — can be reviewed. No
+special undo is needed: the resolution is derived, so the correction makes it simply stop happening. This safety net is
+what lets the thresholds be generous; correcting the occasional wrong call is far cheaper than hand-writing a pattern for
+every license up front.
+
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 
 Two mechanisms keep known false positives out of reports, at different granularities:

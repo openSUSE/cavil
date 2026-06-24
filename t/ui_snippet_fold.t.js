@@ -39,6 +39,16 @@ t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
       await details.locator('tr.risk-5').first().waitFor();
       t.ok(await details.locator('tr.risk-5').count(), 'folded region is highlighted as the license');
       t.equal(await details.locator('tr.risk-9').count(), 0, 'folded region is not shown as an unresolved snippet');
+
+      // A folded region is dashed (derived) and the action menu offers an inline correction
+      t.ok(await details.locator('tr.folded').count(), 'folded region is marked as derived (folded class)');
+      const hasCorrect = await page.evaluate(id => {
+        const root = document.getElementById(`file-details-${id}`);
+        return [...root.querySelectorAll('.dropdown-menu a.dropdown-item')].some(
+          el => el.textContent.trim() === 'Correct this fold'
+        );
+      }, fileId);
+      t.ok(hasCorrect, 'report offers "Correct this fold" on the folded region');
     });
 
     await t.test('folded snippet is also highlighted in the file browser', async t => {
@@ -48,6 +58,12 @@ t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
       await src.locator('tr.risk-5').first().waitFor();
       t.ok(await src.locator('tr.risk-5').count(), 'folded region shown as the license in the file browser');
       t.equal(await src.locator('tr.risk-9').count(), 0, 'not shown as an unresolved snippet in the file browser');
+
+      // Dashed + a correction button linking to the full-page snippet editor (primary fix surface)
+      t.ok(await src.locator('tr.folded').count(), 'file browser marks the folded region as derived');
+      const correct = src.locator('a.correct-btn').first();
+      await correct.waitFor({state: 'attached'});
+      t.match(await correct.getAttribute('href'), /\/snippet\/edit\/\d+/, 'folded region links to the snippet editor');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);
@@ -83,6 +99,13 @@ t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
       const src = page.locator('.file-browser-source');
       await src.locator('table.snippet').waitFor();
       t.equal(await src.locator('tr.risk-9').count(), 0, 'no unresolved (risk 9) lines after clearing');
+
+      // Cleared regions stay reviewable here: dashed marker + a correction link to the editor
+      await src.locator('tr.cleared').first().waitFor();
+      t.ok(await src.locator('tr.cleared').count(), 'file browser marks the cleared region for review');
+      const correct = src.locator('a.correct-btn').first();
+      await correct.waitFor({state: 'attached'});
+      t.match(await correct.getAttribute('href'), /\/snippet\/edit\/\d+/, 'cleared region links to the snippet editor');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);

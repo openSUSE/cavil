@@ -62,7 +62,10 @@
             :file-id="meta.source.id || 0"
             :filename="meta.source.filename"
             :packname="meta.source.name"
+            :has-admin-role="hasAdminRole"
+            :has-contributor-role="hasContributorRole"
             read-only
+            link-editor
           />
         </div>
       </div>
@@ -79,6 +82,8 @@ export default {
   data() {
     return {
       error: null,
+      hasAdminRole: this.hasAdminRole ?? false,
+      hasContributorRole: this.hasContributorRole ?? false,
       initialPath: this.fileBrowserInitialPath ?? '',
       loading: false,
       meta: null,

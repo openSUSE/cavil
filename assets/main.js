@@ -189,10 +189,12 @@ window.cavil = {
     app.mount('#review-search');
   },
 
-  setupFileBrowser(pkgId, initialPath) {
+  setupFileBrowser(pkgId, initialPath, hasAdminRole, hasContributorRole) {
     const app = createApp(FileBrowser);
     app.config.globalProperties.pkgId = pkgId;
     app.config.globalProperties.fileBrowserInitialPath = initialPath;
+    app.config.globalProperties.hasAdminRole = hasAdminRole;
+    app.config.globalProperties.hasContributorRole = hasContributorRole;
     app.mount('#file-browser');
   },
 

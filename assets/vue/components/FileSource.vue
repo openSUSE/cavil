@@ -34,23 +34,29 @@
               <i class="actions-menu fa-solid fa-ellipsis-vertical"></i>
             </a>
             <div class="dropdown-menu" :aria-labelledby="'dropdownMenuLink-' + fileId + '-' + line[0]">
-              <template v-if="line[1].risk === 9">
-                <a
-                  v-if="line[1].snippet"
-                  class="dropdown-item"
-                  :href="editSnippetUrl(line[1].snippet, line[1].hash)"
-                  @click="onCreateClick($event, line, line[1].snippet)"
-                  >Create Pattern from selection</a
-                >
-                <a
-                  v-else
-                  class="dropdown-item"
-                  :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
-                  @click="onCreateClick($event, line, null)"
-                  >Create Pattern from selection</a
-                >
-              </template>
-              <a v-else class="dropdown-item" :href="editPatternUrl(line[1].pid)" target="_blank" rel="noopener"
+              <!-- Any snippet-backed line (unresolved, folded, or cleared) edits the snippet to
+                   create or correct a pattern; a folded/cleared line is how a reviewer fixes a wrong
+                   derived resolution. -->
+              <a
+                v-if="line[1].snippet != null"
+                class="dropdown-item"
+                :href="editSnippetUrl(line[1].snippet, line[1].hash)"
+                @click="onCreateClick($event, line, line[1].snippet)"
+                >{{ snippetActionLabel(line[1]) }}</a
+              >
+              <a
+                v-else-if="line[1].risk === 9"
+                class="dropdown-item"
+                :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
+                @click="onCreateClick($event, line, null)"
+                >Create Pattern from selection</a
+              >
+              <a
+                v-if="line[1].pid != null"
+                class="dropdown-item"
+                :href="editPatternUrl(line[1].pid)"
+                target="_blank"
+                rel="noopener"
                 >Show Pattern</a
               >
 
@@ -122,6 +128,16 @@
             >
               <i class="fa-solid fa-caret-down"></i>
             </a>
+            <a
+              v-if="canCorrect(line)"
+              :id="`correct-${fileId}-${line[0]}`"
+              :href="editSnippetUrl(line[1].snippet, line[1].hash)"
+              class="snippet-tool-btn correct-btn"
+              :title="snippetActionLabel(line[1])"
+              :aria-label="snippetActionLabel(line[1])"
+            >
+              <i class="fa-solid fa-pen-to-square"></i>
+            </a>
           </td>
 
           <td v-if="!readOnly && line[1].end && line[1].risk === 9" class="quick-actions">
@@ -178,7 +194,11 @@ export default {
     hasContributorRole: {type: Boolean, default: false},
     pendingActions: {type: Array, default: () => []},
     inlineEditor: {type: Object, default: null},
-    readOnly: {type: Boolean, default: false}
+    readOnly: {type: Boolean, default: false},
+    // Link mode (used by the file browser): instead of the report's inline editor + extend
+    // orchestration, snippet-backed regions (folded / cleared / unresolved) get a single button that
+    // navigates to the full-page snippet editor. Keeps the file browser otherwise read-only.
+    linkEditor: {type: Boolean, default: false}
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
@@ -251,6 +271,10 @@ export default {
       const classes = [];
       if (info.pid != null || info.snippet != null) classes.push(`risk-${info.risk}`);
       if (info.hash) classes.push(`hash-${info.hash}`);
+      // Derived resolutions (similarity-folded license / cleared boilerplate) are dashed so they
+      // never look identical to a curated pattern match.
+      if (info.folded) classes.push('folded');
+      if (info.cleared) classes.push('cleared');
       if (patternIdsFromInfo(info).length > 0) classes.push('has-pattern-tooltip');
       // The first line of an unresolved snippet has both risk 9 and the `end`
       // marker added by Cavil::Util::lines_context. Keyboard navigation walks
@@ -301,6 +325,17 @@ export default {
     },
     showActions(info) {
       return !this.readOnly && this.isAdminOrContributor && info.end;
+    },
+    canCorrect(line) {
+      // File-browser correction button: the start row (info.end) of a snippet-backed region links to
+      // the full-page snippet editor. Group-hover reveals it from anywhere in the region.
+      const info = line[1];
+      return this.linkEditor && this.isAdminOrContributor && info.snippet != null && info.end != null;
+    },
+    snippetActionLabel(info) {
+      if (info.folded) return 'Correct this fold';
+      if (info.cleared) return 'Review cleared text';
+      return 'Create Pattern from selection';
     },
     isHiddenByEditor(line) {
       if (!this.inlineEditor) return false;
@@ -429,6 +464,21 @@ export default {
 }
 .snippet td.code {
   position: relative;
+}
+/* Derived resolutions get a dashed left accent (and cleared text is muted) so reviewers can tell a
+   similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
+.snippet tr.folded td.linenumber,
+.snippet tr.cleared td.linenumber {
+  border-left: 3px dashed #8250df;
+}
+.snippet tr.cleared td.code {
+  color: #6e7781;
+  font-style: italic;
+}
+.snippet td.code .correct-btn {
+  left: auto;
+  right: 6px;
+  top: 12px;
 }
 .snippet .snippet-tool-btn {
   align-items: center;

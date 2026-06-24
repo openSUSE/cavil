@@ -100,11 +100,20 @@ sub source_for {
     my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$fileid});
     my %pid_info;    # cache
     my %needed;
+    my %folded_meta;
     for my $line (@$lines) {
       my ($nr, $pid, $text) = @$line;
       $needed{$nr} = 0;
-      $needed{$nr} = $pid->{pid}                     if $pid->{pid};
-      $needed{$nr} = PATTERN_DELTA + $pid->{snippet} if $pid->{snippet};
+      $needed{$nr} = $pid->{pid} if $pid->{pid};
+
+      # A folded line carries both a pattern id and a snippet handle: keep it rendering as the folded
+      # pattern (not as an unresolved snippet) and preserve its handle through folded_meta.
+      if ($pid->{folded}) {
+        $folded_meta{$nr} = {snippet => $pid->{snippet}, hash => $pid->{hash}};
+      }
+      elsif ($pid->{snippet}) {
+        $needed{$nr} = PATTERN_DELTA + $pid->{snippet};
+      }
     }
     my $nr = $start;
     while ($nr <= $end) {
@@ -117,7 +126,7 @@ sub source_for {
       $needed{$end + $c}   //= 0;
     }
 
-    $lines = $self->_lines($db, \%pid_info, $fn, \%needed);
+    $lines = $self->_lines($db, \%pid_info, $fn, \%needed, \%folded_meta);
   }
 
   return {lines => $lines, name => $pkg->{name}, filename => $file->{filename}};
@@ -348,11 +357,14 @@ sub _dig_report {
 
     # Fold and clear are decided *per file occurrence*, exactly like real pattern matches: they run
     # before the dedup below and never set snippets_shown, so the same snippet appearing in several
-    # files folds/clears in every one of them (matching the file browser and the SPDX report).
-    elsif ($self->_should_fold($db, $snip_row)) {
+    # files folds/clears in every one of them (matching the file browser and the SPDX report). A
+    # snippet the reviewer has ignored (e.g. correcting a wrong fold) is never folded/cleared - it
+    # falls through to the unresolved path below, where _check_ignores removes it, so the correction
+    # takes effect immediately without waiting for a reindex.
+    elsif (!$ignored_lines->{$snip_row->{hash}} && $self->_should_fold($db, $snip_row)) {
       _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
     }
-    elsif ($self->_should_clear($db, $snip_row)) {
+    elsif (!$ignored_lines->{$snip_row->{hash}} && $self->_should_clear($db, $snip_row)) {
       $report->{cleared}{$snip_row->{file}} = 1;
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
@@ -476,6 +488,8 @@ sub _dig_report {
 
       # Highlight the folded region exactly like a real match so the file's source view shows why
       # the license is listed: expand the file and mark its lines with the (inferred) pattern id.
+      # The needed_lines map only holds one integer per line, so the originating snippet id/hash
+      # (the handle reviewers need to correct a wrong fold) is carried in a parallel folded_meta map.
       $report->{expanded}{$file} = 1;
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;
@@ -484,6 +498,7 @@ sub _dig_report {
           next if $opid > PATTERN_DELTA;    # keep an unresolved-snippet highlight
           next if $pattern->{risk} < $self->_info_for_pattern($pid_info, $opid)->{risk};
           $report->{needed_lines}{$file}{$i} = $pid;
+          $report->{folded_meta}{$file}{$i}  = {snippet => $sid, hash => $hash};
         }
         else {
           $report->{needed_lines}{$file}{$i} ||= 0;
@@ -503,7 +518,8 @@ sub _dig_report {
   for my $file (keys %{$report->{files}}) {
     next unless $report->{expanded}{$file} || $limit_to_file;
     my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$file});
-    $report->{lines}{$file} = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file});
+    $report->{lines}{$file}
+      = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file}, $report->{folded_meta}{$file});
     $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore, \%snippets_to_remove);
   }
 
@@ -519,6 +535,7 @@ sub _dig_report {
 
   # we read the lines and that's enough
   delete $report->{needed_lines};
+  delete $report->{folded_meta};
 
   if ($limit_to_file) {
     return $report;
@@ -579,7 +596,7 @@ sub _info_for_pattern {
 }
 
 sub _lines {
-  my ($self, $db, $pid_info, $fn, $needed_lines) = @_;
+  my ($self, $db, $pid_info, $fn, $needed_lines, $folded_meta) = @_;
 
   my @lines;
 
@@ -609,6 +626,12 @@ sub _lines {
     else {
       # need to store a deep copy to modify it later adding context
       my %pinfo = %{$self->_info_for_pattern($db, $pid_info, $pid)};
+
+      # A folded line looks like a pattern match but is derived from a snippet; carry the snippet
+      # handle (id + hash) and the "folded" tag so the source view can mark it and offer a correction.
+      if (my $meta = $folded_meta->{$index}) {
+        @pinfo{qw(folded snippet hash)} = (1, $meta->{snippet}, $meta->{hash});
+      }
       push(@lines, [$index, \%pinfo, $line]);
     }
   }

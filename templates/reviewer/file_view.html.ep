@@ -4,5 +4,7 @@
 <div id="file-browser" data-initial-path="<%= Mojo::JSON::encode_json($filename) %>"></div>
 
 % content_for 'ready_function' => begin
-  cavil.setupFileBrowser(<%= $id %>, JSON.parse(document.getElementById('file-browser').dataset.initialPath));
+  % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
+  % my $has_contributor_role = current_user_has_role('contributor') ? 'true' : 'false';
+  cavil.setupFileBrowser(<%= $id %>, JSON.parse(document.getElementById('file-browser').dataset.initialPath), <%= $has_admin_role %>, <%= $has_contributor_role %>);
 % end
