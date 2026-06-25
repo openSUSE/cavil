@@ -180,6 +180,26 @@ subtest 'boilerplate-clear (via the report)' => sub {
   ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'stays unresolved when clearing is off';
 };
 
+subtest 'file browser suppresses classifier-rejected snippets' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_file_browser_rejected_test');
+  my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
+  my $app        = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  $db->query('UPDATE snippets SET classified = TRUE, license = FALSE');
+  $app->snippets->resolve_snippets(1);
+
+  is_deeply $app->reports->dig_report(1)->{missed_files}, {}, 'report drops classifier-rejected snippets';
+
+  $t->get_ok('/login')->status_is(302);
+  my $source = $t->get_ok('/reviews/file_view_meta/1/README')->status_is(200)->tx->res->json->{source};
+  is scalar(grep { ($_->[1]{risk} // 0) == 9 } @{$source->{lines}}), 0,
+    'file browser also shows no unresolved (risk 9) lines for classifier-rejected snippets';
+};
+
 # A snippet that appears in several files must fold/clear in EVERY file, like a real pattern match -
 # the per-snippet-id dedup applies only to the unresolved backlog display, not to resolved results.
 subtest 'fold applies to every file occurrence of a duplicated snippet' => sub {

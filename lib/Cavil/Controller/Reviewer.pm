@@ -229,7 +229,7 @@ sub _file_browser_line_info ($self, $package, $file_id) {
   # inferred license, 'clear'/'overlap' as resolved (cleared) noise, anything else as an unresolved
   # snippet. Folded/cleared rows keep the snippet handle so reviewers can correct them inline.
   my $snippets = $db->query(
-    'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.like_pattern,
+    'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.classified, s.license, s.like_pattern,
             lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
        FROM file_snippets fs
        JOIN snippets s ON s.id = fs.snippet
@@ -237,6 +237,8 @@ sub _file_browser_line_info ($self, $package, $file_id) {
       WHERE fs.package = ? AND fs.file = ?', $package->{id}, $file_id
   );
   for my $snippet ($snippets->hashes->each) {
+    next if $snippet->{classified} && !$snippet->{license};
+
     my $resolution = $snippet->{resolution} // '';
     my $line_info;
     if ($resolution eq 'fold') {
