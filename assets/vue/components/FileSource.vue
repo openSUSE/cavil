@@ -135,8 +135,6 @@
               class="snippet-tool-btn correct-btn"
               :title="snippetActionLabel(line[1])"
               :aria-label="snippetActionLabel(line[1])"
-              :target="line[1].folded ? '_blank' : null"
-              :rel="line[1].folded ? 'noopener' : null"
             >
               <i class="fa-solid fa-pen-to-square"></i>
             </a>
@@ -471,10 +469,10 @@ export default {
    similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
-  background-image: linear-gradient(to left, rgba(246, 248, 250, 0) 0, rgba(110, 119, 129, 0.14) 70%, rgba(110, 119, 129, 0.22) 100%);
+  background-color: #f6f8fa;
   box-shadow:
     inset 4px 0 0 #6e7781,
-    inset -1px 0 0 rgba(110, 119, 129, 0.18);
+    inset -1px 0 0 #d0d7de;
   color: #57606a;
 }
 .snippet tr.cleared td.code {
