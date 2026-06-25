@@ -467,14 +467,21 @@ export default {
 .snippet td.code {
   position: relative;
 }
-/* Derived resolutions (similarity-folded license / cleared boilerplate) are marked only by a soft
-   right border on the gutter - no fill, no muted body text, normal-weight gutter numbers. The
-   hairline alone reads as "not quite a curated match" while keeping the source fully legible (low eye
-   strain). */
+/* The line-number gutter stays a normal/white strip with a thin grey right border, so it reads as a
+   "cutout" of a folded region's tinted code - the cue that a region is a derived resolution rather than
+   a curated match. Numbers keep their default (normal-text) weight; no fill, no muted body text. */
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
+  background-color: #fff;
   box-shadow: inset -1px 0 0 #d0d7de;
   color: rgba(27, 31, 35, 0.3);
+}
+
+/* Cleared boilerplate asserts no license, so it drops the risk palette entirely (no green tint, no left
+   accent bar) - unlike a fold, which keeps its inferred license's risk color behind the cutout gutter. */
+.source .snippet tr.cleared {
+  background-color: transparent;
+  box-shadow: none;
 }
 .snippet td.code .correct-btn {
   left: auto;
