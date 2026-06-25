@@ -467,21 +467,18 @@ export default {
 .snippet td.code {
   position: relative;
 }
-/* The line-number gutter stays a normal/white strip with a thin grey right border, so it reads as a
-   "cutout" of a folded region's tinted code - the cue that a region is a derived resolution rather than
-   a curated match. Numbers keep their default (normal-text) weight; no fill, no muted body text. */
+/* Derived resolutions keep their risk-tinted body (the tint represents the fold/clear) but the gutter
+   stays un-tinted - a neutral grey strip with a soft right border - so the gutter reads as "cut out" of
+   the tinted row and signals a derived resolution rather than a curated match. */
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
-  background-color: #fff;
+  background-color: #f6f8fa;
   box-shadow: inset -1px 0 0 #d0d7de;
-  color: rgba(27, 31, 35, 0.3);
+  color: #57606a;
 }
-
-/* Cleared boilerplate asserts no license, so it drops the risk palette entirely (no green tint, no left
-   accent bar) - unlike a fold, which keeps its inferred license's risk color behind the cutout gutter. */
-.source .snippet tr.cleared {
-  background-color: transparent;
-  box-shadow: none;
+.snippet tr.cleared td.code {
+  color: #6e7781;
+  font-style: italic;
 }
 .snippet td.code .correct-btn {
   left: auto;
