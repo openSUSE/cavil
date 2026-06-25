@@ -405,4 +405,70 @@ subtest 'overlapping highlights never lower a line risk' => sub {
   };
 };
 
+# A folded snippet can swallow a line that is itself a real licensed match (e.g. the "Free Software
+# Foundation" first line of a GCC GPL header). That line must render as its own curated match - at its
+# real risk, not as the fold - in both the report source view and the file browser.
+subtest 'a real match inside a folded region keeps its own highlight' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'fold_over_match_test');
+  my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
+  my $app        = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # Clean slate on README so only our scenario drives the rendering.
+  my $f = $db->query("SELECT id FROM matched_files WHERE package = 1 AND filename = 'README'")->hash->{id};
+  $db->query('DELETE FROM file_snippets WHERE file = ?',   $f);
+  $db->query('DELETE FROM pattern_matches WHERE file = ?', $f);
+
+  my $fsf
+    = $app->patterns->create(pattern => 'a unique free software foundation marker', license => 'FSF-Test', risk => 0);
+  my $gpl = $app->patterns->create(pattern => 'a unique folded gpl header marker', license => 'GPL-Test', risk => 6);
+
+  # A real risk-0 match on line 1, and a fold spanning lines 1-3 that swallows it.
+  $db->insert('pattern_matches',
+    {package => 1, file => $f, pattern => $fsf->{id}, sline => 1, eline => 1, ignored => 0});
+  my $sid = $db->insert(
+    'snippets',
+    {
+      hash          => 'fold-over-match',
+      text          => 'folded header body',
+      package       => 1,
+      classified    => 1,
+      license       => 1,
+      approved      => 0,
+      confidence    => 100,
+      likelyness    => 0.99,
+      second_match  => 0,
+      score_version => SNIPPET_SCORE_VERSION,
+      like_pattern  => $gpl->{id}
+    },
+    {returning => 'id'}
+  )->hash->{id};
+  $db->insert('file_snippets',
+    {package => 1, file => $f, snippet => $sid, sline => 1, eline => 3, resolution => 'fold'});
+
+  my $line_of = sub ($lines, $n) {
+    (grep { $_->[0] == $n } @$lines)[0][1];
+  };
+
+  subtest 'report source view' => sub {
+    my $lines = $app->reports->dig_report(1, $f)->{lines}{$f};
+    is $line_of->($lines,  1)->{name}, 'FSF-Test', 'the matched first line keeps its curated license';
+    is $line_of->($lines,  1)->{risk}, 0,          'at its real risk';
+    ok !$line_of->($lines, 1)->{folded}, 'and is not shown as folded';
+    ok $line_of->($lines,  2)->{folded}, 'a non-matched line of the snippet still folds';
+  };
+
+  subtest 'file browser' => sub {
+    $t->get_ok('/login')->status_is(302);
+    my $src = $t->get_ok('/reviews/file_view_meta/1/README')->status_is(200)->tx->res->json->{source};
+    is $line_of->($src->{lines},  1)->{name}, 'FSF-Test', 'the matched first line keeps its curated license';
+    is $line_of->($src->{lines},  1)->{risk}, 0,          'at its real risk';
+    ok !$line_of->($src->{lines}, 1)->{folded}, 'and is not shown as folded';
+    ok $line_of->($src->{lines},  2)->{folded}, 'a non-matched line of the snippet still folds';
+  };
+};
+
 done_testing;

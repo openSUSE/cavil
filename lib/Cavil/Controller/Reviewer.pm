@@ -210,6 +210,7 @@ sub _file_browser_line_info ($self, $package, $file_id) {
   my $db   = $self->app->pg->db;
   my $info = {};
 
+  my %matched;    # lines covered by a real, curated licensed pattern match
   my $matches = $db->query(
     'SELECT pm.sline, pm.eline, lp.id, lp.license, lp.spdx, lp.risk
        FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
@@ -217,6 +218,7 @@ sub _file_browser_line_info ($self, $package, $file_id) {
   );
   for my $match ($matches->hashes->each) {
     for my $line ($match->{sline} .. $match->{eline}) {
+      $matched{$line} = 1;
       my $current = $info->{$line} // {risk => 0};
       next if $current->{risk} > $match->{risk};
       $info->{$line} = {risk => $match->{risk}, name => $match->{license}, spdx => $match->{spdx}, pid => $match->{id}};
@@ -258,7 +260,13 @@ sub _file_browser_line_info ($self, $package, $file_id) {
       $line_info->{pids} = [$snippet->{like_pattern}] if $snippet->{like_pattern};
     }
 
+    # A resolved snippet (fold/clear/overlap) describes the region, but a real licensed match is
+    # authoritative for its own line - it must not repaint a line that has its own curated match (e.g. a
+    # "Free Software Foundation" match on the first line of a folded GPL header). Unresolved snippets
+    # still take over their region (matching the report's needed_lines precedence).
+    my $defers_to_match = $resolution =~ /^(?:fold|clear|overlap)$/;
     for my $line ($snippet->{sline} .. $snippet->{eline}) {
+      next if $defers_to_match && $matched{$line};
       my $current = $info->{$line} // {risk => 0};
       next if $current->{risk} > $line_info->{risk};    # do not hide a higher-risk match
       $info->{$line} = $line_info;

@@ -635,9 +635,12 @@ sub _register_folds {
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;
         if ($i >= $sline && $i <= $eline) {
+
+          # A fold fills only lines without their own highlight: a real licensed pattern match
+          # (1..PATTERN_DELTA) or an unresolved-snippet marker (> PATTERN_DELTA) already on the line is
+          # authoritative, so a fold never repaints a line a curated match already explains.
           my $opid = $report->{needed_lines}{$file}{$i} // 0;
-          next if $opid > PATTERN_DELTA;    # keep an unresolved-snippet highlight
-          next if $pattern->{risk} < $self->_info_for_pattern($db, $pid_info, $opid)->{risk};
+          next if $opid;
           $report->{needed_lines}{$file}{$i} = $pid;
           $report->{folded_meta}{$file}{$i}  = {snippet => $sid, hash => $hash};
         }

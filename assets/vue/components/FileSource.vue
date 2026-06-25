@@ -132,6 +132,8 @@
               v-if="canCorrect(line)"
               :id="`correct-${fileId}-${line[0]}`"
               :href="editSnippetUrl(line[1].snippet, line[1].hash)"
+              target="_blank"
+              rel="noopener"
               class="snippet-tool-btn correct-btn"
               :title="snippetActionLabel(line[1])"
               :aria-label="snippetActionLabel(line[1])"
