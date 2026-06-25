@@ -17,8 +17,9 @@ use Mojo::Base -strict;
 
 use Test::More;
 use Cavil::ReportUtil (
-  qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
-  qw(should_clear_boilerplate should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk incompatible_licenses minimal_snippet overlapping_licenses report_checksum report_shortname),
+  qw(should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
+  qw(summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
@@ -1270,6 +1271,36 @@ subtest 'should_clear_boilerplate' => sub {
     ok should_clear_boilerplate($cfg, {%snippet, second_match => 0.98}, $pattern), 'zero margin still clears';
     ok should_clear_boilerplate($cfg, \%snippet, {license => 'GPL-3.0-or-later', risk => 9}), 'high risk still clears';
   };
+};
+
+subtest 'overlapping_licenses' => sub {
+  my $spans = [[2, 2, 'GPL-2.0-or-later'], [40, 60, 'MIT'], [70, 70, '']];    # last is a keyword (no license)
+  is_deeply overlapping_licenses(2,  8,   $spans), ['GPL-2.0-or-later'], 'overlap at the start of the snippet';
+  is_deeply overlapping_licenses(50, 55,  $spans), ['MIT'],              'overlap in the middle of the snippet';
+  is_deeply overlapping_licenses(1,  100, [@$spans]), ['GPL-2.0-or-later', 'MIT'],
+    'multiple licensed overlaps, deduped+sorted';
+  is_deeply overlapping_licenses(65, 100, $spans), [], 'only an empty-license keyword match overlaps -> none';
+  is_deeply overlapping_licenses(9,  39,  $spans), [], 'no overlap';
+};
+
+subtest 'should_overlap_clear' => sub {
+  my $cfg   = {enabled => 1, overlap_clear => 1, overlap_guard => 0.9};
+  my $legal = {license => 1, likelyness    => 0, plicense      => undef};
+
+  ok should_overlap_clear($cfg, $legal, ['GPL-2.0-or-later']),
+    'legal snippet over a licensed match clears (noise residual)';
+  ok !should_overlap_clear($cfg, $legal,                        []),      'no licensed overlap -> no clear';
+  ok !should_overlap_clear($cfg, {%$legal, license => 0},       ['MIT']), 'non-legal snippet -> no clear';
+  ok !should_overlap_clear({%$cfg, overlap_clear => 0}, $legal, ['MIT']), 'disabled toggle -> no clear';
+  ok !should_overlap_clear({%$cfg, enabled => 0},       $legal, ['MIT']), 'feature disabled -> no clear';
+
+  # Guard: a snippet that itself strongly resembles a license outside the overlap set is kept
+  ok !should_overlap_clear($cfg, {license => 1, likelyness => 0.97, plicense => 'Apache-2.0'}, ['GPL-2.0-or-later']),
+    'resembles a different license at >= guard -> kept for review';
+  ok should_overlap_clear($cfg, {license => 1, likelyness => 0.97, plicense => 'GPL-2.0-or-later'},
+    ['GPL-2.0-or-later']), 'resembles a license it already overlaps -> still clears';
+  ok should_overlap_clear($cfg, {license => 1, likelyness => 0.5, plicense => 'Apache-2.0'}, ['GPL-2.0-or-later']),
+    'only weakly resembles a different license (< guard) -> clears';
 };
 
 done_testing;

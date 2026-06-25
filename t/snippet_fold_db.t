@@ -240,4 +240,60 @@ subtest 'correcting a fold removes it (derived un-fold)' => sub {
   ok !$app->reports->dig_report(1)->{folded}, 'the fold is gone once the snippets are ignored';
 };
 
+# Overlap-clear: a snippet whose region already contains a real licensed match is redundant noise -
+# the match reports the license, so the snippet is cleared even though similarity can't touch it.
+subtest 'overlap-clear (snippet region already contains a real license match)' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_overlap_test');
+  my $config     = {
+    %{$cavil_test->default_config},
+    snippet_fold => {
+      enabled         => 1,
+      threshold       => 0.95,
+      min_margin      => 0.15,
+      max_risk        => 5,
+      clear_threshold => 0,
+      overlap_clear   => 1,
+      overlap_guard   => 0.9
+    }
+  };
+  my $t   = Test::Mojo->new(Cavil => $config);
+  my $app = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # Every snippet is classifier-legal but unscored, so similarity fold/clear can never touch it
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0, second_match = 0,
+       like_pattern = NULL, score_version = 0'
+  );
+
+  # A real GPL match on the first line of each snippet (the SPDX-line-swallowed-by-expansion case)
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+  for my $fs ($db->query('SELECT file, sline FROM file_snippets WHERE package = 1')->hashes->each) {
+    $db->insert('pattern_matches',
+      {package => 1, file => $fs->{file}, pattern => $gpl, sline => $fs->{sline}, eline => $fs->{sline}, ignored => 0});
+  }
+
+  my $report = $app->reports->dig_report(1);
+  is_deeply $report->{missed_files}, {}, 'snippets overlapping a real license match are cleared';
+  ok $report->{cleared},         'the file is tagged as cleared';
+  ok $report->{licenses}{'GPL'}, 'the overlapping match still reports its license';
+  ok !$report->{folded},         'overlap-clear asserts no new license (not a fold)';
+
+  # Guard: a snippet that itself strongly resembles a DIFFERENT license is kept for review
+  my $other = $app->patterns->create(pattern => 'a distinct overlap guard marker text', license => 'Other-Test');
+  my $one   = $db->query('SELECT id FROM snippets LIMIT 1')->hash->{id};
+  $db->query(
+    'UPDATE snippets SET like_pattern = ?, likelyness = 0.92, second_match = 0.92, score_version = ? WHERE id = ?',
+    $other->{id}, SNIPPET_SCORE_VERSION, $one);
+  ok keys %{$app->reports->dig_report(1)->{missed_files}},
+    'a snippet resembling a different license is kept despite the overlap';
+
+  # Disabled -> nothing overlap-clears
+  my $off = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, overlap_clear => 0}});
+  ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'nothing overlap-clears when the toggle is off';
+};
+
 done_testing;

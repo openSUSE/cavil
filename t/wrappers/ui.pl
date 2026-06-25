@@ -32,14 +32,18 @@ $config->{snippet_fold} = {enabled => 1, threshold => 0.95, min_margin => 0.15, 
   if $fixtures eq 'snippet_clear';
 $config->{snippet_fold} = {enabled => 1, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0.95}
   if $fixtures eq 'snippet_triage';
+$config->{snippet_fold}
+  = {enabled => 1, threshold => 0.95, min_margin => 0.15, max_risk => 5, overlap_clear => 1, overlap_guard => 0.9}
+  if $fixtures eq 'snippet_overlap';
 
 my $app = Test::Mojo->new(Cavil => $config)->app;
 $daemon->app($app);
 $app->log->level('warn');
-if    ($fixtures eq 'snippet_fold')   { $cavil_test->snippet_fold_fixtures($app) }
-elsif ($fixtures eq 'snippet_clear')  { $cavil_test->snippet_clear_fixtures($app) }
-elsif ($fixtures eq 'snippet_triage') { $cavil_test->snippet_triage_fixtures($app) }
-else                                  { $cavil_test->ui_fixtures($app) }
+if    ($fixtures eq 'snippet_fold')    { $cavil_test->snippet_fold_fixtures($app) }
+elsif ($fixtures eq 'snippet_clear')   { $cavil_test->snippet_clear_fixtures($app) }
+elsif ($fixtures eq 'snippet_triage')  { $cavil_test->snippet_triage_fixtures($app) }
+elsif ($fixtures eq 'snippet_overlap') { $cavil_test->snippet_overlap_fixtures($app) }
+else                                   { $cavil_test->ui_fixtures($app) }
 my %report_state_original;
 
 sub _save_report_state ($c, $id) {

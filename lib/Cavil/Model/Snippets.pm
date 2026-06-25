@@ -111,15 +111,46 @@ sub _fold_sql ($cfg) {
 # the feature is toggled off. The drift guard in t/snippets.t asserts it agrees with the Perl gates
 # run with enabled forced on. $kind is 'fold' or 'clear'; 'clear' excludes 'fold' so the two
 # partition the resolved set exactly like the report (fold wins).
+# Correlated EXISTS: does the snippet's region overlap a non-ignored license match whose license
+# satisfies $license_cond (over the "olp" alias)? Written once and reused for both the "overlaps any
+# licensed match" check and the guard's "overlaps the snippet's own license" check.
+sub _overlap_exists ($license_cond) {
+  return "EXISTS (SELECT 1 FROM file_snippets ofs
+      JOIN pattern_matches opm ON opm.file = ofs.file AND opm.sline <= ofs.eline AND opm.eline >= ofs.sline
+        AND opm.ignored = false
+      JOIN license_patterns olp ON olp.id = opm.pattern AND $license_cond
+      WHERE ofs.snippet = s.id)";
+}
+
 sub snippet_resolution_sql ($cfg, $kind) {
   my ($fold_sql, $fold_binds) = _fold_sql($cfg);
   return ("($fold_sql)", [@$fold_binds]) if $kind eq 'fold';
 
   if ($kind eq 'clear') {
-    return ('false', []) unless $cfg->{clear_threshold};    # clearing not configured -> matches nothing
-    my $sql = "s.classified AND s.license AND s.score_version = ? AND s.likelyness >= ? "
-      . "AND lp.license <> '' AND NOT ($fold_sql)";
-    return ("($sql)", [SNIPPET_SCORE_VERSION, $cfg->{clear_threshold}, @$fold_binds]);
+
+    # "Cleared" = dropped from the backlog without asserting a license, by either mechanism, and never
+    # something that would fold. The SQL below mirrors should_clear_boilerplate + should_overlap_clear
+    # exactly; the drift guard in t/snippets.t fails if the SQL and the Perl gates ever diverge.
+    my (@parts, @binds);
+
+    # Similarity boilerplate-clear
+    if ($cfg->{clear_threshold}) {
+      push @parts, "(s.score_version = ? AND s.likelyness >= ? AND lp.license <> '')";
+      push @binds, SNIPPET_SCORE_VERSION, $cfg->{clear_threshold};
+    }
+
+    # Overlap-clear: region overlaps a real licensed match, unless the snippet's own closest license
+    # resembles a *different* license than any it overlaps (guard -> kept for review).
+    if ($cfg->{overlap_clear}) {
+      my $guard = '(s.like_pattern IS NOT NULL AND lp.license <> \'\' AND s.likelyness >= ? AND NOT '
+        . _overlap_exists('olp.license = lp.license') . ')';
+      push @parts, '(' . _overlap_exists("olp.license <> ''") . " AND NOT $guard)";
+      push @binds, $cfg->{overlap_guard} // 0.9;
+    }
+
+    return ('false', []) unless @parts;    # neither clearing mechanism configured -> matches nothing
+    my $any = join ' OR ', @parts;
+    return ("(s.classified AND s.license AND ($any) AND NOT ($fold_sql))", [@binds, @$fold_binds]);
   }
 
   return (undef, []);

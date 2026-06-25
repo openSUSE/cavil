@@ -358,6 +358,22 @@ score low and so are never cleared — they continue to surface for human review
 report time, asserts nothing, and is reversible by turning it off; it is governed by its own threshold and ships
 disabled.
 
+### Clearing Snippets a Real Match Already Covers
+
+There is a second, even more reliable way to recognise backlog noise. When the keyword scan expands a snippet, it often
+swallows a line that is *already* a genuine license declaration — typically an SPDX identifier — followed by ordinary
+code or documentation comments that merely happened to use one of our keywords in a non-legal sense. The real license on
+that line is already on the report through its own pattern match, so the snippet carries no information the report does
+not already have: it is recognised as redundant and cleared, without consulting similarity at all. This is precisely the
+situation reviewers most often write ignore patterns for by hand, so recognising it automatically removes the single
+most common piece of manual busywork.
+
+Because clearing here rests on an exact match rather than a guess, it is safe regardless of where in the snippet the
+match falls or how many there are. The one guard is for the rare case where the snippet's own text looks like a
+*different* license than the one it overlaps — that might be a genuinely missed license sitting next to a known one, so
+it is kept for review instead of cleared. As with the other paths, this is derived at report time, asserts nothing, and
+ships disabled behind its own switch.
+
 Because both folding and clearing are automatic, reviewers can be shown what was decided for them and given a way to
 overrule it. Folded and cleared regions are marked as derived (a dashed accent that sets them apart from curated pattern
 matches) and carry a direct link to the snippet editor, so a reviewer who spots a mistake can write a proper pattern,

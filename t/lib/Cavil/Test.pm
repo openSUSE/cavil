@@ -59,7 +59,15 @@ sub default_config ($self) {
     max_worker_rss                           => 100000,
     max_expanded_files                       => 100,
     always_generate_spdx_reports             => 0,
-    snippet_fold => {enabled => 0, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0}
+    snippet_fold                             => {
+      enabled         => 0,
+      threshold       => 0.95,
+      min_margin      => 0.15,
+      max_risk        => 5,
+      clear_threshold => 0,
+      overlap_clear   => 0,
+      overlap_guard   => 0.9
+    }
   };
 }
 
@@ -251,6 +259,28 @@ sub snippet_clear_fixtures ($self, $app) {
   );
 
   # Regenerate the cached report so the clearing is reflected in what the UI loads
+  $app->minion->enqueue(analyze => [1]);
+  $app->minion->perform_jobs;
+}
+
+# Synthetic fixture for the overlap-clear UI test: index a package, make every snippet classifier-legal
+# but unscored (so similarity can never resolve it), and add a real GPL match on each snippet's first
+# line so the snippet's region overlaps a curated license match. Requires snippet_fold overlap_clear on.
+sub snippet_overlap_fixtures ($self, $app) {
+  $self->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+
+  my $db = $app->pg->db;
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0, like_pattern = NULL, score_version = 0');
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+  for my $fs ($db->query('SELECT file, sline FROM file_snippets WHERE package = 1')->hashes->each) {
+    $db->insert('pattern_matches',
+      {package => 1, file => $fs->{file}, pattern => $gpl, sline => $fs->{sline}, eline => $fs->{sline}, ignored => 0});
+  }
+
+  # Regenerate the cached report so the report view reflects the overlap-clear
   $app->minion->enqueue(analyze => [1]);
   $app->minion->perform_jobs;
 }

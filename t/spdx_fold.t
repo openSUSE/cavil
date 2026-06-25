@@ -88,4 +88,43 @@ subtest 'a cleared boilerplate snippet asserts no license in the SPDX report' =>
   unlike $report, qr/Clear-Test-SPDX/, 'cleared boilerplate asserts no license';
 };
 
+subtest 'an overlap-cleared snippet asserts nothing; the overlapping match still reports its license' => sub {
+  my $ct  = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'spdx_overlap_test');
+  my $cfg = {
+    %{$ct->default_config},
+    snippet_fold => {
+      enabled         => 1,
+      threshold       => 0.95,
+      min_margin      => 0.15,
+      max_risk        => 5,
+      clear_threshold => 0,
+      overlap_clear   => 1,
+      overlap_guard   => 0.9
+    }
+  };
+  my $tt = Test::Mojo->new(Cavil => $cfg);
+  my $a  = $tt->app;
+  my $d  = $a->pg->db;
+  $ct->spdx_fixtures($a);
+  $a->minion->enqueue(unpack => [1]);
+  $a->minion->perform_jobs;
+  $tt->get_ok('/login')->status_is(302);
+
+  # A real licensed match overlapping the snippet regions (the SPDX-line-swallowed case). Its SPDX id
+  # cannot appear from anywhere else, so its presence proves the match - not the snippet - reports it.
+  my $p = $a->patterns->create(pattern => 'a unique overlap match marker phrase', license => 'Overlap-Test');
+  $d->query('UPDATE license_patterns SET spdx = ?, risk = 2 WHERE id = ?', 'Overlap-Test-SPDX', $p->{id});
+  $d->query(
+    'UPDATE snippets SET classified = TRUE, license = TRUE, likelyness = 0, like_pattern = NULL, score_version = 0');
+  $d->insert('pattern_matches',
+    {package => 1, file => $_->{file}, pattern => $p->{id}, sline => $_->{sline}, eline => $_->{sline}, ignored => 0})
+    for $d->query('SELECT file, sline FROM file_snippets WHERE package = 1')->hashes->each;
+
+  $tt->get_ok('/spdx/1')->status_is(408);
+  $a->minion->perform_jobs;
+  my $report = $tt->get_ok('/spdx/1')->status_is(200)->tx->res->text;
+  like $report, qr/SPDXVersion/,                            'is a real SPDX report';
+  like $report, qr/LicenseInfoInFile:\s*Overlap-Test-SPDX/, 'the overlapping match still reports its license';
+};
+
 done_testing;

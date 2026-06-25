@@ -18,7 +18,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(should_clear_boilerplate should_fold_snippet);
+use Cavil::ReportUtil qw(overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
 use Cavil::Util       qw(read_lines);
 use Digest::SHA1;
 use Mojo::File qw(path tempfile);
@@ -153,6 +153,19 @@ sub generate_to_file ($self, $id, $file) {
     if (my $file_id = $matched_files->{$file}) {
       my (@copyright, @folded, %duplicates, %matched_lines, %ignored_lines, %similarity);
 
+      # Line spans of non-ignored licensed matches in this file, so a snippet whose region already
+      # contains a real license match can be cleared as redundant (overlap-clear).
+      my @spans;
+      for my $m (
+        $db->query(
+          'SELECT m.sline, m.eline, p.license FROM pattern_matches m JOIN license_patterns p ON p.id = m.pattern
+         WHERE m.file = ? AND m.ignored = false AND p.license <> ?', $file_id, ''
+        )->hashes->each
+        )
+      {
+        push @spans, [$m->{sline}, $m->{eline}, $m->{license}];
+      }
+
       my $snippet_sql = qq{
         SELECT f.sline, f.eline, s.license, s.like_pattern, s.likelyness, s.second_match, s.score_version,
                p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
@@ -180,7 +193,9 @@ sub generate_to_file ($self, $id, $file) {
         if (should_fold_snippet($fold, $snippet, $pattern)) {
           push @folded, $snippet;
         }
-        elsif (should_clear_boilerplate($fold, $snippet, $pattern)) {
+        elsif (should_clear_boilerplate($fold, $snippet, $pattern)
+          || should_overlap_clear($fold, $snippet, overlapping_licenses($snippet->{sline}, $snippet->{eline}, \@spans)))
+        {
           _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
         }
       }

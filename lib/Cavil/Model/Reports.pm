@@ -8,9 +8,10 @@ use Mojo::File 'path';
 use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
-use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk incompatible_licenses should_clear_boilerplate should_fold_snippet);
-use Cavil::Util       qw(lines_context);
+use Cavil::Licenses qw(lic);
+use Cavil::ReportUtil
+  qw(estimated_risk incompatible_licenses overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
+use Cavil::Util qw(lines_context);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
@@ -342,6 +343,19 @@ sub _dig_report {
       || $a->{sline} <=> $b->{sline}
   } $snippets->hashes->each;
 
+  # Per-file line spans of non-ignored *licensed* matches, so a snippet whose region overlaps one can
+  # be recognized as already-resolved (overlap-clear).
+  my %match_spans;
+  my $licensed = $db->query(
+    "SELECT pm.file, pm.sline, pm.eline, lp.license
+       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.package = ? AND pm.ignored = false AND lp.license <> ''"
+      . ($limit_to_file ? ' AND pm.file = ?' : ''), $pkg->{id}, ($limit_to_file ? ($limit_to_file) : ())
+  );
+  for my $m ($licensed->hashes->each) {
+    push @{$match_spans{$m->{file}}}, [$m->{sline}, $m->{eline}, $m->{license}];
+  }
+
   my %file_snippets_to_ignore;
   my %file_snippets_to_show;
   my %file_snippets_to_fold;
@@ -365,6 +379,16 @@ sub _dig_report {
       _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
     }
     elsif (!$ignored_lines->{$snip_row->{hash}} && $self->_should_clear($db, $snip_row)) {
+      $report->{cleared}{$snip_row->{file}} = 1;
+      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
+    }
+
+    # Overlap-clear: the snippet's region already contains a real license match (e.g. an SPDX line the
+    # keyword expansion swallowed); that license is on the report via the match, so the snippet is
+    # redundant noise and is cleared.
+    elsif (!$ignored_lines->{$snip_row->{hash}}
+      && $self->_should_overlap_clear($db, $snip_row, $match_spans{$snip_row->{file}}))
+    {
       $report->{cleared}{$snip_row->{file}} = 1;
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
@@ -660,6 +684,18 @@ sub _should_clear {
   my ($self, $db, $snip_row) = @_;
   return 0 unless my $pid = $snip_row->{like_pattern};
   return should_clear_boilerplate($self->snippet_fold, $snip_row, $self->_load_pattern_from_cache($db, $pid));
+}
+
+# Clear a snippet whose region overlaps a real licensed match (already-resolved noise); shares the
+# gate in Cavil::ReportUtil with the file browser and SPDX report. The guard needs the snippet's
+# closest-license name, which we resolve from the pattern cache.
+sub _should_overlap_clear {
+  my ($self, $db, $snip_row, $spans) = @_;
+  my $overlap = overlapping_licenses($snip_row->{sline}, $snip_row->{eline}, $spans);
+  return 0 unless @$overlap;
+  my $plicense;
+  if (my $pid = $snip_row->{like_pattern}) { $plicense = $self->_load_pattern_from_cache($db, $pid)->{license} }
+  return should_overlap_clear($self->snippet_fold, {%$snip_row, plicense => $plicense}, $overlap);
 }
 
 sub _sanitize_report {

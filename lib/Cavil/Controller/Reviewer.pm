@@ -18,7 +18,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File        qw(path);
 use Cavil::Util       qw(lines_context);
-use Cavil::ReportUtil qw(should_clear_boilerplate should_fold_snippet);
+use Cavil::ReportUtil qw(overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -216,7 +216,9 @@ sub _file_browser_line_info ($self, $package, $file_id) {
        FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
       WHERE pm.package = ? AND pm.file = ? AND pm.ignored = false AND lp.license <> ?', $package->{id}, $file_id, ''
   );
+  my @spans;
   for my $match ($matches->hashes->each) {
+    push @spans, [$match->{sline}, $match->{eline}, $match->{license}];
     for my $line ($match->{sline} .. $match->{eline}) {
       my $current = $info->{$line} // {risk => 0};
       next if $current->{risk} > $match->{risk};
@@ -253,10 +255,13 @@ sub _file_browser_line_info ($self, $package, $file_id) {
         folded  => 1
       };
     }
-    elsif (should_clear_boilerplate($fold, $snippet, $pattern)) {
+    elsif (should_clear_boilerplate($fold, $snippet, $pattern)
+      || should_overlap_clear($fold, $snippet, overlapping_licenses($snippet->{sline}, $snippet->{eline}, \@spans)))
+    {
 
-      # Cleared boilerplate asserts no license, but must stay findable/editable here (the file
-      # browser is where reviewers review negatives) - keep the snippet handle and a "cleared" tag.
+      # Cleared boilerplate (by similarity or by overlapping a real license match) asserts no license,
+      # but must stay findable/editable here (the file browser is where reviewers review negatives) -
+      # keep the snippet handle and a "cleared" tag.
       $line_info
         = {risk => 0, name => 'Cleared boilerplate', snippet => $snippet->{id}, hash => $snippet->{hash}, cleared => 1};
     }

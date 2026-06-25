@@ -114,3 +114,47 @@ t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
     await ui.teardown();
   }
 });
+
+// Overlap-clear: a snippet whose region already contains a real license match (an SPDX line the
+// keyword expansion swallowed) is redundant noise. The "snippet_overlap" fixture makes every snippet
+// classifier-legal but unscored, with a real GPL match on its first line, so only overlap-clear can
+// resolve it. The file browser must show the region resolved (cleared), not as an unresolved snippet.
+t.test('Cavil UI - overlap-clear (snippet over a real license match)', skipUnlessOnline, async t => {
+  process.env.JS_UI_FIXTURES = 'snippet_overlap';
+  const ui = await launchUi('js_ui_snippet_overlap');
+  const {page, url, errorLogs} = ui;
+
+  try {
+    await page.goto(url);
+    await page.click('text=Login');
+
+    await t.test('file browser shows the overlapping snippet as cleared, not unresolved', async t => {
+      await page.goto(`${url}/reviews/file_view/1/README`);
+      const src = page.locator('.file-browser-source');
+      await src.locator('table.snippet').waitFor();
+      t.equal(await src.locator('tr.risk-9').count(), 0, 'no unresolved (risk 9) lines after overlap-clear');
+
+      await src.locator('tr.cleared').first().waitFor();
+      t.ok(await src.locator('tr.cleared').count(), 'the overlap-cleared region is marked cleared');
+      const correct = src.locator('a.correct-btn').first();
+      await correct.waitFor({state: 'attached'});
+      t.match(await correct.getAttribute('href'), /\/snippet\/edit\/\d+/, 'cleared region links to the snippet editor');
+    });
+
+    await t.test('Snippets page Cleared filter surfaces overlap-cleared snippets', async t => {
+      await page.goto(`${url}/snippets`);
+      await page.waitForSelector('.cavil-snippet-resolution');
+      await Promise.all([
+        page.waitForResponse(r => r.url().includes('/snippets/meta')),
+        page.selectOption('.cavil-snippet-resolution', 'clear')
+      ]);
+      await page.locator('.snippet-container').first().waitFor();
+      t.ok((await page.locator('.snippet-container').count()) > 0, 'overlap-cleared snippets appear under the Cleared filter');
+    });
+
+    assertNoUnexpectedConsoleErrors(t, errorLogs);
+  } finally {
+    delete process.env.JS_UI_FIXTURES;
+    await ui.teardown();
+  }
+});

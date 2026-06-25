@@ -24,8 +24,9 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 our @EXPORT_OK = (
-  qw(estimated_risk incompatible_licenses minimal_snippet report_checksum report_shortname),
-  qw(should_clear_boilerplate should_fold_snippet smart_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk incompatible_licenses minimal_snippet overlapping_licenses report_checksum report_shortname),
+  qw(should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
+  qw(summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -92,6 +93,42 @@ sub should_clear_boilerplate ($cfg, $snippet, $pattern) {
   return 0 unless $pattern && defined $pattern->{license} && $pattern->{license} ne '';
 
   return ($snippet->{likelyness} // 0) >= $threshold ? 1 : 0;
+}
+
+# Licenses (deduped) of the non-ignored licensed pattern matches whose line range intersects a
+# snippet. $spans is an arrayref of [sline, eline, license] for one file. The FileIndexer expands a
+# snippet around keyword matches and often swallows a real license match (e.g. an SPDX line); this
+# finds those overlaps so the snippet can be recognized as already-resolved noise.
+sub overlapping_licenses ($sline, $eline, $spans) {
+  my %licenses;
+  for my $span (@{$spans || []}) {
+    my ($ss, $se, $license) = @$span;
+    next unless defined $license && $license ne '';
+    next if $se < $sline || $ss > $eline;    # no overlap
+    $licenses{$license} = 1;
+  }
+  return [sort keys %licenses];
+}
+
+# Decide whether a snippet is redundant because its region overlaps a real, curated license match:
+# that license is already on the report via the match, and the rest of the snippet is keyword-tripping
+# code/doc-comment noise, so the snippet is cleared (assert nothing). Independent of the classifier's
+# legal/non-legal score version - the overlap is authoritative. The guard keeps snippets whose own
+# content strongly resembles a license *outside* the overlap set (a possible missed/foldable license),
+# which is the safe direction; stale or absent scores can only push toward keeping. $overlap_licenses
+# comes from overlapping_licenses(); $snippet->{plicense} is the snippet's closest license (if any).
+sub should_overlap_clear ($cfg, $snippet, $overlap_licenses) {
+  return 0 unless $cfg && $cfg->{enabled} && $cfg->{overlap_clear};
+  return 0 unless $snippet->{license};                                # classifier says legal text
+  return 0 unless $overlap_licenses && @$overlap_licenses;            # overlaps a licensed match
+
+  my $like = $snippet->{plicense};
+  if (defined $like && $like ne '' && ($snippet->{likelyness} // 0) >= ($cfg->{overlap_guard} // 0.9)) {
+    my %overlap = map { $_ => 1 } @$overlap_licenses;
+    return 0 unless $overlap{$like};    # resembles a *different* license -> keep for review
+  }
+
+  return 1;
 }
 
 sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
