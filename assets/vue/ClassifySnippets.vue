@@ -12,7 +12,7 @@
     </div>
     <div class="row g-4">
       <div class="col-8">
-        <form>
+        <form @submit.prevent>
           <div class="row g-4">
             <div class="col-lg-2">
               <div class="form-floating">
@@ -42,6 +42,20 @@
                   <option value="hour">1 hour</option>
                 </select>
                 <label class="form-label">Timeframe</label>
+              </div>
+            </div>
+            <div class="col-lg-2">
+              <div class="form-floating">
+                <select
+                  v-model="params.resolution"
+                  @change="refreshPage()"
+                  class="form-control cavil-snippet-resolution"
+                >
+                  <option value="any">Any</option>
+                  <option value="fold">Folded</option>
+                  <option value="clear">Cleared</option>
+                </select>
+                <label class="form-label">Resolution</label>
               </div>
             </div>
             <div class="col-lg-3">
@@ -89,39 +103,27 @@
               </div>
             </div>
           </div>
-          <div class="row g-4 mt-1">
-            <div class="col-lg-2">
-              <div class="form-floating">
-                <select
-                  v-model="params.resolution"
-                  @change="refreshPage()"
-                  class="form-control cavil-snippet-resolution"
-                >
-                  <option value="any">Any</option>
-                  <option value="fold">Folded</option>
-                  <option value="clear">Cleared</option>
-                </select>
-                <label class="form-label">Resolution</label>
-              </div>
-            </div>
-            <div class="col">
-              <div class="form-floating">
-                <input
-                  v-model="params.search"
-                  @input="onSearchInput"
-                  type="text"
-                  class="form-control cavil-snippet-search"
-                  id="snippet-search"
-                  placeholder="Search snippet text"
-                />
-                <label class="form-label" for="snippet-search">Search text</label>
-              </div>
-            </div>
-          </div>
         </form>
       </div>
       <div class="col-3">
         <p v-if="snippets === null" class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading snippets</p>
+      </div>
+    </div>
+    <div class="row g-4 mt-1">
+      <div class="col-11">
+        <form @submit.prevent>
+          <div class="form-floating">
+            <input
+              v-model="params.search"
+              @input="onSearchInput"
+              type="text"
+              class="form-control cavil-snippet-search"
+              id="snippet-search"
+              placeholder="Search snippet text"
+            />
+            <label class="form-label" for="snippet-search">Search text</label>
+          </div>
+        </form>
       </div>
     </div>
     <div v-if="snippets !== null && snippets.length > 0">
