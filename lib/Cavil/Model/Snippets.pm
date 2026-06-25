@@ -174,13 +174,20 @@ sub unclassified ($self, $options) {
   # cannot drift from resolve_snippets. "Cleared" covers both clearing mechanisms. The matching kinds
   # are reused below to pin the linked occurrence to one that actually has that resolution.
   my $resolution = '';
+  my $resolution_join;
   my @binds;
   my @kinds;
   if (($options->{resolution} // 'any') =~ /^(fold|clear)$/) {
     @kinds = $1 eq 'clear' ? ('clear', 'overlap') : ('fold');
     my $placeholders = join ', ', ('?') x @kinds;
-    $resolution
-      = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IN ($placeholders))";
+    if ($1 eq 'fold') {
+      $resolution_join = 1;
+      $resolution      = "AND fs_filter.resolution IN ($placeholders)";
+    }
+    else {
+      $resolution
+        = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IN ($placeholders))";
+    }
     push @binds, @kinds;
   }
 
@@ -193,9 +200,14 @@ sub unclassified ($self, $options) {
 
   # Keyset pagination with no exact total: fetch one extra row to learn whether a next page exists
   # (COUNT(*) OVER() scanned the whole filtered set on every page and does not scale to 1M snippets).
+  my $select = $resolution_join ? 'SELECT DISTINCT ON (s.id) s.*, bp.embargoed' : 'SELECT s.*, bp.embargoed';
+  my $from
+    = $resolution_join
+    ? 'FROM file_snippets fs_filter JOIN snippets s ON (s.id = fs_filter.snippet)'
+    : 'FROM snippets s';
   my $snippets = $db->query(
-    "SELECT s.*, bp.embargoed
-     FROM snippets s
+    "$select
+     $from
        LEFT JOIN bot_packages bp ON (bp.id = s.package)
      WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe $resolution $search
      ORDER BY s.id DESC LIMIT 11", @binds

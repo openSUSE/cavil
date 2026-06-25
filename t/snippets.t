@@ -175,17 +175,21 @@ subtest 'resolution + text-search filters and keyset pagination' => sub {
     $db->insert('file_snippets',
       {package => 1, file => $mf, snippet => $sid, sline => 7, eline => 9, resolution => 'fold'});
     $db->insert('file_snippets',
+      {package => 1, file => $mf, snippet => $sid, sline => 10, eline => 12, resolution => 'fold'});
+    $db->insert('file_snippets',
       {package => 1, file => $other, snippet => $sid, sline => 1, eline => 3, resolution => undef});
 
-    my ($row) = grep { $_->{id} == $sid } @{$app->snippets->unclassified({%base, resolution => 'fold'})->{snippets}};
+    my @rows = grep { $_->{id} == $sid } @{$app->snippets->unclassified({%base, resolution => 'fold'})->{snippets}};
+    is scalar @rows, 1, 'the folded filter returns a shared snippet only once';
+    my ($row) = @rows;
     ok $row, 'the snippet appears under the Folded filter';
     my $folded_name = $db->select('matched_files', 'filename', {id => $mf})->hash->{filename};
     is $row->{filename}, $folded_name, 'links to the folded occurrence, not the most recent (unresolved) one';
-    is $row->{sline},    7,            'with the folded occurrence line';
-    is $row->{files},    1,            'and counts only the matching (folded) occurrence';
+    is $row->{sline},    10,           'with the latest folded occurrence line';
+    is $row->{files},    2,            'and counts only the matching (folded) occurrences';
 
     my ($any) = grep { $_->{id} == $sid } @{$app->snippets->unclassified({%base})->{snippets}};
-    is $any->{files}, 2, 'the unfiltered view counts every occurrence';
+    is $any->{files}, 3, 'the unfiltered view counts every occurrence';
   };
 };
 

@@ -347,3 +347,7 @@ CREATE INDEX snippets_text_fts_idx ON snippets USING gin (to_tsvector('english',
 -- 44 up
 ALTER TABLE file_snippets ADD COLUMN resolution text;
 CREATE INDEX file_snippets_resolution_idx ON file_snippets (resolution) WHERE resolution IS NOT NULL;
+
+-- 45 up
+CREATE INDEX file_snippets_resolution_snippet_idx ON file_snippets (resolution, snippet DESC) WHERE resolution IS NOT NULL;
+CREATE INDEX file_snippets_cleared_snippet_idx ON file_snippets (snippet DESC) WHERE resolution IN ('clear', 'overlap');
