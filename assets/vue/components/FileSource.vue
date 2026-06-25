@@ -99,8 +99,8 @@
 
           <td class="linenumber" :style="lineNumberColumnStyle">{{ line[0] }}</td>
           <td class="code">
-            {{ line[2]
-            }}<PendingActionIndicator
+            {{ line[2] }}<span v-if="derivedBadge(line)" class="derived-badge">{{ derivedBadge(line) }}</span>
+            <PendingActionIndicator
               v-for="action in actionsForLine(line)"
               :key="action.id"
               :action="action"
@@ -327,6 +327,13 @@ export default {
       if (info.cleared) return 'Review cleared text';
       return 'Create Pattern from selection';
     },
+    derivedBadge(line) {
+      const info = line[1];
+      if (!info.end) return null;
+      if (info.folded) return 'folded';
+      if (info.cleared) return 'cleared';
+      return null;
+    },
     isHiddenByEditor(line) {
       if (!this.inlineEditor) return false;
       return line[0] >= this.inlineEditor.startLine && line[0] <= this.inlineEditor.endLine;
@@ -494,27 +501,39 @@ export default {
   position: relative;
   z-index: 1;
 }
-/* Derived resolutions keep their risk-tinted body (the tint represents the fold/clear) but the gutter
-   stays un-tinted - a neutral grey strip with a soft right border - so the gutter reads as "cut out" of
-   the tinted row and signals a derived resolution rather than a curated match. */
+/* Derived resolutions keep the risk/clear tint in the code area, but the gutter stays neutral.
+   A dashed boundary and first-line badge mark the row as machine-derived without making it look like
+   a curated pattern match. */
 .snippet tr.folded,
 .snippet tr.cleared {
   box-shadow: none;
 }
-.snippet tr.folded td.actions,
-.snippet tr.folded td.linenumber,
-.snippet tr.cleared td.actions,
-.snippet tr.cleared td.linenumber {
-  background-color: #f6f8fa;
-  color: #57606a;
-}
-.snippet tr.folded td.linenumber,
-.snippet tr.cleared td.linenumber {
-  box-shadow: inset -1px 0 0 #d0d7de;
+.snippet tr.folded td.code::before,
+.snippet tr.cleared td.code::before {
+  border-left: 1px dashed #8c959f;
+  bottom: 0;
+  content: '';
+  left: 0;
+  position: absolute;
+  top: 0;
 }
 .snippet tr.cleared td.code {
   color: #6e7781;
   font-style: italic;
+}
+.snippet .derived-badge {
+  color: #57606a;
+  float: right;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 18px;
+  margin: 1px 8px 0 12px;
+  padding: 0 1px 1px;
+  position: relative;
+  text-decoration: underline dashed #8c959f 1px;
+  text-underline-offset: 3px;
+  z-index: 1;
 }
 .snippet .snippet-tool-btn {
   align-items: center;
