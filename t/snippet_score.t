@@ -41,12 +41,12 @@ my $gfdl = $db->query("SELECT id, pattern FROM license_patterns WHERE license = 
 my $file = $db->query('SELECT id FROM matched_files WHERE package = 1 LIMIT 1')->hash->{id};
 
 # Add an occurrence with an explicit snippet body, starting unscored (score_version 0).
-my $n = 0;
+my $n           = 0;
 my $add_snippet = sub (%o) {
   $n++;
   my $sid = $db->insert(
     'snippets',
-    {hash => "score-$n", text => $o{text}, package => 1, score_version => 0, like_pattern => $o{like_pattern}},
+    {hash      => "score-$n", text => $o{text}, package => 1, score_version => 0, like_pattern => $o{like_pattern}},
     {returning => 'id'}
   )->hash->{id};
   $db->insert('file_snippets', {package => 1, file => $file, snippet => $sid, sline => $n * 10, eline => $n * 10 + 4});
@@ -63,11 +63,11 @@ subtest 'score_text: ctx path, bag fallback, and no-scorer' => sub {
   my $relaxed = {%$ctx, distinctive_idf => 0, min_distinctive => 1};
   my $scored  = $patterns->score_text($gfdl->{pattern}, $relaxed);
   is $scored->{score_version}, SNIPPET_SCORE_VERSION, 'ctx path stamps the current score version';
-  is $scored->{like_pattern}, $gfdl->{id}, 'and picks the matching license pattern';
+  is $scored->{like_pattern},  $gfdl->{id},           'and picks the matching license pattern';
   ok $scored->{likelyness} > 0.5, 'with a healthy similarity';
 
   # Plain Spooky bag (no signatures): stamps version 0 so fold-in will not trust it.
-  my $bag = Spooky::Patterns::XS::init_bag_of_patterns;
+  my $bag  = Spooky::Patterns::XS::init_bag_of_patterns;
   my %pats = map { $_->{id} => $_->{pattern} } @{$db->select('license_patterns', 'id,pattern')->hashes->to_array};
   $bag->set_patterns(\%pats);
   my $fallback = $patterns->score_text($gfdl->{pattern}, undef, $bag);
@@ -113,8 +113,11 @@ subtest 'score_package_snippets: scoped to the package, no-op without signatures
   ok !$a->patterns->similarity_context, 'no similarity context once the signatures are gone';
 
   my $f   = $d->query('SELECT id FROM matched_files WHERE package = 1 LIMIT 1')->hash->{id};
-  my $sid = $d->insert('snippets', {hash => 'nosig-1', text => 'whatever', package => 1, score_version => 0},
-    {returning => 'id'})->hash->{id};
+  my $sid = $d->insert(
+    'snippets',
+    {hash      => 'nosig-1', text => 'whatever', package => 1, score_version => 0},
+    {returning => 'id'}
+  )->hash->{id};
   $d->insert('file_snippets', {package => 1, file => $f, snippet => $sid, sline => 1, eline => 2});
 
   $a->patterns->score_package_snippets(1);

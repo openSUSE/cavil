@@ -27,7 +27,8 @@ sub new ($class, %options) {
 
   # Database
   my $self = $class->SUPER::new(options => \%options);
-  $self->{pg}       = Mojo::Pg->new($options{online});
+  $self->{pg} = Mojo::Pg->new($options{online});
+  $self->_ensure_extensions;
   $self->{db_guard} = $self->_prepare_schema($options{schema});
 
   # Temporary directories
@@ -563,6 +564,20 @@ sub unpack_fixtures ($self, $app) {
   $patterns->create(pattern => 'You may obtain a copy of the License at', license => 'Apache-2.0');
   $patterns->create(pattern => 'License: Artistic-2.0',                   license => 'Artistic-2.0');
   $patterns->create(pattern => 'copyright');
+}
+
+# PostgreSQL's "CREATE EXTENSION IF NOT EXISTS" is not safe under concurrency: parallel test files
+# can all see the extension missing and then race to insert it, tripping a duplicate-key error on
+# pg_extension_name_index. Create the extensions the migrations need once, in the shared public schema
+# (so they survive per-test schema drops), serialized by a transaction advisory lock. Every later
+# migration then finds them present and its own CREATE EXTENSION is a harmless no-op.
+sub _ensure_extensions ($self) {
+  my $db = $self->{pg}->db;
+  my $tx = $db->begin;
+  $db->query('SELECT pg_advisory_xact_lock(742019)');
+  $db->query('CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA public');
+  $db->query('CREATE EXTENSION IF NOT EXISTS "pg_trgm" WITH SCHEMA public');
+  $tx->commit;
 }
 
 sub _prepare_schema ($self, $name) {
