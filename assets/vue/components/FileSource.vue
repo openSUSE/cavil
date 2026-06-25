@@ -38,7 +38,7 @@
                    create or correct a pattern; a folded/cleared line is how a reviewer fixes a wrong
                    derived resolution. -->
               <a
-                v-if="line[1].snippet != null"
+                v-if="line[1].snippet"
                 class="dropdown-item"
                 :href="editSnippetUrl(line[1].snippet, line[1].hash)"
                 @click="onCreateClick($event, line, line[1].snippet)"
@@ -330,7 +330,7 @@ export default {
       // File-browser correction button: the start row (info.end) of a snippet-backed region links to
       // the full-page snippet editor. Group-hover reveals it from anywhere in the region.
       const info = line[1];
-      return this.linkEditor && this.isAdminOrContributor && info.snippet != null && info.end != null;
+      return this.linkEditor && this.isAdminOrContributor && info.snippet && info.end != null;
     },
     snippetActionLabel(info) {
       if (info.folded) return 'Correct this fold';
