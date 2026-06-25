@@ -2,7 +2,7 @@
   <table class="snippet" :class="{'editor-open': inlineEditor}">
     <colgroup>
       <col v-if="!readOnly" class="snippet-col-actions" />
-      <col class="snippet-col-linenumber" />
+      <col class="snippet-col-linenumber" :style="lineNumberColumnStyle" />
       <col class="snippet-col-code" />
       <col v-if="!readOnly" class="snippet-col-quick-actions" />
     </colgroup>
@@ -10,7 +10,7 @@
       <!-- eslint-disable-next-line vue/no-v-for-template-key -->
       <template v-for="(line, idx) in lines" :key="idx">
         <tr v-if="line[1].withgap">
-          <td class="redbar" :colspan="readOnly ? 2 : 4"></td>
+          <td class="source-gap" :colspan="tableColspan"><span>Skipped lines</span></td>
         </tr>
         <tr
           v-if="!isHiddenByEditor(line)"
@@ -128,18 +128,6 @@
             >
               <i class="fa-solid fa-caret-down"></i>
             </a>
-            <a
-              v-if="canCorrect(line)"
-              :id="`correct-${fileId}-${line[0]}`"
-              :href="editSnippetUrl(line[1].snippet, line[1].hash)"
-              target="_blank"
-              rel="noopener"
-              class="snippet-tool-btn correct-btn"
-              :title="snippetActionLabel(line[1])"
-              :aria-label="snippetActionLabel(line[1])"
-            >
-              <i class="fa-solid fa-pen-to-square"></i>
-            </a>
           </td>
 
           <td v-if="!readOnly && line[1].end && line[1].risk === 9" class="quick-actions">
@@ -196,11 +184,7 @@ export default {
     hasContributorRole: {type: Boolean, default: false},
     pendingActions: {type: Array, default: () => []},
     inlineEditor: {type: Object, default: null},
-    readOnly: {type: Boolean, default: false},
-    // Link mode (used by the file browser): instead of the report's inline editor + extend
-    // orchestration, snippet-backed regions (folded / cleared / unresolved) get a single button that
-    // navigates to the full-page snippet editor. Keeps the file browser otherwise read-only.
-    linkEditor: {type: Boolean, default: false}
+    readOnly: {type: Boolean, default: false}
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
@@ -209,6 +193,13 @@ export default {
   computed: {
     isAdminOrContributor() {
       return this.hasAdminRole || this.hasContributorRole;
+    },
+    tableColspan() {
+      return this.readOnly ? 2 : 4;
+    },
+    lineNumberColumnStyle() {
+      const last = this.lines.length > 0 ? this.lines[this.lines.length - 1][0] : 1;
+      return {width: `${String(last).length + 2}ch`};
     },
     matchExtents() {
       // Map keyed by match-end line number → metadata from the match-start
@@ -326,13 +317,7 @@ export default {
       return `line-${this.fileId}-${line[0]}`;
     },
     showActions(info) {
-      return !this.readOnly && this.isAdminOrContributor && info.end;
-    },
-    canCorrect(line) {
-      // File-browser correction button: the start row (info.end) of a snippet-backed region links to
-      // the full-page snippet editor. Group-hover reveals it from anywhere in the region.
-      const info = line[1];
-      return this.linkEditor && this.isAdminOrContributor && info.snippet && info.end != null;
+      return !this.readOnly && this.isAdminOrContributor && this.fileId > 0 && info.end;
     },
     snippetActionLabel(info) {
       if (info.folded) return 'Correct this fold';
@@ -439,10 +424,7 @@ export default {
 }
 .source .snippet .snippet-col-actions,
 .source .snippet .snippet-col-quick-actions {
-  width: 28px;
-}
-.source .snippet .snippet-col-linenumber {
-  width: 3.5em;
+  width: 24px;
 }
 .snippet .inline-editor-row > td {
   background: #ffffff;
@@ -462,28 +444,62 @@ export default {
   padding-bottom: 0;
   padding-top: 0;
   position: relative;
-  width: 28px;
+  width: 24px;
 }
 .snippet td.code {
   position: relative;
 }
+.snippet td.source-gap {
+  background: #f6f8fa;
+  border: 0 !important;
+  color: #6e7781;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0;
+  line-height: 18px;
+  padding: 4px 0 !important;
+  position: relative;
+  text-align: center;
+  user-select: none;
+}
+.snippet td.source-gap::before {
+  background: #d0d7de;
+  content: '';
+  height: 1px;
+  left: 12px;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+}
+.snippet td.source-gap span {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  padding: 1px 8px;
+  position: relative;
+  z-index: 1;
+}
 /* Derived resolutions keep their risk-tinted body (the tint represents the fold/clear) but the gutter
    stays un-tinted - a neutral grey strip with a soft right border - so the gutter reads as "cut out" of
    the tinted row and signals a derived resolution rather than a curated match. */
+.snippet tr.folded,
+.snippet tr.cleared {
+  box-shadow: none;
+}
+.snippet tr.folded td.actions,
 .snippet tr.folded td.linenumber,
+.snippet tr.cleared td.actions,
 .snippet tr.cleared td.linenumber {
   background-color: #f6f8fa;
-  box-shadow: inset -1px 0 0 #d0d7de;
   color: #57606a;
+}
+.snippet tr.folded td.linenumber,
+.snippet tr.cleared td.linenumber {
+  box-shadow: inset -1px 0 0 #d0d7de;
 }
 .snippet tr.cleared td.code {
   color: #6e7781;
   font-style: italic;
-}
-.snippet td.code .correct-btn {
-  left: auto;
-  right: 6px;
-  top: 12px;
 }
 .snippet .snippet-tool-btn {
   align-items: center;

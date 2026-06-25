@@ -5,6 +5,7 @@
     </div>
     <div v-else-if="error" class="alert alert-danger file-browser-error">{{ error }}</div>
     <div v-else-if="meta">
+      <div v-if="editorError" class="alert alert-danger file-browser-error" role="alert">{{ editorError }}</div>
       <div class="file-browser-header">
         <div class="file-browser-title">
           <a :href="meta.package.detailsUrl" class="file-browser-package">
@@ -64,22 +65,48 @@
             :packname="meta.source.name"
             :has-admin-role="hasAdminRole"
             :has-contributor-role="hasContributorRole"
-            read-only
-            link-editor
+            :pending-actions="pendingActionsForCurrentFile"
+            :inline-editor="openInlineEditor"
+            @extend="onExtend"
+            @open-editor="openEditor"
+            @dismiss-action="dismissAction"
+            @close-editor="closeInlineEditor"
+            @editor-submit="onEditorSubmit"
           />
         </div>
       </div>
+      <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
     </div>
   </div>
 </template>
 
 <script>
 import FileSource from './components/FileSource.vue';
+import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import {encodePath, fileViewUrl} from './helpers/links.js';
+import {resolveSnippetFromFile, submitSnippetDecisions} from './helpers/snippetDecisions.js';
+
+let openEditorKeySeq = 0;
+let pendingActionIdSeq = 0;
 
 export default {
   name: 'FileBrowser',
-  components: {FileSource},
+  components: {FileSource, PendingActionsWidget},
+  provide() {
+    return {
+      pendingActionsStore: {
+        actions: this.pendingActions,
+        add: action => this.pendingActions.push(action),
+        remove: id => this.dismissAction(id),
+        clear: () => {
+          this.pendingActions.splice(0, this.pendingActions.length);
+        },
+        edit: id => this.editAction(id),
+        scrollTo: id => this.scrollToAction(id),
+        submitAll: () => this.submitAllActions()
+      }
+    };
+  },
   data() {
     return {
       error: null,
@@ -88,8 +115,20 @@ export default {
       initialPath: this.fileBrowserInitialPath ?? '',
       loading: false,
       meta: null,
+      editorError: null,
+      openInlineEditor: null,
+      pendingActions: [],
       pkgId: this.pkgId
     };
+  },
+  computed: {
+    isAdminOrContributor() {
+      return this.hasAdminRole || this.hasContributorRole;
+    },
+    pendingActionsForCurrentFile() {
+      if (!this.meta || this.meta.kind !== 'file') return [];
+      return this.pendingActions.filter(a => a.fileId === this.meta.source.id);
+    }
   },
   mounted() {
     window.addEventListener('popstate', this.onPopState);
@@ -108,6 +147,7 @@ export default {
     async fetchPath(path, options = {}) {
       this.loading = true;
       this.error = null;
+      this.editorError = null;
       try {
         const res = await fetch(this.metaUrl(path));
         if (!res.ok) {
@@ -115,6 +155,7 @@ export default {
           return;
         }
         this.meta = await res.json();
+        this.openInlineEditor = null;
         document.title =
           this.meta.kind === 'directory'
             ? `Directory listing of ${this.meta.currentPath || '/'}`
@@ -136,6 +177,184 @@ export default {
       let path = window.location.pathname.startsWith(prefix) ? window.location.pathname.slice(prefix.length) : '';
       path = path.replace(/^\//, '');
       this.fetchPath(decodeURIComponent(path), {replace: true});
+    },
+    async fetchSource(start = 0, end = 0) {
+      if (!this.meta || this.meta.kind !== 'file' || !this.meta.source.id) return;
+      const qs = new URLSearchParams();
+      if (start) qs.set('start', start);
+      if (end) qs.set('end', end);
+      const url = `/reviews/fetch_source/${this.meta.source.id}.json${qs.toString() ? '?' + qs.toString() : ''}`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      this.meta.source = {id: this.meta.source.id, ...data.source};
+    },
+    onExtend(payload) {
+      if (payload.kind === 'reset') return this.fetchPath(this.meta.currentPath, {replace: true});
+
+      let start = Number(payload.start);
+      let end = Number(payload.end);
+      switch (payload.kind) {
+        case 'one-line-above':
+          start -= 1;
+          break;
+        case 'one-line-below':
+          end += 1;
+          break;
+        case 'top':
+          start = 1;
+          break;
+        case 'bottom':
+          end += 3000;
+          break;
+        case 'match-above':
+          start = Number(payload.prevstart);
+          break;
+        case 'match-below':
+          end = Number(payload.nextend);
+          break;
+      }
+      this.fetchSource(start, end);
+    },
+    async openEditor(meta) {
+      this.editorError = null;
+      let snippetId = meta.snippetId;
+      try {
+        if (snippetId === null) {
+          const data = await resolveSnippetFromFile(meta);
+          snippetId = data.snippet;
+        }
+      } catch (err) {
+        this.editorError = err.message ?? String(err);
+        return;
+      }
+      await this.showInlineEditor({
+        snippetId,
+        fileId: meta.fileId,
+        startLine: meta.startLine,
+        endLine: meta.endLine,
+        hash: meta.hash ?? null,
+        from: meta.from ?? null,
+        filePath: meta.filePath ?? null,
+        initial: null
+      });
+    },
+    async showInlineEditor(payload) {
+      this.openInlineEditor = {...payload, key: ++openEditorKeySeq};
+      await this.$nextTick();
+      const el = document.getElementById('inline-snippet-editor');
+      if (el) el.scrollIntoView({block: 'nearest'});
+    },
+    closeInlineEditor() {
+      this.openInlineEditor = null;
+    },
+    onEditorSubmit(payload) {
+      const ctx = this.openInlineEditor ?? {};
+      const editingId = ctx.editingId ?? null;
+      const existingIdx = editingId !== null ? this.pendingActions.findIndex(a => a.id === editingId) : -1;
+      const baseId = existingIdx >= 0 ? this.pendingActions[existingIdx].id : ++pendingActionIdSeq;
+      const action = {
+        id: baseId,
+        snippetId: ctx.snippetId,
+        fileId: ctx.fileId,
+        startLine: ctx.startLine,
+        endLine: ctx.endLine,
+        hash: ctx.hash,
+        from: ctx.from,
+        filePath: ctx.filePath,
+        action: payload.action,
+        formData: payload.formData,
+        license: payload.license || (payload.formData && payload.formData.license) || '',
+        locationLabel: `${ctx.filePath ?? `file ${ctx.fileId}`}:${ctx.startLine}-${ctx.endLine}`,
+        state: 'pending',
+        error: null
+      };
+      if (existingIdx >= 0) {
+        this.pendingActions.splice(existingIdx, 1, action);
+      } else {
+        this.pendingActions.push(action);
+      }
+      this.closeInlineEditor();
+    },
+    dismissAction(id) {
+      const idx = this.pendingActions.findIndex(a => a.id === id);
+      if (idx >= 0) this.pendingActions.splice(idx, 1);
+    },
+    async scrollToAction(id) {
+      const action = this.pendingActions.find(a => a.id === id);
+      if (!action) return;
+      if (action.filePath && (!this.meta || this.meta.kind !== 'file' || this.meta.currentPath !== action.filePath)) {
+        await this.fetchPath(action.filePath);
+      }
+      await this.$nextTick();
+      const indicator = document.getElementById('pending-indicator-' + id);
+      const fallback = document.querySelector('.file-browser-source');
+      const target = indicator || fallback;
+      if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
+    },
+    async editAction(id) {
+      const action = this.pendingActions.find(a => a.id === id);
+      if (!action) return;
+      if (action.filePath && (!this.meta || this.meta.kind !== 'file' || this.meta.currentPath !== action.filePath)) {
+        await this.fetchPath(action.filePath);
+      }
+      await this.showInlineEditor({
+        snippetId: action.snippetId,
+        fileId: action.fileId,
+        startLine: action.startLine,
+        endLine: action.endLine,
+        hash: action.hash,
+        from: action.from,
+        filePath: action.locationLabel.split(':')[0],
+        initial: action.formData,
+        editingId: action.id
+      });
+    },
+    async submitAllActions() {
+      const queue = this.pendingActions.filter(a => a.state !== 'done');
+      if (queue.length === 0) return;
+
+      for (const action of queue) {
+        action.state = 'submitting';
+        action.error = null;
+      }
+
+      let res;
+      let data;
+      let results;
+      try {
+        ({res, data, results} = await submitSnippetDecisions(
+          queue.map(a => ({kind: a.action, snippetId: a.snippetId, formData: a.formData}))
+        ));
+      } catch (err) {
+        for (const action of queue) {
+          action.state = 'error';
+          action.error = err.message ?? String(err);
+        }
+        return;
+      }
+
+      if (res.isSuccess && data && data.ok) {
+        this.pendingActions.splice(0, this.pendingActions.length);
+        this.closeInlineEditor();
+        await this.fetchPath(this.meta.currentPath, {replace: true});
+        return;
+      }
+
+      for (let i = 0; i < queue.length; i++) {
+        const action = queue[i];
+        const result = results[i];
+        if (result && result.error) {
+          action.state = 'error';
+          action.error = result.error;
+        } else if (result && result.ok) {
+          action.state = 'pending';
+          action.error = null;
+        } else {
+          action.state = 'error';
+          action.error = (data && data.error) || `Request failed (HTTP ${res.statusCode})`;
+        }
+      }
     }
   }
 };

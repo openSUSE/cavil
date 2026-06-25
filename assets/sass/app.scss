@@ -212,12 +212,6 @@ textarea.mono-textarea {
     user-select: none;
   }
 
-  td.redbar {
-    border-top: 1px solid rgba(0,0,0,0.8);
-    /* couldn't find a way to apply reasonable margin around the border -
-       inline-block doesn't work for tables (the way I expect it) */
-  }
-
   tr.risk-9 {
     background-color: #f6f8fa;
     box-shadow: inset 3px 0 0 #1f2328;

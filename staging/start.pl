@@ -2,7 +2,8 @@ use Mojo::Base -strict;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
-use Mojo::File qw(curfile path);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Mojo::File  qw(curfile path);
 use Mojo::Pg;
 use Mojo::Server;
 use Mojo::Util qw(getopt);
@@ -48,7 +49,16 @@ my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
   max_email_url_size   => 2048,
   max_task_memory      => 5_000_000_000,
   max_worker_rss       => 100000,
-  max_expanded_files   => 100
+  max_expanded_files   => 100,
+  snippet_fold         => {
+    enabled         => 1,
+    threshold       => 0.95,
+    min_margin      => 0.15,
+    max_risk        => 5,
+    clear_threshold => 0.97,
+    overlap_clear   => 1,
+    overlap_guard   => 0.9
+  }
 }
 EOF
 
@@ -238,9 +248,202 @@ unless ($clean) {
   my $leap_id    = $products->find_or_create('openSUSE:Leap:15.0')->{id};
   $products->update($factory_id, [$mojo_id]);
   $products->update($leap_id,    [$mojo_id]);
+
+  # Synthetic fold/clear/overlap playground. Snippets are AI-classified after the initial index below,
+  # so it works in staging without a classifier server.
+  my $lab_checkout = 'foldinglab00000000000000000000000001';
+  my $lab_dir      = $checkouts->child('cavil-folding-lab', $lab_checkout)->make_path;
+  my @blocks;
+  my $block = sub {
+    my ($marker, @body) = @_;
+    push @blocks, "[$marker] fold lab keyword\n", map {"$_\n"} @body;
+    push @blocks, map {"ordinary spacer line $marker $_\n"} 1 .. 10;
+  };
+  $block->(
+    'FOLD_LOW_RISK',
+    'This snippet should fold to a low risk synthetic license.',
+    'It exists to make the folded tint and correction button easy to inspect.'
+  );
+  $block->(
+    'FOLD_MAX_RISK',
+    'This snippet should fold exactly at the configured max risk boundary.',
+    'It is useful for checking the risk color used by derived matches.'
+  );
+  $block->(
+    'NO_FOLD_HIGH_RISK',
+    'This snippet is confident but points to a risk 6 license, above max_risk.',
+    'It should remain unresolved so the high risk guard is visible.'
+  );
+  $block->(
+    'CLEAR_BOILERPLATE',
+    'This snippet looks like known boilerplate but has no margin over its runner up.',
+    'It should clear without asserting a license.'
+  );
+  $block->(
+    'OVERLAP_CLEAR',
+    'This snippet overlaps a real curated license match on its first line.',
+    'It should overlap-clear while the direct match still reports the license.'
+  );
+  $block->(
+    'OVERLAP_GUARDED',
+    'This snippet overlaps one license but strongly resembles a different one.',
+    'The guard should keep it unresolved for human review.'
+  );
+  $block->(
+    'FOLD_WITH_DIRECT_MATCH',
+    'This folded region also has a real curated match on its first line.',
+    'The real match should win on that line and the fold should color the rest.'
+  );
+  $lab_dir->child('folding-lab.txt')->spurt(join '', @blocks);
+
+  my $fold_low = $app->patterns->create(
+    pattern   => 'fold lab low risk license body',
+    license   => 'Fold-Lab-Low',
+    risk      => 2,
+    unique_id => '11111111-1111-4111-8111-111111111111'
+  );
+  my $fold_max = $app->patterns->create(
+    pattern   => 'fold lab max risk license body',
+    license   => 'Fold-Lab-Max-Risk',
+    risk      => 5,
+    unique_id => '11111111-1111-4111-8111-111111111112'
+  );
+  my $fold_high = $app->patterns->create(
+    pattern   => 'fold lab high risk license body',
+    license   => 'Fold-Lab-High-Risk',
+    risk      => 6,
+    unique_id => '11111111-1111-4111-8111-111111111113'
+  );
+  my $overlap = $app->patterns->create(
+    pattern   => 'fold lab overlap direct license',
+    license   => 'Fold-Lab-Overlap',
+    risk      => 2,
+    unique_id => '11111111-1111-4111-8111-111111111114'
+  );
+  my $guarded = $app->patterns->create(
+    pattern   => 'fold lab guarded different license',
+    license   => 'Fold-Lab-Guarded',
+    risk      => 4,
+    unique_id => '11111111-1111-4111-8111-111111111115'
+  );
+  my $inside = $app->patterns->create(
+    pattern   => 'fold lab direct match inside fold',
+    license   => 'Fold-Lab-Inside-Direct',
+    risk      => 4,
+    unique_id => '11111111-1111-4111-8111-111111111116'
+  );
+  $app->patterns->create(pattern => 'fold lab keyword', unique_id => '11111111-1111-4111-8111-111111111117');
+
+  my $lab_id = $pkgs->add(
+    name            => 'cavil-folding-lab',
+    checkout_dir    => $lab_checkout,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'cavil:staging',
+    package         => 'cavil-folding-lab',
+    srcmd5          => $lab_checkout,
+    priority        => 5
+  );
+  $pkgs->imported($lab_id);
+  my $lab = $pkgs->find($lab_id);
+  $lab->{external_link} = 'obs#folding-lab';
+  $pkgs->update($lab);
+  $pkgs->unpack($lab_id);
+
+  $app->{staging_folding_lab} = {
+    package   => $lab_id,
+    fold_low  => $fold_low->{id},
+    fold_max  => $fold_max->{id},
+    fold_high => $fold_high->{id},
+    overlap   => $overlap->{id},
+    guarded   => $guarded->{id},
+    inside    => $inside->{id}
+  };
 }
 
 $app->minion->perform_jobs;
+
+if (my $lab = $app->{staging_folding_lab}) {
+  my $db     = $app->pg->db;
+  my $pkg_id = $lab->{package};
+  my $rows   = $db->query(
+    'SELECT fs.id AS file_snippet, fs.file, fs.sline, s.id AS snippet, s.text
+       FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet WHERE fs.package = ?', $pkg_id
+  );
+
+  while (my $row = $rows->hash) {
+    my ($pattern, $likelyness, $second) = ($lab->{fold_low}, 0.99, 0.1);
+    if ($row->{text} =~ /FOLD_MAX_RISK/) {
+      ($pattern, $likelyness, $second) = ($lab->{fold_max}, 0.99, 0.1);
+    }
+    elsif ($row->{text} =~ /NO_FOLD_HIGH_RISK/) {
+      ($pattern, $likelyness, $second) = ($lab->{fold_high}, 0.99, 0.1);
+    }
+    elsif ($row->{text} =~ /CLEAR_BOILERPLATE/) {
+      ($pattern, $likelyness, $second) = ($lab->{fold_low}, 0.99, 0.99);
+    }
+    elsif ($row->{text} =~ /OVERLAP_CLEAR/) {
+      ($pattern, $likelyness, $second) = ($lab->{overlap}, 0.92, 0.4);
+      $db->insert(
+        'pattern_matches',
+        {
+          package => $pkg_id,
+          file    => $row->{file},
+          pattern => $lab->{overlap},
+          sline   => $row->{sline},
+          eline   => $row->{sline},
+          ignored => 0
+        }
+      );
+    }
+    elsif ($row->{text} =~ /OVERLAP_GUARDED/) {
+      ($pattern, $likelyness, $second) = ($lab->{guarded}, 0.92, 0.4);
+      $db->insert(
+        'pattern_matches',
+        {
+          package => $pkg_id,
+          file    => $row->{file},
+          pattern => $lab->{overlap},
+          sline   => $row->{sline},
+          eline   => $row->{sline},
+          ignored => 0
+        }
+      );
+    }
+    elsif ($row->{text} =~ /FOLD_WITH_DIRECT_MATCH/) {
+      ($pattern, $likelyness, $second) = ($lab->{fold_max}, 0.99, 0.1);
+      $db->insert(
+        'pattern_matches',
+        {
+          package => $pkg_id,
+          file    => $row->{file},
+          pattern => $lab->{inside},
+          sline   => $row->{sline},
+          eline   => $row->{sline},
+          ignored => 0
+        }
+      );
+    }
+
+    $db->update(
+      'snippets',
+      {
+        classified    => 1,
+        license       => 1,
+        confidence    => 100,
+        likelyness    => $likelyness,
+        second_match  => $second,
+        score_version => SNIPPET_SCORE_VERSION,
+        like_pattern  => $pattern
+      },
+      {id => $row->{snippet}}
+    );
+  }
+
+  $app->snippets->resolve_snippets($pkg_id);
+  $app->minion->enqueue(analyze => [$pkg_id]);
+  $app->minion->perform_jobs;
+}
 
 print <<"EOF";
 Staging project created, use the CAVIL_CONF environment variable.

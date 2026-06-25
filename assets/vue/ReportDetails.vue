@@ -401,6 +401,7 @@ import GlobProposalModal from './components/GlobProposalModal.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
 import ReportNotes from './components/ReportNotes.vue';
+import {resolveSnippetFromFile, submitSnippetDecisions} from './helpers/snippetDecisions.js';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import {Modal} from 'bootstrap';
@@ -774,18 +775,14 @@ export default {
     async openEditor(meta) {
       let snippetId = meta.snippetId;
       if (snippetId === null) {
-        const qs = new URLSearchParams({from: meta.from});
-        if (meta.hash) qs.set('hash', meta.hash);
-        const url = `/snippets/from_file/${meta.fileId}/${meta.startLine}/${meta.endLine}?${qs.toString()}`;
-        const ua = new UserAgent({baseURL: window.location.href});
-        const res = await ua.get(url, {headers: {Accept: 'application/json'}});
-        if (!res.isSuccess) {
+        try {
+          const data = await resolveSnippetFromFile(meta);
+          snippetId = data.snippet;
+        } catch (err) {
           // eslint-disable-next-line no-alert
-          alert(`Could not load snippet (HTTP ${res.statusCode})`);
+          alert(err.message ?? String(err));
           return;
         }
-        const data = await res.json();
-        snippetId = data.snippet;
       }
       await this.showInlineEditor({
         snippetId,
@@ -976,10 +973,11 @@ export default {
           formData: a.formData
         }))
       };
-      const ua = new UserAgent({baseURL: window.location.href});
       let res;
+      let data;
+      let results;
       try {
-        res = await ua.post('/snippet/batch_decision', {json: body, headers: {Accept: 'application/json'}});
+        ({res, data, results} = await submitSnippetDecisions(body.actions));
       } catch (err) {
         for (const action of queue) {
           action.state = 'error';
@@ -987,13 +985,6 @@ export default {
         }
         return;
       }
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (e) {
-        // ignore JSON parse errors; handled below
-      }
-      const results = data && Array.isArray(data.results) ? data.results : [];
 
       if (res.isSuccess && data && data.ok) {
         // All actions committed - reload to show fresh report.

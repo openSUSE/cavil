@@ -59,11 +59,13 @@ t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
       t.ok(await src.locator('tr.risk-5').count(), 'folded region shown as the license in the file browser');
       t.equal(await src.locator('tr.risk-9').count(), 0, 'not shown as an unresolved snippet in the file browser');
 
-      // Dashed + a correction button linking to the full-page snippet editor (primary fix surface)
+      // Dashed + the report-style action menu linking to the full-page snippet editor
       t.ok(await src.locator('tr.folded').count(), 'file browser marks the folded region as derived');
-      const correct = src.locator('a.correct-btn').first();
-      await correct.waitFor({state: 'attached'});
-      t.match(await correct.getAttribute('href'), /\/snippet\/edit\/\d+/, 'folded region links to the snippet editor');
+      await src.locator('[id^="dropdownMenuLink-"]').first().click();
+      const correct = src.locator('.dropdown-menu a.dropdown-item', {hasText: 'Correct this fold'}).first();
+      await correct.click();
+      await src.locator('#inline-snippet-editor').waitFor();
+      t.ok(await src.locator('#inline-snippet-editor').count(), 'folded region opens the inline snippet editor');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);
@@ -103,9 +105,11 @@ t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
       // Cleared regions stay reviewable here: dashed marker + a correction link to the editor
       await src.locator('tr.cleared').first().waitFor();
       t.ok(await src.locator('tr.cleared').count(), 'file browser marks the cleared region for review');
-      const correct = src.locator('a.correct-btn').first();
-      await correct.waitFor({state: 'attached'});
-      t.match(await correct.getAttribute('href'), /\/snippet\/edit\/\d+/, 'cleared region links to the snippet editor');
+      await src.locator('[id^="dropdownMenuLink-"]').first().click();
+      const correct = src.locator('.dropdown-menu a.dropdown-item', {hasText: 'Review cleared text'}).first();
+      await correct.click();
+      await src.locator('#inline-snippet-editor').waitFor();
+      t.ok(await src.locator('#inline-snippet-editor').count(), 'cleared region opens the inline snippet editor');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);
@@ -136,9 +140,11 @@ t.test('Cavil UI - overlap-clear (snippet over a real license match)', skipUnles
 
       await src.locator('tr.cleared').first().waitFor();
       t.ok(await src.locator('tr.cleared').count(), 'the overlap-cleared region is marked cleared');
-      const correct = src.locator('a.correct-btn').first();
-      await correct.waitFor({state: 'attached'});
-      t.match(await correct.getAttribute('href'), /\/snippet\/edit\/\d+/, 'cleared region links to the snippet editor');
+      await src.locator('[id^="dropdownMenuLink-"]').first().click();
+      const correct = src.locator('.dropdown-menu a.dropdown-item', {hasText: 'Review cleared text'}).first();
+      await correct.click();
+      await src.locator('#inline-snippet-editor').waitFor();
+      t.ok(await src.locator('#inline-snippet-editor').count(), 'cleared region opens the inline snippet editor');
     });
 
     await t.test('Snippets page Cleared filter surfaces overlap-cleared snippets', async t => {
@@ -149,7 +155,10 @@ t.test('Cavil UI - overlap-clear (snippet over a real license match)', skipUnles
         page.selectOption('.cavil-snippet-resolution', 'clear')
       ]);
       await page.locator('.snippet-container').first().waitFor();
-      t.ok((await page.locator('.snippet-container').count()) > 0, 'overlap-cleared snippets appear under the Cleared filter');
+      t.ok(
+        (await page.locator('.snippet-container').count()) > 0,
+        'overlap-cleared snippets appear under the Cleared filter'
+      );
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);
