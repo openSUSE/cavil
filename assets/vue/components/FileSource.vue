@@ -469,8 +469,10 @@ export default {
    similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
-  background-color: rgba(246, 248, 250, 0.88);
-  border-left: 4px solid #6e7781;
+  background-image: linear-gradient(to left, rgba(246, 248, 250, 0) 0, rgba(110, 119, 129, 0.14) 70%, rgba(110, 119, 129, 0.22) 100%);
+  box-shadow:
+    inset 4px 0 0 #6e7781,
+    inset -1px 0 0 rgba(110, 119, 129, 0.18);
   color: #57606a;
 }
 .snippet tr.cleared td.code {
