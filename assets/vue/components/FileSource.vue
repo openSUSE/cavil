@@ -469,6 +469,7 @@ export default {
    similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
 .source .snippet tr.folded,
 .source .snippet tr.cleared {
+  background-attachment: fixed;
   background-image: repeating-linear-gradient(
     -45deg,
     rgba(87, 96, 106, 0.08) 0,
