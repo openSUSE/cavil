@@ -269,9 +269,14 @@ subtest 'Embargoed snippets' => sub {
         ->json_is('/snippets/2/filepackage', 2)
         ->json_is('/snippets/2/embargoed',   0)
         ->json_like('/snippets/2/text', qr/added EXPERIMENTAL xml attribute/);
-      $t->get_ok('/snippets/meta?before=5&onfidence=100&isClassified=false&isApproved=false&isLegal=true&notLegal=true')
+
+      # The keyset endpoint reports no exact total; with the id<5 cursor the four matching snippets are
+      # all returned (indices 0..3) and there is no fifth.
+      $t->get_ok(
+        '/snippets/meta?before=5&confidence=100&isClassified=false&isApproved=false&isLegal=true&notLegal=true')
         ->status_is(200)
-        ->json_is('/total', 4);
+        ->json_has('/snippets/3')
+        ->json_hasnt('/snippets/4');
     };
 
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

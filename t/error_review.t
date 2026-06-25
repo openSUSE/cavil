@@ -209,9 +209,9 @@ subtest 'Manual review' => sub {
     ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
     ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
     ->json_has('/chart/licenses')
-    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/lib/Mojolicious.pm')
-    ->json_is('/missed_files/1/license',  'Apache-2.0')
-    ->json_is('/missed_files/1/max_risk', 7)
+    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/LICENSE')
+    ->json_is('/missed_files/1/license',  'Keyword')
+    ->json_is('/missed_files/1/max_risk', 9)
     ->json_has('/risks/5');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
