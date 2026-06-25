@@ -342,35 +342,34 @@ sub _dig_report {
       || $a->{sline} <=> $b->{sline}
   } $snippets->hashes->each;
 
-  my %file_snippets_to_ignore;
   my %file_snippets_to_show;
   my %file_snippets_to_fold;
   my %snippets_shown;
 
+  # Partition snippet occurrences by what the report does with them. Dropped occurrences are simply not
+  # collected; this never suppresses real pattern matches - a licensed match inside a dropped or cleared
+  # region still reports its license independently in _register_matches (the premise of overlap-clear).
   for my $snip_row (@snip_rows) {
     my $resolution = $snip_row->{resolution} // '';
 
-    # Files hidden by an ignored-files glob, or snippets the classifier rejects as non-legal text,
-    # are always ignored.
+    # Files hidden by an ignored-files glob, or snippets the classifier rejects as non-legal text, are
+    # dropped: neither shown to a human nor a license source.
     if (!defined $report->{files}{$snip_row->{file}} || (!$snip_row->{license} && $snip_row->{classified})) {
-      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
+      next;
     }
 
-    # The stored resolution (computed once by resolve_snippets, which already accounts for ignored
-    # lines) decides the outcome per file occurrence: 'fold' asserts the closest license,
-    # 'clear'/'overlap' drop it as resolved noise. Every consumer reads this same column.
+    # The stored resolution (computed once by resolve_snippets) decides the outcome per file occurrence:
+    # 'fold' asserts the closest license; 'clear'/'overlap' drop the snippet as resolved noise.
     elsif ($resolution eq 'fold') {
       _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
     }
     elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
       $report->{cleared}{$snip_row->{file}} = 1;
-      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
 
-    # Only the unresolved backlog display is deduplicated by snippet id, so the same text is shown
-    # to a human just once across files.
+    # Otherwise it is unresolved backlog: show it once across files (deduplicated by snippet id).
     elsif ($snippets_shown{$snip_row->{id}}) {
-      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
+      next;
     }
     else {
       $snippets_shown{$snip_row->{id}} = 1;
@@ -405,7 +404,7 @@ sub _dig_report {
     }
   }
 
-  $self->_register_matches($db, $report, $pid_info, $matches, \%file_snippets_to_ignore, \%matches_to_ignore);
+  $self->_register_matches($db, $report, $pid_info, $matches, \%matches_to_ignore);
   $self->_register_folds($db, $report, $pid_info, \%file_snippets_to_fold);
 
   $report->{flags} = [keys %{$report->{flags}}] if $report->{flags};
@@ -568,7 +567,7 @@ sub _register_license {
 # fully inside an ignored/cleared snippet region are skipped, and matches in glob-hidden files are
 # queued for ignoring.
 sub _register_matches {
-  my ($self, $db, $report, $pid_info, $matches, $file_snippets_to_ignore, $matches_to_ignore) = @_;
+  my ($self, $db, $report, $pid_info, $matches, $matches_to_ignore) = @_;
 
   for my $match ($matches->hashes->each) {
     my $pid = $match->{pattern};
@@ -581,15 +580,10 @@ sub _register_matches {
       next;
     }
 
-    my $part_of_snippet;
-    for my $region (@{$file_snippets_to_ignore->{$match->{file}}}) {
-      my ($first_line, $last_line) = @$region;
-      if ($match->{sline} >= $first_line && $match->{eline} <= $last_line) {
-        $part_of_snippet = 1;
-        last;
-      }
-    }
-    next if $part_of_snippet;
+    # A licensed pattern match always reports its license - even when it falls inside a cleared or
+    # overlap snippet region. Overlap-clear is premised on exactly this match carrying the license, so
+    # suppressing it would drop the license from the file. Keyword (empty-license) matches carry no
+    # license and contribute nothing here.
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
     next if $pattern->{license} eq '';
 

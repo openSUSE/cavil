@@ -277,19 +277,40 @@ subtest 'overlap-clear (snippet region already contains a real license match)' =
        like_pattern = NULL, score_version = 0'
   );
 
-  # A real GPL match on the first line of each snippet (the SPDX-line-swallowed-by-expansion case)
-  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+  # A real licensed match on the first line of each snippet (the SPDX-line-swallowed-by-expansion case).
+  # Use a synthetic license that cannot appear from anywhere else in the package, so its presence proves
+  # the *overlapping match itself* still reports - clearing the snippet must not suppress the very match
+  # the clear relies on. A fixture license like GPL would be satisfied by unrelated matches and hide that.
+  my $overlap
+    = $app->patterns->create(pattern => 'a unique overlap-only license marker phrase', license => 'Overlap-Only');
+  my @overlap_files;
   for my $fs ($db->query('SELECT file, sline FROM file_snippets WHERE package = 1')->hashes->each) {
-    $db->insert('pattern_matches',
-      {package => 1, file => $fs->{file}, pattern => $gpl, sline => $fs->{sline}, eline => $fs->{sline}, ignored => 0});
+    push @overlap_files, $fs->{file};
+    $db->insert(
+      'pattern_matches',
+      {
+        package => 1,
+        file    => $fs->{file},
+        pattern => $overlap->{id},
+        sline   => $fs->{sline},
+        eline   => $fs->{sline},
+        ignored => 0
+      }
+    );
   }
   $app->snippets->resolve_snippets(1);
 
   my $report = $app->reports->dig_report(1);
   is_deeply $report->{missed_files}, {}, 'snippets overlapping a real license match are cleared';
-  ok $report->{cleared},         'the file is tagged as cleared';
-  ok $report->{licenses}{'GPL'}, 'the overlapping match still reports its license';
-  ok !$report->{folded},         'overlap-clear asserts no new license (not a fold)';
+  ok $report->{cleared}, 'the file is tagged as cleared';
+  ok $report->{licenses}{'Overlap-Only'},
+    'the overlapping match still reports its license (not suppressed by the clear)';
+  ok !$report->{folded}, 'overlap-clear asserts no new license (not a fold)';
+
+  # ...and the source view of a cleared file still highlights the overlapping match as its license.
+  my $file_report = $app->reports->dig_report(1, $overlap_files[0]);
+  my $highlighted = grep { ($_->[1]{name} // '') eq 'Overlap-Only' } @{$file_report->{lines}{$overlap_files[0]} // []};
+  ok $highlighted, 'the overlapping match is still highlighted in the cleared file source view';
 
   # Guard: a snippet that itself strongly resembles a DIFFERENT license is kept for review
   my $other = $app->patterns->create(pattern => 'a distinct overlap guard marker text', license => 'Other-Test');
