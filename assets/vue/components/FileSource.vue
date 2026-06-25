@@ -472,10 +472,10 @@ export default {
   background-attachment: fixed;
   background-image: repeating-linear-gradient(
     -45deg,
-    rgba(87, 96, 106, 0.08) 0,
-    rgba(87, 96, 106, 0.08) 1px,
+    rgba(87, 96, 106, 0.045) 0,
+    rgba(87, 96, 106, 0.045) 1px,
     transparent 1px,
-    transparent 6px
+    transparent 10px
   );
 }
 .snippet tr.folded td.linenumber,
