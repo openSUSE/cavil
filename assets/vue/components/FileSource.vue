@@ -135,6 +135,8 @@
               class="snippet-tool-btn correct-btn"
               :title="snippetActionLabel(line[1])"
               :aria-label="snippetActionLabel(line[1])"
+              :target="line[1].folded ? '_blank' : null"
+              :rel="line[1].folded ? 'noopener' : null"
             >
               <i class="fa-solid fa-pen-to-square"></i>
             </a>
