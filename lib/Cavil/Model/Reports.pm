@@ -524,7 +524,7 @@ sub _lines {
       my $sid  = $pid - PATTERN_DELTA;
       my $info = $snippet_info{$sid} ||= $db->select('snippets', ['hash', 'like_pattern'], {id => $sid})->hash || {};
       my $line_info = {risk => 9, snippet => $sid, name => 'Snippet of missing keywords'};
-      $line_info->{hash} = $info->{hash} if $info->{hash};
+      $line_info->{hash} = $info->{hash}           if $info->{hash};
       $line_info->{pids} = [$info->{like_pattern}] if $info->{like_pattern};
       push(@lines, [$index, $line_info, $line]);
     }
