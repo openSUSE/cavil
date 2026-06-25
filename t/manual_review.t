@@ -22,7 +22,8 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::Pg;
-use Mojo::Util qw(url_escape);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Mojo::Util  qw(url_escape);
 use Mojolicious::Lite;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -326,27 +327,18 @@ subtest 'Reindex (with updated stats)' => sub {
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
+# Analyze scores a package's snippets as part of its run, so after (re)indexing every snippet carries
+# a current-version score. In this tiny fixture corpus the required-phrase gate (covered in
+# t/patterns_similarity.t) leaves none with a confident license, but they are no longer unscored - the
+# score version is stamped, which is what unblocks fold-in once a real match is found.
 subtest 'Snippets after reindexing' => sub {
-  my $snippets = $t->app->pg->db->select('snippets')->hashes->to_array;
-  is $snippets->[0]{id},           1, 'snippet';
-  is $snippets->[0]{like_pattern}, 6, 'like pattern';
-  ok $snippets->[0]{likelyness} > 0, 'likelyness';
-  is $snippets->[1]{id}, 2, 'snippet';
-  ok $snippets->[1]{like_pattern},   'like pattern (ambiguous... could be 1 or 6)';
-  ok $snippets->[1]{likelyness} > 0, 'likelyness';
-  is $snippets->[2]{id},           3, 'snippet';
-  is $snippets->[2]{like_pattern}, 5, 'like pattern';
-  ok $snippets->[2]{likelyness} > 0, 'likelyness';
-  is $snippets->[3]{id},           4, 'snippet';
-  is $snippets->[3]{like_pattern}, 5, 'like pattern';
-  ok $snippets->[3]{likelyness} > 0, 'likelyness';
-  is $snippets->[4]{id},           5, 'snippet';
-  is $snippets->[4]{like_pattern}, 2, 'like pattern';
-  ok $snippets->[4]{likelyness} > 0, 'likelyness';
-  is $snippets->[5]{id},           6, 'snippet';
-  is $snippets->[5]{like_pattern}, 6, 'like pattern';
-  ok $snippets->[5]{likelyness} > 0, 'likelyness';
-  is $snippets->[6], undef, 'no more snippets';
+  my $snippets = $t->app->pg->db->select('snippets', '*', {}, {order_by => 'id'})->hashes->to_array;
+  is scalar(@$snippets), 6, 'six snippets';
+  for my $snippet (@$snippets) {
+    is $snippet->{score_version}, SNIPPET_SCORE_VERSION, "snippet $snippet->{id} is scored to the current version";
+    is $snippet->{like_pattern},  undef,                 'no confident license in this small corpus';
+    ok !$snippet->{likelyness}, 'and no likelyness';
+  }
 };
 
 subtest 'Details after reindexing' => sub {
@@ -371,18 +363,17 @@ subtest 'Details after reindexing' => sub {
     ->json_has('/chart/num-files')
     ->json_has('/chart/colours')
     ->json_is('/incompatible_licenses',   [])
-    ->json_is('/missed_files/0/name',     'Mojolicious-7.25/LICENSE')
+    ->json_is('/missed_files/0/name',     'Mojolicious-7.25/Changes')
     ->json_is('/missed_files/0/license',  'Keyword')
-    ->json_is('/missed_files/0/max_risk', 7)
+    ->json_is('/missed_files/0/max_risk', 9)
     ->json_like('/missed_files/0/license_html', qr!Keyword!)
-    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/lib/Mojolicious.pm')
-    ->json_is('/missed_files/1/license',  'Apache-2.0')
-    ->json_is('/missed_files/1/max_risk', 7)
-    ->json_like('/missed_files/1/license_html', qr!<a class="spdx-link"!)
-    ->json_is('/missed_files/2/name',     'Mojolicious-7.25/Changes')
-    ->json_is('/missed_files/2/max_risk', 5)
+    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/LICENSE')
+    ->json_is('/missed_files/1/license',  'Keyword')
+    ->json_is('/missed_files/1/max_risk', 9)
+    ->json_is('/missed_files/2/name',     'Mojolicious-7.25/lib/Mojolicious.pm')
+    ->json_is('/missed_files/2/max_risk', 9)
     ->json_is('/missed_files/3/name',     'perl-Mojolicious.changes')
-    ->json_is('/missed_files/3/max_risk', 5)
+    ->json_is('/missed_files/3/max_risk', 9)
     ->json_is('/missed_files/4',          undef)
     ->json_is('/risks/5/0/name',          'Apache-2.0')
     ->json_like('/risks/5/0/name_html', qr!Apache-2.0!);
@@ -415,9 +406,9 @@ subtest 'Manual review' => sub {
     ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
     ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
     ->json_has('/chart/licenses')
-    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/lib/Mojolicious.pm')
-    ->json_is('/missed_files/1/license',  'Apache-2.0')
-    ->json_is('/missed_files/1/max_risk', 7)
+    ->json_is('/missed_files/1/name',     'Mojolicious-7.25/LICENSE')
+    ->json_is('/missed_files/1/license',  'Keyword')
+    ->json_is('/missed_files/1/max_risk', 9)
     ->json_has('/risks/5');
 
   $t->get_ok('/pagination/reviews/recent')
@@ -459,7 +450,7 @@ subtest 'Final JSON report' => sub {
   ok my $pkg = $json->{package}, 'package';
   is $pkg->{id},   1,                  'id';
   is $pkg->{name}, 'perl-Mojolicious', 'name';
-  like $pkg->{checksum}, qr!Artistic-2.0-7!, 'checksum';
+  like $pkg->{checksum}, qr!Artistic-2.0-9!, 'checksum';
   is $pkg->{login},  'tester',      'login';
   is $pkg->{state},  'acceptable',  'state';
   is $pkg->{result}, 'Test review', 'result';
@@ -471,25 +462,25 @@ subtest 'Final JSON report' => sub {
   ok $report->{urls}[0][1], 'multiple matches';
 
   ok my $missed_files = $report->{missed_files}, 'missed files';
-  is $missed_files->[0]{id},      9,         'id';
-  is $missed_files->[0]{license}, 'Keyword', 'license';
-  ok $missed_files->[0]{match} > 0, 'match';
-  is $missed_files->[0]{max_risk}, 7, 'max risk';
+  is $missed_files->[0]{id},       8,         'id';
+  is $missed_files->[0]{license},  'Keyword', 'license';
+  is $missed_files->[0]{match},    0,         'no match';
+  is $missed_files->[0]{max_risk}, 9,         'max risk';
   ok $missed_files->[0]{name}, 'name';
-  is $missed_files->[1]{id},      12,           'id';
-  is $missed_files->[1]{license}, 'Apache-2.0', 'license';
-  ok $missed_files->[1]{match} > 0, 'match';
-  is $missed_files->[1]{max_risk}, 7, 'max risk';
+  is $missed_files->[1]{id},       9,         'id';
+  is $missed_files->[1]{license},  'Keyword', 'license';
+  is $missed_files->[1]{match},    0,         'no match';
+  is $missed_files->[1]{max_risk}, 9,         'max risk';
   ok $missed_files->[1]{name}, 'name';
-  is $missed_files->[2]{id},       8,         'id';
+  is $missed_files->[2]{id},       12,        'id';
   is $missed_files->[2]{license},  'Keyword', 'license';
-  is $missed_files->[2]{match},    100,       'match';
-  is $missed_files->[2]{max_risk}, 5,         'max risk';
+  is $missed_files->[2]{match},    0,         'no match';
+  is $missed_files->[2]{max_risk}, 9,         'max risk';
   ok $missed_files->[2]{name}, 'name';
-  is $missed_files->[3]{id},      14,        'id';
-  is $missed_files->[3]{license}, 'Keyword', 'license';
-  ok $missed_files->[3]{match} > 0, 'match';
-  is $missed_files->[3]{max_risk}, 5, 'max risk';
+  is $missed_files->[3]{id},       14,        'id';
+  is $missed_files->[3]{license},  'Keyword', 'license';
+  is $missed_files->[3]{match},    0,         'no match';
+  is $missed_files->[3]{max_risk}, 9,         'max risk';
   ok $missed_files->[3]{name}, 'name';
   is $missed_files->[4], undef, 'no more missed files';
 
@@ -504,4 +495,3 @@ subtest 'Final JSON report' => sub {
 };
 
 done_testing;
-

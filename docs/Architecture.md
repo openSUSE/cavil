@@ -288,9 +288,10 @@ too expensive, so two files are kept in Cavil's cache directory:
 * A serialised "bag of patterns" similarity model, used for the closest-match lookups described below.
 
 Both caches are discarded whenever any pattern is created or edited, which also schedules a background job to rebuild the
-similarity model and refresh the closest-match suggestion for every snippet. The prefix tree is simply rebuilt the next
-time an indexing job notices it is gone. This "rebuild everything on any change" behaviour is simple and reliable, but it
-is also the part most sensitive to growth (see below).
+similarity model. That job only republishes the model artifacts; the snippets themselves are (re)scored lazily when their
+package is next analysed (see Closest Match below), or in bulk by `cavil snippets --rescore` after a corpus change. The
+prefix tree is simply rebuilt the next time an indexing job notices it is gone. This "rebuild everything on any change"
+behaviour is simple and reliable, but it is also the part most sensitive to growth (see below).
 
 ### Closest Match
 
@@ -313,7 +314,13 @@ change:
   snippet is contained in the license (a snippet is usually only a fragment of the full text).
 
 The result — the best-matching license, a confidence score, and the runner-up's score — is stored on the snippet and
-reused both for risk estimation and for the fold-in described next.
+reused both for risk estimation and for the fold-in described next. Scoring runs as part of `analyze`, just before the
+fold/clear resolution, but only for snippets that lack a current-version score; so a freshly indexed package's snippets
+are scored the first time it is analysed, and the score is always current when a report is built — never dependent on a
+separate job's timing. Because snippets persist across reindexing (they are keyed by content), scoping the work by score
+version also self-heals any rows left at an older version (for example, scored before the similarity model existed). A
+change to the *patterns* does not bump the version, so propagating a corpus change to already-scored snippets is the job
+of `cavil snippets --rescore`.
 
 ### Folding High-Confidence Snippets into Reports
 

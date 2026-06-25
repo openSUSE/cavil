@@ -31,8 +31,10 @@ sub _analyze ($job, $id) {
   my $reports = $app->reports;
   my $pkg     = $pkgs->find($id);
 
-  # Refresh the stored snippet resolutions (fold/clear/overlap) before building the report, so the
-  # report and every other consumer read the same up-to-date decision from file_snippets.resolution.
+  # Score any new or stale snippets first (cheap, local), then refresh the stored resolutions
+  # (fold/clear/overlap) before building the report - so scores are always current when the report is
+  # built and every consumer reads the same decision from file_snippets.resolution.
+  $app->patterns->score_package_snippets($id);
   $app->snippets->resolve_snippets($id);
 
   my $specfile = $reports->specfile_report($id);

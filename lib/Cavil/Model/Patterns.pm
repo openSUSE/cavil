@@ -16,7 +16,8 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(normalize_license_expr paginate pattern_checksum spdx_link text_shingles weighted_containment);
+use Cavil::Util
+  qw(normalize_license_expr paginate pattern_checksum spdx_link text_shingles weighted_containment SNIPPET_SCORE_VERSION);
 use List::Util  qw(min);
 use Mojo::File  qw(path);
 use Mojo::JSON  qw(true false);
@@ -207,6 +208,50 @@ sub best_license_for ($self, $text, $ctx) {
     pattern => defined $best->[0] ? $ctx->{representative}{$best->[0]} : undef,
     second  => defined $best->[0] ? $second->[1]                       : 0
   };
+}
+
+# Single place that turns a snippet's text into its four scoring columns. With similarity signatures
+# ($ctx) it uses the IDF-weighted scorer and stamps the current score version; without them it falls
+# back to the plain Spooky bag (stamped version 0, so fold-in will not trust it); with neither it
+# returns undef. Shared by analyze (score_package_snippets), the classify task and "snippets --rescore".
+sub score_text ($self, $text, $ctx, $bag = undef) {
+  if ($ctx) {
+    my $best = $self->best_license_for($text, $ctx);
+    return {
+      likelyness    => $best->{match},
+      like_pattern  => $best->{pattern},
+      second_match  => $best->{second} // 0,
+      score_version => SNIPPET_SCORE_VERSION
+    };
+  }
+
+  if ($bag) {
+    my $hits = $bag->best_for($text, 1);
+    my $best = @$hits ? $hits->[0] : {match => 0, pattern => undef};
+    return {likelyness => $best->{match}, like_pattern => $best->{pattern}, second_match => 0, score_version => 0};
+  }
+
+  return undef;
+}
+
+# Score the snippets of one package that lack a current-version score, using the similarity signatures.
+# Called from analyze before the fold/clear/overlap resolution so scores are always present and current
+# when a report is built - never dependent on a separate job's timing. Snippets persist across reindex
+# (keyed by content hash), so scoping by score_version also self-heals rows stuck at version 0 (e.g.
+# classified before the signatures existed). A no-op when nothing is stale (the common reindex case) or
+# when the signatures have not been built yet (bootstrapping; left to classify / "snippets --rescore").
+sub score_package_snippets ($self, $package_id) {
+  my $db   = $self->pg->db;
+  my $rows = $db->query(
+    'SELECT DISTINCT s.id, s.text FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id
+      WHERE fs.package = ? AND s.score_version IS DISTINCT FROM ?', $package_id, SNIPPET_SCORE_VERSION
+  )->hashes;
+  return unless $rows->size;
+
+  return unless my $ctx = $self->similarity_context;
+  for my $snippet ($rows->each) {
+    $db->update('snippets', $self->score_text($snippet->{text}, $ctx), {id => $snippet->{id}});
+  }
 }
 
 sub create ($self, %args) {

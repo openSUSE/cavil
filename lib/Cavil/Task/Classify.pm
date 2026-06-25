@@ -17,7 +17,6 @@ package Cavil::Task::Classify;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
-use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 use Mojo::File 'path';
 use Mojo::Util qw(dumper);
 use Spooky::Patterns::XS;
@@ -62,24 +61,13 @@ sub _classify ($job) {
       die "Unexpected result from classifier: @{[dumper($res)]}"
         unless ref $res eq 'HASH' && defined($res->{license}) && defined($res->{confidence});
 
-      my $best;
-      if ($ctx) { $best = $patterns->best_license_for($next->{text}, $ctx) }
-      else {
-        my $b = $bag->best_for($next->{text}, 1);
-        $b    = @$b ? $b->[0] : {match => 0, pattern => undef};
-        $best = {match => $b->{match}, pattern => $b->{pattern}, second => 0};
-      }
-
       $db->update(
         'snippets',
         {
-          likelyness    => $best->{match},
-          like_pattern  => $best->{pattern},
-          second_match  => $best->{second} // 0,
-          score_version => ($ctx ? SNIPPET_SCORE_VERSION : 0),
-          classified    => 1,
-          license       => $res->{license},
-          confidence    => int($res->{confidence} + 0.5)
+          %{$patterns->score_text($next->{text}, $ctx, $bag)},
+          classified => 1,
+          license    => $res->{license},
+          confidence => int($res->{confidence} + 0.5)
         },
         {id => $next->{id}, approved => 0}
       );

@@ -16,7 +16,6 @@
 package Cavil::Command::snippets;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
-use Cavil::Util  qw(SNIPPET_SCORE_VERSION);
 use Getopt::Long qw(GetOptionsFromArray);
 
 has description => 'Snippet maintenance tasks';
@@ -51,17 +50,7 @@ sub _rescore ($self, $start, $batch) {
     last unless $rows->size;
 
     for my $snippet ($rows->each) {
-      my $best = $patterns->best_license_for($snippet->{text}, $ctx);
-      $db->update(
-        'snippets',
-        {
-          likelyness    => $best->{match},
-          like_pattern  => $best->{pattern},
-          second_match  => $best->{second} // 0,
-          score_version => SNIPPET_SCORE_VERSION
-        },
-        {id => $snippet->{id}}
-      );
+      $db->update('snippets', $patterns->score_text($snippet->{text}, $ctx), {id => $snippet->{id}});
       $last = $snippet->{id};
     }
 
