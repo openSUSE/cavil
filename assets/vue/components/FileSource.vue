@@ -465,18 +465,11 @@ export default {
 .snippet td.code {
   position: relative;
 }
-/* Derived resolutions get a quiet texture (and cleared text is muted) so reviewers can tell a
+/* Derived resolutions get a quiet wash (and cleared text is muted) so reviewers can tell a
    similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
 .source .snippet tr.folded,
 .source .snippet tr.cleared {
-  background-attachment: fixed;
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(87, 96, 106, 0.045) 0,
-    rgba(87, 96, 106, 0.045) 1px,
-    transparent 1px,
-    transparent 10px
-  );
+  background-image: linear-gradient(rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.28));
 }
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
