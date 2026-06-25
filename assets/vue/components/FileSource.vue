@@ -465,15 +465,13 @@ export default {
 .snippet td.code {
   position: relative;
 }
-/* Derived resolutions get a quiet wash (and cleared text is muted) so reviewers can tell a
+/* Derived resolutions use a gutter cue (and cleared text is muted) so reviewers can tell a
    similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
-.source .snippet tr.folded,
-.source .snippet tr.cleared {
-  background-image: linear-gradient(rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.28));
-}
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
-  border-left: 3px solid #8c959f;
+  background-color: rgba(246, 248, 250, 0.88);
+  border-left: 4px solid #6e7781;
+  color: #57606a;
 }
 .snippet tr.cleared td.code {
   color: #6e7781;
