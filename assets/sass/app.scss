@@ -219,12 +219,12 @@ textarea.mono-textarea {
   }
 
   tr.risk-9 {
-    background-color: #fff1f1;
-    box-shadow: inset 3px 0 0 #cf222e;
+    background-color: #f6f8fa;
+    box-shadow: inset 3px 0 0 #1f2328;
     color: #1f2328;
 
     i.fas {
-      color: #cf222e;
+      color: #1f2328;
     }
 
     a.current-selector i.fas {
@@ -242,14 +242,9 @@ textarea.mono-textarea {
     }
   }
 
-  tr.risk-7, tr.risk-8 {
-    background-color: #fff5f5;
-    box-shadow: inset 3px 0 0 #d1242f;
-  }
-
-  tr.risk-6 {
-    background-color: #fff8f0;
-    box-shadow: inset 3px 0 0 #bc4c00;
+  tr.risk-6, tr.risk-7, tr.risk-8 {
+    background-color: #fff1f1;
+    box-shadow: inset 3px 0 0 #cf222e;
   }
 
   tr.risk-5 {
@@ -257,24 +252,8 @@ textarea.mono-textarea {
     box-shadow: inset 3px 0 0 #9a6700;
   }
 
-  tr.risk-3, tr.risk-4 {
-    background-color: #e6fffb;
-    box-shadow: inset 3px 0 0 #1b7f79;
-  }
-
-  tr.risk-2 {
-    background-color: #ddf4ff;
-    box-shadow: inset 3px 0 0 #0969da;
-  }
-
-  tr.risk-1 {
-    background-color: #f0f6ff;
-    box-shadow: inset 3px 0 0 #0969da;
-  }
-
-  // Risk 0 = explicitly approved / no-risk patterns. Matches the
-  // .license-0 green used elsewhere for the same semantic.
-  tr.risk-0 {
+  // Match the popover risk palette: 0-4 green, 5 yellow, 6-8 red, 9 dark.
+  tr.risk-0, tr.risk-1, tr.risk-2, tr.risk-3, tr.risk-4 {
     background-color: #e6ffec;
     box-shadow: inset 3px 0 0 #1a7f37;
   }
