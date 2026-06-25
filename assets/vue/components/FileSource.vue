@@ -465,11 +465,21 @@ export default {
 .snippet td.code {
   position: relative;
 }
-/* Derived resolutions get a dashed left accent (and cleared text is muted) so reviewers can tell a
+/* Derived resolutions get a quiet texture (and cleared text is muted) so reviewers can tell a
    similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
+.source .snippet tr.folded,
+.source .snippet tr.cleared {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(87, 96, 106, 0.08) 0,
+    rgba(87, 96, 106, 0.08) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+}
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
-  border-left: 3px dashed #8250df;
+  border-left: 3px solid #8c959f;
 }
 .snippet tr.cleared td.code {
   color: #6e7781;

@@ -219,56 +219,64 @@ textarea.mono-textarea {
   }
 
   tr.risk-9 {
-    background-color: black;
-    color: white;
+    background-color: #fff1f1;
+    box-shadow: inset 3px 0 0 #cf222e;
+    color: #1f2328;
 
     i.fas {
-      color: white;
+      color: #cf222e;
     }
 
     a.current-selector i.fas {
-      color: yellow;
+      color: #9a6700;
     }
   }
 
   tr.risk-9, tr.risk-8, tr.risk-7, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1, tr.risk-0 {
     .code {
-      color: white;
+      color: #1f2328;
     }
 
     .linenumber {
-      color: #aaa;
+      color: #57606a;
     }
   }
 
   tr.risk-7, tr.risk-8 {
-    background-color: #d7252a;
+    background-color: #fff5f5;
+    box-shadow: inset 3px 0 0 #d1242f;
   }
 
   tr.risk-6 {
-    background-color: #eb882c;
+    background-color: #fff8f0;
+    box-shadow: inset 3px 0 0 #bc4c00;
   }
 
   tr.risk-5 {
-    background-color: #d8a223;
+    background-color: #fff8c5;
+    box-shadow: inset 3px 0 0 #9a6700;
   }
 
   tr.risk-3, tr.risk-4 {
-    background-color: #029f93;
+    background-color: #e6fffb;
+    box-shadow: inset 3px 0 0 #1b7f79;
   }
 
   tr.risk-2 {
-    background-color: #01a2e0;
+    background-color: #ddf4ff;
+    box-shadow: inset 3px 0 0 #0969da;
   }
 
   tr.risk-1 {
-    background-color: #016396;
+    background-color: #f0f6ff;
+    box-shadow: inset 3px 0 0 #0969da;
   }
 
   // Risk 0 = explicitly approved / no-risk patterns. Matches the
   // .license-0 green used elsewhere for the same semantic.
   tr.risk-0 {
-    background-color: #1f883d;
+    background-color: #e6ffec;
+    box-shadow: inset 3px 0 0 #1a7f37;
   }
 }
 
