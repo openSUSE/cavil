@@ -402,6 +402,12 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         ''
       );
       await expandFileDetails(page, fileId);
+      const unresolved = page.locator(`#file-details-${fileId} tr.match-start`).first();
+      await unresolved.waitFor();
+      t.ok(
+        await unresolved.evaluate(el => el.classList.contains('has-pattern-tooltip')),
+        'unresolved report row exposes closest-pattern tooltip marker'
+      );
       await openCreatePatternEditor(page, fileId);
 
       // Make sure at least one match-decorated line is in the editor.

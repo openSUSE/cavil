@@ -499,6 +499,7 @@ sub _lines {
   my ($self, $db, $pid_info, $fn, $needed_lines, $folded_meta) = @_;
 
   my @lines;
+  my %snippet_info;
 
   # fill small gaps
   my $lastline;
@@ -520,8 +521,12 @@ sub _lines {
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
     if ($pid >= PATTERN_DELTA) {
-      push(@lines,
-        [$index, {risk => 9, snippet => $pid - PATTERN_DELTA, name => 'Snippet of missing keywords'}, $line]);
+      my $sid  = $pid - PATTERN_DELTA;
+      my $info = $snippet_info{$sid} ||= $db->select('snippets', ['hash', 'like_pattern'], {id => $sid})->hash || {};
+      my $line_info = {risk => 9, snippet => $sid, name => 'Snippet of missing keywords'};
+      $line_info->{hash} = $info->{hash} if $info->{hash};
+      $line_info->{pids} = [$info->{like_pattern}] if $info->{like_pattern};
+      push(@lines, [$index, $line_info, $line]);
     }
     else {
       # need to store a deep copy to modify it later adding context

@@ -97,7 +97,7 @@
             </div>
           </td>
 
-          <td class="linenumber">{{ line[0] }}</td>
+          <td class="linenumber" :style="lineNumberColumnStyle">{{ line[0] }}</td>
           <td class="code">
             {{ line[2]
             }}<PendingActionIndicator
@@ -199,7 +199,7 @@ export default {
     },
     lineNumberColumnStyle() {
       const last = this.lines.length > 0 ? this.lines[this.lines.length - 1][0] : 1;
-      return {width: `${String(last).length + 2}ch`};
+      return {width: `${String(last).length + 1}ch`};
     },
     matchExtents() {
       // Map keyed by match-end line number → metadata from the match-start
@@ -221,6 +221,9 @@ export default {
     }
   },
   watch: {
+    inlineEditor(value) {
+      if (value) this.hidePatternTooltip();
+    },
     lines() {
       if (!this.pendingCompensation) return;
       const {kind, targetLine, beforeTop} = this.pendingCompensation;
@@ -344,6 +347,7 @@ export default {
     },
     onCreateClick(event, line, snippetId) {
       event.preventDefault();
+      this.hidePatternTooltip();
       this.$emit('open-editor', {
         snippetId: snippetId ?? null,
         fileId: this.fileId,
@@ -353,6 +357,12 @@ export default {
         from: this.packname,
         filePath: this.filename
       });
+    },
+    hidePatternTooltip() {
+      this.hoveredGroup = null;
+      if (!this.patternTooltip) return;
+      this.patternTooltip.destroy();
+      this.patternTooltip = null;
     },
     newSnippetUrl(start, end, hash) {
       const qs = new URLSearchParams({from: this.packname});
@@ -424,7 +434,12 @@ export default {
 }
 .source .snippet .snippet-col-actions,
 .source .snippet .snippet-col-quick-actions {
-  width: 24px;
+  width: 20px;
+}
+.source .snippet td.linenumber {
+  min-width: 0;
+  padding: 0 0.35em 0 0.25em;
+  width: auto;
 }
 .snippet .inline-editor-row > td {
   background: #ffffff;
@@ -444,7 +459,7 @@ export default {
   padding-bottom: 0;
   padding-top: 0;
   position: relative;
-  width: 24px;
+  width: 20px;
 }
 .snippet td.code {
   position: relative;
@@ -511,7 +526,7 @@ export default {
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
-  height: 24px;
+  height: 22px;
   justify-content: center;
   opacity: 0;
   padding: 0;
@@ -524,7 +539,7 @@ export default {
     box-shadow 0.15s,
     color 0.15s,
     opacity 0.15s;
-  width: 24px;
+  width: 22px;
   z-index: 2;
 }
 .snippet tr:hover .snippet-tool-btn,
@@ -539,10 +554,10 @@ export default {
   }
 }
 .snippet td.actions .snippet-tool-btn {
-  left: -4px;
+  left: -2px;
 }
 .snippet td.quick-actions .snippet-tool-btn {
-  right: -4px;
+  right: -2px;
 }
 .snippet td.code .extend-vert-btn {
   left: 50%;
