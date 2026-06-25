@@ -603,7 +603,7 @@ sub _register_matches {
         next if $opid > PATTERN_DELTA;
 
         # set the risk of the line, but make sure we do not lower the risk
-        next if $risk < $self->_info_for_pattern($pid_info, $opid)->{risk};
+        next if $risk < $self->_info_for_pattern($db, $pid_info, $opid)->{risk};
         $report->{needed_lines}{$match->{file}}{$i} = $pid;
         $report->{matches}{$match->{file}}{$i}      = $match->{id};
       }
@@ -639,7 +639,7 @@ sub _register_folds {
         if ($i >= $sline && $i <= $eline) {
           my $opid = $report->{needed_lines}{$file}{$i} // 0;
           next if $opid > PATTERN_DELTA;    # keep an unresolved-snippet highlight
-          next if $pattern->{risk} < $self->_info_for_pattern($pid_info, $opid)->{risk};
+          next if $pattern->{risk} < $self->_info_for_pattern($db, $pid_info, $opid)->{risk};
           $report->{needed_lines}{$file}{$i} = $pid;
           $report->{folded_meta}{$file}{$i}  = {snippet => $sid, hash => $hash};
         }

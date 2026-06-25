@@ -307,4 +307,77 @@ subtest 'overlap-clear (snippet region already contains a real license match)' =
   ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'nothing overlap-clears when the toggle is off';
 };
 
+# Overlapping highlights on the same line must never lower the line's risk: a lower-risk real match or a
+# lower-risk fold may not overwrite a higher-risk highlight (it would make the source view explain the
+# wrong, less severe thing). Both the match and the fold registration paths share this guard.
+subtest 'overlapping highlights never lower a line risk' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'report_risk_guard_test');
+  my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
+  my $app        = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # Reuse a real unpacked file (so the source lines exist on disk) under fresh matched_files rows that
+  # carry only the matches/snippet we set up, keeping each scenario isolated via dig_report's file view.
+  my $filename
+    = $db->query('SELECT filename FROM matched_files WHERE package = 1 ORDER BY id LIMIT 1')->hash->{filename};
+  my $hi
+    = $app->patterns->create(pattern => 'a unique high risk license marker phrase', license => 'HiRisk', risk => 9);
+  my $lo = $app->patterns->create(pattern => 'a unique low risk license marker phrase', license => 'LoRisk', risk => 2);
+  my $fresh_file = sub {
+    $db->insert('matched_files', {package => 1, filename => $filename, mimetype => 'text/plain'}, {returning => 'id'})
+      ->hash->{id};
+  };
+  my $line1 = sub ($fid) {
+    (grep { $_->[0] == 1 } @{$app->reports->dig_report(1, $fid)->{lines}{$fid}})[0][1];
+  };
+
+  subtest 'a lower-risk match does not overwrite a higher-risk match' => sub {
+    my $file = $fresh_file->();
+
+    # Higher-risk match registered first (lower id), lower-risk match second - without the guard the
+    # later, lower-risk match would win.
+    $db->insert('pattern_matches',
+      {package => 1, file => $file, pattern => $hi->{id}, sline => 1, eline => 1, ignored => 0});
+    $db->insert('pattern_matches',
+      {package => 1, file => $file, pattern => $lo->{id}, sline => 1, eline => 1, ignored => 0});
+
+    my $info = $line1->($file);
+    is $info->{risk}, 9,        'the line keeps the higher risk';
+    is $info->{name}, 'HiRisk', 'and explains the higher-risk license';
+  };
+
+  subtest 'a lower-risk fold does not overwrite a higher-risk match' => sub {
+    my $file = $fresh_file->();
+    $db->insert('pattern_matches',
+      {package => 1, file => $file, pattern => $hi->{id}, sline => 1, eline => 1, ignored => 0});
+
+    my $sid = $db->insert(
+      'snippets',
+      {
+        hash          => 'risk-guard-fold',
+        text          => 'folded body',
+        package       => 1,
+        classified    => 1,
+        license       => 1,
+        approved      => 0,
+        confidence    => 100,
+        likelyness    => 0.99,
+        second_match  => 0,
+        score_version => SNIPPET_SCORE_VERSION,
+        like_pattern  => $lo->{id}
+      },
+      {returning => 'id'}
+    )->hash->{id};
+    $db->insert('file_snippets',
+      {package => 1, file => $file, snippet => $sid, sline => 1, eline => 1, resolution => 'fold'});
+
+    my $info = $line1->($file);
+    is $info->{risk}, 9, 'the line keeps the higher-risk match risk';
+    ok !$info->{folded}, 'and is still explained by the match, not downgraded to the fold';
+  };
+};
+
 done_testing;

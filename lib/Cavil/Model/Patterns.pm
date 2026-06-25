@@ -18,10 +18,10 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Util
   qw(normalize_license_expr paginate pattern_checksum spdx_link text_shingles weighted_containment SNIPPET_SCORE_VERSION);
-use List::Util  qw(min);
-use Mojo::File  qw(path);
-use Mojo::JSON  qw(true false);
-use Mojo::Util  qw(md5_sum);
+use List::Util qw(min);
+use Mojo::File qw(path);
+use Mojo::JSON qw(true false);
+use Mojo::Util qw(md5_sum);
 use Spooky::Patterns::XS;
 use Storable;
 
