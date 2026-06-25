@@ -470,9 +470,7 @@ export default {
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
   background-color: #f6f8fa;
-  box-shadow:
-    inset 4px 0 0 #6e7781,
-    inset -1px 0 0 #d0d7de;
+  box-shadow: inset -1px 0 0 #d0d7de;
   color: #57606a;
 }
 .snippet tr.cleared td.code {
