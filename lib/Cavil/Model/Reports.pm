@@ -625,8 +625,12 @@ sub _register_folds {
       next if $pattern->{license} eq '';
 
       $self->_register_license($report, $pid_info, $pattern, $pid, $file);
-      $report->{folded}{$file}   = 1;
-      $report->{expanded}{$file} = 1;
+      $report->{folded}{$file} = 1;
+
+      # Do not auto-expand a file just because it folded: only files with unresolved matches are
+      # expanded inline (the show loop above). A fully-folded file is still listed under its inferred
+      # license and rendered on demand - opened from the report file link or in the file browser (both
+      # go through the limit_to_file path, which builds its lines and the fold highlighting below).
 
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;

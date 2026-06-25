@@ -83,16 +83,20 @@ subtest 'fold-in gate (via the report)' => sub {
   my $report = $app->reports->dig_report(1);
   ok $report->{licenses}{'GPL'}, 'the folded license appears in the report';
 
-  # The folded file must render in the source view highlighted as its inferred license (so clicking
-  # the file in the license list shows why it is listed), not as an unresolved snippet.
-  my ($expanded_file) = keys %{$report->{folded}};
-  ok $report->{expanded}{$expanded_file}, 'the folded file is expanded for the source view';
-  my $highlighted_as_gpl = grep { ($_->[1]{name} // '') eq 'GPL' } @{$report->{lines}{$expanded_file} // []};
-  ok $highlighted_as_gpl, 'the folded region is highlighted as GPL in the source view';
+  # A fully-folded file is resolved, so the report does NOT auto-expand it inline - only files with
+  # unresolved matches are expanded. It is still listed under its inferred license and opened on demand.
+  my ($folded_file) = keys %{$report->{folded}};
+  ok $folded_file,                       'a file folded its snippet';
+  ok !$report->{expanded}{$folded_file}, 'a fully-folded file is not auto-expanded in the report';
+  ok !$report->{lines}{$folded_file},    'and its source is not pre-rendered inline';
 
-  # The folded line carries the originating snippet handle + "folded" marker so the source view can
-  # flag it as derived and offer an inline correction (create pattern / ignore).
-  my ($folded_line) = grep { $_->[1]{folded} } @{$report->{lines}{$expanded_file} // []};
+  # Opened on demand (the report file link / file browser both use the per-file path), the folded region
+  # renders highlighted as its inferred license, carrying the snippet handle + "folded" marker for
+  # inline correction - not shown as an unresolved snippet.
+  my $opened             = $app->reports->dig_report(1, $folded_file);
+  my $highlighted_as_gpl = grep { ($_->[1]{name} // '') eq 'GPL' } @{$opened->{lines}{$folded_file} // []};
+  ok $highlighted_as_gpl, 'the folded region is highlighted as GPL when the file is opened';
+  my ($folded_line) = grep { $_->[1]{folded} } @{$opened->{lines}{$folded_file} // []};
   ok $folded_line,                    'folded line is tagged as a derived (folded) resolution';
   ok $folded_line->[1]{snippet},      'folded line carries the originating snippet id for correction';
   ok defined $folded_line->[1]{hash}, 'folded line carries the snippet hash';
