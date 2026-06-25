@@ -136,8 +136,15 @@ sub startup ($self) {
     }
   );
 
-  $self->helper(snippets =>
-      sub ($c) { state $snips = Cavil::Model::Snippets->new(checkout_dir => $config->{checkout_dir}, pg => $c->pg) });
+  $self->helper(
+    snippets => sub ($c) {
+      state $snips = Cavil::Model::Snippets->new(
+        checkout_dir => $config->{checkout_dir},
+        pg           => $c->pg,
+        snippet_fold => $config->{snippet_fold}
+      );
+    }
+  );
 
   $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
 

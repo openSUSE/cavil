@@ -40,8 +40,7 @@
         </form>
       </div>
       <div class="col-3">
-        <p v-if="total !== null" class="text-end">{{ total }} patterns found</p>
-        <p v-else class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading patterns</p>
+        <p v-if="patterns === null" class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading patterns</p>
       </div>
     </div>
     <div v-if="patterns !== null && patterns.length > 0">
@@ -114,7 +113,7 @@ export default {
       params: {...params, before: 0},
       patterns: null,
       patternUrl: '/licenses/recent/meta',
-      total: null,
+      hasMore: false,
       loadingMore: false
     };
   },
@@ -139,7 +138,7 @@ export default {
       const data = await res.json();
 
       const patterns = data.patterns;
-      if (this.total === null || this.total < data.total) this.total = data.total;
+      this.hasMore = data.hasMore === true;
 
       for (const pattern of patterns) {
         pattern.editUrl = `/licenses/edit_pattern/${pattern.id}`;
@@ -164,7 +163,7 @@ export default {
     },
     async loadMore() {
       if (this.loadingMore) return;
-      if (this.patterns !== null && this.total !== null && this.patterns.length >= this.total) return;
+      if (!this.hasMore) return;
       this.loadingMore = true;
       try {
         await this.getPatterns();
@@ -173,7 +172,7 @@ export default {
       }
     },
     refreshPage() {
-      this.total = null;
+      this.hasMore = false;
       this.patterns = null;
       this.params.before = 0;
       this.getPatterns();

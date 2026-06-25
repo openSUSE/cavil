@@ -17,10 +17,10 @@ package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
 use Mojo::File  qw(path);
-use Cavil::Util qw(file_and_checksum read_lines snippet_checksum);
+use Cavil::Util qw(file_and_checksum read_lines snippet_checksum SNIPPET_SCORE_VERSION);
 use Spooky::Patterns::XS;
 
-has [qw(checkout_dir pg)];
+has [qw(checkout_dir pg snippet_fold)];
 
 sub approve ($self, $id, $license) {
   my $db = $self->pg->db;
@@ -86,6 +86,45 @@ sub id_for_checksum ($self, $checksum) {
   return $hash->{id};
 }
 
+# The thresholds half of Cavil::ReportUtil::should_fold_snippet expressed as SQL, over a query that
+# aliases snippets as "s" and LEFT JOINs license_patterns as "lp" on s.like_pattern. ($sql, \@binds).
+sub _fold_sql ($cfg) {
+  my @parts = (
+    's.classified', 's.license',
+    's.score_version = ?',
+    's.likelyness >= ?',
+    '(s.likelyness - s.second_match) >= ?',
+    "lp.license <> ''"
+  );
+  my @binds = (SNIPPET_SCORE_VERSION, $cfg->{threshold} // 1, $cfg->{min_margin} // 0);
+  if (defined $cfg->{max_risk}) {
+    push @parts, 'lp.risk <= ?';
+    push @binds, $cfg->{max_risk};
+  }
+  return (join(' AND ', @parts), \@binds);
+}
+
+# SQL counterpart of the should_fold_snippet / should_clear_boilerplate gates, for filtering large
+# snippet lists where running the Perl gate per row would not scale to a million rows. Returns
+# ($where_sql, \@binds) over the "s"/"lp" aliases above. Deliberately ignores $cfg->{enabled}: the
+# filter answers "would this fold/clear at the current thresholds", so reviewers can audit even when
+# the feature is toggled off. The drift guard in t/snippets.t asserts it agrees with the Perl gates
+# run with enabled forced on. $kind is 'fold' or 'clear'; 'clear' excludes 'fold' so the two
+# partition the resolved set exactly like the report (fold wins).
+sub snippet_resolution_sql ($cfg, $kind) {
+  my ($fold_sql, $fold_binds) = _fold_sql($cfg);
+  return ("($fold_sql)", [@$fold_binds]) if $kind eq 'fold';
+
+  if ($kind eq 'clear') {
+    return ('false', []) unless $cfg->{clear_threshold};    # clearing not configured -> matches nothing
+    my $sql = "s.classified AND s.license AND s.score_version = ? AND s.likelyness >= ? "
+      . "AND lp.license <> '' AND NOT ($fold_sql)";
+    return ("($sql)", [SNIPPET_SCORE_VERSION, $cfg->{clear_threshold}, @$fold_binds]);
+  }
+
+  return (undef, []);
+}
+
 sub unclassified ($self, $options) {
   my $db = $self->pg->db;
 
@@ -117,15 +156,40 @@ sub unclassified ($self, $options) {
     $legal = 'AND license = FALSE';
   }
 
-  my $snippets = $db->query(
-    "SELECT s.*, bp.embargoed, COUNT(*) OVER() AS total
-     FROM snippets s LEFT JOIN bot_packages bp ON (bp.id = s.package)
-     WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe ORDER BY s.id DESC LIMIT 10"
-  )->hashes;
+  # Resolution filter: "would fold / would clear at the current thresholds" (ignores the enabled
+  # flag, see snippet_resolution_sql). Needs the license_patterns join below for the risk gate.
+  my $resolution = '';
+  my @binds;
+  if (($options->{resolution} // 'any') =~ /^(fold|clear)$/) {
+    my ($sql, $rbinds) = snippet_resolution_sql($self->snippet_fold, $1);
+    if (defined $sql) {
+      $resolution = "AND $sql";
+      push @binds, @$rbinds;
+    }
+  }
 
-  my $total = 0;
+  # Full-text (lexeme) search over snippet bodies; expression matches the GIN index exactly.
+  my $search = '';
+  if (defined $options->{search} && $options->{search} ne '') {
+    $search = "AND to_tsvector('english', s.text) @@ websearch_to_tsquery('english', ?)";
+    push @binds, $options->{search};
+  }
+
+  # Keyset pagination with no exact total: fetch one extra row to learn whether a next page exists
+  # (COUNT(*) OVER() scanned the whole filtered set on every page and does not scale to 1M snippets).
+  my $snippets = $db->query(
+    "SELECT s.*, bp.embargoed
+     FROM snippets s
+       LEFT JOIN bot_packages bp ON (bp.id = s.package)
+       LEFT JOIN license_patterns lp ON (lp.id = s.like_pattern)
+     WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe $resolution $search
+     ORDER BY s.id DESC LIMIT 11", @binds
+  )->hashes->to_array;
+
+  my $has_more = @$snippets > 10 ? 1 : 0;
+  splice @$snippets, 10 if $has_more;
+
   for my $snippet (@$snippets) {
-    $total = delete $snippet->{total};
     $snippet->{likelyness} = int($snippet->{likelyness} * 100);
     my $files = $db->query(
       'SELECT fs.sline, mf.filename, mf.package AS filepackage
@@ -142,7 +206,7 @@ sub unclassified ($self, $options) {
     $snippet->{risk}         = $license->{risk};
   }
 
-  return {total => $total, snippets => $snippets->to_array};
+  return {has_more => $has_more, snippets => $snippets};
 }
 
 sub mark_non_license ($self, $id) {

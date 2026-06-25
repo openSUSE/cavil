@@ -675,23 +675,26 @@ sub recent ($self, $options) {
     $timeframe = "AND lp.created > NOW() - INTERVAL '$interval'";
   }
 
+  # Keyset pagination with no exact total: fetch one extra row to learn whether a next page exists,
+  # instead of a COUNT(*) OVER() that scans the whole filtered set on every page.
   my $patterns = $db->query(
     "SELECT lp.*, bu1.login AS owner_login, bu2.login AS contributor_login,
-       EXTRACT(EPOCH FROM created) AS created_epoch, COUNT(*) OVER() AS total
+       EXTRACT(EPOCH FROM created) AS created_epoch
      FROM license_patterns lp LEFT JOIN bot_users bu1 ON (bu1.id = lp.owner)
        LEFT JOIN bot_users bu2 ON (bu2.id = lp.contributor)
-     WHERE lp.id > 0 $before $contributor $timeframe ORDER BY lp.id DESC LIMIT 10"
-  )->hashes;
+     WHERE lp.id > 0 $before $contributor $timeframe ORDER BY lp.id DESC LIMIT 11"
+  )->hashes->to_array;
 
-  my $total = 0;
+  my $has_more = @$patterns > 10 ? 1 : 0;
+  splice @$patterns, 10 if $has_more;
+
   for my $pattern (@$patterns) {
-    $total = delete $pattern->{total};
     my $count = $self->match_count($pattern->{id});
     $pattern->{matches}  = $count->{matches};
     $pattern->{packages} = $count->{packages};
   }
 
-  return {total => $total, patterns => $patterns->to_array};
+  return {has_more => $has_more, patterns => $patterns};
 }
 
 sub remove ($self, $id) {

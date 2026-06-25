@@ -255,6 +255,42 @@ sub snippet_clear_fixtures ($self, $app) {
   $app->minion->perform_jobs;
 }
 
+# Synthetic fixture for the Classify Snippets triage UI test: a controlled mix of snippets with known
+# fold/clear status and distinct, searchable text - 12 would-fold (wide margin, one of them a
+# Non-Commercial stemming case), 1 would-clear (zero margin), 1 neither (low similarity). Requires the
+# app to be built with snippet_fold thresholds (and clear_threshold) set.
+sub snippet_triage_fixtures ($self, $app) {
+  $self->package_with_snippets_fixtures($app);
+  my $db   = $app->pg->db;
+  my $fold = $app->patterns->create(pattern => 'a folded triage marker for ui', license => 'Triage-Fold', risk => 3);
+
+  my $n      = 0;
+  my $insert = sub (%o) {
+    $n++;
+    $db->insert(
+      'snippets',
+      {
+        hash          => "ui-triage-$n",
+        text          => $o{text},
+        package       => 1,
+        classified    => 1,
+        license       => 1,
+        approved      => 0,
+        confidence    => 100,
+        likelyness    => $o{likelyness},
+        second_match  => $o{second_match} // 0,
+        score_version => SNIPPET_SCORE_VERSION,
+        like_pattern  => $fold->{id}
+      }
+    );
+  };
+
+  $insert->(likelyness => 0.99, second_match => 0.5,  text => "fold marker body number $_ with GPL terms") for 1 .. 11;
+  $insert->(likelyness => 0.99, second_match => 0.5,  text => 'fold marker Non-Commercial use clause body');
+  $insert->(likelyness => 0.99, second_match => 0.99, text => 'cleared boilerplate definitions body');
+  $insert->(likelyness => 0.40, second_match => 0.0,  text => 'unresolved random noise body');
+}
+
 sub postgres_url ($self) {
   return Mojo::URL->new($self->{options}{online})
     ->query([search_path => [$self->{options}{schema}, 'public']])

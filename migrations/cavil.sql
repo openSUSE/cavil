@@ -339,3 +339,7 @@ ALTER TABLE ignored_files ADD COLUMN contributor int REFERENCES bot_users(id);
 -- 42 up
 ALTER TABLE snippets ADD COLUMN second_match real NOT NULL DEFAULT 0;
 ALTER TABLE snippets ADD COLUMN score_version int NOT NULL DEFAULT 0;
+
+-- 43 up
+CREATE INDEX snippets_fold_idx ON snippets (score_version, likelyness) WHERE classified AND license;
+CREATE INDEX snippets_text_fts_idx ON snippets USING gin (to_tsvector('english', text));

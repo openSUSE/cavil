@@ -30,6 +30,18 @@
         <div class="stats-description">Embargoed Packages</div>
       </div>
     </div>
+    <div class="col-md-2">
+      <div class="stats">
+        <div class="stats-body">{{ totalSnippets }}</div>
+        <div class="stats-description">Snippets</div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="stats">
+        <div class="stats-body">{{ totalLicensePatterns }}</div>
+        <div class="stats-description">License Patterns</div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -47,7 +59,9 @@ export default {
       openReviews: 0,
       refreshDelay: 120000,
       refreshUrl: '/stats/meta',
-      rejectedPackages: 0
+      rejectedPackages: 0,
+      totalSnippets: 0,
+      totalLicensePatterns: 0
     };
   },
   methods: {
@@ -57,6 +71,8 @@ export default {
       this.openReviews = data.open_reviews;
       this.manualReviews = data.manual_reviews;
       this.rejectedPackages = data.rejected_packages;
+      this.totalSnippets = data.total_snippets;
+      this.totalLicensePatterns = data.total_license_patterns;
     }
   }
 };

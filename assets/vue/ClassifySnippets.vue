@@ -89,11 +89,39 @@
               </div>
             </div>
           </div>
+          <div class="row g-4 mt-1">
+            <div class="col-lg-2">
+              <div class="form-floating">
+                <select
+                  v-model="params.resolution"
+                  @change="refreshPage()"
+                  class="form-control cavil-snippet-resolution"
+                >
+                  <option value="any">Any</option>
+                  <option value="fold">Folded</option>
+                  <option value="clear">Cleared</option>
+                </select>
+                <label class="form-label">Resolution</label>
+              </div>
+            </div>
+            <div class="col">
+              <div class="form-floating">
+                <input
+                  v-model="params.search"
+                  @input="onSearchInput"
+                  type="text"
+                  class="form-control cavil-snippet-search"
+                  id="snippet-search"
+                  placeholder="Search snippet text"
+                />
+                <label class="form-label" for="snippet-search">Search text</label>
+              </div>
+            </div>
+          </div>
         </form>
       </div>
       <div class="col-3">
-        <p v-if="total !== null" class="text-end">{{ total }} snippets found</p>
-        <p v-else class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading snippets</p>
+        <p v-if="snippets === null" class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading snippets</p>
       </div>
     </div>
     <div v-if="snippets !== null && snippets.length > 0">
@@ -161,6 +189,9 @@
       </div>
       <BackToTop />
     </div>
+    <div v-else-if="snippets !== null" class="row mt-3">
+      <p class="text-muted" id="snippets-empty">No snippets match these filters.</p>
+    </div>
   </div>
 </template>
 
@@ -180,14 +211,16 @@ export default {
       isApproved: false,
       isLegal: true,
       notLegal: true,
-      timeframe: 'any'
+      timeframe: 'any',
+      resolution: 'any',
+      search: ''
     });
 
     return {
       params: {...params, before: 0},
       snippets: null,
       snippetUrl: '/snippets/meta',
-      total: null,
+      hasMore: false,
       loadingMore: false
     };
   },
@@ -214,7 +247,7 @@ export default {
       const data = await res.json();
 
       const snippets = data.snippets;
-      if (this.total === null || this.total < data.total) this.total = data.total;
+      this.hasMore = data.hasMore === true;
 
       for (const snippet of snippets) {
         snippet.buttonPressed = null;
@@ -253,7 +286,7 @@ export default {
     },
     async loadMore() {
       if (this.loadingMore) return;
-      if (this.snippets !== null && this.total !== null && this.snippets.length >= this.total) return;
+      if (!this.hasMore) return;
       this.loadingMore = true;
       try {
         await this.getSnippets();
@@ -261,14 +294,29 @@ export default {
         this.loadingMore = false;
       }
     },
+    onSearchInput() {
+      clearTimeout(this._searchTimer);
+      this._searchTimer = setTimeout(() => this.refreshPage(), 300);
+    },
     refreshPage() {
-      this.total = null;
+      this.hasMore = false;
       this.snippets = null;
       this.params.before = 0;
       this.getSnippets();
     }
   },
-  watch: {...genParamWatchers('isClassified', 'isApproved', 'isLegal', 'notLegal', 'confidence', 'timeframe')}
+  watch: {
+    ...genParamWatchers(
+      'isClassified',
+      'isApproved',
+      'isLegal',
+      'notLegal',
+      'confidence',
+      'timeframe',
+      'resolution',
+      'search'
+    )
+  }
 };
 </script>
 

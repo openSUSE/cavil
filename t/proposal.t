@@ -371,37 +371,40 @@ subtest 'Pattern creation' => sub {
       ->json_like('/patterns/2/pattern', qr/Permission is granted to copy, distribute and/)
       ->json_is('/patterns/2/owner_login',       undef)
       ->json_is('/patterns/2/contributor_login', undef)
-      ->json_is('/total',                        6);
+      ->json_is('/hasMore',                      false);
 
-    $t->get_ok('/licenses/recent/meta?before=3')->status_is(200)->json_is('/patterns/0/id', 2)->json_is('/total', 2);
+    $t->get_ok('/licenses/recent/meta?before=3')
+      ->status_is(200)
+      ->json_is('/patterns/0/id', 2)
+      ->json_is('/hasMore',       false);
 
     subtest 'Timeframe' => sub {
       $t->get_ok('/licenses/recent/meta?before=3&timeframe=any')
         ->status_is(200)
         ->json_is('/patterns/0/id', 2)
-        ->json_is('/total',         2);
+        ->json_is('/hasMore',       false);
       $t->get_ok('/licenses/recent/meta?before=3&timeframe=hour')
         ->status_is(200)
         ->json_is('/patterns/0/id', 2)
-        ->json_is('/total',         2);
+        ->json_is('/hasMore',       false);
       $t->app->pg->db->query("UPDATE license_patterns SET created = NOW() - INTERVAL '2 weeks' WHERE id = 2");
       $t->get_ok('/licenses/recent/meta?before=3&timeframe=hour')
         ->status_is(200)
         ->json_is('/patterns/0/id', 1)
-        ->json_is('/total',         1);
+        ->json_is('/hasMore',       false);
     };
 
     subtest 'Contributor' => sub {
       $t->get_ok('/licenses/recent/meta?before=3&hasContributor=false')
         ->status_is(200)
         ->json_is('/patterns/0/id', 2)
-        ->json_is('/total',         2);
-      $t->get_ok('/licenses/recent/meta?before=3&hasContributor=true')->status_is(200)->json_is('/total', 0);
+        ->json_is('/hasMore',       false);
+      $t->get_ok('/licenses/recent/meta?before=3&hasContributor=true')->status_is(200)->json_is('/hasMore', false);
       $t->app->pg->db->query("UPDATE license_patterns SET owner = 2, contributor = 2 WHERE id = 2");
       $t->get_ok('/licenses/recent/meta?before=3&hasContributor=true')
         ->status_is(200)
         ->json_is('/patterns/0/id', 2)
-        ->json_is('/total',         1);
+        ->json_is('/hasMore',       false);
     };
   };
 };

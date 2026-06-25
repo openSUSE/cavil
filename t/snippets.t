@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -21,6 +21,9 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Cavil::Util       qw(SNIPPET_SCORE_VERSION);
+use Cavil::ReportUtil qw(should_fold_snippet should_clear_boilerplate);
+use Cavil::Model::Snippets;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -53,6 +56,152 @@ subtest 'Unpack and index with the job queue' => sub {
       }
     ]
   );
+};
+
+subtest 'resolution + text-search filters and keyset pagination' => sub {
+  my $config = {
+    %{$cavil_test->default_config},
+    snippet_fold => {enabled => 0, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0.95}
+  };
+  my $app = Test::Mojo->new(Cavil => $config)->app;
+  my $db  = $app->pg->db;
+
+  my $fold_pat = $app->patterns->create(pattern => 'a folded triage marker',    license => 'Triage-Fold', risk => 3);
+  my $hirisk   = $app->patterns->create(pattern => 'a high risk triage marker', license => 'Triage-Risk', risk => 9);
+
+  my $n    = 0;
+  my $snip = sub (%o) {
+    $n++;
+    return $db->insert(
+      'snippets',
+      {
+        hash          => "triage-$n-" . ($o{hash} // $n),
+        text          => $o{text} // "snippet $n body text",
+        package       => 1,
+        classified    => $o{classified} // 1,
+        license       => $o{license}    // 1,
+        approved      => 0,
+        confidence    => 100,
+        likelyness    => $o{likelyness}    // 0,
+        second_match  => $o{second_match}  // 0,
+        score_version => $o{score_version} // SNIPPET_SCORE_VERSION,
+        like_pattern  => $o{like_pattern}  // $fold_pat->{id}
+      },
+      {returning => 'id'}
+    )->hash->{id};
+  };
+
+  # 12 fold-eligible (high score, wide margin) so we can exercise pagination, plus one clear-only
+  # (zero margin), one high-risk (fold blocked by max_risk -> clears), and one that resolves to neither.
+  my @fold_ids   = map { $snip->(likelyness => 0.99, second_match => 0.5, text => "fold marker body $_") } 1 .. 12;
+  my $clear_id   = $snip->(likelyness => 0.99, second_match => 0.99, text => 'clear boilerplate body');
+  my $neither_id = $snip->(likelyness => 0.50, second_match => 0.0,  text => 'unresolved noise body');
+
+  my %base = (
+    before        => 0,
+    confidence    => 100,
+    is_classified => 'true',
+    is_approved   => 'false',
+    is_legal      => 'true',
+    not_legal     => 'true',
+    timeframe     => 'any',
+    resolution    => 'any',
+    search        => ''
+  );
+
+  subtest 'folded filter + keyset pagination (no total)' => sub {
+    my $page1 = $app->snippets->unclassified({%base, resolution => 'fold'});
+    is scalar(@{$page1->{snippets}}), 10, 'first page caps at 10';
+    ok $page1->{has_more},      'has_more is true when a page is full with more behind it';
+    ok !exists $page1->{total}, 'no exact total is computed';
+
+    my $before = $page1->{snippets}[-1]{id};
+    my $page2  = $app->snippets->unclassified({%base, resolution => 'fold', before => $before});
+    is scalar(@{$page2->{snippets}}), 2, 'second page returns the remaining folded rows';
+    ok !$page2->{has_more}, 'has_more is false on the last page';
+
+    my %ids = map { $_->{id} => 1 } @{$page1->{snippets}}, @{$page2->{snippets}};
+    is_deeply [sort { $a <=> $b } keys %ids], [sort { $a <=> $b } @fold_ids], 'exactly the folded rows, only';
+  };
+
+  subtest 'cleared filter excludes folded, picks up zero-margin + risk-blocked' => sub {
+    my $cleared = $app->snippets->unclassified({%base, resolution => 'clear'});
+    my %ids     = map { $_->{id} => 1 } @{$cleared->{snippets}};
+    ok $ids{$clear_id},     'zero-margin boilerplate clears';
+    ok !$ids{$fold_ids[0]}, 'a folded row does not also appear under cleared';
+    ok !$ids{$neither_id},  'low-similarity noise is neither folded nor cleared';
+  };
+
+  subtest 'full-text search narrows by lexeme' => sub {
+    my $hits = $app->snippets->unclassified({%base, search => 'boilerplate'});
+    my %ids  = map { $_->{id} => 1 } @{$hits->{snippets}};
+    ok $ids{$clear_id},     'search matches the snippet containing the term';
+    ok !$ids{$fold_ids[0]}, 'snippets without the term are excluded';
+
+    my $none = $app->snippets->unclassified({%base, search => 'zzzdefinitelynotpresent'});
+    is scalar(@{$none->{snippets}}), 0, 'a no-match term returns nothing';
+  };
+
+  subtest 'fold + search compose (the proactive-audit path)' => sub {
+    my $hits = $app->snippets->unclassified({%base, resolution => 'fold', search => 'marker'});
+    ok scalar(@{$hits->{snippets}}) > 0,                       'folded rows containing the term are returned';
+    ok !(grep { $_->{id} == $clear_id } @{$hits->{snippets}}), 'the cleared row is excluded by the fold filter';
+  };
+
+  subtest 'snippet_resolution_sql contract' => sub {
+    my $cfg = {enabled => 0, threshold => 0.95, min_margin => 0.15, max_risk => 5, clear_threshold => 0.97};
+
+    my ($fold_sql, $fold_binds) = Cavil::Model::Snippets::snippet_resolution_sql($cfg, 'fold');
+    like $fold_sql, qr/s\.likelyness >= \?/, 'fold predicate references the threshold';
+    like $fold_sql, qr/lp\.risk <= \?/,      'fold predicate includes the risk gate';
+    is_deeply $fold_binds, [SNIPPET_SCORE_VERSION, 0.95, 0.15, 5], 'fold binds in placeholder order';
+
+    # The filter is "would fold at current thresholds" - enabling/disabling must not change it
+    my ($enabled_sql) = Cavil::Model::Snippets::snippet_resolution_sql({%$cfg, enabled => 1}, 'fold');
+    is $enabled_sql, $fold_sql, 'fold predicate ignores the enabled flag';
+
+    my ($clear_sql, $clear_binds) = Cavil::Model::Snippets::snippet_resolution_sql($cfg, 'clear');
+    like $clear_sql, qr/NOT \(/, 'clear excludes the fold set (fold wins)';
+    is $clear_binds->[1], 0.97, 'clear uses clear_threshold';
+
+    my ($off_sql) = Cavil::Model::Snippets::snippet_resolution_sql({%$cfg, clear_threshold => 0}, 'clear');
+    is $off_sql, 'false', 'clear matches nothing when clear_threshold is unset';
+
+    my ($no_risk_sql, $no_risk_binds)
+      = Cavil::Model::Snippets::snippet_resolution_sql({%$cfg, max_risk => undef}, 'fold');
+    unlike $no_risk_sql, qr/lp\.risk/, 'no risk gate when max_risk is undefined';
+    is scalar(@$no_risk_binds), 3, 'one fewer bind without the risk gate';
+  };
+
+  subtest 'SQL filter matches the Perl gate (drift guard)' => sub {
+    my $cfg = $config->{snippet_fold};
+    my $all = $db->query(
+      'SELECT s.*, lp.license AS plicense, lp.risk AS prisk
+         FROM snippets s LEFT JOIN license_patterns lp ON lp.id = s.like_pattern'
+    )->hashes;
+
+    for my $kind (qw(fold clear)) {
+
+      # Expected set from the Perl gate, with enabled forced on (the SQL deliberately ignores enabled)
+      my %expect;
+      for my $s (@$all) {
+        my $cfg_on  = {%$cfg, enabled => 1};
+        my $pattern = {license => $s->{plicense}, risk => $s->{prisk}};
+        my $fold    = should_fold_snippet($cfg_on, $s, $pattern);
+        my $ok      = $kind eq 'fold' ? $fold : (should_clear_boilerplate($cfg_on, $s, $pattern) && !$fold);
+        $expect{$s->{id}} = 1 if $ok;
+      }
+
+      my ($sql, $binds) = Cavil::Model::Snippets::snippet_resolution_sql($cfg, $kind);
+      my $rows
+        = $db->query("SELECT s.id FROM snippets s LEFT JOIN license_patterns lp ON lp.id = s.like_pattern WHERE $sql",
+        @$binds)->hashes;
+      my %got = map { $_->{id} => 1 } @$rows;
+
+      is_deeply [sort { $a <=> $b } keys %got], [sort { $a <=> $b } keys %expect],
+        "$kind SQL predicate selects exactly what the Perl gate accepts";
+    }
+  };
 };
 
 done_testing();

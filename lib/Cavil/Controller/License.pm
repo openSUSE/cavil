@@ -163,7 +163,7 @@ sub recent_meta ($self) {
   my $recent
     = $self->patterns->recent({before => $before, has_contributor => $has_contributor, timeframe => $timeframe});
 
-  $self->render(json => {patterns => $recent->{patterns}, total => $recent->{total}});
+  $self->render(json => {patterns => $recent->{patterns}, hasMore => $recent->{has_more} ? \1 : \0});
 }
 
 # AJAX route

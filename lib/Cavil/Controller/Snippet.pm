@@ -175,6 +175,8 @@ sub list_meta ($self) {
   $v->optional('confidence')->num(0, 100);
   $v->optional('timeframe')->in('any', 'year', 'month', 'week', 'day', 'hour');
   $v->optional('before')->num;
+  $v->optional('resolution')->in('any', 'fold', 'clear');
+  $v->optional('search');    # free text, used only as a bound parameter; empty means "no search"
   return $self->reply->json_validation_error if $v->has_error;
   my $is_classified = $v->param('isClassified') // 'true';
   my $is_approved   = $v->param('isApproved')   // 'false';
@@ -183,6 +185,8 @@ sub list_meta ($self) {
   my $confidence    = $v->param('confidence')   // 100;
   my $timeframe     = $v->param('timeframe')    // 'any';
   my $before        = $v->param('before')       // 0;
+  my $resolution    = $v->param('resolution')   // 'any';
+  my $search        = $v->param('search')       // '';
 
   my $unclassified = $self->snippets->unclassified(
     {
@@ -192,7 +196,9 @@ sub list_meta ($self) {
       is_approved   => $is_approved,
       is_legal      => $is_legal,
       not_legal     => $not_legal,
-      timeframe     => $timeframe
+      timeframe     => $timeframe,
+      resolution    => $resolution,
+      search        => $search
     }
   );
 
@@ -201,7 +207,7 @@ sub list_meta ($self) {
     $snippet->{$_} = $snippet->{$_} ? true : false for qw(embargoed license classified approved);
   }
 
-  $self->render(json => {snippets => $snippets, total => $unclassified->{total}});
+  $self->render(json => {snippets => $snippets, hasMore => $unclassified->{has_more} ? true : false});
 }
 
 sub meta ($self) {
