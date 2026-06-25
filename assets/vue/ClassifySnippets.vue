@@ -133,7 +133,7 @@
             <a v-if="snippet.filename !== null" :href="snippet.fileUrl" target="_blank">{{ snippet.filename }}</a>
             <a v-else>Unknown file</a>
             <span v-if="snippet.files === 2">, and 1 other file</span>
-            <span v-else-if="snippet.files > 2">, and {{ snippet.files }} other files</span>
+            <span v-else-if="snippet.files > 2">, and {{ snippet.files - 1 }} other files</span>
             <div class="float-end">
               <i v-if="snippet.embargoed === true" class="fa-solid fa-lock" title="Embargoed"></i>
               <i v-if="snippet.approved === true" class="fa-solid fa-circle-check ms-2" title="Approved by a human"></i>
@@ -200,6 +200,7 @@
 <script>
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
+import {fileViewUrl} from './helpers/links.js';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 
@@ -253,7 +254,7 @@ export default {
 
       for (const snippet of snippets) {
         snippet.buttonPressed = null;
-        snippet.fileUrl = `/reviews/file_view/${snippet.filepackage}/${snippet.filename}`;
+        snippet.fileUrl = snippet.filename == null ? null : fileViewUrl(snippet.filepackage, snippet.filename);
         snippet.editUrl = `/snippet/edit/${snippet.id}`;
         let num = snippet.sline ?? 1;
         const lines = [];

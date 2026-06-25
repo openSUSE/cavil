@@ -171,11 +171,13 @@ sub unclassified ($self, $options) {
   }
 
   # Resolution filter: read the stored decision (file_snippets.resolution) - no logic here, so it
-  # cannot drift from resolve_snippets. "Cleared" covers both clearing mechanisms.
+  # cannot drift from resolve_snippets. "Cleared" covers both clearing mechanisms. The matching kinds
+  # are reused below to pin the linked occurrence to one that actually has that resolution.
   my $resolution = '';
   my @binds;
+  my @kinds;
   if (($options->{resolution} // 'any') =~ /^(fold|clear)$/) {
-    my @kinds        = $1 eq 'clear' ? ('clear', 'overlap') : ('fold');
+    @kinds = $1 eq 'clear' ? ('clear', 'overlap') : ('fold');
     my $placeholders = join ', ', ('?') x @kinds;
     $resolution
       = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IN ($placeholders))";
@@ -202,15 +204,21 @@ sub unclassified ($self, $options) {
   my $has_more = @$snippets > 10 ? 1 : 0;
   splice @$snippets, 10 if $has_more;
 
+  # When a resolution filter is active, restrict the occurrence we link to (and count) to occurrences
+  # that actually carry that resolution - a shared snippet can be folded in one file and unresolved in
+  # another, so the generic "most recent occurrence" could otherwise send reviewers to the wrong file.
+  my $match = @kinds ? 'AND fs.resolution IN (' . join(', ', ('?') x @kinds) . ')' : '';
+
   for my $snippet (@$snippets) {
     $snippet->{likelyness} = int($snippet->{likelyness} * 100);
-    my $files = $db->query(
-      'SELECT fs.sline, mf.filename, mf.package AS filepackage
+    $snippet->{files}
+      = $db->query("SELECT count(*) AS n FROM file_snippets fs WHERE fs.snippet = ? $match", $snippet->{id}, @kinds)
+      ->hash->{n};
+    my $file = $db->query(
+      "SELECT fs.sline, mf.filename, mf.package AS filepackage
        FROM file_snippets fs JOIN matched_files mf ON (fs.file = mf.id)
-       WHERE fs.snippet = ? ORDER BY fs.id DESC LIMIT 1', $snippet->{id}
-    )->hashes;
-    $snippet->{files} = $files->size;
-    my $file = $files->[0] || {};
+       WHERE fs.snippet = ? $match ORDER BY fs.id DESC LIMIT 1", $snippet->{id}, @kinds
+    )->hash // {};
     $snippet->{$_} = $file->{$_} for qw(filename sline filepackage);
 
     my $license = $db->query('SELECT license, risk FROM license_patterns WHERE id = ? AND license != ?',

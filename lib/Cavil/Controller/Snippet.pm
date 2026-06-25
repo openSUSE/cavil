@@ -34,6 +34,13 @@ sub approve ($self) {
   my $user = $self->session('user');
   $self->app->log->info(qq{Snippet $id approved by $user (License: $license))});
 
+  # The stored fold/clear/overlap resolution is derived from the snippet's license, so a manual
+  # approval has to refresh it. Re-analyze every package this snippet appears in (mirrors the
+  # automatic classify task) - analyze recomputes the resolution and the cached report.
+  my $pkgs = $self->packages;
+  $pkgs->analyze($_->{package})
+    for $self->pg->db->query('SELECT DISTINCT package FROM file_snippets WHERE snippet = ?', $id)->hashes->each;
+
   $self->render(json => {message => 'ok'});
 }
 

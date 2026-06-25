@@ -144,6 +144,49 @@ subtest 'resolution + text-search filters and keyset pagination' => sub {
     ok scalar(@{$hits->{snippets}}) > 0,                       'folded rows containing the term are returned';
     ok !(grep { $_->{id} == $clear_id } @{$hits->{snippets}}), 'the cleared row is excluded by the fold filter';
   };
+
+  # Resolution is per occurrence: the same snippet can be folded in one file and unresolved in another.
+  # Under a resolution filter the linked occurrence (and the count) must reflect the matching file, not
+  # just the most recent occurrence.
+  subtest 'resolution filter links to a matching occurrence' => sub {
+    my $other = $db->insert(
+      'matched_files',
+      {package   => 1, filename => 'dir/other file#1.txt', mimetype => 'text/plain'},
+      {returning => 'id'}
+    )->hash->{id};
+    my $sid = $db->insert(
+      'snippets',
+      {
+        hash          => 'per-occ',
+        text          => 'shared per-occurrence body',
+        package       => 1,
+        classified    => 1,
+        license       => 1,
+        approved      => 0,
+        confidence    => 100,
+        likelyness    => 0,
+        second_match  => 0,
+        score_version => SNIPPET_SCORE_VERSION
+      },
+      {returning => 'id'}
+    )->hash->{id};
+
+    # Folded only in the original file ($mf); unresolved in the newer occurrence ($other).
+    $db->insert('file_snippets',
+      {package => 1, file => $mf, snippet => $sid, sline => 7, eline => 9, resolution => 'fold'});
+    $db->insert('file_snippets',
+      {package => 1, file => $other, snippet => $sid, sline => 1, eline => 3, resolution => undef});
+
+    my ($row) = grep { $_->{id} == $sid } @{$app->snippets->unclassified({%base, resolution => 'fold'})->{snippets}};
+    ok $row, 'the snippet appears under the Folded filter';
+    my $folded_name = $db->select('matched_files', 'filename', {id => $mf})->hash->{filename};
+    is $row->{filename}, $folded_name, 'links to the folded occurrence, not the most recent (unresolved) one';
+    is $row->{sline},    7,            'with the folded occurrence line';
+    is $row->{files},    1,            'and counts only the matching (folded) occurrence';
+
+    my ($any) = grep { $_->{id} == $sid } @{$app->snippets->unclassified({%base})->{snippets}};
+    is $any->{files}, 2, 'the unfiltered view counts every occurrence';
+  };
 };
 
 done_testing();

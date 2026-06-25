@@ -75,6 +75,7 @@
 
 <script>
 import FileSource from './components/FileSource.vue';
+import {encodePath, fileViewUrl} from './helpers/links.js';
 
 export default {
   name: 'FileBrowser',
@@ -98,20 +99,11 @@ export default {
     window.removeEventListener('popstate', this.onPopState);
   },
   methods: {
-    encodePath(path) {
-      return path
-        .split('/')
-        .filter(part => part.length > 0)
-        .map(part => encodeURIComponent(part))
-        .join('/');
-    },
     metaUrl(path) {
-      const encoded = this.encodePath(path);
-      return `/reviews/file_view_meta/${this.pkgId}/${encoded}`;
+      return `/reviews/file_view_meta/${this.pkgId}/${encodePath(path)}`;
     },
     viewUrl(path) {
-      const encoded = this.encodePath(path);
-      return `/reviews/file_view/${this.pkgId}/${encoded}`;
+      return fileViewUrl(this.pkgId, path);
     },
     async fetchPath(path, options = {}) {
       this.loading = true;

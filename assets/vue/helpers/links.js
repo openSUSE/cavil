@@ -12,6 +12,18 @@ const tooltip = `
 </a>
 `;
 
+export function encodePath(path) {
+  return path
+    .split('/')
+    .filter(part => part.length > 0)
+    .map(part => encodeURIComponent(part))
+    .join('/');
+}
+
+export function fileViewUrl(pkgId, path) {
+  return `/reviews/file_view/${pkgId}/${encodePath(path)}`;
+}
+
 export function externalLink(review) {
   const link = review.external_link;
 

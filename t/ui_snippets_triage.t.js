@@ -41,6 +41,18 @@ t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t
       t.equal(await rowsWith('unresolved random noise'), 0, 'unresolved rows are hidden');
     });
 
+    await t.test('file links percent-encode reserved characters in the path', async t => {
+      await open();
+      await setResolution('fold');
+      await waitForRow('fold marker');
+      const href = await page.locator('.snippet-file a').first().getAttribute('href');
+      t.equal(
+        href,
+        '/reviews/file_view/1/sub%20dir/ui%20triage%231.txt',
+        'each path segment is encoded (spaces and # do not break the link)'
+      );
+    });
+
     await t.test('cleared filter shows only would-clear snippets', async t => {
       await open();
       await setResolution('clear');

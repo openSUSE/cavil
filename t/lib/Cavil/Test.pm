@@ -297,9 +297,10 @@ sub snippet_triage_fixtures ($self, $app) {
 
   # A file to anchor the occurrences; the triage filter reads file_snippets.resolution (one row per
   # occurrence), so every snippet needs an occurrence whose resolution resolve_snippets computes below.
+  # Reserved characters in the path exercise URL encoding of file links on the Snippets page.
   my $file = $db->insert(
     'matched_files',
-    {package   => 1, filename => 'ui-triage.txt', mimetype => 'text/plain'},
+    {package   => 1, filename => 'sub dir/ui triage#1.txt', mimetype => 'text/plain'},
     {returning => 'id'}
   )->hash->{id};
 
