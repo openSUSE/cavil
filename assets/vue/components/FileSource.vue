@@ -467,17 +467,14 @@ export default {
 .snippet td.code {
   position: relative;
 }
-/* Derived resolutions use a gutter cue (and cleared text is muted) so reviewers can tell a
-   similarity-folded license / cleared boilerplate region from a curated pattern match at a glance. */
+/* Derived resolutions (similarity-folded license / cleared boilerplate) are marked only by a soft
+   right border on the gutter - no fill, no muted body text, normal-weight gutter numbers. The
+   hairline alone reads as "not quite a curated match" while keeping the source fully legible (low eye
+   strain). */
 .snippet tr.folded td.linenumber,
 .snippet tr.cleared td.linenumber {
-  background-color: #f6f8fa;
   box-shadow: inset -1px 0 0 #d0d7de;
-  color: #57606a;
-}
-.snippet tr.cleared td.code {
-  color: #6e7781;
-  font-style: italic;
+  color: rgba(27, 31, 35, 0.3);
 }
 .snippet td.code .correct-btn {
   left: auto;
