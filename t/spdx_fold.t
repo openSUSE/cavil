@@ -47,6 +47,7 @@ subtest 'a folded snippet contributes its license to the SPDX report' => sub {
     'UPDATE snippets SET classified = TRUE, license = TRUE, like_pattern = ?, likelyness = 0.99, second_match = 0,
        score_version = ? WHERE id = (SELECT min(id) FROM snippets)', $pattern->{id}, SNIPPET_SCORE_VERSION
   )->rows, 1, 'one snippet set up to fold';
+  $app->snippets->resolve_snippets(1);    # refresh the stored resolution the SPDX report now reads
 
   $t->get_ok('/spdx/1')->status_is(408);
   $app->minion->perform_jobs;
@@ -80,6 +81,7 @@ subtest 'a cleared boilerplate snippet asserts no license in the SPDX report' =>
     'UPDATE snippets SET classified = TRUE, license = TRUE, like_pattern = ?, likelyness = 0.99, second_match = 0.99,
        score_version = ? WHERE id = (SELECT min(id) FROM snippets)', $p->{id}, SNIPPET_SCORE_VERSION
   );
+  $a->snippets->resolve_snippets(1);
 
   $tt->get_ok('/spdx/1')->status_is(408);
   $a->minion->perform_jobs;
@@ -119,6 +121,7 @@ subtest 'an overlap-cleared snippet asserts nothing; the overlapping match still
   $d->insert('pattern_matches',
     {package => 1, file => $_->{file}, pattern => $p->{id}, sline => $_->{sline}, eline => $_->{sline}, ignored => 0})
     for $d->query('SELECT file, sline FROM file_snippets WHERE package = 1')->hashes->each;
+  $a->snippets->resolve_snippets(1);
 
   $tt->get_ok('/spdx/1')->status_is(408);
   $a->minion->perform_jobs;

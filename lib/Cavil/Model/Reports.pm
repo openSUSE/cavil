@@ -8,10 +8,9 @@ use Mojo::File 'path';
 use Mojo::JSON qw(from_json to_json);
 use Spooky::Patterns::XS;
 use Cavil::Checkout;
-use Cavil::Licenses qw(lic);
-use Cavil::ReportUtil
-  qw(estimated_risk incompatible_licenses overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
-use Cavil::Util qw(lines_context);
+use Cavil::Licenses   qw(lic);
+use Cavil::ReportUtil qw(estimated_risk incompatible_licenses);
+use Cavil::Util       qw(lines_context);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
@@ -325,9 +324,9 @@ sub _dig_report {
   my $snippets = $db->select(
     ['snippets', ['file_snippets', snippet => 'id']],
     [
-      'snippets.id',           'snippets.hash',          'snippets.likelyness', 'snippets.like_pattern',
-      'snippets.second_match', 'snippets.score_version', 'file',                'sline',
-      'eline',                 'classified',             'license'
+      'snippets.id', 'snippets.hash', 'snippets.likelyness', 'snippets.like_pattern',
+      'file',        'sline',         'eline',               'classified',
+      'license',     'resolution'
     ],
     $query
   );
@@ -343,25 +342,13 @@ sub _dig_report {
       || $a->{sline} <=> $b->{sline}
   } $snippets->hashes->each;
 
-  # Per-file line spans of non-ignored *licensed* matches, so a snippet whose region overlaps one can
-  # be recognized as already-resolved (overlap-clear).
-  my %match_spans;
-  my $licensed = $db->query(
-    "SELECT pm.file, pm.sline, pm.eline, lp.license
-       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
-      WHERE pm.package = ? AND pm.ignored = false AND lp.license <> ''"
-      . ($limit_to_file ? ' AND pm.file = ?' : ''), $pkg->{id}, ($limit_to_file ? ($limit_to_file) : ())
-  );
-  for my $m ($licensed->hashes->each) {
-    push @{$match_spans{$m->{file}}}, [$m->{sline}, $m->{eline}, $m->{license}];
-  }
-
   my %file_snippets_to_ignore;
   my %file_snippets_to_show;
   my %file_snippets_to_fold;
   my %snippets_shown;
 
   for my $snip_row (@snip_rows) {
+    my $resolution = $snip_row->{resolution} // '';
 
     # Files hidden by an ignored-files glob, or snippets the classifier rejects as non-legal text,
     # are always ignored.
@@ -369,26 +356,13 @@ sub _dig_report {
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
 
-    # Fold and clear are decided *per file occurrence*, exactly like real pattern matches: they run
-    # before the dedup below and never set snippets_shown, so the same snippet appearing in several
-    # files folds/clears in every one of them (matching the file browser and the SPDX report). A
-    # snippet the reviewer has ignored (e.g. correcting a wrong fold) is never folded/cleared - it
-    # falls through to the unresolved path below, where _check_ignores removes it, so the correction
-    # takes effect immediately without waiting for a reindex.
-    elsif (!$ignored_lines->{$snip_row->{hash}} && $self->_should_fold($db, $snip_row)) {
+    # The stored resolution (computed once by resolve_snippets, which already accounts for ignored
+    # lines) decides the outcome per file occurrence: 'fold' asserts the closest license,
+    # 'clear'/'overlap' drop it as resolved noise. Every consumer reads this same column.
+    elsif ($resolution eq 'fold') {
       _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
     }
-    elsif (!$ignored_lines->{$snip_row->{hash}} && $self->_should_clear($db, $snip_row)) {
-      $report->{cleared}{$snip_row->{file}} = 1;
-      _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
-    }
-
-    # Overlap-clear: the snippet's region already contains a real license match (e.g. an SPDX line the
-    # keyword expansion swallowed); that license is on the report via the match, so the snippet is
-    # redundant noise and is cleared.
-    elsif (!$ignored_lines->{$snip_row->{hash}}
-      && $self->_should_overlap_clear($db, $snip_row, $match_spans{$snip_row->{file}}))
-    {
+    elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
       $report->{cleared}{$snip_row->{file}} = 1;
       _add_to_snippet_hash(\%file_snippets_to_ignore, $snip_row);
     }
@@ -431,105 +405,8 @@ sub _dig_report {
     }
   }
 
-  for my $match ($matches->hashes->each) {
-    my $pid = $match->{pattern};
-
-    if (!defined $report->{files}{$match->{file}}) {
-
-      # File is hidden by an ignored_files glob; there is no ignored_lines
-      # row backing this, so leave the FK column NULL
-      $matches_to_ignore{$match->{id}} = undef;
-      next;
-    }
-
-    my $part_of_snippet;
-    for my $region (@{$file_snippets_to_ignore{$match->{file}}}) {
-      my ($first_line, $last_line, $id, $hash) = @$region;
-      if ($match->{sline} >= $first_line && $match->{eline} <= $last_line) {
-        $part_of_snippet = 1;
-        last;
-      }
-    }
-    next if $part_of_snippet;
-    my $pattern = $self->_load_pattern_from_cache($db, $pid);
-    next if $pattern->{license} eq '';
-
-    $report->{licenses}{$pattern->{license}}
-      ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
-    $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
-      for qw(patent trademark export_restricted cla eula);
-
-    my $rl = $report->{risks}{$pattern->{risk}};
-    push(@{$rl->{$pattern->{license}}{$pid}}, $match->{file});
-    $report->{risks}{$pattern->{risk}} = $rl;
-
-    $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
-
-    my $risk = $pattern->{risk};
-
-    for (my $i = $match->{sline} - 3; $i <= $match->{eline} + 3; $i++) {
-      next if $i < 1;
-      if ($i >= $match->{sline} && $i <= $match->{eline}) {
-
-        my $opid = $report->{needed_lines}{$match->{file}}{$i} // 0;
-        next if $opid > PATTERN_DELTA;
-
-        # set the risk of the line
-        # but make sure we do not lower the risk
-        next if $risk < $self->_info_for_pattern($pid_info, $opid)->{risk};
-        $report->{needed_lines}{$match->{file}}{$i} = $pid;
-        $report->{matches}{$match->{file}}{$i}      = $match->{id};
-      }
-      else {
-        # we want context but not highlight the context
-        $report->{needed_lines}{$match->{file}}{$i} ||= 0;
-      }
-    }
-  }
-  $matches->finish;
-
-  # Fold high-confidence snippets into the resolved licenses/risks as if they had matched their
-  # closest license's pattern. This is a *derived* resolution computed at report time from snippet
-  # metadata (similarity, classifier flag); nothing is written to license_patterns/pattern_matches.
-  for my $file (keys %file_snippets_to_fold) {
-    for my $snip_row (@{$file_snippets_to_fold{$file}}) {
-      my ($sline, $eline, $sid, $hash, $match, $pid) = @$snip_row;
-      next unless $pid;
-      my $pattern = $self->_load_pattern_from_cache($db, $pid);
-      next if $pattern->{license} eq '';
-
-      $report->{licenses}{$pattern->{license}}
-        ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
-      $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
-        for qw(patent trademark export_restricted cla eula);
-
-      my $rl = $report->{risks}{$pattern->{risk}};
-      push(@{$rl->{$pattern->{license}}{$pid}}, $file);
-      $report->{risks}{$pattern->{risk}} = $rl;
-
-      $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
-      $report->{folded}{$file} = 1;
-
-      # Highlight the folded region exactly like a real match so the file's source view shows why
-      # the license is listed: expand the file and mark its lines with the (inferred) pattern id.
-      # The needed_lines map only holds one integer per line, so the originating snippet id/hash
-      # (the handle reviewers need to correct a wrong fold) is carried in a parallel folded_meta map.
-      $report->{expanded}{$file} = 1;
-      for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
-        next if $i < 1;
-        if ($i >= $sline && $i <= $eline) {
-          my $opid = $report->{needed_lines}{$file}{$i} // 0;
-          next if $opid > PATTERN_DELTA;    # keep an unresolved-snippet highlight
-          next if $pattern->{risk} < $self->_info_for_pattern($pid_info, $opid)->{risk};
-          $report->{needed_lines}{$file}{$i} = $pid;
-          $report->{folded_meta}{$file}{$i}  = {snippet => $sid, hash => $hash};
-        }
-        else {
-          $report->{needed_lines}{$file}{$i} ||= 0;
-        }
-      }
-    }
-  }
+  $self->_register_matches($db, $report, $pid_info, $matches, \%file_snippets_to_ignore, \%matches_to_ignore);
+  $self->_register_folds($db, $report, $pid_info, \%file_snippets_to_fold);
 
   $report->{flags} = [keys %{$report->{flags}}] if $report->{flags};
 
@@ -669,33 +546,109 @@ sub _load_pattern_from_cache {
   return $self->{license_cache}->{"pattern-$pid"};
 }
 
-# Decide whether an unresolved snippet is confident enough to fold into the report as resolved.
-# The actual gate lives in Cavil::ReportUtil::should_fold_snippet so the file browser applies the
-# exact same rules; here we just look up the closest license's pattern and delegate.
-sub _should_fold {
-  my ($self, $db, $snip_row) = @_;
-  return 0 unless my $pid = $snip_row->{like_pattern};
-  return should_fold_snippet($self->snippet_fold, $snip_row, $self->_load_pattern_from_cache($db, $pid));
+# Record a license on the report (licenses + risks lists + flags). Shared by the real-match and the
+# folded-snippet registration below so both contribute a license identically.
+sub _register_license {
+  my ($self, $report, $pid_info, $pattern, $pid, $file) = @_;
+
+  $report->{licenses}{$pattern->{license}}
+    ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
+  $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
+    for qw(patent trademark export_restricted cla eula);
+
+  my $rl = $report->{risks}{$pattern->{risk}};
+  push(@{$rl->{$pattern->{license}}{$pid}}, $file);
+  $report->{risks}{$pattern->{risk}} = $rl;
+
+  $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
 }
 
-# Recognized license boilerplate to clear from the backlog (no license asserted); shares the gate in
-# Cavil::ReportUtil with the file browser and SPDX report.
-sub _should_clear {
-  my ($self, $db, $snip_row) = @_;
-  return 0 unless my $pid = $snip_row->{like_pattern};
-  return should_clear_boilerplate($self->snippet_fold, $snip_row, $self->_load_pattern_from_cache($db, $pid));
+# Register every real (non-ignored) license pattern match into the report: add its license and
+# highlight its lines with the pattern id (without lowering an already-higher risk on a line). Matches
+# fully inside an ignored/cleared snippet region are skipped, and matches in glob-hidden files are
+# queued for ignoring.
+sub _register_matches {
+  my ($self, $db, $report, $pid_info, $matches, $file_snippets_to_ignore, $matches_to_ignore) = @_;
+
+  for my $match ($matches->hashes->each) {
+    my $pid = $match->{pattern};
+
+    if (!defined $report->{files}{$match->{file}}) {
+
+      # File is hidden by an ignored_files glob; there is no ignored_lines row backing this, so leave
+      # the FK column NULL
+      $matches_to_ignore->{$match->{id}} = undef;
+      next;
+    }
+
+    my $part_of_snippet;
+    for my $region (@{$file_snippets_to_ignore->{$match->{file}}}) {
+      my ($first_line, $last_line) = @$region;
+      if ($match->{sline} >= $first_line && $match->{eline} <= $last_line) {
+        $part_of_snippet = 1;
+        last;
+      }
+    }
+    next if $part_of_snippet;
+    my $pattern = $self->_load_pattern_from_cache($db, $pid);
+    next if $pattern->{license} eq '';
+
+    $self->_register_license($report, $pid_info, $pattern, $pid, $match->{file});
+    my $risk = $pattern->{risk};
+
+    for (my $i = $match->{sline} - 3; $i <= $match->{eline} + 3; $i++) {
+      next if $i < 1;
+      if ($i >= $match->{sline} && $i <= $match->{eline}) {
+        my $opid = $report->{needed_lines}{$match->{file}}{$i} // 0;
+        next if $opid > PATTERN_DELTA;
+
+        # set the risk of the line, but make sure we do not lower the risk
+        next if $risk < $self->_info_for_pattern($pid_info, $opid)->{risk};
+        $report->{needed_lines}{$match->{file}}{$i} = $pid;
+        $report->{matches}{$match->{file}}{$i}      = $match->{id};
+      }
+      else {
+        # we want context but not highlight the context
+        $report->{needed_lines}{$match->{file}}{$i} ||= 0;
+      }
+    }
+  }
+  $matches->finish;
 }
 
-# Clear a snippet whose region overlaps a real licensed match (already-resolved noise); shares the
-# gate in Cavil::ReportUtil with the file browser and SPDX report. The guard needs the snippet's
-# closest-license name, which we resolve from the pattern cache.
-sub _should_overlap_clear {
-  my ($self, $db, $snip_row, $spans) = @_;
-  my $overlap = overlapping_licenses($snip_row->{sline}, $snip_row->{eline}, $spans);
-  return 0 unless @$overlap;
-  my $plicense;
-  if (my $pid = $snip_row->{like_pattern}) { $plicense = $self->_load_pattern_from_cache($db, $pid)->{license} }
-  return should_overlap_clear($self->snippet_fold, {%$snip_row, plicense => $plicense}, $overlap);
+# Register snippets the stored resolution marked 'fold' as if they had matched their closest license's
+# pattern: add the license and highlight the region exactly like a real match. The needed_lines map
+# only holds one integer per line, so the originating snippet id/hash (the handle reviewers need to
+# correct a wrong fold) is carried in a parallel folded_meta map.
+sub _register_folds {
+  my ($self, $db, $report, $pid_info, $file_snippets_to_fold) = @_;
+
+  for my $file (keys %$file_snippets_to_fold) {
+    for my $snip_row (@{$file_snippets_to_fold->{$file}}) {
+      my ($sline, $eline, $sid, $hash, undef, $pid) = @$snip_row;
+      next unless $pid;
+      my $pattern = $self->_load_pattern_from_cache($db, $pid);
+      next if $pattern->{license} eq '';
+
+      $self->_register_license($report, $pid_info, $pattern, $pid, $file);
+      $report->{folded}{$file}   = 1;
+      $report->{expanded}{$file} = 1;
+
+      for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
+        next if $i < 1;
+        if ($i >= $sline && $i <= $eline) {
+          my $opid = $report->{needed_lines}{$file}{$i} // 0;
+          next if $opid > PATTERN_DELTA;    # keep an unresolved-snippet highlight
+          next if $pattern->{risk} < $self->_info_for_pattern($pid_info, $opid)->{risk};
+          $report->{needed_lines}{$file}{$i} = $pid;
+          $report->{folded_meta}{$file}{$i}  = {snippet => $sid, hash => $hash};
+        }
+        else {
+          $report->{needed_lines}{$file}{$i} ||= 0;
+        }
+      }
+    }
+  }
 }
 
 sub _sanitize_report {

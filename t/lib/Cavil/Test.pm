@@ -294,10 +294,20 @@ sub snippet_triage_fixtures ($self, $app) {
   my $db   = $app->pg->db;
   my $fold = $app->patterns->create(pattern => 'a folded triage marker for ui', license => 'Triage-Fold', risk => 3);
 
+  # A file to anchor the occurrences; the triage filter reads file_snippets.resolution (one row per
+  # occurrence), so every snippet needs an occurrence whose resolution resolve_snippets computes below.
+  my $file = $db->insert(
+    'matched_files',
+    {package   => 1, filename => 'ui-triage.txt', mimetype => 'text/plain'},
+    {returning => 'id'}
+  )->hash->{id};
+
   my $n      = 0;
+  my $line   = 0;
   my $insert = sub (%o) {
     $n++;
-    $db->insert(
+    $line += 100;
+    my $sid = $db->insert(
       'snippets',
       {
         hash          => "ui-triage-$n",
@@ -311,14 +321,18 @@ sub snippet_triage_fixtures ($self, $app) {
         second_match  => $o{second_match} // 0,
         score_version => SNIPPET_SCORE_VERSION,
         like_pattern  => $fold->{id}
-      }
-    );
+      },
+      {returning => 'id'}
+    )->hash->{id};
+    $db->insert('file_snippets', {package => 1, file => $file, snippet => $sid, sline => $line, eline => $line + 5});
   };
 
   $insert->(likelyness => 0.99, second_match => 0.5,  text => "fold marker body number $_ with GPL terms") for 1 .. 11;
   $insert->(likelyness => 0.99, second_match => 0.5,  text => 'fold marker Non-Commercial use clause body');
   $insert->(likelyness => 0.99, second_match => 0.99, text => 'cleared boilerplate definitions body');
   $insert->(likelyness => 0.40, second_match => 0.0,  text => 'unresolved random noise body');
+
+  $app->snippets->resolve_snippets(1);
 }
 
 sub postgres_url ($self) {

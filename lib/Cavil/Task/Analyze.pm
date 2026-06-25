@@ -4,7 +4,6 @@
 package Cavil::Task::Analyze;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(report_checksum report_shortname summary_delta summary_delta_score);
 use Mojo::JSON        qw(to_json);
 use List::Util        qw(uniq);
@@ -29,8 +28,13 @@ sub _analyze ($job, $id) {
   $app->plugins->emit_hook('before_task_analyze');
   $app->pg->db->update('bot_reports', {ldig_report => undef}, {package => $id});
 
-  my $reports  = $app->reports;
-  my $pkg      = $pkgs->find($id);
+  my $reports = $app->reports;
+  my $pkg     = $pkgs->find($id);
+
+  # Refresh the stored snippet resolutions (fold/clear/overlap) before building the report, so the
+  # report and every other consumer read the same up-to-date decision from file_snippets.resolution.
+  $app->snippets->resolve_snippets($id);
+
   my $specfile = $reports->specfile_report($id);
   my $dig      = $reports->dig_report($id);
 

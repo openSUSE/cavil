@@ -343,3 +343,7 @@ ALTER TABLE snippets ADD COLUMN score_version int NOT NULL DEFAULT 0;
 -- 43 up
 CREATE INDEX snippets_fold_idx ON snippets (score_version, likelyness) WHERE classified AND license;
 CREATE INDEX snippets_text_fts_idx ON snippets USING gin (to_tsvector('english', text));
+
+-- 44 up
+ALTER TABLE file_snippets ADD COLUMN resolution text;
+CREATE INDEX file_snippets_resolution_idx ON file_snippets (resolution) WHERE resolution IS NOT NULL;

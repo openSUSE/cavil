@@ -323,9 +323,14 @@ patterns. So instead of creating a pattern, Cavil can simply treat a snippet as 
 a known license is confident enough: the snippet folds into the report as if it had matched that license, while the
 corpus is left untouched.
 
-The decision is made fresh each time a report is built, purely from the metadata already on the snippet, so it costs
-nothing extra and re-evaluates itself whenever the model or the thresholds change. It never writes anything back to the
-pattern or match tables — fold-in is a derived view, not stored data, so turning it off simply makes the reports revert.
+The decision is computed once, when a package is analysed, and stored as a resolution on each snippet occurrence —
+`fold`, `clear`, `overlap`, or unresolved. Every consumer (the report, the file browser, the SPDX export, the Classify
+Snippets filter) then simply reads that column, so the legal call is made in exactly one place and the same answer is
+shown everywhere. It never writes anything back to the pattern or match tables; the resolution is a cache of a pure
+function of the snippet's similarity, the file's existing matches, and the thresholds, recomputed wholesale on every
+reindex (which recreates the occurrences from scratch) and on demand via `cavil snippets --resolve`. A model or
+threshold change therefore takes effect the next time affected packages are reindexed or resolved, and turning the
+feature off and resolving again makes the reports revert.
 
 Because this is making a legal call, the gate is deliberately conservative. A snippet only folds when the text
 classifier has already judged it to be legal text, its similarity clears the configured threshold, the best-matching
@@ -354,9 +359,9 @@ because no license is asserted there is no risk of inventing one that is not act
 
 The recognition reuses the same similarity score: a snippet that is highly similar to some known license, and that the
 classifier considers legal text, is treated as resolved noise rather than an unresolved match. Genuinely novel licenses
-score low and so are never cleared — they continue to surface for human review. Like folding, clearing is derived at
-report time, asserts nothing, and is reversible by turning it off; it is governed by its own threshold and ships
-disabled.
+score low and so are never cleared — they continue to surface for human review. Like folding, clearing is recorded as a
+stored resolution, asserts nothing, and is reversible by turning it off and resolving again; it is governed by its own
+threshold and ships disabled.
 
 ### Clearing Snippets a Real Match Already Covers
 
@@ -371,17 +376,19 @@ most common piece of manual busywork.
 Because clearing here rests on an exact match rather than a guess, it is safe regardless of where in the snippet the
 match falls or how many there are. The one guard is for the rare case where the snippet's own text looks like a
 *different* license than the one it overlaps — that might be a genuinely missed license sitting next to a known one, so
-it is kept for review instead of cleared. As with the other paths, this is derived at report time, asserts nothing, and
-ships disabled behind its own switch.
+it is kept for review instead of cleared. Because overlap depends on a file's own matches, this resolution is stored per
+occurrence (the same snippet can overlap a match in one file but not in another). As with the other paths, it asserts
+nothing and ships disabled behind its own switch.
 
 Because both folding and clearing are automatic, reviewers can be shown what was decided for them and given a way to
 overrule it. Folded and cleared regions are marked as derived (a dashed accent that sets them apart from curated pattern
 matches) and carry a direct link to the snippet editor, so a reviewer who spots a mistake can write a proper pattern,
 ignore the text, or mark it as non-legal in one step. The file browser is the main place for this, since it is where
 reviewers go digging through a package and where cleared text — which never appears in the report — can be reviewed. No
-special undo is needed: the resolution is derived, so the correction makes it simply stop happening. This safety net is
-what lets the thresholds be generous; correcting the occasional wrong call is far cheaper than hand-writing a pattern for
-every license up front.
+special undo is needed: a correction (ignoring the text, writing a pattern, or marking it non-legal) reindexes the
+package, which recomputes the resolution and makes the fold or clear simply stop happening. This safety net is what lets
+the thresholds be generous; correcting the occasional wrong call is far cheaper than hand-writing a pattern for every
+license up front.
 
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 

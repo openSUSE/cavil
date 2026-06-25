@@ -17,9 +17,8 @@ package Cavil::SPDX;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
-use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
-use Cavil::Util       qw(read_lines);
+use Cavil::Licenses qw(lic);
+use Cavil::Util     qw(read_lines);
 use Digest::SHA1;
 use Mojo::File qw(path tempfile);
 use Mojo::JSON qw(from_json);
@@ -47,7 +46,6 @@ sub generate_to_file ($self, $id, $file) {
   my $specfile_report = $reports->specfile_report($id);
   my $db              = $app->pg->db;
   my $license_ref_num = 0;
-  my $fold            = $app->config->{snippet_fold};
 
   my $spdx_tmp_file  = "$file.tmp";
   my $files_tmp_file = "$file.files.tmp";
@@ -153,49 +151,34 @@ sub generate_to_file ($self, $id, $file) {
     if (my $file_id = $matched_files->{$file}) {
       my (@copyright, @folded, %duplicates, %matched_lines, %ignored_lines, %similarity);
 
-      # Line spans of non-ignored licensed matches in this file, so a snippet whose region already
-      # contains a real license match can be cleared as redundant (overlap-clear).
-      my @spans;
-      for my $m (
-        $db->query(
-          'SELECT m.sline, m.eline, p.license FROM pattern_matches m JOIN license_patterns p ON p.id = m.pattern
-         WHERE m.file = ? AND m.ignored = false AND p.license <> ?', $file_id, ''
-        )->hashes->each
-        )
-      {
-        push @spans, [$m->{sline}, $m->{eline}, $m->{license}];
-      }
-
+      # Snippets carry a stored resolution (fold/clear/overlap) computed once by resolve_snippets.
       my $snippet_sql = qq{
-        SELECT f.sline, f.eline, s.license, s.like_pattern, s.likelyness, s.second_match, s.score_version,
+        SELECT f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
                p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
                p.trademark, p.patent, p.export_restricted, p.cla, p.eula
         FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
         WHERE file = ? AND classified = true
       };
       for my $snippet ($db->query($snippet_sql, $file_id)->hashes->each) {
+        my $resolution = $snippet->{resolution} // '';
 
         # Snippets the AI lawyer does not think are license text
         if (!$snippet->{license}) {
           _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
         }
 
-        # Snippets the AI lawyer thinks are similar to an exising license pattern
+        # Snippets the AI lawyer thinks are similar to an existing license pattern
         if ($snippet->{like_pattern}) {
           _matched_lines(\%similarity, $snippet->{sline}, $snippet->{eline},
             [$snippet->{like_pattern}, $snippet->{likelyness}]);
         }
 
-        # Confident enough to fold in as a resolved license (same gate as the report/file browser),
-        # or recognized license boilerplate to clear: cleared snippets assert no license but suppress
-        # the keyword matches they overlap, just like the "not legal text" case above.
-        my $pattern = {license => $snippet->{plicense}, risk => $snippet->{prisk}};
-        if (should_fold_snippet($fold, $snippet, $pattern)) {
+        # 'fold' contributes its inferred license to the file; 'clear'/'overlap' assert no license but
+        # suppress the keyword matches they overlap, just like the "not legal text" case above.
+        if ($resolution eq 'fold') {
           push @folded, $snippet;
         }
-        elsif (should_clear_boilerplate($fold, $snippet, $pattern)
-          || should_overlap_clear($fold, $snippet, overlapping_licenses($snippet->{sline}, $snippet->{eline}, \@spans)))
-        {
+        elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
           _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
         }
       }

@@ -16,9 +16,8 @@
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::File        qw(path);
-use Cavil::Util       qw(lines_context);
-use Cavil::ReportUtil qw(overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
+use Mojo::File  qw(path);
+use Cavil::Util qw(lines_context);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -216,9 +215,7 @@ sub _file_browser_line_info ($self, $package, $file_id) {
        FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
       WHERE pm.package = ? AND pm.file = ? AND pm.ignored = false AND lp.license <> ?', $package->{id}, $file_id, ''
   );
-  my @spans;
   for my $match ($matches->hashes->each) {
-    push @spans, [$match->{sline}, $match->{eline}, $match->{license}];
     for my $line ($match->{sline} .. $match->{eline}) {
       my $current = $info->{$line} // {risk => 0};
       next if $current->{risk} > $match->{risk};
@@ -226,25 +223,21 @@ sub _file_browser_line_info ($self, $package, $file_id) {
     }
   }
 
-  my $fold     = $self->app->config->{snippet_fold};
+  # Snippets render from their stored resolution (computed once by resolve_snippets): 'fold' as the
+  # inferred license, 'clear'/'overlap' as resolved (cleared) noise, anything else as an unresolved
+  # snippet. Folded/cleared rows keep the snippet handle so reviewers can correct them inline.
   my $snippets = $db->query(
-    'SELECT fs.sline, fs.eline, s.id, s.hash, s.like_pattern, s.license, s.likelyness, s.second_match,
-            s.score_version, lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
+    'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.like_pattern,
+            lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
        FROM file_snippets fs
        JOIN snippets s ON s.id = fs.snippet
        LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
       WHERE fs.package = ? AND fs.file = ?', $package->{id}, $file_id
   );
   for my $snippet ($snippets->hashes->each) {
-
-    # Mirror the report exactly: a folded snippet shows as its inferred license; recognized
-    # boilerplate is cleared (resolved, no highlight); everything else stays an unresolved snippet.
-    my $pattern = {license => $snippet->{plicense}, risk => $snippet->{prisk}};
+    my $resolution = $snippet->{resolution} // '';
     my $line_info;
-    if (should_fold_snippet($fold, $snippet, $pattern)) {
-
-      # Keep the snippet handle (id + hash) so reviewers can correct a wrong fold inline; "folded"
-      # tags it as a derived resolution (dashed in the UI), not a curated pattern match.
+    if ($resolution eq 'fold') {
       $line_info = {
         risk    => $snippet->{prisk},
         name    => $snippet->{plicense},
@@ -255,13 +248,7 @@ sub _file_browser_line_info ($self, $package, $file_id) {
         folded  => 1
       };
     }
-    elsif (should_clear_boilerplate($fold, $snippet, $pattern)
-      || should_overlap_clear($fold, $snippet, overlapping_licenses($snippet->{sline}, $snippet->{eline}, \@spans)))
-    {
-
-      # Cleared boilerplate (by similarity or by overlapping a real license match) asserts no license,
-      # but must stay findable/editable here (the file browser is where reviewers review negatives) -
-      # keep the snippet handle and a "cleared" tag.
+    elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
       $line_info
         = {risk => 0, name => 'Cleared boilerplate', snippet => $snippet->{id}, hash => $snippet->{hash}, cleared => 1};
     }

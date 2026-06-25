@@ -73,4 +73,32 @@ subtest 'snippets --rescore re-scores every snippet and stamps the version' => s
     'every snippet stamped with the current score version';
 };
 
+subtest 'snippets --resolve recomputes the stored resolutions' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_snippets_resolve_test');
+  my $config     = {
+    %{$cavil_test->default_config},
+    snippet_fold => {enabled => 1, threshold => 0.9, min_margin => 0.1, max_risk => 9}
+  };
+  my $app = Test::Mojo->new(Cavil => $config)->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # Make every snippet a confident GPL fold, then clear the stored resolutions to prove --resolve sets them
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0,
+       score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $gpl
+  );
+  $db->query('UPDATE file_snippets SET resolution = NULL');
+
+  capture($app, 'snippets', '--resolve');
+
+  my $total  = $db->query('SELECT count(*) AS c FROM file_snippets')->hash->{c};
+  my $folded = $db->query("SELECT count(*) AS c FROM file_snippets WHERE resolution = 'fold'")->hash->{c};
+  ok $total > 0, 'fixture produced snippet occurrences';
+  is $folded, $total, 'every occurrence was resolved to fold';
+};
+
 done_testing;

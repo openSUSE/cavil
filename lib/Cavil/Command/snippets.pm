@@ -25,9 +25,11 @@ has usage       => sub ($self) { $self->extract_usage };
 sub run ($self, @args) {
   my $batch   = 5000;
   my $rescore = undef;    # start id when the option is given
-  GetOptionsFromArray(\@args, 'rescore:i' => \$rescore, 'batch=i' => \$batch);
+  my $resolve = 0;
+  GetOptionsFromArray(\@args, 'rescore:i' => \$rescore, 'resolve' => \$resolve, 'batch=i' => \$batch);
 
   return $self->_rescore($rescore, $batch) if defined $rescore;
+  return $self->_resolve($batch)           if $resolve;
 
   say $self->usage;
 }
@@ -69,6 +71,33 @@ sub _rescore ($self, $start, $batch) {
   say "Done.";
 }
 
+# Recompute the stored fold/clear/overlap resolution (file_snippets.resolution) for every package.
+# Kept separate from --rescore on purpose: it is expensive at production scale (tens of thousands of
+# packages) and only needs running after a snippet_fold config or scorer change. Routine rescoring to
+# track license-pattern edits does not require it. Iterates by package id, so it is safe to resume.
+sub _resolve ($self, $batch) {
+  my $app      = $self->app;
+  my $db       = $app->pg->db;
+  my $snippets = $app->snippets;
+
+  my $last = 0;
+  my $done = 0;
+  while (1) {
+    my $pkgs
+      = $db->query('SELECT DISTINCT package FROM file_snippets WHERE package > ? ORDER BY package LIMIT ?', $last,
+      $batch)->hashes;
+    last unless $pkgs->size;
+
+    for my $p ($pkgs->each) {
+      $snippets->resolve_snippets($p->{package});
+      $last = $p->{package};
+    }
+    $done += $pkgs->size;
+    say "Re-resolved $done packages (through id $last)";
+  }
+  say "Done.";
+}
+
 1;
 
 =encoding utf8
@@ -85,9 +114,14 @@ Cavil::Command::snippets - Snippet maintenance tasks
     script/cavil snippets --rescore
     # Resume a re-score after snippet id 120000, 2000 rows per batch
     script/cavil snippets --rescore 120000 --batch 2000
+    # Recompute the stored fold/clear/overlap resolution for every package
+    script/cavil snippets --resolve
 
   Options:
         --rescore [id]   Re-score snippets, optionally resuming after the given id (default: 0)
+        --resolve        Recompute every package's stored snippet resolution (fold/clear/overlap).
+                         Expensive; only needed after a snippet_fold config or scorer change, not for
+                         routine pattern-edit rescoring.
         --batch <n>      Snippets per batch (default: 5000)
     -h, --help           Show this summary of available options
 

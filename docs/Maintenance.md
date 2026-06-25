@@ -37,3 +37,13 @@ running `script/cavil rindex` in regular intervals (we do it every weekend).
 
 To free up space you can run `script/cavil cleanup` in regular intervals. It helps to organize reports into products to
 exclude them from cleanup.
+
+### Refreshing snippet resolutions
+
+When snippet folding is enabled, each snippet occurrence carries a stored resolution (`fold`, `clear`, `overlap`, or
+unresolved) that the report, file browser, SPDX export and Classify Snippets filter all read. It is recomputed
+automatically whenever a package is reindexed, so the weekly `script/cavil rindex` keeps it current. After changing a
+fold/clear/overlap threshold you can apply the new decision without a full reindex by running `script/cavil snippets
+--resolve`, which recomputes the resolutions for every package (much cheaper than reindexing, but still substantial at
+scale). Use `script/cavil snippets --rescore` first if the similarity scorer itself changed, since resolutions are
+derived from those scores.

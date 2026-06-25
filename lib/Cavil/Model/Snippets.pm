@@ -16,11 +16,64 @@
 package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
-use Mojo::File  qw(path);
-use Cavil::Util qw(file_and_checksum read_lines snippet_checksum SNIPPET_SCORE_VERSION);
+use Mojo::File        qw(path);
+use Cavil::Util       qw(file_and_checksum read_lines);
+use Cavil::ReportUtil qw(overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
 use Spooky::Patterns::XS;
 
 has [qw(checkout_dir pg snippet_fold)];
+
+# The single place the fold/clear/overlap decision is made: for every snippet occurrence in a package
+# compute its resolution and store it on file_snippets.resolution ('fold' / 'clear' / 'overlap' / undef).
+# Called from the analyze task (per reindex) and from `snippets --rescore`; every consumer (report,
+# file browser, SPDX, Classify Snippets) then just reads the column. The gates live in Cavil::ReportUtil
+# and are called only here.
+sub resolve_snippets ($self, $package_id) {
+  my $db  = $self->pg->db;
+  my $cfg = $self->snippet_fold;
+
+  # Snippets the reviewer has ignored for this package are never resolved (they drop out as ignored
+  # noise), so the stored column reflects that without any consumer needing its own ignore check.
+  my $packname = $db->select('bot_packages', 'name', {id => $package_id})->hash->{name};
+  my %ignored  = map { $_->{hash} => 1 } $db->select('ignored_lines', 'hash', {packname => $packname})->hashes->each;
+
+  # Per-file line spans of non-ignored licensed matches, for overlap detection
+  my %spans;
+  for my $m (
+    $db->query(
+      "SELECT pm.file, pm.sline, pm.eline, lp.license
+       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.package = ? AND pm.ignored = false AND lp.license <> ''", $package_id
+    )->hashes->each
+    )
+  {
+    push @{$spans{$m->{file}}}, [$m->{sline}, $m->{eline}, $m->{license}];
+  }
+
+  # Each occurrence with its snippet's similarity metadata and closest-license details
+  my $rows = $db->query(
+    'SELECT fs.id, fs.file, fs.sline, fs.eline, s.hash, s.license, s.likelyness, s.second_match,
+            s.score_version, s.like_pattern, lp.license AS plicense, lp.risk AS prisk
+       FROM file_snippets fs
+       JOIN snippets s ON s.id = fs.snippet
+       LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
+      WHERE fs.package = ?', $package_id
+  );
+
+  my $tx = $db->begin;
+  for my $row ($rows->hashes->each) {
+    my $pattern = {license => $row->{plicense}, risk => $row->{prisk}};
+    my $resolution;
+    if    ($ignored{$row->{hash}})                         { $resolution = undef }     # ignored -> unresolved
+    elsif (should_fold_snippet($cfg, $row, $pattern))      { $resolution = 'fold' }
+    elsif (should_clear_boilerplate($cfg, $row, $pattern)) { $resolution = 'clear' }
+    elsif (should_overlap_clear($cfg, $row, overlapping_licenses($row->{sline}, $row->{eline}, $spans{$row->{file}}))) {
+      $resolution = 'overlap';
+    }
+    $db->update('file_snippets', {resolution => $resolution}, {id => $row->{id}});
+  }
+  $tx->commit;
+}
 
 sub approve ($self, $id, $license) {
   my $db = $self->pg->db;
@@ -86,76 +139,6 @@ sub id_for_checksum ($self, $checksum) {
   return $hash->{id};
 }
 
-# The thresholds half of Cavil::ReportUtil::should_fold_snippet expressed as SQL, over a query that
-# aliases snippets as "s" and LEFT JOINs license_patterns as "lp" on s.like_pattern. ($sql, \@binds).
-sub _fold_sql ($cfg) {
-  my @parts = (
-    's.classified', 's.license',
-    's.score_version = ?',
-    's.likelyness >= ?',
-    '(s.likelyness - s.second_match) >= ?',
-    "lp.license <> ''"
-  );
-  my @binds = (SNIPPET_SCORE_VERSION, $cfg->{threshold} // 1, $cfg->{min_margin} // 0);
-  if (defined $cfg->{max_risk}) {
-    push @parts, 'lp.risk <= ?';
-    push @binds, $cfg->{max_risk};
-  }
-  return (join(' AND ', @parts), \@binds);
-}
-
-# SQL counterpart of the should_fold_snippet / should_clear_boilerplate gates, for filtering large
-# snippet lists where running the Perl gate per row would not scale to a million rows. Returns
-# ($where_sql, \@binds) over the "s"/"lp" aliases above. Deliberately ignores $cfg->{enabled}: the
-# filter answers "would this fold/clear at the current thresholds", so reviewers can audit even when
-# the feature is toggled off. The drift guard in t/snippets.t asserts it agrees with the Perl gates
-# run with enabled forced on. $kind is 'fold' or 'clear'; 'clear' excludes 'fold' so the two
-# partition the resolved set exactly like the report (fold wins).
-# Correlated EXISTS: does the snippet's region overlap a non-ignored license match whose license
-# satisfies $license_cond (over the "olp" alias)? Written once and reused for both the "overlaps any
-# licensed match" check and the guard's "overlaps the snippet's own license" check.
-sub _overlap_exists ($license_cond) {
-  return "EXISTS (SELECT 1 FROM file_snippets ofs
-      JOIN pattern_matches opm ON opm.file = ofs.file AND opm.sline <= ofs.eline AND opm.eline >= ofs.sline
-        AND opm.ignored = false
-      JOIN license_patterns olp ON olp.id = opm.pattern AND $license_cond
-      WHERE ofs.snippet = s.id)";
-}
-
-sub snippet_resolution_sql ($cfg, $kind) {
-  my ($fold_sql, $fold_binds) = _fold_sql($cfg);
-  return ("($fold_sql)", [@$fold_binds]) if $kind eq 'fold';
-
-  if ($kind eq 'clear') {
-
-    # "Cleared" = dropped from the backlog without asserting a license, by either mechanism, and never
-    # something that would fold. The SQL below mirrors should_clear_boilerplate + should_overlap_clear
-    # exactly; the drift guard in t/snippets.t fails if the SQL and the Perl gates ever diverge.
-    my (@parts, @binds);
-
-    # Similarity boilerplate-clear
-    if ($cfg->{clear_threshold}) {
-      push @parts, "(s.score_version = ? AND s.likelyness >= ? AND lp.license <> '')";
-      push @binds, SNIPPET_SCORE_VERSION, $cfg->{clear_threshold};
-    }
-
-    # Overlap-clear: region overlaps a real licensed match, unless the snippet's own closest license
-    # resembles a *different* license than any it overlaps (guard -> kept for review).
-    if ($cfg->{overlap_clear}) {
-      my $guard = '(s.like_pattern IS NOT NULL AND lp.license <> \'\' AND s.likelyness >= ? AND NOT '
-        . _overlap_exists('olp.license = lp.license') . ')';
-      push @parts, '(' . _overlap_exists("olp.license <> ''") . " AND NOT $guard)";
-      push @binds, $cfg->{overlap_guard} // 0.9;
-    }
-
-    return ('false', []) unless @parts;    # neither clearing mechanism configured -> matches nothing
-    my $any = join ' OR ', @parts;
-    return ("(s.classified AND s.license AND ($any) AND NOT ($fold_sql))", [@binds, @$fold_binds]);
-  }
-
-  return (undef, []);
-}
-
 sub unclassified ($self, $options) {
   my $db = $self->pg->db;
 
@@ -187,16 +170,16 @@ sub unclassified ($self, $options) {
     $legal = 'AND license = FALSE';
   }
 
-  # Resolution filter: "would fold / would clear at the current thresholds" (ignores the enabled
-  # flag, see snippet_resolution_sql). Needs the license_patterns join below for the risk gate.
+  # Resolution filter: read the stored decision (file_snippets.resolution) - no logic here, so it
+  # cannot drift from resolve_snippets. "Cleared" covers both clearing mechanisms.
   my $resolution = '';
   my @binds;
   if (($options->{resolution} // 'any') =~ /^(fold|clear)$/) {
-    my ($sql, $rbinds) = snippet_resolution_sql($self->snippet_fold, $1);
-    if (defined $sql) {
-      $resolution = "AND $sql";
-      push @binds, @$rbinds;
-    }
+    my @kinds        = $1 eq 'clear' ? ('clear', 'overlap') : ('fold');
+    my $placeholders = join ', ', ('?') x @kinds;
+    $resolution
+      = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IN ($placeholders))";
+    push @binds, @kinds;
   }
 
   # Full-text (lexeme) search over snippet bodies; expression matches the GIN index exactly.
@@ -212,7 +195,6 @@ sub unclassified ($self, $options) {
     "SELECT s.*, bp.embargoed
      FROM snippets s
        LEFT JOIN bot_packages bp ON (bp.id = s.package)
-       LEFT JOIN license_patterns lp ON (lp.id = s.like_pattern)
      WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe $resolution $search
      ORDER BY s.id DESC LIMIT 11", @binds
   )->hashes->to_array;

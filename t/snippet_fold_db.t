@@ -75,6 +75,7 @@ subtest 'fold-in gate (via the report)' => sub {
       "UPDATE snippets SET license = $license, classified = TRUE, likelyness = ?, second_match = ?,
          score_version = ?, like_pattern = ?", $f{likelyness}, $f{second_match}, $f{version}, $f{pattern}
     );
+    $report_app->snippets->resolve_snippets(1);    # refresh the stored resolution the report now reads
     return $report_app->reports->dig_report(1)->{folded} ? 1 : 0;
   };
 
@@ -117,10 +118,12 @@ subtest 'fold-in gate (via the report)' => sub {
     }
   );
   $folds->($app);    # reset to the confident baseline
+  $strict->app->snippets->resolve_snippets(1);
   ok !$strict->app->reports->dig_report(1)->{folded}, 'does not fold a license above max_risk';
 
   # And nothing folds at all when the feature is disabled
   my $off = Test::Mojo->new(Cavil => $cavil_test->default_config);
+  $off->app->snippets->resolve_snippets(1);
   ok !$off->app->reports->dig_report(1)->{folded}, 'nothing folds when snippet_fold is disabled';
 };
 
@@ -146,6 +149,7 @@ subtest 'boilerplate-clear (via the report)' => sub {
     'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0.99,
        score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $pattern->{id}
   );
+  $app->snippets->resolve_snippets(1);
 
   my $report = $app->reports->dig_report(1);
   ok $report->{cleared},                 'snippet cleared as recognized license boilerplate';
@@ -168,6 +172,7 @@ subtest 'boilerplate-clear (via the report)' => sub {
 
   # With clearing disabled the same boilerplate stays unresolved
   my $off = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, clear_threshold => 0}});
+  $off->app->snippets->resolve_snippets(1);
   ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'stays unresolved when clearing is off';
 };
 
@@ -203,13 +208,15 @@ subtest 'fold applies to every file occurrence of a duplicated snippet' => sub {
     'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0, score_version = ?,
        like_pattern = ? WHERE id = ?', SNIPPET_SCORE_VERSION, $p->{id}, $fs->{snippet}
   );
+  $app->snippets->resolve_snippets(1);
 
   is scalar(keys %{$app->reports->dig_report(1)->{folded}}), 2, 'the duplicated snippet folds in both files';
 };
 
-# The correction loop: folding is derived, so a reviewer's ignore/pattern decision removes the fold
-# with no dedicated un-fold logic. This proves the end-to-end behaviour the inline correction relies on.
-subtest 'correcting a fold removes it (derived un-fold)' => sub {
+# The correction loop: resolve_snippets honors ignored lines, so a reviewer's ignore decision drops the
+# stored 'fold' resolution on the next resolve (which a correction triggers via reindex). This proves the
+# end-to-end behaviour the inline correction relies on, with no dedicated un-fold logic.
+subtest 'correcting a fold removes it (resolve honors ignores)' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_unfold_test');
   my $config     = {
     %{$cavil_test->default_config},
@@ -227,15 +234,16 @@ subtest 'correcting a fold removes it (derived un-fold)' => sub {
     'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0.99, second_match = 0,
        score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $gpl->{id}
   );
+  $app->snippets->resolve_snippets(1);
   ok $app->reports->dig_report(1)->{folded}, 'snippet folds before correction';
 
-  # The reviewer opens the folded region and ignores it (the editor's "create ignore" action). Because
-  # the fold is derived from the snippet, ignoring the snippet makes the report stop folding it right
-  # away - no reindex needed.
+  # The reviewer opens the folded region and ignores it (the editor's "create ignore" action). In
+  # production this reindexes the package, which re-resolves; here we resolve directly to mirror that.
   my $pkg   = $db->select('bot_packages', 'name', {id => 1})->hash->{name};
   my $snips = $db->query(
     'SELECT DISTINCT s.hash FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id WHERE fs.package = 1')->hashes;
   $app->packages->ignore_line({hash => $_->{hash}, package => $pkg, owner => undef, contributor => undef}) for @$snips;
+  $app->snippets->resolve_snippets(1);
 
   ok !$app->reports->dig_report(1)->{folded}, 'the fold is gone once the snippets are ignored';
 };
@@ -275,6 +283,7 @@ subtest 'overlap-clear (snippet region already contains a real license match)' =
     $db->insert('pattern_matches',
       {package => 1, file => $fs->{file}, pattern => $gpl, sline => $fs->{sline}, eline => $fs->{sline}, ignored => 0});
   }
+  $app->snippets->resolve_snippets(1);
 
   my $report = $app->reports->dig_report(1);
   is_deeply $report->{missed_files}, {}, 'snippets overlapping a real license match are cleared';
@@ -288,11 +297,13 @@ subtest 'overlap-clear (snippet region already contains a real license match)' =
   $db->query(
     'UPDATE snippets SET like_pattern = ?, likelyness = 0.92, second_match = 0.92, score_version = ? WHERE id = ?',
     $other->{id}, SNIPPET_SCORE_VERSION, $one);
+  $app->snippets->resolve_snippets(1);
   ok keys %{$app->reports->dig_report(1)->{missed_files}},
     'a snippet resembling a different license is kept despite the overlap';
 
   # Disabled -> nothing overlap-clears
   my $off = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, overlap_clear => 0}});
+  $off->app->snippets->resolve_snippets(1);
   ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'nothing overlap-clears when the toggle is off';
 };
 

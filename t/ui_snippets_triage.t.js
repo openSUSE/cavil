@@ -2,8 +2,8 @@
 import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
 import t from 'tap';
 
-// The Classify Snippets page lets reviewers triage folding decisions: filter by would-fold / would-
-// clear status (derived live from the current thresholds) and full-text search the snippet bodies for
+// The Classify Snippets page lets reviewers triage folding decisions: filter by fold / clear status
+// (read from the stored file_snippets.resolution column) and full-text search the snippet bodies for
 // phrases we never want folded. The "snippet_triage" fixture seeds 12 would-fold snippets (one a
 // Non-Commercial stemming case), 1 would-clear (zero margin), and 1 unresolved (low similarity).
 t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t => {
