@@ -50,23 +50,23 @@ export default {
 }
 
 .priority-badge-danger {
-  --priority-border: rgba(207, 34, 46, 0.45);
-  --priority-glass: rgba(207, 34, 46, 0.2);
-  --priority-glass-strong: rgba(207, 34, 46, 0.34);
+  --priority-border: rgba(207, 34, 46, 0.58);
+  --priority-glass: rgba(207, 34, 46, 0.28);
+  --priority-glass-strong: rgba(207, 34, 46, 0.46);
   --priority-text: #a40e26;
 }
 
 .priority-badge-warning {
-  --priority-border: rgba(240, 180, 0, 0.52);
-  --priority-glass: rgba(240, 180, 0, 0.24);
-  --priority-glass-strong: rgba(240, 180, 0, 0.4);
+  --priority-border: rgba(240, 180, 0, 0.66);
+  --priority-glass: rgba(240, 180, 0, 0.32);
+  --priority-glass-strong: rgba(240, 180, 0, 0.52);
   --priority-text: #6f4e00;
 }
 
 .priority-badge-success {
-  --priority-border: rgba(26, 127, 55, 0.45);
-  --priority-glass: rgba(26, 127, 55, 0.18);
-  --priority-glass-strong: rgba(26, 127, 55, 0.32);
+  --priority-border: rgba(26, 127, 55, 0.58);
+  --priority-glass: rgba(26, 127, 55, 0.26);
+  --priority-glass-strong: rgba(26, 127, 55, 0.44);
   --priority-text: #116329;
 }
 </style>
