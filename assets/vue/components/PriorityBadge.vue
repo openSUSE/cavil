@@ -24,7 +24,7 @@ export default {
   align-items: center;
   backdrop-filter: blur(8px) saturate(1.15);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.34)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.22)),
     linear-gradient(145deg, var(--priority-glass), var(--priority-glass-strong));
   border: 1px solid var(--priority-border);
   border-radius: 999px;
@@ -50,23 +50,23 @@ export default {
 }
 
 .priority-badge-danger {
-  --priority-border: rgba(207, 34, 46, 0.58);
-  --priority-glass: rgba(207, 34, 46, 0.28);
-  --priority-glass-strong: rgba(207, 34, 46, 0.46);
+  --priority-border: rgba(207, 34, 46, 0.68);
+  --priority-glass: rgba(207, 34, 46, 0.34);
+  --priority-glass-strong: rgba(207, 34, 46, 0.56);
   --priority-text: #a40e26;
 }
 
 .priority-badge-warning {
-  --priority-border: rgba(240, 180, 0, 0.66);
-  --priority-glass: rgba(240, 180, 0, 0.32);
-  --priority-glass-strong: rgba(240, 180, 0, 0.52);
+  --priority-border: rgba(240, 180, 0, 0.76);
+  --priority-glass: rgba(240, 180, 0, 0.38);
+  --priority-glass-strong: rgba(240, 180, 0, 0.62);
   --priority-text: #6f4e00;
 }
 
 .priority-badge-success {
-  --priority-border: rgba(26, 127, 55, 0.58);
-  --priority-glass: rgba(26, 127, 55, 0.26);
-  --priority-glass-strong: rgba(26, 127, 55, 0.44);
+  --priority-border: rgba(26, 127, 55, 0.68);
+  --priority-glass: rgba(26, 127, 55, 0.32);
+  --priority-glass-strong: rgba(26, 127, 55, 0.54);
   --priority-text: #116329;
 }
 </style>

@@ -247,7 +247,7 @@ export default {
 }
 
 .cavil-list-filter-box i {
-  color: #6e7781;
+  color: #57606a;
   left: 0.75rem;
   position: absolute;
 }
@@ -335,7 +335,7 @@ export default {
 }
 
 .cavil-list-table tbody td.cavil-list-link {
-  color: #6e7781;
+  color: #57606a;
   font-size: 0.8125rem;
   font-weight: 400;
   min-width: min(10rem, 22vw);
@@ -406,7 +406,7 @@ export default {
 }
 
 .cavil-list-table tbody td.cavil-list-time {
-  color: #6e7781;
+  color: #57606a;
   font-size: 0.8125rem;
   font-weight: 400;
   letter-spacing: 0;
