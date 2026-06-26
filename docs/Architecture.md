@@ -388,9 +388,10 @@ occurrence (the same snippet can overlap a match in one file but not in another)
 nothing and ships disabled behind its own switch.
 
 Because both folding and clearing are automatic, reviewers can be shown what was decided for them and given a way to
-overrule it. Folded and cleared regions are marked as derived (a dashed accent that sets them apart from curated pattern
-matches) and carry a direct link to the snippet editor, so a reviewer who spots a mistake can write a proper pattern,
-ignore the text, or mark it as non-legal in one step. The file browser is the main place for this, since it is where
+overrule it. Folded and cleared regions are marked as derived (visually set apart from curated pattern matches) and
+carry a direct link to the snippet editor, so a reviewer who spots a mistake can write a proper pattern, ignore the
+text, or mark it as non-legal in one step. The reviewer-facing side of this is described in plain language in
+[PatternLifecycle.md](PatternLifecycle.md). The file browser is the main place for this, since it is where
 reviewers go digging through a package and where cleared text — which never appears in the report — can be reviewed. No
 special undo is needed: a correction (ignoring the text, writing a pattern, or marking it non-legal) reindexes the
 package, which recomputes the resolution and makes the fold or clear simply stop happening. This safety net is what lets

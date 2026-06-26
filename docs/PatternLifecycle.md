@@ -15,6 +15,10 @@ A pattern is just "this wording means this license, at this risk level". Once a 
 that contains matching wording is resolved without anyone having to look at it again. That is why the patterns are
 worth getting right: each one pays off forever.
 
+Folding (described later) does not change this in spirit: when Cavil resolves a snippet automatically, it is still only
+ever matching text to a license it already knows — it never invents a new one. The only difference is that it can act on
+a *close, confident* match, not just an exact one, to spare you re-confirming the obvious.
+
 ## Where unresolved text comes from
 
 When Cavil scans a package it does two kinds of matching:
@@ -32,7 +36,8 @@ AI assistance is useful here.
 
 ## The four things that can happen to a snippet
 
-Every snippet ends up in one of four states. Three of them are decisions someone makes; the fourth happens by itself.
+Every snippet a person looks at ends up in one of four states (Cavil also resolves some on its own before they ever
+reach you — see the next section). Three of these are decisions someone makes; the fourth happens by itself.
 
 1. **It becomes a license pattern.** The snippet really is a license declaration. Someone trims it down to the
    reusable legal wording and saves it as a new pattern, tagged with the license name and a risk level. From then on
@@ -46,6 +51,25 @@ Every snippet ends up in one of four states. Three of them are decisions someone
    lawyer's judgement. Rather than guess, it is parked on the **Missing Licenses** queue for an expert to handle.
 4. **It is resolved automatically.** Once a new pattern is created, Cavil re-examines the affected packages. Any other
    snippet whose wording the new pattern now covers simply disappears — no one has to touch the duplicates.
+
+## When Cavil resolves a snippet on its own
+
+Most snippets are noise, and a lot of it is the *same* noise or the same well-known license wording over and over. To
+keep those out of your queue, Cavil can resolve some snippets automatically, without anyone writing a pattern. You will
+see two kinds, both labelled in the file view:
+
+- **Folded** — the snippet is confidently the same as a license Cavil already knows, so it treats it as that license
+  (writing a near-duplicate pattern would add nothing).
+- **Cleared** — the snippet is recognisable license boilerplate, or a real license match right next to it already says
+  everything, so it carries no new information and is set aside as noise without recording any license.
+
+This is deliberately cautious: Cavil only does it when very confident, never for higher-risk licenses, and it never
+invents a license — folding only ever points at one Cavil already recognises. It is also fully reversible. If a call
+looks wrong, open the file, find the folded or cleared lines (marked in the source), and correct it in one step — write
+a proper pattern, ignore it, or mark it as not legal text. The point is to shrink the pile of obvious cases so your
+attention goes to the snippets that genuinely need a person.
+
+(How Cavil makes this call is in the "Pattern Matching" section of [Architecture.md](Architecture.md).)
 
 ## Who proposes what
 
