@@ -138,4 +138,37 @@ subtest 'analyze wires scoring: a stale snippet is self-healed when its package 
     'analyze scored the stale snippet to the current version';
 };
 
+# The license pick is by license, but the attributed pattern must be the closest one *within* that
+# license - not an arbitrary representative - so the stored like_pattern carries the right risk. This is
+# the grab-bag case (e.g. "Any CLA"), where patterns of one license span very different risk levels.
+subtest 'attributes the closest pattern within the license, with its real risk' => sub {
+
+  # Two members of one license at different risk and with disjoint wording. The first created is the
+  # arbitrary representative the old scorer always returned for this license.
+  my $low = $app->patterns->create(
+    pattern => 'alpha bravo charlie delta echo foxtrot golf',
+    license => 'GrabBag-Test',
+    risk    => 0
+  );
+  my $high = $app->patterns->create(
+    pattern => 'november oscar papa quebec romeo sierra tango',
+    license => 'GrabBag-Test',
+    risk    => 5
+  );
+
+  $patterns->rebuild_similarity_data;
+  my $ctx     = $patterns->similarity_context;
+  my $relaxed = {%$ctx, distinctive_idf => 0, min_distinctive => 1};    # tiny corpus: keep the gate out
+  my $risk_of = sub ($id) { $db->select('license_patterns', 'risk', {id => $id})->hash->{risk} };
+
+  my $hi = $patterns->score_text('november oscar papa quebec romeo sierra tango', $relaxed);
+  is $hi->{like_pattern},   $high->{id}, 'a snippet matching the high-risk member is attributed to it';
+  isnt $hi->{like_pattern}, $low->{id},  'not the arbitrary representative (the first pattern of the license)';
+  is $risk_of->($hi->{like_pattern}), 5, 'so the stored pattern carries the right (high) risk';
+
+  my $lo = $patterns->score_text('alpha bravo charlie delta echo foxtrot golf', $relaxed);
+  is $lo->{like_pattern},             $low->{id}, 'a snippet matching the low-risk member is attributed to it';
+  is $risk_of->($lo->{like_pattern}), 0,          'with the right (low) risk';
+};
+
 done_testing;

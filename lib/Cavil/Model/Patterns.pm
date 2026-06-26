@@ -203,11 +203,32 @@ sub best_license_for ($self, $text, $ctx) {
   }
 
   return {
-    license => $best->[0],
-    match   => $best->[1],
-    pattern => defined $best->[0] ? $ctx->{representative}{$best->[0]} : undef,
-    second  => defined $best->[0] ? $second->[1]                       : 0
+    license  => $best->[0],
+    match    => $best->[1],
+    pattern  => defined $best->[0] ? $ctx->{representative}{$best->[0]} : undef,
+    second   => defined $best->[0] ? $second->[1]                       : 0,
+    shingles => $shingles
   };
+}
+
+# The license pick above is by license (the combined fingerprint), so the pattern it returns is only an
+# arbitrary representative of that license. Refine it to the *actual* closest pattern within the winning
+# license, so the resolution reads the right risk/spdx - patterns of one license (e.g. grab-bag "Any CLA")
+# can span very different risk levels. The winning license's patterns are loaded once per run (memoized on
+# the context) and scored with the same IDF-weighted containment; returns undef if the license has no
+# patterns, so callers fall back to the representative.
+sub _closest_pattern_in_license ($self, $shingles, $license, $ctx) {
+  my $patterns = $ctx->{pattern_cache}{$license}
+    //= [map { {id => $_->{id}, sig => text_shingles($_->{pattern}, $ctx->{k} // SIMILARITY_SHINGLE_SIZE)} }
+      $self->pg->db->select('license_patterns', [qw(id pattern)], {license => $license})->hashes->each];
+  return undef unless @$patterns;
+
+  my ($best_id, $best_score);
+  for my $pattern (@$patterns) {
+    my $score = weighted_containment($shingles, $pattern->{sig}, $ctx->{idf});
+    ($best_id, $best_score) = ($pattern->{id}, $score) if !defined $best_score || $score > $best_score;
+  }
+  return $best_id;
 }
 
 # Single place that turns a snippet's text into its four scoring columns. With similarity signatures
@@ -217,9 +238,20 @@ sub best_license_for ($self, $text, $ctx) {
 sub score_text ($self, $text, $ctx, $bag = undef) {
   if ($ctx) {
     my $best = $self->best_license_for($text, $ctx);
+
+    # Attribute the snippet to the closest pattern *within* the winning license, not the license's
+    # arbitrary representative, so the stored like_pattern carries the right risk/spdx. likelyness and
+    # second_match stay license-level (the fold thresholds are tuned against that), so only the pattern
+    # changes.
+    my $like = $best->{pattern};
+    if (defined $best->{license}) {
+      my $closest = $self->_closest_pattern_in_license($best->{shingles}, $best->{license}, $ctx);
+      $like = $closest if defined $closest;
+    }
+
     return {
       likelyness    => $best->{match},
-      like_pattern  => $best->{pattern},
+      like_pattern  => $like,
       second_match  => $best->{second} // 0,
       score_version => SNIPPET_SCORE_VERSION
     };
