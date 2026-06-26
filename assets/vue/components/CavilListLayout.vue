@@ -338,8 +338,9 @@ export default {
   color: #6e7781;
   font-size: 0.8125rem;
   font-weight: 400;
+  min-width: 12rem;
   max-width: 18rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .cavil-list-table a {
@@ -413,8 +414,7 @@ export default {
 }
 
 .cavil-list-comment {
-  min-width: 12rem;
-  width: 24rem;
+  max-width: 24rem;
 }
 
 .cavil-list-comment-body {
@@ -424,6 +424,7 @@ export default {
   color: #57606a;
   font-size: 0.8125rem;
   line-height: 1.45;
+  width: max-content;
   max-width: 24rem;
   overflow-wrap: anywhere;
   padding: 0.45rem 0.6rem;
