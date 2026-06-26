@@ -17,6 +17,7 @@ package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
+use Mojo::Util  qw(humanize_bytes);
 use Cavil::Util qw(lines_context);
 
 my $SMALL_REPORT_RE = qr/
@@ -192,6 +193,21 @@ sub _file_browser_source ($self, $package, $file, $filename) {
   {
     $file_id      = $matched->{id};
     %info_by_line = %{$self->_file_browser_line_info($package, $file_id)};
+  }
+
+  my $size = -s $file;
+  my $max  = $self->app->config->{max_file_browser_size} // 1_000_000;
+  if ($max && $size > $max) {
+    return {
+      id           => $file_id,
+      name         => $package->{name},
+      filename     => $filename,
+      oversized    => 1,
+      size         => $size,
+      maxSize      => $max,
+      sizeLabel    => humanize_bytes($size),
+      maxSizeLabel => humanize_bytes($max)
+    };
   }
 
   my @lines;

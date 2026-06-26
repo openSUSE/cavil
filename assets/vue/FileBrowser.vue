@@ -25,6 +25,7 @@
           <template v-if="meta.kind === 'directory'">
             {{ meta.entries.length }} {{ meta.entries.length === 1 ? 'item' : 'items' }}
           </template>
+          <template v-else-if="sourceIsOversized">{{ meta.source.sizeLabel }} file</template>
           <template v-else
             >{{ meta.source.lines.length }} {{ meta.source.lines.length === 1 ? 'line' : 'lines' }}</template
           >
@@ -57,7 +58,15 @@
       </div>
 
       <div v-else class="file-browser-panel file-browser-source-panel">
-        <div class="source file-browser-source">
+        <div v-if="sourceIsOversized" class="file-browser-too-large" role="status">
+          <i class="fa-regular fa-file-lines"></i>
+          <strong>This file is too large to display.</strong>
+          <span
+            >{{ meta.source.filename }} is {{ meta.source.sizeLabel }}. The display limit is
+            {{ meta.source.maxSizeLabel }}.</span
+          >
+        </div>
+        <div v-else class="source file-browser-source">
           <FileSource
             :lines="meta.source.lines"
             :file-id="meta.source.id || 0"
@@ -128,6 +137,9 @@ export default {
     pendingActionsForCurrentFile() {
       if (!this.meta || this.meta.kind !== 'file') return [];
       return this.pendingActions.filter(a => a.fileId === this.meta.source.id);
+    },
+    sourceIsOversized() {
+      return this.meta && this.meta.kind === 'file' && this.meta.source && this.meta.source.oversized;
     }
   },
   mounted() {
@@ -500,6 +512,25 @@ export default {
 }
 .file-browser-source .snippet tr.has-pattern-tooltip td.code {
   cursor: help;
+}
+.file-browser-too-large {
+  align-items: center;
+  color: #59636e;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 220px;
+  padding: 32px 16px;
+  text-align: center;
+}
+.file-browser-too-large i {
+  color: #8c959f;
+  font-size: 32px;
+}
+.file-browser-too-large strong {
+  color: #1f2328;
+  font-size: 16px;
 }
 .cavil-pattern-tip-floating {
   position: fixed;

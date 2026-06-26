@@ -249,6 +249,21 @@ subtest 'Details after indexing' => sub {
     cmp_ok scalar @{$source->{lines}}, '>', 1000, 'file browser returns the whole source file';
     ok grep({ $_->[1]{pid} } @{$source->{lines}}), 'whole source file keeps pattern annotations';
 
+    local $t->app->config->{max_file_browser_size} = 10;
+    my $package = $t->app->packages->find(1);
+    my $large
+      = $cavil_test->checkout_dir->child('perl-Mojolicious', $package->{checkout_dir}, '.unpacked', 'large.txt');
+    $large->spurt("This file is too large for the configured browser limit.\n");
+    $t->get_ok('/reviews/file_view_meta/1/large.txt')
+      ->status_is(200)
+      ->json_is('/kind',             'file')
+      ->json_is('/source/filename',  'large.txt')
+      ->json_is('/source/oversized', 1)
+      ->json_is('/source/maxSize',   10)
+      ->json_has('/source/sizeLabel')
+      ->json_has('/source/maxSizeLabel')
+      ->json_hasnt('/source/lines');
+
     $t->get_ok('/reviews/file_view_meta/1/does-not-exist')->status_is(404);
     $t->get_ok('/reviews/file_view_meta/1/../COPYING')->status_is(400);
   };

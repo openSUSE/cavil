@@ -59,6 +59,7 @@ sub default_config ($self) {
     max_task_memory                          => 5_000_000_000,
     max_worker_rss                           => 100000,
     max_expanded_files                       => 100,
+    max_file_browser_size                    => 1_000_000,
     always_generate_spdx_reports             => 0,
     snippet_fold                             => {
       enabled         => 0,

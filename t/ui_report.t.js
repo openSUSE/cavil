@@ -121,6 +121,64 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await browserPage.close();
     });
 
+    await t.test('Checkout file browser renders oversized file notice', async t => {
+      const browserPage = await context.newPage();
+      const metadataUrl = `${url}/reviews/file_view_meta/1/Mojolicious-7.25/lib/Mojolicious.pm`;
+      await browserPage.route(metadataUrl, route => {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json;charset=UTF-8',
+          body: JSON.stringify({
+            package: {
+              id: 1,
+              name: 'perl-Mojolicious',
+              detailsUrl: '/reviews/details/1'
+            },
+            checkoutDir: 'Mojolicious-7.25',
+            currentPath: 'Mojolicious-7.25/lib/Mojolicious.pm',
+            breadcrumbs: [
+              {name: 'perl-Mojolicious', path: '', url: '/reviews/file_view/1/'},
+              {name: 'Mojolicious-7.25', path: 'Mojolicious-7.25', url: '/reviews/file_view/1/Mojolicious-7.25'},
+              {
+                name: 'lib',
+                path: 'Mojolicious-7.25/lib',
+                url: '/reviews/file_view/1/Mojolicious-7.25/lib'
+              },
+              {
+                name: 'Mojolicious.pm',
+                path: 'Mojolicious-7.25/lib/Mojolicious.pm',
+                url: '/reviews/file_view/1/Mojolicious-7.25/lib/Mojolicious.pm'
+              }
+            ],
+            kind: 'file',
+            source: {
+              id: 1,
+              name: 'perl-Mojolicious',
+              filename: 'Mojolicious-7.25/lib/Mojolicious.pm',
+              oversized: 1,
+              size: 1500000,
+              maxSize: 1000000,
+              sizeLabel: '1.43 MiB',
+              maxSizeLabel: '976.56 KiB'
+            }
+          })
+        });
+      });
+
+      await browserPage.goto(`${url}/reviews/file_view/1/Mojolicious-7.25/lib/Mojolicious.pm`);
+      await browserPage.waitForSelector('.file-browser-too-large');
+      t.equal(await browserPage.innerText('title'), 'Content of Mojolicious-7.25/lib/Mojolicious.pm');
+      t.match(await browserPage.innerText('.file-browser-count'), /1\.43 MiB file/);
+      t.match(await browserPage.innerText('.file-browser-too-large'), /This file is too large to display/);
+      t.match(await browserPage.innerText('.file-browser-too-large'), /The display limit is 976\.56 KiB/);
+      t.equal(
+        await browserPage.locator('.file-browser-source table.snippet').count(),
+        0,
+        'source table is not mounted'
+      );
+      await browserPage.close();
+    });
+
     await t.test('Expand hidden file (and open it in a new tab)', async t => {
       await page.goto(url);
       await page.click('text=Artistic');
