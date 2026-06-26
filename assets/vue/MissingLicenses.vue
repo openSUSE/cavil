@@ -383,9 +383,11 @@ export default {
   user-select: none;
 }
 .change-license-line {
-  background-color: #ebffe9;
+  background-color: rgba(31, 136, 61, 0.12);
+  box-shadow: inset 3px 0 0 #1f883d;
 }
 .change-keyword-line {
-  background-color: #ffebe9;
+  background-color: rgba(191, 135, 0, 0.14);
+  box-shadow: inset 3px 0 0 #bf8700;
 }
 </style>
