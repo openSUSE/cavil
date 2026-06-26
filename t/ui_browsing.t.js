@@ -218,8 +218,24 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await openAccountMenu(page);
       await page.click('text=Statistics');
       t.equal(await page.innerText('title'), 'Statistics');
-      await page.waitForSelector('#statistics .stats-body');
-      t.equal(await page.innerText('#statistics .stats-body'), '25');
+      await page.waitForSelector('#statistics .stats-dashboard');
+      t.equal(await page.locator('#statistics .stats-donut-tile').count(), 2, 'renders the donut tiles');
+      t.equal(await page.locator('#statistics .stats-number-tile').count(), 3, 'renders the number tiles');
+      t.match(await page.innerText('#statistics'), /Package activity/i);
+      t.match(await page.innerText('#statistics'), /Review automation/i);
+      t.match(await page.innerText('#statistics'), /Embargoed Packages/i);
+      t.match(await page.innerText('#statistics'), /Snippets/i);
+      t.match(await page.innerText('#statistics'), /License Patterns/i);
+
+      await page.locator('#statistics .stats-scope-toggle button', {hasText: 'Month'}).click();
+      t.match(
+        await page.locator('#statistics .stats-donut-tile').filter({hasText: 'Review automation'}).innerText(),
+        /performed reviews/
+      );
+      t.ok(
+        await page.locator('#statistics .stats-scope-toggle button.active', {hasText: 'Month'}).isVisible(),
+        'can switch review automation to monthly stats'
+      );
     });
 
     await t.test('API Keys', async t => {

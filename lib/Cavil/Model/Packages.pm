@@ -660,8 +660,20 @@ sub stats {
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'unacceptable') AS rejected_packages,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'new') AS open_reviews,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND reviewing_user IS NOT NULL) AS manual_reviews,
+       monthly_reviews.performed AS monthly_performed_reviews,
+       monthly_reviews.manual AS monthly_manual_reviews,
+       monthly_reviews.automated AS monthly_automated_reviews,
        (SELECT COUNT(*) FROM snippets) AS total_snippets,
-       (SELECT COUNT(*) FROM license_patterns) AS total_license_patterns"
+       (SELECT COUNT(*) FROM license_patterns) AS total_license_patterns
+     FROM (
+       SELECT COUNT(*) AS performed,
+         COUNT(*) FILTER (WHERE reviewing_user IS NOT NULL) AS manual,
+         COUNT(*) FILTER (WHERE reviewing_user IS NULL) AS automated
+       FROM bot_packages
+       WHERE obsolete = false
+         AND reviewed >= date_trunc('month', now())
+         AND reviewed < date_trunc('month', now()) + INTERVAL '1 month'
+     ) monthly_reviews"
   )->hash;
 
   return $stats;

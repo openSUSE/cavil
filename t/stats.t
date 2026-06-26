@@ -39,6 +39,9 @@ subtest 'Statistics' => sub {
     ->json_is('/open_reviews'      => 2)
     ->json_is('/rejected_packages' => 0)
     ->json_is('/manual_reviews'    => 0)
+    ->json_has('/monthly_performed_reviews')
+    ->json_has('/monthly_manual_reviews')
+    ->json_has('/monthly_automated_reviews')
     ->json_has('/total_snippets')
     ->json_has('/total_license_patterns');
 
