@@ -2,6 +2,15 @@
 import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
 import t from 'tap';
 
+async function openSnippetAction(src, rowClass, label) {
+  const row = src.locator(`tr.${rowClass}`).first();
+  await row.waitFor();
+  await row.locator('[id^="dropdownMenuLink-"]').click();
+  const item = src.locator('.dropdown-menu.show a.dropdown-item', {hasText: label}).first();
+  await item.waitFor({state: 'visible'});
+  await item.click();
+}
+
 // A folded snippet is one that the similarity scorer resolved to a license without a human writing
 // a pattern. In the report it must behave like any other resolved license: it appears in the risk
 // list, and opening its file shows the folded region highlighted as that license (not as a black
@@ -61,9 +70,7 @@ t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
 
       // Dashed + the report-style action menu linking to the full-page snippet editor
       t.ok(await src.locator('tr.folded').count(), 'file browser marks the folded region as derived');
-      await src.locator('[id^="dropdownMenuLink-"]').first().click();
-      const correct = src.locator('.dropdown-menu a.dropdown-item', {hasText: 'Correct this fold'}).first();
-      await correct.click();
+      await openSnippetAction(src, 'folded', 'Correct this fold');
       await src.locator('#inline-snippet-editor').waitFor();
       t.ok(await src.locator('#inline-snippet-editor').count(), 'folded region opens the inline snippet editor');
     });
@@ -105,9 +112,7 @@ t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
       // Cleared regions stay reviewable here: dashed marker + a correction link to the editor
       await src.locator('tr.cleared').first().waitFor();
       t.ok(await src.locator('tr.cleared').count(), 'file browser marks the cleared region for review');
-      await src.locator('[id^="dropdownMenuLink-"]').first().click();
-      const correct = src.locator('.dropdown-menu a.dropdown-item', {hasText: 'Review cleared text'}).first();
-      await correct.click();
+      await openSnippetAction(src, 'cleared', 'Review cleared text');
       await src.locator('#inline-snippet-editor').waitFor();
       t.ok(await src.locator('#inline-snippet-editor').count(), 'cleared region opens the inline snippet editor');
     });
@@ -140,9 +145,7 @@ t.test('Cavil UI - overlap-clear (snippet over a real license match)', skipUnles
 
       await src.locator('tr.cleared').first().waitFor();
       t.ok(await src.locator('tr.cleared').count(), 'the overlap-cleared region is marked cleared');
-      await src.locator('[id^="dropdownMenuLink-"]').first().click();
-      const correct = src.locator('.dropdown-menu a.dropdown-item', {hasText: 'Review cleared text'}).first();
-      await correct.click();
+      await openSnippetAction(src, 'cleared', 'Review cleared text');
       await src.locator('#inline-snippet-editor').waitFor();
       t.ok(await src.locator('#inline-snippet-editor').count(), 'cleared region opens the inline snippet editor');
     });
