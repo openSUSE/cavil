@@ -334,8 +334,12 @@ export default {
   width: 1%;
 }
 
-.cavil-list-link {
-  font-weight: 500;
+.cavil-list-table tbody td.cavil-list-link {
+  color: #6e7781;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  max-width: 18rem;
+  overflow-wrap: anywhere;
 }
 
 .cavil-list-table a {
