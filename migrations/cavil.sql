@@ -351,3 +351,6 @@ CREATE INDEX file_snippets_resolution_idx ON file_snippets (resolution) WHERE re
 -- 45 up
 CREATE INDEX file_snippets_resolution_snippet_idx ON file_snippets (resolution, snippet DESC) WHERE resolution IS NOT NULL;
 CREATE INDEX file_snippets_cleared_snippet_idx ON file_snippets (snippet DESC) WHERE resolution IN ('clear', 'overlap');
+
+-- 46 up
+CREATE INDEX bot_packages_imported_idx ON bot_packages (imported);

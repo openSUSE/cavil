@@ -31,23 +31,35 @@
       :label="tile.label"
       :value="tile.value"
     ></number-stat-tile>
+    <package-activity-tile
+      subtitle="past 24 hours"
+      label-mode="hourly"
+      :series="importedActivity"
+    ></package-activity-tile>
+    <package-activity-tile
+      subtitle="past week"
+      label-mode="weekly"
+      :series="weeklyImportedActivity"
+    ></package-activity-tile>
   </div>
 </template>
 
 <script>
 import DonutStatTile from './components/DonutStatTile.vue';
 import NumberStatTile from './components/NumberStatTile.vue';
+import PackageActivityTile from './components/PackageActivityTile.vue';
 import Refresh from './mixins/refresh.js';
 
 export default {
   name: 'CavilStatistics',
-  components: {DonutStatTile, NumberStatTile},
+  components: {DonutStatTile, NumberStatTile, PackageActivityTile},
   mixins: [Refresh],
   data() {
     return {
       activePackages: 0,
       automatedReviews: 0,
       embargoedPackages: 0,
+      importedActivity: [],
       manualReviews: 0,
       monthlyAutomatedReviews: 0,
       monthlyManualReviews: 0,
@@ -59,7 +71,9 @@ export default {
       rejectedPackages: 0,
       reviewScope: 'overall',
       totalSnippets: 0,
-      totalLicensePatterns: 0
+      totalLicensePatterns: 0,
+      unresolvedMatches: 0,
+      weeklyImportedActivity: []
     };
   },
   computed: {
@@ -91,9 +105,10 @@ export default {
     },
     numberTiles() {
       return [
-        {label: 'Embargoed Packages', value: this.embargoedPackages},
+        {label: 'Unresolved Matches', value: this.unresolvedMatches},
         {label: 'Snippets', value: this.totalSnippets},
-        {label: 'License Patterns', value: this.totalLicensePatterns}
+        {label: 'License Patterns', value: this.totalLicensePatterns},
+        {label: 'Embargoed Packages', value: this.embargoedPackages}
       ];
     }
   },
@@ -102,6 +117,7 @@ export default {
       this.activePackages = data.active_packages;
       this.automatedReviews = data.automated_reviews;
       this.embargoedPackages = data.embargoed_packages;
+      this.importedActivity = data.imported_activity;
       this.openReviews = data.open_reviews;
       this.manualReviews = data.manual_reviews;
       this.monthlyAutomatedReviews = data.monthly_automated_reviews;
@@ -111,6 +127,8 @@ export default {
       this.rejectedPackages = data.rejected_packages;
       this.totalSnippets = data.total_snippets;
       this.totalLicensePatterns = data.total_license_patterns;
+      this.unresolvedMatches = data.unresolved_matches;
+      this.weeklyImportedActivity = data.weekly_imported_activity;
     }
   }
 };

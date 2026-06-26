@@ -659,6 +659,7 @@ sub stats {
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND embargoed = true) AS embargoed_packages,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'unacceptable') AS rejected_packages,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'new') AS open_reviews,
+      (SELECT COALESCE(SUM(unresolved_matches), 0) FROM bot_packages WHERE obsolete = false AND state = 'new') AS unresolved_matches,
        overall_reviews.performed AS performed_reviews,
        overall_reviews.manual AS manual_reviews,
        overall_reviews.automated AS automated_reviews,
@@ -682,6 +683,34 @@ sub stats {
        WHERE reviewed >= date_trunc('month', now()) AND reviewed < date_trunc('month', now()) + INTERVAL '1 month'
      ) monthly_reviews"
   )->hash;
+
+  $stats->{imported_activity} = $self->pg->db->query(
+    "SELECT EXTRACT(EPOCH FROM bucket) AS bucket,
+       TO_CHAR(bucket, 'HH24:00') AS label,
+       COUNT(bot_packages.id) AS count
+     FROM GENERATE_SERIES(
+       DATE_TRUNC('hour', NOW()) - INTERVAL '23 hours',
+       DATE_TRUNC('hour', NOW()),
+       INTERVAL '1 hour'
+     ) bucket
+     LEFT JOIN bot_packages ON imported >= bucket AND imported < bucket + INTERVAL '1 hour'
+     GROUP BY bucket
+     ORDER BY bucket"
+  )->hashes->to_array;
+
+  $stats->{weekly_imported_activity} = $self->pg->db->query(
+    "SELECT EXTRACT(EPOCH FROM bucket) AS bucket,
+       TO_CHAR(bucket, 'Dy') AS label,
+       COUNT(bot_packages.id) AS count
+     FROM GENERATE_SERIES(
+       DATE_TRUNC('day', NOW()) - INTERVAL '6 days',
+       DATE_TRUNC('day', NOW()),
+       INTERVAL '1 day'
+     ) bucket
+     LEFT JOIN bot_packages ON imported >= bucket AND imported < bucket + INTERVAL '1 day'
+     GROUP BY bucket
+     ORDER BY bucket"
+  )->hashes->to_array;
 
   return $stats;
 }
