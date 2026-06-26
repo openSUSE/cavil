@@ -659,7 +659,7 @@ sub stats {
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND embargoed = true) AS embargoed_packages,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'unacceptable') AS rejected_packages,
        (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'new') AS open_reviews,
-      (SELECT COALESCE(SUM(unresolved_matches), 0) FROM bot_packages WHERE obsolete = false AND state = 'new') AS unresolved_matches,
+      (SELECT COALESCE(SUM(unresolved_matches), 0) FROM bot_packages WHERE obsolete = false) AS unresolved_matches,
        overall_reviews.performed AS performed_reviews,
        overall_reviews.manual AS manual_reviews,
        overall_reviews.automated AS automated_reviews,
