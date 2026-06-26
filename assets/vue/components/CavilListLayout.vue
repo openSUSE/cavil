@@ -338,7 +338,7 @@ export default {
   color: #6e7781;
   font-size: 0.8125rem;
   font-weight: 400;
-  min-width: 12rem;
+  min-width: min(10rem, 22vw);
   max-width: 18rem;
   overflow-wrap: break-word;
 }
@@ -422,9 +422,9 @@ export default {
   border-left: 3px solid #d0d7de;
   border-radius: 6px;
   color: #57606a;
+  display: inline-block;
   font-size: 0.8125rem;
   line-height: 1.45;
-  width: max-content;
   max-width: 24rem;
   overflow-wrap: anywhere;
   padding: 0.45rem 0.6rem;
