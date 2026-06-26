@@ -215,7 +215,7 @@
                   </a>
                 </div>
                 <p v-if="lic.flags.length > 0" class="risk-license-flags">
-                  Flags: {{ lic.flags.map(capitalize).join(', ') }}
+                  Flags: {{ lic.flags.map(licenseFlagLabel).join(', ') }}
                 </p>
                 <div :id="lic.list_id" :class="lic.list_class">
                   <ul class="risk-file-list">
@@ -567,8 +567,15 @@ export default {
         this.noteLawyerCount = Math.max(0, this.noteLawyerCount + payload.lawyer_only_bump);
       }
     },
-    capitalize(str) {
-      return str.charAt(0).toUpperCase() + str.slice(1);
+    licenseFlagLabel(flag) {
+      const labels = {
+        cla: 'CLA',
+        eula: 'EULA',
+        export_restricted: 'Export Restricted',
+        patent: 'Patent',
+        trademark: 'Trademark'
+      };
+      return labels[flag] ?? flag.replaceAll('_', ' ');
     },
     estimatedRiskClass(risk) {
       if (risk === 9) return 'text-bg-dark';
