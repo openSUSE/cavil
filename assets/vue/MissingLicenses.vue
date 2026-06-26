@@ -48,9 +48,9 @@
             <div class="change-source">
               <table>
                 <tbody>
-                  <tr v-for="line in change.lines" :key="line.num">
+                  <tr v-for="line in change.lines" :key="line.num" :class="getClassForLine(line)">
                     <td class="linenumber">{{ line.num }}</td>
-                    <td :class="getClassForLine(line)">{{ line.text }}</td>
+                    <td class="code">{{ line.text }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -180,9 +180,8 @@ export default {
     },
     getClassForLine(line) {
       return {
-        'change-keyword-line code': line.highlighted === 'keyword',
-        'change-license-line code': line.highlighted === 'license',
-        code: line.highlighted === null
+        'change-keyword-line': line.highlighted === 'keyword',
+        'change-license-line': line.highlighted === 'license'
       };
     },
     handleScroll() {
@@ -382,12 +381,16 @@ export default {
   color: rgba(27, 31, 35, 0.3);
   user-select: none;
 }
-.change-license-line {
+.change-license-line td {
   background-color: rgba(31, 136, 61, 0.12);
+}
+.change-license-line td:first-child {
   box-shadow: inset 3px 0 0 #1f883d;
 }
-.change-keyword-line {
+.change-keyword-line td {
   background-color: rgba(191, 135, 0, 0.14);
+}
+.change-keyword-line td:first-child {
   box-shadow: inset 3px 0 0 #bf8700;
 }
 </style>
