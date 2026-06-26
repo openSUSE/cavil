@@ -46,12 +46,14 @@ export default {
   data() {
     return {
       activePackages: 0,
+      automatedReviews: 0,
       embargoedPackages: 0,
       manualReviews: 0,
       monthlyAutomatedReviews: 0,
       monthlyManualReviews: 0,
       monthlyPerformedReviews: 0,
       openReviews: 0,
+      performedReviewsOverall: 0,
       refreshDelay: 120000,
       refreshUrl: '/stats/meta',
       rejectedPackages: 0,
@@ -70,13 +72,10 @@ export default {
     reviewedPackages() {
       return Math.max(this.activePackages - this.openReviews, 0);
     },
-    automatedReviews() {
-      return Math.max(this.activePackages - this.manualReviews - this.openReviews, 0);
-    },
     performedReviews() {
       if (this.reviewScope === 'month') return this.monthlyPerformedReviews;
 
-      return this.manualReviews + this.automatedReviews;
+      return this.performedReviewsOverall;
     },
     displayedManualReviews() {
       return this.reviewScope === 'month' ? this.monthlyManualReviews : this.manualReviews;
@@ -101,12 +100,14 @@ export default {
   methods: {
     refreshData(data) {
       this.activePackages = data.active_packages;
+      this.automatedReviews = data.automated_reviews;
       this.embargoedPackages = data.embargoed_packages;
       this.openReviews = data.open_reviews;
       this.manualReviews = data.manual_reviews;
       this.monthlyAutomatedReviews = data.monthly_automated_reviews;
       this.monthlyManualReviews = data.monthly_manual_reviews;
       this.monthlyPerformedReviews = data.monthly_performed_reviews;
+      this.performedReviewsOverall = data.performed_reviews;
       this.rejectedPackages = data.rejected_packages;
       this.totalSnippets = data.total_snippets;
       this.totalLicensePatterns = data.total_license_patterns;
