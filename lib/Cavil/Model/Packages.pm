@@ -670,9 +670,7 @@ sub stats {
          COUNT(*) FILTER (WHERE reviewing_user IS NOT NULL) AS manual,
          COUNT(*) FILTER (WHERE reviewing_user IS NULL) AS automated
        FROM bot_packages
-       WHERE obsolete = false
-         AND reviewed >= date_trunc('month', now())
-         AND reviewed < date_trunc('month', now()) + INTERVAL '1 month'
+       WHERE reviewed >= date_trunc('month', now()) AND reviewed < date_trunc('month', now()) + INTERVAL '1 month'
      ) monthly_reviews"
   )->hash;
 
