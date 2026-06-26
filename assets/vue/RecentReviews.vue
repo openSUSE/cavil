@@ -1,142 +1,136 @@
 <template>
-  <div class="mt-3">
-    <div>
-      <form>
-        <div class="row g-4">
-          <div class="col-lg-2">
-            <div class="form-floating">
-              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-              <label class="form-label">Reviews per Page</label>
-            </div>
-          </div>
-          <div class="col-lg-2">
-            <div class="form-check">
-              <input
-                v-model="params.byUser"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-by-user"
-              />
-              <label class="form-check-label" for="cavil-pkg-by-user">Reviewed By User</label>
-            </div>
-            <div class="form-check">
-              <input
-                v-model="params.aiAssisted"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-ai-assisted"
-              />
-              <label class="form-check-label" for="cavil-pkg-ai-assisted">Reviewed With AI</label>
-            </div>
-          </div>
-          <div class="col">
-            <div class="form-check">
-              <input
-                v-model="params.unresolvedMatches"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-unresolved-matches"
-              />
-              <label class="form-check-label" for="cavil-pkg-unresolved-matches">Unresolved Matches</label>
-            </div>
-          </div>
-          <div id="cavil-pkg-filter" class="col-lg-3">
-            <form @submit.prevent="filterNow">
-              <div class="form-floating">
-                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
-                <label class="form-label">Filter</label>
-              </div>
-            </form>
-          </div>
-        </div>
-      </form>
-      <div class="row">
-        <div class="col-12">
-          <table class="table table-striped table-bordered">
-            <thead>
-              <tr>
-                <th class="priority">Priority</th>
-                <th class="link">Link</th>
-                <th class="created">Created</th>
-                <th class="reviewed">Reviewed</th>
-                <th class="package">Package</th>
-                <th class="state">State</th>
-                <th class="result">Comment</th>
-                <th class="login">Reviewing User</th>
-                <th class="report">Report</th>
-              </tr>
-            </thead>
-            <tbody v-if="reviews === null">
-              <tr>
-                <td id="all-done" colspan="9"><i class="fa-solid fa-rotate fa-spin"></i> Loading reviews...</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="reviews.length > 0">
-              <tr v-for="review in reviews" :key="review.id">
-                <td class="text-center"><PriorityBadge :priority.sync="review.priority" /></td>
-                <td v-html="review.link"></td>
-                <td class="relative-time">{{ review.created }}</td>
-                <td class="relative-time">{{ review.reviewed }}</td>
-                <td v-html="review.package"></td>
-                <td v-html="review.state"></td>
-                <td v-html="review.result"></td>
-                <td v-html="review.login"></td>
-                <td v-html="review.report"></td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr>
-                <td id="all-done" colspan="9">No reviews found.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-6 mb-4">
-          <ShownEntries :end.sync="end" :start.sync="start" :total.sync="total" />
-        </div>
-        <div class="col-6 mb-4" id="cavil-pagination">
-          <PaginationLinks
-            @goto-page="gotoPage"
-            :end.sync="end"
-            :start.sync="start"
-            :total.sync="total"
-            :current-page.sync="currentPage"
-            :total-pages.sync="totalPages"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
+  <CavilListLayout
+    :current-page="currentPage"
+    :end="end"
+    :filter="filter"
+    filter-aria-label="Recent review filters"
+    filter-input-id="recent-reviews-filter-input"
+    filter-label="Filter reviews"
+    filter-placeholder="Filter reviews"
+    plural="recent reviews"
+    singular="recent review"
+    :start="start"
+    :total="total"
+    :total-pages="totalPages"
+    @filter-submit="filterNow"
+    @goto-page="gotoPage"
+    @update:filter="filter = $event"
+  >
+    <template #controls>
+      <button
+        id="cavil-pkg-by-user"
+        @click="toggleFilter('byUser')"
+        :aria-pressed="params.byUser.toString()"
+        :class="{'is-active': params.byUser}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.byUser" class="fa-solid fa-check" aria-hidden="true"></i>
+        Reviewed by user
+      </button>
+      <button
+        id="cavil-pkg-ai-assisted"
+        @click="toggleFilter('aiAssisted')"
+        :aria-pressed="params.aiAssisted.toString()"
+        :class="{'is-active': params.aiAssisted}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.aiAssisted" class="fa-solid fa-check" aria-hidden="true"></i>
+        Reviewed with AI
+      </button>
+      <button
+        id="cavil-pkg-unresolved-matches"
+        @click="toggleFilter('unresolvedMatches')"
+        :aria-pressed="params.unresolvedMatches.toString()"
+        :class="{'is-active': params.unresolvedMatches}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.unresolvedMatches" class="fa-solid fa-check" aria-hidden="true"></i>
+        Unresolved matches
+      </button>
+    </template>
+
+    <template #per-page>
+      <label class="cavil-list-control">
+        <span>Per page</span>
+        <select v-model="params.limit" @change="gotoPage(1)" class="form-select">
+          <option>10</option>
+          <option>25</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+      </label>
+    </template>
+
+    <table class="cavil-list-table table">
+      <thead>
+        <tr>
+          <th class="priority">Priority</th>
+          <th class="link">Link</th>
+          <th class="created">Created</th>
+          <th class="reviewed">Reviewed</th>
+          <th class="package">Package</th>
+          <th class="state">State</th>
+          <th class="result">Comment</th>
+          <th class="login">Reviewing User</th>
+          <th class="report">Report</th>
+        </tr>
+      </thead>
+      <tbody v-if="reviews === null">
+        <tr>
+          <td id="all-done" colspan="9" class="cavil-list-state">
+            <i class="fa-solid fa-rotate fa-spin"></i> Loading reviews...
+          </td>
+        </tr>
+      </tbody>
+      <tbody v-else-if="reviews.length > 0">
+        <tr v-for="review in reviews" :key="review.id">
+          <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
+          <td class="cavil-list-link" v-html="review.link"></td>
+          <td class="relative-time cavil-list-time">{{ review.created }}</td>
+          <td class="relative-time cavil-list-time">{{ review.reviewed }}</td>
+          <td class="cavil-list-package" v-html="review.package"></td>
+          <td v-html="review.state"></td>
+          <td class="cavil-list-comment">
+            <div class="cavil-list-comment-body" v-html="review.result"></div>
+          </td>
+          <td v-html="review.login"></td>
+          <td class="cavil-list-report" v-html="review.report"></td>
+        </tr>
+      </tbody>
+      <tbody v-else>
+        <tr>
+          <td id="all-done" colspan="9" class="cavil-list-empty-cell">
+            <EmptyState message="No recent reviews found." />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </CavilListLayout>
 </template>
 
 <script>
-import PaginationLinks from './components/PaginationLinks.vue';
+import CavilListLayout from './components/CavilListLayout.vue';
+import EmptyState from './components/EmptyState.vue';
 import PriorityBadge from './components/PriorityBadge.vue';
-import ShownEntries from './components/ShownEntries.vue';
 import {externalLink, packageLink, reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
 
 export default {
-  name: 'OpenReviews',
+  name: 'RecentReviews',
   mixins: [Refresh],
-  components: {PaginationLinks, PriorityBadge, ShownEntries},
+  components: {CavilListLayout, EmptyState, PriorityBadge},
   data() {
     const params = getParams({
       limit: 10,
       offset: 0,
       byUser: false,
+      aiAssisted: false,
+      unresolvedMatches: false,
       filter: ''
     });
 
@@ -194,6 +188,10 @@ export default {
       this.reviews = reviews;
       setupPopoverDelayed();
     },
+    toggleFilter(name) {
+      this.params[name] = !this.params[name];
+      this.gotoPage(1);
+    },
     filterNow() {
       this.cancelApiRefresh();
       this.reviews = null;
@@ -210,17 +208,3 @@ export default {
   }
 };
 </script>
-
-<style>
-.table {
-  margin-top: 1rem;
-}
-#cavil-pkg-filter form {
-  margin: 2px 0;
-  white-space: nowrap;
-  justify-content: flex-end;
-}
-#all-done {
-  text-align: center;
-}
-</style>

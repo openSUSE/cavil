@@ -1,159 +1,151 @@
 <template>
-  <div class="mt-3">
-    <div>
-      <form>
-        <div class="row g-4">
-          <div class="col-lg-2">
-            <div class="form-floating">
-              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-              <label class="form-label">Reviews per Page</label>
-            </div>
-          </div>
-          <div class="col-lg-2">
-            <div class="form-check">
-              <input
-                v-model="params.attention"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-attention"
-              />
-              <label class="form-check-label" for="cavil-pkg-attention"><b>Needs Attention</b></label>
-            </div>
-            <div class="form-check">
-              <input
-                v-model="params.unresolvedMatches"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-unresolved-matches"
-              />
-              <label class="form-check-label" for="cavil-pkg-unresolved-matches">Unresolved Matches</label>
-            </div>
-          </div>
-          <div class="col">
-            <div class="form-check">
-              <input
-                v-model="params.patent"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-patent"
-              />
-              <label class="form-check-label" for="cavil-pkg-patent">Patent</label>
-            </div>
-            <div class="form-check">
-              <input
-                v-model="params.trademark"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-trademark"
-              />
-              <label class="form-check-label" for="cavil-pkg-trademark">Trademark</label>
-            </div>
-          </div>
-          <div class="col">
-            <div class="form-check">
-              <input
-                v-model="params.cla"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-cla"
-              />
-              <label class="form-check-label" for="cavil-pkg-cla">CLA</label>
-            </div>
-            <div class="form-check">
-              <input
-                v-model="params.eula"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-eula"
-              />
-              <label class="form-check-label" for="cavil-pkg-eula">EULA</label>
-            </div>
-          </div>
-          <div class="col">
-            <div class="form-check">
-              <input
-                v-model="params.exportRestricted"
-                @change="gotoPage(1)"
-                type="checkbox"
-                class="form-check-input"
-                id="cavil-pkg-export-restricted"
-              />
-              <label class="form-check-label" for="cavil-pkg-export-restricted">Export Restricted</label>
-            </div>
-          </div>
-          <div id="cavil-pkg-filter" class="col-lg-3">
-            <form @submit.prevent="filterNow">
-              <div class="form-floating">
-                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
-                <label class="form-label">Filter</label>
-              </div>
-            </form>
-          </div>
-        </div>
-      </form>
-      <div class="row">
-        <div class="col-12">
-          <table class="table table-striped table-bordered">
-            <thead>
-              <tr>
-                <th class="package">Package</th>
-                <th class="state">State</th>
-                <th class="report">Report</th>
-              </tr>
-            </thead>
-            <tbody v-if="reviews === null">
-              <tr>
-                <td id="all-done" colspan="3"><i class="fa-solid fa-rotate fa-spin"></i> Loading reviews...</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="reviews.length > 0">
-              <tr v-for="review in reviews" :key="review.id">
-                <td v-html="review.package"></td>
-                <td v-html="review.state"></td>
-                <td v-html="review.report"></td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr>
-                <td id="all-done" colspan="3">No reviews found.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-6 mb-4">
-          <ShownEntries :end.sync="end" :start.sync="start" :total.sync="total" />
-        </div>
-        <div class="col-6 mb-4" id="cavil-pagination">
-          <PaginationLinks
-            @goto-page="gotoPage"
-            :end.sync="end"
-            :start.sync="start"
-            :total.sync="total"
-            :current-page.sync="currentPage"
-            :total-pages.sync="totalPages"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
+  <CavilListLayout
+    :current-page="currentPage"
+    :end="end"
+    :filter="filter"
+    count-icon="fa-solid fa-box-open"
+    filter-aria-label="Package review filters"
+    filter-input-id="product-reviews-filter-input"
+    filter-label="Filter packages"
+    filter-placeholder="Filter packages"
+    :page-title="currentProduct"
+    plural="packages"
+    singular="package"
+    :start="start"
+    :total="total"
+    :total-pages="totalPages"
+    @filter-submit="filterNow"
+    @goto-page="gotoPage"
+    @update:filter="filter = $event"
+  >
+    <template #controls>
+      <button
+        id="cavil-pkg-attention"
+        @click="toggleFilter('attention')"
+        :aria-pressed="params.attention.toString()"
+        :class="{'is-active': params.attention}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.attention" class="fa-solid fa-check" aria-hidden="true"></i>
+        Needs attention
+      </button>
+      <button
+        id="cavil-pkg-unresolved-matches"
+        @click="toggleFilter('unresolvedMatches')"
+        :aria-pressed="params.unresolvedMatches.toString()"
+        :class="{'is-active': params.unresolvedMatches}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.unresolvedMatches" class="fa-solid fa-check" aria-hidden="true"></i>
+        Unresolved matches
+      </button>
+      <button
+        id="cavil-pkg-patent"
+        @click="toggleFilter('patent')"
+        :aria-pressed="params.patent.toString()"
+        :class="{'is-active': params.patent}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.patent" class="fa-solid fa-check" aria-hidden="true"></i>
+        Patent
+      </button>
+      <button
+        id="cavil-pkg-trademark"
+        @click="toggleFilter('trademark')"
+        :aria-pressed="params.trademark.toString()"
+        :class="{'is-active': params.trademark}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.trademark" class="fa-solid fa-check" aria-hidden="true"></i>
+        Trademark
+      </button>
+      <button
+        id="cavil-pkg-cla"
+        @click="toggleFilter('cla')"
+        :aria-pressed="params.cla.toString()"
+        :class="{'is-active': params.cla}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.cla" class="fa-solid fa-check" aria-hidden="true"></i>
+        CLA
+      </button>
+      <button
+        id="cavil-pkg-eula"
+        @click="toggleFilter('eula')"
+        :aria-pressed="params.eula.toString()"
+        :class="{'is-active': params.eula}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.eula" class="fa-solid fa-check" aria-hidden="true"></i>
+        EULA
+      </button>
+      <button
+        id="cavil-pkg-export-restricted"
+        @click="toggleFilter('exportRestricted')"
+        :aria-pressed="params.exportRestricted.toString()"
+        :class="{'is-active': params.exportRestricted}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.exportRestricted" class="fa-solid fa-check" aria-hidden="true"></i>
+        Export restricted
+      </button>
+    </template>
+
+    <template #per-page>
+      <label class="cavil-list-control">
+        <span>Per page</span>
+        <select v-model="params.limit" @change="gotoPage(1)" class="form-select">
+          <option>10</option>
+          <option>25</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+      </label>
+    </template>
+
+    <table class="cavil-list-table table">
+      <thead>
+        <tr>
+          <th class="package">Package</th>
+          <th class="state">State</th>
+          <th class="report">Report</th>
+        </tr>
+      </thead>
+      <tbody v-if="reviews === null">
+        <tr>
+          <td id="all-done" colspan="3" class="cavil-list-state">
+            <i class="fa-solid fa-rotate fa-spin"></i> Loading reviews...
+          </td>
+        </tr>
+      </tbody>
+      <tbody v-else-if="reviews.length > 0">
+        <tr v-for="review in reviews" :key="review.id">
+          <td class="cavil-list-package" v-html="review.package"></td>
+          <td v-html="review.state"></td>
+          <td class="cavil-list-report" v-html="review.report"></td>
+        </tr>
+      </tbody>
+      <tbody v-else>
+        <tr>
+          <td id="all-done" colspan="3" class="cavil-list-empty-cell">
+            <EmptyState message="No package reviews found." />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </CavilListLayout>
 </template>
 
 <script>
-import PaginationLinks from './components/PaginationLinks.vue';
-import ShownEntries from './components/ShownEntries.vue';
+import CavilListLayout from './components/CavilListLayout.vue';
+import EmptyState from './components/EmptyState.vue';
 import {packageLink, reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
@@ -161,7 +153,7 @@ import Refresh from './mixins/refresh.js';
 export default {
   name: 'ProductReviews',
   mixins: [Refresh],
-  components: {PaginationLinks, ShownEntries},
+  components: {CavilListLayout, EmptyState},
   data() {
     const params = getParams({
       limit: 10,
@@ -218,6 +210,10 @@ export default {
       this.reviews = reviews;
       setupPopoverDelayed();
     },
+    toggleFilter(name) {
+      this.params[name] = !this.params[name];
+      this.gotoPage(1);
+    },
     filterNow() {
       this.cancelApiRefresh();
       this.reviews = null;
@@ -244,17 +240,3 @@ export default {
   }
 };
 </script>
-
-<style>
-.table {
-  margin-top: 1rem;
-}
-#cavil-pkg-filter form {
-  margin: 2px 0;
-  white-space: nowrap;
-  justify-content: flex-end;
-}
-#all-done {
-  text-align: center;
-}
-</style>

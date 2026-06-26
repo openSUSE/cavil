@@ -1,92 +1,80 @@
 <template>
-  <div class="mt-3">
-    <div>
-      <form>
-        <div class="row g-4">
-          <div class="col-lg-2">
-            <div class="form-floating">
-              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-              <label class="form-label">Products per Page</label>
+  <CavilListLayout
+    :current-page="currentPage"
+    :end="end"
+    :filter="filter"
+    count-icon="fa-solid fa-box"
+    filter-aria-label="Product filters"
+    filter-input-id="products-filter-input"
+    filter-label="Filter products"
+    filter-placeholder="Filter products"
+    plural="products"
+    singular="product"
+    :start="start"
+    :total="total"
+    :total-pages="totalPages"
+    @filter-submit="filterNow"
+    @goto-page="gotoPage"
+    @update:filter="filter = $event"
+  >
+    <template #per-page>
+      <label class="cavil-list-control">
+        <span>Per page</span>
+        <select v-model="params.limit" @change="gotoPage(1)" class="form-select">
+          <option>10</option>
+          <option>25</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+      </label>
+    </template>
+
+    <table class="cavil-list-table table">
+      <thead>
+        <tr>
+          <th class="link">Product</th>
+          <th class="created">Updated</th>
+          <th colspan="2">Packages</th>
+        </tr>
+      </thead>
+      <tbody v-if="products === null">
+        <tr>
+          <td id="all-done" colspan="4" class="cavil-list-state">
+            <i class="fa-solid fa-rotate fa-spin"></i> Loading products...
+          </td>
+        </tr>
+      </tbody>
+      <tbody v-else-if="products.length > 0">
+        <tr v-for="product in products" :key="product.link">
+          <td class="cavil-list-primary" v-html="product.link"></td>
+          <td class="relative-time cavil-list-time">{{ product.updated }}</td>
+          <td>
+            <div v-if="product.unacceptable_packages > 0" class="cavil-bad-badge badge text-bg-danger">
+              {{ product.unacceptable_packages }}
             </div>
-          </div>
-          <div class="col"></div>
-          <div id="cavil-pkg-filter" class="col-lg-3">
-            <form @submit.prevent="filterNow">
-              <div class="form-floating">
-                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
-                <label class="form-label">Filter</label>
-              </div>
-            </form>
-          </div>
-        </div>
-      </form>
-      <div class="row">
-        <div class="col-12">
-          <table class="table table-striped table-bordered">
-            <thead>
-              <tr>
-                <th class="link">Product</th>
-                <th class="created">Updated</th>
-                <th colspan="2">Packages</th>
-              </tr>
-            </thead>
-            <tbody v-if="products === null">
-              <tr>
-                <td id="all-done" colspan="4"><i class="fa-solid fa-rotate fa-spin"></i> Loading products...</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="products.length > 0">
-              <tr v-for="product in products" :key="product.link">
-                <td v-html="product.link"></td>
-                <td class="relative-time">{{ product.updated }}</td>
-                <td>
-                  <div v-if="product.unacceptable_packages > 0" class="cavil-bad-badge badge text-bg-danger">
-                    {{ product.unacceptable_packages }}
-                  </div>
-                  <div v-if="product.new_packages > 0" class="badge text-bg-secondary">
-                    {{ product.new_packages }}
-                  </div>
-                </td>
-                <td>
-                  <div class="badge text-bg-success">{{ product.reviewed_packages }}</div>
-                </td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr>
-                <td id="all-done" colspan="4">No products found.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-6 mb-4">
-          <ShownEntries :end.sync="end" :start.sync="start" :total.sync="total" />
-        </div>
-        <div class="col-6 mb-4" id="cavil-pagination">
-          <PaginationLinks
-            @goto-page="gotoPage"
-            :end.sync="end"
-            :start.sync="start"
-            :total.sync="total"
-            :current-page.sync="currentPage"
-            :total-pages.sync="totalPages"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
+            <div v-if="product.new_packages > 0" class="badge text-bg-secondary">
+              {{ product.new_packages }}
+            </div>
+          </td>
+          <td>
+            <div class="badge text-bg-success">{{ product.reviewed_packages }}</div>
+          </td>
+        </tr>
+      </tbody>
+      <tbody v-else>
+        <tr>
+          <td id="all-done" colspan="4" class="cavil-list-empty-cell">
+            <EmptyState message="No products found." />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </CavilListLayout>
 </template>
 
 <script>
-import PaginationLinks from './components/PaginationLinks.vue';
-import ShownEntries from './components/ShownEntries.vue';
+import CavilListLayout from './components/CavilListLayout.vue';
+import EmptyState from './components/EmptyState.vue';
 import {productLink} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
@@ -95,7 +83,7 @@ import moment from 'moment';
 export default {
   name: 'KnownProducts',
   mixins: [Refresh],
-  components: {PaginationLinks, ShownEntries},
+  components: {CavilListLayout, EmptyState},
   data() {
     const params = getParams({
       limit: 10,
@@ -162,18 +150,7 @@ export default {
 </script>
 
 <style>
-.table {
-  margin-top: 1rem;
-}
 .cavil-bad-badge {
   margin-right: 10px;
-}
-#cavil-pkg-filter form {
-  margin: 2px 0;
-  white-space: nowrap;
-  justify-content: flex-end;
-}
-#all-done {
-  text-align: center;
 }
 </style>

@@ -1,7 +1,5 @@
 % layout 'default', title => "Product: $name";
 
-<h3><%= $name %></h3>
-
 <div id="product-reviews"></div>
 
 % content_for 'ready_function' => begin

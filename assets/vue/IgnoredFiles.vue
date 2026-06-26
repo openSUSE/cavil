@@ -8,91 +8,83 @@
         </button>
       </cavil-notice-panel>
     </div>
-    <div>
-      <form>
-        <div class="row g-4">
-          <div class="col-lg-2">
-            <div class="form-floating">
-              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-              <label class="form-label">Globs per Page</label>
-            </div>
-          </div>
-          <div class="col"></div>
-          <div id="cavil-pkg-filter" class="col-lg-3">
-            <form @submit.prevent="filterNow">
-              <div class="form-floating">
-                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
-                <label class="form-label">Filter</label>
-              </div>
-            </form>
-          </div>
-        </div>
-      </form>
-      <div class="row">
-        <div class="col-12">
-          <table class="table table-striped table-bordered">
-            <thead>
-              <tr>
-                <th>Glob</th>
-                <th>Created</th>
-                <th>Owner</th>
-                <th>Contributor</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody v-if="globs === null">
-              <tr>
-                <td id="all-done" colspan="5"><i class="fa-solid fa-rotate fa-spin"></i> Loading globs...</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="globs.length > 0">
-              <tr v-for="glob in globs" :key="glob.id">
-                <td>{{ glob.glob }}</td>
-                <td>{{ glob.created }}</td>
-                <td>{{ glob.login }}</td>
-                <td>{{ glob.contributor }}</td>
-                <td class="text-center">
-                  <button
-                    @click="deleteGlob(glob)"
-                    type="button"
-                    class="cavil-icon-action cavil-icon-action-danger"
-                    title="Delete ignored file glob"
-                    aria-label="Delete ignored file glob"
-                  >
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr>
-                <td id="all-done" colspan="5">No globs found.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-6 mb-4">
-          <ShownEntries :end.sync="end" :start.sync="start" :total.sync="total" />
-        </div>
-        <div class="col-6 mb-4" id="cavil-pagination">
-          <PaginationLinks
-            @goto-page="gotoPage"
-            :end.sync="end"
-            :start.sync="start"
-            :total.sync="total"
-            :current-page.sync="currentPage"
-            :total-pages.sync="totalPages"
-          />
-        </div>
-      </div>
-    </div>
+    <CavilListLayout
+      :current-page="currentPage"
+      :end="end"
+      :filter="filter"
+      count-icon="fa-solid fa-file-shield"
+      filter-aria-label="Ignored file filters"
+      filter-input-id="ignored-files-filter-input"
+      filter-label="Filter globs"
+      filter-placeholder="Filter globs"
+      plural="ignored file globs"
+      singular="ignored file glob"
+      :start="start"
+      :total="total"
+      :total-pages="totalPages"
+      @filter-submit="filterNow"
+      @goto-page="gotoPage"
+      @update:filter="filter = $event"
+    >
+      <template #per-page>
+        <label class="cavil-list-control">
+          <span>Per page</span>
+          <select v-model="params.limit" @change="gotoPage(1)" class="form-select">
+            <option>10</option>
+            <option>25</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </label>
+      </template>
+
+      <table class="cavil-list-table table">
+        <thead>
+          <tr>
+            <th>Glob</th>
+            <th>Created</th>
+            <th>Owner</th>
+            <th>Contributor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody v-if="globs === null">
+          <tr>
+            <td id="all-done" colspan="5" class="cavil-list-state">
+              <i class="fa-solid fa-rotate fa-spin"></i> Loading globs...
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else-if="globs.length > 0">
+          <tr v-for="glob in globs" :key="glob.id">
+            <td>
+              <span class="cavil-list-token">{{ glob.glob }}</span>
+            </td>
+            <td class="relative-time cavil-list-time">{{ glob.created }}</td>
+            <td>{{ glob.login }}</td>
+            <td>{{ glob.contributor }}</td>
+            <td class="text-center">
+              <button
+                @click="deleteGlob(glob)"
+                type="button"
+                class="cavil-icon-action cavil-icon-action-danger"
+                title="Delete ignored file glob"
+                aria-label="Delete ignored file glob"
+              >
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else>
+          <tr>
+            <td id="all-done" colspan="5" class="cavil-list-empty-cell">
+              <EmptyState message="No ignored file globs found." />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </CavilListLayout>
     <div class="modal fade" id="globModal" tabindex="-1" aria-labelledby="globModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -121,9 +113,9 @@
 </template>
 
 <script>
+import CavilListLayout from './components/CavilListLayout.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
-import PaginationLinks from './components/PaginationLinks.vue';
-import ShownEntries from './components/ShownEntries.vue';
+import EmptyState from './components/EmptyState.vue';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
@@ -132,7 +124,7 @@ import moment from 'moment';
 export default {
   name: 'IgnoredFiles',
   mixins: [Refresh],
-  components: {CavilNoticePanel, PaginationLinks, ShownEntries},
+  components: {CavilListLayout, CavilNoticePanel, EmptyState},
   data() {
     const params = getParams({
       limit: 10,
@@ -212,17 +204,3 @@ export default {
   }
 };
 </script>
-
-<style>
-.table {
-  margin-top: 1rem;
-}
-#cavil-pkg-filter form {
-  margin: 2px 0;
-  white-space: nowrap;
-  justify-content: flex-end;
-}
-#all-done {
-  text-align: center;
-}
-</style>

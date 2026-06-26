@@ -169,12 +169,12 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       // on - wait for the unmatched-files block to confirm the report loaded.
       await page.goto(url);
       await page.selectOption('select.cavil-pkg-priority', '1');
-      await page.locator('#cavil-pkg-filter input[placeholder="Filter"]').fill('synth');
+      await page.locator('#open-reviews-filter-input').fill('synth');
       await Promise.all([
         page.waitForResponse(
           resp => /\/pagination\/reviews\/open/.test(resp.url()) && resp.url().includes('filter=synth')
         ),
-        page.locator('#cavil-pkg-filter input[placeholder="Filter"]').press('Enter')
+        page.locator('#open-reviews-filter-input').press('Enter')
       ]);
       const synthRow = page.locator('#open-reviews tbody > tr').filter({hasText: 'zzz_synth#1'}).first();
       await synthRow.waitFor();
