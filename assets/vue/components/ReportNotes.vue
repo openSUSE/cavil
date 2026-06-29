@@ -580,8 +580,11 @@ export default {
    ones stand out, while the reason remains fully readable above the fade. */
 .report-note-deemphasized .report-note-header,
 .report-note-deemphasized .report-note-body {
-  opacity: 0.55;
-  transition: opacity 0.15s ease;
+  filter: blur(5px);
+  opacity: 0.52;
+  transition:
+    filter 0.15s ease,
+    opacity 0.15s ease;
 }
 .report-note-relevance-overlay {
   align-items: center;
@@ -626,6 +629,7 @@ export default {
 .report-note-deemphasized:hover .report-note-body,
 .report-note-deemphasized:focus-within .report-note-header,
 .report-note-deemphasized:focus-within .report-note-body {
+  filter: none;
   opacity: 1;
 }
 .report-note-lawyer-only {
