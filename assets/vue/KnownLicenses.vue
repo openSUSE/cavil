@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="mt-3">
     <div class="row">
       <cavil-notice-panel intro class="col-12">
         These patterns are used to identify relevant legal text in source code. This may be license text, copyright
@@ -21,6 +21,7 @@
       :start="start"
       :total="total"
       :total-pages="totalPages"
+      class="known-licenses-list"
       @filter-submit="filterNow"
       @goto-page="gotoPage"
       @update:filter="filter = $event"
@@ -158,3 +159,9 @@ export default {
   }
 };
 </script>
+
+<style>
+.known-licenses-list.cavil-list-page {
+  margin-top: 0 !important;
+}
+</style>
