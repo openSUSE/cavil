@@ -218,6 +218,35 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       await waitForInlineSnippetEditor(page);
       t.pass('inline editor opens from the extended selection (does not hang on snippet=0)');
 
+      const patternLine = page.locator('#inline-snippet-editor .cm-line.found-pattern').first();
+      await patternLine.waitFor({state: 'visible', timeout: 5000});
+      const clickPoint = await patternLine.evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        return {x: rect.left + Math.min(40, Math.max(1, rect.width / 2)), y: rect.top + rect.height / 2};
+      });
+      await page.mouse.click(clickPoint.x, clickPoint.y);
+      await page.locator('.cavil-pattern-tip-floating .cavil-pattern-tip-card').waitFor({state: 'visible'});
+      const tooltipPlacement = await page.evaluate(point => {
+        const line = document.querySelector('#inline-snippet-editor .cm-line.found-pattern');
+        const tip = document.querySelector('.cavil-pattern-tip-floating');
+        const lineRect = line.getBoundingClientRect();
+        const tipRect = tip.getBoundingClientRect();
+        const containsClick =
+          point.x >= tipRect.left && point.x <= tipRect.right && point.y >= tipRect.top && point.y <= tipRect.bottom;
+        const coversLine = tipRect.top < lineRect.bottom && tipRect.bottom > lineRect.top;
+        return {containsClick, coversLine};
+      }, clickPoint);
+      t.notOk(tooltipPlacement.containsClick, 'pattern tooltip does not open under the click point');
+      t.notOk(tooltipPlacement.coversLine, 'pattern tooltip does not cover the clicked editor line');
+
+      await page.mouse.move(clickPoint.x + 20, clickPoint.y);
+      await page.waitForFunction(() => document.querySelectorAll('.cavil-pattern-tip').length === 1);
+      t.equal(
+        await page.locator('.cavil-pattern-tip').count(),
+        1,
+        'hover does not duplicate the persistent pattern tooltip'
+      );
+
       await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
       await waitForInlineSnippetEditorClosed(page);
     });

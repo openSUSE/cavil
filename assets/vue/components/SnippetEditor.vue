@@ -694,6 +694,7 @@ export default {
       return ids;
     },
     makeHoverTooltip(view, pos) {
+      if (this.patternTooltip) return null;
       const ids = this.patternIdsAtPos(view, pos);
       if (ids.length === 0) return null;
       const line = view.state.doc.lineAt(pos);
@@ -720,6 +721,7 @@ export default {
       const tooltip = showPatternTooltip(anchor, ids, {
         persistent: true,
         offsetLeft: 24,
+        placement: 'source-row',
         onDestroy: () => {
           if (this.patternTooltip === tooltip) this.patternTooltip = null;
         }
