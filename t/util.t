@@ -138,17 +138,80 @@ subtest 'pattern_contains_redundant_skip' => sub {
 };
 
 subtest 'normalize_license_text' => sub {
-  is normalize_license_text('Permission is hereby granted'), 'Permission is hereby granted', 'plain text is unchanged';
-  is normalize_license_text('<p>Permission is <b>hereby</b> granted</p>'), 'Permission is hereby granted',
-    'strips html tags';
-  is normalize_license_text('Creative Commons &amp; friends'), 'Creative Commons friends', 'strips html entities';
-  is normalize_license_text(" * Permission is granted\n * to use"), 'Permission is granted to use',
-    'strips comment leaders and collapses whitespace';
-  is normalize_license_text("Copyright (c) 2021 John Smith\nPermission is granted"), 'Permission is granted',
-    'drops copyright lines';
-  is normalize_license_text("see https://example.org/LICENSE\nlicensed under MIT"), 'licensed under MIT',
-    'drops url lines';
-  is normalize_license_text("contact foo\@bar.com\nlicensed under MIT"), 'licensed under MIT', 'drops email lines';
+
+  subtest 'baseline strippers' => sub {
+    is normalize_license_text('Permission is hereby granted'), 'Permission is hereby granted',
+      'plain text is unchanged';
+    is normalize_license_text('<p>Permission is <b>hereby</b> granted</p>'), 'Permission is hereby granted',
+      'strips html tags';
+    is normalize_license_text('Creative Commons &amp; friends'), 'Creative Commons friends', 'strips html entities';
+    is normalize_license_text(" * Permission is granted\n * to use"), 'Permission is granted to use',
+      'strips comment leaders and collapses whitespace';
+    is normalize_license_text("// Permission is granted\n// to use"), 'Permission is granted to use',
+      'strips // comment leaders';
+    is normalize_license_text("Copyright (c) 2021 John Smith\nPermission is granted"), 'Permission is granted',
+      'drops copyright lines';
+    is normalize_license_text("see https://example.org/LICENSE\nlicensed under MIT"), 'licensed under MIT',
+      'drops url lines';
+    is normalize_license_text("contact foo\@bar.com\nlicensed under MIT"), 'licensed under MIT', 'drops email lines';
+  };
+
+  subtest 'C/C++ block comment delimiters' => sub {
+    is normalize_license_text('/* Permission is hereby granted */'), 'Permission is hereby granted',
+      'leading and trailing delimiters';
+    is normalize_license_text('/** Permission **/ is /* granted */'), 'Permission is granted',
+      'doubled delimiters anywhere on the line';
+    is normalize_license_text('foo /* bar */ baz'), 'foo bar baz', 'mid-line delimiters';
+    is normalize_license_text('Redistribution and use in source'), 'Redistribution and use in source',
+      'plain text without delimiters is untouched';
+  };
+
+  subtest 'source-listing line numbers' => sub {
+    is normalize_license_text("16 * THE SOFTWARE IS PROVIDED\n17 * EXPRESS OR IMPLIED"),
+      'THE SOFTWARE IS PROVIDED EXPRESS OR IMPLIED', 'leading line numbers + the now-exposed * marker';
+    is normalize_license_text("12 /* Permission is hereby */\n13 /* granted to any */"),
+      'Permission is hereby granted to any', 'line numbers wrapping C comments';
+    is normalize_license_text("10 // Licensed under the Apache License"), 'Licensed under the Apache License',
+      'line number + the now-exposed // marker';
+    is normalize_license_text("00010 Permission\n00011 granted"), 'Permission granted',
+      'doxygen zero-padded line numbers';
+    is normalize_license_text("8 O2scl is free software"), 'O2scl is free software', 'single-digit line number';
+  };
+
+  subtest 'guards: must NOT eat meaningful numbers' => sub {
+    is normalize_license_text("4. Neither the name\n5. nor the names"), '4. Neither the name 5. nor the names',
+      'BSD-style "N." clause numbers survive';
+    is normalize_license_text("1) first condition\n2) second condition"), '1) first condition 2) second condition',
+      '"N)" enumerated clauses survive';
+    is normalize_license_text('3. Redistributions in binary form'), '3. Redistributions in binary form',
+      'a real numbered clause line survives';
+    is normalize_license_text('you may use version 2 of the License'), 'you may use version 2 of the License',
+      'numbers in the middle of a line are untouched';
+  };
+
+  subtest 'groff/man markup' => sub {
+    is normalize_license_text('Permission is \fBhereby\fR granted'), 'Permission is hereby granted',
+      'font escapes \fB \fR';
+    is normalize_license_text('the \fIProgram\fP and'), 'the Program and', 'font escapes \fI \fP';
+    is normalize_license_text('a \f(CWcode\fP block'),  'a code block',    'two-letter font escape \f(CW';
+    is normalize_license_text('zero\&width'),           'zerowidth',       'zero-width \& escape';
+    is normalize_license_text(".\\\" Permission to use, copy, modify\n.\\\" and distribute is hereby granted"),
+      'Permission to use, copy, modify and distribute is hereby granted',
+      'keeps license text written inside .\\" comments (man pages), stripping only the marker';
+  };
+
+  subtest 'real markup, end to end (raw file text)' => sub {
+    is normalize_license_text(
+      '<a class="jxr_linenumber" name="16" href="#16">16</a> <em class="jxr_javadoccomment"> * THE SOFTWARE IS PROVIDED</em>'
+    ), 'THE SOFTWARE IS PROVIDED', 'jxr (java xref) html line';
+    is normalize_license_text(
+      '<div class="line"><a name="l00012"></a><span class="lineno"> 12</span>&#160;<span class="comment"> Permission is hereby granted</span></div>'
+    ), 'Permission is hereby granted', 'doxygen html line';
+    is normalize_license_text(
+      ".\\\" Permission to use, copy, modify, and\n.\\\" distribute this \\fBsoftware\\fR freely"),
+      'Permission to use, copy, modify, and distribute this software freely',
+      'man page: license text in .\\" comments with font escapes is preserved';
+  };
 };
 
 subtest 'text_shingles' => sub {

@@ -40,7 +40,7 @@ our @EXPORT_OK = (
 # Bumped whenever the snippet similarity scorer's semantics change. snippets carry the version they
 # were scored with; fold-in only trusts rows scored by the *current* version, so a scorer change (or
 # rows scored before a full rescore) can never silently fold on stale scoring.
-use constant SNIPPET_SCORE_VERSION => 1;
+use constant SNIPPET_SCORE_VERSION => 2;    # v2: markup normalization (C/line-number/groff stripping)
 
 my $MAX_FILE_SIZE = 30000;
 use constant MAX_TAG_LENGTH => 32;
@@ -140,7 +140,12 @@ sub snippet_checksum ($text) {
 sub normalize_license_text ($text) {
   $text =~ s/<[^>]+>/ /g;                                      # html tags
   $text =~ s/&[a-zA-Z][a-zA-Z0-9]*;|&#\d+;/ /g;                # html entities
-  $text =~ s{^[ \t]*(?:[*#;>|=-]+|//+|dnl|rem)[ \t]?}{}gim;    # comment / markup leaders
+  $text =~ s{/\*+|\*+/}{ }g;                                   # C/C++ block comment delimiters
+  $text =~ s/\b0\d{4,}\b/ /g;                                  # doxygen-style zero-padded line numbers
+  $text =~ s{^[ \t]*\d{1,6}(?![.)])[ \t]+}{}gm;                # source-listing line numbers (keep "4." clauses)
+  $text =~ s{^[ \t]*(?:[*#;>|=-]+|//+|dnl|rem)[ \t]?}{}gim;    # comment / markup leaders (now-exposed marker)
+  $text =~ s/\\f[A-Z]|\\f\([A-Za-z]{2}|\\&//g;                 # groff/man font escapes
+  $text =~ s{^[ \t]*\.\\"[ \t]?}{}gm;    # groff/man comment leader (keep the text; man licenses live in .\" comments)
 
   my @keep;
   for my $line (split /\n/, $text) {
