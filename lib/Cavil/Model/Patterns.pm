@@ -502,23 +502,37 @@ sub paginate_ignored_matches ($self, $options) {
 sub paginate_known_licenses ($self, $options) {
   my $db = $self->pg->db;
 
-  my $search = '';
-  if (length($options->{search}) > 0) {
-    my $quoted = $db->dbh->quote("\%$options->{search}\%");
-    $search = "WHERE license ILIKE $quoted";
+  my @bind;
+  my $search = $options->{search} // '';
+  my $normalized = normalize_license_expr($search);
+  my $order  = 'license';
+  my $where  = '';
+  push @bind, $search, $search, $normalized;
+  if (length $search) {
+    $where = qq{
+        WHERE license != ''
+          AND (license ILIKE ? OR similarity(LOWER(license), LOWER(?)) >= ?)
+    };
+    $order = 'exact DESC, score DESC, license ASC';
+    push @bind, "%$search%", $search, LICENSE_PREDICTION_THRESHOLD;
   }
 
   my $results = $db->query(
     qq{
-      SELECT license, spdx, ARRAY_AGG(DISTINCT(risk)) AS risks, COUNT(*) OVER() AS total
+      SELECT license, spdx, risks, COUNT(*) OVER() AS total
       FROM (
-        SELECT DISTINCT(license), spdx, risk FROM license_patterns
-        $search
+        SELECT license, spdx, ARRAY_AGG(DISTINCT(risk)) AS risks,
+          similarity(LOWER(license), LOWER(?)) AS score,
+          CASE WHEN LOWER(license) IN (LOWER(?), ?) THEN 1 ELSE 0 END AS exact
+        FROM (
+          SELECT DISTINCT(license), spdx, risk FROM license_patterns
+          $where
+        ) AS licenses
+        GROUP BY license, spdx
       ) AS licenses
-      GROUP BY license, spdx
-      ORDER BY license
+      ORDER BY $order
       LIMIT ? OFFSET ?
-    }, $options->{limit}, $options->{offset}
+    }, @bind, $options->{limit}, $options->{offset}
   )->hashes->to_array;
   $_->{spdx_html} = spdx_link($_->{spdx}) for @$results;
 

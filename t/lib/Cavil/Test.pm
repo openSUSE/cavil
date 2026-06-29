@@ -91,6 +91,8 @@ sub just_patterns_fixtures ($self, $app) {
     license  => 'Apache-2.0'
   );
   $patterns->create(pattern => 'License: Artistic-2.0',            license => 'Artistic-2.0');
+  $patterns->create(pattern => 'License: MIT',                     license => 'MIT');
+  $patterns->create(pattern => 'License: MIT-CMU',                 license => 'MIT-CMU');
   $patterns->create(pattern => 'powerful web development toolkit', license => 'SUSE-NotALicense');
   $patterns->create(pattern => 'the terms');
   $patterns->create(pattern => 'copyright notice');

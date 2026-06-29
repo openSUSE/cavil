@@ -425,8 +425,8 @@ subtest 'Pagination' => sub {
   subtest 'Licenses' => sub {
     $t->get_ok('/pagination/licenses/known')
       ->json_is('/start',            1)
-      ->json_is('/end',              4)
-      ->json_is('/total',            4)
+      ->json_is('/end',              6)
+      ->json_is('/total',            6)
       ->json_is('/page/0/license',   '')
       ->json_is('/page/0/spdx',      '')
       ->json_is('/page/0/risks',     [5])
@@ -434,13 +434,20 @@ subtest 'Pagination' => sub {
       ->json_is('/page/1/spdx',      '')
       ->json_is('/page/1/spdx_html', '')
       ->json_is('/page/1/risks',     [5])
-      ->json_hasnt('/page/4');
+      ->json_hasnt('/page/6');
     $t->get_ok('/pagination/licenses/known?filter=Artistic')
       ->json_is('/start',          1)
       ->json_is('/end',            1)
       ->json_is('/total',          1)
       ->json_is('/page/0/license', 'Artistic-2.0')
       ->json_hasnt('/page/1');
+    $t->get_ok('/pagination/licenses/known?filter=MIT')
+      ->json_is('/start',          1)
+      ->json_is('/end',            2)
+      ->json_is('/total',          2)
+      ->json_is('/page/0/license', 'MIT')
+      ->json_is('/page/1/license', 'MIT-CMU')
+      ->json_hasnt('/page/2');
   };
 
   subtest 'Reviews' => sub {
