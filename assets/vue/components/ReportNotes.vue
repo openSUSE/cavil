@@ -587,10 +587,10 @@ export default {
   align-items: center;
   background: repeating-linear-gradient(
     -45deg,
-    rgba(246, 248, 250, 0.5) 0,
-    rgba(246, 248, 250, 0.5) 14px,
-    rgba(208, 215, 222, 0.18) 14px,
-    rgba(208, 215, 222, 0.18) 28px
+    rgba(234, 238, 242, 0.78) 0,
+    rgba(234, 238, 242, 0.78) 14px,
+    rgba(175, 184, 193, 0.38) 14px,
+    rgba(175, 184, 193, 0.38) 28px
   );
   color: #6e7781;
   display: flex;
