@@ -59,13 +59,53 @@ Focus on the signals a human lawyer would need for a first-pass decision:
 
 Use `cavil_get_file` for context when an unresolved match is truncated, ambiguous, comes from a LICENSE/COPYING/NOTICE/README file, or looks serious enough that you might recommend rejection or human review. Do not spend time exhaustively reading low-risk boilerplate if the report is large; note the limitation instead.
 
+#### Incompatible-license warnings deserve a very close look
+When the report's Licenses section contains a line like
+`**Warning** Elevated risk, package might contain incompatible licenses: <licenses>`,
+do not take it at face value in either direction. This warning is a **heuristic**: it fires
+whenever the named SPDX identifiers all appear *somewhere* in the package, regardless of whether
+the licensed files are ever actually combined into a single work. It is frequently a **false
+alarm**, but it can also be the most important finding in the report. Investigate before you
+recommend, and explain what you found.
+
+Your job is to confirm whether the incompatibility is a **real problem for this package** or a
+**false alarm**. Combination — linking, compiling together, or merging into one source file — is
+what creates a copyleft conflict; mere co-presence in the same archive does not. Use
+`cavil_list_files` and `cavil_get_file` to check where each flagged license actually lives:
+
+Signals it is likely a **false alarm** (lean ACCEPT, but say why):
+- The two licenses sit in **separate, independent components** that are not linked or compiled
+  together (e.g. a vendored build-time tool, an optional plugin, or one library among several
+  unrelated bundled projects). Aggregation on the same medium is not a combined work.
+- The flagged license text is confined to **test fixtures, sample data, documentation, or license
+  catalogs** (e.g. an SPDX license list, `licenses/` directory, or test corpus) rather than
+  shipped/compiled code.
+- The actual file headers show a **more permissive variant** than the heuristic assumed — e.g. the
+  GPL files are really `GPL-2.0-or-later` (relicensable to v3) rather than `GPL-2.0-only`, or carry
+  an exception (Classpath, autoconf, GCC-runtime, Bison, LLVM) that resolves the conflict.
+- The flagged license appears **only in an unresolved/missed snippet** whose match is weak or is
+  actually non-license text once you read it.
+
+Signals it is likely a **real problem** (lean REJECT or NEEDS HUMAN REVIEW):
+- Files under the two incompatible licenses are **part of the same buildable/linkable unit** — same
+  library or binary, `#include`/import across the boundary, or one source file carrying both
+  headers.
+- A copyleft license (GPL/AGPL) governs core code that links against the other license's code.
+- You cannot determine from the files whether the components are combined.
+
+If you confirm a genuine combined-work conflict, recommend REJECT or NEEDS HUMAN REVIEW and name
+the specific files on each side. If you are confident it is aggregation/separation, you may
+recommend ACCEPT but must state in the note that the incompatibility warning was reviewed and why
+it does not apply. When you ran out of context to trace the combination, say so and recommend
+NEEDS HUMAN REVIEW — never silently drop the warning.
+
 ### Step 5 - Choose a recommendation
 Use one of these recommendations:
-- **ACCEPT**: The declared license appears consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text.
-- **REJECT**: The report appears to contain undeclared problematic licenses, significant primary-license mismatch, proprietary/non-commercial restrictions, or other issues that likely block acceptance.
-- **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, or insufficient context for a confident recommendation.
+- **ACCEPT**: The declared license appears consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant).
+- **REJECT**: The report appears to contain undeclared problematic licenses, significant primary-license mismatch, proprietary/non-commercial restrictions, a **confirmed combined-work license incompatibility**, or other issues that likely block acceptance.
+- **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation.
 
-When uncertain, choose NEEDS HUMAN REVIEW.
+When uncertain, choose NEEDS HUMAN REVIEW. Never recommend ACCEPT on a report with an incompatible-license warning without saying in the note that you reviewed it.
 
 ### Step 6 - Create a concise note
 
@@ -104,6 +144,34 @@ Issues for legal reviewer:
 
 Suggested next step: what the lawyer should verify or ask the maintainer to fix.
 Confidence: Medium - note any important limitation, such as partial review of a large report.
+```
+
+When the report carried an incompatible-license warning, record the outcome of your investigation explicitly, e.g. a confirmed false alarm:
+
+```markdown
+AI-assisted review recommendation: ACCEPT
+
+Issues for legal reviewer:
+- Incompatible-license warning (GPL-2.0-only + Apache-2.0) reviewed: appears to be a false alarm.
+  The Apache-2.0 code is confined to `vendor/build-tool/` (build-time only, not linked into the
+  shipped library); GPL-2.0-only files are under `src/`. No combined work identified.
+
+Suggested next step: Confirm `vendor/build-tool/` is not redistributed/linked, then accept.
+Confidence: Medium - AI-assisted triage; combination boundary inferred from file layout, not a build analysis.
+```
+
+or a finding that looks like a real conflict:
+
+```markdown
+AI-assisted review recommendation: NEEDS HUMAN REVIEW
+
+Issues for legal reviewer:
+- Incompatible-license warning (GPL-2.0-only + Apache-2.0) appears real: `src/core/engine.c`
+  (GPL-2.0-only) includes `src/ext/crypto.h` from the Apache-2.0 component, so they may form a
+  single linked work. This combination is commonly treated as incompatible.
+
+Suggested next step: Have a lawyer confirm whether these components are linked, or whether the GPL files are actually GPL-2.0-or-later.
+Confidence: Medium - based on include relationships in source, not a full build/link analysis.
 ```
 
 If no notable issues were found, still create a note:
