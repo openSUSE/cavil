@@ -214,9 +214,11 @@
                     {{ lic.files.length }} {{ lic.files.length === 1 ? 'file' : 'files' }}
                   </a>
                 </div>
-                <p v-if="lic.flags.length > 0" class="risk-license-flags">
-                  Flags: {{ lic.flags.map(licenseFlagLabel).join(', ') }}
-                </p>
+                <div v-if="lic.flags.length > 0" class="risk-license-flags" aria-label="License flags">
+                  <span v-for="flag in lic.flags" :key="flag" class="risk-license-flag">
+                    {{ licenseFlagLabel(flag) }}
+                  </span>
+                </div>
                 <div :id="lic.list_id" :class="lic.list_class">
                   <ul class="risk-file-list">
                     <li v-for="file in lic.shown_files" :key="file[0]">
@@ -1417,9 +1419,23 @@ export default {
   text-decoration: none;
 }
 .risk-license-flags {
-  color: #57606a;
-  font-size: 13px;
-  margin: 0.35rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+}
+.risk-license-flag {
+  align-items: center;
+  background: #fff8c5;
+  border: 1px solid #f0d98b;
+  border-radius: 999px;
+  color: #5c4500;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+  white-space: nowrap;
 }
 .risk-file-list {
   border-left: 1px solid #d0d7de;
