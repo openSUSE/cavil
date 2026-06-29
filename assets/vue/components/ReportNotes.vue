@@ -582,7 +582,7 @@ export default {
   readable, while the body recedes behind a frosted-glass relevance marker. */
 .report-note-deemphasized .report-note-body {
   filter: blur(7px);
-  opacity: 0.48;
+  opacity: 0.38;
   transition:
     filter 0.15s ease,
     opacity 0.15s ease;
@@ -593,7 +593,7 @@ export default {
 .report-note-relevance-overlay {
   align-items: center;
   backdrop-filter: blur(2px);
-  background: rgba(234, 238, 242, 0.58);
+  background: rgba(255, 255, 255, 0.68);
   color: #6e7781;
   display: flex;
   font-size: 11px;
@@ -613,7 +613,7 @@ export default {
   z-index: 1;
 }
 .report-note-relevance-label {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(246, 248, 250, 0.88);
   border: 1px solid rgba(110, 119, 129, 0.22);
   border-radius: 2em;
   box-shadow: 0 1px 2px rgba(31, 35, 40, 0.04);
