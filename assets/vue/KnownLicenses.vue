@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-3">
+  <div>
     <div class="row">
       <cavil-notice-panel intro class="col-12">
         These patterns are used to identify relevant legal text in source code. This may be license text, copyright
@@ -7,88 +7,78 @@
         to locate potential new license patterns.
       </cavil-notice-panel>
     </div>
-    <div>
-      <form>
-        <div class="row g-4">
-          <div class="col-lg-2">
-            <div class="form-floating">
-              <select v-model="params.limit" @change="gotoPage(1)" class="form-control">
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-              <label class="form-label">Licenses per Page</label>
-            </div>
-          </div>
-          <div class="col"></div>
-          <div id="cavil-pkg-filter" class="col-lg-3">
-            <form @submit.prevent="filterNow">
-              <div class="form-floating">
-                <input v-model="filter" type="text" class="form-control" placeholder="Filter" />
-                <label class="form-label">Filter</label>
-              </div>
-            </form>
-          </div>
-        </div>
-      </form>
-      <div class="row">
-        <div class="col-12">
-          <table class="table table-striped table-bordered">
-            <thead>
-              <tr>
-                <th class="link" style="width: 50%">License</th>
-                <th>SPDX</th>
-                <th>Risks</th>
-              </tr>
-            </thead>
-            <tbody v-if="licenses === null">
-              <tr>
-                <td id="all-done" colspan="4"><i class="fa-solid fa-rotate fa-spin"></i> Loading licenses...</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="licenses.length > 0">
-              <tr v-for="license in licenses" :key="license.link">
-                <td v-html="license.link"></td>
-                <td v-html="license.spdxHtml"></td>
-                <td>
-                  <span v-for="risk in license.risks" :key="risk" class="badge me-1" :class="badgeClass(risk)">{{
-                    risk
-                  }}</span>
-                </td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr>
-                <td id="all-done" colspan="4">No licenses found.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-6 mb-4">
-          <ShownEntries :end.sync="end" :start.sync="start" :total.sync="total" />
-        </div>
-        <div class="col-6 mb-4" id="cavil-pagination">
-          <PaginationLinks
-            @goto-page="gotoPage"
-            :end.sync="end"
-            :start.sync="start"
-            :total.sync="total"
-            :current-page.sync="currentPage"
-            :total-pages.sync="totalPages"
-          />
-        </div>
-      </div>
-    </div>
+    <CavilListLayout
+      :current-page="currentPage"
+      :end="end"
+      :filter="filter"
+      count-icon="fa-solid fa-scale-balanced"
+      filter-aria-label="License filters"
+      filter-input-id="known-licenses-filter-input"
+      filter-label="Filter licenses"
+      filter-placeholder="Filter licenses"
+      plural="licenses"
+      singular="license"
+      :start="start"
+      :total="total"
+      :total-pages="totalPages"
+      @filter-submit="filterNow"
+      @goto-page="gotoPage"
+      @update:filter="filter = $event"
+    >
+      <template #per-page>
+        <label class="cavil-list-control">
+          <span>Per page</span>
+          <select v-model="params.limit" @change="gotoPage(1)" class="form-select">
+            <option>10</option>
+            <option>25</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </label>
+      </template>
+
+      <table class="cavil-list-table table">
+        <thead>
+          <tr>
+            <th class="link" style="width: 50%">License</th>
+            <th>SPDX</th>
+            <th>Risks</th>
+          </tr>
+        </thead>
+        <tbody v-if="licenses === null">
+          <tr>
+            <td id="all-done" colspan="3" class="cavil-list-state">
+              <i class="fa-solid fa-rotate fa-spin"></i> Loading licenses...
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else-if="licenses.length > 0">
+          <tr v-for="license in licenses" :key="license.link">
+            <td class="cavil-list-primary" v-html="license.link"></td>
+            <td v-html="license.spdxHtml"></td>
+            <td>
+              <span v-for="risk in license.risks" :key="risk" class="badge me-1" :class="badgeClass(risk)">{{
+                risk
+              }}</span>
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else>
+          <tr>
+            <td id="all-done" colspan="3" class="cavil-list-empty-cell">
+              <EmptyState message="No licenses found." />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </CavilListLayout>
   </div>
 </template>
 
 <script>
+import CavilListLayout from './components/CavilListLayout.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
-import PaginationLinks from './components/PaginationLinks.vue';
-import ShownEntries from './components/ShownEntries.vue';
+import EmptyState from './components/EmptyState.vue';
 import {licenseLink} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
@@ -96,7 +86,7 @@ import Refresh from './mixins/refresh.js';
 export default {
   name: 'KnownLicenses',
   mixins: [Refresh],
-  components: {CavilNoticePanel, PaginationLinks, ShownEntries},
+  components: {CavilListLayout, CavilNoticePanel, EmptyState},
   data() {
     const params = getParams({
       limit: 10,
@@ -168,17 +158,3 @@ export default {
   }
 };
 </script>
-
-<style>
-.table {
-  margin-top: 1rem;
-}
-#cavil-pkg-filter form {
-  margin: 2px 0;
-  white-space: nowrap;
-  justify-content: flex-end;
-}
-#all-done {
-  text-align: center;
-}
-</style>
