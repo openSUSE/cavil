@@ -6,7 +6,6 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::ReportUtil qw(report_checksum report_shortname summary_delta summary_delta_score);
 use Mojo::JSON        qw(to_json);
-use List::Util        qw(uniq);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -49,14 +48,16 @@ sub _analyze ($job, $id) {
 
   my $new_candidates = [];
 
-  # Unresolved keyword matches
+  # Unresolved keyword matches. Count the full set (missed_snippets), NOT the expansion-truncated
+  # $dig->{snippets}: max_expanded_files only caps how many file previews the report renders, it must
+  # never shrink the stored count. (Mirrors the full-set walk in Cavil::Model::Reports::summary.)
   my $unresolved = 0;
-  if (my $snippets = $dig->{snippets}) {
-    my @all;
-    for my $file (keys %$snippets) {
-      push @all, values %{$snippets->{$file}};
+  if (my $missed = $dig->{missed_snippets}) {
+    my %seen;
+    for my $file (keys %$missed) {
+      $seen{$_->[2]} = 1 for @{$missed->{$file}};
     }
-    $unresolved = scalar uniq @all;
+    $unresolved = keys %seen;
   }
 
   # Do not leak Postgres connections
