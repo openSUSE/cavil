@@ -933,7 +933,7 @@ subtest 'summary_delta' => sub {
         incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
       }
       ),
-      "Diff to closest match 1\n\n  New licenses (1, by risk)\n    1  GPL-2.0-only\n\n"
+      "Diff to closest match 1\n\n  New licenses (by risk)\n    1  GPL-2.0-only\n\n"
       . "  Possible license incompatibility\n    GPL-2.0-only, Apache-2.0\n", 'new incompatible licenses';
   };
 
@@ -1160,7 +1160,7 @@ subtest 'summary_delta' => sub {
         {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
         {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
-        "Diff to closest match 1\n\n  New licenses (1, by risk)\n    3  MIT\n", 'new license';
+        "Diff to closest match 1\n\n  New licenses (by risk)\n    3  MIT\n", 'new license';
       is summary_delta(
         {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
         {
@@ -1170,12 +1170,12 @@ subtest 'summary_delta' => sub {
           licenses        => {'Apache-2.0' => 5, 'MIT' => 3, 'GPL-2.0+' => 1}
         }
         ),
-        "Diff to closest match 1\n\n  New licenses (2, by risk)\n    3  MIT\n    1  GPL-2.0+\n", 'new licenses';
+        "Diff to closest match 1\n\n  New licenses (by risk)\n    3  MIT\n    1  GPL-2.0+\n", 'new licenses';
       is summary_delta(
         {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}},
         {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
-        "Diff to closest match 1\n\n  New licenses (2, by risk)\n    5  Apache-2.0\n    3  MIT\n", 'more new licenses';
+        "Diff to closest match 1\n\n  New licenses (by risk)\n    5  Apache-2.0\n    3  MIT\n", 'more new licenses';
     };
   };
 };

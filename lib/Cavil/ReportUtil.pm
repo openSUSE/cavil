@@ -373,8 +373,7 @@ sub summary_delta ($old, $new) {
   my $new_licenses = _new_licenses($old, $new);
   if (my @lics = keys %$new_licenses) {
     my @sorted = sort { $new_licenses->{$b} <=> $new_licenses->{$a} || $a cmp $b } @lics;
-    my $count  = scalar @sorted;
-    my @lines  = ("  New licenses ($count, by risk)");
+    my @lines  = ('  New licenses (by risk)');
     push @lines,  map {"    $new_licenses->{$_}  $_"} @sorted;
     push @blocks, join("\n", @lines);
   }
