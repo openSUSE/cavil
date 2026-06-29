@@ -314,6 +314,14 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
         'Not relevant to this report',
         'non-relevant inherited note explains the de-emphasis above the faded content'
       );
+      await page.click('[data-tab="review"]');
+      t.equal(
+        await page.locator('[data-note-relevance-overlay]:visible').count(),
+        0,
+        'non-relevant note overlay is hidden after switching back to the legal report'
+      );
+      await page.click('[data-tab="notes"]');
+      await inherited.waitFor();
       const originBadge = inherited.locator('[data-note-origin-badge]');
       t.match(await originBadge.innerText(), /from report #2/, 'inherited note links back to report #2');
       const nativeNote = page.locator('.report-note').filter({hasText: 'Edited body with'}).first();

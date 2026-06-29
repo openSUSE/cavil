@@ -1083,15 +1083,14 @@ export default {
   color: #5c3a00;
 }
 .report-tab-content {
-  display: grid;
+  display: block;
 }
 .report-tab-pane {
-  grid-area: 1 / 1;
+  display: none;
   min-width: 0;
-  visibility: hidden;
 }
 .report-tab-pane.is-active {
-  visibility: visible;
+  display: block;
 }
 .license-composition-card {
   border: 1px solid #d0d7de;
