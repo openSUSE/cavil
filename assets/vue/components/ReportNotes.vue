@@ -142,6 +142,7 @@
               :error="editError"
               save-label="Save"
               save-busy-label="Saving…"
+              show-cancel
               :data-attr="`edit-${c.id}`"
               @save="saveEdit(c)"
               @cancel="cancelEdit"

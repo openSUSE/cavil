@@ -55,9 +55,10 @@
       <slot name="leading"></slot>
       <span v-if="error" class="markdown-composer-error">{{ error }}</span>
       <button
-        v-if="$attrs.onCancel"
+        v-if="showCancel"
         type="button"
         class="btn markdown-composer-cancel"
+        :disabled="saving"
         :data-composer-cancel="dataAttr"
         @click="$emit('cancel')"
       >
@@ -90,6 +91,7 @@ export default {
     error: {type: String, default: null},
     saveLabel: {type: String, default: 'Save'},
     saveBusyLabel: {type: String, default: 'Saving…'},
+    showCancel: {type: Boolean, default: false},
     dataAttr: {type: String, default: 'composer'}
   },
   emits: ['update:modelValue', 'save', 'cancel'],

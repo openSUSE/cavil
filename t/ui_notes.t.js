@@ -184,6 +184,23 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
 
       await target.locator('[data-note-edit]').click();
       await page.waitForSelector(`[data-note-edit-pane] [data-composer-input="edit-${id}"]`);
+      t.equal(
+        await page.locator(`[data-composer-cancel="edit-${id}"]`).count(),
+        1,
+        'edit composer has a cancel button'
+      );
+
+      await page.locator(`[data-composer-input="edit-${id}"]`).fill('This draft should not be saved.');
+      await page.locator(`[data-composer-cancel="edit-${id}"]`).click();
+      await page.waitForSelector(`[data-note-edit-pane]`, {state: 'detached'});
+      t.match(
+        await target.locator('.report-note-body').innerText(),
+        /First admin reply/,
+        'cancel leaves the note unchanged'
+      );
+
+      await target.locator('[data-note-edit]').click();
+      await page.waitForSelector(`[data-note-edit-pane] [data-composer-input="edit-${id}"]`);
 
       // Edit the body, switch to Preview, verify the rendered HTML comes from
       // the server endpoint and contains the new markdown.
