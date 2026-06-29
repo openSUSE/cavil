@@ -29,9 +29,6 @@
           ]"
           :data-note-id="c.id"
         >
-          <span v-if="isNonRelevant(c)" class="report-note-relevance-overlay" data-note-relevance-overlay>
-            <span class="report-note-relevance-label">Not relevant to this report</span>
-          </span>
           <div class="report-note-header">
             <span class="report-note-avatar" :title="authorTitle(c)">
               {{ initial(c) }}
@@ -151,7 +148,12 @@
               @cancel="cancelEdit"
             />
           </div>
-          <div v-else class="report-note-body markdown-body" v-html="c.body_html"></div>
+          <div v-else class="report-note-body-wrap">
+            <div class="report-note-body markdown-body" v-html="c.body_html"></div>
+            <span v-if="isNonRelevant(c)" class="report-note-relevance-overlay" data-note-relevance-overlay>
+              <span class="report-note-relevance-label">Not relevant to this report</span>
+            </span>
+          </div>
         </li>
       </ul>
 
@@ -576,9 +578,8 @@ export default {
   overflow: hidden;
   position: relative;
 }
-/* Notes inherited from a report with different licensing recede so the relevant
-   ones stand out, while the reason remains fully readable above the fade. */
-.report-note-deemphasized .report-note-header,
+/* Notes inherited from a report with different licensing keep their provenance
+  readable, while the body recedes behind a frosted-glass relevance marker. */
 .report-note-deemphasized .report-note-body {
   filter: blur(7px);
   opacity: 0.48;
@@ -586,16 +587,13 @@ export default {
     filter 0.15s ease,
     opacity 0.15s ease;
 }
+.report-note-body-wrap {
+  position: relative;
+}
 .report-note-relevance-overlay {
   align-items: center;
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0.42) 0,
-    rgba(255, 255, 255, 0.42) 14px,
-    rgba(175, 184, 193, 0.22) 14px,
-    rgba(175, 184, 193, 0.22) 28px
-  );
   backdrop-filter: blur(2px);
+  background: rgba(234, 238, 242, 0.58);
   color: #6e7781;
   display: flex;
   font-size: 11px;
@@ -626,9 +624,7 @@ export default {
   opacity: 0;
   visibility: hidden;
 }
-.report-note-deemphasized:hover .report-note-header,
 .report-note-deemphasized:hover .report-note-body,
-.report-note-deemphasized:focus-within .report-note-header,
 .report-note-deemphasized:focus-within .report-note-body {
   filter: none;
   opacity: 1;
