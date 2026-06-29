@@ -580,8 +580,8 @@ export default {
    ones stand out, while the reason remains fully readable above the fade. */
 .report-note-deemphasized .report-note-header,
 .report-note-deemphasized .report-note-body {
-  filter: blur(5px);
-  opacity: 0.52;
+  filter: blur(7px);
+  opacity: 0.48;
   transition:
     filter 0.15s ease,
     opacity 0.15s ease;
@@ -590,11 +590,12 @@ export default {
   align-items: center;
   background: repeating-linear-gradient(
     -45deg,
-    rgba(234, 238, 242, 0.78) 0,
-    rgba(234, 238, 242, 0.78) 14px,
-    rgba(175, 184, 193, 0.38) 14px,
-    rgba(175, 184, 193, 0.38) 28px
+    rgba(255, 255, 255, 0.42) 0,
+    rgba(255, 255, 255, 0.42) 14px,
+    rgba(175, 184, 193, 0.22) 14px,
+    rgba(175, 184, 193, 0.22) 28px
   );
+  backdrop-filter: blur(2px);
   color: #6e7781;
   display: flex;
   font-size: 11px;
