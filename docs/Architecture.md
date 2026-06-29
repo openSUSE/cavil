@@ -324,6 +324,34 @@ reindexing (they are keyed by content), scoping the work by score version also s
 version (for example, scored before the similarity model existed). A change to the *patterns* does not bump the version,
 so propagating a corpus change to already-scored snippets is the job of `cavil snippets --rescore`.
 
+### Automated resolution: the safety properties that make it defensible
+
+The three resolution paths below (fold, boilerplate-clear, overlap-clear) all **automate a legal call**. That is only
+defensible because of a set of properties the design holds to — and these should be treated as **invariants that any
+future change to scoring, folding, or clearing must preserve**, not incidental implementation details. They are the
+first thing to weigh when deciding whether a proposed change (a new scorer, a looser threshold, a new resolution kind)
+is acceptable.
+
+- **Never asserts an unrecognised license.** A fold only ever attributes a snippet to a license already curated in the
+  corpus; it never mints a pattern or invents a license, and clearing asserts no license at all. The worst a clear can
+  do is leave a little noise; it can never *add* a license that is not there.
+- **The curated corpus stays the source of truth.** Resolutions are a derived, disposable cache; nothing is written
+  back to the pattern or match tables. Turning the feature off and re-resolving reverts the reports.
+- **Precision-first, recall-preserving.** Only confident, unambiguous, low-risk matches resolve automatically;
+  coin-flips between plausible licenses, high-risk licenses, and snippets that resemble a *different* license than the
+  one they overlap are all left for human review. A genuine license is never silently removed — including the real
+  match an overlap-clear depends on (an earlier regression dropped exactly that, which is why this is stated as an
+  invariant and not left implicit).
+- **Auditable and reproducible.** Every call is attributable (which license, which pattern, what risk), decided in one
+  place, and stamped with the scorer version, so a report can be reproduced and explained.
+- **Reversible, never silent.** Derived resolutions are marked as derived, carry a one-click correction, and revert
+  wholesale when disabled — a wrong call costs a correction, never a baked-in mistake.
+- **Off by default, calibrated, rolled out gradually.** Each path ships disabled; thresholds are calibrated against the
+  existing corpus before, and during, a gradual, risk-tiered rollout.
+
+The plain-language, reviewer-facing version of this stance is in the [pattern lifecycle guide](PatternLifecycle.md);
+the rest of this section is the mechanism behind it.
+
 ### Folding High-Confidence Snippets into Reports
 
 Hand-writing a pattern for every one of the hundreds of thousands of unresolved snippets will never happen, and the
