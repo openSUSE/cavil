@@ -29,6 +29,9 @@
           ]"
           :data-note-id="c.id"
         >
+          <span v-if="isNonRelevant(c)" class="report-note-relevance-overlay" data-note-relevance-overlay>
+            <span class="report-note-relevance-label">Not relevant to this report</span>
+          </span>
           <div class="report-note-header">
             <span class="report-note-avatar" :title="authorTitle(c)">
               {{ initial(c) }}
@@ -574,14 +577,55 @@ export default {
   position: relative;
 }
 /* Notes inherited from a report with different licensing recede so the relevant
-   ones stand out. Gentle, and restored on hover/focus so the content stays
-   fully readable when engaged with. */
-.report-note-deemphasized {
+   ones stand out, while the reason remains fully readable above the fade. */
+.report-note-deemphasized .report-note-header,
+.report-note-deemphasized .report-note-body {
   opacity: 0.55;
   transition: opacity 0.15s ease;
 }
-.report-note-deemphasized:hover,
-.report-note-deemphasized:focus-within {
+.report-note-relevance-overlay {
+  align-items: center;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(246, 248, 250, 0.5) 0,
+    rgba(246, 248, 250, 0.5) 14px,
+    rgba(208, 215, 222, 0.18) 14px,
+    rgba(208, 215, 222, 0.18) 28px
+  );
+  color: #6e7781;
+  display: flex;
+  font-size: 11px;
+  font-weight: 600;
+  inset: 0;
+  justify-content: center;
+  letter-spacing: 0;
+  opacity: 1;
+  padding: 16px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  visibility: visible;
+  z-index: 1;
+}
+.report-note-relevance-label {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(110, 119, 129, 0.22);
+  border-radius: 2em;
+  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.04);
+  padding: 2px 10px;
+}
+.report-note-deemphasized:hover .report-note-relevance-overlay,
+.report-note-deemphasized:focus-within .report-note-relevance-overlay {
+  opacity: 0;
+  visibility: hidden;
+}
+.report-note-deemphasized:hover .report-note-header,
+.report-note-deemphasized:hover .report-note-body,
+.report-note-deemphasized:focus-within .report-note-header,
+.report-note-deemphasized:focus-within .report-note-body {
   opacity: 1;
 }
 .report-note-lawyer-only {

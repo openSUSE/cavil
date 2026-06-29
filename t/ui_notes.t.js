@@ -309,6 +309,11 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
         await inherited.evaluate(el => el.classList.contains('report-note-deemphasized')),
         'inherited note from a different report is de-emphasized in a mixed list'
       );
+      t.equal(
+        await inherited.locator('[data-note-relevance-overlay]').innerText(),
+        'Not relevant to this report',
+        'non-relevant inherited note explains the de-emphasis above the faded content'
+      );
       const originBadge = inherited.locator('[data-note-origin-badge]');
       t.match(await originBadge.innerText(), /from report #2/, 'inherited note links back to report #2');
       const nativeNote = page.locator('.report-note').filter({hasText: 'Edited body with'}).first();
