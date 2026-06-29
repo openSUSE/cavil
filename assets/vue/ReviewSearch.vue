@@ -47,7 +47,7 @@
     <table class="cavil-list-table table">
       <thead>
         <tr>
-          <th class="created">Created</th>
+          <th class="imported">Imported</th>
           <th class="state">State</th>
           <th class="comment">Comment</th>
           <th class="user">Reviewing User</th>
@@ -64,7 +64,7 @@
       </tbody>
       <tbody v-else-if="reviews.length > 0">
         <tr v-for="review in reviews" :key="review.id">
-          <td class="relative-time cavil-list-time">{{ review.created }}</td>
+          <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td v-html="review.state"></td>
           <td class="cavil-list-comment">
             <div class="cavil-list-comment-body" v-html="review.comment"></div>
@@ -140,7 +140,7 @@ export default {
       for (const review of data.page) {
         reviews.push({
           comment: review.comment,
-          created: moment(review.created_epoch * 1000).fromNow(),
+          imported: moment(review.imported_epoch * 1000).fromNow(),
           package: review.package,
           report: reportLink(review),
           state: review.state,

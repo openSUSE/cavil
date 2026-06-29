@@ -60,7 +60,7 @@
         <tr>
           <th class="priority">Priority</th>
           <th class="link">Link</th>
-          <th class="created">Created</th>
+          <th class="imported">Imported</th>
           <th class="package">Package</th>
           <th class="report">Report</th>
         </tr>
@@ -76,7 +76,7 @@
         <tr v-for="review in reviews" :key="review.id">
           <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
           <td class="cavil-list-link" v-html="review.link"></td>
-          <td class="relative-time cavil-list-time">{{ review.created }}</td>
+          <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td class="cavil-list-package" v-html="review.package"></td>
           <td class="cavil-list-report" v-html="review.report"></td>
         </tr>
@@ -150,7 +150,7 @@ export default {
         reviews.push({
           id: review.id,
           link: externalLink(review),
-          created: moment(review.created_epoch * 1000).fromNow(),
+          imported: moment(review.imported_epoch * 1000).fromNow(),
           package: packageLink(review),
           priority: review.priority,
           report: reportLink(review)
