@@ -1,7 +1,13 @@
 <template>
   <span :id="'pending-indicator-' + action.id" class="pending-action-badge" :title="title">
-    <i class="fa-solid fa-clock"></i>
-    {{ shortLabel }}
+    <button v-if="canEdit" type="button" class="pending-action-edit" @click.stop.prevent="store.edit(action.id)">
+      <i class="fa-solid fa-clock"></i>
+      {{ shortLabel }}
+    </button>
+    <span v-else class="pending-action-label">
+      <i class="fa-solid fa-clock"></i>
+      {{ shortLabel }}
+    </span>
     <button
       type="button"
       class="pending-action-dismiss"
@@ -25,11 +31,18 @@ const ACTION_LABELS = {
 
 export default {
   name: 'PendingActionIndicator',
+  inject: ['pendingActionsStore'],
   props: {
     action: {type: Object, required: true}
   },
   emits: ['dismiss'],
   computed: {
+    store() {
+      return this.pendingActionsStore;
+    },
+    canEdit() {
+      return this.action.state !== 'submitting' && this.action.state !== 'done';
+    },
     shortLabel() {
       return ACTION_LABELS[this.action.action] ?? 'Queued';
     },
@@ -62,6 +75,25 @@ export default {
   background: #ffebe9;
   border-color: rgba(207, 34, 46, 0.4);
   color: #82071e;
+}
+.pending-action-edit,
+.pending-action-label {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  gap: 0.4em;
+  line-height: inherit;
+}
+.pending-action-edit {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.pending-action-edit:hover {
+  color: #1f2328;
+  text-decoration: underline;
 }
 .pending-action-dismiss {
   background: transparent;

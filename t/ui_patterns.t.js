@@ -408,6 +408,16 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       });
       t.ok(indicatorInView, 'pending indicator is scrolled into view');
 
+      await page.locator('[id^="pending-indicator-"] .pending-action-edit').first().click();
+      await waitForInlineSnippetEditor(page);
+      t.match(
+        await page.innerText('#inline-snippet-editor'),
+        /Scroll-Link-Test/,
+        'pending indicator label reopens editor'
+      );
+      await page.locator('#inline-snippet-editor button', {hasText: 'Cancel'}).click();
+      await waitForInlineSnippetEditorClosed(page);
+
       // Clean up so any later subtest starts with an empty queue
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
       await page.locator('#pending-actions-widget button[title="Clear all"]').click();
