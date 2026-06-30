@@ -36,10 +36,22 @@ sentence. Concretely, this is what went wrong before and must not happen again:
   the path `LICENSES/preferred/GPL-2.0`, not the text. **Invalid.**
 - ❌ A bare disclaimer paragraph (`...WARRANTIES, INCLUDING ANY IMPLIED WARRANTY OF
   MERCHANTABILITY...`) proposed as some license — a disclaimer alone names no license.
+- ❌ `Licensed under either of $SKIP8 or $SKIP8 license at your option` proposed as
+  `Apache-2.0 OR MIT` — the license **names** (`Apache-2.0`, `MIT`) were themselves replaced with
+  `$SKIP`. Now nothing in the pattern justifies the assignment, and it matches *every* "either of
+  X or Y" sentence in the distribution. **Invalid — and actively harmful.** The fix is to keep the
+  names literal: `Licensed under either of Apache-2.0 or MIT license at your option`.
 
 Cavil patterns are **token matches**: a lone mid-license sentence will match unrelated files
 across the whole distribution, so it is harmful, not just weak. The fix is almost never to find
 a different sentence — it is to capture the **whole license body** (mode A below).
+
+**Corollary — never `$SKIP` the license itself.** `$SKIP` covers the *subject* of the sentence
+(who, when, which project), never the *license it names*. The license identifier, its family
+name, and its **version** are the load-bearing tokens that justify your `license` value — if a
+token is what tells you which license this is, it must stay literal. A pattern whose only
+`$SKIP`-free words are generic glue (`Licensed under … or … at your option`) names no license and
+must not be proposed.
 
 ## TWO MODES — decide which one you are in first
 
@@ -152,10 +164,17 @@ that straddles two blocks needs no separate action once both blocks are patterne
 - **Be rigorous with `$SKIP` — this is where you beat the humans.** The curated corpus is lazy
   about it (only ~⅓ of copyright-bearing patterns genericise the holder), so do **not** copy that
   laziness. Replace every variable token with `$SKIPn`: copyright holders, years, author names,
-  emails, URLs, version numbers, project/package names. Use `$SKIP5` (≤5 words) up to `$SKIP19`
-  (greedy); one `$SKIPn` can swallow a whole variable clause. Canonical slots: right after
-  `Copyright (c)`/`(C)`, after `by` / `Author:` / `version`, and the BSD `Neither the name of
-  $SKIP nor …` slot.
+  emails, URLs, **package/project version numbers**, project/package names. Use `$SKIP5` (≤5 words)
+  up to `$SKIP19` (greedy); one `$SKIPn` can swallow a whole variable clause. Canonical slots:
+  right after `Copyright (c)`/`(C)`, after `by` / `Author:` / `version`, and the BSD `Neither the
+  name of $SKIP nor …` slot.
+- **Never `$SKIP` a load-bearing token.** The license name/identifier (`MIT`, `Apache`, `GPL`,
+  `BSD`), the SPDX id, and the **license's own version** (`2.0`, `3`, `2.1`) must always stay
+  literal — they are what justify the `license` you assign (THE PATTERN RULE). The "version
+  numbers" you skip are the *package's*, never the *license's*: `GPL-2.0` and `GPL-3.0` are
+  different licenses, so the `2.0` is signal, not noise. If skipping a token would leave you unable
+  to tell which license the pattern is for, that token must not be skipped. Over-skipping until the
+  pattern names no license is worse than no pattern at all — it poisons every future match.
 - **No HTML/markup in patterns.** If the snippet came from `.html`/markup, pattern the underlying
   text, not the tags. Markup is a low-quality marker.
 - **No leading/trailing `$SKIP`** (rejected as redundant) — `$SKIP` only goes *between* tokens.
