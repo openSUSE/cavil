@@ -213,9 +213,17 @@ textarea.mono-textarea {
   }
 
   tr.risk-9 {
-    background-color: #eef2f5;
-    box-shadow: inset 5px 0 0 #1f2328;
+    background-color: #eaeef2;
+    box-shadow: inset 4px 0 0 #57606a;
     color: #1f2328;
+
+    .code {
+      color: #1f2328;
+    }
+
+    .linenumber {
+      color: #57606a;
+    }
 
     i.fas {
       color: #1f2328;
@@ -226,7 +234,7 @@ textarea.mono-textarea {
     }
   }
 
-  tr.risk-9, tr.risk-8, tr.risk-7, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1, tr.risk-0 {
+  tr.risk-8, tr.risk-7, tr.risk-6, tr.risk-5, tr.risk-4, tr.risk-3, tr.risk-2, tr.risk-1, tr.risk-0 {
     .code {
       color: #1f2328;
     }
