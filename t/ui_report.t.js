@@ -426,6 +426,15 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         link.click();
         return link.getAttribute('href').replace('#file-', '');
       });
+      const reportFileIds = await page.evaluate(() => {
+        return [
+          ...new Set(
+            [...document.querySelectorAll('[id^="risk-"] a.file-link[href^="#file-"]')].map(link => {
+              return link.getAttribute('href').replace('#file-', '');
+            })
+          )
+        ];
+      });
       await page.waitForSelector(`#file-details-${reportFileId} table.snippet`);
       const reportRows = page.locator(`#file-details-${reportFileId} tr.has-pattern-tooltip`);
       await reportRows.first().waitFor();
@@ -452,6 +461,28 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.ok(reportTooltipClear, 'report tooltip does not cover the active source row');
       t.match(await reportCard.innerText(), /risk \d/i, 'report tooltip shows pattern risk');
       t.equal(await reportCard.locator('a').count(), 0, 'report tooltip is informational only');
+
+      const secondReportFileId = reportFileIds.find(id => id !== reportFileId);
+      t.ok(secondReportFileId, 'report fixture has another matched file for tooltip handoff');
+      if (secondReportFileId) {
+        await expandFileDetails(page, secondReportFileId);
+        await page.waitForSelector(`#file-details-${secondReportFileId} tr.has-pattern-tooltip`);
+        await page.evaluate(
+          ({firstFileId, secondFileId}) => {
+            const firstRow = document.querySelector(`#file-details-${firstFileId} tr.has-pattern-tooltip`);
+            const secondRow = document.querySelector(`#file-details-${secondFileId} tr.has-pattern-tooltip`);
+            firstRow.dispatchEvent(new MouseEvent('mouseleave', {view: window}));
+            secondRow.dispatchEvent(new MouseEvent('mouseenter', {view: window}));
+          },
+          {firstFileId: reportFileId, secondFileId: secondReportFileId}
+        );
+        await page.waitForFunction(() => document.querySelectorAll('.cavil-pattern-tip-floating').length === 1);
+        t.equal(
+          await page.locator('.cavil-pattern-tip-floating').count(),
+          1,
+          'moving between report file previews keeps only one pattern tooltip active'
+        );
+      }
       await page.mouse.move(0, 0);
       await page.waitForSelector('.cavil-pattern-tip-floating', {state: 'detached'});
 

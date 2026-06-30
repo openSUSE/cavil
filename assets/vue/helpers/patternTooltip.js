@@ -1,6 +1,7 @@
 const patternMeta = new Map();
 const patternMetaPromises = new Map();
 let activePersistentTooltip = null;
+let activeTransientTooltip = null;
 
 export function patternIdsFromInfo(info) {
   if (!info) return [];
@@ -84,6 +85,7 @@ export function showPatternTooltip(anchor, ids, options = {}) {
   const interactive = options.interactive ?? true;
   const hideDelay = options.hideDelay ?? 800;
   if (persistent && activePersistentTooltip) activePersistentTooltip.destroy();
+  if (!persistent && activeTransientTooltip) activeTransientTooltip.destroy();
   const dom = document.createElement('div');
   dom.className = 'cavil-pattern-tip cavil-pattern-tip-floating';
   if (!interactive) {
@@ -128,6 +130,7 @@ export function showPatternTooltip(anchor, ids, options = {}) {
     destroyed = true;
     dom.remove();
     if (activePersistentTooltip?.destroy === destroy) activePersistentTooltip = null;
+    if (activeTransientTooltip?.destroy === destroy) activeTransientTooltip = null;
     if (options.onDestroy) options.onDestroy();
   };
 
@@ -197,6 +200,8 @@ export function showPatternTooltip(anchor, ids, options = {}) {
   if (persistent) {
     activePersistentTooltip = tooltip;
     setTimeout(startWatchingDocument, 0);
+  } else {
+    activeTransientTooltip = tooltip;
   }
   return tooltip;
 }
