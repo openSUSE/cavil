@@ -60,6 +60,26 @@ must not be proposed.
 a snippet taken from *inside* a license text must never be short-patterned (that was the original
 bug — grabbing one sentence from a GPL/PSF/BSD body).
 
+**MULTI-SNIPPET TRIGGER (check this before the name/path signals below — it is the strongest Mode
+A signal and the one the others miss).** Group the unresolved snippets by file. **If a single file
+has 2+ snippets at different line numbers, the scanner found license wording spread through the
+whole file — which almost always means the file itself *is* one legal document (a license, EULA,
+CLA, or long notice), even when its name and path give no hint** (`docs/.../index.md`, a `README`,
+a stray `.html`). A file that merely *contains* one declaration produces one hit from one section,
+not several spread across the body. You **must** `cavil_get_file` the whole file and read it before
+patterning any snippet from it. Then:
+
+- **Whole file reads as one continuous legal text → Mode A.** Expand to a single snippet covering
+  the whole body and propose **one** pattern over it (concatenated files: one snippet + one pattern
+  per license block). **Never** submit the individual mid-document snippets as their own patterns —
+  that is the exact mistake this rule exists to stop.
+- **File is ordinary code/docs that merely happens to carry 2+ *independent* declarations** (e.g. an
+  SPDX tag at the top and a vendored BSD header lower down) → handle each snippet on its own merits
+  (usually Mode B each).
+
+When in doubt between the two, prefer Mode A — under-expanding (short-patterning a fragment of a
+legal document) is the harmful failure; over-expanding is not.
+
 **Mode B — an inline license declaration in ordinary code or docs (the common case).** A header
 line or sentence that *states* the licensing — formal or casual human language. Use judgement to
 extract the reusable declaration core (the license name + the granting verb), drop the incidental
@@ -82,21 +102,29 @@ pseudo-license (the corpus's single largest category), not a Note:
 
 Only when a snippet has *no* license name and *no* pointer to one is it a Note.
 
-**Mode A — the file *is* a license text (less common, but do not short-pattern it).** Signals: a
+**Mode A — the file *is* a license text or other whole legal document (less common, but do not
+short-pattern it).** Signals: **2+ unresolved snippets at different line numbers in the same file**
+(the multi-snippet trigger above — the strongest signal, independent of name/path), a
 `LICENSE`/`COPYING`/`NOTICE` file, a `*_License.txt`, an `*license*.html`, a file under
 `3rd-party/`, `lib/<vendor>/`, or a similar bundled-component directory, or simply several
-paragraphs of formal license prose. These are the licenses of code shipped inside the package and
-are exactly what the SBOM needs. → **Capture the whole canonical license body and pattern it**
-(see "CAPTURING A FULL LICENSE BODY"). A long, near-verbatim pattern is correct here.
+paragraphs of formal license/EULA/CLA prose. These are the licenses of code shipped inside the
+package and are exactly what the SBOM needs. → **Capture the whole canonical body and pattern it**
+(see "CAPTURING A FULL LICENSE BODY"). A long, near-verbatim pattern is correct here. Set `license`
+to the SPDX id; if the document is a EULA/CLA/other non-SPDX legal text, use the matching
+pseudo-license (`Any EULA`, `Any CLA`, …) over the whole captured body — still one pattern, not one
+per fragment.
 
 ## DECISION PROCEDURE
 
 Run a large report through `parse_report.py` first (`python3 parse_report.py <report_file>
---pretty --output unresolved.json`). Gather context with `cavil_get_file` (batch parallel calls)
-**before** deciding for any snippet that is truncated, starts mid-sentence, or may be part of a
-larger block. **In a large report, sweep the SPDX/manifest license tags first** (`SPDX-License-Identifier:`,
-`License: …`, `license: '…`) — they are the safest and highest-volume clears, and Cavil never resolves
-them on its own. Then, for **each** remaining snippet, take the **first** action that applies:
+--pretty --output unresolved.json`). **Then group the snippets by file path and apply the
+MULTI-SNIPPET TRIGGER: any file with 2+ snippets gets its whole body fetched and read before you
+pattern anything from it — default that file to Mode A.** Gather context with `cavil_get_file`
+(batch parallel calls) **before** deciding for any snippet that is truncated, starts mid-sentence,
+shares its file with other unresolved snippets, or may be part of a larger block. **In a large
+report, sweep the SPDX/manifest license tags first** (`SPDX-License-Identifier:`, `License: …`,
+`license: '…`) — they are the safest and highest-volume clears, and Cavil never resolves them on
+its own. Then, for **each** remaining snippet, take the **first** action that applies:
 
 1. **Not license text** → ignore. Log/debug lines, code comments about functionality,
    build/config metadata, template placeholders, license-sounding text sitting as a *data value*
@@ -114,8 +142,10 @@ them on its own. Then, for **each** remaining snippet, take the **first** action
    patent / CLA / EULA, a pointer to a license elsewhere (`Any reference local` / `remote`), a
    permissive grant naming no license (`Any Permissive`), a bare warranty disclaimer, or a family
    named without a version (`GPL-Unspecified` …). See PSEUDO-LICENSES.
-4. **Mode A (the file is a license text)** → capture the full body and pattern it. Rarer, but
-   check for it before step 5 so a snippet from inside a license body is not short-patterned.
+4. **Mode A (the file is a license text or whole legal document)** → capture the full body and
+   pattern it once. Rarer, but check for it before step 5 so a snippet from inside a license body is
+   not short-patterned — and remember the **multi-snippet trigger**: 2+ snippets in one file forces
+   this branch regardless of the file's name or path.
 5. **Mode B (inline/casual license declaration)** → short identifier pattern. **The common case.**
 6. **Positively identified but missing from Cavil's DB** → report missing.
 7. **Cannot name any license** → note.
