@@ -170,7 +170,7 @@
 
           <div v-if="missedFiles.length > 0" class="risk-license-section risk-license-section-unresolved">
             <h4 id="unmatched-files" class="risk-license-heading">
-              <div class="badge text-bg-dark">Risk 9</div>
+              <div class="badge cavil-risk-unknown-badge">Risk 9</div>
               <span class="risk-license-summary">
                 {{ unresolvedMatches }} unresolved {{ unresolvedMatches === 1 ? 'match' : 'matches' }} across
                 <span id="unmatched-count">{{ missedFiles.length }}</span>
@@ -580,13 +580,14 @@ export default {
       return labels[flag] ?? flag.replaceAll('_', ' ');
     },
     estimatedRiskClass(risk) {
-      if (risk === 9) return 'text-bg-dark';
+      if (risk === 9) return 'cavil-risk-unknown-badge';
       if (risk > 5) return 'text-bg-danger';
       if (risk === 5) return 'text-bg-warning';
       return 'text-bg-success';
     },
     riskBadgeClass(risk) {
       const r = Number(risk);
+      if (r === 9) return 'cavil-risk-unknown-badge';
       if (r <= 4) return 'text-bg-success';
       if (r === 5) return 'text-bg-warning';
       return 'text-bg-danger';

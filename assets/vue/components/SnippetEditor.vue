@@ -1135,7 +1135,7 @@ export default {
 }
 .cavil-pattern-tip-risk {
   /* Matches the badge palette used elsewhere in the report UI:
-     0-4 green, 5 yellow, 6-8 red, 9 black. */
+    0-4 green, 5 yellow, 6-8 red, 9 slate. */
   border: 1px solid transparent;
   border-radius: 2em;
   font-size: 11px;
@@ -1160,9 +1160,9 @@ export default {
   border-color: rgba(207, 34, 46, 0.2);
 }
 .cavil-pattern-tip-risk.risk-9 {
-  background: #1f2328;
+  background: #57606a;
   color: #ffffff;
-  border-color: #1f2328;
+  border-color: #57606a;
 }
 .cavil-pattern-tip-preview {
   background: #f6f8fa;

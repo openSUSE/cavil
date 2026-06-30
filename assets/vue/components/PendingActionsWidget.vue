@@ -16,7 +16,7 @@
         <span>
           <i class="fa-solid fa-list-check"></i>
           Pending changes
-          <span class="badge text-bg-dark ms-1">{{ store.actions.length }}</span>
+          <span class="badge text-bg-secondary ms-1">{{ store.actions.length }}</span>
         </span>
         <button type="button" class="btn-close" aria-label="Collapse" @click="expanded = false"></button>
       </div>

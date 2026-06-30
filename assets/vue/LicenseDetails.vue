@@ -282,7 +282,7 @@ export default {
       if (value >= 1 && value <= 4) return 'text-bg-success';
       if (value === 5) return 'text-bg-warning';
       if (value === 6 || value === 7) return 'text-bg-danger';
-      return 'text-bg-dark';
+      return 'cavil-risk-unknown-badge';
     },
     flagsFor(pattern) {
       const flags = [];

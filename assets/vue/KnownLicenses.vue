@@ -118,7 +118,7 @@ export default {
       if (risk === 1 || risk === 2 || risk === 3 || risk === 4) return 'text-bg-success';
       if (risk === 5) return 'text-bg-warning';
       if (risk === 6 || risk === 7) return 'text-bg-danger';
-      return 'text-bg-dark';
+      return 'cavil-risk-unknown-badge';
     },
     gotoPage(num) {
       this.cancelApiRefresh();
