@@ -465,17 +465,18 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       const secondReportFileId = reportFileIds.find(id => id !== reportFileId);
       t.ok(secondReportFileId, 'report fixture has another matched file for tooltip handoff');
       if (secondReportFileId) {
-        await expandFileDetails(page, secondReportFileId);
-        await page.waitForSelector(`#file-details-${secondReportFileId} tr.has-pattern-tooltip`);
-        await page.evaluate(
-          ({firstFileId, secondFileId}) => {
-            const firstRow = document.querySelector(`#file-details-${firstFileId} tr.has-pattern-tooltip`);
-            const secondRow = document.querySelector(`#file-details-${secondFileId} tr.has-pattern-tooltip`);
-            firstRow.dispatchEvent(new MouseEvent('mouseleave', {view: window}));
-            secondRow.dispatchEvent(new MouseEvent('mouseenter', {view: window}));
-          },
-          {firstFileId: reportFileId, secondFileId: secondReportFileId}
-        );
+        // Matched files live in the risk buckets, not in #filelist-snippets, so
+        // expand the second file via its risk-bucket link (expandFileDetails
+        // only knows about the unresolved snippet list).
+        await page.locator(`[id^="risk-"] a.file-link[href="#file-${secondReportFileId}"]`).click();
+        await page.waitForSelector(`#file-details-${secondReportFileId} table.snippet`);
+        // With a tooltip already open over the first file, hover a matched row in
+        // the second file: the pointer moving between previews must hand the
+        // transient tooltip over so only one stays alive.
+        const secondRow = page.locator(`#file-details-${secondReportFileId} tr.has-pattern-tooltip`).first();
+        await secondRow.waitFor();
+        await secondRow.scrollIntoViewIfNeeded();
+        await secondRow.locator('td.code').hover({position: {x: 24, y: 8}});
         await page.waitForFunction(() => document.querySelectorAll('.cavil-pattern-tip-floating').length === 1);
         t.equal(
           await page.locator('.cavil-pattern-tip-floating').count(),
