@@ -50,14 +50,38 @@ If the report includes `Existing Reviewer Notes`, read them before investigating
 If a non-AI reviewer note already contains the relevant review recommendation, issues, and next step you would otherwise add, do not create another note. Tell the user that an existing reviewer note already covers the review guidance and briefly identify the note number or author. Only create a new note when you have materially new findings, a changed recommendation, or a useful clarification that is not already covered.
 
 ### Step 4 - Investigate only what matters
-Focus on the signals a human lawyer would need for a first-pass decision:
-- Declared primary license mismatches
+Always start with the declared license check (see below); it is the one finding that must appear
+in every note. Then focus on the other signals a human lawyer would need for a first-pass decision:
 - Incompatible or unusual licenses
 - Unknown, proprietary, non-commercial, or custom license terms
 - Unresolved matches that look like real license text, license declarations, redistribution terms, warranty disclaimers, or patent/trademark restrictions
 - Large numbers of unresolved matches from a common path that may indicate generated files, bundled license data, or test fixtures
 
 Use `cavil_get_file` for context when an unresolved match is truncated, ambiguous, comes from a LICENSE/COPYING/NOTICE/README file, or looks serious enough that you might recommend rejection or human review. Do not spend time exhaustively reading low-risk boilerplate if the report is large; note the limitation instead.
+
+#### Always review the declared package license — never skip it
+The most important first-pass check is whether the license **declared in the package file**
+(the `License:` tag from the spec file / package metadata) matches the licenses actually found in
+the report. This comparison **must appear in every note**, even when it is a clean match — it is
+the single most common reason a package needs human attention, so a note that omits it is
+incomplete.
+
+The report surfaces the declared value on the `Declared-License:` line near the top (it carries a
+`(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
+the package file had no declared license — say so explicitly and lean toward NEEDS HUMAN REVIEW.
+
+Compare the declared license against the licenses in the Licenses/risk breakdown:
+- **Match** — the declared license covers the licenses found in the shipped code (vendored or
+  bundled third-party components under their own permissive licenses are expected and do not by
+  themselves make the declaration wrong). State that the declared license matches and name it.
+- **Mismatch** — the report contains a license that the declared value does not account for, the
+  declared value is narrower than reality (e.g. declares `MIT` but core files are `GPL-2.0-only`),
+  or it is broader/looser than what is actually present. Name the declared license, name the
+  conflicting finding with a file path, and lean toward NEEDS HUMAN REVIEW or REJECT.
+
+When unsure whether a found license belongs to the shipped work or to a separable bundled
+component, apply the same combination-vs-aggregation reasoning as the incompatible-license check
+below, and say which it is.
 
 #### Incompatible-license warnings deserve a very close look
 When the report's Licenses section contains a line like
@@ -101,7 +125,7 @@ NEEDS HUMAN REVIEW — never silently drop the warning.
 
 ### Step 5 - Choose a recommendation
 Use one of these recommendations:
-- **ACCEPT**: The declared license appears consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant).
+- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant).
 - **REJECT**: The report appears to contain undeclared problematic licenses, significant primary-license mismatch, proprietary/non-commercial restrictions, a **confirmed combined-work license incompatibility**, or other issues that likely block acceptance.
 - **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation.
 
@@ -139,12 +163,17 @@ Use this format:
 AI-assisted review recommendation: NEEDS HUMAN REVIEW
 
 Issues for legal reviewer:
+- Declared license (`<declared>`) vs found: state match or mismatch, with a file path for any conflict.
 - `path/file`: brief issue and why it matters.
 - Snippet 12: brief issue and suggested follow-up.
 
 Suggested next step: what the lawyer should verify or ask the maintainer to fix.
 Confidence: Medium - note any important limitation, such as partial review of a large report.
 ```
+
+The first bullet is always the declared-license check from Step 4; include it even when it is a
+clean match (e.g. `Declared license (GPL-2.0-or-later) matches the GPL-2.0-only/-or-later files in
+src/; remaining licenses are permissive vendored dependencies.`).
 
 When the report carried an incompatible-license warning, record the outcome of your investigation explicitly, e.g. a confirmed false alarm:
 
@@ -180,7 +209,8 @@ If no notable issues were found, still create a note:
 AI-assisted review recommendation: ACCEPT
 
 Issues for legal reviewer:
-- No blocking licensing issues identified in the report.
+- Declared license (MIT) matches the report; all MIT-found files are the package's own code, remaining licenses are permissive vendored dependencies.
+- No other blocking licensing issues identified in the report.
 - Unresolved matches reviewed appear low risk or non-license related.
 
 Suggested next step: Human reviewer can confirm the report and accept if no additional concerns are known.
@@ -188,6 +218,7 @@ Confidence: Medium - AI-assisted triage, not a final legal decision.
 ```
 
 ## NOTE WRITING GUIDELINES
+- Every note must lead with the declared-license check (declared value vs. what the report found), even when it is a clean match. Never omit it.
 - Always tag the note with `["review"]` and always pass `skip_if_existing_tag="review"` so the server keeps it to one review note per report.
 - Be brief and specific. Prefer concrete file paths, snippet ids, and license names over general impressions.
 - Use SPDX identifiers where possible, such as MIT, Apache-2.0, GPL-2.0-only, GPL-2.0-or-later, LGPL-2.1-or-later, or AGPL-3.0-only.

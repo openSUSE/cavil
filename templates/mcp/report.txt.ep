@@ -10,6 +10,9 @@ External-Link: <%== $summary->{external_link} %>
 % if (my $version = $summary->{package_version}) {
 Version: <%== $version %>
 % }
+% if (my $declared = $summary->{package_license}{name}) {
+Declared-License: <%== $declared %><%== $summary->{package_license}{spdx} ? '' : ' (not a valid SPDX expression)' %>
+% }
 % if (my $sum = $summary->{package_summary}) {
 Summary: <%== $sum %>
 % }

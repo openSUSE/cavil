@@ -256,6 +256,7 @@ subtest 'MCP' => sub {
         like $text, qr/State:.+new/,                                                         'state';
         like $text, qr/External-Link:.+mojo/,                                                'external link';
         like $text, qr/Version:.+7\.25/,                                                     'version';
+        like $text, qr/Declared-License:.+Artistic-2\.0/,                                    'declared license';
         like $text, qr/Summary:.+Real-time web framework/,                                   'summary';
         like $text, qr/Group:.+Development\/Libraries\/Perl/,                                'group';
         like $text, qr/URL:.+search\.cpan\.org/,                                             'url';
