@@ -503,10 +503,10 @@ sub paginate_known_licenses ($self, $options) {
   my $db = $self->pg->db;
 
   my @bind;
-  my $search = $options->{search} // '';
+  my $search     = $options->{search} // '';
   my $normalized = normalize_license_expr($search);
-  my $order  = 'license';
-  my $where  = '';
+  my $order      = 'license';
+  my $where      = '';
   push @bind, $search, $search, $normalized;
   if (length $search) {
     $where = qq{
