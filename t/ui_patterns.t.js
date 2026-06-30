@@ -370,8 +370,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
 
       // Expand widget and click the location link
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
-      await page.waitForSelector('#pending-actions-widget .pending-actions-item-link');
-      await page.locator('#pending-actions-widget .pending-actions-item-link').first().click();
+      const pendingAction = page.locator('#pending-actions-widget .pending-actions-item', {hasText: 'Scroll-Link-Test'});
+      await pendingAction.locator('.pending-actions-item-link').click();
 
       // Clicking the link must re-expand the target file and collapse the widget panel
       await page.waitForSelector(`#file-details-${fileId} table.snippet`, {timeout: 10000});
@@ -383,13 +383,12 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       );
 
       // Verify the pending indicator (the badge inside the file source) is in view.
-      // The exact action ID isn't stable enough to query precisely, so wait for
-      // *any* pending-indicator to land in viewport (giving the scroll a chance
-      // to settle) and then assert via evaluate.
+      // The exact action ID is not stable, but the queued license label is.
+      const pendingIndicator = page.locator('[id^="pending-indicator-"][title*="Scroll-Link-Test"]');
       await page
         .waitForFunction(
           () => {
-            for (const el of document.querySelectorAll('[id^="pending-indicator-"]')) {
+            for (const el of document.querySelectorAll('[id^="pending-indicator-"][title*="Scroll-Link-Test"]')) {
               const r = el.getBoundingClientRect();
               if (r.top >= -50 && r.top <= window.innerHeight) return true;
             }
@@ -399,7 +398,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
         )
         .catch(() => {});
       const indicatorInView = await page.evaluate(() => {
-        const indicators = document.querySelectorAll('[id^="pending-indicator-"]');
+        const indicators = document.querySelectorAll('[id^="pending-indicator-"][title*="Scroll-Link-Test"]');
         for (const el of indicators) {
           const r = el.getBoundingClientRect();
           if (r.top >= -50 && r.top <= window.innerHeight) return true;
@@ -408,7 +407,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       });
       t.ok(indicatorInView, 'pending indicator is scrolled into view');
 
-      await page.locator('[id^="pending-indicator-"] .pending-action-edit').first().click();
+      await pendingIndicator.locator('.pending-action-edit').click();
       await waitForInlineSnippetEditor(page);
       t.match(
         await page.innerText('#inline-snippet-editor'),
