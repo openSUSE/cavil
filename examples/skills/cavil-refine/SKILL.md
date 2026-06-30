@@ -82,13 +82,17 @@ are exactly what the SBOM needs. → **Capture the whole canonical license body 
 Run a large report through `parse_report.py` first (`python3 parse_report.py <report_file>
 --pretty --output unresolved.json`). Gather context with `cavil_get_file` (batch parallel calls)
 **before** deciding for any snippet that is truncated, starts mid-sentence, or may be part of a
-larger block. Then, for **each** snippet, take the **first** action that applies:
+larger block. **In a large report, sweep the SPDX/manifest license tags first** (`SPDX-License-Identifier:`,
+`License: …`, `license: '…`) — they are the safest and highest-volume clears, and Cavil never resolves
+them on its own. Then, for **each** remaining snippet, take the **first** action that applies:
 
 1. **Not license text** → ignore. Log/debug lines, code comments about functionality,
    build/config metadata, template placeholders, license-sounding text sitting as a *data value*
    in a structured/manifest/test file, or a keyword used merely *descriptively* ("patent-free
    codec", "proprietary format" in a product list). If there is any doubt it is license-related,
-   do not ignore — continue.
+   do not ignore — continue. **Markup is not a reason to ignore:** HTML, doxygen/javadoc listings,
+   or groff/man wrapping around recognizable license wording is still license text — strip the markup
+   and pattern the underlying license (mode A/B), do not ignore it as "just markup".
 2. **Pure fixtures / reference catalog** → glob, if 2+ files share the path. `testdata/`,
    `tests/`, `fixtures/`, `samples/`, `.log` sample output — or a *catalog* of license texts not
    tied to shipped code (e.g. the Linux kernel's master `LICENSES/` list, `linux-*/LICENSES/*`).
