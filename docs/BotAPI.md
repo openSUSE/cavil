@@ -190,10 +190,9 @@ Create package.
 
 * `created` (optional): Package creation timestamp.
 
-* `external_link` (optional): Short string describing the package source. Special values like `obs#123`, `ibs#123`,
-                              `soo#org/package!123` and `ssd#org/package!123` result in links to
-                              `https://build.opensuse.org`, `https://build.suse.de`, `https://src.opensuse.org` and
-                              `https://src.suse.de`.
+* `external_link` (optional): Short string describing the package source. Configured `external_link_sources` can render
+                              values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
+                              source links with labels.
 
 * `priority` (optional): Priority of this package review.
 
@@ -261,10 +260,9 @@ Re-import package. Usually used to reopen a review after it has already been obs
 
 * `priority` (optional): Priority of this package review.
 
-* `external_link` (optional): Short string describing the package source. Special values like `obs#123`, `ibs#123`,
-                              `soo#org/package!123` and `ssd#org/package!123` result in links to
-                              `https://build.opensuse.org`, `https://build.suse.de`, `https://src.opensuse.org` and
-                              `https://src.suse.de`.
+* `external_link` (optional): Short string describing the package source. Configured `external_link_sources` can render
+                              values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
+                              source links with labels.
 
 ```
 POST /packages/import/23
@@ -357,10 +355,9 @@ Create request for package.
 
 * `package` (required): Package id.
 
-* `external_link` (required): Short string describing the package source. Special values like `obs#123`, `ibs#123`,
-                              `soo#org/package!123` and `ssd#org/package!123` result in links to
-                              `https://build.opensuse.org`, `https://build.suse.de`, `https://src.opensuse.org` and
-                              `https://src.suse.de`.
+* `external_link` (required): Short string describing the package source. Configured `external_link_sources` can render
+                              values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
+                              source links with labels.
 
 ```
 POST /requests

@@ -71,12 +71,17 @@
             </dd>
           </template>
           <template v-if="externalLink !== null">
-            <dt>External link</dt>
-            <dd v-html="externalLink"></dd>
+            <dt>Link</dt>
+            <dd><ExternalLink :link="externalLink" /></dd>
           </template>
-          <template v-if="requestsHtml !== null">
+          <template v-if="requests.length > 0">
             <dt>Requests</dt>
-            <dd v-html="requestsHtml"></dd>
+            <dd>
+              <span v-for="(request, index) in requests" :key="index">
+                <span v-if="index > 0">, </span>
+                <ExternalLink :link="request" />
+              </span>
+            </dd>
           </template>
           <template v-if="productsHtml !== null">
             <dt>Products</dt>
@@ -169,7 +174,7 @@
       <div class="metadata-collapse-inner">
         <ul class="metadata-related-list">
           <li v-for="prev in history" :key="prev.id" class="metadata-related-item">
-            <span class="metadata-related-name" v-html="prev.externalLink"></span>
+            <span class="metadata-related-name"><ExternalLink :link="prev.externalLink" /></span>
             <span class="metadata-related-pill">{{ prev.result }}</span>
             <span class="metadata-related-pill">{{ prev.state }}</span>
             <span class="metadata-related-user">{{ prev.reviewing_user }}</span>
@@ -322,13 +327,14 @@
 <script>
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import CopyableText from './components/CopyableText.vue';
-import {externalLink, productLink} from './helpers/links.js';
+import ExternalLink from './components/ExternalLink.vue';
+import {productLink} from './helpers/links.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
 
 export default {
   name: 'ReportMetadata',
-  components: {CavilNoticePanel, CopyableText},
+  components: {CavilNoticePanel, CopyableText, ExternalLink},
   mixins: [Refresh],
   data() {
     return {
@@ -362,7 +368,7 @@ export default {
       refreshUrl: `/reviews/meta/${this.pkgId}`,
       reindexBusy: false,
       reindexFailed: false,
-      requestsHtml: null,
+      requests: [],
       result: '',
       reviewed: null,
       reviewingUser: null,
@@ -435,7 +441,7 @@ export default {
 
       this.created = moment(data.created * 1000).fromNow();
       this.errors = data.errors;
-      this.externalLink = externalLink({external_link: data.external_link});
+      this.externalLink = data.external_link_data ?? data.external_link;
       this.hasSpdxReport = data.has_spdx_report;
       this.legalReviewNotices = data.legal_review_notices;
 
@@ -448,7 +454,7 @@ export default {
       this.history = data.history;
       for (const prev of this.history) {
         prev.created = moment(prev.created * 1000).fromNow();
-        prev.externalLink = externalLink({external_link: prev.external_link});
+        prev.externalLink = prev.external_link_data ?? prev.external_link;
         prev.reportUrl = `/reviews/details/${prev.id}`;
       }
 
@@ -477,8 +483,9 @@ export default {
       if (data.products.length > 0) {
         this.productsHtml = data.products.map(name => productLink({name})).join(', ');
       }
+      this.requests = [];
       if (data.requests.length > 0) {
-        this.requestsHtml = data.requests.map(req => externalLink({external_link: req})).join(', ');
+        this.requests = data.requests_data ?? data.requests;
       }
 
       if (data.reviewed !== null) this.reviewed = moment(data.reviewed * 1000).fromNow();
@@ -531,13 +538,13 @@ export default {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.report-metadata-list a {
+.report-metadata-list a:not(.cavil-external-link-target) {
   color: #0969da;
   text-decoration: none;
   text-underline-offset: 2px;
 }
-.report-metadata-list a:hover,
-.report-metadata-list a:focus {
+.report-metadata-list a:not(.cavil-external-link-target):hover,
+.report-metadata-list a:not(.cavil-external-link-target):focus {
   text-decoration: underline;
 }
 .report-metadata-list small {

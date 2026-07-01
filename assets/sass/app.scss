@@ -146,6 +146,59 @@ button.cavil-icon-action {
   background-color: #57606a;
   color: #fff;
 }
+.cavil-external-link {
+  align-items: stretch;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  display: inline-flex;
+  font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  max-width: 100%;
+  overflow: hidden;
+  vertical-align: middle;
+}
+.cavil-external-link-target,
+.cavil-external-link-source {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.875rem;
+  line-height: 1;
+  min-height: 1.45rem;
+  padding: 0.22rem 0.45rem;
+  white-space: nowrap;
+}
+.cavil-external-link-target {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 4px 0 0 4px;
+  color: #57606a;
+  min-width: 0;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+}
+.cavil-external-link > .cavil-external-link-target {
+  border: 0;
+  border-radius: 0;
+}
+a.cavil-external-link-target:hover,
+a.cavil-external-link-target:focus {
+  background: #eef6ff;
+  color: #0969da;
+  text-decoration: none;
+}
+.cavil-external-link-source {
+  background: #eaeef2;
+  border-left: 1px solid #d0d7de;
+  color: #57606a;
+  flex: 0 0 auto;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.cavil-external-link-text,
+.cavil-external-link-source-text {
+  display: inline-block;
+  line-height: 1;
+}
 a.cavil-meta-badge:hover,
 a.cavil-meta-badge:focus {
   filter: brightness(0.96);

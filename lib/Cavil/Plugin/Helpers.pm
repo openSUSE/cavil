@@ -18,7 +18,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(minimal_snippet);
-use Cavil::Util       qw(spdx_link);
+use Cavil::Util       qw(external_link_data spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
 use Mojo::Util        qw(decode humanize_bytes xml_escape);
@@ -226,15 +226,17 @@ sub _package_summary ($c, $id) {
   my $requests = $pkgs->requests_for($id);
   my $products = $c->products->for_package($id);
 
+  my $config  = $c->app->config;
   my $history = [];
   for my $prev (@{$pkgs->history($pkg->{name}, $pkg->{checksum}, $id)}) {
     my $entry = {
-      created        => $prev->{created_epoch},
-      external_link  => $prev->{external_link},
-      id             => $prev->{id},
-      result         => $prev->{result} // '',
-      reviewing_user => $prev->{login}  // '',
-      state          => $prev->{state}
+      created            => $prev->{created_epoch},
+      external_link      => $prev->{external_link},
+      external_link_data => external_link_data($prev->{external_link}, $config->{external_link_sources}),
+      id                 => $prev->{id},
+      result             => $prev->{result} // '',
+      reviewing_user     => $prev->{login}  // '',
+      state              => $prev->{state}
     };
     push @$history, $entry;
   }
@@ -280,6 +282,7 @@ sub _package_summary ($c, $id) {
     ai_assisted          => \!!$pkg->{ai_assisted},
     errors               => $spec->{errors} // [],
     external_link        => $pkg->{external_link},
+    external_link_data   => external_link_data($pkg->{external_link}, $config->{external_link_sources}),
     has_spdx_report      => \!!$has_spdx_report,
     history              => $history,
     id                   => $pkg->{id},
@@ -299,6 +302,7 @@ sub _package_summary ($c, $id) {
     package_version      => $version,
     products             => $products,
     requests             => $requests,
+    requests_data        => [map { external_link_data($_, $config->{external_link_sources}) } @$requests],
     result               => $pkg->{result},
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},

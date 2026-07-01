@@ -514,8 +514,9 @@ Get the package ids for legal reports.
 
 **Request parameters:**
 
-* `external_link` (required): Short string describing the package source. Usually special values like `obs#123`,
-                              `ibs#123`, `soo#org/package!123` and `ssd#org/package!123`.
+* `external_link` (required): Short string describing the package source. Configured `external_link_sources` can render
+                              values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
+                              source links with labels.
 
 ```
 GET /api/v1/reports?external_link=ibs%23123

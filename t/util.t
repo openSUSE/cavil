@@ -21,7 +21,7 @@ use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets lines_context normalize_license_expr obs_ssh_auth parse_exclude_file parse_service_file),
   qw(normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
-  qw(request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles validate_tags),
+  qw(external_link_data request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles validate_tags),
   qw(weighted_containment)
 );
 
@@ -279,6 +279,42 @@ subtest 'request_id_from_external_link' => sub {
   is request_id_from_external_link('ibs#4321'),     4321,  'right id';
   is request_id_from_external_link('unknown#4321'), undef, 'no id';
   is request_id_from_external_link(''),             undef, 'no id';
+};
+
+subtest 'external_link_data' => sub {
+  is external_link_data(undef), undef, 'undefined link returns undef';
+  is_deeply external_link_data('obs#1234'), {text => 'obs#1234'}, 'unconfigured link stays plain';
+
+  my $sources = [
+    {
+      pattern => '^obs#(\d+)$',
+      url     => 'https://build.opensuse.org/request/show/$1',
+      label   => 'OBS',
+      title   => 'Open Build Service request'
+    },
+    {pattern => '^soo#([^!]+)!(\d+)$', url => 'https://src.example.test/$1/pulls/$2', label => 'source'},
+    {pattern => '^plain#(.+)$', label => 'plain'}
+  ];
+  is_deeply external_link_data('obs#1234', $sources),
+    {
+    text  => 'obs#1234',
+    url   => 'https://build.opensuse.org/request/show/1234',
+    label => 'OBS',
+    title => 'Open Build Service request'
+    },
+    'configured link returns structured rendering data';
+  is_deeply external_link_data('soo#openSUSE/cavil!7', $sources),
+    {
+    text  => 'soo#openSUSE/cavil!7',
+    url   => 'https://src.example.test/openSUSE/cavil/pulls/7',
+    label => 'source',
+    title => 'External link'
+    },
+    'multiple captures are expanded into source URL';
+  is_deeply external_link_data('plain#example', $sources), {text => 'plain#example', label => 'plain'},
+    'configured source can be label-only';
+  is_deeply external_link_data('openSUSE:Factory', $sources), {text => 'openSUSE:Factory'},
+    'unmatched configured link stays plain';
 };
 
 subtest 'run_cmd' => sub {

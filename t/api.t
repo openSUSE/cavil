@@ -461,6 +461,7 @@ subtest 'Pagination' => sub {
       ->json_is('/page/0/name',     'test-package-1')
       ->json_has('/page/0/checksum')
       ->json_has('/page/0/external_link')
+      ->json_is('/page/0/external_link_data', undef)
       ->json_has('/page/0/created_epoch')
       ->json_has('/page/0/imported_epoch')
       ->json_has('/page/0/indexed_epoch')

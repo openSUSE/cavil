@@ -347,7 +347,7 @@ export default {
   text-decoration: none;
 }
 
-.cavil-list-link a {
+.cavil-list-link a:not(.cavil-external-link-target) {
   background: #f6f8fa;
   border: 1px solid #d0d7de;
   border-radius: 6px;
@@ -371,15 +371,15 @@ export default {
   padding: 0.1rem 0.4rem;
 }
 
-.cavil-list-link a:hover,
-.cavil-list-link a:focus,
+.cavil-list-link a:not(.cavil-external-link-target):hover,
+.cavil-list-link a:not(.cavil-external-link-target):focus,
 .cavil-list-package a:hover,
 .cavil-list-package a:focus {
   color: #0969da;
 }
 
-.cavil-list-link a:hover,
-.cavil-list-link a:focus {
+.cavil-list-link a:not(.cavil-external-link-target):hover,
+.cavil-list-link a:not(.cavil-external-link-target):focus {
   background: #ddf4ff;
   border-color: #54aeff66;
 }

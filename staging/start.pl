@@ -35,9 +35,35 @@ my $cache     = $dir->child('cache')->make_path->realpath;
 my $online = Mojo::URL->new($postgres)->query([search_path => ['cavil_staging', 'public']])->to_unsafe_string;
 my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
 {
-  secrets              => ['just_a_test'],
-  checkout_dir         => '$checkouts',
-  cache_dir            => '$cache',
+  secrets               => ['just_a_test'],
+  checkout_dir          => '$checkouts',
+  cache_dir             => '$cache',
+  external_link_sources => [
+    {
+      pattern => '^obs#(\\d+)\$',
+      url     => 'https://build.opensuse.org/request/show/\$1',
+      label   => 'external',
+      title   => 'Build service request'
+    },
+    {
+      pattern => '^ibs#(\\d+)\$',
+      url     => 'https://build.suse.de/request/show/\$1',
+      label   => 'internal',
+      title   => 'Build service request'
+    },
+    {
+      pattern => '^soo#([^!]+)!(\\d+)\$',
+      url     => 'https://src.opensuse.org/\$1/pulls/\$2',
+      label   => 'external',
+      title   => 'Gitea pull request'
+    },
+    {
+      pattern => '^ssd#([^!]+)!(\\d+)\$',
+      url     => 'https://src.suse.de/\$1/pulls/\$2',
+      label   => 'internal',
+      title   => 'Gitea pull request'
+    }
+  ],
   tokens               => ['staging:123'],
   pg                   => '$online',
   acceptable_risk      => 4,

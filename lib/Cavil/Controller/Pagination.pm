@@ -16,6 +16,8 @@
 package Cavil::Controller::Pagination;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+use Cavil::Util qw(external_link_data);
+
 sub ignored_matches ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
@@ -208,10 +210,12 @@ sub review_search ($self) {
 
 sub _mark_active_packages ($self, $page) {
   my $minion = $self->minion;
+  my $config = $self->app->config;
   for my $pkg (@{$page->{page}}) {
     my $id = $pkg->{id};
-    $pkg->{active_jobs} = $minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
-    $pkg->{failed_jobs} = $minion->jobs({states => ['failed'], notes => ["pkg_$id"]})->total;
+    $pkg->{external_link_data} = external_link_data($pkg->{external_link}, $config->{external_link_sources});
+    $pkg->{active_jobs}        = $minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+    $pkg->{failed_jobs}        = $minion->jobs({states => ['failed'], notes => ["pkg_$id"]})->total;
   }
   return $page;
 }

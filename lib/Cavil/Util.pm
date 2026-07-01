@@ -32,7 +32,7 @@ our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
   qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
-  qw(snippet_checksum spdx_link ssh_sign text_shingles validate_tags weighted_containment),
+  qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles validate_tags weighted_containment),
   qw(SNIPPET_SCORE_VERSION),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS)
 );
@@ -212,6 +212,33 @@ sub spdx_link ($text) {
   state $spdx_re = join '|', map {quotemeta} sort { length($b) <=> length($a) } (@SPDX_LICENSES, @SPDX_EXCEPTIONS);
   $text =~ s{($spdx_re)}{_spdx_link($1)}geo;
   return $text;
+}
+
+sub _expand_external_link_url ($template, @captures) {
+  $template =~ s/\$(\d+)/defined $captures[$1 - 1] ? $captures[$1 - 1] : ''/ge;
+  return $template;
+}
+
+sub external_link_data ($link, $sources = undef) {
+  return undef unless defined $link;
+
+  $sources = [] unless ref $sources eq 'ARRAY';
+  for my $source (@$sources) {
+    next unless my $pattern = $source->{pattern};
+    my @captures = $link =~ /$pattern/;
+    next unless @captures;
+
+    my $data     = {text => $link};
+    my $template = $source->{url};
+    if (defined $template && length $template) {
+      $data->{url}   = _expand_external_link_url($template, @captures);
+      $data->{title} = $source->{title} // 'External link';
+    }
+    $data->{label} = $source->{label} if defined($source->{label}) && length $source->{label};
+    return $data;
+  }
+
+  return {text => $link};
 }
 
 sub _line_tag ($line) {

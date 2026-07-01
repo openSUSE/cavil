@@ -75,7 +75,7 @@
       <tbody v-else-if="reviews.length > 0">
         <tr v-for="review in reviews" :key="review.id">
           <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
-          <td class="cavil-list-link" v-html="review.link"></td>
+          <td class="cavil-list-link"><ExternalLink :link="review.externalLink" /></td>
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td class="cavil-list-package" v-html="review.package"></td>
           <td class="cavil-list-report" v-html="review.report"></td>
@@ -95,8 +95,9 @@
 <script>
 import CavilListLayout from './components/CavilListLayout.vue';
 import EmptyState from './components/EmptyState.vue';
+import ExternalLink from './components/ExternalLink.vue';
 import PriorityBadge from './components/PriorityBadge.vue';
-import {externalLink, packageLink, reportLink, setupPopoverDelayed} from './helpers/links.js';
+import {packageLink, reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
@@ -104,7 +105,7 @@ import moment from 'moment';
 export default {
   name: 'OpenReviews',
   mixins: [Refresh],
-  components: {CavilListLayout, EmptyState, PriorityBadge},
+  components: {CavilListLayout, EmptyState, ExternalLink, PriorityBadge},
   data() {
     const params = getParams({
       limit: 10,
@@ -149,7 +150,7 @@ export default {
       for (const review of data.page) {
         reviews.push({
           id: review.id,
-          link: externalLink(review),
+          externalLink: review.external_link_data ?? review.external_link,
           imported: moment(review.imported_epoch * 1000).fromNow(),
           package: packageLink(review),
           priority: review.priority,
