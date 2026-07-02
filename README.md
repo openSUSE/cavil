@@ -9,12 +9,12 @@
 
 * Source code legal review system for RPMs, DEBs, Tarballs and various other package formats
 * High performance source code scanner with support for recursively decompressing almost any archive format
-* 28.000 curated patterns for 2000 license combinations with 500 distinct SPDX expressions
+* 28.000 curated patterns for 2000 license combinations with 500 distinct [SPDX](https://spdx.dev) expressions
 * Software Bill of Materials (SBOM) support with SPDX 2.3 reports
 * Legal risk assessments by lawyers for every pattern match
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
 * Optional support for machine learning models to classify pattern matches
-* [MCP](https://modelcontextprotocol.io/) support for integration into AI assisted legal review workflows
+* [MCP](https://modelcontextprotocol.io/) support for integration into AI assisted [legal review workflows](https://github.com/openSUSE/cavil/blob/master/docs/UserAPI.md#agent-skills)
 * REST API for integration into existing source code management systems
 * [Open Build Service](https://github.com/openSUSE/openSUSE-release-tools) and [Gitea](https://github.com/openSUSE/cavil-gitea) integration
   via bots
