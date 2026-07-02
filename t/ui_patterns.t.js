@@ -409,10 +409,10 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
 
       await pendingIndicator.locator('.pending-action-edit').click();
       await waitForInlineSnippetEditor(page);
-      t.match(
-        await page.innerText('#inline-snippet-editor'),
-        /Scroll-Link-Test/,
-        'pending indicator label reopens editor'
+      t.equal(
+        await page.inputValue('#inline-snippet-editor input[name=license]'),
+        'Scroll-Link-Test',
+        'pending indicator label reopens editor with queued license'
       );
       await page.locator('#inline-snippet-editor button', {hasText: 'Cancel'}).click();
       await waitForInlineSnippetEditorClosed(page);
