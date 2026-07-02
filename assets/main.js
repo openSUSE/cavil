@@ -1,4 +1,9 @@
-import './sass/app.scss';
+import '@fortawesome/fontawesome-free/css/fontawesome.css';
+import '@fortawesome/fontawesome-free/css/regular.css';
+import '@fortawesome/fontawesome-free/css/solid.css';
+import '@fortawesome/fontawesome-free/css/brands.css';
+import '@fortawesome/fontawesome-free/css/v4-shims.css';
+import './css/app.css';
 import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap';
 import ApiKeys from './vue/ApiKeys.vue';

@@ -80,9 +80,9 @@ Alternatively there are also two implementations for our legacy classifier API:
 
 ```sh
     # Install dependencies
-    sudo zypper in -C postgresql-server postgresql-contrib 'rubygem(sass)'
+    sudo zypper in -C postgresql-server postgresql-contrib
     sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
-      perl-Mojo-Pg perl-Minion perl-File-Unpack perl-Cpanel-JSON-XS \
+      perl-Mojo-Pg perl-Minion perl-File-Unpack2 perl-Cpanel-JSON-XS \
       perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
       perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
       perl-Try-Tiny perl-MCP perl-CommonMark git git-lfs

@@ -44,15 +44,6 @@ rules.push({
 
 rules.push({test: /\.vue$/, use: 'vue-loader'});
 
-rules.push({
-  test: /\.s(a|c)ss$/,
-  use: [
-    MiniCssExtractPlugin.loader,
-    {loader: 'css-loader', options: {sourceMap: true, url: false}},
-    {loader: 'sass-loader', options: {sourceMap: true}}
-  ]
-});
-
 const config = {
   entry: {cavil: entry},
   mode: isDev ? 'development' : 'production',
