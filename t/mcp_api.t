@@ -22,8 +22,13 @@ my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
 # Add patterns for known incompatible licenses
-$t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',   license => 'Apache-2.0');
-$t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-2.0-only', license => 'GPL-2.0-only');
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0', license => 'Apache-2.0');
+$t->app->patterns->create(
+  pattern => 'SPDX-License-Identifier: GPL-2.0-only',
+  license => 'GPL-2.0-only',
+  patent  => 1,
+  cla     => 1
+);
 $t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 GPL-2.0-only);
 
 # Add files with incompatible licenses
@@ -251,30 +256,32 @@ subtest 'MCP' => sub {
         my $result = $client->call_tool('cavil_get_report', {package_id => 1});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        like $text, qr/Package:.+perl-Mojolicious/,                                          'package name';
-        like $text, qr/Id:.+1/,                                                              'package id';
-        like $text, qr/State:.+new/,                                                         'state';
-        like $text, qr/External-Link:.+mojo/,                                                'external link';
-        like $text, qr/Version:.+7\.25/,                                                     'version';
-        like $text, qr/Declared-License:.+Artistic-2\.0/,                                    'declared license';
-        like $text, qr/Summary:.+Real-time web framework/,                                   'summary';
-        like $text, qr/Group:.+Development\/Libraries\/Perl/,                                'group';
-        like $text, qr/URL:.+search\.cpan\.org/,                                             'url';
-        like $text, qr/Shortname:./,                                                         'shortname';
-        like $text, qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/,                         'checkout';
-        like $text, qr/Unpacked:.+ files/,                                                   'unpacked';
-        like $text, qr/Priority:.+5/,                                                        'priority';
-        like $text, qr/Created:.+/,                                                          'created';
-        like $text, qr/Manual review is required because no previous reports are available/, 'system notice';
-        like $text, qr/Upstream project maintained by SUSE employee/,                        'legal review notice';
-        like $text, qr/Elevated risk, package might contain incompatible licenses/,          'risk notice';
-        like $text, qr/\* GPL-2.0-only: 1 file/,                                             'license summary';
-        like $text, qr/- `gpl2_file.txt`/,                                                   'matched file';
-        like $text, qr/- \.\.\./,                                                            'more matched files';
-        like $text, qr/Mojolicious-7\.25\/Changes/,                                          'file with unknown match';
-        like $text, qr/- Fixed copyright notice/,                                            'unknown match preview';
-        like $text, qr/sri\@cpan\.org/,                                                      'email found';
-        like $text, qr/http:\/\/mojolicious\.org/,                                           'URL found';
+        like $text,   qr/Package:.+perl-Mojolicious/,                                          'package name';
+        like $text,   qr/Id:.+1/,                                                              'package id';
+        like $text,   qr/State:.+new/,                                                         'state';
+        like $text,   qr/External-Link:.+mojo/,                                                'external link';
+        like $text,   qr/Version:.+7\.25/,                                                     'version';
+        like $text,   qr/Declared-License:.+Artistic-2\.0/,                                    'declared license';
+        like $text,   qr/Summary:.+Real-time web framework/,                                   'summary';
+        like $text,   qr/Group:.+Development\/Libraries\/Perl/,                                'group';
+        like $text,   qr/URL:.+search\.cpan\.org/,                                             'url';
+        like $text,   qr/Shortname:./,                                                         'shortname';
+        like $text,   qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/,                         'checkout';
+        like $text,   qr/Unpacked:.+ files/,                                                   'unpacked';
+        like $text,   qr/Priority:.+5/,                                                        'priority';
+        like $text,   qr/Created:.+/,                                                          'created';
+        like $text,   qr/Manual review is required because no previous reports are available/, 'system notice';
+        like $text,   qr/Upstream project maintained by SUSE employee/,                        'legal review notice';
+        like $text,   qr/Elevated risk, package might contain incompatible licenses/,          'risk notice';
+        like $text,   qr/\* GPL-2.0-only: 1 file \[flags: Patent, CLA\]/, 'license summary with flags';
+        like $text,   qr/^### Risk 5$/m,                                  'bare numeric risk heading';
+        unlike $text, qr/### Risk \d+ \((?:Low|Medium|High)\)/,           'no low/medium/high labels';
+        like $text,   qr/- `gpl2_file.txt`/,                              'matched file';
+        like $text,   qr/- \.\.\./,                                       'more matched files';
+        like $text,   qr/Mojolicious-7\.25\/Changes/,                     'file with unknown match';
+        like $text,   qr/- Fixed copyright notice/,                       'unknown match preview';
+        like $text,   qr/sri\@cpan\.org/,                                 'email found';
+        like $text,   qr/http:\/\/mojolicious\.org/,                      'URL found';
         note $text;
       };
     };

@@ -162,8 +162,8 @@ These are the standard risk levels used for license patterns included with Cavil
                          work level.
 * 5 - `Managed Obligations`: (e.g., legacy advertising clauses, AGPL). Requires specialized compliance workflows.
                              Includes network source disclosure or burdensome advertising clauses.
-* 6 - `Obligations`: (e.g.,SSPL). Extreme reciprocity or non-free terms. Licenses may trigger source disclosure for the
-                     entire stack.
+* 6 - `Restrictive Obligations`: (e.g.,SSPL). Extreme reciprocity or non-free terms. Licenses may trigger source
+                                 disclosure for the entire stack.
 * 7 - `Non-Commercial`: field-of-use, or ethical restrictions (e.g., "JSON License - Good not Evil"). They limit how
                         customers can use the software.
 * 9 - `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.

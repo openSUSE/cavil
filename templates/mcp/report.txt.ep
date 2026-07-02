@@ -115,14 +115,17 @@ existing license patterns, the higher the risk will climb above the predicted li
 % for my $risk (reverse sort keys %$risks) {
 %   my $current = $risks->{$risk};
 
-### Risk <%== $risk %> (<%== $risk <= 4 ? 'Low': $risk == 5 ? 'Medium' : 'High'%>)
+### Risk <%== $risk %>
 
 %   for my $lic (sort keys %$current) {
 %     my $matches = $current->{$lic};
 %     my $files = [sort @{$matches->{files}}];
 %     my $num = scalar @$files;
 %     my $max_files = $MAX_FILES_PER_LICENSE > $num ? $num : $MAX_FILES_PER_LICENSE;
-* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %>
+%     my @flag_labels = (['patent', 'Patent'], ['trademark', 'Trademark'], ['export_restricted', 'Export restricted'], ['cla', 'CLA'], ['eula', 'EULA']);
+%     my %has_flag = map { $_ => 1 } @{$matches->{flags} || []};
+%     my $flags = join(', ', map { $_->[1] } grep { $has_flag{$_->[0]} } @flag_labels);
+* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %><%== $flags ? " [flags: $flags]" : '' %>
 %     for (my $i = $max_files - 1; $i >= 0; $i--) {
   - `<%== $files->[$i][1] %>`
 %     }

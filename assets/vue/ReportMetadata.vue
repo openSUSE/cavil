@@ -399,7 +399,7 @@ export default {
       if (this.pkgRisk === '3') return 'Weak Copyleft';
       if (this.pkgRisk === '4') return 'Strong Copyleft';
       if (this.pkgRisk === '5') return 'Managed Obligations';
-      if (this.pkgRisk === '6') return 'Obligations';
+      if (this.pkgRisk === '6') return 'Restrictive Obligations';
       if (this.pkgRisk === '7') return 'Non-Commercial';
       return 'Unknown Risk';
     },

@@ -26,6 +26,8 @@ Use `cavil_get_report(package_id)` to retrieve the legal report. The report cont
 - **Package metadata**: name, version, and the declared primary license on the `Declared-License:` line (carries a `(not a valid SPDX expression)` marker when Cavil could not normalize it)
 - **Existing reviewer notes**: prior reviewer context, questions, recommendations, or follow-up details
 - **License breakdown**: all licenses identified by pattern matching, with file counts and percentages
+- **Risk levels**: each found license sits under a `### Risk N` heading; unresolved/unknown matches are grouped under `### Risk 9` (see the scale in 3b)
+- **License flags**: a license line may carry a `[flags: ...]` suffix (e.g. `* AGPL-3.0-only: 1 file [flags: CLA]`) — curated CLA / Patent / Trademark / Export restricted / EULA markers (see 3b)
 - **Risk notices**: warning lines such as `**Warning** Elevated risk, package might contain incompatible licenses: <licenses>`
 - **Unresolved matches**: snippets of text flagged by keyword/phrase matching that do not yet match any known license pattern
 
@@ -58,7 +60,56 @@ When unsure whether a found license belongs to the shipped work or to a separabl
 component, apply the same combination-vs-aggregation reasoning as the incompatible-license check
 below, and say which it is. See the mismatch thresholds under ANALYSIS GUIDELINES.
 
-#### 3b. License compatibility check
+**Fixable metadata vs. bad license.** Distinguish *why* a mismatch occurs. If the only problem is
+that the declared tag misrepresents the actually-found licenses, but those found licenses are
+themselves in the acceptable band (risk 1–4, no blocking flags or confirmed conflict), treat it as
+**fixable metadata**: the recommended fix is "correct the declared `License:` tag to `<X>` and
+resubmit," not a license rejection. Reserve REJECT for genuinely unacceptable content (risk 6/7, a
+third-party proprietary EULA, or a confirmed combined-work conflict). This matters because
+customer-facing SBOMs are generated from the declared tag, so it must match reality.
+
+**SPDX AND/OR sanity (light-touch).** When the declared expression combines licenses with `AND`/`OR`,
+note whether the operator looks right against the found licenses: `OR` = the recipient may choose
+(dual-licensing), `AND` = all apply and should correspond to distinct required components. This
+layers onto the comparison above and the `(not a valid SPDX expression)` marker; keep it an
+observation, not a legal ruling.
+
+#### 3b. Risk levels and license flags
+
+**Read the `### Risk N` heading each license sits under**, not just the license name. This is the
+authoritative Cavil risk scale:
+
+| Risk | Meaning | Examples |
+|---|---|---|
+| 1 | Public Domain | CC0, Unlicense |
+| 2 | Permissive | MIT, Apache-2.0, BSD-3-Clause |
+| 3 | Weak Copyleft | LGPL, MPL, EPL |
+| 4 | Strong Copyleft | GPL-2.0-only, GPL-3.0-or-later |
+| 5 | Managed Obligations | AGPL, legacy advertising clauses |
+| 6 | Restrictive Obligations | SSPL |
+| 7 | Non-Commercial / field-of-use / ethical | JSON "Good not Evil" |
+| 9 | Unknown | keyword / unresolved matches |
+
+**Risk 1–4 is the acceptable band** — risk 4 (strong copyleft, e.g. GPL) is acceptable for SUSE's
+distribution model, so risk 4 does **not** by itself need escalation. **Escalation begins at risk
+5.** Acceptability is still product-dependent and the review stays advisory until human
+confirmation, so treat these as leans, not verdicts. (Cavil separately auto-accepts only much lower
+risk — ≤2 without a prior review, ≤3 with one — but that stricter automatic mechanism is not the
+reviewer's acceptability ceiling.)
+
+**License flags.** A license line may carry a `[flags: ...]` suffix — curated per-license markers a
+human already attached to the pattern:
+- **CLA** — a non-blocking *business risk indicator*: the upstream project could relicense in the
+  future. Note it; never reject on a CLA alone.
+- **Patent** / **Export restricted** — a separate non-license compliance consideration (patent
+  clauses; cryptography/export control). Surface it; do not try to guess this from file names — rely
+  on the flag.
+- **EULA** — contextual. A SUSE-owned EULA is distributable; a third-party proprietary EULA is a
+  real problem. Lean NEEDS HUMAN REVIEW and say which it appears to be — use `cavil_get_file` on the
+  matched file to check whose EULA it is.
+- **Trademark** — note for awareness.
+
+#### 3c. License compatibility check
 Review all licenses found in the package. Note any licenses that may be problematic for inclusion in SUSE Linux Enterprise, such as:
 - Copyleft licenses (GPL, AGPL, LGPL) — note their scope
 - Non-commercial licenses
@@ -105,7 +156,7 @@ recommend ACCEPT but must state in your summary that the incompatibility warning
 why it does not apply. When you run out of context to trace the combination, say so and recommend
 NEEDS HUMAN REVIEW — never silently drop the warning.
 
-#### 3c. Unresolved matches investigation
+#### 3d. Unresolved matches investigation
 For each unresolved match, assess whether it looks like:
 - **Actual license text** (concerning — warrants investigation or rejection), including redistribution terms, warranty disclaimers, or patent/trademark restrictions
 - **License declarations or headers** (important — may indicate undeclared licenses)
@@ -126,9 +177,9 @@ Before taking any action, present a clear, concise summary to the user structure
 **Primary License Check**: [PASS / WARN / FAIL] — <brief explanation>
 
 **License Breakdown**:
-| License | Files | % | Notes |
-|---------|-------|---|-------|
-| ...     | ...   |...| ...   |
+| License | Risk | Files | % | Flags / Notes |
+|---------|------|-------|---|---------------|
+| ...     | ...  | ...   |...| ...           |
 
 **Unresolved Matches**: <count>
 <For each unresolved match (or group of similar ones):>
@@ -138,10 +189,19 @@ Before taking any action, present a clear, concise summary to the user structure
 **Reasoning**: <2–3 sentences explaining the recommendation>
 ```
 
+Let the risk levels and flags from 3b steer the lean:
+- **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
+- **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
+- **Risk 5** (managed obligations — AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
+- **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.
+- **Risk 1–4** → the acceptable band; the declared-license check (including the fixable-metadata vs. bad-license distinction) and the combination/aggregation check carry the decision.
+
+When a risk level or flag drives the recommendation, cite it in the reasoning and the breakdown table's Notes column (e.g. `AGPL-3.0-only (risk 5, network copyleft)`, `mmap-License [flags: Patent]`).
+
 Use your judgment:
-- **ACCEPT**: Declared license is correct, licenses are compatible with SLE, and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant) — and you say so.
-- **REJECT**: Undeclared problematic licenses found, declared-license mismatch is significant, a **confirmed combined-work license incompatibility**, proprietary/non-commercial restrictions, or unresolved matches that suggest serious license issues
-- **NEEDS HUMAN REVIEW**: Ambiguous or complex situations, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation — let a human legal expert decide
+- **ACCEPT**: Declared license is correct, licenses are compatible with SLE (risk 1–4, no blocking flags), and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant) — and you say so.
+- **REJECT**: Undeclared problematic licenses found, declared-license mismatch that is a genuine bad-license case (not fixable metadata), a **confirmed combined-work license incompatibility**, risk 6/7 or third-party proprietary-EULA content, or unresolved matches that suggest serious license issues
+- **NEEDS HUMAN REVIEW**: Ambiguous or complex situations, risk 5 / EULA / patent / export considerations you cannot resolve, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation — let a human legal expert decide
 
 Never recommend ACCEPT on a report with an incompatible-license warning without stating in your summary that you reviewed it.
 
