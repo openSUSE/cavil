@@ -108,6 +108,21 @@ subtest 'Temp files cleaned up' => sub {
   is $path->basename, '.report.spdx.json', 'report is a JSON file';
 };
 
+subtest 'Legacy non-JSON reports are cleaned up' => sub {
+  my $dir = $t->app->packages->pkg_checkout_dir(1);
+
+  # Reports left behind by older Cavil versions (SPDX 2.3 tag-value, without the ".json" extension)
+  $dir->child($_)->spew('legacy') for qw(.report.spdx .report.processed.spdx);
+  ok -e $dir->child('.report.spdx'),        'a legacy report exists';
+  ok $t->app->packages->has_spdx_report(1), 'the current JSON report exists';
+
+  $t->app->packages->remove_spdx_report(1);
+
+  ok !-e $dir->child('.report.spdx'),           'legacy report removed';
+  ok !-e $dir->child('.report.processed.spdx'), 'legacy processed report removed';
+  ok !$t->app->packages->has_spdx_report(1),    'current JSON report removed';
+};
+
 subtest 'Valid SPDX 3.0.1 JSON document' => sub {
   is $doc->{'@context'}, 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld', 'has SPDX 3.0.1 context';
   ok ref $doc->{'@graph'} eq 'ARRAY', 'has an element graph';

@@ -614,12 +614,11 @@ sub reindex_package_ids ($self, $ids, $priority = 0) {
 }
 
 sub remove_spdx_report ($self, $id) {
-  my $path = $self->spdx_report_path($id);
-  $path->remove;
+  my $dir = $self->pkg_checkout_dir($id);
 
-  # Remove the processed SPDX report as well (if it has been created for some reason)
-  $$path =~ s/\.spdx\.json$/\.processed\.spdx\.json/;
-  $path->remove;
+  # Remove the current report and its processed variant, plus legacy (pre-3.0.1, non-JSON) reports left
+  # behind by older Cavil versions
+  $dir->child($_)->remove for qw(.report.spdx.json .report.processed.spdx.json .report.spdx .report.processed.spdx);
 }
 
 sub requests_for ($self, $id) {
