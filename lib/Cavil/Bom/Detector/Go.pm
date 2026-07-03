@@ -8,6 +8,11 @@ use Mojo::Base -base, -signatures;
 # enumerates the whole vendored tree
 sub files ($self) { return (qr{(?:^|/)vendor/modules\.txt$}) }
 
+# Unlike a package manifest (package.json, Cargo.toml, ...), this file does not describe the package it
+# sits in - it lists *other* vendored modules. So it is never the primary artifact under review and must
+# be read even when it sits at the source root (where a package manifest would be skipped as the root).
+sub lists_dependencies ($self) {1}
+
 sub parse ($self, $path, $content) {
   my @components;
   for my $line (split /\n/, $$content) {

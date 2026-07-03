@@ -206,6 +206,35 @@ sub components_fixtures ($self, $app) {
   return $pkg_id;
 }
 
+sub go_vendor_fixtures ($self, $app) {
+
+  # A Go project that vendors its modules at the source root: the tarball's only top-level entry is
+  # vendor/, so vendor/modules.txt lands at the root of the unpacked tree. Reuses the schema/user set up
+  # by an earlier fixture in the same test (no migration here).
+  my @src       = ('go-vendor', 'b6d767d2f8ed5d21a44b0e5886680cb9');
+  my $checkout  = $self->checkout_dir->child(@src)->make_path;
+  my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
+  $_->copy_to($checkout->child($_->basename)) for $legal_bot->child(@src)->list->each;
+
+  my $db     = $app->pg->db;
+  my $usr_id = $db->select('bot_users', 'id', {login => 'test_bot'})->hash->{id}
+    // $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => 'go-vendor',
+    checkout_dir    => 'b6d767d2f8ed5d21a44b0e5886680cb9',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => 'go-vendor',
+    srcmd5          => 'b6d767d2f8ed5d21a44b0e5886680cb9',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+
+  return $pkg_id;
+}
+
 sub no_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 

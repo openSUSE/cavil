@@ -49,6 +49,14 @@ subtest 'Detection through the real unpack/index pipeline' => sub {
   # A module whose metadata omits the license gets it backfilled from Cavil's own detection
   ok $by_purl{'pkg:npm/no-license-mod@2.0.0'}, 'license-less module still detected';
   is $by_purl{'pkg:npm/no-license-mod@2.0.0'}{license}, 'MIT', 'license backfilled from Cavil detection';
+
+  # A directory holding one licensed and one unlicensed component is ambiguous: the license Cavil detects
+  # there must NOT be cross-attributed to the unlicensed component
+  ok $by_purl{'pkg:npm/mixed-npm@1.0.0'}, 'licensed component in a mixed directory detected';
+  is $by_purl{'pkg:npm/mixed-npm@1.0.0'}{license}, 'MIT', 'its own metadata license is kept';
+  ok $by_purl{'pkg:cargo/mixed-crate@1.0.0'}, 'unlicensed component in a mixed directory detected';
+  is $by_purl{'pkg:cargo/mixed-crate@1.0.0'}{license}, undef,
+    'unlicensed component in a mixed-license directory is not backfilled';
 };
 
 subtest 'Components in the SPDX report' => sub {
@@ -173,6 +181,21 @@ subtest 'Reindex clears and repopulates' => sub {
   ok $count >= 2, 'components still present after reindex (no duplication)';
   is $t->app->pg->db->query('SELECT count(*) FROM package_components WHERE package = ? AND purl = ?',
     $id, 'pkg:npm/react@18.2.0')->array->[0], 1, 'react present exactly once';
+};
+
+subtest 'Root-level Go vendoring is read (listing files are exempt from the root-skip)' => sub {
+  my $gid = $cavil_test->go_vendor_fixtures($t->app);
+  $t->app->minion->enqueue(unpack => [$gid]);
+  $t->app->minion->perform_jobs;
+  ok $t->app->packages->is_indexed($gid), 'go-vendor package indexed';
+
+  my %by_purl = map { $_->{purl} => 1 }
+    @{$t->app->pg->db->select('package_components', 'purl', {package => $gid})->hashes->to_array};
+
+  # vendor/modules.txt sits at the root of the unpacked tree (depth <= 1); a package manifest there would
+  # be skipped as the primary, but a listing file must still be read
+  ok $by_purl{'pkg:golang/github.com/gorilla/mux@v1.8.1'}, 'root-level vendor/modules.txt is read';
+  ok $by_purl{'pkg:golang/golang.org/x/sys@v0.16.0'},      'all modules from the root listing detected';
 };
 
 done_testing;

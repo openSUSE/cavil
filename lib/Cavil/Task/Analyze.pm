@@ -99,15 +99,18 @@ sub _analyze ($job, $id) {
 # cannot cross-attribute one directory's license to many modules) and Cavil detected exactly one license
 # there (so we never fabricate a misleading "A AND B" expression).
 sub _backfill_component_licenses ($db, $id) {
-  my $todo = $db->select('package_components', ['id', 'source'], {package => $id, license => undef})->hashes->to_array;
-  return unless @$todo;
+  my $all  = $db->select('package_components', ['id', 'source', 'license'], {package => $id})->hashes->to_array;
+  my @todo = grep { !defined $_->{license} && defined $_->{source} } @$all;
+  return unless @todo;
 
   my $dir_of = sub ($path) { $path =~ m{/} ? $path =~ s{/[^/]*$}{}r : '' };
 
-  # How many license-less components map to each directory (a directory shared by more than one is
-  # ambiguous and left alone)
+  # How many components (with or without a license) map to each directory. A directory shared by more
+  # than one component is ambiguous - a license detected there cannot be attributed to a single component
+  # - so it is left alone. Counting only the license-less ones would wrongly treat a directory that holds
+  # one licensed and one unlicensed component as unambiguous and cross-attribute the license.
   my %components_in_dir;
-  $components_in_dir{$dir_of->($_->{source})}++ for grep { defined $_->{source} } @$todo;
+  $components_in_dir{$dir_of->($_->{source})}++ for grep { defined $_->{source} } @$all;
 
   # Distinct SPDX licenses Cavil detected directly in each directory
   my %dir_licenses;
@@ -120,8 +123,7 @@ sub _backfill_component_licenses ($db, $id) {
   )->hashes;
   $dir_licenses{$dir_of->($_->{filename})}{$_->{spdx}} = 1 for $matches->each;
 
-  for my $component (@$todo) {
-    next unless defined $component->{source};
+  for my $component (@todo) {
     my $dir = $dir_of->($component->{source});
     next if $components_in_dir{$dir} > 1;
     my $set = $dir_licenses{$dir} or next;

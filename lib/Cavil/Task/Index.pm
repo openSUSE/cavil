@@ -136,11 +136,13 @@ sub _index_batch ($job, $id, $batch) {
 sub _detect_components ($fi, $registry, $meta, $path) {
   return unless $registry->matches($path);
 
-  # The project's own top-level manifest (at the source root, or directly inside the single top-level
-  # directory a source archive unpacks to) describes the primary artifact under review, not a vendored
-  # dependency. Skip it, otherwise the SBOM would list the package as a subcomponent of itself. Genuine
-  # vendored components always sit deeper, nested inside a dependency directory (even an obscured one).
-  return if ($path =~ tr{/}{}) <= 1;
+  # The project's own top-level *package manifest* (at the source root, or directly inside the single
+  # top-level directory a source archive unpacks to) describes the primary artifact under review, not a
+  # vendored dependency. Skip it, otherwise the SBOM would list the package as a subcomponent of itself.
+  # Genuine vendored package manifests always sit deeper, nested inside a dependency directory (even an
+  # obscured one). Listing files such as Go's vendor/modules.txt enumerate *other* modules and are never
+  # the primary, so they are still read at the root.
+  return if ($path =~ tr{/}{}) <= 1 && $registry->is_self_manifest($path);
 
   my $file = $fi->dir->child('.unpacked', $path);
   return unless -f $file && -s $file < 4_000_000;

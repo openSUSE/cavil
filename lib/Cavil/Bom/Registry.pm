@@ -31,6 +31,18 @@ sub matches ($self, $path) {
   return 0;
 }
 
+# Does this path match a *package manifest* that describes the component in its own directory (as opposed
+# to a listing file that enumerates other modules, like Go's vendor/modules.txt)? Only such a manifest is
+# the primary artifact when it sits at the source root, so only these are skipped there.
+sub is_self_manifest ($self, $path) {
+  for my $matcher (@{$self->_matchers}) {
+    next unless $path =~ $matcher->[0];
+    my $detector = $matcher->[1];
+    return $detector->can('lists_dependencies') && $detector->lists_dependencies ? 0 : 1;
+  }
+  return 0;
+}
+
 # Parse one file's content into components (empty list on no match or parse failure). Broken metadata
 # files are expected in the wild (bad encoding, truncated, wrong types, huge blobs), so every result is
 # both parse-guarded and sanitized before it can reach the database.
