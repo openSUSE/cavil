@@ -6,7 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
-use Cavil::Util     qw(read_lines);
+use Cavil::Util     qw(slurp_and_decode);
 use Digest::SHA;
 use Mojo::File qw(path);
 use Mojo::JSON qw(encode_json);
@@ -17,6 +17,9 @@ use Mojo::Util qw(decode scope_guard);
 use constant SPEC_VERSION => '3.0.1';
 use constant CONTEXT      => 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld';
 use constant HASH_ALGO    => 'sha512';
+
+# Legal flags Cavil curates per license pattern, surfaced as additive SPDX annotations
+my @FLAGS = qw(trademark patent export_restricted cla eula);
 
 has 'app';
 
@@ -130,7 +133,7 @@ sub generate_to_file ($self, $id, $file) {
   );
 
   # Shared helpers for licenses and relationships
-  my (%license_pool, $license_num, $rel_num);
+  my (%license_pool, %license_meta, $license_num, $rel_num, $snippet_num, $annotation_num);
   my $license_ref = sub ($expr) {
     return $license_pool{$expr} if $license_pool{$expr};
     my $lid = $iri->('license-' . ++$license_num);
@@ -156,6 +159,14 @@ sub generate_to_file ($self, $id, $file) {
     };
     $rel->{completeness} = $completeness if $completeness;
     $graph->add($rel);
+  };
+
+  # Accumulate Cavil's risk level and legal flags per license (aggregated, emitted as annotations later)
+  my $note_license = sub ($lid, $risk, $flags) {
+    return unless defined $risk || @$flags;
+    my $meta = $license_meta{$lid} //= {flags => {}};
+    $meta->{risk} = $risk if defined $risk && (!defined $meta->{risk} || $risk > $meta->{risk});
+    $meta->{flags}{$_} = 1 for @$flags;
   };
 
   # BSI section 6.1: refer to licenses by SPDX identifier, else ScanCode ("LicenseRef-scancode-*"),
@@ -229,6 +240,14 @@ sub generate_to_file ($self, $id, $file) {
     my $lid = $license_ref->("$declared");
     $relationship->($pkgid, 'hasConcludedLicense', [$lid], 'complete');
     $relationship->($pkgid, 'hasDeclaredLicense',  [$lid], 'complete');
+
+    # Surface Cavil's curated risk/flags for the declared license too (looked up by identifier)
+    my $meta = $db->query(
+      'SELECT MAX(risk) AS risk, bool_or(patent) AS patent, bool_or(trademark) AS trademark,
+              bool_or(export_restricted) AS export_restricted, bool_or(cla) AS cla, bool_or(eula) AS eula
+       FROM license_patterns WHERE spdx = ? OR license = ?', "$declared", "$declared"
+    )->hash;
+    $note_license->($lid, $meta->{risk}, [grep { $meta->{$_} } @FLAGS]) if $meta;
   }
 
   # Files (and subcomponents derived from the top-level directories of unpacked archives). This is
@@ -251,7 +270,8 @@ sub generate_to_file ($self, $id, $file) {
       $parent = $subcomponents{$top} //= $iri->('component-' . (keys(%subcomponents) + 1));
     }
 
-    my ($licenses, $copyright) = _file_licenses($db, $matched_files->{$ufile}, $paths{$ufile}, $resolve_license);
+    my $findings  = _file_licenses($db, $matched_files->{$ufile}, $resolve_license);
+    my $copyright = _copyrights($paths{$ufile});
 
     my $node = {
       type                    => 'software_File',
@@ -263,12 +283,35 @@ sub generate_to_file ($self, $id, $file) {
     };
     $node->{software_copyrightText} = join "\n", @$copyright if @$copyright;
     $graph->add($node);
-
     $relationship->($parent, 'contains', [$fid], 'complete');
-    if (@$licenses) {
-      my %seen;
-      my $expr = join ' AND ', grep { !$seen{$_}++ } @$licenses;
-      $relationship->($fid, 'hasConcludedLicense', [$license_ref->($expr)]);
+
+    # Concluded license for the whole file (all distinct licenses found in it)
+    my %seen;
+    my @ids = grep { !$seen{$_}++ } map { $_->{license} } @$findings;
+    $relationship->($fid, 'hasConcludedLicense', [$license_ref->(join ' AND ', @ids)]) if @ids;
+
+    # Per-match evidence: a snippet element pinpointing the exact lines each license was found on,
+    # plus Cavil's risk/flag assessment attached to the license
+    for my $finding (@$findings) {
+      my $lid = $license_ref->($finding->{license});
+      $note_license->($lid, $finding->{risk}, $finding->{flags});
+      next unless $finding->{sline} && $finding->{eline};
+
+      my $sid = $iri->('snippet-' . ++$snippet_num);
+      $graph->add(
+        {
+          type                     => 'software_Snippet',
+          spdxId                   => $sid,
+          creationInfo             => $creation,
+          software_snippetFromFile => $fid,
+          software_lineRange       => {
+            type              => 'PositiveIntegerRange',
+            beginIntegerRange => $finding->{sline},
+            endIntegerRange   => $finding->{eline}
+          }
+        }
+      );
+      $relationship->($sid, 'hasConcludedLicense', [$lid]);
     }
   }
 
@@ -288,21 +331,45 @@ sub generate_to_file ($self, $id, $file) {
     $relationship->($pkgid, 'contains', [$subcomponents{$top}], 'complete');
   }
 
+  # Cavil's curated legal risk and flags per license, as additive annotations (removable without
+  # affecting BSI conformance)
+  for my $lid (sort keys %license_meta) {
+    my $meta  = $license_meta{$lid};
+    my @flags = sort keys %{$meta->{flags}};
+    my @parts;
+    push @parts, "risk: $meta->{risk}"          if defined $meta->{risk};
+    push @parts, 'flags: ' . join(', ', @flags) if @flags;
+    next unless @parts;
+    $graph->add(
+      {
+        type           => 'Annotation',
+        spdxId         => $iri->('annotation-' . ++$annotation_num),
+        creationInfo   => $creation,
+        annotationType => 'other',
+        subject        => $lid,
+        statement      => 'Cavil legal assessment - ' . join('; ', @parts)
+      }
+    );
+  }
+
   $handle->syswrite(']}');
   undef $handle;
   path($tmp_file)->move_to($file);
 }
 
-# Collect resolved license identifiers and copyright lines for a single file, reusing the same
-# snippet/keyword resolution the report uses.
-sub _file_licenses ($db, $file_id, $path, $resolve_license) {
-  return ([], []) unless $file_id;
+# Collect license findings for a single file, reusing the same snippet/keyword resolution the report
+# uses. Each finding carries the resolved license identifier, Cavil's risk and legal flags, and the
+# line range it was found on (for snippet evidence).
+sub _file_licenses ($db, $file_id, $resolve_license) {
+  return [] unless $file_id;
 
-  my (@licenses, @copyright, @folded, %duplicates, %matched_lines, %ignored_lines, %similarity);
+  my (@findings, @folded, %matched_lines, %ignored_lines, %similarity);
 
   my $snippet_sql = qq{
     SELECT f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
-           p.spdx AS pspdx, p.license AS plicense
+           p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
+           p.trademark AS ptrademark, p.patent AS ppatent, p.export_restricted AS pexport_restricted,
+           p.cla AS pcla, p.eula AS peula
     FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
     WHERE file = ? AND classified = true
   };
@@ -319,7 +386,7 @@ sub _file_licenses ($db, $file_id, $path, $resolve_license) {
   }
 
   my $match_sql = qq{
-    SELECT m.*, p.spdx, p.license
+    SELECT m.*, p.spdx, p.license, p.risk, p.trademark, p.patent, p.export_restricted, p.cla, p.eula
     FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
     WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
   };
@@ -330,18 +397,69 @@ sub _file_licenses ($db, $file_id, $path, $resolve_license) {
     }
     _matched_lines(\%matched_lines, $match->{sline}, $match->{eline}, 1);
 
-    my $snippet = read_lines($path, $match->{sline}, $match->{eline});
-    push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_}++ } split "\n", $snippet;
-
-    if (my $license = $resolve_license->($match->{spdx}, $match->{license})) { push @licenses, $license }
+    next unless my $license = $resolve_license->($match->{spdx}, $match->{license});
+    push @findings,
+      {
+      license => $license,
+      risk    => $match->{risk},
+      flags   => _flags($match, ''),
+      sline   => $match->{sline},
+      eline   => $match->{eline}
+      };
   }
 
   # Folded snippets contribute their inferred license, just like a real match would
   for my $snippet (@folded) {
-    if (my $license = $resolve_license->($snippet->{pspdx}, $snippet->{plicense})) { push @licenses, $license }
+    next unless my $license = $resolve_license->($snippet->{pspdx}, $snippet->{plicense});
+    push @findings,
+      {
+      license => $license,
+      risk    => $snippet->{prisk},
+      flags   => _flags($snippet, 'p'),
+      sline   => $snippet->{sline},
+      eline   => $snippet->{eline}
+      };
   }
 
-  return (\@licenses, \@copyright);
+  return \@findings;
+}
+
+# Extract the set flags from a match/snippet row (the fold path uses "p"-prefixed column aliases)
+sub _flags ($row, $prefix) {
+  return [grep { $row->{"$prefix$_"} } @FLAGS];
+}
+
+# Extract distinct copyright statements from a file. Scans the file header (bounded by slurp_and_decode
+# to ~30kB) rather than only license-match regions, so copyright notices in files without a license
+# match are still found; copyright notices virtually always live near the top of a file.
+sub _copyrights ($path) {
+  return [] unless defined $path && -f $path;
+  my $text = slurp_and_decode($path) // return [];
+
+  # Fast path: the overwhelming majority of files contain no copyright notice at all, so skip the
+  # line-by-line work entirely unless there is something to find
+  return [] unless $text =~ /copyright|\x{00a9}/i;
+
+  my (%seen, @copyrights);
+  for my $line (split /\n/, $text) {
+
+    # Skip minified/one-line blobs that merely happen to mention "copyright" somewhere
+    next if length $line > 300;
+    next unless $line =~ /copyright|\x{00a9}/i;
+
+    # Strip comment/markup leaders and collapse whitespace
+    $line =~ s/^[\s*#;>|!\/-]+//;
+    $line =~ s/\s+/ /g;
+    $line =~ s/^\s+|\s+$//g;
+
+    # Require a year or a copyright symbol to keep out unrelated prose and license-template placeholders
+    next unless length $line && $line =~ /\d{4}|\x{00a9}/i;
+    next if $seen{$line}++;
+    push @copyrights, $line;
+    last if @copyrights >= 100;
+  }
+
+  return \@copyrights;
 }
 
 # Map a MIME type to an SPDX SoftwarePurpose, approximating the BSI executable/archive/structured

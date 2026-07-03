@@ -85,6 +85,14 @@ my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
     clear_threshold => 0.97,
     overlap_clear   => 1,
     overlap_guard   => 0.9
+  },
+  spdx => {
+    namespace => 'http://legaldb.suse.de/spdx/',
+    creator => {
+      name  => 'SUSE LLC',
+      email => 'security\@suse.de'
+    },
+    license_ref_namespace => 'cavil'
   }
 }
 EOF

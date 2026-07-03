@@ -146,7 +146,7 @@ subtest 'Graph is internally consistent' => sub {
   # Every reference (creationInfo, relationships, root elements, agents) resolves to an element in the graph
   my @dangling;
   for my $node (@{$doc->{'@graph'}}) {
-    my @refs = grep {defined} $node->{creationInfo}, $node->{from};
+    my @refs = grep {defined} $node->{creationInfo}, $node->{from}, $node->{subject}, $node->{software_snippetFromFile};
     push @refs,     @{$node->{$_} // []} for qw(createdBy createdUsing rootElement originatedBy to);
     push @dangling, $_                   for grep { !$ids{$_} } @refs;
   }
@@ -243,6 +243,16 @@ subtest 'Files (BSI: filename, hash, dependencies)' => sub {
   is $license->{verifiedUsing}[0]{algorithm}, 'sha512', 'file hash is SHA-512';
   like $license->{software_copyrightText}, qr/Copyright.*2006.*The Perl Foundation/, 'file copyright text';
 
+  # Copyrights are scanned from whole files, not just license-match regions, so several files carry them
+  my $with_copyright = grep { defined $_->{software_copyrightText} } @$files;
+  ok $with_copyright > 1, 'copyright statements are unearthed from multiple files';
+
+  # A minified file whose copyright lives in a short comment header: the header copyright is captured,
+  # and the long-line guard (against minified blobs) does not drop it
+  my ($prettify) = grep { $_->{name} =~ m{run_prettify\.js$} } @$files;
+  ok $prettify, 'has the minified run_prettify.js file';
+  like $prettify->{software_copyrightText}, qr/Copyright.*Google/, 'header copyright captured even in a minified file';
+
   # Every file is contained by some component (dependency enumeration)
   my %contained;
   for my $rel (@{of_type($doc, 'Relationship')}) {
@@ -257,6 +267,43 @@ subtest 'License identifiers (BSI section 6.1)' => sub {
   ok $expr{'Artistic-2.0'},                   'uses SPDX identifiers when available';
   ok $expr{'LicenseRef-scancode-apache-2.0'}, 'falls back to a ScanCode identifier for non-SPDX licenses';
   ok((grep {/^LicenseRef-cavil-/} keys %expr), 'falls back to a LicenseRef-<entity> identifier when unknown');
+};
+
+subtest 'License risk annotations (Cavil legal assessment)' => sub {
+  my @annotations = @{of_type($doc, 'Annotation')};
+  ok @annotations,                                                     'has license annotations';
+  ok !(grep { ($_->{annotationType} // '') ne 'other' } @annotations), 'all annotations are of type "other"';
+
+  # Map annotated license expression -> statement
+  my %statement = map { $g->{$_->{subject}}{simplelicensing_licenseExpression} => $_->{statement} } @annotations;
+  like $statement{'Artistic-2.0'}, qr/risk: 5/, 'primary component license carries its Cavil risk level';
+  like $statement{'LicenseRef-scancode-apache-2.0'}, qr/Cavil legal assessment.*risk: \d/,
+    'detected licenses carry their Cavil risk level';
+};
+
+subtest 'License match evidence (snippets)' => sub {
+  my $snippets = of_type($doc, 'software_Snippet');
+  ok @$snippets, 'has snippet evidence for license matches';
+
+  my %snippet_has_license;
+  for my $rel (@{of_type($doc, 'Relationship')}) {
+    $snippet_has_license{$rel->{from}} = 1 if $rel->{relationshipType} eq 'hasConcludedLicense';
+  }
+
+  my ($bad_file, $bad_range, $bad_license) = (0, 0, 0);
+  for my $snippet (@$snippets) {
+    $bad_file++ unless $g->{$snippet->{software_snippetFromFile}};
+    my $range = $snippet->{software_lineRange};
+    $bad_range++
+      unless $range
+      && $range->{type} eq 'PositiveIntegerRange'
+      && $range->{beginIntegerRange} >= 1
+      && $range->{endIntegerRange} >= $range->{beginIntegerRange};
+    $bad_license++ unless $snippet_has_license{$snippet->{spdxId}};
+  }
+  is $bad_file,    0, 'every snippet points at a file in the graph';
+  is $bad_range,   0, 'every snippet has a valid line range';
+  is $bad_license, 0, 'every snippet has a concluded license';
 };
 
 # The remaining subtests regenerate the report with different configuration/data, restoring state afterwards
@@ -293,6 +340,21 @@ subtest 'LicenseRef namespace is configurable' => sub {
   ok((grep {/^LicenseRef-acme-/} keys %expr),   'unknown licenses use the configured LicenseRef namespace');
   ok((!grep {/^LicenseRef-cavil-/} keys %expr), 'the default namespace is no longer used');
   $t->app->config->{spdx} = $spdx_config;
+};
+
+subtest 'Legal flags are annotated' => sub {
+  my $db = $t->app->pg->db;
+  $db->query('UPDATE license_patterns SET patent = true, export_restricted = true WHERE license = ?', 'Apache-2.0');
+
+  my $flag_doc  = gen_doc();
+  my $fg        = graph_index($flag_doc);
+  my %statement = map { $fg->{$_->{subject}}{simplelicensing_licenseExpression} => $_->{statement} }
+    @{of_type($flag_doc, 'Annotation')};
+  like $statement{'LicenseRef-scancode-apache-2.0'}, qr/flags: .*patent/, 'patent flag is surfaced';
+  like $statement{'LicenseRef-scancode-apache-2.0'}, qr/flags: .*export_restricted/,
+    'export-restricted flag is surfaced';
+
+  $db->query('UPDATE license_patterns SET patent = false, export_restricted = false WHERE license = ?', 'Apache-2.0');
 };
 
 subtest 'Packages without Open Build Service coordinates (e.g. uploads)' => sub {
