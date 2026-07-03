@@ -394,6 +394,19 @@ subtest 'spdx_link' => sub {
       . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Autoconf-exception-3.0.html">'
       . 'Autoconf-exception-3.0</a>', 'MIT WITH Autoconf-exception-3.0';
   };
+
+  subtest 'Untrusted text is HTML-escaped (no XSS)' => sub {
+
+    # License strings can come from imported component metadata and are rendered with v-html, so any
+    # non-link text must be escaped
+    is spdx_link('MIT <img src=x onerror=alert(1)>'),
+      '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>'
+      . ' &lt;img src=x onerror=alert(1)&gt;', 'markup around a known license is escaped';
+    is spdx_link('<script>alert(1)</script>'), '&lt;script&gt;alert(1)&lt;/script&gt;',
+      'unknown license with markup is fully escaped';
+    is spdx_link('Foo & Bar'), 'Foo &amp; Bar', 'ampersands are escaped';
+    unlike spdx_link('MIT" onmouseover="alert(1)'), qr/onmouseover="alert/, 'attribute-breaking text is escaped';
+  };
 };
 
 subtest 'ssh_sign' => sub {

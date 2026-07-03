@@ -154,6 +154,16 @@ subtest 'Component enrichment in the report_details JSON (UI)' => sub {
 
   # The backfilled license is a clickable link too (consistent rendering for every license)
   like $by_name{'no-license-mod'}{license_html}, qr/spdx-link/, 'backfilled license is a clickable SPDX link';
+
+  # A component whose imported metadata carries a malicious license string must not become a stored XSS
+  # vector: license_html is rendered with v-html, so the untrusted markup has to be HTML-escaped while
+  # the recognised SPDX id is still linked
+  my $evil = $by_name{'evil-mod'};
+  ok $evil, 'component with malicious license metadata is still detected';
+  like $evil->{license_html},   qr/spdx-link/,           'recognised SPDX id in a malicious string is still linked';
+  like $evil->{license_html},   qr/&lt;img/,             'injected markup is HTML-escaped';
+  unlike $evil->{license_html}, qr/<img/,                'no raw markup reaches the DOM';
+  unlike $evil->{license_html}, qr/onerror=alert\(1\)>/, 'payload cannot break out of text';
 };
 
 subtest 'Reindex clears and repopulates' => sub {

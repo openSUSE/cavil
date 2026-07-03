@@ -199,8 +199,19 @@ sub _spdx_link ($match) {
 
 sub spdx_link ($text) {
   state $spdx_re = join '|', map {quotemeta} sort { length($b) <=> length($a) } (@SPDX_LICENSES, @SPDX_EXCEPTIONS);
-  $text =~ s{($spdx_re)}{_spdx_link($1)}geo;
-  return $text;
+
+  # Wrap recognised SPDX identifiers in links, but HTML-escape everything else. The input can be a
+  # license string harvested from an imported component's metadata, and the result is rendered with
+  # v-html, so any non-link text must be escaped or it becomes a stored XSS vector. Only the matched
+  # tokens (known SPDX ids) are emitted as trusted markup.
+  my @parts    = split /($spdx_re)/o, $text;
+  my $is_token = 0;
+  my $out      = '';
+  for my $part (@parts) {
+    $out .= $is_token ? _spdx_link($part) : Mojo::Util::xml_escape($part);
+    $is_token = !$is_token;
+  }
+  return $out;
 }
 
 sub _expand_external_link_url ($template, @captures) {
