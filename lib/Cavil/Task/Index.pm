@@ -155,7 +155,14 @@ sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
   # several archives are unpacked side by side (multiple top-level directories), a depth-1 manifest is a
   # *separate* vendored archive (e.g. serde-1.0.197/Cargo.toml) and must be kept. Listing files (Go's
   # vendor/modules.txt) never describe the primary and are never skipped.
-  my $depth = ($path =~ tr{/}{});
+  #
+  # Depth is measured against the package-root directory the manifest identifies. Python ships its
+  # metadata inside a <name>.egg-info/ or <name>.dist-info/ directory, so the package root is one level
+  # up from the metadata file - otherwise a project's own PKG-INFO/METADATA would sit at depth 2 and
+  # self-list. For every other ecosystem the package root is simply the manifest's own directory.
+  my $root = $path =~ s{/[^/]*$}{}r;
+  $root =~ s{(?:^|/)[^/]+\.(?:egg-info|dist-info)$}{};
+  my $depth = $root eq '' ? 0 : ($root =~ tr{/}{}) + 1;
   return if $registry->is_self_manifest($path) && ($depth == 0 || ($depth == 1 && $single_root));
 
   my $file = $fi->dir->child('.unpacked', $path);

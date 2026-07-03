@@ -47,6 +47,14 @@ subtest 'Detection through the real unpack/index pipeline' => sub {
   ok !$names{'my-app'},                 'root project manifest is not reported as a vendored component';
   ok !$by_purl{'pkg:npm/my-app@1.0.0'}, 'root project purl absent';
 
+  # Python keeps its metadata in a <name>.egg-info/ or .dist-info/ directory, so the project's own
+  # PKG-INFO sits one level deeper than an npm/cargo manifest; the root-skip must still recognise it as
+  # the primary (measured against the package-root dir, not the metadata file)
+  ok !$by_purl{'pkg:pypi/selfpkg@9.9.9'}, 'primary Python egg-info (root .egg-info/PKG-INFO) is not self-listed';
+
+  # ...while a genuinely vendored Python dep, deep in the tree, is still detected
+  ok $by_purl{'pkg:pypi/pydep@1.0.0'}, 'deeply vendored Python dist-info/METADATA is detected';
+
   # A module whose metadata omits the license gets it backfilled from Cavil's own detection
   ok $by_purl{'pkg:npm/no-license-mod@2.0.0'}, 'license-less module still detected';
   is $by_purl{'pkg:npm/no-license-mod@2.0.0'}{license}, 'MIT', 'license backfilled from Cavil detection';
