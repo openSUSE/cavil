@@ -422,6 +422,16 @@ sub paginate_review_search ($self, $name, $options) {
       ->arrays->flatten;
   }
 
+  # Find every package that ships a given vendored component (by name or purl, case-insensitive
+  # substring - so "lodash" matches all versions and "pkg:npm/lodash@4.17.20" pins one). The term is
+  # user input, so it is quoted.
+  if (length($options->{component} // '') > 0) {
+    my $like = $db->dbh->quote('%' . $options->{component} . '%');
+    $packages
+      = $db->query("SELECT DISTINCT(package) FROM package_components WHERE purl ILIKE $like OR name ILIKE $like")
+      ->arrays->flatten;
+  }
+
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");

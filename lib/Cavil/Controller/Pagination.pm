@@ -185,6 +185,7 @@ sub review_search ($self) {
   $v->optional('notObsolete');
   $v->optional('pattern')->num;
   $v->optional('ignore')->num;
+  $v->optional('component');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit        = $v->param('limit')       // 10;
   my $offset       = $v->param('offset')      // 0;
@@ -192,6 +193,7 @@ sub review_search ($self) {
   my $search       = $v->param('filter')      // '';
   my $pattern      = $v->param('pattern');
   my $ignore       = $v->param('ignore');
+  my $component    = $v->param('component');
 
   my $name = $self->stash('name');
   my $page = $self->packages->paginate_review_search(
@@ -202,7 +204,8 @@ sub review_search ($self) {
       not_obsolete => $not_obsolete,
       search       => $search,
       pattern      => $pattern,
-      ignore       => $ignore
+      ignore       => $ignore,
+      component    => $component
     }
   );
   $self->render(json => $self->_mark_active_packages($page));

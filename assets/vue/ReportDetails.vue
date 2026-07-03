@@ -340,6 +340,17 @@
                   ></span>
                   <span v-else class="report-component-license"></span>
                   <span class="report-component-ecosystem">{{ component.type }}</span>
+                  <a
+                    v-if="component.search_url"
+                    :href="component.search_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="report-component-search"
+                    title="Find other packages that ship this component"
+                    aria-label="Find other packages that ship this component"
+                    ><i class="fa-solid fa-magnifying-glass"></i
+                  ></a>
+                  <span v-else></span>
                 </li>
               </ul>
             </div>
@@ -1682,7 +1693,7 @@ export default {
 }
 .report-component-item {
   gap: 0.85rem;
-  grid-template-columns: minmax(0, 1fr) auto 5rem;
+  grid-template-columns: minmax(0, 1fr) auto 5rem auto;
 }
 .report-component-name {
   color: #24292f;
@@ -1707,6 +1718,15 @@ a.report-component-name:focus {
   font-size: 13px;
   font-weight: 500;
   overflow-wrap: anywhere;
+}
+.report-component-search {
+  color: #8c959f;
+  justify-self: end;
+  line-height: 1;
+}
+.report-component-search:hover,
+.report-component-search:focus {
+  color: #0969da;
 }
 .report-component-ecosystem {
   background: #f6f8fa;

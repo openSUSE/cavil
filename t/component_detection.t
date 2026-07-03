@@ -9,8 +9,9 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File             qw(path tempfile);
-use Mojo::JSON             qw(decode_json);
+use Mojo::File qw(path tempfile);
+use Mojo::JSON qw(decode_json);
+use Mojo::URL;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -159,6 +160,8 @@ subtest 'Component enrichment in the report_details JSON (UI)' => sub {
   like $react->{file_url},     qr{/reviews/file_view/$id/}, 'name links to the metadata file in the file browser';
   like $react->{license_html}, qr/spdx-link/,               'license rendered as a clickable SPDX link';
   like $react->{license_html}, qr/MIT/,                     'license text present';
+  like $react->{search_url}, qr{/search\?component=pkg%3Anpm%2Freact%4018\.2\.0},
+    'links to a component search by exact purl';
 
   # The backfilled license is a clickable link too (consistent rendering for every license)
   like $by_name{'no-license-mod'}{license_html}, qr/spdx-link/, 'backfilled license is a clickable SPDX link';
@@ -213,6 +216,18 @@ subtest 'Depth-1 vendored archives are kept when several archives unpack side by
 
   # A deeply nested module in the main archive is detected as before
   ok $by_purl{'pkg:npm/inner@2.0.0'}, 'nested vendored module in the main archive is detected';
+};
+
+subtest 'Component search finds every package that ships a component' => sub {
+  my $search = sub ($q) {
+    my $url = Mojo::URL->new('/pagination/search/')->query(component => $q);
+    my %ids = map { $_->{id} => 1 } @{$t->get_ok($url)->status_is(200)->tx->res->json->{page}};
+    return \%ids;
+  };
+
+  ok $search->('react')->{$id},                      'search by component name finds the vendoring package';
+  ok $search->('pkg:cargo/serde@1.0.197')->{$id},    'search by exact purl finds the package';
+  ok !%{$search->('this-component-does-not-exist')}, 'search for an absent component returns nothing';
 };
 
 done_testing;

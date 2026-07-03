@@ -138,8 +138,7 @@ sub _report_details ($c, $pkg, $report) {
   # report) and link the name to the component's metadata file in the file browser
   my @components;
   for my $comp (@{$report->{components} // []}) {
-    push @components,
-      {
+    push @components, {
       type         => $comp->{type},
       name         => $comp->{name},
       version      => $comp->{version},
@@ -149,8 +148,12 @@ sub _report_details ($c, $pkg, $report) {
         length($comp->{source} // '')
         ? $c->url_for('file_view', id => $pkg->{id}, file => $comp->{source})->to_string
         : undef
-      )
-      };
+      ),
+
+      # "Find every package that ships this component" (security/vulnerability triage), by exact purl
+      search_url =>
+        (length($comp->{purl} // '') ? $c->url_for('search')->query(component => $comp->{purl})->to_string : undef)
+    };
   }
 
   return {
