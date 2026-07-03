@@ -41,6 +41,11 @@ subtest 'Detection through the real unpack/index pipeline' => sub {
   ok !$names{eslint},   'declared-only devDependency eslint is not reported';
   ok !$names{prettier}, 'declared-only devDependency prettier is not reported';
 
+  # The project's own top-level manifest is the primary artifact, not a vendored subcomponent: it must
+  # not be reported (otherwise the SBOM lists the package as a dependency of itself)
+  ok !$names{'my-app'},                 'root project manifest is not reported as a vendored component';
+  ok !$by_purl{'pkg:npm/my-app@1.0.0'}, 'root project purl absent';
+
   # A module whose metadata omits the license gets it backfilled from Cavil's own detection
   ok $by_purl{'pkg:npm/no-license-mod@2.0.0'}, 'license-less module still detected';
   is $by_purl{'pkg:npm/no-license-mod@2.0.0'}{license}, 'MIT', 'license backfilled from Cavil detection';

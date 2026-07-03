@@ -293,9 +293,11 @@ the way a component was assembled):
   bundled module depends on which); they are recorded as dependencies of the package as a whole.
 * A bundled component's *creator* is not recorded, because ecosystem metadata rarely provides it as the email address
   or URL the guideline asks for.
-* If the package's own source ships a top-level manifest of a supported ecosystem (an npm project's root
-  `package.json`, say), that manifest is listed as a component as well — it is genuinely present, though it describes
-  the package itself rather than a bundled dependency.
+
+The package's own top-level manifest (an npm project's root `package.json`, say) is *not* reported as a bundled
+component, even though it is present — it describes the primary artifact under review, not a vendored dependency, so
+listing it would make the package a subcomponent of itself. Only manifests nested below the source root are treated as
+vendored.
 
 ### How it is generated and retrieved
 
