@@ -616,9 +616,13 @@ sub reindex_package_ids ($self, $ids, $priority = 0) {
 sub remove_spdx_report ($self, $id) {
   my $dir = $self->pkg_checkout_dir($id);
 
-  # Remove the current report and its processed variant, plus legacy (pre-3.0.1, non-JSON) reports left
-  # behind by older Cavil versions
-  $dir->child($_)->remove for qw(.report.spdx.json .report.processed.spdx.json .report.spdx .report.processed.spdx);
+  # Remove the current report and its processed variant, plus legacy reports left behind by older Cavil
+  # versions (uncompressed JSON, and pre-3.0.1 non-JSON tag-value)
+  $dir->child($_)->remove for qw(
+    .report.spdx.json.gz .report.processed.spdx.json.gz
+    .report.spdx.json    .report.processed.spdx.json
+    .report.spdx         .report.processed.spdx
+  );
 }
 
 sub requests_for ($self, $id) {
@@ -627,7 +631,7 @@ sub requests_for ($self, $id) {
 }
 
 sub spdx_report_path ($self, $id) {
-  return $self->pkg_checkout_dir($id)->child('.report.spdx.json');
+  return $self->pkg_checkout_dir($id)->child('.report.spdx.json.gz');
 }
 
 sub states ($self, $name) {

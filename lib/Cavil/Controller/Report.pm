@@ -6,6 +6,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::Asset::File;
 use Cavil::Util 'lines_context';
+use IO::Uncompress::Gunzip ();
 
 sub report ($self) {
   my $id = $self->stash('id');
@@ -84,8 +85,26 @@ sub spdx ($self) {
   return $self->render(template => 'report/waiting',      status => 408) unless $pkgs->is_indexed($id);
 
   if ($pkgs->has_spdx_report($id)) {
-    $self->res->headers->content_type('application/json');
-    return $self->reply->asset(Mojo::Asset::File->new(path => $pkgs->spdx_report_path($id)));
+    my $path    = $pkgs->spdx_report_path($id);
+    my $headers = $self->res->headers;
+    $headers->content_type('application/json');
+    $headers->vary('Accept-Encoding');
+
+    # The report is stored gzip-compressed. Hand it over untouched to clients that accept gzip (the
+    # common case, no extra work), and decompress on the fly for those that do not.
+    if (($self->req->headers->accept_encoding // '') =~ /gzip/i) {
+      $headers->content_encoding('gzip');
+      return $self->reply->asset(Mojo::Asset::File->new(path => $path));
+    }
+
+    # Rare client without gzip support: stream-decompress to a temporary file so we never hold the
+    # whole (potentially large) report in memory
+    return $self->render(text => 'Could not read SPDX report', status => 500)
+      unless my $gz = IO::Uncompress::Gunzip->new("$path");
+    my $asset = Mojo::Asset::File->new;
+    my $buffer;
+    $asset->add_chunk($buffer) while $gz->read($buffer, 131072) > 0;
+    return $self->reply->asset($asset);
   }
 
   $pkgs->generate_spdx_report($id);

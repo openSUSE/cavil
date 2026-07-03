@@ -11,8 +11,9 @@ use Test::Mojo;
 use Cavil::Test;
 use Cavil::SPDX;
 use Mojolicious::Lite;
-use Mojo::File qw(path tempfile);
-use Mojo::JSON qw(decode_json);
+use Mojo::File             qw(path tempfile);
+use Mojo::JSON             qw(decode_json);
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -37,11 +38,17 @@ sub license_exprs ($doc) {
   return [map { $_->{simplelicensing_licenseExpression} } @{of_type($doc, 'simplelicensing_LicenseExpression')}];
 }
 
+# Decompress and parse a gzip-compressed SPDX report from disk
+sub read_report ($path) {
+  gunzip("$path" => \my $buffer) or die "gunzip failed: $GunzipError";
+  return decode_json($buffer);
+}
+
 # Generate a fresh SPDX report for package 1 (with whatever config/data is currently set) and parse it
 sub gen_doc {
   my $tmp = tempfile;
   $t->app->spdx->generate_to_file(1, "$tmp");
-  return decode_json(path("$tmp")->slurp);
+  return read_report("$tmp");
 }
 
 # Shared schema validator, built once (skips gracefully if JSON::Validator cannot handle the schema)
@@ -83,7 +90,16 @@ subtest 'Generate SPDX report' => sub {
   $t->app->minion->perform_jobs;
   is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
   ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
+
+  # gzip-capable client (Mojo's UA sends "Accept-Encoding: gzip" and transparently decompresses)
   $t->get_ok('/spdx/1')->status_is(200)->content_type_is('application/json')->json_has('/@graph');
+
+  # Client that does not accept gzip gets the report decompressed on the fly, without a gzip encoding
+  $t->get_ok('/spdx/1' => {'Accept-Encoding' => 'identity'})
+    ->status_is(200)
+    ->content_type_is('application/json')
+    ->header_is('Content-Encoding' => undef)
+    ->json_has('/@graph');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -100,27 +116,28 @@ subtest 'Always generate SPDX reports when reindexing' => sub {
 };
 
 my $path = $t->app->packages->spdx_report_path(1);
-my $doc  = decode_json(path($path)->slurp);
+my $doc  = read_report($path);
 my $g    = graph_index($doc);
 
-subtest 'Temp files cleaned up' => sub {
+subtest 'Report is stored gzip-compressed on disk' => sub {
   ok !-e "$path.tmp", 'SPDX temp file has been cleaned up';
-  is $path->basename, '.report.spdx.json', 'report is a JSON file';
+  is $path->basename,            '.report.spdx.json.gz', 'report is a gzip-compressed JSON file';
+  is substr($path->slurp, 0, 2), "\x1f\x8b",             'on-disk report has the gzip magic bytes';
 };
 
-subtest 'Legacy non-JSON reports are cleaned up' => sub {
+subtest 'Legacy reports are cleaned up' => sub {
   my $dir = $t->app->packages->pkg_checkout_dir(1);
 
-  # Reports left behind by older Cavil versions (SPDX 2.3 tag-value, without the ".json" extension)
-  $dir->child($_)->spew('legacy') for qw(.report.spdx .report.processed.spdx);
-  ok -e $dir->child('.report.spdx'),        'a legacy report exists';
-  ok $t->app->packages->has_spdx_report(1), 'the current JSON report exists';
+  # Reports left behind by older Cavil versions: pre-3.0.1 tag-value, and interim uncompressed JSON
+  my @legacy = qw(.report.spdx .report.processed.spdx .report.spdx.json .report.processed.spdx.json);
+  $dir->child($_)->spew('legacy') for @legacy;
+  ok -e $dir->child($_), "legacy report $_ exists" for @legacy;
+  ok $t->app->packages->has_spdx_report(1), 'the current report exists';
 
   $t->app->packages->remove_spdx_report(1);
 
-  ok !-e $dir->child('.report.spdx'),           'legacy report removed';
-  ok !-e $dir->child('.report.processed.spdx'), 'legacy processed report removed';
-  ok !$t->app->packages->has_spdx_report(1),    'current JSON report removed';
+  ok !-e $dir->child($_),                    "legacy report $_ removed" for @legacy;
+  ok !$t->app->packages->has_spdx_report(1), 'current report removed';
 };
 
 subtest 'Valid SPDX 3.0.1 JSON document' => sub {

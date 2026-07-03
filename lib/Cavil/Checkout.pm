@@ -323,7 +323,7 @@ sub unpacked_files ($self, $bucket_size = undef) {
   for my $file (sort keys %{$unpacked}) {
 
     # Reports might still be present if checkouts get unpacked more than once
-    next if $file =~ /\.report(?:\.processed)?\.spdx(?:\.json)?$/;
+    next if $file =~ /\.report(?:\.processed)?\.spdx(?:\.json)?(?:\.gz)?$/;
 
     my $mime = $unpacked->{$file}{mime};
     next if $mime =~ $BLACKLIST_MIME_RE;

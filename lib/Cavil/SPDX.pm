@@ -8,8 +8,9 @@ use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::Util     qw(slurp_and_decode);
 use Digest::SHA;
-use Mojo::File qw(path);
-use Mojo::JSON qw(encode_json);
+use IO::Compress::Gzip qw($GzipError);
+use Mojo::File         qw(path);
+use Mojo::JSON         qw(encode_json);
 use Mojo::Date;
 use Mojo::Util qw(decode scope_guard);
 
@@ -47,10 +48,13 @@ sub generate_to_file ($self, $id, $file) {
   my $iri  = sub ($fragment) {"$base#$fragment"};
 
   my $tmp_file = "$file.tmp";
-  my $handle   = path($tmp_file)->open('>');
   my $cleanup  = scope_guard sub { -e $tmp_file && path($tmp_file)->remove };
 
-  $handle->syswrite('{"@context":"' . CONTEXT . '","@graph":[');
+  # The report is stored gzip-compressed on disk (it is highly repetitive JSON, so this saves a lot of
+  # space); it is served untouched to clients that accept gzip, and decompressed on the fly for the rest
+  my $handle = IO::Compress::Gzip->new($tmp_file) or die qq{Can't create SPDX report "$tmp_file": $GzipError};
+
+  $handle->print('{"@context":"' . CONTEXT . '","@graph":[');
   my $graph = _Graph->new(handle => $handle, first => 1);
 
   # Scan all unpacked files first (needed for the package verification hash and to group subcomponents)
@@ -352,8 +356,8 @@ sub generate_to_file ($self, $id, $file) {
     );
   }
 
-  $handle->syswrite(']}');
-  undef $handle;
+  $handle->print(']}');
+  $handle->close;
   path($tmp_file)->move_to($file);
 }
 
@@ -488,9 +492,9 @@ use Mojo::JSON qw(encode_json);
 
 # Stream elements into the "@graph" array one at a time to keep memory bounded for large packages
 sub add ($self, $node) {
-  $self->{handle}->syswrite($self->{first} ? '' : ',');
+  $self->{handle}->print(',') unless $self->{first};
   $self->{first} = 0;
-  $self->{handle}->syswrite(encode_json($node));
+  $self->{handle}->print(encode_json($node));
 }
 
 1;
