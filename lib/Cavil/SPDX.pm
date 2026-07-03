@@ -264,12 +264,17 @@ sub generate_to_file ($self, $id, $file) {
     my $aid = $iri->('artifact-' . ++$artifact_num);
     $graph->add(
       {
-        type                    => 'software_File',
-        spdxId                  => $aid,
-        creationInfo            => $creation,
-        name                    => './' . $delivered->basename,
-        software_primaryPurpose => 'archive',
-        verifiedUsing           => [
+        type         => 'software_File',
+        spdxId       => $aid,
+        creationInfo => $creation,
+        name         => './' . $delivered->basename,
+
+        # BSI required properties of the deployable component, per the TR-03183-2 SPDX mapping: it is an
+        # "archive", and a "structured" file (a decomposable archive maps to "container"); a source
+        # archive is non-executable, so "executable" is deliberately not added
+        software_additionalPurpose => ['archive', 'container'],
+        comment       => 'software_additionalPurpose field is used to indicate the properties of BSI TR-03183-2',
+        verifiedUsing => [
           {
             type      => 'Hash',
             algorithm => HASH_ALGO,

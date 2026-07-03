@@ -223,6 +223,10 @@ subtest 'Primary component (BSI: required and additional fields)' => sub {
   is $artifacts[0]{verifiedUsing}[0]{hashValue}, Digest::SHA->new('512')->addfile("$tarball")->hexdigest,
     'artifact hash matches the actual archive on disk';
 
+  # BSI executable/archive/structured properties on the deployable form (archive + structured, non-executable)
+  is_deeply $artifacts[0]{software_additionalPurpose}, ['archive', 'container'],
+    'deployable form carries the BSI archive and structured properties';
+
   is_deeply $primary->{externalIdentifier},
     [
     {
