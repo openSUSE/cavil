@@ -80,12 +80,13 @@ sub _index_batch ($job, $id, $batch) {
   my $fi       = Cavil::FileIndexer->new($app, $id);
   my $preptime = time - $start;
 
-  my $registry = Cavil::Bom::Registry->new;
-  my %meta     = (emails => {}, urls => {}, components => {});
+  my $registry    = Cavil::Bom::Registry->new;
+  my $single_root = _single_unpacked_root($fi->dir);
+  my %meta        = (emails => {}, urls => {}, components => {});
   for my $file (@$batch) {
     my ($path, $mime) = @$file;
     $fi->file(\%meta, $path, $mime);
-    _detect_components($fi, $registry, \%meta, $path);
+    _detect_components($fi, $registry, \%meta, $path, $single_root);
   }
 
   # URLs
@@ -131,18 +132,31 @@ sub _index_batch ($job, $id, $batch) {
     sprintf("[$id] Indexed batch of @{[scalar @$batch]} files from $dir (%.02f prep, %.02f total)", $preptime, $total));
 }
 
+# The unpacked tree is a "single wrapper" when it has exactly one top-level directory (a conventional
+# name-version/ source tarball). Multiple top-level directories mean several archives were unpacked side
+# by side (a common OBS shape, since archive_name_as_dir is off and archives land directly under
+# .unpacked), so a manifest one level down is a separate archive, not the primary root.
+sub _single_unpacked_root ($dir) {
+  my $unpacked = $dir->child('.unpacked');
+  return 0 unless -d $unpacked;
+  my $dirs = grep { -d $_ } $unpacked->list({dir => 1})->each;
+  return $dirs == 1 ? 1 : 0;
+}
+
 # Recognise a vendored component from its embedded metadata file (e.g. package.json, Cargo.toml). Identity
 # comes from the file content, so obscured/renamed/deep directory names do not matter.
-sub _detect_components ($fi, $registry, $meta, $path) {
+sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
   return unless $registry->matches($path);
 
-  # The project's own top-level *package manifest* (at the source root, or directly inside the single
-  # top-level directory a source archive unpacks to) describes the primary artifact under review, not a
-  # vendored dependency. Skip it, otherwise the SBOM would list the package as a subcomponent of itself.
-  # Genuine vendored package manifests always sit deeper, nested inside a dependency directory (even an
-  # obscured one). Listing files such as Go's vendor/modules.txt enumerate *other* modules and are never
-  # the primary, so they are still read at the root.
-  return if ($path =~ tr{/}{}) <= 1 && $registry->is_self_manifest($path);
+  # A package manifest (package.json, Cargo.toml, ...) that describes the primary artifact under review
+  # must not be reported as a vendored subcomponent, or the SBOM lists the package as a dependency of
+  # itself. Such a manifest sits at the top of the source tree: at the unpacked root (depth 0), or one
+  # level in when the tree is a single wrapper directory (a conventional name-version/ tarball). But when
+  # several archives are unpacked side by side (multiple top-level directories), a depth-1 manifest is a
+  # *separate* vendored archive (e.g. serde-1.0.197/Cargo.toml) and must be kept. Listing files (Go's
+  # vendor/modules.txt) never describe the primary and are never skipped.
+  my $depth = ($path =~ tr{/}{});
+  return if $registry->is_self_manifest($path) && ($depth == 0 || ($depth == 1 && $single_root));
 
   my $file = $fi->dir->child('.unpacked', $path);
   return unless -f $file && -s $file < 4_000_000;

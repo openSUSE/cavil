@@ -235,6 +235,36 @@ sub go_vendor_fixtures ($self, $app) {
   return $pkg_id;
 }
 
+sub multiarchive_fixtures ($self, $app) {
+
+  # A checkout that ships several archives side by side (the main source plus a separately-vendored
+  # crate). With archive_name_as_dir off they unpack directly under .unpacked, so it has multiple
+  # top-level directories and a vendored manifest (serde-1.0.197/Cargo.toml) lands at depth 1. Reuses the
+  # schema/user from an earlier fixture in the same test.
+  my @src       = ('multiarchive', 'c4ca4238a0b923820dcc509a6f75849b');
+  my $checkout  = $self->checkout_dir->child(@src)->make_path;
+  my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
+  $_->copy_to($checkout->child($_->basename)) for $legal_bot->child(@src)->list->each;
+
+  my $db     = $app->pg->db;
+  my $usr_id = $db->select('bot_users', 'id', {login => 'test_bot'})->hash->{id}
+    // $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => 'multiarchive',
+    checkout_dir    => 'c4ca4238a0b923820dcc509a6f75849b',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => 'multiarchive',
+    srcmd5          => 'c4ca4238a0b923820dcc509a6f75849b',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+
+  return $pkg_id;
+}
+
 sub no_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 

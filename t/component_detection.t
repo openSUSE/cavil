@@ -198,4 +198,21 @@ subtest 'Root-level Go vendoring is read (listing files are exempt from the root
   ok $by_purl{'pkg:golang/golang.org/x/sys@v0.16.0'},      'all modules from the root listing detected';
 };
 
+subtest 'Depth-1 vendored archives are kept when several archives unpack side by side' => sub {
+  my $mid = $cavil_test->multiarchive_fixtures($t->app);
+  $t->app->minion->enqueue(unpack => [$mid]);
+  $t->app->minion->perform_jobs;
+  ok $t->app->packages->is_indexed($mid), 'multiarchive package indexed';
+
+  my %by_purl = map { $_->{purl} => 1 }
+    @{$t->app->pg->db->select('package_components', 'purl', {package => $mid})->hashes->to_array};
+
+  # serde-1.0.197/Cargo.toml is at depth 1 but the tree has multiple top-level directories, so it is a
+  # separately-vendored archive, not the primary wrapper - it must be reported
+  ok $by_purl{'pkg:cargo/serde@1.0.197'}, 'depth-1 vendored crate archive is detected';
+
+  # A deeply nested module in the main archive is detected as before
+  ok $by_purl{'pkg:npm/inner@2.0.0'}, 'nested vendored module in the main archive is detected';
+};
+
 done_testing;
