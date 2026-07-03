@@ -658,6 +658,7 @@ sub stats {
        monthly_reviews.performed AS monthly_performed_reviews,
        monthly_reviews.manual AS monthly_manual_reviews,
        monthly_reviews.automated AS monthly_automated_reviews,
+       (SELECT COUNT(*) FROM package_components) AS package_components,
        (SELECT COUNT(*) FROM snippets) AS total_snippets,
        (SELECT COUNT(*) FROM license_patterns) AS total_license_patterns
      FROM (

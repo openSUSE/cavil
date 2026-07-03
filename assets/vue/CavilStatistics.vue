@@ -41,6 +41,7 @@
       label-mode="weekly"
       :series="weeklyImportedActivity"
     ></package-activity-tile>
+    <number-stat-tile label="Embargoed Packages" :value="embargoedPackages"></number-stat-tile>
   </div>
 </template>
 
@@ -65,6 +66,7 @@ export default {
       monthlyManualReviews: 0,
       monthlyPerformedReviews: 0,
       openReviews: 0,
+      packageComponents: 0,
       performedReviewsOverall: 0,
       refreshDelay: 120000,
       refreshUrl: '/stats/meta',
@@ -105,10 +107,10 @@ export default {
     },
     numberTiles() {
       return [
+        {label: 'Subcomponents', value: this.packageComponents},
         {label: 'Unresolved Matches', value: this.unresolvedMatches},
         {label: 'Snippets', value: this.totalSnippets},
-        {label: 'License Patterns', value: this.totalLicensePatterns},
-        {label: 'Embargoed Packages', value: this.embargoedPackages}
+        {label: 'License Patterns', value: this.totalLicensePatterns}
       ];
     }
   },
@@ -123,6 +125,7 @@ export default {
       this.monthlyAutomatedReviews = data.monthly_automated_reviews;
       this.monthlyManualReviews = data.monthly_manual_reviews;
       this.monthlyPerformedReviews = data.monthly_performed_reviews;
+      this.packageComponents = data.package_components;
       this.performedReviewsOverall = data.performed_reviews;
       this.rejectedPackages = data.rejected_packages;
       this.totalSnippets = data.total_snippets;

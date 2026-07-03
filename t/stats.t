@@ -45,6 +45,7 @@ subtest 'Statistics' => sub {
     ->json_has('/monthly_performed_reviews')
     ->json_has('/monthly_manual_reviews')
     ->json_has('/monthly_automated_reviews')
+    ->json_has('/package_components')
     ->json_has('/imported_activity')
     ->json_has('/imported_activity/0/bucket')
     ->json_has('/imported_activity/0/label')
