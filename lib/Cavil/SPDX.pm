@@ -22,6 +22,14 @@ use constant HASH_ALGO    => 'sha512';
 # Legal flags Cavil curates per license pattern, surfaced as additive SPDX annotations
 my @FLAGS = qw(trademark patent export_restricted cla eula);
 
+# Filename extensions of deployable source archives; their hash is the "deployable component" hash
+# BSI requires, and hashing just these is far cheaper than re-reading the whole unpacked tree
+my $ARCHIVE_RE = qr/\.(?:
+    tar | tgz | tbz | tbz2 | txz | tzst           # tarballs
+  | tar\.(?: gz | bz2 | xz | zst | lz | lzma )    # compressed tarballs
+  | zip | 7z | rpm | cpio | gem | jar             # other archives
+)$/xi;
+
 has 'app';
 
 sub generate_to_file ($self, $id, $file) {
@@ -57,35 +65,28 @@ sub generate_to_file ($self, $id, $file) {
   $handle->print('{"@context":"' . CONTEXT . '","@graph":[');
   my $graph = _Graph->new(handle => $handle, first => 1);
 
-  # Scan all unpacked files first (needed for the package verification hash and to group subcomponents)
-  my (%info, %paths, %original_files, @checksums);
+  # Enumerate the unpacked files (for the file components, copyright/license scanning and subcomponent
+  # grouping). Individual files are not hashed - only the delivered archive is (see below).
+  my (%info, %paths, %original_files);
   for my $unpacked (@{$checkout->unpacked_files}) {
     my ($ufile, $mime) = @$unpacked;
     $ufile = decode('UTF-8', $ufile) // $ufile;
 
-    # The indexer pre-processes certain files to allow for them to be scanned (we want the original checksum)
-    my $checksum_path = $dir->child('.unpacked', $ufile)->to_string;
+    # The indexer pre-processes certain files so they can be scanned; report the original file name
+    my $scan_path = $dir->child('.unpacked', $ufile)->to_string;
     if ($ufile =~ /^(.+)\.processed(?:\.(\w+)|$)/) {
-      my $original      = defined $2 ? "$1.$2" : $1;
-      my $original_path = $dir->child('.unpacked', $original)->to_string;
-      if (-e $original_path) {
-        $paths{$ufile}          = $checksum_path;
-        $checksum_path          = $original_path;
-        $original_files{$ufile} = $original;
-      }
+      my $original = defined $2 ? "$1.$2" : $1;
+      $original_files{$ufile} = $original if -e $dir->child('.unpacked', $original);
     }
-    $paths{$ufile} //= $checksum_path;
 
-    if (-e $checksum_path) {
-      my $sha = Digest::SHA->new('512')->addfile($checksum_path)->hexdigest;
-      push @checksums, $sha;
-      $info{$ufile} = {sha => $sha, mime => $mime};
+    if (-e $scan_path) {
+      $paths{$ufile} = $scan_path;
+      $info{$ufile}  = {mime => $mime};
     }
     else {
-      $log->error("Non-existing path in SPDX report $id: $checksum_path");
+      $log->error("Non-existing path in SPDX report $id: $scan_path");
     }
   }
-  my $verification = Digest::SHA->new('512')->add(join('', sort @checksums))->hexdigest;
 
   # Creation information (the entity that created the SBOM is a required BSI data field)
   my $creation = '_:creationInfo';
@@ -216,8 +217,7 @@ sub generate_to_file ($self, $id, $file) {
     creationInfo               => $creation,
     name                       => $pkg->{name},
     software_primaryPurpose    => 'source',
-    software_additionalPurpose => ['archive'],
-    verifiedUsing              => [{type => 'Hash', algorithm => HASH_ALGO, hashValue => $verification}]
+    software_additionalPurpose => ['archive']
   };
   $package->{software_packageVersion} = $version       if defined $version && length $version;
   $package->{software_homePage}       = $main->{url}   if $main->{url};
@@ -254,6 +254,33 @@ sub generate_to_file ($self, $id, $file) {
     $note_license->($lid, $meta->{risk}, [grep { $meta->{$_} } @FLAGS]) if $meta;
   }
 
+  # Deployable component hash (BSI required): hash the delivered source archive(s) - the actual
+  # deployable artifact - rather than re-reading every file in the unpacked tree. Packaging metadata
+  # (spec files, changelogs) is already represented among the file components, so it is not repeated here.
+  my $artifact_num = 0;
+  for my $delivered (sort { $a->basename cmp $b->basename }
+    grep { -f $_ && $_->basename =~ $ARCHIVE_RE } $dir->list->each)
+  {
+    my $aid = $iri->('artifact-' . ++$artifact_num);
+    $graph->add(
+      {
+        type                    => 'software_File',
+        spdxId                  => $aid,
+        creationInfo            => $creation,
+        name                    => './' . $delivered->basename,
+        software_primaryPurpose => 'archive',
+        verifiedUsing           => [
+          {
+            type      => 'Hash',
+            algorithm => HASH_ALGO,
+            hashValue => Digest::SHA->new('512')->addfile("$delivered")->hexdigest
+          }
+        ]
+      }
+    );
+    $relationship->($pkgid, 'hasDistributionArtifact', [$aid], 'complete');
+  }
+
   # Files (and subcomponents derived from the top-level directories of unpacked archives). This is
   # the single seam where a future OBS-provided subcomponent list would plug in.
   my $matched_files = {};
@@ -282,8 +309,7 @@ sub generate_to_file ($self, $id, $file) {
       spdxId                  => $fid,
       creationInfo            => $creation,
       name                    => "./$real_name",
-      software_primaryPurpose => _file_purpose($info{$ufile}{mime}),
-      verifiedUsing           => [{type => 'Hash', algorithm => HASH_ALGO, hashValue => $info{$ufile}{sha}}]
+      software_primaryPurpose => _file_purpose($info{$ufile}{mime})
     };
     $node->{software_copyrightText} = join "\n", @$copyright if @$copyright;
     $graph->add($node);

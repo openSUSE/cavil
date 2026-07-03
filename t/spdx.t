@@ -14,6 +14,7 @@ use Mojolicious::Lite;
 use Mojo::File             qw(path tempfile);
 use Mojo::JSON             qw(decode_json);
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
+use Digest::SHA;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -208,9 +209,19 @@ subtest 'Primary component (BSI: required and additional fields)' => sub {
   like $primary->{software_downloadLocation}, qr{api\.opensuse\.org/source/devel:languages:perl/perl-Mojolicious},
     'download location from OBS coordinates';
 
-  my ($hash) = @{$primary->{verifiedUsing}};
-  is $hash->{algorithm}, 'sha512', 'deployable component hash is SHA-512';
-  like $hash->{hashValue}, qr/^[0-9a-f]{128}$/, 'SHA-512 hash value';
+  # The deployable component hash is on the delivered source archive, not the package itself, and not
+  # on every unpacked file
+  ok !$primary->{verifiedUsing}, 'the package carries no synthetic digest-of-hashes';
+  my @artifacts
+    = map { $g->{$_->{to}[0]} }
+    grep  { $_->{from} eq $primary->{spdxId} && $_->{relationshipType} eq 'hasDistributionArtifact' }
+    @{of_type($doc, 'Relationship')};
+  is scalar(@artifacts),  1,                               'exactly one distribution artifact (the source archive)';
+  is $artifacts[0]{name}, './Mojolicious-7.25.tar.gz',     'the source archive is the deployable artifact';
+  is $artifacts[0]{verifiedUsing}[0]{algorithm}, 'sha512', 'deployable component hashed with SHA-512';
+  my $tarball = $t->app->packages->pkg_checkout_dir(1)->child('Mojolicious-7.25.tar.gz');
+  is $artifacts[0]{verifiedUsing}[0]{hashValue}, Digest::SHA->new('512')->addfile("$tarball")->hexdigest,
+    'artifact hash matches the actual archive on disk';
 
   is_deeply $primary->{externalIdentifier},
     [
@@ -256,8 +267,8 @@ subtest 'Files (BSI: filename, hash, dependencies)' => sub {
   ok @$files > 1, 'has file components';
 
   my ($license) = grep { $_->{name} eq './Mojolicious-7.25/LICENSE' } @$files;
-  ok $license, 'has the LICENSE file';
-  is $license->{verifiedUsing}[0]{algorithm}, 'sha512', 'file hash is SHA-512';
+  ok $license,                   'has the LICENSE file';
+  ok !$license->{verifiedUsing}, 'unpacked files are not individually hashed';
   like $license->{software_copyrightText}, qr/Copyright.*2006.*The Perl Foundation/, 'file copyright text';
 
   # Copyrights are scanned from whole files, not just license-match regions, so several files carry them
