@@ -1,5 +1,6 @@
-# Copyright SUSE LLC
+# SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 package Cavil::Model::Reports;
 use Mojo::Base -base, -signatures;
 
@@ -480,6 +481,20 @@ sub _dig_report {
   for my $url ($urls->hashes->each) {
     $report->{urls}{$url->{url}} = $url->{hits};
   }
+
+  my $components = $db->select('package_components', '*', {package => $pkg->{id}}, {order_by => ['name', 'version']});
+  $report->{components} = [
+    map {
+      {
+        type    => $_->{type},
+        name    => $_->{name},
+        version => $_->{version},
+        license => $_->{license},
+        purl    => $_->{purl},
+        source  => $_->{source}
+      }
+    } $components->hashes->each
+  ];
 
   return $report;
 }

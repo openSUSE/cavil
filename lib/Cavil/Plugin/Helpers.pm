@@ -1,17 +1,5 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
@@ -146,6 +134,25 @@ sub _report_details ($c, $pkg, $report) {
     push @missed, \%copy;
   }
 
+  # Vendored components: render licenses as clickable SPDX links (like every other license in the
+  # report) and link the name to the component's metadata file in the file browser
+  my @components;
+  for my $comp (@{$report->{components} // []}) {
+    push @components,
+      {
+      type         => $comp->{type},
+      name         => $comp->{name},
+      version      => $comp->{version},
+      purl         => $comp->{purl},
+      license_html => (length($comp->{license} // '') ? spdx_link($comp->{license}) : undef),
+      file_url     => (
+        length($comp->{source} // '')
+        ? $c->url_for('file_view', id => $pkg->{id}, file => $comp->{source})->to_string
+        : undef
+      )
+      };
+  }
+
   return {
     package               => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
     chart                 => $chart,
@@ -158,7 +165,8 @@ sub _report_details ($c, $pkg, $report) {
     matching_globs         => $report->{matching_globs} // [],
     files                  => \@files,
     emails                 => $report->{emails} // [],
-    urls                   => $report->{urls}   // []
+    urls                   => $report->{urls}   // [],
+    components             => \@components
   };
 }
 

@@ -72,11 +72,12 @@ sub cleanup ($self, $id) {
   }
   $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
 
-  $db->query('delete from bot_reports where package = ?',     $id);
-  $db->query('delete from emails where package = ?',          $id);
-  $db->query('delete from urls where package = ?',            $id);
-  $db->query('delete from pattern_matches where package = ?', $id);
-  $db->query('delete from matched_files where package = ?',   $id);
+  $db->query('delete from bot_reports where package = ?',        $id);
+  $db->query('delete from emails where package = ?',             $id);
+  $db->query('delete from urls where package = ?',               $id);
+  $db->query('delete from package_components where package = ?', $id);
+  $db->query('delete from pattern_matches where package = ?',    $id);
+  $db->query('delete from matched_files where package = ?',      $id);
   $tx->commit;
 }
 

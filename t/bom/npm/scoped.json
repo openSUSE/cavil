@@ -1,0 +1,8 @@
+{
+  "name": "@babel/core",
+  "version": "7.24.0",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/parser": "^7.24.0"
+  }
+}

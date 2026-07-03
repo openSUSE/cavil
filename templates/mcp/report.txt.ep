@@ -176,3 +176,12 @@ Ordered by number of occurrences.
 * `<%== $url->[0] %>`: <%== $url->[1] %>
 %   }
 % }
+
+% if (@{$report->{components} // []}) {
+
+## Vendored Components
+
+%   for my $c (@{$report->{components}}) {
+* `<%== $c->{name} %><%== length($c->{version} // '') ? '@' . $c->{version} : '' %>` (<%== $c->{type} %>)<%== length($c->{license} // '') ? ': ' . $c->{license} : '' %>
+%   }
+% }

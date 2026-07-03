@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: requests
+Version: 2.31.0
+Summary: Python HTTP for Humans.
+License: Apache-2.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+
+Requests is an elegant and simple HTTP library for Python.
+License: this line is in the body and must be ignored

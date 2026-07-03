@@ -36,6 +36,12 @@ sub _analyze ($job, $id) {
   $app->patterns->score_package_snippets($id);
   $app->snippets->resolve_snippets($id);
 
+  # Backfill declared licenses for vendored components whose metadata carried none, from Cavil's own
+  # detected licenses. This MUST happen before the report is built and cached below, otherwise the cached
+  # report (UI/MCP) would show the pre-backfill licenses while the SPDX export (read from the DB later)
+  # shows the backfilled ones.
+  _backfill_component_licenses($app->pg->db, $id);
+
   my $specfile = $reports->specfile_report($id);
   my $dig      = $reports->dig_report($id);
 
@@ -85,6 +91,43 @@ sub _analyze ($job, $id) {
       analyzed => [$candidate->{id}] => {parents => [$job->id], priority => 9, notes => {"pkg_$id" => 1}});
   }
   $log->info("[$id] Analyzed $shortname");
+}
+
+# Fill each vendored component that has no metadata license with the license Cavil detected in the
+# component's own directory. Deliberately conservative: only when the component's directory is
+# unambiguous - it holds exactly one component (so a shared listing file like Go's vendor/modules.txt
+# cannot cross-attribute one directory's license to many modules) and Cavil detected exactly one license
+# there (so we never fabricate a misleading "A AND B" expression).
+sub _backfill_component_licenses ($db, $id) {
+  my $todo = $db->select('package_components', ['id', 'source'], {package => $id, license => undef})->hashes->to_array;
+  return unless @$todo;
+
+  my $dir_of = sub ($path) { $path =~ m{/} ? $path =~ s{/[^/]*$}{}r : '' };
+
+  # How many license-less components map to each directory (a directory shared by more than one is
+  # ambiguous and left alone)
+  my %components_in_dir;
+  $components_in_dir{$dir_of->($_->{source})}++ for grep { defined $_->{source} } @$todo;
+
+  # Distinct SPDX licenses Cavil detected directly in each directory
+  my %dir_licenses;
+  my $matches = $db->query(
+    'SELECT mf.filename AS filename, lp.spdx AS spdx
+       FROM matched_files mf
+       JOIN pattern_matches pm ON pm.file = mf.id
+       JOIN license_patterns lp ON pm.pattern = lp.id
+      WHERE mf.package = ? AND pm.ignored = false AND lp.spdx <> ?', $id, ''
+  )->hashes;
+  $dir_licenses{$dir_of->($_->{filename})}{$_->{spdx}} = 1 for $matches->each;
+
+  for my $component (@$todo) {
+    next unless defined $component->{source};
+    my $dir = $dir_of->($component->{source});
+    next if $components_in_dir{$dir} > 1;
+    my $set = $dir_licenses{$dir} or next;
+    next if keys %$set != 1;
+    $db->update('package_components', {license => (keys %$set)[0]}, {id => $component->{id}});
+  }
 }
 
 sub _analyzed ($job, $id) {

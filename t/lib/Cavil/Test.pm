@@ -175,6 +175,37 @@ sub mojo_fixtures ($self, $app) {
   $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 Artistic-2.0);
 }
 
+sub components_fixtures ($self, $app) {
+  $self->no_fixtures($app);
+
+  # Checkout whose source archive vendors npm and cargo modules under obscured directory names
+  my @src       = ('vendored', 'da39a3ee5e6b4b0d3255bfef95601890');
+  my $checkout  = $self->checkout_dir->child(@src)->make_path;
+  my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
+  $_->copy_to($checkout->child($_->basename)) for $legal_bot->child(@src)->list->each;
+
+  # A license pattern so Cavil can detect the license of the vendored module whose metadata omits one
+  my $patterns = $app->patterns;
+  $patterns->create(pattern => 'Permission is hereby granted to use this fixture component', license => 'MIT');
+  $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'MIT');
+
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => 'vendored',
+    checkout_dir    => 'da39a3ee5e6b4b0d3255bfef95601890',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => 'vendored',
+    srcmd5          => 'da39a3ee5e6b4b0d3255bfef95601890',
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+
+  return $pkg_id;
+}
+
 sub no_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 

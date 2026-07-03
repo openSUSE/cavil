@@ -354,3 +354,18 @@ CREATE INDEX file_snippets_cleared_snippet_idx ON file_snippets (snippet DESC) W
 
 -- 46 up
 CREATE INDEX bot_packages_imported_idx ON bot_packages (imported);
+
+-- 47 up
+CREATE TABLE package_components (
+  id       bigserial PRIMARY KEY,
+  package  int REFERENCES bot_packages(id) ON DELETE CASCADE NOT NULL,
+  purl     text NOT NULL,
+  type     text NOT NULL,
+  name     text NOT NULL,
+  version  text,
+  license  text,
+  source   text,
+  complete boolean DEFAULT false NOT NULL
+);
+CREATE UNIQUE INDEX ON package_components(package, md5(purl));
+CREATE INDEX ON package_components(package);

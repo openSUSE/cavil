@@ -1,0 +1,7 @@
+{
+  "name": "old-module",
+  "version": "0.9.1",
+  "licenses": [
+    {"type": "MIT", "url": "http://opensource.org/licenses/MIT"}
+  ]
+}

@@ -2,6 +2,7 @@ use Mojo::Base -strict;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
+use Archive::Tar;
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 use Mojo::File  qw(curfile path);
 use Mojo::Pg;
@@ -394,6 +395,90 @@ unless ($clean) {
     guarded   => $guarded->{id},
     inside    => $inside->{id}
   };
+
+  # Synthetic vendored-subcomponent playground: several ecosystems bundled inside a source archive at
+  # obscured, deeply-nested paths, so it shows detection working the way it has to in the wild. Also
+  # includes a declared-but-not-vendored dev dependency (must be excluded) and a module whose metadata
+  # omits the license (must be backfilled from Cavil's own scan). Detection runs during the normal index
+  # below - no extra setup needed.
+  my $comp_checkout = 'componentslab00000000000000000001';
+  my $comp_dir      = $checkouts->child('components-lab', $comp_checkout)->make_path;
+
+  # The delivered source archive: every member is a real vendored module's own metadata file, under
+  # obscured directory names a packaging tool might produce
+  my $tar     = Archive::Tar->new;
+  my $root    = 'components-lab-1.0';
+  my %members = (
+
+    # root project manifest declaring a dev tool that is NOT vendored (must not be reported)
+    'app/package.json' =>
+      '{"name": "components-lab-app", "version": "1.0.0", "license": "MIT", "devDependencies": {"eslint": "^9"}}',
+
+    # npm (plain + scoped) buried under an obscured cpio-style directory name
+    'app/lib/node_modules.obscpio._/package._1/package.json' =>
+      '{"name": "react", "version": "18.2.0", "license": "MIT"}',
+    'app/lib/node_modules.obscpio._/package._2/package.json' =>
+      '{"name": "@vue/runtime-core", "version": "3.4.0", "license": "MIT"}',
+
+    # npm whose metadata omits the license -> backfilled from Cavil's scan of its LICENSE
+    'app/lib/node_modules.obscpio._/package._3/package.json' => '{"name": "left-pad", "version": "1.3.0"}',
+    'app/lib/node_modules.obscpio._/package._3/LICENSE'      => "Components lab distinctive backfill license phrase.\n",
+
+    # Rust crate under an obscured vendor directory
+    'vendor.obscpio_/serde-1.0.197/Cargo.toml' =>
+      qq([package]\nname = "serde"\nversion = "1.0.197"\nlicense = "MIT OR Apache-2.0"\n),
+
+    # Go: one modules.txt enumerates the whole vendored set
+    'thirdparty._/vendor/modules.txt' =>
+      "# github.com/gorilla/mux v1.8.1\n## explicit; go 1.20\ngithub.com/gorilla/mux\n"
+      . "# golang.org/x/sys v0.16.0\n## explicit\ngolang.org/x/sys/unix\n",
+
+    # Java: Maven coordinates embedded in a bundled jar
+    'java._/BOOT-INF/lib/guava.jar._/META-INF/maven/com.google.guava/guava/pom.properties' =>
+      "groupId=com.google.guava\nartifactId=guava\nversion=33.0.0-jre\n",
+
+    # Python: installed distribution metadata
+    'py._/site-packages/requests-2.31.0.dist-info/METADATA' =>
+      "Metadata-Version: 2.1\nName: requests\nVersion: 2.31.0\nLicense: Apache-2.0\n"
+  );
+  $tar->add_data("$root/$_", $members{$_}) for sort keys %members;
+  $tar->write($comp_dir->child('components-lab.tar.gz')->to_string, Archive::Tar::COMPRESS_GZIP);
+
+  # Loose spec at the checkout root so the primary component gets a name/version/license
+  $comp_dir->child('components-lab.spec')->spurt(<<'SPEC');
+Name:           components-lab
+Version:        1.0
+Summary:        Playground demonstrating vendored subcomponent detection
+License:        MIT
+Url:            https://example.com/components-lab
+
+%description
+Bundles npm, Rust, Go, Java and Python modules under obscured directory names.
+SPEC
+
+  # A license pattern so the license-less npm module's license is backfilled from detection
+  $app->patterns->create(
+    pattern   => 'Components lab distinctive backfill license phrase',
+    license   => 'MIT',
+    unique_id => '22222222-2222-4222-8222-222222222221'
+  );
+  $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'MIT');
+
+  my $comp_id = $pkgs->add(
+    name            => 'components-lab',
+    checkout_dir    => $comp_checkout,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'cavil:staging',
+    package         => 'components-lab',
+    srcmd5          => $comp_checkout,
+    priority        => 5
+  );
+  $pkgs->imported($comp_id);
+  my $comp = $pkgs->find($comp_id);
+  $comp->{external_link} = 'obs#components-lab';
+  $pkgs->update($comp);
+  $pkgs->unpack($comp_id);
 }
 
 $app->minion->perform_jobs;

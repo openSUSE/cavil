@@ -1,21 +1,10 @@
-# Copyright (C) 2018,2019 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Task::Index;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
+use Cavil::Bom::Registry;
 use Cavil::Checkout;
 use Cavil::FileIndexer;
 use Spooky::Patterns::XS;
@@ -50,10 +39,11 @@ sub _index ($job, $id) {
   {
     my $db = $app->pg->db;
     $db->update('bot_packages', {indexed => undef, checksum => undef}, {id => $id});
-    $db->delete('matched_files', {package => $id});
-    $db->delete('urls',          {package => $id});
-    $db->delete('emails',        {package => $id});
-    $db->delete('bot_reports',   {package => $id});
+    $db->delete('matched_files',      {package => $id});
+    $db->delete('urls',               {package => $id});
+    $db->delete('emails',             {package => $id});
+    $db->delete('package_components', {package => $id});
+    $db->delete('bot_reports',        {package => $id});
 
     $pkgs->remove_spdx_report($id);
   }
@@ -90,10 +80,12 @@ sub _index_batch ($job, $id, $batch) {
   my $fi       = Cavil::FileIndexer->new($app, $id);
   my $preptime = time - $start;
 
-  my %meta = (emails => {}, urls => {});
+  my $registry = Cavil::Bom::Registry->new;
+  my %meta     = (emails => {}, urls => {}, components => {});
   for my $file (@$batch) {
     my ($path, $mime) = @$file;
     $fi->file(\%meta, $path, $mime);
+    _detect_components($fi, $registry, \%meta, $path);
   }
 
   # URLs
@@ -119,10 +111,36 @@ sub _index_batch ($job, $id, $batch) {
          do update set hits = emails.hits + $4', $id, $email, $e->{name}, $e->{count}
     );
   }
+
+  # Vendored subcomponents (identity from the embedded metadata file's content, deduped by purl across
+  # the parallel batches via the upsert)
+  for my $purl (sort keys %{$meta{components}}) {
+    my $c = $meta{components}{$purl};
+    $db->query(
+      'insert into package_components (package, purl, type, name, version, license, source, complete)
+           values ($1, $2, $3, $4, $5, $6, $7, true)
+         on conflict (package, md5(purl))
+         do update set license = coalesce(package_components.license, excluded.license)', $id, $purl, $c->{type},
+      $c->{name}, $c->{version}, $c->{license}, $c->{source}
+    );
+  }
+
   my $total = time - $start;
   my $dir   = $fi->dir;
   $log->info(
     sprintf("[$id] Indexed batch of @{[scalar @$batch]} files from $dir (%.02f prep, %.02f total)", $preptime, $total));
+}
+
+# Recognise a vendored component from its embedded metadata file (e.g. package.json, Cargo.toml). Identity
+# comes from the file content, so obscured/renamed/deep directory names do not matter.
+sub _detect_components ($fi, $registry, $meta, $path) {
+  return unless $registry->matches($path);
+
+  my $file = $fi->dir->child('.unpacked', $path);
+  return unless -f $file && -s $file < 4_000_000;
+  return unless defined(my $content = eval { $file->slurp });
+
+  $meta->{components}{$_->{purl}} //= $_ for @{$registry->detect_file($path, \$content)};
 }
 
 sub _index_later ($job, $id) {

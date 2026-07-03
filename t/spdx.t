@@ -254,18 +254,6 @@ subtest 'Primary component (BSI: required and additional fields)' => sub {
   }
 };
 
-subtest 'Subcomponent derived from an unpacked archive' => sub {
-  my ($sub) = grep { $_->{name} eq 'Mojolicious' } @{of_type($doc, 'software_Package')};
-  ok $sub, 'has a Mojolicious subcomponent';
-  is $sub->{software_packageVersion}, '7.25', 'version parsed from the directory name';
-
-  my ($primary) = grep { $_->{name} eq 'perl-Mojolicious' } @{of_type($doc, 'software_Package')};
-  my $contained
-    = grep { $_->{from} eq $primary->{spdxId} && $_->{relationshipType} eq 'contains' && $_->{to}[0] eq $sub->{spdxId} }
-    @{of_type($doc, 'Relationship')};
-  ok $contained, 'primary component contains the subcomponent';
-};
-
 subtest 'Files (BSI: filename, hash, dependencies)' => sub {
   my $files = of_type($doc, 'software_File');
   ok @$files > 1, 'has file components';

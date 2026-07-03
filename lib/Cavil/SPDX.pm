@@ -189,6 +189,15 @@ sub generate_to_file ($self, $id, $file) {
     return undef;
   };
 
+  # Resolve a declared license *expression* (specfile or component metadata): a valid SPDX expression is
+  # used as-is, otherwise the section 6.1 ScanCode/LicenseRef fallback applies
+  my $resolve_expr = sub ($string) {
+    return undef unless defined $string && length $string;
+    my $license = lic($string);
+    return "$license" if !$license->error && length "$license";
+    return $resolve_license->(undef, $string);
+  };
+
   # Component origin (supplier) from the Open Build Service coordinates
   my $pkgid = $iri->('package');
   my $originated_by;
@@ -286,25 +295,17 @@ sub generate_to_file ($self, $id, $file) {
     $relationship->($pkgid, 'hasDistributionArtifact', [$aid], 'complete');
   }
 
-  # Files (and subcomponents derived from the top-level directories of unpacked archives). This is
-  # the single seam where a future OBS-provided subcomponent list would plug in.
+  # Files contained in the primary component
   my $matched_files = {};
   for my $matched ($db->query('SELECT id, filename FROM matched_files WHERE package = ?', $id)->hashes->each) {
     $matched_files->{$matched->{filename}} = $matched->{id};
   }
 
-  my (%subcomponents, $file_num);
+  my $file_num;
   for my $ufile (sort keys %info) {
     $file_num++;
     my $real_name = $original_files{$ufile} // $ufile;
     my $fid       = $iri->("file-$file_num");
-
-    # A file inside a top-level directory belongs to that directory's (unpacked archive) subcomponent,
-    # a file at the root belongs directly to the primary component.
-    my $parent = $pkgid;
-    if (my ($top) = $real_name =~ m{^([^/]+)/}) {
-      $parent = $subcomponents{$top} //= $iri->('component-' . (keys(%subcomponents) + 1));
-    }
 
     my $findings  = _file_licenses($db, $matched_files->{$ufile}, $resolve_license);
     my $copyright = _copyrights($paths{$ufile});
@@ -318,7 +319,7 @@ sub generate_to_file ($self, $id, $file) {
     };
     $node->{software_copyrightText} = join "\n", @$copyright if @$copyright;
     $graph->add($node);
-    $relationship->($parent, 'contains', [$fid], 'complete');
+    $relationship->($pkgid, 'contains', [$fid], 'complete');
 
     # Concluded license for the whole file (all distinct licenses found in it)
     my %seen;
@@ -350,20 +351,29 @@ sub generate_to_file ($self, $id, $file) {
     }
   }
 
-  # Emit the subcomponents and relate them to the primary component
-  for my $top (sort keys %subcomponents) {
-    my ($name, $sub_version) = $top =~ /^(.*?)-(v?[0-9][0-9A-Za-z.+~]*)$/ ? ($1, $2) : ($top, undef);
-    my $component = {
-      type                       => 'software_Package',
-      spdxId                     => $subcomponents{$top},
-      creationInfo               => $creation,
-      name                       => $name,
-      software_primaryPurpose    => 'source',
-      software_additionalPurpose => ['archive']
+  # Vendored subcomponents detected during indexing (name/version/license/purl from their embedded
+  # metadata), related to the primary component as dependencies
+  for my $c ($db->query('SELECT * FROM package_components WHERE package = ? ORDER BY purl', $id)->hashes->each) {
+    my $cid  = $iri->("component-$c->{id}");
+    my $node = {
+      type               => 'software_Package',
+      spdxId             => $cid,
+      creationInfo       => $creation,
+      name               => $c->{name},
+      externalIdentifier =>
+        [{type => 'ExternalIdentifier', externalIdentifierType => 'packageUrl', identifier => $c->{purl}}]
     };
-    $component->{software_packageVersion} = "$sub_version" if defined $sub_version;
-    $graph->add($component);
-    $relationship->($pkgid, 'contains', [$subcomponents{$top}], 'complete');
+    $node->{software_packageVersion} = $c->{version} if defined $c->{version} && length $c->{version};
+    $graph->add($node);
+
+    # Distribution licence (BSI required, hasConcludedLicense) and original licence (additional,
+    # hasDeclaredLicense); for a vendored component both are its own declared license
+    if (my $expr = $resolve_expr->($c->{license})) {
+      my $lid = $license_ref->($expr);
+      $relationship->($cid, 'hasConcludedLicense', [$lid], 'complete');
+      $relationship->($cid, 'hasDeclaredLicense',  [$lid], 'complete');
+    }
+    $relationship->($pkgid, 'dependsOn', [$cid], $c->{complete} ? 'complete' : 'incomplete');
   }
 
   # Cavil's curated legal risk and flags per license, as additive annotations (removable without

@@ -298,6 +298,53 @@
             </div>
           </div>
 
+          <div v-if="components.length > 0" class="report-artifact-section">
+            <h2 class="report-artifact-heading">
+              <a
+                href="#components"
+                class="report-artifact-label collapsed"
+                data-bs-toggle="collapse"
+                aria-expanded="false"
+                aria-controls="components"
+              >
+                <i class="fa-solid fa-cubes"></i>
+                {{ components.length }} {{ components.length === 1 ? 'Component' : 'Components' }}
+              </a>
+            </h2>
+            <div class="collapse" id="components">
+              <ul class="report-artifact-list">
+                <li
+                  v-for="component in components"
+                  :key="component.purl"
+                  class="report-artifact-item report-component-item"
+                >
+                  <a
+                    v-if="component.file_url"
+                    :href="component.file_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="report-component-name"
+                    title="Open component file in a new tab"
+                  >
+                    {{ component.name
+                    }}<span v-if="component.version" class="report-component-version">@{{ component.version }}</span>
+                  </a>
+                  <span v-else class="report-component-name">
+                    {{ component.name
+                    }}<span v-if="component.version" class="report-component-version">@{{ component.version }}</span>
+                  </span>
+                  <span
+                    v-if="component.license_html"
+                    class="report-component-license"
+                    v-html="component.license_html"
+                  ></span>
+                  <span v-else class="report-component-license"></span>
+                  <span class="report-component-ecosystem">{{ component.type }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <div v-if="emails.length > 0" class="report-artifact-section">
             <h2 class="report-artifact-heading">
               <a
@@ -437,6 +484,7 @@ export default {
   data() {
     return {
       chart: null,
+      components: [],
       emails: [],
       files: [],
       incompatibleLicenses: [],
@@ -607,6 +655,7 @@ export default {
         this.missedFiles = [];
         this.unresolvedMatches = 0;
         this.matchingGlobs = [];
+        this.components = [];
         this.emails = [];
         this.urls = [];
         this.risks = {};
@@ -630,6 +679,7 @@ export default {
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;
       this.matchingGlobs = data.matching_globs;
+      this.components = data.components;
       this.emails = data.emails;
       this.urls = data.urls;
 
@@ -1629,6 +1679,48 @@ export default {
   overflow-wrap: anywhere;
   padding: 0.35rem 0.6rem;
   text-align: right;
+}
+.report-component-item {
+  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1fr) auto 5rem;
+}
+.report-component-name {
+  color: #24292f;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+a.report-component-name {
+  color: #24292f;
+}
+a.report-component-name:hover,
+a.report-component-name:focus {
+  text-decoration: underline;
+}
+.report-component-version {
+  color: #57606a;
+  font-weight: 400;
+}
+.report-component-license {
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.report-component-ecosystem {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  color: #57606a;
+  font-size: 11px;
+  font-weight: 600;
+  justify-self: end;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .report-glob-list {
   border-radius: 0 6px 6px 6px;
