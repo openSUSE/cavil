@@ -589,8 +589,8 @@ Diff to closest match 12345:
 
 `GET /api/v1/spdx/<package_id>`
 
-Get legal report in SPDX format. Note that this report may be generated on demand, and in such cases the server will
-return a `408` error code until the report has been generated.
+Get the legal report as an SPDX 3.0.1 SBOM in JSON format, compliant with BSI TR-03183-2. Note that this report may be
+generated on demand, and in such cases the server will return a `408` error code until the report has been generated.
 
 **Request:**
 
@@ -604,25 +604,33 @@ Authorization: Bearer generated_api_key_here
 
 ```
 HTTP/1.1 200 OK
-Content-Length: 1024
-Content-Type: text/plain
+Content-Type: application/json
 
-SPDXVersion: SPDX-2.2
-DataLicense: CC0-1.0
-
-##-----------------------------
-## Document Information
-##-----------------------------
-
-DocumentNamespace: http://legaldb.suse.de/spdx/23
-DocumentName: report.spdx
-SPDXID: SPDXRef-DOCUMENT
-
-##-----------------------------
-## Creation Information
-##-----------------------------
-
-Creator: Tool: Cavil
-Created: 2026-04-26T00:06:19Z
-...
+{
+  "@context": "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
+  "@graph": [
+    {
+      "type": "CreationInfo",
+      "@id": "_:creationInfo",
+      "specVersion": "3.0.1",
+      "created": "2026-04-26T00:06:19Z",
+      "createdBy": ["http://legaldb.suse.de/spdx/23#creator"],
+      "createdUsing": ["http://legaldb.suse.de/spdx/23#tool-cavil"]
+    },
+    {
+      "type": "software_Sbom",
+      "spdxId": "http://legaldb.suse.de/spdx/23",
+      "creationInfo": "_:creationInfo",
+      "software_sbomType": ["source"],
+      "rootElement": ["http://legaldb.suse.de/spdx/23#package"]
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "http://legaldb.suse.de/spdx/23#package",
+      "creationInfo": "_:creationInfo",
+      "name": "perl-Mojolicious",
+      "software_packageVersion": "7.25"
+    }
+  ]
+}
 ```

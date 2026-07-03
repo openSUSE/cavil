@@ -1,19 +1,7 @@
-# Copyright (C) 2026 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -22,8 +10,16 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Mojo::JSON  qw(decode_json);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
+
+# All license expressions listed anywhere in the SPDX report
+sub license_exprs ($body) {
+  my $doc = decode_json($body);
+  return [map { $_->{simplelicensing_licenseExpression} }
+    grep { ($_->{type} // '') eq 'simplelicensing_LicenseExpression' } @{$doc->{'@graph'}}];
+}
 
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'spdx_fold_test');
 my $config     = {%{$cavil_test->default_config},
@@ -53,10 +49,8 @@ subtest 'a folded snippet contributes its license to the SPDX report' => sub {
   $app->minion->perform_jobs;
   is $app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
 
-  my $report = $t->get_ok('/spdx/1')->status_is(200)->tx->res->text;
-  like $report, qr/SPDXVersion/,                                   'is a real SPDX report';
-  like $report, qr/LicenseInfoInFile:\s*Fold-Test-SPDX/,           'folded license is listed for the file';
-  like $report, qr/PackageLicenseInfoFromFiles:\s*Fold-Test-SPDX/, 'folded license is in the package license list';
+  my $exprs = license_exprs($t->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  ok((grep {/\bFold-Test-SPDX\b/} @$exprs), 'folded license is listed for a file');
 };
 
 subtest 'a cleared boilerplate snippet asserts no license in the SPDX report' => sub {
@@ -85,9 +79,8 @@ subtest 'a cleared boilerplate snippet asserts no license in the SPDX report' =>
 
   $tt->get_ok('/spdx/1')->status_is(408);
   $a->minion->perform_jobs;
-  my $report = $tt->get_ok('/spdx/1')->status_is(200)->tx->res->text;
-  like $report,   qr/SPDXVersion/,     'is a real SPDX report';
-  unlike $report, qr/Clear-Test-SPDX/, 'cleared boilerplate asserts no license';
+  my $exprs = license_exprs($tt->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  ok(!(grep {/Clear-Test-SPDX/} @$exprs), 'cleared boilerplate asserts no license');
 };
 
 subtest 'an overlap-cleared snippet asserts nothing; the overlapping match still reports its license' => sub {
@@ -125,9 +118,8 @@ subtest 'an overlap-cleared snippet asserts nothing; the overlapping match still
 
   $tt->get_ok('/spdx/1')->status_is(408);
   $a->minion->perform_jobs;
-  my $report = $tt->get_ok('/spdx/1')->status_is(200)->tx->res->text;
-  like $report, qr/SPDXVersion/,                            'is a real SPDX report';
-  like $report, qr/LicenseInfoInFile:\s*Overlap-Test-SPDX/, 'the overlapping match still reports its license';
+  my $exprs = license_exprs($tt->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  ok((grep {/\bOverlap-Test-SPDX\b/} @$exprs), 'the overlapping match still reports its license');
 };
 
 done_testing;

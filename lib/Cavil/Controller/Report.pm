@@ -1,5 +1,6 @@
 # Copyright SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 package Cavil::Controller::Report;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
@@ -83,7 +84,7 @@ sub spdx ($self) {
   return $self->render(template => 'report/waiting',      status => 408) unless $pkgs->is_indexed($id);
 
   if ($pkgs->has_spdx_report($id)) {
-    $self->res->headers->content_type('text/plain');
+    $self->res->headers->content_type('application/json');
     return $self->reply->asset(Mojo::Asset::File->new(path => $pkgs->spdx_report_path($id)));
   }
 

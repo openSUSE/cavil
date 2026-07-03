@@ -42,7 +42,8 @@ $changes_file->spew($text);
 my $num = split("\n", $text) - 1;
 say qq(Updated $num license changes in "$changes_file");
 
-# ScanCode LicenseDB (for BSI TR-03183-2 "LicenseRef-scancode-*" identifiers)
+# ScanCode LicenseDB (for BSI TR-03183-2 "LicenseRef-scancode-*" identifiers). The data is licensed
+# CC-BY-4.0 and requires attribution; see the NOTICE file.
 my $scancode = from_json($ua->get($SCANCODE_URL)->result->body);
 my @scancode_keys;
 for my $license (@$scancode) {

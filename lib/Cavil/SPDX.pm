@@ -1,37 +1,24 @@
-# Copyright (C) 2023 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::SPDX;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
-use Cavil::Licenses qw(lic);
+use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::Util     qw(read_lines);
-use Digest::SHA1;
-use Mojo::File qw(path tempfile);
-use Mojo::JSON qw(from_json);
+use Digest::SHA;
+use Mojo::File qw(path);
+use Mojo::JSON qw(encode_json);
 use Mojo::Date;
 use Mojo::Util qw(decode scope_guard);
 
-use constant NO_ASSERTION => 'NOASSERTION';
-
-my $SPDX_VERSION = '2.3';
+# BSI TR-03183-2 requires SPDX 3.0.1 (or higher) in JSON format (see section 4)
+use constant SPEC_VERSION => '3.0.1';
+use constant CONTEXT      => 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld';
+use constant HASH_ALGO    => 'sha512';
 
 has 'app';
-
-my @FLAGS = qw(trademark patent export_restricted cla eula);
 
 sub generate_to_file ($self, $id, $file) {
   path($file)->remove if -e $file;
@@ -45,277 +32,329 @@ sub generate_to_file ($self, $id, $file) {
   my $reports         = $app->reports;
   my $specfile_report = $reports->specfile_report($id);
   my $db              = $app->pg->db;
-  my $license_ref_num = 0;
 
-  my $spdx_tmp_file  = "$file.tmp";
-  my $files_tmp_file = "$file.files.tmp";
-  my $refs_tmp_file  = "$file.refs.tmp";
-  my $spdx_handle    = path($spdx_tmp_file)->open('>');
-  my $spdx           = _SPDXWriter->new(handle => $spdx_handle);
-  my $files_section  = _SPDXWriter->new(handle => path($files_tmp_file)->open('>'));
-  my $refs           = _SPDXWriter->new(handle => path($refs_tmp_file)->open('>'));
-  my $cleanup = scope_guard sub { -e $_ && path($_)->remove for $spdx_tmp_file, $files_tmp_file, $refs_tmp_file };
+  my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
+  my $src = $db->query(
+    'SELECT api_url, project, package, srcmd5 FROM bot_packages bp JOIN bot_sources bs ON bp.source = bs.id
+     WHERE bp.id = ?', $id
+  )->hash;
 
-  # Document
-  $spdx->tag(SPDXVersion => "SPDX-$SPDX_VERSION");
-  $spdx->tag(DataLicense => 'CC0-1.0');
-  $spdx->br();
-  $spdx->box('Document Information');
-  $spdx->tag(DocumentNamespace => "$namespace$id");
-  $spdx->tag(DocumentName      => 'report.spdx');
-  $spdx->tag(SPDXID            => 'SPDXRef-DOCUMENT');
-  $spdx->br();
+  # Every element in the graph shares one CreationInfo. Identifiers are IRIs built from the SBOM URI.
+  my $base = "$namespace$id";
+  my $iri  = sub ($fragment) {"$base#$fragment"};
 
-  # Creation
-  $spdx->box('Creation Information');
-  $spdx->tag(Creator => 'Tool: Cavil');
-  $spdx->tag(Created => Mojo::Date->new->to_datetime);
-  $spdx->br();
+  my $tmp_file = "$file.tmp";
+  my $handle   = path($tmp_file)->open('>');
+  my $cleanup  = scope_guard sub { -e $tmp_file && path($tmp_file)->remove };
 
-  # Scan files (needed for verification)
-  my (%files, %paths, @checksums, %original_files);
+  $handle->syswrite('{"@context":"' . CONTEXT . '","@graph":[');
+  my $graph = _Graph->new(handle => $handle, first => 1);
+
+  # Scan all unpacked files first (needed for the package verification hash and to group subcomponents)
+  my (%info, %paths, %original_files, @checksums);
   for my $unpacked (@{$checkout->unpacked_files}) {
-    my ($file, $mime) = @$unpacked;
-    $file = decode('UTF-8', $file) // $file;
+    my ($ufile, $mime) = @$unpacked;
+    $ufile = decode('UTF-8', $ufile) // $ufile;
 
-    # The indexer pre-processes certain files to allow for them to be scanned (and we want the original checksum)
-    my $checksum_path = $dir->child('.unpacked', $file)->to_string;
-    if ($file =~ /^(.+)\.processed(?:\.(\w+)|$)/) {
+    # The indexer pre-processes certain files to allow for them to be scanned (we want the original checksum)
+    my $checksum_path = $dir->child('.unpacked', $ufile)->to_string;
+    if ($ufile =~ /^(.+)\.processed(?:\.(\w+)|$)/) {
       my $original      = defined $2 ? "$1.$2" : $1;
       my $original_path = $dir->child('.unpacked', $original)->to_string;
       if (-e $original_path) {
-        $paths{$file}          = $checksum_path;
-        $checksum_path         = $original_path;
-        $original_files{$file} = $original;
+        $paths{$ufile}          = $checksum_path;
+        $checksum_path          = $original_path;
+        $original_files{$ufile} = $original;
       }
     }
-    $paths{$file} //= $checksum_path;
+    $paths{$ufile} //= $checksum_path;
 
-    # Make sure encoding errors are logged for debugging
     if (-e $checksum_path) {
-      push @checksums, $files{$file} = Digest::SHA->new('1')->addfile($checksum_path)->hexdigest;
+      my $sha = Digest::SHA->new('512')->addfile($checksum_path)->hexdigest;
+      push @checksums, $sha;
+      $info{$ufile} = {sha => $sha, mime => $mime};
     }
     else {
       $log->error("Non-existing path in SPDX report $id: $checksum_path");
     }
   }
-  my $verification_code = Digest::SHA->new('1')->add(join('', sort @checksums))->hexdigest;
+  my $verification = Digest::SHA->new('512')->add(join('', sort @checksums))->hexdigest;
 
-  # Files (buffered so the Package section can aggregate license info from files)
-  $files_section->box('File Information');
-  my $matched_files = {};
-  for my $matched ($db->query('SELECT * FROM matched_files WHERE package = ?', $id)->hashes->each) {
-    $matched_files->{$matched->{filename}} = $matched->{id};
-  }
-  my %license_info_from_files;
-
-  # Emit a license for the current file: a plain SPDX id when we have one, otherwise a LicenseRef
-  # declaration. Shared by the pattern-match path's folded snippets below.
-  my $record_file_license = sub ($spdx_id, $name, $risk, $flag_src, $comment) {
-    if ($spdx_id) {
-      $files_section->tag(LicenseInfoInFile => $spdx_id);
-      $license_info_from_files{$spdx_id} = 1;
-      return;
+  # Creation information (the entity that created the SBOM is a required BSI data field)
+  my $creation = '_:creationInfo';
+  $graph->add(
+    {
+      type         => 'CreationInfo',
+      '@id'        => $creation,
+      specVersion  => SPEC_VERSION,
+      created      => Mojo::Date->new->to_datetime,
+      createdBy    => [$iri->('creator')],
+      createdUsing => [$iri->('tool-cavil')]
     }
-    $license_ref_num++;
-    my $ref = "LicenseRef-$name-$id-$license_ref_num";
-    $ref =~ s/[^A-Za-z0-9.]+/-/g;
-    $files_section->tag(LicenseInfoInFile => $ref);
-    $license_info_from_files{$ref} = 1;
-    $refs->comment('License Reference');
-    $refs->br();
-    $refs->tag(LicenseID   => $ref);
-    $refs->tag(LicenseName => $name || NO_ASSERTION);
-    my $flags = '';
+  );
 
-    if ($flag_src && grep { $flag_src->{$_} } @FLAGS) {
-      $flags = '; Flags: ' . join(', ', map { $flag_src->{$_} ? "\@$_" : () } @FLAGS);
+  my $creator       = $config->{creator} || {};
+  my $creator_name  = $creator->{name}   || 'Cavil';
+  my $creator_email = $creator->{email};
+  my $creator_url   = $creator->{url} || $namespace;
+  my $creator_org
+    = {type => 'Organization', spdxId => $iri->('creator'), creationInfo => $creation, name => $creator_name};
+  $creator_org->{externalIdentifier}
+    = [$creator_email
+    ? {type => 'ExternalIdentifier', externalIdentifierType => 'email',     identifier => $creator_email}
+    : {type => 'ExternalIdentifier', externalIdentifierType => 'urlScheme', identifier => $creator_url}
+    ];
+  $graph->add($creator_org);
+  $graph->add({type => 'Tool', spdxId => $iri->('tool-cavil'), creationInfo => $creation, name => 'Cavil'});
+
+  # Document and SBOM (the SBOM spdxId doubles as the SBOM-URI)
+  $graph->add(
+    {
+      type               => 'SpdxDocument',
+      spdxId             => $iri->('document'),
+      creationInfo       => $creation,
+      name               => $pkg->{name},
+      profileConformance => ['core', 'software', 'simpleLicensing'],
+      dataLicense        => 'https://spdx.org/licenses/CC0-1.0',
+      rootElement        => [$base]
     }
-    $refs->tag(LicenseComment => "Risk: $risk$flags" . ($comment ? "\n$comment" : ''));
-    $refs->br();
+  );
+  $graph->add(
+    {
+      type              => 'software_Sbom',
+      spdxId            => $base,
+      creationInfo      => $creation,
+      rootElement       => [$iri->('package')],
+      software_sbomType => ['source']
+    }
+  );
+
+  # Shared helpers for licenses and relationships
+  my (%license_pool, $license_num, $rel_num);
+  my $license_ref = sub ($expr) {
+    return $license_pool{$expr} if $license_pool{$expr};
+    my $lid = $iri->('license-' . ++$license_num);
+    $license_pool{$expr} = $lid;
+    $graph->add(
+      {
+        type                              => 'simplelicensing_LicenseExpression',
+        spdxId                            => $lid,
+        creationInfo                      => $creation,
+        simplelicensing_licenseExpression => $expr
+      }
+    );
+    return $lid;
+  };
+  my $relationship = sub ($from, $type, $to, $completeness = undef) {
+    my $rel = {
+      type             => 'Relationship',
+      spdxId           => $iri->('rel-' . ++$rel_num),
+      creationInfo     => $creation,
+      from             => $from,
+      relationshipType => $type,
+      to               => $to
+    };
+    $rel->{completeness} = $completeness if $completeness;
+    $graph->add($rel);
   };
 
-  my $file_num = 0;
-  for my $file (sort keys %files) {
+  # BSI section 6.1: refer to licenses by SPDX identifier, else ScanCode ("LicenseRef-scancode-*"),
+  # else a "LicenseRef-<inventorising-entity>-*" identifier. License text is never a substitute.
+  my $ref_entity      = $config->{license_ref_namespace} || 'cavil';
+  my $resolve_license = sub ($spdx, $name) {
+    return $spdx if defined $spdx && length $spdx;
+    if (defined $name && length $name) {
+      if (my $scancode = scancode_suggestion($name)) { return $scancode }
+      my $ref = "LicenseRef-$ref_entity-$name";
+      $ref =~ s/[^A-Za-z0-9.]+/-/g;
+      $ref =~ s/-+$//;
+      return $ref;
+    }
+    return undef;
+  };
+
+  # Component origin (supplier) from the Open Build Service coordinates
+  my $pkgid = $iri->('package');
+  my $originated_by;
+  if ($src && ($src->{project} || $src->{api_url})) {
+    my $origin_id = $iri->('origin');
+    my $origin    = {
+      type         => 'Organization',
+      spdxId       => $origin_id,
+      creationInfo => $creation,
+      name         => ($src->{project} || $src->{api_url})
+    };
+    $origin->{externalIdentifier}
+      = [{type => 'ExternalIdentifier', externalIdentifierType => 'urlScheme', identifier => $src->{api_url}}]
+      if $src->{api_url};
+    $graph->add($origin);
+    $originated_by = [$origin_id];
+  }
+
+  # Primary component (the package itself)
+  my $main    = $specfile_report->{main} || {};
+  my $version = $main->{version};
+  $version = "$version" if defined $version;
+  my $package = {
+    type                       => 'software_Package',
+    spdxId                     => $pkgid,
+    creationInfo               => $creation,
+    name                       => $pkg->{name},
+    software_primaryPurpose    => 'source',
+    software_additionalPurpose => ['archive'],
+    verifiedUsing              => [{type => 'Hash', algorithm => HASH_ALGO, hashValue => $verification}]
+  };
+  $package->{software_packageVersion} = $version       if defined $version && length $version;
+  $package->{software_homePage}       = $main->{url}   if $main->{url};
+  $package->{originatedBy}            = $originated_by if $originated_by;
+
+  if ($src && $src->{api_url} && $src->{project}) {
+    $package->{software_downloadLocation}
+      = "$src->{api_url}/source/$src->{project}/$src->{package}" . ($src->{srcmd5} ? "?rev=$src->{srcmd5}" : '');
+  }
+  if (defined $version && length $version) {
+    $package->{externalIdentifier} = [
+      {
+        type                   => 'ExternalIdentifier',
+        externalIdentifierType => 'packageUrl',
+        identifier             => "pkg:generic/$pkg->{name}\@$version"
+      }
+    ];
+  }
+  $graph->add($package);
+
+  # Distribution (concluded) and original (declared) licenses of the primary component
+  my $declared = lic($main->{license} // '');
+  if (!$declared->error && length "$declared") {
+    my $lid = $license_ref->("$declared");
+    $relationship->($pkgid, 'hasConcludedLicense', [$lid], 'complete');
+    $relationship->($pkgid, 'hasDeclaredLicense',  [$lid], 'complete');
+  }
+
+  # Files (and subcomponents derived from the top-level directories of unpacked archives). This is
+  # the single seam where a future OBS-provided subcomponent list would plug in.
+  my $matched_files = {};
+  for my $matched ($db->query('SELECT id, filename FROM matched_files WHERE package = ?', $id)->hashes->each) {
+    $matched_files->{$matched->{filename}} = $matched->{id};
+  }
+
+  my (%subcomponents, $file_num);
+  for my $ufile (sort keys %info) {
     $file_num++;
+    my $real_name = $original_files{$ufile} // $ufile;
+    my $fid       = $iri->("file-$file_num");
 
-    my $real_name = $original_files{$file} // $file;
-    $files_section->comment('File');
-    $files_section->br();
-    $files_section->tag(FileName         => "./$real_name");
-    $files_section->tag(SPDXID           => "SPDXRef-item-$id-$file_num");
-    $files_section->tag(FileChecksum     => 'SHA1: ' . $files{$file});
-    $files_section->tag(LicenseConcluded => NO_ASSERTION);
-
-    # Matches
-    if (my $file_id = $matched_files->{$file}) {
-      my (@copyright, @folded, %duplicates, %matched_lines, %ignored_lines, %similarity);
-
-      # Snippets carry a stored resolution (fold/clear/overlap) computed once by resolve_snippets.
-      my $snippet_sql = qq{
-        SELECT f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
-               p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
-               p.trademark, p.patent, p.export_restricted, p.cla, p.eula
-        FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
-        WHERE file = ? AND classified = true
-      };
-      for my $snippet ($db->query($snippet_sql, $file_id)->hashes->each) {
-        my $resolution = $snippet->{resolution} // '';
-
-        # Snippets the AI lawyer does not think are license text
-        if (!$snippet->{license}) {
-          _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
-        }
-
-        # Snippets the AI lawyer thinks are similar to an existing license pattern
-        if ($snippet->{like_pattern}) {
-          _matched_lines(\%similarity, $snippet->{sline}, $snippet->{eline},
-            [$snippet->{like_pattern}, $snippet->{likelyness}]);
-        }
-
-        # 'fold' contributes its inferred license to the file; 'clear'/'overlap' assert no license but
-        # suppress the keyword matches they overlap, just like the "not legal text" case above.
-        if ($resolution eq 'fold') {
-          push @folded, $snippet;
-        }
-        elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
-          _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
-        }
-      }
-
-      my $match_sql = qq{
-        SELECT m.*, p.spdx, p.license, p.risk, p.unique_id, p.trademark, p.patent, p.export_restricted, p.cla, p.eula
-        FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
-        WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
-      };
-      for my $match ($db->query($match_sql, $file_id)->hashes->each) {
-
-        # Remove keyword matches when possible
-        my $similar;
-        if ($match->{license} eq '') {
-
-          # Ignored keyword matches that the AI lawyer does not consider license text
-          next if $ignored_lines{$match->{sline}} && $ignored_lines{$match->{eline}};
-
-          # Ignore keyword matches that overlap with other pattern matches
-          next if $matched_lines{$match->{sline}};
-
-          # Keyword match is similar to an existing license pattern
-          if (my $similarity = $similarity{$match->{sline}}) {
-            my ($id, $likelyness) = @$similarity;
-            if ($similar = $db->query('SELECT license, risk FROM license_patterns WHERE id = ?', $id)->hash) {
-              $similar->{likelyness} = int($likelyness * 100);
-            }
-          }
-        }
-        _matched_lines(\%matched_lines, $match->{sline}, $match->{eline}, 1);
-
-        my $snippet = read_lines($paths{$file}, $match->{sline}, $match->{eline});
-        push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_} } split("\n", $snippet);
-
-        # License
-        if (my $license = $match->{spdx}) {
-          $files_section->tag(LicenseInfoInFile => $license);
-          $license_info_from_files{$license} = 1;
-        }
-
-        # Non-SPDX license or keyword
-        else {
-          my $unknown = $match->{license};
-          $license_ref_num++;
-          my $license = "LicenseRef-$unknown-$id-$license_ref_num";
-          $license =~ s/[^A-Za-z0-9.]+/-/g;
-
-          $files_section->tag(LicenseInfoInFile => $license);
-          $license_info_from_files{$license} = 1;
-
-          $refs->comment('License Reference');
-          $refs->br();
-          $refs->tag(LicenseID   => $license);
-          $refs->tag(LicenseName => $unknown || NO_ASSERTION);
-          my $flags = '';
-          if (grep { $match->{$_} } @FLAGS) {
-            my @flags = map { $match->{$_} ? ("\@$_") : () } @FLAGS;
-            $flags = '; Flags: ' . join(', ', @flags);
-          }
-          my $risk    = $unknown eq '' ? 9 : $match->{risk};
-          my $comment = "Risk: $risk$flags ($match->{unique_id}:$match->{id})";
-          $comment
-            .= "\nSimilar: $similar->{license} ($similar->{likelyness}% similarity, estimated risk $similar->{risk})"
-            if $similar;
-          $refs->tag(LicenseComment => $comment);
-          $refs->text(ExtractedText => $snippet);
-          $refs->br();
-        }
-      }
-
-      # Folded snippets contribute their inferred license to the file (and so to the package
-      # license list), just like a real match would.
-      for my $snippet (@folded) {
-        my $comment = sprintf 'Folded from snippet (%d%% similarity)', int(($snippet->{likelyness} // 0) * 100);
-        $record_file_license->($snippet->{pspdx}, $snippet->{plicense}, $snippet->{prisk}, $snippet, $comment);
-      }
-
-      if (@copyright) {
-        $files_section->text(FileCopyrightText => join("\n", @copyright));
-      }
-      else {
-        $files_section->tag(FileCopyrightText => NO_ASSERTION);
-      }
+    # A file inside a top-level directory belongs to that directory's (unpacked archive) subcomponent,
+    # a file at the root belongs directly to the primary component.
+    my $parent = $pkgid;
+    if (my ($top) = $real_name =~ m{^([^/]+)/}) {
+      $parent = $subcomponents{$top} //= $iri->('component-' . (keys(%subcomponents) + 1));
     }
 
-    # No matches
-    else {
-      $files_section->tag(LicenseInfoInFile => NO_ASSERTION);
-      $files_section->tag(FileCopyrightText => NO_ASSERTION);
+    my ($licenses, $copyright) = _file_licenses($db, $matched_files->{$ufile}, $paths{$ufile}, $resolve_license);
+
+    my $node = {
+      type                    => 'software_File',
+      spdxId                  => $fid,
+      creationInfo            => $creation,
+      name                    => "./$real_name",
+      software_primaryPurpose => _file_purpose($info{$ufile}{mime}),
+      verifiedUsing           => [{type => 'Hash', algorithm => HASH_ALGO, hashValue => $info{$ufile}{sha}}]
+    };
+    $node->{software_copyrightText} = join "\n", @$copyright if @$copyright;
+    $graph->add($node);
+
+    $relationship->($parent, 'contains', [$fid], 'complete');
+    if (@$licenses) {
+      my %seen;
+      my $expr = join ' AND ', grep { !$seen{$_}++ } @$licenses;
+      $relationship->($fid, 'hasConcludedLicense', [$license_ref->($expr)]);
     }
-
-    $files_section->br();
   }
 
-  # Package
-  my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
-  $spdx->box('Package Information');
-  $spdx->tag(PackageName             => $pkg->{name});
-  $spdx->tag(SPDXID                  => "SPDXRef-pkg-$id");
-  $spdx->tag(PackageDownloadLocation => NO_ASSERTION);
-  $spdx->tag(PackageVerificationCode => $verification_code);
-  if (my $main = $specfile_report->{main}) {
-    my $version = $main->{version} // '';
-    $spdx->tag(PackageVersion => $version) if $version =~ /^[0-9.]+$/;
-    my $license = lic($main->{license} // '');
-    $spdx->tag(PackageLicenseDeclared => $license->is_valid_expression ? $license->to_string : NO_ASSERTION);
-    if (my $summary = $main->{summary}) { $spdx->tag(PackageDescription => $summary) }
-    if (my $url     = $main->{url})     { $spdx->tag(PackageHomePage    => $url) }
-  }
-  if (my @from_files = sort keys %license_info_from_files) {
-    $spdx->tag(PackageLicenseInfoFromFiles => $_) for @from_files;
-  }
-  else {
-    $spdx->tag(PackageLicenseInfoFromFiles => NO_ASSERTION);
-  }
-  $spdx->tag(PackageLicenseConcluded => NO_ASSERTION);
-  $spdx->tag(PackageCopyrightText    => NO_ASSERTION);
-  $spdx->tag(PackageChecksum         => 'MD5: ' . $pkg->{checkout_dir});
-  $spdx->tag(Relationship            => "SPDXRef-DOCUMENT DESCRIBES SPDXRef-pkg-$id");
-  $spdx->br();
-
-  # Merge buffered file section into main SPDX file
-  _concat_into($spdx_handle, $files_tmp_file);
-
-  # Merge license references into main SPDX file
-  if (-s $refs_tmp_file) {
-    $spdx->box('Other Licensing Information');
-    _concat_into($spdx_handle, $refs_tmp_file);
+  # Emit the subcomponents and relate them to the primary component
+  for my $top (sort keys %subcomponents) {
+    my ($name, $sub_version) = $top =~ /^(.*?)-(v?[0-9][0-9A-Za-z.+~]*)$/ ? ($1, $2) : ($top, undef);
+    my $component = {
+      type                       => 'software_Package',
+      spdxId                     => $subcomponents{$top},
+      creationInfo               => $creation,
+      name                       => $name,
+      software_primaryPurpose    => 'source',
+      software_additionalPurpose => ['archive']
+    };
+    $component->{software_packageVersion} = "$sub_version" if defined $sub_version;
+    $graph->add($component);
+    $relationship->($pkgid, 'contains', [$subcomponents{$top}], 'complete');
   }
 
-  path($spdx_tmp_file)->move_to($file);
+  $handle->syswrite(']}');
+  undef $handle;
+  path($tmp_file)->move_to($file);
 }
 
-sub _concat_into ($dst_handle, $src_path) {
-  my $tmp_handle = path($src_path)->open('<');
-  my $buffer;
-  $dst_handle->syswrite($buffer) while $tmp_handle->sysread($buffer, 1024);
+# Collect resolved license identifiers and copyright lines for a single file, reusing the same
+# snippet/keyword resolution the report uses.
+sub _file_licenses ($db, $file_id, $path, $resolve_license) {
+  return ([], []) unless $file_id;
+
+  my (@licenses, @copyright, @folded, %duplicates, %matched_lines, %ignored_lines, %similarity);
+
+  my $snippet_sql = qq{
+    SELECT f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
+           p.spdx AS pspdx, p.license AS plicense
+    FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
+    WHERE file = ? AND classified = true
+  };
+  for my $snippet ($db->query($snippet_sql, $file_id)->hashes->each) {
+    my $resolution = $snippet->{resolution} // '';
+    _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1) unless $snippet->{license};
+    _matched_lines(\%similarity, $snippet->{sline}, $snippet->{eline},
+      [$snippet->{like_pattern}, $snippet->{likelyness}])
+      if $snippet->{like_pattern};
+    if    ($resolution eq 'fold') { push @folded, $snippet }
+    elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
+      _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
+    }
+  }
+
+  my $match_sql = qq{
+    SELECT m.*, p.spdx, p.license
+    FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
+    WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
+  };
+  for my $match ($db->query($match_sql, $file_id)->hashes->each) {
+    if ($match->{license} eq '') {
+      next if $ignored_lines{$match->{sline}} && $ignored_lines{$match->{eline}};
+      next if $matched_lines{$match->{sline}};
+    }
+    _matched_lines(\%matched_lines, $match->{sline}, $match->{eline}, 1);
+
+    my $snippet = read_lines($path, $match->{sline}, $match->{eline});
+    push @copyright, grep { /copyright.*\d+/i && !$duplicates{$_}++ } split "\n", $snippet;
+
+    if (my $license = $resolve_license->($match->{spdx}, $match->{license})) { push @licenses, $license }
+  }
+
+  # Folded snippets contribute their inferred license, just like a real match would
+  for my $snippet (@folded) {
+    if (my $license = $resolve_license->($snippet->{pspdx}, $snippet->{plicense})) { push @licenses, $license }
+  }
+
+  return (\@licenses, \@copyright);
+}
+
+# Map a MIME type to an SPDX SoftwarePurpose, approximating the BSI executable/archive/structured
+# properties as closely as the available metadata allows.
+sub _file_purpose ($mime) {
+  $mime //= '';
+  return 'archive' if $mime =~ /(?:zip|tar|gzip|compress|x-xz|bzip|7z|x-rpm)/;
+  return 'executable'
+    if $mime =~ m{^application/x-(?:executable|sharedlib|pie-executable|elf)}
+    || $mime =~ m{^(?:text|application)/x-(?:perl|python|shellscript|sh)};
+  return 'documentation' if $mime =~ m{^text/html} || $mime =~ /pdf/;
+  return 'source'        if $mime =~ m{^text/}     || $mime =~ m{^application/(?:javascript|json|xml)};
+  return 'file';
 }
 
 sub _matched_lines ($matched_lines, $start, $end, $value) {
@@ -324,36 +363,16 @@ sub _matched_lines ($matched_lines, $start, $end, $value) {
   }
 }
 
-package _SPDXWriter;
+package _Graph;
 use Mojo::Base -base, -signatures;
 
-use Mojo::Util qw(encode);
+use Mojo::JSON qw(encode_json);
 
-sub append ($self, $text) { $self->{handle}->syswrite(encode('UTF-8', $text)) }
-
-sub br ($self) { $self->append("\n") }
-
-sub tag ($self, $name, $value) {
-  if ($value =~ /\n/) {
-    $self->text($name, $value);
-  }
-  else {
-    $self->append("$name: $value\n");
-  }
-}
-
-sub text ($self, $name, $value) {
-  $value =~ s{</text>}{< /text>}g;
-  $self->append("$name: <text>$value</text>\n");
-}
-
-sub comment ($self, $text) { $self->append("##$text\n") }
-
-sub box ($self, $text) {
-  $self->comment('-----------------------------');
-  $self->comment(" $text");
-  $self->comment('-----------------------------');
-  $self->br();
+# Stream elements into the "@graph" array one at a time to keep memory bounded for large packages
+sub add ($self, $node) {
+  $self->{handle}->syswrite($self->{first} ? '' : ',');
+  $self->{first} = 0;
+  $self->{handle}->syswrite(encode_json($node));
 }
 
 1;

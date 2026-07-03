@@ -1,17 +1,5 @@
-# Copyright (C) 2026 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict;
 
@@ -191,7 +179,8 @@ subtest 'API keys' => sub {
     $t->app->minion->perform_jobs;
     $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
       ->status_is(200)
-      ->content_like(qr/SPDXVersion: SPDX-2.3/);
+      ->content_type_is('application/json')
+      ->json_is('/@context' => 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld');
   };
 
   subtest 'List reports by external link' => sub {

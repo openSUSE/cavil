@@ -61,7 +61,12 @@ sub default_config ($self) {
     max_expanded_files                       => 100,
     max_file_browser_size                    => 1_000_000,
     always_generate_spdx_reports             => 0,
-    snippet_fold                             => {
+    spdx                                     => {
+      namespace             => 'http://legaldb.suse.de/spdx/',
+      creator               => {name => 'SUSE LLC', email => 'security@suse.de'},
+      license_ref_namespace => 'cavil'
+    },
+    snippet_fold => {
       enabled         => 0,
       threshold       => 0.95,
       min_margin      => 0.15,

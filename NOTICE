@@ -1,0 +1,38 @@
+Cavil — Third-Party Data Attributions
+=====================================
+
+Cavil itself is distributed under the GNU General Public License v2.0 (see the
+COPYING file). Its license patterns are curated by the SUSE lawyers.
+
+In addition, Cavil bundles and builds upon data from the third-party sources
+listed below. These resources are refreshed with:
+
+    perl tools/update_licenses.pl
+
+
+ScanCode LicenseDB
+------------------
+Source:  https://scancode-licensedb.aboutcode.org/
+Bundled: lib/Cavil/resources/license_list_scancode.txt
+License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
+         https://creativecommons.org/licenses/by/4.0/
+Credit:  ScanCode LicenseDB, Copyright (c) nexB Inc. and others (AboutCode.org).
+
+Cavil uses the ScanCode license keys to provide "LicenseRef-scancode-*" license
+identifiers, as required by BSI TR-03183-2 section 6.1 for licenses that are not
+defined by SPDX. Use of this data is subject to the CC-BY-4.0 attribution terms.
+
+
+SPDX License List and specification
+-----------------------------------
+Source:  https://spdx.org/licenses/ and https://spdx.dev/
+Bundled: lib/Cavil/resources/license_list.txt
+         lib/Cavil/resources/license_exceptions.txt
+         t/resources/spdx-3.0.1-schema.json
+         t/resources/spdx-3.0.1-context.jsonld
+Credit:  SPDX(R) is a project of the Linux Foundation. The SPDX License List
+         and SPDX specification artifacts are Copyright (c) the SPDX Workgroup,
+         a Linux Foundation Project.
+
+Cavil uses the SPDX license and exception identifiers to name licenses, and the
+SPDX 3.0.1 JSON schema and JSON-LD context to generate and validate SBOMs.
