@@ -369,3 +369,6 @@ CREATE TABLE package_components (
 );
 CREATE UNIQUE INDEX ON package_components(package, md5(purl));
 CREATE INDEX ON package_components(package);
+
+-- 47 down
+DROP TABLE IF EXISTS package_components;
