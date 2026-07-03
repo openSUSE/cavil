@@ -1,24 +1,12 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Licenses;
 use Mojo::Base -base, -signatures;
 use overload bool => sub {1}, '""' => sub { shift->to_string }, fallback => 1;
 
 use Exporter 'import';
-use Cavil::Util qw(@SPDX_LICENSES @SPDX_EXCEPTIONS);
+use Cavil::Util qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES);
 use Mojo::File 'path';
 use Text::Balanced 'extract_bracketed';
 use Mojo::Util qw(dumper trim);
@@ -27,10 +15,10 @@ use constant DEBUG => $ENV{SUSE_LICENSES_DEBUG} || 0;
 
 has [qw(error exception normalized tree)];
 
-our @EXPORT_OK = qw(lic);
+our @EXPORT_OK = qw(lic scancode_suggestion);
 
 # Licenses and exceptions are updated with "perl tools/update_licenses.pl"
-my (%ALLOWED, %CHANGES, %EXCEPTIONS);
+my (%ALLOWED, %CHANGES, %EXCEPTIONS, %SCANCODE);
 {
   my @lines = split "\n", path(__FILE__)->dirname->child('resources', 'license_changes.txt')->slurp;
   shift @lines;
@@ -42,6 +30,7 @@ my (%ALLOWED, %CHANGES, %EXCEPTIONS);
 
   $ALLOWED{$_}++    for @SPDX_LICENSES;
   $EXCEPTIONS{$_}++ for @SPDX_EXCEPTIONS;
+  $SCANCODE{$_}++   for @SCANCODE_LICENSES;
 }
 
 my $TOKEN_RE;
@@ -72,6 +61,22 @@ sub is_similar_to ($first, $second) {
 }
 
 sub lic (@args) { __PACKAGE__->new(@args) }
+
+# BSI TR-03183-2 requires licences that are not defined by SPDX to be referred to by their ScanCode
+# LicenseDB identifier with a "LicenseRef-scancode-" prefix (see section 6.1). Given a licence name
+# or key, suggest the matching identifier, or undef if ScanCode does not know the licence.
+sub scancode_suggestion ($name) {
+  return undef unless defined $name;
+
+  # Normalize into a ScanCode license key (lowercase, "-" separated, keeping version dots)
+  my $key = lc trim $name;
+  $key =~ s/^licenseref-scancode-//;
+  $key =~ s/[^a-z0-9.]+/-/g;
+  $key =~ s/^-+|-+$//g;
+  return undef unless length $key && $SCANCODE{$key};
+
+  return "LicenseRef-scancode-$key";
+}
 
 sub new ($class, @args) { @args > 0 ? $class->SUPER::new->parse(@args) : $class->SUPER::new }
 

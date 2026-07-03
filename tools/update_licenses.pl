@@ -2,16 +2,19 @@
 use Mojo::Base -strict, -signatures;
 
 use Mojo::File qw(curfile);
+use Mojo::JSON qw(from_json);
 use Mojo::UserAgent;
 
 my $LICENSE_URL   = 'https://spdx.org/licenses/';
 my $EXCEPTION_URL = 'https://spdx.org/licenses/exceptions-index.html';
 my $CHANGES_URL = 'https://raw.githubusercontent.com/openSUSE/obs-service-format_spec_file/master/licenses_changes.txt';
+my $SCANCODE_URL = 'https://scancode-licensedb.aboutcode.org/index.json';
 
 my $dir            = curfile->dirname->dirname->child('lib', 'Cavil', 'resources');
 my $license_file   = $dir->child('license_list.txt');
 my $exception_file = $dir->child('license_exceptions.txt');
 my $changes_file   = $dir->child('license_changes.txt');
+my $scancode_file  = $dir->child('license_list_scancode.txt');
 
 my $ua = Mojo::UserAgent->new;
 
@@ -38,3 +41,13 @@ my $text = $ua->get($CHANGES_URL)->result->text;
 $changes_file->spew($text);
 my $num = split("\n", $text) - 1;
 say qq(Updated $num license changes in "$changes_file");
+
+# ScanCode LicenseDB (for BSI TR-03183-2 "LicenseRef-scancode-*" identifiers)
+my $scancode = from_json($ua->get($SCANCODE_URL)->result->body);
+my @scancode_keys;
+for my $license (@$scancode) {
+  next if $license->{is_exception} || $license->{is_deprecated};
+  push @scancode_keys, $license->{license_key};
+}
+$scancode_file->spew(join("\n", sort @scancode_keys) . "\n");
+say qq(Updated @{[scalar @scancode_keys]} ScanCode licenses in "$scancode_file");

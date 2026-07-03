@@ -1,17 +1,5 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Util;
 use Mojo::Base -strict, -signatures;
@@ -34,7 +22,7 @@ our @EXPORT_OK = (
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles validate_tags weighted_containment),
   qw(SNIPPET_SCORE_VERSION),
-  qw(@SPDX_LICENSES @SPDX_EXCEPTIONS)
+  qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
 
 # Bumped whenever the snippet similarity scorer's semantics change. snippets carry the version they
@@ -53,8 +41,9 @@ my $SAFE_OBS_SRVICE_MODES = {buildtime => 1, localonly => 1, manual => 1, disabl
 my $SAFE_OBS_SRVICE_NAMES = {product_converter => 1};
 
 # Licenses and exceptions are updated with "perl tools/update_licenses.pl"
-our @SPDX_LICENSES   = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;
-our @SPDX_EXCEPTIONS = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
+our @SPDX_LICENSES     = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;
+our @SPDX_EXCEPTIONS   = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
+our @SCANCODE_LICENSES = split "\n", path(__FILE__)->dirname->child('resources', 'license_list_scancode.txt')->slurp;
 
 sub buckets ($things, $size) {
 
