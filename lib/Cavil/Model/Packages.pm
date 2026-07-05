@@ -448,6 +448,12 @@ sub paginate_review_search ($self, $name, $options) {
     $obsolete = 'AND (obsolete IS FALSE)';
   }
 
+  # Hide embargoed packages (used by the API, which must not expose them - mirrors paginate_open_reviews)
+  my $embargoed = '';
+  if (($options->{not_embargoed} // '') eq 'true') {
+    $embargoed = 'AND (p.embargoed IS FALSE)';
+  }
+
   my $results = $db->query(
     qq{
       SELECT p.id AS id, name AS package, state, checksum, p.result AS comment,
@@ -455,13 +461,40 @@ sub paginate_review_search ($self, $name, $options) {
         EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
         u.login AS user,  unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
-      WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) $search $obsolete
+      WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) $search $obsolete $embargoed
       ORDER BY id DESC
       LIMIT \$3 OFFSET \$4
     }, $name || undef, $packages, $options->{limit}, $options->{offset}
   )->hashes->to_array;
 
   return paginate($results, $options);
+}
+
+# For a set of package ids, return the vendored components matching a name/purl substring, grouped by
+# package id. Used by the API component search to show which exact version each package ships.
+sub matching_components ($self, $ids, $query) {
+  return {} unless @$ids && length($query // '');
+
+  my $like = '%' . $query . '%';
+  my $rows = $self->pg->db->query(
+    'SELECT package, type, name, version, purl, license FROM package_components
+       WHERE package = ANY (?) AND (purl ILIKE ? OR name ILIKE ?)
+     ORDER BY name, version', $ids, $like, $like
+  )->hashes;
+
+  my %by_package;
+  for my $row ($rows->each) {
+    push @{$by_package{$row->{package}}},
+      {
+      type    => $row->{type},
+      name    => $row->{name},
+      version => $row->{version},
+      purl    => $row->{purl},
+      license => $row->{license}
+      };
+  }
+
+  return \%by_package;
 }
 
 sub mark_matched_for_reindex ($self, $pid, $priority = 0) {

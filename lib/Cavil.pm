@@ -212,6 +212,7 @@ sub startup ($self) {
   $api_key->any('/mcp' => $mcp_action)->name('mcp');
   $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
   $api_key->get('/api/v1/reports')->to('API#reports');
+  $api_key->get('/api/v1/search')->to('API#package_search')->name('search_api');
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
   $api_key->get('/api/v1/spdx/<id:num>')->to('Report#spdx');
 

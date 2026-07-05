@@ -40,6 +40,54 @@ sub reports ($self) {
   $self->render(json => {reports => [map { {id => $_} } @ids]});
 }
 
+sub package_search ($self) {
+  my $v = $self->validation;
+  $v->optional('name');            # exact package name
+  $v->optional('component');       # vendored component name or purl
+  $v->optional('pattern')->num;    # license pattern id
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  return $self->reply->json_validation_error if $v->has_error;
+
+  my $limit  = $v->param('limit')  // 25;
+  my $offset = $v->param('offset') // 0;
+  $limit  = 100 if $limit > 100;
+  $limit  = 1   if $limit < 1;
+  $offset = 0   if $offset < 0;
+
+  # Same package search as the web UI, but the API never exposes embargoed or obsolete packages
+  my $component = $v->param('component');
+  my $page      = $self->packages->paginate_review_search(
+    scalar $v->param('name'),
+    {
+      search        => '',
+      component     => $component,
+      pattern       => $v->param('pattern'),
+      limit         => $limit,
+      offset        => $offset,
+      not_obsolete  => 'true',
+      not_embargoed => 'true'
+    }
+  );
+
+  # When searching by component, attach the matching components so a caller sees the exact version shipped
+  my @ids        = map { $_->{id} } @{$page->{page}};
+  my $components = length($component // '') ? $self->packages->matching_components(\@ids, $component) : {};
+
+  my @packages = map {
+    {
+      id         => $_->{id},
+      name       => $_->{package},
+      state      => $_->{state},
+      checksum   => $_->{checksum},
+      components => $components->{$_->{id}} // []
+    }
+  } @{$page->{page}};
+
+  $self->render(
+    json => {packages => \@packages, total => $page->{total}, start => $page->{start}, end => $page->{end}});
+}
+
 sub source ($self) {
   my $validation = $self->validation;
   $validation->required('api')->like(qr!^https?://.+!i);

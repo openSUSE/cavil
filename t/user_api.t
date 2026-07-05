@@ -372,4 +372,169 @@ subtest 'License prediction' => sub {
   };
 };
 
+subtest 'Package search API' => sub {
+  my $db  = $t->app->pg->db;
+  my $usr = $db->select('bot_users', 'id', undef, {limit => 1})->hash->{id};
+
+  my $ro = $t->app->api_keys->create(
+    owner       => $usr,
+    type        => 'read-only',
+    description => 'component search',
+    expires     => Mojo::Date->new(time + 36000)->to_datetime
+  );
+  my $auth = {Authorization => "Bearer $ro->{api_key}"};
+
+  # Two packages that both ship the same vulnerable component; one is embargoed and must stay hidden
+  my %common = (api_url => 'https://api.opensuse.org', requesting_user => $usr, project => 'devel:test', priority => 5);
+  my $clean  = $t->app->packages->add(
+    %common,
+    name         => 'security-clean',
+    package      => 'security-clean',
+    checkout_dir => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    srcmd5       => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  );
+  my $emb = $t->app->packages->add(
+    %common,
+    name         => 'security-embargoed',
+    package      => 'security-embargoed',
+    checkout_dir => 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    srcmd5       => 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  );
+  $db->update('bot_packages', {embargoed => 1}, {id => $emb});
+
+  # A third package that also ships the component but is obsolete (superseded) - must also stay hidden
+  my $obs = $t->app->packages->add(
+    %common,
+    name         => 'security-obsolete',
+    package      => 'security-obsolete',
+    checkout_dir => 'cccccccccccccccccccccccccccccccc',
+    srcmd5       => 'cccccccccccccccccccccccccccccccc'
+  );
+  $db->update('bot_packages', {obsolete => 1}, {id => $obs});
+
+  for my $pid ($clean, $emb, $obs) {
+    $db->insert(
+      'package_components',
+      {
+        package => $pid,
+        purl    => 'pkg:npm/lodash@4.17.19',
+        type    => 'npm',
+        name    => 'lodash',
+        version => '4.17.19',
+        license => 'MIT'
+      }
+    );
+  }
+
+  # A second, non-matching component on the clean package, to prove only matches are attached
+  $db->insert(
+    'package_components',
+    {
+      package => $clean,
+      purl    => 'pkg:npm/react@18.2.0',
+      type    => 'npm',
+      name    => 'react',
+      version => '18.2.0',
+      license => 'MIT'
+    }
+  );
+
+  subtest 'Requires authentication' => sub {
+    $t->get_ok('/api/v1/search' => form => {component => 'lodash'})->status_is(403);
+  };
+
+  subtest 'Finds packages by component name, embargoed and obsolete hidden' => sub {
+    $t->get_ok('/api/v1/search' => $auth => form => {component => 'lodash'})->status_is(200);
+    my $json  = $t->tx->res->json;
+    my %by_id = map { $_->{id} => $_ } @{$json->{packages}};
+    ok $by_id{$clean}, 'clean package is returned';
+    ok !$by_id{$emb},  'embargoed package is not returned even though its component matches';
+    ok !$by_id{$obs},  'obsolete package is not returned even though its component matches';
+    is_deeply [map { $_->{purl} } @{$by_id{$clean}{components}}], ['pkg:npm/lodash@4.17.19'],
+      'only the matching component is attached, with its exact version';
+    is $by_id{$clean}{name}, 'security-clean', 'package name in the result';
+    ok exists $by_id{$clean}{state},    'state field present';
+    ok exists $by_id{$clean}{checksum}, 'checksum field present';
+  };
+
+  subtest 'Finds packages by exact purl' => sub {
+    $t->get_ok('/api/v1/search' => $auth => form => {component => 'pkg:npm/lodash@4.17.19'})->status_is(200);
+    my %by_id = map { $_->{id} => 1 } @{$t->tx->res->json->{packages}};
+    ok $by_id{$clean}, 'exact purl finds the package';
+  };
+
+  subtest 'Absent component' => sub {
+    $t->get_ok('/api/v1/search' => $auth => form => {component => 'no-such-component'})
+      ->status_is(200)
+      ->json_is('/total'    => 0)
+      ->json_is('/packages' => []);
+  };
+
+  subtest 'Baseline package search by name (no component)' => sub {
+    $t->get_ok('/api/v1/search' => $auth => form => {name => 'security-clean'})->status_is(200);
+    my %by_id = map { $_->{id} => $_ } @{$t->tx->res->json->{packages}};
+    ok $by_id{$clean}, 'exact package name finds the package';
+    is_deeply $by_id{$clean}{components}, [], 'no component query means no components attached';
+  };
+
+  subtest 'Embargoed is hidden from a plain name search too' => sub {
+    $t->get_ok('/api/v1/search' => $auth => form => {name => 'security-embargoed'})
+      ->status_is(200)
+      ->json_is('/packages' => []);
+  };
+
+  subtest 'No parameters returns a paginated package listing' => sub {
+    $t->get_ok('/api/v1/search' => $auth => form => {limit => 5})->status_is(200);
+    my $json = $t->tx->res->json;
+    ok $json->{total} >= 1,       'returns the package set';
+    ok @{$json->{packages}} <= 5, 'respects the limit';
+  };
+
+  subtest 'Combining name and component (AND)' => sub {
+
+    # security-clean ships both lodash and react; narrowing by component changes which are attached
+    $t->get_ok('/api/v1/search' => $auth => form => {name => 'security-clean', component => 'react'})->status_is(200);
+    my $json = $t->tx->res->json;
+    is scalar(@{$json->{packages}}), 1,      'name and component both match the clean package';
+    is $json->{packages}[0]{id},     $clean, 'the clean package';
+    is_deeply [map { $_->{purl} } @{$json->{packages}[0]{components}}], ['pkg:npm/react@18.2.0'],
+      'attaches only the queried component';
+
+    # Name matches but the component does not: AND semantics yield nothing
+    $t->get_ok('/api/v1/search' => $auth => form => {name => 'security-clean', component => 'no-such'})
+      ->status_is(200)
+      ->json_is('/total' => 0);
+  };
+
+  subtest 'Filter by license pattern' => sub {
+    my $row = $db->query(
+      'SELECT pm.pattern AS pattern, pm.package AS package
+         FROM pattern_matches pm JOIN bot_packages p ON p.id = pm.package
+        WHERE p.obsolete IS FALSE AND p.embargoed IS FALSE LIMIT 1'
+    )->hash;
+    ok $row, 'there is a pattern match on a visible package to search for';
+    $t->get_ok('/api/v1/search' => $auth => form => {pattern => $row->{pattern}})->status_is(200);
+    my %by_id = map { $_->{id} => 1 } @{$t->tx->res->json->{packages}};
+    ok $by_id{$row->{package}}, 'package whose scan matched the license pattern is returned';
+  };
+
+  subtest 'Pagination with limit and offset' => sub {
+    my $all = $t->get_ok('/api/v1/search' => $auth => form => {limit => 100})->status_is(200)->tx->res->json;
+    ok $all->{total} >= 2, 'at least two visible packages to page through';
+
+    my $p1 = $t->get_ok('/api/v1/search' => $auth => form => {limit => 1, offset => 0})->status_is(200)->tx->res->json;
+    my $p2 = $t->get_ok('/api/v1/search' => $auth => form => {limit => 1, offset => 1})->status_is(200)->tx->res->json;
+    is scalar(@{$p1->{packages}}), 1,                      'first page holds one package';
+    is scalar(@{$p2->{packages}}), 1,                      'second page holds one package';
+    isnt $p1->{packages}[0]{id},   $p2->{packages}[0]{id}, 'consecutive pages do not overlap';
+    is $p1->{total},               $all->{total},          'total is the full count regardless of the page size';
+  };
+
+  subtest 'Invalid parameters are rejected' => sub {
+    $t->get_ok('/api/v1/search' => $auth => form => {limit   => 'lots'})->status_is(400);
+    $t->get_ok('/api/v1/search' => $auth => form => {offset  => 'x'})->status_is(400);
+    $t->get_ok('/api/v1/search' => $auth => form => {pattern => 'abc'})->status_is(400);
+  };
+};
+
 done_testing;

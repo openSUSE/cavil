@@ -539,6 +539,60 @@ Content-Type: application/json
 ]}
 ```
 
+### Search Packages
+
+`GET /api/v1/search`
+
+The programmatic equivalent of the web UI's search page: find packages by name, or by a vendored component
+they ship. The component filter is useful for security and supply-chain triage, for example locating every
+package that bundles a vulnerable dependency. Embargoed and obsolete packages are always excluded.
+
+**Request parameters** (all optional; combine to narrow results, or omit all to page through every package):
+
+* `name`: Exact package name.
+* `component`: Case-insensitive substring matched against a vendored component's name and its purl.
+               `lodash` matches every version, `pkg:npm/lodash@4.17.20` pins one, `pkg:npm/lodash@4.17`
+               matches a prefix range.
+* `pattern`: Numeric license-pattern id; returns packages whose scan matched that pattern.
+* `limit`: Maximum number of packages to return. Defaults to `25`, maximum `100`.
+* `offset`: Number of packages to skip, for pagination. Defaults to `0`.
+
+When you search by `component`, each returned package lists the components that matched, so you can see the
+exact version each one ships.
+
+**Request:**
+
+```
+GET /api/v1/search?component=pkg:npm/lodash@4.17.19
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+Accept: application/json
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "total": 2,
+  "start": 1,
+  "end": 2,
+  "packages": [
+    {
+      "id": 23,
+      "name": "some-product",
+      "state": "acceptable",
+      "checksum": "AbCdEf",
+      "components": [
+        {"purl": "pkg:npm/lodash@4.17.19", "name": "lodash", "version": "4.17.19", "type": "npm", "license": "MIT"}
+      ]
+    }
+  ]
+}
+```
+
 ### Retrieve License Reports
 
 `GET /api/v1/report/<package_id>.<format>`
