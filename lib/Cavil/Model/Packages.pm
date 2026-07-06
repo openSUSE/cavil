@@ -497,6 +497,38 @@ sub matching_components ($self, $ids, $query) {
   return \%by_package;
 }
 
+# Stream every detected vendored component with its package and product for a full export, invoking
+# $cb->($row) per row. A package in several products fans out to one row per product; a package in no
+# product yields a single row with product => undef (the caller falls back to external_link). Embargoed
+# and obsolete packages are excluded. A server-side cursor keeps client memory flat over the full set.
+sub export_components ($self, $cb) {
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+
+  $db->query(
+    q{
+    DECLARE cavil_component_export NO SCROLL CURSOR FOR
+      SELECT p.name AS package, p.external_link AS external_link,
+             pc.type AS source, pc.name AS component, pc.version AS version,
+             prod.name AS product
+        FROM package_components pc
+        JOIN bot_packages p                ON p.id = pc.package
+        LEFT JOIN bot_package_products pp   ON pp.package = p.id
+        LEFT JOIN bot_products prod         ON prod.id = pp.product
+       WHERE p.embargoed = FALSE AND p.obsolete = FALSE
+       ORDER BY p.id, pc.name, pc.version
+  }
+  );
+
+  while (1) {
+    my $rows = $db->query('FETCH FORWARD 5000 FROM cavil_component_export')->hashes;
+    last unless @$rows;
+    $cb->($_) for @$rows;
+  }
+
+  $db->query('CLOSE cavil_component_export');
+}
+
 sub mark_matched_for_reindex ($self, $pid, $priority = 0) {
   $self->minion->enqueue(reindex_matched_later => [$pid] => {priority => $priority});
 }
