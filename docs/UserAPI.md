@@ -553,7 +553,6 @@ package that bundles a vulnerable dependency. Embargoed and obsolete packages ar
 * `component`: Case-insensitive substring matched against a vendored component's name and its purl.
                `lodash` matches every version, `pkg:npm/lodash@4.17.20` pins one, `pkg:npm/lodash@4.17`
                matches a prefix range.
-* `pattern`: Numeric license-pattern id; returns packages whose scan matched that pattern.
 * `limit`: Maximum number of packages to return. Defaults to `25`, maximum `100`.
 * `offset`: Number of packages to skip, for pagination. Defaults to `0`.
 

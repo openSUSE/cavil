@@ -42,9 +42,8 @@ sub reports ($self) {
 
 sub package_search ($self) {
   my $v = $self->validation;
-  $v->optional('name');            # exact package name
-  $v->optional('component');       # vendored component name or purl
-  $v->optional('pattern')->num;    # license pattern id
+  $v->optional('name');         # exact package name
+  $v->optional('component');    # vendored component name or purl
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   return $self->reply->json_validation_error if $v->has_error;
@@ -62,7 +61,6 @@ sub package_search ($self) {
     {
       search        => '',
       component     => $component,
-      pattern       => $v->param('pattern'),
       limit         => $limit,
       offset        => $offset,
       not_obsolete  => 'true',

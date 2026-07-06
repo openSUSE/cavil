@@ -506,18 +506,6 @@ subtest 'Package search API' => sub {
       ->json_is('/total' => 0);
   };
 
-  subtest 'Filter by license pattern' => sub {
-    my $row = $db->query(
-      'SELECT pm.pattern AS pattern, pm.package AS package
-         FROM pattern_matches pm JOIN bot_packages p ON p.id = pm.package
-        WHERE p.obsolete IS FALSE AND p.embargoed IS FALSE LIMIT 1'
-    )->hash;
-    ok $row, 'there is a pattern match on a visible package to search for';
-    $t->get_ok('/api/v1/search' => $auth => form => {pattern => $row->{pattern}})->status_is(200);
-    my %by_id = map { $_->{id} => 1 } @{$t->tx->res->json->{packages}};
-    ok $by_id{$row->{package}}, 'package whose scan matched the license pattern is returned';
-  };
-
   subtest 'Pagination with limit and offset' => sub {
     my $all = $t->get_ok('/api/v1/search' => $auth => form => {limit => 100})->status_is(200)->tx->res->json;
     ok $all->{total} >= 2, 'at least two visible packages to page through';
@@ -531,9 +519,8 @@ subtest 'Package search API' => sub {
   };
 
   subtest 'Invalid parameters are rejected' => sub {
-    $t->get_ok('/api/v1/search' => $auth => form => {limit   => 'lots'})->status_is(400);
-    $t->get_ok('/api/v1/search' => $auth => form => {offset  => 'x'})->status_is(400);
-    $t->get_ok('/api/v1/search' => $auth => form => {pattern => 'abc'})->status_is(400);
+    $t->get_ok('/api/v1/search' => $auth => form => {limit  => 'lots'})->status_is(400);
+    $t->get_ok('/api/v1/search' => $auth => form => {offset => 'x'})->status_is(400);
   };
 };
 
