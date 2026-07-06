@@ -1,0 +1,25 @@
+# Packages
+
+% if (@$packages) {
+<%== $total %> package<%== $total == 1 ? '' : 's' %> found, showing <%== $start %>-<%== $end %>.
+
+Pagination: limit=<%== $limit %>, offset=<%== $offset %><% if (defined $next_offset) { %>, next_offset=<%== $next_offset %><% } else { %>, next_offset=none<% } %>
+Filters: name=<%== defined $name && length $name ? $name : 'none' %>, component=<%== defined $component && length $component ? $component : 'none' %>
+
+
+%   for (my $i = 0; $i <= $#{$packages}; $i++) {
+%     my $package = $packages->[$i];
+<%== $i + 1 %>. <%== $package->{package} %> (Id: <%== $package->{id} %>, State: <%== $package->{state} %>, Checksum: <%== $package->{checksum} // 'none' %>)
+%     my $matches = $components->{$package->{id}};
+%     if ($matches && @$matches) {
+   Components:
+%       for my $component (@$matches) {
+   - <%== $component->{purl} %> (<%== $component->{name} %> <%== $component->{version} %>, <%== $component->{license} %>)
+%       }
+%     }
+
+%   }
+% }
+% else {
+No packages found.
+% }

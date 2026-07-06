@@ -46,6 +46,28 @@ sub register ($self, $app, $config) {
     code => \&tool_cavil_get_open_reviews
   );
   $mcp->tool(
+    name        => 'cavil_search_packages',
+    description =>
+      'Search all packages regardless of review state, by exact name or by a vendored component they ship. Unlike'
+      . ' cavil_get_open_reviews (which only returns the open review queue), this searches the whole package set,'
+      . ' including already reviewed packages. Use "component" for security and supply-chain triage, e.g. to find'
+      . ' every package that bundles a vulnerable dependency; it is a case-insensitive substring matched against a'
+      . ' component name and its purl, so "lodash" matches all versions and "pkg:npm/lodash@4.17.20" pins one. When'
+      . ' searching by component, each result lists the matching components so you see the exact version shipped.'
+      . ' Embargoed and obsolete packages are always excluded',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        name      => {type => 'string',  description => 'Exact package name'},
+        component => {type => 'string',  description => 'Vendored component name or purl (case-insensitive substring)'},
+        limit     => {type => 'integer', minimum     => 1, maximum => 100, default => 25},
+        offset    => {type => 'integer', minimum     => 0, default => 0}
+      },
+      required => []
+    },
+    code => \&tool_cavil_search_packages
+  );
+  $mcp->tool(
     name         => 'cavil_get_report',
     description  => 'Get legal report for a specific package',
     input_schema =>
@@ -281,6 +303,49 @@ sub tool_cavil_get_open_reviews ($tool, $args) {
     offset       => $offset,
     next_offset  => $next_offset,
     min_priority => $min_priority
+  );
+}
+
+sub tool_cavil_search_packages ($tool, $args) {
+  my $c = _get_controller($tool);
+  my ($limit, $limit_error) = _bounded_int_arg($args->{limit}, 25, 1, 100, 'limit');
+  return $tool->text_result($limit_error, 1) if $limit_error;
+  my ($offset, $offset_error) = _bounded_int_arg($args->{offset}, 0, 0, undef, 'offset');
+  return $tool->text_result($offset_error, 1) if $offset_error;
+
+  # Same package search as the web UI and the search API, but never exposes embargoed or obsolete packages
+  my $name      = $args->{name};
+  my $component = $args->{component};
+  my $page      = $c->packages->paginate_review_search(
+    $name,
+    {
+      search        => '',
+      component     => $component,
+      limit         => $limit,
+      offset        => $offset,
+      not_obsolete  => 'true',
+      not_embargoed => 'true'
+    }
+  );
+
+  # When searching by component, attach the matching components so a caller sees the exact version shipped
+  my @ids        = map { $_->{id} } @{$page->{page}};
+  my $components = length($component // '') ? $c->packages->matching_components(\@ids, $component) : {};
+
+  my $next_offset = $page->{end} < $page->{total} ? $offset + $limit : undef;
+  return $c->render_to_string(
+    'mcp/packages',
+    format      => 'txt',
+    packages    => $page->{page},
+    components  => $components,
+    total       => $page->{total},
+    start       => $page->{start},
+    end         => $page->{end},
+    limit       => $limit,
+    offset      => $offset,
+    next_offset => $next_offset,
+    name        => $name,
+    component   => $component
   );
 }
 

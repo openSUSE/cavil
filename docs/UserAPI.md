@@ -71,6 +71,13 @@ These tools are currently available:
   - `offset`: Number of reviews to skip for pagination. Defaults to `0`. (number, optional)
   - `min_priority`: Minimum package priority to include. Defaults to `1`, maximum `10`. (number, optional)
 
+- *cavil_search_packages* - Search all packages (any review state) by name or by a vendored component they ship
+  - **Required Roles**: `user` (read-only)
+  - `name`: Exact package name. (string, optional)
+  - `component`: Case-insensitive substring matched against a vendored component's name and its purl, e.g. `lodash` or `pkg:npm/lodash@4.17.20`. Matching components are attached to each result. (string, optional)
+  - `limit`: Maximum number of packages to return. Defaults to `25`, maximum `100`. (number, optional)
+  - `offset`: Number of packages to skip for pagination. Defaults to `0`. (number, optional)
+
 - *cavil_get_report* - Get legal report for a specific package
   - **Required Roles**: `user` (read-only)
   - `package_id`: ID of package to get report for. (number, required)

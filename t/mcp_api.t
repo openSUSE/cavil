@@ -96,12 +96,13 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 5,                        'five tools available';
+      is scalar @{$result->{tools}}, 6,                        'six tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
-      is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
-      is $result->{tools}[3]{name},  'cavil_list_files',       'right tool name';
-      is $result->{tools}[4]{name},  'cavil_get_notes',        'right tool name';
+      is $result->{tools}[1]{name},  'cavil_search_packages',  'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_report',       'right tool name';
+      is $result->{tools}[3]{name},  'cavil_get_file',         'right tool name';
+      is $result->{tools}[4]{name},  'cavil_list_files',       'right tool name';
+      is $result->{tools}[5]{name},  'cavil_get_notes',        'right tool name';
     };
 
     subtest 'cavil_get_open_reviews tool' => sub {
@@ -180,6 +181,119 @@ subtest 'MCP' => sub {
 
         eval { $client->call_tool('cavil_get_open_reviews', {min_priority => 11}) };
         like $@, qr/Invalid arguments/, 'maximum priority rejected';
+      };
+    };
+
+    subtest 'cavil_search_packages tool' => sub {
+      my $db  = $t->app->pg->db;
+      my $usr = $db->select('bot_users', 'id', undef, {limit => 1})->hash->{id};
+
+      # Two packages that both ship the same vulnerable component; one is embargoed and must stay hidden,
+      # a third is obsolete and must also stay hidden
+      my %common
+        = (api_url => 'https://api.opensuse.org', requesting_user => $usr, project => 'devel:test', priority => 5);
+      my $clean = $t->app->packages->add(
+        %common,
+        name         => 'mcp-search-clean',
+        package      => 'mcp-search-clean',
+        checkout_dir => 'dddddddddddddddddddddddddddddddd',
+        srcmd5       => 'dddddddddddddddddddddddddddddddd'
+      );
+      my $emb = $t->app->packages->add(
+        %common,
+        name         => 'mcp-search-embargoed',
+        package      => 'mcp-search-embargoed',
+        checkout_dir => 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+        srcmd5       => 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+      );
+      $db->update('bot_packages', {embargoed => 1}, {id => $emb});
+      my $obs = $t->app->packages->add(
+        %common,
+        name         => 'mcp-search-obsolete',
+        package      => 'mcp-search-obsolete',
+        checkout_dir => 'ffffffffffffffffffffffffffffffff',
+        srcmd5       => 'ffffffffffffffffffffffffffffffff'
+      );
+      $db->update('bot_packages', {obsolete => 1}, {id => $obs});
+
+      for my $pid ($clean, $emb, $obs) {
+        $db->insert(
+          'package_components',
+          {
+            package => $pid,
+            purl    => 'pkg:npm/lodash@4.17.19',
+            type    => 'npm',
+            name    => 'lodash',
+            version => '4.17.19',
+            license => 'MIT'
+          }
+        );
+      }
+
+      # A second, non-matching component on the clean package, to prove only matches are attached
+      $db->insert(
+        'package_components',
+        {
+          package => $clean,
+          purl    => 'pkg:npm/react@18.2.0',
+          type    => 'npm',
+          name    => 'react',
+          version => '18.2.0',
+          license => 'MIT'
+        }
+      );
+
+      subtest 'Finds packages by component, embargoed and obsolete hidden' => sub {
+        my $result = $client->call_tool('cavil_search_packages', {component => 'lodash'});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text,   qr/mcp-search-clean \(Id: $clean,/,        'clean package is listed';
+        like $text,   qr/pkg:npm\/lodash\@4\.17\.19 \(lodash 4/, 'matching component attached with exact version';
+        unlike $text, qr/mcp-search-embargoed/,                  'embargoed package hidden';
+        unlike $text, qr/mcp-search-obsolete/,                   'obsolete package hidden';
+        unlike $text, qr/react/,                                 'only the queried component is attached';
+        note $text;
+      };
+
+      subtest 'Finds packages by exact purl' => sub {
+        my $result = $client->call_tool('cavil_search_packages', {component => 'pkg:npm/lodash@4.17.19'});
+        ok !$result->{isError}, 'not an error';
+        like $result->{content}[0]{text}, qr/mcp-search-clean \(Id: $clean,/, 'exact purl finds the package';
+      };
+
+      subtest 'Search by name attaches no components' => sub {
+        my $result = $client->call_tool('cavil_search_packages', {name => 'mcp-search-clean'});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text,   qr/mcp-search-clean \(Id: $clean,/, 'exact name finds the package';
+        unlike $text, qr/Components:/,                    'no component query means no components attached';
+      };
+
+      subtest 'Embargoed hidden from a plain name search too' => sub {
+        my $result = $client->call_tool('cavil_search_packages', {name => 'mcp-search-embargoed'});
+        ok !$result->{isError}, 'not an error';
+        like $result->{content}[0]{text}, qr/No packages found/, 'embargoed package not returned by name';
+      };
+
+      subtest 'No matches' => sub {
+        my $result = $client->call_tool('cavil_search_packages', {component => 'no-such-component'});
+        ok !$result->{isError}, 'not an error';
+        like $result->{content}[0]{text}, qr/No packages found/, 'empty result message';
+      };
+
+      subtest 'Pagination' => sub {
+        my $result = $client->call_tool('cavil_search_packages', {component => 'lodash', limit => 1});
+        ok !$result->{isError}, 'not an error';
+        like $result->{content}[0]{text}, qr/Pagination: limit=1, offset=0/, 'contains pagination metadata';
+      };
+
+      subtest 'Invalid arguments' => sub {
+        eval { $client->call_tool('cavil_search_packages', {limit => 0}) };
+        like $@, qr/Invalid arguments/, 'minimum limit rejected';
+        eval { $client->call_tool('cavil_search_packages', {limit => 101}) };
+        like $@, qr/Invalid arguments/, 'maximum limit rejected';
+        eval { $client->call_tool('cavil_search_packages', {offset => -1}) };
+        like $@, qr/Invalid arguments/, 'negative offset rejected';
       };
     };
 
@@ -487,20 +601,21 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 13,                              'thirteen tools available';
+      is scalar @{$result->{tools}}, 14,                              'fourteen tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
-      is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
-      is $result->{tools}[3]{name},  'cavil_list_files',              'right tool name';
-      is $result->{tools}[4]{name},  'cavil_create_note',             'right tool name';
-      is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
-      is $result->{tools}[6]{name},  'cavil_accept_review',           'right tool name';
-      is $result->{tools}[7]{name},  'cavil_reject_review',           'right tool name';
-      is $result->{tools}[8]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[9]{name},  'cavil_propose_license_pattern', 'right tool name';
-      is $result->{tools}[10]{name}, 'cavil_propose_ignore_glob',     'right tool name';
-      is $result->{tools}[11]{name}, 'cavil_create_snippet',          'right tool name';
-      is $result->{tools}[12]{name}, 'cavil_report_missing_license',  'right tool name';
+      is $result->{tools}[1]{name},  'cavil_search_packages',         'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_report',              'right tool name';
+      is $result->{tools}[3]{name},  'cavil_get_file',                'right tool name';
+      is $result->{tools}[4]{name},  'cavil_list_files',              'right tool name';
+      is $result->{tools}[5]{name},  'cavil_create_note',             'right tool name';
+      is $result->{tools}[6]{name},  'cavil_get_notes',               'right tool name';
+      is $result->{tools}[7]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[8]{name},  'cavil_reject_review',           'right tool name';
+      is $result->{tools}[9]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[10]{name}, 'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[11]{name}, 'cavil_propose_ignore_glob',     'right tool name';
+      is $result->{tools}[12]{name}, 'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[13]{name}, 'cavil_report_missing_license',  'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
@@ -508,13 +623,14 @@ subtest 'MCP' => sub {
       $t->app->users->remove_role(2, 'manager');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 6,                        'six tools available';
+      is scalar @{$result->{tools}}, 7,                        'seven tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
-      is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
-      is $result->{tools}[3]{name},  'cavil_list_files',       'right tool name';
-      is $result->{tools}[4]{name},  'cavil_create_note',      'right tool name';
-      is $result->{tools}[5]{name},  'cavil_get_notes',        'right tool name';
+      is $result->{tools}[1]{name},  'cavil_search_packages',  'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_report',       'right tool name';
+      is $result->{tools}[3]{name},  'cavil_get_file',         'right tool name';
+      is $result->{tools}[4]{name},  'cavil_list_files',       'right tool name';
+      is $result->{tools}[5]{name},  'cavil_create_note',      'right tool name';
+      is $result->{tools}[6]{name},  'cavil_get_notes',        'right tool name';
 
       $t->app->users->add_role(2, 'admin');
       $t->app->users->add_role(2, 'manager');
@@ -525,14 +641,15 @@ subtest 'MCP' => sub {
       $t->app->users->remove_role(2, 'admin');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 7,                        'seven tools available';
+      is scalar @{$result->{tools}}, 8,                        'eight tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',       'right tool name';
-      is $result->{tools}[2]{name},  'cavil_get_file',         'right tool name';
-      is $result->{tools}[3]{name},  'cavil_list_files',       'right tool name';
-      is $result->{tools}[4]{name},  'cavil_create_note',      'right tool name';
-      is $result->{tools}[5]{name},  'cavil_get_notes',        'right tool name';
-      is $result->{tools}[6]{name},  'cavil_accept_review',    'right tool name';
+      is $result->{tools}[1]{name},  'cavil_search_packages',  'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_report',       'right tool name';
+      is $result->{tools}[3]{name},  'cavil_get_file',         'right tool name';
+      is $result->{tools}[4]{name},  'cavil_list_files',       'right tool name';
+      is $result->{tools}[5]{name},  'cavil_create_note',      'right tool name';
+      is $result->{tools}[6]{name},  'cavil_get_notes',        'right tool name';
+      is $result->{tools}[7]{name},  'cavil_accept_review',    'right tool name';
 
       $t->app->users->add_role(2, 'admin');
     };
@@ -543,18 +660,19 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 11,                              'eleven tools available';
+      is scalar @{$result->{tools}}, 12,                              'twelve tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
-      is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
-      is $result->{tools}[3]{name},  'cavil_list_files',              'right tool name';
-      is $result->{tools}[4]{name},  'cavil_create_note',             'right tool name';
-      is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
-      is $result->{tools}[6]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[7]{name},  'cavil_propose_license_pattern', 'right tool name';
-      is $result->{tools}[8]{name},  'cavil_propose_ignore_glob',     'right tool name';
-      is $result->{tools}[9]{name},  'cavil_create_snippet',          'right tool name';
-      is $result->{tools}[10]{name}, 'cavil_report_missing_license',  'right tool name';
+      is $result->{tools}[1]{name},  'cavil_search_packages',         'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_report',              'right tool name';
+      is $result->{tools}[3]{name},  'cavil_get_file',                'right tool name';
+      is $result->{tools}[4]{name},  'cavil_list_files',              'right tool name';
+      is $result->{tools}[5]{name},  'cavil_create_note',             'right tool name';
+      is $result->{tools}[6]{name},  'cavil_get_notes',               'right tool name';
+      is $result->{tools}[7]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[8]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[9]{name},  'cavil_propose_ignore_glob',     'right tool name';
+      is $result->{tools}[10]{name}, 'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[11]{name}, 'cavil_report_missing_license',  'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -566,19 +684,20 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 12,                              'twelve tools available';
+      is scalar @{$result->{tools}}, 13,                              'thirteen tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
-      is $result->{tools}[1]{name},  'cavil_get_report',              'right tool name';
-      is $result->{tools}[2]{name},  'cavil_get_file',                'right tool name';
-      is $result->{tools}[3]{name},  'cavil_list_files',              'right tool name';
-      is $result->{tools}[4]{name},  'cavil_create_note',             'right tool name';
-      is $result->{tools}[5]{name},  'cavil_get_notes',               'right tool name';
-      is $result->{tools}[6]{name},  'cavil_accept_review',           'right tool name';
-      is $result->{tools}[7]{name},  'cavil_propose_ignore_snippet',  'right tool name';
-      is $result->{tools}[8]{name},  'cavil_propose_license_pattern', 'right tool name';
-      is $result->{tools}[9]{name},  'cavil_propose_ignore_glob',     'right tool name';
-      is $result->{tools}[10]{name}, 'cavil_create_snippet',          'right tool name';
-      is $result->{tools}[11]{name}, 'cavil_report_missing_license',  'right tool name';
+      is $result->{tools}[1]{name},  'cavil_search_packages',         'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_report',              'right tool name';
+      is $result->{tools}[3]{name},  'cavil_get_file',                'right tool name';
+      is $result->{tools}[4]{name},  'cavil_list_files',              'right tool name';
+      is $result->{tools}[5]{name},  'cavil_create_note',             'right tool name';
+      is $result->{tools}[6]{name},  'cavil_get_notes',               'right tool name';
+      is $result->{tools}[7]{name},  'cavil_accept_review',           'right tool name';
+      is $result->{tools}[8]{name},  'cavil_propose_ignore_snippet',  'right tool name';
+      is $result->{tools}[9]{name},  'cavil_propose_license_pattern', 'right tool name';
+      is $result->{tools}[10]{name}, 'cavil_propose_ignore_glob',     'right tool name';
+      is $result->{tools}[11]{name}, 'cavil_create_snippet',          'right tool name';
+      is $result->{tools}[12]{name}, 'cavil_report_missing_license',  'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');
