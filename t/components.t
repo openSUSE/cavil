@@ -44,6 +44,10 @@ subtest 'npm' => sub {
 
   is detect('a/package.json', 'npm/legacy.json')->[0]{license}, 'MIT', 'legacy licenses array';
   is_deeply detect('a/package.json', 'npm/nameless.json'), [], 'no name/version -> not a component';
+
+  # gx reuses package.json to describe vendored Go modules; these are not npm components
+  is_deeply detect('vendor/github.com/blang/semver/package.json', 'npm/gx-go.json'), [],
+    'gx/Go package.json is not detected as an npm component';
 };
 
 subtest 'cargo' => sub {

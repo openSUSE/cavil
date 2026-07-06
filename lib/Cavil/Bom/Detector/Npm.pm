@@ -13,6 +13,13 @@ sub parse ($self, $path, $content) {
   my $json = eval { decode_json($$content) };
   return [] unless ref $json eq 'HASH';
 
+  # gx (an IPFS-era package manager) reuses the "package.json" filename to describe Go and other non-npm
+  # modules, adding a "gx"/"gxVersion" block and a "language" field that a real npm manifest never carries.
+  # Without this guard a vendored Go module like vendor/github.com/blang/semver/package.json is misreported
+  # as an npm component.
+  return [] if defined $json->{gx} || defined $json->{gxVersion};
+  return [] if defined $json->{language} && lc "$json->{language}" ne 'javascript';
+
   # A real module always has both; a bare config/tsconfig-style file does not. Malformed metadata may
   # carry non-scalar name/version (e.g. "name": {...}); reject those rather than stringify a ref.
   my ($name, $version) = ($json->{name}, $json->{version});
