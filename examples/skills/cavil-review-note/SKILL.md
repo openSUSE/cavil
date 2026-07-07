@@ -57,6 +57,22 @@ in every note. Then focus on the other signals a human lawyer would need for a f
 - Unknown, proprietary, non-commercial, or custom license terms
 - Unresolved matches that look like real license text, license declarations, redistribution terms, warranty disclaimers, or patent/trademark restrictions
 - Large numbers of unresolved matches from a common path that may indicate generated files, bundled license data, or test fixtures
+- **Anything else legally material that the points above do not name** (see the dedicated step below)
+
+#### Surface any unanticipated legal risk — do not stop at the checks above
+The signals above are the common cases, not a closed list. If you notice anything else a lawyer
+would genuinely want to know before accepting — an unusual grant or restriction buried in a file, a
+license that contradicts the project's own stated terms, inconsistent copyright or ownership
+claims, relicensing or dual-licensing language, or wording that hints at undisclosed third-party or
+proprietary code — raise it even though no earlier point asked for it. Catching the important thing
+the checklist did not anticipate is the main objective of the review, so treat it as a first-class
+finding, not an afterthought.
+
+Hold it to the same bar as any other finding: a concrete, evidence-backed concern in hedged wording
+("appears to", "may indicate"), citing the file or snippet (use `cavil_get_file` to confirm before
+you write it). Do not manufacture issues to fill this section — "nothing beyond the standard checks"
+is a valid and common outcome. But a **material** unanticipated risk must drive the recommendation
+and be surfaced prominently (Steps 5-6), never buried in a general remark.
 
 #### Risk levels — what the report's `Risk N` headings mean
 The report groups every found license under a numeric risk heading (`### Risk N`) and lists
@@ -180,6 +196,7 @@ Use one of these recommendations:
 - **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation.
 
 Let the risk levels and flags from Step 4 steer the lean:
+- **A material unanticipated legal risk** (the Step 4 catch-all) → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Lead the note with it.
 - **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
 - **Risk 5** (managed obligations — AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
@@ -232,6 +249,11 @@ The first bullet is always the declared-license check from Step 4; include it ev
 clean match (e.g. `Declared license (GPL-2.0-or-later) matches the GPL-2.0-only/-or-later files in
 src/; remaining licenses are permissive vendored dependencies.`).
 
+If you found a material unanticipated risk (the Step 4 catch-all), place it immediately after the
+declared-license bullet and prefix it so it stands out — `- Additional risk (outside the standard
+checks): ...` — with the file or snippet that evidences it. It must be visible in the note, never
+folded into a general remark, and it must be reflected in the recommendation line.
+
 When a risk level or a flag drove the recommendation, name it in an issues bullet — cite the risk
 number and/or flag so the lawyer sees why (e.g. `AGPL-3.0-only (risk 5, managed obligations —
 network copyleft) in src/server/; confirm deployment model.` or `mmap-License [flags: Patent] —
@@ -281,6 +303,7 @@ Confidence: Medium - AI-assisted triage, not a final legal decision.
 
 ## NOTE WRITING GUIDELINES
 - Every note must lead with the declared-license check (declared value vs. what the report found), even when it is a clean match. Never omit it.
+- If you noticed a legally material risk outside the standard checks, surface it prominently (see Step 6) and let it drive the recommendation; never bury it or let minor observations crowd it out. This is the point of the review.
 - Always tag the note with `["review"]` and always pass `skip_if_existing_tag="review"` so the server keeps it to one review note per report.
 - Be brief and specific. Prefer concrete file paths, snippet ids, and license names over general impressions.
 - Use SPDX identifiers where possible, such as MIT, Apache-2.0, GPL-2.0-only, GPL-2.0-or-later, LGPL-2.1-or-later, or AGPL-3.0-only.

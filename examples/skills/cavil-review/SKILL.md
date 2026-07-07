@@ -167,6 +167,21 @@ Large numbers of unresolved matches from a **common path** often indicate genera
 
 **Gather file context proactively**: For any unresolved snippet that is truncated, starts mid-sentence, or is ambiguous, use `cavil_get_file` to retrieve surrounding lines (±10–20 lines) before drawing conclusions. Batch parallel context lookups when multiple snippets need investigation.
 
+#### 3e. Surface any unanticipated legal risk — do not stop at 3a–3d
+Checks 3a–3d are the common cases, not a closed list. If you notice anything else a lawyer would
+genuinely want to know before accepting — an unusual grant or restriction buried in a file, a
+license that contradicts the project's own stated terms, inconsistent copyright or ownership claims,
+relicensing or dual-licensing language, or wording that hints at undisclosed third-party or
+proprietary code — raise it even though no earlier check asked for it. Catching the important thing
+the checklist did not anticipate is the main objective of the review.
+
+Hold it to the same bar as any other finding: a concrete, evidence-backed concern in hedged wording
+("appears to", "may indicate"), citing the file (confirm with `cavil_get_file` before you write it).
+Do not manufacture issues — "nothing beyond the standard checks" is a valid and common outcome. But
+a **material** unanticipated risk must be called out on its own line in the summary (see Step 4) and
+must drive the recommendation (NEEDS HUMAN REVIEW, or REJECT if it clearly blocks); never ACCEPT
+around it.
+
 ### Step 4 — Prepare findings summary
 Before taking any action, present a clear, concise summary to the user structured as follows:
 
@@ -185,11 +200,14 @@ Before taking any action, present a clear, concise summary to the user structure
 <For each unresolved match (or group of similar ones):>
 - Snippet <id> in <file>: <brief description of what it appears to be> — [LOW / MEDIUM / HIGH risk]
 
+**Additional Risks (outside the standard checks)**: <any legally material finding from 3e, with file/snippet — or "None">
+
 **Overall Assessment**: [ACCEPT / REJECT / NEEDS HUMAN REVIEW]
 **Reasoning**: <2–3 sentences explaining the recommendation>
 ```
 
 Let the risk levels and flags from 3b steer the lean:
+- **A material unanticipated risk (3e)** → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Give it its own line in the summary and cite it in the reasoning.
 - **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
 - **Risk 5** (managed obligations — AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
@@ -199,7 +217,7 @@ Let the risk levels and flags from 3b steer the lean:
 When a risk level or flag drives the recommendation, cite it in the reasoning and the breakdown table's Notes column (e.g. `AGPL-3.0-only (risk 5, network copyleft)`, `mmap-License [flags: Patent]`).
 
 Use your judgment:
-- **ACCEPT**: Declared license is correct, licenses are compatible with SLE (risk 1–4, no blocking flags), and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant) — and you say so.
+- **ACCEPT**: Declared license is correct, licenses are compatible with SLE (risk 1–4, no blocking flags), and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant) — and you say so. No material unanticipated risk (3e) surfaced.
 - **REJECT**: Undeclared problematic licenses found, declared-license mismatch that is a genuine bad-license case (not fixable metadata), a **confirmed combined-work license incompatibility**, risk 6/7 or third-party proprietary-EULA content, or unresolved matches that suggest serious license issues
 - **NEEDS HUMAN REVIEW**: Ambiguous or complex situations, risk 5 / EULA / patent / export considerations you cannot resolve, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation — let a human legal expert decide
 
