@@ -61,15 +61,6 @@
               </a>
             </dd>
           </template>
-          <template v-if="history.length > 0">
-            <dt>History</dt>
-            <dd>
-              <a href="#history" class="report-metadata-collapse-link" data-bs-toggle="collapse">
-                <span v-if="history.length === 1">1 other review</span>
-                <span v-else>{{ history.length }} other reviews</span>
-              </a>
-            </dd>
-          </template>
           <template v-if="externalLink !== null">
             <dt>Link</dt>
             <dd><ExternalLink :link="externalLink" /></dd>
@@ -166,19 +157,6 @@
             <span class="metadata-related-pill">{{ action.state }}</span>
             <span class="metadata-related-user">{{ action.reviewing_user }}</span>
             <a :href="action.actionUrl" class="metadata-related-date" target="_blank">{{ action.created }}</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-    <div v-if="history.length > 0" class="collapse" id="history">
-      <div class="metadata-collapse-inner">
-        <ul class="metadata-related-list">
-          <li v-for="prev in history" :key="prev.id" class="metadata-related-item">
-            <span class="metadata-related-name"><ExternalLink :link="prev.externalLink" /></span>
-            <span class="metadata-related-pill">{{ prev.result }}</span>
-            <span class="metadata-related-pill">{{ prev.state }}</span>
-            <span class="metadata-related-user">{{ prev.reviewing_user }}</span>
-            <a :href="prev.reportUrl" class="metadata-related-date" target="_blank">{{ prev.created }}</a>
           </li>
         </ul>
       </div>
@@ -346,7 +324,6 @@ export default {
       externalLink: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       hasSpdxReport: false,
-      history: [],
       legalReviewNotices: [],
       notice: null,
       pkgAiAssisted: false,
@@ -449,13 +426,6 @@ export default {
       for (const action of this.actions) {
         action.created = moment(action.created * 1000).fromNow();
         action.actionUrl = `/reviews/details/${action.id}`;
-      }
-
-      this.history = data.history;
-      for (const prev of this.history) {
-        prev.created = moment(prev.created * 1000).fromNow();
-        prev.externalLink = prev.external_link_data ?? prev.external_link;
-        prev.reportUrl = `/reviews/details/${prev.id}`;
       }
 
       this.pkgFiles = data.package_files;

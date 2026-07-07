@@ -237,20 +237,7 @@ sub _package_summary ($c, $id) {
   my $requests = $pkgs->requests_for($id);
   my $products = $c->products->for_package($id);
 
-  my $config  = $c->app->config;
-  my $history = [];
-  for my $prev (@{$pkgs->history($pkg->{name}, $pkg->{checksum}, $id)}) {
-    my $entry = {
-      created            => $prev->{created_epoch},
-      external_link      => $prev->{external_link},
-      external_link_data => external_link_data($prev->{external_link}, $config->{external_link_sources}),
-      id                 => $prev->{id},
-      result             => $prev->{result} // '',
-      reviewing_user     => $prev->{login}  // '',
-      state              => $prev->{state}
-    };
-    push @$history, $entry;
-  }
+  my $config = $c->app->config;
 
   my $actions = [];
   for my $action (@{$pkgs->actions($pkg->{external_link}, $id)}) {
@@ -295,7 +282,6 @@ sub _package_summary ($c, $id) {
     external_link        => $pkg->{external_link},
     external_link_data   => external_link_data($pkg->{external_link}, $config->{external_link_sources}),
     has_spdx_report      => \!!$has_spdx_report,
-    history              => $history,
     id                   => $pkg->{id},
     legal_review_notices => \@legal_review_notices,
     notice               => $pkg->{notice},
