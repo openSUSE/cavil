@@ -176,14 +176,23 @@ running one is as simple as typing a short command at the agent prompt.
   future reviews of similar packages have fewer false positives. The proposals still need a human to approve them in
   the admin UI.
 
+- **[cavil-license-research](../examples/skills/cavil-license-research/)** — researches a single license that Cavil does
+  not recognise yet — a license name, an unfamiliar SPDX identifier, or the license text behind an unresolved snippet —
+  and writes an advisory assessment that recommends where it belongs on Cavil's risk scale, which flags it should carry,
+  and what a lawyer should still check, all backed by cited sources. Use it before teaching Cavil a new license, for
+  example when a **Missing Licenses** report names an identifier you don't know. **The skill never writes anything to
+  Cavil** — you still author the pattern and set the risk yourself. Because it only reads, this is the one bundled skill
+  that works with a **read-only** API key.
+
 #### Setting up a skill on your own laptop
 
 You can do this end to end yourself. Three one-time steps:
 
 1. **Create a Cavil API key.** Log into the Cavil web UI, open your user menu, click **API Keys**, and create a
-   **read-write** key — all three bundled skills need to write something back (notes, decisions, or pattern proposals).
-   Copy the generated key somewhere safe and treat it like a password. Anything the AI does with this key shows up
-   under your name in Cavil, so don't share it.
+   **read-write** key — three of the bundled skills write something back (notes, decisions, or pattern proposals), and a
+   read-write key also works for the read-only `cavil-license-research`, so one key covers them all. Copy the generated
+   key somewhere safe and treat it like a password. Anything the AI does with this key shows up under your name in
+   Cavil, so don't share it.
 
 2. **Install an AI agent that supports MCP.** Pick one from the [3rd Party MCP Clients](#3rd-party-mcp-clients) section
    below. Claude Code is the easiest starting point for most reviewers — its install page at
@@ -192,7 +201,8 @@ You can do this end to end yourself. Three one-time steps:
    command for Claude Code, similar one-liners for Gemini CLI, opencode, and goose).
 
 3. **Download the skill folders and put them in the right place.** From the [Cavil GitHub repository](https://github.com/openSUSE/cavil)
-   you need the three folders under `examples/skills/`: `cavil-review-note`, `cavil-review`, and `cavil-refine`. The
+   you need the four folders under `examples/skills/`: `cavil-review-note`, `cavil-review`, `cavil-refine`, and
+   `cavil-license-research`. The
    easiest way to grab them is to download the repository as a ZIP (the green "Code" button on GitHub → "Download ZIP"),
    unzip it, and then move each folder into your agent's skills directory:
 
@@ -203,7 +213,8 @@ You can do this end to end yourself. Three one-time steps:
      faster than this doc; the rest of the workflow is identical.
 
 After those three steps, restart the agent. Every time you launch it from then on it picks the skill up automatically.
-You invoke it by typing `/cavil-review-note` (or `/cavil-review`, `/cavil-refine`) followed by what you'd like reviewed.
+You invoke it by typing `/cavil-review-note` (or `/cavil-review`, `/cavil-refine`, `/cavil-license-research`) followed by
+what you'd like reviewed.
 
 **Troubleshooting.** If `/cavil-review-note` doesn't appear in the agent's auto-complete, the most common causes are
 (a) the folder name is wrong (it must match exactly, including the dash), (b) the folder is in the wrong place
@@ -253,7 +264,7 @@ This is the explicit "redo" override. Without that phrase the agent assumes the 
 note header) and marked **AI assisted** (the blue badge). Click any note for the full body. Notes are advisory only —
 nothing changes the package state until a human reviewer accepts or rejects it in the normal UI.
 
-#### Example uses for the other two skills
+#### Example uses for the other three skills
 
 **cavil-review (interactive single-package review).** When you have decided to actually finish a review at your desk:
 
@@ -272,6 +283,24 @@ the AI to propose pattern fixes that an admin can later approve:
 ```
 
 The proposals show up in the Cavil admin UI for review, just as if a contributor had submitted them.
+
+**cavil-license-research (assess an unfamiliar license).** When you hit a license Cavil doesn't know yet — say a
+**Missing Licenses** report names an SPDX identifier you're not sure how to rate — and you want a researched
+recommendation before you author the pattern:
+
+```
+/cavil-license-research what risk level should SSPL-1.0 get?
+```
+
+You can also point it at the unresolved snippet that raised the question:
+
+```
+/cavil-license-research identify and assess the license in the missing-license report for package 472890
+```
+
+The agent researches the license on the web, reads its actual text, and writes back an assessment with a recommended
+risk level and flags, the reasoning, and its sources. Nothing is written to Cavil — you take the recommendation into the
+pattern editor and set the risk yourself.
 
 #### Finding a package id
 
