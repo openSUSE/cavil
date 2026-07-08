@@ -128,6 +128,11 @@ subtest 'composer' => sub {
   my $v1 = detect('vendor/composer/installed.json', 'composer/installed-v1.json');
   is $v1->[0]{purl},    'pkg:composer/symfony/console@v3.4.0', 'Composer 1 bare-array format parsed';
   is $v1->[0]{license}, 'MIT OR Apache-2.0',                   'multiple licenses joined';
+
+  # The vendor directory is configurable; Nextcloud renames it to "3rdparty/". Detection keys on the stable
+  # "composer/installed.json" suffix, not a literal "vendor/".
+  my $renamed = detect('nextcloud/3rdparty/composer/installed.json', 'composer/installed-v2.json');
+  is scalar(@$renamed), 2, 'installed.json under a renamed vendor dir is still detected';
 };
 
 subtest 'nuget' => sub {

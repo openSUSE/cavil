@@ -6,10 +6,11 @@ use Mojo::Base -base, -signatures;
 
 use Mojo::JSON qw(decode_json);
 
-# "composer install" records every installed PHP package in vendor/composer/installed.json, so its presence
-# means the packages are physically vendored. This is the safe source (unlike composer.lock, which sits at
-# the project root even when nothing is vendored).
-sub files ($self) { return (qr{(?:^|/)vendor/composer/installed\.json$}) }
+# "composer install" records every installed PHP package in "<vendor-dir>/composer/installed.json", so its
+# presence means the packages are physically vendored. This is the safe source (unlike composer.lock, which
+# sits at the project root even when nothing is vendored). The vendor directory is configurable and often
+# renamed (Nextcloud uses "3rdparty/"), so match the stable "composer/installed.json" suffix, not "vendor/".
+sub files ($self) { return (qr{(?:^|/)composer/installed\.json$}) }
 
 # The file lists other packages, not the package it lives in, so it is never the primary artifact and must
 # be read even when it sits near the source root (mirrors Go's vendor/modules.txt)
