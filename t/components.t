@@ -146,6 +146,10 @@ subtest 'nuget' => sub {
 
   is detect('a/legacy.nuspec', 'nuget/licenseurl.nuspec')->[0]{license}, undef,
     'a licenseUrl-only nuspec leaves the license for backfill';
+
+  # A .nuspec is also a build template; source trees ship it with unresolved $token$ placeholders
+  is_deeply detect('antlr4/runtime/Cpp/runtime/nuget/ANTLR4.Runtime.cpp.static.nuspec', 'nuget/template.nuspec'), [],
+    'a nuspec template with placeholder id/version is not a component';
 };
 
 subtest 'rubygems' => sub {
