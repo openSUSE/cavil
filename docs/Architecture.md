@@ -257,14 +257,16 @@ License *text* is never used as a substitute for an identifier, as the guideline
 ### Bundled components
 
 Modern packages frequently *vendor* their dependencies — a single source package can carry hundreds or thousands of
-npm, Rust, Go, Java or Python modules copied straight into the tree. These are shipped to the user, so under the CRA
-they are part of what must be inventoried, yet they appear in neither the RPM spec file nor a naive file listing. Cavil
-detects them and lists each as a component of the package.
+npm, Rust, Go, Java, Python, PHP, .NET or Ruby modules copied straight into the tree. These are shipped to the user, so
+under the CRA they are part of what must be inventoried, yet they appear in neither the RPM spec file nor a naive file
+listing. Cavil detects them and lists each as a component of the package.
 
 Detection is **content-based**. Every ecosystem ships a self-describing metadata file inside each installed module (npm
-`package.json`, Rust `Cargo.toml`, Python `*.dist-info/METADATA`, Java `pom.properties`, Go `vendor/modules.txt`, …).
-Cavil reads that file's *contents* to learn the component's name, version and declared license — so detection works no
-matter how deeply the module is buried or how the packaging tools renamed the directory. That last point matters in
+`package.json`, Rust `Cargo.toml`, Python `*.dist-info/METADATA`, Java `pom.properties`, Go `vendor/modules.txt`, PHP
+`vendor/composer/installed.json`, .NET `*.nuspec`, Ruby `specifications/*.gemspec`, …).
+Cavil reads that file's *contents* to learn the component's name, version and declared license (where a manifest is
+executable code, such as a Ruby gemspec, the name and version come from its standardized filename instead) — so
+detection works no matter how deeply the module is buried or how the packaging tools renamed the directory. That last point matters in
 practice: vendored trees routinely end up under obscured names such as `node_modules.obscpio._/package._1/`, and any
 approach that relied on directory names would miss them. Each component is identified by a
 [package URL (purl)](https://github.com/package-url/purl-spec), the standard identifier for cross-referencing against

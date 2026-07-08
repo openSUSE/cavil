@@ -116,6 +116,62 @@ subtest 'go' => sub {
     'replace directives resolved to the vendored identity';
 };
 
+subtest 'composer' => sub {
+  my $v2 = detect('app/vendor/composer/installed.json', 'composer/installed-v2.json');
+  is_deeply [sort map { $_->{purl} } @$v2], ['pkg:composer/monolog/monolog@2.9.1', 'pkg:composer/psr/log@1.1.4'],
+    'installed.json lists every vendored package';
+  my ($monolog) = grep { $_->{name} eq 'monolog/monolog' } @$v2;
+  is $monolog->{type},    'composer', 'ecosystem recorded';
+  is $monolog->{version}, '2.9.1',    'version from installed.json';
+  is $monolog->{license}, 'MIT',      'license from installed.json';
+
+  my $v1 = detect('vendor/composer/installed.json', 'composer/installed-v1.json');
+  is $v1->[0]{purl},    'pkg:composer/symfony/console@v3.4.0', 'Composer 1 bare-array format parsed';
+  is $v1->[0]{license}, 'MIT OR Apache-2.0',                   'multiple licenses joined';
+};
+
+subtest 'nuget' => sub {
+  is_deeply detect('x/Newtonsoft.Json.13.0.3.nupkg/Newtonsoft.Json.nuspec', 'nuget/expression.nuspec'),
+    [
+    {
+      type    => 'nuget',
+      name    => 'Newtonsoft.Json',
+      version => '13.0.3',
+      purl    => 'pkg:nuget/Newtonsoft.Json@13.0.3',
+      license => 'MIT',
+      source  => 'x/Newtonsoft.Json.13.0.3.nupkg/Newtonsoft.Json.nuspec'
+    }
+    ],
+    'id, version and SPDX license expression';
+
+  is detect('a/legacy.nuspec', 'nuget/licenseurl.nuspec')->[0]{license}, undef,
+    'a licenseUrl-only nuspec leaves the license for backfill';
+};
+
+subtest 'rubygems' => sub {
+  is_deeply detect('vendor/bundle/ruby/3.1.0/specifications/net-http-0.3.2.gemspec', 'rubygems/net-http.gemspec'),
+    [
+    {
+      type    => 'gem',
+      name    => 'net-http',
+      version => '0.3.2',
+      purl    => 'pkg:gem/net-http@0.3.2',
+      license => 'MIT OR Ruby',
+      source  => 'vendor/bundle/ruby/3.1.0/specifications/net-http-0.3.2.gemspec'
+    }
+    ],
+    'installed gemspec: hyphenated name split correctly, licenses from body';
+
+  # A cached gem: Cavil unpacks the .gem and drops the extension, so the metadata is at <name-version>/metadata;
+  # identity comes from its content (a YAML gemspec)
+  my $cached = detect('vendor/cache/rack-3.0.0/metadata', 'rubygems/metadata');
+  is $cached->[0]{purl},    'pkg:gem/rack@3.0.0', 'cached gem metadata parsed by content';
+  is $cached->[0]{license}, 'MIT',                'license from the YAML metadata';
+
+  my $junk = "foo: bar\nbaz: 1\n";
+  is_deeply $registry->detect_file('x/metadata', \$junk), [], 'a non-gem "metadata" file is ignored';
+};
+
 subtest 'Identity comes from content, not path' => sub {
   my $obscured = detect('node_modules.obscpio._/package._1/package.json', 'npm/normal.json');
   is $obscured->[0]{name},    'left-pad',               'obscured directory names are irrelevant';

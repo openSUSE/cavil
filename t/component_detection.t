@@ -59,6 +59,14 @@ subtest 'Detection through the real unpack/index pipeline' => sub {
   ok $by_purl{'pkg:npm/no-license-mod@2.0.0'}, 'license-less module still detected';
   is $by_purl{'pkg:npm/no-license-mod@2.0.0'}{license}, 'MIT', 'license backfilled from Cavil detection';
 
+  # Composer, NuGet and Ruby vendored components, each from its ecosystem's canonical install artifact
+  ok $by_purl{'pkg:composer/guzzlehttp/guzzle@7.8.1'}, 'composer package from vendor/composer/installed.json';
+  is $by_purl{'pkg:composer/guzzlehttp/guzzle@7.8.1'}{license}, 'MIT', 'composer license from installed.json';
+  ok $by_purl{'pkg:nuget/Serilog@3.1.1'}, 'nuget package from a nested .nuspec';
+  is $by_purl{'pkg:nuget/Serilog@3.1.1'}{license}, 'Apache-2.0', 'nuget SPDX license expression';
+  ok $by_purl{'pkg:gem/rack@3.0.0'}, 'ruby gem from an installed specifications/*.gemspec';
+  is $by_purl{'pkg:gem/rack@3.0.0'}{license}, 'MIT', 'ruby license from the gemspec';
+
   # A directory holding one licensed and one unlicensed component is ambiguous: the license Cavil detects
   # there must NOT be cross-attributed to the unlicensed component
   ok $by_purl{'pkg:npm/mixed-npm@1.0.0'}, 'licensed component in a mixed directory detected';

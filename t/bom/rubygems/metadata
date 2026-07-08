@@ -1,0 +1,7 @@
+--- !ruby/object:Gem::Specification
+name: rack
+version: !ruby/object:Gem::Version
+  version: 3.0.0
+platform: ruby
+licenses:
+- MIT

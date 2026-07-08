@@ -25,6 +25,7 @@ sub run ($self, @args) {
           product       => $in_product ? $row->{product} : '',
           external_link => $in_product ? ''              : ($row->{external_link} // ''),
           package       => $row->{package},
+          checksum      => $row->{checkout_dir},
           source        => $row->{source},
           component     => $row->{component},
           version       => $row->{version} // ''
@@ -51,9 +52,10 @@ Cavil::Command::component - Cavil component command
 
   Options:
         --export   Stream every detected vendored component as JSON Lines (one object per line), with
-                   its product (or external_link when the package is in no product), package name,
-                   ecosystem (source), component name and version. Embargoed and obsolete packages are
-                   excluded.
+                   its product (or external_link when the package is in no product), package name and
+                   checksum (the source-hosting checksum that, with the name, uniquely identifies the
+                   package), ecosystem (source), component name and version. Embargoed and obsolete
+                   packages are excluded.
     -h, --help     Show this summary of available options
 
 =cut

@@ -9,12 +9,16 @@ use Cavil::Bom::Detector::Cargo;
 use Cavil::Bom::Detector::Pypi;
 use Cavil::Bom::Detector::Maven;
 use Cavil::Bom::Detector::Go;
+use Cavil::Bom::Detector::Composer;
+use Cavil::Bom::Detector::Nuget;
+use Cavil::Bom::Detector::Rubygems;
 
 # One detector per ecosystem; adding an ecosystem is a new module plus a line here
 has detectors => sub ($self) {
   [
     Cavil::Bom::Detector::Npm->new,   Cavil::Bom::Detector::Cargo->new, Cavil::Bom::Detector::Pypi->new,
-    Cavil::Bom::Detector::Maven->new, Cavil::Bom::Detector::Go->new
+    Cavil::Bom::Detector::Maven->new, Cavil::Bom::Detector::Go->new,    Cavil::Bom::Detector::Composer->new,
+    Cavil::Bom::Detector::Nuget->new, Cavil::Bom::Detector::Rubygems->new
   ];
 };
 

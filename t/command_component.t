@@ -91,6 +91,13 @@ subtest 'component --export' => sub {
   # Excluded packages
   ok !$by_pkg{'embargoed-pkg'}, 'embargoed package is excluded';
   ok !$by_pkg{'obsolete-pkg'},  'obsolete package is excluded';
+
+  # Each record carries the checksum (the source-hosting checksum that, with the name, uniquely
+  # identifies the package)
+  my %checksum;
+  $checksum{$_->{package}} = $_->{checksum} for @records;
+  is $checksum{'in-products'}, 'a' x 32, 'record carries the package checksum';
+  is $checksum{'devel-only'},  'b' x 32, 'checksum present for the non-product package too';
 };
 
 done_testing;

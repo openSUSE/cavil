@@ -508,7 +508,7 @@ sub export_components ($self, $cb) {
   $db->query(
     q{
     DECLARE cavil_component_export NO SCROLL CURSOR FOR
-      SELECT p.name AS package, p.external_link AS external_link,
+      SELECT p.name AS package, p.checkout_dir AS checkout_dir, p.external_link AS external_link,
              pc.type AS source, pc.name AS component, pc.version AS version,
              prod.name AS product
         FROM package_components pc

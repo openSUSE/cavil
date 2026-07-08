@@ -12,8 +12,8 @@
 * 28.000 curated patterns for 2000 license combinations with 500 distinct [SPDX](https://spdx.dev) expressions
 * Software Bill of Materials (SBOM) generation in SPDX 3.0.1 format, compliant with the EU Cyber Resilience Act (CRA)
   as specified by [BSI TR-03183-2](https://www.bsi.bund.de/dok/TR-03183-en)
-* Detection of vendored/bundled subcomponents (npm, Cargo, PyPI, Maven, Go) shipped inside packages, surfaced in the
-  SBOM and the review report
+* Detection of vendored/bundled subcomponents (npm, Cargo, PyPI, Maven, Go, Composer, NuGet, RubyGems) shipped inside
+  packages, surfaced in the SBOM and the review report
 * Package and component (purl) search, plus a component export, for supply-chain and vulnerability triage
 * Legal risk assessments by lawyers for every pattern match
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
