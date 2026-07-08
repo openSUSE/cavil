@@ -18,12 +18,14 @@ sub parse ($self, $path, $content) {
   my $version = _text($meta->at('version'));
   return [] unless defined $name && length $name && defined $version && length $version;
 
-  # A .nuspec doubles as a build template that ships in source trees with unresolved placeholder tokens,
-  # e.g. id "ANTLR4.Runtime.cpp.vs$vs$.static", version "$version$$pre$". Accept only a real NuGet id
-  # (alphanumerics, dot, hyphen, underscore) and a version that starts with a digit, so templates are
-  # ignored instead of reported as bogus components.
+  # A .nuspec doubles as a build template that ships in source trees with the real id/version filled in at
+  # "nuget pack" time. Reject those templates: an id must be a real NuGet id (alphanumerics, dot, hyphen,
+  # underscore, so token forms like "ANTLR4.Runtime.cpp.vs$vs$.static" are out), a version must start with
+  # a digit (rejects "$version$$pre$"), and an all-zero version like "0.0.0"/"0.0.0.0" is a placeholder
+  # (seen in CPython's and OpenTelemetry's packaging templates), never a shipped package.
   return [] unless $name    =~ /^[A-Za-z0-9._-]+$/;
   return [] unless $version =~ /^[0-9][0-9A-Za-z.+-]*$/;
+  return [] if $version =~ /^0(?:\.0)*$/;
 
   return [
     {

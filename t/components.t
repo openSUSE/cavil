@@ -155,6 +155,10 @@ subtest 'nuget' => sub {
   # A .nuspec is also a build template; source trees ship it with unresolved $token$ placeholders
   is_deeply detect('antlr4/runtime/Cpp/runtime/nuget/ANTLR4.Runtime.cpp.static.nuspec', 'nuget/template.nuspec'), [],
     'a nuspec template with placeholder id/version is not a component';
+
+  # ...and other templates use an all-zero placeholder version (seen in CPython/OpenTelemetry packaging)
+  is_deeply detect('Python-3.12/Tools/nuget/python.nuspec', 'nuget/zeroversion.nuspec'), [],
+    'a nuspec with an all-zero placeholder version is not a component';
 };
 
 subtest 'rubygems' => sub {

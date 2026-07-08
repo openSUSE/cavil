@@ -64,8 +64,12 @@ subtest 'Detection through the real unpack/index pipeline' => sub {
   is $by_purl{'pkg:composer/guzzlehttp/guzzle@7.8.1'}{license}, 'MIT', 'composer license from installed.json';
   ok $by_purl{'pkg:nuget/Serilog@3.1.1'}, 'nuget package from a nested .nuspec';
   is $by_purl{'pkg:nuget/Serilog@3.1.1'}{license}, 'Apache-2.0', 'nuget SPDX license expression';
-  ok $by_purl{'pkg:gem/rack@3.0.0'}, 'ruby gem from an installed specifications/*.gemspec';
-  is $by_purl{'pkg:gem/rack@3.0.0'}{license}, 'MIT', 'ruby license from the gemspec';
+
+  # This gemspec has a long line, so Cavil postprocesses it and lists only "rack-3.0.0.processed.gemspec"
+  # to the indexer; detection must still find it by reading the original file (regression for the
+  # .processed handling that affects every ecosystem, e.g. a composer installed.json with one long line)
+  ok $by_purl{'pkg:gem/rack@3.0.0'}, 'ruby gem detected even when the metadata file was postprocessed';
+  is $by_purl{'pkg:gem/rack@3.0.0'}{license}, 'MIT', 'license read from the original, not the split copy';
 
   # A directory holding one licensed and one unlicensed component is ambiguous: the license Cavil detects
   # there must NOT be cross-attributed to the unlicensed component

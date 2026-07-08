@@ -146,7 +146,16 @@ sub _single_unpacked_root ($dir) {
 # Recognise a vendored component from its embedded metadata file (e.g. package.json, Cargo.toml). Identity
 # comes from the file content, so obscured/renamed/deep directory names do not matter.
 sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
-  return unless $registry->matches($path);
+
+  # The scanner re-emits any over-long-lined text file as "<name>.processed.<ext>" and lists only that
+  # variant to the indexer (Cavil::PostProcess), so a metadata file with one long line (common in a
+  # composer installed.json) would otherwise be invisible here. Detect on the canonical name and read the
+  # original file (kept on disk) - never the processed copy, whose injected line breaks corrupt structured
+  # metadata such as JSON.
+  (my $orig = $path) =~ s{\.processed(\.[^./]+)$}{$1};
+  $orig =~ s{\.processed$}{};
+
+  return unless $registry->matches($orig);
 
   # A package manifest (package.json, Cargo.toml, ...) that describes the primary artifact under review
   # must not be reported as a vendored subcomponent, or the SBOM lists the package as a dependency of
@@ -160,16 +169,16 @@ sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
   # metadata inside a <name>.egg-info/ or <name>.dist-info/ directory, so the package root is one level
   # up from the metadata file - otherwise a project's own PKG-INFO/METADATA would sit at depth 2 and
   # self-list. For every other ecosystem the package root is simply the manifest's own directory.
-  my $root = $path =~ s{/[^/]*$}{}r;
+  my $root = $orig =~ s{/[^/]*$}{}r;
   $root =~ s{(?:^|/)[^/]+\.(?:egg-info|dist-info)$}{};
   my $depth = $root eq '' ? 0 : ($root =~ tr{/}{}) + 1;
-  return if $registry->is_self_manifest($path) && ($depth == 0 || ($depth == 1 && $single_root));
+  return if $registry->is_self_manifest($orig) && ($depth == 0 || ($depth == 1 && $single_root));
 
-  my $file = $fi->dir->child('.unpacked', $path);
+  my $file = $fi->dir->child('.unpacked', $orig);
   return unless -f $file && -s $file < 4_000_000;
   return unless defined(my $content = eval { $file->slurp });
 
-  $meta->{components}{$_->{purl}} //= $_ for @{$registry->detect_file($path, \$content)};
+  $meta->{components}{$_->{purl}} //= $_ for @{$registry->detect_file($orig, \$content)};
 }
 
 sub _index_later ($job, $id) {
