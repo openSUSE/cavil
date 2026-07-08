@@ -10,7 +10,10 @@ use Mojo::Base -base, -signatures;
 #      drops the extension; "metadata" is a YAML gemspec). The generic "metadata" filename is confirmed by
 #      the Gem::Specification content signature in parse(), so unrelated "metadata" files are ignored.
 sub files ($self) {
-  return (qr{(?:^|/)specifications/[^/]+\.gemspec$}, qr{(?:^|/)metadata$});
+
+  # Installed gemspecs live in "specifications/"; the Ruby/JRuby runtime's built-in gems live one level
+  # deeper in "specifications/default/" - both are shipped, so match either.
+  return (qr{(?:^|/)specifications/(?:default/)?[^/]+\.gemspec$}, qr{(?:^|/)metadata$});
 }
 
 sub parse ($self, $path, $content) {

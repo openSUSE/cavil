@@ -183,6 +183,11 @@ subtest 'rubygems' => sub {
 
   my $junk = "foo: bar\nbaz: 1\n";
   is_deeply $registry->detect_file('x/metadata', \$junk), [], 'a non-gem "metadata" file is ignored';
+
+  # Runtime "default" gems live in specifications/default/
+  my $rt = qq{Gem::Specification.new do |s|\n  s.license = "Ruby"\nend\n};
+  is $registry->detect_file('vendor/jruby/lib/ruby/gems/shared/specifications/default/rake-10.1.0.gemspec', \$rt)
+    ->[0]{purl}, 'pkg:gem/rake@10.1.0', 'a runtime default gem is detected';
 };
 
 subtest 'Identity comes from content, not path' => sub {
