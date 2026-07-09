@@ -13,6 +13,20 @@
         <i class="fa-solid fa-scale-balanced"></i> Report
       </button>
       <button
+        v-if="components.length > 0"
+        type="button"
+        class="report-tab"
+        :class="{active: activeTab === 'components'}"
+        role="tab"
+        :aria-selected="activeTab === 'components'"
+        data-tab="components"
+        @click="setActiveTab('components')"
+      >
+        <i class="fa-solid fa-cubes"></i>
+        Components
+        <span class="report-tab-badge" data-component-count>{{ components.length }}</span>
+      </button>
+      <button
         type="button"
         class="report-tab"
         :class="{active: activeTab === 'notes'}"
@@ -297,65 +311,6 @@
               </div>
             </div>
           </div>
-
-          <div v-if="components.length > 0" class="report-artifact-section">
-            <h2 class="report-artifact-heading">
-              <a
-                href="#components"
-                class="report-artifact-label collapsed"
-                data-bs-toggle="collapse"
-                aria-expanded="false"
-                aria-controls="components"
-              >
-                <i class="fa-solid fa-cubes"></i>
-                {{ components.length }} {{ components.length === 1 ? 'Component' : 'Components' }}
-              </a>
-            </h2>
-            <div class="collapse" id="components">
-              <ul class="report-artifact-list">
-                <li
-                  v-for="component in components"
-                  :key="component.purl"
-                  class="report-artifact-item report-component-item"
-                >
-                  <a
-                    v-if="component.file_url"
-                    :href="component.file_url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="report-component-name"
-                    title="Open component file in a new tab"
-                  >
-                    {{ component.name
-                    }}<span v-if="component.version" class="report-component-version">@{{ component.version }}</span>
-                  </a>
-                  <span v-else class="report-component-name">
-                    {{ component.name
-                    }}<span v-if="component.version" class="report-component-version">@{{ component.version }}</span>
-                  </span>
-                  <span
-                    v-if="component.license_html"
-                    class="report-component-license"
-                    v-html="component.license_html"
-                  ></span>
-                  <span v-else class="report-component-license"></span>
-                  <span class="report-component-ecosystem">{{ component.type }}</span>
-                  <a
-                    v-if="component.search_url"
-                    :href="component.search_url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="report-component-search"
-                    title="Find other packages that ship this component"
-                    aria-label="Find other packages that ship this component"
-                    ><i class="fa-solid fa-magnifying-glass"></i
-                  ></a>
-                  <span v-else></span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
           <div v-if="emails.length > 0" class="report-artifact-section">
             <h2 class="report-artifact-heading">
               <a
@@ -406,6 +361,121 @@
         </div>
         <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
         <GlobProposalModal ref="globProposalModal" @submit="onGlobProposalSubmit" />
+      </div>
+      <div
+        v-if="components.length > 0"
+        class="report-tab-pane"
+        :class="{'is-active': activeTab === 'components'}"
+        :aria-hidden="activeTab !== 'components'"
+        id="report-components-pane"
+        role="tabpanel"
+      >
+        <br />
+        <section
+          v-if="componentLicenseDistribution.length > 0"
+          id="component-license-chart"
+          class="license-composition-card mb-3"
+        >
+          <header class="license-composition-header">
+            <h3>Component license composition</h3>
+            <div class="license-composition-total">
+              <span class="license-composition-total-value">{{ componentLicenseChartTotal }}</span>
+              <span class="license-composition-total-label">{{
+                componentLicenseChartTotal === 1 ? 'component' : 'components'
+              }}</span>
+            </div>
+          </header>
+          <div class="license-composition-body">
+            <div class="license-composition-chart">
+              <svg
+                class="license-composition-donut"
+                viewBox="0 0 120 120"
+                :aria-label="componentLicenseChartSummary"
+                role="img"
+              >
+                <circle class="license-composition-donut-track" cx="60" cy="60" r="44" />
+                <circle
+                  v-for="entry in componentLicenseDistribution"
+                  :key="`component-slice-${entry.name}`"
+                  class="license-composition-slice"
+                  cx="60"
+                  cy="60"
+                  r="44"
+                  pathLength="100"
+                  :stroke="entry.color"
+                  :stroke-dasharray="`${entry.share} ${100 - entry.share}`"
+                  :stroke-dashoffset="-entry.offset"
+                  tabindex="0"
+                  :aria-label="licenseChartSliceLabel(entry)"
+                  @blur="hideLicenseChartTooltip"
+                  @focus="showLicenseChartTooltip(entry, $event)"
+                  @pointerenter="showLicenseChartTooltip(entry, $event)"
+                  @pointerleave="hideLicenseChartTooltip"
+                  @pointermove="moveLicenseChartTooltip($event)"
+                ></circle>
+              </svg>
+              <div v-if="dominantComponentLicense" class="license-composition-chart-label">
+                <b>{{ dominantComponentLicense.percent }}%</b>
+                <span v-html="dominantComponentLicense.name_html"></span>
+              </div>
+              <div
+                v-if="licenseChartTooltip"
+                class="license-composition-tooltip"
+                :style="{left: `${licenseChartTooltip.x}px`, top: `${licenseChartTooltip.y}px`}"
+              >
+                <b>{{ licenseChartTooltip.percent }}%</b>
+                <span>{{ licenseChartTooltip.name }}</span>
+              </div>
+            </div>
+            <ol class="license-composition-list">
+              <li v-for="entry in componentLicenseDistribution" :key="entry.name" class="license-composition-item">
+                <div class="license-composition-item-header">
+                  <span class="license-composition-swatch" :style="{backgroundColor: entry.color}"></span>
+                  <span class="license-composition-name" v-html="entry.name_html"></span>
+                  <span class="license-composition-percent">{{ entry.percent }}%</span>
+                </div>
+                <div class="license-composition-meter" aria-hidden="true">
+                  <span :style="{width: `${entry.share}%`, backgroundColor: entry.color}"></span>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <ul class="report-artifact-list report-component-list">
+          <li v-for="component in components" :key="component.purl" class="report-artifact-item report-component-item">
+            <a
+              v-if="component.file_url"
+              :href="component.file_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="report-component-name"
+              title="Open component file in a new tab"
+            >
+              {{ component.name
+              }}<span v-if="component.version" class="report-component-version">@{{ component.version }}</span>
+            </a>
+            <span v-else class="report-component-name">
+              {{ component.name
+              }}<span v-if="component.version" class="report-component-version">@{{ component.version }}</span>
+            </span>
+            <span v-if="component.license_html" class="report-component-license" v-html="component.license_html"></span>
+            <span v-else class="report-component-license"></span>
+            <span class="report-component-ecosystem">{{ component.type }}</span>
+            <a
+              v-if="component.search_url"
+              :href="component.search_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="report-component-search"
+              title="Find other packages that ship this component"
+              aria-label="Find other packages that ship this component"
+              ><i class="fa-solid fa-magnifying-glass"></i
+            ></a>
+            <span v-else></span>
+          </li>
+        </ul>
+        <br />
       </div>
       <div
         class="report-tab-pane"
@@ -469,6 +539,7 @@ import {Modal} from 'bootstrap';
 let pendingActionIdSeq = 0;
 let openEditorKeySeq = 0;
 const LICENSE_CHART_COLORS = ['#0969da', '#1a7f37', '#9a6700', '#cf222e', '#8250df', '#bf3989', '#57606a', '#2da44e'];
+const COMPONENT_LICENSE_CHART_LIMIT = 7;
 
 export default {
   name: 'ReportDetails',
@@ -534,38 +605,41 @@ export default {
       const licenses = this.chart.licenses ?? [];
       const licensesHtml = this.chart.licenses_html ?? [];
       const files = (this.chart['num-files'] ?? []).map(value => Number(value));
-      const total = files.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
-      if (licenses.length === 0 || total === 0) return [];
-
-      let offset = 0;
-      return licenses
-        .map((name, index) => {
-          const count = Number.isFinite(files[index]) ? files[index] : 0;
-          const cleanName = this.normalizeChartLicenseName(name);
-          return {
-            name: cleanName,
-            name_html: licensesHtml[index] ?? cleanName,
-            files: count,
-            percent: Math.round((count / total) * 100),
-            share: (count / total) * 100
-          };
-        })
-        .filter(entry => entry.files > 0)
-        .sort((a, b) => b.files - a.files)
-        .map((entry, index) => {
-          const slice = {...entry, offset, color: LICENSE_CHART_COLORS[index % LICENSE_CHART_COLORS.length]};
-          offset += entry.share;
-          return slice;
-        });
+      return this.buildLicenseDistribution(
+        licenses.map((name, index) => ({
+          name: this.normalizeChartLicenseName(name),
+          name_html: licensesHtml[index] ?? this.normalizeChartLicenseName(name),
+          count: files[index]
+        }))
+      );
+    },
+    componentLicenseDistribution() {
+      const grouped = new Map();
+      for (const component of this.components) {
+        const name = String(component.license || '').trim() || 'No license detected';
+        const current = grouped.get(name) || {name, name_html: component.license_html || name, count: 0};
+        current.count += 1;
+        grouped.set(name, current);
+      }
+      return this.buildLicenseDistribution(Array.from(grouped.values()), COMPONENT_LICENSE_CHART_LIMIT);
     },
     dominantLicense() {
       return this.licenseDistribution[0] || null;
     },
+    dominantComponentLicense() {
+      return this.componentLicenseDistribution[0] || null;
+    },
     licenseChartSummary() {
       return this.licenseDistribution.map(entry => this.licenseChartSliceLabel(entry)).join(', ');
     },
+    componentLicenseChartSummary() {
+      return this.componentLicenseDistribution.map(entry => this.licenseChartSliceLabel(entry)).join(', ');
+    },
     licenseChartTotal() {
       return this.licenseDistribution.reduce((sum, entry) => sum + entry.files, 0);
+    },
+    componentLicenseChartTotal() {
+      return this.componentLicenseDistribution.reduce((sum, entry) => sum + entry.files, 0);
     },
     sortedRisks() {
       return Object.keys(this.risks).sort((a, b) => Number(b) - Number(a));
@@ -593,6 +667,47 @@ export default {
     setActiveTab(tab) {
       this.activeTab = tab;
       if (tab === 'notes') this.notesMounted = true;
+    },
+    buildLicenseDistribution(entries, limit = 0) {
+      const total = entries.reduce((sum, entry) => {
+        const count = Number(entry.count);
+        return sum + (Number.isFinite(count) ? count : 0);
+      }, 0);
+      if (entries.length === 0 || total === 0) return [];
+
+      let offset = 0;
+      const sorted = entries
+        .map(entry => {
+          const count = Number(entry.count);
+          const files = Number.isFinite(count) ? count : 0;
+          return {
+            name: entry.name,
+            name_html: entry.name_html ?? entry.name,
+            files,
+            percent: Math.round((files / total) * 100),
+            share: (files / total) * 100
+          };
+        })
+        .filter(entry => entry.files > 0)
+        .sort((a, b) => b.files - a.files || a.name.localeCompare(b.name));
+
+      const capped = limit > 0 && sorted.length > limit ? sorted.slice(0, limit) : sorted;
+      if (limit > 0 && sorted.length > limit) {
+        const miscFiles = sorted.slice(limit).reduce((sum, entry) => sum + entry.files, 0);
+        capped.push({
+          name: 'Misc',
+          name_html: 'Misc',
+          files: miscFiles,
+          percent: Math.round((miscFiles / total) * 100),
+          share: (miscFiles / total) * 100
+        });
+      }
+
+      return capped.map((entry, index) => {
+        const slice = {...entry, offset, color: LICENSE_CHART_COLORS[index % LICENSE_CHART_COLORS.length]};
+        offset += entry.share;
+        return slice;
+      });
     },
     applyInitialNoteHash() {
       // Permalink format: #note-<id>. Switch to the Notes tab on mount
@@ -693,6 +808,7 @@ export default {
       this.components = data.components;
       this.emails = data.emails;
       this.urls = data.urls;
+      if (this.components.length === 0 && this.activeTab === 'components') this.activeTab = 'review';
 
       const max = data.max_files_per_license;
       let counter = 0;
@@ -1694,6 +1810,9 @@ export default {
 .report-component-item {
   gap: 0.85rem;
   grid-template-columns: minmax(0, 1fr) auto 5rem auto;
+}
+.report-component-list {
+  border-radius: 6px;
 }
 .report-component-name {
   color: #24292f;

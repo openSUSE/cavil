@@ -215,6 +215,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
+      t.equal(await page.locator('[data-tab="components"]').count(), 0, 'components tab is hidden without components');
 
       // Chart canvas is rendered
       t.same(await page.isVisible('#license-chart'), true);
@@ -245,6 +246,71 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.click('text=53 URLs');
       await page.waitForSelector('#urls.show');
       t.match(await page.innerText('#urls'), /https?:\/\//);
+    });
+
+    await t.test('Components render in their own tab with capped license chart', async t => {
+      await page.route('**/reviews/report_details/1', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        const licenses = ['Apache-2.0', 'MIT', 'BSD-3-Clause', 'ISC', 'MPL-2.0', 'Zlib', '0BSD', 'CC0-1.0'];
+        data.components = licenses.map((license, index) => ({
+          type: 'npm',
+          name: `component-${index + 1}`,
+          version: '1.0.0',
+          purl: `pkg:npm/component-${index + 1}@1.0.0`,
+          license,
+          license_html: `<a href="/licenses/${license}">${license}</a>`,
+          file_url: `/reviews/file_view/1/component-${index + 1}/package.json`,
+          search_url: `/search?component=pkg:npm/component-${index + 1}%401.0.0`
+        }));
+        data.components.push({
+          type: 'cargo',
+          name: 'unlicensed-component',
+          version: '0.1.0',
+          purl: 'pkg:cargo/unlicensed-component@0.1.0',
+          license: null,
+          license_html: null,
+          file_url: null,
+          search_url: '/search?component=pkg:cargo/unlicensed-component%400.1.0'
+        });
+        data.components.push({
+          type: 'cargo',
+          name: 'missing-license-component',
+          version: '0.2.0',
+          purl: 'pkg:cargo/missing-license-component@0.2.0',
+          license: null,
+          license_html: null,
+          file_url: null,
+          search_url: '/search?component=pkg:cargo/missing-license-component%400.2.0'
+        });
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+      await page.waitForSelector('[data-tab="components"]');
+      t.match(await page.innerText('[data-tab="components"]'), /Components\s+10/);
+
+      await page.click('[data-tab="components"]');
+      await page.waitForSelector('#component-license-chart');
+      t.same(await page.isVisible('#license-chart'), false, 'report chart is hidden while components tab is active');
+      t.match(await page.innerText('#report-components-pane'), /Component license composition/);
+      t.match(await page.innerText('#report-components-pane'), /10\s+components/);
+      t.match(await page.innerText('#report-components-pane'), /Apache-2\.0/);
+      t.match(await page.innerText('#report-components-pane'), /Misc/);
+      t.match(await page.innerText('#component-license-chart'), /No license detected/);
+      t.equal(await page.locator('#component-license-chart .license-composition-slice').count(), 8);
+      t.equal(await page.locator('.report-component-item').count(), 10);
+      t.equal(
+        await page
+          .locator('.report-component-item', {hasText: 'unlicensed-component'})
+          .locator('.report-component-license')
+          .innerText(),
+        '',
+        'component listing leaves missing license blank'
+      );
+
+      await page.unroute('**/reviews/report_details/1');
     });
 
     await t.test('Click file in license list expands hidden preview', async t => {

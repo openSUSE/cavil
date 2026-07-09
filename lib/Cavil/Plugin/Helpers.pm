@@ -143,6 +143,7 @@ sub _report_details ($c, $pkg, $report) {
       name         => $comp->{name},
       version      => $comp->{version},
       purl         => $comp->{purl},
+      license      => $comp->{license},
       license_html => (length($comp->{license} // '') ? spdx_link($comp->{license}) : undef),
       file_url     => (
         length($comp->{source} // '')
