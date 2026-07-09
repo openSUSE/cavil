@@ -64,7 +64,7 @@ sub startup ($self) {
   push @{$self->commands->namespaces}, 'Cavil::Command';
 
   # Sessions last 14 days
-  $self->sessions->default_expiration(1209600);
+  $self->sessions->default_expiration(1209600)->encrypted(1);
 
   $self->plugin('Cavil::Plugin::Helpers');
 
