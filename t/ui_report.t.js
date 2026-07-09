@@ -252,7 +252,20 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.route('**/reviews/report_details/1', async route => {
         const response = await route.fetch();
         const data = await response.json();
-        const licenses = ['Apache-2.0', 'MIT', 'BSD-3-Clause', 'ISC', 'MPL-2.0', 'Zlib', '0BSD', 'CC0-1.0'];
+        const licenses = [
+          'Apache-2.0',
+          'MIT',
+          'BSD-3-Clause',
+          'ISC',
+          'MPL-2.0',
+          'Zlib',
+          '0BSD',
+          'CC0-1.0',
+          'EPL-2.0',
+          'LGPL-2.1-only',
+          'Unlicense',
+          'WTFPL'
+        ];
         data.components = licenses.map((license, index) => ({
           type: 'npm',
           name: `component-${index + 1}`,
@@ -289,18 +302,23 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.goto(url);
       await page.click('text=Artistic');
       await page.waitForSelector('[data-tab="components"]');
-      t.match(await page.innerText('[data-tab="components"]'), /Components\s+10/);
+      t.match(await page.innerText('[data-tab="components"]'), /Components\s+14/);
 
       await page.click('[data-tab="components"]');
       await page.waitForSelector('#component-license-chart');
       t.same(await page.isVisible('#license-chart'), false, 'report chart is hidden while components tab is active');
       t.match(await page.innerText('#report-components-pane'), /Component license composition/);
-      t.match(await page.innerText('#report-components-pane'), /10\s+components/);
+      t.match(await page.innerText('#report-components-pane'), /14\s+components/);
       t.match(await page.innerText('#report-components-pane'), /Apache-2\.0/);
       t.match(await page.innerText('#report-components-pane'), /Misc/);
       t.match(await page.innerText('#component-license-chart'), /No license detected/);
       t.equal(await page.locator('#component-license-chart .license-composition-slice').count(), 8);
-      t.equal(await page.locator('.report-component-item').count(), 10);
+      t.equal(
+        await page.locator('#component-license-chart .license-composition-item').first().innerText(),
+        'Misc\n43%',
+        'misc bucket is sorted by combined percentage'
+      );
+      t.equal(await page.locator('.report-component-item').count(), 14);
       t.equal(
         await page
           .locator('.report-component-item', {hasText: 'unlicensed-component'})

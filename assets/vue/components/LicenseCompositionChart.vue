@@ -112,11 +112,13 @@ export default {
         });
       }
 
-      return capped.map((entry, index) => {
-        const slice = {...entry, offset, color: LICENSE_CHART_COLORS[index % LICENSE_CHART_COLORS.length]};
-        offset += entry.share;
-        return slice;
-      });
+      return capped
+        .sort((a, b) => b.files - a.files || a.name.localeCompare(b.name))
+        .map((entry, index) => {
+          const slice = {...entry, offset, color: LICENSE_CHART_COLORS[index % LICENSE_CHART_COLORS.length]};
+          offset += entry.share;
+          return slice;
+        });
     },
     dominantEntry() {
       return this.distribution[0] || null;
