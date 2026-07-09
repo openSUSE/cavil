@@ -91,70 +91,13 @@
         </CavilNoticePanel>
         <div v-else>
           <br />
-          <section v-if="licenseDistribution.length > 0" id="license-chart" class="license-composition-card mb-3">
-            <header class="license-composition-header">
-              <h3>License composition</h3>
-              <div class="license-composition-total">
-                <span class="license-composition-total-value">{{ licenseChartTotal }}</span>
-                <span class="license-composition-total-label">{{ licenseChartTotal === 1 ? 'file' : 'files' }}</span>
-              </div>
-            </header>
-            <div class="license-composition-body">
-              <div class="license-composition-chart">
-                <svg
-                  class="license-composition-donut"
-                  viewBox="0 0 120 120"
-                  :aria-label="licenseChartSummary"
-                  role="img"
-                >
-                  <circle class="license-composition-donut-track" cx="60" cy="60" r="44" />
-                  <circle
-                    v-for="entry in licenseDistribution"
-                    :key="`slice-${entry.name}`"
-                    class="license-composition-slice"
-                    cx="60"
-                    cy="60"
-                    r="44"
-                    pathLength="100"
-                    :stroke="entry.color"
-                    :stroke-dasharray="`${entry.share} ${100 - entry.share}`"
-                    :stroke-dashoffset="-entry.offset"
-                    tabindex="0"
-                    :aria-label="licenseChartSliceLabel(entry)"
-                    @blur="hideLicenseChartTooltip"
-                    @focus="showLicenseChartTooltip(entry, $event)"
-                    @pointerenter="showLicenseChartTooltip(entry, $event)"
-                    @pointerleave="hideLicenseChartTooltip"
-                    @pointermove="moveLicenseChartTooltip($event)"
-                  ></circle>
-                </svg>
-                <div v-if="dominantLicense" class="license-composition-chart-label">
-                  <b>{{ dominantLicense.percent }}%</b>
-                  <span v-html="dominantLicense.name_html"></span>
-                </div>
-                <div
-                  v-if="licenseChartTooltip"
-                  class="license-composition-tooltip"
-                  :style="{left: `${licenseChartTooltip.x}px`, top: `${licenseChartTooltip.y}px`}"
-                >
-                  <b>{{ licenseChartTooltip.percent }}%</b>
-                  <span>{{ licenseChartTooltip.name }}</span>
-                </div>
-              </div>
-              <ol class="license-composition-list">
-                <li v-for="entry in licenseDistribution" :key="entry.name" class="license-composition-item">
-                  <div class="license-composition-item-header">
-                    <span class="license-composition-swatch" :style="{backgroundColor: entry.color}"></span>
-                    <span class="license-composition-name" v-html="entry.name_html"></span>
-                    <span class="license-composition-percent">{{ entry.percent }}%</span>
-                  </div>
-                  <div class="license-composition-meter" aria-hidden="true">
-                    <span :style="{width: `${entry.share}%`, backgroundColor: entry.color}"></span>
-                  </div>
-                </li>
-              </ol>
-            </div>
-          </section>
+          <LicenseCompositionChart
+            id="license-chart"
+            :entries="licenseChartEntries"
+            title="License composition"
+            singular-label="file"
+            plural-label="files"
+          />
 
           <CavilNoticePanel
             v-if="incompatibleLicenses.length > 0"
@@ -371,76 +314,14 @@
         role="tabpanel"
       >
         <br />
-        <section
-          v-if="componentLicenseDistribution.length > 0"
+        <LicenseCompositionChart
           id="component-license-chart"
-          class="license-composition-card mb-3"
-        >
-          <header class="license-composition-header">
-            <h3>Component license composition</h3>
-            <div class="license-composition-total">
-              <span class="license-composition-total-value">{{ componentLicenseChartTotal }}</span>
-              <span class="license-composition-total-label">{{
-                componentLicenseChartTotal === 1 ? 'component' : 'components'
-              }}</span>
-            </div>
-          </header>
-          <div class="license-composition-body">
-            <div class="license-composition-chart">
-              <svg
-                class="license-composition-donut"
-                viewBox="0 0 120 120"
-                :aria-label="componentLicenseChartSummary"
-                role="img"
-              >
-                <circle class="license-composition-donut-track" cx="60" cy="60" r="44" />
-                <circle
-                  v-for="entry in componentLicenseDistribution"
-                  :key="`component-slice-${entry.name}`"
-                  class="license-composition-slice"
-                  cx="60"
-                  cy="60"
-                  r="44"
-                  pathLength="100"
-                  :stroke="entry.color"
-                  :stroke-dasharray="`${entry.share} ${100 - entry.share}`"
-                  :stroke-dashoffset="-entry.offset"
-                  tabindex="0"
-                  :aria-label="licenseChartSliceLabel(entry)"
-                  @blur="hideLicenseChartTooltip"
-                  @focus="showLicenseChartTooltip(entry, $event)"
-                  @pointerenter="showLicenseChartTooltip(entry, $event)"
-                  @pointerleave="hideLicenseChartTooltip"
-                  @pointermove="moveLicenseChartTooltip($event)"
-                ></circle>
-              </svg>
-              <div v-if="dominantComponentLicense" class="license-composition-chart-label">
-                <b>{{ dominantComponentLicense.percent }}%</b>
-                <span v-html="dominantComponentLicense.name_html"></span>
-              </div>
-              <div
-                v-if="licenseChartTooltip"
-                class="license-composition-tooltip"
-                :style="{left: `${licenseChartTooltip.x}px`, top: `${licenseChartTooltip.y}px`}"
-              >
-                <b>{{ licenseChartTooltip.percent }}%</b>
-                <span>{{ licenseChartTooltip.name }}</span>
-              </div>
-            </div>
-            <ol class="license-composition-list">
-              <li v-for="entry in componentLicenseDistribution" :key="entry.name" class="license-composition-item">
-                <div class="license-composition-item-header">
-                  <span class="license-composition-swatch" :style="{backgroundColor: entry.color}"></span>
-                  <span class="license-composition-name" v-html="entry.name_html"></span>
-                  <span class="license-composition-percent">{{ entry.percent }}%</span>
-                </div>
-                <div class="license-composition-meter" aria-hidden="true">
-                  <span :style="{width: `${entry.share}%`, backgroundColor: entry.color}"></span>
-                </div>
-              </li>
-            </ol>
-          </div>
-        </section>
+          :entries="componentLicenseChartEntries"
+          :limit="componentLicenseChartLimit"
+          title="Component license composition"
+          singular-label="component"
+          plural-label="components"
+        />
 
         <ul class="report-artifact-list report-component-list">
           <li v-for="component in components" :key="component.purl" class="report-artifact-item report-component-item">
@@ -528,6 +409,7 @@
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import FileSource from './components/FileSource.vue';
 import GlobProposalModal from './components/GlobProposalModal.vue';
+import LicenseCompositionChart from './components/LicenseCompositionChart.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import ProgressBar from './components/ProgressBar.vue';
 import ReportNotes from './components/ReportNotes.vue';
@@ -538,12 +420,19 @@ import {Modal} from 'bootstrap';
 
 let pendingActionIdSeq = 0;
 let openEditorKeySeq = 0;
-const LICENSE_CHART_COLORS = ['#0969da', '#1a7f37', '#9a6700', '#cf222e', '#8250df', '#bf3989', '#57606a', '#2da44e'];
 const COMPONENT_LICENSE_CHART_LIMIT = 7;
 
 export default {
   name: 'ReportDetails',
-  components: {CavilNoticePanel, FileSource, GlobProposalModal, PendingActionsWidget, ProgressBar, ReportNotes},
+  components: {
+    CavilNoticePanel,
+    FileSource,
+    GlobProposalModal,
+    LicenseCompositionChart,
+    PendingActionsWidget,
+    ProgressBar,
+    ReportNotes
+  },
   mixins: [Refresh],
   provide() {
     return {
@@ -594,26 +483,22 @@ export default {
       unresolvedMatches: 0,
       urls: [],
       currentMatchId: null,
-      shortcutsModal: null,
-      licenseChartTooltip: null
+      shortcutsModal: null
     };
   },
   computed: {
-    licenseDistribution() {
+    licenseChartEntries() {
       if (this.chart === null) return [];
 
       const licenses = this.chart.licenses ?? [];
       const licensesHtml = this.chart.licenses_html ?? [];
       const files = (this.chart['num-files'] ?? []).map(value => Number(value));
-      return this.buildLicenseDistribution(
-        licenses.map((name, index) => ({
-          name: this.normalizeChartLicenseName(name),
-          name_html: licensesHtml[index] ?? this.normalizeChartLicenseName(name),
-          count: files[index]
-        }))
-      );
+      return licenses.map((name, index) => {
+        const cleanName = this.normalizeChartLicenseName(name);
+        return {name: cleanName, name_html: licensesHtml[index] ?? cleanName, count: files[index]};
+      });
     },
-    componentLicenseDistribution() {
+    componentLicenseChartEntries() {
       const grouped = new Map();
       for (const component of this.components) {
         const name = String(component.license || '').trim() || 'No license detected';
@@ -621,25 +506,10 @@ export default {
         current.count += 1;
         grouped.set(name, current);
       }
-      return this.buildLicenseDistribution(Array.from(grouped.values()), COMPONENT_LICENSE_CHART_LIMIT);
+      return Array.from(grouped.values());
     },
-    dominantLicense() {
-      return this.licenseDistribution[0] || null;
-    },
-    dominantComponentLicense() {
-      return this.componentLicenseDistribution[0] || null;
-    },
-    licenseChartSummary() {
-      return this.licenseDistribution.map(entry => this.licenseChartSliceLabel(entry)).join(', ');
-    },
-    componentLicenseChartSummary() {
-      return this.componentLicenseDistribution.map(entry => this.licenseChartSliceLabel(entry)).join(', ');
-    },
-    licenseChartTotal() {
-      return this.licenseDistribution.reduce((sum, entry) => sum + entry.files, 0);
-    },
-    componentLicenseChartTotal() {
-      return this.componentLicenseDistribution.reduce((sum, entry) => sum + entry.files, 0);
+    componentLicenseChartLimit() {
+      return COMPONENT_LICENSE_CHART_LIMIT;
     },
     sortedRisks() {
       return Object.keys(this.risks).sort((a, b) => Number(b) - Number(a));
@@ -667,47 +537,6 @@ export default {
     setActiveTab(tab) {
       this.activeTab = tab;
       if (tab === 'notes') this.notesMounted = true;
-    },
-    buildLicenseDistribution(entries, limit = 0) {
-      const total = entries.reduce((sum, entry) => {
-        const count = Number(entry.count);
-        return sum + (Number.isFinite(count) ? count : 0);
-      }, 0);
-      if (entries.length === 0 || total === 0) return [];
-
-      let offset = 0;
-      const sorted = entries
-        .map(entry => {
-          const count = Number(entry.count);
-          const files = Number.isFinite(count) ? count : 0;
-          return {
-            name: entry.name,
-            name_html: entry.name_html ?? entry.name,
-            files,
-            percent: Math.round((files / total) * 100),
-            share: (files / total) * 100
-          };
-        })
-        .filter(entry => entry.files > 0)
-        .sort((a, b) => b.files - a.files || a.name.localeCompare(b.name));
-
-      const capped = limit > 0 && sorted.length > limit ? sorted.slice(0, limit) : sorted;
-      if (limit > 0 && sorted.length > limit) {
-        const miscFiles = sorted.slice(limit).reduce((sum, entry) => sum + entry.files, 0);
-        capped.push({
-          name: 'Misc',
-          name_html: 'Misc',
-          files: miscFiles,
-          percent: Math.round((miscFiles / total) * 100),
-          share: (miscFiles / total) * 100
-        });
-      }
-
-      return capped.map((entry, index) => {
-        const slice = {...entry, offset, color: LICENSE_CHART_COLORS[index % LICENSE_CHART_COLORS.length]};
-        offset += entry.share;
-        return slice;
-      });
     },
     applyInitialNoteHash() {
       // Permalink format: #note-<id>. Switch to the Notes tab on mount
@@ -879,34 +708,8 @@ export default {
       const target = indicator || fallback;
       if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
     },
-    licenseChartSliceLabel(entry) {
-      return `${entry.name}: ${entry.percent}%`;
-    },
     normalizeChartLicenseName(name) {
       return String(name).replace(/:\s*\d+\s+files?$/u, '');
-    },
-    showLicenseChartTooltip(entry, event) {
-      const position = this.licenseChartTooltipPosition(event);
-      this.licenseChartTooltip = {...position, name: entry.name, percent: entry.percent};
-    },
-    moveLicenseChartTooltip(event) {
-      if (this.licenseChartTooltip === null) return;
-      this.licenseChartTooltip = {...this.licenseChartTooltip, ...this.licenseChartTooltipPosition(event)};
-    },
-    hideLicenseChartTooltip() {
-      this.licenseChartTooltip = null;
-    },
-    licenseChartTooltipPosition(event) {
-      const chart = event.currentTarget.closest('.license-composition-chart');
-      const rect = chart.getBoundingClientRect();
-      const fallbackX = rect.width / 2;
-      const fallbackY = rect.height / 2;
-      const x = event.clientX ? event.clientX - rect.left : fallbackX;
-      const y = event.clientY ? event.clientY - rect.top : fallbackY;
-      return {
-        x: Math.min(Math.max(x, 24), rect.width - 24),
-        y: Math.min(Math.max(y, 24), rect.height - 24)
-      };
     },
     toggleExpand(file) {
       file.expanded = !file.expanded;
@@ -1269,200 +1072,6 @@ export default {
 }
 .report-tab-pane.is-active {
   display: block;
-}
-.license-composition-card {
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  overflow: visible;
-}
-.license-composition-header {
-  align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
-  border-radius: 6px 6px 0 0;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
-}
-.license-composition-header h3 {
-  font-size: 1rem;
-  line-height: 1.3;
-  margin: 0;
-}
-.license-composition-total {
-  align-items: flex-end;
-  background: #fff;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  display: flex;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  white-space: nowrap;
-}
-.license-composition-total-value {
-  color: #24292f;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-.license-composition-total-label {
-  color: #57606a;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-.license-composition-body {
-  align-items: center;
-  background: #fff;
-  border-radius: 0 0 6px 6px;
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
-  padding: 1rem;
-}
-.license-composition-chart {
-  align-items: center;
-  aspect-ratio: 1;
-  display: flex;
-  justify-content: center;
-  justify-self: center;
-  max-width: 240px;
-  min-width: 180px;
-  padding: 2rem;
-  position: relative;
-  width: 100%;
-}
-.license-composition-donut {
-  filter: drop-shadow(0 1px 2px rgba(27, 31, 36, 0.08));
-  inset: 0;
-  overflow: visible;
-  position: absolute;
-  transform: rotate(-90deg);
-}
-.license-composition-donut-track,
-.license-composition-slice {
-  fill: none;
-  stroke-width: 24;
-}
-.license-composition-donut-track {
-  stroke: #eaeef2;
-}
-.license-composition-slice {
-  cursor: help;
-  transition:
-    opacity 0.12s ease,
-    stroke-width 0.12s ease;
-}
-.license-composition-slice:hover {
-  opacity: 0.88;
-  stroke-width: 26;
-}
-.license-composition-chart-label {
-  align-items: center;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(27, 31, 36, 0.08);
-  color: #24292f;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  height: 50%;
-  justify-content: center;
-  line-height: 1.15;
-  max-width: 50%;
-  min-width: 0;
-  position: relative;
-  text-align: center;
-  z-index: 1;
-}
-.license-composition-chart-label b {
-  font-size: 1.8rem;
-  letter-spacing: 0;
-}
-.license-composition-chart-label span {
-  color: #57606a;
-  font-size: 12px;
-  font-weight: 600;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-.license-composition-tooltip {
-  align-items: center;
-  background: #24292f;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  font-size: 12px;
-  font-weight: 600;
-  gap: 0.1rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  padding: 0.35rem 0.5rem;
-  pointer-events: none;
-  position: absolute;
-  text-align: center;
-  transform: translate(-50%, calc(-100% - 10px));
-  width: 180px;
-  z-index: 2;
-}
-.license-composition-tooltip b {
-  font-size: 13px;
-  letter-spacing: 0;
-}
-.license-composition-tooltip span {
-  max-width: 100%;
-}
-.license-composition-list {
-  display: grid;
-  gap: 0.5rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.license-composition-item {
-  display: grid;
-  gap: 0.35rem;
-}
-.license-composition-item-header {
-  align-items: center;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-}
-.license-composition-swatch {
-  border-radius: 50%;
-  height: 10px;
-  width: 10px;
-}
-.license-composition-name {
-  color: #24292f;
-  font-weight: 600;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.license-composition-percent {
-  color: #24292f;
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  min-width: 3.5em;
-  text-align: right;
-}
-.license-composition-meter {
-  background: #eaeef2;
-  border-radius: 999px;
-  height: 8px;
-  margin-left: 1.35rem;
-  overflow: hidden;
-}
-.license-composition-meter span {
-  border-radius: inherit;
-  display: block;
-  height: 100%;
-  min-width: 3px;
 }
 .risk-license-section {
   margin: 1.75rem 0 1.75rem;
@@ -1889,12 +1498,6 @@ a.report-component-name:focus {
   color: #0969da;
 }
 @media (max-width: 700px) {
-  .license-composition-body {
-    grid-template-columns: 1fr;
-  }
-  .license-composition-chart {
-    max-width: 220px;
-  }
   .risk-license-heading {
     flex-wrap: wrap;
     margin-bottom: -1px;
