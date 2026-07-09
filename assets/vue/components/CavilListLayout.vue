@@ -15,6 +15,9 @@
             type="search"
             class="form-control"
             :placeholder="filterPlaceholder"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
             @input="$emit('update:filter', $event.target.value)"
           />
         </div>

@@ -328,6 +328,23 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         'component listing leaves missing license blank'
       );
 
+      await page.locator('#report-component-filter-input').fill('Apache');
+      t.equal(await page.locator('.report-component-item').count(), 1, 'component list filters by license');
+      t.match(await page.innerText('.report-component-item'), /component-1/);
+
+      await page.locator('#report-component-filter-input').fill('cargo');
+      t.equal(await page.locator('.report-component-item').count(), 2, 'component list filters by component type');
+      t.match(await page.innerText('.report-component-item'), /unlicensed-component/);
+
+      await page.locator('#report-component-filter-input').fill('missing 0.2');
+      t.equal(await page.locator('.report-component-item').count(), 1, 'component list filters by name and version');
+      t.match(await page.innerText('.report-component-item'), /missing-license-component@0\.2\.0/);
+
+      await page.locator('#report-component-filter-input').fill('does-not-exist');
+      t.equal(await page.locator('.report-component-item').count(), 0, 'component list can filter to empty');
+      t.match(await page.innerText('.report-component-empty'), /No components match this filter/);
+      t.equal(await page.locator('.report-component-list').count(), 0, 'empty filter hides component list shell');
+
       await page.unroute('**/reviews/report_details/1');
     });
 

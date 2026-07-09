@@ -323,8 +323,32 @@
           plural-label="components"
         />
 
-        <ul class="report-artifact-list report-component-list">
-          <li v-for="component in components" :key="component.purl" class="report-artifact-item report-component-item">
+        <section class="cavil-list-toolbar report-component-toolbar" aria-label="Component filters">
+          <form class="cavil-list-filter report-component-filter" @submit.prevent>
+            <label for="report-component-filter-input">Filter components</label>
+            <div class="cavil-list-filter-box">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+              <input
+                id="report-component-filter-input"
+                v-model="componentFilter"
+                type="search"
+                class="form-control"
+                placeholder="Filter components by name, type, or license"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+              />
+            </div>
+          </form>
+        </section>
+
+        <p v-if="filteredComponents.length === 0" class="report-component-empty">No components match this filter.</p>
+        <ul v-else class="report-artifact-list report-component-list">
+          <li
+            v-for="component in filteredComponents"
+            :key="component.purl"
+            class="report-artifact-item report-component-item"
+          >
             <a
               v-if="component.file_url"
               :href="component.file_url"
@@ -455,6 +479,7 @@ export default {
   data() {
     return {
       chart: null,
+      componentFilter: '',
       components: [],
       emails: [],
       files: [],
@@ -510,6 +535,18 @@ export default {
     },
     componentLicenseChartLimit() {
       return COMPONENT_LICENSE_CHART_LIMIT;
+    },
+    filteredComponents() {
+      const terms = this.componentFilter.toLowerCase().split(/\s+/u).filter(Boolean);
+      if (terms.length === 0) return this.components;
+
+      return this.components.filter(component => {
+        const haystack = [component.name, component.version, component.type, component.license]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return terms.every(term => haystack.includes(term));
+      });
     },
     sortedRisks() {
       return Object.keys(this.risks).sort((a, b) => Number(b) - Number(a));
@@ -1422,6 +1459,25 @@ export default {
 }
 .report-component-list {
   border-radius: 6px;
+}
+.report-component-toolbar {
+  margin-bottom: 0.75rem;
+}
+.report-component-filter {
+  flex: 1 1 20rem;
+  margin: 0;
+  min-width: min(20rem, 100%);
+  white-space: nowrap;
+}
+.report-component-empty {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  color: #57606a;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
 }
 .report-component-name {
   color: #24292f;
