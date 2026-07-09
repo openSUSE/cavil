@@ -54,10 +54,25 @@
 .cavil-dropdown-badge {
   margin-left: 1rem;
 }
-.cavil-role-list {
+.cavil-user-dropdown .cavil-role-list {
   display: flex;
   flex-wrap: wrap;
-  gap: .25rem;
+  gap: .4rem .5rem;
+  max-width: 18rem;
+  padding: .15rem 1rem .6rem;
+}
+.cavil-role-chip {
+  align-items: center;
+  background: #f6f8fa;
+  border: 1px solid rgba(208, 215, 222, .75);
+  border-radius: 999px;
+  color: #57606a;
+  display: inline-flex;
+  font-size: .75rem;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 0 .45rem;
+  white-space: nowrap;
 }
 @media (max-width: 991.98px) {
   .cavil-navbar-search {

@@ -18,7 +18,7 @@
         <li><h3 class="dropdown-header">Roles</h3></li>
         <li>
           <span class="dropdown-item-text cavil-role-list">
-            <span v-for="role in sortedRoles" :key="role" class="badge text-bg-secondary">{{ role }}</span>
+            <span v-for="role in sortedRoles" :key="role" class="cavil-role-chip">{{ role }}</span>
           </span>
         </li>
         <li><hr class="dropdown-divider" /></li>
