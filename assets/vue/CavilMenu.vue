@@ -17,9 +17,7 @@
       <template v-if="roles.length > 0">
         <li><h3 class="dropdown-header">Roles</h3></li>
         <li>
-          <span class="dropdown-item-text cavil-role-list">
-            <span v-for="role in sortedRoles" :key="role" class="cavil-role-chip">{{ role }}</span>
-          </span>
+          <span class="dropdown-item-text cavil-role-list">{{ rolesSummary }}</span>
         </li>
         <li><hr class="dropdown-divider" /></li>
       </template>
@@ -78,6 +76,9 @@ export default {
   computed: {
     sortedRoles() {
       return [...this.roles].sort();
+    },
+    rolesSummary() {
+      return this.sortedRoles.join(' · ');
     },
     total() {
       return this.stats.missing + this.stats.proposals;

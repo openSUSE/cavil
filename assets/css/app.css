@@ -55,24 +55,13 @@
   margin-left: 1rem;
 }
 .cavil-user-dropdown .cavil-role-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .4rem .5rem;
-  max-width: 18rem;
-  padding: .15rem 1rem .6rem;
-}
-.cavil-role-chip {
-  align-items: center;
-  background: #f6f8fa;
-  border: 1px solid rgba(208, 215, 222, .75);
-  border-radius: 999px;
   color: #57606a;
-  display: inline-flex;
-  font-size: .75rem;
+  font-size: .8125rem;
+  line-height: 1.4;
+  max-width: 18rem;
   font-weight: 500;
-  line-height: 1.5;
-  padding: 0 .45rem;
-  white-space: nowrap;
+  padding: .1rem 1rem .55rem;
+  white-space: normal;
 }
 @media (max-width: 991.98px) {
   .cavil-navbar-search {
