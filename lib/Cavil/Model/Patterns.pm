@@ -181,9 +181,18 @@ sub best_license_for ($self, $text, $ctx) {
     $candidates{$_} = 1 for keys %$licenses;
   }
 
+  # Weight each snippet shingle once - the denominator is the same for every candidate license - then
+  # score each candidate by summing only the weights of the shingles its signature contains.
+  my @weighted = map { [$_, $ctx->{idf}{$_} // 1] } keys %$shingles;
+  my $total    = 0;
+  $total += $_->[1] for @weighted;
+
   my @scored;
   for my $license (keys %candidates) {
-    push @scored, [$license, weighted_containment($shingles, $ctx->{signatures}{$license}, $ctx->{idf})];
+    my $sig = $ctx->{signatures}{$license};
+    my $hit = 0;
+    for my $sw (@weighted) { $hit += $sw->[1] if $sig->{$sw->[0]} }
+    push @scored, [$license, $total > 0 ? $hit / $total : 0];
   }
   @scored = sort { $b->[1] <=> $a->[1] } @scored;
 
@@ -218,15 +227,43 @@ sub best_license_for ($self, $text, $ctx) {
 # the context) and scored with the same IDF-weighted containment; returns undef if the license has no
 # patterns, so callers fall back to the representative.
 sub _closest_pattern_in_license ($self, $shingles, $license, $ctx) {
-  my $patterns = $ctx->{pattern_cache}{$license}
-    //= [map { {id => $_->{id}, sig => text_shingles($_->{pattern}, $ctx->{k} // SIMILARITY_SHINGLE_SIZE)} }
-      $self->pg->db->select('license_patterns', [qw(id pattern)], {license => $license})->hashes->each];
-  return undef unless @$patterns;
 
+  # Per-license inverted index (shingle -> pattern positions), memoized for the run. Building it costs
+  # the same single pass over the license's patterns as the old per-pattern signature cache, but lets
+  # each snippet touch only the patterns that actually share a shingle with it - instead of running
+  # weighted_containment against every pattern of the license (the analyze hotspot).
+  my $entry = $ctx->{pattern_index}{$license} //= do {
+    my (@ids, %index);
+    my $pos = 0;
+    for my $p ($self->pg->db->select('license_patterns', [qw(id pattern)], {license => $license})->hashes->each) {
+      my $sig = text_shingles($p->{pattern}, $ctx->{k} // SIMILARITY_SHINGLE_SIZE);
+      push @ids, $p->{id};
+      push @{$index{$_}}, $pos for keys %$sig;
+      $pos++;
+    }
+    {ids => \@ids, index => \%index};
+  };
+  my $ids = $entry->{ids};
+  return undef unless @$ids;
+
+  # The containment denominator (total snippet weight) is identical across the license's patterns, so
+  # the closest pattern is just the one accumulating the most IDF-weighted shingle hits - no division
+  # needed. Only patterns the snippet's shingles actually reach get a hit.
+  my $idf   = $ctx->{idf};
+  my $index = $entry->{index};
+  my @hit;
+  for my $shingle (keys %$shingles) {
+    my $postings = $index->{$shingle} or next;
+    my $w = $idf->{$shingle} // 1;
+    $hit[$_] += $w for @$postings;
+  }
+
+  # Argmax with first-wins-on-tie, preserving the previous scan's order and its "always return a
+  # pattern" behaviour (unreachable-with-zero-overlap here, thanks to best_license_for's phrase gate).
   my ($best_id, $best_score);
-  for my $pattern (@$patterns) {
-    my $score = weighted_containment($shingles, $pattern->{sig}, $ctx->{idf});
-    ($best_id, $best_score) = ($pattern->{id}, $score) if !defined $best_score || $score > $best_score;
+  for my $pos (0 .. $#$ids) {
+    my $score = $hit[$pos] // 0;
+    ($best_id, $best_score) = ($ids->[$pos], $score) if !defined $best_score || $score > $best_score;
   }
   return $best_id;
 }
@@ -273,17 +310,32 @@ sub score_text ($self, $text, $ctx, $bag = undef) {
 # classified before the signatures existed). A no-op when nothing is stale (the common reindex case) or
 # when the signatures have not been built yet (bootstrapping; left to classify / "snippets --rescore").
 sub score_package_snippets ($self, $package_id) {
-  my $db   = $self->pg->db;
+  my $db = $self->pg->db;
+
+  # Order by id so every concurrent analyze job locks shared snippet rows in the same order, keeping the
+  # write transaction below from deadlocking against another job scoring an overlapping snippet set.
   my $rows = $db->query(
     'SELECT DISTINCT s.id, s.text FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id
-      WHERE fs.package = ? AND s.score_version IS DISTINCT FROM ?', $package_id, SNIPPET_SCORE_VERSION
+      WHERE fs.package = ? AND s.score_version IS DISTINCT FROM ? ORDER BY s.id', $package_id, SNIPPET_SCORE_VERSION
   )->hashes;
   return unless $rows->size;
 
   return unless my $ctx = $self->similarity_context;
-  for my $snippet ($rows->each) {
-    $db->update('snippets', $self->score_text($snippet->{text}, $ctx), {id => $snippet->{id}});
+
+  # Score first, outside any transaction, so we never hold locks on the shared (cross-package) snippets
+  # table during the CPU-heavy similarity work.
+  my @scores = map { [$_->{id}, $self->score_text($_->{text}, $ctx)] } $rows->each;
+
+  # Then flush every row in one short transaction with plain SQL: the columns are fixed, so
+  # SQL::Abstract's per-row query building is pure overhead here.
+  my $tx = $db->begin;
+  for my $score (@scores) {
+    my ($id, $s) = @$score;
+    $db->query(
+      'UPDATE snippets SET likelyness = ?, like_pattern = ?, second_match = ?, score_version = ? WHERE id = ?',
+      $s->{likelyness}, $s->{like_pattern}, $s->{second_match}, $s->{score_version}, $id);
   }
+  $tx->commit;
 }
 
 sub create ($self, %args) {
