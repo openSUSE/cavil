@@ -77,12 +77,20 @@ sub _index_batch ($job, $id, $batch) {
 
   my $start = time;
 
-  my $fi       = Cavil::FileIndexer->new($app, $id);
+  my $db       = $app->pg->db;
+  my $fi       = Cavil::FileIndexer->new($app, $id, $db);
   my $preptime = time - $start;
 
   my $registry    = Cavil::Bom::Registry->new;
   my $single_root = _single_unpacked_root($fi->dir);
   my %meta        = (emails => {}, urls => {}, components => {});
+
+  # Wrap the whole batch in one transaction: the per-file inserts (matched_files,
+  # pattern_matches, file_snippets) plus the URL/email/component upserts below would otherwise
+  # each autocommit separately, one round-trip per row. Committing once also makes the batch
+  # atomic, so a mid-batch failure and Minion retry cannot leave half-inserted rows behind.
+  my $tx = $db->begin;
+
   for my $file (@$batch) {
     my ($path, $mime) = @$file;
     $fi->file(\%meta, $path, $mime);
@@ -90,7 +98,6 @@ sub _index_batch ($job, $id, $batch) {
   }
 
   # URLs
-  my $db  = $app->pg->db;
   my $max = $app->config->{max_email_url_size};
   for my $url (sort keys %{$meta{urls}}) {
     next if length($url) > $max;
@@ -125,6 +132,8 @@ sub _index_batch ($job, $id, $batch) {
       $c->{name}, $c->{version}, $c->{license}, $c->{source}
     );
   }
+
+  $tx->commit;
 
   my $total = time - $start;
   my $dir   = $fi->dir;

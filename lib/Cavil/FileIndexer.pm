@@ -21,12 +21,14 @@ use Cavil::Util qw(file_and_checksum);
 
 has 'dir';
 
-sub new ($class, $app, $package) {
+sub new ($class, $app, $package, $db = undef) {
   my $self = $class->SUPER::new(app => $app, package => $package);
 
   my $matcher = Spooky::Patterns::XS::init_matcher();
 
-  my $db          = $app->pg->db;
+  # Reuse the caller's database handle when given one, so all of a batch's writes can share a
+  # single transaction instead of each insert autocommitting on its own connection
+  $db //= $app->pg->db;
   my $packagename = $db->select('bot_packages', 'name', {id => $package})->hash->{name};
 
   $app->patterns->load_unspecific($matcher);
@@ -70,19 +72,19 @@ sub file ($self, $meta, $path, $mime) {
     my $no_license = $self->_has_no_license($mid);
     next unless defined $no_license;
 
-    $file_id
-      ||= $self->{db}
-      ->insert('matched_files', {package => $package, filename => $path, mimetype => $mime}, {returning => 'id'})
-      ->hash->{id};
+    # Plain SQL on this hot path: these inserts are fixed-shape, so SQL::Abstract's dynamic query
+    # building is pure overhead (it dominated the batch profile). Values stay bound placeholders.
+    $file_id ||= $self->{db}->query(
+      'INSERT INTO matched_files (package, filename, mimetype) VALUES (?, ?, ?) RETURNING id',
+      $package, $path, $mime)->array->[0];
 
     $keyword_missed ||= $no_license;
 
     # package is kind of duplicated in file, but the join is just too expensive
-    my $pm_id = $self->{db}->insert(
-      'pattern_matches',
-      {file => $file_id, package => $package, pattern => $mid, sline => $ls, eline => $le, ignored => $ignored_file},
-      {returning => 'id'}
-    )->hash->{id};
+    my $pm_id = $self->{db}->query(
+      'INSERT INTO pattern_matches (file, package, pattern, sline, eline, ignored)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING id', $file_id, $package, $mid, $ls, $le, $ignored_file
+    )->array->[0];
 
     push @matches, $no_license ? [@$match, $pm_id] : $match;
 
@@ -183,8 +185,9 @@ sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
 
   my $snippet = $self->{snippets}->{$hash}
     ||= $self->{app}->snippets->find_or_create({hash => $hash, text => $text, package => $self->{package}});
-  $self->{db}->insert('file_snippets',
-    {package => $self->{package}, snippet => $snippet, sline => $first_line, eline => $last_line, file => $file_id});
+  $self->{db}->query(
+    'INSERT INTO file_snippets (package, snippet, sline, eline, file) VALUES (?, ?, ?, ?, ?)',
+    $self->{package}, $snippet, $first_line, $last_line, $file_id);
 
   return undef;
 }
