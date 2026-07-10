@@ -11,6 +11,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Cavil::ReportUtil qw(summary_delta_score);
+use Mojo::JSON        qw(to_json);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -167,8 +168,8 @@ subtest 'Summary covers all snippet hashes regardless of max_expanded_files' => 
       priority        => 5
     );
     $db->query(
-      'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
-       SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg_id, 1
+      'INSERT INTO bot_reports (package, specfile_report, rolemodel)
+       SELECT ?, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg_id, 1
     );
     for my $name (@$order) {
       my $file_id = $db->insert(
@@ -180,12 +181,18 @@ subtest 'Summary covers all snippet hashes regardless of max_expanded_files' => 
         {package => $pkg_id, file => $file_id, snippet => $snippet_id_for{$name}, sline => 1, eline => 5});
     }
     touch_matched_files($pkg_id);
+
+    # Cache a real dig report the way analyze does, so summary reads the cache (the production path)
+    # rather than recomputing. Generated under the low max_expanded_files cap set above, to prove the
+    # cached missed_snippets stays complete regardless of the preview cap.
+    $db->update('bot_reports', {ldig_report => to_json($reports->dig_report($pkg_id))}, {package => $pkg_id});
     return $pkg_id;
   };
+
+  $reports->max_expanded_files(3);
   my $forward_id = $build_pkg->('forward',  [@filenames]);
   my $reverse_id = $build_pkg->('reversed', [reverse @filenames]);
 
-  $reports->max_expanded_files(3);
   my $forward = $reports->summary($forward_id)->{missed_snippets};
   my $reverse = $reports->summary($reverse_id)->{missed_snippets};
 
