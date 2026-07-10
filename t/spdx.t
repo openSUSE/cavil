@@ -164,7 +164,8 @@ subtest 'Graph is internally consistent' => sub {
   # Every reference (creationInfo, relationships, root elements, agents) resolves to an element in the graph
   my @dangling;
   for my $node (@{$doc->{'@graph'}}) {
-    my @refs = grep {defined} $node->{creationInfo}, $node->{from}, $node->{subject}, $node->{software_snippetFromFile};
+    my @refs = grep {defined} $node->{creationInfo}, $node->{from}, $node->{subject},
+      $node->{software_snippetFromFile}, $node->{dataLicense};
     push @refs,     @{$node->{$_} // []} for qw(createdBy createdUsing rootElement originatedBy to);
     push @dangling, $_                   for grep { !$ids{$_} } @refs;
   }
@@ -199,6 +200,12 @@ subtest 'SBOM document (BSI: SBOM-URI)' => sub {
 
   my $document = of_type($doc, 'SpdxDocument')->[0];
   is_deeply $document->{rootElement}, [$sbom->{spdxId}], 'document root element is the SBOM';
+
+  # The data license is referenced as an in-graph license element (an AnyLicenseInfo), not a bare URL,
+  # so it validates under SPDX 3.0 (dataLicense is an object reference, not a string)
+  my $data_license = $g->{$document->{dataLicense}};
+  is $data_license->{type}, 'simplelicensing_LicenseExpression',    'data license is a license element';
+  is $data_license->{simplelicensing_licenseExpression}, 'CC0-1.0', 'data license is CC0-1.0';
 };
 
 subtest 'Primary component (BSI: required and additional fields)' => sub {

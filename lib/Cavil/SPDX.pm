@@ -115,28 +115,6 @@ sub generate_to_file ($self, $id, $file) {
   $graph->add($creator_org);
   $graph->add({type => 'Tool', spdxId => $iri->('tool-cavil'), creationInfo => $creation, name => 'Cavil'});
 
-  # Document and SBOM (the SBOM spdxId doubles as the SBOM-URI)
-  $graph->add(
-    {
-      type               => 'SpdxDocument',
-      spdxId             => $iri->('document'),
-      creationInfo       => $creation,
-      name               => $pkg->{name},
-      profileConformance => ['core', 'software', 'simpleLicensing'],
-      dataLicense        => 'https://spdx.org/licenses/CC0-1.0',
-      rootElement        => [$base]
-    }
-  );
-  $graph->add(
-    {
-      type              => 'software_Sbom',
-      spdxId            => $base,
-      creationInfo      => $creation,
-      rootElement       => [$iri->('package')],
-      software_sbomType => ['source']
-    }
-  );
-
   # Shared helpers for licenses and relationships
   my (%license_pool, %license_meta, $license_num, $rel_num, $snippet_num, $annotation_num);
   my $license_ref = sub ($expr) {
@@ -173,6 +151,30 @@ sub generate_to_file ($self, $id, $file) {
     $meta->{risk} = $risk if defined $risk && (!defined $meta->{risk} || $risk > $meta->{risk});
     $meta->{flags}{$_} = 1 for @$flags;
   };
+
+  # Document and SBOM (the SBOM spdxId doubles as the SBOM-URI). The data license is CC0-1.0, referenced
+  # as an in-graph license element (not a bare URL): SPDX 3.0 types dataLicense as an AnyLicenseInfo
+  # object reference, so a raw listed-license URL fails validation.
+  $graph->add(
+    {
+      type               => 'SpdxDocument',
+      spdxId             => $iri->('document'),
+      creationInfo       => $creation,
+      name               => $pkg->{name},
+      profileConformance => ['core', 'software', 'simpleLicensing'],
+      dataLicense        => $license_ref->('CC0-1.0'),
+      rootElement        => [$base]
+    }
+  );
+  $graph->add(
+    {
+      type              => 'software_Sbom',
+      spdxId            => $base,
+      creationInfo      => $creation,
+      rootElement       => [$iri->('package')],
+      software_sbomType => ['source']
+    }
+  );
 
   # BSI section 6.1: refer to licenses by SPDX identifier, else ScanCode ("LicenseRef-scancode-*"),
   # else a "LicenseRef-<inventorising-entity>-*" identifier. License text is never a substitute.
