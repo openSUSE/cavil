@@ -372,3 +372,6 @@ CREATE INDEX ON package_components(package);
 
 -- 47 down
 DROP TABLE IF EXISTS package_components;
+
+-- 48 up
+CREATE INDEX ON file_snippets(file);
