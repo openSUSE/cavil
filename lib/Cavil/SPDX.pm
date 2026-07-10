@@ -218,6 +218,25 @@ sub generate_to_file ($self, $id, $file) {
     $originated_by = [$origin_id];
   }
 
+  # Deployable component hashes (BSI required): hash the delivered source archive(s) once - the actual
+  # deployable artifact - rather than re-reading every file in the unpacked tree. Packaging metadata
+  # (spec files, changelogs) is already represented among the file components, so it is not repeated here.
+  # The same digest is reused for the primary component (a real content checksum, importer-agnostic, that
+  # SBOM quality scorers reward) and for the archive file elements below (the BSI deployable-component
+  # mapping).
+  my @archives;
+  for my $delivered (sort { $a->basename cmp $b->basename }
+    grep { -f $_ && $_->basename =~ $ARCHIVE_RE } $dir->list->each)
+  {
+    push @archives,
+      {
+      file => $delivered,
+      hash => {
+        type => 'Hash', algorithm => HASH_ALGO, hashValue => Digest::SHA->new('512')->addfile("$delivered")->hexdigest
+      }
+      };
+  }
+
   # Primary component (the package itself)
   my $main    = $specfile_report->{main} || {};
   my $version = $main->{version};
@@ -233,6 +252,9 @@ sub generate_to_file ($self, $id, $file) {
   $package->{software_packageVersion} = $version       if defined $version && length $version;
   $package->{software_homePage}       = $main->{url}   if $main->{url};
   $package->{originatedBy}            = $originated_by if $originated_by;
+
+  # Content checksum of the delivered artifact(s), so the primary component carries a verifiable digest
+  $package->{verifiedUsing} = [map { $_->{hash} } @archives] if @archives;
 
   if ($src && $src->{api_url} && $src->{project}) {
     $package->{software_downloadLocation}
@@ -265,14 +287,12 @@ sub generate_to_file ($self, $id, $file) {
     $note_license->($lid, $meta->{risk}, [grep { $meta->{$_} } @FLAGS]) if $meta;
   }
 
-  # Deployable component hash (BSI required): hash the delivered source archive(s) - the actual
-  # deployable artifact - rather than re-reading every file in the unpacked tree. Packaging metadata
-  # (spec files, changelogs) is already represented among the file components, so it is not repeated here.
+  # The delivered source archive(s) as deployable component file elements, reusing the digests computed
+  # above (see the @archives comment for why only these files are hashed)
   my $artifact_num = 0;
-  for my $delivered (sort { $a->basename cmp $b->basename }
-    grep { -f $_ && $_->basename =~ $ARCHIVE_RE } $dir->list->each)
-  {
-    my $aid = $iri->('artifact-' . ++$artifact_num);
+  for my $archive (@archives) {
+    my $delivered = $archive->{file};
+    my $aid       = $iri->('artifact-' . ++$artifact_num);
     $graph->add(
       {
         type         => 'software_File',
@@ -285,13 +305,7 @@ sub generate_to_file ($self, $id, $file) {
         # archive is non-executable, so "executable" is deliberately not added
         software_additionalPurpose => ['archive', 'container'],
         comment       => 'software_additionalPurpose field is used to indicate the properties of BSI TR-03183-2',
-        verifiedUsing => [
-          {
-            type      => 'Hash',
-            algorithm => HASH_ALGO,
-            hashValue => Digest::SHA->new('512')->addfile("$delivered")->hexdigest
-          }
-        ]
+        verifiedUsing => [$archive->{hash}]
       }
     );
     $relationship->($pkgid, 'hasDistributionArtifact', [$aid], 'complete');

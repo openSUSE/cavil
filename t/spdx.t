@@ -216,9 +216,6 @@ subtest 'Primary component (BSI: required and additional fields)' => sub {
   like $primary->{software_downloadLocation}, qr{api\.opensuse\.org/source/devel:languages:perl/perl-Mojolicious},
     'download location from OBS coordinates';
 
-  # The deployable component hash is on the delivered source archive, not the package itself, and not
-  # on every unpacked file
-  ok !$primary->{verifiedUsing}, 'the package carries no synthetic digest-of-hashes';
   my @artifacts
     = map { $g->{$_->{to}[0]} }
     grep  { $_->{from} eq $primary->{spdxId} && $_->{relationshipType} eq 'hasDistributionArtifact' }
@@ -229,6 +226,12 @@ subtest 'Primary component (BSI: required and additional fields)' => sub {
   my $tarball = $t->app->packages->pkg_checkout_dir(1)->child('Mojolicious-7.25.tar.gz');
   is $artifacts[0]{verifiedUsing}[0]{hashValue}, Digest::SHA->new('512')->addfile("$tarball")->hexdigest,
     'artifact hash matches the actual archive on disk';
+
+  # The primary component carries the same content digest as its delivered artifact, so it has a
+  # verifiable checksum of its own (not a synthetic digest-of-hashes of the unpacked tree)
+  is $primary->{verifiedUsing}[0]{algorithm}, 'sha512', 'primary component hashed with SHA-512';
+  is $primary->{verifiedUsing}[0]{hashValue}, $artifacts[0]{verifiedUsing}[0]{hashValue},
+    'primary component digest matches the delivered archive';
 
   # BSI executable/archive/structured properties on the deployable form (archive + structured, non-executable)
   is_deeply $artifacts[0]{software_additionalPurpose}, ['archive', 'container'],
