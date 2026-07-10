@@ -158,7 +158,11 @@ sub summary ($self, $id) {
   my %summary  = (id => $id);
   my $specfile = $self->specfile_report($id);
   $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Unknown';
-  my $report = $self->cached_dig_report || $self->dig_report($id);
+  # Reuse the dig report cached in bot_reports.ldig_report (JSON) when present - analyze stores it right
+  # before this runs, so recomputing the full match walk here is wasted work. Must pass $id and decode
+  # the JSON (see sanitized_dig_report); fall back to a fresh computation when no cache exists yet.
+  my $cached = $self->cached_dig_report($id);
+  my $report = $cached ? from_json($cached) : $self->dig_report($id);
 
   my $min_risklevel = 1;
 
