@@ -426,6 +426,10 @@
                 <dd><kbd>p</kbd></dd>
               </div>
               <div class="shortcuts-row">
+                <dt>Jump to Risk 9 unresolved matches list</dt>
+                <dd><kbd>u</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
                 <dt>Show this help dialog</dt>
                 <dd><kbd>?</kbd></dd>
               </div>
@@ -773,6 +777,10 @@ export default {
         document.getElementById('file-details-' + file.id) || document.querySelector('[name="file-' + file.id + '"]');
       if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
     },
+    scrollToUnresolvedList() {
+      const el = document.getElementById('unmatched-files') || document.getElementById('filelist-snippets');
+      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+    },
     async scrollToAction(id) {
       const action = this.pendingActions.find(a => a.id === id);
       if (!action) return;
@@ -965,6 +973,10 @@ export default {
         if (this.missedFiles.length === 0) return;
         event.preventDefault();
         this.gotoMatch(-1);
+      } else if (event.key === 'u') {
+        if (this.missedFiles.length === 0) return;
+        event.preventDefault();
+        this.scrollToUnresolvedList();
       } else if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
         event.preventDefault();
         this.showShortcuts();

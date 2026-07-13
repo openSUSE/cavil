@@ -438,6 +438,11 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       }
       t.pass(`'p' walked back to ${matchIds[0]}`);
 
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.keyboard.press('u');
+      await waitForMatchInView('unmatched-files');
+      t.pass("'u' jumped to the Risk 9 unresolved matches list");
+
       // Sanity-check the original assertion that both files end up visible.
       t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file visible');
       t.same(await page.isVisible(`#file-details-${secondId}`), true, 'second missed file visible');
@@ -449,6 +454,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.match(modalText, /Keyboard shortcuts/);
       t.match(modalText, /Jump to next unresolved match/);
       t.match(modalText, /Jump to previous unresolved match/);
+      t.match(modalText, /Jump to Risk 9 unresolved matches list/);
 
       await page.locator('#shortcutsModal .btn-close').click();
       await page.waitForFunction(() => {
@@ -457,15 +463,15 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       });
 
       // Shortcut must not fire while typing into an editor input - open the
-      // inline editor on file 1 and confirm pressing 'n' inside the license
+      // inline editor on file 1 and confirm pressing shortcut keys inside the license
       // field inserts the letter instead of jumping to the next match.
       await page.locator('#file-details-1 .quick-actions a').first().click();
       await waitForInlineSnippetEditor(page);
       await page.locator('#inline-snippet-editor input[name=license]').click();
-      await page.keyboard.type('np');
+      await page.keyboard.type('npu');
       t.equal(
         await page.locator('#inline-snippet-editor input[name=license]').inputValue(),
-        'np',
+        'npu',
         'shortcut keys are typed normally inside the license input'
       );
       await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
