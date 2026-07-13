@@ -56,6 +56,7 @@ in every note. Then focus on the other signals a human lawyer would need for a f
 - Incompatible or unusual licenses
 - Unknown, proprietary, non-commercial, or custom license terms
 - Unresolved matches that look like real license text, license declarations, redistribution terms, warranty disclaimers, or patent/trademark restrictions
+- **NOTICE files** (and `AUTHORS` / other attribution files): read them when present with `cavil_get_file`. A NOTICE file carries *attribution obligations*, not just license identity — Apache-2.0 §4(d) requires downstream redistribution to preserve its contents — and it often discloses bundled third-party components, copyright holders, or additional terms that the license breakdown does not surface as a finding. Flag anything a downstream redistributor must preserve, or any component named there that the report does not otherwise account for.
 - Large numbers of unresolved matches from a common path that may indicate generated files, bundled license data, or test fixtures
 - **Anything else legally material that the points above do not name** (see the dedicated step below)
 
@@ -258,6 +259,12 @@ When a risk level or a flag drove the recommendation, name it in an issues bulle
 number and/or flag so the lawyer sees why (e.g. `AGPL-3.0-only (risk 5, managed obligations —
 network copyleft) in src/server/; confirm deployment model.` or `mmap-License [flags: Patent] —
 patent clause, flag for non-license review.`).
+
+When a NOTICE (or attribution) file surfaces an obligation or an undisclosed component, record it in
+an issues bullet so the lawyer sees it (e.g. `NOTICE lists attribution for bundled zlib and a
+copyright holder not in the report; must be preserved downstream (Apache-2.0 §4(d)).`). NOTICE
+contents rarely flip ACCEPT/REJECT on their own — the goal is visibility — but a component named
+there that the report does not account for should feed the declared-license and combination checks.
 
 When the report carried an incompatible-license warning, record the outcome of your investigation explicitly, e.g. a confirmed false alarm:
 
