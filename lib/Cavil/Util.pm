@@ -18,7 +18,7 @@ use Try::Tiny;
 
 our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
-  qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
+  qw(extract_spdx_identifiers normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles validate_tags weighted_containment),
   qw(SNIPPET_SCORE_VERSION),
@@ -44,6 +44,23 @@ my $SAFE_OBS_SRVICE_NAMES = {product_converter => 1};
 our @SPDX_LICENSES     = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;
 our @SPDX_EXCEPTIONS   = split "\n", path(__FILE__)->dirname->child('resources', 'license_exceptions.txt')->slurp;
 our @SCANCODE_LICENSES = split "\n", path(__FILE__)->dirname->child('resources', 'license_list_scancode.txt')->slurp;
+
+my %SPDX_IDENTIFIER_CANONICAL = map { lc($_) => $_ } @SPDX_LICENSES;
+my $SPDX_IDENTIFIER_RE        = do {
+  my $identifiers = join '|', map {quotemeta} sort { length $b <=> length $a || $a cmp $b } @SPDX_LICENSES;
+  qr/(?<![\w.+-])($identifiers)(?![\w.+-])/i;
+};
+
+sub extract_spdx_identifiers ($string) {
+  return [] unless defined $string;
+
+  my @identifiers;
+  while ($string =~ /$SPDX_IDENTIFIER_RE/g) {
+    push @identifiers, $SPDX_IDENTIFIER_CANONICAL{lc $1} // $1;
+  }
+
+  return \@identifiers;
+}
 
 sub buckets ($things, $size) {
 

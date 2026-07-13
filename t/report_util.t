@@ -19,9 +19,9 @@ use Test::More;
 use Cavil::ReportUtil (
   qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
   qw(report_checksum report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear),
-  qw(smart_edit_snippet summary_delta summary_delta_score)
+  qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
-use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 subtest 'estimated_risk' => sub {
   subtest 'Risk 0' => sub {
@@ -526,6 +526,38 @@ subtest 'smart_edit_snippet' => sub {
     is $result->{text}, "Copyright (c) \$SKIP10\nKEYWORD\ntrail one two three four",
       'trimmed leading noise and collapsed copyright';
     is $result->{changed}, 1, 'reported as changed';
+  };
+};
+
+subtest 'spdx_edit_snippet' => sub {
+  subtest 'extract_spdx_identifiers finds known identifiers in text order' => sub {
+    is_deeply extract_spdx_identifiers('SPDX-License-Identifier: MIT'), ['MIT'],               'simple SPDX line';
+    is_deeply extract_spdx_identifiers('first Apache-2.0, then MIT'),   ['Apache-2.0', 'MIT'], 'multiple identifiers';
+    is_deeply extract_spdx_identifiers('/* (GPL-2.0-or-later) */'),     ['GPL-2.0-or-later'],  'punctuation boundary';
+    is_deeply extract_spdx_identifiers('license=mit;'),                 ['MIT'], 'canonicalizes identifier casing';
+  };
+
+  subtest 'extract_spdx_identifiers ignores identifier substrings' => sub {
+    is_deeply extract_spdx_identifiers('Mitch'), [], 'MIT is not matched inside Mitch';
+    is_deeply extract_spdx_identifiers('XMIT'),  [], 'MIT is not matched with a leading identifier character';
+    is_deeply extract_spdx_identifiers('MITch'), [], 'MIT is not matched with a trailing identifier character';
+    is_deeply extract_spdx_identifiers('Apache-2.0-only'), [], 'Apache-2.0 is not matched inside a longer SPDX token';
+  };
+
+  subtest 'replaces snippet with first SPDX identifier' => sub {
+    my $result = spdx_edit_snippet({text => "Copyright\nLicensed under Apache-2.0 or MIT\n", sline => 42});
+    is_deeply $result, {text => 'SPDX-License-Identifier: Apache-2.0', start_line => 42, changed => 1},
+      'first text-order identifier used';
+  };
+
+  subtest 'leaves identifier empty when none is found' => sub {
+    my $result = spdx_edit_snippet({text => 'Copyright Mitch', sline => 7});
+    is_deeply $result, {text => 'SPDX-License-Identifier: ', start_line => 7, changed => 1}, 'empty identifier tail';
+  };
+
+  subtest 'reports unchanged for an exact SPDX replacement' => sub {
+    my $result = spdx_edit_snippet({text => 'SPDX-License-Identifier: MIT', sline => 3});
+    is_deeply $result, {text => 'SPDX-License-Identifier: MIT', start_line => 3, changed => 0}, 'unchanged';
   };
 };
 

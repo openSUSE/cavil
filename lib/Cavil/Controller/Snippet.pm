@@ -17,7 +17,7 @@ package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File        qw(path);
-use Cavil::ReportUtil qw(smart_edit_snippet);
+use Cavil::ReportUtil qw(smart_edit_snippet spdx_edit_snippet);
 use Cavil::Util       qw(pattern_matches pattern_contains_redundant_skip pattern_checksum);
 use Mojo::JSON        qw(true false);
 
@@ -228,7 +228,8 @@ sub meta ($self) {
 
 sub smart_edit ($self) {
   my $snippet = $self->snippets->with_context($self->param('id')) or return $self->reply->not_found;
-  my $result  = smart_edit_snippet($snippet);
+  my $mode    = $self->param('mode') // 'smart';
+  my $result  = $mode eq 'spdx' ? spdx_edit_snippet($snippet) : smart_edit_snippet($snippet);
   $self->render(
     json => {pattern => $result->{text}, start_line => $result->{start_line}, changed => $result->{changed} ? \1 : \0});
 }

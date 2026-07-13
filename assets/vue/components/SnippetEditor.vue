@@ -71,6 +71,17 @@
                     </button>
                     <button
                       type="button"
+                      class="snippet-editor-tool-btn snippet-editor-spdx-btn"
+                      data-action="spdx-edit"
+                      :disabled="smartEditBusy"
+                      :title="smartEditBusy ? 'Smart edit in progress…' : 'Replace with SPDX license identifier'"
+                      aria-label="SPDX license identifier"
+                      @click="spdxEdit"
+                    >
+                      SPDX
+                    </button>
+                    <button
+                      type="button"
                       class="snippet-editor-tool-btn"
                       data-action="restore-original"
                       :disabled="!canRestoreOriginal"
@@ -630,11 +641,39 @@ export default {
         this.getHighlightedLines();
       }
     },
-    async smartEdit() {
+    emptyDecorations() {
+      return {matchLineSet: {}, keywordLineSet: {}, idsByLine: new Map()};
+    },
+    shiftedDecorations(startLine) {
+      const offset = startLine - this.startLine;
+      const original = this.originalDecorations;
+      const shiftSet = src => {
+        const out = {};
+        for (const k of Object.keys(src)) {
+          const i = parseInt(k) - offset;
+          if (i >= 0) out[i] = true;
+        }
+        return out;
+      };
+      const shiftMap = src => {
+        const out = new Map();
+        for (const [k, v] of src.entries()) {
+          const i = k - offset;
+          if (i >= 0) out.set(i, v);
+        }
+        return out;
+      };
+      return {
+        matchLineSet: shiftSet(original.matchLineSet),
+        keywordLineSet: shiftSet(original.keywordLineSet),
+        idsByLine: shiftMap(original.idsByLine)
+      };
+    },
+    async applyServerEdit(url, decorationsFor) {
       if (!this.editor || this.smartEditBusy) return;
       this.smartEditBusy = true;
       try {
-        const res = await this.ua.get(`/snippet/smart_edit/${this.snippetId}`);
+        const res = await this.ua.get(url);
         if (!res.isSuccess) return;
         const data = await res.json();
         const pattern = data.pattern;
@@ -642,38 +681,22 @@ export default {
         const currentDoc = this.editor.state.doc.toString();
         if (pattern === currentDoc) return;
 
-        const offset = data.start_line - this.startLine;
-        const od = this.originalDecorations;
-        const shiftSet = src => {
-          const out = {};
-          for (const k of Object.keys(src)) {
-            const i = parseInt(k) - offset;
-            if (i >= 0) out[i] = true;
-          }
-          return out;
-        };
-        const shiftMap = src => {
-          const out = new Map();
-          for (const [k, v] of src.entries()) {
-            const i = k - offset;
-            if (i >= 0) out.set(i, v);
-          }
-          return out;
-        };
-        const trimmedDecorations = {
-          matchLineSet: shiftSet(od.matchLineSet),
-          keywordLineSet: shiftSet(od.keywordLineSet),
-          idsByLine: shiftMap(od.idsByLine)
-        };
-
         this.editor.dispatch({
           changes: {from: 0, to: this.editor.state.doc.length, insert: pattern},
-          effects: setDecoLinesEffect.of(trimmedDecorations),
+          effects: setDecoLinesEffect.of(decorationsFor(data)),
           selection: {anchor: 0}
         });
       } finally {
         this.smartEditBusy = false;
       }
+    },
+    async smartEdit() {
+      return this.applyServerEdit(`/snippet/smart_edit/${this.snippetId}`, data =>
+        this.shiftedDecorations(data.start_line)
+      );
+    },
+    async spdxEdit() {
+      return this.applyServerEdit(`/snippet/smart_edit/${this.snippetId}?mode=spdx`, () => this.emptyDecorations());
     },
     restoreOriginal() {
       this.editor.dispatch({
@@ -805,9 +828,15 @@ export default {
   cursor: not-allowed;
   opacity: 0.5;
 }
+.snippet-editor .snippet-editor-spdx-btn {
+  font-size: 10px;
+  font-weight: 700;
+  width: 40px;
+}
 .snippet-editor .snippet-editor-host .cm-editor {
   height: auto;
   max-height: 70vh;
+  min-height: 4rem;
 }
 .snippet-editor .snippet-editor-host .cm-editor.cm-focused {
   outline: none;

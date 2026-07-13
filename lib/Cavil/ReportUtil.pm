@@ -21,12 +21,12 @@ use Exporter 'import';
 use List::Util qw(uniq);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
-use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
   qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
   qw(report_checksum report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear),
-  qw(smart_edit_snippet summary_delta summary_delta_score)
+  qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -289,6 +289,15 @@ sub smart_edit_snippet ($snippet) {
   my $dropped_lines = (substr($text, 0, $new_start) =~ tr/\n//);
 
   return $finalize->($trimmed, $minimal_sline + $dropped_lines);
+}
+
+sub spdx_edit_snippet ($snippet) {
+  my $original_text = $snippet->{text} // '';
+  my $identifiers   = extract_spdx_identifiers($original_text);
+  my $identifier    = $identifiers->[0] // '';
+  my $text          = "SPDX-License-Identifier: $identifier";
+
+  return {text => $text, start_line => $snippet->{sline} // 1, changed => $text eq $original_text ? 0 : 1};
 }
 
 sub report_checksum ($specfile_report, $dig_report) {

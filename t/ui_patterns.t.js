@@ -370,7 +370,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
 
       // Expand widget and click the location link
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
-      const pendingAction = page.locator('#pending-actions-widget .pending-actions-item', {hasText: 'Scroll-Link-Test'});
+      const pendingAction = page.locator('#pending-actions-widget .pending-actions-item', {
+        hasText: 'Scroll-Link-Test'
+      });
       await pendingAction.locator('.pending-actions-item-link').click();
 
       // Clicking the link must re-expand the target file and collapse the widget panel
@@ -441,8 +443,10 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#edit-snippet .cm-editor');
 
       const smartBtn = page.locator('#edit-snippet button[data-action="smart-edit"]');
+      const spdxBtn = page.locator('#edit-snippet button[data-action="spdx-edit"]');
       const restoreBtn = page.locator('#edit-snippet button[data-action="restore-original"]');
       await smartBtn.waitFor();
+      await spdxBtn.waitFor();
       await restoreBtn.waitFor();
       t.equal(await restoreBtn.isDisabled(), true, 'restore-original is disabled before any edits');
 
@@ -482,6 +486,34 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await docText(), originalText, 'doc restored to original after restore-original');
       t.equal(await highlightCount(), originalHighlights, 'highlights restored after restore-original');
       t.equal(await restoreBtn.isDisabled(), true, 'restore-original disables again once back at original');
+
+      const [spdxResp] = await Promise.all([
+        page.waitForResponse(resp => /\/snippet\/smart_edit\/.+mode=spdx/.test(resp.url())),
+        spdxBtn.click()
+      ]);
+      t.equal(spdxResp.status(), 200, 'SPDX edit endpoint returns 200');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString() === 'SPDX-License-Identifier: '
+      );
+      t.equal(await docText(), 'SPDX-License-Identifier: ', 'SPDX edit inserts empty identifier template');
+      t.equal(await highlightCount(), 0, 'SPDX edit clears stale source-line highlights');
+      t.ok(
+        await page.evaluate(() => {
+          const host = document.querySelector('#edit-snippet .snippet-editor-host').getBoundingClientRect();
+          const buttons = [...document.querySelectorAll('#edit-snippet .snippet-editor-tool-btn')];
+          return buttons.every(button => button.getBoundingClientRect().bottom <= host.bottom);
+        }),
+        'SPDX one-line editor keeps toolbar buttons inside the editor host'
+      );
+
+      await restoreBtn.click();
+      await page.waitForFunction(
+        orig => document.querySelector('#edit-snippet .cm-editor').cmView.state.doc.toString() === orig,
+        originalText
+      );
+      t.equal(await docText(), originalText, 'doc restored after SPDX edit');
+      t.equal(await highlightCount(), originalHighlights, 'highlights restored after SPDX edit');
     });
 
     await t.test('Accept request', async t => {
