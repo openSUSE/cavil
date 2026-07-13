@@ -90,7 +90,6 @@
           <p class="cavil-notice-summary">No files matching any known license patterns or keywords have been found.</p>
         </CavilNoticePanel>
         <div v-else>
-          <br />
           <LicenseCompositionChart
             id="license-chart"
             :entries="licenseChartEntries"
@@ -324,7 +323,6 @@
         id="report-components-pane"
         role="tabpanel"
       >
-        <br />
         <LicenseCompositionChart
           id="component-license-chart"
           :entries="componentLicenseChartEntries"
@@ -1160,6 +1158,7 @@ export default {
 }
 .report-tab-content {
   display: block;
+  padding-top: 1.5rem;
 }
 .report-tab-pane {
   display: none;
