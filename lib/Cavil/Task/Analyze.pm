@@ -287,12 +287,14 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
     return;
   }
 
-  $pkgs->update({
-    id          => $pkg->{id},
-    result      => undef,
-    notice      => summary_delta($best, $summary),
-    diff_report => _diff_report($app, $pkg->{id}, $best, $summary)
-  });
+  $pkgs->update(
+    {
+      id          => $pkg->{id},
+      result      => undef,
+      notice      => summary_delta($best, $summary),
+      diff_report => _diff_report($app, $pkg->{id}, $best, $summary)
+    }
+  );
 }
 
 # Refresh just the notice column for already-reviewed packages, so the text
@@ -307,8 +309,8 @@ sub _refresh_notice ($app, $pkg) {
     $notice = "Not found any significant difference against $matched_id";
   }
   elsif ($best) {
-    $notice = summary_delta($best, $summary);
-    $notice = undef unless length $notice;
+    $notice      = summary_delta($best, $summary);
+    $notice      = undef unless length $notice;
     $diff_report = _diff_report($app, $pkg->{id}, $best, $summary);
   }
   $app->packages->update({id => $pkg->{id}, notice => $notice, diff_report => $diff_report});

@@ -74,8 +74,8 @@ sub file ($self, $meta, $path, $mime) {
 
     # Plain SQL on this hot path: these inserts are fixed-shape, so SQL::Abstract's dynamic query
     # building is pure overhead (it dominated the batch profile). Values stay bound placeholders.
-    $file_id ||= $self->{db}->query(
-      'INSERT INTO matched_files (package, filename, mimetype) VALUES (?, ?, ?) RETURNING id',
+    $file_id
+      ||= $self->{db}->query('INSERT INTO matched_files (package, filename, mimetype) VALUES (?, ?, ?) RETURNING id',
       $package, $path, $mime)->array->[0];
 
     $keyword_missed ||= $no_license;
@@ -185,8 +185,7 @@ sub _snippet ($self, $file_id, $matches, $path, $first_line, $last_line) {
 
   my $snippet = $self->{snippets}->{$hash}
     ||= $self->{app}->snippets->find_or_create({hash => $hash, text => $text, package => $self->{package}});
-  $self->{db}->query(
-    'INSERT INTO file_snippets (package, snippet, sline, eline, file) VALUES (?, ?, ?, ?, ?)',
+  $self->{db}->query('INSERT INTO file_snippets (package, snippet, sline, eline, file) VALUES (?, ?, ?, ?, ?)',
     $self->{package}, $snippet, $first_line, $last_line, $file_id);
 
   return undef;

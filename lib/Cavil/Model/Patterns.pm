@@ -237,7 +237,7 @@ sub _closest_pattern_in_license ($self, $shingles, $license, $ctx) {
     my $pos = 0;
     for my $p ($self->pg->db->select('license_patterns', [qw(id pattern)], {license => $license})->hashes->each) {
       my $sig = text_shingles($p->{pattern}, $ctx->{k} // SIMILARITY_SHINGLE_SIZE);
-      push @ids, $p->{id};
+      push @ids,          $p->{id};
       push @{$index{$_}}, $pos for keys %$sig;
       $pos++;
     }
@@ -254,7 +254,7 @@ sub _closest_pattern_in_license ($self, $shingles, $license, $ctx) {
   my @hit;
   for my $shingle (keys %$shingles) {
     my $postings = $index->{$shingle} or next;
-    my $w = $idf->{$shingle} // 1;
+    my $w        = $idf->{$shingle} // 1;
     $hit[$_] += $w for @$postings;
   }
 
@@ -331,8 +331,7 @@ sub score_package_snippets ($self, $package_id) {
   my $tx = $db->begin;
   for my $score (@scores) {
     my ($id, $s) = @$score;
-    $db->query(
-      'UPDATE snippets SET likelyness = ?, like_pattern = ?, second_match = ?, score_version = ? WHERE id = ?',
+    $db->query('UPDATE snippets SET likelyness = ?, like_pattern = ?, second_match = ?, score_version = ? WHERE id = ?',
       $s->{likelyness}, $s->{like_pattern}, $s->{second_match}, $s->{score_version}, $id);
   }
   $tx->commit;

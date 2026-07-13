@@ -232,7 +232,9 @@ sub generate_to_file ($self, $id, $file) {
       {
       file => $delivered,
       hash => {
-        type => 'Hash', algorithm => HASH_ALGO, hashValue => Digest::SHA->new('512')->addfile("$delivered")->hexdigest
+        type      => 'Hash',
+        algorithm => HASH_ALGO,
+        hashValue => Digest::SHA->new('512')->addfile("$delivered")->hexdigest
       }
       };
   }
