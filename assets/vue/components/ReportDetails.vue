@@ -145,7 +145,7 @@
                         @click.prevent="onFileLinkClick(file.id)"
                         >{{ file.name }}</a
                       >
-                      <span v-if="file.new" class="risk-unresolved-new">new</span>
+                      <span v-if="file.new" class="risk-new">new</span>
                     </span>
                     <span class="risk-unresolved-match">
                       <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
@@ -169,7 +169,10 @@
             <ul :id="'risk-' + risk" class="risk-license-list">
               <li v-for="lic in risks[risk]" :key="lic.list_id" class="risk-license-item">
                 <div class="risk-license-row">
-                  <span class="risk-license-name" v-html="lic.name_html"></span>
+                  <span class="risk-license-label">
+                    <span class="risk-license-name" v-html="lic.name_html"></span>
+                    <span v-if="lic.new" class="risk-new">new</span>
+                  </span>
                   <a :href="'#' + lic.list_id" class="risk-license-count" data-bs-toggle="collapse">
                     {{ lic.files.length }} {{ lic.files.length === 1 ? 'file' : 'files' }}
                   </a>
@@ -1265,6 +1268,12 @@ export default {
   gap: 0.75rem;
   grid-template-columns: minmax(0, 1fr) auto;
 }
+.risk-license-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
 .risk-license-name {
   color: #1f2328;
   font-weight: 600;
@@ -1378,7 +1387,7 @@ export default {
   gap: 0.4rem;
   min-width: 0;
 }
-.risk-unresolved-new {
+.risk-new {
   background: #ddf4ff;
   border-radius: 999px;
   color: #0550ae;

@@ -627,10 +627,21 @@ sub report_notice_fixtures ($self, $app) {
     unique_id => '00000000-0000-0000-0000-000000000042'
   );
 
+  # A licensed pattern so version 2 can gain a genuinely new license (Apache-2.0)
+  $app->patterns->create(
+    pattern   => 'report-notice distinctive apache license marker',
+    license   => 'Apache-2.0',
+    risk      => 5,
+    unique_id => '00000000-0000-0000-0000-000000000043'
+  );
+  $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'Apache-2.0');
+
   # Build a synthetic package version on disk and run it through the pipeline.
   # Each numeric marker in @$files becomes one file with one unresolved match;
   # distinct markers keep every snippet hash unique so they count as "new".
-  my $build = sub ($md5, $files) {
+  # $extra is an optional map of relative filename => literal content for files
+  # that should resolve to a license instead of being unresolved.
+  my $build = sub ($md5, $files, $extra = {}) {
     my $name = 'report-notice';
     my $dir  = $self->checkout_dir->child($name, $md5)->make_path;
     $dir->child("$name.spec")->spew(<<"SPEC");
@@ -659,6 +670,7 @@ $marker PUDDLE_OF_SYNTHETIC_KEYWORDS appears in this exact spot.
 Trailing padding so the snippet has surrounding context to render.
 FILE
     }
+    $src->child($_)->spew($extra->{$_}) for sort keys %$extra;
     my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
     system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
       or die "Failed to create synthetic tarball: $?";
@@ -689,9 +701,14 @@ FILE
   $pkg1->{review_timestamp} = 1;
   $pkgs->update($pkg1);
 
-  # Version 2: eight brand-new files → eight new unresolved matches, so analyze
-  # writes a real "New unresolved matches in 8 files" notice.
-  $build->('b0000000000000000000000000000002', [101 .. 108]);
+  # Version 2: eight brand-new files → eight new unresolved matches, plus one
+  # file resolving to a brand-new Apache-2.0 license, so analyze writes a diff
+  # report with both new_unresolved and new_licenses.
+  $build->(
+    'b0000000000000000000000000000002',
+    [101 .. 108],
+    {'LICENSE-APACHE.txt' => "report-notice distinctive apache license marker\n"}
+  );
 }
 
 sub unpack_fixtures ($self, $app) {

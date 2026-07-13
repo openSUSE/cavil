@@ -4,8 +4,9 @@
 package Cavil::Task::Analyze;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::ReportUtil qw(new_unresolved_files report_checksum report_shortname summary_delta summary_delta_score);
-use Mojo::JSON        qw(from_json to_json);
+use Cavil::ReportUtil
+  qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta summary_delta_score);
+use Mojo::JSON qw(from_json to_json);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -325,12 +326,13 @@ sub _refresh_notice ($app, $pkg) {
 sub _diff_report ($app, $id, $best, $summary) {
   return undef unless $best;
 
-  my $cached = $app->reports->cached_dig_report($id);
-  my $report = $cached ? from_json($cached) : $app->reports->dig_report($id);
-  my $files  = new_unresolved_files($best, $summary, $report->{files});
-  return undef unless @$files;
+  my $cached   = $app->reports->cached_dig_report($id);
+  my $report   = $cached ? from_json($cached) : $app->reports->dig_report($id);
+  my $files    = new_unresolved_files($best, $summary, $report->{files});
+  my $licenses = new_license_names($best, $summary);
+  return undef unless @$files || @$licenses;
 
-  return to_json({version => 1, closest => $best->{id}, new_unresolved => $files});
+  return to_json({version => 1, closest => $best->{id}, new_unresolved => $files, new_licenses => $licenses});
 }
 
 # Find the closest matching older review. Returns (matched_id, best_summary,

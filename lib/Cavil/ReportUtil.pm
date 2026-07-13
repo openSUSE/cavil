@@ -24,9 +24,9 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 our @EXPORT_OK = (
-  qw(estimated_risk incompatible_licenses minimal_snippet new_unresolved_files overlapping_licenses report_checksum),
-  qw(report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
-  qw(summary_delta summary_delta_score)
+  qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
+  qw(report_checksum report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear),
+  qw(smart_edit_snippet summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -414,14 +414,26 @@ sub _new_incompatibilities ($old, $new) {
   return @new;
 }
 
+# New licenses between two summaries, keyed by bare license name => risk. The
+# report UI has one row per license (flags are labels, not separate rows), so
+# "new" is by name: the summary keys the licenses as "name:flag:flag" and we
+# compare the name only (license names never contain ":", which is why the
+# summary can use it as the flag separator in the first place).
 sub _new_licenses ($old, $new) {
-  my %old_licenses = map { $_ => 1 } keys %{$old->{licenses} || {}};
+  my %old_licenses = map { (split /:/, $_)[0] => 1 } keys %{$old->{licenses} || {}};
 
   my %new_licenses;
   for my $lic (keys %{$new->{licenses}}) {
-    $new_licenses{$lic} ||= $new->{licenses}{$lic} unless $old_licenses{$lic};
+    my $name = (split /:/, $lic)[0];
+    $new_licenses{$name} //= $new->{licenses}{$lic} unless $old_licenses{$name};
   }
   return \%new_licenses;
+}
+
+# The names of the new licenses between two summaries, sorted; used to flag them
+# in the report UI (parallel to new_unresolved_files).
+sub new_license_names ($old, $new) {
+  return [sort keys %{_new_licenses($old, $new)}];
 }
 
 sub _new_snippets ($old, $new) {

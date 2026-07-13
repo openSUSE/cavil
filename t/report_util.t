@@ -17,9 +17,9 @@ use Mojo::Base -strict;
 
 use Test::More;
 use Cavil::ReportUtil (
-  qw(estimated_risk incompatible_licenses minimal_snippet new_unresolved_files overlapping_licenses report_checksum),
-  qw(report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
-  qw(summary_delta summary_delta_score)
+  qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
+  qw(report_checksum report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear),
+  qw(smart_edit_snippet summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
@@ -1080,6 +1080,23 @@ subtest 'summary_delta' => sub {
         ),
         "Diff to closest match 1\n\n  New licenses (by risk)\n    5  Apache-2.0\n    3  MIT\n", 'more new licenses';
     };
+
+    subtest 'Name-based (flags ignored)' => sub {
+
+      # Detection is by license name; a license that only gains a flag between
+      # versions is the same UI row and is not reported as new.
+      is summary_delta(
+        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT'        => 3}},
+        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT:patent' => 3}}
+        ),
+        '', 'existing license gaining a flag is not new';
+      is summary_delta(
+        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT'        => 3}},
+        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT:patent' => 3, 'Apache-2.0' => 5}}
+        ),
+        "Diff to closest match 1\n\n  New licenses (by risk)\n    5  Apache-2.0\n",
+        'only the genuinely new name is reported';
+    };
   };
 };
 
@@ -1117,6 +1134,22 @@ subtest 'new_unresolved_files' => sub {
 
   is_deeply new_unresolved_files({id => 1, missed_snippets => {}}, {id => 2, missed_snippets => {}}, $files), [],
     'no new files';
+};
+
+subtest 'new_license_names' => sub {
+  is_deeply new_license_names({id => 1, licenses => {'Apache-2.0' => 5}},
+    {id => 2, licenses => {'Apache-2.0' => 5, 'MIT' => 3, 'GPL-2.0-only' => 5}}),
+    ['GPL-2.0-only', 'MIT'], 'new license names, sorted';
+
+  is_deeply new_license_names({id => 1, licenses => {'MIT' => 3}}, {id => 2, licenses => {'MIT:patent' => 3}}), [],
+    'a license that only gains a flag is not new';
+
+  is_deeply new_license_names({id => 1, licenses => {'MIT' => 3}},
+    {id => 2, licenses => {'MIT:patent' => 3, 'Apache-2.0' => 5}}),
+    ['Apache-2.0'], 'flags ignored, only the new name reported';
+
+  is_deeply new_license_names({id => 1, licenses => {'MIT' => 3}}, {id => 2, licenses => {'MIT' => 3}}), [],
+    'no new licenses';
 };
 
 subtest 'report_shortname' => sub {

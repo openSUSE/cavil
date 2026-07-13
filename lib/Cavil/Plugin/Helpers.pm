@@ -108,6 +108,16 @@ sub _report_details ($c, $pkg, $report) {
   my %chart_copy = %{$report->{chart} // {}};
   my $chart      = keys(%chart_copy) ? $c->helpers->chart_data(\%chart_copy) : undef;
 
+  # New files and licenses (vs the closest previous review) from the structured
+  # diff report, so the UI can badge them "new". Degrades to no flags when the
+  # column is absent (report not reindexed yet) or unparseable.
+  my (%new_unresolved, %new_license);
+  if (my $diff = $pkg->{diff_report}) {
+    my $decoded = eval { from_json($diff) } // {};
+    $new_unresolved{$_->{id}} = 1 for @{$decoded->{new_unresolved} // []};
+    $new_license{$_} = 1 for @{$decoded->{new_licenses} // []};
+  }
+
   my $risks = $report->{risks} // {};
   my %risk_buckets;
   for my $risk (keys %$risks) {
@@ -122,19 +132,11 @@ sub _report_details ($c, $pkg, $report) {
         spdx      => $matches->{spdx},
         name_html => spdx_link($display),
         flags     => $matches->{flags} // [],
-        files     => $matches->{files}
+        files     => $matches->{files},
+        ($new_license{$matches->{name}} ? (new => \1) : ())
         };
     }
     $risk_buckets{$risk} = \@licenses;
-  }
-
-  # Flag files with new unresolved matches (vs the closest previous review) from
-  # the structured diff report, so the UI can badge them "new". Degrades to no
-  # flags when the column is absent (report not reindexed yet) or unparseable.
-  my %new_unresolved;
-  if (my $diff = $pkg->{diff_report}) {
-    my $decoded = eval { from_json($diff) };
-    $new_unresolved{$_->{id}} = 1 for @{($decoded // {})->{new_unresolved} // []};
   }
 
   my @missed;
