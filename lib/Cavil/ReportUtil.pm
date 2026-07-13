@@ -24,13 +24,10 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 our @EXPORT_OK = (
-  qw(estimated_risk incompatible_licenses minimal_snippet overlapping_licenses report_checksum report_shortname),
-  qw(should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
+  qw(estimated_risk incompatible_licenses minimal_snippet new_unresolved_files overlapping_licenses report_checksum),
+  qw(report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(summary_delta summary_delta_score)
 );
-
-# Maximum number of new-unresolved files listed in the "why this needs review" box
-use constant MAX_NEW_UNRESOLVED_FILES => 5;
 
 use constant PAD_WORDS => 5;
 
@@ -358,17 +355,11 @@ sub summary_delta ($old, $new) {
     push @blocks, "  Spec file license  $old->{specfile} -> $new->{specfile}";
   }
 
-  # New snippet matches (the file names are linkified in the report UI). The
-  # first MAX_NEW_UNRESOLVED_FILES are listed by name, the rest summarized as
-  # "+ N more".
+  # New snippet matches (a count only; the individual files are flagged "new" in
+  # the Risk 9 unresolved-matches section from the structured diff report).
   my $new_snippets = _new_snippets($old, $new);
-  if (my @files = sort +uniq values %$new_snippets) {
-    my $num  = @files;
-    my @show = @files[0 .. ($num < MAX_NEW_UNRESOLVED_FILES ? $num : MAX_NEW_UNRESOLVED_FILES) - 1];
-    my @lines = ($num == 1 ? '  New unresolved matches' : "  New unresolved matches in $num files");
-    push @lines, map {"    $_"} @show;
-    push @lines, '    + ' . ($num - @show) . ' more' if $num > @show;
-    push @blocks, join("\n", @lines);
+  if (my $num = uniq values %$new_snippets) {
+    push @blocks, $num == 1 ? '  New unresolved matches' : "  New unresolved matches in $num files";
   }
 
   # New licenses, sorted by risk desc then SPDX alphabetical
@@ -444,6 +435,20 @@ sub _new_snippets ($old, $new) {
     }
   }
   return \%files_with_new_snippets;
+}
+
+# The complete set of files with new unresolved matches between the closest
+# previous report ($old) and the current one ($new), as [{id, name}] sorted by
+# name. $files is the current dig report's id => name map, used to resolve each
+# new-unresolved file name back to its file id for the structured diff report.
+sub new_unresolved_files ($old, $new, $files) {
+  my $new_snippets = _new_snippets($old, $new);
+  my @names        = sort +uniq values %$new_snippets;
+
+  # Resolve names to ids via the current dig report's map; skip any name we
+  # cannot resolve (a stored entry without an id could never match a file).
+  my %id_for = reverse %{$files // {}};
+  return [map { {id => $id_for{$_}, name => $_} } grep { defined $id_for{$_} } @names];
 }
 
 1;

@@ -795,7 +795,7 @@ sub unpacked ($self, $id) {
 
 sub update ($self, $pkg) {
   my %updates = map { exists $pkg->{$_} ? ($_ => $pkg->{$_}) : () } (
-    qw(created checksum priority state obsolete result notice reviewed reviewing_user external_link),
+    qw(created checksum priority state obsolete result notice diff_report reviewed reviewing_user external_link),
     qw(embargoed ai_assisted)
   );
   $updates{reviewed} = \'now()' if $pkg->{review_timestamp};

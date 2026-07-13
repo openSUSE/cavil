@@ -9,6 +9,7 @@ use Cavil::ReportUtil qw(minimal_snippet);
 use Cavil::Util       qw(external_link_data spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
+use Mojo::JSON        qw(from_json);
 use Mojo::Util        qw(decode humanize_bytes xml_escape);
 use List::Util        qw(first uniq);
 
@@ -127,10 +128,20 @@ sub _report_details ($c, $pkg, $report) {
     $risk_buckets{$risk} = \@licenses;
   }
 
+  # Flag files with new unresolved matches (vs the closest previous review) from
+  # the structured diff report, so the UI can badge them "new". Degrades to no
+  # flags when the column is absent (report not reindexed yet) or unparseable.
+  my %new_unresolved;
+  if (my $diff = $pkg->{diff_report}) {
+    my $decoded = eval { from_json($diff) };
+    $new_unresolved{$_->{id}} = 1 for @{($decoded // {})->{new_unresolved} // []};
+  }
+
   my @missed;
   for my $f (@{$report->{missed_files} // []}) {
     my %copy = %$f;
     $copy{license_html} = spdx_link($f->{spdx} || $f->{license});
+    $copy{new}          = \1 if $new_unresolved{$f->{id}};
     push @missed, \%copy;
   }
 

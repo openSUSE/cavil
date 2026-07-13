@@ -203,16 +203,7 @@
         <i class="fa-solid fa-caret-right"></i>
         <span>why this needs review</span>
       </header>
-      <div class="review-information-card-body">
-        <span v-for="(line, i) in noticeLines" :key="i" class="review-information-line"
-          ><template v-if="line.id !== null"
-            >{{ line.lead
-            }}<a :href="'#file-' + line.id" class="review-information-file" @click.prevent="onFileClick(line.id)">{{
-              line.name
-            }}</a></template
-          ><template v-else>{{ line.text }}</template></span
-        >
-      </div>
+      <pre class="review-information-card-body">{{ notice }}</pre>
     </section>
     <cavil-notice-panel
       v-if="errors.length > 0"
@@ -323,7 +314,6 @@ export default {
   name: 'ReportMetadata',
   components: {CavilNoticePanel, CopyableText, ExternalLink},
   mixins: [Refresh],
-  inject: {fileIndex: {default: null}, gotoFile: {default: null}},
   data() {
     return {
       actions: [],
@@ -403,30 +393,9 @@ export default {
     reindexTitle() {
       if (this.reindexFailed) return 'Reindex request failed';
       return this.shouldReindex ? 'There are new patterns!' : 'There are no new patterns';
-    },
-    // Split the notice into lines, marking any line whose trimmed text is a
-    // known file path with that file's id, so the template can turn it into a
-    // link to the file preview (see LegalReport.vue / fileIndex).
-    noticeLines() {
-      if (this.notice === null) return [];
-      const index = this.fileIndex ?? {};
-      return this.notice.split('\n').map(raw => {
-        const name = raw.trim();
-        // Read index[name] directly (not via hasOwnProperty) so Vue tracks the
-        // key: the ReportDetails component fills fileIndex after its own fetch,
-        // and the box must re-render to linkify the file names once it does.
-        const id = name === '' ? null : (index[name] ?? null);
-        // For linked lines, keep the leading indentation out of the anchor so
-        // the hover underline covers only the file name, not the whitespace.
-        const lead = id === null ? '' : raw.slice(0, raw.indexOf(name));
-        return {text: raw === '' ? ' ' : raw, lead, name, id};
-      });
     }
   },
   methods: {
-    onFileClick(id) {
-      if (this.gotoFile) this.gotoFile(id);
-    },
     async reindex() {
       this.reindexBusy = true;
       this.reindexFailed = false;
@@ -773,21 +742,7 @@ export default {
   margin: 0;
   overflow-x: auto;
   padding: 0.85rem 0.95rem;
-}
-.review-information-line {
-  display: block;
   white-space: pre-wrap;
-}
-.review-information-file {
-  color: inherit;
-  text-decoration: none;
-}
-.review-information-file:hover {
-  cursor: pointer;
-}
-.review-information-file:hover,
-.review-information-file:focus-visible {
-  text-decoration: underline;
 }
 .metadata-review-section {
   margin: 1.25rem 0;

@@ -35,7 +35,8 @@ subtest 'Analyze background job' => sub {
   is $res->{result}, undef, 'result cleared';
   is $res->{notice}, "Diff to closest match 1\n\n  Spec file license  Artistic-2.0 -> GPL-1.0-or-later\n",
     'different spec';
-  is $res->{state}, 'new', 'not approved';
+  is $res->{diff_report}, undef, 'no structured diff for a spec-only delta (no new unresolved matches)';
+  is $res->{state},       'new', 'not approved';
 };
 
 subtest 'Analyze clears stale notice when reusing a previous accepted review' => sub {
@@ -58,16 +59,18 @@ subtest 'Analyze clears stale notice when reusing a previous accepted review' =>
     'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
      SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg3_id, 1
   );
-  $db->query('UPDATE bot_packages SET indexed = NOW(), checksum = ?, notice = ? WHERE id = ?',
+  $db->query(
+    "UPDATE bot_packages SET indexed = NOW(), checksum = ?, notice = ?, diff_report = '{\"version\":1}' WHERE id = ?",
     $pkg1->{checksum}, 'stale notice', $pkg3_id);
 
   $t->app->minion->enqueue(analyzed => [$pkg3_id]);
   $t->app->minion->perform_jobs;
 
   my $res = $pkgs->find($pkg3_id);
-  is $res->{state},  'acceptable',                                                      'approved from previous review';
-  is $res->{notice}, undef,                                                             'stale notice cleared';
-  is $res->{result}, 'Accepted because previously reviewed under the same license (1)', 'reused previous review';
+  is $res->{state},       'acceptable', 'approved from previous review';
+  is $res->{notice},      undef,        'stale notice cleared';
+  is $res->{diff_report}, undef,        'stale structured diff cleared alongside the notice';
+  is $res->{result},      'Accepted because previously reviewed under the same license (1)', 'reused previous review';
 };
 
 subtest 'Re-analyze refreshes notice on already-reviewed packages' => sub {

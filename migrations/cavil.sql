@@ -375,3 +375,6 @@ DROP TABLE IF EXISTS package_components;
 
 -- 48 up
 CREATE INDEX ON file_snippets(file);
+
+-- 49 up
+ALTER TABLE bot_packages ADD COLUMN diff_report text;

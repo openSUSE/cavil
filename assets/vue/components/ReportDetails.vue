@@ -138,12 +138,15 @@
               <ul class="risk-license-list risk-unresolved-list">
                 <li v-for="file in missedFiles" :key="file.id" class="risk-license-item risk-unresolved-item">
                   <div class="risk-unresolved-row">
-                    <a
-                      :href="'#file-' + file.id"
-                      class="file-link risk-unresolved-file"
-                      @click.prevent="onFileLinkClick(file.id)"
-                      >{{ file.name }}</a
-                    >
+                    <span class="risk-unresolved-name">
+                      <a
+                        :href="'#file-' + file.id"
+                        class="file-link risk-unresolved-file"
+                        @click.prevent="onFileLinkClick(file.id)"
+                        >{{ file.name }}</a
+                      >
+                      <span v-if="file.new" class="risk-unresolved-new">new</span>
+                    </span>
                     <span class="risk-unresolved-match">
                       <b>{{ file.match }}%</b> similarity to <b v-html="file.license_html"></b>
                     </span>
@@ -458,7 +461,6 @@ export default {
     ReportNotes
   },
   mixins: [Refresh],
-  inject: {fileIndex: {default: null}},
   provide() {
     return {
       pendingActionsStore: {
@@ -669,7 +671,6 @@ export default {
       this.chart = data.chart;
       this.incompatibleLicenses = data.incompatible_licenses;
       this.missedFiles = data.missed_files;
-      this.syncFileIndex();
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;
       this.matchingGlobs = data.matching_globs;
@@ -797,15 +798,6 @@ export default {
       const file = this.files.find(f => String(f.id) === String(id));
       if (!file) return;
       return this.scrollToFile(file);
-    },
-    syncFileIndex() {
-      // Share a path => file id map with the ReportMetadata component so it can
-      // linkify the file names in the "why this needs review" notice (see
-      // LegalReport.vue).
-      const index = this.fileIndex;
-      if (index == null) return;
-      for (const key in index) delete index[key];
-      for (const file of this.missedFiles) index[file.name] = file.id;
     },
     pendingActionsForFile(fileId) {
       return this.pendingActions.filter(a => a.fileId === fileId);
@@ -1327,6 +1319,23 @@ export default {
   display: grid;
   gap: 0.6rem;
   grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) auto;
+}
+.risk-unresolved-name {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.risk-unresolved-new {
+  background: #ddf4ff;
+  border-radius: 999px;
+  color: #0550ae;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.05rem 0.4rem;
+  text-transform: uppercase;
 }
 .risk-unresolved-file {
   color: #57606a;

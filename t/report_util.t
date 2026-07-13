@@ -17,8 +17,8 @@ use Mojo::Base -strict;
 
 use Test::More;
 use Cavil::ReportUtil (
-  qw(estimated_risk incompatible_licenses minimal_snippet overlapping_licenses report_checksum report_shortname),
-  qw(should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
+  qw(estimated_risk incompatible_licenses minimal_snippet new_unresolved_files overlapping_licenses report_checksum),
+  qw(report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
@@ -1002,6 +1002,9 @@ subtest 'summary_delta' => sub {
     };
 
     subtest 'Noteworthy' => sub {
+
+      # The individual files are surfaced as structured data (new_unresolved_files)
+      # and badged in the report UI, so summary_delta only reports the count.
       is summary_delta(
         {
           id              => 1,
@@ -1019,31 +1022,8 @@ subtest 'summary_delta' => sub {
           licenses => {}
         }
         ),
-        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/LICENSE\n", 'new file with snippets';
+        "Diff to closest match 1\n\n  New unresolved matches\n", 'single new file';
 
-      # Up to MAX_NEW_UNRESOLVED_FILES (5) files are listed by name, sorted
-      is summary_delta(
-        {
-          id              => 1,
-          specfile        => 'MIT',
-          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
-          licenses        => {}
-        },
-        {
-          id              => 2,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
-            'Mojolicious-7.25/COPYING'            => ['741e8cc6ac467ffcbb5b2c27088def9a']
-          },
-          licenses => {}
-        }
-        ),
-        "Diff to closest match 1\n\n  New unresolved matches in 2 files\n"
-        . "    Mojolicious-7.25/COPYING\n    Mojolicious-7.25/LICENSE\n", 'two new files listed by name';
-
-      # More than five new files: the first five are listed, the rest summarized
       my %many = ('Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']);
       $many{sprintf 'Mojolicious-7.25/FILE-%02d', $_} = [sprintf '%040d', $_] for 1 .. 6;
       is summary_delta(
@@ -1055,9 +1035,7 @@ subtest 'summary_delta' => sub {
         },
         {id => 2, specfile => 'MIT', missed_snippets => \%many, licenses => {}}
         ),
-        "Diff to closest match 1\n\n  New unresolved matches in 6 files\n"
-        . "    Mojolicious-7.25/FILE-01\n    Mojolicious-7.25/FILE-02\n    Mojolicious-7.25/FILE-03\n"
-        . "    Mojolicious-7.25/FILE-04\n    Mojolicious-7.25/FILE-05\n    + 1 more\n", 'capped at five files';
+        "Diff to closest match 1\n\n  New unresolved matches in 6 files\n", 'multiple new files (count only)';
     };
   };
 
@@ -1105,6 +1083,41 @@ subtest 'summary_delta' => sub {
   };
 };
 
+subtest 'new_unresolved_files' => sub {
+  my $files
+    = {10 => 'Mojolicious-7.25/lib/Mojolicious.pm', 11 => 'Mojolicious-7.25/LICENSE', 12 => 'Mojolicious-7.25/COPYING'};
+
+  is_deeply new_unresolved_files(
+    {id => 1, missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']}},
+    {
+      id              => 2,
+      missed_snippets => {
+        'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
+        'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
+      }
+    },
+    $files
+    ),
+    [{id => 11, name => 'Mojolicious-7.25/LICENSE'}], 'single new file resolved to its id';
+
+  is_deeply new_unresolved_files(
+    {id => 1, missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']}},
+    {
+      id              => 2,
+      missed_snippets => {
+        'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
+        'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
+        'Mojolicious-7.25/COPYING'            => ['741e8cc6ac467ffcbb5b2c27088def9a']
+      }
+    },
+    $files
+    ),
+    [{id => 12, name => 'Mojolicious-7.25/COPYING'}, {id => 11, name => 'Mojolicious-7.25/LICENSE'}],
+    'all new files, sorted by name (no cap)';
+
+  is_deeply new_unresolved_files({id => 1, missed_snippets => {}}, {id => 2, missed_snippets => {}}, $files), [],
+    'no new files';
+};
 
 subtest 'report_shortname' => sub {
   is report_shortname('jemn9u', {}, {}), 'Unknown-0:jemn9u', 'minimal shortname';

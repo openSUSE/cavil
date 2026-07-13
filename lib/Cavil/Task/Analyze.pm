@@ -4,8 +4,8 @@
 package Cavil::Task::Analyze;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::ReportUtil qw(report_checksum report_shortname summary_delta summary_delta_score);
-use Mojo::JSON        qw(to_json);
+use Cavil::ReportUtil qw(new_unresolved_files report_checksum report_shortname summary_delta summary_delta_score);
+use Mojo::JSON        qw(from_json to_json);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -225,6 +225,7 @@ sub _analyzed ($job, $id) {
     $pkg->{review_timestamp} = 1;
     $pkg->{reviewing_user}   = undef;
     $pkg->{notice}           = undef;
+    $pkg->{diff_report}      = undef;
     $pkg->{result}           = "Accepted because previously reviewed under the same license ($f_id)";
     $pkgs->update($pkg);
     return;
@@ -235,8 +236,9 @@ sub _analyzed ($job, $id) {
 
     # risk 0 is spooky
     unless ($risk) {
-      $pkg->{result} = undef;
-      $pkg->{notice} = 'Manual review is required because of unusually low risk (0)';
+      $pkg->{result}      = undef;
+      $pkg->{notice}      = 'Manual review is required because of unusually low risk (0)';
+      $pkg->{diff_report} = undef;
       $pkgs->update($pkg);
       return;
     }
@@ -272,18 +274,25 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
       $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user';
     }
 
+    $pkg->{diff_report} = undef;
     $pkgs->update($pkg);
     return;
   }
 
   unless ($best) {
-    $pkg->{result} = undef;
-    $pkg->{notice} = 'Manual review is required because no previous reports are available';
+    $pkg->{result}      = undef;
+    $pkg->{notice}      = 'Manual review is required because no previous reports are available';
+    $pkg->{diff_report} = undef;
     $pkgs->update($pkg);
     return;
   }
 
-  $pkgs->update({id => $pkg->{id}, result => undef, notice => summary_delta($best, $summary)});
+  $pkgs->update({
+    id          => $pkg->{id},
+    result      => undef,
+    notice      => summary_delta($best, $summary),
+    diff_report => _diff_report($app, $pkg->{id}, $best, $summary)
+  });
 }
 
 # Refresh just the notice column for already-reviewed packages, so the text
@@ -293,15 +302,33 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
 sub _refresh_notice ($app, $pkg) {
   my ($matched_id, $best, $summary) = _smallest_delta($app, $pkg);
 
-  my $notice;
+  my ($notice, $diff_report);
   if (defined $matched_id && !$best) {
     $notice = "Not found any significant difference against $matched_id";
   }
   elsif ($best) {
     $notice = summary_delta($best, $summary);
     $notice = undef unless length $notice;
+    $diff_report = _diff_report($app, $pkg->{id}, $best, $summary);
   }
-  $app->packages->update({id => $pkg->{id}, notice => $notice});
+  $app->packages->update({id => $pkg->{id}, notice => $notice, diff_report => $diff_report});
+}
+
+# Structured, machine-readable companion to the notice text, stored in the
+# diff_report column and co-written/cleared at every notice write so the two
+# never drift. Currently carries the full (uncapped) list of files with new
+# unresolved matches, with file ids, so the report UI can flag them as "new".
+# Returns undef when there is no closest match or no new unresolved files (so
+# the column is null unless there is something to flag).
+sub _diff_report ($app, $id, $best, $summary) {
+  return undef unless $best;
+
+  my $cached = $app->reports->cached_dig_report($id);
+  my $report = $cached ? from_json($cached) : $app->reports->dig_report($id);
+  my $files  = new_unresolved_files($best, $summary, $report->{files});
+  return undef unless @$files;
+
+  return to_json({version => 1, closest => $best->{id}, new_unresolved => $files});
 }
 
 # Find the closest matching older review. Returns (matched_id, best_summary,
