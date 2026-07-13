@@ -163,8 +163,8 @@ subtest 'Obsolete package without legal report still exposes notes' => sub {
 
   $t->get_ok('/reviews/details/2')
     ->status_is(200)
-    ->content_like(qr/id="report-details"/)
-    ->content_like(qr/cavil\.setupReportDetails\(2, true, false, true\)/);
+    ->content_like(qr/id="legal-report"/)
+    ->content_like(qr{cavil\.setupLegalReport\(2, true, true, false, false, '/reviews/reindex/2', false, true\)});
 
   $t->get_ok('/reviews/report_details/2')
     ->status_is(200)
