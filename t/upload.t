@@ -35,7 +35,7 @@ subtest 'Permissions' => sub {
   $t->get_ok('/upload')->status_is(403);
   $t->post_ok('/upload')->status_is(403);
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-  $t->get_ok('/upload')->status_is(200)->element_exists('#upload');
+  $t->get_ok('/upload')->status_is(200)->element_exists('#archive-upload');
 };
 
 subtest 'Validation' => sub {

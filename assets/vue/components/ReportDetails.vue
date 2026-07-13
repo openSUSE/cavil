@@ -430,15 +430,15 @@
 </template>
 
 <script>
-import CavilNoticePanel from './components/CavilNoticePanel.vue';
-import FileSource from './components/FileSource.vue';
-import GlobProposalModal from './components/GlobProposalModal.vue';
-import LicenseCompositionChart from './components/LicenseCompositionChart.vue';
-import PendingActionsWidget from './components/PendingActionsWidget.vue';
-import ProgressBar from './components/ProgressBar.vue';
-import ReportNotes from './components/ReportNotes.vue';
-import {resolveSnippetFromFile, submitSnippetDecisions} from './helpers/snippetDecisions.js';
-import Refresh from './mixins/refresh.js';
+import CavilNoticePanel from './CavilNoticePanel.vue';
+import FileSource from './FileSource.vue';
+import GlobProposalModal from './GlobProposalModal.vue';
+import LicenseCompositionChart from './LicenseCompositionChart.vue';
+import PendingActionsWidget from './PendingActionsWidget.vue';
+import ProgressBar from './ProgressBar.vue';
+import ReportNotes from './ReportNotes.vue';
+import {resolveSnippetFromFile, submitSnippetDecisions} from '../helpers/snippetDecisions.js';
+import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import {Modal} from 'bootstrap';
 
@@ -458,6 +458,7 @@ export default {
     ReportNotes
   },
   mixins: [Refresh],
+  inject: {fileIndex: {default: null}},
   provide() {
     return {
       pendingActionsStore: {
@@ -668,6 +669,7 @@ export default {
       this.chart = data.chart;
       this.incompatibleLicenses = data.incompatible_licenses;
       this.missedFiles = data.missed_files;
+      this.syncFileIndex();
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;
       this.matchingGlobs = data.matching_globs;
@@ -795,6 +797,15 @@ export default {
       const file = this.files.find(f => String(f.id) === String(id));
       if (!file) return;
       return this.scrollToFile(file);
+    },
+    syncFileIndex() {
+      // Share a path => file id map with the ReportMetadata component so it can
+      // linkify the file names in the "why this needs review" notice (see
+      // LegalReport.vue).
+      const index = this.fileIndex;
+      if (index == null) return;
+      for (const key in index) delete index[key];
+      for (const file of this.missedFiles) index[file.name] = file.id;
     },
     pendingActionsForFile(fileId) {
       return this.pendingActions.filter(a => a.fileId === fileId);

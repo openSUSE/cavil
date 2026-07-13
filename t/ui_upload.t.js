@@ -25,7 +25,7 @@ t.test('Cavil UI - tarball upload', skipUnlessOnline, async t => {
     });
 
     await t.test('Selecting an archive prefills the name from the filename', async t => {
-      await page.setInputFiles('#upload input[name="tarball"]', ARCHIVE);
+      await page.setInputFiles('#archive-upload input[name="tarball"]', ARCHIVE);
       await page.waitForSelector('#selected-file');
       t.match(await page.innerText('#selected-file'), /Mojolicious-7\.25\.tar\.gz/, 'selected file is shown');
       t.equal(await page.inputValue('#upload-name'), 'Mojolicious', 'name prefilled with the version stripped');

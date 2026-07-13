@@ -7,6 +7,7 @@ import './css/app.css';
 import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap';
 import ApiKeys from './vue/ApiKeys.vue';
+import ArchiveUpload from './vue/ArchiveUpload.vue';
 import CavilMenu from './vue/CavilMenu.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
@@ -18,6 +19,7 @@ import IgnoredFiles from './vue/IgnoredFiles.vue';
 import IgnoredMatches from './vue/IgnoredMatches.vue';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
+import LegalReport from './vue/LegalReport.vue';
 import LicenseDetails from './vue/LicenseDetails.vue';
 import MissingLicenses from './vue/MissingLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
@@ -26,10 +28,7 @@ import ProposedPatterns from './vue/ProposedPatterns.vue';
 import RecentNotes from './vue/RecentNotes.vue';
 import RecentPatterns from './vue/RecentPatterns.vue';
 import RecentReviews from './vue/RecentReviews.vue';
-import ReportDetails from './vue/ReportDetails.vue';
-import ReportMetadata from './vue/ReportMetadata.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
-import Upload from './vue/Upload.vue';
 import moment from 'moment';
 import {createApp} from 'vue';
 
@@ -168,24 +167,26 @@ window.cavil = {
     app.mount('#recent-notes');
   },
 
-  setupReportMetadata(pkgId, hasManagerRole, hasAdminRole, hasLawyerRole, reindexUrl, shouldReindex) {
-    const app = createApp(ReportMetadata);
+  setupLegalReport(
+    pkgId,
+    hasManagerRole,
+    hasAdminRole,
+    hasLawyerRole,
+    hasContributorRole,
+    reindexUrl,
+    shouldReindex,
+    isObsolete = false
+  ) {
+    const app = createApp(LegalReport);
     app.config.globalProperties.pkgId = pkgId;
     app.config.globalProperties.hasManagerRole = hasManagerRole;
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.config.globalProperties.hasLawyerRole = hasLawyerRole;
+    app.config.globalProperties.hasContributorRole = hasContributorRole;
     app.config.globalProperties.reindexUrl = reindexUrl;
     app.config.globalProperties.shouldReindex = shouldReindex;
-    app.mount('#report-metadata');
-  },
-
-  setupReportDetails(pkgId, hasAdminRole, hasContributorRole, isObsolete = false) {
-    const app = createApp(ReportDetails);
-    app.config.globalProperties.pkgId = pkgId;
-    app.config.globalProperties.hasAdminRole = hasAdminRole;
-    app.config.globalProperties.hasContributorRole = hasContributorRole;
     app.config.globalProperties.isObsolete = isObsolete;
-    app.mount('#report-details');
+    app.mount('#legal-report');
   },
 
   setupReviewSearch(pkg) {
@@ -207,10 +208,10 @@ window.cavil = {
     createApp(CavilStatistics).mount('#statistics');
   },
 
-  setupUpload(storeUrl) {
-    const app = createApp(Upload);
+  setupArchiveUpload(storeUrl) {
+    const app = createApp(ArchiveUpload);
     app.config.globalProperties.storeUrl = storeUrl;
-    app.mount('#upload');
+    app.mount('#archive-upload');
   },
 
   fromNow

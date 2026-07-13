@@ -479,6 +479,91 @@ SPEC
   $comp->{external_link} = 'obs#components-lab';
   $pkgs->update($comp);
   $pkgs->unpack($comp_id);
+
+  # Synthetic diff playground: two versions of one package whose report diff
+  # exercises every "why this needs review" block at once - a spec license
+  # change, new unresolved matches across several files (enough to show the
+  # five-file cap plus "+ N more", each name clickable), several new licenses by
+  # risk, and a license incompatibility. Version 1 is accepted further below so
+  # version 2 has an accepted previous review to diff against.
+  $app->patterns->create(
+    pattern   => 'diff lab mit license body',
+    license   => 'MIT',
+    risk      => 2,
+    unique_id => '33333333-3333-4333-8333-333333333331'
+  );
+  $app->patterns->create(
+    pattern   => 'diff lab apache license body',
+    license   => 'Apache-2.0',
+    risk      => 2,
+    unique_id => '33333333-3333-4333-8333-333333333332'
+  );
+  $app->patterns->create(
+    pattern   => 'diff lab gpl2 only license body',
+    license   => 'GPL-2.0-only',
+    risk      => 5,
+    unique_id => '33333333-3333-4333-8333-333333333333'
+  );
+  $app->patterns->create(
+    pattern   => 'diff lab strong copyleft license body',
+    license   => 'GPL-3.0-or-later',
+    risk      => 6,
+    unique_id => '33333333-3333-4333-8333-333333333334'
+  );
+  $app->patterns->create(pattern => 'diff lab unresolved keyword', unique_id => '33333333-3333-4333-8333-333333333335');
+  $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
+    for qw(MIT Apache-2.0 GPL-2.0-only GPL-3.0-or-later);
+
+  my $diff_build = sub {
+    my ($md5, $spec_license, $files) = @_;
+    my $vdir = $checkouts->child('cavil-diff-lab', $md5)->make_path;
+    $vdir->child('cavil-diff-lab.spec')->spurt(<<"SPEC");
+Name:           cavil-diff-lab
+Version:        1.0
+Summary:        Playground demonstrating a rich report diff
+License:        $spec_license
+
+%description
+Two versions of this package produce a diff that exercises every summary block.
+SPEC
+    $vdir->child($_)->spurt($files->{$_}) for sort keys %$files;
+  };
+
+  # Version 1: a single low-risk MIT file, accepted below
+  $diff_build->('difflabv1000000000000000000000001', 'MIT', {'LICENSE.txt' => "diff lab mit license body\n"});
+
+  # Version 2: a different spec license, three new licenses by risk (with an
+  # incompatible pair), and eight brand-new unresolved keyword matches
+  my %v2_files = (
+    'apache.txt'          => "diff lab apache license body\n",
+    'gpl2-only.txt'       => "diff lab gpl2 only license body\n",
+    'strong-copyleft.txt' => "diff lab strong copyleft license body\n"
+  );
+  for my $i (1 .. 8) {
+    $v2_files{sprintf 'unresolved_%02d.txt', $i}
+      = sprintf
+      "Synthetic diff-lab source file %d.\n\nDIFF_LAB_MARKER_%02d diff lab unresolved keyword appears here.\n\nTrailing context so the snippet renders.\n",
+      $i, $i;
+  }
+  $diff_build->('difflabv2000000000000000000000002', 'Apache-2.0', \%v2_files);
+
+  my $diff_v1_id = $pkgs->add(
+    name            => 'cavil-diff-lab',
+    checkout_dir    => 'difflabv1000000000000000000000001',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'cavil:staging',
+    package         => 'cavil-diff-lab',
+    srcmd5          => 'difflabv1000000000000000000000001',
+    priority        => 5
+  );
+  $pkgs->imported($diff_v1_id);
+  my $diff_v1 = $pkgs->find($diff_v1_id);
+  $diff_v1->{external_link} = 'obs#diff-lab-1';
+  $pkgs->update($diff_v1);
+  $pkgs->unpack($diff_v1_id);
+
+  $app->{staging_diff_lab} = {v1 => $diff_v1_id, v2_checkout => 'difflabv2000000000000000000000002'};
 }
 
 $app->minion->perform_jobs;
@@ -562,6 +647,38 @@ if (my $lab = $app->{staging_folding_lab}) {
 
   $app->snippets->resolve_snippets($pkg_id);
   $app->minion->enqueue(analyze => [$pkg_id]);
+  $app->minion->perform_jobs;
+}
+
+if (my $diff = $app->{staging_diff_lab}) {
+  my $pkgs    = $app->packages;
+  my $user_id = $app->users->find(login => 'test_bot')->{id};
+
+  # Accept version 1 so it becomes the closest previous review for version 2
+  my $v1 = $pkgs->find($diff->{v1});
+  $v1->{reviewing_user}   = $user_id;
+  $v1->{result}           = 'Reviewed ok';
+  $v1->{state}            = 'acceptable';
+  $v1->{review_timestamp} = 1;
+  $pkgs->update($v1);
+
+  # Index version 2: its analyze step diffs against the accepted version 1 and
+  # writes the rich "why this needs review" notice
+  my $v2_id = $pkgs->add(
+    name            => 'cavil-diff-lab',
+    checkout_dir    => $diff->{v2_checkout},
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'cavil:staging',
+    package         => 'cavil-diff-lab',
+    srcmd5          => $diff->{v2_checkout},
+    priority        => 5
+  );
+  $pkgs->imported($v2_id);
+  my $v2 = $pkgs->find($v2_id);
+  $v2->{external_link} = 'obs#diff-lab-2';
+  $pkgs->update($v2);
+  $pkgs->unpack($v2_id);
   $app->minion->perform_jobs;
 }
 

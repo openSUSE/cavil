@@ -1,8 +1,8 @@
 % layout 'default';
 % title 'Upload archive';
 
-<div id="upload"></div>
+<div id="archive-upload"></div>
 
 % content_for 'ready_function' => begin
-  cavil.setupUpload('<%= url_for 'store_upload' %>');
+  cavil.setupArchiveUpload('<%= url_for 'store_upload' %>');
 % end

@@ -29,6 +29,9 @@ our @EXPORT_OK = (
   qw(summary_delta summary_delta_score)
 );
 
+# Maximum number of new-unresolved files listed in the "why this needs review" box
+use constant MAX_NEW_UNRESOLVED_FILES => 5;
+
 use constant PAD_WORDS => 5;
 
 # Each rule triggers when ALL of its SPDX identifiers are present in the
@@ -355,18 +358,17 @@ sub summary_delta ($old, $new) {
     push @blocks, "  Spec file license  $old->{specfile} -> $new->{specfile}";
   }
 
-  # New snippet matches
+  # New snippet matches (the file names are linkified in the report UI). The
+  # first MAX_NEW_UNRESOLVED_FILES are listed by name, the rest summarized as
+  # "+ N more".
   my $new_snippets = _new_snippets($old, $new);
-  if (my @files = sort values %$new_snippets) {
-    my $first = $files[0];
-    my $num   = uniq @files;
-    if ($num == 1) {
-      push @blocks, "  New unresolved matches\n    $first";
-    }
-    else {
-      my $more = $num - 1;
-      push @blocks, "  New unresolved matches in $num files\n    $first\n    + $more more";
-    }
+  if (my @files = sort +uniq values %$new_snippets) {
+    my $num  = @files;
+    my @show = @files[0 .. ($num < MAX_NEW_UNRESOLVED_FILES ? $num : MAX_NEW_UNRESOLVED_FILES) - 1];
+    my @lines = ($num == 1 ? '  New unresolved matches' : "  New unresolved matches in $num files");
+    push @lines, map {"    $_"} @show;
+    push @lines, '    + ' . ($num - @show) . ' more' if $num > @show;
+    push @blocks, join("\n", @lines);
   }
 
   # New licenses, sorted by risk desc then SPDX alphabetical

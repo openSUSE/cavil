@@ -43,6 +43,7 @@ if    ($fixtures eq 'snippet_fold')    { $cavil_test->snippet_fold_fixtures($app
 elsif ($fixtures eq 'snippet_clear')   { $cavil_test->snippet_clear_fixtures($app) }
 elsif ($fixtures eq 'snippet_triage')  { $cavil_test->snippet_triage_fixtures($app) }
 elsif ($fixtures eq 'snippet_overlap') { $cavil_test->snippet_overlap_fixtures($app) }
+elsif ($fixtures eq 'report_notice')   { $cavil_test->report_notice_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }
 my %report_state_original;
 

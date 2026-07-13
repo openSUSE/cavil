@@ -1,30 +1,18 @@
 % layout 'default';
 % title "Report for $package->{name}";
 
-<div id="report-metadata"></div>
+<div id="legal-report"></div>
 
 % content_for 'ready_function' => begin
   % my $has_manager_role = current_user_has_role('manager') ? 'true' : 'false';
   % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
   % my $has_lawyer_role = current_user_has_role('lawyer') ? 'true' : 'false';
+  % my $has_contributor_role = current_user_has_role('contributor') ? 'true' : 'false';
   % my $reindex_url = url_for 'reindex_package', id => $package->{id};
   % my $should_reindex_js = $should_reindex ? 'true' : 'false';
-  cavil.setupReportMetadata(<%= $id %>, <%= $has_manager_role %>, <%= $has_admin_role %>, <%= $has_lawyer_role %>, '<%= $reindex_url %>', <%= $should_reindex_js %>);
-% end
-
-% my $raw_license = $spec->{main}{license} // 'Unknown';
-% my $license = lic($raw_license)->to_string;
-% my $display_license = $license || $raw_license;
-% content_for 'ready_function' => begin
+  % my $is_obsolete = $package->{obsolete} ? 'true' : 'false';
+  cavil.setupLegalReport(<%= $id %>, <%= $has_manager_role %>, <%= $has_admin_role %>, <%= $has_lawyer_role %>, <%= $has_contributor_role %>, '<%= $reindex_url %>', <%= $should_reindex_js %>, <%= $is_obsolete %>);
   cavil.fromNow();
-% end
-
-<div id="report-details"></div>
-% content_for 'ready_function' => begin
-  % my $has_admin_role_rd = current_user_has_role('admin') ? 'true' : 'false';
-  % my $has_contributor_role_rd = current_user_has_role('contributor') ? 'true' : 'false';
-  % my $is_obsolete_rd = $package->{obsolete} ? 'true' : 'false';
-  cavil.setupReportDetails(<%= $id %>, <%= $has_admin_role_rd %>, <%= $has_contributor_role_rd %>, <%= $is_obsolete_rd %>);
 % end
 
 <a id="back-to-top" href="#" class="btn btn-primary btn-lg back-to-top"

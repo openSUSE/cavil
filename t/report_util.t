@@ -1020,80 +1020,13 @@ subtest 'summary_delta' => sub {
         }
         ),
         "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/LICENSE\n", 'new file with snippets';
+
+      # Up to MAX_NEW_UNRESOLVED_FILES (5) files are listed by name, sorted
       is summary_delta(
         {
           id              => 1,
           specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/Changes'            => ['641e8cc6ac467ffcbb5b2c27088def99']
-          },
-          licenses => {}
-        },
-        {
-          id              => 2,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/COPYING'            => ['641e8cc6ac467ffcbb5b2c27088def9a']
-          },
-          licenses => {}
-        }
-        ),
-        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/COPYING\n",
-        'different file with snippets';
-      is summary_delta(
-        {
-          id              => 1,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/README'             => ['641e8cc6ac467ffcbb5b2c27088def99']
-          },
-          licenses => {}
-        },
-        {
-          id              => 2,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/README'             => ['741e8cc6ac467ffcbb5b2c27088def9a']
-          },
-          licenses => {}
-        }
-        ),
-        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/README\n",
-        'different snippets in same files';
-      is summary_delta(
-        {
-          id              => 1,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/LEGAL'              => ['641e8cc6ac467ffcbb5b2c27088def99']
-          },
-          licenses => {}
-        },
-        {
-          id              => 2,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/LEGAL'              => [
-              '641e8cc6ac467ffcbb5b2c27088def99', '741e8cc6ac467ffcbb5b2c27088def9a',
-              'f41e8cc6ac467ffcbb5b2c27088def9f'
-            ]
-          },
-          licenses => {}
-        }
-        ),
-        "Diff to closest match 1\n\n  New unresolved matches\n    Mojolicious-7.25/LEGAL\n",
-        'additional snippets in same files';
-      is summary_delta(
-        {
-          id              => 1,
-          specfile        => 'MIT',
-          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],},
+          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
           licenses        => {}
         },
         {
@@ -1103,36 +1036,28 @@ subtest 'summary_delta' => sub {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
             'Mojolicious-7.25/COPYING'            => ['741e8cc6ac467ffcbb5b2c27088def9a']
-
           },
           licenses => {}
         }
         ),
-        "Diff to closest match 1\n\n  New unresolved matches in 2 files\n    Mojolicious-7.25/COPYING\n    + 1 more\n",
-        'two new files';
+        "Diff to closest match 1\n\n  New unresolved matches in 2 files\n"
+        . "    Mojolicious-7.25/COPYING\n    Mojolicious-7.25/LICENSE\n", 'two new files listed by name';
+
+      # More than five new files: the first five are listed, the rest summarized
+      my %many = ('Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']);
+      $many{sprintf 'Mojolicious-7.25/FILE-%02d', $_} = [sprintf '%040d', $_] for 1 .. 6;
       is summary_delta(
         {
           id              => 1,
           specfile        => 'MIT',
-          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],},
+          missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
           licenses        => {}
         },
-        {
-          id              => 2,
-          specfile        => 'MIT',
-          missed_snippets => {
-            'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
-            'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
-            'Mojolicious-7.25/COPYING'            => ['741e8cc6ac467ffcbb5b2c27088def9a'],
-            'Mojolicious-7.25/README'             => ['741e8cc6ac467ffcbb5b2c27088def9a'],
-            'Mojolicious-7.25/README.txt'         => ['741e8cc6ac467ffcbb5b2c27088def9e']
-
-          },
-          licenses => {}
-        }
+        {id => 2, specfile => 'MIT', missed_snippets => \%many, licenses => {}}
         ),
-        "Diff to closest match 1\n\n  New unresolved matches in 3 files\n    Mojolicious-7.25/COPYING\n    + 2 more\n",
-        'three new files';
+        "Diff to closest match 1\n\n  New unresolved matches in 6 files\n"
+        . "    Mojolicious-7.25/FILE-01\n    Mojolicious-7.25/FILE-02\n    Mojolicious-7.25/FILE-03\n"
+        . "    Mojolicious-7.25/FILE-04\n    Mojolicious-7.25/FILE-05\n    + 1 more\n", 'capped at five files';
     };
   };
 

@@ -610,6 +610,90 @@ FILE
   );
 }
 
+# Two synthetic versions of the same package, run through the regular unpack +
+# analyze pipeline, so version 2 gets a genuine "New unresolved matches in N
+# files" notice diffed against the accepted version 1. Drives the clickable
+# file list in the "why this needs review" box on the report UI. Version 2 (id
+# 2) has eight new unresolved files, exercising the five-file cap + "more".
+sub report_notice_fixtures ($self, $app) {
+  $app->pg->migrations->migrate;
+
+  my $pkgs   = $app->packages;
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+
+  # License-less keyword pattern → every match becomes an unresolved snippet
+  $app->patterns->create(
+    pattern   => 'PUDDLE_OF_SYNTHETIC_KEYWORDS appears in this exact spot',
+    unique_id => '00000000-0000-0000-0000-000000000042'
+  );
+
+  # Build a synthetic package version on disk and run it through the pipeline.
+  # Each numeric marker in @$files becomes one file with one unresolved match;
+  # distinct markers keep every snippet hash unique so they count as "new".
+  my $build = sub ($md5, $files) {
+    my $name = 'report-notice';
+    my $dir  = $self->checkout_dir->child($name, $md5)->make_path;
+    $dir->child("$name.spec")->spew(<<"SPEC");
+Name:           $name
+Version:        1.0
+Release:        0
+Summary:        Synthetic package for the new unresolved matches notice
+License:        Artistic-2.0
+Group:          Development/Libraries/Perl
+Source0:        $name-1.0.tar.gz
+BuildArch:      noarch
+
+%description
+Synthetic package with unresolved keyword matches for UI testing.
+SPEC
+
+    my $stage = tempdir;
+    my $src   = $stage->child("$name-1.0")->make_path;
+    for my $i (@$files) {
+      my $marker = sprintf 'UNIQUE_FILE_MARKER_%03d', $i;
+      $src->child(sprintf 'file_%03d.txt', $i)->spew(<<"FILE");
+Synthetic file $i for UI testing.
+
+$marker PUDDLE_OF_SYNTHETIC_KEYWORDS appears in this exact spot.
+
+Trailing padding so the snippet has surrounding context to render.
+FILE
+    }
+    my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
+    system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
+      or die "Failed to create synthetic tarball: $?";
+
+    my $pkg_id = $pkgs->add(
+      name            => $name,
+      checkout_dir    => $md5,
+      api_url         => 'https://api.opensuse.org',
+      requesting_user => $usr_id,
+      project         => 'devel:test',
+      package         => $name,
+      srcmd5          => $md5,
+      priority        => 5
+    );
+    $pkgs->imported($pkg_id);
+    $pkgs->unpack($pkg_id);
+    $app->minion->perform_jobs;
+    return $pkg_id;
+  };
+
+  # Version 1: the closest previous review, marked acceptable so it is a genuine
+  # "old review" for version 2 to diff against.
+  my $v1   = $build->('a0000000000000000000000000000001', [1, 2]);
+  my $pkg1 = $pkgs->find($v1);
+  $pkg1->{reviewing_user}   = $usr_id;
+  $pkg1->{result}           = 'Reviewed ok';
+  $pkg1->{state}            = 'acceptable';
+  $pkg1->{review_timestamp} = 1;
+  $pkgs->update($pkg1);
+
+  # Version 2: eight brand-new files → eight new unresolved matches, so analyze
+  # writes a real "New unresolved matches in 8 files" notice.
+  $build->('b0000000000000000000000000000002', [101 .. 108]);
+}
+
 sub unpack_fixtures ($self, $app) {
   $self->no_fixtures($app);
 
