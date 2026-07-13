@@ -1158,11 +1158,11 @@ export default {
 }
 .report-tab-content {
   display: block;
-  padding-top: 1.5rem;
 }
 .report-tab-pane {
   display: none;
   min-width: 0;
+  padding-top: 1.5rem;
 }
 .report-tab-pane.is-active {
   display: block;

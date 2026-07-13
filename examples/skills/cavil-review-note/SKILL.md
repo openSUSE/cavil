@@ -116,7 +116,7 @@ whether the operator looks right against the found licenses: `OR` means the reci
 layers onto the declared-license comparison and the `(not a valid SPDX expression)` marker; keep it
 an observation, not a legal ruling.
 
-Use `cavil_get_file` for context when an unresolved match is truncated, ambiguous, comes from a LICENSE/COPYING/NOTICE/README file, or looks serious enough that you might recommend rejection or human review. Do not spend time exhaustively reading low-risk boilerplate if the report is large; note the limitation instead.
+Use `cavil_get_file` for context when an unresolved match is truncated, ambiguous, comes from a NOTICE/README file, or looks serious enough that you might recommend rejection or human review. Do not spend time exhaustively reading low-risk boilerplate if the report is large; note the limitation instead.
 
 #### Always review the declared package license — never skip it
 The most important first-pass check is whether the license **declared in the package file**
@@ -128,6 +128,15 @@ incomplete.
 The report surfaces the declared value on the `Declared-License:` line near the top (it carries a
 `(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
 the package file had no declared license — say so explicitly and lean toward NEEDS HUMAN REVIEW.
+
+**Always read the package's own top-level `LICENSE`/`COPYING` with `cavil_get_file` before you
+compare** — do not judge from the tag alone. The `Declared-License:` value and the risk breakdown
+come from the pattern scanner, which misses custom terms living only in that file's text (e.g. a
+BSD/MIT-looking license with an added field-of-use, branding, or user-count restriction). Such
+clauses never surface as a risk finding, so skipping the read can rubber-stamp a non-open-source
+license — and reading it inconsistently is a top cause of run-to-run flip-flops. Any clause
+restricting use, distribution, or modification beyond the standard SPDX license is a material risk
+(Step 4 catch-all) → at least NEEDS HUMAN REVIEW.
 
 Compare the declared license against the licenses in the Licenses/risk breakdown:
 - **Match** — the declared license covers the licenses found in the shipped code (vendored or
