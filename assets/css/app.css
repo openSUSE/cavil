@@ -391,6 +391,7 @@ body {
   pointer-events: auto;
 }
 .file-container {
+  background-color: rgb(246, 248, 250);
   border: 1px solid rgb(208, 215, 222);
   border-radius: 6px;
   margin-top: 1.75rem;
@@ -399,6 +400,10 @@ body {
      and clipping them at the container boundary used to cut them in half on
      the first/last match rows. Inner backgrounds (.file header, .source row
      borders) are rounded individually so the corners still look clean. */
+}
+.file-container.is-header-stuck {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 .file {
   background-color: rgb(246, 248, 250);
@@ -414,10 +419,14 @@ body {
   z-index: 10;
   box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04), 0 8px 16px -16px rgba(27, 31, 36, 0.35);
 }
+.file.is-stuck {
+  border-radius: 0;
+}
 .file a {
   color: #586069;
 }
 .file-container .source {
+  background-color: #ffffff;
   border: 0 !important;
   border-radius: 0;
   margin-bottom: 0;

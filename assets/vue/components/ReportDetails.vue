@@ -208,9 +208,14 @@
           </div>
 
           <div v-if="files.length > 0">
-            <div v-for="file in files" :key="file.id" :class="['file-container', {'d-none': !file.expanded}]">
+            <div
+              v-for="file in files"
+              :key="file.id"
+              :class="['file-container', {'d-none': !file.expanded, 'is-header-stuck': stickyFileHeaders[file.id]}]"
+              :data-file-id="file.id"
+            >
               <a :name="'file-' + file.id"></a>
-              <div class="file">
+              <div :class="['file', {'is-stuck': stickyFileHeaders[file.id]}]">
                 <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
                 <div class="float-end file-actions">
                   <span v-if="isAdminOrContributor" class="dropdown file-action-menu">
@@ -511,7 +516,9 @@ export default {
       unresolvedMatches: 0,
       urls: [],
       currentMatchId: null,
-      shortcutsModal: null
+      shortcutsModal: null,
+      stickyFileHeaders: {},
+      stickyFileHeaderFrame: null
     };
   },
   computed: {
@@ -563,11 +570,20 @@ export default {
   },
   mounted() {
     window.addEventListener('keydown', this.handleKeydown);
+    window.addEventListener('scroll', this.scheduleStickyFileHeaderUpdate, {passive: true});
+    window.addEventListener('resize', this.scheduleStickyFileHeaderUpdate);
     this.applyInitialNoteHash();
     this.loadInitialNoteCount();
+    this.$nextTick(this.scheduleStickyFileHeaderUpdate);
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
+    window.removeEventListener('scroll', this.scheduleStickyFileHeaderUpdate);
+    window.removeEventListener('resize', this.scheduleStickyFileHeaderUpdate);
+    if (this.stickyFileHeaderFrame !== null) {
+      cancelAnimationFrame(this.stickyFileHeaderFrame);
+      this.stickyFileHeaderFrame = null;
+    }
     if (this.shortcutsModal) {
       this.shortcutsModal.dispose();
       this.shortcutsModal = null;
@@ -577,6 +593,26 @@ export default {
     setActiveTab(tab) {
       this.activeTab = tab;
       if (tab === 'notes') this.notesMounted = true;
+      this.$nextTick(this.scheduleStickyFileHeaderUpdate);
+    },
+    scheduleStickyFileHeaderUpdate() {
+      if (this.stickyFileHeaderFrame !== null) return;
+      this.stickyFileHeaderFrame = requestAnimationFrame(() => {
+        this.stickyFileHeaderFrame = null;
+        this.updateStickyFileHeaders();
+      });
+    },
+    updateStickyFileHeaders() {
+      const stuck = {};
+      const containers = document.querySelectorAll('.file-container:not(.d-none)[data-file-id]');
+      for (const container of containers) {
+        const header = container.querySelector('.file');
+        if (!header) continue;
+        const rect = container.getBoundingClientRect();
+        const headerRect = header.getBoundingClientRect();
+        if (rect.top < 6 && rect.bottom > headerRect.height) stuck[container.dataset.fileId] = true;
+      }
+      this.stickyFileHeaders = stuck;
     },
     applyInitialNoteHash() {
       // Permalink format: #note-<id>. Switch to the Notes tab on mount
@@ -655,6 +691,7 @@ export default {
         this.urls = [];
         this.risks = {};
         this.files = [];
+        this.stickyFileHeaders = {};
         return;
       }
 
@@ -713,6 +750,7 @@ export default {
           if (file.expanded && !file.source) this.fetchSource(file);
         }
         this.handleInitialHash();
+        this.scheduleStickyFileHeaderUpdate();
       });
     },
     handleInitialHash() {
@@ -754,6 +792,7 @@ export default {
     toggleExpand(file) {
       file.expanded = !file.expanded;
       if (file.expanded && !file.source) this.fetchSource(file);
+      this.$nextTick(this.scheduleStickyFileHeaderUpdate);
     },
     async fetchSource(file, start = 0, end = 0) {
       const qs = new URLSearchParams();
@@ -764,6 +803,7 @@ export default {
       if (!res.ok) return;
       const data = await res.json();
       file.source = data.source;
+      this.$nextTick(this.scheduleStickyFileHeaderUpdate);
     },
     onExtend(file, payload) {
       // Reset re-fetches with no start/end so source_for returns the report's
