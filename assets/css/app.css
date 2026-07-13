@@ -393,7 +393,7 @@ body {
 .file-container {
   border: 1px solid rgb(208, 215, 222);
   border-radius: 6px;
-  margin-top: 5px;
+  margin-top: 1.75rem;
   /* Intentionally NOT overflow: hidden. The inline ▲/▼ extend buttons and the
      action pulldown menu in FileSource sit slightly outside their row's edge,
      and clipping them at the container boundary used to cut them in half on
@@ -409,6 +409,10 @@ body {
   line-height: 20px;
   margin-top: 0;
   padding: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04), 0 8px 16px -16px rgba(27, 31, 36, 0.35);
 }
 .file a {
   color: #586069;
