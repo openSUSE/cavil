@@ -824,8 +824,19 @@ export default {
   line-height: 1.5;
   padding: 14px 16px;
 }
+.report-note-body p {
+  margin-bottom: 12px;
+}
 .report-note-body p:last-child {
   margin-bottom: 0;
+}
+.report-note-body ul,
+.report-note-body ol {
+  margin-bottom: 16px;
+  padding-left: 22px;
+}
+.report-note-body li + li {
+  margin-top: 4px;
 }
 .report-note-body pre {
   background: #f6f8fa;

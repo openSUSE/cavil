@@ -184,11 +184,25 @@ Signals it is likely a **real problem** (lean REJECT or NEEDS HUMAN REVIEW):
 - A copyleft license (GPL/AGPL) governs core code that links against the other license's code.
 - You cannot determine from the files whether the components are combined.
 
-If you confirm a genuine combined-work conflict, recommend REJECT or NEEDS HUMAN REVIEW and name
-the specific files on each side. If you are confident it is aggregation/separation, you may
-recommend ACCEPT but must state in the note that the incompatibility warning was reviewed and why
-it does not apply. When you ran out of context to trace the combination, say so and recommend
-NEEDS HUMAN REVIEW — never silently drop the warning.
+Whatever you conclude, **record it as a short verification trail the lawyer can re-check in a
+minute, not a bare verdict** — "reviewed, false alarm, components separate" is the too-terse bullet
+reviewers flagged. Give three checkable facts (this is evidence, not chain-of-thought — always
+include it):
+1. **Where** each flagged license lives — path(s)/dir with file counts.
+2. **Why** separate or combined — the boundary: separate/unlinked component, test-fixture / docs /
+   license-catalog only, a more permissive variant or exception (name it, e.g. GPL-2.0-**or-later**,
+   Classpath), or a weak/non-license snippet; for a real conflict, the `#include` / import /
+   shared-binary link across it.
+3. **The one check** the lawyer can rerun, as a reproducible observation (e.g. "no `#include` of any
+   `vendor/build-tool/` header under `src/`"; "GPL headers read *or … any later version*, see top of
+   `src/engine.c`"). Cite the file you confirmed with `cavil_get_file`.
+
+Recommend ACCEPT only for a confirmed false alarm; REJECT or NEEDS HUMAN REVIEW for a real or
+untraceable conflict; never drop the warning silently. For a **large aggregation you cannot trace
+fully** (toolchains, office suites), do not restate the warning ("present due to many bundled
+libraries") — scope it: name it as independently-licensed bundled components in separate subtrees,
+spot-check the highest-risk members (copyleft/CDDL) with their locations, and state which dirs/pairs
+you did not trace, so the deferral is scoped.
 
 ### Step 5 - Choose a recommendation
 Use one of these recommendations:
@@ -230,7 +244,8 @@ alongside `review`: `tags=["review", "model:gemini-3.5-flash"]`. The gate keys o
 
 The `review` tag is required so future runs see the note via the Step 2 probe and the Step 6
 guard. Keep the note readable in the Cavil Notes tab and useful for scanning. Aim for 5-10 lines,
-not a full report.
+not a full report — an incompatibility verdict may run a little longer to carry its verification
+trail (Step 4); that detail is wanted.
 
 Use this format:
 
@@ -242,9 +257,14 @@ Issues for legal reviewer:
 - `path/file`: brief issue and why it matters.
 - Snippet 12: brief issue and suggested follow-up.
 
-Suggested next step: what the lawyer should verify or ask the maintainer to fix.
-Confidence: Medium - note any important limitation, such as partial review of a large report.
+**Suggested next step:** what the lawyer should verify or ask the maintainer to fix.
+
+**Confidence:** Medium - note any important limitation, such as partial review of a large report.
 ```
+
+Bold the `**Suggested next step:**` and `**Confidence:**` labels and keep them as separate
+paragraphs with a blank line between, so the footer reads as a distinct block and does not run into
+the bullet list above it.
 
 The first bullet is always the declared-license check from Step 4; include it even when it is a
 clean match (e.g. `Declared license (GPL-2.0-or-later) matches the GPL-2.0-only/-or-later files in
@@ -266,32 +286,41 @@ copyright holder not in the report; must be preserved downstream (Apache-2.0 §4
 contents rarely flip ACCEPT/REJECT on their own — the goal is visibility — but a component named
 there that the report does not account for should feed the declared-license and combination checks.
 
-When the report carried an incompatible-license warning, record the outcome of your investigation explicitly, e.g. a confirmed false alarm:
+When the report carried an incompatible-license warning, record the outcome with the three-part
+verification trail from Step 4 so the reviewer can re-check it quickly. A confirmed false alarm:
 
 ```markdown
 AI-assisted review recommendation: ACCEPT
 
 Issues for legal reviewer:
-- Incompatible-license warning (GPL-2.0-only + Apache-2.0) reviewed: appears to be a false alarm.
-  The Apache-2.0 code is confined to `vendor/build-tool/` (build-time only, not linked into the
-  shipped library); GPL-2.0-only files are under `src/`. No combined work identified.
+- Declared license (GPL-2.0-only) matches the shipped code in `src/`; remaining licenses are permissive vendored dependencies.
+- Incompatible-license warning (GPL-2.0-only + Apache-2.0) reviewed — false alarm. To confirm:
+  - Where: Apache-2.0 is 3 files, all under `vendor/build-tool/`; GPL-2.0-only is the shipped code in `src/*.c`.
+  - Why separate: `vendor/build-tool/` is a build-time-only code generator, not linked into the shipped library (aggregation, not a combined work).
+  - Check: no `#include`/import of any `vendor/build-tool/` header appears under `src/` (checked `src/*.c`, `src/*.h`); `vendor/build-tool/` runs standalone at build time, see `vendor/build-tool/README`.
 
-Suggested next step: Confirm `vendor/build-tool/` is not redistributed/linked, then accept.
-Confidence: Medium - AI-assisted triage; combination boundary inferred from file layout, not a build analysis.
+**Suggested next step:** Confirm `vendor/build-tool/` is not shipped or linked into the package, then accept.
+
+**Confidence:** Medium - combination boundary inferred from source layout and includes, not a full build/link analysis.
 ```
 
-or a finding that looks like a real conflict:
+(A **real** conflict uses the same trail — Where names the file on each side, Why gives the
+`#include` / import / shared-binary link, Check points the lawyer at it — and leans REJECT / NEEDS
+HUMAN REVIEW.) Or a large aggregation you could only partially trace — scope the deferral, do not restate the warning:
 
 ```markdown
 AI-assisted review recommendation: NEEDS HUMAN REVIEW
 
 Issues for legal reviewer:
-- Incompatible-license warning (GPL-2.0-only + Apache-2.0) appears real: `src/core/engine.c`
-  (GPL-2.0-only) includes `src/ext/crypto.h` from the Apache-2.0 component, so they may form a
-  single linked work. This combination is commonly treated as incompatible.
+- Declared license (LGPL-3.0-or-later AND MPL-2.0+) covers the core; the package also bundles many third-party components under other licenses (GPL-2.0-only, Apache-2.0, GPL-3.0-only) — expected for an aggregation.
+- Incompatible-license warning (GPL-2.0-only, Apache-2.0, GPL-3.0-only/-or-later) — aggregation of independently-licensed bundled components, each in its own subtree. Partially checked:
+  - Checked: GPL-2.0-only is bundled poppler (`poppler-*/`); GPL-3.0-only is build-only tooling (`solenv/bin/`, `*/m4/*` carry Autoconf-exception) — separate, not linked into the shipped core.
+  - Not traced: the Apache-2.0 (2445 files) vs GPL pairing across all remaining bundled dirs — too many to trace in one pass.
+- BSD-3-Clause-No-Nuclear-License (Risk 7, field-of-use) in bundled `libfonts-*/lib/itext-1.5.2/.../sun.txt`: confirm whether this iText sample is shipped.
 
-Suggested next step: Have a lawyer confirm whether these components are linked, or whether the GPL files are actually GPL-2.0-or-later.
-Confidence: Medium - based on include relationships in source, not a full build/link analysis.
+**Suggested next step:** Confirm the untraced Apache-2.0/GPL components are separate bundled subtrees (not linked into core), and rule on the Risk 7 BSD-No-Nuclear sample.
+
+**Confidence:** Medium - large aggregation; highest-risk members spot-checked, remaining pairs not traced.
 ```
 
 If no notable issues were found, still create a note:
@@ -304,8 +333,9 @@ Issues for legal reviewer:
 - No other blocking licensing issues identified in the report.
 - Unresolved matches reviewed appear low risk or non-license related.
 
-Suggested next step: Human reviewer can confirm the report and accept if no additional concerns are known.
-Confidence: Medium - AI-assisted triage, not a final legal decision.
+**Suggested next step:** Human reviewer can confirm the report and accept if no additional concerns are known.
+
+**Confidence:** Medium - AI-assisted triage, not a final legal decision.
 ```
 
 ## NOTE WRITING GUIDELINES
@@ -317,7 +347,7 @@ Confidence: Medium - AI-assisted triage, not a final legal decision.
 - Do not paste long license excerpts. Summarize why the text matters.
 - Do not include speculative accusations. Use wording like "appears to", "may indicate", or "should verify" for uncertain findings.
 - Do not tell the lawyer that the package is definitively approved. The note is advisory.
-- Do not include internal chain-of-thought or step-by-step hidden reasoning.
+- Do not include internal chain-of-thought or step-by-step hidden reasoning — but the incompatibility verification trail (Step 4) is checkable evidence, not reasoning; always include it.
 - Do not ask for confirmation before creating the note unless the user explicitly asks to review it first. The purpose of this skill is to leave a triage note.
 
 ## IMPORTANT CONSTRAINTS
