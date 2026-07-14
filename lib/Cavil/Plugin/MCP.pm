@@ -68,10 +68,20 @@ sub register ($self, $app, $config) {
     code => \&tool_cavil_search_packages
   );
   $mcp->tool(
-    name         => 'cavil_get_report',
-    description  => 'Get legal report for a specific package',
-    input_schema =>
-      {type => 'object', properties => {package_id => {type => 'integer', minimum => 1}}, required => ['package_id']},
+    name        => 'cavil_get_report',
+    description =>
+      'Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use'
+      . ' cavil_search_snippets(package_id=...) for the full list and per-snippet detail. url_limit/email_limit cap'
+      . ' those occurrence-ordered lists (default 10, 0 = omit the section)',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        package_id  => {type => 'integer', minimum => 1},
+        url_limit   => {type => 'integer', minimum => 0, default => 10},
+        email_limit => {type => 'integer', minimum => 0, default => 10}
+      },
+      required => ['package_id']
+    },
     code => \&tool_cavil_get_report
   );
   $mcp->tool(
@@ -248,6 +258,42 @@ sub register ($self, $app, $config) {
     },
     code => \&tool_cavil_report_missing_license
   );
+  $mcp->tool(
+    name        => 'cavil_search_snippets',
+    description =>
+      'Query the snippet backlog (the text regions keyword-flagged as possibly license-relevant). Filter by '
+      . 'resolution (unresolved = still needs review; fold/clear/overlap/covered = auto-resolved; any), optional '
+      . 'package_id scope (omit for fleet-wide), closest license, and full-text search. Two shapes via "group": '
+      . '"text" (default) aggregates identical snippets and ranks by impact (occurrences / distinct packages) so one '
+      . 'pattern or glob clears many - use it to triage the highest-value work; "none" lists individual occurrences '
+      . 'with file+line and, per snippet, the decision context the report trims away: overlaps (curated license '
+      . 'matches on/adjacent to the lines, with position), the literal keywords that tripped it, and covered-by '
+      . '(concrete licenses already established in the file/directory). Returns snippet_id + package for the '
+      . 'cavil_propose_* tools. Read-only; embargoed packages are excluded',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        resolution =>
+          {type => 'string', description => 'unresolved (default) | fold | clear | overlap | covered | any'},
+        group => {
+          type        => 'string',
+          description => 'text (default, impact-ranked distinct snippets) | none (occurrences + detail)'
+        },
+        order => {type => 'string', description => 'occurrences (default) | packages | risk | recent (group=text)'},
+        package_id => {type => 'integer', minimum     => 1, description => 'scope to one package (omit = fleet-wide)'},
+        license    => {type => 'string',  description => 'filter by the snippet\'s closest license name'},
+        search     => {type => 'string',  description => 'full-text search over snippet bodies'},
+        detail     => {
+          type        => 'boolean',
+          description => 'include per-snippet overlaps/keywords/covered-by (implied by group=none)'
+        },
+        limit  => {type => 'integer', minimum => 1, maximum => 100, default => 20},
+        offset => {type => 'integer', minimum => 0, default => 0}
+      },
+      required => []
+    },
+    code => \&tool_cavil_search_snippets
+  );
 
   return $mcp->to_action;
 }
@@ -360,8 +406,69 @@ sub tool_cavil_get_report ($tool, $args) {
 
   return $tool->text_result('Package is not yet indexed, please try again later', 1) unless $pkg->{indexed};
 
-  return $tool->text_result('No report available', 1) unless defined((my $report = $c->helpers->mcp_report($id)));
+  my ($url_limit, $ue) = _bounded_int_arg($args->{url_limit}, 10, 0, undef, 'url_limit');
+  return $tool->text_result($ue, 1) if $ue;
+  my ($email_limit, $ee) = _bounded_int_arg($args->{email_limit}, 10, 0, undef, 'email_limit');
+  return $tool->text_result($ee, 1) if $ee;
+
+  my $report = $c->helpers->mcp_report($id, {url_limit => $url_limit, email_limit => $email_limit});
+  return $tool->text_result('No report available', 1) unless defined $report;
   return $tool->text_result($report);
+}
+
+sub tool_cavil_search_snippets ($tool, $args) {
+  my $c = _get_controller($tool);
+
+  my ($limit, $le) = _bounded_int_arg($args->{limit}, 20, 1, 100, 'limit');
+  return $tool->text_result($le, 1) if $le;
+  my ($offset, $oe) = _bounded_int_arg($args->{offset}, 0, 0, undef, 'offset');
+  return $tool->text_result($oe, 1) if $oe;
+
+  my $resolution = $args->{resolution} // 'unresolved';
+  return $tool->text_result('resolution must be one of: unresolved, fold, clear, overlap, covered, any', 1)
+    unless $resolution =~ /^(?:unresolved|fold|clear|overlap|covered|any)$/;
+  my $group = ($args->{group} // 'text') eq 'none' ? 'none' : 'text';
+  my $order = $args->{order} // 'occurrences';
+  return $tool->text_result('order must be one of: occurrences, packages, risk, recent', 1)
+    unless $order =~ /^(?:occurrences|packages|risk|recent)$/;
+
+  my $package_id;
+  if (defined $args->{package_id}) {
+    my ($pid, $pe) = _bounded_int_arg($args->{package_id}, 0, 1, undef, 'package_id');
+    return $tool->text_result($pe, 1) if $pe;
+    $package_id = $pid;
+    return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($package_id);
+    return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+  }
+
+  my $result = $c->snippets->snippet_search(
+    {
+      resolution => $resolution,
+      group      => $group,
+      order      => $order,
+      limit      => $limit,
+      offset     => $offset,
+      package_id => $package_id,
+      license    => $args->{license},
+      search     => $args->{search},
+      detail     => ($args->{detail} ? 1 : 0)
+    }
+  );
+
+  return $c->render_to_string(
+    'mcp/snippets',
+    format     => 'txt',
+    group      => $result->{group},
+    resolution => $resolution,
+    order      => $order,
+    package_id => $package_id,
+    license    => $args->{license},
+    search     => $args->{search},
+    limit      => $result->{limit},
+    offset     => $result->{offset},
+    has_more   => $result->{has_more},
+    snippets   => $result->{snippets}
+  );
 }
 
 sub tool_cavil_get_file ($tool, $args) {

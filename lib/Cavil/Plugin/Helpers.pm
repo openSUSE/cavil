@@ -4,14 +4,13 @@
 package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(minimal_snippet);
-use Cavil::Util       qw(external_link_data spdx_link);
-use CommonMark        ();
-use Mojo::File        qw(path);
-use Mojo::JSON        qw(from_json);
-use Mojo::Util        qw(decode humanize_bytes xml_escape);
-use List::Util        qw(first uniq);
+use Cavil::Licenses qw(lic);
+use Cavil::Util     qw(external_link_data spdx_link);
+use CommonMark      ();
+use Mojo::File      qw(path);
+use Mojo::JSON      qw(from_json);
+use Mojo::Util      qw(decode humanize_bytes xml_escape);
+use List::Util      qw(first uniq);
 
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                    => \&_chart_data);
@@ -208,15 +207,22 @@ sub _json_validation_error ($c) {
   $c->render(json => {error => "Invalid request parameters ($failed)"}, status => 400);
 }
 
-sub _mcp_report ($c, $id) {
+sub _mcp_report ($c, $id, $opts = {}) {
   return undef unless my $report = $c->reports->sanitized_dig_report($id);
   my $summary = $c->helpers->package_summary($id);
+
+  # 0 = omit the section entirely; otherwise cap the (already occurrence-ordered) lists.
+  my $url_limit   = $opts->{url_limit}   // 10;
+  my $email_limit = $opts->{email_limit} // 10;
+
   return $c->render_to_string(
     'mcp/report',
-    format             => 'txt',
-    report             => $report,
-    summary            => $summary,
-    unmatched_keywords => _unmatched_keywords($c, $report)
+    format      => 'txt',
+    report      => $report,
+    summary     => $summary,
+    unmatched   => _unmatched_rollup($c, $id),
+    url_limit   => $url_limit,
+    email_limit => $email_limit
   );
 }
 
@@ -319,26 +325,16 @@ sub _package_summary ($c, $id) {
   };
 }
 
-sub _unmatched_keywords ($c, $report) {
-  my $snippets = $c->snippets;
-
-  my $unmatched = {};
-  for my $file (@{$report->{files}}) {
-    next unless $file->{expand};
-    my $path = $file->{path};
-
-    for my $line (@{$file->{lines}}) {
-      next unless $line->[1]->{risk} == 9;
-      my $snippet = $line->[1]->{snippet};
-      my $hash    = $line->[1]->{hash};
-
-      my $minimal = minimal_snippet($snippets->with_context($snippet, $file->{id}));
-      $unmatched->{$snippet} ||= {path => $path, snippet => $snippet, hash => $hash, text => $minimal->{text},
-        line => $minimal->{start_line}};
-    }
-  }
-
-  return [sort { $a->{snippet} cmp $b->{snippet} } values %$unmatched];
+# A compact, impact-ranked rollup of this package's unresolved snippets for the report: the full
+# per-snippet previews are enormous on large packages, so we surface only the top few (one pattern or
+# glob clears many identical occurrences) plus a total, and point at cavil_search_snippets for the rest.
+sub _unmatched_rollup ($c, $id, $top = 10) {
+  my $result = $c->snippets->snippet_search(
+    {resolution => 'unresolved', group => 'text', order => 'occurrences', package_id => $id, limit => $top});
+  my $total
+    = $c->pg->db->query('SELECT count(DISTINCT snippet) FROM file_snippets WHERE package = ? AND resolution IS NULL',
+    $id)->array->[0];
+  return {rows => $result->{snippets}, total => $total};
 }
 
 1;

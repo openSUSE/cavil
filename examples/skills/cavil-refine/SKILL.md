@@ -61,12 +61,13 @@ a snippet taken from *inside* a license text must never be short-patterned (that
 bug — grabbing one sentence from a GPL/PSF/BSD body).
 
 **MULTI-SNIPPET TRIGGER (check this before the name/path signals below — it is the strongest Mode
-A signal and the one the others miss).** Group the unresolved snippets by file. **If a single file
-has 2+ snippets at different line numbers, the scanner found license wording spread through the
-whole file — which almost always means the file itself *is* one legal document (a license, EULA,
-CLA, or long notice), even when its name and path give no hint** (`docs/.../index.md`, a `README`,
-a stray `.html`). A file that merely *contains* one declaration produces one hit from one section,
-not several spread across the body. You **must** `cavil_get_file` the whole file and read it before
+A signal and the one the others miss).** `cavil_search_snippets(group=none)` already lists the
+occurrences file-by-file, so this is a read, not a computation. **If a single file has 2+ snippets
+at different line numbers, the scanner found license wording spread through the whole file — which
+almost always means the file itself *is* one legal document (a license, EULA, CLA, or long
+notice), even when its name and path give no hint** (`docs/.../index.md`, a `README`, a stray
+`.html`). A file that merely *contains* one declaration produces one hit from one section, not
+several spread across the body. You **must** `cavil_get_file` the whole file and read it before
 patterning any snippet from it. Then:
 
 - **Whole file reads as one continuous legal text → Mode A.** Expand to a single snippet covering
@@ -116,15 +117,21 @@ per fragment.
 
 ## DECISION PROCEDURE
 
-Run a large report through `parse_report.py` first (`python3 parse_report.py <report_file>
---pretty --output unresolved.json`). **Then group the snippets by file path and apply the
-MULTI-SNIPPET TRIGGER: any file with 2+ snippets gets its whole body fetched and read before you
-pattern anything from it — default that file to Mode A.** Gather context with `cavil_get_file`
-(batch parallel calls) **before** deciding for any snippet that is truncated, starts mid-sentence,
-shares its file with other unresolved snippets, or may be part of a larger block. **In a large
-report, sweep the SPDX/manifest license tags first** (`SPDX-License-Identifier:`, `License: …`,
-`license: '…`) — they are the safest and highest-volume clears, and Cavil never resolves them on
-its own. Then, for **each** remaining snippet, take the **first** action that applies:
+Enumerate the package's unresolved snippets with
+`cavil_search_snippets(package_id=…, group=none)` — it lists every occurrence ordered by file
+then line, with the file path, line range, verbatim body, and the exact `keywords` that tripped
+each one. **Because the rows are already grouped by file, apply the MULTI-SNIPPET TRIGGER
+directly: any file with 2+ snippets gets its whole body fetched and read before you pattern
+anything from it — default that file to Mode A.** For fleet-wide work (many packages, or ranking
+by reuse value) use `group=text`, which aggregates identical snippets across the distribution and
+ranks by impact so one pattern clears the most occurrences; act on the returned `snippet_id`.
+Gather context with `cavil_get_file` (batch parallel calls) **before** deciding for any snippet
+that is truncated, starts mid-sentence, shares its file with other unresolved snippets, or may be
+part of a larger block. **Sweep the SPDX/manifest license tags first**
+(`SPDX-License-Identifier:`, `License: …`, `license: '…`) — filter for them with
+`cavil_search_snippets(search="SPDX-License-Identifier")`; they are the safest and
+highest-volume clears, and Cavil never resolves them on its own. Then, for **each** remaining
+snippet, take the **first** action that applies:
 
 1. **Not license text** → ignore. Log/debug lines, code comments about functionality,
    build/config metadata, template placeholders, license-sounding text sitting as a *data value*
@@ -281,7 +288,15 @@ rationale.
 
 ## TOOLS
 
-- `cavil_get_report(package_id)` — fetch the legal report.
+- `cavil_search_snippets(package_id?, group, resolution, search?, license?, order, limit)` —
+  **your primary worklist.** `group=none` lists individual unresolved occurrences (file, line
+  range, verbatim body, and the `keywords` that tripped each — ordered by file then line, so the
+  multi-snippet trigger is a direct read); `group=text` aggregates identical snippets fleet-wide
+  and ranks by impact. Returns `snippet_id` (+ `package`) ready for `cavil_propose_*`. Omit
+  `package_id` for fleet-wide work. `resolution=unresolved` is the default.
+- `cavil_get_report(package_id)` — package overview. Unresolved snippets appear only as a
+  top-by-impact rollup here; use `cavil_search_snippets` for the full worklist and per-snippet
+  detail.
 - `cavil_get_file(package_id, file_path, start_line, end_line)` — read file context (≤1000
   lines). Line-number prefixes are display-only; never copy them into patterns.
 - `cavil_list_files(package_id, glob?)` — list files in a package (optional glob filter).
@@ -297,7 +312,10 @@ rationale.
 
 ## PRESERVED KEYWORDS AND PHRASES
 
-These are legally significant in Cavil. Whenever a snippet you are patterning contains one, keep
-it in the resulting pattern:
-
-publicly perform, list of conditions, under the terms, under the same terms, permission is granted, PROVIDED "AS IS" WITHOUT, any purpose, freely use, NONINFRINGEMENT, patent, trademark, redistribute, commerical, redistribution, redistributed, must reproduce, royalty, disclaimer, Free Software, trademarks, not legal, rights reserved, permission to, freely distributed, responsibility, define DRIVER_LICENSE, INFRINGEMENT, PERMITTED BY LAW, INTELLECTUAL PROPERTY RIGHT, LIABILITY, no warranty, export law, MODULE_LICENSE, commercial, convey, confidential, no warranties, Thou shalt, unpublished, proprietary, patents, prior written, with or without modification, SPDX-License-Identifier, under either, Creative Commons, licensee, lawsuit, the terms of, particular purpose, published by the, and or modify, merchantability, guarantees, approval, special exception, unlimited permission, licensed, redistributions, attribution, attributions, materials mentioning features, without restriction, from any source distribution, claim that you wrote, without any express, do not distribute, intellectual property rights, any later version, CONNECTION WITH THE USE OR PERFORMANCE, FAILURE OF THE DATA TO OPERATE, equivalent access to copy the source code, Altered versions must be plainly marked, HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES, DAMAGES OR OTHER LIABILITY, in accordance with the terms, disclaims all copyright interest, agreement with these licensing terms, OUT OF OR IN CONNECTION WITH THE SOFTWARE, Permission is hereby granted, free of charge, derivative works, OTHER DEALINGS IN THE SOFTWARE, rights to  use, copy, modify, without limitation the rights to use, patent license granted, consideration of your agreement, patent licence, subject to export, WHETHER IN AN ACTION OF CONTRACT, no explicit or implied warranties, publicity pertaining to distribution, use the modified software only, To the extent possible under law, fitness for purpose, protected as a copyrightable work, purpose of this License, TERMS AND CONDITIONS, combination shall include the source code, must include the following acknowlegement, LIABLE FOR SPECIAL DAMAGES, are subject to, you are not obligated to do, absence of proper authority, causes of action with respect to the Work, use and reuse of data, covered by the same license, must be included with all distributions of the Source Code, you need to mention, subject to, and may be distributed, warranties, including, but not limited, IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE, ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, maintenance of any nuclear facility, If you include any Windows specific code (or a derivative thereof, link a "work that uses the Library" with the Library, which the Software is contributed by such licensors, distribute Covered Software in Executable Form, conditions of the licenses, The licenses granted in Section, any file in Source Code Form, any form of the work other than Source Code Form, each individual or legal entity, program and documentation are copyrighted, the intent is to exercise the right to control the distribution, third parties' legal rights to forbid circumvention of technological measures, Permission is hereby granted, HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS, don't claim you wrote it, If you wish your version of this file to be governed by only, used to endorse, covered work means either the unmodified Program or a work based on the Program, You must cause any modified files to carry prominent notices stating that You changed the files, the following terms, Altered source versions must be plainly marked, In addition, if you combine or link compiled forms, limited permissions granted above are perpetual, Each time You distribute or publicly digitally perform the Work or a Collective Work, any non-commercial purpose, Warranties of Licensor and Disclaimers, should describe modifications, available under these terms, Unless required by applicable law, must include a notice, distributing modified versions, violation of applicable laws, You may copy and distribute verbatim copies of the Program, your work based on the Program is not required to print an announcement, must carry prominent notices, DISCLAIMER OF WARRANTY, license will be governed by the laws, distribute,  sublicense, and/or sell  copies, IN  NO EVENT  SHALL THE  COPYRIGHT  HOLDER, export control laws, Export Administration Regulations, 15 C.F.R. Section, United States Department of Commerce, Bureau of Industry and Security, Country Group, Commerce Control List, www.bis.doc.gov, export or re-export, biological weapons, Export Control Classification Number, ECCN, International Traffic in Arms Regulations, United States export
+These are the legally significant tokens Cavil tracks — the very words that flag a snippet as
+license-like. You do not need to memorise them: `cavil_search_snippets` reports the exact
+`keywords` that tripped **each** snippet, with their line position, so you can see per snippet
+which words are load-bearing. **Whenever a snippet you are patterning contains one of its reported
+keywords, keep that word literal in the resulting pattern** (it is signal, never `$SKIP`-able
+chatter) — this is how you keep the pattern reusable and how you avoid dropping the token that
+justifies the `license` value (THE PATTERN RULE).

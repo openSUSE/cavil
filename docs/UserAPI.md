@@ -78,9 +78,22 @@ These tools are currently available:
   - `limit`: Maximum number of packages to return. Defaults to `25`, maximum `100`. (number, optional)
   - `offset`: Number of packages to skip for pagination. Defaults to `0`. (number, optional)
 
-- *cavil_get_report* - Get legal report for a specific package
+- *cavil_get_report* - Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use *cavil_search_snippets* for the full list and per-snippet detail
   - **Required Roles**: `user` (read-only)
   - `package_id`: ID of package to get report for. (number, required)
+  - `url_limit`: Maximum number of URLs to include (occurrence-ordered). Defaults to `10`, `0` omits the section. (number, optional)
+  - `email_limit`: Maximum number of email addresses to include (occurrence-ordered). Defaults to `10`, `0` omits the section. (number, optional)
+
+- *cavil_search_snippets* - Query the unresolved-snippet backlog: filter by resolution / package / license / full-text, aggregate identical snippets by impact, or list individual occurrences with per-snippet detail
+  - **Required Roles**: `user` (read-only)
+  - `resolution`: One of `unresolved` (default), `fold`, `clear`, `overlap`, `covered`, `any`. (string, optional)
+  - `group`: `text` (default, impact-ranked distinct snippets) or `none` (individual occurrences with overlaps/keywords/covered-by detail). (string, optional)
+  - `order`: For `group=text`, one of `occurrences` (default), `packages`, `risk`, `recent`. (string, optional)
+  - `package_id`: Scope to one package; omit for fleet-wide. (number, optional)
+  - `license`: Filter by the snippet's closest license name. (string, optional)
+  - `search`: Full-text search over snippet bodies. (string, optional)
+  - `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
+  - `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
 
 - *cavil_get_file* - Get content of a specific file in the package
   - **Required Roles**: `user` (read-only)

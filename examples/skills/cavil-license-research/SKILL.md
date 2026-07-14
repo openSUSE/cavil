@@ -31,7 +31,8 @@ create notes, or propose patterns.
 - `WebSearch` / `WebFetch` — research the license on the open web (see the source list below)
 - `cavil_get_open_reviews(search)` — find a package if you were given a name instead of an id
 - `cavil_search_packages(name?, component?)` — locate a package across the whole set
-- `cavil_get_report(package_id)` — fetch a package's legal report (to reach an unresolved snippet's license)
+- `cavil_get_report(package_id)` — fetch a package's legal report for overall context
+- `cavil_search_snippets(package_id?, resolution, group, search?, license?)` — locate an unresolved snippet and its file+line (search by text or `license`, or scope to a package); each `group=none` row carries the file path, line range, and verbatim body
 - `cavil_get_file(package_id, file_path, start_line, end_line)` — read the actual license text in a package
 - `cavil_list_files(package_id, glob?)` — list files in a package
 
@@ -44,9 +45,10 @@ You can be started two ways:
 - **By identifier** — the user gives you a license name or SPDX id directly (e.g. "assess the Business Source
   License 1.1" or "what risk is `SSPL-1.0`?"). Work from that.
 - **From Cavil context** — the user points you at a package and an unresolved snippet or Missing-Licenses
-  report where the license text is present but unknown. Use `cavil_get_report` to locate the snippet, then
-  `cavil_get_file` to read the **full** license text around it (widen the range until you can see its title and
-  its final line). Identify which license it is from the text before researching.
+  report where the license text is present but unknown. Use `cavil_search_snippets` (by snippet text, `license`,
+  or `package_id`) to locate the snippet and get its file path and line range, then `cavil_get_file` to read the
+  **full** license text around it (widen the range until you can see its title and its final line). Identify which
+  license it is from the text before researching.
 
 Resolve the license to a canonical name and, where one exists, an SPDX identifier. If you cannot identify it
 with confidence, say so and stop with a NEEDS HUMAN REVIEW recommendation — do not research and rate the wrong

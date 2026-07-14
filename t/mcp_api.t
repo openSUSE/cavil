@@ -96,13 +96,112 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 6,                        'six tools available';
+      is scalar @{$result->{tools}}, 7,                        'seven tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
       is $result->{tools}[1]{name},  'cavil_search_packages',  'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_report',       'right tool name';
       is $result->{tools}[3]{name},  'cavil_get_file',         'right tool name';
       is $result->{tools}[4]{name},  'cavil_list_files',       'right tool name';
       is $result->{tools}[5]{name},  'cavil_get_notes',        'right tool name';
+      is $result->{tools}[6]{name},  'cavil_search_snippets',  'right tool name';
+    };
+
+    subtest 'cavil_search_snippets tool' => sub {
+
+      # Deterministic legal-text snippet with two unresolved occurrences on package 1
+      my $sdb = $t->app->pg->db;
+      my $smf = $sdb->query('SELECT id FROM matched_files WHERE package = 1 LIMIT 1')->hash->{id};
+      my $sid = $sdb->insert(
+        'snippets',
+        {
+          hash         => 'zzmcp-1',
+          text         => "ZZMCP snippet body licensed under the GPL",
+          package      => 1,
+          classified   => 1,
+          license      => 1,
+          likelyness   => 0.7,
+          second_match => 0.1
+        },
+        {returning => 'id'}
+      )->hash->{id};
+      $sdb->insert('file_snippets', {package => 1, file => $smf, snippet => $sid, sline => 10, eline => 13});
+      $sdb->insert('file_snippets', {package => 1, file => $smf, snippet => $sid, sline => 20, eline => 23});
+
+      subtest 'group=text impact ranking (package-scoped)' => sub {
+        my $result = $client->call_tool('cavil_search_snippets', {package_id => 1, group => 'text', search => 'ZZMCP'});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text, qr/# Snippets \(group=text\)/,                    'header';
+        like $text, qr/Filters: resolution=unresolved, package_id=1/, 'echoes filters';
+        like $text, qr/Pagination: limit=20, offset=0/,               'pagination metadata';
+        like $text, qr/snippet $sid .+occ 2 .+pkgs 1/,                'impact row with occurrence + package counts';
+        note $text;
+      };
+
+      subtest 'group=none lists occurrences with verbatim body' => sub {
+        my $result = $client->call_tool('cavil_search_snippets', {package_id => 1, group => 'none', search => 'ZZMCP'});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text, qr/# Snippets \(group=none\)/, 'header';
+        like $text, qr/snippet $sid .+unresolved/, 'per-occurrence header';
+        like $text, qr/text \@10-13 \(verbatim\)/, 'verbatim line-numbered body';
+      };
+
+      subtest 'fleet-wide search never exposes embargoed snippets' => sub {
+
+        # A snippet owned by an embargoed package must stay hidden in the fleet-wide (no package_id)
+        # path, which is gated entirely inside snippet_search.
+        my $sdb  = $t->app->pg->db;
+        my $tmpl = $sdb->query('SELECT source, requesting_user FROM bot_packages WHERE id = 1')->hash;
+        my $ep   = $sdb->insert(
+          'bot_packages',
+          {
+            name            => 'zzmcp-embargo',
+            checkout_dir    => 'zzmcpembargo',
+            source          => $tmpl->{source},
+            requesting_user => $tmpl->{requesting_user},
+            priority        => 5,
+            state           => 'new',
+            embargoed       => 1
+          },
+          {returning => 'id'}
+        )->hash->{id};
+        my $efile = $sdb->insert(
+          'matched_files',
+          {package   => $ep, filename => 'zzmcp/secret.txt', mimetype => 'text/plain'},
+          {returning => 'id'}
+        )->hash->{id};
+        my $esid = $sdb->insert(
+          'snippets',
+          {hash      => 'zzmcp-embargoed', text => 'ZZMCPEMBARGO secret licensed under the GPL', package => $ep},
+          {returning => 'id'}
+        )->hash->{id};
+        $sdb->insert('file_snippets', {package => $ep, file => $efile, snippet => $esid, sline => 1, eline => 4});
+
+        # The search term is echoed in the Filters: header, so assert on the snippet id / row body,
+        # which only appear when a result actually leaks.
+        for my $group (qw(text none)) {
+          my $result = $client->call_tool('cavil_search_snippets', {group => $group, search => 'ZZMCPEMBARGO'});
+          ok !$result->{isError}, "group=$group not an error";
+          my $text = $result->{content}[0]{text};
+          like $text,   qr/No matching snippets/, "fleet-wide group=$group finds nothing to expose";
+          unlike $text, qr/snippet $esid\b/,      "embargoed snippet id absent from group=$group";
+          unlike $text, qr/secret licensed/,      "embargoed body absent from group=$group";
+        }
+      };
+
+      subtest 'Invalid arguments' => sub {
+        my $bad_res = $client->call_tool('cavil_search_snippets', {resolution => 'bogus'});
+        ok $bad_res->{isError}, 'bad resolution is an error';
+        like $bad_res->{content}[0]{text}, qr/resolution must be one of/, 'rejects bad resolution';
+
+        my $bad_order = $client->call_tool('cavil_search_snippets', {order => 'bogus'});
+        ok $bad_order->{isError}, 'bad order is an error';
+        like $bad_order->{content}[0]{text}, qr/order must be one of/, 'rejects bad order';
+
+        eval { $client->call_tool('cavil_search_snippets', {limit => 0}) };
+        like $@, qr/Invalid arguments/, 'rejects out-of-range limit';
+      };
     };
 
     subtest 'cavil_get_open_reviews tool' => sub {
@@ -399,6 +498,32 @@ subtest 'MCP' => sub {
         like $text,   qr/http:\/\/mojolicious\.org/,                      'URL found';
         note $text;
       };
+
+      subtest 'Unmatched snippets are an impact rollup, not full previews' => sub {
+        my $result = $client->call_tool('cavil_get_report', {package_id => 1});
+        my $text   = $result->{content}[0]{text};
+        like $text,   qr/## Unmatched Snippets/,                 'rollup heading';
+        like $text,   qr/\d+ unresolved snippets? need review/,  'total count line';
+        like $text,   qr/^\* \d+x snippet \d+ /m,                'impact-ranked rows with occurrence counts';
+        like $text,   qr/cavil_search_snippets\(package_id=1\)/, 'pointer to the full list';
+        unlike $text, qr/```/,                                   'no verbatim per-snippet code blocks';
+      };
+
+      subtest 'url_limit and email_limit cap or omit the lists' => sub {
+        my $capped = $client->call_tool('cavil_get_report', {package_id => 1, email_limit => 2, url_limit => 1});
+        my $ctext  = $capped->{content}[0]{text};
+        like $ctext, qr/## Email Addresses/, 'emails still present';
+        like $ctext, qr/top 2 of \d+/,       'email cap noted';
+        like $ctext, qr/top 1 of \d+/,       'url cap noted';
+
+        # 0 omits the section entirely; the Unmatched Snippets rollup must still render (it used to be
+        # nested under the email block and would vanish whenever emails were suppressed).
+        my $omit  = $client->call_tool('cavil_get_report', {package_id => 1, email_limit => 0, url_limit => 0});
+        my $otext = $omit->{content}[0]{text};
+        unlike $otext, qr/## Email Addresses/,    'emails omitted at limit 0';
+        unlike $otext, qr/## URLs/,               'urls omitted at limit 0';
+        like $otext,   qr/## Unmatched Snippets/, 'rollup renders independently of the email section';
+      };
     };
 
     subtest 'cavil_get_file tool' => sub {
@@ -602,7 +727,7 @@ subtest 'MCP' => sub {
 
     subtest 'List tools' => sub {
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 14,                              'fourteen tools available';
+      is scalar @{$result->{tools}}, 15,                              'fifteen tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_search_packages',         'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_report',              'right tool name';
@@ -617,29 +742,12 @@ subtest 'MCP' => sub {
       is $result->{tools}[11]{name}, 'cavil_propose_ignore_glob',     'right tool name';
       is $result->{tools}[12]{name}, 'cavil_create_snippet',          'right tool name';
       is $result->{tools}[13]{name}, 'cavil_report_missing_license',  'right tool name';
+      is $result->{tools}[14]{name}, 'cavil_search_snippets',         'right tool name';
     };
 
     subtest 'List tools (normal user)' => sub {
       $t->app->users->remove_role(2, 'admin');
       $t->app->users->remove_role(2, 'manager');
-
-      my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 7,                        'seven tools available';
-      is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
-      is $result->{tools}[1]{name},  'cavil_search_packages',  'right tool name';
-      is $result->{tools}[2]{name},  'cavil_get_report',       'right tool name';
-      is $result->{tools}[3]{name},  'cavil_get_file',         'right tool name';
-      is $result->{tools}[4]{name},  'cavil_list_files',       'right tool name';
-      is $result->{tools}[5]{name},  'cavil_create_note',      'right tool name';
-      is $result->{tools}[6]{name},  'cavil_get_notes',        'right tool name';
-
-      $t->app->users->add_role(2, 'admin');
-      $t->app->users->add_role(2, 'manager');
-    };
-
-
-    subtest 'List tools (manager)' => sub {
-      $t->app->users->remove_role(2, 'admin');
 
       my $result = $client->list_tools;
       is scalar @{$result->{tools}}, 8,                        'eight tools available';
@@ -650,7 +758,27 @@ subtest 'MCP' => sub {
       is $result->{tools}[4]{name},  'cavil_list_files',       'right tool name';
       is $result->{tools}[5]{name},  'cavil_create_note',      'right tool name';
       is $result->{tools}[6]{name},  'cavil_get_notes',        'right tool name';
+      is $result->{tools}[7]{name},  'cavil_search_snippets',  'right tool name';
+
+      $t->app->users->add_role(2, 'admin');
+      $t->app->users->add_role(2, 'manager');
+    };
+
+
+    subtest 'List tools (manager)' => sub {
+      $t->app->users->remove_role(2, 'admin');
+
+      my $result = $client->list_tools;
+      is scalar @{$result->{tools}}, 9,                        'nine tools available';
+      is $result->{tools}[0]{name},  'cavil_get_open_reviews', 'right tool name';
+      is $result->{tools}[1]{name},  'cavil_search_packages',  'right tool name';
+      is $result->{tools}[2]{name},  'cavil_get_report',       'right tool name';
+      is $result->{tools}[3]{name},  'cavil_get_file',         'right tool name';
+      is $result->{tools}[4]{name},  'cavil_list_files',       'right tool name';
+      is $result->{tools}[5]{name},  'cavil_create_note',      'right tool name';
+      is $result->{tools}[6]{name},  'cavil_get_notes',        'right tool name';
       is $result->{tools}[7]{name},  'cavil_accept_review',    'right tool name';
+      is $result->{tools}[8]{name},  'cavil_search_snippets',  'right tool name';
 
       $t->app->users->add_role(2, 'admin');
     };
@@ -661,7 +789,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 12,                              'twelve tools available';
+      is scalar @{$result->{tools}}, 13,                              'thirteen tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_search_packages',         'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_report',              'right tool name';
@@ -674,6 +802,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[9]{name},  'cavil_propose_ignore_glob',     'right tool name';
       is $result->{tools}[10]{name}, 'cavil_create_snippet',          'right tool name';
       is $result->{tools}[11]{name}, 'cavil_report_missing_license',  'right tool name';
+      is $result->{tools}[12]{name}, 'cavil_search_snippets',         'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'manager');
@@ -685,7 +814,7 @@ subtest 'MCP' => sub {
       $t->app->users->add_role(2, 'contributor');
 
       my $result = $client->list_tools;
-      is scalar @{$result->{tools}}, 13,                              'thirteen tools available';
+      is scalar @{$result->{tools}}, 14,                              'fourteen tools available';
       is $result->{tools}[0]{name},  'cavil_get_open_reviews',        'right tool name';
       is $result->{tools}[1]{name},  'cavil_search_packages',         'right tool name';
       is $result->{tools}[2]{name},  'cavil_get_report',              'right tool name';
@@ -699,6 +828,7 @@ subtest 'MCP' => sub {
       is $result->{tools}[10]{name}, 'cavil_propose_ignore_glob',     'right tool name';
       is $result->{tools}[11]{name}, 'cavil_create_snippet',          'right tool name';
       is $result->{tools}[12]{name}, 'cavil_report_missing_license',  'right tool name';
+      is $result->{tools}[13]{name}, 'cavil_search_snippets',         'right tool name';
 
       $t->app->users->remove_role(2, 'contributor');
       $t->app->users->add_role(2, 'admin');

@@ -384,3 +384,7 @@ ALTER TABLE license_patterns ADD COLUMN catch_all boolean DEFAULT false NOT NULL
 DROP INDEX file_snippets_cleared_snippet_idx;
 CREATE INDEX file_snippets_cleared_snippet_idx ON file_snippets (snippet DESC)
   WHERE resolution IN ('clear', 'overlap', 'covered');
+
+-- 51 up
+CREATE INDEX file_snippets_unresolved_snippet_idx ON file_snippets (snippet) WHERE resolution IS NULL;
+CREATE INDEX file_snippets_unresolved_package_idx ON file_snippets (package, snippet) WHERE resolution IS NULL;

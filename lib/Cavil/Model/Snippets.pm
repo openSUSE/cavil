@@ -284,6 +284,159 @@ sub unclassified ($self, $options) {
   return {has_more => $has_more, snippets => $snippets};
 }
 
+# Query the snippet backlog generically for agents/UI (backs the cavil_search_snippets MCP tool).
+# Filter by resolution ('unresolved' = resolution IS NULL / fold|clear|overlap|covered / 'any'),
+# optional package scope, closest-license, and full-text search; then either aggregate identical
+# snippets by impact (group => 'text') or list individual occurrences (group => 'none'). Snippets are
+# content-hash-deduped (find_or_create), so grouping by s.id already aggregates fleet-wide. The
+# unresolved path is served by the partial indexes file_snippets_unresolved_snippet_idx/_package_idx.
+sub snippet_search ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $limit  = $options->{limit}  || 20;
+  my $offset = $options->{offset} || 0;
+  my $group  = ($options->{group} // 'text') eq 'none' ? 'none' : 'text';
+
+  # Shared filters (bind order matters)
+  my @binds;
+  my $res = $options->{resolution} // 'unresolved';
+  my $res_clause
+    = $res eq 'any'                              ? '1 = 1'
+    : $res eq 'unresolved'                       ? 'fs.resolution IS NULL'
+    : $res =~ /^(?:fold|clear|overlap|covered)$/ ? do { push @binds, $res; 'fs.resolution = ?' }
+    :                                              'fs.resolution IS NULL';
+
+  my $extra = '';
+  if ($options->{package_id}) { $extra .= ' AND fs.package = ?'; push @binds, $options->{package_id}; }
+
+  # Backlog snippets are license candidates regardless of the classifier's boolean opinion (freshly
+  # indexed ones default to license=false), so we do not filter by s.license unless a caller opts in.
+  $extra .= ' AND s.license = TRUE' if $options->{legal};
+  if (defined $options->{license} && $options->{license} ne '') {
+    $extra .= ' AND lp.license = ?';
+    push @binds, $options->{license};
+  }
+  if (defined $options->{search} && $options->{search} ne '') {
+    $extra .= " AND to_tsvector('english', s.text) @@ websearch_to_tsquery('english', ?)";
+    push @binds, $options->{search};
+  }
+
+  # Two independent embargo gates. sp (snippets.package) is the canonical text-level embargo: a
+  # snippet stays embargoed until an unembargoed package re-links it (see find_or_create), so this
+  # is what keeps embargoed license text out entirely. bp (file_snippets.package) is the location
+  # gate: even for an unembargoed snippet, never reveal - or count - an occurrence that lives in an
+  # embargoed package. s.package is nullable (origin deleted), which we treat as unembargoed.
+  my $embargo = 'bp.embargoed = false AND COALESCE(sp.embargoed, false) = false';
+
+  # Fetch one extra row to detect a next page without an exact total (COUNT(*) OVER does not scale).
+  my $rows;
+  if ($group eq 'none') {
+    $rows = $db->query(
+      "SELECT s.id AS snippet_id, mf.filename AS file, fs.sline AS line, fs.eline AS eline, fs.file AS file_id,
+              fs.package, fs.resolution, s.text, s.likelyness AS similarity, s.second_match, s.score_version,
+              lp.license AS closest_license, lp.risk AS closest_risk, lp.spdx AS closest_spdx
+       FROM file_snippets fs
+         JOIN snippets s ON s.id = fs.snippet
+         JOIN matched_files mf ON mf.id = fs.file
+         JOIN bot_packages bp ON bp.id = fs.package
+         LEFT JOIN bot_packages sp ON sp.id = s.package
+         LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
+       WHERE $embargo AND $res_clause $extra
+       ORDER BY mf.filename, fs.sline
+       LIMIT ? OFFSET ?", @binds, $limit + 1, $offset
+    )->hashes->to_array;
+  }
+  else {
+    my $order
+      = ($options->{order} // 'occurrences') eq 'packages' ? 'packages DESC, occurrences DESC'
+      : ($options->{order} // '') eq 'risk'   ? 'closest_risk DESC NULLS LAST, occurrences DESC'
+      : ($options->{order} // '') eq 'recent' ? 'snippet_id DESC'
+      :                                         'occurrences DESC, packages DESC';
+    $rows = $db->query(
+      "SELECT s.id AS snippet_id, count(*) AS occurrences, count(DISTINCT fs.package) AS packages,
+              s.likelyness AS similarity, s.text,
+              lp.license AS closest_license, lp.risk AS closest_risk, lp.spdx AS closest_spdx
+       FROM file_snippets fs
+         JOIN snippets s ON s.id = fs.snippet
+         JOIN bot_packages bp ON bp.id = fs.package
+         LEFT JOIN bot_packages sp ON sp.id = s.package
+         LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
+       WHERE $embargo AND $res_clause $extra
+       GROUP BY s.id, s.text, s.likelyness, lp.license, lp.risk, lp.spdx
+       ORDER BY $order
+       LIMIT ? OFFSET ?", @binds, $limit + 1, $offset
+    )->hashes->to_array;
+  }
+
+  my $has_more = @$rows > $limit ? 1 : 0;
+  splice @$rows, $limit if $has_more;
+
+  for my $r (@$rows) { $r->{similarity} = int(($r->{similarity} // 0) * 100 + 0.5) }
+
+  # Tier-2 detail (bounded by page size): overlaps / covered-by / keywords, for agent decisions.
+  $self->_enrich_snippet_detail($db, $_) for $options->{detail} || $group eq 'none' ? @$rows : ();
+
+  return {has_more => $has_more, offset => $offset, limit => $limit, group => $group, snippets => $rows};
+}
+
+# Tier-2 detail for one snippet_search row: the decision context the human report trims away via
+# minimal_snippet. Adds `overlaps` (curated matches on/adjacent to the snippet's lines, with position),
+# `keywords` (the literal keyword tokens that tripped it), and `covered_by` (concrete non-catch_all
+# licenses established in the file / its directory). Bounded - called once per returned page row.
+sub _enrich_snippet_detail ($self, $db, $row) {
+  my $sid = $row->{snippet_id};
+
+  # Describe the row's own occurrence (group=none) or a representative one (group=text). The
+  # group=none row already comes from an unembargoed occurrence, but the group=text fallback must
+  # not pick one in an embargoed package - that would leak an embargoed file path/context.
+  my ($file_id, $sline, $eline, $package) = @{$row}{qw(file_id line eline package)};
+  unless ($file_id) {
+    my $occ = _unembargoed_occurrence($db, $sid) or return;
+    ($file_id, $sline, $eline, $package) = @{$occ}{qw(file sline eline package)};
+  }
+  return unless $file_id;
+
+  # Curated matches intersecting or abutting [sline, eline] in this file. License matches become
+  # `overlaps` (with position vs the snippet); empty-license keyword patterns become `keywords`.
+  my $near = $db->query(
+    'SELECT lp.license, lp.spdx, lp.pattern, pm.sline, pm.eline
+       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.file = ? AND pm.ignored = false AND pm.eline >= ? AND pm.sline <= ?
+      ORDER BY pm.sline', $file_id, $sline - 1, $eline + 1
+  )->hashes;
+  my (@overlaps, %kw);
+  for my $m (@$near) {
+    if ($m->{license} ne '') {
+      my $pos
+        = ($m->{sline} <= $sline && $m->{eline} >= $eline) ? 'contains'
+        : ($m->{sline} >= $sline && $m->{eline} <= $eline) ? 'inside'
+        : ($m->{eline} < $eline)                           ? 'head'
+        :                                                    'tail';
+      push @overlaps,
+        {license => $m->{license}, spdx => $m->{spdx}, position => $pos, lines => "$m->{sline}-$m->{eline}"};
+    }
+    elsif (defined $m->{pattern} && $m->{pattern} ne '') { $kw{$m->{pattern}} = 1 }
+  }
+  $row->{overlaps} = \@overlaps;
+  $row->{keywords} = [sort keys %kw];
+
+  # covered_by: concrete (non catch_all) licenses established in the file and its directory.
+  my $filename = $db->query('SELECT filename FROM matched_files WHERE id = ?', $file_id)->hash->{filename} // '';
+  my $dir      = $filename =~ s{/[^/]*$}{}r;
+  $row->{covered_by} = {
+    file => $db->query(
+      q{SELECT DISTINCT lp.license FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+        WHERE pm.file = ? AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false}, $file_id
+    )->arrays->flatten->to_array,
+    dir => $db->query(
+      q{SELECT DISTINCT lp.license FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+          JOIN matched_files mf ON mf.id = pm.file
+        WHERE mf.package = ? AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false
+          AND regexp_replace(mf.filename, '/[^/]*$', '') = ?}, $package, $dir
+    )->arrays->flatten->to_array
+  };
+}
+
 sub mark_non_license ($self, $id) {
   $self->pg->db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
 }
@@ -305,6 +458,15 @@ sub _occurrence ($db, $id, $file_id) {
   }
   $sql .= ' LIMIT 1';
   return $db->query($sql, @bind)->hash;
+}
+
+# A representative occurrence for detail enrichment that never lives in an embargoed package.
+sub _unembargoed_occurrence ($db, $id) {
+  return $db->query(
+    'SELECT fs.package, fs.file, fs.sline, fs.eline
+       FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
+      WHERE fs.snippet = ? AND p.embargoed = false LIMIT 1', $id
+  )->hash;
 }
 
 sub with_context ($self, $id, $file_id = undef) {

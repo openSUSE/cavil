@@ -164,7 +164,9 @@ subtest 'API keys' => sub {
       ->content_like(qr/Package:.+perl-Mojolicious/)
       ->content_like(qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/)
       ->content_like(qr/Apache-2.0:.+3 files/)
-      ->content_like(qr/LICENSE.+Line: \d+.+Snippet: 2/);
+      ->content_like(qr/## Unmatched Snippets/)
+      ->content_like(qr/^\* \d+x snippet \d+ /m)
+      ->content_like(qr/cavil_search_snippets\(package_id=1\)/);
   };
 
   subtest 'Access SPDX with API key' => sub {

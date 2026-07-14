@@ -122,37 +122,40 @@ No files matching any known license patterns or keywords have been found.
 
 % }
 
-% if (@{$report->{emails}}) {
+% if ($unmatched->{total}) {
 
-% if (@$unmatched_keywords) {
-## Unmatched Keywords
+## Unmatched Snippets
 
-%   for my $unmatched (@$unmatched_keywords) {
-* `<%== $unmatched->{path} %>` (Line: <%= $unmatched->{line} %>, Snippet: <%= $unmatched->{snippet} %>):
-```
-%== $unmatched->{text} 
-```
+<%= $unmatched->{total} %> unresolved snippet<%= $unmatched->{total} == 1 ? '' : 's' %> need review. Highest impact first (one pattern or ignore clears every identical occurrence):
 
+%   for my $s (@{$unmatched->{rows}}) {
+%     my $preview = substr(($s->{text} // '') =~ s/\s+/ /gr, 0, 120);
+* <%= $s->{occurrences} %>x snippet <%= $s->{snippet_id} %> (~<%= $s->{closest_license} // 'unknown-license' %> <%= $s->{similarity} %>%): <%== $preview %>
 %   }
 
+For the full list and per-snippet detail (verbatim text, overlaps, keywords, covered-by): cavil_search_snippets(package_id=<%= $summary->{id} %>).
+
 % }
+% my @emails = @{$report->{emails} // []};
+% if ($email_limit && @emails) {
 
 ## Email Addresses
 
-Ordered by number of occurrences.
+Ordered by number of occurrences<%= @emails > $email_limit ? ", top $email_limit of " . scalar(@emails) : '' %>.
 
-%   for my $email (@{$report->{emails}}) {
+%   for my $email (@emails[0 .. ($email_limit < @emails ? $email_limit - 1 : $#emails)]) {
 * `<%== $email->[0] %>`: <%== $email->[1] %>
 %   }
 % }
 
-% if (@{$report->{urls}}) {
+% my @urls = @{$report->{urls} // []};
+% if ($url_limit && @urls) {
 
 ## URLs
 
-Ordered by number of occurrences.
+Ordered by number of occurrences<%= @urls > $url_limit ? ", top $url_limit of " . scalar(@urls) : '' %>.
 
-%   for my $url (@{$report->{urls}}) {
+%   for my $url (@urls[0 .. ($url_limit < @urls ? $url_limit - 1 : $#urls)]) {
 * `<%== $url->[0] %>`: <%== $url->[1] %>
 %   }
 % }

@@ -195,4 +195,233 @@ subtest 'resolution + text-search filters and keyset pagination' => sub {
   };
 };
 
+subtest 'snippet_search (impact ranking + detail)' => sub {
+  my $app = $t->app;
+  my $db  = $app->pg->db;
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+
+  # A distinctive token isolates these rows from other subtests' snippets on package 1.
+  my $mksnip = sub ($tag) {
+    $db->insert(
+      'snippets',
+      {
+        hash          => "impact-$tag",
+        text          => "ZZIMPACT $tag body licensed under the GPL",
+        package       => 1,
+        classified    => 1,
+        license       => 1,
+        likelyness    => 0.7,
+        second_match  => 0.1,
+        score_version => SNIPPET_SCORE_VERSION,
+        like_pattern  => $gpl
+      },
+      {returning => 'id'}
+    )->hash->{id};
+  };
+  my $a    = $mksnip->('alpha');
+  my $b    = $mksnip->('beta');
+  my $line = 0;
+  my $occ  = sub ($sid, $pkg, $file) {
+    $line += 50;
+    $db->insert(
+      'file_snippets',
+      {package   => $pkg, file => $file, snippet => $sid, sline => $line, eline => $line + 4},
+      {returning => 'id'}
+    )->hash->{id};
+  };
+
+  my $mf  = $db->query('SELECT id FROM matched_files WHERE package = 1 LIMIT 1')->hash->{id};
+  my $ao1 = $occ->($a, 1, $mf);
+  $occ->($a, 1, $mf);    # snippet A: 2 occurrences on package 1
+  $occ->($b, 1, $mf);    # snippet B: 1
+
+  # A second package so the distinct-package (reach) metric is exercised
+  my $src = $db->query('SELECT source, requesting_user FROM bot_packages WHERE id = 1')->hash;
+  my $p2  = $db->insert(
+    'bot_packages',
+    {
+      name            => 'impact-pkg2',
+      checkout_dir    => 'impactpkg2',
+      source          => $src->{source},
+      requesting_user => $src->{requesting_user},
+      priority        => 5,
+      state           => 'new'
+    },
+    {returning => 'id'}
+  )->hash->{id};
+  my $mf2 = $db->insert(
+    'matched_files',
+    {package   => $p2, filename => 'other/dir/x.txt', mimetype => 'text/plain'},
+    {returning => 'id'}
+  )->hash->{id};
+  $occ->($a, $p2, $mf2);    # snippet A now spans 2 packages, 3 occurrences total
+
+  subtest 'group=text impact ranking' => sub {
+    my $r  = $app->snippets->snippet_search({group => 'text', search => 'ZZIMPACT', order => 'occurrences'});
+    my %by = map { $_->{snippet_id} => $_ } @{$r->{snippets}};
+    is $by{$a}{occurrences},          3,  'A counts all occurrences fleet-wide';
+    is $by{$a}{packages},             2,  'A distinct-package (reach) count';
+    is $by{$b}{occurrences},          1,  'B occurrence count';
+    is $r->{snippets}[0]{snippet_id}, $a, 'ordered by occurrences (A first)';
+    ok $by{$a}{closest_license}, 'carries the closest license';
+  };
+
+  subtest 'package scope + resolution filter' => sub {
+    my %by = map { $_->{snippet_id} => $_ }
+      @{$app->snippets->snippet_search({group => 'text', search => 'ZZIMPACT', package_id => 1})->{snippets}};
+    is $by{$a}{occurrences}, 2, 'package scope restricts to package 1';
+
+    # Resolve exactly one occurrence -> it drops from the unresolved default
+    $db->query('UPDATE file_snippets SET resolution = ? WHERE id = ?', 'covered', $ao1);
+    %by = map { $_->{snippet_id} => $_ }
+      @{$app->snippets->snippet_search({group => 'text', search => 'ZZIMPACT', package_id => 1})->{snippets}};
+    is $by{$a}{occurrences}, 1, 'covered occurrence excluded from unresolved default';
+
+    %by
+      = map { $_->{snippet_id} => $_ }
+      @{$app->snippets->snippet_search(
+        {group => 'text', search => 'ZZIMPACT', package_id => 1, resolution => 'covered'})->{snippets}};
+    is $by{$a}{occurrences}, 1, 'resolution=covered finds the covered occurrence';
+  };
+
+  subtest 'group=none lists individual occurrences with detail' => sub {
+
+    # Fresh file with only our matches, so detail (overlaps/covered_by) is deterministic
+    my $mf3 = $db->insert(
+      'matched_files',
+      {package   => 1, filename => 'detail/dir/y.txt', mimetype => 'text/plain'},
+      {returning => 'id'}
+    )->hash->{id};
+    my $c = $mksnip->('gamma');
+    $db->insert('file_snippets', {package => 1, file => $mf3, snippet => $c, sline => 50, eline => 54});
+
+    my $apache  = $app->patterns->create(pattern => 'zz apache detail marker', license => 'Apache-2.0')->{id};
+    my $keyword = $app->patterns->create(pattern => 'zzkeyword tripped here')->{id};    # empty license = keyword
+        # Apache match head-abutting the snippet (lines 45-49) and a keyword match inside (line 52)
+    $db->insert('pattern_matches',
+      {package => 1, file => $mf3, pattern => $apache, sline => 45, eline => 49, ignored => 0});
+    $db->insert('pattern_matches',
+      {package => 1, file => $mf3, pattern => $keyword, sline => 52, eline => 52, ignored => 0});
+
+    my $r = $app->snippets->snippet_search({group => 'none', package_id => 1, search => 'ZZIMPACT gamma'});
+    my ($row) = grep { $_->{snippet_id} == $c } @{$r->{snippets}};
+    ok $row, 'group=none returns the occurrence';
+    is $row->{file}, 'detail/dir/y.txt', 'with its file path';
+    is $row->{line}, 50,                 'and line';
+    my ($ov) = grep { $_->{license} eq 'Apache-2.0' } @{$row->{overlaps}};
+    ok $ov, 'overlaps lists the abutting Apache match';
+    is $ov->{position}, 'head', 'with head position';
+    ok((grep { $_ eq 'zzkeyword tripped here' } @{$row->{keywords}}), 'keywords lists the literal keyword token');
+    ok((grep { $_ eq 'Apache-2.0' } @{$row->{covered_by}{file}}), 'covered_by.file lists the concrete file license');
+  };
+
+  subtest 'pagination' => sub {
+    my $r = $app->snippets->snippet_search({group => 'text', search => 'ZZIMPACT', limit => 1});
+    is scalar(@{$r->{snippets}}), 1, 'limit honored';
+    ok $r->{has_more}, 'has_more set when more remain';
+  };
+};
+
+# Embargo is a hard requirement: the snippet's own package (snippets.package) is the canonical
+# text-level embargo (a snippet stays embargoed until an unembargoed package re-links it, per
+# find_or_create), and an occurrence in an embargoed package must never be revealed or counted even
+# for an otherwise-unembargoed snippet.
+subtest 'snippet_search embargo gates' => sub {
+  my $app = $t->app;
+  my $db  = $app->pg->db;
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+  my $src = $db->query('SELECT source, requesting_user FROM bot_packages WHERE id = 1')->hash;
+
+  # An embargoed package with its own file, plus a clean file on the unembargoed package 1.
+  my $pe = $db->insert(
+    'bot_packages',
+    {
+      name            => 'embargo-pkg',
+      checkout_dir    => 'embargopkg',
+      source          => $src->{source},
+      requesting_user => $src->{requesting_user},
+      priority        => 5,
+      state           => 'new',
+      embargoed       => 1
+    },
+    {returning => 'id'}
+  )->hash->{id};
+  my $mfe = $db->insert(
+    'matched_files',
+    {package   => $pe, filename => 'secret/embargoed.txt', mimetype => 'text/plain'},
+    {returning => 'id'}
+  )->hash->{id};
+  my $mf1 = $db->insert(
+    'matched_files',
+    {package   => 1, filename => 'clean/public.txt', mimetype => 'text/plain'},
+    {returning => 'id'}
+  )->hash->{id};
+
+  my $mksnip = sub ($tag, $owner) {
+    $db->insert(
+      'snippets',
+      {
+        hash          => "embargo-$tag",
+        text          => "ZZEMBARGO $tag body licensed under the GPL",
+        package       => $owner,
+        classified    => 1,
+        license       => 1,
+        likelyness    => 0.7,
+        second_match  => 0.1,
+        score_version => SNIPPET_SCORE_VERSION,
+        like_pattern  => $gpl
+      },
+      {returning => 'id'}
+    )->hash->{id};
+  };
+
+  # A snippet OWNED by the embargoed package, even with a (leaked) occurrence on the public package.
+  my $emb = $mksnip->('owned', $pe);
+  $db->insert('file_snippets', {package => $pe, file => $mfe, snippet => $emb, sline => 10, eline => 14});
+  $db->insert('file_snippets', {package => 1, file => $mf1, snippet => $emb, sline => 60, eline => 64});
+
+  # An unembargoed snippet with one public occurrence and one inside the embargoed package.
+  my $mix = $mksnip->('mixed', 1);
+  $db->insert('file_snippets', {package => 1, file => $mf1, snippet => $mix, sline => 70, eline => 74});
+  $db->insert('file_snippets', {package => $pe, file => $mfe, snippet => $mix, sline => 20, eline => 24});
+
+  # An Apache match only in the embargoed file, so detail enrichment leaking that occurrence would show up.
+  my $apache = $app->patterns->create(pattern => 'zz embargo apache marker', license => 'Apache-2.0')->{id};
+  $db->insert('pattern_matches',
+    {package => $pe, file => $mfe, pattern => $apache, sline => 18, eline => 22, ignored => 0});
+
+  subtest 'snippet owned by an embargoed package is hidden entirely' => sub {
+    my %text = map { $_->{snippet_id} => $_ }
+      @{$app->snippets->snippet_search({group => 'text', search => 'ZZEMBARGO'})->{snippets}};
+    ok !$text{$emb}, 'embargoed-origin snippet excluded from group=text';
+    ok $text{$mix},  'unembargoed snippet still present';
+
+    my @none = grep { $_->{snippet_id} == $emb }
+      @{$app->snippets->snippet_search({group => 'none', search => 'ZZEMBARGO'})->{snippets}};
+    is scalar(@none), 0, 'embargoed-origin snippet excluded from group=none';
+  };
+
+  subtest 'occurrences in an embargoed package are neither counted nor revealed' => sub {
+    my ($row)
+      = grep { $_->{snippet_id} == $mix }
+      @{$app->snippets->snippet_search({group => 'text', search => 'ZZEMBARGO'})->{snippets}};
+    is $row->{occurrences}, 1, 'embargoed occurrence excluded from the count';
+    is $row->{packages},    1, 'embargoed package excluded from the reach count';
+
+    my @occ = grep { $_->{snippet_id} == $mix }
+      @{$app->snippets->snippet_search({group => 'none', search => 'ZZEMBARGO'})->{snippets}};
+    is scalar(@occ),  1,                  'only the unembargoed occurrence is listed';
+    is $occ[0]{file}, 'clean/public.txt', 'embargoed file path is not revealed';
+  };
+
+  subtest 'group=text detail never enriches from an embargoed occurrence' => sub {
+    my ($row)
+      = grep { $_->{snippet_id} == $mix }
+      @{$app->snippets->snippet_search({group => 'text', search => 'ZZEMBARGO', detail => 1})->{snippets}};
+    ok $row, 'mixed snippet present with detail';
+    ok !(grep { $_->{license} eq 'Apache-2.0' } @{$row->{overlaps} || []}),
+      'the embargoed-file Apache overlap is not surfaced';
+  };
+};
+
 done_testing();
