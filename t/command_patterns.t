@@ -438,13 +438,27 @@ subtest 'Catch-all flag' => sub {
       local *STDOUT = $handle;
       $app->start('patterns', '--backfill-catch-all');
     }
-    like $buffer, qr/Any Permissive -> catch_all=1/, 'grab-bag license set to catch_all';
-    like $buffer, qr/Apache-2\.0 -> catch_all=0/,    'concrete license cleared';
+    like $buffer, qr/Any Permissive -> catch_all=1: 1 patterns updated/,
+      'grab-bag license set to catch_all (real count)';
+    like $buffer,   qr/Apache-2\.0 -> catch_all=0: 2 patterns updated/, 'concrete license cleared (real count)';
+    like $buffer,   qr/^3 patterns updated$/m, 'total reflects the real number of changed patterns';
+    unlike $buffer, qr/-\d+ patterns updated/, 'no bogus negative counts from zero-row updates';
 
     is $db->query("SELECT count(*) c FROM license_patterns WHERE license = 'Any Permissive' AND NOT catch_all")
       ->hash->{c}, 0, 'all grab-bag patterns are catch_all after backfill';
     is $db->query("SELECT count(*) c FROM license_patterns WHERE license = 'Apache-2.0' AND catch_all")->hash->{c}, 0,
       'concrete license is not catch_all after backfill';
+
+    # A second run changes nothing: it must report a clean zero, not the bogus -1/stale count that a
+    # zero-row UPDATE's ->rows produced before (every no-op license summed to a large negative total).
+    $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--backfill-catch-all');
+    }
+    like $buffer,   qr/^0 patterns updated$/m, 'a second backfill is a clean no-op';
+    unlike $buffer, qr/->/,                    'no per-license lines on a no-op run';
 
     $buffer = '';
     {

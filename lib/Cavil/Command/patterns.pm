@@ -127,12 +127,12 @@ sub _backfill_catch_all ($self) {
     next unless defined $name && length $name;
     my $catch_all = license_is_catch_all($name) ? 1 : 0;
     my $rows
-      = $db->query('UPDATE license_patterns SET catch_all = ? WHERE license = ? AND catch_all IS DISTINCT FROM ?',
-      $catch_all, $name, $catch_all)->rows;
-    if ($rows) {
-      $updated += $rows;
-      say "$name -> catch_all=$catch_all: $rows patterns updated";
-    }
+      = $db->query(
+      'UPDATE license_patterns SET catch_all = ? WHERE license = ? AND catch_all IS DISTINCT FROM ? RETURNING id',
+      $catch_all, $name, $catch_all)->arrays->size;
+    next unless $rows;
+    $updated += $rows;
+    say "$name -> catch_all=$catch_all: $rows patterns updated";
   }
 
   $tx->commit;
