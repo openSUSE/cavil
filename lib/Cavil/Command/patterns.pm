@@ -17,6 +17,7 @@ package Cavil::Command::patterns;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Cavil::Licenses qw(lic);
+use Cavil::Util     qw(license_is_catch_all);
 use Mojo::Util      qw(encode getopt tablify);
 use YAML::XS        qw(Dump);
 
@@ -25,6 +26,8 @@ has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
   getopt \@args,
+    'backfill-catch-all'     => \my $backfill_catch_all,
+    'check-catch-all'        => \my $check_catch_all,
     'check-risks'            => \my $check_risks,
     'check-spdx'             => \my $check_spdx,
     'check-unused'           => \my $check_unused,
@@ -58,6 +61,12 @@ sub run ($self, @args) {
 
   # Check license names for valid SPDX expressions
   return $self->_inherit_spdx if $inherit_spdx;
+
+  # (Re)seed the per-license catch_all flag from the license naming rule
+  return $self->_backfill_catch_all if $backfill_catch_all;
+
+  # Check for licenses whose patterns disagree on the catch_all flag
+  return $self->_check_catch_all if $check_catch_all;
 
   # Check for licenses with multiple risk assessments
   return $self->_check_risks if $check_risks;
@@ -105,6 +114,42 @@ sub _check_ignore ($self, $remove) {
   }
   else {
     say "Found @{[scalar @$unused]} unused ignore patterns ($total total)";
+  }
+}
+
+sub _backfill_catch_all ($self) {
+  my $db = $self->app->pg->db;
+  my $tx = $db->begin;
+
+  my $updated = 0;
+  for my $license ($db->query('SELECT DISTINCT(license) AS name FROM license_patterns')->hashes->each) {
+    my $name = $license->{name};
+    next unless defined $name && length $name;
+    my $catch_all = license_is_catch_all($name) ? 1 : 0;
+    my $rows
+      = $db->query('UPDATE license_patterns SET catch_all = ? WHERE license = ? AND catch_all IS DISTINCT FROM ?',
+      $catch_all, $name, $catch_all)->rows;
+    if ($rows) {
+      $updated += $rows;
+      say "$name -> catch_all=$catch_all: $rows patterns updated";
+    }
+  }
+
+  $tx->commit;
+  $self->app->patterns->expire_cache;
+  say "$updated patterns updated";
+}
+
+sub _check_catch_all ($self) {
+  my $results
+    = $self->app->pg->db->query('SELECT license, catch_all FROM license_patterns GROUP BY (license, catch_all)');
+
+  my $licenses = {};
+  push @{$licenses->{$_->{license}}}, $_->{catch_all} for $results->hashes->each;
+
+  for my $license (sort keys %$licenses) {
+    next if @{$licenses->{$license}} == 1;
+    say "$license: @{[join(', ', @{$licenses->{$license}})]}";
   }
 }
 
@@ -374,6 +419,10 @@ Cavil::Command::patterns - Cavil command to manage license patterns
   Options:
         --match <id>                    Show all known information for a
                                         pattern match
+        --backfill-catch-all            (Re)seed the per-license catch_all
+                                        flag from the license naming rule
+        --check-catch-all               Check for licenses whose patterns
+                                        disagree on the catch_all flag
         --check-risks                   Check for licenses with multiple
                                         risk assessments
         --check-spdx                    Check for licenses patterns with

@@ -352,6 +352,87 @@ subtest 'overlap-clear (snippet region already contains a real license match)' =
   ok keys %{$off->app->reports->dig_report(1)->{missed_files}}, 'nothing overlap-clears when the toggle is off';
 };
 
+subtest 'covered-clear (a concrete license already on the file, not overlapping the snippet)' => sub {
+  my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_covered_test');
+  my $config     = {
+    %{$cavil_test->default_config},
+    snippet_fold => {
+      enabled         => 1,
+      threshold       => 0.95,
+      min_margin      => 0.15,
+      max_risk        => 5,
+      clear_threshold => 0,
+      overlap_clear   => 0,
+      overlap_guard   => 0.9,
+      cover_scope     => 'file'
+    }
+  };
+  my $t   = Test::Mojo->new(Cavil => $config);
+  my $app = $t->app;
+  $cavil_test->package_with_snippets_fixtures($app);
+  $app->minion->enqueue(unpack => [1]);
+  $app->minion->perform_jobs;
+  my $db = $app->pg->db;
+
+  # A concrete license Cavil is confident about, matched on the line *just past* each snippet, so it
+  # does not overlap the snippet's own region - this is file coverage, not overlap-clear.
+  my $cover = $app->patterns->create(pattern => 'a distinct covered marker license text', license => 'Cover-Test');
+  for my $fs ($db->query('SELECT file, eline FROM file_snippets WHERE package = 1')->hashes->each) {
+    $db->insert(
+      'pattern_matches',
+      {
+        package => 1,
+        file    => $fs->{file},
+        pattern => $cover->{id},
+        sline   => $fs->{eline} + 1,
+        eline   => $fs->{eline} + 1,
+        ignored => 0
+      }
+    );
+  }
+
+  # Legal, current-version, low-similarity fragments whose closest license is the same (risk-equal)
+  # concrete license: nothing folds/clears/overlaps, but they are covered by the file's license.
+  $db->query(
+    'UPDATE snippets SET license = TRUE, classified = TRUE, likelyness = 0, second_match = 0,
+       score_version = ?, like_pattern = ?', SNIPPET_SCORE_VERSION, $cover->{id}
+  );
+  $app->snippets->resolve_snippets(1);
+
+  my $report = $app->reports->dig_report(1);
+  is_deeply $report->{missed_files}, {}, 'a fragment covered by a concrete file license is cleared';
+  ok $report->{cleared},                'the file is tagged as cleared';
+  ok !$report->{folded},                'covered asserts no new license (not a fold)';
+  ok $report->{licenses}{'Cover-Test'}, 'the covering match still reports its own license';
+
+  # File browser: the covered region is marked and labeled distinctly for auditability
+  $t->get_ok('/login')->status_is(302);
+  my $source = $t->get_ok('/reviews/file_view_meta/1/README')->status_is(200)->tx->res->json->{source};
+  is scalar(grep { ($_->[1]{risk} // 0) == 9 } @{$source->{lines}}), 0, 'no unresolved (risk 9) lines remain';
+  my ($covered_line) = grep { ($_->[1]{name} // '') eq 'Covered by existing license match' } @{$source->{lines}};
+  ok $covered_line,                'file browser labels the covered region distinctly';
+  ok $covered_line->[1]{covered},  'covered line renders with its own (covered) derived flag, not cleared';
+  ok !$covered_line->[1]{cleared}, 'covered line is not mislabeled as a boilerplate clear';
+  ok $covered_line->[1]{snippet} && defined $covered_line->[1]{hash},
+    'covered line carries the snippet handle for correction';
+
+  # Risk-monotonic guard: a fragment resembling a higher-risk license than the coverage is kept
+  my $risky = $app->patterns->create(pattern => 'a distinct covered risky marker text', license => 'AGPL-3.0-or-later');
+  $db->query('UPDATE license_patterns SET risk = 6 WHERE id = ?', $risky->{id});
+  $db->query('UPDATE license_patterns SET risk = 3 WHERE id = ?', $cover->{id});
+  $db->query(
+    'UPDATE snippets SET like_pattern = ? WHERE id = (SELECT snippet FROM file_snippets WHERE package = 1 LIMIT 1)',
+    $risky->{id});
+  $app->snippets->resolve_snippets(1);
+  ok keys %{$app->reports->dig_report(1)->{missed_files}},
+    'a fragment resembling a higher-risk license than the coverage is kept';
+
+  # Disabled -> nothing is covered
+  my $offc = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, cover_scope => 'off'}});
+  $offc->app->snippets->resolve_snippets(1);
+  ok keys %{$offc->app->reports->dig_report(1)->{missed_files}}, 'nothing is covered when cover_scope is off';
+};
+
 # Overlapping highlights on the same line must never lower the line's risk: a lower-risk real match or a
 # lower-risk fold may not overwrite a higher-risk highlight (it would make the source view explain the
 # wrong, less severe thing). Both the match and the fold registration paths share this guard.

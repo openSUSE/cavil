@@ -73,7 +73,8 @@ sub default_config ($self) {
       max_risk        => 5,
       clear_threshold => 0,
       overlap_clear   => 0,
-      overlap_guard   => 0.9
+      overlap_guard   => 0.9,
+      cover_scope     => 'off'
     }
   };
 }

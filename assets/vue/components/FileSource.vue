@@ -34,9 +34,9 @@
               <i class="actions-menu fa-solid fa-ellipsis-vertical"></i>
             </a>
             <div class="dropdown-menu" :aria-labelledby="'dropdownMenuLink-' + fileId + '-' + line[0]">
-              <!-- Any snippet-backed line (unresolved, folded, or cleared) edits the snippet to
-                   create or correct a pattern; a folded/cleared line is how a reviewer fixes a wrong
-                   derived resolution. -->
+              <!-- Any snippet-backed line (unresolved, folded, cleared, or covered) edits the snippet
+                   to create or correct a pattern; a folded/cleared/covered line is how a reviewer fixes
+                   a wrong derived resolution. -->
               <a
                 v-if="line[1].snippet"
                 class="dropdown-item"
@@ -267,10 +267,11 @@ export default {
       const classes = [];
       if (info.pid != null || info.snippet != null) classes.push(`risk-${info.risk}`);
       if (info.hash) classes.push(`hash-${info.hash}`);
-      // Derived resolutions (similarity-folded license / cleared boilerplate) are dashed so they
-      // never look identical to a curated pattern match.
+      // Derived resolutions (similarity-folded license / cleared boilerplate / covered-by-a-real-
+      // license) are dashed so they never look identical to a curated pattern match.
       if (info.folded) classes.push('folded');
       if (info.cleared) classes.push('cleared');
+      if (info.covered) classes.push('covered');
       if (patternIdsFromInfo(info).length > 0) classes.push('has-pattern-tooltip');
       // The first line of an unresolved snippet has both risk 9 and the `end`
       // marker added by Cavil::Util::lines_context. Keyboard navigation walks
@@ -325,6 +326,7 @@ export default {
     snippetActionLabel(info) {
       if (info.folded) return 'Correct this fold';
       if (info.cleared) return 'Review cleared text';
+      if (info.covered) return 'Review covered snippet';
       return 'Create Pattern from selection';
     },
     derivedBadge(line) {
@@ -332,6 +334,7 @@ export default {
       if (!info.end) return null;
       if (info.folded) return 'folded';
       if (info.cleared) return 'cleared';
+      if (info.covered) return 'covered';
       return null;
     },
     isHiddenByEditor(line) {
@@ -505,11 +508,13 @@ export default {
    A dashed boundary and first-line badge mark the row as machine-derived without making it look like
    a curated pattern match. */
 .snippet tr.folded,
-.snippet tr.cleared {
+.snippet tr.cleared,
+.snippet tr.covered {
   box-shadow: none;
 }
 .snippet tr.folded td.code::before,
-.snippet tr.cleared td.code::before {
+.snippet tr.cleared td.code::before,
+.snippet tr.covered td.code::before {
   border-left: 1px dashed #8c959f;
   bottom: 0;
   content: '';
@@ -517,7 +522,10 @@ export default {
   position: absolute;
   top: 0;
 }
-.snippet tr.cleared td.code {
+/* Cleared boilerplate and covered snippets both assert no license, so they read as muted resolved
+   noise; their first-line badge ("cleared" vs "covered") is what tells them apart. */
+.snippet tr.cleared td.code,
+.snippet tr.covered td.code {
   color: #6e7781;
   font-style: italic;
 }

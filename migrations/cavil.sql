@@ -378,3 +378,9 @@ CREATE INDEX ON file_snippets(file);
 
 -- 49 up
 ALTER TABLE bot_packages ADD COLUMN diff_report text;
+
+-- 50 up
+ALTER TABLE license_patterns ADD COLUMN catch_all boolean DEFAULT false NOT NULL;
+DROP INDEX file_snippets_cleared_snippet_idx;
+CREATE INDEX file_snippets_cleared_snippet_idx ON file_snippets (snippet DESC)
+  WHERE resolution IN ('clear', 'overlap', 'covered');

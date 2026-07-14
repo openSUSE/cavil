@@ -132,6 +132,79 @@ is $res->($shared_no), undef,     'per occurrence: same snippet, no match in thi
 
 is $res->($ignored_f), undef, 'a would-fold snippet that is ignored is never resolved';
 
+subtest 'covered: a concrete license already on the file/directory clears the fragment' => sub {
+
+  # A concrete low-risk (MIT, risk 2) closest license for the fragments, a high-risk one for the guard,
+  # and a catch_all marker that must NOT count as coverage.
+  my $mit = $app->patterns->create(pattern => 'a distinct mit cover marker text', license => 'MIT')->{id};
+  $db->query('UPDATE license_patterns SET risk = 2 WHERE id = ?', $mit);
+  my $agpl
+    = $app->patterns->create(pattern => 'a distinct agpl cover marker text', license => 'AGPL-3.0-or-later')->{id};
+  $db->query('UPDATE license_patterns SET risk = 6 WHERE id = ?', $agpl);
+  my $anyperm
+    = $app->patterns->create(pattern => 'a distinct any permissive cover marker', license => 'Any Permissive')->{id};
+
+  is $db->select('license_patterns', 'catch_all', {id => $anyperm})->hash->{catch_all}, 1,
+    'create() flags an "Any ..." license as catch_all';
+  is $db->select('license_patterns', 'catch_all', {id => $mit})->hash->{catch_all}, 0,
+    'a real license is not catch_all';
+
+  my $mkfile = sub ($name) {
+    return $db->insert('matched_files', {package => 1, filename => $name, mimetype => 'text/plain'},
+      {returning => 'id'})->hash->{id};
+  };
+  my $match = sub ($fid, $pid) {
+    $db->insert('pattern_matches',
+      {package => 1, file => $fid, pattern => $pid, sline => 50, eline => 50, ignored => 0});
+  };
+  my $cocc = sub ($fid, $sid) {
+    return $db->insert(
+      'file_snippets',
+      {package   => 1, file => $fid, snippet => $sid, sline => 10, eline => 15},
+      {returning => 'id'}
+    )->hash->{id};
+  };
+
+  # File scope: a file that already carries a concrete Apache-2.0 (risk 4) match
+  my $file_a = $mkfile->('coverage/withmatch.txt');
+  $match->($file_a, $apache);
+  my $cov  = $cocc->($file_a, $snip->(score_version => $V, like_pattern => $mit));     # risk 2 <= 4  -> covered
+  my $high = $cocc->($file_a, $snip->(score_version => $V, like_pattern => $agpl));    # risk 6 > 4   -> kept
+
+  # A file (in its own directory) whose ONLY match is a catch_all marker -> not real coverage (the
+  # "real license behind a weak marker" case), so the fragment is kept at both file and directory scope.
+  my $file_b = $mkfile->('coverage-weak/weakonly.txt');
+  $match->($file_b, $anyperm);
+  my $weak = $cocc->($file_b, $snip->(score_version => $V, like_pattern => $mit));
+
+  # Directory scope: the concrete match lives in a sibling file in the same directory
+  my $file_c = $mkfile->('coverage/dir/source.js');
+  $match->($file_c, $apache);
+  my $file_d  = $mkfile->('coverage/dir/source.js.map');
+  my $sibling = $cocc->($file_d, $snip->(score_version => $V, like_pattern => $mit));
+
+  my $res = sub ($fid) { $db->select('file_snippets', 'resolution', {id => $fid})->hash->{resolution} };
+
+  subtest 'cover_scope => file' => sub {
+    my $fapp
+      = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, cover_scope => 'file'}})->app;
+    $fapp->snippets->resolve_snippets(1);
+    is $res->($cov),     'covered', 'lower-risk fragment in a concretely-licensed file -> covered';
+    is $res->($high),    undef,     'higher-risk fragment than the coverage -> kept';
+    is $res->($weak),    undef,     'only a catch_all marker covers the file -> kept';
+    is $res->($sibling), undef,     'file scope does not reach a sibling file -> kept';
+  };
+
+  subtest 'cover_scope => dir' => sub {
+    my $dapp
+      = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, cover_scope => 'dir'}})->app;
+    $dapp->snippets->resolve_snippets(1);
+    is $res->($sibling), 'covered', 'directory scope reaches a concrete match in a sibling file -> covered';
+    is $res->($high),    undef,     'directory scope still keeps a higher-risk fragment';
+    is $res->($weak),    undef,     'directory scope still ignores catch_all-only coverage';
+  };
+};
+
 subtest 'disabling the feature clears all resolutions' => sub {
   my $off = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, enabled => 0}})->app;
   $off->snippets->resolve_snippets(1);

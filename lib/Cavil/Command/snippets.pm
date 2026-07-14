@@ -60,7 +60,7 @@ sub _rescore ($self, $start, $batch) {
   say "Done.";
 }
 
-# Recompute the stored fold/clear/overlap resolution (file_snippets.resolution) for every package.
+# Recompute the stored fold/clear/overlap/covered resolution (file_snippets.resolution) for every package.
 # Kept separate from --rescore on purpose: it is expensive at production scale (tens of thousands of
 # packages) and only needs running after a snippet_fold config or scorer change. Routine rescoring to
 # track license-pattern edits does not require it. Iterates by package id, so it is safe to resume.
@@ -103,14 +103,14 @@ Cavil::Command::snippets - Snippet maintenance tasks
     script/cavil snippets --rescore
     # Resume a re-score after snippet id 120000, 2000 rows per batch
     script/cavil snippets --rescore 120000 --batch 2000
-    # Recompute the stored fold/clear/overlap resolution for every package
+    # Recompute the stored fold/clear/overlap/covered resolution for every package
     script/cavil snippets --resolve
 
   Options:
         --rescore [id]   Re-score snippets, optionally resuming after the given id (default: 0)
-        --resolve        Recompute every package's stored snippet resolution (fold/clear/overlap).
-                         Expensive; only needed after a snippet_fold config or scorer change, not for
-                         routine pattern-edit rescoring.
+        --resolve        Recompute every package's stored snippet resolution
+                         (fold/clear/overlap/covered). Expensive; only needed after a snippet_fold
+                         config or scorer change, not for routine pattern-edit rescoring.
         --batch <n>      Snippets per batch (default: 5000)
     -h, --help           Show this summary of available options
 

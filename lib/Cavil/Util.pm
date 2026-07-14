@@ -21,7 +21,7 @@ our @EXPORT_OK = (
   qw(extract_spdx_identifiers normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles validate_tags weighted_containment),
-  qw(SNIPPET_SCORE_VERSION),
+  qw(license_is_catch_all SNIPPET_SCORE_VERSION),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
 
@@ -50,6 +50,21 @@ my $SPDX_IDENTIFIER_RE        = do {
   my $identifiers = join '|', map {quotemeta} sort { length $b <=> length $a || $a cmp $b } @SPDX_LICENSES;
   qr/(?<![\w.+-])($identifiers)(?![\w.+-])/i;
 };
+
+# A "catch-all" license is a grab-bag / marker pseudo-license rather than a concrete, identifiable
+# one: the "Any ..." vocabulary (Any Permissive, Any reference local, ...), the version-less
+# "*-Unspecified" families (GPL-Unspecified, "LGPL Unspecified"), and the "All Rights Reserved" /
+# "Public-Domain" markers. This is the seed rule for the license_patterns.catch_all flag; it mirrors
+# the SQL backfill in migrations/cavil.sql. Composite expressions ending in "Unspecified" (e.g.
+# "MIT OR BSD-Unspecified") are swept in too, which is the safe direction for the "covered" gate
+# (they simply do not count as coverage), and can be hand-corrected on the license afterwards.
+sub license_is_catch_all ($license) {
+  return 0 unless defined $license && length $license;
+  return 1 if $license =~ /^Any /;
+  return 1 if $license =~ /Unspecified$/;
+  return 1 if $license eq 'All Rights Reserved' || $license eq 'Public-Domain';
+  return 0;
+}
 
 sub extract_spdx_identifiers ($string) {
   return [] unless defined $string;

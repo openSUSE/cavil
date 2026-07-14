@@ -122,4 +122,58 @@ subtest 'an overlap-cleared snippet asserts nothing; the overlapping match still
   ok((grep {/\bOverlap-Test-SPDX\b/} @$exprs), 'the overlapping match still reports its license');
 };
 
+subtest 'a covered snippet asserts nothing; the covering file license still reports' => sub {
+  my $ct  = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'spdx_covered_test');
+  my $cfg = {
+    %{$ct->default_config},
+    snippet_fold => {
+      enabled         => 1,
+      threshold       => 0.95,
+      min_margin      => 0.15,
+      max_risk        => 5,
+      clear_threshold => 0,
+      overlap_clear   => 0,
+      overlap_guard   => 0.9,
+      cover_scope     => 'file'
+    }
+  };
+  my $tt = Test::Mojo->new(Cavil => $cfg);
+  my $a  = $tt->app;
+  my $d  = $a->pg->db;
+  $ct->spdx_fixtures($a);
+  $a->minion->enqueue(unpack => [1]);
+  $a->minion->perform_jobs;
+  $tt->get_ok('/login')->status_is(302);
+
+  # A concrete license matched just PAST each snippet (not overlapping it) covers the file; the snippet's
+  # own closest license is a different, distinctive one that must NOT be asserted (covered => not a fold).
+  my $cover = $a->patterns->create(pattern => 'a unique covering match marker phrase', license => 'Cover-Test');
+  $d->query('UPDATE license_patterns SET spdx = ?, risk = 4 WHERE id = ?', 'Cover-Test-SPDX', $cover->{id});
+  my $frag = $a->patterns->create(pattern => 'a unique covered fragment marker phrase', license => 'Frag-Test');
+  $d->query('UPDATE license_patterns SET spdx = ?, risk = 2 WHERE id = ?', 'Frag-Test-SPDX', $frag->{id});
+
+  $d->query(
+    'UPDATE snippets SET classified = TRUE, license = TRUE, likelyness = 0, second_match = 0, like_pattern = ?,
+       score_version = ?', $frag->{id}, SNIPPET_SCORE_VERSION
+  );
+  $d->insert(
+    'pattern_matches',
+    {
+      package => 1,
+      file    => $_->{file},
+      pattern => $cover->{id},
+      sline   => $_->{eline} + 1,
+      eline   => $_->{eline} + 1,
+      ignored => 0
+    }
+  ) for $d->query('SELECT file, eline FROM file_snippets WHERE package = 1')->hashes->each;
+  $a->snippets->resolve_snippets(1);
+
+  $tt->get_ok('/spdx/1')->status_is(408);
+  $a->minion->perform_jobs;
+  my $exprs = license_exprs($tt->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  ok((grep {/\bCover-Test-SPDX\b/} @$exprs), 'the covering file license still reports');
+  ok(!(grep {/\bFrag-Test-SPDX\b/} @$exprs), 'the covered fragment asserts no license (not folded)');
+};
+
 done_testing;

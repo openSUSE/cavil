@@ -18,7 +18,7 @@ use Mojo::Base -strict;
 use Test::More;
 use Cavil::ReportUtil (
   qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
-  qw(report_checksum report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear),
+  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
   qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
@@ -1304,6 +1304,43 @@ subtest 'should_overlap_clear' => sub {
     ['GPL-2.0-or-later']), 'resembles a license it already overlaps -> still clears';
   ok should_overlap_clear($cfg, {license => 1, likelyness => 0.5, plicense => 'Apache-2.0'}, ['GPL-2.0-or-later']),
     'only weakly resembles a different license (< guard) -> clears';
+};
+
+subtest 'should_cover_snippet' => sub {
+  my $cfg = {enabled => 1, cover_scope => 'file'};
+
+  # Legal-text snippet whose closest license (risk 2) is already covered by a concrete license at >= risk
+  my %snippet = (license => 1, score_version => SNIPPET_SCORE_VERSION, plicense => 'MIT', prisk => 2);
+
+  ok should_cover_snippet($cfg, \%snippet, 3), 'lower-risk concrete coverage clears the fragment';
+  ok should_cover_snippet($cfg, \%snippet, 2), 'coverage at exactly the fragment risk clears';
+
+  subtest 'configuration gating' => sub {
+    ok !should_cover_snippet({%$cfg, cover_scope => 'off'},         \%snippet, 3), 'cover_scope off -> no clear';
+    ok !should_cover_snippet({enabled => 0, cover_scope => 'file'}, \%snippet, 3), 'feature disabled -> no clear';
+    ok !should_cover_snippet(undef,                                 \%snippet, 3), 'no config -> no clear';
+  };
+
+  subtest 'snippet gating' => sub {
+    ok !should_cover_snippet($cfg, {%snippet, license       => 0}, 3), 'needs the legal-text flag';
+    ok !should_cover_snippet($cfg, {%snippet, score_version => 0}, 3), 'needs the current score version';
+  };
+
+  subtest 'coverage gating' => sub {
+    ok !should_cover_snippet($cfg, \%snippet, undef), 'no concrete coverage in scope -> kept';
+    ok !should_cover_snippet($cfg, \%snippet, 1),     'coverage riskier-than? no: fragment risk 2 > cover 1 -> kept';
+  };
+
+  subtest 'risk-monotonic guard' => sub {
+    my %high = (%snippet, plicense => 'GPL-3.0-or-later', prisk => 5);
+    ok !should_cover_snippet($cfg, \%high, 2), 'fragment resembling a higher-risk license than coverage -> kept';
+    ok should_cover_snippet($cfg,  \%high, 5), 'same higher risk on both sides -> clears';
+  };
+
+  subtest 'no closest license means pure keyword noise (risk 0)' => sub {
+    my %keyword = (license => 1, score_version => SNIPPET_SCORE_VERSION, plicense => '', prisk => undef);
+    ok should_cover_snippet($cfg, \%keyword, 1), 'legal-text keyword noise in a licensed scope clears';
+  };
 };
 
 done_testing;

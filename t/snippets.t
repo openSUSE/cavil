@@ -93,6 +93,7 @@ subtest 'resolution + text-search filters and keyset pagination' => sub {
   my @fold_ids   = map { $snip->(resolution => 'fold', text => "fold marker body $_") } 1 .. 12;
   my $clear_id   = $snip->(resolution => 'clear',   text => 'clear definitions body');
   my $overlap_id = $snip->(resolution => 'overlap', text => 'overlap notice body');
+  my $covered_id = $snip->(resolution => 'covered', text => 'covered fragment body');
   my $none_id    = $snip->(resolution => undef,     text => 'unresolved noise body');
 
   my %base = (
@@ -122,10 +123,11 @@ subtest 'resolution + text-search filters and keyset pagination' => sub {
     is_deeply [sort { $a <=> $b } keys %ids], [sort { $a <=> $b } @fold_ids], 'exactly the folded rows, only';
   };
 
-  subtest 'cleared filter covers both clear and overlap, excludes fold' => sub {
+  subtest 'cleared filter covers clear, overlap and covered, excludes fold' => sub {
     my %ids = map { $_->{id} => 1 } @{$app->snippets->unclassified({%base, resolution => 'clear'})->{snippets}};
     ok $ids{$clear_id},     'boilerplate-cleared snippet appears under Cleared';
     ok $ids{$overlap_id},   'overlap-cleared snippet appears under Cleared';
+    ok $ids{$covered_id},   'covered snippet appears under Cleared';
     ok !$ids{$fold_ids[0]}, 'a folded row does not appear under Cleared';
     ok !$ids{$none_id},     'an unresolved row does not appear under Cleared';
   };

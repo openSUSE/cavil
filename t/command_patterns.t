@@ -408,4 +408,66 @@ subtest 'Check unused ignore patterns' => sub {
   };
 };
 
+subtest 'Catch-all flag' => sub {
+  my $patterns = $app->patterns;
+  my $db       = $app->pg->db;
+
+  # create() derives the flag from the license name (and inherits it for further patterns)
+  $patterns->create(pattern => 'catch all marker one', license => 'Any Permissive');
+  $patterns->create(pattern => 'catch all marker two', license => 'Any Permissive');
+  is $db->query("SELECT count(*) c FROM license_patterns WHERE license = 'Any Permissive' AND catch_all")->hash->{c},
+    2, 'both grab-bag patterns are catch_all on create';
+
+  subtest 'Inconsistent flag is detected' => sub {
+    $db->query("UPDATE license_patterns SET catch_all = false WHERE pattern = 'catch all marker two'");
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--check-catch-all');
+    }
+    like $buffer, qr/Any Permissive:/, 'inconsistent catch_all detected';
+  };
+
+  subtest 'Backfill re-seeds from the naming rule' => sub {
+    $db->query("UPDATE license_patterns SET catch_all = true WHERE license = 'Apache-2.0'");    # wrongly flagged
+
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--backfill-catch-all');
+    }
+    like $buffer, qr/Any Permissive -> catch_all=1/, 'grab-bag license set to catch_all';
+    like $buffer, qr/Apache-2\.0 -> catch_all=0/,    'concrete license cleared';
+
+    is $db->query("SELECT count(*) c FROM license_patterns WHERE license = 'Any Permissive' AND NOT catch_all")
+      ->hash->{c}, 0, 'all grab-bag patterns are catch_all after backfill';
+    is $db->query("SELECT count(*) c FROM license_patterns WHERE license = 'Apache-2.0' AND catch_all")->hash->{c}, 0,
+      'concrete license is not catch_all after backfill';
+
+    $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--check-catch-all');
+    }
+    is $buffer, '', 'no inconsistent catch_all flags remain';
+  };
+
+  subtest 'update() re-derives the flag from the edited license' => sub {
+    my $p = $patterns->create(pattern => 'update catch_all marker text', license => 'Concrete-Test-1.0');
+    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 0,
+      'a concrete license starts out not catch_all';
+
+    $patterns->update($p->{id}, pattern => 'update catch_all marker text', license => 'Any reference local');
+    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 1,
+      'editing to a grab-bag license sets catch_all';
+
+    $patterns->update($p->{id}, pattern => 'update catch_all marker text', license => 'Concrete-Test-1.0');
+    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 0,
+      'editing back to a concrete license clears catch_all';
+  };
+};
+
 done_testing();

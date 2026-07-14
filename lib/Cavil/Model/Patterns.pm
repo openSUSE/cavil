@@ -17,7 +17,7 @@ package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Util
-  qw(normalize_license_expr paginate pattern_checksum spdx_link text_shingles weighted_containment SNIPPET_SCORE_VERSION);
+  qw(license_is_catch_all normalize_license_expr paginate pattern_checksum spdx_link text_shingles weighted_containment SNIPPET_SCORE_VERSION);
 use List::Util qw(min);
 use Mojo::File qw(path);
 use Mojo::JSON qw(true false);
@@ -49,8 +49,10 @@ use constant LICENSE_PREDICTION_LIMIT     => 10;
 sub autocomplete ($self) {
   my $licenses = {};
 
-  my $patterns = $self->pg->db->query(
-    'SELECT DISTINCT(license), risk, patent, trademark, export_restricted, cla, eula FROM license_patterns')->hashes;
+  my $patterns
+    = $self->pg->db->query(
+    'SELECT DISTINCT(license), risk, patent, trademark, export_restricted, cla, eula, catch_all FROM license_patterns')
+    ->hashes;
   for my $pattern ($patterns->each) {
     $licenses->{$pattern->{license}} = {
       risk              => $pattern->{risk},
@@ -58,7 +60,8 @@ sub autocomplete ($self) {
       trademark         => $pattern->{trademark},
       export_restricted => $pattern->{export_restricted},
       cla               => $pattern->{cla},
-      eula              => $pattern->{eula}
+      eula              => $pattern->{eula},
+      catch_all         => $pattern->{catch_all}
     };
   }
   delete $licenses->{''};
@@ -342,12 +345,17 @@ sub create ($self, %args) {
   my $id       = $self->pattern_exists($checksum);
   return {conflict => $id} if $id;
 
-  # Get SPDX expression for already known licenses
-  my $db   = $self->pg->db;
-  my $spdx = '';
+  # Inherit per-license properties (spdx, catch_all) from already known licenses; for a brand-new
+  # license derive catch_all from its name so the "covered" gate treats it consistently right away.
+  my $db        = $self->pg->db;
+  my $spdx      = '';
+  my $catch_all = license_is_catch_all($args{license}) ? 1 : 0;
   if (my $license = $args{license}) {
-    my $pattern = $db->query('SELECT spdx FROM license_patterns WHERE license = ? LIMIT 1', $license)->hash;
-    $spdx = $pattern->{spdx} if $pattern;
+    my $pattern = $db->query('SELECT spdx, catch_all FROM license_patterns WHERE license = ? LIMIT 1', $license)->hash;
+    if ($pattern) {
+      $spdx      = $pattern->{spdx};
+      $catch_all = $pattern->{catch_all};
+    }
   }
 
   my $mid = $db->insert(
@@ -361,7 +369,8 @@ sub create ($self, %args) {
       export_restricted => $args{export_restricted} // 0,
       cla               => $args{cla}               // 0,
       eula              => $args{eula}              // 0,
-      license           => $args{license}           // '',
+      catch_all         => $catch_all,
+      license           => $args{license} // '',
       spdx              => $spdx,
       risk              => $args{risk} // 5,
       ($args{unique_id}   ? (unique_id   => $args{unique_id})   : ()), ($args{owner} ? (owner => $args{owner}) : ()),
@@ -870,6 +879,15 @@ sub update ($self, $id, %args) {
     return {conflict => $conflict->{id}};
   }
 
+  # catch_all is a per-license property, not a form field: derive it from the (possibly edited)
+  # license so it stays consistent - inherit from a sibling pattern of that license, else from its name.
+  my $catch_all = license_is_catch_all($args{license}) ? 1 : 0;
+  if (my $license = $args{license}) {
+    my $sibling
+      = $db->query('SELECT catch_all FROM license_patterns WHERE license = ? AND id <> ? LIMIT 1', $license, $id)->hash;
+    $catch_all = $sibling->{catch_all} if $sibling;
+  }
+
   $db->update(
     'license_patterns',
     {
@@ -882,7 +900,8 @@ sub update ($self, $id, %args) {
       export_restricted => $args{export_restricted} // 0,
       cla               => $args{cla}               // 0,
       eula              => $args{eula}              // 0,
-      risk              => $args{risk}              // 5,
+      catch_all         => $catch_all,
+      risk              => $args{risk} // 5,
       ($args{owner} ? (owner => $args{owner}) : ())
     },
     {id => $id}

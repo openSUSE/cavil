@@ -71,7 +71,7 @@ sub store ($self, $path) {
   while (1) {
     my $results = $db->query(
       'SELECT id, pattern, created, packname, patent, trademark, token_hexsum, license, risk, unique_id, spdx,
-         export_restricted, cla, eula
+         export_restricted, cla, eula, catch_all
        FROM license_patterns WHERE unique_id > ? ORDER BY unique_id ASC LIMIT 100', $last
     );
     last unless $results->rows;
@@ -91,6 +91,7 @@ sub store ($self, $path) {
           export_restricted => $hash->{export_restricted},
           cla               => $hash->{cla},
           eula              => $hash->{eula},
+          catch_all         => $hash->{catch_all},
           unique_id         => $uuid
         }
       );

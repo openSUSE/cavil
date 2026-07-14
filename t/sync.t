@@ -88,4 +88,28 @@ subtest 'Import license patterns' => sub {
   is $db->select('license_patterns', '*', {unique_id => $artistic_uuid})->rows, 1, 'pattern with UUID exists again';
 };
 
+subtest 'catch_all round-trips through export/import' => sub {
+  my $db = $t->app->pg->db;
+
+  # create() derives catch_all from the license name for a brand-new license
+  my $any = $patterns->create(pattern => 'a distinct sync any permissive marker', license => 'Any Permissive');
+  is $any->{catch_all}, 1, 'a grab-bag "Any ..." license is flagged catch_all on create';
+  is $db->query("SELECT catch_all FROM license_patterns WHERE license = 'Apache-2.0' LIMIT 1")->hash->{catch_all}, 0,
+    'a concrete license (Apache-2.0) is not catch_all';
+
+  my $tmp = $tempdir->child('roundtrip.jsonl');
+  $sync->store($tmp);
+  my ($exported) = grep { $_->{license} eq 'Any Permissive' } map { length $_ ? decode_json($_) : () } split "\n",
+    $tmp->slurp;
+  ok $exported,              'the catch_all license is exported';
+  ok $exported->{catch_all}, 'catch_all is present and true in the export';
+
+  # Deleting and re-importing restores the flag from the JSONL
+  my $uuid = $any->{unique_id};
+  $db->delete('license_patterns', {id => $any->{id}});
+  is $sync->load($tmp), 1, 'the catch_all pattern is re-imported';
+  is $db->select('license_patterns', 'catch_all', {unique_id => $uuid})->hash->{catch_all}, 1,
+    'catch_all survived the export/import round-trip';
+};
+
 done_testing;

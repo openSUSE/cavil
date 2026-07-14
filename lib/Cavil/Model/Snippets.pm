@@ -16,18 +16,19 @@
 package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
-use Mojo::File        qw(path);
-use Cavil::Util       qw(file_and_checksum read_lines);
-use Cavil::ReportUtil qw(overlapping_licenses should_clear_boilerplate should_fold_snippet should_overlap_clear);
+use Mojo::File  qw(path);
+use Cavil::Util qw(file_and_checksum read_lines);
+use Cavil::ReportUtil
+  qw(overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
 use Spooky::Patterns::XS;
 
 has [qw(checkout_dir pg snippet_fold)];
 
-# The single place the fold/clear/overlap decision is made: for every snippet occurrence in a package
-# compute its resolution and store it on file_snippets.resolution ('fold' / 'clear' / 'overlap' / undef).
-# Called from the analyze task (per reindex) and from `snippets --rescore`; every consumer (report,
-# file browser, SPDX, Classify Snippets) then just reads the column. The gates live in Cavil::ReportUtil
-# and are called only here.
+# The single place the fold/clear/overlap/covered decision is made: for every snippet occurrence in a
+# package compute its resolution and store it on file_snippets.resolution ('fold' / 'clear' / 'overlap'
+# / 'covered' / undef). Called from the analyze task (per reindex) and from `snippets --rescore`; every
+# consumer (report, file browser, SPDX, Classify Snippets) then just reads the column. The gates live in
+# Cavil::ReportUtil and are called only here.
 sub resolve_snippets ($self, $package_id) {
   my $db  = $self->pg->db;
   my $cfg = $self->snippet_fold;
@@ -50,6 +51,40 @@ sub resolve_snippets ($self, $package_id) {
     push @{$spans{$m->{file}}}, [$m->{sline}, $m->{eline}, $m->{license}];
   }
 
+  # Concrete (non-catch_all) license coverage per file and per directory, for the "covered" resolution:
+  # a snippet is redundant when its file - or, at directory scope, its directory - already carries a real
+  # license at least as risky. Grab-bag markers (lp.catch_all) never count as coverage.
+  my $cover_scope = ($cfg && $cfg->{enabled}) ? ($cfg->{cover_scope} // 'off') : 'off';
+  my (%file_cover, %dir_cover, %file_dir);
+  if ($cover_scope ne 'off') {
+    for my $m (
+      $db->query(
+        "SELECT pm.file, lp.risk, mf.filename
+           FROM pattern_matches pm
+           JOIN license_patterns lp ON lp.id = pm.pattern
+           JOIN matched_files mf ON mf.id = pm.file
+          WHERE pm.package = ? AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false", $package_id
+      )->hashes->each
+      )
+    {
+      my $risk = $m->{risk};
+      $file_cover{$m->{file}} = $risk if !defined $file_cover{$m->{file}} || $risk > $file_cover{$m->{file}};
+      my $dir = $m->{filename} =~ s{/[^/]*$}{}r;
+      $dir_cover{$dir} = $risk if !defined $dir_cover{$dir} || $risk > $dir_cover{$dir};
+    }
+
+    # Directory of every snippet-bearing file, so directory-scope lookups work per occurrence
+    for my $f (
+      $db->query(
+        'SELECT DISTINCT mf.id, mf.filename FROM matched_files mf
+           JOIN file_snippets fs ON fs.file = mf.id WHERE fs.package = ?', $package_id
+      )->hashes->each
+      )
+    {
+      $file_dir{$f->{id}} = $f->{filename} =~ s{/[^/]*$}{}r;
+    }
+  }
+
   # Each occurrence with its snippet's similarity metadata and closest-license details
   my $rows = $db->query(
     'SELECT fs.id, fs.file, fs.sline, fs.eline, s.hash, s.license, s.likelyness, s.second_match,
@@ -63,6 +98,12 @@ sub resolve_snippets ($self, $package_id) {
   my $tx = $db->begin;
   for my $row ($rows->hashes->each) {
     my $pattern = {license => $row->{plicense}, risk => $row->{prisk}};
+
+    # Highest-risk concrete license already covering this occurrence, per the configured scope
+    my $cover_risk;
+    if    ($cover_scope eq 'file') { $cover_risk = $file_cover{$row->{file}} }
+    elsif ($cover_scope eq 'dir')  { $cover_risk = $dir_cover{$file_dir{$row->{file}} // ''} }
+
     my $resolution;
     if    ($ignored{$row->{hash}})                         { $resolution = undef }     # ignored -> unresolved
     elsif (should_fold_snippet($cfg, $row, $pattern))      { $resolution = 'fold' }
@@ -70,6 +111,7 @@ sub resolve_snippets ($self, $package_id) {
     elsif (should_overlap_clear($cfg, $row, overlapping_licenses($row->{sline}, $row->{eline}, $spans{$row->{file}}))) {
       $resolution = 'overlap';
     }
+    elsif (should_cover_snippet($cfg, $row, $cover_risk)) { $resolution = 'covered' }
     $db->update('file_snippets', {resolution => $resolution}, {id => $row->{id}});
   }
   $tx->commit;
@@ -178,7 +220,7 @@ sub unclassified ($self, $options) {
   my @binds;
   my @kinds;
   if (($options->{resolution} // 'any') =~ /^(fold|clear)$/) {
-    @kinds = $1 eq 'clear' ? ('clear', 'overlap') : ('fold');
+    @kinds = $1 eq 'clear' ? ('clear', 'overlap', 'covered') : ('fold');
     my $placeholders = join ', ', ('?') x @kinds;
     if ($1 eq 'fold') {
       $resolution_join = 1;

@@ -242,8 +242,8 @@ sub _file_browser_line_info ($self, $package, $file_id) {
   }
 
   # Snippets render from their stored resolution (computed once by resolve_snippets): 'fold' as the
-  # inferred license, 'clear'/'overlap' as resolved (cleared) noise, anything else as an unresolved
-  # snippet. Folded/cleared rows keep the snippet handle so reviewers can correct them inline.
+  # inferred license, 'clear'/'overlap'/'covered' as resolved (cleared) noise, anything else as an
+  # unresolved snippet. Folded/cleared rows keep the snippet handle so reviewers can correct them inline.
   my $snippets = $db->query(
     'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.classified, s.license, s.like_pattern,
             lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
@@ -272,6 +272,15 @@ sub _file_browser_line_info ($self, $package, $file_id) {
       $line_info
         = {risk => 0, name => 'Cleared boilerplate', snippet => $snippet->{id}, hash => $snippet->{hash}, cleared => 1};
     }
+    elsif ($resolution eq 'covered') {
+      $line_info = {
+        risk    => 0,
+        name    => 'Covered by existing license match',
+        snippet => $snippet->{id},
+        hash    => $snippet->{hash},
+        covered => 1
+      };
+    }
     else {
       $line_info
         = {risk => 9, snippet => $snippet->{id}, hash => $snippet->{hash}, name => 'Snippet of missing keywords'};
@@ -282,7 +291,7 @@ sub _file_browser_line_info ($self, $package, $file_id) {
     # authoritative for its own line - it must not repaint a line that has its own curated match (e.g. a
     # "Free Software Foundation" match on the first line of a folded GPL header). Unresolved snippets
     # still take over their region (matching the report's needed_lines precedence).
-    my $defers_to_match = $resolution =~ /^(?:fold|clear|overlap)$/;
+    my $defers_to_match = $resolution =~ /^(?:fold|clear|overlap|covered)$/;
     for my $line ($snippet->{sline} .. $snippet->{eline}) {
       next if $defers_to_match && $matched{$line};
       my $current = $info->{$line} // {risk => 0};

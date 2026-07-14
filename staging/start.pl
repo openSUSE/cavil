@@ -85,7 +85,8 @@ my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
     max_risk        => 5,
     clear_threshold => 0.97,
     overlap_clear   => 1,
-    overlap_guard   => 0.9
+    overlap_guard   => 0.9,
+    cover_scope     => 'dir'
   },
   spdx => {
     namespace => 'http://legaldb.suse.de/spdx/',
@@ -321,16 +322,35 @@ unless ($clean) {
     'It should overlap-clear while the direct match still reports the license.'
   );
   $block->(
-    'OVERLAP_GUARDED',
-    'This snippet overlaps one license but strongly resembles a different one.',
-    'The guard should keep it unresolved for human review.'
-  );
-  $block->(
     'FOLD_WITH_DIRECT_MATCH',
     'This folded region also has a real curated match on its first line.',
     'The real match should win on that line and the fold should color the rest.'
   );
   $lab_dir->child('folding-lab.txt')->spurt(join '', @blocks);
+
+  # The overlap-guard case lives in its own directory. It overlaps one license but resembles a
+  # different one, so the overlap guard must keep it unresolved - and it must NOT be swept up by
+  # covered-clear, so it deliberately shares a directory with no concrete license match of its own
+  # (unlike folding-lab.txt, whose FOLD_WITH_DIRECT_MATCH puts a risk 4 match in that directory).
+  my $guarded_dir = $lab_dir->child('guarded-lab');
+  $guarded_dir->make_path;
+  $guarded_dir->child('guarded.txt')
+    ->spurt("[OVERLAP_GUARDED] fold lab keyword\n"
+      . "This snippet overlaps one license but strongly resembles a different one.\n"
+      . "The guard should keep it unresolved for human review.\n");
+
+  # Covered-clear playground: an awkward license fragment in a file that has no license match of its
+  # own, sitting next to a sibling file that does. With cover_scope 'dir' (see snippet_fold config) the
+  # concrete license in the sibling covers the fragment - the common minified-file-next-to-LICENSE case.
+  # This is the one resolution that needs a second file, so it lives in its own directory.
+  my $covered_dir = $lab_dir->child('covered-lab');
+  $covered_dir->make_path;
+  $covered_dir->child('library.min.js')
+    ->spurt("[COVERED_BY_DIR] fold lab keyword\n"
+      . "This awkward license fragment has no license match of its own.\n"
+      . "The sibling LICENSE in the same directory already carries a concrete license,\n"
+      . "so directory-scope coverage clears it without asserting anything.\n");
+  $covered_dir->child('LICENSE')->spurt("fold lab covering file license\n");
 
   my $fold_low = $app->patterns->create(
     pattern   => 'fold lab low risk license body',
@@ -369,6 +389,12 @@ unless ($clean) {
     unique_id => '11111111-1111-4111-8111-111111111116'
   );
   $app->patterns->create(pattern => 'fold lab keyword', unique_id => '11111111-1111-4111-8111-111111111117');
+  my $covering = $app->patterns->create(
+    pattern   => 'fold lab covering file license',
+    license   => 'Fold-Lab-Covering',
+    risk      => 3,
+    unique_id => '11111111-1111-4111-8111-111111111118'
+  );
 
   my $lab_id = $pkgs->add(
     name            => 'cavil-folding-lab',
@@ -393,7 +419,8 @@ unless ($clean) {
     fold_high => $fold_high->{id},
     overlap   => $overlap->{id},
     guarded   => $guarded->{id},
-    inside    => $inside->{id}
+    inside    => $inside->{id},
+    covering  => $covering->{id}
   };
 
   # Synthetic vendored-subcomponent playground: several ecosystems bundled inside a source archive at
@@ -582,7 +609,11 @@ if (my $lab = $app->{staging_folding_lab}) {
       ($pattern, $likelyness, $second) = ($lab->{fold_max}, 0.99, 0.1);
     }
     elsif ($row->{text} =~ /NO_FOLD_HIGH_RISK/) {
-      ($pattern, $likelyness, $second) = ($lab->{fold_high}, 0.99, 0.1);
+
+      # Confident enough to fold (>= threshold) but a risk 6 license, so the fold risk gate blocks it;
+      # kept just below clear_threshold (0.97) so boilerplate-clear does not sweep it up instead, which
+      # is what makes the high-risk guard actually visible as an unresolved snippet.
+      ($pattern, $likelyness, $second) = ($lab->{fold_high}, 0.96, 0.1);
     }
     elsif ($row->{text} =~ /CLEAR_BOILERPLATE/) {
       ($pattern, $likelyness, $second) = ($lab->{fold_low}, 0.99, 0.99);
@@ -628,6 +659,13 @@ if (my $lab = $app->{staging_folding_lab}) {
           ignored => 0
         }
       );
+    }
+    elsif ($row->{text} =~ /COVERED_BY_DIR/) {
+
+      # Below the fold and clear thresholds and with no overlapping match on its own line, so it only
+      # resolves via directory-scope coverage: the sibling LICENSE (a real Fold-Lab-Covering match found
+      # by indexing) carries a concrete risk-3 license, and this fragment's closest is lower risk.
+      ($pattern, $likelyness, $second) = ($lab->{fold_low}, 0.7, 0.1);
     }
 
     $db->update(

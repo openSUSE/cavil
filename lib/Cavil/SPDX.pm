@@ -443,7 +443,7 @@ sub _file_licenses ($db, $file_id, $resolve_license) {
       [$snippet->{like_pattern}, $snippet->{likelyness}])
       if $snippet->{like_pattern};
     if    ($resolution eq 'fold') { push @folded, $snippet }
-    elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
+    elsif ($resolution eq 'clear' || $resolution eq 'overlap' || $resolution eq 'covered') {
       _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1);
     }
   }

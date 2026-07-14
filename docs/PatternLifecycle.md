@@ -62,10 +62,15 @@ see two kinds, both labelled in the file view:
   (writing a near-duplicate pattern would add nothing).
 - **Cleared** — the snippet is recognisable license boilerplate, or a real license match right next to it already says
   everything, so it carries no new information and is set aside as noise without recording any license.
+- **Covered** — the file (or its directory) is already known to carry a real license at least as risky as anything this
+  snippet could be, so an awkward fragment of that same licensing is redundant and set aside — again without recording
+  any license. Cavil will **not** do this when the only thing "covering" the snippet is a vague marker like *All Rights
+  Reserved* or an *Any …* placeholder, because then the fragment might be the only place the real license is named; and
+  it keeps any fragment that looks like a *higher*-risk license than the one already found.
 
 This is deliberately cautious: Cavil only does it when very confident, never for higher-risk licenses, and it never
 invents a license — folding only ever points at one Cavil already recognises. It is also fully reversible. If a call
-looks wrong, open the file, find the folded or cleared lines (marked in the source), and correct it in one step — write
+looks wrong, open the file, find the folded, cleared, or covered lines (marked in the source), and correct it in one step — write
 a proper pattern, ignore it, or mark it as not legal text. The point is to shrink the pile of obvious cases so your
 attention goes to the snippets that genuinely need a person.
 

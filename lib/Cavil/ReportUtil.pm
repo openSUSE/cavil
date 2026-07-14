@@ -25,7 +25,7 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
   qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
-  qw(report_checksum report_shortname should_clear_boilerplate should_fold_snippet should_overlap_clear),
+  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
   qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
 
@@ -129,6 +129,28 @@ sub should_overlap_clear ($cfg, $snippet, $overlap_licenses) {
   }
 
   return 1;
+}
+
+# Decide whether a snippet is redundant because the file (or, at directory scope, a sibling file) is
+# already known to carry a real license at least as risky - so this awkward license fragment adds
+# nothing the report does not already have and is cleared (assert nothing). Unlike overlap-clear, the
+# covering match need not intersect the snippet's own lines; unlike folding, it asserts no license.
+# $cover_risk is the highest risk among the *concrete* (non-catch_all) license matches in scope,
+# computed by resolve_snippets per the configured cover_scope ('file' or 'dir'); undef means nothing
+# concrete covers this scope. The two guards that make this safe: (1) only concrete licenses count as
+# coverage (a real license hiding behind a weak "Any ..."/"All Rights Reserved" marker is never
+# mistaken for one), enforced upstream when $cover_risk is built; and (2) risk-monotonicity - a
+# snippet resembling a *higher*-risk license than the coverage is kept, since it might be a genuinely
+# new, riskier license. The snippet's own risk is its closest license's risk ($prisk), or 0 when it
+# resembles no specific license (pure keyword noise in an already-licensed scope).
+sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
+  return 0 unless $cfg && $cfg->{enabled} && (($cfg->{cover_scope} // 'off') ne 'off');
+  return 0 unless $snippet->{license};                                                    # classifier says legal text
+  return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # trust the risk read
+  return 0 unless defined $cover_risk;    # a concrete license covers this scope
+
+  my $snippet_risk = (defined $snippet->{plicense} && $snippet->{plicense} ne '') ? ($snippet->{prisk} // 0) : 0;
+  return $snippet_risk <= $cover_risk ? 1 : 0;
 }
 
 sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {

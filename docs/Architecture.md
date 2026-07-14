@@ -445,8 +445,8 @@ so propagating a corpus change to already-scored snippets is the job of `cavil s
 
 ### Automated resolution: the safety properties that make it defensible
 
-The three resolution paths below (fold, boilerplate-clear, overlap-clear) all **automate a legal call**. That is only
-defensible because of a set of properties the design holds to — and these should be treated as **invariants that any
+The four resolution paths below (fold, boilerplate-clear, overlap-clear, covered) all **automate a legal call**. That is
+only defensible because of a set of properties the design holds to — and these should be treated as **invariants that any
 future change to scoring, folding, or clearing must preserve**, not incidental implementation details. They are the
 first thing to weigh when deciding whether a proposed change (a new scorer, a looser threshold, a new resolution kind)
 is acceptable.
@@ -480,7 +480,7 @@ a known license is confident enough: the snippet folds into the report as if it 
 corpus is left untouched.
 
 The decision is computed once, when a package is analysed, and stored as a resolution on each snippet occurrence —
-`fold`, `clear`, `overlap`, or unresolved. Every consumer (the report, the file browser, the SPDX export, the Classify
+`fold`, `clear`, `overlap`, `covered`, or unresolved. Every consumer (the report, the file browser, the SPDX export, the Classify
 Snippets filter) then simply reads that column, so the legal call is made in exactly one place and the same answer is
 shown everywhere. It never writes anything back to the pattern or match tables; the resolution is a cache of a pure
 function of the snippet's similarity, the file's existing matches, and the thresholds, recomputed wholesale on every
@@ -536,6 +536,40 @@ it is kept for review instead of cleared. Because overlap depends on a file's ow
 occurrence (the same snippet can overlap a match in one file but not in another). As with the other paths, it asserts
 nothing and ships disabled behind its own switch.
 
+### Clearing Snippets the File's Own License Already Covers
+
+Overlap-clear only fires when a real license match falls *inside* the snippet's own lines. But the same redundancy
+occurs at a wider scope. The keyword scan keeps re-finding awkward license fragments — a stray disclaimer sentence, the
+tail of an MIT permission notice, a "released under a permissive license" aside — in files whose *actual* license Cavil
+has already established from a proper match elsewhere in the file, or in a sibling file in the same directory (a
+minified `.js` and its source, a `.map` next to the code it came from). The fragment scores in the awkward 60–90%
+similarity band, so folding will never claim it, yet it carries nothing the report does not already know. Recognising
+this needs context the snippet itself does not have: what else the file, or its directory, is already known to be.
+
+So a snippet is cleared as **covered** when a concrete license that Cavil is confident about — a real pattern match, at
+a risk at least as high as anything the fragment could plausibly be — is already present in the same file (or, at
+directory scope, anywhere in the same directory). Like the other clears it asserts no license of its own; the license
+is already on the report through its own match.
+
+Two guards make this safe, and they are the whole point:
+
+- **Only a concrete license counts as coverage.** Cavil's vocabulary includes grab-bag "licenses" — `Any Permissive`,
+  `Any reference local`, `All Rights Reserved`, the version-less `GPL-Unspecified` family — that record "there is
+  *something* here" without identifying a real, distributable license. These are flagged `catch_all` and never count as
+  coverage. This matters: a file whose only match is `All Rights Reserved` might actually carry a real license (say,
+  the Ruby or JasPer license) that only the unresolved fragment names — clearing that fragment against the weak marker
+  would hide the one piece of real information. So coverage requires a genuine, identifiable license.
+- **Risk-monotonic.** A fragment is only covered when the established license is at least as risky as the fragment's own
+  closest license. A snippet that resembles a *higher*-risk license than anything already on the file is kept — it might
+  be a genuinely new, riskier license (a GPL fragment in an otherwise-MIT file) and must not be swept away.
+
+Directory scope, rather than whole-vendored-component scope, is deliberate: only a small fraction of packages have
+detected components, whereas every file has a directory, and measurement showed directory scope recovers essentially
+all of the same redundancy (the sibling `.map`/minified cases) while staying universal and simple. The scope is a
+config switch (`off` / `file` / `dir`) so the safer file-only form can be enabled first and directory scope added once
+its precision has been checked against the corpus. As with the other paths, this resolution is stored per occurrence,
+asserts nothing, is reversible, and ships disabled.
+
 Because both folding and clearing are automatic, reviewers can be shown what was decided for them and given a way to
 overrule it. Folded and cleared regions are marked as derived (visually set apart from curated pattern matches) and
 carry a direct link to the snippet editor, so a reviewer who spots a mistake can write a proper pattern, ignore the
@@ -563,10 +597,12 @@ Two mechanisms keep known false positives out of reports, at different granulari
 
 For readers who want to trace this through the database, the tables involved are:
 
-* `license_patterns` — the patterns themselves, including their license name, risk, global-vs-package scope, and a
-  uniquely-indexed checksum that prevents duplicates from being stored.
+* `license_patterns` — the patterns themselves, including their license name, risk, global-vs-package scope, a
+  uniquely-indexed checksum that prevents duplicates from being stored, and a per-license `catch_all` flag marking
+  grab-bag/marker pseudo-licenses (so only concrete licenses count as coverage for the `covered` resolution).
 * `pattern_matches` — one row per match found in a file, recording the pattern, the file, and the line range.
-* `snippets` and `file_snippets` — the extracted keyword regions and where they were found.
+* `snippets` and `file_snippets` — the extracted keyword regions and where they were found; `file_snippets.resolution`
+  stores each occurrence's automated decision (`fold` / `clear` / `overlap` / `covered`, or empty for unresolved).
 * `ignored_lines` — checksums of snippet regions that experts have chosen to suppress.
 * `ignored_files` — file path globs that exclude whole files from indexing.
 

@@ -365,11 +365,11 @@ sub _dig_report {
     }
 
     # The stored resolution (computed once by resolve_snippets) decides the outcome per file occurrence:
-    # 'fold' asserts the closest license; 'clear'/'overlap' drop the snippet as resolved noise.
+    # 'fold' asserts the closest license; 'clear'/'overlap'/'covered' drop the snippet as resolved noise.
     elsif ($resolution eq 'fold') {
       _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
     }
-    elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
+    elsif ($resolution eq 'clear' || $resolution eq 'overlap' || $resolution eq 'covered') {
       $report->{cleared}{$snip_row->{file}} = 1;
     }
 
