@@ -22,9 +22,21 @@ sub report ($self) {
     unless my $report = $self->reports->sanitized_dig_report($id);
 
   $self->respond_to(
-    json => sub { $self->render(json                      => {report => $report, package => $pkg}) },
-    txt  => sub { $self->render('reviewer/report', report => $report, package => $pkg) },
-    mcp  => sub { $self->render(text                      => $self->helpers->mcp_report($id)) }
+    json => sub { $self->render(json => {report => $report, package => $pkg}) },
+    txt  => sub {
+
+      # Only notes relevant to this review (native or an identical license report) go into the plain
+      # text report. Lawyer-only notes are deliberately excluded: these reports are shared publicly.
+      my $notes = $self->notes->list(
+        $pkg->{name},
+        relevant_only => 1,
+        package_id    => $id,
+        checksum      => $pkg->{checksum},
+        limit         => 100
+      )->{notes};
+      $self->render('reviewer/report', report => $report, package => $pkg, notes => $notes);
+    },
+    mcp => sub { $self->render(text => $self->helpers->mcp_report($id)) }
   );
 }
 
