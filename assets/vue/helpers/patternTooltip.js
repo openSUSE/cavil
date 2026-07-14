@@ -35,6 +35,12 @@ export async function renderPatternTooltip(dom, ids, options = {}) {
       return;
     }
     dom.innerHTML = '';
+    if (valid.length > 1) {
+      const summary = document.createElement('div');
+      summary.className = 'cavil-pattern-tip-summary';
+      summary.textContent = `${valid.length} matching patterns`;
+      dom.appendChild(summary);
+    }
     for (const meta of valid) dom.appendChild(buildPatternTooltipCard(meta, options));
   } catch (e) {
     dom.innerHTML = '<div class="cavil-pattern-tip-error">Failed to load pattern info.</div>';
@@ -47,14 +53,32 @@ export function buildPatternTooltipCard(meta, options = {}) {
 
   const header = document.createElement('div');
   header.className = 'cavil-pattern-tip-header';
-  const title = document.createElement('span');
+  const title = document.createElement('strong');
   title.className = 'cavil-pattern-tip-title';
   title.textContent = meta.license && meta.license !== '' ? meta.license : 'Keyword pattern';
   header.appendChild(title);
+
+  const actions = document.createElement('div');
+  actions.className = 'cavil-pattern-tip-actions';
+
+  if (options.link !== false) {
+    const link = document.createElement('a');
+    link.className = 'cavil-pattern-tip-open';
+    link.href = `/licenses/edit_pattern/${meta.id}`;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.title = 'Open pattern';
+    link.setAttribute('aria-label', 'Open pattern');
+    link.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i>';
+    actions.appendChild(link);
+  }
+
   const risk = document.createElement('span');
   risk.className = `cavil-pattern-tip-risk risk-${meta.risk ?? 0}`;
   risk.textContent = `risk ${meta.risk ?? '?'}`;
-  header.appendChild(risk);
+  actions.appendChild(risk);
+
+  header.appendChild(actions);
   card.appendChild(header);
 
   const preview = document.createElement('pre');
@@ -62,19 +86,11 @@ export function buildPatternTooltipCard(meta, options = {}) {
   const allLines = (meta.pattern ?? '').split('\n');
   const shown = allLines.slice(0, 6).join('\n');
   preview.textContent = shown + (allLines.length > 6 ? '\n...' : '');
-  card.appendChild(preview);
-
-  if (options.link !== false) {
-    const footer = document.createElement('div');
-    footer.className = 'cavil-pattern-tip-footer';
-    const link = document.createElement('a');
-    link.href = `/licenses/edit_pattern/${meta.id}`;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    link.textContent = 'Open pattern';
-    footer.appendChild(link);
-    card.appendChild(footer);
-  }
+  const previewWrap = document.createElement('div');
+  previewWrap.className = 'cavil-pattern-tip-preview-wrap';
+  if (allLines.length > 6) previewWrap.classList.add('is-truncated');
+  previewWrap.appendChild(preview);
+  card.appendChild(previewWrap);
 
   return card;
 }

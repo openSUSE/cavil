@@ -1122,10 +1122,10 @@ export default {
     0 8px 24px rgba(66, 74, 83, 0.12);
   color: #1f2328;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
-  max-width: 380px;
-  min-width: 240px;
+  max-width: min(300px, calc(100vw - 16px));
+  min-width: 200px;
   overflow: hidden;
 }
 .cavil-pattern-tip-loading,
@@ -1139,65 +1139,99 @@ export default {
 .cavil-pattern-tip-error {
   color: #cf222e;
 }
+.cavil-pattern-tip-summary {
+  border-bottom: 1px solid #d1d9e0b3;
+  color: #59636e;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 12px;
+}
 .cavil-pattern-tip-card {
   border-top: 1px solid #d1d9e0b3;
-  padding: 12px 14px;
+  padding: 0;
 }
 .cavil-pattern-tip-card:first-child {
   border-top: 0;
 }
 .cavil-pattern-tip-header {
-  align-items: center;
+  align-items: stretch;
+  background: #f6f8fa;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: space-between;
-  margin-bottom: 8px;
+  min-height: 26px;
 }
 .cavil-pattern-tip-title {
-  color: #1f2328;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.05px;
+  color: #3d444d;
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 14px;
+  min-width: 0;
   overflow: hidden;
+  padding: 6px 0 4px 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.cavil-pattern-tip-actions {
+  align-items: stretch;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0;
+}
 .cavil-pattern-tip-risk {
-  /* Matches the badge palette used elsewhere in the report UI:
-    0-4 green, 5 yellow, 6-8 red, 9 slate. */
-  border: 1px solid transparent;
-  border-radius: 2em;
-  font-size: 11px;
+  align-items: center;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: inline-flex;
+  font-size: 10px;
   font-weight: 500;
-  line-height: 18px;
-  padding: 0 7px;
+  line-height: 1;
+  margin: 0;
+  padding: 0 8px 0 0;
   white-space: nowrap;
-  background: rgba(31, 136, 61, 0.1);
-  color: #1a7f37;
-  border-color: rgba(31, 136, 61, 0.2);
+  background: transparent;
+  color: #59636e;
+  text-shadow: none;
 }
-.cavil-pattern-tip-risk.risk-5 {
-  background: rgba(154, 103, 0, 0.1);
-  color: #9a6700;
-  border-color: rgba(154, 103, 0, 0.2);
+.cavil-pattern-tip-open {
+  align-items: center;
+  color: #59636e;
+  display: inline-flex;
+  font-size: 10px;
+  justify-content: center;
+  text-decoration: none;
+  width: 22px;
 }
-.cavil-pattern-tip-risk.risk-6,
-.cavil-pattern-tip-risk.risk-7,
-.cavil-pattern-tip-risk.risk-8 {
-  background: rgba(207, 34, 46, 0.1);
-  color: #cf222e;
-  border-color: rgba(207, 34, 46, 0.2);
+.cavil-pattern-tip-open:hover,
+.cavil-pattern-tip-open:focus {
+  color: #0969da;
+  text-decoration: none;
 }
-.cavil-pattern-tip-risk.risk-9 {
-  background: #57606a;
-  color: #ffffff;
-  border-color: #57606a;
+.cavil-pattern-tip-preview-wrap {
+  background: #ffffff;
+  border: 0;
+  border-top: 1px solid #d1d9e0b3;
+  border-radius: 0;
+  max-height: 68px;
+  overflow: hidden;
+  position: relative;
+}
+.cavil-pattern-tip-preview-wrap.is-truncated::after {
+  background: linear-gradient(rgba(255, 255, 255, 0), #ffffff 82%);
+  bottom: 0;
+  content: '';
+  height: 18px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
 }
 .cavil-pattern-tip-preview {
-  background: #f6f8fa;
-  border: 1px solid #d1d9e0b3;
-  border-radius: 6px;
-  color: #1f2328;
+  background: transparent;
+  border: 0;
+  color: #59636e;
   font-family:
     ui-monospace,
     SFMono-Regular,
@@ -1206,26 +1240,13 @@ export default {
     Consolas,
     Liberation Mono,
     monospace;
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 9px;
+  line-height: 1.25;
   margin: 0;
-  max-height: 140px;
-  overflow: auto;
-  padding: 8px 10px;
+  overflow: hidden;
+  padding: 6px 8px 7px;
   white-space: pre-wrap;
   word-break: break-word;
-}
-.cavil-pattern-tip-footer {
-  margin-top: 10px;
-}
-.cavil-pattern-tip-footer a {
-  color: #0969da;
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: none;
-}
-.cavil-pattern-tip-footer a:hover {
-  text-decoration: underline;
 }
 
 .snippet-editor-tabs {
