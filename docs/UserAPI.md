@@ -171,10 +171,10 @@ running one is as simple as typing a short command at the agent prompt.
   (only if you confirm) actually accepts or rejects it. Use this when you're sitting at your desk working on a single
   package interactively, not for unattended backlog runs.
 
-- **[cavil-refine](../examples/skills/cavil-refine/)** — helps clean up the license database by proposing new license
-  patterns, marking irrelevant snippets to be ignored, or proposing globs to exclude whole fixture/data files, so
-  future reviews of similar packages have fewer false positives. The proposals still need a human to approve them in
-  the admin UI.
+- **[cavil-refine](../examples/skills/cavil-refine/)** — complex skill that is not recommended to be used with models
+  less capable than Claude Opus 4.8. Helps clean up the license database by proposing new license patterns, marking
+  irrelevant snippets to be ignored, or proposing globs to exclude whole fixture/data files, so future reviews of
+  similar packages have fewer false positives. The proposals still need a human to approve them in the admin UI.
 
 - **[cavil-license-research](../examples/skills/cavil-license-research/)** — researches a single license that Cavil does
   not recognise yet — a license name, an unfamiliar SPDX identifier, or the license text behind an unresolved snippet —
