@@ -321,12 +321,13 @@ sub snippet_search ($self, $options) {
     push @binds, $options->{search};
   }
 
-  # Two independent embargo gates. sp (snippets.package) is the canonical text-level embargo: a
-  # snippet stays embargoed until an unembargoed package re-links it (see find_or_create), so this
-  # is what keeps embargoed license text out entirely. bp (file_snippets.package) is the location
-  # gate: even for an unembargoed snippet, never reveal - or count - an occurrence that lives in an
-  # embargoed package. s.package is nullable (origin deleted), which we treat as unembargoed.
-  my $embargo = 'bp.embargoed = false AND COALESCE(sp.embargoed, false) = false';
+  # Package-state gates. sp (snippets.package) is the canonical text-level embargo: a snippet stays
+  # embargoed until an unembargoed package re-links it (see find_or_create), so this keeps embargoed
+  # license text out entirely; s.package is nullable (origin deleted), which we treat as unembargoed.
+  # bp (file_snippets.package) is the occurrence gate: never reveal - or count - an occurrence living
+  # in an embargoed OR obsolete package. Obsolete packages are superseded, so their unresolved
+  # snippets are dead work; excluding them (as every other query does) keeps the impact ranking real.
+  my $visible = 'bp.embargoed = false AND bp.obsolete = false AND COALESCE(sp.embargoed, false) = false';
 
   # Fetch one extra row to detect a next page without an exact total (COUNT(*) OVER does not scale).
   my $rows;
@@ -341,7 +342,7 @@ sub snippet_search ($self, $options) {
          JOIN bot_packages bp ON bp.id = fs.package
          LEFT JOIN bot_packages sp ON sp.id = s.package
          LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
-       WHERE $embargo AND $res_clause $extra
+       WHERE $visible AND $res_clause $extra
        ORDER BY mf.filename, fs.sline
        LIMIT ? OFFSET ?", @binds, $limit + 1, $offset
     )->hashes->to_array;
@@ -361,7 +362,7 @@ sub snippet_search ($self, $options) {
          JOIN bot_packages bp ON bp.id = fs.package
          LEFT JOIN bot_packages sp ON sp.id = s.package
          LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
-       WHERE $embargo AND $res_clause $extra
+       WHERE $visible AND $res_clause $extra
        GROUP BY s.id, s.text, s.likelyness, lp.license, lp.risk, lp.spdx
        ORDER BY $order
        LIMIT ? OFFSET ?", @binds, $limit + 1, $offset
@@ -391,7 +392,7 @@ sub _enrich_snippet_detail ($self, $db, $row) {
   # not pick one in an embargoed package - that would leak an embargoed file path/context.
   my ($file_id, $sline, $eline, $package) = @{$row}{qw(file_id line eline package)};
   unless ($file_id) {
-    my $occ = _unembargoed_occurrence($db, $sid) or return;
+    my $occ = _visible_occurrence($db, $sid) or return;
     ($file_id, $sline, $eline, $package) = @{$occ}{qw(file sline eline package)};
   }
   return unless $file_id;
@@ -460,12 +461,13 @@ sub _occurrence ($db, $id, $file_id) {
   return $db->query($sql, @bind)->hash;
 }
 
-# A representative occurrence for detail enrichment that never lives in an embargoed package.
-sub _unembargoed_occurrence ($db, $id) {
+# A representative occurrence for detail enrichment, from a package that is neither embargoed nor
+# obsolete - so detail never leaks an embargoed file path or describes dead (superseded) work.
+sub _visible_occurrence ($db, $id) {
   return $db->query(
     'SELECT fs.package, fs.file, fs.sline, fs.eline
        FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
-      WHERE fs.snippet = ? AND p.embargoed = false LIMIT 1', $id
+      WHERE fs.snippet = ? AND p.embargoed = false AND p.obsolete = false LIMIT 1', $id
   )->hash;
 }
 

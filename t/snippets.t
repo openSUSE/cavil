@@ -424,4 +424,78 @@ subtest 'snippet_search embargo gates' => sub {
   };
 };
 
+# Obsolete packages are superseded - their unresolved snippets are dead work and must not inflate the
+# impact ranking or lead reviewers to packages that no longer need review.
+subtest 'snippet_search excludes obsolete packages' => sub {
+  my $app = $t->app;
+  my $db  = $app->pg->db;
+  my $gpl = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
+  my $src = $db->query('SELECT source, requesting_user FROM bot_packages WHERE id = 1')->hash;
+
+  my $po = $db->insert(
+    'bot_packages',
+    {
+      name            => 'obsolete-pkg',
+      checkout_dir    => 'obsoletepkg',
+      source          => $src->{source},
+      requesting_user => $src->{requesting_user},
+      priority        => 5,
+      state           => 'new',
+      obsolete        => 1
+    },
+    {returning => 'id'}
+  )->hash->{id};
+  my $mfo = $db->insert(
+    'matched_files',
+    {package   => $po, filename => 'stale/gone.txt', mimetype => 'text/plain'},
+    {returning => 'id'}
+  )->hash->{id};
+  my $mfc = $db->insert(
+    'matched_files',
+    {package   => 1, filename => 'current/live.txt', mimetype => 'text/plain'},
+    {returning => 'id'}
+  )->hash->{id};
+
+  my $mksnip = sub ($tag, $owner) {
+    $db->insert(
+      'snippets',
+      {
+        hash          => "obsolete-$tag",
+        text          => "ZZOBSOLETE $tag body licensed under the GPL",
+        package       => $owner,
+        classified    => 1,
+        license       => 1,
+        likelyness    => 0.7,
+        second_match  => 0.1,
+        score_version => SNIPPET_SCORE_VERSION,
+        like_pattern  => $gpl
+      },
+      {returning => 'id'}
+    )->hash->{id};
+  };
+
+  # One snippet present in both a current and an obsolete package; one present only in the obsolete one.
+  my $mix = $mksnip->('mixed', 1);
+  $db->insert('file_snippets', {package => 1, file => $mfc, snippet => $mix, sline => 30, eline => 34});
+  $db->insert('file_snippets', {package => $po, file => $mfo, snippet => $mix, sline => 40, eline => 44});
+  my $dead = $mksnip->('dead', $po);
+  $db->insert('file_snippets', {package => $po, file => $mfo, snippet => $dead, sline => 50, eline => 54});
+
+  subtest 'obsolete occurrences are not counted' => sub {
+    my %by = map { $_->{snippet_id} => $_ }
+      @{$app->snippets->snippet_search({group => 'text', search => 'ZZOBSOLETE'})->{snippets}};
+    is $by{$mix}{occurrences}, 1, 'obsolete occurrence excluded from the count';
+    is $by{$mix}{packages},    1, 'obsolete package excluded from the reach count';
+    ok !$by{$dead}, 'a snippet living only in obsolete packages disappears entirely';
+  };
+
+  subtest 'obsolete occurrences are not listed' => sub {
+    my @occ = grep { $_->{snippet_id} == $mix }
+      @{$app->snippets->snippet_search({group => 'none', search => 'ZZOBSOLETE'})->{snippets}};
+    is scalar(@occ),     1,                  'only the current occurrence is listed';
+    is $occ[0]{file},    'current/live.txt', 'obsolete file path is not shown';
+    is $occ[0]{package}, 1,                  'group=none exposes the actionable package_id';
+  };
+};
+
 done_testing();

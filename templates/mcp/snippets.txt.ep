@@ -27,7 +27,7 @@ Individual occurrences (verbatim body, line-numbered). Annotations are keyed by 
 snippet <%= $s->{snippet_id} %> · <%= $s->{closest_license} // 'unknown-license' %> <%= $s->{similarity} %>%\
 <% if (defined $s->{closest_risk}) { %> · risk <%= $s->{closest_risk} %><% } %> · <%= $s->{resolution} // 'unresolved' %>
   signals    runner-up <%= defined $s->{second_match} ? int($s->{second_match} * 100 + 0.5) : 0 %>%, scorer v<%= $s->{score_version} // 0 %>
-  file       <%= $s->{file} %>:<%= $s->{line} %>
+  file       <%= $s->{file} %>:<%= $s->{line} %><% if (defined $s->{package}) { %> (package_id <%= $s->{package} %>)<% } %>
 %     if (@{$s->{keywords} || []}) {
   keywords   <%= join ' · ', @{$s->{keywords}} %>
 %     }
