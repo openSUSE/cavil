@@ -61,14 +61,13 @@ a snippet taken from *inside* a license text must never be short-patterned (that
 bug — grabbing one sentence from a GPL/PSF/BSD body).
 
 **MULTI-SNIPPET TRIGGER (check this before the name/path signals below — it is the strongest Mode
-A signal and the one the others miss).** `cavil_search_snippets(group=none)` already lists the
-occurrences file-by-file, so this is a read, not a computation. **If a single file has 2+ snippets
-at different line numbers, the scanner found license wording spread through the whole file — which
-almost always means the file itself *is* one legal document (a license, EULA, CLA, or long
-notice), even when its name and path give no hint** (`docs/.../index.md`, a `README`, a stray
-`.html`). A file that merely *contains* one declaration produces one hit from one section, not
-several spread across the body. You **must** `cavil_get_file` the whole file and read it before
-patterning any snippet from it. Then:
+A signal and the one the others miss).** When you `cavil_get_file` a snippet's context and see
+license wording spread across the file — or the same file shows up under several worklist snippets
+— **the scanner found license wording throughout the file, which almost always means the file
+itself *is* one legal document (a license, EULA, CLA, or long notice), even when its name and path
+give no hint** (`docs/.../index.md`, a `README`, a stray `.html`). A file that merely *contains*
+one declaration produces one hit from one section, not several spread across the body. Always read
+the whole file before patterning any snippet from it. Then:
 
 - **Whole file reads as one continuous legal text → Mode A.** Expand to a single snippet covering
   the whole body and propose **one** pattern over it (concatenated files: one snippet + one pattern
@@ -117,21 +116,19 @@ per fragment.
 
 ## DECISION PROCEDURE
 
-Enumerate the package's unresolved snippets with
-`cavil_search_snippets(package_id=…, group=none)` — it lists every occurrence ordered by file
-then line, with the file path, line range, verbatim body, and the exact `keywords` that tripped
-each one. **Because the rows are already grouped by file, apply the MULTI-SNIPPET TRIGGER
-directly: any file with 2+ snippets gets its whole body fetched and read before you pattern
-anything from it — default that file to Mode A.** For fleet-wide work (many packages, or ranking
-by reuse value) use `group=text`, which aggregates identical snippets across the distribution and
-ranks by impact so one pattern clears the most occurrences; act on the returned `snippet_id`.
-Gather context with `cavil_get_file` (batch parallel calls) **before** deciding for any snippet
-that is truncated, starts mid-sentence, shares its file with other unresolved snippets, or may be
-part of a larger block. **Sweep the SPDX/manifest license tags first**
-(`SPDX-License-Identifier:`, `License: …`, `license: '…`) — filter for them with
-`cavil_search_snippets(search="SPDX-License-Identifier")`; they are the safest and
-highest-volume clears, and Cavil never resolves them on its own. Then, for **each** remaining
-snippet, take the **first** action that applies:
+Your worklist is `cavil_search_snippets(package_id=…, group=text, order=occurrences)` — the
+package's **distinct** unresolved snippets, most-repeated first, each with a `snippet_id`,
+occurrence count, verbatim body, and `keywords`.
+
+Snippets are deduplicated, so **act on each `snippet_id` once** — one pattern/ignore clears all its
+occurrences on re-index. Do **not** page through `group=none` with a rising `offset` to collect
+occurrences; that is thousands of duplicate rows. Work the page you get; fetch the next only if
+`next_offset` is set and the rows are still worth acting on. Use `cavil_get_file` to read a
+snippet's file when you need context — this is where the Mode-A / multi-snippet checks happen.
+
+**Sweep SPDX/manifest tags first** (add `search="SPDX-License-Identifier"`, then `License:` /
+`license: '`) — safest, highest-volume, and Cavil never resolves them itself. Then for **each**
+worklist snippet, take the **first** action that applies:
 
 1. **Not license text** → ignore. Log/debug lines, code comments about functionality,
    build/config metadata, template placeholders, license-sounding text sitting as a *data value*
@@ -151,15 +148,15 @@ snippet, take the **first** action that applies:
    named without a version (`GPL-Unspecified` …). See PSEUDO-LICENSES.
 4. **Mode A (the file is a license text or whole legal document)** → capture the full body and
    pattern it once. Rarer, but check for it before step 5 so a snippet from inside a license body is
-   not short-patterned — and remember the **multi-snippet trigger**: 2+ snippets in one file forces
-   this branch regardless of the file's name or path.
+   not short-patterned — when `cavil_get_file` shows license wording running through the file
+   (multi-snippet trigger), it is Mode A regardless of the file's name or path.
 5. **Mode B (inline/casual license declaration)** → short identifier pattern. **The common case.**
 6. **Positively identified but missing from Cavil's DB** → report missing.
 7. **Cannot name any license** → note.
 
-Operate autonomously: analyse all snippets, then execute every action without pausing for
-confirmation. **Duplicates:** create each pattern **once**; Cavil re-indexes and resolves the
-rest. Do not also ignore the duplicates.
+Operate autonomously: work through your worklist and execute each action without pausing for
+confirmation. Create each pattern **once** — Cavil re-indexes and resolves every duplicate
+occurrence; do not also ignore them.
 
 ## CAPTURING A FULL LICENSE BODY (mode A — the step most often skipped)
 
@@ -288,15 +285,10 @@ rationale.
 
 ## TOOLS
 
-- `cavil_search_snippets(package_id?, group, resolution, search?, license?, order, limit)` —
-  **your primary worklist.** `group=none` lists individual unresolved occurrences (file, line
-  range, verbatim body, and the `keywords` that tripped each — ordered by file then line, so the
-  multi-snippet trigger is a direct read); `group=text` aggregates identical snippets fleet-wide
-  and ranks by impact. Returns `snippet_id` (+ `package`) ready for `cavil_propose_*`. Omit
-  `package_id` for fleet-wide work. `resolution=unresolved` is the default.
-- `cavil_get_report(package_id)` — package overview. Unresolved snippets appear only as a
-  top-by-impact rollup here; use `cavil_search_snippets` for the full worklist and per-snippet
-  detail.
+- `cavil_search_snippets(package_id, group=text, order=occurrences)` — **your worklist**: the
+  package's distinct unresolved snippets, most-repeated first, each with a `snippet_id`, occurrence
+  count, verbatim body, and `keywords`. Act once per `snippet_id`. `group=none` (adds file+line for
+  one snippet) is for inspection only — never page through it to enumerate occurrences.
 - `cavil_get_file(package_id, file_path, start_line, end_line)` — read file context (≤1000
   lines). Line-number prefixes are display-only; never copy them into patterns.
 - `cavil_list_files(package_id, glob?)` — list files in a package (optional glob filter).
