@@ -331,9 +331,13 @@ sub _package_summary ($c, $id) {
 sub _unmatched_rollup ($c, $id, $top = 10) {
   my $result = $c->snippets->snippet_search(
     {resolution => 'unresolved', group => 'text', order => 'occurrences', package_id => $id, limit => $top});
-  my $total
-    = $c->pg->db->query('SELECT count(DISTINCT snippet) FROM file_snippets WHERE package = ? AND resolution IS NULL',
-    $id)->array->[0];
+
+  # Same rule as snippet_search / the missed_snippets partition: exclude classifier-rejected snippets
+  # (classified AND NOT license) so the total matches what the tool lists and what the report shows.
+  my $total = $c->pg->db->query(
+    'SELECT count(DISTINCT fs.snippet) FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
+      WHERE fs.package = ? AND fs.resolution IS NULL AND (s.license OR NOT s.classified)', $id
+  )->array->[0];
   return {rows => $result->{snippets}, total => $total};
 }
 

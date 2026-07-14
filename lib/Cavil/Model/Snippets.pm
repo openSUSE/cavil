@@ -309,9 +309,12 @@ sub snippet_search ($self, $options) {
   my $extra = '';
   if ($options->{package_id}) { $extra .= ' AND fs.package = ?'; push @binds, $options->{package_id}; }
 
-  # Backlog snippets are license candidates regardless of the classifier's boolean opinion (freshly
-  # indexed ones default to license=false), so we do not filter by s.license unless a caller opts in.
-  $extra .= ' AND s.license = TRUE' if $options->{legal};
+  # Match the report's definition of an unresolved match (Cavil::Model::Reports missed_snippets
+  # partition): drop snippets the classifier has decided are NOT license text (classified = true AND
+  # license = false). Confirmed candidates (license = true) and snippets still pending classification
+  # (classified = false) are kept. Without this the tool floods callers with classifier-rejected code
+  # comments the report never shows, and its counts drift far above the package's unresolved_matches.
+  $extra .= ' AND (s.license OR NOT s.classified)';
   if (defined $options->{license} && $options->{license} ne '') {
     $extra .= ' AND lp.license = ?';
     push @binds, $options->{license};

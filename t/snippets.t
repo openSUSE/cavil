@@ -315,6 +315,85 @@ subtest 'snippet_search (impact ranking + detail)' => sub {
     ok((grep { $_ eq 'Apache-2.0' } @{$row->{covered_by}{file}}), 'covered_by.file lists the concrete file license');
   };
 
+  # The backlog is what the report shows as unresolved matches: snippets the classifier has rejected as
+  # non-license text (classified = true AND license = false) are dropped, matching Cavil::Model::Reports.
+  subtest 'classifier-rejected snippets are excluded' => sub {
+    my $mkc = sub ($tag, $classified, $license) {
+      my $sid = $db->insert(
+        'snippets',
+        {
+          hash          => "classify-$tag",
+          text          => "ZZCLASSIFY $tag body licensed under the GPL",
+          package       => 1,
+          classified    => $classified,
+          license       => $license,
+          likelyness    => 0.7,
+          second_match  => 0.1,
+          score_version => SNIPPET_SCORE_VERSION,
+          like_pattern  => $gpl
+        },
+        {returning => 'id'}
+      )->hash->{id};
+      $db->insert('file_snippets', {package => 1, file => $mf, snippet => $sid, sline => 900, eline => 904});
+      return $sid;
+    };
+    my $candidate = $mkc->('candidate', 1, 1);    # classified as a license -> shown
+    my $pending   = $mkc->('pending',   0, 0);    # not yet classified      -> shown
+    my $rejected  = $mkc->('rejected',  1, 0);    # classifier says non-legal -> hidden
+
+    my %by = map { $_->{snippet_id} => $_ }
+      @{$app->snippets->snippet_search({group => 'text', search => 'ZZCLASSIFY', package_id => 1})->{snippets}};
+    ok $by{$candidate}, 'a confirmed license candidate is listed';
+    ok $by{$pending},   'a snippet still pending classification is listed';
+    ok !$by{$rejected}, 'a classifier-rejected non-license snippet is excluded';
+  };
+
+  # Anti-drift guard: snippet_search must agree with the report's own unresolved set (dig_report's
+  # missed_snippets). This is the coupling every past bug broke (embargo, obsolete, classifier), so we
+  # assert the two surfaces make the same call for each snippet disposition.
+  subtest 'agrees with the report on what is unresolved' => sub {
+    my $mk = sub ($tag, $classified, $license, $resolution) {
+      my $sid = $db->insert(
+        'snippets',
+        {
+          hash          => "drift-$tag",
+          text          => "ZZDRIFT $tag body licensed under the GPL",
+          package       => 1,
+          classified    => $classified,
+          license       => $license,
+          likelyness    => 0.7,
+          second_match  => 0.1,
+          score_version => SNIPPET_SCORE_VERSION,
+          like_pattern  => $gpl
+        },
+        {returning => 'id'}
+      )->hash->{id};
+      $db->insert('file_snippets',
+        {package => 1, file => $mf, snippet => $sid, sline => 10, eline => 12, resolution => $resolution});
+      return $sid;
+    };
+    my $cand = $mk->('cand', 1, 1, undef);     # unresolved license candidate -> shown by both
+    my $rej  = $mk->('rej',  1, 0, undef);     # classifier-rejected          -> hidden by both
+    my $fold = $mk->('fold', 1, 1, 'fold');    # resolved (folded)            -> hidden by both
+
+    # The report's authoritative unresolved set, as snippet ids (missed_snippets: file -> [[.., id, ..]]).
+    my $dig      = $app->reports->dig_report(1);
+    my %reported = map { $_->[2] => 1 } map {@$_} values %{$dig->{missed_snippets}};
+
+    # The tool's unresolved set for the same package.
+    my %searched
+      = map { $_->{snippet_id} => 1 }
+      @{$app->snippets->snippet_search({group => 'text', package_id => 1, search => 'ZZDRIFT', limit => 100})
+        ->{snippets}};
+
+    is !!$searched{$cand}, !!$reported{$cand}, 'candidate: tool and report agree';
+    is !!$searched{$rej},  !!$reported{$rej},  'classifier-rejected: tool and report agree';
+    is !!$searched{$fold}, !!$reported{$fold}, 'folded: tool and report agree';
+    ok $searched{$cand},  'candidate is shown';
+    ok !$searched{$rej},  'classifier-rejected is hidden';
+    ok !$searched{$fold}, 'folded is hidden';
+  };
+
   subtest 'pagination' => sub {
     my $r = $app->snippets->snippet_search({group => 'text', search => 'ZZIMPACT', limit => 1});
     is scalar(@{$r->{snippets}}), 1, 'limit honored';
