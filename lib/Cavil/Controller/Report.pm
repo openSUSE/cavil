@@ -42,7 +42,6 @@ sub report ($self) {
 
 sub details ($self) {
   my $id = $self->stash('id');
-  die;
   return $self->render(json => {error => 'unknown package', stage => 1}, status => 408)
     unless my $pkg = $self->packages->find($id);
 
