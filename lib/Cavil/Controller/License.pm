@@ -286,8 +286,10 @@ sub update_patterns ($self) {
   my $license = $validation->param('license');
 
   my $spdx = $validation->param('spdx') // '';
-  if ($spdx eq '' || lic($spdx)->is_valid_expression) {
-    my $rows = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $spdx, $license)->rows;
+  my $l    = lic($spdx);
+  if ($l->is_valid) {
+    my $rows
+      = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $l->to_string, $license)->rows;
     $self->flash(success => "$rows patterns have been updated.");
   }
   else {
@@ -307,16 +309,18 @@ sub update_patterns_json ($self) {
 
   my $license = $validation->param('license');
   my $spdx    = $validation->param('spdx') // '';
+  my $l       = lic($spdx);
   return $self->render(
     json => {
       error =>
         qq{"$spdx" is not a valid SPDX expression. Use a "LicenseRef-*" prefix for licenses not yet part of the spec.}
     },
     status => 400
-  ) unless $spdx eq '' || lic($spdx)->is_valid_expression;
+  ) unless $l->is_valid;
 
-  my $rows = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $spdx, $license)->rows;
-  $self->render(json => {updated => $rows, spdx => $spdx, spdx_html => spdx_link($spdx)});
+  my $canon = $l->to_string;
+  my $rows  = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $canon, $license)->rows;
+  $self->render(json => {updated => $rows, spdx => $canon, spdx_html => spdx_link($canon)});
 }
 
 1;

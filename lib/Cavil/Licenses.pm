@@ -41,23 +41,36 @@ my $TOKEN_RE;
 }
 
 sub canonicalize ($self) {
-  $self->{tree} = _sorted_tree($self->{tree});
+  $self->{tree} = _sorted_tree($self->{tree}) if defined $self->{tree};
   return $self;
 }
 
 # return one of the licenses
 sub example ($self) {
+  return '' unless defined $self->{tree};
   return _example(_sorted_tree($self->{tree}));
 }
 
-sub is_valid_expression ($self) {
+# True when the expression parses to a valid SPDX expression, possibly after normalization; call
+# to_string for the canonical form. This is the general validity check.
+sub is_valid ($self) {
+  return !defined $self->error;
+}
+
+# Stricter than is_valid: also requires the input to already be in canonical form (nothing had to be
+# normalized). "GPL-2.0+" is_valid but not is_canonical - it normalizes to GPL-2.0-or-later.
+sub is_canonical ($self) {
   return !($self->error || $self->normalized);
 }
 
-sub is_part_of ($first, $second) { _walk($first->tree, $second->tree) }
+sub is_part_of ($first, $second) {
+  return undef unless defined $first->tree && defined $second->tree;
+  return _walk($first->tree, $second->tree);
+}
 
 sub is_similar_to ($first, $second) {
-  $first->canonicalize->to_string eq $second->canonicalize->to_string;
+  return undef unless defined $first->tree && defined $second->tree;
+  return $first->canonicalize->to_string eq $second->canonicalize->to_string;
 }
 
 sub lic (@args) { __PACKAGE__->new(@args) }
@@ -80,7 +93,16 @@ sub scancode_suggestion ($name) {
 
 sub new ($class, @args) { @args > 0 ? $class->SUPER::new->parse(@args) : $class->SUPER::new }
 
-# Partial implementation of SPDX 2.1 (with changes for expressions used at SUSE)
+# Parser for SPDX license expressions (https://spdx.github.io/spdx-spec, Annex D grammar), with a few
+# deliberate deviations for the messy real-world input Cavil ingests:
+#   - operator precedence WITH > AND > OR, parentheses, "+" and license/document refs are all honoured;
+#   - the AND/OR/WITH operators are accepted case-insensitively (the spec requires upper case);
+#   - license identifiers must use their canonical SPDX case (known aliases are mapped via
+#     license_changes.txt), rather than being matched case-insensitively;
+#   - a dangling trailing operator ("MIT AND") is tolerated and dropped instead of erroring, as it is
+#     non-lossy and common in scanned metadata.
+# The parser is total: any input either yields a tree (error() undef) or sets error() with a message;
+# it never dies and never warns, and to_string/canonicalize/example are safe to call on an error object.
 sub parse ($self, $string) {
   unless ($string) {
     return $self->tree({license => ''});
@@ -103,7 +125,10 @@ sub parse ($self, $string) {
   return $self->normalized($before ne $string)->tree($tree);
 }
 
-sub to_string ($self) { _tree_to_string($self->{tree}) }
+sub to_string ($self) {
+  return '' unless defined $self->{tree};
+  return _tree_to_string($self->{tree});
+}
 
 sub _example ($tree) {
   return _example($tree->{left}) if $tree->{op};
@@ -111,14 +136,21 @@ sub _example ($tree) {
 }
 
 sub _match ($main, $sub) {
-  return defined $main->{license} && $main->{license} eq $sub->{license} if defined $main->{license};
-  return undef                                                           if $sub->{license};
-  return undef                                                           if $main->{op} ne $sub->{op};
+
+  # A license leaf matches only an identical leaf (never an operator node)
+  return defined $sub->{license} && $main->{license} eq $sub->{license} if defined $main->{license};
+
+  # An operator node matches only the same kind of operator node
+  return undef unless defined $main->{op} && defined $sub->{op} && $main->{op} eq $sub->{op};
 
   return _match($main->{left}, $sub->{left}) || _match($main->{left}, $sub->{right});
 }
 
 sub _parse (@tokens) {
+
+  # An empty token list means a malformed expression (leading/duplicate operator, empty group);
+  # fail cleanly here so callers get an error instead of operating on undef.
+  die "Invalid license expression\n" unless @tokens;
 
   # Or (low precedence)
   my $left;
@@ -165,8 +197,11 @@ sub _sorted_tree ($tree) {
 }
 
 sub _spdx ($expression) {
+  die "Invalid license expression\n" unless defined $expression && length $expression;
+
+  # ":" is allowed so a "DocumentRef-<id>:LicenseRef-<id>" external reference parses as one license
   die "Invalid SPDX license expression: $expression\n"
-    unless $expression =~ /^([a-z0-9\-.]+)(\+?)(?:\s+with\s+([a-z0-9\-.]+))?$/i;
+    unless $expression =~ /^([a-z0-9\-.:]+)(\+?)(?:\s+with\s+([a-z0-9\-.]+))?$/i;
   my ($license, $plus, $exception) = ($1, $2, $3);
   return "$license$plus"                 if _spdx_license($license) && !(defined $exception);
   return "$license$plus WITH $exception" if _spdx_exception($exception);
@@ -179,7 +214,11 @@ sub _spdx_exception ($exception) {
 
 sub _spdx_license ($license) {
   return 1 if $ALLOWED{$license};
-  return 1 if $license =~ /^LicenseRef-/;
+
+  # SPDX license references: "LicenseRef-<idstring>", optionally with a "DocumentRef-<idstring>:"
+  # prefix for a reference defined in another SPDX document (idstring = letters/digits/./-)
+  return 1 if $license =~ /^(?:DocumentRef-[A-Za-z0-9.-]+:)?LicenseRef-[A-Za-z0-9.-]+$/;
+
   die "Invalid SPDX license: $license\n";
 }
 
