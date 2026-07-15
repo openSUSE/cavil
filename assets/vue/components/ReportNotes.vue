@@ -8,7 +8,7 @@
       <span class="report-notes-relevance-hint">{{ relevant }} of {{ total }} relevant to this report</span>
     </div>
     <div v-if="initialLoading" class="report-notes-loading">
-      <i class="fa-solid fa-spinner fa-pulse"></i> Loading notes...
+      <LegalLoading message="Loading notes..." size="small" />
     </div>
     <div v-else>
       <div v-if="notes.length === 0 && !loadError" class="report-notes-empty">
@@ -193,6 +193,7 @@
 </template>
 
 <script>
+import LegalLoading from './LegalLoading.vue';
 import MarkdownComposer from './MarkdownComposer.vue';
 import TagInput from './TagInput.vue';
 import UserAgent from '@mojojs/user-agent';
@@ -200,7 +201,7 @@ import moment from 'moment';
 
 export default {
   name: 'ReportNotes',
-  components: {MarkdownComposer, TagInput},
+  components: {LegalLoading, MarkdownComposer, TagInput},
   props: {
     pkgId: {type: Number, default: null},
     endpoint: {type: String, default: null},

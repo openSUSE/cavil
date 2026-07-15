@@ -25,7 +25,7 @@
             </thead>
             <tbody v-if="apiKeys === null">
               <tr>
-                <td id="all-done" colspan="4"><i class="fa-solid fa-rotate fa-spin"></i> Loading API keys...</td>
+                <td id="all-done" colspan="4"><LegalLoading message="Loading API keys..." size="small" /></td>
               </tr>
             </tbody>
             <tbody v-else-if="apiKeys.length > 0">
@@ -136,13 +136,14 @@
 <script>
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import CopyableText from './components/CopyableText.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {
   name: 'ApiKeys',
-  components: {CavilNoticePanel, CopyableText},
+  components: {CavilNoticePanel, CopyableText, LegalLoading},
   mixins: [Refresh],
   data() {
     return {

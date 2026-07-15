@@ -40,7 +40,7 @@
         </form>
       </div>
       <div class="col-3">
-        <p v-if="patterns === null" class="text-end"><i class="fa-solid fa-rotate fa-spin"></i> Loading patterns</p>
+        <p v-if="patterns === null" class="text-end"><LegalLoading message="Loading patterns" size="small" /></p>
       </div>
     </div>
     <div v-if="patterns !== null && patterns.length > 0">
@@ -86,7 +86,7 @@
         </div>
       </div>
       <div v-if="loadingMore" class="text-center text-muted my-3">
-        <i class="fa-solid fa-rotate fa-spin"></i> Loading more patterns
+        <LegalLoading message="Loading more patterns" size="small" />
       </div>
       <BackToTop />
     </div>
@@ -96,13 +96,14 @@
 <script>
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {
   name: 'RecentPatterns',
-  components: {BackToTop, CavilNoticePanel},
+  components: {BackToTop, CavilNoticePanel, LegalLoading},
   data() {
     const params = getParams({
       hasContributor: false,

@@ -1,7 +1,7 @@
 <template>
   <div id="license-details" class="license-details-page">
     <div v-if="loading" class="license-details-loading">
-      <i class="fa-solid fa-rotate fa-spin"></i> Loading license patterns
+      <LegalLoading message="Loading license patterns" />
     </div>
     <div v-else-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
     <template v-else>
@@ -145,7 +145,7 @@
               <b>{{ formatCount(pattern.packages, pattern.packages_capped) }}</b>
               {{ pattern.packages === 1 && !pattern.packages_capped ? 'package' : 'packages' }}</span
             >
-            <span v-else><i class="fa-solid fa-rotate fa-spin"></i> Loading counts</span>
+            <span v-else><LegalLoading message="Loading counts" size="small" /></span>
             <span>
               Created {{ createdFromNow(pattern) }}
               <template v-if="pattern.owner_login">
@@ -164,6 +164,7 @@
 </template>
 
 <script>
+import LegalLoading from './components/LegalLoading.vue';
 import PatternEditor from './components/PatternEditor.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
@@ -171,7 +172,7 @@ import moment from 'moment';
 
 export default {
   name: 'LicenseDetails',
-  components: {PatternEditor, ToastNotifier},
+  components: {LegalLoading, PatternEditor, ToastNotifier},
   data() {
     return {
       details: null,

@@ -100,11 +100,11 @@
         </div>
       </transition-group>
       <div v-if="loadingMore" class="text-center text-muted my-3">
-        <i class="fa-solid fa-rotate fa-spin"></i> Loading more missing licenses
+        <LegalLoading message="Loading more missing licenses" size="small" />
       </div>
       <BackToTop />
     </div>
-    <div v-else-if="changes === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading missing licenses</div>
+    <div v-else-if="changes === null"><LegalLoading message="Loading missing licenses" /></div>
     <EmptyState v-else message="No missing licenses have been flagged. Nice work keeping the queue clear." />
     <ToastNotifier ref="toaster" />
   </div>
@@ -114,13 +114,14 @@
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import SnippetEditor from './components/SnippetEditor.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'MissingLicenses',
-  components: {BackToTop, CavilNoticePanel, EmptyState, SnippetEditor, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, EmptyState, LegalLoading, SnippetEditor, ToastNotifier},
   data() {
     return {
       ignoreForPackage: true,

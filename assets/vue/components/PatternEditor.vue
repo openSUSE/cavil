@@ -5,7 +5,7 @@
     <div v-if="!isNew && showMatchCount" class="row">
       <div class="col mb-3 edit-pattern-match-count">
         <span v-if="matchCount === null && matchCountError === null">
-          <i class="fa-solid fa-rotate fa-spin"></i> Loading match count
+          <LegalLoading message="Loading match count" size="small" />
         </span>
         <span v-else-if="matchCountError !== null" class="text-danger">{{ matchCountError }}</span>
         <span v-else-if="matchCount.matches === 0">This pattern has no matches.</span>
@@ -175,12 +175,13 @@
 
 <script>
 import ClosestPattern from './ClosestPattern.vue';
+import LegalLoading from './LegalLoading.vue';
 import PatternCodeMirror from './PatternCodeMirror.vue';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'PatternEditor',
-  components: {ClosestPattern, PatternCodeMirror},
+  components: {ClosestPattern, LegalLoading, PatternCodeMirror},
   props: {
     pattern: {type: Object, required: true},
     inline: {type: Boolean, default: false},

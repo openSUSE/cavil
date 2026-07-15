@@ -40,7 +40,7 @@
       <tbody v-if="products === null">
         <tr>
           <td id="all-done" colspan="4" class="cavil-list-state">
-            <i class="fa-solid fa-rotate fa-spin"></i> Loading products...
+            <LegalLoading message="Loading products..." size="small" />
           </td>
         </tr>
       </tbody>
@@ -75,6 +75,7 @@
 <script>
 import CavilListLayout from './components/CavilListLayout.vue';
 import EmptyState from './components/EmptyState.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import {productLink} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
@@ -83,7 +84,7 @@ import moment from 'moment';
 export default {
   name: 'KnownProducts',
   mixins: [Refresh],
-  components: {CavilListLayout, EmptyState},
+  components: {CavilListLayout, EmptyState, LegalLoading},
   data() {
     const params = getParams({
       limit: 10,

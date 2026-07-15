@@ -1,7 +1,7 @@
 <template>
   <div class="row mt-3 snippet-editor">
     <h3 v-if="mode === 'page'">Edit Snippet</h3>
-    <div v-if="patternText === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading snippet...</div>
+    <div v-if="patternText === null"><LegalLoading message="Loading snippet..." /></div>
     <div v-else>
       <div v-if="hasContributorRole === false && hasAdminRole === false" class="alert alert-info">
         There is no license pattern for this snippet yet. You do not have the necessary permissions to propose new
@@ -303,6 +303,7 @@
 
 <script>
 import ClosestPattern from './ClosestPattern.vue';
+import LegalLoading from './LegalLoading.vue';
 import {fileViewUrl, setupPopoverDelayed} from '../helpers/links.js';
 import {renderPatternTooltip, showPatternTooltip} from '../helpers/patternTooltip.js';
 import {EditorState, StateEffect, StateField} from '@codemirror/state';
@@ -313,7 +314,7 @@ const setDecoLinesEffect = StateEffect.define();
 
 export default {
   name: 'SnippetEditor',
-  components: {ClosestPattern},
+  components: {ClosestPattern, LegalLoading},
   props: {
     snippetId: {type: Number, required: true},
     hash: {type: String, default: null},

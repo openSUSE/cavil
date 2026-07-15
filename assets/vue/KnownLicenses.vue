@@ -49,7 +49,7 @@
         <tbody v-if="licenses === null">
           <tr>
             <td id="all-done" colspan="3" class="cavil-list-state">
-              <i class="fa-solid fa-rotate fa-spin"></i> Loading licenses...
+              <LegalLoading message="Loading licenses..." size="small" />
             </td>
           </tr>
         </tbody>
@@ -80,6 +80,7 @@
 import CavilListLayout from './components/CavilListLayout.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import {licenseLink} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
@@ -87,7 +88,7 @@ import Refresh from './mixins/refresh.js';
 export default {
   name: 'KnownLicenses',
   mixins: [Refresh],
-  components: {CavilListLayout, CavilNoticePanel, EmptyState},
+  components: {CavilListLayout, CavilNoticePanel, EmptyState, LegalLoading},
   data() {
     const params = getParams({
       limit: 10,

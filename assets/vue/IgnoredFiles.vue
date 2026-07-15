@@ -51,7 +51,7 @@
         <tbody v-if="globs === null">
           <tr>
             <td id="all-done" colspan="5" class="cavil-list-state">
-              <i class="fa-solid fa-rotate fa-spin"></i> Loading globs...
+              <LegalLoading message="Loading globs..." size="small" />
             </td>
           </tr>
         </tbody>
@@ -116,6 +116,7 @@
 import CavilListLayout from './components/CavilListLayout.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
@@ -124,7 +125,7 @@ import moment from 'moment';
 export default {
   name: 'IgnoredFiles',
   mixins: [Refresh],
-  components: {CavilListLayout, CavilNoticePanel, EmptyState},
+  components: {CavilListLayout, CavilNoticePanel, EmptyState, LegalLoading},
   data() {
     const params = getParams({
       limit: 10,
