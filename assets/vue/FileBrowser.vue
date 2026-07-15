@@ -1,7 +1,7 @@
 <template>
   <div class="file-browser">
     <div v-if="loading && !meta" class="file-browser-loading">
-      <i class="fa-solid fa-rotate fa-spin"></i> Loading files...
+      <LegalLoading message="Opening case files..." size="full" />
     </div>
     <div v-else-if="error" class="alert alert-danger file-browser-error">{{ error }}</div>
     <div v-else-if="meta">
@@ -91,6 +91,7 @@
 
 <script>
 import FileSource from './components/FileSource.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
 import {encodePath, fileViewUrl} from './helpers/links.js';
 import {resolveSnippetFromFile, submitSnippetDecisions} from './helpers/snippetDecisions.js';
@@ -100,7 +101,7 @@ let pendingActionIdSeq = 0;
 
 export default {
   name: 'FileBrowser',
-  components: {FileSource, PendingActionsWidget},
+  components: {FileSource, LegalLoading, PendingActionsWidget},
   provide() {
     return {
       pendingActionsStore: {

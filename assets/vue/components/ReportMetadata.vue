@@ -1,5 +1,5 @@
 <template>
-  <div v-if="pkgName === null"><i class="fa-solid fa-rotate fa-spin"></i> Loading package information...</div>
+  <LegalLoading v-if="pkgName === null" message="Reviewing package information..." />
   <div v-else>
     <div class="row">
       <div class="col-10 mt-3">
@@ -306,13 +306,14 @@
 import CavilNoticePanel from './CavilNoticePanel.vue';
 import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
+import LegalLoading from './LegalLoading.vue';
 import {productLink} from '../helpers/links.js';
 import Refresh from '../mixins/refresh.js';
 import moment from 'moment';
 
 export default {
   name: 'ReportMetadata',
-  components: {CavilNoticePanel, CopyableText, ExternalLink},
+  components: {CavilNoticePanel, CopyableText, ExternalLink, LegalLoading},
   mixins: [Refresh],
   data() {
     return {

@@ -76,7 +76,7 @@
           <ProgressBar v-if="stage" :stage="stage" />
           <div v-else>
             <span id="ajax-status">
-              <i class="fa-solid fa-spinner fa-pulse"></i>Preparing the report, this may take a moment...
+              <LegalLoading message="Preparing the report, this may take a moment..." />
             </span>
           </div>
         </div>
@@ -446,6 +446,7 @@
 import CavilNoticePanel from './CavilNoticePanel.vue';
 import FileSource from './FileSource.vue';
 import GlobProposalModal from './GlobProposalModal.vue';
+import LegalLoading from './LegalLoading.vue';
 import LicenseCompositionChart from './LicenseCompositionChart.vue';
 import PendingActionsWidget from './PendingActionsWidget.vue';
 import ProgressBar from './ProgressBar.vue';
@@ -465,6 +466,7 @@ export default {
     CavilNoticePanel,
     FileSource,
     GlobProposalModal,
+    LegalLoading,
     LicenseCompositionChart,
     PendingActionsWidget,
     ProgressBar,

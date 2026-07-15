@@ -81,7 +81,7 @@
       <tbody v-if="reviews === null">
         <tr>
           <td id="all-done" colspan="9" class="cavil-list-state">
-            <i class="fa-solid fa-rotate fa-spin"></i> Loading reviews...
+            <LegalLoading message="Loading review docket..." size="small" />
           </td>
         </tr>
       </tbody>
@@ -115,6 +115,7 @@
 import CavilListLayout from './components/CavilListLayout.vue';
 import EmptyState from './components/EmptyState.vue';
 import ExternalLink from './components/ExternalLink.vue';
+import LegalLoading from './components/LegalLoading.vue';
 import PriorityBadge from './components/PriorityBadge.vue';
 import {packageLink, reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
@@ -124,7 +125,7 @@ import moment from 'moment';
 export default {
   name: 'RecentReviews',
   mixins: [Refresh],
-  components: {CavilListLayout, EmptyState, ExternalLink, PriorityBadge},
+  components: {CavilListLayout, EmptyState, ExternalLink, LegalLoading, PriorityBadge},
   data() {
     const params = getParams({
       limit: 10,
