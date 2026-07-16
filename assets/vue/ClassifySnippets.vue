@@ -119,9 +119,6 @@
           </div>
         </form>
       </div>
-      <div class="col-1">
-        <p v-if="snippets === null" class="text-end"><LegalLoading message="Loading snippets" size="small" /></p>
-      </div>
     </div>
     <div class="row g-4 mt-1">
       <div class="col-11">
@@ -140,7 +137,12 @@
         </form>
       </div>
     </div>
-    <div v-if="snippets !== null && snippets.length > 0">
+    <div v-if="snippets === null" class="row mt-3">
+      <div class="col-11 text-center">
+        <LegalLoading message="Loading snippets" size="small" />
+      </div>
+    </div>
+    <div v-else-if="snippets.length > 0">
       <div v-for="snippet in snippets" :key="snippet.id" class="row snippet-container">
         <div class="col-11 snippet-file-container">
           <div class="snippet-file">
@@ -205,7 +207,7 @@
       </div>
       <BackToTop />
     </div>
-    <div v-else-if="snippets !== null" class="row mt-3">
+    <div v-else class="row mt-3">
       <p class="text-muted" id="snippets-empty">No snippets match these filters.</p>
     </div>
   </div>
