@@ -80,6 +80,12 @@ export default {
   width: var(--fa-width, 1.25em);
   z-index: 1;
 }
+.legal-loading-icon-shell i.fa-scale-balanced,
+.legal-loading-icon-shell i.fa-balance-scale {
+  --fa-width: 1.45em;
+
+  transform: translateX(0.04em);
+}
 .legal-loading-pulse {
   animation: legal-loading-pulse 1.55s ease-in-out infinite;
   background: rgba(47, 111, 94, 0.12);
