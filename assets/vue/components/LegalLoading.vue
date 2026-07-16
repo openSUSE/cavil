@@ -84,7 +84,7 @@ export default {
 .legal-loading-icon-shell i.fa-balance-scale {
   --fa-width: 1.45em;
 
-  transform: translateX(0.04em);
+  transform: translateX(0.08em);
 }
 .legal-loading-pulse {
   animation: legal-loading-pulse 1.55s ease-in-out infinite;
