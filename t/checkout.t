@@ -59,7 +59,7 @@ subtest 'ceph-image (kiwi)' => sub {
 
   # Smaller than the raw sources: the .kiwi and tumbleweed.xml are markup and are stripped to text
   # before indexing (the kiwi *report* below still parses the original file).
-  is $stats->{size}, 1866, 'right size';
+  is $stats->{size}, 1834, 'right size';
   is_deeply $checkout->specfile_report, report('ceph-image.kiwi'), 'right kiwi report';
 };
 

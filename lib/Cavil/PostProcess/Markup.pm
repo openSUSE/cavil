@@ -4,8 +4,9 @@
 package Cavil::PostProcess::Markup;
 use Mojo::Base -base, -signatures;
 
-use Exporter     qw(import);
-use HTML::Parser ();
+use Exporter       qw(import);
+use HTML::Parser   ();
+use HTML::Entities qw(decode_entities);
 
 our @EXPORT_OK = qw(looks_like_markup strip_markup strip_markup_string);
 
@@ -65,9 +66,21 @@ sub _make_parser ($line_cb) {
   $p->handler(text => sub ($dtext) { $emit_text->($dtext) }, 'dtext');
 
   # Comments are kept - license declarations (SPDX-License-Identifier, copyright notices)
-  # routinely live in `<!-- ... -->`, and the raw scan used to see them. Emit the comment
-  # body on its own line(s) so it is not glued to surrounding text.
-  $p->handler(comment => sub ($text) { $emit_break->(); $emit_text->($text); $emit_break->() }, 'text');
+  # routinely live in `<!-- ... -->`, and the raw scan used to see them. The comment event has no
+  # decoded-text form, so strip the `<!--`/`-->` delimiters and decode entities ourselves (matching
+  # how normal text is handled) - otherwise the body leaks out as raw "&copy;"/"&lt;". Emit on its
+  # own line(s) so it is not glued to surrounding text.
+  $p->handler(
+    comment => sub ($text) {
+      $text =~ s/^<!--//;
+      $text =~ s/-->$//;
+      decode_entities($text);
+      $emit_break->();
+      $emit_text->($text);
+      $emit_break->();
+    },
+    'text'
+  );
 
   # Tag boundaries: end the line, and enter/leave skip regions for script/style.
   $p->handler(start => sub ($tag) { $skip_depth++ if $SKIP_CONTENT{$tag}; $emit_break->() }, 'tagname');

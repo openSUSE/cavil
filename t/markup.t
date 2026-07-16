@@ -61,6 +61,20 @@ subtest 'HTML entities are decoded' => sub {
   like $text, qr/year \x{a9} em\x{2014}dash/,           'numeric &#169; and hex &#x2014; decoded';
 };
 
+subtest 'comments are kept as decoded text (license notices live there)' => sub {
+  my $text
+    = strip_markup_string('<html><body><!-- Copyright &copy; 2010 by K. Kenny &lt;kb@acm.org&gt; -- '
+      . 'Redistribution permitted under the Open Publication License &lt;http://example.org/&gt; -->'
+      . '<p>Body</p></body></html>');
+  like $text, qr/Copyright \x{a9} 2010 by K\. Kenny <kb\@acm\.org>/,
+    'comment entities are decoded, not left as &copy;/&lt;';
+  like $text,   qr/Open Publication License <http:/, 'a license reference inside a comment is preserved';
+  unlike $text, qr/<!--|-->|&copy;|&lt;|&gt;/,       'no comment delimiters or raw entities leak';
+
+  like strip_markup_string('<root><!-- SPDX-License-Identifier: Apache-2.0 --><a>x</a></root>'),
+    qr/SPDX-License-Identifier: Apache-2\.0/, 'SPDX identifier in a comment survives';
+};
+
 subtest 'UTF-8 literals and entities round-trip through a file' => sub {
   my $dir = tempdir;
   my $in  = $dir->child('doc.html');
