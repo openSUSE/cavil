@@ -343,9 +343,9 @@ sub _dig_report {
   # non-keyword text differs even slightly, so it must not be the primary
   # key. snippet id is hash-derived and stable.
   my @snip_rows = sort {
-         ($report->{files}{$a->{file}} // '') cmp ($report->{files}{$b->{file}} // '')
-      || $a->{id}                             <=> $b->{id}
-      || $a->{sline}                          <=> $b->{sline}
+         ($report->{files}{$a->{file}} // '') cmp($report->{files}{$b->{file}} // '')
+      || $a->{id}    <=> $b->{id}
+      || $a->{sline} <=> $b->{sline}
   } $snippets->hashes->each;
 
   my %file_snippets_to_show;

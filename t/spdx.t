@@ -11,8 +11,9 @@ use Test::Mojo;
 use Cavil::Test;
 use Cavil::SPDX;
 use Mojolicious::Lite;
-use Mojo::File             qw(path tempfile);
-use Mojo::JSON             qw(decode_json);
+use Mojo::File qw(path tempfile);
+use Mojo::JSON qw(decode_json);
+use Mojo::Date;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 use Digest::SHA;
 
@@ -320,7 +321,7 @@ subtest 'License match evidence (snippets)' => sub {
     $snippet_has_license{$rel->{from}} = 1 if $rel->{relationshipType} eq 'hasConcludedLicense';
   }
 
-  my ($bad_file, $bad_range, $bad_license) = (0, 0, 0);
+  my ($bad_file, $bad_range, $bad_license, $bad_name) = (0, 0, 0, 0);
   for my $snippet (@$snippets) {
     $bad_file++ unless $g->{$snippet->{software_snippetFromFile}};
     my $range = $snippet->{software_lineRange};
@@ -330,10 +331,18 @@ subtest 'License match evidence (snippets)' => sub {
       && $range->{beginIntegerRange} >= 1
       && $range->{endIntegerRange} >= $range->{beginIntegerRange};
     $bad_license++ unless $snippet_has_license{$snippet->{spdxId}};
+
+    # A location-based name (file plus line range) so the snippet is a self-describing element and not
+    # an anonymous node (SBOM quality tools flag components without a name)
+    $bad_name++
+      unless defined $snippet->{name}
+      && $snippet->{name} eq
+      "$g->{$snippet->{software_snippetFromFile}}{name}#L$range->{beginIntegerRange}-L$range->{endIntegerRange}";
   }
   is $bad_file,    0, 'every snippet points at a file in the graph';
   is $bad_range,   0, 'every snippet has a valid line range';
   is $bad_license, 0, 'every snippet has a concluded license';
+  is $bad_name,    0, 'every snippet has a location-based name';
 };
 
 # The remaining subtests regenerate the report with different configuration/data, restoring state afterwards
@@ -402,6 +411,34 @@ subtest 'Packages without Open Build Service coordinates (e.g. uploads)' => sub 
 
   $db->query('UPDATE bot_sources SET api_url = ?, project = ? WHERE id = ?',
     $original->{api_url}, $original->{project}, $source_id);
+};
+
+subtest 'Component version falls back to the source-control timestamp (BSI 5.2.2)' => sub {
+
+  # Package 2 has no creator-assigned version (remove it from the spec before unpacking, so the unpacked
+  # copy and the cached report both reflect a version-less package): BSI TR-03183-2 section 5.2.2 then
+  # mandates the source modification date-time (RFC 3339), which Cavil takes from the package creation time
+  # (copied from the source-control side by the bot API).
+  my $spec = $t->app->packages->pkg_checkout_dir(2)->child('perl-Mojolicious.spec');
+  $spec->spew($spec->slurp =~ s/^Version:.*\n//mr);
+
+  $t->app->minion->enqueue(unpack => [2]);
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
+
+  my $tmp = tempfile;
+  $t->app->spdx->generate_to_file(2, "$tmp");
+  my $nover_doc = read_report("$tmp");
+  my ($primary) = grep { $_->{name} eq 'perl-Mojolicious' } @{of_type($nover_doc, 'software_Package')};
+
+  my $epoch = $t->app->pg->db->query('SELECT EXTRACT(EPOCH FROM created)::bigint AS e FROM bot_packages WHERE id = 2')
+    ->hash->{e};
+  is $primary->{software_packageVersion}, Mojo::Date->new($epoch)->to_datetime,
+    'version falls back to the source-control timestamp';
+  like $primary->{software_packageVersion}, qr/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/,
+    'fallback version is an RFC 3339 date-time';
+  ok !$primary->{externalIdentifier}, 'no package URL without a creator-assigned version';
+  schema_ok($nover_doc, 'version-fallback document still validates');
 };
 
 subtest 'SPDX report is obsolete' => sub {

@@ -45,7 +45,9 @@ sub generate_to_file ($self, $id, $file) {
   my $specfile_report = $reports->specfile_report($id);
   my $db              = $app->pg->db;
 
-  my $pkg = $db->query('SELECT * FROM bot_packages WHERE id = ?', $id)->hash;
+  my $pkg
+    = $db->query('SELECT *, EXTRACT(EPOCH FROM created)::bigint AS created_epoch FROM bot_packages WHERE id = ?', $id)
+    ->hash;
   my $src = $db->query(
     'SELECT api_url, project, package, srcmd5 FROM bot_packages bp JOIN bot_sources bs ON bp.source = bs.id
      WHERE bp.id = ?', $id
@@ -243,6 +245,16 @@ sub generate_to_file ($self, $id, $file) {
   my $main    = $specfile_report->{main} || {};
   my $version = $main->{version};
   $version = "$version" if defined $version;
+
+  # The creator-assigned version, used for the package URL (a timestamp fallback is not a meaningful purl
+  # version, so the purl is emitted only when a real version exists)
+  my $purl_version = (defined $version && length $version) ? $version : undef;
+
+  # BSI TR-03183-2 section 5.2.2 requires a component version; when the creator assigns none, the mandated
+  # fallback is the source modification date-time (RFC 3339). bot_packages.created carries the source-control
+  # timestamp, so it is the correct value here.
+  $version = Mojo::Date->new($pkg->{created_epoch})->to_datetime
+    if !defined $purl_version && defined $pkg->{created_epoch};
   my $package = {
     type                       => 'software_Package',
     spdxId                     => $pkgid,
@@ -262,12 +274,12 @@ sub generate_to_file ($self, $id, $file) {
     $package->{software_downloadLocation}
       = "$src->{api_url}/source/$src->{project}/$src->{package}" . ($src->{srcmd5} ? "?rev=$src->{srcmd5}" : '');
   }
-  if (defined $version && length $version) {
+  if (defined $purl_version) {
     $package->{externalIdentifier} = [
       {
         type                   => 'ExternalIdentifier',
         externalIdentifierType => 'packageUrl',
-        identifier             => "pkg:generic/$pkg->{name}\@$version"
+        identifier             => "pkg:generic/$pkg->{name}\@$purl_version"
       }
     ];
   }
@@ -354,9 +366,13 @@ sub generate_to_file ($self, $id, $file) {
       my $sid = $iri->('snippet-' . ++$snippet_num);
       $graph->add(
         {
-          type                     => 'software_Snippet',
-          spdxId                   => $sid,
-          creationInfo             => $creation,
+          type         => 'software_Snippet',
+          spdxId       => $sid,
+          creationInfo => $creation,
+
+          # A human-readable location name (file plus line range), so the snippet is a self-describing
+          # element rather than an anonymous evidence node
+          name                     => "./$real_name#L$finding->{sline}-L$finding->{eline}",
           software_snippetFromFile => $fid,
           software_lineRange       => {
             type              => 'PositiveIntegerRange',
