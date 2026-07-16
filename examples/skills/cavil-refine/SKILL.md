@@ -134,9 +134,10 @@ worklist snippet, take the **first** action that applies:
    build/config metadata, template placeholders, license-sounding text sitting as a *data value*
    in a structured/manifest/test file, or a keyword used merely *descriptively* ("patent-free
    codec", "proprietary format" in a product list). If there is any doubt it is license-related,
-   do not ignore — continue. **Markup is not a reason to ignore:** HTML, doxygen/javadoc listings,
-   or groff/man wrapping around recognizable license wording is still license text — strip the markup
-   and pattern the underlying license (mode A/B), do not ignore it as "just markup".
+   do not ignore — continue. **Markup is not a reason to ignore:** recognizable license wording
+   wrapped in HTML/XML (Cavil now strips these to plain text before indexing, so they usually reach
+   you clean), or in doxygen/javadoc/groff/man comments, is still license text — pattern the
+   underlying license (mode A/B), do not ignore it as "just markup".
 2. **Pure fixtures / reference catalog** → glob, if 2+ files share the path. `testdata/`,
    `tests/`, `fixtures/`, `samples/`, `.log` sample output — or a *catalog* of license texts not
    tied to shipped code (e.g. the Linux kernel's master `LICENSES/` list, `linux-*/LICENSES/*`).
@@ -209,8 +210,12 @@ that straddles two blocks needs no separate action once both blocks are patterne
   different licenses, so the `2.0` is signal, not noise. If skipping a token would leave you unable
   to tell which license the pattern is for, that token must not be skipped. Over-skipping until the
   pattern names no license is worse than no pattern at all — it poisons every future match.
-- **No HTML/markup in patterns.** If the snippet came from `.html`/markup, pattern the underlying
-  text, not the tags. Markup is a low-quality marker.
+- **No HTML/XML markup in patterns — and never bridge tags with `$SKIP`.** Cavil strips HTML/XML
+  (including ODF/OOXML office documents) to plain text before indexing, so snippets normally arrive
+  clean; pattern that clean text. If you still see raw tags (an older package not yet re-unpacked,
+  or RTF, which is not stripped), pattern the underlying wording — do **not** splice across tags with
+  `$SKIPn`. A `$SKIP` sized to jump over markup also matches *any* other words in that gap, producing
+  an overly broad pattern that matches unrelated text. Markup is a low-quality marker.
 - **No leading/trailing `$SKIP`** (rejected as redundant) — `$SKIP` only goes *between* tokens.
 - **Do not pattern a single bare keyword** (`guarantees`, `responsibility`, `attribution`,
   `permission to`). Cavil maintains those separately as keyword detectors; a one-word `license`
