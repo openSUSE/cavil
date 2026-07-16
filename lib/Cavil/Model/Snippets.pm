@@ -204,7 +204,7 @@ sub unclassified ($self, $options) {
   my $db = $self->pg->db;
 
   my $before = '';
-  if ($options->{before} > 0) {
+  if (($options->{order} // 'recent') eq 'recent' && $options->{before} > 0) {
     my $quoted = $db->dbh->quote($options->{before});
     $before = "AND s.id < $quoted";
   }
@@ -235,21 +235,21 @@ sub unclassified ($self, $options) {
   # cannot drift from resolve_snippets. "Cleared" covers both clearing mechanisms. The matching kinds
   # are reused below to pin the linked occurrence to one that actually has that resolution.
   my $resolution = '';
-  my $resolution_join;
   my @binds;
   my @kinds;
-  if (($options->{resolution} // 'any') =~ /^(fold|clear)$/) {
-    @kinds = $1 eq 'clear' ? ('clear', 'overlap', 'covered') : ('fold');
+  my $resolution_option = $options->{resolution} // 'any';
+  my $match             = '';
+  if ($resolution_option eq 'unresolved') {
+    $resolution = 'AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IS NULL)';
+    $match      = 'AND fs.resolution IS NULL';
+  }
+  elsif ($resolution_option =~ /^(fold|clear|overlap|covered)$/) {
+    @kinds = $1 eq 'clear' ? ('clear', 'overlap', 'covered') : ($1);
     my $placeholders = join ', ', ('?') x @kinds;
-    if ($1 eq 'fold') {
-      $resolution_join = 1;
-      $resolution      = "AND fs_filter.resolution IN ($placeholders)";
-    }
-    else {
-      $resolution
-        = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IN ($placeholders))";
-    }
+    $resolution
+      = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IN ($placeholders))";
     push @binds, @kinds;
+    $match = "AND fs.resolution IN ($placeholders)";
   }
 
   # Full-text (lexeme) search over snippet bodies; expression matches the GIN index exactly.
@@ -261,17 +261,28 @@ sub unclassified ($self, $options) {
 
   # Keyset pagination with no exact total: fetch one extra row to learn whether a next page exists
   # (COUNT(*) OVER() scanned the whole filtered set on every page and does not scale to 1M snippets).
-  my $select = $resolution_join ? 'SELECT DISTINCT ON (s.id) s.*, bp.embargoed' : 'SELECT s.*, bp.embargoed';
-  my $from
-    = $resolution_join
-    ? 'FROM file_snippets fs_filter JOIN snippets s ON (s.id = fs_filter.snippet)'
-    : 'FROM snippets s';
+  my $count_match
+    = $resolution_option eq 'unresolved' ? 'AND fs_count.resolution IS NULL'
+    : @kinds                             ? 'AND fs_count.resolution IN (' . join(', ', ('?') x @kinds) . ')'
+    :                                      '';
+  my @count_binds = (@kinds, @kinds);
+  my $order       = $options->{order} // 'recent';
+  my $order_by
+    = $order eq 'occurrences' ? 'occurrence_count DESC, package_count DESC, s.id DESC'
+    : $order eq 'packages'    ? 'package_count DESC, occurrence_count DESC, s.id DESC'
+    : $order eq 'risk'        ? 'lp.risk DESC NULLS LAST, occurrence_count DESC, s.id DESC'
+    :                           's.id DESC';
+  my $offset   = $order eq 'recent' ? '' : 'OFFSET ' . int($options->{offset} // 0);
   my $snippets = $db->query(
-    "$select
-     $from
+    "SELECT s.*, bp.embargoed,
+            (SELECT count(*) FROM file_snippets fs_count WHERE fs_count.snippet = s.id $count_match) AS occurrence_count,
+            (SELECT count(DISTINCT fs_count.package) FROM file_snippets fs_count WHERE fs_count.snippet = s.id $count_match)
+              AS package_count
+     FROM snippets s
        LEFT JOIN bot_packages bp ON (bp.id = s.package)
+       LEFT JOIN license_patterns lp ON (lp.id = s.like_pattern)
      WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe $resolution $search
-     ORDER BY s.id DESC LIMIT 11", @binds
+     ORDER BY $order_by LIMIT 11 $offset", @count_binds, @binds
   )->hashes->to_array;
 
   my $has_more = @$snippets > 10 ? 1 : 0;
@@ -280,8 +291,6 @@ sub unclassified ($self, $options) {
   # When a resolution filter is active, restrict the occurrence we link to (and count) to occurrences
   # that actually carry that resolution - a shared snippet can be folded in one file and unresolved in
   # another, so the generic "most recent occurrence" could otherwise send reviewers to the wrong file.
-  my $match = @kinds ? 'AND fs.resolution IN (' . join(', ', ('?') x @kinds) . ')' : '';
-
   for my $snippet (@$snippets) {
     $snippet->{likelyness} = int($snippet->{likelyness} * 100);
     $snippet->{files}

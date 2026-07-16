@@ -391,8 +391,10 @@ sub snippet_overlap_fixtures ($self, $app) {
 # app to be built with snippet_fold thresholds (and clear_threshold) set.
 sub snippet_triage_fixtures ($self, $app) {
   $self->package_with_snippets_fixtures($app);
-  my $db   = $app->pg->db;
-  my $fold = $app->patterns->create(pattern => 'a folded triage marker for ui', license => 'Triage-Fold', risk => 3);
+  my $db    = $app->pg->db;
+  my $fold  = $app->patterns->create(pattern => 'a folded triage marker for ui', license => 'Triage-Fold', risk => 3);
+  my $risky = $app->patterns->create(pattern => 'a high risk folded triage marker for ui', license => 'Triage-Risky',
+    risk => 5);
 
   # A file to anchor the occurrences; the triage filter reads file_snippets.resolution (one row per
   # occurrence), so every snippet needs an occurrence whose resolution resolve_snippets computes below.
@@ -421,19 +423,33 @@ sub snippet_triage_fixtures ($self, $app) {
         likelyness    => $o{likelyness},
         second_match  => $o{second_match} // 0,
         score_version => SNIPPET_SCORE_VERSION,
-        like_pattern  => $fold->{id}
+        like_pattern  => $o{like_pattern} // $fold->{id}
       },
       {returning => 'id'}
     )->hash->{id};
     $db->insert('file_snippets', {package => 1, file => $file, snippet => $sid, sline => $line, eline => $line + 5});
   };
 
-  $insert->(likelyness => 0.99, second_match => 0.5,  text => "fold marker body number $_ with GPL terms") for 1 .. 11;
+  $insert->(likelyness => 0.99, second_match => 0.5, text => "fold marker body number $_ with GPL terms") for 1 .. 11;
+  $insert->(
+    likelyness   => 0.99,
+    second_match => 0.5,
+    like_pattern => $risky->{id},
+    text         => 'high risk fold marker body'
+  );
   $insert->(likelyness => 0.99, second_match => 0.5,  text => 'fold marker Non-Commercial use clause body');
   $insert->(likelyness => 0.99, second_match => 0.99, text => 'cleared boilerplate definitions body');
+  $insert->(likelyness => 0.99, second_match => 0.99, text => 'overlap notice body');
+  $insert->(likelyness => 0.99, second_match => 0.99, text => 'covered fragment body');
   $insert->(likelyness => 0.40, second_match => 0.0,  text => 'unresolved random noise body');
 
   $app->snippets->resolve_snippets(1);
+  $db->query(
+    q{UPDATE file_snippets fs SET resolution = 'overlap' FROM snippets s WHERE s.id = fs.snippet AND s.text = ?},
+    'overlap notice body');
+  $db->query(
+    q{UPDATE file_snippets fs SET resolution = 'covered' FROM snippets s WHERE s.id = fs.snippet AND s.text = ?},
+    'covered fragment body');
 }
 
 sub postgres_url ($self) {

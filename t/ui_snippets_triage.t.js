@@ -18,6 +18,7 @@ t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t
   };
   const setResolution = async value =>
     Promise.all([metaResponse(), page.selectOption('.cavil-snippet-resolution', value)]);
+  const setOrder = async value => Promise.all([metaResponse(), page.selectOption('.cavil-snippet-order', value)]);
   const search = async term => {
     await page.fill('.cavil-snippet-search', term);
     await metaResponse();
@@ -58,7 +59,34 @@ t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t
       await setResolution('clear');
       await waitForRow('cleared boilerplate');
       t.ok((await rowsWith('cleared boilerplate')) > 0, 'cleared rows are shown');
+      t.ok((await rowsWith('overlap notice')) > 0, 'overlap-cleared rows are included');
+      t.ok((await rowsWith('covered fragment')) > 0, 'covered rows are included');
       t.equal(await rowsWith('fold marker'), 0, 'folded rows are hidden');
+    });
+
+    await t.test('specific resolved filters show only their stored resolution', async t => {
+      await open();
+      await setResolution('overlap');
+      await waitForRow('overlap notice');
+      t.ok((await rowsWith('overlap notice')) > 0, 'overlap rows are shown');
+      t.equal(await rowsWith('covered fragment'), 0, 'covered rows are hidden from overlap filter');
+      t.equal(await rowsWith('cleared boilerplate'), 0, 'plain clear rows are hidden from overlap filter');
+
+      await open();
+      await setResolution('covered');
+      await waitForRow('covered fragment');
+      t.ok((await rowsWith('covered fragment')) > 0, 'covered rows are shown');
+      t.equal(await rowsWith('overlap notice'), 0, 'overlap rows are hidden from covered filter');
+      t.equal(await rowsWith('cleared boilerplate'), 0, 'plain clear rows are hidden from covered filter');
+    });
+
+    await t.test('unresolved filter shows only unresolved snippets', async t => {
+      await open();
+      await setResolution('unresolved');
+      await waitForRow('unresolved random noise');
+      t.ok((await rowsWith('unresolved random noise')) > 0, 'unresolved rows are shown');
+      t.equal(await rowsWith('fold marker'), 0, 'folded rows are hidden');
+      t.equal(await rowsWith('cleared boilerplate'), 0, 'cleared rows are hidden');
     });
 
     await t.test('full-text search narrows by lexeme, including stemming', async t => {
@@ -72,6 +100,30 @@ t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t
       await search('commercial'); // stems to match "Non-Commercial"
       await waitForRow('Non-Commercial');
       t.ok((await rowsWith('Non-Commercial')) > 0, 'a stemmed term matches Non-Commercial');
+    });
+
+    await t.test('order pulldown exposes MCP snippet search ordering options', async t => {
+      await open();
+      await page.waitForSelector('.cavil-snippet-order');
+      t.same(
+        await page.locator('.cavil-snippet-resolution option').evaluateAll(options => options.map(option => option.value)),
+        ['any', 'unresolved', 'fold', 'clear', 'overlap', 'covered'],
+        'the resolution menu includes the stored snippet resolution values'
+      );
+      t.same(
+        await page.locator('.cavil-snippet-order option').evaluateAll(options => options.map(option => option.value)),
+        ['occurrences', 'packages', 'risk', 'recent'],
+        'the order menu matches cavil_search_snippets order values'
+      );
+
+      await setOrder('risk');
+      await waitForRow('fold marker');
+      t.match(page.url(), /[?&]order=risk(?:&|$)/, 'the selected order is reflected in the snippet query params');
+      t.match(
+        await containers().first().textContent(),
+        /high risk fold marker body/,
+        'risk ordering puts the highest-risk snippet first'
+      );
     });
 
     await t.test('a no-match search shows the empty state', async t => {
@@ -96,18 +148,18 @@ t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t
       await waitForRow('fold marker');
       t.equal(await page.locator('text=snippets found').count(), 0, 'no exact total is shown');
 
-      // Keyset "load more" pulls the rest in as the reviewer scrolls; the page is filled one keyset
-      // page at a time (10 cap is asserted in the backend test) until all 12 folded rows are present.
+      // Load more pulls the rest in as the reviewer scrolls; the page is filled one page at a time
+      // (10 cap is asserted in the backend test) until all 13 folded rows are present.
       await page.waitForFunction(
         () => {
           window.scrollTo(0, document.documentElement.scrollHeight);
           window.dispatchEvent(new Event('scroll'));
-          return document.querySelectorAll('.snippet-container').length >= 12;
+          return document.querySelectorAll('.snippet-container').length >= 13;
         },
         null,
         {timeout: 20000}
       );
-      t.equal(await containers().count(), 12, 'load-more eventually shows all folded rows');
+      t.equal(await containers().count(), 13, 'load-more eventually shows all folded rows');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);

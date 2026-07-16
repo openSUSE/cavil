@@ -11,7 +11,7 @@
       </cavil-notice-panel>
     </div>
     <div class="row g-4">
-      <div class="col-8">
+      <div class="col-11">
         <form @submit.prevent>
           <div class="row g-4">
             <div class="col-lg-2">
@@ -52,13 +52,27 @@
                   class="form-control cavil-snippet-resolution"
                 >
                   <option value="any">Any</option>
+                  <option value="unresolved">Unresolved</option>
                   <option value="fold">Folded</option>
                   <option value="clear">Cleared</option>
+                  <option value="overlap">Overlap</option>
+                  <option value="covered">Covered</option>
                 </select>
                 <label class="form-label">Resolution</label>
               </div>
             </div>
-            <div class="col-lg-3">
+            <div class="col-lg-2">
+              <div class="form-floating">
+                <select v-model="params.order" @change="refreshPage()" class="form-control cavil-snippet-order">
+                  <option value="occurrences">Occurrences</option>
+                  <option value="packages">Packages</option>
+                  <option value="risk">Risk</option>
+                  <option value="recent">Recent</option>
+                </select>
+                <label class="form-label">Order</label>
+              </div>
+            </div>
+            <div class="col-lg-2">
               <div class="form-check">
                 <input
                   v-model="params.notLegal"
@@ -80,7 +94,7 @@
                 <label class="form-check-label" for="snippet-is-legal">Is legal text</label>
               </div>
             </div>
-            <div class="col">
+            <div class="col-lg-2">
               <div class="form-check">
                 <input
                   v-model="params.isClassified"
@@ -105,7 +119,7 @@
           </div>
         </form>
       </div>
-      <div class="col-3">
+      <div class="col-1">
         <p v-if="snippets === null" class="text-end"><LegalLoading message="Loading snippets" size="small" /></p>
       </div>
     </div>
@@ -217,11 +231,12 @@ export default {
       notLegal: true,
       timeframe: 'any',
       resolution: 'any',
+      order: 'recent',
       search: ''
     });
 
     return {
-      params: {...params, before: 0},
+      params: {...params, before: 0, offset: 0},
       snippets: null,
       snippetUrl: '/snippets/meta',
       hasMore: false,
@@ -268,6 +283,7 @@ export default {
 
       if (this.snippets === null) this.snippets = [];
       this.snippets.push(...snippets);
+      query.offset = this.snippets.length;
     },
     getClassForArrow(snippet, approve) {
       return {
@@ -306,6 +322,7 @@ export default {
       this.hasMore = false;
       this.snippets = null;
       this.params.before = 0;
+      this.params.offset = 0;
       this.getSnippets();
     }
   },
@@ -318,6 +335,7 @@ export default {
       'confidence',
       'timeframe',
       'resolution',
+      'order',
       'search'
     )
   }
