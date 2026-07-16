@@ -44,13 +44,15 @@ export default {
   min-height: 1.75rem;
 }
 .legal-loading-mark {
+  display: grid;
+  flex: 0 0 auto;
   height: 2.75rem;
-  position: relative;
+  place-items: center;
   width: 2.75rem;
 }
 .legal-loading-small .legal-loading-mark {
-  height: 1.8rem;
-  width: 1.8rem;
+  height: 2.1rem;
+  width: 2.1rem;
 }
 .legal-loading-icon-shell {
   align-items: center;
@@ -58,21 +60,24 @@ export default {
   background: var(--legal-loading-surface);
   border: 1px solid rgba(110, 119, 129, 0.22);
   border-radius: 0.65rem;
+  box-sizing: border-box;
   box-shadow: 0 0.35rem 0.8rem rgba(36, 41, 47, 0.1);
   color: var(--legal-loading-accent);
-  display: inline-flex;
+  display: grid;
   font-size: 1.35rem;
   height: 2.5rem;
-  justify-content: center;
-  left: 0.12rem;
   overflow: hidden;
-  position: absolute;
-  top: 0.12rem;
+  place-items: center;
+  position: relative;
   transform-origin: 50% 70%;
   width: 2.5rem;
 }
 .legal-loading-icon-shell i {
+  display: inline-block;
+  line-height: 1;
   position: relative;
+  text-align: center;
+  width: var(--fa-width, 1.25em);
   z-index: 1;
 }
 .legal-loading-pulse {
@@ -97,14 +102,12 @@ export default {
 }
 .legal-loading-small .legal-loading-icon-shell {
   font-size: 1rem;
-  height: 1.65rem;
-  transform: scale(1);
-  transform-origin: 0 0;
-  width: 1.65rem;
+  height: 1.85rem;
+  width: 1.85rem;
 }
 .legal-loading-small .legal-loading-pulse {
-  height: 1.2rem;
-  width: 1.2rem;
+  height: 1.35rem;
+  width: 1.35rem;
 }
 
 @keyframes legal-loading-weigh {
