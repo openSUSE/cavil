@@ -22,7 +22,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::File qw(path curfile tempdir);
-use Mojo::JSON qw(decode_json);
+use Mojo::JSON qw(decode_json encode_json);
 use Cavil::Checkout;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -353,6 +353,49 @@ subtest 'Tarball upload auto-detection' => sub {
     is scalar(@{$info->{sub}}), 1,            'chart is also listed as a sub package';
     is $info->{sub}[0]{type},   'helm',       'sub package is the chart';
   };
+};
+
+subtest 'Old SPDX reports are excluded from unpacking (no wasted copies)' => sub {
+  my $co  = $TMP->child('report-exclude', 'hash')->make_path;
+  my $src = $TMP->child('report-exclude-src')->make_path;
+  $src->child('hello.txt')->spew("hello world\n");
+  is system('tar', '-czf', $co->child('src.tar.gz')->to_string, '-C', $src->to_string, 'hello.txt'), 0, 'archive built';
+
+  # A previous run's gzipped SPDX report sits in the checkout dir.
+  $co->child('.report.spdx.json')->spew('{"spdxVersion":"SPDX-2.3","packages":[' . ('{"n":"x"},' x 200) . '{}]}');
+  is system('gzip', $co->child('.report.spdx.json')->to_string), 0, 'report gzipped';
+
+  Cavil::Checkout->new($co)->unpack;
+
+  my $hash = decode_json($co->child('.postprocessed.json')->slurp)->{unpacked};
+  ok !(grep {/\.report.*\.spdx/} keys %$hash),                   'no report artifact in the unpacked set';
+  ok !-e $co->child('.unpacked', '.report.spdx.json'),           'report was not exploded into .unpacked';
+  ok !-e $co->child('.unpacked', '.report.spdx.processed.json'), 'no line-wrapped report copy';
+  ok -e $co->child('.report.spdx.json.gz'),                      'compact report still present in the checkout dir';
+  ok + (grep {m{hello\.txt$}} keys %$hash),                      'real source files are still unpacked';
+};
+
+subtest 'Generated SPDX reports are never handed to the indexer' => sub {
+  my $co = $TMP->child('report-leak', 'hash')->make_path;
+
+  # Simulate a re-unpacked checkout whose previous SPDX report reappeared and, for the uncompressed
+  # copy, was line-wrapped by postprocess into ".report.spdx.processed.json".
+  $co->child('.postprocessed.json')->spew(
+    encode_json {
+      destdir  => $co->child('.unpacked')->to_string,
+      unpacked => {
+        'src/real.txt'                => {mime => 'text/plain'},
+        '.report.spdx.json'           => {mime => 'text/plain'},
+        '.report.spdx.processed.json' => {mime => 'text/plain'},
+        '.report.spdx.json.gz'        => {mime => 'application/gzip'},
+        '.report.processed.spdx.json' => {mime => 'text/plain'},
+      }
+    }
+  );
+
+  my $files = Cavil::Checkout->new($co)->unpacked_files;
+  is_deeply [sort map { $_->[0] } @$files], ['src/real.txt'],
+    'every .report.spdx variant (incl. the .processed one) is skipped, only real files remain';
 };
 
 subtest 'Markup files are stripped during unpack' => sub {

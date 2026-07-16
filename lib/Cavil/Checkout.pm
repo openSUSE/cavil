@@ -285,6 +285,14 @@ sub unpack ($self, $options = {}) {
   $u->mime_helper('application=zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
 
   $u->exclude(vcs => 1);
+
+  # Never unpack Cavil's own generated SPDX report that lives in the checkout dir. On a re-unpack it
+  # would otherwise be exploded into .unpacked (and line-wrapped by postprocess) on every pass -
+  # pure waste, as these reports can be huge. The compact .report.spdx.json.gz stays in the checkout
+  # dir untouched; it is simply not unpacked. Matches both the .report.spdx.* and legacy
+  # .report.processed.spdx.* names.
+  $u->exclude(add => '.report*.spdx*');
+
   if (my $exclude = $options->{exclude}) {
     $u->exclude($_) for @$exclude;
   }
@@ -322,8 +330,11 @@ sub unpacked_files ($self, $bucket_size = undef) {
   my @files;
   for my $file (sort keys %{$unpacked}) {
 
-    # Reports might still be present if checkouts get unpacked more than once
-    next if $file =~ /\.report(?:\.processed)?\.spdx(?:\.json)?(?:\.gz)?$/;
+    # Cavil's own SPDX report can reappear when a checkout is unpacked more than once: the previous
+    # .report.spdx.json[.gz] is unpacked again, and postprocess may line-wrap the uncompressed copy
+    # into .report.spdx.processed.json. Never index any of these - the ".processed" marker can land
+    # after ".report" or after ".spdx" depending on which name postprocess rewrote.
+    next if $file =~ /\.report(?:\.processed)?\.spdx(?:\.processed)?(?:\.json)?(?:\.gz)?$/;
 
     my $mime = $unpacked->{$file}{mime};
     next if $mime =~ $BLACKLIST_MIME_RE;
