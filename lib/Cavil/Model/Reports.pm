@@ -566,7 +566,14 @@ sub _lines {
 
 sub _load_pattern_from_cache {
   my ($self, $db, $pid) = @_;
-  $self->{license_cache}->{"pattern-$pid"} ||= $db->select('license_patterns', '*', {id => $pid})->hash;
+
+  # Only the license identity, risk and flag columns are ever read from this cache - never the (large)
+  # pattern text. Select just those: this cache lives on the reports helper, a state singleton, so in the
+  # long-running web process it would otherwise accumulate the full pattern text of every pattern any
+  # report touches (tens of MB across the corpus, growing with it) for no benefit.
+  $self->{license_cache}->{"pattern-$pid"}
+    ||= $db->select('license_patterns', [qw(license spdx risk patent trademark export_restricted cla eula)],
+    {id => $pid})->hash;
   return $self->{license_cache}->{"pattern-$pid"};
 }
 
