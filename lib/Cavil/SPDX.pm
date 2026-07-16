@@ -49,7 +49,7 @@ sub generate_to_file ($self, $id, $file) {
     = $db->query('SELECT *, EXTRACT(EPOCH FROM created)::bigint AS created_epoch FROM bot_packages WHERE id = ?', $id)
     ->hash;
   my $src = $db->query(
-    'SELECT api_url, project, package, srcmd5 FROM bot_packages bp JOIN bot_sources bs ON bp.source = bs.id
+    'SELECT api_url, project, package, srcmd5, type FROM bot_packages bp JOIN bot_sources bs ON bp.source = bs.id
      WHERE bp.id = ?', $id
   )->hash;
 
@@ -283,6 +283,24 @@ sub generate_to_file ($self, $id, $file) {
       }
     ];
   }
+
+  # BSI TR-03183-2 section 5.2.4 "Source code URI": the *utilised* (distribution) source, version-pinned -
+  # for a distribution the source we actually built from, not upstream (section 8.1.8: a maintainer who
+  # clones/patches becomes the component creator). Emitted as a VCS external reference; only OBS and git
+  # importers carry source coordinates, other sources are left off.
+  my $source_uri;
+  if ($src && $src->{api_url}) {
+    if ($src->{type} eq 'obs' && $src->{project}) {
+      $source_uri
+        = "$src->{api_url}/source/$src->{project}/$src->{package}" . ($src->{srcmd5} ? "?rev=$src->{srcmd5}" : '');
+    }
+    elsif ($src->{type} eq 'git') {
+      $source_uri = "git+$src->{api_url}" . ($src->{srcmd5} ? "\@$src->{srcmd5}" : '');
+    }
+  }
+  $package->{externalRef} = [{type => 'ExternalRef', externalRefType => 'vcs', locator => [$source_uri]}]
+    if $source_uri;
+
   $graph->add($package);
 
   # Distribution (concluded) and original (declared) licenses of the primary component

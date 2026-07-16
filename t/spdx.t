@@ -217,6 +217,18 @@ subtest 'Primary component (BSI: required and additional fields)' => sub {
   like $primary->{software_downloadLocation}, qr{api\.opensuse\.org/source/devel:languages:perl/perl-Mojolicious},
     'download location from OBS coordinates';
 
+  # BSI 5.2.4 "Source code URI": the utilised (distribution) source, version-pinned, as a VCS reference
+  is_deeply $primary->{externalRef},
+    [
+    {
+      type            => 'ExternalRef',
+      externalRefType => 'vcs',
+      locator         =>
+        ['https://api.opensuse.org/source/devel:languages:perl/perl-Mojolicious?rev=bd91c36647a5d3dd883d490da2140401']
+    }
+    ],
+    'source code URI is the version-pinned OBS source, as a VCS reference';
+
   my @artifacts
     = map { $g->{$_->{to}[0]} }
     grep  { $_->{from} eq $primary->{spdxId} && $_->{relationshipType} eq 'hasDistributionArtifact' }
@@ -439,6 +451,34 @@ subtest 'Component version falls back to the source-control timestamp (BSI 5.2.2
     'fallback version is an RFC 3339 date-time';
   ok !$primary->{externalIdentifier}, 'no package URL without a creator-assigned version';
   schema_ok($nover_doc, 'version-fallback document still validates');
+};
+
+subtest 'Source code URI for git sources (BSI 5.2.4)' => sub {
+
+  # Repoint package 2 (already unpacked above) at a git source: BSI's utilised-source URI is then the
+  # distribution repository pinned to the commit, expressed as a git VCS locator.
+  my $source_id = $t->app->pg->db->query('SELECT source FROM bot_packages WHERE id = ?', 2)->hash->{source};
+  $t->app->pg->db->query(
+    'UPDATE bot_sources SET type = ?, api_url = ?, project = ?, srcmd5 = ? WHERE id = ?',
+    'git', 'https://src.example.com/pool/perl-Mojolicious',
+    '',    'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678', $source_id
+  );
+
+  my $tmp = tempfile;
+  $t->app->spdx->generate_to_file(2, "$tmp");
+  my $git_doc = read_report("$tmp");
+  my ($primary) = grep { $_->{name} eq 'perl-Mojolicious' } @{of_type($git_doc, 'software_Package')};
+
+  is_deeply $primary->{externalRef},
+    [
+    {
+      type            => 'ExternalRef',
+      externalRefType => 'vcs',
+      locator         => ['git+https://src.example.com/pool/perl-Mojolicious@a1b2c3d4e5f60718293a4b5c6d7e8f9012345678']
+    }
+    ],
+    'source code URI is the git repository pinned to the commit';
+  schema_ok($git_doc, 'git-source document still validates');
 };
 
 subtest 'SPDX report is obsolete' => sub {
