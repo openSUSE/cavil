@@ -82,9 +82,9 @@ export default {
 }
 .legal-loading-icon-shell i.fa-scale-balanced,
 .legal-loading-icon-shell i.fa-balance-scale {
-  --fa-width: 1.45em;
+  --fa-width: 1.35em;
 
-  transform: translateX(0.08em);
+  transform: translateX(0.06em);
 }
 .legal-loading-pulse {
   animation: legal-loading-pulse 1.55s ease-in-out infinite;
@@ -108,8 +108,8 @@ export default {
 }
 .legal-loading-small .legal-loading-icon-shell {
   font-size: 1rem;
-  height: 1.85rem;
-  width: 1.85rem;
+  height: 2rem;
+  width: 2rem;
 }
 .legal-loading-small .legal-loading-pulse {
   height: 1.35rem;
