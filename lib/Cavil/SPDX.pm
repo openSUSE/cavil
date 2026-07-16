@@ -537,12 +537,14 @@ sub _copyrights ($path) {
   # line-by-line work entirely unless there is something to find
   return [] unless $text =~ /copyright|\x{00a9}/i;
 
+  # Pull out only the lines that mention copyright in a single regex pass, rather than splitting the file
+  # into lines and testing each one - on large trees the per-line test dominates report generation
   my (%seen, @copyrights);
-  for my $line (split /\n/, $text) {
+  while ($text =~ /^([^\n]*(?:copyright|\x{00a9})[^\n]*)$/mgi) {
+    my $line = $1;
 
     # Skip minified/one-line blobs that merely happen to mention "copyright" somewhere
     next if length $line > 300;
-    next unless $line =~ /copyright|\x{00a9}/i;
 
     # Strip comment/markup leaders and collapse whitespace
     $line =~ s/^[\s*#;>|!\/-]+//;
@@ -583,11 +585,12 @@ use Mojo::Base -base, -signatures;
 
 use Mojo::JSON qw(encode_json);
 
-# Stream elements into the "@graph" array one at a time to keep memory bounded for large packages
+# Stream elements into the "@graph" array one at a time to keep memory bounded for large packages. Each
+# element is written in a single print (comma prepended) to halve the writes into the gzip layer.
 sub add ($self, $node) {
-  $self->{handle}->print(',') unless $self->{first};
+  my $json = encode_json($node);
+  $self->{handle}->print($self->{first} ? $json : ",$json");
   $self->{first} = 0;
-  $self->{handle}->print(encode_json($node));
 }
 
 1;
