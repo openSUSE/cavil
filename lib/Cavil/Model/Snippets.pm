@@ -87,15 +87,18 @@ sub resolve_snippets ($self, $package_id) {
 
   # Each occurrence with its snippet's similarity metadata and closest-license details
   my $rows = $db->query(
-    'SELECT fs.id, fs.file, fs.sline, fs.eline, s.hash, s.license, s.likelyness, s.second_match,
-            s.score_version, s.like_pattern, lp.license AS plicense, lp.risk AS prisk
+    'SELECT fs.id, fs.file, fs.sline, fs.eline, fs.resolution AS current_resolution, s.hash, s.license,
+            s.likelyness, s.second_match, s.score_version, s.like_pattern, lp.license AS plicense, lp.risk AS prisk
        FROM file_snippets fs
        JOIN snippets s ON s.id = fs.snippet
        LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
       WHERE fs.package = ?', $package_id
   );
 
-  my $tx = $db->begin;
+  # Compute each occurrence's resolution and bucket the ids by the resulting value, skipping rows already
+  # at that value. resolution has only a handful of distinct values, so the writes below collapse into a
+  # few bulk UPDATEs instead of thousands of per-row SQL::Abstract updates (the analyze hotspot).
+  my %ids_by_resolution;
   for my $row ($rows->hashes->each) {
     my $pattern = {license => $row->{plicense}, risk => $row->{prisk}};
 
@@ -112,7 +115,23 @@ sub resolve_snippets ($self, $package_id) {
       $resolution = 'overlap';
     }
     elsif (should_cover_snippet($cfg, $row, $cover_risk)) { $resolution = 'covered' }
-    $db->update('file_snippets', {resolution => $resolution}, {id => $row->{id}});
+
+    # Skip rows whose resolution does not change (the common case on reindex)
+    my $current = $row->{current_resolution};
+    next
+      if (defined $current && defined $resolution && $current eq $resolution)
+      || (!defined $current && !defined $resolution);
+    push @{$ids_by_resolution{defined $resolution ? $resolution : ''}}, $row->{id};
+  }
+
+  # One UPDATE per distinct resolution, in a short transaction (computation above ran outside it)
+  my $tx = $db->begin;
+  for my $resolution (sort keys %ids_by_resolution) {
+    $db->query(
+      'UPDATE file_snippets SET resolution = ? WHERE id = ANY(?::bigint[])',
+      ($resolution eq '' ? undef : $resolution),
+      $ids_by_resolution{$resolution}
+    );
   }
   $tx->commit;
 }
