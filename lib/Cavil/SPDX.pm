@@ -349,57 +349,70 @@ sub generate_to_file ($self, $id, $file) {
     $matched_files->{$matched->{filename}} = $matched->{id};
   }
 
+  # Emit the file components in chunks: license findings for a whole chunk are fetched in two batched
+  # queries (see _license_rows_by_file) instead of two per file, while the graph is still streamed one
+  # element at a time and only one chunk of rows is held in memory
   my $file_num;
-  for my $ufile (sort keys %info) {
-    $file_num++;
-    my $real_name = $original_files{$ufile} // $ufile;
-    my $fid       = $iri->("file-$file_num");
+  my @ordered = sort keys %info;
+  while (my @chunk = splice @ordered, 0, 1000) {
+    my @file_ids = grep {defined} map { $matched_files->{$_} } @chunk;
+    my ($snippets_by_file, $matches_by_file) = _license_rows_by_file($db, \@file_ids);
 
-    my $findings  = _file_licenses($db, $matched_files->{$ufile}, $resolve_license);
-    my $copyright = _copyrights($paths{$ufile});
+    for my $ufile (@chunk) {
+      $file_num++;
+      my $real_name = $original_files{$ufile} // $ufile;
+      my $fid       = $iri->("file-$file_num");
 
-    my $node = {
-      type                    => 'software_File',
-      spdxId                  => $fid,
-      creationInfo            => $creation,
-      name                    => "./$real_name",
-      software_primaryPurpose => _file_purpose($info{$ufile}{mime})
-    };
-    $node->{software_copyrightText} = join "\n", @$copyright if @$copyright;
-    $graph->add($node);
-    $relationship->($pkgid, 'contains', [$fid], 'complete');
+      my $mfid = $matched_files->{$ufile};
+      my $findings
+        = $mfid
+        ? _file_licenses($snippets_by_file->{$mfid} // [], $matches_by_file->{$mfid} // [], $resolve_license)
+        : [];
+      my $copyright = _copyrights($paths{$ufile});
 
-    # Concluded license for the whole file (all distinct licenses found in it)
-    my %seen;
-    my @ids = grep { !$seen{$_}++ } map { $_->{license} } @$findings;
-    $relationship->($fid, 'hasConcludedLicense', [$license_ref->(join ' AND ', @ids)]) if @ids;
+      my $node = {
+        type                    => 'software_File',
+        spdxId                  => $fid,
+        creationInfo            => $creation,
+        name                    => "./$real_name",
+        software_primaryPurpose => _file_purpose($info{$ufile}{mime})
+      };
+      $node->{software_copyrightText} = join "\n", @$copyright if @$copyright;
+      $graph->add($node);
+      $relationship->($pkgid, 'contains', [$fid], 'complete');
 
-    # Per-match evidence: a snippet element pinpointing the exact lines each license was found on,
-    # plus Cavil's risk/flag assessment attached to the license
-    for my $finding (@$findings) {
-      my $lid = $license_ref->($finding->{license});
-      $note_license->($lid, $finding->{risk}, $finding->{flags});
-      next unless $finding->{sline} && $finding->{eline};
+      # Concluded license for the whole file (all distinct licenses found in it)
+      my %seen;
+      my @ids = grep { !$seen{$_}++ } map { $_->{license} } @$findings;
+      $relationship->($fid, 'hasConcludedLicense', [$license_ref->(join ' AND ', @ids)]) if @ids;
 
-      my $sid = $iri->('snippet-' . ++$snippet_num);
-      $graph->add(
-        {
-          type         => 'software_Snippet',
-          spdxId       => $sid,
-          creationInfo => $creation,
+      # Per-match evidence: a snippet element pinpointing the exact lines each license was found on,
+      # plus Cavil's risk/flag assessment attached to the license
+      for my $finding (@$findings) {
+        my $lid = $license_ref->($finding->{license});
+        $note_license->($lid, $finding->{risk}, $finding->{flags});
+        next unless $finding->{sline} && $finding->{eline};
 
-          # A human-readable location name (file plus line range), so the snippet is a self-describing
-          # element rather than an anonymous evidence node
-          name                     => "./$real_name#L$finding->{sline}-L$finding->{eline}",
-          software_snippetFromFile => $fid,
-          software_lineRange       => {
-            type              => 'PositiveIntegerRange',
-            beginIntegerRange => $finding->{sline},
-            endIntegerRange   => $finding->{eline}
+        my $sid = $iri->('snippet-' . ++$snippet_num);
+        $graph->add(
+          {
+            type         => 'software_Snippet',
+            spdxId       => $sid,
+            creationInfo => $creation,
+
+            # A human-readable location name (file plus line range), so the snippet is a self-describing
+            # element rather than an anonymous evidence node
+            name                     => "./$real_name#L$finding->{sline}-L$finding->{eline}",
+            software_snippetFromFile => $fid,
+            software_lineRange       => {
+              type              => 'PositiveIntegerRange',
+              beginIntegerRange => $finding->{sline},
+              endIntegerRange   => $finding->{eline}
+            }
           }
-        }
-      );
-      $relationship->($sid, 'hasConcludedLicense', [$lid]);
+        );
+        $relationship->($sid, 'hasConcludedLicense', [$lid]);
+      }
     }
   }
 
@@ -454,23 +467,14 @@ sub generate_to_file ($self, $id, $file) {
   path($tmp_file)->move_to($file);
 }
 
-# Collect license findings for a single file, reusing the same snippet/keyword resolution the report
-# uses. Each finding carries the resolved license identifier, Cavil's risk and legal flags, and the
-# line range it was found on (for snippet evidence).
-sub _file_licenses ($db, $file_id, $resolve_license) {
-  return [] unless $file_id;
-
+# Collect license findings for a single file from its pre-fetched snippet and match rows (fetched in
+# batches by the caller, see _license_rows_by_file), reusing the same snippet/keyword resolution the
+# report uses. Each finding carries the resolved license identifier, Cavil's risk and legal flags, and
+# the line range it was found on (for snippet evidence).
+sub _file_licenses ($snippet_rows, $match_rows, $resolve_license) {
   my (@findings, @folded, %matched_lines, %ignored_lines, %similarity);
 
-  my $snippet_sql = qq{
-    SELECT f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
-           p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
-           p.trademark AS ptrademark, p.patent AS ppatent, p.export_restricted AS pexport_restricted,
-           p.cla AS pcla, p.eula AS peula
-    FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
-    WHERE file = ? AND classified = true
-  };
-  for my $snippet ($db->query($snippet_sql, $file_id)->hashes->each) {
+  for my $snippet (@$snippet_rows) {
     my $resolution = $snippet->{resolution} // '';
     _matched_lines(\%ignored_lines, $snippet->{sline}, $snippet->{eline}, 1) unless $snippet->{license};
     _matched_lines(\%similarity, $snippet->{sline}, $snippet->{eline},
@@ -482,12 +486,7 @@ sub _file_licenses ($db, $file_id, $resolve_license) {
     }
   }
 
-  my $match_sql = qq{
-    SELECT m.*, p.spdx, p.license, p.risk, p.trademark, p.patent, p.export_restricted, p.cla, p.eula
-    FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
-    WHERE file = ? AND ignored = false ORDER BY p.license, p.id DESC
-  };
-  for my $match ($db->query($match_sql, $file_id)->hashes->each) {
+  for my $match (@$match_rows) {
     if ($match->{license} eq '') {
       next if $ignored_lines{$match->{sline}} && $ignored_lines{$match->{eline}};
       next if $matched_lines{$match->{sline}};
@@ -519,6 +518,33 @@ sub _file_licenses ($db, $file_id, $resolve_license) {
   }
 
   return \@findings;
+}
+
+# Fetch the classified snippet rows and non-ignored pattern-match rows for a batch of matched_files ids,
+# grouped by file id. Batching (WHERE file = ANY) turns the two queries-per-file into two queries per
+# chunk, which is the dominant cost of report generation on large packages.
+sub _license_rows_by_file ($db, $file_ids) {
+  my (%snippets, %matches);
+  return (\%snippets, \%matches) unless @$file_ids;
+
+  my $snippet_sql = qq{
+    SELECT f.file, f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
+           p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
+           p.trademark AS ptrademark, p.patent AS ppatent, p.export_restricted AS pexport_restricted,
+           p.cla AS pcla, p.eula AS peula
+    FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
+    WHERE f.file = ANY(?) AND classified = true
+  };
+  push @{$snippets{$_->{file}}}, $_ for $db->query($snippet_sql, $file_ids)->hashes->each;
+
+  my $match_sql = qq{
+    SELECT m.*, p.spdx, p.license, p.risk, p.trademark, p.patent, p.export_restricted, p.cla, p.eula
+    FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
+    WHERE m.file = ANY(?) AND ignored = false ORDER BY p.license, p.id DESC
+  };
+  push @{$matches{$_->{file}}}, $_ for $db->query($match_sql, $file_ids)->hashes->each;
+
+  return (\%snippets, \%matches);
 }
 
 # Extract the set flags from a match/snippet row (the fold path uses "p"-prefixed column aliases)
