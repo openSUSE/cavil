@@ -47,3 +47,28 @@ fold/clear/overlap threshold you can apply the new decision without a full reind
 --resolve`, which recomputes the resolutions for every package (much cheaper than reindexing, but still substantial at
 scale). Use `script/cavil snippets --rescore` first if the similarity scorer itself changed, since resolutions are
 derived from those scores.
+
+### Rolling out a preprocessing change (paced re-unpacking)
+
+A reindex (`script/cavil rindex`) re-runs pattern matching against the *already unpacked* files, so it does **not**
+pick up a change to the preprocessing step (for example the HTML/XML markup stripping). Those changes only take effect
+when a package is **re-unpacked**, which is far more expensive, so it should be spread out rather than triggered for the
+whole fleet at once.
+
+`script/cavil unpack --rebatch` re-unpacks one batch of the oldest non-obsolete packages and prints the newest package
+id it reached as the offset for the next call. The jobs are enqueued at a low Minion priority (below normal imports), so
+they yield to live review traffic and cascade through index/analyze/report on their own. Work through the fleet at
+whatever pace your workload allows:
+
+```sh
+    # Start at the beginning (500 packages by default)
+    script/cavil unpack --rebatch
+    # -> "Next offset: 67890"
+
+    # Later, when the workers have drained, continue from that offset (larger batch, say)
+    script/cavil unpack --rebatch 67890 --batch 1000
+    # -> "Next offset: 143120"
+```
+
+Repeat until it prints `Caught up`. Because it always starts from the oldest packages and advances by id, it is safe to
+stop and resume at any time. If the change ever needs to be rolled back, revert it and run the same catch-up again.

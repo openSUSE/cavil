@@ -16,23 +16,23 @@
 package Cavil::PostProcess;
 use Mojo::Base -base, -signatures;
 
-use Mojo::File qw(path);
+use Mojo::File                 qw(path);
+use Cavil::PostProcess::Markup qw(looks_like_markup strip_markup);
 
 has 'hash';
 has max_line_length => 115;
 
+# Find the offset (relative to $start) at which to break an over-long line: the first
+# split character (space/;/{/} keep the char on the current chunk, " breaks before it)
+# at or after $max_line_length, or 0 when none exists. A single regex scan replaces the
+# former character-by-character substr walk; behaviour is identical.
 sub _split_find_a_good_spot ($self, $line, $start, $len, $max_line_length) {
   my $length = $len - $start;
-  my $index  = $max_line_length;
-  return $length if ($index > $length);
-  my %splits = (' ' => 1, ';' => 1, '{' => 1, '}' => 1, '"' => 0);
+  return $length if ($max_line_length > $length);
 
-  while ($index < $length) {
-    my $char = substr($line, $start + $index, 1);
-    return $index + $splits{$char} if (exists $splits{$char});
-    $index++;
-  }
-  return 0;
+  my $rest = substr($line, $start + $max_line_length, $length - $max_line_length);
+  return 0 unless $rest =~ /([ ;{}"])/;
+  return $max_line_length + $-[0] + ($1 eq '"' ? 0 : 1);
 }
 
 sub _split_line_by_whitespace ($self, $fh, $line) {
@@ -70,7 +70,18 @@ sub _process_file ($self, $from, $mimetype) {
     $to = "$from.processed";
   }
 
-  my $destdir = $self->hash->{destdir};
+  my $destdir     = $self->hash->{destdir};
+  my $source      = "$destdir/$from";
+  my $destination = path($destdir, $to)->to_string;
+
+  # Markup files (HTML/XML, incl. unpacked ODF/OOXML component XML) are stripped to
+  # plain text - otherwise reviewers and the matcher only ever see tag soup. The
+  # stripped text is line-wrapped just like any other processed file. On any parser
+  # error we fall back to the plain line-wrapper below, so a file is never dropped.
+  if (looks_like_markup($from, _read_head($source))) {
+    return $to if $self->_process_markup_file($source, $destination);
+  }
+
   my $ignore_re;
 
   # mimetype text/x-po only hits most, but it might be good enough
@@ -82,21 +93,22 @@ sub _process_file ($self, $from, $mimetype) {
   if ($from =~ m,.spec$,) {
     $ignore_re = qr(^Name *:);
   }
-  open(my $f_in, '<', "$destdir/$from") || die "Can't open $from";
-  my $destination = path($destdir, $to)->to_string;
+
+  # Only rewrite the file when a line actually needs splitting (or an ignore_re cut
+  # applies). The common short-lined file then costs a single read and no write -
+  # previously every text file was fully written and then unlinked again.
+  return undef unless $self->_needs_processing($source, $ignore_re);
+
+  open(my $f_in,  '<', $source)      || die "Can't open $from";
   open(my $f_out, '>', $destination) || die "Can't open $to";
 
-  my $changed = 0;
   while (<$f_in>) {
     my $line = $_;
-    if ($ignore_re && $line =~ /$ignore_re/) {
-      $changed = 1;
-      last;
-    }
+    last if $ignore_re && $line =~ /$ignore_re/;
 
     if (length($line) > $self->max_line_length) {
       chomp $line;
-      $changed = $self->_split_line_by_whitespace($f_out, $line) || $changed;
+      $self->_split_line_by_whitespace($f_out, $line);
     }
     else {
       print $f_out $line;
@@ -106,14 +118,58 @@ sub _process_file ($self, $from, $mimetype) {
   close($f_in);
   close($f_out);
 
-  #warn "FILE $destination CHANGED: $changed\n";
-  if (!$changed) {
-    unlink($destination);
-
-    #warn "UNLINKED $destination: $!\n";
-    return undef;
-  }
   return $to;
+}
+
+# First chunk of a file, for the markup content sniff. Returns '' if unreadable.
+sub _read_head ($source, $bytes = 4096) {
+  open(my $fh, '<', $source) or return '';
+  my $head = '';
+  read($fh, $head, $bytes);
+  close($fh);
+  return $head;
+}
+
+# Does the file actually need rewriting? True when an ignore_re line is present, or a
+# line is long enough to have a split point at/after max_line_length. Mirrors the exact
+# conditions under which the rewrite loop produces different content, so skipping is
+# byte-for-byte equivalent to the old "write, then unlink if unchanged" behaviour.
+sub _needs_processing ($self, $source, $ignore_re) {
+  my $max = $self->max_line_length;
+  open(my $fh, '<', $source) || die "Can't open $source";
+  while (my $line = <$fh>) {
+    if ($ignore_re && $line =~ /$ignore_re/) { close($fh); return 1 }
+    if (length($line) > $max) {
+      chomp(my $chomped = $line);
+      if (substr($chomped, $max) =~ /[ ;{}"]/) { close($fh); return 1 }
+    }
+  }
+  close($fh);
+  return 0;
+}
+
+# Strip markup from $source into $destination, wrapping each stripped line to
+# max_line_length via the shared line-splitter. Returns 1 on success, 0 (removing any
+# partial file) on parser failure so the caller can fall back to plain processing.
+sub _process_markup_file ($self, $source, $destination) {
+  my $max = $self->max_line_length;
+  my $ok  = eval {
+    open(my $f_out, '>:encoding(UTF-8)', $destination) || die "Can't open $destination";
+    strip_markup(
+      $source,
+      sub ($line) {
+        if (length($line) > $max) { $self->_split_line_by_whitespace($f_out, $line) }
+        else                      { print $f_out "$line\n" }
+      }
+    );
+    close($f_out);
+    1;
+  };
+  unless ($ok) {
+    unlink($destination);
+    return 0;
+  }
+  return 1;
 }
 
 sub new ($class, $hash) { $class->SUPER::new(hash => $hash) }

@@ -179,7 +179,9 @@ resources.
 These jobs are involved in report creation and usually run in the listed order:
 
 1. `obs_import` or `git_import`: Checks out the package sources from OBS or git repo.
-2. `unpack`: Recursively unpacks all archives contained in package sources.
+2. `unpack`: Recursively unpacks all archives contained in package sources, then preprocesses the unpacked text
+             files into `.processed` variants that the indexer scans instead of the originals (see *Preprocessing*
+             below).
 3. `index`: Creates file lists and splits them up into batches for parallel processing.
 4. `index_batch`: Performs two phase pattern matching on all files in the batch with license and keyword patterns.
                   There can be thousands of `index_batch` jobs at the same time.
@@ -193,6 +195,26 @@ This one is not specific to one package checkout.
 
 9. `classify`: Sends all unclassified snippets of potential legal text to the text classification server, and if
                necessary updates reports.
+
+### Preprocessing
+
+Before indexing, the `unpack` job runs each unpacked text file through a preprocessing step that writes a
+`<name>.processed.<ext>` variant; the indexer then scans that variant instead of the original (the original stays on
+disk, and structured-metadata detection still reads it — injected line breaks would corrupt JSON and the like). Two
+transformations happen here:
+
+* **Line wrapping.** Over-long lines are split at word boundaries, so machine-generated single-line files stay readable
+  in the file viewer and produce sensible snippet windows.
+* **Markup stripping.** HTML and XML files — including the component XML unpacked from ODF/OOXML office documents — are
+  reduced to their entity-decoded text content, with `<script>`/`<style>` content dropped. This is done in-process with
+  a streaming tokenizer (`HTML::Parser`), so peak memory stays flat regardless of file size. The result is line-wrapped
+  like any other file. Without this step the matcher and reviewers would only ever see tag soup, forcing brittle
+  markup-specific patterns; stripping means license text embedded in markup is matched as ordinary text. A file is only
+  stripped when its extension and content both look like markup (a deliberately conservative gate), and any parser
+  failure falls back to plain line wrapping so a file is never lost.
+
+Rolling out a change to this step means re-unpacking existing packages; the `unpack --rebatch` command does that in
+paced batches (see the Maintenance guide).
 
 ## Software Bill of Materials (SBOM)
 

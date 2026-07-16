@@ -54,6 +54,28 @@ subtest 'gnome-icon-theme' => sub {
     'Correctly stripped spec file';
 };
 
+subtest 'Markup files are stripped to text and wrapped' => sub {
+  my $tmp = tempdir;
+
+  # A long paragraph forces the stripped output to be line-wrapped like any other file.
+  my $long = join ' ', ('protected by copyright and distributed under licenses restricting its use') x 4;
+  $tmp->child('content.xml')
+    ->spew(qq{<text:p text:style-name="P8">U.S.A. All rights reserved.</text:p><text:p>$long</text:p>});
+
+  my $processor = Cavil::PostProcess->new({destdir => $tmp, unpacked => {'content.xml' => {mime => 'text/xml'}}});
+  $processor->postprocess;
+
+  is_deeply $processor->hash, {destdir => $tmp, unpacked => {'content.processed.xml' => {mime => 'text/xml'}}},
+    'original entry replaced by the stripped .processed variant';
+
+  my $out = $tmp->child('content.processed.xml')->slurp;
+  like $out,   qr/U\.S\.A\. All rights reserved\./, 'license text preserved';
+  unlike $out, qr/text:p|style-name|P8|[<>]/,       'no markup tokens leak into the output';
+
+  my @lines = split /\n/, $out;
+  ok @lines >= 3, 'long paragraph was wrapped across multiple lines';
+};
+
 subtest 'Filenames without alphanumeric extensions do not gain .processed._' => sub {
   my $tmp = tempdir;
   $tmp->child('config.guess._')->spew(join(' ', ('xxxxx') x 30) . "\n");

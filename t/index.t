@@ -101,7 +101,10 @@ like $t->app->packages->find(1)->{checksum}, qr/^Artistic-2.0-9:\w+/, 'right sho
 
 # Check email addresses and URLs
 ok $db->select('emails', ['id'], {email => 'sri@cpan.org'})->rows, 'email address has been added';
-is $db->select('urls', ['hits'], {url => 'http://mojolicious.org'})->hash->{hits}, 154, 'URL has been added';
+
+# Two fewer hits than the raw sources: URLs that only appeared inside HTML attributes (href/src) are
+# gone now that markup is stripped before indexing; text occurrences of the URL are still counted.
+is $db->select('urls', ['hits'], {url => 'http://mojolicious.org'})->hash->{hits}, 152, 'URL has been added';
 my $long = 'e2%98%83@xn--n3h.xn--n3h.de';
 is $db->select('emails', ['id'], {email => $long})->hash, undef, 'email address is too long';
 $long = 'https://cdn.rawgit.com/google/code-prettify/master/loader/prettify.css';

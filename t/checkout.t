@@ -55,8 +55,11 @@ subtest 'ceph-image (kiwi)' => sub {
   my $checkout = Cavil::Checkout->new($ceph);
   $checkout->unpack;
   my $stats = $checkout->unpacked_file_stats;
-  is $stats->{files}, 5,    'right number of files';
-  is $stats->{size},  4964, 'right size';
+  is $stats->{files}, 5, 'right number of files';
+
+  # Smaller than the raw sources: the .kiwi and tumbleweed.xml are markup and are stripped to text
+  # before indexing (the kiwi *report* below still parses the original file).
+  is $stats->{size}, 1866, 'right size';
   is_deeply $checkout->specfile_report, report('ceph-image.kiwi'), 'right kiwi report';
 };
 
@@ -350,6 +353,26 @@ subtest 'Tarball upload auto-detection' => sub {
     is scalar(@{$info->{sub}}), 1,            'chart is also listed as a sub package';
     is $info->{sub}[0]{type},   'helm',       'sub package is the chart';
   };
+};
+
+subtest 'Markup files are stripped during unpack' => sub {
+  my $co   = $TMP->child('markup-checkout', 'hash')->make_path;
+  my $long = join ' ', ('Permission is hereby granted free of charge to any person obtaining a copy') x 3;
+  $co->child('readme.html')
+    ->spew(qq{<html><body><h1>License</h1><p>$long</p><p>Redistribution &amp; use permitted.</p></body></html>});
+
+  my $checkout = Cavil::Checkout->new($co);
+  $checkout->unpack;
+
+  my $files = $checkout->unpacked_files;
+  ok + (grep { $_->[0] =~ m{(?:^|/)readme\.processed\.html$} } @$files), 'indexer sees the stripped .processed.html';
+  ok !(grep { $_->[0] =~ m{(?:^|/)readme\.html$} } @$files), 'raw readme.html is not indexed';
+
+  my ($rel) = map { $_->[0] } grep { $_->[0] =~ m{readme\.processed\.html$} } @$files;
+  my $stripped = $co->child('.unpacked', split m{/}, $rel)->slurp;
+  like $stripped,   qr/Permission is hereby granted free of charge/, 'license text extracted';
+  like $stripped,   qr/Redistribution & use permitted/,              'HTML entity decoded';
+  unlike $stripped, qr/<html|<body|<h1|<p>/,                         'markup tags removed';
 };
 
 subtest 'Unpack background job' => sub {
