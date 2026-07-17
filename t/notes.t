@@ -158,8 +158,9 @@ subtest 'Obsolete package without legal report still exposes notes' => sub {
   my $report   = $db->select('bot_reports', 'ldig_report', {package => 2})->hash;
   my $original = {obsolete => $pkg->{obsolete}, state => $pkg->{state}, ldig_report => $report->{ldig_report}};
 
-  $db->update('bot_packages', {obsolete => 1, state => 'obsolete'}, {id => 2});
-  $db->update('bot_reports', {ldig_report => undef}, {package => 2});
+  # Only the obsolete flag is set; the real state is preserved (as production now does)
+  $db->update('bot_packages', {obsolete    => 1},     {id      => 2});
+  $db->update('bot_reports',  {ldig_report => undef}, {package => 2});
 
   $t->get_ok('/reviews/details/2')
     ->status_is(200)
@@ -174,9 +175,11 @@ subtest 'Obsolete package without legal report still exposes notes' => sub {
 
   $t->get_ok('/reviews/notes/2')
     ->status_is(200)
-    ->json_is('/total'        => 2)
-    ->json_is('/notes/0/body' => 'from version 2')
-    ->json_is('/notes/1/body' => "Hello **world**\n");
+    ->json_is('/total'                             => 2)
+    ->json_is('/notes/0/body'                      => 'from version 2')
+    ->json_is('/notes/0/original_package/state'    => $original->{state})
+    ->json_is('/notes/0/original_package/obsolete' => true)
+    ->json_is('/notes/1/body'                      => "Hello **world**\n");
 
   $db->update('bot_reports', {ldig_report => $original->{ldig_report}}, {package => 2});
   $db->update('bot_packages', {obsolete => $original->{obsolete}, state => $original->{state}}, {id => 2});

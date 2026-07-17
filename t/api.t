@@ -346,11 +346,52 @@ subtest 'Remove request (but keep packages that are still part of a product)' =>
     ->status_is(200);
   $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
 
-  is $pkgs->find($ids[0])->{state}, 'new',      'right state';
-  is $pkgs->find($ids[1])->{state}, 'obsolete', 'right state';
-  is $pkgs->find($ids[2])->{state}, 'new',      'right state';
-  is $pkgs->find($ids[3])->{state}, 'obsolete', 'right state';
-  is $pkgs->find($ids[4])->{state}, 'new',      'right state';
+  # Packages no longer in a product are flagged obsolete, but their state is
+  # preserved as an audit trail (they were never overwritten to "obsolete")
+  is $pkgs->find($ids[0])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[1])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[2])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[3])->{state}, 'new', 'right state';
+  is $pkgs->find($ids[4])->{state}, 'new', 'right state';
+  ok !$pkgs->is_obsolete($ids[0]), 'still in product, not obsolete';
+  ok $pkgs->is_obsolete($ids[1]),  'not in product, obsolete';
+  ok !$pkgs->is_obsolete($ids[2]), 'still in product, not obsolete';
+  ok $pkgs->is_obsolete($ids[3]),  'not in product, obsolete';
+  ok !$pkgs->is_obsolete($ids[4]), 'still in product, not obsolete';
+};
+
+subtest 'Lawyer rejection survives obsoletion' => sub {
+  my $pkgs = $t->app->packages;
+  my $id   = $pkgs->add(
+    name            => 'test-rejected',
+    checkout_dir    => '2a0737e27a3b75590e7fab112b06a76fe7573699',
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => 1,
+    project         => 'devel:languages:perl',
+    package         => 'test-rejected',
+    srcmd5          => '2a0737e27a3b75590e7fab112b06a76fe7573699',
+    priority        => 5
+  );
+  $pkgs->imported($id);
+
+  # Lawyer rejects the review
+  my $pkg = $pkgs->find($id);
+  $pkg->{state}            = 'unacceptable';
+  $pkg->{reviewing_user}   = 1;
+  $pkg->{review_timestamp} = 1;
+  $pkg->{result}           = 'Rejected by lawyer';
+  $pkgs->update($pkg);
+  is $pkgs->find($id)->{state}, 'unacceptable', 'rejected by lawyer';
+
+  # Bot links the package to a request, then the request is closed
+  $t->post_ok('/requests' => {Authorization => 'Token test_token'} => form =>
+      {external_link => 'openSUSE:Rejected', package => $id})->status_is(200);
+  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'openSUSE:Rejected'})
+    ->status_is(200);
+
+  # State is preserved, but the package is flagged obsolete
+  is $pkgs->find($id)->{state}, 'unacceptable', 'lawyer rejection preserved';
+  ok $pkgs->is_obsolete($id), 'package is obsolete';
 };
 
 subtest 'Pagination' => sub {
@@ -361,7 +402,7 @@ subtest 'Pagination' => sub {
       ->json_is('/total',          1)
       ->json_is('/page/0/package', 'perl-Mojolicious')
       ->json_is('/page/0/id',      1)
-      ->json_is('/page/0/state',   'obsolete')
+      ->json_is('/page/0/state',   'new')
       ->json_has('/page/0/checksum')
       ->json_has('/page/0/comment')
       ->json_has('/page/0/user')

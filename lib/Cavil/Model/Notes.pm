@@ -143,7 +143,8 @@ sub paginate_for_package ($self, $package_name, %opts) {
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,
            EXTRACT(EPOCH FROM c.edited)  AS edited_epoch,
-           p.state AS package_state, p.external_link AS package_external_link, p.checksum AS package_checksum,
+           p.state AS package_state, p.obsolete AS package_obsolete,
+           p.external_link AS package_external_link, p.checksum AS package_checksum,
            COUNT(*) OVER() AS total
       FROM package_notes c
       JOIN bot_users u ON c.author = u.id
@@ -235,7 +236,8 @@ sub _query ($self, $extra_sql, $extra_args, $tail_sql = '', $tail_args = []) {
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,
            EXTRACT(EPOCH FROM c.edited)  AS edited_epoch,
-           p.state AS package_state, p.external_link AS package_external_link, p.checksum AS package_checksum
+           p.state AS package_state, p.obsolete AS package_obsolete,
+           p.external_link AS package_external_link, p.checksum AS package_checksum
       FROM package_notes c
       JOIN bot_users u ON c.author = u.id
       LEFT JOIN bot_packages p ON c.package = p.id

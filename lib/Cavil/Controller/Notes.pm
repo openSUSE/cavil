@@ -209,8 +209,12 @@ sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
       fullname => $row->{author_fullname},
       badge    => _author_badge($row->{author_roles})
     },
-    original_package =>
-      {id => $row->{package_id}, state => $row->{package_state}, external_link => $row->{package_external_link}}
+    original_package => {
+      id            => $row->{package_id},
+      state         => $row->{package_state},
+      obsolete      => $row->{package_obsolete} ? \1 : \0,
+      external_link => $row->{package_external_link}
+    }
   };
 }
 

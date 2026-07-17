@@ -395,6 +395,17 @@ subtest 'Package search API' => sub {
     checkout_dir => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     srcmd5       => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   );
+
+  # A second visible package (no component) so pagination has a deterministic set to page through,
+  # independent of the fixture packages that earlier subtests legitimately obsolete
+  my $clean2 = $t->app->packages->add(
+    %common,
+    name         => 'security-clean-2',
+    package      => 'security-clean-2',
+    checkout_dir => 'dddddddddddddddddddddddddddddddd',
+    srcmd5       => 'dddddddddddddddddddddddddddddddd'
+  );
+
   my $emb = $t->app->packages->add(
     %common,
     name         => 'security-embargoed',

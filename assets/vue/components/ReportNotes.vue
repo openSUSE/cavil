@@ -339,7 +339,7 @@ export default {
       return this.isFromOtherReport(c) && !this.isRelevant(c);
     },
     isObsoleteOrigin(c) {
-      return !!(c.original_package && c.original_package.state === 'obsolete');
+      return !!(c.original_package && c.original_package.obsolete);
     },
     originBadgeTitle(c) {
       if (c.same_report === true) {

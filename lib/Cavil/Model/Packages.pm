@@ -605,9 +605,11 @@ sub obsolete_duplicate_new ($self) {
 sub obsolete_if_not_in_product ($self, $id) {
   my $db = $self->pg->db;
   return undef if $db->query('select 1 from bot_package_products where package = ? limit 1', $id)->array;
-  $db->query(
-    q{update bot_packages set state = 'obsolete', obsolete = true where id = ? and state in ('new', 'unacceptable')},
-    $id);
+
+  # Only set the obsolete flag, never overwrite the state. The state is the audit
+  # trail of the last real review decision (e.g. a lawyer's "unacceptable"); the
+  # boolean flag is what everything else uses to tell that a record is retired.
+  $db->query(q{update bot_packages set obsolete = true where id = ? and state in ('new', 'unacceptable')}, $id);
 
   return 1;
 }

@@ -281,12 +281,12 @@ sub unpack ($self, $options = {}) {
     # emitting output, so it is never touched - only a genuinely stuck helper (blocked on a fifo,
     # deadlocked pipe, ...) is reaped. We deliberately do NOT set the absolute max_files /
     # max_total_bytes / helper_timeout caps, which would clip legitimately huge packages.
-    stall_timeout        => 300,
+    stall_timeout => 300,
 
-    destdir              => "$unpack",
-    logfile              => "$log",
-    log_type             => 'JSON',
-    log_fullpath         => 0
+    destdir      => "$unpack",
+    logfile      => "$log",
+    log_type     => 'JSON',
+    log_fullpath => 0
   );
 
   # Zstandard, requires zstd
