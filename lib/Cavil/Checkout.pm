@@ -275,6 +275,14 @@ sub unpack ($self, $options = {}) {
     world_readable       => 1,
     archive_name_as_dir  => 0,
     follow_file_symlinks => 0,
+
+    # Kill a mime helper that makes NO I/O progress at all for 5 minutes. This is safe even for
+    # huge legit archives (chromium's 30G tarball): a real extraction keeps advancing an fd or
+    # emitting output, so it is never touched - only a genuinely stuck helper (blocked on a fifo,
+    # deadlocked pipe, ...) is reaped. We deliberately do NOT set the absolute max_files /
+    # max_total_bytes / helper_timeout caps, which would clip legitimately huge packages.
+    stall_timeout        => 300,
+
     destdir              => "$unpack",
     logfile              => "$log",
     log_type             => 'JSON',
