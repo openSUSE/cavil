@@ -237,16 +237,15 @@
         </div>
         <div class="col mb-3 metadata-review-actions">
           <div class="metadata-review-actions-group">
+            <!-- One accept button; the server derives acceptable vs acceptable_by_lawyer from the
+                 reviewer's capability, so a non-lawyer can never post a lawyer sign-off. -->
             <input
               class="btn btn-success"
-              id="acceptable_by_lawyer"
-              name="acceptable_by_lawyer"
+              id="acceptable"
+              name="acceptable"
               type="submit"
-              value="Acceptable by Lawyer"
+              :value="hasLawyerRole ? 'Acceptable by Lawyer' : 'Acceptable'"
             />
-            <span v-if="hasLawyerRole === false">
-              <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Acceptable" />
-            </span>
             <input class="btn btn-danger" id="unacceptable" name="unacceptable" type="submit" value="Unacceptable" />
           </div>
           <button

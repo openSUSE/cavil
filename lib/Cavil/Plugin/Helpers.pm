@@ -5,6 +5,7 @@ package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses qw(lic);
+use Cavil::Role     qw(roles_with_capability);
 use Cavil::Util     qw(external_link_data spdx_link);
 use CommonMark      ();
 use Mojo::File      qw(path);
@@ -17,6 +18,7 @@ sub register ($self, $app, $config) {
   $app->helper('current_user'                  => \&_current_user);
   $app->helper('current_user_roles'            => \&_current_user_roles);
   $app->helper('current_user_has_role'         => \&_current_user_has_role);
+  $app->helper('current_user_can'              => \&_current_user_can);
   $app->helper('current_user_has_write_access' => \&_current_user_has_write_access);
   $app->helper('current_user_scopes'           => \&_current_user_scopes);
   $app->helper('lic'                           => sub { shift; lic(@_) });
@@ -191,6 +193,14 @@ sub _current_user ($c) { $c->stash->{'cavil.api.user'} // $c->session('user') }
 sub _current_user_has_role ($c, @roles) {
   return undef unless my $user = $c->helpers->current_user;
   return $c->users->has_role($user, @roles);
+}
+
+# Capability-based check: true when the current user holds any role that grants the capability. This is
+# the check controllers and templates should use, so authorization is expressed as "can curate" rather
+# than "is admin". Route gates use roles_with_capability() with the same map (see Cavil::Role).
+sub _current_user_can ($c, $capability) {
+  return undef unless my $user = $c->helpers->current_user;
+  return $c->users->has_role($user, @{roles_with_capability($capability)});
 }
 
 sub _current_user_has_write_access ($c) { $c->stash->{'cavil.api.write_access'} ? 1 : 0 }

@@ -534,22 +534,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(6)'), 'acceptable');
       t.match(await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(9)'), /Artistic/);
 
-      await page.click('text=Artistic');
-      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
-      await page.waitForSelector('#license-chart');
-      await page.click('text="Acceptable by Lawyer"');
-      await page.waitForSelector('#reviewed');
-      t.equal(await page.innerText('div.alert b'), 'acceptable_by_lawyer');
-
-      await page.click('text=Recently Reviewed');
-      t.equal(await page.innerText('title'), 'List recent reviews');
-      await page.waitForSelector('#recent-reviews tbody > tr:nth-child(1)');
-      t.equal(await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(5)'), 'perl-Mojolicious');
-      t.equal(
-        await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(6)'),
-        'acceptable_by_lawyer'
-      );
-      t.match(await page.innerText('#recent-reviews tbody > tr:nth-child(1) > td:nth-child(9)'), /Artistic/);
+      // The tester is a non-lawyer curator, so the accept button reads "Acceptable" and the state is
+      // derived as a plain "acceptable". The lawyer-derived acceptable_by_lawyer state (and the fact
+      // that a non-lawyer can never mint it) is covered end-to-end in t/roles.t.
     });
 
     await t.test('Manual reindexing', async t => {

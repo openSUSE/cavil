@@ -226,8 +226,8 @@ subtest 'Pattern match count JSON endpoint' => sub {
 subtest 'License detail JSON endpoint permissions' => sub {
   $t->get_ok('/licenses/meta/Apache-2.0')
     ->status_is(200)
-    ->json_is('/license'   => 'Apache-2.0')
-    ->json_is('/can_admin' => 1);
+    ->json_is('/license'    => 'Apache-2.0')
+    ->json_is('/can_curate' => 1);
 
   $t->post_ok('/licenses/meta/Apache-2.0' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})
     ->status_is(200)
@@ -236,8 +236,8 @@ subtest 'License detail JSON endpoint permissions' => sub {
   $t->get_ok('/logout')->status_is(302);
   $t->get_ok('/licenses/meta/Apache-2.0')
     ->status_is(200)
-    ->json_is('/license'   => 'Apache-2.0')
-    ->json_is('/can_admin' => 0);
+    ->json_is('/license'    => 'Apache-2.0')
+    ->json_is('/can_curate' => 0);
   $t->post_ok('/licenses/meta/Apache-2.0' => form => {license => 'Apache-2.0', spdx => 'Apache-2.0'})
     ->status_is(403)
     ->content_like(qr/Permission/);

@@ -153,16 +153,22 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
 
 ### Access Levels
 
-What level of features are actually available to logged in users depends on the roles that have been assigned to them.
-These are currently available:
+Authorization is capability-based: every gate asks "does the user have capability X?" rather than
+naming a role, and roles are named bundles of capabilities resolved through a single map. The full
+model — the capability list, the role matrix, the capability-to-gate mapping, and the
+`acceptable_by_lawyer` invariant — is documented in [Roles.md](Roles.md). In short:
 
-* `user`: Minimal access level, can view reports and review results. Not allowed to browse checkouts or make changes.
-* `classifier`: Human expert who can validate AI text classification results to create new training data.
-* `contributor`: Human expert who can propose new license patterns to be added for reports. These proposals need to be
-                 reviewed and accepted by an `admin` however before they become active.
-* `manager`: Human expert who can change reports from the state `new` to `acceptable`.
-* `lawyer`: Lawyers can change reports from the state `new` to `acceptable_by_lawyer`.
-* `admin`: Full access to all features.
+* `user`: view reports and review results only.
+* `classifier`: validate AI text classification results to create training data.
+* `contributor`: propose patterns, ignores and snippets; proposals need a curator (`admin`/`lawyer`) to
+                 take effect.
+* `manager`: move reports from `new` to `acceptable`.
+* `admin`: the curator core (patterns, ignores, proposals, snippet decisions, reindex, reviews) *plus*
+           `infra` — the Minion dashboard and uploads.
+* `lawyer`: the same curator core as `admin`, but in place of `infra` it carries the legal sign-off that
+            moves a report from `new` to `acceptable_by_lawyer`; the `lawyer` role alone is enough to
+            curate and sign off. That state is always derived from the lawyer role and can never be set
+            by a non-lawyer, on either the web or MCP path.
 
 ### Automatic Acceptance
 
@@ -518,9 +524,10 @@ is acceptable.
   to a license already in the curated corpus; it never invents a license or mints a pattern, and a clear asserts no
   license at all. So nothing here can *add* a license that is not really present. The danger runs the other way: a clear
   can *remove* a genuine license from view, when the snippet that alone names it is mistaken for redundant boilerplate
-  and swept away. This is not hypothetical — open-webui's switch to a non-commercial license escaped exactly this way,
-  through overlap- and covered-clears that treated grab-bag marker matches as real coverage. A clear is therefore not the
-  harmless tidy-up it first appears to be; it carries a real false-negative risk. The safety case against it rests on
+  and swept away. This is a real risk, not a theoretical one: a project that keeps a permissive body and bolts on a
+  non-commercial clause (as the "Open WebUI License" does) produces a fragment that resembles only grab-bag markers, so a
+  clear that trusts grab-bag matches as coverage would sweep the one snippet that names the restriction. A clear is
+  therefore not the harmless tidy-up it first appears to be; it carries a real false-negative risk. The safety case against it rests on
   two things that hold regardless of any optional component: the guards on the clearing paths — coverage must come from
   a concrete license, the snippet's own closest match must not be a mere grab-bag marker, and inside a license file a
   grab-bag-closest fragment must clear a similarity floor before it can be swept — and the fact that clearing is fully
@@ -534,8 +541,7 @@ is acceptable.
 - **Precision-first, recall-preserving.** Only confident, unambiguous, low-risk matches resolve automatically;
   coin-flips between plausible licenses, high-risk licenses, and snippets that resemble a *different* license than the
   one they overlap are all left for human review. A genuine license is never silently removed — including the real
-  match an overlap-clear depends on (an earlier regression dropped exactly that, which is why this is stated as an
-  invariant and not left implicit).
+  match an overlap-clear itself depends on.
 - **Auditable and reproducible.** Every call is attributable (which license, which pattern, what risk), decided in one
   place, and stamped with the scorer version, so a report can be reproduced and explained.
 - **Reversible, never silent.** Derived resolutions are marked as derived, carry a one-click correction, and revert
@@ -694,8 +700,8 @@ ground truth. It opens the package's own `LICENSE` and `COPYING` files and reads
 scanner never turned into a finding and the resolution engine may have cleared away — a permissive body with an added
 field-of-use or user-count restriction, a file retitled to a bespoke project license, or an outright relicense from open
 source to non-commercial terms. It stays strictly advisory: it never accepts, rejects, patterns, or ignores anything;
-writing the note is its only action. Yet in practice it has already flagged real relicenses that the mechanical layer
-alone had cleared — precisely the false negative the resolution guards can bound but never fully eliminate.
+writing the note is its only action. It catches relicenses that the mechanical layer would otherwise clear — precisely
+the false negative the resolution guards can bound but never fully eliminate.
 
 The layers are complementary, not redundant, and none of them is the lawyer. The mechanical layer keeps an enormous
 backlog small, reproducible, and cheap to recompute; the review-note control re-reads the primary evidence with

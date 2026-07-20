@@ -310,7 +310,7 @@ sub tool_cavil_accept_review ($tool, $args) {
   $pkg->{result} = $reason ? "AI Assistant: $reason" : 'Reviewed ok';
   my $user = $c->current_user;
   $pkg->{reviewing_user}   = $c->users->id_for_login($user);
-  $pkg->{state}            = $c->current_user_has_role('lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
+  $pkg->{state}            = $c->current_user_can('review_lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
   $pkg->{review_timestamp} = 1;
   $pkg->{ai_assisted}      = 1;
 
@@ -545,7 +545,7 @@ sub tool_cavil_create_note ($tool, $args) {
   # already applies to this report (written on it, or on another review with an
   # identical license report), skip the write. Returned as a non-error so the
   # caller treats it as "already done" rather than retrying into a duplicate.
-  my $include_lawyer_only = $c->current_user_has_role('admin', 'lawyer') ? 1 : 0;
+  my $include_lawyer_only = $c->current_user_can('curate') ? 1 : 0;
   my $gate                = $args->{skip_if_existing_tag};
   if (defined $gate && length $gate) {
     my $existing = $c->notes->relevant_tagged_note($pkg->{name}, $id, $pkg->{checksum}, $gate,
@@ -577,7 +577,7 @@ sub tool_cavil_get_notes ($tool, $args) {
   return $tool->text_result($tag_error, 1) if $tag_error;
   my $relevant_only = $args->{relevant_only} ? 1 : 0;
 
-  my $include_lawyer_only = $c->current_user_has_role('admin', 'lawyer') ? 1 : 0;
+  my $include_lawyer_only = $c->current_user_can('curate') ? 1 : 0;
   my $page                = $c->notes->paginate_for_package(
     $pkg->{name},
     limit               => $limit,

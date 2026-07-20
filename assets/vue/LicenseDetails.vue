@@ -11,7 +11,7 @@
             <div class="license-details-kicker">License patterns</div>
             <h2>{{ details.display_license }}</h2>
           </div>
-          <a v-if="canAdmin" class="btn btn-primary" :href="newPatternUrl">
+          <a v-if="canCurate" class="btn btn-primary" :href="newPatternUrl">
             <i class="fa-solid fa-plus"></i> Add pattern
           </a>
         </div>
@@ -29,7 +29,7 @@
           >
           <span v-for="risk in risks" :key="risk" class="badge" :class="riskClass(risk)">Risk {{ risk }}</span>
         </div>
-        <form v-if="canAdmin" class="license-spdx-form" @submit.prevent="saveSpdx">
+        <form v-if="canCurate" class="license-spdx-form" @submit.prevent="saveSpdx">
           <input type="hidden" name="license" :value="details.license" />
           <label class="form-label" for="license-spdx">SPDX</label>
           <div class="license-spdx-control">
@@ -92,7 +92,7 @@
               <i class="fa-solid fa-magnifying-glass"></i>
             </a>
             <button
-              v-if="canAdmin"
+              v-if="canCurate"
               type="button"
               class="license-icon-button cavil-icon-action"
               :class="{active: editingId === pattern.id}"
@@ -193,8 +193,8 @@ export default {
     };
   },
   computed: {
-    canAdmin() {
-      return this.details?.can_admin === true;
+    canCurate() {
+      return this.details?.can_curate === true;
     },
     detailPathName() {
       return this.licenseName === '' ? '*Pattern without license*' : this.licenseName;

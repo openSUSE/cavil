@@ -121,10 +121,10 @@ sub remove ($self) {
 
   my $author = $self->users->find(login => $self->current_user)
     or return $self->render(json => {error => 'Unknown user'}, status => 403);
-  my $is_owner = $author->{id} == $note->{author_id};
-  my $is_admin = $self->current_user_has_role('admin');
+  my $is_owner   = $author->{id} == $note->{author_id};
+  my $can_curate = $self->current_user_can('curate');
   return $self->render(json => {error => 'Not allowed to remove this note'}, status => 403)
-    unless $is_owner || $is_admin;
+    unless $is_owner || $can_curate;
 
   my $removed = $self->notes->remove($id);
   $self->render(json => {removed => $removed ? \1 : \0});
@@ -146,9 +146,10 @@ sub update ($self) {
   # fix typos in lawyer-only notes etc.). Lawyer-only flag is intentionally
   # not editable here - flipping it would mean retroactively hiding content
   # that other people may already have referenced.
-  my $is_owner = $author->{id} == $note->{author_id};
-  my $is_admin = $self->current_user_has_role('admin');
-  return $self->render(json => {error => 'Not allowed to edit this note'}, status => 403) unless $is_owner || $is_admin;
+  my $is_owner   = $author->{id} == $note->{author_id};
+  my $can_curate = $self->current_user_can('curate');
+  return $self->render(json => {error => 'Not allowed to edit this note'}, status => 403)
+    unless $is_owner || $can_curate;
 
   my $raw_tags = $self->_tags_from_params;
   my ($tags, $tag_error) = validate_tags($raw_tags);
@@ -170,7 +171,7 @@ sub preview ($self) {
 }
 
 sub _can_post_lawyer_only ($self) {
-  return $self->current_user_has_role('admin') || $self->current_user_has_role('lawyer') ? 1 : 0;
+  return $self->current_user_can('curate') ? 1 : 0;
 }
 
 # Lawyer-only notes are visible only to admins and lawyers; everyone else
@@ -178,9 +179,9 @@ sub _can_post_lawyer_only ($self) {
 sub _can_see_lawyer_only ($self) { $self->_can_post_lawyer_only }
 
 sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
-  my $body_html = $self->markdown_to_safe_html($row->{body});
-  my $is_admin  = $self->current_user_has_role('admin');
-  my $is_owner  = $user_id && $row->{author_id} == $user_id;
+  my $body_html  = $self->markdown_to_safe_html($row->{body});
+  my $can_curate = $self->current_user_can('curate');
+  my $is_owner   = $user_id && $row->{author_id} == $user_id;
 
   # True when this note comes from a review with a license report identical to
   # the one being viewed (same bot_packages.checksum) - so it applies verbatim.
@@ -199,8 +200,8 @@ sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
     same_report   => $same_report,
     tags          => $row->{tags} // [],
     package_name  => $row->{package_name},
-    can_delete    => ($is_owner || $is_admin) ? \1 : \0,
-    can_edit      => ($is_owner || $is_admin) ? \1 : \0,
+    can_delete    => ($is_owner || $can_curate) ? \1 : \0,
+    can_edit      => ($is_owner || $can_curate) ? \1 : \0,
     created_epoch => $row->{created_epoch} + 0,
     edited_epoch  => $row->{edited_epoch} ? $row->{edited_epoch} + 0 : undef,
     author        => {

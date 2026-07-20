@@ -4,6 +4,6 @@
 <div id="recent-notes"></div>
 
 % content_for 'ready_function' => begin
-  % my $can_see_lawyer_only = current_user_has_role('admin', 'lawyer') ? 'true' : 'false';
+  % my $can_see_lawyer_only = current_user_can('curate') ? 'true' : 'false';
   cavil.setupRecentNotes(<%= $can_see_lawyer_only %>);
 % end

@@ -433,7 +433,7 @@ subtest 'Authorization error paths' => sub {
     logout($t);
   };
 
-  subtest q{Lawyer can post lawyer-only, but not delete other authors' notes} => sub {
+  subtest q{Lawyer can post lawyer-only notes and moderate others' notes} => sub {
     $t->get_ok('/test/become/lawyer_user')->status_is(200);
     $t->post_ok('/reviews/notes/1' => form => {body => 'lawyer-authored', lawyer_only => '1'})
       ->status_is(200)
@@ -442,9 +442,10 @@ subtest 'Authorization error paths' => sub {
     # Deleting their own seeded one is fine (owner).
     $t->delete_ok("/reviews/notes/$lawyer_note_id")->status_is(200);
 
-    # Deleting someone else's note is blocked.
+    # Lawyers hold the "curate" capability, which includes note moderation, so they may also remove
+    # another author's note.
     my $foreign = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'foreign note', 0)->{id};
-    $t->delete_ok("/reviews/notes/$foreign")->status_is(403)->json_like('/error' => qr/Not allowed to remove/);
+    $t->delete_ok("/reviews/notes/$foreign")->status_is(200)->json_is('/removed' => true);
     logout($t);
   };
 };

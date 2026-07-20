@@ -5,7 +5,7 @@
 
 % content_for 'ready_function' => begin
   % my $has_manager_role = current_user_has_role('manager') ? 'true' : 'false';
-  % my $has_admin_role = current_user_has_role('admin') ? 'true' : 'false';
+  % my $has_admin_role = current_user_can('curate') ? 'true' : 'false';
   % my $has_lawyer_role = current_user_has_role('lawyer') ? 'true' : 'false';
   % my $has_contributor_role = current_user_has_role('contributor') ? 'true' : 'false';
   % my $reindex_url = url_for 'reindex_package', id => $package->{id};

@@ -62,7 +62,8 @@ window.cavil = {
 
     createApp(CavilMenu, {
       currentUser: el.dataset.currentUser,
-      hasAdminRole: el.dataset.hasAdminRole === '1',
+      canCurate: el.dataset.canCurate === '1',
+      canInfra: el.dataset.canInfra === '1',
       initialStats: parseJsonData(el, 'stats', {missing: 0, proposals: 0}),
       roles: parseJsonData(el, 'roles', []),
       urls: parseJsonData(el, 'urls', {})

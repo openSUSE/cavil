@@ -21,7 +21,7 @@
         </li>
         <li><hr class="dropdown-divider" /></li>
       </template>
-      <li><h3 class="dropdown-header">User Menu</h3></li>
+      <li><h3 class="dropdown-header">Queues</h3></li>
       <li>
         <a :href="urls.missing" class="dropdown-item">
           <span>Missing Licenses</span>
@@ -34,15 +34,21 @@
           <span v-if="stats.proposals > 0" class="badge bg-secondary cavil-dropdown-badge">{{ stats.proposals }}</span>
         </a>
       </li>
+      <li><hr class="dropdown-divider" /></li>
+      <li><h3 class="dropdown-header">Insights</h3></li>
       <li><a :href="urls.recentPatterns" class="dropdown-item">Pattern Performance</a></li>
       <li><a :href="urls.recentNotes" class="dropdown-item">Recent Notes</a></li>
       <li><a :href="urls.stats" class="dropdown-item">Statistics</a></li>
       <li><hr class="dropdown-divider" /></li>
-      <template v-if="hasAdminRole">
-        <li><h3 class="dropdown-header">Administrator Menu</h3></li>
-        <li><a :href="urls.upload" class="dropdown-item">Upload Tarball</a></li>
+      <template v-if="canCurate">
+        <li><h3 class="dropdown-header">Curation</h3></li>
         <li><a :href="urls.ignoredMatches" class="dropdown-item">Ignored Matches</a></li>
         <li><a :href="urls.ignoredFiles" class="dropdown-item">Ignored Files</a></li>
+        <li><hr class="dropdown-divider" /></li>
+      </template>
+      <template v-if="canInfra">
+        <li><h3 class="dropdown-header">Administration</h3></li>
+        <li><a :href="urls.upload" class="dropdown-item">Upload Tarball</a></li>
         <li><a :href="urls.minion" class="dropdown-item">Minion Dashboard</a></li>
         <li><hr class="dropdown-divider" /></li>
       </template>
@@ -61,7 +67,8 @@ export default {
   mixins: [Refresh],
   props: {
     currentUser: {type: String, required: true},
-    hasAdminRole: {type: Boolean, default: false},
+    canCurate: {type: Boolean, default: false},
+    canInfra: {type: Boolean, default: false},
     initialStats: {type: Object, required: true},
     roles: {type: Array, default: () => []},
     urls: {type: Object, required: true}

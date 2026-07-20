@@ -321,7 +321,6 @@ sub review_package ($self) {
   $validation->optional('comment');
   $validation->optional('unacceptable');
   $validation->optional('acceptable');
-  $validation->optional('acceptable_by_lawyer');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $user = $self->session('user');
@@ -333,14 +332,14 @@ sub review_package ($self) {
   $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
   my $result = $pkg->{result} = $validation->param('comment') || 'Reviewed ok';
 
+  # The acceptance state is derived from the reviewer's capability, never taken from the request: only a
+  # holder of "review_lawyer" (the lawyer role) can produce acceptable_by_lawyer, so a non-lawyer curator
+  # (e.g. a plain admin) can accept a package but can never mint a lawyer sign-off. Mirrors the MCP path.
   if ($validation->param('unacceptable')) {
     $pkg->{state} = 'unacceptable';
   }
   elsif ($validation->param('acceptable')) {
-    $pkg->{state} = 'acceptable';
-  }
-  elsif ($validation->param('acceptable_by_lawyer')) {
-    $pkg->{state} = 'acceptable_by_lawyer';
+    $pkg->{state} = $self->current_user_can('review_lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
   }
   else {
     die "Unknown state";

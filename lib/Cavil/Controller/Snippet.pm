@@ -103,13 +103,13 @@ sub batch_decision ($self) {
   my $actions = $body->{actions};
   return $self->render(json => {error => 'No actions provided'}, status => 400) unless @$actions;
 
-  my $is_admin = $self->current_user_has_role('admin');
+  my $can_curate = $self->current_user_can('curate');
 
   # Phase 1: validate everything up front; surface all errors at once.
   my @results;
   my $worst_status = 200;
   for my $a (@$actions) {
-    my $error = $self->_validate_action($a, $is_admin);
+    my $error = $self->_validate_action($a, $can_curate);
     if (defined $error) {
       push @results, {error => $error->{message}};
       $worst_status = $error->{status} if $error->{status} > $worst_status;
@@ -252,10 +252,10 @@ sub _bad       ($message) { return {message => $message, status => 400} }
 sub _forbidden ($message) { return {message => $message, status => 403} }
 sub _conflict  ($message) { return {message => $message, status => 409} }
 
-sub _validate_action ($self, $a, $is_admin) {
+sub _validate_action ($self, $a, $can_curate) {
   return _bad('Missing action kind')        unless ref $a eq 'HASH' && defined(my $kind = $a->{kind});
   return _bad("Unknown action kind: $kind") unless $BATCH_KINDS{$kind};
-  return _forbidden('Permission denied') if $ADMIN_ONLY_KINDS{$kind} && !$is_admin;
+  return _forbidden('Permission denied') if $ADMIN_ONLY_KINDS{$kind} && !$can_curate;
   return _bad('Missing snippet id')
     unless $SNIPPETLESS_KINDS{$kind} || (defined $a->{snippetId} && $a->{snippetId} =~ /^\d+\z/);
   return _bad('Missing form data') unless ref(my $form = $a->{formData}) eq 'HASH';

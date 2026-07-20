@@ -7,6 +7,7 @@ use Mojo::Base 'Mojolicious', -signatures;
 use Mojo::Pg;
 use Cavil::Classifier;
 use Cavil::Git;
+use Cavil::Role qw(roles_with_capability);
 use Cavil::Model::Notes;
 use Cavil::Model::IgnoredFiles;
 use Cavil::Model::Packages;
@@ -156,14 +157,19 @@ sub startup ($self) {
   $self->pg->migrations->name('legalqueue_api')->from_file($path);
 
   # Authentication
-  my $public               = $self->routes;
-  my $bot                  = $public->under('/')->to('Auth::Token#check');
-  my $api_key              = $public->under('/')->to('Auth::APIKey#check');
-  my $logged_in            = $public->under('/' => {roles => []})->to('Auth#check');
-  my $manager              = $public->under('/' => {roles => ['manager']})->to('Auth#check');
-  my $admin                = $public->under('/' => {roles => ['admin']})->to('Auth#check');
-  my $admin_or_contributor = $public->under('/' => {roles => ['admin', 'contributor']})->to('Auth#check');
-  my $classifier           = $public->under('/' => {roles => ['classifier']})->to('Auth#check');
+  my $public    = $self->routes;
+  my $bot       = $public->under('/')->to('Auth::Token#check');
+  my $api_key   = $public->under('/')->to('Auth::APIKey#check');
+  my $logged_in = $public->under('/' => {roles => []})->to('Auth#check');
+
+  # Authorization is expressed by capability, not role: each gate accepts the roles that grant the
+  # capability (see Cavil::Role and docs/Roles.md). "curate" is admin+lawyer, "infra" is admin only, so
+  # a lawyer can do all curation but not run the machine.
+  my $can_infra    = $public->under('/' => {roles => roles_with_capability('infra')})->to('Auth#check');
+  my $can_curate   = $public->under('/' => {roles => roles_with_capability('curate')})->to('Auth#check');
+  my $can_propose  = $public->under('/' => {roles => roles_with_capability('propose')})->to('Auth#check');
+  my $can_review   = $public->under('/' => {roles => roles_with_capability('review')})->to('Auth#check');
+  my $can_classify = $public->under('/' => {roles => roles_with_capability('classify')})->to('Auth#check');
 
   if (my $openid = $config->{openid}) {
     $self->plugin(
@@ -185,7 +191,7 @@ sub startup ($self) {
   $public->get('/logout')->to('Auth#logout')->name('logout');
 
   # Minion admin
-  $self->plugin('Minion::Admin' => {route => $admin->any('/minion')});
+  $self->plugin('Minion::Admin' => {route => $can_infra->any('/minion')});
 
   # API for Open Build Service bots
   $bot->get('/package/<id:num>')->to('Queue#package_status');
@@ -250,17 +256,17 @@ sub startup ($self) {
   $logged_in->patch('/reviews/notes/<id:num>')->to('Notes#update')->name('update_note');
   $logged_in->delete('/reviews/notes/<id:num>')->to('Notes#remove')->name('remove_note');
   $logged_in->post('/reviews/notes/preview')->to('Notes#preview')->name('preview_note');
-  $admin->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
-  $manager->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
-  $admin->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
+  $can_curate->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');
+  $can_review->post('/reviews/fasttrack_package/<id:num>')->to('Reviewer#fasttrack_package')->name('fasttrack_package');
+  $can_curate->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
   $logged_in->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
 
   $public->get('/licenses')->to('License#list')->name('licenses');
   $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');
-  $admin->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
-  $admin->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
+  $can_curate->get('/licenses/new_pattern')->to('License#new_pattern')->name('new_pattern');
+  $can_curate->post('/licenses/create_pattern')->to('License#create_pattern')->name('create_pattern');
   $logged_in->get('/licenses/proposed')->to('License#proposed')->name('proposed_patterns');
   $logged_in->get('/licenses/missing')->to('License#missing')->name('missing_licenses');
   $logged_in->get('/licenses/proposed/stats')->to('License#proposal_stats')->name('proposed_patterns_stats');
@@ -268,31 +274,31 @@ sub startup ($self) {
   $logged_in->get('/licenses/recent')->to('License#recent')->name('recent_patterns');
   $logged_in->get('/licenses/recent/meta')->to('License#recent_meta')->name('recent_patterns_meta');
 
-  $admin->get('/ignored-matches')->to('Ignore#list_matches')->name('list_ignored_matches');
-  $admin->delete('/ignored-matches/<id:num>')->to('Ignore#remove_match')->name('remove_ignored_match');
-  $admin->get('/pagination/matches/ignored')->to('Pagination#ignored_matches')->name('pagination_ignored_matches');
+  $can_curate->get('/ignored-matches')->to('Ignore#list_matches')->name('list_ignored_matches');
+  $can_curate->delete('/ignored-matches/<id:num>')->to('Ignore#remove_match')->name('remove_ignored_match');
+  $can_curate->get('/pagination/matches/ignored')->to('Pagination#ignored_matches')->name('pagination_ignored_matches');
 
-  $admin->get('/ignored-files')->to('Ignore#list_globs')->name('list_globs');
-  $admin->post('/ignored-files')->to('Ignore#add_glob')->name('add_ignore');
-  $admin->delete('/ignored-files/<id:num>')->to('Ignore#remove_glob')->name('remove_ignored_file');
-  $admin->get('/pagination/files/ignored')->to('Pagination#ignored_files')->name('pagination_ignored_files');
+  $can_curate->get('/ignored-files')->to('Ignore#list_globs')->name('list_globs');
+  $can_curate->post('/ignored-files')->to('Ignore#add_glob')->name('add_ignore');
+  $can_curate->delete('/ignored-files/<id:num>')->to('Ignore#remove_glob')->name('remove_ignored_file');
+  $can_curate->get('/pagination/files/ignored')->to('Pagination#ignored_files')->name('pagination_ignored_files');
 
   # Public because of fine grained access controls (owner of proposal may remove it again)
   $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');
 
   $logged_in->get('/licenses/pattern/<id:num>.json')->to('License#pattern_detail')->name('pattern_detail');
-  $admin->post('/licenses/pattern/<id:num>.json')->to('License#update_pattern_json')->name('update_pattern_json');
+  $can_curate->post('/licenses/pattern/<id:num>.json')->to('License#update_pattern_json')->name('update_pattern_json');
   $logged_in->get('/licenses/pattern/<id:num>/match_count.json')
     ->to('License#match_count_json')
     ->name('pattern_match_count');
   $public->get('/licenses/meta/*name' => {name => ''})->to('License#show_meta')->name('license_show_meta');
-  $admin->post('/licenses/meta/*name' => {name => ''})
+  $can_curate->post('/licenses/meta/*name' => {name => ''})
     ->to('License#update_patterns_json')
     ->name('update_patterns_json');
-  $admin->get('/licenses/edit_pattern/<id:num>')->to('License#edit_pattern')->name('edit_pattern');
-  $admin->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
-  $admin->post('/licenses/update_patterns')->to('License#update_patterns')->name('update_patterns');
-  $admin->delete('/licenses/remove_pattern/<id:num>')->to('License#remove_pattern')->name('remove_pattern');
+  $can_curate->get('/licenses/edit_pattern/<id:num>')->to('License#edit_pattern')->name('edit_pattern');
+  $can_curate->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
+  $can_curate->post('/licenses/update_patterns')->to('License#update_patterns')->name('update_patterns');
+  $can_curate->delete('/licenses/remove_pattern/<id:num>')->to('License#remove_pattern')->name('remove_pattern');
   $public->get('/licenses/*name')->to('License#show')->name('license_show');
 
   $public->get('/products')->to('Product#list')->name('products');
@@ -302,22 +308,20 @@ sub startup ($self) {
 
   $logged_in->get('/snippets')->to('Snippet#list')->name('snippets');
   $logged_in->get('/snippets/meta')->to('Snippet#list_meta')->name('snippets_meta');
-  $classifier->post('/snippets/<id:num>')->to('Snippet#approve')->name('approve_snippets');
+  $can_classify->post('/snippets/<id:num>')->to('Snippet#approve')->name('approve_snippets');
   $logged_in->get('/snippet/edit/<id:num>')->to('Snippet#edit')->name('edit_snippet');
   $logged_in->get('/snippet/meta/<id:num>')->to('Snippet#meta')->name('snippet_meta');
   $logged_in->get('/snippet/smart_edit/<id:num>')->to('Snippet#smart_edit')->name('snippet_smart_edit');
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
-  $admin_or_contributor->get('/snippets/from_file/:file/<start:num>/<end:num>')
-    ->to('Snippet#from_file')
-    ->name('new_snippet');
-  $admin_or_contributor->post('/snippet/batch_decision')->to('Snippet#batch_decision')->name('snippet_batch_decision');
+  $can_propose->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
+  $can_propose->post('/snippet/batch_decision')->to('Snippet#batch_decision')->name('snippet_batch_decision');
 
   $logged_in->get('/stats')->to('Stats#index')->name('stats');
   $logged_in->get('/stats/meta')->to('Stats#meta')->name('stats_meta');
 
   # Upload (experimental)
-  $admin->get('/upload')->to('Upload#index')->name('upload');
-  $admin->post('/upload')->to('Upload#store')->name('store_upload');
+  $can_infra->get('/upload')->to('Upload#index')->name('upload');
+  $can_infra->post('/upload')->to('Upload#store')->name('store_upload');
 }
 
 1;

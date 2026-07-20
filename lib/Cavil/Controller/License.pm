@@ -92,7 +92,7 @@ sub show_meta ($self) {
       spdx            => $spdx,
       spdx_html       => spdx_link($spdx),
       patterns        => $patterns,
-      can_admin       => $self->current_user_has_role('admin') ? \1 : \0
+      can_curate      => $self->current_user_can('curate') ? \1 : \0
     }
   );
 }
@@ -181,10 +181,10 @@ sub remove_pattern ($self) {
 sub remove_proposal ($self) {
   my $checksum = $self->param('checksum');
 
-  my $patterns = $self->patterns;
-  my $is_admin = $self->current_user_has_role('admin');
-  my $is_owner = $patterns->is_proposal_owner($checksum, $self->current_user);
-  return $self->render('permissions', status => 403) unless $is_owner || $is_admin;
+  my $patterns   = $self->patterns;
+  my $can_curate = $self->current_user_can('curate');
+  my $is_owner   = $patterns->is_proposal_owner($checksum, $self->current_user);
+  return $self->render('permissions', status => 403) unless $is_owner || $can_curate;
 
   my $removed = $patterns->remove_proposal($checksum);
   $self->render(json => {removed => $removed ? 1 : 0});
