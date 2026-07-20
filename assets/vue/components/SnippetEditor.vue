@@ -555,12 +555,17 @@ export default {
       const matchLineSet = {};
       const keywordLineSet = {};
       const idsByLine = new Map();
+      // Each line maps to a list of pattern ids (several patterns can cover one line); accept a bare id
+      // too for resilience. Every id on a line ends up in data-pattern-ids, so the pinned tooltip shows
+      // them all.
       const collect = (map, into) => {
-        for (const [line, pid] of Object.entries(map)) {
+        for (const [line, pids] of Object.entries(map)) {
           const i = parseInt(line);
           into[i] = true;
           const list = idsByLine.get(i) ?? [];
-          if (!list.includes(String(pid))) list.push(String(pid));
+          for (const pid of Array.isArray(pids) ? pids : [pids]) {
+            if (!list.includes(String(pid))) list.push(String(pid));
+          }
           idsByLine.set(i, list);
         }
       };
@@ -740,12 +745,14 @@ export default {
       const ids = this.patternIdsAtPos(view, pos);
       if (ids.length === 0) return false;
       if (this.patternTooltip) this.patternTooltip.destroy();
-      const target = event.target instanceof Element ? event.target : event.target.parentElement;
-      const anchor = target?.closest('.cm-line') || view.dom;
-      const tooltip = showPatternTooltip(anchor, ids, {
+      // Pin the sticky pattern reference to the editor's top-right corner rather than over the clicked
+      // line: it stays reachable (with its open-in-new-tab link) but off the text being edited, and its
+      // anchor is the whole editor so typing does not dismiss it. A close button and Escape both dismiss.
+      const tooltip = showPatternTooltip(view.dom, ids, {
         persistent: true,
-        offsetLeft: 24,
-        placement: 'source-row',
+        placement: 'anchor-corner',
+        closable: true,
+        closeLabel: 'Pinned for reference',
         onDestroy: () => {
           if (this.patternTooltip === tooltip) this.patternTooltip = null;
         }
@@ -1128,6 +1135,41 @@ export default {
   max-width: min(300px, calc(100vw - 16px));
   min-width: 200px;
   overflow: hidden;
+}
+/* Pin bar for the persistent (closable) pattern tooltip in the editor: a slim header that names why the
+   card is sticky and carries the close button. */
+.cavil-pattern-tip-pinbar {
+  align-items: center;
+  background: #eaeef2;
+  border-bottom: 1px solid #d0d7de;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  padding: 3px 4px 3px 8px;
+}
+.cavil-pattern-tip-pinbar-label {
+  color: #59636e;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cavil-pattern-tip-close {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: #59636e;
+  cursor: pointer;
+  display: inline-flex;
+  height: 18px;
+  justify-content: center;
+  padding: 0;
+  width: 18px;
+}
+.cavil-pattern-tip-close:hover {
+  background: #d0d7de;
+  color: #1f2328;
 }
 .cavil-pattern-tip-loading,
 .cavil-pattern-tip-error {

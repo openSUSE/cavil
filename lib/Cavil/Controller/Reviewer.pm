@@ -192,7 +192,7 @@ sub _file_browser_source ($self, $package, $file, $filename) {
     = $self->app->pg->db->select('matched_files', ['id'], {package => $package->{id}, filename => $filename})->hash)
   {
     $file_id      = $matched->{id};
-    %info_by_line = %{$self->_file_browser_line_info($package, $file_id)};
+    %info_by_line = %{$self->snippets->file_line_info($package->{id}, $file_id)};
   }
 
   my $size = -s $file;
@@ -220,87 +220,6 @@ sub _file_browser_source ($self, $package, $file, $filename) {
   }
 
   return {id => $file_id, lines => lines_context(\@lines), name => $package->{name}, filename => $filename};
-}
-
-sub _file_browser_line_info ($self, $package, $file_id) {
-  my $db   = $self->app->pg->db;
-  my $info = {};
-
-  my %matched;    # lines covered by a real, curated licensed pattern match
-  my $matches = $db->query(
-    'SELECT pm.sline, pm.eline, lp.id, lp.license, lp.spdx, lp.risk
-       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
-      WHERE pm.package = ? AND pm.file = ? AND pm.ignored = false AND lp.license <> ?', $package->{id}, $file_id, ''
-  );
-  for my $match ($matches->hashes->each) {
-    for my $line ($match->{sline} .. $match->{eline}) {
-      $matched{$line} = 1;
-      my $current = $info->{$line} // {risk => 0};
-      next if $current->{risk} > $match->{risk};
-      $info->{$line} = {risk => $match->{risk}, name => $match->{license}, spdx => $match->{spdx}, pid => $match->{id}};
-    }
-  }
-
-  # Snippets render from their stored resolution (computed once by resolve_snippets): 'fold' as the
-  # inferred license, 'clear'/'overlap'/'covered' as resolved (cleared) noise, anything else as an
-  # unresolved snippet. Folded/cleared rows keep the snippet handle so reviewers can correct them inline.
-  my $snippets = $db->query(
-    'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.classified, s.license, s.like_pattern,
-            lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
-       FROM file_snippets fs
-       JOIN snippets s ON s.id = fs.snippet
-       LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
-      WHERE fs.package = ? AND fs.file = ?', $package->{id}, $file_id
-  );
-  for my $snippet ($snippets->hashes->each) {
-    next if $snippet->{classified} && !$snippet->{license};
-
-    my $resolution = $snippet->{resolution} // '';
-    my $line_info;
-    if ($resolution eq 'fold') {
-      $line_info = {
-        risk    => $snippet->{prisk},
-        name    => $snippet->{plicense},
-        spdx    => $snippet->{pspdx},
-        pid     => $snippet->{like_pattern},
-        snippet => $snippet->{id},
-        hash    => $snippet->{hash},
-        folded  => 1
-      };
-    }
-    elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
-      $line_info
-        = {risk => 0, name => 'Cleared boilerplate', snippet => $snippet->{id}, hash => $snippet->{hash}, cleared => 1};
-    }
-    elsif ($resolution eq 'covered') {
-      $line_info = {
-        risk    => 0,
-        name    => 'Covered by existing license match',
-        snippet => $snippet->{id},
-        hash    => $snippet->{hash},
-        covered => 1
-      };
-    }
-    else {
-      $line_info
-        = {risk => 9, snippet => $snippet->{id}, hash => $snippet->{hash}, name => 'Snippet of missing keywords'};
-      $line_info->{pids} = [$snippet->{like_pattern}] if $snippet->{like_pattern};
-    }
-
-    # A resolved snippet (fold/clear/overlap) describes the region, but a real licensed match is
-    # authoritative for its own line - it must not repaint a line that has its own curated match (e.g. a
-    # "Free Software Foundation" match on the first line of a folded GPL header). Unresolved snippets
-    # still take over their region (matching the report's needed_lines precedence).
-    my $defers_to_match = $resolution =~ /^(?:fold|clear|overlap|covered)$/;
-    for my $line ($snippet->{sline} .. $snippet->{eline}) {
-      next if $defers_to_match && $matched{$line};
-      my $current = $info->{$line} // {risk => 0};
-      next if $current->{risk} > $line_info->{risk};    # do not hide a higher-risk match
-      $info->{$line} = $line_info;
-    }
-  }
-
-  return $info;
 }
 
 sub list_recent ($self) {

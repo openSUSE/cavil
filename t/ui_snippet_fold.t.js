@@ -145,7 +145,8 @@ t.test('Cavil UI - overlap-clear (snippet over a real license match)', skipUnles
 
       await src.locator('tr.cleared').first().waitFor();
       t.ok(await src.locator('tr.cleared').count(), 'the overlap-cleared region is marked cleared');
-      await openSnippetAction(src, 'cleared', 'Review cleared text');
+      // An overlap-clear is labelled distinctly from a boilerplate-clear ("redundant" vs "cleared").
+      await openSnippetAction(src, 'cleared', 'Review redundant text');
       await src.locator('#inline-snippet-editor').waitFor();
       t.ok(await src.locator('#inline-snippet-editor').count(), 'cleared region opens the inline snippet editor');
     });

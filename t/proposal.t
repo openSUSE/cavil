@@ -51,7 +51,7 @@ subtest 'Snippet metadata' => sub {
     ->json_like('/snippet/text', qr/The license might be\nsomething cool/)
     ->json_is('/snippet/package/id',   1)
     ->json_is('/snippet/package/name', 'package-with-snippets')
-    ->json_is('/snippet/keywords',     {0 => 1});
+    ->json_is('/snippet/keywords',     {0 => [1]});
   $t->get_ok('/snippet/meta/2')
     ->status_is(200)
     ->json_is('/snippet/sline', 29)

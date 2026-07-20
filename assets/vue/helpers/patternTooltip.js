@@ -1,7 +1,7 @@
+import {showFloatingTooltip} from './floatingTooltip.js';
+
 const patternMeta = new Map();
 const patternMetaPromises = new Map();
-let activePersistentTooltip = null;
-let activeTransientTooltip = null;
 
 export function patternIdsFromInfo(info) {
   if (!info) return [];
@@ -97,127 +97,5 @@ export function buildPatternTooltipCard(meta, options = {}) {
 
 export function showPatternTooltip(anchor, ids, options = {}) {
   if (!ids.length) return null;
-  const persistent = options.persistent ?? false;
-  const interactive = options.interactive ?? true;
-  const hideDelay = options.hideDelay ?? 800;
-  if (persistent && activePersistentTooltip) activePersistentTooltip.destroy();
-  if (!persistent && activeTransientTooltip) activeTransientTooltip.destroy();
-  const dom = document.createElement('div');
-  dom.className = 'cavil-pattern-tip cavil-pattern-tip-floating';
-  if (!interactive) {
-    dom.style.pointerEvents = 'none';
-  }
-  document.body.appendChild(dom);
-  let destroyTimer = null;
-  let destroyed = false;
-  let watchingDocument = false;
-  let watchingScroll = false;
-
-  const place = () => {
-    if (destroyed) return;
-    const rect = anchor.getBoundingClientRect();
-    const offsetLeft = options.offsetLeft ?? 96;
-    const maxTop = window.innerHeight - dom.offsetHeight - 8;
-    let top;
-    if (options.placement === 'source-row') {
-      const below = rect.bottom + 6;
-      const above = rect.top - dom.offsetHeight - 6;
-      top = below + dom.offsetHeight <= window.innerHeight - 8 || above < 8 ? below : above;
-    } else {
-      top = rect.top - 4;
-    }
-    top = Math.min(Math.max(8, top), Math.max(8, maxTop));
-    const maxLeft = window.innerWidth - dom.offsetWidth - 8;
-    const left = Math.min(Math.max(8, rect.left + offsetLeft), Math.max(8, maxLeft));
-    dom.style.top = `${top}px`;
-    dom.style.left = `${left}px`;
-  };
-
-  const cancelDestroy = () => {
-    if (destroyTimer) clearTimeout(destroyTimer);
-    destroyTimer = null;
-  };
-
-  const destroy = () => {
-    if (destroyed) return;
-    cancelDestroy();
-    stopWatchingDocument();
-    stopWatchingScroll();
-    destroyed = true;
-    dom.remove();
-    if (activePersistentTooltip?.destroy === destroy) activePersistentTooltip = null;
-    if (activeTransientTooltip?.destroy === destroy) activeTransientTooltip = null;
-    if (options.onDestroy) options.onDestroy();
-  };
-
-  const scheduleDestroy = () => {
-    cancelDestroy();
-    destroyTimer = setTimeout(destroy, hideDelay);
-  };
-
-  const onDocumentPointerDown = event => {
-    if (dom.contains(event.target) || anchor.contains(event.target)) return;
-    destroy();
-  };
-
-  const onDocumentKeyDown = event => {
-    if (event.key === 'Escape') destroy();
-  };
-
-  const onScroll = () => destroy();
-
-  function startWatchingDocument() {
-    if (watchingDocument) return;
-    watchingDocument = true;
-    document.addEventListener('mousedown', onDocumentPointerDown, true);
-    document.addEventListener('keydown', onDocumentKeyDown, true);
-  }
-
-  function stopWatchingDocument() {
-    if (!watchingDocument) return;
-    watchingDocument = false;
-    document.removeEventListener('mousedown', onDocumentPointerDown, true);
-    document.removeEventListener('keydown', onDocumentKeyDown, true);
-  }
-
-  function startWatchingScroll() {
-    if (watchingScroll) return;
-    watchingScroll = true;
-    window.addEventListener('scroll', onScroll, true);
-  }
-
-  function stopWatchingScroll() {
-    if (!watchingScroll) return;
-    watchingScroll = false;
-    window.removeEventListener('scroll', onScroll, true);
-  }
-
-  dom.style.visibility = 'hidden';
-  if (!persistent && interactive) {
-    dom.addEventListener('mouseenter', cancelDestroy);
-    dom.addEventListener('mouseleave', scheduleDestroy);
-    dom.addEventListener('focusin', cancelDestroy);
-    dom.addEventListener('focusout', scheduleDestroy);
-  }
-  if (!persistent) startWatchingScroll();
-  const rendered = renderPatternTooltip(dom, ids, options);
-
-  requestAnimationFrame(() => {
-    place();
-    dom.style.visibility = 'visible';
-  });
-  rendered.then(place);
-
-  const tooltip = {
-    destroy,
-    scheduleDestroy,
-    cancelDestroy
-  };
-  if (persistent) {
-    activePersistentTooltip = tooltip;
-    setTimeout(startWatchingDocument, 0);
-  } else {
-    activeTransientTooltip = tooltip;
-  }
-  return tooltip;
+  return showFloatingTooltip(anchor, {...options, render: dom => renderPatternTooltip(dom, ids, options)});
 }

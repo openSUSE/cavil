@@ -226,18 +226,18 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       });
       await page.mouse.click(clickPoint.x, clickPoint.y);
       await page.locator('.cavil-pattern-tip-floating .cavil-pattern-tip-card').waitFor({state: 'visible'});
+      // The sticky reference is pinned to the editor's right edge, off the clicked text: the click point
+      // is not inside it, and it sits to the right of where the user clicked.
       const tooltipPlacement = await page.evaluate(point => {
-        const line = document.querySelector('#inline-snippet-editor .cm-line.found-pattern');
         const tip = document.querySelector('.cavil-pattern-tip-floating');
-        const lineRect = line.getBoundingClientRect();
         const tipRect = tip.getBoundingClientRect();
         const containsClick =
           point.x >= tipRect.left && point.x <= tipRect.right && point.y >= tipRect.top && point.y <= tipRect.bottom;
-        const coversLine = tipRect.top < lineRect.bottom && tipRect.bottom > lineRect.top;
-        return {containsClick, coversLine};
+        const besideClick = tipRect.left >= point.x;
+        return {containsClick, besideClick};
       }, clickPoint);
       t.notOk(tooltipPlacement.containsClick, 'pattern tooltip does not open under the click point');
-      t.notOk(tooltipPlacement.coversLine, 'pattern tooltip does not cover the clicked editor line');
+      t.ok(tooltipPlacement.besideClick, 'pattern tooltip is pinned to the side, off the clicked text');
 
       await page.mouse.move(clickPoint.x + 20, clickPoint.y);
       await page.waitForFunction(() => document.querySelectorAll('.cavil-pattern-tip').length === 1);
@@ -246,6 +246,13 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
         1,
         'hover does not duplicate the persistent pattern tooltip'
       );
+
+      // The pinned reference is dismissible via its close button (it stays put while editing otherwise).
+      const closeBtn = page.locator('.cavil-pattern-tip-floating .cavil-pattern-tip-close');
+      t.equal(await closeBtn.count(), 1, 'pinned pattern tooltip has a close button');
+      await closeBtn.click();
+      await page.locator('.cavil-pattern-tip-floating').waitFor({state: 'detached'});
+      t.pass('close button dismisses the pinned pattern tooltip');
 
       await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
       await waitForInlineSnippetEditorClosed(page);

@@ -171,6 +171,7 @@
 import PendingActionIndicator from './PendingActionIndicator.vue';
 import SnippetEditor from './SnippetEditor.vue';
 import {patternIdsFromInfo, showPatternTooltip} from '../helpers/patternTooltip.js';
+import {showResolutionTooltip} from '../helpers/resolutionTooltip.js';
 
 export default {
   name: 'FileSource',
@@ -188,7 +189,7 @@ export default {
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
-    return {hoveredGroup: null, patternTooltip: null, pendingCompensation: null};
+    return {hoveredGroup: null, activeTooltip: null, pendingCompensation: null, dropdownOpen: false};
   },
   computed: {
     isAdminOrContributor() {
@@ -222,7 +223,7 @@ export default {
   },
   watch: {
     inlineEditor(value) {
-      if (value) this.hidePatternTooltip();
+      if (value) this.hideTooltip();
     },
     lines() {
       if (!this.pendingCompensation) return;
@@ -255,8 +256,17 @@ export default {
       });
     }
   },
+  mounted() {
+    // Bootstrap dropdown events bubble to the table root. When a row's action menu opens, hide the hover
+    // tooltip and keep it suppressed until the menu closes, so the two never overlap; it comes back the
+    // next time the cursor moves onto a row.
+    this.$el.addEventListener('show.bs.dropdown', this.onDropdownShow);
+    this.$el.addEventListener('hidden.bs.dropdown', this.onDropdownHidden);
+  },
   beforeUnmount() {
-    if (this.patternTooltip) this.patternTooltip.destroy();
+    this.$el.removeEventListener('show.bs.dropdown', this.onDropdownShow);
+    this.$el.removeEventListener('hidden.bs.dropdown', this.onDropdownHidden);
+    if (this.activeTooltip) this.activeTooltip.destroy();
   },
   methods: {
     rowClass(info) {
@@ -272,7 +282,10 @@ export default {
       if (info.folded) classes.push('folded');
       if (info.cleared) classes.push('cleared');
       if (info.covered) classes.push('covered');
-      if (patternIdsFromInfo(info).length > 0) classes.push('has-pattern-tooltip');
+      // Derived rows explain themselves through the resolution tooltip; every other match with a known
+      // pattern gets the pattern-preview tooltip. Both want the help cursor.
+      if (this.isDerived(info)) classes.push('has-resolution-tooltip');
+      else if (patternIdsFromInfo(info).length > 0) classes.push('has-pattern-tooltip');
       // The first line of an unresolved snippet has both risk 9 and the `end`
       // marker added by Cavil::Util::lines_context. Keyboard navigation walks
       // these in document order.
@@ -288,30 +301,55 @@ export default {
       if (info.snippet != null) return `s${info.snippet}`;
       return null;
     },
+    onDropdownShow() {
+      this.dropdownOpen = true;
+      this.hideTooltip();
+    },
+    onDropdownHidden() {
+      this.dropdownOpen = false;
+    },
     onRowEnter(event, info) {
       this.hoveredGroup = this.groupKey(info);
-      if (this.patternTooltip) {
-        this.patternTooltip.destroy();
-        this.patternTooltip = null;
+      // An open action menu owns the row; don't pop a tooltip over it until it closes.
+      if (this.dropdownOpen) return;
+      if (this.activeTooltip) {
+        this.activeTooltip.destroy();
+        this.activeTooltip = null;
       }
-      const ids = patternIdsFromInfo(info);
-      if (ids.length > 0) {
-        const anchor = event.currentTarget.querySelector('td.code') || event.currentTarget;
-        const tooltip = showPatternTooltip(anchor, ids, {
-          hideDelay: 1000,
-          interactive: false,
-          link: false,
-          placement: 'source-row',
-          onDestroy: () => {
-            if (this.patternTooltip === tooltip) this.patternTooltip = null;
-          }
-        });
-        this.patternTooltip = tooltip;
+      const anchor = event.currentTarget.querySelector('td.code') || event.currentTarget;
+      // `tooltip` is referenced by onDestroy only after it has been assigned below, so the closure sees
+      // the returned handle and clears activeTooltip only when this same tooltip goes away.
+      let tooltip = null;
+      const onDestroy = () => {
+        if (this.activeTooltip === tooltip) this.activeTooltip = null;
+      };
+      // Both tooltips follow the cursor here so moving between rows feels consistent - a derived row
+      // explains *how* it was resolved, an ordinary pattern row shows the matched pattern's preview, but
+      // they place identically. Only one or the other ever shows on a row.
+      const origin = {x: event.clientX, y: event.clientY};
+      if (this.isDerived(info)) {
+        tooltip = showResolutionTooltip(anchor, info, {origin, onDestroy});
+      } else {
+        const ids = patternIdsFromInfo(info);
+        if (ids.length > 0) {
+          tooltip = showPatternTooltip(anchor, ids, {
+            hideDelay: 1000,
+            interactive: false,
+            link: false,
+            placement: 'cursor',
+            origin,
+            onDestroy
+          });
+        }
       }
+      this.activeTooltip = tooltip;
     },
     onRowLeave() {
       this.hoveredGroup = null;
-      if (this.patternTooltip) this.patternTooltip.scheduleDestroy();
+      if (this.activeTooltip) this.activeTooltip.scheduleDestroy();
+    },
+    isDerived(info) {
+      return !!(info && (info.folded || info.cleared || info.covered));
     },
     matchStartId(line) {
       // Stable anchor for ReportDetails' navigation state - only emitted on
@@ -325,7 +363,7 @@ export default {
     },
     snippetActionLabel(info) {
       if (info.folded) return 'Correct this fold';
-      if (info.cleared) return 'Review cleared text';
+      if (info.cleared) return info.clearReason === 'overlap' ? 'Review redundant text' : 'Review cleared text';
       if (info.covered) return 'Review covered snippet';
       return 'Create Pattern from selection';
     },
@@ -357,7 +395,7 @@ export default {
     },
     onCreateClick(event, line, snippetId) {
       event.preventDefault();
-      this.hidePatternTooltip();
+      this.hideTooltip();
       this.$emit('open-editor', {
         snippetId: snippetId ?? null,
         fileId: this.fileId,
@@ -368,11 +406,11 @@ export default {
         filePath: this.filename
       });
     },
-    hidePatternTooltip() {
+    hideTooltip() {
       this.hoveredGroup = null;
-      if (!this.patternTooltip) return;
-      this.patternTooltip.destroy();
-      this.patternTooltip = null;
+      if (!this.activeTooltip) return;
+      this.activeTooltip.destroy();
+      this.activeTooltip = null;
     },
     newSnippetUrl(start, end, hash) {
       const qs = new URLSearchParams({from: this.packname});
@@ -528,6 +566,63 @@ export default {
 .snippet tr.covered td.code {
   color: #6e7781;
   font-style: italic;
+}
+/* A derived row explains itself through the resolution tooltip on hover, so flag it with the help
+   cursor just like a pattern-backed row. */
+.snippet tr.has-resolution-tooltip td.code {
+  cursor: help;
+}
+/* Resolution tooltip body: a labelled explanation, deliberately distinct from the pattern tooltip's
+   monospace code preview - a prose lead plus a small definition list of metrics. The card shell and the
+   grey title header are the shared .cavil-pattern-tip styling (kept identical on purpose), except the
+   header gets a bottom border so it is symmetric with the bordered footer. */
+.cavil-resolution-tip .cavil-pattern-tip-header {
+  border-bottom: 1px solid #d1d9e0b3;
+}
+/* A per-variant icon on the left of the title makes fold vs clear vs overlap vs covered legible at a
+   glance without reading the text. */
+.cavil-resolution-tip-icon {
+  color: #6e7781;
+  margin-right: 6px;
+  width: 12px;
+}
+.cavil-resolution-tip-body {
+  padding: 9px 11px 10px;
+}
+/* The lead sentence is context; keep it muted so the metric rows below carry the visual weight. */
+.cavil-resolution-tip-lead {
+  color: #6e7781;
+}
+.cavil-resolution-tip-metrics {
+  align-items: baseline;
+  column-gap: 12px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  margin: 8px 0 0;
+  row-gap: 3px;
+}
+.cavil-resolution-tip-metric-label {
+  color: #59636e;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cavil-resolution-tip-metric-value {
+  color: #1f2328;
+  margin: 0;
+  text-align: right;
+}
+.cavil-resolution-tip-metric-value.mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 10px;
+}
+.cavil-resolution-tip-hint {
+  background: #f6f8fa;
+  border-top: 1px solid #d1d9e0b3;
+  color: #59636e;
+  font-style: italic;
+  padding: 6px 11px;
 }
 .snippet .derived-badge {
   color: #57606a;

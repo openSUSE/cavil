@@ -108,6 +108,10 @@ subtest 'fold-in gate (via the report)' => sub {
   ok $fb_folded,                                                'file browser marks the folded region';
   ok $fb_folded->[1]{snippet} && defined $fb_folded->[1]{hash}, 'file browser folded line carries the snippet handle';
 
+  # The derived line also carries the tooltip detail: how similar it was and what it resembles.
+  is $fb_folded->[1]{similarity}, 99,    'file browser folded line carries the similarity percentage';
+  is $fb_folded->[1]{closest},    'GPL', 'and the closest license it resembles';
+
   ok !$folds->($app, license      => 0),            'does not fold unless classified as legal text';
   ok !$folds->($app, likelyness   => 0.5),          'does not fold below the similarity threshold';
   ok !$folds->($app, second_match => 0.95),         'does not fold on a thin margin to the runner-up';
@@ -173,6 +177,8 @@ subtest 'boilerplate-clear (via the report)' => sub {
   ok $cleared_line, 'file browser marks the cleared region';
   ok $cleared_line->[1]{snippet} && defined $cleared_line->[1]{hash},
     'cleared line carries the snippet handle for review';
+  is $cleared_line->[1]{clearReason}, 'boilerplate', 'cleared line is tagged as a boilerplate clear (not an overlap)';
+  is $cleared_line->[1]{closest},     'Clear-Test',  'and carries the license it resembles for the tooltip';
 
   # With clearing disabled the same boilerplate stays unresolved
   my $off = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, clear_threshold => 0}});
@@ -336,6 +342,14 @@ subtest 'overlap-clear (snippet region already contains a real license match)' =
   my $highlighted = grep { ($_->[1]{name} // '') eq 'Overlap-Only' } @{$file_report->{lines}{$overlap_files[0]} // []};
   ok $highlighted, 'the overlapping match is still highlighted in the cleared file source view';
 
+  # The file browser distinguishes an overlap-clear from a boilerplate-clear via clearReason, so the
+  # tooltip can explain "redundant" vs "boilerplate".
+  $t->get_ok('/login')->status_is(302);
+  my $ov_source = $t->get_ok('/reviews/file_view_meta/1/README')->status_is(200)->tx->res->json->{source};
+  my ($ov_cleared) = grep { $_->[1]{cleared} } @{$ov_source->{lines}};
+  ok $ov_cleared, 'file browser marks the overlap-cleared region';
+  is $ov_cleared->[1]{clearReason}, 'overlap', 'and tags it as a redundant (overlap) clear';
+
   # Guard: a snippet that itself strongly resembles a DIFFERENT license is kept for review
   my $other = $app->patterns->create(pattern => 'a distinct overlap guard marker text', license => 'Other-Test');
   my $one   = $db->query('SELECT id FROM snippets LIMIT 1')->hash->{id};
@@ -415,6 +429,7 @@ subtest 'covered-clear (a concrete license already on the file, not overlapping 
   ok !$covered_line->[1]{cleared}, 'covered line is not mislabeled as a boilerplate clear';
   ok $covered_line->[1]{snippet} && defined $covered_line->[1]{hash},
     'covered line carries the snippet handle for correction';
+  is $covered_line->[1]{closest}, 'Cover-Test', 'covered line carries the license it resembles for the tooltip';
 
   # Risk-monotonic guard: a fragment resembling a higher-risk license than the coverage is kept
   my $risky = $app->patterns->create(pattern => 'a distinct covered risky marker text', license => 'AGPL-3.0-or-later');

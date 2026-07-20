@@ -144,6 +144,112 @@ sub resolve_snippets ($self, $package_id) {
   $tx->commit;
 }
 
+# Per-line match/snippet info for the file browser (and the report's inline file view), keyed by line
+# number. Real curated license matches win their own lines; every remaining snippet renders from its
+# stored resolution (computed once by resolve_snippets): 'fold' as the inferred license, 'clear' /
+# 'overlap' / 'covered' as resolved (cleared) noise, anything else as an unresolved snippet. Resolved
+# rows also carry the detail the file browser shows in its hover tooltip - what the snippet resembles,
+# how similar, how confident the classifier was - so a reviewer can see *how* a snippet was resolved at a
+# glance. That detail comes straight off the snippet row; the resolution itself was already decided by
+# resolve_snippets, so nothing here re-derives overlap or coverage.
+sub file_line_info ($self, $package_id, $file_id) {
+  my $db   = $self->pg->db;
+  my $info = {};
+
+  # Real curated license matches win their own lines.
+  my %matched;
+  my $matches = $db->query(
+    'SELECT pm.sline, pm.eline, lp.id, lp.license, lp.spdx, lp.risk
+       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.package = ? AND pm.file = ? AND pm.ignored = false AND lp.license <> ?', $package_id, $file_id, ''
+  );
+  for my $match ($matches->hashes->each) {
+    for my $line ($match->{sline} .. $match->{eline}) {
+      $matched{$line} = 1;
+      my $current = $info->{$line} // {risk => 0};
+      next if $current->{risk} > $match->{risk};
+      $info->{$line} = {risk => $match->{risk}, name => $match->{license}, spdx => $match->{spdx}, pid => $match->{id}};
+    }
+  }
+
+  my $snippets = $db->query(
+    'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.classified, s.license, s.like_pattern,
+            s.likelyness, s.confidence, lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
+       FROM file_snippets fs
+       JOIN snippets s ON s.id = fs.snippet
+       LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
+      WHERE fs.package = ? AND fs.file = ?', $package_id, $file_id
+  );
+  for my $snippet ($snippets->hashes->each) {
+    next if $snippet->{classified} && !$snippet->{license};
+    my $resolution = $snippet->{resolution} // '';
+
+    # Fields shared by every snippet row: the handle that keeps the region correctable, plus the tooltip
+    # detail - the closest license it resembles (what the scorer keyed on), its similarity (the 0..1 score
+    # scaled to a percentage, as in snippet_search) and the classifier confidence.
+    my $has_closest = defined $snippet->{plicense} && $snippet->{plicense} ne '';
+    my %common      = (
+      snippet    => $snippet->{id},
+      hash       => $snippet->{hash},
+      similarity => int(($snippet->{likelyness} // 0) * 100 + 0.5),
+      confidence => $snippet->{confidence} // 0,
+      $has_closest
+      ? (closest => $snippet->{plicense}, closestSpdx => $snippet->{pspdx}, closestRisk => $snippet->{prisk})
+      : ()
+    );
+
+    my $line_info;
+    if ($resolution eq 'fold') {
+      $line_info = {
+        %common,
+        risk   => $snippet->{prisk},
+        name   => $snippet->{plicense},
+        spdx   => $snippet->{pspdx},
+        pid    => $snippet->{like_pattern},
+        folded => 1
+      };
+    }
+
+    # Boilerplate-clear and overlap-clear both assert no license but for different reasons, so the tooltip
+    # tells them apart via clearReason: 'boilerplate' resembles license body text naming no single
+    # license; 'overlap' repeats a real license declaration inside the snippet's own lines (already
+    # painted on those lines, so no need to name it again here).
+    elsif ($resolution eq 'clear' || $resolution eq 'overlap') {
+      $line_info = {
+        %common,
+        risk        => 0,
+        name        => 'Cleared boilerplate',
+        cleared     => 1,
+        clearReason => $resolution eq 'overlap' ? 'overlap' : 'boilerplate'
+      };
+    }
+
+    # Covered: a concrete license already established in this file or directory covers this fragment, so it
+    # adds nothing - that license is already on the report through its own match.
+    elsif ($resolution eq 'covered') {
+      $line_info = {%common, risk => 0, name => 'Covered by existing license match', covered => 1};
+    }
+    else {
+      $line_info = {%common, risk => 9, name => 'Snippet of missing keywords'};
+      $line_info->{pids} = [$snippet->{like_pattern}] if $snippet->{like_pattern};
+    }
+
+    # A resolved snippet (fold/clear/overlap/covered) describes the region, but a real licensed match is
+    # authoritative for its own line - it must not repaint a line that has its own curated match (e.g. a
+    # "Free Software Foundation" match on the first line of a folded GPL header). Unresolved snippets
+    # still take over their region (matching the report's needed_lines precedence).
+    my $defers_to_match = $resolution =~ /^(?:fold|clear|overlap|covered)$/;
+    for my $line ($snippet->{sline} .. $snippet->{eline}) {
+      next if $defers_to_match && $matched{$line};
+      my $current = $info->{$line} // {risk => 0};
+      next if $current->{risk} > $line_info->{risk};    # do not hide a higher-risk match
+      $info->{$line} = $line_info;
+    }
+  }
+
+  return $info;
+}
+
 sub approve ($self, $id, $license) {
   my $db = $self->pg->db;
   $db->update('snippets', {license => $license eq 'true' ? 1 : 0, approved => 1, classified => 1}, {id => $id});
@@ -542,10 +648,14 @@ sub with_context ($self, $id, $file_id = undef) {
      WHERE file = ? AND sline >= ? AND eline <= ? ORDER BY sline', $example->{file}, $example->{sline},
       $example->{eline}
     )->hashes;
+
+    # Several patterns can cover the same line (two keyword patterns, or a license and a keyword match),
+    # so each line keeps the full list of pattern ids - the editor highlight and the pinned reference
+    # tooltip both show every pattern on a line, not just the last one seen.
     for my $pattern (@$patterns) {
       my $map = $pattern->{license} ? $matches : $keywords;
       for (my $line = $pattern->{sline}; $line <= $pattern->{eline}; $line += 1) {
-        $map->{$line - $example->{sline}} = $pattern->{id};
+        push @{$map->{$line - $example->{sline}}}, $pattern->{id};
       }
     }
   }
