@@ -8,7 +8,7 @@ Cavil has three primary components:
 2. Job queue for processing background jobs
 3. AI text classification server
 
-The web application and the job queue communicate via PostgreSQL database. All other compoents communicate via HTTP.
+The web application and the job queue communicate via PostgreSQL database. All other components communicate via HTTP.
 
 ```
          +---------+     +---------------------+     +----------------+
@@ -96,7 +96,7 @@ Legal reports can be in one of five states:
 
 * `acceptable`: Reviewed and accepted by a human expert or automated system, but not a lawyer.
 
-* `acceptable_by_lawyer`: Same as `acceptable`, but review was performend by a lawyer.
+* `acceptable_by_lawyer`: Same as `acceptable`, but review was performed by a lawyer.
 
 * `unacceptable`: Review by a lawyer that resulted in rejecting the report.
 
@@ -109,7 +109,7 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
 * `Open Reviews`: Lists all reports that are currently being prepared or ready for review. The report can be reviewed
                   once the link with the unique report checksum becomes visible. From the report new license patterns
                   can be created for newly identified snippets of potential legal text.
-* `Recent Reviwed`: Lists all review results from the past 3 months.
+* `Recent Reviewed`: Lists all review results from the past 3 months.
 * `Snippets`: Lists recently identified snippets of potential legal text and the associated AI text classification
               results if available. These results can be validated here to create new training data for future AI
               models.
@@ -123,7 +123,7 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
 What level of features are actually available to logged in users depends on the roles that have been assigned to them.
 These are currently available:
 
-* `user`: Minimal access level, can view reports amd review results. Not allowed to browse checkouts or make changes.
+* `user`: Minimal access level, can view reports and review results. Not allowed to browse checkouts or make changes.
 * `classifier`: Human expert who can validate AI text classification results to create new training data.
 * `contributor`: Human expert who can propose new license patterns to be added for reports. These proposals need to be
                  reviewed and accepted by an `admin` however before they become active.
@@ -479,11 +479,15 @@ is acceptable.
   can *remove* a genuine license from view, when the snippet that alone names it is mistaken for redundant boilerplate
   and swept away. This is not hypothetical — open-webui's switch to a non-commercial license escaped exactly this way,
   through overlap- and covered-clears that treated grab-bag marker matches as real coverage. A clear is therefore not the
-  harmless tidy-up it first appears to be; it carries a real false-negative risk. The guards on the clearing paths —
-  coverage must come from a concrete license, the snippet's own closest match must not be a mere grab-bag marker, and
-  inside a license file a grab-bag-closest fragment must clear a similarity floor before it can be swept — exist to keep
-  that risk small. They are calibrated bounds, not proofs, which is why a second, independent layer backstops them (see
-  *Defense in depth* below).
+  harmless tidy-up it first appears to be; it carries a real false-negative risk. The safety case against it rests on
+  two things that hold regardless of any optional component: the guards on the clearing paths — coverage must come from
+  a concrete license, the snippet's own closest match must not be a mere grab-bag marker, and inside a license file a
+  grab-bag-closest fragment must clear a similarity floor before it can be swept — and the fact that clearing is fully
+  reversible (a cleared region still shows in the file browser, nothing is auto-accepted at the risk levels where this
+  matters, and re-resolving with the feature off restores every report). Those are calibrated bounds, not proofs, and
+  they get stronger or weaker with how aggressively an instance is configured to clear — which is why the more aggressive
+  the configuration, the more an instance should also run the review-note layer as a compensating operational control
+  rather than an optional assistant (see *Defense in depth* below).
 - **The curated corpus stays the source of truth.** Resolutions are a derived, disposable cache; nothing is written
   back to the pattern or match tables. Turning the feature off and re-resolving reverts the reports.
 - **Precision-first, recall-preserving.** Only confident, unambiguous, low-risk matches resolve automatically;
@@ -627,14 +631,24 @@ package, which recomputes the resolution and makes the fold or clear simply stop
 the thresholds be generous; correcting the occasional wrong call is far cheaper than hand-writing a pattern for every
 license up front.
 
-### Defense in depth: AI review-note augmentation
+### Defense in depth: the review-note layer as an operational control
 
 The resolutions above are deliberately precision-first, but they are bounded by heuristics rather than proofs, and — as
-the first safety property admits — a clear can still hide a license that no curated pattern names. A second, independent
-layer exists to catch what slips through: an optional AI *review-note* assistant, packaged as an agent skill, that
-triages each open review and leaves a short advisory note for the human lawyer.
+the first safety property admits — a clear can still hide a license that no curated pattern names. The mechanical guards
+plus reversibility keep that residual risk small on their own; they are the safety floor and do not depend on anything
+below. But the size of that residual is a function of how aggressively an instance is configured to clear (directory
+scope, generous fold/clear thresholds, higher-risk folding). So a second, independent layer exists to cover it: an AI
+*review-note* assistant, packaged as an agent skill, that triages the open-review queue and leaves a short advisory note
+for the human lawyer.
 
-What makes it a real backstop rather than a restatement of the report is that it does not take the mechanical report as
+The important framing: **this layer is not just an optional convenience — for a deployment that enables aggressive
+clearing it is a compensating operational control, and should be run and monitored as one** (a scheduled pass over the
+open-review queue, the same way the indexing and classification jobs are operated). An instance that keeps clearing
+conservative can treat it as optional; an instance that turns clearing up should not. What it must never become is a
+*substitute* for the mechanical guards: it is model-dependent and advisory, so the safety case cannot be predicated on it
+alone — it lowers the residual that the guards already bound, it does not replace them.
+
+What makes it a real control rather than a restatement of the report is that it does not take the mechanical report as
 ground truth. It opens the package's own `LICENSE` and `COPYING` files and reads them, so it sees terms the pattern
 scanner never turned into a finding and the resolution engine may have cleared away — a permissive body with an added
 field-of-use or user-count restriction, a file retitled to a bespoke project license, or an outright relicense from open
@@ -642,11 +656,11 @@ source to non-commercial terms. It stays strictly advisory: it never accepts, re
 writing the note is its only action. Yet in practice it has already flagged real relicenses that the mechanical layer
 alone had cleared — precisely the false negative the resolution guards can bound but never fully eliminate.
 
-The two layers are complementary rather than redundant. The mechanical layer keeps an enormous backlog small,
-reproducible, and cheap to recompute; the agent layer re-reads the primary evidence with judgement and is tuned to
-shout about the cases that matter most — above all a change from an open-source to a non-free license, which is the worst
-outcome a review can miss. Neither layer is the lawyer, and neither is meant to be; together they make it far less likely
-that a consequential license escapes review.
+The layers are complementary, not redundant, and none of them is the lawyer. The mechanical layer keeps an enormous
+backlog small, reproducible, and cheap to recompute; the review-note control re-reads the primary evidence with
+judgement and is tuned to shout about the cases that matter most — above all a change from an open-source to a non-free
+license, the worst outcome a review can miss; and the human lawyer makes the final call on a report that, thanks to the
+layers below, is far less likely to be quietly wrong.
 
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 
