@@ -573,17 +573,33 @@ a risk at least as high as anything the fragment could plausibly be — is alrea
 directory scope, anywhere in the same directory). Like the other clears it asserts no license of its own; the license
 is already on the report through its own match.
 
-Two guards make this safe, and they are the whole point:
+Three guards make this safe, and they are the whole point:
 
 - **Only a concrete license counts as coverage.** Cavil's vocabulary includes grab-bag "licenses" — `Any Permissive`,
   `Any reference local`, `All Rights Reserved`, the version-less `GPL-Unspecified` family — that record "there is
   *something* here" without identifying a real, distributable license. These are flagged `catch_all` and never count as
   coverage. This matters: a file whose only match is `All Rights Reserved` might actually carry a real license (say,
   the Ruby or JasPer license) that only the unresolved fragment names — clearing that fragment against the weak marker
-  would hide the one piece of real information. So coverage requires a genuine, identifiable license.
+  would hide the one piece of real information. So coverage requires a genuine, identifiable license. The overlap-clear
+  path applies the same rule: a snippet that overlaps *only* grab-bag markers is not cleared, because those markers are
+  not the "genuine license declaration already on the report" that overlap-clear is premised on.
 - **Risk-monotonic.** A fragment is only covered when the established license is at least as risky as the fragment's own
   closest license. A snippet that resembles a *higher*-risk license than anything already on the file is kept — it might
   be a genuinely new, riskier license (a GPL fragment in an otherwise-MIT file) and must not be swept away.
+- **In a license file, a grab-bag closest match must be corroborated by high similarity.** Risk-monotonicity trusts the
+  fragment's own closest-license risk, but when that closest match is itself a `catch_all` grab-bag, the risk read is
+  unreliable — the bucket spans many risks (`Any CLA` runs 0–5), and the scorer picks whichever member it resembles
+  most, which for genuinely novel text is an accident. So inside a `LICENSE`/`COPYING`-type file a grab-bag-closest
+  fragment is only cleared when its similarity is high enough (the `cover_guard` threshold) that it truly *is* that
+  boilerplate; a weak, ambiguous grab-bag match is kept for review. This is what stops a custom relicense from being
+  swept as filler: a project that keeps a standard BSD/MIT body and bolts on a novel restrictive clause (an "Open
+  WebUI"-style non-commercial term, or the Redis source-available license) produces a fragment that scores only
+  moderately against a grab-bag while the file's *real* match is the retained permissive license — risk-monotonicity
+  against the grab-bag's incidental low risk would otherwise clear it. The guard is scoped to license files on purpose:
+  the same weak grab-bag match in a *code or documentation* file is the stray disclaimer, sample-code notice, or
+  vendored license-list reference text this feature is meant to clear (measurement put the license-file case at roughly
+  a tenth of all grab-bag-closest coverage), and genuine filler in a license file (a real disclaimer, an
+  `All Rights Reserved` line) scores high against its marker and still clears — so the bulk auto-clearing is unaffected.
 
 Directory scope, rather than whole-vendored-component scope, is deliberate: only a small fraction of packages have
 detected components, whereas every file has a directory, and measurement showed directory scope recovers essentially

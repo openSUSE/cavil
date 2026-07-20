@@ -17,9 +17,9 @@ use Mojo::Base -strict;
 
 use Test::More;
 use Cavil::ReportUtil (
-  qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
-  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
-  qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk incompatible_licenses is_license_filename minimal_snippet new_license_names new_unresolved_files),
+  qw(overlapping_licenses report_checksum report_shortname should_clear_boilerplate should_cover_snippet),
+  qw(should_fold_snippet should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
@@ -1341,6 +1341,68 @@ subtest 'should_cover_snippet' => sub {
     my %keyword = (license => 1, score_version => SNIPPET_SCORE_VERSION, plicense => '', prisk => undef);
     ok should_cover_snippet($cfg, \%keyword, 1), 'legal-text keyword noise in a licensed scope clears';
   };
+
+  subtest 'catch_all closest license in a license file needs high similarity to clear' => sub {
+
+    # In a license file, a grab-bag closest match (e.g. "Any CLA") has an unreliable risk read (the
+    # bucket spans many risks), so risk-monotonicity is not trusted: the fragment clears only when its
+    # similarity is high enough that it genuinely IS that boilerplate. A weak, ambiguous match is kept -
+    # the open-webui LICENSE case, novel terms scoring 0.63 against "Any CLA".
+    my %weak = (
+      license         => 1,
+      score_version   => SNIPPET_SCORE_VERSION,
+      plicense        => 'Any CLA',
+      prisk           => 1,
+      pcatch_all      => 1,
+      likelyness      => 0.63,
+      is_license_file => 1
+    );
+    ok !should_cover_snippet($cfg, \%weak, 5), 'low-similarity grab-bag match in a license file is kept';
+
+    my %strong = (%weak, likelyness => 0.95);
+    ok should_cover_snippet($cfg,  \%strong, 5), 'high-similarity grab-bag boilerplate still clears';
+    ok !should_cover_snippet($cfg, \%strong, 0), 'risk-monotonicity still applies once past the guard (risk 1 > 0)';
+
+    ok should_cover_snippet({%$cfg, cover_guard => 0.6}, \%weak, 5), 'cover_guard is configurable';
+
+    my %concrete = (%weak, pcatch_all => 0);
+    ok should_cover_snippet($cfg, \%concrete, 5), 'a concrete closest license clears regardless of similarity';
+
+    # Outside a license file the same weak grab-bag match is stray notice text and is still cleared
+    ok should_cover_snippet($cfg, {%weak, is_license_file => 0}, 5),
+      'the same weak grab-bag match in a non-license file still clears';
+  };
+};
+
+subtest 'is_license_filename' => sub {
+
+  # Every keyword alternative, at both the '^' and '/' anchors
+  ok is_license_filename('LICENSE'),       'bare LICENSE at start of path (^ anchor)';
+  ok is_license_filename('pkg/LICENSE'),   'LICENSE after a slash';
+  ok is_license_filename('pkg/LICENCE'),   'LICENCE (British spelling, the [CS] branch)';
+  ok is_license_filename('pkg/COPYING'),   'COPYING';
+  ok is_license_filename('pkg/COPYRIGHT'), 'COPYRIGHT';
+  ok is_license_filename('pkg/NOTICE'),    'NOTICE';
+  ok is_license_filename('pkg/EULA'),      'EULA';
+  ok is_license_filename('pkg/LEGAL'),     'LEGAL';
+  ok is_license_filename('pkg/UNLICENSE'), 'UNLICENSE';
+
+  # Trailing separators the regex allows after the keyword: '.', '-', or end of string
+  ok is_license_filename('redis-8.0.6/LICENSE.txt'), 'LICENSE.txt (dot separator)';
+  ok is_license_filename('foo/COPYING.LESSER'),      'COPYING.LESSER';
+  ok is_license_filename('foo/LICENSE-2.0.txt'),     'LICENSE-2.0.txt (dash separator)';
+  ok is_license_filename('foo/EULA.md'),             'EULA.md';
+  ok is_license_filename('foo/license.processed'),   'case-insensitive + Cavil processed variant';
+
+  # Boundaries: the keyword must sit at a path boundary and end at one
+  ok !is_license_filename('spdx-0.13.4/src/text/licenses/OGDL-Taiwan-1.0'),
+    'license-list reference data named after a license id is not a license file';
+  ok !is_license_filename('src/main.rs'),      'ordinary source file';
+  ok !is_license_filename('doc/RELICENSE.md'), 'keyword not at a path boundary (prefixed)';
+  ok !is_license_filename('foo/LICENSEE.txt'), 'keyword not at a word boundary (suffixed: "licensee")';
+  ok !is_license_filename('foo/MIT-LICENSE.txt'),
+    'not start-anchored: MIT-LICENSE is deliberately excluded (matches the corpus estimate)';
+  ok !is_license_filename('foo/NOTICE_TO_USERS'), 'NOTICE followed by "_" is not a boundary';
 };
 
 done_testing;

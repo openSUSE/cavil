@@ -192,25 +192,49 @@ subtest 'covered: a concrete license already on the file/directory clears the fr
   my $file_d  = $mkfile->('coverage/dir/source.js.map');
   my $sibling = $cocc->($file_d, $snip->(score_version => $V, like_pattern => $mit));
 
+  # Fragments whose OWN closest license is a catch_all grab-bag marker (risk 1). Risk-monotonicity alone
+  # (1 <= 4) would clear all of them, but the grab-bag risk read is untrusted *in a license file*: there
+  # a low-similarity match is kept (the open-webui LICENSE case, novel terms scoring 0.63 against "Any
+  # CLA") while a high-similarity one still clears as genuine boilerplate. Outside a license file the
+  # same weak match is stray notice text and is still cleared.
+  my $anymark = $app->patterns->create(pattern => 'a distinct grabbag closest marker text', license => 'Any CLA')->{id};
+  $db->query('UPDATE license_patterns SET risk = 1 WHERE id = ?', $anymark);
+
+  my $file_lic = $mkfile->('coverage/LICENSE');    # a license-declaration file, concretely covered
+  $match->($file_lic, $apache);
+
+  # catchfiller sits in [cover_guard, fold/clear threshold) so 'covered' is the deciding path (>= 0.95
+  # would fold/clear first); it is high enough above cover_guard that it clears as genuine boilerplate.
+  my $catchclosest = $cocc->($file_lic, $snip->(score_version => $V, like_pattern => $anymark, likelyness => 0.63));
+  my $catchfiller  = $cocc->($file_lic, $snip->(score_version => $V, like_pattern => $anymark, likelyness => 0.92));
+
+  # Same weak grab-bag match, but in an ordinary (non-license) file -> still cleared as stray notice text
+  my $catchcode = $cocc->($file_a, $snip->(score_version => $V, like_pattern => $anymark, likelyness => 0.63));
+
   my $res = sub ($fid) { $db->select('file_snippets', 'resolution', {id => $fid})->hash->{resolution} };
 
   subtest 'cover_scope => file' => sub {
     my $fapp
       = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, cover_scope => 'file'}})->app;
     $fapp->snippets->resolve_snippets(1);
-    is $res->($cov),     'covered', 'lower-risk fragment in a concretely-licensed file -> covered';
-    is $res->($high),    undef,     'higher-risk fragment than the coverage -> kept';
-    is $res->($weak),    undef,     'only a catch_all marker covers the file -> kept';
-    is $res->($sibling), undef,     'file scope does not reach a sibling file -> kept';
+    is $res->($cov),          'covered', 'lower-risk fragment in a concretely-licensed file -> covered';
+    is $res->($high),         undef,     'higher-risk fragment than the coverage -> kept';
+    is $res->($weak),         undef,     'only a catch_all marker covers the file -> kept';
+    is $res->($sibling),      undef,     'file scope does not reach a sibling file -> kept';
+    is $res->($catchclosest), undef,     'low-similarity catch_all-closest in a LICENSE file -> kept';
+    is $res->($catchfiller),  'covered', 'high-similarity catch_all-closest boilerplate -> still covered';
+    is $res->($catchcode),    'covered', 'low-similarity catch_all-closest in a non-license file -> still cleared';
   };
 
   subtest 'cover_scope => dir' => sub {
     my $dapp
       = Test::Mojo->new(Cavil => {%$config, snippet_fold => {%{$config->{snippet_fold}}, cover_scope => 'dir'}})->app;
     $dapp->snippets->resolve_snippets(1);
-    is $res->($sibling), 'covered', 'directory scope reaches a concrete match in a sibling file -> covered';
-    is $res->($high),    undef,     'directory scope still keeps a higher-risk fragment';
-    is $res->($weak),    undef,     'directory scope still ignores catch_all-only coverage';
+    is $res->($sibling),      'covered', 'directory scope reaches a concrete match in a sibling file -> covered';
+    is $res->($high),         undef,     'directory scope still keeps a higher-risk fragment';
+    is $res->($weak),         undef,     'directory scope still ignores catch_all-only coverage';
+    is $res->($catchclosest), undef, 'directory scope still keeps a low-similarity catch_all-closest in a LICENSE file';
+    is $res->($catchcode),    'covered', 'directory scope still clears the same weak match in a non-license file';
   };
 };
 

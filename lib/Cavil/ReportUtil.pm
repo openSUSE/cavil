@@ -24,9 +24,9 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
-  qw(estimated_risk incompatible_licenses minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
-  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
-  qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk incompatible_licenses is_license_filename minimal_snippet new_license_names new_unresolved_files),
+  qw(overlapping_licenses report_checksum report_shortname should_clear_boilerplate should_cover_snippet),
+  qw(should_fold_snippet should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -137,20 +137,47 @@ sub should_overlap_clear ($cfg, $snippet, $overlap_licenses) {
 # covering match need not intersect the snippet's own lines; unlike folding, it asserts no license.
 # $cover_risk is the highest risk among the *concrete* (non-catch_all) license matches in scope,
 # computed by resolve_snippets per the configured cover_scope ('file' or 'dir'); undef means nothing
-# concrete covers this scope. The two guards that make this safe: (1) only concrete licenses count as
+# concrete covers this scope. Three guards make this safe: (1) only concrete licenses count as
 # coverage (a real license hiding behind a weak "Any ..."/"All Rights Reserved" marker is never
-# mistaken for one), enforced upstream when $cover_risk is built; and (2) risk-monotonicity - a
-# snippet resembling a *higher*-risk license than the coverage is kept, since it might be a genuinely
-# new, riskier license. The snippet's own risk is its closest license's risk ($prisk), or 0 when it
-# resembles no specific license (pure keyword noise in an already-licensed scope).
+# mistaken for one), enforced upstream when $cover_risk is built; (2) risk-monotonicity - a snippet
+# resembling a *higher*-risk license than the coverage is kept, since it might be a genuinely new,
+# riskier license. The snippet's own risk is its closest license's risk ($prisk), or 0 when it
+# resembles no specific license (pure keyword noise in an already-licensed scope); and (3) when that
+# closest license is a grab-bag catch_all marker, its risk read is unreliable (the bucket spans many
+# risks - "Any CLA" alone runs 0..5), so risk-monotonicity cannot be trusted for it: such a fragment
+# is only cleared when its similarity is high enough that it genuinely IS that boilerplate. A weak,
+# ambiguous grab-bag match is kept for review - this is the open-webui LICENSE case, where novel
+# non-commercial terms scored only 0.63 against "Any CLA" while the file carried a real BSD-3-Clause,
+# and risk-monotonicity against the incidental risk-1 CLA member would otherwise clear them. Genuine
+# filler (a real disclaimer, an "All Rights Reserved" line) scores high against its marker and still
+# clears, so this does not regress the bulk auto-clearing of license-file boilerplate.
 sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
   return 0 unless $cfg && $cfg->{enabled} && (($cfg->{cover_scope} // 'off') ne 'off');
   return 0 unless $snippet->{license};                                                    # classifier says legal text
   return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # trust the risk read
   return 0 unless defined $cover_risk;    # a concrete license covers this scope
 
+  # Grab-bag closest match in a license-declaration file: only clear if the fragment really is that
+  # boilerplate (high similarity). This is scoped to license files on purpose - a weak grab-bag match in
+  # a LICENSE/COPYING file is the "novel license bolted onto a retained standard one" case (open-webui,
+  # redis), whereas the same weak match in a code/doc file is the stray disclaimer/notice this feature
+  # exists to clear. Measurement showed the license-file case is ~10% of grab-bag-closest coverage, so
+  # scoping keeps the guard's precision high without resurfacing the bulk of genuine filler.
+  return 0
+    if $snippet->{is_license_file}
+    && $snippet->{pcatch_all}
+    && ($snippet->{likelyness} // 0) < ($cfg->{cover_guard} // 0.9);
+
   my $snippet_risk = (defined $snippet->{plicense} && $snippet->{plicense} ne '') ? ($snippet->{prisk} // 0) : 0;
   return $snippet_risk <= $cover_risk ? 1 : 0;
+}
+
+# Does this path look like a license-declaration file (LICENSE, COPYING, LICENSE.txt, ...) rather than a
+# source/doc file that merely mentions a license? Used to scope the grab-bag coverage guard above: the
+# basename must START with a license-declaration word so that license-list *reference data* named after a
+# license id (e.g. .../licenses/OGDL-Taiwan-1.0) is not mistaken for the package's own license file.
+sub is_license_filename ($path) {
+  return $path =~ m{(?:^|/)(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE)(?:[.\-]|$)}i ? 1 : 0;
 }
 
 sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {

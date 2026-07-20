@@ -19,7 +19,7 @@ use Mojo::Base -base, -signatures;
 use Mojo::File  qw(path);
 use Cavil::Util qw(file_and_checksum read_lines);
 use Cavil::ReportUtil
-  qw(overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
+  qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
 use Spooky::Patterns::XS;
 
 has [qw(checkout_dir pg snippet_fold)];
@@ -93,9 +93,11 @@ sub resolve_snippets ($self, $package_id) {
   # Each occurrence with its snippet's similarity metadata and closest-license details
   my $rows = $db->query(
     'SELECT fs.id, fs.file, fs.sline, fs.eline, fs.resolution AS current_resolution, s.hash, s.license,
-            s.likelyness, s.second_match, s.score_version, s.like_pattern, lp.license AS plicense, lp.risk AS prisk
+            s.likelyness, s.second_match, s.score_version, s.like_pattern, lp.license AS plicense, lp.risk AS prisk,
+            lp.catch_all AS pcatch_all, mf.filename
        FROM file_snippets fs
        JOIN snippets s ON s.id = fs.snippet
+       JOIN matched_files mf ON mf.id = fs.file
        LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
       WHERE fs.package = ?', $package_id
   );
@@ -106,6 +108,7 @@ sub resolve_snippets ($self, $package_id) {
   my %ids_by_resolution;
   for my $row ($rows->hashes->each) {
     my $pattern = {license => $row->{plicense}, risk => $row->{prisk}};
+    $row->{is_license_file} = is_license_filename($row->{filename});
 
     # Highest-risk concrete license already covering this occurrence, per the configured scope
     my $cover_risk;
