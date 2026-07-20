@@ -38,13 +38,18 @@ sub resolve_snippets ($self, $package_id) {
   my $packname = $db->select('bot_packages', 'name', {id => $package_id})->hash->{name};
   my %ignored  = map { $_->{hash} => 1 } $db->select('ignored_lines', 'hash', {packname => $packname})->hashes->each;
 
-  # Per-file line spans of non-ignored licensed matches, for overlap detection
+  # Per-file line spans of non-ignored concrete license matches, for overlap detection. Grab-bag markers
+  # (lp.catch_all: "Any floating warranty", "Any CLA", "All Rights Reserved", ...) are excluded, exactly
+  # as they are for the "covered" resolution below: overlap-clear's premise is that the snippet swallowed
+  # a *genuine* license declaration already on the report, and a catch_all marker is not one. Counting it
+  # would clear a snippet that captured a real (possibly novel, higher-risk) license sitting next to some
+  # boilerplate disclaimer - the exact way a custom relicense hides behind a retained BSD/MIT tail.
   my %spans;
   for my $m (
     $db->query(
       "SELECT pm.file, pm.sline, pm.eline, lp.license
        FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
-      WHERE pm.package = ? AND pm.ignored = false AND lp.license <> ''", $package_id
+      WHERE pm.package = ? AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false", $package_id
     )->hashes->each
     )
   {

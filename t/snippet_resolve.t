@@ -51,6 +51,13 @@ my $db = $app->pg->db;
 my $gpl    = $db->query("SELECT id FROM license_patterns WHERE license = 'GPL' LIMIT 1")->hash->{id};
 my $apache = $app->patterns->create(pattern => 'a distinct apache resolve marker text', license => 'Apache-2.0')->{id};
 $db->query('UPDATE license_patterns SET risk = 4 WHERE id = ?', $apache);
+
+# A grab-bag marker: overlap-clear must NOT count it as coverage (a real, possibly novel license can
+# sit right next to a retained BSD/MIT warranty/CLA tail - the open-webui custom relicense case)
+my $anycla = $app->patterns->create(pattern => 'a distinct any cla overlap marker text', license => 'Any CLA')->{id};
+is $db->select('license_patterns', 'catch_all', {id => $anycla})->hash->{catch_all}, 1,
+  'an "Any ..." marker is catch_all';
+
 my $mf = $db->query('SELECT id FROM matched_files WHERE package = 1 LIMIT 1')->hash->{id};
 
 # Control the occurrences ourselves (drop the fixture's, which are unscored noise)
@@ -92,12 +99,13 @@ my $occ  = sub ($sid, %o) {
   return $fid;
 };
 
-my $fold     = $occ->($snip->(likelyness => 0.99, second_match => 0,    score_version => $V, like_pattern => $gpl));
-my $clear    = $occ->($snip->(likelyness => 0.99, second_match => 0.99, score_version => $V, like_pattern => $gpl));
-my $overlap  = $occ->($snip->(), overlap => $gpl);
-my $guard    = $occ->($snip->(likelyness => 0.92, score_version => $V, like_pattern => $apache), overlap => $gpl);
-my $nonlegal = $occ->($snip->(legal      => 0),                                                  overlap => $gpl);
-my $none     = $occ->($snip->());
+my $fold      = $occ->($snip->(likelyness => 0.99, second_match => 0,    score_version => $V, like_pattern => $gpl));
+my $clear     = $occ->($snip->(likelyness => 0.99, second_match => 0.99, score_version => $V, like_pattern => $gpl));
+my $overlap   = $occ->($snip->(),                                                                 overlap => $gpl);
+my $catchonly = $occ->($snip->(),                                                                 overlap => $anycla);
+my $guard     = $occ->($snip->(likelyness => 0.92, score_version => $V, like_pattern => $apache), overlap => $gpl);
+my $nonlegal  = $occ->($snip->(legal => 0),                                                       overlap => $gpl);
+my $none      = $occ->($snip->());
 
 # Same snippet in two files: overlaps a match in one, not the other (the per-occurrence case)
 my $shared    = $snip->();
@@ -120,12 +128,13 @@ $app->snippets->resolve_snippets(1);
 
 my $res = sub ($fid) { $db->select('file_snippets', 'resolution', {id => $fid})->hash->{resolution} };
 
-is $res->($fold),     'fold',    'confident, low-risk, wide-margin snippet -> fold';
-is $res->($clear),    'clear',   'high-similarity zero-margin snippet -> clear';
-is $res->($overlap),  'overlap', 'unscored snippet over a real license match -> overlap';
-is $res->($guard),    undef,     'snippet resembling a different license (>= guard) is kept';
-is $res->($nonlegal), undef,     'non-legal text is never resolved';
-is $res->($none),     undef,     'no overlap and not similar enough -> unresolved';
+is $res->($fold),      'fold',    'confident, low-risk, wide-margin snippet -> fold';
+is $res->($clear),     'clear',   'high-similarity zero-margin snippet -> clear';
+is $res->($overlap),   'overlap', 'unscored snippet over a real license match -> overlap';
+is $res->($catchonly), undef,     'overlaps only a catch_all marker -> kept for review (not overlap-cleared)';
+is $res->($guard),     undef,     'snippet resembling a different license (>= guard) is kept';
+is $res->($nonlegal),  undef,     'non-legal text is never resolved';
+is $res->($none),      undef,     'no overlap and not similar enough -> unresolved';
 
 is $res->($shared_ov), 'overlap', 'per occurrence: overlaps a match in this file -> overlap';
 is $res->($shared_no), undef,     'per occurrence: same snippet, no match in this file -> unresolved';
