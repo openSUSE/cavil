@@ -145,9 +145,11 @@ sub _analyzed ($job, $id) {
   return $job->finish("Package $id is already being processed")
     unless my $guard = $minion->guard("processing_pkg_$id", 172800);
 
-  # Only "new" and "acceptable" can be reviewed automatically. Already
-  # reviewed packages still need their notice refreshed so it doesn't
-  # display a stale diff from before the package was approved.
+  # Only "new" and "acceptable" can be reviewed automatically. Every already
+  # reviewed package still needs its notice refreshed on each reindex so it does
+  # not display a stale diff from an older pattern set; states other than "new"
+  # and "acceptable" are refreshed here, "acceptable" a bit further down (after
+  # the incomplete-checkout guard, since it can also be upgraded by a lawyer).
   my $pkg = $pkgs->find($id);
   return unless my $pkg_shortname = $pkg->{checksum};
   return unless $pkg->{indexed};
@@ -160,6 +162,36 @@ sub _analyzed ($job, $id) {
   my $specfile = $reports->specfile_report($id);
   if ($specfile->{incomplete_checkout}) {
     _look_for_smallest_delta($app, $pkg, 0, 0, 1) if $pkg->{state} eq 'new';
+    return;
+  }
+
+  # Already accepted: the auto-accept machinery below is for 'new' packages only.
+  # Refresh the notice/diff so a reindex with new patterns cannot leave a stale
+  # diff, and still allow the upgrade to 'acceptable_by_lawyer' when a sibling
+  # version with the same report was reviewed by a lawyer under the same license.
+  if ($pkg->{state} eq 'acceptable') {
+    my $siblings = $pkgs->history($pkg->{name}, $pkg_shortname, $id);
+
+    # An "unacceptable" sibling with the same report vetoes the upgrade, exactly
+    # as it did for these packages at the (former) unacceptable-history guard.
+    unless (grep { $_->{state} eq 'unacceptable' } @$siblings) {
+      my $lawyer;
+      for my $p (@$siblings) {
+        next               if $p->{obsolete};
+        $lawyer = $p->{id} if $p->{state} eq 'acceptable_by_lawyer';
+        last               if $lawyer;
+      }
+      if ($lawyer) {
+        $pkg->{state}            = 'acceptable_by_lawyer';
+        $pkg->{review_timestamp} = 1;
+        $pkg->{reviewing_user}   = undef;
+        $pkg->{ai_assisted}      = 0;
+        $pkg->{result}           = "Accepted because reviewed by lawyer under the same license ($lawyer)";
+        $pkgs->update($pkg);
+      }
+    }
+
+    _refresh_notice($app, $pkg);
     return;
   }
 
@@ -205,19 +237,6 @@ sub _analyzed ($job, $id) {
     $found_acceptable_by_lawyer = $p->{id} if $p->{state} eq 'acceptable_by_lawyer';
     last                                   if $found_acceptable_by_lawyer;
     $found_acceptable = $p->{id}           if $p->{state} eq 'acceptable';
-  }
-
-  # Try to upgrade from "acceptable" to "acceptable_by_lawyer"
-  if ($pkg->{state} eq 'acceptable') {
-    if (my $c_id = $found_acceptable_by_lawyer) {
-      $pkg->{state}            = 'acceptable_by_lawyer';
-      $pkg->{review_timestamp} = 1;
-      $pkg->{reviewing_user}   = undef;
-      $pkg->{ai_assisted}      = 0;
-      $pkg->{result}           = "Accepted because reviewed by lawyer under the same license ($c_id)";
-      $pkgs->update($pkg);
-    }
-    return;    # the rest is for 'new'
   }
 
   # Previously reviewed and accepted

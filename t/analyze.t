@@ -138,4 +138,60 @@ subtest 'dig_report tolerates pattern_matches in files covered by an ignored_fil
   is $with_fake_fk, 0, 'glob-ignored matches do not invent an ignored_lines reference';
 };
 
+subtest 'Reindex of an accepted package upgrades it to acceptable_by_lawyer' => sub {
+  my $pkgs = $t->app->packages;
+  my $db   = $t->app->pg->db;
+
+  my $src       = $pkgs->find(1);
+  my $shortname = $src->{checksum};
+  ok $shortname, 'source package has a checksum';
+
+  # Create a same-name sibling sharing package 1's report (so summary()/history()
+  # have real data), in the requested state and with the same checksum.
+  my $make = sub {
+    my ($state) = @_;
+    my $pid = $pkgs->add(
+      name            => 'perl-Mojolicious',
+      checkout_dir    => $src->{checkout_dir},
+      api_url         => 'https://api.opensuse.org',
+      requesting_user => 1,
+      project         => 'devel:languages:perl',
+      package         => 'perl-Mojolicious',
+      srcmd5          => $src->{checkout_dir},
+      priority        => 5
+    );
+    $db->query(
+      'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
+       SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = 1', $pid
+    );
+    $db->query(
+      'UPDATE bot_packages SET indexed = NOW(), reviewed = NOW(), reviewing_user = 1, checksum = ?, state = ? WHERE id = ?',
+      $shortname, $state, $pid);
+    return $pid;
+  };
+
+  my $lawyer = $make->('acceptable_by_lawyer');
+  my $target = $make->('acceptable');
+  $db->query('UPDATE bot_packages SET ai_assisted = ? WHERE id = ?', 1, $target);
+
+  $t->app->minion->enqueue(analyzed => [$target]);
+  $t->app->minion->perform_jobs;
+
+  my $res = $pkgs->find($target);
+  is $res->{state},          'acceptable_by_lawyer', 'upgraded to acceptable_by_lawyer';
+  is $res->{reviewing_user}, undef,                  'reviewing user cleared on upgrade';
+  ok !$res->{ai_assisted}, 'ai_assisted reset on upgrade';
+  like $res->{result}, qr/reviewed by lawyer under the same license \($lawyer\)/, 'result names the lawyer sibling';
+
+  subtest 'an unacceptable sibling vetoes the upgrade' => sub {
+    $make->('unacceptable');
+    my $target2 = $make->('acceptable');
+
+    $t->app->minion->enqueue(analyzed => [$target2]);
+    $t->app->minion->perform_jobs;
+
+    is $pkgs->find($target2)->{state}, 'acceptable', 'stays acceptable when a sibling is unacceptable';
+  };
+};
+
 done_testing;
