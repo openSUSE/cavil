@@ -508,17 +508,14 @@ sub _new_snippets ($old, $new) {
 }
 
 # The complete set of files with new unresolved matches between the closest
-# previous report ($old) and the current one ($new), as [{id, name}] sorted by
-# name. $files is the current dig report's id => name map, used to resolve each
-# new-unresolved file name back to its file id for the structured diff report.
-sub new_unresolved_files ($old, $new, $files) {
+# previous report ($old) and the current one ($new), as [{name}] sorted by name.
+# Keyed by filename only: matched_files ids are regenerated on every reindex, so
+# the stored diff report must join back to the live report by name, not id (see
+# the badge logic in Cavil::Plugin::Helpers). This is the same set of names the
+# notice count in summary_delta reports, so the two never disagree.
+sub new_unresolved_files ($old, $new) {
   my $new_snippets = _new_snippets($old, $new);
-  my @names        = sort +uniq values %$new_snippets;
-
-  # Resolve names to ids via the current dig report's map; skip any name we
-  # cannot resolve (a stored entry without an id could never match a file).
-  my %id_for = reverse %{$files // {}};
-  return [map { {id => $id_for{$_}, name => $_} } grep { defined $id_for{$_} } @names];
+  return [map { {name => $_} } sort +uniq values %$new_snippets];
 }
 
 1;

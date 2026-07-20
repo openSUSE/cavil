@@ -1133,9 +1133,9 @@ subtest 'summary_delta' => sub {
 };
 
 subtest 'new_unresolved_files' => sub {
-  my $files
-    = {10 => 'Mojolicious-7.25/lib/Mojolicious.pm', 11 => 'Mojolicious-7.25/LICENSE', 12 => 'Mojolicious-7.25/COPYING'};
 
+  # Keyed by filename only (no id): matched_files ids are regenerated on every
+  # reindex, so the diff report joins back to the live report by name.
   is_deeply new_unresolved_files(
     {id => 1, missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']}},
     {
@@ -1144,10 +1144,9 @@ subtest 'new_unresolved_files' => sub {
         'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
         'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
       }
-    },
-    $files
+    }
     ),
-    [{id => 11, name => 'Mojolicious-7.25/LICENSE'}], 'single new file resolved to its id';
+    [{name => 'Mojolicious-7.25/LICENSE'}], 'single new file';
 
   is_deeply new_unresolved_files(
     {id => 1, missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']}},
@@ -1158,13 +1157,12 @@ subtest 'new_unresolved_files' => sub {
         'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
         'Mojolicious-7.25/COPYING'            => ['741e8cc6ac467ffcbb5b2c27088def9a']
       }
-    },
-    $files
+    }
     ),
-    [{id => 12, name => 'Mojolicious-7.25/COPYING'}, {id => 11, name => 'Mojolicious-7.25/LICENSE'}],
+    [{name => 'Mojolicious-7.25/COPYING'}, {name => 'Mojolicious-7.25/LICENSE'}],
     'all new files, sorted by name (no cap)';
 
-  is_deeply new_unresolved_files({id => 1, missed_snippets => {}}, {id => 2, missed_snippets => {}}, $files), [],
+  is_deeply new_unresolved_files({id => 1, missed_snippets => {}}, {id => 2, missed_snippets => {}}), [],
     'no new files';
 };
 

@@ -110,12 +110,15 @@ sub _report_details ($c, $pkg, $report) {
   my $chart      = keys(%chart_copy) ? $c->helpers->chart_data(\%chart_copy) : undef;
 
   # New files and licenses (vs the closest previous review) from the structured
-  # diff report, so the UI can badge them "new". Degrades to no flags when the
-  # column is absent (report not reindexed yet) or unparseable.
+  # diff report, so the UI can badge them "new". Files are matched by name, not
+  # id: matched_files rows (and their ids) are deleted and recreated on every
+  # reindex, so a stored id cannot be joined against the live report, but the
+  # filename is stable. Degrades to no flags when the column is absent (report
+  # not reindexed yet) or unparseable.
   my (%new_unresolved, %new_license);
   if (my $diff = $pkg->{diff_report}) {
     my $decoded = eval { from_json($diff) } // {};
-    $new_unresolved{$_->{id}} = 1 for @{$decoded->{new_unresolved} // []};
+    $new_unresolved{$_->{name}} = 1 for @{$decoded->{new_unresolved} // []};
     $new_license{$_} = 1 for @{$decoded->{new_licenses} // []};
   }
 
@@ -144,7 +147,7 @@ sub _report_details ($c, $pkg, $report) {
   for my $f (@{$report->{missed_files} // []}) {
     my %copy = %$f;
     $copy{license_html} = spdx_link($f->{spdx} || $f->{license});
-    $copy{new}          = \1 if $new_unresolved{$f->{id}};
+    $copy{new}          = \1 if $new_unresolved{$f->{name}};
     push @missed, \%copy;
   }
 

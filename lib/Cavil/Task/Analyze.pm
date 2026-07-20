@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::ReportUtil
   qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta summary_delta_score);
-use Mojo::JSON qw(from_json to_json);
+use Mojo::JSON qw(to_json);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -293,7 +293,7 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
       id          => $pkg->{id},
       result      => undef,
       notice      => summary_delta($best, $summary),
-      diff_report => _diff_report($app, $pkg->{id}, $best, $summary)
+      diff_report => _diff_report($best, $summary)
     }
   );
 }
@@ -312,23 +312,22 @@ sub _refresh_notice ($app, $pkg) {
   elsif ($best) {
     $notice      = summary_delta($best, $summary);
     $notice      = undef unless length $notice;
-    $diff_report = _diff_report($app, $pkg->{id}, $best, $summary);
+    $diff_report = _diff_report($best, $summary);
   }
   $app->packages->update({id => $pkg->{id}, notice => $notice, diff_report => $diff_report});
 }
 
 # Structured, machine-readable companion to the notice text, stored in the
 # diff_report column and co-written/cleared at every notice write so the two
-# never drift. Currently carries the full (uncapped) list of files with new
-# unresolved matches, with file ids, so the report UI can flag them as "new".
-# Returns undef when there is no closest match or no new unresolved files (so
-# the column is null unless there is something to flag).
-sub _diff_report ($app, $id, $best, $summary) {
+# never drift. Carries the full (uncapped) list of files with new unresolved
+# matches, by filename, so the report UI can flag them as "new" (by name, since
+# matched_files ids are not stable across reindex). Returns undef when there is
+# no closest match or no new unresolved files (so the column is null unless
+# there is something to flag).
+sub _diff_report ($best, $summary) {
   return undef unless $best;
 
-  my $cached   = $app->reports->cached_dig_report($id);
-  my $report   = $cached ? from_json($cached) : $app->reports->dig_report($id);
-  my $files    = new_unresolved_files($best, $summary, $report->{files});
+  my $files    = new_unresolved_files($best, $summary);
   my $licenses = new_license_names($best, $summary);
   return undef unless @$files || @$licenses;
 
