@@ -61,7 +61,7 @@ export default {
   border: 1px solid rgba(110, 119, 129, 0.22);
   border-radius: 0.65rem;
   box-sizing: border-box;
-  box-shadow: 0 0.35rem 0.8rem rgba(36, 41, 47, 0.1);
+  box-shadow: 0 0.35rem 0.8rem rgba(36, 41, 47, 0.07);
   color: var(--legal-loading-accent);
   display: grid;
   font-size: 1.35rem;
@@ -75,6 +75,11 @@ export default {
 .legal-loading-icon-shell i {
   display: inline-block;
   line-height: 1;
+  /* Reset any margin an ancestor's global stylesheet puts on <i> (e.g. CavilListLayout's unscoped
+     `.cavil-list-state i { margin-right }`). The shell centres the icon with grid place-items, which
+     centres the item's *margin box*, so a leaked margin-right would shove the glyph left - most visible
+     at the small size used in the list tables. */
+  margin: 0;
   position: relative;
   text-align: center;
   width: var(--fa-width, 1.25em);
