@@ -153,22 +153,37 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
 
 ### Access Levels
 
-Authorization is capability-based: every gate asks "does the user have capability X?" rather than
-naming a role, and roles are named bundles of capabilities resolved through a single map. The full
-model — the capability list, the role matrix, the capability-to-gate mapping, and the
-`acceptable_by_lawyer` invariant — is documented in [Roles.md](Roles.md). In short:
+Authorization is capability-based: every action asks "does the user have capability X?" rather than
+naming a role, and roles are named bundles of capabilities.
 
-* `user`: view reports and review results only.
-* `classifier`: validate AI text classification results to create training data.
-* `contributor`: propose patterns, ignores and snippets; proposals need a curator (`admin`/`lawyer`) to
-                 take effect.
-* `manager`: move reports from `new` to `acceptable`.
-* `admin`: the curator core (patterns, ignores, proposals, snippet decisions, reindex, reviews) *plus*
-           `infra` — the Minion dashboard and uploads.
-* `lawyer`: the same curator core as `admin`, but in place of `infra` it carries the legal sign-off that
-            moves a report from `new` to `acceptable_by_lawyer`; the `lawyer` role alone is enough to
-            curate and sign off. That state is always derived from the lawyer role and can never be set
-            by a non-lawyer, on either the web or MCP path.
+| Capability | What it allows |
+|---|---|
+| view | Read reports, review results, licenses, snippets and statistics. |
+| classify | Validate AI text-classification results, creating training data. |
+| propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
+| curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores, accept or reject proposals, apply snippet decisions, reindex, and accept or reject reviews. |
+| infra | Operate the instance: the job dashboard and package upload. |
+| review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off). |
+| review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |
+
+`user` and `admin` are the base roles; the rest add capabilities on top. `admin` and `lawyer` share
+the same curator core and differ by one capability each — `admin` also runs the instance (`infra`),
+`lawyer` also carries the legal sign-off (`review_lawyer`) — so neither is a superset of the other, and
+the `lawyer` role alone is enough to curate and sign off.
+
+| Role | view | classify | propose | curate | review | infra | review_lawyer |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| user | ✓ | | | | | | |
+| classifier | ✓ | ✓ | | | | | |
+| contributor | ✓ | | ✓ | | | | |
+| manager | ✓ | | | | ✓ | | |
+| admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| lawyer | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ |
+
+`acceptable_by_lawyer` means a lawyer signed off, so it is always derived from the `review_lawyer`
+capability and never taken from the request: a non-lawyer curator can accept a package but can never
+assert a lawyer sign-off, on either the web or automation path. A user's capabilities are the union of
+their assigned roles.
 
 ### Automatic Acceptance
 
@@ -514,28 +529,16 @@ so propagating a corpus change to already-scored snippets is the job of `cavil s
 
 ### Automated resolution: the safety properties that make it defensible
 
-The four resolution paths below (fold, boilerplate-clear, overlap-clear, covered) all **automate a legal call**. That is
-only defensible because of a set of properties the design holds to — and these should be treated as **invariants that any
-future change to scoring, folding, or clearing must preserve**, not incidental implementation details. They are the
-first thing to weigh when deciding whether a proposed change (a new scorer, a looser threshold, a new resolution kind)
-is acceptable.
+The four resolution paths below (fold, boilerplate-clear, overlap-clear, covered) each **automate a legal call**, so
+they hold to a set of **invariants any future change to scoring, folding, or clearing must preserve**:
 
-- **Never asserts an unrecognised license — though a clear can still hide one.** A fold only ever attributes a snippet
-  to a license already in the curated corpus; it never invents a license or mints a pattern, and a clear asserts no
-  license at all. So nothing here can *add* a license that is not really present. The danger runs the other way: a clear
-  can *remove* a genuine license from view, when the snippet that alone names it is mistaken for redundant boilerplate
-  and swept away. This is a real risk, not a theoretical one: a project that keeps a permissive body and bolts on a
-  non-commercial clause (as the "Open WebUI License" does) produces a fragment that resembles only grab-bag markers, so a
-  clear that trusts grab-bag matches as coverage would sweep the one snippet that names the restriction. A clear is
-  therefore not the harmless tidy-up it first appears to be; it carries a real false-negative risk. The safety case against it rests on
-  two things that hold regardless of any optional component: the guards on the clearing paths — coverage must come from
-  a concrete license, the snippet's own closest match must not be a mere grab-bag marker, and inside a license file a
-  grab-bag-closest fragment must clear a similarity floor before it can be swept — and the fact that clearing is fully
-  reversible (a cleared region still shows in the file browser, nothing is auto-accepted at the risk levels where this
-  matters, and re-resolving with the feature off restores every report). Those are calibrated bounds, not proofs, and
-  they get stronger or weaker with how aggressively an instance is configured to clear — which is why the more aggressive
-  the configuration, the more an instance should also run the review-note layer as a compensating operational control
-  rather than an optional assistant (see *Defense in depth* below).
+- **Never asserts an unrecognised license — but a clear can hide one.** A fold only attributes a snippet to a license
+  already in the corpus, and a clear asserts nothing, so nothing here can *add* a license that is not present. The risk
+  runs the other way: a clear can *remove* a genuine license from view when the only snippet naming it is mistaken for
+  boilerplate (the covered path below shows the concrete case). The per-path guards bound that, and clearing is fully
+  reversible — cleared regions stay visible in the file browser, nothing is auto-accepted at the risk levels where this
+  matters, and disabling the feature and re-resolving restores every report. Those are calibrated bounds, not proofs, so
+  the more aggressively an instance clears, the more it should also run the review-note control (see *Defense in depth*).
 - **The curated corpus stays the source of truth.** Resolutions are a derived, disposable cache; nothing is written
   back to the pattern or match tables. Turning the feature off and re-resolving reverts the reports.
 - **Precision-first, recall-preserving.** Only confident, unambiguous, low-risk matches resolve automatically;
@@ -548,9 +551,6 @@ is acceptable.
   wholesale when disabled — a wrong call costs a correction, never a baked-in mistake.
 - **Off by default, calibrated, rolled out gradually.** Each path ships disabled; thresholds are calibrated against the
   existing corpus before, and during, a gradual, risk-tiered rollout.
-
-The plain-language, reviewer-facing version of this stance is in the [pattern lifecycle guide](PatternLifecycle.md);
-the rest of this section is the mechanism behind it.
 
 ### Folding High-Confidence Snippets into Reports
 
@@ -576,9 +576,8 @@ and the license is not high-risk — risk 4 is safe to fold and 5 is acceptable,
 unresolved for review. A snippet is also only trusted if it was scored by the current scorer, so stale scores left over
 from before an upgrade can never fold by accident.
 
-Fold-in ships switched off. Before it is enabled, the thresholds are calibrated against the existing corpus — the
-`eval_fold` command reports precision and recall at each threshold — and it is then rolled out gradually, allowing
-progressively higher-risk licenses to fold as confidence in the numbers grows.
+Thresholds are calibrated against the existing corpus before folding is enabled — the `eval_fold` command reports
+precision and recall at each — and progressively higher-risk licenses are allowed to fold only as confidence grows.
 
 ### Clearing License Boilerplate
 
@@ -596,9 +595,7 @@ because no license is asserted there is no risk of inventing one that is not act
 
 The recognition reuses the same similarity score: a snippet that is highly similar to some known license, and that the
 classifier considers legal text, is treated as resolved noise rather than an unresolved match. Genuinely novel licenses
-score low and so are never cleared — they continue to surface for human review. Like folding, clearing is recorded as a
-stored resolution, asserts nothing, and is reversible by turning it off and resolving again; it is governed by its own
-threshold and ships disabled.
+score low and so are never cleared — they continue to surface for human review. It is governed by its own threshold.
 
 ### Clearing Snippets a Real Match Already Covers
 
@@ -614,8 +611,7 @@ Because clearing here rests on an exact match rather than a guess, it is safe re
 match falls or how many there are. The one guard is for the rare case where the snippet's own text looks like a
 *different* license than the one it overlaps — that might be a genuinely missed license sitting next to a known one, so
 it is kept for review instead of cleared. Because overlap depends on a file's own matches, this resolution is stored per
-occurrence (the same snippet can overlap a match in one file but not in another). As with the other paths, it asserts
-nothing and ships disabled behind its own switch.
+occurrence (the same snippet can overlap a match in one file but not in another).
 
 ### Clearing Snippets the File's Own License Already Covers
 
@@ -629,8 +625,7 @@ this needs context the snippet itself does not have: what else the file, or its 
 
 So a snippet is cleared as **covered** when a concrete license that Cavil is confident about — a real pattern match, at
 a risk at least as high as anything the fragment could plausibly be — is already present in the same file (or, at
-directory scope, anywhere in the same directory). Like the other clears it asserts no license of its own; the license
-is already on the report through its own match.
+directory scope, anywhere in the same directory). The license is already on the report through its own match.
 
 Three guards make this safe, and they are the whole point:
 
@@ -645,69 +640,42 @@ Three guards make this safe, and they are the whole point:
 - **Risk-monotonic.** A fragment is only covered when the established license is at least as risky as the fragment's own
   closest license. A snippet that resembles a *higher*-risk license than anything already on the file is kept — it might
   be a genuinely new, riskier license (a GPL fragment in an otherwise-MIT file) and must not be swept away.
-- **In a license file, a grab-bag closest match must be corroborated by high similarity.** Risk-monotonicity trusts the
-  fragment's own closest-license risk, but when that closest match is itself a `catch_all` grab-bag, the risk read is
-  unreliable — the bucket spans many risks (`Any CLA` runs 0–5), and the scorer picks whichever member it resembles
-  most, which for genuinely novel text is an accident. So inside a `LICENSE`/`COPYING`-type file a grab-bag-closest
-  fragment is only cleared when its similarity is high enough (the `cover_guard` threshold) that it truly *is* that
-  boilerplate; a weak, ambiguous grab-bag match is kept for review. This is what stops a custom relicense from being
-  swept as filler: a project that keeps a standard BSD/MIT body and bolts on a novel restrictive clause (an "Open
-  WebUI"-style non-commercial term, or the Redis source-available license) produces a fragment that scores only
-  moderately against a grab-bag while the file's *real* match is the retained permissive license — risk-monotonicity
-  against the grab-bag's incidental low risk would otherwise clear it. The guard is scoped to license files on purpose:
-  the same weak grab-bag match in a *code or documentation* file is the stray disclaimer, sample-code notice, or
-  vendored license-list reference text this feature is meant to clear (measurement put the license-file case at roughly
-  a tenth of all grab-bag-closest coverage), and genuine filler in a license file (a real disclaimer, an
-  `All Rights Reserved` line) scores high against its marker and still clears — so the bulk auto-clearing is unaffected.
+- **In a license file, a grab-bag closest match needs high similarity to clear.** A `catch_all` grab-bag has no
+  reliable risk (`Any CLA` spans risks 0–5; the scorer just picks the member the text most resembles), so
+  risk-monotonicity cannot be trusted for it. Inside a `LICENSE`/`COPYING` file, then, a grab-bag-closest fragment is
+  cleared only when its similarity is high enough (the `cover_guard` threshold) to be genuine boilerplate; a weak match
+  is kept. This keeps a custom relicense — a standard BSD/MIT body with a bolted-on non-commercial clause, whose novel
+  text scores only moderately against a grab-bag — from being swept as filler. It is scoped to license files because the
+  same weak match elsewhere (a stray disclaimer, or vendored license-list text in code/docs) is exactly the filler this
+  feature should clear, while genuine boilerplate in a license file still scores high and clears.
 
 Directory scope, rather than whole-vendored-component scope, is deliberate: only a small fraction of packages have
 detected components, whereas every file has a directory, and measurement showed directory scope recovers essentially
 all of the same redundancy (the sibling `.map`/minified cases) while staying universal and simple. The scope is a
 config switch (`off` / `file` / `dir`) so the safer file-only form can be enabled first and directory scope added once
-its precision has been checked against the corpus. As with the other paths, this resolution is stored per occurrence,
-asserts nothing, is reversible, and ships disabled.
+its precision has been checked against the corpus.
 
-Because both folding and clearing are automatic, reviewers can be shown what was decided for them and given a way to
-overrule it. Folded and cleared regions are marked as derived (visually set apart from curated pattern matches) and
-carry a direct link to the snippet editor, so a reviewer who spots a mistake can write a proper pattern, ignore the
-text, or mark it as non-legal in one step. The reviewer-facing side of this is described in plain language in
-[PatternLifecycle.md](PatternLifecycle.md). The file browser is the main place for this, since it is where
-reviewers go digging through a package and where cleared text — which never appears in the report — can be reviewed. No
-special undo is needed: a correction (ignoring the text, writing a pattern, or marking it non-legal) reindexes the
-package, which recomputes the resolution and makes the fold or clear simply stop happening. This safety net is what lets
-the thresholds be generous; correcting the occasional wrong call is far cheaper than hand-writing a pattern for every
-license up front.
+Every folded or cleared region is marked as derived (set apart from curated matches) and links to the snippet editor, so
+a reviewer can overrule a wrong call in one step — write a pattern, ignore the text, or mark it non-legal — which
+reindexes the package and recomputes the resolution. The file browser is where this happens, since it also shows cleared
+text that never reaches the report. This is what lets the thresholds be generous: a wrong call costs a correction, not a
+hand-written pattern for every license up front.
 
 ### Defense in depth: the review-note layer as an operational control
 
-The resolutions above are deliberately precision-first, but they are bounded by heuristics rather than proofs, and — as
-the first safety property admits — a clear can still hide a license that no curated pattern names. The mechanical guards
-plus reversibility keep that residual risk small on their own; they are the safety floor and do not depend on anything
-below. But the size of that residual is a function of how aggressively an instance is configured to clear (directory
-scope, generous fold/clear thresholds, higher-risk folding). So a second, independent layer exists to cover it: an AI
-*review-note* assistant, packaged as an agent skill, that triages the open-review queue and leaves a short advisory note
-for the human lawyer.
+The resolutions above are bounded by heuristics, not proofs: as the first invariant notes, a clear can still hide a
+license no pattern names. The mechanical guards plus reversibility keep that residual small on their own, but it grows
+with how aggressively an instance clears (directory scope, generous thresholds, higher-risk folding). A second,
+independent layer covers it: an AI *review-note* assistant (an agent skill) triages the open-review queue and leaves a
+short advisory note for the human lawyer.
 
-The important framing: **this layer is not just an optional convenience — for a deployment that enables aggressive
-clearing it is a compensating operational control, and should be run and monitored as one** (a scheduled pass over the
-open-review queue, the same way the indexing and classification jobs are operated). An instance that keeps clearing
-conservative can treat it as optional; an instance that turns clearing up should not. What it must never become is a
-*substitute* for the mechanical guards: it is model-dependent and advisory, so the safety case cannot be predicated on it
-alone — it lowers the residual that the guards already bound, it does not replace them.
-
-What makes it a real control rather than a restatement of the report is that it does not take the mechanical report as
-ground truth. It opens the package's own `LICENSE` and `COPYING` files and reads them, so it sees terms the pattern
-scanner never turned into a finding and the resolution engine may have cleared away — a permissive body with an added
-field-of-use or user-count restriction, a file retitled to a bespoke project license, or an outright relicense from open
-source to non-commercial terms. It stays strictly advisory: it never accepts, rejects, patterns, or ignores anything;
-writing the note is its only action. It catches relicenses that the mechanical layer would otherwise clear — precisely
-the false negative the resolution guards can bound but never fully eliminate.
-
-The layers are complementary, not redundant, and none of them is the lawyer. The mechanical layer keeps an enormous
-backlog small, reproducible, and cheap to recompute; the review-note control re-reads the primary evidence with
-judgement and is tuned to shout about the cases that matter most — above all a change from an open-source to a non-free
-license, the worst outcome a review can miss; and the human lawyer makes the final call on a report that, thanks to the
-layers below, is far less likely to be quietly wrong.
+For a deployment that clears aggressively this is a **compensating operational control** — run and monitored like any
+other job, not an optional extra (a conservative instance may treat it as optional). It must not become a *substitute*
+for the guards, since it is advisory and model-dependent. What makes it a real control is that it reads the package's own
+`LICENSE`/`COPYING` text rather than trusting the report, so it catches terms the scanner never surfaced and the
+resolution engine cleared away — above all a relicense from open-source to non-free terms, the worst outcome a review
+can miss. It never accepts, rejects, patterns, or ignores; the note is its only output, and the lawyer still makes the
+call.
 
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 

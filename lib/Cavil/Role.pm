@@ -10,7 +10,8 @@ our @EXPORT_OK = qw(all_capabilities all_roles capabilities_for role_has_capabil
 
 # The single source of truth for authorization. Roles are named bundles of capabilities; every gate
 # (route, controller check, frontend flag, MCP scope) should be expressed in terms of a capability and
-# resolved through this map, never by reaching for a specific role name. See docs/Roles.md.
+# resolved through this map, never by reaching for a specific role name. See the Access Levels section
+# of docs/Architecture.md.
 #
 # `user` and `admin` are the base roles; the rest are extensions that add capabilities. `admin` and
 # `lawyer` share the "curator core" (view/classify/propose/curate/review); `admin` additionally has

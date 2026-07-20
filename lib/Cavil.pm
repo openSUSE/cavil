@@ -163,8 +163,8 @@ sub startup ($self) {
   my $logged_in = $public->under('/' => {roles => []})->to('Auth#check');
 
   # Authorization is expressed by capability, not role: each gate accepts the roles that grant the
-  # capability (see Cavil::Role and docs/Roles.md). "curate" is admin+lawyer, "infra" is admin only, so
-  # a lawyer can do all curation but not run the machine.
+  # capability (see Cavil::Role and the Access Levels section of docs/Architecture.md). "curate" is
+  # admin+lawyer, "infra" is admin only, so a lawyer can do all curation but not run the machine.
   my $can_infra    = $public->under('/' => {roles => roles_with_capability('infra')})->to('Auth#check');
   my $can_curate   = $public->under('/' => {roles => roles_with_capability('curate')})->to('Auth#check');
   my $can_propose  = $public->under('/' => {roles => roles_with_capability('propose')})->to('Auth#check');
