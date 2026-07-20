@@ -78,13 +78,21 @@ is worth stating as invariants rather than leaving implicit:
   maps to the same directory (re-import is idempotent), and any different source maps to a different
   directory — so importing a new version can never mutate the evidence an existing report was built
   from.
-* **There is a single writer per package.** Every stage that touches a package's files — import,
-  unpack, index, analyze, SBOM generation — runs under a per-package job-queue guard
-  (`processing_pkg_<id>`), and the stages are ordered by job dependencies (unpack before index before
-  analyze before the SBOM). Concurrent processing of the same package is refused, not interleaved. The
-  web application itself never mutates an existing checkout: it only *creates* a new content-addressed
-  checkout (upload/import, and only when the directory does not yet exist) or *reads* checkout files
-  for display.
+* **One pipeline owns a package at a time; within it, indexing writers are parallel but controlled.**
+  The stages that process a package — import, unpack, index, analyze, SBOM generation — are ordered by
+  job dependencies (unpack before index before analyze before the SBOM), and each takes the same
+  per-package lock (`processing_pkg_<id>`) for its duration, so no two stages, and no second pipeline (a
+  re-import racing a reindex, say), ever run against the package at once — concurrent *processing* is
+  refused, not interleaved. Indexing is the one stage that is deliberately not a single writer: for
+  throughput it fans out into many parallel `index_batch` jobs and holds the package lock across the
+  whole fan-out. These are *controlled* parallel writers, not a free-for-all — each batch owns a
+  disjoint partition of the files and writes their rows in its own transaction, and the few tables
+  several batches share (harvested URLs and emails, detected components) use upserts that merge
+  concurrent contributions deterministically. The checkout *filesystem* still has a single writer
+  throughout: the batch jobs only *read* the unpacked tree, and only the owning stage writes it (unpack
+  builds the tree, index clears the stale SBOM). The web application never writes an existing checkout —
+  it only *creates* a new content-addressed one (upload/import, and only when the directory does not yet
+  exist) or *reads* files for display.
 * **The source is the evidence; everything else is a derived cache.** The imported source is
   authoritative. The unpacked tree, the `.processed` variants, the pattern/snippet/resolution rows in
   PostgreSQL, and the cached `.report.spdx.json.gz` SBOM are all regenerable from it. PostgreSQL is the
@@ -173,6 +181,14 @@ Reports may be automatically accepted by the system under these conditions:
                     between licenses and unique keyword matches.
 * `Package Name`: The package has been configured to always be `acceptable`. For SUSE instances of OBS this is usually
                   done for empty metadata packages like `000product`.
+
+One condition overrides all of the above and is a first-class safety property: **an incomplete checkout is never
+auto-accepted.** If the source could not be fully retrieved — a file the spec references is missing, so what was
+indexed is not the whole package — the analyze step detects it and stops before any of the acceptance paths run,
+leaving the report in `new` for a human, with a notice that manual review is required because the checkout might be
+incomplete. Acceptance decisions are only ever made against evidence known to be complete; a partial checkout can hide
+exactly the license that matters, so the system declines to rule on it rather than accept on incomplete grounds. (A
+previous result is still surfaced as context, but only as a notice — never as an automatic acceptance.)
 
 ### Standard Risk Levels
 
