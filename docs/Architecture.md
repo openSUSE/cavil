@@ -473,9 +473,17 @@ future change to scoring, folding, or clearing must preserve**, not incidental i
 first thing to weigh when deciding whether a proposed change (a new scorer, a looser threshold, a new resolution kind)
 is acceptable.
 
-- **Never asserts an unrecognised license.** A fold only ever attributes a snippet to a license already curated in the
-  corpus; it never mints a pattern or invents a license, and clearing asserts no license at all. The worst a clear can
-  do is leave a little noise; it can never *add* a license that is not there.
+- **Never asserts an unrecognised license — though a clear can still hide one.** A fold only ever attributes a snippet
+  to a license already in the curated corpus; it never invents a license or mints a pattern, and a clear asserts no
+  license at all. So nothing here can *add* a license that is not really present. The danger runs the other way: a clear
+  can *remove* a genuine license from view, when the snippet that alone names it is mistaken for redundant boilerplate
+  and swept away. This is not hypothetical — open-webui's switch to a non-commercial license escaped exactly this way,
+  through overlap- and covered-clears that treated grab-bag marker matches as real coverage. A clear is therefore not the
+  harmless tidy-up it first appears to be; it carries a real false-negative risk. The guards on the clearing paths —
+  coverage must come from a concrete license, the snippet's own closest match must not be a mere grab-bag marker, and
+  inside a license file a grab-bag-closest fragment must clear a similarity floor before it can be swept — exist to keep
+  that risk small. They are calibrated bounds, not proofs, which is why a second, independent layer backstops them (see
+  *Defense in depth* below).
 - **The curated corpus stays the source of truth.** Resolutions are a derived, disposable cache; nothing is written
   back to the pattern or match tables. Turning the feature off and re-resolving reverts the reports.
 - **Precision-first, recall-preserving.** Only confident, unambiguous, low-risk matches resolve automatically;
@@ -618,6 +626,27 @@ special undo is needed: a correction (ignoring the text, writing a pattern, or m
 package, which recomputes the resolution and makes the fold or clear simply stop happening. This safety net is what lets
 the thresholds be generous; correcting the occasional wrong call is far cheaper than hand-writing a pattern for every
 license up front.
+
+### Defense in depth: AI review-note augmentation
+
+The resolutions above are deliberately precision-first, but they are bounded by heuristics rather than proofs, and — as
+the first safety property admits — a clear can still hide a license that no curated pattern names. A second, independent
+layer exists to catch what slips through: an optional AI *review-note* assistant, packaged as an agent skill, that
+triages each open review and leaves a short advisory note for the human lawyer.
+
+What makes it a real backstop rather than a restatement of the report is that it does not take the mechanical report as
+ground truth. It opens the package's own `LICENSE` and `COPYING` files and reads them, so it sees terms the pattern
+scanner never turned into a finding and the resolution engine may have cleared away — a permissive body with an added
+field-of-use or user-count restriction, a file retitled to a bespoke project license, or an outright relicense from open
+source to non-commercial terms. It stays strictly advisory: it never accepts, rejects, patterns, or ignores anything;
+writing the note is its only action. Yet in practice it has already flagged real relicenses that the mechanical layer
+alone had cleared — precisely the false negative the resolution guards can bound but never fully eliminate.
+
+The two layers are complementary rather than redundant. The mechanical layer keeps an enormous backlog small,
+reproducible, and cheap to recompute; the agent layer re-reads the primary evidence with judgement and is tuned to
+shout about the cases that matter most — above all a change from an open-source to a non-free license, which is the worst
+outcome a review can miss. Neither layer is the lawyer, and neither is meant to be; together they make it far less likely
+that a consequential license escapes review.
 
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 

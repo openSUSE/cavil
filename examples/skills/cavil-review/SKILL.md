@@ -48,6 +48,22 @@ The report surfaces the declared value on the `Declared-License:` line near the 
 `(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
 the package file had no declared license — say so explicitly and lean toward NEEDS HUMAN REVIEW.
 
+**Always read the package's own license-declaration files with `cavil_get_file` before you compare**
+— do not judge from the tag alone. Read the top-level `LICENSE`/`COPYING`, and list siblings with
+`cavil_list_files` (globs like `*/LICENSE*`, `*/COPYING*`) and read what they turn up — a
+`LICENSE.txt`, `LICENSE-*`, `COPYING.LESSER`, and especially a `LICENSE_HISTORY`, `LICENSE_NOTICE`, or
+`CONTRIBUTOR_LICENSE_AGREEMENT`, which often state a relicense outright or reserve the right to one.
+The `Declared-License:` value and the risk breakdown come from the pattern scanner, which misses
+custom terms living only in that file's text (e.g. a BSD/MIT-looking license with an added
+field-of-use, branding, or user-count restriction); such clauses never surface as a risk finding, so
+skipping the read can rubber-stamp a non-open-source license.
+
+**A clean-looking report is not evidence a license file is clean.** Cavil auto-resolves boilerplate
+snippets (folded / cleared / covered), and that machinery can *suppress the very snippet that named a
+novel term* — so a `LICENSE`/`COPYING` file can show zero unresolved matches and still contain a
+restriction. Never infer that a license file is safe from the absence of unresolved matches; open it
+and read the text.
+
 Compare the declared license against the licenses in the breakdown:
 - **Match** — the declared license covers the licenses found in the shipped code (vendored or
   bundled third-party components under their own permissive licenses are expected and do not by
@@ -68,6 +84,20 @@ themselves in the acceptable band (risk 1–4, no blocking flags or confirmed co
 resubmit," not a license rejection. Reserve REJECT for genuinely unacceptable content (risk 6/7, a
 third-party proprietary EULA, or a confirmed combined-work conflict). This matters because
 customer-facing SBOMs are generated from the declared tag, so it must match reality.
+
+**A license *change* to non-open-source terms is the worst case — flag it loudest.** The single most
+damaging thing a package update can do, from SUSE's position, is switch from an open-source license to
+a non-commercial, field-of-use, source-available, or otherwise non-free license (the open-webui "Open
+WebUI License", the Redis RSAL, SSPL, "Good-not-Evil"). It silently converts code SUSE could ship into
+code SUSE may not, and because downstream already depends on the old terms a *transition* is worse than
+a package that was always non-free. Any one of these is enough to escalate: the `LICENSE`/`COPYING`
+combines a recognized OSS body with an added clause restricting commercial use, user/seat count, field
+of use, deployment, or branding (or requiring a separate "enterprise" license for ordinary use); the
+file is retitled to a custom `"<Project> License"`; a `LICENSE_HISTORY`/CLA/relicensing announcement
+states or reserves a change; or an `[other report]` note on an earlier version described a standard OSS
+license the current text no longer matches. When you see it, recommend **REJECT**, make it the first
+line of the findings summary marked `⚠ LICENSE CHANGE:` and name both sides (from `<old OSS license>`
+to `<new restrictive terms>`, with the file and clause) — do not let it read as a routine risk-7 bullet.
 
 **SPDX AND/OR sanity (light-touch).** When the declared expression combines licenses with `AND`/`OR`,
 note whether the operator looks right against the found licenses: `OR` = the recipient may choose
@@ -117,6 +147,13 @@ Review all licenses found in the package. Note any licenses that may be problema
 - Proprietary or custom licenses
 - Unknown or unrecognized license identifiers
 - Licenses incompatible with the declared primary license
+
+**NOTICE / attribution files.** When a `NOTICE` (or `AUTHORS`) file is present, read it with
+`cavil_get_file`: it carries attribution obligations (Apache-2.0 §4(d) requires downstream to preserve
+its contents), not just license identity, and often discloses bundled third-party components or
+copyright holders the breakdown does not surface. Flag anything a redistributor must preserve, or a
+component named there that the report does not otherwise account for; feed such a component into the
+declared-license and combination checks.
 
 ##### Incompatible-license warnings deserve a very close look
 When the report's Licenses section contains a line like
@@ -208,6 +245,7 @@ Before taking any action, present a clear, concise summary to the user structure
 ```
 
 Let the risk levels and flags from 3b steer the lean:
+- **A license change to non-open-source terms (3a)** → REJECT; make it the first line of the summary, marked `⚠ LICENSE CHANGE:`. This outranks every other signal.
 - **A material unanticipated risk (3e)** → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Give it its own line in the summary and cite it in the reasoning.
 - **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
@@ -219,7 +257,7 @@ When a risk level or flag drives the recommendation, cite it in the reasoning an
 
 Use your judgment:
 - **ACCEPT**: Declared license is correct, licenses are compatible with SLE (risk 1–4, no blocking flags), and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant) — and you say so. No material unanticipated risk (3e) surfaced.
-- **REJECT**: Undeclared problematic licenses found, declared-license mismatch that is a genuine bad-license case (not fixable metadata), a **confirmed combined-work license incompatibility**, risk 6/7 or third-party proprietary-EULA content, or unresolved matches that suggest serious license issues
+- **REJECT**: A change of the package's own license from open-source to non-free terms (3a), undeclared problematic licenses found, declared-license mismatch that is a genuine bad-license case (not fixable metadata), a **confirmed combined-work license incompatibility**, risk 6/7 or third-party proprietary-EULA content, or unresolved matches that suggest serious license issues
 - **NEEDS HUMAN REVIEW**: Ambiguous or complex situations, risk 5 / EULA / patent / export considerations you cannot resolve, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation — let a human legal expert decide
 
 Never recommend ACCEPT on a report with an incompatible-license warning without stating in your summary that you reviewed it.

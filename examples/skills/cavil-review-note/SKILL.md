@@ -130,14 +130,27 @@ The report surfaces the declared value on the `Declared-License:` line near the 
 `(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
 the package file had no declared license — say so explicitly and lean toward NEEDS HUMAN REVIEW.
 
-**Always read the package's own top-level `LICENSE`/`COPYING` with `cavil_get_file` before you
-compare** — do not judge from the tag alone. The `Declared-License:` value and the risk breakdown
-come from the pattern scanner, which misses custom terms living only in that file's text (e.g. a
-BSD/MIT-looking license with an added field-of-use, branding, or user-count restriction). Such
-clauses never surface as a risk finding, so skipping the read can rubber-stamp a non-open-source
-license — and reading it inconsistently is a top cause of run-to-run flip-flops. Any clause
-restricting use, distribution, or modification beyond the standard SPDX license is a material risk
-(Step 4 catch-all) → at least NEEDS HUMAN REVIEW.
+**Always read the package's own license-declaration files with `cavil_get_file` before you compare**
+— do not judge from the tag alone. Read the top-level `LICENSE`/`COPYING`, and also list siblings
+with `cavil_list_files` (globs like `*/LICENSE*`, `*/COPYING*`) and read anything they turn up: a
+`LICENSE.txt`, `LICENSE-*`, `COPYING.LESSER`, and especially a `LICENSE_HISTORY`, `LICENSE_NOTICE`,
+or `CONTRIBUTOR_LICENSE_AGREEMENT` — those frequently state a relicense outright or reserve the right
+to one. The `Declared-License:` value and the risk breakdown come from the pattern scanner, which
+misses custom terms living only in that file's text (e.g. a BSD/MIT-looking license with an added
+field-of-use, branding, or user-count restriction). Such clauses never surface as a risk finding, so
+skipping the read can rubber-stamp a non-open-source license — and reading it inconsistently is a top
+cause of run-to-run flip-flops.
+
+**A clean-looking report is not evidence a license file is clean.** Cavil auto-resolves boilerplate
+snippets (folded / cleared / covered), and that machinery can *suppress the very snippet that named a
+novel term* — so a `LICENSE`/`COPYING` file can show **zero** unresolved matches in the report and
+still contain a restriction. Never infer that a license file is safe from the absence of unresolved
+matches; open it and read the text. (The same suppression can in rarer cases hide a custom license in
+a non-standard location, e.g. a bespoke header in a source file; if a package's report looks
+surprisingly clean for an upstream you have reason to think restrictive, or a `LICENSE_HISTORY`/CLA
+hints at relicensing, spot-read the files rather than trusting the rollup.) Any clause restricting
+use, distribution, or modification beyond the standard SPDX license is a material risk (Step 4
+catch-all) → at least NEEDS HUMAN REVIEW.
 
 Compare the declared license against the licenses in the Licenses/risk breakdown:
 - **Match** — the declared license covers the licenses found in the shipped code (vendored or
@@ -159,6 +172,30 @@ Compare the declared license against the licenses in the Licenses/risk breakdown
 When unsure whether a found license belongs to the shipped work or to a separable bundled
 component, apply the same combination-vs-aggregation reasoning as the incompatible-license check
 below, and say which it is.
+
+#### A license *change* to non-open-source terms is the worst case — flag it loudest
+The single most damaging thing a package update can do, from SUSE's position, is **switch from an
+open-source license to a non-commercial, field-of-use, source-available, or otherwise non-free
+license** — the open-webui "Open WebUI License", the Redis RSAL, SSPL, "Good-not-Evil", and similar
+relicenses. It silently converts code SUSE could ship into code SUSE may not, and because downstream
+already depends on the old terms, a *transition* is worse than a package that was always non-free.
+Treat any sign of it as the top finding in the note, above every other check.
+
+Any one of these is enough to escalate:
+- The top-level `LICENSE`/`COPYING` combines a recognized OSS body (BSD/MIT/Apache/GPL) with an
+  **added** clause restricting commercial use, user/seat count, field of use, deployment, or
+  branding — or requiring a separate/"enterprise" license for ordinary use.
+- The license file is retitled to a custom **"<Project> License"** instead of a standard SPDX name.
+- A `LICENSE_HISTORY`, `LICENSE_NOTICE`, relicensing announcement, or a CLA reserving the right to
+  relicense is present — read them; they often state the transition in plain words.
+- A note on an earlier version of this package (an `[other report]` note) described it as a standard
+  OSS license and the current text no longer matches — that delta is itself the finding.
+
+When you see it: recommend **REJECT**, make it the **first** bullet in the issues list, and mark it
+so a scanning lawyer cannot miss it — prefix the bullet with `⚠ LICENSE CHANGE:` and name both sides
+(from `<old OSS license>` to `<new restrictive terms>`), with the file and the offending clause
+quoted briefly. This is the risk-7 non-commercial case, but do not let it read as a routine risk-7
+bullet — a relicense is the headline.
 
 #### Incompatible-license warnings deserve a very close look
 When the report's Licenses section contains a line like
@@ -221,6 +258,7 @@ Use one of these recommendations:
 - **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation.
 
 Let the risk levels and flags from Step 4 steer the lean:
+- **A license change to non-open-source terms** (Step 4 relicense check) → REJECT; lead the note with the `⚠ LICENSE CHANGE:` bullet. This outranks every other signal.
 - **A material unanticipated legal risk** (the Step 4 catch-all) → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Lead the note with it.
 - **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
@@ -280,6 +318,12 @@ The first bullet is always the declared-license check from Step 4; include it ev
 clean match (e.g. `Declared license (GPL-2.0-or-later) matches the GPL-2.0-only/-or-later files in
 src/; remaining licenses are permissive vendored dependencies.`).
 
+If you found a license change to non-open-source terms (Step 4 relicense check), it is the headline:
+put it as the **first** issues bullet, prefixed `⚠ LICENSE CHANGE:`, naming both sides and the file
+and clause (e.g. `⚠ LICENSE CHANGE: LICENSE moved from BSD-3-Clause to a custom "Open WebUI License"
+with a non-commercial / branding restriction (LICENSE lines 20-34) — no longer open source.`). It
+must drive a REJECT recommendation.
+
 If you found a material unanticipated risk (the Step 4 catch-all), place it immediately after the
 declared-license bullet and prefix it so it stands out — `- Additional risk (outside the standard
 checks): ...` — with the file or snippet that evidences it. It must be visible in the note, never
@@ -333,6 +377,20 @@ Issues for legal reviewer:
 **Confidence:** Medium - large aggregation; highest-risk members spot-checked, remaining pairs not traced.
 ```
 
+A license change to non-open-source terms — the headline goes first, prefixed and unmissable:
+
+```markdown
+AI-assisted review recommendation: REJECT
+
+Issues for legal reviewer:
+- ⚠ LICENSE CHANGE: `open_webui-0.8.0/LICENSE` moved from a standard BSD-3-Clause to a custom "Open WebUI License" — the BSD body is retained but clause 4 adds a branding/non-commercial restriction (no removal of "Open WebUI" branding unless end users ≤ 50 or a paid enterprise license; LICENSE lines 20-34). This is no longer an open-source license; `LICENSE_HISTORY` confirms the transition.
+- Declared license (`BSD-3-Clause`) vs found: mismatch — the declared tag still says BSD-3-Clause but the actual terms are non-free (risk 7, field-of-use / non-commercial).
+
+**Suggested next step:** Do not ship. Confirm with the maintainer/upstream; this relicense makes the package non-distributable under SUSE's open-source terms.
+
+**Confidence:** Medium - based on reading LICENSE and LICENSE_HISTORY directly; AI-assisted triage, not a final legal decision.
+```
+
 If no notable issues were found, still create a note:
 
 ```markdown
@@ -349,7 +407,8 @@ Issues for legal reviewer:
 ```
 
 ## NOTE WRITING GUIDELINES
-- Every note must lead with the declared-license check (declared value vs. what the report found), even when it is a clean match. Never omit it.
+- A license change to non-open-source terms outranks everything: if you found one, it is the first bullet (`⚠ LICENSE CHANGE:`) and drives a REJECT. It is the worst case for legal, so never let it read as a routine risk bullet.
+- Every note must lead with the declared-license check (declared value vs. what the report found), even when it is a clean match. Never omit it. (When there is a license change, the `⚠ LICENSE CHANGE:` bullet comes first and the declared-vs-found line immediately after it.)
 - If you noticed a legally material risk outside the standard checks, surface it prominently (see Step 6) and let it drive the recommendation; never bury it or let minor observations crowd it out. This is the point of the review.
 - Always tag the note with `["review"]` and always pass `skip_if_existing_tag="review"` so the server keeps it to one review note per report.
 - Be brief and specific. Prefer concrete file paths, snippet ids, and license names over general impressions.
