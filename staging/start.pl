@@ -86,7 +86,8 @@ my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
     clear_threshold => 0.97,
     overlap_clear   => 1,
     overlap_guard   => 0.9,
-    cover_scope     => 'dir'
+    cover_scope     => 'dir',
+    cover_guard     => 0.9
   },
   spdx => {
     namespace => 'http://legaldb.suse.de/spdx/',
