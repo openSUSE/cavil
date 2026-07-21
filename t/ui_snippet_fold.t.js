@@ -16,7 +16,7 @@ async function openSnippetAction(src, rowClass, label) {
 // list, and opening its file shows the folded region highlighted as that license (not as a black
 // "unresolved snippet" row). The synthetic "snippet_fold" fixture folds every snippet of the
 // package-with-snippets report into GPL (risk 5).
-t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
+await t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
   process.env.JS_UI_FIXTURES = 'snippet_fold';
   const ui = await launchUi('js_ui_snippet_fold');
   const {page, url, errorLogs} = ui;
@@ -40,7 +40,7 @@ t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
       await fileLink.waitFor();
       const fileId = (await fileLink.getAttribute('href')).replace('#file-', '');
 
-      await fileLink.click();
+      await fileLink.dispatchEvent('click');
       await page.waitForSelector(`#file-details-${fileId} table.snippet`);
 
       // The folded region renders as a license match (risk-5), not as an unresolved snippet (risk-9)
@@ -86,7 +86,7 @@ t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
 // snippets drop out of the unresolved list and nothing new appears in the license list. The
 // "snippet_clear" fixture makes every snippet a zero-margin match of a synthetic "Clear-Test"
 // license, so it can only clear (never fold) and its name must never show up.
-t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
+await t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
   process.env.JS_UI_FIXTURES = 'snippet_clear';
   const ui = await launchUi('js_ui_snippet_clear');
   const {page, url, errorLogs} = ui;
@@ -128,7 +128,7 @@ t.test('Cavil UI - snippet boilerplate-clear', skipUnlessOnline, async t => {
 // keyword expansion swallowed) is redundant noise. The "snippet_overlap" fixture makes every snippet
 // classifier-legal but unscored, with a real GPL match on its first line, so only overlap-clear can
 // resolve it. The file browser must show the region resolved (cleared), not as an unresolved snippet.
-t.test('Cavil UI - overlap-clear (snippet over a real license match)', skipUnlessOnline, async t => {
+await t.test('Cavil UI - overlap-clear (snippet over a real license match)', skipUnlessOnline, async t => {
   process.env.JS_UI_FIXTURES = 'snippet_overlap';
   const ui = await launchUi('js_ui_snippet_overlap');
   const {page, url, errorLogs} = ui;
