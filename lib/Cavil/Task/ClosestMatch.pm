@@ -16,7 +16,7 @@
 package Cavil::Task::ClosestMatch;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Spooky::Patterns::XS 1.54;
+use Cavil::PatternEngine;
 use Mojo::File qw(path);
 
 sub register ($self, $app, $config) {
@@ -29,15 +29,16 @@ sub _pattern_stats ($job) {
 
   my $rows = $db->select('license_patterns', 'id,pattern')->hashes;
 
-  my $bag = Spooky::Patterns::XS::init_bag_of_patterns;
+  my $bag = Cavil::PatternEngine::init_bag_of_patterns;
   my %patterns;
   $patterns{$_->{id}} = $_->{pattern} for $rows->each;
   $bag->set_patterns(\%patterns);
 
-  my $dir   = path($app->config->{cache_dir});
-  my $cache = $dir->child('cavil.pattern.bag.new.' . $job->id);
+  # Publish under the active engine's bag filename (formats differ between engines)
+  my $bagfile = $app->patterns->bag_cache_file;
+  my $cache   = $bagfile->sibling($bagfile->basename . '.new.' . $job->id);
   $bag->dump($cache);
-  rename($cache, $dir->child('cavil.pattern.bag'));
+  rename($cache, $bagfile->to_string);
 
   # Rebuild the per-license similarity signatures (an extension of the bag) used for snippet scoring.
   # The snippets themselves are scored lazily in analyze (Patterns::score_package_snippets) and, for a

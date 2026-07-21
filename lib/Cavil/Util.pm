@@ -12,7 +12,7 @@ use Mojo::Util;
 use Mojo::DOM;
 use Mojo::File qw(path tempfile);
 use POSIX 'ceil';
-use Spooky::Patterns::XS;
+use Cavil::PatternEngine;
 use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
@@ -97,10 +97,10 @@ sub file_and_checksum ($path, $first_line, $last_line) {
     $lines{$line} = 1;
   }
 
-  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  my $ctx = Cavil::PatternEngine::init_hash(0, 0);
 
   my $text = '';
-  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%lines)}) {
+  for my $row (@{Cavil::PatternEngine::read_lines($path, \%lines)}) {
     my $line = $row->[2] . "\n";
     $text .= $line;
     $ctx->add($line);
@@ -115,9 +115,9 @@ sub file_and_checksum ($path, $first_line, $last_line) {
 }
 
 sub pattern_checksum ($text) {
-  Spooky::Patterns::XS::init_matcher();
-  my $a   = Spooky::Patterns::XS::parse_tokens($text);
-  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  Cavil::PatternEngine::init_matcher();
+  my $a   = Cavil::PatternEngine::parse_tokens($text);
+  my $ctx = Cavil::PatternEngine::init_hash(0, 0);
   for my $n (@$a) {
 
     # map the skips to each other
@@ -149,7 +149,7 @@ sub run_cmd ($dir, $cmd) {
 }
 
 sub snippet_checksum ($text) {
-  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  my $ctx = Cavil::PatternEngine::init_hash(0, 0);
   $ctx->add($text);
   return $ctx->hex;
 }
@@ -189,8 +189,8 @@ sub normalize_license_text ($text) {
 # vocabulary matches the bag-of-patterns engine. Very short texts fall back to unigrams so that
 # one-line declarations still compare.
 sub text_shingles ($text, $k = 3) {
-  Spooky::Patterns::XS::init_matcher();
-  my $toks = Spooky::Patterns::XS::parse_tokens(normalize_license_text($text));
+  Cavil::PatternEngine::init_matcher();
+  my $toks = Cavil::PatternEngine::parse_tokens(normalize_license_text($text));
 
   my %shingles;
   if (@$toks < $k) {
@@ -390,8 +390,8 @@ sub parse_service_file ($file) {
 }
 
 sub pattern_matches ($pattern, $text) {
-  my $matcher = Spooky::Patterns::XS::init_matcher();
-  my $parsed  = Spooky::Patterns::XS::parse_tokens($pattern);
+  my $matcher = Cavil::PatternEngine::init_matcher();
+  my $parsed  = Cavil::PatternEngine::parse_tokens($pattern);
   $matcher->add_pattern(1, $parsed);
 
   my $file    = tempfile->spew("ABC\n$text\nABC\n", 'UTF-8');
@@ -428,7 +428,7 @@ sub read_lines ($path, $start_line, $end_line, $with_line_numbers = 0) {
   }
 
   my $text = '';
-  for my $row (@{Spooky::Patterns::XS::read_lines($path, \%needed_lines)}) {
+  for my $row (@{Cavil::PatternEngine::read_lines($path, \%needed_lines)}) {
     my ($index, $pid, $line) = @$row;
 
     # Sanitize line - first try UTF-8 strict and then LATIN1

@@ -17,6 +17,7 @@ package Cavil::FileIndexer;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
+use Cavil::PatternEngine;
 use Cavil::Util qw(file_and_checksum);
 
 has 'dir';
@@ -24,7 +25,7 @@ has 'dir';
 sub new ($class, $app, $package, $db = undef) {
   my $self = $class->SUPER::new(app => $app, package => $package);
 
-  my $matcher = Spooky::Patterns::XS::init_matcher();
+  my $matcher = Cavil::PatternEngine::init_matcher();
 
   # Reuse the caller's database handle when given one, so all of a batch's writes can share a
   # single transaction instead of each insert autocommitting on its own connection

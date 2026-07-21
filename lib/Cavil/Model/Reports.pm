@@ -7,7 +7,7 @@ use Mojo::Base -base, -signatures;
 use Encode qw(from_to decode);
 use Mojo::File 'path';
 use Mojo::JSON qw(from_json to_json);
-use Spooky::Patterns::XS;
+use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk incompatible_licenses);
@@ -225,7 +225,7 @@ sub _check_ignores {
         }
       }
       else {
-        my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+        my $ctx = Cavil::PatternEngine::init_hash(0, 0);
         $ctx->add("$lastline\n");
         $ctx->add("$line->[2]\n");
         while ($line = shift @clines) {
@@ -343,9 +343,9 @@ sub _dig_report {
   # non-keyword text differs even slightly, so it must not be the primary
   # key. snippet id is hash-derived and stable.
   my @snip_rows = sort {
-         ($report->{files}{$a->{file}} // '') cmp ($report->{files}{$b->{file}} // '')
-      || $a->{id}                             <=> $b->{id}
-      || $a->{sline}                          <=> $b->{sline}
+         ($report->{files}{$a->{file}} // '') cmp($report->{files}{$b->{file}} // '')
+      || $a->{id}    <=> $b->{id}
+      || $a->{sline} <=> $b->{sline}
   } $snippets->hashes->each;
 
   my %file_snippets_to_show;
@@ -531,7 +531,7 @@ sub _lines {
     }
     $lastline = $line;
   }
-  for my $row (@{Spooky::Patterns::XS::read_lines($fn, $needed_lines)}) {
+  for my $row (@{Cavil::PatternEngine::read_lines($fn, $needed_lines)}) {
     my ($index, $pid, $line) = @$row;
 
     # Sanitize line - first try UTF-8 strict and then LATIN1

@@ -20,7 +20,6 @@ use Mojo::File  qw(path);
 use Cavil::Util qw(file_and_checksum read_lines);
 use Cavil::ReportUtil
   qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
-use Spooky::Patterns::XS;
 
 has [qw(checkout_dir pg snippet_fold)];
 

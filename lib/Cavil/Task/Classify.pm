@@ -19,7 +19,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Checkout;
 use Mojo::File 'path';
 use Mojo::Util qw(dumper);
-use Spooky::Patterns::XS;
+use Cavil::PatternEngine;
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(classify => \&_classify);
@@ -36,13 +36,13 @@ sub _classify ($job) {
   my $db         = $app->pg->db;
   my $classifier = $app->classifier;
 
-  my $cache = $app->home->child('cache', 'cavil.pattern.bag');
-  my $bag   = Spooky::Patterns::XS::init_bag_of_patterns;
+  my $patterns = $app->patterns;
+  my $cache    = $patterns->bag_cache_file;
+  my $bag      = Cavil::PatternEngine::init_bag_of_patterns;
   $bag->load($cache);
 
   # Improved similarity (extension of the bag); falls back to the plain bag if not yet built
-  my $patterns = $app->patterns;
-  my $ctx      = $patterns->similarity_context;
+  my $ctx = $patterns->similarity_context;
 
   # Classify in batches to allow for a complete re-evaluation with newer ML models
   my %packages_affected;

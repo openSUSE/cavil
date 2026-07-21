@@ -22,7 +22,7 @@ use List::Util qw(min);
 use Mojo::File qw(path);
 use Mojo::JSON qw(true false);
 use Mojo::Util qw(md5_sum);
-use Spooky::Patterns::XS;
+use Cavil::PatternEngine;
 use Storable;
 
 # Candidate licenses pulled from a snippet's most distinctive shingles before precise re-scoring
@@ -40,6 +40,25 @@ use constant SIMILARITY_DISTINCTIVE_IDF => 4.0;
 use constant SIMILARITY_MIN_DISTINCTIVE => 2;
 
 has [qw(cache log pg minion)];
+
+# The compiled matcher and the tf-idf bag are cached under engine-specific filenames, because their
+# on-disk formats differ between engines. This lets an instance switch engines (or run "matcher-diff")
+# without ever reading a cache written by the other one. The similarity sidecar
+# (cavil.license.signatures) is pure-Perl and engine-independent, so it is shared.
+sub matcher_cache_file ($self) {
+  return path($self->cache, Cavil::PatternEngine::name() eq 'cavil' ? 'cavil.matcher' : 'cavil.tokens');
+}
+
+sub bag_cache_file ($self) {
+  return path($self->cache, Cavil::PatternEngine::name() eq 'cavil' ? 'cavil.pattern.bag.cavil' : 'cavil.pattern.bag');
+}
+
+sub _all_cache_files ($self) {
+  my $cache = path($self->cache);
+  return
+    map { $cache->child($_) }
+    qw(cavil.tokens cavil.matcher cavil.pattern.bag cavil.pattern.bag.cavil cavil.license.signatures);
+}
 
 use constant LICENSE_DETAIL_MATCH_LIMIT   => 10_000;
 use constant LICENSE_DETAIL_PACKAGE_LIMIT => 1_000;
@@ -103,9 +122,9 @@ sub closest_pattern ($self, $text) {
 sub closest_match ($self, $text) { $self->closest_matches($text, 1)->[0] }
 
 sub closest_matches ($self, $text, $num) {
-  my $cache = path($self->cache, 'cavil.pattern.bag');
+  my $cache = $self->bag_cache_file;
   return [] unless -r $cache;
-  my $bag = Spooky::Patterns::XS::init_bag_of_patterns;
+  my $bag = Cavil::PatternEngine::init_bag_of_patterns;
   $bag->load($cache);
   return $bag->best_for($text, $num);
 }
@@ -385,13 +404,11 @@ sub create ($self, %args) {
 }
 
 sub expire_cache ($self) {
-  my $cache = path($self->cache);
-  unlink $cache->child('cavil.tokens')->to_string;
-  unlink $cache->child('cavil.pattern.bag')->to_string;
 
-  # Drop the similarity sidecar too, so stale per-license signatures / representative ids are not
-  # used until pattern_stats rebuilds them.
-  unlink $cache->child('cavil.license.signatures')->to_string;
+  # Drop every engine's matcher and bag caches plus the (shared) similarity sidecar, so stale caches
+  # are never used until they are rebuilt - and so invalidation stays correct no matter which engine
+  # is active, and after switching engines.
+  unlink $_->to_string for $self->_all_cache_files;
 
   # Reclculate the tf-idfs
   $self->minion->enqueue(pattern_stats => [] => {priority => 9});
@@ -416,25 +433,25 @@ sub load_specific ($self, $matcher, $pname) {
 
   while (my $l = $rows->array) {
     my ($id, $pattern) = @$l;
-    $pattern = Spooky::Patterns::XS::parse_tokens($pattern);
+    $pattern = Cavil::PatternEngine::parse_tokens($pattern);
     $matcher->add_pattern($id, $pattern);
   }
 }
 
 # possibly cached
 sub load_unspecific ($self, $matcher) {
-  my $cachefile = path($self->cache, 'cavil.tokens')->to_string;
-  if (-f $cachefile) {
-    $matcher->load($cachefile);
+  my $cachefile = $self->matcher_cache_file;
+  my $path      = $cachefile->to_string;
+  if (-f $path) {
+    $matcher->load($path);
     return;
   }
 
   $self->load_specific($matcher, '');
 
-  my $dir = path($self->cache);
-  my $tmp = $dir->child("cavil.tokens.tmp.$$")->to_string;
+  my $tmp = $cachefile->sibling($cachefile->basename . ".tmp.$$")->to_string;
   $matcher->dump($tmp);
-  rename $tmp, $cachefile;
+  rename $tmp, $path;
 }
 
 sub match_count ($self, $id) {
@@ -485,9 +502,9 @@ sub find ($self, $id) {
 }
 
 sub checksum ($self, $pattern) {
-  Spooky::Patterns::XS::init_matcher();
-  my $a   = Spooky::Patterns::XS::parse_tokens($pattern);
-  my $ctx = Spooky::Patterns::XS::init_hash(0, 0);
+  Cavil::PatternEngine::init_matcher();
+  my $a   = Cavil::PatternEngine::parse_tokens($pattern);
+  my $ctx = Cavil::PatternEngine::init_hash(0, 0);
   for my $n (@$a) {
 
     # map the skips to each other

@@ -7,6 +7,7 @@ use Mojo::Base 'Mojolicious', -signatures;
 use Mojo::Pg;
 use Cavil::Classifier;
 use Cavil::Git;
+use Cavil::PatternEngine;
 use Cavil::Role qw(roles_with_capability);
 use Cavil::Model::Notes;
 use Cavil::Model::IgnoredFiles;
@@ -45,6 +46,9 @@ sub startup ($self) {
   my $file   = $ENV{CAVIL_CONF} || 'cavil.conf';
   my $config = $self->plugin(Config => {file => $file});
   $self->secrets($config->{secrets});
+
+  # Select the pattern matching engine ("spooky" or "cavil"); loads the successor engine on demand
+  Cavil::PatternEngine::use_engine($config->{matcher} // 'spooky');
 
   if (my $classifier = $config->{classifier}) {
     $self->classifier->type($classifier->{type})->url($classifier->{url})->token($classifier->{token});

@@ -7,7 +7,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Bom::Registry;
 use Cavil::Checkout;
 use Cavil::FileIndexer;
-use Spooky::Patterns::XS;
+use Cavil::PatternEngine;
 use Time::HiRes 'time';
 
 sub register ($self, $app, $config) {

@@ -46,6 +46,7 @@ sub default_config ($self) {
     secrets                                  => ['just_a_test'],
     checkout_dir                             => $self->checkout_dir,
     cache_dir                                => $self->cache_dir,
+    matcher                                  => $ENV{CAVIL_MATCHER} || 'spooky',
     tokens                                   => ['test_token'],
     pg                                       => $self->postgres_url,
     acceptable_risk                          => 4,

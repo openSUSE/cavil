@@ -7,6 +7,7 @@ requires 'File::Unpack2';
 requires 'HTML::Parser';
 requires 'IPC::Run';
 requires 'Spooky::Patterns::XS';
+recommends 'Cavil::Matcher';    # next-gen pattern engine, loaded only when "matcher => 'cavil'" is configured
 requires 'Mojolicious::Plugin::OAuth2';
 requires 'Mojo::JWT';
 requires 'BSD::Resource';
