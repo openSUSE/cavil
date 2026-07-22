@@ -51,11 +51,12 @@ export function showFloatingTooltip(anchor, options = {}) {
   const placeAtCorner = () => {
     const rect = anchor.getBoundingClientRect();
     const margin = 8;
+    const offsetTop = options.offsetTop ?? 0;
     const w = dom.offsetWidth;
     const h = dom.offsetHeight;
     let left = rect.right - w - margin;
     left = Math.min(Math.max(8, left), Math.max(8, window.innerWidth - w - 8));
-    let top = rect.top + margin;
+    let top = rect.top + margin + offsetTop;
     top = Math.min(Math.max(8, top), Math.max(8, window.innerHeight - h - 8));
     dom.style.top = `${top}px`;
     dom.style.left = `${left}px`;

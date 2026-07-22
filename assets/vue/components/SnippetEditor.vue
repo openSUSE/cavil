@@ -751,6 +751,7 @@ export default {
       const tooltip = showPatternTooltip(view.dom, ids, {
         persistent: true,
         placement: 'anchor-corner',
+        offsetTop: 36,
         closable: true,
         closeLabel: 'Pinned for reference',
         onDestroy: () => {
