@@ -25,24 +25,30 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-subtest 'similarity round-trip: rebuild -> context -> best_license_for' => sub {
+subtest 'similarity round-trip: incremental maintenance -> score_snippets' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_fold_sim_test');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
   $cavil_test->just_patterns_fixtures($t->app);
   my $patterns = $t->app->patterns;
+  my $db       = $t->app->pg->db;
 
-  $patterns->rebuild_similarity_data;
-  my $ctx = $patterns->similarity_context;
-  ok $ctx,                             'context built from the sidecar';
-  ok $ctx->{signatures}{'Apache-2.0'}, 'per-license signature built for Apache-2.0';
+  # Patterns are created through the model, so the shingle tables are maintained incrementally - no
+  # separate build step, and the license-level index is queryable immediately.
+  ok $db->query("SELECT 1 FROM shingle_license WHERE license = 'Apache-2.0' LIMIT 1")->rows,
+    'per-license signature rows built for Apache-2.0';
 
-  # Relax the required-phrase gate: this tiny fixture corpus has only low IDF values (the gate is
-  # exercised on its own in t/patterns_similarity.t); here we test the rebuild/store/load wiring.
-  my $relaxed = {%$ctx, distinctive_idf => 0, min_distinctive => 1};
-  my $r       = $patterns->best_license_for(
-    'You may obtain a copy of the License at, Licensed under the Apache License, Version 2.0', $relaxed);
-  is $r->{license}, 'Apache-2.0', 'snippet scored to the right license through the full round-trip';
-  ok $r->{match} > 0.5, 'with a healthy score';
+  # Seed enough licenses that the production required-phrase gate can fire on a distinctive fragment
+  # (the gate itself is exercised on its own in t/patterns_similarity.t).
+  $patterns->create(pattern => "seed padding license number $_ alpha beta gamma delta", license => "Seed-$_")
+    for 1 .. 45;
+
+  my $r
+    = $patterns->score_snippets(
+    [{id => 1, text => 'You may obtain a copy of the License at, Licensed under the Apache License, Version 2.0'}])
+    ->{1};
+  my $license = $db->select('license_patterns', 'license', {id => $r->{like_pattern}})->hash->{license};
+  is $license, 'Apache-2.0', 'snippet scored to the right license through the full round-trip';
+  ok $r->{likelyness} > 0.5, 'with a healthy score';
 };
 
 # The fold gate is exercised through the public report instead of the private decision method: we

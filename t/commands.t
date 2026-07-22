@@ -17,13 +17,6 @@ use Mojo::Base -strict;
 
 use Test::More;
 
-subtest 'classify' => sub {
-  require Cavil::Command::classify;
-  my $cmd = Cavil::Command::classify->new;
-  ok $cmd->description, 'has a description';
-  like $cmd->usage, qr/classify/, 'has usage information';
-};
-
 subtest 'cleanup' => sub {
   require Cavil::Command::cleanup;
   my $cmd = Cavil::Command::cleanup->new;

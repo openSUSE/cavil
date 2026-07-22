@@ -45,7 +45,10 @@ sub load ($self, $path) {
     chomp $line;
     my $hash = decode_json($line);
     $hash->{token_hexsum} = pattern_checksum($hash->{pattern});
-    $imported++ if $db->insert('license_patterns', $hash, {on_conflict => undef, returning => 'id'})->rows;
+    if (my $row = $db->insert('license_patterns', $hash, {on_conflict => undef, returning => 'id'})->hash) {
+      $imported++;
+      $patterns->sync_pattern_shingles($db, $row->{id}, $hash->{license} // '', $hash->{pattern});
+    }
     $progress->update;
     $all++;
   }

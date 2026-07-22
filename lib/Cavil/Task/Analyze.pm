@@ -91,6 +91,11 @@ sub _analyze ($job, $id) {
     $minion->enqueue(
       analyzed => [$candidate->{id}] => {parents => [$job->id], priority => 9, notes => {"pkg_$id" => 1}});
   }
+
+  # Classify the snippets this package brought in, the same way a pattern change schedules pattern_stats:
+  # when there are snippets still awaiting the classifier, enqueue the (fleet-wide) classify job.
+  $pkgs->classify($id);
+
   $log->info("[$id] Analyzed $shortname");
 }
 

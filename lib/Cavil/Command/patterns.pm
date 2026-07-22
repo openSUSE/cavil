@@ -27,6 +27,7 @@ has usage       => sub ($self) { $self->extract_usage };
 sub run ($self, @args) {
   getopt \@args,
     'backfill-catch-all'     => \my $backfill_catch_all,
+    'backfill-shingles'      => \my $backfill_shingles,
     'check-catch-all'        => \my $check_catch_all,
     'check-risks'            => \my $check_risks,
     'check-spdx'             => \my $check_spdx,
@@ -64,6 +65,9 @@ sub run ($self, @args) {
 
   # (Re)seed the per-license catch_all flag from the license naming rule
   return $self->_backfill_catch_all if $backfill_catch_all;
+
+  # (Re)populate the pattern_shingles table from all patterns (one-time migration / after a format change)
+  return $self->_backfill_shingles if $backfill_shingles;
 
   # Check for licenses whose patterns disagree on the catch_all flag
   return $self->_check_catch_all if $check_catch_all;
@@ -138,6 +142,15 @@ sub _backfill_catch_all ($self) {
   $tx->commit;
   $self->app->patterns->expire_cache;
   say "$updated patterns updated";
+}
+
+sub _backfill_shingles ($self) {
+  my $patterns = $self->app->patterns;
+  my $total    = $self->app->pg->db->query('SELECT COUNT(*) AS c FROM license_patterns')->hash->{c};
+  say "Backfilling pattern_shingles for $total patterns ...";
+  $patterns->backfill_pattern_shingles;
+  my $rows = $self->app->pg->db->query('SELECT COUNT(*) AS c FROM pattern_shingles')->hash->{c};
+  say "Done: $rows shingle rows.";
 }
 
 sub _check_catch_all ($self) {
@@ -416,11 +429,20 @@ Cavil::Command::patterns - Cavil command to manage license patterns
     # Show all known information for a specific pattern match
     script/cavil patterns --match 12345
 
+    # Populate the snippet-similarity tables (run once after deploying the migration that
+    # adds them; routine pattern edits then maintain them incrementally)
+    script/cavil patterns --backfill-shingles
+
   Options:
         --match <id>                    Show all known information for a
                                         pattern match
         --backfill-catch-all            (Re)seed the per-license catch_all
                                         flag from the license naming rule
+        --backfill-shingles             (Re)populate the pattern_shingles
+                                        table from all patterns (one-time
+                                        migration, or after a shingle-format
+                                        change); routine edits maintain it
+                                        incrementally
         --check-catch-all               Check for licenses whose patterns
                                         disagree on the catch_all flag
         --check-risks                   Check for licenses with multiple

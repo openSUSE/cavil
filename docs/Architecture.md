@@ -106,9 +106,11 @@ is worth stating as invariants rather than leaving implicit:
 
 ### AI
 
-The use of machine learning models for text classification is entirely optional, but strongly recommended. Because the
-pattern matching system used for identifying clusters of legal keywords (snippets) has a false-positive rate of about
-80%. And even a simple model can identify almost all of them.
+Text classification with a machine learning model is one of Cavil's components. The pattern matching that identifies
+clusters of legal keywords (snippets) has a false-positive rate of about 80%, and the classifier is what separates
+genuine legal text from that noise. The automated snippet resolution described below — scoring, folding, clearing and
+covering — all builds on the classifier's judgement, so a deployment without it never resolves any snippets and falls
+back to raw keyword matching. Even a simple model catches almost all of the false positives.
 
 The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) has a collection of models fine-tuned specifically for
 this task, such as `Cavil-Qwen3.5-4B`. These models are usually deployed with a
@@ -252,8 +254,9 @@ These jobs are involved in report creation and usually run in the listed order:
 7. `analyzed`: Checks the report for reasons to automatically accept it.
 8. `spdx_report`: Creates report in SPDX format.
 
-If AI text classification has been configured there will also be another background job running in irregular intervals.
-This one is not specific to one package checkout.
+The text classifier (see [AI Text Classification](#ai-text-classification)) adds one more background job. It is enqueued
+automatically whenever analysis produces snippets that still need classifying, and (unlike the others) is not specific to
+a single package checkout.
 
 9. `classify`: Sends all unclassified snippets of potential legal text to the text classification server, and if
                necessary updates reports.
@@ -506,13 +509,13 @@ pattern on every query, so its cost grows directly with the number of patterns.
 On its own this raw score is a blunt instrument. It compares text against individual pattern fragments, treats every
 word as equally important, and does no clean-up first, so the ubiquitous boilerplate that appears in nearly every
 license ("software", "redistribution", "license") drowns out the handful of phrases that actually tell one license from
-another. Cavil refines the score in three ways, all layered on top of the same engine and rebuilt whenever the patterns
-change:
+another. Cavil refines the score in three ways:
 
 * It **normalises the text first** — stripping markup, comment markers and copyright, author and URL lines — much as the
   SPDX license matching guidelines prescribe, so only the legally meaningful wording is compared.
-* It compares a snippet against a **license's combined fingerprint**, built from all of that license's patterns at once,
-  rather than against one arbitrary fragment.
+* It compares a snippet against a **license's combined fingerprint** — the union of all that license's patterns, rather
+  than one arbitrary fragment. These fingerprints live in the database and are kept up to date as individual patterns are
+  added, edited or removed, so an ordinary pattern change never triggers a wholesale rebuild of the scoring data.
 * It **weights rare, license-specific phrases far more heavily** than common boilerplate, and measures how much of the
   snippet is contained in the license (a snippet is usually only a fragment of the full text).
 
@@ -737,8 +740,8 @@ the rebuild-everything-on-any-change cache behaviour.
 
 ## AI Text Classification
 
-Text classification via machine learning model is implemented as an optional HTTP service that needs to be configured
-before it can be used. It usually runs on port `5000`.
+Text classification via a machine learning model runs as an HTTP service that needs to be configured; the automated
+snippet resolution depends on it. It usually runs on port `5000`.
 
 ```
 classifier => {
@@ -747,12 +750,10 @@ classifier => {
 }
 ```
 
-The `classify` background job needs to be created with the `classify` command. Which can be triggered via cron job or
-systemd timer in regular intervals. Every 5 minutes has worked well for us in the past.
-
-```
-$ ./script/cavil classify
-```
+Cavil schedules this classification itself: whenever a package is analyzed and it brought in snippets that still need
+classifying, it enqueues the `classify` background job automatically, coalesced so at most one run is ever pending. No
+cron job or systemd timer is required. After configuring a classifier for the first time, the next reindex — or the next
+analysis of any package — enqueues a run that works through the snippets that were indexed before it existed.
 
 The only information submitted is the raw snippet of potential legal text, and a JSON document is returned, containing
 a boolean value indicating if the model believes this to be legal text, with a percentage value indicating its

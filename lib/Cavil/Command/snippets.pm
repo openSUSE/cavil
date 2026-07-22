@@ -40,21 +40,28 @@ sub _rescore ($self, $start, $batch) {
   my $app      = $self->app;
   my $db       = $app->pg->db;
   my $patterns = $app->patterns;
-  my $ctx      = $patterns->similarity_context;
-  die "No similarity signatures found - run 'cavil pattern_stats' first.\n" unless $ctx;
+
+  # Fail fast before touching any snippets: without the shingle tables there is nothing to score against.
+  die "No similarity data found - run 'cavil patterns --backfill-shingles' first.\n"
+    unless $db->query('SELECT 1 FROM shingle_license LIMIT 1')->rows;
 
   my $last = $start;
   my $done = 0;
   while (1) {
-    my $rows = $db->query('SELECT id, text FROM snippets WHERE id > ? ORDER BY id LIMIT ?', $last, $batch)->hashes;
-    last unless $rows->size;
+    my $rows
+      = $db->query('SELECT id, text FROM snippets WHERE id > ? ORDER BY id LIMIT ?', $last, $batch)->hashes->to_array;
+    last unless @$rows;
 
-    for my $snippet ($rows->each) {
-      $db->update('snippets', $patterns->score_text($snippet->{text}, $ctx), {id => $snippet->{id}});
+    # One batched pass per chunk: loads only this chunk's working set, scores it in memory (see
+    # Patterns::score_snippets). undef means the shingle tables were emptied mid-run.
+    my $scores = $patterns->score_snippets($rows)
+      or die "No similarity data found - run 'cavil patterns --backfill-shingles' first.\n";
+    for my $snippet (@$rows) {
+      $db->update('snippets', $scores->{$snippet->{id}}, {id => $snippet->{id}});
       $last = $snippet->{id};
     }
 
-    $done += $rows->size;
+    $done += @$rows;
     say "Re-scored $done snippets (through id $last)";
   }
   say "Done.";

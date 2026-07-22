@@ -17,7 +17,8 @@
 * Package and component (purl) search, plus a component export, for supply-chain and vulnerability triage
 * Legal risk assessments by lawyers for every pattern match
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
-* Optional support for machine learning models to classify pattern matches
+* Machine learning text classification of snippets, which drives Cavil's automated resolution of scanner
+  noise
 * [MCP](https://modelcontextprotocol.io/) support for integration into AI assisted
   [legal review workflows](https://github.com/openSUSE/cavil/blob/master/docs/UserAPI.md#agent-skills)
 * REST API for integration into existing source code management systems
@@ -45,9 +46,12 @@ count as legal advice and no guarantees are made for their correctness!
 
 ## AI
 
-It is strongly recommended to combine Cavil with a machine learning model for text classification. Because the pattern
-matching system used for identifying clusters of legal keywords (snippets) has a false-positive rate of about 80%. Even
-a simple model can identify almost all of them.
+A machine learning model for text classification is one of Cavil's components. The pattern matching that identifies
+clusters of legal keywords (snippets) has a false-positive rate of about 80%, and the classifier is what tells genuine
+legal text apart from that noise. Everything Cavil does with a snippet after that — scoring it against the known
+licenses, and automatically folding, clearing or covering it in reports — builds on the classifier's judgement, so
+without it none of that automated resolution happens and Cavil is left with raw keyword matching. Even a simple model
+identifies almost all of the false positives.
 
 The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) has a collection of models fine-tuned specifically for
 this task, such as `Cavil-Qwen3.5-4B`.

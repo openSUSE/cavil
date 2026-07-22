@@ -484,4 +484,23 @@ subtest 'Catch-all flag' => sub {
   };
 };
 
+subtest 'Shingle backfill' => sub {
+  my $db = $app->pg->db;
+  $db->query('DELETE FROM pattern_shingles');
+  is $db->query('SELECT count(*) AS c FROM pattern_shingles')->hash->{c}, 0, 'table starts empty';
+
+  my $buffer = '';
+  {
+    open my $handle, '>', \$buffer;
+    local *STDOUT = $handle;
+    $app->start('patterns', '--backfill-shingles');
+  }
+  like $buffer, qr/Backfilling pattern_shingles/, 'reports what it is doing';
+  like $buffer, qr/Done: \d+ shingle rows/,       'reports the resulting row count';
+
+  my $rows     = $db->query('SELECT count(*) AS c FROM pattern_shingles')->hash->{c};
+  my $patterns = $db->query('SELECT count(DISTINCT pattern_id) AS c FROM pattern_shingles')->hash->{c};
+  ok $rows > 0, "backfill repopulated the table ($rows rows across $patterns patterns)";
+};
+
 done_testing();

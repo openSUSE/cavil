@@ -1,17 +1,5 @@
-# Copyright (C) 2026 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2026 SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict, -signatures;
 
@@ -36,6 +24,14 @@ $app->minion->perform_jobs;
 my $db       = $app->pg->db;
 my $patterns = $app->patterns;
 
+# The similarity tables are maintained incrementally as patterns are created (sync_pattern_shingles +
+# triggers), so the fixtures above already populated them - no separate build step. The required-phrase
+# gate only fires a confident match when a shingle is distinctive (IDF >= 4), which needs a realistic
+# number of licenses in the corpus; the fixture has a handful, so seed enough padding licenses that the
+# *production* gate (not a relaxed one) can accept the deterministic fragments below.
+$patterns->create(pattern => "seed padding license number $_ alpha beta gamma delta", license => "Seed-Padding-$_")
+  for 1 .. 45;
+
 # A pattern whose text we can reuse verbatim as a snippet body for a deterministic match.
 my $gfdl = $db->query("SELECT id, pattern FROM license_patterns WHERE license = 'GFDL-1.1-or-later' LIMIT 1")->hash;
 my $file = $db->query('SELECT id FROM matched_files WHERE package = 1 LIMIT 1')->hash->{id};
@@ -53,38 +49,68 @@ my $add_snippet = sub (%o) {
   return $sid;
 };
 
-subtest 'score_text: ctx path, bag fallback, and no-scorer' => sub {
-  $patterns->rebuild_similarity_data;
-  my $ctx = $patterns->similarity_context;
-  ok $ctx, 'similarity context is available after a rebuild';
+subtest 'score_snippets: batched winner, likelyness and closest pattern' => sub {
 
-  # Relax the required-phrase gate (this tiny fixture corpus has only low IDF values - the gate itself
-  # is covered in t/patterns_similarity.t) so the matching license is selected deterministically.
-  my $relaxed = {%$ctx, distinctive_idf => 0, min_distinctive => 1};
-  my $scored  = $patterns->score_text($gfdl->{pattern}, $relaxed);
-  is $scored->{score_version}, SNIPPET_SCORE_VERSION, 'ctx path stamps the current score version';
-  is $scored->{like_pattern},  $gfdl->{id},           'and picks the matching license pattern';
+  # score_snippets reads only the pattern tables, so it can score ad-hoc rows (no snippet insert needed).
+  my $scores = $patterns->score_snippets([{id => 101, text => $gfdl->{pattern}}]);
+  my $scored = $scores->{101};
+  is $scored->{score_version}, SNIPPET_SCORE_VERSION, 'stamps the current score version';
+  is $scored->{like_pattern},  $gfdl->{id},           'attributes the snippet to the matching license pattern';
   ok $scored->{likelyness} > 0.5, 'with a healthy similarity';
 
-  # Plain Spooky bag (no signatures): stamps version 0 so fold-in will not trust it.
+  # Gibberish shares no distinctive shingle with any license: no confident winner, but still stamped.
+  my $miss = $patterns->score_snippets([{id => 102, text => 'zzq wxq vkq jpq flq'}])->{102};
+  is $miss->{likelyness},    0,                     'gibberish gets no confident match';
+  is $miss->{like_pattern},  undef,                 'and no attributed pattern';
+  is $miss->{score_version}, SNIPPET_SCORE_VERSION, 'but is still stamped current (so it is not rescored forever)';
+
+  # A whole batch is scored from one working-set load; each row keyed by its id.
+  my $batch = $patterns->score_snippets([{id => 201, text => $gfdl->{pattern}}, {id => 202, text => 'nothing here'}]);
+  is $batch->{201}{like_pattern}, $gfdl->{id}, 'first row matches';
+  is $batch->{202}{likelyness},   0,           'second row does not';
+};
+
+subtest 'score_snippets: closest pattern within the license carries the right risk' => sub {
+
+  # Two members of one license at different risk and with disjoint wording; the license pick is by the
+  # combined signature, but the attributed pattern must be the closest *member*, not an arbitrary one.
+  my $low = $app->patterns->create(
+    pattern => 'alpha bravo charlie delta echo foxtrot golf',
+    license => 'GrabBag-Test',
+    risk    => 0
+  );
+  my $high = $app->patterns->create(
+    pattern => 'november oscar papa quebec romeo sierra tango',
+    license => 'GrabBag-Test',
+    risk    => 5
+  );
+  my $risk_of = sub ($id) { $db->select('license_patterns', 'risk', {id => $id})->hash->{risk} };
+
+  my $hi = $patterns->score_snippets([{id => 301, text => 'november oscar papa quebec romeo sierra tango'}])->{301};
+  is $hi->{like_pattern},             $high->{id}, 'a snippet matching the high-risk member is attributed to it';
+  isnt $hi->{like_pattern},           $low->{id},  'not the other (arbitrary) member of the same license';
+  is $risk_of->($hi->{like_pattern}), 5,           'so the stored pattern carries the right (high) risk';
+
+  my $lo = $patterns->score_snippets([{id => 302, text => 'alpha bravo charlie delta echo foxtrot golf'}])->{302};
+  is $lo->{like_pattern},             $low->{id}, 'a snippet matching the low-risk member is attributed to it';
+  is $risk_of->($lo->{like_pattern}), 0,          'with the right (low) risk';
+};
+
+subtest 'bag_score: bootstrapping fallback stamps version 0' => sub {
   my $bag  = Spooky::Patterns::XS::init_bag_of_patterns;
   my %pats = map { $_->{id} => $_->{pattern} } @{$db->select('license_patterns', 'id,pattern')->hashes->to_array};
   $bag->set_patterns(\%pats);
-  my $fallback = $patterns->score_text($gfdl->{pattern}, undef, $bag);
-  is $fallback->{score_version}, 0, 'bag fallback stamps version 0';
-  ok $fallback->{like_pattern}, 'but still records a closest pattern';
 
-  is $patterns->score_text($gfdl->{pattern}, undef, undef), undef, 'with neither scorer it is a no-op';
+  my $fallback = $patterns->bag_score($bag, $gfdl->{pattern});
+  is $fallback->{score_version}, 0, 'bag fallback stamps version 0 so fold-in will not trust it';
+  ok $fallback->{like_pattern}, 'but still records a closest pattern';
 };
 
 subtest 'score_package_snippets: scores stale, skips current, re-scores stuck rows' => sub {
-  $patterns->rebuild_similarity_data;
-
   my $stale = $add_snippet->(text => $gfdl->{pattern});    # version 0, no like_pattern yet
 
-  # The stuck-snippet bug: classified before signatures existed -> version 0 but like_pattern already
-  # set. The old pattern_stats (WHERE like_pattern IS NULL) skipped these forever; scoping by version
-  # must re-score it.
+  # The stuck-snippet bug: classified before the tables were populated -> version 0 but like_pattern
+  # already set. Scoping by score_version (not "like_pattern IS NULL") must re-score it.
   my $stuck = $add_snippet->(text => $gfdl->{pattern}, like_pattern => $gfdl->{id});
 
   # A snippet already at the current version must be left untouched.
@@ -93,13 +119,14 @@ subtest 'score_package_snippets: scores stale, skips current, re-scores stuck ro
 
   $patterns->score_package_snippets(1);
 
-  my $version = sub ($id) { $db->select('snippets', 'score_version', {id => $id})->hash->{score_version} };
-  is $version->($stale), SNIPPET_SCORE_VERSION, 'a stale (version 0) snippet is scored to the current version';
-  is $version->($stuck), SNIPPET_SCORE_VERSION, 'a stuck version-0 row with a like_pattern is re-scored too';
-  is $version->($fresh), SNIPPET_SCORE_VERSION, 'a current-version snippet keeps the current version (skipped)';
+  my $row = sub ($id) { $db->select('snippets', ['score_version', 'like_pattern'], {id => $id})->hash };
+  is $row->($stale)->{score_version}, SNIPPET_SCORE_VERSION, 'a stale (version 0) snippet is scored to current';
+  is $row->($stale)->{like_pattern},  $gfdl->{id},           'and attributed end-to-end through the package flow';
+  is $row->($stuck)->{score_version}, SNIPPET_SCORE_VERSION, 'a stuck version-0 row with a like_pattern is re-scored';
+  is $row->($fresh)->{score_version}, SNIPPET_SCORE_VERSION, 'a current-version snippet is skipped (kept current)';
 };
 
-subtest 'score_package_snippets: scoped to the package, no-op without signatures' => sub {
+subtest 'score_package_snippets: scoped to the package, no-op without similarity data' => sub {
   my $ct = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_score_nosig_test');
   my $tt = Test::Mojo->new(Cavil => $ct->default_config);
   my $a  = $tt->app;
@@ -108,9 +135,10 @@ subtest 'score_package_snippets: scoped to the package, no-op without signatures
   $a->minion->perform_jobs;
   my $d = $a->pg->db;
 
-  # Pattern creation auto-rebuilds signatures, so drop them to exercise the "no scorer" early return.
-  $ct->cache_dir->child('cavil.license.signatures')->remove;
-  ok !$a->patterns->similarity_context, 'no similarity context once the signatures are gone';
+  # Emptying pattern_shingles cascades through the triggers to shingle_license, so the scorer sees no
+  # data at all - the bootstrapping state, before the backfill has run.
+  $d->query('DELETE FROM pattern_shingles');
+  ok !$d->query('SELECT 1 FROM shingle_license LIMIT 1')->rows, 'no similarity data once the tables are cleared';
 
   my $f   = $d->query('SELECT id FROM matched_files WHERE package = 1 LIMIT 1')->hash->{id};
   my $sid = $d->insert(
@@ -122,11 +150,10 @@ subtest 'score_package_snippets: scoped to the package, no-op without signatures
 
   $a->patterns->score_package_snippets(1);
   is $d->select('snippets', 'score_version', {id => $sid})->hash->{score_version}, 0,
-    'the stale snippet is left unscored without signatures';
+    'the stale snippet is left unscored without similarity data';
 };
 
 subtest 'analyze wires scoring: a stale snippet is self-healed when its package is analyzed' => sub {
-  $app->patterns->rebuild_similarity_data;
   my $sid = $add_snippet->(text => $gfdl->{pattern});
   is $db->select('snippets', 'score_version', {id => $sid})->hash->{score_version}, 0, 'starts unscored';
 
@@ -136,39 +163,6 @@ subtest 'analyze wires scoring: a stale snippet is self-healed when its package 
 
   is $db->select('snippets', 'score_version', {id => $sid})->hash->{score_version}, SNIPPET_SCORE_VERSION,
     'analyze scored the stale snippet to the current version';
-};
-
-# The license pick is by license, but the attributed pattern must be the closest one *within* that
-# license - not an arbitrary representative - so the stored like_pattern carries the right risk. This is
-# the grab-bag case (e.g. "Any CLA"), where patterns of one license span very different risk levels.
-subtest 'attributes the closest pattern within the license, with its real risk' => sub {
-
-  # Two members of one license at different risk and with disjoint wording. The first created is the
-  # arbitrary representative the old scorer always returned for this license.
-  my $low = $app->patterns->create(
-    pattern => 'alpha bravo charlie delta echo foxtrot golf',
-    license => 'GrabBag-Test',
-    risk    => 0
-  );
-  my $high = $app->patterns->create(
-    pattern => 'november oscar papa quebec romeo sierra tango',
-    license => 'GrabBag-Test',
-    risk    => 5
-  );
-
-  $patterns->rebuild_similarity_data;
-  my $ctx     = $patterns->similarity_context;
-  my $relaxed = {%$ctx, distinctive_idf => 0, min_distinctive => 1};    # tiny corpus: keep the gate out
-  my $risk_of = sub ($id) { $db->select('license_patterns', 'risk', {id => $id})->hash->{risk} };
-
-  my $hi = $patterns->score_text('november oscar papa quebec romeo sierra tango', $relaxed);
-  is $hi->{like_pattern},   $high->{id}, 'a snippet matching the high-risk member is attributed to it';
-  isnt $hi->{like_pattern}, $low->{id},  'not the arbitrary representative (the first pattern of the license)';
-  is $risk_of->($hi->{like_pattern}), 5, 'so the stored pattern carries the right (high) risk';
-
-  my $lo = $patterns->score_text('alpha bravo charlie delta echo foxtrot golf', $relaxed);
-  is $lo->{like_pattern},             $low->{id}, 'a snippet matching the low-risk member is attributed to it';
-  is $risk_of->($lo->{like_pattern}), 0,          'with the right (low) risk';
 };
 
 done_testing;

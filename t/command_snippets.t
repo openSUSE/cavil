@@ -40,14 +40,14 @@ subtest 'snippets without arguments prints usage' => sub {
   like capture($t->app, 'snippets'), qr/--rescore/, 'shows the available options';
 };
 
-subtest 'snippets --rescore refuses to run without similarity signatures' => sub {
+subtest 'snippets --rescore refuses to run without similarity data' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'command_snippets_empty_test');
   my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
   $cavil_test->no_fixtures($t->app);
 
   my $err = '';
   eval { capture($t->app, 'snippets', '--rescore'); 1 } or $err = $@;
-  like $err, qr/run 'cavil pattern_stats'/, 'dies with a helpful message';
+  like $err, qr/run 'cavil patterns --backfill-shingles'/, 'dies with a helpful message';
 };
 
 subtest 'snippets --rescore re-scores every snippet and stamps the version' => sub {
@@ -60,8 +60,8 @@ subtest 'snippets --rescore re-scores every snippet and stamps the version' => s
   my $db = $app->pg->db;
   ok $db->query('SELECT count(*) AS c FROM snippets')->hash->{c} > 0, 'fixture produced snippets';
 
-  # Build the model, mark every snippet with a sentinel score / stale version, then re-score
-  $app->patterns->rebuild_similarity_data;
+  # The shingle tables are maintained incrementally as the fixture patterns are created, so scoring is
+  # ready without a build step. Mark every snippet with a sentinel score / stale version, then re-score.
   $db->query('UPDATE snippets SET likelyness = 0.999, score_version = 0');
 
   # (stdout is not asserted here: the preceding perform_jobs interferes with in-memory STDOUT

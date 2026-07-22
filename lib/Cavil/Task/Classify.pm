@@ -41,9 +41,6 @@ sub _classify ($job) {
   my $bag      = Cavil::PatternEngine::init_bag_of_patterns;
   $bag->load($cache);
 
-  # Improved similarity (extension of the bag); falls back to the plain bag if not yet built
-  my $ctx = $patterns->similarity_context;
-
   # Classify in batches to allow for a complete re-evaluation with newer ML models
   my %packages_affected;
   while (1) {
@@ -53,22 +50,22 @@ sub _classify ($job) {
       'SELECT s.id, s.text FROM snippets s LEFT JOIN bot_packages bp ON (s.package = bp.id)
        WHERE classified = FALSE AND approved = FALSE AND (bp.embargoed = FALSE OR s.package IS NULL)
        ORDER BY s.id DESC LIMIT 100'
-    );
-    last unless $results->rows;
+    )->hashes->to_array;
+    last unless @$results;
 
-    for my $next ($results->hashes->each) {
+    # Score the whole batch at once against the similarity tables (one working-set load, not one query
+    # per snippet); undef means the tables are not populated yet, so fall back to the plain bag per row.
+    my $scores = $patterns->score_snippets($results);
+
+    for my $next (@$results) {
       my $res = $classifier->classify($next->{text});
       die "Unexpected result from classifier: @{[dumper($res)]}"
         unless ref $res eq 'HASH' && defined($res->{license}) && defined($res->{confidence});
 
+      my $score = $scores ? $scores->{$next->{id}} : $patterns->bag_score($bag, $next->{text});
       $db->update(
         'snippets',
-        {
-          %{$patterns->score_text($next->{text}, $ctx, $bag)},
-          classified => 1,
-          license    => $res->{license},
-          confidence => int($res->{confidence} + 0.5)
-        },
+        {%$score, classified => 1, license => $res->{license}, confidence => int($res->{confidence} + 0.5)},
         {id => $next->{id}, approved => 0}
       );
 

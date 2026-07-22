@@ -388,3 +388,41 @@ CREATE INDEX file_snippets_cleared_snippet_idx ON file_snippets (snippet DESC)
 -- 51 up
 CREATE INDEX file_snippets_unresolved_snippet_idx ON file_snippets (snippet) WHERE resolution IS NULL;
 CREATE INDEX file_snippets_unresolved_package_idx ON file_snippets (package, snippet) WHERE resolution IS NULL;
+
+-- 52 up
+CREATE TABLE pattern_shingles (
+  pattern_id bigint NOT NULL REFERENCES license_patterns(id) ON DELETE CASCADE,
+  license    text   NOT NULL,
+  shingle    bigint NOT NULL
+);
+CREATE INDEX pattern_shingles_pattern_idx ON pattern_shingles (pattern_id);
+CREATE INDEX pattern_shingles_license_shingle_idx ON pattern_shingles (license, shingle);
+CREATE TABLE shingle_license (
+  shingle bigint NOT NULL,
+  license text   NOT NULL,
+  PRIMARY KEY (shingle, license)
+);
+CREATE FUNCTION pattern_shingles_ins() RETURNS trigger AS $$
+  BEGIN
+    INSERT INTO shingle_license (shingle, license) VALUES (NEW.shingle, NEW.license) ON CONFLICT DO NOTHING;
+    RETURN NULL;
+  END;
+$$ LANGUAGE plpgsql;
+CREATE FUNCTION pattern_shingles_del() RETURNS trigger AS $$
+  BEGIN
+    DELETE FROM shingle_license sl
+     WHERE sl.shingle = OLD.shingle AND sl.license = OLD.license
+       AND NOT EXISTS (SELECT 1 FROM pattern_shingles ps WHERE ps.shingle = OLD.shingle AND ps.license = OLD.license);
+    RETURN NULL;
+  END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER pattern_shingles_ins_trg AFTER INSERT ON pattern_shingles
+  FOR EACH ROW EXECUTE FUNCTION pattern_shingles_ins();
+CREATE TRIGGER pattern_shingles_del_trg AFTER DELETE ON pattern_shingles
+  FOR EACH ROW EXECUTE FUNCTION pattern_shingles_del();
+
+-- 52 down
+DROP TABLE IF EXISTS shingle_license;
+DROP TABLE IF EXISTS pattern_shingles;
+DROP FUNCTION IF EXISTS pattern_shingles_ins;
+DROP FUNCTION IF EXISTS pattern_shingles_del;

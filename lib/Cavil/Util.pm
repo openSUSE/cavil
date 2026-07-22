@@ -20,7 +20,7 @@ our @EXPORT_OK = (
   qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
   qw(extract_spdx_identifiers normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
-  qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles validate_tags weighted_containment),
+  qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
   qw(license_is_catch_all SNIPPET_SCORE_VERSION),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
@@ -203,17 +203,20 @@ sub text_shingles ($text, $k = 3) {
   return \%shingles;
 }
 
-# IDF-weighted containment of $snippet within $reference (both shingle sets from text_shingles).
-# Containment (asymmetric) because a snippet is usually a *fragment* of a license. $idf maps a
-# shingle to its weight (rare, license-specific shingles weigh more); missing shingles default to 1.
-sub weighted_containment ($snippet, $reference, $idf = {}) {
-  my ($hit, $total) = (0, 0);
-  for my $shingle (keys %$snippet) {
-    my $w = $idf->{$shingle} // 1;
-    $total += $w;
-    $hit   += $w if $reference->{$shingle};
+# Same shingles as text_shingles, but each reduced to a compact 60-bit integer id (positive, so it fits
+# a signed BIGINT) via the engine's content hash. This is the on-disk/queryable form stored in the
+# pattern_shingles table and used to score snippets against it: maintenance and scoring MUST derive ids
+# through this one function so the numbers always match. Returns a hashref keyed by id.
+sub text_shingle_ids ($text, $k = 3) {
+  no warnings 'portable';    # 60-bit hex ids exceed 32 bits; that is fine on the 64-bit Perl Cavil requires
+  my $shingles = text_shingles($text, $k);
+  my %ids;
+  for my $shingle (keys %$shingles) {
+    my $ctx = Cavil::PatternEngine::init_hash(0, 0);
+    $ctx->add($shingle);
+    $ids{hex substr($ctx->hex, 0, 15)} = 1;
   }
-  return $total > 0 ? $hit / $total : 0;
+  return \%ids;
 }
 
 sub slurp_and_decode ($path) {

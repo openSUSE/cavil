@@ -45,8 +45,10 @@ unresolved) that the report, file browser, SPDX export and Classify Snippets fil
 automatically whenever a package is reindexed, so the weekly `script/cavil rindex` keeps it current. After changing a
 fold/clear/overlap threshold you can apply the new decision without a full reindex by running `script/cavil snippets
 --resolve`, which recomputes the resolutions for every package (much cheaper than reindexing, but still substantial at
-scale). Use `script/cavil snippets --rescore` first if the similarity scorer itself changed, since resolutions are
-derived from those scores.
+scale). If the similarity scorer itself changed, run `script/cavil snippets --rescore` first, since resolutions are
+derived from those scores. The scores are built from per-license fingerprints that Cavil keeps in the database and
+updates automatically as patterns change; only if the way snippets are turned into those fingerprints ever changes do you
+need to rebuild them in bulk with `script/cavil patterns --backfill-shingles` before re-scoring.
 
 ### Rolling out a preprocessing change (paced re-unpacking)
 

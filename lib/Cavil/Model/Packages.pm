@@ -9,7 +9,7 @@ use Mojo::File  qw(path);
 use Mojo::Util  qw(dumper);
 use Text::Glob  qw(glob_to_regex);
 
-has [qw(checkout_dir log minion pg)];
+has [qw(checkout_dir classifier log minion pg)];
 
 sub add ($self, %args) {
 
@@ -54,6 +54,24 @@ sub all ($self) { $self->pg->db->select('bot_packages')->hashes }
 
 sub analyze ($self, $id, $priority = 9, $parents = []) {
   return $self->_enqueue('analyze', $id, $priority, $parents);
+}
+
+# Enqueue the classify job when this package has snippets awaiting the classifier, coalesced to a single
+# pending run. The job is guarded and drains every package's snippets in one pass, so one queued run is
+# enough however many packages were analyzed. Packages whose snippets are all classified (the reindex
+# case) enqueue nothing, and so does an instance with no classifier configured to consume the snippets.
+sub classify ($self, $id) {
+  return unless $self->classifier->url;
+
+  my $db = $self->pg->db;
+  return unless $db->query(
+    'SELECT 1 FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
+      WHERE fs.package = ? AND s.classified = FALSE AND s.approved = FALSE LIMIT 1', $id
+  )->rows;
+
+  my $minion = $self->minion;
+  return if $minion->jobs({tasks => ['classify'], states => ['inactive']})->total;
+  $minion->enqueue(classify => [] => {priority => 5});
 }
 
 sub cleanup ($self, $id) {

@@ -16,7 +16,7 @@
 package Cavil::Command::eval_fold;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
-use Cavil::Util  qw(normalize_license_expr text_shingles weighted_containment);
+use Cavil::Util  qw(normalize_license_expr text_shingle_ids);
 use Getopt::Long qw(GetOptionsFromArray);
 
 has description => 'Calibrate snippet fold-in thresholds against the pattern corpus';
@@ -24,9 +24,11 @@ has usage       => sub ($self) { $self->extract_usage };
 
 # Held-out evaluation of the similarity scorer using the curated corpus as ground truth: split the
 # patterns into a reference set (builds the signatures) and a disjoint probe set (stand-ins for
-# snippets), then measure how often best_license_for recovers a probe's true license at each
-# similarity threshold. Reports precision (correct among accepted) and recall (accepted overall)
-# so a threshold can be chosen for the desired precision before enabling fold-in.
+# snippets), then measure how often best_license recovers a probe's true license at each similarity
+# threshold. Reports precision (correct among accepted) and recall (accepted overall) so a threshold
+# can be chosen for the desired precision before enabling fold-in. This builds the same in-memory
+# context shape best_license consumes in production (Patterns::score_snippets), so the scorer under
+# test is exactly the production one - only the data source (a held-out sample) differs.
 sub run ($self, @args) {
   my $folds       = 5;
   my $min_margin  = 0.15;
@@ -46,15 +48,16 @@ sub run ($self, @args) {
   my $app  = $self->app;
   my $rows = $app->pg->db->select('license_patterns', 'id,license,pattern')->hashes;
 
-  # Reference set builds per-license signatures; probe set is held out (id %% folds == 0)
-  my (%signatures, %representative, @probes);
+  # Reference set builds per-license signatures; probe set is held out (id %% folds == 0). Shingles are
+  # the same 60-bit ids the DB scorer uses, so the context is bit-for-bit what best_license sees in prod.
+  my (%signatures, %min_pid, @probes);
   for my $row (@$rows) {
     my $license = $row->{license};
     next unless defined $license && length $license;
     if ($row->{id} % $folds == 0) { push @probes, $row; next }
-    my $shingles = text_shingles($row->{pattern}, $k);
+    my $shingles = text_shingle_ids($row->{pattern}, $k);
     $signatures{$license}{$_} = 1 for keys %$shingles;
-    $representative{$license} //= $row->{id};
+    $min_pid{$license} = $row->{id} if !defined $min_pid{$license} || $row->{id} < $min_pid{$license};
   }
 
   my %index;
@@ -67,10 +70,9 @@ sub run ($self, @args) {
   }
   my $ctx = {
     signatures      => \%signatures,
-    representative  => \%representative,
+    min_pid         => \%min_pid,
     index           => \%index,
     idf             => \%idf,
-    k               => $k,
     distinctive_idf => $distinctive,
     min_distinctive => $min_dist
   };
@@ -83,7 +85,7 @@ sub run ($self, @args) {
 
     # Only probe licenses the reference set can actually represent
     next unless $signatures{$probe->{license}};
-    my $best = $patterns->best_license_for($probe->{pattern}, $ctx);
+    my $best = $patterns->best_license([keys %{text_shingle_ids($probe->{pattern}, $k)}], $ctx);
     $scored++;
 
     # Mirror the production gate: require the winner to beat the runner-up by the margin, and treat

@@ -50,7 +50,8 @@ is $classifier->token, 'TEST:TOKEN:12345',      'token has been configured';
 my $url = 'http://127.0.0.1:' . $classifier->ua->server->app(app)->url->port;
 $classifier->url($url);
 
-# Unpack and index
+# Unpack and index. With a classifier configured, analysis enqueues the classify job for the snippets a
+# package brings in, so processing a package also classifies them.
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
 $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 2});
@@ -59,27 +60,24 @@ my $embargoed_id = $t->app->pg->db->insert(
   {hash      => 'manual:12345678890abcdef', text => 'Embargoed license text', package => 2},
   {returning => 'id'}
 )->hash->{id};
-my $broken_id = $t->app->pg->db->insert(
-  'snippets',
-  {hash      => 'manual:12345678890abcde1', text => 'This one is broken', package => 1},
-  {returning => 'id'}
-)->hash->{id};
 $t->app->minion->enqueue(unpack => [2]);
 $t->app->minion->perform_jobs;
 
-subtest 'Not yet classified' => sub {
+subtest 'Classified automatically after indexing' => sub {
   my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
-  is $snippet->{id},         1, 'right id';
-  is $snippet->{classified}, 0, 'not classified';
-  is $snippet->{license},    0, 'not a license';
-  is $snippet->{confidence}, 0, 'not confidence';
+  is $snippet->{id},         1,  'right id';
+  is $snippet->{classified}, 1,  'classified';
+  is $snippet->{license},    1,  'a license';
+  is $snippet->{confidence}, 98, 'right confidence';
   like $snippet->{text}, qr/Fixed copyright notice/, 'right text';
   $snippet = $t->app->pg->db->select('snippets', '*', {id => 2})->hash;
-  is $snippet->{id},         2, 'right id';
-  is $snippet->{classified}, 0, 'not classified';
-  is $snippet->{license},    0, 'not a license';
-  is $snippet->{confidence}, 0, 'not confidence';
+  is $snippet->{id},         2,  'right id';
+  is $snippet->{classified}, 1,  'classified';
+  is $snippet->{license},    0,  'not a license';
+  is $snippet->{confidence}, 55, 'right confidence';
   like $snippet->{text}, qr/This license establishes/, 'right text';
+
+  # Embargoed snippets are left for humans and never sent to the classifier
   $snippet = $t->app->pg->db->select('snippets', '*', {id => $embargoed_id})->hash;
   is $snippet->{id},         $embargoed_id, 'right id';
   is $snippet->{classified}, 0,             'not classified';
@@ -88,48 +86,28 @@ subtest 'Not yet classified' => sub {
   like $snippet->{text}, qr/Embargoed license text/, 'right text';
 };
 
-subtest 'Classify' => sub {
+subtest 'Broken classifier is retryable' => sub {
+  my $broken_id = $t->app->pg->db->insert(
+    'snippets',
+    {hash      => 'manual:12345678890abcde1', text => 'This one is broken', package => 1},
+    {returning => 'id'}
+  )->hash->{id};
+
   my $classify_id = $t->app->minion->enqueue('classify');
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->job($classify_id)->info->{state}, 'failed', 'job is failed';
+  like $t->app->minion->job($classify_id)->info->{result}, qr/Classifier is broken/, 'right error message';
 
-  subtest 'Broken classifier' => sub {
-    $t->app->minion->perform_jobs;
-    is $t->app->minion->job($classify_id)->info->{state}, 'failed', 'job is failed';
-    like $t->app->minion->job($classify_id)->info->{result}, qr/Classifier is broken/, 'right error message';
-    $t->app->pg->db->delete('snippets', {id => $broken_id});
-    $t->app->minion->job($classify_id)->retry;
-  };
-
-  subtest 'Working classifier' => sub {
-    $t->app->minion->perform_jobs;
-    is $t->app->minion->job($classify_id)->info->{state}, 'finished', 'job is finished';
-  };
+  $t->app->pg->db->delete('snippets', {id => $broken_id});
+  $t->app->minion->job($classify_id)->retry;
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->job($classify_id)->info->{state}, 'finished', 'job finishes once the broken snippet is gone';
 };
 
 subtest 'Token authentication' => sub {
   is_deeply $t->app->classifier->classify('Fixed copyright notice'), {confidence => '98.123', license => 1},
     'is legal text';
   is $TOKEN, 'TEST:TOKEN:12345', 'right token';
-};
-
-subtest 'Classified (if unembargoed)' => sub {
-  my $snippet = $t->app->pg->db->select('snippets', '*', {id => 1})->hash;
-  is $snippet->{id},         1,  'right id';
-  is $snippet->{classified}, 1,  'classified';
-  is $snippet->{license},    1,  'license';
-  is $snippet->{confidence}, 98, 'confidence';
-  like $snippet->{text}, qr/Fixed copyright notice/, 'right text';
-  $snippet = $t->app->pg->db->select('snippets', '*', {id => 2})->hash;
-  is $snippet->{id},         2,  'right id';
-  is $snippet->{classified}, 1,  'classified';
-  is $snippet->{license},    0,  'not a license';
-  is $snippet->{confidence}, 55, 'confidence';
-  like $snippet->{text}, qr/This license establishes/, 'right text';
-  $snippet = $t->app->pg->db->select('snippets', '*', {id => $embargoed_id})->hash;
-  is $snippet->{id},         $embargoed_id, 'right id';
-  is $snippet->{classified}, 0,             'not classified';
-  is $snippet->{license},    0,             'not a license';
-  is $snippet->{confidence}, 0,             'not confidence';
-  like $snippet->{text}, qr/Embargoed license text/, 'right text';
 };
 
 subtest 'Classified manually' => sub {

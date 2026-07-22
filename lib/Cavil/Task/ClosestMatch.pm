@@ -39,12 +39,6 @@ sub _pattern_stats ($job) {
   my $cache   = $bagfile->sibling($bagfile->basename . '.new.' . $job->id);
   $bag->dump($cache);
   rename($cache, $bagfile->to_string);
-
-  # Rebuild the per-license similarity signatures (an extension of the bag) used for snippet scoring.
-  # The snippets themselves are scored lazily in analyze (Patterns::score_package_snippets) and, for a
-  # corpus-wide refresh after pattern changes, by "cavil snippets --rescore" - this task only publishes
-  # the artifacts both of those read.
-  $app->patterns->rebuild_similarity_data;
 }
 
 1;

@@ -21,8 +21,7 @@ use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets lines_context license_is_catch_all normalize_license_expr obs_ssh_auth parse_exclude_file),
   qw(parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
-  qw(external_link_data request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles validate_tags),
-  qw(weighted_containment)
+  qw(external_link_data request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles validate_tags)
 );
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -224,20 +223,6 @@ subtest 'text_shingles' => sub {
 
   my $short = text_shingles('MIT license', 3);
   is scalar(keys %$short), 2, 'short text falls back to unigrams';
-};
-
-subtest 'weighted_containment' => sub {
-  my $snippet = {a => 1, b => 1, c => 1, d => 1};
-  is weighted_containment($snippet, {a => 1, b => 1, c => 1, d => 1}), 1,   'full containment scores 1';
-  is weighted_containment($snippet, {}),                               0,   'no overlap scores 0';
-  is weighted_containment($snippet, {a => 1, b => 1}),                 0.5, 'half the shingles present';
-  is weighted_containment({},       {a => 1}),                         0, 'empty snippet scores 0 (no divide by zero)';
-
-  # IDF weighting: a rare shingle counts far more than common boilerplate
-  my $idf = {rare => 100, common => 1};
-  my $s   = {rare => 1,   common => 1};
-  ok weighted_containment($s, {rare   => 1}, $idf) > 0.9, 'matching the rare shingle dominates';
-  ok weighted_containment($s, {common => 1}, $idf) < 0.1, 'matching only boilerplate scores low';
 };
 
 subtest 'normalize_license_expr' => sub {

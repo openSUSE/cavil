@@ -110,6 +110,7 @@ sub startup ($self) {
     packages => sub ($c) {
       state $pkgs = Cavil::Model::Packages->new(
         checkout_dir => $config->{checkout_dir},
+        classifier   => $self->classifier,
         log          => $self->log,
         minion       => $self->minion,
         pg           => $c->pg
