@@ -174,6 +174,13 @@ subtest 'wxWidgets-3_2' => sub {
   is_deeply $checkout->specfile_report, report('wxWidgets-3_2.specfile'), 'right specfile report';
 };
 
+subtest 'MozillaFirefox (macros)' => sub {
+  my $ff       = temp_copy('MozillaFirefox', '8d3f5e6a2b1c4d7e9f0a1b2c3d4e5f6a');
+  my $checkout = Cavil::Checkout->new($ff);
+  $checkout->unpack;
+  is_deeply $checkout->specfile_report, report('MozillaFirefox.specfile'), 'right specfile report';
+};
+
 subtest 'PackageHub (ObsPrj)' => sub {
   my $hub      = temp_copy('PackageHub', '280b37a43ba9dc09c563a5c4e99349c07414c9f46a8e8f8636d3ef8aaf63650b');
   my $checkout = Cavil::Checkout->new($hub);

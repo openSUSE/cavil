@@ -19,7 +19,7 @@ use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
-  qw(buckets lines_context license_is_catch_all normalize_license_expr obs_ssh_auth parse_exclude_file),
+  qw(buckets expand_spec_macros lines_context license_is_catch_all normalize_license_expr obs_ssh_auth parse_exclude_file),
   qw(parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(external_link_data request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles validate_tags)
 );
@@ -37,6 +37,103 @@ EOF
 subtest 'buckets' => sub {
   is_deeply buckets([1 .. 10], 3), [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10]], 'right buckets';
   is_deeply buckets([1 .. 10], 4), [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]], 'right buckets';
+};
+
+subtest 'expand_spec_macros' => sub {
+
+  # Pull the value of a spec tag out of the expanded text, exactly like Checkout parses it later
+  my $tag = sub {
+    my ($spec, $name) = @_;
+    for my $line (split "\n", expand_spec_macros($spec)) {
+      return $1 if $line =~ /^\Q$name\E:\s*(.+?)\s*$/;
+    }
+    return undef;
+  };
+
+  subtest 'simple substitution' => sub {
+    is $tag->("%define foo bar\nVersion: %{foo}\n", 'Version'), 'bar', 'braced reference';
+    is $tag->("%define foo bar\nVersion: %foo\n",   'Version'), 'bar', 'bare reference';
+    is $tag->("%global foo bar\nVersion: %{foo}\n", 'Version'), 'bar', '%global behaves like %define';
+    is $tag->("%define   foo   bar baz \nVersion: %{foo}\n", 'Version'), 'bar baz',
+      'extra whitespace and multi-word values';
+  };
+
+  subtest 'definition order does not matter' => sub {
+    is $tag->("Version: %{foo}\n%define foo bar\n", 'Version'), 'bar', 'macro defined after use still resolves';
+    is $tag->("%define foo one\n%define foo two\nVersion: %{foo}\n", 'Version'), 'one',
+      'first definition wins, like rpm';
+  };
+
+  subtest 'chained macros (the Firefox case)' => sub {
+    my $spec = "%define major 140\n%define mainver %major.13.0\nVersion: %{mainver}\n";
+    is $tag->($spec, 'Version'), '140.13.0', 'mainver -> major resolves through several passes';
+  };
+
+  subtest 'tags are seeded like rpm auto-macros' => sub {
+    my $spec = "Name: firefox\nVersion: 140.0\n" . "Source: http://ftp.example.org/%{name}/%{name}-%{version}.tar.xz\n";
+    is $tag->($spec, 'Source'), 'http://ftp.example.org/firefox/firefox-140.0.tar.xz',
+      '%{name} and %{version} come from the Name/Version tags';
+
+    my $chained = "%define mainver 91.2\nName: tool\nVersion: %{mainver}\n" . "Source: %{name}-%{version}.tar.gz\n";
+    is $tag->($chained, 'Source'), 'tool-91.2.tar.gz', 'seeded %{version} is itself macro-resolved';
+  };
+
+  subtest 'unknown macros are left untouched' => sub {
+    is $tag->("Version: %{_prefix}/x\n", 'Version'), '%{_prefix}/x', 'undefined braced macro passes through';
+    is $tag->("Version: %undefined\n",   'Version'), '%undefined',   'undefined bare macro passes through';
+  };
+
+  subtest 'active/unsafe macros are never evaluated' => sub {
+    my $shell = "Version: %(echo pwned)\n";
+    is $tag->($shell, 'Version'), '%(echo pwned)', 'shell expansion is left verbatim';
+
+    my $expand = expand_spec_macros("%{expand:%%global x %(echo hi)}\nVersion: %{x}\n");
+    like $expand, qr/\Q%{expand:\E/,   '%{expand:...} block is left verbatim';
+    like $expand, qr/Version: %\{x\}/, 'macro from an expand block is not defined';
+
+    # Conditional define: the "%define" is inside a %{!?...} guard, so it must not be captured
+    my $cond = "%{!?_x: %global _x %{_y}/macros}\nVersion: %{_x}\n";
+    is $tag->($cond, 'Version'), '%{_x}', 'conditional guard define is not captured';
+
+    # Conditional references keep their sigil characters and are left alone
+    is $tag->("Version: 0%{?dist}\n", 'Version'), '0%{?dist}', '%{?foo} conditional reference untouched';
+  };
+
+  subtest 'escaped %% is not a macro' => sub {
+    is $tag->("%define major 140\nVersion: %%major.99\n", 'Version'), '%%major.99',
+      'a literal %% is left alone even when the name is defined';
+  };
+
+  subtest '%if branches are not evaluated (best-effort, first wins)' => sub {
+    my $spec = "%if 0%{?suse_version} > 1500\n%define ch release\n%else\n%define ch esr\n%endif\n" . "Version: %{ch}\n";
+    is $tag->($spec, 'Version'), 'release', 'first branch definition is used without evaluating the condition';
+  };
+
+  subtest 'recursion and cycles terminate safely' => sub {
+    my $self = "%define a %{a}\nVersion: %{a}\n";
+    is $tag->($self, 'Version'), '%{a}', 'self-reference does not loop and is left unresolved';
+
+    my $cycle = "%define a %{b}\n%define b %{a}\nVersion: %{a}\n";
+    my $out   = $tag->($cycle, 'Version');
+    like $out, qr/^%\{[ab]\}$/, 'mutual cycle terminates with an unresolved reference';
+  };
+
+  subtest 'hostile macro values cannot inject regex or replacement syntax' => sub {
+    is $tag->("%define x \$1\\{oops\\}\nVersion: %{x}\n", 'Version'), '$1\\{oops\\}',
+      'special characters in the value are substituted literally';
+    is $tag->("%define x ^(lib.*)\$\nVersion: %{x}\n", 'Version'), '^(lib.*)$',
+      'regex metacharacters in the value are not interpreted';
+  };
+
+  subtest 'defensive inputs' => sub {
+    is expand_spec_macros(undef),                           undef,    'undef in, undef out';
+    is expand_spec_macros(''),                              '',       'empty string is unchanged';
+    is $tag->("%define foo\nVersion: %{foo}\n", 'Version'), '%{foo}', 'valueless define is skipped';
+
+    # A pathological pile of references must not blow up; the pass cap bounds the work
+    my $big = ("Version: " . ("%{u}" x 5000) . "\n");
+    ok defined expand_spec_macros($big), 'large unresolved input returns without hanging';
+  };
 };
 
 my $casedir = Mojo::File->new('t/lines');

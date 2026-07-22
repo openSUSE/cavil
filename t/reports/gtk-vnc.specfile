@@ -26,7 +26,7 @@
       "LGPL-2.1+",
       "LGPL-2.1+"
     ],
-    "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/%{_name}-%{version}.tar.xz"],
+    "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/gtk-vnc-0.5.2.tar.xz"],
     "summary" => "A GTK widget for VNC clients",
     "type"    => "spec",
     "url"     => "http://gtk-vnc.sf.net/",
@@ -57,7 +57,7 @@
         "LGPL-2.1+",
         "LGPL-2.1+"
       ],
-      "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/%{_name}-%{version}.tar.xz"],
+      "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/gtk-vnc-0.5.2.tar.xz"],
       "summary" => "A GTK widget for VNC clients",
       "type"    => "spec",
       "url"     => "http://gtk-vnc.sf.net/",
@@ -87,7 +87,7 @@
         "LGPL-2.1+",
         "LGPL-2.1+"
       ],
-      "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/%{_name}-%{version}.tar.xz"],
+      "sources" => ["http://download.gnome.org/sources/gtk-vnc/0.5/gtk-vnc-0.5.2.tar.xz"],
       "summary" => "A GTK widget for VNC clients",
       "type"    => "spec",
       "url"     => "http://gtk-vnc.sf.net/",

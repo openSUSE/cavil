@@ -1,0 +1,40 @@
+{
+  "errors"              => [],
+  "incomplete_checkout" => 0,
+  "main"                => {
+    "%doc"                 => [],
+    "%license"             => [],
+    "file"                 => "MozillaFirefox.spec",
+    "group"                => "Productivity/Networking/Web/Browsers",
+    "legal_review_notices" => [],
+    "license"              => "MPL-2.0",
+    "licenses"             => ["MPL-2.0"],
+    "sources"              => [
+      "http://ftp.mozilla.org/pub/firefox/releases/140.13.0esr/source/firefox-140.13.0esr.source.tar.xz",
+      "MozillaFirefox.desktop"
+    ],
+    "summary" => "Mozilla Firefox Web Browser",
+    "type"    => "spec",
+    "url"     => "http://www.mozilla.org/",
+    "version" => "140.13.0"
+  },
+  "sub" => [
+    {
+      "%doc"                 => [],
+      "%license"             => [],
+      "file"                 => "MozillaFirefox.spec",
+      "group"                => "Productivity/Networking/Web/Browsers",
+      "legal_review_notices" => [],
+      "licenses"             => ["MPL-2.0"],
+      "sources"              => [
+        "http://ftp.mozilla.org/pub/firefox/releases/140.13.0esr/source/firefox-140.13.0esr.source.tar.xz",
+        "MozillaFirefox.desktop"
+      ],
+      "summary" => "Mozilla Firefox Web Browser",
+      "type"    => "spec",
+      "url"     => "http://www.mozilla.org/",
+      "version" => "140.13.0"
+    }
+  ],
+  "warnings" => []
+}

@@ -17,7 +17,7 @@ use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
 our @EXPORT_OK = (
-  qw(buckets file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
+  qw(buckets expand_spec_macros file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
   qw(extract_spdx_identifiers normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
@@ -75,6 +75,46 @@ sub extract_spdx_identifiers ($string) {
   }
 
   return \@identifiers;
+}
+
+# Best-effort expansion of simple RPM spec macros, so metadata fields (most importantly Version) do
+# not end up stored as unresolved macros like "%{mainver}". This only ever does literal string
+# substitution from macros the spec defines itself; it never evaluates anything. Shell (%(...)),
+# %{expand:...}/%{lua:...}, conditional references (%{?foo}) and %if branches are deliberately left
+# untouched, and unknown macros are passed through verbatim. A pass cap makes recursive or cyclic
+# definitions terminate safely.
+sub expand_spec_macros ($content) {
+  return $content unless defined $content;
+
+  # Collect simple "%define NAME VALUE" / "%global NAME VALUE" definitions (first wins, like rpm).
+  # Lines starting with %{...} (conditional/expand defines) or without a value are skipped.
+  my %macros;
+  for my $line (split "\n", $content) {
+    next unless $line =~ /^\s*%(?:define|global)\s+(\w+)\s+(.+?)\s*$/;
+    $macros{$1} //= $2;
+  }
+
+  # rpm auto-defines %{name}, %{version} and %{release} from the corresponding tags; seed them with
+  # the raw tag values so references elsewhere (e.g. in Source URLs) resolve too. These values may
+  # themselves be macros, which the fixpoint below takes care of.
+  for my $line (split "\n", $content) {
+    if    ($line =~ /^Name:\s*(.+?)\s*$/)    { $macros{name}    //= $1 }
+    elsif ($line =~ /^Version:\s*(.+?)\s*$/) { $macros{version} //= $1 }
+    elsif ($line =~ /^Release:\s*(.+?)\s*$/) { $macros{release} //= $1 }
+  }
+
+  # Expand references repeatedly to resolve chains (e.g. mainver -> major), bounded so recursive or
+  # cyclic definitions cannot loop forever. Only defined macros are substituted; the "(?<!%)" guard
+  # leaves escaped "%%" alone, and using /ge with a hash lookup (never string interpolation) means
+  # hostile macro values cannot inject regex or replacement syntax.
+  for (1 .. 10) {
+    my $before = $content;
+    $content =~ s/(?<!%)%\{(\w+)\}/exists $macros{$1} ? $macros{$1} : "%{$1}"/ge;
+    $content =~ s/(?<!%)%(\w+)/exists $macros{$1} ? $macros{$1} : "%$1"/ge;
+    last if $content eq $before;
+  }
+
+  return $content;
 }
 
 sub buckets ($things, $size) {

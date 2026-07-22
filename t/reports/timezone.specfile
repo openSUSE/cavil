@@ -10,8 +10,8 @@
     "license"              => "BSD-3-Clause and SUSE-Public-Domain",
     "licenses"             => ["BSD-3-Clause and SUSE-Public-Domain"],
     "sources"              => [
-      "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
-      "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
+      "ftp://ftp.iana.org/tz/releases/tzdata2012f.tar.gz",
+      "ftp://ftp.iana.org/tz/releases/tzcode2012f.tar.gz"
     ],
     "summary" => "Timezone Descriptions",
     "type"    => "spec",
@@ -27,8 +27,8 @@
       "legal_review_notices" => [],
       "licenses"             => ["BSD-3-Clause and SUSE-Public-Domain"],
       "sources"              => [
-        "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
-        "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
+        "ftp://ftp.iana.org/tz/releases/tzdata2012f.tar.gz",
+        "ftp://ftp.iana.org/tz/releases/tzcode2012f.tar.gz"
       ],
       "summary" => "Timezone Descriptions",
       "type"    => "spec",
@@ -43,8 +43,8 @@
       "legal_review_notices" => [],
       "licenses"             => ["BSD-3-Clause and SUSE-Public-Domain"],
       "sources"              => [
-        "ftp://ftp.iana.org/tz/releases/tzdata%{version}.tar.gz",
-        "ftp://ftp.iana.org/tz/releases/tzcode%{version}.tar.gz"
+        "ftp://ftp.iana.org/tz/releases/tzdata2012f.tar.gz",
+        "ftp://ftp.iana.org/tz/releases/tzcode2012f.tar.gz"
       ],
       "summary" => "Timezone Descriptions",
       "type"    => "spec",

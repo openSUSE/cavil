@@ -10,7 +10,7 @@ use Mojo::DOM;
 use Mojo::File 'path';
 use Mojo::JSON qw(decode_json encode_json);
 use Mojo::Util 'dumper';
-use Cavil::Util qw(buckets parse_service_file slurp_and_decode);
+use Cavil::Util qw(buckets expand_spec_macros parse_service_file slurp_and_decode);
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
 use YAML::XS qw(Load);
@@ -469,7 +469,7 @@ sub _specfile ($file) {
     '%license'           => [],
     legal_review_notices => []
   };
-  for my $line (split "\n", $file->slurp) {
+  for my $line (split "\n", expand_spec_macros($file->slurp)) {
 
     # Standard metadata fields
     if    ($line =~ /^License:\s*(.+)\s*$/)        { push @{$info->{licenses}},   $1 }
