@@ -28,15 +28,45 @@ Not all failures will be as self explanatory as HTTP timeouts and might require 
 
 Maintenance tasks that can be automated.
 
+### Scheduling recurring jobs
+
+Minion has a built-in scheduler, so recurring maintenance no longer needs an external `cron` job or systemd timer. You
+register a schedule once with `script/cavil minion schedule`, and your Minion workers will dispatch the due jobs on their
+own (as long as at least one worker is running).
+
+```sh
+    # Reindex everything every Saturday at 20:00
+    script/cavil minion schedule -e weekly_reindexing -c '0 20 * * 6' -t reindex_all
+
+    # Clean up obsolete reports every day at 01:00
+    script/cavil minion schedule -e daily_cleanup -c '0 1 * * *' -t obsolete
+```
+
+The `-e` value is just a name for the schedule (used to update, pause, or remove it later), `-c` is a standard cron
+expression, and `-t` is the Minion task to enqueue. You can list, pause, resume, and remove schedules with the same
+command:
+
+```sh
+    script/cavil minion schedule                       # list all schedules
+    script/cavil minion schedule -P weekly_reindexing  # pause
+    script/cavil minion schedule -r weekly_reindexing  # resume
+    script/cavil minion schedule -R weekly_reindexing  # remove
+```
+
+The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
+recommended way to run reindexing and cleanup.
+
 ### Weekly reindexing
 
 To keep your reports and checksums fresh even after new license patterns have been added or updated, we recommend
-running `script/cavil rindex` in regular intervals (we do it every weekend).
+reindexing in regular intervals (we do it every weekend). Schedule the `reindex_all` task as shown above, or trigger a
+one-off run manually with `script/cavil rindex`.
 
 ### Weekly cleanup
 
-To free up space you can run `script/cavil cleanup` in regular intervals. It helps to organize reports into products to
-exclude them from cleanup.
+To free up space you can run cleanup in regular intervals. Schedule the `obsolete` task as shown above, or trigger a
+one-off run manually with `script/cavil cleanup`. It helps to organize reports into products to exclude them from
+cleanup.
 
 ### Refreshing snippet resolutions
 
