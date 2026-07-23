@@ -21,15 +21,9 @@ our @EXPORT_OK = (
   qw(extract_spdx_identifiers normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
-  qw(license_is_catch_all MAX_SNIPPET_LINE SNIPPET_SCORE_VERSION),
+  qw(license_is_catch_all SNIPPET_SCORE_VERSION),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
-
-# A snippet is an excerpt of human-readable legal text, so any single line longer than this is minified
-# machine code (a bundled .js/.css/.map with the whole file on one line), not a license declaration. Such
-# a line is truncated when a snippet is built and treated as non-license when snippets are classified, so
-# it can neither bloat the database nor overwhelm the classifier. Well above any real license line.
-use constant MAX_SNIPPET_LINE => 8000;
 
 # Bumped whenever the snippet similarity scorer's semantics change. snippets carry the version they
 # were scored with; fold-in only trusts rows scored by the *current* version, so a scorer change (or
@@ -147,12 +141,7 @@ sub file_and_checksum ($path, $first_line, $last_line) {
 
   my $text = '';
   for my $row (@{Cavil::PatternEngine::read_lines($path, \%lines)}) {
-
-    # Truncate an ultra-long line: it is minified machine code, not a license declaration, and left whole
-    # it would make a multi-hundred-KB snippet that bloats the database and overwhelms the classifier.
-    my $body = $row->[2];
-    $body = substr $body, 0, MAX_SNIPPET_LINE if length $body > MAX_SNIPPET_LINE;
-    my $line = "$body\n";
+    my $line = $row->[2] . "\n";
     $text .= $line;
     $ctx->add($line);
   }

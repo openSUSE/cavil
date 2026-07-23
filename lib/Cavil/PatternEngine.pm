@@ -6,6 +6,13 @@ use Mojo::Base -strict, -signatures;
 
 use Carp 'croak';
 
+# Every line Cavil reads for text extraction - snippets, report previews, the file and snippet views - is
+# truncated to this many bytes in read_lines below. A longer line is minified machine content (a bundled
+# .js/.css/.map with the whole file on one line), never a license declaration, and left whole it would put
+# multi-hundred-KB "lines" into snippets and reports. Capping at this single chokepoint means no consumer
+# has to defend against it; the matcher reads files separately, so matching is unaffected.
+use constant MAX_LINE_SIZE => 8000;
+
 # Cavil can run its pattern matching on either the original C++ engine or its drop-in successor. Both
 # expose the same package functions and the same object method names, and (crucially) produce identical
 # token hashes and content checksums, so the engine can be switched with the "matcher" config value
@@ -41,8 +48,19 @@ sub init_matcher         { $ENGINE->can('init_matcher')->(@_) }
 sub init_hash            { $ENGINE->can('init_hash')->(@_) }
 sub init_bag_of_patterns { $ENGINE->can('init_bag_of_patterns')->(@_) }
 sub parse_tokens         { $ENGINE->can('parse_tokens')->(@_) }
-sub read_lines           { $ENGINE->can('read_lines')->(@_) }
-sub normalize            { $ENGINE->can('normalize')->(@_) }
-sub distance             { $ENGINE->can('distance')->(@_) }
+
+sub read_lines {
+  my $rows = $ENGINE->can('read_lines')->(@_);
+
+  # Bound each line to MAX_LINE_SIZE; read_lines returns one row per physical line ([lineno, pid, text]),
+  # so this truncates a runaway line while keeping the engine's real line numbers intact.
+  for my $row (@$rows) {
+    $row->[2] = substr $row->[2], 0, MAX_LINE_SIZE if length $row->[2] > MAX_LINE_SIZE;
+  }
+
+  return $rows;
+}
+sub normalize { $ENGINE->can('normalize')->(@_) }
+sub distance  { $ENGINE->can('distance')->(@_) }
 
 1;
