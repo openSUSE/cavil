@@ -197,21 +197,28 @@ so a scanning lawyer cannot miss it — prefix the bullet with `⚠ LICENSE CHAN
 quoted briefly. This is the risk-7 non-commercial case, but do not let it read as a routine risk-7
 bullet — a relicense is the headline.
 
-#### License compatibility is informational — investigate only material pairs
+#### License compatibility — informational, but you MUST check these cases
 The Licenses section carries a neutral note like `Note: the OSADL compatibility matrix flags these
 license combinations …` followed by `<License>: <other licenses>` pairs (the web report shows the
-full directional matrix). This is **informational context, not a risk flag**: almost every package
-that vendors dependencies has some flagged pair, because the matrix lists any two present licenses
-OSADL considers incompatible *when combined into one work* — whether or not they are ever actually
-combined. Its mere presence is **not** a reason to withhold ACCEPT or escalate, and it does not need
-commenting on by itself.
+full directional matrix). It is **informational, not a risk flag**: almost every package that vendors
+dependencies has some flagged pair, because the matrix lists any two present licenses OSADL considers
+incompatible *when combined into one work* — whether or not they ever are. So do **not** try to trace
+every pair, and do not escalate just because the note is present.
 
-Only dig into a pair when it looks **material**: a copyleft license (GPL/AGPL/CDDL) that could
-plausibly govern code actually combined with the other side. For such a pair, confirm whether it is a
-**real problem for this package** or a **false alarm** — combination (linking, compiling together, or
-merging into one source file) is what creates a copyleft conflict; mere co-presence in the same
-archive does not. Use `cavil_list_files` and `cavil_get_file` to check where each flagged license
-actually lives:
+**But you must not ignore it either.** Look into a flagged pair when EITHER of these concrete tests is
+true — these are exactly the cases a quick review wrongly waves through:
+- **The package's own declared/primary `License:` is one of the two licenses** (e.g. a GPL-2.0-only
+  package flagged against Apache-2.0). The conflict would be about the package's own shipped code.
+- **Both licenses of the pair appear in the same directory** — check with `cavil_list_files`. Same
+  directory is a strong sign they are actually combined, not just bundled side by side.
+
+Classic conflicts — Apache-2.0 + GPL-2.0-only, GPL-2.0-only + GPL-3.0, GPL/LGPL + OpenSSL, GPL + CDDL
+— still get this check; never wave one through only because the matrix shows up on many packages.
+
+For a pair that meets the test, confirm whether it is a **real problem for this package** or a **false
+alarm** — combination (linking, compiling together, or merging into one source file) is what creates a
+copyleft conflict; mere co-presence in the same archive does not. Use `cavil_list_files` and
+`cavil_get_file` to check where each flagged license actually lives:
 
 Signals it is likely a **false alarm** (lean ACCEPT, but say why):
 - The two licenses sit in **separate, independent components** that are not linked or compiled
@@ -256,9 +263,9 @@ you did not trace, so the deferral is scoped.
 
 ### Step 5 - Choose a recommendation
 Use one of these recommendations:
-- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT — only investigate (and say so) if one looked material.
+- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT — but if a pair met the check above (declared-license pair, or both licenses in one directory) you looked at it and said so.
 - **REJECT**: The report appears to contain undeclared problematic licenses, significant primary-license mismatch, proprietary/non-commercial restrictions, a **confirmed combined-work license incompatibility**, or other issues that likely block acceptance.
-- **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, a material incompatibility you could not resolve as aggregation vs. combination, or insufficient context for a confident recommendation.
+- **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, a flagged incompatibility that met the check and you could not resolve as aggregation vs. combination, or insufficient context for a confident recommendation.
 
 Let the risk levels and flags from Step 4 steer the lean:
 - **A license change to non-open-source terms** (Step 4 relicense check) → REJECT; lead the note with the `⚠ LICENSE CHANGE:` bullet. This outranks every other signal.
@@ -269,7 +276,7 @@ Let the risk levels and flags from Step 4 steer the lean:
 - **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.
 - **Risk 1–4** → the acceptable band; the declared-license check (including the fixable-metadata vs. bad-license distinction) and the combination/aggregation check carry the decision.
 
-When uncertain, choose NEEDS HUMAN REVIEW. The compatibility matrix is present on most packages and is normal; do not escalate on its presence — but never ACCEPT over a confirmed combined-work conflict, and say in the note when you judged a pair material and reviewed it.
+When uncertain, choose NEEDS HUMAN REVIEW. The compatibility matrix is present on most packages and is normal; do not escalate on its presence — but never ACCEPT over a confirmed combined-work conflict, and say in the note when a pair met the check and you reviewed it.
 
 ### Step 6 - Create a concise note
 
@@ -343,7 +350,7 @@ copyright holder not in the report; must be preserved downstream (Apache-2.0 §4
 contents rarely flip ACCEPT/REJECT on their own — the goal is visibility — but a component named
 there that the report does not account for should feed the declared-license and combination checks.
 
-When you judged a compatibility pair material and investigated it, record the outcome with the
+When a flagged pair met the check and you investigated it, record the outcome with the
 three-part verification trail from Step 4 so the reviewer can re-check it quickly. A confirmed false
 alarm:
 

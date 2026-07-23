@@ -155,19 +155,25 @@ copyright holders the breakdown does not surface. Flag anything a redistributor 
 component named there that the report does not otherwise account for; feed such a component into the
 declared-license and combination checks.
 
-##### License compatibility is informational — investigate only material pairs
+##### License compatibility — informational, but you MUST check these cases
 The Licenses section carries a neutral note like `Note: the OSADL compatibility matrix flags these
 license combinations …` with `<License>: <other licenses>` pairs (the web report shows the full
-directional matrix). This is **informational, not a risk flag**: almost every package that vendors
+directional matrix). It is **informational, not a risk flag**: almost every package that vendors
 dependencies has some flagged pair, because the matrix lists any two present licenses OSADL considers
-incompatible *when combined into one work* — whether or not they ever are. Its presence alone is
-**not** a reason to withhold ACCEPT or escalate.
+incompatible *when combined into one work* — whether or not they ever are. So do not trace every pair,
+and do not escalate just because the note is present.
 
-Only dig into a pair when it looks **material** (a copyleft license — GPL/AGPL/CDDL — that could
-plausibly govern code actually combined with the other side). Combination — linking, compiling
-together, or merging into one source file — is what creates a copyleft conflict; mere co-presence in
-the same archive does not. Use `cavil_list_files` and `cavil_get_file` to check where each flagged
-license actually lives.
+**But do not ignore it either.** Look into a flagged pair when EITHER concrete test is true:
+- **The package's own declared/primary `License:` is one of the two** (e.g. a GPL-2.0-only package
+  flagged against Apache-2.0) — the conflict would be about the package's own shipped code.
+- **Both licenses of the pair appear in the same directory** (check with `cavil_list_files`) — a
+  strong sign they are actually combined, not just bundled side by side.
+
+Classic conflicts — Apache-2.0 + GPL-2.0-only, GPL-2.0-only + GPL-3.0, GPL/LGPL + OpenSSL, GPL + CDDL
+— still get this check; never wave one through only because the matrix shows up on many packages.
+Combination — linking, compiling together, or merging into one source file — is what creates a
+copyleft conflict; mere co-presence in the same archive does not. Use `cavil_list_files` and
+`cavil_get_file` to check where each flagged license actually lives.
 
 Signals it is likely a **false alarm** (lean ACCEPT, but say why):
 - The two licenses sit in **separate, independent components** that are not linked or compiled
@@ -256,11 +262,11 @@ Let the risk levels and flags from 3b steer the lean:
 When a risk level or flag drives the recommendation, cite it in the reasoning and the breakdown table's Notes column (e.g. `AGPL-3.0-only (risk 5, network copyleft)`, `mmap-License [flags: Patent]`).
 
 Use your judgment:
-- **ACCEPT**: Declared license is correct, licenses are compatible with SLE (risk 1–4, no blocking flags), and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT — only investigate (and say so) if one looked material. No material unanticipated risk (3e) surfaced.
+- **ACCEPT**: Declared license is correct, licenses are compatible with SLE (risk 1–4, no blocking flags), and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT — but if a pair met the check above (declared-license pair, or both licenses in one directory) you looked at it and said so. No material unanticipated risk (3e) surfaced.
 - **REJECT**: A change of the package's own license from open-source to non-free terms (3a), undeclared problematic licenses found, declared-license mismatch that is a genuine bad-license case (not fixable metadata), a **confirmed combined-work license incompatibility**, risk 6/7 or third-party proprietary-EULA content, or unresolved matches that suggest serious license issues
-- **NEEDS HUMAN REVIEW**: Ambiguous or complex situations, risk 5 / EULA / patent / export considerations you cannot resolve, a material incompatibility you could not resolve as aggregation vs. combination, or insufficient context for a confident recommendation — let a human legal expert decide
+- **NEEDS HUMAN REVIEW**: Ambiguous or complex situations, risk 5 / EULA / patent / export considerations you cannot resolve, a flagged incompatibility that met the check and you could not resolve as aggregation vs. combination, or insufficient context for a confident recommendation — let a human legal expert decide
 
-The compatibility matrix is present on most packages; do not escalate on its presence — but never recommend ACCEPT over a confirmed combined-work conflict.
+The compatibility matrix is present on most packages; do not escalate on its presence — but never recommend ACCEPT over a confirmed combined-work conflict, and when a pair met the check, say you reviewed it.
 
 ### Step 5 — Await confirmation
 After presenting the summary, explicitly ask the user:
