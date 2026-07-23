@@ -44,6 +44,7 @@ elsif ($fixtures eq 'snippet_clear')   { $cavil_test->snippet_clear_fixtures($ap
 elsif ($fixtures eq 'snippet_triage')  { $cavil_test->snippet_triage_fixtures($app) }
 elsif ($fixtures eq 'snippet_overlap') { $cavil_test->snippet_overlap_fixtures($app) }
 elsif ($fixtures eq 'report_notice')   { $cavil_test->report_notice_fixtures($app) }
+elsif ($fixtures eq 'compatibility')   { $cavil_test->compatibility_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }
 my %report_state_original;
 
@@ -108,7 +109,7 @@ $app->routes->get(
     $report->{emails}                = {};
     $report->{expanded}              = {};
     $report->{files}                 = {};
-    $report->{incompatible_licenses} = [];
+    $report->{license_compatibility} = {licenses => [], matrix => {}};
     $report->{licenses}              = {};
     $report->{lines}                 = {};
     $report->{matching_globs}        = [];

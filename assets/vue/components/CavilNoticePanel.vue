@@ -154,47 +154,8 @@ export default {
   top: 1.25rem;
   width: 0.4rem;
 }
-.cavil-notice-panel-info .cavil-notice-item {
-  padding-left: 2rem;
-  position: relative;
-}
-.cavil-notice-panel-info .cavil-notice-item::before {
-  background: #0969da;
-  border-radius: 50%;
-  content: '';
-  height: 0.4rem;
-  left: 0.9rem;
-  position: absolute;
-  top: 1.25rem;
-  width: 0.4rem;
-}
 .cavil-notice-item + .cavil-notice-item {
   border-top: 1px solid #d8dee4;
-}
-.cavil-notice-explanation {
-  color: #57606a;
-  font-size: 13px;
-  line-height: 1.45;
-  margin: 0.35rem 0 0;
-}
-.cavil-notice-pivot {
-  font-size: 14px;
-  line-height: 1.45;
-}
-.cavil-notice-sublist {
-  list-style: none;
-  margin: 0.3rem 0 0;
-  padding: 0 0 0 1.1rem;
-}
-.cavil-notice-sublist li {
-  line-height: 1.5;
-  position: relative;
-}
-.cavil-notice-sublist li::before {
-  color: #8c959f;
-  content: '\2013';
-  left: -1.1rem;
-  position: absolute;
 }
 .cavil-notice-pre {
   background: #ffffff;

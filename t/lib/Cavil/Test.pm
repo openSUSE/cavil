@@ -729,6 +729,61 @@ FILE
   );
 }
 
+sub compatibility_fixtures ($self, $app) {
+  $app->pg->migrations->migrate;
+
+  my $pkgs   = $app->packages;
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+
+  # SPDX-tag patterns for two licenses the OSADL matrix marks incompatible in both directions, so the
+  # report gains a real license compatibility sub-matrix with a hard ("No") conflict.
+  for my $license ('Apache-2.0', 'GPL-2.0-only') {
+    $app->patterns->create(pattern => "SPDX-License-Identifier: $license", license => $license);
+  }
+  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?)',
+    'Apache-2.0', 'GPL-2.0-only');
+
+  my $name = 'license-compat';
+  my $md5  = 'c0000000000000000000000000000001';
+  my $dir  = $self->checkout_dir->child($name, $md5)->make_path;
+  $dir->child("$name.spec")->spew(<<"SPEC");
+Name:           $name
+Version:        1.0
+Release:        0
+Summary:        Synthetic package with incompatible licenses for UI testing
+License:        Artistic-2.0
+Group:          Development/Libraries/Perl
+Source0:        $name-1.0.tar.gz
+BuildArch:      noarch
+
+%description
+Synthetic package pairing Apache-2.0 with GPL-2.0-only for the compatibility matrix.
+SPEC
+
+  my $stage = tempdir;
+  my $src   = $stage->child("$name-1.0")->make_path;
+  $src->child('apache_file.txt')->spew("# SPDX-License-Identifier: Apache-2.0\n\nA permissively licensed helper.\n");
+  $src->child('gpl2_file.txt')->spew("# SPDX-License-Identifier: GPL-2.0-only\n\nA strong copyleft component.\n");
+  my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
+  system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
+    or die "Failed to create synthetic tarball: $?";
+
+  my $pkg_id = $pkgs->add(
+    name            => $name,
+    checkout_dir    => $md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => $name,
+    srcmd5          => $md5,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  $pkgs->unpack($pkg_id);
+  $app->minion->perform_jobs;
+  return $pkg_id;
+}
+
 sub unpack_fixtures ($self, $app) {
   $self->no_fixtures($app);
 

@@ -1,91 +1,106 @@
 <template>
-  <CavilNoticePanel
-    id="license-compatibility"
-    title="Elevated risk"
-    tone="warning"
-    icon="fa-solid fa-triangle-exclamation"
-  >
-    <p class="cavil-notice-summary">
-      This package contains licenses that the
-      <a class="spdx-link" href="https://www.osadl.org/checklists" target="_blank" rel="noopener noreferrer">OSADL
-      compatibility matrix</a> flags as not freely combinable. Each cell is OSADL's verdict for using the
-      <em>column</em> license's material inside a work distributed under the <em>row</em> license. Click a marked cell
-      for OSADL's explanation.
-    </p>
+  <section id="license-compatibility" class="license-matrix-card mb-3">
+    <header class="license-matrix-header">
+      <h3>License compatibility</h3>
+      <span v-if="hasHardConflict" class="cavil-meta-badge cavil-meta-badge-danger">Elevated risk</span>
+    </header>
 
-    <div class="license-matrix-wrap">
-      <table class="license-matrix">
-        <thead>
-          <tr>
-            <th class="license-matrix-corner" scope="col"></th>
-            <th v-for="(name, j) in licenses" :key="name" scope="col" class="license-matrix-colnum" :title="name">
-              {{ j + 1 }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, i) in licenses" :key="row">
-            <th scope="row" class="license-matrix-rowhead">
-              <span class="license-matrix-index">{{ i + 1 }}.</span>
-              <a class="spdx-link" :href="spdxLicenseUrl(row)" target="_blank" rel="noopener noreferrer">{{ row }}</a>
-            </th>
-            <td
-              v-for="(col, j) in licenses"
-              :key="col"
-              class="license-matrix-cell"
-              :class="cellClass(row, col)"
-              :title="cellTitle(row, col)"
-              :aria-label="cellTitle(row, col)"
-              @click="selectCell(row, col)"
-            >
-              <span v-if="i === j" class="license-matrix-self">—</span>
-              <span v-else>{{ cellMark(row, col) }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <div class="license-matrix-body">
+      <p class="license-matrix-intro">
+        Each cell is OSADL's verdict on using the column license in a work under the row license. Click a marked cell
+        for the explanation.
+      </p>
 
-    <div class="license-matrix-legend">
-      <span><i class="license-matrix-swatch swatch-no"></i> No</span>
-      <span><i class="license-matrix-swatch swatch-check"></i> Check dependency</span>
-      <span><i class="license-matrix-swatch swatch-unknown"></i> Unknown</span>
-      <span><i class="license-matrix-swatch swatch-yes"></i> Compatible</span>
+      <div class="license-matrix-grid-wrap">
+        <table class="license-matrix-grid">
+          <thead>
+            <tr>
+              <th class="license-matrix-corner" scope="col"></th>
+              <th v-for="(name, j) in licenses" :key="name" scope="col" class="license-matrix-colhead" :title="name">
+                {{ j + 1 }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, i) in licenses" :key="row">
+              <th scope="row" class="license-matrix-rowhead">
+                <span class="license-matrix-rowhead-index">{{ i + 1 }}</span>
+                <span class="license-matrix-rowhead-name">{{ row }}</span>
+              </th>
+              <td
+                v-for="col in licenses"
+                :key="col"
+                class="license-matrix-cell"
+                :class="[cellClass(row, col), {'is-active': isActive(row, col)}]"
+                :title="cellTitle(row, col)"
+                :aria-label="cellTitle(row, col)"
+                @click="selectCell(row, col)"
+              >
+                <span aria-hidden="true">{{ cellMark(row, col) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="license-matrix-legend">
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no">✕</i> Incompatible</span>
+        <span class="license-matrix-legend-item"
+          ><i class="license-matrix-swatch cell-check">?</i> Check dependency</span
+        >
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown">·</i> Unknown</span>
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
+      </div>
     </div>
 
     <div v-if="selected" class="license-matrix-detail">
-      <div class="license-matrix-detail-head">
-        <a class="spdx-link" :href="spdxLicenseUrl(selected.outbound)" target="_blank" rel="noopener noreferrer">{{
-          selected.outbound
-        }}</a>
-        <span class="license-matrix-arrow">◄</span>
-        <a class="spdx-link" :href="spdxLicenseUrl(selected.inbound)" target="_blank" rel="noopener noreferrer">{{
-          selected.inbound
-        }}</a>
-        <span class="license-matrix-verdict" :class="verdictClass(selected.compatibility)">{{
-          selected.compatibility
+      <p class="license-matrix-detail-head">
+        <span class="license-matrix-connector">Using</span>
+        <a
+          class="spdx-link license-matrix-detail-name"
+          :href="spdxLicenseUrl(selected.inbound)"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ selected.inbound }}</a
+        >
+        <span class="license-matrix-connector">in a work under</span>
+        <a
+          class="spdx-link license-matrix-detail-name"
+          :href="spdxLicenseUrl(selected.outbound)"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ selected.outbound }}</a
+        >
+        <span class="cavil-meta-badge" :class="verdictClass(selected.compatibility)">{{
+          verdictLabel(selected.compatibility)
         }}</span>
-      </div>
-      <p class="license-matrix-detail-body">{{ selected.explanation }}</p>
-      <p class="license-matrix-detail-hint">
-        OSADL verdict for using {{ selected.inbound }} material in a work under {{ selected.outbound }}.
       </p>
+      <p class="license-matrix-detail-body">{{ selected.explanation }}</p>
     </div>
-  </CavilNoticePanel>
+  </section>
 </template>
 
 <script>
-import CavilNoticePanel from './CavilNoticePanel.vue';
-
 export default {
   name: 'LicenseCompatibilityMatrix',
-  components: {CavilNoticePanel},
   props: {
     licenses: {type: Array, default: () => []},
     matrix: {type: Object, default: () => ({})}
   },
   data() {
     return {selected: null};
+  },
+  computed: {
+    // True when any pair is "No" in both directions - the hard conflicts that elevate the risk.
+    hasHardConflict() {
+      for (const a of this.licenses) {
+        for (const b of this.licenses) {
+          if (a >= b) continue;
+          if (this.cell(a, b)?.compatibility === 'No' && this.cell(b, a)?.compatibility === 'No') return true;
+        }
+      }
+      return false;
+    }
   },
   methods: {
     cell(outbound, inbound) {
@@ -108,9 +123,21 @@ export default {
     },
     cellTitle(outbound, inbound) {
       if (outbound === inbound) return outbound;
-      const cell = this.cell(outbound, inbound);
-      const verdict = cell === null ? 'Compatible' : cell.compatibility;
-      return `${outbound} ◄ ${inbound}: ${verdict}`;
+      return `Using ${inbound} under ${outbound}: ${this.verdictLabel(this.cell(outbound, inbound)?.compatibility)}`;
+    },
+    verdictLabel(compatibility) {
+      if (compatibility === 'No') return 'Incompatible';
+      if (compatibility === 'Check dependency') return 'Check dependency';
+      if (compatibility === 'Unknown') return 'Unknown';
+      return 'Compatible';
+    },
+    verdictClass(compatibility) {
+      if (compatibility === 'No') return 'cavil-meta-badge-danger';
+      if (compatibility === 'Check dependency') return 'cavil-meta-badge-warning';
+      return 'cavil-meta-badge-muted';
+    },
+    isActive(outbound, inbound) {
+      return this.selected !== null && this.selected.outbound === outbound && this.selected.inbound === inbound;
     },
     selectCell(outbound, inbound) {
       const cell = this.cell(outbound, inbound);
@@ -120,11 +147,6 @@ export default {
       }
       this.selected = {outbound, inbound, compatibility: cell.compatibility, explanation: cell.explanation};
     },
-    verdictClass(compatibility) {
-      if (compatibility === 'No') return 'verdict-no';
-      if (compatibility === 'Check dependency') return 'verdict-check';
-      return 'verdict-unknown';
-    },
     spdxLicenseUrl(name) {
       return `https://spdx.org/licenses/${encodeURIComponent(name)}.html`;
     }
@@ -132,148 +154,181 @@ export default {
 };
 </script>
 
-<style>
-.license-matrix-wrap {
-  overflow-x: auto;
-  padding: 0.25rem 0.85rem 0.5rem;
+<style scoped>
+.license-matrix-card {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
 }
-.license-matrix {
-  border-collapse: collapse;
+.license-matrix-header {
+  align-items: center;
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+}
+.license-matrix-header h3 {
+  font-size: 1rem;
+  line-height: 1.3;
+  margin: 0;
+}
+.license-matrix-body {
+  background: #fff;
+  padding: 1rem;
+}
+.license-matrix-intro {
+  color: #57606a;
   font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
 }
-.license-matrix th,
-.license-matrix td {
-  border: 1px solid #d8dee4;
+
+/* Heatmap grid — GitHub contribution-graph aesthetic */
+.license-matrix-grid-wrap {
+  overflow-x: auto;
 }
-.license-matrix-rowhead {
-  font-weight: 500;
-  padding: 0.2rem 0.6rem 0.2rem 0.35rem;
-  text-align: left;
-  white-space: nowrap;
+.license-matrix-grid {
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: 12px;
 }
-.license-matrix-index {
-  color: #8c959f;
-  margin-right: 0.35rem;
-  font-variant-numeric: tabular-nums;
+.license-matrix-corner {
+  background: #fff;
+  left: 0;
+  position: sticky;
+  z-index: 2;
 }
-.license-matrix-colnum {
+.license-matrix-colhead {
   color: #57606a;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
-  min-width: 1.6rem;
-  padding: 0.2rem 0.25rem;
+  min-width: 1.5rem;
+  padding: 0.15rem 0.2rem;
   text-align: center;
 }
-.license-matrix-corner {
+.license-matrix-rowhead {
+  background: #fff;
+  font-weight: 400;
+  left: 0;
+  padding: 0.15rem 0.75rem 0.15rem 0;
+  position: sticky;
+  text-align: left;
+  white-space: nowrap;
+  z-index: 1;
+}
+.license-matrix-rowhead-index {
+  color: #57606a;
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5rem;
+  min-width: 1.1rem;
+  text-align: right;
+}
+.license-matrix-rowhead-name {
+  color: #1f2328;
+}
+
+.license-matrix-cell {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  height: 1.2rem;
+  line-height: 1.2rem;
+  min-width: 1.5rem;
+  text-align: center;
+}
+/* Colour classes — shared by the grid cells and the legend swatches (colour only, no behaviour) */
+.cell-self {
   background: #f6f8fa;
 }
-.license-matrix-cell {
-  cursor: default;
-  height: 1.6rem;
-  min-width: 1.6rem;
-  text-align: center;
+.cell-yes {
+  background: #ebedf0;
 }
+.cell-no {
+  background: #ffebe9;
+  border-color: #ffcecb;
+  color: #cf222e;
+  font-weight: 600;
+}
+.cell-check {
+  background: #fff8c5;
+  border-color: #d4a72c66;
+  color: #7d4e00;
+  font-weight: 600;
+}
+.cell-unknown {
+  background: #eaeef2;
+  border-color: rgba(110, 119, 129, 0.25);
+  color: #57606a;
+}
+
+/* Only the grid cells are interactive; the legend swatches reuse the colour classes above */
 .license-matrix-cell.cell-no,
 .license-matrix-cell.cell-check,
 .license-matrix-cell.cell-unknown {
   cursor: pointer;
 }
-.license-matrix-self {
-  color: #d0d7de;
+.license-matrix-cell.cell-no:hover,
+.license-matrix-cell.cell-check:hover,
+.license-matrix-cell.cell-unknown:hover {
+  filter: brightness(0.95);
 }
-.cell-yes {
-  background: #ffffff;
+.license-matrix-cell.is-active {
+  border-color: #24292f;
 }
-.cell-self {
-  background: #f6f8fa;
-}
-.cell-no {
-  background: #ffd8d3;
-  color: #a40e26;
-  font-weight: 600;
-}
-.cell-check {
-  background: #fff4c9;
-  color: #7d4e00;
-  font-weight: 600;
-}
-.cell-unknown {
-  background: #eef1f4;
-  color: #6e7781;
-}
+
 .license-matrix-legend {
   color: #57606a;
   display: flex;
   flex-wrap: wrap;
   font-size: 12px;
   gap: 1rem;
-  padding: 0.35rem 0.85rem 0.75rem;
+  margin-top: 0.85rem;
 }
-.license-matrix-legend span {
+.license-matrix-legend-item {
   align-items: center;
   display: inline-flex;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .license-matrix-swatch {
-  border: 1px solid #d8dee4;
-  border-radius: 2px;
-  display: inline-block;
-  height: 0.75rem;
-  width: 0.75rem;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  display: inline-flex;
+  font-size: 10px;
+  font-style: normal;
+  height: 1rem;
+  justify-content: center;
+  width: 1rem;
 }
-.swatch-no {
-  background: #ffd8d3;
-}
-.swatch-check {
-  background: #fff4c9;
-}
-.swatch-unknown {
-  background: #eef1f4;
-}
-.swatch-yes {
-  background: #ffffff;
-}
+
 .license-matrix-detail {
-  background: #ffffff;
-  border-top: 1px solid #d8dee4;
-  padding: 0.75rem 0.85rem;
+  background: #f6f8fa;
+  border-top: 1px solid #d0d7de;
+  padding: 0.85rem 1rem;
 }
 .license-matrix-detail-head {
   align-items: center;
+  color: #1f2328;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  font-size: 14px;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
 }
-.license-matrix-arrow {
-  color: #8c959f;
+.license-matrix-connector {
+  color: #57606a;
+  font-size: 13px;
 }
-.license-matrix-verdict {
-  border-radius: 999px;
-  font-size: 12px;
+.license-matrix-detail-name {
   font-weight: 600;
-  padding: 0.05rem 0.5rem;
-}
-.verdict-no {
-  background: #ffd8d3;
-  color: #a40e26;
-}
-.verdict-check {
-  background: #fff4c9;
-  color: #7d4e00;
-}
-.verdict-unknown {
-  background: #eef1f4;
-  color: #6e7781;
 }
 .license-matrix-detail-body {
-  color: #1f2328;
+  color: #57606a;
   font-size: 13px;
   line-height: 1.5;
-  margin: 0.5rem 0 0;
-}
-.license-matrix-detail-hint {
-  color: #8c959f;
-  font-size: 12px;
-  margin: 0.35rem 0 0;
+  margin: 0;
 }
 </style>
