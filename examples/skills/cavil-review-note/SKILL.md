@@ -170,7 +170,7 @@ Compare the declared license against the licenses in the Licenses/risk breakdown
   because customer-facing SBOMs are generated from the declared tag, so it must match reality.
 
 When unsure whether a found license belongs to the shipped work or to a separable bundled
-component, apply the same combination-vs-aggregation reasoning as the incompatible-license check
+component, apply the same combination-vs-aggregation reasoning as the license-compatibility check
 below, and say which it is.
 
 #### A license *change* to non-open-source terms is the worst case — flag it loudest
@@ -197,19 +197,21 @@ so a scanning lawyer cannot miss it — prefix the bullet with `⚠ LICENSE CHAN
 quoted briefly. This is the risk-7 non-commercial case, but do not let it read as a routine risk-7
 bullet — a relicense is the headline.
 
-#### Incompatible-license warnings deserve a very close look
-When the report's Licenses section contains a line like
-`**Warning** Elevated risk, package might contain incompatible licenses: <licenses>`,
-do not take it at face value in either direction. This warning is a **heuristic**: it fires
-whenever the named SPDX identifiers all appear *somewhere* in the package, regardless of whether
-the licensed files are ever actually combined into a single work. It is frequently a **false
-alarm**, but it can also be the most important finding in the report. Investigate before you
-recommend, and explain what you found.
+#### License compatibility is informational — investigate only material pairs
+The Licenses section carries a neutral note like `Note: the OSADL compatibility matrix flags these
+license combinations …` followed by `<License>: <other licenses>` pairs (the web report shows the
+full directional matrix). This is **informational context, not a risk flag**: almost every package
+that vendors dependencies has some flagged pair, because the matrix lists any two present licenses
+OSADL considers incompatible *when combined into one work* — whether or not they are ever actually
+combined. Its mere presence is **not** a reason to withhold ACCEPT or escalate, and it does not need
+commenting on by itself.
 
-Your job is to confirm whether the incompatibility is a **real problem for this package** or a
-**false alarm**. Combination — linking, compiling together, or merging into one source file — is
-what creates a copyleft conflict; mere co-presence in the same archive does not. Use
-`cavil_list_files` and `cavil_get_file` to check where each flagged license actually lives:
+Only dig into a pair when it looks **material**: a copyleft license (GPL/AGPL/CDDL) that could
+plausibly govern code actually combined with the other side. For such a pair, confirm whether it is a
+**real problem for this package** or a **false alarm** — combination (linking, compiling together, or
+merging into one source file) is what creates a copyleft conflict; mere co-presence in the same
+archive does not. Use `cavil_list_files` and `cavil_get_file` to check where each flagged license
+actually lives:
 
 Signals it is likely a **false alarm** (lean ACCEPT, but say why):
 - The two licenses sit in **separate, independent components** that are not linked or compiled
@@ -244,18 +246,19 @@ include it):
    `vendor/build-tool/` header under `src/`"; "GPL headers read *or … any later version*, see top of
    `src/engine.c`"). Cite the file you confirmed with `cavil_get_file`.
 
-Recommend ACCEPT only for a confirmed false alarm; REJECT or NEEDS HUMAN REVIEW for a real or
-untraceable conflict; never drop the warning silently. For a **large aggregation you cannot trace
-fully** (toolchains, office suites), do not restate the warning ("present due to many bundled
+The matrix's presence never blocks ACCEPT on its own; only a **confirmed combined-work conflict**
+leans REJECT or NEEDS HUMAN REVIEW (name the files on each side). A pair you traced to
+aggregation/separation needs only a brief scoped note. For a **large aggregation you cannot trace
+fully** (toolchains, office suites), do not restate the matrix ("present due to many bundled
 libraries") — scope it: name it as independently-licensed bundled components in separate subtrees,
 spot-check the highest-risk members (copyleft/CDDL) with their locations, and state which dirs/pairs
 you did not trace, so the deferral is scoped.
 
 ### Step 5 - Choose a recommendation
 Use one of these recommendations:
-- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. If the report carried an incompatible-license warning, you investigated it and confirmed it is a false alarm (separation/aggregation, test data, or a compatible variant).
+- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT — only investigate (and say so) if one looked material.
 - **REJECT**: The report appears to contain undeclared problematic licenses, significant primary-license mismatch, proprietary/non-commercial restrictions, a **confirmed combined-work license incompatibility**, or other issues that likely block acceptance.
-- **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, an incompatible-license warning you could not fully resolve, or insufficient context for a confident recommendation.
+- **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, a material incompatibility you could not resolve as aggregation vs. combination, or insufficient context for a confident recommendation.
 
 Let the risk levels and flags from Step 4 steer the lean:
 - **A license change to non-open-source terms** (Step 4 relicense check) → REJECT; lead the note with the `⚠ LICENSE CHANGE:` bullet. This outranks every other signal.
@@ -266,7 +269,7 @@ Let the risk levels and flags from Step 4 steer the lean:
 - **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.
 - **Risk 1–4** → the acceptable band; the declared-license check (including the fixable-metadata vs. bad-license distinction) and the combination/aggregation check carry the decision.
 
-When uncertain, choose NEEDS HUMAN REVIEW. Never recommend ACCEPT on a report with an incompatible-license warning without saying in the note that you reviewed it.
+When uncertain, choose NEEDS HUMAN REVIEW. The compatibility matrix is present on most packages and is normal; do not escalate on its presence — but never ACCEPT over a confirmed combined-work conflict, and say in the note when you judged a pair material and reviewed it.
 
 ### Step 6 - Create a concise note
 
@@ -340,15 +343,16 @@ copyright holder not in the report; must be preserved downstream (Apache-2.0 §4
 contents rarely flip ACCEPT/REJECT on their own — the goal is visibility — but a component named
 there that the report does not account for should feed the declared-license and combination checks.
 
-When the report carried an incompatible-license warning, record the outcome with the three-part
-verification trail from Step 4 so the reviewer can re-check it quickly. A confirmed false alarm:
+When you judged a compatibility pair material and investigated it, record the outcome with the
+three-part verification trail from Step 4 so the reviewer can re-check it quickly. A confirmed false
+alarm:
 
 ```markdown
 AI-assisted review recommendation: ACCEPT
 
 Issues for legal reviewer:
 - Declared license (GPL-2.0-only) matches the shipped code in `src/`; remaining licenses are permissive vendored dependencies.
-- Incompatible-license warning (GPL-2.0-only + Apache-2.0) reviewed — false alarm. To confirm:
+- Flagged combination (GPL-2.0-only + Apache-2.0) reviewed — false alarm. To confirm:
   - Where: Apache-2.0 is 3 files, all under `vendor/build-tool/`; GPL-2.0-only is the shipped code in `src/*.c`.
   - Why separate: `vendor/build-tool/` is a build-time-only code generator, not linked into the shipped library (aggregation, not a combined work).
   - Check: no `#include`/import of any `vendor/build-tool/` header appears under `src/` (checked `src/*.c`, `src/*.h`); `vendor/build-tool/` runs standalone at build time, see `vendor/build-tool/README`.
@@ -367,7 +371,7 @@ AI-assisted review recommendation: NEEDS HUMAN REVIEW
 
 Issues for legal reviewer:
 - Declared license (LGPL-3.0-or-later AND MPL-2.0+) covers the core; the package also bundles many third-party components under other licenses (GPL-2.0-only, Apache-2.0, GPL-3.0-only) — expected for an aggregation.
-- Incompatible-license warning (GPL-2.0-only, Apache-2.0, GPL-3.0-only/-or-later) — aggregation of independently-licensed bundled components, each in its own subtree. Partially checked:
+- Flagged combinations (GPL-2.0-only, Apache-2.0, GPL-3.0-only/-or-later) — aggregation of independently-licensed bundled components, each in its own subtree. Partially checked:
   - Checked: GPL-2.0-only is bundled poppler (`poppler-*/`); GPL-3.0-only is build-only tooling (`solenv/bin/`, `*/m4/*` carry Autoconf-exception) — separate, not linked into the shipped core.
   - Not traced: the Apache-2.0 (2445 files) vs GPL pairing across all remaining bundled dirs — too many to trace in one pass.
 - BSD-3-Clause-No-Nuclear-License (Risk 7, field-of-use) in bundled `libfonts-*/lib/itext-1.5.2/.../sun.txt`: confirm whether this iText sample is shipped.
