@@ -343,11 +343,20 @@ export default {
   font-weight: 600;
 }
 .license-matrix-detail-body {
-  background: #f6f8fa;
+  background: #ffffff;
   color: #1f2328;
   font-size: 13px;
   line-height: 1.5;
   margin: 0;
   padding: 0.85rem 1rem;
+}
+.bar-no + .license-matrix-detail-body {
+  box-shadow: inset 0 11px 17px -20px rgba(207, 34, 46, 0.6);
+}
+.bar-check + .license-matrix-detail-body {
+  box-shadow: inset 0 11px 17px -20px rgba(191, 135, 0, 0.64);
+}
+.bar-unknown + .license-matrix-detail-body {
+  box-shadow: inset 0 11px 17px -20px rgba(87, 96, 106, 0.56);
 }
 </style>
