@@ -2,6 +2,14 @@
   <section id="license-compatibility" class="license-matrix-card mb-3">
     <header class="license-matrix-header">
       <h3>License compatibility</h3>
+      <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no">✕</i> Incompatible</span>
+        <span class="license-matrix-legend-item"
+          ><i class="license-matrix-swatch cell-check">?</i> Check dependency</span
+        >
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown">·</i> Unknown</span>
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
+      </div>
     </header>
 
     <div class="license-matrix-body">
@@ -40,15 +48,6 @@
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div class="license-matrix-legend">
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no">✕</i> Incompatible</span>
-        <span class="license-matrix-legend-item"
-          ><i class="license-matrix-swatch cell-check">?</i> Check dependency</span
-        >
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown">·</i> Unknown</span>
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
       </div>
     </div>
 
@@ -154,7 +153,7 @@ export default {
   display: flex;
   gap: 1rem;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 0.85rem 0.65rem 1rem;
 }
 .license-matrix-header h3 {
   font-size: 1rem;
@@ -266,17 +265,24 @@ export default {
 }
 
 .license-matrix-legend {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
   color: #57606a;
   display: flex;
   flex-wrap: wrap;
   font-size: 12px;
-  gap: 1rem;
-  margin-top: 0.85rem;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  margin-left: auto;
+  padding: 0.25rem 0.45rem;
 }
 .license-matrix-legend-item {
   align-items: center;
   display: inline-flex;
-  gap: 0.4rem;
+  gap: 0.3rem;
+  white-space: nowrap;
 }
 .license-matrix-swatch {
   align-items: center;
