@@ -280,6 +280,56 @@ unless ($clean) {
   $pkgs->update($obsprj);
   $pkgs->unpack($pkg_id);
 
+  # "cavil-incompatible-lab" example data: Apache-2.0 combined with GPL-2.0-only is an OSADL "No"
+  # incompatibility. It elevates the report to risk 9 and shows the "Elevated risk" warning panel with
+  # the OSADL explanation.
+  my $incompat_checkout = 'incompatiblelab0000000000000000001';
+  my $incompat_dir      = $checkouts->child('cavil-incompatible-lab', $incompat_checkout)->make_path;
+  $incompat_dir->child('apache_file.txt')
+    ->spurt("# SPDX-License-Identifier: Apache-2.0\n\nA permissively licensed helper.\n");
+  $incompat_dir->child('gpl2_file.txt')
+    ->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nA strong copyleft component.\n");
+  $pkg_id = $pkgs->add(
+    name            => 'cavil-incompatible-lab',
+    checkout_dir    => $incompat_checkout,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'cavil:staging',
+    package         => 'cavil-incompatible-lab',
+    srcmd5          => $incompat_checkout,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $incompat = $pkgs->find($pkg_id);
+  $incompat->{external_link} = 'obs#incompatible-lab';
+  $pkgs->update($incompat);
+  $pkgs->unpack($pkg_id);
+
+  # "cavil-check-dependency-lab" example data: AGPL-3.0-only combined with LGPL-3.0-or-later is an
+  # OSADL "Check dependency" pair - a softer advisory shown in the "info" panel that, unlike a "No"
+  # pair, does not elevate the risk. (The AGPL-3.0-or-later tag resolves to AGPL-3.0-only.)
+  my $checkdep_checkout = 'checkdependencylab0000000000000001';
+  my $checkdep_dir      = $checkouts->child('cavil-check-dependency-lab', $checkdep_checkout)->make_path;
+  $checkdep_dir->child('agpl_file.txt')
+    ->spurt("# SPDX-License-Identifier: AGPL-3.0-or-later\n\nA network service component.\n");
+  $checkdep_dir->child('lgpl_file.txt')
+    ->spurt("# SPDX-License-Identifier: LGPL-3.0-or-later\n\nA linked library component.\n");
+  $pkg_id = $pkgs->add(
+    name            => 'cavil-check-dependency-lab',
+    checkout_dir    => $checkdep_checkout,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'cavil:staging',
+    package         => 'cavil-check-dependency-lab',
+    srcmd5          => $checkdep_checkout,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $checkdep = $pkgs->find($pkg_id);
+  $checkdep->{external_link} = 'obs#check-dependency-lab';
+  $pkgs->update($checkdep);
+  $pkgs->unpack($pkg_id);
+
   # Update products
   my $products   = $app->products;
   my $factory_id = $products->find_or_create('openSUSE:Factory')->{id};

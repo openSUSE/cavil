@@ -19,6 +19,8 @@ use Mojo::Base -strict, -signatures;
 
 use Exporter 'import';
 use List::Util qw(uniq);
+use Mojo::File qw(path);
+use Mojo::JSON qw(from_json);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
@@ -31,29 +33,16 @@ our @EXPORT_OK = (
 
 use constant PAD_WORDS => 5;
 
-# Each rule triggers when ALL of its SPDX identifiers are present in the
-# package's digest report. The hint above each rule is a starting point for
-# further reading - the actual legal analysis is more nuanced.
-my $INCOMPATIBLE_LICENSE_RULES = [
-
-  # Apache 2.0's patent termination and indemnification clauses add
-  # restrictions that GPL-2.0-only does not permit. Resolved in GPLv3.
-  {licenses => ['GPL-2.0-only', 'Apache-2.0']},
-
-  # GPL-2.0-only forbids the "or any later version" upgrade, so v2-only code
-  # cannot be combined with v3-family code in a single work. v2-or-later is
-  # fine because it can be relicensed to v3 at distribution time.
-  {licenses => ['GPL-2.0-only', 'GPL-3.0-only']}, {licenses => ['GPL-2.0-only', 'GPL-3.0-or-later']},
-
-  # AGPL-3.0 is GPL-3.0 plus the network-use clause; same v2-only conflict
-  # as above.
-  {licenses => ['GPL-2.0-only', 'AGPL-3.0-only']}, {licenses => ['GPL-2.0-only', 'AGPL-3.0-or-later']},
-
-  # CDDL is a file-scoped weak copyleft (MPL-derived). The classic
-  # "ZFS-on-Linux" combination - FSF, SFC and most distributions treat
-  # GPL+CDDL as incompatible.
-  {licenses => ['GPL-2.0-only', 'CDDL-1.0']}, {licenses => ['GPL-2.0-only', 'CDDL-1.1']},
-];
+# Incompatible license combinations come from the OSADL license compatibility matrix (CC-BY-4.0, see
+# the NOTICE file), bundled and refreshed via tools/update_licenses.pl. Each rule is an unordered pair
+# of SPDX identifiers that triggers when BOTH are present in the package's digest report, tagged with
+# a "compatibility" tier ("No" = hard incompatibility, elevates risk to 9; "Check dependency" = softer
+# advisory) and OSADL's human-readable "explanation". The list is cached on first use.
+sub _osadl_rules () {
+  state $rules
+    = from_json(path(__FILE__)->dirname->child('resources', 'license_incompatibilities.json')->slurp)->{pairs};
+  return $rules;
+}
 
 sub estimated_risk ($risk, $match) {
   my $estimated = int(($risk * $match + 9 * (1 - $match)) + 0.5);
@@ -180,7 +169,12 @@ sub is_license_filename ($path) {
   return $path =~ m{(?:^|/)(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE)(?:[.\-]|$)}i ? 1 : 0;
 }
 
-sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
+# Flag incompatible license pairs present in the package. Returns an arrayref of
+# {licenses => [a, b], compatibility => 'No'|'Check dependency', explanation => '...'} entries. Only
+# "No" entries elevate risk (see _has_hard_incompat); "Check dependency" is a softer advisory. $rules
+# defaults to the bundled OSADL matrix but can be injected for testing.
+sub incompatible_licenses ($dig_report, $rules = undef) {
+  $rules //= _osadl_rules();
   return [] unless @$rules;
 
   my @spdx;
@@ -190,37 +184,37 @@ sub incompatible_licenses ($dig_report, $rules = $INCOMPATIBLE_LICENSE_RULES) {
   # The Classpath exception was created specifically to permit combining GPL
   # code with code under otherwise-incompatible licenses (typically Apache-2.0
   # Java libraries), so strip "GPL... WITH Classpath-exception-2.0" fragments
-  # before the substring match below.
+  # before extracting identifiers below.
   s/\b(?:A|L)?GPL-[\d.]+(?:-only|-or-later|\+)?\s+WITH\s+Classpath-exception-2\.0\b//gi for @spdx;
 
-  # Anchor against adjacent SPDX identifier characters so that e.g.
-  # "GPL-3.0-or-later" does not match inside "AGPL-3.0-or-later", and
-  # "GPL-2.0-only" does not match inside "LGPL-2.0-only".
-  my @regexes;
-  for my $rule (@$rules) {
-    push @regexes, [qr/(?<![\w.+-])\Q$_\E(?![\w.+-])/i, $_] for @{$rule->{licenses}};
-  }
-
-  my %matches;
-  for my $spdx (uniq @spdx) {
-    for my $pair (@regexes) {
-      next unless $spdx =~ $pair->[0];
-      $matches{$pair->[1]}++;
-    }
-  }
+  # Reduce the (possibly compound) SPDX expressions to the set of individual license identifiers
+  # actually present, so we can look up pairs directly.
+  my %present;
+  $present{$_}++ for map { @{extract_spdx_identifiers($_)} } @spdx;
 
   my @results;
   for my $rule (@$rules) {
     my $licenses = $rule->{licenses};
-    my $found    = 0;
-    for my $license (@$licenses) {
-      last unless $matches{$license};
-      $found++;
-    }
-    push @results, {licenses => [@$licenses]} if $found == @$licenses;
+    next unless @$licenses == grep { $present{$_} } @$licenses;
+    push @results,
+      {licenses => [@$licenses], compatibility => $rule->{compatibility}, explanation => $rule->{explanation}};
   }
 
-  return \@results;
+  # Deterministic order: hard incompatibilities ("No") first, then advisories, then alphabetically by
+  # pair.
+  my %rank = ('No' => 0, 'Check dependency' => 1);
+  return [
+    sort {
+           ($rank{$a->{compatibility} // 'No'} <=> $rank{$b->{compatibility} // 'No'})
+        || ("@{$a->{licenses}}" cmp "@{$b->{licenses}}")
+    } @results
+  ];
+}
+
+# Does the report carry at least one hard ("No") incompatibility? Only these elevate risk to 9;
+# "Check dependency" entries are advisory.
+sub _has_hard_incompat ($incompat) {
+  return scalar grep { ($_->{compatibility} // 'No') eq 'No' } @{$incompat || []};
 }
 
 sub minimal_snippet ($snippet) {
@@ -381,7 +375,7 @@ sub report_checksum ($specfile_report, $dig_report) {
   # License incompatibilities
   if (my $incompat = $dig_report->{incompatible_licenses}) {
     for my $rule (@$incompat) {
-      $text .= "INCOMPAT:" . join(':', sort @{$rule->{licenses}}) . "\n";
+      $text .= "INCOMPAT:" . ($rule->{compatibility} // 'No') . ':' . join(':', sort @{$rule->{licenses}}) . "\n";
     }
   }
 
@@ -397,7 +391,7 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
     my $risk = $dig_report->{missed_files}{$file}[0];
     $max_risk = $risk if $risk > $max_risk;
   }
-  $max_risk = 9 if $dig_report->{incompatible_licenses} && @{$dig_report->{incompatible_licenses}};
+  $max_risk = 9 if _has_hard_incompat($dig_report->{incompatible_licenses});
 
   my $l = lic($specfile_report->{main}{license})->example;
   $l ||= 'Unknown';
@@ -459,10 +453,14 @@ sub summary_delta_score ($old, $new) {
   return $score;
 }
 
+# New hard ("No") incompatibilities only - "Check dependency" advisories do not drive the diff score
+# or the summary warning.
 sub _new_incompatibilities ($old, $new) {
-  my @old_incompat = map { @{$_->{licenses}} } @{$old->{incompatible_licenses} || []};
-  my @new_incompat = uniq(map { @{$_->{licenses}} } @{$new->{incompatible_licenses} || []});
-  my %old          = map { $_ => 1 } @old_incompat;
+  my @old_incompat
+    = map { @{$_->{licenses}} } grep { ($_->{compatibility} // 'No') eq 'No' } @{$old->{incompatible_licenses} || []};
+  my @new_incompat = uniq(map { @{$_->{licenses}} }
+    grep { ($_->{compatibility} // 'No') eq 'No' } @{$new->{incompatible_licenses} || []});
+  my %old = map { $_ => 1 } @old_incompat;
 
   my @new;
   for my $lic (@new_incompat) {

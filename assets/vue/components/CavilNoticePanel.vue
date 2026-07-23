@@ -154,8 +154,28 @@ export default {
   top: 1.25rem;
   width: 0.4rem;
 }
+.cavil-notice-panel-info .cavil-notice-item {
+  padding-left: 2rem;
+  position: relative;
+}
+.cavil-notice-panel-info .cavil-notice-item::before {
+  background: #0969da;
+  border-radius: 50%;
+  content: '';
+  height: 0.4rem;
+  left: 0.9rem;
+  position: absolute;
+  top: 1.25rem;
+  width: 0.4rem;
+}
 .cavil-notice-item + .cavil-notice-item {
   border-top: 1px solid #d8dee4;
+}
+.cavil-notice-explanation {
+  color: #57606a;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0.35rem 0 0;
 }
 .cavil-notice-pre {
   background: #ffffff;

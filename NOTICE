@@ -36,3 +36,27 @@ Credit:  SPDX(R) is a project of the Linux Foundation. The SPDX License List
 
 Cavil uses the SPDX license and exception identifiers to name licenses, and the
 SPDX 3.0.1 JSON schema and JSON-LD context to generate and validate SBOMs.
+
+
+OSADL Open Source License Compliance Checklists
+-----------------------------------------------
+Source:  https://www.osadl.org/fileadmin/checklists/matrixseqexpl.json
+         https://www.osadl.org/checklists
+Bundled: lib/Cavil/resources/license_incompatibilities.json
+License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
+         https://creativecommons.org/licenses/by/4.0/
+Credit:  (c) 2017-2024 Open Source Automation Development Lab (OSADL) eG and
+         contributors.
+
+         A project by the Open Source Automation Development Lab (OSADL) eG.
+         For further information about the project see the description at
+         www.osadl.org/checklists.
+
+Cavil uses the OSADL license compatibility matrix to detect incompatible license
+combinations and surface them, together with OSADL's explanations, in legal
+reports. Use of this data is subject to the CC-BY-4.0 attribution terms.
+
+Please note that OSADL describes this data as work in progress and provides it
+without any warranty as to correctness, usefulness, merchantability or fitness
+for a particular purpose. Cavil surfaces it as advisory guidance only; it does
+not constitute legal advice.

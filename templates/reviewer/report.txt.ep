@@ -19,10 +19,24 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 
 % }
 ## Licenses
-% if ($report->{incompatible_licenses} && @{$report->{incompatible_licenses}}) {
+% my @incompat = @{$report->{incompatible_licenses} // []};
+% my @hard  = grep { ($_->{compatibility} // 'No') eq 'No' } @incompat;
+% my @check = grep { ($_->{compatibility} // '') eq 'Check dependency' } @incompat;
+% if (@hard) {
 
-% my $licenses = join(', ', map { @{$_->{licenses}} } @{$report->{incompatible_licenses}});
+% my $licenses = join(', ', map { @{$_->{licenses}} } @hard);
 **Warning** Elevated risk, package might contain incompatible licenses: <%= $licenses %>
+%   for my $rule (@hard) {
+* <%= join(' + ', @{$rule->{licenses}}) %>: <%= $rule->{explanation} %>
+%   }
+
+% }
+% if (@check) {
+
+Note: Check the dependency relationship for these license combinations:
+%   for my $rule (@check) {
+* <%= join(' + ', @{$rule->{licenses}}) %>: <%= $rule->{explanation} %>
+%   }
 
 % }
 % if (@{$report->{missed_files}}) {

@@ -83,12 +83,18 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     is $pkg->{state},  'new',                                                                 'state';
     is $pkg->{notice}, 'Manual review is required because no previous reports are available', 'requires manual review';
 
-    ok my $report = $json->{report}, 'report';
-    is_deeply $report->{incompatible_licenses}, [{licenses => ['GPL-2.0-only', 'Apache-2.0']}], 'incompatible licenses';
+    ok my $report   = $json->{report},                  'report';
+    ok my $incompat = $report->{incompatible_licenses}, 'incompatible licenses';
+    is scalar(@$incompat), 1, 'one incompatible pair';
+    is_deeply $incompat->[0]{licenses}, ['Apache-2.0', 'GPL-2.0-only'], 'incompatible licenses';
+    is $incompat->[0]{compatibility}, 'No', 'hard incompatibility';
+    like $incompat->[0]{explanation}, qr/copyleft/, 'OSADL explanation included';
 
     $t->get_ok('/reviews/report_details/1')
       ->status_is(200)
-      ->json_is('/incompatible_licenses', [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]);
+      ->json_is('/incompatible_licenses/0/licenses',      ['Apache-2.0', 'GPL-2.0-only'])
+      ->json_is('/incompatible_licenses/0/compatibility', 'No')
+      ->json_like('/incompatible_licenses/0/explanation', qr/copyleft/);
   };
 
   subtest 'Text report' => sub {
@@ -96,7 +102,8 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     ok my $text = $t->tx->res->text, 'text response';
     like $text, qr/Elevated risk, package might contain incompatible licenses:/,
       'text report contains warning about incompatible licenses';
-    like $text, qr/GPL-2.0-only, Apache-2.0/, 'text report lists incompatible licenses';
+    like $text, qr/Apache-2\.0, GPL-2\.0-only/,               'text report lists incompatible licenses';
+    like $text, qr/Apache-2\.0 \+ GPL-2\.0-only: .*copyleft/, 'text report includes OSADL explanation';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
