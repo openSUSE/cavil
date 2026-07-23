@@ -35,6 +35,9 @@ post '/' => sub {
   elsif ($text =~ /This one is broken/) {
     return $c->render(json => {error => 'Classifier is broken'}, status => 400);
   }
+  elsif (length($text) > 8000) {
+    return $c->render(json => {error => 'Payload too large'}, status => 413);
+  }
   else {
     $c->render(json => {license => \0, confidence => '55.321'});
   }
@@ -108,6 +111,27 @@ subtest 'Token authentication' => sub {
   is_deeply $t->app->classifier->classify('Fixed copyright notice'), {confidence => '98.123', license => 1},
     'is legal text';
   is $TOKEN, 'TEST:TOKEN:12345', 'right token';
+};
+
+subtest 'Ultra-long minified lines are resolved as non-license without hitting the classifier' => sub {
+
+  # A minified bundle: a short license comment, then the whole file as one enormous line. A real
+  # classifier chokes on a payload this size (the mock returns 413 to mirror that), so the guard must
+  # resolve it as non-license without sending it - otherwise the whole classify job would fail.
+  my $giant = '/*! license */ ' . ('a' x 20000);
+  my $sid   = $t->app->pg->db->insert(
+    'snippets',
+    {hash      => 'manual:giant-minified-line', text => $giant, package => 1},
+    {returning => 'id'}
+  )->hash->{id};
+
+  my $classify_id = $t->app->minion->enqueue('classify');
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->job($classify_id)->info->{state}, 'finished', 'classify finished despite the oversized snippet';
+
+  my $snippet = $t->app->pg->db->select('snippets', '*', {id => $sid})->hash;
+  is $snippet->{classified}, 1, 'oversized snippet was resolved';
+  is $snippet->{license},    0, 'as non-license (machine code, never sent to the classifier)';
 };
 
 subtest 'Classified manually' => sub {

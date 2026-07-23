@@ -17,6 +17,7 @@ package Cavil::Task::Classify;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
+use Cavil::Util qw(MAX_SNIPPET_LINE);
 use Mojo::File 'path';
 use Mojo::Util qw(dumper);
 use Cavil::PatternEngine;
@@ -58,7 +59,12 @@ sub _classify ($job) {
     my $scores = $patterns->score_snippets($results);
 
     for my $next (@$results) {
-      my $res = $classifier->classify($next->{text});
+
+      # A snippet carrying an ultra-long line is minified machine code, not license text, and too large
+      # for the classifier to ingest (the oversized request just fails). Resolve it as non-license here
+      # rather than sending it; a genuine undef from the classifier below still fails loudly.
+      my $machine = grep { length > MAX_SNIPPET_LINE } split /\n/, $next->{text};
+      my $res     = $machine ? {license => 0, confidence => 0} : $classifier->classify($next->{text});
       die "Unexpected result from classifier: @{[dumper($res)]}"
         unless ref $res eq 'HASH' && defined($res->{license}) && defined($res->{confidence});
 
