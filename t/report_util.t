@@ -19,10 +19,10 @@ use Test::More;
 use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
-  qw(estimated_risk group_incompatibilities incompatible_licenses is_license_filename minimal_snippet),
-  qw(new_license_names new_unresolved_files overlapping_licenses report_checksum report_shortname),
-  qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
-  qw(spdx_edit_snippet summary_delta summary_delta_score)
+  qw(curate_incompatibility_explanations estimated_risk group_incompatibilities incompatible_licenses),
+  qw(is_license_filename minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
+  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet),
+  qw(should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
@@ -317,6 +317,101 @@ subtest 'incompatible_licenses' => sub {
     is_deeply $normalize->(incompatible_licenses($report)),
       [{licenses => ['Apache-2.0', 'GPL-2.0-only'], compatibility => 'No', has_explanation => 1}],
       'plain GPL-2.0-only alongside an excepted variant is still flagged';
+  };
+};
+
+subtest 'curate_incompatibility_explanations' => sub {
+
+  # Curate a single ($x, $y) pair through the public list API and return the resulting explanation.
+  my $curate = sub {
+    my ($x, $y, $osadl) = @_;
+    my $list = [{licenses => [sort($x, $y)], compatibility => 'No', explanation => $osadl}];
+    curate_incompatibility_explanations($list);
+    return $list->[0]{explanation};
+  };
+
+  subtest 'OSADL substantive text is kept verbatim' => sub {
+    my $osadl = 'Incompatibility of the OpenSSL license with the GPL-2.0-only license is explicitly stated in the '
+      . 'GPL-2.0-only license checklist. Interpretation: The final statement of the appended SSLeay License ...';
+    is $curate->('GPL-2.0-only', 'OpenSSL', $osadl), $osadl, 'OpenSSL explanation untouched';
+
+    my $python = 'Incompatibility ... Interpretation: The requirement of the Python license ...';
+    is $curate->('GPL-3.0-only', 'Python-2.0', $python), $python, 'Python-2.0 explanation untouched';
+  };
+
+  subtest 'Apache-2.0 vs a version 2 GPL/LGPL license -> patent wording' => sub {
+    for my $other (qw(GPL-2.0-only GPL-2.0-or-later LGPL-2.0-or-later LGPL-2.1-only LGPL-2.1-or-later)) {
+      my $expl = $curate->('Apache-2.0', $other, 'generic circular text');
+      like $expl, qr/patent retaliation and indemnification/, "Apache + $other names the patent terms";
+      like $expl, qr/\bApache-2\.0\b/,                        "Apache + $other names Apache-2.0";
+      like $expl, qr/\Q$other\E/,                             "Apache + $other names $other";
+      like $expl, qr/version 3 line/,                         "Apache + $other mentions the v3 resolution";
+    }
+  };
+
+  subtest 'Apache-2.0 vs a version 3 license does NOT get the v2 patent wording' => sub {
+
+    # Apache-2.0 is compatible with the v3 GPL family, so if such a pair ever appears it must not
+    # claim "resolved in version 3"; it falls through to OSADL's own text.
+    is $curate->('AGPL-3.0-only', 'Apache-2.0', 'some OSADL text'), 'some OSADL text',
+      'Apache + AGPL-3.0-only left to OSADL';
+  };
+
+  subtest 'CDDL vs a GPL-family license -> file-scope wording' => sub {
+    for my $pair (['CDDL-1.0', 'GPL-2.0-only'], ['CDDL-1.1', 'LGPL-2.1-only'], ['AGPL-3.0-only', 'CDDL-1.0']) {
+      my $expl = $curate->(@$pair, 'generic circular text');
+      like $expl, qr/file-scoped copyleft/, "@$pair mentions file-scoped copyleft";
+      like $expl, qr/ZFS-on-Linux/,         "@$pair mentions the ZFS case";
+    }
+  };
+
+  subtest 'GPL-2.0-only vs a version 3 license -> version-rigidity wording' => sub {
+    for my $other (qw(GPL-3.0-only GPL-3.0-or-later LGPL-3.0-or-later AGPL-3.0-or-later)) {
+      my $expl = $curate->('GPL-2.0-only', $other, 'Software ... under another copyleft license ...');
+      like $expl, qr/or \(at your option\) any later version/, "GPL-2.0-only + $other explains the missing upgrade";
+      like $expl, qr/GPL-2\.0-or-later license does not have this/, "GPL-2.0-only + $other notes the or-later escape";
+    }
+
+    # GPL-2.0-or-later can upgrade, so it must NOT get the version-rigidity wording; it is a plain
+    # copyleft-vs-copyleft case instead.
+    my $expl = $curate->('GPL-2.0-or-later', 'GPL-3.0-only', 'Software ... under another copyleft license ...');
+    unlike $expl, qr/any later version/,      'GPL-2.0-or-later + GPL-3.0-only is not version-rigidity';
+    like $expl,   qr/both copyleft licenses/, 'falls through to the generic copyleft wording';
+  };
+
+  subtest 'Generic copyleft-vs-copyleft fallback' => sub {
+    my $expl = $curate->('EPL-2.0', 'GPL-3.0-only',
+      'Software under a copyleft license ... under another copyleft license ...');
+    like $expl, qr/both copyleft licenses whose reciprocal obligations/, 'improved symmetric wording';
+    like $expl, qr/\bEPL-2\.0\b/,                                        'names the first license';
+    like $expl, qr/\bGPL-3\.0-only\b/,                                   'names the second license';
+  };
+
+  subtest 'Unrecognised generic/circular text is left to OSADL' => sub {
+
+    # No family match, no "another copyleft license" marker, no Interpretation -> keep OSADL verbatim.
+    my $osadl = 'Incompatibility of the MS-RL license with the OSL-3.0 license is explicitly stated in the checklist.';
+    is $curate->('MS-RL', 'OSL-3.0', $osadl), $osadl, 'circular text without a family match is kept';
+  };
+
+  subtest 'Curation is idempotent' => sub {
+    for my $pair (
+      ['Apache-2.0',   'GPL-2.0-only', 'generic'],
+      ['CDDL-1.0',     'GPL-2.0-only', 'generic'],
+      ['GPL-2.0-only', 'GPL-3.0-only', 'under another copyleft license'],
+      ['EPL-2.0',      'GPL-3.0-only', 'under another copyleft license']
+      )
+    {
+      my ($x, $y, $osadl) = @$pair;
+      my $once  = $curate->($x, $y, $osadl);
+      my $twice = $curate->($x, $y, $once);
+      is $twice, $once, "re-currating @$pair[0,1] is a no-op";
+    }
+  };
+
+  subtest 'Empty / missing input' => sub {
+    is_deeply curate_incompatibility_explanations([]),    [],    'empty list';
+    is_deeply curate_incompatibility_explanations(undef), undef, 'undef list';
   };
 };
 

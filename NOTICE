@@ -53,8 +53,10 @@ Credit:  (c) 2017-2024 Open Source Automation Development Lab (OSADL) eG and
          www.osadl.org/checklists.
 
 Cavil uses the OSADL license compatibility matrix to detect incompatible license
-combinations and surface them, together with OSADL's explanations, in legal
-reports. Use of this data is subject to the CC-BY-4.0 attribution terms.
+combinations and surface them in legal reports. OSADL's own explanations are shown
+where they are substantive; for a few common license families Cavil substitutes its
+own advisory wording to make the problem easier to spot. Use of this data is subject
+to the CC-BY-4.0 attribution terms.
 
 Please note that OSADL describes this data as work in progress and provides it
 without any warranty as to correctness, usefulness, merchantability or fitness

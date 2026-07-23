@@ -9,9 +9,10 @@ use Mojo::File 'path';
 use Mojo::JSON qw(from_json to_json);
 use Cavil::PatternEngine;
 use Cavil::Checkout;
-use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk group_incompatibilities incompatible_licenses);
-use Cavil::Util       qw(lines_context);
+use Cavil::Licenses qw(lic);
+use Cavil::ReportUtil
+  qw(curate_incompatibility_explanations estimated_risk group_incompatibilities incompatible_licenses);
+use Cavil::Util qw(lines_context);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
@@ -56,7 +57,9 @@ sub sanitized_dig_report {
   $report = from_json($report);
   _sanitize_report($report);
 
-  # Derive the compact, grouped display form from the cached flat list (no reindex needed).
+  # Swap in the curated advisory explanations, then derive the compact grouped display form from the
+  # cached flat list (both at read time, so no reindex is needed).
+  curate_incompatibility_explanations($report->{incompatible_licenses});
   $report->{incompatible_license_groups} = group_incompatibilities($report->{incompatible_licenses});
 
   return $report;

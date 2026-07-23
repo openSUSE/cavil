@@ -88,13 +88,13 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     is scalar(@$incompat), 1, 'one incompatible pair';
     is_deeply $incompat->[0]{licenses}, ['Apache-2.0', 'GPL-2.0-only'], 'incompatible licenses';
     is $incompat->[0]{compatibility}, 'No', 'hard incompatibility';
-    like $incompat->[0]{explanation}, qr/copyleft/, 'OSADL explanation included';
+    like $incompat->[0]{explanation}, qr/patent retaliation and indemnification/, 'curated explanation included';
 
     $t->get_ok('/reviews/report_details/1')
       ->status_is(200)
       ->json_is('/incompatible_licenses/0/licenses',      ['Apache-2.0', 'GPL-2.0-only'])
       ->json_is('/incompatible_licenses/0/compatibility', 'No')
-      ->json_like('/incompatible_licenses/0/explanation', qr/copyleft/);
+      ->json_like('/incompatible_licenses/0/explanation', qr/patent retaliation and indemnification/);
   };
 
   subtest 'Text report' => sub {
@@ -102,9 +102,9 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     ok my $text = $t->tx->res->text, 'text response';
     like $text, qr/Elevated risk, package might contain incompatible licenses:/,
       'text report contains warning about incompatible licenses';
-    like $text, qr/Apache-2\.0 is incompatible with:/, 'text report groups by pivot license';
-    like $text, qr/^    \* GPL-2\.0-only$/m,           'text report nests the conflicting license';
-    like $text, qr/copyleft/,                          'text report includes the OSADL explanation';
+    like $text, qr/Apache-2\.0 is incompatible with:/,      'text report groups by pivot license';
+    like $text, qr/^    \* GPL-2\.0-only$/m,                'text report nests the conflicting license';
+    like $text, qr/patent retaliation and indemnification/, 'text report includes the curated explanation';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

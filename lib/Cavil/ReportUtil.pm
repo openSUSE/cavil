@@ -26,10 +26,10 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
-  qw(estimated_risk group_incompatibilities incompatible_licenses is_license_filename minimal_snippet new_license_names),
-  qw(new_unresolved_files overlapping_licenses report_checksum report_shortname should_clear_boilerplate),
-  qw(should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet spdx_edit_snippet),
-  qw(summary_delta summary_delta_score)
+  qw(curate_incompatibility_explanations estimated_risk group_incompatibilities incompatible_licenses),
+  qw(is_license_filename minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
+  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet),
+  qw(should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -216,6 +216,78 @@ sub incompatible_licenses ($dig_report, $rules = undef) {
 # "Check dependency" entries are advisory.
 sub _has_hard_incompat ($incompat) {
   return scalar grep { ($_->{compatibility} // 'No') eq 'No' } @{$incompat || []};
+}
+
+# OSADL's per-pair explanations are uneven: for the nuanced cases (OpenSSL, Python-2.0, most "Check
+# dependency" advisories) they carry a helpful "Interpretation:", but for the common copyleft
+# combinations they fall back to a generic or circular one-liner that reads awkwardly. To make
+# problems easier to spot we substitute a clearer, advisory explanation for a few high-frequency
+# license families, written in OSADL's own hedged register. This is purely advisory context, not a
+# legal judgement - the wording can be refined once lawyers see it in production. OSADL's text is kept
+# verbatim whenever it is already substantive, and for anything we do not recognise.
+sub _curated_explanation ($x, $y, $osadl) {
+  $osadl //= '';
+
+  # Keep OSADL's own reasoning when it already provides some.
+  return $osadl if $osadl =~ /Interpretation:/;
+
+  my $is_apache = sub { $_[0] eq 'Apache-2.0' };
+  my $is_gpl    = sub { $_[0] =~ /^(?:A|L)?GPL-/ };                                   # any GPL-family license
+  my $is_v2gpl  = sub { $_[0] =~ /^(?:GPL-2\.0|LGPL-2\.[01])-(?:only|or-later)$/ };
+  my $is_v3gpl  = sub { $_[0] =~ /^(?:A|L)?GPL-3\.0-(?:only|or-later)$/ };
+
+  # Apache-2.0 vs a version 2 GPL/LGPL license: the patent and indemnification terms are the issue,
+  # and this is commonly described as resolved in the version 3 line.
+  for my $pair ([$x, $y], [$y, $x]) {
+    my ($a, $b) = @$pair;
+    next unless $is_apache->($a) && $is_v2gpl->($b);
+    return
+        "The $a and $b licenses are generally considered incompatible: the patent retaliation and indemnification "
+      . "conditions of the Apache-2.0 license are commonly regarded as additional restrictions that the $b license "
+      . "does not permit. This is usually described as resolved in the version 3 line of the GPL license family.";
+  }
+
+  # CDDL vs a GPL-family license: file-scoped (MPL-derived) copyleft against whole-work copyleft.
+  for my $pair ([$x, $y], [$y, $x]) {
+    my ($a, $b) = @$pair;
+    next unless $a =~ /^CDDL-/ && $is_gpl->($b);
+    return
+        "The $a and $b licenses are generally considered incompatible: the $a license is a file-scoped copyleft "
+      . "license derived from the Mozilla Public License, and its per-file obligations are commonly regarded as "
+      . "difficult to reconcile with the whole-work copyleft of the $b license. This is the combination seen in the "
+      . "well-known ZFS-on-Linux case.";
+  }
+
+  # GPL-2.0-only vs a version 3 GPL-family license: the missing "or any later version" upgrade clause.
+  for my $pair ([$x, $y], [$y, $x]) {
+    my ($a, $b) = @$pair;
+    next unless $a eq 'GPL-2.0-only' && $is_v3gpl->($b);
+    return
+        "The $a and $b licenses are generally considered incompatible: because the GPL-2.0-only license does not "
+      . "include the \"or (at your option) any later version\" option, its code normally cannot be taken to the "
+      . "version 3 terms that the $b license requires for combination. The GPL-2.0-or-later license does not have "
+      . "this limitation.";
+  }
+
+  # Two copyleft licenses whose reciprocal terms simply cannot be met at once (OSADL's generic case).
+  if ($osadl =~ /another copyleft license/) {
+    return
+        "The $x and $y licenses are both copyleft licenses whose reciprocal obligations differ and normally cannot "
+      . "be fulfilled at the same time, so code under the one license generally cannot be combined with or "
+      . "redistributed under the other unless a license explicitly permits it.";
+  }
+
+  return $osadl;
+}
+
+# Replace each entry's explanation with the curated, advisory form (see _curated_explanation). Mutates
+# and returns the list. Idempotent - re-currating already-curated text is a no-op.
+sub curate_incompatibility_explanations ($list) {
+  for my $rule (@{$list || []}) {
+    my ($x, $y) = sort @{$rule->{licenses}};
+    $rule->{explanation} = _curated_explanation($x, $y, $rule->{explanation});
+  }
+  return $list;
 }
 
 # Collapse a flat incompatibility list (from incompatible_licenses) into compact display clusters. A
