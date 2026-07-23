@@ -4,6 +4,7 @@ use Mojo::Base -strict, -signatures;
 use Mojo::File qw(curfile);
 use Mojo::JSON qw(from_json to_json);
 use Mojo::UserAgent;
+use Mojo::Util qw(html_unescape);
 
 my $LICENSE_URL   = 'https://spdx.org/licenses/';
 my $EXCEPTION_URL = 'https://spdx.org/licenses/exceptions-index.html';
@@ -98,6 +99,10 @@ for my $a (sort keys %osadl_cells) {
       $compatibility = 'Check dependency';
       $explanation   = ($cxy eq 'Check dependency' ? $xy : $yx)->{explanation};
     }
+
+    # OSADL explanations contain HTML entities (e.g. &quot;); decode them so the stored text is plain
+    # and renders correctly in the web, text and MCP reports alike.
+    $explanation = html_unescape($explanation);
     $osadl_pairs{"$x\0$y"} = {licenses => [$x, $y], compatibility => $compatibility, explanation => $explanation};
   }
 }

@@ -26,9 +26,10 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
-  qw(estimated_risk incompatible_licenses is_license_filename minimal_snippet new_license_names new_unresolved_files),
-  qw(overlapping_licenses report_checksum report_shortname should_clear_boilerplate should_cover_snippet),
-  qw(should_fold_snippet should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk group_incompatibilities incompatible_licenses is_license_filename minimal_snippet new_license_names),
+  qw(new_unresolved_files overlapping_licenses report_checksum report_shortname should_clear_boilerplate),
+  qw(should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet spdx_edit_snippet),
+  qw(summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
@@ -215,6 +216,89 @@ sub incompatible_licenses ($dig_report, $rules = undef) {
 # "Check dependency" entries are advisory.
 sub _has_hard_incompat ($incompat) {
   return scalar grep { ($_->{compatibility} // 'No') eq 'No' } @{$incompat || []};
+}
+
+# Collapse a flat incompatibility list (from incompatible_licenses) into compact display clusters. A
+# license-rich package (e.g. a vendored monorepo) can produce dozens of pairs that are really "one
+# license against many" - eight "<copyleft> + OpenSSL" pairs with near-identical explanations. We
+# cluster those into one scannable "OpenSSL vs GPL-2.0-only, GPL-3.0-only, ..." row with a single
+# explanation, instead of a wall of repeated paragraphs.
+#
+# Dedup is lossless by construction: before clustering we partition each tier's pairs by a normalized
+# explanation "template" (the explanation with the pair's own license names masked out), so a cluster
+# can only ever hold edges whose explanations are identical apart from which license is named. Two
+# genuinely different explanations (e.g. the OpenSSL SSLeay clause vs the Python-2.0 change-summary
+# clause, both hanging off GPL-2.0-only) always land in separate clusters and are both shown - no
+# explanation is dropped. Within a partition we greedily pick the license touching the most remaining
+# pairs as the cluster's pivot. Pure and deterministic (ties broken alphabetically). Returns an
+# arrayref of {compatibility, license, others => [...], explanation}, hard ("No") and largest clusters
+# first.
+sub group_incompatibilities ($list) {
+  my @groups;
+  for my $tier ('No', 'Check dependency') {
+
+    # Undirected edges for this tier, keyed "x\0y" (x lt y) => explanation.
+    my %edge_explanation;
+    for my $rule (@{$list || []}) {
+      next unless ($rule->{compatibility} // 'No') eq $tier;
+      my ($x, $y) = sort @{$rule->{licenses}};
+      $edge_explanation{"$x\0$y"} = $rule->{explanation};
+    }
+
+    # Partition edges by normalized explanation template (see above). The masked template is only ever
+    # used as a grouping key - the raw explanation is what gets displayed.
+    my %partition;
+    for my $edge (keys %edge_explanation) {
+      my ($x, $y) = split /\0/, $edge;
+      my $template = $edge_explanation{$edge} // '';
+      $template =~ s/\Q$x\E//g;
+      $template =~ s/\Q$y\E//g;
+      push @{$partition{$template}}, $edge;
+    }
+
+    # Greedily cluster within each explanation-uniform partition.
+    for my $template (sort keys %partition) {
+      my %edges = map { $_ => $edge_explanation{$_} } @{$partition{$template}};
+
+      while (%edges) {
+
+        # Pick the license touching the most remaining edges (ties: alphabetical).
+        my %degree;
+        for my $edge (keys %edges) {
+          $degree{$_}++ for split /\0/, $edge;
+        }
+        my ($pivot) = sort { $degree{$b} <=> $degree{$a} || $a cmp $b } keys %degree;
+
+        # Collect the pivot's partners and their explanations, then drop those edges.
+        my %partner_explanation;
+        for my $edge (keys %edges) {
+          my ($x, $y) = split /\0/, $edge;
+          next unless $x eq $pivot || $y eq $pivot;
+          $partner_explanation{$x eq $pivot ? $y : $x} = $edges{$edge};
+          delete $edges{$edge};
+        }
+
+        my @others = sort keys %partner_explanation;
+        push @groups, {
+          compatibility => $tier,
+          license       => $pivot,
+          others        => \@others,
+          explanation   => $partner_explanation{$others[0]}    # any partner works - the template is uniform
+        };
+      }
+    }
+  }
+
+  # Hard incompatibilities first, then largest clusters first, then alphabetical - stable and
+  # scannable regardless of the partition iteration order above.
+  my %rank = ('No' => 0, 'Check dependency' => 1);
+  return [
+    sort {
+           $rank{$a->{compatibility}} <=> $rank{$b->{compatibility}}
+        || @{$b->{others}}            <=> @{$a->{others}}
+        || $a->{license}              cmp $b->{license}
+    } @groups
+  ];
 }
 
 sub minimal_snippet ($snippet) {

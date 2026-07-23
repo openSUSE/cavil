@@ -19,9 +19,10 @@ use Test::More;
 use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
-  qw(estimated_risk incompatible_licenses is_license_filename minimal_snippet new_license_names new_unresolved_files),
-  qw(overlapping_licenses report_checksum report_shortname should_clear_boilerplate should_cover_snippet),
-  qw(should_fold_snippet should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk group_incompatibilities incompatible_licenses is_license_filename minimal_snippet),
+  qw(new_license_names new_unresolved_files overlapping_licenses report_checksum report_shortname),
+  qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
+  qw(spdx_edit_snippet summary_delta summary_delta_score)
 );
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
@@ -316,6 +317,70 @@ subtest 'incompatible_licenses' => sub {
     is_deeply $normalize->(incompatible_licenses($report)),
       [{licenses => ['Apache-2.0', 'GPL-2.0-only'], compatibility => 'No', has_explanation => 1}],
       'plain GPL-2.0-only alongside an excepted variant is still flagged';
+  };
+};
+
+subtest 'group_incompatibilities' => sub {
+  subtest 'Empty' => sub {
+    is_deeply group_incompatibilities([]),    [], 'no groups';
+    is_deeply group_incompatibilities(undef), [], 'no groups';
+  };
+
+  subtest 'Clusters one-vs-many with a shared explanation' => sub {
+    my $list = [
+      {licenses => ['GPL-2.0-only', 'OpenSSL'], compatibility => 'No', explanation => 'OpenSSL vs GPL-2.0-only'},
+      {licenses => ['GPL-3.0-only', 'OpenSSL'], compatibility => 'No', explanation => 'OpenSSL vs GPL-3.0-only'},
+      {
+        licenses      => ['LGPL-3.0-or-later', 'OpenSSL'],
+        compatibility => 'No',
+        explanation   => 'OpenSSL vs LGPL-3.0-or-later'
+      },
+    ];
+    is_deeply group_incompatibilities($list),
+      [
+      {
+        compatibility => 'No',
+        license       => 'OpenSSL',
+        others        => ['GPL-2.0-only', 'GPL-3.0-only', 'LGPL-3.0-or-later'],
+        explanation   => 'OpenSSL vs GPL-2.0-only'
+      }
+      ],
+      'three OpenSSL pairs collapse to one pivot cluster';
+  };
+
+  subtest 'Distinct explanations are never merged (lossless dedup)' => sub {
+
+    # GPL-2.0-only conflicts with OpenSSL and Python-2.0 for entirely different reasons; both
+    # explanations must survive even though they share the GPL-2.0-only endpoint.
+    my $list = [
+      {licenses => ['GPL-2.0-only', 'OpenSSL'], compatibility => 'No', explanation => 'the OpenSSL SSLeay clause'},
+      {
+        licenses      => ['GPL-2.0-only', 'Python-2.0'],
+        compatibility => 'No',
+        explanation   => 'the Python-2.0 change summary clause'
+      },
+    ];
+    my $groups = group_incompatibilities($list);
+    is scalar(@$groups), 2, 'two separate clusters, one per distinct explanation';
+    my %expl = map { $_->{explanation} => 1 } @$groups;
+    ok $expl{'the OpenSSL SSLeay clause'},            'OpenSSL explanation kept';
+    ok $expl{'the Python-2.0 change summary clause'}, 'Python-2.0 explanation kept';
+  };
+
+  subtest 'Tiers and ordering' => sub {
+    my $list = [
+      {licenses => ['GPL-2.0-only', 'LGPL-2.1-only'], compatibility => 'Check dependency', explanation => 'link only'},
+      {licenses => ['Apache-2.0',   'GPL-2.0-only'],  compatibility => 'No',               explanation => 'a AND b'},
+      {licenses => ['Apache-2.0',   'GPL-3.0-only'],  compatibility => 'No',               explanation => 'a AND b'},
+    ];
+    my $groups = group_incompatibilities($list);
+
+    # Hard ("No") cluster first, then the advisory; the two Apache "No" pairs share a template so they
+    # cluster under Apache-2.0.
+    is $groups->[0]{compatibility}, 'No',         'hard incompatibility first';
+    is $groups->[0]{license},       'Apache-2.0', 'pivots on the shared license';
+    is_deeply $groups->[0]{others}, ['GPL-2.0-only', 'GPL-3.0-only'], 'both partners in one cluster';
+    is $groups->[-1]{compatibility}, 'Check dependency', 'advisory tier last';
   };
 };
 

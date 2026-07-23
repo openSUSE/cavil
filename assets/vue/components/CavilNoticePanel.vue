@@ -177,6 +177,25 @@ export default {
   line-height: 1.45;
   margin: 0.35rem 0 0;
 }
+.cavil-notice-pivot {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.cavil-notice-sublist {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0 0 0 1.1rem;
+}
+.cavil-notice-sublist li {
+  line-height: 1.5;
+  position: relative;
+}
+.cavil-notice-sublist li::before {
+  color: #8c959f;
+  content: '\2013';
+  left: -1.1rem;
+  position: absolute;
+}
 .cavil-notice-pre {
   background: #ffffff;
   color: #1f2328;

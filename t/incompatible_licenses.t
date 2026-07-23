@@ -102,8 +102,9 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     ok my $text = $t->tx->res->text, 'text response';
     like $text, qr/Elevated risk, package might contain incompatible licenses:/,
       'text report contains warning about incompatible licenses';
-    like $text, qr/Apache-2\.0 \+ GPL-2\.0-only: .*copyleft/,
-      'text report lists the incompatible pair with its OSADL explanation';
+    like $text, qr/Apache-2\.0 is incompatible with:/, 'text report groups by pivot license';
+    like $text, qr/^    \* GPL-2\.0-only$/m,           'text report nests the conflicting license';
+    like $text, qr/copyleft/,                          'text report includes the OSADL explanation';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

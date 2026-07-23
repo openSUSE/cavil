@@ -10,7 +10,7 @@ use Mojo::JSON qw(from_json to_json);
 use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk incompatible_licenses);
+use Cavil::ReportUtil qw(estimated_risk group_incompatibilities incompatible_licenses);
 use Cavil::Util       qw(lines_context);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
@@ -34,7 +34,7 @@ sub dig_report {
 
   my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
 
-  # Incompatible licenses
+  # Incompatible licenses (the grouped display form is derived at read time, see sanitized_dig_report)
   $report->{incompatible_licenses} = incompatible_licenses($report);
 
   # prune match caches
@@ -55,6 +55,9 @@ sub sanitized_dig_report {
 
   $report = from_json($report);
   _sanitize_report($report);
+
+  # Derive the compact, grouped display form from the cached flat list (no reindex needed).
+  $report->{incompatible_license_groups} = group_incompatibilities($report->{incompatible_licenses});
 
   return $report;
 }

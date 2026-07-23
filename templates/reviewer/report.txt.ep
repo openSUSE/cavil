@@ -19,22 +19,32 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 
 % }
 ## Licenses
-% my @incompat = @{$report->{incompatible_licenses} // []};
-% my @hard  = grep { ($_->{compatibility} // 'No') eq 'No' } @incompat;
-% my @check = grep { ($_->{compatibility} // '') eq 'Check dependency' } @incompat;
+% my @groups = @{$report->{incompatible_license_groups} // []};
+% my @hard  = grep { ($_->{compatibility} // 'No') eq 'No' } @groups;
+% my @check = grep { ($_->{compatibility} // '') eq 'Check dependency' } @groups;
 % if (@hard) {
 
 **Warning** Elevated risk, package might contain incompatible licenses:
-%   for my $rule (@hard) {
-* <%= join(' + ', @{$rule->{licenses}}) %>: <%= $rule->{explanation} %>
+%   for my $group (@hard) {
+
+* <%== $group->{license} %> is incompatible with:
+%     for my $other (@{$group->{others}}) {
+    * <%== $other %>
+%     }
+  <%== $group->{explanation} %>
 %   }
 
 % }
 % if (@check) {
 
 Note: Check the dependency relationship for these license combinations:
-%   for my $rule (@check) {
-* <%= join(' + ', @{$rule->{licenses}}) %>: <%= $rule->{explanation} %>
+%   for my $group (@check) {
+
+* <%== $group->{license} %> may require a specific dependency relationship with:
+%     for my $other (@{$group->{others}}) {
+    * <%== $other %>
+%     }
+  <%== $group->{explanation} %>
 %   }
 
 % }

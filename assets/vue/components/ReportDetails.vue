@@ -107,14 +107,21 @@
           >
             <p class="cavil-notice-summary">Package might contain incompatible licenses.</p>
             <ul class="cavil-notice-list">
-              <li v-for="(match, idx) in hardIncompatibleLicenses" :key="idx" class="cavil-notice-item">
-                <span v-for="(name, i) in match.licenses" :key="name">
-                  <span v-if="i > 0">, </span>
-                  <a class="spdx-link" :href="spdxLicenseUrl(name)" target="_blank" rel="noopener noreferrer">{{
-                    name
+              <li v-for="(group, idx) in hardIncompatibleLicenses" :key="idx" class="cavil-notice-item">
+                <div class="cavil-notice-pivot">
+                  <a class="spdx-link" :href="spdxLicenseUrl(group.license)" target="_blank" rel="noopener noreferrer">{{
+                    group.license
                   }}</a>
-                </span>
-                <p v-if="match.explanation" class="cavil-notice-explanation">{{ match.explanation }}</p>
+                  is incompatible with:
+                </div>
+                <ul class="cavil-notice-sublist">
+                  <li v-for="name in group.others" :key="name">
+                    <a class="spdx-link" :href="spdxLicenseUrl(name)" target="_blank" rel="noopener noreferrer">{{
+                      name
+                    }}</a>
+                  </li>
+                </ul>
+                <p v-if="group.explanation" class="cavil-notice-explanation">{{ group.explanation }}</p>
               </li>
             </ul>
           </CavilNoticePanel>
@@ -130,14 +137,21 @@
               These license combinations may be acceptable depending on how the components depend on each other.
             </p>
             <ul class="cavil-notice-list">
-              <li v-for="(match, idx) in checkDependencyLicenses" :key="idx" class="cavil-notice-item">
-                <span v-for="(name, i) in match.licenses" :key="name">
-                  <span v-if="i > 0">, </span>
-                  <a class="spdx-link" :href="spdxLicenseUrl(name)" target="_blank" rel="noopener noreferrer">{{
-                    name
+              <li v-for="(group, idx) in checkDependencyLicenses" :key="idx" class="cavil-notice-item">
+                <div class="cavil-notice-pivot">
+                  <a class="spdx-link" :href="spdxLicenseUrl(group.license)" target="_blank" rel="noopener noreferrer">{{
+                    group.license
                   }}</a>
-                </span>
-                <p v-if="match.explanation" class="cavil-notice-explanation">{{ match.explanation }}</p>
+                  may require a specific dependency relationship with:
+                </div>
+                <ul class="cavil-notice-sublist">
+                  <li v-for="name in group.others" :key="name">
+                    <a class="spdx-link" :href="spdxLicenseUrl(name)" target="_blank" rel="noopener noreferrer">{{
+                      name
+                    }}</a>
+                  </li>
+                </ul>
+                <p v-if="group.explanation" class="cavil-notice-explanation">{{ group.explanation }}</p>
               </li>
             </ul>
           </CavilNoticePanel>
@@ -522,7 +536,7 @@ export default {
       components: [],
       emails: [],
       files: [],
-      incompatibleLicenses: [],
+      incompatibleLicenseGroups: [],
       loading: true,
       matchingGlobs: [],
       missedFiles: [],
@@ -554,10 +568,10 @@ export default {
   },
   computed: {
     hardIncompatibleLicenses() {
-      return this.incompatibleLicenses.filter(match => (match.compatibility ?? 'No') === 'No');
+      return this.incompatibleLicenseGroups.filter(group => (group.compatibility ?? 'No') === 'No');
     },
     checkDependencyLicenses() {
-      return this.incompatibleLicenses.filter(match => match.compatibility === 'Check dependency');
+      return this.incompatibleLicenseGroups.filter(group => group.compatibility === 'Check dependency');
     },
     licenseChartEntries() {
       if (this.chart === null) return [];
@@ -719,7 +733,7 @@ export default {
         this.refreshDelay = 0;
         this.reportUnavailable = true;
         this.chart = null;
-        this.incompatibleLicenses = [];
+        this.incompatibleLicenseGroups = [];
         this.missedFiles = [];
         this.unresolvedMatches = 0;
         this.matchingGlobs = [];
@@ -743,7 +757,7 @@ export default {
       this.refreshDelay = 0;
       this.reportUnavailable = false;
       this.chart = data.chart;
-      this.incompatibleLicenses = data.incompatible_licenses;
+      this.incompatibleLicenseGroups = data.incompatible_license_groups;
       this.missedFiles = data.missed_files;
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;
