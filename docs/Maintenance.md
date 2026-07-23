@@ -24,6 +24,40 @@ job.
 
 Not all failures will be as self explanatory as HTTP timeouts and might require more investigation.
 
+### Maintaining the file exclude list
+
+If you have configured an `exclude_file` in `cavil.conf`, it lets you keep whole files out of unpacking and indexing.
+Its most important job is defensive: neutralizing hostile or pathological inputs that would otherwise break the
+unpacker — zip bombs, archives that make `tar` loop forever, files with names that make unpacking fail, and
+deliberately deep or malicious directory structures. It is also handy for cutting pure noise, such as generated code or
+large vendored blobs that only clutter reports. When you find an input that hangs or fails the unpacker (often surfaced
+as a stuck or failed Minion job), adding it here is usually the fix, so expect this list to grow over time.
+
+Each line is a rule of the form `package-name-glob : filename`, where the glob is matched against the package name, so
+you can scope an exclusion to a single package or a whole family of them. Lines beginning with `#` are comments. For
+example:
+
+```
+# Files that make the unpacker hang or fail
+buildah: test.tar
+onedrive: bad-file-name.tar.xz
+
+# Malicious deep directory structures (a glob matches a whole package family)
+gcc*: pax-global-records.tar
+docker: pax-global-records.tar
+
+# Zip bombs
+SecLists: zip-bomb.zip
+SecLists: zbxl.zip
+```
+
+One thing to keep in mind: exclusions are applied when a package is **unpacked**, not during pattern matching. A normal
+reindex (`script/cavil rindex`) re-runs the matcher against the files already on disk, so it will **not** drop files you
+have just added to the exclude list. Those changes only take effect the next time a package is unpacked. To roll a
+change out across packages that were already processed, re-unpack them with the paced
+`script/cavil unpack --rebatch` procedure described in
+[Rolling out a preprocessing change](#rolling-out-a-preprocessing-change-paced-re-unpacking) below.
+
 ## Automated Maintenance
 
 Maintenance tasks that can be automated.
