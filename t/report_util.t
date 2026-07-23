@@ -643,42 +643,6 @@ subtest 'summary_delta_score' => sub {
       1000, 'different specfile';
   };
 
-  subtest 'Incompatible licenses' => sub {
-    is summary_delta_score(
-      {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}, incompatible_licenses => []},
-      {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {}, incompatible_licenses => []}
-      ),
-      0, 'no new incompatible licenses';
-    is summary_delta_score(
-      {
-        id                    => 1,
-        specfile              => 'MIT',
-        missed_snippets       => {},
-        licenses              => {},
-        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
-      },
-      {
-        id                    => 2,
-        specfile              => 'MIT',
-        missed_snippets       => {},
-        licenses              => {},
-        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
-      }
-      ),
-      0, 'no new incompatible licenses';
-    is summary_delta_score(
-      {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}, incompatible_licenses => []},
-      {
-        id                    => 2,
-        specfile              => 'MIT',
-        missed_snippets       => {},
-        licenses              => {},
-        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
-      }
-      ),
-      1000, 'new incompatible licenses';
-  };
-
   subtest 'Snippets' => sub {
     subtest 'Not noteworthy' => sub {
       is summary_delta_score(
@@ -908,41 +872,16 @@ subtest 'summary_delta' => sub {
       "Diff to closest match 1\n\n  Spec file license  MIT -> GPL-2.0+\n", 'different specfile';
   };
 
-  subtest 'Incompatible licenses' => sub {
-    is summary_delta(
-      {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}, incompatible_licenses => []},
-      {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {}, incompatible_licenses => []}
-      ),
-      '', 'no new incompatible licenses';
-    is summary_delta(
-      {
-        id                    => 1,
-        specfile              => 'MIT',
-        missed_snippets       => {},
-        licenses              => {},
-        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
-      },
-      {
-        id                    => 2,
-        specfile              => 'MIT',
-        missed_snippets       => {},
-        licenses              => {},
-        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
-      }
-      ),
-      '', 'no new incompatible licenses';
+  subtest 'License incompatibilities are not part of the diff' => sub {
+
+    # Even when a new mutually-incompatible license appears, the diff only reports the new license
+    # itself - incompatibilities are informational context and never show up here.
     is summary_delta(
       {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 2}},
-      {
-        id                    => 2,
-        specfile              => 'MIT',
-        missed_snippets       => {},
-        licenses              => {'Apache-2.0' => 2, 'GPL-2.0-only' => 1},
-        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
-      }
+      {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 2, 'GPL-2.0-only' => 1}}
       ),
-      "Diff to closest match 1\n\n  New licenses (by risk)\n    1  GPL-2.0-only\n\n"
-      . "  Possible license incompatibility\n    Apache-2.0, GPL-2.0-only\n", 'new incompatible licenses';
+      "Diff to closest match 1\n\n  New licenses (by risk)\n    1  GPL-2.0-only\n",
+      'new license shown, no incompatibility block';
   };
 
   subtest 'Snippets' => sub {

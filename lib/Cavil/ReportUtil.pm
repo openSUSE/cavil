@@ -452,11 +452,8 @@ sub summary_delta ($old, $new) {
     push @blocks, join("\n", @lines);
   }
 
-  # License incompatibilities
-  if (my @licenses = _new_incompatibilities($old, $new)) {
-    my $licenses = join(', ', @licenses);
-    push @blocks, "  Possible license incompatibility\n    $licenses";
-  }
+  # License incompatibilities are deliberately NOT part of the diff: they are informational OSADL
+  # context (see license_compatibility), common across packages, and must not drive review priority.
 
   return '' unless @blocks;
   return "Diff to closest match $old->{id}\n\n" . join("\n\n", @blocks) . "\n";
@@ -476,25 +473,7 @@ sub summary_delta_score ($old, $new) {
   my $new_licenses = _new_licenses($old, $new);
   $score += 10 * $new_licenses->{$_} for keys %$new_licenses;
 
-  # License incompatibilities
-  $score += 500 for _new_incompatibilities($old, $new);
-
   return $score;
-}
-
-# Licenses newly caught up in a hard incompatibility versus the closest previous review. The summary's
-# "incompatible_licenses" is a list of mutually-incompatible [a, b] pairs (see hard_incompatibilities);
-# we compare by license name so a genuinely new conflict shows up in the diff and its score.
-sub _new_incompatibilities ($old, $new) {
-  my %old          = map { $_ => 1 } map {@$_} @{$old->{incompatible_licenses} || []};
-  my @new_incompat = uniq(map {@$_} @{$new->{incompatible_licenses} || []});
-
-  my @new;
-  for my $lic (@new_incompat) {
-    push @new, $lic unless $old{$lic};
-  }
-
-  return @new;
 }
 
 # New licenses between two summaries, keyed by bare license name => risk. The

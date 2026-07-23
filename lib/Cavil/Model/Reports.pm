@@ -10,7 +10,7 @@ use Mojo::JSON qw(from_json to_json);
 use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk hard_incompatibilities license_compatibility);
+use Cavil::ReportUtil qw(estimated_risk license_compatibility);
 use Cavil::Util       qw(lines_context);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
@@ -194,8 +194,6 @@ sub summary ($self, $id) {
     }
   }
   $summary{missed_snippets} = $files;
-
-  $summary{incompatible_licenses} = hard_incompatibilities($report->{license_compatibility} // {});
 
   return \%summary;
 }
