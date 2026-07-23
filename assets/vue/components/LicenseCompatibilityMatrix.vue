@@ -13,11 +13,6 @@
     </header>
 
     <div class="license-matrix-body">
-      <p class="license-matrix-intro">
-        Each cell is OSADL's verdict on using the column license in a work under the row license. Click a marked cell
-        for the explanation.
-      </p>
-
       <div class="license-matrix-grid-wrap">
         <table class="license-matrix-grid">
           <thead>
@@ -53,23 +48,26 @@
 
     <div v-if="selected" class="license-matrix-detail">
       <div class="license-matrix-detail-bar" :class="verdictBarClass(selected.compatibility)">
-        <strong class="license-matrix-verdict">{{ verdictLabel(selected.compatibility) }}</strong>
-        <span class="license-matrix-connector">using</span>
-        <a
-          class="spdx-link license-matrix-detail-name"
-          :href="spdxLicenseUrl(selected.inbound)"
-          target="_blank"
-          rel="noopener noreferrer"
-          >{{ selected.inbound }}</a
-        >
-        <span class="license-matrix-connector">in a work under</span>
-        <a
-          class="spdx-link license-matrix-detail-name"
-          :href="spdxLicenseUrl(selected.outbound)"
-          target="_blank"
-          rel="noopener noreferrer"
-          >{{ selected.outbound }}</a
-        >
+        <span class="license-matrix-detail-title">
+          <strong class="license-matrix-verdict">{{ verdictLabel(selected.compatibility) }}</strong>
+          <span class="license-matrix-connector">using</span>
+          <a
+            class="spdx-link license-matrix-detail-name"
+            :href="spdxLicenseUrl(selected.inbound)"
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ selected.inbound }}</a
+          >
+          <span class="license-matrix-connector">in a work under</span>
+          <a
+            class="spdx-link license-matrix-detail-name"
+            :href="spdxLicenseUrl(selected.outbound)"
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ selected.outbound }}</a
+          >
+        </span>
+        <span class="license-matrix-detail-label">OSADL verdict</span>
       </div>
       <p class="license-matrix-detail-body">{{ selected.explanation }}</p>
     </div>
@@ -163,12 +161,6 @@ export default {
 .license-matrix-body {
   background: #fff;
   padding: 1rem;
-}
-.license-matrix-intro {
-  color: #57606a;
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0 0 0.75rem;
 }
 
 /* Heatmap grid — GitHub contribution-graph aesthetic */
@@ -310,6 +302,7 @@ export default {
   flex-wrap: wrap;
   font-size: 13px;
   gap: 0.4rem;
+  justify-content: space-between;
   padding: 0.55rem 1rem;
 }
 .bar-no {
@@ -327,6 +320,20 @@ export default {
 .license-matrix-verdict {
   color: #1f2328;
   font-weight: 600;
+}
+.license-matrix-detail-title {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.license-matrix-detail-label {
+  color: #57606a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-left: auto;
+  text-transform: uppercase;
 }
 .license-matrix-connector {
   color: #57606a;
