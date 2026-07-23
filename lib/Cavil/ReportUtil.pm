@@ -401,16 +401,9 @@ sub report_checksum ($specfile_report, $dig_report) {
     $text .= "SNIPPET:$_\n" for sort +uniq @all;
   }
 
-  # License compatibility: hash every flagged OSADL cell among the present licenses, so any change to
-  # the package's compatibility sub-matrix produces a new report.
-  if (my $compat = $dig_report->{license_compatibility}) {
-    my $matrix = $compat->{matrix} // {};
-    for my $outbound (sort keys %$matrix) {
-      for my $inbound (sort keys %{$matrix->{$outbound}}) {
-        $text .= "COMPAT:$outbound>$inbound:$matrix->{$outbound}{$inbound}{compatibility}\n";
-      }
-    }
-  }
+  # The license compatibility matrix is deliberately NOT part of the checksum: it is informational
+  # context derived from the present license set (which is already hashed above), and incompatibilities
+  # are now common enough that they should not, on their own, drive re-reviews.
 
   return Mojo::Util::md5_sum $text;
 }
@@ -424,8 +417,10 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
     my $risk = $dig_report->{missed_files}{$file}[0];
     $max_risk = $risk if $risk > $max_risk;
   }
-  $max_risk = 9
-    if $dig_report->{license_compatibility} && @{hard_incompatibilities($dig_report->{license_compatibility})};
+
+  # License incompatibilities are informational only and no longer elevate the risk: with the full
+  # OSADL matrix they are common (usually vendored/aggregated, not real combinations), so escalating
+  # every one to risk 9 floods the review queue and destroys the signal.
 
   my $l = lic($specfile_report->{main}{license})->example;
   $l ||= 'Unknown';

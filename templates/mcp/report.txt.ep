@@ -75,9 +75,9 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 % if (@$hard) {
 %   my %by; push @{$by{$_->[0]}}, $_->[1] for @$hard;
 
-**Warning** Elevated risk, package might contain incompatible licenses. These license combinations are
-incompatible in both directions according to the OSADL compatibility matrix; the full, directional
-compatibility matrix with OSADL's explanations is available in the web report:
+Note: the OSADL compatibility matrix flags these license combinations as incompatible when combined
+into a single work. Whether that applies depends on how the components are combined or merely
+aggregated; the full directional matrix with OSADL's explanations is in the web report.
 %   for my $lic (sort keys %by) {
 * <%== $lic %>: <%== join(', ', @{$by{$lic}}) %>
 %   }

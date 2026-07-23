@@ -79,7 +79,8 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     ok my $pkg = $json->{package}, 'package';
     is $pkg->{id},   1,                  'id';
     is $pkg->{name}, 'perl-Mojolicious', 'name';
-    like $pkg->{checksum}, qr!Artistic-2.0-9!, 'checksum with elevated risk because of incompatible licenses';
+    like $pkg->{checksum},   qr!Artistic-2\.0-\d:!, 'checksum shortname carries the license and a risk';
+    unlike $pkg->{checksum}, qr!Artistic-2\.0-9:!,  'incompatibility no longer elevates the risk to 9';
     is $pkg->{state},  'new',                                                                 'state';
     is $pkg->{notice}, 'Manual review is required because no previous reports are available', 'requires manual review';
 
@@ -102,10 +103,10 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
   subtest 'Text report' => sub {
     $t->get_ok('/reviews/report/1.txt')->status_is(200);
     ok my $text = $t->tx->res->text, 'text response';
-    like $text, qr/Elevated risk, package might contain incompatible licenses/,
-      'text report warns about incompatible licenses';
-    like $text, qr/OSADL compatibility matrix/, 'text report references the OSADL matrix';
-    like $text, qr/Apache-2\.0: GPL-2\.0-only/, 'text report lists the mutually incompatible pair';
+    like $text, qr/OSADL compatibility matrix flags these license combinations/,
+      'text report gives a neutral, informational compatibility note';
+    unlike $text, qr/Elevated risk/,              'text report no longer frames incompatibilities as elevated risk';
+    like $text,   qr/Apache-2\.0: GPL-2\.0-only/, 'text report lists the incompatible pair';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

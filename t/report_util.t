@@ -605,26 +605,14 @@ subtest 'report_checksum' => sub {
       '1715f865453e0ab679688cf0c219fbe4', 'duplicate snippet hashes deduped';
   };
 
-  subtest 'License compatibility' => sub {
+  subtest 'License compatibility does not affect the checksum' => sub {
     my $licenses
       = {'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {risk => 1, spdx => 'GPL-2.0-only'}};
 
-    my $none = report_checksum({main => {license => 'MIT'}},
-      {licenses => $licenses, license_compatibility => {licenses => [], matrix => {}}});
-
-    # A flagged cell changes the checksum, and each directional cell + verdict is part of it.
-    my $one = report_checksum(
-      {main => {license => 'MIT'}},
-      {
-        licenses              => $licenses,
-        license_compatibility => {
-          licenses => ['Apache-2.0', 'GPL-2.0-only'],
-          matrix   => {'Apache-2.0' => {'GPL-2.0-only' => {compatibility => 'No'}}}
-        }
-      }
-    );
-
-    my $both = report_checksum(
+    # The compatibility matrix is informational and derived from the (already hashed) license set, so
+    # it deliberately does not change the report checksum - incompatibilities must not drive re-reviews.
+    my $without = report_checksum({main => {license => 'MIT'}}, {licenses => $licenses});
+    my $with    = report_checksum(
       {main => {license => 'MIT'}},
       {
         licenses              => $licenses,
@@ -637,12 +625,7 @@ subtest 'report_checksum' => sub {
         }
       }
     );
-
-    isnt $none, $one,  'a flagged cell changes the checksum';
-    isnt $one,  $both, 'the reverse-direction cell changes the checksum too';
-    is report_checksum({main => {license => 'MIT'}},
-      {licenses => $licenses, license_compatibility => {licenses => [], matrix => {}}}),
-      $none, 'checksum is stable';
+    is $with, $without, 'the compatibility matrix is not part of the checksum';
   };
 };
 
@@ -1195,6 +1178,9 @@ subtest 'report_shortname' => sub {
     }
     ),
     'BSD-2-Clause-9:jemn5u', 'snippet risk';
+
+  # License incompatibilities are informational and do NOT elevate the risk any more: the shortname
+  # reflects the actual license/snippet risk (here risk 3), not 9.
   is report_shortname(
     'jemn5u',
     {main => {license => 'MIT OR BSD-2-Clause'}},
@@ -1209,7 +1195,7 @@ subtest 'report_shortname' => sub {
       }
     }
     ),
-    'BSD-2-Clause-9:jemn5u', 'mutual incompatibility elevates risk to 9';
+    'BSD-2-Clause-3:jemn5u', 'incompatibilities no longer elevate the risk';
 };
 
 subtest 'should_fold_snippet' => sub {

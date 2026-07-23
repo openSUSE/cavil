@@ -2,7 +2,6 @@
   <section id="license-compatibility" class="license-matrix-card mb-3">
     <header class="license-matrix-header">
       <h3>License compatibility</h3>
-      <span v-if="hasHardConflict" class="cavil-meta-badge cavil-meta-badge-danger">Elevated risk</span>
     </header>
 
     <div class="license-matrix-body">
@@ -54,8 +53,9 @@
     </div>
 
     <div v-if="selected" class="license-matrix-detail">
-      <p class="license-matrix-detail-head">
-        <span class="license-matrix-connector">Using</span>
+      <div class="license-matrix-detail-bar" :class="verdictBarClass(selected.compatibility)">
+        <strong class="license-matrix-verdict">{{ verdictLabel(selected.compatibility) }}</strong>
+        <span class="license-matrix-connector">using</span>
         <a
           class="spdx-link license-matrix-detail-name"
           :href="spdxLicenseUrl(selected.inbound)"
@@ -71,10 +71,7 @@
           rel="noopener noreferrer"
           >{{ selected.outbound }}</a
         >
-        <span class="cavil-meta-badge" :class="verdictClass(selected.compatibility)">{{
-          verdictLabel(selected.compatibility)
-        }}</span>
-      </p>
+      </div>
       <p class="license-matrix-detail-body">{{ selected.explanation }}</p>
     </div>
   </section>
@@ -89,18 +86,6 @@ export default {
   },
   data() {
     return {selected: null};
-  },
-  computed: {
-    // True when any pair is "No" in both directions - the hard conflicts that elevate the risk.
-    hasHardConflict() {
-      for (const a of this.licenses) {
-        for (const b of this.licenses) {
-          if (a >= b) continue;
-          if (this.cell(a, b)?.compatibility === 'No' && this.cell(b, a)?.compatibility === 'No') return true;
-        }
-      }
-      return false;
-    }
   },
   methods: {
     cell(outbound, inbound) {
@@ -131,10 +116,10 @@ export default {
       if (compatibility === 'Unknown') return 'Unknown';
       return 'Compatible';
     },
-    verdictClass(compatibility) {
-      if (compatibility === 'No') return 'cavil-meta-badge-danger';
-      if (compatibility === 'Check dependency') return 'cavil-meta-badge-warning';
-      return 'cavil-meta-badge-muted';
+    verdictBarClass(compatibility) {
+      if (compatibility === 'No') return 'bar-no';
+      if (compatibility === 'Check dependency') return 'bar-check';
+      return 'bar-unknown';
     },
     isActive(outbound, inbound) {
       return this.selected !== null && this.selected.outbound === outbound && this.selected.inbound === inbound;
@@ -158,6 +143,7 @@ export default {
 .license-matrix-card {
   border: 1px solid #d0d7de;
   border-radius: 6px;
+  min-width: 0;
   overflow: hidden;
 }
 .license-matrix-header {
@@ -305,30 +291,50 @@ export default {
 }
 
 .license-matrix-detail {
-  background: #f6f8fa;
   border-top: 1px solid #d0d7de;
-  padding: 0.85rem 1rem;
 }
-.license-matrix-detail-head {
+
+/* A deliberate two-band element: a verdict-tinted title bar over the explanation body. The bar's
+   colour matches the cell that was clicked, tying the panel to the grid. */
+.license-matrix-detail-bar {
   align-items: center;
+  border-bottom: 1px solid #d0d7de;
   color: #1f2328;
   display: flex;
   flex-wrap: wrap;
-  font-size: 14px;
+  font-size: 13px;
   gap: 0.4rem;
-  margin: 0 0 0.4rem;
+  padding: 0.55rem 1rem;
+}
+.bar-no {
+  background: #ffebe9;
+  border-bottom-color: #ffcecb;
+}
+.bar-check {
+  background: #fff8c5;
+  border-bottom-color: #d4a72c66;
+}
+.bar-unknown {
+  background: #eaeef2;
+  border-bottom-color: #d0d7de;
+}
+.license-matrix-verdict {
+  color: #1f2328;
+  font-weight: 600;
 }
 .license-matrix-connector {
   color: #57606a;
-  font-size: 13px;
 }
 .license-matrix-detail-name {
+  color: #1f2328;
   font-weight: 600;
 }
 .license-matrix-detail-body {
-  color: #57606a;
+  background: #f6f8fa;
+  color: #1f2328;
   font-size: 13px;
   line-height: 1.5;
   margin: 0;
+  padding: 0.85rem 1rem;
 }
 </style>

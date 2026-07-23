@@ -19,13 +19,8 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
     const matrix = page.locator('#license-compatibility');
     await matrix.waitFor();
 
-    await t.test('renders as a card with both licenses on the axes and an elevated-risk badge', async t => {
+    await t.test('renders as a card with both licenses on the axes', async t => {
       t.match(await matrix.locator('.license-matrix-header').innerText(), /License compatibility/, 'card title');
-      t.match(
-        await matrix.locator('.license-matrix-header').innerText(),
-        /Elevated risk/,
-        'mutual incompatibility shows the elevated-risk badge'
-      );
 
       const names = await matrix.locator('.license-matrix-rowhead-name').allInnerTexts();
       t.ok(names.includes('Apache-2.0'), 'Apache-2.0 is on the axis');
@@ -42,10 +37,10 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       const detail = matrix.locator('.license-matrix-detail');
       await detail.waitFor();
 
-      const head = await detail.locator('.license-matrix-detail-head').innerText();
-      t.match(head, /Apache-2\.0/, 'detail head names Apache-2.0');
-      t.match(head, /GPL-2\.0-only/, 'detail head names GPL-2.0-only');
-      t.match(head, /Incompatible/, 'detail head shows the verdict');
+      const bar = await detail.locator('.license-matrix-detail-bar').innerText();
+      t.match(bar, /Apache-2\.0/, 'title bar names Apache-2.0');
+      t.match(bar, /GPL-2\.0-only/, 'title bar names GPL-2.0-only');
+      t.match(bar, /Incompatible/, 'title bar shows the verdict');
 
       const body = await detail.locator('.license-matrix-detail-body').innerText();
       t.ok(body.length > 20, 'explanation text is present');

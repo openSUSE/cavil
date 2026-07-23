@@ -24,9 +24,9 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 % if (@$hard) {
 %   my %by; push @{$by{$_->[0]}}, $_->[1] for @$hard;
 
-**Warning** Elevated risk, package might contain incompatible licenses. These license combinations are
-incompatible in both directions according to the OSADL compatibility matrix; see the full, directional
-compatibility matrix in the web report for the details and OSADL's explanations:
+Note: the OSADL compatibility matrix flags these license combinations as incompatible when combined
+into a single work. Whether that applies here depends on how the components are combined or merely
+aggregated; see the compatibility matrix in the web report for the full directional details.
 %   for my $lic (sort keys %by) {
 * <%== $lic %>: <%== join(', ', @{$by{$lic}}) %>
 %   }
