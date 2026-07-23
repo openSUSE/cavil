@@ -2,6 +2,10 @@
 
 ### Guides
 
+* [Setup](Setup.md)
+
+  A guide to setting up a fresh Cavil instance for production.
+
 * [Architecture](Architecture.md)
 
   An architecture overview for Cavil.
