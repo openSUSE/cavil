@@ -58,11 +58,16 @@ say qq(Updated @{[scalar @scancode_keys]} ScanCode licenses in "$scancode_file")
 # OSADL license compatibility matrix. The data is licensed CC-BY-4.0 and requires attribution; see
 # the NOTICE file. The upstream matrix is a ~3MB directed grid (outbound -> inbound) of SPDX-named
 # licenses, each cell graded Same/Yes/No/Check dependency/Unknown with a human-readable explanation.
-# Cavil only surfaces the problematic combinations, so we collapse the grid into a compact list of
-# unordered incompatible pairs: a pair is flagged when *either* direction says "No" (hard
-# incompatibility) or, failing that, "Check dependency" (softer advisory). We keep the explanation of
-# the flagging direction (preferring the sorted-first license as the outbound one when both agree).
-my $osadl = from_json($ua->get($OSADL_URL)->result->body);
+# Cavil only surfaces genuine package-level conflicts, so we collapse the grid into a compact list of
+# unordered incompatible pairs. Because Cavil sees "the package contains both licenses" without a
+# reliable outbound license, only pairs that are problematic in BOTH directions are real conflicts: a
+# one-directional "No" (e.g. permissive MIT inbound into copyleft GPL outbound) is fine, since the
+# natural aggregate is simply the stronger copyleft license. A pair is a hard incompatibility ("No")
+# when both directions say "No", and a softer advisory ("Check dependency") when both directions are
+# problematic (No/Check dependency) but not both "No". Flagging on either direction alone produces a
+# combinatorial explosion of permissive-vs-copyleft false positives.
+my $is_problem = sub { defined $_[0] && ($_[0] eq 'No' || $_[0] eq 'Check dependency') };
+my $osadl      = from_json($ua->get($OSADL_URL)->result->body);
 my %osadl_cells;
 for my $outbound (@{$osadl->{licenses}}) {
   my $a = $outbound->{name};
@@ -75,22 +80,24 @@ for my $a (sort keys %osadl_cells) {
   for my $b (sort keys %{$osadl_cells{$a}}) {
     next if $a eq $b;
     my ($x, $y) = sort ($a, $b);
-    next if $osadl_pairs{"$x\0$y"};    # already decided from the other direction
+    next if exists $osadl_pairs{"$x\0$y"};    # already decided from the other direction
 
-    # Prefer the sorted-first license as outbound for a stable explanation, but flag on either
-    # direction and let "No" win over "Check dependency".
-    my $xy = $osadl_cells{$x}{$y};
-    my $yx = $osadl_cells{$y}{$x};
+    my $xy  = $osadl_cells{$x}{$y};
+    my $yx  = $osadl_cells{$y}{$x};
+    my $cxy = $xy ? $xy->{compatibility} : undef;
+    my $cyx = $yx ? $yx->{compatibility} : undef;
+    next unless $is_problem->($cxy) && $is_problem->($cyx);
+
     my ($compatibility, $explanation);
-    for my $cell (grep {defined} $xy, $yx) {
-      my $c = $cell->{compatibility};
-      next unless $c eq 'No' || $c eq 'Check dependency';
-      if (!defined $compatibility || ($c eq 'No' && $compatibility ne 'No')) {
-        ($compatibility, $explanation) = ($c, $cell->{explanation});
-        last if $c eq 'No';
-      }
+    if ($cxy eq 'No' && $cyx eq 'No') {
+      $compatibility = 'No';
+      $explanation   = $xy->{explanation};    # sorted-first license as outbound, for a stable explanation
     }
-    next unless defined $compatibility;
+    else {
+      # Prefer the direction that carries the dependency nuance ("can be linked but not merged").
+      $compatibility = 'Check dependency';
+      $explanation   = ($cxy eq 'Check dependency' ? $xy : $yx)->{explanation};
+    }
     $osadl_pairs{"$x\0$y"} = {licenses => [$x, $y], compatibility => $compatibility, explanation => $explanation};
   }
 }

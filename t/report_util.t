@@ -236,12 +236,10 @@ subtest 'incompatible_licenses' => sub {
     };
 
     # The compound "MIT AND GPL-2.0-only" expression contributes both MIT and GPL-2.0-only to the
-    # present set; OSADL flags GPL-2.0-only against both Apache-2.0 and MIT.
+    # present set. Only Apache-2.0 + GPL-2.0-only is a genuine (both-directions) incompatibility;
+    # MIT + GPL-2.0-only is fine because MIT is permissive - OSADL flags it "No" in one direction only.
     is_deeply $normalize->(incompatible_licenses($report)),
-      [
-      {licenses => ['Apache-2.0',   'GPL-2.0-only'], compatibility => 'No', has_explanation => 1},
-      {licenses => ['GPL-2.0-only', 'MIT'],          compatibility => 'No', has_explanation => 1}
-      ],
+      [{licenses => ['Apache-2.0', 'GPL-2.0-only'], compatibility => 'No', has_explanation => 1}],
       'incompatible licenses found with explanation';
   };
 

@@ -24,8 +24,7 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 % my @check = grep { ($_->{compatibility} // '') eq 'Check dependency' } @incompat;
 % if (@hard) {
 
-% my $licenses = join(', ', map { @{$_->{licenses}} } @hard);
-**Warning** Elevated risk, package might contain incompatible licenses: <%= $licenses %>
+**Warning** Elevated risk, package might contain incompatible licenses:
 %   for my $rule (@hard) {
 * <%= join(' + ', @{$rule->{licenses}}) %>: <%= $rule->{explanation} %>
 %   }
