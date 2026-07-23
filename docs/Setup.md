@@ -2,8 +2,8 @@
 
 This guide takes you through setting up a fresh Cavil instance for production. It sticks to the essentials: what to
 install, how to configure the core settings, and the order in which to bring the pieces up. Every configuration option
-is documented inline in the shipped `cavil.conf`, so this guide points you there for the details rather than repeating
-them.
+is documented inline in the shipped [`cavil.conf`](../cavil.conf), so this guide points you there for the details
+rather than repeating them.
 
 If you just want to try Cavil out locally, the fastest path is the staging scripts described in the
 [README](../README.md#getting-started); this guide is for a real deployment.
