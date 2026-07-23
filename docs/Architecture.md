@@ -408,8 +408,13 @@ See the [User API documentation](UserAPI.md#retrieve-spdx-reports) for the exact
 
 Pattern matching is the heart of Cavil. It is how the `index_batch` job turns raw source files into the license and
 keyword matches that every report is built from. The matching itself is done by a separate, performance-critical C++
-library ([Spooky::Patterns::XS](https://github.com/openSUSE/Spooky-Patterns-XS)); Cavil provides the glue that loads
-patterns into it, runs files through it, and stores the results.
+library; Cavil provides the glue that loads patterns into it, runs files through it, and stores the results.
+
+The engine is selectable through the `matcher` configuration value. The default is
+[Spooky::Patterns::XS](https://github.com/openSUSE/Spooky-Patterns-XS), described below. The alternative `cavil`
+engine ([Cavil::Matcher](https://github.com/openSUSE/cavil-matcher)) keeps the same token-hash algorithm — and the
+same on-disk hashes, so switching needs no reindex — but replaces the monolithic cache with an incremental,
+memory-mapped index that directly addresses the top two scaling limits below.
 
 ### Patterns and Keywords
 
@@ -715,13 +720,14 @@ few count-sensitive side paths, not the core matching loop. Roughly in the order
    the memory it needs grows in step with the total amount of pattern text, multiplied by how many workers run at once. As
    a rough extrapolation from today's ~128 MB cache (~0.3 GB resident per worker): about 1 GB per worker at 100k
    patterns, ~3 GB at 250k, and 10–15 GB at 1M. Somewhere near **one million patterns** a fleet of workers stops fitting
-   on ordinary hardware. The eventual fix is to share one copy of the tree between workers rather than giving each its
-   own.
+   on ordinary hardware. This is the limit the `cavil` engine is built to remove: its index is memory-mapped read-only,
+   so all workers on a host share one physical copy instead of each loading its own.
 
 2. **Rebuilding the caches on every change — felt first.** Because any pattern edit throws away both caches and triggers
    a full rebuild, the cost of those rebuilds rises with the pattern count, and bulk imports can have several workers
-   rebuilding at the same time. This is the first thing likely to become annoying, and it is a software issue (rebuild
-   less eagerly, or just once in the background) rather than a fundamental limit.
+   rebuilding at the same time. This is the first thing likely to become annoying, and it is a software issue rather than
+   a fundamental limit — one the `cavil` engine avoids by compiling each added pattern into its own small segment and
+   removing one with a tombstone, so no edit rebuilds the whole index.
 
 3. **Closest-match lookups.** These already scan every pattern per query; fine into the hundreds of thousands, then
    increasingly sluggish in the review UI.

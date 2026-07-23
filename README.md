@@ -2,23 +2,36 @@
 
 ![Cavil](docs/images/cavil.png)
 
-  Cavil is a legal review and Software Bill of Materials (SBOM) system. It is used in the development of
-  openSUSE Tumbleweed, openSUSE Leap, as well as SUSE Linux Enterprise.
+Cavil is a legal review and Software Bill of Materials (SBOM) system. It is used in the development of
+openSUSE Tumbleweed, openSUSE Leap, as well as SUSE Linux Enterprise.
+
+**Important**: Note that most of the data used by Cavil has been curated by lawyers, but the generated reports do not
+count as legal advice and no guarantees are made for their correctness!
 
 ## Features
 
-* Source code legal review system for RPMs, DEBs, Tarballs and various other package formats
-* High performance source code scanner with support for recursively decompressing almost any archive format
+### Scanning & detection
+
+* Source code legal review for RPMs, DEBs, tarballs and various other package formats
+* High performance scanner with recursive decompression of almost any archive format
 * 28.000 curated patterns for 2000 license combinations with 500 distinct [SPDX](https://spdx.dev) expressions
-* Software Bill of Materials (SBOM) generation in SPDX 3.0.1 format, compliant with the EU Cyber Resilience Act (CRA)
-  as specified by [BSI TR-03183-2](https://www.bsi.bund.de/dok/TR-03183-en)
 * Detection of vendored/bundled subcomponents (npm, Cargo, PyPI, Maven, Go, Composer, NuGet, RubyGems) shipped inside
   packages, surfaced in the SBOM and the review report
+
+### SBOM & compliance
+
+* Software Bill of Materials (SBOM) generation in SPDX 3.0.1 format, compliant with the EU Cyber Resilience Act (CRA)
+  as specified by [BSI TR-03183-2](https://www.bsi.bund.de/dok/TR-03183-en)
 * Package and component (purl) search, plus a component export, for supply-chain and vulnerability triage
+
+### Review workflow
+
 * Legal risk assessments by lawyers for every pattern match
 * Human reviews with approval/rejection workflow, and optional automatic approvals based on risk
-* Machine learning text classification of snippets, which drives Cavil's automated resolution of scanner
-  noise
+* Machine learning text classification of snippets, which drives Cavil's automated resolution of scanner noise
+
+### Integrations
+
 * [MCP](https://modelcontextprotocol.io/) support for integration into AI assisted
   [legal review workflows](https://github.com/openSUSE/cavil/blob/master/docs/UserAPI.md#agent-skills)
 * REST API for integration into existing source code management systems
@@ -26,23 +39,20 @@
   [Gitea](https://github.com/openSUSE/cavil-gitea) integration via bots
 * OpenID Connect (OAuth 2.0) authentication
 
-**Important**: Note that most of the data used by Cavil has been curated by lawyers, but the generated reports do not
-count as legal advice and no guarantees are made for their correctness!
-
 ![Screenshot](https://raw.github.com/openSUSE/cavil/master/examples/report.png?raw=true)
 
 ## Components
 
-  This distribution contains the two main components of the system. A [Mojolicious](https://mojolicious.org) web
-  application that lawyers can use to efficiently review package contents, and [Minion](https://metacpan.org/pod/Minion)
-  background jobs to process and index packages, to create easy to digest license reports.
+This distribution contains the two main components of the system. A [Mojolicious](https://mojolicious.org) web
+application that lawyers can use to efficiently review package contents, and [Minion](https://metacpan.org/pod/Minion)
+background jobs to process and index packages, to create easy to digest license reports.
 
-  Additionally there is large curated set of license patterns the SUSE lawyers have created included in this
-  distribution. Currently this set consists of over 20000 patterns for all known Open Source licenses.
+Additionally there is a large curated set of license patterns the SUSE lawyers have created included in this
+distribution. Currently this set consists of over 28.000 patterns for all known Open Source licenses.
 
-  The easiest way to connect OBS to Cavil is the `legal-auto.py` bot from the
-  [openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools) repository. But you can also upload
-  tarballs directly for analysis.
+The easiest way to connect OBS to Cavil is the `legal-auto.py` bot from the
+[openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools) repository. But you can also upload
+tarballs directly for analysis.
 
 ## AI
 
@@ -83,9 +93,9 @@ Alternatively there are also two implementations for our legacy classifier API:
 
 ## Getting Started
 
-  The easiest way to get started with Cavil is the included staging scripts for setting up a quick development
-  environment. All you need is an empty PostgreSQL database (with the `pgcrypto` and `pg_trgm` extensions
-  activated) and the following dependencies:
+The easiest way to get started with Cavil is the included staging scripts for setting up a quick development
+environment. All you need is an empty PostgreSQL database (with the `pgcrypto` and `pg_trgm` extensions
+activated) and the following dependencies:
 
 ```sh
     # Install dependencies
@@ -101,7 +111,7 @@ Alternatively there are also two implementations for our legacy classifier API:
     npm run build
 ```
 
-  Then use these commands to set up and tear down a development environment:
+Then use these commands to set up and tear down a development environment:
 
 ```sh
     # Initialize staging environment (remove --clean to include example fixtures)
