@@ -304,7 +304,6 @@ sub unpack ($self, $options = {}) {
   if (my $exclude = $options->{exclude}) {
     $u->exclude($_) for @$exclude;
   }
-  $u->mime_helper_dir('/usr/share/File-Unpack/helper/');
   eval { $u->unpack($dir) };
   my $err = $@ || ($u->{error} ? join(', ', @{$u->{error}}) : undef);
 
