@@ -19,11 +19,25 @@ use Test::More;
 use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
-  qw(curate_incompatibility_explanations estimated_risk group_incompatibilities incompatible_licenses),
-  qw(is_license_filename minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
-  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet),
-  qw(should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk hard_incompatibilities is_license_filename license_compatibility minimal_snippet),
+  qw(new_license_names new_unresolved_files overlapping_licenses report_checksum report_shortname),
+  qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
+  qw(spdx_edit_snippet summary_delta summary_delta_score)
 );
+
+# A small injectable OSADL-style matrix (outbound -> inbound), so the compatibility tests do not depend
+# on the bundled data. Only non-compatible cells are present; a missing cell means "compatible".
+my $TEST_MATRIX = {
+  'Apache-2.0'   => {'GPL-2.0-only' => {compatibility => 'No', explanation => 'apache<-gpl2'}},
+  'GPL-2.0-only' => {
+    'Apache-2.0'    => {compatibility => 'No',               explanation => 'gpl2<-apache'},
+    'GPL-3.0-only'  => {compatibility => 'No',               explanation => 'gpl2<-gpl3'},
+    'LGPL-2.1-only' => {compatibility => 'Check dependency', explanation => 'gpl2<-lgpl link only'}
+  },
+  'GPL-3.0-only' => {'GPL-2.0-only' => {compatibility => 'No',      explanation => 'gpl3<-gpl2'}},
+  'MIT'          => {'GPL-2.0-only' => {compatibility => 'No',      explanation => 'mit<-gpl2'}},
+  'Zlib'         => {'libpng-2.0'   => {compatibility => 'Unknown', explanation => 'zlib<-libpng unknown'}}
+};
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 subtest 'estimated_risk' => sub {
@@ -135,348 +149,91 @@ subtest 'estimated_risk' => sub {
   };
 };
 
-subtest 'incompatible_licenses' => sub {
-
-  # Helper for assertions against the bundled OSADL matrix: keep licenses + compatibility tier, and
-  # replace the (long, upstream-controlled) explanation text with a boolean so tests do not pin exact
-  # OSADL wording.
-  my $normalize = sub {
-    my $results = shift;
-    return [
-      map {
-        {
-          licenses        => $_->{licenses},
-          compatibility   => $_->{compatibility},
-          has_explanation => (length($_->{explanation} // '') ? 1 : 0)
-        }
-      } @$results
-    ];
+subtest 'license_compatibility' => sub {
+  subtest 'No present licenses' => sub {
+    is_deeply license_compatibility({},               $TEST_MATRIX), {licenses => [], matrix => {}}, 'nothing present';
+    is_deeply license_compatibility({licenses => {}}, $TEST_MATRIX), {licenses => [], matrix => {}}, 'no spdx';
   };
 
-  subtest 'No incompatible licenses' => sub {
-    is_deeply incompatible_licenses({},               []), [], 'no incompatible licenses found';
-    is_deeply incompatible_licenses({licenses => {}}, []), [], 'no incompatible licenses found';
+  subtest 'Directional sub-matrix among present licenses' => sub {
+    my $report = {licenses => {map { $_ => {spdx => $_} } qw(Apache-2.0 GPL-2.0-only MIT)}};
+    my $compat = license_compatibility($report, $TEST_MATRIX);
+    is_deeply $compat->{licenses}, ['Apache-2.0', 'GPL-2.0-only', 'MIT'], 'participating licenses';
 
-    my $rules = [{licenses => ['GPL-2.0-only', 'Apache-2.0'], compatibility => 'No', explanation => 'nope'}];
-    is_deeply incompatible_licenses({},               $rules), [], 'no incompatible licenses found';
-    is_deeply incompatible_licenses({licenses => {}}, $rules), [], 'no incompatible licenses found';
+    # OSADL's directional truth is preserved verbatim: MIT <- GPL-2.0-only is "No" but the reverse is
+    # compatible (absent), so it is shown one way only.
+    is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No', 'Apache <- GPL No';
+    is $compat->{matrix}{'GPL-2.0-only'}{'Apache-2.0'}{compatibility}, 'No', 'GPL <- Apache No';
+    is $compat->{matrix}{'MIT'}{'GPL-2.0-only'}{compatibility},        'No', 'MIT <- GPL No (one way)';
+    ok !exists $compat->{matrix}{'GPL-2.0-only'}{'MIT'}, 'GPL <- MIT is compatible (absent)';
+    is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{explanation}, 'apache<-gpl2', 'explanation verbatim';
+  };
 
-    my $report
+  subtest 'Check dependency participates, Unknown-only does not' => sub {
+    my $report = {licenses => {map { $_ => {spdx => $_} } qw(GPL-2.0-only LGPL-2.1-only)}};
+    my $compat = license_compatibility($report, $TEST_MATRIX);
+    is_deeply $compat->{licenses}, ['GPL-2.0-only', 'LGPL-2.1-only'], 'check-dependency licenses participate';
+    is $compat->{matrix}{'GPL-2.0-only'}{'LGPL-2.1-only'}{compatibility}, 'Check dependency', 'check cell kept';
+
+    # A pair whose only relationship is "Unknown" does not put the licenses on the axes.
+    my $unknown = license_compatibility({licenses => {map { $_ => {spdx => $_} } qw(Zlib libpng-2.0)}}, $TEST_MATRIX);
+    is_deeply $unknown, {licenses => [], matrix => {}}, 'Unknown-only relationship is not surfaced';
+  };
+
+  subtest 'Compound expressions, keyword matches and the Classpath exception' => sub {
+
+    # "MIT AND GPL-2.0-only" contributes both identifiers.
+    my $report = {licenses => {'Combo' => {spdx => 'MIT AND GPL-2.0-only'}}};
+    my $compat = license_compatibility($report, $TEST_MATRIX);
+    is $compat->{matrix}{'MIT'}{'GPL-2.0-only'}{compatibility}, 'No', 'compound expression split into identifiers';
+
+    # Keyword-matched files contribute their spdx (missed_files element [3]).
+    $report = {
+      licenses     => {'Apache-2.0' => {spdx => 'Apache-2.0'}},
+      missed_files => {9            => [7, '0.5', 'GPL-2.0', 'GPL-2.0-only']}
+    };
+    $compat = license_compatibility($report, $TEST_MATRIX);
+    is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No', 'keyword match contributes a license';
+
+    # "... WITH Classpath-exception-2.0" is stripped, so the GPL side is not counted.
+    $report
       = {licenses =>
-        {'MIT' => {risk => 1}, 'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}, 'BSD-3-Clause' => {risk => 1}}
+        {'Excepted' => {spdx => 'GPL-2.0-only WITH Classpath-exception-2.0'}, 'Apache' => {spdx => 'Apache-2.0'}}
       };
-    is_deeply incompatible_licenses($report, $rules), [], 'no incompatible licenses found';
+    is_deeply license_compatibility($report, $TEST_MATRIX), {licenses => [], matrix => {}},
+      'Classpath exception permits combining GPL with Apache-2.0';
 
+    # ... but a plain GPL-2.0-only elsewhere in the same expression is still counted.
     $report = {
       licenses => {
-        'GPL-2.0-only' => {risk => 1, spdx => 'GPL-2.0-only'},
-        'BSD-3-Clause' => {risk => 1},
-        'Apache-2.0'   => {risk => 2, spdx => 'Apache-2.0'}
+        'Mixed'  => {spdx => '(GPL-2.0-only WITH Classpath-exception-2.0) AND GPL-2.0-only'},
+        'Apache' => {spdx => 'Apache-2.0'}
       }
     };
-    $rules = [{licenses => ['GPL-2.0-only', 'Apache-2.0', 'MIT'], compatibility => 'No', explanation => 'nope'}];
-    is_deeply incompatible_licenses($report, $rules), [], 'no incompatible licenses found';
+    $compat = license_compatibility($report, $TEST_MATRIX);
+    is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No',
+      'plain GPL alongside an excepted variant still counts';
   };
 
-  subtest 'Incompatible licenses' => sub {
-    subtest 'Main licenses' => sub {
-      my $report = {
-        licenses => {
-          'MIT AND GPL-2.0+' => {risk => 1, spdx => 'MIT AND GPL-2.0-only'},
-          'BSD-3-Clause'     => {risk => 1},
-          'Apache-2.0'       => {risk => 2, spdx => 'Apache-2.0'}
-        }
-      };
-      my $rules = [{licenses => ['GPL-2.0-only', 'Apache-2.0', 'MIT'], compatibility => 'No', explanation => 'nope'}];
-      is_deeply incompatible_licenses($report, $rules),
-        [{licenses => ['GPL-2.0-only', 'Apache-2.0', 'MIT'], compatibility => 'No', explanation => 'nope'}],
-        'incompatible licenses found';
-    };
-
-    subtest 'Keyword matches' => sub {
-      my $report = {
-        licenses     => {'BSD-3-Clause' => {risk => 1}, 'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}},
-        missed_files => {14 => [5, 1, "", ""], 8 => [5, 1, "", ""], 9 => [7, '0.5902', 'GPL-2.0', 'GPL-2.0-only']},
-      };
-      my $rules = [{licenses => ['GPL-2.0-only', 'Apache-2.0'], compatibility => 'No', explanation => 'nope'}];
-      is_deeply incompatible_licenses($report, $rules),
-        [{licenses => ['GPL-2.0-only', 'Apache-2.0'], compatibility => 'No', explanation => 'nope'}],
-        'incompatible licenses found';
-    };
-
-    subtest 'Two tiers' => sub {
-      my $report = {
-        licenses => {
-          'GPL-2.0-only' => {risk => 5, spdx => 'GPL-2.0-only'},
-          'Apache-2.0'   => {risk => 2, spdx => 'Apache-2.0'},
-          'MIT'          => {risk => 1, spdx => 'MIT'}
-        }
-      };
-      my $rules = [
-        {licenses => ['GPL-2.0-only', 'MIT'],          compatibility => 'Check dependency', explanation => 'maybe'},
-        {licenses => ['Apache-2.0',   'GPL-2.0-only'], compatibility => 'No',               explanation => 'nope'}
-      ];
-
-      # "No" sorts before "Check dependency", so the hard incompatibility comes first.
-      is_deeply incompatible_licenses($report, $rules),
-        [
-        {licenses => ['Apache-2.0',   'GPL-2.0-only'], compatibility => 'No',               explanation => 'nope'},
-        {licenses => ['GPL-2.0-only', 'MIT'],          compatibility => 'Check dependency', explanation => 'maybe'}
-        ],
-        'both tiers returned, hard incompatibility first';
-    };
-  };
-
-  subtest 'Defaults (bundled OSADL matrix)' => sub {
-    my $report = {
-      licenses => {
-        'MIT AND GPL-2.0-only' => {risk => 1, spdx => 'MIT AND GPL-2.0-only'},
-        'BSD-3-Clause'         => {risk => 1},
-        'Apache-2.0'           => {risk => 2, spdx => 'Apache-2.0'}
-      }
-    };
-
-    # The compound "MIT AND GPL-2.0-only" expression contributes both MIT and GPL-2.0-only to the
-    # present set. Only Apache-2.0 + GPL-2.0-only is a genuine (both-directions) incompatibility;
-    # MIT + GPL-2.0-only is fine because MIT is permissive - OSADL flags it "No" in one direction only.
-    is_deeply $normalize->(incompatible_licenses($report)),
-      [{licenses => ['Apache-2.0', 'GPL-2.0-only'], compatibility => 'No', has_explanation => 1}],
-      'incompatible licenses found with explanation';
-  };
-
-  subtest 'GPL-2.0-only vs v3 family' => sub {
-    my $report = {
-      licenses => {
-        'GPL-2.0-only'     => {risk => 5, spdx => 'GPL-2.0-only'},
-        'GPL-3.0-or-later' => {risk => 5, spdx => 'GPL-3.0-or-later'}
-      }
-    };
-    is_deeply $normalize->(incompatible_licenses($report)),
-      [{licenses => ['GPL-2.0-only', 'GPL-3.0-or-later'], compatibility => 'No', has_explanation => 1}],
-      'GPL-2.0-only and GPL-3.0-or-later flagged';
-
-    $report = {
-      licenses => {
-        'GPL-2.0-only'      => {risk => 5, spdx => 'GPL-2.0-only'},
-        'AGPL-3.0-or-later' => {risk => 5, spdx => 'AGPL-3.0-or-later'}
-      }
-    };
-    is_deeply $normalize->(incompatible_licenses($report)),
-      [{licenses => ['AGPL-3.0-or-later', 'GPL-2.0-only'], compatibility => 'No', has_explanation => 1}],
-      'GPL-2.0-only and AGPL-3.0-or-later flagged';
-  };
-
-  subtest 'GPL-2.0-only vs CDDL' => sub {
-    my $report
-      = {
-      licenses => {'GPL-2.0-only' => {risk => 5, spdx => 'GPL-2.0-only'}, 'CDDL-1.0' => {risk => 5, spdx => 'CDDL-1.0'}}
-      };
-    is_deeply $normalize->(incompatible_licenses($report)),
-      [{licenses => ['CDDL-1.0', 'GPL-2.0-only'], compatibility => 'No', has_explanation => 1}],
-      'GPL-2.0-only and CDDL-1.0 flagged (ZFS-on-Linux case)';
-  };
-
-  subtest 'Bundled OSADL resource is well-formed' => sub {
-    my $file = path($INC{'Cavil/ReportUtil.pm'})->dirname->child('resources', 'license_incompatibilities.json');
-    ok -f $file, 'resource file exists';
-    my $data = from_json($file->slurp);
-    ok $data->{source},         'has a source URL';
-    ok $data->{timestamp},      'has an upstream timestamp';
-    ok @{$data->{pairs}} > 100, 'carries a substantial number of pairs';
-
-    my %seen;
-    my $ok = 1;
-    for my $pair (@{$data->{pairs}}) {
-      my $licenses = $pair->{licenses};
-      $ok = 0 unless @{$licenses || []} == 2;                                             # exactly two licenses
-      $ok = 0 unless $licenses->[0] lt $licenses->[1];                                    # sorted and distinct
-      $ok = 0 unless ($pair->{compatibility}     // '') =~ /^(?:No|Check dependency)$/;
-      $ok = 0 unless length($pair->{explanation} // '');                                  # has an explanation
-      $ok = 0 if $seen{"$licenses->[0]\0$licenses->[1]"}++;                               # no duplicate pairs
-    }
-    ok $ok, 'every pair is a sorted, distinct, tiered, explained, unique combination';
-  };
-
-  subtest 'Classpath exception is not flagged' => sub {
-    my $report = {
-      licenses => {
-        'GPL-2.0 with Classpath exception' => {risk => 5, spdx => 'GPL-2.0-only WITH Classpath-exception-2.0'},
-        'Apache-2.0'                       => {risk => 2, spdx => 'Apache-2.0'}
-      }
-    };
-    is_deeply incompatible_licenses($report), [], 'Classpath exception permits combining GPL with Apache-2.0';
-
-    # The Classpath-exception strip must not also remove a sibling GPL term
-    # that appears elsewhere in the same SPDX expression.
-    $report = {
-      licenses => {
-        'Mixed'      => {risk => 5, spdx => '(GPL-2.0-only WITH Classpath-exception-2.0) AND GPL-2.0-only'},
-        'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}
-      }
-    };
-    is_deeply $normalize->(incompatible_licenses($report)),
-      [{licenses => ['Apache-2.0', 'GPL-2.0-only'], compatibility => 'No', has_explanation => 1}],
-      'plain GPL-2.0-only alongside an excepted variant is still flagged';
+  subtest 'Bundled matrix is used by default' => sub {
+    my $report = {licenses => {map { $_ => {spdx => $_} } qw(Apache-2.0 GPL-2.0-only)}};
+    my $compat = license_compatibility($report);
+    is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No', 'Apache/GPL-2.0-only flagged from bundle';
+    like $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{explanation}, qr/\S/, 'has a verbatim OSADL explanation';
   };
 };
 
-subtest 'curate_incompatibility_explanations' => sub {
+subtest 'hard_incompatibilities' => sub {
+  is_deeply hard_incompatibilities({}),                             [], 'empty';
+  is_deeply hard_incompatibilities({licenses => [], matrix => {}}), [], 'nothing present';
 
-  # Curate a single ($x, $y) pair through the public list API and return the resulting explanation.
-  my $curate = sub {
-    my ($x, $y, $osadl) = @_;
-    my $list = [{licenses => [sort($x, $y)], compatibility => 'No', explanation => $osadl}];
-    curate_incompatibility_explanations($list);
-    return $list->[0]{explanation};
-  };
+  my $report = {licenses => {map { $_ => {spdx => $_} } qw(Apache-2.0 GPL-2.0-only GPL-3.0-only MIT)}};
+  my $compat = license_compatibility($report, $TEST_MATRIX);
 
-  subtest 'OSADL substantive text is kept verbatim' => sub {
-    my $osadl = 'Incompatibility of the OpenSSL license with the GPL-2.0-only license is explicitly stated in the '
-      . 'GPL-2.0-only license checklist. Interpretation: The final statement of the appended SSLeay License ...';
-    is $curate->('GPL-2.0-only', 'OpenSSL', $osadl), $osadl, 'OpenSSL explanation untouched';
-
-    my $python = 'Incompatibility ... Interpretation: The requirement of the Python license ...';
-    is $curate->('GPL-3.0-only', 'Python-2.0', $python), $python, 'Python-2.0 explanation untouched';
-  };
-
-  subtest 'Apache-2.0 vs a version 2 GPL/LGPL license -> patent wording' => sub {
-    for my $other (qw(GPL-2.0-only GPL-2.0-or-later LGPL-2.0-or-later LGPL-2.1-only LGPL-2.1-or-later)) {
-      my $expl = $curate->('Apache-2.0', $other, 'generic circular text');
-      like $expl, qr/patent retaliation and indemnification/, "Apache + $other names the patent terms";
-      like $expl, qr/\bApache-2\.0\b/,                        "Apache + $other names Apache-2.0";
-      like $expl, qr/\Q$other\E/,                             "Apache + $other names $other";
-      like $expl, qr/version 3 line/,                         "Apache + $other mentions the v3 resolution";
-    }
-  };
-
-  subtest 'Apache-2.0 vs a version 3 license does NOT get the v2 patent wording' => sub {
-
-    # Apache-2.0 is compatible with the v3 GPL family, so if such a pair ever appears it must not
-    # claim "resolved in version 3"; it falls through to OSADL's own text.
-    is $curate->('AGPL-3.0-only', 'Apache-2.0', 'some OSADL text'), 'some OSADL text',
-      'Apache + AGPL-3.0-only left to OSADL';
-  };
-
-  subtest 'CDDL vs a GPL-family license -> file-scope wording' => sub {
-    for my $pair (['CDDL-1.0', 'GPL-2.0-only'], ['CDDL-1.1', 'LGPL-2.1-only'], ['AGPL-3.0-only', 'CDDL-1.0']) {
-      my $expl = $curate->(@$pair, 'generic circular text');
-      like $expl, qr/file-scoped copyleft/, "@$pair mentions file-scoped copyleft";
-      like $expl, qr/ZFS-on-Linux/,         "@$pair mentions the ZFS case";
-    }
-  };
-
-  subtest 'GPL-2.0-only vs a version 3 license -> version-rigidity wording' => sub {
-    for my $other (qw(GPL-3.0-only GPL-3.0-or-later LGPL-3.0-or-later AGPL-3.0-or-later)) {
-      my $expl = $curate->('GPL-2.0-only', $other, 'Software ... under another copyleft license ...');
-      like $expl, qr/or \(at your option\) any later version/, "GPL-2.0-only + $other explains the missing upgrade";
-      like $expl, qr/GPL-2\.0-or-later license does not have this/, "GPL-2.0-only + $other notes the or-later escape";
-    }
-
-    # GPL-2.0-or-later can upgrade, so it must NOT get the version-rigidity wording; it is a plain
-    # copyleft-vs-copyleft case instead.
-    my $expl = $curate->('GPL-2.0-or-later', 'GPL-3.0-only', 'Software ... under another copyleft license ...');
-    unlike $expl, qr/any later version/,      'GPL-2.0-or-later + GPL-3.0-only is not version-rigidity';
-    like $expl,   qr/both copyleft licenses/, 'falls through to the generic copyleft wording';
-  };
-
-  subtest 'Generic copyleft-vs-copyleft fallback' => sub {
-    my $expl = $curate->('EPL-2.0', 'GPL-3.0-only',
-      'Software under a copyleft license ... under another copyleft license ...');
-    like $expl, qr/both copyleft licenses whose reciprocal obligations/, 'improved symmetric wording';
-    like $expl, qr/\bEPL-2\.0\b/,                                        'names the first license';
-    like $expl, qr/\bGPL-3\.0-only\b/,                                   'names the second license';
-  };
-
-  subtest 'Unrecognised generic/circular text is left to OSADL' => sub {
-
-    # No family match, no "another copyleft license" marker, no Interpretation -> keep OSADL verbatim.
-    my $osadl = 'Incompatibility of the MS-RL license with the OSL-3.0 license is explicitly stated in the checklist.';
-    is $curate->('MS-RL', 'OSL-3.0', $osadl), $osadl, 'circular text without a family match is kept';
-  };
-
-  subtest 'Curation is idempotent' => sub {
-    for my $pair (
-      ['Apache-2.0',   'GPL-2.0-only', 'generic'],
-      ['CDDL-1.0',     'GPL-2.0-only', 'generic'],
-      ['GPL-2.0-only', 'GPL-3.0-only', 'under another copyleft license'],
-      ['EPL-2.0',      'GPL-3.0-only', 'under another copyleft license']
-      )
-    {
-      my ($x, $y, $osadl) = @$pair;
-      my $once  = $curate->($x, $y, $osadl);
-      my $twice = $curate->($x, $y, $once);
-      is $twice, $once, "re-currating @$pair[0,1] is a no-op";
-    }
-  };
-
-  subtest 'Empty / missing input' => sub {
-    is_deeply curate_incompatibility_explanations([]),    [],    'empty list';
-    is_deeply curate_incompatibility_explanations(undef), undef, 'undef list';
-  };
-};
-
-subtest 'group_incompatibilities' => sub {
-  subtest 'Empty' => sub {
-    is_deeply group_incompatibilities([]),    [], 'no groups';
-    is_deeply group_incompatibilities(undef), [], 'no groups';
-  };
-
-  subtest 'Clusters one-vs-many with a shared explanation' => sub {
-    my $list = [
-      {licenses => ['GPL-2.0-only', 'OpenSSL'], compatibility => 'No', explanation => 'OpenSSL vs GPL-2.0-only'},
-      {licenses => ['GPL-3.0-only', 'OpenSSL'], compatibility => 'No', explanation => 'OpenSSL vs GPL-3.0-only'},
-      {
-        licenses      => ['LGPL-3.0-or-later', 'OpenSSL'],
-        compatibility => 'No',
-        explanation   => 'OpenSSL vs LGPL-3.0-or-later'
-      },
-    ];
-    is_deeply group_incompatibilities($list),
-      [
-      {
-        compatibility => 'No',
-        license       => 'OpenSSL',
-        others        => ['GPL-2.0-only', 'GPL-3.0-only', 'LGPL-3.0-or-later'],
-        explanation   => 'OpenSSL vs GPL-2.0-only'
-      }
-      ],
-      'three OpenSSL pairs collapse to one pivot cluster';
-  };
-
-  subtest 'Distinct explanations are never merged (lossless dedup)' => sub {
-
-    # GPL-2.0-only conflicts with OpenSSL and Python-2.0 for entirely different reasons; both
-    # explanations must survive even though they share the GPL-2.0-only endpoint.
-    my $list = [
-      {licenses => ['GPL-2.0-only', 'OpenSSL'], compatibility => 'No', explanation => 'the OpenSSL SSLeay clause'},
-      {
-        licenses      => ['GPL-2.0-only', 'Python-2.0'],
-        compatibility => 'No',
-        explanation   => 'the Python-2.0 change summary clause'
-      },
-    ];
-    my $groups = group_incompatibilities($list);
-    is scalar(@$groups), 2, 'two separate clusters, one per distinct explanation';
-    my %expl = map { $_->{explanation} => 1 } @$groups;
-    ok $expl{'the OpenSSL SSLeay clause'},            'OpenSSL explanation kept';
-    ok $expl{'the Python-2.0 change summary clause'}, 'Python-2.0 explanation kept';
-  };
-
-  subtest 'Tiers and ordering' => sub {
-    my $list = [
-      {licenses => ['GPL-2.0-only', 'LGPL-2.1-only'], compatibility => 'Check dependency', explanation => 'link only'},
-      {licenses => ['Apache-2.0',   'GPL-2.0-only'],  compatibility => 'No',               explanation => 'a AND b'},
-      {licenses => ['Apache-2.0',   'GPL-3.0-only'],  compatibility => 'No',               explanation => 'a AND b'},
-    ];
-    my $groups = group_incompatibilities($list);
-
-    # Hard ("No") cluster first, then the advisory; the two Apache "No" pairs share a template so they
-    # cluster under Apache-2.0.
-    is $groups->[0]{compatibility}, 'No',         'hard incompatibility first';
-    is $groups->[0]{license},       'Apache-2.0', 'pivots on the shared license';
-    is_deeply $groups->[0]{others}, ['GPL-2.0-only', 'GPL-3.0-only'], 'both partners in one cluster';
-    is $groups->[-1]{compatibility}, 'Check dependency', 'advisory tier last';
-  };
+  # Mutual "No" only: Apache <-> GPL-2.0-only and GPL-2.0-only <-> GPL-3.0-only. MIT <- GPL is one-way,
+  # so it is NOT a hard incompatibility.
+  is_deeply hard_incompatibilities($compat), [['Apache-2.0', 'GPL-2.0-only'], ['GPL-2.0-only', 'GPL-3.0-only']],
+    'mutual No pairs only, sorted; one-directional No excluded';
 };
 
 subtest 'minimal_snippet' => sub {
@@ -848,40 +605,44 @@ subtest 'report_checksum' => sub {
       '1715f865453e0ab679688cf0c219fbe4', 'duplicate snippet hashes deduped';
   };
 
-  subtest 'License incompatibility' => sub {
-    is report_checksum(
-      {main => {license => 'MIT'}},
-      {
-        licenses =>
-          {'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {risk => 1, spdx => 'GPL-2.0-only'}},
-        incompatible_licenses => []
-      }
-      ),
-      '331540e1872a52991c64674c4faf3720', 'no incompatible licenses';
-    is report_checksum(
-      {main => {license => 'MIT'}},
-      {
-        licenses =>
-          {'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {risk => 1, spdx => 'GPL-2.0-only'}},
-        incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0'], compatibility => 'No'}]
-      }
-      ),
-      'ff4ea93699c6edee733bcd3736a6dee4', 'include incompatible licenses';
+  subtest 'License compatibility' => sub {
+    my $licenses
+      = {'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {risk => 1, spdx => 'GPL-2.0-only'}};
 
-    # The compatibility tier is part of the checksum, so a "No" and a "Check dependency" advisory on
-    # the same pair produce different reports.
-    is report_checksum(
+    my $none = report_checksum({main => {license => 'MIT'}},
+      {licenses => $licenses, license_compatibility => {licenses => [], matrix => {}}});
+
+    # A flagged cell changes the checksum, and each directional cell + verdict is part of it.
+    my $one = report_checksum(
       {main => {license => 'MIT'}},
       {
-        licenses =>
-          {'Apache-2.0' => {risk => 2, spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {risk => 1, spdx => 'GPL-2.0-only'}},
-        incompatible_licenses => [
-          {licenses => ['GPL-2.0-only', 'Apache-2.0'],   compatibility => 'No'},
-          {licenses => ['MIT',          'GPL-2.0-only'], compatibility => 'Check dependency'}
-        ]
+        licenses              => $licenses,
+        license_compatibility => {
+          licenses => ['Apache-2.0', 'GPL-2.0-only'],
+          matrix   => {'Apache-2.0' => {'GPL-2.0-only' => {compatibility => 'No'}}}
+        }
       }
-      ),
-      'ee596e08a9df8c34a64dcb8d843de9b0', 'multiple incompatible licenses across tiers';
+    );
+
+    my $both = report_checksum(
+      {main => {license => 'MIT'}},
+      {
+        licenses              => $licenses,
+        license_compatibility => {
+          licenses => ['Apache-2.0', 'GPL-2.0-only'],
+          matrix   => {
+            'Apache-2.0'   => {'GPL-2.0-only' => {compatibility => 'No'}},
+            'GPL-2.0-only' => {'Apache-2.0'   => {compatibility => 'No'}}
+          }
+        }
+      }
+    );
+
+    isnt $none, $one,  'a flagged cell changes the checksum';
+    isnt $one,  $both, 'the reverse-direction cell changes the checksum too';
+    is report_checksum({main => {license => 'MIT'}},
+      {licenses => $licenses, license_compatibility => {licenses => [], matrix => {}}}),
+      $none, 'checksum is stable';
   };
 };
 
@@ -911,14 +672,14 @@ subtest 'summary_delta_score' => sub {
         specfile              => 'MIT',
         missed_snippets       => {},
         licenses              => {},
-        incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
+        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
       },
       {
         id                    => 2,
         specfile              => 'MIT',
         missed_snippets       => {},
         licenses              => {},
-        incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
+        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
       }
       ),
       0, 'no new incompatible licenses';
@@ -929,7 +690,7 @@ subtest 'summary_delta_score' => sub {
         specfile              => 'MIT',
         missed_snippets       => {},
         licenses              => {},
-        incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
+        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
       }
       ),
       1000, 'new incompatible licenses';
@@ -1176,14 +937,14 @@ subtest 'summary_delta' => sub {
         specfile              => 'MIT',
         missed_snippets       => {},
         licenses              => {},
-        incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
+        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
       },
       {
         id                    => 2,
         specfile              => 'MIT',
         missed_snippets       => {},
         licenses              => {},
-        incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
+        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
       }
       ),
       '', 'no new incompatible licenses';
@@ -1194,11 +955,11 @@ subtest 'summary_delta' => sub {
         specfile              => 'MIT',
         missed_snippets       => {},
         licenses              => {'Apache-2.0' => 2, 'GPL-2.0-only' => 1},
-        incompatible_licenses => [{licenses => ['GPL-2.0-only', 'Apache-2.0']}]
+        incompatible_licenses => [['Apache-2.0', 'GPL-2.0-only']]
       }
       ),
       "Diff to closest match 1\n\n  New licenses (by risk)\n    1  GPL-2.0-only\n\n"
-      . "  Possible license incompatibility\n    GPL-2.0-only, Apache-2.0\n", 'new incompatible licenses';
+      . "  Possible license incompatibility\n    Apache-2.0, GPL-2.0-only\n", 'new incompatible licenses';
   };
 
   subtest 'Snippets' => sub {
@@ -1438,11 +1199,17 @@ subtest 'report_shortname' => sub {
     'jemn5u',
     {main => {license => 'MIT OR BSD-2-Clause'}},
     {
-      risks => {3 => {'Apache-2.0' => {1 => [13, 13], 2 => [12, 13, 13]}, 'GPL-2.0' => {3 => [10, 11]}}},
-      incompatible_licenses => [{licenses => ['GPL-2.0', 'Apache-2.0']}]
+      risks => {3 => {'Apache-2.0' => {1 => [13, 13], 2 => [12, 13, 13]}, 'GPL-2.0-only' => {3 => [10, 11]}}},
+      license_compatibility => {
+        licenses => ['Apache-2.0', 'GPL-2.0-only'],
+        matrix   => {
+          'Apache-2.0'   => {'GPL-2.0-only' => {compatibility => 'No'}},
+          'GPL-2.0-only' => {'Apache-2.0'   => {compatibility => 'No'}}
+        }
+      }
     }
     ),
-    'BSD-2-Clause-9:jemn5u', 'incompatible license risk';
+    'BSD-2-Clause-9:jemn5u', 'mutual incompatibility elevates risk to 9';
 };
 
 subtest 'should_fold_snippet' => sub {

@@ -26,23 +26,22 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
-  qw(curate_incompatibility_explanations estimated_risk group_incompatibilities incompatible_licenses),
-  qw(is_license_filename minimal_snippet new_license_names new_unresolved_files overlapping_licenses),
-  qw(report_checksum report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet),
-  qw(should_overlap_clear smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score)
+  qw(estimated_risk hard_incompatibilities is_license_filename license_compatibility minimal_snippet),
+  qw(new_license_names new_unresolved_files overlapping_licenses report_checksum report_shortname),
+  qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
+  qw(spdx_edit_snippet summary_delta summary_delta_score)
 );
 
 use constant PAD_WORDS => 5;
 
-# Incompatible license combinations come from the OSADL license compatibility matrix (CC-BY-4.0, see
-# the NOTICE file), bundled and refreshed via tools/update_licenses.pl. Each rule is an unordered pair
-# of SPDX identifiers that triggers when BOTH are present in the package's digest report, tagged with
-# a "compatibility" tier ("No" = hard incompatibility, elevates risk to 9; "Check dependency" = softer
-# advisory) and OSADL's human-readable "explanation". The list is cached on first use.
-sub _osadl_rules () {
-  state $rules
-    = from_json(path(__FILE__)->dirname->child('resources', 'license_incompatibilities.json')->slurp)->{pairs};
-  return $rules;
+# The OSADL license compatibility matrix (CC-BY-4.0, see the NOTICE file), bundled and refreshed via
+# tools/update_licenses.pl. It is a directed grid keyed outbound -> inbound; a cell records OSADL's
+# verdict ("No" / "Check dependency" / "Unknown") and verbatim explanation for using inbound-licensed
+# material in an outbound-licensed work. Plainly compatible ("Yes"/"Same") cells are omitted, so a
+# missing cell means "compatible". Cached on first use.
+sub _compatibility_matrix () {
+  state $matrix = from_json(path(__FILE__)->dirname->child('resources', 'license_compatibility.json')->slurp)->{matrix};
+  return $matrix;
 }
 
 sub estimated_risk ($risk, $match) {
@@ -170,207 +169,81 @@ sub is_license_filename ($path) {
   return $path =~ m{(?:^|/)(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE)(?:[.\-]|$)}i ? 1 : 0;
 }
 
-# Flag incompatible license pairs present in the package. Returns an arrayref of
-# {licenses => [a, b], compatibility => 'No'|'Check dependency', explanation => '...'} entries. Only
-# "No" entries elevate risk (see _has_hard_incompat); "Check dependency" is a softer advisory. $rules
-# defaults to the bundled OSADL matrix but can be injected for testing.
-sub incompatible_licenses ($dig_report, $rules = undef) {
-  $rules //= _osadl_rules();
-  return [] unless @$rules;
-
+# The set of individual SPDX license identifiers actually present in a package's digest report,
+# gathered from the licensed matches and the keyword-matched files. Compound expressions are reduced
+# to their individual identifiers. The Classpath exception was created specifically to permit combining
+# GPL code with otherwise-incompatible licenses (typically Apache-2.0 Java libraries), so
+# "GPL... WITH Classpath-exception-2.0" fragments are stripped before extraction.
+sub _present_licenses ($dig_report) {
   my @spdx;
   push @spdx, map { $_->{spdx} } grep { $_->{spdx} } values %{$dig_report->{licenses}  || {}};
   push @spdx, map { $_->[3] } grep    { $_->[3] } values %{$dig_report->{missed_files} || {}};
-
-  # The Classpath exception was created specifically to permit combining GPL
-  # code with code under otherwise-incompatible licenses (typically Apache-2.0
-  # Java libraries), so strip "GPL... WITH Classpath-exception-2.0" fragments
-  # before extracting identifiers below.
   s/\b(?:A|L)?GPL-[\d.]+(?:-only|-or-later|\+)?\s+WITH\s+Classpath-exception-2\.0\b//gi for @spdx;
 
-  # Reduce the (possibly compound) SPDX expressions to the set of individual license identifiers
-  # actually present, so we can look up pairs directly.
   my %present;
   $present{$_}++ for map { @{extract_spdx_identifiers($_)} } @spdx;
-
-  my @results;
-  for my $rule (@$rules) {
-    my $licenses = $rule->{licenses};
-    next unless @$licenses == grep { $present{$_} } @$licenses;
-    push @results,
-      {licenses => [@$licenses], compatibility => $rule->{compatibility}, explanation => $rule->{explanation}};
-  }
-
-  # Deterministic order: hard incompatibilities ("No") first, then advisories, then alphabetically by
-  # pair.
-  my %rank = ('No' => 0, 'Check dependency' => 1);
-  return [
-    sort {
-           ($rank{$a->{compatibility} // 'No'} <=> $rank{$b->{compatibility} // 'No'})
-        || ("@{$a->{licenses}}" cmp "@{$b->{licenses}}")
-    } @results
-  ];
+  return \%present;
 }
 
-# Does the report carry at least one hard ("No") incompatibility? Only these elevate risk to 9;
-# "Check dependency" entries are advisory.
-sub _has_hard_incompat ($incompat) {
-  return scalar grep { ($_->{compatibility} // 'No') eq 'No' } @{$incompat || []};
-}
+# OSADL's compatibility matrix restricted to the licenses present in this package - i.e. OSADL's own
+# sub-matrix for exactly these licenses, presented verbatim. Returns
+# {licenses => [...], matrix => {outbound => {inbound => {compatibility, explanation}}}} where
+# "licenses" are the present licenses that take part in at least one flagged (No/Check dependency)
+# relationship, and "matrix" holds every non-compatible OSADL cell (No/Check dependency/Unknown) among
+# the present licenses. Missing cells mean OSADL considers that direction compatible. Nothing is
+# collapsed, curated or reinterpreted; the directional structure and explanations are OSADL's.
+sub license_compatibility ($dig_report, $matrix = undef) {
+  $matrix //= _compatibility_matrix();
+  my $present = _present_licenses($dig_report);
 
-# OSADL's per-pair explanations are uneven: for the nuanced cases (OpenSSL, Python-2.0, most "Check
-# dependency" advisories) they carry a helpful "Interpretation:", but for the common copyleft
-# combinations they fall back to a generic or circular one-liner that reads awkwardly. To make
-# problems easier to spot we substitute a clearer, advisory explanation for a few high-frequency
-# license families, written in OSADL's own hedged register. This is purely advisory context, not a
-# legal judgement - the wording can be refined once lawyers see it in production. OSADL's text is kept
-# verbatim whenever it is already substantive, and for anything we do not recognise.
-sub _curated_explanation ($x, $y, $osadl) {
-  $osadl //= '';
-
-  # Keep OSADL's own reasoning when it already provides some.
-  return $osadl if $osadl =~ /Interpretation:/;
-
-  my $is_apache = sub { $_[0] eq 'Apache-2.0' };
-  my $is_gpl    = sub { $_[0] =~ /^(?:A|L)?GPL-/ };                                   # any GPL-family license
-  my $is_v2gpl  = sub { $_[0] =~ /^(?:GPL-2\.0|LGPL-2\.[01])-(?:only|or-later)$/ };
-  my $is_v3gpl  = sub { $_[0] =~ /^(?:A|L)?GPL-3\.0-(?:only|or-later)$/ };
-
-  # Apache-2.0 vs a version 2 GPL/LGPL license: the patent and indemnification terms are the issue,
-  # and this is commonly described as resolved in the version 3 line.
-  for my $pair ([$x, $y], [$y, $x]) {
-    my ($a, $b) = @$pair;
-    next unless $is_apache->($a) && $is_v2gpl->($b);
-    return
-        "The $a and $b licenses are generally considered incompatible: the patent retaliation and indemnification "
-      . "conditions of the Apache-2.0 license are commonly regarded as additional restrictions that the $b license "
-      . "does not permit. This is usually described as resolved in the version 3 line of the GPL license family.";
-  }
-
-  # CDDL vs a GPL-family license: file-scoped (MPL-derived) copyleft against whole-work copyleft.
-  for my $pair ([$x, $y], [$y, $x]) {
-    my ($a, $b) = @$pair;
-    next unless $a =~ /^CDDL-/ && $is_gpl->($b);
-    return
-        "The $a and $b licenses are generally considered incompatible: the $a license is a file-scoped copyleft "
-      . "license derived from the Mozilla Public License, and its per-file obligations are commonly regarded as "
-      . "difficult to reconcile with the whole-work copyleft of the $b license. This is the combination seen in the "
-      . "well-known ZFS-on-Linux case.";
-  }
-
-  # GPL-2.0-only vs a version 3 GPL-family license: the missing "or any later version" upgrade clause.
-  for my $pair ([$x, $y], [$y, $x]) {
-    my ($a, $b) = @$pair;
-    next unless $a eq 'GPL-2.0-only' && $is_v3gpl->($b);
-    return
-        "The $a and $b licenses are generally considered incompatible: because the GPL-2.0-only license does not "
-      . "include the \"or (at your option) any later version\" option, its code normally cannot be taken to the "
-      . "version 3 terms that the $b license requires for combination. The GPL-2.0-or-later license does not have "
-      . "this limitation.";
-  }
-
-  # Two copyleft licenses whose reciprocal terms simply cannot be met at once (OSADL's generic case).
-  if ($osadl =~ /another copyleft license/) {
-    return
-        "The $x and $y licenses are both copyleft licenses whose reciprocal obligations differ and normally cannot "
-      . "be fulfilled at the same time, so code under the one license generally cannot be combined with or "
-      . "redistributed under the other unless a license explicitly permits it.";
-  }
-
-  return $osadl;
-}
-
-# Replace each entry's explanation with the curated, advisory form (see _curated_explanation). Mutates
-# and returns the list. Idempotent - re-currating already-curated text is a no-op.
-sub curate_incompatibility_explanations ($list) {
-  for my $rule (@{$list || []}) {
-    my ($x, $y) = sort @{$rule->{licenses}};
-    $rule->{explanation} = _curated_explanation($x, $y, $rule->{explanation});
-  }
-  return $list;
-}
-
-# Collapse a flat incompatibility list (from incompatible_licenses) into compact display clusters. A
-# license-rich package (e.g. a vendored monorepo) can produce dozens of pairs that are really "one
-# license against many" - eight "<copyleft> + OpenSSL" pairs with near-identical explanations. We
-# cluster those into one scannable "OpenSSL vs GPL-2.0-only, GPL-3.0-only, ..." row with a single
-# explanation, instead of a wall of repeated paragraphs.
-#
-# Dedup is lossless by construction: before clustering we partition each tier's pairs by a normalized
-# explanation "template" (the explanation with the pair's own license names masked out), so a cluster
-# can only ever hold edges whose explanations are identical apart from which license is named. Two
-# genuinely different explanations (e.g. the OpenSSL SSLeay clause vs the Python-2.0 change-summary
-# clause, both hanging off GPL-2.0-only) always land in separate clusters and are both shown - no
-# explanation is dropped. Within a partition we greedily pick the license touching the most remaining
-# pairs as the cluster's pivot. Pure and deterministic (ties broken alphabetically). Returns an
-# arrayref of {compatibility, license, others => [...], explanation}, hard ("No") and largest clusters
-# first.
-sub group_incompatibilities ($list) {
-  my @groups;
-  for my $tier ('No', 'Check dependency') {
-
-    # Undirected edges for this tier, keyed "x\0y" (x lt y) => explanation.
-    my %edge_explanation;
-    for my $rule (@{$list || []}) {
-      next unless ($rule->{compatibility} // 'No') eq $tier;
-      my ($x, $y) = sort @{$rule->{licenses}};
-      $edge_explanation{"$x\0$y"} = $rule->{explanation};
-    }
-
-    # Partition edges by normalized explanation template (see above). The masked template is only ever
-    # used as a grouping key - the raw explanation is what gets displayed.
-    my %partition;
-    for my $edge (keys %edge_explanation) {
-      my ($x, $y) = split /\0/, $edge;
-      my $template = $edge_explanation{$edge} // '';
-      $template =~ s/\Q$x\E//g;
-      $template =~ s/\Q$y\E//g;
-      push @{$partition{$template}}, $edge;
-    }
-
-    # Greedily cluster within each explanation-uniform partition.
-    for my $template (sort keys %partition) {
-      my %edges = map { $_ => $edge_explanation{$_} } @{$partition{$template}};
-
-      while (%edges) {
-
-        # Pick the license touching the most remaining edges (ties: alphabetical).
-        my %degree;
-        for my $edge (keys %edges) {
-          $degree{$_}++ for split /\0/, $edge;
-        }
-        my ($pivot) = sort { $degree{$b} <=> $degree{$a} || $a cmp $b } keys %degree;
-
-        # Collect the pivot's partners and their explanations, then drop those edges.
-        my %partner_explanation;
-        for my $edge (keys %edges) {
-          my ($x, $y) = split /\0/, $edge;
-          next unless $x eq $pivot || $y eq $pivot;
-          $partner_explanation{$x eq $pivot ? $y : $x} = $edges{$edge};
-          delete $edges{$edge};
-        }
-
-        my @others = sort keys %partner_explanation;
-        push @groups, {
-          compatibility => $tier,
-          license       => $pivot,
-          others        => \@others,
-          explanation   => $partner_explanation{$others[0]}    # any partner works - the template is uniform
-        };
+  # Every non-compatible OSADL cell between two present licenses, and which licenses take part in an
+  # actionable (No/Check dependency) relationship - "Unknown" alone does not put a license on the axes.
+  my (%cells, %participates);
+  for my $outbound (sort keys %$present) {
+    my $row = $matrix->{$outbound} or next;
+    for my $inbound (sort keys %$row) {
+      next unless $present->{$inbound};
+      my $cell = $row->{$inbound};
+      $cells{$outbound}{$inbound} = {compatibility => $cell->{compatibility}, explanation => $cell->{explanation}};
+      if ($cell->{compatibility} eq 'No' || $cell->{compatibility} eq 'Check dependency') {
+        $participates{$outbound}++;
+        $participates{$inbound}++;
       }
     }
   }
 
-  # Hard incompatibilities first, then largest clusters first, then alphabetical - stable and
-  # scannable regardless of the partition iteration order above.
-  my %rank = ('No' => 0, 'Check dependency' => 1);
-  return [
-    sort {
-           $rank{$a->{compatibility}} <=> $rank{$b->{compatibility}}
-        || @{$b->{others}}            <=> @{$a->{others}}
-        || $a->{license}              cmp $b->{license}
-    } @groups
-  ];
+  # Drop Unknown-only licenses from the axes and from the returned matrix, so the grid stays focused on
+  # licenses that actually have an actionable relationship.
+  my @licenses = sort keys %participates;
+  my %keep     = map { $_ => 1 } @licenses;
+  my %kept_matrix;
+  for my $outbound (@licenses) {
+    for my $inbound (sort keys %{$cells{$outbound} || {}}) {
+      next unless $keep{$inbound};
+      $kept_matrix{$outbound}{$inbound} = $cells{$outbound}{$inbound};
+    }
+  }
+
+  return {licenses => \@licenses, matrix => \%kept_matrix};
+}
+
+# The unordered pairs of present licenses that OSADL marks "No" in BOTH directions - i.e. combinations
+# that cannot be shipped whichever license is treated as the outbound one. These are the hard
+# incompatibilities that elevate risk and drive the compact text/MCP summary and the report checksum.
+# Returns a sorted list of [a, b] (a lt b).
+sub hard_incompatibilities ($compat) {
+  my $matrix = $compat->{matrix} // {};
+  my %seen;
+  my @pairs;
+  for my $a (@{$compat->{licenses} // []}) {
+    for my $b (@{$compat->{licenses} // []}) {
+      next if $a ge $b;
+      next unless ($matrix->{$a}{$b} && $matrix->{$a}{$b}{compatibility} eq 'No');
+      next unless ($matrix->{$b}{$a} && $matrix->{$b}{$a}{compatibility} eq 'No');
+      push @pairs, [$a, $b];
+    }
+  }
+  return \@pairs;
 }
 
 sub minimal_snippet ($snippet) {
@@ -528,10 +401,14 @@ sub report_checksum ($specfile_report, $dig_report) {
     $text .= "SNIPPET:$_\n" for sort +uniq @all;
   }
 
-  # License incompatibilities
-  if (my $incompat = $dig_report->{incompatible_licenses}) {
-    for my $rule (@$incompat) {
-      $text .= "INCOMPAT:" . ($rule->{compatibility} // 'No') . ':' . join(':', sort @{$rule->{licenses}}) . "\n";
+  # License compatibility: hash every flagged OSADL cell among the present licenses, so any change to
+  # the package's compatibility sub-matrix produces a new report.
+  if (my $compat = $dig_report->{license_compatibility}) {
+    my $matrix = $compat->{matrix} // {};
+    for my $outbound (sort keys %$matrix) {
+      for my $inbound (sort keys %{$matrix->{$outbound}}) {
+        $text .= "COMPAT:$outbound>$inbound:$matrix->{$outbound}{$inbound}{compatibility}\n";
+      }
     }
   }
 
@@ -547,7 +424,8 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
     my $risk = $dig_report->{missed_files}{$file}[0];
     $max_risk = $risk if $risk > $max_risk;
   }
-  $max_risk = 9 if _has_hard_incompat($dig_report->{incompatible_licenses});
+  $max_risk = 9
+    if $dig_report->{license_compatibility} && @{hard_incompatibilities($dig_report->{license_compatibility})};
 
   my $l = lic($specfile_report->{main}{license})->example;
   $l ||= 'Unknown';
@@ -609,14 +487,12 @@ sub summary_delta_score ($old, $new) {
   return $score;
 }
 
-# New hard ("No") incompatibilities only - "Check dependency" advisories do not drive the diff score
-# or the summary warning.
+# Licenses newly caught up in a hard incompatibility versus the closest previous review. The summary's
+# "incompatible_licenses" is a list of mutually-incompatible [a, b] pairs (see hard_incompatibilities);
+# we compare by license name so a genuinely new conflict shows up in the diff and its score.
 sub _new_incompatibilities ($old, $new) {
-  my @old_incompat
-    = map { @{$_->{licenses}} } grep { ($_->{compatibility} // 'No') eq 'No' } @{$old->{incompatible_licenses} || []};
-  my @new_incompat = uniq(map { @{$_->{licenses}} }
-    grep { ($_->{compatibility} // 'No') eq 'No' } @{$new->{incompatible_licenses} || []});
-  my %old = map { $_ => 1 } @old_incompat;
+  my %old          = map { $_ => 1 } map {@$_} @{$old->{incompatible_licenses} || []};
+  my @new_incompat = uniq(map {@$_} @{$new->{incompatible_licenses} || []});
 
   my @new;
   for my $lic (@new_incompat) {

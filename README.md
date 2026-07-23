@@ -136,6 +136,6 @@ For more information see the included [documentation](/docs).
 Cavil bundles and builds upon license data from third parties, including the
 [ScanCode LicenseDB](https://scancode-licensedb.aboutcode.org/) (CC-BY-4.0), the
 [SPDX License List](https://spdx.org/licenses/), and the
-[OSADL Open Source License Compliance Checklists](https://www.osadl.org/checklists) (CC-BY-4.0), which provide the
-license compatibility data surfaced in legal reports. See the [NOTICE](NOTICE) file for the full attributions and their
-licenses.
+[OSADL Open Source License Compliance Checklists](https://www.osadl.org/checklists) (CC-BY-4.0), whose license
+compatibility matrix is surfaced per package in legal reports. See the [NOTICE](NOTICE) file for the full attributions
+and their licenses.

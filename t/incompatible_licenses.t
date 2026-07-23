@@ -83,28 +83,29 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     is $pkg->{state},  'new',                                                                 'state';
     is $pkg->{notice}, 'Manual review is required because no previous reports are available', 'requires manual review';
 
-    ok my $report   = $json->{report},                  'report';
-    ok my $incompat = $report->{incompatible_licenses}, 'incompatible licenses';
-    is scalar(@$incompat), 1, 'one incompatible pair';
-    is_deeply $incompat->[0]{licenses}, ['Apache-2.0', 'GPL-2.0-only'], 'incompatible licenses';
-    is $incompat->[0]{compatibility}, 'No', 'hard incompatibility';
-    like $incompat->[0]{explanation}, qr/patent retaliation and indemnification/, 'curated explanation included';
+    ok my $report = $json->{report},                  'report';
+    ok my $compat = $report->{license_compatibility}, 'license compatibility matrix';
+    is_deeply $compat->{licenses}, ['Apache-2.0', 'GPL-2.0-only'], 'both licenses on the axes';
+
+    # OSADL flags both directions as "No", verbatim.
+    is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No', 'Apache-2.0 <- GPL-2.0-only: No';
+    is $compat->{matrix}{'GPL-2.0-only'}{'Apache-2.0'}{compatibility}, 'No', 'GPL-2.0-only <- Apache-2.0: No';
+    like $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{explanation},   qr/\S/, 'verbatim OSADL explanation present';
+    unlike $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{explanation}, qr/&quot;/, 'explanation entities decoded';
 
     $t->get_ok('/reviews/report_details/1')
       ->status_is(200)
-      ->json_is('/incompatible_licenses/0/licenses',      ['Apache-2.0', 'GPL-2.0-only'])
-      ->json_is('/incompatible_licenses/0/compatibility', 'No')
-      ->json_like('/incompatible_licenses/0/explanation', qr/patent retaliation and indemnification/);
+      ->json_is('/license_compatibility/licenses',                                     ['Apache-2.0', 'GPL-2.0-only'])
+      ->json_is('/license_compatibility/matrix/Apache-2.0/GPL-2.0-only/compatibility', 'No');
   };
 
   subtest 'Text report' => sub {
     $t->get_ok('/reviews/report/1.txt')->status_is(200);
     ok my $text = $t->tx->res->text, 'text response';
-    like $text, qr/Elevated risk, package might contain incompatible licenses:/,
-      'text report contains warning about incompatible licenses';
-    like $text, qr/Apache-2\.0 is incompatible with:/,      'text report groups by pivot license';
-    like $text, qr/^    \* GPL-2\.0-only$/m,                'text report nests the conflicting license';
-    like $text, qr/patent retaliation and indemnification/, 'text report includes the curated explanation';
+    like $text, qr/Elevated risk, package might contain incompatible licenses/,
+      'text report warns about incompatible licenses';
+    like $text, qr/OSADL compatibility matrix/, 'text report references the OSADL matrix';
+    like $text, qr/Apache-2\.0: GPL-2\.0-only/, 'text report lists the mutually incompatible pair';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

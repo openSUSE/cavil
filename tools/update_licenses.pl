@@ -17,7 +17,7 @@ my $license_file   = $dir->child('license_list.txt');
 my $exception_file = $dir->child('license_exceptions.txt');
 my $changes_file   = $dir->child('license_changes.txt');
 my $scancode_file  = $dir->child('license_list_scancode.txt');
-my $osadl_file     = $dir->child('license_incompatibilities.json');
+my $osadl_file     = $dir->child('license_compatibility.json');
 
 my $ua = Mojo::UserAgent->new;
 
@@ -59,54 +59,25 @@ say qq(Updated @{[scalar @scancode_keys]} ScanCode licenses in "$scancode_file")
 # OSADL license compatibility matrix. The data is licensed CC-BY-4.0 and requires attribution; see
 # the NOTICE file. The upstream matrix is a ~3MB directed grid (outbound -> inbound) of SPDX-named
 # licenses, each cell graded Same/Yes/No/Check dependency/Unknown with a human-readable explanation.
-# Cavil only surfaces genuine package-level conflicts, so we collapse the grid into a compact list of
-# unordered incompatible pairs. Because Cavil sees "the package contains both licenses" without a
-# reliable outbound license, only pairs that are problematic in BOTH directions are real conflicts: a
-# one-directional "No" (e.g. permissive MIT inbound into copyleft GPL outbound) is fine, since the
-# natural aggregate is simply the stronger copyleft license. A pair is a hard incompatibility ("No")
-# when both directions say "No", and a softer advisory ("Check dependency") when both directions are
-# problematic (No/Check dependency) but not both "No". Flagging on either direction alone produces a
-# combinatorial explosion of permissive-vs-copyleft false positives.
-my $is_problem = sub { defined $_[0] && ($_[0] eq 'No' || $_[0] eq 'Check dependency') };
-my $osadl      = from_json($ua->get($OSADL_URL)->result->body);
-my %osadl_cells;
+# We store it verbatim as a directed matrix, keeping only the cells that are not plainly compatible
+# (No / Check dependency / Unknown) - the "Yes"/"Same" cells are implied by absence. Cavil presents
+# this per package as OSADL's own sub-matrix, so no collapsing, curation or reinterpretation happens
+# here; the directional structure and the explanations are preserved exactly as OSADL publishes them.
+my $osadl = from_json($ua->get($OSADL_URL)->result->body);
+my (%matrix, $cells);
 for my $outbound (@{$osadl->{licenses}}) {
   my $a = $outbound->{name};
   for my $cell (@{$outbound->{compatibilities}}) {
-    $osadl_cells{$a}{$cell->{name}} = $cell;
-  }
-}
-my %osadl_pairs;
-for my $a (sort keys %osadl_cells) {
-  for my $b (sort keys %{$osadl_cells{$a}}) {
+    my $b = $cell->{name};
     next if $a eq $b;
-    my ($x, $y) = sort ($a, $b);
-    next if exists $osadl_pairs{"$x\0$y"};    # already decided from the other direction
-
-    my $xy  = $osadl_cells{$x}{$y};
-    my $yx  = $osadl_cells{$y}{$x};
-    my $cxy = $xy ? $xy->{compatibility} : undef;
-    my $cyx = $yx ? $yx->{compatibility} : undef;
-    next unless $is_problem->($cxy) && $is_problem->($cyx);
-
-    my ($compatibility, $explanation);
-    if ($cxy eq 'No' && $cyx eq 'No') {
-      $compatibility = 'No';
-      $explanation   = $xy->{explanation};    # sorted-first license as outbound, for a stable explanation
-    }
-    else {
-      # Prefer the direction that carries the dependency nuance ("can be linked but not merged").
-      $compatibility = 'Check dependency';
-      $explanation   = ($cxy eq 'Check dependency' ? $xy : $yx)->{explanation};
-    }
+    my $c = $cell->{compatibility};
+    next unless $c eq 'No' || $c eq 'Check dependency' || $c eq 'Unknown';
 
     # OSADL explanations contain HTML entities (e.g. &quot;); decode them so the stored text is plain
     # and renders correctly in the web, text and MCP reports alike.
-    $explanation = html_unescape($explanation);
-    $osadl_pairs{"$x\0$y"} = {licenses => [$x, $y], compatibility => $compatibility, explanation => $explanation};
+    $matrix{$a}{$b} = {compatibility => $c, explanation => html_unescape($cell->{explanation})};
+    $cells++;
   }
 }
-my @osadl_pairs = map { $osadl_pairs{$_} }
-  sort { $osadl_pairs{$a}{compatibility} cmp $osadl_pairs{$b}{compatibility} || $a cmp $b } keys %osadl_pairs;
-$osadl_file->spew(to_json({source => $OSADL_URL, timestamp => $osadl->{timestamp}, pairs => \@osadl_pairs}) . "\n");
-say qq(Updated @{[scalar @osadl_pairs]} OSADL incompatibility pairs in "$osadl_file");
+$osadl_file->spew(to_json({source => $OSADL_URL, timestamp => $osadl->{timestamp}, matrix => \%matrix}) . "\n");
+say qq(Updated $cells OSADL compatibility cells in "$osadl_file");

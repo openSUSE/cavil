@@ -280,9 +280,9 @@ unless ($clean) {
   $pkgs->update($obsprj);
   $pkgs->unpack($pkg_id);
 
-  # "cavil-incompatible-lab" example data: Apache-2.0 combined with GPL-2.0-only is an OSADL "No"
-  # incompatibility. It elevates the report to risk 9 and shows the "Elevated risk" warning panel with
-  # the OSADL explanation.
+  # "cavil-incompatible-lab" example data: Apache-2.0 combined with GPL-2.0-only is "No" in both
+  # directions in the OSADL matrix. It elevates the report to risk 9 and shows a red cell in the license
+  # compatibility matrix (click it for OSADL's explanation).
   my $incompat_checkout = 'incompatiblelab0000000000000000001';
   my $incompat_dir      = $checkouts->child('cavil-incompatible-lab', $incompat_checkout)->make_path;
   $incompat_dir->child('apache_file.txt')
@@ -306,8 +306,8 @@ unless ($clean) {
   $pkgs->unpack($pkg_id);
 
   # "cavil-check-dependency-lab" example data: AGPL-3.0-only combined with LGPL-3.0-or-later is an
-  # OSADL "Check dependency" pair - a softer advisory shown in the "info" panel that, unlike a "No"
-  # pair, does not elevate the risk. (The AGPL-3.0-or-later tag resolves to AGPL-3.0-only.)
+  # OSADL "Check dependency" relationship - an amber cell in the compatibility matrix that, unlike a
+  # mutual "No", does not elevate the risk. (The AGPL-3.0-or-later tag resolves to AGPL-3.0-only.)
   my $checkdep_checkout = 'checkdependencylab0000000000000001';
   my $checkdep_dir      = $checkouts->child('cavil-check-dependency-lab', $checkdep_checkout)->make_path;
   $checkdep_dir->child('agpl_file.txt')

@@ -42,7 +42,7 @@ OSADL Open Source License Compliance Checklists
 -----------------------------------------------
 Source:  https://www.osadl.org/fileadmin/checklists/matrixseqexpl.json
          https://www.osadl.org/checklists
-Bundled: lib/Cavil/resources/license_incompatibilities.json
+Bundled: lib/Cavil/resources/license_compatibility.json
 License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
          https://creativecommons.org/licenses/by/4.0/
 Credit:  (c) 2017-2024 Open Source Automation Development Lab (OSADL) eG and
@@ -52,11 +52,11 @@ Credit:  (c) 2017-2024 Open Source Automation Development Lab (OSADL) eG and
          For further information about the project see the description at
          www.osadl.org/checklists.
 
-Cavil uses the OSADL license compatibility matrix to detect incompatible license
-combinations and surface them in legal reports. OSADL's own explanations are shown
-where they are substantive; for a few common license families Cavil substitutes its
-own advisory wording to make the problem easier to spot. Use of this data is subject
-to the CC-BY-4.0 attribution terms.
+Cavil bundles the OSADL license compatibility matrix and presents it, per package,
+as OSADL's own sub-matrix for the licenses that package contains. The directional
+verdicts and their explanations are shown verbatim; Cavil does not reinterpret,
+collapse or rewrite them. Use of this data is subject to the CC-BY-4.0 attribution
+terms.
 
 Please note that OSADL describes this data as work in progress and provides it
 without any warranty as to correctness, usefulness, merchantability or fitness

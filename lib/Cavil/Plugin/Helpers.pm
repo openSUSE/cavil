@@ -175,20 +175,19 @@ sub _report_details ($c, $pkg, $report) {
   }
 
   return {
-    package => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
-    chart   => $chart,
-    incompatible_licenses       => $report->{incompatible_licenses}       // [],
-    incompatible_license_groups => $report->{incompatible_license_groups} // [],
-    missed_files                => \@missed,
-    risks                       => \%risk_buckets,
-    max_files_per_license       => $max,
-    max_expanded_files          => $expand_limit,
-    hidden_inline_previews      => $hidden_inline,
-    matching_globs              => $report->{matching_globs} // [],
-    files                       => \@files,
-    emails                      => $report->{emails} // [],
-    urls                        => $report->{urls}   // [],
-    components                  => \@components
+    package               => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
+    chart                 => $chart,
+    license_compatibility => $report->{license_compatibility} // {licenses => [], matrix => {}},
+    missed_files          => \@missed,
+    risks                 => \%risk_buckets,
+    max_files_per_license => $max,
+    max_expanded_files    => $expand_limit,
+    hidden_inline_previews => $hidden_inline,
+    matching_globs         => $report->{matching_globs} // [],
+    files                  => \@files,
+    emails                 => $report->{emails} // [],
+    urls                   => $report->{urls}   // [],
+    components             => \@components
   };
 }
 
