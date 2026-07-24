@@ -212,12 +212,12 @@ export default {
 .license-matrix-colhead.is-selected.axis-check,
 .license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-index,
 .license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-name {
-  color: #9a6700;
+  color: #7d4e00;
 }
 .license-matrix-colhead.is-selected.axis-unknown,
 .license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-index,
 .license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-name {
-  color: #57606a;
+  color: #24292f;
 }
 .license-matrix-rowhead {
   background: #fff;
