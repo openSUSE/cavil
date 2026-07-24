@@ -27,7 +27,13 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       t.ok(names.includes('GPL-2.0-only'), 'GPL-2.0-only is on the axis');
 
       t.ok((await matrix.locator('td.license-matrix-cell.cell-no').count()) > 0, 'grid has at least one "No" cell');
-      t.equal(await matrix.locator('.license-matrix-legend-item').count(), 4, 'legend lists the four verdict kinds');
+      t.equal(await matrix.locator('.license-matrix-legend-item').count(), 5, 'legend lists the verdict kinds');
+
+      // Apache-2.0 and GPL-2.0-only are "No" in both directions, so their cells get the mutual tile.
+      t.ok(
+        (await matrix.locator('td.license-matrix-cell.cell-no.is-mutual').count()) > 0,
+        'both-direction conflicts are marked as mutual (filled tile)'
+      );
     });
 
     await t.test('clicking a flagged cell docks the verbatim OSADL explanation', async t => {

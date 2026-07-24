@@ -4,20 +4,31 @@
       <h3>License compatibility</h3>
       <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
         <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no"></i> Incompatible</span>
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-check"></i> Check dependency</span>
+        <span class="license-matrix-legend-item"
+          ><i class="license-matrix-swatch swatch-mutual"></i> Both directions</span
+        >
+        <span class="license-matrix-legend-item"
+          ><i class="license-matrix-swatch cell-check"></i> Check dependency</span
+        >
         <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown"></i> Unknown</span>
         <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
       </div>
     </header>
 
     <div class="license-matrix-body">
+      <div v-if="canShrink" class="license-matrix-controls">
+        <button type="button" class="license-matrix-toggle" @click="showAll = !showAll">
+          {{ showAll ? `Show conflicts only (${conflictLicenses.length})` : `Show all licenses (${licenses.length})` }}
+        </button>
+      </div>
+
       <div class="license-matrix-grid-wrap">
         <table class="license-matrix-grid">
           <thead>
             <tr>
               <th class="license-matrix-corner" scope="col"></th>
               <th
-                v-for="(name, j) in licenses"
+                v-for="(name, j) in visibleLicenses"
                 :key="name"
                 scope="col"
                 class="license-matrix-colhead"
@@ -29,16 +40,16 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, i) in licenses" :key="row">
+            <tr v-for="(row, i) in visibleLicenses" :key="row">
               <th scope="row" class="license-matrix-rowhead" :class="selectedAxisClass('outbound', row)">
                 <span class="license-matrix-rowhead-index">{{ i + 1 }}</span>
                 <span class="license-matrix-rowhead-name">{{ row }}</span>
               </th>
               <td
-                v-for="col in licenses"
+                v-for="col in visibleLicenses"
                 :key="col"
                 class="license-matrix-cell"
-                :class="[cellClass(row, col), {'is-active': isActive(row, col)}]"
+                :class="[cellClass(row, col), {'is-active': isActive(row, col), 'is-mutual': isMutual(row, col)}]"
                 :title="cellTitle(row, col)"
                 :aria-label="cellTitle(row, col)"
                 @click="selectCell(row, col)"
@@ -87,11 +98,45 @@ export default {
     matrix: {type: Object, default: () => ({})}
   },
   data() {
-    return {selected: null};
+    return {selected: null, showAll: false};
+  },
+  created() {
+    // Default to the focused (conflicts-only) view for large matrices; show everything when the grid
+    // is small or when there are no both-way conflicts to focus on.
+    this.showAll = this.conflictLicenses.length === 0 || this.licenses.length <= 12;
+  },
+  computed: {
+    // Licenses that take part in at least one "No in both directions" pair - the genuinely
+    // unshippable-either-way conflicts. Original license order is preserved.
+    conflictLicenses() {
+      const set = new Set();
+      for (const a of this.licenses) {
+        for (const b of this.licenses) {
+          if (a >= b) continue;
+          if (this.isMutual(a, b)) {
+            set.add(a);
+            set.add(b);
+          }
+        }
+      }
+      return this.licenses.filter(l => set.has(l));
+    },
+    visibleLicenses() {
+      return this.showAll ? this.licenses : this.conflictLicenses;
+    },
+    // Only offer the toggle when it would actually change the view.
+    canShrink() {
+      return this.conflictLicenses.length > 0 && this.conflictLicenses.length < this.licenses.length;
+    }
   },
   methods: {
     cell(outbound, inbound) {
       return this.matrix?.[outbound]?.[inbound] ?? null;
+    },
+    isMutual(outbound, inbound) {
+      return (
+        this.cell(outbound, inbound)?.compatibility === 'No' && this.cell(inbound, outbound)?.compatibility === 'No'
+      );
     },
     cellClass(outbound, inbound) {
       if (outbound === inbound) return 'cell-self';
@@ -311,6 +356,12 @@ export default {
   transform: translate(-50%, -50%);
   width: 0.25rem;
 }
+/* Both-directions "No": fill the square behind the ring so the mutually-incompatible pairs
+   (symmetric across the diagonal) read as connected tiles, distinct from one-directional rings. */
+.license-matrix-cell.cell-no.is-mutual {
+  background: #ffebe9;
+  border-color: #ffcecb;
+}
 .license-matrix-cell.cell-no .license-matrix-mark {
   background: #ffffff;
   border-color: #a40e26;
@@ -421,6 +472,30 @@ export default {
   content: '';
   height: 0.25rem;
   width: 0.25rem;
+}
+.license-matrix-swatch.swatch-mutual {
+  background: #ffebe9;
+  border: 1px solid #ffcecb;
+  border-radius: 3px;
+}
+
+.license-matrix-controls {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 0.5rem;
+}
+.license-matrix-toggle {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  color: #1f2328;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0.2rem 0.6rem;
+}
+.license-matrix-toggle:hover {
+  background: #eef1f4;
 }
 
 .license-matrix-detail {
