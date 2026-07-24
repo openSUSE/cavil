@@ -52,18 +52,6 @@
           </tbody>
         </table>
       </div>
-
-      <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no"></i> Incompatible</span>
-        <span class="license-matrix-legend-item"
-          ><i class="license-matrix-swatch swatch-mutual"></i> Both directions</span
-        >
-        <span class="license-matrix-legend-item"
-          ><i class="license-matrix-swatch cell-check"></i> Check dependency</span
-        >
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown"></i> Unknown</span>
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
-      </div>
     </div>
 
     <div v-if="selected" class="license-matrix-detail">
@@ -90,6 +78,16 @@
         <span class="license-matrix-detail-label">OSADL verdict</span>
       </div>
       <p class="license-matrix-detail-body">{{ selected.explanation }}</p>
+    </div>
+
+    <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no"></i> Incompatible</span>
+      <span class="license-matrix-legend-item"
+        ><i class="license-matrix-swatch swatch-mutual"></i> Both directions</span
+      >
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-check"></i> Check dependency</span>
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown"></i> Unknown</span>
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
     </div>
   </section>
 </template>
@@ -463,25 +461,23 @@ export default {
   transform: scale(1.3);
 }
 
+/* A quiet reference footer, parked below the explanation so it stays out of the matrix<->explanation
+   eye path. Muted swatch + text, no chip chrome, so it recedes rather than competing for attention. */
 .license-matrix-legend {
-  color: #57606a;
+  align-items: center;
+  border-top: 1px solid #eaeef2;
+  color: #6e7781;
   display: flex;
   flex-wrap: wrap;
   font-size: 11px;
   font-weight: 500;
-  gap: 0.4rem;
-  margin-top: 0.85rem;
-  padding-top: 0.85rem;
+  gap: 0.9rem;
+  padding: 0.6rem 1rem;
 }
-/* Each verdict is a rounded chip (Primer Label style) rather than a bare swatch + text. */
 .license-matrix-legend-item {
   align-items: center;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
-  border-radius: 999px;
   display: inline-flex;
   gap: 0.35rem;
-  padding: 0.15rem 0.55rem 0.15rem 0.45rem;
   white-space: nowrap;
 }
 .license-matrix-swatch {
