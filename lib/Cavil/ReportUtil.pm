@@ -20,14 +20,15 @@ use Mojo::Base -strict, -signatures;
 use Exporter 'import';
 use List::Util qw(uniq);
 use Mojo::File qw(path);
-use Mojo::JSON qw(from_json);
+use Mojo::JSON qw(decode_json from_json);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities is_license_filename license_compatibility minimal_snippet),
-  qw(new_license_names new_unresolved_files overlapping_licenses report_checksum report_shortname),
+  qw(license_obligations license_obligation_ids new_license_names new_unresolved_files),
+  qw(overlapping_licenses report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
 );
@@ -42,6 +43,50 @@ use constant PAD_WORDS => 5;
 sub _compatibility_matrix () {
   state $matrix = from_json(path(__FILE__)->dirname->child('resources', 'license_compatibility.json')->slurp)->{matrix};
   return $matrix;
+}
+
+# The OSADL obligation dataset (CC-BY-4.0, see the NOTICE file), bundled and refreshed via
+# tools/update_licenses.pl alongside the compatibility matrix. Per-license obligation checklists
+# grouped by delivery use case, plus copyleft and source-code-disclosure classifications, keyed by
+# SPDX identifier. The file's {source, timestamp} keys record provenance (see the NOTICE file); only
+# the "licenses" map is consumed here. The file contains non-ASCII text (e.g. the copyright sign), so
+# it is read with decode_json. Cached on first use.
+sub _obligations_data () {
+  state $data = decode_json(path(__FILE__)->dirname->child('resources', 'license_obligations.json')->slurp);
+  return $data;
+}
+
+# Strip "GPL... WITH Classpath-exception-2.0" fragments from an SPDX string before its identifiers are
+# extracted. The Classpath exception exists specifically to permit combining GPL code with otherwise-
+# incompatible licenses (typically Apache-2.0 Java libraries), so it must not contribute a bare GPL
+# identifier. Shared by _present_licenses (compatibility) and license_obligation_ids (obligations).
+sub _strip_classpath_exception ($string) {
+  $string =~ s/\b(?:A|L)?GPL-[\d.]+(?:-only|-or-later|\+)?\s+WITH\s+Classpath-exception-2\.0\b//gi;
+  return $string;
+}
+
+# The ordered, de-duplicated OSADL-known SPDX identifiers named in one license-list entry, which may be
+# a compound expression ("MIT OR BSD-3-Clause"). Decomposition mirrors the compatibility matrix
+# (_present_licenses): the Classpath exception is stripped first, then extract_spdx_identifiers pulls out
+# the individual identifiers. OR and AND are treated alike - every constituent's obligations are offered
+# - and identifiers OSADL has no entry for are dropped.
+sub license_obligation_ids ($name, $data = undef) {
+  $data //= _obligations_data();
+  return [] unless defined $name;
+  my $licenses = $data->{licenses} // {};
+  my @ids      = @{extract_spdx_identifiers(_strip_classpath_exception($name))};
+  return [uniq grep { $licenses->{$_} } @ids];
+}
+
+# The OSADL obligation entries (verbatim) for the identifiers in one license-list entry, in expression
+# order. Each element is {license, patent_hints, copyleft, source_disclosure, use_cases} (only the keys
+# OSADL provides for that license). Returns an empty list when OSADL covers none of the identifiers, so
+# the report can omit the panel entirely. Obligations are purely informational: like the compatibility
+# matrix they never feed report_checksum, report_shortname or summary_delta.
+sub license_obligations ($name, $data = undef) {
+  $data //= _obligations_data();
+  my $licenses = $data->{licenses} // {};
+  return [map { {license => $_, %{$licenses->{$_}}} } @{license_obligation_ids($name, $data)}];
 }
 
 sub estimated_risk ($risk, $match) {
@@ -170,15 +215,14 @@ sub is_license_filename ($path) {
 }
 
 # The set of individual SPDX license identifiers actually present in a package's digest report,
-# gathered from the licensed matches and the keyword-matched files. Compound expressions are reduced
-# to their individual identifiers. The Classpath exception was created specifically to permit combining
-# GPL code with otherwise-incompatible licenses (typically Apache-2.0 Java libraries), so
-# "GPL... WITH Classpath-exception-2.0" fragments are stripped before extraction.
+# gathered from the licensed matches and the keyword-matched files. Compound expressions are reduced to
+# their individual identifiers, with the Classpath exception stripped first (see
+# _strip_classpath_exception).
 sub _present_licenses ($dig_report) {
   my @spdx;
   push @spdx, map { $_->{spdx} } grep { $_->{spdx} } values %{$dig_report->{licenses}  || {}};
   push @spdx, map { $_->[3] } grep    { $_->[3] } values %{$dig_report->{missed_files} || {}};
-  s/\b(?:A|L)?GPL-[\d.]+(?:-only|-or-later|\+)?\s+WITH\s+Classpath-exception-2\.0\b//gi for @spdx;
+  @spdx = map { _strip_classpath_exception($_) } @spdx;
 
   my %present;
   $present{$_}++ for map { @{extract_spdx_identifiers($_)} } @spdx;

@@ -179,6 +179,7 @@
                     {{ licenseFlagLabel(flag) }}
                   </span>
                 </div>
+                <LicenseObligations v-if="lic.obligations && lic.obligations.length > 0" :entries="lic.obligations" />
                 <div :id="lic.list_id" :class="lic.list_class">
                   <ul class="risk-file-list">
                     <li v-for="file in lic.shown_files" :key="file[0]">
@@ -447,6 +448,7 @@ import GlobProposalModal from './GlobProposalModal.vue';
 import LegalLoading from './LegalLoading.vue';
 import LicenseCompatibilityMatrix from './LicenseCompatibilityMatrix.vue';
 import LicenseCompositionChart from './LicenseCompositionChart.vue';
+import LicenseObligations from './LicenseObligations.vue';
 import PendingActionsWidget from './PendingActionsWidget.vue';
 import ProgressBar from './ProgressBar.vue';
 import ReportNotes from './ReportNotes.vue';
@@ -468,6 +470,7 @@ export default {
     LegalLoading,
     LicenseCompatibilityMatrix,
     LicenseCompositionChart,
+    LicenseObligations,
     PendingActionsWidget,
     ProgressBar,
     ReportNotes
@@ -678,9 +681,6 @@ export default {
       if (r <= 4) return 'text-bg-success';
       if (r === 5) return 'text-bg-warning';
       return 'text-bg-danger';
-    },
-    spdxLicenseUrl(name) {
-      return `https://spdx.org/licenses/${encodeURIComponent(name)}.html`;
     },
     refreshData(data) {
       if (data.obsolete) this.packageObsolete = true;
@@ -1330,6 +1330,14 @@ export default {
   line-height: 1;
   padding: 0.3rem 0.55rem;
   white-space: nowrap;
+}
+/* Divider between an expanded obligations panel and a visible file list. Requires BOTH the obligations
+   to be open (.is-open) and the list to be shown, and lives on the file list so it disappears with
+   either - no leftover rule when obligations are collapsed or the list is hidden. */
+.license-obligations.is-open + .collapse.show {
+  border-top: 1px solid #d8dee4;
+  margin: 0.5rem -1rem 0;
+  padding: 0.55rem 1rem 0;
 }
 .risk-file-list {
   border-left: 1px solid #d0d7de;

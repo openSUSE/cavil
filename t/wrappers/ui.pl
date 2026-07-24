@@ -45,6 +45,7 @@ elsif ($fixtures eq 'snippet_triage')  { $cavil_test->snippet_triage_fixtures($a
 elsif ($fixtures eq 'snippet_overlap') { $cavil_test->snippet_overlap_fixtures($app) }
 elsif ($fixtures eq 'report_notice')   { $cavil_test->report_notice_fixtures($app) }
 elsif ($fixtures eq 'compatibility')   { $cavil_test->compatibility_fixtures($app) }
+elsif ($fixtures eq 'obligations')     { $cavil_test->obligations_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }
 my %report_state_original;
 

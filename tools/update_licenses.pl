@@ -2,9 +2,9 @@
 use Mojo::Base -strict, -signatures;
 
 use Mojo::File qw(curfile);
-use Mojo::JSON qw(from_json to_json);
+use Mojo::JSON qw(decode_json encode_json from_json to_json);
 use Mojo::UserAgent;
-use Mojo::Util qw(html_unescape);
+use Mojo::Util qw(html_unescape trim);
 
 my $LICENSE_URL   = 'https://spdx.org/licenses/';
 my $EXCEPTION_URL = 'https://spdx.org/licenses/exceptions-index.html';
@@ -12,12 +12,13 @@ my $CHANGES_URL = 'https://raw.githubusercontent.com/openSUSE/obs-service-format
 my $SCANCODE_URL = 'https://scancode-licensedb.aboutcode.org/index.json';
 my $OSADL_URL    = 'https://www.osadl.org/fileadmin/checklists/matrixseqexpl.json';
 
-my $dir            = curfile->dirname->dirname->child('lib', 'Cavil', 'resources');
-my $license_file   = $dir->child('license_list.txt');
-my $exception_file = $dir->child('license_exceptions.txt');
-my $changes_file   = $dir->child('license_changes.txt');
-my $scancode_file  = $dir->child('license_list_scancode.txt');
-my $osadl_file     = $dir->child('license_compatibility.json');
+my $dir              = curfile->dirname->dirname->child('lib', 'Cavil', 'resources');
+my $license_file     = $dir->child('license_list.txt');
+my $exception_file   = $dir->child('license_exceptions.txt');
+my $changes_file     = $dir->child('license_changes.txt');
+my $scancode_file    = $dir->child('license_list_scancode.txt');
+my $osadl_file       = $dir->child('license_compatibility.json');
+my $obligations_file = $dir->child('license_obligations.json');
 
 my $ua = Mojo::UserAgent->new;
 
@@ -81,3 +82,43 @@ for my $outbound (@{$osadl->{licenses}}) {
 }
 $osadl_file->spew(to_json({source => $OSADL_URL, timestamp => $osadl->{timestamp}, matrix => \%matrix}) . "\n");
 say qq(Updated $cells OSADL compatibility cells in "$osadl_file");
+
+# OSADL obligation checklists plus the copyleft and source-code-disclosure classifications. Same
+# CC-BY-4.0 data and attribution as the compatibility matrix (see the NOTICE file), refreshed here
+# alongside it. OSADL publishes one obligation checklist per license, grouped by delivery use case
+# ("Source code delivery" / "Binary delivery") with nested "IF" conditions, "YOU MUST"/"YOU MUST NOT"
+# obligations and "EITHER"/"OR" alternatives, plus small copyleft and source-disclosure tables. We
+# bundle the checklists verbatim and fold in the two classifications, so Cavil can present OSADL's own
+# obligation view per license - with room for other sources later, exactly like the compatibility
+# matrix. Everything is keyed by SPDX identifier.
+my $osadl_checklists = 'https://www.osadl.org/fileadmin/checklists';
+
+# OSADL escapes non-ASCII (e.g. the copyright sign as ©), so read the fetched bodies with
+# decode_json (UTF-8 bytes -> characters) and write the bundle with encode_json (characters ->
+# UTF-8 bytes); using from_json/to_json here would emit lone Latin-1 bytes for those characters.
+my $copyleft       = decode_json($ua->get("$osadl_checklists/copyleft.json")->result->body)->{copyleft}           // {};
+my $disclosure     = decode_json($ua->get("$osadl_checklists/sourcedisclosure.json")->result->body)->{disclosure} // {};
+my $obligations_ts = trim($ua->get("$osadl_checklists/timestamp")->result->text);
+
+# One optimized checklist file per license; the list file holds their URLs, one per line.
+my %obligations;
+my $opt_list = $ua->get("$osadl_checklists/all/jsonlicenses-opt.txt")->result->text;
+for my $url (split "\n", $opt_list) {
+  $url = trim($url);
+  next unless $url =~ m!/([^/]+)-opt\.json$!;
+  my $name  = $1;
+  my $entry = decode_json($ua->get($url)->result->body)->{$name} or next;
+  $obligations{$name} = {patent_hints => $entry->{'PATENT HINTS'}, use_cases => $entry->{'USE CASE'} // {}};
+}
+
+# Fold in copyleft / source-disclosure for every license either table knows about, even the few that
+# have no full checklist, so all the verified information OSADL provides is bundled.
+for my $name (keys %$copyleft, keys %$disclosure) {
+  my $entry = $obligations{$name} //= {};
+  $entry->{copyleft}          = $copyleft->{$name}   if defined $copyleft->{$name};
+  $entry->{source_disclosure} = $disclosure->{$name} if defined $disclosure->{$name};
+}
+
+$obligations_file->spew(
+  encode_json({source => "$osadl_checklists/", timestamp => $obligations_ts, licenses => \%obligations}) . "\n");
+say qq(Updated @{[scalar keys %obligations]} OSADL obligation checklists in "$obligations_file");

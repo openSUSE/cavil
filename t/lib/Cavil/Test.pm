@@ -784,6 +784,62 @@ SPEC
   return $pkg_id;
 }
 
+sub obligations_fixtures ($self, $app) {
+  $app->pg->migrations->migrate;
+
+  my $pkgs   = $app->packages;
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+
+  # Apache-2.0 has a rich OSADL obligation checklist (two delivery use cases, YOU MUST / YOU MUST NOT,
+  # patent hints); the expression "MIT OR BSD-3-Clause" exercises per-constituent decomposition, so the
+  # obligations panel shows one section per named license.
+  $app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',          license => 'Apache-2.0');
+  $app->patterns->create(pattern => 'SPDX-License-Identifier: MIT OR BSD-3-Clause', license => 'MIT OR BSD-3-Clause');
+  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?)',
+    'Apache-2.0', 'MIT OR BSD-3-Clause');
+
+  my $name = 'license-obligations';
+  my $md5  = 'd0000000000000000000000000000001';
+  my $dir  = $self->checkout_dir->child($name, $md5)->make_path;
+  $dir->child("$name.spec")->spew(<<"SPEC");
+Name:           $name
+Version:        1.0
+Release:        0
+Summary:        Synthetic package for obligation checklist UI testing
+License:        Apache-2.0
+Group:          Development/Libraries/Perl
+Source0:        $name-1.0.tar.gz
+BuildArch:      noarch
+
+%description
+Synthetic package pairing Apache-2.0 with a "MIT OR BSD-3-Clause" expression for the obligations panel.
+SPEC
+
+  my $stage = tempdir;
+  my $src   = $stage->child("$name-1.0")->make_path;
+  $src->child('apache_file.txt')->spew("# SPDX-License-Identifier: Apache-2.0\n\nA permissively licensed helper.\n");
+  $src->child('expr_file.txt')
+    ->spew("# SPDX-License-Identifier: MIT OR BSD-3-Clause\n\nEither license may be chosen.\n");
+  my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
+  system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
+    or die "Failed to create synthetic tarball: $?";
+
+  my $pkg_id = $pkgs->add(
+    name            => $name,
+    checkout_dir    => $md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => $name,
+    srcmd5          => $md5,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  $pkgs->unpack($pkg_id);
+  $app->minion->perform_jobs;
+  return $pkg_id;
+}
+
 sub unpack_fixtures ($self, $app) {
   $self->no_fixtures($app);
 

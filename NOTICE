@@ -62,3 +62,32 @@ Please note that OSADL describes this data as work in progress and provides it
 without any warranty as to correctness, usefulness, merchantability or fitness
 for a particular purpose. Cavil surfaces it as advisory guidance only; it does
 not constitute legal advice.
+
+
+OSADL Open Source License Obligations Checklists
+------------------------------------------------
+Source:  https://www.osadl.org/fileadmin/checklists/all/jsonlicenses-opt.txt
+         https://www.osadl.org/fileadmin/checklists/copyleft.json
+         https://www.osadl.org/fileadmin/checklists/sourcedisclosure.json
+         https://www.osadl.org/checklists
+Bundled: lib/Cavil/resources/license_obligations.json
+License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
+         https://creativecommons.org/licenses/by/4.0/
+Credit:  (c) 2017-2024 Open Source Automation Development Lab (OSADL) eG and
+         contributors.
+
+         A project by the Open Source Automation Development Lab (OSADL) eG.
+         For further information about the project see the description at
+         www.osadl.org/checklists.
+
+Cavil bundles the OSADL per-license obligation checklists (the obligations for using
+a license, grouped by delivery use case) together with OSADL's copyleft and source-
+code-disclosure classifications, and presents them, per license in a package, as
+OSADL's own checklist for that license. The obligations are shown verbatim; Cavil
+does not reinterpret, collapse or rewrite them. Use of this data is subject to the
+CC-BY-4.0 attribution terms.
+
+Please note that OSADL describes this data as work in progress and provides it
+without any warranty as to correctness, usefulness, merchantability or fitness
+for a particular purpose. Cavil surfaces it as advisory guidance only; it does
+not constitute legal advice.

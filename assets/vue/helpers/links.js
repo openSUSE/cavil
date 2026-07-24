@@ -40,6 +40,10 @@ export function productLink(product) {
   return `<a href='/products/${name}' target='_blank' rel='noopener'>${name}</a>`;
 }
 
+export function spdxLicenseUrl(name) {
+  return `https://spdx.org/licenses/${encodeURIComponent(name)}.html`;
+}
+
 export function reportLink(review) {
   const id = review.id;
   if (!review.imported_epoch) return progressLink(review, 'not yet imported');

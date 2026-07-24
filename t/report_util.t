@@ -20,7 +20,8 @@ use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
   qw(estimated_risk hard_incompatibilities is_license_filename license_compatibility minimal_snippet),
-  qw(new_license_names new_unresolved_files overlapping_licenses report_checksum report_shortname),
+  qw(license_obligations license_obligation_ids new_license_names new_unresolved_files),
+  qw(overlapping_licenses report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
 );
@@ -234,6 +235,34 @@ subtest 'hard_incompatibilities' => sub {
   # so it is NOT a hard incompatibility.
   is_deeply hard_incompatibilities($compat), [['Apache-2.0', 'GPL-2.0-only'], ['GPL-2.0-only', 'GPL-3.0-only']],
     'mutual No pairs only, sorted; one-directional No excluded';
+};
+
+subtest 'license_obligation_ids' => sub {
+  is_deeply license_obligation_ids('Apache-2.0'), ['Apache-2.0'], 'plain identifier';
+  is_deeply license_obligation_ids('MIT OR BSD-3-Clause'), ['MIT', 'BSD-3-Clause'],
+    'expression decomposes to constituents in order';
+  is_deeply license_obligation_ids('Apache-2.0 AND Apache-2.0'), ['Apache-2.0'], 'de-duplicated';
+
+  # The Classpath exception is stripped before extraction (mirrors the compatibility matrix).
+  is_deeply license_obligation_ids('GPL-2.0-or-later WITH Classpath-exception-2.0'), [],
+    'GPL-with-Classpath yields nothing';
+
+  is_deeply license_obligation_ids('LicenseRef-not-in-osadl'), [], 'unknown identifiers dropped';
+  is_deeply license_obligation_ids(undef),                     [], 'undef is safe';
+};
+
+subtest 'license_obligations' => sub {
+  my $obl = license_obligations('MIT OR BSD-3-Clause');
+  is scalar(@$obl),      2,              'one entry per constituent';
+  is $obl->[0]{license}, 'MIT',          'first entry is MIT';
+  is $obl->[1]{license}, 'BSD-3-Clause', 'second entry is BSD-3-Clause';
+  ok exists $obl->[0]{use_cases}, 'entry carries the verbatim use-case tree';
+
+  my $apache = license_obligations('Apache-2.0');
+  is scalar(@$apache),           1,     'single identifier -> single entry';
+  is $apache->[0]{patent_hints}, 'Yes', 'Apache-2.0 patent hints carried verbatim';
+
+  is_deeply license_obligations('LicenseRef-not-in-osadl'), [], 'no data -> empty (panel omitted)';
 };
 
 subtest 'minimal_snippet' => sub {

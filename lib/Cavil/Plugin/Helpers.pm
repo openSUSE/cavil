@@ -4,14 +4,15 @@
 package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::Licenses qw(lic);
-use Cavil::Role     qw(roles_with_capability);
-use Cavil::Util     qw(external_link_data spdx_link);
-use CommonMark      ();
-use Mojo::File      qw(path);
-use Mojo::JSON      qw(from_json);
-use Mojo::Util      qw(decode humanize_bytes xml_escape);
-use List::Util      qw(first uniq);
+use Cavil::Licenses   qw(lic);
+use Cavil::ReportUtil qw(license_obligations);
+use Cavil::Role       qw(roles_with_capability);
+use Cavil::Util       qw(external_link_data spdx_link);
+use CommonMark        ();
+use Mojo::File        qw(path);
+use Mojo::JSON        qw(from_json);
+use Mojo::Util        qw(decode humanize_bytes xml_escape);
+use List::Util        qw(first uniq);
 
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                    => \&_chart_data);
@@ -130,15 +131,19 @@ sub _report_details ($c, $pkg, $report) {
     for my $lic (sort keys %$bucket) {
       my $matches = $bucket->{$lic};
       my $display = $matches->{spdx} || $matches->{name};
-      push @licenses,
-        {
+      push @licenses, {
         name      => $matches->{name},
         spdx      => $matches->{spdx},
         name_html => spdx_link($display),
         flags     => $matches->{flags} // [],
         files     => $matches->{files},
+
+        # OSADL obligation checklists for each SPDX identifier named in this entry (verbatim, per
+        # constituent for expressions like "MIT OR BSD-3-Clause"). Empty when OSADL has no data, so the
+        # frontend simply omits the panel. Derived per request from the bundled dataset, not persisted.
+        obligations => license_obligations($display),
         ($new_license{$matches->{name}} ? (new => \1) : ())
-        };
+      };
     }
     $risk_buckets{$risk} = \@licenses;
   }
