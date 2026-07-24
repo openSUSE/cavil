@@ -202,6 +202,7 @@ export default {
 .license-matrix-card {
   border: 1px solid #d0d7de;
   border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(27, 31, 36, 0.08);
   min-width: 0;
   overflow: hidden;
 }
@@ -248,6 +249,7 @@ export default {
   min-width: 1.5rem;
   padding: 0.15rem 0.2rem;
   text-align: center;
+  vertical-align: middle;
 }
 .license-matrix-colhead.is-selected.axis-no,
 .license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-index,
@@ -266,6 +268,7 @@ export default {
   padding: 0.15rem 0.85rem 0.15rem 0;
   position: sticky;
   text-align: left;
+  vertical-align: middle;
   white-space: nowrap;
   z-index: 1;
 }
@@ -286,27 +289,24 @@ export default {
 }
 
 .license-matrix-cell {
-  border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: 4px;
   font-size: 0;
-  height: 1.2rem;
-  line-height: 1.2rem;
-  min-width: 1.5rem;
+  height: 1.35rem;
+  min-width: 1.6rem;
   position: relative;
   text-align: center;
   vertical-align: middle;
 }
 .license-matrix-mark {
-  align-items: center;
-  border: 1px solid transparent;
   border-radius: 50%;
   display: inline-block;
-  font-size: 10px;
-  height: 1rem;
-  line-height: 1;
+  height: 0.7rem;
   position: relative;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
   vertical-align: middle;
-  width: 1rem;
+  width: 0.7rem;
 }
 /* Colour classes — shared by the grid cells and the legend swatches (colour only, no behaviour) */
 .cell-self {
@@ -332,50 +332,31 @@ export default {
   border-color: rgba(110, 119, 129, 0.25);
   color: #57606a;
 }
+/* In the grid the cell itself is a transparent tile; the colour lives in the dot (see below). The
+   colour classes above are reused as-is by the legend swatches. */
 .license-matrix-cell.cell-self,
 .license-matrix-cell.cell-yes,
 .license-matrix-cell.cell-no,
 .license-matrix-cell.cell-check,
 .license-matrix-cell.cell-unknown {
   background: transparent;
-  border-color: transparent;
 }
-.license-matrix-cell.cell-self .license-matrix-mark,
-.license-matrix-cell.cell-yes .license-matrix-mark {
-  opacity: 0.55;
-}
-.license-matrix-cell.cell-self .license-matrix-mark::before,
-.license-matrix-cell.cell-yes .license-matrix-mark::before {
-  background: #57606a;
-  border-radius: 50%;
-  content: '';
-  height: 0.25rem;
-  left: 50%;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 0.25rem;
-}
-/* Both-directions "No": fill the square behind the ring so the mutually-incompatible pairs
-   (symmetric across the diagonal) read as connected tiles, distinct from one-directional rings. */
+/* Compatible and self cells carry no mark at all - only problems get ink, so the grid stays calm. */
+
+/* Both-directions "No": fill the tile behind the dot so the mutually-incompatible pairs (symmetric
+   across the diagonal) read as connected blocks, distinct from one-directional dots. */
 .license-matrix-cell.cell-no.is-mutual {
-  background: #ffebe9;
-  border-color: #ffcecb;
+  background: #ffdcd8;
 }
+/* Solid, soft dots (no rings) - one calm mark per flagged relationship. */
 .license-matrix-cell.cell-no .license-matrix-mark {
-  background: #ffffff;
-  border-color: #a40e26;
-  border-width: 2px;
+  background: #e5484d;
 }
 .license-matrix-cell.cell-check .license-matrix-mark {
-  background: #ffffff;
-  border-color: #9a6700;
-  border-width: 2px;
+  background: #d4a72c;
 }
 .license-matrix-cell.cell-unknown .license-matrix-mark {
-  background: #ffffff;
-  border-color: #3d444d;
-  border-width: 2px;
+  background: #afb8c1;
 }
 
 /* Only the grid cells are interactive; the legend swatches reuse the colour classes above */
@@ -384,35 +365,17 @@ export default {
 .license-matrix-cell.cell-unknown {
   cursor: pointer;
 }
-.license-matrix-cell.cell-no:hover,
-.license-matrix-cell.cell-check:hover,
-.license-matrix-cell.cell-unknown:hover {
-  filter: brightness(0.95);
+.license-matrix-cell.cell-no:hover .license-matrix-mark,
+.license-matrix-cell.cell-check:hover .license-matrix-mark,
+.license-matrix-cell.cell-unknown:hover .license-matrix-mark {
+  transform: scale(1.2);
 }
-.license-matrix-cell.is-active {
-  border-color: transparent;
-}
+/* Selected cell: the dot lifts (grows + soft shadow with a white halo) like a tapped calendar day. */
 .license-matrix-cell.is-active .license-matrix-mark {
-  box-shadow: none;
-}
-.license-matrix-cell.is-active .license-matrix-mark::after {
-  border-radius: 50%;
-  content: '';
-  height: 0.4rem;
-  left: 50%;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 0.4rem;
-}
-.license-matrix-cell.cell-no.is-active .license-matrix-mark::after {
-  background: #cf222e;
-}
-.license-matrix-cell.cell-check.is-active .license-matrix-mark::after {
-  background: #9a6700;
-}
-.license-matrix-cell.cell-unknown.is-active .license-matrix-mark::after {
-  background: #57606a;
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 1px 3px rgba(27, 31, 36, 0.28);
+  transform: scale(1.3);
 }
 
 .license-matrix-legend {
@@ -437,45 +400,29 @@ export default {
   white-space: nowrap;
 }
 .license-matrix-swatch {
-  align-items: center;
-  border: 1px solid transparent;
   border-radius: 50%;
-  display: inline-flex;
-  font-size: 10px;
-  font-style: normal;
-  height: 1rem;
-  justify-content: center;
-  width: 1rem;
+  display: inline-block;
+  height: 0.7rem;
+  width: 0.7rem;
 }
+/* Solid dots, matching the grid marks. */
 .license-matrix-swatch.cell-no {
-  background: #ffffff;
-  border-color: #a40e26;
-  border-width: 2px;
+  background: #e5484d;
 }
 .license-matrix-swatch.cell-check {
-  background: #ffffff;
-  border-color: #9a6700;
-  border-width: 2px;
+  background: #d4a72c;
 }
 .license-matrix-swatch.cell-unknown {
-  background: #ffffff;
-  border-color: #3d444d;
-  border-width: 2px;
+  background: #afb8c1;
 }
+/* Compatible is drawn as empty space in the grid; show a faint outline here to say so. */
 .license-matrix-swatch.cell-yes {
-  position: relative;
-  opacity: 0.55;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #d0d7de;
 }
-.license-matrix-swatch.cell-yes::before {
-  background: #57606a;
-  border-radius: 50%;
-  content: '';
-  height: 0.25rem;
-  width: 0.25rem;
-}
+/* Both-directions: the filled tile behind the dot. */
 .license-matrix-swatch.swatch-mutual {
-  background: #ffebe9;
-  border: 1px solid #ffcecb;
+  background: #ffdcd8;
   border-radius: 3px;
 }
 
@@ -485,13 +432,16 @@ export default {
   padding-bottom: 0.5rem;
 }
 .license-matrix-toggle {
+  appearance: none;
   background: #f6f8fa;
   border: 1px solid #d0d7de;
   border-radius: 6px;
   color: #1f2328;
   cursor: pointer;
+  font: inherit;
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.4;
   padding: 0.2rem 0.6rem;
 }
 .license-matrix-toggle:hover {
