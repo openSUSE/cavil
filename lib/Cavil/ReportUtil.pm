@@ -59,23 +59,25 @@ sub _obligations_data () {
 # Strip "GPL... WITH Classpath-exception-2.0" fragments from an SPDX string before its identifiers are
 # extracted. The Classpath exception exists specifically to permit combining GPL code with otherwise-
 # incompatible licenses (typically Apache-2.0 Java libraries), so it must not contribute a bare GPL
-# identifier. Shared by _present_licenses (compatibility) and license_obligation_ids (obligations).
+# identifier to the compatibility check. Used by _present_licenses; obligations deliberately do NOT strip
+# it - an exception relaxes duties rather than removing the base license, so license_obligation_ids keeps
+# the base license and the UI flags the exception instead.
 sub _strip_classpath_exception ($string) {
   $string =~ s/\b(?:A|L)?GPL-[\d.]+(?:-only|-or-later|\+)?\s+WITH\s+Classpath-exception-2\.0\b//gi;
   return $string;
 }
 
-# The ordered, de-duplicated OSADL-known SPDX identifiers named in one license-list entry, which may be
-# a compound expression ("MIT OR BSD-3-Clause"). Decomposition mirrors the compatibility matrix
-# (_present_licenses): the Classpath exception is stripped first, then extract_spdx_identifiers pulls out
-# the individual identifiers. OR and AND are treated alike - every constituent's obligations are offered
-# - and identifiers OSADL has no entry for are dropped.
+# The ordered, de-duplicated OSADL-known SPDX identifiers named in one license-list entry, which may be a
+# compound expression ("MIT OR BSD-3-Clause") and/or carry a "WITH <exception>". extract_spdx_identifiers
+# pulls out the individual license identifiers (exceptions are not licenses, so they drop out here); OR
+# and AND are treated alike. Unlike the compatibility matrix, exceptions are NOT stripped: an exception
+# relaxes rather than removes the base license's duties, so the base obligations are shown and the UI
+# flags the exception (OSADL's checklists cover the base license only). Unknown identifiers are dropped.
 sub license_obligation_ids ($name, $data = undef) {
   $data //= _obligations_data();
   return [] unless defined $name;
   my $licenses = $data->{licenses} // {};
-  my @ids      = @{extract_spdx_identifiers(_strip_classpath_exception($name))};
-  return [uniq grep { $licenses->{$_} } @ids];
+  return [uniq grep { $licenses->{$_} } @{extract_spdx_identifiers($name)}];
 }
 
 # The OSADL obligation entries (verbatim) for the identifiers in one license-list entry, in expression

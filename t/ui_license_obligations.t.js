@@ -98,6 +98,27 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       t.ok((await body.locator('.lob-must').count()) > 0, 'its obligations are shown');
     });
 
+    await t.test('a WITH-exception license shows base obligations with an exception caveat', async t => {
+      // "GPL-2.0-or-later WITH Classpath-exception-2.0": OSADL has no exception-aware checklist, so the
+      // base license's obligations are shown and the panel caveats that the exception may modify them.
+      const excItem = page.locator('.risk-license-item', {hasText: 'Classpath-exception-2.0'});
+      await excItem.locator('.license-obligations-toggle').click();
+      const body = excItem.locator('.license-obligations-body');
+      await body.waitFor();
+
+      t.match(
+        await body.locator('.lob-caveat').innerText(),
+        /Classpath-exception-2\.0.*modify/su,
+        'a caveat names the exception and warns it may modify the obligations'
+      );
+      const names = await body.locator('.lob-license-name').allInnerTexts();
+      t.ok(
+        names.some(n => /GPL-2\.0-or-later/.test(n)),
+        'the base license GPL-2.0-or-later is named'
+      );
+      t.ok((await body.locator('.lob-must').count()) > 0, 'the base license obligations are shown');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     delete process.env.JS_UI_FIXTURES;

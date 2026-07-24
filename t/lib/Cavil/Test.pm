@@ -801,11 +801,19 @@ sub obligations_fixtures ($self, $app) {
     pattern => 'SPDX-License-Identifier: BSD-2-Clause AND Beerware',
     license => 'BSD-2-Clause AND Beerware'
   );
+
+  # A "WITH <exception>" license: obligations show the base license (GPL-2.0-or-later) and the panel flags
+  # the exception, since OSADL's checklist covers the base license only.
+  $app->patterns->create(
+    pattern => 'SPDX-License-Identifier: GPL-2.0-or-later WITH Classpath-exception-2.0',
+    license => 'GPL-2.0-or-later WITH Classpath-exception-2.0'
+  );
   $app->pg->db->query(
-    'UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?)',
+    'UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?, ?)',
     'Apache-2.0',
     'MIT OR BSD-3-Clause',
-    'BSD-2-Clause AND Beerware'
+    'BSD-2-Clause AND Beerware',
+    'GPL-2.0-or-later WITH Classpath-exception-2.0'
   );
 
   my $name = 'license-obligations';
@@ -832,6 +840,8 @@ SPEC
     ->spew("# SPDX-License-Identifier: MIT OR BSD-3-Clause\n\nEither license may be chosen.\n");
   $src->child('partial_file.txt')
     ->spew("# SPDX-License-Identifier: BSD-2-Clause AND Beerware\n\nOne constituent is unknown to OSADL.\n");
+  $src->child('exception_file.txt')
+    ->spew("# SPDX-License-Identifier: GPL-2.0-or-later WITH Classpath-exception-2.0\n\nBase plus an exception.\n");
   my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
   system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
     or die "Failed to create synthetic tarball: $?";

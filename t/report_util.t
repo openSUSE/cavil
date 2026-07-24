@@ -243,9 +243,12 @@ subtest 'license_obligation_ids' => sub {
     'expression decomposes to constituents in order';
   is_deeply license_obligation_ids('Apache-2.0 AND Apache-2.0'), ['Apache-2.0'], 'de-duplicated';
 
-  # The Classpath exception is stripped before extraction (mirrors the compatibility matrix).
-  is_deeply license_obligation_ids('GPL-2.0-or-later WITH Classpath-exception-2.0'), [],
-    'GPL-with-Classpath yields nothing';
+  # Exceptions are NOT stripped for obligations (unlike the compatibility matrix): the base license is
+  # kept so its obligations are shown, and the exception is flagged separately in the UI.
+  is_deeply license_obligation_ids('GPL-2.0-or-later WITH Classpath-exception-2.0'), ['GPL-2.0-or-later'],
+    'WITH exception keeps the base license (GPL + Classpath)';
+  is_deeply license_obligation_ids('Apache-2.0 WITH LLVM-exception'), ['Apache-2.0'],
+    'WITH exception keeps the base license (Apache + LLVM)';
 
   is_deeply license_obligation_ids('LicenseRef-not-in-osadl'), [], 'unknown identifiers dropped';
   is_deeply license_obligation_ids(undef),                     [], 'undef is safe';
