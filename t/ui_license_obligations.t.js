@@ -106,11 +106,9 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       const body = excItem.locator('.license-obligations-body');
       await body.waitFor();
 
-      t.match(
-        await body.locator('.lob-caveat').innerText(),
-        /Classpath-exception-2\.0.*modify/su,
-        'a caveat names the exception and warns it may modify the obligations'
-      );
+      const caveat = await body.locator('.lob-caveat').innerText();
+      t.match(caveat, /Classpath-exception-2\.0/, 'the caveat names the exception');
+      t.match(caveat, /modif/iu, 'the caveat warns the obligations may be modified');
       const names = await body.locator('.lob-license-name').allInnerTexts();
       t.ok(
         names.some(n => /GPL-2\.0-or-later/.test(n)),

@@ -14,7 +14,7 @@
       <span class="lob-source">OSADL</span>
       <p v-if="exceptions.length > 0" class="lob-caveat">
         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-        <span>{{ exceptionsLabel }} may modify these obligations; OSADL's checklist covers the base license only.</span>
+        <span>May be modified by {{ exceptionsLabel }}.</span>
       </p>
       <section v-for="lic in licenses" :key="lic.license" class="lob-license">
         <h5 v-if="showNames" class="lob-license-name">
@@ -112,9 +112,7 @@ export default {
       return [...new Set(matches)];
     },
     exceptionsLabel() {
-      return this.exceptions.length === 1
-        ? `The ${this.exceptions[0]}`
-        : `The exceptions ${this.exceptions.join(', ')}`;
+      return this.exceptions.join(', ');
     },
     // Everything the template needs, derived once. A computed is cached, so the recursive tree walk runs
     // a single time per data change instead of on every poll-driven re-render of the parent report.
@@ -307,12 +305,16 @@ export default {
   position: relative;
 }
 .lob-license {
-  border-top: 1px solid #eaeef2;
   padding: 0.7rem 1rem;
 }
+/* Separator only BETWEEN license sections (expressions) - never above the first one, which would draw a
+   stray line under the caveat / below the toggle. */
+.lob-license + .lob-license {
+  border-top: 1px solid #eaeef2;
+}
 
-/* Caveat for a "WITH exception" license: OSADL's checklist is base-license only and the exception
-   usually relaxes it. Muted amber - a caution, not a deep-red risk signal. */
+/* Caveat for a "WITH exception" license (base license shown; exception may relax it). Muted amber - a
+   caution, not a deep-red risk signal. Extra right margin keeps it clear of the OSADL corner label. */
 .lob-caveat {
   align-items: baseline;
   color: #6e5200;
@@ -320,15 +322,12 @@ export default {
   font-size: 12px;
   gap: 0.45rem;
   line-height: 1.4;
-  margin: 0.6rem 1rem 0;
+  margin: 0.6rem 4rem 0 1rem;
 }
 .lob-caveat i {
   color: #9a6700;
   flex: 0 0 auto;
   font-size: 11px;
-}
-.lob-license:first-child {
-  border-top: 0;
 }
 .lob-license-name {
   font-size: 13px;
