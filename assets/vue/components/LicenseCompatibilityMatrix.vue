@@ -16,14 +16,21 @@
           <thead>
             <tr>
               <th class="license-matrix-corner" scope="col"></th>
-              <th v-for="(name, j) in licenses" :key="name" scope="col" class="license-matrix-colhead" :title="name">
+              <th
+                v-for="(name, j) in licenses"
+                :key="name"
+                scope="col"
+                class="license-matrix-colhead"
+                :class="selectedAxisClass('inbound', name)"
+                :title="name"
+              >
                 {{ j + 1 }}
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(row, i) in licenses" :key="row">
-              <th scope="row" class="license-matrix-rowhead">
+              <th scope="row" class="license-matrix-rowhead" :class="selectedAxisClass('outbound', row)">
                 <span class="license-matrix-rowhead-index">{{ i + 1 }}</span>
                 <span class="license-matrix-rowhead-name">{{ row }}</span>
               </th>
@@ -118,6 +125,15 @@ export default {
     isActive(outbound, inbound) {
       return this.selected !== null && this.selected.outbound === outbound && this.selected.inbound === inbound;
     },
+    selectedAxisClass(axis, name) {
+      if (this.selected === null || this.selected[axis] !== name) return null;
+      return ['is-selected', this.verdictAxisClass(this.selected.compatibility)];
+    },
+    verdictAxisClass(compatibility) {
+      if (compatibility === 'No') return 'axis-no';
+      if (compatibility === 'Check dependency') return 'axis-check';
+      return 'axis-unknown';
+    },
     selectCell(outbound, inbound) {
       const cell = this.cell(outbound, inbound);
       if (outbound === inbound || cell === null) {
@@ -187,6 +203,21 @@ export default {
   min-width: 1.5rem;
   padding: 0.15rem 0.2rem;
   text-align: center;
+}
+.license-matrix-colhead.is-selected.axis-no,
+.license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-index,
+.license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-name {
+  color: #cf222e;
+}
+.license-matrix-colhead.is-selected.axis-check,
+.license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-index,
+.license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-name {
+  color: #9a6700;
+}
+.license-matrix-colhead.is-selected.axis-unknown,
+.license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-index,
+.license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-name {
+  color: #57606a;
 }
 .license-matrix-rowhead {
   background: #fff;
