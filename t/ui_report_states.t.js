@@ -96,6 +96,34 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
       t.equal(await page.locator('body').innerText(), 'ok');
     });
 
+    await t.test('Queued reindex keeps the previous report visible with a stale-report notice', async t => {
+      await page.goto(`${url}/reviews/details/1`);
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+      t.equal(await page.locator('[data-reindexing-notice]').count(), 0, 'no stale-report notice before reindexing');
+
+      // Click the real Reindex button, which enqueues an index job (left un-drained here) and reloads
+      // the page. Because indexing has not actually started, the previous report is still in the
+      // database, so the reviewer keeps seeing it - now flagged as being replaced.
+      await Promise.all([
+        page.waitForResponse(resp => /reindex/.test(resp.url()) && resp.request().method() === 'POST'),
+        page.click('#reindex_button')
+      ]);
+
+      await page.waitForSelector('#license-chart');
+      await page.waitForSelector('[data-reindexing-notice]');
+      t.ok(
+        await page.locator('[data-reindexing-notice]').evaluate(el => el.classList.contains('cavil-notice-panel')),
+        'stale-report notice uses CavilNoticePanel'
+      );
+      t.match(
+        await page.locator('[data-reindexing-notice]').innerText(),
+        /will be replaced/,
+        'reviewer is told the report will be replaced'
+      );
+      t.ok(await page.locator('#license-chart').count(), 'previous report stays visible while reindex is queued');
+    });
+
     t.test('Console errors', t => {
       assertNoUnexpectedConsoleErrors(t, errorLogs);
       t.end();

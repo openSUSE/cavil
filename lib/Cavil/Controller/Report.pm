@@ -45,20 +45,25 @@ sub details ($self) {
   return $self->render(json => {error => 'unknown package', stage => 1}, status => 408)
     unless my $pkg = $self->packages->find($id);
 
-  return $self->render(json => {error => 'package being processed', %{_stage_payload($pkg)}}, status => 408)
-    if $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+  # A reindex (or any other report-modifying job) is queued or running. We keep serving the
+  # existing report while such a job waits in the queue, so reviewers are not interrupted; the
+  # report is flagged as stale so the UI can warn that a fresh version is on the way. Once
+  # indexing actually starts, the old report data is cleared and we fall through to the progress
+  # bar below (there is no report left to show).
+  my $reindexing = $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total ? 1 : 0;
 
   my $report = $self->reports->sanitized_dig_report($id);
   return $self->render(json => {error => 'no report', obsolete => \1, report_unavailable => \1})
     if !$report && $pkg->{obsolete};
 
-  return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408) unless $pkg->{indexed};
-
-  unless ($report) {
-    return $self->render(json => {error => 'no report', %{_stage_payload($pkg)}}, status => 408);
+  if ($report && $pkg->{indexed}) {
+    my $details = $self->helpers->report_details($pkg, $report);
+    $details->{reindexing} = \1 if $reindexing;
+    return $self->render(json => $details);
   }
 
-  $self->render(json => $self->helpers->report_details($pkg, $report));
+  return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408) unless $pkg->{indexed};
+  return $self->render(json => {error => 'no report',   %{_stage_payload($pkg)}}, status => 408);
 }
 
 sub _stage_payload ($pkg) {

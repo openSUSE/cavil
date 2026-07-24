@@ -90,6 +90,18 @@
           <p class="cavil-notice-summary">No files matching any known license patterns or keywords have been found.</p>
         </CavilNoticePanel>
         <div v-else>
+          <CavilNoticePanel
+            v-if="reindexing"
+            title="Report update in progress"
+            tone="info"
+            icon="fa-solid fa-arrows-rotate"
+            data-reindexing-notice
+          >
+            <p class="cavil-notice-summary">
+              This package is being reindexed. The report below is the previous version and will be replaced
+              automatically once the new report is ready.
+            </p>
+          </CavilNoticePanel>
           <LicenseCompositionChart
             id="license-chart"
             :entries="licenseChartEntries"
@@ -503,6 +515,7 @@ export default {
       canPostLawyerOnly: false,
       packageObsolete: !!this.isObsolete,
       reportUnavailable: false,
+      reindexing: false,
       seekNoteId: null,
       refreshDelay: 5000,
       refreshUrl: `/reviews/report_details/${this.pkgId}`,
@@ -676,6 +689,7 @@ export default {
         this.stage = null;
         this.refreshDelay = 0;
         this.reportUnavailable = true;
+        this.reindexing = false;
         this.chart = null;
         this.licenseCompatibility = {licenses: [], matrix: {}};
         this.missedFiles = [];
@@ -694,12 +708,16 @@ export default {
         this.loading = true;
         this.stage = data.stage ?? null;
         this.refreshDelay = 5000;
+        this.reindexing = false;
         return;
       }
 
       this.loading = false;
-      this.refreshDelay = 0;
       this.reportUnavailable = false;
+      // Keep polling while a reindex is queued so the stale report is swapped for the fresh one
+      // automatically; otherwise a fully up-to-date report needs no further refreshes.
+      this.reindexing = !!data.reindexing;
+      this.refreshDelay = data.reindexing ? 5000 : 0;
       this.chart = data.chart;
       this.licenseCompatibility = data.license_compatibility ?? {licenses: [], matrix: {}};
       this.missedFiles = data.missed_files;

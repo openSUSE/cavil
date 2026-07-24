@@ -230,7 +230,11 @@ sub list_recent ($self) {
 sub list_reviews { }
 
 sub reindex_package ($self) {
-  return $self->reply->not_found unless $self->packages->reindex($self->stash('id'));
+
+  # A reviewer explicitly asked for this package to be reindexed and is waiting on the fresh report,
+  # so it must outrank routine incoming imports (priority 5). Otherwise the reindex queues behind the
+  # whole import backlog (Minion breaks priority ties FIFO) and the reviewer waits for unrelated work.
+  return $self->reply->not_found unless $self->packages->reindex($self->stash('id'), 6);
 
   return $self->render(json => {ok => 1});
 }

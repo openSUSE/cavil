@@ -135,8 +135,11 @@ sub batch_decision ($self) {
     }
   }
 
-  # Trigger reindex once per affected package, after all writes are done.
-  $self->packages->reindex($_, 3) for sort { $a <=> $b } keys %packages_to_reindex;
+  # Trigger reindex once per affected package, after all writes are done. The reviewer just created
+  # these patterns for the report they are looking at and is waiting on the refreshed result, so this
+  # outranks routine incoming imports (priority 5); Minion breaks priority ties FIFO, so a reindex at
+  # or below import priority would queue behind the entire import backlog.
+  $self->packages->reindex($_, 6) for sort { $a <=> $b } keys %packages_to_reindex;
 
   my $status = $worst_status == 200 ? 200 : $worst_status;
   $self->render(json => {ok => $status == 200 ? \1 : \0, results => \@results}, status => $status);
