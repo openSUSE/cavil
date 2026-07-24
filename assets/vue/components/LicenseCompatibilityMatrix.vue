@@ -206,18 +206,14 @@ export default {
 }
 .license-matrix-colhead.is-selected.axis-no,
 .license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-index,
-.license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-name {
-  color: #cf222e;
-}
+.license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-name,
 .license-matrix-colhead.is-selected.axis-check,
 .license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-index,
-.license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-name {
-  color: #7d4e00;
-}
+.license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-name,
 .license-matrix-colhead.is-selected.axis-unknown,
 .license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-index,
 .license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-name {
-  color: #24292f;
+  color: #cf222e;
 }
 .license-matrix-rowhead {
   background: #fff;

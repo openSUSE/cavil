@@ -38,8 +38,8 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       const detail = matrix.locator('.license-matrix-detail');
       await detail.waitFor();
 
-      t.equal(await matrix.locator('.license-matrix-rowhead.is-selected.axis-no').count(), 1, 'selected row label uses the verdict tone');
-      t.equal(await matrix.locator('.license-matrix-colhead.is-selected.axis-no').count(), 1, 'selected column number uses the verdict tone');
+      t.equal(await matrix.locator('.license-matrix-rowhead.is-selected.axis-no').count(), 1, 'selected row label is emphasized');
+      t.equal(await matrix.locator('.license-matrix-colhead.is-selected.axis-no').count(), 1, 'selected column number is emphasized');
 
       const bar = await detail.locator('.license-matrix-detail-bar').innerText();
       t.match(bar, /Apache-2\.0/, 'title bar names Apache-2.0');
