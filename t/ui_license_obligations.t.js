@@ -84,6 +84,20 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       );
     });
 
+    await t.test('an expression with an OSADL-unknown constituent still names the known one', async t => {
+      // "BSD-2-Clause AND Beerware": Beerware has no OSADL checklist, so only BSD-2-Clause resolves. The
+      // panel must still name BSD-2-Clause rather than show unattributed obligations under the expression.
+      const partialItem = page.locator('.risk-license-item', {hasText: 'BSD-2-Clause AND Beerware'});
+      await partialItem.locator('.license-obligations-toggle').click();
+      const body = partialItem.locator('.license-obligations-body');
+      await body.waitFor();
+
+      const names = await body.locator('.lob-license-name').allInnerTexts();
+      t.equal(names.length, 1, 'exactly one constituent is named');
+      t.match(names[0], /BSD-2-Clause/, 'the OSADL-known constituent (BSD-2-Clause) is named');
+      t.ok((await body.locator('.lob-must').count()) > 0, 'its obligations are shown');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     delete process.env.JS_UI_FIXTURES;

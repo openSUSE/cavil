@@ -179,7 +179,11 @@
                     {{ licenseFlagLabel(flag) }}
                   </span>
                 </div>
-                <LicenseObligations v-if="lic.obligations && lic.obligations.length > 0" :entries="lic.obligations" />
+                <LicenseObligations
+                  v-if="lic.obligations && lic.obligations.length > 0"
+                  :entries="lic.obligations"
+                  :label="lic.spdx || lic.name"
+                />
                 <div :id="lic.list_id" :class="lic.list_class">
                   <ul class="risk-file-list">
                     <li v-for="file in lic.shown_files" :key="file[0]">

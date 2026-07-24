@@ -791,12 +791,22 @@ sub obligations_fixtures ($self, $app) {
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 
   # Apache-2.0 has a rich OSADL obligation checklist (two delivery use cases, YOU MUST / YOU MUST NOT,
-  # patent hints); the expression "MIT OR BSD-3-Clause" exercises per-constituent decomposition, so the
-  # obligations panel shows one section per named license.
+  # patent hints); the expression "MIT OR BSD-3-Clause" exercises per-constituent decomposition (two
+  # named sections); and "BSD-2-Clause AND Beerware" is an expression where only one constituent is
+  # OSADL-known (Beerware has no checklist), so the panel must still name BSD-2-Clause to attribute the
+  # obligations it does show.
   $app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',          license => 'Apache-2.0');
   $app->patterns->create(pattern => 'SPDX-License-Identifier: MIT OR BSD-3-Clause', license => 'MIT OR BSD-3-Clause');
-  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?)',
-    'Apache-2.0', 'MIT OR BSD-3-Clause');
+  $app->patterns->create(
+    pattern => 'SPDX-License-Identifier: BSD-2-Clause AND Beerware',
+    license => 'BSD-2-Clause AND Beerware'
+  );
+  $app->pg->db->query(
+    'UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?)',
+    'Apache-2.0',
+    'MIT OR BSD-3-Clause',
+    'BSD-2-Clause AND Beerware'
+  );
 
   my $name = 'license-obligations';
   my $md5  = 'd0000000000000000000000000000001';
@@ -820,6 +830,8 @@ SPEC
   $src->child('apache_file.txt')->spew("# SPDX-License-Identifier: Apache-2.0\n\nA permissively licensed helper.\n");
   $src->child('expr_file.txt')
     ->spew("# SPDX-License-Identifier: MIT OR BSD-3-Clause\n\nEither license may be chosen.\n");
+  $src->child('partial_file.txt')
+    ->spew("# SPDX-License-Identifier: BSD-2-Clause AND Beerware\n\nOne constituent is unknown to OSADL.\n");
   my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
   system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
     or die "Failed to create synthetic tarball: $?";

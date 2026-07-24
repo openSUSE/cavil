@@ -13,7 +13,7 @@
     <div v-if="open" class="license-obligations-body">
       <span class="lob-source">OSADL</span>
       <section v-for="lic in licenses" :key="lic.license" class="lob-license">
-        <h5 v-if="licenses.length > 1" class="lob-license-name">
+        <h5 v-if="showNames" class="lob-license-name">
           <a class="spdx-link" :href="lic.spdxUrl" target="_blank" rel="noopener noreferrer">{{ lic.license }}</a>
         </h5>
 
@@ -83,12 +83,25 @@ export default {
   props: {
     // One entry per constituent SPDX identifier (an expression like "MIT OR BSD-3-Clause" yields two),
     // each: {license, patent_hints?, copyleft?, source_disclosure?, use_cases?}. OSADL data, verbatim.
-    entries: {type: Array, default: () => []}
+    entries: {type: Array, default: () => []},
+    // The license-list label this panel belongs to (may be an expression). Drives whether to name each
+    // constituent: redundant for a plain single license, but needed when the label is an expression -
+    // especially when only some constituents are OSADL-known (e.g. "BSD-2-Clause AND AOMPL-1.0", where
+    // AOMPL-1.0 has no checklist), so the obligations shown are clearly attributed to BSD-2-Clause.
+    label: {type: String, default: ''}
   },
   data() {
     return {open: false};
   },
   computed: {
+    // Show per-constituent names for expressions (more than one entry, or a single entry whose license
+    // differs from the row label - i.e. an expression with one OSADL-known part); hide the redundant
+    // name for a plain single license.
+    showNames() {
+      if (this.entries.length > 1) return true;
+      if (this.entries.length === 1) return this.label !== '' && this.entries[0].license !== this.label;
+      return false;
+    },
     // Everything the template needs, derived once. A computed is cached, so the recursive tree walk runs
     // a single time per data change instead of on every poll-driven re-render of the parent report.
     licenses() {
@@ -344,7 +357,10 @@ export default {
   color: #6e7781;
   font-size: 12px;
 }
-.lob-attribute .lob-text::before {
+/* Leaf qualifiers and named sub-group headers share one dash marker so every item at a level is
+   marked consistently; weight (group is semibold, qualifier muted) carries the hierarchy. */
+.lob-attribute .lob-text::before,
+.lob-group .lob-text::before {
   color: #8c959f;
   content: '– ';
 }
