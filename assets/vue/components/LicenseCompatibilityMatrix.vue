@@ -2,26 +2,14 @@
   <section id="license-compatibility" class="license-matrix-card mb-3">
     <header class="license-matrix-header">
       <h3>License compatibility</h3>
-      <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no"></i> Incompatible</span>
-        <span class="license-matrix-legend-item"
-          ><i class="license-matrix-swatch swatch-mutual"></i> Both directions</span
-        >
-        <span class="license-matrix-legend-item"
-          ><i class="license-matrix-swatch cell-check"></i> Check dependency</span
-        >
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown"></i> Unknown</span>
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
-      </div>
+      <button v-if="canShrink" type="button" class="license-matrix-toggle" @click="showAll = !showAll">
+        <span class="license-matrix-toggle-verb">{{ toggleVerb }}</span>
+        <strong class="license-matrix-toggle-count">{{ toggleCount }}</strong>
+        <span class="license-matrix-toggle-unit">{{ toggleUnit }}</span>
+      </button>
     </header>
 
     <div class="license-matrix-body">
-      <div v-if="canShrink" class="license-matrix-controls">
-        <button type="button" class="license-matrix-toggle" @click="showAll = !showAll">
-          {{ showAll ? `Show conflicts only (${conflictLicenses.length})` : `Show all licenses (${licenses.length})` }}
-        </button>
-      </div>
-
       <div class="license-matrix-grid-wrap">
         <table class="license-matrix-grid">
           <thead>
@@ -46,10 +34,14 @@
                 <span class="license-matrix-rowhead-name">{{ row }}</span>
               </th>
               <td
-                v-for="col in visibleLicenses"
+                v-for="(col, j) in visibleLicenses"
                 :key="col"
                 class="license-matrix-cell"
-                :class="[cellClass(row, col), {'is-active': isActive(row, col), 'is-mutual': isMutual(row, col)}]"
+                :class="[
+                  cellClass(row, col),
+                  {'is-active': isActive(row, col), 'is-mutual': isMutual(row, col)},
+                  mutualCornerClass(i, j)
+                ]"
                 :title="cellTitle(row, col)"
                 :aria-label="cellTitle(row, col)"
                 @click="selectCell(row, col)"
@@ -59,6 +51,18 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no"></i> Incompatible</span>
+        <span class="license-matrix-legend-item"
+          ><i class="license-matrix-swatch swatch-mutual"></i> Both directions</span
+        >
+        <span class="license-matrix-legend-item"
+          ><i class="license-matrix-swatch cell-check"></i> Check dependency</span
+        >
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown"></i> Unknown</span>
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
       </div>
     </div>
 
@@ -106,27 +110,71 @@ export default {
     this.showAll = this.conflictLicenses.length === 0 || this.licenses.length <= 12;
   },
   computed: {
-    // Licenses that take part in at least one "No in both directions" pair - the genuinely
-    // unshippable-either-way conflicts. Original license order is preserved.
-    conflictLicenses() {
-      const set = new Set();
-      for (const a of this.licenses) {
-        for (const b of this.licenses) {
+    // Reorder the axes so mutually-incompatible licenses sit next to each other. Each connected
+    // component of the "No in both directions" graph becomes a contiguous run, so its conflicts read as
+    // one merged block instead of tiles scattered across the grid. Deterministic: components by size
+    // then name, members by conflict degree then name, unrelated licenses appended alphabetically.
+    orderedLicenses() {
+      const licenses = this.licenses;
+      const adjacency = new Map(licenses.map(l => [l, new Set()]));
+      for (const a of licenses) {
+        for (const b of licenses) {
           if (a >= b) continue;
           if (this.isMutual(a, b)) {
-            set.add(a);
-            set.add(b);
+            adjacency.get(a).add(b);
+            adjacency.get(b).add(a);
           }
         }
       }
-      return this.licenses.filter(l => set.has(l));
+
+      const seen = new Set();
+      const components = [];
+      for (const start of licenses) {
+        if (seen.has(start) || adjacency.get(start).size === 0) continue;
+        const stack = [start];
+        const component = [];
+        seen.add(start);
+        while (stack.length) {
+          const node = stack.pop();
+          component.push(node);
+          for (const next of adjacency.get(node)) {
+            if (!seen.has(next)) {
+              seen.add(next);
+              stack.push(next);
+            }
+          }
+        }
+        component.sort((a, b) => adjacency.get(b).size - adjacency.get(a).size || (a < b ? -1 : 1));
+        components.push(component);
+      }
+      components.sort((a, b) => b.length - a.length || (a[0] < b[0] ? -1 : 1));
+
+      const clustered = components.flat();
+      const rest = licenses.filter(l => !seen.has(l)).sort((a, b) => (a < b ? -1 : 1));
+      return [...clustered, ...rest];
+    },
+    // Licenses that take part in at least one "No in both directions" pair - the genuinely
+    // unshippable-either-way conflicts. The clustered order from orderedLicenses is preserved.
+    conflictLicenses() {
+      return this.orderedLicenses.filter(l => this.licenses.some(o => o !== l && this.isMutual(l, o)));
     },
     visibleLicenses() {
-      return this.showAll ? this.licenses : this.conflictLicenses;
+      return this.showAll ? this.orderedLicenses : this.conflictLicenses;
     },
     // Only offer the toggle when it would actually change the view.
     canShrink() {
       return this.conflictLicenses.length > 0 && this.conflictLicenses.length < this.licenses.length;
+    },
+    // Toggle label split into verb / bold count / unit so the number echoes the composition chart's
+    // "big bold value + small word" stat, instead of a parenthesised count.
+    toggleVerb() {
+      return this.showAll ? 'Show' : 'Show all';
+    },
+    toggleCount() {
+      return this.showAll ? this.conflictLicenses.length : this.licenses.length;
+    },
+    toggleUnit() {
+      return this.showAll ? 'conflicts' : 'licenses';
     }
   },
   methods: {
@@ -137,6 +185,21 @@ export default {
       return (
         this.cell(outbound, inbound)?.compatibility === 'No' && this.cell(inbound, outbound)?.compatibility === 'No'
       );
+    },
+    // Which sides of a mutual (both-direction) tile touch another mutual tile. The CSS drops the rounded
+    // corner and inter-cell gap on those sides so a run of conflicts merges into a single block, leaving
+    // rounded corners only on the block's free edges.
+    mutualCornerClass(i, j) {
+      const rows = this.visibleLicenses;
+      if (!this.isMutual(rows[i], rows[j])) return null;
+      const touches = (a, b) =>
+        a >= 0 && b >= 0 && a < rows.length && b < rows.length && this.isMutual(rows[a], rows[b]);
+      return {
+        'mut-up': touches(i - 1, j),
+        'mut-down': touches(i + 1, j),
+        'mut-left': touches(i, j - 1),
+        'mut-right': touches(i, j + 1)
+      };
     },
     cellClass(outbound, inbound) {
       if (outbound === inbound) return 'cell-self';
@@ -214,7 +277,7 @@ export default {
   display: flex;
   gap: 1rem;
   justify-content: space-between;
-  padding: 0.65rem 0.85rem 0.65rem 1rem;
+  padding: 0.75rem 1rem;
 }
 .license-matrix-header h3 {
   font-size: 1rem;
@@ -232,7 +295,9 @@ export default {
 }
 .license-matrix-grid {
   border-collapse: separate;
-  border-spacing: 4px;
+  /* No gap between cells: the small floating dots keep their air from the cell being larger than the
+     dot, while adjacent both-direction tiles (which fill the whole cell) merge into one block. */
+  border-spacing: 0;
   font-size: 12px;
 }
 .license-matrix-corner {
@@ -347,6 +412,26 @@ export default {
    across the diagonal) read as connected blocks, distinct from one-directional dots. */
 .license-matrix-cell.cell-no.is-mutual {
   background: #ffdcd8;
+  border-radius: 6px;
+}
+/* Merge a run of adjacent mutual tiles into a single block: square off (and, via border-spacing:0,
+   butt up against) every side that touches another mutual tile, so only the block's outer corners
+   stay rounded. The mut-* classes are set from JS by looking at each tile's four neighbours. */
+.license-matrix-cell.is-mutual.mut-up {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.license-matrix-cell.is-mutual.mut-down {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.license-matrix-cell.is-mutual.mut-left {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.license-matrix-cell.is-mutual.mut-right {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 /* Solid, soft dots (no rings) - one calm mark per flagged relationship. */
 .license-matrix-cell.cell-no .license-matrix-mark {
@@ -379,24 +464,24 @@ export default {
 }
 
 .license-matrix-legend {
-  align-items: center;
-  background: #fff;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
   color: #57606a;
   display: flex;
   flex-wrap: wrap;
   font-size: 11px;
-  font-weight: 600;
-  gap: 0.65rem;
-  justify-content: flex-end;
-  margin-left: auto;
-  padding: 0.25rem 0.45rem;
+  font-weight: 500;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
 }
+/* Each verdict is a rounded chip (Primer Label style) rather than a bare swatch + text. */
 .license-matrix-legend-item {
   align-items: center;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
   display: inline-flex;
-  gap: 0.3rem;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem 0.15rem 0.45rem;
   white-space: nowrap;
 }
 .license-matrix-swatch {
@@ -426,26 +511,39 @@ export default {
   border-radius: 3px;
 }
 
-.license-matrix-controls {
-  display: flex;
-  justify-content: flex-end;
-  padding-bottom: 0.5rem;
-}
+/* White tile on the grey header bar, mirroring the composition chart's stat tile, so the control
+   stands out from the bar instead of blending into it. The count is styled like that tile's value
+   (big + bold) with a small muted unit word, rather than a parenthesised number. */
 .license-matrix-toggle {
+  align-items: baseline;
   appearance: none;
-  background: #f6f8fa;
+  background: #fff;
   border: 1px solid #d0d7de;
   border-radius: 6px;
   color: #1f2328;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 12px;
   font-weight: 500;
-  line-height: 1.4;
-  padding: 0.2rem 0.6rem;
+  gap: 0.3rem;
+  line-height: 1.2;
+  padding: 0.25rem 0.55rem;
 }
 .license-matrix-toggle:hover {
-  background: #eef1f4;
+  background: #f6f8fa;
+}
+.license-matrix-toggle-count {
+  color: #24292f;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+}
+.license-matrix-toggle-unit {
+  color: #57606a;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .license-matrix-detail {
