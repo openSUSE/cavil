@@ -52,11 +52,11 @@ import {spdxLicenseUrl} from '../helpers/links.js';
 
 // Structural keywords in OSADL's obligation trees. "IF" variants introduce a condition; everything not
 // listed here (or below) is a named obligation/qualifier rendered verbatim.
+// Conditions that hold a condition -> subtree map directly. EITHER IF / OR IF are handled separately
+// because they wrap their conditions in numbered alternative branches (like EITHER / OR).
 const CONDITIONS = {
   IF: 'If',
-  'EXCEPT IF': 'Except if',
-  'EITHER IF': 'If any of',
-  'OR IF': 'Or if'
+  'EXCEPT IF': 'Except if'
 };
 
 // Row kind -> Font Awesome icon. Obligations get a check / cross by SHAPE (must vs must not); conditions
@@ -156,23 +156,73 @@ export default {
         } else if (key === 'YOU MUST NOT') {
           this.emitObligation(value, depth, out, 'mustnot');
         } else if (key === 'ATTRIBUTE') {
-          for (const attr of Array.isArray(value) ? value : [value]) this.addRow(out, depth, 'attribute', attr);
+          this.emitAttribute(value, depth, out);
         } else if (CONDITIONS[key]) {
           for (const [condition, subtree] of Object.entries(value || {})) {
             this.addRow(out, depth, 'condition', `${CONDITIONS[key]} ${condition}`);
             this.flatten(subtree, depth + 1, out);
           }
+        } else if (key === 'EITHER IF') {
+          this.flattenConditionAlternatives(value, depth, out);
+        } else if (key === 'OR IF') {
+          const last = out[out.length - 1];
+          if (last && last.depth >= depth && last.kind !== 'alt') this.addRow(out, depth, 'or', 'or');
+          this.flattenConditionAlternatives(value, depth, out);
         } else if (key === 'EITHER') {
           this.addRow(out, depth, 'alt', 'Satisfy any one of:');
-          this.flatten(value, depth + 1, out);
-        } else if (key === 'OR' || /^\d+$/u.test(key)) {
-          // Alternative branches and numbered branch containers add no line of their own.
+          this.flattenAlternatives(value, depth + 1, out);
+        } else if (key === 'OR') {
+          // OR appends further alternatives to the preceding siblings; divide them with an "or" - but not
+          // as a leading line when OR is the first child (nothing precedes it at this level yet).
+          const last = out[out.length - 1];
+          if (last && last.depth >= depth && last.kind !== 'alt') this.addRow(out, depth, 'or', 'or');
+          this.flattenAlternatives(value, depth, out);
+        } else if (/^\d+$/u.test(key)) {
+          // A stray numbered branch container outside EITHER/OR adds no line of its own.
           this.flatten(value, depth, out);
         } else {
           this.emitNamed(key, value, depth, out);
         }
       }
       return out;
+    },
+    // EITHER/OR values are numbered alternative branches; flatten each with an "or" divider between them
+    // so the choices read as distinct options instead of one merged list.
+    flattenAlternatives(branches, depth, out) {
+      const keys = Object.keys(branches || {})
+        .filter(key => /^\d+$/u.test(key))
+        .sort((a, b) => Number(a) - Number(b));
+      keys.forEach((key, i) => {
+        if (i > 0) this.addRow(out, depth, 'or', 'or');
+        this.flatten(branches[key], depth, out);
+      });
+    },
+    // EITHER IF / OR IF wrap their conditions in numbered branches; unwrap the numbered layer and render
+    // the inner condition(s) as normal "If ..." rows (with an "or" between branches), never the index.
+    flattenConditionAlternatives(branches, depth, out) {
+      const keys = Object.keys(branches || {})
+        .filter(key => /^\d+$/u.test(key))
+        .sort((a, b) => Number(a) - Number(b));
+      keys.forEach((key, i) => {
+        if (i > 0) this.addRow(out, depth, 'or', 'or');
+        for (const [condition, subtree] of Object.entries(branches[key] || {})) {
+          this.addRow(out, depth, 'condition', `If ${condition}`);
+          this.flatten(subtree, depth + 1, out);
+        }
+      });
+    },
+    // An ATTRIBUTE value is usually a string or array of strings, but OSADL also nests a map of named
+    // qualifiers under it (some with their own sub-attributes, some empty); render those like named
+    // nodes rather than stringifying the object.
+    emitAttribute(value, depth, out) {
+      if (value === null || value === undefined) return;
+      if (typeof value === 'string') {
+        this.addRow(out, depth, 'attribute', value);
+      } else if (Array.isArray(value)) {
+        for (const item of value) this.emitAttribute(item, depth, out);
+      } else {
+        this.flatten(value, depth, out);
+      }
     },
     // A "YOU MUST"/"YOU MUST NOT" value is a string, an array of strings, or a {name: subtree} object.
     emitObligation(value, depth, out, kind) {
