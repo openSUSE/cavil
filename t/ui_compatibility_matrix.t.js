@@ -36,6 +36,24 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       );
     });
 
+    await t.test('hovering a flagged cell shows an in-place license mapping tooltip', async t => {
+      const flaggedCell = matrix.locator('td.license-matrix-cell.cell-no').first();
+      await flaggedCell.hover();
+
+      const tooltip = matrix.locator('.license-matrix-tooltip');
+      await tooltip.waitFor();
+      const tipText = await tooltip.innerText();
+      t.match(tipText, /Incompatible/, 'tooltip shows the verdict');
+      t.match(tipText, /Using/, 'tooltip explains the inbound license role');
+      t.match(tipText, /Under/, 'tooltip explains the outbound license role');
+      t.match(tipText, /Apache-2\.0/, 'tooltip names Apache-2.0');
+      t.match(tipText, /GPL-2\.0-only/, 'tooltip names GPL-2.0-only');
+
+      const cellBox = await flaggedCell.boundingBox();
+      const tipBox = await tooltip.boundingBox();
+      t.ok(tipBox.y < cellBox.y, 'tooltip appears above the hovered matrix cell');
+    });
+
     await t.test('clicking a flagged cell docks the verbatim OSADL explanation', async t => {
       t.equal(await matrix.locator('.license-matrix-detail').count(), 0, 'no explanation panel before selecting');
 

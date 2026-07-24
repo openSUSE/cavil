@@ -21,7 +21,6 @@
                 scope="col"
                 class="license-matrix-colhead"
                 :class="selectedAxisClass('inbound', name)"
-                :title="name"
               >
                 {{ j + 1 }}
               </th>
@@ -42,8 +41,10 @@
                   {'is-active': isActive(row, col), 'is-mutual': isMutual(row, col)},
                   mutualCornerClass(i, j)
                 ]"
-                :title="cellTitle(row, col)"
                 :aria-label="cellTitle(row, col)"
+                @pointerenter="showMatrixTooltip(row, col, $event)"
+                @pointermove="moveMatrixTooltip($event)"
+                @pointerleave="hideMatrixTooltip"
                 @click="selectCell(row, col)"
               >
                 <span class="license-matrix-mark" aria-hidden="true">{{ cellMark(row, col) }}</span>
@@ -51,6 +52,21 @@
             </tr>
           </tbody>
         </table>
+        <div
+          v-if="hovered"
+          class="license-matrix-tooltip"
+          :style="{left: `${hovered.x}px`, top: `${hovered.y}px`}"
+        >
+          <strong>{{ verdictLabel(hovered.compatibility) }}</strong>
+          <span class="license-matrix-tooltip-line">
+            <span class="license-matrix-tooltip-label">Using</span>
+            <span>{{ hovered.inbound }}</span>
+          </span>
+          <span class="license-matrix-tooltip-line">
+            <span class="license-matrix-tooltip-label">Under</span>
+            <span>{{ hovered.outbound }}</span>
+          </span>
+        </div>
       </div>
     </div>
 
@@ -100,7 +116,7 @@ export default {
     matrix: {type: Object, default: () => ({})}
   },
   data() {
-    return {selected: null, showAll: false};
+    return {selected: null, showAll: false, hovered: null};
   },
   created() {
     // Default to the focused (conflicts-only) view for large matrices; show everything when the grid
@@ -240,6 +256,28 @@ export default {
       if (compatibility === 'Check dependency') return 'axis-check';
       return 'axis-unknown';
     },
+    showMatrixTooltip(outbound, inbound, event) {
+      const cell = this.cell(outbound, inbound);
+      if (outbound === inbound || cell === null) {
+        this.hovered = null;
+        return;
+      }
+      this.hovered = {outbound, inbound, compatibility: cell.compatibility, ...this.tooltipPosition(event)};
+    },
+    moveMatrixTooltip(event) {
+      if (this.hovered === null) return;
+      this.hovered = {...this.hovered, ...this.tooltipPosition(event)};
+    },
+    hideMatrixTooltip() {
+      this.hovered = null;
+    },
+    tooltipPosition(event) {
+      const width = 240;
+      const margin = 12;
+      const x = Math.min(Math.max(event.clientX, margin + width / 2), window.innerWidth - margin - width / 2);
+      const y = Math.max(event.clientY - 14, margin + 70);
+      return {x, y};
+    },
     selectCell(outbound, inbound) {
       const cell = this.cell(outbound, inbound);
       if (outbound === inbound || cell === null) {
@@ -290,6 +328,49 @@ export default {
 /* Heatmap grid — GitHub contribution-graph aesthetic */
 .license-matrix-grid-wrap {
   overflow-x: auto;
+}
+.license-matrix-tooltip {
+  background: #24292f;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.22);
+  color: #ffffff;
+  display: grid;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 0.3rem;
+  line-height: 1.35;
+  max-width: 240px;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 0.6rem;
+  pointer-events: none;
+  position: fixed;
+  text-align: left;
+  transform: translate(-50%, calc(-100% - 10px));
+  width: max-content;
+  z-index: 1060;
+}
+.license-matrix-tooltip::after {
+  border: 6px solid transparent;
+  border-top-color: #24292f;
+  content: '';
+  left: 50%;
+  position: absolute;
+  top: 100%;
+  transform: translateX(-50%);
+}
+.license-matrix-tooltip strong {
+  font-size: 13px;
+  letter-spacing: 0;
+}
+.license-matrix-tooltip-line {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: minmax(3.1rem, auto) minmax(0, 1fr);
+}
+.license-matrix-tooltip-label {
+  color: #c9d1d9;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .license-matrix-grid {
   border-collapse: separate;

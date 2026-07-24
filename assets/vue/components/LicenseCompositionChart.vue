@@ -283,7 +283,7 @@ export default {
   align-items: center;
   background: #24292f;
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.22);
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -296,9 +296,18 @@ export default {
   pointer-events: none;
   position: absolute;
   text-align: center;
-  transform: translate(-50%, calc(-100% - 10px));
+  transform: translate(-50%, calc(-100% - 12px));
   width: 180px;
   z-index: 2;
+}
+.license-composition-tooltip::after {
+  border: 6px solid transparent;
+  border-top-color: #24292f;
+  content: '';
+  left: 50%;
+  position: absolute;
+  top: 100%;
+  transform: translateX(-50%);
 }
 .license-composition-tooltip b {
   font-size: 13px;
