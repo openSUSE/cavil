@@ -272,9 +272,6 @@ export default {
 .license-matrix-cell.cell-yes .license-matrix-mark {
   opacity: 0.55;
 }
-.license-matrix-cell.cell-self .license-matrix-mark {
-  opacity: 0.22;
-}
 .license-matrix-cell.cell-self .license-matrix-mark::before,
 .license-matrix-cell.cell-yes .license-matrix-mark::before {
   background: #57606a;
