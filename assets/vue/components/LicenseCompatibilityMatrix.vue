@@ -314,16 +314,15 @@ export default {
   text-align: center;
   vertical-align: middle;
 }
-.license-matrix-colhead.is-selected.axis-no,
-.license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-index,
-.license-matrix-rowhead.is-selected.axis-no .license-matrix-rowhead-name,
-.license-matrix-colhead.is-selected.axis-check,
-.license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-index,
-.license-matrix-rowhead.is-selected.axis-check .license-matrix-rowhead-name,
-.license-matrix-colhead.is-selected.axis-unknown,
-.license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-index,
-.license-matrix-rowhead.is-selected.axis-unknown .license-matrix-rowhead-name {
-  color: #cf222e;
+/* Active row/column: the axis numbers and the selected row name go bold black. We fake the weight with
+   -webkit-text-stroke (a paint-time thickening) instead of font-weight, because a real weight change
+   would widen the glyphs and could resize the sticky first column - shifting the whole grid on select.
+   Stroke changes no metrics, so the matrix stays put. */
+.license-matrix-colhead.is-selected,
+.license-matrix-rowhead.is-selected .license-matrix-rowhead-index,
+.license-matrix-rowhead.is-selected .license-matrix-rowhead-name {
+  -webkit-text-stroke: 0.4px #1f2328;
+  color: #1f2328;
 }
 .license-matrix-rowhead {
   background: #fff;
@@ -386,7 +385,7 @@ export default {
 }
 .cell-check {
   background: #fff8c5;
-  border-color: #d4a72c66;
+  border-color: #9aa3ad66;
   color: #7d4e00;
   font-weight: 600;
 }
@@ -407,9 +406,11 @@ export default {
 /* Compatible and self cells carry no mark at all - only problems get ink, so the grid stays calm. */
 
 /* Both-directions "No": fill the tile behind the dot so the mutually-incompatible pairs (symmetric
-   across the diagonal) read as connected blocks, distinct from one-directional dots. */
+   across the diagonal) read as connected blocks, distinct from one-directional dots. The fill is a calm
+   neutral slate (not red) so it marks the region without doubling up on the red dots; the red dots stay
+   the severity signal. */
 .license-matrix-cell.cell-no.is-mutual {
-  background: #ffdcd8;
+  background: #e7ebf1;
   border-radius: 6px;
 }
 /* Merge a run of adjacent mutual tiles into a single block: square off (and, via border-spacing:0,
@@ -433,13 +434,13 @@ export default {
 }
 /* Solid, soft dots (no rings) - one calm mark per flagged relationship. */
 .license-matrix-cell.cell-no .license-matrix-mark {
-  background: #e5484d;
+  background: #6f7b89;
 }
 .license-matrix-cell.cell-check .license-matrix-mark {
-  background: #d4a72c;
+  background: #9aa3ad;
 }
 .license-matrix-cell.cell-unknown .license-matrix-mark {
-  background: #afb8c1;
+  background: #c4c9cf;
 }
 
 /* Only the grid cells are interactive; the legend swatches reuse the colour classes above */
@@ -488,13 +489,13 @@ export default {
 }
 /* Solid dots, matching the grid marks. */
 .license-matrix-swatch.cell-no {
-  background: #e5484d;
+  background: #6f7b89;
 }
 .license-matrix-swatch.cell-check {
-  background: #d4a72c;
+  background: #9aa3ad;
 }
 .license-matrix-swatch.cell-unknown {
-  background: #afb8c1;
+  background: #c4c9cf;
 }
 /* Compatible is drawn as empty space in the grid; show a faint outline here to say so. */
 .license-matrix-swatch.cell-yes {
@@ -503,7 +504,7 @@ export default {
 }
 /* Both-directions: the filled tile behind the dot. */
 .license-matrix-swatch.swatch-mutual {
-  background: #ffdcd8;
+  background: #e7ebf1;
   border-radius: 3px;
 }
 
@@ -560,16 +561,16 @@ export default {
   padding: 0.55rem 1rem;
 }
 .bar-no {
-  background: #ffebe9;
-  border-bottom-color: #ffcecb;
+  background: #e8edf3;
+  border-bottom-color: #d2dce7;
 }
 .bar-check {
-  background: #fff8c5;
-  border-bottom-color: #d4a72c66;
+  background: #eceef1;
+  border-bottom-color: #dbe0e6;
 }
 .bar-unknown {
-  background: #eaeef2;
-  border-bottom-color: #d0d7de;
+  background: #eef0f2;
+  border-bottom-color: #dde2e8;
 }
 .license-matrix-verdict {
   color: #1f2328;
@@ -605,12 +606,12 @@ export default {
   padding: 0.85rem 1rem;
 }
 .bar-no + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(207, 34, 46, 0.6);
+  box-shadow: inset 0 11px 17px -20px rgba(90, 108, 132, 0.55);
 }
 .bar-check + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(154, 103, 0, 0.64);
+  box-shadow: inset 0 11px 17px -20px rgba(154, 163, 173, 0.5);
 }
 .bar-unknown + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(87, 96, 106, 0.56);
+  box-shadow: inset 0 11px 17px -20px rgba(196, 201, 207, 0.5);
 }
 </style>
