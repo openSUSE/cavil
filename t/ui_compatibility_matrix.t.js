@@ -33,7 +33,8 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
     await t.test('clicking a flagged cell docks the verbatim OSADL explanation', async t => {
       t.equal(await matrix.locator('.license-matrix-detail').count(), 0, 'no explanation panel before selecting');
 
-      await matrix.locator('td.license-matrix-cell.cell-no').first().click();
+      const flaggedCell = matrix.locator('td.license-matrix-cell.cell-no').first();
+      await flaggedCell.click();
       const detail = matrix.locator('.license-matrix-detail');
       await detail.waitFor();
 
@@ -45,6 +46,9 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       const body = await detail.locator('.license-matrix-detail-body').innerText();
       t.ok(body.length > 20, 'explanation text is present');
       t.notMatch(body, /&quot;/, 'explanation HTML entities are decoded');
+
+      await flaggedCell.click();
+      t.equal(await matrix.locator('.license-matrix-detail').count(), 0, 'clicking the selected cell again closes it');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);

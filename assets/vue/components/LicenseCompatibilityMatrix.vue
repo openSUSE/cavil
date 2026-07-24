@@ -3,11 +3,9 @@
     <header class="license-matrix-header">
       <h3>License compatibility</h3>
       <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no">✕</i> Incompatible</span>
-        <span class="license-matrix-legend-item"
-          ><i class="license-matrix-swatch cell-check">?</i> Check dependency</span
-        >
-        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown">·</i> Unknown</span>
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no"></i> Incompatible</span>
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-check"></i> Check dependency</span>
+        <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown"></i> Unknown</span>
         <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
       </div>
     </header>
@@ -38,7 +36,7 @@
                 :aria-label="cellTitle(row, col)"
                 @click="selectCell(row, col)"
               >
-                <span aria-hidden="true">{{ cellMark(row, col) }}</span>
+                <span class="license-matrix-mark" aria-hidden="true">{{ cellMark(row, col) }}</span>
               </td>
             </tr>
           </tbody>
@@ -99,9 +97,8 @@ export default {
     cellMark(outbound, inbound) {
       const cell = this.cell(outbound, inbound);
       if (cell === null) return '';
-      if (cell.compatibility === 'No') return '✕';
-      if (cell.compatibility === 'Check dependency') return '?';
-      return '·';
+      if (cell.compatibility === 'No') return '';
+      return '';
     },
     cellTitle(outbound, inbound) {
       if (outbound === inbound) return outbound;
@@ -124,6 +121,10 @@ export default {
     selectCell(outbound, inbound) {
       const cell = this.cell(outbound, inbound);
       if (outbound === inbound || cell === null) {
+        this.selected = null;
+        return;
+      }
+      if (this.isActive(outbound, inbound)) {
         this.selected = null;
         return;
       }
@@ -169,7 +170,7 @@ export default {
 }
 .license-matrix-grid {
   border-collapse: separate;
-  border-spacing: 3px;
+  border-spacing: 4px;
   font-size: 12px;
 }
 .license-matrix-corner {
@@ -179,42 +180,61 @@ export default {
   z-index: 2;
 }
 .license-matrix-colhead {
-  color: #57606a;
+  color: #6e7781;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
+  font-weight: 600;
   min-width: 1.5rem;
   padding: 0.15rem 0.2rem;
   text-align: center;
 }
 .license-matrix-rowhead {
   background: #fff;
-  font-weight: 400;
   left: 0;
-  padding: 0.15rem 0.75rem 0.15rem 0;
+  padding: 0.15rem 0.85rem 0.15rem 0;
   position: sticky;
   text-align: left;
   white-space: nowrap;
   z-index: 1;
 }
 .license-matrix-rowhead-index {
-  color: #57606a;
+  color: #6e7781;
   display: inline-block;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
   margin-right: 0.5rem;
   min-width: 1.1rem;
   text-align: right;
 }
 .license-matrix-rowhead-name {
   color: #1f2328;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .license-matrix-cell {
   border: 1px solid transparent;
   border-radius: 3px;
+  font-size: 0;
   height: 1.2rem;
   line-height: 1.2rem;
   min-width: 1.5rem;
+  position: relative;
   text-align: center;
+  vertical-align: middle;
+}
+.license-matrix-mark {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  display: inline-block;
+  font-size: 10px;
+  height: 1rem;
+  line-height: 1;
+  position: relative;
+  vertical-align: middle;
+  width: 1rem;
 }
 /* Colour classes — shared by the grid cells and the legend swatches (colour only, no behaviour) */
 .cell-self {
@@ -240,6 +260,48 @@ export default {
   border-color: rgba(110, 119, 129, 0.25);
   color: #57606a;
 }
+.license-matrix-cell.cell-self,
+.license-matrix-cell.cell-yes,
+.license-matrix-cell.cell-no,
+.license-matrix-cell.cell-check,
+.license-matrix-cell.cell-unknown {
+  background: transparent;
+  border-color: transparent;
+}
+.license-matrix-cell.cell-self .license-matrix-mark,
+.license-matrix-cell.cell-yes .license-matrix-mark {
+  opacity: 0.55;
+}
+.license-matrix-cell.cell-self .license-matrix-mark {
+  opacity: 0.22;
+}
+.license-matrix-cell.cell-self .license-matrix-mark::before,
+.license-matrix-cell.cell-yes .license-matrix-mark::before {
+  background: #57606a;
+  border-radius: 50%;
+  content: '';
+  height: 0.25rem;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.25rem;
+}
+.license-matrix-cell.cell-no .license-matrix-mark {
+  background: #cf222e;
+  border-color: #a40e26;
+  color: #ffffff;
+}
+.license-matrix-cell.cell-check .license-matrix-mark {
+  background: #d4a72c;
+  border-color: #9a6700;
+  color: #ffffff;
+}
+.license-matrix-cell.cell-unknown .license-matrix-mark {
+  background: #57606a;
+  border-color: #3d444d;
+  color: #ffffff;
+}
 
 /* Only the grid cells are interactive; the legend swatches reuse the colour classes above */
 .license-matrix-cell.cell-no,
@@ -253,7 +315,12 @@ export default {
   filter: brightness(0.95);
 }
 .license-matrix-cell.is-active {
-  border-color: #24292f;
+  border-color: transparent;
+}
+.license-matrix-cell.is-active .license-matrix-mark {
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px #24292f;
 }
 
 .license-matrix-legend {
@@ -264,7 +331,8 @@ export default {
   color: #57606a;
   display: flex;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
   gap: 0.65rem;
   justify-content: flex-end;
   margin-left: auto;
@@ -279,13 +347,39 @@ export default {
 .license-matrix-swatch {
   align-items: center;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: 50%;
   display: inline-flex;
   font-size: 10px;
   font-style: normal;
   height: 1rem;
   justify-content: center;
   width: 1rem;
+}
+.license-matrix-swatch.cell-no {
+  background: #cf222e;
+  border-color: #a40e26;
+  color: #ffffff;
+}
+.license-matrix-swatch.cell-check {
+  background: #d4a72c;
+  border-color: #9a6700;
+  color: #ffffff;
+}
+.license-matrix-swatch.cell-unknown {
+  background: #57606a;
+  border-color: #3d444d;
+  color: #ffffff;
+}
+.license-matrix-swatch.cell-yes {
+  position: relative;
+  opacity: 0.55;
+}
+.license-matrix-swatch.cell-yes::before {
+  background: #57606a;
+  border-radius: 50%;
+  content: '';
+  height: 0.25rem;
+  width: 0.25rem;
 }
 
 .license-matrix-detail {
@@ -300,7 +394,7 @@ export default {
   color: #1f2328;
   display: flex;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: 12px;
   gap: 0.4rem;
   justify-content: space-between;
   padding: 0.55rem 1rem;
@@ -319,7 +413,7 @@ export default {
 }
 .license-matrix-verdict {
   color: #1f2328;
-  font-weight: 600;
+  font-weight: 700;
 }
 .license-matrix-detail-title {
   align-items: center;
@@ -354,7 +448,7 @@ export default {
   box-shadow: inset 0 11px 17px -20px rgba(207, 34, 46, 0.6);
 }
 .bar-check + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(191, 135, 0, 0.64);
+  box-shadow: inset 0 11px 17px -20px rgba(212, 167, 44, 0.64);
 }
 .bar-unknown + .license-matrix-detail-body {
   box-shadow: inset 0 11px 17px -20px rgba(87, 96, 106, 0.56);
