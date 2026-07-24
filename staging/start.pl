@@ -280,54 +280,69 @@ unless ($clean) {
   $pkgs->update($obsprj);
   $pkgs->unpack($pkg_id);
 
-  # "cavil-incompatible-lab" example data: Apache-2.0 combined with GPL-2.0-only is "No" in both
-  # directions in the OSADL matrix. It elevates the report to risk 9 and shows a red cell in the license
-  # compatibility matrix (click it for OSADL's explanation).
-  my $incompat_checkout = 'incompatiblelab0000000000000000001';
-  my $incompat_dir      = $checkouts->child('cavil-incompatible-lab', $incompat_checkout)->make_path;
-  $incompat_dir->child('apache_file.txt')
-    ->spurt("# SPDX-License-Identifier: Apache-2.0\n\nA permissively licensed helper.\n");
-  $incompat_dir->child('gpl2_file.txt')
-    ->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nA strong copyleft component.\n");
-  $pkg_id = $pkgs->add(
-    name            => 'cavil-incompatible-lab',
-    checkout_dir    => $incompat_checkout,
-    api_url         => 'https://api.opensuse.org',
-    requesting_user => $user_id,
-    project         => 'cavil:staging',
-    package         => 'cavil-incompatible-lab',
-    srcmd5          => $incompat_checkout,
-    priority        => 5
+  # "cavil-compatibility-lab" example data: a large, dense OSADL sub-matrix (~45 licenses, hundreds of
+  # mutual "No" pairs plus one-directional and check-dependency relationships) to exercise the license
+  # compatibility matrix at scale - the shrink toggle, the both-directions tiles, and horizontal
+  # scrolling. Each file declares one license via a unique synthetic marker pattern (so it does not
+  # collide with the bundled SPDX patterns). Incompatibilities are informational only, so this does not
+  # elevate the risk.
+  my @compat_licenses = (
+    'AGPL-3.0-only',                 'AGPL-3.0-or-later',
+    'APSL-2.0',                      'CDDL-1.0',
+    'CDDL-1.1',                      'EPL-2.0',
+    'EUPL-1.1',                      'GPL-1.0-only',
+    'GPL-1.0-or-later',              'GPL-2.0-only',
+    'GPL-2.0-or-later',              'GPL-3.0-only',
+    'GPL-3.0-or-later',              'LGPL-2.0-only',
+    'LGPL-2.0-or-later',             'LGPL-2.1-only',
+    'LGPL-2.1-or-later',             'LGPL-3.0-only',
+    'LGPL-3.0-or-later',             'MPL-1.1',
+    'MPL-2.0-no-copyleft-exception', 'MS-RL',
+    'OSL-3.0',                       'Sleepycat',
+    'CPL-1.0',                       'EPL-1.0',
+    'EUPL-1.2',                      'MPL-2.0',
+    'IPL-1.0',                       '0BSD',
+    'AFL-2.0',                       'AFL-2.1',
+    'AFL-3.0',                       'Apache-1.0',
+    'Apache-1.1',                    'Apache-2.0',
+    'Artistic-1.0',                  'Artistic-1.0-Perl',
+    'Artistic-2.0',                  'BSD-1-Clause',
+    'BSD-2-Clause',                  'BSD-2-Clause-Patent',
+    'BSD-3-Clause',                  'BSD-3-Clause-Open-MPI',
+    'BSD-4-Clause'
   );
-  $pkgs->imported($pkg_id);
-  my $incompat = $pkgs->find($pkg_id);
-  $incompat->{external_link} = 'obs#incompatible-lab';
-  $pkgs->update($incompat);
-  $pkgs->unpack($pkg_id);
+  my $compat_checkout = 'compatibilitylab00000000000000001';
+  my $compat_dir      = $checkouts->child('cavil-compatibility-lab', $compat_checkout)->make_path;
+  my $compat_i        = 0;
+  for my $lic (@compat_licenses) {
+    my $marker = "compatibility lab license $lic";
+    $app->patterns->create(
+      pattern   => $marker,
+      license   => $lic,
+      risk      => 3,
+      unique_id => sprintf('cccccccc-cccc-4ccc-8ccc-%012d', $compat_i)
+    );
+    (my $fn = $lic) =~ s/[^A-Za-z0-9._-]/_/g;
+    $compat_dir->child("$fn.txt")
+      ->spurt("$marker\n\nSynthetic license declaration for the compatibility matrix lab.\n");
+    $compat_i++;
+  }
+  $app->pg->db->query(q{UPDATE license_patterns SET spdx = license WHERE pattern LIKE 'compatibility lab license %'});
 
-  # "cavil-check-dependency-lab" example data: AGPL-3.0-only combined with LGPL-3.0-or-later is an
-  # OSADL "Check dependency" relationship - an amber cell in the compatibility matrix that, unlike a
-  # mutual "No", does not elevate the risk. (The AGPL-3.0-or-later tag resolves to AGPL-3.0-only.)
-  my $checkdep_checkout = 'checkdependencylab0000000000000001';
-  my $checkdep_dir      = $checkouts->child('cavil-check-dependency-lab', $checkdep_checkout)->make_path;
-  $checkdep_dir->child('agpl_file.txt')
-    ->spurt("# SPDX-License-Identifier: AGPL-3.0-or-later\n\nA network service component.\n");
-  $checkdep_dir->child('lgpl_file.txt')
-    ->spurt("# SPDX-License-Identifier: LGPL-3.0-or-later\n\nA linked library component.\n");
   $pkg_id = $pkgs->add(
-    name            => 'cavil-check-dependency-lab',
-    checkout_dir    => $checkdep_checkout,
+    name            => 'cavil-compatibility-lab',
+    checkout_dir    => $compat_checkout,
     api_url         => 'https://api.opensuse.org',
     requesting_user => $user_id,
     project         => 'cavil:staging',
-    package         => 'cavil-check-dependency-lab',
-    srcmd5          => $checkdep_checkout,
+    package         => 'cavil-compatibility-lab',
+    srcmd5          => $compat_checkout,
     priority        => 5
   );
   $pkgs->imported($pkg_id);
-  my $checkdep = $pkgs->find($pkg_id);
-  $checkdep->{external_link} = 'obs#check-dependency-lab';
-  $pkgs->update($checkdep);
+  my $compat_lab = $pkgs->find($pkg_id);
+  $compat_lab->{external_link} = 'obs#compatibility-lab';
+  $pkgs->update($compat_lab);
   $pkgs->unpack($pkg_id);
 
   # Update products
