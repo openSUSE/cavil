@@ -288,19 +288,19 @@ export default {
   width: 0.25rem;
 }
 .license-matrix-cell.cell-no .license-matrix-mark {
-  background: #cf222e;
+  background: #ffffff;
   border-color: #a40e26;
-  color: #ffffff;
+  border-width: 2px;
 }
 .license-matrix-cell.cell-check .license-matrix-mark {
-  background: #d4a72c;
+  background: #ffffff;
   border-color: #9a6700;
-  color: #ffffff;
+  border-width: 2px;
 }
 .license-matrix-cell.cell-unknown .license-matrix-mark {
-  background: #57606a;
+  background: #ffffff;
   border-color: #3d444d;
-  color: #ffffff;
+  border-width: 2px;
 }
 
 /* Only the grid cells are interactive; the legend swatches reuse the colour classes above */
@@ -318,9 +318,26 @@ export default {
   border-color: transparent;
 }
 .license-matrix-cell.is-active .license-matrix-mark {
-  box-shadow:
-    0 0 0 2px #ffffff,
-    0 0 0 4px #24292f;
+  box-shadow: none;
+}
+.license-matrix-cell.is-active .license-matrix-mark::after {
+  border-radius: 50%;
+  content: '';
+  height: 0.4rem;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.4rem;
+}
+.license-matrix-cell.cell-no.is-active .license-matrix-mark::after {
+  background: #cf222e;
+}
+.license-matrix-cell.cell-check.is-active .license-matrix-mark::after {
+  background: #9a6700;
+}
+.license-matrix-cell.cell-unknown.is-active .license-matrix-mark::after {
+  background: #57606a;
 }
 
 .license-matrix-legend {
@@ -356,19 +373,19 @@ export default {
   width: 1rem;
 }
 .license-matrix-swatch.cell-no {
-  background: #cf222e;
+  background: #ffffff;
   border-color: #a40e26;
-  color: #ffffff;
+  border-width: 2px;
 }
 .license-matrix-swatch.cell-check {
-  background: #d4a72c;
+  background: #ffffff;
   border-color: #9a6700;
-  color: #ffffff;
+  border-width: 2px;
 }
 .license-matrix-swatch.cell-unknown {
-  background: #57606a;
+  background: #ffffff;
   border-color: #3d444d;
-  color: #ffffff;
+  border-width: 2px;
 }
 .license-matrix-swatch.cell-yes {
   position: relative;
@@ -448,7 +465,7 @@ export default {
   box-shadow: inset 0 11px 17px -20px rgba(207, 34, 46, 0.6);
 }
 .bar-check + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(212, 167, 44, 0.64);
+  box-shadow: inset 0 11px 17px -20px rgba(154, 103, 0, 0.64);
 }
 .bar-unknown + .license-matrix-detail-body {
   box-shadow: inset 0 11px 17px -20px rgba(87, 96, 106, 0.56);
