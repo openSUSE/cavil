@@ -23,9 +23,27 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
     await page.waitForSelector('#review-information');
 
     await t.test('box summarizes the diff as plain text, with no file links', async t => {
+      // Only the compared report id is a link; the individual files are not
+
       const box = await page.innerText('#review-information');
       t.match(box, /New unresolved matches in 8 files/, 'box shows the full count of new unresolved files');
-      t.equal(await page.locator('#review-information a').count(), 0, 'box has no links (plain-text summary)');
+      t.equal(await page.locator('#review-information a').count(), 1, 'box links nothing but the compared report');
+    });
+
+    await t.test('the compared report id is a link that opens in a new tab', async t => {
+      const box = await page.innerText('#review-information');
+      t.match(box, /Diff to closest match 1/, 'box names the closest match');
+
+      const link = page.locator('#review-information a');
+      t.equal((await link.innerText()).trim(), '1', 'the package id itself is the link');
+      t.equal(await link.getAttribute('href'), '/reviews/details/1', 'link points at the compared report');
+      t.equal(await link.getAttribute('target'), '_blank', 'link opens in another tab');
+
+      const [popup] = await Promise.all([page.waitForEvent('popup'), link.click()]);
+      await popup.waitForSelector('.report-metadata-name');
+      t.match(popup.url(), /\/reviews\/details\/1$/, 'the new tab shows the compared report');
+      t.match(await popup.innerText('.report-metadata-name'), /report-notice/, 'it is a real report page');
+      await popup.close();
     });
 
     await t.test('every new unresolved file is badged in the Risk 9 section', async t => {

@@ -208,7 +208,13 @@
         <i class="fa-solid fa-caret-right"></i>
         <span>why this needs review</span>
       </header>
-      <pre class="review-information-card-body">{{ notice }}</pre>
+      <pre class="review-information-card-body" v-if="noticeDiff === null">{{ notice }}</pre>
+      <!-- prettier-ignore -->
+      <pre class="review-information-card-body" v-else>{{ noticeDiff.before }}<a
+        :href="`/reviews/details/${noticeDiff.id}`"
+        target="_blank"
+        rel="noopener"
+      >{{ noticeDiff.id }}</a>{{ noticeDiff.after }}</pre>
     </section>
     <cavil-notice-panel
       v-if="errors.length > 0"
@@ -364,6 +370,17 @@ export default {
     };
   },
   computed: {
+    // A diff notice always opens with "Diff to closest match <id>", so the id
+    // can be linked to that report while the rest stays plain text
+    noticeDiff() {
+      const match = this.notice === null ? null : this.notice.match(/^Diff to closest match (\d+)/);
+      if (match === null) return null;
+      return {
+        before: match[0].slice(0, -match[1].length),
+        id: match[1],
+        after: this.notice.slice(match[0].length)
+      };
+    },
     unpackedFilesWithSeparator() {
       return this.unpackedFiles.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     },
@@ -743,6 +760,16 @@ export default {
 .review-information-card-bar i {
   color: #7d8590;
   font-size: 11px;
+}
+/* The compared report id links to that report, but stays typographically
+   part of the tool output — only an underline on hover gives it away. */
+.review-information-card-body a {
+  color: inherit;
+  text-decoration: none;
+}
+.review-information-card-body a:hover,
+.review-information-card-body a:focus {
+  text-decoration: underline;
 }
 .review-information-card-body {
   color: #1f2328;
