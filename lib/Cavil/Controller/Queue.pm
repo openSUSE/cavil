@@ -186,7 +186,7 @@ sub package_status ($self) {
 
   # Hold back a freshly reviewed result during the configured grace period, so it looks like the review
   # is still pending until reviewers have had time to intervene
-  if ($pkgs->within_review_grace($pkg, $self->app->config->{review_grace_period})) {
+  if ($pkgs->within_review_grace($pkg->{id}, $self->app->config->{review_grace_period})) {
     $pkg->{state} = 'new';
     delete @{$pkg}{qw(result reviewed reviewed_epoch reviewing_user)};
   }

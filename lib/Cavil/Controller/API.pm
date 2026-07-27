@@ -125,7 +125,7 @@ sub status ($self) {
   # Hold back freshly reviewed results during the grace period, consistent with the bot status endpoint
   my @requests;
   for my $state (@{$pkgs->states($name)}) {
-    $state->{state} = 'new' if $pkgs->within_review_grace($state, $grace);
+    $state->{state} = 'new' if $pkgs->within_review_grace($state->{id}, $grace);
     push @requests, {checkout => $state->{checkout}, state => $state->{state}};
   }
 
