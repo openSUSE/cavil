@@ -1,0 +1,24 @@
+# Defines the tag for OBS and build script builds:
+#!BuildTag: opensuse/golang:1.16-custom
+#!BuildName: golang-custom
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Legal-Review-Notice: Custom flavor builds without the debug tooling
+#
+
+ARG BASE=opensuse/tumbleweed
+FROM $BASE
+
+# labelprefix=org.opensuse.golang
+PREFIXEDLABEL org.opencontainers.image.description="Custom Go 1.16 development container"
+PREFIXEDLABEL org.opencontainers.image.version="%%PKG_VERSION%%.%RELEASE%"
+
+ENV GOLANG_VERSION %%PKG_VERSION%%
+ENV GOPATH /go
+ENV PATH $GOPATH/bin:$PATH
+
+RUN zypper install -y --no-recommends go1.16 && zypper clean
+
+WORKDIR $GOPATH
+CMD [ "/bin/bash" ]
