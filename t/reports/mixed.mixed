@@ -5,7 +5,7 @@
     "%doc"                 => [],
     "%license"             => [],
     "file"                 => "mixed.spec",
-    "legal_review_notices" => ['hello', 'cavil!', 'Proprietary video codecs are disabled'],
+    "legal_review_notices" => ["hello", "cavil!", "Proprietary video codecs are disabled"],
     "license"              => "MIT AND BSD-3-Clause",
     "licenses"             => ["MIT AND BSD-3-Clause"],
     "sources"              => [],
@@ -24,7 +24,7 @@
       "%doc"                 => [],
       "%license"             => [],
       "file"                 => "mixed-more.spec",
-      "legal_review_notices" => ['testing 123'],
+      "legal_review_notices" => ["testing 123"],
       "licenses"             => ["MIT"],
       "sources"              => [],
       "summary"              => "Just a test",
@@ -34,7 +34,7 @@
       "%doc"                 => [],
       "%license"             => [],
       "file"                 => "mixed.spec",
-      "legal_review_notices" => ['hello', 'cavil!', 'Proprietary video codecs are disabled'],
+      "legal_review_notices" => ["hello", "cavil!", "Proprietary video codecs are disabled"],
       "licenses"             => ["MIT AND BSD-3-Clause"],
       "sources"              => [],
       "summary"              => "Just a test",
@@ -57,25 +57,28 @@
       "version"  => "1.0.0"
     },
     {
-      "file"     => "Dockerfile",
-      "licenses" => ["BSD-2-Clause"],
-      "summary"  => "Mixed Test 3",
-      "type"     => "dockerfile",
-      "version"  => 4
+      "file"                 => "Dockerfile",
+      "legal_review_notices" => [],
+      "licenses"             => ["BSD-2-Clause"],
+      "summary"              => "Mixed Test 3",
+      "type"                 => "dockerfile",
+      "version"              => 4
     },
     {
-      "file"     => "mixed-more.Dockerfile",
-      "licenses" => ["BSD-3-Clause"],
-      "summary"  => "Mixed Test",
-      "type"     => "dockerfile",
-      "version"  => 5
+      "file"                 => "mixed-more.Dockerfile",
+      "legal_review_notices" => [],
+      "licenses"             => ["BSD-3-Clause"],
+      "summary"              => "Mixed Test",
+      "type"                 => "dockerfile",
+      "version"              => 5
     },
     {
-      "file"     => "mixed.Dockerfile",
-      "licenses" => ["MIT"],
-      "summary"  => "Mixed Test 2",
-      "type"     => "dockerfile",
-      "version"  => 4
+      "file"                 => "mixed.Dockerfile",
+      "legal_review_notices" => [],
+      "licenses"             => ["MIT"],
+      "summary"              => "Mixed Test 2",
+      "type"                 => "dockerfile",
+      "version"              => 4
     }
   ],
   "warnings" => [

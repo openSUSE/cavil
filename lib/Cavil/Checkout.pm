@@ -64,6 +64,12 @@ my $URL_RE = qr!
 
 my $LICENSE_COMMENT_RE = qr/^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/;
 
+# Legal review notices, non-standard but used in SUSE packages
+my $LEGAL_REVIEW_NOTICE_RE = qr/^\s*#+\s*Legal-Review-Notice:\s*(.+)\s*$/i;
+
+# Plain "Dockerfile", multibuild flavors like "Dockerfile.driver-550", and named "foo.Dockerfile"
+my $DOCKERFILE_RE = qr/^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
+
 sub is_unpacked ($self) { -d path($self->dir)->child('.unpacked') }
 
 sub keyword_report ($self, $matcher, $meta, $file) {
@@ -120,7 +126,7 @@ sub specfile_report ($self, $opts = {}) {
     my $chart          = $root->child('Chart.yaml');
     my ($spec)         = $files->grep(qr/\.spec$/)->each;
     my ($kiwi)         = $files->grep(qr/\.kiwi$/)->each;
-    my ($dockerfile)   = $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
+    my ($dockerfile)   = $files->grep(sub { $_->basename =~ $DOCKERFILE_RE })->each;
 
     # Auto-detect a main package file (any name), in priority order
     my $main;
@@ -137,10 +143,9 @@ sub specfile_report ($self, $opts = {}) {
     # List all detected package files for display
     push @{$info->{sub}}, _debian_files($debian_control) if -f $debian_control;
     push @{$info->{sub}}, _helmchart($chart)             if -f $chart;
-    push @{$info->{sub}}, _specfile($_) for $files->grep(qr/\.spec$/)->each;
-    push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
-    push @{$info->{sub}}, _dockerfile($_)
-      for $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
+    push @{$info->{sub}}, _specfile($_)   for $files->grep(qr/\.spec$/)->each;
+    push @{$info->{sub}}, _kiwifile($_)   for $files->grep(qr/\.kiwi$/)->each;
+    push @{$info->{sub}}, _dockerfile($_) for $files->grep(sub { $_->basename =~ $DOCKERFILE_RE })->each;
   }
 
   else {
@@ -237,9 +242,8 @@ sub specfile_report ($self, $opts = {}) {
     # All .kiwi files
     push @{$info->{sub}}, _kiwifile($_) for $files->grep(qr/\.kiwi$/)->each;
 
-    # All .Dockerfile files
-    push @{$info->{sub}}, _dockerfile($_)
-      for $files->grep(sub { $_->basename =~ qr/^(?:Dockerfile|.+\.Dockerfile)$/ })->each;
+    # All Dockerfiles
+    push @{$info->{sub}}, _dockerfile($_) for $files->grep(sub { $_->basename =~ $DOCKERFILE_RE })->each;
 
     _check($info);
   }
@@ -402,20 +406,22 @@ sub _debian_files ($file) {
 }
 
 sub _dockerfile ($file) {
-  my $info = {file => $file->basename, type => 'dockerfile', licenses => []};
+  my $info = {file => $file->basename, type => 'dockerfile', licenses => [], legal_review_notices => []};
   for my $line (split "\n", $file->slurp) {
     if    ($line =~ $LICENSE_COMMENT_RE)                                 { push @{$info->{licenses}}, $1 }
     elsif ($line =~ /^.*org.opencontainers.image.version="(.+)".*$/)     { $info->{version} ||= $1 }
     elsif ($line =~ /^.*org.opencontainers.image.description="(.+)".*$/) { $info->{summary} ||= $1 }
+    elsif ($line =~ $LEGAL_REVIEW_NOTICE_RE)                             { push @{$info->{legal_review_notices}}, $1 }
   }
 
   return $info;
 }
 
 sub _helmchart ($file) {
-  my $info = {file => $file->basename, type => 'helm', licenses => []};
+  my $info = {file => $file->basename, type => 'helm', licenses => [], legal_review_notices => []};
   for my $line (split "\n", $file->slurp) {
-    if ($line =~ $LICENSE_COMMENT_RE) { push @{$info->{licenses}}, $1 }
+    if    ($line =~ $LICENSE_COMMENT_RE)     { push @{$info->{licenses}},             $1 }
+    elsif ($line =~ $LEGAL_REVIEW_NOTICE_RE) { push @{$info->{legal_review_notices}}, $1 }
   }
 
   my $data = eval { Load($file->slurp) };
@@ -480,8 +486,8 @@ sub _specfile ($file) {
     elsif ($line =~ /^Group:\s*(.+)\s*$/)          { $info->{group}   ||= $1 }
     elsif ($line =~ /^Url:\s*(.+)\s*$/i)           { $info->{url}     ||= $1 }
 
-    # Legal review notices, non-standard but used in SUSE packages
-    elsif ($line =~ /^\s*#+\s*Legal-Review-Notice:\s*(.+)\s*$/i) { push @{$info->{legal_review_notices}}, $1 }
+    # Legal review notices
+    elsif ($line =~ $LEGAL_REVIEW_NOTICE_RE) { push @{$info->{legal_review_notices}}, $1 }
   }
 
   return $info;

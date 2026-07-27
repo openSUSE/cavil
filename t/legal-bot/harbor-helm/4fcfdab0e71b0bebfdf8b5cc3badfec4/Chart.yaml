@@ -4,6 +4,8 @@
 #
 # SPDX-License-Identifier: MIT
 #
+# Legal-Review-Notice: Chart only references images reviewed separately
+#
 apiVersion: v1
 name: harbor
 version: 1.2.3

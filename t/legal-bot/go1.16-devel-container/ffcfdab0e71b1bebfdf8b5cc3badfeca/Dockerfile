@@ -5,6 +5,8 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause AND MIT
 #
+# Legal-Review-Notice: Vendored Go toolchain is not part of the image
+#
 
 ARG BASE=opensuse/tumbleweed
 FROM $BASE

@@ -24,11 +24,12 @@
       "version"  => "1.0.0"
     },
     {
-      "file"     => "mixed-more.Dockerfile",
-      "licenses" => ["BSD-2-Clause"],
-      "summary"  => "Mixed Test",
-      "type"     => "dockerfile",
-      "version"  => 5
+      "file"                 => "mixed-more.Dockerfile",
+      "legal_review_notices" => [],
+      "licenses"             => ["BSD-2-Clause"],
+      "summary"              => "Mixed Test",
+      "type"                 => "dockerfile",
+      "version"              => 5
     }
   ],
   "warnings" => [

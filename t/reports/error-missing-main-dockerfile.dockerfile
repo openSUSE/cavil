@@ -4,19 +4,21 @@
   ],
   "incomplete_checkout" => 0,
   "main"                => {
-    "file"     => "error-missing-main-dockerfile.Dockerfile",
-    "licenses" => [],
-    "summary"  => "Just a test",
-    "type"     => "dockerfile",
-    "version"  => "%%PKG_VERSION%%.%RELEASE%"
+    "file"                 => "error-missing-main-dockerfile.Dockerfile",
+    "legal_review_notices" => [],
+    "licenses"             => [],
+    "summary"              => "Just a test",
+    "type"                 => "dockerfile",
+    "version"              => "%%PKG_VERSION%%.%RELEASE%"
   },
   "sub" => [
     {
-      "file"     => "error-missing-main-dockerfile.Dockerfile",
-      "licenses" => [],
-      "summary"  => "Just a test",
-      "type"     => "dockerfile",
-      "version"  => "%%PKG_VERSION%%.%RELEASE%"
+      "file"                 => "error-missing-main-dockerfile.Dockerfile",
+      "legal_review_notices" => [],
+      "licenses"             => [],
+      "summary"              => "Just a test",
+      "type"                 => "dockerfile",
+      "version"              => "%%PKG_VERSION%%.%RELEASE%"
     }
   ],
   "warnings" => []
