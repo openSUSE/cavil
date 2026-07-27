@@ -48,9 +48,9 @@ sub _compatibility_matrix () {
 # The OSADL obligation dataset (CC-BY-4.0, see the NOTICE file), bundled and refreshed via
 # tools/update_licenses.pl alongside the compatibility matrix. Per-license obligation checklists
 # grouped by delivery use case, plus copyleft and source-code-disclosure classifications, keyed by
-# SPDX identifier. The file's {source, timestamp} keys record provenance (see the NOTICE file); only
-# the "licenses" map is consumed here. The file contains non-ASCII text (e.g. the copyright sign), so
-# it is read with decode_json. Cached on first use.
+# SPDX identifier. The file's "source" key records provenance (see the NOTICE file); only the
+# "licenses" map is consumed here. The file contains non-ASCII text (e.g. the copyright sign), so it
+# is read with decode_json. Cached on first use.
 sub _obligations_data () {
   state $data = decode_json(path(__FILE__)->dirname->child('resources', 'license_obligations.json')->slurp);
   return $data;

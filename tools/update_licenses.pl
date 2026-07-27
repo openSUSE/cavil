@@ -7,12 +7,19 @@ use Mojo::JSON       qw(decode_json);
 use Mojo::UserAgent;
 use Mojo::Util qw(html_unescape trim);
 
-# Bundled JSON resources are written with sorted keys, so regenerating one only produces a diff when
-# the upstream data actually changed. Perl randomizes hash order per process and Mojo::JSON has no
-# canonical mode, so the encoding happens here instead. Bytes in, bytes out: the fetched bodies are
-# UTF-8 and OSADL escapes non-ASCII (e.g. the copyright sign as ©), which decode_json turns into
-# characters and this encoder writes back out as UTF-8.
-my $JSON = Cpanel::JSON::XS->new->canonical->utf8;
+# Bundled JSON resources are written alphabetically sorted and indented, so regenerating one only
+# produces a diff where the upstream data actually changed, and that diff is readable line by line.
+# Neither can be taken for granted otherwise: upstream key order is arbitrary, Perl randomizes hash
+# order per process, and a single-line 1.6MB file reports every change as a whole-file rewrite. The
+# encoder lives here because Mojo::JSON offers neither option. Bytes in, bytes out: the fetched
+# bodies are UTF-8 and OSADL escapes non-ASCII (e.g. the copyright sign as ©), which decode_json
+# turns into characters and this encoder writes back out as UTF-8. Indented output is newline
+# terminated already, so callers must not append one.
+#
+# OSADL stamps every rebuild of their data with a fresh timestamp, whether or not anything changed,
+# and nothing in Cavil reads it - so it is deliberately not carried into the bundles. Provenance is
+# the "source" URL plus the NOTICE file.
+my $JSON = Cpanel::JSON::XS->new->canonical->utf8->indent->space_after;
 
 my $LICENSE_URL   = 'https://spdx.org/licenses/';
 my $EXCEPTION_URL = 'https://spdx.org/licenses/exceptions-index.html';
@@ -30,8 +37,28 @@ my $obligations_file = $dir->child('license_obligations.json');
 
 my $ua = Mojo::UserAgent->new;
 
+# A full run makes well over a hundred sequential requests, so a single hiccup must not throw away
+# the ones already done. Connection errors are worth another try; an HTTP status below 500 means the
+# server answered and disagreed, so that is fatal right away. One case is common enough to name:
+# OSADL publishes AAAA records, and on a dual-stack host without an IPv6 default route a fraction of
+# connects fail immediately with "Network is unreachable" because Mojo::UserAgent picks whichever
+# address the resolver returned first and, unlike curl, does not fall back to the other family.
+my $RETRIES = 5;
+
+sub fetch ($url) {
+  for my $attempt (1 .. $RETRIES) {
+    my $tx  = $ua->get($url);
+    my $err = $tx->error;
+    return $tx->result unless $err;
+    die qq(Cannot fetch "$url": $err->{code} $err->{message}\n) if $err->{code} && $err->{code} < 500;
+    warn qq(Fetching "$url" failed ($err->{message}), attempt $attempt of $RETRIES\n);
+    sleep 1;
+  }
+  die qq(Cannot fetch "$url": giving up after $RETRIES attempts\n);
+}
+
 # Licenses
-my $dom = $ua->get($LICENSE_URL)->result->dom;
+my $dom = fetch($LICENSE_URL)->dom;
 my @licenses;
 for my $license ($dom->at('table')->find('code[property="spdx:licenseId"]')->each) {
   push @licenses, $license->text;
@@ -40,7 +67,7 @@ $license_file->spew(join("\n", sort @licenses) . "\n");
 say qq(Updated @{[scalar @licenses]} licenses in "$license_file");
 
 # Exceptions
-$dom = $ua->get($EXCEPTION_URL)->result->dom;
+$dom = fetch($EXCEPTION_URL)->dom;
 my @exceptions;
 for my $exception ($dom->at('table')->find('code[property="spdx:licenseExceptionId"]')->each) {
   push @exceptions, $exception->text;
@@ -49,14 +76,14 @@ $exception_file->spew(join("\n", sort @exceptions) . "\n");
 say qq(Updated @{[scalar @exceptions]} exceptions in "$exception_file");
 
 # License changes (OBS)
-my $text = $ua->get($CHANGES_URL)->result->text;
+my $text = fetch($CHANGES_URL)->text;
 $changes_file->spew($text);
 my $num = split("\n", $text) - 1;
 say qq(Updated $num license changes in "$changes_file");
 
 # ScanCode LicenseDB (for BSI TR-03183-2 "LicenseRef-scancode-*" identifiers). The data is licensed
 # CC-BY-4.0 and requires attribution; see the NOTICE file.
-my $scancode = decode_json($ua->get($SCANCODE_URL)->result->body);
+my $scancode = decode_json(fetch($SCANCODE_URL)->body);
 my @scancode_keys;
 for my $license (@$scancode) {
   next if $license->{is_exception} || $license->{is_deprecated};
@@ -72,7 +99,7 @@ say qq(Updated @{[scalar @scancode_keys]} ScanCode licenses in "$scancode_file")
 # (No / Check dependency / Unknown) - the "Yes"/"Same" cells are implied by absence. Cavil presents
 # this per package as OSADL's own sub-matrix, so no collapsing, curation or reinterpretation happens
 # here; the directional structure and the explanations are preserved exactly as OSADL publishes them.
-my $osadl = decode_json($ua->get($OSADL_URL)->result->body);
+my $osadl = decode_json(fetch($OSADL_URL)->body);
 my (%matrix, $cells);
 for my $outbound (@{$osadl->{licenses}}) {
   my $a = $outbound->{name};
@@ -88,7 +115,7 @@ for my $outbound (@{$osadl->{licenses}}) {
     $cells++;
   }
 }
-$osadl_file->spew($JSON->encode({source => $OSADL_URL, timestamp => $osadl->{timestamp}, matrix => \%matrix}) . "\n");
+$osadl_file->spew($JSON->encode({source => $OSADL_URL, matrix => \%matrix}));
 say qq(Updated $cells OSADL compatibility cells in "$osadl_file");
 
 # OSADL obligation checklists plus the copyleft and source-code-disclosure classifications. Same
@@ -101,18 +128,17 @@ say qq(Updated $cells OSADL compatibility cells in "$osadl_file");
 # matrix. Everything is keyed by SPDX identifier.
 my $osadl_checklists = 'https://www.osadl.org/fileadmin/checklists';
 
-my $copyleft       = decode_json($ua->get("$osadl_checklists/copyleft.json")->result->body)->{copyleft}           // {};
-my $disclosure     = decode_json($ua->get("$osadl_checklists/sourcedisclosure.json")->result->body)->{disclosure} // {};
-my $obligations_ts = trim($ua->get("$osadl_checklists/timestamp")->result->text);
+my $copyleft   = decode_json(fetch("$osadl_checklists/copyleft.json")->body)->{copyleft}           // {};
+my $disclosure = decode_json(fetch("$osadl_checklists/sourcedisclosure.json")->body)->{disclosure} // {};
 
 # One optimized checklist file per license; the list file holds their URLs, one per line.
 my %obligations;
-my $opt_list = $ua->get("$osadl_checklists/all/jsonlicenses-opt.txt")->result->text;
+my $opt_list = fetch("$osadl_checklists/all/jsonlicenses-opt.txt")->text;
 for my $url (split "\n", $opt_list) {
   $url = trim($url);
   next unless $url =~ m!/([^/]+)-opt\.json$!;
   my $name  = $1;
-  my $entry = decode_json($ua->get($url)->result->body)->{$name} or next;
+  my $entry = decode_json(fetch($url)->body)->{$name} or next;
   $obligations{$name} = {patent_hints => $entry->{'PATENT HINTS'}, use_cases => $entry->{'USE CASE'} // {}};
 }
 
@@ -124,6 +150,5 @@ for my $name (keys %$copyleft, keys %$disclosure) {
   $entry->{source_disclosure} = $disclosure->{$name} if defined $disclosure->{$name};
 }
 
-$obligations_file->spew(
-  $JSON->encode({source => "$osadl_checklists/", timestamp => $obligations_ts, licenses => \%obligations}) . "\n");
+$obligations_file->spew($JSON->encode({source => "$osadl_checklists/", licenses => \%obligations}));
 say qq(Updated @{[scalar keys %obligations]} OSADL obligation checklists in "$obligations_file");
