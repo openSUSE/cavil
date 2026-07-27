@@ -1,10 +1,18 @@
 #!/usr/bin/perl
 use Mojo::Base -strict, -signatures;
 
-use Mojo::File qw(curfile);
-use Mojo::JSON qw(decode_json encode_json from_json to_json);
+use Cpanel::JSON::XS ();
+use Mojo::File       qw(curfile);
+use Mojo::JSON       qw(decode_json);
 use Mojo::UserAgent;
 use Mojo::Util qw(html_unescape trim);
+
+# Bundled JSON resources are written with sorted keys, so regenerating one only produces a diff when
+# the upstream data actually changed. Perl randomizes hash order per process and Mojo::JSON has no
+# canonical mode, so the encoding happens here instead. Bytes in, bytes out: the fetched bodies are
+# UTF-8 and OSADL escapes non-ASCII (e.g. the copyright sign as ©), which decode_json turns into
+# characters and this encoder writes back out as UTF-8.
+my $JSON = Cpanel::JSON::XS->new->canonical->utf8;
 
 my $LICENSE_URL   = 'https://spdx.org/licenses/';
 my $EXCEPTION_URL = 'https://spdx.org/licenses/exceptions-index.html';
@@ -48,7 +56,7 @@ say qq(Updated $num license changes in "$changes_file");
 
 # ScanCode LicenseDB (for BSI TR-03183-2 "LicenseRef-scancode-*" identifiers). The data is licensed
 # CC-BY-4.0 and requires attribution; see the NOTICE file.
-my $scancode = from_json($ua->get($SCANCODE_URL)->result->body);
+my $scancode = decode_json($ua->get($SCANCODE_URL)->result->body);
 my @scancode_keys;
 for my $license (@$scancode) {
   next if $license->{is_exception} || $license->{is_deprecated};
@@ -64,7 +72,7 @@ say qq(Updated @{[scalar @scancode_keys]} ScanCode licenses in "$scancode_file")
 # (No / Check dependency / Unknown) - the "Yes"/"Same" cells are implied by absence. Cavil presents
 # this per package as OSADL's own sub-matrix, so no collapsing, curation or reinterpretation happens
 # here; the directional structure and the explanations are preserved exactly as OSADL publishes them.
-my $osadl = from_json($ua->get($OSADL_URL)->result->body);
+my $osadl = decode_json($ua->get($OSADL_URL)->result->body);
 my (%matrix, $cells);
 for my $outbound (@{$osadl->{licenses}}) {
   my $a = $outbound->{name};
@@ -80,7 +88,7 @@ for my $outbound (@{$osadl->{licenses}}) {
     $cells++;
   }
 }
-$osadl_file->spew(to_json({source => $OSADL_URL, timestamp => $osadl->{timestamp}, matrix => \%matrix}) . "\n");
+$osadl_file->spew($JSON->encode({source => $OSADL_URL, timestamp => $osadl->{timestamp}, matrix => \%matrix}) . "\n");
 say qq(Updated $cells OSADL compatibility cells in "$osadl_file");
 
 # OSADL obligation checklists plus the copyleft and source-code-disclosure classifications. Same
@@ -93,9 +101,6 @@ say qq(Updated $cells OSADL compatibility cells in "$osadl_file");
 # matrix. Everything is keyed by SPDX identifier.
 my $osadl_checklists = 'https://www.osadl.org/fileadmin/checklists';
 
-# OSADL escapes non-ASCII (e.g. the copyright sign as ©), so read the fetched bodies with
-# decode_json (UTF-8 bytes -> characters) and write the bundle with encode_json (characters ->
-# UTF-8 bytes); using from_json/to_json here would emit lone Latin-1 bytes for those characters.
 my $copyleft       = decode_json($ua->get("$osadl_checklists/copyleft.json")->result->body)->{copyleft}           // {};
 my $disclosure     = decode_json($ua->get("$osadl_checklists/sourcedisclosure.json")->result->body)->{disclosure} // {};
 my $obligations_ts = trim($ua->get("$osadl_checklists/timestamp")->result->text);
@@ -120,5 +125,5 @@ for my $name (keys %$copyleft, keys %$disclosure) {
 }
 
 $obligations_file->spew(
-  encode_json({source => "$osadl_checklists/", timestamp => $obligations_ts, licenses => \%obligations}) . "\n");
+  $JSON->encode({source => "$osadl_checklists/", timestamp => $obligations_ts, licenses => \%obligations}) . "\n");
 say qq(Updated @{[scalar keys %obligations]} OSADL obligation checklists in "$obligations_file");
