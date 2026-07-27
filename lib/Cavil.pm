@@ -40,7 +40,7 @@ has sync => sub ($self) {
   return $sync;
 };
 
-our $VERSION = '1.030';
+our $VERSION = '1.031';
 
 sub startup ($self) {
 
