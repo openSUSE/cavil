@@ -365,7 +365,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#pending-actions-widget');
 
       // Collapse the file again so we can verify the widget link re-expands it
-      await page.locator(`#expand-link-${fileId}`).click();
+      await page.locator(`#expand-link-${fileId} ~ div .file-preview-close`).click();
       t.same(await page.isVisible(`#file-details-${fileId}`), false, 'file collapsed before jump');
 
       // Expand widget and click the location link

@@ -220,8 +220,14 @@
               :data-file-id="file.id"
             >
               <a :name="'file-' + file.id"></a>
-              <div :class="['file', {'is-stuck': stickyFileHeaders[file.id]}]">
-                <a href="#" :id="'expand-link-' + file.id" @click.prevent="toggleExpand(file)">{{ file.path }}</a>
+              <div :class="['file', 'report-file-header', {'is-stuck': stickyFileHeaders[file.id]}]">
+                <a
+                  :href="file.file_url"
+                  :id="'expand-link-' + file.id"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open file in a new tab"
+                >{{ file.path }}</a>
                 <div class="float-end file-actions">
                   <span v-if="isAdminOrContributor" class="dropdown file-action-menu">
                     <a
@@ -242,9 +248,15 @@
                       </a>
                     </div>
                   </span>
-                  <a :href="file.file_url" target="_blank" title="Open file" aria-label="Open file">
-                    <i class="fa-solid fa-up-right-from-square"></i>
-                  </a>
+                  <button
+                    type="button"
+                    class="cavil-icon-action file-preview-close"
+                    title="Close file preview"
+                    aria-label="Close file preview"
+                    @click="toggleExpand(file)"
+                  >
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
                 </div>
               </div>
               <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
@@ -1640,10 +1652,24 @@ a.report-component-name:focus {
   overflow-wrap: anywhere;
   padding: 0;
 }
+.report-file-header {
+  align-items: center;
+  display: flex;
+}
+.report-file-header > a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .file-actions {
   align-items: center;
   display: inline-flex;
+  float: none !important;
   gap: 0.75rem;
+  margin-left: auto;
+}
+.file-preview-close {
+  height: 20px;
+  width: 20px;
 }
 .file-action-link {
   color: #57606a;

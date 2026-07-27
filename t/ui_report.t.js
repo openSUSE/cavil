@@ -198,16 +198,19 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.match(await page.innerText('#expand-link-6'), /Mojolicious.+js/);
       t.same(await page.isVisible('#file-details-6'), true);
 
-      // Open whole file in new tab
+      // The preview title opens the whole file in a new tab.
       const [page2] = await Promise.all([
         context.waitForEvent('page'),
-        page.locator('#expand-link-6 ~ div a[target="_blank"]').click()
+        page.locator('#expand-link-6').click()
       ]);
       await page2.waitForLoadState();
       t.match(await page2.innerText('title'), /Content of Mojolicious.+js/);
       await page2.waitForSelector('.file-browser-source table.snippet');
       t.match(await page2.innerText('.file-browser-source'), /Apache.+indexOf/s);
       await page2.close();
+
+      await page.locator('#expand-link-6 ~ div .file-preview-close').click();
+      t.same(await page.isVisible('#file-details-6'), false, 'close button collapses the file preview');
     });
 
     await t.test('Report sections (chart, risks, missed files, emails, urls)', async t => {
