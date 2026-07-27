@@ -10,7 +10,8 @@ import t from 'tap';
 // estimated risk. New licenses get the same badge in their risk bucket. The
 // "report_notice" fixture builds two synthetic versions of one package through
 // the real pipeline: version 1 is accepted, version 2 (id 2) adds eight
-// brand-new unresolved files and one brand-new Apache-2.0 license.
+// brand-new unresolved files and one brand-new Apache-2.0 license. A second
+// package (ids 3 and 4) covers the zero-delta notice.
 t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => {
   process.env.JS_UI_FIXTURES = 'report_notice';
   const ui = await launchUi('js_ui_report_notice');
@@ -66,6 +67,21 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
         .filter({has: page.locator('.risk-license-name', {hasText: 'Apache-2.0'})});
       await apacheRow.first().waitFor();
       t.equal(await apacheRow.locator('.risk-new').count(), 1, 'the brand-new Apache-2.0 license is badged "new"');
+    });
+
+    // The other notice shape that names an older review by id
+    await t.test('the "no significant difference" notice links its id too', async t => {
+      await page.goto(`${url}/reviews/details/4`);
+      await page.waitForSelector('#review-information');
+
+      const box = await page.innerText('#review-information');
+      t.match(box, /Not found any significant difference against 3/, 'box names the review it matched');
+
+      const link = page.locator('#review-information a');
+      t.equal(await link.count(), 1, 'the id is the only link');
+      t.equal((await link.innerText()).trim(), '3', 'the package id itself is the link');
+      t.equal(await link.getAttribute('href'), '/reviews/details/3', 'link points at the matched report');
+      t.equal(await link.getAttribute('target'), '_blank', 'link opens in another tab');
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);

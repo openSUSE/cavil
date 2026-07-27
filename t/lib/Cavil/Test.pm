@@ -658,10 +658,11 @@ sub report_notice_fixtures ($self, $app) {
   # Each numeric marker in @$files becomes one file with one unresolved match;
   # distinct markers keep every snippet hash unique so they count as "new".
   # $extra is an optional map of relative filename => literal content for files
-  # that should resolve to a license instead of being unresolved.
-  my $build = sub ($md5, $files, $extra = {}) {
-    my $name = 'report-notice';
-    my $dir  = $self->checkout_dir->child($name, $md5)->make_path;
+  # that should resolve to a license instead of being unresolved. $name picks
+  # the package the version belongs to; closest-match lookups are per name, so
+  # a second name is an independent history.
+  my $build = sub ($md5, $files, $extra = {}, $name = 'report-notice') {
+    my $dir = $self->checkout_dir->child($name, $md5)->make_path;
     $dir->child("$name.spec")->spew(<<"SPEC");
 Name:           $name
 Version:        1.0
@@ -727,6 +728,21 @@ FILE
     [101 .. 108],
     {'LICENSE-APACHE.txt' => "report-notice distinctive apache license marker\n"}
   );
+
+  # A second package (ids 3 and 4) for the other notice shape that names an
+  # older review by id. Its own name keeps it out of the closest-match lookups
+  # above. Version 2 drops one of version 1's files: the report checksum
+  # changes (so no review is inherited) but the delta gains nothing, and
+  # analyze writes "Not found any significant difference against 3".
+  my $other = 'report-notice-same';
+  my $same1 = $build->('c0000000000000000000000000000003', [1, 2], {}, $other);
+  my $pkg3  = $pkgs->find($same1);
+  $pkg3->{reviewing_user}   = $usr_id;
+  $pkg3->{result}           = 'Reviewed ok';
+  $pkg3->{state}            = 'acceptable';
+  $pkg3->{review_timestamp} = 1;
+  $pkgs->update($pkg3);
+  $build->('d0000000000000000000000000000004', [1], {}, $other);
 }
 
 sub compatibility_fixtures ($self, $app) {

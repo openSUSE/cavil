@@ -208,13 +208,16 @@
         <i class="fa-solid fa-caret-right"></i>
         <span>why this needs review</span>
       </header>
-      <pre class="review-information-card-body" v-if="noticeDiff === null">{{ notice }}</pre>
       <!-- prettier-ignore -->
-      <pre class="review-information-card-body" v-else>{{ noticeDiff.before }}<a
-        :href="`/reviews/details/${noticeDiff.id}`"
+      <pre class="review-information-card-body"><span
+        v-for="(segment, index) in noticeSegments"
+        :key="index"
+      ><a
+        v-if="segment.isReportId"
+        :href="`/reviews/details/${segment.text}`"
         target="_blank"
         rel="noopener"
-      >{{ noticeDiff.id }}</a>{{ noticeDiff.after }}</pre>
+      >{{ segment.text }}</a><template v-else>{{ segment.text }}</template></span></pre>
     </section>
     <cavil-notice-panel
       v-if="errors.length > 0"
@@ -370,16 +373,22 @@ export default {
     };
   },
   computed: {
-    // A diff notice always opens with "Diff to closest match <id>", so the id
-    // can be linked to that report while the rest stays plain text
-    noticeDiff() {
-      const match = this.notice === null ? null : this.notice.match(/^Diff to closest match (\d+)/);
-      if (match === null) return null;
-      return {
-        before: match[0].slice(0, -match[1].length),
-        id: match[1],
-        after: this.notice.slice(match[0].length)
-      };
+    // Notices that compare against an older review name it by id ("Diff to
+    // closest match 538922", "Not found any significant difference against
+    // 538922"). Those ids become links to that report, everything else stays
+    // plain text.
+    noticeSegments() {
+      if (this.notice === null) return [];
+      const segments = [];
+      const pattern = /(?<=Diff to closest match |significant difference against )\d+/g;
+      let plainFrom = 0;
+      for (const match of this.notice.matchAll(pattern)) {
+        segments.push({text: this.notice.slice(plainFrom, match.index)});
+        segments.push({text: match[0], isReportId: true});
+        plainFrom = match.index + match[0].length;
+      }
+      segments.push({text: this.notice.slice(plainFrom)});
+      return segments;
     },
     unpackedFilesWithSeparator() {
       return this.unpackedFiles.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
