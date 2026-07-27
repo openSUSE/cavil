@@ -320,10 +320,10 @@ import ExternalLink from './ExternalLink.vue';
 import LegalLoading from './LegalLoading.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
-import UserAgent from '@mojojs/user-agent';
-import {findPlaceholders} from '../helpers/placeholders.js';
 import {productLink} from '../helpers/links.js';
+import {findPlaceholders} from '../helpers/placeholders.js';
 import Refresh from '../mixins/refresh.js';
+import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {

@@ -36,9 +36,6 @@
 </template>
 
 <script>
-import {defaultKeymap, history, historyKeymap, redo, redoDepth, undo, undoDepth} from '@codemirror/commands';
-import {EditorState, Prec} from '@codemirror/state';
-import {EditorView, keymap, placeholder as emptyDocHint} from '@codemirror/view';
 import {
   findPlaceholders,
   nextPlaceholder,
@@ -46,6 +43,9 @@ import {
   placeholderHighlighter,
   previousPlaceholder
 } from '../helpers/placeholders.js';
+import {defaultKeymap, history, historyKeymap, redo, redoDepth, undo, undoDepth} from '@codemirror/commands';
+import {EditorState, Prec} from '@codemirror/state';
+import {EditorView, keymap, placeholder as emptyDocHint} from '@codemirror/view';
 import {markRaw} from 'vue';
 
 let nextLabelId = 1;
