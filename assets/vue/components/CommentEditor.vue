@@ -67,9 +67,12 @@ export default {
       canRedo: false,
       canUndo: false,
       editor: null,
+      insertingTemplate: false,
       labelId: `comment-editor-label-${nextLabelId++}`,
       placeholderCount: 0,
-      suppressEmit: false
+      suppressEmit: false,
+      // Where the last inserted template body starts, or null once the reviewer has edited the document
+      templateFrom: null
     };
   },
   computed: {
@@ -136,6 +139,9 @@ export default {
       this.canRedo = redoDepth(update.state) > 0;
       this.canUndo = undoDepth(update.state) > 0;
       if (!update.docChanged) return;
+
+      // Once the reviewer has edited anything the template is their text, not a pick to be swapped out
+      if (!this.insertingTemplate) this.templateFrom = null;
       const text = update.state.doc.toString();
       this.placeholderCount = findPlaceholders(text).length;
       if (!this.suppressEmit) this.$emit('update:modelValue', text);
@@ -182,17 +188,21 @@ export default {
       if (!this.editor) return;
       const current = this.editor.state.doc.toString();
 
-      // Never silently overwrite what the reviewer already wrote, append after a blank line instead
-      const isEmpty = current.trim() === '';
-      const prefix = isEmpty ? '' : current.replace(/\s+$/, '') + '\n\n';
+      // Picking again without typing in between is a correction of the first pick, so that untouched
+      // body is swapped out. Anything the reviewer wrote themselves is kept and appended to.
+      const keep = this.templateFrom === null ? current : current.slice(0, this.templateFrom);
+      const trimmed = keep.replace(/\s+$/, '');
+      const prefix = trimmed === '' ? '' : trimmed + '\n\n';
       const insert = prefix + body;
-      const bodyFrom = insert.length - body.length;
 
       const found = findPlaceholders(body)[0] ?? null;
       const selection =
-        found === null ? {anchor: insert.length} : {anchor: bodyFrom + found.from, head: bodyFrom + found.to};
+        found === null ? {anchor: insert.length} : {anchor: prefix.length + found.from, head: prefix.length + found.to};
 
+      this.insertingTemplate = true;
       this.editor.dispatch({changes: {from: 0, to: current.length, insert}, selection, scrollIntoView: true});
+      this.insertingTemplate = false;
+      this.templateFrom = prefix.length;
       this.editor.focus();
     }
   }

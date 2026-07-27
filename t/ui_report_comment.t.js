@@ -151,20 +151,32 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
 
     await t.test('Templates are inserted from the picker', async t => {
       await openReport();
-      await page.click('#template-picker-btn');
-      await page.click('.template-picker-item:has-text("Unacceptable-File")');
+      const pick = async () => {
+        await page.click('#template-picker-btn');
+        await page.click('.template-picker-item:has-text("Unacceptable-File")');
+      };
 
+      await pick();
       const text = await docText();
       t.match(text, /is licensed under \[LICENSE\]/, 'template body landed in the box');
       const first = text.indexOf('[FILE]');
       t.same(await selection(), {from: first, to: first + 6}, 'first placeholder is selected, ready to type over');
 
-      // Never silently overwrite what the reviewer already wrote
-      await page.click('#template-picker-btn');
-      await page.click('.template-picker-item:has-text("Unacceptable-File")');
+      // Picking again without typing in between corrects the first pick instead of stacking on it
+      await pick();
+      t.equal((await docText()).match(/\[LICENSE\]/g).length, 1, 'a second pick replaces the untouched body');
+
+      // But it must never silently overwrite something the reviewer wrote themselves
+      await setDoc('Rejected outright.');
+      await pick();
+      t.match(await docText(), /^Rejected outright\.\n\nThis package cannot/, 'appended after a blank line');
+
+      await page.keyboard.press('Control+End');
+      await page.keyboard.type('\nThanks.');
+      await pick();
       const appended = await docText();
-      t.equal(appended.match(/\[LICENSE\]/g).length, 2, 'a second insert appends rather than replacing');
-      t.match(appended, /review\.\n\nThis package cannot/, 'separated by a blank line');
+      t.equal(appended.match(/\[LICENSE\]/g).length, 2, 'an edited template is kept and appended to');
+      t.match(appended, /^Rejected outright\./, 'the reviewer text is still there');
     });
 
     await t.test('Unfilled placeholders are a warning, not a block', async t => {
