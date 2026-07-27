@@ -52,11 +52,7 @@
             </tr>
           </tbody>
         </table>
-        <div
-          v-if="hovered"
-          class="license-matrix-tooltip"
-          :style="{left: `${hovered.x}px`, top: `${hovered.y}px`}"
-        >
+        <div v-if="hovered" class="license-matrix-tooltip" :style="{left: `${hovered.x}px`, top: `${hovered.y}px`}">
           <strong>{{ verdictLabel(hovered.compatibility) }}</strong>
           <span class="license-matrix-tooltip-line">
             <span class="license-matrix-tooltip-label">Using</span>
