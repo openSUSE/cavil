@@ -180,8 +180,16 @@ sub list_requests ($self) {
 }
 
 sub package_status ($self) {
+  my $pkgs = $self->packages;
   return $self->render(json => {error => 'No such package'}, status => 404)
-    unless my $pkg = $self->packages->find($self->stash('id'));
+    unless my $pkg = $pkgs->find($self->stash('id'));
+
+  # Hold back a freshly reviewed result during the configured grace period, so it looks like the review
+  # is still pending until reviewers have had time to intervene
+  if ($pkgs->within_review_grace($pkg, $self->app->config->{review_grace_period})) {
+    $pkg->{state} = 'new';
+    delete @{$pkg}{qw(result reviewed reviewed_epoch reviewing_user)};
+  }
 
   my %reply = %$pkg;
   $reply{result} = $pkg->{result} if $pkg->{result};
