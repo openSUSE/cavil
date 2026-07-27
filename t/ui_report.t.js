@@ -248,6 +248,25 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.match(await page.innerText('#urls'), /https?:\/\//);
     });
 
+    await t.test('Embargoed metadata is visually distinct', async t => {
+      await page.route('**/reviews/meta/1', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.embargoed = true;
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+      const badge = page.locator('#pkg-embargoed .embargo-status-badge');
+      await badge.waitFor();
+      t.equal(await badge.innerText(), 'Yes');
+      t.equal(await badge.getAttribute('title'), 'Package is embargoed');
+      t.equal(await badge.locator('.fa-lock').count(), 1, 'embargoed yes includes a lock icon');
+
+      await page.unroute('**/reviews/meta/1');
+    });
+
     await t.test('Components render in their own tab with capped license chart', async t => {
       await page.route('**/reviews/report_details/1', async route => {
         const response = await route.fetch();

@@ -25,7 +25,12 @@
             </dd>
           </template>
           <dt>Embargoed</dt>
-          <dd v-if="pkgEmbargoed === true" id="pkg-embargoed">Yes</dd>
+          <dd v-if="pkgEmbargoed === true" id="pkg-embargoed">
+            <span class="badge text-bg-warning embargo-status-badge" title="Package is embargoed">
+              <i class="fa-solid fa-lock" aria-hidden="true"></i>
+              Yes
+            </span>
+          </dd>
           <dd v-else id="pkg-embargoed">No</dd>
           <template v-if="state !== null">
             <dt>State</dt>
@@ -528,6 +533,11 @@ export default {
   letter-spacing: 0.01em;
   padding: 0.4em 0.65em;
   vertical-align: baseline;
+}
+.embargo-status-badge {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
 }
 .report-metadata-id {
   border-radius: 6px;
