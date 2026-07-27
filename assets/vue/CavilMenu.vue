@@ -44,6 +44,7 @@
         <li><h3 class="dropdown-header">Curation</h3></li>
         <li><a :href="urls.ignoredMatches" class="dropdown-item">Ignored Matches</a></li>
         <li><a :href="urls.ignoredFiles" class="dropdown-item">Ignored Files</a></li>
+        <li><a :href="urls.commentTemplates" class="dropdown-item">Comment Templates</a></li>
         <li><hr class="dropdown-divider" /></li>
       </template>
       <template v-if="canInfra">

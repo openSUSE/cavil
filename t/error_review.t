@@ -188,8 +188,9 @@ subtest 'Manual review' => sub {
 
   $t->post_ok('/reviews/review_package/1' => form => {comment => 'Test review', acceptable => 'Good Enough'})
     ->status_is(200)
-    ->text_like('#content a', qr!perl-Mojolicious!)
-    ->text_like('#content b', qr!acceptable!);
+    ->json_is('/ok',    1)
+    ->json_is('/name',  'perl-Mojolicious')
+    ->json_is('/state', 'acceptable');
 
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)

@@ -3,9 +3,11 @@
     <div class="row mt-3">
       <cavil-notice-panel intro class="col-12">
         These globs are used to decide which files the indexer should ignore when scanning for license pattern matches.
-        <button name="add-glob" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#globModal">
-          Add Glob
-        </button>
+        <template #actions>
+          <button name="add-glob" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#globModal">
+            Add Glob
+          </button>
+        </template>
       </cavil-notice-panel>
     </div>
     <CavilListLayout

@@ -94,7 +94,8 @@
           <td class="cavil-list-package" v-html="review.package"></td>
           <td v-html="review.state"></td>
           <td class="cavil-list-comment">
-            <div class="cavil-list-comment-body" v-html="review.result"></div>
+            <!-- Review comments are plain text, they must not be interpolated as HTML -->
+            <div class="cavil-list-comment-body">{{ review.result }}</div>
           </td>
           <td v-html="review.login"></td>
           <td class="cavil-list-report" v-html="review.report"></td>

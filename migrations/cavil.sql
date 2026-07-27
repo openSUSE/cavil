@@ -426,3 +426,25 @@ DROP TABLE IF EXISTS shingle_license;
 DROP TABLE IF EXISTS pattern_shingles;
 DROP FUNCTION IF EXISTS pattern_shingles_ins;
 DROP FUNCTION IF EXISTS pattern_shingles_del;
+
+-- 53 up
+CREATE TABLE comment_templates (
+  id      bigserial PRIMARY KEY,
+  name    text NOT NULL,
+  body    text NOT NULL,
+  author  int REFERENCES bot_users(id),
+  created timestamp with time zone DEFAULT now() NOT NULL,
+  edited  timestamp with time zone
+);
+CREATE UNIQUE INDEX ON comment_templates (name);
+CREATE INDEX ON comment_templates (author);
+INSERT INTO comment_templates (name, body) VALUES ('Unacceptable-File',
+'This package cannot be accepted as is.
+
+The file [FILE] is licensed under [LICENSE], which we cannot ship.
+
+Please remove the file from the sources, or replace it with a version under an
+acceptable license, and then resubmit the package for review.');
+
+-- 53 down
+DROP TABLE IF EXISTS comment_templates;

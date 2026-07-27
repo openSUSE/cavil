@@ -43,6 +43,16 @@ my @probes = (
     url    => '/reviews/fasttrack_package/999999',
     allow  => [qw(admin lawyer manager)]
   },
+  {cap => 'curate/templates', method => 'get_ok',    url => '/comment-templates',        allow => [qw(admin lawyer)]},
+  {cap => 'curate/templates', method => 'delete_ok', url => '/comment-templates/999999', allow => [qw(admin lawyer)]},
+
+  # Reading templates only needs a login, managers write review comments too and need the picker
+  {
+    cap    => 'logged_in/templates',
+    method => 'get_ok',
+    url    => '/comment-templates/all',
+    allow  => [qw(user classifier contributor manager admin lawyer)]
+  },
 );
 
 subtest 'capability matrix' => sub {
@@ -64,18 +74,23 @@ subtest 'acceptable_by_lawyer is derived from the lawyer role, never minted' => 
   $set_roles->('admin');
   $db->update('bot_packages', {state => 'new'}, {id => 1});
   $t->post_ok('/reviews/review_package/1' => form => {comment => 'ok', acceptable => 1, acceptable_by_lawyer => 1})
-    ->status_is(200);
+    ->status_is(200)
+    ->json_is('/state', 'acceptable');
   is $t->app->packages->find(1)->{state}, 'acceptable', 'admin accept -> acceptable (param ignored, not minted)';
 
   # A lawyer accepting the very same way produces the lawyer sign-off.
   $set_roles->('lawyer');
   $db->update('bot_packages', {state => 'new'}, {id => 1});
-  $t->post_ok('/reviews/review_package/1' => form => {comment => 'ok', acceptable => 1})->status_is(200);
+  $t->post_ok('/reviews/review_package/1' => form => {comment => 'ok', acceptable => 1})
+    ->status_is(200)
+    ->json_is('/state', 'acceptable_by_lawyer');
   is $t->app->packages->find(1)->{state}, 'acceptable_by_lawyer', 'lawyer accept -> acceptable_by_lawyer';
 
   # Reject is available to a curator and always yields unacceptable.
   $db->update('bot_packages', {state => 'new'}, {id => 1});
-  $t->post_ok('/reviews/review_package/1' => form => {comment => 'no', unacceptable => 1})->status_is(200);
+  $t->post_ok('/reviews/review_package/1' => form => {comment => 'no', unacceptable => 1})
+    ->status_is(200)
+    ->json_is('/state', 'unacceptable');
   is $t->app->packages->find(1)->{state}, 'unacceptable', 'reject -> unacceptable';
 };
 

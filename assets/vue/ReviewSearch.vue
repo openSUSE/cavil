@@ -67,7 +67,8 @@
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td v-html="review.state"></td>
           <td class="cavil-list-comment">
-            <div class="cavil-list-comment-body" v-html="review.comment"></div>
+            <!-- Review comments are plain text, they must not be interpolated as HTML -->
+            <div class="cavil-list-comment-body">{{ review.comment }}</div>
           </td>
           <td v-html="review.user"></td>
           <td class="cavil-list-package" v-html="review.package"></td>

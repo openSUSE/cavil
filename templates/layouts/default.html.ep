@@ -79,18 +79,19 @@
               data-roles='<%= encode_json($roles) %>'
               data-stats='<%= encode_json($stats) %>'
               data-urls='<%= encode_json({
-                missing        => url_for('missing_licenses')->to_string,
-                proposed       => url_for('proposed_patterns')->to_string,
-                recentPatterns => url_for('recent_patterns')->to_string,
-                recentNotes    => url_for('recent_notes')->to_string,
-                stats          => url_for('stats')->to_string,
-                upload         => url_for('/upload')->to_string,
-                ignoredMatches => url_for('/ignored-matches')->to_string,
-                ignoredFiles   => url_for('/ignored-files')->to_string,
-                minion         => url_for('/minion')->to_string,
-                documentation  => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md',
-                apiKeys        => url_for('list_api_keys')->to_string,
-                logout         => url_for('logout')->to_string
+                missing          => url_for('missing_licenses')->to_string,
+                proposed         => url_for('proposed_patterns')->to_string,
+                recentPatterns   => url_for('recent_patterns')->to_string,
+                recentNotes      => url_for('recent_notes')->to_string,
+                stats            => url_for('stats')->to_string,
+                upload           => url_for('/upload')->to_string,
+                ignoredMatches   => url_for('/ignored-matches')->to_string,
+                ignoredFiles     => url_for('/ignored-files')->to_string,
+                commentTemplates => url_for('list_comment_templates')->to_string,
+                minion           => url_for('/minion')->to_string,
+                documentation    => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md',
+                apiKeys          => url_for('list_api_keys')->to_string,
+                logout           => url_for('logout')->to_string
               }) %>'
             >
               <li class="nav-item dropdown cavil-user-menu cavil-user-menu-fallback">

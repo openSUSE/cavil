@@ -163,7 +163,7 @@ naming a role, and roles are named bundles of capabilities.
 | view | Read reports, review results, licenses, snippets and statistics. |
 | classify | Validate AI text-classification results, creating training data. |
 | propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
-| curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores, accept or reject proposals, apply snippet decisions, reindex, and accept or reject reviews. |
+| curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores and comment templates, accept or reject proposals, apply snippet decisions, reindex, and accept or reject reviews. |
 | infra | Operate the instance: the job dashboard and package upload. |
 | review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off). |
 | review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |

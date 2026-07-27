@@ -4,7 +4,12 @@
       <i v-if="icon !== null" :class="icon"></i>
       {{ title }}
     </div>
-    <slot>
+    <!-- Intro prose needs a box of its own, an anonymous flex item cannot be told to shrink -->
+    <template v-if="intro">
+      <div class="cavil-notice-panel-intro-text"><slot></slot></div>
+      <div v-if="$slots.actions" class="cavil-notice-panel-intro-actions"><slot name="actions"></slot></div>
+    </template>
+    <slot v-else>
       <ul class="cavil-notice-list">
         <li v-for="item in items" :key="item" class="cavil-notice-item">{{ item }}</li>
       </ul>
@@ -49,15 +54,23 @@ export default {
   background: #f6f8fa;
   color: #57606a;
   display: flex;
-  flex-wrap: wrap;
   font-size: 14px;
   gap: 0.75rem;
   line-height: 1.45;
   margin: 0 0 1rem;
   padding: 0.75rem 0.9rem;
 }
+.cavil-notice-panel-intro-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cavil-notice-panel-intro-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
 .cavil-notice-panel-intro .btn {
-  margin-left: auto;
   white-space: nowrap;
 }
 .cavil-notice-panel-intro a:not(.btn) {
@@ -190,9 +203,6 @@ export default {
   .cavil-notice-panel-intro {
     align-items: flex-start;
     flex-direction: column;
-  }
-  .cavil-notice-panel-intro .btn {
-    margin-left: 0;
   }
 }
 </style>

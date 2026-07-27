@@ -430,6 +430,7 @@ export default {
   line-height: 1.45;
   max-width: 24rem;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
   padding: 0.45rem 0.6rem;
 }
 

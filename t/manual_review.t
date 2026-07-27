@@ -401,8 +401,18 @@ subtest 'Manual review' => sub {
 
   $t->post_ok('/reviews/review_package/1' => form => {comment => 'Test review', acceptable => 'Good Enough'})
     ->status_is(200)
-    ->text_like('#content a', qr!perl-Mojolicious!)
-    ->text_like('#content b', qr!acceptable!);
+    ->json_is('/ok',    1)
+    ->json_is('/id',    1)
+    ->json_is('/name',  'perl-Mojolicious')
+    ->json_is('/state', 'acceptable');
+
+  $t->post_ok('/reviews/review_package/999999' => form => {acceptable => 1})
+    ->status_is(404)
+    ->json_is('/error', 'Package not found');
+  $t->post_ok('/reviews/review_package/1' => form => {comment => 'No decision'})
+    ->status_is(400)
+    ->json_is('/error', 'Missing decision');
+  is $t->app->packages->find(1)->{result}, 'Test review', 'review without a decision changed nothing';
 
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
@@ -505,6 +515,26 @@ subtest 'Final JSON report' => sub {
   is $apache->{name}, 'Apache-2.0', 'name';
   is $apache->{spdx}, 'Apache-2.0', 'spdx';
   is $apache->{risk}, 5,            'risk';
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
+
+subtest 'Fasttrack review' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+  $t->post_ok('/reviews/fasttrack_package/999999')->status_is(404)->json_is('/error', 'Package not found');
+
+  $t->post_ok('/reviews/fasttrack_package/1' => form => {comment => 'Fasttracked'})
+    ->status_is(200)
+    ->json_is('/ok',    1)
+    ->json_is('/id',    1)
+    ->json_is('/name',  'perl-Mojolicious')
+    ->json_is('/state', 'acceptable');
+  is $t->app->packages->find(1)->{result}, 'Fasttracked', 'comment stored';
+
+  # An empty comment falls back to the default
+  $t->post_ok('/reviews/fasttrack_package/1' => form => {comment => ''})->status_is(200)->json_is('/ok', 1);
+  is $t->app->packages->find(1)->{result}, 'Reviewed ok', 'default comment';
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

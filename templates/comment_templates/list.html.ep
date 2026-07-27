@@ -1,0 +1,8 @@
+% layout 'default';
+% title 'Comment templates';
+
+<div id="comment-templates"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupCommentTemplates();
+% end

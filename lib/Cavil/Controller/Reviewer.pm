@@ -53,16 +53,19 @@ sub fasttrack_package ($self) {
 
   my $user = $self->session('user');
 
-  my $pkg = $self->packages->find($self->stash('id'));
-  return $self->reply->not_found unless $pkg;
+  my $id  = $self->stash('id');
+  my $pkg = $self->packages->find($id);
+  return $self->render(json => {error => 'Package not found'}, status => 404) unless $pkg;
 
-  $pkg->{reviewing_user}   = $self->users->find(login => $user)->{id};
-  $pkg->{result}           = $validation->param('comment') || 'Reviewed ok';
+  $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
+  my $result = $pkg->{result} = $validation->param('comment') || 'Reviewed ok';
   $pkg->{state}            = 'acceptable';
   $pkg->{review_timestamp} = 1;
   $self->packages->update($pkg);
 
-  return $self->render(text => "Reviewed $pkg->{name} as acceptable");
+  $self->app->log->info(qq{Fasttrack review by $user: $pkg->{name} ($id) is $pkg->{state}:}, $result);
+
+  return $self->render(json => {ok => 1, id => $pkg->{id}, name => $pkg->{name}, state => $pkg->{state}});
 }
 
 sub file_view ($self) {
@@ -250,7 +253,7 @@ sub review_package ($self) {
 
   my $id  = $self->stash('id');
   my $pkg = $self->packages->find($id);
-  return $self->reply->not_found unless $pkg;
+  return $self->render(json => {error => 'Package not found'}, status => 404) unless $pkg;
 
   $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
   my $result = $pkg->{result} = $validation->param('comment') || 'Reviewed ok';
@@ -265,7 +268,7 @@ sub review_package ($self) {
     $pkg->{state} = $self->current_user_can('review_lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
   }
   else {
-    die "Unknown state";
+    return $self->render(json => {error => 'Missing decision'}, status => 400);
   }
   $pkg->{review_timestamp} = 1;
   $pkg->{ai_assisted}      = 0;
@@ -274,7 +277,7 @@ sub review_package ($self) {
 
   $self->app->log->info(qq{Review by $user: $pkg->{name} ($id) is $pkg->{state}:}, $result);
 
-  $self->render('reviewer/reviewed', package => $pkg);
+  $self->render(json => {ok => 1, id => $pkg->{id}, name => $pkg->{name}, state => $pkg->{state}});
 }
 
 1;

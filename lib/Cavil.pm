@@ -9,6 +9,7 @@ use Cavil::Classifier;
 use Cavil::Git;
 use Cavil::PatternEngine;
 use Cavil::Role qw(roles_with_capability);
+use Cavil::Model::CommentTemplates;
 use Cavil::Model::Notes;
 use Cavil::Model::IgnoredFiles;
 use Cavil::Model::Packages;
@@ -133,6 +134,9 @@ sub startup ($self) {
   $self->helper(users    => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
   $self->helper(
     ignored_files => sub ($c) { state $pkgs = Cavil::Model::IgnoredFiles->new(pg => $c->pg, log => $self->log) });
+  $self->helper(
+    comment_templates => sub ($c) { state $tmpl = Cavil::Model::CommentTemplates->new(pg => $c->pg, log => $self->log) }
+  );
 
   my $cache = path($config->{cache_dir})->make_path;
   $self->helper(
@@ -287,6 +291,16 @@ sub startup ($self) {
   $can_curate->post('/ignored-files')->to('Ignore#add_glob')->name('add_ignore');
   $can_curate->delete('/ignored-files/<id:num>')->to('Ignore#remove_glob')->name('remove_ignored_file');
   $can_curate->get('/pagination/files/ignored')->to('Pagination#ignored_files')->name('pagination_ignored_files');
+
+  # Reading templates is not gated on "curate", managers write review comments too and need the picker
+  $logged_in->get('/comment-templates/all')->to('CommentTemplates#all')->name('all_comment_templates');
+  $can_curate->get('/comment-templates')->to('CommentTemplates#list')->name('list_comment_templates');
+  $can_curate->post('/comment-templates')->to('CommentTemplates#add')->name('add_comment_template');
+  $can_curate->put('/comment-templates/<id:num>')->to('CommentTemplates#update')->name('update_comment_template');
+  $can_curate->delete('/comment-templates/<id:num>')->to('CommentTemplates#remove')->name('remove_comment_template');
+  $can_curate->get('/pagination/comment-templates')
+    ->to('Pagination#comment_templates')
+    ->name('pagination_comment_templates');
 
   # Public because of fine grained access controls (owner of proposal may remove it again)
   $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');

@@ -5,9 +5,11 @@
         These API keys can be used to authenticate API requests. See
         <a target="_blank" href="https://github.com/openSUSE/cavil/blob/master/docs/UserAPI.md">API documentation</a>
         for more details.
-        <button name="add-api-key" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
-          Add API Key
-        </button>
+        <template #actions>
+          <button name="add-api-key" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+            Add API Key
+          </button>
+        </template>
       </cavil-notice-panel>
     </div>
     <div>

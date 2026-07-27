@@ -521,8 +521,18 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
-      await page.click('text="Acceptable"');
-      t.equal(await page.innerText('div.alert b'), 'acceptable');
+      await Promise.all([
+        page.waitForResponse(
+          res => res.url().includes('/reviews/review_package/') && res.request().method() === 'POST'
+        ),
+        page.click('text="Acceptable"')
+      ]);
+
+      // The review is submitted with AJAX, so the state updates in place and the page never navigates
+      t.equal(await page.innerText('.toast-message'), 'Reviewed perl-Mojolicious as acceptable', 'toast');
+      await page.waitForFunction(() => document.querySelector('#pkg-state').innerText.trim() === 'acceptable');
+      t.equal(await page.innerText('#pkg-state'), 'acceptable', 'state badge updated in place');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious', 'still on the report');
 
       await page.click('text=Recently Reviewed');
       t.equal(await page.innerText('title'), 'List recent reviews');

@@ -11,6 +11,7 @@ import ArchiveUpload from './vue/ArchiveUpload.vue';
 import CavilMenu from './vue/CavilMenu.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
+import CommentTemplates from './vue/CommentTemplates.vue';
 import PackageSearch from './vue/components/PackageSearch.vue';
 import EditPattern from './vue/EditPattern.vue';
 import EditSnippet from './vue/EditSnippet.vue';
@@ -111,6 +112,10 @@ window.cavil = {
 
   setupIgnoredFiles() {
     createApp(IgnoredFiles).mount('#ignored-files');
+  },
+
+  setupCommentTemplates() {
+    createApp(CommentTemplates).mount('#comment-templates');
   },
 
   setupApiKeys() {

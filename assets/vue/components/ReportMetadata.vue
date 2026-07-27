@@ -243,26 +243,43 @@
       title="Legal review notices"
       tone="success"
     />
-    <div v-if="hasAdminRole === true" class="metadata-review-section">
-      <form :action="reviewUrl" method="POST" class="container metadata-review-form" id="pkg-review">
+    <div class="metadata-review-section">
+      <form class="container metadata-review-form" id="pkg-review" @submit.prevent>
         <div class="col metadata-review-editor">
-          <label class="form-label" for="comment">Comment</label>
-          <textarea v-model="result" name="comment" placeholder="Reviewed ok" rows="10" class="form-control"></textarea>
+          <CommentEditor
+            ref="commentEditor"
+            v-model="result"
+            label="Comment"
+            :placeholder="canReview ? 'Reviewed ok' : ''"
+            :read-only="!canReview"
+          >
+            <template #actions v-if="canReview && templates.length > 0">
+              <TemplatePicker
+                :manage-url="hasAdminRole === true ? manageTemplatesUrl : null"
+                :templates="templates"
+                @select="insertTemplate"
+              />
+            </template>
+          </CommentEditor>
         </div>
-        <div class="col mb-3 metadata-review-actions">
+        <div v-if="canReview" class="col mb-3 metadata-review-actions">
           <div class="metadata-review-actions-group">
             <!-- One accept button; the server derives acceptable vs acceptable_by_lawyer from the
                  reviewer's capability, so a non-lawyer can never post a lawyer sign-off. -->
             <input
-              class="btn btn-success"
-              id="acceptable"
-              name="acceptable"
-              type="submit"
-              :value="hasLawyerRole ? 'Acceptable by Lawyer' : 'Acceptable'"
+              v-for="button in reviewButtons"
+              :key="button.id"
+              :class="['btn', button.variant]"
+              :id="button.id"
+              :name="button.id"
+              type="button"
+              :disabled="submitting"
+              :value="button.label"
+              @click="submitReview(submitUrl, button.id)"
             />
-            <input class="btn btn-danger" id="unacceptable" name="unacceptable" type="submit" value="Unacceptable" />
           </div>
           <button
+            v-if="hasAdminRole === true"
             type="button"
             :class="['btn', reindexBtnVariant, 'metadata-review-actions-secondary']"
             :title="reindexTitle"
@@ -272,27 +289,6 @@
           >
             Reindex
           </button>
-        </div>
-      </form>
-    </div>
-    <div v-else-if="hasManagerRole === true" class="metadata-review-section">
-      <form :action="fasttrackUrl" method="POST" class="container metadata-review-form" id="pkg-review">
-        <div class="col metadata-review-editor">
-          <label class="form-label" for="comment">Comment</label>
-          <textarea v-model="result" name="comment" placeholder="Reviewed ok" rows="10" class="form-control"></textarea>
-        </div>
-        <div class="col mb-3 metadata-review-actions">
-          <div class="metadata-review-actions-group">
-            <input class="btn btn-warning" id="acceptable" name="acceptable" type="submit" value="Acceptable" />
-          </div>
-        </div>
-      </form>
-    </div>
-    <div v-else class="metadata-review-section">
-      <form class="container metadata-review-form" id="pkg-review">
-        <div class="col metadata-review-editor">
-          <label class="form-label" for="comment">Comment</label>
-          <textarea v-model="result" name="comment" rows="10" class="form-control" disabled></textarea>
         </div>
       </form>
     </div>
@@ -312,21 +308,35 @@
         </template>
       </dl>
     </cavil-notice-panel>
+    <ToastNotifier ref="toaster" />
   </div>
 </template>
 
 <script>
 import CavilNoticePanel from './CavilNoticePanel.vue';
+import CommentEditor from './CommentEditor.vue';
 import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
 import LegalLoading from './LegalLoading.vue';
+import TemplatePicker from './TemplatePicker.vue';
+import ToastNotifier from './ToastNotifier.vue';
+import UserAgent from '@mojojs/user-agent';
+import {findPlaceholders} from '../helpers/placeholders.js';
 import {productLink} from '../helpers/links.js';
 import Refresh from '../mixins/refresh.js';
 import moment from 'moment';
 
 export default {
   name: 'ReportMetadata',
-  components: {CavilNoticePanel, CopyableText, ExternalLink, LegalLoading},
+  components: {
+    CavilNoticePanel,
+    CommentEditor,
+    CopyableText,
+    ExternalLink,
+    LegalLoading,
+    TemplatePicker,
+    ToastNotifier
+  },
   mixins: [Refresh],
   data() {
     return {
@@ -339,6 +349,7 @@ export default {
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       hasSpdxReport: false,
       legalReviewNotices: [],
+      manageTemplatesUrl: '/comment-templates',
       notice: null,
       pkgAiAssisted: false,
       pkgChecksum: null,
@@ -367,12 +378,31 @@ export default {
       searchUrl: null,
       spdxUrl: `/spdx/${this.pkgId}`,
       state: null,
+      submitting: false,
+      templates: [],
       unpackedFiles: 0,
       unpackedSize: 'n/a',
       warnings: []
     };
   },
   computed: {
+    canReview() {
+      return this.hasAdminRole === true || this.hasManagerRole === true;
+    },
+    // A curator gets accept and reject, a manager only the fasttrack accept
+    reviewButtons() {
+      if (this.hasAdminRole === true) {
+        return [
+          {id: 'acceptable', variant: 'btn-success', label: this.hasLawyerRole ? 'Acceptable by Lawyer' : 'Acceptable'},
+          {id: 'unacceptable', variant: 'btn-danger', label: 'Unacceptable'}
+        ];
+      }
+      if (this.hasManagerRole === true) return [{id: 'acceptable', variant: 'btn-warning', label: 'Acceptable'}];
+      return [];
+    },
+    submitUrl() {
+      return this.hasAdminRole === true ? this.reviewUrl : this.fasttrackUrl;
+    },
     // Notices that compare against an older review name it by id ("Diff to
     // closest match 538922", "Not found any significant difference against
     // 538922"). Those ids become links to that report, everything else stays
@@ -426,7 +456,66 @@ export default {
       return this.shouldReindex ? 'There are new patterns!' : 'There are no new patterns';
     }
   },
+  // Templates barely ever change, so they are fetched once instead of on every metadata refresh
+  mounted() {
+    if (this.canReview) this.loadTemplates();
+  },
   methods: {
+    insertTemplate(template) {
+      this.$refs.commentEditor?.insertTemplate(template.body);
+    },
+    async loadTemplates() {
+      try {
+        const ua = new UserAgent({baseURL: window.location.href});
+        const res = await ua.get('/comment-templates/all');
+        if (res.isSuccess) this.templates = await res.json();
+      } catch (err) {
+        // Not being able to offer templates is no reason to bother the reviewer, the picker just stays hidden
+      }
+    },
+    // The decision is posted as the form field the server expects ("acceptable"/"unacceptable"), but which
+    // state that turns into is still derived server side from the reviewer's capability
+    async submitReview(url, decision) {
+      if (this.submitting) return;
+
+      // A leftover placeholder is occasionally intentional, so this warns rather than blocks
+      const unfilled = findPlaceholders(this.result);
+      if (unfilled.length > 0) {
+        const tokens = unfilled.map(p => p.name).join(', ');
+        if (!window.confirm(`The comment still contains unfilled placeholders: ${tokens}. Submit anyway?`)) return;
+      }
+
+      this.submitting = true;
+
+      try {
+        const ua = new UserAgent({baseURL: window.location.href});
+        const res = await ua.post(url, {form: {comment: this.result, [decision]: 1}});
+
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (e) {
+          // Not JSON, an authentication failure renders an HTML page
+        }
+
+        if (res.isSuccess && data && data.ok) {
+          this.$refs.toaster?.notify(`Reviewed ${data.name} as ${data.state}`);
+
+          // Do not race the pending refresh timer, and do not update the state optimistically, the
+          // stale local state is what makes refreshData() adopt the comment the server just stored
+          this.cancelApiRefresh();
+          await this.doApiRefresh();
+          return;
+        }
+
+        const message = (data && data.error) || `Request failed (HTTP ${res.statusCode})`;
+        this.$refs.toaster?.notify(message, 'danger', 5000);
+      } catch (err) {
+        this.$refs.toaster?.notify(`Review request failed: ${err}`, 'danger', 5000);
+      } finally {
+        this.submitting = false;
+      }
+    },
     async reindex() {
       this.reindexBusy = true;
       this.reindexFailed = false;
@@ -796,44 +885,7 @@ export default {
 .metadata-review-form {
   padding: 0;
 }
-.metadata-review-editor {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  overflow: hidden;
-}
-.metadata-review-editor .form-label {
-  align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
-  color: #1f2328;
-  display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0;
-  min-height: 2.25rem;
-  padding: 0.45rem 0.75rem;
-}
-.metadata-review-editor .form-control {
-  background: #ffffff;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  color: #1f2328;
-  font-size: 14px;
-  line-height: 1.45;
-  min-height: 12rem;
-  padding: 0.75rem;
-  resize: vertical;
-}
-.metadata-review-editor:focus-within {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.18);
-}
-.metadata-review-editor .form-control:focus {
-  box-shadow: none;
-  outline: none;
-}
+/* The bordered box, its header bar and the focus ring now belong to CommentEditor */
 .metadata-review-actions {
   align-items: center;
   display: flex;
