@@ -732,22 +732,9 @@ sub spdx_report_path ($self, $id) {
 
 sub states ($self, $name) {
   return $self->pg->db->query(
-    'select id, checkout_dir as checkout, state from bot_packages
+    'select checkout_dir as checkout, state from bot_packages
      where name = ? order by created desc', $name
   )->hashes->to_array;
-}
-
-# A reviewed result (manual or auto-accept) is held back from the bot API for a configured grace period,
-# so reviewers have time to intervene before the decision is forwarded to OBS/Gitea. The window is measured
-# against the database clock rather than the web server's, since a deployment may run them on separate hosts,
-# and keyed off "reviewed", which every review path re-stamps, so a correction restarts the window.
-sub within_review_grace ($self, $id, $grace) {
-  return 0 unless $grace;
-  my $hash = $self->pg->db->query(
-    q{SELECT reviewed IS NOT NULL AND reviewed > now() - (interval '1 second' * ?) AS grace
-      FROM bot_packages WHERE id = ?}, $grace, $id
-  )->hash;
-  return $hash && $hash->{grace} ? 1 : 0;
 }
 
 sub stats {

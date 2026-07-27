@@ -70,11 +70,6 @@ Content-Encoding: gzip
 
 Get package status in JSON format.
 
-Note that deployments may configure a `review_grace_period`. During that window a freshly reviewed package
-(whether reviewed manually or auto-accepted) is still reported as `"state": "new"` with no `result`, so
-reviewers have time to intervene before the decision is forwarded. The final result appears once the grace
-period has elapsed.
-
 **Request parameters:**
 
 None

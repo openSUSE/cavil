@@ -118,18 +118,8 @@ sub source ($self) {
 }
 
 sub status ($self) {
-  my $name  = $self->stash('name');
-  my $pkgs  = $self->packages;
-  my $grace = $self->app->config->{review_grace_period};
-
-  # Hold back freshly reviewed results during the grace period, consistent with the bot status endpoint
-  my @requests;
-  for my $state (@{$pkgs->states($name)}) {
-    $state->{state} = 'new' if $pkgs->within_review_grace($state->{id}, $grace);
-    push @requests, {checkout => $state->{checkout}, state => $state->{state}};
-  }
-
-  $self->render(json => {package => $name, requests => \@requests});
+  my $name = $self->stash('name');
+  $self->render(json => {package => $name, requests => $self->packages->states($name)});
 }
 
 sub whoami ($self) {
