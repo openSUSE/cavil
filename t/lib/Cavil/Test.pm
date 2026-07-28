@@ -809,8 +809,8 @@ sub obligations_fixtures ($self, $app) {
   # Apache-2.0 has a rich OSADL obligation checklist (two delivery use cases, YOU MUST / YOU MUST NOT,
   # patent hints); the expression "MIT OR BSD-3-Clause" exercises per-constituent decomposition (two
   # named sections); and "BSD-2-Clause AND Beerware" is an expression where only one constituent is
-  # OSADL-known (Beerware has no checklist), so the panel must still name BSD-2-Clause to attribute the
-  # obligations it does show.
+  # OSADL-known (Beerware has no checklist, only SPDX flags), so the panel must still name BSD-2-Clause
+  # to attribute the obligations it does show.
   $app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',          license => 'Apache-2.0');
   $app->patterns->create(pattern => 'SPDX-License-Identifier: MIT OR BSD-3-Clause', license => 'MIT OR BSD-3-Clause');
   $app->patterns->create(
@@ -824,12 +824,20 @@ sub obligations_fixtures ($self, $app) {
     pattern => 'SPDX-License-Identifier: GPL-2.0-or-later WITH Classpath-exception-2.0',
     license => 'GPL-2.0-or-later WITH Classpath-exception-2.0'
   );
+
+  # Two licenses OSADL publishes no checklist for, where SPDX classification is all there is: the panel
+  # labels itself "Details" instead of "Obligations". CC-BY-4.0 is the plain case (not OSI approved, but
+  # FSF libre); MPL-1.0 is the one the FSF has never ruled on, so its panel must show no FSF row at all.
+  $app->patterns->create(pattern => 'SPDX-License-Identifier: CC-BY-4.0', license => 'CC-BY-4.0');
+  $app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-1.0',   license => 'MPL-1.0');
+
   $app->pg->db->query(
-    'UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?, ?)',
+    'UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?, ?, ?, ?)',
     'Apache-2.0',
     'MIT OR BSD-3-Clause',
     'BSD-2-Clause AND Beerware',
-    'GPL-2.0-or-later WITH Classpath-exception-2.0'
+    'GPL-2.0-or-later WITH Classpath-exception-2.0',
+    'CC-BY-4.0', 'MPL-1.0'
   );
 
   my $name = 'license-obligations';
@@ -858,6 +866,8 @@ SPEC
     ->spew("# SPDX-License-Identifier: BSD-2-Clause AND Beerware\n\nOne constituent is unknown to OSADL.\n");
   $src->child('exception_file.txt')
     ->spew("# SPDX-License-Identifier: GPL-2.0-or-later WITH Classpath-exception-2.0\n\nBase plus an exception.\n");
+  $src->child('details_file.txt')->spew("# SPDX-License-Identifier: CC-BY-4.0\n\nDocumentation, not code.\n");
+  $src->child('no_fsf_file.txt')->spew("# SPDX-License-Identifier: MPL-1.0\n\nThe FSF never ruled on this one.\n");
   my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
   system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
     or die "Failed to create synthetic tarball: $?";

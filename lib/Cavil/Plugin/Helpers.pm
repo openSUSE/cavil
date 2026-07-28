@@ -5,7 +5,7 @@ package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(license_obligations);
+use Cavil::ReportUtil qw(license_classification);
 use Cavil::Role       qw(roles_with_capability);
 use Cavil::Util       qw(external_link_data spdx_link);
 use CommonMark        ();
@@ -138,10 +138,11 @@ sub _report_details ($c, $pkg, $report) {
         flags     => $matches->{flags} // [],
         files     => $matches->{files},
 
-        # OSADL obligation checklists for each SPDX identifier named in this entry (verbatim, per
-        # constituent for expressions like "MIT OR BSD-3-Clause"). Empty when OSADL has no data, so the
-        # frontend simply omits the panel. Derived per request from the bundled dataset, not persisted.
-        obligations => license_obligations($display),
+        # What the external datasets (OSADL obligation checklists, SPDX classification flags) say about
+        # each SPDX identifier named in this entry, verbatim and per constituent for expressions like
+        # "MIT OR BSD-3-Clause". Empty when no source knows any of them, so the frontend simply omits
+        # the panel. Derived per request from the bundled datasets, not persisted.
+        classification => license_classification($display),
         ($new_license{$matches->{name}} ? (new => \1) : ())
       };
     }

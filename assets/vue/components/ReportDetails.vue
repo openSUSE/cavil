@@ -180,8 +180,8 @@
                   </span>
                 </div>
                 <LicenseObligations
-                  v-if="lic.obligations && lic.obligations.length > 0"
-                  :entries="lic.obligations"
+                  v-if="lic.classification && lic.classification.length > 0"
+                  :entries="lic.classification"
                   :label="lic.spdx || lic.name"
                 />
                 <div :id="lic.list_id" :class="lic.list_class">

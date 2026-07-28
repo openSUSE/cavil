@@ -26,6 +26,7 @@ my $EXCEPTION_URL = 'https://spdx.org/licenses/exceptions-index.html';
 my $CHANGES_URL = 'https://raw.githubusercontent.com/openSUSE/obs-service-format_spec_file/master/licenses_changes.txt';
 my $SCANCODE_URL = 'https://scancode-licensedb.aboutcode.org/index.json';
 my $OSADL_URL    = 'https://www.osadl.org/fileadmin/checklists/matrixseqexpl.json';
+my $FLAGS_URL    = 'https://raw.githubusercontent.com/spdx/license-list-data/main/json/licenses.json';
 
 my $dir              = curfile->dirname->dirname->child('lib', 'Cavil', 'resources');
 my $license_file     = $dir->child('license_list.txt');
@@ -34,6 +35,7 @@ my $changes_file     = $dir->child('license_changes.txt');
 my $scancode_file    = $dir->child('license_list_scancode.txt');
 my $osadl_file       = $dir->child('license_compatibility.json');
 my $obligations_file = $dir->child('license_obligations.json');
+my $flags_file       = $dir->child('license_flags.json');
 
 my $ua = Mojo::UserAgent->new;
 
@@ -74,6 +76,27 @@ for my $exception ($dom->at('table')->find('code[property="spdx:licenseException
 }
 $exception_file->spew(join("\n", sort @exceptions) . "\n");
 say qq(Updated @{[scalar @exceptions]} exceptions in "$exception_file");
+
+# SPDX license classification flags, from the machine-readable license-list-data release (the pages
+# scraped above publish only the identifiers). The data is CC0, so no attribution is required, but SPDX
+# is credited in the NOTICE file alongside the other sources anyway. Only the two flags our reviewers
+# actually ask for are kept: OSI approval and FSF "libre" status.
+#
+# "isOsiApproved" is a plain boolean and always present, so it is always stored. "isFsfLibre" is NOT:
+# the FSF has simply not ruled on most licenses, and upstream omits the key entirely in that case
+# (LGPL-2.1-or-later has it, LGPL-2.0-or-later does not). An absent ruling is not a "not free" ruling,
+# so the key is only stored when upstream provides it and the UI omits the row otherwise - never
+# rendering a third state. Deprecated identifiers are skipped: they are absent from license_list.txt,
+# which is what extract_spdx_identifiers matches against, so they can never reach a report.
+my $spdx = decode_json(fetch($FLAGS_URL)->body);
+my %flags;
+for my $license (@{$spdx->{licenses}}) {
+  next if $license->{isDeprecatedLicenseId};
+  my $entry = $flags{$license->{licenseId}} = {osi => $license->{isOsiApproved} ? \1 : \0};
+  $entry->{fsf} = $license->{isFsfLibre} ? \1 : \0 if exists $license->{isFsfLibre};
+}
+$flags_file->spew($JSON->encode({source => $FLAGS_URL, licenses => \%flags}));
+say qq(Updated @{[scalar keys %flags]} SPDX license flags in "$flags_file");
 
 # License changes (OBS)
 my $text = fetch($CHANGES_URL)->text;

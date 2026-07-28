@@ -26,8 +26,8 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
-  qw(estimated_risk hard_incompatibilities is_license_filename license_compatibility minimal_snippet),
-  qw(license_obligations license_obligation_ids new_license_names new_unresolved_files),
+  qw(estimated_risk hard_incompatibilities is_license_filename license_classification license_compatibility),
+  qw(license_obligations license_obligation_ids minimal_snippet new_license_names new_unresolved_files),
   qw(overlapping_licenses report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
@@ -53,6 +53,15 @@ sub _compatibility_matrix () {
 # is read with decode_json. Cached on first use.
 sub _obligations_data () {
   state $data = decode_json(path(__FILE__)->dirname->child('resources', 'license_obligations.json')->slurp);
+  return $data;
+}
+
+# The SPDX license classification flags (CC0), bundled and refreshed via tools/update_licenses.pl,
+# keyed by SPDX identifier. Each entry carries "osi" (OSI approval, always present) and "fsf" (FSF
+# "libre" status) - the latter only for the licenses the FSF has actually ruled on, so a missing key
+# means "no ruling", not "not free". Cached on first use.
+sub _license_flags_data () {
+  state $data = decode_json(path(__FILE__)->dirname->child('resources', 'license_flags.json')->slurp);
   return $data;
 }
 
@@ -89,6 +98,30 @@ sub license_obligations ($name, $data = undef) {
   $data //= _obligations_data();
   my $licenses = $data->{licenses} // {};
   return [map { {license => $_, %{$licenses->{$_}}} } @{license_obligation_ids($name, $data)}];
+}
+
+# Everything the external datasets say about the identifiers in one license-list entry, merged into a
+# single entry per identifier so the report can present all of it in one place. OSADL contributes the
+# obligation checklist plus its copyleft / source-disclosure / patent classifications, SPDX the OSI and
+# FSF flags; the two share no keys. Identifiers are extracted (and exceptions kept) exactly as for
+# obligations, and an identifier is included when EITHER source knows it - SPDX covers a good deal more
+# licenses than OSADL publishes checklists for, and for those the flags are all there is to show. An
+# empty list means neither source knows anything, so the report omits the panel entirely. Purely
+# informational: like obligations and the compatibility matrix, this never feeds report_checksum,
+# report_shortname or summary_delta.
+sub license_classification ($name, $obligations = undef, $flags = undef) {
+  $obligations //= _obligations_data()->{licenses}   // {};
+  $flags       //= _license_flags_data()->{licenses} // {};
+
+  my @entries;
+  for my $id (uniq @{extract_spdx_identifiers($name)}) {
+    my $osadl = $obligations->{$id};
+    my $spdx  = $flags->{$id};
+    next unless $osadl || $spdx;
+    push @entries, {license => $id, %{$spdx // {}}, %{$osadl // {}}};
+  }
+
+  return \@entries;
 }
 
 sub estimated_risk ($risk, $match) {

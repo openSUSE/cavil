@@ -311,6 +311,20 @@ unless ($clean) {
     'BSD-3-Clause',                  'BSD-3-Clause-Open-MPI',
     'BSD-4-Clause'
   );
+
+  # The same package doubles as the license classification lab: the list above is all plain identifiers
+  # with an OSADL checklist, which cannot show what the panel does for an expression or for a license
+  # only SPDX knows. These entries cover the cases that differ - one panel section per constituent, an
+  # exception caveat, a "Details" panel where no checklist exists, and a license the FSF has not ruled
+  # on (MPL-1.0), which must show no FSF row at all rather than claiming it is not free.
+  push @compat_licenses,
+    (
+    'MIT OR BSD-3-Clause',
+    'BSD-2-Clause AND AOMPL-1.0',
+    'GPL-2.0-or-later WITH Classpath-exception-2.0',
+    'CC-BY-4.0', 'MPL-1.0', 'CC-BY-SA-4.0 OR GFDL-1.3-or-later'
+    );
+
   my $compat_checkout = 'compatibilitylab00000000000000001';
   my $compat_dir      = $checkouts->child('cavil-compatibility-lab', $compat_checkout)->make_path;
   my $compat_i        = 0;

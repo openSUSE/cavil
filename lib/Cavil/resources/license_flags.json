@@ -1,0 +1,2237 @@
+{
+   "licenses": {
+      "0BSD": {
+         "osi": true
+      },
+      "3D-Slicer-1.0": {
+         "osi": false
+      },
+      "AAL": {
+         "osi": true
+      },
+      "ADSL": {
+         "osi": false
+      },
+      "AFL-1.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "AFL-1.2": {
+         "fsf": true,
+         "osi": true
+      },
+      "AFL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "AFL-2.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "AFL-3.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "AGPL-1.0-only": {
+         "osi": false
+      },
+      "AGPL-1.0-or-later": {
+         "osi": false
+      },
+      "AGPL-3.0-only": {
+         "fsf": true,
+         "osi": true
+      },
+      "AGPL-3.0-or-later": {
+         "fsf": true,
+         "osi": true
+      },
+      "ALGLIB-Documentation": {
+         "osi": true
+      },
+      "AMD-newlib": {
+         "osi": false
+      },
+      "AMDPLPA": {
+         "osi": false
+      },
+      "AML": {
+         "osi": false
+      },
+      "AML-glslang": {
+         "osi": false
+      },
+      "AMPAS": {
+         "osi": false
+      },
+      "ANTLR-PD": {
+         "osi": false
+      },
+      "ANTLR-PD-fallback": {
+         "osi": false
+      },
+      "APAFML": {
+         "osi": false
+      },
+      "APL-1.0": {
+         "osi": true
+      },
+      "APSL-1.0": {
+         "fsf": false,
+         "osi": true
+      },
+      "APSL-1.1": {
+         "osi": true
+      },
+      "APSL-1.2": {
+         "osi": true
+      },
+      "APSL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "ASWF-Digital-Assets-1.0": {
+         "osi": false
+      },
+      "ASWF-Digital-Assets-1.1": {
+         "osi": false
+      },
+      "Abstyles": {
+         "osi": false
+      },
+      "AdaCore-doc": {
+         "osi": false
+      },
+      "Adobe-2006": {
+         "osi": false
+      },
+      "Adobe-Display-PostScript": {
+         "osi": false
+      },
+      "Adobe-Glyph": {
+         "osi": false
+      },
+      "Adobe-Utopia": {
+         "osi": false
+      },
+      "Advanced-Cryptics-Dictionary": {
+         "osi": false
+      },
+      "Afmparse": {
+         "osi": false
+      },
+      "Aladdin": {
+         "fsf": false,
+         "osi": false
+      },
+      "Apache-1.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "Apache-1.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "Apache-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "App-s2p": {
+         "osi": false
+      },
+      "Arphic-1999": {
+         "osi": false
+      },
+      "Artistic-1.0": {
+         "fsf": false,
+         "osi": true
+      },
+      "Artistic-1.0-Perl": {
+         "osi": true
+      },
+      "Artistic-1.0-cl8": {
+         "osi": true
+      },
+      "Artistic-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "Artistic-dist": {
+         "osi": false
+      },
+      "Aspell-RU": {
+         "osi": false
+      },
+      "BOLA-1.1": {
+         "osi": false
+      },
+      "BSD-1-Clause": {
+         "osi": true
+      },
+      "BSD-2-Clause": {
+         "fsf": true,
+         "osi": true
+      },
+      "BSD-2-Clause-Darwin": {
+         "osi": false
+      },
+      "BSD-2-Clause-Patent": {
+         "osi": true
+      },
+      "BSD-2-Clause-Views": {
+         "osi": false
+      },
+      "BSD-2-Clause-first-lines": {
+         "osi": false
+      },
+      "BSD-2-Clause-pkgconf-disclaimer": {
+         "osi": false
+      },
+      "BSD-3-Clause": {
+         "fsf": true,
+         "osi": true
+      },
+      "BSD-3-Clause-Attribution": {
+         "osi": false
+      },
+      "BSD-3-Clause-Clear": {
+         "fsf": true,
+         "osi": false
+      },
+      "BSD-3-Clause-HP": {
+         "osi": false
+      },
+      "BSD-3-Clause-LBNL": {
+         "osi": true
+      },
+      "BSD-3-Clause-Modification": {
+         "osi": false
+      },
+      "BSD-3-Clause-No-Military-License": {
+         "osi": false
+      },
+      "BSD-3-Clause-No-Nuclear-License": {
+         "osi": false
+      },
+      "BSD-3-Clause-No-Nuclear-License-2014": {
+         "osi": false
+      },
+      "BSD-3-Clause-No-Nuclear-Warranty": {
+         "osi": false
+      },
+      "BSD-3-Clause-Open-MPI": {
+         "osi": true
+      },
+      "BSD-3-Clause-Sun": {
+         "osi": false
+      },
+      "BSD-3-Clause-Tso": {
+         "osi": false
+      },
+      "BSD-3-Clause-acpica": {
+         "osi": false
+      },
+      "BSD-3-Clause-flex": {
+         "osi": false
+      },
+      "BSD-4-Clause": {
+         "fsf": true,
+         "osi": false
+      },
+      "BSD-4-Clause-Shortened": {
+         "osi": false
+      },
+      "BSD-4-Clause-UC": {
+         "osi": false
+      },
+      "BSD-4.3RENO": {
+         "osi": false
+      },
+      "BSD-4.3TAHOE": {
+         "osi": false
+      },
+      "BSD-Advertising-Acknowledgement": {
+         "osi": false
+      },
+      "BSD-Attribution-HPND-disclaimer": {
+         "osi": false
+      },
+      "BSD-Inferno-Nettverk": {
+         "osi": false
+      },
+      "BSD-Mark-Modifications": {
+         "osi": false
+      },
+      "BSD-Protection": {
+         "osi": false
+      },
+      "BSD-Source-Code": {
+         "osi": false
+      },
+      "BSD-Source-beginning-file": {
+         "osi": false
+      },
+      "BSD-Systemics": {
+         "osi": false
+      },
+      "BSD-Systemics-W3Works": {
+         "osi": false
+      },
+      "BSL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "BUSL-1.1": {
+         "osi": false
+      },
+      "Baekmuk": {
+         "osi": false
+      },
+      "Bahyph": {
+         "osi": false
+      },
+      "Barr": {
+         "osi": false
+      },
+      "Beerware": {
+         "osi": false
+      },
+      "BitTorrent-1.0": {
+         "osi": false
+      },
+      "BitTorrent-1.1": {
+         "fsf": true,
+         "osi": false
+      },
+      "Bitstream-Charter": {
+         "osi": false
+      },
+      "Bitstream-Vera": {
+         "osi": false
+      },
+      "BlueOak-1.0.0": {
+         "osi": true
+      },
+      "Boehm-GC": {
+         "osi": false
+      },
+      "Boehm-GC-without-fee": {
+         "osi": false
+      },
+      "Borceux": {
+         "osi": false
+      },
+      "Brian-Gladman-2-Clause": {
+         "osi": false
+      },
+      "Brian-Gladman-3-Clause": {
+         "osi": false
+      },
+      "Brian-Gladman-3-Clause-no-conversion": {
+         "osi": false
+      },
+      "Buddy": {
+         "osi": false
+      },
+      "Bugroff": {
+         "osi": false
+      },
+      "C-UDA-1.0": {
+         "osi": false
+      },
+      "CAL-1.0": {
+         "osi": true
+      },
+      "CAL-1.0-Combined-Work-Exception": {
+         "osi": true
+      },
+      "CAPEC-tou": {
+         "osi": false
+      },
+      "CATOSL-1.1": {
+         "osi": true
+      },
+      "CC-BY-1.0": {
+         "osi": false
+      },
+      "CC-BY-2.0": {
+         "osi": false
+      },
+      "CC-BY-2.5": {
+         "osi": false
+      },
+      "CC-BY-2.5-AU": {
+         "osi": false
+      },
+      "CC-BY-3.0": {
+         "osi": false
+      },
+      "CC-BY-3.0-AT": {
+         "osi": false
+      },
+      "CC-BY-3.0-AU": {
+         "osi": false
+      },
+      "CC-BY-3.0-DE": {
+         "osi": false
+      },
+      "CC-BY-3.0-IGO": {
+         "osi": false
+      },
+      "CC-BY-3.0-NL": {
+         "osi": false
+      },
+      "CC-BY-3.0-US": {
+         "osi": false
+      },
+      "CC-BY-4.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "CC-BY-NC-1.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-NC-2.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-NC-2.5": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-NC-3.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-NC-3.0-DE": {
+         "osi": false
+      },
+      "CC-BY-NC-3.0-IGO": {
+         "osi": false
+      },
+      "CC-BY-NC-4.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-NC-ND-1.0": {
+         "osi": false
+      },
+      "CC-BY-NC-ND-2.0": {
+         "osi": false
+      },
+      "CC-BY-NC-ND-2.5": {
+         "osi": false
+      },
+      "CC-BY-NC-ND-3.0": {
+         "osi": false
+      },
+      "CC-BY-NC-ND-3.0-DE": {
+         "osi": false
+      },
+      "CC-BY-NC-ND-3.0-IGO": {
+         "osi": false
+      },
+      "CC-BY-NC-ND-4.0": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-1.0": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-2.0": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-2.0-DE": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-2.0-FR": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-2.0-UK": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-2.5": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-3.0": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-3.0-DE": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-3.0-IGO": {
+         "osi": false
+      },
+      "CC-BY-NC-SA-4.0": {
+         "osi": false
+      },
+      "CC-BY-ND-1.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-ND-2.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-ND-2.5": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-ND-3.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-ND-3.0-DE": {
+         "osi": false
+      },
+      "CC-BY-ND-4.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "CC-BY-SA-1.0": {
+         "osi": false
+      },
+      "CC-BY-SA-2.0": {
+         "osi": false
+      },
+      "CC-BY-SA-2.0-UK": {
+         "osi": false
+      },
+      "CC-BY-SA-2.1-JP": {
+         "osi": false
+      },
+      "CC-BY-SA-2.5": {
+         "osi": false
+      },
+      "CC-BY-SA-3.0": {
+         "osi": false
+      },
+      "CC-BY-SA-3.0-AT": {
+         "osi": false
+      },
+      "CC-BY-SA-3.0-DE": {
+         "osi": false
+      },
+      "CC-BY-SA-3.0-IGO": {
+         "osi": false
+      },
+      "CC-BY-SA-4.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "CC-PDDC": {
+         "osi": false
+      },
+      "CC-PDM-1.0": {
+         "osi": false
+      },
+      "CC-SA-1.0": {
+         "osi": false
+      },
+      "CC0-1.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "CDDL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "CDDL-1.1": {
+         "osi": true
+      },
+      "CDL-1.0": {
+         "osi": false
+      },
+      "CDLA-Permissive-1.0": {
+         "osi": false
+      },
+      "CDLA-Permissive-2.0": {
+         "osi": false
+      },
+      "CDLA-Sharing-1.0": {
+         "osi": false
+      },
+      "CECILL-1.0": {
+         "osi": false
+      },
+      "CECILL-1.1": {
+         "osi": false
+      },
+      "CECILL-2.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "CECILL-2.1": {
+         "osi": true
+      },
+      "CECILL-B": {
+         "fsf": true,
+         "osi": false
+      },
+      "CECILL-C": {
+         "fsf": true,
+         "osi": false
+      },
+      "CERN-OHL-1.1": {
+         "osi": false
+      },
+      "CERN-OHL-1.2": {
+         "osi": false
+      },
+      "CERN-OHL-P-2.0": {
+         "osi": true
+      },
+      "CERN-OHL-S-2.0": {
+         "osi": true
+      },
+      "CERN-OHL-W-2.0": {
+         "osi": true
+      },
+      "CFITSIO": {
+         "osi": false
+      },
+      "CMU-Mach": {
+         "osi": false
+      },
+      "CMU-Mach-nodoc": {
+         "osi": false
+      },
+      "CNRI-Jython": {
+         "osi": false
+      },
+      "CNRI-Python": {
+         "osi": true
+      },
+      "CNRI-Python-GPL-Compatible": {
+         "osi": false
+      },
+      "COIL-1.0": {
+         "osi": false
+      },
+      "CPAL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "CPL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "CPOL-1.02": {
+         "fsf": false,
+         "osi": false
+      },
+      "CUA-OPL-1.0": {
+         "osi": true
+      },
+      "Caldera": {
+         "osi": false
+      },
+      "Caldera-no-preamble": {
+         "osi": false
+      },
+      "Catharon": {
+         "osi": false
+      },
+      "ClArtistic": {
+         "fsf": true,
+         "osi": false
+      },
+      "Clips": {
+         "osi": false
+      },
+      "Community-Spec-1.0": {
+         "osi": false
+      },
+      "Condor-1.1": {
+         "fsf": true,
+         "osi": false
+      },
+      "Cornell-Lossless-JPEG": {
+         "osi": false
+      },
+      "Cronyx": {
+         "osi": false
+      },
+      "Crossword": {
+         "osi": false
+      },
+      "CryptoSwift": {
+         "osi": false
+      },
+      "CrystalStacker": {
+         "osi": false
+      },
+      "Cube": {
+         "osi": false
+      },
+      "D-FSL-1.0": {
+         "osi": false
+      },
+      "DEC-3-Clause": {
+         "osi": false
+      },
+      "DL-DE-BY-2.0": {
+         "osi": false
+      },
+      "DL-DE-ZERO-2.0": {
+         "osi": false
+      },
+      "DOC": {
+         "osi": false
+      },
+      "DRL-1.0": {
+         "osi": false
+      },
+      "DRL-1.1": {
+         "osi": false
+      },
+      "DSDP": {
+         "osi": false
+      },
+      "DocBook-DTD": {
+         "osi": false
+      },
+      "DocBook-Schema": {
+         "osi": false
+      },
+      "DocBook-Stylesheet": {
+         "osi": false
+      },
+      "DocBook-XML": {
+         "osi": false
+      },
+      "Dotseqn": {
+         "osi": false
+      },
+      "ECL-1.0": {
+         "osi": true
+      },
+      "ECL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "EFL-1.0": {
+         "osi": true
+      },
+      "EFL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "EPICS": {
+         "osi": false
+      },
+      "EPL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "EPL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "ESA-PL-permissive-2.4": {
+         "osi": false
+      },
+      "ESA-PL-strong-copyleft-2.4": {
+         "osi": false
+      },
+      "ESA-PL-weak-copyleft-2.4": {
+         "osi": false
+      },
+      "EUDatagrid": {
+         "fsf": true,
+         "osi": true
+      },
+      "EUPL-1.0": {
+         "osi": false
+      },
+      "EUPL-1.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "EUPL-1.2": {
+         "fsf": true,
+         "osi": true
+      },
+      "Elastic-2.0": {
+         "osi": false
+      },
+      "Entessa": {
+         "osi": true
+      },
+      "ErlPL-1.1": {
+         "osi": false
+      },
+      "Eurosym": {
+         "osi": false
+      },
+      "FBM": {
+         "osi": false
+      },
+      "FDK-AAC": {
+         "osi": false
+      },
+      "FSFAP": {
+         "fsf": true,
+         "osi": false
+      },
+      "FSFAP-no-warranty-disclaimer": {
+         "osi": false
+      },
+      "FSFUL": {
+         "osi": false
+      },
+      "FSFULLR": {
+         "osi": false
+      },
+      "FSFULLRSD": {
+         "osi": false
+      },
+      "FSFULLRWD": {
+         "osi": false
+      },
+      "FSL-1.1-ALv2": {
+         "osi": false
+      },
+      "FSL-1.1-MIT": {
+         "osi": false
+      },
+      "FTL": {
+         "fsf": true,
+         "osi": false
+      },
+      "Fair": {
+         "osi": true
+      },
+      "Ferguson-Twofish": {
+         "osi": false
+      },
+      "Frameworx-1.0": {
+         "osi": true
+      },
+      "FreeBSD-DOC": {
+         "osi": false
+      },
+      "FreeImage": {
+         "osi": false
+      },
+      "Furuseth": {
+         "osi": false
+      },
+      "GCR-docs": {
+         "osi": false
+      },
+      "GD": {
+         "osi": false
+      },
+      "GFDL-1.1-invariants-only": {
+         "osi": false
+      },
+      "GFDL-1.1-invariants-or-later": {
+         "osi": false
+      },
+      "GFDL-1.1-no-invariants-only": {
+         "osi": false
+      },
+      "GFDL-1.1-no-invariants-or-later": {
+         "osi": false
+      },
+      "GFDL-1.1-only": {
+         "fsf": true,
+         "osi": false
+      },
+      "GFDL-1.1-or-later": {
+         "fsf": true,
+         "osi": false
+      },
+      "GFDL-1.2-invariants-only": {
+         "osi": false
+      },
+      "GFDL-1.2-invariants-or-later": {
+         "osi": false
+      },
+      "GFDL-1.2-no-invariants-only": {
+         "osi": false
+      },
+      "GFDL-1.2-no-invariants-or-later": {
+         "osi": false
+      },
+      "GFDL-1.2-only": {
+         "fsf": true,
+         "osi": false
+      },
+      "GFDL-1.2-or-later": {
+         "fsf": true,
+         "osi": false
+      },
+      "GFDL-1.3-invariants-only": {
+         "osi": false
+      },
+      "GFDL-1.3-invariants-or-later": {
+         "osi": false
+      },
+      "GFDL-1.3-no-invariants-only": {
+         "osi": false
+      },
+      "GFDL-1.3-no-invariants-or-later": {
+         "osi": false
+      },
+      "GFDL-1.3-only": {
+         "fsf": true,
+         "osi": false
+      },
+      "GFDL-1.3-or-later": {
+         "fsf": true,
+         "osi": false
+      },
+      "GL2PS": {
+         "osi": false
+      },
+      "GLWTPL": {
+         "osi": false
+      },
+      "GPL-1.0-only": {
+         "osi": false
+      },
+      "GPL-1.0-or-later": {
+         "osi": false
+      },
+      "GPL-2.0-only": {
+         "fsf": true,
+         "osi": true
+      },
+      "GPL-2.0-or-later": {
+         "fsf": true,
+         "osi": true
+      },
+      "GPL-3.0-only": {
+         "fsf": true,
+         "osi": true
+      },
+      "GPL-3.0-or-later": {
+         "fsf": true,
+         "osi": true
+      },
+      "Game-Programming-Gems": {
+         "osi": false
+      },
+      "Giftware": {
+         "osi": false
+      },
+      "Glide": {
+         "osi": false
+      },
+      "Glulxe": {
+         "osi": false
+      },
+      "Graphics-Gems": {
+         "osi": false
+      },
+      "Gutmann": {
+         "osi": false
+      },
+      "HDF5": {
+         "osi": false
+      },
+      "HIDAPI": {
+         "osi": false
+      },
+      "HP-1986": {
+         "osi": false
+      },
+      "HP-1989": {
+         "osi": false
+      },
+      "HPND": {
+         "fsf": true,
+         "osi": true
+      },
+      "HPND-DEC": {
+         "osi": false
+      },
+      "HPND-Fenneberg-Livingston": {
+         "osi": false
+      },
+      "HPND-INRIA-IMAG": {
+         "osi": false
+      },
+      "HPND-Intel": {
+         "osi": false
+      },
+      "HPND-Kevlin-Henney": {
+         "osi": false
+      },
+      "HPND-MIT-disclaimer": {
+         "osi": false
+      },
+      "HPND-Markus-Kuhn": {
+         "osi": false
+      },
+      "HPND-Netrek": {
+         "osi": false
+      },
+      "HPND-Pbmplus": {
+         "osi": false
+      },
+      "HPND-SMC": {
+         "osi": false
+      },
+      "HPND-UC": {
+         "osi": false
+      },
+      "HPND-UC-export-US": {
+         "osi": false
+      },
+      "HPND-doc": {
+         "osi": false
+      },
+      "HPND-doc-sell": {
+         "osi": false
+      },
+      "HPND-export-US": {
+         "osi": false
+      },
+      "HPND-export-US-acknowledgement": {
+         "osi": false
+      },
+      "HPND-export-US-modify": {
+         "osi": false
+      },
+      "HPND-export2-US": {
+         "osi": false
+      },
+      "HPND-merchantability-variant": {
+         "osi": false
+      },
+      "HPND-sell-MIT-disclaimer-xserver": {
+         "osi": false
+      },
+      "HPND-sell-regexpr": {
+         "osi": false
+      },
+      "HPND-sell-variant": {
+         "osi": false
+      },
+      "HPND-sell-variant-MIT-disclaimer": {
+         "osi": false
+      },
+      "HPND-sell-variant-MIT-disclaimer-rev": {
+         "osi": false
+      },
+      "HPND-sell-variant-critical-systems": {
+         "osi": false
+      },
+      "HTMLTIDY": {
+         "osi": false
+      },
+      "HaskellReport": {
+         "osi": false
+      },
+      "Hippocratic-2.1": {
+         "osi": false
+      },
+      "IBM-pibs": {
+         "osi": false
+      },
+      "ICU": {
+         "osi": true
+      },
+      "IEC-Code-Components-EULA": {
+         "osi": false
+      },
+      "IJG": {
+         "fsf": true,
+         "osi": false
+      },
+      "IJG-short": {
+         "osi": false
+      },
+      "IPA": {
+         "fsf": true,
+         "osi": true
+      },
+      "IPL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "ISC": {
+         "fsf": true,
+         "osi": true
+      },
+      "ISC-Veillard": {
+         "osi": false
+      },
+      "ISO-permission": {
+         "osi": false
+      },
+      "ImageMagick": {
+         "osi": false
+      },
+      "Imlib2": {
+         "fsf": true,
+         "osi": false
+      },
+      "Info-ZIP": {
+         "osi": false
+      },
+      "Informatica": {
+         "osi": false
+      },
+      "Inner-Net-2.0": {
+         "osi": false
+      },
+      "InnoSetup": {
+         "osi": false
+      },
+      "Intel": {
+         "fsf": true,
+         "osi": true
+      },
+      "Intel-ACPI": {
+         "osi": false
+      },
+      "Interbase-1.0": {
+         "osi": false
+      },
+      "JPL-image": {
+         "osi": false
+      },
+      "JPNIC": {
+         "osi": false
+      },
+      "JSON": {
+         "fsf": false,
+         "osi": false
+      },
+      "Jam": {
+         "osi": true
+      },
+      "JasPer-2.0": {
+         "osi": false
+      },
+      "Kastrup": {
+         "osi": false
+      },
+      "Kazlib": {
+         "osi": false
+      },
+      "Knuth-CTAN": {
+         "osi": false
+      },
+      "LAL-1.2": {
+         "osi": false
+      },
+      "LAL-1.3": {
+         "osi": false
+      },
+      "LGPL-2.0-only": {
+         "osi": true
+      },
+      "LGPL-2.0-or-later": {
+         "osi": true
+      },
+      "LGPL-2.1-only": {
+         "fsf": true,
+         "osi": true
+      },
+      "LGPL-2.1-or-later": {
+         "fsf": true,
+         "osi": true
+      },
+      "LGPL-3.0-only": {
+         "fsf": true,
+         "osi": true
+      },
+      "LGPL-3.0-or-later": {
+         "fsf": true,
+         "osi": true
+      },
+      "LGPLLR": {
+         "osi": false
+      },
+      "LOOP": {
+         "osi": false
+      },
+      "LPD-document": {
+         "osi": false
+      },
+      "LPL-1.0": {
+         "osi": true
+      },
+      "LPL-1.02": {
+         "fsf": true,
+         "osi": true
+      },
+      "LPPL-1.0": {
+         "osi": false
+      },
+      "LPPL-1.1": {
+         "osi": false
+      },
+      "LPPL-1.2": {
+         "fsf": true,
+         "osi": false
+      },
+      "LPPL-1.3a": {
+         "fsf": true,
+         "osi": false
+      },
+      "LPPL-1.3c": {
+         "osi": true
+      },
+      "LZMA-SDK-9.11-to-9.20": {
+         "osi": false
+      },
+      "LZMA-SDK-9.22": {
+         "osi": false
+      },
+      "Latex2e": {
+         "osi": false
+      },
+      "Latex2e-translated-notice": {
+         "osi": false
+      },
+      "Leptonica": {
+         "osi": false
+      },
+      "LiLiQ-P-1.1": {
+         "osi": true
+      },
+      "LiLiQ-R-1.1": {
+         "osi": true
+      },
+      "LiLiQ-Rplus-1.1": {
+         "osi": true
+      },
+      "Libpng": {
+         "osi": false
+      },
+      "Linux-OpenIB": {
+         "osi": false
+      },
+      "Linux-man-pages-1-para": {
+         "osi": false
+      },
+      "Linux-man-pages-copyleft": {
+         "osi": false
+      },
+      "Linux-man-pages-copyleft-2-para": {
+         "osi": false
+      },
+      "Linux-man-pages-copyleft-var": {
+         "osi": false
+      },
+      "Lucida-Bitmap-Fonts": {
+         "osi": false
+      },
+      "MIPS": {
+         "osi": false
+      },
+      "MIT": {
+         "fsf": true,
+         "osi": true
+      },
+      "MIT-0": {
+         "osi": true
+      },
+      "MIT-CMU": {
+         "osi": false
+      },
+      "MIT-Click": {
+         "osi": false
+      },
+      "MIT-Festival": {
+         "osi": false
+      },
+      "MIT-Khronos-old": {
+         "osi": false
+      },
+      "MIT-Modern-Variant": {
+         "osi": true
+      },
+      "MIT-STK": {
+         "osi": false
+      },
+      "MIT-Wu": {
+         "osi": false
+      },
+      "MIT-advertising": {
+         "osi": false
+      },
+      "MIT-enna": {
+         "osi": false
+      },
+      "MIT-feh": {
+         "osi": false
+      },
+      "MIT-open-group": {
+         "osi": false
+      },
+      "MIT-testregex": {
+         "osi": false
+      },
+      "MITNFA": {
+         "osi": false
+      },
+      "MMIXware": {
+         "osi": false
+      },
+      "MMPL-1.0.1": {
+         "osi": false
+      },
+      "MPEG-SSG": {
+         "osi": false
+      },
+      "MPL-1.0": {
+         "osi": true
+      },
+      "MPL-1.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "MPL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "MPL-2.0-no-copyleft-exception": {
+         "osi": true
+      },
+      "MS-LPL": {
+         "osi": false
+      },
+      "MS-PL": {
+         "fsf": true,
+         "osi": true
+      },
+      "MS-RL": {
+         "fsf": true,
+         "osi": true
+      },
+      "MTLL": {
+         "osi": false
+      },
+      "MVT-1.1": {
+         "osi": false
+      },
+      "Mackerras-3-Clause": {
+         "osi": false
+      },
+      "Mackerras-3-Clause-acknowledgment": {
+         "osi": false
+      },
+      "MakeIndex": {
+         "osi": false
+      },
+      "Martin-Birgmeier": {
+         "osi": false
+      },
+      "McPhee-slideshow": {
+         "osi": false
+      },
+      "Minpack": {
+         "osi": false
+      },
+      "MirOS": {
+         "osi": true
+      },
+      "Motosoto": {
+         "osi": true
+      },
+      "MulanPSL-1.0": {
+         "osi": false
+      },
+      "MulanPSL-2.0": {
+         "osi": true
+      },
+      "Multics": {
+         "osi": true
+      },
+      "Mup": {
+         "osi": false
+      },
+      "NAIST-2003": {
+         "osi": false
+      },
+      "NASA-1.3": {
+         "fsf": false,
+         "osi": true
+      },
+      "NBPL-1.0": {
+         "osi": false
+      },
+      "NCBI-PD": {
+         "osi": false
+      },
+      "NCGL-UK-2.0": {
+         "osi": false
+      },
+      "NCL": {
+         "osi": false
+      },
+      "NCSA": {
+         "fsf": true,
+         "osi": true
+      },
+      "NGPL": {
+         "osi": true
+      },
+      "NICTA-1.0": {
+         "osi": false
+      },
+      "NIST-PD": {
+         "osi": false
+      },
+      "NIST-PD-TNT": {
+         "osi": false
+      },
+      "NIST-PD-fallback": {
+         "osi": false
+      },
+      "NIST-Software": {
+         "osi": false
+      },
+      "NLOD-1.0": {
+         "osi": false
+      },
+      "NLOD-2.0": {
+         "osi": false
+      },
+      "NLPL": {
+         "osi": false
+      },
+      "NOSL": {
+         "fsf": true,
+         "osi": false
+      },
+      "NPL-1.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "NPL-1.1": {
+         "fsf": true,
+         "osi": false
+      },
+      "NPOSL-3.0": {
+         "osi": true
+      },
+      "NRL": {
+         "osi": false
+      },
+      "NTIA-PD": {
+         "osi": false
+      },
+      "NTP": {
+         "osi": true
+      },
+      "NTP-0": {
+         "osi": false
+      },
+      "Naumen": {
+         "osi": true
+      },
+      "NetCDF": {
+         "osi": false
+      },
+      "Newsletr": {
+         "osi": false
+      },
+      "Nokia": {
+         "fsf": true,
+         "osi": true
+      },
+      "Noweb": {
+         "osi": false
+      },
+      "O-UDA-1.0": {
+         "osi": false
+      },
+      "OAR": {
+         "osi": false
+      },
+      "OCCT-PL": {
+         "osi": false
+      },
+      "OCLC-2.0": {
+         "osi": true
+      },
+      "ODC-By-1.0": {
+         "osi": false
+      },
+      "ODbL-1.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "OFFIS": {
+         "osi": false
+      },
+      "OFL-1.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "OFL-1.0-RFN": {
+         "osi": false
+      },
+      "OFL-1.0-no-RFN": {
+         "osi": false
+      },
+      "OFL-1.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "OFL-1.1-RFN": {
+         "osi": true
+      },
+      "OFL-1.1-no-RFN": {
+         "osi": true
+      },
+      "OGC-1.0": {
+         "osi": false
+      },
+      "OGDL-Taiwan-1.0": {
+         "osi": false
+      },
+      "OGL-Canada-2.0": {
+         "osi": false
+      },
+      "OGL-UK-1.0": {
+         "osi": false
+      },
+      "OGL-UK-2.0": {
+         "osi": false
+      },
+      "OGL-UK-3.0": {
+         "osi": false
+      },
+      "OGTSL": {
+         "osi": true
+      },
+      "OLDAP-1.1": {
+         "osi": false
+      },
+      "OLDAP-1.2": {
+         "osi": false
+      },
+      "OLDAP-1.3": {
+         "osi": false
+      },
+      "OLDAP-1.4": {
+         "osi": false
+      },
+      "OLDAP-2.0": {
+         "osi": false
+      },
+      "OLDAP-2.0.1": {
+         "osi": false
+      },
+      "OLDAP-2.1": {
+         "osi": false
+      },
+      "OLDAP-2.2": {
+         "osi": false
+      },
+      "OLDAP-2.2.1": {
+         "osi": false
+      },
+      "OLDAP-2.2.2": {
+         "osi": false
+      },
+      "OLDAP-2.3": {
+         "fsf": true,
+         "osi": false
+      },
+      "OLDAP-2.4": {
+         "osi": false
+      },
+      "OLDAP-2.5": {
+         "osi": false
+      },
+      "OLDAP-2.6": {
+         "osi": false
+      },
+      "OLDAP-2.7": {
+         "fsf": true,
+         "osi": false
+      },
+      "OLDAP-2.8": {
+         "osi": true
+      },
+      "OLFL-1.3": {
+         "osi": true
+      },
+      "OML": {
+         "osi": false
+      },
+      "OPL-1.0": {
+         "fsf": false,
+         "osi": false
+      },
+      "OPL-UK-3.0": {
+         "osi": false
+      },
+      "OPUBL-1.0": {
+         "osi": false
+      },
+      "OSC-1.0": {
+         "osi": true
+      },
+      "OSET-PL-2.1": {
+         "osi": true
+      },
+      "OSL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "OSL-1.1": {
+         "fsf": true,
+         "osi": false
+      },
+      "OSL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "OSL-2.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "OSL-3.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "OSSP": {
+         "osi": false
+      },
+      "OpenMDW-1.0": {
+         "osi": false
+      },
+      "OpenPBS-2.3": {
+         "osi": false
+      },
+      "OpenSSL": {
+         "fsf": true,
+         "osi": false
+      },
+      "OpenSSL-standalone": {
+         "osi": false
+      },
+      "OpenVision": {
+         "osi": false
+      },
+      "PADL": {
+         "osi": false
+      },
+      "PDDL-1.0": {
+         "osi": false
+      },
+      "PHP-3.0": {
+         "osi": true
+      },
+      "PHP-3.01": {
+         "fsf": true,
+         "osi": true
+      },
+      "PPL": {
+         "fsf": false,
+         "osi": false
+      },
+      "PSF-2.0": {
+         "osi": false
+      },
+      "ParaType-Free-Font-1.3": {
+         "osi": false
+      },
+      "Parity-6.0.0": {
+         "osi": false
+      },
+      "Parity-7.0.0": {
+         "osi": false
+      },
+      "Pixar": {
+         "osi": false
+      },
+      "Plexus": {
+         "osi": false
+      },
+      "PolyForm-Noncommercial-1.0.0": {
+         "osi": false
+      },
+      "PolyForm-Small-Business-1.0.0": {
+         "osi": false
+      },
+      "PostgreSQL": {
+         "osi": true
+      },
+      "Python-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "Python-2.0.1": {
+         "osi": false
+      },
+      "QPL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "QPL-1.0-INRIA-2004": {
+         "osi": false
+      },
+      "Qhull": {
+         "osi": false
+      },
+      "RHeCos-1.1": {
+         "fsf": false,
+         "osi": false
+      },
+      "RPL-1.1": {
+         "osi": true
+      },
+      "RPL-1.5": {
+         "osi": true
+      },
+      "RPSL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "RSA-MD": {
+         "osi": false
+      },
+      "RSCPL": {
+         "osi": true
+      },
+      "Rdisc": {
+         "osi": false
+      },
+      "Ruby": {
+         "fsf": true,
+         "osi": false
+      },
+      "Ruby-pty": {
+         "osi": false
+      },
+      "SAX-PD": {
+         "osi": false
+      },
+      "SAX-PD-2.0": {
+         "osi": false
+      },
+      "SCEA": {
+         "osi": false
+      },
+      "SGI-B-1.0": {
+         "osi": false
+      },
+      "SGI-B-1.1": {
+         "osi": false
+      },
+      "SGI-B-2.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "SGI-OpenGL": {
+         "osi": false
+      },
+      "SGMLUG-PM": {
+         "osi": false
+      },
+      "SGP4": {
+         "osi": false
+      },
+      "SHL-0.5": {
+         "osi": false
+      },
+      "SHL-0.51": {
+         "osi": false
+      },
+      "SISSL": {
+         "fsf": true,
+         "osi": true
+      },
+      "SISSL-1.2": {
+         "osi": false
+      },
+      "SL": {
+         "osi": false
+      },
+      "SMAIL-GPL": {
+         "osi": false
+      },
+      "SMLNJ": {
+         "fsf": true,
+         "osi": false
+      },
+      "SMPPL": {
+         "osi": false
+      },
+      "SNIA": {
+         "osi": false
+      },
+      "SOFA": {
+         "osi": false
+      },
+      "SPL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "SSH-OpenSSH": {
+         "osi": false
+      },
+      "SSH-short": {
+         "osi": false
+      },
+      "SSLeay-standalone": {
+         "osi": false
+      },
+      "SSPL-1.0": {
+         "osi": false
+      },
+      "SUL-1.0": {
+         "osi": false
+      },
+      "SWL": {
+         "osi": false
+      },
+      "Saxpath": {
+         "osi": false
+      },
+      "SchemeReport": {
+         "osi": false
+      },
+      "Sendmail": {
+         "osi": false
+      },
+      "Sendmail-8.23": {
+         "osi": false
+      },
+      "Sendmail-Open-Source-1.1": {
+         "osi": false
+      },
+      "SimPL-2.0": {
+         "osi": true
+      },
+      "Sleepycat": {
+         "fsf": true,
+         "osi": true
+      },
+      "Soundex": {
+         "osi": false
+      },
+      "Spencer-86": {
+         "osi": false
+      },
+      "Spencer-94": {
+         "osi": false
+      },
+      "Spencer-99": {
+         "osi": false
+      },
+      "SugarCRM-1.1.3": {
+         "osi": false
+      },
+      "Sun-PPP": {
+         "osi": false
+      },
+      "Sun-PPP-2000": {
+         "osi": false
+      },
+      "SunPro": {
+         "osi": false
+      },
+      "Symlinks": {
+         "osi": false
+      },
+      "TAPR-OHL-1.0": {
+         "osi": false
+      },
+      "TCL": {
+         "osi": false
+      },
+      "TCP-wrappers": {
+         "osi": false
+      },
+      "TGPPL-1.0": {
+         "osi": false
+      },
+      "TMate": {
+         "osi": false
+      },
+      "TORQUE-1.1": {
+         "osi": false
+      },
+      "TOSL": {
+         "osi": false
+      },
+      "TPDL": {
+         "osi": false
+      },
+      "TPL-1.0": {
+         "osi": false
+      },
+      "TTWL": {
+         "osi": false
+      },
+      "TTYP0": {
+         "osi": false
+      },
+      "TU-Berlin-1.0": {
+         "osi": false
+      },
+      "TU-Berlin-2.0": {
+         "osi": false
+      },
+      "TekHVC": {
+         "osi": false
+      },
+      "TermReadKey": {
+         "osi": false
+      },
+      "ThirdEye": {
+         "osi": false
+      },
+      "TrustedQSL": {
+         "osi": false
+      },
+      "UCAR": {
+         "osi": false
+      },
+      "UCL-1.0": {
+         "osi": true
+      },
+      "UMich-Merit": {
+         "osi": false
+      },
+      "UPL-1.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "URT-RLE": {
+         "osi": false
+      },
+      "Ubuntu-font-1.0": {
+         "osi": false
+      },
+      "UnRAR": {
+         "osi": false
+      },
+      "Unicode-3.0": {
+         "osi": true
+      },
+      "Unicode-DFS-2015": {
+         "osi": false
+      },
+      "Unicode-DFS-2016": {
+         "osi": true
+      },
+      "Unicode-TOU": {
+         "osi": false
+      },
+      "UnixCrypt": {
+         "osi": false
+      },
+      "Unlicense": {
+         "fsf": true,
+         "osi": true
+      },
+      "Unlicense-libtelnet": {
+         "osi": false
+      },
+      "Unlicense-libwhirlpool": {
+         "osi": false
+      },
+      "VOSTROM": {
+         "osi": false
+      },
+      "VSL-1.0": {
+         "osi": true
+      },
+      "Vim": {
+         "fsf": true,
+         "osi": false
+      },
+      "Vixie-Cron": {
+         "osi": false
+      },
+      "W3C": {
+         "fsf": true,
+         "osi": true
+      },
+      "W3C-19980720": {
+         "osi": false
+      },
+      "W3C-20150513": {
+         "osi": true
+      },
+      "WTFNMFPL": {
+         "osi": false
+      },
+      "WTFPL": {
+         "fsf": true,
+         "osi": false
+      },
+      "Watcom-1.0": {
+         "fsf": false,
+         "osi": true
+      },
+      "Widget-Workshop": {
+         "osi": false
+      },
+      "WordNet": {
+         "osi": true
+      },
+      "Wsuipa": {
+         "osi": false
+      },
+      "X11": {
+         "fsf": true,
+         "osi": false
+      },
+      "X11-distribute-modifications-variant": {
+         "osi": false
+      },
+      "X11-no-permit-persons": {
+         "osi": false
+      },
+      "X11-swapped": {
+         "osi": false
+      },
+      "XFree86-1.1": {
+         "fsf": true,
+         "osi": false
+      },
+      "XSkat": {
+         "osi": false
+      },
+      "Xdebug-1.03": {
+         "osi": false
+      },
+      "Xerox": {
+         "osi": false
+      },
+      "Xfig": {
+         "osi": false
+      },
+      "Xnet": {
+         "osi": true
+      },
+      "YPL-1.0": {
+         "osi": false
+      },
+      "YPL-1.1": {
+         "fsf": true,
+         "osi": false
+      },
+      "ZPL-1.1": {
+         "osi": false
+      },
+      "ZPL-2.0": {
+         "fsf": true,
+         "osi": true
+      },
+      "ZPL-2.1": {
+         "fsf": true,
+         "osi": true
+      },
+      "Zed": {
+         "osi": false
+      },
+      "Zeeff": {
+         "osi": false
+      },
+      "Zend-2.0": {
+         "fsf": true,
+         "osi": false
+      },
+      "Zimbra-1.3": {
+         "fsf": true,
+         "osi": false
+      },
+      "Zimbra-1.4": {
+         "osi": false
+      },
+      "Zlib": {
+         "fsf": true,
+         "osi": true
+      },
+      "any-OSI": {
+         "osi": false
+      },
+      "any-OSI-perl-modules": {
+         "osi": false
+      },
+      "atc-game": {
+         "osi": false
+      },
+      "bcrypt-Solar-Designer": {
+         "osi": false
+      },
+      "blessing": {
+         "osi": false
+      },
+      "bzip2-1.0.6": {
+         "osi": false
+      },
+      "check-cvs": {
+         "osi": false
+      },
+      "checkmk": {
+         "osi": false
+      },
+      "copyleft-next-0.3.0": {
+         "osi": false
+      },
+      "copyleft-next-0.3.1": {
+         "osi": false
+      },
+      "curl": {
+         "osi": false
+      },
+      "cve-tou": {
+         "osi": false
+      },
+      "diffmark": {
+         "osi": false
+      },
+      "dtoa": {
+         "osi": false
+      },
+      "dvipdfm": {
+         "osi": false
+      },
+      "eGenix": {
+         "osi": false
+      },
+      "etalab-2.0": {
+         "osi": false
+      },
+      "fwlw": {
+         "osi": false
+      },
+      "gSOAP-1.3b": {
+         "osi": false
+      },
+      "generic-xts": {
+         "osi": false
+      },
+      "gnuplot": {
+         "fsf": true,
+         "osi": false
+      },
+      "gtkbook": {
+         "osi": false
+      },
+      "hdparm": {
+         "osi": false
+      },
+      "hyphen-bulgarian": {
+         "osi": false
+      },
+      "iMatix": {
+         "fsf": true,
+         "osi": false
+      },
+      "jove": {
+         "osi": false
+      },
+      "libpng-1.6.35": {
+         "osi": false
+      },
+      "libpng-2.0": {
+         "osi": false
+      },
+      "libselinux-1.0": {
+         "osi": false
+      },
+      "libtiff": {
+         "osi": false
+      },
+      "libutil-David-Nugent": {
+         "osi": false
+      },
+      "lsof": {
+         "osi": false
+      },
+      "magaz": {
+         "osi": false
+      },
+      "mailprio": {
+         "osi": false
+      },
+      "man2html": {
+         "osi": false
+      },
+      "metamail": {
+         "osi": false
+      },
+      "mpi-permissive": {
+         "osi": false
+      },
+      "mpich2": {
+         "osi": false
+      },
+      "mplus": {
+         "osi": false
+      },
+      "ngrep": {
+         "osi": false
+      },
+      "pkgconf": {
+         "osi": false
+      },
+      "pnmstitch": {
+         "osi": false
+      },
+      "psfrag": {
+         "osi": false
+      },
+      "psutils": {
+         "osi": false
+      },
+      "python-ldap": {
+         "osi": false
+      },
+      "radvd": {
+         "osi": false
+      },
+      "snprintf": {
+         "osi": false
+      },
+      "softSurfer": {
+         "osi": false
+      },
+      "ssh-keyscan": {
+         "osi": false
+      },
+      "swrule": {
+         "osi": false
+      },
+      "threeparttable": {
+         "osi": false
+      },
+      "ulem": {
+         "osi": false
+      },
+      "w3m": {
+         "osi": false
+      },
+      "wwl": {
+         "osi": false
+      },
+      "xinetd": {
+         "fsf": true,
+         "osi": false
+      },
+      "xkeyboard-config-Zinoviev": {
+         "osi": false
+      },
+      "xlock": {
+         "osi": false
+      },
+      "xpp": {
+         "osi": false
+      },
+      "xzoom": {
+         "osi": false
+      },
+      "zlib-acknowledgement": {
+         "osi": false
+      }
+   },
+   "source": "https://raw.githubusercontent.com/spdx/license-list-data/main/json/licenses.json"
+}

@@ -7,11 +7,11 @@
       @click="open = !open"
     >
       <i :class="['fa-solid', open ? 'fa-caret-down' : 'fa-caret-right']" aria-hidden="true"></i>
-      Obligations
+      {{ toggleLabel }}
     </button>
 
     <div v-if="open" class="license-obligations-body">
-      <span class="lob-source">OSADL</span>
+      <span class="lob-source">{{ sourceLabel }}</span>
       <p v-if="exceptions.length > 0" class="lob-caveat">
         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
         <span>May be modified by {{ exceptionsLabel }}.</span>
@@ -74,6 +74,10 @@ const ICONS = {
 // Screen-reader labels so the must / must-not meaning does not rely on the (aria-hidden) icon alone.
 const LABELS = {must: 'Must', mustnot: 'Must not'};
 
+// The entry keys OSADL contributes, used to decide whether it is credited as a source for this panel.
+// Everything else in an entry comes from SPDX (or is the identifier itself).
+const OSADL_KEYS = ['copyleft', 'source_disclosure', 'patent_hints', 'use_cases'];
+
 function isEmpty(value) {
   if (value === null || value === undefined) return true;
   if (Array.isArray(value)) return value.length === 0;
@@ -85,7 +89,10 @@ export default {
   name: 'LicenseObligations',
   props: {
     // One entry per constituent SPDX identifier (an expression like "MIT OR BSD-3-Clause" yields two),
-    // each: {license, patent_hints?, copyleft?, source_disclosure?, use_cases?}. OSADL data, verbatim.
+    // each: {license, osi?, fsf?, patent_hints?, copyleft?, source_disclosure?, use_cases?}. Verbatim
+    // data from the external datasets, merged per identifier: OSADL contributes the obligation
+    // checklist and its classifications, SPDX the OSI / FSF flags. An entry may come from either
+    // source alone - SPDX knows many licenses OSADL publishes no checklist for.
     entries: {type: Array, default: () => []},
     // The license-list label this panel belongs to (may be an expression). Drives whether to name each
     // constituent: redundant for a plain single license, but needed when the label is an expression -
@@ -97,6 +104,22 @@ export default {
     return {open: false};
   },
   computed: {
+    // How complete the information is, in one word. "Obligations" is a strict superset of "Details":
+    // it means OSADL publishes an actual checklist for at least one constituent, so the panel answers
+    // what you have to do. Without one, all we have is classification, and promising obligations we
+    // cannot deliver would be worse than naming the smaller thing.
+    toggleLabel() {
+      return this.entries.some(entry => !isEmpty(entry.use_cases)) ? 'Obligations' : 'Details';
+    },
+    // Credit only the sources that actually contributed to this panel - OSADL requires attribution
+    // (CC-BY-4.0) and naming a source that said nothing here would be misleading either way. SPDX
+    // comes first, matching the order its flags appear in within each attributes row.
+    sourceLabel() {
+      const sources = [];
+      if (this.entries.some(entry => 'osi' in entry)) sources.push('SPDX');
+      if (this.entries.some(entry => OSADL_KEYS.some(key => key in entry))) sources.push('OSADL');
+      return sources.join(' · ');
+    },
     // Show per-constituent names for expressions (more than one entry, or a single entry whose license
     // differs from the row label - i.e. an expression with one OSADL-known part); hide the redundant
     // name for a plain single license.
@@ -126,10 +149,17 @@ export default {
     }
   },
   methods: {
-    // The verified classification facts OSADL carries for a license, kept inside the panel (not leaked to
-    // the row's flag chips). Only shown when present.
+    // The verified classification facts the external sources carry for a license, kept inside the panel
+    // (not leaked to the row's flag chips). Always in the same order - SPDX's two flags, then OSADL's
+    // three - so every panel reads the same way. Only shown when present.
+    //
+    // "FSF libre" is the exception that matters: the FSF has not ruled on most licenses, and SPDX omits
+    // the flag entirely for those rather than calling them non-free. So the row appears only when there
+    // IS a ruling; an absent one is left unsaid instead of being rendered as a third state.
     attributes(entry) {
       const attrs = [];
+      if ('osi' in entry) attrs.push({label: 'OSI approved', value: entry.osi ? 'Yes' : 'No'});
+      if ('fsf' in entry) attrs.push({label: 'FSF libre', value: entry.fsf ? 'Yes' : 'No'});
       if (entry.copyleft) attrs.push({label: 'Copyleft', value: entry.copyleft});
       if (entry.source_disclosure) attrs.push({label: 'Source disclosure', value: entry.source_disclosure});
       if (entry.patent_hints) attrs.push({label: 'Patent hints', value: entry.patent_hints});
@@ -344,6 +374,11 @@ export default {
   flex-wrap: wrap;
   gap: 0.3rem 1.4rem;
   margin: 0 0 0.7rem;
+}
+/* Only the first section starts level with the absolutely-positioned source credit, so that is the one
+   row that has to wrap before reaching it; later sections sit below it and use the full width. */
+.lob-license:first-of-type .lob-attrs {
+  padding-right: 7rem;
 }
 .lob-attr {
   align-items: baseline;

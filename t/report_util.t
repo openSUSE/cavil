@@ -19,8 +19,8 @@ use Test::More;
 use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
-  qw(estimated_risk hard_incompatibilities is_license_filename license_compatibility minimal_snippet),
-  qw(license_obligations license_obligation_ids new_license_names new_unresolved_files),
+  qw(estimated_risk hard_incompatibilities is_license_filename license_classification license_compatibility),
+  qw(license_obligations license_obligation_ids minimal_snippet new_license_names new_unresolved_files),
   qw(overlapping_licenses report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
@@ -266,6 +266,42 @@ subtest 'license_obligations' => sub {
   is $apache->[0]{patent_hints}, 'Yes', 'Apache-2.0 patent hints carried verbatim';
 
   is_deeply license_obligations('LicenseRef-not-in-osadl'), [], 'no data -> empty (panel omitted)';
+};
+
+subtest 'license_classification' => sub {
+  my $apache = license_classification('Apache-2.0');
+  is scalar(@$apache),           1,            'single identifier -> single entry';
+  is $apache->[0]{license},      'Apache-2.0', 'entry names the identifier';
+  is $apache->[0]{patent_hints}, 'Yes',        'OSADL classification carried verbatim';
+  ok exists $apache->[0]{use_cases}, 'OSADL checklist carried (panel says "Obligations")';
+  ok $apache->[0]{osi},              'SPDX OSI flag folded in';
+  ok $apache->[0]{fsf},              'SPDX FSF flag folded in';
+
+  # SPDX covers many more licenses than OSADL publishes checklists for. Those still get an entry - the
+  # flags are all there is to show, and the panel labels itself "Details" rather than "Obligations".
+  my $cc = license_classification('CC-BY-4.0');
+  is scalar(@$cc), 1, 'SPDX-only identifier still yields an entry';
+  ok !$cc->[0]{osi},              'CC-BY-4.0 is not OSI approved';
+  ok $cc->[0]{fsf},               'CC-BY-4.0 is FSF libre';
+  ok !exists $cc->[0]{use_cases}, 'no OSADL checklist for it';
+
+  # The FSF has not ruled on most licenses, and an absent ruling must stay absent rather than being
+  # flattened into "not free" - the UI omits the row entirely when the key is missing.
+  my $mpl = license_classification('MPL-1.0');
+  ok $mpl->[0]{osi},         'MPL-1.0 is OSI approved';
+  ok !exists $mpl->[0]{fsf}, 'no FSF ruling -> no fsf key (never rendered as a third state)';
+
+  my $expr = license_classification('MIT OR BSD-3-Clause');
+  is scalar(@$expr), 2, 'one entry per constituent';
+  is_deeply [map { $_->{license} } @$expr], ['MIT', 'BSD-3-Clause'], 'in expression order';
+  is scalar(@{license_classification('MIT AND MIT')}), 1, 'de-duplicated';
+
+  # Same identifier extraction as obligations: exceptions are kept, so the base license is classified.
+  my $with = license_classification('GPL-2.0-or-later WITH Classpath-exception-2.0');
+  is_deeply [map { $_->{license} } @$with], ['GPL-2.0-or-later'], 'WITH exception keeps the base license';
+
+  is_deeply license_classification('LicenseRef-unknown-to-everyone'), [], 'no source knows it -> empty (panel omitted)';
+  is_deeply license_classification(undef),                            [], 'undef is safe';
 };
 
 subtest 'minimal_snippet' => sub {

@@ -2,10 +2,11 @@
 import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
 import t from 'tap';
 
-// Each license in the report's license list can carry an OSADL obligation checklist: a collapsed
-// "Obligations" toggle that, when opened, shows what a reviewer must do to ship that license, grouped
-// by delivery use case and attributed to OSADL. The "obligations" fixture builds a package with
-// Apache-2.0 (a rich checklist) and a "MIT OR BSD-3-Clause" expression (two constituent licenses).
+// Each license in the report's license list can carry a collapsed panel of external classification
+// data, credited to the sources it came from. The toggle word says how complete that data is:
+// "Obligations" when OSADL publishes an actual checklist (what a reviewer must do to ship the license,
+// grouped by delivery use case), "Details" when all we have is SPDX's OSI / FSF classification. The
+// "obligations" fixture builds a package covering both, plus expressions and a WITH-exception license.
 await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
   process.env.JS_UI_FIXTURES = 'obligations';
   const ui = await launchUi('js_ui_obligations');
@@ -24,6 +25,11 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         await apacheItem.locator('.license-obligations-body').count(),
         0,
         'no obligation body is rendered until the toggle is opened'
+      );
+      t.match(
+        await apacheItem.locator('.license-obligations-toggle').innerText(),
+        /Obligations/,
+        'a license with an OSADL checklist advertises "Obligations"'
       );
     });
 
@@ -60,8 +66,18 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         attrs.some(a => /Patent hints/i.test(a)),
         'the patent-hints classification is shown'
       );
+      t.ok(
+        attrs.some(a => /OSI approved[\s\S]*Yes/i.test(a)),
+        'the SPDX OSI flag is shown alongside the OSADL classifications'
+      );
+      t.ok(
+        attrs.some(a => /FSF libre[\s\S]*Yes/i.test(a)),
+        'the SPDX FSF flag is shown'
+      );
 
-      t.match(await body.locator('.lob-source').innerText(), /OSADL/, 'the panel is attributed to OSADL');
+      const source = await body.locator('.lob-source').innerText();
+      t.match(source, /OSADL/, 'the panel is attributed to OSADL');
+      t.match(source, /SPDX/, 'and to SPDX, since both contributed here');
 
       // A single license needs no per-constituent heading.
       t.equal(await body.locator('.lob-license-name').count(), 0, 'single license has no constituent header');
@@ -84,18 +100,71 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       );
     });
 
-    await t.test('an expression with an OSADL-unknown constituent still names the known one', async t => {
-      // "BSD-2-Clause AND Beerware": Beerware has no OSADL checklist, so only BSD-2-Clause resolves. The
-      // panel must still name BSD-2-Clause rather than show unattributed obligations under the expression.
+    await t.test('an expression whose constituents have different coverage names each one', async t => {
+      // "BSD-2-Clause AND Beerware": both are SPDX-known, but only BSD-2-Clause has an OSADL checklist.
+      // Each constituent gets its own named section, so the obligations are unambiguously attributed to
+      // BSD-2-Clause and Beerware is visibly the one with nothing more than flags.
       const partialItem = page.locator('.risk-license-item', {hasText: 'BSD-2-Clause AND Beerware'});
       await partialItem.locator('.license-obligations-toggle').click();
       const body = partialItem.locator('.license-obligations-body');
       await body.waitFor();
 
       const names = await body.locator('.lob-license-name').allInnerTexts();
-      t.equal(names.length, 1, 'exactly one constituent is named');
-      t.match(names[0], /BSD-2-Clause/, 'the OSADL-known constituent (BSD-2-Clause) is named');
-      t.ok((await body.locator('.lob-must').count()) > 0, 'its obligations are shown');
+      t.equal(names.length, 2, 'both constituents are named');
+      t.match(names[0], /BSD-2-Clause/, 'the OSADL-known constituent comes first, in expression order');
+      t.match(names[1], /Beerware/, 'the SPDX-only constituent is named too');
+
+      const sections = body.locator('.lob-license');
+      t.ok((await sections.nth(0).locator('.lob-must').count()) > 0, 'BSD-2-Clause shows its obligations');
+      t.equal(await sections.nth(1).locator('.lob-must').count(), 0, 'Beerware has no obligations to show');
+      t.match(
+        await sections.nth(1).locator('.lob-none').innerText(),
+        /No obligation checklist/i,
+        'and says so rather than leaving the section blank'
+      );
+    });
+
+    await t.test('a license with no OSADL checklist shows SPDX details instead', async t => {
+      // CC-BY-4.0 has no OSADL checklist, so the toggle promises "Details" rather than "Obligations" -
+      // the panel can only classify the license, not tell you what to do.
+      const detailsItem = page.locator('.risk-license-item', {hasText: 'CC-BY-4.0'});
+      const toggle = detailsItem.locator('.license-obligations-toggle');
+      t.match(await toggle.innerText(), /Details/, 'the toggle says "Details", not "Obligations"');
+
+      await toggle.click();
+      const body = detailsItem.locator('.license-obligations-body');
+      await body.waitFor();
+
+      const attrs = await body.locator('.lob-attr').allInnerTexts();
+      t.ok(
+        attrs.some(a => /OSI approved[\s\S]*No/i.test(a)),
+        'CC-BY-4.0 is shown as not OSI approved'
+      );
+      t.ok(
+        attrs.some(a => /FSF libre[\s\S]*Yes/i.test(a)),
+        'and as FSF libre'
+      );
+      t.equal(await body.locator('.lob-source').innerText(), 'SPDX', 'only SPDX is credited');
+      t.equal(await body.locator('.lob-usecase').count(), 0, 'no use cases are invented');
+    });
+
+    await t.test('a license the FSF never ruled on shows no FSF row at all', async t => {
+      // SPDX omits isFsfLibre for licenses the FSF has not ruled on. That is not a "not free" verdict, so
+      // the row must be absent rather than rendered as a third state or flattened into "No".
+      const noFsfItem = page.locator('.risk-license-item', {hasText: 'MPL-1.0'});
+      await noFsfItem.locator('.license-obligations-toggle').click();
+      const body = noFsfItem.locator('.license-obligations-body');
+      await body.waitFor();
+
+      const attrs = await body.locator('.lob-attr').allInnerTexts();
+      t.ok(
+        attrs.some(a => /OSI approved[\s\S]*Yes/i.test(a)),
+        'MPL-1.0 is shown as OSI approved'
+      );
+      t.notOk(
+        attrs.some(a => /FSF/i.test(a)),
+        'but there is no FSF row, because there is no ruling'
+      );
     });
 
     await t.test('a WITH-exception license shows base obligations with an exception caveat', async t => {
