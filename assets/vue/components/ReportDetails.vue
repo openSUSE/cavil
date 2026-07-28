@@ -1667,9 +1667,21 @@ a.report-component-name:focus {
   gap: 0.75rem;
   margin-left: auto;
 }
+/* The close glyph is centred on whole pixels on purpose. At the 13px font size
+   inherited from the file header, fa-xmark leaves 2.5px of free space above and
+   4.125px to its left inside the 20px button; macOS renders those fractions,
+   but Chrome on Linux snaps hinted glyphs to whole pixels and rounds both down,
+   so the X drifts up and to the left. A 12px glyph is exactly 9px wide (0.75em),
+   and the extra pixel of left padding makes the content box odd, so both axes
+   now divide into whole pixels. */
 .file-preview-close {
   height: 20px;
+  padding-left: 1px;
   width: 20px;
+}
+.file-preview-close i {
+  font-size: 12px;
+  line-height: 1;
 }
 .file-action-link {
   color: #57606a;
