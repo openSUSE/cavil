@@ -392,11 +392,35 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
     });
 
     await t.test('Keyboard shortcuts for unresolved match navigation', async t => {
+      await page.route('**/reviews/report_details/1', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.components = [
+          {
+            type: 'npm',
+            name: 'shortcut-component',
+            version: '1.0.0',
+            purl: 'pkg:npm/shortcut-component@1.0.0',
+            license: 'MIT',
+            license_html: '<a href="/licenses/MIT">MIT</a>',
+            file_url: '/reviews/file_view/1/shortcut-component/package.json',
+            search_url: '/search?component=pkg:npm/shortcut-component%401.0.0'
+          }
+        ];
+        await route.fulfill({response, json: data});
+      });
+
       await page.goto(url);
       await page.click('text=Artistic');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
       await page.waitForSelector('#filelist-snippets a.file-link');
+      await page.waitForSelector('[data-tab="components"]');
+      t.same(
+        await page.locator('#report-tabs [data-tab]').evaluateAll(tabs => tabs.map(tab => tab.dataset.tab)),
+        ['review', 'notes', 'components'],
+        'optional components tab is third in tab order'
+      );
 
       // Wait for every previewed file's source to finish loading. Navigation
       // walks the DOM, so a snippet only becomes a target once its row is
@@ -465,6 +489,31 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await waitForMatchInView('unmatched-files');
       t.pass("'u' jumped to the Risk 9 unresolved matches list");
 
+      await page.keyboard.press('3');
+      await page.waitForSelector('#report-components-pane.is-active');
+      t.match(await page.innerText('#report-components-pane'), /shortcut-component/, "'3' opened the Components tab");
+
+      await page.locator('#report-component-filter-input').fill('');
+      await page.locator('#report-component-filter-input').click();
+      await page.keyboard.type('23');
+      t.equal(
+        await page.locator('#report-component-filter-input').inputValue(),
+        '23',
+        'tab shortcut keys are typed normally inside the component filter'
+      );
+
+      await page.locator('#report-component-filter-input').blur();
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.keyboard.press('2');
+      await page.waitForSelector('#report-notes-pane.is-active');
+      await waitForMatchInView('report-tabs');
+      t.same(await page.locator('#report-notes-pane .report-notes').count(), 1, "'2' mounted the Notes tab");
+      t.pass("'2' scrolled back to the report tab position");
+
+      await page.keyboard.press('1');
+      await page.waitForSelector('.report-tab-pane.is-active #license-chart');
+      t.pass("'1' returned to the Report tab");
+
       // Sanity-check the original assertion that both files end up visible.
       t.same(await page.isVisible(`#file-details-${firstId}`), true, 'first missed file visible');
       t.same(await page.isVisible(`#file-details-${secondId}`), true, 'second missed file visible');
@@ -477,6 +526,9 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.match(modalText, /Jump to next unresolved match/);
       t.match(modalText, /Jump to previous unresolved match/);
       t.match(modalText, /Jump to Risk 9 unresolved matches list/);
+      t.match(modalText, /Open Report tab/);
+      t.match(modalText, /Open Components tab/);
+      t.match(modalText, /Open Notes tab/);
 
       await page.locator('#shortcutsModal .btn-close').click();
       await page.waitForFunction(() => {
@@ -498,6 +550,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       );
       await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
       await waitForInlineSnippetEditorClosed(page);
+      await page.unroute('**/reviews/report_details/1');
     });
 
     await t.test('Initial URL hash auto-expands hidden file', async t => {

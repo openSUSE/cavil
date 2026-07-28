@@ -13,20 +13,6 @@
         <i class="fa-solid fa-scale-balanced"></i> Report
       </button>
       <button
-        v-if="components.length > 0"
-        type="button"
-        class="report-tab"
-        :class="{active: activeTab === 'components'}"
-        role="tab"
-        :aria-selected="activeTab === 'components'"
-        data-tab="components"
-        @click="setActiveTab('components')"
-      >
-        <i class="fa-solid fa-cubes"></i>
-        Components
-        <span class="report-tab-badge" data-component-count>{{ components.length }}</span>
-      </button>
-      <button
         type="button"
         class="report-tab"
         :class="{active: activeTab === 'notes'}"
@@ -43,6 +29,20 @@
           data-note-count
           >{{ noteTotal }}</span
         >
+      </button>
+      <button
+        v-if="components.length > 0"
+        type="button"
+        class="report-tab"
+        :class="{active: activeTab === 'components'}"
+        role="tab"
+        :aria-selected="activeTab === 'components'"
+        data-tab="components"
+        @click="setActiveTab('components')"
+      >
+        <i class="fa-solid fa-cubes"></i>
+        Components
+        <span class="report-tab-badge" data-component-count>{{ components.length }}</span>
       </button>
     </div>
     <div class="report-tab-content">
@@ -446,6 +446,18 @@
                 <dd><kbd>u</kbd></dd>
               </div>
               <div class="shortcuts-row">
+                <dt>Open Report tab</dt>
+                <dd><kbd>1</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
+                <dt>Open Notes tab</dt>
+                <dd><kbd>2</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
+                <dt>Open Components tab</dt>
+                <dd><kbd>3</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
                 <dt>Show this help dialog</dt>
                 <dd><kbd>?</kbd></dd>
               </div>
@@ -617,10 +629,17 @@ export default {
     }
   },
   methods: {
-    setActiveTab(tab) {
+    setActiveTab(tab, {scrollIntoView = false} = {}) {
       this.activeTab = tab;
       if (tab === 'notes') this.notesMounted = true;
-      this.$nextTick(this.scheduleStickyFileHeaderUpdate);
+      this.$nextTick(() => {
+        this.scheduleStickyFileHeaderUpdate();
+        if (scrollIntoView) this.scrollToTabs();
+      });
+    },
+    scrollToTabs() {
+      const el = document.getElementById('report-tabs');
+      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
     },
     scheduleStickyFileHeaderUpdate() {
       if (this.stickyFileHeaderFrame !== null) return;
@@ -1002,6 +1021,16 @@ export default {
         if (this.missedFiles.length === 0) return;
         event.preventDefault();
         this.scrollToUnresolvedList();
+      } else if (event.key === '1') {
+        event.preventDefault();
+        this.setActiveTab('review', {scrollIntoView: true});
+      } else if (event.key === '2') {
+        event.preventDefault();
+        this.setActiveTab('notes', {scrollIntoView: true});
+      } else if (event.key === '3') {
+        if (this.components.length === 0) return;
+        event.preventDefault();
+        this.setActiveTab('components', {scrollIntoView: true});
       } else if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
         event.preventDefault();
         this.showShortcuts();
