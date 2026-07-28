@@ -124,6 +124,10 @@ Cavil runs classification automatically as new snippets come in, so there is not
 sent to the model is the raw candidate snippet, and **embargoed packages are never sent to the classifier** (this
 exclusion is enforced in Cavil itself for compliance; do not work around it).
 
+Cavil also still speaks the older classifier API, if you would rather run one of the legacy implementations
+([Character-level-cnn-pytorch](https://github.com/kraih/Character-level-cnn-pytorch/) or
+[llm-lawyer](https://github.com/kraih/llm-lawyer)). Omit the `type` key from the `classifier` block in that case.
+
 ### 7. Start the web application and workers
 
 Run the web application with the `prefork` command in production mode, and start at least one worker. Both read

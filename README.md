@@ -8,6 +8,8 @@ openSUSE Tumbleweed, openSUSE Leap, as well as SUSE Linux Enterprise.
 **Important**: Note that most of the data used by Cavil has been curated by lawyers, but the generated reports do not
 count as legal advice and no guarantees are made for their correctness!
 
+![Legal report for a package, showing the detected licenses, risk levels and matched source lines](https://raw.github.com/openSUSE/cavil/master/examples/report.png?raw=true)
+
 ## Features
 
 ### Scanning & detection
@@ -33,63 +35,24 @@ count as legal advice and no guarantees are made for their correctness!
 ### Integrations
 
 * [MCP](https://modelcontextprotocol.io/) support for integration into AI assisted
-  [legal review workflows](https://github.com/openSUSE/cavil/blob/master/docs/UserAPI.md#agent-skills)
+  [legal review workflows](docs/UserAPI.md#agent-skills)
 * REST API for integration into existing source code management systems
 * [Open Build Service](https://github.com/openSUSE/openSUSE-release-tools) and
   [Gitea](https://github.com/openSUSE/cavil-gitea) integration via bots
+* Direct tarball upload, for one-off analysis without any bot integration
 * OpenID Connect (OAuth 2.0) authentication
-
-![Screenshot](https://raw.github.com/openSUSE/cavil/master/examples/report.png?raw=true)
-
-## Components
-
-This distribution contains the two main components of the system. A [Mojolicious](https://mojolicious.org) web
-application that lawyers can use to efficiently review package contents, and [Minion](https://metacpan.org/pod/Minion)
-background jobs to process and index packages, to create easy to digest license reports.
-
-Additionally there is a large curated set of license patterns the SUSE lawyers have created included in this
-distribution. Currently this set consists of over 28.000 patterns for all known Open Source licenses.
-
-The easiest way to connect OBS to Cavil is the `legal-auto.py` bot from the
-[openSUSE Release Tools](https://github.com/openSUSE/openSUSE-release-tools) repository. But you can also upload
-tarballs directly for analysis.
 
 ## AI
 
-A machine learning model for text classification is one of Cavil's components. The pattern matching that identifies
-clusters of legal keywords (snippets) has a false-positive rate of about 80%, and the classifier is what tells genuine
-legal text apart from that noise. Everything Cavil does with a snippet after that — scoring it against the known
-licenses, and automatically folding, clearing or covering it in reports — builds on the classifier's judgement, so
-without it none of that automated resolution happens and Cavil is left with raw keyword matching. Even a simple model
+Cavil relies on a machine learning model for text classification. The pattern matching that identifies clusters of
+legal keywords (snippets) has a false-positive rate of about 80%, and the classifier is what tells genuine legal text
+apart from that noise. Everything Cavil does with a snippet after that — scoring it against the known licenses, and
+automatically folding, clearing or covering it in reports — builds on the classifier's judgement. Even a simple model
 identifies almost all of the false positives.
 
 The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) has a collection of models fine-tuned specifically for
-this task, such as `Cavil-Qwen3.5-4B`.
-
-### Llama.cpp
-
-The recommended deployment method for these models is a [llama.cpp](https://github.com/ggml-org/llama.cpp) server.
-
-```
-$ llama-server Cavil-Qwen3.5-4B.f16.gguf --host localhost --port 5000 --api-key TOKEN
-```
-
-Just start the server and add a `classifier` section like this to your `cavil.conf`.
-
-```
-classifier => {
-  type  => 'llama_cpp',
-  url   => 'http://localhost:5000',
-  token => 'TOKEN'
-}
-```
-
-### Legacy
-
-Alternatively there are also two implementations for our legacy classifier API:
-
-1. https://github.com/kraih/Character-level-cnn-pytorch/
-2. https://github.com/kraih/llm-lawyer
+this task, such as `Cavil-Qwen3.5-4B`, usually served with a [llama.cpp](https://github.com/ggml-org/llama.cpp) server.
+See the [setup guide](docs/Setup.md#6-set-up-the-ai-classifier) for deployment instructions.
 
 ## Getting Started
 
@@ -98,40 +61,51 @@ environment. All you need is an empty PostgreSQL database (with the `pgcrypto` a
 activated) and the following dependencies:
 
 ```sh
-    # Install dependencies
-    sudo zypper in -C postgresql-server postgresql-contrib
-    sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
-      perl-Mojo-Pg perl-Minion perl-File-Unpack2 perl-HTML-Parser perl-Cpanel-JSON-XS \
-      perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
-      perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
-      perl-Try-Tiny perl-MCP perl-CommonMark perl-CryptX git git-lfs tar xz \
-      cpio rpm unzip binutils gzip bzip2 sharutils poppler-tools mkisofs \
-      p7zip-full cabextract lzip file shared-mime-info
-    npm i
+# Install dependencies
+sudo zypper in -C postgresql-server postgresql-contrib
+sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
+  perl-Mojo-Pg perl-Minion perl-File-Unpack2 perl-HTML-Parser perl-Cpanel-JSON-XS \
+  perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
+  perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
+  perl-Try-Tiny perl-MCP perl-CommonMark perl-CryptX git git-lfs tar xz \
+  cpio rpm unzip binutils gzip bzip2 sharutils poppler-tools mkisofs \
+  p7zip-full cabextract lzip file shared-mime-info
+npm i
 
-    # Build JavaScript assets
-    npm run build
+# Build JavaScript assets
+npm run build
 ```
 
 Then use these commands to set up and tear down a development environment:
 
 ```sh
-    # Initialize staging environment (remove --clean to include example fixtures)
-    perl staging/start.pl --clean postgresql://tester:testing@/test
+# Initialize staging environment (remove --clean to include example fixtures)
+perl staging/start.pl --clean postgresql://tester:testing@/test
 
-    # Start HTTP application server under http://127.0.0.1:3000
-    CAVIL_CONF=staging/do_not_commit/cavil.conf morbo script/cavil
+# Start HTTP application server under http://127.0.0.1:3000
+CAVIL_CONF=staging/do_not_commit/cavil.conf morbo script/cavil
 
-    # Start background job queue (separate process that does all the actual work)
-    CAVIL_CONF=staging/do_not_commit/cavil.conf script/cavil minion worker
+# Start background job queue (separate process that does all the actual work)
+CAVIL_CONF=staging/do_not_commit/cavil.conf script/cavil minion worker
 
-    # Tear down staging environment once you are done
-    perl staging/stop.pl
+# Tear down staging environment once you are done
+perl staging/stop.pl
 ```
+
+The staging environment has no real authentication, so the **Login** link signs you straight in as an admin. From
+there you can browse any example reports and upload a tarball of your own to get a first legal report. For a real
+instance, follow the [setup guide](docs/Setup.md) instead.
 
 ## Documentation
 
-For more information see the included [documentation](/docs).
+* [Setup](docs/Setup.md) — setting up a fresh Cavil instance for production.
+* [Architecture](docs/Architecture.md) — how the pieces fit together: components, the review workflow, pattern
+  matching and SBOM generation.
+* [License Pattern Lifecycle](docs/PatternLifecycle.md) — a plain-language guide, written for lawyers and reviewers,
+  to how a piece of text becomes a reusable license pattern.
+* [API](docs/API.md) — the REST and MCP APIs, for users and for bots.
+* [Maintenance](docs/Maintenance.md) — keeping your instance running smoothly.
+* [Contributors](docs/Contributors.md) — how volunteers help curate license patterns.
 
 ## Acknowledgements
 
