@@ -114,7 +114,8 @@ These tools are currently available:
   - `tags`: Array of tag strings, at most 32 characters each and 16 per note. (array of strings, optional)
   - `skip_if_existing_tag`: Skip the write if a note with this tag already applies to the report, making the call idempotent. (string, optional)
 
-- *cavil_get_notes* - Get a paginated list of notes for a specific package, optionally filtered by tags
+- *cavil_get_notes* - Get a paginated list of notes for a specific package, optionally filtered by tags. Notes a
+  reviewer has pinned are marked `[pinned]`, sort first, and are always returned regardless of `relevant_only`
   - **Required Roles**: `user` (read-only)
   - `package_id`: ID of package to list notes for. (number, required)
   - `tags`: Return only notes carrying all of the given tags. (array of strings, optional)
@@ -276,6 +277,13 @@ This is the explicit "redo" override. Without that phrase the agent assumes the 
 **What you'll see in the Notes tab.** Every note left by this skill is tagged `review` (the small grey chip in the
 note header) and marked **AI assisted** (the blue badge). Click any note for the full body. Notes are advisory only —
 nothing changes the package state until a human reviewer accepts or rejects it in the normal UI.
+
+If a note turns out to matter beyond the review it was written on — a standing decision about the package, a caveat
+for whoever picks up the next version — lawyers and admins can **pin** it with the thumbtack in the note header.
+Pinned notes are lifted out of the chronological list into a block at the top, stay there while you scroll, and keep
+full contrast on every review of that package name instead of receding behind "Not relevant to this report". Ten pins
+per package is the limit, so the block stays worth reading; unpin one to make room. Pins are visible to everyone the
+note itself is visible to, including in the plain text report and to AI assistants.
 
 #### Example uses for the other three skills
 

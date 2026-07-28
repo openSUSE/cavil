@@ -357,6 +357,107 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '25', 'note count restored to 25');
     });
 
+    await t.test('Pinning notes (admin)', async t => {
+      await page.goto(`${url}/reviews/details/1`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+
+      // Pin a note from the middle of the first page, so hoisting it to the top
+      // is a visible move rather than a no-op.
+      const target = page.locator('.report-note').nth(5);
+      const id = await target.getAttribute('data-note-id');
+      t.notOk(await target.locator('[data-note-pinned-badge]').count(), 'note starts out unpinned');
+
+      const [pinResp] = await Promise.all([
+        page.waitForResponse(
+          r => new RegExp(`/reviews/notes/${id}/pin$`).test(r.url()) && r.request().method() === 'PATCH'
+        ),
+        target.locator(`[data-note-pin="${id}"]`).click()
+      ]);
+      t.equal(pinResp.status(), 200);
+      t.equal((await pinResp.json()).note.pinned, true, 'server reports the note as pinned');
+
+      // The list reloads from the top, with the pinned note lifted out of the
+      // chronological stream into its own block above it.
+      await page.waitForSelector(`#note-${id} [data-note-pinned-badge]`);
+      const pinned = page.locator(`#note-${id}`);
+      t.equal(await page.locator('.report-note').first().getAttribute('data-note-id'), id, 'pinned note sorts first');
+      t.ok(
+        await pinned.evaluate(el => el.classList.contains('report-note-pinned')),
+        'pinned note card is marked as pinned'
+      );
+      t.match(await pinned.locator('[data-note-pinned-badge]').innerText(), /pinned/, 'pinned badge is labelled');
+      t.equal(
+        await page.locator(`[data-note-id="${id}"]`).count(),
+        1,
+        'hoisting does not duplicate the note into the paginated stream'
+      );
+      t.equal(
+        await page.locator('.report-note').count(),
+        21,
+        'pinned block sits above a full page of 20 unpinned notes'
+      );
+      t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '25', 'pinning does not change the count');
+
+      // A pin also asserts the note applies to every review of the package, so
+      // on review #2 it keeps full contrast where inherited notes recede.
+      await page.goto(`${url}/reviews/details/2`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector(`#note-${id}`);
+      t.notOk(
+        await page.locator(`#note-${id}`).evaluate(el => el.classList.contains('report-note-deemphasized')),
+        'pinned note escapes the "not relevant to this report" de-emphasis'
+      );
+
+      // Unpin from review #2 - any curator can unpin, from any review.
+      const [unpinResp] = await Promise.all([
+        page.waitForResponse(
+          r => new RegExp(`/reviews/notes/${id}/pin$`).test(r.url()) && r.request().method() === 'PATCH'
+        ),
+        page.locator(`[data-note-pin="${id}"]`).click()
+      ]);
+      t.equal(unpinResp.status(), 200);
+      t.equal((await unpinResp.json()).note.pinned, false, 'server reports the note as unpinned');
+      await page.waitForSelector(`#note-${id} [data-note-pinned-badge]`, {state: 'detached'});
+      t.ok(
+        await page.locator(`#note-${id}`).evaluate(el => el.classList.contains('report-note-deemphasized')),
+        'unpinning drops the note back into the de-emphasized inherited set'
+      );
+
+      // The composer can create an already-pinned note in one step.
+      await page.goto(`${url}/reviews/details/1`);
+      await page.click('[data-tab="notes"]');
+      await page.waitForSelector('#report-notes-pane.is-active .report-note');
+      await page.locator('[data-note-pinned]').check();
+      await page.locator('[data-composer-input="new"]').fill('Pinned straight from the composer');
+      const [postResp] = await Promise.all([
+        page.waitForResponse(r => /\/reviews\/notes\/1$/.test(r.url()) && r.request().method() === 'POST'),
+        page.locator('[data-composer-save="new"]').click()
+      ]);
+      t.equal(postResp.status(), 200);
+      t.match(postResp.request().postData(), /pinned=1/, 'composer posts the pin flag');
+      const composed = (await postResp.json()).note.id;
+      await page.waitForSelector(`#note-${composed} [data-note-pinned-badge]`);
+      t.equal(
+        await page.locator('.report-note').first().getAttribute('data-note-id'),
+        String(composed),
+        'composed note lands in the pinned block'
+      );
+      t.notOk(await page.locator('[data-note-pinned]').isChecked(), 'pin checkbox resets after posting');
+      t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '26');
+
+      // Cleanup: delete the composed note so downstream counts stay at 25.
+      page.once('dialog', dialog => dialog.accept());
+      await Promise.all([
+        page.waitForResponse(
+          r => new RegExp(`/reviews/notes/${composed}$`).test(r.url()) && r.request().method() === 'DELETE'
+        ),
+        page.locator(`#note-${composed} .report-note-delete`).click()
+      ]);
+      await page.waitForSelector(`#note-${composed}`, {state: 'detached'});
+      t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '25', 'note count restored to 25');
+    });
+
     await t.test('Tag chip input in the composer and edit pane (admin)', async t => {
       await page.goto(`${url}/reviews/details/1`);
       await page.click('[data-tab="notes"]');

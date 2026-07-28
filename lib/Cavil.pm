@@ -263,6 +263,7 @@ sub startup ($self) {
   $logged_in->get('/reviews/notes/<id:num>')->to('Notes#list')->name('list_notes');
   $logged_in->post('/reviews/notes/<id:num>')->to('Notes#create')->name('create_note');
   $logged_in->patch('/reviews/notes/<id:num>')->to('Notes#update')->name('update_note');
+  $logged_in->patch('/reviews/notes/<id:num>/pin')->to('Notes#pin')->name('pin_note');
   $logged_in->delete('/reviews/notes/<id:num>')->to('Notes#remove')->name('remove_note');
   $logged_in->post('/reviews/notes/preview')->to('Notes#preview')->name('preview_note');
   $can_curate->post('/reviews/review_package/<id:num>')->to('Reviewer#review_package')->name('review_package');

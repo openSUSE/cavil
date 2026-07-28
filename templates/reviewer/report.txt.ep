@@ -77,6 +77,7 @@ No files matching any known license patterns or keywords have been found.
 %     $body =~ s/^/> /mg;
 %     my $date = Mojo::Date->new($note->{created_epoch})->to_datetime;
 %     my @markers;
+%     push @markers, 'pinned'      if $note->{pinned};
 %     push @markers, 'AI-assisted' if $note->{ai_assisted};
 %     push @markers, 'tags: ' . join(', ', @{$note->{tags}}) if @{$note->{tags}};
 %     my $suffix = @markers ? ' — ' . join(' — ', @markers) : '';

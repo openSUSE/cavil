@@ -135,7 +135,8 @@ sub register ($self, $app, $config) {
     description => 'Get a paginated list of notes for a specific package, optionally filtered by tags. Each note is '
       . 'marked by relevance to this package report: [this report] (written on it), [same report] (from another '
       . 'review with an identical license report), or [other report] (different licensing). Pass relevant_only=true '
-      . 'to return only the first two.',
+      . 'to return only the first two. Notes marked [pinned] were singled out by a reviewer as standing context for '
+      . 'every review of this package, so they sort first and are always returned regardless of relevant_only.',
     input_schema => {
       type       => 'object',
       properties => {

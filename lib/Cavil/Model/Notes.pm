@@ -16,6 +16,11 @@ has 'pg';
 # can show "originally added on review #N" — but it can become NULL if that
 # package row is later removed, and the note still belongs to the package
 # name.
+#
+# A pinned note is a reviewer's assertion that it matters for every future
+# review of the package name, so it deliberately escapes both mechanisms that
+# would otherwise bury it: it is exempt from the relevance filter, and the web
+# list pulls it out of the keyset scroll entirely (see pinned_for_package).
 
 sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only, $ai_assisted = 0, $tags = undef) {
   my $row = $self->pg->db->insert(
@@ -48,21 +53,27 @@ sub list ($self, $package_name, %opts) {
   my @args = ($package_name);
 
   push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
+
+  # The web list hoists pinned notes into their own block above the scroll, so
+  # they must not also appear in the paginated stream. Consumers that render a
+  # single flat list (like the plain text report) leave this off.
+  push @sql, 'AND c.pinned = false' if $opts{exclude_pinned};
+
   if (defined $opts{before_id}) {
     push @sql,  'AND c.id < ?';
     push @args, $opts{before_id};
   }
 
-  # "Only relevant notes" = native to this review OR from a review with an
-  # identical license report (same bot_packages.checksum). Degrades to
+  # "Only relevant notes" = pinned OR native to this review OR from a review
+  # with an identical license report (same bot_packages.checksum). Degrades to
   # native-only when the current package has no report checksum yet.
   if ($opts{relevant_only}) {
     if (defined $opts{checksum}) {
-      push @sql, 'AND (c.package = ? OR p.checksum = ?)';
+      push @sql, 'AND (c.pinned = true OR c.package = ? OR p.checksum = ?)';
       push @args, $opts{package_id}, $opts{checksum};
     }
     else {
-      push @sql,  'AND c.package = ?';
+      push @sql,  'AND (c.pinned = true OR c.package = ?)';
       push @args, $opts{package_id};
     }
   }
@@ -72,6 +83,18 @@ sub list ($self, $package_name, %opts) {
   my $has_more = @$rows > $limit ? 1 : 0;
   splice @$rows, $limit if $has_more;
   return {notes => $rows, has_more => $has_more};
+}
+
+# All pinned notes for a package name, newest first. Kept out of the keyset
+# pagination in list() on purpose: sorting pinned notes to the front would put
+# rows with ids above the `before_id` cursor into later pages, which either
+# duplicates or drops them depending on where the scroll is. A separate query
+# is correct at any scroll position, and the pin limit keeps it small.
+sub pinned_for_package ($self, $package_name, %opts) {
+  my @sql  = ('AND c.package_name = ?', 'AND c.pinned = true');
+  my @args = ($package_name);
+  push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
+  return $self->_query(join(' ', @sql), \@args, 'ORDER BY c.id DESC');
 }
 
 sub recent ($self, %opts) {
@@ -128,17 +151,19 @@ sub paginate_for_package ($self, $package_name, %opts) {
   }
   if ($opts{relevant_only}) {
     if (defined $opts{checksum}) {
-      push @sql, 'AND (c.package = ? OR p.checksum = ?)';
+      push @sql, 'AND (c.pinned = true OR c.package = ? OR p.checksum = ?)';
       push @args, $opts{package_id}, $opts{checksum};
     }
     else {
-      push @sql,  'AND c.package = ?';
+      push @sql,  'AND (c.pinned = true OR c.package = ?)';
       push @args, $opts{package_id};
     }
   }
 
+  # Offset pagination, so unlike list() this one can just sort pinned notes to
+  # the front without breaking a cursor.
   my $sql = qq{
-    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.tags, c.package AS package_id, c.package_name,
+    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.pinned, c.tags, c.package AS package_id, c.package_name,
            c.author AS author_id, u.login AS author_login, u.fullname AS author_fullname,
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,
@@ -150,7 +175,7 @@ sub paginate_for_package ($self, $package_name, %opts) {
       JOIN bot_users u ON c.author = u.id
       LEFT JOIN bot_packages p ON c.package = p.id
      WHERE 1 = 1 } . join(' ', @sql) . qq{
-     ORDER BY c.id DESC
+     ORDER BY c.pinned DESC, c.id DESC
      LIMIT ? OFFSET ?
   };
 
@@ -161,24 +186,25 @@ sub paginate_for_package ($self, $package_name, %opts) {
 sub counts ($self, $package_name) {
   return $self->pg->db->query(
     'SELECT COUNT(*)::int AS total,
-            COUNT(*) FILTER (WHERE lawyer_only = true)::int AS lawyer_only
+            COUNT(*) FILTER (WHERE lawyer_only = true)::int AS lawyer_only,
+            COUNT(*) FILTER (WHERE pinned = true)::int AS pinned
        FROM package_notes WHERE package_name = ?', $package_name
   )->hash;
 }
 
-# Count of visible notes "relevant" to the given review (native or identical
-# license report), so the UI can gate the "Only relevant notes" toggle and show
-# "N of M". Mirrors the relevant_only predicate in list().
+# Count of visible notes "relevant" to the given review (pinned, native, or
+# identical license report), so the UI can gate the "Only relevant notes"
+# toggle and show "N of M". Mirrors the relevant_only predicate in list().
 sub relevant_count ($self, $package_name, $package_id, $checksum, %opts) {
   my @sql  = ('c.package_name = ?');
   my @args = ($package_name);
   push @sql, 'c.lawyer_only = false' unless $opts{include_lawyer_only};
   if (defined $checksum) {
-    push @sql, '(c.package = ? OR p.checksum = ?)';
+    push @sql, '(c.pinned = true OR c.package = ? OR p.checksum = ?)';
     push @args, $package_id, $checksum;
   }
   else {
-    push @sql,  'c.package = ?';
+    push @sql,  '(c.pinned = true OR c.package = ?)';
     push @args, $package_id;
   }
   my $sql = 'SELECT COUNT(*)::int AS relevant FROM package_notes c
@@ -190,6 +216,9 @@ sub relevant_count ($self, $package_name, $package_id, $checksum, %opts) {
 # identical license report), or undef. Powers the server-side idempotency guard
 # in cavil_create_note: a relevant tagged note means this exact report (or one
 # with identical license findings) was already annotated, so a re-run must skip.
+# Pinning deliberately does not widen this the way it widens relevant_only: the
+# question here is "was this report annotated", and a pinned note from an
+# unrelated report would suppress the annotation that report never got.
 sub relevant_tagged_note ($self, $package_name, $package_id, $checksum, $tag, %opts) {
   my @sql  = ('c.package_name = ?', 'c.tags @> ?::text[]');
   my @args = ($package_name, [$tag]);
@@ -229,9 +258,24 @@ sub edit ($self, $id, $body, $tags = undef) {
   return $self->find($id);
 }
 
+# Pinning is curation of an existing note, not a change to what it says, so it
+# deliberately leaves `edited` alone - a pin must not make the note read as
+# "edited 2 minutes ago" to the next reviewer.
+sub set_pinned ($self, $id, $pinned) {
+  my $rows
+    = $self->pg->db->query('UPDATE package_notes SET pinned = ? WHERE id = ? RETURNING id', $pinned ? 1 : 0, $id)->rows;
+  return undef unless $rows;
+  return $self->find($id);
+}
+
+sub pinned_count ($self, $package_name) {
+  return $self->pg->db->query('SELECT COUNT(*)::int AS pinned FROM package_notes WHERE package_name = ? AND pinned',
+    $package_name)->hash->{pinned};
+}
+
 sub _query ($self, $extra_sql, $extra_args, $tail_sql = '', $tail_args = []) {
   my $sql = qq{
-    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.tags, c.package AS package_id, c.package_name,
+    SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.pinned, c.tags, c.package AS package_id, c.package_name,
            c.author AS author_id, u.login AS author_login, u.fullname AS author_fullname,
            u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,

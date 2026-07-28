@@ -740,6 +740,165 @@ subtest 'relevant_tagged_note powers the create guard' => sub {
   $db->update('bot_packages', {checksum => $orig2}, {id => 2});
 };
 
+subtest 'Pin and unpin a note' => sub {
+  my $id = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'pin round trip', 0)->{id};
+  login_admin($t);
+
+  $t->get_ok('/reviews/notes/1')->status_is(200)->json_is('/can_pin' => true)->json_is('/pinned' => []);
+
+  $t->patch_ok("/reviews/notes/$id/pin" => form => {pinned => '1'})
+    ->status_is(200)
+    ->json_is('/note/id'     => $id)
+    ->json_is('/note/pinned' => true);
+  is $app->notes->counts('perl-Mojolicious')->{pinned}, 1, 'one pinned note counted';
+
+  # Pinning is curation of an existing note, not a change to what it says.
+  is $app->notes->find($id)->{edited_epoch}, undef, 'pinning does not mark the note as edited';
+
+  $t->patch_ok("/reviews/notes/$id/pin" => form => {pinned => '0'})->status_is(200)->json_is('/note/pinned' => false);
+  is $app->notes->counts('perl-Mojolicious')->{pinned}, 0, 'unpinned again';
+
+  $t->patch_ok('/reviews/notes/999999/pin' => form => {pinned => '1'})
+    ->status_is(404)
+    ->json_like('/error' => qr/Note not found/);
+  $t->patch_ok("/reviews/notes/$id/pin" => form => {pinned => 'maybe'})->status_is(400);
+
+  logout($t);
+  $app->notes->remove($id);
+};
+
+subtest 'Pinned notes are hoisted out of the paginated stream' => sub {
+  my $id = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'hoisted note', 0)->{id};
+  login_admin($t);
+  $t->patch_ok("/reviews/notes/$id/pin" => form => {pinned => '1'})->status_is(200);
+
+  $t->get_ok('/reviews/notes/1?limit=20')
+    ->status_is(200)
+    ->json_is('/pinned/0/id'     => $id)
+    ->json_is('/pinned/0/pinned' => true)
+    ->json_is('/pinned/0/body'   => 'hoisted note');
+  my $first = $t->tx->res->json('/notes');
+  ok !(grep { $_->{id} == $id } @$first), 'pinned note is not repeated in the paginated stream';
+
+  # The pinned block belongs to the first page only; a cursor fetch omits the
+  # key entirely so a later page cannot clear the block already rendered.
+  my $last_id = $first->[-1]{id};
+  $t->get_ok("/reviews/notes/1?limit=20&before_id=$last_id")->status_is(200)->json_hasnt('/pinned');
+  my $second = $t->tx->res->json('/notes');
+  ok !(grep { $_->{id} == $id } @$second), 'pinned note is absent from later pages too';
+
+  # A pin outlives the relevance filter resetting the scroll.
+  $t->get_ok('/reviews/notes/1?relevant_only=1')->status_is(200)->json_is('/pinned/0/id' => $id);
+
+  logout($t);
+  $app->notes->remove($id);
+};
+
+subtest 'Pin limit' => sub {
+  login_admin($t);
+  my @ids = map { $app->notes->add(1, 'perl-Mojolicious', $contrib_id, "cap note #$_", 0)->{id} } 1 .. 11;
+
+  $t->patch_ok("/reviews/notes/$_/pin" => form => {pinned => '1'})->status_is(200) for @ids[0 .. 9];
+  is $app->notes->counts('perl-Mojolicious')->{pinned}, 10, 'ten notes pinned';
+
+  $t->patch_ok("/reviews/notes/$ids[10]/pin" => form => {pinned => '1'})
+    ->status_is(400)
+    ->json_like('/error' => qr/already has 10 pinned notes/);
+  $t->post_ok('/reviews/notes/1' => form => {body => 'one pin too many', pinned => '1'})
+    ->status_is(400)
+    ->json_like('/error' => qr/already has 10 pinned notes/);
+
+  # Unpinning an already-pinned note is never blocked by the cap.
+  $t->patch_ok("/reviews/notes/$ids[0]/pin"  => form => {pinned => '0'})->status_is(200);
+  $t->patch_ok("/reviews/notes/$ids[10]/pin" => form => {pinned => '1'})->status_is(200);
+
+  $t->patch_ok("/reviews/notes/$_/pin" => form => {pinned => '0'})->status_is(200) for @ids[1 .. 10];
+  is $app->notes->counts('perl-Mojolicious')->{pinned}, 0, 'all unpinned again';
+  logout($t);
+  $app->notes->remove($_) for @ids;
+};
+
+subtest 'Pin permissions' => sub {
+
+  # Pinning is curation, not ownership: a contributor cannot pin even their own
+  # note, and a lawyer can pin somebody else's.
+  my $own = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'contributor own note', 0)->{id};
+
+  $t->get_ok('/test/become/contrib_user')->status_is(200);
+  $t->get_ok('/reviews/notes/1')->status_is(200)->json_is('/can_pin' => false);
+  $t->patch_ok("/reviews/notes/$own/pin" => form => {pinned => '1'})
+    ->status_is(403)
+    ->json_like('/error' => qr/Not allowed to pin/);
+  $t->post_ok('/reviews/notes/1' => form => {body => 'sneaky pin', pinned => '1'})
+    ->status_is(403)
+    ->json_like('/error' => qr/Not allowed to pin/);
+
+  $t->get_ok('/test/become/lawyer_user')->status_is(200);
+  $t->get_ok('/reviews/notes/1')->status_is(200)->json_is('/can_pin' => true);
+  $t->patch_ok("/reviews/notes/$own/pin" => form => {pinned => '1'})->status_is(200)->json_is('/note/pinned' => true);
+  $t->patch_ok("/reviews/notes/$own/pin" => form => {pinned => '0'})->status_is(200);
+  logout($t);
+  $app->notes->remove($own);
+};
+
+subtest 'Pinned notes bypass the relevance filter' => sub {
+  my $db    = $app->pg->db;
+  my $orig1 = $app->packages->find(1)->{checksum};
+  my $orig2 = $app->packages->find(2)->{checksum};
+  $db->update('bot_packages', {checksum => 'PIN-A'}, {id => 1});
+  $db->update('bot_packages', {checksum => 'PIN-B'}, {id => 2});
+
+  # Written on review #2, whose report differs from review #1, so it would
+  # normally be filtered out and de-emphasized when viewed from review #1.
+  my $id = $app->notes->add(2, 'perl-Mojolicious', $contrib_id, 'standing advice', 0)->{id};
+
+  my $before = $app->notes->list('perl-Mojolicious', relevant_only => 1, package_id => 1, checksum => 'PIN-A');
+  ok !(grep { $_->{id} == $id } @{$before->{notes}}), 'unpinned different-report note is filtered out';
+  my $before_count = $app->notes->relevant_count('perl-Mojolicious', 1, 'PIN-A');
+
+  login_admin($t);
+  $t->patch_ok("/reviews/notes/$id/pin" => form => {pinned => '1'})->status_is(200);
+
+  # The flat-list consumers (plain text report) see it through relevant_only...
+  my $after = $app->notes->list('perl-Mojolicious', relevant_only => 1, package_id => 1, checksum => 'PIN-A');
+  ok((grep { $_->{id} == $id } @{$after->{notes}}), 'pinned different-report note survives relevant_only');
+  is $app->notes->relevant_count('perl-Mojolicious', 1, 'PIN-A'), $before_count + 1, 'relevant count includes the pin';
+
+  # ...and the web list gets it in the pinned block even under the filter.
+  $t->get_ok('/reviews/notes/1?relevant_only=1')->status_is(200)->json_is('/pinned/0/id' => $id);
+
+  # The MCP path sorts pinned notes to the front instead, since it is offset
+  # paginated and can safely reorder.
+  my $page = $app->notes->paginate_for_package('perl-Mojolicious', limit => 5, package_id => 1, checksum => 'PIN-A');
+  is $page->{page}[0]{id},     $id, 'pinned note sorts first for the MCP list';
+  is $page->{page}[0]{pinned}, 1,   'pinned flag is exposed to the MCP renderer';
+
+  $t->patch_ok("/reviews/notes/$id/pin" => form => {pinned => '0'})->status_is(200);
+  logout($t);
+
+  $app->notes->remove($id);
+  $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+  $db->update('bot_packages', {checksum => $orig2}, {id => 2});
+};
+
+subtest 'Composer can create an already-pinned note' => sub {
+  login_admin($t);
+  $t->post_ok('/reviews/notes/1' => form => {body => 'pinned on creation', pinned => '1'})
+    ->status_is(200)
+    ->json_is('/note/pinned' => true);
+  my $id = $t->tx->res->json('/note/id');
+
+  $t->get_ok('/reviews/notes/1')->status_is(200)->json_is('/pinned/0/id' => $id);
+  my $stream = $t->tx->res->json('/notes');
+  ok !(grep { $_->{id} == $id } @$stream), 'created pinned note goes straight to the pinned block';
+
+  $t->post_ok('/reviews/notes/1' => form => {body => 'plain note'})->status_is(200)->json_is('/note/pinned' => false);
+  my $plain = $t->tx->res->json('/note/id');
+
+  logout($t);
+  $app->notes->remove($_) for ($id, $plain);
+};
+
 subtest 'CommonMark renders safely' => sub {
   login_admin($t);
   my $body = "Click [me](javascript:alert(1)) or visit <https://example.com>.\n\n<script>alert(1)</script>";

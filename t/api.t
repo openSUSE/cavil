@@ -201,6 +201,15 @@ subtest 'Notes in plain text report' => sub {
   $notes->add(1, 'perl-Mojolicious', $lawyer_id, 'Confirmed Apache-2.0 headers across the tree',    0, 0);
   $notes->add(1, 'perl-Mojolicious', $lawyer_id, 'Internal-only: escalate to legal before release', 1, 0);
 
+  # Written on another review of the same package name that has since been
+  # removed, so it is not relevant to this report and would normally be
+  # filtered out. A pin is the reviewer saying it applies to every review.
+  my $pinned = $notes->add(undef, 'perl-Mojolicious', $lawyer_id, 'Ships a patented codec, always check', 0, 0);
+  $t->get_ok('/package/1/report.txt' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->content_unlike(qr/Ships a patented codec/);
+  $notes->set_pinned($pinned->{id}, 1);
+
   $t->get_ok('/package/1/report.txt' => {Authorization => 'Token test_token'})
     ->status_is(200)
     ->content_type_like(qr/text\/plain/)
@@ -209,8 +218,17 @@ subtest 'Notes in plain text report' => sub {
     ->content_like(qr/> Bundled zlib is fine to redistribute here/)
     ->content_like(qr/### report_lawyer on /)
     ->content_like(qr/> Confirmed Apache-2\.0 headers across the tree/)
+    ->content_like(qr/### report_lawyer on .+ — pinned/)
+    ->content_like(qr/> Ships a patented codec, always check/)
     ->content_unlike(qr/Internal-only: escalate to legal/)
     ->content_like(qr/## Notes.+## About/s);
+
+  # A pin does not override the lawyer-only exclusion; these reports are public.
+  my $secret = $notes->add(undef, 'perl-Mojolicious', $lawyer_id, 'Pinned but lawyer-only, never public', 1, 0);
+  $notes->set_pinned($secret->{id}, 1);
+  $t->get_ok('/package/1/report.txt' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->content_unlike(qr/Pinned but lawyer-only/);
 };
 
 subtest 'Update priority' => sub {

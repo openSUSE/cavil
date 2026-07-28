@@ -448,3 +448,7 @@ acceptable license, and then resubmit the package for review.');
 
 -- 53 down
 DROP TABLE IF EXISTS comment_templates;
+
+-- 54 up
+ALTER TABLE package_notes ADD COLUMN pinned boolean DEFAULT false NOT NULL;
+CREATE INDEX package_notes_pinned_idx ON package_notes (package_name, id DESC) WHERE pinned;

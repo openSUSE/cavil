@@ -25,7 +25,7 @@ Filters: relevant_only=true
 %     elsif (defined $current_checksum && defined $note->{package_checksum} && $note->{package_checksum} eq $current_checksum) {
 %       $relevance = '[same report]';
 %     }
-## Note #<%= $note->{id} %> by <%== $note->{author_login} %> (<%= Mojo::Date->new($note->{created_epoch})->to_datetime %>) <%== $relevance %><%== $note->{ai_assisted} ? ' [AI-assisted]' : '' %><%== $note->{lawyer_only} ? ' [lawyer-only]' : '' %><%== @{$note->{tags}} ? ' [tags: ' . join(', ', @{$note->{tags}}) . ']' : '' %>
+## Note #<%= $note->{id} %> by <%== $note->{author_login} %> (<%= Mojo::Date->new($note->{created_epoch})->to_datetime %>) <%== $relevance %><%== $note->{pinned} ? ' [pinned]' : '' %><%== $note->{ai_assisted} ? ' [AI-assisted]' : '' %><%== $note->{lawyer_only} ? ' [lawyer-only]' : '' %><%== @{$note->{tags}} ? ' [tags: ' . join(', ', @{$note->{tags}}) . ']' : '' %>
 
 %== $body
 

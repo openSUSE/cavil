@@ -11,19 +11,24 @@
       <LegalLoading message="Loading notes..." size="small" />
     </div>
     <div v-else>
-      <div v-if="notes.length === 0 && !loadError" class="report-notes-empty">
+      <div v-if="pinError" class="report-notes-error" data-note-pin-error>
+        <i class="fa-solid fa-triangle-exclamation"></i> {{ pinError }}
+      </div>
+      <div v-if="allNotes.length === 0 && !loadError" class="report-notes-empty">
         <i class="fa-regular fa-note-sticky"></i>
         <p class="mb-0">{{ emptyMessage }}</p>
       </div>
       <ul v-else class="report-notes-list">
         <li
-          v-for="c in notes"
+          v-for="(c, i) in allNotes"
           :key="c.id"
           :id="`note-${c.id}`"
           :class="[
             'report-note',
             {
               'report-note-lawyer-only': c.lawyer_only,
+              'report-note-pinned': c.pinned,
+              'report-note-pinned-last': c.pinned && i === pinnedNotes.length - 1,
               'report-note-deemphasized': isNonRelevant(c)
             }
           ]"
@@ -88,6 +93,14 @@
                 >
               </a>
               <span
+                v-if="c.pinned"
+                class="report-note-badge pinned-badge"
+                title="Pinned by a reviewer as standing context for every review of this package"
+                data-note-pinned-badge
+              >
+                <i class="fa-solid fa-thumbtack"></i> pinned
+              </span>
+              <span
                 v-if="c.ai_assisted"
                 class="report-note-badge ai-assisted-badge"
                 title="Created with AI assistance"
@@ -110,6 +123,17 @@
                 :data-note-tag="t"
                 >{{ t }}</span
               >
+              <button
+                v-if="allowActions && c.can_pin && editingId !== c.id"
+                type="button"
+                :class="['report-note-pin', 'cavil-icon-action', {'is-pinned': c.pinned}]"
+                :disabled="pinningId === c.id"
+                :title="c.pinned ? 'Unpin this note' : 'Pin this note to the top for future reviewers'"
+                :data-note-pin="c.id"
+                @click="togglePin(c)"
+              >
+                <i class="fa-solid fa-thumbtack"></i>
+              </button>
               <button
                 v-if="allowActions && c.can_edit && editingId !== c.id"
                 type="button"
@@ -181,10 +205,16 @@
           @save="submit"
         >
           <template #leading>
-            <label v-if="canPostLawyerOnly" class="report-note-lawyer-toggle">
-              <input type="checkbox" v-model="lawyerOnly" class="form-check-input" data-note-lawyer-only />
-              Lawyers only
-            </label>
+            <span class="report-note-composer-toggles">
+              <label v-if="canPostLawyerOnly" class="report-note-composer-toggle">
+                <input type="checkbox" v-model="lawyerOnly" class="form-check-input" data-note-lawyer-only />
+                Lawyers only
+              </label>
+              <label v-if="canPin" class="report-note-composer-toggle">
+                <input type="checkbox" v-model="pinned" class="form-check-input" data-note-pinned />
+                Pinned
+              </label>
+            </span>
           </template>
         </MarkdownComposer>
       </div>
@@ -224,6 +254,11 @@ export default {
     listEndpoint() {
       return this.endpoint || `/reviews/notes/${this.pkgId}`;
     },
+    // Pinned notes are served outside the keyset stream, so they are stitched
+    // back on at render time rather than sorted into it.
+    allNotes() {
+      return [...this.pinnedNotes, ...this.notes];
+    },
     // Show the "Only relevant notes" toggle only when filtering would actually
     // help: there must be both relevant notes to keep and non-relevant ones to
     // hide. (De-emphasis itself is unconditional - any non-relevant note recedes
@@ -242,6 +277,7 @@ export default {
   data() {
     return {
       notes: [],
+      pinnedNotes: [],
       hasMore: false,
       initialLoading: true,
       loadingMore: false,
@@ -249,8 +285,12 @@ export default {
       submitting: false,
       submitError: null,
       deletingId: null,
+      pinningId: null,
+      pinError: null,
+      canPin: false,
       draft: '',
       lawyerOnly: false,
+      pinned: false,
       tags: [],
       knownTags: [],
       relevantOnly: false,
@@ -334,9 +374,11 @@ export default {
       return this.isCurrentReview(c) || c.same_report === true;
     },
     // Inherited from a report with different licensing - de-emphasized in a
-    // mixed list so the relevant notes stand out by contrast.
+    // mixed list so the relevant notes stand out by contrast. A pin is a
+    // reviewer saying the note applies whatever the report says, which
+    // outranks the automatic judgement.
     isNonRelevant(c) {
-      return this.isFromOtherReport(c) && !this.isRelevant(c);
+      return this.isFromOtherReport(c) && !this.isRelevant(c) && !c.pinned;
     },
     isObsoleteOrigin(c) {
       return !!(c.original_package && c.original_package.obsolete);
@@ -355,6 +397,7 @@ export default {
         this.observer = null;
       }
       this.notes = [];
+      this.pinnedNotes = [];
       this.hasMore = false;
       this.initialLoading = true;
       this.loadMore().then(() => this.setupObserver());
@@ -386,6 +429,9 @@ export default {
         }
         const data = await res.json();
         this.notes.push(...data.notes);
+        // Only the first page carries the pinned block.
+        if (Array.isArray(data.pinned)) this.pinnedNotes = data.pinned;
+        if (data.can_pin !== undefined) this.canPin = !!data.can_pin;
         this.hasMore = !!data.has_more;
         if (data.total !== undefined) this.total = data.total;
         if (data.relevant !== undefined) this.relevant = data.relevant;
@@ -407,7 +453,7 @@ export default {
       this.submitting = true;
       this.submitError = null;
       try {
-        const form = {body, lawyer_only: this.lawyerOnly ? '1' : '0'};
+        const form = {body, lawyer_only: this.lawyerOnly ? '1' : '0', pinned: this.pinned ? '1' : '0'};
         if (this.tags.length) form.tags_json = JSON.stringify(this.tags);
         const res = await this.ua.post(`/reviews/notes/${this.pkgId}`, {form});
         if (!res.isSuccess) {
@@ -422,9 +468,13 @@ export default {
           return;
         }
         const data = await res.json();
-        this.notes.unshift(data.note);
+        // A pinned note belongs in the block above the scroll, not at the head
+        // of the stream, so let the server place it.
+        if (data.note.pinned) this.pinnedNotes.unshift(data.note);
+        else this.notes.unshift(data.note);
         this.draft = '';
         this.lawyerOnly = false;
+        this.pinned = false;
         this.tags = [];
         // Re-fetch counts via a HEAD-like call would be cheap; piggyback on
         // the next page request instead: refresh counts by re-counting locally
@@ -441,7 +491,7 @@ export default {
       // by a safety limit so a non-existent (or someone-else's-package) id
       // can't trigger an infinite loop.
       let safety = 50;
-      while (!this.notes.find(c => c.id === targetId) && this.hasMore && safety-- > 0) {
+      while (!this.allNotes.find(c => c.id === targetId) && this.hasMore && safety-- > 0) {
         await this.loadMore();
         if (this.loadError) return;
       }
@@ -487,8 +537,10 @@ export default {
           return;
         }
         const data = await res.json();
-        const idx = this.notes.findIndex(x => x.id === c.id);
-        if (idx >= 0) this.notes.splice(idx, 1, data.note);
+        for (const list of [this.notes, this.pinnedNotes]) {
+          const idx = list.findIndex(x => x.id === c.id);
+          if (idx >= 0) list.splice(idx, 1, data.note);
+        }
         this.cancelEdit();
       } catch (err) {
         this.editError = err.message || 'Failed to save edit';
@@ -506,6 +558,34 @@ export default {
         // Autocomplete is a convenience; a failed fetch just means no suggestions.
       }
     },
+    async togglePin(c) {
+      if (this.pinningId !== null) return;
+      this.pinningId = c.id;
+      this.pinError = null;
+      try {
+        const form = {pinned: c.pinned ? '0' : '1'};
+        const res = await this.ua.patch(`/reviews/notes/${c.id}/pin`, {form});
+        if (!res.isSuccess) {
+          let msg = `Failed (HTTP ${res.statusCode})`;
+          try {
+            const data = await res.json();
+            if (data && data.error) msg = data.error;
+          } catch (_) {
+            // ignore
+          }
+          this.pinError = msg;
+          return;
+        }
+        // The note moves between the pinned block and the keyset stream, and
+        // the two are paginated independently. Splicing it across by hand
+        // risks it reappearing on the next scroll page, so reload from the top.
+        this.reloadFromTop();
+      } catch (err) {
+        this.pinError = err.message || 'Failed to pin note';
+      } finally {
+        this.pinningId = null;
+      }
+    },
     async deleteNote(c) {
       // eslint-disable-next-line no-alert
       if (!window.confirm('Delete this note?')) return;
@@ -513,8 +593,10 @@ export default {
       try {
         const res = await this.ua.delete(`/reviews/notes/${c.id}`);
         if (!res.isSuccess) return;
-        const idx = this.notes.findIndex(x => x.id === c.id);
-        if (idx >= 0) this.notes.splice(idx, 1);
+        for (const list of [this.notes, this.pinnedNotes]) {
+          const idx = list.findIndex(x => x.id === c.id);
+          if (idx >= 0) list.splice(idx, 1);
+        }
         this.$emit('counts-changed', {bump: -1, lawyer_only_bump: c.lawyer_only ? -1 : 0});
       } finally {
         this.deletingId = null;
@@ -633,6 +715,15 @@ export default {
 .report-note-lawyer-only {
   border-left: 4px solid #bf8700;
   background: linear-gradient(180deg, rgba(255, 244, 207, 0.45) 0%, #ffffff 60px);
+}
+/* Pinned notes keep the normal card shape - the left-border accent belongs to
+   lawyer-only, and the two flags combine on one card. A firmer border plus the
+   badge is enough to read as "held above the list". */
+.report-note-pinned {
+  border-color: #8c959f;
+}
+.report-note-pinned-last {
+  margin-bottom: 28px;
 }
 .report-note-header {
   align-items: center;
@@ -760,6 +851,12 @@ export default {
   color: #0550ae;
   text-transform: none;
 }
+.report-note-badge.pinned-badge {
+  background: #eaeef2;
+  border-color: rgba(110, 119, 129, 0.35);
+  color: #424a53;
+  text-transform: none;
+}
 /* Origin badge: a neutral provenance link. Relevance is conveyed by the row
    (relevant = full contrast, non-relevant = de-emphasized), not the badge. */
 .report-note-badge.origin-report-badge {
@@ -801,6 +898,12 @@ export default {
 }
 /* Tag chip + editor styles live in TagInput.vue (imported here), which is the
    canonical home of the tag widget and supplies these .report-note-tag* rules. */
+.report-note-pin.is-pinned {
+  color: #424a53;
+}
+.report-note-pin:hover:not(:disabled) {
+  color: #0550ae;
+}
 .report-note-edit:hover:not(:disabled) {
   color: #0550ae;
 }
@@ -878,15 +981,21 @@ export default {
   font-weight: 600;
   margin-bottom: 6px;
 }
-.report-note-lawyer-toggle {
+.report-note-composer-toggles {
+  align-items: center;
+  display: inline-flex;
+  gap: 14px;
+  margin-right: auto;
+}
+.report-note-composer-toggle {
   align-items: center;
   color: #57606a;
   display: inline-flex;
   font-size: 13px;
   gap: 6px;
-  margin-right: auto;
+  margin: 0;
 }
-.report-note-lawyer-toggle .form-check-input {
+.report-note-composer-toggle .form-check-input {
   margin: 0;
 }
 </style>

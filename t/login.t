@@ -65,6 +65,7 @@ subtest 'Login required' => sub {
   $t->get_ok('/reviews/notes/1')->status_is(401)->content_like(qr/Login Required/);
   $t->post_ok('/reviews/notes/1')->status_is(401)->content_like(qr/Login Required/);
   $t->patch_ok('/reviews/notes/1')->status_is(401)->content_like(qr/Login Required/);
+  $t->patch_ok('/reviews/notes/1/pin')->status_is(401)->content_like(qr/Login Required/);
   $t->delete_ok('/reviews/notes/1')->status_is(401)->content_like(qr/Login Required/);
   $t->post_ok('/reviews/notes/preview')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/snippets')->status_is(401)->content_like(qr/Login Required/);

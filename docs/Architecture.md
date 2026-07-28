@@ -685,6 +685,16 @@ resolution engine cleared away — above all a relicense from open-source to non
 can miss. It never accepts, rejects, patterns, or ignores; the note is its only output, and the lawyer still makes the
 call.
 
+Notes are shared across every review of a package *name*, which makes them the natural home for context that outlives
+a single version — but only if the context survives the churn. A note ages out two ways: newer notes push it below the
+fold, and a note written on a review whose license report has since changed is de-emphasized as not relevant to the
+report in front of you. Both are right for routine commentary and wrong for a standing decision. **Pinning** is the
+reviewer's override for exactly that case: it hoists the note above the chronological list and exempts it from the
+relevance filter everywhere the note is rendered, on the reviewer's own assertion that it applies to every future
+version. It is deliberately mutable curation state, unlike the lawyer-only flag, because the notes worth pinning are
+usually the ones that only turned out to matter later. A per-package limit keeps the pinned block small enough that
+reviewers still read it.
+
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 
 Two mechanisms keep known false positives out of reports, at different granularities:

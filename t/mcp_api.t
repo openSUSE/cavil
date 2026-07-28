@@ -1114,6 +1114,46 @@ subtest 'MCP' => sub {
       $db->update('bot_packages', {checksum => $orig2}, {id => 2});
     };
 
+    subtest 'cavil_get_notes pinned notes' => sub {
+      my $db    = $t->app->pg->db;
+      my $notes = $t->app->notes;
+
+      my $orig1 = $t->app->packages->find(1)->{checksum};
+      my $orig2 = $t->app->packages->find(2)->{checksum};
+      $db->update('bot_packages', {checksum => 'PINMARK-A'}, {id => 1});
+      $db->update('bot_packages', {checksum => 'PINMARK-B'}, {id => 2});
+
+      # The pinned note is both older and written on a review with a different
+      # license report, so ordering and the relevance filter would each bury it
+      my $pinned = $notes->add(2, 'perl-Mojolicious', 2, 'pinmark standing caveat', 0, 1, ['pinmark'])->{id};
+      my $newer  = $notes->add(1, 'perl-Mojolicious', 2, 'pinmark routine remark',  0, 1, ['pinmark'])->{id};
+      $notes->set_pinned($pinned, 1);
+
+      subtest 'Pinned notes sort first and carry the marker' => sub {
+        my $r = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['pinmark']});
+        ok !$r->{isError}, 'not an error';
+        my $text = $r->{content}[0]{text};
+        like $text,   qr/## Note #${pinned}\b[^\n]*\[pinned\]/, 'pinned note is marked [pinned]';
+        unlike $text, qr/## Note #${newer}\b[^\n]*\[pinned\]/,  'unpinned note carries no marker';
+        like $text,   qr/standing caveat.+routine remark/s,     'pinned note sorts ahead of the newer note';
+      };
+
+      subtest 'Pinned notes survive relevant_only from another report' => sub {
+        my $r    = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['pinmark'], relevant_only => true});
+        my $text = $r->{content}[0]{text};
+        like $text, qr/pinmark standing caveat/, 'pinned note kept despite a different license report';
+
+        $notes->set_pinned($pinned, 0);
+        $r    = $client->call_tool('cavil_get_notes', {package_id => 1, tags => ['pinmark'], relevant_only => true});
+        $text = $r->{content}[0]{text};
+        unlike $text, qr/pinmark standing caveat/, 'unpinning drops it back out again';
+      };
+
+      $notes->remove($_) for ($newer, $pinned);
+      $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+      $db->update('bot_packages', {checksum => $orig2}, {id => 2});
+    };
+
     subtest 'cavil_reject_review tool' => sub {
       subtest 'Reject review' => sub {
         $t->app->pg->db->update('bot_packages', {state => 'new', reviewing_user => undef, ai_assisted => 0}, {id => 1});
