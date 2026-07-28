@@ -227,7 +227,8 @@
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Open file in a new tab"
-                >{{ file.path }}</a>
+                  >{{ file.path }}</a
+                >
                 <div class="float-end file-actions">
                   <span v-if="isAdminOrContributor" class="dropdown file-action-menu">
                     <a
