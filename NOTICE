@@ -26,16 +26,24 @@ defined by SPDX. Use of this data is subject to the CC-BY-4.0 attribution terms.
 SPDX License List and specification
 -----------------------------------
 Source:  https://spdx.org/licenses/ and https://spdx.dev/
+         https://raw.githubusercontent.com/spdx/license-list-data/main/json/licenses.json
 Bundled: lib/Cavil/resources/license_list.txt
          lib/Cavil/resources/license_exceptions.txt
+         lib/Cavil/resources/license_flags.json
          t/resources/spdx-3.0.1-schema.json
          t/resources/spdx-3.0.1-context.jsonld
+License: Creative Commons Zero v1.0 Universal (CC0-1.0)
+         https://creativecommons.org/publicdomain/zero/1.0/
 Credit:  SPDX(R) is a project of the Linux Foundation. The SPDX License List
          and SPDX specification artifacts are Copyright (c) the SPDX Workgroup,
          a Linux Foundation Project.
 
 Cavil uses the SPDX license and exception identifiers to name licenses, and the
-SPDX 3.0.1 JSON schema and JSON-LD context to generate and validate SBOMs.
+SPDX 3.0.1 JSON schema and JSON-LD context to generate and validate SBOMs. From
+the machine-readable license list it also takes the OSI approval and FSF "libre"
+classification flags, which are shown per license in the report. No attribution
+is required for CC0 data; SPDX is credited here alongside the other sources
+anyway.
 
 
 OSADL Open Source License Compliance Checklists
