@@ -351,7 +351,7 @@ sub _empty_score () {
 }
 
 # Bootstrapping fallback for the classify task: before the shingle tables are populated, score a snippet
-# with the plain Spooky bag. Stamped version 0 so the later fold-in step never trusts it.
+# with the engine's plain bag of patterns. Stamped version 0 so the later fold-in step never trusts it.
 sub bag_score ($self, $bag, $text) {
   my $hits = $bag->best_for($text, 1);
   my $best = @$hits ? $hits->[0] : {match => 0, pattern => undef};
@@ -913,7 +913,7 @@ sub remove ($self, $id) {
   $tx->commit;
 
   # Only expire the caches once the row is actually gone, otherwise a concurrent index job
-  # could rebuild cavil.tokens with the just-deleted pattern still in it (and then keep
+  # could rebuild the matcher cache with the just-deleted pattern still in it (and then keep
   # producing matches for a pattern id that no longer exists).
   $self->expire_cache;
 

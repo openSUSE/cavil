@@ -13,25 +13,25 @@ use Carp 'croak';
 # has to defend against it; the matcher reads files separately, so matching is unaffected.
 use constant MAX_LINE_SIZE => 8000;
 
-# Cavil can run its pattern matching on either the original C++ engine or its drop-in successor. Both
-# expose the same package functions and the same object method names, and (crucially) produce identical
-# token hashes and content checksums, so the engine can be switched with the "matcher" config value
-# without any database migration. Only the seven package-level functions need routing here; method
-# calls on the returned Matcher/Hash/Bag objects work unchanged because each object carries its class.
+# Cavil can run its pattern matching on either of two C++ engines. Both expose the same package
+# functions and the same object method names, and (crucially) produce identical token hashes and
+# content checksums, so the engine can be switched with the "matcher" config value without any
+# database migration. Only the seven package-level functions need routing here; method calls on the
+# returned Matcher/Hash/Bag objects work unchanged because each object carries its class.
 
-my %ENGINES = (spooky => 'Spooky::Patterns::XS', cavil => 'Cavil::Matcher');
+my %ENGINES = (cavil => 'Cavil::Matcher', spooky => 'Spooky::Patterns::XS');
 
-# The original engine is always present (a hard dependency); the successor is loaded on demand.
-require Spooky::Patterns::XS;
-my $NAME   = 'spooky';
-my $ENGINE = $ENGINES{spooky};
+# The default engine is always present (a hard dependency); the alternative is loaded on demand.
+require Cavil::Matcher;
+my $NAME   = 'cavil';
+my $ENGINE = $ENGINES{cavil};
 
 # Select the active engine, loading it if necessary. Called once at application startup from the
 # "matcher" config value. Dies with a clear message if an unknown engine is requested, or if the
-# successor is selected but not installed.
+# alternative is selected but not installed.
 sub use_engine ($name) {
-  $name //= 'spooky';
-  my $pkg = $ENGINES{$name} or croak qq{Unknown pattern engine "$name" (use "spooky" or "cavil")};
+  $name //= 'cavil';
+  my $pkg = $ENGINES{$name} or croak qq{Unknown pattern engine "$name" (use "cavil" or "spooky")};
   unless (eval "require $pkg; 1") {
     croak qq{Pattern engine "$name" ($pkg) is not available: $@};
   }

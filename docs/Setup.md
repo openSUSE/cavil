@@ -28,15 +28,15 @@ Restart both after any configuration change.
 * **PostgreSQL** with the `pgcrypto` and `pg_trgm` extensions available (any supported release). Cavil enables
   `pgcrypto` itself during migration, but the server must provide it — hence `postgresql-contrib` below.
 * **Perl and system dependencies.** On openSUSE, install them as packages; the full list is in the `cpanfile` and can
-  otherwise be installed from CPAN (`cpanm --installdeps .`). `Spooky::Patterns::XS` is an XS module and needs a C
-  toolchain.
+  otherwise be installed from CPAN (`cpanm --installdeps .`). `Cavil::Matcher`, the pattern matching engine, is an XS
+  module and needs a C++ toolchain.
 * **Node.js with npm** to build the web UI assets.
 
 ```sh
 sudo zypper in -C postgresql-server postgresql-contrib
 sudo zypper in -C perl-Mojolicious perl-Mojolicious-Plugin-Webpack \
   perl-Mojo-Pg perl-Minion perl-File-Unpack2 perl-HTML-Parser perl-Cpanel-JSON-XS \
-  perl-Spooky-Patterns-XS perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
+  perl-Cavil-Matcher perl-Mojolicious-Plugin-OAuth2 perl-Mojo-JWT \
   perl-BSD-Resource perl-Term-ProgressBar perl-Text-Glob perl-IPC-Run \
   perl-Try-Tiny perl-MCP perl-CommonMark perl-CryptX git git-lfs
 ```

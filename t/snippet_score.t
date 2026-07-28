@@ -9,8 +9,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Cavil::PatternEngine;
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
-use Spooky::Patterns::XS;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -97,7 +97,7 @@ subtest 'score_snippets: closest pattern within the license carries the right ri
 };
 
 subtest 'bag_score: bootstrapping fallback stamps version 0' => sub {
-  my $bag  = Spooky::Patterns::XS::init_bag_of_patterns;
+  my $bag  = Cavil::PatternEngine::init_bag_of_patterns;
   my %pats = map { $_->{id} => $_->{pattern} } @{$db->select('license_patterns', 'id,pattern')->hashes->to_array};
   $bag->set_patterns(\%pats);
 

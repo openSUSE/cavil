@@ -6,8 +6,8 @@ requires 'Cpanel::JSON::XS', '>= 4.09';
 requires 'File::Unpack2';
 requires 'HTML::Parser';
 requires 'IPC::Run';
-requires 'Spooky::Patterns::XS';
-recommends 'Cavil::Matcher';    # next-gen pattern engine, loaded only when "matcher => 'cavil'" is configured
+requires 'Cavil::Matcher';
+recommends 'Spooky::Patterns::XS';    # alternative pattern engine, loaded only when "matcher => 'spooky'" is configured
 requires 'Mojolicious::Plugin::OAuth2';
 requires 'Mojo::JWT';
 requires 'BSD::Resource';

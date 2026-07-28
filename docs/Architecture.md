@@ -411,10 +411,13 @@ keyword matches that every report is built from. The matching itself is done by 
 library; Cavil provides the glue that loads patterns into it, runs files through it, and stores the results.
 
 The engine is selectable through the `matcher` configuration value. The default is
-[Spooky::Patterns::XS](https://github.com/openSUSE/Spooky-Patterns-XS), described below. The alternative `cavil`
-engine ([Cavil::Matcher](https://github.com/openSUSE/cavil-matcher)) keeps the same token-hash algorithm — and the
-same on-disk hashes, so switching needs no reindex — but replaces the monolithic cache with an incremental,
-memory-mapped index that directly addresses the top two scaling limits below.
+[Cavil::Matcher](https://github.com/openSUSE/cavil-matcher), described below; it keeps its compiled index in a
+memory-mapped file that every worker on a host shares, which is what removes the memory ceiling discussed under
+[Scaling Characteristics](#scaling-characteristics-and-limits). The alternative `spooky` engine
+([Spooky::Patterns::XS](https://github.com/openSUSE/Spooky-Patterns-XS)) is the original implementation and remains
+fully supported. Both use the same tokenizer and the same token-hash algorithm, and therefore produce identical
+matches and identical stored hashes, so an instance can switch between them at any time without a reindex or a
+migration.
 
 ### Patterns and Keywords
 
@@ -492,10 +495,13 @@ false positives stay out of the queue.
 ### Caches
 
 Re-reading and re-tokenising every pattern from the database for each of the thousands of `index_batch` jobs would be far
-too expensive, so two files are kept in Cavil's cache directory:
+too expensive, so two files are kept in Cavil's cache directory. Their names identify the engine that produced them,
+since the two formats are not interchangeable, so switching engines never reads a cache the other one wrote:
 
-* The serialised prefix tree of all global patterns, which is what indexing jobs load instead of rebuilding it. It is
-  written once and then reused; each worker still holds its own copy in memory.
+* The compiled prefix tree of all global patterns, which is what indexing jobs load instead of rebuilding it. It is
+  written once and then reused. The default engine maps the file into memory read-only, so however many indexing
+  workers run on a host, they all share a single physical copy of it; the `spooky` engine instead gives each worker its
+  own copy on the heap.
 * A serialised "bag of patterns" similarity model, used for the closest-match lookups described below.
 
 Both caches are discarded whenever any pattern is created or edited, which also schedules a background job to rebuild the
@@ -726,18 +732,21 @@ Because the prefix tree keeps scanning speed roughly independent of pattern coun
 29,000 patterns (about 5.7 million words, a roughly 128 MB cache). The limits that matter are therefore about memory and a
 few count-sensitive side paths, not the core matching loop. Roughly in the order they will be felt:
 
-1. **Memory per worker — the practical ceiling.** Every indexing worker loads its own full copy of the pattern tree, so
-   the memory it needs grows in step with the total amount of pattern text, multiplied by how many workers run at once. As
-   a rough extrapolation from today's ~128 MB cache (~0.3 GB resident per worker): about 1 GB per worker at 100k
-   patterns, ~3 GB at 250k, and 10–15 GB at 1M. Somewhere near **one million patterns** a fleet of workers stops fitting
-   on ordinary hardware. This is the limit the `cavil` engine is built to remove: its index is memory-mapped read-only,
-   so all workers on a host share one physical copy instead of each loading its own.
+1. **Memory per worker — no longer the practical ceiling.** With the `spooky` engine every indexing worker loads its own
+   full copy of the pattern tree, so the memory needed grows in step with the total amount of pattern text, multiplied by
+   how many workers run at once. As a rough extrapolation from today's ~128 MB cache (~0.3 GB resident per worker): about
+   1 GB per worker at 100k patterns, ~3 GB at 250k, and 10–15 GB at 1M — somewhere near **one million patterns** a fleet
+   of workers stops fitting on ordinary hardware. The default engine removes that multiplication by memory-mapping its
+   index read-only, so all workers on a host share one physical copy and the cost is paid once per machine rather than
+   once per worker.
 
-2. **Rebuilding the caches on every change — felt first.** Because any pattern edit throws away both caches and triggers
-   a full rebuild, the cost of those rebuilds rises with the pattern count, and bulk imports can have several workers
+2. **Rebuilding the caches on every change — felt first.** Any pattern edit throws away both caches and triggers a full
+   rebuild, so the cost of those rebuilds rises with the pattern count, and bulk imports can have several workers
    rebuilding at the same time. This is the first thing likely to become annoying, and it is a software issue rather than
-   a fundamental limit — one the `cavil` engine avoids by compiling each added pattern into its own small segment and
-   removing one with a tombstone, so no edit rebuilds the whole index.
+   a fundamental limit. The default engine is built to fix it: its index format is a set of segments with a manifest, so a
+   new pattern can be compiled into its own small segment and a removed one hidden behind a tombstone, with occasional
+   compaction in the background. Cavil does not use that yet — it still compiles one artifact and rebuilds it whenever a
+   pattern changes — so this limit stands until it does.
 
 3. **Closest-match lookups.** These already scan every pattern per query; fine into the hundreds of thousands, then
    increasingly sluggish in the review UI.
@@ -750,9 +759,9 @@ few count-sensitive side paths, not the core matching loop. Roughly in the order
    file, and skip-heavy patterns make the tree branch more. It is worth watching the *shape* of new patterns, not only
    how many there are.
 
-In short: the design is comfortable to a few hundred thousand patterns with no real change, can probably be pushed toward
-a million before memory forces a redesign, and the first thing likely to actually hurt — well before any hard limit — is
-the rebuild-everything-on-any-change cache behaviour.
+In short: the design is comfortable to a few hundred thousand patterns with no real change, and sharing one memory-mapped
+index between workers has pushed the memory ceiling well out of sight. What is left to hurt first — long before any hard
+limit — is the rebuild-everything-on-any-change cache behaviour, and the engine already has what is needed to fix it.
 
 ## AI Text Classification
 

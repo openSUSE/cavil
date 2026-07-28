@@ -29,16 +29,17 @@ my $config     = $cavil_test->default_config;
 my $t          = Test::Mojo->new(Cavil => $config);
 $cavil_test->mojo_fixtures($t->app);
 
-my $app    = $t->app;
-my $db     = $app->pg->db;
-my $minion = $app->minion;
-my $cache  = $cavil_test->cache_dir;
+my $app     = $t->app;
+my $db      = $app->pg->db;
+my $minion  = $app->minion;
+my $matcher = $app->patterns->matcher_cache_file;
+my $bag     = $app->patterns->bag_cache_file;
 
 # Fully index the package through the normal job chain so we have real matches to work with
 $minion->enqueue(unpack => [1]);
 $minion->perform_jobs;
-ok -f $cache->child('cavil.tokens'),      'token cache built by indexing';
-ok -f $cache->child('cavil.pattern.bag'), 'pattern bag built by stats job';
+ok -f $matcher, 'matcher cache built by indexing';
+ok -f $bag,     'pattern bag built by stats job';
 is $minion->backend->list_jobs(0, 100, {states => ['failed']})->{total}, 0, 'no failed jobs after indexing';
 
 subtest 'Removing a pattern cleans up and reindexes the affected packages' => sub {
@@ -61,8 +62,8 @@ subtest 'Removing a pattern cleans up and reindexes the affected packages' => su
     'matches cascaded away';
 
   # Caches were expired (and only after the row was gone, so a rebuild cannot re-add the pattern)
-  ok !-f $cache->child('cavil.tokens'),      'token cache expired on removal';
-  ok !-f $cache->child('cavil.pattern.bag'), 'pattern bag expired on removal';
+  ok !-f $matcher, 'matcher cache expired on removal';
+  ok !-f $bag,     'pattern bag expired on removal';
 
   # The affected package was queued for reindexing and a stats recalculation was scheduled
   my $later = $minion->backend->list_jobs(0, 10, {tasks => ['index_later'], states => ['inactive']});
@@ -74,25 +75,25 @@ subtest 'Removing a pattern cleans up and reindexes the affected packages' => su
   # The queued reindex (and cache rebuild) completes cleanly
   $minion->perform_jobs;
   is $minion->backend->list_jobs(0, 100, {states => ['failed']})->{total}, 0, 'reindex finished without failures';
-  ok -f $cache->child('cavil.tokens'), 'token cache rebuilt without the removed pattern';
+  ok -f $matcher, 'matcher cache rebuilt without the removed pattern';
 };
 
 subtest 'Indexer skips matches for a pattern removed mid-flight (stale cache)' => sub {
 
   # Pick an unspecific pattern that currently matches the package and is therefore baked into
-  # the on-disk token cache
+  # the on-disk matcher cache
   my $victim = $db->query(
     q{SELECT lp.id FROM license_patterns lp JOIN pattern_matches pm ON pm.pattern = lp.id
        WHERE lp.packname = '' GROUP BY lp.id ORDER BY lp.id LIMIT 1}
   )->hash->{id};
-  ok $victim,                          'found an unspecific pattern with matches';
-  ok -f $cache->child('cavil.tokens'), 'token cache present and still references it';
+  ok $victim,     'found an unspecific pattern with matches';
+  ok -f $matcher, 'matcher cache present and still references it';
 
   # Simulate the race: the pattern is deleted from the database (as the cascade would do during a
-  # concurrent removal) while the token cache - and any in-flight matcher loaded from it - still
+  # concurrent removal) while the matcher cache - and any in-flight matcher loaded from it - still
   # contains it. Crucially we do NOT expire the cache here.
   $db->delete('license_patterns', {id => $victim});
-  ok -f $cache->child('cavil.tokens'), 'token cache deliberately left stale';
+  ok -f $matcher, 'matcher cache deliberately left stale';
 
   # Reindexing must not blow up with a foreign key violation on the now-missing pattern
   $minion->enqueue(index_later => [1]);

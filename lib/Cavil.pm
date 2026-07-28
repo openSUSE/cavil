@@ -48,8 +48,8 @@ sub startup ($self) {
   my $config = $self->plugin(Config => {file => $file});
   $self->secrets($config->{secrets});
 
-  # Select the pattern matching engine ("spooky" or "cavil"); loads the successor engine on demand
-  Cavil::PatternEngine::use_engine($config->{matcher} // 'spooky');
+  # Select the pattern matching engine ("cavil" or "spooky"); loads the alternative engine on demand
+  Cavil::PatternEngine::use_engine($config->{matcher} // 'cavil');
 
   if (my $classifier = $config->{classifier}) {
     $self->classifier->type($classifier->{type})->url($classifier->{url})->token($classifier->{token});
