@@ -197,7 +197,7 @@ snippets. Use `-A`/`-R` to add and remove them; the full capability matrix is in
 Your instance is now ready to review packages. To feed it work, connect the
 [OBS bot](https://github.com/openSUSE/openSUSE-release-tools) or the
 [Gitea bot](https://github.com/openSUSE/cavil-gitea), upload tarballs directly from the UI, or use the REST/MCP APIs
-documented in the [API](API.md) and [User API](UserAPI.md) guides.
+documented in the [Bot API](BotAPI.md) and [User API](UserAPI.md) guides.
 
 For ongoing care — reindexing after pattern updates, cleaning up obsolete reports, and retrying failed jobs, all via
 Minion's built-in scheduler — see the [Maintenance](Maintenance.md) guide. For how Cavil works internally, see the

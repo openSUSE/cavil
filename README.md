@@ -103,9 +103,9 @@ instance, follow the [setup guide](docs/Setup.md) instead.
   matching and SBOM generation.
 * [License Pattern Lifecycle](docs/PatternLifecycle.md) — a plain-language guide, written for lawyers and reviewers,
   to how a piece of text becomes a reusable license pattern.
-* [API](docs/API.md) — the REST and MCP APIs, for users and for bots.
-* [Maintenance](docs/Maintenance.md) — keeping your instance running smoothly.
-* [Contributors](docs/Contributors.md) — how volunteers help curate license patterns.
+
+The [documentation index](docs/README.md) has the full list, including the API reference, maintenance tasks and the
+contributor workflow.
 
 ## Acknowledgements
 

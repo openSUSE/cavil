@@ -234,7 +234,7 @@ These are the standard risk levels used for license patterns included with Cavil
 
 ## Report Creation
 
-Report creation is triggered via REST [API](API.md), usually by bots like
+Report creation is triggered via the REST [Bot API](BotAPI.md), usually by bots like
 [legal-auto](https://github.com/openSUSE/openSUSE-release-tools/blob/master/legal-auto.py) and
 [cavil-gitea](https://github.com/openSUSE/cavil-gitea). This results in various background jobs being created that are
 then performed by the jobs queue. Jobs can often be processed in parallel to make the best use of all available
