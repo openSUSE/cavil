@@ -164,8 +164,7 @@ sub paginate_for_package ($self, $package_name, %opts) {
   # the front without breaking a cursor.
   my $sql = qq{
     SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.pinned, c.tags, c.package AS package_id, c.package_name,
-           c.author AS author_id, u.login AS author_login, u.fullname AS author_fullname,
-           u.roles AS author_roles,
+           c.author AS author_id, u.login AS author_login, u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,
            EXTRACT(EPOCH FROM c.edited)  AS edited_epoch,
            p.state AS package_state, p.obsolete AS package_obsolete,
@@ -276,8 +275,7 @@ sub pinned_count ($self, $package_name) {
 sub _query ($self, $extra_sql, $extra_args, $tail_sql = '', $tail_args = []) {
   my $sql = qq{
     SELECT c.id, c.body, c.lawyer_only, c.ai_assisted, c.pinned, c.tags, c.package AS package_id, c.package_name,
-           c.author AS author_id, u.login AS author_login, u.fullname AS author_fullname,
-           u.roles AS author_roles,
+           c.author AS author_id, u.login AS author_login, u.roles AS author_roles,
            EXTRACT(EPOCH FROM c.created) AS created_epoch,
            EXTRACT(EPOCH FROM c.edited)  AS edited_epoch,
            p.state AS package_state, p.obsolete AS package_obsolete,

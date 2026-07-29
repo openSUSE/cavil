@@ -18,10 +18,9 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 sub login ($self) {
   my $user = $self->users->find_or_create(
-    login    => 'tester',
-    email    => 'tester@example.com',
-    fullname => 'Dummy Test User',
-    roles    => ['manager', 'admin', 'classifier']
+    login => 'tester',
+    email => 'tester@example.com',
+    roles => ['manager', 'admin', 'classifier']
   );
 
   $self->session(user => $user->{login});

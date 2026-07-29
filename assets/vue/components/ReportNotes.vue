@@ -35,11 +35,11 @@
           :data-note-id="c.id"
         >
           <div class="report-note-header">
-            <span class="report-note-avatar" :title="authorTitle(c)">
+            <span class="report-note-avatar" :title="c.author.login">
               {{ initial(c) }}
             </span>
             <div class="report-note-byline">
-              <span class="report-note-author" :title="authorTitle(c)">{{ c.author.login }}</span>
+              <span class="report-note-author">{{ c.author.login }}</span>
               <span
                 v-if="c.author.badge"
                 :class="['report-note-role', `report-note-role-${c.author.badge}`]"
@@ -337,9 +337,6 @@ export default {
     },
     initial(c) {
       return (c.author.login || '?').charAt(0).toUpperCase();
-    },
-    authorTitle(c) {
-      return c.author.fullname ? `${c.author.login} (${c.author.fullname})` : c.author.login;
     },
     reportUrl(id) {
       return `/reviews/details/${id}`;

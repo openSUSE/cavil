@@ -73,14 +73,16 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 % use Cavil::ReportUtil qw(hard_incompatibilities);
 % my $hard = hard_incompatibilities($report->{license_compatibility} // {});
 % if (@$hard) {
-%   my %by; push @{$by{$_->[0]}}, $_->[1] for @$hard;
 
-Note: the OSADL matrix flags these license combinations as incompatible in a single work; that may not
-apply if the components are merely aggregated. The web report has the full directional matrix with
-OSADL's explanations.
-%   for my $lic (sort keys %by) {
-* <%== $lic %>: <%== join(', ', @{$by{$lic}}) %>
+### Incompatible Licenses
+
+%   for my $pair (@$hard) {
+* <%== $pair->[0] %> and <%== $pair->[1] %>
 %   }
+
+OSADL flags these pairs as incompatible in both directions. That only matters if the code is really
+combined into one work; vendored or merely aggregated components usually are not. The web report has
+the full directional matrix and OSADL's explanations.
 
 % }
 % if (@{$report->{missed_files}}) {

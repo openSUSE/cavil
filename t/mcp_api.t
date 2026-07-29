@@ -493,9 +493,10 @@ subtest 'MCP' => sub {
         like $text,   qr/Created:.+/,                                                          'created';
         like $text,   qr/Manual review is required because no previous reports are available/, 'system notice';
         like $text,   qr/Upstream project maintained by SUSE employee/,                        'legal review notice';
-        like $text,   qr/OSADL matrix flags these license combinations/,                       'compatibility note';
+        like $text,   qr/### Incompatible Licenses/,                                           'compatibility section';
+        like $text,   qr/OSADL flags these pairs as incompatible in both directions/,          'compatibility note';
         unlike $text, qr/Elevated risk/,                                  'no elevated-risk framing';
-        like $text,   qr/Apache-2\.0: GPL-2\.0-only/,                     'lists the incompatible pair';
+        like $text,   qr/\* Apache-2\.0 and GPL-2\.0-only/,               'lists the incompatible pair';
         like $text,   qr/\* GPL-2.0-only: 1 file \[flags: Patent, CLA\]/, 'license summary with flags';
         like $text,   qr/^### Risk 5$/m,                                  'bare numeric risk heading';
         unlike $text, qr/### Risk \d+ \((?:Low|Medium|High)\)/,           'no low/medium/high labels';

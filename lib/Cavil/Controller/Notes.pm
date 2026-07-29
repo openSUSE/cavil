@@ -255,12 +255,7 @@ sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
     can_pin       => $can_curate ? \1 : \0,
     created_epoch => $row->{created_epoch} + 0,
     edited_epoch  => $row->{edited_epoch} ? $row->{edited_epoch} + 0 : undef,
-    author        => {
-      id       => $row->{author_id},
-      login    => $row->{author_login},
-      fullname => $row->{author_fullname},
-      badge    => _author_badge($row->{author_roles})
-    },
+    author => {id => $row->{author_id}, login => $row->{author_login}, badge => _author_badge($row->{author_roles})},
     original_package => {
       id            => $row->{package_id},
       state         => $row->{package_state},

@@ -103,10 +103,11 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
   subtest 'Text report' => sub {
     $t->get_ok('/reviews/report/1.txt')->status_is(200);
     ok my $text = $t->tx->res->text, 'text response';
-    like $text, qr/OSADL matrix flags these license combinations/,
+    like $text, qr/### Incompatible Licenses/, 'text report has a dedicated section for the incompatible pairs';
+    like $text, qr/OSADL flags these pairs as incompatible in both directions/,
       'text report gives a neutral, informational compatibility note';
-    unlike $text, qr/Elevated risk/,              'text report no longer frames incompatibilities as elevated risk';
-    like $text,   qr/Apache-2\.0: GPL-2\.0-only/, 'text report lists the incompatible pair';
+    unlike $text, qr/Elevated risk/, 'text report no longer frames incompatibilities as elevated risk';
+    like $text,   qr/\* Apache-2\.0 and GPL-2\.0-only/, 'text report lists the incompatible pair symmetrically';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

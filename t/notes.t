@@ -42,18 +42,11 @@ isnt $pkg1->{checkout_dir}, $pkg2->{checkout_dir}, 'different checkouts';
 # Set up two more users beyond the default test_bot: contrib (contributor),
 # lawyer (lawyer), admin (admin). The Test::Mojo session is shared, so we log
 # in/out via /login (which creates the dummy "tester" admin user on demand).
-my $contrib_id = $app->users->find_or_create(
-  login    => 'contrib_user',
-  email    => 'contrib@example.com',
-  fullname => 'Contributing User',
-  roles    => ['contributor']
-)->{id};
-my $lawyer_id = $app->users->find_or_create(
-  login    => 'lawyer_user',
-  email    => 'lawyer@example.com',
-  fullname => 'Lawyerly User',
-  roles    => ['lawyer']
-)->{id};
+my $contrib_id
+  = $app->users->find_or_create(login => 'contrib_user', email => 'contrib@example.com', roles => ['contributor'])
+  ->{id};
+my $lawyer_id
+  = $app->users->find_or_create(login => 'lawyer_user', email => 'lawyer@example.com', roles => ['lawyer'])->{id};
 
 # Helper: log in as the dummy admin "tester"; helper for guests is to just
 # clear the session via /logout.
