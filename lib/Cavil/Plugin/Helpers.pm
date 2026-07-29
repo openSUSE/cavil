@@ -10,7 +10,7 @@ use Cavil::Role       qw(roles_with_capability);
 use Cavil::Util       qw(external_link_data spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
-use Mojo::JSON        qw(from_json);
+use Mojo::JSON        qw(false from_json true);
 use Mojo::Util        qw(decode humanize_bytes xml_escape);
 use List::Util        qw(first uniq);
 
@@ -27,6 +27,7 @@ sub register ($self, $app, $config) {
   $app->helper('mcp_report'                    => \&_mcp_report);
   $app->helper('package_summary'               => \&_package_summary);
   $app->helper('proposal_stats'                => sub { shift->patterns->proposal_stats });
+  $app->helper('reindex_state'                 => \&_reindex_state);
   $app->helper('report_details'                => \&_report_details);
   $app->helper('reply.json_validation_error'   => \&_json_validation_error);
   $app->helper('format_file'                   => \&_format_file);
@@ -69,6 +70,45 @@ sub _chart_data ($c, $hash) {
     push(@colours,       'grey');
   }
   return {licenses => \@licenses, licenses_html => \@licenses_html, 'num-files' => \@num_files, colours => \@colours};
+}
+
+# The stages a rebuild passes through, in the order the compact progress bar shows them. A reindex that
+# needs no fresh sources skips straight past "Unpacking", which simply advances the bar by two.
+my %REBUILD_STAGES = (unpacking => 2, indexing => 3, analyzing => 4);
+
+# The queued jobs that lead to a new report. Deliberately not every job tagged for the package: generating
+# an SPDX report leaves the report itself alone, and locking the page for it would be a lie. "analyzed"
+# is left out for the same reason and because it runs *after* the promote - counting it would make the
+# progress bar drop back to "Queued" for one tick just as the new report goes live. Should it decide a
+# follow-up build is needed, that shows up as "reindex_requested" below before it clears it.
+my @REBUILD_TASKS = qw(obs_import git_import unpack index index_batch indexed analyze);
+
+# Everything the report page needs to know about a rebuild, cheap enough to poll on a timer. "reindexing"
+# spans the whole window, from a report-modifying job being queued to the new report being promoted, and is
+# what puts the page into read-only mode: the report on screen no longer matches the patterns that now
+# exist, so the file previews no longer mark what the reviewer has already covered and creating more
+# patterns against them would be guesswork. "rebuild_stage" follows the build itself, and "checksum"
+# changes exactly when a new report is promoted.
+sub _reindex_state ($c, $pkg) {
+  my $id    = $pkg->{id};
+  my $stage = $REBUILD_STAGES{$pkg->{index_stage} // ''};
+
+  # The queue is the common signal, but a package can also be mid-build with its job already gone (a worker
+  # that died), which is what the stage still shows, or carry a coalesced request that has not been turned
+  # into a job yet. Any of them means the report is not settled, so none of them may look idle. Owning the
+  # package deliberately does not count: an spdx report claims it too and leaves the report alone.
+  my $reindexing
+    = $stage
+    || defined $pkg->{reindex_requested}
+    || $c->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"], tasks => \@REBUILD_TASKS})->total
+    ? 1
+    : 0;
+
+  return {
+    checksum      => $pkg->{checksum},
+    reindexing    => $reindexing ? true          : false,
+    rebuild_stage => $reindexing ? ($stage // 1) : undef
+  };
 }
 
 sub _report_details ($c, $pkg, $report) {
@@ -355,7 +395,8 @@ sub _unmatched_rollup ($c, $id, $top = 10) {
   # (classified AND NOT license) so the total matches what the tool lists and what the report shows.
   my $total = $c->pg->db->query(
     'SELECT count(DISTINCT fs.snippet) FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
-      WHERE fs.package = ? AND fs.resolution IS NULL AND (s.license OR NOT s.classified)', $id
+      WHERE fs.package = ? AND fs.generation = 0 AND fs.resolution IS NULL
+        AND (s.license OR NOT s.classified)', $id
   )->array->[0];
   return {rows => $result->{snippets}, total => $total};
 }

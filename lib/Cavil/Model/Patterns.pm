@@ -364,14 +364,15 @@ sub bag_score ($self, $bag, $text) {
 # by score_version also self-heals rows stuck at version 0 (e.g. classified before the tables were
 # populated). A no-op when nothing is stale (the common reindex case) or when the tables are empty
 # (bootstrapping; left to classify / "snippets --rescore").
-sub score_package_snippets ($self, $package_id) {
+sub score_package_snippets ($self, $package_id, $generation = 0) {
   my $db = $self->pg->db;
 
   # Order by id so every concurrent analyze job locks shared snippet rows in the same order, keeping the
   # write transaction below from deadlocking against another job scoring an overlapping snippet set.
   my $rows = $db->query(
     'SELECT DISTINCT s.id, s.text FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id
-      WHERE fs.package = ? AND s.score_version IS DISTINCT FROM ? ORDER BY s.id', $package_id, SNIPPET_SCORE_VERSION
+      WHERE fs.package = ? AND fs.generation = ? AND s.score_version IS DISTINCT FROM ? ORDER BY s.id', $package_id,
+    $generation, SNIPPET_SCORE_VERSION
   )->hashes->to_array;
   return unless @$rows;
 
@@ -490,7 +491,7 @@ sub load_unspecific ($self, $matcher) {
 sub match_count ($self, $id) {
   return $self->pg->db->query(
     'SELECT COUNT(*) AS matches, COUNT(DISTINCT(package)) AS packages
-       FROM pattern_matches WHERE pattern = ?', $id
+       FROM pattern_matches WHERE pattern = ? AND generation = 0', $id
   )->hash;
 }
 
@@ -503,11 +504,12 @@ sub capped_match_count ($self, $id) {
      FROM (SELECT 1) base
        LEFT JOIN LATERAL (
          SELECT LEAST(COUNT(*)::int, ?) AS matches, COUNT(*) > ? AS matches_capped
-         FROM (SELECT 1 FROM pattern_matches pm WHERE pm.pattern = ? LIMIT ?) limited_matches
+         FROM (SELECT 1 FROM pattern_matches pm WHERE pm.pattern = ? AND pm.generation = 0 LIMIT ?) limited_matches
        ) match_counts ON true
        LEFT JOIN LATERAL (
          SELECT LEAST(COUNT(*)::int, ?) AS packages, COUNT(*) > ? AS packages_capped
-         FROM (SELECT DISTINCT pm.package FROM pattern_matches pm WHERE pm.pattern = ? LIMIT ?) limited_packages
+         FROM (SELECT DISTINCT pm.package FROM pattern_matches pm WHERE pm.pattern = ? AND pm.generation = 0 LIMIT ?)
+           limited_packages
        ) package_counts ON true', $match_limit, $match_limit, $id, $match_limit + 1, $package_limit, $package_limit,
     $id, $package_limit + 1
   )->hash;
@@ -600,7 +602,7 @@ sub paginate_ignored_matches ($self, $options) {
     $result->{snippet} = $db->query('SELECT id FROM snippets WHERE hash = ?', $result->{hash})->hash;
     my $matches = $db->query(
       'SELECT COUNT(*) AS matches, COUNT(DISTINCT(package)) AS packages
-       FROM pattern_matches WHERE ignored_line = ?', $result->{id}
+       FROM pattern_matches WHERE ignored_line = ? AND generation = 0', $result->{id}
     )->hash;
     $result->{matches}  = $matches->{matches};
     $result->{packages} = $matches->{packages};
@@ -905,7 +907,8 @@ sub remove ($self, $id) {
   # CASCADE" on pattern_matches removes the matches along with the pattern, so we have to
   # remember which packages need reindexing before that information is gone, and the
   # transaction keeps the captured list consistent with the cascade even while other packages
-  # are being indexed concurrently.
+  # are being indexed concurrently. Every generation counts here, not just the live report: a package
+  # whose in-flight build matched the pattern needs the reindex just as much.
   my $tx       = $db->begin;
   my $packages = [map { $_->{package} }
       $db->query('SELECT DISTINCT package FROM pattern_matches WHERE pattern = ?', $id)->hashes->each];

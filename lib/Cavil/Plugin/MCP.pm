@@ -402,9 +402,8 @@ sub tool_cavil_get_report ($tool, $args) {
   return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($id);
   return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
 
-  return $tool->text_result('Package is being processed, please try again later', 1)
-    if $c->app->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
-
+  # A rebuild of the package is no reason to withhold the report: it is built beside the live one and only
+  # replaces it at the very end, so what is served here is always a complete report
   return $tool->text_result('Package is not yet indexed, please try again later', 1) unless $pkg->{indexed};
 
   my ($url_limit, $ue) = _bounded_int_arg($args->{url_limit}, 10, 0, undef, 'url_limit');

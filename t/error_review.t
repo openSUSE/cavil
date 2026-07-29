@@ -176,9 +176,13 @@ subtest 'Reindex (with updated stats)' => sub {
 
   $t->app->minion->enqueue('pattern_stats');
   $t->app->minion->perform_jobs;
+
+  # The rebuild is assembled beside the live report and only replaces it at the very end, so a consumer
+  # asking for the report while it runs gets the previous one in full instead of being turned away
   $t->app->packages->reindex(1);
-  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/package being processed/);
+  $t->get_ok('/reviews/report/1.json')->status_is(200)->json_has('/report/licenses');
   $t->app->minion->perform_jobs;
+  $t->get_ok('/reviews/report/1.json')->status_is(200)->json_has('/report/licenses');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

@@ -449,15 +449,14 @@ subtest 'Unpack background job' => sub {
 
   # Prevent import race condition
   ok $minion->job($job_id)->retry, 'unpack job retried';
-  my $guard = $minion->guard('processing_pkg_1', 172800);
-  ok !$minion->lock('processing_pkg_1', 0), 'lock exists';
+  ok my $guard = $t->app->packages->claim_guard(1, 999999), 'package claimed by another job';
   my $worker = $minion->worker->register;
   ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
   is $job->execute, undef, 'no error';
   like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
   $worker->unregister;
   undef $guard;
-  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+  is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
 };
 
 subtest 'Unpack background job (with exclude file)' => sub {

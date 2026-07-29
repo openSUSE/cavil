@@ -971,8 +971,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.locator('#cavil-menubar .cavil-user-name', {hasText: 'contrib_tester'}).waitFor();
 
       // Pattern create/delete in earlier subtests enqueues reindex jobs
-      // noted as pkg_2 - drain them so /reviews/report_details/2 does not
-      // 408 with "package being processed".
+      // noted as pkg_2 - drain them so the report is not in its read-only
+      // rebuild state, which takes the very actions away that are checked
+      // below.
       const drainPage = await context.newPage();
       await drainPage.goto(performJobs, {timeout: 120000});
       await drainPage.close();

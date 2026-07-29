@@ -6,7 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(paginate);
 use Mojo::File  qw(path);
-use Mojo::Util  qw(dumper);
+use Mojo::Util  qw(dumper scope_guard);
 use Text::Glob  qw(glob_to_regex);
 
 has [qw(checkout_dir classifier log minion pg)];
@@ -52,8 +52,70 @@ sub actions ($self, $link, $id) {
 
 sub all ($self) { $self->pg->db->select('bot_packages')->hashes }
 
-sub analyze ($self, $id, $priority = 9, $parents = []) {
-  return $self->_enqueue('analyze', $id, $priority, $parents);
+sub analyze ($self, $id, $priority = 9, $parents = [], $generation = 0) {
+
+  # Without a generation this is a plain re-analyze of the live report, which deduplicates like any other
+  # per-package job
+  return $self->_enqueue('analyze', $id, $priority, $parents) unless $generation;
+
+  # An analyze that promotes a build must never be deduplicated away against a plain re-analyze that
+  # happens to be queued: the build's rows only become the live report when this exact job runs, so
+  # dropping it would strand the generation and leave the package claimed by a build that never promotes
+  my $pkg = $self->find($id);
+  return $self->minion->enqueue(
+    analyze => [$id, $generation] => {
+      parents  => $parents,
+      priority => $priority,
+      notes    => {external_link => $pkg->{external_link}, package => $pkg->{name}, "pkg_$id" => 1}
+    }
+  );
+}
+
+# One owner at a time. Every job that rewrites a package's checkout or its report claims the package row
+# before it starts and hands it back when it is done, so an unpack cannot pull the sources out from under
+# an indexing run and two rebuilds cannot fight over one report. The owner is the id of the Minion job
+# holding it, which buys three things a lock did not: there is no expiry to outlive a slow build (a
+# reindex of a large package can run for hours), the build hands the package back in the very transaction
+# that promotes its report, and a claim stranded by a worker that died is recovered the way admins already
+# recover everything else - retrying the failed job in the Minion admin UI re-claims the package, because
+# the claim it finds is its own.
+sub claim ($self, $id, $job_id) {
+  return !!$self->pg->db->query(
+    'UPDATE bot_packages SET processing_job = ?
+      WHERE id = ? AND (processing_job IS NULL OR processing_job = ?) RETURNING id', $job_id, $id, $job_id
+  )->rows;
+}
+
+# Claim the package for as long as the caller's scope lives, for jobs that do all their work themselves. A
+# report build spans four jobs and so claims and releases by hand instead.
+sub claim_guard ($self, $id, $job_id) {
+  return undef unless $self->claim($id, $job_id);
+  return scope_guard sub { $self->release($id, $job_id) };
+}
+
+# Hand the package back, but only while we are still the owner: a job whose claim was taken over by the
+# cleanup sweep must not clear the claim of whoever has it now on its way out.
+sub release ($self, $id, $job_id) {
+  $self->pg->db->query('UPDATE bot_packages SET processing_job = NULL WHERE id = ? AND processing_job = ?',
+    $id, $job_id);
+}
+
+# Hand the package back at the end of a chain of jobs, and start the rebuild it owes. Reindexes requested
+# while the package was busy are only written down (see request_reindex), so somebody has to act on them
+# once it is free, and that is whoever lets go of it last - otherwise the request sits there until the
+# nightly sweep, with the report page read-only the whole time. Only the successful path calls this; a job
+# that dies just releases, and its retry hands back instead. The order is not delicate: an index job that
+# is already queued for the package is deduplicated away, and a request arriving right after this ran
+# finds the package free and enqueues its own build.
+sub hand_back ($self, $id, $job_id) {
+  $self->release($id, $job_id);
+  return unless $self->reindex_requested($id);
+
+  # Only clear the request once the build that answers it exists. A package that has become ineligible in
+  # the meantime (obsoleted, never indexed) keeps it, and the sweep clears it along with the package.
+  return unless ($self->reindex($id, 6) // '') eq 'now';
+  $self->log->info("[$id] Reindex was requested while the package was busy, queueing it now");
+  $self->clear_reindex_request($id);
 }
 
 # Enqueue the classify job when this package has snippets awaiting the classifier, coalesced to a single
@@ -63,10 +125,11 @@ sub analyze ($self, $id, $priority = 9, $parents = []) {
 sub classify ($self, $id) {
   return unless $self->classifier->url;
 
+  # Generation 0 only: this runs after the promote, so the build's rows are the live ones by now
   my $db = $self->pg->db;
   return unless $db->query(
     'SELECT 1 FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
-      WHERE fs.package = ? AND s.classified = FALSE AND s.approved = FALSE LIMIT 1', $id
+      WHERE fs.package = ? AND fs.generation = 0 AND s.classified = FALSE AND s.approved = FALSE LIMIT 1', $id
   )->rows;
 
   my $minion = $self->minion;
@@ -74,29 +137,39 @@ sub classify ($self, $id) {
   $minion->enqueue(classify => [] => {priority => 5});
 }
 
-sub cleanup ($self, $id) {
-  my $db     = $self->pg->db;
-  my $minion = $self->minion;
-  my $log    = $self->log;
+sub cleanup ($self, $id, $job_id) {
+  my $db  = $self->pg->db;
+  my $log = $self->log;
 
-  my $tx  = $db->begin;
-  my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id}, {for => 'update'})->hash;
-  return if !$pkg || !$pkg->{obsolete} || !(my $guard = $minion->guard("processing_pkg_$id", 172800));
+  # The claim is what keeps anybody else out while the checkout is torn down, and it is taken before the
+  # transaction below rather than inside it. Claiming is a row update of its own, so holding it and a
+  # locked package row on two connections at once would be a deadlock waiting to happen.
+  return unless my $guard = $self->claim_guard($id, $job_id);
+
+  my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id})->hash;
+  return if !$pkg || !$pkg->{obsolete};
 
   my $dir = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
   if (-d $dir) {
     $log->info("[$id] Removing checkout $pkg->{name}/$pkg->{checkout_dir}");
     $dir->remove_tree;
   }
-  $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
 
-  $db->query('delete from bot_reports where package = ?',        $id);
-  $db->query('delete from emails where package = ?',             $id);
-  $db->query('delete from urls where package = ?',               $id);
-  $db->query('delete from package_components where package = ?', $id);
-  $db->query('delete from pattern_matches where package = ?',    $id);
-  $db->query('delete from matched_files where package = ?',      $id);
-  $tx->commit;
+  # Scoped so the transaction is finished before the guard hands the package back, whichever way this ends
+  {
+    my $tx = $db->begin;
+    $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
+
+    # No generation predicate on purpose: the package is obsolete and going away, so everything it owns
+    # goes, including the rows of a reindex that was still building when it was superseded
+    $db->query('delete from bot_reports where package = ?',        $id);
+    $db->query('delete from emails where package = ?',             $id);
+    $db->query('delete from urls where package = ?',               $id);
+    $db->query('delete from package_components where package = ?', $id);
+    $db->query('delete from pattern_matches where package = ?',    $id);
+    $db->query('delete from matched_files where package = ?',      $id);
+    $tx->commit;
+  }
 }
 
 sub pkg_checkout_dir ($self, $id) {
@@ -112,7 +185,7 @@ sub glob_matches_report_files ($self, $id, $glob) {
   local $Text::Glob::strict_wildcard_slash = 0;
   my $regex = glob_to_regex($glob);
 
-  my $files = $self->pg->db->select('matched_files', ['filename'], {package => $id});
+  my $files = $self->pg->db->select('matched_files', ['filename'], {package => $id, generation => 0});
   while (my $file = $files->hash) {
     next unless $file->{filename} =~ $regex;
     $files->finish;
@@ -146,7 +219,7 @@ sub find_by_name_and_md5 ($self, $pkg, $md5) {
   return $self->pg->db->select('bot_packages', '*', {name => $pkg, checkout_dir => $md5})->hash;
 }
 
-sub flags ($self, $id) {
+sub flags ($self, $id, $generation = 0) {
 
   # Only include flags that have a field in the bot_packages table
   my @flags = qw(patent trademark export_restricted cla eula);
@@ -156,10 +229,10 @@ sub flags ($self, $id) {
     qq{
       SELECT patent, trademark, export_restricted, cla, eula
       FROM pattern_matches pm JOIN license_patterns lp ON pm.pattern = lp.id
-      WHERE pm.package = ? AND pm.ignored = false
+      WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false
         AND (lp.patent = true OR lp.trademark = true OR lp.export_restricted = true
              OR lp.cla = true OR lp.eula = true)
-    }, $id
+    }, $id, $generation
   )->hashes->to_array;
   for my $result (@$results) {
     for my $flag (@flags) {
@@ -213,7 +286,9 @@ sub ignore_line ($self, $options) {
     ? $inserted->{id}
     : $db->select('ignored_lines', 'id', {hash => $options->{hash}, packname => $options->{package}})->hash->{id};
 
-  # A new ignored_lines row does not change file contents or pattern definitions, so a full reindex is unnecessary
+  # A new ignored_lines row does not change file contents or pattern definitions, so a full reindex is
+  # unnecessary. No generation predicate: pm.file = fs.file pins both sides to the same generation anyway,
+  # and a reindex building right now should carry the ignore into the report it is about to promote.
   $db->query(
     'update pattern_matches pm
        set ignored = true, ignored_line = ?
@@ -254,6 +329,20 @@ sub index ($self, @args) { $self->_enqueue('index', @args) }
 
 sub indexed ($self, $id) {
   $self->pg->db->update('bot_packages', {indexed => \'now()'}, {id => $id});
+}
+
+# How far along the rebuild of this package is, for the progress bar on the report page. Kept on the
+# package row so the page can poll it without asking Minion on every request from every open tab.
+sub index_stage ($self, $id, $stage) {
+  $self->pg->db->update('bot_packages', {index_stage => $stage}, {id => $id});
+}
+
+# Is this package still building the given generation? A build's claim on the package *is* its generation
+# (both are the id of its index job), so this asks whether the build still owns what it is about to
+# promote. A build the cleanup sweep has discarded, or one that was promoted already, must not be swapped
+# in (again).
+sub is_building ($self, $id, $generation) {
+  return !!$self->pg->db->select('bot_packages', 'id', {id => $id, processing_job => $generation})->hash;
 }
 
 sub is_imported ($self, @args) { $self->_check_field('imported', @args) }
@@ -429,15 +518,16 @@ sub paginate_recent_reviews ($self, $options) {
 sub paginate_review_search ($self, $name, $options) {
   my $db = $self->pg->db;
 
+  # Generation 0 only: a reindex building alongside the live report is not yet what anybody is searching
   my $packages;
   if ($options->{pattern}) {
-    $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE pattern = ?', $options->{pattern})
-      ->arrays->flatten;
+    $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE pattern = ? AND generation = 0',
+      $options->{pattern})->arrays->flatten;
   }
 
   if ($options->{ignore}) {
-    $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE ignored_line = ?', $options->{ignore})
-      ->arrays->flatten;
+    $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE ignored_line = ? AND generation = 0',
+      $options->{ignore})->arrays->flatten;
   }
 
   # Find every package that ships a given vendored component (by name or purl, case-insensitive
@@ -446,8 +536,9 @@ sub paginate_review_search ($self, $name, $options) {
   if (length($options->{component} // '') > 0) {
     my $like = $db->dbh->quote('%' . $options->{component} . '%');
     $packages
-      = $db->query("SELECT DISTINCT(package) FROM package_components WHERE purl ILIKE $like OR name ILIKE $like")
-      ->arrays->flatten;
+      = $db->query(
+      "SELECT DISTINCT(package) FROM package_components WHERE generation = 0 AND (purl ILIKE $like OR name ILIKE $like)"
+      )->arrays->flatten;
   }
 
   my $search = '';
@@ -496,7 +587,7 @@ sub matching_components ($self, $ids, $query) {
   my $like = '%' . $query . '%';
   my $rows = $self->pg->db->query(
     'SELECT package, type, name, version, purl, license FROM package_components
-       WHERE package = ANY (?) AND (purl ILIKE ? OR name ILIKE ?)
+       WHERE package = ANY (?) AND generation = 0 AND (purl ILIKE ? OR name ILIKE ?)
      ORDER BY name, version', $ids, $like, $like
   )->hashes;
 
@@ -533,7 +624,7 @@ sub export_components ($self, $cb) {
         JOIN bot_packages p                ON p.id = pc.package
         LEFT JOIN bot_package_products pp   ON pp.package = p.id
         LEFT JOIN bot_products prod         ON prod.id = pp.product
-       WHERE p.embargoed = FALSE AND p.obsolete = FALSE
+       WHERE pc.generation = 0 AND p.embargoed = FALSE AND p.obsolete = FALSE
        ORDER BY p.id, pc.name, pc.version
   }
   );
@@ -554,6 +645,55 @@ sub mark_matched_for_reindex ($self, $pid, $priority = 0) {
 sub need_cleanup ($self) {
   return $self->pg->db->query('SELECT id FROM bot_packages WHERE obsolete IS TRUE AND cleaned IS NULL ORDER BY ID')
     ->arrays->flatten->to_array;
+}
+
+# Every package that is not in a clean, settled state as far as reindexing goes: one with rows from a
+# report build that is not the live report, one still claimed by a job or stuck at a rebuild stage (a
+# failed unpack leaves that behind), or one with a reindex request waiting to be picked up. Driven by
+# partial indexes on the (huge) row tables, so the common answer - nothing at all - costs almost nothing.
+sub unsettled_builds ($self) {
+  return $self->pg->db->query(
+    'SELECT DISTINCT package FROM matched_files      WHERE generation <> 0
+      UNION SELECT DISTINCT package FROM urls               WHERE generation <> 0
+      UNION SELECT DISTINCT package FROM emails             WHERE generation <> 0
+      UNION SELECT DISTINCT package FROM package_components WHERE generation <> 0
+      UNION SELECT id FROM bot_packages
+              WHERE processing_job IS NOT NULL OR index_stage IS NOT NULL OR reindex_requested IS NOT NULL'
+  )->arrays->flatten->to_array;
+}
+
+# Throw away every row that does not belong to the live report of this package and reset its build state,
+# but only while the package is still owned by exactly who the caller saw owning it (including nobody).
+# Called by the cleanup sweep once Minion has confirmed no job for the package is queued or running; the
+# compare-and-swap closes the gap between that question and this answer, so a build that starts in between
+# keeps both its claim and its rows. Returns the number of rows discarded, or undef when the package has
+# moved on since - which also means two sweeps cannot both take the same package.
+sub discard_builds ($self, $id, $owner) {
+  my $db = $self->pg->db;
+
+  my $tx = $db->begin;
+  return undef unless $db->query(
+    'UPDATE bot_packages SET processing_job = NULL, index_stage = NULL
+      WHERE id = ? AND processing_job IS NOT DISTINCT FROM ? RETURNING id', $id, $owner
+  )->rows;
+
+  # matched_files last: pattern_matches and file_snippets cascade from it
+  my $deleted = 0;
+  $deleted += $db->query("DELETE FROM $_ WHERE package = ? AND generation <> 0", $id)->rows
+    for qw(package_components urls emails matched_files);
+  $tx->commit;
+
+  return $deleted;
+}
+
+# Take the package away from whoever owns it, for an admin re-unpacking a package that is stuck. The rows
+# of a build that was still in flight are left behind on purpose: they are invisible to readers, and the
+# cleanup sweep collects them once Minion agrees nothing is working on the package any more.
+sub force_release ($self, $id) {
+  return !!$self->pg->db->query(
+    'UPDATE bot_packages SET processing_job = NULL, index_stage = NULL
+      WHERE id = ? AND (processing_job IS NOT NULL OR index_stage IS NOT NULL) RETURNING id', $id
+  )->rows;
 }
 
 sub name_autocomplete ($self, $partial, $limit = 10) {
@@ -662,27 +802,59 @@ sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned
   );
 }
 
+# Request a reindex. Returns 'now' when the job was enqueued, 'later' when the package was busy and the
+# request was recorded to be picked up once it is free, and undef when the package is not eligible at all
+# (gone, obsolete, or never indexed). A request is never silently dropped: reviewers create patterns in
+# batches, and every one of those has to reach the packages it affects even when they are mid-rebuild.
 sub reindex ($self, $id, @args) {
   my $minion = $self->minion;
-
-  # Protect from race conditions (even before creating a background job)
-  return undef unless $minion->lock("processing_pkg_$id", 0);
-
-  # Skip if an import or unpack is already queued or running - that chain will
-  # index the package itself, and an orphan reindex would race the unpack and
-  # fail "is not unpacked yet" once the unpack clears the field
-  return undef
-    if $minion->jobs(
-    {tasks => ['obs_import', 'git_import', 'unpack'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+  my $db     = $self->pg->db;
 
   # Make sure package exists and is eligible for reindexing
-  return undef
-    unless $self->pg->db->select('bot_packages', 'id',
-    {id => $id, indexed => {'!=' => undef}, '-not_bool' => 'obsolete'})->hash;
+  my $pkg = $db->select(
+    'bot_packages',
+    ['id', 'processing_job'],
+    {id => $id, indexed => {'!=' => undef}, '-not_bool' => 'obsolete'}
+  )->hash;
+  return undef unless $pkg;
+
+  # Busy: either somebody already owns the package, or an import/unpack is queued or running - that chain
+  # will index the package itself, and an orphan reindex would race the unpack and fail "is not unpacked
+  # yet" once the unpack clears the field. Either way the request is remembered rather than dropped, and
+  # the job that is currently running picks it up when it finishes (see request_reindex).
+  my $busy
+    = defined $pkg->{processing_job}
+    || $minion->jobs(
+    {tasks => ['obs_import', 'git_import', 'unpack'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+  if ($busy) {
+    $self->request_reindex($id);
+    return 'later';
+  }
 
   $self->index($id, @args);
 
-  return 1;
+  return 'now';
+}
+
+# Remember that this package still owes somebody a rebuild, for whoever frees it up to act on. Concurrent
+# requests coalesce into this one timestamp, so a batch of new patterns costs one rebuild, and the record
+# outlives the process that made it: whoever hands the package back picks it up (see hand_back), and
+# failing that (a package that is no longer eligible for a rebuild at all) the cleanup sweep does.
+sub request_reindex ($self, $id) {
+  $self->pg->db->update('bot_packages', {reindex_requested => \'now()'}, {id => $id});
+}
+
+# Is a reindex waiting for this package to become free? Read by the report page, so a reviewer whose
+# pattern landed while the package was rebuilding sees that another rebuild is still coming.
+sub reindex_requested ($self, $id) {
+  my $pkg = $self->pg->db->select('bot_packages', 'reindex_requested', {id => $id})->hash;
+  return $pkg && defined $pkg->{reindex_requested} ? 1 : 0;
+}
+
+# Clear a pending reindex request. Always called *after* the follow-up has been enqueued, so a crash in
+# between leaves the request standing and it is simply picked up again, rather than being lost.
+sub clear_reindex_request ($self, $id) {
+  $self->pg->db->query('UPDATE bot_packages SET reindex_requested = NULL WHERE id = ?', $id);
 }
 
 sub reindex_all ($self) {
@@ -692,6 +864,9 @@ sub reindex_all ($self) {
 }
 
 sub reindex_matched_packages ($self, $pid, $priority = 0) {
+
+  # Every generation, not just the live one: a package whose in-flight build matched the pattern needs the
+  # reindex too, and enqueuing one for a package that turns out not to need it only costs a little work
   my $package = $self->pg->db->query('select distinct package from pattern_matches where pattern = ?', $pid);
   my $minion  = $self->minion;
   for my $row ($package->hashes->each) {
@@ -753,7 +928,7 @@ sub stats {
        monthly_reviews.performed AS monthly_performed_reviews,
        monthly_reviews.manual AS monthly_manual_reviews,
        monthly_reviews.automated AS monthly_automated_reviews,
-       (SELECT COUNT(*) FROM package_components) AS package_components,
+       (SELECT COUNT(*) FROM package_components WHERE generation = 0) AS package_components,
        (SELECT COUNT(*) FROM snippets) AS total_snippets,
        (SELECT COUNT(*) FROM license_patterns) AS total_license_patterns
      FROM (
@@ -828,7 +1003,8 @@ sub update_file_stats ($self, $id, $stats) {
 }
 
 sub matched_files ($self, $id) {
-  return $self->pg->db->query('SELECT filename FROM matched_files WHERE package = ?', $id)->arrays->flatten->to_array;
+  return $self->pg->db->query('SELECT filename FROM matched_files WHERE package = ? AND generation = 0', $id)
+    ->arrays->flatten->to_array;
 }
 
 sub _check_field ($self, $field, $id) {

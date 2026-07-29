@@ -24,15 +24,19 @@ sub cached_dig_report {
   return $hash->{ldig_report};
 }
 
+# The generation selects which report to build from: 0 is the live one every reader wants, a non-zero
+# value is a reindex building alongside it (only Cavil::Task::Analyze passes one, to build the report it
+# is about to promote)
 sub dig_report {
-  my ($self, $id, $limit_to_file) = @_;
+  my ($self, $id, $limit_to_file, $generation) = @_;
+  $generation //= 0;
 
   my $db            = $self->pg->db;
   my $pkg           = $db->select('bot_packages',  '*',            {id       => $id})->hash;
   my $ignored       = $db->select('ignored_lines', ['id', 'hash'], {packname => $pkg->{name}});
   my %ignored_lines = map { $_->{hash} => $_->{id} } $ignored->hashes->each;
 
-  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file);
+  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file, $generation);
 
   # OSADL compatibility sub-matrix for the licenses present in this package (verbatim, directional)
   $report->{license_compatibility} = license_compatibility($report);
@@ -88,8 +92,10 @@ sub shortname ($self, $chksum) {
 sub source_for {
   my ($self, $fileid, $start, $end) = @_;
 
+  # The file id comes straight from a request, so pin it to the live report: a build running alongside
+  # has its own matched_files rows and must never be rendered
   my $db   = $self->pg->db;
-  my $file = $db->select('matched_files', '*', {id => $fileid})->hash;
+  my $file = $db->select('matched_files', '*', {id => $fileid, generation => 0})->hash;
   return undef unless $file;
 
   my $pkg = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
@@ -97,8 +103,13 @@ sub source_for {
   my $report = $self->dig_report($file->{package}, $fileid);
   my $lines  = $report->{lines}{$fileid};
 
+  # The report lives in the database but its source lines are read from the checkout on every request, and
+  # a re-unpack tears that tree down and rebuilds it. Rather than answering with a silently empty file,
+  # say the source is temporarily unavailable and let the caller show that instead.
+  my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $file->{filename});
+  return {lines => [], name => $pkg->{name}, filename => $file->{filename}, unavailable => 1} unless -e $fn;
+
   if ($start > 0 && $end > 0) {
-    my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$fileid});
     my %pid_info;    # cache
     my %needed;
     my %folded_meta;
@@ -140,18 +151,30 @@ sub specfile_report {
   my $hash = $db->select('bot_reports', '*', {package => $id})->hash;
 
   unless ($hash) {
-    return undef unless my $pkg = $db->select('bot_packages', '*', {id => $id})->hash;
+    return undef unless defined(my $specfile = $self->build_specfile_report($id));
 
-    my $dir      = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
-    my $checkout = Cavil::Checkout->new($dir);
-    return {} unless $checkout->is_unpacked;
-    my $specfile = $checkout->specfile_report({upload => (($pkg->{external_link} // '') eq 'upload')});
+    # Nothing unpacked to read yet, so there is nothing worth caching either
+    return {} unless %$specfile;
 
     my $report = {package => $id, specfile_report => to_json($specfile)};
     $hash = $db->insert('bot_reports', $report, {returning => '*'})->hash;
   }
 
   return from_json($hash->{specfile_report});
+}
+
+# Read the spec file report straight from the checkout, ignoring the cached copy. A rebuild that follows a
+# re-unpack has entirely new sources, so the cache describes the previous ones - Cavil::Task::Analyze takes
+# a fresh report from here and stores it with the promote, not before, so the spec file license and the
+# file report always change over together. Returns undef for a package that is gone and an empty report
+# while the sources are not unpacked.
+sub build_specfile_report ($self, $id) {
+  return undef unless my $pkg = $self->pg->db->select('bot_packages', '*', {id => $id})->hash;
+
+  my $checkout = Cavil::Checkout->new(path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}));
+  return {} unless $checkout->is_unpacked;
+
+  return $checkout->specfile_report({upload => (($pkg->{external_link} // '') eq 'upload')});
 }
 
 sub summary ($self, $id) {
@@ -268,11 +291,12 @@ sub _add_to_snippet_hash {
 }
 
 sub _dig_report {
-  my ($self, $db, $pid_info, $pkg, $ignored_lines, $limit_to_file) = @_;
+  my ($self, $db, $pid_info, $pkg, $ignored_lines, $limit_to_file, $generation) = @_;
+  $generation //= 0;
 
   my $ignored_file_res = Cavil::Util::load_ignored_files($db);
   my $report           = {};
-  my $query            = {package => $pkg->{id}};
+  my $query            = {package => $pkg->{id}, generation => $generation};
   if ($limit_to_file) {
     $query->{id} = $limit_to_file;
   }
@@ -290,18 +314,19 @@ sub _dig_report {
     $report->{files}{$file->{id}} = $file->{filename} unless $ignored;
   }
 
+  # pm.file=mf.id already pins the matches to one generation, so only the files need the predicate
   my $query_string = 'select distinct filename from
                       matched_files mf join pattern_matches pm
-                      on pm.file=mf.id where mf.package=?
+                      on pm.file=mf.id where mf.package=? and mf.generation=?
                       and pm.ignored=true';
 
   # now check the files that were already ignored during indexing
   my $filenames;
   if ($limit_to_file) {
-    $filenames = $db->query("$query_string and mf.id=?", $pkg->{id}, $limit_to_file);
+    $filenames = $db->query("$query_string and mf.id=?", $pkg->{id}, $generation, $limit_to_file);
   }
   else {
-    $filenames = $db->query($query_string, $pkg->{id});
+    $filenames = $db->query($query_string, $pkg->{id}, $generation);
   }
 
   for my $file ($filenames->hashes->each) {
@@ -315,13 +340,13 @@ sub _dig_report {
 
   $report->{matching_globs} = [keys %globs_matched];
 
-  $query = {package => $pkg->{id}, ignored => 0};
+  $query = {package => $pkg->{id}, ignored => 0, generation => $generation};
   if ($limit_to_file) {
     $query->{file} = $limit_to_file;
   }
   my $matches = $db->select('pattern_matches', [qw(id file pattern sline eline)], $query);
 
-  $query = {'file_snippets.package' => $pkg->{id}};
+  $query = {'file_snippets.package' => $pkg->{id}, 'file_snippets.generation' => $generation};
   if ($limit_to_file) {
     $query->{file} = $limit_to_file;
   }
@@ -434,7 +459,7 @@ sub _dig_report {
   }
 
   if (%matches_to_ignore) {
-    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, $limit_to_file);
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, $limit_to_file, $generation);
   }
 
   # we read the lines and that's enough
@@ -445,11 +470,13 @@ sub _dig_report {
     return $report;
   }
 
+  # Scoped to the generation being built, or rendering the live report in the web process would delete
+  # rows out from under a reindex that is running alongside it
   if (%snippets_to_remove) {
     for my $id (keys %snippets_to_remove) {
-      $db->delete('file_snippets', {snippet => $id, package => $pkg->{id}});
+      $db->delete('file_snippets', {snippet => $id, package => $pkg->{id}, generation => $generation});
     }
-    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines);
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, undef, $generation);
   }
 
   my %missed_files;
@@ -472,7 +499,7 @@ sub _dig_report {
   }
   $report->{missed_files} = \%missed_files;
 
-  my $emails = $db->select('emails', '*', {package => $pkg->{id}});
+  my $emails = $db->select('emails', '*', {package => $pkg->{id}, generation => $generation});
   for my $email ($emails->hashes->each) {
     my $key = $email->{email};
     if ($email->{name}) {
@@ -480,12 +507,16 @@ sub _dig_report {
     }
     $report->{emails}{$key} = $email->{hits};
   }
-  my $urls = $db->select('urls', '*', {package => $pkg->{id}});
+  my $urls = $db->select('urls', '*', {package => $pkg->{id}, generation => $generation});
   for my $url ($urls->hashes->each) {
     $report->{urls}{$url->{url}} = $url->{hits};
   }
 
-  my $components = $db->select('package_components', '*', {package => $pkg->{id}}, {order_by => ['name', 'version']});
+  my $components = $db->select(
+    'package_components', '*',
+    {package  => $pkg->{id}, generation => $generation},
+    {order_by => ['name', 'version']}
+  );
   $report->{components} = [
     map {
       {

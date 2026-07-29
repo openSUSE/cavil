@@ -1,6 +1,10 @@
 <template>
-  <div class="report-progress my-3" :style="{'--segment-count': labels.length}">
-    <div class="progress-meta">
+  <div
+    class="report-progress"
+    :class="compact ? 'report-progress-compact' : 'my-3'"
+    :style="{'--segment-count': labels.length}"
+  >
+    <div v-if="!compact" class="progress-meta">
       <span class="progress-title">Preparing report</span>
       <span class="progress-stage">{{ currentLabel }} · Step {{ normalizedStage }} of {{ labels.length }}</span>
     </div>
@@ -31,12 +35,12 @@
 export default {
   name: 'ProgressBar',
   props: {
-    stage: {type: Number, required: true}
-  },
-  data() {
-    return {
-      labels: ['Importing', 'Unpacking', 'Indexing', 'Finalizing']
-    };
+    stage: {type: Number, required: true},
+
+    // Muted, chrome-less variant for a bar that sits beside a report the reviewer is still reading, rather
+    // than standing in for one that does not exist yet
+    compact: {type: Boolean, default: false},
+    labels: {type: Array, default: () => ['Importing', 'Unpacking', 'Indexing', 'Finalizing']}
   },
   computed: {
     normalizedStage() {
@@ -144,6 +148,58 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Beside a live report the bar is a status line, not a panel: no card, shorter, and in tints rather than
+   the full-strength colours, so it never competes with the report for attention. */
+.report-progress-compact {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.report-progress-compact .progress {
+  background: #eef1f4;
+  border-radius: 4px;
+  height: 16px;
+}
+
+.report-progress-compact .progress-bar {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.report-progress-compact .progress-segment.is-done {
+  background-color: #d3ecdb;
+  color: #1a7f37;
+}
+
+.report-progress-compact .progress-segment.is-active {
+  animation: cavil-progress-pulse-muted 1.6s ease-in-out infinite;
+  background-color: #dbeeff;
+  color: #0a3069;
+}
+
+.report-progress-compact .progress-segment.is-pending {
+  color: #8b949e;
+}
+
+@keyframes cavil-progress-pulse-muted {
+  0%,
+  100% {
+    background-color: #dbeeff;
+  }
+  50% {
+    background-color: #edf6ff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-progress-compact .progress-segment.is-active {
+    animation: none;
+  }
 }
 
 @media (max-width: 767px) {

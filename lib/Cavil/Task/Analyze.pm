@@ -13,20 +13,41 @@ sub register ($self, $app, $config) {
   $app->minion->add_task(analyzed => \&_analyzed);
 }
 
-sub _analyze ($job, $id) {
+# A non-zero generation means this analyze finishes a reindex: it builds the report from the rows that
+# job indexed alongside the live one, and promotes them in a single transaction at the end. Without a
+# generation it is a plain re-analyze of the live report, which is what a snippet approval or an ignored
+# line schedules.
+sub _analyze ($job, $id, $generation = 0) {
   my $app    = $job->app;
   my $minion = $app->minion;
   my $pkgs   = $app->packages;
   my $log    = $app->log;
   my $config = $app->config;
 
-  # Protect from race conditions
-  return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
-  return $job->finish("Package $id is already being processed")
-    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
+  # Protect from race conditions. A build inherits its claim on the package from its index job, because
+  # the promote below needs the same protection the indexing did, and hands it back as part of that same
+  # transaction. It also cannot require the package to be indexed: on a first import nothing is indexed
+  # until this very job promotes.
+  my $guard;
+  if ($generation) {
+
+    # The package has to still be building this exact generation, or there is nothing to promote. The
+    # cleanup sweep discards the rows of a build whose worker died, and this job can come back afterwards
+    # (retried by hand, or retried by Minion after a promote that committed and then failed to report
+    # success). Swapping then would delete the live report and put nothing in its place.
+    return $job->finish("Build $generation of package $id is gone, nothing to promote")
+      unless $pkgs->is_building($id, $generation);
+  }
+  else {
+    return $job->finish("Package $id is not indexed yet")         unless $pkgs->is_indexed($id);
+    return $job->finish("Package $id is already being processed") unless $guard = $pkgs->claim_guard($id, $job->id);
+  }
 
   $app->plugins->emit_hook('before_task_analyze');
-  $app->pg->db->update('bot_reports', {ldig_report => undef}, {package => $id});
+
+  # The previous report is deliberately left in place. It keeps being served for as long as this takes,
+  # and is replaced by the promote below - so a reviewer whose package is reindexed (often by somebody
+  # else's new license pattern) keeps the report they were reading instead of watching it disappear.
 
   my $reports = $app->reports;
   my $pkg     = $pkgs->find($id);
@@ -34,23 +55,27 @@ sub _analyze ($job, $id) {
   # Score any new or stale snippets first (cheap, local), then refresh the stored resolutions
   # (fold/clear/overlap) before building the report - so scores are always current when the report is
   # built and every consumer reads the same decision from file_snippets.resolution.
-  $app->patterns->score_package_snippets($id);
-  $app->snippets->resolve_snippets($id);
+  $app->patterns->score_package_snippets($id, $generation);
+  $app->snippets->resolve_snippets($id, $generation);
 
   # Backfill declared licenses for vendored components whose metadata carried none, from Cavil's own
   # detected licenses. This MUST happen before the report is built and cached below, otherwise the cached
   # report (UI/MCP) would show the pre-backfill licenses while the SPDX export (read from the DB later)
   # shows the backfilled ones.
-  _backfill_component_licenses($app->pg->db, $id);
+  _backfill_component_licenses($app->pg->db, $id, $generation);
 
-  my $specfile = $reports->specfile_report($id);
-  my $dig      = $reports->dig_report($id);
+  # A rebuild can follow a re-unpack, which replaces the sources and with them the spec file. Take a fresh
+  # spec file report for it and store it with the promote below, so a reader never sees the new spec file
+  # license beside the old file report. A plain re-analyze cannot have new sources, so it uses the cache.
+  my $specfile = ($generation ? $reports->build_specfile_report($id) : $reports->specfile_report($id)) // {};
+  my $dig      = $reports->dig_report($id, undef, $generation);
 
   my $chksum    = report_checksum($specfile, $dig);
   my $shortname = report_shortname($reports->shortname($chksum), $specfile, $dig);
-  my $flags     = $pkgs->flags($id);
+  my $flags     = $pkgs->flags($id, $generation);
 
   # Free up memory
+  my $specfile_json = $generation && %$specfile ? to_json($specfile) : undef;
   undef $specfile;
 
   my $new_candidates = [];
@@ -70,8 +95,38 @@ sub _analyze ($job, $id) {
   # Do not leak Postgres connections
   {
     my $db = $app->pg->db;
-    $db->update('bot_packages', {checksum => $shortname, unresolved_matches => $unresolved, %$flags}, {id => $id});
-    $db->update('bot_reports', {ldig_report => to_json($dig)}, {package => $id});
+    my $tx = $db->begin;
+
+    # The swap. Everything a reader can see changes at this one commit: before it they get the previous
+    # report in full, after it the new one, and there is no moment in between where the package has no
+    # report at all. If this transaction fails nothing has changed, the old report simply keeps being
+    # served, and the build is retried or swept.
+    if ($generation) {
+
+      # Retire the live generation first - deleting matched_files cascades its pattern_matches and
+      # file_snippets - then hand generation 0 to the rows this build wrote
+      $db->delete($_, {package => $id, generation => 0}) for qw(package_components urls emails matched_files);
+      $db->update($_, {generation => 0}, {package => $id, generation => $generation})
+        for qw(package_components urls emails pattern_matches file_snippets matched_files);
+    }
+
+    # The build hands the package back in the same commit that makes its report the live one, so there is
+    # no moment where the new report is being served while the package still looks busy, and no way for a
+    # crash to strand the claim of a build that has already succeeded.
+    my %state = (checksum => $shortname, unresolved_matches => $unresolved, %$flags);
+    %state = (%state, indexed => \'now()', processing_job => undef, index_stage => undef) if $generation;
+    $db->update('bot_packages', \%state, {id => $id});
+
+    # bot_reports holds the two cached reports and has exactly one row per package. A first import has
+    # none yet - nothing created it, because the spec file report was read straight from the checkout.
+    my %cached = (ldig_report => to_json($dig));
+    $cached{specfile_report} = $specfile_json if defined $specfile_json;
+    if ($db->select('bot_reports', 'id', {package => $id})->hash) {
+      $db->update('bot_reports', \%cached, {package => $id});
+    }
+    else {
+      $db->insert('bot_reports', {package => $id, specfile_report => $specfile_json // '{}', %cached});
+    }
     if ($pkg->{state} ne 'new') {
 
       # in case we reindexed an old pkg, check if 'new' packages now match.
@@ -79,22 +134,44 @@ sub _analyze ($job, $id) {
       $new_candidates = $db->select('bot_packages', 'id',
         {name => $pkg->{name}, indexed => {'!=' => undef}, id => {'!=' => $pkg->{id}}, state => 'new'})->hashes;
     }
+
+    $tx->commit;
   }
 
+  # This job stops counting as a rebuild of the package right here rather than when it finishes. What is
+  # left below is bookkeeping that leaves the report alone, and the package no longer carries a stage - so
+  # a reviewer polling in the meantime would be told a rebuild is running with nothing to show for it, and
+  # watch the progress bar drop from "Analyzing" back to "Queued" just as the new report lands.
+  $job->note("pkg_$id" => undef);
+
+  # A build gave the package back with the promote above; a plain re-analyze gives it back here
   undef $guard;
-  my $prio = $job->info->{priority};
-  my $analyzed_id
-    = $minion->enqueue(analyzed => [$id] => {parents => [$job->id], priority => $prio, notes => {"pkg_$id" => 1}});
-  $pkgs->generate_spdx_report($id, {parents => [$analyzed_id]}) if $config->{always_generate_spdx_reports};
 
-  for my $candidate (@$new_candidates) {
-    $minion->enqueue(
-      analyzed => [$candidate->{id}] => {parents => [$job->id], priority => 9, notes => {"pkg_$id" => 1}});
+  # Dropping the note above also took this job out of the package's failed-job count, and a failure down
+  # here is still the package's problem - the follow-up work that hands the new report to the reviewer.
+  # So it goes back on the way out, and only the successful path stays quiet.
+  eval {
+    my $prio = $job->info->{priority};
+    my $analyzed_id
+      = $minion->enqueue(analyzed => [$id] => {parents => [$job->id], priority => $prio, notes => {"pkg_$id" => 1}});
+    $pkgs->generate_spdx_report($id, {parents => [$analyzed_id]}) if $config->{always_generate_spdx_reports};
+
+    # Each of these works on (and claims) the candidate, not this package, so it is noted as the
+    # candidate's job - otherwise the cleanup sweep sees no job for a package that is being worked on and
+    # takes its claim away underneath it.
+    for my $candidate (@$new_candidates) {
+      my $cid = $candidate->{id};
+      $minion->enqueue(analyzed => [$cid] => {parents => [$job->id], priority => 9, notes => {"pkg_$cid" => 1}});
+    }
+
+    # Classify the snippets this package brought in, the same way a pattern change schedules pattern_stats:
+    # when there are snippets still awaiting the classifier, enqueue the (fleet-wide) classify job.
+    $pkgs->classify($id);
+  };
+  if (my $err = $@) {
+    $job->note("pkg_$id" => 1);
+    die $err;
   }
-
-  # Classify the snippets this package brought in, the same way a pattern change schedules pattern_stats:
-  # when there are snippets still awaiting the classifier, enqueue the (fleet-wide) classify job.
-  $pkgs->classify($id);
 
   $log->info("[$id] Analyzed $shortname");
 }
@@ -104,8 +181,9 @@ sub _analyze ($job, $id) {
 # unambiguous - it holds exactly one component (so a shared listing file like Go's vendor/modules.txt
 # cannot cross-attribute one directory's license to many modules) and Cavil detected exactly one license
 # there (so we never fabricate a misleading "A AND B" expression).
-sub _backfill_component_licenses ($db, $id) {
-  my $all  = $db->select('package_components', ['id', 'source', 'license'], {package => $id})->hashes->to_array;
+sub _backfill_component_licenses ($db, $id, $generation = 0) {
+  my $all = $db->select('package_components', ['id', 'source', 'license'], {package => $id, generation => $generation})
+    ->hashes->to_array;
   my @todo = grep { !defined $_->{license} && defined $_->{source} } @$all;
   return unless @todo;
 
@@ -125,7 +203,7 @@ sub _backfill_component_licenses ($db, $id) {
        FROM matched_files mf
        JOIN pattern_matches pm ON pm.file = mf.id
        JOIN license_patterns lp ON pm.pattern = lp.id
-      WHERE mf.package = ? AND pm.ignored = false AND lp.spdx <> ?', $id, ''
+      WHERE mf.package = ? AND mf.generation = ? AND pm.ignored = false AND lp.spdx <> ?', $id, $generation, ''
   )->hashes;
   $dir_licenses{$dir_of->($_->{filename})}{$_->{spdx}} = 1 for $matches->each;
 
@@ -139,16 +217,28 @@ sub _backfill_component_licenses ($db, $id) {
 }
 
 sub _analyzed ($job, $id) {
-  my $app     = $job->app;
-  my $config  = $app->config;
-  my $minion  = $app->minion;
-  my $reports = $app->reports;
-  my $pkgs    = $app->packages;
+  my $app  = $job->app;
+  my $pkgs = $app->packages;
 
   # Protect from race conditions
-  return $job->finish("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
-  return $job->finish("Package $id is already being processed")
-    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
+  return $job->finish("Package $id is not indexed yet")         unless $pkgs->is_indexed($id);
+  return $job->finish("Package $id is already being processed") unless my $guard = $pkgs->claim_guard($id, $job->id);
+
+  _auto_review($app, $id);
+
+  # End of the chain unless an SPDX report follows, so the package is handed back here rather than left to
+  # the guard, which would only release it and leave a reindex requested in the meantime waiting for the
+  # nightly sweep. A failure skips this on purpose: the release is all the guard does, and the retry that
+  # an admin starts from the Minion dashboard hands the package back properly.
+  $pkgs->hand_back($id, $job->id);
+}
+
+# Everything the automatic review does once the package is claimed, with plenty of early returns for the
+# states it leaves alone
+sub _auto_review ($app, $id) {
+  my $config  = $app->config;
+  my $reports = $app->reports;
+  my $pkgs    = $app->packages;
 
   # Only "new" and "acceptable" can be reviewed automatically. Every already
   # reviewed package still needs its notice refreshed on each reindex so it does

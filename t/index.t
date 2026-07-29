@@ -385,41 +385,48 @@ subtest 'Prevent index race condition' => sub {
   ok my $job_id = $minion->enqueue('index', [1]), 'enqueued';
   $minion->perform_jobs;
   unlike $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
-  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+  is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
 
   ok $job_id = $minion->enqueue('index', [1]), 'enqueued';
-  my $guard = $minion->guard('processing_pkg_1', 172800);
-  ok !$minion->lock('processing_pkg_1', 0), 'lock exists';
+  ok my $guard = $t->app->packages->claim_guard(1, 999999), 'package claimed by another job';
   my $worker = $minion->worker->register;
   ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
   is $job->execute, undef, 'no error';
   like $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'race condition prevented';
   $worker->unregister;
   undef $guard;
-  ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+  is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
 
-  $guard = $minion->guard('processing_pkg_1', 172800);
-  ok !$t->app->packages->reindex(1), 'not reindexing';
+  # A busy package does not lose the request, it is remembered and picked up once the package is free
+  $guard = $t->app->packages->claim_guard(1, 999999);
+  is $t->app->packages->reindex(1), 'later', 'not reindexing right now';
+  ok $t->app->packages->reindex_requested(1), 'reindex requested';
+  is $minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, 'no index job enqueued while busy';
   undef $guard;
-  ok $t->app->packages->reindex(1), 'reindexing';
+  is $t->app->packages->reindex(1), 'now', 'reindexing';
+  $t->app->packages->clear_reindex_request(1);
 
   ok !$t->app->packages->reindex(99999), 'package does not exist';
 };
 
-subtest 'Reindex skips when an import or unpack is queued' => sub {
+subtest 'Reindex defers when an import or unpack is queued' => sub {
   my $minion = $t->app->minion;
+  my $pkgs   = $t->app->packages;
 
   # Drain anything left over from prior subtests
   $minion->perform_jobs;
+  $pkgs->clear_reindex_request(1);
 
   for my $task (qw(obs_import git_import unpack)) {
     my $blocker = $minion->enqueue($task => [1] => {notes => {pkg_1 => 1}});
-    ok !$t->app->packages->reindex(1), "reindex skipped while $task is inactive";
+    is $pkgs->reindex(1), 'later', "reindex deferred while $task is inactive";
+    ok $pkgs->reindex_requested(1), "request remembered ($task)";
     is $minion->jobs({tasks => ['index'], states => ['inactive']})->total, 0, "no orphan index enqueued ($task)";
     $minion->backend->remove_job($blocker);
+    $pkgs->clear_reindex_request(1);
   }
 
-  ok $t->app->packages->reindex(1), 'reindex proceeds once the queue is clear';
+  is $pkgs->reindex(1), 'now', 'reindex proceeds once the queue is clear';
   $minion->perform_jobs;
 };
 

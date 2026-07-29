@@ -94,6 +94,9 @@ sub run ($self, @args) {
   return $self->_stats;
 }
 
+# The "still in use" checks in this command (here, _remove_unused, _remove_unused_extras) deliberately
+# count matches in every report generation, not just the live one. A pattern or ignore that only a
+# reindex-in-progress matches is still in use, and counting it errs towards keeping the row.
 sub _check_ignore ($self, $remove) {
   my $db      = $self->app->pg->db;
   my $ignored = $db->query('SELECT id FROM ignored_lines')->arrays->flatten->to_array;
@@ -221,7 +224,8 @@ sub _check_use ($self, $unused, $license, $preview) {
   my $table = [];
   for my $pattern ($results->hashes->each) {
     my ($id, $risk, $pattern) = @{$pattern}{qw(id risk pattern)};
-    my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
+    my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ? AND generation = 0', $id)
+      ->hash->{count};
 
     my $snippet = encode('UTF-8', _preview($pattern, $preview));
     if ($unused) {

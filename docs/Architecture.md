@@ -80,12 +80,13 @@ is worth stating as invariants rather than leaving implicit:
   from.
 * **One pipeline owns a package at a time; within it, indexing writers are parallel but controlled.**
   The stages that process a package — import, unpack, index, analyze, SBOM generation — are ordered by
-  job dependencies (unpack before index before analyze before the SBOM), and each takes the same
-  per-package lock (`processing_pkg_<id>`) for its duration, so no two stages, and no second pipeline (a
+  job dependencies (unpack before index before analyze before the SBOM), and each claims the package for
+  its duration by writing its own job id to the package row, so no two stages, and no second pipeline (a
   re-import racing a reindex, say), ever run against the package at once — concurrent *processing* is
-  refused, not interleaved. Indexing is the one stage that is deliberately not a single writer: for
-  throughput it fans out into many parallel `index_batch` jobs and holds the package lock across the
-  whole fan-out. These are *controlled* parallel writers, not a free-for-all — each batch owns a
+  refused, not interleaved. Because the claim names the job holding it, retrying a job that died with its
+  worker takes the claim back. Indexing is the one stage that is deliberately not a single writer: for
+  throughput it fans out into many parallel `index_batch` jobs and keeps the claim across the whole
+  fan-out. These are *controlled* parallel writers, not a free-for-all — each batch owns a
   disjoint partition of the files and writes their rows in its own transaction, and the few tables
   several batches share (harvested URLs and emails, detected components) use upserts that merge
   concurrent contributions deterministically. The checkout *filesystem* still has a single writer

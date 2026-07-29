@@ -12,10 +12,10 @@ sub report ($self) {
   my $id = $self->stash('id');
   return $self->render(text => 'unknown package', status => 408) unless my $pkg = $self->packages->find($id);
 
-  # Covers various jobs that will modify the report
-  return $self->render(text => 'package being processed', status => 408)
-    if $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
-
+  # Jobs working on the package are deliberately not a reason to refuse it one. A rebuild is assembled
+  # beside the live report and swapped in with a single commit, so there is always a whole report to hand
+  # out - and refusing while anything is queued would refuse after every single build, because the
+  # spdx_report job that ends one holds the package for its duration while leaving the report alone.
   return $self->render(text => 'not indexed', status => 408) unless $pkg->{indexed};
 
   return $self->render(text => 'no report', status => 408)
@@ -45,12 +45,11 @@ sub details ($self) {
   return $self->render(json => {error => 'unknown package', stage => 1}, status => 408)
     unless my $pkg = $self->packages->find($id);
 
-  # A reindex (or any other report-modifying job) is queued or running. We keep serving the
-  # existing report while such a job waits in the queue, so reviewers are not interrupted; the
-  # report is flagged as stale so the UI can warn that a fresh version is on the way. Once
-  # indexing actually starts, the old report data is cleared and we fall through to the progress
-  # bar below (there is no report left to show).
-  my $reindexing = $self->minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total ? 1 : 0;
+  # A reindex (or any other report-modifying job) is queued or running. The rebuild happens beside the live
+  # report and only replaces it at the very end, so the reviewer keeps the report they were reading for the
+  # whole ride; the state below tells the UI how far along the rebuild is and that the report is read-only
+  # until it lands.
+  my $state = $self->helpers->reindex_state($pkg);
 
   my $report = $self->reports->sanitized_dig_report($id);
   return $self->render(json => {error => 'no report', obsolete => \1, report_unavailable => \1})
@@ -58,12 +57,20 @@ sub details ($self) {
 
   if ($report && $pkg->{indexed}) {
     my $details = $self->helpers->report_details($pkg, $report);
-    $details->{reindexing} = \1 if $reindexing;
-    return $self->render(json => $details);
+    return $self->render(json => {%$details, %$state});
   }
 
   return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408) unless $pkg->{indexed};
   return $self->render(json => {error => 'no report',   %{_stage_payload($pkg)}}, status => 408);
+}
+
+# Cheap poll for a report page that is already on screen: just the rebuild state, with none of the work
+# that assembling a dig report costs. A page left open while its package is reindexed asks for this every
+# few seconds and only refetches the full report once the state says a new one has been promoted.
+sub report_state ($self) {
+  my $id = $self->stash('id');
+  return $self->render(json => {error => 'unknown package'}, status => 404) unless my $pkg = $self->packages->find($id);
+  $self->render(json => $self->helpers->reindex_state($pkg));
 }
 
 sub _stage_payload ($pkg) {

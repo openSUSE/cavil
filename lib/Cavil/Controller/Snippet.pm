@@ -105,6 +105,23 @@ sub batch_decision ($self) {
 
   my $can_curate = $self->current_user_can('curate');
 
+  # Decisions made on a report page are made against what that report shows, above all which snippets the
+  # reviewer's own staged patterns already cover. A rebuild replaces all of that, so the page turns
+  # read-only for as long as it runs and a batch that raced the switch is refused here as a whole, before
+  # anything is written. Pages that are not a report - the Change Proposals queue, for one - send no
+  # report id and are never gated.
+  my $from_report = $body->{report};
+  if (defined $from_report && $from_report =~ /^\d+\z/ && (my $pkg = $self->packages->find($from_report))) {
+    return $self->render(
+      json => {
+        ok         => \0,
+        reindexing => \1,
+        error      => 'This report is being rebuilt, submit again once the new report is ready'
+      },
+      status => 409
+    ) if $self->helpers->reindex_state($pkg)->{reindexing};
+  }
+
   # Phase 1: validate everything up front; surface all errors at once.
   my @results;
   my $worst_status = 200;

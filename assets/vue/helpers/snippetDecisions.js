@@ -11,10 +11,12 @@ export async function resolveSnippetFromFile({fileId, startLine, endLine, from, 
   return await res.json();
 }
 
-export async function submitSnippetDecisions(actions) {
+// "report" names the package whose report these decisions were made against, so the server can refuse a
+// batch that raced a rebuild of exactly that report. Pages that are not showing a report leave it out.
+export async function submitSnippetDecisions(actions, {report = null} = {}) {
   const ua = new UserAgent({baseURL: window.location.href});
   const res = await ua.post('/snippet/batch_decision', {
-    json: {actions},
+    json: report === null ? {actions} : {actions, report},
     headers: {Accept: 'application/json'}
   });
   let data = null;

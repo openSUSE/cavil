@@ -168,7 +168,7 @@ subtest 'Embargoed packages' => sub {
       ->json_is('/saved/id',           3);
     $t->get_ok('/package/3/report' => {Authorization => 'Token test_token'})
       ->status_is(408)
-      ->content_like(qr/package being processed/);
+      ->content_like(qr/not indexed/);
     $t->get_ok('/api/1.0/source' => form => $form)->status_is(200)->json_is('/review' => 3, '/history' => []);
     $t->app->minion->perform_jobs;
     my $checkout = $dir->child('perl-Mojolicious.SUSE_SLE-15-SP2_Update', '236d7b56886a0d2799c0d114eddbb7ff');

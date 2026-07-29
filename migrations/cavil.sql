@@ -452,3 +452,28 @@ DROP TABLE IF EXISTS comment_templates;
 -- 54 up
 ALTER TABLE package_notes ADD COLUMN pinned boolean DEFAULT false NOT NULL;
 CREATE INDEX package_notes_pinned_idx ON package_notes (package_name, id DESC) WHERE pinned;
+
+-- 55 up
+ALTER TABLE matched_files      ADD COLUMN generation int NOT NULL DEFAULT 0;
+ALTER TABLE pattern_matches    ADD COLUMN generation int NOT NULL DEFAULT 0;
+ALTER TABLE file_snippets      ADD COLUMN generation int NOT NULL DEFAULT 0;
+ALTER TABLE urls               ADD COLUMN generation int NOT NULL DEFAULT 0;
+ALTER TABLE emails             ADD COLUMN generation int NOT NULL DEFAULT 0;
+ALTER TABLE package_components ADD COLUMN generation int NOT NULL DEFAULT 0;
+DROP INDEX urls_package_md5_idx;
+CREATE UNIQUE INDEX urls_package_md5_generation_idx ON urls (package, md5(url), generation);
+DROP INDEX emails_package_md5_idx;
+CREATE UNIQUE INDEX emails_package_md5_generation_idx ON emails (package, md5(email), generation);
+DROP INDEX package_components_package_md5_idx;
+CREATE UNIQUE INDEX package_components_package_md5_generation_idx
+  ON package_components (package, md5(purl), generation);
+CREATE INDEX matched_files_building_idx      ON matched_files (package)      WHERE generation <> 0;
+CREATE INDEX file_snippets_building_idx      ON file_snippets (package)      WHERE generation <> 0;
+CREATE INDEX urls_building_idx               ON urls (package)               WHERE generation <> 0;
+CREATE INDEX emails_building_idx             ON emails (package)             WHERE generation <> 0;
+CREATE INDEX package_components_building_idx ON package_components (package) WHERE generation <> 0;
+ALTER TABLE bot_packages ADD COLUMN processing_job int;
+ALTER TABLE bot_packages ADD COLUMN index_stage    text;
+ALTER TABLE bot_packages ADD COLUMN reindex_requested timestamp with time zone;
+CREATE INDEX bot_packages_unsettled_idx ON bot_packages (id)
+  WHERE processing_job IS NOT NULL OR index_stage IS NOT NULL OR reindex_requested IS NOT NULL;

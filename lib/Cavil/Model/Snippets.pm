@@ -28,7 +28,10 @@ has [qw(checkout_dir pg snippet_fold)];
 # / 'covered' / undef). Called from the analyze task (per reindex) and from `snippets --rescore`; every
 # consumer (report, file browser, SPDX, Classify Snippets) then just reads the column. The gates live in
 # Cavil::ReportUtil and are called only here.
-sub resolve_snippets ($self, $package_id) {
+#
+# The generation says which report to resolve: 0 is the live one, a non-zero value is a reindex building
+# alongside it. Both have their own file_snippets rows, and resolving one must never touch the other.
+sub resolve_snippets ($self, $package_id, $generation = 0) {
   my $db  = $self->pg->db;
   my $cfg = $self->snippet_fold;
 
@@ -48,7 +51,8 @@ sub resolve_snippets ($self, $package_id) {
     $db->query(
       "SELECT pm.file, pm.sline, pm.eline, lp.license
        FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
-      WHERE pm.package = ? AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false", $package_id
+      WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false AND lp.license <> ''
+        AND lp.catch_all = false", $package_id, $generation
     )->hashes->each
     )
   {
@@ -67,7 +71,8 @@ sub resolve_snippets ($self, $package_id) {
            FROM pattern_matches pm
            JOIN license_patterns lp ON lp.id = pm.pattern
            JOIN matched_files mf ON mf.id = pm.file
-          WHERE pm.package = ? AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false", $package_id
+          WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false AND lp.license <> ''
+            AND lp.catch_all = false", $package_id, $generation
       )->hashes->each
       )
     {
@@ -81,7 +86,8 @@ sub resolve_snippets ($self, $package_id) {
     for my $f (
       $db->query(
         'SELECT DISTINCT mf.id, mf.filename FROM matched_files mf
-           JOIN file_snippets fs ON fs.file = mf.id WHERE fs.package = ?', $package_id
+           JOIN file_snippets fs ON fs.file = mf.id WHERE fs.package = ? AND fs.generation = ?', $package_id,
+        $generation
       )->hashes->each
       )
     {
@@ -98,7 +104,7 @@ sub resolve_snippets ($self, $package_id) {
        JOIN snippets s ON s.id = fs.snippet
        JOIN matched_files mf ON mf.id = fs.file
        LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
-      WHERE fs.package = ?', $package_id
+      WHERE fs.package = ? AND fs.generation = ?', $package_id, $generation
   );
 
   # Compute each occurrence's resolution and bucket the ids by the resulting value, skipping rows already
@@ -171,6 +177,8 @@ sub file_line_info ($self, $package_id, $file_id) {
     }
   }
 
+  # No generation predicate is needed anywhere here: the file id already belongs to exactly one report
+  # generation, so every match and snippet joined through it comes from that same report
   my $snippets = $db->query(
     'SELECT fs.sline, fs.eline, fs.resolution, s.id, s.hash, s.classified, s.license, s.like_pattern,
             s.likelyness, s.confidence, lp.license AS plicense, lp.spdx AS pspdx, lp.risk AS prisk
@@ -294,9 +302,20 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   # Avoid duplicate links when the same range is requested again (e.g. an agent retry)
   my $exists = $db->select('file_snippets', 'id',
     {file => $file_id, snippet => $snippet_id, sline => $first_line, eline => $last_line})->hash;
-  $db->insert('file_snippets',
-    {package => $package->{id}, snippet => $snippet_id, sline => $first_line, eline => $last_line, file => $file_id})
-    unless $exists;
+
+  # The new occurrence joins the report generation its file belongs to, so a manual snippet created
+  # against the live report cannot end up attached to a build running alongside it (or the reverse)
+  $db->insert(
+    'file_snippets',
+    {
+      package    => $package->{id},
+      snippet    => $snippet_id,
+      sline      => $first_line,
+      eline      => $last_line,
+      file       => $file_id,
+      generation => $file->{generation}
+    }
+  ) unless $exists;
 
   return $snippet_id;
 }
@@ -304,7 +323,8 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
 sub from_file_path ($self, $package_id, $filename, $first_line, $last_line) {
   return undef
     unless my $file
-    = $self->pg->db->select('matched_files', 'id', {package => $package_id, filename => $filename})->hash;
+    = $self->pg->db->select('matched_files', 'id', {package => $package_id, filename => $filename, generation => 0})
+    ->hash;
   return $self->from_file($file->{id}, $first_line, $last_line);
 }
 
@@ -346,23 +366,26 @@ sub unclassified ($self, $options) {
 
   # Resolution filter: read the stored decision (file_snippets.resolution) - no logic here, so it
   # cannot drift from resolve_snippets. "Cleared" covers both clearing mechanisms. The matching kinds
-  # are reused below to pin the linked occurrence to one that actually has that resolution.
+  # are reused below to pin the linked occurrence to one that actually has that resolution. Every
+  # occurrence clause is pinned to generation 0: a reindex building alongside a live report has a second
+  # copy of every occurrence, and counting both would double every number on this page.
   my $resolution = '';
   my @binds;
   my @kinds;
   my $resolution_option = $options->{resolution} // 'any';
-  my $match             = '';
+  my $match             = 'AND fs.generation = 0';
   if ($resolution_option eq 'unresolved') {
-    $resolution = 'AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IS NULL)';
-    $match      = 'AND fs.resolution IS NULL';
+    $resolution = 'AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.generation = 0
+                       AND fs.resolution IS NULL)';
+    $match .= ' AND fs.resolution IS NULL';
   }
   elsif ($resolution_option =~ /^(fold|clear|overlap|covered)$/) {
     @kinds = $1 eq 'clear' ? ('clear', 'overlap', 'covered') : ($1);
     my $placeholders = join ', ', ('?') x @kinds;
-    $resolution
-      = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.resolution IN ($placeholders))";
+    $resolution = "AND EXISTS (SELECT 1 FROM file_snippets fs WHERE fs.snippet = s.id AND fs.generation = 0
+                                 AND fs.resolution IN ($placeholders))";
     push @binds, @kinds;
-    $match = "AND fs.resolution IN ($placeholders)";
+    $match .= " AND fs.resolution IN ($placeholders)";
   }
 
   # Full-text (lexeme) search over snippet bodies; expression matches the GIN index exactly.
@@ -374,10 +397,11 @@ sub unclassified ($self, $options) {
 
   # Keyset pagination with no exact total: fetch one extra row to learn whether a next page exists
   # (COUNT(*) OVER() scanned the whole filtered set on every page and does not scale to 1M snippets).
-  my $count_match
-    = $resolution_option eq 'unresolved' ? 'AND fs_count.resolution IS NULL'
-    : @kinds                             ? 'AND fs_count.resolution IN (' . join(', ', ('?') x @kinds) . ')'
-    :                                      '';
+  my $count_match = 'AND fs_count.generation = 0';
+  $count_match
+    .= $resolution_option eq 'unresolved' ? ' AND fs_count.resolution IS NULL'
+    : @kinds                              ? ' AND fs_count.resolution IN (' . join(', ', ('?') x @kinds) . ')'
+    :                                       '';
   my @count_binds = (@kinds, @kinds);
   my $order       = $options->{order} // 'recent';
   my $order_by
@@ -471,7 +495,10 @@ sub snippet_search ($self, $options) {
   # bp (file_snippets.package) is the occurrence gate: never reveal - or count - an occurrence living
   # in an embargoed OR obsolete package. Obsolete packages are superseded, so their unresolved
   # snippets are dead work; excluding them (as every other query does) keeps the impact ranking real.
-  my $visible = 'bp.embargoed = false AND bp.obsolete = false AND COALESCE(sp.embargoed, false) = false';
+  # Occurrences are also pinned to the live report (generation 0), so a package being reindexed right now
+  # contributes each of its occurrences once, not twice.
+  my $visible
+    = 'fs.generation = 0 AND bp.embargoed = false AND bp.obsolete = false AND COALESCE(sp.embargoed, false) = false';
 
   # Fetch one extra row to detect a next page without an exact total (COUNT(*) OVER does not scale).
   my $rows;
@@ -576,8 +603,8 @@ sub _enrich_snippet_detail ($self, $db, $row) {
     dir => $db->query(
       q{SELECT DISTINCT lp.license FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
           JOIN matched_files mf ON mf.id = pm.file
-        WHERE mf.package = ? AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false
-          AND regexp_replace(mf.filename, '/[^/]*$', '') = ?}, $package, $dir
+        WHERE mf.package = ? AND mf.generation = 0 AND pm.ignored = false AND lp.license <> ''
+          AND lp.catch_all = false AND regexp_replace(mf.filename, '/[^/]*$', '') = ?}, $package, $dir
     )->arrays->flatten->to_array
   };
 }
@@ -586,6 +613,8 @@ sub mark_non_license ($self, $id) {
   $self->pg->db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
 }
 
+# Every generation on purpose: this drives reindexing after a snippet decision, and a package whose
+# in-flight build carries the snippet needs the reindex just as much as one whose live report does
 sub packages_for_snippet ($self, $id) {
   return $self->pg->db->query('SELECT DISTINCT(package) FROM file_snippets WHERE snippet = ?', $id)
     ->arrays->flatten->to_array;
@@ -595,7 +624,7 @@ sub _occurrence ($db, $id, $file_id) {
   my $sql = 'SELECT fs.package, p.name, sline, eline, file, filename, p.checkout_dir
      FROM file_snippets fs JOIN matched_files m ON (m.id = fs.file)
        JOIN bot_packages p ON (p.id = fs.package)
-     WHERE snippet = ?';
+     WHERE snippet = ? AND fs.generation = 0';
   my @bind = ($id);
   if (defined $file_id) {
     $sql .= ' AND fs.file = ?';
@@ -611,7 +640,7 @@ sub _visible_occurrence ($db, $id) {
   return $db->query(
     'SELECT fs.package, fs.file, fs.sline, fs.eline
        FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
-      WHERE fs.snippet = ? AND p.embargoed = false AND p.obsolete = false LIMIT 1', $id
+      WHERE fs.snippet = ? AND fs.generation = 0 AND p.embargoed = false AND p.obsolete = false LIMIT 1', $id
   )->hash;
 }
 

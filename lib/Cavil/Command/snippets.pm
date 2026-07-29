@@ -79,9 +79,10 @@ sub _resolve ($self, $batch) {
   my $last = 0;
   my $done = 0;
   while (1) {
-    my $pkgs
-      = $db->query('SELECT DISTINCT package FROM file_snippets WHERE package > ? ORDER BY package LIMIT ?', $last,
-      $batch)->hashes;
+    my $pkgs = $db->query(
+      'SELECT DISTINCT package FROM file_snippets WHERE package > ? AND generation = 0
+                    ORDER BY package LIMIT ?', $last, $batch
+    )->hashes;
     last unless $pkgs->size;
 
     for my $p ($pkgs->each) {

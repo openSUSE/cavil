@@ -338,6 +338,7 @@ export default {
     ToastNotifier
   },
   mixins: [Refresh],
+  emits: ['reindex-queued'],
   data() {
     return {
       actions: [],
@@ -370,6 +371,7 @@ export default {
       refreshUrl: `/reviews/meta/${this.pkgId}`,
       reindexBusy: false,
       reindexFailed: false,
+      reindexQueued: false,
       requests: [],
       result: '',
       reviewed: null,
@@ -449,10 +451,12 @@ export default {
     },
     reindexBtnVariant() {
       if (this.reindexFailed) return 'btn-outline-danger';
+      if (this.reindexQueued) return 'btn-outline-secondary';
       return this.shouldReindex ? 'btn-outline-primary' : 'btn-outline-secondary';
     },
     reindexTitle() {
       if (this.reindexFailed) return 'Reindex request failed';
+      if (this.reindexQueued) return 'Reindex has been requested';
       return this.shouldReindex ? 'There are new patterns!' : 'There are no new patterns';
     }
   },
@@ -516,13 +520,18 @@ export default {
         this.submitting = false;
       }
     },
+    // The rebuild happens next to the report the reviewer is reading, so there is nothing to reload here.
+    // The report area is told to enter its rebuild state instead, and the notice appearing under the
+    // metadata is what confirms the click.
     async reindex() {
       this.reindexBusy = true;
       this.reindexFailed = false;
       try {
         const response = await fetch(this.reindexUrl, {method: 'POST', cache: 'no-store'});
         if (response.ok) {
-          window.location.reload();
+          this.reindexBusy = false;
+          this.reindexQueued = true;
+          this.$emit('reindex-queued');
           return;
         }
       } catch (err) {

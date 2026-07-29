@@ -6,6 +6,19 @@
     <div v-else-if="error" class="alert alert-danger file-browser-error">{{ error }}</div>
     <div v-else-if="meta">
       <div v-if="editorError" class="alert alert-danger file-browser-error" role="alert">{{ editorError }}</div>
+      <div v-if="notice" class="alert alert-warning file-browser-error" role="status">{{ notice }}</div>
+      <CavilNoticePanel
+        v-if="reindexing"
+        title="Report update in progress"
+        tone="info"
+        icon="fa-solid fa-arrows-rotate"
+        data-reindexing-notice
+      >
+        <p class="cavil-notice-summary">Pattern creation is frozen until the new report is ready.</p>
+        <div v-if="rebuildStage" class="file-browser-rebuild-progress">
+          <ProgressBar :stage="rebuildStage" :labels="rebuildLabels" compact />
+        </div>
+      </CavilNoticePanel>
       <div class="file-browser-header">
         <div class="file-browser-title">
           <a :href="meta.package.detailsUrl" class="file-browser-package">
@@ -22,7 +35,8 @@
           <a :href="crumb.url" @click="openPath($event, crumb.path)">{{ crumb.name }}</a>
         </span>
         <span class="file-browser-count">
-          <template v-if="meta.kind === 'directory'">
+          <template v-if="meta.kind === 'unavailable'">unavailable</template>
+          <template v-else-if="meta.kind === 'directory'">
             {{ meta.entries.length }} {{ meta.entries.length === 1 ? 'item' : 'items' }}
           </template>
           <template v-else-if="sourceIsOversized">{{ meta.source.sizeLabel }} file</template>
@@ -32,7 +46,15 @@
         </span>
       </nav>
 
-      <div v-if="meta.kind === 'directory'" class="file-browser-panel">
+      <div v-if="meta.kind === 'unavailable'" class="file-browser-panel">
+        <div class="file-browser-unavailable" role="status">
+          <i class="fa-solid fa-box-open"></i>
+          <strong>The sources are being unpacked.</strong>
+          <span>Files will be browsable again once {{ meta.package.name }} has finished reindexing.</span>
+        </div>
+      </div>
+
+      <div v-else-if="meta.kind === 'directory'" class="file-browser-panel">
         <table class="file-browser-table">
           <tbody>
             <tr v-for="entry in meta.entries" :key="entry.path" :class="{'has-match': entry.hasMatch}">
@@ -57,7 +79,7 @@
         </table>
       </div>
 
-      <div v-else class="file-browser-panel file-browser-source-panel">
+      <div v-else-if="meta.kind === 'file'" class="file-browser-panel file-browser-source-panel">
         <div v-if="sourceIsOversized" class="file-browser-too-large" role="status">
           <i class="fa-regular fa-file-lines"></i>
           <strong>This file is too large to display.</strong>
@@ -74,6 +96,7 @@
             :packname="meta.source.name"
             :has-admin-role="hasAdminRole"
             :has-contributor-role="hasContributorRole"
+            :read-only="reindexing"
             :pending-actions="pendingActionsForCurrentFile"
             :inline-editor="openInlineEditor"
             @extend="onExtend"
@@ -84,24 +107,32 @@
           />
         </div>
       </div>
-      <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
+      <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" :read-only="reindexing" />
     </div>
   </div>
 </template>
 
 <script>
+import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import FileSource from './components/FileSource.vue';
 import LegalLoading from './components/LegalLoading.vue';
 import PendingActionsWidget from './components/PendingActionsWidget.vue';
+import ProgressBar from './components/ProgressBar.vue';
 import {encodePath, fileViewUrl} from './helpers/links.js';
 import {resolveSnippetFromFile, submitSnippetDecisions} from './helpers/snippetDecisions.js';
 
 let openEditorKeySeq = 0;
 let pendingActionIdSeq = 0;
 
+// Matching Cavil::Plugin::Helpers and the report page, so a reviewer switching between the two sees the
+// same rebuild described the same way
+const REBUILD_LABELS = ['Queued', 'Unpacking', 'Indexing', 'Analyzing'];
+const STATE_POLL_DELAY = 5000;
+const IDLE_POLL_DELAY = 15000;
+
 export default {
   name: 'FileBrowser',
-  components: {FileSource, LegalLoading, PendingActionsWidget},
+  components: {CavilNoticePanel, FileSource, LegalLoading, PendingActionsWidget, ProgressBar},
   provide() {
     return {
       pendingActionsStore: {
@@ -126,9 +157,15 @@ export default {
       loading: false,
       meta: null,
       editorError: null,
+      notice: null,
       openInlineEditor: null,
       pendingActions: [],
-      pkgId: this.pkgId
+      pkgId: this.pkgId,
+      checksum: null,
+      rebuildLabels: REBUILD_LABELS,
+      rebuildStage: null,
+      reindexing: false,
+      statePollTimer: null
     };
   },
   computed: {
@@ -149,6 +186,7 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('popstate', this.onPopState);
+    if (this.statePollTimer !== null) clearTimeout(this.statePollTimer);
   },
   methods: {
     metaUrl(path) {
@@ -161,6 +199,7 @@ export default {
       this.loading = true;
       this.error = null;
       this.editorError = null;
+      this.notice = null;
       try {
         const res = await fetch(this.metaUrl(path));
         if (!res.ok) {
@@ -168,11 +207,15 @@ export default {
           return;
         }
         this.meta = await res.json();
+        this.checksum = this.meta.checksum ?? null;
+        this.reindexing = !!this.meta.reindexing;
+        this.rebuildStage = this.meta.rebuildStage ?? null;
+        this.scheduleStatePoll();
         this.openInlineEditor = null;
-        document.title =
-          this.meta.kind === 'directory'
-            ? `Directory listing of ${this.meta.currentPath || '/'}`
-            : `Content of ${this.meta.currentPath}`;
+        if (this.meta.kind === 'unavailable') document.title = `Unpacking ${this.meta.package.name}`;
+        else if (this.meta.kind === 'directory')
+          document.title = `Directory listing of ${this.meta.currentPath || '/'}`;
+        else document.title = `Content of ${this.meta.currentPath}`;
         const nextUrl = this.viewUrl(this.meta.currentPath);
         if (options.replace) history.replaceState({path: this.meta.currentPath}, '', nextUrl);
         else history.pushState({path: this.meta.currentPath}, '', nextUrl);
@@ -184,6 +227,38 @@ export default {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
       event.preventDefault();
       this.fetchPath(path);
+    },
+    scheduleStatePoll() {
+      if (this.statePollTimer !== null) return;
+      this.statePollTimer = setTimeout(this.pollRebuildState, this.reindexing ? STATE_POLL_DELAY : IDLE_POLL_DELAY);
+    },
+
+    // A settled report keeps a slow watch too, because the rebuild is usually started by somebody else and
+    // the point of this is to warn the reviewer before they stage work, not after. When it is over the
+    // whole path is fetched again: a promote replaces the matched file rows, so the ids this page is
+    // holding are stale. Staged decisions survive that, they are submitted by snippet id.
+    async pollRebuildState() {
+      this.statePollTimer = null;
+
+      let data;
+      try {
+        const res = await fetch(`/reviews/report_state/${this.pkgId}`, {cache: 'no-store'});
+        if (!res.ok) return this.scheduleStatePoll();
+        data = await res.json();
+      } catch (err) {
+        // Nothing on screen is wrong, the server just did not answer; try again on the next tick.
+        return this.scheduleStatePoll();
+      }
+
+      const promoted = data.checksum && this.checksum && data.checksum !== this.checksum;
+      if (promoted || (this.reindexing && !data.reindexing)) {
+        await this.fetchPath(this.meta ? this.meta.currentPath : this.initialPath, {replace: true});
+        return;
+      }
+
+      this.reindexing = !!data.reindexing;
+      this.rebuildStage = data.rebuild_stage ?? null;
+      this.scheduleStatePoll();
     },
     onPopState() {
       const prefix = `/reviews/file_view/${this.pkgId}`;
@@ -200,6 +275,13 @@ export default {
       const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
+
+      // A re-unpack has the checkout torn down, so there is nothing to expand into. Keep what is on
+      // screen rather than replacing it with an empty file.
+      if (data.source.unavailable) {
+        this.notice = 'The sources are being unpacked, expanding is unavailable until reindexing finishes.';
+        return;
+      }
       this.meta.source = {id: this.meta.source.id, ...data.source};
     },
     onExtend(payload) {
@@ -337,7 +419,8 @@ export default {
       let results;
       try {
         ({res, data, results} = await submitSnippetDecisions(
-          queue.map(a => ({kind: a.action, snippetId: a.snippetId, formData: a.formData}))
+          queue.map(a => ({kind: a.action, snippetId: a.snippetId, formData: a.formData})),
+          {report: this.pkgId}
         ));
       } catch (err) {
         for (const action of queue) {
@@ -502,6 +585,9 @@ export default {
   padding: 24px 16px !important;
   text-align: center;
 }
+.file-browser-rebuild-progress {
+  padding: 0 0.85rem 0.75rem;
+}
 .file-browser-source.source {
   border: 0 !important;
   border-radius: 0;
@@ -514,7 +600,8 @@ export default {
 .file-browser-source .snippet tr.has-pattern-tooltip td.code {
   cursor: help;
 }
-.file-browser-too-large {
+.file-browser-too-large,
+.file-browser-unavailable {
   align-items: center;
   color: #59636e;
   display: flex;
@@ -525,11 +612,13 @@ export default {
   padding: 32px 16px;
   text-align: center;
 }
-.file-browser-too-large i {
+.file-browser-too-large i,
+.file-browser-unavailable i {
   color: #8c959f;
   font-size: 32px;
 }
-.file-browser-too-large strong {
+.file-browser-too-large strong,
+.file-browser-unavailable strong {
   color: #1f2328;
   font-size: 16px;
 }

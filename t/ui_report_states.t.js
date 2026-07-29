@@ -1,15 +1,26 @@
 #!/usr/bin/env node
-import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
+import {
+  assertNoUnexpectedConsoleErrors,
+  expandFileDetails,
+  fillInlinePatternBasics,
+  launchUi,
+  openCreatePatternEditor,
+  skipUnlessOnline,
+  waitForInlineSnippetEditorClosed
+} from './lib/ui_helpers.js';
 import t from 'tap';
 
 // Report header / placeholder behaviour for special package states. The
 // wrapper exposes /test/obsolete_with_report, /test/obsolete_without_report,
 // /test/empty_report and /test/restore_report_state to flip a package into
 // each shape and back; this file walks through all three to ensure the
-// right notice panel renders.
+// right notice panel renders. The reindex subtests at the end run a real
+// rebuild of the package one job at a time (via /perform_one_job) and never
+// reload the page, because noticing a rebuild and recovering from it without
+// a reload is the whole point of them.
 t.test('Cavil UI - report states', skipUnlessOnline, async t => {
   const ui = await launchUi('js_ui_report_states');
-  const {page, url, errorLogs} = ui;
+  const {context, page, performJobs, url, errorLogs} = ui;
 
   try {
     // Establish the admin session.
@@ -102,15 +113,18 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
       await page.waitForSelector('#license-chart');
       t.equal(await page.locator('[data-reindexing-notice]').count(), 0, 'no stale-report notice before reindexing');
 
-      // Click the real Reindex button, which enqueues an index job (left un-drained here) and reloads
-      // the page. Because indexing has not actually started, the previous report is still in the
-      // database, so the reviewer keeps seeing it - now flagged as being replaced.
+      // Click the real Reindex button, which enqueues an index job (left un-drained here). Because
+      // indexing has not actually started, the previous report is still in the database, so the reviewer
+      // keeps seeing it - now flagged as being replaced. The marker survives the click if the page was
+      // never reloaded on the way there.
+      await page.evaluate(() => (window.reindexedWithoutReload = true));
       await Promise.all([
         page.waitForResponse(resp => /reindex/.test(resp.url()) && resp.request().method() === 'POST'),
         page.click('#reindex_button')
       ]);
 
       await page.waitForSelector('#license-chart');
+      t.ok(await page.evaluate(() => window.reindexedWithoutReload), 'the reindex started without a page reload');
       await page.waitForSelector('[data-reindexing-notice]');
       t.ok(
         await page.locator('[data-reindexing-notice]').evaluate(el => el.classList.contains('cavil-notice-panel')),
@@ -118,10 +132,162 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
       );
       t.match(
         await page.locator('[data-reindexing-notice]').innerText(),
-        /will be replaced/,
-        'reviewer is told the report will be replaced'
+        /previous report, frozen/,
+        'reviewer is told the report is frozen until it is replaced'
       );
       t.ok(await page.locator('#license-chart').count(), 'previous report stays visible while reindex is queued');
+    });
+
+    await t.test('Indexing shows a muted staged bar and takes the file actions away', async t => {
+      // Run exactly one job in a second tab: the "index" job claims the package and starts writing the
+      // new report beside the old one, leaving its batches in the queue. The reviewer's tab is not
+      // reloaded, it has to pick the new stage up from its own state poll.
+      const stepPage = await context.newPage();
+      await stepPage.goto(`${url}/perform_one_job`, {timeout: 120000});
+      t.equal(await stepPage.locator('body').innerText(), 'index', 'the index job ran and claimed the package');
+      await stepPage.close();
+
+      const active = page.locator('[data-reindexing-notice] .progress-segment.is-active');
+      await active.filter({hasText: 'Indexing'}).waitFor({timeout: 20000});
+      t.equal((await active.innerText()).trim(), 'Indexing', 'the staged bar moved on from Queued without a reload');
+      t.equal(
+        await page.locator('[data-reindexing-notice] .report-progress-compact').count(),
+        1,
+        'the bar beside a readable report is the compact variant'
+      );
+      t.equal(
+        await page.locator('[data-reindexing-notice] .progress-meta').count(),
+        0,
+        'and drops the "Preparing report" chrome that would compete with the report'
+      );
+      t.ok(await page.locator('#license-chart').count(), 'the previous report is still there to read');
+
+      // Everything that would write to the report the reviewer is looking at is gone from the file
+      // previews, while the file itself stays readable.
+      const fileHref = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = fileHref.replace('#file-', '');
+      await expandFileDetails(page, fileId);
+      t.ok(await page.locator(`#file-details-${fileId} table.snippet tr`).count(), 'the file is still readable');
+      t.equal(await page.locator(`#file-details-${fileId} td.actions`).count(), 0, 'the line action menus are gone');
+      t.equal(
+        await page.locator(`#file-details-${fileId} td.quick-actions`).count(),
+        0,
+        'and so is the quick "create pattern" button'
+      );
+    });
+
+    // Opened while the rebuild runs and left open across the next two subtests, because the file browser
+    // has to notice the end of the rebuild by itself just like the report page does.
+    const browserPage = await context.newPage();
+
+    await t.test('The file browser pauses pattern work for the same rebuild', async t => {
+      // A reviewer who walks into the checkout mid-rebuild gets the same answer the report page gives.
+      // The state rides along with the very first payload, so the actions never appear and then vanish
+      // from under the cursor.
+      await browserPage.goto(`${url}/reviews/file_view/1/Mojolicious-7.25/lib/Mojolicious.pm`);
+      await browserPage.waitForSelector('.file-browser-source table.snippet');
+      t.match(
+        await browserPage.innerText('.file-browser-source'),
+        /package Mojolicious;/,
+        'the file itself is still readable'
+      );
+
+      await browserPage.waitForSelector('[data-reindexing-notice]');
+      t.match(
+        await browserPage.innerText('[data-reindexing-notice]'),
+        /Pattern creation is frozen/,
+        'the reviewer is told why the browser went quiet'
+      );
+      t.equal(
+        (await browserPage.locator('[data-reindexing-notice] .progress-segment.is-active').innerText()).trim(),
+        'Indexing',
+        'and sees the same stage as on the report page'
+      );
+      t.equal(
+        await browserPage.locator('[data-reindexing-notice] .report-progress-compact').count(),
+        1,
+        'in the same compact bar'
+      );
+      t.equal(
+        await browserPage.locator('.file-browser-source td.actions').count(),
+        0,
+        'the line action menus are gone'
+      );
+      t.equal(
+        await browserPage.locator('.file-browser-source td.quick-actions').count(),
+        0,
+        'and so is the quick "create pattern" button'
+      );
+    });
+
+    await t.test('The finished rebuild replaces the report on its own', async t => {
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
+
+      // No reload: the state poll sees the rebuild end and fetches the new report in its place.
+      await page.locator('[data-reindexing-notice]').waitFor({state: 'detached', timeout: 30000});
+      await page.waitForSelector('#license-chart');
+      t.ok(await page.locator('#filelist-snippets a.file-link').count(), 'the new report is complete');
+
+      const fileHref = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = fileHref.replace('#file-', '');
+      await expandFileDetails(page, fileId);
+      t.ok(await page.locator(`#file-details-${fileId} td.actions`).count(), 'and can be worked on again');
+    });
+
+    await t.test('The file browser opens back up once the new report lands', async t => {
+      // No reload here either. The browser watches the same state endpoint, and when the promote lands it
+      // fetches the whole path again: the new report has new matched file rows, so the ids this page was
+      // holding are stale.
+      await browserPage.locator('[data-reindexing-notice]').waitFor({state: 'detached', timeout: 30000});
+      await browserPage.waitForSelector('.file-browser-source table.snippet');
+      t.ok(
+        await browserPage.locator('.file-browser-source td.actions').count(),
+        'patterns can be created from the checkout again'
+      );
+      await browserPage.close();
+    });
+
+    await t.test('A rebuild somebody else starts pauses a batch that is still being filled', async t => {
+      // A reviewer stages a pattern the usual way, and while the batch is still open the package is
+      // reindexed from somewhere else - in production that is a pattern created against a completely
+      // different report. The staged work is the reviewer's, so it is kept exactly as it is; it just
+      // cannot be submitted against a report that is about to be replaced.
+      const fileHref = await page.locator('#filelist-snippets a.file-link').first().getAttribute('href');
+      const fileId = fileHref.replace('#file-', '');
+      await expandFileDetails(page, fileId);
+      await openCreatePatternEditor(page, fileId);
+      await fillInlinePatternBasics(page, 'Paused-By-Rebuild-1.0');
+      await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
+      await waitForInlineSnippetEditorClosed(page);
+      await page.waitForSelector('#pending-actions-widget');
+
+      const otherPage = await context.newPage();
+      await otherPage.goto(`${url}/reviews/details/1`);
+      await otherPage.waitForSelector('#license-chart');
+      await Promise.all([
+        otherPage.waitForResponse(resp => /reindex/.test(resp.url()) && resp.request().method() === 'POST'),
+        otherPage.click('#reindex_button')
+      ]);
+      await otherPage.close();
+
+      // A settled report keeps a slow watch of its own, so the reviewer sees the notice appear instead
+      // of finding out when the batch is refused.
+      await page.locator('[data-reindexing-notice]').waitFor({timeout: 25000});
+
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      t.match(
+        await page.innerText('#pending-actions-widget'),
+        /Paused-By-Rebuild-1.0/,
+        'the staged pattern is still in the batch'
+      );
+      t.match(
+        await page.innerText('#pending-actions-widget .pending-actions-paused'),
+        /Waiting for the new report/,
+        'the widget explains why it is waiting'
+      );
+      t.equal(await page.locator('#pending-actions-submit').isDisabled(), true, 'and the batch cannot be submitted');
     });
 
     t.test('Console errors', t => {

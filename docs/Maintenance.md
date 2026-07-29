@@ -16,11 +16,10 @@ already explain what happened. For example `obs_import` jobs commonly fail with 
 issues. Such cases can just be restarted by selecting the checkbox at the beginning of the job entry, and then clicking
 the `Retry` button at the top.
 
-Be aware that some jobs have locks associated with them, which need to be released before they can be retried (or they
-will finish without actually performing their task). To check you can look for a `pkg_$id: 1` entry (where `$id` is the
-package id) in the notes section of the job metadata. Then use the `Locks` entry at the top to search for locks with
-names like `processing_pkg_$id`, and release them (simialr to how you would retry a job) before actually retrying the
-job.
+Jobs that work on a package (look for a `pkg_$id: 1` entry, where `$id` is the package id, in the notes section of the
+job metadata) claim it for their duration, and a job that died with its worker leaves that claim behind. Just retry it,
+the claim names the job holding it, so the retried job takes it back. If you remove the job instead, the nightly
+cleanup releases the package and requeues the work it never finished.
 
 Not all failures will be as self explanatory as HTTP timeouts and might require more investigation.
 

@@ -98,9 +98,11 @@
             data-reindexing-notice
           >
             <p class="cavil-notice-summary">
-              This package is being reindexed. The report below is the previous version and will be replaced
-              automatically once the new report is ready.
+              You are reading the previous report, frozen until the new one replaces it.
             </p>
+            <div v-if="rebuildStage" class="reindexing-progress">
+              <ProgressBar :stage="rebuildStage" :labels="rebuildLabels" compact />
+            </div>
           </CavilNoticePanel>
           <LicenseCompositionChart
             id="license-chart"
@@ -261,14 +263,18 @@
                 </div>
               </div>
               <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
+                <div v-if="file.sourceUnavailable" class="file-source-unavailable">
+                  The sources are being unpacked, this file becomes readable again once reindexing finishes.
+                </div>
                 <FileSource
-                  v-if="file.source"
+                  v-else-if="file.source"
                   :lines="file.source.lines"
                   :file-id="file.id"
                   :filename="file.source.filename"
                   :packname="file.source.name"
                   :has-admin-role="hasAdminRole"
                   :has-contributor-role="hasContributorRole"
+                  :read-only="reindexing"
                   :pending-actions="pendingActionsForFile(file.id)"
                   :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
                   @extend="onExtend(file, $event)"
@@ -328,7 +334,7 @@
 
           <br />
         </div>
-        <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" />
+        <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" :read-only="reindexing" />
         <GlobProposalModal ref="globProposalModal" @submit="onGlobProposalSubmit" />
       </div>
       <div
@@ -490,6 +496,12 @@ let pendingActionIdSeq = 0;
 let openEditorKeySeq = 0;
 const COMPONENT_LICENSE_CHART_LIMIT = 7;
 
+// The stages a rebuild of an existing report goes through, matching Cavil::Plugin::Helpers. A reindex that
+// reuses the sources it already has skips "Unpacking" and the bar simply advances past it.
+const REBUILD_LABELS = ['Queued', 'Unpacking', 'Indexing', 'Analyzing'];
+const STATE_POLL_DELAY = 5000;
+const IDLE_POLL_DELAY = 15000;
+
 export default {
   name: 'ReportDetails',
   components: {
@@ -548,6 +560,10 @@ export default {
       packageObsolete: !!this.isObsolete,
       reportUnavailable: false,
       reindexing: false,
+      rebuildStage: null,
+      rebuildLabels: REBUILD_LABELS,
+      reportChecksum: null,
+      statePollTimer: null,
       seekNoteId: null,
       refreshDelay: 5000,
       refreshUrl: `/reviews/report_details/${this.pkgId}`,
@@ -620,6 +636,10 @@ export default {
     window.removeEventListener('keydown', this.handleKeydown);
     window.removeEventListener('scroll', this.scheduleStickyFileHeaderUpdate);
     window.removeEventListener('resize', this.scheduleStickyFileHeaderUpdate);
+    if (this.statePollTimer !== null) {
+      clearTimeout(this.statePollTimer);
+      this.statePollTimer = null;
+    }
     if (this.stickyFileHeaderFrame !== null) {
       cancelAnimationFrame(this.stickyFileHeaderFrame);
       this.stickyFileHeaderFrame = null;
@@ -726,6 +746,7 @@ export default {
         this.refreshDelay = 0;
         this.reportUnavailable = true;
         this.reindexing = false;
+        this.rebuildStage = null;
         this.chart = null;
         this.licenseCompatibility = {licenses: [], matrix: {}};
         this.missedFiles = [];
@@ -745,15 +766,22 @@ export default {
         this.stage = data.stage ?? null;
         this.refreshDelay = 5000;
         this.reindexing = false;
+        this.rebuildStage = null;
         return;
       }
 
       this.loading = false;
       this.reportUnavailable = false;
-      // Keep polling while a reindex is queued so the stale report is swapped for the fresh one
-      // automatically; otherwise a fully up-to-date report needs no further refreshes.
+
+      // The report itself is not refetched on a timer anymore. From here on the cheap state poll watches
+      // for a rebuild - one that is running now, or one somebody else starts later - and asks for the
+      // whole report again only when there is a new one to show.
+      this.refreshDelay = 0;
       this.reindexing = !!data.reindexing;
-      this.refreshDelay = data.reindexing ? 5000 : 0;
+      this.rebuildStage = data.rebuild_stage ?? null;
+      this.reportChecksum = data.checksum ?? null;
+      this.scheduleStatePoll();
+
       this.chart = data.chart;
       this.licenseCompatibility = data.license_compatibility ?? {licenses: [], matrix: {}};
       this.missedFiles = data.missed_files;
@@ -784,13 +812,17 @@ export default {
       }
       this.risks = data.risks;
 
-      const existing = new Map(this.files.map(f => [f.id, f]));
+      // Which previews are open is remembered by path, not by id: a reindex deletes and recreates every
+      // matched_files row, so after a swap the ids are all new while the paths are the same. The cached
+      // source belongs to the old row though, so it is dropped and refetched below whenever the id moved.
+      const existing = new Map(this.files.map(f => [f.path, f]));
       this.files = data.files.map(f => {
-        const prev = existing.get(f.id);
+        const prev = existing.get(f.path);
         return {
           ...f,
           expanded: prev ? prev.expanded : f.expand,
-          source: prev ? prev.source : null
+          source: prev && prev.id === f.id ? prev.source : null,
+          sourceUnavailable: false
         };
       });
 
@@ -801,6 +833,52 @@ export default {
         this.handleInitialHash();
         this.scheduleStickyFileHeaderUpdate();
       });
+    },
+    scheduleStatePoll() {
+      if (this.statePollTimer !== null) return;
+      this.statePollTimer = setTimeout(this.pollReportState, this.reindexing ? STATE_POLL_DELAY : IDLE_POLL_DELAY);
+    },
+
+    // Called when the reviewer starts a rebuild from the Reindex button. The report goes read-only
+    // immediately instead of at the end of the slow idle tick, which may be a quarter minute away.
+    watchRebuild() {
+      this.reindexing = true;
+      if (this.rebuildStage === null) this.rebuildStage = 1;
+      if (this.statePollTimer !== null) {
+        clearTimeout(this.statePollTimer);
+        this.statePollTimer = null;
+      }
+      this.scheduleStatePoll();
+    },
+
+    // A rebuild is usually started by somebody else - a license pattern created against a completely
+    // different package - so a settled report keeps a slow watch too, and the reviewer sees the notice
+    // appear instead of finding out when a batch is refused. Watching costs one small request per tick
+    // rather than assembling the whole report again, and the full report is refetched exactly once: when
+    // the rebuild is over, or a new one has been promoted in its place.
+    async pollReportState() {
+      this.statePollTimer = null;
+
+      let data;
+      try {
+        const ua = new UserAgent({baseURL: window.location.href});
+        const res = await ua.get(`/reviews/report_state/${this.pkgId}`);
+        data = await res.json();
+      } catch (err) {
+        // Nothing on screen is wrong, the server just did not answer; try again on the next tick.
+        this.scheduleStatePoll();
+        return;
+      }
+
+      const promoted = data.checksum && this.reportChecksum && data.checksum !== this.reportChecksum;
+      if (promoted || (this.reindexing && !data.reindexing)) {
+        await this.doApiRefresh();
+        return;
+      }
+
+      this.reindexing = !!data.reindexing;
+      this.rebuildStage = data.rebuild_stage ?? null;
+      this.scheduleStatePoll();
     },
     handleInitialHash() {
       if (this.hashHandled) return;
@@ -855,7 +933,14 @@ export default {
       const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
-      file.source = data.source;
+
+      // A re-unpack has the checkout torn down, so there is no source to show. Say that instead of
+      // rendering an empty file, and leave any preview already on screen alone.
+      if (data.source.unavailable) file.sourceUnavailable = true;
+      else {
+        file.sourceUnavailable = false;
+        file.source = data.source;
+      }
       this.$nextTick(this.scheduleStickyFileHeaderUpdate);
     },
     onExtend(file, payload) {
@@ -1114,7 +1199,7 @@ export default {
       let data;
       let results;
       try {
-        ({res, data, results} = await submitSnippetDecisions(body.actions));
+        ({res, data, results} = await submitSnippetDecisions(body.actions, {report: this.pkgId}));
       } catch (err) {
         for (const action of queue) {
           action.state = 'error';
@@ -1126,6 +1211,19 @@ export default {
       if (res.isSuccess && data && data.ok) {
         // All actions committed - reload to show fresh report.
         window.location.reload();
+        return;
+      }
+
+      // A rebuild started while the batch was being staged, so the server refused it as a whole and nothing
+      // was written. The changes are kept exactly as they are; the page switches to its rebuilding state and
+      // the reviewer can submit them the moment the new report lands.
+      if (data && data.reindexing) {
+        for (const action of queue) {
+          action.state = 'pending';
+          action.error = null;
+        }
+        this.reindexing = true;
+        this.scheduleStatePoll();
         return;
       }
 
@@ -1154,6 +1252,11 @@ export default {
 </script>
 
 <style>
+/* The bar lines up with the sentence above it rather than running edge to edge, so the notice reads as
+   one block instead of a panel with a strip stuck to its bottom */
+.reindexing-progress {
+  padding: 0 0.85rem 0.75rem;
+}
 .report-tabs {
   align-items: stretch;
   border-bottom: 1px solid #d0d7de;
@@ -1712,6 +1815,12 @@ a.report-component-name:focus {
 .file-preview-close i {
   font-size: 12px;
   line-height: 1;
+}
+.file-source-unavailable {
+  color: #59636e;
+  font-size: 13px;
+  padding: 16px;
+  text-align: center;
 }
 .file-action-link {
   color: #57606a;

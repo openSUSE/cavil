@@ -18,15 +18,12 @@ sub run ($self, @args) {
   my $id = shift @args;
   die "ID is required.\n" unless $id;
 
-  my $app    = $self->app;
-  my $minion = $app->minion;
-  if ($minion->is_locked("processing_pkg_$id")) {
-    print STDOUT "Releasing locks for package $id\n";
-    $minion->unlock("processing_pkg_$id");
-  }
+  my $app  = $self->app;
+  my $pkgs = $app->packages;
+  print STDOUT "Releasing package $id\n" if $pkgs->force_release($id);
 
-  if   (my $job = $app->packages->unpack($id)) { print STDOUT "Triggered unpack job $job\n" }
-  else                                         { print STDOUT "Unpacking already in progress\n" }
+  if   (my $job = $pkgs->unpack($id)) { print STDOUT "Triggered unpack job $job\n" }
+  else                                { print STDOUT "Unpacking already in progress\n" }
 }
 
 # Re-unpack one batch of the oldest non-obsolete packages after $offset, at a low

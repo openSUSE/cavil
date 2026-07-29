@@ -63,11 +63,15 @@
           </div>
         </li>
       </ul>
+      <div v-if="readOnly" class="pending-actions-paused" role="status">
+        <i class="fa-solid fa-arrows-rotate"></i>
+        Waiting for the new report before these can be submitted.
+      </div>
       <div class="pending-actions-footer">
         <button
           type="button"
           class="btn btn-success"
-          :disabled="submitting || !pendingCount"
+          :disabled="submitting || !pendingCount || readOnly"
           @click="onSubmit"
           id="pending-actions-submit"
         >
@@ -103,6 +107,12 @@ const ACTION_LABELS = {
 export default {
   name: 'PendingActionsWidget',
   inject: ['pendingActionsStore'],
+
+  // Set while the report these changes were staged against is being rebuilt. The batch is kept exactly as
+  // it is - it is the reviewer's work - it just cannot be submitted until the new report lands.
+  props: {
+    readOnly: {type: Boolean, default: false}
+  },
   data() {
     return {
       expanded: false
@@ -261,5 +271,15 @@ export default {
   border-top: 1px solid #d0d7de;
   background: #f6f8fa;
   border-radius: 0 0 6px 6px;
+}
+.pending-actions-paused {
+  align-items: baseline;
+  background: #ddf4ff;
+  border-top: 1px solid #b6e3ff;
+  color: #0a3069;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  padding: 8px 16px;
 }
 </style>

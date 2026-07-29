@@ -427,11 +427,18 @@ subtest 'MCP' => sub {
         is $result->{content}[0]{text}, 'No report available', 'no report message';
       };
 
-      subtest 'Package being processed' => sub {
-        my $id     = $t->app->minion->enqueue(index => [1] => {notes => {pkg_1 => 1}});
+      subtest 'A queued rebuild does not take the report away' => sub {
+
+        # Put back the report the subtest above deleted, then queue another rebuild on top of it. That one
+        # is assembled beside the live report and only replaces it in the very last commit, so there is a
+        # complete report to hand out for the whole ride.
+        $t->app->minion->enqueue(index => [1] => {notes => {pkg_1 => 1}});
+        $t->app->minion->perform_jobs;
+
+        $t->app->minion->enqueue(index => [1] => {notes => {pkg_1 => 1}});
         my $result = $client->call_tool('cavil_get_report', {package_id => 1});
-        ok $result->{isError}, 'is error';
-        is $result->{content}[0]{text}, 'Package is being processed, please try again later', 'processing message';
+        ok !$result->{isError}, 'not an error';
+        like $result->{content}[0]{text}, qr/Package:.+perl-Mojolicious/, 'the live report is served anyway';
         $t->app->minion->perform_jobs;
       };
 

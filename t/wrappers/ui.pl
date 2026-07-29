@@ -65,6 +65,24 @@ $app->routes->get(
   }
 );
 
+# Run exactly one job and stop, so a test can look at a package while its rebuild is halfway through:
+# the "index" job has claimed it and left its batches in the queue. Minion only finishes a job for us
+# when it runs the whole queue, so a single step has to do it here or the children never become
+# dequeueable.
+$app->routes->get(
+  '/perform_one_job' => sub ($c) {
+    my $worker = $c->minion->worker->register;
+    my $task   = 'none';
+    if (my $job = $worker->dequeue(0)) {
+      $task = $job->task;
+      my $err = $job->execute;
+      $err ? $job->fail($err) : $job->finish;
+    }
+    $worker->unregister;
+    $c->render(text => $task);
+  }
+);
+
 $app->routes->get(
   '/login_as_contributor' => sub ($c) {
     my $user = $c->users->find_or_create(

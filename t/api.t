@@ -120,9 +120,12 @@ subtest 'Create package' => sub {
     ->status_is(200)
     ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')
     ->json_is('/saved/id',           1);
+
+  # Nothing has been indexed yet, which is the only reason there is no report to serve here - the import
+  # job being queued is not one
   $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})
     ->status_is(408)
-    ->content_like(qr/package being processed/);
+    ->content_like(qr/not indexed/);
   $t->app->minion->on(
     worker => sub {
       my ($minion, $worker) = @_;

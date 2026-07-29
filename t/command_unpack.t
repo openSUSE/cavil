@@ -63,21 +63,22 @@ subtest 'Unpack' => sub {
   my $job    = $worker->dequeue(0);
   $job->fail('Something went wrong');
 
-  subtest 'Unlock failed prior attempt' => sub {
+  subtest 'Release failed prior attempt' => sub {
     is $app->minion->jobs({tasks => ['unpack']})->total, 2, 'two unpack jobs';
-    $minion->lock('processing_pkg_2', 172800);
+    ok $app->packages->claim(2, 999999), 'package still claimed by the failed job';
     my $buffer = '';
     {
       open my $handle, '>', \$buffer;
       local *STDOUT = $handle;
       $app->start('unpack', '2');
     }
-    like $buffer, qr/Releasing locks for package 2/, 'package locks released';
-    like $buffer, qr/Triggered unpack job/,          'unpack job triggered';
-    is $app->minion->jobs({tasks => ['unpack']})->total, 3, 'three unpack jobs';
+    like $buffer, qr/Releasing package 2/,  'package released';
+    like $buffer, qr/Triggered unpack job/, 'unpack job triggered';
+    is $app->packages->find(2)->{processing_job},        undef, 'no claim left on the package';
+    is $app->minion->jobs({tasks => ['unpack']})->total, 3,     'three unpack jobs';
   };
 
-  subtest 'Re-unpack clears indexed timestamp for progress bar' => sub {
+  subtest 'Re-unpack keeps the existing report readable' => sub {
     my $pkg = $app->packages->find(2);
     ok $pkg->{imported}, 'imported timestamp set';
     ok $pkg->{unpacked}, 'unpacked timestamp set';
@@ -89,9 +90,11 @@ subtest 'Unpack' => sub {
     is $job->execute, undef,    'no error';
     $worker->unregister;
 
+    # An admin re-unpacking a package must not drop everybody reading its report onto a progress bar:
+    # the report stays live until the rebuild has a new one to put in its place
     $pkg = $app->packages->find(2);
     ok $pkg->{unpacked}, 'unpacked timestamp set again';
-    is $pkg->{indexed}, undef, 'indexed timestamp cleared';
+    ok $pkg->{indexed},  'indexed timestamp kept';
   };
 };
 

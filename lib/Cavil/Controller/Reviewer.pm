@@ -82,18 +82,29 @@ sub file_view_meta ($self) {
   my $file     = $ctx->{file};
   my $filename = $ctx->{filename};
   my $package  = $ctx->{package};
-  my $payload  = {
+
+  # The browser turns read-only for the same reason the report page does: it decides against a report
+  # that is about to be replaced, and the server would refuse the whole batch anyway. Sent with the very
+  # first payload so the actions never appear and then vanish; kept fresh by /reviews/report_state.
+  my $state   = $self->helpers->reindex_state($package);
+  my $payload = {
     package => {
       id         => $package->{id},
       name       => $package->{name},
       detailsUrl => $self->url_for('package_details', id => $package->{id})->to_string
     },
-    checkoutDir => $package->{checkout_dir},
-    currentPath => $filename,
-    breadcrumbs => $self->_file_browser_breadcrumbs($package, $filename)
+    checkoutDir  => $package->{checkout_dir},
+    currentPath  => $filename,
+    breadcrumbs  => $self->_file_browser_breadcrumbs($package, $filename),
+    checksum     => $state->{checksum},
+    reindexing   => $state->{reindexing},
+    rebuildStage => $state->{rebuild_stage}
   };
 
-  if (-d $file) {
+  if ($ctx->{unavailable}) {
+    $payload->{kind} = 'unavailable';
+  }
+  elsif (-d $file) {
     $payload->{kind}    = 'directory';
     $payload->{entries} = $self->_file_browser_entries($package, $file, $filename);
   }
@@ -125,8 +136,14 @@ sub _file_browser_context ($self) {
     return undef;
   }
 
-  my $file
-    = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked', $filename);
+  my $unpacked = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked');
+
+  # No unpacked tree at all, which normally means it is being torn down and rebuilt right now (an admin
+  # running "script/cavil unpack", a re-import). The report itself keeps working throughout, so this is a
+  # temporary gap in the file browser and not a missing page - the callers say so rather than 404ing.
+  return {filename => $filename, package => $package, unavailable => 1} unless -d $unpacked;
+
+  my $file = $unpacked->child($filename);
   unless (-e $file) {
     $self->reply->not_found;
     return undef;
@@ -191,8 +208,11 @@ sub _file_browser_entries ($self, $package, $file, $filename) {
 sub _file_browser_source ($self, $package, $file, $filename) {
   my $file_id = 0;
   my %info_by_line;
-  if (my $matched
-    = $self->app->pg->db->select('matched_files', ['id'], {package => $package->{id}, filename => $filename})->hash)
+  if (
+    my $matched
+    = $self->app->pg->db->select('matched_files', ['id'],
+      {package => $package->{id}, filename => $filename, generation => 0})->hash
+    )
   {
     $file_id      = $matched->{id};
     %info_by_line = %{$self->snippets->file_line_info($package->{id}, $file_id)};
@@ -237,9 +257,12 @@ sub reindex_package ($self) {
   # A reviewer explicitly asked for this package to be reindexed and is waiting on the fresh report,
   # so it must outrank routine incoming imports (priority 5). Otherwise the reindex queues behind the
   # whole import backlog (Minion breaks priority ties FIFO) and the reviewer waits for unrelated work.
-  return $self->reply->not_found unless $self->packages->reindex($self->stash('id'), 6);
+  # A package that is already rebuilding is not an error: the request is recorded and runs right after,
+  # so the answer is "queued", not "not found" - only an ineligible package (gone, obsolete, never
+  # indexed) is a 404.
+  return $self->reply->not_found unless my $queued = $self->packages->reindex($self->stash('id'), 6);
 
-  return $self->render(json => {ok => 1});
+  return $self->render(json => {ok => 1, queued => $queued});
 }
 
 sub review_package ($self) {

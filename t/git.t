@@ -119,8 +119,8 @@ subtest 'Local git' => sub {
       my $worker = $minion->worker->register;
       my $job_id = $minion->jobs({tasks => ['git_import']})->next->{id};
       ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
-      is $job->execute, undef, 'no error';
-      ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+      is $job->execute,                                undef, 'no error';
+      is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
       $worker->unregister;
       ok $t->app->packages->is_imported(1), 'imported';
 
@@ -132,9 +132,8 @@ subtest 'Local git' => sub {
       my $minion = $t->app->minion;
       my $worker = $minion->worker->register;
       my $job_id = $minion->jobs({tasks => ['git_import']})->next->{id};
-      ok $minion->job($job_id)->retry, 'import job retried';
-      my $guard = $minion->guard('processing_pkg_1', 172800);
-      ok !$minion->lock('processing_pkg_1', 0), 'lock exists';
+      ok $minion->job($job_id)->retry,                          'import job retried';
+      ok my $guard = $t->app->packages->claim_guard(1, 999999), 'package claimed by another job';
       $worker->register;
       ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
       is $job->execute, undef, 'no error';
@@ -142,7 +141,7 @@ subtest 'Local git' => sub {
         'race condition prevented';
       $worker->unregister;
       undef $guard;
-      ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+      is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
     };
   };
 };
@@ -206,8 +205,8 @@ subtest 'Live git server tests' => sub {
       my $worker = $minion->worker->register;
       my $job_id = $minion->jobs({tasks => ['git_import']})->next->{id};
       ok my $job = $worker->dequeue(0, {id => $job_id}), 'job dequeued';
-      is $job->execute, undef, 'no error';
-      ok $minion->lock('processing_pkg_1', 0), 'lock no longer exists';
+      is $job->execute,                                undef, 'no error';
+      is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
       $worker->unregister;
       ok $t->app->packages->is_imported(1), 'imported';
 

@@ -344,8 +344,12 @@ sub generate_to_file ($self, $id, $file) {
   }
 
   # Files contained in the primary component
+  # The live report only (generation 0): a reindex building alongside it has its own row per filename,
+  # and letting both into this filename-keyed map would silently pick one at random per file
   my $matched_files = {};
-  for my $matched ($db->query('SELECT id, filename FROM matched_files WHERE package = ?', $id)->hashes->each) {
+  for my $matched (
+    $db->query('SELECT id, filename FROM matched_files WHERE package = ? AND generation = 0', $id)->hashes->each)
+  {
     $matched_files->{$matched->{filename}} = $matched->{id};
   }
 
@@ -418,7 +422,9 @@ sub generate_to_file ($self, $id, $file) {
 
   # Vendored subcomponents detected during indexing (name/version/license/purl from their embedded
   # metadata), related to the primary component as dependencies
-  for my $c ($db->query('SELECT * FROM package_components WHERE package = ? ORDER BY purl', $id)->hashes->each) {
+  for my $c ($db->query('SELECT * FROM package_components WHERE package = ? AND generation = 0 ORDER BY purl', $id)
+    ->hashes->each)
+  {
     my $cid  = $iri->("component-$c->{id}");
     my $node = {
       type               => 'software_Package',

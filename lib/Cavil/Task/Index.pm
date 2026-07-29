@@ -33,18 +33,42 @@ sub _index ($job, $id) {
     return $job->fail("Package $id is not unpacked yet (gave up after $retries retries)") if $retries >= 10;
     return $job->retry({delay => 60});
   }
-  return $job->finish("Package $id is already being processed") unless $minion->lock("processing_pkg_$id", 172800);
 
-  # Clean up (make sure not to leak a Postgres connection)
+  # This build gets its own report generation and writes every row under it, leaving the live report
+  # (generation 0) untouched and readable until Cavil::Task::Analyze promotes the new one in a single
+  # transaction. A reviewer who creates a license pattern therefore keeps the report they were reading
+  # instead of being dropped onto a progress bar for the length of the rebuild. Using the job id as the
+  # generation means the cleanup task can ask Minion whether stranded rows still have a live owner.
+  my $generation = $job->id;
+
+  # Claiming the package is what protects the build from race conditions, and the claim is the generation:
+  # the analyze job at the end of the chain hands it back as it promotes. Losing the race must not lose the
+  # rebuild with it. Cavil::Model::Packages::reindex checks before enqueuing, but somebody else can still
+  # claim in between - an spdx report, the analyzed job of the build that just promoted - and this job
+  # writes nothing, so there would be no stranded rows for the cleanup sweep to notice and nothing to say a
+  # rebuild was ever due. Record it the same way a request that arrives during a build is recorded, and
+  # whoever frees the package up runs it.
+  unless ($pkgs->claim($id, $generation)) {
+    $pkgs->request_reindex($id);
+    return $job->finish("Package $id is already being processed, remembered the reindex for later");
+  }
+
+  # Make sure not to leak a Postgres connection
   {
     my $db = $app->pg->db;
-    $db->update('bot_packages', {indexed => undef, checksum => undef}, {id => $id});
-    $db->delete('matched_files',      {package => $id});
-    $db->delete('urls',               {package => $id});
-    $db->delete('emails',             {package => $id});
-    $db->delete('package_components', {package => $id});
-    $db->delete('bot_reports',        {package => $id});
+    my $tx = $db->begin;
 
+    # Only our own leftovers, from an earlier attempt of this same job. Other non-zero generations are
+    # left alone on purpose: "script/cavil unpack" force-releases the package, so a second build can
+    # legitimately be running, and wiping its rows would corrupt it. The cleanup task sweeps those.
+    $db->delete($_, {package => $id, generation => $generation}) for qw(package_components urls emails matched_files);
+
+    $db->update('bot_packages', {index_stage => 'indexing'}, {id => $id});
+    $tx->commit;
+
+    # The SPDX report lives in the checkout directory, where a stale copy left behind for the duration of
+    # the rebuild would be picked up by the next unpack and indexed as if it were a file of the package.
+    # Being briefly unavailable is the lesser problem, so it goes now and is regenerated on demand.
     $pkgs->remove_spdx_report($id);
   }
 
@@ -62,15 +86,16 @@ sub _index ($job, $id) {
   my $parent_id = $job->id;
   my $prio      = $job->info->{priority};
   my @children  = map {
-    $minion->enqueue(
-      index_batch => [$id, $_] => {parents => [$parent_id], priority => $prio + 1, notes => {"pkg_$id" => 1}})
+    $minion->enqueue(index_batch => [$id, $_, $generation] =>
+        {parents => [$parent_id], priority => $prio + 1, notes => {"pkg_$id" => 1}})
   } @$batches;
-  $minion->enqueue(indexed => [$id] => {parents => \@children, priority => $prio + 2, notes => {"pkg_$id" => 1}});
+  $minion->enqueue(
+    indexed => [$id, $generation] => {parents => \@children, priority => $prio + 2, notes => {"pkg_$id" => 1}});
 
   $log->info("[$id] Made @{[scalar @$batches]} batches for $dir");
 }
 
-sub _index_batch ($job, $id, $batch) {
+sub _index_batch ($job, $id, $batch, $generation) {
   my $app = $job->app;
   my $log = $app->log;
   $app->plugins->emit_hook('before_task_index_batch');
@@ -78,7 +103,7 @@ sub _index_batch ($job, $id, $batch) {
   my $start = time;
 
   my $db       = $app->pg->db;
-  my $fi       = Cavil::FileIndexer->new($app, $id, $db);
+  my $fi       = Cavil::FileIndexer->new($app, $id, $db, $generation);
   my $preptime = time - $start;
 
   my $registry    = Cavil::Bom::Registry->new;
@@ -102,9 +127,9 @@ sub _index_batch ($job, $id, $batch) {
   for my $url (sort keys %{$meta{urls}}) {
     next if length($url) > $max;
     $db->query(
-      'insert into urls (package, url, hits) values ($1, $2, $3)
-         on conflict (package, md5(url))
-         do update set hits = urls.hits + $3', $id, $url, $meta{urls}{$url}
+      'insert into urls (package, url, hits, generation) values ($1, $2, $3, $4)
+         on conflict (package, md5(url), generation)
+         do update set hits = urls.hits + $3', $id, $url, $meta{urls}{$url}, $generation
     );
   }
 
@@ -113,10 +138,10 @@ sub _index_batch ($job, $id, $batch) {
     next if length($email) > $max;
     my $e = $meta{emails}{$email};
     $db->query(
-      'insert into emails (package, email, name, hits)
-           values ($1, $2, $3, $4)
-         on conflict (package, md5(email))
-         do update set hits = emails.hits + $4', $id, $email, $e->{name}, $e->{count}
+      'insert into emails (package, email, name, hits, generation)
+           values ($1, $2, $3, $4, $5)
+         on conflict (package, md5(email), generation)
+         do update set hits = emails.hits + $4', $id, $email, $e->{name}, $e->{count}, $generation
     );
   }
 
@@ -125,11 +150,11 @@ sub _index_batch ($job, $id, $batch) {
   for my $purl (sort keys %{$meta{components}}) {
     my $c = $meta{components}{$purl};
     $db->query(
-      'insert into package_components (package, purl, type, name, version, license, source, complete)
-           values ($1, $2, $3, $4, $5, $6, $7, true)
-         on conflict (package, md5(purl))
+      'insert into package_components (package, purl, type, name, version, license, source, complete, generation)
+           values ($1, $2, $3, $4, $5, $6, $7, true, $8)
+         on conflict (package, md5(purl), generation)
          do update set license = coalesce(package_components.license, excluded.license)', $id, $purl, $c->{type},
-      $c->{name}, $c->{version}, $c->{license}, $c->{source}
+      $c->{name}, $c->{version}, $c->{license}, $c->{source}, $generation
     );
   }
 
@@ -194,19 +219,18 @@ sub _index_later ($job, $id) {
   $job->app->packages->reindex($id, $job->info->{priority} + 1);
 }
 
-sub _indexed ($job, $id) {
-  my $app    = $job->app;
-  my $minion = $job->minion;
-  my $pkgs   = $job->app->packages;
+sub _indexed ($job, $id, $generation) {
+  my $pkgs = $job->app->packages;
 
-  # Protect from race conditions
-  $minion->unlock("processing_pkg_$id");
-
-  $pkgs->indexed($id);
+  # The package is deliberately *not* handed back here: analyze still has to promote this build into the
+  # live report, and that swap needs the same protection the indexing did. The promote releases it as part
+  # of the same transaction. "indexed" is bumped by the promote too, so the package only counts as
+  # reindexed once the new report is actually the one being served.
+  $pkgs->index_stage($id, 'analyzing');
 
   # Next step - always high prio because the renderer
   # relies on it
-  return $pkgs->analyze($id, 9, [$job->id]);
+  return $pkgs->analyze($id, 9, [$job->id], $generation);
 }
 
 sub _reindex_all ($job) {

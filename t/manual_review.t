@@ -336,8 +336,10 @@ subtest 'Reindex (with updated stats)' => sub {
     is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'one index job';
   };
 
-  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/package being processed/);
+  # A queued rebuild does not take the report away, the reviewer keeps the one they were reading
+  $t->get_ok('/reviews/report/1.json')->status_is(200)->json_has('/report/licenses');
   $t->app->minion->perform_jobs;
+  $t->get_ok('/reviews/report/1.json')->status_is(200)->json_has('/report/licenses');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

@@ -35,14 +35,12 @@ sub _embargo ($job, $id, $data) {
 }
 
 sub _git ($job, $id, $data) {
-  my $app    = $job->app;
-  my $minion = $app->minion;
-  my $log    = $app->log;
-  my $pkgs   = $app->packages;
+  my $app  = $job->app;
+  my $log  = $app->log;
+  my $pkgs = $app->packages;
 
   # Protect from race conditions
-  return $job->finish("Package $id is already being processed")
-    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
+  return $job->finish("Package $id is already being processed") unless my $guard = $pkgs->claim_guard($id, $job->id);
 
   my $checkout_dir = $app->config->{checkout_dir};
   my ($pkg, $url, $hash, $priority) = @{$data}{qw(pkg url hash priority)};
@@ -63,14 +61,12 @@ sub _git ($job, $id, $data) {
 }
 
 sub _obs ($job, $id, $data) {
-  my $app    = $job->app;
-  my $minion = $app->minion;
-  my $log    = $app->log;
-  my $pkgs   = $app->packages;
+  my $app  = $job->app;
+  my $log  = $app->log;
+  my $pkgs = $app->packages;
 
   # Protect from race conditions
-  return $job->finish("Package $id is already being processed")
-    unless my $guard = $minion->guard("processing_pkg_$id", 172800);
+  return $job->finish("Package $id is already being processed") unless my $guard = $pkgs->claim_guard($id, $job->id);
 
   # Check embargo status before checkout
   _embargo($job, $id, $data);
