@@ -154,7 +154,12 @@ sub _analyze ($job, $id, $generation = 0) {
     my $prio        = $job->info->{priority};
     my $analyzed_id = $minion->enqueue(
       analyzed => [$id] => {parents => [$job->id], priority => $prio + 1, notes => {"pkg_$id" => 1}});
-    $pkgs->generate_spdx_report($id, {parents => [$analyzed_id]}) if $config->{always_generate_spdx_reports};
+
+    # The real last job of the build when reports are generated for every one of them, so it keeps climbing
+    # the chain rather than dropping out of the build's band and being overtaken - by the time it came back
+    # round the package could be rebuilding again, and the report it was asked for would never be written.
+    $pkgs->generate_spdx_report($id, {parents => [$analyzed_id], priority => $prio + 2})
+      if $config->{always_generate_spdx_reports};
 
     # Each of these works on (and claims) the candidate, not this package, so it is noted as the
     # candidate's job - otherwise the cleanup sweep sees no job for a package that is being worked on and

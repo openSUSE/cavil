@@ -5,20 +5,17 @@ package Cavil::Task::SPDX;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
-use Mojo::Util qw(scope_guard);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(spdx_report => \&_spdx_report);
 }
 
 sub _spdx_report ($job, $id) {
-  my $app    = $job->app;
-  my $minion = $app->minion;
-  my $pkgs   = $app->packages;
-  my $spdx   = $app->spdx;
+  my $app  = $job->app;
+  my $pkgs = $app->packages;
+  my $spdx = $app->spdx;
 
   # Protect from race conditions
-  my $spdx_guard = scope_guard sub { $minion->unlock("spdx_$id") };
   return $job->finish("Package $id is already being processed")
     unless my $pkg_guard = $pkgs->claim_guard($id, $job->id);
   return $job->fail("Package $id is not indexed yet") unless $pkgs->is_indexed($id);

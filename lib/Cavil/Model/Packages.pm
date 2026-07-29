@@ -4,7 +4,7 @@
 package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP);
+use Cavil::Util qw(paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP PRIORITY_WAITING);
 use Mojo::File  qw(path);
 use Mojo::Util  qw(dumper scope_guard);
 use Text::Glob  qw(glob_to_regex);
@@ -250,12 +250,21 @@ sub flags ($self, $id, $generation = 0) {
   return $flags;
 }
 
+# Nothing to do when the report is already on disk, and nothing to do when one is already on its way. The
+# queue itself is the record of the latter, the same way it is for every other job here: a job that fails,
+# is removed or never gets dequeued takes its own claim to the work with it. A Minion lock used to stand in
+# for that, and it outlived the job it belonged to - a build whose "analyzed" job failed left the lock
+# behind for its full two days, and for those two days the package could not be given a report at all,
+# because every attempt quietly refused to enqueue one and /spdx/<id> just kept saying "not ready".
+#
+# By default somebody is sitting in front of the download waiting for it, so it goes in at the top of the
+# ladder in Cavil::Util. The build that ends in one passes its own priority and stays in its band.
 sub generate_spdx_report ($self, $id, $options = {}) {
   return if $self->has_spdx_report($id);
 
   my $minion = $self->minion;
-  $minion->enqueue('spdx_report' => [$id] => {priority => 6, notes => {"pkg_$id" => 1}, %$options})
-    if $minion->lock("spdx_$id", 172800);
+  return if $minion->jobs({tasks => ['spdx_report'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+  $minion->enqueue('spdx_report' => [$id] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}, %$options});
 }
 
 sub has_file_stats ($self, $id) {
