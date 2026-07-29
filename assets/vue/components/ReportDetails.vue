@@ -517,6 +517,7 @@ export default {
     ReportNotes
   },
   mixins: [Refresh],
+  emits: ['rebuild-finished'],
   provide() {
     return {
       pendingActionsStore: {
@@ -872,6 +873,9 @@ export default {
 
       const promoted = data.checksum && this.reportChecksum && data.checksum !== this.reportChecksum;
       if (promoted || (this.reindexing && !data.reindexing)) {
+        // The metadata is told separately, because the Reindex button it owns stops having anything to
+        // offer at exactly this moment, and its own refresh may be most of a minute away.
+        this.$emit('rebuild-finished');
         await this.doApiRefresh();
         return;
       }

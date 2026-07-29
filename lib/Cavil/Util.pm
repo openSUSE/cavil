@@ -22,8 +22,31 @@ our @EXPORT_OK = (
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
   qw(license_is_catch_all SNIPPET_SCORE_VERSION),
+  qw(PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
+
+# Where a package goes into the job queue. Minion runs the highest number first and breaks ties FIFO, so
+# these four bands are what keeps a reviewer who is waiting for a report in front of a weekend sweep of
+# the whole archive. They are the priority of the first job of a build; everything that build spawns
+# outranks it (see Cavil::Task::Index), so a package that has started is finished before the next one at
+# the same band is picked up. Also written down in docs/Architecture.md, keep the two in step.
+use constant {
+
+  # Somebody is sitting in front of the report: the Reindex button, or the package a batch of new
+  # patterns was just submitted from
+  PRIORITY_WAITING => 8,
+
+  # A new package coming in, shifted up or down by the review priority the request carries
+  PRIORITY_INCOMING => 5,
+
+  # Keeping existing reports honest with nobody waiting on the result: the other packages a new pattern
+  # touches, a removed pattern or ignored line, a build the cleanup sweep found abandoned
+  PRIORITY_UPKEEP => 3,
+
+  # Sweeps over the whole archive: the weekly reindex, the bulk commands
+  PRIORITY_SWEEP => 1
+};
 
 # Bumped whenever the snippet similarity scorer's semantics change. snippets carry the version they
 # were scored with; fold-in only trusts rows scored by the *current* version, so a scorer change (or

@@ -369,8 +369,14 @@ export default {
       productsHtml: null,
       refreshDelay: 30000,
       refreshUrl: `/reviews/meta/${this.pkgId}`,
+
+      // Seeded from the page render so the button has an answer before the first refresh lands, and kept
+      // current from there on: a rebuild takes the package past the patterns that lit it up, and patterns
+      // created while the page sits open light it up again
+      newPatterns: this.shouldReindex,
       reindexBusy: false,
       reindexFailed: false,
+      reindexing: false,
       reindexQueued: false,
       requests: [],
       result: '',
@@ -449,15 +455,20 @@ export default {
       if (this.state === 'acceptable') return 'text-bg-warning';
       return 'text-bg-danger';
     },
+    // A rebuild that is already on its way answers the button, so it stops advertising the patterns that
+    // rebuild is about to pick up - whoever started it
+    rebuildPending() {
+      return this.reindexQueued || this.reindexing;
+    },
     reindexBtnVariant() {
       if (this.reindexFailed) return 'btn-outline-danger';
-      if (this.reindexQueued) return 'btn-outline-secondary';
-      return this.shouldReindex ? 'btn-outline-primary' : 'btn-outline-secondary';
+      if (this.rebuildPending) return 'btn-outline-secondary';
+      return this.newPatterns ? 'btn-outline-primary' : 'btn-outline-secondary';
     },
     reindexTitle() {
       if (this.reindexFailed) return 'Reindex request failed';
-      if (this.reindexQueued) return 'Reindex has been requested';
-      return this.shouldReindex ? 'There are new patterns!' : 'There are no new patterns';
+      if (this.rebuildPending) return 'Reindex has been requested';
+      return this.newPatterns ? 'There are new patterns!' : 'There are no new patterns';
     }
   },
   // Templates barely ever change, so they are fetched once instead of on every metadata refresh
@@ -540,6 +551,14 @@ export default {
       this.reindexBusy = false;
       this.reindexFailed = true;
     },
+
+    // The report area has swapped in the new report, which is the moment the button's answer changes.
+    // Waiting for the next scheduled refresh would leave it advertising patterns that are already in.
+    rebuildFinished() {
+      this.reindexQueued = false;
+      this.cancelApiRefresh();
+      return this.doApiRefresh();
+    },
     refreshData(data) {
       const copiedFiles = data.copied_files;
       if (copiedFiles['%doc'].length > 0) this.copiedFiles['%doc'] = copiedFiles['%doc'].join(' ');
@@ -578,6 +597,9 @@ export default {
 
       this.pkgChecksum = data.package_checksum;
       this.checkoutUrl = `/reviews/file_view/${this.pkgId}`;
+
+      this.newPatterns = data.should_reindex;
+      this.reindexing = data.reindexing;
 
       if (data.products.length > 0) {
         this.productsHtml = data.products.map(name => productLink({name})).join(', ');

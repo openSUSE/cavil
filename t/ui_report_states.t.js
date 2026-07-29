@@ -108,10 +108,34 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
     });
 
     await t.test('Queued reindex keeps the previous report visible with a stale-report notice', async t => {
+      // What lights the Reindex button up in production: somebody creates a license pattern, and every
+      // report indexed before it may be missing what that pattern would match.
+      const patternPage = await context.newPage();
+      await patternPage.goto(`${url}/licenses/new_pattern?license-name=Reindex-Button-Test-1.0`);
+      await patternPage.waitForSelector('#edit-pattern .cm-editor');
+      await patternPage.evaluate(() => {
+        const view = document.querySelector('#edit-pattern .cm-editor').cmView;
+        view.dispatch({changes: {from: 0, insert: 'unique-reindex-button-test-pattern-body'}});
+      });
+      await Promise.all([
+        patternPage.waitForURL(/\/licenses\/edit_pattern\/\d+/),
+        patternPage.locator('#edit-pattern button[type=submit]').click()
+      ]);
+      // A new pattern also queues a statistics job, drained here so the single step further down is
+      // the rebuild and nothing else.
+      await patternPage.goto(performJobs, {timeout: 120000});
+      await patternPage.close();
+
       await page.goto(`${url}/reviews/details/1`);
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
       t.equal(await page.locator('[data-reindexing-notice]').count(), 0, 'no stale-report notice before reindexing');
+      await page.locator('#reindex_button.btn-outline-primary').waitFor();
+      t.equal(
+        await page.getAttribute('#reindex_button', 'title'),
+        'There are new patterns!',
+        'the Reindex button offers the pattern the report has not seen'
+      );
 
       // Click the real Reindex button, which enqueues an index job (left un-drained here). Because
       // indexing has not actually started, the previous report is still in the database, so the reviewer
@@ -136,6 +160,13 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
         'reviewer is told the report is frozen until it is replaced'
       );
       t.ok(await page.locator('#license-chart').count(), 'previous report stays visible while reindex is queued');
+
+      await page.locator('#reindex_button.btn-outline-secondary').waitFor();
+      t.equal(
+        await page.getAttribute('#reindex_button', 'title'),
+        'Reindex has been requested',
+        'and the button stops offering what the queued rebuild is about to pick up'
+      );
     });
 
     await t.test('Indexing shows a muted staged bar and takes the file actions away', async t => {
@@ -234,6 +265,14 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
       const fileId = fileHref.replace('#file-', '');
       await expandFileDetails(page, fileId);
       t.ok(await page.locator(`#file-details-${fileId} td.actions`).count(), 'and can be worked on again');
+
+      // The button answers for the new report, not the one that was on screen when the page was opened:
+      // the pattern it was advertising is in, so there is nothing left to offer.
+      await page.locator('#reindex_button[title="There are no new patterns"]').waitFor({timeout: 20000});
+      t.ok(
+        await page.locator('#reindex_button.btn-outline-secondary').count(),
+        'the Reindex button settles down again without a reload'
+      );
     });
 
     await t.test('The file browser opens back up once the new report lands', async t => {

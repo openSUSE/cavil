@@ -262,6 +262,28 @@ a single package checkout.
 9. `classify`: Sends all unclassified snippets of potential legal text to the text classification server, and if
                necessary updates reports.
 
+### Job Priorities
+
+The queue runs the highest priority first and breaks ties in the order jobs arrived, so on a busy instance the priority
+a build starts at decides whether a reviewer gets their report in a minute or somewhere behind a sweep of the whole
+archive. There are four bands, defined as named constants so that call sites say what they mean rather than picking a
+number.
+
+Highest is **waiting** (8), for a build somebody is sitting in front of: the Reindex button on a report page, and the
+package a batch of new patterns was submitted from. Below that is **incoming** (5), a new package arriving through the
+Bot API; the review priority the request carries raises or lowers it, so an urgent request still gets to jump the
+queue. Then **upkeep** (3), for keeping existing reports honest when nobody is waiting on the result — the other
+packages a new pattern happens to touch, a removed pattern or ignored line, a build the cleanup sweep found abandoned.
+Lowest is **sweep** (1), for passes over the whole archive such as the weekly reindex and the bulk commands.
+
+A band is the priority of the *first* job of a build. Every job that build spawns runs one step above the one before
+it, so a package that has started is carried through to its report before the next package in the same band is picked
+up; new work queues behind builds already under way instead of interleaving with them.
+
+A rebuild that cannot start because the package is busy is written down instead, together with the band it was asked
+for, and runs at that band once the package is free. Clicking Reindex during an import therefore does not quietly
+demote the rebuild to whatever the next sweep would have given it.
+
 ### Preprocessing
 
 Before indexing, the `unpack` job runs each unpacked text file through a preprocessing step that writes a

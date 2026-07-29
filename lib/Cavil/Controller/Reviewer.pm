@@ -1,24 +1,12 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
 use Mojo::Util  qw(humanize_bytes);
-use Cavil::Util qw(lines_context);
+use Cavil::Util qw(lines_context PRIORITY_WAITING);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -254,13 +242,11 @@ sub list_reviews { }
 
 sub reindex_package ($self) {
 
-  # A reviewer explicitly asked for this package to be reindexed and is waiting on the fresh report,
-  # so it must outrank routine incoming imports (priority 5). Otherwise the reindex queues behind the
-  # whole import backlog (Minion breaks priority ties FIFO) and the reviewer waits for unrelated work.
-  # A package that is already rebuilding is not an error: the request is recorded and runs right after,
-  # so the answer is "queued", not "not found" - only an ineligible package (gone, obsolete, never
-  # indexed) is a 404.
-  return $self->reply->not_found unless my $queued = $self->packages->reindex($self->stash('id'), 6);
+  # Somebody is sitting in front of the report waiting for the rebuild, so it goes in at the top of the
+  # ladder in Cavil::Util, ahead of incoming imports and the weekly sweep. A package that is already
+  # rebuilding is not an error: the request is recorded and runs right after, so the answer is "queued",
+  # not "not found" - only an ineligible package (gone, obsolete, never indexed) is a 404.
+  return $self->reply->not_found unless my $queued = $self->packages->reindex($self->stash('id'), PRIORITY_WAITING);
 
   return $self->render(json => {ok => 1, queued => $queued});
 }

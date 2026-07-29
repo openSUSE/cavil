@@ -151,9 +151,9 @@ sub _analyze ($job, $id, $generation = 0) {
   # here is still the package's problem - the follow-up work that hands the new report to the reviewer.
   # So it goes back on the way out, and only the successful path stays quiet.
   eval {
-    my $prio = $job->info->{priority};
-    my $analyzed_id
-      = $minion->enqueue(analyzed => [$id] => {parents => [$job->id], priority => $prio, notes => {"pkg_$id" => 1}});
+    my $prio        = $job->info->{priority};
+    my $analyzed_id = $minion->enqueue(
+      analyzed => [$id] => {parents => [$job->id], priority => $prio + 1, notes => {"pkg_$id" => 1}});
     $pkgs->generate_spdx_report($id, {parents => [$analyzed_id]}) if $config->{always_generate_spdx_reports};
 
     # Each of these works on (and claims) the candidate, not this package, so it is noted as the
@@ -161,7 +161,7 @@ sub _analyze ($job, $id, $generation = 0) {
     # takes its claim away underneath it.
     for my $candidate (@$new_candidates) {
       my $cid = $candidate->{id};
-      $minion->enqueue(analyzed => [$cid] => {parents => [$job->id], priority => 9, notes => {"pkg_$cid" => 1}});
+      $minion->enqueue(analyzed => [$cid] => {parents => [$job->id], priority => $prio, notes => {"pkg_$cid" => 1}});
     }
 
     # Classify the snippets this package brought in, the same way a pattern change schedules pattern_stats:

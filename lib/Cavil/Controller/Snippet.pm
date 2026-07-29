@@ -1,25 +1,14 @@
-# Copyright (C) 2019 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File        qw(path);
-use Cavil::ReportUtil qw(smart_edit_snippet spdx_edit_snippet);
-use Cavil::Util       qw(pattern_matches pattern_contains_redundant_skip pattern_checksum);
 use Mojo::JSON        qw(true false);
+use Cavil::ReportUtil qw(smart_edit_snippet spdx_edit_snippet);
+use Cavil::Util       qw(pattern_checksum pattern_contains_redundant_skip pattern_matches);
+use Cavil::Util       qw(PRIORITY_UPKEEP PRIORITY_WAITING);
 
 my $CHECKSUM_RE = qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i;
 
@@ -111,7 +100,8 @@ sub batch_decision ($self) {
   # anything is written. Pages that are not a report - the Change Proposals queue, for one - send no
   # report id and are never gated.
   my $from_report = $body->{report};
-  if (defined $from_report && $from_report =~ /^\d+\z/ && (my $pkg = $self->packages->find($from_report))) {
+  $from_report = undef unless defined $from_report && $from_report =~ /^\d+\z/;
+  if (defined $from_report && (my $pkg = $self->packages->find($from_report))) {
     return $self->render(
       json => {
         ok         => \0,
@@ -152,11 +142,14 @@ sub batch_decision ($self) {
     }
   }
 
-  # Trigger reindex once per affected package, after all writes are done. The reviewer just created
-  # these patterns for the report they are looking at and is waiting on the refreshed result, so this
-  # outranks routine incoming imports (priority 5); Minion breaks priority ties FIFO, so a reindex at
-  # or below import priority would queue behind the entire import backlog.
-  $self->packages->reindex($_, 6) for sort { $a <=> $b } keys %packages_to_reindex;
+  # Trigger reindex once per affected package, after all writes are done. Only one of them has somebody
+  # waiting on it: the report the batch was submitted from, whose reviewer wants to see what their new
+  # patterns did. The others are packages the same patterns happen to touch, and they are rebuilt as
+  # upkeep, behind whatever reviewers and imports are in the queue (see Cavil::Util).
+  my $pkgs = $self->packages;
+  for my $id (sort { $a <=> $b } keys %packages_to_reindex) {
+    $pkgs->reindex($id, defined $from_report && $id == $from_report ? PRIORITY_WAITING : PRIORITY_UPKEEP);
+  }
 
   my $status = $worst_status == 200 ? 200 : $worst_status;
   $self->render(json => {ok => $status == 200 ? \1 : \0, results => \@results}, status => $status);

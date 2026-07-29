@@ -311,6 +311,11 @@ sub _package_summary ($c, $id) {
   my $requests = $pkgs->requests_for($id);
   my $products = $c->products->for_package($id);
 
+  # Whether the Reindex button has anything to offer changes without the page being reloaded: a rebuild
+  # (this reviewer's or somebody else's) bumps the package past every pattern that made the button light
+  # up, and a pattern created while the page is open makes it light up again
+  my $state = $c->reindex_state($pkg);
+
   my $config = $c->app->config;
 
   my $actions = [];
@@ -372,11 +377,13 @@ sub _package_summary ($c, $id) {
     package_url          => $url,
     package_version      => $version,
     products             => $products,
+    reindexing           => $state->{reindexing},
     requests             => $requests,
     requests_data        => [map { external_link_data($_, $config->{external_link_sources}) } @$requests],
     result               => $pkg->{result},
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},
+    should_reindex       => \!!$c->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed}),
     state                => $pkg->{state},
     unpacked_files       => $pkg->{unpacked_files},
     unpacked_size        => humanize_bytes($pkg->{unpacked_size} // 0),

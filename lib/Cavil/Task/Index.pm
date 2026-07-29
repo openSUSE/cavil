@@ -47,9 +47,10 @@ sub _index ($job, $id) {
   # claim in between - an spdx report, the analyzed job of the build that just promoted - and this job
   # writes nothing, so there would be no stranded rows for the cleanup sweep to notice and nothing to say a
   # rebuild was ever due. Record it the same way a request that arrives during a build is recorded, and
-  # whoever frees the package up runs it.
+  # whoever frees the package up runs it - at the priority this build would have run at, so losing the
+  # race does not also cost a reviewer their place in the queue.
   unless ($pkgs->claim($id, $generation)) {
-    $pkgs->request_reindex($id);
+    $pkgs->request_reindex($id, $job->info->{priority});
     return $job->finish("Package $id is already being processed, remembered the reindex for later");
   }
 
@@ -228,9 +229,9 @@ sub _indexed ($job, $id, $generation) {
   # reindexed once the new report is actually the one being served.
   $pkgs->index_stage($id, 'analyzing');
 
-  # Next step - always high prio because the renderer
-  # relies on it
-  return $pkgs->analyze($id, 9, [$job->id], $generation);
+  # Next step, one above this one. Every job of a build outranks the job before it, so a package that has
+  # started is carried all the way to its report before the next package at the same band is picked up.
+  return $pkgs->analyze($id, $job->info->{priority} + 1, [$job->id], $generation);
 }
 
 sub _reindex_all ($job) {
@@ -238,7 +239,7 @@ sub _reindex_all ($job) {
 }
 
 sub _reindex_matched_later ($job, $pid) {
-  $job->app->packages->reindex_matched_packages($pid, $job->info->{priority});
+  $job->app->packages->reindex_matched_packages($pid, $job->info->{priority} + 1);
 }
 
 1;

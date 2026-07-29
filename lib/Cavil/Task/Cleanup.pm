@@ -1,23 +1,11 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Task::Cleanup;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-use Cavil::Util;
-use Mojo::File 'path';
+use Cavil::Util qw(PRIORITY_SWEEP PRIORITY_UPKEEP);
+use Mojo::File  qw(path);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(obsolete      => \&_obsolete);
@@ -36,7 +24,7 @@ sub _cleanup ($job) {
   my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 
   my $minion = $app->minion;
-  $minion->enqueue('cleanup_batch', $_, {parents => [$job->id], priority => 1}) for @$buckets;
+  $minion->enqueue('cleanup_batch', $_, {parents => [$job->id], priority => PRIORITY_SWEEP}) for @$buckets;
 }
 
 sub _cleanup_batch ($job, @ids) {
@@ -67,15 +55,19 @@ sub _sweep_builds ($app) {
     $log->info("[$id] Discarded $deleted rows from an abandoned reindex") if $deleted;
 
     # The reindex the abandoned build was meant to deliver still has to happen, and so does any request
-    # that came in while it was running. reindex() enqueues one job for both.
-    next unless $deleted || $pkgs->reindex_requested($id);
+    # that came in while it was running. reindex() enqueues one job for both, at the priority of the
+    # request when there was one - the priority the dead build itself ran at is gone with it, so a
+    # replacement that nobody explicitly asked for is upkeep.
+    my $requested = $pkgs->reindex_request($id);
+    next unless $deleted || defined $requested;
+    my $priority = $requested // PRIORITY_UPKEEP;
     $pkgs->clear_reindex_request($id);
 
     # A package that has no report yet is not a reindex candidate at all (reindex only takes indexed
     # packages), so an import whose very first build died is indexed from scratch instead
     my $requeued;
-    if    ($pkgs->is_indexed($id))                              { $requeued = ($pkgs->reindex($id, 3) // '') eq 'now' }
-    elsif (!$pkgs->is_obsolete($id) && $pkgs->is_unpacked($id)) { $requeued = $pkgs->index($id, 3) }
+    if    ($pkgs->is_indexed($id)) { $requeued = ($pkgs->reindex($id, $priority) // '') eq 'now' }
+    elsif (!$pkgs->is_obsolete($id) && $pkgs->is_unpacked($id)) { $requeued = $pkgs->index($id, $priority) }
     $log->info("[$id] Requeueing the build it never finished") if $requeued;
   }
 }

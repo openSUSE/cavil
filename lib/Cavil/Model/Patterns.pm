@@ -1,17 +1,5 @@
-# Copyright (C) 2019 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
@@ -448,11 +436,13 @@ sub expire_cache ($self) {
   $self->minion->enqueue(pattern_stats => [] => {priority => 9});
 }
 
+# Only ever used as a yes/no, so it stops at the first pattern it finds instead of counting them all -
+# the report page asks this on every metadata refresh
 sub has_new_patterns ($self, $packname, $when) {
-  return $self->pg->db->query(
-    "select count(*) from license_patterns
-     where created > ? and (packname = '' or packname = ?)", $when, $packname
-  )->array->[0];
+  return !!$self->pg->db->query(
+    "select 1 from license_patterns
+     where created > ? and (packname = '' or packname = ?) limit 1", $when, $packname
+  )->rows;
 }
 
 sub is_proposal_owner ($self, $checksum, $login) {

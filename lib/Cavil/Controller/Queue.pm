@@ -1,22 +1,11 @@
-# Copyright (C) 2018-2020 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Controller::Queue;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::File 'path';
+use Cavil::Util qw(PRIORITY_INCOMING);
+use Mojo::File  qw(path);
 
 sub create_package ($self) {
   my $validation = $self->validation;
@@ -47,7 +36,7 @@ sub create_package ($self) {
   my $rev     = $validation->param('rev');
   my $created = $validation->param('created');
   my $link    = $validation->param('external_link');
-  my $prio    = $validation->param('priority') || 5;
+  my $prio    = $validation->param('priority') || PRIORITY_INCOMING;
 
   my $app    = $self->app;
   my $config = $app->config;
@@ -99,10 +88,13 @@ sub create_package ($self) {
   $obj->{obsolete} = 0;
   $pkgs->update($obj);
   if ($create) {
+
+    # The import runs at the review priority the request carries, and the whole chain down to the report
+    # follows from there (see Cavil::Util): an ordinary incoming package does not overtake a reviewer
+    # waiting on a rebuild, and a request marked urgent still does.
     if ($type eq 'git') {
       $pkgs->git_import($obj->{id},
-        {url => $api, pkg => $pkg, hash => $rev, external_link => $obj->{external_link}, priority => $prio},
-        $prio + 10);
+        {url => $api, pkg => $pkg, hash => $rev, external_link => $obj->{external_link}, priority => $prio}, $prio);
     }
     else {
       $pkgs->obs_import(
@@ -118,7 +110,7 @@ sub create_package ($self) {
           external_link => $obj->{external_link},
           priority      => $prio
         },
-        $prio + 10
+        $prio
       );
     }
   }

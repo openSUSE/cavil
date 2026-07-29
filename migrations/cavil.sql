@@ -477,3 +477,7 @@ ALTER TABLE bot_packages ADD COLUMN index_stage    text;
 ALTER TABLE bot_packages ADD COLUMN reindex_requested timestamp with time zone;
 CREATE INDEX bot_packages_unsettled_idx ON bot_packages (id)
   WHERE processing_job IS NOT NULL OR index_stage IS NOT NULL OR reindex_requested IS NOT NULL;
+
+-- 56 up
+CREATE INDEX license_patterns_created_idx ON license_patterns (created);
+ALTER TABLE bot_packages ADD COLUMN reindex_priority int;

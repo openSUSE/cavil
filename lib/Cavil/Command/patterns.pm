@@ -1,23 +1,11 @@
-# Copyright (C) 2023 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Command::patterns;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Cavil::Licenses qw(lic);
-use Cavil::Util     qw(license_is_catch_all);
+use Cavil::Util     qw(license_is_catch_all PRIORITY_SWEEP);
 use Mojo::Util      qw(encode getopt tablify);
 use YAML::XS        qw(Dump);
 
@@ -390,7 +378,7 @@ sub _remove_used ($self, $id) {
   $app->patterns->expire_cache;
   my $pkgs = $app->packages;
   say "@{[scalar @$packages]} packages need to be reindexed";
-  $pkgs->reindex($_, 1) for @$packages;
+  $pkgs->reindex($_, PRIORITY_SWEEP) for @$packages;
 }
 
 sub _stats ($self) {

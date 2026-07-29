@@ -4,7 +4,7 @@
 package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate);
+use Cavil::Util qw(paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP);
 use Mojo::File  qw(path);
 use Mojo::Util  qw(dumper scope_guard);
 use Text::Glob  qw(glob_to_regex);
@@ -52,6 +52,10 @@ sub actions ($self, $link, $id) {
 
 sub all ($self) { $self->pg->db->select('bot_packages')->hashes }
 
+# A plain re-analyze (no generation) touches no files and rewrites nothing but the report row, so the
+# default priority is above every band in Cavil::Util: it is a few seconds of work standing between a
+# reviewer and a corrected report, and making it wait for the queue would cost far more than it saves.
+# The analyze that ends a build passes its own priority instead and stays in the build's band.
 sub analyze ($self, $id, $priority = 9, $parents = [], $generation = 0) {
 
   # Without a generation this is a plain re-analyze of the live report, which deduplicates like any other
@@ -109,11 +113,14 @@ sub release ($self, $id, $job_id) {
 # finds the package free and enqueues its own build.
 sub hand_back ($self, $id, $job_id) {
   $self->release($id, $job_id);
-  return unless $self->reindex_requested($id);
+
+  # The rebuild runs at the priority whoever asked for it would have got, so a reviewer who clicked
+  # Reindex while the package was busy is still ahead of the weekly sweep afterwards
+  return unless defined(my $priority = $self->reindex_request($id));
 
   # Only clear the request once the build that answers it exists. A package that has become ineligible in
   # the meantime (obsoleted, never indexed) keeps it, and the sweep clears it along with the package.
-  return unless ($self->reindex($id, 6) // '') eq 'now';
+  return unless ($self->reindex($id, $priority) // '') eq 'now';
   $self->log->info("[$id] Reindex was requested while the package was busy, queueing it now");
   $self->clear_reindex_request($id);
 }
@@ -308,7 +315,7 @@ sub ignore_line ($self, $options) {
 
   my $ids = $db->select('bot_packages', 'id', {name => $options->{package}, obsolete => 0, indexed => {'!=' => undef}})
     ->arrays->flatten->to_array;
-  $self->analyze($_, 9) for @$ids;
+  $self->analyze($_) for @$ids;
 }
 
 sub remove_ignored_line ($self, $id, $user) {
@@ -638,8 +645,10 @@ sub export_components ($self, $cb) {
   $db->query('CLOSE cavil_component_export');
 }
 
-sub mark_matched_for_reindex ($self, $pid, $priority = 0) {
-  $self->minion->enqueue(reindex_matched_later => [$pid] => {priority => $priority});
+# Same deal as reindex_package_ids, one step further back: the list of packages a pattern matches is not
+# even known yet, so finding it out is a job of its own
+sub mark_matched_for_reindex ($self, $pid, $priority = PRIORITY_UPKEEP) {
+  $self->minion->enqueue(reindex_matched_later => [$pid] => {priority => $priority - 1});
 }
 
 sub need_cleanup ($self) {
@@ -718,7 +727,7 @@ sub name_autocomplete ($self, $partial, $limit = 10) {
   )->arrays->flatten->to_array;
 }
 
-sub git_import ($self, $id, $data, $priority = 5) {
+sub git_import ($self, $id, $data, $priority = PRIORITY_INCOMING) {
   my $pkg = $self->find($id);
   return $self->minion->enqueue(
     git_import => [$id, $data] => {
@@ -729,7 +738,7 @@ sub git_import ($self, $id, $data, $priority = 5) {
   );
 }
 
-sub obs_import ($self, $id, $data, $priority = 5) {
+sub obs_import ($self, $id, $data, $priority = PRIORITY_INCOMING) {
   my $pkg = $self->find($id);
   return $self->minion->enqueue(
     obs_import => [$id, $data] => {
@@ -806,7 +815,7 @@ sub obsolete_old_packages ($self, $days_to_keep_orphaned, $days_to_keep_orphaned
 # request was recorded to be picked up once it is free, and undef when the package is not eligible at all
 # (gone, obsolete, or never indexed). A request is never silently dropped: reviewers create patterns in
 # batches, and every one of those has to reach the packages it affects even when they are mid-rebuild.
-sub reindex ($self, $id, @args) {
+sub reindex ($self, $id, $priority = PRIORITY_INCOMING, @args) {
   my $minion = $self->minion;
   my $db     = $self->pg->db;
 
@@ -827,11 +836,11 @@ sub reindex ($self, $id, @args) {
     || $minion->jobs(
     {tasks => ['obs_import', 'git_import', 'unpack'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
   if ($busy) {
-    $self->request_reindex($id);
+    $self->request_reindex($id, $priority);
     return 'later';
   }
 
-  $self->index($id, @args);
+  $self->index($id, $priority, @args);
 
   return 'now';
 }
@@ -839,49 +848,61 @@ sub reindex ($self, $id, @args) {
 # Remember that this package still owes somebody a rebuild, for whoever frees it up to act on. Concurrent
 # requests coalesce into this one timestamp, so a batch of new patterns costs one rebuild, and the record
 # outlives the process that made it: whoever hands the package back picks it up (see hand_back), and
-# failing that (a package that is no longer eligible for a rebuild at all) the cleanup sweep does.
-sub request_reindex ($self, $id) {
-  $self->pg->db->update('bot_packages', {reindex_requested => \'now()'}, {id => $id});
+# failing that (a package that is no longer eligible for a rebuild at all) the cleanup sweep does. What
+# coalescing must not do is lose the most impatient of the requests, so the rebuild they share is the one
+# the highest of them asked for.
+sub request_reindex ($self, $id, $priority = PRIORITY_UPKEEP) {
+  $self->pg->db->query(
+    'UPDATE bot_packages
+     SET reindex_requested = NOW(), reindex_priority = GREATEST(COALESCE(reindex_priority, 0), ?)
+     WHERE id = ?', $priority, $id
+  );
 }
 
 # Is a reindex waiting for this package to become free? Read by the report page, so a reviewer whose
 # pattern landed while the package was rebuilding sees that another rebuild is still coming.
-sub reindex_requested ($self, $id) {
-  my $pkg = $self->pg->db->select('bot_packages', 'reindex_requested', {id => $id})->hash;
-  return $pkg && defined $pkg->{reindex_requested} ? 1 : 0;
+sub reindex_requested ($self, $id) { defined $self->reindex_request($id) ? 1 : 0 }
+
+# The same question with the answer whoever acts on the request needs: the priority it was made at, or
+# undef when there is no request at all. Requests predating the priority column count as upkeep.
+sub reindex_request ($self, $id) {
+  my $pkg
+    = $self->pg->db->select('bot_packages', ['reindex_priority'], {id => $id, reindex_requested => {'!=' => undef}})
+    ->hash;
+  return undef unless $pkg;
+  return $pkg->{reindex_priority} // PRIORITY_UPKEEP;
 }
 
 # Clear a pending reindex request. Always called *after* the follow-up has been enqueued, so a crash in
 # between leaves the request standing and it is simply picked up again, rather than being lost.
 sub clear_reindex_request ($self, $id) {
-  $self->pg->db->query('UPDATE bot_packages SET reindex_requested = NULL WHERE id = ?', $id);
+  $self->pg->db->query('UPDATE bot_packages SET reindex_requested = NULL, reindex_priority = NULL WHERE id = ?', $id);
 }
 
 sub reindex_all ($self) {
   my $ids = $self->pg->db->query('select id from bot_packages where obsolete is not true')->arrays->flatten->to_array;
-  my $minion = $self->minion;
-  $minion->enqueue(index_later => [$_] => {priority => 0}) for @$ids;
+  $self->reindex_package_ids($ids, PRIORITY_SWEEP);
 }
 
-sub reindex_matched_packages ($self, $pid, $priority = 0) {
+sub reindex_matched_packages ($self, $pid, $priority = PRIORITY_UPKEEP) {
 
   # Every generation, not just the live one: a package whose in-flight build matched the pattern needs the
   # reindex too, and enqueuing one for a package that turns out not to need it only costs a little work
-  my $package = $self->pg->db->query('select distinct package from pattern_matches where pattern = ?', $pid);
-  my $minion  = $self->minion;
-  for my $row ($package->hashes->each) {
-    $minion->enqueue('index_later', [$row->{package}], {priority => $priority});
-  }
+  my $packages = $self->pg->db->query('select distinct package from pattern_matches where pattern = ?', $pid);
+  $self->reindex_package_ids([map { $_->{package} } $packages->hashes->each], $priority);
 }
 
 sub reindex_packages ($self, $name) {
   my $ids = $self->pg->db->select('bot_packages', 'id', {name => $name})->arrays->flatten->to_array;
-  $self->reindex($_, 3) for @$ids;
+  $self->reindex($_, PRIORITY_UPKEEP) for @$ids;
 }
 
-sub reindex_package_ids ($self, $ids, $priority = 0) {
+# The priority is the one the rebuilds will run at. Turning the list into jobs is left to the queue
+# because it can be tens of thousands of packages long, and those helper jobs sit one band below the
+# rebuilds they produce, so a package that is already being rebuilt is finished first.
+sub reindex_package_ids ($self, $ids, $priority = PRIORITY_UPKEEP) {
   my $minion = $self->minion;
-  $minion->enqueue('index_later', [$_], {priority => $priority}) for @$ids;
+  $minion->enqueue('index_later', [$_], {priority => $priority - 1}) for @$ids;
 }
 
 sub remove_spdx_report ($self, $id) {
@@ -1012,11 +1033,19 @@ sub _check_field ($self, $field, $id) {
   return !!$hash->{$field};
 }
 
-sub _enqueue ($self, $task, $id, $priority = 5, $parents = [], $delay = 0) {
+sub _enqueue ($self, $task, $id, $priority = PRIORITY_INCOMING, $parents = [], $delay = 0) {
   my $minion = $self->minion;
 
-  # Deduplicate jobs for same package
-  return undef if $self->minion->jobs({tasks => [$task], states => ['inactive'], notes => ["pkg_$id"]})->total;
+  # Deduplicate jobs for same package. A job that is already waiting does the same work, so a second one
+  # is not enqueued - but a request that outranks it moves it up the queue, or a reviewer clicking Reindex
+  # would inherit the place of the weekly sweep that got there first. Minion has no way to change a
+  # priority other than a retry, so the job shows up in the admin UI as retried once.
+  if (my $queued = $minion->jobs({tasks => [$task], states => ['inactive'], notes => ["pkg_$id"]})->next) {
+    if ($queued->{priority} < $priority && (my $job = $minion->job($queued->{id}))) {
+      $job->retry({priority => $priority});
+    }
+    return undef;
+  }
 
   my $pkg = $self->find($id);
   return $minion->enqueue(
