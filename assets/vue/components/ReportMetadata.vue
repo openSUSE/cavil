@@ -102,11 +102,8 @@
             </dd>
           </template>
           <dt>SPDX report</dt>
-          <dd>
-            <a :href="spdxUrl" target="_blank">
-              <span v-if="hasSpdxReport === true">available</span>
-              <span v-else>not yet generated</span>
-            </a>
+          <dd id="spdx-report">
+            <spdx-download :pkg-id="pkgId" :spdx="spdx" @error="notifyError" />
           </dd>
           <template v-if="pkgShortname !== null">
             <dt>Shortname</dt>
@@ -318,6 +315,7 @@ import CommentEditor from './CommentEditor.vue';
 import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
 import LegalLoading from './LegalLoading.vue';
+import SpdxDownload from './SpdxDownload.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
 import {productLink} from '../helpers/links.js';
@@ -334,6 +332,7 @@ export default {
     CopyableText,
     ExternalLink,
     LegalLoading,
+    SpdxDownload,
     TemplatePicker,
     ToastNotifier
   },
@@ -348,7 +347,6 @@ export default {
       errors: [],
       externalLink: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
-      hasSpdxReport: false,
       legalReviewNotices: [],
       manageTemplatesUrl: '/comment-templates',
       notice: null,
@@ -384,7 +382,7 @@ export default {
       reviewingUser: null,
       reviewUrl: `/reviews/review_package/${this.pkgId}`,
       searchUrl: null,
-      spdxUrl: `/spdx/${this.pkgId}`,
+      spdx: null,
       state: null,
       submitting: false,
       templates: [],
@@ -531,6 +529,10 @@ export default {
         this.submitting = false;
       }
     },
+    notifyError(message) {
+      this.$refs.toaster?.notify(message, 'danger', 5000);
+    },
+
     // The rebuild happens next to the report the reviewer is reading, so there is nothing to reload here.
     // The report area is told to enter its rebuild state instead, and the notice appearing under the
     // metadata is what confirms the click.
@@ -567,7 +569,7 @@ export default {
       this.created = moment(data.created * 1000).fromNow();
       this.errors = data.errors;
       this.externalLink = data.external_link_data ?? data.external_link;
-      this.hasSpdxReport = data.has_spdx_report;
+      this.spdx = data.spdx;
       this.legalReviewNotices = data.legal_review_notices;
 
       this.actions = data.actions;

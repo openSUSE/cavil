@@ -93,14 +93,20 @@ subtest 'Generate SPDX report' => sub {
   is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
   ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
 
-  # gzip-capable client (Mojo's UA sends "Accept-Encoding: gzip" and transparently decompresses)
-  $t->get_ok('/spdx/1')->status_is(200)->content_type_is('application/json')->json_has('/@graph');
+  # gzip-capable client (Mojo's UA sends "Accept-Encoding: gzip" and transparently decompresses). Gzip is
+  # only the transfer encoding, so the file the browser saves is the JSON the disposition names.
+  $t->get_ok('/spdx/1')
+    ->status_is(200)
+    ->content_type_is('application/json')
+    ->header_is('Content-Disposition' => 'attachment; filename="1.spdx.json"')
+    ->json_has('/@graph');
 
   # Client that does not accept gzip gets the report decompressed on the fly, without a gzip encoding
   $t->get_ok('/spdx/1' => {'Accept-Encoding' => 'identity'})
     ->status_is(200)
     ->content_type_is('application/json')
-    ->header_is('Content-Encoding' => undef)
+    ->header_is('Content-Encoding'    => undef)
+    ->header_is('Content-Disposition' => 'attachment; filename="1.spdx.json"')
     ->json_has('/@graph');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
@@ -578,12 +584,86 @@ subtest 'Line ranges are translated back out of the post-processed copy' => sub 
   schema_ok($shift_doc, 'translated document validates');
 };
 
+# What the download button on the report page sees. It renders from the state the report metadata carries
+# and, once a report is on its way, from the same cheap poll the rebuild progress bar uses.
+subtest 'SPDX state drives the report page download button' => sub {
+  my $pkgs   = $t->app->packages;
+  my $minion = $t->app->minion;
+  $pkgs->remove_spdx_report(1);
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+  # Earlier subtests left finished report jobs behind; a job that is done is not a job in flight
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'none');
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/spdx/state', 'none');
+
+  $t->post_ok('/spdx/1')->status_is(200)->json_is('/state', 'building');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'building');
+
+  # Clicking twice (or two reviewers on the same report) costs one job between them
+  $t->post_ok('/spdx/1')->status_is(200)->json_is('/state', 'building');
+  is $minion->jobs({tasks => ['spdx_report'], states => ['inactive', 'active'], notes => ['pkg_1']})->total, 1,
+    'exactly one report job is queued';
+
+  $minion->perform_jobs;
+  is $minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
+  ok $pkgs->has_spdx_report(1), 'package has SPDX report';
+
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'ready');
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/spdx/state', 'ready');
+
+  # The size is the one the download produces, which is the uncompressed report, not the file on disk
+  my $state = $t->tx->res->json('/spdx');
+  my $path  = $pkgs->spdx_report_path(1);
+  gunzip("$path" => \my $buffer) or die "gunzip failed: $GunzipError";
+  is $pkgs->spdx_report_size(1), length($buffer), 'the reported size is the uncompressed one';
+  ok length($buffer) > -s $path, 'and it is bigger than the file on disk';
+  like $state->{size}, qr/^[\d.]+\s?\w+$/, 'the button gets a human readable size';
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
+
+# A report asked for while the package is busy has to wait for it rather than quietly produce nothing: the
+# reviewer who clicked is watching an animation that would otherwise never resolve.
+subtest 'A report job waits for whoever is holding the package' => sub {
+  my $pkgs   = $t->app->packages;
+  my $minion = $t->app->minion;
+  $pkgs->remove_spdx_report(1);
+
+  my $guard = $pkgs->claim_guard(1, 99999);
+  ok $guard, 'package claimed by somebody else';
+
+  my $id = $minion->enqueue('spdx_report' => [1] => {notes => {pkg_1 => 1}});
+  $minion->perform_jobs;
+  ok !$pkgs->has_spdx_report(1), 'no report was written';
+
+  my $info = $minion->job($id)->info;
+  is $info->{state},                               'inactive', 'the job went back into the queue instead of finishing';
+  is $info->{retries},                             1,          'and counts its attempt';
+  is $minion->jobs({states => ['failed']})->total, 0,          'no failed jobs';
+
+  # Which is what keeps the button spinning while the wait lasts
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'building');
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+
+  # Once the holder lets go, the retry finds the package free and writes the report
+  undef $guard;
+  $minion->job($id)->retry;
+  $minion->perform_jobs;
+  is $minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
+  ok $pkgs->has_spdx_report(1), 'package has SPDX report';
+};
+
 subtest 'SPDX report is obsolete' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
   is $t->app->pg->db->query('UPDATE bot_packages SET obsolete = true WHERE id = any(?)', [1])->rows, 1,
     'one package obsoleted';
   $t->get_ok('/spdx/1')->status_is(410)->content_like(qr/package is obsolete/);
+
+  # And the button says so rather than offering a report that can never be built
+  $t->post_ok('/spdx/1')->status_is(410)->json_is('/state', 'unavailable');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'unavailable');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

@@ -273,6 +273,7 @@ sub startup ($self) {
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
   $logged_in->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
+  $logged_in->post('/spdx/<id:num>')->to('Report#generate_spdx')->name('generate_spdx_report');
 
   $public->get('/licenses')->to('License#list')->name('licenses');
   $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');

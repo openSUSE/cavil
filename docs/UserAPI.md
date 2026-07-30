@@ -701,6 +701,8 @@ Diff to closest match 12345:
 
 Get the legal report as an SPDX 3.0.1 SBOM in JSON format, compliant with BSI TR-03183-2. Note that this report may be
 generated on demand, and in such cases the server will return a `408` error code until the report has been generated.
+These documents are meant to be saved rather than read in a browser, so the response carries
+`Content-Disposition: attachment; filename="<package_id>.spdx.json"`.
 
 **Request:**
 

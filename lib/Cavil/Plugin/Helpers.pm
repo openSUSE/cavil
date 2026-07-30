@@ -30,6 +30,7 @@ sub register ($self, $app, $config) {
   $app->helper('reindex_state'                 => \&_reindex_state);
   $app->helper('report_details'                => \&_report_details);
   $app->helper('reply.json_validation_error'   => \&_json_validation_error);
+  $app->helper('spdx_state'                    => \&_spdx_state);
   $app->helper('format_file'                   => \&_format_file);
   $app->helper('markdown_to_safe_html'         => \&_markdown_to_safe_html);
 }
@@ -107,8 +108,34 @@ sub _reindex_state ($c, $pkg) {
   return {
     checksum      => $pkg->{checksum},
     reindexing    => $reindexing ? true          : false,
-    rebuild_stage => $reindexing ? ($stage // 1) : undef
+    rebuild_stage => $reindexing ? ($stage // 1) : undef,
+    spdx          => $c->spdx_state($pkg)
   };
+}
+
+# Where the package stands with its SPDX report, for the download button on the report page. Reports are
+# generated on demand, so the button has to be able to say "there is one", "one is on its way", "the last
+# attempt failed" and "ask for one" - and it polls, so this has to stay cheap: a stat, and a queue lookup
+# only in the uncommon case that there is no report to hand out.
+#
+# Only the newest job for the package is consulted. Looking for a failed one instead would leave a single
+# bad attempt stuck to the row for as long as the job table keeps it, long after a later attempt succeeded
+# and the report was collected.
+sub _spdx_state ($c, $pkg) {
+  my $id = $pkg->{id};
+  return {state => 'unavailable'} if $pkg->{obsolete} || !$pkg->{indexed};
+
+  my $pkgs = $c->packages;
+  if ($pkgs->has_spdx_report($id)) {
+    my $size = $pkgs->spdx_report_size($id);
+    return {state => 'ready', size => defined $size ? humanize_bytes($size) : undef};
+  }
+
+  my $job = $c->minion->jobs({tasks => ['spdx_report'], notes => ["pkg_$id"]})->next;
+  return {state => 'none'} unless $job;
+  return {state => 'building'} if $job->{state} eq 'inactive' || $job->{state} eq 'active';
+  return {state => 'failed'}   if $job->{state} eq 'failed';
+  return {state => 'none'};
 }
 
 sub _report_details ($c, $pkg, $report) {
@@ -302,8 +329,7 @@ sub _package_summary ($c, $id) {
   my $group   = $main->{group};
   my $url     = $main->{url};
 
-  my $has_spdx_report = $pkgs->has_spdx_report($id);
-  my $report          = $pkg->{checksum} // '';
+  my $report = $pkg->{checksum} // '';
   my ($risk, $shortname) = $report =~ /-(\d+):(\w+)$/;
 
   $risk = 9 if ($pkg->{unresolved_matches} || 0) > 0;
@@ -360,7 +386,6 @@ sub _package_summary ($c, $id) {
     errors               => $spec->{errors} // [],
     external_link        => $pkg->{external_link},
     external_link_data   => external_link_data($pkg->{external_link}, $config->{external_link_sources}),
-    has_spdx_report      => \!!$has_spdx_report,
     id                   => $pkg->{id},
     legal_review_notices => \@legal_review_notices,
     notice               => $pkg->{notice},
@@ -384,6 +409,7 @@ sub _package_summary ($c, $id) {
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},
     should_reindex       => \!!$c->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed}),
+    spdx                 => $state->{spdx},
     state                => $pkg->{state},
     unpacked_files       => $pkg->{unpacked_files},
     unpacked_size        => humanize_bytes($pkg->{unpacked_size} // 0),

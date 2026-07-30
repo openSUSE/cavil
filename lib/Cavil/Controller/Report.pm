@@ -99,11 +99,24 @@ sub source ($self) {
   $self->render(json => {source => $source});
 }
 
+# Ask for a report to be built. The report page polls report_state afterwards, so the answer is the same
+# state payload that poll returns and the button can go straight into its "generating" animation.
+sub generate_spdx ($self) {
+  my $id = $self->stash('id');
+  return $self->render(json => {error => 'unknown package'}, status => 404) unless my $pkg = $self->packages->find($id);
+
+  my $state = $self->helpers->spdx_state($pkg);
+  return $self->render(json => $state, status => 410) if $state->{state} eq 'unavailable';
+
+  # Idempotent: does nothing if the report is already there or already queued, so a double click (or two
+  # reviewers on the same report) costs one job between them
+  $self->packages->generate_spdx_report($id);
+  $self->render(json => $self->helpers->spdx_state($pkg));
+}
+
 sub spdx ($self) {
-  my $id     = $self->stash('id');
-  my $app    = $self->app;
-  my $minion = $app->minion;
-  my $pkgs   = $app->packages;
+  my $id   = $self->stash('id');
+  my $pkgs = $self->app->packages;
 
   return $self->render(text     => 'package is obsolete', status => 410) if $pkgs->is_obsolete($id);
   return $self->render(template => 'report/waiting',      status => 408) unless $pkgs->is_indexed($id);
@@ -113,6 +126,11 @@ sub spdx ($self) {
     my $headers = $self->res->headers;
     $headers->content_type('application/json');
     $headers->vary('Accept-Encoding');
+
+    # Nobody reads one of these in a browser tab, so hand it over as a file. The name is the one the
+    # report page's download link advertises. Gzip below is a transfer encoding, which the browser undoes
+    # before saving, so what lands on disk is the JSON this names.
+    $headers->content_disposition(qq{attachment; filename="$id.spdx.json"});
 
     # The report is stored gzip-compressed. Hand it over untouched to clients that accept gzip (the
     # common case, no extra work), and decompress on the fly for those that do not.

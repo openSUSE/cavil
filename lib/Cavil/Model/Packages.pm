@@ -935,6 +935,24 @@ sub spdx_report_path ($self, $id) {
   return $self->pkg_checkout_dir($id)->child('.report.spdx.json.gz');
 }
 
+# Size of the file a download of the report actually produces, which is the uncompressed one - the report
+# is stored gzipped and handed to the browser that way, but what lands on disk is the JSON. Gzip records
+# that in the last four bytes of the file, so it costs a seek rather than a decompression.
+sub spdx_report_size ($self, $id) {
+  my $path = $self->spdx_report_path($id);
+  return undef unless my $compressed = -s $path;
+
+  # ISIZE is the uncompressed size modulo 2^32, so it is only the answer while the report cannot have been
+  # bigger than that. JSON gzips by roughly ten to one, leaving this bound with room to spare; above it we
+  # would rather say nothing than name a size that has silently wrapped
+  return undef if $compressed > 256 * 1024 * 1024;
+
+  open my $fh, '<:raw', $path or return undef;
+  seek $fh, -4, 2 or return undef;
+  read($fh, my $isize, 4) == 4 or return undef;
+  return unpack 'V', $isize;
+}
+
 sub states ($self, $name) {
   return $self->pg->db->query(
     'select checkout_dir as checkout, state from bot_packages
