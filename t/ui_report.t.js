@@ -249,6 +249,35 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.click('text=53 URLs');
       await page.waitForSelector('#urls.show');
       t.match(await page.innerText('#urls'), /https?:\/\//);
+
+      // Package file titlebars open the file browser without looking like special callouts.
+      await page.locator('#num-spec-files a').click();
+      const packageFileLink = page.locator('#spec-files .metadata-file-title a').first();
+      await packageFileLink.waitFor();
+      const quietLinkStyle = await packageFileLink.evaluate(link => {
+        const linkStyle = getComputedStyle(link);
+        const titleStyle = getComputedStyle(link.closest('.metadata-file-title'));
+        return {
+          color: linkStyle.color,
+          titleColor: titleStyle.color,
+          decorationColor: linkStyle.textDecorationColor
+        };
+      });
+      t.equal(quietLinkStyle.color, quietLinkStyle.titleColor, 'package file title link inherits titlebar color');
+      t.not(quietLinkStyle.decorationColor, quietLinkStyle.color, 'package file title link is not underlined at rest');
+      await packageFileLink.hover();
+      t.equal(
+        await packageFileLink.evaluate(link => getComputedStyle(link).textDecorationColor),
+        quietLinkStyle.color,
+        'package file title link underlines on hover'
+      );
+
+      const packageFileHref = await packageFileLink.getAttribute('href');
+      const [packageFilePage] = await Promise.all([context.waitForEvent('page'), packageFileLink.click()]);
+      await packageFilePage.waitForLoadState('load');
+      await packageFilePage.waitForSelector('.file-browser');
+      t.match(packageFilePage.url(), new RegExp(`${packageFileHref}$`), 'package file title opens file browser tab');
+      await packageFilePage.close();
     });
 
     await t.test('Embargoed metadata is visually distinct', async t => {

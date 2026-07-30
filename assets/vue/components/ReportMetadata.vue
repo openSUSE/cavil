@@ -169,7 +169,10 @@
       <div class="metadata-collapse-inner">
         <ul class="metadata-file-list">
           <li v-for="file in pkgFiles" :key="file.file" class="metadata-file-item">
-            <h3 class="metadata-file-title"><i class="fa-solid fa-file-lines"></i> {{ file.file }}</h3>
+            <h3 class="metadata-file-title">
+              <i class="fa-solid fa-file-lines"></i>
+              <a :href="file.fileUrl" target="_blank" rel="noopener">{{ file.file }}</a>
+            </h3>
             <dl class="metadata-file-details">
               <template v-if="file.licenses !== null">
                 <dt>Licenses</dt>
@@ -320,7 +323,7 @@ import LegalLoading from './LegalLoading.vue';
 import SpdxDownload from './SpdxDownload.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
-import {productLink} from '../helpers/links.js';
+import {fileViewUrl, productLink} from '../helpers/links.js';
 import {findPlaceholders} from '../helpers/placeholders.js';
 import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
@@ -587,6 +590,7 @@ export default {
 
       this.pkgFiles = data.package_files;
       for (const file of this.pkgFiles) {
+        file.fileUrl = fileViewUrl(this.pkgId, file.file);
         file.licenses = file.licenses.length > 0 ? file.licenses.join(', ') : null;
         file.sources = file.sources.length > 0 ? file.sources.join(', ') : null;
       }
@@ -845,6 +849,15 @@ export default {
 }
 .metadata-file-title i {
   color: #6e7781;
+}
+.metadata-file-title a {
+  color: inherit;
+  text-decoration-color: transparent;
+}
+.metadata-file-title a:hover,
+.metadata-file-title a:focus {
+  color: inherit;
+  text-decoration-color: currentColor;
 }
 .metadata-file-details {
   display: grid;
