@@ -117,8 +117,10 @@
           </template>
           <template v-if="unpackedFiles > 0">
             <dt>Unpacked</dt>
-            <dd v-if="unpackedFiles == 1" id="unpacked-files">1 file ({{ unpackedSize }})</dd>
-            <dd v-else id="unpacked-files">{{ unpackedFilesWithSeparator }} files ({{ unpackedSize }})</dd>
+            <dd id="unpacked-files">
+              {{ unpackedFilesLabel }}
+              <small>{{ unpackedSize }}</small>
+            </dd>
           </template>
           <template v-if="pkgPriority !== null">
             <dt>Priority</dt>
@@ -428,6 +430,11 @@ export default {
     },
     unpackedFilesWithSeparator() {
       return this.unpackedFiles.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    },
+
+    // The count on its own, so the size can sit beside it as a quiet aside instead of in brackets
+    unpackedFilesLabel() {
+      return this.unpackedFiles === 1 ? '1 file' : `${this.unpackedFilesWithSeparator} files`;
     },
     ribbonColor() {
       if (this.pkgRisk === '1' || this.pkgRisk === '2' || this.pkgRisk === '3' || this.pkgRisk === '4') {

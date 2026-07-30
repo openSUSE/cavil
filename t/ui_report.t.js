@@ -33,6 +33,9 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.waitForSelector('#license-chart');
       await page.waitForSelector('#checkout-url a');
 
+      // The size is a quiet aside next to the count, not a parenthesis after it
+      t.match(await page.innerText('#unpacked-files'), /^[\d.]+ files \d[\d.]*\s?\w+$/, 'unpacked count and size');
+
       const [browserPage] = await Promise.all([context.waitForEvent('page'), page.locator('#checkout-url a').click()]);
       await browserPage.waitForLoadState('load');
       await browserPage.waitForSelector('.file-browser-table');
@@ -199,10 +202,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.same(await page.isVisible('#file-details-6'), true);
 
       // The preview title opens the whole file in a new tab.
-      const [page2] = await Promise.all([
-        context.waitForEvent('page'),
-        page.locator('#expand-link-6').click()
-      ]);
+      const [page2] = await Promise.all([context.waitForEvent('page'), page.locator('#expand-link-6').click()]);
       await page2.waitForLoadState();
       t.match(await page2.innerText('title'), /Content of Mojolicious.+js/);
       await page2.waitForSelector('.file-browser-source table.snippet');

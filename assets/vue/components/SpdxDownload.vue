@@ -161,20 +161,25 @@ export default {
    same kind of thing (a small control parked in a text-heavy area) and there is no reason for the report
    page to grow a second dialect. Only the height differs: Templates sits in a toolbar with room around it,
    while this one has to fit a metadata row without pushing SPDX report and Shortname apart, so it matches
-   the 15px/1.55 line box of the values around it instead. */
+   the 15px/1.55 line box of the values around it instead. The ink is a shade lighter than Templates' for
+   the same reason: the toolbar it sits in is empty, this one is surrounded by muted labels and asides,
+   where near-black glyph and label read heavier than they do there. */
 .spdx-download-control {
   align-items: center;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid #d0d7de;
   border-radius: 6px;
   box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
-  color: #1f2328;
+  color: #424a53;
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
   gap: 0.35rem;
   height: 24px;
-  padding: 0 0.5rem;
+
+  /* Letters have more room below the baseline than above the cap, so centring the line box leaves the label
+     sitting high; a pixel off the top of the content box puts the glyphs where the eye expects them */
+  padding: 1px 0.5rem 0;
   transition:
     background-color 0.15s,
     box-shadow 0.15s,
@@ -183,7 +188,7 @@ export default {
 /* The list paints its links blue from an unscoped rule that outranks the class above. This one is a control,
    so it keeps the button ink and saves blue for hover like every other button on the page. */
 .spdx-download a.spdx-download-control {
-  color: #1f2328;
+  color: #424a53;
 }
 .spdx-download a.spdx-download-control:hover,
 .spdx-download-control:hover:not(:disabled) {
@@ -209,6 +214,12 @@ export default {
 }
 .spdx-download-ready span {
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+
+  /* The mono face reserves more room under the baseline than the label font does, and centring its line box
+     spends that room above the characters instead, landing the filename a pixel higher than "Generate" sits
+     in the same button. This puts it back on the line its neighbour uses. */
+  position: relative;
+  top: 1px;
 }
 .spdx-download-size,
 .spdx-download-note {
