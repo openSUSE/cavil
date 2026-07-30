@@ -115,3 +115,20 @@ Cavil bundles and builds upon license data from third parties, including the
 [OSADL Open Source License Compliance Checklists](https://www.osadl.org/checklists) (CC-BY-4.0), whose license
 compatibility matrix is surfaced per package in legal reports. See the [NOTICE](NOTICE) file for the full attributions
 and their licenses.
+  The `morbo` development web server will make the web application available under `http://127.0.0.1:3000`. And
+  `script/cavil minion worker` will start the job queue for processing background jobs.
+
+## Using Docker Compose 
+  ```
+  Frist run to set up staging:
+  docker-compose run cavil /opt/cavil/staging.sh 
+
+  Normal run:
+  docker-compose up -d  
+  
+  Close:
+  docker-compose down 
+
+  Reset (deletes all data!) for fresh start:
+  rm -rf ./staging/do_not_commit ./postgres-data 
+  ```

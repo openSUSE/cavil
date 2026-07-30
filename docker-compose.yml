@@ -1,0 +1,28 @@
+version: '3.8'
+
+
+services:
+  cavil: 
+    build: . 
+    depends_on: 
+     - db 
+    volumes: 
+     - ./staging:/opt/cavil/staging 
+     - "./postgres-socket:/var/run/postgresql"
+    ports: 
+     - '3000:3000'
+    stdin_open: true 
+    tty: true      
+    command: /opt/cavil/start.sh 
+  db:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes: 
+      - ./postgres-data:/var/lib/postgresql/data
+      - ./postgres-socket:/var/run/postgresql 
+      - ./create_db.sql:/docker-entrypoint-initdb.d/create_db.sql 
