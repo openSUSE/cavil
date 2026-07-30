@@ -465,6 +465,65 @@ sub spdx_fixtures ($self, $app) {
   $patterns->create(pattern => 'copyright');
 }
 
+# A package whose files the indexer has to post-process before it can scan them, with a license
+# declaration placed *after* the point where post-processing shifts the line numbering. The SPDX
+# report names the original files, so its line ranges have to be the originals' - the offsets here
+# are what distinguishes a translated report from one that just repeats what the indexer stored.
+sub spdx_line_shift_fixtures ($self, $app) {
+  my $md5 = 'f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0';
+  my $dir = $self->checkout_dir->child('line-shift', $md5)->make_path;
+
+  # Line 3 is a minified blob that the line-wrapper breaks in two, so the declaration on line 4
+  # is scanned as line 5
+  $dir->child('bundle.js')->spew(<<"JS");
+/* generated bundle, do not edit */
+var a = 1;
+@{['x' x 200]} @{['y' x 50]}
+/* Permission is hereby granted under the Cavil Fixture License */
+var b = 2;
+JS
+
+  # Markup is stripped to its text, so the declaration on line 6 is scanned as line 2
+  $dir->child('page.html')->spew(<<'HTML');
+<html>
+<head>
+<title>Fixture</title>
+</head>
+<body>
+<!-- Permission is hereby granted under the Cavil Fixture License -->
+<p>Nothing to see here.</p>
+</body>
+</html>
+HTML
+
+  my $db     = $app->pg->db;
+  my $usr_id = $db->select('bot_users', 'id', {login => 'test_bot'})->hash->{id}
+    // $db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+  my $pkgs   = $app->packages;
+  my $pkg_id = $pkgs->add(
+    name            => 'line-shift',
+    checkout_dir    => $md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => 'line-shift',
+    srcmd5          => $md5,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+
+  # Deliberately a phrase no other fixture contains, so adding this package cannot change what any
+  # other report finds
+  $app->patterns->create(
+    pattern   => 'Permission is hereby granted under the Cavil Fixture License',
+    license   => 'MIT',
+    unique_id => '413430b9-8f04-49d8-93ef-953b68835d60'
+  );
+  $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'MIT');
+
+  return $pkg_id;
+}
+
 sub ui_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 

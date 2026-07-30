@@ -385,6 +385,31 @@ subtest 'License match evidence (snippets)' => sub {
   is $bad_name,    0, 'every snippet has a location-based name';
 };
 
+# Ranges are stored against the ".processed" copy the indexer scanned, and reported against the
+# original file. run_prettify.js is post-processed (its minified body is line-wrapped) but every
+# match sits in the comment header above the first wrap, so the translation must be a no-op here -
+# a translator that invented a shift would show up as ranges pointing into the minified blob
+subtest 'Line ranges are the original file\'s, not the scanned copy\'s' => sub {
+  my ($prettify) = grep { $_->{name} =~ m{run_prettify\.js$} } @{of_type($doc, 'software_File')};
+  unlike $prettify->{name}, qr/\.processed\./, 'the file is reported under its original name';
+
+  my @ranges = map { $_->{software_lineRange} }
+    grep { $_->{software_snippetFromFile} eq $prettify->{spdxId} } @{of_type($doc, 'software_Snippet')};
+  is_deeply [sort { $a <=> $b } map { $_->{beginIntegerRange} } @ranges], [5, 7, 19, 21],
+    'the Apache header matches keep the lines the indexer found them on';
+
+  # And those lines really are the license text in the file the report names
+  my $original = $cavil_test->checkout_dir->child(
+    'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
+    '.unpacked',        'Mojolicious-7.25/lib/Mojolicious/resources/public/mojo/prettify/run_prettify.js'
+  );
+  my @lines = split /\n/, $original->slurp;
+  like $lines[4],  qr/Licensed under the Apache License/,       'line 5 in the original';
+  like $lines[6],  qr/You may obtain a copy of the License at/, 'line 7 in the original';
+  like $lines[18], qr/Licensed under the Apache License/,       'line 19 in the original';
+  like $lines[20], qr/You may obtain a copy of the License at/, 'line 21 in the original';
+};
+
 # The remaining subtests regenerate the report with different configuration/data, restoring state afterwards
 my $spdx_config = $t->app->config->{spdx};
 
@@ -507,6 +532,50 @@ subtest 'Source code URI for git sources (BSI 5.2.4)' => sub {
     ],
     'source code URI is the git repository pinned to the commit';
   schema_ok($git_doc, 'git-source document still validates');
+};
+
+# The case the translation exists for: both files are shifted by post-processing, so the numbers
+# the indexer stored point at the wrong lines of the files the report names
+subtest 'Line ranges are translated back out of the post-processed copy' => sub {
+  my $id = $cavil_test->spdx_line_shift_fixtures($t->app);
+  $t->app->minion->enqueue(unpack => [$id]);
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
+
+  my $tmp = tempfile;
+  $t->app->spdx->generate_to_file($id, "$tmp");
+  my $shift_doc = read_report("$tmp");
+
+  my %files = map { $_->{name} => $_ } @{of_type($shift_doc, 'software_File')};
+  ok $files{'./bundle.js'},                 'the wrapped file is reported under its original name';
+  ok $files{'./page.html'},                 'the stripped file is reported under its original name';
+  ok !(grep {/\.processed\./} keys %files), 'no scanned copy leaks into the report';
+
+  my %ranges;
+  for my $snippet (@{of_type($shift_doc, 'software_Snippet')}) {
+    my $file = $files{'./bundle.js'}{spdxId} eq $snippet->{software_snippetFromFile} ? 'bundle.js' : 'page.html';
+    push @{$ranges{$file}}, $snippet->{software_lineRange};
+  }
+
+  # The declaration is on line 4 of bundle.js, but line 5 of bundle.processed.js (line 3 wrapped)
+  is_deeply $ranges{'bundle.js'}, [{type => 'PositiveIntegerRange', beginIntegerRange => 4, endIntegerRange => 4}],
+    'the line-wrapped file reports the declaration on line 4';
+
+  # And on line 6 of page.html, but line 2 of page.processed.html (everything else was markup)
+  is_deeply $ranges{'page.html'}, [{type => 'PositiveIntegerRange', beginIntegerRange => 6, endIntegerRange => 6}],
+    'the markup-stripped file reports the declaration on line 6';
+
+  my ($sid)
+    = grep { $_->{software_snippetFromFile} eq $files{'./page.html'}{spdxId} }
+    @{of_type($shift_doc, 'software_Snippet')};
+  is $sid->{name}, './page.html#L6-L6', 'the snippet name uses the translated range too';
+
+  # The lines the report points at are the ones holding the license, in the files it names
+  my $dir = $cavil_test->checkout_dir->child('line-shift', 'f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0', '.unpacked');
+  like +(split /\n/, $dir->child('bundle.js')->slurp)[3], qr/Cavil Fixture License/, 'bundle.js line 4';
+  like +(split /\n/, $dir->child('page.html')->slurp)[5], qr/Cavil Fixture License/, 'page.html line 6';
+
+  schema_ok($shift_doc, 'translated document validates');
 };
 
 subtest 'SPDX report is obsolete' => sub {

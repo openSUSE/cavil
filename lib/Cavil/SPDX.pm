@@ -6,7 +6,8 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
-use Cavil::Util     qw(slurp_and_decode);
+use Cavil::PostProcess;
+use Cavil::Util qw(slurp_and_decode);
 use Digest::SHA;
 use IO::Compress::Gzip qw($GzipError);
 use Mojo::File         qw(path);
@@ -357,7 +358,8 @@ sub generate_to_file ($self, $id, $file) {
   # queries (see _license_rows_by_file) instead of two per file, while the graph is still streamed one
   # element at a time and only one chunk of rows is held in memory
   my $file_num;
-  my @ordered = sort keys %info;
+  my $postprocess = Cavil::PostProcess->new;
+  my @ordered     = sort keys %info;
   while (my @chunk = splice @ordered, 0, 1000) {
     my @file_ids = grep {defined} map { $matched_files->{$_} } @chunk;
     my ($snippets_by_file, $matches_by_file) = _license_rows_by_file($db, \@file_ids);
@@ -373,6 +375,17 @@ sub generate_to_file ($self, $id, $file) {
         ? _file_licenses($snippets_by_file->{$mfid} // [], $matches_by_file->{$mfid} // [], $resolve_license)
         : [];
       my $copyright = _copyrights($paths{$ufile});
+
+      # Findings are line numbers in the ".processed" copy the indexer scanned, but the file is
+      # reported under its original name, and post-processing shifts lines around (long lines are
+      # wrapped, markup is stripped to its text). Translate them back, or the ranges point at
+      # whatever happens to sit there in the file the report actually names. Only the lines the
+      # findings need are resolved, so a file with no findings costs nothing.
+      my $lines;
+      if ($original_files{$ufile} && @$findings) {
+        my @wanted = map { $_->{sline}, $_->{eline} } grep { $_->{sline} && $_->{eline} } @$findings;
+        $lines = $postprocess->original_lines($dir->child('.unpacked', $real_name)->to_string, \@wanted);
+      }
 
       my $node = {
         type                    => 'software_File',
@@ -397,6 +410,15 @@ sub generate_to_file ($self, $id, $file) {
         $note_license->($lid, $finding->{risk}, $finding->{flags});
         next unless $finding->{sline} && $finding->{eline};
 
+        # An endpoint that will not translate (the original file changed underneath the report) gets
+        # no snippet rather than a range pointing somewhere else; the license itself is still on the
+        # file's concluded license above, so nothing is lost from the report but the exact location
+        my ($sline, $eline) = ($finding->{sline}, $finding->{eline});
+        if ($lines) {
+          ($sline, $eline) = ($lines->{$sline}, $lines->{$eline});
+          next unless $sline && $eline;
+        }
+
         my $sid = $iri->('snippet-' . ++$snippet_num);
         $graph->add(
           {
@@ -406,13 +428,10 @@ sub generate_to_file ($self, $id, $file) {
 
             # A human-readable location name (file plus line range), so the snippet is a self-describing
             # element rather than an anonymous evidence node
-            name                     => "./$real_name#L$finding->{sline}-L$finding->{eline}",
+            name                     => "./$real_name#L$sline-L$eline",
             software_snippetFromFile => $fid,
-            software_lineRange       => {
-              type              => 'PositiveIntegerRange',
-              beginIntegerRange => $finding->{sline},
-              endIntegerRange   => $finding->{eline}
-            }
+            software_lineRange       =>
+              {type => 'PositiveIntegerRange', beginIntegerRange => $sline, endIntegerRange => $eline}
           }
         );
         $relationship->($sid, 'hasConcludedLicense', [$lid]);

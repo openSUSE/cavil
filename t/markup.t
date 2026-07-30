@@ -98,6 +98,38 @@ subtest 'invalid byte sequences are handled gracefully' => sub {
   like join('', @lines), qr/Bad byte .* then & done/, 'surrounding text and entity survive an invalid byte';
 };
 
+subtest 'each stripped line is reported with the input line it came from' => sub {
+  my $dir = tempdir;
+  my $in  = $dir->child('doc.html');
+  $in->spew(<<'EOF');
+<html>
+<head>
+<style>
+.a { color: red }
+</style>
+</head>
+<body>
+<p>
+  Licensed under
+  the MIT license
+</p>
+<script>
+var fake = "GPL-2.0";
+</script>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<p>after</p>
+</body>
+</html>
+EOF
+
+  my @lines;
+  strip_markup($in->to_string, sub ($line, $src) { push @lines, [$src, $line] });
+  is_deeply \@lines,
+    [[9, 'Licensed under the MIT license '], [15, 'SPDX-License-Identifier: Apache-2.0 '], [16, 'after']],
+    'a run spanning two lines reports the line its text starts on, not the <p>; the comment and the '
+    . 'paragraph after the dropped <script> are both right';
+};
+
 subtest 'match invariant: a pattern from stripped text matches the stripped text' => sub {
   my $raw = '<div><p>Permission is hereby granted, free of charge, to any person obtaining a copy of this '
     . 'software</p><p>and associated documentation files to deal in the Software without restriction.</p></div>';
