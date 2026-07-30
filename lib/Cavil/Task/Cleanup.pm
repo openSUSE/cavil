@@ -11,7 +11,16 @@ sub register ($self, $app, $config) {
   $app->minion->add_task(obsolete      => \&_obsolete);
   $app->minion->add_task(cleanup       => \&_cleanup);
   $app->minion->add_task(cleanup_batch => \&_cleanup_batch);
+  $app->minion->add_task(sweep_builds  => \&_sweep);
 }
+
+# The build sweep on its own, for scheduling more often than the rest of the cleanup. Reclaiming disk can
+# wait for the nightly run, but a claim left behind by a job that died or was deleted cannot: it stops the
+# package being reindexed (reindex() sees an owner and only records the request, and the owner that would
+# have acted on it is gone), and once a request is recorded the report page goes read-only. Nothing here
+# needs to be serialized against another run of itself - discard_builds only acts while the package is
+# still owned by exactly who the caller saw owning it, so two sweeps cannot take the same package.
+sub _sweep ($job) { _sweep_builds($job->app) }
 
 sub _cleanup ($job) {
   my $app  = $job->app;

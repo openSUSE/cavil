@@ -641,6 +641,10 @@ subtest 'A report job waits for whoever is holding the package' => sub {
   is $info->{retries},                             1,          'and counts its attempt';
   is $minion->jobs({states => ['failed']})->total, 0,          'no failed jobs';
 
+  # Somebody is watching the button, so the first attempts come back in seconds rather than minutes
+  my $waited = $info->{delayed} - $info->{retried};
+  ok $waited <= 5, "the first retry waits seconds, not minutes ($waited)";
+
   # Which is what keeps the button spinning while the wait lasts
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
   $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'building');

@@ -73,6 +73,9 @@ own (as long as at least one worker is running).
 
     # Clean up obsolete reports every day at 01:00
     script/cavil minion schedule -e daily_cleanup -c '0 1 * * *' -t obsolete
+
+    # Collect builds that died halfway, every hour
+    script/cavil minion schedule -e hourly_sweep -c '25 * * * *' -t sweep_builds
 ```
 
 The `-e` value is just a name for the schedule (used to update, pause, or remove it later), `-c` is a standard cron
@@ -88,6 +91,20 @@ command:
 
 The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
 recommended way to run reindexing and cleanup.
+
+### Collecting abandoned builds
+
+A rebuild can die halfway: a worker is killed, a job fails and is removed from the queue, an admin deletes a job that
+was still running. What it leaves behind is a package claimed by a job that no longer exists. Nothing is broken - the
+rows the dead build wrote are invisible to readers, and the live report is served as usual - but the package is stuck:
+a reindex request for it is only written down, because the claim makes it look busy, and whoever would have acted on
+that request is gone. Once a request is recorded the report page also turns read-only, since the report on screen may
+no longer match the patterns that exist.
+
+`sweep_builds` is what collects those. It takes a package over only once Minion confirms nothing is queued or running
+for it, discards the abandoned rows, and requeues the build that was never finished. The nightly cleanup runs it too,
+so scheduling it hourly only decides how long a stuck package stays stuck - a day, or an hour. It is cheap enough for
+that: the usual answer, that there is nothing to collect, is a handful of indexed lookups.
 
 ### Weekly reindexing
 

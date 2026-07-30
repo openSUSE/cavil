@@ -396,6 +396,31 @@ subtest 'An abandoned rebuild is swept up and retried' => sub {
   is $after->{reindexing}, Mojo::JSON->false, 'settled once the requeued reindex is done';
 };
 
+subtest 'The build sweep can run on its own, without the rest of the cleanup' => sub {
+  my $generation = 424243;
+  $db->query('INSERT INTO matched_files (package, filename, mimetype, generation) VALUES (1, ?, ?, ?)',
+    'abandoned/again.txt', 'text/plain', $generation);
+  $db->update('bot_packages', {processing_job => $generation, index_stage => 'indexing'}, {id => 1});
+  is_deeply $pkgs->unsettled_builds, [1], 'the sweep can see it';
+
+  # Scheduled hourly in production, so it has to do the recovery and nothing else: no obsoleting, and none
+  # of the cleanup_batch fan-out that makes the nightly run expensive
+  $minion->enqueue('sweep_builds');
+  $minion->perform_jobs;
+  is $minion->jobs({tasks  => ['cleanup_batch']})->total, 0, 'no cleanup batches were enqueued';
+  is $minion->jobs({states => ['failed']})->total,        0, 'no failed jobs';
+
+  is $db->query('SELECT COUNT(*) FROM matched_files WHERE package = 1 AND generation <> 0')->array->[0], 0,
+    'abandoned rows are gone';
+  my $pkg = $pkgs->find(1);
+  is $pkg->{processing_job}, undef, 'package is no longer claimed by the dead build';
+  is $pkg->{index_stage},    undef, 'stage is cleared';
+
+  my $after = report_details();
+  is $t->tx->res->code,    200,               'report survived the sweep';
+  is $after->{reindexing}, Mojo::JSON->false, 'settled once the requeued reindex is done';
+};
+
 subtest 'An analyze for a build that is gone does not promote anything' => sub {
   my $before = report_details();
   ok !$before->{error}, 'report is readable to begin with';
