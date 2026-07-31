@@ -9,7 +9,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Cavil::Util qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP PRIORITY_WAITING);
+use Cavil::Util qw(incoming_priority PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP PRIORITY_WAITING);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -57,16 +57,23 @@ subtest 'A package coming in through the Bot API starts at the incoming band' =>
   $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200);
   is_deeply waiting('git_import'), [[PRIORITY_INCOMING, 3]], 'imported at the incoming band';
 
-  # A request that says it is urgent carries its own review priority all the way into the queue
+  # The review priority a request carries moves it around inside the band and nowhere else, so an urgent
+  # request is handled first among the packages arriving with it, and a product import at the bottom of the
+  # scale is still an arriving package rather than a piece of upkeep
   $form->{rev}      = 'def456';
   $form->{priority} = 10;
   $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200);
-  is_deeply waiting('git_import'), [[PRIORITY_INCOMING, 3], [10, 4]], 'the urgent request outranks the ordinary one';
+  $form->{rev}      = 'fed789';
+  $form->{priority} = 1;
+  $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200);
+  is_deeply waiting('git_import'), [[PRIORITY_INCOMING, 3], [PRIORITY_INCOMING + 5, 4], [PRIORITY_INCOMING - 4, 5]],
+    'all three are in the incoming band, the urgent one at the top of it';
+  ok PRIORITY_INCOMING - 4 > PRIORITY_UPKEEP + 7, 'even the lowest of them outranks any build the upkeep band can run';
 
-  # Neither of them can be downloaded here, and the packages are not part of the rest of this test
+  # None of them can be downloaded here, and the packages are not part of the rest of this test
   my $imports = $minion->jobs({tasks => ['git_import']});
   while (my $info = $imports->next) { $minion->backend->remove_job($info->{id}) }
-  $pkgs->update({id => $_, obsolete => 1}) for 3, 4;
+  $pkgs->update({id => $_, obsolete => 1}) for 3, 4, 5;
 };
 
 subtest 'Every step of a build outranks the step before it' => sub {
@@ -79,7 +86,7 @@ subtest 'Every step of a build outranks the step before it' => sub {
     $highest{$job->task} = $prio if !exists $highest{$job->task} || $prio > $highest{$job->task};
     my $err = $job->execute;
     $err ? $job->fail($err) : $job->finish;
-    is $err, undef, 'job @{[$job->task]} was successful';
+    is $err, undef, "job @{[$job->task]} was successful";
   }
   $worker->unregister;
 
@@ -195,6 +202,57 @@ subtest 'Curating a pattern from the license editor is upkeep for everybody' => 
     'the fan-out job is one below the upkeep band';
 
   drain();
+};
+
+subtest 'A pattern fan-out never gets in front of a package arriving while it runs' => sub {
+  drain();
+
+  # What went wrong in production: a batch of new patterns was accepted, every package they touched was
+  # queued for a rebuild, and rebuilding things the size of chromium takes hours. Everything arriving in the
+  # meantime was stuck behind them - including the product imports that come in at the very bottom of the
+  # review priority scale, which is where most of the archive arrives from.
+  my $pid
+    = $app->pg->db->query(
+    'SELECT pattern FROM pattern_matches GROUP BY pattern ORDER BY COUNT(DISTINCT package) DESC, pattern LIMIT 1')
+    ->array->[0];
+  ok $pid, 'the packages match a pattern somebody could curate';
+  my $pattern = $app->patterns->find($pid);
+  $t->post_ok("/licenses/update_pattern/$pid" => form =>
+      {license => $pattern->{license}, pattern => "$pattern->{pattern} (revised)", risk => $pattern->{risk}})
+    ->status_is(302);
+  is run_task('pattern_stats'),         1, 'the tf-idf bag is rebuilt';
+  is run_task('reindex_matched_later'), 1, 'the fan-out ran';
+  my $fanout = @{waiting('index_later')};
+  ok $fanout > 1, 'more than one package is being rebuilt because of the pattern';
+  is run_task('index_later'), $fanout, 'every one of them is queued';
+
+  # A product import turns up while they are queued, at the lowest review priority there is
+  my $form
+    = {type => 'git', api => 'https://src.opensuse.org', package => 'perl-Mojolicious', rev => '0ff1ce', priority => 1};
+  $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)->status_is(200);
+  is_deeply waiting('git_import'), [[incoming_priority(1), 6]], 'the import is in the incoming band';
+
+  my $worker = $minion->worker->register;
+  ok my $import = $worker->dequeue(0), 'a worker picks up the next job';
+  is $import->task, 'git_import', 'the arriving package goes first, ahead of every rebuild the pattern caused';
+
+  # Nothing to download here, and the package is not part of the rest of this test
+  $import->finish;
+  $pkgs->update({id => 6, obsolete => 1});
+
+  # And the rebuilds cannot climb into the band it came in at, however many jobs they take to finish
+  my $highest = 0;
+  while (my $job = $worker->dequeue(0)) {
+    my $prio = $job->info->{priority};
+    $highest = $prio if $prio > $highest;
+    my $err = $job->execute;
+    $err ? $job->fail($err) : $job->finish;
+    is $err, undef, "job @{[$job->task]} was successful";
+  }
+  $worker->unregister;
+
+  is $highest, PRIORITY_UPKEEP + 4, 'the tallest rebuild climbed four steps above the upkeep band';
+  ok $highest < incoming_priority(1), 'and stayed below the package that arrived in the middle of it';
 };
 
 done_testing;

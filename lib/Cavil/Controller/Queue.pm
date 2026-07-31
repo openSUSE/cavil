@@ -4,7 +4,7 @@
 package Cavil::Controller::Queue;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Cavil::Util qw(PRIORITY_INCOMING);
+use Cavil::Util qw(incoming_priority);
 use Mojo::File  qw(path);
 
 sub create_package ($self) {
@@ -36,7 +36,7 @@ sub create_package ($self) {
   my $rev     = $validation->param('rev');
   my $created = $validation->param('created');
   my $link    = $validation->param('external_link');
-  my $prio    = $validation->param('priority') || PRIORITY_INCOMING;
+  my $prio    = $validation->param('priority') || 5;
 
   my $app    = $self->app;
   my $config = $app->config;
@@ -89,12 +89,14 @@ sub create_package ($self) {
   $pkgs->update($obj);
   if ($create) {
 
-    # The import runs at the review priority the request carries, and the whole chain down to the report
-    # follows from there (see Cavil::Util): an ordinary incoming package does not overtake a reviewer
-    # waiting on a rebuild, and a request marked urgent still does.
+    # The import goes in at the incoming band, moved up or down within it by the review priority the
+    # request carries, and the whole chain down to the report follows from there (see Cavil::Util): it does
+    # not overtake a reviewer waiting on a rebuild, and no amount of reindexing gets in front of it.
+    my $queue_prio = incoming_priority($prio);
     if ($type eq 'git') {
       $pkgs->git_import($obj->{id},
-        {url => $api, pkg => $pkg, hash => $rev, external_link => $obj->{external_link}, priority => $prio}, $prio);
+        {url => $api, pkg => $pkg, hash => $rev, external_link => $obj->{external_link}, priority => $prio},
+        $queue_prio);
     }
     else {
       $pkgs->obs_import(
@@ -110,7 +112,7 @@ sub create_package ($self) {
           external_link => $obj->{external_link},
           priority      => $prio
         },
-        $prio
+        $queue_prio
       );
     }
   }

@@ -5,7 +5,7 @@ package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Util
-  qw(license_is_catch_all normalize_license_expr paginate pattern_checksum spdx_link text_shingle_ids SNIPPET_SCORE_VERSION);
+  qw(license_is_catch_all normalize_license_expr paginate pattern_checksum spdx_link text_shingle_ids SNIPPET_SCORE_VERSION PRIORITY_WAITING);
 use List::Util qw(min);
 use Mojo::File qw(path);
 use Mojo::JSON qw(true false);
@@ -433,7 +433,7 @@ sub expire_cache ($self) {
   unlink $_->to_string for $self->_all_cache_files;
 
   # Rebuild the tf-idf bag
-  $self->minion->enqueue(pattern_stats => [] => {priority => 9});
+  $self->minion->enqueue(pattern_stats => [] => {priority => PRIORITY_WAITING});
 }
 
 # Only ever used as a yes/no, so it stops at the first pattern it finds instead of counting them all -

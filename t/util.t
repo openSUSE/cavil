@@ -21,7 +21,8 @@ use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets expand_spec_macros lines_context license_is_catch_all normalize_license_expr obs_ssh_auth parse_exclude_file),
   qw(parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
-  qw(external_link_data request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles validate_tags)
+  qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
+  qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING)
 );
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -600,6 +601,22 @@ subtest 'license_is_catch_all' => sub {
 
   # Composite expressions ending in "Unspecified" are swept in (the safe direction for coverage)
   ok license_is_catch_all('MIT OR BSD-Unspecified'), 'a composite ending in Unspecified is treated as catch_all';
+};
+
+subtest 'incoming_priority' => sub {
+  is incoming_priority(5),     PRIORITY_INCOMING,     'an ordinary request is the incoming band itself';
+  is incoming_priority(10),    PRIORITY_INCOMING + 5, 'the most urgent request is at the top of the band';
+  is incoming_priority(1),     PRIORITY_INCOMING - 4, 'a product import is at the bottom of it';
+  is incoming_priority(undef), PRIORITY_INCOMING,     'a request without one is treated as ordinary';
+
+  # The review priority is not a queue priority, and a request cannot use it to leave the band
+  is incoming_priority( 0),   PRIORITY_INCOMING - 4, 'below the scale is the bottom of the band';
+  is incoming_priority(-100), PRIORITY_INCOMING - 4, 'and so is far below it';
+  is incoming_priority( 11),  PRIORITY_INCOMING + 5, 'above the scale is the top of the band';
+  is incoming_priority(1000), PRIORITY_INCOMING + 5, 'and so is far above it';
+
+  ok incoming_priority(1) > PRIORITY_UPKEEP + 7, 'the least urgent import outranks every rebuild the queue makes';
+  ok incoming_priority(10) < PRIORITY_WAITING,   'the most urgent one still yields to a reviewer waiting on a report';
 };
 
 done_testing;

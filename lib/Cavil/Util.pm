@@ -22,7 +22,7 @@ our @EXPORT_OK = (
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
   qw(license_is_catch_all SNIPPET_SCORE_VERSION),
-  qw(PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
+  qw(incoming_priority PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
 
@@ -31,22 +31,40 @@ our @EXPORT_OK = (
 # the whole archive. They are the priority of the first job of a build; everything that build spawns
 # outranks it (see Cavil::Task::Index), so a package that has started is finished before the next one at
 # the same band is picked up. Also written down in docs/Architecture.md, keep the two in step.
+#
+# The gap of twenty between them is what makes a band a band. A build climbs one step per job and is seven
+# jobs long at most, and the incoming band spreads another five either way for the review priority, so
+# every package stays within a dozen of where it started - a reindex of chromium can never climb its way
+# into the queue an incoming package is waiting in, however long it runs.
 use constant {
 
   # Somebody is sitting in front of the report: the Reindex button, or the package a batch of new
   # patterns was just submitted from
-  PRIORITY_WAITING => 8,
+  PRIORITY_WAITING => 80,
 
   # A new package coming in, shifted up or down by the review priority the request carries
-  PRIORITY_INCOMING => 5,
+  PRIORITY_INCOMING => 60,
 
   # Keeping existing reports honest with nobody waiting on the result: the other packages a new pattern
   # touches, a removed pattern or ignored line, a build the cleanup sweep found abandoned
-  PRIORITY_UPKEEP => 3,
+  PRIORITY_UPKEEP => 40,
 
   # Sweeps over the whole archive: the weekly reindex, the bulk commands
-  PRIORITY_SWEEP => 1
+  PRIORITY_SWEEP => 20
 };
+
+# Where a package submitted through the Bot API goes in. The review priority a request carries says which
+# review a human should look at first (1 to 10, and the bot marks product imports right down at the
+# bottom); it is not a queue priority, and using it as one is how a batch of new patterns once managed to
+# put chromium in front of everything arriving that afternoon. So it only ever moves an import around
+# inside the incoming band: the lowest product import still outranks every reindex, and the most urgent
+# request still yields to a reviewer waiting on a report.
+sub incoming_priority ($review_priority) {
+  my $prio = $review_priority // 5;
+  $prio = 1  if $prio < 1;
+  $prio = 10 if $prio > 10;
+  return PRIORITY_INCOMING + $prio - 5;
+}
 
 # Bumped whenever the snippet similarity scorer's semantics change. snippets carry the version they
 # were scored with; fold-in only trusts rows scored by the *current* version, so a scorer change (or

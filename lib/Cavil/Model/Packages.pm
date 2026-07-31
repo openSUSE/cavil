@@ -53,10 +53,11 @@ sub actions ($self, $link, $id) {
 sub all ($self) { $self->pg->db->select('bot_packages')->hashes }
 
 # A plain re-analyze (no generation) touches no files and rewrites nothing but the report row, so the
-# default priority is above every band in Cavil::Util: it is a few seconds of work standing between a
-# reviewer and a corrected report, and making it wait for the queue would cost far more than it saves.
-# The analyze that ends a build passes its own priority instead and stays in the build's band.
-sub analyze ($self, $id, $priority = 9, $parents = [], $generation = 0) {
+# default priority is above every band in Cavil::Util, clear of even the highest a build can climb to: it
+# is a few seconds of work standing between a reviewer and a corrected report, and making it wait for the
+# queue would cost far more than it saves. The analyze that ends a build passes its own priority instead
+# and stays in the build's band.
+sub analyze ($self, $id, $priority = 100, $parents = [], $generation = 0) {
 
   # Without a generation this is a plain re-analyze of the live report, which deduplicates like any other
   # per-package job
@@ -141,7 +142,7 @@ sub classify ($self, $id) {
 
   my $minion = $self->minion;
   return if $minion->jobs({tasks => ['classify'], states => ['inactive']})->total;
-  $minion->enqueue(classify => [] => {priority => 5});
+  $minion->enqueue(classify => [] => {priority => PRIORITY_INCOMING});
 }
 
 sub cleanup ($self, $id, $job_id) {
