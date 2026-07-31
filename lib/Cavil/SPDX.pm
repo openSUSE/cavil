@@ -634,12 +634,12 @@ sub _matched_lines ($matched_lines, $start, $end, $value) {
 package _Graph;
 use Mojo::Base -base, -signatures;
 
-use Mojo::JSON qw(encode_json);
+use Cavil::Util qw(encode_json_fast);
 
 # Stream elements into the "@graph" array one at a time to keep memory bounded for large packages. Each
 # element is written in a single print (comma prepended) to halve the writes into the gzip layer.
 sub add ($self, $node) {
-  my $json = encode_json($node);
+  my $json = encode_json_fast($node);
   $self->{handle}->print($self->{first} ? $json : ",$json");
   $self->{first} = 0;
 }

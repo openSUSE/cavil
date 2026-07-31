@@ -24,6 +24,7 @@ use Cavil::Test;
 use Mojo::File      qw(path curfile tempdir);
 use Mojo::JSON      qw(decode_json encode_json);
 use Cavil::Checkout qw(extract_urls_and_emails);
+use Cavil::Util     qw(encode_json_fast);
 use Time::HiRes     qw(time);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -500,6 +501,46 @@ subtest 'Markup files are stripped during unpack' => sub {
   like $stripped,   qr/Permission is hereby granted free of charge/, 'license text extracted';
   like $stripped,   qr/Redistribution & use permitted/,              'HTML entity decoded';
   unlike $stripped, qr/<html|<body|<h1|<p>/,                         'markup tags removed';
+};
+
+subtest 'A file list with non-ASCII names is read back whole' => sub {
+  my $co = $TMP->child('non-ascii', 'hash')->make_path;
+
+  # A hash with more than a handful of distinct non-ASCII keys is what used to wedge the unpack job
+  # forever while it wrote this very file, so build one big enough to have done it
+  my @accented = split //, "\x{e9}\x{f8}\x{142}\x{fc}\x{e7}";
+  my %unpacked = map { ("src/caf$accented[$_ % @accented]-$_.txt" => {mime => 'text/plain'}) } 1 .. 100;
+  $co->child('.postprocessed.json')
+    ->spew(encode_json_fast {destdir => $co->child('.unpacked')->to_string, unpacked => \%unpacked});
+
+  my $checkout = Cavil::Checkout->new($co);
+  my $files    = $checkout->unpacked_files;
+  is scalar @$files, 100, 'every file is handed to the indexer';
+  is_deeply [sort keys %unpacked], [map { $_->[0] } @$files], 'with their names intact';
+  is $checkout->unpacked_file_stats->{files}, 100, 'and the stats agree on the count';
+};
+
+subtest 'The file list is only read once per checkout, and re-read after a new unpack' => sub {
+  my $co = $TMP->child('file-list-cache', 'hash')->make_path;
+  $co->child('first.txt')->spew("Licensed under the MIT license.\n");
+
+  my $checkout = Cavil::Checkout->new($co);
+  $checkout->unpack;
+  is_deeply [map { $_->[0] } @{$checkout->unpacked_files}], ['first.txt'], 'one file';
+
+  # Reading it again must not go back to disk, so a file list removed underneath us changes nothing
+  my $list = $co->child('.postprocessed.json');
+  my $json = $list->slurp;
+  $list->remove;
+  is_deeply [map { $_->[0] } @{$checkout->unpacked_files}], ['first.txt'], 'the second read is cached';
+  is $checkout->unpacked_file_stats->{files}, 1, 'and the stats use the same copy';
+  $list->spew($json);
+
+  # A re-unpack replaces the sources, so the same object has to see the new list
+  $co->child('second.txt')->spew("Licensed under the Apache-2.0 license.\n");
+  $checkout->unpack;
+  is_deeply [sort map { $_->[0] } @{$checkout->unpacked_files}], ['first.txt', 'second.txt'],
+    'the cache was dropped by the new unpack';
 };
 
 subtest 'Unpack background job' => sub {

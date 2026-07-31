@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::ReportUtil
   qw(new_license_names new_unresolved_files report_checksum report_shortname summary_delta summary_delta_score);
-use Mojo::JSON qw(to_json);
+use Cavil::Util 'to_json_fast';
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(analyze  => \&_analyze);
@@ -75,7 +75,7 @@ sub _analyze ($job, $id, $generation = 0) {
   my $flags     = $pkgs->flags($id, $generation);
 
   # Free up memory
-  my $specfile_json = $generation && %$specfile ? to_json($specfile) : undef;
+  my $specfile_json = $generation && %$specfile ? to_json_fast($specfile) : undef;
   undef $specfile;
 
   my $new_candidates = [];
@@ -119,7 +119,7 @@ sub _analyze ($job, $id, $generation = 0) {
 
     # bot_reports holds the two cached reports and has exactly one row per package. A first import has
     # none yet - nothing created it, because the spec file report was read straight from the checkout.
-    my %cached = (ldig_report => to_json($dig));
+    my %cached = (ldig_report => to_json_fast($dig));
     $cached{specfile_report} = $specfile_json if defined $specfile_json;
     if ($db->select('bot_reports', 'id', {package => $id})->hash) {
       $db->update('bot_reports', \%cached, {package => $id});
@@ -450,7 +450,7 @@ sub _diff_report ($best, $summary) {
   my $licenses = new_license_names($best, $summary);
   return undef unless @$files || @$licenses;
 
-  return to_json({version => 1, closest => $best->{id}, new_unresolved => $files, new_licenses => $licenses});
+  return to_json_fast({version => 1, closest => $best->{id}, new_unresolved => $files, new_licenses => $licenses});
 }
 
 # Find the closest matching older review. Returns (matched_id, best_summary,

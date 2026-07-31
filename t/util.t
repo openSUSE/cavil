@@ -22,7 +22,8 @@ use Cavil::Util (
   qw(buckets expand_spec_macros lines_context license_is_catch_all normalize_license_expr obs_ssh_auth parse_exclude_file),
   qw(parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
-  qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING)
+  qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
+  qw(decode_json_fast encode_json_fast to_json_fast)
 );
 
 my $PRIVATE_KEY = tempfile->spew(<<'EOF');
@@ -617,6 +618,33 @@ subtest 'incoming_priority' => sub {
 
   ok incoming_priority(1) > PRIORITY_UPKEEP + 7, 'the least urgent import outranks every rebuild the queue makes';
   ok incoming_priority(10) < PRIORITY_WAITING,   'the most urgent one still yields to a reviewer waiting on a report';
+};
+
+subtest 'JSON helpers' => sub {
+  subtest 'round-trip' => sub {
+    my $data = {b => 2, a => [1, 'two', {c => 'three'}], "\x{fc}" => "\x{e4}", empty => {}, list => []};
+    is_deeply decode_json_fast(encode_json_fast($data)),        $data, 'binary round-trip';
+    is_deeply Mojo::JSON::from_json(to_json_fast($data)),       $data, 'text round-trip readable by Mojo::JSON';
+    is_deeply decode_json_fast(Mojo::JSON::encode_json($data)), $data, 'Mojo::JSON output readable by us';
+
+    is encode_json_fast("\x{e4}"), qq{"\xc3\xa4"}, 'binary encoder emits UTF-8 bytes';
+    is to_json_fast("\x{e4}"),     qq{"\x{e4}"},   'text encoder emits characters';
+    is encode_json_fast(undef),    'null',         'nonref allowed, as with Mojo::JSON';
+    is to_json_fast(\1),           'true',         'booleans survive';
+  };
+
+  # Cavil keys hashes on filenames and contributor names straight out of the archive. Sorting those
+  # keys, which is what Mojo::JSON's encoders do, never returns with Cpanel::JSON::XS 4.43 - so if this
+  # subtest ever stops finishing rather than starts failing, "canonical" is back.
+  subtest 'non-ASCII keys' => sub {
+    my @names = ("Bj\x{f8}rn", "Rafa\x{142}", "Andr\x{e9}", "J\x{e9}r\x{f4}me", "M\x{e5}rten", "Wei\x{df}");
+    my %hash  = map { ("$names[$_ % @names] Person$_" => $_) } 1 .. 500;
+    is_deeply decode_json_fast(encode_json_fast(\%hash)),  \%hash, 'they survive the binary round-trip';
+    is_deeply Mojo::JSON::from_json(to_json_fast(\%hash)), \%hash, 'and the text one';
+  };
+
+  # Everything Mojo::JSON sets except "canonical" is kept, so input that used to parse still parses
+  is_deeply decode_json_fast('{"a":1,"a":2}'), {a => 2}, 'duplicate keys are still allowed, not fatal';
 };
 
 done_testing;

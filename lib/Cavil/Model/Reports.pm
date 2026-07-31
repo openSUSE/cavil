@@ -6,12 +6,12 @@ use Mojo::Base -base, -signatures;
 
 use Encode qw(from_to decode);
 use Mojo::File 'path';
-use Mojo::JSON qw(from_json to_json);
+use Mojo::JSON qw(from_json);
 use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility);
-use Cavil::Util       qw(lines_context);
+use Cavil::Util       qw(lines_context to_json_fast);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
@@ -156,7 +156,7 @@ sub specfile_report {
     # Nothing unpacked to read yet, so there is nothing worth caching either
     return {} unless %$specfile;
 
-    my $report = {package => $id, specfile_report => to_json($specfile)};
+    my $report = {package => $id, specfile_report => to_json_fast($specfile)};
     $hash = $db->insert('bot_reports', $report, {returning => '*'})->hash;
   }
 

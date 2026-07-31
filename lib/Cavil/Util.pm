@@ -5,6 +5,7 @@ package Cavil::Util;
 use Mojo::Base -strict, -signatures;
 
 use Carp 'croak';
+use Cpanel::JSON::XS ();
 use Exporter 'import';
 use Encode   qw(from_to decode);
 use IPC::Run ();
@@ -22,6 +23,7 @@ our @EXPORT_OK = (
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
   qw(license_is_catch_all SNIPPET_SCORE_VERSION),
+  qw(decode_json_fast encode_json_fast to_json_fast),
   qw(incoming_priority PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
@@ -80,6 +82,25 @@ my $SAFE_OBS_SRVICE_MODES = {buildtime => 1, localonly => 1, manual => 1, disabl
 
 # According to Adrian, this is the only exception currently
 my $SAFE_OBS_SRVICE_NAMES = {product_converter => 1};
+
+# Drop-in replacements for Mojo::JSON's encode_json/decode_json/to_json, configured exactly like the
+# Cpanel::JSON::XS instances Mojo installs except that they do not sort the keys. Nothing we serialise
+# is ever compared or checksummed as text - it is always decoded back into a structure, and
+# report_checksum() builds and sorts its own - so the sorting was only ever wasted work. It is also
+# actively dangerous: with Cpanel::JSON::XS 4.43 "canonical" never returns for a hash holding two or
+# more distinct keys that contain non-ASCII characters (roughly twenty keys in, once the sort leaves
+# insertion-sort territory), and we key hashes on filenames and contributor names taken straight out of
+# the archive. That is an infinite loop at full CPU with no syscalls in it, so it does not even show up
+# under strace. Keep every other flag, in particular allow_dupkeys, or hostile input that used to parse
+# starts dying.
+my $JSON_BINARY = Cpanel::JSON::XS->new->utf8;
+my $JSON_TEXT   = Cpanel::JSON::XS->new;
+$_->allow_nonref->allow_unknown->allow_blessed->convert_blessed->stringify_infnan->escape_slash->allow_dupkeys
+  for $JSON_BINARY, $JSON_TEXT;
+
+sub decode_json_fast ($bytes) { return $JSON_BINARY->decode($bytes) }
+sub encode_json_fast ($data)  { return $JSON_BINARY->encode($data) }
+sub to_json_fast     ($data)  { return $JSON_TEXT->encode($data) }
 
 # Licenses and exceptions are updated with "perl tools/update_licenses.pl"
 our @SPDX_LICENSES     = split "\n", path(__FILE__)->dirname->child('resources', 'license_list.txt')->slurp;

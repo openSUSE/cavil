@@ -9,9 +9,8 @@ use File::Unpack2;
 use File::Spec::Functions qw(catfile);
 use Mojo::DOM;
 use Mojo::File 'path';
-use Mojo::JSON qw(decode_json encode_json);
 use Mojo::Util 'dumper';
-use Cavil::Util qw(buckets expand_spec_macros parse_service_file slurp_and_decode);
+use Cavil::Util qw(buckets decode_json_fast encode_json_fast expand_spec_macros parse_service_file slurp_and_decode);
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
 use YAML::XS qw(Load);
@@ -328,15 +327,24 @@ sub unpack ($self, $options = {}) {
     return;
   }
 
-  my $unpacked  = decode_json($dir->child('.unpacked.json')->slurp);
+  my $unpacked  = decode_json_fast($dir->child('.unpacked.json')->slurp);
   my $processor = Cavil::PostProcess->new($unpacked);
   $processor->postprocess;
-  $dir->child('.postprocessed.json')->spew(encode_json($processor->hash));
+  $dir->child('.postprocessed.json')->spew(encode_json_fast($processor->hash));
+
+  # Whatever we had read before is what the previous unpack produced
+  delete $self->{_unpacked};
+}
+
+# The file list of a big package is several megabytes and an index job reads it twice in a row, once
+# for the stats and once for the buckets, so hold on to it for the life of the checkout object
+sub _unpacked ($self) {
+  return $self->{_unpacked} //= decode_json_fast(path($self->dir)->child('.postprocessed.json')->slurp)->{unpacked};
 }
 
 sub unpacked_file_stats ($self) {
   my $dir      = scalar $self->dir;
-  my $unpacked = decode_json(path($self->dir)->child('.postprocessed.json')->slurp)->{unpacked};
+  my $unpacked = $self->_unpacked;
 
   my $stats = {files => scalar keys %$unpacked, size => 0};
   for my $file (keys %{$unpacked}) {
@@ -347,8 +355,7 @@ sub unpacked_file_stats ($self) {
 }
 
 sub unpacked_files ($self, $bucket_size = undef) {
-  my $dir      = path($self->dir);
-  my $unpacked = decode_json($dir->child('.postprocessed.json')->slurp)->{unpacked};
+  my $unpacked = $self->_unpacked;
 
   my @files;
   for my $file (sort keys %{$unpacked}) {
@@ -449,7 +456,7 @@ sub _helmchart ($file) {
 sub _is_obsprj ($unpacked) {
   my $config = $unpacked->child('workflow.config');
   return 0 unless -f $config;
-  return 0 unless my $data = eval { decode_json($config->slurp) };
+  return 0 unless my $data = eval { decode_json_fast($config->slurp) };
   return 0 unless ref $data eq 'HASH' && exists $data->{Workflows} && exists $data->{GitProjectName};
   return 1;
 }
