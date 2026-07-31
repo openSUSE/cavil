@@ -21,9 +21,10 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path curfile tempdir);
-use Mojo::JSON qw(decode_json encode_json);
-use Cavil::Checkout;
+use Mojo::File      qw(path curfile tempdir);
+use Mojo::JSON      qw(decode_json encode_json);
+use Cavil::Checkout qw(extract_urls_and_emails);
+use Time::HiRes     qw(time);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -49,6 +50,82 @@ sub temp_copy (@path) {
 
   return $target;
 }
+
+subtest 'URLs and email addresses' => sub {
+  subtest 'all four forms are recognised' => sub {
+    my $meta = extract_urls_and_emails(<<'EOF');
+Sebastian Riedel <sri@cpan.org> wrote this.
+Reported by nobody@nowhere.invalid too.
+<a href="mailto:kraih@kraih.com" >Sebastian Riedel</a>
+See http://mojolicious.org and ftp://ftp.gnu.org/pub for more.
+EOF
+    is_deeply [sort keys %{$meta->{emails}}], ['kraih@kraih.com', 'nobody@nowhere.invalid', 'sri@cpan.org'],
+      'right email addresses';
+    is $meta->{emails}{'sri@cpan.org'}{name},    'Sebastian Riedel', 'name in front of the address';
+    is $meta->{emails}{'kraih@kraih.com'}{name}, 'Sebastian Riedel', 'name after a mailto: link';
+
+    # Any two words in front of an address are taken for a name, so an address in running prose picks up
+    # whatever preceded it. Only all-lowercase and punctuated candidates are rejected
+    is $meta->{emails}{'nobody@nowhere.invalid'}{name}, 'Reported by', 'preceding words taken for a name';
+    is_deeply [sort keys %{$meta->{urls}}], ['ftp://ftp.gnu.org/pub', 'http://mojolicious.org'], 'right URLs';
+  };
+
+  subtest 'repeated values are counted, not duplicated' => sub {
+    my $meta = extract_urls_and_emails(join "\n\n", map {"Contact: sri\@cpan.org and http://mojolicious.org"} 1 .. 4);
+    is_deeply [keys %{$meta->{emails}}], ['sri@cpan.org'], 'one email address';
+    is $meta->{emails}{'sri@cpan.org'}{count}, 4, 'address counted once per occurrence';
+    is_deeply [keys %{$meta->{urls}}], ['http://mojolicious.org'], 'one URL';
+    is $meta->{urls}{'http://mojolicious.org'}, 4, 'URL counted once per occurrence';
+  };
+
+  subtest 'placeholder and unusable values are skipped' => sub {
+    my $meta = extract_urls_and_emails(<<'EOF');
+someone@example.com and http://www.example.org/ are placeholders (RFC 2606)
+file:///etc/passwd is not interesting
+bad@-nope.de is not a legal address (RFC 822)
+EOF
+    is_deeply $meta->{emails}, {}, 'no email addresses';
+    is_deeply $meta->{urls},   {}, 'no URLs';
+  };
+
+  subtest 'malformed input is survivable' => sub {
+    for my $case (
+      ['empty'         => ''],
+      ['invalid UTF-8' => "\xff\xfe\x00bad\@\x80\xc3(\x28"],
+      ['NUL bytes'     => join "\0", 'sri@cpan.org', 'http://mojolicious.org'],
+      ['no final NL'   => "x\r\n" x 500 . 'z' x 1500],
+      ['nothing but @' => '@' x 30000],
+      ['nothing but :' => '://' x 10000]
+      )
+    {
+      my ($name, $text) = @$case;
+      ok eval { extract_urls_and_emails($text); 1 }, "survives $name";
+    }
+  };
+
+  # Text with no whitespace used to make the address branches quadratic: the local-part class rescanned
+  # to end of buffer from every start position, so a single file at the 30KB slurp cap cost seconds. The
+  # bounded quantifiers in Cavil::Checkout make it linear again. Doubling the input and comparing is what
+  # the guard is worth having: the ratio is ~2 while this is linear and ~4 if it goes quadratic again,
+  # and unlike a wall-clock limit it means the same thing on a fast desktop and a loaded CI runner. The
+  # trailing "@" is deliberate, so the text gets past the index() shortcut and the bounds are measured.
+  subtest 'pathological input stays linear' => sub {
+    my $scan = sub ($size) {
+      my $text = substr('a.' x $size, 0, $size - 1) . '@';
+      my $best = 9e9;
+      for (1 .. 3) {
+        my $start = time;
+        my $meta  = extract_urls_and_emails($text);
+        my $spent = time - $start;
+        $best = $spent if $spent < $best;
+        is_deeply $meta, {emails => {}, urls => {}}, "nothing extracted from ${size} bytes" if $_ == 1;
+      }
+      return $best;
+    };
+    my $ratio = $scan->(30000) / $scan->(15000);
+    ok $ratio < 3, sprintf('doubling the input doubled the work (ratio %.2f, quadratic would be ~4)', $ratio);
+  };
+};
 
 subtest 'ceph-image (kiwi)' => sub {
   my $ceph     = temp_copy('ceph-image', '5fcfdab0e71b0bebfdf8b5cc3badfecf');
@@ -379,7 +456,7 @@ subtest 'Old SPDX reports are excluded from unpacking (no wasted copies)' => sub
   ok !-e $co->child('.unpacked', '.report.spdx.json'),           'report was not exploded into .unpacked';
   ok !-e $co->child('.unpacked', '.report.spdx.processed.json'), 'no line-wrapped report copy';
   ok -e $co->child('.report.spdx.json.gz'),                      'compact report still present in the checkout dir';
-  ok + (grep {m{hello\.txt$}} keys %$hash),                      'real source files are still unpacked';
+  ok +(grep {m{hello\.txt$}} keys %$hash),                       'real source files are still unpacked';
 };
 
 subtest 'Generated SPDX reports are never handed to the indexer' => sub {
@@ -415,8 +492,8 @@ subtest 'Markup files are stripped during unpack' => sub {
   $checkout->unpack;
 
   my $files = $checkout->unpacked_files;
-  ok + (grep { $_->[0] =~ m{(?:^|/)readme\.processed\.html$} } @$files), 'indexer sees the stripped .processed.html';
-  ok !(grep { $_->[0] =~ m{(?:^|/)readme\.html$} } @$files), 'raw readme.html is not indexed';
+  ok +(grep { $_->[0] =~ m{(?:^|/)readme\.processed\.html$} } @$files), 'indexer sees the stripped .processed.html';
+  ok !(grep { $_->[0] =~ m{(?:^|/)readme\.html$} } @$files),            'raw readme.html is not indexed';
 
   my ($rel) = map { $_->[0] } grep { $_->[0] =~ m{readme\.processed\.html$} } @$files;
   my $stripped = $co->child('.unpacked', split m{/}, $rel)->slurp;

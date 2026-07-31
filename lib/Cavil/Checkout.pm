@@ -4,6 +4,7 @@
 package Cavil::Checkout;
 use Mojo::Base -base, -signatures;
 
+use Exporter 'import';
 use File::Unpack2;
 use File::Spec::Functions qw(catfile);
 use Mojo::DOM;
@@ -16,6 +17,8 @@ use Cavil::PostProcess;
 use YAML::XS qw(Load);
 
 use constant DEBUG => $ENV{SUSE_CHECKOUT_DEBUG} || 0;
+
+our @EXPORT_OK = qw(extract_urls_and_emails);
 
 has 'dir';
 
@@ -55,11 +58,20 @@ my $BLACKLIST_MIME_RE = qr!
 # mee@foo.-oo is illgal. host names should be @(\w([\w-]*\w)?\.)+\w([\w-]*\w)?
 # This is filtered below in an additional regexp.
 #
-my $URL_RE = qr!
-  \b(\S+\s\S+)\s+[\(<]?([\w\.\+%-]+@[\w-]+\.[\w\.-]+\w)[\)>]?\s |
-  mailto:([\w\.\+%-]+@[\w-]+\.[\w\.-]+\w)["' ]*>\s*([^<@\s]+\s+[^<@\s]+)\s*< |
-  \b([\w\.\+%-]+@[\w-]+\.[\w\.-]+\w)\b |
-  \b((https?|ftp|file)://[\w-]+\.[\w\./:\\\+~-]+\w\??)\b
+# Every run here is explicitly bounded, and possessive wherever the class cannot overlap the atom that
+# follows it. Unbounded, the address branches are quadratic: on input with no whitespace and no "@" (a
+# 30KB run of "a.a.a.") the local-part class rescans to end of buffer from every single start position,
+# which cost three and a half seconds for one file - some four thousand times a normal one. Cavil scans
+# a whole distribution, test corpora of security tooling included, so that shape is something we are handed
+# rather than something we might one day meet. The bounds are the RFC 5321 ceiling on an address, well
+# above anything real (the longest local part in production is 53 characters, the longest URL 280) and
+# in any case far below the max_email_url_size cutoff that already drops over-long values on insert.
+my $EMAIL_RE = qr/[\w\.\+%-]{1,254}+@[\w-]{1,254}+\.[\w\.-]{1,254}\w/;
+my $URL_RE   = qr!
+  \b(\S{1,254}\s\S{1,254})\s+[\(<]?($EMAIL_RE)[\)>]?\s |
+  mailto:($EMAIL_RE)["' ]*>\s*([^<@\s]{1,254}\s+[^<@\s]{1,254})\s*< |
+  \b($EMAIL_RE)\b |
+  \b((https?|ftp|file)://[\w-]{1,254}+\.[\w\./:\\\+~-]{1,4000}\w\??)\b
 !ix;
 
 my $LICENSE_COMMENT_RE = qr/^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/;
@@ -493,21 +505,30 @@ sub _specfile ($file) {
   return $info;
 }
 
-# TODO: Clean up, copied from old code
-#
-# If defined, $prefix is prepended to $text; matches in prefix will result in
-# negative offsets.
-# Normal text offsets are always relative to the start of $text.
-# This can be used to give the filename or other meta data that should match
-# too.
-#
 sub _urls ($file, $meta) {
   my $text = slurp_and_decode($file);
   return undef unless defined $text;
+  extract_urls_and_emails($text, $meta);
+  return undef;
+}
 
+# Collect the URLs and email addresses of one file's text into $meta. Kept separate from the file
+# reading above, and exported, because this is the part that faces hostile input: it runs over every
+# file of every package, test corpora of security tooling included, so it is worth being able to hold
+# a string against it directly.
+#
 # urls with query string have their query strings removed. only the question
 # mark char remains.
 # urls with user@ are currently not supported.
+sub extract_urls_and_emails ($text, $meta = undef) {
+  $meta //= {emails => {}, urls => {}};
+
+  # Every branch of $URL_RE needs either an "@" or a "://", so text containing neither cannot match
+  # anywhere. Most source files are exactly that, and skipping them outright is worth about a third of
+  # the time this costs on a package. Purely a shortcut for the common case - an attacker supplies an
+  # "@" for free, so the bounds in $URL_RE are what keep the bad case cheap.
+  return $meta if index($text, '@') < 0 && index($text, '://') < 0;
+
   while ($text =~ /$URL_RE/g) {
     my ($name, $email, $email2, $name2, $email3, $url) = ($1, $2, $3, $4, $5, $6);
     $email = $email2 unless defined $email;
@@ -539,6 +560,7 @@ sub _urls ($file, $meta) {
     }
   }
 
+  return $meta;
 }
 
 1;
