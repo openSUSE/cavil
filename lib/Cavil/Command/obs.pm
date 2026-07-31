@@ -1,23 +1,12 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Command::obs;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
-use Mojo::File 'path';
-use Mojo::Util qw(dumper getopt);
+use Mojo::File  qw(path);
+use Mojo::Util  qw(dumper getopt);
+use Cavil::Util qw(PRIORITY_WAITING);
 
 has description => 'Import OBS sources';
 has usage       => sub ($self) { $self->extract_usage };
@@ -81,6 +70,10 @@ sub run ($self, @args) {
   $obj->{external_link} //= 'obs-command';
   $obj->{obsolete} = 0;
   $pkgs->update($obj);
+
+  # An admin at the command line asking for one specific package is waiting on it, same as the Reindex
+  # button on a report page - and --reimport is how a package that went wrong is put back together, so it
+  # has to go in ahead of the queue that is already there rather than behind it
   my $job = $pkgs->obs_import(
     $obj->{id},
     {
@@ -90,10 +83,9 @@ sub run ($self, @args) {
       srcpkg    => $srcpkg,
       rev       => $rev,
       srcmd5    => $srcmd5,
-      verifymd5 => $verifymd5,
-      priority  => 9
+      verifymd5 => $verifymd5
     },
-    9
+    PRIORITY_WAITING
   );
 
   print STDOUT "Triggered obs_import job $job\n";

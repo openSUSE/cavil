@@ -5,6 +5,7 @@ package Cavil::Command::unpack;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Getopt::Long qw(GetOptionsFromArray);
+use Cavil::Util  qw(PRIORITY_SWEEP PRIORITY_WAITING);
 
 has description => 'Unpack sources';
 has usage       => sub ($self) { $self->extract_usage };
@@ -13,7 +14,7 @@ sub run ($self, @args) {
   my ($rebatch, $batch, $priority);
   GetOptionsFromArray(\@args, 'rebatch:i' => \$rebatch, 'batch=i' => \$batch, 'priority=i' => \$priority);
 
-  return $self->_rebatch($rebatch, $batch // 500, $priority // 0) if defined $rebatch;
+  return $self->_rebatch($rebatch, $batch // 500, $priority // PRIORITY_SWEEP) if defined $rebatch;
 
   my $id = shift @args;
   die "ID is required.\n" unless $id;
@@ -22,12 +23,14 @@ sub run ($self, @args) {
   my $pkgs = $app->packages;
   print STDOUT "Releasing package $id\n" if $pkgs->force_release($id);
 
-  if   (my $job = $pkgs->unpack($id)) { print STDOUT "Triggered unpack job $job\n" }
-  else                                { print STDOUT "Unpacking already in progress\n" }
+  # Releasing a package by hand and unpacking it again is how a build that went wrong is recovered, so it
+  # goes in at the top of the ladder in Cavil::Util rather than behind whatever is already queued
+  if   (my $job = $pkgs->unpack($id, PRIORITY_WAITING)) { print STDOUT "Triggered unpack job $job\n" }
+  else                                                  { print STDOUT "Unpacking already in progress\n" }
 }
 
-# Re-unpack one batch of the oldest non-obsolete packages after $offset, at a low
-# priority so the catch-up yields to live review traffic. Re-unpacking cascades through
+# Re-unpack one batch of the oldest non-obsolete packages after $offset, at the sweep
+# band so the catch-up yields to live review traffic. Re-unpacking cascades through
 # index/analyze/report, so this is how a preprocessing change (e.g. markup stripping)
 # is rolled out gradually: call it, let the workers drain, then call again with the
 # printed "Next offset" when workload allows.
@@ -79,10 +82,11 @@ Cavil::Command::unpack - Cavil unpack command
         --rebatch [offset]  Re-unpack one batch of the oldest non-obsolete packages
                             with id greater than [offset] (default: 0), then print the
                             newest id as the offset for the next call. Jobs are enqueued
-                            at a low priority and cascade through index/analyze/report.
+                            at the sweep priority band and cascade through
+                            index/analyze/report.
         --batch <n>         Packages per batch (default: 500)
-        --priority <n>      Minion priority for the enqueued jobs (default: 0, below the
-                            normal unpack priority of 5)
+        --priority <n>      Minion priority for the enqueued jobs (default: 20, the sweep
+                            band, below everything a reviewer or an import is waiting on)
     -h, --help              Show this summary of available options
 
 =cut

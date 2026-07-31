@@ -1,17 +1,5 @@
-# Copyright (C) 2018-2020 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict;
 
@@ -21,7 +9,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path tempdir);
+use Cavil::Util qw(incoming_priority);
+use Mojo::File  qw(path tempdir);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -90,6 +79,11 @@ subtest 'Upload' => sub {
 
   my $pkg = $t->app->packages->find(3);
   is $pkg->{priority}, 6, 'priority taken from the form';
+
+  # An uploaded archive is an arriving package, and the priority on the form moves it around inside the
+  # incoming band the same way the one a Bot API request carries does
+  my $unpack = $t->app->minion->jobs({tasks => ['unpack'], states => ['inactive']})->next;
+  is $unpack->{priority}, incoming_priority(6), 'queued in the incoming band, one step up for the form priority';
 
   # The checkout directory must be the real content hash of the archive (not the md5 of an
   # empty stream), otherwise different archives uploaded under the same name would collide

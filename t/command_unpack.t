@@ -1,17 +1,5 @@
-# Copyright (C) 2025 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict, -signatures;
 
@@ -21,6 +9,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Cavil::Util qw(PRIORITY_SWEEP PRIORITY_WAITING);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -76,6 +65,11 @@ subtest 'Unpack' => sub {
     like $buffer, qr/Triggered unpack job/, 'unpack job triggered';
     is $app->packages->find(2)->{processing_job},        undef, 'no claim left on the package';
     is $app->minion->jobs({tasks => ['unpack']})->total, 3,     'three unpack jobs';
+
+    # This is how a build that went wrong is put back together, so it cannot go in behind the queue that
+    # was there when it went wrong
+    my $info = $minion->jobs({tasks => ['unpack'], states => ['inactive']})->next;
+    is $info->{priority}, PRIORITY_WAITING, 'the recovery goes in at the top of the ladder';
   };
 
   subtest 'Re-unpack keeps the existing report readable' => sub {
@@ -147,6 +141,17 @@ subtest 'Paced re-unpack batches (--rebatch)' => sub {
   subtest 'Resuming from the last offset reports caught up' => sub {
     my $out = $run->('--rebatch', $c);
     like $out, qr/Caught up/, 'nothing left after the newest package';
+  };
+
+  subtest 'Without a priority the catch-up goes in at the sweep band' => sub {
+    my $d   = $add->('dddd');
+    my $out = $run->('--rebatch', $c, '--batch', 1);
+    like $out, qr/Enqueued 1 re-unpack job\(s\) at priority @{[PRIORITY_SWEEP]}/, 'enqueued at the sweep band';
+
+    # Rolling out a preprocessing change is a pass over the whole archive, and it cascades all the way to a
+    # report, so it has to stay out of the way of the packages arriving while it runs
+    my $info = $minion->jobs({tasks => ['unpack'], notes => ["pkg_$d"]})->next;
+    is $info->{priority}, PRIORITY_SWEEP, 'the job itself too';
   };
 };
 

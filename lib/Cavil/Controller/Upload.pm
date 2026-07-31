@@ -1,23 +1,12 @@
-# Copyright (C) 2020 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Controller::Upload;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Digest::MD5;
-use Mojo::File qw(path);
+use Mojo::File  qw(path);
+use Cavil::Util qw(incoming_priority);
 
 sub index ($self) {
   $self->render('upload/form');
@@ -79,7 +68,10 @@ sub store ($self) {
   $obj->{external_link} = 'upload';
   $pkgs->update($obj);
   $pkgs->imported($id);
-  $pkgs->unpack($id);
+
+  # An arriving package like any other, and the review priority picked on the upload form moves it around
+  # inside the incoming band the same way the one a Bot API request carries does
+  $pkgs->unpack($id, incoming_priority($validation->param('priority')));
 
   my $msg = "Package $name has been uploaded and is now being processed";
   if ($wants_json) {

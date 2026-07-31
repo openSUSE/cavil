@@ -269,11 +269,14 @@ a build starts at decides whether a reviewer gets their report in a minute or so
 archive. There are four bands, defined as named constants so that call sites say what they mean rather than picking a
 number.
 
-Highest is **waiting** (80), for a build somebody is sitting in front of: the Reindex button on a report page, and the
-package a batch of new patterns was submitted from. Below that is **incoming** (60), a new package arriving through the
-Bot API. Then **upkeep** (40), for keeping existing reports honest when nobody is waiting on the result — the other
-packages a new pattern happens to touch, a removed pattern or ignored line, a build the cleanup sweep found abandoned.
-Lowest is **sweep** (20), for passes over the whole archive such as the weekly reindex and the bulk commands.
+Highest is **waiting** (80), for a build somebody is sitting in front of: the Reindex button on a report page, the
+package a batch of new patterns was submitted from, and anything an admin asks for by hand at the command line —
+`cavil obs --reimport`, `cavil unpack <id>` and `cavil git` are how a package that went wrong is put back together, so
+they have to go in ahead of the queue that was there when it went wrong rather than behind it. Below that is
+**incoming** (60), a new package arriving through the Bot API or uploaded through the web interface. Then **upkeep**
+(40), for keeping existing reports honest when nobody is waiting on the result — the other packages a new pattern
+happens to touch, a removed pattern or ignored line, a build the cleanup sweep found abandoned. Lowest is **sweep**
+(20), for passes over the whole archive: the weekly reindex, and the bulk commands such as `cavil unpack --rebatch`.
 
 A band is the priority of the *first* job of a build. Every job that build spawns runs one step above the one before
 it, so a package that has started is carried through to its report before the next package in the same band is picked

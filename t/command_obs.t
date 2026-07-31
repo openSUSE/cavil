@@ -1,17 +1,5 @@
-# Copyright (C) 2024 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict;
 
@@ -21,7 +9,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(tempdir);
+use Cavil::Util qw(PRIORITY_WAITING);
+use Mojo::File  qw(tempdir);
 use Mojolicious::Lite;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -130,6 +119,26 @@ subtest 'OBS' => sub {
     }
     like $buffer, qr/Triggered obs_import job 1/i, 'right output';
     is $app->minion->jobs({tasks => ['obs_import']})->total, 1, 'job queued';
+
+    my $info = $app->minion->jobs({tasks => ['obs_import']})->next;
+    is $info->{priority}, PRIORITY_WAITING, 'an admin at the command line is waiting on it';
+  };
+
+  subtest 'Reimport' => sub {
+    my $id     = $app->pg->db->query('SELECT id FROM bot_packages ORDER BY id DESC LIMIT 1')->array->[0];
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('obs', '--reimport', $id);
+    }
+    like $buffer, qr/Triggered obs_import job 2/i, 'right output';
+    is $app->minion->jobs({tasks => ['obs_import']})->total, 2, 'second job queued';
+
+    # Reimporting is how a package that went wrong is put back together, so it has to go in ahead of
+    # whatever is already queued rather than behind it
+    my $info = $app->minion->jobs({tasks => ['obs_import']})->next;
+    is $info->{priority}, PRIORITY_WAITING, 'the recovery goes in at the top of the ladder';
   };
 };
 
