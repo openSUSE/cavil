@@ -367,6 +367,17 @@ sub is_indexed  ($self, @args) { $self->_check_field('indexed',  @args) }
 sub is_obsolete ($self, @args) { $self->_check_field('obsolete', @args) }
 sub is_unpacked ($self, @args) { $self->_check_field('unpacked', @args) }
 
+# Iteration number for the next SBOM of this package. The SBOM URI is derived from the package id and so
+# stays the same every time the report is rebuilt - a reindex, a reclassified snippet or an edited pattern
+# all change what the report says without changing what it is called. The counter is what lets a recipient
+# tell two iterations apart. It counts generations rather than content changes, so a rebuild that happens
+# to produce an identical report still advances it; comparing two reports to avoid that is not worth it.
+sub next_sbom_version ($self, $id) {
+  return $self->pg->db->query(
+    'UPDATE bot_packages SET sbom_version = sbom_version + 1 WHERE id = ? RETURNING sbom_version', $id)
+    ->hash->{sbom_version};
+}
+
 sub old_reviews ($self, $pkg) {
   return $self->pg->db->select(
     'bot_packages',

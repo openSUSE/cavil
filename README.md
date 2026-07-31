@@ -22,8 +22,11 @@ count as legal advice and no guarantees are made for their correctness!
 
 ### SBOM & compliance
 
-* Software Bill of Materials (SBOM) generation in SPDX 3.0.1 format, compliant with the EU Cyber Resilience Act (CRA)
-  as specified by [BSI TR-03183-2](https://www.bsi.bund.de/dok/TR-03183-en)
+* Software Bill of Materials (SBOM) generation in SPDX 3.0.1 format, for the EU Cyber Resilience Act (CRA) as specified
+  by [BSI TR-03183-2](https://www.bsi.bund.de/dok/TR-03183-en), and satisfying the
+  [CISA minimum elements](https://www.cisa.gov/sbom) on top of it wherever the two do not conflict — see
+  [standards and coverage](docs/Architecture.md#standards-and-coverage) for the four things that are not covered yet,
+  and why
 * Package and component (purl) search, plus a component export, for supply-chain and vulnerability triage
 
 ### Review workflow

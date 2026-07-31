@@ -13,12 +13,37 @@ use IO::Compress::Gzip qw($GzipError);
 use Mojo::File         qw(path);
 use Mojo::JSON         qw(encode_json);
 use Mojo::Date;
+use Mojo::URL;
 use Mojo::Util qw(decode scope_guard);
 
 # BSI TR-03183-2 requires SPDX 3.0.1 (or higher) in JSON format (see section 4)
 use constant SPEC_VERSION => '3.0.1';
 use constant CONTEXT      => 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld';
 use constant HASH_ALGO    => 'sha512';
+
+# SPDX 3.0.1 individuals for "the author asserts nothing here". The CISA minimum elements want unavailable
+# data stated rather than left out, so a recipient can tell "we do not know" from "we did not look". The
+# agent one has to be spelled as a full IRI: the short "NoAssertionElement" token is only accepted where the
+# schema lists it literally, and the agent range used for a component producer does not.
+use constant NO_ASSERTION_AGENT   => 'https://spdx.org/rdf/3.0.1/terms/Core/NoAssertionElement';
+use constant NO_ASSERTION_LICENSE => 'expandedlicensing_NoAssertionLicense';
+
+# "There is nothing here", as opposed to "we did not check". Used to state that a package genuinely ships no
+# vendored subcomponents, which is what carries the completeness of the dependency list for such a package.
+use constant NONE_ELEMENT => 'https://spdx.org/rdf/3.0.1/terms/Core/NoneElement';
+
+# Stated once on the SBOM rather than repeated on every element it applies to. The elements this covers
+# (version, hash) are plain strings and objects in SPDX 3.0.1 with no "unknown" form to put in them, and
+# CISA treats identifying unknowns as a practice rather than a data field, so one statement is the right
+# shape - a per-component note would repeat itself thousands of times in a heavily vendored package.
+use constant UNKNOWNS_STATEMENT => join(' ',
+  'Unknown information is stated rather than omitted.',
+  'A component with no identifiable producer carries a NoAssertion producer, and a component whose license',
+  'could not be determined carries a NoAssertion license.',
+  'This is a source SBOM: the cryptographic hashes cover the delivered source archives, while vendored',
+  'subcomponents have no archive of their own to hash and so carry none.',
+  'A vendored subcomponent whose own metadata states no version is listed without one.',
+  'Nothing is withheld from this document.');
 
 # Legal flags Cavil curates per license pattern, surfaced as additive SPDX annotations
 my @FLAGS = qw(trademark patent export_restricted cla eula);
@@ -104,8 +129,12 @@ sub generate_to_file ($self, $id, $file) {
     }
   );
 
-  my $creator       = $config->{creator} || {};
-  my $creator_name  = $creator->{name}   || 'Cavil';
+  my $creator = $config->{creator} || {};
+
+  # The entity that operates Cavil, which is not Cavil itself - the tool is a separate field further down.
+  # An instance that has not been told who runs it is identified by the host it publishes its SBOMs under,
+  # which at least names a real party, rather than by the name of the software that wrote the file.
+  my $creator_name  = $creator->{name} || Mojo::URL->new($namespace)->host || $namespace;
   my $creator_email = $creator->{email};
   my $creator_url   = $creator->{url} || $namespace;
   my $creator_org
@@ -116,7 +145,24 @@ sub generate_to_file ($self, $id, $file) {
     : {type => 'ExternalIdentifier', externalIdentifierType => 'urlScheme', identifier => $creator_url}
     ];
   $graph->add($creator_org);
-  $graph->add({type => 'Tool', spdxId => $iri->('tool-cavil'), creationInfo => $creation, name => 'Cavil'});
+
+  # The name of the tool and its version are two separate data fields, and SPDX 3.0.1 gives a Tool no version
+  # property of its own, so the version travels as a package URL alongside the plain name
+  $graph->add(
+    {
+      type               => 'Tool',
+      spdxId             => $iri->('tool-cavil'),
+      creationInfo       => $creation,
+      name               => 'Cavil',
+      externalIdentifier => [
+        {
+          type                   => 'ExternalIdentifier',
+          externalIdentifierType => 'packageUrl',
+          identifier             => 'pkg:generic/cavil@' . Cavil->VERSION
+        }
+      ]
+    }
+  );
 
   # Shared helpers for licenses and relationships
   my (%license_pool, %license_meta, $license_num, $rel_num, $snippet_num, $annotation_num);
@@ -164,18 +210,32 @@ sub generate_to_file ($self, $id, $file) {
       spdxId             => $iri->('document'),
       creationInfo       => $creation,
       name               => $pkg->{name},
-      profileConformance => ['core', 'software', 'simpleLicensing'],
+      profileConformance => ['core', 'software', 'simpleLicensing', 'expandedLicensing'],
       dataLicense        => $license_ref->('CC0-1.0'),
       rootElement        => [$base]
     }
   );
+
+  # The SBOM URI is derived from the package id and so is the same for every rebuild of this package. The
+  # iteration number is what distinguishes one rebuild from the next; the major version is 1 because this
+  # document follows the published minimum elements.
+  my $sbom_version = $app->packages->next_sbom_version($id);
   $graph->add(
     {
-      type              => 'software_Sbom',
-      spdxId            => $base,
-      creationInfo      => $creation,
-      rootElement       => [$iri->('package')],
-      software_sbomType => ['source']
+      type               => 'software_Sbom',
+      spdxId             => $base,
+      creationInfo       => $creation,
+      rootElement        => [$iri->('package')],
+      software_sbomType  => ['source'],
+      comment            => UNKNOWNS_STATEMENT,
+      externalIdentifier => [
+        {
+          type                   => 'ExternalIdentifier',
+          externalIdentifierType => 'other',
+          identifier             => "1.$sbom_version",
+          comment                => 'SBOM version'
+        }
+      ]
     }
   );
 
@@ -264,9 +324,12 @@ sub generate_to_file ($self, $id, $file) {
     software_primaryPurpose    => 'source',
     software_additionalPurpose => ['archive']
   };
-  $package->{software_packageVersion} = $version       if defined $version && length $version;
-  $package->{software_homePage}       = $main->{url}   if $main->{url};
-  $package->{originatedBy}            = $originated_by if $originated_by;
+  $package->{software_packageVersion} = $version     if defined $version && length $version;
+  $package->{software_homePage}       = $main->{url} if $main->{url};
+
+  # An importer that carries no source coordinates leaves the producer genuinely unknown, which is said out
+  # loud rather than left to a missing key
+  $package->{originatedBy} = $originated_by // [NO_ASSERTION_AGENT];
 
   # Content checksum of the delivered artifact(s), so the primary component carries a verifiable digest
   $package->{verifiedUsing} = [map { $_->{hash} } @archives] if @archives;
@@ -275,15 +338,14 @@ sub generate_to_file ($self, $id, $file) {
     $package->{software_downloadLocation}
       = "$src->{api_url}/source/$src->{project}/$src->{package}" . ($src->{srcmd5} ? "?rev=$src->{srcmd5}" : '');
   }
-  if (defined $purl_version) {
-    $package->{externalIdentifier} = [
-      {
-        type                   => 'ExternalIdentifier',
-        externalIdentifierType => 'packageUrl',
-        identifier             => "pkg:generic/$pkg->{name}\@$purl_version"
-      }
-    ];
-  }
+
+  # Every component needs at least one software identifier to be looked up by. A creator-assigned version
+  # makes a package URL that resolves to something; the timestamp standing in for a missing version does not,
+  # so a package without one gets a versionless package URL rather than no identifier at all.
+  my $purl = "pkg:generic/$pkg->{name}";
+  $purl .= "\@$purl_version" if defined $purl_version;
+  $package->{externalIdentifier}
+    = [{type => 'ExternalIdentifier', externalIdentifierType => 'packageUrl', identifier => $purl}];
 
   # BSI TR-03183-2 section 5.2.4 "Source code URI": the *utilised* (distribution) source, version-pinned -
   # for a distribution the source we actually built from, not upstream (section 8.1.8: a maintainer who
@@ -319,6 +381,10 @@ sub generate_to_file ($self, $id, $file) {
     )->hash;
     $note_license->($lid, $meta->{risk}, [grep { $meta->{$_} } @FLAGS]) if $meta;
   }
+
+  # A package whose spec file declares nothing usable says so, instead of being the only component in the
+  # document with no license statement at all. No completeness marker: there is no list here to be complete.
+  else { $relationship->($pkgid, 'hasConcludedLicense', [NO_ASSERTION_LICENSE]) }
 
   # The delivered source archive(s) as deployable component file elements, reusing the digests computed
   # above (see the @archives comment for why only these files are hashed)
@@ -441,9 +507,9 @@ sub generate_to_file ($self, $id, $file) {
 
   # Vendored subcomponents detected during indexing (name/version/license/purl from their embedded
   # metadata), related to the primary component as dependencies
-  for my $c ($db->query('SELECT * FROM package_components WHERE package = ? AND generation = 0 ORDER BY purl', $id)
-    ->hashes->each)
-  {
+  my $components
+    = $db->query('SELECT * FROM package_components WHERE package = ? AND generation = 0 ORDER BY purl', $id)->hashes;
+  for my $c ($components->each) {
     my $cid  = $iri->("component-$c->{id}");
     my $node = {
       type               => 'software_Package',
@@ -454,6 +520,11 @@ sub generate_to_file ($self, $id, $file) {
         [{type => 'ExternalIdentifier', externalIdentifierType => 'packageUrl', identifier => $c->{purl}}]
     };
     $node->{software_packageVersion} = $c->{version} if defined $c->{version} && length $c->{version};
+
+    # Vendored code carries no reliable statement of who published it - the embedded metadata names the
+    # component, not its producer. That is said out loud, so a reader can tell an unknown producer from a
+    # producer nobody bothered to record.
+    $node->{originatedBy} = [NO_ASSERTION_AGENT];
     $graph->add($node);
 
     # Distribution licence (BSI required, hasConcludedLicense) and original licence (additional,
@@ -463,8 +534,16 @@ sub generate_to_file ($self, $id, $file) {
       $relationship->($cid, 'hasConcludedLicense', [$lid], 'complete');
       $relationship->($cid, 'hasDeclaredLicense',  [$lid], 'complete');
     }
+
+    # Neither the component's own metadata nor the file scan produced anything usable
+    else { $relationship->($cid, 'hasConcludedLicense', [NO_ASSERTION_LICENSE]) }
     $relationship->($pkgid, 'dependsOn', [$cid], $c->{complete} ? 'complete' : 'incomplete');
   }
+
+  # A package that ships no vendored code would otherwise say nothing at all about its dependencies, which
+  # reads the same as never having looked. Both BSI and CISA want the completeness of the dependency list
+  # spelled out, so an empty list is stated as an empty list.
+  $relationship->($pkgid, 'dependsOn', [NONE_ELEMENT], 'complete') unless $components->size;
 
   # Cavil's curated legal risk and flags per license, as additive annotations (removable without
   # affecting BSI conformance)

@@ -35,6 +35,12 @@ sub of_type ($doc, $type) {
   return [grep { ($_->{type} // '') eq $type } @{$doc->{'@graph'}}];
 }
 
+# Relationships of one type, optionally only those originating from a given element
+sub rels ($doc, $type, $from = undef) {
+  return [grep { $_->{relationshipType} eq $type && (!defined $from || $_->{from} eq $from) }
+      @{of_type($doc, 'Relationship')}];
+}
+
 # All license expressions listed anywhere in the document
 sub license_exprs ($doc) {
   return [map { $_->{simplelicensing_licenseExpression} } @{of_type($doc, 'simplelicensing_LicenseExpression')}];
@@ -46,10 +52,10 @@ sub read_report ($path) {
   return decode_json($buffer);
 }
 
-# Generate a fresh SPDX report for package 1 (with whatever config/data is currently set) and parse it
-sub gen_doc {
+# Generate a fresh SPDX report (with whatever config/data is currently set) and parse it
+sub gen_doc ($id = 1) {
   my $tmp = tempfile;
-  $t->app->spdx->generate_to_file(1, "$tmp");
+  $t->app->spdx->generate_to_file($id, "$tmp");
   return read_report("$tmp");
 }
 
@@ -196,13 +202,16 @@ subtest 'Graph is internally consistent' => sub {
   is_deeply \@unidentified, [], 'every element has an identifier';
   is_deeply \@duplicates,   [], 'all identifiers are unique';
 
-  # Every reference (creationInfo, relationships, root elements, agents) resolves to an element in the graph
+  # Every reference (creationInfo, relationships, root elements, agents) resolves to an element in the graph,
+  # or to one of the individuals SPDX itself defines for "nothing is asserted here" and "there is nothing here"
+  my %individual = map { $_ => 1 } 'expandedlicensing_NoAssertionLicense',
+    'https://spdx.org/rdf/3.0.1/terms/Core/NoAssertionElement', 'https://spdx.org/rdf/3.0.1/terms/Core/NoneElement';
   my @dangling;
   for my $node (@{$doc->{'@graph'}}) {
     my @refs = grep {defined} $node->{creationInfo}, $node->{from}, $node->{subject},
       $node->{software_snippetFromFile}, $node->{dataLicense};
     push @refs,     @{$node->{$_} // []} for qw(createdBy createdUsing rootElement originatedBy to);
-    push @dangling, $_                   for grep { !$ids{$_} } @refs;
+    push @dangling, $_                   for grep { !$ids{$_} && !$individual{$_} } @refs;
   }
   is_deeply \@dangling, [], 'no dangling references in the graph';
 };
@@ -222,12 +231,34 @@ subtest 'Creation information (BSI: creator and timestamp)' => sub {
   my $tool = $g->{$ci->{createdUsing}[0]};
   is $tool->{type}, 'Tool',  'created using a tool';
   is $tool->{name}, 'Cavil', 'the tool is Cavil';
+
+  # The tool name and the tool version are two separate things a consumer is entitled to, and the name
+  # has to stay a bare "Cavil", so the version travels alongside it as a package URL
+  is_deeply $tool->{externalIdentifier},
+    [
+    {
+      type                   => 'ExternalIdentifier',
+      externalIdentifierType => 'packageUrl',
+      identifier             => 'pkg:generic/cavil@' . Cavil->VERSION
+    }
+    ],
+    'the tool carries its own version';
 };
 
 subtest 'SBOM document (BSI: SBOM-URI)' => sub {
   my $sbom = of_type($doc, 'software_Sbom')->[0];
   is $sbom->{spdxId}, 'http://legaldb.suse.de/spdx/1', 'SBOM-URI';
   is_deeply $sbom->{software_sbomType}, ['source'], 'source SBOM';
+
+  # The URI is the same for every rebuild of this package, so the iteration counter is the only thing
+  # telling a recipient which of two documents with that URI is the newer one
+  my ($version) = grep { ($_->{comment} // '') eq 'SBOM version' } @{$sbom->{externalIdentifier}};
+  like $version->{identifier}, qr/^1\.\d+$/, 'the SBOM carries an iteration number';
+
+  # What is unknown is stated once for the document, rather than repeated on thousands of components
+  like $sbom->{comment}, qr/Unknown information is stated rather than omitted/,
+    'the document says how it handles unknowns';
+  like $sbom->{comment}, qr/Nothing is withheld/, 'and that nothing is being held back';
 
   my $primary = $g->{$sbom->{rootElement}[0]};
   is $primary->{type}, 'software_Package', 'root element is the primary component';
@@ -263,10 +294,7 @@ subtest 'Primary component (BSI: required and additional fields)' => sub {
     ],
     'source code URI is the version-pinned OBS source, as a VCS reference';
 
-  my @artifacts
-    = map { $g->{$_->{to}[0]} }
-    grep  { $_->{from} eq $primary->{spdxId} && $_->{relationshipType} eq 'hasDistributionArtifact' }
-    @{of_type($doc, 'Relationship')};
+  my @artifacts = map { $g->{$_->{to}[0]} } @{rels($doc, 'hasDistributionArtifact', $primary->{spdxId})};
   is scalar(@artifacts),  1,                               'exactly one distribution artifact (the source archive)';
   is $artifacts[0]{name}, './Mojolicious-7.25.tar.gz',     'the source archive is the deployable artifact';
   is $artifacts[0]{verifiedUsing}[0]{algorithm}, 'sha512', 'deployable component hashed with SHA-512';
@@ -438,10 +466,27 @@ subtest 'Creator identity is configurable (URL fallback and defaults)' => sub {
   my $default_doc = gen_doc();
   my $dci         = of_type($default_doc, 'CreationInfo')->[0];
   my %dby_id      = map { ($_->{spdxId} // $_->{'@id'}) => $_ } @{$default_doc->{'@graph'}};
-  is $dby_id{$dci->{createdBy}[0]}{name},    'Cavil', 'defaults to Cavil as the creator';
+  is $dby_id{$dci->{createdBy}[0]}{name}, 'legaldb.suse.de',
+    'an unconfigured creator falls back to the deployment, not to the tool';
   is $dby_id{$dci->{createdUsing}[0]}{name}, 'Cavil', 'defaults to Cavil as the tool';
 
   $t->app->config->{spdx} = $spdx_config;
+};
+
+subtest 'Every rebuild is a new iteration of the same SBOM' => sub {
+
+  # Reindexing, a reclassified snippet or an edited pattern all change what the report says without
+  # changing the URI it is published under, so the iteration number has to move on its own
+  my $version = sub ($sbom_doc) {
+    my $sbom = of_type($sbom_doc, 'software_Sbom')->[0];
+    my ($id) = grep { ($_->{comment} // '') eq 'SBOM version' } @{$sbom->{externalIdentifier}};
+    return $id->{identifier};
+  };
+
+  my ($first, $second) = map { $version->(gen_doc()) } 1, 2;
+  my ($a, $b) = map { (split /\./)[1] } $first, $second;
+  is $b, $a + 1, "consecutive reports for the same package are different iterations ($first, $second)";
+  like $first, qr/^1\./, 'the major version is the minimum-elements revision the document follows';
 };
 
 subtest 'LicenseRef namespace is configurable' => sub {
@@ -476,7 +521,8 @@ subtest 'Packages without Open Build Service coordinates (e.g. uploads)' => sub 
   my $upload_doc = gen_doc();
   my ($primary) = grep { $_->{name} eq 'perl-Mojolicious' } @{of_type($upload_doc, 'software_Package')};
   ok !exists $primary->{software_downloadLocation}, 'no download location without OBS coordinates';
-  ok !exists $primary->{originatedBy},              'no originator without OBS coordinates';
+  is_deeply $primary->{originatedBy}, ['https://spdx.org/rdf/3.0.1/terms/Core/NoAssertionElement'],
+    'an unknown producer is stated rather than omitted';
   is $primary->{software_packageVersion}, '7.25', 'version is still present';
   schema_ok($upload_doc, 'upload-style document still validates');
 
@@ -497,9 +543,7 @@ subtest 'Component version falls back to the source-control timestamp (BSI 5.2.2
   $t->app->minion->perform_jobs;
   is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
 
-  my $tmp = tempfile;
-  $t->app->spdx->generate_to_file(2, "$tmp");
-  my $nover_doc = read_report("$tmp");
+  my $nover_doc = gen_doc(2);
   my ($primary) = grep { $_->{name} eq 'perl-Mojolicious' } @{of_type($nover_doc, 'software_Package')};
 
   my $epoch = $t->app->pg->db->query('SELECT EXTRACT(EPOCH FROM created)::bigint AS e FROM bot_packages WHERE id = 2')
@@ -508,7 +552,15 @@ subtest 'Component version falls back to the source-control timestamp (BSI 5.2.2
     'version falls back to the source-control timestamp';
   like $primary->{software_packageVersion}, qr/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/,
     'fallback version is an RFC 3339 date-time';
-  ok !$primary->{externalIdentifier}, 'no package URL without a creator-assigned version';
+  is_deeply $primary->{externalIdentifier},
+    [
+    {
+      type                   => 'ExternalIdentifier',
+      externalIdentifierType => 'packageUrl',
+      identifier             => 'pkg:generic/perl-Mojolicious'
+    }
+    ],
+    'the package URL is versionless rather than absent, and does not carry the timestamp';
   schema_ok($nover_doc, 'version-fallback document still validates');
 };
 
@@ -523,9 +575,7 @@ subtest 'Source code URI for git sources (BSI 5.2.4)' => sub {
     '',    'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678', $source_id
   );
 
-  my $tmp = tempfile;
-  $t->app->spdx->generate_to_file(2, "$tmp");
-  my $git_doc = read_report("$tmp");
+  my $git_doc = gen_doc(2);
   my ($primary) = grep { $_->{name} eq 'perl-Mojolicious' } @{of_type($git_doc, 'software_Package')};
 
   is_deeply $primary->{externalRef},
@@ -542,17 +592,17 @@ subtest 'Source code URI for git sources (BSI 5.2.4)' => sub {
 
 # The case the translation exists for: both files are shifted by post-processing, so the numbers
 # the indexer stored point at the wrong lines of the files the report names
+# The line-shift checkout has no spec file, which later subtests reuse as a package that declares nothing
+my $shift_id;
+
 subtest 'Line ranges are translated back out of the post-processed copy' => sub {
-  my $id = $cavil_test->spdx_line_shift_fixtures($t->app);
+  my $id = $shift_id = $cavil_test->spdx_line_shift_fixtures($t->app);
   $t->app->minion->enqueue(unpack => [$id]);
   $t->app->minion->perform_jobs;
   is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
 
-  my $tmp = tempfile;
-  $t->app->spdx->generate_to_file($id, "$tmp");
-  my $shift_doc = read_report("$tmp");
-
-  my %files = map { $_->{name} => $_ } @{of_type($shift_doc, 'software_File')};
+  my $shift_doc = gen_doc($id);
+  my %files     = map { $_->{name} => $_ } @{of_type($shift_doc, 'software_File')};
   ok $files{'./bundle.js'},                 'the wrapped file is reported under its original name';
   ok $files{'./page.html'},                 'the stripped file is reported under its original name';
   ok !(grep {/\.processed\./} keys %files), 'no scanned copy leaks into the report';
@@ -582,6 +632,58 @@ subtest 'Line ranges are translated back out of the post-processed copy' => sub 
   like +(split /\n/, $dir->child('page.html')->slurp)[5], qr/Cavil Fixture License/, 'page.html line 6';
 
   schema_ok($shift_doc, 'translated document validates');
+};
+
+# A consumer has to be able to tell "we do not know" from "we did not look". Vendored code is where that
+# distinction bites: its embedded metadata names the component but almost never says who published it.
+# The go-vendor checkout is the counterpart to the line-shift one below: a package that does ship vendored code
+my $vendor_id;
+
+subtest 'Vendored subcomponents say what is unknown about them' => sub {
+  my $id = $vendor_id = $cavil_test->go_vendor_fixtures($t->app);
+  $t->app->minion->enqueue(unpack => [$id]);
+  $t->app->minion->perform_jobs;
+  is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
+
+  my $vendor_doc = gen_doc($id);
+  my ($mux) = grep { $_->{name} eq 'github.com/gorilla/mux' } @{of_type($vendor_doc, 'software_Package')};
+  ok $mux, 'the vendored module is in the report';
+  is_deeply $mux->{originatedBy}, ['https://spdx.org/rdf/3.0.1/terms/Core/NoAssertionElement'],
+    'a vendored module with no identifiable producer says so';
+
+  # A Go vendor listing carries no licenses at all, so this component has none to state either
+  my ($concluded) = @{rels($vendor_doc, 'hasConcludedLicense', $mux->{spdxId})};
+  ok $concluded, 'it still has a concluded license relationship';
+  is $concluded->{to}[0], 'expandedlicensing_NoAssertionLicense', 'which states that the license is unknown';
+  ok !exists $concluded->{completeness}, 'an unknown license is not claimed to be a complete answer';
+
+  schema_ok($vendor_doc, 'a document full of NoAssertions still validates');
+
+  # A primary component nothing declares a license for is treated the same way (the line-shift checkout
+  # ships no spec file at all)
+  my $shift_doc           = gen_doc($shift_id);
+  my ($primary)           = grep { $_->{name} eq 'line-shift' } @{of_type($shift_doc, 'software_Package')};
+  my ($primary_concluded) = @{rels($shift_doc, 'hasConcludedLicense', $primary->{spdxId})};
+  is $primary_concluded->{to}[0], 'expandedlicensing_NoAssertionLicense',
+    'a package with no declared license says the license is unknown';
+};
+
+# Both standards want the dependency list to say whether it is the whole list. A package with vendored code
+# says so on every dependency edge; one without has no edge to say it on, so the empty list is stated as such
+subtest 'The dependency list says whether it is complete' => sub {
+  my $vendor_deps = rels(gen_doc($vendor_id), 'dependsOn');
+  ok @$vendor_deps > 1, 'the vendored package depends on its subcomponents';
+  is_deeply [map { $_->{completeness} } @$vendor_deps], [('complete') x @$vendor_deps],
+    'and each of those dependencies is a complete answer';
+  ok !grep({ grep {/NoneElement/} @{$_->{to}} } @$vendor_deps), 'none of them claims there are no dependencies';
+
+  my $shift_doc  = gen_doc($shift_id);
+  my $shift_deps = rels($shift_doc, 'dependsOn');
+  is scalar @$shift_deps, 1, 'a package with no vendored code still says something about its dependencies';
+  is_deeply $shift_deps->[0]{to}, ['https://spdx.org/rdf/3.0.1/terms/Core/NoneElement'], 'namely that there are none';
+  is $shift_deps->[0]{completeness}, 'complete', 'and that this is the whole list, not a partial scan';
+
+  schema_ok($shift_doc, 'an empty dependency list validates');
 };
 
 # What the download button on the report page sees. It renders from the state the report metadata carries

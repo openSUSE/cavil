@@ -482,5 +482,6 @@ CREATE INDEX bot_packages_unsettled_idx ON bot_packages (id)
 CREATE INDEX license_patterns_created_idx ON license_patterns (created);
 ALTER TABLE bot_packages ADD COLUMN reindex_priority int;
 
--- TODO: Include in next migration
--- ALTER TABLE bot_users DROP COLUMN fullname;
+-- 57 up
+ALTER TABLE bot_packages ADD COLUMN sbom_version int NOT NULL DEFAULT 0;
+ALTER TABLE bot_users DROP COLUMN fullname;

@@ -329,6 +329,38 @@ that guideline, as detailed in the rest of this section.
 Whether a given SBOM meets a particular regulatory obligation is a determination for the manufacturer and their legal
 advisers; it is not something Cavil asserts. The following describes what Cavil actually produces.
 
+### Standards and coverage
+
+There is a second widely cited baseline: the US Cybersecurity and Infrastructure Security Agency (CISA), together with
+seventeen partner agencies — the BSI among them — publishes the
+[**Minimum Elements for a Software Bill of Materials**](https://www.cisa.gov/sbom), whose 2026 revision expanded the
+older 2021 list with a number of new fields.
+
+**Where the two disagree, Cavil follows the BSI guideline.** That is not a preference for one authority over the other:
+the CISA document states that its minimum elements create no new requirements, and says in as many words that entities
+falling within the scope of Union law may treat it as informational. Cavil's users are in that position. Everything else
+the CISA list asks for is satisfied anyway, since the two documents overlap heavily and the extra fields are useful to
+anyone consuming an SBOM regardless of which rulebook they are working from.
+
+That leaves four things Cavil does not do yet. None of them is an accident, and all four are worth knowing about before
+you check Cavil's output against either list:
+
+* **A component with no version** is given a date-time instead of being marked unknown. When a package carries no
+  version of its own, the BSI guideline requires the source modification date-time in its place, while the CISA list
+  wants the version explicitly marked as unknown. This is the one point where the two genuinely conflict, so Cavil
+  emits the timestamp and a checker written strictly against the CISA elements will flag those components.
+* **The SBOM is not cryptographically signed.** CISA asks for a signature so a recipient can verify who produced a
+  document and that it has not been altered. That needs signing keys and a way to distribute them, which an instance of
+  Cavil does not currently have.
+* **Bundled components have no named producer.** The metadata that ecosystems ship inside a vendored module names the
+  module but hardly ever says who published it, and Cavil does not go looking elsewhere. Rather than leave the field
+  blank, every such component is explicitly marked as having an unknown producer, so the gap is visible in the document
+  instead of being mistaken for an answer.
+* **Dependencies between bundled components are not mapped.** Cavil lists the complete set of modules a package ships
+  (see [Bundled components](#bundled-components)) but not which of them depends on which; they are all recorded as
+  dependencies of the package as a whole. Neither baseline sets a minimum depth here, so this is a limitation rather
+  than a shortfall.
+
 ### Format
 
 SBOMs are emitted as **SPDX version 3.0.1** documents in **JSON** (BSI TR-03183-2 requires SPDX 3.0.1 or newer, in JSON
@@ -341,11 +373,16 @@ schema (this is checked by the test suite).
 ### What the SBOM contains
 
 The document describes the package as the *primary component* and records, for it and for the files and subcomponents
-below it, the following data fields described by BSI TR-03183-2, as far as the available metadata allows:
+below it, the following data fields — those BSI TR-03183-2 describes, plus those the CISA list adds — as far as the
+available metadata allows:
 
 * **Who created the SBOM and when** — a configurable creator identity (organisation name plus an email address, or a
-  URL if no email is available) and a timestamp.
-* **A unique identity for the SBOM** — its own URI, so it can be referenced from other SBOMs.
+  URL if no email is available) and a timestamp. This is the organisation running Cavil, never Cavil itself; an
+  instance that has not been told who operates it falls back to the host it publishes its SBOMs under.
+* **Which tool wrote it** — Cavil, with its version.
+* **A unique identity for the SBOM** — its own URI, so it can be referenced from other SBOMs, plus an iteration number.
+  The URI stays the same every time a package's report is rebuilt, so the iteration number is what tells a recipient
+  which of two documents is the newer one.
 * **Component name and version** — for the package (from its spec file) and for each bundled component (from the
   component's own metadata).
 * **Supplier / originator** — derived from the Open Build Service coordinates the package came from.
@@ -356,7 +393,14 @@ below it, the following data fields described by BSI TR-03183-2, as far as the a
 * **Licenses** — the package's declared and concluded licenses, plus the licenses Cavil detected in individual files
   (see [License identification](#license-identification) below).
 * **Dependencies** — the bundled components (see [Bundled components](#bundled-components)) and the files contained in
-  the package, expressed as SPDX relationships with an explicit completeness marker.
+  the package, expressed as SPDX relationships with an explicit completeness marker. A package that bundles nothing
+  states that as well, so an empty dependency list cannot be mistaken for one nobody compiled.
+
+What is *not* known is said out loud rather than quietly omitted, so that a reader can tell "nobody knows" from "nobody
+looked". A component with no identifiable producer, and a component whose license could not be determined, each carry an
+explicit *no assertion* marker. The remaining unknowns — a missing version, or a bundled component that has no archive
+of its own to hash — cannot be expressed that way in SPDX, so the document carries a short note explaining how it treats
+them and confirming that nothing has been withheld.
 
 Following BSI TR-03183-2, the SBOM deliberately contains **no vulnerability information** — SBOM data is static, whereas
 vulnerability data changes over time and is exchanged through separate channels (such as CSAF/VEX).
@@ -407,13 +451,9 @@ Detection runs during indexing, alongside the normal file scan, and adds negligi
 matches a known metadata file are parsed. Adding a new ecosystem is a small, self-contained detector module, so the
 list of supported ecosystems can grow easily.
 
-Two honest limitations remain, both permitted by BSI TR-03183-2 (which allows omitting data that is not available from
-the way a component was assembled):
-
-* Cavil lists the full *set* of bundled components but does not reconstruct the dependency graph *among* them (which
-  bundled module depends on which); they are recorded as dependencies of the package as a whole.
-* A bundled component's *creator* is not recorded, because ecosystem metadata rarely provides it as the email address
-  or URL the guideline asks for.
+Two honest limitations remain, both described under [Standards and coverage](#standards-and-coverage) above: the
+dependency graph *among* the bundled components is not reconstructed, and their producers are not named (though that is
+stated as an explicit unknown rather than left blank).
 
 The package's own top-level manifest (an npm project's root `package.json`, say) is *not* reported as a bundled
 component, even though it is present — it describes the primary artifact under review, not a vendored dependency, so

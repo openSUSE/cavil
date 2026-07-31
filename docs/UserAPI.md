@@ -699,7 +699,8 @@ Diff to closest match 12345:
 
 `GET /api/v1/spdx/<package_id>`
 
-Get the legal report as an SPDX 3.0.1 SBOM in JSON format, compliant with BSI TR-03183-2. Note that this report may be
+Get the legal report as an SPDX 3.0.1 SBOM in JSON format, following BSI TR-03183-2 (and, where the two do not
+conflict, the CISA minimum elements). Note that this report may be
 generated on demand, and in such cases the server will return a `408` error code until the report has been generated.
 These documents are meant to be saved rather than read in a browser, so the response carries
 `Content-Disposition: attachment; filename="<package_id>.spdx.json"`.
@@ -730,11 +731,33 @@ Content-Type: application/json
       "createdUsing": ["http://legaldb.suse.de/spdx/23#tool-cavil"]
     },
     {
+      "type": "Tool",
+      "spdxId": "http://legaldb.suse.de/spdx/23#tool-cavil",
+      "creationInfo": "_:creationInfo",
+      "name": "Cavil",
+      "externalIdentifier": [
+        {
+          "type": "ExternalIdentifier",
+          "externalIdentifierType": "packageUrl",
+          "identifier": "pkg:generic/cavil@1.031"
+        }
+      ]
+    },
+    {
       "type": "software_Sbom",
       "spdxId": "http://legaldb.suse.de/spdx/23",
       "creationInfo": "_:creationInfo",
       "software_sbomType": ["source"],
-      "rootElement": ["http://legaldb.suse.de/spdx/23#package"]
+      "rootElement": ["http://legaldb.suse.de/spdx/23#package"],
+      "comment": "Unknown information is stated rather than omitted. ...",
+      "externalIdentifier": [
+        {
+          "type": "ExternalIdentifier",
+          "externalIdentifierType": "other",
+          "identifier": "1.3",
+          "comment": "SBOM version"
+        }
+      ]
     },
     {
       "type": "software_Package",
