@@ -424,6 +424,43 @@ sub create ($self, %args) {
   return $self->find($mid);
 }
 
+# Low-level bulk write behind imports and backfills: insert one fully-specified pattern row (deduped on the
+# token_hexsum unique index) and maintain its shingles. Fills in token_hexsum from the pattern text when
+# absent. Returns the new id, or undef when a pattern with the same checksum already exists. Unlike create()
+# it takes the row verbatim (no property inheritance) and does NOT expire caches - the caller expires once
+# when the whole batch is done.
+sub insert_pattern ($self, $row) {
+  my $db = $self->pg->db;
+  $row->{token_hexsum} //= pattern_checksum($row->{pattern});
+  return undef unless my $new = $db->insert('license_patterns', $row, {on_conflict => undef, returning => 'id'})->hash;
+  $self->sync_pattern_shingles($db, $new->{id}, $row->{license} // '', $row->{pattern});
+  return $new->{id};
+}
+
+# Create the highest-value pattern - "SPDX-License-Identifier: <expr>" - for every license that carries an
+# SPDX expression but is still missing it. The identifier comes verbatim from the license's curated "spdx"
+# field (which may be hand-set, not just derived from the name); every other property is inherited from a
+# representative pattern of the license (lowest id carrying an spdx). Returns the created rows; idempotent, as
+# insert_pattern dedupes on the token_hexsum unique index.
+sub backfill_spdx_identifiers ($self) {
+  my @created;
+  for my $row (
+    $self->pg->db->query(
+      "SELECT DISTINCT ON (license) license, spdx, packname, patent, trademark, export_restricted, cla, eula,
+         catch_all, risk
+       FROM license_patterns WHERE license != '' AND spdx != '' ORDER BY license, id"
+    )->hashes->each
+    )
+  {
+    $row->{pattern} = "SPDX-License-Identifier: $row->{spdx}";
+    push @created, $row if $self->insert_pattern($row);
+  }
+
+  # Only churn the matcher/bag when something actually changed - a no-op re-run must not enqueue a rebuild.
+  $self->expire_cache if @created;
+  return \@created;
+}
+
 sub expire_cache ($self) {
 
   # Drop every engine's matcher and bag caches, so stale caches are never used until they are rebuilt -

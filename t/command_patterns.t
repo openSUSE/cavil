@@ -503,4 +503,56 @@ subtest 'Shingle backfill' => sub {
   ok $rows > 0, "backfill repopulated the table ($rows rows across $patterns patterns)";
 };
 
+subtest 'Backfill SPDX identifier patterns' => sub {
+
+  # Reset to a known state: Apache-2.0 (spdx set) x2, Artistic-2.0 (spdx set) x1, SUSE-NotALicense (no spdx)
+  $cavil_test->mojo_fixtures($app);
+  my $db = $app->pg->db;
+
+  my $count = sub {
+    $db->query('SELECT count(*) AS c FROM license_patterns WHERE pattern = ?', shift)->hash->{c};
+  };
+  is $count->('SPDX-License-Identifier: Apache-2.0'), 0, 'identifier pattern does not exist yet';
+
+  my $buffer = '';
+  {
+    open my $handle, '>', \$buffer;
+    local *STDOUT = $handle;
+    $app->start('patterns', '--backfill-spdx-ids');
+  }
+  like $buffer,   qr/Apache-2\.0 -> SPDX-License-Identifier: Apache-2\.0/,     'Apache-2.0 identifier created';
+  like $buffer,   qr/Artistic-2\.0 -> SPDX-License-Identifier: Artistic-2\.0/, 'Artistic-2.0 identifier created';
+  unlike $buffer, qr/SUSE-NotALicense/,                      'license without an SPDX expression is skipped';
+  like $buffer,   qr/^2 SPDX identifier patterns created$/m, 'reports the number created';
+
+  subtest 'Identifier pattern inherits the license properties' => sub {
+    my $new
+      = $db->query('SELECT * FROM license_patterns WHERE pattern = ?', 'SPDX-License-Identifier: Apache-2.0')->hash;
+    is $new->{license},   'Apache-2.0', 'license name';
+    is $new->{spdx},      'Apache-2.0', 'inherited SPDX expression';
+    is $new->{risk},      5,            'inherited risk';
+    is $new->{catch_all}, 0,            'inherited catch_all flag';
+  };
+
+  subtest 'Identifier pattern is matchable' => sub {
+    my $pattern
+      = $db->query('SELECT id FROM license_patterns WHERE pattern = ?', 'SPDX-License-Identifier: Apache-2.0')->hash;
+    ok $app->patterns->find($pattern->{id}), 'pattern is stored';
+    is $db->query('SELECT count(*) AS c FROM pattern_shingles WHERE pattern_id = ?', $pattern->{id})->hash->{c} > 0, 1,
+      'shingles were maintained for the new pattern';
+  };
+
+  subtest 'A second run is a clean no-op' => sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('patterns', '--backfill-spdx-ids');
+    }
+    like $buffer,   qr/^0 SPDX identifier patterns created$/m, 'nothing left to create';
+    unlike $buffer, qr/->/,                                    'no per-license lines on a no-op run';
+    is $count->('SPDX-License-Identifier: Apache-2.0'), 1, 'still exactly one identifier pattern';
+  };
+};
+
 done_testing();

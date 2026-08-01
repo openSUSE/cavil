@@ -16,10 +16,9 @@
 package Cavil::Sync;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(pattern_checksum);
-use File::Find  qw(find);
-use Mojo::File  qw(path);
-use Mojo::JSON  qw(decode_json encode_json);
+use File::Find qw(find);
+use Mojo::File qw(path);
+use Mojo::JSON qw(decode_json encode_json);
 use Term::ProgressBar;
 
 has 'app';
@@ -28,7 +27,6 @@ has silent => 0;
 sub load ($self, $path) {
 
   my $app      = $self->app;
-  my $db       = $app->pg->db;
   my $patterns = $app->patterns;
   die "License pattern file $path not found" unless -r ($path = path($path));
 
@@ -43,12 +41,7 @@ sub load ($self, $path) {
   $handle->seek(0, 0);
   for my $line (<$handle>) {
     chomp $line;
-    my $hash = decode_json($line);
-    $hash->{token_hexsum} = pattern_checksum($hash->{pattern});
-    if (my $row = $db->insert('license_patterns', $hash, {on_conflict => undef, returning => 'id'})->hash) {
-      $imported++;
-      $patterns->sync_pattern_shingles($db, $row->{id}, $hash->{license} // '', $hash->{pattern});
-    }
+    $imported++ if $patterns->insert_pattern(decode_json($line));
     $progress->update;
     $all++;
   }
