@@ -267,29 +267,37 @@
         <div v-if="canReview" class="col mb-3 metadata-review-actions">
           <div class="metadata-review-actions-group">
             <!-- One accept button; the server derives acceptable vs acceptable_by_lawyer from the
-                 reviewer's capability, so a non-lawyer can never post a lawyer sign-off. -->
-            <input
+                 reviewer's capability, so a non-lawyer can never post a lawyer sign-off.
+
+                 The pair doubles as a live indicator of the current decision: the button matching the
+                 stored state carries a check and stays solid, the alternative recedes to an outline but
+                 stays fully clickable so the reviewer can still switch their mind. -->
+            <button
               v-for="button in reviewButtons"
               :key="button.id"
-              :class="['btn', button.variant]"
+              type="button"
+              :class="['btn', buttonClass(button), {'is-decision-current': selectedButtonId === button.id, 'is-decision-flash': flashId === button.id}]"
               :id="button.id"
               :name="button.id"
-              type="button"
               :disabled="submitting"
-              :value="button.label"
               @click="submitReview(submitUrl, button.id)"
-            />
+            >
+              <i v-if="submittingId === button.id" class="fa-solid fa-rotate fa-spin" aria-hidden="true"></i>
+              <i v-else-if="selectedButtonId === button.id" class="fa-solid fa-circle-check" aria-hidden="true"></i>
+              {{ button.label }}
+            </button>
           </div>
           <button
             v-if="hasAdminRole === true"
             type="button"
             :class="['btn', reindexBtnVariant, 'metadata-review-actions-secondary']"
             :title="reindexTitle"
-            :disabled="reindexBusy"
+            :disabled="reindexBusy || rebuildPending"
             id="reindex_button"
             @click="reindex"
           >
-            Reindex
+            <i v-if="reindexBusy || rebuildPending" class="fa-solid fa-rotate fa-spin" aria-hidden="true"></i>
+            {{ reindexBusy || rebuildPending ? 'Reindexing…' : 'Reindex' }}
           </button>
         </div>
       </form>
@@ -390,6 +398,9 @@ export default {
       spdx: null,
       state: null,
       submitting: false,
+      submittingId: null,
+      flashId: null,
+      flashTimer: null,
       templates: [],
       unpackedFiles: 0,
       unpackedSize: 'n/a',
@@ -413,6 +424,13 @@ export default {
     },
     submitUrl() {
       return this.hasAdminRole === true ? this.reviewUrl : this.fasttrackUrl;
+    },
+    // Which review button the stored state currently corresponds to (null while the package is still
+    // "new"), so the pair can show the decision instead of just firing it
+    selectedButtonId() {
+      if (this.state === 'acceptable' || this.state === 'acceptable_by_lawyer') return 'acceptable';
+      if (this.state === 'unacceptable') return 'unacceptable';
+      return null;
     },
     // Notices that compare against an older review name it by id ("Diff to
     // closest match 538922", "Not found any significant difference against
@@ -487,6 +505,27 @@ export default {
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
     },
+    // Before a decision both buttons stay solid (a plain call to action). Once one is the stored decision
+    // it keeps its solid colour and the other relaxes to an outline - quieter, but still obviously a button
+    // the reviewer can click to switch.
+    buttonClass(button) {
+      if (this.selectedButtonId === null || this.selectedButtonId === button.id) return button.variant;
+      return button.variant.replace('btn-', 'btn-outline-');
+    },
+    // A short one-shot pulse on the button that just became the decision, so a change registers right where
+    // the cursor is even when accept/reject are toggled back and forth
+    flashDecision(id) {
+      if (id === null) return;
+      if (this.flashTimer !== null) clearTimeout(this.flashTimer);
+      this.flashId = null;
+      this.$nextTick(() => {
+        this.flashId = id;
+        this.flashTimer = setTimeout(() => {
+          this.flashId = null;
+          this.flashTimer = null;
+        }, 900);
+      });
+    },
     async loadTemplates() {
       try {
         const ua = new UserAgent({baseURL: window.location.href});
@@ -509,6 +548,7 @@ export default {
       }
 
       this.submitting = true;
+      this.submittingId = decision;
 
       try {
         const ua = new UserAgent({baseURL: window.location.href});
@@ -528,6 +568,9 @@ export default {
           // stale local state is what makes refreshData() adopt the comment the server just stored
           this.cancelApiRefresh();
           await this.doApiRefresh();
+
+          // The refresh has flipped the selected button, now pulse it so the change is unmissable
+          this.flashDecision(this.selectedButtonId);
           return;
         }
 
@@ -537,6 +580,7 @@ export default {
         this.$refs.toaster?.notify(`Review request failed: ${err}`, 'danger', 5000);
       } finally {
         this.submitting = false;
+        this.submittingId = null;
       }
     },
     notifyError(message) {
@@ -976,6 +1020,34 @@ export default {
 .metadata-review-actions .btn:hover,
 .metadata-review-actions .btn:focus {
   z-index: 1;
+}
+.metadata-review-actions .btn i {
+  margin-right: 0.4em;
+}
+/* The button that reflects the stored decision keeps its solid fill and sits above its outlined
+   neighbour so its border reads as a single unbroken segment */
+.metadata-review-actions .btn.is-decision-current {
+  z-index: 1;
+}
+/* One-shot pulse when a decision is made or switched, drawing the eye to the button under the cursor */
+.metadata-review-actions .btn.is-decision-flash {
+  animation: metadata-decision-flash 0.7s ease;
+}
+@keyframes metadata-decision-flash {
+  0% {
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(1.4);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .metadata-review-actions .btn.is-decision-flash {
+    animation: none;
+  }
 }
 .metadata-review-actions-secondary {
   margin-left: auto;
