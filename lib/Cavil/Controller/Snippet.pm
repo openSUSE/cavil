@@ -237,13 +237,17 @@ sub list_meta ($self) {
 }
 
 sub meta ($self) {
+  my $v = $self->validation;
+  $v->optional('file')->num;
+
   my $id = $self->param('id');
 
   # Scope to the occurrence the reviewer is actually on: snippets are content-hash deduped, so one
   # snippet id can have hundreds of occurrences across packages (a widely vendored license file).
   # Without a file the model would pick an arbitrary one, and its match highlights/line numbers could
-  # describe a different package than the report the editor was opened from.
-  my $snippet  = $self->snippets->with_context($id, $self->param('file'));
+  # describe a different package than the report the editor was opened from. A non-numeric file fails
+  # validation and is treated as absent (a graceful fallback), never reaching the bigint column.
+  my $snippet  = $self->snippets->with_context($id, $v->param('file'));
   my $patterns = $self->patterns;
   my $licenses = $patterns->autocomplete;
   my $pattern  = $patterns->closest_pattern($snippet->{text}) // {};
@@ -251,10 +255,11 @@ sub meta ($self) {
 }
 
 sub smart_edit ($self) {
-  my $snippet = $self->snippets->with_context($self->param('id'), $self->param('file'))
-    or return $self->reply->not_found;
-  my $mode   = $self->param('mode') // 'smart';
-  my $result = $mode eq 'spdx' ? spdx_edit_snippet($snippet) : smart_edit_snippet($snippet);
+  my $v = $self->validation;
+  $v->optional('file')->num;
+  my $snippet = $self->snippets->with_context($self->param('id'), $v->param('file')) or return $self->reply->not_found;
+  my $mode    = $self->param('mode') // 'smart';
+  my $result  = $mode eq 'spdx' ? spdx_edit_snippet($snippet) : smart_edit_snippet($snippet);
   $self->render(
     json => {pattern => $result->{text}, start_line => $result->{start_line}, changed => $result->{changed} ? \1 : \0});
 }

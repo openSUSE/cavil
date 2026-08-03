@@ -126,6 +126,10 @@ subtest 'Same snippet is deduplicated across packages at different lines' => sub
     $t->get_ok("/snippet/meta/$a->{snippet}")->status_is(200);
     my $any = $t->tx->res->json('/snippet/sline');
     ok(($any == $a->{sline} || $any == $b->{sline}), 'fallback returns one of the real occurrences');
+
+    # A non-numeric file is treated as absent (no bigint bind error), not a 500
+    $t->get_ok("/snippet/meta/$a->{snippet}?file=abc")->status_is(200);
+    $t->get_ok("/snippet/meta/$a->{snippet}?file=")->status_is(200);
   };
 };
 
