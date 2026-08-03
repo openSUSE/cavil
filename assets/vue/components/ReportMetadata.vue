@@ -276,7 +276,11 @@
               v-for="button in reviewButtons"
               :key="button.id"
               type="button"
-              :class="['btn', buttonClass(button), {'is-decision-current': selectedButtonId === button.id, 'is-decision-flash': flashId === button.id}]"
+              :class="[
+                'btn',
+                buttonClass(button),
+                {'is-decision-current': selectedButtonId === button.id, 'is-decision-flash': flashId === button.id}
+              ]"
               :id="button.id"
               :name="button.id"
               :disabled="submitting"

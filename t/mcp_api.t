@@ -17,6 +17,18 @@ use MCP::Client;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
+# Bridge MCP 0.12 (stateful: initialize_session opens a session, serverInfo in the result) and 0.15 (stateless:
+# discover advertises capabilities, serverInfo rides in the result _meta). Temporary until 0.15 is everywhere.
+sub mcp_server_info ($client) {
+  if ($client->can('discover')) {
+    my $result = $client->discover;
+    my $info   = $result->{_meta}{'io.modelcontextprotocol/serverInfo'};
+    return {name => $info->{name}, version => $info->{version}, capabilities => $result->{capabilities}};
+  }
+  my $result = $client->initialize_session;
+  return {%{$result->{serverInfo}}, capabilities => $result->{capabilities}};
+}
+
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'mcp_api_test');
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
@@ -85,13 +97,11 @@ subtest 'MCP' => sub {
 
     my $client = MCP::Client->new(ua => $t->ua, url => $t->ua->server->url->path('/mcp'));
 
-    subtest 'Start session' => sub {
-      is $client->session_id, undef, 'no session id';
-      my $result = $client->initialize_session;
-      is $result->{serverInfo}{name},    'Cavil', 'server name';
-      is $result->{serverInfo}{version}, '1.0.0', 'server version';
-      ok $result->{capabilities}, 'has capabilities';
-      ok $client->session_id,     'session id set';
+    subtest 'Discover server' => sub {
+      my $info = mcp_server_info($client);
+      is $info->{name},    'Cavil', 'server name';
+      is $info->{version}, '1.0.0', 'server version';
+      ok $info->{capabilities}, 'has capabilities';
     };
 
     subtest 'List tools' => sub {
@@ -726,13 +736,11 @@ subtest 'MCP' => sub {
 
     my $client = MCP::Client->new(ua => $t->ua, url => $t->ua->server->url->path('/mcp'));
 
-    subtest 'Start session' => sub {
-      is $client->session_id, undef, 'no session id';
-      my $result = $client->initialize_session;
-      is $result->{serverInfo}{name},    'Cavil', 'server name';
-      is $result->{serverInfo}{version}, '1.0.0', 'server version';
-      ok $result->{capabilities}, 'has capabilities';
-      ok $client->session_id,     'session id set';
+    subtest 'Discover server' => sub {
+      my $info = mcp_server_info($client);
+      is $info->{name},    'Cavil', 'server name';
+      is $info->{version}, '1.0.0', 'server version';
+      ok $info->{capabilities}, 'has capabilities';
     };
 
     subtest 'List tools' => sub {
@@ -1811,7 +1819,7 @@ subtest 'MCP' => sub {
       $t->ua->on(start => sub ($ua, $tx) { $tx->req->headers->authorization("Bearer $note_only_key->{api_key}") });
 
       my $client = MCP::Client->new(ua => $t->ua, url => $t->ua->server->url->path('/mcp'));
-      $client->initialize_session;
+      mcp_server_info($client);
 
       my $result = $client->list_tools;
       my %names  = map { $_->{name} => 1 } @{$result->{tools}};

@@ -133,12 +133,16 @@ subtest 'Components in the SPDX report' => sub {
     is $declared{$cid},          $license,   "$purl original licence (declared) in SPDX";
   }
 
-  # Referential integrity: every reference (including the new component/dependency/license nodes) resolves
+  # Referential integrity: every reference (including the new component/dependency/license nodes) resolves to
+  # an element in the graph, or to one of the individuals SPDX itself defines for "nothing is asserted here"
+  # (a component with no identifiable producer carries NoAssertion) and "there is nothing here"
+  my %individual = map { $_ => 1 } 'expandedlicensing_NoAssertionLicense',
+    'https://spdx.org/rdf/3.0.1/terms/Core/NoAssertionElement', 'https://spdx.org/rdf/3.0.1/terms/Core/NoneElement';
   my @dangling;
   for my $n (@graph) {
     my @refs = grep {defined} $n->{creationInfo}, $n->{from}, $n->{subject}, $n->{software_snippetFromFile};
     push @refs,     @{$n->{$_} // []} for qw(createdBy createdUsing rootElement originatedBy to);
-    push @dangling, $_                for grep { !$by_id{$_} } @refs;
+    push @dangling, $_                for grep { !$by_id{$_} && !$individual{$_} } @refs;
   }
   is_deeply \@dangling, [], 'no dangling references with components present';
 
