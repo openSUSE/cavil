@@ -630,7 +630,11 @@ sub _occurrence ($db, $id, $file_id) {
     $sql .= ' AND fs.file = ?';
     push @bind, $file_id;
   }
-  $sql .= ' LIMIT 1';
+
+  # Deterministic pick for the no-file_id fallback (standalone snippet/missing-license views): without
+  # an order the arbitrary occurrence could flip between reindexes. Scoping by file_id above is the
+  # real fix; this just keeps the fallback stable.
+  $sql .= ' ORDER BY fs.file LIMIT 1';
   return $db->query($sql, @bind)->hash;
 }
 

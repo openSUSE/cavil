@@ -317,6 +317,7 @@ export default {
   components: {ClosestPattern, LegalLoading},
   props: {
     snippetId: {type: Number, required: true},
+    fileId: {type: Number, default: null},
     hash: {type: String, default: null},
     from: {type: String, default: null},
     hasContributorRole: {type: Boolean, default: false},
@@ -368,7 +369,6 @@ export default {
         '<b>7:</b> Non-Commercial<br>' +
         '<b>Unknown risk (reserved)</b><br>' +
         '<b>9:</b> Keyword patterns',
-      snippetUrl: `/snippet/meta/${this.snippetId}`,
       startLine: null,
       suggestions: [],
       ua: new UserAgent({baseURL: window.location.href})
@@ -480,8 +480,16 @@ export default {
     onClosestLoaded(closest) {
       this.closest = closest;
     },
+    // Build a /snippet/... URL, carrying the occurrence's file id so the server scopes a
+    // content-hash-deduped snippet to the file the reviewer is on (not an arbitrary occurrence).
+    snippetUrl(path, extra = {}) {
+      const params = new URLSearchParams(extra);
+      if (this.fileId !== null) params.set('file', this.fileId);
+      const qs = params.toString();
+      return qs === '' ? path : `${path}?${qs}`;
+    },
     async getSnippet() {
-      const res = await this.ua.get(this.snippetUrl);
+      const res = await this.ua.get(this.snippetUrl(`/snippet/meta/${this.snippetId}`));
       const data = await res.json();
 
       const snippet = data.snippet;
@@ -697,12 +705,14 @@ export default {
       }
     },
     async smartEdit() {
-      return this.applyServerEdit(`/snippet/smart_edit/${this.snippetId}`, data =>
+      return this.applyServerEdit(this.snippetUrl(`/snippet/smart_edit/${this.snippetId}`), data =>
         this.shiftedDecorations(data.start_line)
       );
     },
     async spdxEdit() {
-      return this.applyServerEdit(`/snippet/smart_edit/${this.snippetId}?mode=spdx`, () => this.emptyDecorations());
+      return this.applyServerEdit(this.snippetUrl(`/snippet/smart_edit/${this.snippetId}`, {mode: 'spdx'}), () =>
+        this.emptyDecorations()
+      );
     },
     restoreOriginal() {
       this.editor.dispatch({

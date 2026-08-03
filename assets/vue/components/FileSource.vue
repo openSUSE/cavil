@@ -150,6 +150,7 @@
               <SnippetEditor
                 :key="inlineEditor.key"
                 :snippet-id="inlineEditor.snippetId"
+                :file-id="fileId"
                 :hash="inlineEditor.hash"
                 :from="inlineEditor.from"
                 :initial="inlineEditor.initial"
