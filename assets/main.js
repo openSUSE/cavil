@@ -159,8 +159,13 @@ window.cavil = {
 
   setupProductReviews(product) {
     const app = createApp(ProductReviews);
+    const el = document.querySelector('#product-reviews');
     app.config.globalProperties.currentProduct = product;
-    app.mount('#product-reviews');
+    app.config.globalProperties.canCurate = el.dataset.canCurate === '1';
+    app.config.globalProperties.isCodestream = el.dataset.codestream === '1';
+    app.config.globalProperties.annotation = el.dataset.annotation ?? '';
+    app.config.globalProperties.members = JSON.parse(el.dataset.members || '[]');
+    app.mount(el);
   },
 
   setupRecentReviews() {

@@ -1,6 +1,12 @@
 % layout 'default', title => "Product: $name";
 
-<div id="product-reviews"></div>
+<div
+  id="product-reviews"
+  data-can-curate="<%= $can_curate %>"
+  data-codestream="<%= $codestream %>"
+  data-annotation="<%= $annotation %>"
+  data-members="<%= $members %>"
+></div>
 
 % content_for 'ready_function' => begin
   cavil.setupProductReviews('<%= $name %>');

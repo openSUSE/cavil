@@ -335,7 +335,13 @@ sub _package_summary ($c, $id) {
   $risk = 9 if ($pkg->{unresolved_matches} || 0) > 0;
 
   my $requests = $pkgs->requests_for($id);
-  my $products = $c->products->for_package($id);
+
+  # Collapse the raw codestream names into their curated product name (falling back to the codestream name
+  # when unannotated) and dedupe, so a package spread across a dozen codestreams of one deliverable shows a
+  # single product name instead of a dozen cryptic paths
+  my %seen;
+  my $products
+    = [sort grep { !$seen{$_}++ } map { $_->{product} // $_->{name} } @{$c->products->for_package_products($id)}];
 
   # Whether the Reindex button has anything to offer changes without the page being reloaded: a rebuild
   # (this reviewer's or somebody else's) bumps the package past every pattern that made the button light

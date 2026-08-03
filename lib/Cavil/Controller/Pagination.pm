@@ -82,12 +82,15 @@ sub known_products ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('filter');
+  $v->optional('grouped');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit  = $v->param('limit')  // 10;
-  my $offset = $v->param('offset') // 0;
-  my $search = $v->param('filter') // '';
+  my $limit   = $v->param('limit')   // 10;
+  my $offset  = $v->param('offset')  // 0;
+  my $search  = $v->param('filter')  // '';
+  my $grouped = $v->param('grouped') // 'true';
 
-  my $page = $self->products->paginate_known_products({limit => $limit, offset => $offset, search => $search});
+  my $page = $self->products->paginate_known_products(
+    {limit => $limit, offset => $offset, search => $search, grouped => $grouped});
   $self->render(json => $page);
 }
 

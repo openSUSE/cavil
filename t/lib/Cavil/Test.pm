@@ -612,6 +612,18 @@ sub ui_fixtures ($self, $app) {
       : "Seed note #$i for **perl-Mojolicious**.";
     $notes->add(1, 'perl-Mojolicious', $bot_id, $body, $lawyer, $i == 25 ? 1 : 0);
   }
+
+  # Product codestreams: two annotated to one deliverable (so the listing collapses them and the report
+  # for perl-Mojolicious shows a single product name) plus one unannotated codestream (raw-name fallback)
+  my $products = $app->products;
+  my $mlm1     = $products->find_or_create('SUSE:SLE-15-SP7:Update:Products:MLM51')->{id};
+  my $mlm2     = $products->find_or_create('SUSE:SLE-15-SP7:Update:Products:MLM51:Update')->{id};
+  my $factory  = $products->find_or_create('openSUSE:Factory')->{id};
+  $products->update($mlm1,    [1]);
+  $products->update($mlm2,    [2]);
+  $products->update($factory, [1]);
+  $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51',        'Multi-Linux Manager');
+  $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51:Update', 'Multi-Linux Manager');
 }
 
 # Builds a real, indexable test package whose files each contain one

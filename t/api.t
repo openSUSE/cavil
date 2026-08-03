@@ -455,21 +455,21 @@ subtest 'Pagination' => sub {
 
   subtest 'Products' => sub {
     $t->get_ok('/pagination/products/known')
-      ->json_is('/start',       1)
-      ->json_is('/end',         3)
-      ->json_is('/total',       3)
-      ->json_is('/page/0/id',   4)
-      ->json_is('/page/0/name', 'openSUSE:Test')
+      ->json_is('/start',          1)
+      ->json_is('/end',            3)
+      ->json_is('/total',          3)
+      ->json_is('/page/0/name',    'openSUSE:Test')
+      ->json_is('/page/0/streams', 1)
       ->json_like('/page/0/updated_epoch', qr/\d+/)
       ->json_is('/page/0/new_packages',          3)
       ->json_is('/page/0/reviewed_packages',     0)
       ->json_is('/page/0/unacceptable_packages', 0)
       ->json_hasnt('/page/3');
     $t->get_ok('/pagination/products/known?filter=Factory')
-      ->json_is('/start',     1)
-      ->json_is('/end',       1)
-      ->json_is('/total',     1)
-      ->json_is('/page/0/id', 1)
+      ->json_is('/start',       1)
+      ->json_is('/end',         1)
+      ->json_is('/total',       1)
+      ->json_is('/page/0/name', 'openSUSE:Factory')
       ->json_hasnt('/page/1');
 
     $t->get_ok('/pagination/products/openSUSE:Test')
@@ -505,6 +505,57 @@ subtest 'Pagination' => sub {
       ->json_is('/end',   0)
       ->json_is('/total', 0)
       ->json_hasnt('/page/0');
+  };
+
+  subtest 'Product annotations and grouping' => sub {
+    my $products = $t->app->products;
+
+    # The curator annotation endpoint is gated by the 'curate' capability
+    $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})->status_is(403);
+    is $products->find('openSUSE:Factory')->{product}, undef, 'annotation unchanged for anonymous user';
+
+    # Two codestreams of one deliverable, sharing a package, plus a differently named codestream
+    my $s1 = $products->find_or_create('SUSE:SLE-15-SP7:Update:Products:MLM51')->{id};
+    my $s2 = $products->find_or_create('SUSE:SLE-15-SP7:Update:Products:MLM51:Update')->{id};
+    $products->update($s1, [1, 4]);
+    $products->update($s2, [1, 5]);
+
+    # Annotate both to the same product (mirrors what the curator UI PUT does)
+    is $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51', 'Multi-Linux Manager'),
+      'Multi-Linux Manager', 'annotation stored';
+    $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51:Update', 'Multi-Linux Manager');
+
+    # for_package_products carries the annotation alongside the raw codestream name
+    my $memberships = $products->for_package_products(4);
+    ok
+      scalar(grep { $_->{name} eq 'SUSE:SLE-15-SP7:Update:Products:MLM51' && $_->{product} eq 'Multi-Linux Manager' }
+        @$memberships), 'annotation returned for package';
+
+    # The two codestreams collapse into a single group row in the listing
+    $t->get_ok('/pagination/products/known?filter=Multi-Linux')
+      ->json_is('/total',          1)
+      ->json_is('/page/0/name',    'Multi-Linux Manager')
+      ->json_is('/page/0/streams', 2)
+      ->json_hasnt('/page/1');
+
+    # The flat view lists each codestream on its own, exposing its annotation
+    $t->get_ok('/pagination/products/known?grouped=false&filter=MLM51')
+      ->json_is('/total',             2)
+      ->json_is('/page/0/streams',    1)
+      ->json_is('/page/0/annotation', 'Multi-Linux Manager')
+      ->json_hasnt('/page/2');
+
+    # Querying the group name aggregates packages across both codestreams, de-duplicated (1, 4, 5)
+    $t->get_ok('/pagination/products/Multi-Linux%20Manager')->json_is('/total', 3)->json_hasnt('/page/3');
+
+    # A raw codestream name still resolves to just its own packages
+    $t->get_ok('/pagination/products/SUSE:SLE-15-SP7:Update:Products:MLM51')->json_is('/total', 2);
+
+    # Clearing the annotation restores the raw-name fallback
+    $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51',        '');
+    $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51:Update', '');
+    is $products->find('SUSE:SLE-15-SP7:Update:Products:MLM51')->{product}, undef, 'annotation cleared';
+    $t->get_ok('/pagination/products/known?filter=Multi-Linux')->json_is('/total', 0);
   };
 
   subtest 'Licenses' => sub {

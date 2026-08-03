@@ -327,6 +327,7 @@ sub startup ($self) {
   $public->get('/pagination/products/known')->to('Pagination#known_products')->name('pagination_known_products');
   $public->get('/products/*name')->to('Product#show')->name('product_show');
   $public->get('/pagination/products/*name')->to('Pagination#product_reviews')->name('pagination_product_reviews');
+  $can_curate->put('/products/*name/annotation')->to('Product#set_annotation')->name('product_set_annotation');
 
   $logged_in->get('/snippets')->to('Snippet#list')->name('snippets');
   $logged_in->get('/snippets/meta')->to('Snippet#list_meta')->name('snippets_meta');

@@ -663,7 +663,7 @@ export default {
       this.reindexing = data.reindexing;
 
       if (data.products.length > 0) {
-        this.productsHtml = data.products.map(name => productLink({name})).join(', ');
+        this.productsHtml = data.products.map(name => productLink({name}, {blank: true})).join(', ');
       }
       this.requests = [];
       if (data.requests.length > 0) {

@@ -367,6 +367,32 @@ unless ($clean) {
   $products->update($factory_id, [$mojo_id]);
   $products->update($leap_id,    [$mojo_id]);
 
+  # Example codestreams for the product annotation/grouping feature. The names are real-world OBS/Gitea
+  # project paths in different pipeline stages (GA vs :Update, an :Update Tools stream, a Gitea src path).
+  # Several are annotated to one human deliverable ("Multi-Linux Manager") to demonstrate how many cryptic
+  # codestreams collapse into a single row; "Devel:Orchid:RPMs" shows a name unrelated to its product; and
+  # "soo:PackageHub:Leap:16.0" is left unannotated to show the raw-name fallback still works.
+  my %pid = map { $_->{name} => $_->{id} }
+    @{$app->pg->db->query(q{SELECT id, name FROM bot_packages WHERE name != 'perl-Mojolicious'})->hashes->to_array};
+
+  my %codestreams = (
+    'SUSE:SLE-15-SP7:Update:Products:MultiLinuxManager51:Update' => [$mojo_id,  $pid{'ceph-image'}],
+    'SUSE:SLE-15-SP7:Update:Products:MultiLinuxManager51'        => [$mojo3_id, $pid{'go1.16-devel-container'}],
+    'SUSE:SLE-12:Update:Products:MultiLinuxManagerTools:Update'  => [$pid{'libfsverity0'}],
+    'Devel:Orchid:RPMs'                                          => [$pid{'go1.16-devel-container'}],
+    'soo:PackageHub:Leap:16.0'                                   => [$pid{'PackageHub'}]
+  );
+  for my $name (sort keys %codestreams) {
+    my $id = $products->find_or_create($name)->{id};
+    $products->update($id, $codestreams{$name});
+  }
+
+  # Curated product annotations (empty/absent = unannotated, rendered as the raw codestream name)
+  $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MultiLinuxManager51:Update', 'Multi-Linux Manager');
+  $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MultiLinuxManager51',        'Multi-Linux Manager');
+  $products->set_annotation('SUSE:SLE-12:Update:Products:MultiLinuxManagerTools:Update',  'Multi-Linux Manager');
+  $products->set_annotation('Devel:Orchid:RPMs', 'SUSE Application Collection');
+
   # Synthetic fold/clear/overlap playground. Snippets are AI-classified after the initial index below,
   # so it works in staging without a classifier server.
   my $lab_checkout = 'foldinglab00000000000000000000000001';

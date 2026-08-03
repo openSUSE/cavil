@@ -46,6 +46,92 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'List licenses');
     });
 
+    await t.test('Products (grouping and curator annotation)', async t => {
+      // Report metadata collapses a package's codestreams into the curated product name (pristine state,
+      // checked before any mutation below so it does not depend on test ordering)
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+      t.ok(
+        (await page.locator('.report-metadata-list a', {hasText: 'Multi-Linux Manager'}).count()) > 0,
+        'report shows the curated product name'
+      );
+
+      // The annotated codestreams collapse into one deliverable row; the unannotated one stays a singleton
+      await page.goto(url);
+      await page.click('text=Products');
+      t.equal(await page.innerText('title'), 'List products');
+      await page.waitForSelector('#known-products tbody > tr');
+      const mlm = page.locator('#known-products tbody > tr').filter({hasText: 'Multi-Linux Manager'}).first();
+      await mlm.waitFor();
+      t.match(await mlm.innerText(), /codestreams/, 'annotated codestreams collapse into one group');
+      t.equal(
+        await page.locator('#known-products tbody > tr').filter({hasText: 'openSUSE:Factory'}).count(),
+        1,
+        'unannotated codestream stays a singleton'
+      );
+
+      // Product links navigate in-page, not in a new tab
+      t.equal(await mlm.locator('a[target="_blank"]').count(), 0, 'listing links stay in the same tab');
+
+      // Toggling the grouping chip off switches to a flat view with each codestream's product exposed
+      await Promise.all([
+        page.waitForResponse(
+          resp => /\/pagination\/products\/known/.test(resp.url()) && resp.url().includes('grouped=false')
+        ),
+        page.click('#cavil-products-grouped')
+      ]);
+      const flatRow = page.locator('#known-products tbody > tr').filter({hasText: 'MLM51:Update'}).first();
+      await flatRow.waitFor();
+      t.match(await flatRow.innerText(), /Multi-Linux Manager/, 'flat view exposes each codestream product');
+
+      // Back to the default grouped view for the drill-down
+      await page.goto(url);
+      await page.click('text=Products');
+      await page.waitForSelector('#known-products tbody > tr');
+      const grouped = page.locator('#known-products tbody > tr').filter({hasText: 'Multi-Linux Manager'}).first();
+      await grouped.waitFor();
+
+      // Drilling into the group: the aggregate page has no annotation form but lists its member codestreams
+      await grouped.locator('a').first().click();
+      await page.waitForSelector('#product-reviews .cavil-codestreams');
+      t.equal(await page.locator('#cavil-product-annotation').count(), 0, 'group page has no annotation form');
+      await page.click('.cavil-codestreams > summary');
+      t.equal(await page.locator('.cavil-codestreams a').count(), 2, 'group lists its member codestreams');
+
+      // From a member codestream the annotation is editable and pre-filled with the current product
+      await page.locator('.cavil-codestreams a').filter({hasText: 'MLM51:Update'}).first().click();
+      await page.waitForSelector('#cavil-product-annotation');
+      t.equal(await page.inputValue('#cavil-product-annotation'), 'Multi-Linux Manager', 'annotation is pre-filled');
+
+      // Clearing the annotation returns the codestream to the listing as its own row (no dead end)
+      await page.fill('#cavil-product-annotation', '');
+      await Promise.all([
+        page.waitForResponse(resp => /\/products\/.*\/annotation/.test(resp.url())),
+        page.click('#cavil-save-annotation')
+      ]);
+      await page.waitForSelector('#cavil-save-annotation .fa-check');
+      await page.goto(url);
+      await page.click('text=Products');
+      await page.waitForSelector('#known-products tbody > tr');
+      t.equal(
+        await page.locator('#known-products tbody > tr').filter({hasText: 'MLM51:Update'}).count(),
+        1,
+        'cleared codestream reappears as its own row'
+      );
+
+      // A curator can also set an annotation on a standalone codestream
+      await page.goto(`${url}/products/openSUSE:Factory`);
+      await page.waitForSelector('#cavil-product-annotation');
+      await page.fill('#cavil-product-annotation', 'Tumbleweed Family');
+      await Promise.all([
+        page.waitForResponse(resp => /\/products\/.*\/annotation/.test(resp.url())),
+        page.click('#cavil-save-annotation')
+      ]);
+      await page.waitForSelector('#cavil-save-annotation .fa-check');
+    });
+
     await t.test('Open reviews (logged in)', async t => {
       await page.goto(url);
       t.equal(await page.innerText('title'), 'List open reviews');

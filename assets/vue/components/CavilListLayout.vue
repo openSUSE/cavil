@@ -4,6 +4,8 @@
       <h2>{{ pageTitle }}</h2>
     </header>
 
+    <slot name="page-header"></slot>
+
     <section class="cavil-list-toolbar" :aria-label="filterAriaLabel">
       <form id="cavil-pkg-filter" class="cavil-list-filter" @submit.prevent="$emit('filter-submit')">
         <label :for="filterInputId">{{ filterLabel }}</label>
@@ -22,6 +24,7 @@
           />
         </div>
       </form>
+      <slot name="toolbar"></slot>
     </section>
 
     <section class="cavil-list-panel" aria-live="polite">

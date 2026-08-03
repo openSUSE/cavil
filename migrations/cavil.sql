@@ -485,3 +485,7 @@ ALTER TABLE bot_packages ADD COLUMN reindex_priority int;
 -- 57 up
 ALTER TABLE bot_packages ADD COLUMN sbom_version int NOT NULL DEFAULT 0;
 ALTER TABLE bot_users DROP COLUMN fullname;
+
+-- 58 up
+ALTER TABLE bot_products ADD COLUMN product text;
+CREATE INDEX ON bot_products (product);

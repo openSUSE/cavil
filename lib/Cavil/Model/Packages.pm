@@ -436,7 +436,12 @@ sub paginate_open_reviews ($self, $options) {
 sub paginate_product_reviews ($self, $name, $options) {
   my $db = $self->pg->db;
 
-  return paginate([], $options) unless my $product = $db->select('bot_products', 'id', {name => $name})->hash;
+  # A name resolves either to a single codestream (bot_products.name) or to a curated product group (the
+  # bot_products.product annotation shared by several codestreams). Collect every matching product id so
+  # one query serves both cases; an unknown name yields an empty page
+  my $product_ids
+    = $db->query('SELECT id FROM bot_products WHERE name = ? OR product = ?', $name, $name)->arrays->flatten->to_array;
+  return paginate([], $options) unless @$product_ids;
 
   my $attention = '';
   if ($options->{attention} eq 'true') {
@@ -484,12 +489,12 @@ sub paginate_product_reviews ($self, $name, $options) {
       SELECT bot_packages.name, bot_packages.id, EXTRACT(EPOCH FROM imported) as imported_epoch,
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, state,
         checksum, unresolved_matches, COUNT(*) OVER() AS total
-      FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
-      WHERE bot_package_products.product = ? $search $attention $unresolved $patent $trademark $export_restricted
-        $cla $eula
+      FROM bot_packages
+      WHERE bot_packages.id IN (SELECT package FROM bot_package_products WHERE product = ANY(?))
+        $search $attention $unresolved $patent $trademark $export_restricted $cla $eula
       ORDER BY bot_packages.id DESC
       LIMIT ? OFFSET ?
-    }, $product->{id}, $options->{limit}, $options->{offset}
+    }, $product_ids, $options->{limit}, $options->{offset}
   )->hashes->to_array;
 
   return paginate($results, $options);

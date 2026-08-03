@@ -98,6 +98,9 @@ subtest 'Not authenticated' => sub {
   $t->post_ok('/licenses/update_patterns')->status_is(403)->content_like(qr/Permission/);
   $t->delete_ok('/licenses/remove_pattern/1')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})
+    ->status_is(403)
+    ->content_like(qr/Permission/);
 };
 
 subtest 'OpenID' => sub {
@@ -108,10 +111,19 @@ subtest 'Dummy' => sub {
   delete $config->{openid};
   $t = Test::Mojo->new(Cavil => $config);
   $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})
+    ->status_is(403)
+    ->content_like(qr/Permission/);
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
   $t->get_ok('/upload')->status_is(200)->content_like(qr/Upload/);
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})
+    ->status_is(200)
+    ->json_is('/product', 'Tumbleweed');
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
   $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})
+    ->status_is(403)
+    ->content_like(qr/Permission/);
 };
 
 done_testing;

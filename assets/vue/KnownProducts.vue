@@ -17,6 +17,20 @@
     @goto-page="gotoPage"
     @update:filter="filter = $event"
   >
+    <template #controls>
+      <button
+        id="cavil-products-grouped"
+        @click="toggleFilter('grouped')"
+        :aria-pressed="params.grouped.toString()"
+        :class="{'is-active': params.grouped}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.grouped" class="fa-solid fa-check" aria-hidden="true"></i>
+        Group by product
+      </button>
+    </template>
+
     <template #per-page>
       <label class="cavil-list-control">
         <span>Per page</span>
@@ -46,7 +60,13 @@
       </tbody>
       <tbody v-else-if="products.length > 0">
         <tr v-for="product in products" :key="product.link">
-          <td class="cavil-list-primary" v-html="product.link"></td>
+          <td class="cavil-list-primary">
+            <span v-html="product.link"></span>
+            <span v-if="product.streams > 1" class="cavil-stream-count">{{ product.streams }} codestreams</span>
+            <span v-if="product.annotation" class="cavil-product-badge badge text-bg-light">{{
+              product.annotation
+            }}</span>
+          </td>
           <td class="relative-time cavil-list-time">{{ product.updated }}</td>
           <td>
             <div v-if="product.unacceptable_packages > 0" class="cavil-bad-badge badge text-bg-danger">
@@ -89,6 +109,7 @@ export default {
     const params = getParams({
       limit: 10,
       offset: 0,
+      grouped: true,
       filter: ''
     });
 
@@ -137,10 +158,14 @@ export default {
       this.cancelApiRefresh();
       this.products = null;
       this.doApiRefresh();
+    },
+    toggleFilter(name) {
+      this.params[name] = !this.params[name];
+      this.gotoPage(1);
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset'),
+    ...genParamWatchers('limit', 'offset', 'grouped'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;
@@ -153,5 +178,15 @@ export default {
 <style>
 .cavil-bad-badge {
   margin-right: 10px;
+}
+.cavil-stream-count {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #6c757d;
+}
+.cavil-product-badge {
+  margin-left: 8px;
+  font-weight: normal;
+  color: #6c757d;
 }
 </style>

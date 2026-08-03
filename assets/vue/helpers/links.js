@@ -35,9 +35,12 @@ export function packageLink(review) {
   return `<a href='/search?q=${name}'>${name}</a>`;
 }
 
-export function productLink(product) {
-  let name = product.name;
-  return `<a href='/products/${name}' target='_blank' rel='noopener'>${name}</a>`;
+// In-page navigation by default (the product listing); the report metadata opens a new tab so a reviewer
+// keeps their place, matching the other report links, by passing {blank: true}
+export function productLink(product, {blank = false} = {}) {
+  const name = product.name;
+  const attrs = blank ? " target='_blank' rel='noopener'" : '';
+  return `<a href='/products/${encodeURIComponent(name)}'${attrs}>${name}</a>`;
 }
 
 export function spdxLicenseUrl(name) {

@@ -22,6 +22,8 @@ has 'pg';
 
 sub all ($self) { $self->pg->db->select('bot_products')->hashes->to_array }
 
+sub find ($self, $name) { $self->pg->db->select('bot_products', '*', {name => $name})->hash }
+
 sub find_or_create ($self, $name) {
   my $db = $self->pg->db;
   if (my $product = $db->select('bot_products', '*', {name => $name})->hash) {
@@ -36,33 +38,88 @@ sub for_package ($self, $id) {
     'name', {'bot_package_products.package' => $id})->arrays->flatten->to_array;
 }
 
+# Like for_package, but also returns the curated product annotation for each codestream, so callers can
+# collapse the raw codestream names into their human product name (falling back to the name when unset)
+sub for_package_products ($self, $id) {
+  return $self->pg->db->query(
+    'SELECT p.name, p.product FROM bot_package_products pp JOIN bot_products p ON (p.id = pp.product)
+     WHERE pp.package = ? ORDER BY p.name', $id
+  )->hashes->to_array;
+}
+
+# The codestream names that roll up to a curated product, so the aggregate group page can offer a curator a
+# way back down to each individual codestream (where its annotation can be changed or cleared)
+sub codestreams_for_product ($self, $product) {
+  return $self->pg->db->select('bot_products', 'name', {product => $product}, {order_by => 'name'})
+    ->arrays->flatten->to_array;
+}
+
+# Attach a codestream to a curated product (the human deliverable name it rolls up to), or clear it when
+# the product is empty. Keyed by name so it works whether or not the sync bot has created the row yet, and
+# it only touches the annotation column, so a later sync (which rewrites membership) never clobbers it
+sub set_annotation ($self, $name, $product) {
+  my $db  = $self->pg->db;
+  my $obj = $self->find_or_create($name);
+  $product = undef if defined $product && $product eq '';
+  $db->update('bot_products', {product => $product}, {id => $obj->{id}});
+  return $product;
+}
+
 sub paginate_known_products ($self, $options) {
   my $db = $self->pg->db;
 
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");
-    $search = "WHERE name ILIKE $quoted";
+    $search = "WHERE name ILIKE $quoted OR product ILIKE $quoted";
   }
 
-  my $results = $db->query(
-    qq{
-      SELECT id, name, EXTRACT(EPOCH FROM updated) as updated_epoch, COUNT(*) OVER() AS total
-      FROM bot_products
-      $search
-      ORDER BY updated DESC, id DESC
-      LIMIT ? OFFSET ?
-    }, $options->{limit}, $options->{offset}
-  )->hashes->to_array;
+  # Default view collapses codestreams by their curated product name (falling back to the raw codestream
+  # name when unannotated), so one deliverable spread across many codestreams becomes a single row. The
+  # flat view ("All codestreams") instead lists every codestream on its own, with its annotation exposed,
+  # so a curator can audit the product mapping across the whole fleet at a glance
+  my $grouped = ($options->{grouped} // 'true') eq 'true';
 
+  my $results;
+  if ($grouped) {
+    $results = $db->query(
+      qq{
+        SELECT COALESCE(product, name) AS name, COUNT(*) AS streams,
+          EXTRACT(EPOCH FROM MAX(updated)) AS updated_epoch, COUNT(*) OVER() AS total
+        FROM bot_products
+        $search
+        GROUP BY COALESCE(product, name)
+        ORDER BY MAX(updated) DESC, name DESC
+        LIMIT ? OFFSET ?
+      }, $options->{limit}, $options->{offset}
+    )->hashes->to_array;
+  }
+  else {
+    $results = $db->query(
+      qq{
+        SELECT name, product AS annotation, 1 AS streams,
+          EXTRACT(EPOCH FROM updated) AS updated_epoch, COUNT(*) OVER() AS total
+        FROM bot_products
+        $search
+        ORDER BY updated DESC, name DESC
+        LIMIT ? OFFSET ?
+      }, $options->{limit}, $options->{offset}
+    )->hashes->to_array;
+  }
+
+  # Package counts for a row: a group sums across every codestream that rolls up to it, a flat codestream
+  # counts only its own membership
   for my $result (@$results) {
+    my $where    = $grouped ? 'COALESCE(bot_products.product, bot_products.name) = ?' : 'bot_products.name = ?';
     my $packages = $db->query(
-      q{
+      qq{
       SELECT COUNT(*) FILTER (WHERE state = 'new') AS new_packages,
         COUNT(*) FILTER (WHERE state = 'unacceptable') AS unacceptable_packages,
         COUNT(*) FILTER (WHERE state = 'acceptable' OR state = 'acceptable_by_lawyer') AS reviewed_packages
-      FROM bot_package_products JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
-      WHERE bot_package_products.product = ?}, $result->{id}
+      FROM bot_package_products
+        JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
+        JOIN bot_products ON (bot_products.id = bot_package_products.product)
+      WHERE $where}, $result->{name}
     )->hash;
     $result->{reviewed_packages}     = $packages->{reviewed_packages};
     $result->{new_packages}          = $packages->{new_packages};
