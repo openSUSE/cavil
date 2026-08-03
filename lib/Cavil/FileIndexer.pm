@@ -110,10 +110,21 @@ sub _check_missing_snippets ($self, $file_id, $path, $matches) {
   # extract missed snippets
   my %needed_lines;
 
-  # pick the keyword matches first
+  # Line spans of the concrete (licensed) matches. A keyword whose lines fall entirely within one is
+  # already accounted for by a real license on the report, so it must not seed a snippet: the frozen
+  # matcher keeps the longest match, which for a "... is licensed under the ISC license" line is the ISC
+  # body pattern starting a couple of words past the keyword - covering the keyword's line but not its
+  # token, so the keyword survives resolution. Left to seed, that stray keyword bridges (delta below)
+  # across a whole concatenated-license file into one giant unresolved snippet. The keyword's
+  # pattern_matches row is still recorded (in file()); we only decline to seed from it here.
+  my @license_spans = map { [$_->[1], $_->[2]] } grep { !defined $_->[3] } @$matches;
+
+  # pick the keyword matches first (skipping those a licensed match already covers)
   for my $match (@$matches) {
     my ($mid, $ls, $le, $pm_id) = @$match;
-    _mark_area(\%needed_lines, $ls - 1, $le + 1) if $pm_id;
+    next unless $pm_id;
+    next if grep { $_->[0] <= $ls && $le <= $_->[1] } @license_spans;
+    _mark_area(\%needed_lines, $ls - 1, $le + 1);
   }
 
   while (1) {

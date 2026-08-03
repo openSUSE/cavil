@@ -113,6 +113,86 @@ subtest 'Same snippet is deduplicated across packages at different lines' => sub
     ok(($ctx_any->{sline} == $a->{sline} || $ctx_any->{sline} == $b->{sline}),
       'fallback line matches one of the real occurrences');
   };
+
+  subtest 'controller /snippet/meta scopes to the requested file' => sub {
+    $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+    # The editor passes the occurrence's file id through as ?file=; the endpoint must return that
+    # occurrence's line numbers, not an arbitrary one of the (deduplicated) occurrences.
+    $t->get_ok("/snippet/meta/$a->{snippet}?file=$a->{file}")->status_is(200)->json_is('/snippet/sline', $a->{sline});
+    $t->get_ok("/snippet/meta/$b->{snippet}?file=$b->{file}")->status_is(200)->json_is('/snippet/sline', $b->{sline});
+
+    # No file id -> deterministic fallback (ORDER BY fs.file) to a real occurrence
+    $t->get_ok("/snippet/meta/$a->{snippet}")->status_is(200);
+    my $any = $t->tx->res->json('/snippet/sline');
+    ok(($any == $a->{sline} || $any == $b->{sline}), 'fallback returns one of the real occurrences');
+  };
+};
+
+# A keyword left uncovered by the matcher's overlap resolution must not seed a snippet when a real
+# licensed match already covers its line. On "... is licensed under the ISC license" the matcher keeps
+# the longer ISC-body pattern (which begins a couple of words past the keyword) and the non-overlapping
+# "licensed" keyword survives - sitting inside the ISC match's line span but not its token span. Without
+# the coverage check that stray keyword seeds (and bridges) a snippet across a concatenated-license file.
+subtest 'a keyword covered by a licensed match does not seed a snippet' => sub {
+  $patterns->create(pattern => 'licensed');
+  $patterns->create(pattern => 'the ISC license Permission to use copy modify this software', license => 'ISC');
+
+  my $md5 = 'c' x 32;
+  my $dir = $cavil_test->checkout_dir->child('keyword-coverage', $md5)->make_path;
+  $dir->child('a.txt')->spew("Foo is licensed under the ISC license:\n\nPermission to use copy modify this software\n")
+    ;    # covered
+  $dir->child('b.txt')->spew("This software is licensed to you freely\n");    # uncovered
+  $dir->child('c.txt')->spew("Copyright Acme and licensed to all\n");         # two keywords, no license
+
+  my $pkg = $app->packages->add(
+    name            => 'keyword-coverage',
+    checkout_dir    => $md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $app->users->find_or_create(login => 'test_bot')->{id},
+    project         => 'devel:test',
+    package         => 'keyword-coverage',
+    srcmd5          => $md5,
+    priority        => 5
+  );
+  $app->packages->imported($pkg);
+  $app->minion->enqueue('unpack' => [$pkg]);
+  $app->minion->perform_jobs;
+
+  my $fid = sub ($name) {
+    $db->query('SELECT id FROM matched_files WHERE package = ? AND filename = ?', $pkg, $name)->hash->{id};
+  };
+  my $snippets_for = sub ($file) {
+    $db->query('SELECT COUNT(*) AS n FROM file_snippets WHERE file = ?', $file)->hash->{n};
+  };
+
+  my $a   = $fid->('a.txt');
+  my $isc = $db->query(
+    "SELECT sline, eline FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+     WHERE pm.file = ? AND lp.license = 'ISC'", $a
+  )->hash;
+  ok $isc && $isc->{sline} <= 1 && $isc->{eline} >= 1, 'ISC match recorded and its line span covers the keyword line';
+  ok $db->query(
+    "SELECT COUNT(*) AS n FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+     WHERE pm.file = ? AND lp.license = ''", $a
+  )->hash->{n} >= 1, 'keyword match is still recorded (only seeding is skipped)';
+  is $snippets_for->($a), 0, 'no snippet seeded when the keyword is covered by a license';
+
+  ok $snippets_for->($fid->('b.txt')) >= 1, 'uncovered keyword still seeds a snippet';
+
+  my $c = $fid->('c.txt');
+  ok $snippets_for->($c) >= 1, 'uncovered multi-keyword line still seeds a snippet';
+  is $db->query(
+    "SELECT COUNT(*) AS n FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+     WHERE pm.file = ? AND lp.license = '' AND pm.sline = 1", $c
+  )->hash->{n}, 2, 'both keyword matches recorded on the shared line';
+
+  # Both keywords must still surface as separate matches for that line (reviewers rely on seeing each)
+  my $sid = $db->query('SELECT snippet FROM file_snippets WHERE file = ? LIMIT 1', $c)->hash->{snippet};
+  my $ctx = $app->snippets->with_context($sid, $c);
+  my %ids;
+  for my $line_ids (values %{$ctx->{keywords}}) { $ids{$_} = 1 for @$line_ids }
+  is scalar(keys %ids), 2, 'with_context exposes both keyword patterns on the line';
 };
 
 done_testing();
