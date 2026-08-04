@@ -22,7 +22,9 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Cavil::OBS;
-use Mojo::File qw(path);
+use Cavil::Util qw(incoming_priority md5_file);
+use Mojo::File  qw(path tempdir);
+use Mojo::JSON  qw(false true);
 use Mojo::Server::Daemon;
 use Mojolicious;
 
@@ -94,6 +96,7 @@ subtest 'Not authenticated' => sub {
   $t->get_ok('/package/1')->status_is(403)->content_like(qr/permission/);
   $t->patch_ok('/package/1')->status_is(403)->content_like(qr/permission/);
   $t->post_ok('/packages')->status_is(403)->content_like(qr/permission/);
+  $t->post_ok('/packages/upload')->status_is(403)->content_like(qr/permission/);
   $t->post_ok('/packages/import/1')->status_is(403)->content_like(qr/permission/);
   $t->patch_ok('/products/Foo')->status_is(403)->content_like(qr/permission/);
   $t->post_ok('/requests')->status_is(403)->content_like(qr/permission/);
@@ -618,6 +621,124 @@ subtest 'Pagination' => sub {
       ->json_is('/total',     3)
       ->json_is('/page/0/id', 2)
       ->json_hasnt('/page/3');
+  };
+};
+
+subtest 'Upload package' => sub {
+  my $auth    = {Authorization => 'Token test_token'};
+  my $tarball = path(__FILE__)
+    ->sibling('legal-bot', 'perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd', 'Mojolicious-7.25.tar.gz');
+  my $tarball_md5 = md5_file($tarball);
+  is $tarball_md5, 'c1ffb4256878c64eb0e40c48f36d24d2', 'known fixture checksum';
+
+  my $count_packages = sub { $t->app->pg->db->query('SELECT count(*) FROM bot_packages')->array->[0] };
+  my $count_unpacks  = sub { $t->app->minion->jobs({tasks => ['unpack']})->total };
+
+  subtest 'Validation' => sub {
+
+    # Missing everything, then each required field in turn
+    $t->post_ok('/packages/upload', $auth)->status_is(400);
+    $t->post_ok('/packages/upload', $auth,
+      form => {name => 'upload-test', priority => 5, tarball => {file => $tarball->to_string}})->status_is(400);
+    $t->post_ok('/packages/upload', $auth, form => {name => 'upload-test', priority => 5, checksum => $tarball_md5})
+      ->status_is(400);
+  };
+
+  subtest 'Checksum mismatch leaves no trace' => sub {
+    my $before_pkgs    = $count_packages->();
+    my $before_unpacks = $count_unpacks->();
+
+    $t->post_ok(
+      '/packages/upload',
+      $auth,
+      form => {
+        name     => 'upload-test',
+        priority => 5,
+        checksum => 'ffffffffffffffffffffffffffffffff',
+        tarball  => {file => $tarball->to_string}
+      }
+    )->status_is(400)->json_is('/error', 'Checksum mismatch');
+
+    is $count_packages->(), $before_pkgs,    'no package row created';
+    is $count_unpacks->(),  $before_unpacks, 'no unpack job enqueued';
+    ok !$t->app->packages->find_by_name_and_md5('upload-test', $tarball_md5), 'no package for this content';
+    ok !-d $dir->child('upload-test', $tarball_md5),                          'no checkout directory left behind';
+  };
+
+  my $uploaded_id;
+  subtest 'Successful upload' => sub {
+    my $before_unpacks = $count_unpacks->();
+
+    $t->post_ok(
+      '/packages/upload',
+      $auth,
+      form => {
+        name          => 'upload-test',
+        priority      => 6,
+        checksum      => $tarball_md5,
+        external_link => 'gh#acme/mojo!42@b352a49',
+        tarball       => {file => $tarball->to_string}
+      }
+    )->status_is(200)->json_has('/saved/id')->json_is('/duplicate', false);
+
+    $uploaded_id = $t->tx->res->json->{saved}{id};
+
+    my $pkg = $t->app->packages->find($uploaded_id);
+    is $pkg->{name},            'upload-test',                       'right name';
+    is $pkg->{checkout_dir},    $tarball_md5,                        'checkout_dir is the archive content hash';
+    is $pkg->{external_link},   'gh#acme/mojo!42@b352a49',           'external link persisted';
+    is $pkg->{priority},        6,                                   'priority from the request';
+    is $pkg->{requesting_user}, $t->app->users->licensedigger->{id}, 'requested by the bot user';
+    ok -f $dir->child('upload-test', $tarball_md5, 'Mojolicious-7.25.tar.gz'), 'tarball on disk';
+
+    is $count_unpacks->(), $before_unpacks + 1, 'one unpack job enqueued';
+    my $unpack = $t->app->minion->jobs({tasks => ['unpack'], states => ['inactive']})->next;
+    is $unpack->{priority}, incoming_priority(6), 'queued in the incoming band for the request priority';
+  };
+
+  subtest 'Indexing produces a report' => sub {
+    $t->app->minion->perform_jobs;
+    $t->get_ok("/package/$uploaded_id/report" => $auth)->status_is(200)->json_is('/package/name', 'upload-test');
+  };
+
+  subtest 'Idempotent retry' => sub {
+    my $before_pkgs    = $count_packages->();
+    my $before_unpacks = $count_unpacks->();
+
+    $t->post_ok(
+      '/packages/upload',
+      $auth,
+      form => {
+        name          => 'upload-test',
+        priority      => 6,
+        checksum      => $tarball_md5,
+        external_link => 'gh#acme/mojo!42@b352a49',
+        tarball       => {file => $tarball->to_string}
+      }
+    )->status_is(200)->json_is('/saved/id', $uploaded_id)->json_is('/duplicate', true);
+
+    is $count_packages->(), $before_pkgs,    'no duplicate package row';
+    is $count_unpacks->(),  $before_unpacks, 'no second unpack job';
+  };
+
+  subtest 'Same name with different content creates a distinct package' => sub {
+    my $tmp = tempdir;
+    my $src = $tmp->child('src')->make_path;
+    $src->child('file.txt')->spew("something else entirely\n");
+    my $archive = $tmp->child('other.tar.gz');
+    is system('tar', '-czf', $archive->to_string, '-C', $src->to_string, '.'), 0, 'archive created';
+
+    $t->post_ok(
+      '/packages/upload',
+      $auth,
+      form => {
+        name     => 'upload-test',
+        priority => 5,
+        checksum => md5_file($archive),
+        tarball  => {file => $archive->to_string}
+      }
+    )->status_is(200)->json_is('/duplicate', false);
+    isnt $t->tx->res->json->{saved}{id}, $uploaded_id, 'distinct package for different content under the same name';
   };
 };
 

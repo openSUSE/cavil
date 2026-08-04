@@ -4,10 +4,11 @@
 package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP PRIORITY_WAITING);
-use Mojo::File  qw(path);
-use Mojo::Util  qw(dumper scope_guard);
-use Text::Glob  qw(glob_to_regex);
+use Cavil::Util
+  qw(incoming_priority md5_file paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP PRIORITY_WAITING);
+use Mojo::File qw(path);
+use Mojo::Util qw(dumper scope_guard);
+use Text::Glob qw(glob_to_regex);
 
 has [qw(checkout_dir classifier log minion pg)];
 
@@ -34,6 +35,52 @@ sub add ($self, %args) {
     embargoed       => $args{embargoed} ? 1 : 0
   };
   return $db->insert('bot_packages', $pkg, {returning => 'id'})->hash->{id};
+}
+
+# Ingest an uploaded source archive and start its review, shared by the browser upload form
+# (Controller::Upload) and the Bot API (Controller::Queue). This is a load-bearing ingress, so the
+# archive is verified and placed on disk *before* the package row is created: a truncated or corrupt
+# upload must never leave a row pointing at incomplete sources. Returns ($package, $duplicate); when an
+# optional md5 $checksum is given it is enforced, and a mismatch dies with {checksum_mismatch => 1}.
+sub store_upload ($self, $upload, $opts) {
+  my $file = $upload->asset->to_file;
+
+  # Content hash of the received bytes, also used as the checkout directory (see checkout_dir semantics)
+  my $sum = md5_file($file->path);
+  die {checksum_mismatch => 1} if defined $opts->{checksum} && lc($opts->{checksum}) ne $sum;
+
+  # Idempotent on identical content, so client retries are safe
+  my $name = $opts->{name};
+  if (my $existing = $self->find_by_name_and_md5($name, $sum)) { return ($self->find($existing->{id}), 1) }
+
+  # Place the complete archive first, and roll the directory back on failure, so a crash can leave at
+  # most an orphan directory and never a package row without its sources
+  my $dir = path($self->checkout_dir, $name, $sum);
+  eval { $dir->make_path; $file->move_to($dir->child(path($upload->filename)->basename)) };
+  if ($@) {
+    $dir->remove_tree;
+    die $@;
+  }
+
+  my $id = $self->add(
+    name            => $name,
+    checkout_dir    => $sum,
+    api_url         => '',
+    requesting_user => $opts->{requesting_user},
+    project         => '',
+    priority        => $opts->{priority},
+    package         => $name,
+    srcmd5          => $sum
+  );
+  my $obj = $self->find($id);
+  $obj->{external_link} = $opts->{external_link};
+  $self->update($obj);
+  $self->imported($id);
+
+  # An arriving package like any other; the review priority moves it around inside the incoming band
+  $self->unpack($id, incoming_priority($opts->{priority}));
+
+  return ($obj, 0);
 }
 
 sub actions ($self, $link, $id) {

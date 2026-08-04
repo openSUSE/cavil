@@ -6,6 +6,7 @@ use Mojo::Base -strict, -signatures;
 
 use Carp 'croak';
 use Cpanel::JSON::XS ();
+use Digest::MD5      ();
 use Exporter 'import';
 use Encode   qw(from_to decode);
 use IPC::Run ();
@@ -18,7 +19,7 @@ use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
 our @EXPORT_OK = (
-  qw(buckets expand_spec_macros file_and_checksum slurp_and_decode load_ignored_files lines_context normalize_license_expr),
+  qw(buckets expand_spec_macros file_and_checksum md5_file slurp_and_decode load_ignored_files lines_context normalize_license_expr),
   qw(extract_spdx_identifiers normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
   qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
@@ -191,6 +192,12 @@ sub buckets ($things, $size) {
   }
 
   return \@buckets;
+}
+
+sub md5_file ($file) {
+  my $md5 = Digest::MD5->new;
+  $md5->addfile(path($file)->open('r'));
+  return $md5->hexdigest;
 }
 
 sub file_and_checksum ($path, $first_line, $last_line) {

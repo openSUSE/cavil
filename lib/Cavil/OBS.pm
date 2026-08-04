@@ -16,12 +16,11 @@
 package Cavil::OBS;
 use Mojo::Base -base, -signatures;
 
-use Carp qw(croak);
-use Digest::MD5;
+use Carp       qw(croak);
 use Mojo::File qw(path);
 use Mojo::UserAgent;
 use Mojo::URL;
-use Cavil::Util qw(obs_ssh_auth);
+use Cavil::Util qw(md5_file obs_ssh_auth);
 
 has config => sub { {} };
 has ua     => sub {
@@ -120,7 +119,7 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
     croak "$url: " . $res->code unless $res->is_success;
     my $target = $dir->child($file->{name});
     $res->content->asset->move_to($target);
-    my $md5 = _md5($target);
+    my $md5 = md5_file($target);
     croak qq/$url: Corrupted file "$file->{name}": checksum $md5 != $file->{md5}/ unless $md5 eq $file->{md5};
   }
 }
@@ -168,12 +167,6 @@ sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
   my %linfo = (project => $project, package => $pkg, lrev => $lrev, match => $match);
   return \%linfo unless my $rn = $res->dom->at('releasename');
   return {%linfo, package => $rn->text};
-}
-
-sub _md5 ($file) {
-  my $md5 = Digest::MD5->new;
-  $md5->addfile(path($file)->open('r'));
-  return $md5->hexdigest;
 }
 
 sub _request ($self, $url, $method = 'GET') {

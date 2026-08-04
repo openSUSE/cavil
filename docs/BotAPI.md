@@ -250,6 +250,98 @@ Content-Type: application/json
 
 ---
 
+`POST /packages/upload`
+
+Create a package by uploading a source archive directly, instead of having Cavil check it out from a remote. Useful
+when the sources are prepared elsewhere (for example a CI pipeline that has already resolved dependencies) and pushed
+in. The review (unpack, indexing, report) is started automatically, just like for `POST /packages`.
+
+The request is a `multipart/form-data` upload rather than a URL-encoded form.
+
+**Request parameters:**
+
+* `name` (required): Package name, used for the checkout directory and queue.
+
+* `priority` (required): Priority of this package review.
+
+* `tarball` (required): The source archive file.
+
+* `checksum` (required): MD5 checksum of the archive, in lower-case hex. The upload is rejected with a `Checksum
+                         mismatch` error if the received bytes do not match, so a truncated or corrupt archive can
+                         never start a review over incomplete sources.
+
+* `external_link` (optional): Short string describing the package source. Configured `external_link_sources` can render
+                              values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
+                              source links with labels.
+
+```
+POST /packages/upload
+Authorization: Token configured_access_token_here
+Accept: application/json
+Content-Type: multipart/form-data; boundary=...
+
+...multipart body with name, priority, checksum, external_link and the tarball file...
+```
+
+**Request body:**
+
+The `multipart/form-data` encoded form values, including the archive as the `tarball` file part.
+
+**Response:**
+
+Uploading the same archive under the same name again is idempotent: the existing package is returned with `duplicate`
+set to `true`, and no second review is started.
+
+```
+HTTP/1.1 200 OK
+Content-Length: 458
+Content-Type: application/json
+
+{
+  "duplicate": false,
+  "saved": {
+    "checkout_dir": "c1ffb4256878c64eb0e40c48f36d24d2",
+    "checksum": null,
+    "created": "2024-02-23 15:59:28+01",
+    "created_epoch": "1708700368.000000",
+    "export_restricted": 0,
+    "cla": 0,
+    "eula": 0,
+    "external_link": "gh#org/package!123",
+    "id": 23,
+    "imported": "2024-02-23 15:59:28.521134+01",
+    "indexed": null,
+    "login": null,
+    "name": "perl-Mojolicious",
+    "obsolete": 0,
+    "patent": 0,
+    "priority": 5,
+    "requesting_user": 1,
+    "result": null,
+    "reviewed": null,
+    "reviewed_epoch": null,
+    "reviewing_user": null,
+    "source": 1,
+    "state": "new",
+    "trademark": 0,
+    "unpacked": null
+  }
+}
+```
+
+A `checksum` that does not match the uploaded archive is rejected.
+
+```
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{
+  "error": "Checksum mismatch"
+}
+```
+
+---
+
 `POST /packages/import/<package_id>`
 
 Re-import package. Usually used to reopen a review after it has already been obsoleted.

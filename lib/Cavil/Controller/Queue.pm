@@ -7,6 +7,42 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Cavil::Util qw(incoming_priority);
 use Mojo::File  qw(path);
 
+sub upload_package ($self) {
+  my $validation = $self->validation;
+  $validation->required('name')->like(qr/^[A-Za-z0-9\-\.]+$/);
+  $validation->required('priority')->num;
+  $validation->required('tarball')->upload->size(1, undef);
+
+  # A content checksum is mandatory here: this is an automated, load-bearing ingress and the client can
+  # always compute it, so we reject truncated/corrupt uploads up front rather than reviewing incomplete
+  # sources (the browser form in Controller::Upload does not require one)
+  $validation->required('checksum')->like(qr/^[a-f0-9]{32}$/i);
+  $validation->optional('external_link');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my ($obj, $duplicate) = eval {
+    $self->packages->store_upload(
+      $validation->param('tarball'),
+      {
+        name            => $validation->param('name'),
+        priority        => $validation->param('priority'),
+        requesting_user => $self->users->licensedigger->{id},
+        external_link   => $validation->param('external_link'),
+        checksum        => $validation->param('checksum')
+      }
+    );
+  };
+  if (my $err = $@) {
+    return $self->render(json => {error => 'Checksum mismatch'}, status => 400)
+      if ref $err eq 'HASH' && $err->{checksum_mismatch};
+    $self->app->log->error("Upload of package @{[$validation->param('name')]} failed: $err");
+    return $self->render(json => {error => 'Upload failed'}, status => 500);
+  }
+
+  # Idempotent on identical content (safe retries), like create_package
+  $self->render(json => {saved => $obj, duplicate => $duplicate ? \1 : \0});
+}
+
 sub create_package ($self) {
   my $validation = $self->validation;
 
