@@ -735,7 +735,13 @@ subtest 'A report job waits for whoever is holding the package' => sub {
   ok $guard, 'package claimed by somebody else';
 
   my $id = $minion->enqueue('spdx_report' => [1] => {notes => {pkg_1 => 1}});
-  $minion->perform_jobs;
+
+  # Perform exactly one attempt: perform_jobs would drain the queue, and on a slow runner a single loop
+  # iteration outlasts the few-second first-retry delay, so the freshly delayed job becomes ready again
+  # and spins the retry count up until the delay settles to a minute.
+  my $worker = $minion->worker->register;
+  $worker->dequeue(0, {id => $id})->perform;
+  $worker->unregister;
   ok !$pkgs->has_spdx_report(1), 'no report was written';
 
   my $info = $minion->job($id)->info;
