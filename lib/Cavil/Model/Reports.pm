@@ -300,18 +300,22 @@ sub _dig_report {
   if ($limit_to_file) {
     $query->{id} = $limit_to_file;
   }
-  my $files = $db->select('matched_files', [qw(id filename)], $query);
-  my %globs_matched;
 
-  while (my $file = $files->hash) {
-    my $ignored;
-    for my $ifname (keys %$ignored_file_res) {
-      next unless $file->{filename} =~ $ignored_file_res->{$ifname};
-      $globs_matched{$ifname} = 1;
-      $ignored = 1;
-      last;
-    }
-    $report->{files}{$file->{id}} = $file->{filename} unless $ignored;
+  # First ignored_files glob whose pattern matches a filename, or undef. Shared by the live files below
+  # and the already-ignored ones further down so both record matching globs identically.
+  my @ignore_globs  = keys %$ignored_file_res;
+  my $matching_glob = sub ($filename) {
+    for my $ifname (@ignore_globs) { return $ifname if $filename =~ $ignored_file_res->{$ifname} }
+    return undef;
+  };
+
+  # Bulk-fetch as arrays ([id, filename]) rather than a hashref per row: on a large package this is tens
+  # of thousands of files, and only the id and filename are used here.
+  my %globs_matched;
+  for my $file ($db->select('matched_files', [qw(id filename)], $query)->arrays->each) {
+    my ($id, $filename) = @$file;
+    if (my $glob = $matching_glob->($filename)) { $globs_matched{$glob} = 1 }
+    else                                        { $report->{files}{$id} = $filename }
   }
 
   # pm.file=mf.id already pins the matches to one generation, so only the files need the predicate
@@ -330,11 +334,7 @@ sub _dig_report {
   }
 
   for my $file ($filenames->hashes->each) {
-    for my $ifname (keys %$ignored_file_res) {
-      next unless $file->{filename} =~ $ignored_file_res->{$ifname};
-      $globs_matched{$ifname} = 1;
-      last;
-    }
+    if (my $glob = $matching_glob->($file->{filename})) { $globs_matched{$glob} = 1 }
   }
   $filenames->finish;
 
@@ -593,17 +593,34 @@ sub _lines {
   return \@lines;
 }
 
+# Populate the pattern cache for a batch of pattern ids with one query, so the per-match lookups in
+# _register_matches all hit instead of firing a single-row SELECT each. Only the license identity, risk
+# and flag columns are ever read - never the (large) pattern text: this cache lives on the reports
+# helper, a state singleton, so in a long-running web process it would otherwise accumulate the full
+# pattern text of every pattern any report touches (tens of MB across the corpus, growing with it) for no
+# benefit. Ids already cached are skipped, so a warm cache narrows the batch to just the new ids.
+sub _prime_pattern_cache {
+  my ($self, $db, $pids) = @_;
+
+  my $cache = $self->{license_cache} //= {};
+  my %needed;
+  $needed{$_} = 1 for grep { $_ && !$cache->{"pattern-$_"} } @$pids;
+  return unless %needed;
+
+  my $found = $db->query(
+    'SELECT id, license, spdx, risk, patent, trademark, export_restricted, cla, eula
+       FROM license_patterns WHERE id = ANY(?)', [keys %needed]
+  )->hashes;
+  for my $pattern ($found->each) {
+    my $id = delete $pattern->{id};
+    $cache->{"pattern-$id"} = $pattern;
+  }
+}
+
 sub _load_pattern_from_cache {
   my ($self, $db, $pid) = @_;
-
-  # Only the license identity, risk and flag columns are ever read from this cache - never the (large)
-  # pattern text. Select just those: this cache lives on the reports helper, a state singleton, so in the
-  # long-running web process it would otherwise accumulate the full pattern text of every pattern any
-  # report touches (tens of MB across the corpus, growing with it) for no benefit.
-  $self->{license_cache}->{"pattern-$pid"}
-    ||= $db->select('license_patterns', [qw(license spdx risk patent trademark export_restricted cla eula)],
-    {id => $pid})->hash;
-  return $self->{license_cache}->{"pattern-$pid"};
+  $self->_prime_pattern_cache($db, [$pid]) unless $self->{license_cache}{"pattern-$pid"};
+  return $self->{license_cache}{"pattern-$pid"};
 }
 
 # Record a license on the report (licenses + risks lists + flags). Shared by the real-match and the
@@ -630,7 +647,14 @@ sub _register_license {
 sub _register_matches {
   my ($self, $db, $report, $pid_info, $matches, $matches_to_ignore) = @_;
 
-  for my $match ($matches->hashes->each) {
+  # Prime the pattern cache in one shot. Every match references a pattern, and the per-match
+  # _load_pattern_from_cache below would otherwise fire one single-row SELECT per cache miss - hundreds
+  # of round-trips on a large package, and the dominant cost of report generation. Bulk-load the distinct
+  # ids that are not cached yet with a single ANY() query instead.
+  my $rows = $matches->hashes->to_array;
+  $self->_prime_pattern_cache($db, [map { $_->{pattern} } @$rows]);
+
+  for my $match (@$rows) {
     my $pid = $match->{pattern};
 
     if (!defined $report->{files}{$match->{file}}) {
@@ -648,23 +672,30 @@ sub _register_matches {
     my $pattern = $self->_load_pattern_from_cache($db, $pid);
     next if $pattern->{license} eq '';
 
-    $self->_register_license($report, $pid_info, $pattern, $pid, $match->{file});
+    my ($file, $mid, $sline, $eline) = @{$match}{qw(file id sline eline)};
+    $self->_register_license($report, $pid_info, $pattern, $pid, $file);
     my $risk = $pattern->{risk};
 
-    for (my $i = $match->{sline} - 3; $i <= $match->{eline} + 3; $i++) {
+    # Hoist the two per-file line maps: the loop runs once per line of every match (its ±3 context lines
+    # included), so re-descending these two-level hashes each iteration is the hot path on a big package.
+    my $needed  = $report->{needed_lines}{$file} //= {};
+    my $matched = $report->{matches}{$file}      //= {};
+
+    for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
       next if $i < 1;
-      if ($i >= $match->{sline} && $i <= $match->{eline}) {
-        my $opid = $report->{needed_lines}{$match->{file}}{$i} // 0;
+      if ($i >= $sline && $i <= $eline) {
+        my $opid = $needed->{$i} // 0;
         next if $opid > PATTERN_DELTA;
 
-        # set the risk of the line, but make sure we do not lower the risk
-        next if $risk < $self->_info_for_pattern($db, $pid_info, $opid)->{risk};
-        $report->{needed_lines}{$match->{file}}{$i} = $pid;
-        $report->{matches}{$match->{file}}{$i}      = $match->{id};
+        # Set the line's pattern, but never lower an already-higher risk. An unmarked line (opid 0) has
+        # risk 0 and can never out-rank this match, so skip the lookup for it.
+        next if $opid && $risk < $self->_info_for_pattern($db, $pid_info, $opid)->{risk};
+        $needed->{$i}  = $pid;
+        $matched->{$i} = $mid;
       }
       else {
         # we want context but not highlight the context
-        $report->{needed_lines}{$match->{file}}{$i} ||= 0;
+        $needed->{$i} //= 0;
       }
     }
   }

@@ -40,49 +40,41 @@ sub resolve_snippets ($self, $package_id, $generation = 0) {
   my $packname = $db->select('bot_packages', 'name', {id => $package_id})->hash->{name};
   my %ignored  = map { $_->{hash} => 1 } $db->select('ignored_lines', 'hash', {packname => $packname})->hashes->each;
 
-  # Per-file line spans of non-ignored concrete license matches, for overlap detection. Grab-bag markers
-  # (lp.catch_all: "Any floating warranty", "Any CLA", "All Rights Reserved", ...) are excluded, exactly
-  # as they are for the "covered" resolution below: overlap-clear's premise is that the snippet swallowed
-  # a *genuine* license declaration already on the report, and a catch_all marker is not one. Counting it
-  # would clear a snippet that captured a real (possibly novel, higher-risk) license sitting next to some
-  # boilerplate disclaimer - the exact way a custom relicense hides behind a retained BSD/MIT tail.
-  my %spans;
+  # Non-ignored concrete license matches, used two ways below. Grab-bag markers (lp.catch_all: "Any
+  # floating warranty", "Any CLA", "All Rights Reserved", ...) are excluded from both: their premise is
+  # that the snippet swallowed a *genuine* license declaration already on the report, and a catch_all
+  # marker is not one. Counting it would clear a snippet that captured a real (possibly novel,
+  # higher-risk) license sitting next to some boilerplate disclaimer - the exact way a custom relicense
+  # hides behind a retained BSD/MIT tail.
+  #
+  # %spans holds each match's line span (for overlap detection). %file_cover/%dir_cover hold the
+  # highest-risk concrete license per file/directory (for the "covered" resolution: a snippet is
+  # redundant when its file - or, at directory scope, its directory - already carries a real license at
+  # least as risky). Both come from the same matches, so build them in one scan.
+  my $cover_scope = ($cfg && $cfg->{enabled}) ? ($cfg->{cover_scope} // 'off') : 'off';
+  my $cover       = $cover_scope ne 'off';
+  my (%spans, %file_cover, %dir_cover, %file_dir);
   for my $m (
     $db->query(
-      "SELECT pm.file, pm.sline, pm.eline, lp.license
-       FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      "SELECT pm.file, pm.sline, pm.eline, lp.license, lp.risk, mf.filename
+       FROM pattern_matches pm
+       JOIN license_patterns lp ON lp.id = pm.pattern
+       JOIN matched_files mf ON mf.id = pm.file
       WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false AND lp.license <> ''
         AND lp.catch_all = false", $package_id, $generation
     )->hashes->each
     )
   {
     push @{$spans{$m->{file}}}, [$m->{sline}, $m->{eline}, $m->{license}];
+    next unless $cover;
+    my $risk = $m->{risk};
+    $file_cover{$m->{file}} = $risk if !defined $file_cover{$m->{file}} || $risk > $file_cover{$m->{file}};
+    my $dir = $m->{filename} =~ s{/[^/]*$}{}r;
+    $dir_cover{$dir} = $risk if !defined $dir_cover{$dir} || $risk > $dir_cover{$dir};
   }
 
-  # Concrete (non-catch_all) license coverage per file and per directory, for the "covered" resolution:
-  # a snippet is redundant when its file - or, at directory scope, its directory - already carries a real
-  # license at least as risky. Grab-bag markers (lp.catch_all) never count as coverage.
-  my $cover_scope = ($cfg && $cfg->{enabled}) ? ($cfg->{cover_scope} // 'off') : 'off';
-  my (%file_cover, %dir_cover, %file_dir);
-  if ($cover_scope ne 'off') {
-    for my $m (
-      $db->query(
-        "SELECT pm.file, lp.risk, mf.filename
-           FROM pattern_matches pm
-           JOIN license_patterns lp ON lp.id = pm.pattern
-           JOIN matched_files mf ON mf.id = pm.file
-          WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false AND lp.license <> ''
-            AND lp.catch_all = false", $package_id, $generation
-      )->hashes->each
-      )
-    {
-      my $risk = $m->{risk};
-      $file_cover{$m->{file}} = $risk if !defined $file_cover{$m->{file}} || $risk > $file_cover{$m->{file}};
-      my $dir = $m->{filename} =~ s{/[^/]*$}{}r;
-      $dir_cover{$dir} = $risk if !defined $dir_cover{$dir} || $risk > $dir_cover{$dir};
-    }
-
-    # Directory of every snippet-bearing file, so directory-scope lookups work per occurrence
+  # Directory of every snippet-bearing file, so directory-scope lookups work per occurrence
+  if ($cover) {
     for my $f (
       $db->query(
         'SELECT DISTINCT mf.id, mf.filename FROM matched_files mf
