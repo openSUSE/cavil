@@ -91,6 +91,7 @@
         <div v-else class="source file-browser-source">
           <FileSource
             :lines="meta.source.lines"
+            :truncation="meta.source.truncated || null"
             :file-id="meta.source.id || 0"
             :filename="meta.source.filename"
             :packname="meta.source.name"

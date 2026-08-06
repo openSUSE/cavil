@@ -164,6 +164,21 @@
           </td>
         </tr>
       </template>
+      <!-- End-of-file marker for a file the browser shortened. Warns (amber) when license or unresolved
+           matches remain past the cut, reassures (neutral) when none do. -->
+      <tr v-if="truncation">
+        <td
+          class="source-gap source-truncation"
+          :class="{'has-matches-below': truncation.matchesBelow > 0}"
+          :colspan="tableColspan"
+        >
+          <span v-if="truncation.matchesBelow > 0"
+            >File shortened to the first {{ truncation.shownLabel }} - {{ truncation.matchesBelow }} more
+            {{ truncation.matchesBelow === 1 ? 'match' : 'matches' }} below.</span
+          >
+          <span v-else>File shortened to the first {{ truncation.shownLabel }} - no further matches below.</span>
+        </td>
+      </tr>
     </tbody>
   </table>
 </template>
@@ -179,6 +194,7 @@ export default {
   components: {PendingActionIndicator, SnippetEditor},
   props: {
     lines: {type: Array, required: true},
+    truncation: {type: Object, default: null},
     fileId: {type: Number, required: true},
     filename: {type: String, default: ''},
     packname: {type: String, default: ''},
@@ -273,7 +289,7 @@ export default {
     rowClass(info) {
       // Only tag rows that actually correspond to a match (license pattern
       // or unresolved snippet). The server hands back `risk: 0` for plain
-      // context lines too — coloring those would paint the entire snippet
+      // context lines too - coloring those would paint the entire snippet
       // preview, defeating the highlight.
       const classes = [];
       if (info.pid != null || info.snippet != null) classes.push(`risk-${info.risk}`);
@@ -476,7 +492,7 @@ export default {
    would feed its intrinsic content width back into the table's column
    distribution, and the editor would visibly resize while the user scrolled
    through long patterns. Fixed layout with explicit col widths breaks that
-   loop — the editor's content can never push the column wider. */
+   loop - the editor's content can never push the column wider. */
 .source .snippet {
   table-layout: fixed;
   width: 100%;
@@ -542,6 +558,24 @@ export default {
   padding: 1px 8px;
   position: relative;
   z-index: 1;
+}
+/* End-of-file truncation marker. The neutral variant reuses the skipped-lines pill; when matches remain
+   past the cut it turns amber so a reviewer reads it as "you are not seeing everything" at a glance. As
+   the last row its full-width strip has to tuck inside the panel's rounded bottom corners (6px outer
+   radius minus the 1px border), which the panel cannot clip itself without cutting off row action menus. */
+.snippet td.source-truncation {
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+.snippet td.source-truncation.has-matches-below {
+  color: #7a5c00;
+}
+.snippet td.source-truncation.has-matches-below::before {
+  background: #e2b53d;
+}
+.snippet td.source-truncation.has-matches-below span {
+  background: #fff8e1;
+  border-color: #e2b53d;
 }
 /* Derived resolutions keep the risk/clear tint in the code area, but the gutter stays neutral.
    A dashed boundary and first-line badge mark the row as machine-derived without making it look like

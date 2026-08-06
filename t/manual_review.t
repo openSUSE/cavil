@@ -249,6 +249,8 @@ subtest 'Details after indexing' => sub {
     cmp_ok scalar @{$source->{lines}}, '>', 1000, 'file browser returns the whole source file';
     ok grep({ $_->[1]{pid} } @{$source->{lines}}), 'whole source file keeps pattern annotations';
 
+    # A file over the limit with no line break in its first chunk (typically minified) can't be shown as
+    # lines, so it falls back to the "too large" panel with no source body.
     local $t->app->config->{max_file_browser_size} = 10;
     my $package = $t->app->packages->find(1);
     my $large
@@ -263,6 +265,24 @@ subtest 'Details after indexing' => sub {
       ->json_has('/source/sizeLabel')
       ->json_has('/source/maxSizeLabel')
       ->json_hasnt('/source/lines');
+
+    # A file over the limit that does have line breaks is shown truncated to its top instead of withheld,
+    # with a marker describing the cut. Nothing is indexed here, so no matches wait below.
+    local $t->app->config->{max_file_browser_size} = 40;
+    my $truncated
+      = $cavil_test->checkout_dir->child('perl-Mojolicious', $package->{checkout_dir}, '.unpacked', 'truncated.txt');
+    $truncated->spurt(join '', map {"line $_ padding padding padding\n"} 1 .. 50);
+    my $tsrc
+      = $t->get_ok('/reviews/file_view_meta/1/truncated.txt')
+      ->status_is(200)
+      ->json_is('/source/filename', 'truncated.txt')
+      ->json_hasnt('/source/oversized')
+      ->tx->res->json->{source};
+    cmp_ok scalar @{$tsrc->{lines}}, '>', 0,  'truncated file shows the top as source lines';
+    cmp_ok scalar @{$tsrc->{lines}}, '<', 50, 'truncated file does not show the whole source';
+    ok $tsrc->{truncated}{shownLines}, 'marker reports how many lines are shown';
+    is $tsrc->{truncated}{matchesBelow}, 0, 'marker reports no matches below the cut';
+    ok $tsrc->{truncated}{shownLabel}, 'marker reports the shown size';
 
     $t->get_ok('/reviews/file_view_meta/1/does-not-exist')->status_is(404);
     $t->get_ok('/reviews/file_view_meta/1/../COPYING')->status_is(400);

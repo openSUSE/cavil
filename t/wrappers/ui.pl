@@ -36,6 +36,9 @@ $config->{snippet_fold}
   = {enabled => 1, threshold => 0.95, min_margin => 0.15, max_risk => 5, overlap_clear => 1, overlap_guard => 0.9}
   if $fixtures eq 'snippet_overlap';
 
+# Small enough that a few kilobytes of source already trips the file browser's truncation path
+$config->{max_file_browser_size} = 2000 if $fixtures eq 'large_file';
+
 my $app = Test::Mojo->new(Cavil => $config)->app;
 $daemon->app($app);
 $app->log->level('warn');
@@ -44,6 +47,7 @@ elsif ($fixtures eq 'snippet_clear')   { $cavil_test->snippet_clear_fixtures($ap
 elsif ($fixtures eq 'snippet_triage')  { $cavil_test->snippet_triage_fixtures($app) }
 elsif ($fixtures eq 'snippet_overlap') { $cavil_test->snippet_overlap_fixtures($app) }
 elsif ($fixtures eq 'report_notice')   { $cavil_test->report_notice_fixtures($app) }
+elsif ($fixtures eq 'large_file')      { $cavil_test->large_file_fixtures($app) }
 elsif ($fixtures eq 'compatibility')   { $cavil_test->compatibility_fixtures($app) }
 elsif ($fixtures eq 'obligations')     { $cavil_test->obligations_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }

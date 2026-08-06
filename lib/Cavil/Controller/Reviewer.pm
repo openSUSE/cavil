@@ -207,30 +207,63 @@ sub _file_browser_source ($self, $package, $file, $filename) {
   }
 
   my $size = -s $file;
-  my $max  = $self->app->config->{max_file_browser_size} // 1_000_000;
+  my $max  = $self->app->config->{max_file_browser_size} // 256_000;
+
+  # Above the budget we still show the top of the file - most license matches sit in the header - instead
+  # of withholding it entirely. Only the first $max bytes are read, so an arbitrarily huge file never
+  # lands in memory; the buffer is then trimmed back to its last newline so every shown line stays whole
+  # and, because a newline is a single byte, no UTF-8 character is ever cut mid-sequence.
+  my ($bytes, $truncated);
   if ($max && $size > $max) {
-    return {
-      id           => $file_id,
-      name         => $package->{name},
-      filename     => $filename,
-      oversized    => 1,
-      size         => $size,
-      maxSize      => $max,
-      sizeLabel    => humanize_bytes($size),
-      maxSizeLabel => humanize_bytes($max)
-    };
+    my $handle = $file->open('<');
+    read $handle, my ($head), $max;
+    my $nl = rindex($head, "\n");
+
+    # A file whose first chunk holds no line break at all (typically minified) cannot be shown as lines,
+    # so it falls back to the old "too large" panel rather than rendering one broken partial line.
+    if ($nl < 0) {
+      return {
+        id           => $file_id,
+        name         => $package->{name},
+        filename     => $filename,
+        oversized    => 1,
+        size         => $size,
+        maxSize      => $max,
+        sizeLabel    => humanize_bytes($size),
+        maxSizeLabel => humanize_bytes($max)
+      };
+    }
+    $bytes     = substr $head, 0, $nl + 1;
+    $truncated = 1;
   }
+  $bytes //= $file->slurp;
 
   my @lines;
   my $number = 1;
-  my @text   = split /\n/, $self->maybe_utf8($file->slurp), -1;
+  my @text   = split /\n/, $self->maybe_utf8($bytes), -1;
   pop @text if @text && $text[-1] eq '';
   for my $line (@text) {
     push @lines, [$number, {%{$info_by_line{$number} // {risk => 0}}}, $line];
     $number++;
   }
 
-  return {id => $file_id, lines => lines_context(\@lines), name => $package->{name}, filename => $filename};
+  my $source = {id => $file_id, lines => lines_context(\@lines), name => $package->{name}, filename => $filename};
+
+  # A truncated file still carries the whole match map from indexing, so we can tell the reviewer whether
+  # anything worth their attention sits past the cut. Real pattern matches (any risk, including 0, so keyed
+  # on the pattern id) and unresolved snippets (risk 9) both count the same; cleared and covered
+  # boilerplate, which assert no license, have neither and are not flagged.
+  if ($truncated) {
+    my $shown = @lines ? $lines[-1][0] : 0;
+    my $below = grep {
+      my $i = $info_by_line{$_};
+      $_ > $shown && (defined $i->{pid} || ($i->{risk} // 0) == 9);
+    } keys %info_by_line;
+    $source->{truncated}
+      = {shownLines => $shown, matchesBelow => $below, size => $size, shownLabel => humanize_bytes(length $bytes)};
+  }
+
+  return $source;
 }
 
 sub list_recent ($self) {

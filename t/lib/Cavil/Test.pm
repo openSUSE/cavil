@@ -816,6 +816,55 @@ FILE
   $build->('d0000000000000000000000000000004', [1], {}, $other);
 }
 
+# Two files that both exceed the (test-lowered) max_file_browser_size, so the standalone file browser
+# shows only their top and appends the end-of-file marker. "top-heavy.txt" keeps its one license match
+# in the shown header (marker reassures: no matches below); "hidden-match.txt" repeats the match well
+# past the cut (marker warns: one match below). The wrapper sets max_file_browser_size to 2000 bytes.
+sub large_file_fixtures ($self, $app) {
+  $app->pg->migrations->migrate;
+
+  my $pkgs   = $app->packages;
+  my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
+
+  # A distinctive licensed marker so each occurrence is a real risk-3 pattern match
+  $app->patterns->create(
+    pattern   => 'large file lab license marker',
+    license   => 'MIT',
+    risk      => 3,
+    unique_id => '00000000-0000-0000-0000-0000000000aa'
+  );
+  $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'MIT');
+
+  my $md5 = 'aa00000000000000000000000000aa01';
+  my $dir = $self->checkout_dir->child('large-file', $md5)->make_path;
+
+  # ~46 bytes per filler line, so both files clear 2000 bytes many times over. The header marker sits in
+  # the shown window; hidden-match repeats it at line 82 (~3.7 KB in), comfortably past the 2000 byte cut.
+  my $filler = sub {
+    join '', map { sprintf "large file lab filler line %03d padding padding\n", $_ } $_[0] .. $_[1];
+  };
+  $dir->child('top-heavy.txt')->spew("large file lab license marker\n" . $filler->(1, 150));
+  $dir->child('hidden-match.txt')
+    ->spew(
+    "large file lab license marker\n" . $filler->(1, 80) . "large file lab license marker\n" . $filler->(81, 150));
+
+  my $pkg_id = $pkgs->add(
+    name            => 'large-file',
+    checkout_dir    => $md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => 'large-file',
+    srcmd5          => $md5,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  $pkgs->unpack($pkg_id);
+  $app->minion->perform_jobs;
+
+  return $pkg_id;
+}
+
 sub compatibility_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 

@@ -77,7 +77,7 @@ my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
   max_task_memory       => 5_000_000_000,
   max_worker_rss        => 100000,
   max_expanded_files    => 100,
-  max_file_browser_size => 1000000,
+  max_file_browser_size => 256_000,
   snippet_fold          => {
     enabled         => 1,
     threshold       => 0.95,
@@ -613,6 +613,45 @@ SPEC
   $comp->{external_link} = 'obs#components-lab';
   $pkgs->update($comp);
   $pkgs->unpack($comp_id);
+
+  # Large-file browser playground: two files that both exceed max_file_browser_size, so the file browser
+  # shows only their top and appends the end-of-file marker. "top-heavy.txt" carries its one license
+  # match in the shown header, so the marker reassures ("no further matches below"); "hidden-match.txt"
+  # repeats the match far past the cut, so the marker warns that matches remain below.
+  my $large_checkout = 'largefilelab0000000000000000000001';
+  my $large_dir      = $checkouts->child('cavil-large-file-lab', $large_checkout)->make_path;
+  $app->patterns->create(
+    pattern   => 'large file lab license marker',
+    license   => 'MIT',
+    risk      => 3,
+    unique_id => '44444444-4444-4444-8444-444444444441'
+  );
+  $app->pg->db->query(q{UPDATE license_patterns SET spdx = 'MIT' WHERE pattern = 'large file lab license marker'});
+
+  # Filler line is ~58 bytes, so 8000 of them clear ~450 KB, comfortably past the 256 KB display budget.
+  my $filler = sub {
+    join '', map { sprintf "large file lab filler line %06d padding padding padding\n", $_ } $_[0] .. $_[1];
+  };
+  $large_dir->child('top-heavy.txt')->spurt("large file lab license marker\n" . $filler->(1, 8000));
+  $large_dir->child('hidden-match.txt')
+    ->spurt(
+    "large file lab license marker\n" . $filler->(1, 6000) . "large file lab license marker\n" . $filler->(6001, 8000));
+
+  $pkg_id = $pkgs->add(
+    name            => 'cavil-large-file-lab',
+    checkout_dir    => $large_checkout,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $user_id,
+    project         => 'cavil:staging',
+    package         => 'cavil-large-file-lab',
+    srcmd5          => $large_checkout,
+    priority        => 5
+  );
+  $pkgs->imported($pkg_id);
+  my $large = $pkgs->find($pkg_id);
+  $large->{external_link} = 'obs#large-file-lab';
+  $pkgs->update($large);
+  $pkgs->unpack($pkg_id);
 
   # Synthetic diff playground: two versions of one package whose report diff
   # exercises every "why this needs review" block at once - a spec license
