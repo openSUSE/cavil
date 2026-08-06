@@ -19,8 +19,8 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 
 % }
 ## Licenses
-% use Cavil::ReportUtil qw(ranked_incompatibilities new_license_ids incompatibility_location);
-% my $ranked = ranked_incompatibilities($report->{license_compatibility} // {}, new_license_ids($package->{diff_report}));
+% use Cavil::ReportUtil qw(ranked_incompatibilities incompatibility_location);
+% my $ranked = ranked_incompatibilities($report->{license_compatibility} // {});
 % my @hard = grep { $_->{mutual} } @$ranked;
 % if (@hard) {
 
@@ -30,7 +30,6 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 %     my $loc = incompatibility_location($pair);
 %     my $c   = $pair->{confidence} // 0;
 %     my @tags;
-%     push @tags, 'NEW'        if $pair->{is_new};
 %     push @tags, 'folded'     if $c == 2;
 %     push @tags, 'unresolved' if $c <= 1;
 %     my $tags  = @tags ? ' [' . join(', ', @tags) . ']' : '';

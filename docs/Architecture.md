@@ -344,8 +344,7 @@ The ranking combines three signals, in a deliberate order of precedence:
 
 A pair that appears only through an unresolved guess and never shares a file with its partner has no real
 co-location to show; rather than a dead end, the report points the reviewer straight at the file that carries
-that guess, so it can be opened and judged. A pair that is new since the closest previous review is called out
-as such, because a freshly introduced incompatibility is exactly the regression a reviewer wants to catch.
+that guess, so it can be opened and judged.
 
 The same ranking drives every consumer, so they never disagree. The web report renders the full matrix and can
 recolour it by likelihood, a heat view that lets the genuinely combined pairs stand out, with a detail panel

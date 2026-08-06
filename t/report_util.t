@@ -20,7 +20,7 @@ use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
-  qw(license_compatibility license_obligations license_obligation_ids minimal_snippet new_license_ids),
+  qw(license_compatibility license_obligations license_obligation_ids minimal_snippet),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
@@ -455,14 +455,6 @@ subtest 'hard_incompatibilities' => sub {
     'mutual No pairs only, sorted; one-directional No excluded';
 };
 
-subtest 'new_license_ids' => sub {
-  is_deeply new_license_ids(undef),       {}, 'no diff report';
-  is_deeply new_license_ids(''),          {}, 'empty diff report';
-  is_deeply new_license_ids('{not json'), {}, 'invalid JSON tolerated';
-  is_deeply new_license_ids('{"new_licenses":["Apache-2.0","MIT OR BSD-3-Clause"]}'),
-    {'Apache-2.0' => 1, 'MIT' => 1, 'BSD-3-Clause' => 1}, 'names split into individual SPDX ids';
-};
-
 subtest 'ranked_incompatibilities' => sub {
   my $compat = {
     licenses => ['A', 'B', 'C', 'D'],
@@ -495,7 +487,6 @@ subtest 'ranked_incompatibilities' => sub {
       a             => 'A',
       b             => 'B',
       mutual        => 1,
-      is_new        => 0,
       no_colocation => 0,
       confidence    => 3,
       same_file     => 0,
@@ -503,15 +494,9 @@ subtest 'ranked_incompatibilities' => sub {
       peripheral    => 0,
       files         => ['x.c', 'y.c']
       },
-      'row carries the pair, severity, novelty and proximity annotations';
+      'row carries the pair, severity and proximity annotations';
     is $ranked->[2]{mutual},     0, 'B-D is one-directional (Check dependency), not mutual';
     is $ranked->[2]{peripheral}, 1, 'B-D evidence is peripheral';
-  };
-
-  subtest 'Novelty does not override confidence' => sub {
-    my $ranked = ranked_incompatibilities($compat, {'D' => 1});
-    is $ranked->[-1]{a} . '-' . $ranked->[-1]{b}, 'B-D', 'a new but unresolved pair stays below the confident ones';
-    is $ranked->[-1]{is_new},                     1,     'still flagged new';
   };
 
   is_deeply ranked_incompatibilities({}), [], 'no compatibility data';

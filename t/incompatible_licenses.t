@@ -107,8 +107,8 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     is $prox->{same_file}, 0, 'not a same-file co-occurrence';
     is_deeply [sort @{$prox->{files}}], ['src/net/http.c', 'src/net/tls.c'], 'representative closest file pair';
 
-    # The frontend gets the proximity ranking and the (empty, first-review) new-license set alongside the
-    # matrix, so the grid can colour by likelihood and the detail panel can link to the files.
+    # The frontend gets the proximity ranking alongside the matrix, so the grid can colour by likelihood
+    # and the detail panel can link to the files.
     $t->get_ok('/reviews/report_details/1')
       ->status_is(200)
       ->json_is('/license_compatibility/licenses',                                     ['Apache-2.0', 'GPL-2.0-only'])
@@ -116,8 +116,7 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/same_file',  0)
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/lca_depth',  2)
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/peripheral', 0)
-      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/confidence', 3)
-      ->json_is('/new_license_ids',                                                    []);
+      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/confidence', 3);
   };
 
   subtest 'Text report' => sub {

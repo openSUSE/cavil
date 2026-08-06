@@ -70,13 +70,13 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 
 % }
 ## Licenses
-% use Cavil::ReportUtil qw(ranked_incompatibilities new_license_ids incompatibility_location);
-% my $ranked = ranked_incompatibilities($report->{license_compatibility} // {}, new_license_ids($package->{diff_report}));
+% use Cavil::ReportUtil qw(ranked_incompatibilities incompatibility_location);
+% my $ranked = ranked_incompatibilities($report->{license_compatibility} // {});
 % if (@$ranked) {
 %   my (@investigate, $peripheral, $weak, $distant);
 %   for my $r (@$ranked) {
 %     my $loc = incompatibility_location($r);
-%     if ($r->{is_new} || ($r->{confidence} >= 2 && !$r->{peripheral} && $loc)) { push @investigate, [$r, $loc] }
+%     if ($r->{confidence} >= 2 && !$r->{peripheral} && $loc) { push @investigate, [$r, $loc] }
 %     elsif ($r->{peripheral})            { $peripheral++ }
 %     elsif ($r->{confidence} == 1 && $loc) { $weak++ }
 %     else                                { $distant++ }
@@ -85,18 +85,17 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 ### Incompatible Licenses
 
 OSADL flags these pairs as incompatible when combined into one work. Proximity locates the code but is not
-proof - confirm with cavil_get_file. NEW = new since the last review.
+proof - confirm with cavil_get_file.
 
 %   if (@investigate) {
 Worth investigating (co-located in shipped code):
 %     for my $pair (@investigate) {
 %       my ($r, $loc) = @$pair;
 %       my @tags = ($r->{mutual} ? 'mutual' : 'one-way');
-%       push @tags, 'NEW'        if $r->{is_new};
 %       push @tags, 'folded'     if $r->{confidence} == 2;
 %       push @tags, 'unresolved' if $r->{confidence} <= 1;
 %       push @tags, 'peripheral' if $r->{peripheral};
-* <%== $r->{a} %> + <%== $r->{b} %> [<%== join(', ', @tags) %>] - <%== $loc // 'not co-located' %>
+* <%== $r->{a} %> + <%== $r->{b} %> [<%== join(', ', @tags) %>] - <%== $loc %>
 %     }
 %   }
 %   else {

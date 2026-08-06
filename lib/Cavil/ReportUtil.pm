@@ -14,7 +14,7 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
-  qw(license_compatibility license_obligations license_obligation_ids minimal_snippet new_license_ids),
+  qw(license_compatibility license_obligations license_obligation_ids minimal_snippet),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
@@ -578,27 +578,14 @@ sub hard_incompatibilities ($compat) {
   return \@pairs;
 }
 
-# The SPDX identifiers flagged "new" against the closest previous review, derived from the stored
-# diff_report JSON (whose new_licenses is a list of license names). Returns an empty hash when there is no
-# closest match. Shared by the report data builder and the text/MCP templates so that "new" means exactly
-# the same thing in every consumer.
-sub new_license_ids ($diff_report_json) {
-  return {} unless defined $diff_report_json && length $diff_report_json;
-  my $diff = eval { from_json($diff_report_json) } // return {};
-  my %ids;
-  $ids{$_}++ for map { @{extract_spdx_identifiers($_)} } @{$diff->{new_licenses} || []};
-  return \%ids;
-}
-
 # A single ranked view of a package's flagged incompatibilities, shared by the web report data, the text
 # report and the MCP report so the ordering and annotations never diverge. Takes the license_compatibility
-# structure (licenses / matrix / proximity) and the set of SPDX ids that are new since the closest review
-# (see new_license_ids). Returns an arrayref of unordered pairs (a lt b), each
-# {a, b, mutual, is_new, no_colocation, confidence, same_file, lca_depth, peripheral, files => [fa, fb]}, most
+# structure (licenses / matrix / proximity) and returns an arrayref of unordered pairs (a lt b), each
+# {a, b, mutual, no_colocation, confidence, same_file, lca_depth, peripheral, files => [fa, fb]}, most
 # interesting first: co-located pairs before not-co-located ones, then core (shipped) over peripheral, then
-# confidence (real match > fold > unresolved guess), then new, then same-file, then deepest shared directory,
-# then mutual-No over one-directional, then alphabetical. This is the same order the reports and UI heat use.
-sub ranked_incompatibilities ($compat, $new_ids = {}) {
+# confidence (real match > fold > unresolved guess), then same-file, then deepest shared directory, then
+# mutual-No over one-directional, then alphabetical. This is the same order the reports and UI heat use.
+sub ranked_incompatibilities ($compat) {
   my $matrix = $compat->{matrix}    // {};
   my $prox   = $compat->{proximity} // {};
   my %hard   = map { ; "$_->[0]\x00$_->[1]" => 1 } @{hard_incompatibilities($compat)};
@@ -615,9 +602,8 @@ sub ranked_incompatibilities ($compat, $new_ids = {}) {
         {
         a             => $a,
         b             => $b,
-        mutual        => $hard{"$a\x00$b"}                  ? 1 : 0,
-        is_new        => ($new_ids->{$a} || $new_ids->{$b}) ? 1 : 0,
-        no_colocation => $p->{no_colocation}                ? 1 : 0,
+        mutual        => $hard{"$a\x00$b"}   ? 1 : 0,
+        no_colocation => $p->{no_colocation} ? 1 : 0,
         confidence    => $p->{confidence} // 0,
         same_file     => $p->{same_file},
         lca_depth     => $p->{lca_depth},
@@ -632,7 +618,6 @@ sub ranked_incompatibilities ($compat, $new_ids = {}) {
       $a->{no_colocation}   <=> $b->{no_colocation}    # co-located pairs first, not-co-located last
         || $a->{peripheral} <=> $b->{peripheral}
         || $b->{confidence} <=> $a->{confidence}
-        || $b->{is_new}     <=> $a->{is_new}
         || $b->{same_file}  <=> $a->{same_file}
         || $b->{lca_depth}  <=> $a->{lca_depth}
         || $b->{mutual}     <=> $a->{mutual}

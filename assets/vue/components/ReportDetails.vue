@@ -117,7 +117,6 @@
             :licenses="licenseCompatibility.licenses"
             :matrix="licenseCompatibility.matrix"
             :proximity="licenseCompatibility.proximity"
-            :new-license-ids="newLicenseIds"
             :pkg-id="pkgId"
           />
 
@@ -551,7 +550,6 @@ export default {
       emails: [],
       files: [],
       licenseCompatibility: {licenses: [], matrix: {}, proximity: {}},
-      newLicenseIds: [],
       loading: true,
       matchingGlobs: [],
       missedFiles: [],
@@ -758,7 +756,6 @@ export default {
         this.rebuildStage = null;
         this.chart = null;
         this.licenseCompatibility = {licenses: [], matrix: {}, proximity: {}};
-        this.newLicenseIds = [];
         this.missedFiles = [];
         this.unresolvedMatches = 0;
         this.matchingGlobs = [];
@@ -794,7 +791,6 @@ export default {
 
       this.chart = data.chart;
       this.licenseCompatibility = data.license_compatibility ?? {licenses: [], matrix: {}, proximity: {}};
-      this.newLicenseIds = data.new_license_ids ?? [];
       this.missedFiles = data.missed_files;
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;

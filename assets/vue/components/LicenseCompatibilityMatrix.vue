@@ -61,8 +61,7 @@
                   {
                     'is-active': isActive(row, col),
                     'is-mutual': isMutual(row, col),
-                    'mode-likelihood': colorMode === 'likelihood',
-                    'is-newpair': colorMode === 'likelihood' && isFlagged(row, col) && isNew(row, col)
+                    'mode-likelihood': colorMode === 'likelihood'
                   },
                   mutualCornerClass(i, j)
                 ]"
@@ -125,7 +124,6 @@
           <span v-if="selectedProximity && !selectedProximity.no_colocation && selectedProximity.peripheral" class="license-matrix-where-tag"
             >tests / docs / vendored</span
           >
-          <span v-if="selectedIsNew" class="license-matrix-where-new">NEW</span>
         </span>
         <ul v-if="selectedFiles.length" class="license-matrix-file-list">
           <li v-for="f in selectedFiles" :key="f">
@@ -152,7 +150,6 @@
       <span class="license-matrix-legend-item"
         ><i class="license-matrix-swatch swatch-peripheral"></i> Tests / docs / vendored</span
       >
-      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-new"></i> New since last review</span>
     </div>
   </section>
 </template>
@@ -166,10 +163,9 @@ export default {
     licenses: {type: Array, default: () => []},
     matrix: {type: Object, default: () => ({})},
     // Symmetric per-pair proximity {a: {b: {confidence, same_file, lca_depth, peripheral, files}}} (keyed
-    // a < b), and the SPDX ids new since the closest review - together they drive the "Likelihood" colour
-    // mode and the detail panel's "Where" block. pkgId builds the file-browser links.
+    // a < b) - drives the "Likelihood" colour mode and the detail panel's "Where" block. pkgId builds the
+    // file-browser links.
     proximity: {type: Object, default: () => ({})},
-    newLicenseIds: {type: Array, default: () => []},
     pkgId: {type: [Number, String], default: null}
   },
   data() {
@@ -251,14 +247,8 @@ export default {
     hasProximity() {
       return Object.keys(this.proximity || {}).length > 0;
     },
-    newSet() {
-      return new Set(this.newLicenseIds || []);
-    },
     selectedProximity() {
       return this.selected ? this.pairProximity(this.selected.outbound, this.selected.inbound) : null;
-    },
-    selectedIsNew() {
-      return this.selected ? this.isNew(this.selected.outbound, this.selected.inbound) : false;
     },
     // The representative files for the selected pair, de-duplicated (a same-file hit lists one path twice).
     selectedFiles() {
@@ -292,9 +282,6 @@ export default {
       const [x, y] = a < b ? [a, b] : [b, a];
       return this.proximity?.[x]?.[y] ?? null;
     },
-    isNew(a, b) {
-      return this.newSet.has(a) || this.newSet.has(b);
-    },
     isFlagged(outbound, inbound) {
       return outbound !== inbound && this.cell(outbound, inbound) !== null;
     },
@@ -313,9 +300,9 @@ export default {
       const p = this.pairProximity(outbound, inbound);
       let color, size;
       // Heat ramp, hottest first: same-file is a purple "ultra-hot" so the top signal is unmistakable and
-      // clearly apart from the red/gold lower tiers (and from the blue "new" ring). Deeper shared dir = red,
-      // shallow shared dir = gold, package-root-only = cool grey-blue, peripheral = neutral grey. Size also
-      // grows with the tier so the hot cells carry extra weight.
+      // clearly apart from the red/gold lower tiers. Deeper shared dir = red, shallow shared dir = gold,
+      // package-root-only = cool grey-blue, peripheral = neutral grey. Size also grows with the tier so the
+      // hot cells carry extra weight.
       // Defensive: a flagged cell with no proximity entry at all (only if a license has no file evidence).
       if (p === null) [color, size] = ['#9db2c6', 0.48];
       else if (p.peripheral) [color, size] = ['#c3c9d0', 0.48];
@@ -873,14 +860,6 @@ export default {
   color: #fff;
 }
 
-/* Likelihood mode: a newly-appeared incompatibility gets a blue ring around its dot (orthogonal to the
-   heat colour), so a regression stands out whatever its proximity. */
-.license-matrix-cell.is-newpair .license-matrix-mark {
-  box-shadow:
-    0 0 0 2px #ffffff,
-    0 0 0 3px #0969da;
-}
-
 /* Detail panel "Where" band: proximity summary + file-browser links, parked under the OSADL explanation. */
 .license-matrix-where {
   border-top: 1px solid #eaeef2;
@@ -914,18 +893,6 @@ export default {
   font-size: 11px;
   font-weight: 600;
   padding: 0.05rem 0.5rem;
-}
-/* Mirror the report's canonical "new since last review" badge (.risk-new in ReportDetails); scoped styles
-   can't be shared across components, so the values are duplicated to keep the look identical. */
-.license-matrix-where-new {
-  background: #ddf4ff;
-  border-radius: 999px;
-  color: #0550ae;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 0.05rem 0.4rem;
-  text-transform: uppercase;
 }
 /* Files stacked one per line on a dotted rail, matching the license list's file lists (.risk-file-list in
    ReportDetails): a muted link with a small ::before dot, blue + underline only on hover. */
@@ -969,8 +936,8 @@ export default {
   text-decoration-color: currentColor;
 }
 
-/* Likelihood legend swatches: distinct hues down the heat scale, a grey for peripheral, a ringed dot for
-   new - matching markStyle so the grid and the key read as one scale. */
+/* Likelihood legend swatches: distinct hues down the heat scale, a grey for peripheral - matching
+   markStyle so the grid and the key read as one scale. */
 .license-matrix-swatch.swatch-file {
   background: #a21caf;
 }
@@ -985,9 +952,5 @@ export default {
 }
 .license-matrix-swatch.swatch-peripheral {
   background: #c3c9d0;
-}
-.license-matrix-swatch.swatch-new {
-  background: #ffffff;
-  box-shadow: inset 0 0 0 2px #0969da;
 }
 </style>

@@ -201,11 +201,11 @@ bullet - a relicense is the headline.
 The Licenses section has an `### Incompatible Licenses` block listing the OSADL-flagged pairs **ranked by
 how likely a real combination is**, split into two groups:
 - **Worth investigating (co-located in shipped code)** - pairs whose two licenses actually sit in the
-  **same file** or the **same directory**, each with the file path(s) and tags: `mutual` vs `one-way`,
-  `NEW` (new since the last review), and an evidence marker - `folded` or `unresolved` when the co-location
-  rests on a folded snippet or an unresolved-snippet guess rather than a real match (weaker; verify before
-  you lean on it). Cavil has already done the co-location analysis; these are the pairs to look at, and it
-  names the exact files so you can go straight to them.
+  **same file** or the **same directory**, each with the file path(s) and tags: `mutual` vs `one-way`, and
+  an evidence marker - `folded` or `unresolved` when the co-location rests on a folded snippet or an
+  unresolved-snippet guess rather than a real match (weaker; verify before you lean on it). Cavil has
+  already done the co-location analysis; these are the pairs to look at, and it names the exact files so you
+  can go straight to them.
 - **Lower priority** - a *count* of the remaining pairs that meet only in tests/docs/vendored files
   (`peripheral`) or only at the package root (aggregation). Do **not** trace these; they are almost never
   a combined work, and enumerating them is the noise reviewers asked us to stop producing.
@@ -246,9 +246,6 @@ Signals it is likely a **real problem** (lean REJECT or NEEDS HUMAN REVIEW):
   `#include`/import across the boundary, or (the `same file` case) one source file carrying both headers.
 - A copyleft license (GPL/AGPL) governs core code that links against the other license's code.
 - You cannot determine from the files whether the components are combined.
-
-A pair tagged `NEW` is a freshly-introduced incompatibility - it was not in the closest prior review, so a
-regression into a conflict is exactly what a reviewer wants caught; treat it as higher priority.
 
 Whatever you conclude, **record it as a short verification trail the lawyer can re-check in a
 minute, not a bare verdict** - "reviewed, false alarm, components separate" is the too-terse bullet
