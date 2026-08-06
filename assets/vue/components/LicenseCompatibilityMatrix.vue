@@ -915,14 +915,17 @@ export default {
   font-weight: 600;
   padding: 0.05rem 0.5rem;
 }
+/* Mirror the report's canonical "new since last review" badge (.risk-new in ReportDetails); scoped styles
+   can't be shared across components, so the values are duplicated to keep the look identical. */
 .license-matrix-where-new {
-  background: #0969da;
+  background: #ddf4ff;
   border-radius: 999px;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: 0.05rem 0.5rem;
+  color: #0550ae;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.05rem 0.4rem;
+  text-transform: uppercase;
 }
 /* Files stacked one per line on a dotted rail, matching the license list's file lists (.risk-file-list in
    ReportDetails): a muted link with a small ::before dot, blue + underline only on hover. */
