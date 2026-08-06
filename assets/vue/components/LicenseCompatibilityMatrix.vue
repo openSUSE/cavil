@@ -129,7 +129,7 @@
         </span>
         <ul v-if="selectedFiles.length" class="license-matrix-file-list">
           <li v-for="f in selectedFiles" :key="f">
-            <a class="license-matrix-file-link" :href="'#file'" @click.prevent="$emit('open-file', f)">{{ f }}</a>
+            <a class="license-matrix-file-link" :href="fileHref(f)" target="_blank" rel="noopener noreferrer">{{ f }}</a>
           </li>
         </ul>
       </div>
@@ -158,18 +158,19 @@
 </template>
 
 <script>
+import {fileViewUrl} from '../helpers/links.js';
+
 export default {
   name: 'LicenseCompatibilityMatrix',
-  emits: ['open-file'],
   props: {
     licenses: {type: Array, default: () => []},
     matrix: {type: Object, default: () => ({})},
     // Symmetric per-pair proximity {a: {b: {confidence, same_file, lca_depth, peripheral, files}}} (keyed
     // a < b), and the SPDX ids new since the closest review - together they drive the "Likelihood" colour
-    // mode and the detail panel's "Where" block. Clicking a file emits open-file so the parent report opens
-    // its in-page preview (like the license list / unresolved matches do).
+    // mode and the detail panel's "Where" block. pkgId builds the file-browser links.
     proximity: {type: Object, default: () => ({})},
-    newLicenseIds: {type: Array, default: () => []}
+    newLicenseIds: {type: Array, default: () => []},
+    pkgId: {type: [Number, String], default: null}
   },
   data() {
     return {selected: null, showAll: false, hovered: null, colorMode: 'verdict'};
@@ -296,6 +297,12 @@ export default {
     },
     isFlagged(outbound, inbound) {
       return outbound !== inbound && this.cell(outbound, inbound) !== null;
+    },
+    // Every "Where" file opens in the file browser in a new tab. Consistency matters more than an inline
+    // preview here: proximity can point at files beyond the report's per-license display cap that have no
+    // inline block, and mixing inline-for-some with dead-for-others is worse than one predictable behaviour.
+    fileHref(path) {
+      return fileViewUrl(this.pkgId, path);
     },
     // Likelihood colouring: a categorical heat scale (distinct hues, not shades of one colour - those blur
     // into a soup on a big grid) plus a size cue, so the genuinely-combined pairs stand out of a cool/grey

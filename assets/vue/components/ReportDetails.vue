@@ -118,7 +118,7 @@
             :matrix="licenseCompatibility.matrix"
             :proximity="licenseCompatibility.proximity"
             :new-license-ids="newLicenseIds"
-            @open-file="openFileFromMatrix"
+            :pkg-id="pkgId"
           />
 
           <p v-if="missedFiles.length > 0" id="incomplete-warning" class="risk-license-help-text">
@@ -988,14 +988,6 @@ export default {
     },
     onFileLinkClick(id) {
       const file = this.files.find(f => String(f.id) === String(id));
-      if (!file) return;
-      return this.scrollToFile(file);
-    },
-    // A file link in the compatibility matrix's "Where" panel: open its in-page preview like the license
-    // list / unresolved matches do (match by path - matched_files ids are not stable across reindex). Press
-    // "c" to jump back up to the compatibility box afterwards.
-    openFileFromMatrix(path) {
-      const file = this.files.find(f => f.path === path);
       if (!file) return;
       return this.scrollToFile(file);
     },

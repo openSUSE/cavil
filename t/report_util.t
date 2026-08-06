@@ -398,25 +398,26 @@ subtest 'license_compatibility proximity ranking' => sub {
     # its non-matches) through the public API. Segments match at any depth and case-insensitively; a mere
     # substring of a segment (testicular) or a license-named source file must NOT be demoted.
     my %expect = (
-      'src/app.c'                 => 0,
-      'lib/net/x.c'               => 0,
-      'gpl.c'                     => 0,
-      'src/testicular/x.c'        => 0,
-      'test/x.c'                  => 1,
-      'tests/x.c'                 => 1,
-      'a/testing/b/x.c'           => 1,
-      'doc/x.c'                   => 1,
-      'docs/x.c'                  => 1,
-      'documentation/x.c'         => 1,
-      'examples/x.c'              => 1,
-      'sample/x.c'                => 1,
-      'vendor/x.c'                => 1,
-      'third_party/x.c'           => 1,
-      'third-party/x.c'           => 1,
-      '3rdparty/x.c'              => 1,
-      'contrib/x.c'               => 1,
-      'app/node_modules/foo/x.js' => 1,
-      'LICENSES/x'                => 1
+      'src/app.c'                    => 0,
+      'lib/net/x.c'                  => 0,
+      'gpl.c'                        => 0,
+      'src/testicular/x.c'           => 0,
+      'test/x.c'                     => 1,
+      'tests/x.c'                    => 1,
+      'a/testing/b/x.c'              => 1,
+      'doc/x.c'                      => 1,
+      'docs/x.c'                     => 1,
+      'documentation/x.c'            => 1,
+      'examples/x.c'                 => 1,
+      'sample/x.c'                   => 1,
+      'vendor/x.c'                   => 1,
+      'src/pip/_vendor/chardet/x.py' => 1,
+      'third_party/x.c'              => 1,
+      'third-party/x.c'              => 1,
+      '3rdparty/x.c'                 => 1,
+      'contrib/x.c'                  => 1,
+      'app/node_modules/foo/x.js'    => 1,
+      'LICENSES/x'                   => 1
     );
     for my $path (sort keys %expect) {
       my $report = {

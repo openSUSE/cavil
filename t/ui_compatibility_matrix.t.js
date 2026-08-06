@@ -86,16 +86,13 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       await where.waitFor();
       t.match(await where.innerText(), /where/i, 'the detail panel gains a Where band');
 
-      // The fixture puts the two licenses in sibling files of one directory, so both are listed - one per
-      // line on the dotted rail - and each opens the file's preview in-page (not a new tab).
+      // The fixture puts the two licenses in sibling files of one directory, so both are listed one per line
+      // on the dotted rail. Every file opens in the file browser in a new tab - consistent, because proximity
+      // can point at files beyond the report's display cap that have no inline preview.
       const links = where.locator('.license-matrix-file-list li .license-matrix-file-link');
       t.ok((await links.count()) >= 2, 'both co-located files are listed');
-      t.equal(await links.first().getAttribute('target'), null, 'not a new-tab link');
-
-      const pagesBefore = ui.context.pages().length;
-      await links.first().click();
-      await page.waitForTimeout(300);
-      t.equal(ui.context.pages().length, pagesBefore, 'opens the preview in-page, not a new browser tab');
+      t.equal(await links.first().getAttribute('target'), '_blank', 'opens in a new tab');
+      t.match(await links.first().getAttribute('href'), /\/reviews\/file_view\/1\//, 'links into the file browser');
     });
 
     await t.test('the c shortcut jumps back to the compatibility box', async t => {
