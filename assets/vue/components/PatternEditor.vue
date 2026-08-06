@@ -56,7 +56,33 @@
           <form :action="formAction" method="POST" @submit="onSubmit">
             <div class="col mb-3">
               <label class="form-label" for="license">License</label>
-              <input v-model="form.license" type="text" name="license" id="license" class="form-control" />
+              <div class="pattern-editor-autocomplete-anchor">
+                <input
+                  v-model="form.license"
+                  @input="autocomplete"
+                  @focus="licenseFocused = true"
+                  @blur="licenseFocused = false"
+                  ref="license"
+                  type="text"
+                  name="license"
+                  id="license"
+                  class="form-control"
+                  autocomplete="off"
+                />
+                <div v-show="licenseFocused && results.length > 0" class="autocomplete-container">
+                  <div class="autocomplete">
+                    <div
+                      v-for="(result, i) in results"
+                      :key="i"
+                      @mousedown.prevent="fillLicense(result)"
+                      class="autocomplete-item"
+                    >
+                      {{ result }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-text">Auto-completed license names will also predict the risk value.</div>
             </div>
             <div v-if="!isNew && showSpdx" class="col mb-3">
               <label class="form-label" for="spdx">SPDX</label>
@@ -177,6 +203,7 @@
 import ClosestPattern from './ClosestPattern.vue';
 import LegalLoading from './LegalLoading.vue';
 import PatternCodeMirror from './PatternCodeMirror.vue';
+import {rankLicenses} from '../helpers/licenseAutocomplete.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
@@ -198,6 +225,10 @@ export default {
       matchCountError: null,
       saving: false,
       error: null,
+      licenses: {},
+      suggestions: [],
+      results: [],
+      licenseFocused: false,
       ua: new UserAgent({baseURL: window.location.href})
     };
   },
@@ -211,8 +242,38 @@ export default {
   },
   mounted() {
     if (!this.isNew && this.showMatchCount) this.loadMatchCount();
+    this.loadLicenses();
   },
   methods: {
+    async loadLicenses() {
+      try {
+        const res = await this.ua.get('/licenses/autocomplete.json');
+        if (!res.isSuccess) return;
+        this.licenses = await res.json();
+        this.suggestions = Object.keys(this.licenses);
+        this.results = this.suggestions;
+      } catch (_error) {
+        // Autocomplete is a convenience; a failed fetch just leaves the field as a plain text input
+      }
+    },
+    autocomplete() {
+      this.results = rankLicenses(this.suggestions, this.form.license);
+    },
+    fillLicense(result) {
+      if (this.$refs.license) this.$refs.license.blur();
+      this.form.license = result;
+      const options = this.licenses[result];
+      if (options !== undefined) {
+        this.form.risk = String(options.risk);
+        this.form.patent = !!options.patent;
+        this.form.trademark = !!options.trademark;
+        this.form.export_restricted = !!options.export_restricted;
+        this.form.cla = !!options.cla;
+        this.form.eula = !!options.eula;
+      }
+      this.results = this.suggestions;
+      this.licenseFocused = false;
+    },
     formFromPattern(pattern) {
       return {
         license: pattern.license ?? '',
@@ -299,6 +360,8 @@ export default {
       this.closest = null;
       this.matchCount = null;
       this.matchCountError = null;
+      this.results = this.suggestions;
+      this.licenseFocused = false;
       if (!this.isNew && this.showMatchCount) this.loadMatchCount();
     }
   }
@@ -380,5 +443,35 @@ export default {
 }
 .pattern-editor-inline {
   background: #ffffff;
+}
+.pattern-editor-autocomplete-anchor {
+  position: relative;
+}
+.autocomplete-container {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  cursor: pointer;
+  left: 0;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  position: absolute;
+  right: 0;
+  z-index: 1000;
+}
+.autocomplete {
+  max-height: 220px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.autocomplete-item {
+  color: #1f2328;
+  font-size: 14px;
+  padding: 6px 14px;
+}
+.autocomplete-item:hover {
+  background-color: #f6f8fa;
+  color: #1f2328;
 }
 </style>

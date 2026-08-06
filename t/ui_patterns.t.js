@@ -855,6 +855,41 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'Edit license pattern');
     });
 
+    await t.test('Edit pattern page (Vue) - license autocomplete predicts risk', async t => {
+      // The dropdown is fed by /licenses/autocomplete.json on mount; wait for that
+      // fetch so the suggestions are in place before we start typing.
+      await Promise.all([
+        page.waitForResponse(resp => /\/licenses\/autocomplete\.json/.test(resp.url())),
+        page.goto(`${url}/licenses/edit_pattern/1`)
+      ]);
+      t.equal(await page.innerText('title'), 'Edit license pattern');
+      await page.waitForSelector('#edit-pattern input[name=license]');
+
+      // Force a risk that differs from the license we will pick, so a successful
+      // prediction visibly overwrites it (Made-Up-License-1.0 was created at risk 3).
+      await page.locator('#edit-pattern select[name=risk]').selectOption('9');
+
+      const licenseInput = page.locator('#edit-pattern input[name=license]');
+      await licenseInput.click();
+      await licenseInput.fill('Made-Up');
+
+      // Typing filters the dropdown down to the matching license.
+      const suggestion = page.locator('#edit-pattern .autocomplete-item', {hasText: 'Made-Up-License-1.0'});
+      await suggestion.first().waitFor();
+
+      // Picking a suggestion fills the license name and predicts its risk.
+      await suggestion.first().click();
+      t.equal(await licenseInput.inputValue(), 'Made-Up-License-1.0', 'autocomplete fills the license name');
+      t.equal(
+        await page.locator('#edit-pattern select[name=risk]').inputValue(),
+        '3',
+        'autocomplete predicts the license risk'
+      );
+
+      // Navigate away without submitting so pattern 1 keeps its Apache-2.0 fixture state.
+      await page.goto(url);
+    });
+
     await t.test('New pattern page (Vue) - create form posts to /licenses/create_pattern', async t => {
       // Drive the same Vue mount with no pattern.id so it switches to "create" mode.
       await page.goto(`${url}/licenses/new_pattern?license-name=Vue-Create-Test-License`);

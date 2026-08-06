@@ -379,23 +379,33 @@ sub score_package_snippets ($self, $package_id, $generation = 0) {
   $tx->commit;
 }
 
+# spdx and catch_all are shared by every pattern of a license, not per-pattern form fields: inherit them
+# from an existing sibling pattern of the same license. For a brand-new license there is no sibling, so
+# fall back to an empty identifier and a catch_all derived from the license name. On updates pass the
+# pattern's own id as $exclude_id so it never inherits stale values from itself.
+sub _license_properties ($self, $db, $license, $exclude_id = undef) {
+  my %props = (spdx => '', catch_all => license_is_catch_all($license) ? 1 : 0);
+  return \%props unless defined $license && length $license;
+
+  my $sql  = 'SELECT spdx, catch_all FROM license_patterns WHERE license = ?';
+  my @bind = ($license);
+  if (defined $exclude_id) {
+    $sql .= ' AND id <> ?';
+    push @bind, $exclude_id;
+  }
+  $sql .= ' LIMIT 1';
+
+  if (my $sibling = $db->query($sql, @bind)->hash) { @props{qw(spdx catch_all)} = @{$sibling}{qw(spdx catch_all)} }
+  return \%props;
+}
+
 sub create ($self, %args) {
   my $checksum = pattern_checksum($args{pattern});
   my $id       = $self->pattern_exists($checksum);
   return {conflict => $id} if $id;
 
-  # Inherit per-license properties (spdx, catch_all) from already known licenses; for a brand-new
-  # license derive catch_all from its name so the "covered" gate treats it consistently right away.
-  my $db        = $self->pg->db;
-  my $spdx      = '';
-  my $catch_all = license_is_catch_all($args{license}) ? 1 : 0;
-  if (my $license = $args{license}) {
-    my $pattern = $db->query('SELECT spdx, catch_all FROM license_patterns WHERE license = ? LIMIT 1', $license)->hash;
-    if ($pattern) {
-      $spdx      = $pattern->{spdx};
-      $catch_all = $pattern->{catch_all};
-    }
-  }
+  my $db    = $self->pg->db;
+  my $props = $self->_license_properties($db, $args{license});
 
   my $mid = $db->insert(
     'license_patterns',
@@ -408,9 +418,9 @@ sub create ($self, %args) {
       export_restricted => $args{export_restricted} // 0,
       cla               => $args{cla}               // 0,
       eula              => $args{eula}              // 0,
-      catch_all         => $catch_all,
+      catch_all         => $props->{catch_all},
       license           => $args{license} // '',
-      spdx              => $spdx,
+      spdx              => $props->{spdx},
       risk              => $args{risk} // 5,
       ($args{unique_id}   ? (unique_id   => $args{unique_id})   : ()), ($args{owner} ? (owner => $args{owner}) : ()),
       ($args{contributor} ? (contributor => $args{contributor}) : ())
@@ -959,14 +969,17 @@ sub update ($self, $id, %args) {
     return {conflict => $conflict->{id}};
   }
 
-  # catch_all is a per-license property, not a form field: derive it from the (possibly edited)
-  # license so it stays consistent - inherit from a sibling pattern of that license, else from its name.
-  my $catch_all = license_is_catch_all($args{license}) ? 1 : 0;
-  if (my $license = $args{license}) {
-    my $sibling
-      = $db->query('SELECT catch_all FROM license_patterns WHERE license = ? AND id <> ? LIMIT 1', $license, $id)->hash;
-    $catch_all = $sibling->{catch_all} if $sibling;
-  }
+  # catch_all and spdx are per-license properties, not form fields, so a license rename has to carry them
+  # along. catch_all is always re-derived from the (possibly edited) license. spdx has no derivation from a
+  # name, so we only refresh it when the license actually changes: adopt the new license's identifier, or
+  # clear it for a brand-new license. Leaving spdx untouched on a rename was the bug that kept the stale
+  # identifier after a GPL-3.0-only -> GPL-3.0-or-later correction.
+  my $new_license = $args{license} // '';
+  my $old         = $db->select('license_patterns', ['license', 'spdx'], {id => $id})->hash;
+  my $renamed     = !$old || $old->{license} ne $new_license;
+  my $props       = $self->_license_properties($db, $new_license, $id);
+  my $catch_all   = $props->{catch_all};
+  my $spdx        = $renamed ? $props->{spdx} : $old->{spdx};
 
   $db->update(
     'license_patterns',
@@ -981,6 +994,7 @@ sub update ($self, $id, %args) {
       cla               => $args{cla}               // 0,
       eula              => $args{eula}              // 0,
       catch_all         => $catch_all,
+      spdx              => $spdx,
       risk              => $args{risk} // 5,
       ($args{owner} ? (owner => $args{owner}) : ())
     },

@@ -55,6 +55,10 @@ sub create_pattern ($self) {
   $self->redirect_to('edit_pattern', id => $match->{id});
 }
 
+sub autocomplete ($self) {
+  $self->render(json => $self->patterns->autocomplete);
+}
+
 sub edit_pattern ($self) {
   my $id      = $self->stash('id');
   my $pattern = $self->patterns->find($id);

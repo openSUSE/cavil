@@ -309,6 +309,7 @@ sub startup ($self) {
   # Public because of fine grained access controls (owner of proposal may remove it again)
   $public->post('/licenses/proposed/remove/:checksum')->to('License#remove_proposal')->name('proposed_remove');
 
+  $logged_in->get('/licenses/autocomplete.json')->to('License#autocomplete')->name('license_autocomplete');
   $logged_in->get('/licenses/pattern/<id:num>.json')->to('License#pattern_detail')->name('pattern_detail');
   $can_curate->post('/licenses/pattern/<id:num>.json')->to('License#update_pattern_json')->name('update_pattern_json');
   $logged_in->get('/licenses/pattern/<id:num>/match_count.json')

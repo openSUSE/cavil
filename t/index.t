@@ -197,6 +197,40 @@ subtest 'Pattern change' => sub {
   $t->get_ok('/licenses/meta/Apache-2.0')->status_is(200)->json_is('/spdx' => 'Apache-2.0');
 };
 
+subtest 'SPDX identifier follows a license rename' => sub {
+  my $patterns = $t->app->patterns;
+
+  # Two patterns share the target license and carry its curated identifier; the source license has one
+  $patterns->insert_pattern(
+    {pattern => 'spdx rename target one', license => 'SpdxRenameTarget-1.0', spdx => 'MIT', risk => 3});
+  $patterns->insert_pattern(
+    {pattern => 'spdx rename target two', license => 'SpdxRenameTarget-1.0', spdx => 'MIT', risk => 3});
+  my $source = $patterns->insert_pattern(
+    {pattern => 'spdx rename source', license => 'SpdxRenameSource-1.0', spdx => 'Apache-2.0', risk => 5});
+  is $patterns->find($source)->{spdx}, 'Apache-2.0', 'source starts with its own identifier';
+
+  # Renaming to an existing license adopts that license's identifier (this was the reported bug)
+  $patterns->update($source, license => 'SpdxRenameTarget-1.0', pattern => 'spdx rename source', risk => 5);
+  is $patterns->find($source)->{spdx}, 'MIT', 'spdx adopts the new license identifier on rename';
+
+  # Editing an unrelated field without touching the license preserves the identifier
+  $patterns->update($source, license => 'SpdxRenameTarget-1.0', pattern => 'spdx rename source', risk => 6);
+  is $patterns->find($source)->{spdx}, 'MIT', 'spdx preserved when the license is unchanged';
+
+  # Renaming to a brand-new license clears the now-stale identifier
+  $patterns->update($source, license => 'SpdxRenameBrandNew-1.0', pattern => 'spdx rename source', risk => 6);
+  is $patterns->find($source)->{spdx}, '', 'spdx cleared when renamed to a brand-new license';
+};
+
+subtest 'License autocomplete JSON endpoint' => sub {
+  $t->get_ok('/licenses/autocomplete.json')->status_is(200)->json_has('/Apache-2.0/risk');
+
+  # Logging out must put the JSON endpoint back behind the login wall.
+  $t->get_ok('/logout')->status_is(302);
+  $t->get_ok('/licenses/autocomplete.json')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/login')->status_is(302);
+};
+
 subtest 'Pattern detail JSON endpoint' => sub {
   $t->get_ok('/licenses/pattern/1.json')
     ->status_is(200)
