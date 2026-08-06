@@ -121,13 +121,17 @@
           <span class="license-matrix-where-label">Where</span>
           <span class="license-matrix-where-verdict">{{ whereSummary }}</span>
           <span v-if="whereTag" class="license-matrix-where-tag">{{ whereTag }}</span>
-          <span v-if="selectedProximity && !selectedProximity.no_colocation && selectedProximity.peripheral" class="license-matrix-where-tag"
+          <span
+            v-if="selectedProximity && !selectedProximity.no_colocation && selectedProximity.peripheral"
+            class="license-matrix-where-tag"
             >tests / docs / vendored</span
           >
         </span>
         <ul v-if="selectedFiles.length" class="license-matrix-file-list">
           <li v-for="f in selectedFiles" :key="f">
-            <a class="license-matrix-file-link" :href="fileHref(f)" target="_blank" rel="noopener noreferrer">{{ f }}</a>
+            <a class="license-matrix-file-link" :href="fileHref(f)" target="_blank" rel="noopener noreferrer">{{
+              f
+            }}</a>
           </li>
         </ul>
       </div>
@@ -144,9 +148,15 @@
     </div>
     <div v-else class="license-matrix-legend" aria-label="Combination likelihood legend">
       <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-file"></i> Same file</span>
-      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-deep"></i> Deep shared directory</span>
-      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-shared"></i> Shared directory</span>
-      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-root"></i> Package root only</span>
+      <span class="license-matrix-legend-item"
+        ><i class="license-matrix-swatch swatch-deep"></i> Deep shared directory</span
+      >
+      <span class="license-matrix-legend-item"
+        ><i class="license-matrix-swatch swatch-shared"></i> Shared directory</span
+      >
+      <span class="license-matrix-legend-item"
+        ><i class="license-matrix-swatch swatch-root"></i> Package root only</span
+      >
       <span class="license-matrix-legend-item"
         ><i class="license-matrix-swatch swatch-peripheral"></i> Tests / docs / vendored</span
       >
@@ -312,7 +322,7 @@ export default {
       else [color, size] = ['#9db2c6', 0.48];
       // Confidence dims the dot: a real match is solid, a fold muted, an unresolved guess faint - so the
       // trustworthy co-locations read strongest even at the same proximity tier.
-      const opacity = p ? {3: 1, 2: 0.7, 1: 0.5}[p.confidence] ?? 1 : 0.5;
+      const opacity = p ? ({3: 1, 2: 0.7, 1: 0.5}[p.confidence] ?? 1) : 0.5;
       return {background: color, height: `${size}rem`, width: `${size}rem`, opacity};
     },
     cell(outbound, inbound) {
