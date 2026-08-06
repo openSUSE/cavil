@@ -41,8 +41,9 @@ sub dig_report {
   # OSADL compatibility sub-matrix for the licenses present in this package (verbatim, directional)
   $report->{license_compatibility} = license_compatibility($report);
 
-  # prune match caches
+  # prune match caches (file_confidence only feeds the proximity computation just above)
   delete $report->{matches};
+  delete $report->{file_confidence};
   return $report;
 }
 
@@ -624,9 +625,12 @@ sub _load_pattern_from_cache {
 }
 
 # Record a license on the report (licenses + risks lists + flags). Shared by the real-match and the
-# folded-snippet registration below so both contribute a license identically.
+# folded-snippet registration below so both contribute a license identically. $source ('match' | 'fold')
+# records how confidently this (file, license) is established - a real pattern match outranks a folded
+# snippet - so proximity can prefer the strongest evidence when it picks a pair's representative files
+# (see file_confidence / _file_license_ids). One hash write per registration (per match/fold, not per line).
 sub _register_license {
-  my ($self, $report, $pid_info, $pattern, $pid, $file) = @_;
+  my ($self, $report, $pid_info, $pattern, $pid, $file, $source) = @_;
 
   $report->{licenses}{$pattern->{license}}
     ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
@@ -636,6 +640,10 @@ sub _register_license {
   my $rl = $report->{risks}{$pattern->{risk}};
   push(@{$rl->{$pattern->{license}}{$pid}}, $file);
   $report->{risks}{$pattern->{risk}} = $rl;
+
+  my $rank = ($source // 'match') eq 'fold' ? 2 : 3;
+  my $seen = $report->{file_confidence}{$file}{$pattern->{license}};
+  $report->{file_confidence}{$file}{$pattern->{license}} = $rank if !defined $seen || $rank > $seen;
 
   $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
 }
@@ -673,7 +681,7 @@ sub _register_matches {
     next if $pattern->{license} eq '';
 
     my ($file, $mid, $sline, $eline) = @{$match}{qw(file id sline eline)};
-    $self->_register_license($report, $pid_info, $pattern, $pid, $file);
+    $self->_register_license($report, $pid_info, $pattern, $pid, $file, 'match');
     my $risk = $pattern->{risk};
 
     # Hoist the two per-file line maps: the loop runs once per line of every match (its ±3 context lines
@@ -716,7 +724,7 @@ sub _register_folds {
       my $pattern = $self->_load_pattern_from_cache($db, $pid);
       next if $pattern->{license} eq '';
 
-      $self->_register_license($report, $pid_info, $pattern, $pid, $file);
+      $self->_register_license($report, $pid_info, $pattern, $pid, $file, 'fold');
       $report->{folded}{$file} = 1;
 
       # Do not auto-expand a file just because it folded: only files with unresolved matches are

@@ -41,6 +41,12 @@ my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 $dir->child('apache_file.txt')->spurt("# SPDX-License-Identifier: Apache-2.0\n\nThis is a test file.\n");
 $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nThis is another test file.\n");
 
+# The same two licenses also sit together deep inside one module, which is the co-location a reviewer
+# actually cares about - proximity should rank the pair by that deeper directory, not the shared root.
+my $module = $dir->child('src', 'net')->make_path;
+$module->child('tls.c')->spurt("# SPDX-License-Identifier: Apache-2.0\n\nDeeply nested Apache file.\n");
+$module->child('http.c')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nDeeply nested GPL file.\n");
+
 # Unpack and index
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
@@ -58,7 +64,7 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
       ->json_like('/package_group',   qr!Development/Libraries/Perl!)
       ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
       ->json_like('/state',           qr!new!)
-      ->json_is('/unpacked_files', 341)
+      ->json_is('/unpacked_files', 343)
       ->json_is('/unpacked_size',  '2.5MiB');
 
     $t->json_like('/package_files/0/file',       qr/perl-Mojolicious\.spec/)
@@ -94,20 +100,50 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     like $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{explanation},   qr/\S/, 'verbatim OSADL explanation present';
     unlike $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{explanation}, qr/&quot;/, 'explanation entities decoded';
 
+    # Proximity ranks the pair by its closest co-location: the two files inside src/net (depth 2), not
+    # the copies at the package root (depth 0).
+    ok my $prox = $compat->{proximity}{'Apache-2.0'}{'GPL-2.0-only'}, 'proximity for the flagged pair';
+    is $prox->{lca_depth}, 2, 'ranked by the deepest shared directory (src/net)';
+    is $prox->{same_file}, 0, 'not a same-file co-occurrence';
+    is_deeply [sort @{$prox->{files}}], ['src/net/http.c', 'src/net/tls.c'], 'representative closest file pair';
+
+    # The frontend gets the proximity ranking and the (empty, first-review) new-license set alongside the
+    # matrix, so the grid can colour by likelihood and the detail panel can link to the files.
     $t->get_ok('/reviews/report_details/1')
       ->status_is(200)
       ->json_is('/license_compatibility/licenses',                                     ['Apache-2.0', 'GPL-2.0-only'])
-      ->json_is('/license_compatibility/matrix/Apache-2.0/GPL-2.0-only/compatibility', 'No');
+      ->json_is('/license_compatibility/matrix/Apache-2.0/GPL-2.0-only/compatibility', 'No')
+      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/same_file',  0)
+      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/lca_depth',  2)
+      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/peripheral', 0)
+      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/confidence', 3)
+      ->json_is('/new_license_ids',                                                    []);
   };
 
   subtest 'Text report' => sub {
     $t->get_ok('/reviews/report/1.txt')->status_is(200);
     ok my $text = $t->tx->res->text, 'text response';
     like $text, qr/### Incompatible Licenses/, 'text report has a dedicated section for the incompatible pairs';
-    like $text, qr/OSADL flags these pairs as incompatible in both directions/,
+    like $text, qr/Only matters if the code is combined into one work/,
       'text report gives a neutral, informational compatibility note';
     unlike $text, qr/Elevated risk/, 'text report no longer frames incompatibilities as elevated risk';
     like $text,   qr/\* Apache-2\.0 and GPL-2\.0-only/, 'text report lists the incompatible pair symmetrically';
+
+    # Packagers get the location so they can find the files that co-locate the two licenses.
+    like $text, qr!\Qsame directory `src/net`\E!, 'text report annotates where the licenses co-locate';
+  };
+
+  subtest 'MCP report' => sub {
+    my $mcp = $t->app->build_controller->mcp_report(1);
+    like $mcp, qr/### Incompatible Licenses/, 'MCP report has the incompatibilities section';
+    like $mcp, qr/Worth investigating \(co-located in shipped code\)/,
+      'MCP report separates the co-located pairs worth investigating';
+
+    # The AI is handed the exact files and told to confirm the combination itself.
+    like $mcp, qr/Apache-2\.0 \+ GPL-2\.0-only \[mutual\]/,                       'names the pair and its severity';
+    like $mcp, qr!same directory `src/net`: `src/net/tls\.c`, `src/net/http\.c`!, 'points at the co-located files';
+    like $mcp, qr/Proximity locates the code/,                                    'tells the AI proximity is not proof';
+    like $mcp, qr/cavil_get_file/, 'points the AI at the tool to confirm';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

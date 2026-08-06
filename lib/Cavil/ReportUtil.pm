@@ -1,18 +1,5 @@
-
-# Copyright (C) 2024 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::ReportUtil;
 use Mojo::Base -strict, -signatures;
@@ -26,9 +13,9 @@ use Cavil::Licenses 'lic';
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
-  qw(estimated_risk hard_incompatibilities is_license_filename license_classification license_compatibility),
-  qw(license_obligations license_obligation_ids minimal_snippet new_license_names new_unresolved_files),
-  qw(overlapping_licenses report_checksum report_shortname),
+  qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
+  qw(license_compatibility license_obligations license_obligation_ids minimal_snippet new_license_ids),
+  qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
 );
@@ -249,10 +236,14 @@ sub is_license_filename ($path) {
   return $path =~ m{(?:^|/)(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE)(?:[.\-]|$)}i ? 1 : 0;
 }
 
-# The set of individual SPDX license identifiers actually present in a package's digest report,
-# gathered from the licensed matches and the keyword-matched files. Compound expressions are reduced to
-# their individual identifiers, with the Classpath exception stripped first (see
-# _strip_classpath_exception).
+# The set of individual SPDX license identifiers present in a package's digest report, gathered from the
+# licensed matches (real + folded) and the keyword-matched files. Compound expressions are reduced to their
+# individual identifiers, with the Classpath exception stripped first (see _strip_classpath_exception).
+#
+# Keyword/unresolved matches (missed_files) ARE included: a legal reviewer must see every possible
+# incompatibility, so a low-confidence guess is surfaced rather than hidden. proximity then carries the
+# confidence (real match > fold > unresolved guess) and the UI labels weak evidence as such - the matrix
+# shows everything and lets the human judge, it never silently drops a pair.
 sub _present_licenses ($dig_report) {
   my @spdx;
   push @spdx, map { $_->{spdx} } grep { $_->{spdx} } values %{$dig_report->{licenses}  || {}};
@@ -303,7 +294,269 @@ sub license_compatibility ($dig_report, $matrix = undef) {
     }
   }
 
-  return {licenses => \@licenses, matrix => \%kept_matrix};
+  my $result = {licenses => \@licenses, matrix => \%kept_matrix};
+
+  # Rank the flagged pairs by how closely their licenses actually co-locate in the file tree: two
+  # incompatible licenses sitting in the same directory are far more likely to be a real combination
+  # than two that only share the package root (typically vendored/aggregated, never linked). Purely a
+  # ranking annotation - nothing is hidden or reinterpreted.
+  $result->{proximity} = _pair_proximity($dig_report, \@licenses, \%kept_matrix);
+
+  return $result;
+}
+
+# The individual SPDX identifiers present in each file of a digest report, each with a confidence rank, as
+# {filename => {id => confidence}}. Confidence is 3 for a real pattern match, 2 for a folded snippet (both
+# come from {risks}{risk}{name}{pid} => [file ids], told apart by {file_confidence}{file id}{name}, which
+# _register_license stamps), and 1 for the guessed closest license of an UNRESOLVED snippet ({missed_files}
+# - often weak, e.g. a file whose only real license is GPL-2.0-or-later but whose unresolved header scores
+# 0.23 against GPL-3.0-or-later). Reconstructed from the already-assembled report structures (no extra
+# query); compound expressions are reduced to identifiers with the Classpath exception stripped, exactly as
+# _present_licenses does. Proximity uses the rank to pick a pair's representative co-location from the
+# strongest available evidence (real files for both licenses beat a fold, which beats an unresolved guess).
+sub _file_license_ids ($dig_report) {
+  my $files = $dig_report->{files}           || {};
+  my $lics  = $dig_report->{licenses}        || {};
+  my $conf  = $dig_report->{file_confidence} || {};
+  my %file_ids;
+
+  my $bump = sub ($path, $ids, $rank) {
+    for my $id (@$ids) { $file_ids{$path}{$id} = $rank if $rank > ($file_ids{$path}{$id} // 0) }
+  };
+
+  for my $by_name (values %{$dig_report->{risks} || {}}) {
+    for my $name (keys %$by_name) {
+      my $spdx = $lics->{$name}{spdx};
+      next unless defined $spdx && $spdx ne '';
+      my $ids = extract_spdx_identifiers(_strip_classpath_exception($spdx));
+      next unless @$ids;
+      for my $fids (values %{$by_name->{$name}}) {
+        for my $fid (@$fids) {
+          my $path = $files->{$fid} // next;
+
+          # file_confidence is only ever absent in synthetic/test reports; treat those as a real match.
+          $bump->($path, $ids, $conf->{$fid}{$name} // 3);
+        }
+      }
+    }
+  }
+
+  # Unresolved snippets contribute their guessed closest license at the lowest confidence (1). missed_files
+  # is keyed by file id here (the raw report), so resolve it to a path via {files} - the key is not a
+  # filename. The guess is weak, but proximity ranks it last and the UI labels it "via an unresolved match"
+  # rather than hiding it, so a reviewer still sees the possible incompatibility.
+  my $missed = $dig_report->{missed_files} || {};
+  for my $fid (keys %$missed) {
+    my $path = $files->{$fid} // next;
+    my $spdx = $missed->{$fid}[3];
+    next unless defined $spdx && $spdx ne '';
+    $bump->($path, extract_spdx_identifiers(_strip_classpath_exception($spdx)), 1);
+  }
+
+  return \%file_ids;
+}
+
+# The directory path of every ancestor of a file, deepest last, always including the package root ('').
+sub _ancestor_dirs ($path) {
+  my @segs = split m{/}, $path;
+  pop @segs;    # drop the filename itself
+  my @dirs = ('');
+  my $acc  = '';
+  for my $seg (@segs) {
+    $acc = $acc eq '' ? $seg : "$acc/$seg";
+    push @dirs, $acc;
+  }
+  return @dirs;
+}
+
+# Depth of a directory path: the root ('') is 0, 'src' is 1, 'src/foo' is 2.
+sub _dir_depth ($dir) { return $dir eq '' ? 0 : (($dir =~ tr{/}{}) + 1) }
+
+# Path segments that mark a file as peripheral rather than shipped/linked source: tests, documentation,
+# bundled examples, vendored third-party trees, and license-text collections. Two incompatible licenses
+# that meet only in such files are almost never a real combination (a test fixture, a doc that enumerates
+# license identifiers, a vendored sample), so proximity ranks them below any genuine source co-location.
+my %PERIPHERAL_SEGMENT = map { $_ => 1 } qw(
+  doc docs documentation
+  test tests testing
+  example examples sample samples
+  vendor vendored third_party third-party 3rdparty contrib node_modules
+  licenses
+);
+
+# Does this file live under a peripheral directory? Classified by directory only - the basename is left
+# alone, so a source file merely named like a license (e.g. gpl.c) is not demoted.
+sub _path_is_peripheral ($path) {
+  my @segs = split m{/}, $path;
+  pop @segs;
+  for my $seg (@segs) { return 1 if $PERIPHERAL_SEGMENT{lc $seg} }
+  return 0;
+}
+
+# For each flagged (incompatible) pair, where the two licenses most convincingly co-locate. Returns
+# {a => {b => {confidence, same_file, lca_depth, peripheral, files => [fa, fb]}}} keyed a lt b. For each pair
+# it picks the evidence a reviewer should actually open, best first:
+#   1. core (shipped source) over peripheral - tests/docs/vendored, and license-catalog dirs like LICENSES/
+#      where unrelated license *texts* sit side by side, which is not a code combination;
+#   2. higher confidence - a real match (3) over a fold (2) over an unresolved-snippet guess (1);
+#   3. same file over a shared directory;
+#   4. the deepest shared directory.
+# Core outranks confidence deliberately: a peripheral real match is worse for research than any co-location
+# in the shipped code.
+#
+# One walk of the file tree. Directory co-location uses only resolved licenses (confidence >= 2: real matches
+# and folds); unresolved guesses (confidence 1) can number in the tens of thousands in a big package, far too
+# many to walk trees for, so they contribute through same-file co-occurrence only. Per directory we keep, per
+# license bit, the max confidence and a representative file - once for all files, once for core files - so the
+# preferences above are a cheap comparison. Cost is O(resolved files x path depth) for the walk plus
+# O(files + dirs-with-2+-licenses x flagged pairs) for the evaluation; only files carrying a flagged license
+# are ever touched.
+sub _pair_proximity ($dig_report, $licenses, $matrix) {
+  return {} unless @$licenses;
+
+  # The unordered participating pairs that have at least one non-compatible cell in either direction, as
+  # [a, b, bit_a, bit_b] for fast bit-AND membership tests.
+  my %bit;
+  my $i = 0;
+  $bit{$_} = $i++ for @$licenses;
+  my @flagged_pairs;
+  for my $a (@$licenses) {
+    for my $b (@$licenses) {
+      next if $a ge $b;
+      next unless $matrix->{$a}{$b} || $matrix->{$b}{$a};
+      push @flagged_pairs, [$a, $b, $bit{$a}, $bit{$b}];
+    }
+  }
+  return {} unless @flagged_pairs;
+
+  my $file_ids = _file_license_ids($dig_report);
+
+  # Single walk. dir_aconf/dir_arep track, per directory and license bit, the max confidence and a
+  # representative file across all files; dir_cconf/dir_crep the same restricted to core (non-peripheral)
+  # files; dir_amask/dir_cmask are the license bitmasks for O(1) "2+ licenses here" and pair-membership
+  # tests. @same_file collects files carrying 2+ flagged licenses (any confidence, unresolved included).
+  my (%dir_amask, %dir_cmask, %dir_aconf, %dir_arep, %dir_cconf, %dir_crep, @same_file, %lic_rep, %lic_resolved);
+  for my $path (keys %$file_ids) {
+    my $ids = $file_ids->{$path};
+    my %bconf;    # resolved (confidence >= 2) bit => confidence, for the directory machinery
+    my $amask = 0;
+    for my $id (keys %$ids) {
+      next unless exists $bit{$id};
+      my $c = $ids->{$id};
+      my $b = $bit{$id};
+      $amask |= (1 << $b);
+      $bconf{$b} = $c if $c >= 2;
+
+      # One representative file per license (any), and whether it has any resolved match. Cheap - a hash
+      # write, no directory walk - and used to point a "not co-located" pair at its unresolved match's file.
+      $lic_rep{$b} //= $path;
+      $lic_resolved{$b} = 1 if $c >= 2;
+    }
+    push @same_file, [$path, $amask, ($path =~ tr{/}{}), _path_is_peripheral($path) ? 1 : 0] if $amask & ($amask - 1);
+    next unless %bconf;
+
+    my $core  = _path_is_peripheral($path) ? 0 : 1;
+    my $rmask = 0;
+    $rmask |= (1 << $_) for keys %bconf;
+    for my $dir (_ancestor_dirs($path)) {
+      $dir_amask{$dir} |= $rmask;
+      $dir_cmask{$dir} |= $rmask if $core;
+      while (my ($b, $c) = each %bconf) {
+        if ($c > ($dir_aconf{$dir}{$b} // 0)) { $dir_aconf{$dir}{$b} = $c; $dir_arep{$dir}{$b} = $path }
+        next unless $core;
+        if ($c > ($dir_cconf{$dir}{$b} // 0)) { $dir_cconf{$dir}{$b} = $c; $dir_crep{$dir}{$b} = $path }
+      }
+    }
+  }
+
+  # Rank a candidate co-location as core (1e6) > confidence (1e4) > same-file (1e2) > directory depth, so the
+  # single best per pair is a running max.
+  my %best;
+  my $consider = sub ($la, $lb, $cand) {
+    $cand->{_score} = $cand->{peripheral} ? 0 : 1_000_000;
+    $cand->{_score} += $cand->{confidence} * 10_000 + $cand->{same_file} * 100 + $cand->{lca_depth};
+    my $cur = $best{$la}{$lb};
+    $best{$la}{$lb} = $cand if !$cur || $cand->{_score} > $cur->{_score};
+  };
+
+  # Directory candidates (resolved licenses): core and full, for every dir holding 2+ of them.
+  for my $dir (keys %dir_amask) {
+    my $am = $dir_amask{$dir};
+    next unless $am & ($am - 1);
+    my $cm    = $dir_cmask{$dir} // 0;
+    my $depth = _dir_depth($dir);
+    for my $fp (@flagged_pairs) {
+      my ($la, $lb, $ba, $bb) = @$fp;
+      my ($mba, $mbb) = (1 << $ba, 1 << $bb);
+      next unless ($am & $mba) && ($am & $mbb);
+      if (($cm & $mba) && ($cm & $mbb)) {
+        my $conf = $dir_cconf{$dir}{$ba} < $dir_cconf{$dir}{$bb} ? $dir_cconf{$dir}{$ba} : $dir_cconf{$dir}{$bb};
+        $consider->(
+          $la, $lb,
+          {
+            confidence => $conf,
+            same_file  => 0,
+            lca_depth  => $depth,
+            peripheral => 0,
+            files      => [$dir_crep{$dir}{$ba}, $dir_crep{$dir}{$bb}]
+          }
+        );
+      }
+      my $conf = $dir_aconf{$dir}{$ba} < $dir_aconf{$dir}{$bb} ? $dir_aconf{$dir}{$ba} : $dir_aconf{$dir}{$bb};
+      $consider->(
+        $la, $lb,
+        {
+          confidence => $conf,
+          same_file  => 0,
+          lca_depth  => $depth,
+          peripheral => 1,
+          files      => [$dir_arep{$dir}{$ba}, $dir_arep{$dir}{$bb}]
+        }
+      );
+    }
+  }
+
+  # Same-file candidates (any confidence, unresolved guesses included).
+  for my $sf (@same_file) {
+    my ($path, $mask, $depth, $periph) = @$sf;
+    for my $fp (@flagged_pairs) {
+      my ($la, $lb, $ba, $bb) = @$fp;
+      next unless ($mask & (1 << $ba)) && ($mask & (1 << $bb));
+      my ($ca, $cb) = ($file_ids->{$path}{$la}, $file_ids->{$path}{$lb});
+      $consider->(
+        $la, $lb,
+        {
+          confidence => ($ca < $cb ? $ca : $cb),
+          same_file  => 1,
+          lca_depth  => $depth,
+          peripheral => $periph,
+          files      => [$path, $path]
+        }
+      );
+    }
+  }
+
+  # Flagged pairs that never co-locate (a side present only via an unresolved guess that shares no file with
+  # the other) still get an entry, pointing at that unresolved match's file so the reviewer can open and
+  # judge it instead of hitting a dead end. no_colocation ranks these last; the UI links the file.
+  for my $fp (@flagged_pairs) {
+    my ($la, $lb, $ba, $bb) = @$fp;
+    next if $best{$la} && $best{$la}{$lb};    # guarded to avoid autovivifying an empty {la => {}}
+    my @weak = grep { !$lic_resolved{$_} && defined $lic_rep{$_} } ($ba, $bb);
+    next unless @weak;                        # no file evidence at all - nothing to point at
+    $best{$la}{$lb} = {
+      no_colocation =>  1,
+      confidence    =>  1,
+      same_file     =>  0,
+      lca_depth     => -1,
+      peripheral    =>  0,
+      files         => [map { $lic_rep{$_} } @weak]
+    };
+  }
+
+  # Drop the internal score before returning.
+  delete $_->{_score} for map { values %$_ } values %best;
+  return \%best;
 }
 
 # The unordered pairs of present licenses that OSADL marks "No" in BOTH directions - i.e. combinations
@@ -323,6 +576,87 @@ sub hard_incompatibilities ($compat) {
     }
   }
   return \@pairs;
+}
+
+# The SPDX identifiers flagged "new" against the closest previous review, derived from the stored
+# diff_report JSON (whose new_licenses is a list of license names). Returns an empty hash when there is no
+# closest match. Shared by the report data builder and the text/MCP templates so that "new" means exactly
+# the same thing in every consumer.
+sub new_license_ids ($diff_report_json) {
+  return {} unless defined $diff_report_json && length $diff_report_json;
+  my $diff = eval { from_json($diff_report_json) } // return {};
+  my %ids;
+  $ids{$_}++ for map { @{extract_spdx_identifiers($_)} } @{$diff->{new_licenses} || []};
+  return \%ids;
+}
+
+# A single ranked view of a package's flagged incompatibilities, shared by the web report data, the text
+# report and the MCP report so the ordering and annotations never diverge. Takes the license_compatibility
+# structure (licenses / matrix / proximity) and the set of SPDX ids that are new since the closest review
+# (see new_license_ids). Returns an arrayref of unordered pairs (a lt b), each
+# {a, b, mutual, is_new, no_colocation, confidence, same_file, lca_depth, peripheral, files => [fa, fb]}, most
+# interesting first: co-located pairs before not-co-located ones, then core (shipped) over peripheral, then
+# confidence (real match > fold > unresolved guess), then new, then same-file, then deepest shared directory,
+# then mutual-No over one-directional, then alphabetical. This is the same order the reports and UI heat use.
+sub ranked_incompatibilities ($compat, $new_ids = {}) {
+  my $matrix = $compat->{matrix}    // {};
+  my $prox   = $compat->{proximity} // {};
+  my %hard   = map { ; "$_->[0]\x00$_->[1]" => 1 } @{hard_incompatibilities($compat)};
+
+  my @rows;
+  my $licenses = $compat->{licenses} // [];
+  for my $a (@$licenses) {
+    for my $b (@$licenses) {
+      next if $a ge $b;
+      next unless $matrix->{$a}{$b} || $matrix->{$b}{$a};
+      my $p = $prox->{$a}{$b}
+        // {no_colocation => 1, confidence => 0, same_file => 0, lca_depth => -1, peripheral => 0, files => []};
+      push @rows,
+        {
+        a             => $a,
+        b             => $b,
+        mutual        => $hard{"$a\x00$b"}                  ? 1 : 0,
+        is_new        => ($new_ids->{$a} || $new_ids->{$b}) ? 1 : 0,
+        no_colocation => $p->{no_colocation}                ? 1 : 0,
+        confidence    => $p->{confidence} // 0,
+        same_file     => $p->{same_file},
+        lca_depth     => $p->{lca_depth},
+        peripheral    => $p->{peripheral},
+        files         => $p->{files} // []
+        };
+    }
+  }
+
+  return [
+    sort {
+      $a->{no_colocation}   <=> $b->{no_colocation}    # co-located pairs first, not-co-located last
+        || $a->{peripheral} <=> $b->{peripheral}
+        || $b->{confidence} <=> $a->{confidence}
+        || $b->{is_new}     <=> $a->{is_new}
+        || $b->{same_file}  <=> $a->{same_file}
+        || $b->{lca_depth}  <=> $a->{lca_depth}
+        || $b->{mutual}     <=> $a->{mutual}
+        || $a->{a}          cmp $b->{a}
+        || $a->{b}          cmp $b->{b}
+    } @rows
+  ];
+}
+
+# A short markdown description of where a flagged pair's two licenses co-locate, for the text and MCP
+# reports (which both mark file paths with backticks). Returns a string only for the co-locations that
+# actually warrant a look - one file carrying both, or both in the same directory - and undef otherwise
+# (they meet only across different directories or at the package root), so callers can use definedness to
+# separate the pairs worth investigating from the aggregation tail.
+sub incompatibility_location ($row) {
+  my ($fa, $fb) = @{$row->{files} || []};
+  return undef unless defined $fa;
+  return "same file `$fa`" if $row->{same_file} || (defined $fb && $fa eq $fb);
+  return undef unless defined $fb;
+
+  my $da = $fa =~ m{^(.*)/[^/]*$} ? $1 : '';
+  my $db = $fb =~ m{^(.*)/[^/]*$} ? $1 : '';
+  return "same directory `$da`: `$fa`, `$fb`" if $da ne '' && $da eq $db;
+  return undef;
 }
 
 sub minimal_snippet ($snippet) {

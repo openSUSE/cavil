@@ -27,7 +27,7 @@ If no package_id was provided, use `cavil_get_open_reviews` to find the package.
 ### Step 2 - Check whether this report was already reviewed
 Before fetching the report, call `cavil_get_notes(package_id, tags=["review"], relevant_only=true, limit=1)`.
 
-`relevant_only=true` returns only review notes that apply to *this* report — written on it
+`relevant_only=true` returns only review notes that apply to *this* report - written on it
 (`[this report]`) or on another review with an identical license report (`[same report]`).
 If it returns a note, a previous run already reviewed these exact license findings: **stop**,
 tell the user an existing AI-assisted review note already covers this report (cite the id and
@@ -35,7 +35,7 @@ author), and do NOT fetch the report or write a note. This is the cheap fast-pat
 daily runs over the backlog idempotent.
 
 Continue past this step when either:
-- The probe returned no notes (no review applies to the current report yet — first review, or
+- The probe returned no notes (no review applies to the current report yet - first review, or
   the report's licensing changed since an older review).
 - The user explicitly asked to force a redo (e.g. "redo even if a review note exists").
 
@@ -53,30 +53,30 @@ If a non-AI reviewer note already contains the relevant review recommendation, i
 ### Step 4 - Investigate only what matters
 Always start with the declared license check (see below); it is the one finding that must appear
 in every note. Then focus on the other signals a human lawyer would need for a first-pass decision:
-- Read the `### Risk N` heading each license sits under, and any `[flags: ...]` suffix on the license line — not just the license name (see the two references below).
+- Read the `### Risk N` heading each license sits under, and any `[flags: ...]` suffix on the license line - not just the license name (see the two references below).
 - Incompatible or unusual licenses
 - Unknown, proprietary, non-commercial, or custom license terms
 - Unresolved matches that look like real license text, license declarations, redistribution terms, warranty disclaimers, or patent/trademark restrictions
-- **NOTICE files** (and `AUTHORS` / other attribution files): read them when present with `cavil_get_file`. A NOTICE file carries *attribution obligations*, not just license identity — Apache-2.0 §4(d) requires downstream redistribution to preserve its contents — and it often discloses bundled third-party components, copyright holders, or additional terms that the license breakdown does not surface as a finding. Flag anything a downstream redistributor must preserve, or any component named there that the report does not otherwise account for.
+- **NOTICE files** (and `AUTHORS` / other attribution files): read them when present with `cavil_get_file`. A NOTICE file carries *attribution obligations*, not just license identity - Apache-2.0 §4(d) requires downstream redistribution to preserve its contents - and it often discloses bundled third-party components, copyright holders, or additional terms that the license breakdown does not surface as a finding. Flag anything a downstream redistributor must preserve, or any component named there that the report does not otherwise account for.
 - Large numbers of unresolved matches from a common path that may indicate generated files, bundled license data, or test fixtures
 - **Anything else legally material that the points above do not name** (see the dedicated step below)
 
-#### Surface any unanticipated legal risk — do not stop at the checks above
+#### Surface any unanticipated legal risk - do not stop at the checks above
 The signals above are the common cases, not a closed list. If you notice anything else a lawyer
-would genuinely want to know before accepting — an unusual grant or restriction buried in a file, a
+would genuinely want to know before accepting - an unusual grant or restriction buried in a file, a
 license that contradicts the project's own stated terms, inconsistent copyright or ownership
 claims, relicensing or dual-licensing language, or wording that hints at undisclosed third-party or
-proprietary code — raise it even though no earlier point asked for it. Catching the important thing
+proprietary code - raise it even though no earlier point asked for it. Catching the important thing
 the checklist did not anticipate is the main objective of the review, so treat it as a first-class
 finding, not an afterthought.
 
 Hold it to the same bar as any other finding: a concrete, evidence-backed concern in hedged wording
 ("appears to", "may indicate"), citing the file or snippet (use `cavil_get_file` to confirm before
-you write it). Do not manufacture issues to fill this section — "nothing beyond the standard checks"
+you write it). Do not manufacture issues to fill this section - "nothing beyond the standard checks"
 is a valid and common outcome. But a **material** unanticipated risk must drive the recommendation
 and be surfaced prominently (Steps 5-6), never buried in a general remark.
 
-#### Risk levels — what the report's `Risk N` headings mean
+#### Risk levels - what the report's `Risk N` headings mean
 The report groups every found license under a numeric risk heading (`### Risk N`) and lists
 unresolved/unknown matches under `### Risk 9`. This is the authoritative Cavil risk scale:
 
@@ -91,24 +91,24 @@ unresolved/unknown matches under `### Risk 9`. This is the authoritative Cavil r
 | 7 | Non-Commercial / field-of-use / ethical | JSON "Good not Evil" |
 | 9 | Unknown | keyword / unresolved matches |
 
-**Risk 1–4 is the acceptable band** — risk 4 (strong copyleft, e.g. GPL) is acceptable for SUSE's
+**Risk 1–4 is the acceptable band** - risk 4 (strong copyleft, e.g. GPL) is acceptable for SUSE's
 distribution model, so risk 4 does **not** by itself need escalation. **Escalation begins at risk
 5.** Acceptability is still product-dependent and the note stays advisory, so treat these as leans,
-not verdicts. (Cavil separately auto-accepts only much lower risk — ≤2 without a prior review, ≤3
-with one — but that stricter automatic mechanism is not the reviewer's acceptability ceiling.)
+not verdicts. (Cavil separately auto-accepts only much lower risk - ≤2 without a prior review, ≤3
+with one - but that stricter automatic mechanism is not the reviewer's acceptability ceiling.)
 
 #### License flags
 A license line may carry a `[flags: ...]` suffix (e.g. `* AGPL-3.0-only: 1 file [flags: CLA]`).
 These are curated per-license flags a human already attached to the pattern:
-- **CLA** — a non-blocking *business risk indicator*: the upstream project could relicense in the
+- **CLA** - a non-blocking *business risk indicator*: the upstream project could relicense in the
   future. Note it; never change the recommendation on a CLA alone.
-- **Patent** / **Export restricted** — a separate non-license compliance consideration (patent
+- **Patent** / **Export restricted** - a separate non-license compliance consideration (patent
   clauses; cryptography/export control). Surface it for the lawyer; do not try to guess this from
-  file names — rely on the flag.
-- **EULA** — contextual. A SUSE-owned EULA is distributable; a third-party proprietary EULA is a
-  real problem. Recommend NEEDS HUMAN REVIEW and say which it appears to be — use `cavil_get_file`
+  file names - rely on the flag.
+- **EULA** - contextual. A SUSE-owned EULA is distributable; a third-party proprietary EULA is a
+  real problem. Recommend NEEDS HUMAN REVIEW and say which it appears to be - use `cavil_get_file`
   on the matched file to check whose EULA it is.
-- **Trademark** — note for awareness.
+- **Trademark** - note for awareness.
 
 #### SPDX AND/OR sanity (light-touch)
 When the declared expression combines licenses with `AND`/`OR`, add a one-line observation on
@@ -119,31 +119,31 @@ an observation, not a legal ruling.
 
 Use `cavil_get_file` for context when an unresolved match is truncated, ambiguous, comes from a NOTICE/README file, or looks serious enough that you might recommend rejection or human review. Do not spend time exhaustively reading low-risk boilerplate if the report is large; note the limitation instead.
 
-#### Always review the declared package license — never skip it
+#### Always review the declared package license - never skip it
 The most important first-pass check is whether the license **declared in the package file**
 (the `License:` tag from the spec file / package metadata) matches the licenses actually found in
-the report. This comparison **must appear in every note**, even when it is a clean match — it is
+the report. This comparison **must appear in every note**, even when it is a clean match - it is
 the single most common reason a package needs human attention, so a note that omits it is
 incomplete.
 
 The report surfaces the declared value on the `Declared-License:` line near the top (it carries a
 `(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
-the package file had no declared license — say so explicitly and lean toward NEEDS HUMAN REVIEW.
+the package file had no declared license - say so explicitly and lean toward NEEDS HUMAN REVIEW.
 
 **Always read the package's own license-declaration files with `cavil_get_file` before you compare**
-— do not judge from the tag alone. Read the top-level `LICENSE`/`COPYING`, and also list siblings
+- do not judge from the tag alone. Read the top-level `LICENSE`/`COPYING`, and also list siblings
 with `cavil_list_files` (globs like `*/LICENSE*`, `*/COPYING*`) and read anything they turn up: a
 `LICENSE.txt`, `LICENSE-*`, `COPYING.LESSER`, and especially a `LICENSE_HISTORY`, `LICENSE_NOTICE`,
-or `CONTRIBUTOR_LICENSE_AGREEMENT` — those frequently state a relicense outright or reserve the right
+or `CONTRIBUTOR_LICENSE_AGREEMENT` - those frequently state a relicense outright or reserve the right
 to one. The `Declared-License:` value and the risk breakdown come from the pattern scanner, which
 misses custom terms living only in that file's text (e.g. a BSD/MIT-looking license with an added
 field-of-use, branding, or user-count restriction). Such clauses never surface as a risk finding, so
-skipping the read can rubber-stamp a non-open-source license — and reading it inconsistently is a top
+skipping the read can rubber-stamp a non-open-source license - and reading it inconsistently is a top
 cause of run-to-run flip-flops.
 
 **A clean-looking report is not evidence a license file is clean.** Cavil auto-resolves boilerplate
 snippets (folded / cleared / covered), and that machinery can *suppress the very snippet that named a
-novel term* — so a `LICENSE`/`COPYING` file can show **zero** unresolved matches in the report and
+novel term* - so a `LICENSE`/`COPYING` file can show **zero** unresolved matches in the report and
 still contain a restriction. Never infer that a license file is safe from the absence of unresolved
 matches; open it and read the text. (The same suppression can in rarer cases hide a custom license in
 a non-standard location, e.g. a bespoke header in a source file; if a package's report looks
@@ -153,10 +153,10 @@ use, distribution, or modification beyond the standard SPDX license is a materia
 catch-all) → at least NEEDS HUMAN REVIEW.
 
 Compare the declared license against the licenses in the Licenses/risk breakdown:
-- **Match** — the declared license covers the licenses found in the shipped code (vendored or
+- **Match** - the declared license covers the licenses found in the shipped code (vendored or
   bundled third-party components under their own permissive licenses are expected and do not by
   themselves make the declaration wrong). State that the declared license matches and name it.
-- **Mismatch** — the report contains a license that the declared value does not account for, the
+- **Mismatch** - the report contains a license that the declared value does not account for, the
   declared value is narrower than reality (e.g. declares `MIT` but core files are `GPL-2.0-only`),
   or it is broader/looser than what is actually present. Name the declared license, name the
   conflicting finding with a file path, and lean toward NEEDS HUMAN REVIEW or REJECT.
@@ -173,10 +173,10 @@ When unsure whether a found license belongs to the shipped work or to a separabl
 component, apply the same combination-vs-aggregation reasoning as the license-compatibility check
 below, and say which it is.
 
-#### A license *change* to non-open-source terms is the worst case — flag it loudest
+#### A license *change* to non-open-source terms is the worst case - flag it loudest
 The single most damaging thing a package update can do, from SUSE's position, is **switch from an
 open-source license to a non-commercial, field-of-use, source-available, or otherwise non-free
-license** — the open-webui "Open WebUI License", the Redis RSAL, SSPL, "Good-not-Evil", and similar
+license** - the open-webui "Open WebUI License", the Redis RSAL, SSPL, "Good-not-Evil", and similar
 relicenses. It silently converts code SUSE could ship into code SUSE may not, and because downstream
 already depends on the old terms, a *transition* is worse than a package that was always non-free.
 Treat any sign of it as the top finding in the note, above every other check.
@@ -184,68 +184,79 @@ Treat any sign of it as the top finding in the note, above every other check.
 Any one of these is enough to escalate:
 - The top-level `LICENSE`/`COPYING` combines a recognized OSS body (BSD/MIT/Apache/GPL) with an
   **added** clause restricting commercial use, user/seat count, field of use, deployment, or
-  branding — or requiring a separate/"enterprise" license for ordinary use.
+  branding - or requiring a separate/"enterprise" license for ordinary use.
 - The license file is retitled to a custom **"<Project> License"** instead of a standard SPDX name.
 - A `LICENSE_HISTORY`, `LICENSE_NOTICE`, relicensing announcement, or a CLA reserving the right to
-  relicense is present — read them; they often state the transition in plain words.
+  relicense is present - read them; they often state the transition in plain words.
 - A note on an earlier version of this package (an `[other report]` note) described it as a standard
-  OSS license and the current text no longer matches — that delta is itself the finding.
+  OSS license and the current text no longer matches - that delta is itself the finding.
 
 When you see it: recommend **REJECT**, make it the **first** bullet in the issues list, and mark it
-so a scanning lawyer cannot miss it — prefix the bullet with `⚠ LICENSE CHANGE:` and name both sides
+so a scanning lawyer cannot miss it - prefix the bullet with `⚠ LICENSE CHANGE:` and name both sides
 (from `<old OSS license>` to `<new restrictive terms>`), with the file and the offending clause
 quoted briefly. This is the risk-7 non-commercial case, but do not let it read as a routine risk-7
-bullet — a relicense is the headline.
+bullet - a relicense is the headline.
 
-#### License compatibility — informational, but you MUST check these cases
-The Licenses section carries a neutral note like `Note: the OSADL compatibility matrix flags these
-license combinations …` followed by `<License>: <other licenses>` pairs (the web report shows the
-full directional matrix). It is **informational, not a risk flag**: almost every package that vendors
-dependencies has some flagged pair, because the matrix lists any two present licenses OSADL considers
-incompatible *when combined into one work* — whether or not they ever are. So do **not** try to trace
-every pair, and do not escalate just because the note is present.
+#### License compatibility - informational, but you MUST check the co-located pairs
+The Licenses section has an `### Incompatible Licenses` block listing the OSADL-flagged pairs **ranked by
+how likely a real combination is**, split into two groups:
+- **Worth investigating (co-located in shipped code)** - pairs whose two licenses actually sit in the
+  **same file** or the **same directory**, each with the file path(s) and tags: `mutual` vs `one-way`,
+  `NEW` (new since the last review), and an evidence marker - `folded` or `unresolved` when the co-location
+  rests on a folded snippet or an unresolved-snippet guess rather than a real match (weaker; verify before
+  you lean on it). Cavil has already done the co-location analysis; these are the pairs to look at, and it
+  names the exact files so you can go straight to them.
+- **Lower priority** - a *count* of the remaining pairs that meet only in tests/docs/vendored files
+  (`peripheral`) or only at the package root (aggregation). Do **not** trace these; they are almost never
+  a combined work, and enumerating them is the noise reviewers asked us to stop producing.
 
-**But you must not ignore it either.** Look into a flagged pair when EITHER of these concrete tests is
-true — these are exactly the cases a quick review wrongly waves through:
+It is still **informational, not a risk flag** - almost every package that vendors dependencies has some
+flagged pair. Do not escalate just because the section is present, and do not trace the lower-priority tail.
+
+**But you must not ignore the "Worth investigating" list.** Look into a pair when EITHER is true:
+- **It appears under "Worth investigating"** - the two licenses are co-located in shipped code (same file
+  or directory), the strong sign they are actually combined. Open the named files.
 - **The package's own declared/primary `License:` is one of the two licenses** (e.g. a GPL-2.0-only
-  package flagged against Apache-2.0). The conflict would be about the package's own shipped code.
-- **Both licenses of the pair appear in the same directory** — check with `cavil_list_files`. Same
-  directory is a strong sign they are actually combined, not just bundled side by side.
+  package flagged against Apache-2.0) - the conflict would be about the package's own shipped code, so
+  check it even if the report placed the pair lower.
 
-Classic conflicts — Apache-2.0 + GPL-2.0-only, GPL-2.0-only + GPL-3.0, GPL/LGPL + OpenSSL, GPL + CDDL
-— still get this check; never wave one through only because the matrix shows up on many packages.
+Classic conflicts - Apache-2.0 + GPL-2.0-only, GPL-2.0-only + GPL-3.0, GPL/LGPL + OpenSSL, GPL + CDDL -
+still get this check whenever they surface in the list.
 
-For a pair that meets the test, confirm whether it is a **real problem for this package** or a **false
-alarm** — combination (linking, compiling together, or merging into one source file) is what creates a
-copyleft conflict; mere co-presence in the same archive does not. Use `cavil_list_files` and
-`cavil_get_file` to check where each flagged license actually lives:
+For such a pair, confirm whether it is a **real problem for this package** or a **false alarm**. The report
+tells you *where* the licenses meet; your job is to confirm *whether they are combined* - combination
+(linking, compiling together, or merging into one source file) creates a copyleft conflict; mere
+co-presence in the same archive does not. **Open the named files with `cavil_get_file`** - proximity
+locates the code, it is not proof - and use `cavil_list_files` only to widen the picture:
 
 Signals it is likely a **false alarm** (lean ACCEPT, but say why):
-- The two licenses sit in **separate, independent components** that are not linked or compiled
-  together (e.g. a vendored build-time tool, an optional plugin, or one library among several
-  unrelated bundled projects). Aggregation on the same medium is not a combined work.
+- The pair is tagged `peripheral`, or the files sit in **separate, independent components** not linked or
+  compiled together (a vendored build-time tool, an optional plugin, one library among unrelated bundles).
+  Aggregation on the same medium is not a combined work.
 - The flagged license text is confined to **test fixtures, sample data, documentation, or license
-  catalogs** (e.g. an SPDX license list, `licenses/` directory, or test corpus) rather than
-  shipped/compiled code.
-- The actual file headers show a **more permissive variant** than the heuristic assumed — e.g. the
-  GPL files are really `GPL-2.0-or-later` (relicensable to v3) rather than `GPL-2.0-only`, or carry
-  an exception (Classpath, autoconf, GCC-runtime, Bison, LLVM) that resolves the conflict.
-- The flagged license appears **only in an unresolved/missed snippet** whose match is weak or is
-  actually non-license text once you read it.
+  catalogs** (an SPDX license list, `licenses/` directory, or test corpus) rather than shipped code.
+- The actual file headers show a **more permissive variant** than the heuristic assumed - e.g. the GPL
+  files are really `GPL-2.0-or-later` (relicensable to v3), or carry an exception (Classpath, autoconf,
+  GCC-runtime, Bison, LLVM) that resolves the conflict.
+- The flagged license appears **only in an unresolved/missed snippet** whose match is weak or is actually
+  non-license text once you read it.
 
 Signals it is likely a **real problem** (lean REJECT or NEEDS HUMAN REVIEW):
-- Files under the two incompatible licenses are **part of the same buildable/linkable unit** — same
-  library or binary, `#include`/import across the boundary, or one source file carrying both
-  headers.
+- The named files are **part of the same buildable/linkable unit** - same library or binary,
+  `#include`/import across the boundary, or (the `same file` case) one source file carrying both headers.
 - A copyleft license (GPL/AGPL) governs core code that links against the other license's code.
 - You cannot determine from the files whether the components are combined.
 
+A pair tagged `NEW` is a freshly-introduced incompatibility - it was not in the closest prior review, so a
+regression into a conflict is exactly what a reviewer wants caught; treat it as higher priority.
+
 Whatever you conclude, **record it as a short verification trail the lawyer can re-check in a
-minute, not a bare verdict** — "reviewed, false alarm, components separate" is the too-terse bullet
-reviewers flagged. Give three checkable facts (this is evidence, not chain-of-thought — always
+minute, not a bare verdict** - "reviewed, false alarm, components separate" is the too-terse bullet
+reviewers flagged. Give three checkable facts (this is evidence, not chain-of-thought - always
 include it):
-1. **Where** each flagged license lives — path(s)/dir with file counts.
-2. **Why** separate or combined — the boundary: separate/unlinked component, test-fixture / docs /
+1. **Where** each flagged license lives - path(s)/dir with file counts (the report's file paths are your
+   starting point; confirm and extend them).
+2. **Why** separate or combined - the boundary: separate/unlinked component, test-fixture / docs /
    license-catalog only, a more permissive variant or exception (name it, e.g. GPL-2.0-**or-later**,
    Classpath), or a weak/non-license snippet; for a real conflict, the `#include` / import /
    shared-binary link across it.
@@ -253,17 +264,16 @@ include it):
    `vendor/build-tool/` header under `src/`"; "GPL headers read *or … any later version*, see top of
    `src/engine.c`"). Cite the file you confirmed with `cavil_get_file`.
 
-The matrix's presence never blocks ACCEPT on its own; only a **confirmed combined-work conflict**
-leans REJECT or NEEDS HUMAN REVIEW (name the files on each side). A pair you traced to
-aggregation/separation needs only a brief scoped note. For a **large aggregation you cannot trace
-fully** (toolchains, office suites), do not restate the matrix ("present due to many bundled
-libraries") — scope it: name it as independently-licensed bundled components in separate subtrees,
-spot-check the highest-risk members (copyleft/CDDL) with their locations, and state which dirs/pairs
-you did not trace, so the deferral is scoped.
+The section's presence never blocks ACCEPT on its own; only a **confirmed combined-work conflict** leans
+REJECT or NEEDS HUMAN REVIEW (name the files on each side). A pair you traced to aggregation/separation
+needs only a brief scoped note. When the report's "Worth investigating" list is empty (everything is in the
+lower-priority tail), say so briefly and do not re-derive the aggregation; for a **large aggregation with a
+few co-located pairs you cannot fully trace**, spot-check the highest-risk members (copyleft/CDDL) with
+their locations and state which pairs you deferred, so the deferral is scoped.
 
 ### Step 5 - Choose a recommendation
 Use one of these recommendations:
-- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT — but if a pair met the check above (declared-license pair, or both licenses in one directory) you looked at it and said so.
+- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT - but if a pair met the check above (declared-license pair, or both licenses in one directory) you looked at it and said so.
 - **REJECT**: The report appears to contain undeclared problematic licenses, significant primary-license mismatch, proprietary/non-commercial restrictions, a **confirmed combined-work license incompatibility**, or other issues that likely block acceptance.
 - **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, a flagged incompatibility that met the check and you could not resolve as aggregation vs. combination, or insufficient context for a confident recommendation.
 
@@ -272,11 +282,11 @@ Let the risk levels and flags from Step 4 steer the lean:
 - **A material unanticipated legal risk** (the Step 4 catch-all) → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Lead the note with it.
 - **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
-- **Risk 5** (managed obligations — AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
+- **Risk 5** (managed obligations - AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
 - **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.
 - **Risk 1–4** → the acceptable band; the declared-license check (including the fixable-metadata vs. bad-license distinction) and the combination/aggregation check carry the decision.
 
-When uncertain, choose NEEDS HUMAN REVIEW. The compatibility matrix is present on most packages and is normal; do not escalate on its presence — but never ACCEPT over a confirmed combined-work conflict, and say in the note when a pair met the check and you reviewed it.
+When uncertain, choose NEEDS HUMAN REVIEW. The compatibility matrix is present on most packages and is normal; do not escalate on its presence - but never ACCEPT over a confirmed combined-work conflict, and say in the note when a pair met the check and you reviewed it.
 
 ### Step 6 - Create a concise note
 
@@ -288,7 +298,7 @@ cavil_create_note(package_id, body, tags=["review"], skip_if_existing_tag="revie
 
 `skip_if_existing_tag="review"` makes the write **server-guarded and idempotent**: if an
 up-to-date review note already applies to this report, the server creates nothing and returns a
-message starting with `Skipped:`. Treat a `Skipped:` result as **success** — the existing review
+message starting with `Skipped:`. Treat a `Skipped:` result as **success** - the existing review
 still stands; report it to the user and move on. Do NOT retry, reword, or try to force the write
 around it. A new note is created only when no review note applies to the current report (first
 review, or the report's licensing changed since the last one). This is the load-bearing guard, so
@@ -302,7 +312,7 @@ alongside `review`: `tags=["review", "model:gemini-3.5-flash"]`. The gate keys o
 
 The `review` tag is required so future runs see the note via the Step 2 probe and the Step 6
 guard. Keep the note readable in the Cavil Notes tab and useful for scanning. Aim for 5-10 lines,
-not a full report — an incompatibility verdict may run a little longer to carry its verification
+not a full report - an incompatibility verdict may run a little longer to carry its verification
 trail (Step 4); that detail is wanted.
 
 Use this format:
@@ -331,23 +341,23 @@ src/; remaining licenses are permissive vendored dependencies.`).
 If you found a license change to non-open-source terms (Step 4 relicense check), it is the headline:
 put it as the **first** issues bullet, prefixed `⚠ LICENSE CHANGE:`, naming both sides and the file
 and clause (e.g. `⚠ LICENSE CHANGE: LICENSE moved from BSD-3-Clause to a custom "Open WebUI License"
-with a non-commercial / branding restriction (LICENSE lines 20-34) — no longer open source.`). It
+with a non-commercial / branding restriction (LICENSE lines 20-34) - no longer open source.`). It
 must drive a REJECT recommendation.
 
 If you found a material unanticipated risk (the Step 4 catch-all), place it immediately after the
-declared-license bullet and prefix it so it stands out — `- Additional risk (outside the standard
-checks): ...` — with the file or snippet that evidences it. It must be visible in the note, never
+declared-license bullet and prefix it so it stands out - `- Additional risk (outside the standard
+checks): ...` - with the file or snippet that evidences it. It must be visible in the note, never
 folded into a general remark, and it must be reflected in the recommendation line.
 
-When a risk level or a flag drove the recommendation, name it in an issues bullet — cite the risk
-number and/or flag so the lawyer sees why (e.g. `AGPL-3.0-only (risk 5, managed obligations —
-network copyleft) in src/server/; confirm deployment model.` or `mmap-License [flags: Patent] —
+When a risk level or a flag drove the recommendation, name it in an issues bullet - cite the risk
+number and/or flag so the lawyer sees why (e.g. `AGPL-3.0-only (risk 5, managed obligations -
+network copyleft) in src/server/; confirm deployment model.` or `mmap-License [flags: Patent] -
 patent clause, flag for non-license review.`).
 
 When a NOTICE (or attribution) file surfaces an obligation or an undisclosed component, record it in
 an issues bullet so the lawyer sees it (e.g. `NOTICE lists attribution for bundled zlib and a
 copyright holder not in the report; must be preserved downstream (Apache-2.0 §4(d)).`). NOTICE
-contents rarely flip ACCEPT/REJECT on their own — the goal is visibility — but a component named
+contents rarely flip ACCEPT/REJECT on their own - the goal is visibility - but a component named
 there that the report does not account for should feed the declared-license and combination checks.
 
 When a flagged pair met the check and you investigated it, record the outcome with the
@@ -359,7 +369,7 @@ AI-assisted review recommendation: ACCEPT
 
 Issues for legal reviewer:
 - Declared license (GPL-2.0-only) matches the shipped code in `src/`; remaining licenses are permissive vendored dependencies.
-- Flagged combination (GPL-2.0-only + Apache-2.0) reviewed — false alarm. To confirm:
+- Flagged combination (GPL-2.0-only + Apache-2.0) reviewed - false alarm. To confirm:
   - Where: Apache-2.0 is 3 files, all under `vendor/build-tool/`; GPL-2.0-only is the shipped code in `src/*.c`.
   - Why separate: `vendor/build-tool/` is a build-time-only code generator, not linked into the shipped library (aggregation, not a combined work).
   - Check: no `#include`/import of any `vendor/build-tool/` header appears under `src/` (checked `src/*.c`, `src/*.h`); `vendor/build-tool/` runs standalone at build time, see `vendor/build-tool/README`.
@@ -369,18 +379,18 @@ Issues for legal reviewer:
 **Confidence:** Medium - combination boundary inferred from source layout and includes, not a full build/link analysis.
 ```
 
-(A **real** conflict uses the same trail — Where names the file on each side, Why gives the
-`#include` / import / shared-binary link, Check points the lawyer at it — and leans REJECT / NEEDS
-HUMAN REVIEW.) Or a large aggregation you could only partially trace — scope the deferral, do not restate the warning:
+(A **real** conflict uses the same trail - Where names the file on each side, Why gives the
+`#include` / import / shared-binary link, Check points the lawyer at it - and leans REJECT / NEEDS
+HUMAN REVIEW.) Or a large aggregation you could only partially trace - scope the deferral, do not restate the warning:
 
 ```markdown
 AI-assisted review recommendation: NEEDS HUMAN REVIEW
 
 Issues for legal reviewer:
-- Declared license (LGPL-3.0-or-later AND MPL-2.0+) covers the core; the package also bundles many third-party components under other licenses (GPL-2.0-only, Apache-2.0, GPL-3.0-only) — expected for an aggregation.
-- Flagged combinations (GPL-2.0-only, Apache-2.0, GPL-3.0-only/-or-later) — aggregation of independently-licensed bundled components, each in its own subtree. Partially checked:
-  - Checked: GPL-2.0-only is bundled poppler (`poppler-*/`); GPL-3.0-only is build-only tooling (`solenv/bin/`, `*/m4/*` carry Autoconf-exception) — separate, not linked into the shipped core.
-  - Not traced: the Apache-2.0 (2445 files) vs GPL pairing across all remaining bundled dirs — too many to trace in one pass.
+- Declared license (LGPL-3.0-or-later AND MPL-2.0+) covers the core; the package also bundles many third-party components under other licenses (GPL-2.0-only, Apache-2.0, GPL-3.0-only) - expected for an aggregation.
+- Flagged combinations (GPL-2.0-only, Apache-2.0, GPL-3.0-only/-or-later) - aggregation of independently-licensed bundled components, each in its own subtree. Partially checked:
+  - Checked: GPL-2.0-only is bundled poppler (`poppler-*/`); GPL-3.0-only is build-only tooling (`solenv/bin/`, `*/m4/*` carry Autoconf-exception) - separate, not linked into the shipped core.
+  - Not traced: the Apache-2.0 (2445 files) vs GPL pairing across all remaining bundled dirs - too many to trace in one pass.
 - BSD-3-Clause-No-Nuclear-License (Risk 7, field-of-use) in bundled `libfonts-*/lib/itext-1.5.2/.../sun.txt`: confirm whether this iText sample is shipped.
 
 **Suggested next step:** Confirm the untraced Apache-2.0/GPL components are separate bundled subtrees (not linked into core), and rule on the Risk 7 BSD-No-Nuclear sample.
@@ -388,14 +398,14 @@ Issues for legal reviewer:
 **Confidence:** Medium - large aggregation; highest-risk members spot-checked, remaining pairs not traced.
 ```
 
-A license change to non-open-source terms — the headline goes first, prefixed and unmissable:
+A license change to non-open-source terms - the headline goes first, prefixed and unmissable:
 
 ```markdown
 AI-assisted review recommendation: REJECT
 
 Issues for legal reviewer:
-- ⚠ LICENSE CHANGE: `open_webui-0.8.0/LICENSE` moved from a standard BSD-3-Clause to a custom "Open WebUI License" — the BSD body is retained but clause 4 adds a branding/non-commercial restriction (no removal of "Open WebUI" branding unless end users ≤ 50 or a paid enterprise license; LICENSE lines 20-34). This is no longer an open-source license; `LICENSE_HISTORY` confirms the transition.
-- Declared license (`BSD-3-Clause`) vs found: mismatch — the declared tag still says BSD-3-Clause but the actual terms are non-free (risk 7, field-of-use / non-commercial).
+- ⚠ LICENSE CHANGE: `open_webui-0.8.0/LICENSE` moved from a standard BSD-3-Clause to a custom "Open WebUI License" - the BSD body is retained but clause 4 adds a branding/non-commercial restriction (no removal of "Open WebUI" branding unless end users ≤ 50 or a paid enterprise license; LICENSE lines 20-34). This is no longer an open-source license; `LICENSE_HISTORY` confirms the transition.
+- Declared license (`BSD-3-Clause`) vs found: mismatch - the declared tag still says BSD-3-Clause but the actual terms are non-free (risk 7, field-of-use / non-commercial).
 
 **Suggested next step:** Do not ship. Confirm with the maintainer/upstream; this relicense makes the package non-distributable under SUSE's open-source terms.
 
@@ -427,13 +437,13 @@ Issues for legal reviewer:
 - Do not paste long license excerpts. Summarize why the text matters.
 - Do not include speculative accusations. Use wording like "appears to", "may indicate", or "should verify" for uncertain findings.
 - Do not tell the lawyer that the package is definitively approved. The note is advisory.
-- Do not include internal chain-of-thought or step-by-step hidden reasoning — but the incompatibility verification trail (Step 4) is checkable evidence, not reasoning; always include it.
+- Do not include internal chain-of-thought or step-by-step hidden reasoning - but the incompatibility verification trail (Step 4) is checkable evidence, not reasoning; always include it.
 - Do not ask for confirmation before creating the note unless the user explicitly asks to review it first. The purpose of this skill is to leave a triage note.
 
 ## IMPORTANT CONSTRAINTS
 - Never call `cavil_accept_review` or `cavil_reject_review`.
 - Never call `cavil_propose_ignore_snippet` or `cavil_propose_license_pattern`.
 - Never create lawyer-only notes. `cavil_create_note` creates public AI-assisted notes.
-- Never try to defeat the duplicate guard. Always create review notes with `skip_if_existing_tag="review"`; if the result is `Skipped:`, accept it and move on — do not reword the note or retry to force a second one. Omit the parameter only when the user explicitly asked to force an additional note.
+- Never try to defeat the duplicate guard. Always create review notes with `skip_if_existing_tag="review"`; if the result is `Skipped:`, accept it and move on - do not reword the note or retry to force a second one. Omit the parameter only when the user explicitly asked to force an additional note.
 - Be conservative. If the situation is ambiguous, recommend NEEDS HUMAN REVIEW.
 - The note should help a lawyer decide what to inspect next, not replace the lawyer's judgment.

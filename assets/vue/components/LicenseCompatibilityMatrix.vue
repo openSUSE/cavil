@@ -2,11 +2,31 @@
   <section id="license-compatibility" class="license-matrix-card mb-3">
     <header class="license-matrix-header">
       <h3>License compatibility</h3>
-      <button v-if="canShrink" type="button" class="license-matrix-toggle" @click="showAll = !showAll">
-        <span class="license-matrix-toggle-verb">{{ toggleVerb }}</span>
-        <strong class="license-matrix-toggle-count">{{ toggleCount }}</strong>
-        <span class="license-matrix-toggle-unit">{{ toggleUnit }}</span>
-      </button>
+      <div class="license-matrix-controls">
+        <div v-if="hasProximity" class="license-matrix-mode" role="group" aria-label="Grid colouring">
+          <button
+            type="button"
+            class="license-matrix-mode-btn"
+            :class="{'is-on': colorMode === 'verdict'}"
+            @click="colorMode = 'verdict'"
+          >
+            Verdict
+          </button>
+          <button
+            type="button"
+            class="license-matrix-mode-btn"
+            :class="{'is-on': colorMode === 'likelihood'}"
+            @click="colorMode = 'likelihood'"
+          >
+            Likelihood
+          </button>
+        </div>
+        <button v-if="canShrink" type="button" class="license-matrix-toggle" @click="showAll = !showAll">
+          <span class="license-matrix-toggle-verb">{{ toggleVerb }}</span>
+          <strong class="license-matrix-toggle-count">{{ toggleCount }}</strong>
+          <span class="license-matrix-toggle-unit">{{ toggleUnit }}</span>
+        </button>
+      </div>
     </header>
 
     <div class="license-matrix-body">
@@ -38,7 +58,12 @@
                 class="license-matrix-cell"
                 :class="[
                   cellClass(row, col),
-                  {'is-active': isActive(row, col), 'is-mutual': isMutual(row, col)},
+                  {
+                    'is-active': isActive(row, col),
+                    'is-mutual': isMutual(row, col),
+                    'mode-likelihood': colorMode === 'likelihood',
+                    'is-newpair': colorMode === 'likelihood' && isFlagged(row, col) && isNew(row, col)
+                  },
                   mutualCornerClass(i, j)
                 ]"
                 :aria-label="cellTitle(row, col)"
@@ -47,7 +72,9 @@
                 @pointerleave="hideMatrixTooltip"
                 @click="selectCell(row, col)"
               >
-                <span class="license-matrix-mark" aria-hidden="true">{{ cellMark(row, col) }}</span>
+                <span class="license-matrix-mark" aria-hidden="true" :style="markStyle(row, col)">{{
+                  cellMark(row, col)
+                }}</span>
               </td>
             </tr>
           </tbody>
@@ -90,9 +117,25 @@
         <span class="license-matrix-detail-label">OSADL verdict</span>
       </div>
       <p class="license-matrix-detail-body">{{ selected.explanation }}</p>
+      <div class="license-matrix-where">
+        <span class="license-matrix-where-head">
+          <span class="license-matrix-where-label">Where</span>
+          <span class="license-matrix-where-verdict">{{ whereSummary }}</span>
+          <span v-if="whereTag" class="license-matrix-where-tag">{{ whereTag }}</span>
+          <span v-if="selectedProximity && !selectedProximity.no_colocation && selectedProximity.peripheral" class="license-matrix-where-tag"
+            >tests / docs / vendored</span
+          >
+          <span v-if="selectedIsNew" class="license-matrix-where-new">NEW</span>
+        </span>
+        <ul v-if="selectedFiles.length" class="license-matrix-file-list">
+          <li v-for="f in selectedFiles" :key="f">
+            <a class="license-matrix-file-link" :href="'#file'" @click.prevent="$emit('open-file', f)">{{ f }}</a>
+          </li>
+        </ul>
+      </div>
     </div>
 
-    <div class="license-matrix-legend" aria-label="Compatibility verdict legend">
+    <div v-if="colorMode === 'verdict'" class="license-matrix-legend" aria-label="Compatibility verdict legend">
       <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-no"></i> Incompatible</span>
       <span class="license-matrix-legend-item"
         ><i class="license-matrix-swatch swatch-mutual"></i> Both directions</span
@@ -101,18 +144,35 @@
       <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-unknown"></i> Unknown</span>
       <span class="license-matrix-legend-item"><i class="license-matrix-swatch cell-yes"></i> Compatible</span>
     </div>
+    <div v-else class="license-matrix-legend" aria-label="Combination likelihood legend">
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-file"></i> Same file</span>
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-deep"></i> Deep shared directory</span>
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-shared"></i> Shared directory</span>
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-root"></i> Package root only</span>
+      <span class="license-matrix-legend-item"
+        ><i class="license-matrix-swatch swatch-peripheral"></i> Tests / docs / vendored</span
+      >
+      <span class="license-matrix-legend-item"><i class="license-matrix-swatch swatch-new"></i> New since last review</span>
+    </div>
   </section>
 </template>
 
 <script>
 export default {
   name: 'LicenseCompatibilityMatrix',
+  emits: ['open-file'],
   props: {
     licenses: {type: Array, default: () => []},
-    matrix: {type: Object, default: () => ({})}
+    matrix: {type: Object, default: () => ({})},
+    // Symmetric per-pair proximity {a: {b: {confidence, same_file, lca_depth, peripheral, files}}} (keyed
+    // a < b), and the SPDX ids new since the closest review - together they drive the "Likelihood" colour
+    // mode and the detail panel's "Where" block. Clicking a file emits open-file so the parent report opens
+    // its in-page preview (like the license list / unresolved matches do).
+    proximity: {type: Object, default: () => ({})},
+    newLicenseIds: {type: Array, default: () => []}
   },
   data() {
-    return {selected: null, showAll: false, hovered: null};
+    return {selected: null, showAll: false, hovered: null, colorMode: 'verdict'};
   },
   created() {
     // Default to the focused (conflicts-only) view for large matrices; show everything when the grid
@@ -185,9 +245,82 @@ export default {
     },
     toggleUnit() {
       return this.showAll ? 'conflicts' : 'licenses';
+    },
+    // The mode toggle only appears when there is proximity data to colour by.
+    hasProximity() {
+      return Object.keys(this.proximity || {}).length > 0;
+    },
+    newSet() {
+      return new Set(this.newLicenseIds || []);
+    },
+    selectedProximity() {
+      return this.selected ? this.pairProximity(this.selected.outbound, this.selected.inbound) : null;
+    },
+    selectedIsNew() {
+      return this.selected ? this.isNew(this.selected.outbound, this.selected.inbound) : false;
+    },
+    // The representative files for the selected pair, de-duplicated (a same-file hit lists one path twice).
+    selectedFiles() {
+      const p = this.selectedProximity;
+      if (!p || !Array.isArray(p.files)) return [];
+      return [...new Set(p.files.filter(Boolean))];
+    },
+    whereSummary() {
+      const p = this.selectedProximity;
+      if (!p) return '';
+      // The two never share a file: one license is present only as an unresolved-snippet guess. We still
+      // link that unresolved match's file below so the reviewer can open and judge it.
+      if (p.no_colocation) return 'Not co-located - one license appears only as an unresolved match:';
+      if (p.same_file) return 'Both licenses in one file';
+      if ((p.lca_depth ?? 0) >= 1) return 'Closest files share a directory';
+      return 'Only co-located at the package root';
+    },
+    // A confidence caveat on a co-location - none for a real match, and none for a not-co-located pair
+    // (its summary already says "unresolved match").
+    whereTag() {
+      const p = this.selectedProximity;
+      if (!p || p.no_colocation) return null;
+      if (p.confidence === 2) return 'via a folded snippet';
+      if (p.confidence === 1) return 'via an unresolved match';
+      return null;
     }
   },
   methods: {
+    // Proximity is stored once per unordered pair (a < b); look it up regardless of which axis is outbound.
+    pairProximity(a, b) {
+      const [x, y] = a < b ? [a, b] : [b, a];
+      return this.proximity?.[x]?.[y] ?? null;
+    },
+    isNew(a, b) {
+      return this.newSet.has(a) || this.newSet.has(b);
+    },
+    isFlagged(outbound, inbound) {
+      return outbound !== inbound && this.cell(outbound, inbound) !== null;
+    },
+    // Likelihood colouring: a categorical heat scale (distinct hues, not shades of one colour - those blur
+    // into a soup on a big grid) plus a size cue, so the genuinely-combined pairs stand out of a cool/grey
+    // mass. same-file is a large red dot, a deep shared directory hot orange, a shallow one amber, root-only
+    // a small cool grey-blue, and peripheral (tests/docs/vendored) a small neutral grey out of the ramp.
+    markStyle(outbound, inbound) {
+      if (this.colorMode !== 'likelihood' || !this.isFlagged(outbound, inbound)) return null;
+      const p = this.pairProximity(outbound, inbound);
+      let color, size;
+      // Heat ramp, hottest first: same-file is a purple "ultra-hot" so the top signal is unmistakable and
+      // clearly apart from the red/gold lower tiers (and from the blue "new" ring). Deeper shared dir = red,
+      // shallow shared dir = gold, package-root-only = cool grey-blue, peripheral = neutral grey. Size also
+      // grows with the tier so the hot cells carry extra weight.
+      // Defensive: a flagged cell with no proximity entry at all (only if a license has no file evidence).
+      if (p === null) [color, size] = ['#9db2c6', 0.48];
+      else if (p.peripheral) [color, size] = ['#c3c9d0', 0.48];
+      else if (p.same_file) [color, size] = ['#a21caf', 0.85];
+      else if ((p.lca_depth ?? 0) >= 3) [color, size] = ['#e5383b', 0.7];
+      else if ((p.lca_depth ?? 0) >= 1) [color, size] = ['#f9a825', 0.58];
+      else [color, size] = ['#9db2c6', 0.48];
+      // Confidence dims the dot: a real match is solid, a fold muted, an unresolved guess faint - so the
+      // trustworthy co-locations read strongest even at the same proximity tier.
+      const opacity = p ? {3: 1, 2: 0.7, 1: 0.5}[p.confidence] ?? 1 : 0.5;
+      return {background: color, height: `${size}rem`, width: `${size}rem`, opacity};
+    },
     cell(outbound, inbound) {
       return this.matrix?.[outbound]?.[inbound] ?? null;
     },
@@ -321,7 +454,7 @@ export default {
   padding: 1rem;
 }
 
-/* Heatmap grid — GitHub contribution-graph aesthetic */
+/* Heatmap grid - GitHub contribution-graph aesthetic */
 .license-matrix-grid-wrap {
   overflow-x: auto;
 }
@@ -447,7 +580,7 @@ export default {
   vertical-align: middle;
   width: 0.7rem;
 }
-/* Colour classes — shared by the grid cells and the legend swatches (colour only, no behaviour) */
+/* Colour classes - shared by the grid cells and the legend swatches (colour only, no behaviour) */
 .cell-self {
   background: #f6f8fa;
 }
@@ -489,6 +622,11 @@ export default {
 .license-matrix-cell.cell-no.is-mutual {
   background: #e7ebf1;
   border-radius: 6px;
+}
+/* In Likelihood mode the "both directions" block is less relevant (proximity, not direction, is the point),
+   so soften its fill to a barely-there tint that still groups the region without competing with the heat. */
+.license-matrix-cell.mode-likelihood.cell-no.is-mutual {
+  background: #f3f5f8;
 }
 /* Merge a run of adjacent mutual tiles into a single block: square off (and, via border-spacing:0,
    butt up against) every side that touches another mutual tile, so only the block's outer corners
@@ -690,5 +828,156 @@ export default {
 }
 .bar-unknown + .license-matrix-detail-body {
   box-shadow: inset 0 11px 17px -20px rgba(196, 201, 207, 0.5);
+}
+
+/* Header controls: the colour-mode switch sits next to the show-all toggle. */
+.license-matrix-controls {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+}
+.license-matrix-mode {
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  display: inline-flex;
+  overflow: hidden;
+}
+.license-matrix-mode-btn {
+  appearance: none;
+  background: #fff;
+  border: 0;
+  color: #57606a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.25rem 0.6rem;
+}
+.license-matrix-mode-btn + .license-matrix-mode-btn {
+  border-left: 1px solid #d0d7de;
+}
+.license-matrix-mode-btn:hover {
+  background: #f6f8fa;
+}
+.license-matrix-mode-btn.is-on {
+  background: #0969da;
+  color: #fff;
+}
+
+/* Likelihood mode: a newly-appeared incompatibility gets a blue ring around its dot (orthogonal to the
+   heat colour), so a regression stands out whatever its proximity. */
+.license-matrix-cell.is-newpair .license-matrix-mark {
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 3px #0969da;
+}
+
+/* Detail panel "Where" band: proximity summary + file-browser links, parked under the OSADL explanation. */
+.license-matrix-where {
+  border-top: 1px solid #eaeef2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+}
+.license-matrix-where-head {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.license-matrix-where-label {
+  color: #57606a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.license-matrix-where-verdict {
+  color: #1f2328;
+  font-size: 13px;
+  font-weight: 600;
+}
+.license-matrix-where-tag {
+  background: #eef1f4;
+  border-radius: 999px;
+  color: #57606a;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0.05rem 0.5rem;
+}
+.license-matrix-where-new {
+  background: #0969da;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.05rem 0.5rem;
+}
+/* Files stacked one per line on a dotted rail, matching the license list's file lists (.risk-file-list in
+   ReportDetails): a muted link with a small ::before dot, blue + underline only on hover. */
+.license-matrix-file-list {
+  border-left: 1px solid #d0d7de;
+  color: #57606a;
+  font-size: 13px;
+  list-style: none;
+  margin: 0.1rem 0 0 0.35rem;
+  padding-left: 0.9rem;
+}
+.license-matrix-file-list li {
+  align-items: center;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  line-height: 1.35;
+  position: relative;
+}
+.license-matrix-file-list li::before {
+  background: #6e7781;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #d0d7de;
+  content: '';
+  height: 0.45rem;
+  margin-left: -1.15rem;
+  width: 0.45rem;
+}
+.license-matrix-file-list li + li {
+  margin-top: 0.35rem;
+}
+.license-matrix-file-link {
+  color: #57606a;
+  overflow-wrap: anywhere;
+  text-decoration-color: transparent;
+}
+.license-matrix-file-link:hover,
+.license-matrix-file-link:focus {
+  color: #0550ae;
+  text-decoration-color: currentColor;
+}
+
+/* Likelihood legend swatches: distinct hues down the heat scale, a grey for peripheral, a ringed dot for
+   new - matching markStyle so the grid and the key read as one scale. */
+.license-matrix-swatch.swatch-file {
+  background: #a21caf;
+}
+.license-matrix-swatch.swatch-deep {
+  background: #e5383b;
+}
+.license-matrix-swatch.swatch-shared {
+  background: #f9a825;
+}
+.license-matrix-swatch.swatch-root {
+  background: #9db2c6;
+}
+.license-matrix-swatch.swatch-peripheral {
+  background: #c3c9d0;
+}
+.license-matrix-swatch.swatch-new {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 2px #0969da;
 }
 </style>

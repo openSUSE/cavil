@@ -70,19 +70,51 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 
 % }
 ## Licenses
-% use Cavil::ReportUtil qw(hard_incompatibilities);
-% my $hard = hard_incompatibilities($report->{license_compatibility} // {});
-% if (@$hard) {
+% use Cavil::ReportUtil qw(ranked_incompatibilities new_license_ids incompatibility_location);
+% my $ranked = ranked_incompatibilities($report->{license_compatibility} // {}, new_license_ids($package->{diff_report}));
+% if (@$ranked) {
+%   my (@investigate, $peripheral, $weak, $distant);
+%   for my $r (@$ranked) {
+%     my $loc = incompatibility_location($r);
+%     if ($r->{is_new} || ($r->{confidence} >= 2 && !$r->{peripheral} && $loc)) { push @investigate, [$r, $loc] }
+%     elsif ($r->{peripheral})            { $peripheral++ }
+%     elsif ($r->{confidence} == 1 && $loc) { $weak++ }
+%     else                                { $distant++ }
+%   }
 
 ### Incompatible Licenses
 
-%   for my $pair (@$hard) {
-* <%== $pair->[0] %> and <%== $pair->[1] %>
-%   }
+OSADL flags these pairs as incompatible when combined into one work. Proximity locates the code but is not
+proof - confirm with cavil_get_file. NEW = new since the last review.
 
-OSADL flags these pairs as incompatible in both directions. That only matters if the code is really
-combined into one work; vendored or merely aggregated components usually are not. The web report has
-the full directional matrix and OSADL's explanations.
+%   if (@investigate) {
+Worth investigating (co-located in shipped code):
+%     for my $pair (@investigate) {
+%       my ($r, $loc) = @$pair;
+%       my @tags = ($r->{mutual} ? 'mutual' : 'one-way');
+%       push @tags, 'NEW'        if $r->{is_new};
+%       push @tags, 'folded'     if $r->{confidence} == 2;
+%       push @tags, 'unresolved' if $r->{confidence} <= 1;
+%       push @tags, 'peripheral' if $r->{peripheral};
+* <%== $r->{a} %> + <%== $r->{b} %> [<%== join(', ', @tags) %>] - <%== $loc // 'not co-located' %>
+%     }
+%   }
+%   else {
+None co-located in shipped code (aggregation only).
+%   }
+%   if ($peripheral || $weak || $distant) {
+
+Lower priority (full matrix in the web report):
+%     if ($peripheral) {
+* <%= $peripheral %> in tests/docs/vendored files
+%     }
+%     if ($weak) {
+* <%= $weak %> via an unresolved-snippet guess
+%     }
+%     if ($distant) {
+* <%= $distant %> only at the package root (aggregation)
+%     }
+%   }
 
 % }
 % if (@{$report->{missed_files}}) {

@@ -19,19 +19,27 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 
 % }
 ## Licenses
-% use Cavil::ReportUtil qw(hard_incompatibilities);
-% my $hard = hard_incompatibilities($report->{license_compatibility} // {});
-% if (@$hard) {
+% use Cavil::ReportUtil qw(ranked_incompatibilities new_license_ids incompatibility_location);
+% my $ranked = ranked_incompatibilities($report->{license_compatibility} // {}, new_license_ids($package->{diff_report}));
+% my @hard = grep { $_->{mutual} } @$ranked;
+% if (@hard) {
 
 ### Incompatible Licenses
 
-%   for my $pair (@$hard) {
-* <%== $pair->[0] %> and <%== $pair->[1] %>
+%   for my $pair (@hard) {
+%     my $loc = incompatibility_location($pair);
+%     my $c   = $pair->{confidence} // 0;
+%     my @tags;
+%     push @tags, 'NEW'        if $pair->{is_new};
+%     push @tags, 'folded'     if $c == 2;
+%     push @tags, 'unresolved' if $c <= 1;
+%     my $tags  = @tags ? ' [' . join(', ', @tags) . ']' : '';
+%     my $where = $pair->{peripheral} ? ' (tests/docs/vendored only)' : $loc ? " ($loc)" : '';
+* <%== $pair->{a} %> and <%== $pair->{b} %><%== $tags %><%== $where %>
 %   }
 
-OSADL flags these pairs as incompatible in both directions. That only matters if the code is really
-combined into one work; vendored or merely aggregated components usually are not. The web report has
-the full directional matrix and OSADL's explanations.
+Only matters if the code is combined into one work; vendored or aggregated components usually are not. Most
+likely-real first; the web report has the full matrix and OSADL's explanations.
 
 % }
 % if (@{$report->{missed_files}}) {
@@ -82,7 +90,7 @@ No files matched known license patterns or keywords.
 %     push @markers, 'pinned'      if $note->{pinned};
 %     push @markers, 'AI-assisted' if $note->{ai_assisted};
 %     push @markers, 'tags: ' . join(', ', @{$note->{tags}}) if @{$note->{tags}};
-%     my $suffix = @markers ? ' — ' . join(' — ', @markers) : '';
+%     my $suffix = @markers ? ' - ' . join(' - ', @markers) : '';
 ### <%== $note->{author_login} %> on <%= $date %><%== $suffix %>
 
 %== $body

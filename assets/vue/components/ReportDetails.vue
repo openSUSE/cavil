@@ -116,6 +116,9 @@
             v-if="licenseCompatibility.licenses.length > 0"
             :licenses="licenseCompatibility.licenses"
             :matrix="licenseCompatibility.matrix"
+            :proximity="licenseCompatibility.proximity"
+            :new-license-ids="newLicenseIds"
+            @open-file="openFileFromMatrix"
           />
 
           <p v-if="missedFiles.length > 0" id="incomplete-warning" class="risk-license-help-text">
@@ -452,6 +455,10 @@
                 <dt>Jump to Risk 9 unresolved matches list</dt>
                 <dd><kbd>u</kbd></dd>
               </div>
+              <div v-if="licenseCompatibility.licenses.length > 0" class="shortcuts-row">
+                <dt>Jump to license compatibility</dt>
+                <dd><kbd>c</kbd></dd>
+              </div>
               <div class="shortcuts-row">
                 <dt>Open Report tab</dt>
                 <dd><kbd>1</kbd></dd>
@@ -543,7 +550,8 @@ export default {
       components: [],
       emails: [],
       files: [],
-      licenseCompatibility: {licenses: [], matrix: {}},
+      licenseCompatibility: {licenses: [], matrix: {}, proximity: {}},
+      newLicenseIds: [],
       loading: true,
       matchingGlobs: [],
       missedFiles: [],
@@ -749,7 +757,8 @@ export default {
         this.reindexing = false;
         this.rebuildStage = null;
         this.chart = null;
-        this.licenseCompatibility = {licenses: [], matrix: {}};
+        this.licenseCompatibility = {licenses: [], matrix: {}, proximity: {}};
+        this.newLicenseIds = [];
         this.missedFiles = [];
         this.unresolvedMatches = 0;
         this.matchingGlobs = [];
@@ -784,7 +793,8 @@ export default {
       this.scheduleStatePoll();
 
       this.chart = data.chart;
-      this.licenseCompatibility = data.license_compatibility ?? {licenses: [], matrix: {}};
+      this.licenseCompatibility = data.license_compatibility ?? {licenses: [], matrix: {}, proximity: {}};
+      this.newLicenseIds = data.new_license_ids ?? [];
       this.missedFiles = data.missed_files;
       this.unresolvedMatches = data.package.unresolved_matches;
       if (data.package.name) this.packageName = data.package.name;
@@ -981,6 +991,18 @@ export default {
       if (!file) return;
       return this.scrollToFile(file);
     },
+    // A file link in the compatibility matrix's "Where" panel: open its in-page preview like the license
+    // list / unresolved matches do (match by path - matched_files ids are not stable across reindex). Press
+    // "c" to jump back up to the compatibility box afterwards.
+    openFileFromMatrix(path) {
+      const file = this.files.find(f => f.path === path);
+      if (!file) return;
+      return this.scrollToFile(file);
+    },
+    scrollToCompatibility() {
+      const el = document.getElementById('license-compatibility');
+      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+    },
     pendingActionsForFile(fileId) {
       return this.pendingActions.filter(a => a.fileId === fileId);
     },
@@ -1111,6 +1133,10 @@ export default {
         if (this.missedFiles.length === 0) return;
         event.preventDefault();
         this.scrollToUnresolvedList();
+      } else if (event.key === 'c') {
+        if (this.licenseCompatibility.licenses.length === 0) return;
+        event.preventDefault();
+        this.scrollToCompatibility();
       } else if (event.key === '1') {
         event.preventDefault();
         this.setActiveTab('review', {scrollIntoView: true});

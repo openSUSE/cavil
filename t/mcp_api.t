@@ -504,9 +504,13 @@ subtest 'MCP' => sub {
         like $text,   qr/Manual review is required because no previous reports are available/, 'system notice';
         like $text,   qr/Upstream project maintained by SUSE employee/,                        'legal review notice';
         like $text,   qr/### Incompatible Licenses/,                                           'compatibility section';
-        like $text,   qr/OSADL flags these pairs as incompatible in both directions/,          'compatibility note';
-        unlike $text, qr/Elevated risk/,                                  'no elevated-risk framing';
-        like $text,   qr/\* Apache-2\.0 and GPL-2\.0-only/,               'lists the incompatible pair';
+        like $text,   qr/OSADL flags these pairs as incompatible when combined into one work/, 'compatibility note';
+        unlike $text, qr/Elevated risk/, 'no elevated-risk framing';
+
+        # The two licenses sit in separate files at the package root (aggregation, not a combined work), so
+        # the pair is summarised under "lower priority", not surfaced for investigation.
+        like $text, qr/only at the package root \(aggregation\)/,
+          'aggregated pair summarised, not flagged for investigation';
         like $text,   qr/\* GPL-2.0-only: 1 file \[flags: Patent, CLA\]/, 'license summary with flags';
         like $text,   qr/^### Risk 5$/m,                                  'bare numeric risk heading';
         unlike $text, qr/### Risk \d+ \((?:Low|Medium|High)\)/,           'no low/medium/high labels';

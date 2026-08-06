@@ -19,9 +19,9 @@ use Test::More;
 use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
-  qw(estimated_risk hard_incompatibilities is_license_filename license_classification license_compatibility),
-  qw(license_obligations license_obligation_ids minimal_snippet new_license_names new_unresolved_files),
-  qw(overlapping_licenses report_checksum report_shortname),
+  qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
+  qw(license_compatibility license_obligations license_obligation_ids minimal_snippet new_license_ids),
+  qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score)
 );
@@ -152,8 +152,10 @@ subtest 'estimated_risk' => sub {
 
 subtest 'license_compatibility' => sub {
   subtest 'No present licenses' => sub {
-    is_deeply license_compatibility({},               $TEST_MATRIX), {licenses => [], matrix => {}}, 'nothing present';
-    is_deeply license_compatibility({licenses => {}}, $TEST_MATRIX), {licenses => [], matrix => {}}, 'no spdx';
+    is_deeply license_compatibility({}, $TEST_MATRIX), {licenses => [], matrix => {}, proximity => {}},
+      'nothing present';
+    is_deeply license_compatibility({licenses => {}}, $TEST_MATRIX), {licenses => [], matrix => {}, proximity => {}},
+      'no spdx';
   };
 
   subtest 'Directional sub-matrix among present licenses' => sub {
@@ -178,7 +180,7 @@ subtest 'license_compatibility' => sub {
 
     # A pair whose only relationship is "Unknown" does not put the licenses on the axes.
     my $unknown = license_compatibility({licenses => {map { $_ => {spdx => $_} } qw(Zlib libpng-2.0)}}, $TEST_MATRIX);
-    is_deeply $unknown, {licenses => [], matrix => {}}, 'Unknown-only relationship is not surfaced';
+    is_deeply $unknown, {licenses => [], matrix => {}, proximity => {}}, 'Unknown-only relationship is not surfaced';
   };
 
   subtest 'Compound expressions, keyword matches and the Classpath exception' => sub {
@@ -188,7 +190,8 @@ subtest 'license_compatibility' => sub {
     my $compat = license_compatibility($report, $TEST_MATRIX);
     is $compat->{matrix}{'MIT'}{'GPL-2.0-only'}{compatibility}, 'No', 'compound expression split into identifiers';
 
-    # Keyword-matched files contribute their spdx (missed_files element [3]).
+    # Keyword-matched files contribute their guessed spdx (missed_files element [3]) so a reviewer sees the
+    # possible incompatibility; proximity carries the low confidence, the matrix never hides the pair.
     $report = {
       licenses     => {'Apache-2.0' => {spdx => 'Apache-2.0'}},
       missed_files => {9            => [7, '0.5', 'GPL-2.0', 'GPL-2.0-only']}
@@ -201,7 +204,7 @@ subtest 'license_compatibility' => sub {
       = {licenses =>
         {'Excepted' => {spdx => 'GPL-2.0-only WITH Classpath-exception-2.0'}, 'Apache' => {spdx => 'Apache-2.0'}}
       };
-    is_deeply license_compatibility($report, $TEST_MATRIX), {licenses => [], matrix => {}},
+    is_deeply license_compatibility($report, $TEST_MATRIX), {licenses => [], matrix => {}, proximity => {}},
       'Classpath exception permits combining GPL with Apache-2.0';
 
     # ... but a plain GPL-2.0-only elsewhere in the same expression is still counted.
@@ -224,6 +227,220 @@ subtest 'license_compatibility' => sub {
   };
 };
 
+subtest 'license_compatibility proximity ranking' => sub {
+
+  # A raw dig report (pre-sanitize): files keyed by id, licensed matches in risks{risk}{name}{pid} =>
+  # [file ids] with the SPDX string on licenses{name}, keyword matches in missed_files{filename}[3].
+  subtest 'Deepest common directory per flagged pair' => sub {
+    my $report = {
+      files    => {1 => 'src/net/tls.c', 2 => 'src/net/http.c', 3 => 'docs/readme.txt'},
+      licenses => {'Apache-2.0' => {spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {spdx => 'GPL-2.0-only'}},
+      risks    => {
+        5 => {
+          'Apache-2.0'   => {100 => [1]},      # src/net/tls.c
+          'GPL-2.0-only' => {101 => [2, 3]}    # src/net/http.c and docs/readme.txt
+        }
+      }
+    };
+    my $prox = license_compatibility($report, $TEST_MATRIX)->{proximity};
+
+    # Closest Apache/GPL files share src/net (depth 2), not the shallower shared root.
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth},  2, 'ranked by the deepest shared directory';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file},  0, 'not a same-file co-occurrence';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{peripheral}, 0, 'src co-location is not peripheral';
+    is_deeply $prox->{'Apache-2.0'}{'GPL-2.0-only'}{files}, ['src/net/tls.c', 'src/net/http.c'],
+      'representative closest file pair';
+  };
+
+  subtest 'Distant licenses meet only at the package root' => sub {
+    my $report = {
+      files    => {1 => 'vendor/apache/a.c', 2 => 'core/gpl/b.c'},
+      licenses => {'Apache-2.0' => {spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {spdx => 'GPL-2.0-only'}},
+      risks    => {5 => {'Apache-2.0' => {100 => [1]}, 'GPL-2.0-only' => {101 => [2]}}}
+    };
+    my $prox = license_compatibility($report, $TEST_MATRIX)->{proximity};
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth}, 0, 'only co-located at the root (least interesting)';
+  };
+
+  subtest 'Same file carrying both licenses is the strongest signal' => sub {
+    my $report = {
+      files    => {1       => 'lib/mix.c'},
+      licenses => {'Combo' => {spdx    => 'Apache-2.0 AND GPL-2.0-only'}},
+      risks    => {5       => {'Combo' => {100 => [1]}}}
+    };
+    my $prox = license_compatibility($report, $TEST_MATRIX)->{proximity};
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file}, 1, 'same-file co-occurrence flagged';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth}, 1, 'depth is that of the file directory';
+    is_deeply $prox->{'Apache-2.0'}{'GPL-2.0-only'}{files}, ['lib/mix.c', 'lib/mix.c'], 'both sides are the one file';
+  };
+
+  subtest 'Same-file overrides a shallower directory-level co-location' => sub {
+    my $report = {
+      files    => {1 => 'a/only_apache.c', 2 => 'b/mix.c'},
+      licenses => {'Apache-2.0' => {spdx => 'Apache-2.0'}, 'Combo' => {spdx => 'Apache-2.0 AND GPL-2.0-only'}},
+      risks    => {5 => {'Apache-2.0' => {100 => [1]}, 'Combo' => {101 => [2]}}}
+    };
+    my $prox = license_compatibility($report, $TEST_MATRIX)->{proximity};
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file}, 1, 'the same-file hit wins over the root-level pair';
+  };
+
+  subtest 'Peripheral files (tests, docs, vendored) are ranked below source' => sub {
+
+    # The pair meets deep inside src (depth 2) and also in a test fixture: the source co-location wins.
+    my $report = {
+      files    => {1 => 'src/net/tls.c', 2 => 'src/net/http.c', 3 => 'tests/fixtures/both_licenses.c'},
+      licenses => {'Apache-2.0' => {spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {spdx => 'GPL-2.0-only'}},
+      risks    => {5 => {'Apache-2.0' => {100 => [1]}, 'GPL-2.0-only' => {101 => [2]}, 'Combo' => {102 => [3]}}}
+    };
+
+    # A file that carries both, but only under tests/, must not outrank the real source pair.
+    $report->{licenses}{'Combo'} = {spdx => 'Apache-2.0 AND GPL-2.0-only'};
+    my $prox = license_compatibility($report, $TEST_MATRIX)->{proximity};
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{peripheral}, 0, 'source co-location preferred over a peripheral same-file';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file},  0, 'the peripheral same-file does not win';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth},  2, 'keeps the real src/net depth';
+
+    # With only the vendored/test evidence, the pair is surfaced but flagged peripheral.
+    my $only = {
+      files    => {1       => 'third_party/foo/mix.c'},
+      licenses => {'Combo' => {spdx    => 'Apache-2.0 AND GPL-2.0-only'}},
+      risks    => {5       => {'Combo' => {100 => [1]}}}
+    };
+    my $pp = license_compatibility($only, $TEST_MATRIX)->{proximity};
+    is $pp->{'Apache-2.0'}{'GPL-2.0-only'}{peripheral}, 1, 'vendored-only evidence is flagged peripheral';
+    is $pp->{'Apache-2.0'}{'GPL-2.0-only'}{same_file},  1, 'still reports it as a same-file co-occurrence';
+  };
+
+  subtest 'Confidence-first selection prefers real files over folds' => sub {
+
+    # Apache-2.0 and GPL-2.0-only both have real matches co-located in top/ (confidence 3), and also meet
+    # in one folded file deep/x/y/mix.c (confidence 2, same-file). The stronger real co-location must win,
+    # so the reviewer is sent to the real files - not the folded snippet - even though the fold is closer.
+    my $report = {
+      files           => {1 => 'top/a.c', 2 => 'top/b.c', 3 => 'deep/x/y/mix.c'},
+      licenses        => {'Apache-2.0' => {spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {spdx => 'GPL-2.0-only'}},
+      risks           => {4 => {'Apache-2.0' => {10 => [1, 3]}, 'GPL-2.0-only' => {11 => [2, 3]}}},
+      file_confidence =>
+        {1 => {'Apache-2.0' => 3}, 2 => {'GPL-2.0-only' => 3}, 3 => {'Apache-2.0' => 3, 'GPL-2.0-only' => 2}}
+    };
+    my $p = license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
+    is $p->{confidence}, 3, 'chosen co-location is the real-match one';
+    is $p->{same_file},  0, 'the fold same-file is not chosen despite being closer';
+    is_deeply [sort @{$p->{files}}], ['top/a.c', 'top/b.c'], 'representative files are the real ones';
+  };
+
+  subtest 'Unresolved (missed) guesses co-locate same-file only, at low confidence' => sub {
+
+    # File 1 has a real Apache-2.0 match and an unresolved snippet the scorer guessed is GPL-2.0-only
+    # (missed_files, same file id). That same-file co-occurrence is surfaced at the lowest confidence - the
+    # kernel's ldcw.h case. An unresolved guess in a *sibling* file is deliberately NOT walked (too many
+    # unresolved matches in a big package to trace directories for), so only same-file guesses co-locate.
+    my $report = {
+      files        => {1            => 'src/app.c'},
+      licenses     => {'Apache-2.0' => {spdx         => 'Apache-2.0'}},
+      risks        => {5            => {'Apache-2.0' => {100 => [1]}}},
+      missed_files => {1            => [7, '0.5', 'GPL-2.0', 'GPL-2.0-only']}
+    };
+    my $compat = license_compatibility($report, $TEST_MATRIX);
+    is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No', 'guessed license still on the matrix axes';
+    my $p = $compat->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
+    is $p->{same_file},  1, 'a real match and an unresolved guess in the one file';
+    is $p->{confidence}, 1, 'the weaker side is an unresolved guess, so confidence is lowest';
+  };
+
+  subtest 'Core evidence beats a higher-signal peripheral co-location' => sub {
+
+    # Both licenses' real texts sit adjacent in a license catalog (peripheral, same directory), while their
+    # real code matches are far apart (they meet only at the package root). The core root co-location must be
+    # chosen for research over the tidy peripheral catalog adjacency - the LICENSES/dual case.
+    my $report = {
+      files =>
+        {1 => 'LICENSES/dual/Apache-2.0', 2 => 'LICENSES/dual/GPL-2.0-only', 3 => 'drivers/a/x.c', 4 => 'net/b/y.c'},
+      licenses => {'Apache-2.0' => {spdx => 'Apache-2.0'}, 'GPL-2.0-only' => {spdx => 'GPL-2.0-only'}},
+      risks    => {5 => {'Apache-2.0' => {100 => [1, 3]}, 'GPL-2.0-only' => {101 => [2, 4]}}}
+    };
+    my $p = license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
+    is $p->{peripheral}, 0, 'the core co-location is chosen over the peripheral license catalog';
+    is $p->{lca_depth},  0, 'the real code meets only at the package root';
+  };
+
+  subtest 'No file evidence yields no proximity' => sub {
+    my $report = {licenses => {map { $_ => {spdx => $_} } qw(Apache-2.0 GPL-2.0-only)}};
+    my $compat = license_compatibility($report, $TEST_MATRIX);
+    is_deeply $compat->{licenses}, ['Apache-2.0', 'GPL-2.0-only'], 'still on the axes';
+    is_deeply $compat->{proximity}, {}, 'but nothing to rank without per-file data';
+  };
+
+  subtest 'An unresolved-only license is flagged and links to its unresolved match' => sub {
+
+    # GPL-3.0-only appears only as an unresolved-snippet guess (docs/notes.txt) and never shares a file with
+    # GPL-2.0-only. It still lands on the matrix axes and the pair is flagged, but there is no co-location -
+    # so proximity marks it no_colocation and points at the unresolved match's file so the reviewer can open
+    # and judge it. This is the linux GPL-3.0-only x Apache-2.0 case.
+    my $report = {
+      files        => {1              => 'src/app.c', 2 => 'docs/notes.txt'},
+      licenses     => {'GPL-2.0-only' => {spdx           => 'GPL-2.0-only'}},
+      risks        => {5              => {'GPL-2.0-only' => {100 => [1]}}},
+      missed_files => {2              => [9, '0.2', 'GPL-3.0', 'GPL-3.0-only']}
+    };
+    my $compat = license_compatibility($report, $TEST_MATRIX);
+    ok + (grep { $_ eq 'GPL-3.0-only' } @{$compat->{licenses}}), 'unresolved-only license is on the axes';
+    ok $compat->{matrix}{'GPL-2.0-only'}{'GPL-3.0-only'},        'and the pair is flagged';
+    my $p = $compat->{proximity}{'GPL-2.0-only'}{'GPL-3.0-only'};
+    ok $p->{no_colocation}, 'marked not co-located';
+    is_deeply $p->{files}, ['docs/notes.txt'], 'links to the unresolved match file, not the resolved side';
+  };
+
+  subtest 'Peripheral directory classification' => sub {
+
+    # A single file carrying both licenses is a same-file co-location whose peripheral flag is exactly the
+    # directory classification, so this pins the full test/docs/examples/vendored/license-catalog policy (and
+    # its non-matches) through the public API. Segments match at any depth and case-insensitively; a mere
+    # substring of a segment (testicular) or a license-named source file must NOT be demoted.
+    my %expect = (
+      'src/app.c'                 => 0,
+      'lib/net/x.c'               => 0,
+      'gpl.c'                     => 0,
+      'src/testicular/x.c'        => 0,
+      'test/x.c'                  => 1,
+      'tests/x.c'                 => 1,
+      'a/testing/b/x.c'           => 1,
+      'doc/x.c'                   => 1,
+      'docs/x.c'                  => 1,
+      'documentation/x.c'         => 1,
+      'examples/x.c'              => 1,
+      'sample/x.c'                => 1,
+      'vendor/x.c'                => 1,
+      'third_party/x.c'           => 1,
+      'third-party/x.c'           => 1,
+      '3rdparty/x.c'              => 1,
+      'contrib/x.c'               => 1,
+      'app/node_modules/foo/x.js' => 1,
+      'LICENSES/x'                => 1
+    );
+    for my $path (sort keys %expect) {
+      my $report = {
+        files    => {1       => $path},
+        licenses => {'Combo' => {spdx    => 'Apache-2.0 AND GPL-2.0-only'}},
+        risks    => {5       => {'Combo' => {100 => [1]}}}
+      };
+      my $p = license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
+      is $p->{peripheral}, $expect{$path}, "$path -> peripheral $expect{$path}";
+    }
+  };
+};
+
+subtest 'incompatibility_location' => sub {
+  is incompatibility_location({same_file => 1, files => ['a/b/x.c', 'a/b/x.c']}), 'same file `a/b/x.c`', 'same file';
+  is incompatibility_location({files => ['a/b/x.c', 'a/b/x.c']}), 'same file `a/b/x.c`',
+    'identical paths read as same file';
+  is incompatibility_location({files => ['a/b/x.c', 'a/b/y.c']}), 'same directory `a/b`: `a/b/x.c`, `a/b/y.c`',
+    'same directory names both files';
+  is incompatibility_location({files => ['a/x.c', 'b/y.c']}), undef, 'different directories are not a location';
+  is incompatibility_location({files => ['x.c',   'y.c']}),   undef, 'meeting only at the root is not a location';
+  is incompatibility_location({files => []}), undef, 'no files';
+};
+
 subtest 'hard_incompatibilities' => sub {
   is_deeply hard_incompatibilities({}),                             [], 'empty';
   is_deeply hard_incompatibilities({licenses => [], matrix => {}}), [], 'nothing present';
@@ -235,6 +452,68 @@ subtest 'hard_incompatibilities' => sub {
   # so it is NOT a hard incompatibility.
   is_deeply hard_incompatibilities($compat), [['Apache-2.0', 'GPL-2.0-only'], ['GPL-2.0-only', 'GPL-3.0-only']],
     'mutual No pairs only, sorted; one-directional No excluded';
+};
+
+subtest 'new_license_ids' => sub {
+  is_deeply new_license_ids(undef),       {}, 'no diff report';
+  is_deeply new_license_ids(''),          {}, 'empty diff report';
+  is_deeply new_license_ids('{not json'), {}, 'invalid JSON tolerated';
+  is_deeply new_license_ids('{"new_licenses":["Apache-2.0","MIT OR BSD-3-Clause"]}'),
+    {'Apache-2.0' => 1, 'MIT' => 1, 'BSD-3-Clause' => 1}, 'names split into individual SPDX ids';
+};
+
+subtest 'ranked_incompatibilities' => sub {
+  my $compat = {
+    licenses => ['A', 'B', 'C', 'D'],
+    matrix   => {
+      'A' => {'B' => {compatibility => 'No'}},
+      'B' =>
+        {'A' => {compatibility => 'No'}, 'C' => {compatibility => 'No'}, 'D' => {compatibility => 'Check dependency'}},
+      'C' => {'B' => {compatibility => 'No'}}
+    },
+    proximity => {
+      'A' => {'B' => {confidence => 3, same_file => 0, lca_depth => 0, peripheral => 0, files => ['x.c', 'y.c']}},
+      'B' => {
+        'C' => {confidence => 2, same_file => 1, lca_depth => 2, peripheral => 0, files => ['s/m.c',      's/m.c']},
+        'D' => {confidence => 1, same_file => 0, lca_depth => 4, peripheral => 1, files => ['t/deep/a.c', 't/deep/b.c']}
+      }
+    }
+  };
+
+  subtest 'Confidence leads, then proximity' => sub {
+    my $ranked = ranked_incompatibilities($compat);
+    is scalar @$ranked, 3, 'one row per flagged pair (A-B, B-C mutual; B-D one-way check)';
+
+    # A-B is a real-match co-location (confidence 3), so it leads despite being root-only; B-C is a folded
+    # same-file (2); B-D is an unresolved guess (1). Confidence dominates proximity.
+    is_deeply [map {"$_->{a}-$_->{b}"} @$ranked], ['A-B', 'B-C', 'B-D'],
+      'real match first even at the root, fold next, unresolved last';
+
+    is_deeply $ranked->[0],
+      {
+      a             => 'A',
+      b             => 'B',
+      mutual        => 1,
+      is_new        => 0,
+      no_colocation => 0,
+      confidence    => 3,
+      same_file     => 0,
+      lca_depth     => 0,
+      peripheral    => 0,
+      files         => ['x.c', 'y.c']
+      },
+      'row carries the pair, severity, novelty and proximity annotations';
+    is $ranked->[2]{mutual},     0, 'B-D is one-directional (Check dependency), not mutual';
+    is $ranked->[2]{peripheral}, 1, 'B-D evidence is peripheral';
+  };
+
+  subtest 'Novelty does not override confidence' => sub {
+    my $ranked = ranked_incompatibilities($compat, {'D' => 1});
+    is $ranked->[-1]{a} . '-' . $ranked->[-1]{b}, 'B-D', 'a new but unresolved pair stays below the confident ones';
+    is $ranked->[-1]{is_new},                     1,     'still flagged new';
+  };
+
+  is_deeply ranked_incompatibilities({}), [], 'no compatibility data';
 };
 
 subtest 'license_obligation_ids' => sub {

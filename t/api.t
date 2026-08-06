@@ -220,11 +220,11 @@ subtest 'Notes in plain text report' => sub {
     ->status_is(200)
     ->content_type_like(qr/text\/plain/)
     ->content_like(qr/## Notes/)
-    ->content_like(qr/### tester on .+ — AI-assisted — tags: bundled-code/)
+    ->content_like(qr/### tester on .+ - AI-assisted - tags: bundled-code/)
     ->content_like(qr/> Bundled zlib is fine to redistribute here/)
     ->content_like(qr/### report_lawyer on /)
     ->content_like(qr/> Confirmed Apache-2\.0 headers across the tree/)
-    ->content_like(qr/### report_lawyer on .+ — pinned/)
+    ->content_like(qr/### report_lawyer on .+ - pinned/)
     ->content_like(qr/> Ships a patented codec, always check/)
     ->content_unlike(qr/Internal-only: escalate to legal/)
     ->content_like(qr/## Notes.+## About/s);

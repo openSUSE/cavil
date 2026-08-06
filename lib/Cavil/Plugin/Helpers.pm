@@ -5,7 +5,7 @@ package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(license_classification);
+use Cavil::ReportUtil qw(license_classification new_license_ids);
 use Cavil::Role       qw(roles_with_capability);
 use Cavil::Util       qw(external_link_data spdx_link);
 use CommonMark        ();
@@ -250,11 +250,15 @@ sub _report_details ($c, $pkg, $report) {
   return {
     package               => {id => $pkg->{id}, name => $pkg->{name}, unresolved_matches => $pkg->{unresolved_matches}},
     chart                 => $chart,
-    license_compatibility => $report->{license_compatibility} // {licenses => [], matrix => {}},
-    missed_files          => \@missed,
-    risks                 => \%risk_buckets,
-    max_files_per_license => $max,
-    max_expanded_files    => $expand_limit,
+    license_compatibility => $report->{license_compatibility} // {licenses => [], matrix => {}, proximity => {}},
+
+    # SPDX ids new since the closest previous review, so the compatibility matrix can mark a flagged pair
+    # "new" (a freshly-introduced incompatibility) - the same novelty signal the file badges use above.
+    new_license_ids        => [sort keys %{new_license_ids($pkg->{diff_report})}],
+    missed_files           => \@missed,
+    risks                  => \%risk_buckets,
+    max_files_per_license  => $max,
+    max_expanded_files     => $expand_limit,
     hidden_inline_previews => $hidden_inline,
     matching_globs         => $report->{matching_globs} // [],
     files                  => \@files,
@@ -296,6 +300,7 @@ sub _json_validation_error ($c) {
 sub _mcp_report ($c, $id, $opts = {}) {
   return undef unless my $report = $c->reports->sanitized_dig_report($id);
   my $summary = $c->helpers->package_summary($id);
+  my $pkg     = $c->packages->find($id);
 
   # 0 = omit the section entirely; otherwise cap the (already occurrence-ordered) lists.
   my $url_limit   = $opts->{url_limit}   // 10;
@@ -305,6 +310,7 @@ sub _mcp_report ($c, $id, $opts = {}) {
     'mcp/report',
     format      => 'txt',
     report      => $report,
+    package     => $pkg,
     summary     => $summary,
     unmatched   => _unmatched_rollup($c, $id),
     url_limit   => $url_limit,
