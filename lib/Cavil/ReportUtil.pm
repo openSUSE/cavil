@@ -384,12 +384,27 @@ my %PERIPHERAL_SEGMENT = map { $_ => 1 } qw(
   licenses
 );
 
+# OBS packs vendored trees into cpio archives, so a "node_modules" or "vendor" directory does not arrive
+# as a bare segment but decorated with the app name and the unpack marker, e.g. "portal_node_modules.obscpio._"
+# or "vendor.obscpio._". Match the distinctive vendored markers as the base of such a decorated segment
+# too (bounded by start/underscore before and the extension dot after), so the bundled files are demoted
+# like any other vendored tree.
+my $OBS_VENDORED_SEGMENT = qr/(?:^|_)(?:node_modules|vendor|vendored|third_party|3rdparty)\./;
+
 # Does this file live under a peripheral directory? Classified by directory only - the basename is left
 # alone, so a source file merely named like a license (e.g. gpl.c) is not demoted.
 sub _path_is_peripheral ($path) {
   my @segs = split m{/}, $path;
   pop @segs;
-  for my $seg (@segs) { return 1 if $PERIPHERAL_SEGMENT{lc $seg} }
+  for my $seg (@segs) {
+    my $lc = lc $seg;
+    return 1 if $PERIPHERAL_SEGMENT{$lc};
+
+    # The decorated form always carries the archive extension dot, and a bare marker is caught above, so
+    # only the (rare) dotted segments need the regex - this keeps the classifier a hash lookup for the
+    # dot-free directory names that make up almost all of a large tree.
+    return 1 if index($lc, '.') >= 0 && $lc =~ $OBS_VENDORED_SEGMENT;
+  }
   return 0;
 }
 
@@ -452,10 +467,14 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
       $lic_rep{$b} //= $path;
       $lic_resolved{$b} = 1 if $c >= 2;
     }
-    push @same_file, [$path, $amask, ($path =~ tr{/}{}), _path_is_peripheral($path) ? 1 : 0] if $amask & ($amask - 1);
+
+    # Classify the path at most once, and only when a co-location site actually needs it.
+    my $peripheral;
+    push @same_file, [$path, $amask, ($path =~ tr{/}{}), ($peripheral //= _path_is_peripheral($path))]
+      if $amask & ($amask - 1);
     next unless %bconf;
 
-    my $core  = _path_is_peripheral($path) ? 0 : 1;
+    my $core  = ($peripheral //= _path_is_peripheral($path)) ? 0 : 1;
     my $rmask = 0;
     $rmask |= (1 << $_) for keys %bconf;
     for my $dir (_ancestor_dirs($path)) {

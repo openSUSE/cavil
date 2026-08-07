@@ -397,6 +397,12 @@ subtest 'license_compatibility proximity ranking' => sub {
     # directory classification, so this pins the full test/docs/examples/vendored/license-catalog policy (and
     # its non-matches) through the public API. Segments match at any depth and case-insensitively; a mere
     # substring of a segment (testicular) or a license-named source file must NOT be demoted.
+    #
+    # OBS packs vendored trees into cpio archives, so a "node_modules"/"vendor" directory arrives decorated
+    # with the app name and the ".obscpio._" unpack marker (portal_node_modules.obscpio._); those must still
+    # be demoted. But the decoration alone is NOT enough: a package whose *primary* source is shipped as
+    # <name>.obscpio (obs_scm cpio mode) must stay core, or its real incompatibilities would be hidden - so
+    # only a decorated segment whose base is a known vendored marker is demoted.
     my %expect = (
       'src/app.c'                    => 0,
       'lib/net/x.c'                  => 0,
@@ -417,7 +423,21 @@ subtest 'license_compatibility proximity ranking' => sub {
       '3rdparty/x.c'                 => 1,
       'contrib/x.c'                  => 1,
       'app/node_modules/foo/x.js'    => 1,
-      'LICENSES/x'                   => 1
+      'LICENSES/x'                   => 1,
+
+      # OBS cpio-decorated vendored trees: demoted.
+      'portal_node_modules.obscpio._/package._1132/README.md' => 1,
+      'node_modules.obscpio._/foo/x.js'                       => 1,
+      'vendor.obscpio._/github.com/pkg/errors/x.go'           => 1,
+      'app_vendor.obscpio._/x.c'                              => 1,
+      'THIRD_PARTY.obscpio._/x.c'                             => 1,
+
+      # Decoration without a vendored marker base stays core: a main source packed as <name>.obscpio, and a
+      # dotted directory the gate must not over-match.
+      'linux.obscpio._/kernel/sched.c' => 0,
+      'mypackage.obscpio._/src/core.c' => 0,
+      'config.d/settings.c'            => 0,
+      'src/my_vendored_helpers/x.c'    => 0
     );
     for my $path (sort keys %expect) {
       my $report = {
