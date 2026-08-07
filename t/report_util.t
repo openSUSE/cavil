@@ -404,26 +404,27 @@ subtest 'license_compatibility proximity ranking' => sub {
     # <name>.obscpio (obs_scm cpio mode) must stay core, or its real incompatibilities would be hidden - so
     # only a decorated segment whose base is a known vendored marker is demoted.
     my %expect = (
-      'src/app.c'                    => 0,
-      'lib/net/x.c'                  => 0,
-      'gpl.c'                        => 0,
-      'src/testicular/x.c'           => 0,
-      'test/x.c'                     => 1,
-      'tests/x.c'                    => 1,
-      'a/testing/b/x.c'              => 1,
-      'doc/x.c'                      => 1,
-      'docs/x.c'                     => 1,
-      'documentation/x.c'            => 1,
-      'examples/x.c'                 => 1,
-      'sample/x.c'                   => 1,
-      'vendor/x.c'                   => 1,
-      'src/pip/_vendor/chardet/x.py' => 1,
-      'third_party/x.c'              => 1,
-      'third-party/x.c'              => 1,
-      '3rdparty/x.c'                 => 1,
-      'contrib/x.c'                  => 1,
-      'app/node_modules/foo/x.js'    => 1,
-      'LICENSES/x'                   => 1,
+      'src/app.c'                                                                       => 0,
+      'lib/net/x.c'                                                                     => 0,
+      'gpl.c'                                                                           => 0,
+      'src/testicular/x.c'                                                              => 0,
+      'test/x.c'                                                                        => 1,
+      'tests/x.c'                                                                       => 1,
+      'a/testing/b/x.c'                                                                 => 1,
+      'doc/x.c'                                                                         => 1,
+      'docs/x.c'                                                                        => 1,
+      'documentation/x.c'                                                               => 1,
+      'examples/x.c'                                                                    => 1,
+      'sample/x.c'                                                                      => 1,
+      'vendor/x.c'                                                                      => 1,
+      'src/pip/_vendor/chardet/x.py'                                                    => 1,
+      'third_party/x.c'                                                                 => 1,
+      'third-party/x.c'                                                                 => 1,
+      '3rdparty/x.c'                                                                    => 1,
+      'contrib/x.c'                                                                     => 1,
+      'app/node_modules/foo/x.js'                                                       => 1,
+      'gomodcache/cache/download/golang.org/toolchain/@v/src/internal/profile/graph.go' => 1,
+      'LICENSES/x'                                                                      => 1,
 
       # OBS cpio-decorated vendored trees: demoted.
       'portal_node_modules.obscpio._/package._1132/README.md' => 1,
@@ -437,7 +438,11 @@ subtest 'license_compatibility proximity ranking' => sub {
       'linux.obscpio._/kernel/sched.c' => 0,
       'mypackage.obscpio._/src/core.c' => 0,
       'config.d/settings.c'            => 0,
-      'src/my_vendored_helpers/x.c'    => 0
+      'src/my_vendored_helpers/x.c'    => 0,
+
+      # The generic Go module cache path (pkg/mod) is deliberately NOT matched: "pkg" is a legitimate
+      # source directory in most Go projects, so demoting it would hide real code.
+      'src/pkg/mod/golang.org/x/y.go' => 0
     );
     for my $path (sort keys %expect) {
       my $report = {

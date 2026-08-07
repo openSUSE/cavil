@@ -380,7 +380,7 @@ my %PERIPHERAL_SEGMENT = map { $_ => 1 } qw(
   doc docs documentation
   test tests testing
   example examples sample samples
-  vendor vendored _vendor third_party third-party 3rdparty contrib node_modules
+  vendor vendored _vendor third_party third-party 3rdparty contrib node_modules gomodcache
   licenses
 );
 
