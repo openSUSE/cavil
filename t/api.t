@@ -534,11 +534,14 @@ subtest 'Pagination' => sub {
       scalar(grep { $_->{name} eq 'SUSE:SLE-15-SP7:Update:Products:MLM51' && $_->{product} eq 'Multi-Linux Manager' }
         @$memberships), 'annotation returned for package';
 
-    # The two codestreams collapse into a single group row in the listing
+    # The two codestreams collapse into a single group row in the listing, and a package shared by both
+    # (package 1) is counted once, not once per codestream - so the group's three packages (1, 4, 5) are
+    # three, not four
     $t->get_ok('/pagination/products/known?filter=Multi-Linux')
-      ->json_is('/total',          1)
-      ->json_is('/page/0/name',    'Multi-Linux Manager')
-      ->json_is('/page/0/streams', 2)
+      ->json_is('/total',               1)
+      ->json_is('/page/0/name',         'Multi-Linux Manager')
+      ->json_is('/page/0/streams',      2)
+      ->json_is('/page/0/new_packages', 3)
       ->json_hasnt('/page/1');
 
     # The flat view lists each codestream on its own, exposing its annotation

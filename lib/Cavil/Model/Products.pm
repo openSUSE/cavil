@@ -110,12 +110,16 @@ sub paginate_known_products ($self, $options) {
   # Package counts for a row: a group sums across every codestream that rolls up to it, a flat codestream
   # counts only its own membership
   for my $result (@$results) {
-    my $where    = $grouped ? 'COALESCE(bot_products.product, bot_products.name) = ?' : 'bot_products.name = ?';
+    my $where = $grouped ? 'COALESCE(bot_products.product, bot_products.name) = ?' : 'bot_products.name = ?';
+
+    # COUNT(DISTINCT id): a package shared by several codestreams of one product must count once, not once
+    # per codestream, or grouped products with overlapping codestreams inflate their review totals
     my $packages = $db->query(
       qq{
-      SELECT COUNT(*) FILTER (WHERE state = 'new') AS new_packages,
-        COUNT(*) FILTER (WHERE state = 'unacceptable') AS unacceptable_packages,
-        COUNT(*) FILTER (WHERE state = 'acceptable' OR state = 'acceptable_by_lawyer') AS reviewed_packages
+      SELECT COUNT(DISTINCT bot_packages.id) FILTER (WHERE state = 'new') AS new_packages,
+        COUNT(DISTINCT bot_packages.id) FILTER (WHERE state = 'unacceptable') AS unacceptable_packages,
+        COUNT(DISTINCT bot_packages.id) FILTER (WHERE state = 'acceptable' OR state = 'acceptable_by_lawyer')
+          AS reviewed_packages
       FROM bot_package_products
         JOIN bot_packages ON (bot_packages.id = bot_package_products.package)
         JOIN bot_products ON (bot_products.id = bot_package_products.product)
