@@ -698,39 +698,38 @@ sub proposal_stats($self) {
     "SELECT
        (SELECT COUNT(*) FROM proposed_changes
           WHERE action = 'create_pattern' OR action = 'create_ignore' OR action = 'create_glob') AS proposals,
-       (SELECT COUNT(*) FROM proposed_changes WHERE action = 'missing_license') AS missing"
+       (SELECT COUNT(*) FROM proposed_changes
+          WHERE action = 'missing_license' OR action = 'new_license') AS missing"
   )->hash;
 }
 
-sub propose_create ($self, %args) {
-  my $pattern  = $args{pattern};
-  my $checksum = pattern_checksum($pattern);
-  my $id       = $self->pattern_exists($checksum);
+# Shared conflict guards for every pattern-shaped proposal: a live pattern with the same text already
+# exists, or a pending proposal does. Returns the matching error hash, or undef when the checksum is free.
+sub _pattern_proposal_conflict ($self, $checksum) {
+  my $id = $self->pattern_exists($checksum);
   return {conflict => $id} if $id;
-
   my $proposal_id = $self->proposal_exists($checksum);
   return {proposal_conflict => $proposal_id} if $proposal_id;
+  return undef;
+}
 
-  my $db      = $self->pg->db;
-  my $license = $args{license};
-  my $risk    = $args{risk};
-  my $hash
-    = $db->query('SELECT id FROM license_patterns WHERE license = ? AND risk = ? LIMIT 1', $license, $risk)->hash;
-  return {license_conflict => 1} unless $hash;
-
+# Insert a create_pattern / new_license proposal row on the given db handle. Both actions carry the same
+# payload; only the action string and the caller's surrounding logic (license gate / report retirement)
+# differ, so the data shape lives here in one place.
+sub _insert_pattern_proposal ($self, $db, $action, $checksum, %args) {
   $db->insert(
     'proposed_changes',
     {
-      action => 'create_pattern',
+      action => $action,
       data   => {
         -json => {
           snippet              => $args{snippet},
-          pattern              => $pattern,
+          pattern              => $args{pattern},
           highlighted_keywords => $args{highlighted_keywords},
           highlighted_licenses => $args{highlighted_licenses},
           edited               => $args{edited} // '0',
-          license              => $license,
-          risk                 => $risk,
+          license              => $args{license},
+          risk                 => $args{risk},
           package              => $args{package},
           patent               => $args{patent}            // '0',
           trademark            => $args{trademark}         // '0',
@@ -745,6 +744,42 @@ sub propose_create ($self, %args) {
       token_hexsum => $checksum
     }
   );
+}
+
+sub propose_create ($self, %args) {
+  my $checksum = pattern_checksum($args{pattern});
+  if (my $conflict = $self->_pattern_proposal_conflict($checksum)) { return $conflict }
+
+  my $db = $self->pg->db;
+  my $hash
+    = $db->query('SELECT id FROM license_patterns WHERE license = ? AND risk = ? LIMIT 1', $args{license}, $args{risk})
+    ->hash;
+  return {license_conflict => 1} unless $hash;
+
+  $self->_insert_pattern_proposal($db, 'create_pattern', $checksum, %args);
+  return {};
+}
+
+sub propose_new_license ($self, %args) {
+  my $checksum = pattern_checksum($args{pattern});
+  if (my $conflict = $self->_pattern_proposal_conflict($checksum)) { return $conflict }
+
+  # Unlike propose_create there is deliberately no existing-license gate: introducing a license Cavil has
+  # never seen is the whole point. The curator's approval (the create-pattern action) bootstraps the
+  # license via Patterns::create, which needs no sibling row. Routed to the lawyers' Missing Licenses page.
+  #
+  # The insert and the report-retirement below must be atomic: a failure between them would leave both the
+  # new proposal and the stale missing-license report, re-creating the duplicate the retirement prevents.
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  $self->_insert_pattern_proposal($db, 'new_license', $checksum, %args);
+
+  # Retire the originating missing-license report for this snippet: the question it posed ("what license
+  # is this?") now has a proposed answer on the same page. Dropping it keeps one row per snippet and
+  # removes the snippet from the resolution=reported worklist so the sweep does not revisit it.
+  $db->query("DELETE FROM proposed_changes WHERE action = 'missing_license' AND (data->>'snippet')::bigint = ?",
+    $args{snippet});
+  $tx->commit;
 
   return {};
 }
@@ -874,8 +909,14 @@ sub proposed_changes ($self, $options) {
 
   my $total = 0;
   for my $change (@$changes) {
+
+    # closest_pattern reloads the pattern bag from disk per call; new_license rows carry a pattern but the
+    # Missing Licenses page never shows a closest match for them, so skip that work.
     $change->{closest} = undef;
-    if (defined $change->{data}{pattern} && (my $closest = $self->closest_pattern($change->{data}{pattern}))) {
+    if ( $change->{action} ne 'new_license'
+      && defined $change->{data}{pattern}
+      && (my $closest = $self->closest_pattern($change->{data}{pattern})))
+    {
       $change->{closest} = {
         id           => $closest->{id},
         similarity   => $closest->{similarity},

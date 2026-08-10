@@ -53,6 +53,7 @@
                 >
                   <option value="any">Any</option>
                   <option value="unresolved">Unresolved</option>
+                  <option value="reported">Reported</option>
                   <option value="fold">Folded</option>
                   <option value="clear">Cleared</option>
                   <option value="overlap">Overlap</option>

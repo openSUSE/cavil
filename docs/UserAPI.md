@@ -86,7 +86,7 @@ These tools are currently available:
 
 - *cavil_search_snippets* - Query the unresolved-snippet backlog: filter by resolution / package / license / full-text, aggregate identical snippets by impact, or list individual occurrences with per-snippet detail
   - **Required Roles**: `user` (read-only)
-  - `resolution`: One of `unresolved` (default), `fold`, `clear`, `overlap`, `covered`, `any`. (string, optional)
+  - `resolution`: One of `unresolved` (default), `reported` (has an open missing-license report; usually also unresolved), `fold`, `clear`, `overlap`, `covered`, `any`. (string, optional)
   - `group`: `text` (default, impact-ranked distinct snippets) or `none` (individual occurrences with overlaps/keywords/covered-by detail). (string, optional)
   - `order`: For `group=text`, one of `occurrences` (default), `packages`, `risk`, `recent`. (string, optional)
   - `package_id`: Scope to one package; omit for fleet-wide. (number, optional)
@@ -141,13 +141,18 @@ These tools are currently available:
   - `snippet_id`: ID of snippet to ignore. (number, required)
   - `reason`: Reason for snippet to be ignored. (string, required)
 
-- *cavil_propose_license_pattern* - Propose a new license pattern to be added
+- *cavil_propose_license_pattern* - Propose a license pattern. If the license already exists, the pattern is added to
+  it and the proposal lands on the admin **Change Proposals** page (risk and flags are inherited from the license). If
+  the license is unknown, pass an integer `risk` to propose introducing it as a new license; that proposal lands on the
+  lawyers' **Missing Licenses** page to ratify.
   - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
-  - `package_id`: ID of package to ignore snippet for. (number, required)
-  - `snippet_id`: ID of snippet to ignore. (number, required)
-  - `pattern`: License pattern to be added. (string, required)
-  - `license`: License expression. (string, required)
-  - `reason`: Reason for snippet to be ignored. (string, required)
+  - `package_id`: ID of the package the snippet belongs to. (number, required)
+  - `snippet_id`: ID of the snippet the pattern is derived from. (number, required)
+  - `pattern`: License pattern text; must match the snippet. (string, required)
+  - `license`: License expression or SPDX identifier. (string, required)
+  - `reason`: Why this is the license (shown as the proposal's rationale). (string, required)
+  - `risk`: Risk level 1-9; required only when introducing a new (unknown) license. (number, optional)
+  - `patent`, `trademark`, `export_restricted`, `cla`, `eula`: Flags describing a new license. (boolean, optional)
 
 - *cavil_propose_ignore_glob* - Propose a file path glob to exclude whole files from scanning system-wide
   - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
@@ -198,12 +203,19 @@ running one is as simple as typing a short command at the agent prompt.
   Cavil** — you still author the pattern and set the risk yourself. Because it only reads, this is the one bundled skill
   that works with a **read-only** API key.
 
+- **[cavil-missing-licenses](../examples/skills/cavil-missing-licenses/)** — sweeps the backlog of *reported* missing
+  licenses (`cavil_search_snippets` with `resolution=reported`), researches each one, and for the confident cases files
+  a ready-to-approve pattern proposal — for a license Cavil has never seen, a new-license proposal carrying a researched
+  risk. It lands on the **Missing Licenses** page as a one-click **Approve** card, turning the lawyers' job from
+  authoring into ratifying; anything it is unsure about is left as a standing report for a human. Run it like
+  `cavil-review-note`, as an unattended backlog pass. The proposals still need a human to approve them.
+
 #### Setting up a skill on your own laptop
 
 You can do this end to end yourself. Three one-time steps:
 
 1. **Create a Cavil API key.** Log into the Cavil web UI, open your user menu, click **API Keys**, and create a
-   **read-write** key — three of the bundled skills write something back (notes, decisions, or pattern proposals), and a
+   **read-write** key — four of the bundled skills write something back (notes, decisions, or pattern proposals), and a
    read-write key also works for the read-only `cavil-license-research`, so one key covers them all. Copy the generated
    key somewhere safe and treat it like a password. Anything the AI does with this key shows up under your name in
    Cavil, so don't share it.
@@ -215,8 +227,8 @@ You can do this end to end yourself. Three one-time steps:
    command for Claude Code, similar one-liners for Gemini CLI, opencode, and goose).
 
 3. **Download the skill folders and put them in the right place.** From the [Cavil GitHub repository](https://github.com/openSUSE/cavil)
-   you need the four folders under `examples/skills/`: `cavil-review-note`, `cavil-review`, `cavil-refine`, and
-   `cavil-license-research`. The
+   you need the five folders under `examples/skills/`: `cavil-review-note`, `cavil-review`, `cavil-refine`,
+   `cavil-license-research`, and `cavil-missing-licenses`. The
    easiest way to grab them is to download the repository as a ZIP (the green "Code" button on GitHub → "Download ZIP"),
    unzip it, and then move each folder into your agent's skills directory:
 
@@ -227,8 +239,8 @@ You can do this end to end yourself. Three one-time steps:
      faster than this doc; the rest of the workflow is identical.
 
 After those three steps, restart the agent. Every time you launch it from then on it picks the skill up automatically.
-You invoke it by typing `/cavil-review-note` (or `/cavil-review`, `/cavil-refine`, `/cavil-license-research`) followed by
-what you'd like reviewed.
+You invoke it by typing `/cavil-review-note` (or `/cavil-review`, `/cavil-refine`, `/cavil-license-research`,
+`/cavil-missing-licenses`) followed by what you'd like reviewed.
 
 **Troubleshooting.** If `/cavil-review-note` doesn't appear in the agent's auto-complete, the most common causes are
 (a) the folder name is wrong (it must match exactly, including the dash), (b) the folder is in the wrong place

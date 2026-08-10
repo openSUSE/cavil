@@ -1,4 +1,4 @@
-# Copyright SUSE LLC
+# SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 use Mojo::Base -strict, -signatures;
 
@@ -155,6 +155,36 @@ subtest 'MCP' => sub {
         like $text, qr/# Snippets \(group=none\)/, 'header';
         like $text, qr/snippet $sid .+unresolved/, 'per-occurrence header';
         like $text, qr/text \@10-13 \(verbatim\)/, 'verbatim line-numbered body';
+      };
+
+      subtest 'resolution=reported surfaces snippets with a missing-license report' => sub {
+        my $sdb = $t->app->pg->db;
+
+        # No report yet: the ZZMCP snippet is not in the reported set
+        my $before = $client->call_tool('cavil_search_snippets',
+          {package_id => 1, group => 'text', search => 'ZZMCP', resolution => 'reported'});
+        ok !$before->{isError}, 'not an error';
+        unlike $before->{content}[0]{text}, qr/snippet $sid\b/, 'snippet absent before a report exists';
+
+        # File a missing-license report against it (keyed on the snippet id in data)
+        my $pc = $sdb->insert(
+          'proposed_changes',
+          {
+            action       => 'missing_license',
+            token_hexsum => 'zzmcp-reported',
+            owner        => 2,
+            data         => {-json => {snippet => $sid, package => 1}}
+          },
+          {returning => 'id'}
+        )->hash->{id};
+
+        my $after = $client->call_tool('cavil_search_snippets',
+          {package_id => 1, group => 'text', search => 'ZZMCP', resolution => 'reported'});
+        ok !$after->{isError}, 'not an error';
+        like $after->{content}[0]{text}, qr/Filters: resolution=reported/, 'echoes reported filter';
+        like $after->{content}[0]{text}, qr/snippet $sid\b/,               'snippet present once reported';
+
+        $sdb->query('DELETE FROM proposed_changes WHERE id = ?', $pc);
       };
 
       subtest 'fleet-wide search never exposes embargoed snippets' => sub {
@@ -1641,8 +1671,9 @@ subtest 'MCP' => sub {
           }
         );
         ok $result->{isError}, 'is an error';
-        is $result->{content}[0]{text}, 'License expression is not in the list of known licenses',
-          'unknown license message';
+        is $result->{content}[0]{text},
+          'License expression is not in the list of known licenses. To introduce it as a new license, call again'
+          . ' with an integer "risk" (1-9).', 'unknown license message';
       };
 
       subtest 'Propose license pattern (unknown license with suggestions)' => sub {
@@ -1658,8 +1689,51 @@ subtest 'MCP' => sub {
         );
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text},
-          "License expression is not in the list of known licenses, closest matches are:\n* Artistic-2.0 (69% match)",
+          "License expression is not in the list of known licenses. To introduce it as a new license, call again"
+          . " with an integer \"risk\" (1-9). Closest existing matches:\n* Artistic-2.0 (69% match)",
           'unknown license message';
+      };
+
+      subtest 'Introduce a new license and retire its missing-license report' => sub {
+
+        # A missing-license report exists for snippet 5
+        my $reported = $client->call_tool('cavil_report_missing_license',
+          {package_id => 1, snippet_id => 5, reason => 'unknown license text'});
+        ok !$reported->{isError}, 'missing license reported';
+        is $t->app->pg->db->query(
+          "SELECT COUNT(*) AS c FROM proposed_changes WHERE action = 'missing_license' AND (data->>'snippet')::bigint = 5"
+        )->hash->{c}, 1, 'one missing-license report for snippet 5';
+
+        # An unknown license plus an explicit risk files a new_license proposal (not an error) ...
+        my $result = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'Artistic-9.9-only',
+            risk       => 3,
+            reason     => 'Researched: a brand new license'
+          }
+        );
+        ok !$result->{isError}, 'not an error';
+        like $result->{content}[0]{text}, qr/Proposal to introduce new license "Artistic-9\.9-only" \(risk 3\)/,
+          'new license proposal submitted';
+
+        my $row
+          = $t->app->pg->db->query(
+          "SELECT * FROM proposed_changes WHERE action = 'new_license' AND (data->>'snippet')::bigint = 5")
+          ->expand->hash;
+        ok $row, 'new_license proposal created';
+        is $row->{data}{license}, 'Artistic-9.9-only', 'right license carried through';
+        is $row->{data}{risk},    3,                   'right researched risk carried through';
+
+        # ... and retires the missing-license report so the snippet leaves the reported worklist
+        is $t->app->pg->db->query(
+          "SELECT COUNT(*) AS c FROM proposed_changes WHERE action = 'missing_license' AND (data->>'snippet')::bigint = 5"
+        )->hash->{c}, 0, 'missing-license report retired on proposal';
+
+        $t->app->pg->db->query('DELETE FROM proposed_changes WHERE id = ?', $row->{id});
       };
 
       subtest 'Propose ignore (non-existent package)' => sub {

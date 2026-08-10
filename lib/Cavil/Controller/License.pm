@@ -1,17 +1,5 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
@@ -137,7 +125,7 @@ sub proposal_stats ($self) {
 
 sub proposed_meta ($self) {
   my $v = $self->validation;
-  $v->optional('action')->in('missing_license', 'create_pattern', 'create_ignore', 'create_glob');
+  $v->optional('action')->in('missing_license', 'new_license', 'create_pattern', 'create_ignore', 'create_glob');
   $v->optional('before')->num;
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;

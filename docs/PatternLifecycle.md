@@ -84,8 +84,10 @@ make *proposals* that an administrator or lawyer later accepts or rejects:
 - **Human contributors** working through the Cavil web interface.
 - **AI assistants** connected through Cavil's tools. An AI can propose a new license pattern, propose ignoring a
   snippet or a file glob, and — completing the picture — **report a missing license** when it has found genuine legal
-  text it is not confident enough to pattern itself. Anything an AI proposes is clearly marked with an
-  "AI assisted" badge and carries a short reason, so you always know where a proposal came from and why.
+  text it is not confident enough to pattern itself. It can also go one step further and, after researching an
+  unfamiliar license, **propose introducing that license** with a recommended risk, so the report arrives already
+  answered and you only have to ratify it. Anything an AI proposes is clearly marked with an "AI assisted" badge and
+  carries a short reason, so you always know where a proposal came from and why.
 
 The AI assistants follow a detailed instruction sheet (an "agent skill"). That sheet is written for the AI and is not
 meant to be read by people — this document is its human-facing counterpart.
@@ -96,16 +98,26 @@ Almost all of your reviewing happens on two pages.
 
 ### Change Proposals (`/licenses/proposed`)
 
-The queue of proposed patterns, proposed snippet-ignores, and proposed file globs. Each entry shows the snippet (or
-glob), who proposed it, the "AI assisted" badge and reason where applicable, and the closest existing pattern for
-comparison. For each one you either **Accept** (Cavil applies it and schedules a re-scan of the affected packages) or
-**Reject** (it is discarded). The edits needed here are usually light — confirm the license name, risk, and any
-flags.
+The queue of proposed patterns (for licenses Cavil already knows), proposed snippet-ignores, and proposed file globs.
+Each entry shows the snippet (or glob), who proposed it, the "AI assisted" badge and reason where applicable, and the
+closest existing pattern for comparison. For each one you either **Accept** (Cavil applies it and schedules a re-scan of
+the affected packages) or **Reject** (it is discarded). The edits needed here are usually light — confirm the license
+name, risk, and any flags. These are the mechanical proposals, which is why administrators typically clear this page
+without needing a lawyer; a proposal that would introduce a brand-new license is deliberately routed to Missing
+Licenses instead, since naming a new license is a legal judgement.
 
 ### Missing Licenses (`/licenses/missing`)
 
-The queue of snippets reported as containing a license that nobody has patterned yet. **This is where the real
-pattern-authoring happens**, so this page gives you the full pattern editor inline. For each report you can:
+The queue of snippets containing a license that nobody has patterned yet. Entries arrive in one of two states.
+
+**Proposed licenses (ready to ratify).** When an AI has already researched the license, the entry arrives as a
+finished recommendation: the proposed license name, a suggested risk, and a plain-language reason for both. You do not
+author anything — you read the reasoning and click **Approve** to create the pattern (Cavil saves it, clears the entry,
+and re-scans the affected packages), **Edit** to adjust the license or risk in the inline editor first, or **Dismiss**
+if the recommendation is wrong. This is the common case, and it is meant to be a quick, confident sign-off.
+
+**Unidentified reports (needs your judgement).** When the license could not be confidently identified, the entry is a
+plain report and **this is where the real pattern-authoring happens**, so it gives you the full pattern editor inline:
 
 - See the snippet, the reporter, the "AI assisted" badge, and the reason it was flagged.
 - Click **Edit Pattern** to open the full editor right there in the page — the same editor used everywhere else,

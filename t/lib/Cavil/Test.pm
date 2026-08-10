@@ -1,17 +1,5 @@
-# Copyright (C) 2018-2020 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Test;
 use Mojo::Base -base, -signatures;
@@ -624,6 +612,35 @@ sub ui_fixtures ($self, $app) {
   $products->update($factory, [1]);
   $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51',        'Multi-Linux Manager');
   $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51:Update', 'Multi-Linux Manager');
+
+  # A brand-new-license proposal exactly as the cavil-missing-licenses agent files it: an unresolved
+  # mojo#2 snippet, researched to a license Cavil does not know yet, at a chosen risk. No web flow creates
+  # a new_license action (only the MCP propose path does), so the lawyer's ratify journey on the Missing
+  # Licenses page legitimately starts from a seeded proposal.
+  my $reported = $db->query(
+    'SELECT s.id, s.text FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
+       WHERE fs.package = 2 AND fs.resolution IS NULL AND fs.generation = 0 LIMIT 1'
+  )->hash;
+  $db->insert(
+    'proposed_changes',
+    {
+      action       => 'new_license',
+      token_hexsum => 'uinewlicense00000000000000000001',
+      owner        => $bot_id,
+      data         => {
+        -json => {
+          snippet     => $reported->{id},
+          pattern     => $reported->{text},
+          from        => 'perl-Mojolicious',
+          package     => 2,
+          license     => 'UI-New-License-1.0',
+          risk        => 2,
+          ai_assisted => 1,
+          reason      => 'AI Assistant: Permissive terms whose only condition is preserving the attribution notice.'
+        }
+      }
+    }
+  );
 }
 
 # Builds a real, indexable test package whose files each contain one

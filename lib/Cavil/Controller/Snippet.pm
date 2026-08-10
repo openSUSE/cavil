@@ -196,7 +196,7 @@ sub list_meta ($self) {
   $v->optional('timeframe')->in('any', 'year', 'month', 'week', 'day', 'hour');
   $v->optional('before')->num;
   $v->optional('offset')->num;
-  $v->optional('resolution')->in('any', 'unresolved', 'fold', 'clear', 'overlap', 'covered');
+  $v->optional('resolution')->in('any', 'unresolved', 'reported', 'fold', 'clear', 'overlap', 'covered');
   $v->optional('order')->in('occurrences', 'packages', 'risk', 'recent');
   $v->optional('search');    # free text, used only as a bound parameter; empty means "no search"
   return $self->reply->json_validation_error if $v->has_error;

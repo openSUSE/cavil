@@ -106,8 +106,10 @@ t.test('Cavil UI - snippet triage filters and search', skipUnlessOnline, async t
       await open();
       await page.waitForSelector('.cavil-snippet-order');
       t.same(
-        await page.locator('.cavil-snippet-resolution option').evaluateAll(options => options.map(option => option.value)),
-        ['any', 'unresolved', 'fold', 'clear', 'overlap', 'covered'],
+        await page
+          .locator('.cavil-snippet-resolution option')
+          .evaluateAll(options => options.map(option => option.value)),
+        ['any', 'unresolved', 'reported', 'fold', 'clear', 'overlap', 'covered'],
         'the resolution menu includes the stored snippet resolution values'
       );
       t.same(

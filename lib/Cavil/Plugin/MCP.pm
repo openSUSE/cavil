@@ -1,4 +1,4 @@
-# Copyright SUSE LLC
+# SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
@@ -187,8 +187,13 @@ sub register ($self, $app, $config) {
     code => \&tool_cavil_propose_ignore_snippet
   );
   $mcp->tool(
-    name         => 'cavil_propose_license_pattern',
-    description  => 'Propose a new license pattern to be added to the system',
+    name        => 'cavil_propose_license_pattern',
+    description =>
+      'Propose a license pattern. If the license already exists in Cavil, the pattern is added to it and the '
+      . 'proposal lands on the admin Change Proposals page (risk/flags are inherited from the license). If the '
+      . 'license is unknown, this is a request to INTRODUCE a new license: pass an integer "risk" (1-9) and it '
+      . 'lands on the lawyers\' Missing Licenses page for ratification. Optional patent/trademark/'
+      . 'export_restricted/cla/eula flags describe a new license',
     input_schema => {
       type       => 'object',
       properties => {
@@ -196,7 +201,18 @@ sub register ($self, $app, $config) {
         snippet_id => {type => 'integer', minimum => 1},
         pattern    => {type => 'string'},
         license    => {type => 'string'},
-        reason     => {type => 'string'}
+        reason     => {type => 'string'},
+        risk       => {
+          type        => 'integer',
+          minimum     => 1,
+          maximum     => 9,
+          description => 'required only when introducing a new (unknown) license; the researched risk level'
+        },
+        patent            => {type => 'boolean', description => 'new-license flag (optional)'},
+        trademark         => {type => 'boolean', description => 'new-license flag (optional)'},
+        export_restricted => {type => 'boolean', description => 'new-license flag (optional)'},
+        cla               => {type => 'boolean', description => 'new-license flag (optional)'},
+        eula              => {type => 'boolean', description => 'new-license flag (optional)'}
       },
       required => ['package_id', 'snippet_id', 'pattern', 'license', 'reason']
     },
@@ -263,7 +279,8 @@ sub register ($self, $app, $config) {
     name        => 'cavil_search_snippets',
     description =>
       'Query the snippet backlog (the text regions keyword-flagged as possibly license-relevant). Filter by '
-      . 'resolution (unresolved = still needs review; fold/clear/overlap/covered = auto-resolved; any), optional '
+      . 'resolution (unresolved = still needs review; reported = already has a missing-license report filed; '
+      . 'fold/clear/overlap/covered = auto-resolved; any), optional '
       . 'package_id scope (omit for fleet-wide), closest license, and full-text search. Two shapes via "group": '
       . '"text" (default) aggregates identical snippets and ranks by impact (occurrences / distinct packages) so one '
       . 'pattern or glob clears many - use it to triage the highest-value work; "none" lists individual occurrences '
@@ -274,8 +291,11 @@ sub register ($self, $app, $config) {
     input_schema => {
       type       => 'object',
       properties => {
-        resolution =>
-          {type => 'string', description => 'unresolved (default) | fold | clear | overlap | covered | any'},
+        resolution => {
+          type        => 'string',
+          description =>
+            'unresolved (default) | reported (has an open missing-license report; usually also unresolved) | fold | clear | overlap | covered | any'
+        },
         group => {
           type        => 'string',
           description => 'text (default, impact-ranked distinct snippets) | none (occurrences + detail)'
@@ -425,8 +445,8 @@ sub tool_cavil_search_snippets ($tool, $args) {
   return $tool->text_result($oe, 1) if $oe;
 
   my $resolution = $args->{resolution} // 'unresolved';
-  return $tool->text_result('resolution must be one of: unresolved, fold, clear, overlap, covered, any', 1)
-    unless $resolution =~ /^(?:unresolved|fold|clear|overlap|covered|any)$/;
+  return $tool->text_result('resolution must be one of: unresolved, reported, fold, clear, overlap, covered, any', 1)
+    unless $resolution =~ /^(?:unresolved|reported|fold|clear|overlap|covered|any)$/;
   my $group = ($args->{group} // 'text') eq 'none' ? 'none' : 'text';
   my $order = $args->{order} // 'occurrences';
   return $tool->text_result('order must be one of: occurrences, packages, risk, recent', 1)
@@ -683,39 +703,70 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
 
   my $matches = $c->patterns->closest_licenses($license);
   my $match   = $matches->{exact};
-  unless ($match) {
-    my $closest = $matches->{closest};
-    return $tool->text_result('License expression is not in the list of known licenses', 1) unless @$closest;
-    my $closest_list
-      = join("\n", map { sprintf('* %s (%d%% match)', $_->{license}, int($_->{score} * 100 + 0.5)) } @$closest);
-    return $tool->text_result(
-      "License expression is not in the list of known licenses, closest matches are:\n$closest_list", 1);
-  }
 
-  my $user_id = $c->users->id_for_login($c->current_user);
-  my $result  = $c->patterns->propose_create(
+  # Args shared by both proposal shapes; only the license/risk/flags source and the target method differ.
+  my %common = (
     snippet              => $snippet_id,
     pattern              => $pattern,
     highlighted_keywords => [],
     highlighted_licenses => [],
     edited               => 1,
-    license              => $match->{license},
-    risk                 => $match->{risk},
     package              => $package_id,
-    patent               => $match->{patent},
-    trademark            => $match->{trademark},
-    export_restricted    => $match->{export_restricted},
-    cla                  => $match->{cla},
-    eula                 => $match->{eula},
-    owner                => $user_id,
+    owner                => $c->users->id_for_login($c->current_user),
     ai_assisted          => 1,
     reason               => "AI Assistant: $reason"
   );
 
+  my ($result, $success);
+  if ($match) {
+
+    # Known license: add another pattern to it, inheriting risk/flags from the existing record (admin
+    # Change Proposals page).
+    $result = $c->patterns->propose_create(
+      %common,
+      license           => $match->{license},
+      risk              => $match->{risk},
+      patent            => $match->{patent},
+      trademark         => $match->{trademark},
+      export_restricted => $match->{export_restricted},
+      cla               => $match->{cla},
+      eula              => $match->{eula}
+    );
+    $success = 'Proposal for new license pattern has been successfully submitted';
+  }
+  else {
+
+    # Unknown license. With an explicit researched risk this is a request to introduce a NEW license (it
+    # goes to the lawyers' Missing Licenses page to ratify); without one we cannot classify it, so fall
+    # back to listing the closest known licenses.
+    my $risk = $args->{risk};
+    unless (defined $risk && $risk =~ /^[1-9]$/) {
+      my $intro = 'License expression is not in the list of known licenses. To introduce it as a new license,'
+        . ' call again with an integer "risk" (1-9).';
+      my $closest = $matches->{closest};
+      return $tool->text_result($intro, 1) unless @$closest;
+      my $closest_list
+        = join("\n", map { sprintf('* %s (%d%% match)', $_->{license}, int($_->{score} * 100 + 0.5)) } @$closest);
+      return $tool->text_result("$intro Closest existing matches:\n$closest_list", 1);
+    }
+
+    $result = $c->patterns->propose_new_license(
+      %common,
+      license           => $license,
+      risk              => $risk,
+      patent            => $args->{patent}            ? 1 : 0,
+      trademark         => $args->{trademark}         ? 1 : 0,
+      export_restricted => $args->{export_restricted} ? 1 : 0,
+      cla               => $args->{cla}               ? 1 : 0,
+      eula              => $args->{eula}              ? 1 : 0
+    );
+    $success = qq{Proposal to introduce new license "$license" (risk $risk) has been successfully submitted};
+  }
+
   return $tool->text_result('Conflicting license pattern already exists',          1) if $result->{conflict};
   return $tool->text_result('Conflicting license pattern proposal already exists', 1) if $result->{proposal_conflict};
 
-  return 'Proposal for new license pattern has been successfully submitted';
+  return $success;
 }
 
 sub tool_cavil_propose_ignore_glob ($tool, $args) {

@@ -140,6 +140,11 @@ button.cavil-icon-action {
   border-color: #ffcecb;
   color: #cf222e;
 }
+.cavil-meta-badge-success {
+  background: #dafbe1;
+  border-color: #4ac26b66;
+  color: #1a7f37;
+}
 .cavil-risk-unknown-badge {
   background-color: #57606a;
   color: #fff;

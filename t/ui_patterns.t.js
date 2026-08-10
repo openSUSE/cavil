@@ -572,6 +572,40 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.match(await page.innerText('ul#risk-3 li'), /Made-Up-License-1.0/);
     });
 
+    await t.test('Missing Licenses page: approve a proposed new license', async t => {
+      // The cavil-missing-licenses agent files new-license proposals (action=new_license); a lawyer
+      // ratifies one with a single click. ui_fixtures seeds one against an unresolved mojo#2 snippet, so
+      // this runs before the report/dismiss subtests below and consumes that seeded card.
+      await openAccountMenu(page);
+      await page.click('text=Missing Licenses');
+      t.equal(await page.innerText('title'), 'Missing Licenses');
+      await page.waitForSelector('#missing-licenses .change-container');
+
+      const card = page.locator('#missing-licenses .change-container', {hasText: 'UI-New-License-1.0'});
+      const header = await card.locator('.change-header').innerText();
+      t.match(header, /Proposed license by/, 'framed as a proposal, not a bare report');
+      t.match(header, /UI-New-License-1\.0/, 'shows the proposed license identifier');
+      t.match(header, /risk 2/, 'shows the researched risk');
+      const rationale = await card.locator('.change-rationale').innerText();
+      t.match(rationale, /attribution notice/, 'shows the plain-language rationale');
+      t.notMatch(rationale, /AI Assistant:/, 'strips the AI Assistant prefix from the rationale');
+
+      const [resp] = await Promise.all([
+        page.waitForResponse(r => /\/snippet\/batch_decision/.test(r.url())),
+        card.locator('button:has-text("Approve")').click()
+      ]);
+      t.equal(resp.status(), 200, 'one-click Approve posts a create-pattern decision');
+      await card.waitFor({state: 'detached'});
+      t.match(await page.innerText('#missing-licenses .toast-item'), /Pattern created/, 'approval confirmed via toast');
+
+      // Drain the reindex queued by the new pattern, then confirm the introduced license now exists.
+      const drain = await context.newPage();
+      await drain.goto(performJobs, {timeout: 120000});
+      await drain.close();
+      await page.goto(`${url}/licenses/UI-New-License-1.0`);
+      t.equal(await page.innerText('title'), 'License details of UI-New-License-1.0', 'the introduced license exists');
+    });
+
     await t.test('Propose missing license -> page -> dismiss', async t => {
       // Use perl-Mojolicious mojo#2 (id=2) - earlier subtests resolved snippets
       // in mojo#1, but mojo#2 is untouched and still has unmatched snippets.

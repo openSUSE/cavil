@@ -2,8 +2,8 @@
   <div>
     <div class="row mt-3">
       <cavil-notice-panel intro class="col-12">
-        These are snippets with possibly missing licenses or license combinations that have been flagged by contributors
-        for risk assessment.
+        Snippets Cavil could not identify. Some have been researched and come with a proposed license you can approve
+        directly; the rest are flagged for you to assess.
       </cavil-notice-panel>
     </div>
     <div v-if="changes !== null && changes.length > 0">
@@ -16,6 +16,27 @@
                   Missing license reported by <b>{{ change.login }}</b>
                   <span class="cavil-meta-badges change-meta-badges">
                     <span class="cavil-meta-badge cavil-meta-badge-danger">missing license</span>
+                    <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
+                      <i class="fa-solid fa-robot"></i> AI assisted
+                    </span>
+                    <a :href="change.editUrl" target="_blank" class="cavil-meta-badge cavil-meta-badge-muted">
+                      snippet
+                    </a>
+                    <a
+                      v-if="change.package !== null"
+                      :href="change.package.pkgUrl"
+                      target="_blank"
+                      class="cavil-meta-badge cavil-meta-badge-muted"
+                    >
+                      {{ change.package.name }}
+                    </a>
+                  </span>
+                </span>
+                <span v-else-if="change.action === 'new_license'">
+                  Proposed license by <b>{{ change.login }}</b>
+                  <span class="cavil-meta-badges change-meta-badges">
+                    <span class="cavil-meta-badge cavil-meta-badge-success">{{ change.data.license }}</span>
+                    <span class="cavil-meta-badge cavil-meta-badge-warning">risk {{ change.data.risk }}</span>
                     <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
                       <i class="fa-solid fa-robot"></i> AI assisted
                     </span>
@@ -56,16 +77,30 @@
               </table>
             </div>
             <div class="change-form">
-              <div v-if="change.data.reason" class="row">
+              <div v-if="change.action === 'new_license' && rationale(change)" class="change-rationale">
+                {{ rationale(change) }}
+              </div>
+              <div v-else-if="change.data.reason" class="row">
                 <div class="col mb-3">
                   <label class="form-label">Reason</label>
                   <textarea v-model="change.data.reason" class="form-control" disabled="disabled" rows="3"></textarea>
                 </div>
               </div>
               <span v-if="hasAdminRole && editingId !== change.id">
-                <button @click="toggleEditor(change)" type="button" class="btn btn-primary mb-2">Edit Pattern</button>
-                &nbsp;
-                <button @click="dismissProposal(change)" class="btn btn-danger btn-sm mb-2">Dismiss</button>
+                <template v-if="change.action === 'new_license'">
+                  <button @click="approveProposal(change)" type="button" class="btn btn-success mb-2">Approve</button>
+                  &nbsp;
+                  <button @click="toggleEditor(change)" type="button" class="btn btn-outline-primary btn-sm mb-2">
+                    Edit
+                  </button>
+                  &nbsp;
+                  <button @click="dismissProposal(change)" class="btn btn-outline-danger btn-sm mb-2">Dismiss</button>
+                </template>
+                <template v-else>
+                  <button @click="toggleEditor(change)" type="button" class="btn btn-primary mb-2">Edit Pattern</button>
+                  &nbsp;
+                  <button @click="dismissProposal(change)" class="btn btn-danger btn-sm mb-2">Dismiss</button>
+                </template>
               </span>
               <div v-if="editingId === change.id" id="inline-snippet-editor" class="missing-inline-editor">
                 <SnippetEditor
@@ -76,13 +111,14 @@
                   :has-admin-role="hasAdminRole"
                   :has-contributor-role="hasContributorRole"
                   :allowed-actions="['create-pattern']"
+                  :initial="editorInitial(change)"
                   mode="inline"
                   @submit="onEditorSubmit(change, $event)"
                   @cancel="editingId = null"
                 />
               </div>
             </div>
-            <div class="change-footer">
+            <div v-if="change.action === 'missing_license'" class="change-footer">
               <div v-if="change.closest !== null">
                 <a :href="change.closest.licenseUrl" target="_blank">
                   <b>{{ change.closest.similarity }}%</b> similarity to
@@ -119,6 +155,9 @@ import SnippetEditor from './components/SnippetEditor.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 
+// Per-license flags carried on a new_license proposal, stored as JSON 0/1.
+const PROPOSAL_FLAGS = ['patent', 'trademark', 'export_restricted', 'cla', 'eula'];
+
 export default {
   name: 'MissingLicenses',
   components: {BackToTop, CavilNoticePanel, EmptyState, LegalLoading, SnippetEditor, ToastNotifier},
@@ -127,7 +166,7 @@ export default {
       ignoreForPackage: true,
       params: {before: 0},
       changes: null,
-      changeUrl: '/licenses/proposed/meta?action=missing_license',
+      changeUrl: '/licenses/proposed/meta?action=missing_license&action=new_license',
       total: null,
       loadingMore: false,
       editingId: null,
@@ -214,13 +253,29 @@ export default {
     async onEditorSubmit(change, payload) {
       const formData = {...payload.formData};
 
-      // Creating a real pattern from the snippet should also clear the missing-license report. The
-      // create-pattern handler removes the proposal when given its checksum (the snippet hash, which is
-      // this proposal's token); the ignore/non-license actions already remove it via the same hash.
+      // Creating a real pattern from the snippet should also clear the report. The create-pattern handler
+      // removes the proposal when given its checksum (the proposal's token_hexsum).
       if (payload.action === 'create-pattern') formData.checksum = change.token_hexsum;
 
+      await this.submitPattern(change, formData);
+    },
+
+    // Ratify a researched new-license proposal as-is: replay the stored pattern/license/risk through the
+    // same create-pattern path the inline editor uses, so Approve is just Edit without the editing step.
+    async approveProposal(change) {
+      const d = change.data;
+      const formData = {pattern: d.pattern, license: d.license, risk: String(d.risk), checksum: change.token_hexsum};
+      for (const flag of PROPOSAL_FLAGS) {
+        if (Number(d[flag])) formData[flag] = '1';
+      }
+      if (d.from) formData.from = d.from;
+      if (change.package !== null) formData.package = change.package.id;
+      await this.submitPattern(change, formData);
+    },
+
+    async submitPattern(change, formData) {
       const ua = new UserAgent({baseURL: window.location.href});
-      const body = {actions: [{kind: payload.action, snippetId: change.data.snippet, formData}]};
+      const body = {actions: [{kind: 'create-pattern', snippetId: change.data.snippet, formData}]};
       const res = await ua.post('/snippet/batch_decision', {json: body, headers: {Accept: 'application/json'}});
 
       let data = null;
@@ -240,6 +295,22 @@ export default {
       const result = data && data.results && data.results[0];
       const message = (result && result.error) || (data && data.error) || `Request failed (HTTP ${res.statusCode})`;
       this.$refs.toaster?.notify(message, 'danger', 5000);
+    },
+
+    // The plain-language reassurance shown on a proposed-license card; drop the "AI Assistant:" prefix the
+    // badge already conveys.
+    rationale(change) {
+      return (change.data.reason || '').replace(/^AI Assistant:\s*/, '');
+    },
+
+    // Pre-fill the inline editor with the researched values when a lawyer wants to adjust before approving.
+    editorInitial(change) {
+      if (change.action !== 'new_license') return null;
+      const d = change.data;
+      // SnippetEditor.applyInitial expects booleans; the flags are stored as JSON 0/1, so coerce here.
+      const initial = {pattern: d.pattern, license: d.license, risk: d.risk};
+      for (const flag of PROPOSAL_FLAGS) initial[flag] = !!Number(d[flag]);
+      return initial;
     },
     removeChange(change) {
       const i = this.changes.indexOf(change);
@@ -332,6 +403,13 @@ export default {
   background-color: rgb(246, 248, 250);
   border-top: 1px solid rgb(208, 215, 222);
   padding: 10px;
+}
+.change-rationale {
+  color: #24292e;
+  font-size: 13px;
+  line-height: 20px;
+  margin-bottom: 0.75rem;
+  white-space: pre-wrap;
 }
 .missing-inline-editor {
   background: #ffffff;

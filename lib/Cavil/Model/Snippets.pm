@@ -1,17 +1,5 @@
-# Copyright (C) 2019 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
@@ -22,6 +10,13 @@ use Cavil::ReportUtil
   qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
 
 has [qw(checkout_dir pg snippet_fold)];
+
+# A snippet is "reported" when a contributor/agent has filed a missing-license report against it: a
+# proposed_changes row with action 'missing_license' whose data->>'snippet' is the snippet id. Keyed on
+# the id (not token_hexsum) to sidestep the snippet-hash prefix. Shared by snippet_search (MCP) and
+# unclassified (web UI) so both surfaces resolve the same set.
+my $REPORTED_EXISTS = "EXISTS (SELECT 1 FROM proposed_changes pc WHERE pc.action = 'missing_license'"
+  . " AND (pc.data->>'snippet')::bigint = s.id)";
 
 # The single place the fold/clear/overlap/covered decision is made: for every snippet occurrence in a
 # package compute its resolution and store it on file_snippets.resolution ('fold' / 'clear' / 'overlap'
@@ -380,6 +375,12 @@ sub unclassified ($self, $options) {
     $match .= " AND fs.resolution IN ($placeholders)";
   }
 
+  # "Reported" is orthogonal to the file_snippets.resolution states (a reported snippet is usually still
+  # unresolved), so it does not touch $match/@kinds: the linked occurrence and counts stay generation-only.
+  elsif ($resolution_option eq 'reported') {
+    $resolution = "AND $REPORTED_EXISTS";
+  }
+
   # Full-text (lexeme) search over snippet bodies; expression matches the GIN index exactly.
   my $search = '';
   if (defined $options->{search} && $options->{search} ne '') {
@@ -460,6 +461,7 @@ sub snippet_search ($self, $options) {
   my $res_clause
     = $res eq 'any'                              ? '1 = 1'
     : $res eq 'unresolved'                       ? 'fs.resolution IS NULL'
+    : $res eq 'reported'                         ? $REPORTED_EXISTS
     : $res =~ /^(?:fold|clear|overlap|covered)$/ ? do { push @binds, $res; 'fs.resolution = ?' }
     :                                              'fs.resolution IS NULL';
 
