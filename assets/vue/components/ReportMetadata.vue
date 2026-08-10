@@ -423,7 +423,7 @@ export default {
           {id: 'unacceptable', variant: 'btn-danger', label: 'Unacceptable'}
         ];
       }
-      if (this.hasManagerRole === true) return [{id: 'acceptable', variant: 'btn-warning', label: 'Acceptable'}];
+      if (this.hasManagerRole === true) return [{id: 'acceptable', variant: 'btn-success', label: 'Acceptable'}];
       return [];
     },
     submitUrl() {
@@ -481,8 +481,7 @@ export default {
     },
     stateBadgeClass() {
       if (this.state === 'new') return 'text-bg-secondary';
-      if (this.state === 'acceptable_by_lawyer') return 'text-bg-success';
-      if (this.state === 'acceptable') return 'text-bg-warning';
+      if (this.state === 'acceptable_by_lawyer' || this.state === 'acceptable') return 'text-bg-success';
       return 'text-bg-danger';
     },
     // A rebuild that is already on its way answers the button, so it stops advertising the patterns that
