@@ -768,20 +768,19 @@ sub propose_new_license ($self, %args) {
   # never seen is the whole point. The curator's approval (the create-pattern action) bootstraps the
   # license via Patterns::create, which needs no sibling row. Routed to the lawyers' Missing Licenses page.
   #
-  # The insert and the report-retirement below must be atomic: a failure between them would leave both the
-  # new proposal and the stale missing-license report, re-creating the duplicate the retirement prevents.
-  my $db = $self->pg->db;
-  my $tx = $db->begin;
-  $self->_insert_pattern_proposal($db, 'new_license', $checksum, %args);
-
-  # Retire the originating missing-license report for this snippet: the question it posed ("what license
-  # is this?") now has a proposed answer on the same page. Dropping it keeps one row per snippet and
-  # removes the snippet from the resolution=reported worklist so the sweep does not revisit it.
-  $db->query("DELETE FROM proposed_changes WHERE action = 'missing_license' AND (data->>'snippet')::bigint = ?",
-    $args{snippet});
-  $tx->commit;
-
+  # The originating missing-license report is deliberately LEFT in place as the durable record. While this
+  # proposal exists it is hidden from the page (see proposed_changes), and it is retired only when the
+  # proposal is approved (Snippet::_apply_action create-pattern -> retire_missing_license). That way
+  # dismissing a bad proposal falls back to the report instead of throwing it away.
+  $self->_insert_pattern_proposal($self->pg->db, 'new_license', $checksum, %args);
   return {};
+}
+
+# Drop the missing-license report(s) for a snippet - called when a pattern is created for it (the report's
+# question is answered) so it does not re-surface on the Missing Licenses page.
+sub retire_missing_license ($self, $snippet_id) {
+  $self->pg->db->query(
+    "DELETE FROM proposed_changes WHERE action = 'missing_license' AND (data->>'snippet')::bigint = ?", $snippet_id);
 }
 
 sub propose_ignore ($self, %args) {
@@ -901,10 +900,16 @@ sub proposed_changes ($self, $options) {
     $search = "AND (bu.login ILIKE $quoted OR pc.data::text ILIKE $quoted)";
   }
 
+  # A snippet's missing-license report and a new_license proposal for it coexist (the report is the durable
+  # record; dismissing the proposal must fall back to it). Show only the proposal while it exists, so the
+  # snippet is never listed twice: hide a missing_license row when a new_license proposal covers its snippet.
+  my $superseded = "AND NOT (pc.action = 'missing_license' AND EXISTS (SELECT 1 FROM proposed_changes np"
+    . " WHERE np.action = 'new_license' AND (np.data->>'snippet')::bigint = (pc.data->>'snippet')::bigint))";
+
   my $changes = $db->query(
     "SELECT pc.*, EXTRACT(EPOCH FROM created) AS created_epoch, bu.login, COUNT(*) OVER() AS total
      FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner)
-     WHERE action = ANY (?) $before $search ORDER BY pc.id DESC LIMIT 10", $options->{actions}
+     WHERE action = ANY (?) $before $search $superseded ORDER BY pc.id DESC LIMIT 10", $options->{actions}
   )->expand->hashes;
 
   my $total = 0;

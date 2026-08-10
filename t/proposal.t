@@ -687,4 +687,66 @@ subtest 'Propose ignore glob' => sub {
   $t->app->minion->perform_jobs;
 };
 
+subtest 'New-license proposal keeps its missing-license report as a fallback' => sub {
+  my $patterns = $t->app->patterns;
+
+  # Durable record: a missing-license report for snippet 2
+  is_deeply $patterns->propose_missing(
+    snippet => 2,
+    hash    => 'nlfallback0000000000000000000001',
+    from    => 'perl-Mojolicious',
+    pattern => 'The GPL might be here',
+    package => 1,
+    owner   => 2
+    ),
+    {}, 'missing-license report filed';
+
+  # An AI proposes introducing a brand-new license for the same snippet
+  my %proposal = (
+    snippet     => 2,
+    pattern     => 'Brand New License 1.0 distinctive body wording',
+    license     => 'Brand-New-1.0',
+    risk        => 3,
+    package     => 1,
+    owner       => 2,
+    ai_assisted => 1,
+    reason      => 'AI Assistant: test rationale'
+  );
+  is_deeply $patterns->propose_new_license(%proposal), {}, 'new-license proposal filed';
+
+  # Both rows coexist: the report is NOT retired at propose time
+  my $count_for_2 = sub {
+    $db->query(
+      "SELECT count(*) AS c FROM proposed_changes
+         WHERE (data->>'snippet')::bigint = 2 AND action IN ('missing_license', 'new_license')"
+    )->hash->{c};
+  };
+  is $count_for_2->(), 2, 'report and proposal coexist in the database';
+
+  # The Missing Licenses page shows the snippet once - the proposal supersedes the bare report
+  my $listed = sub {
+    $t->get_ok('/licenses/proposed/meta?action=missing_license&action=new_license')->status_is(200);
+    return [grep { ($_->{data}{snippet} // '') eq '2' } @{$t->tx->res->json->{changes}}];
+  };
+  my $shown = $listed->();
+  is scalar(@$shown),     1,             'snippet listed once while the proposal exists';
+  is $shown->[0]{action}, 'new_license', 'the proposal is shown, not the bare report';
+
+  # Dismiss the (bad) proposal - the missing-license report must survive and re-surface
+  $t->post_ok("/licenses/proposed/remove/$shown->[0]{token_hexsum}")->status_is(200)->json_is('/removed', 1);
+  my $after = $listed->();
+  is scalar(@$after),     1,                 'the report re-surfaces after dismissing the proposal';
+  is $after->[0]{action}, 'missing_license', 'the bare report is shown again, not lost';
+
+  # Approving instead retires the report for good (create a pattern from a fresh proposal)
+  is_deeply $patterns->propose_new_license(%proposal), {}, 're-proposed';
+  my $reproposed = $listed->();
+  dec(2, 'create-pattern',
+    {license => 'Brand-New-1.0', pattern => $proposal{pattern}, risk => 3, checksum => $reproposed->[0]{token_hexsum}})
+    ->status_is(200)
+    ->json_is('/ok',             true)
+    ->json_is('/results/0/kind', 'pattern');
+  is $count_for_2->(), 0, 'approving the proposal retires both the proposal and the report';
+};
+
 done_testing();

@@ -372,6 +372,10 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
     return {kind => $kind, error => 'Conflicting license pattern already exists'} if $pattern->{conflict};
 
     if (my $checksum = $form->{checksum}) { $patterns->remove_proposal($checksum) }
+
+    # Creating a pattern answers the snippet's missing-license report, so clear it too. This also covers
+    # approving a new_license proposal, whose checksum above only removed the proposal row, not the report.
+    $patterns->retire_missing_license($id);
     my $pkgs = $snippets->packages_for_snippet($id);
     $packages_to_reindex->{$_} = 1 for @$pkgs;
     return {kind => 'pattern', id => $pattern->{id}, packages => $pkgs};

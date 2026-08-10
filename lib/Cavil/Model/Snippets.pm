@@ -11,12 +11,17 @@ use Cavil::ReportUtil
 
 has [qw(checkout_dir pg snippet_fold)];
 
-# A snippet is "reported" when a contributor/agent has filed a missing-license report against it: a
-# proposed_changes row with action 'missing_license' whose data->>'snippet' is the snippet id. Keyed on
-# the id (not token_hexsum) to sidestep the snippet-hash prefix. Shared by snippet_search (MCP) and
-# unclassified (web UI) so both surfaces resolve the same set.
-my $REPORTED_EXISTS = "EXISTS (SELECT 1 FROM proposed_changes pc WHERE pc.action = 'missing_license'"
-  . " AND (pc.data->>'snippet')::bigint = s.id)";
+# A snippet is "reported" when a contributor/agent has filed a missing-license report against it (a
+# proposed_changes row with action 'missing_license' whose data->>'snippet' is the snippet id) AND no
+# new_license proposal has answered it yet. Excluding already-proposed snippets keeps the triage sweep
+# self-limiting; the underlying report is kept as a fallback (see propose_new_license) and re-enters this
+# set if the proposal is dismissed. Keyed on the id (not token_hexsum) to sidestep the snippet-hash prefix.
+# Shared by snippet_search (MCP) and unclassified (web UI) so both surfaces resolve the same set.
+my $REPORTED_EXISTS
+  = "EXISTS (SELECT 1 FROM proposed_changes pc WHERE pc.action = 'missing_license'"
+  . " AND (pc.data->>'snippet')::bigint = s.id)"
+  . " AND NOT EXISTS (SELECT 1 FROM proposed_changes np WHERE np.action = 'new_license'"
+  . " AND (np.data->>'snippet')::bigint = s.id)";
 
 # The single place the fold/clear/overlap/covered decision is made: for every snippet occurrence in a
 # package compute its resolution and store it on file_snippets.resolution ('fold' / 'clear' / 'overlap'

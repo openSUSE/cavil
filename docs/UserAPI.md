@@ -207,8 +207,10 @@ running one is as simple as typing a short command at the agent prompt.
   licenses (`cavil_search_snippets` with `resolution=reported`), researches each one, and for the confident cases files
   a ready-to-approve pattern proposal — for a license Cavil has never seen, a new-license proposal carrying a researched
   risk. It lands on the **Missing Licenses** page as a one-click **Approve** card, turning the lawyers' job from
-  authoring into ratifying; anything it is unsure about is left as a standing report for a human. Run it like
-  `cavil-review-note`, as an unattended backlog pass. The proposals still need a human to approve them.
+  authoring into ratifying; anything it genuinely cannot identify is left as a standing report for a human. Because
+  each proposal fixes a license's risk for every future report, this skill does legal research and judgment and is
+  **not recommended below an opus-class model** (Claude Opus 4.8 or better). Run it as an unattended backlog pass; the
+  proposals still need a human to approve them.
 
 #### Setting up a skill on your own laptop
 

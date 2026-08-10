@@ -1694,7 +1694,7 @@ subtest 'MCP' => sub {
           'unknown license message';
       };
 
-      subtest 'Introduce a new license and retire its missing-license report' => sub {
+      subtest 'Introduce a new license and keep its missing-license report as a fallback' => sub {
 
         # A missing-license report exists for snippet 5
         my $reported = $client->call_tool('cavil_report_missing_license',
@@ -1728,12 +1728,15 @@ subtest 'MCP' => sub {
         is $row->{data}{license}, 'Artistic-9.9-only', 'right license carried through';
         is $row->{data}{risk},    3,                   'right researched risk carried through';
 
-        # ... and retires the missing-license report so the snippet leaves the reported worklist
+        # ... but KEEPS the missing-license report as the durable fallback (retired only on approval), so
+        # dismissing a bad proposal does not throw the report away.
         is $t->app->pg->db->query(
           "SELECT COUNT(*) AS c FROM proposed_changes WHERE action = 'missing_license' AND (data->>'snippet')::bigint = 5"
-        )->hash->{c}, 0, 'missing-license report retired on proposal';
+        )->hash->{c}, 1, 'missing-license report preserved alongside the proposal';
 
-        $t->app->pg->db->query('DELETE FROM proposed_changes WHERE id = ?', $row->{id});
+        $t->app->pg->db->query(
+          "DELETE FROM proposed_changes WHERE (data->>'snippet')::bigint = 5 AND action IN ('new_license', 'missing_license')"
+        );
       };
 
       subtest 'Propose ignore (non-existent package)' => sub {

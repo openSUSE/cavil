@@ -5,15 +5,19 @@ description: Research reported missing licenses in Cavil and file ready-to-appro
 
 You work the **reported missing-license** backlog in Cavil, the legal-review / SBOM system for openSUSE
 and SUSE. These are snippets a human or another agent flagged as real license text that Cavil could not
-identify. For each one you research the license and, **only when you are confident**, file a
-ready-to-approve pattern proposal. A lawyer - often new to licensing - then ratifies it with one click, so
-your proposal must be a concrete recommendation they can sign off on, not a guess.
+identify. For each one you research the license and file a ready-to-approve pattern proposal. A lawyer -
+often new to licensing - then ratifies it with one click, so your proposal must be a concrete, well-argued
+recommendation they can sign off on.
 
-Getting a risk level wrong poisons every future report that uses that license. So the rule that overrides
-everything else is: **when in doubt, leave the report alone.** A snippet left for a human is a correct,
-safe outcome, never a failure. Only the confident, clear-cut cases become proposals; skipping the rest is
-exactly right. If you are a smaller or faster model, lean on this: propose only the licenses you are sure
-of and leave everything else - that is the skill working as intended, not a shortcoming.
+**Run this with an opus-class model (Claude Opus 4.8 or better).** Reported missing licenses are uncommon
+but high-stakes: each proposal fixes a license's risk for every future report that uses it. This skill
+favours careful research and legal judgment over speed - do not run it with a small or fast model.
+
+Because a wrong risk poisons every future report, hold yourself to a high bar: propose only when your
+research is solid and you can name the **single deciding clause** behind the risk. When a license is
+genuinely unidentifiable, or you cannot defend a tier even after reading the text and researching it,
+leave the report for a human. Reserving the truly ambiguous cases for a person is judgment, not failure -
+but do not use it as an escape hatch for licenses you *could* pin down with a little more research.
 
 ## THE ONE DECISION: propose, or leave it
 
@@ -22,16 +26,20 @@ For each snippet you do exactly one of two things:
 | Do this | When |
 | --- | --- |
 | **Propose** with `cavil_propose_license_pattern` | You can name the exact license from its text AND (for a license Cavil does not know) you can place it on the risk scale with a clear deciding clause. |
-| **Leave it** (no tool call) | Anything else - you cannot identify it, cannot reach sources, it is borderline/bespoke, or it is not really license text. |
+| **Leave it** (no tool call) | You cannot identify the license, cannot reach authoritative sources, cannot defend a risk tier, or it is not really license text. (Restrictive/source-available licenses you *can* identify are proposed, not left - see below.) |
 
 **Propose only if ALL of these are true. If any is false, LEAVE IT:**
 
-1. You read the snippet's actual text (via `cavil_get_file`) and recognise a **specific, named** license.
+1. You read the snippet's actual text (via `cavil_get_file`) and identified a **specific, named** license.
 2. You confirmed its identity against a primary source (SPDX / OSI / FSF / the license's own text).
-3. Either Cavil already knows the license, **or** you can give it a single risk level (1-7) justified by
-   one deciding clause you can quote.
-4. It is a normal license - **not** a bespoke or source-available vendor license (BUSL, Commons Clause,
-   Elastic, RSAL, SSPL and similar). Those are borderline; leave them for a human.
+3. Either Cavil already knows the license, **or** you can place it on the risk scale (1-7) and quote the
+   single clause that fixes the tier.
+
+Source-available and restrictive licenses (SSPL, BUSL, Commons Clause, Elastic, RSAL and similar) **are in
+scope** - do not blanket-skip them. Rate them at their real tier (usually 6-7), and in the `reason` say
+plainly that the license is source-available / not open source and name the restricting clause, so the
+lawyer scrutinises it. Leave one for a human only when you genuinely cannot pin its terms (e.g. BUSL with
+an unclear change-date/additional-use grant you cannot resolve), not merely because it is restrictive.
 
 ## YOUR WORKLIST
 
@@ -85,12 +93,18 @@ source. **Never use risk 9** - that is Cavil's keyword-only Unknown bucket, neve
 
 `cavil_propose_license_pattern(package_id, snippet_id, pattern, license, reason, risk?, flags?)`
 
-- **`pattern`** must be text that is actually in the snippet (the server rejects one that is not). Keep it
-  simple: **copy the snippet's license wording verbatim** - do not rewrite, summarise, or insert `$SKIP`
-  placeholders. If the snippet is itself an `SPDX-License-Identifier: <ID>` line, use exactly that line
-  (the best possible pattern). You may drop an obvious leading copyright/holder line, but when unsure just
-  use the whole snippet body. A human refines the wording later if needed; your job is a correct license
-  and risk, not a polished pattern.
+- **`pattern`** - author a **reusable** pattern from the snippet so it also matches this license in
+  *other* packages (that reuse is what feeds the SBOM; a pattern that only ever matches this one file is
+  weak). Patterns are token matches, so:
+  - Keep the license's own identifying words **literal**: the SPDX id / license name and its **version**
+    (`2.0`, `3`, `1.1`). These justify your `license` value and must **never** be `$SKIP`-ed - if a token
+    tells you *which* license this is, it stays literal.
+  - Replace the **variable** parts with `$SKIPn` (n = up to how many words it may swallow): copyright
+    holder, year, author, email, URL, and the *package's* own name/version. One `$SKIP` can swallow a
+    whole copyright clause.
+  - No leading or trailing `$SKIP` (rejected); copy the license's wording **exactly** between the skips
+    (do not paraphrase); the result must still match the snippet (the server checks). A bare
+    `SPDX-License-Identifier: <ID>` line is patterned verbatim - the single highest-value pattern.
 - **`license`** = the canonical identifier (the SPDX id when the license is on the SPDX list).
 - **`reason`** = the lawyer's reassurance (see WRITING THE REASON).
 
@@ -107,19 +121,26 @@ Then routing is automatic, and you drive it like this:
 
 ### Worked examples
 
-- Snippet: `Permission is hereby granted, free of charge, to any person obtaining a copy of this software`
-  → MIT (Cavil knows it). Call: `pattern` = that sentence, `license="MIT"`, no risk,
-  `reason="Standard MIT License - permission-to-use grant, attribution-only (risk 2). Cavil already
-  recognises MIT."`
+- Snippet: `Copyright (c) 2021 Jane Doe. Permission is hereby granted, free of charge, to any person
+  obtaining a copy of this software` → MIT (Cavil knows it). `pattern="Copyright (c) $SKIP5 Permission is
+  hereby granted, free of charge, to any person obtaining a copy of this software"`, `license="MIT"`, no
+  risk (holder `$SKIP`-ed; grant wording kept literal). `reason="Standard MIT License - the only condition
+  is preserving the copyright/permission notice, risk 2. Cavil already recognises MIT."`
 - Snippet: `SPDX-License-Identifier: Apache-2.0` → `pattern="SPDX-License-Identifier: Apache-2.0"`,
   `license="Apache-2.0"`, no risk.
-- Snippet: a `Foobar Public License 1.0` body whose only condition is keeping the notice, not on any
-  SPDX list → new license. Call: `pattern` = the snippet's license text verbatim,
-  `license="Foobar-1.0"`, `risk=2`, `reason="Foobar Public License 1.0: permissive, only condition is
-  preserving the attribution notice (clause 2) - maps to risk 2. Not on the SPDX list; proposing as a new
-  license."`
-- Snippet: a Business Source License / Commons Clause / vague hand-written relicense preamble → **leave
-  it** (bespoke/source-available; a human decides).
+- Snippet: a `Foobar Public License 1.0` body whose only condition is keeping the notice, not on any SPDX
+  list → new license. Keep the license name+version literal, `$SKIP` the holder:
+  `pattern="Foobar Public License 1.0 ... Copyright $SKIP6 ... you may use and distribute this software
+  provided you retain this notice"`, `license="Foobar-1.0"`, `risk=2`, `reason="Foobar Public License 1.0
+  (not on the SPDX list): permissive - the only condition is retaining the attribution notice (clause 2),
+  so risk 2. Proposing as a new license."`
+- Snippet: the Server Side Public License text → `license="SSPL-1.0"` (if Cavil rejects it as unknown,
+  re-call with `risk=6`). `reason="Server Side Public License 1.0 - source-available, NOT open source:
+  §13 requires releasing the source of the entire service stack used to offer the software. Risk 6.
+  Please double-check before accepting."` (source-available is in scope - rate it, flag it, don't skip.)
+- Snippet: a vague hand-written preamble that names no license you can identify and matches nothing in
+  your research → **leave it** for a human. (Not because it is unusual, but because you genuinely cannot
+  name the license or defend a tier.)
 
 ## WRITING THE REASON
 
@@ -129,8 +150,10 @@ double-check**. State the license name and risk in words. Do not paste long lice
 
 ## CONFLICTS AND IDEMPOTENCY
 
-- Filing a new-license proposal retires that snippet's missing-license report, so it drops out of the
-  `resolution=reported` list and you will not see it again. The sweep is naturally self-limiting.
+- Once you propose for a snippet it drops out of your `resolution=reported` worklist (the filter excludes
+  snippets that already have a proposal), so the sweep is self-limiting and you will not re-research it. The
+  underlying missing-license report is kept as a fallback and only re-appears if a human dismisses your
+  proposal; it is retired for good when the proposal is approved.
 - If a call comes back with `Conflicting ... already exists` or `... proposal already exists`, treat it as
   **success - move on.** A pattern or proposal already covers that snippet. Never retry or reword to force
   a second one.
@@ -144,7 +167,9 @@ and a **"LEFT FOR A HUMAN"** list of every snippet you did not propose - id, fil
 
 - Your **only** write action is `cavil_propose_license_pattern`. Never accept/reject a review, create a
   note, or propose ignore-snippets/globs.
-- **When in doubt, leave the report standing.** This is the safe default and outranks completeness.
+- **If you genuinely cannot identify the license or defend a tier, leave the report standing** - a correct
+  "I could not resolve this" beats a wrong risk. But research it properly first; do not punt what you could
+  pin down.
 - **Rate by obligations, not badges** - OSI/FSF approval does not lower a copyleft's risk.
 - **Read the real license text and cite a primary source** before naming or rating a license.
 - Never assign risk 9 to an identified license.
