@@ -723,6 +723,14 @@ subtest 'New-license proposal keeps its missing-license report as a fallback' =>
   };
   is $count_for_2->(), 2, 'report and proposal coexist in the database';
 
+  # The menu counter must count each snippet once (one card), not once per row - a coexisting report and
+  # its proposal is a single Missing Licenses entry.
+  my $missing_count = sub {
+    $t->get_ok('/licenses/proposed/stats')->status_is(200);
+    return $t->tx->res->json->{missing};
+  };
+  is $missing_count->(), 1, 'menu counter counts the report+proposal snippet once, not twice';
+
   # The Missing Licenses page shows the snippet once - the proposal supersedes the bare report
   my $listed = sub {
     $t->get_ok('/licenses/proposed/meta?action=missing_license&action=new_license')->status_is(200);
@@ -732,8 +740,13 @@ subtest 'New-license proposal keeps its missing-license report as a fallback' =>
   is scalar(@$shown),     1,             'snippet listed once while the proposal exists';
   is $shown->[0]{action}, 'new_license', 'the proposal is shown, not the bare report';
 
-  # Dismiss the (bad) proposal - the missing-license report must survive and re-surface
-  $t->post_ok("/licenses/proposed/remove/$shown->[0]{token_hexsum}")->status_is(200)->json_is('/removed', 1);
+  # Dismiss the (bad) proposal - the missing-license report must survive and re-surface. The remove
+  # response returns the un-hidden report as `fallback` so the page can swap it into place without a reload.
+  $t->post_ok("/licenses/proposed/remove/$shown->[0]{token_hexsum}")
+    ->status_is(200)
+    ->json_is('/removed',               1)
+    ->json_is('/fallback/action',       'missing_license')
+    ->json_is('/fallback/data/snippet', 2);
   my $after = $listed->();
   is scalar(@$after),     1,                 'the report re-surfaces after dismissing the proposal';
   is $after->[0]{action}, 'missing_license', 'the bare report is shown again, not lost';
@@ -746,7 +759,8 @@ subtest 'New-license proposal keeps its missing-license report as a fallback' =>
     ->status_is(200)
     ->json_is('/ok',             true)
     ->json_is('/results/0/kind', 'pattern');
-  is $count_for_2->(), 0, 'approving the proposal retires both the proposal and the report';
+  is $count_for_2->(),   0, 'approving the proposal retires both the proposal and the report';
+  is $missing_count->(), 0, 'menu counter clears once the proposal is approved';
 };
 
 done_testing();

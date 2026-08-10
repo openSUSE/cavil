@@ -698,8 +698,15 @@ sub proposal_stats($self) {
     "SELECT
        (SELECT COUNT(*) FROM proposed_changes
           WHERE action = 'create_pattern' OR action = 'create_ignore' OR action = 'create_glob') AS proposals,
-       (SELECT COUNT(*) FROM proposed_changes
-          WHERE action = 'missing_license' OR action = 'new_license') AS missing"
+
+       -- One per card shown on the Missing Licenses page: every new_license, plus each missing_license
+       -- report NOT already covered by a new_license for the same snippet (same dedup as proposed_changes).
+       -- Counting both would double a snippet that has a kept report and its proposal.
+       (SELECT COUNT(*) FROM proposed_changes pc
+          WHERE pc.action = 'new_license'
+             OR (pc.action = 'missing_license'
+                 AND NOT EXISTS (SELECT 1 FROM proposed_changes np WHERE np.action = 'new_license'
+                                   AND (np.data->>'snippet')::bigint = (pc.data->>'snippet')::bigint))) AS missing"
   )->hash;
 }
 
@@ -914,31 +921,58 @@ sub proposed_changes ($self, $options) {
 
   my $total = 0;
   for my $change (@$changes) {
-
-    # closest_pattern reloads the pattern bag from disk per call; new_license rows carry a pattern but the
-    # Missing Licenses page never shows a closest match for them, so skip that work.
-    $change->{closest} = undef;
-    if ( $change->{action} ne 'new_license'
-      && defined $change->{data}{pattern}
-      && (my $closest = $self->closest_pattern($change->{data}{pattern})))
-    {
-      $change->{closest} = {
-        id           => $closest->{id},
-        similarity   => $closest->{similarity},
-        license_name => $closest->{license},
-        risk         => $closest->{risk}
-      };
-    }
-
-    $change->{package} = undef;
-    if (my $id = $change->{data}{package}) {
-      $change->{package} = $db->query('SELECT id, name FROM bot_packages WHERE id = ?', $id)->hash;
-    }
-
+    $self->_enrich_proposed_change($db, $change);
     $total = delete $change->{total};
   }
 
   return {total => $total, changes => $changes->to_array};
+}
+
+# Attach the display context a proposed_changes row needs: the closest existing pattern (for the
+# Unidentified card's footer) and the originating package. Shared by the list feed and the single-row
+# fallback lookup below.
+sub _enrich_proposed_change ($self, $db, $change) {
+
+  # closest_pattern reloads the pattern bag from disk per call; new_license rows carry a pattern but the
+  # Missing Licenses page never shows a closest match for them, so skip that work.
+  $change->{closest} = undef;
+  if ( $change->{action} ne 'new_license'
+    && defined $change->{data}{pattern}
+    && (my $closest = $self->closest_pattern($change->{data}{pattern})))
+  {
+    $change->{closest} = {
+      id           => $closest->{id},
+      similarity   => $closest->{similarity},
+      license_name => $closest->{license},
+      risk         => $closest->{risk}
+    };
+  }
+
+  $change->{package} = undef;
+  if (my $id = $change->{data}{package}) {
+    $change->{package} = $db->query('SELECT id, name FROM bot_packages WHERE id = ?', $id)->hash;
+  }
+
+  return $change;
+}
+
+sub proposal_by_checksum ($self, $checksum) {
+  return $self->pg->db->select('proposed_changes', '*', {token_hexsum => $checksum})->expand->hash;
+}
+
+# The missing-license report still on file for a snippet, enriched like a proposed_changes row. Used to
+# swap the fallback report back into the page when a covering new_license proposal is dismissed. Returns
+# undef when no report exists (nothing to fall back to).
+sub report_for_snippet ($self, $snippet_id) {
+  my $db     = $self->pg->db;
+  my $change = $db->query(
+    "SELECT pc.*, EXTRACT(EPOCH FROM created) AS created_epoch, bu.login
+     FROM proposed_changes pc JOIN bot_users bu ON (bu.id = pc.owner)
+     WHERE pc.action = 'missing_license' AND (pc.data->>'snippet')::bigint = ?
+     ORDER BY pc.id DESC LIMIT 1", $snippet_id
+  )->expand->hash;
+  return undef unless $change;
+  return $self->_enrich_proposed_change($db, $change);
 }
 
 sub recent ($self, $options) {

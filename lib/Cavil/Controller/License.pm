@@ -186,8 +186,17 @@ sub remove_proposal ($self) {
   my $is_owner   = $patterns->is_proposal_owner($checksum, $self->current_user);
   return $self->render('permissions', status => 403) unless $is_owner || $can_curate;
 
-  my $removed = $patterns->remove_proposal($checksum);
-  $self->render(json => {removed => $removed ? 1 : 0});
+  # Capture the proposal before removing it: dismissing a new_license un-hides the missing-license report
+  # it was covering, and the page swaps that report into the dismissed card's place (no full reload).
+  my $proposal = $patterns->proposal_by_checksum($checksum);
+  my $removed  = $patterns->remove_proposal($checksum);
+
+  my $fallback;
+  if ($removed && $proposal && $proposal->{action} eq 'new_license') {
+    $fallback = $patterns->report_for_snippet($proposal->{data}{snippet});
+  }
+
+  $self->render(json => {removed => $removed ? 1 : 0, fallback => $fallback});
 }
 
 sub show ($self) {

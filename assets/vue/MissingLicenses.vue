@@ -76,6 +76,7 @@
                 </tbody>
               </table>
             </div>
+            <div v-if="change.action === 'new_license' && change.reason_html" class="change-sep"></div>
             <div
               v-if="change.action === 'new_license' && change.reason_html"
               class="change-band change-rationale markdown-body"
@@ -191,32 +192,37 @@ export default {
       if (this.total === null || this.total < data.total) this.total = data.total;
 
       for (const change of changes) {
-        change.state = 'proposed';
-        change.editUrl = `/snippet/edit/${change.data.snippet}?hash=${change.token_hexsum}&from=${change.data.from}`;
-        change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
-
-        if (change.package !== null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
-        if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
-
-        if (change.data.ai_assisted !== undefined) change.data.ai_assisted = change.data.ai_assisted == 1;
-
-        const highlightedKeywords = change.data.highlighted_keywords ?? [];
-        const highlightedLicenses = change.data.highlighted_licenses ?? [];
-        let num = 0;
-        const lines = [];
-        for (const text of change.data.pattern.split('\n')) {
-          const isKeyword = highlightedKeywords.includes(num.toString());
-          const isLicense = highlightedLicenses.includes(num.toString());
-          const highlighted = isLicense ? 'license' : isKeyword ? 'keyword' : null;
-          lines.push({num: ++num, text, highlighted});
-        }
-        change.lines = lines;
-
+        this.enrichChange(change);
         query.before = change.id;
       }
 
       if (this.changes === null) this.changes = [];
       this.changes.push(...changes);
+    },
+    // Derive the display fields the template needs from a raw proposed_changes row. Shared by getChanges
+    // and by the dismiss fallback swap.
+    enrichChange(change) {
+      change.state = 'proposed';
+      change.editUrl = `/snippet/edit/${change.data.snippet}?hash=${change.token_hexsum}&from=${change.data.from}`;
+      change.removeUrl = `/licenses/proposed/remove/${change.token_hexsum}`;
+
+      if (change.package != null) change.package.pkgUrl = `/reviews/details/${change.package.id}`;
+      if (change.closest != null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
+
+      if (change.data.ai_assisted !== undefined) change.data.ai_assisted = change.data.ai_assisted == 1;
+
+      const highlightedKeywords = change.data.highlighted_keywords ?? [];
+      const highlightedLicenses = change.data.highlighted_licenses ?? [];
+      let num = 0;
+      const lines = [];
+      for (const text of change.data.pattern.split('\n')) {
+        const isKeyword = highlightedKeywords.includes(num.toString());
+        const isLicense = highlightedLicenses.includes(num.toString());
+        const highlighted = isLicense ? 'license' : isKeyword ? 'keyword' : null;
+        lines.push({num: ++num, text, highlighted});
+      }
+      change.lines = lines;
+      return change;
     },
     getClassForLine(line) {
       return {
@@ -240,23 +246,22 @@ export default {
       }
     },
     async dismissProposal(change) {
-      const wasProposal = change.action === 'new_license';
-      change.state = 'updating';
-      const ua = new UserAgent({baseURL: window.location.href});
-      await ua.post(change.removeUrl);
-      this.removeChange(change);
-      this.$refs.toaster?.notify('Proposal dismissed', 'danger');
+      const ua  = new UserAgent({baseURL: window.location.href});
+      const res = await ua.post(change.removeUrl);
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        // no fallback body
+      }
 
       // Dismissing a new-license proposal un-hides the missing-license report it was covering (the report
-      // is kept, only the proposal is removed). Reload so that report re-appears immediately instead of
-      // only on the next page load - otherwise the card just vanishes and looks like the report was lost.
-      if (wasProposal) await this.reloadChanges();
-    },
-    async reloadChanges() {
-      this.changes = null;
-      this.total = null;
-      this.params.before = 0;
-      await this.getChanges();
+      // is kept - only the proposal is removed). The server returns that report; swap it into this card's
+      // place so it re-appears immediately, without reloading (and re-appending) the whole list.
+      const i = this.changes.indexOf(change);
+      if (data.fallback && i !== -1) this.changes.splice(i, 1, this.enrichChange(data.fallback));
+      else this.removeChange(change);
+      this.$refs.toaster?.notify('Proposal dismissed', 'danger');
     },
     toggleEditor(change) {
       this.editingId = this.editingId === change.id ? null : change.id;
@@ -431,13 +436,16 @@ export default {
 }
 /* The rationale is server-rendered markdown (same pipeline as notes), so style its elements via :deep -
    scoped rules do not reach v-html content. Mirrors the note body treatment for a consistent look. */
-/* The rendered markdown reads best on white, but a plain hairline let it merge with the white snippet
-   source above. A thick grey top border acts as a distinct separation layer between code and prose (the
-   card's chrome colour), so the two white bands stay visually separate. */
+/* A grey separation strip between the white snippet source and the white markdown rationale - two white
+   bands otherwise merge across a single hairline. Its own top hairline plus the rationale's change-band
+   top hairline give it a crisp line on both edges. */
+.change-sep {
+  background: rgb(246, 248, 250);
+  border-top: 1px solid rgb(208, 215, 222);
+  height: 8px;
+}
 .change-rationale {
   background: #fff;
-  border-top: 8px solid rgb(246, 248, 250);
-  box-shadow: inset 0 1px 0 rgb(208, 215, 222);
   color: #1f2328;
   font-size: 14px;
   line-height: 1.5;
