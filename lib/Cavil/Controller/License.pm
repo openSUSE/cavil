@@ -135,6 +135,14 @@ sub proposed_meta ($self) {
 
   my $changes = $self->patterns->proposed_changes({actions => $actions, before => $before, search => $search});
 
+  # A new_license proposal's reason is a full research write-up; render it to safe HTML (same markdown
+  # pipeline as notes) so the Missing Licenses card can show it formatted instead of as a raw blob.
+  for my $change (@{$changes->{changes}}) {
+    next unless $change->{action} eq 'new_license';
+    (my $reason = $change->{data}{reason} // '') =~ s/^AI Assistant:\s*//;
+    $change->{reason_html} = $self->markdown_to_safe_html($reason);
+  }
+
   $self->render(json => {changes => $changes->{changes}, total => $changes->{total}});
 }
 

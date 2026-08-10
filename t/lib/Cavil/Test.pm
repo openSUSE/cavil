@@ -636,7 +636,9 @@ sub ui_fixtures ($self, $app) {
           license     => 'UI-New-License-1.0',
           risk        => 2,
           ai_assisted => 1,
-          reason      => 'AI Assistant: Permissive terms whose only condition is preserving the attribution notice.'
+          reason      => "AI Assistant: **UI New License 1.0 (no SPDX id) - risk 2.** A permissive license.\n\n"
+            . "**Risk rationale**\nThe only condition is preserving the attribution notice, so risk 2.\n\n"
+            . "**Double-check before accepting**\nNot on the SPDX list; confirm the license name first."
         }
       }
     }

@@ -144,9 +144,37 @@ Then routing is automatic, and you drive it like this:
 
 ## WRITING THE REASON
 
-The `reason` is shown verbatim on the lawyer's Approve card, so write it for them: 1-3 plain sentences
-covering **what the license is**, the **single clause behind the risk**, and **your confidence / what to
-double-check**. State the license name and risk in words. Do not paste long license excerpts.
+The `reason` becomes the card the lawyer signs off on, and it is rendered as **Markdown** (the same
+renderer as Cavil notes). So write a short, well-structured report, not one long sentence. Use this shape
+(Markdown headings, bold, bullets, and links all render):
+
+```markdown
+**<License name> (<SPDX id, or "no SPDX id">) - risk N.** <one-line verdict the lawyer can act on>
+
+**Why this license**
+How you identified it from the snippet text and confirmed it (name the authoritative source).
+
+**Risk rationale**
+The single deciding clause that fixes the tier - cite it (e.g. "Article 5 requires the whole derivative
+work be distributed under the licence").
+
+**Obligations to know**
+- <attribution / notice>
+- <copyleft scope, and any network/SaaS trigger>
+- <patent / trademark / non-commercial / field-of-use terms, if any>
+
+**Double-check before accepting**
+<the one thing a lawyer should verify - a borderline reading, a source-available caveat, whose EULA it is -
+or "Nothing; this is a clear-cut case.">
+
+**Sources**
+- <title> - <url>
+```
+
+Keep it scannable: a screenful, not an essay. **Cite** the deciding clause, do not paste long verbatim
+license excerpts. For a plainly clear-cut, already-known license (e.g. a bare MIT grant) a two-line version
+is fine - lead with the bold verdict line and one sentence of rationale; the full shape is for licenses
+that genuinely need the lawyer's attention (new, restrictive, or source-available).
 
 ## CONFLICTS AND IDEMPOTENCY
 

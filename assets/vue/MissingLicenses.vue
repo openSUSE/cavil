@@ -76,47 +76,47 @@
                 </tbody>
               </table>
             </div>
-            <div class="change-form">
-              <div v-if="change.action === 'new_license' && rationale(change)" class="change-rationale">
-                {{ rationale(change) }}
-              </div>
-              <div v-else-if="change.data.reason" class="row">
-                <div class="col mb-3">
-                  <label class="form-label">Reason</label>
-                  <textarea v-model="change.data.reason" class="form-control" disabled="disabled" rows="3"></textarea>
-                </div>
-              </div>
-              <span v-if="hasAdminRole && editingId !== change.id">
-                <template v-if="change.action === 'new_license'">
-                  <button @click="approveProposal(change)" type="button" class="btn btn-success mb-2">Approve</button>
-                  &nbsp;
-                  <button @click="toggleEditor(change)" type="button" class="btn btn-outline-primary btn-sm mb-2">
-                    Edit
-                  </button>
-                  &nbsp;
-                  <button @click="dismissProposal(change)" class="btn btn-outline-danger btn-sm mb-2">Dismiss</button>
-                </template>
-                <template v-else>
-                  <button @click="toggleEditor(change)" type="button" class="btn btn-primary mb-2">Edit Pattern</button>
-                  &nbsp;
-                  <button @click="dismissProposal(change)" class="btn btn-danger btn-sm mb-2">Dismiss</button>
-                </template>
-              </span>
-              <div v-if="editingId === change.id" id="inline-snippet-editor" class="missing-inline-editor">
-                <SnippetEditor
-                  :key="`missing-editor-${change.id}-${editorVersion}`"
-                  :snippet-id="Number(change.data.snippet)"
-                  :hash="change.token_hexsum"
-                  :from="change.data.from"
-                  :has-admin-role="hasAdminRole"
-                  :has-contributor-role="hasContributorRole"
-                  :allowed-actions="['create-pattern']"
-                  :initial="editorInitial(change)"
-                  mode="inline"
-                  @submit="onEditorSubmit(change, $event)"
-                  @cancel="editingId = null"
-                />
-              </div>
+            <div
+              v-if="change.action === 'new_license' && change.reason_html"
+              class="change-band change-rationale markdown-body"
+              v-html="change.reason_html"
+            ></div>
+            <div
+              v-else-if="change.action === 'missing_license' && change.data.reason"
+              class="change-band change-reason"
+            >
+              <label class="form-label">Reason</label>
+              <textarea v-model="change.data.reason" class="form-control" disabled="disabled" rows="3"></textarea>
+            </div>
+
+            <div v-if="hasAdminRole && editingId !== change.id" class="change-band change-actions-bar">
+              <template v-if="change.action === 'new_license'">
+                <button @click="approveProposal(change)" type="button" class="btn btn-success">Approve</button>
+                <button @click="toggleEditor(change)" type="button" class="btn btn-outline-primary btn-sm">Edit</button>
+                <button @click="dismissProposal(change)" type="button" class="btn btn-outline-danger btn-sm">
+                  Dismiss
+                </button>
+              </template>
+              <template v-else>
+                <button @click="toggleEditor(change)" type="button" class="btn btn-primary">Edit Pattern</button>
+                <button @click="dismissProposal(change)" type="button" class="btn btn-danger btn-sm">Dismiss</button>
+              </template>
+            </div>
+
+            <div v-if="editingId === change.id" id="inline-snippet-editor" class="change-band change-editor">
+              <SnippetEditor
+                :key="`missing-editor-${change.id}-${editorVersion}`"
+                :snippet-id="Number(change.data.snippet)"
+                :hash="change.token_hexsum"
+                :from="change.data.from"
+                :has-admin-role="hasAdminRole"
+                :has-contributor-role="hasContributorRole"
+                :allowed-actions="['create-pattern']"
+                :initial="editorInitial(change)"
+                mode="inline"
+                @submit="onEditorSubmit(change, $event)"
+                @cancel="editingId = null"
+              />
             </div>
             <div v-if="change.action === 'missing_license'" class="change-footer">
               <div v-if="change.closest !== null">
@@ -240,11 +240,23 @@ export default {
       }
     },
     async dismissProposal(change) {
+      const wasProposal = change.action === 'new_license';
       change.state = 'updating';
       const ua = new UserAgent({baseURL: window.location.href});
       await ua.post(change.removeUrl);
       this.removeChange(change);
       this.$refs.toaster?.notify('Proposal dismissed', 'danger');
+
+      // Dismissing a new-license proposal un-hides the missing-license report it was covering (the report
+      // is kept, only the proposal is removed). Reload so that report re-appears immediately instead of
+      // only on the next page load - otherwise the card just vanishes and looks like the report was lost.
+      if (wasProposal) await this.reloadChanges();
+    },
+    async reloadChanges() {
+      this.changes = null;
+      this.total = null;
+      this.params.before = 0;
+      await this.getChanges();
     },
     toggleEditor(change) {
       this.editingId = this.editingId === change.id ? null : change.id;
@@ -295,12 +307,6 @@ export default {
       const result = data && data.results && data.results[0];
       const message = (result && result.error) || (data && data.error) || `Request failed (HTTP ${res.statusCode})`;
       this.$refs.toaster?.notify(message, 'danger', 5000);
-    },
-
-    // The plain-language reassurance shown on a proposed-license card; drop the "AI Assistant:" prefix the
-    // badge already conveys.
-    rationale(change) {
-      return (change.data.reason || '').replace(/^AI Assistant:\s*/, '');
     },
 
     // Pre-fill the inline editor with the researched values when a lawyer wants to adjust before approving.
@@ -399,24 +405,84 @@ export default {
   overflow: hidden;
   padding: 0;
 }
-.change-form {
-  background-color: rgb(246, 248, 250);
+/* The card is a stack of full-width bands separated by hairlines - no nested boxes with their own borders
+   or padding. Same edge-to-edge treatment as the report view and file browser (FileSource.vue). */
+.change-band {
   border-top: 1px solid rgb(208, 215, 222);
-  padding: 10px;
+  padding: 12px 16px;
 }
+.change-reason {
+  background-color: rgb(246, 248, 250);
+}
+.change-actions-bar {
+  align-items: center;
+  background-color: rgb(246, 248, 250);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+/* The inline editor is a flush band, not a boxed-in card: white like the source view, its own hairline
+   above, and no rounded inner border. The editor's own top margin is dropped so it sits against the rule. */
+.change-editor {
+  background: #fff;
+}
+.change-editor :deep(.snippet-editor) {
+  margin-top: 0;
+}
+/* The rationale is server-rendered markdown (same pipeline as notes), so style its elements via :deep -
+   scoped rules do not reach v-html content. Mirrors the note body treatment for a consistent look. */
 .change-rationale {
-  color: #24292e;
-  font-size: 13px;
-  line-height: 20px;
-  margin-bottom: 0.75rem;
-  white-space: pre-wrap;
+  background: #fff;
+  color: #1f2328;
+  font-size: 14px;
+  line-height: 1.5;
 }
-.missing-inline-editor {
-  background: #ffffff;
-  border: 1px solid rgb(208, 215, 222);
+.change-rationale :deep(h1),
+.change-rationale :deep(h2),
+.change-rationale :deep(h3),
+.change-rationale :deep(h4) {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+.change-rationale :deep(h1:first-child),
+.change-rationale :deep(h2:first-child),
+.change-rationale :deep(h3:first-child) {
+  margin-top: 0;
+}
+.change-rationale :deep(p) {
+  margin-bottom: 12px;
+}
+.change-rationale :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.change-rationale :deep(ul),
+.change-rationale :deep(ol) {
+  margin-bottom: 12px;
+  padding-left: 22px;
+}
+.change-rationale :deep(li + li) {
+  margin-top: 4px;
+}
+.change-rationale :deep(code) {
+  background: rgba(175, 184, 193, 0.2);
+  border-radius: 4px;
+  font-size: 85%;
+  padding: 0.2em 0.4em;
+}
+.change-rationale :deep(pre) {
+  background: #f6f8fa;
   border-radius: 6px;
-  margin-top: 0.5rem;
-  padding: 1rem;
+  font-size: 12px;
+  overflow: auto;
+  padding: 12px;
+}
+.change-rationale :deep(pre code) {
+  background: transparent;
+  padding: 0;
+}
+.change-rationale :deep(a) {
+  color: #0969da;
 }
 .change-footer {
   background-color: rgb(246, 248, 250);
