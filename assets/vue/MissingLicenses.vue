@@ -416,7 +416,7 @@ export default {
 }
 .change-actions-bar {
   align-items: center;
-  background-color: rgb(246, 248, 250);
+  background-color: #fff;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -431,8 +431,10 @@ export default {
 }
 /* The rationale is server-rendered markdown (same pipeline as notes), so style its elements via :deep -
    scoped rules do not reach v-html content. Mirrors the note body treatment for a consistent look. */
+/* The rationale sits between the white snippet source and the white actions bar; give it a tinted
+   background so each divide is a colour change, not just a hairline (two white bands read as one). */
 .change-rationale {
-  background: #fff;
+  background: rgb(246, 248, 250);
   color: #1f2328;
   font-size: 14px;
   line-height: 1.5;
@@ -471,7 +473,8 @@ export default {
   padding: 0.2em 0.4em;
 }
 .change-rationale :deep(pre) {
-  background: #f6f8fa;
+  background: #fff;
+  border: 1px solid rgb(208, 215, 222);
   border-radius: 6px;
   font-size: 12px;
   overflow: auto;
