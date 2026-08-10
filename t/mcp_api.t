@@ -184,7 +184,23 @@ subtest 'MCP' => sub {
         like $after->{content}[0]{text}, qr/Filters: resolution=reported/, 'echoes reported filter';
         like $after->{content}[0]{text}, qr/snippet $sid\b/,               'snippet present once reported';
 
-        $sdb->query('DELETE FROM proposed_changes WHERE id = ?', $pc);
+        # A report is a correction: even after Cavil auto-resolves the snippet (fold) AND the classifier
+        # rejects it as non-license, resolution=reported must still surface it - otherwise a wrongly
+        # auto-resolved new license would be hidden. It is correctly absent from the plain unresolved set.
+        $sdb->query('UPDATE file_snippets SET resolution = ? WHERE snippet = ?', 'fold', $sid);
+        $sdb->query('UPDATE snippets SET license = false, classified = true WHERE id = ?', $sid);
+        my $corrected = $client->call_tool('cavil_search_snippets',
+          {package_id => 1, group => 'text', search => 'ZZMCP', resolution => 'reported'});
+        like $corrected->{content}[0]{text}, qr/snippet $sid\b/,
+          'reported surfaces an auto-resolved, classifier-rejected snippet';
+        my $unresolved = $client->call_tool('cavil_search_snippets',
+          {package_id => 1, group => 'text', search => 'ZZMCP', resolution => 'unresolved'});
+        unlike $unresolved->{content}[0]{text}, qr/snippet $sid\b/,
+          'the same snippet is absent from unresolved (it is resolved and classifier-rejected)';
+
+        $sdb->query('UPDATE file_snippets SET resolution = NULL WHERE snippet = ?',       $sid);
+        $sdb->query('UPDATE snippets SET license = true, classified = true WHERE id = ?', $sid);
+        $sdb->query('DELETE FROM proposed_changes WHERE id = ?',                          $pc);
       };
 
       subtest 'fleet-wide search never exposes embargoed snippets' => sub {

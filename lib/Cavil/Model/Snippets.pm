@@ -380,8 +380,10 @@ sub unclassified ($self, $options) {
     $match .= " AND fs.resolution IN ($placeholders)";
   }
 
-  # "Reported" is orthogonal to the file_snippets.resolution states (a reported snippet is usually still
-  # unresolved), so it does not touch $match/@kinds: the linked occurrence and counts stay generation-only.
+  # "Reported" is independent of the file_snippets.resolution states by design: a report can be filed
+  # against a snippet Cavil auto-resolved (folded/cleared/covered) as a correction, and hiding those would
+  # let a wrongly-resolved new license slip through. So it does not touch $match/@kinds - the linked
+  # occurrence and counts stay generation-only, and reported snippets surface whatever their resolution.
   elsif ($resolution_option eq 'reported') {
     $resolution = "AND $REPORTED_EXISTS";
   }
@@ -478,7 +480,12 @@ sub snippet_search ($self, $options) {
   # license = false). Confirmed candidates (license = true) and snippets still pending classification
   # (classified = false) are kept. Without this the tool floods callers with classifier-rejected code
   # comments the report never shows, and its counts drift far above the package's unresolved_matches.
-  $extra .= ' AND (s.license OR NOT s.classified)';
+  #
+  # Skip this for "reported": a missing-license report is an explicit human/agent assertion that the
+  # snippet IS a license, and reporting one Cavil auto-resolved (folded/cleared/covered) or the classifier
+  # rejected is an expected *correction*. Those must surface regardless of resolution or classifier verdict
+  # (the res_clause above already imposes no resolution filter), and the curated report set can't flood.
+  $extra .= ' AND (s.license OR NOT s.classified)' unless $res eq 'reported';
   if (defined $options->{license} && $options->{license} ne '') {
     $extra .= ' AND lp.license = ?';
     push @binds, $options->{license};

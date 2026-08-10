@@ -294,7 +294,7 @@ sub register ($self, $app, $config) {
         resolution => {
           type        => 'string',
           description =>
-            'unresolved (default) | reported (has an open missing-license report; usually also unresolved) | fold | clear | overlap | covered | any'
+            'unresolved (default) | reported (has an open missing-license report, whatever its resolution - reporting an auto-resolved snippet is a valid correction) | fold | clear | overlap | covered | any'
         },
         group => {
           type        => 'string',

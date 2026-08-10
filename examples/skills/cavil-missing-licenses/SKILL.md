@@ -45,7 +45,9 @@ an unclear change-date/additional-use grant you cannot resolve), not merely beca
 
 Call `cavil_search_snippets(resolution=reported, group=text, order=occurrences)` - only snippets that
 already have a missing-license report, most-repeated first (add `package_id=N` to scope to one package if
-asked). Each row gives a `snippet_id`, package, occurrence count, and the verbatim body.
+asked). Each row gives a `snippet_id`, package, occurrence count, and the verbatim body. This includes
+snippets Cavil already auto-resolved (folded/cleared/covered): a report is often a correction of a wrong
+auto-resolution, so a resolved-but-reported snippet is a real new license to research, not a mistake.
 
 Work top to bottom. Act on each `snippet_id` **once** - one proposal clears all its occurrences. Operate
 autonomously: do not pause for confirmation between snippets.

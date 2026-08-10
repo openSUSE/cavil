@@ -86,7 +86,7 @@ These tools are currently available:
 
 - *cavil_search_snippets* - Query the unresolved-snippet backlog: filter by resolution / package / license / full-text, aggregate identical snippets by impact, or list individual occurrences with per-snippet detail
   - **Required Roles**: `user` (read-only)
-  - `resolution`: One of `unresolved` (default), `reported` (has an open missing-license report; usually also unresolved), `fold`, `clear`, `overlap`, `covered`, `any`. (string, optional)
+  - `resolution`: One of `unresolved` (default), `reported` (has an open missing-license report, whatever its resolution - reporting a snippet Cavil auto-resolved is a valid correction), `fold`, `clear`, `overlap`, `covered`, `any`. (string, optional)
   - `group`: `text` (default, impact-ranked distinct snippets) or `none` (individual occurrences with overlaps/keywords/covered-by detail). (string, optional)
   - `order`: For `group=text`, one of `occurrences` (default), `packages`, `risk`, `recent`. (string, optional)
   - `package_id`: Scope to one package; omit for fleet-wide. (number, optional)
