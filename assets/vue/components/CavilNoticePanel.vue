@@ -152,6 +152,7 @@ export default {
   line-height: 1.45;
   overflow-wrap: anywhere;
   padding: 0.75rem 0.85rem;
+  white-space: pre-wrap;
 }
 .cavil-notice-panel-warning .cavil-notice-item {
   padding-left: 2rem;

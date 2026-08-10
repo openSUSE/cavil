@@ -10,7 +10,8 @@ use File::Spec::Functions qw(catfile);
 use Mojo::DOM;
 use Mojo::File 'path';
 use Mojo::Util 'dumper';
-use Cavil::Util qw(buckets decode_json_fast encode_json_fast expand_spec_macros parse_service_file slurp_and_decode);
+use Cavil::Util (qw(buckets decode_json_fast encode_json_fast expand_spec_macros legal_review_notices),
+  qw(parse_service_file slurp_and_decode));
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
 use YAML::XS qw(Load);
@@ -74,9 +75,6 @@ my $URL_RE   = qr!
 !ix;
 
 my $LICENSE_COMMENT_RE = qr/^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/;
-
-# Legal review notices, non-standard but used in SUSE packages
-my $LEGAL_REVIEW_NOTICE_RE = qr/^\s*#+\s*Legal-Review-Notice:\s*(.+)\s*$/i;
 
 # Plain "Dockerfile", multibuild flavors like "Dockerfile.driver-550", and named "foo.Dockerfile"
 my $DOCKERFILE_RE = qr/^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
@@ -425,25 +423,31 @@ sub _debian_files ($file) {
 }
 
 sub _dockerfile ($file) {
-  my $info = {file => $file->basename, type => 'dockerfile', licenses => [], legal_review_notices => []};
-  for my $line (split "\n", $file->slurp) {
+  my $content = $file->slurp;
+  my $info    = {
+    file                 => $file->basename,
+    type                 => 'dockerfile',
+    licenses             => [],
+    legal_review_notices => legal_review_notices($content)
+  };
+  for my $line (split "\n", $content) {
     if    ($line =~ $LICENSE_COMMENT_RE)                                 { push @{$info->{licenses}}, $1 }
     elsif ($line =~ /^.*org.opencontainers.image.version="(.+)".*$/)     { $info->{version} ||= $1 }
     elsif ($line =~ /^.*org.opencontainers.image.description="(.+)".*$/) { $info->{summary} ||= $1 }
-    elsif ($line =~ $LEGAL_REVIEW_NOTICE_RE)                             { push @{$info->{legal_review_notices}}, $1 }
   }
 
   return $info;
 }
 
 sub _helmchart ($file) {
-  my $info = {file => $file->basename, type => 'helm', licenses => [], legal_review_notices => []};
-  for my $line (split "\n", $file->slurp) {
-    if    ($line =~ $LICENSE_COMMENT_RE)     { push @{$info->{licenses}},             $1 }
-    elsif ($line =~ $LEGAL_REVIEW_NOTICE_RE) { push @{$info->{legal_review_notices}}, $1 }
+  my $content = $file->slurp;
+  my $info
+    = {file => $file->basename, type => 'helm', licenses => [], legal_review_notices => legal_review_notices($content)};
+  for my $line (split "\n", $content) {
+    if ($line =~ $LICENSE_COMMENT_RE) { push @{$info->{licenses}}, $1 }
   }
 
-  my $data = eval { Load($file->slurp) };
+  my $data = eval { Load($content) };
   if (ref $data eq 'HASH') {
     if (my $version = $data->{version})     { $info->{version} = $version }
     if (my $summary = $data->{description}) { $info->{summary} = $summary }
@@ -484,18 +488,17 @@ sub _kiwifile ($file) {
 }
 
 sub _specfile ($file) {
-  my $info = {
+  my $content = expand_spec_macros($file->slurp);
+  my $info    = {
     file                 => $file->basename,
     type                 => 'spec',
     licenses             => [],
     sources              => [],
     '%doc'               => [],
     '%license'           => [],
-    legal_review_notices => []
+    legal_review_notices => legal_review_notices($content)
   };
-  for my $line (split "\n", expand_spec_macros($file->slurp)) {
-
-    # Standard metadata fields
+  for my $line (split "\n", $content) {
     if    ($line =~ /^License:\s*(.+)\s*$/)        { push @{$info->{licenses}},   $1 }
     elsif ($line =~ /^Source(?:\d+)?:\s*(.+)\s*$/) { push @{$info->{sources}},    $1 }
     elsif ($line =~ /^\%doc\s*(.+)\s*$/)           { push @{$info->{'%doc'}},     $1 }
@@ -504,9 +507,6 @@ sub _specfile ($file) {
     elsif ($line =~ /^Summary:\s*(.+)\s*$/)        { $info->{summary} ||= $1 }
     elsif ($line =~ /^Group:\s*(.+)\s*$/)          { $info->{group}   ||= $1 }
     elsif ($line =~ /^Url:\s*(.+)\s*$/i)           { $info->{url}     ||= $1 }
-
-    # Legal review notices
-    elsif ($line =~ $LEGAL_REVIEW_NOTICE_RE) { push @{$info->{legal_review_notices}}, $1 }
   }
 
   return $info;

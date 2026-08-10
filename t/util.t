@@ -19,8 +19,8 @@ use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
-  qw(buckets expand_spec_macros lines_context license_is_catch_all normalize_license_expr obs_ssh_auth parse_exclude_file),
-  qw(parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
+  qw(buckets expand_spec_macros legal_review_notices lines_context license_is_catch_all normalize_license_expr obs_ssh_auth),
+  qw(parse_exclude_file parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
   qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
   qw(decode_json_fast encode_json_fast to_json_fast)
@@ -645,6 +645,39 @@ subtest 'JSON helpers' => sub {
 
   # Everything Mojo::JSON sets except "canonical" is kept, so input that used to parse still parses
   is_deeply decode_json_fast('{"a":1,"a":2}'), {a => 2}, 'duplicate keys are still allowed, not fatal';
+};
+
+subtest 'legal_review_notices' => sub {
+  is_deeply legal_review_notices("Name: foo\nLicense: MIT\n"), [], 'no notices';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: single line\nLicense: MIT\n"), ['single line'], 'one-liner';
+
+  is_deeply legal_review_notices("###  Legal-Review-Notice:  many hashes and spaces  \n"), ['many hashes and spaces'],
+    'marker and whitespace stripped';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: line one\n# line two\n# line three\nLicense: MIT\n"),
+    ["line one\nline two\nline three"], 'continuation lines joined and stopped by a directive';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: trailing space   \n# more   \n"), ["trailing space\nmore"],
+    'trailing whitespace trimmed on every line';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: first\n\n# an unrelated comment\n"), ['first'],
+    'a blank line ends the notice';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: first\n#\n# an unrelated comment\n"), ['first'],
+    'an empty comment line ends the notice';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: first\n###\n# an unrelated comment\n"), ['first'],
+    'a hashes-only comment line ends the notice';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: first\nName: foo\n# Legal-Review-Notice: second\n"),
+    ['first', 'second'], 'two separate one-liners';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: first\n# more\n# Legal-Review-Notice: second\n# also\n"),
+    ["first\nmore", "second\nalso"], 'a new notice ends the previous block';
+
+  is_deeply legal_review_notices("# Legal-Review-Notice: at the very end\n# with a continuation"),
+    ["at the very end\nwith a continuation"], 'notice runs to the end of file';
 };
 
 done_testing;

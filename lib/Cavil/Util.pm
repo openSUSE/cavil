@@ -20,8 +20,9 @@ use Try::Tiny;
 
 our @EXPORT_OK = (
   qw(buckets expand_spec_macros file_and_checksum md5_file slurp_and_decode load_ignored_files lines_context normalize_license_expr),
-  qw(extract_spdx_identifiers normalize_license_text obs_ssh_auth paginate parse_exclude_file parse_service_file pattern_checksum),
-  qw(pattern_matches pattern_contains_redundant_skip read_lines request_id_from_external_link run_cmd),
+  qw(extract_spdx_identifiers legal_review_notices normalize_license_text obs_ssh_auth paginate parse_exclude_file),
+  qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip read_lines run_cmd),
+  qw(request_id_from_external_link),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
   qw(license_is_catch_all SNIPPET_SCORE_VERSION),
   qw(decode_json_fast encode_json_fast to_json_fast),
@@ -499,6 +500,30 @@ sub parse_service_file ($file) {
   }
 
   return $services;
+}
+
+# Legal review notices are a non-standard convention used in SUSE spec/Dockerfile/Helm comments. A notice opens with a
+# "Legal-Review-Notice:" comment and continues across the following comment lines until a blank line, an empty comment
+# line, a non-comment line, or a new notice ends the block. The possessive "#++" stops an empty "###" line from leaking
+# a stray "#" into the text.
+my $LEGAL_REVIEW_NOTICE_RE      = qr/^\s*#+\s*Legal-Review-Notice:\s*(.+)\s*$/i;
+my $LEGAL_REVIEW_NOTICE_CONT_RE = qr/^\s*#++\s*(\S.*?)\s*$/;
+
+sub legal_review_notices ($content) {
+  my @lines = split "\n", $content;
+  my @notices;
+  for (my $i = 0; $i < @lines; $i++) {
+    next unless $lines[$i] =~ $LEGAL_REVIEW_NOTICE_RE;
+    (my $text = $1) =~ s/\s+$//;
+    while ($i + 1 < @lines) {
+      my $next = $lines[$i + 1];
+      last if $next =~ $LEGAL_REVIEW_NOTICE_RE || $next !~ $LEGAL_REVIEW_NOTICE_CONT_RE;
+      $text .= "\n$1";
+      $i++;
+    }
+    push @notices, $text;
+  }
+  return \@notices;
 }
 
 sub pattern_matches ($pattern, $text) {
