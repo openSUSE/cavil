@@ -246,7 +246,7 @@ export default {
       }
     },
     async dismissProposal(change) {
-      const ua  = new UserAgent({baseURL: window.location.href});
+      const ua = new UserAgent({baseURL: window.location.href});
       const res = await ua.post(change.removeUrl);
       let data = {};
       try {

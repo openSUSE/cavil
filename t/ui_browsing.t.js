@@ -272,16 +272,17 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
     });
 
     await t.test('Missing Licenses', async t => {
+      // ui_fixtures seeds one new-license proposal, so the landing page renders that card (the full
+      // approve/dismiss/edit flow lives in ui_patterns). This is a read-only presence check.
       await page.goto(url);
       await openAccountMenu(page);
       await page.click('text=Missing Licenses');
       t.equal(await page.innerText('title'), 'Missing Licenses');
-      await page.waitForFunction(() =>
-        /All caught up!\s+No missing licenses have been flagged/.test(document.body.innerText)
-      );
+      await page.waitForSelector('#missing-licenses .change-container');
       t.match(
-        await page.innerText('#missing-licenses > div > div:nth-child(2)'),
-        /All caught up!\s+No missing licenses have been flagged/
+        await page.innerText('#missing-licenses .change-header'),
+        /Proposed license by/,
+        'renders the seeded proposal card'
       );
     });
 
