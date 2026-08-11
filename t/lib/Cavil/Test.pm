@@ -979,6 +979,12 @@ You may not use this software for evil.
 You may not use this software commercially without a separate agreement.
 Contact sales@example.com for enterprise terms.
 LICENSE
+
+  # A second, much longer document, so the list has two rows whose counts differ in width. The panel
+  # aligns its numbers into a column and a single-row fixture could never show that.
+  $src->child('COPYING')->spew(join "\n", '# SPDX-License-Identifier: Apache-2.0',
+    '', (map {"Clause $_ of some unrecognised terms."} 1 .. 119), '');
+
   $src->child('vendor', 'helper')->make_path->child('LICENSE')
     ->spew("# SPDX-License-Identifier: Apache-2.0\n\nA bundled dependency's own terms.\n");
   $src->child('src')->make_path->child('license.go')->spew("# SPDX-License-Identifier: MIT\n\npackage main\n");

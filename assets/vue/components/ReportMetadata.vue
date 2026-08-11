@@ -313,10 +313,13 @@
                purpose: what this catches is a small novel clause bolted onto a recognised license body,
                and 15 added lines in a 312-line BSD file rounds away to "5%". -->
           <span class="legal-document-lines">
-            {{ document.lines }} {{ document.lines === 1 ? 'line' : 'lines' }}
-            <span v-if="document.unexplained > 0"
-              >· <b>{{ document.unexplained }}</b> unexplained</span
-            >
+            <span v-if="document.unexplained > 0" class="legal-document-unexplained">
+              <b class="legal-document-count">{{ count(document.unexplained) }}</b> unexplained
+            </span>
+            <span class="legal-document-total">
+              <span class="legal-document-count">{{ count(document.lines) }}</span>
+              {{ document.lines === 1 ? 'line' : 'lines' }}
+            </span>
           </span>
         </li>
       </ul>
@@ -530,6 +533,11 @@ export default {
   methods: {
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
+    },
+    // Grouped explicitly rather than by browser locale, so a line count reads the same for everyone and
+    // cannot come back as "4.651" for a reader whose locale swaps the separators.
+    count(number) {
+      return number.toLocaleString('en-US');
     },
     // Before a decision both buttons stay solid (a plain call to action). Once one is the stored decision
     // it keeps its solid colour and the other relaxes to an outline - quieter, but still obviously a button
@@ -832,7 +840,6 @@ export default {
   background: linear-gradient(90deg, rgba(26, 127, 55, 0.08), #ffffff 2.5rem);
   display: flex;
   gap: 0.85rem;
-  justify-content: space-between;
   white-space: normal;
 }
 .cavil-notice-item.legal-document-item:hover {
@@ -841,6 +848,7 @@ export default {
 /* File names follow the report's convention: muted until hovered, where they turn link-blue */
 .legal-document-path {
   color: #57606a;
+  flex: 1 1 auto;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
@@ -853,10 +861,33 @@ export default {
   color: #0550ae;
   text-decoration-color: currentColor;
 }
+/* Both counts read as columns without a single fixed width being guessed at. The size is always present
+   and comes last, so it ends at the row's right edge on every row; because "N lines" is a constant width
+   (the number sits in a fixed slot) its digits line up too, and nothing trails off into blank space on a
+   file with no remainder. The remainder is the same trick one gap to the left, so when a row has one it
+   lands in the same place, and when it does not the column is simply empty.
+
+   No separator between them: the columns do that work, and a middle dot ends up orphaned against "lines"
+   whenever the remainder is short enough to sit at the far side of its slot. The remainder's slot is
+   narrower than the size's because it counts the lines of one file, not all of them. */
 .legal-document-lines {
   color: #6e7781;
+  display: flex;
   flex: 0 0 auto;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+.legal-document-count {
+  display: inline-block;
+  min-width: 3.4em;
+  text-align: right;
+}
+/* Deliberately a bare bold number, not a chip or a badge. A Counter chip was tried here and reads as a
+   status to be cleared; this is a measurement of the document, so it stays plain text. */
+.legal-document-unexplained .legal-document-count {
+  min-width: 2.4em;
 }
 .metadata-collapse-inner {
   padding: 0.85rem 0 1.1rem;

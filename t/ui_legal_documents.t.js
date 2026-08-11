@@ -22,20 +22,35 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.match(await documents.locator('.cavil-notice-heading').innerText(), /Legal documents/, 'panel title');
 
       const rows = documents.locator('.legal-document-item');
-      t.equal(await rows.count(), 1, 'the package license file is listed, and only that');
-      t.match(await rows.first().innerText(), /LICENSE/, 'named');
+      t.equal(await rows.count(), 2, 'both of the package own license files are listed, and only those');
+      t.match(await rows.nth(0).innerText(), /COPYING/, 'shallowest first, then alphabetical');
+      t.match(await rows.nth(1).innerText(), /LICENSE/, 'named');
       t.notMatch(await documents.innerText(), /vendor|license\.go/, 'vendored licenses and source are left out');
+
+      // The whole point of the layout: 120 and 4 are different widths, and their digits still end at the
+      // same x so the column can be scanned down rather than re-read on every row.
+      const [long, short] = await Promise.all(
+        [0, 1].map(i =>
+          rows
+            .nth(i)
+            .locator('.legal-document-count')
+            .last()
+            .evaluate(el => el.getBoundingClientRect().right)
+        )
+      );
+      t.equal(Math.round(long), Math.round(short), 'counts of different widths right-align to one column');
 
       // The SPDX line resolves, the three lines of novel terms do not - and the report is otherwise clean,
       // which is exactly the case this number exists to surface. Absolute, not a percentage, so a small
       // clause inside a large recognised license body cannot round away to nothing.
-      t.match(await rows.first().innerText(), /4 lines · 3 unexplained/, 'size and unexplained remainder');
+      t.match(await rows.nth(1).innerText(), /3 unexplained\s+4 lines/, 'size and unexplained remainder');
+      t.match(await rows.nth(0).innerText(), /119 unexplained\s+120 lines/, 'and on the longer document');
 
       // Bold is the scanning cue for "something here", so it goes on the remainder and not on the size
-      t.equal(await rows.first().locator('b').innerText(), '3', 'the unexplained count is the emphasised part');
+      t.equal(await rows.nth(1).locator('b').innerText(), '3', 'the unexplained count is the emphasised part');
 
       // File names follow the report's convention: muted until hovered, not link-blue on arrival
-      const link = rows.first().locator('a');
+      const link = rows.nth(1).locator('a');
       t.match(await link.getAttribute('href'), /\/reviews\/file_view\/1\//, 'opens in the file browser');
       t.equal(await link.evaluate(el => getComputedStyle(el).color), 'rgb(87, 96, 106)', 'muted like other file names');
     });
