@@ -865,15 +865,10 @@ export default {
   color: #0550ae;
   text-decoration-color: currentColor;
 }
-/* Both counts read as columns without a single fixed width being guessed at. The size is always present
-   and comes last, so it ends at the row's right edge on every row; because "N lines" is a constant width
-   (the number sits in a fixed slot) its digits line up too, and nothing trails off into blank space on a
-   file with no remainder. The remainder is the same trick one gap to the left, so when a row has one it
-   lands in the same place, and when it does not the column is simply empty.
-
-   No separator between them: the columns do that work, and a middle dot ends up orphaned against "lines"
-   whenever the remainder is short enough to sit at the far side of its slot. The remainder's slot is
-   narrower than the size's because it counts the lines of one file, not all of them. */
+/* The size comes last because it is always present: ending at the row's right edge keeps the column
+   aligned without a fixed width, and leaves no blank tail on files with no remainder. Both groups are a
+   constant width, so the remainder lands in the same place too. No separator between them - a middle dot
+   orphans against "lines" when the remainder sits at the far side of its slot. */
 .legal-document-lines {
   color: #6e7781;
   display: flex;
@@ -888,8 +883,7 @@ export default {
   min-width: 3.4em;
   text-align: right;
 }
-/* Deliberately a bare bold number, not a chip or a badge. A Counter chip was tried here and reads as a
-   status to be cleared; this is a measurement of the document, so it stays plain text. */
+/* A bare number, not a chip. A chip reads as a status to be cleared; this is a measurement. */
 .legal-document-unexplained .legal-document-count {
   min-width: 2.4em;
 }

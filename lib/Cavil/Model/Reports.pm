@@ -82,17 +82,11 @@ sub _legal_documents ($self, $id, $dig_report) {
   my $db = $self->pg->db;
   return $result unless my $pkg = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
 
-  # Every candidate's licensed line spans in one query. The question here is "did Cavil recognise this
-  # text at all", so grab-bag catch_all markers count: a match against "All Rights Reserved" or "Any
-  # copyright" is recognition, even though it identifies no license. Excluding them (as the cover guard
-  # rightly does, where the question is whether a license may be asserted) reported a NOTICE full of
-  # matched attribution boilerplate as almost entirely unexplained.
-  #
-  # Keyword patterns are still excluded. They carry no license because they are trigger words rather than
-  # legal text, and letting a stray "copyright notice" mark a line would hide the novel terms this counts.
-  # Nothing is lost against those either way: a genuinely novel clause matches no pattern of any kind.
-  #
-  # The file ids already pin one generation, exactly as the match queries in _dig_report do.
+  # Every candidate's licensed line spans in one query. The question is whether Cavil recognised the text
+  # at all, so catch_all markers count - excluding them (as the cover guard does, where the question is
+  # whether a license may be asserted) leaves a NOTICE of matched attribution boilerplate reading as
+  # almost entirely unexplained. Keyword patterns stay out: they are trigger words, and a stray
+  # "copyright notice" would mark a line of novel terms as explained. The file ids pin one generation.
   my %spans;
   my $matches = $db->query(
     "SELECT pm.file, pm.sline, pm.eline FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern

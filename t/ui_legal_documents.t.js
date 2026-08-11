@@ -59,12 +59,19 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       const nested = rows.nth(2).locator('a');
       const dir = nested.locator('.cavil-path-dir');
       t.equal(await dir.innerText(), 'legal-docs-1.0/fonts/tex-gyre/META-INF/', 'the directory is a part of its own');
+
+      // Screenshotting real paths showed the separation has to come from darkening the name, not from
+      // fading the directory: faded reads as washed out, and the directory is the half that matters.
       t.equal(
         await dir.evaluate(el => getComputedStyle(el).color),
-        'rgb(140, 149, 159)',
-        'dimmed a step below the file name it leads to'
+        'rgb(110, 119, 129)',
+        'the directory stays legible, one step below the muted default'
       );
-      t.equal(await nested.evaluate(el => getComputedStyle(el).color), 'rgb(87, 96, 106)', 'which keeps the weight');
+      t.equal(
+        await nested.locator('.cavil-path-name').evaluate(el => getComputedStyle(el).color),
+        'rgb(36, 41, 47)',
+        'while the name carries the contrast'
+      );
 
       // Every file in a real package sits under the version directory, so the prefix every row repeats
       // recedes for free - which is most of what made the long TeX Live paths tiring to read.
