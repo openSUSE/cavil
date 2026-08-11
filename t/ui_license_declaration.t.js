@@ -78,6 +78,9 @@ await t.test('Cavil UI - license declaration', skipUnlessOnline, async t => {
       // clause inside a large recognised license body cannot round away to nothing.
       t.match(await rows.first().innerText(), /4 lines · 3 unexplained/, 'size and unexplained remainder');
 
+      // Bold is the scanning cue for "something here", so it goes on the remainder and not on the size
+      t.equal(await rows.first().locator('b').innerText(), '3', 'the unexplained count is the emphasised part');
+
       // File names follow the report's convention: muted until hovered, not link-blue on arrival
       const link = rows.first().locator('a');
       t.match(await link.getAttribute('href'), /\/reviews\/file_view\/1\//, 'opens in the file browser');

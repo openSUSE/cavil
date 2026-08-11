@@ -309,7 +309,16 @@
       <ul class="cavil-notice-list">
         <li v-for="document in documents" :key="document.path" class="cavil-notice-item legal-document-item">
           <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path">{{ document.path }}</a>
-          <span class="legal-document-lines">{{ documentLines(document) }}</span>
+          <!-- A file Cavil fully understands just states its size, so only the unexplained remainder is
+               bold and a clean row carries no emphasis at all. Absolute rather than a percentage on
+               purpose: what this catches is a small novel clause bolted onto a recognised license body,
+               and 15 added lines in a 312-line BSD file rounds away to "5%". -->
+          <span class="legal-document-lines">
+            {{ document.lines }} {{ document.lines === 1 ? 'line' : 'lines' }}
+            <span v-if="document.unexplained > 0"
+              >· <b>{{ document.unexplained }}</b> unexplained</span
+            >
+          </span>
         </li>
       </ul>
     </cavil-notice-panel>
@@ -546,17 +555,6 @@ export default {
   methods: {
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
-    },
-    // A file Cavil fully understands just states its size; only an unexplained remainder is called out, so
-    // the list reads as an index of documents with the odd thing worth a look, not as a list of problems.
-    //
-    // Deliberately absolute rather than a percentage. What this number exists to catch is a small novel
-    // clause bolted onto an otherwise recognised license body, and a percentage rounds exactly that case
-    // away: 15 added lines in a 312-line BSD file reads as "5%" and disappears. The size beside it carries
-    // the other half, telling a recognised body with an addendum apart from a wholly unknown license.
-    documentLines(document) {
-      const lines = `${document.lines} ${document.lines === 1 ? 'line' : 'lines'}`;
-      return document.unexplained > 0 ? `${lines} · ${document.unexplained} unexplained` : lines;
     },
     // Before a decision both buttons stay solid (a plain call to action). Once one is the stored decision
     // it keeps its solid colour and the other relaxes to an outline - quieter, but still obviously a button
