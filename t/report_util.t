@@ -440,9 +440,19 @@ subtest 'license_compatibility proximity ranking' => sub {
       'config.d/settings.c'            => 0,
       'src/my_vendored_helpers/x.c'    => 0,
 
+      # Fixture directories whose names are language conventions rather than the bare word "test"
+      'harbor-2.15.1/src/pkg/chart/testdata/harbor-schema1/LICENSE' => 1,
+      'src/parser/test-data/sample.c'                               => 1,
+      'src/parser/test_data/sample.c'                               => 1,
+      'app/__tests__/helper.js'                                     => 1,
+      'lib/fixtures/payload.json'                                   => 1,
+
       # The generic Go module cache path (pkg/mod) is deliberately NOT matched: "pkg" is a legitimate
-      # source directory in most Go projects, so demoting it would hide real code.
-      'src/pkg/mod/golang.org/x/y.go' => 0
+      # source directory in most Go projects, so demoting it would hide real code. Neither is "spec",
+      # which is a test directory in Ruby but a specification in plenty of other trees, nor Perl's "t".
+      'src/pkg/mod/golang.org/x/y.go' => 0,
+      'src/spec/parser.rb'            => 0,
+      't/basic.t'                     => 0
     );
     for my $path (sort keys %expect) {
       my $report = {

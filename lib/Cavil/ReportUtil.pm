@@ -398,7 +398,7 @@ sub _dir_depth ($dir) { return $dir eq '' ? 0 : (($dir =~ tr{/}{}) + 1) }
 # license identifiers, a vendored sample), so proximity ranks them below any genuine source co-location.
 my %PERIPHERAL_SEGMENT = map { $_ => 1 } qw(
   doc docs documentation
-  test tests testing
+  test tests testing testdata test-data test_data __tests__ fixtures
   example examples sample samples
   vendor vendored _vendor third_party third-party 3rdparty contrib node_modules gomodcache
   licenses
