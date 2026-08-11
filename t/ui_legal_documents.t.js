@@ -78,6 +78,17 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.equal(await link.locator('.cavil-path-dir').innerText(), 'legal-docs-1.0/', 'even a lone shared prefix');
     });
 
+    // Shares this fixture: ISC is only in vendor/helper, MIT and Apache-2.0 are in shipped code.
+    await t.test('the license list says when a license is only in uninteresting places', async t => {
+      const scoped = page.locator('.risk-license-item', {has: page.locator('.risk-license-scope')});
+      t.equal(await scoped.count(), 1, 'exactly the one license that never touches shipped code');
+      t.match(await scoped.innerText(), /ISC/, 'the vendored-only license');
+      t.match(await scoped.locator('.risk-license-scope').innerText(), /^only in vendored files$/, 'says where');
+
+      // A location, not a verdict: a wrong "vendored" that read as "ignore this" would hide a real license
+      t.notMatch(await scoped.innerText(), /ignore|safe|skip/i, 'and never what to do about it');
+    });
+
     await t.test('nothing grades the declared license', async t => {
       const license = page.locator('#pkg-license');
       t.match(await license.innerText(), /MIT/, 'the declared license is shown as the plain value');

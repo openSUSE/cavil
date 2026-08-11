@@ -15,6 +15,7 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
+  qw(peripheral_scope),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
@@ -396,12 +397,15 @@ sub _dir_depth ($dir) { return $dir eq '' ? 0 : (($dir =~ tr{/}{}) + 1) }
 # bundled examples, vendored third-party trees, and license-text collections. Two incompatible licenses
 # that meet only in such files are almost never a real combination (a test fixture, a doc that enumerates
 # license identifiers, a vendored sample), so proximity ranks them below any genuine source co-location.
-my %PERIPHERAL_SEGMENT = map { $_ => 1 } qw(
-  doc docs documentation
-  test tests testing testdata test-data test_data __tests__ fixtures
-  example examples sample samples
-  vendor vendored _vendor third_party third-party 3rdparty contrib node_modules gomodcache
-  licenses
+my %PERIPHERAL_SEGMENT = (
+  (map { $_ => 'documentation' } qw(doc docs documentation)),
+  (map { $_ => 'test' } qw(test tests testing testdata test-data test_data __tests__ fixtures)),
+  (map { $_ => 'example' } qw(example examples sample samples)),
+  (
+    map { $_ => 'vendored' }
+      qw(vendor vendored _vendor third_party third-party 3rdparty contrib node_modules gomodcache)
+  ),
+  licenses => 'license catalog'
 );
 
 # OBS packs vendored trees into cpio archives, so a "node_modules" or "vendor" directory does not arrive
@@ -411,21 +415,43 @@ my %PERIPHERAL_SEGMENT = map { $_ => 1 } qw(
 # like any other vendored tree.
 my $OBS_VENDORED_SEGMENT = qr/(?:^|_)(?:node_modules|vendor|vendored|third_party|3rdparty)\./;
 
-# Does this file live under a peripheral directory? Classified by directory only - the basename is left
-# alone, so a source file merely named like a license (e.g. gpl.c) is not demoted.
-sub _path_is_peripheral ($path) {
+# What kind of peripheral directory this file lives under, or undef for shipped code. Classified by
+# directory only - the basename is left alone, so a source file merely named like a license (e.g. gpl.c)
+# is not demoted.
+sub _path_peripheral_kind ($path) {
   my @segs = split m{/}, $path;
   pop @segs;
   for my $seg (@segs) {
     my $lc = lc $seg;
-    return 1 if $PERIPHERAL_SEGMENT{$lc};
+    return $PERIPHERAL_SEGMENT{$lc} if $PERIPHERAL_SEGMENT{$lc};
 
     # The decorated form always carries the archive extension dot, and a bare marker is caught above, so
     # only the (rare) dotted segments need the regex - this keeps the classifier a hash lookup for the
     # dot-free directory names that make up almost all of a large tree.
-    return 1 if index($lc, '.') >= 0 && $lc =~ $OBS_VENDORED_SEGMENT;
+    return 'vendored' if index($lc, '.') >= 0 && $lc =~ $OBS_VENDORED_SEGMENT;
   }
-  return 0;
+  return undef;
+}
+
+sub _path_is_peripheral ($path) { return _path_peripheral_kind($path) ? 1 : 0 }
+
+# The kinds of place a license's files sit in, when not one of them is in shipped code; undef otherwise.
+# A lawyer can skip a license whose every match is in a vendored tree or a test fixture, and today has to
+# read the paths to find that out.
+#
+# Only ever reports where the files are, never what to do about them. The classifier is a heuristic that
+# has needed widening more than once, and a wrong "vendored" that read as "ignore this" would hide a real
+# license - whereas a wrong "vendored" that reads as a location is something a reader can check.
+sub peripheral_scope ($paths) {
+  return undef unless @$paths;
+
+  my %kinds;
+  for my $path (@$paths) {
+    my $kind = _path_peripheral_kind($path) // return undef;
+    $kinds{$kind} = 1;
+  }
+
+  return [sort keys %kinds];
 }
 
 # For each flagged (incompatible) pair, where the two licenses most convincingly co-locate. Returns

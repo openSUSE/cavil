@@ -5,7 +5,7 @@ package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(license_classification);
+use Cavil::ReportUtil qw(license_classification peripheral_scope);
 use Cavil::Role       qw(roles_with_capability);
 use Cavil::Util       qw(external_link_data spdx_link);
 use CommonMark        ();
@@ -211,6 +211,10 @@ sub _report_details ($c, $pkg, $report) {
         # "MIT OR BSD-3-Clause". Empty when no source knows any of them, so the frontend simply omits
         # the panel. Derived per request from the bundled datasets, not persisted.
         classification => license_classification($display),
+
+        # Where this license lives, when not one file of it is in shipped code. Lets a reader skip a
+        # license that only ever turns up in a vendored tree or a test fixture without reading paths.
+        scope => peripheral_scope([map { $_->[1] } @{$matches->{files} // []}]),
         ($new_license{$matches->{name}} ? (new => \1) : ())
       };
     }

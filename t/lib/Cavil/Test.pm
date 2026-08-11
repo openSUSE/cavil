@@ -945,10 +945,11 @@ sub legal_documents_fixtures ($self, $app) {
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 
-  for my $license ('MIT', 'Apache-2.0') {
+  for my $license ('MIT', 'Apache-2.0', 'ISC') {
     $app->patterns->create(pattern => "SPDX-License-Identifier: $license", license => $license);
   }
-  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?)', 'MIT', 'Apache-2.0');
+  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?)',
+    'MIT', 'Apache-2.0', 'ISC');
 
   # A package carrying one of each thing the documents list has to get right: a LICENSE whose terms are
   # only partly recognised, a vendored dependency's own license that must not bury it, and a Go source
@@ -989,8 +990,9 @@ LICENSE
   $src->child('fonts', 'tex-gyre', 'META-INF')->make_path->child('LICENSE')
     ->spew("# SPDX-License-Identifier: Apache-2.0\n\nTerms nobody recognises.\n");
 
+  # The only ISC in the package, so the license list can say it is vendored and nothing else
   $src->child('vendor', 'helper')->make_path->child('LICENSE')
-    ->spew("# SPDX-License-Identifier: Apache-2.0\n\nA bundled dependency's own terms.\n");
+    ->spew("# SPDX-License-Identifier: ISC\n\nA bundled dependency's own terms.\n");
   $src->child('src')->make_path->child('license.go')->spew("# SPDX-License-Identifier: MIT\n\npackage main\n");
 
   my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;

@@ -21,7 +21,8 @@ use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
-  qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
+  qw(new_license_names new_unresolved_files overlapping_licenses peripheral_scope ranked_incompatibilities),
+  qw(report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
 );
@@ -535,6 +536,22 @@ subtest 'ranked_incompatibilities' => sub {
   };
 
   is_deeply ranked_incompatibilities({}), [], 'no compatibility data';
+};
+
+subtest 'peripheral_scope' => sub {
+  is_deeply peripheral_scope(['a/vendor/x/LICENSE', 'a/node_modules/y/LICENSE']), ['vendored'],
+    'every file in a vendored tree';
+  is_deeply peripheral_scope(['a/testdata/x/LICENSE']),      ['test'],                  'Go fixture data';
+  is_deeply peripheral_scope(['a/doc/x', 'a/tests/y']),      ['documentation', 'test'], 'more than one kind, sorted';
+  is_deeply peripheral_scope(['vendor.obscpio._/pkg/x.go']), ['vendored'],              'an OBS-packed vendored tree';
+  is_deeply peripheral_scope(['a/licenses/GPL-2.0', 'a/LICENSES/MIT']), ['license catalog'],
+    'a license text collection';
+
+  # One file in shipped code is enough to say nothing: the marker exists to let a reader skip a license,
+  # so it must never appear while any of its matches could be the package's own code.
+  is peripheral_scope(['a/vendor/x/LICENSE', 'a/src/main.c']), undef, 'a single core file withholds it';
+  is peripheral_scope(['src/main.c']),                         undef, 'plain shipped code';
+  is peripheral_scope([]),                                     undef, 'no files at all is not vacuously peripheral';
 };
 
 subtest 'license_document_candidates' => sub {

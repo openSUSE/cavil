@@ -173,6 +173,7 @@
                   <span class="risk-license-label">
                     <span class="risk-license-name" v-html="lic.name_html"></span>
                     <span v-if="lic.new" class="risk-new">new</span>
+                    <span v-if="lic.scope" class="risk-license-scope">only in {{ scopeLabel(lic.scope) }}</span>
                   </span>
                   <a :href="'#' + lic.list_id" class="risk-license-count" data-bs-toggle="collapse">
                     {{ lic.files.length }} {{ lic.files.length === 1 ? 'file' : 'files' }}
@@ -739,6 +740,13 @@ export default {
       if (risk > 5) return 'text-bg-danger';
       if (risk === 5) return 'text-bg-warning';
       return 'text-bg-success';
+    },
+    // States where the files are, never what to do about them: the path classifier is a heuristic, and a
+    // marker that read as "ignore this" would hide a real license when it got one wrong.
+    scopeLabel(scope) {
+      const kinds = scope.map(kind => (kind === 'vendored' ? 'vendored' : `${kind}`));
+      if (kinds.length === 1) return `${kinds[0]} files`;
+      return `${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]} files`;
     },
     riskBadgeClass(risk) {
       const r = Number(risk);
@@ -1570,6 +1578,13 @@ export default {
   display: inline-flex;
   gap: 0.4rem;
   min-width: 0;
+}
+/* A location, not a verdict: muted prose rather than a badge, because "only in vendored files" is
+   something to check, and the path classifier is a heuristic that has needed widening more than once. */
+.risk-license-scope {
+  color: #6e7781;
+  flex: 0 0 auto;
+  font-size: 12px;
 }
 .risk-new {
   background: #ddf4ff;
