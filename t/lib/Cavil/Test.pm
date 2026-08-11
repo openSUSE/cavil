@@ -985,6 +985,10 @@ LICENSE
   $src->child('COPYING')->spew(join "\n", '# SPDX-License-Identifier: Apache-2.0',
     '', (map {"Clause $_ of some unrecognised terms."} 1 .. 119), '');
 
+  # Buried the way TeX Live buries them, so the list has a path long enough for the directory to recede
+  $src->child('fonts', 'tex-gyre', 'META-INF')->make_path->child('LICENSE')
+    ->spew("# SPDX-License-Identifier: Apache-2.0\n\nTerms nobody recognises.\n");
+
   $src->child('vendor', 'helper')->make_path->child('LICENSE')
     ->spew("# SPDX-License-Identifier: Apache-2.0\n\nA bundled dependency's own terms.\n");
   $src->child('src')->make_path->child('license.go')->spew("# SPDX-License-Identifier: MIT\n\npackage main\n");

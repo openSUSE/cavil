@@ -129,9 +129,9 @@
         </span>
         <ul v-if="selectedFiles.length" class="license-matrix-file-list">
           <li v-for="f in selectedFiles" :key="f">
-            <a class="license-matrix-file-link" :href="fileHref(f)" target="_blank" rel="noopener noreferrer">{{
-              f
-            }}</a>
+            <a class="license-matrix-file-link" :href="fileHref(f)" target="_blank" rel="noopener noreferrer"
+              ><FilePath :path="f"
+            /></a>
           </li>
         </ul>
       </div>
@@ -165,10 +165,12 @@
 </template>
 
 <script>
+import FilePath from './FilePath.vue';
 import {fileViewUrl} from '../helpers/links.js';
 
 export default {
   name: 'LicenseCompatibilityMatrix',
+  components: {FilePath},
   props: {
     licenses: {type: Array, default: () => []},
     matrix: {type: Object, default: () => ({})},

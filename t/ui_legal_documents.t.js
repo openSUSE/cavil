@@ -22,9 +22,10 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.match(await documents.locator('.cavil-notice-heading').innerText(), /Legal documents/, 'panel title');
 
       const rows = documents.locator('.legal-document-item');
-      t.equal(await rows.count(), 2, 'both of the package own license files are listed, and only those');
+      t.equal(await rows.count(), 3, 'the package own license files are listed, and only those');
       t.match(await rows.nth(0).innerText(), /COPYING/, 'shallowest first, then alphabetical');
       t.match(await rows.nth(1).innerText(), /LICENSE/, 'named');
+      t.match(await rows.nth(2).innerText(), /fonts\/tex-gyre\/META-INF\/LICENSE/, 'nested paths are kept in full');
       t.notMatch(await documents.innerText(), /vendor|license\.go/, 'vendored licenses and source are left out');
 
       // The whole point of the layout: 120 and 4 are different widths, and their digits still end at the
@@ -53,6 +54,21 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       const link = rows.nth(1).locator('a');
       t.match(await link.getAttribute('href'), /\/reviews\/file_view\/1\//, 'opens in the file browser');
       t.equal(await link.evaluate(el => getComputedStyle(el).color), 'rgb(87, 96, 106)', 'muted like other file names');
+
+      // The name is what the eye hunts for at the end of a long path, so the directory recedes a step
+      const nested = rows.nth(2).locator('a');
+      const dir = nested.locator('.cavil-path-dir');
+      t.equal(await dir.innerText(), 'legal-docs-1.0/fonts/tex-gyre/META-INF/', 'the directory is a part of its own');
+      t.equal(
+        await dir.evaluate(el => getComputedStyle(el).color),
+        'rgb(140, 149, 159)',
+        'dimmed a step below the file name it leads to'
+      );
+      t.equal(await nested.evaluate(el => getComputedStyle(el).color), 'rgb(87, 96, 106)', 'which keeps the weight');
+
+      // Every file in a real package sits under the version directory, so the prefix every row repeats
+      // recedes for free - which is most of what made the long TeX Live paths tiring to read.
+      t.equal(await link.locator('.cavil-path-dir').innerText(), 'legal-docs-1.0/', 'even a lone shared prefix');
     });
 
     await t.test('nothing grades the declared license', async t => {

@@ -307,7 +307,9 @@
       <p v-if="documentsDropped > 0" class="cavil-notice-summary">{{ documentsDropped }} more not listed.</p>
       <ul class="cavil-notice-list">
         <li v-for="document in documents" :key="document.path" class="cavil-notice-item legal-document-item">
-          <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path">{{ document.path }}</a>
+          <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path"
+            ><FilePath :path="document.path"
+          /></a>
           <!-- A file Cavil fully understands just states its size, so only the unexplained remainder is
                bold and a clean row carries no emphasis at all. Absolute rather than a percentage on
                purpose: what this catches is a small novel clause bolted onto a recognised license body,
@@ -349,6 +351,7 @@ import CavilNoticePanel from './CavilNoticePanel.vue';
 import CommentEditor from './CommentEditor.vue';
 import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
+import FilePath from './FilePath.vue';
 import LegalLoading from './LegalLoading.vue';
 import SpdxDownload from './SpdxDownload.vue';
 import TemplatePicker from './TemplatePicker.vue';
@@ -366,6 +369,7 @@ export default {
     CommentEditor,
     CopyableText,
     ExternalLink,
+    FilePath,
     LegalLoading,
     SpdxDownload,
     TemplatePicker,

@@ -144,8 +144,8 @@
                         :href="'#file-' + file.id"
                         class="file-link risk-unresolved-file"
                         @click.prevent="onFileLinkClick(file.id)"
-                        >{{ file.name }}</a
-                      >
+                        ><FilePath :path="file.name"
+                      /></a>
                       <span v-if="file.new" class="risk-new">new</span>
                     </span>
                     <span class="risk-unresolved-match">
@@ -191,9 +191,9 @@
                 <div :id="lic.list_id" :class="lic.list_class">
                   <ul class="risk-file-list">
                     <li v-for="file in lic.shown_files" :key="file[0]">
-                      <a :href="'#file-' + file[0]" class="file-link" @click.prevent="onFileLinkClick(file[0])">
-                        {{ file[1] }}
-                      </a>
+                      <a :href="'#file-' + file[0]" class="file-link" @click.prevent="onFileLinkClick(file[0])"
+                        ><FilePath :path="file[1]"
+                      /></a>
                     </li>
                     <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
                   </ul>
@@ -484,6 +484,7 @@
 
 <script>
 import CavilNoticePanel from './CavilNoticePanel.vue';
+import FilePath from './FilePath.vue';
 import FileSource from './FileSource.vue';
 import GlobProposalModal from './GlobProposalModal.vue';
 import LegalLoading from './LegalLoading.vue';
@@ -512,6 +513,7 @@ export default {
   name: 'ReportDetails',
   components: {
     CavilNoticePanel,
+    FilePath,
     FileSource,
     GlobProposalModal,
     LegalLoading,
