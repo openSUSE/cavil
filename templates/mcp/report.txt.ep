@@ -13,11 +13,6 @@ Version: <%== $version %>
 % if (my $declared = $summary->{package_license}{name}) {
 Declared-License: <%== $declared %><%== $summary->{package_license}{spdx} ? '' : ' (not a valid SPDX expression)' %>
 % }
-% my $declaration = $summary->{declaration};
-% my $mismatch    = $declaration && $declaration->{verdict} eq 'mismatch';
-% if ($declaration && $declaration->{verdict} ne 'unknown') {
-Declaration: <%== $mismatch ? 'some licenses found in shipped code are not covered by it (see below)' : 'covers every license found in shipped code' %>
-% }
 % if (my $sum = $summary->{package_summary}) {
 Summary: <%== $sum %>
 % }
@@ -59,32 +54,6 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 
 %   for my $error (@{$summary->{errors}}) {
 * <%== $error %>
-%   }
-
-
-
-% }
-% if ($mismatch) {
-## Declared License
-
-Licenses found in shipped code that the declared value does not cover.
-
-**A lead, not a finding - confirm each one before repeating it in a note.** Vendored, test and
-licence-listing files are already excluded, but a bundled component in a directory that does not look
-vendored still reads as shipped code. Open the named files and check. Where it holds, the fix is usually
-the package file rather than the code.
-
-%   for my $entry (@{$declaration->{undeclared}}) {
-%     my @paths = map {"`$_`"} @{$entry->{files}};
-%     my $more  = $entry->{count} - @paths;
-* Also found: <%== $entry->{license} %> in <%== join(', ', @paths) %><%== $more > 0 ? " (+$more more)" : '' %>
-%   }
-%   for my $missing (@{$declaration->{not_found}}) {
-* Declared but not found anywhere: <%== $missing %>
-%   }
-%   if (my $peripheral = $declaration->{peripheral}) {
-
-<%= $peripheral %> further <%= $peripheral == 1 ? 'license appears' : 'licenses appear' %> only in vendored or test files, which is normal for an aggregation and is not counted above.
 %   }
 
 
@@ -221,18 +190,19 @@ Ordered by occurrences<%= @urls > $url_limit ? ", top $url_limit of " . scalar(@
 %   }
 % }
 
-% if ($declaration && @{$declaration->{documents}}) {
+% my $legal_documents = $summary->{legal_documents};
+% if ($legal_documents && @{$legal_documents->{documents}}) {
 
 ## Legal Documents
 
 The files that state this package's terms, with how much of each no known license pattern explains. An
 unexplained remainder is text Cavil does not recognise, which the auto-resolved snippet counts can hide.
 
-%   for my $document (@{$declaration->{documents}}) {
+%   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
 * `<%== $document->{path} %>`: <%= $document->{lines} %> lines<%== $unexplained ? ", $unexplained unexplained" : '' %>
 %   }
-%   if (my $dropped = $declaration->{documents_dropped}) {
+%   if (my $dropped = $legal_documents->{dropped}) {
 * ... <%= $dropped %> more not listed
 %   }
 % }

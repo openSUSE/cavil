@@ -22,7 +22,6 @@
             <dd id="pkg-license">
               {{ pkgLicense.name }}
               <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
-              <small v-if="declarationNote" id="declaration-note" class="declaration-note">{{ declarationNote }}</small>
             </dd>
           </template>
           <dt>Embargoed</dt>
@@ -377,7 +376,7 @@ export default {
       checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
       created: null,
-      declaration: null,
+      legalDocuments: null,
       errors: [],
       externalLink: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
@@ -432,36 +431,12 @@ export default {
       return this.hasAdminRole === true || this.hasManagerRole === true;
     },
 
-    // One informational line under the declared license, naming licenses that turned up in the code and
-    // are not covered by the declaration. Worded as a prompt to confirm rather than as a defect on
-    // purpose: the check cannot tell every case apart (a bundled component in a directory that does not
-    // look vendored still reads as shipped code), so it offers a lead and leaves the judgement to someone
-    // who knows the package. Identifiers only - they know their own code, and a file count would not
-    // change what they look at.
-    //
-    // Anything else the check knows - licenses declared but absent, licenses confined to vendored trees -
-    // is a package file concern rather than a lead worth chasing, and stays in the text and MCP reports.
-    //
-    // The check runs on every package, so a clean result says so rather than staying silent: that way the
-    // absence of this line means the check could not run, not that everything is fine. "unknown" (nothing
-    // declared, an unresolved macro, or a report with no concrete licenses) shows nothing at all.
-    declarationNote() {
-      const declaration = this.declaration;
-      if (declaration === null || declaration.verdict === 'unknown') return null;
-
-      // Uncapped. A package the size of chromium can turn up dozens, but this is muted text that wraps,
-      // and someone checking them needs the whole list rather than a sample of it.
-      const found = declaration.undeclared.map(entry => entry.license);
-      if (found.length === 0) return 'no other licenses found in the code';
-      return `also found in the code, worth confirming: ${found.join(', ')}`;
-    },
-
     documents() {
-      return this.declaration?.documents ?? [];
+      return this.legalDocuments?.documents ?? [];
     },
 
     documentsDropped() {
-      return this.declaration?.documents_dropped ?? 0;
+      return this.legalDocuments?.dropped ?? 0;
     },
     // A curator gets accept and reject, a manager only the fasttrack accept
     reviewButtons() {
@@ -672,7 +647,7 @@ export default {
       if (copiedFiles['%license'].length > 0) this.copiedFiles['%license'] = copiedFiles['%license'].join(' ');
 
       this.created = moment(data.created * 1000).fromNow();
-      this.declaration = data.declaration ?? null;
+      this.legalDocuments = data.legal_documents ?? null;
       this.errors = data.errors;
       this.externalLink = data.external_link_data ?? data.external_link;
       this.spdx = data.spdx;
@@ -852,16 +827,6 @@ export default {
   color: #0969da;
   text-decoration: none;
 }
-/* An annotation on the declared license, not a second value competing with it: its own line below, in the
-   same muted register as the "(not SPDX)" marker, wrapping rather than growing the row. */
-.declaration-note {
-  display: block;
-  line-height: 1.45;
-  margin-top: 0.1rem;
-}
-/* The same left-edge wash and hover lift the unresolved matches use, so the two lists read as the same
-   kind of thing, but green rather than amber: these are documents to look at, not a backlog to clear.
-   Both classes are on the same element, so the selector needs the pair to beat .cavil-notice-item. */
 .cavil-notice-item.legal-document-item {
   align-items: baseline;
   background: linear-gradient(90deg, rgba(26, 127, 55, 0.08), #ffffff 2.5rem);

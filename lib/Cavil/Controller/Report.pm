@@ -36,10 +36,10 @@ sub report ($self) {
       )->{notes};
       $self->render(
         'reviewer/report',
-        report      => $report,
-        package     => $pkg,
-        notes       => $notes,
-        declaration => $self->helpers->declaration($id)
+        report          => $report,
+        package         => $pkg,
+        notes           => $notes,
+        legal_documents => $self->helpers->legal_documents($id)
       );
     },
     mcp => sub { $self->render(text => $self->helpers->mcp_report($id)) }

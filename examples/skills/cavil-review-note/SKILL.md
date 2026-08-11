@@ -119,41 +119,42 @@ an observation, not a legal ruling.
 
 Use `cavil_get_file` for context when an unresolved match is truncated, ambiguous, comes from a NOTICE/README file, or looks serious enough that you might recommend rejection or human review. Do not spend time exhaustively reading low-risk boilerplate if the report is large; note the limitation instead.
 
-#### Always report the declared package license - the report already does the comparison
-Whether the license **declared in the package file** (the `License:` tag from the spec file /
-package metadata) matches the licenses actually found is the single most common reason a package
-needs human attention, and this comparison **must appear in every note**, even when it is a clean
-match. Cavil now computes it, so read the result rather than re-deriving it:
+#### Always review the declared package license - never skip it
+The most important first-pass check is whether the license **declared in the package file**
+(the `License:` tag from the spec file / package metadata) matches the licenses actually found in
+the report. This comparison **must appear in every note**, even when it is a clean match - it is
+the single most common reason a package needs human attention, so a note that omits it is
+incomplete.
 
-- The `Declared-License:` line near the top carries the declared value, with a
-  `(not a valid SPDX expression)` marker when Cavil could not normalize it.
-- The `Declaration:` line beside it says whether every license found in shipped code is covered by
-  that value.
-- When some are not, a **`## Declared License`** section lists them with the files they were found
-  in, and anything declared but not found anywhere. Vendored, test and documentation files are
-  already excluded from that comparison, as are documents that merely *list* other components'
-  licenses; licenses appearing only in those places are reported separately as a count and are
-  normal for a package that bundles dependencies.
+The report surfaces the declared value on the `Declared-License:` line near the top (it carries a
+`(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
+the package file had no declared license - say so explicitly and lean toward NEEDS HUMAN REVIEW.
 
-**Confirm it before repeating it.** This is a lead, not a verdict, and it cannot always tell a
-bundled component from shipped code. Open the named files; if your reading disagrees, go with yours.
+Do not judge from the tag alone: read the package's own licensing files first, which the
+`## Legal Documents` section below lists for you.
 
-If the `Declared-License:` line is absent the package file declared no license at all - say so
-explicitly and lean toward NEEDS HUMAN REVIEW. If the `Declaration:` line is absent, Cavil could not
-compare (nothing declared, an unresolved spec macro, or no recognizable licenses found); say that
-rather than inventing a verdict.
+Compare the declared license against the licenses in the Licenses/risk breakdown:
+- **Match** - the declared license covers the licenses found in the shipped code (vendored or
+  bundled third-party components under their own permissive licenses are expected and do not by
+  themselves make the declaration wrong). State that the declared license matches and name it.
+- **Mismatch** - the report contains a license that the declared value does not account for, the
+  declared value is narrower than reality (e.g. declares `MIT` but core files are `GPL-2.0-only`),
+  or it is broader/looser than what is actually present. Name the declared license, name the
+  conflicting finding with a file path, and lean toward NEEDS HUMAN REVIEW or REJECT.
 
-What the report cannot decide is the part you add:
+  **Fixable metadata vs. bad license.** Distinguish *why* it mismatches. If the only problem is that
+  the declared tag misrepresents the actually-found licenses, but those found licenses are
+  themselves in the acceptable band (risk 1-4, no blocking flags or confirmed conflict), treat it as
+  **fixable metadata**: the suggested next step is "correct the declared `License:` tag to `<X>` and
+  resubmit," not a license rejection. Reserve REJECT-framing for genuinely unacceptable content
+  (risk 6/7, a third-party proprietary EULA, or a confirmed combined-work conflict). This matters
+  because customer-facing SBOMs are generated from the declared tag, so it must match reality.
 
-**Fixable metadata vs. bad license.** Distinguish *why* it mismatches. If the only problem is that
-the declared tag misrepresents the actually-found licenses, but those found licenses are themselves
-in the acceptable band (risk 1-4, no blocking flags or confirmed conflict), treat it as **fixable
-metadata**: the suggested next step is "correct the declared `License:` tag to `<X>` and resubmit,"
-not a license rejection. Reserve REJECT-framing for genuinely unacceptable content (risk 6/7, a
-third-party proprietary EULA, or a confirmed combined-work conflict). This matters because
-customer-facing SBOMs are generated from the declared tag, so it must match reality.
+Beware the file that only *lists* other components' licenses - a `NOTICE`, a generated
+`THIRD_PARTY` listing. Quoting a licence is not being under it, so those never make the declaration
+wrong on their own.
 
-When unsure whether an undeclared license belongs to the shipped work or to a separable bundled
+When unsure whether a found license belongs to the shipped work or to a separable bundled
 component, apply the same combination-vs-aggregation reasoning as the license-compatibility check
 below, and say which it is.
 

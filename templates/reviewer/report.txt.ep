@@ -18,37 +18,6 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 
 
 % }
-% if ($declaration && $declaration->{verdict} ne 'unknown') {
-## Declared License
-
-<%== $declaration->{declared} %>
-%   if ($declaration->{verdict} eq 'match') {
-
-No other licenses were found in the shipped code.
-%   }
-%   else {
-
-These licenses turned up in the shipped code and the declared value does not cover them. Worth
-confirming rather than acting on: a bundled component in a directory that does not look vendored can
-read as shipped code. Where they do apply, the fix is usually the package file rather than the code.
-
-%     for my $entry (@{$declaration->{undeclared}}) {
-%       my @paths = map {"`$_`"} @{$entry->{files}};
-%       my $more  = $entry->{count} - @paths;
-* Also found: <%== $entry->{license} %> in <%== join(', ', @paths) %><%== $more > 0 ? " (+$more more)" : '' %>
-%     }
-%     for my $missing (@{$declaration->{not_found}}) {
-* Declared but not found anywhere: <%== $missing %>
-%     }
-%   }
-%   if (my $peripheral = $declaration->{peripheral}) {
-
-<%= $peripheral %> further <%= $peripheral == 1 ? 'license appears' : 'licenses appear' %> only in vendored or test files, which is normal for an aggregation.
-%   }
-
-
-
-% }
 ## Licenses
 % use Cavil::ReportUtil qw(ranked_incompatibilities incompatibility_location);
 % my $ranked = ranked_incompatibilities($report->{license_compatibility} // {});
@@ -107,16 +76,16 @@ No files matched known license patterns or keywords.
 
 
 % }
-% if ($declaration && @{$declaration->{documents}}) {
+% if ($legal_documents && @{$legal_documents->{documents}}) {
 ## Legal Documents
 
 The files that state this package's terms, with how much of each no known license pattern explains.
 
-%   for my $document (@{$declaration->{documents}}) {
+%   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
 * `<%== $document->{path} %>`: <%= $document->{lines} %> lines<%== $unexplained ? ", $unexplained unexplained" : '' %>
 %   }
-%   if (my $dropped = $declaration->{documents_dropped}) {
+%   if (my $dropped = $legal_documents->{dropped}) {
 * ... <%= $dropped %> more not listed
 %   }
 

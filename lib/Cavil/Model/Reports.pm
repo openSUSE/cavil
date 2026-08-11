@@ -47,39 +47,33 @@ sub dig_report {
   return $report;
 }
 
-# The stored declaration report: the declared package license reconciled against the licenses actually
-# found, plus the package's legal documents and how much of each Cavil can explain. Written by
-# Cavil::Task::Analyze in the same transaction as the report it describes, so the two can never drift.
-# Undef for a package that has not been analyzed since the column arrived - every consumer then simply
-# shows nothing, exactly as they do for a missing diff_report.
-sub license_declaration ($self, $id) {
-  return undef unless my $hash = $self->pg->db->select('bot_reports', 'license_declaration', {package => $id})->hash;
-  return undef unless defined $hash->{license_declaration};
-  return from_json($hash->{license_declaration});
+# Everything Cavil derives about a report beyond the report itself: informational annotations that are
+# computed at analyze time, never feed report_checksum, and are keyed by feature so a new one slots in
+# without a migration. Today that is just {legal_documents => ...}. Written by Cavil::Task::Analyze in
+# the same transaction as the report it describes, so the two can never drift, and undef for a package
+# that has not been analyzed since the column arrived - every consumer then simply shows nothing,
+# exactly as they do for a missing diff_report.
+sub annotations ($self, $id) {
+  return undef unless my $hash = $self->pg->db->select('bot_reports', 'annotations', {package => $id})->hash;
+  return undef unless defined $hash->{annotations};
+  return from_json($hash->{annotations});
 }
 
-# The whole declaration report for a package: the declared-vs-found reconciliation (pure, from
-# ReportUtil) plus its legal documents (which need the database and the checkout). Composed here rather
-# than at the call site so nothing else has to know it comes from two places. Mirrors the
-# specfile_report / build_specfile_report pair above: this builds one, license_declaration reads the
-# stored copy back.
-sub build_license_declaration ($self, $id, $specfile_report, $dig_report) {
-
-  # Called by its full name because this package has a license_declaration of its own, the reader below
-  my $declaration = Cavil::ReportUtil::license_declaration($specfile_report, $dig_report);
-  $declaration->{documents} = $self->_license_documents($id, $dig_report);
-  return $declaration;
+# Mirrors the specfile_report / build_specfile_report pair above: this builds the annotations, the reader
+# above hands the stored copy back.
+sub build_annotations ($self, $id, $dig_report) {
+  return {legal_documents => $self->_legal_documents($id, $dig_report)};
 }
 
 # The package's own license-declaration files (LICENSE, COPYING, NOTICE and friends) with how many of
 # each file's lines no concrete license accounts for, as {documents => [{kind, path, lines,
 # unexplained}], dropped => $n}. Which files qualify is decided by license_document_candidates; this
-# adds the two numbers.
+# adds the two numbers, which need the database and the checkout.
 #
 # "kind" is 'license' for every row today. It is carried from the start because this list is meant to
 # become the report's authoritative "which files should I open" index and take in other detected
 # document kinds later, and a row shape that already has the slot needs no migration when it does.
-sub _license_documents ($self, $id, $dig_report) {
+sub _legal_documents ($self, $id, $dig_report) {
   my $found  = license_document_candidates($dig_report);
   my $result = {documents => [], dropped => $found->{dropped}};
   my $docs   = $found->{documents};
@@ -681,7 +675,7 @@ sub _prime_pattern_cache {
   return unless %needed;
 
   my $found = $db->query(
-    'SELECT id, license, spdx, risk, patent, trademark, export_restricted, cla, eula, catch_all
+    'SELECT id, license, spdx, risk, patent, trademark, export_restricted, cla, eula
        FROM license_patterns WHERE id = ANY(?)', [keys %needed]
   )->hashes;
   for my $pattern ($found->each) {
@@ -704,15 +698,8 @@ sub _load_pattern_from_cache {
 sub _register_license {
   my ($self, $report, $pid_info, $pattern, $pid, $file, $source) = @_;
 
-  # catch_all rides along so the declaration check can tell a concrete license from a grab-bag marker
-  # ("Any Permissive", "GPL-Unspecified") - the latter is not a license identity that can be compared
-  # against a declared SPDX expression. It is a property of the license, not of this match.
-  $report->{licenses}{$pattern->{license}} ||= {
-    name      => $pattern->{license},
-    spdx      => $pattern->{spdx},
-    risk      => $pattern->{risk},
-    catch_all => $pattern->{catch_all} ? 1 : 0
-  };
+  $report->{licenses}{$pattern->{license}}
+    ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
   $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
     for qw(patent trademark export_restricted cla eula);
 

@@ -20,8 +20,7 @@ use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
-  qw(license_compatibility license_declaration license_document_candidates license_obligations),
-  qw(license_obligation_ids minimal_snippet),
+  qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
@@ -526,134 +525,6 @@ subtest 'ranked_incompatibilities' => sub {
   };
 
   is_deeply ranked_incompatibilities({}), [], 'no compatibility data';
-};
-
-subtest 'license_declaration' => sub {
-
-  # Same report shape the proximity tests use: files by id, the SPDX string on licenses{name}, and
-  # risks{risk}{name}{pid} => [file ids].
-  my $spec   = sub { {main => {license => $_[0]}} };
-  my $report = sub {
-    my %licenses = @_;
-    my (%files, %licenses_out, %risks);
-    my $id = 1;
-    for my $path (sort keys %licenses) {
-      my $name = $licenses{$path};
-      $files{$id} = $path;
-      $licenses_out{$name} //= {spdx => $name};
-      push @{$risks{5}{$name}{100}}, $id;
-      $id++;
-    }
-    return {files => \%files, licenses => \%licenses_out, risks => \%risks};
-  };
-
-  subtest 'Declared license covers everything in the code' => sub {
-    my $result = license_declaration($spec->('MIT'), $report->('src/a.c' => 'MIT', 'src/b.c' => 'MIT'));
-    is $result->{declared}, 'MIT',   'the declared license';
-    is $result->{valid},    1,       'parses as SPDX';
-    is $result->{verdict},  'match', 'nothing to report';
-    is_deeply $result->{undeclared}, [], 'no undeclared licenses';
-    is_deeply $result->{not_found},  [], 'nothing declared is missing';
-  };
-
-  subtest 'A license in shipped code that the declaration misses' => sub {
-    my $result = license_declaration($spec->('MIT'), $report->('src/a.c' => 'MIT', 'src/engine.c' => 'GPL-2.0-only'));
-    is $result->{verdict}, 'mismatch', 'a comparison happened and it found something';
-    is_deeply $result->{undeclared}, [{license => 'GPL-2.0-only', count => 1, files => ['src/engine.c']}],
-      'named with the file that carries it';
-  };
-
-  subtest 'Vendored and test licenses are counted apart from shipped code' => sub {
-    my $result = license_declaration($spec->('MIT'),
-      $report->('src/a.c' => 'MIT', 'vendor/x/b.c' => 'Apache-2.0', 'tests/fixtures/c.c' => 'GPL-2.0-only'));
-    is $result->{verdict},    'match', 'an aggregation is not a mismatch';
-    is $result->{peripheral}, 2,       'both peripheral licenses counted';
-    is_deeply $result->{undeclared}, [], 'neither is reported as a mismatch';
-  };
-
-  subtest 'Declared but absent, with AND and OR meaning different things' => sub {
-    my $found = $report->('src/a.c' => 'MIT');
-
-    my $and = license_declaration($spec->('MIT AND GPL-2.0-only'), $found);
-    is $and->{verdict}, 'mismatch', 'every operand of an AND has to be present';
-    is_deeply $and->{not_found}, ['GPL-2.0-only'], 'the absent operand is named';
-
-    my $or = license_declaration($spec->('MIT OR GPL-2.0-only'), $found);
-    is $or->{verdict}, 'match', 'an OR is a choice, so one alternative satisfies it';
-    is_deeply $or->{not_found}, [], 'the unused alternative is not reported as missing';
-
-    my $neither = license_declaration($spec->('Apache-2.0 OR GPL-2.0-only'), $found);
-    is_deeply $neither->{not_found}, ['Apache-2.0 OR GPL-2.0-only'],
-      'an unsatisfied choice is reported whole, not as two separate misses';
-    is $neither->{verdict}, 'mismatch', 'both halves of the check can fire at once';
-  };
-
-  # amazon-ecs-init (540840) is the shape that broke this in production: a THIRD_PARTY.md per module,
-  # each quoting every bundled Go dependency's licence in full, at paths that look like shipped source.
-  # Cavil matches those licences in them, correctly, but they describe dependencies rather than code.
-  subtest 'Documents that list other components licenses are not evidence about the code' => sub {
-    my $found = $report->(
-      'agent/api/task.go'       => 'Apache-2.0',
-      'agent/THIRD_PARTY.md'    => 'BSD-3-Clause',
-      'ecs-init/THIRD_PARTY.md' => 'BSD-2-Clause',
-      'NOTICE'                  => 'MIT'
-    );
-    my $result = license_declaration($spec->('Apache-2.0'), $found);
-    is $result->{verdict}, 'match',
-      'a correctly declared package is not called a mismatch by its own attribution files';
-    is_deeply $result->{undeclared}, [], 'nothing is attributed to the shipped code';
-  };
-
-  subtest 'A LICENSE file is still evidence, unlike a catalog' => sub {
-
-    # The package's own LICENSE states its terms, so a declaration backed only by it reconciles cleanly
-    my $result = license_declaration($spec->('MIT'), $report->('LICENSE' => 'MIT'));
-    is $result->{verdict}, 'match', 'the declared license is found in the package license file';
-    is_deeply $result->{not_found}, [], 'and is not reported as missing';
-  };
-
-  subtest 'Only confident, concrete licenses can produce a mismatch' => sub {
-
-    # A grab-bag catch_all marker is not a license identity, so it cannot contradict a declaration
-    my $catch_all = {
-      files    => {1                => 'src/a.c'},
-      licenses => {'Any Permissive' => {spdx             => 'MIT', catch_all => 1}},
-      risks    => {5                => {'Any Permissive' => {100 => [1]}}}
-    };
-    is license_declaration($spec->('Apache-2.0'), $catch_all)->{verdict}, 'unknown',
-      'a catch_all-only report has nothing concrete to compare';
-
-    # An unresolved snippet's guessed closest license is far too weak to call a declaration wrong
-    my $guess = {
-      files        => {1     => 'src/a.c', 2 => 'src/b.c'},
-      licenses     => {'MIT' => {spdx  => 'MIT'}},
-      risks        => {5     => {'MIT' => {100 => [1]}}},
-      missed_files => {2     => [9, '0.2', 'GPL-2.0', 'GPL-2.0-only']}
-    };
-    is license_declaration($spec->('MIT'), $guess)->{verdict}, 'match', 'an unresolved guess never creates a mismatch';
-  };
-
-  subtest 'Nothing comparable on either side' => sub {
-    my $found = $report->('src/a.c' => 'MIT');
-    is license_declaration($spec->(undef),             $found)->{verdict}, 'unknown', 'no declared license';
-    is license_declaration($spec->(''),                $found)->{verdict}, 'unknown', 'empty declared license';
-    is license_declaration($spec->('%{perl_license}'), $found)->{verdict}, 'unknown', 'an unresolved spec macro';
-    is license_declaration($spec->('made up license'), $found)->{verdict}, 'unknown', 'not a valid SPDX expression';
-    is license_declaration($spec->('MIT'), {})->{verdict}, 'unknown', 'an empty report is not a wholesale mismatch';
-
-    my $invalid = license_declaration($spec->('made up license'), $found);
-    is $invalid->{valid},    0,                 'reported as invalid';
-    is $invalid->{declared}, 'made up license', 'the raw value is kept so the reader sees what was declared';
-  };
-
-  subtest 'Representative files are capped but the count is not' => sub {
-    my %many       = map { ("src/f$_.c" => 'GPL-2.0-only') } 1 .. 9;
-    my $result     = license_declaration($spec->('MIT'), $report->(%many, 'src/a.c' => 'MIT'));
-    my $undeclared = $result->{undeclared}[0];
-    is $undeclared->{count},           9, 'the full count is reported';
-    is scalar @{$undeclared->{files}}, 5, 'only a few representative paths are kept';
-    is_deeply $undeclared->{files}, [map {"src/f$_.c"} 1 .. 5], 'and they are stable across runs';
-  };
 };
 
 subtest 'license_document_candidates' => sub {

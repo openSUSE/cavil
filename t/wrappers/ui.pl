@@ -49,7 +49,7 @@ elsif ($fixtures eq 'snippet_overlap') { $cavil_test->snippet_overlap_fixtures($
 elsif ($fixtures eq 'report_notice')   { $cavil_test->report_notice_fixtures($app) }
 elsif ($fixtures eq 'large_file')      { $cavil_test->large_file_fixtures($app) }
 elsif ($fixtures eq 'compatibility')   { $cavil_test->compatibility_fixtures($app) }
-elsif ($fixtures eq 'declaration')     { $cavil_test->declaration_fixtures($app) }
+elsif ($fixtures eq 'legal_documents') { $cavil_test->legal_documents_fixtures($app) }
 elsif ($fixtures eq 'obligations')     { $cavil_test->obligations_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }
 my %report_state_original;

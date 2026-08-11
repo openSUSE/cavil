@@ -939,46 +939,39 @@ SPEC
   return $pkg_id;
 }
 
-sub declaration_fixtures ($self, $app) {
+sub legal_documents_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 
-  for my $license ('MIT', 'GPL-2.0-only', 'Apache-2.0') {
+  for my $license ('MIT', 'Apache-2.0') {
     $app->patterns->create(pattern => "SPDX-License-Identifier: $license", license => $license);
   }
-  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?)',
-    'MIT', 'GPL-2.0-only', 'Apache-2.0');
+  $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?)', 'MIT', 'Apache-2.0');
 
-  # A package that declares MIT but ships GPL-2.0-only in its own source, vendors an Apache-2.0
-  # dependency, and carries a LICENSE file whose terms Cavil only partly recognises. That is one of each
-  # thing the declaration annotation reports: an undeclared license in shipped code, a peripheral license
-  # that must NOT be reported as a mismatch, and an unexplained remainder in a legal document.
-  my $name = 'license-decl';
+  # A package carrying one of each thing the documents list has to get right: a LICENSE whose terms are
+  # only partly recognised, a vendored dependency's own license that must not bury it, and a Go source
+  # file named after a license word that is not a document at all.
+  my $name = 'legal-docs';
   my $md5  = 'd0000000000000000000000000000001';
   my $dir  = $self->checkout_dir->child($name, $md5)->make_path;
   $dir->child("$name.spec")->spew(<<"SPEC");
 Name:           $name
 Version:        1.0
 Release:        0
-Summary:        Synthetic package with a wrong license declaration for UI testing
+Summary:        Synthetic package with a partly unrecognised license file for UI testing
 License:        MIT
 Group:          Development/Libraries/Perl
 Source0:        $name-1.0.tar.gz
 BuildArch:      noarch
 
 %description
-Synthetic package declaring MIT while shipping GPL-2.0-only.
+Synthetic package whose LICENSE carries terms Cavil does not recognise.
 SPEC
 
   my $stage = tempdir;
   my $src   = $stage->child("$name-1.0")->make_path;
-  $src->child('src')->make_path->child('engine.c')
-    ->spew("# SPDX-License-Identifier: GPL-2.0-only\n\nThe package's own core.\n");
-  $src->child('vendor', 'helper')->make_path->child('helper.c')
-    ->spew("# SPDX-License-Identifier: Apache-2.0\n\nA bundled dependency.\n");
-  $src->child('mit_file.txt')->spew("# SPDX-License-Identifier: MIT\n\nThe declared license really is here.\n");
   $src->child('LICENSE')->spew(<<'LICENSE');
 SPDX-License-Identifier: MIT
 
@@ -986,6 +979,9 @@ You may not use this software for evil.
 You may not use this software commercially without a separate agreement.
 Contact sales@example.com for enterprise terms.
 LICENSE
+  $src->child('vendor', 'helper')->make_path->child('LICENSE')
+    ->spew("# SPDX-License-Identifier: Apache-2.0\n\nA bundled dependency's own terms.\n");
+  $src->child('src')->make_path->child('license.go')->spew("# SPDX-License-Identifier: MIT\n\npackage main\n");
 
   my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
   system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0

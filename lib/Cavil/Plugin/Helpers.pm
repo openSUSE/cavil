@@ -16,7 +16,7 @@ use List::Util        qw(first uniq);
 
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                    => \&_chart_data);
-  $app->helper('declaration'                   => \&_declaration);
+  $app->helper('legal_documents'               => \&_legal_documents);
   $app->helper('current_user'                  => \&_current_user);
   $app->helper('current_user_roles'            => \&_current_user_roles);
   $app->helper('current_user_has_role'         => \&_current_user_has_role);
@@ -265,25 +265,17 @@ sub _report_details ($c, $pkg, $report) {
   };
 }
 
-# The stored declaration report with file-browser links added. Shared by the report metadata (which puts
-# the verdict on the License row) and the report details (which badges the undeclared licenses in the
-# risk breakdown), so the two views can never disagree about what is undeclared. Undef until the package
-# has been analyzed since the column arrived, and every consumer then simply shows nothing.
-sub _declaration ($c, $id) {
-  return undef unless my $declaration = $c->reports->license_declaration($id);
+# The package's stored legal documents, with a file-browser link added to each row and the count the
+# limit left out beside them. Undef until the package has been analyzed since the column arrived, and
+# every consumer then simply shows nothing.
+sub _legal_documents ($c, $id) {
+  return undef unless my $stored = ($c->reports->annotations($id) // {})->{legal_documents};
 
-  # Only the documents are links. The undeclared licenses keep their bare file paths: the text and MCP
-  # reports name them so a packager can find the code, while the web report deliberately lists only the
-  # licenses - the point there is which licenses the package file misses, not where each one sits.
-  my $documents = delete $declaration->{documents} // {};
-  $declaration->{documents} = [
-    map {
-      { %$_, url => $c->url_for('file_view', id => $id, file => $_->{path})->to_string }
-    } @{$documents->{documents} // []}
-  ];
-  $declaration->{documents_dropped} = $documents->{dropped} // 0;
+  my @documents = map {
+    { %$_, url => $c->url_for('file_view', id => $id, file => $_->{path})->to_string }
+  } @{$stored->{documents} // []};
 
-  return $declaration;
+  return {documents => \@documents, dropped => $stored->{dropped} // 0};
 }
 
 sub _current_user ($c) { $c->stash->{'cavil.api.user'} // $c->session('user') }
@@ -409,7 +401,7 @@ sub _package_summary ($c, $id) {
     actions              => $actions,
     copied_files         => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
     created              => $pkg->{created_epoch},
-    declaration          => _declaration($c, $id),
+    legal_documents      => _legal_documents($c, $id),
     embargoed            => \!!$pkg->{embargoed},
     ai_assisted          => \!!$pkg->{ai_assisted},
     errors               => $spec->{errors} // [],
