@@ -712,10 +712,9 @@ sub license_document_candidates ($dig_report, $limit = 25) {
   return {documents => \@found, dropped => $dropped};
 }
 
-# How many of a file's lines carry text that no concrete license explains. $spans is an arrayref of
-# [sline, eline] from the file's licensed, non-catch_all pattern matches, $lines the file's lines.
-# Blank lines never count as unexplained, and a line covered by any match is explained however many
-# matches overlap it.
+# How many of a file's lines carry text no license pattern recognises. $spans is an arrayref of
+# [sline, eline] from the file's licensed pattern matches, $lines the file's lines. Blank lines never
+# count as unexplained, and a line covered by any match is explained however many matches overlap it.
 #
 # Measured against real pattern matches ALONE, which is the whole point: the snippet resolver folds,
 # clears and covers boilerplate, and that machinery can suppress the very snippet that named a novel
