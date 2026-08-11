@@ -16,7 +16,7 @@ Declared-License: <%== $declared %><%== $summary->{package_license}{spdx} ? '' :
 % my $declaration = $summary->{declaration};
 % my $mismatch    = $declaration && $declaration->{verdict} eq 'mismatch';
 % if ($declaration && $declaration->{verdict} ne 'unknown') {
-Declaration: <%== $mismatch ? 'does NOT match the licenses found in shipped code (see below)' : 'matches the licenses found in shipped code' %>
+Declaration: <%== $mismatch ? 'some licenses found in shipped code are not covered by it (see below)' : 'covers every license found in shipped code' %>
 % }
 % if (my $sum = $summary->{package_summary}) {
 Summary: <%== $sum %>
@@ -67,19 +67,20 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 % if ($mismatch) {
 ## Declared License
 
-The `License:` tag in the package file does not account for everything the shipped code carries. This is
-the most common reason a review is rejected, and it is usually fixed by correcting the tag rather than by
-changing the code - so weigh whether the found licenses are themselves acceptable before treating it as a
-licensing problem. Vendored and test files are already excluded below. The declared value itself is the
-Declared-License line in the header above.
+Licenses found in shipped code that the declared value does not cover.
+
+**A lead, not a finding - confirm each one before repeating it in a note.** Vendored, test and
+licence-listing files are already excluded, but a bundled component in a directory that does not look
+vendored still reads as shipped code. Open the named files and check. Where it holds, the fix is usually
+the package file rather than the code.
 
 %   for my $entry (@{$declaration->{undeclared}}) {
 %     my @paths = map {"`$_`"} @{$entry->{files}};
 %     my $more  = $entry->{count} - @paths;
-* Not declared: <%== $entry->{license} %> in <%== join(', ', @paths) %><%== $more > 0 ? " (+$more more)" : '' %>
+* Also found: <%== $entry->{license} %> in <%== join(', ', @paths) %><%== $more > 0 ? " (+$more more)" : '' %>
 %   }
 %   for my $missing (@{$declaration->{not_found}}) {
-* Declared but not found: <%== $missing %>
+* Declared but not found anywhere: <%== $missing %>
 %   }
 %   if (my $peripheral = $declaration->{peripheral}) {
 

@@ -127,12 +127,16 @@ match. Cavil now computes it, so read the result rather than re-deriving it:
 
 - The `Declared-License:` line near the top carries the declared value, with a
   `(not a valid SPDX expression)` marker when Cavil could not normalize it.
-- The `Declaration:` line beside it says whether that value matches the licenses found in shipped
-  code.
-- When it does not, a **`## Declared License`** section lists every license the declaration misses
-  with the files that carry it, and anything declared but not found anywhere. Vendored, test and
-  documentation files are already excluded from that comparison; licenses that appear only there
-  are reported separately as a count, and are normal for a package that bundles dependencies.
+- The `Declaration:` line beside it says whether every license found in shipped code is covered by
+  that value.
+- When some are not, a **`## Declared License`** section lists them with the files they were found
+  in, and anything declared but not found anywhere. Vendored, test and documentation files are
+  already excluded from that comparison, as are documents that merely *list* other components'
+  licenses; licenses appearing only in those places are reported separately as a count and are
+  normal for a package that bundles dependencies.
+
+**Confirm it before repeating it.** This is a lead, not a verdict, and it cannot always tell a
+bundled component from shipped code. Open the named files; if your reading disagrees, go with yours.
 
 If the `Declared-License:` line is absent the package file declared no license at all - say so
 explicitly and lean toward NEEDS HUMAN REVIEW. If the `Declaration:` line is absent, Cavil could not

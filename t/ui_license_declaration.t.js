@@ -22,11 +22,14 @@ await t.test('Cavil UI - license declaration', skipUnlessOnline, async t => {
 
     await t.test('names the possibly missing licenses, and nothing else', async t => {
       t.match(await page.locator('#pkg-license').innerText(), /MIT/, 'the declared license is still the value');
+      // Worded as a lead to confirm, not as a defect: the check cannot always tell a bundled component
+      // from shipped code, so it must not tell a packager their declaration is wrong.
       t.equal(
         await note.innerText(),
-        '1 license in the code not declared: GPL-2.0-only',
+        'also found in the code, worth confirming: GPL-2.0-only',
         'the annotation names the identifier a packager would go and check'
       );
+      t.notMatch(await note.innerText(), /not declared|missing|wrong|should/i, 'and does not assert a defect');
 
       // Identifiers only. A file count would not change what they look at, they know their own code; and
       // the other halves of the check are package file concerns that belong in the text report.
@@ -55,7 +58,7 @@ await t.test('Cavil UI - license declaration', skipUnlessOnline, async t => {
       t.equal(await page.locator('.risk-undeclared').count(), 0, 'no declaration marker in the risk breakdown');
       t.notMatch(
         await page.locator('.report-tab-content').innerText(),
-        /not declared|undeclared/i,
+        /worth confirming|undeclared/i,
         'and nothing about the declaration anywhere in the report itself'
       );
     });

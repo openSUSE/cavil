@@ -229,6 +229,20 @@ sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
   return $snippet_risk <= $cover_risk ? 1 : 0;
 }
 
+# Extensions that make a file source code however it happens to be named. Projects really do ship a
+# license.go or a license.py, and without this they land in the report's legal-document list with an
+# "unexplained" count that is only counting code. A blocklist rather than an allowlist because the
+# document side is open-ended: LICENSE.docs, COPYING.LESSER and LICENSE-2.0.txt are all real.
+#
+# Kept as a list rather than written straight into the regex so that t/report_util.t can walk it and
+# check every entry, which a hand-picked sample of an alternation cannot do. Add to it freely; the test
+# also enforces that entries stay lowercase, unique and free of anything the regex would reinterpret.
+our @SOURCE_EXTENSIONS = qw(
+  asm awk bash c cc cjs cpp cs cxx dart el go gradle groovy h hh hpp java jl js jsx kt lua mjs mm
+  php pl pm py rb rs scala sh sql swift tcl ts tsx vim
+);
+my $SOURCE_EXTENSION = do { my $alternation = join '|', @SOURCE_EXTENSIONS; qr/[.](?:$alternation)$/i };
+
 # Does this path look like a license-declaration file (LICENSE, COPYING, LICENSE.txt, ...) rather than a
 # source/doc file that merely mentions a license? The BASENAME must start with a license-declaration
 # word, so that license-list *reference data* named after a license id (e.g. .../licenses/OGDL-Taiwan-1.0)
@@ -237,7 +251,23 @@ sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
 # file underneath it into a license file. Anchoring on the whole path used to do exactly that.
 sub is_license_filename ($path) {
   my ($basename) = $path =~ m{([^/]*)$};
-  return $basename =~ m{^(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE)(?:[.\-]|$)}i ? 1 : 0;
+  return 0 if $basename =~ $SOURCE_EXTENSION;
+  return $basename =~ m{^(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE|THIRD[_-]?PARTY)(?:[.\-]|$)}i
+    ? 1
+    : 0;
+}
+
+# A legal document that lists OTHER components' licenses rather than stating this package's own terms: an
+# Apache-2.0 NOTICE, a generated THIRD_PARTY listing. They quote whole license texts verbatim, so Cavil
+# matches those licenses inside them - correctly, but as evidence about bundled dependencies, not about
+# the shipped code. The declaration comparison therefore ignores them, for the same reason
+# _path_is_peripheral drops a licenses/ directory: a collection of license texts is not licensed code.
+#
+# A LICENSE or COPYING is deliberately NOT a catalog. It states the package's own terms, so it stays as
+# evidence and a package whose only licensing statement is that file still reconciles against it.
+sub _is_license_catalog ($path) {
+  my ($basename) = $path =~ m{([^/]*)$};
+  return $basename =~ m{^(?:NOTICE|THIRD[_-]?PARTY)(?:[.\-]|$)}i ? 1 : 0;
 }
 
 # The set of individual SPDX license identifiers present in a package's digest report, gathered from the
@@ -725,11 +755,16 @@ use constant DECLARATION_FILES => 5;
 #
 # Precision is deliberately favoured over recall, because a wrong "not declared" costs a reader more
 # than a missed one: only licenses established by a real pattern match or a fold (confidence >= 2) in a
-# non-peripheral path can produce a mismatch, grab-bag catch_all markers and licenses with no SPDX
-# identifier are excluded on both sides, and a report with no concrete licenses at all is reported as
-# "unknown" rather than as a wholesale mismatch. Known limitation: a bundled component in a directory
-# that does not look vendored (say "poppler-0.9/") counts as core and can raise a mismatch the reader
-# has to dismiss.
+# path that is neither peripheral nor a license catalog can produce a mismatch, grab-bag catch_all
+# markers and licenses with no SPDX identifier are excluded on both sides, and a report with no concrete
+# licenses at all is reported as "unknown" rather than as a wholesale mismatch.
+#
+# The catalog exclusion was learnt the hard way: amazon-ecs-init ships a THIRD_PARTY.md per module that
+# quotes every bundled Go dependency's licence in full, at paths that look like shipped source, and the
+# check called a correctly declared Apache-2.0 package a mismatch three times over. Expect more of that
+# shape. Known limitation still standing: a bundled component in a directory that does not look vendored
+# (say "poppler-0.9/") counts as core and can raise a mismatch the reader has to dismiss - which is why
+# every consumer presents this as something to confirm rather than as a defect.
 #
 # Informational only. Like the compatibility matrix this must never feed report_checksum,
 # report_shortname or summary_delta - the declaration is a fact about the package, not a new risk.
@@ -757,12 +792,12 @@ sub license_declaration ($specfile_report, $dig_report) {
   my $file_ids = _file_license_ids($dig_report, 1);
   my (%core, %present, %files);
   for my $path (sort keys %$file_ids) {
-    my $peripheral = _path_is_peripheral($path);
-    my $ids        = $file_ids->{$path};
+    my $ignore = _path_is_peripheral($path) || _is_license_catalog($path);
+    my $ids    = $file_ids->{$path};
     for my $id (sort keys %$ids) {
       next unless $ids->{$id} >= 2;
       $present{$id}++;
-      next if $peripheral;
+      next if $ignore;
       $core{$id}++;
       push @{$files{$id}}, $path if @{$files{$id} // []} < DECLARATION_FILES;
     }

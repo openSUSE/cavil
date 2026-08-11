@@ -129,34 +129,45 @@ subtest 'A package that has not been analyzed yet simply has no declaration' => 
 
 # Both reports mark file paths with backticks; kept in single-quoted variables so the pattern itself
 # stays free of them.
-my $UNDECLARED_LINE = 'Not declared: GPL-2.0-only in `src/engine.c`';
+my $ALSO_FOUND_LINE = 'Also found: GPL-2.0-only in `src/engine.c`';
 my $DOCUMENT_LINE   = '`LICENSE`: 4 lines, 3 unexplained';
 
-subtest 'Text report explains the mismatch to a packager' => sub {
+# Prose in the templates is hard-wrapped, so anything spanning more than a few words is matched against
+# a whitespace-collapsed copy; otherwise reflowing a paragraph breaks tests that are not about layout.
+sub flattened { return $_[0] =~ s/\s+/ /gr }
+
+subtest 'Text report offers the lead to a packager without asserting a defect' => sub {
   $t->get_ok('/reviews/report/1.txt')->status_is(200);
   ok my $text = $t->tx->res->text, 'text response';
+  my $flat = flattened($text);
 
-  like $text, qr/## Declared License/,  'has its own section';
-  like $text, qr/\Q$UNDECLARED_LINE\E/, 'names the license and the file';
-  like $text, qr/correcting the package file rather than by changing the code/,
-    'points at the fix a packager can actually make';
-  like $text, qr/1 further license appears only in vendored or test files/, 'vendored licenses accounted for';
+  like $text, qr/## Declared License/,                    'has its own section';
+  like $text, qr/\Q$ALSO_FOUND_LINE\E/,                   'names the license and the file';
+  like $flat, qr/Worth confirming rather than acting on/, 'framed as something to check';
+  like $flat, qr/the fix is usually the package file rather than the code/,
+    'and says what the fix would be if it does apply';
+  like $flat, qr/1 further license appears only in vendored or test files/, 'vendored licenses accounted for';
 
   like $text, qr/## Legal Documents/, 'documents get a section';
   like $text, qr/\Q$DOCUMENT_LINE\E/, 'with the unexplained remainder';
 };
 
-subtest 'MCP report keeps the header tidy and puts the detail in a section' => sub {
-  my $mcp = $t->app->build_controller->mcp_report(1);
+subtest 'MCP report keeps the header tidy and tells the AI to verify' => sub {
+  my $mcp  = $t->app->build_controller->mcp_report(1);
+  my $flat = flattened($mcp);
 
-  like $mcp, qr/^Declaration: does NOT match the licenses found in shipped code \(see below\)$/m,
+  like $mcp, qr/^Declaration: some licenses found in shipped code are not covered by it \(see below\)$/m,
     'one header line, pointing further down';
   unlike $mcp, qr/^Declaration:.*\n\*/m, 'the key-value header does not sprout bullets';
 
   like $mcp, qr/## Declared License/,  'the detail is a section of its own';
-  like $mcp, qr/\Q$UNDECLARED_LINE\E/, 'names the license and the file';
-  like $mcp, qr/weigh whether the found licenses are themselves acceptable/,
-    'tells the AI to judge fixable metadata rather than assume a licensing problem';
+  like $mcp, qr/\Q$ALSO_FOUND_LINE\E/, 'names the license and the file';
+
+  # The AI must not simply repeat this into a lawyer-facing note; amazon-ecs-init showed why
+  like $flat, qr/A lead, not a finding - confirm each one before repeating it/,
+    'tells the AI to confirm before repeating it';
+  like $flat, qr/a bundled component in a directory that does not look vendored still reads as shipped code/,
+    'and names the failure mode that survives the exclusions';
 
   like $mcp, qr/## Legal Documents/, 'documents reach the AI too';
   like $mcp, qr/\Q$DOCUMENT_LINE\E/, 'so it can read the part Cavil does not explain';

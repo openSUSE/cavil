@@ -588,6 +588,30 @@ subtest 'license_declaration' => sub {
     is $neither->{verdict}, 'mismatch', 'both halves of the check can fire at once';
   };
 
+  # amazon-ecs-init (540840) is the shape that broke this in production: a THIRD_PARTY.md per module,
+  # each quoting every bundled Go dependency's licence in full, at paths that look like shipped source.
+  # Cavil matches those licences in them, correctly, but they describe dependencies rather than code.
+  subtest 'Documents that list other components licenses are not evidence about the code' => sub {
+    my $found = $report->(
+      'agent/api/task.go'       => 'Apache-2.0',
+      'agent/THIRD_PARTY.md'    => 'BSD-3-Clause',
+      'ecs-init/THIRD_PARTY.md' => 'BSD-2-Clause',
+      'NOTICE'                  => 'MIT'
+    );
+    my $result = license_declaration($spec->('Apache-2.0'), $found);
+    is $result->{verdict}, 'match',
+      'a correctly declared package is not called a mismatch by its own attribution files';
+    is_deeply $result->{undeclared}, [], 'nothing is attributed to the shipped code';
+  };
+
+  subtest 'A LICENSE file is still evidence, unlike a catalog' => sub {
+
+    # The package's own LICENSE states its terms, so a declaration backed only by it reconciles cleanly
+    my $result = license_declaration($spec->('MIT'), $report->('LICENSE' => 'MIT'));
+    is $result->{verdict}, 'match', 'the declared license is found in the package license file';
+    is_deeply $result->{not_found}, [], 'and is not reported as missing';
+  };
+
   subtest 'Only confident, concrete licenses can produce a mismatch' => sub {
 
     # A grab-bag catch_all marker is not a license identity, so it cannot contradict a declaration
@@ -1847,6 +1871,50 @@ subtest 'is_license_filename' => sub {
   ok !is_license_filename('legal-tools/main.c'),            'nor a legal-named one';
   ok !is_license_filename('copyright-2024/x.c'),            'nor a copyright-named one';
   ok is_license_filename('license-decl-1.0/LICENSE'), 'the real license file inside such a directory still counts';
+
+  # Source files really are named this way (amazon-ecs-agent ships two license.go), and listing them as
+  # legal documents puts an "unexplained" count on what is only code.
+  ok !is_license_filename('agent/utils/license.go'), 'a Go source file named license.go is not a document';
+  ok !is_license_filename('pkg/license.py'),         'nor a Python one';
+  ok !is_license_filename('src/licence.rb'),         'nor a Ruby one, British spelling included';
+};
+
+# The source-extension blocklist is hand-maintained, so it is walked rather than sampled: a typo in one
+# entry, a stray space, or a duplicate would otherwise sit in the middle of the alternation unnoticed.
+subtest 'is_license_filename source extension blocklist' => sub {
+  my @extensions = @Cavil::ReportUtil::SOURCE_EXTENSIONS;
+  ok @extensions > 20, 'the list is populated';
+
+  subtest 'the list itself stays clean' => sub {
+    my %seen;
+    my @duplicates = grep { $seen{$_}++ } @extensions;
+    is_deeply \@duplicates, [], 'no duplicates';
+
+    my @malformed = grep { !/^[a-z0-9]+$/ } @extensions;
+    is_deeply \@malformed, [], 'every entry is lowercase alphanumeric, so none can be read as a pattern';
+  };
+
+  subtest 'every entry is actually rejected' => sub {
+    for my $extension (@extensions) {
+      ok !is_license_filename("pkg/LICENSE.$extension"),   "LICENSE.$extension is source, not a document";
+      ok !is_license_filename("pkg/license.\U$extension"), "and case does not smuggle it back in (.\U$extension)";
+    }
+  };
+
+  subtest 'document extensions are untouched by it' => sub {
+    ok is_license_filename("pkg/LICENSE.$_"), "LICENSE.$_ is still a document"
+      for qw(txt md rst html docs processed LESSER GPL);
+    ok is_license_filename('pkg/LICENSE'),         'no extension at all';
+    ok is_license_filename('pkg/LICENSE-2.0.txt'), 'a versioned document name';
+  };
+
+  subtest 'only the final extension decides' => sub {
+    ok is_license_filename('pkg/license.go.txt'),  'a document that mentions a language in the middle';
+    ok !is_license_filename('pkg/license.txt.go'), 'source that mentions a document type in the middle';
+  };
+
+  # The blocklist must not become a way for a non-license name to sneak in the other direction
+  ok !is_license_filename('pkg/main.txt'), 'a document extension does not make an unrelated name a license file';
 };
 
 done_testing;

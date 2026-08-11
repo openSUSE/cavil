@@ -423,11 +423,15 @@ export default {
       return this.hasAdminRole === true || this.hasManagerRole === true;
     },
 
-    // One informational line under the declared license, naming the licenses the package file does not
-    // mention so a packager knows what to go and check. Identifiers only: they know their own code, and a
-    // file count would not change what they look at. Anything else the declaration check knows - licenses
-    // declared but absent, licenses confined to vendored trees - is a package file concern rather than a
-    // missing license, and stays in the text and MCP reports.
+    // One informational line under the declared license, naming licenses that turned up in the code and
+    // are not covered by the declaration. Worded as a prompt to confirm rather than as a defect on
+    // purpose: the check cannot tell every case apart (a bundled component in a directory that does not
+    // look vendored still reads as shipped code), so it offers a lead and leaves the judgement to someone
+    // who knows the package. Identifiers only - they know their own code, and a file count would not
+    // change what they look at.
+    //
+    // Anything else the check knows - licenses declared but absent, licenses confined to vendored trees -
+    // is a package file concern rather than a lead worth chasing, and stays in the text and MCP reports.
     //
     // The check runs on every package, so a clean result says so rather than staying silent: that way the
     // absence of this line means the check could not run, not that everything is fine. "unknown" (nothing
@@ -436,14 +440,11 @@ export default {
       const declaration = this.declaration;
       if (declaration === null || declaration.verdict === 'unknown') return null;
 
-      const missing = declaration.undeclared.map(entry => entry.license);
-      if (missing.length === 0) return 'all licenses in the code are declared';
-
-      // Every one of them, uncapped. A package the size of chromium can miss dozens, but this is muted
-      // text that wraps, and a packager who has to go and check them needs the whole list rather than a
-      // sample of it. The leading count is there so the scale reads before the names do.
-      const names = missing.join(', ');
-      return `${missing.length} ${missing.length === 1 ? 'license' : 'licenses'} in the code not declared: ${names}`;
+      // Uncapped. A package the size of chromium can turn up dozens, but this is muted text that wraps,
+      // and someone checking them needs the whole list rather than a sample of it.
+      const found = declaration.undeclared.map(entry => entry.license);
+      if (found.length === 0) return 'no other licenses found in the code';
+      return `also found in the code, worth confirming: ${found.join(', ')}`;
     },
 
     documents() {
@@ -860,12 +861,19 @@ export default {
   line-height: 1.45;
   margin-top: 0.1rem;
 }
-.legal-document-item {
+/* The same left-edge wash and hover lift the unresolved matches use, so the two lists read as the same
+   kind of thing, but green rather than amber: these are documents to look at, not a backlog to clear.
+   Both classes are on the same element, so the selector needs the pair to beat .cavil-notice-item. */
+.cavil-notice-item.legal-document-item {
   align-items: baseline;
+  background: linear-gradient(90deg, rgba(26, 127, 55, 0.08), #ffffff 2.5rem);
   display: flex;
   gap: 0.85rem;
   justify-content: space-between;
   white-space: normal;
+}
+.cavil-notice-item.legal-document-item:hover {
+  background: linear-gradient(90deg, rgba(26, 127, 55, 0.12), #f6f8fa 2.5rem);
 }
 /* File names follow the report's convention: muted until hovered, where they turn link-blue */
 .legal-document-path {
