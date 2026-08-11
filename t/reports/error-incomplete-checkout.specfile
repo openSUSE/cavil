@@ -23,6 +23,5 @@
       "summary"              => "Just a test",
       "type"                 => "spec"
     }
-  ],
-  "warnings" => []
+  ]
 }

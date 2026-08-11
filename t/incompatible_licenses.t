@@ -75,7 +75,7 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
       ->json_like('/package_files/0/url',        qr/http:\/\//)
       ->json_like('/package_files/0/group',      qr/Development\/Libraries\/Perl/);
 
-    $t->json_is('/errors', [])->json_is('/warnings', []);
+    $t->json_is('/errors', []);
   };
 
   subtest 'JSON report' => sub {

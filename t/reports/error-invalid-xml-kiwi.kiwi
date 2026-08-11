@@ -4,6 +4,5 @@
   ],
   "incomplete_checkout" => 0,
   "main"                => {"file" => "error-invalid-xml-kiwi.kiwi", "licenses" => [], "type" => "kiwi"},
-  "sub"                 => [{"file" => "error-invalid-xml-kiwi.kiwi", "licenses" => [], "type" => "kiwi"}],
-  "warnings"            => []
+  "sub"                 => [{"file" => "error-invalid-xml-kiwi.kiwi", "licenses" => [], "type" => "kiwi"}]
 }

@@ -35,9 +35,5 @@
       "url"                  => "https://projects.kde.org/projects/playground/network/plasma-nm",
       "version"              => "5.9.2"
     }
-  ],
-  "warnings" => [
-    "Main license had to be normalized: (LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0) -> (LGPL-2.1-only OR LGPL-3.0-only) AND (GPL-2.0-only OR GPL-3.0-only)",
-    "License from plasma-nm5.spec had to be normalized: (LGPL-2.1 or LGPL-3.0) and (GPL-2.0 or GPL-3.0) -> (LGPL-2.1-only OR LGPL-3.0-only) AND (GPL-2.0-only OR GPL-3.0-only)"
   ]
 }

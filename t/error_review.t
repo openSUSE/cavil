@@ -97,7 +97,7 @@ subtest 'Details after indexing' => sub {
     ->json_like('/package_files/0/summary', qr/Fake summary/)
     ->json_like('/package_files/0/group',   qr/Fake group/);
 
-  $t->json_like('/errors/0', qr/Invalid SPDX license: Fake-Artistic/)->json_is('/warnings', []);
+  $t->json_like('/errors/0', qr/Invalid SPDX license: Fake-Artistic/);
 
   $t->get_ok('/reviews/report_details/1')
     ->status_is(200)

@@ -13,6 +13,5 @@
       "url"      => "https://bugs.opensuse.org",
       "version"  => "1.0.0"
     }
-  ],
-  "warnings" => ["License from wrong-name.kiwi is not part of main license: LicenseRef-SUSE-Permissive"]
+  ]
 }

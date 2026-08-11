@@ -90,7 +90,7 @@ subtest 'Details after import (indexing in progress)' => sub {
     ->json_is('/state',          'new')
     ->json_is('/unpacked_files', undef);
 
-  $t->json_is('/errors', [])->json_is('/warnings', []);
+  $t->json_is('/errors', []);
 
   $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/not indexed/);
   $t->get_ok('/reviews/report_details/1')
@@ -133,7 +133,7 @@ subtest 'Details after indexing' => sub {
     ->json_like('/package_files/0/url',        qr/http:\/\//)
     ->json_like('/package_files/0/group',      qr/Development\/Libraries\/Perl/);
 
-  $t->json_is('/errors', [])->json_is('/warnings', []);
+  $t->json_is('/errors', []);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };

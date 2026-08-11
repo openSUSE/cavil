@@ -80,11 +80,5 @@
       "type"                 => "dockerfile",
       "version"              => 4
     }
-  ],
-  "warnings" => [
-    "License from debian is not part of main license: Apache-2.0",
-    "License from mixed-more.kiwi is not part of main license: Apache-2.0",
-    "License from mixed.kiwi is not part of main license: LicenseRef-SUSE-Permissive",
-    "License from Dockerfile is not part of main license: BSD-2-Clause"
   ]
 }

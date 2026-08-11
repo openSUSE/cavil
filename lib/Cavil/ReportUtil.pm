@@ -14,10 +14,11 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
 
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
-  qw(license_compatibility license_obligations license_obligation_ids minimal_snippet),
+  qw(license_compatibility license_declaration license_document_candidates license_obligations),
+  qw(license_obligation_ids minimal_snippet),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
-  qw(spdx_edit_snippet summary_delta summary_delta_score)
+  qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
 );
 
 use constant PAD_WORDS => 5;
@@ -229,11 +230,14 @@ sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
 }
 
 # Does this path look like a license-declaration file (LICENSE, COPYING, LICENSE.txt, ...) rather than a
-# source/doc file that merely mentions a license? Used to scope the grab-bag coverage guard above: the
-# basename must START with a license-declaration word so that license-list *reference data* named after a
-# license id (e.g. .../licenses/OGDL-Taiwan-1.0) is not mistaken for the package's own license file.
+# source/doc file that merely mentions a license? The BASENAME must start with a license-declaration
+# word, so that license-list *reference data* named after a license id (e.g. .../licenses/OGDL-Taiwan-1.0)
+# is not mistaken for the package's own license file - and, just as importantly, so that a package or
+# directory that merely happens to be called "license-tools" or "notice-board" does not turn every source
+# file underneath it into a license file. Anchoring on the whole path used to do exactly that.
 sub is_license_filename ($path) {
-  return $path =~ m{(?:^|/)(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE)(?:[.\-]|$)}i ? 1 : 0;
+  my ($basename) = $path =~ m{([^/]*)$};
+  return $basename =~ m{^(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE)(?:[.\-]|$)}i ? 1 : 0;
 }
 
 # The set of individual SPDX license identifiers present in a package's digest report, gathered from the
@@ -314,7 +318,12 @@ sub license_compatibility ($dig_report, $matrix = undef) {
 # query); compound expressions are reduced to identifiers with the Classpath exception stripped, exactly as
 # _present_licenses does. Proximity uses the rank to pick a pair's representative co-location from the
 # strongest available evidence (real files for both licenses beat a fold, which beats an unresolved guess).
-sub _file_license_ids ($dig_report) {
+#
+# With $concrete_only the result is narrowed to licenses that can stand as a license *identity*: grab-bag
+# catch_all markers ("Any Permissive", "GPL-Unspecified") and the unresolved guesses are both left out.
+# The declaration check needs that narrower set - neither can be meaningfully compared against a declared
+# SPDX expression, and a wrong "not declared" is far more costly there than a missed one.
+sub _file_license_ids ($dig_report, $concrete_only = 0) {
   my $files = $dig_report->{files}           || {};
   my $lics  = $dig_report->{licenses}        || {};
   my $conf  = $dig_report->{file_confidence} || {};
@@ -328,6 +337,7 @@ sub _file_license_ids ($dig_report) {
     for my $name (keys %$by_name) {
       my $spdx = $lics->{$name}{spdx};
       next unless defined $spdx && $spdx ne '';
+      next if $concrete_only && $lics->{$name}{catch_all};
       my $ids = extract_spdx_identifiers(_strip_classpath_exception($spdx));
       next unless @$ids;
       for my $fids (values %{$by_name->{$name}}) {
@@ -345,7 +355,7 @@ sub _file_license_ids ($dig_report) {
   # is keyed by file id here (the raw report), so resolve it to a path via {files} - the key is not a
   # filename. The guess is weak, but proximity ranks it last and the UI labels it "via an unresolved match"
   # rather than hiding it, so a reviewer still sees the possible incompatibility.
-  my $missed = $dig_report->{missed_files} || {};
+  my $missed = $concrete_only ? {} : ($dig_report->{missed_files} || {});
   for my $fid (keys %$missed) {
     my $path = $files->{$fid} // next;
     my $spdx = $missed->{$fid}[3];
@@ -661,6 +671,171 @@ sub incompatibility_location ($row) {
   my $db = $fb =~ m{^(.*)/[^/]*$} ? $1 : '';
   return "same directory `$da`: `$fa`, `$fb`" if $da ne '' && $da eq $db;
   return undef;
+}
+
+# The SPDX identifiers named by a declared-expression subtree, in order. Leaves may carry a "+" or a
+# "WITH <exception>"; extract_spdx_identifiers reduces those to the base license (an exception is not a
+# license), which is exactly what the found side is keyed by.
+sub _declared_ids ($tree) {
+  return [] unless defined $tree;
+  return [@{_declared_ids($tree->{left})}, @{_declared_ids($tree->{right})}] if $tree->{op};
+  return extract_spdx_identifiers($tree->{license} // '');
+}
+
+# The parts of a declared expression that the report does not account for, walked as a tree rather than
+# as a flat set because AND and OR mean different things: every operand of an AND has to be present,
+# while an OR is a choice the recipient makes, so it is satisfied by either alternative and is only
+# reported when neither side is there (and then as the whole choice, not as two separate misses). This
+# is also the SPDX operator sanity check - a declared "MIT OR GPL-2.0-only" that ships only MIT is
+# correct and stays silent, whereas "MIT AND GPL-2.0-only" with no GPL anywhere does not.
+sub _unsatisfied_declared ($tree, $found) {
+  return [] unless defined $tree;
+
+  my $op = $tree->{op} // '';
+  if ($op eq 'and') {
+    return [@{_unsatisfied_declared($tree->{left}, $found)}, @{_unsatisfied_declared($tree->{right}, $found)}];
+  }
+  if ($op eq 'or') {
+    return []
+      unless @{_unsatisfied_declared($tree->{left}, $found)} && @{_unsatisfied_declared($tree->{right}, $found)};
+    my $ids = _declared_ids($tree);
+    return @$ids ? [join ' OR ', @$ids] : [];
+  }
+
+  my $ids = _declared_ids($tree);
+  return [] unless @$ids;
+  return (grep { $found->{$_} } @$ids) ? [] : [$ids->[0]];
+}
+
+# How many representative file paths to keep per undeclared license, for the text and MCP reports that
+# name them. The full count travels alongside, so nothing is silently dropped.
+use constant DECLARATION_FILES => 5;
+
+# The license declared in the package file (the "License:" tag of the spec file, debian/control, kiwi
+# file, Dockerfile or chart) reconciled against the licenses Cavil actually found in the code. A wrong
+# declaration is the most common reason a review is rejected, and it is read by release engineers and
+# managers as much as by lawyers, so this is computed once here and shown by every report rather than
+# re-derived by each reader. Returns
+#
+#   {declared, valid, verdict, undeclared => [{license, count, files}], peripheral, not_found}
+#
+# verdict is 'unknown' when no comparison was possible, 'match' when one was and found nothing, and
+# 'mismatch' otherwise. It exists only to tell those first two apart, since both leave the lists empty;
+# which way a mismatch goes is the lists' job to say, so nothing here enumerates that again.
+#
+# Precision is deliberately favoured over recall, because a wrong "not declared" costs a reader more
+# than a missed one: only licenses established by a real pattern match or a fold (confidence >= 2) in a
+# non-peripheral path can produce a mismatch, grab-bag catch_all markers and licenses with no SPDX
+# identifier are excluded on both sides, and a report with no concrete licenses at all is reported as
+# "unknown" rather than as a wholesale mismatch. Known limitation: a bundled component in a directory
+# that does not look vendored (say "poppler-0.9/") counts as core and can raise a mismatch the reader
+# has to dismiss.
+#
+# Informational only. Like the compatibility matrix this must never feed report_checksum,
+# report_shortname or summary_delta - the declaration is a fact about the package, not a new risk.
+sub license_declaration ($specfile_report, $dig_report) {
+  my $raw    = $specfile_report->{main}{license};
+  my $lic    = lic($raw);
+  my $usable = defined $raw && length $raw && $lic->is_valid && defined $lic->tree;
+  my $result = {
+    declared   => ($usable ? $lic->canonicalize->to_string : $raw),
+    valid      => ($usable ? 1                             : 0),
+    verdict    => 'unknown',
+    undeclared => [],
+    not_found  => [],
+    peripheral => 0
+  };
+
+  # Nothing comparable was declared, so there is no point walking the file tree for the other side
+  return $result unless $usable;
+  my %declared = map { $_ => 1 } @{_declared_ids($lic->tree)};
+  return $result unless %declared;
+
+  # Found side, keyed by SPDX identifier: how many core (shipped) files carry it, whether it appears at
+  # all, and a few representative core paths. Paths are walked in sorted order so the representatives
+  # are the same on every run rather than whatever the hash happened to yield.
+  my $file_ids = _file_license_ids($dig_report, 1);
+  my (%core, %present, %files);
+  for my $path (sort keys %$file_ids) {
+    my $peripheral = _path_is_peripheral($path);
+    my $ids        = $file_ids->{$path};
+    for my $id (sort keys %$ids) {
+      next unless $ids->{$id} >= 2;
+      $present{$id}++;
+      next if $peripheral;
+      $core{$id}++;
+      push @{$files{$id}}, $path if @{$files{$id} // []} < DECLARATION_FILES;
+    }
+  }
+
+  # A report with no concrete licenses at all says nothing about the declaration either way
+  return $result unless %present;
+
+  $result->{undeclared}
+    = [map { {license => $_, count => $core{$_}, files => $files{$_} // []} } sort grep { !$declared{$_} } keys %core];
+  $result->{peripheral} = grep { !$core{$_} && !$declared{$_} } keys %present;
+  $result->{not_found}  = _unsatisfied_declared($lic->tree, \%present);
+  $result->{verdict}    = (@{$result->{undeclared}} || @{$result->{not_found}}) ? 'mismatch' : 'match';
+
+  return $result;
+}
+
+# The package's own license-declaration files, as [{id, path}] shallowest first, plus how many were left
+# out by the limit. These are the documents that state the package's terms (LICENSE, COPYING, NOTICE and
+# friends), taken from what Cavil indexed rather than from the package file's %license list - that list
+# is curated by hand by packagers with no legal training, is routinely partial, and often selects files
+# through macros Cavil cannot resolve, so it cannot serve as an index of the legal documents.
+#
+# is_license_filename requires the basename to START with a license word, which keeps license-list
+# reference data (".../licenses/OGDL-Taiwan-1.0") out, and peripheral paths are dropped so a vendored
+# tree full of dependency licenses does not bury the package's own. A big aggregation can still hold
+# more than the limit, hence the dropped count - the report says so rather than quietly truncating.
+sub license_document_candidates ($dig_report, $limit = 25) {
+  my $files = $dig_report->{files} || {};
+
+  my @found;
+  for my $id (keys %$files) {
+    my $path = $files->{$id};
+    next unless defined $path && is_license_filename($path) && !_path_is_peripheral($path);
+    push @found, {id => $id, path => $path};
+  }
+
+  # Shallowest first, then alphabetical: the package's own top-level LICENSE outranks one buried in a
+  # subdirectory, and the order is stable across runs.
+  @found = sort { ($a->{path} =~ tr{/}{}) <=> ($b->{path} =~ tr{/}{}) || $a->{path} cmp $b->{path} } @found;
+
+  my $dropped = @found > $limit ? @found - $limit : 0;
+  splice @found, $limit if $dropped;
+  return {documents => \@found, dropped => $dropped};
+}
+
+# How many of a file's lines carry text that no concrete license explains. $spans is an arrayref of
+# [sline, eline] from the file's licensed, non-catch_all pattern matches, $lines the file's lines.
+# Blank lines never count as unexplained, and a line covered by any match is explained however many
+# matches overlap it.
+#
+# Measured against real pattern matches ALONE, which is the whole point: the snippet resolver folds,
+# clears and covers boilerplate, and that machinery can suppress the very snippet that named a novel
+# clause - so a LICENSE file can show no unresolved matches at all and still contain a restriction Cavil
+# never recognised. Coverage does not go through the resolver, so it survives that suppression.
+sub unexplained_lines ($spans, $lines) {
+  return 0 unless $lines && @$lines;
+
+  my %covered;
+  for my $span (@{$spans || []}) {
+    my ($start, $end) = @$span;
+    $start       = 1       if $start < 1;
+    $end         = @$lines if $end > @$lines;
+    $covered{$_} = 1 for $start .. $end;
+  }
+
+  my $unexplained = 0;
+  for my $i (0 .. $#$lines) {
+    next           if $covered{$i + 1};
+    $unexplained++ if $lines->[$i] =~ /\S/;
+  }
+
+  return $unexplained;
 }
 
 sub minimal_snippet ($snippet) {

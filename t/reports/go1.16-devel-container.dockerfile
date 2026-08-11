@@ -34,6 +34,5 @@
       "summary"              => "Whatever",
       "type"                 => "dockerfile"
     }
-  ],
-  "warnings" => []
+  ]
 }

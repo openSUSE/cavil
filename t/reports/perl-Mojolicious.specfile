@@ -29,6 +29,5 @@
       "url"     => "http://search.cpan.org/dist/Mojolicious/",
       "version" => "7.25"
     }
-  ],
-  "warnings" => []
+  ]
 }

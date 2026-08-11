@@ -10,7 +10,7 @@ use Mojo::JSON qw(from_json);
 use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(estimated_risk license_compatibility);
+use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
 use Cavil::Util       qw(lines_context to_json_fast);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
@@ -45,6 +45,78 @@ sub dig_report {
   delete $report->{matches};
   delete $report->{file_confidence};
   return $report;
+}
+
+# The stored declaration report: the declared package license reconciled against the licenses actually
+# found, plus the package's legal documents and how much of each Cavil can explain. Written by
+# Cavil::Task::Analyze in the same transaction as the report it describes, so the two can never drift.
+# Undef for a package that has not been analyzed since the column arrived - every consumer then simply
+# shows nothing, exactly as they do for a missing diff_report.
+sub license_declaration ($self, $id) {
+  return undef unless my $hash = $self->pg->db->select('bot_reports', 'license_declaration', {package => $id})->hash;
+  return undef unless defined $hash->{license_declaration};
+  return from_json($hash->{license_declaration});
+}
+
+# The whole declaration report for a package: the declared-vs-found reconciliation (pure, from
+# ReportUtil) plus its legal documents (which need the database and the checkout). Composed here rather
+# than at the call site so nothing else has to know it comes from two places. Mirrors the
+# specfile_report / build_specfile_report pair above: this builds one, license_declaration reads the
+# stored copy back.
+sub build_license_declaration ($self, $id, $specfile_report, $dig_report) {
+
+  # Called by its full name because this package has a license_declaration of its own, the reader below
+  my $declaration = Cavil::ReportUtil::license_declaration($specfile_report, $dig_report);
+  $declaration->{documents} = $self->_license_documents($id, $dig_report);
+  return $declaration;
+}
+
+# The package's own license-declaration files (LICENSE, COPYING, NOTICE and friends) with how many of
+# each file's lines no concrete license accounts for, as {documents => [{kind, path, lines,
+# unexplained}], dropped => $n}. Which files qualify is decided by license_document_candidates; this
+# adds the two numbers.
+#
+# "kind" is 'license' for every row today. It is carried from the start because this list is meant to
+# become the report's authoritative "which files should I open" index and take in other detected
+# document kinds later, and a row shape that already has the slot needs no migration when it does.
+sub _license_documents ($self, $id, $dig_report) {
+  my $found  = license_document_candidates($dig_report);
+  my $result = {documents => [], dropped => $found->{dropped}};
+  my $docs   = $found->{documents};
+  return $result unless @$docs;
+
+  my $db = $self->pg->db;
+  return $result unless my $pkg = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
+
+  # Every candidate's licensed line spans in one query. Keyword patterns (empty license) and grab-bag
+  # catch_all markers are excluded, so only a concrete license counts as an explanation. The file ids
+  # already pin one generation, exactly as the match queries in _dig_report do.
+  my %spans;
+  my $matches = $db->query(
+    "SELECT pm.file, pm.sline, pm.eline FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.file = ANY(?) AND pm.ignored = false AND lp.license <> '' AND lp.catch_all = false",
+    [map { $_->{id} } @$docs]
+  );
+  push @{$spans{$_->[0]}}, [$_->[1], $_->[2]] for $matches->arrays->each;
+
+  # Read as bytes: only blankness and line numbering matter here, so the file never needs decoding.
+  my $base = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
+  for my $doc (@$docs) {
+    my $file = $base->child($doc->{path});
+    next unless -r $file;
+    my @lines = split /\n/, $file->slurp, -1;
+    my $total = grep {/\S/} @lines;
+    next unless $total;
+    push @{$result->{documents}},
+      {
+      kind        => 'license',
+      path        => $doc->{path},
+      lines       => $total,
+      unexplained => unexplained_lines($spans{$doc->{id}}, \@lines)
+      };
+  }
+
+  return $result;
 }
 
 sub risk_is_acceptable {
@@ -609,7 +681,7 @@ sub _prime_pattern_cache {
   return unless %needed;
 
   my $found = $db->query(
-    'SELECT id, license, spdx, risk, patent, trademark, export_restricted, cla, eula
+    'SELECT id, license, spdx, risk, patent, trademark, export_restricted, cla, eula, catch_all
        FROM license_patterns WHERE id = ANY(?)', [keys %needed]
   )->hashes;
   for my $pattern ($found->each) {
@@ -632,8 +704,15 @@ sub _load_pattern_from_cache {
 sub _register_license {
   my ($self, $report, $pid_info, $pattern, $pid, $file, $source) = @_;
 
-  $report->{licenses}{$pattern->{license}}
-    ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
+  # catch_all rides along so the declaration check can tell a concrete license from a grab-bag marker
+  # ("Any Permissive", "GPL-Unspecified") - the latter is not a license identity that can be compared
+  # against a declared SPDX expression. It is a property of the license, not of this match.
+  $report->{licenses}{$pattern->{license}} ||= {
+    name      => $pattern->{license},
+    spdx      => $pattern->{spdx},
+    risk      => $pattern->{risk},
+    catch_all => $pattern->{catch_all} ? 1 : 0
+  };
   $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
     for qw(patent trademark export_restricted cla eula);
 

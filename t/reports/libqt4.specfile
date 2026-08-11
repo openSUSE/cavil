@@ -101,6 +101,5 @@
       "url"     => "http://qt.digia.com",
       "version" => "4.8.4"
     }
-  ],
-  "warnings" => []
+  ]
 }

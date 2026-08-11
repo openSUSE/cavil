@@ -20,6 +20,5 @@
       "sources"              => [],
       "type"                 => "spec"
     }
-  ],
-  "warnings" => []
+  ]
 }

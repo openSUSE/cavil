@@ -29,11 +29,5 @@
       "url"                  => "http://www.gnome.org",
       "version"              => "3.0.1"
     }
-  ],
-  "warnings" => [
-    "Main license had to be normalized: LGPLv2.1+ -> LGPL-2.1-or-later",
-    "License from gnome-menus.spec had to be normalized: LGPLv2.1+ -> LGPL-2.1-or-later",
-    "License from gnome-menus.spec had to be normalized: GPLv2+ -> GPL-2.0-or-later",
-    "License from gnome-menus.spec is not part of main license: GPLv2+"
   ]
 }

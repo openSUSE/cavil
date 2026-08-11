@@ -489,3 +489,6 @@ ALTER TABLE bot_users DROP COLUMN fullname;
 -- 58 up
 ALTER TABLE bot_products ADD COLUMN product text;
 CREATE INDEX ON bot_products (product);
+
+-- 59 up
+ALTER TABLE bot_reports ADD COLUMN license_declaration text;

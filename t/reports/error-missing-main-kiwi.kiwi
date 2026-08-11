@@ -18,6 +18,5 @@
       "url"      => "https://bugs.opensuse.org",
       "version"  => "1.0.0"
     }
-  ],
-  "warnings" => []
+  ]
 }

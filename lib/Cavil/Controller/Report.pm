@@ -34,7 +34,13 @@ sub report ($self) {
         checksum      => $pkg->{checksum},
         limit         => 100
       )->{notes};
-      $self->render('reviewer/report', report => $report, package => $pkg, notes => $notes);
+      $self->render(
+        'reviewer/report',
+        report      => $report,
+        package     => $pkg,
+        notes       => $notes,
+        declaration => $self->helpers->declaration($id)
+      );
     },
     mcp => sub { $self->render(text => $self->helpers->mcp_report($id)) }
   );

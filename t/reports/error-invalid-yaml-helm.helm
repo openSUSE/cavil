@@ -5,6 +5,5 @@
     {"file" => "Chart.yaml", "legal_review_notices" => [], "license" => "MIT", "licenses" => ["MIT"], "type" => "helm"},
   "sub" => [
     {"file" => "Chart.yaml", "legal_review_notices" => [], "license" => "MIT", "licenses" => ["MIT"], "type" => "helm"}
-  ],
-  "warnings" => []
+  ]
 }

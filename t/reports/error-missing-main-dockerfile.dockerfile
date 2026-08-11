@@ -20,6 +20,5 @@
       "type"                 => "dockerfile",
       "version"              => "%%PKG_VERSION%%.%RELEASE%"
     }
-  ],
-  "warnings" => []
+  ]
 }

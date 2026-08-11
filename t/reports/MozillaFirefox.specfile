@@ -35,6 +35,5 @@
       "url"     => "http://www.mozilla.org/",
       "version" => "140.13.0"
     }
-  ],
-  "warnings" => []
+  ]
 }

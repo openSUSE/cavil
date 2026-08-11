@@ -74,6 +74,12 @@ sub _analyze ($job, $id, $generation = 0) {
   my $shortname = report_shortname($reports->shortname($chksum), $specfile, $dig);
   my $flags     = $pkgs->flags($id, $generation);
 
+  # The declared package license reconciled against what the code actually carries, plus the package's
+  # legal documents. This is the one point where the fresh spec file report and the finished dig report
+  # are both in hand. Deliberately computed after the checksum and shortname above and never folded into
+  # them: a declaration mismatch is a fact readers need, not a reason to re-review.
+  my $declaration = $reports->build_license_declaration($id, $specfile, $dig);
+
   # Free up memory
   my $specfile_json = $generation && %$specfile ? to_json_fast($specfile) : undef;
   undef $specfile;
@@ -117,9 +123,9 @@ sub _analyze ($job, $id, $generation = 0) {
     %state = (%state, indexed => \'now()', processing_job => undef, index_stage => undef) if $generation;
     $db->update('bot_packages', \%state, {id => $id});
 
-    # bot_reports holds the two cached reports and has exactly one row per package. A first import has
-    # none yet - nothing created it, because the spec file report was read straight from the checkout.
-    my %cached = (ldig_report => to_json_fast($dig));
+    # bot_reports holds the cached reports and has exactly one row per package. A first import has none
+    # yet - nothing created it, because the spec file report was read straight from the checkout.
+    my %cached = (ldig_report => to_json_fast($dig), license_declaration => to_json_fast($declaration));
     $cached{specfile_report} = $specfile_json if defined $specfile_json;
     if ($db->select('bot_reports', 'id', {package => $id})->hash) {
       $db->update('bot_reports', \%cached, {package => $id});

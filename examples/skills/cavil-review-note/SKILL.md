@@ -57,7 +57,7 @@ in every note. Then focus on the other signals a human lawyer would need for a f
 - Incompatible or unusual licenses
 - Unknown, proprietary, non-commercial, or custom license terms
 - Unresolved matches that look like real license text, license declarations, redistribution terms, warranty disclaimers, or patent/trademark restrictions
-- **NOTICE files** (and `AUTHORS` / other attribution files): read them when present with `cavil_get_file`. A NOTICE file carries *attribution obligations*, not just license identity - Apache-2.0 §4(d) requires downstream redistribution to preserve its contents - and it often discloses bundled third-party components, copyright holders, or additional terms that the license breakdown does not surface as a finding. Flag anything a downstream redistributor must preserve, or any component named there that the report does not otherwise account for.
+- **NOTICE files** (and other attribution files): the `## Legal Documents` section lists them when the package has them, so you do not have to go looking. Read a NOTICE with `cavil_get_file` when one is listed. It carries *attribution obligations*, not just license identity - Apache-2.0 §4(d) requires downstream redistribution to preserve its contents - and it often discloses bundled third-party components, copyright holders, or additional terms that the license breakdown does not surface as a finding. Flag anything a downstream redistributor must preserve, or any component named there that the report does not otherwise account for.
 - Large numbers of unresolved matches from a common path that may indicate generated files, bundled license data, or test fixtures
 - **Anything else legally material that the points above do not name** (see the dedicated step below)
 
@@ -119,59 +119,59 @@ an observation, not a legal ruling.
 
 Use `cavil_get_file` for context when an unresolved match is truncated, ambiguous, comes from a NOTICE/README file, or looks serious enough that you might recommend rejection or human review. Do not spend time exhaustively reading low-risk boilerplate if the report is large; note the limitation instead.
 
-#### Always review the declared package license - never skip it
-The most important first-pass check is whether the license **declared in the package file**
-(the `License:` tag from the spec file / package metadata) matches the licenses actually found in
-the report. This comparison **must appear in every note**, even when it is a clean match - it is
-the single most common reason a package needs human attention, so a note that omits it is
-incomplete.
+#### Always report the declared package license - the report already does the comparison
+Whether the license **declared in the package file** (the `License:` tag from the spec file /
+package metadata) matches the licenses actually found is the single most common reason a package
+needs human attention, and this comparison **must appear in every note**, even when it is a clean
+match. Cavil now computes it, so read the result rather than re-deriving it:
 
-The report surfaces the declared value on the `Declared-License:` line near the top (it carries a
-`(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
-the package file had no declared license - say so explicitly and lean toward NEEDS HUMAN REVIEW.
+- The `Declared-License:` line near the top carries the declared value, with a
+  `(not a valid SPDX expression)` marker when Cavil could not normalize it.
+- The `Declaration:` line beside it says whether that value matches the licenses found in shipped
+  code.
+- When it does not, a **`## Declared License`** section lists every license the declaration misses
+  with the files that carry it, and anything declared but not found anywhere. Vendored, test and
+  documentation files are already excluded from that comparison; licenses that appear only there
+  are reported separately as a count, and are normal for a package that bundles dependencies.
 
-**Always read the package's own license-declaration files with `cavil_get_file` before you compare**
-- do not judge from the tag alone. Read the top-level `LICENSE`/`COPYING`, and also list siblings
-with `cavil_list_files` (globs like `*/LICENSE*`, `*/COPYING*`) and read anything they turn up: a
-`LICENSE.txt`, `LICENSE-*`, `COPYING.LESSER`, and especially a `LICENSE_HISTORY`, `LICENSE_NOTICE`,
-or `CONTRIBUTOR_LICENSE_AGREEMENT` - those frequently state a relicense outright or reserve the right
-to one. The `Declared-License:` value and the risk breakdown come from the pattern scanner, which
-misses custom terms living only in that file's text (e.g. a BSD/MIT-looking license with an added
-field-of-use, branding, or user-count restriction). Such clauses never surface as a risk finding, so
-skipping the read can rubber-stamp a non-open-source license - and reading it inconsistently is a top
-cause of run-to-run flip-flops.
+If the `Declared-License:` line is absent the package file declared no license at all - say so
+explicitly and lean toward NEEDS HUMAN REVIEW. If the `Declaration:` line is absent, Cavil could not
+compare (nothing declared, an unresolved spec macro, or no recognizable licenses found); say that
+rather than inventing a verdict.
 
-**A clean-looking report is not evidence a license file is clean.** Cavil auto-resolves boilerplate
-snippets (folded / cleared / covered), and that machinery can *suppress the very snippet that named a
-novel term* - so a `LICENSE`/`COPYING` file can show **zero** unresolved matches in the report and
-still contain a restriction. Never infer that a license file is safe from the absence of unresolved
-matches; open it and read the text. (The same suppression can in rarer cases hide a custom license in
-a non-standard location, e.g. a bespoke header in a source file; if a package's report looks
-surprisingly clean for an upstream you have reason to think restrictive, or a `LICENSE_HISTORY`/CLA
-hints at relicensing, spot-read the files rather than trusting the rollup.) Any clause restricting
-use, distribution, or modification beyond the standard SPDX license is a material risk (Step 4
-catch-all) → at least NEEDS HUMAN REVIEW.
+What the report cannot decide is the part you add:
 
-Compare the declared license against the licenses in the Licenses/risk breakdown:
-- **Match** - the declared license covers the licenses found in the shipped code (vendored or
-  bundled third-party components under their own permissive licenses are expected and do not by
-  themselves make the declaration wrong). State that the declared license matches and name it.
-- **Mismatch** - the report contains a license that the declared value does not account for, the
-  declared value is narrower than reality (e.g. declares `MIT` but core files are `GPL-2.0-only`),
-  or it is broader/looser than what is actually present. Name the declared license, name the
-  conflicting finding with a file path, and lean toward NEEDS HUMAN REVIEW or REJECT.
+**Fixable metadata vs. bad license.** Distinguish *why* it mismatches. If the only problem is that
+the declared tag misrepresents the actually-found licenses, but those found licenses are themselves
+in the acceptable band (risk 1-4, no blocking flags or confirmed conflict), treat it as **fixable
+metadata**: the suggested next step is "correct the declared `License:` tag to `<X>` and resubmit,"
+not a license rejection. Reserve REJECT-framing for genuinely unacceptable content (risk 6/7, a
+third-party proprietary EULA, or a confirmed combined-work conflict). This matters because
+customer-facing SBOMs are generated from the declared tag, so it must match reality.
 
-  **Fixable metadata vs. bad license.** Distinguish *why* it mismatches. If the only problem is that
-  the declared tag misrepresents the actually-found licenses, but those found licenses are
-  themselves in the acceptable band (risk 1–4, no blocking flags or confirmed conflict), treat it as
-  **fixable metadata**: the suggested next step is "correct the declared `License:` tag to `<X>` and
-  resubmit," not a license rejection. Reserve REJECT-framing for genuinely unacceptable content
-  (risk 6/7, a third-party proprietary EULA, or a confirmed combined-work conflict). This matters
-  because customer-facing SBOMs are generated from the declared tag, so it must match reality.
-
-When unsure whether a found license belongs to the shipped work or to a separable bundled
+When unsure whether an undeclared license belongs to the shipped work or to a separable bundled
 component, apply the same combination-vs-aggregation reasoning as the license-compatibility check
 below, and say which it is.
+
+#### Read the legal documents the report cannot fully explain
+The **`## Legal Documents`** section lists the package's own license-declaration files (`LICENSE`,
+`COPYING`, `NOTICE` and friends) with, for each, how many of its lines **no known license pattern
+explains**. That number is the one signal that survives Cavil's own auto-resolution: the scanner
+folds, clears and covers boilerplate snippets, and that machinery can suppress the very snippet that
+named a novel term - so a license file can show **zero** unresolved matches and still contain a
+restriction. The unexplained count does not go through that machinery.
+
+- **Any file with unexplained lines is worth opening** with `cavil_get_file`. Unexplained text in a
+  `LICENSE` is how an added field-of-use, branding, user-count or commercial-use restriction shows
+  up when the rest of the file is a recognizable BSD/MIT/Apache body.
+- A file listed with no unexplained lines is recognized boilerplate; you do not need to read it.
+- Any clause restricting use, distribution, or modification beyond the standard SPDX license is a
+  material risk (Step 4 catch-all) → at least NEEDS HUMAN REVIEW.
+
+The list covers the package's own documents, not vendored trees. It is not a guarantee: a custom
+license in a non-standard location (a bespoke header in a source file) can still be missed, so if a
+report looks surprisingly clean for an upstream you have reason to think restrictive, spot-read
+rather than trusting the rollup.
 
 #### A license *change* to non-open-source terms is the worst case - flag it loudest
 The single most damaging thing a package update can do, from SUSE's position, is **switch from an
@@ -184,7 +184,9 @@ Treat any sign of it as the top finding in the note, above every other check.
 Any one of these is enough to escalate:
 - The top-level `LICENSE`/`COPYING` combines a recognized OSS body (BSD/MIT/Apache/GPL) with an
   **added** clause restricting commercial use, user/seat count, field of use, deployment, or
-  branding - or requiring a separate/"enterprise" license for ordinary use.
+  branding - or requiring a separate/"enterprise" license for ordinary use. A license file the
+  `## Legal Documents` section reports as **partly unexplained** is exactly this shape: a recognized
+  body Cavil matched, plus lines it did not. Read those files first.
 - The license file is retitled to a custom **"<Project> License"** instead of a standard SPDX name.
 - A `LICENSE_HISTORY`, `LICENSE_NOTICE`, relicensing announcement, or a CLA reserving the right to
   relicense is present - read them; they often state the transition in plain words.

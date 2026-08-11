@@ -39,6 +39,5 @@
       "type"                 => "dockerfile",
       "version"              => 5
     }
-  ],
-  "warnings" => []
+  ]
 }

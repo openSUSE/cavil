@@ -20,6 +20,5 @@
       "url"                  => "https://goharbor.io",
       "version"              => "1.2.4"
     }
-  ],
-  "warnings" => []
+  ]
 }

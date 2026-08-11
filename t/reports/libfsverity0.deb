@@ -17,6 +17,5 @@
       "url"      => "https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/fsverity-utils.git",
       "version"  => "4.5.1"
     }
-  ],
-  "warnings" => []
+  ]
 }

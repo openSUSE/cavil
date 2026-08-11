@@ -100,7 +100,7 @@ sub specfile_report ($self, $opts = {}) {
   my $basename = $dir->dirname->basename;
   my $unpacked = $dir->child('.unpacked');
 
-  my $info = {main => undef, sub => [], errors => [], warnings => [], incomplete_checkout => 0};
+  my $info = {main => undef, sub => [], errors => [], incomplete_checkout => 0};
 
   my $service_file = $unpacked->child('_service');
 
@@ -172,8 +172,11 @@ sub specfile_report ($self, $opts = {}) {
 
     # ObsPrj
     if ($is_obsprj) {
-      push @{$info->{sub}},      $info->{main} = {file => 'workflow.config', type => 'obsprj', licenses => []};
-      push @{$info->{warnings}}, 'Checkout is a product in ObsPrj format and might contain packages in subdirectories';
+      push @{$info->{sub}}, $info->{main} = {file => 'workflow.config', type => 'obsprj', licenses => []};
+
+      # Not a license problem but a completeness one, which is what the errors list is for: the packages
+      # this product pulls in from subdirectories may not be in the checkout that was scanned.
+      push @{$info->{errors}}, 'Checkout is a product in ObsPrj format and might contain packages in subdirectories';
     }
 
     # Main .spec file
@@ -375,31 +378,19 @@ sub unpacked_files ($self, $bucket_size = undef) {
   return buckets(\@files, $bucket_size);
 }
 
-sub _add_once ($queue, $msg) {
-  return if grep { $_ eq $msg } @$queue;
-  push @$queue, $msg;
-}
-
+# Only unparseable license expressions are reported here, as errors the packager has to fix. This used
+# to also warn that a license had been normalized, carried an exception, or was not part of the main
+# license - all of which compared the package file against itself. The report's declared-license
+# reconciliation answers the same question against the code that is actually shipped, which is the
+# comparison that matters, so the warnings were dropped rather than kept alongside it.
 sub _check ($info) {
-  my $errors   = $info->{errors};
-  my $warnings = $info->{warnings};
+  my $errors = $info->{errors};
 
-  my $mlicense = $info->{main}{license};
-  my $main     = lic($mlicense);
-  if (my $err = $main->error) { push @$errors, $err and return }
-  _add_once($warnings, "Main license has license exception: $mlicense")         if $main->exception;
-  _add_once($warnings, "Main license had to be normalized: $mlicense -> $main") if $main->normalized;
+  if (my $err = lic($info->{main}{license})->error) { push @$errors, $err and return }
 
   for my $file (@{$info->{sub}}) {
-    my $spec = $file->{file};
     for my $license (@{$file->{licenses}}) {
-      my $sub = lic($license);
-      if (my $err = $sub->error) { push @$errors, $err and next }
-
-      _add_once($warnings, "License from $spec has license exception: $license")        if $sub->exception;
-      _add_once($warnings, "License from $spec had to be normalized: $license -> $sub") if $sub->normalized;
-
-      _add_once($warnings, "License from $spec is not part of main license: $license") unless $main->is_part_of($sub);
+      if (my $err = lic($license)->error) { push @$errors, $err }
     }
   }
 }

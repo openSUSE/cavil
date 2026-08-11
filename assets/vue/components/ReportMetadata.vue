@@ -22,6 +22,7 @@
             <dd id="pkg-license">
               {{ pkgLicense.name }}
               <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
+              <small v-if="declarationNote" id="declaration-note" class="declaration-note">{{ declarationNote }}</small>
             </dd>
           </template>
           <dt>Embargoed</dt>
@@ -226,15 +227,7 @@
       id="spec-errors"
       icon="fa-solid fa-triangle-exclamation"
       :items="errors"
-      title="Package file warnings for packagers"
-      tone="warning"
-    />
-    <cavil-notice-panel
-      v-if="warnings.length > 0"
-      id="spec-warnings"
-      icon="fa-solid fa-clipboard-check"
-      :items="warnings"
-      title="Package file warnings for reviewers"
+      title="Package file warnings"
       tone="warning"
     />
     <cavil-notice-panel
@@ -307,6 +300,20 @@
       </form>
     </div>
     <cavil-notice-panel
+      v-if="documents.length > 0"
+      id="legal-documents"
+      icon="fa-solid fa-scale-balanced"
+      title="Legal documents"
+    >
+      <p v-if="documentsDropped > 0" class="cavil-notice-summary">{{ documentsDropped }} more not listed.</p>
+      <ul class="cavil-notice-list">
+        <li v-for="document in documents" :key="document.path" class="cavil-notice-item legal-document-item">
+          <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path">{{ document.path }}</a>
+          <span class="legal-document-lines">{{ documentLines(document) }}</span>
+        </li>
+      </ul>
+    </cavil-notice-panel>
+    <cavil-notice-panel
       v-if="copiedFiles['%doc'] !== null || copiedFiles['%license'] !== null"
       icon="fa-regular fa-copy"
       title="Copied files"
@@ -361,6 +368,7 @@ export default {
       checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
       created: null,
+      declaration: null,
       errors: [],
       externalLink: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
@@ -407,13 +415,43 @@ export default {
       flashTimer: null,
       templates: [],
       unpackedFiles: 0,
-      unpackedSize: 'n/a',
-      warnings: []
+      unpackedSize: 'n/a'
     };
   },
   computed: {
     canReview() {
       return this.hasAdminRole === true || this.hasManagerRole === true;
+    },
+
+    // One informational line under the declared license, naming the licenses the package file does not
+    // mention so a packager knows what to go and check. Identifiers only: they know their own code, and a
+    // file count would not change what they look at. Anything else the declaration check knows - licenses
+    // declared but absent, licenses confined to vendored trees - is a package file concern rather than a
+    // missing license, and stays in the text and MCP reports.
+    //
+    // The check runs on every package, so a clean result says so rather than staying silent: that way the
+    // absence of this line means the check could not run, not that everything is fine. "unknown" (nothing
+    // declared, an unresolved macro, or a report with no concrete licenses) shows nothing at all.
+    declarationNote() {
+      const declaration = this.declaration;
+      if (declaration === null || declaration.verdict === 'unknown') return null;
+
+      const missing = declaration.undeclared.map(entry => entry.license);
+      if (missing.length === 0) return 'all licenses in the code are declared';
+
+      // Every one of them, uncapped. A package the size of chromium can miss dozens, but this is muted
+      // text that wraps, and a packager who has to go and check them needs the whole list rather than a
+      // sample of it. The leading count is there so the scale reads before the names do.
+      const names = missing.join(', ');
+      return `${missing.length} ${missing.length === 1 ? 'license' : 'licenses'} in the code not declared: ${names}`;
+    },
+
+    documents() {
+      return this.declaration?.documents ?? [];
+    },
+
+    documentsDropped() {
+      return this.declaration?.documents_dropped ?? 0;
     },
     // A curator gets accept and reject, a manager only the fasttrack accept
     reviewButtons() {
@@ -507,6 +545,17 @@ export default {
   methods: {
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
+    },
+    // A file Cavil fully understands just states its size; only an unexplained remainder is called out, so
+    // the list reads as an index of documents with the odd thing worth a look, not as a list of problems.
+    //
+    // Deliberately absolute rather than a percentage. What this number exists to catch is a small novel
+    // clause bolted onto an otherwise recognised license body, and a percentage rounds exactly that case
+    // away: 15 added lines in a 312-line BSD file reads as "5%" and disappears. The size beside it carries
+    // the other half, telling a recognised body with an addendum apart from a wholly unknown license.
+    documentLines(document) {
+      const lines = `${document.lines} ${document.lines === 1 ? 'line' : 'lines'}`;
+      return document.unexplained > 0 ? `${lines} · ${document.unexplained} unexplained` : lines;
     },
     // Before a decision both buttons stay solid (a plain call to action). Once one is the stored decision
     // it keeps its solid colour and the other relaxes to an outline - quieter, but still obviously a button
@@ -624,6 +673,7 @@ export default {
       if (copiedFiles['%license'].length > 0) this.copiedFiles['%license'] = copiedFiles['%license'].join(' ');
 
       this.created = moment(data.created * 1000).fromNow();
+      this.declaration = data.declaration ?? null;
       this.errors = data.errors;
       this.externalLink = data.external_link_data ?? data.external_link;
       this.spdx = data.spdx;
@@ -682,8 +732,6 @@ export default {
         this.unpackedFiles = data.unpacked_files;
         this.unpackedSize = data.unpacked_size;
       }
-
-      this.warnings = data.warnings;
     }
   }
 };
@@ -804,6 +852,40 @@ export default {
   border-color: #b6e3ff;
   color: #0969da;
   text-decoration: none;
+}
+/* An annotation on the declared license, not a second value competing with it: its own line below, in the
+   same muted register as the "(not SPDX)" marker, wrapping rather than growing the row. */
+.declaration-note {
+  display: block;
+  line-height: 1.45;
+  margin-top: 0.1rem;
+}
+.legal-document-item {
+  align-items: baseline;
+  display: flex;
+  gap: 0.85rem;
+  justify-content: space-between;
+  white-space: normal;
+}
+/* File names follow the report's convention: muted until hovered, where they turn link-blue */
+.legal-document-path {
+  color: #57606a;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-decoration-color: transparent;
+}
+.legal-document-path:hover,
+.legal-document-path:focus {
+  color: #0550ae;
+  text-decoration-color: currentColor;
+}
+.legal-document-lines {
+  color: #6e7781;
+  flex: 0 0 auto;
+  font-size: 12px;
 }
 .metadata-collapse-inner {
   padding: 0.85rem 0 1.1rem;

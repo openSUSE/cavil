@@ -19,9 +19,5 @@
       "url"      => "https://bugs.opensuse.org",
       "version"  => "1.0.0"
     }
-  ],
-  "warnings" => [
-    "Main license had to be normalized: SUSE-Permissive -> LicenseRef-SUSE-Permissive",
-    "License from ceph-image.kiwi had to be normalized: SUSE-Permissive -> LicenseRef-SUSE-Permissive"
   ]
 }

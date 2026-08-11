@@ -18,6 +18,36 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 
 
 % }
+% if ($declaration && $declaration->{verdict} ne 'unknown') {
+## Declared License
+
+<%== $declaration->{declared} %>
+%   if ($declaration->{verdict} eq 'match') {
+
+Matches the licenses found in the shipped code.
+%   }
+%   else {
+
+%     for my $entry (@{$declaration->{undeclared}}) {
+%       my @paths = map {"`$_`"} @{$entry->{files}};
+%       my $more  = $entry->{count} - @paths;
+* Not declared: <%== $entry->{license} %> in <%== join(', ', @paths) %><%== $more > 0 ? " (+$more more)" : '' %>
+%     }
+%     for my $missing (@{$declaration->{not_found}}) {
+* Declared but not found: <%== $missing %>
+%     }
+
+The declared license should account for the licenses in the shipped code, so this is usually fixed by
+correcting the package file rather than by changing the code.
+%   }
+%   if (my $peripheral = $declaration->{peripheral}) {
+
+<%= $peripheral %> further <%= $peripheral == 1 ? 'license appears' : 'licenses appear' %> only in vendored or test files, which is normal for an aggregation.
+%   }
+
+
+
+% }
 ## Licenses
 % use Cavil::ReportUtil qw(ranked_incompatibilities incompatibility_location);
 % my $ranked = ranked_incompatibilities($report->{license_compatibility} // {});
@@ -73,6 +103,21 @@ similarity drops.
 % if (!(keys %{$report->{risks}}) && !@{$report->{missed_files}}) {
 
 No files matched known license patterns or keywords.
+
+
+% }
+% if ($declaration && @{$declaration->{documents}}) {
+## Legal Documents
+
+The files that state this package's terms, with how much of each no known license pattern explains.
+
+%   for my $document (@{$declaration->{documents}}) {
+%     my $unexplained = $document->{unexplained};
+* `<%== $document->{path} %>`: <%= $document->{lines} %> lines<%== $unexplained ? ", $unexplained unexplained" : '' %>
+%   }
+%   if (my $dropped = $declaration->{documents_dropped}) {
+* ... <%= $dropped %> more not listed
+%   }
 
 
 % }
