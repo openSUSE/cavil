@@ -52,20 +52,7 @@ my $BLACKLIST_MIME_RE = qr!
 )
 !x;
 
-# TODO: Clean up, copied from old code
-#
-# This monstrous regexp is not exact RFC-822 conform, but quite close :-)
-# mee@foo.-oo is illgal. host names should be @(\w([\w-]*\w)?\.)+\w([\w-]*\w)?
-# This is filtered below in an additional regexp.
-#
-# Every run here is explicitly bounded, and possessive wherever the class cannot overlap the atom that
-# follows it. Unbounded, the address branches are quadratic: on input with no whitespace and no "@" (a
-# 30KB run of "a.a.a.") the local-part class rescans to end of buffer from every single start position,
-# which cost three and a half seconds for one file - some four thousand times a normal one. Cavil scans
-# a whole distribution, test corpora of security tooling included, so that shape is something we are handed
-# rather than something we might one day meet. The bounds are the RFC 5321 ceiling on an address, well
-# above anything real (the longest local part in production is 53 characters, the longest URL 280) and
-# in any case far below the max_email_url_size cutoff that already drops over-long values on insert.
+# RFC-sized bounds prevent quadratic scanning on long hostile input.
 my $EMAIL_RE = qr/[\w\.\+%-]{1,254}+@[\w-]{1,254}+\.[\w\.-]{1,254}\w/;
 my $URL_RE   = qr!
   \b(\S{1,254}\s\S{1,254})\s+[\(<]?($EMAIL_RE)[\)>]?\s |
@@ -124,8 +111,6 @@ sub specfile_report ($self, $opts = {}) {
   # Archive upload (no user-provided package metadata)
   if ($opts->{upload}) {
 
-    # Look one level into the unpacked tree (through a single wrapper directory like
-    # "foo-1.0.0/") for a package file we can auto-detect metadata from
     my $root    = $unpacked;
     my @entries = $unpacked->list({dir => 1})->each;
     $root = $entries[0] if @entries == 1 && -d $entries[0];
@@ -282,9 +267,6 @@ sub unpack ($self, $options = {}) {
   my $u = File::Unpack2->new(
     verbose => 0,
 
-    # chromium's tar is 23GB (uncompressed, as file::unpack2
-    # first xz -cd before extracting tar, we need to need that
-    # much. And reserve some space for future growth)
     maxfilesize          => '30G',
     one_shot             => 0,
     no_op                => 0,
@@ -310,11 +292,7 @@ sub unpack ($self, $options = {}) {
 
   $u->exclude(vcs => 1);
 
-  # Never unpack Cavil's own generated SPDX report that lives in the checkout dir. On a re-unpack it
-  # would otherwise be exploded into .unpacked (and line-wrapped by postprocess) on every pass -
-  # pure waste, as these reports can be huge. The compact .report.spdx.json.gz stays in the checkout
-  # dir untouched; it is simply not unpacked. Matches both the .report.spdx.* and legacy
-  # .report.processed.spdx.* names.
+  # Avoid repeatedly unpacking and wrapping large generated SPDX reports.
   $u->exclude(add => '.report*.spdx*');
 
   if (my $exclude = $options->{exclude}) {
@@ -361,10 +339,7 @@ sub unpacked_files ($self, $bucket_size = undef) {
   my @files;
   for my $file (sort keys %{$unpacked}) {
 
-    # Cavil's own SPDX report can reappear when a checkout is unpacked more than once: the previous
-    # .report.spdx.json[.gz] is unpacked again, and postprocess may line-wrap the uncompressed copy
-    # into .report.spdx.processed.json. Never index any of these - the ".processed" marker can land
-    # after ".report" or after ".spdx" depending on which name postprocess rewrote.
+    # Postprocessing can place the generated report's marker in either position.
     next if $file =~ /\.report(?:\.processed)?\.spdx(?:\.processed)?(?:\.json)?(?:\.gz)?$/;
 
     my $mime = $unpacked->{$file}{mime};
@@ -378,11 +353,6 @@ sub unpacked_files ($self, $bucket_size = undef) {
   return buckets(\@files, $bucket_size);
 }
 
-# Only unparseable license expressions are reported here, as errors the packager has to fix. This used
-# to also warn that a license had been normalized, carried an exception, or was not part of the main
-# license - all of which compared the package file against itself. The report's declared-license
-# reconciliation answers the same question against the code that is actually shipped, which is the
-# comparison that matters, so the warnings were dropped rather than kept alongside it.
 sub _check ($info) {
   my $errors = $info->{errors};
 
@@ -515,8 +485,6 @@ sub _urls ($file, $meta) {
 # file of every package, test corpora of security tooling included, so it is worth being able to hold
 # a string against it directly.
 #
-# urls with query string have their query strings removed. only the question
-# mark char remains.
 # urls with user@ are currently not supported.
 sub extract_urls_and_emails ($text, $meta = undef) {
   $meta //= {emails => {}, urls => {}};
@@ -532,9 +500,6 @@ sub extract_urls_and_emails ($text, $meta = undef) {
     $email = $email2 unless defined $email;
     $email = $email3 unless defined $email;
     $name  = $name2  unless defined $name;
-
-    # name: want mixed case, no digits, little punctation
-    # url and email: skip example.org adresses.
 
     $email = undef if defined $email and $email =~ m{(\@-|\@.*(\.-|-\.))};             # RFC 822 illegal
     $email = undef if defined $email and $email =~ m{[\@\.]example\.(net|com|org)};    # RFC 2606

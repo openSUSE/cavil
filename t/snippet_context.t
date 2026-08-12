@@ -1,17 +1,5 @@
-# Copyright (C) 2026 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict, -signatures;
 
@@ -29,11 +17,7 @@ my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 my $app        = $t->app;
 $cavil_test->no_fixtures($app);
 
-# The identical license block (with a keyword-less "license" pattern match) is
-# what produces the snippet. Surrounded by neutral padding it extracts to the
-# exact same text in both packages, so the snippet is deduplicated by hash. The
-# only difference between the two packages is how many padding lines precede the
-# block, which shifts the snippet's line number.
+# Identical snippet hashes at different source lines test per-file attribution.
 my $block = <<'BLOCK';
 The license might be
 something cool

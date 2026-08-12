@@ -48,7 +48,6 @@ sub startup ($self) {
   my $config = $self->plugin(Config => {file => $file});
   $self->secrets($config->{secrets});
 
-  # Select the pattern matching engine ("cavil" or "spooky"); loads the alternative engine on demand
   Cavil::PatternEngine::use_engine($config->{matcher} // 'cavil');
 
   if (my $classifier = $config->{classifier}) {
@@ -59,32 +58,20 @@ sub startup ($self) {
   $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};
   $self->max_request_size(262144000);
 
-  # OBS/git configuration
   if (my $obs = $config->{obs}) { $self->obs->config($obs) }
   if (my $git = $config->{git}) { $self->git->config($git) }
 
   # Short logs for systemd
   $self->log->short(1) if $self->mode eq 'production';
 
-  # Application specific commands
   push @{$self->commands->namespaces}, 'Cavil::Command';
 
-  # Sessions last 14 days
   $self->sessions->default_expiration(1209600)->encrypted(1);
 
   $self->plugin('Cavil::Plugin::Helpers');
 
-  # Webpack
   $self->plugin('Webpack');
 
-  # Job queue (model)
-  #
-  #  Start a background worker (processes 4 jobs parallel by default)
-  #  $ script/cavil minion worker
-  #
-  #  Start a background worker (process one job at a time)
-  #  $ script/cavil minion worker -j 1
-  #
   $self->helper(pg => sub { state $pg = Mojo::Pg->new($config->{pg})->max_connections(1) });
   $self->plugin(Minion => {Pg => $self->pg});
   $self->plugin('Cavil::Task::Classify');
@@ -101,10 +88,8 @@ sub startup ($self) {
   my $mcp_action = $self->plugin('Cavil::Plugin::MCP');
   $self->types->type(mcp => 'text/plain;charset=utf-8');
 
-  # Compress dynamically generated content
   $self->renderer->compress(1);
 
-  # Model
   if (my $remove_after = $config->{minion_remove_after}) { $self->minion->remove_after($remove_after) }
   if (my $stuck_after  = $config->{minion_stuck_after})  { $self->minion->stuck_after($stuck_after) }
   $self->helper(
@@ -160,12 +145,10 @@ sub startup ($self) {
 
   $self->helper(notes => sub ($c) { state $nts = Cavil::Model::Notes->new(pg => $c->pg) });
 
-  # Migrations (do not run automatically, use the migrate command)
-  #
+  # Migrations run only through the migrate command.
   my $path = $self->home->child('migrations', 'cavil.sql');
   $self->pg->migrations->name('legalqueue_api')->from_file($path);
 
-  # Authentication
   my $public    = $self->routes;
   my $bot       = $public->under('/')->to('Auth::Token#check');
   my $api_key   = $public->under('/')->to('Auth::APIKey#check');
@@ -199,10 +182,8 @@ sub startup ($self) {
   else { $public->get('/login')->to('Auth::Dummy#login')->name('login') }
   $public->get('/logout')->to('Auth#logout')->name('logout');
 
-  # Minion admin
   $self->plugin('Minion::Admin' => {route => $can_infra->any('/minion')});
 
-  # API for Open Build Service bots
   $bot->get('/package/<id:num>')->to('Queue#package_status');
   $bot->patch('/package/<id:num>')->to('Queue#update_package');
   $bot->post('/packages')->to('Queue#create_package');
@@ -215,16 +196,13 @@ sub startup ($self) {
   $bot->delete('/requests')->to('Queue#remove_request');
   $bot->get('/package/<id:num>/report' => [format => ['json', 'txt']])->to('Report#report', format => 'json');
 
-  # API for lawyer tools
   $bot->get('/source/<id:num>')->to('Report#source', format => 'json');
 
-  # Public API (legacy)
   $public->get('/api/package/:name' => sub ($c) { $c->redirect_to('package_api') });
   $public->get('/api/1.0/identify/:name/:checksum')->to('API#identify')->name('identify_api');
   $public->get('/api/1.0/package/:name')->to('API#status')->name('package_api');
   $public->get('/api/1.0/source')->to('API#source')->name('source_api');
 
-  # API with key
   $api_key->any('/mcp' => $mcp_action)->name('mcp');
   $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
   $api_key->get('/api/v1/reports')->to('API#reports');
@@ -232,13 +210,11 @@ sub startup ($self) {
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
   $api_key->get('/api/v1/spdx/<id:num>')->to('Report#spdx');
 
-  # API Keys
   $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');
   $logged_in->get('/api_keys/meta')->to('APIKeys#list_meta')->name('list_api_keys_meta');
   $logged_in->post('/api_keys')->to('APIKeys#create')->name('create_api_keys');
   $logged_in->delete('/api_keys/:id')->to('APIKeys#remove')->name('remove_api_keys');
 
-  # Review UI
   $public->get('/')->to('Reviewer#list_reviews')->name('dashboard');
   $public->get('/search')->to('Search#search')->name('search');
   $public->get('/package/autocomplete')->to('Search#autocomplete')->name('package_autocomplete');
@@ -344,7 +320,6 @@ sub startup ($self) {
   $logged_in->get('/stats')->to('Stats#index')->name('stats');
   $logged_in->get('/stats/meta')->to('Stats#meta')->name('stats_meta');
 
-  # Upload (experimental)
   $can_infra->get('/upload')->to('Upload#index')->name('upload');
   $can_infra->post('/upload')->to('Upload#store')->name('store_upload');
 }

@@ -12,17 +12,12 @@ use Mojo::JSON qw(true false);
 use Mojo::Util qw(md5_sum);
 use Cavil::PatternEngine;
 
-# Candidate licenses pulled from a snippet's most distinctive shingles before precise re-scoring
 use constant SIMILARITY_PROBE_SHINGLES => 20;
 
-# Tokens per shingle for the snippet similarity scorer. Empirically (eval_fold on the full corpus)
-# k=3 gives the best precision; larger k trades precision for recall.
+# Corpus evaluation found three-token shingles give the best precision.
 use constant SIMILARITY_SHINGLE_SIZE => 3;
 
-# Required-phrase gate: the winning license must share at least MIN_DISTINCTIVE shingles this
-# distinctive (IDF, i.e. present in few licenses) with the snippet. The count requirement (>=2) kills
-# the dominant real-world false fold: tiny generic header fragments ("Disclaimer", "Attribution")
-# matching a pseudo-license on a single token. Calibrate with "cavil eval_fold" / staging snippets.
+# Require two rare shared shingles to reject generic single-token matches.
 use constant SIMILARITY_DISTINCTIVE_IDF => 4.0;
 use constant SIMILARITY_MIN_DISTINCTIVE => 2;
 
@@ -114,11 +109,7 @@ sub closest_matches ($self, $text, $num) {
   return $bag->best_for($text, $num);
 }
 
-# Incrementally maintain pattern_shingles for one pattern: replace its rows with the shingles of its
-# current text, tagged with its current license. Called whenever a pattern's text or license is created,
-# updated or imported; deletes are handled by the table's ON DELETE CASCADE. Runs on the caller's $db so
-# it shares the pattern write's transaction. An empty-license pattern (the keyword-detection layer) is
-# never a fold target, so it is not stored.
+# Use the caller's transaction; empty-license keyword patterns are not fold targets.
 sub sync_pattern_shingles ($self, $db, $id, $license, $text) {
   $db->query('DELETE FROM pattern_shingles WHERE pattern_id = ?', $id);
   return unless defined $license && length $license;
@@ -155,7 +146,6 @@ sub backfill_pattern_shingles ($self) {
   return $self;
 }
 
-# --- Snippet similarity scoring ----------------------------------------------------------------------
 # Snippets are scored by IDF-weighted containment against per-license signatures - the union of a
 # license's patterns' token-shingles. The data lives in two tables maintained incrementally as patterns
 # change (see sync_pattern_shingles): shingle_license is the license-level inverted index (one row per

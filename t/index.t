@@ -1,17 +1,5 @@
-# Copyright (C) 2018-2020 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict;
 
@@ -50,7 +38,6 @@ subtest 'Cannot analyze before indexing' => sub {
   like $analyzed_job->info->{result}, qr/Package 1 is not indexed yet/, 'not yet indexed';
 };
 
-# Unpack and index with the job queue
 my $unpack_id = $t->app->minion->enqueue(unpack => [1]);
 my $db        = $t->app->pg->db;
 ok !$db->select('emails',       ['id'], {email => 'sri@cpan.org'})->rows,           'email address does not exist';
@@ -96,10 +83,8 @@ is $analyzed_job->info->{result},       undef,      'job was successful';
 is $t->app->packages->find(1)->{state}, 'new',      'still new';
 
 
-# Check shortname (3 missing snippets)
 like $t->app->packages->find(1)->{checksum}, qr/^Artistic-2.0-9:\w+/, 'right shortname';
 
-# Check email addresses and URLs
 ok $db->select('emails', ['id'], {email => 'sri@cpan.org'})->rows, 'email address has been added';
 
 # Two fewer hits than the raw sources: URLs that only appeared inside HTML attributes (href/src) are
@@ -110,17 +95,14 @@ is $db->select('emails', ['id'], {email => $long})->hash, undef, 'email address 
 $long = 'https://cdn.rawgit.com/google/code-prettify/master/loader/prettify.css';
 is $db->select('urls', ['hits'], {url => $long})->hash, undef, 'URL is too long';
 
-# Check files
 my $file_id = $db->select('matched_files', ['id'], {filename => 'Mojolicious-7.25/lib/Mojolicious.pm'})->hash->{id};
 ok $file_id,                                                               'file has been added';
 ok $db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'unpacked';
 
-# Verify report checksum
 my $specfile = $t->app->reports->specfile_report(1);
 my $dig      = $t->app->reports->dig_report(1);
 is report_checksum($specfile, $dig), '7d2fa36eff75adc8d7c309b8ff025992', 'right checksum';
 
-# Check matches
 my $res = $db->select(
   ['pattern_matches', ['matched_files', id => 'file']],
   ['sline',           'pattern'],

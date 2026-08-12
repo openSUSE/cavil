@@ -37,20 +37,17 @@ sub run ($self, @args) {
   die "PROJECT is required.\n" unless $project;
   die "PACKAGE is required.\n" unless $pkg;
 
-  # Get info
   my $app  = $self->app;
   my $obs  = $app->obs;
   my $info = $obs->package_info($api, $project, $pkg, {rev => $rev});
   return print STDOUT dumper $info unless $download || $import;
 
-  # Download
   my ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
   my $checkout_dir = $import ? $app->config->{checkout_dir} : $download;
   my $dir          = path($checkout_dir, $srcpkg, $verifymd5)->make_path;
   $obs->download_source($api, $project, $pkg, $dir, {rev => $srcmd5});
   return print STDOUT qq{Downloaded $pkg to "$dir".\n} if $download;
 
-  # Index
   my $user = $app->users->licensedigger;
   my $pkgs = $app->packages;
   my $obj  = $pkgs->find_by_name_and_md5($srcpkg, $verifymd5);

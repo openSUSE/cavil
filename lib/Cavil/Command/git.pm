@@ -24,7 +24,6 @@ sub run ($self, @args) {
 
   return print STDOUT "Nothing to do\n" unless $import;
 
-  # Index
   my $app  = $self->app;
   my $user = $app->users->licensedigger;
   my $pkgs = $app->packages;

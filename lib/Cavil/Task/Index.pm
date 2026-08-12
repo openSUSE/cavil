@@ -67,9 +67,7 @@ sub _index ($job, $id) {
     $db->update('bot_packages', {index_stage => 'indexing'}, {id => $id});
     $tx->commit;
 
-    # The SPDX report lives in the checkout directory, where a stale copy left behind for the duration of
-    # the rebuild would be picked up by the next unpack and indexed as if it were a file of the package.
-    # Being briefly unavailable is the lesser problem, so it goes now and is regenerated on demand.
+    # Remove stale SPDX output before it can be indexed as package content.
     $pkgs->remove_spdx_report($id);
   }
 
@@ -146,8 +144,7 @@ sub _index_batch ($job, $id, $batch, $generation) {
     );
   }
 
-  # Vendored subcomponents (identity from the embedded metadata file's content, deduped by purl across
-  # the parallel batches via the upsert)
+  # The upsert deduplicates components discovered by parallel batches.
   for my $purl (sort keys %{$meta{components}}) {
     my $c = $meta{components}{$purl};
     $db->query(
@@ -178,8 +175,7 @@ sub _single_unpacked_root ($dir) {
   return $dirs == 1 ? 1 : 0;
 }
 
-# Recognise a vendored component from its embedded metadata file (e.g. package.json, Cargo.toml). Identity
-# comes from the file content, so obscured/renamed/deep directory names do not matter.
+# Component identity comes from content, not its path.
 sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
 
   # The scanner re-emits any over-long-lined text file as "<name>.processed.<ext>" and lists only that

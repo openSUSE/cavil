@@ -4,13 +4,11 @@
 package Cavil::Bom::Detector::Cargo;
 use Mojo::Base -base, -signatures;
 
-# A vendored Rust crate ships its "Cargo.toml" with a [package] table
 sub files ($self) { return (qr{(?:^|/)Cargo\.toml$}) }
 
 sub parse ($self, $path, $content) {
 
-  # Minimal TOML: only the [package] table's name/version/license (workspace/virtual manifests have no
-  # [package] table and are correctly skipped)
+  # Workspace manifests have no package table and are skipped.
   my ($in_package, %field);
   for my $line (split /\n/, $$content) {
     if ($line =~ /^\s*\[([^\]]+)\]/) { $in_package = $1 eq 'package'; next }

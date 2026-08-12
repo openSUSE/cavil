@@ -4,15 +4,10 @@
 package Cavil::Bom::Detector::Rubygems;
 use Mojo::Base -base, -signatures;
 
-# Two canonical vendored layouts:
-#   1. an installed spec, ".../specifications/<name>-<version>.gemspec" (gem/bundle install)
-#   2. a cached gem, ".../<name>-<version>/metadata" (bundle cache, after Cavil unpacks the .gem, which
-#      drops the extension; "metadata" is a YAML gemspec). The generic "metadata" filename is confirmed by
-#      the Gem::Specification content signature in parse(), so unrelated "metadata" files are ignored.
+# Verify generic metadata filenames by content to avoid unrelated files.
 sub files ($self) {
 
-  # Installed gemspecs live in "specifications/"; the Ruby/JRuby runtime's built-in gems live one level
-  # deeper in "specifications/default/" - both are shipped, so match either.
+  # Match both installed and built-in runtime gems.
   return (qr{(?:^|/)specifications/(?:default/)?[^/]+\.gemspec$}, qr{(?:^|/)metadata$});
 }
 
@@ -36,8 +31,7 @@ sub parse ($self, $path, $content) {
   return [];
 }
 
-# Split "<name>-<version>" where the version is the first digit-led trailing segment (handles hyphenated
-# gem names like "net-http" and platform suffixes like "1.13.0-x86_64-linux")
+# A digit-led version disambiguates hyphenated names.
 sub _split_stem ($stem) { return $stem =~ m{^(.+?)-([0-9][^/]*)$} ? ($1, $2) : (undef, undef) }
 
 sub _component ($name, $version, $license, $path) {
@@ -54,14 +48,12 @@ sub _component ($name, $version, $license, $path) {
   ];
 }
 
-# gemspec body: s.license = "MIT"  or  s.licenses = ["MIT", "Apache-2.0"]
 sub _gemspec_license ($content) {
   return undef unless $$content =~ /\.licenses?\s*=\s*(\[[^\]]*\]|["'][^"']*["'])/;
   my @ids = $1 =~ /["']([^"']+)["']/g;
   return @ids ? join(' OR ', @ids) : undef;
 }
 
-# gem metadata (YAML): "licenses:\n- MIT\n- Apache-2.0"  or  "licenses: []"  or  "license: MIT"
 sub _yaml_license ($content) {
   if ($$content =~ /^licenses:\s*\n((?:[ \t]*-[ \t]*\S.*\n?)+)/m) {
     my @ids = $1 =~ /-[ \t]*["']?([^"'\n]+?)["']?\s*$/mg;

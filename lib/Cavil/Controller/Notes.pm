@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 # Copyright SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 package Cavil::Controller::Notes;
@@ -204,8 +207,6 @@ sub update ($self) {
   $self->render(json => {note => $self->_format_note($updated, $author->{id})});
 }
 
-# Renders a markdown preview without persisting anything. Used by the note
-# form's Write/Preview tabs.
 sub preview ($self) {
   my $v = $self->validation;
   $v->required('body')->size(1, NOTE_BODY_MAX_LENGTH);

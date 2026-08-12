@@ -43,9 +43,7 @@ sub _git ($job, $id, $data) {
   $pkgs->imported($id);
   $log->info("[$id] Imported $dir");
 
-  # Next step, one above this one. The whole chain down to the report is built on the priority this import
-  # was submitted with, so an urgent request stays urgent all the way there and an ordinary one does not
-  # overtake the reviewers waiting on theirs.
+  # Preserve request priority through the build chain.
   undef $guard;
   $pkgs->unpack($id, $job->info->{priority} + 1, [$job->id]);
 }
@@ -55,10 +53,8 @@ sub _obs ($job, $id, $data) {
   my $log  = $app->log;
   my $pkgs = $app->packages;
 
-  # Protect from race conditions
   return $job->finish("Package $id is already being processed") unless my $guard = $pkgs->claim_guard($id, $job->id);
 
-  # Check embargo status before checkout
   _embargo($job, $id, $data);
 
   my $checkout_dir = $app->config->{checkout_dir};
@@ -76,9 +72,7 @@ sub _obs ($job, $id, $data) {
   $pkgs->imported($id);
   $log->info("[$id] Imported $dir");
 
-  # Next step, one above this one. The whole chain down to the report is built on the priority this import
-  # was submitted with, so an urgent request stays urgent all the way there and an ordinary one does not
-  # overtake the reviewers waiting on theirs.
+  # Preserve request priority through the build chain.
   undef $guard;
   $pkgs->unpack($id, $job->info->{priority} + 1, [$job->id]);
 }

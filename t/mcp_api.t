@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
+
 use Mojo::Base -strict, -signatures;
 
 use FindBin;
@@ -33,7 +34,6 @@ my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'mcp_ap
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
-# Add patterns for known incompatible licenses
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0', license => 'Apache-2.0');
 $t->app->patterns->create(
   pattern => 'SPDX-License-Identifier: GPL-2.0-only',
@@ -43,13 +43,11 @@ $t->app->patterns->create(
 );
 $t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 GPL-2.0-only);
 
-# Add files with incompatible licenses
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 $dir->child('apache_file.txt')->spurt("# SPDX-License-Identifier: Apache-2.0\n\nThis is a test file.\n");
 $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nThis is another test file.\n");
 
-# Unpack and index
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
 

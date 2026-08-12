@@ -21,16 +21,14 @@ $t->app->pg->db->query('DELETE FROM license_patterns');
 $t->app->patterns->create(pattern => "SPDX-License-Identifier: $_", license => $_) for qw(Artistic-2.0 Apache-2.0);
 $t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Artistic-2.0 Apache-2.0);
 
-# A grab-bag marker (catch_all, seeded from the "Any ..." naming rule) and a bare keyword pattern. The
-# first counts as recognised text, the second does not - see the NOTICE case in the coverage subtest.
+# Catch-all patterns count as recognition; bare keywords do not.
 $t->app->patterns->create(pattern => 'All rights reserved by the authors', license => 'Any copyright');
 $t->app->patterns->create(pattern => 'redistribution of this document');
 
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 
-# A license file whose first line Cavil recognises and whose remaining terms it does not. This is the
-# case the coverage number exists for: the file resolves cleanly, yet most of it is unaccounted for.
+# Partial recognition exercises coverage outside snippet resolution.
 $dir->child('LICENSE')->spurt(<<'EOF');
 SPDX-License-Identifier: Artistic-2.0
 All rights reserved by the authors
@@ -41,11 +39,10 @@ Contact sales@example.com for enterprise terms.
 There is a redistribution of this document clause hiding on this line.
 EOF
 
-# A vendored dependency's own license file, which must not bury the package's
+# Vendored licenses must not bury the package's own document.
 $dir->child('vendor', 'foo')->make_path->child('LICENSE')
   ->spurt("# SPDX-License-Identifier: Apache-2.0\n\nBundled dependency terms.\n");
 
-# Go source that merely happens to be named after a license word
 $dir->child('src')->make_path->child('license.go')->spurt("# SPDX-License-Identifier: Artistic-2.0\n\npackage main\n");
 
 $t->app->minion->enqueue(unpack => [1]);
@@ -60,11 +57,6 @@ subtest 'Legal documents and what Cavil can explain of them' => sub {
   is $license->{kind},  'license', 'kind is carried on every row';
   is $license->{lines}, 6,         'blank lines do not count towards the total';
 
-  # Recognised: the SPDX line, and the "All rights reserved" line via a catch_all marker - the question
-  # this number answers is whether Cavil recognised the text, not whether it could name a license.
-  # Unrecognised: the three lines of novel terms, plus the line carrying only a bare keyword match,
-  # because a trigger word is not recognition of legal text. The file resolves cleanly either way and
-  # raises no unresolved match, which is exactly why this is measured outside the snippet resolver.
   is $license->{unexplained}, 4, 'catch_all markers count as recognised, bare keyword matches do not';
 
   my @paths = map { $_->{path} } @{$documents->{documents}};

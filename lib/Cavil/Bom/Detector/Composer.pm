@@ -44,7 +44,6 @@ sub parse ($self, $path, $content) {
   return \@components;
 }
 
-# Composer stores licences as an array of SPDX-ish identifiers
 sub _license ($license) {
   return undef unless ref $license eq 'ARRAY';
   my @ids = grep { defined && !ref && length } @$license;

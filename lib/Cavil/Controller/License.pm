@@ -135,8 +135,6 @@ sub proposed_meta ($self) {
 
   my $changes = $self->patterns->proposed_changes({actions => $actions, before => $before, search => $search});
 
-  # A new_license proposal's reason is a full research write-up; render it to safe HTML (same markdown
-  # pipeline as notes) so the Missing Licenses card can show it formatted instead of as a raw blob.
   for my $change (@{$changes->{changes}}) {
     next unless $change->{action} eq 'new_license';
     (my $reason = $change->{data}{reason} // '') =~ s/^AI Assistant:\s*//;
@@ -170,8 +168,6 @@ sub recent_meta ($self) {
 sub remove_pattern ($self) {
   my $id = $self->stash('id');
 
-  # Delete the pattern first (this captures the affected packages and expires the caches
-  # atomically), then reindex those packages once the pattern can no longer be matched
   my $packages = $self->patterns->remove($id);
   $self->packages->reindex_package_ids($packages);
 
@@ -186,8 +182,6 @@ sub remove_proposal ($self) {
   my $is_owner   = $patterns->is_proposal_owner($checksum, $self->current_user);
   return $self->render('permissions', status => 403) unless $is_owner || $can_curate;
 
-  # Capture the proposal before removing it: dismissing a new_license un-hides the missing-license report
-  # it was covering, and the page swaps that report into the dismissed card's place (no full reload).
   my $proposal = $patterns->proposal_by_checksum($checksum);
   my $removed  = $patterns->remove_proposal($checksum);
 

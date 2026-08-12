@@ -23,53 +23,32 @@ our @EXPORT_OK = (
 
 use constant PAD_WORDS => 5;
 
-# The OSADL license compatibility matrix (CC-BY-4.0, see the NOTICE file), bundled and refreshed via
-# tools/update_licenses.pl. It is a directed grid keyed outbound -> inbound; a cell records OSADL's
-# verdict ("No" / "Check dependency" / "Unknown") and verbatim explanation for using inbound-licensed
-# material in an outbound-licensed work. Plainly compatible ("Yes"/"Same") cells are omitted, so a
-# missing cell means "compatible". Cached on first use.
+# OSADL's directed compatibility matrix (CC-BY-4.0); missing cells are compatible.
 sub _compatibility_matrix () {
   state $matrix = from_json(path(__FILE__)->dirname->child('resources', 'license_compatibility.json')->slurp)->{matrix};
   return $matrix;
 }
 
-# The OSADL obligation dataset (CC-BY-4.0, see the NOTICE file), bundled and refreshed via
-# tools/update_licenses.pl alongside the compatibility matrix. Per-license obligation checklists
-# grouped by delivery use case, plus copyleft and source-code-disclosure classifications, keyed by
-# SPDX identifier. The file's "source" key records provenance (see the NOTICE file); only the
-# "licenses" map is consumed here. The file contains non-ASCII text (e.g. the copyright sign), so it
-# is read with decode_json. Cached on first use.
+# decode_json preserves the non-ASCII text in OSADL's CC-BY-4.0 obligation data.
 sub _obligations_data () {
   state $data = decode_json(path(__FILE__)->dirname->child('resources', 'license_obligations.json')->slurp);
   return $data;
 }
 
-# The SPDX license classification flags (CC0), bundled and refreshed via tools/update_licenses.pl,
-# keyed by SPDX identifier. Each entry carries "osi" (OSI approval, always present) and "fsf" (FSF
-# "libre" status) - the latter only for the licenses the FSF has actually ruled on, so a missing key
-# means "no ruling", not "not free". Cached on first use.
+# A missing FSF flag means "no ruling", not "not free".
 sub _license_flags_data () {
   state $data = decode_json(path(__FILE__)->dirname->child('resources', 'license_flags.json')->slurp);
   return $data;
 }
 
-# Strip "GPL... WITH Classpath-exception-2.0" fragments from an SPDX string before its identifiers are
-# extracted. The Classpath exception exists specifically to permit combining GPL code with otherwise-
-# incompatible licenses (typically Apache-2.0 Java libraries), so it must not contribute a bare GPL
-# identifier to the compatibility check. Used by _present_licenses; obligations deliberately do NOT strip
-# it - an exception relaxes duties rather than removing the base license, so license_obligation_ids keeps
-# the base license and the UI flags the exception instead.
+# The Classpath exception permits otherwise incompatible combinations, so its GPL
+# identifier must not create a false compatibility warning.
 sub _strip_classpath_exception ($string) {
   $string =~ s/\b(?:A|L)?GPL-[\d.]+(?:-only|-or-later|\+)?\s+WITH\s+Classpath-exception-2\.0\b//gi;
   return $string;
 }
 
-# The ordered, de-duplicated OSADL-known SPDX identifiers named in one license-list entry, which may be a
-# compound expression ("MIT OR BSD-3-Clause") and/or carry a "WITH <exception>". extract_spdx_identifiers
-# pulls out the individual license identifiers (exceptions are not licenses, so they drop out here); OR
-# and AND are treated alike. Unlike the compatibility matrix, exceptions are NOT stripped: an exception
-# relaxes rather than removes the base license's duties, so the base obligations are shown and the UI
-# flags the exception (OSADL's checklists cover the base license only). Unknown identifiers are dropped.
+# Exceptions relax rather than remove base-license obligations.
 sub license_obligation_ids ($name, $data = undef) {
   $data //= _obligations_data();
   return [] unless defined $name;
@@ -77,26 +56,13 @@ sub license_obligation_ids ($name, $data = undef) {
   return [uniq grep { $licenses->{$_} } @{extract_spdx_identifiers($name)}];
 }
 
-# The OSADL obligation entries (verbatim) for the identifiers in one license-list entry, in expression
-# order. Each element is {license, patent_hints, copyleft, source_disclosure, use_cases} (only the keys
-# OSADL provides for that license). Returns an empty list when OSADL covers none of the identifiers, so
-# the report can omit the panel entirely. Obligations are purely informational: like the compatibility
-# matrix they never feed report_checksum, report_shortname or summary_delta.
 sub license_obligations ($name, $data = undef) {
   $data //= _obligations_data();
   my $licenses = $data->{licenses} // {};
   return [map { {license => $_, %{$licenses->{$_}}} } @{license_obligation_ids($name, $data)}];
 }
 
-# Everything the external datasets say about the identifiers in one license-list entry, merged into a
-# single entry per identifier so the report can present all of it in one place. OSADL contributes the
-# obligation checklist plus its copyleft / source-disclosure / patent classifications, SPDX the OSI and
-# FSF flags; the two share no keys. Identifiers are extracted (and exceptions kept) exactly as for
-# obligations, and an identifier is included when EITHER source knows it - SPDX covers a good deal more
-# licenses than OSADL publishes checklists for, and for those the flags are all there is to show. An
-# empty list means neither source knows anything, so the report omits the panel entirely. Purely
-# informational: like obligations and the compatibility matrix, this never feeds report_checksum,
-# report_shortname or summary_delta.
+# Keep SPDX-only entries because SPDX classifies more licenses than OSADL covers.
 sub license_classification ($name, $obligations = undef, $flags = undef) {
   $obligations //= _obligations_data()->{licenses}   // {};
   $flags       //= _license_flags_data()->{licenses} // {};
@@ -117,11 +83,7 @@ sub estimated_risk ($risk, $match) {
   return $match < 0.9 && $estimated <= 4 ? 5 : $estimated;
 }
 
-# Shared, precision-first decision for whether an unresolved snippet is confident enough to be
-# treated as resolved to its closest license ("folded"). Used by both the report and the file
-# browser so the two views agree. $cfg is the snippet_fold config; $snippet carries the scorer
-# metadata (license = "is legal text", likelyness, second_match, score_version); $pattern is the
-# closest license's pattern (license + risk). See docs/Architecture.md for the rationale.
+# Keep folding precision-first because it asserts a specific license.
 sub should_fold_snippet ($cfg, $snippet, $pattern) {
   return 0 unless $cfg && $cfg->{enabled};
   return 0 unless $snippet->{license};                                                    # classifier says legal text
@@ -136,12 +98,7 @@ sub should_fold_snippet ($cfg, $snippet, $pattern) {
   return 1;
 }
 
-# Decide whether an unresolved snippet is recognizable known-license *body text* ("boilerplate")
-# that can be cleared from the backlog WITHOUT asserting a license. Unlike folding, there is no
-# margin or risk gate and no license is recorded: most backlog snippets are middle-of-license
-# boilerplate shared across sibling licenses (high similarity, no margin) whose real license is
-# already on the report from its title match, so clearing them is safe and we deliberately do not
-# guess which sibling it is. Novel licenses score low and stay below clear_threshold.
+# Clearing shared boilerplate asserts no license, so it needs no fold margin or risk gate.
 sub should_clear_boilerplate ($cfg, $snippet, $pattern) {
   return 0 unless $cfg && $cfg->{enabled};
   return 0 unless my $threshold = $cfg->{clear_threshold};                                # 0/undef disables clearing
@@ -152,10 +109,7 @@ sub should_clear_boilerplate ($cfg, $snippet, $pattern) {
   return ($snippet->{likelyness} // 0) >= $threshold ? 1 : 0;
 }
 
-# Licenses (deduped) of the non-ignored licensed pattern matches whose line range intersects a
-# snippet. $spans is an arrayref of [sline, eline, license] for one file. The FileIndexer expands a
-# snippet around keyword matches and often swallows a real license match (e.g. an SPDX line); this
-# finds those overlaps so the snippet can be recognized as already-resolved noise.
+# FileIndexer expansion can swallow resolved matches into unresolved snippets.
 sub overlapping_licenses ($sline, $eline, $spans) {
   my %licenses;
   for my $span (@{$spans || []}) {
@@ -167,13 +121,7 @@ sub overlapping_licenses ($sline, $eline, $spans) {
   return [sort keys %licenses];
 }
 
-# Decide whether a snippet is redundant because its region overlaps a real, curated license match:
-# that license is already on the report via the match, and the rest of the snippet is keyword-tripping
-# code/doc-comment noise, so the snippet is cleared (assert nothing). Independent of the classifier's
-# legal/non-legal score version - the overlap is authoritative. The guard keeps snippets whose own
-# content strongly resembles a license *outside* the overlap set (a possible missed/foldable license),
-# which is the safe direction; stale or absent scores can only push toward keeping. $overlap_licenses
-# comes from overlapping_licenses(); $snippet->{plicense} is the snippet's closest license (if any).
+# A curated overlap is authoritative, but a strong match to another license needs review.
 sub should_overlap_clear ($cfg, $snippet, $overlap_licenses) {
   return 0 unless $cfg && $cfg->{enabled} && $cfg->{overlap_clear};
   return 0 unless $snippet->{license};                                # classifier says legal text
@@ -188,38 +136,14 @@ sub should_overlap_clear ($cfg, $snippet, $overlap_licenses) {
   return 1;
 }
 
-# Decide whether a snippet is redundant because the file (or, at directory scope, a sibling file) is
-# already known to carry a real license at least as risky - so this awkward license fragment adds
-# nothing the report does not already have and is cleared (assert nothing). Unlike overlap-clear, the
-# covering match need not intersect the snippet's own lines; unlike folding, it asserts no license.
-# $cover_risk is the highest risk among the *concrete* (non-catch_all) license matches in scope,
-# computed by resolve_snippets per the configured cover_scope ('file' or 'dir'); undef means nothing
-# concrete covers this scope. Three guards make this safe: (1) only concrete licenses count as
-# coverage (a real license hiding behind a weak "Any ..."/"All Rights Reserved" marker is never
-# mistaken for one), enforced upstream when $cover_risk is built; (2) risk-monotonicity - a snippet
-# resembling a *higher*-risk license than the coverage is kept, since it might be a genuinely new,
-# riskier license. The snippet's own risk is its closest license's risk ($prisk), or 0 when it
-# resembles no specific license (pure keyword noise in an already-licensed scope); and (3) when that
-# closest license is a grab-bag catch_all marker, its risk read is unreliable (the bucket spans many
-# risks - "Any CLA" alone runs 0..5), so risk-monotonicity cannot be trusted for it: such a fragment
-# is only cleared when its similarity is high enough that it genuinely IS that boilerplate. A weak,
-# ambiguous grab-bag match is kept for review - this is the open-webui LICENSE case, where novel
-# non-commercial terms scored only 0.63 against "Any CLA" while the file carried a real BSD-3-Clause,
-# and risk-monotonicity against the incidental risk-1 CLA member would otherwise clear them. Genuine
-# filler (a real disclaimer, an "All Rights Reserved" line) scores high against its marker and still
-# clears, so this does not regress the bulk auto-clearing of license-file boilerplate.
+# Coverage may clear only snippets no riskier than a concrete license already in scope.
+# Catch-all risk is unreliable, so weak matches in license files remain reviewable.
 sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
   return 0 unless $cfg && $cfg->{enabled} && (($cfg->{cover_scope} // 'off') ne 'off');
   return 0 unless $snippet->{license};                                                    # classifier says legal text
   return 0 unless ($snippet->{score_version} // 0) == SNIPPET_SCORE_VERSION;              # trust the risk read
   return 0 unless defined $cover_risk;    # a concrete license covers this scope
 
-  # Grab-bag closest match in a license-declaration file: only clear if the fragment really is that
-  # boilerplate (high similarity). This is scoped to license files on purpose - a weak grab-bag match in
-  # a LICENSE/COPYING file is the "novel license bolted onto a retained standard one" case (open-webui,
-  # redis), whereas the same weak match in a code/doc file is the stray disclaimer/notice this feature
-  # exists to clear. Measurement showed the license-file case is ~10% of grab-bag-closest coverage, so
-  # scoping keeps the guard's precision high without resurfacing the bulk of genuine filler.
   return 0
     if $snippet->{is_license_file}
     && $snippet->{pcatch_all}
@@ -229,26 +153,15 @@ sub should_cover_snippet ($cfg, $snippet, $cover_risk) {
   return $snippet_risk <= $cover_risk ? 1 : 0;
 }
 
-# Extensions that make a file source code however it happens to be named. Projects really do ship a
-# license.go or a license.py, and without this they land in the report's legal-document list with an
-# "unexplained" count that is only counting code. A blocklist rather than an allowlist because the
-# document side is open-ended: LICENSE.docs, COPYING.LESSER and LICENSE-2.0.txt are all real.
-#
-# Kept as a list rather than written straight into the regex so that t/report_util.t can walk it and
-# check every entry, which a hand-picked sample of an alternation cannot do. Add to it freely; the test
-# also enforces that entries stay lowercase, unique and free of anything the regex would reinterpret.
+# A blocklist avoids misclassifying open-ended names such as LICENSE.docs.
+# Keep it testable as data rather than embedding it in the regex.
 our @SOURCE_EXTENSIONS = qw(
   asm awk bash c cc cjs cpp cs cxx dart el go gradle groovy h hh hpp java jl js jsx kt lua mjs mm
   php pl pm py rb rs scala sh sql swift tcl ts tsx vim
 );
 my $SOURCE_EXTENSION = do { my $alternation = join '|', @SOURCE_EXTENSIONS; qr/[.](?:$alternation)$/i };
 
-# Does this path look like a license-declaration file (LICENSE, COPYING, LICENSE.txt, ...) rather than a
-# source/doc file that merely mentions a license? The BASENAME must start with a license-declaration
-# word, so that license-list *reference data* named after a license id (e.g. .../licenses/OGDL-Taiwan-1.0)
-# is not mistaken for the package's own license file - and, just as importantly, so that a package or
-# directory that merely happens to be called "license-tools" or "notice-board" does not turn every source
-# file underneath it into a license file. Anchoring on the whole path used to do exactly that.
+# Match the basename so license-named directories do not classify every child as legal text.
 sub is_license_filename ($path) {
   my ($basename) = $path =~ m{([^/]*)$};
   return 0 if $basename =~ $SOURCE_EXTENSION;
@@ -257,14 +170,7 @@ sub is_license_filename ($path) {
     : 0;
 }
 
-# The set of individual SPDX license identifiers present in a package's digest report, gathered from the
-# licensed matches (real + folded) and the keyword-matched files. Compound expressions are reduced to their
-# individual identifiers, with the Classpath exception stripped first (see _strip_classpath_exception).
-#
-# Keyword/unresolved matches (missed_files) ARE included: a legal reviewer must see every possible
-# incompatibility, so a low-confidence guess is surfaced rather than hidden. proximity then carries the
-# confidence (real match > fold > unresolved guess) and the UI labels weak evidence as such - the matrix
-# shows everything and lets the human judge, it never silently drops a pair.
+# Include unresolved guesses so compatibility review errs toward visibility; proximity conveys confidence.
 sub _present_licenses ($dig_report) {
   my @spdx;
   push @spdx, map { $_->{spdx} } grep { $_->{spdx} } values %{$dig_report->{licenses}  || {}};
@@ -276,19 +182,11 @@ sub _present_licenses ($dig_report) {
   return \%present;
 }
 
-# OSADL's compatibility matrix restricted to the licenses present in this package - i.e. OSADL's own
-# sub-matrix for exactly these licenses, presented verbatim. Returns
-# {licenses => [...], matrix => {outbound => {inbound => {compatibility, explanation}}}} where
-# "licenses" are the present licenses that take part in at least one flagged (No/Check dependency)
-# relationship, and "matrix" holds every non-compatible OSADL cell (No/Check dependency/Unknown) among
-# the present licenses. Missing cells mean OSADL considers that direction compatible. Nothing is
-# collapsed, curated or reinterpreted; the directional structure and explanations are OSADL's.
+# Preserve OSADL's direction and wording; omit compatible cells and Unknown-only axes.
 sub license_compatibility ($dig_report, $matrix = undef) {
   $matrix //= _compatibility_matrix();
   my $present = _present_licenses($dig_report);
 
-  # Every non-compatible OSADL cell between two present licenses, and which licenses take part in an
-  # actionable (No/Check dependency) relationship - "Unknown" alone does not put a license on the axes.
   my (%cells, %participates);
   for my $outbound (sort keys %$present) {
     my $row = $matrix->{$outbound} or next;
@@ -303,8 +201,6 @@ sub license_compatibility ($dig_report, $matrix = undef) {
     }
   }
 
-  # Drop Unknown-only licenses from the axes and from the returned matrix, so the grid stays focused on
-  # licenses that actually have an actionable relationship.
   my @licenses = sort keys %participates;
   my %keep     = map { $_ => 1 } @licenses;
   my %kept_matrix;
@@ -317,24 +213,13 @@ sub license_compatibility ($dig_report, $matrix = undef) {
 
   my $result = {licenses => \@licenses, matrix => \%kept_matrix};
 
-  # Rank the flagged pairs by how closely their licenses actually co-locate in the file tree: two
-  # incompatible licenses sitting in the same directory are far more likely to be a real combination
-  # than two that only share the package root (typically vendored/aggregated, never linked). Purely a
-  # ranking annotation - nothing is hidden or reinterpreted.
+  # Co-location ranks likely combinations without hiding matrix entries.
   $result->{proximity} = _pair_proximity($dig_report, \@licenses, \%kept_matrix);
 
   return $result;
 }
 
-# The individual SPDX identifiers present in each file of a digest report, each with a confidence rank, as
-# {filename => {id => confidence}}. Confidence is 3 for a real pattern match, 2 for a folded snippet (both
-# come from {risks}{risk}{name}{pid} => [file ids], told apart by {file_confidence}{file id}{name}, which
-# _register_license stamps), and 1 for the guessed closest license of an UNRESOLVED snippet ({missed_files}
-# - often weak, e.g. a file whose only real license is GPL-2.0-or-later but whose unresolved header scores
-# 0.23 against GPL-3.0-or-later). Reconstructed from the already-assembled report structures (no extra
-# query); compound expressions are reduced to identifiers with the Classpath exception stripped, exactly as
-# _present_licenses does. Proximity uses the rank to pick a pair's representative co-location from the
-# strongest available evidence (real files for both licenses beat a fold, which beats an unresolved guess).
+# Confidence ranks real matches (3), folds (2), and unresolved guesses (1).
 sub _file_license_ids ($dig_report) {
   my $files = $dig_report->{files}           || {};
   my $lics  = $dig_report->{licenses}        || {};
@@ -355,17 +240,13 @@ sub _file_license_ids ($dig_report) {
         for my $fid (@$fids) {
           my $path = $files->{$fid} // next;
 
-          # file_confidence is only ever absent in synthetic/test reports; treat those as a real match.
+          # Synthetic reports predate file_confidence and represent real matches.
           $bump->($path, $ids, $conf->{$fid}{$name} // 3);
         }
       }
     }
   }
 
-  # Unresolved snippets contribute their guessed closest license at the lowest confidence (1). missed_files
-  # is keyed by file id here (the raw report), so resolve it to a path via {files} - the key is not a
-  # filename. The guess is weak, but proximity ranks it last and the UI labels it "via an unresolved match"
-  # rather than hiding it, so a reviewer still sees the possible incompatibility.
   my $missed = $dig_report->{missed_files} || {};
   for my $fid (keys %$missed) {
     my $path = $files->{$fid} // next;
@@ -377,10 +258,9 @@ sub _file_license_ids ($dig_report) {
   return \%file_ids;
 }
 
-# The directory path of every ancestor of a file, deepest last, always including the package root ('').
 sub _ancestor_dirs ($path) {
   my @segs = split m{/}, $path;
-  pop @segs;    # drop the filename itself
+  pop @segs;
   my @dirs = ('');
   my $acc  = '';
   for my $seg (@segs) {
@@ -390,13 +270,9 @@ sub _ancestor_dirs ($path) {
   return @dirs;
 }
 
-# Depth of a directory path: the root ('') is 0, 'src' is 1, 'src/foo' is 2.
 sub _dir_depth ($dir) { return $dir eq '' ? 0 : (($dir =~ tr{/}{}) + 1) }
 
-# Path segments that mark a file as peripheral rather than shipped/linked source: tests, documentation,
-# bundled examples, vendored third-party trees, and license-text collections. Two incompatible licenses
-# that meet only in such files are almost never a real combination (a test fixture, a doc that enumerates
-# license identifiers, a vendored sample), so proximity ranks them below any genuine source co-location.
+# Peripheral co-location is weaker evidence than co-location in shipped source.
 my %PERIPHERAL_SEGMENT = (
   (map { $_ => 'documentation' } qw(doc docs documentation)),
   (map { $_ => 'test' } qw(test tests testing testdata test-data test_data __tests__ fixtures)),
@@ -408,16 +284,10 @@ my %PERIPHERAL_SEGMENT = (
   licenses => 'license catalog'
 );
 
-# OBS packs vendored trees into cpio archives, so a "node_modules" or "vendor" directory does not arrive
-# as a bare segment but decorated with the app name and the unpack marker, e.g. "portal_node_modules.obscpio._"
-# or "vendor.obscpio._". Match the distinctive vendored markers as the base of such a decorated segment
-# too (bounded by start/underscore before and the extension dot after), so the bundled files are demoted
-# like any other vendored tree.
+# OBS cpio paths decorate vendored segments, for example vendor.obscpio._.
 my $OBS_VENDORED_SEGMENT = qr/(?:^|_)(?:node_modules|vendor|vendored|third_party|3rdparty)\./;
 
-# What kind of peripheral directory this file lives under, or undef for shipped code. Classified by
-# directory only - the basename is left alone, so a source file merely named like a license (e.g. gpl.c)
-# is not demoted.
+# Basenames do not determine whether code is peripheral.
 sub _path_peripheral_kind ($path) {
   my @segs = split m{/}, $path;
   pop @segs;
@@ -425,9 +295,6 @@ sub _path_peripheral_kind ($path) {
     my $lc = lc $seg;
     return $PERIPHERAL_SEGMENT{$lc} if $PERIPHERAL_SEGMENT{$lc};
 
-    # The decorated form always carries the archive extension dot, and a bare marker is caught above, so
-    # only the (rare) dotted segments need the regex - this keeps the classifier a hash lookup for the
-    # dot-free directory names that make up almost all of a large tree.
     return 'vendored' if index($lc, '.') >= 0 && $lc =~ $OBS_VENDORED_SEGMENT;
   }
   return undef;
@@ -435,13 +302,7 @@ sub _path_peripheral_kind ($path) {
 
 sub _path_is_peripheral ($path) { return _path_peripheral_kind($path) ? 1 : 0 }
 
-# The kinds of place a license's files sit in, when not one of them is in shipped code; undef otherwise.
-# A lawyer can skip a license whose every match is in a vendored tree or a test fixture, and today has to
-# read the paths to find that out.
-#
-# Only ever reports where the files are, never what to do about them. The classifier is a heuristic that
-# has needed widening more than once, and a wrong "vendored" that read as "ignore this" would hide a real
-# license - whereas a wrong "vendored" that reads as a location is something a reader can check.
+# Report peripheral location without prescribing action; the classification is heuristic.
 sub peripheral_scope ($paths) {
   return undef unless @$paths;
 
@@ -454,29 +315,11 @@ sub peripheral_scope ($paths) {
   return [sort keys %kinds];
 }
 
-# For each flagged (incompatible) pair, where the two licenses most convincingly co-locate. Returns
-# {a => {b => {confidence, same_file, lca_depth, peripheral, files => [fa, fb]}}} keyed a lt b. For each pair
-# it picks the evidence a reviewer should actually open, best first:
-#   1. core (shipped source) over peripheral - tests/docs/vendored, and license-catalog dirs like LICENSES/
-#      where unrelated license *texts* sit side by side, which is not a code combination;
-#   2. higher confidence - a real match (3) over a fold (2) over an unresolved-snippet guess (1);
-#   3. same file over a shared directory;
-#   4. the deepest shared directory.
-# Core outranks confidence deliberately: a peripheral real match is worse for research than any co-location
-# in the shipped code.
-#
-# One walk of the file tree. Directory co-location uses only resolved licenses (confidence >= 2: real matches
-# and folds); unresolved guesses (confidence 1) can number in the tens of thousands in a big package, far too
-# many to walk trees for, so they contribute through same-file co-occurrence only. Per directory we keep, per
-# license bit, the max confidence and a representative file - once for all files, once for core files - so the
-# preferences above are a cheap comparison. Cost is O(resolved files x path depth) for the walk plus
-# O(files + dirs-with-2+-licenses x flagged pairs) for the evaluation; only files carrying a flagged license
-# are ever touched.
+# Rank core over peripheral, then confidence, same-file evidence, and directory depth.
+# Unresolved guesses contribute only to same-file evidence to bound tree-walk cost.
 sub _pair_proximity ($dig_report, $licenses, $matrix) {
   return {} unless @$licenses;
 
-  # The unordered participating pairs that have at least one non-compatible cell in either direction, as
-  # [a, b, bit_a, bit_b] for fast bit-AND membership tests.
   my %bit;
   my $i = 0;
   $bit{$_} = $i++ for @$licenses;
@@ -492,10 +335,6 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
 
   my $file_ids = _file_license_ids($dig_report);
 
-  # Single walk. dir_aconf/dir_arep track, per directory and license bit, the max confidence and a
-  # representative file across all files; dir_cconf/dir_crep the same restricted to core (non-peripheral)
-  # files; dir_amask/dir_cmask are the license bitmasks for O(1) "2+ licenses here" and pair-membership
-  # tests. @same_file collects files carrying 2+ flagged licenses (any confidence, unresolved included).
   my (%dir_amask, %dir_cmask, %dir_aconf, %dir_arep, %dir_cconf, %dir_crep, @same_file, %lic_rep, %lic_resolved);
   for my $path (keys %$file_ids) {
     my $ids = $file_ids->{$path};
@@ -508,13 +347,10 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
       $amask |= (1 << $b);
       $bconf{$b} = $c if $c >= 2;
 
-      # One representative file per license (any), and whether it has any resolved match. Cheap - a hash
-      # write, no directory walk - and used to point a "not co-located" pair at its unresolved match's file.
       $lic_rep{$b} //= $path;
       $lic_resolved{$b} = 1 if $c >= 2;
     }
 
-    # Classify the path at most once, and only when a co-location site actually needs it.
     my $peripheral;
     push @same_file, [$path, $amask, ($path =~ tr{/}{}), ($peripheral //= _path_is_peripheral($path))]
       if $amask & ($amask - 1);
@@ -534,8 +370,7 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
     }
   }
 
-  # Rank a candidate co-location as core (1e6) > confidence (1e4) > same-file (1e2) > directory depth, so the
-  # single best per pair is a running max.
+  # The weights enforce the documented lexicographic ranking.
   my %best;
   my $consider = sub ($la, $lb, $cand) {
     $cand->{_score} = $cand->{peripheral} ? 0 : 1_000_000;
@@ -544,7 +379,6 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
     $best{$la}{$lb} = $cand if !$cur || $cand->{_score} > $cur->{_score};
   };
 
-  # Directory candidates (resolved licenses): core and full, for every dir holding 2+ of them.
   for my $dir (keys %dir_amask) {
     my $am = $dir_amask{$dir};
     next unless $am & ($am - 1);
@@ -581,7 +415,6 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
     }
   }
 
-  # Same-file candidates (any confidence, unresolved guesses included).
   for my $sf (@same_file) {
     my ($path, $mask, $depth, $periph) = @$sf;
     for my $fp (@flagged_pairs) {
@@ -601,9 +434,7 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
     }
   }
 
-  # Flagged pairs that never co-locate (a side present only via an unresolved guess that shares no file with
-  # the other) still get an entry, pointing at that unresolved match's file so the reviewer can open and
-  # judge it instead of hitting a dead end. no_colocation ranks these last; the UI links the file.
+  # Weak unmatched evidence still needs a reviewable file target.
   for my $fp (@flagged_pairs) {
     my ($la, $lb, $ba, $bb) = @$fp;
     next if $best{$la} && $best{$la}{$lb};    # guarded to avoid autovivifying an empty {la => {}}
@@ -619,15 +450,11 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
     };
   }
 
-  # Drop the internal score before returning.
   delete $_->{_score} for map { values %$_ } values %best;
   return \%best;
 }
 
-# The unordered pairs of present licenses that OSADL marks "No" in BOTH directions - i.e. combinations
-# that cannot be shipped whichever license is treated as the outbound one. These are the hard
-# incompatibilities that elevate risk and drive the compact text/MCP summary and the report checksum.
-# Returns a sorted list of [a, b] (a lt b).
+# Only mutual "No" pairs are hard incompatibilities.
 sub hard_incompatibilities ($compat) {
   my $matrix = $compat->{matrix} // {};
   my %seen;
@@ -643,13 +470,7 @@ sub hard_incompatibilities ($compat) {
   return \@pairs;
 }
 
-# A single ranked view of a package's flagged incompatibilities, shared by the web report data, the text
-# report and the MCP report so the ordering and annotations never diverge. Takes the license_compatibility
-# structure (licenses / matrix / proximity) and returns an arrayref of unordered pairs (a lt b), each
-# {a, b, mutual, no_colocation, confidence, same_file, lca_depth, peripheral, files => [fa, fb]}, most
-# interesting first: co-located pairs before not-co-located ones, then core (shipped) over peripheral, then
-# confidence (real match > fold > unresolved guess), then same-file, then deepest shared directory, then
-# mutual-No over one-directional, then alphabetical. This is the same order the reports and UI heat use.
+# Centralize ordering so web, text, and MCP reports cannot diverge.
 sub ranked_incompatibilities ($compat) {
   my $matrix = $compat->{matrix}    // {};
   my $prox   = $compat->{proximity} // {};
@@ -692,11 +513,7 @@ sub ranked_incompatibilities ($compat) {
   ];
 }
 
-# A short markdown description of where a flagged pair's two licenses co-locate, for the text and MCP
-# reports (which both mark file paths with backticks). Returns a string only for the co-locations that
-# actually warrant a look - one file carrying both, or both in the same directory - and undef otherwise
-# (they meet only across different directories or at the package root), so callers can use definedness to
-# separate the pairs worth investigating from the aggregation tail.
+# Describe only same-file or same-directory evidence worth opening.
 sub incompatibility_location ($row) {
   my ($fa, $fb) = @{$row->{files} || []};
   return undef unless defined $fa;
@@ -709,16 +526,8 @@ sub incompatibility_location ($row) {
   return undef;
 }
 
-# The package's own license-declaration files, as [{id, path}] shallowest first, plus how many were left
-# out by the limit. These are the documents that state the package's terms (LICENSE, COPYING, NOTICE and
-# friends), taken from what Cavil indexed rather than from the package file's %license list - that list
-# is curated by hand by packagers with no legal training, is routinely partial, and often selects files
-# through macros Cavil cannot resolve, so it cannot serve as an index of the legal documents.
-#
-# is_license_filename requires the basename to START with a license word, which keeps license-list
-# reference data (".../licenses/OGDL-Taiwan-1.0") out, and peripheral paths are dropped so a vendored
-# tree full of dependency licenses does not bury the package's own. A big aggregation can still hold
-# more than the limit, hence the dropped count - the report says so rather than quietly truncating.
+# Indexed files are more reliable than package metadata for finding legal documents.
+# Exclude peripheral paths so dependency licenses do not bury package-level terms.
 sub license_document_candidates ($dig_report, $limit = 25) {
   my $files = $dig_report->{files} || {};
 
@@ -729,8 +538,7 @@ sub license_document_candidates ($dig_report, $limit = 25) {
     push @found, {id => $id, path => $path};
   }
 
-  # Shallowest first, then alphabetical: the package's own top-level LICENSE outranks one buried in a
-  # subdirectory, and the order is stable across runs.
+  # Prefer package-level documents and keep output deterministic.
   @found = sort { ($a->{path} =~ tr{/}{}) <=> ($b->{path} =~ tr{/}{}) || $a->{path} cmp $b->{path} } @found;
 
   my $dropped = @found > $limit ? @found - $limit : 0;
@@ -738,14 +546,7 @@ sub license_document_candidates ($dig_report, $limit = 25) {
   return {documents => \@found, dropped => $dropped};
 }
 
-# How many of a file's lines carry text no license pattern recognises. $spans is an arrayref of
-# [sline, eline] from the file's licensed pattern matches, $lines the file's lines. Blank lines never
-# count as unexplained, and a line covered by any match is explained however many matches overlap it.
-#
-# Measured against real pattern matches ALONE, which is the whole point: the snippet resolver folds,
-# clears and covers boilerplate, and that machinery can suppress the very snippet that named a novel
-# clause - so a LICENSE file can show no unresolved matches at all and still contain a restriction Cavil
-# never recognised. Coverage does not go through the resolver, so it survives that suppression.
+# Use only real matches; snippet resolution can suppress an unrecognized clause.
 sub unexplained_lines ($spans, $lines) {
   return 0 unless $lines && @$lines;
 
@@ -790,10 +591,6 @@ sub minimal_snippet ($snippet) {
   return {text => join("\n", @$lines[$start .. $end]), start_line => $start_line + $start};
 }
 
-# Anchor for the start of a copyright line. Matches optional leading whitespace
-# and common comment markers (#, *, //, ;), then one of: Copyright [optional
-# (c)/(C)/©], a bare (c)/(C)/©, or an SPDX-FileCopyrightText: /
-# SPDX-SnippetCopyrightText: prefix.
 my $COPYRIGHT_ANCHOR = qr{
   ^
   (                                                       # $1: prefix to preserve
@@ -807,22 +604,13 @@ my $COPYRIGHT_ANCHOR = qr{
   \s+ \S .* $                                             # at least one word follows
 }x;
 
-# Collapse the variable part of a copyright line (holders, years, emails, URLs)
-# to $SKIP10. Returns the original line unchanged if it does not look like a
-# copyright declaration. Operates on a single line (no embedded newlines).
 sub _collapse_copyright_line ($line) {
   return $line unless $line =~ $COPYRIGHT_ANCHOR;
   return "$1 \$SKIP10";
 }
 
-# Auto-trim a snippet down to its legally meaningful core: strip license-match
-# lines at the boundaries (via minimal_snippet), then trim word-by-word outside
-# the keyword span, keeping at most PAD_WORDS words of padding on each side.
-# Finally, collapse the variable portion of any copyright lines in the result
-# to $SKIP10. The text is no longer a strict substring of the original, but
-# still matches the original via Cavil::Util::pattern_matches because $SKIP10
-# is a wildcard. Line count is preserved so frontend line decorations remain
-# valid.
+# Preserve line count for frontend decorations and use $SKIP10 so edited text
+# still matches the original.
 sub smart_edit_snippet ($snippet) {
   my $original_text  = $snippet->{text}     // '';
   my $original_sline = $snippet->{sline}    // 1;
@@ -839,7 +627,6 @@ sub smart_edit_snippet ($snippet) {
 
   return $finalize->($text, $minimal_sline) unless keys %$keywords;
 
-  # Rebase keyword line indices into the trimmed text
   my $offset   = $minimal_sline - $original_sline;
   my @kw_lines = sort { $a <=> $b } grep { $_ >= 0 } map { $_ - $offset } keys %$keywords;
   return $finalize->($text, $minimal_sline) unless @kw_lines;
@@ -849,15 +636,12 @@ sub smart_edit_snippet ($snippet) {
   my $last_kw  = $kw_lines[-1];
   return $finalize->($text, $minimal_sline) if $last_kw >= @lines;
 
-  # Byte offsets for the start of the first keyword line and the end of the
-  # last keyword line (without the trailing newline)
   my $span_start = 0;
   $span_start += length($lines[$_]) + 1 for 0 .. $first_kw - 1;
   my $span_end = $span_start;
   $span_end += length($lines[$_]) + 1 for $first_kw .. $last_kw - 1;
   $span_end += length($lines[$last_kw]);
 
-  # Leading trim: keep at most PAD_WORDS tokens of the prefix
   my $new_start = 0;
   if ($span_start > 0) {
     my $prefix = substr($text, 0, $span_start);
@@ -866,7 +650,6 @@ sub smart_edit_snippet ($snippet) {
     if (@starts > PAD_WORDS) { $new_start = $starts[-PAD_WORDS] }
   }
 
-  # Trailing trim: keep at most PAD_WORDS tokens of the suffix
   my $new_end = length($text);
   if ($span_end < $new_end) {
     my $suffix = substr($text, $span_end);
@@ -877,7 +660,6 @@ sub smart_edit_snippet ($snippet) {
 
   my $trimmed = substr($text, $new_start, $new_end - $new_start);
 
-  # Adjust start_line by the number of complete lines dropped from the front
   my $dropped_lines = (substr($text, 0, $new_start) =~ tr/\n//);
 
   return $finalize->($trimmed, $minimal_sline + $dropped_lines);
@@ -894,12 +676,10 @@ sub spdx_edit_snippet ($snippet) {
 
 sub report_checksum ($specfile_report, $dig_report) {
 
-  # Specfile license
   my $canon_license = lic($specfile_report->{main}{license})->canonicalize->to_string;
   $canon_license ||= "Unknown";
   my $text = "RPM-License $canon_license\n";
 
-  # Licenses
   for my $license (sort { $a cmp $b } keys %{$dig_report->{licenses}}) {
     next if $dig_report->{licenses}{$license}{risk} == 0;
     $text .= "LIC:$license";
@@ -909,10 +689,7 @@ sub report_checksum ($specfile_report, $dig_report) {
     $text .= "\n";
   }
 
-  # Unique snippets of unresolved keyword matches. Walk missed_snippets (the
-  # full set of winning files) rather than snippets (the expansion-truncated
-  # subset), and sort the resulting hashes so two content-equivalent
-  # packages produce the same checksum regardless of file_id ordering.
+  # Hash the complete set deterministically; snippets is expansion-truncated.
   if (my $snippets = $dig_report->{missed_snippets}) {
     my @all;
     for my $file (keys %$snippets) {
@@ -921,9 +698,7 @@ sub report_checksum ($specfile_report, $dig_report) {
     $text .= "SNIPPET:$_\n" for sort +uniq @all;
   }
 
-  # The license compatibility matrix is deliberately NOT part of the checksum: it is informational
-  # context derived from the present license set (which is already hashed above), and incompatibilities
-  # are now common enough that they should not, on their own, drive re-reviews.
+  # Compatibility is derived context and must not trigger re-review.
 
   return Mojo::Util::md5_sum $text;
 }
@@ -938,9 +713,7 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
     $max_risk = $risk if $risk > $max_risk;
   }
 
-  # License incompatibilities are informational only and no longer elevate the risk: with the full
-  # OSADL matrix they are common (usually vendored/aggregated, not real combinations), so escalating
-  # every one to risk 9 floods the review queue and destroys the signal.
+  # Common vendored incompatibilities must not flood the review queue.
 
   my $l = lic($specfile_report->{main}{license})->example;
   $l ||= 'Unknown';
@@ -951,19 +724,15 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
 sub summary_delta ($old, $new) {
   my @blocks;
 
-  # Specfile license change
   if ($new->{specfile} ne $old->{specfile}) {
     push @blocks, "  Spec file license  $old->{specfile} -> $new->{specfile}";
   }
 
-  # New snippet matches (a count only; the individual files are flagged "new" in
-  # the Risk 9 unresolved-matches section from the structured diff report).
   my $new_snippets = _new_snippets($old, $new);
   if (my $num = uniq values %$new_snippets) {
     push @blocks, $num == 1 ? '  New unresolved matches' : "  New unresolved matches in $num files";
   }
 
-  # New licenses, sorted by risk desc then SPDX alphabetical
   my $new_licenses = _new_licenses($old, $new);
   if (my @lics = keys %$new_licenses) {
     my @sorted = sort { $new_licenses->{$b} <=> $new_licenses->{$a} || $a cmp $b } @lics;
@@ -972,8 +741,7 @@ sub summary_delta ($old, $new) {
     push @blocks, join("\n", @lines);
   }
 
-  # License incompatibilities are deliberately NOT part of the diff: they are informational OSADL
-  # context (see license_compatibility), common across packages, and must not drive review priority.
+  # Derived compatibility context must not affect review priority.
 
   return '' unless @blocks;
   return "Diff to closest match $old->{id}\n\n" . join("\n\n", @blocks) . "\n";
@@ -982,25 +750,18 @@ sub summary_delta ($old, $new) {
 sub summary_delta_score ($old, $new) {
   my $score = 0;
 
-  # Specfile license change
   $score += 1000 if $new->{specfile} ne $old->{specfile};
 
-  # New snippet matches
   my $new_snippets = _new_snippets($old, $new);
   $score += 10 * keys %$new_snippets;
 
-  # New licenses
   my $new_licenses = _new_licenses($old, $new);
   $score += 10 * $new_licenses->{$_} for keys %$new_licenses;
 
   return $score;
 }
 
-# New licenses between two summaries, keyed by bare license name => risk. The
-# report UI has one row per license (flags are labels, not separate rows), so
-# "new" is by name: the summary keys the licenses as "name:flag:flag" and we
-# compare the name only (license names never contain ":", which is why the
-# summary can use it as the flag separator in the first place).
+# Flags label a license row, so novelty is determined by bare name.
 sub _new_licenses ($old, $new) {
   my %old_licenses = map { (split /:/, $_)[0] => 1 } keys %{$old->{licenses} || {}};
 
@@ -1012,8 +773,6 @@ sub _new_licenses ($old, $new) {
   return \%new_licenses;
 }
 
-# The names of the new licenses between two summaries, sorted; used to flag them
-# in the report UI (parallel to new_unresolved_files).
 sub new_license_names ($old, $new) {
   return [sort keys %{_new_licenses($old, $new)}];
 }
@@ -1031,12 +790,7 @@ sub _new_snippets ($old, $new) {
   return \%files_with_new_snippets;
 }
 
-# The complete set of files with new unresolved matches between the closest
-# previous report ($old) and the current one ($new), as [{name}] sorted by name.
-# Keyed by filename only: matched_files ids are regenerated on every reindex, so
-# the stored diff report must join back to the live report by name, not id (see
-# the badge logic in Cavil::Plugin::Helpers). This is the same set of names the
-# notice count in summary_delta reports, so the two never disagree.
+# File IDs change on reindex, so persisted diffs join live reports by name.
 sub new_unresolved_files ($old, $new) {
   my $new_snippets = _new_snippets($old, $new);
   return [map { {name => $_} } sort +uniq values %$new_snippets];

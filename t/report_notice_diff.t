@@ -21,15 +21,12 @@ my $app  = $t->app;
 my $pkgs = $app->packages;
 my $db   = $app->pg->db;
 
-# The set of unresolved files the report flags "new", by filename.
 my $badged_new = sub ($id) {
   $t->get_ok("/reviews/report_details/$id")->status_is(200);
   my $missed = $t->tx->res->json->{missed_files};
   return {map { $_->{name} => 1 } grep { $_->{new} } @$missed};
 };
 
-# Version 2 (package id 2) is the "new" review: eight brand-new unresolved files
-# vs the closest previous review (version 1).
 subtest 'New unresolved files are badged' => sub {
   $t->get_ok('/login')->status_is(302);
   is scalar(keys %{$badged_new->(2)}), 8, 'eight files badged new';

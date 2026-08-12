@@ -1,17 +1,5 @@
-# Copyright (C) 2026 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict, -signatures;
 
@@ -24,14 +12,11 @@ use Cavil::Test;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-# `max_expanded_files` exists only to cap how many file source previews a report renders (browser
-# safety). It must NOT shrink the stored unresolved-matches count or the "files with unresolved matches"
-# list. This drives the real unpack+analyze pipeline on a synthetic package with 110 files, each carrying
-# one distinct unresolved keyword snippet, with the preview cap set low so most files fall past it.
+# The preview cap must not truncate unresolved counts or file lists.
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'report_unresolved_count_test');
 
 my $CAP   = 5;
-my $FILES = 110;    # the synthetic fixture generates this many files, one unresolved snippet each
+my $FILES = 110;
 
 my $config = $cavil_test->default_config;
 $config->{max_expanded_files} = $CAP;

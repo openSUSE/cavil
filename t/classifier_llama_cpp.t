@@ -1,4 +1,4 @@
-# Copyright 2026 SUSE LLC
+# SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict;

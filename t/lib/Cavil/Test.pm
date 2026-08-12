@@ -96,7 +96,6 @@ sub just_patterns_fixtures ($self, $app) {
 sub mojo_fixtures ($self, $app) {
   $self->no_fixtures($app);
 
-  # Create checkout directory
   my $dir       = $self->checkout_dir;
   my @src       = ('perl-Mojolicious', 'c7cfdab0e71b0bebfdf8b2dc3badfecd');
   my $mojo      = $dir->child(@src)->make_path;
@@ -106,7 +105,6 @@ sub mojo_fixtures ($self, $app) {
   $mojo = $dir->child(@src)->make_path;
   $_->copy_to($mojo->child($_->basename)) for $legal_bot->child(@src)->list->each;
 
-  # Create fixtures
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
   my $pkgs   = $app->packages;
   my $pkg_id = $pkgs->add(
@@ -168,13 +166,13 @@ sub mojo_fixtures ($self, $app) {
 sub components_fixtures ($self, $app) {
   $self->no_fixtures($app);
 
-  # Checkout whose source archive vendors npm and cargo modules under obscured directory names
+  # Obscured paths require content-based component detection.
   my @src       = ('vendored', 'da39a3ee5e6b4b0d3255bfef95601890');
   my $checkout  = $self->checkout_dir->child(@src)->make_path;
   my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
   $_->copy_to($checkout->child($_->basename)) for $legal_bot->child(@src)->list->each;
 
-  # A license pattern so Cavil can detect the license of the vendored module whose metadata omits one
+  # Backfill a component whose metadata omits its license.
   my $patterns = $app->patterns;
   $patterns->create(pattern => 'Permission is hereby granted to use this fixture component', license => 'MIT');
   $app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'MIT');
@@ -198,9 +196,7 @@ sub components_fixtures ($self, $app) {
 
 sub go_vendor_fixtures ($self, $app) {
 
-  # A Go project that vendors its modules at the source root: the tarball's only top-level entry is
-  # vendor/, so vendor/modules.txt lands at the root of the unpacked tree. Reuses the schema/user set up
-  # by an earlier fixture in the same test (no migration here).
+  # Root-level dependency listings must not be mistaken for primary manifests.
   my @src       = ('go-vendor', 'b6d767d2f8ed5d21a44b0e5886680cb9');
   my $checkout  = $self->checkout_dir->child(@src)->make_path;
   my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
@@ -227,10 +223,7 @@ sub go_vendor_fixtures ($self, $app) {
 
 sub multiarchive_fixtures ($self, $app) {
 
-  # A checkout that ships several archives side by side (the main source plus a separately-vendored
-  # crate). With archive_name_as_dir off they unpack directly under .unpacked, so it has multiple
-  # top-level directories and a vendored manifest (serde-1.0.197/Cargo.toml) lands at depth 1. Reuses the
-  # schema/user from an earlier fixture in the same test.
+  # Multiple top-level archives make a depth-one manifest vendored, not primary.
   my @src       = ('multiarchive', 'c4ca4238a0b923820dcc509a6f75849b');
   my $checkout  = $self->checkout_dir->child(@src)->make_path;
   my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
@@ -275,14 +268,12 @@ sub no_fixtures ($self, $app) {
 sub package_with_snippets_fixtures ($self, $app) {
   $self->no_fixtures($app);
 
-  # Create checkout directory
   my $dir = $self->checkout_dir;
   my @src = ('package-with-snippets', '2a0737e27a3b75590e7fab112b06a76fe7573615');
   my $src = $dir->child(@src)->make_path;
   $_->copy_to($src->child($_->basename))
     for path(__FILE__)->dirname->dirname->dirname->child('legal-bot', @src)->list->each;
 
-  # Create fixtures
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
   my $pkgs   = $app->packages;
   my $pkg_id = $pkgs->add(
@@ -310,9 +301,7 @@ sub package_with_snippets_fixtures ($self, $app) {
   );
 }
 
-# Synthetic fixture for the snippet fold-in UI test: index a package, make every snippet a
-# confident, current-version GPL match, and regenerate the report so it folds. Requires the app to
-# be built with snippet_fold enabled.
+# Confident, current, low-risk GPL matches must fold into the cached report.
 sub snippet_fold_fixtures ($self, $app) {
   $self->package_with_snippets_fixtures($app);
   $app->minion->enqueue(unpack => [1]);
@@ -330,10 +319,7 @@ sub snippet_fold_fixtures ($self, $app) {
   $app->minion->perform_jobs;
 }
 
-# Synthetic fixture for the boilerplate-clear UI test: index a package, then make every snippet a
-# high-containment but zero-margin match of a synthetic license so it can only *clear* (never fold).
-# The synthetic license cannot appear from any real match, so its absence proves clearing asserts
-# nothing. Requires the app to be built with snippet_fold clear_threshold enabled.
+# Zero-margin matches may clear boilerplate but must never assert a license.
 sub snippet_clear_fixtures ($self, $app) {
   $self->package_with_snippets_fixtures($app);
   $app->minion->enqueue(unpack => [1]);
@@ -352,9 +338,7 @@ sub snippet_clear_fixtures ($self, $app) {
   $app->minion->perform_jobs;
 }
 
-# Synthetic fixture for the overlap-clear UI test: index a package, make every snippet classifier-legal
-# but unscored (so similarity can never resolve it), and add a real GPL match on each snippet's first
-# line so the snippet's region overlaps a curated license match. Requires snippet_fold overlap_clear on.
+# Curated overlap may clear unscored legal snippets without similarity resolution.
 sub snippet_overlap_fixtures ($self, $app) {
   $self->package_with_snippets_fixtures($app);
   $app->minion->enqueue(unpack => [1]);
@@ -374,10 +358,7 @@ sub snippet_overlap_fixtures ($self, $app) {
   $app->minion->perform_jobs;
 }
 
-# Synthetic fixture for the Classify Snippets triage UI test: a controlled mix of snippets with known
-# fold/clear status and distinct, searchable text - 12 would-fold (wide margin, one of them a
-# Non-Commercial stemming case), 1 would-clear (zero margin), 1 neither (low similarity). Requires the
-# app to be built with snippet_fold thresholds (and clear_threshold) set.
+# Controlled fold, clear, and unresolved cases exercise triage filters.
 sub snippet_triage_fixtures ($self, $app) {
   $self->package_with_snippets_fixtures($app);
   my $db    = $app->pg->db;
@@ -645,11 +626,7 @@ sub ui_fixtures ($self, $app) {
   );
 }
 
-# Builds a real, indexable test package whose files each contain one
-# distinctive keyword that matches a license-less pattern. The result is a
-# fully analyzed package with one unresolved snippet per file, comfortably
-# more than `max_expanded_files`. Generates the tarball + spec on disk so
-# the regular unpack pipeline can process it; no bot_reports surgery.
+# Real pipeline fixture with more distinct unresolved files than the preview cap.
 sub _synthetic_many_unresolved_fixture ($self, $app, $usr_id) {
   my $checkout_md5 = 'cafefeed00000000000000000000abcd';
   my $synth_dir    = $self->checkout_dir->child('synthetic-many-unresolved', $checkout_md5)->make_path;
@@ -671,10 +648,7 @@ registered as a keyword pattern with no license, so every file becomes
 an unresolved match after indexing.
 SPEC
 
-  # Each file gets a unique marker adjacent to the keyword so the snippet
-  # hash (which includes ~5 words of context around the keyword) is distinct
-  # per file. Without this, all 110 files would share one snippet and only
-  # one missed-file would be reported.
+  # Unique context prevents cross-file snippet deduplication.
   my $stage = tempdir;
   my $src   = $stage->child('synthetic-many-unresolved-1.0')->make_path;
   for my $i (1 .. 110) {
@@ -718,11 +692,7 @@ FILE
   );
 }
 
-# Two synthetic versions of the same package, run through the regular unpack +
-# analyze pipeline, so version 2 gets a genuine "New unresolved matches in N
-# files" notice diffed against the accepted version 1. Drives the clickable
-# file list in the "why this needs review" box on the report UI. Version 2 (id
-# 2) has eight new unresolved files, exercising the five-file cap + "more".
+# Two real pipeline versions exercise notice diffs and the five-file display cap.
 sub report_notice_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 
@@ -800,8 +770,7 @@ FILE
     return $pkg_id;
   };
 
-  # Version 1: the closest previous review, marked acceptable so it is a genuine
-  # "old review" for version 2 to diff against.
+  # Only accepted versions qualify as comparison baselines.
   my $v1   = $build->('a0000000000000000000000000000001', [1, 2]);
   my $pkg1 = $pkgs->find($v1);
   $pkg1->{reviewing_user}   = $usr_id;
@@ -810,20 +779,14 @@ FILE
   $pkg1->{review_timestamp} = 1;
   $pkgs->update($pkg1);
 
-  # Version 2: eight brand-new files → eight new unresolved matches, plus one
-  # file resolving to a brand-new Apache-2.0 license, so analyze writes a diff
-  # report with both new_unresolved and new_licenses.
+  # Version 2 adds eight unresolved files and one license.
   $build->(
     'b0000000000000000000000000000002',
     [101 .. 108],
     {'LICENSE-APACHE.txt' => "report-notice distinctive apache license marker\n"}
   );
 
-  # A second package (ids 3 and 4) for the other notice shape that names an
-  # older review by id. Its own name keeps it out of the closest-match lookups
-  # above. Version 2 drops one of version 1's files: the report checksum
-  # changes (so no review is inherited) but the delta gains nothing, and
-  # analyze writes "Not found any significant difference against 3".
+  # A separate name isolates the no-significant-difference history.
   my $other = 'report-notice-same';
   my $same1 = $build->('c0000000000000000000000000000003', [1, 2], {}, $other);
   my $pkg3  = $pkgs->find($same1);
@@ -1111,7 +1074,6 @@ SPEC
 sub unpack_fixtures ($self, $app) {
   $self->no_fixtures($app);
 
-  # Create checkout directory
   my $dir       = $self->checkout_dir;
   my $legal_bot = path(__FILE__)->dirname->dirname->dirname->child('legal-bot');
   my $good      = $dir->child('buildah-synthetic-good', 'c7cfdab0e71b0bebfdf8b2dc3badfecf')->make_path;
@@ -1121,7 +1083,6 @@ sub unpack_fixtures ($self, $app) {
   my $broken = $dir->child('buildah-synthetic-broken', 'da3e32a3cce8bada03c6a9d63c08cd59')->make_path;
   $_->copy_to($broken->child($_->basename)) for $legal_bot->child('buildah-synthetic-broken')->list->each;
 
-  # Create fixtures
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
   my $pkgs   = $app->packages;
   my $pkg_id = $pkgs->add(

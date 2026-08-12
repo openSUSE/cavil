@@ -38,41 +38,25 @@ sub dig_report {
 
   my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file, $generation);
 
-  # OSADL compatibility sub-matrix for the licenses present in this package (verbatim, directional)
   $report->{license_compatibility} = license_compatibility($report);
 
-  # prune match caches (file_confidence only feeds the proximity computation just above)
   delete $report->{matches};
   delete $report->{file_confidence};
   return $report;
 }
 
-# Everything Cavil derives about a report beyond the report itself: informational annotations that are
-# computed at analyze time, never feed report_checksum, and are keyed by feature so a new one slots in
-# without a migration. Today that is just {legal_documents => ...}. Written by Cavil::Task::Analyze in
-# the same transaction as the report it describes, so the two can never drift, and undef for a package
-# that has not been analyzed since the column arrived - every consumer then simply shows nothing,
-# exactly as they do for a missing diff_report.
+# Annotations share the report transaction so derived metadata cannot drift.
 sub annotations ($self, $id) {
   return undef unless my $hash = $self->pg->db->select('bot_reports', 'annotations', {package => $id})->hash;
   return undef unless defined $hash->{annotations};
   return from_json($hash->{annotations});
 }
 
-# Mirrors the specfile_report / build_specfile_report pair above: this builds the annotations, the reader
-# above hands the stored copy back.
 sub build_annotations ($self, $id, $dig_report) {
   return {legal_documents => $self->_legal_documents($id, $dig_report)};
 }
 
-# The package's own license-declaration files (LICENSE, COPYING, NOTICE and friends) with how many of
-# each file's lines no concrete license accounts for, as {documents => [{kind, path, lines,
-# unexplained}], dropped => $n}. Which files qualify is decided by license_document_candidates; this
-# adds the two numbers, which need the database and the checkout.
-#
-# "kind" is 'license' for every row today. It is carried from the start because this list is meant to
-# become the report's authoritative "which files should I open" index and take in other detected
-# document kinds later, and a row shape that already has the slot needs no migration when it does.
+# Keep document kind in the row shape so adding detectors needs no schema change.
 sub _legal_documents ($self, $id, $dig_report) {
   my $found  = license_document_candidates($dig_report);
   my $result = {documents => [], dropped => $found->{dropped}};
@@ -94,7 +78,7 @@ sub _legal_documents ($self, $id, $dig_report) {
   );
   push @{$spans{$_->[0]}}, [$_->[1], $_->[2]] for $matches->arrays->each;
 
-  # Read as bytes: only blankness and line numbering matter here, so the file never needs decoding.
+  # Blankness and line numbering do not require decoding.
   my $base = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
   for my $doc (@$docs) {
     my $file = $base->child($doc->{path});
@@ -137,7 +121,6 @@ sub shortname ($self, $chksum) {
     return $lentry->{shortname};
   }
 
-  # try to find a unique name for the checksum
   my $chars = ['a' .. 'z', 'A' .. 'Z', '0' .. '9'];
   for (1 .. 100) {
     my $shortname = join('', map { $chars->[rand @$chars] } 1 .. 6);
@@ -147,9 +130,7 @@ sub shortname ($self, $chksum) {
     )->hash;
     return $inserted->{shortname} if $inserted;
 
-    # The insert was a no-op. The conflict could be on either unique index:
-    # if another writer already assigned a shortname to this checksum, use it;
-    # otherwise our random shortname was taken, so loop and try a new one.
+    # Resolve races on checksum separately from random-name collisions.
     if (my $existing = $db->select('report_checksums', 'shortname', {checksum => $chksum})->hash) {
       return $existing->{shortname};
     }
@@ -186,8 +167,7 @@ sub source_for {
       $needed{$nr} = 0;
       $needed{$nr} = $pid->{pid} if $pid->{pid};
 
-      # A folded line carries both a pattern id and a snippet handle: keep it rendering as the folded
-      # pattern (not as an unresolved snippet) and preserve its handle through folded_meta.
+      # Preserve the correction handle without repainting a fold as unresolved.
       if ($pid->{folded}) {
         $folded_meta{$nr} = {snippet => $pid->{snippet}, hash => $pid->{hash}};
       }
@@ -198,7 +178,6 @@ sub source_for {
     my $nr = $start;
     while ($nr <= $end) {
 
-      # snippet 0
       $needed{$nr++} = PATTERN_DELTA;
     }
     for my $c (1 .. 3) {
@@ -221,7 +200,6 @@ sub specfile_report {
   unless ($hash) {
     return undef unless defined(my $specfile = $self->build_specfile_report($id));
 
-    # Nothing unpacked to read yet, so there is nothing worth caching either
     return {} unless %$specfile;
 
     my $report = {package => $id, specfile_report => to_json_fast($specfile)};
@@ -250,15 +228,12 @@ sub summary ($self, $id) {
   my $specfile = $self->specfile_report($id);
   $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Unknown';
 
-  # Reuse the dig report cached in bot_reports.ldig_report (JSON) when present - analyze stores it right
-  # before this runs, so recomputing the full match walk here is wasted work. Must pass $id and decode
-  # the JSON (see sanitized_dig_report); fall back to a fresh computation when no cache exists yet.
+  # Analyze has already cached this expensive match walk when available.
   my $cached = $self->cached_dig_report($id);
   my $report = $cached ? from_json($cached) : $self->dig_report($id);
 
   my $min_risklevel = 1;
 
-  # it's a bit random but the risk levels are defined a little random too
   $min_risklevel = 2 if $report->{risks}{3};
   $summary{licenses} = {};
   for my $license (sort { $a cmp $b } keys %{$report->{licenses}}) {
@@ -270,13 +245,7 @@ sub summary ($self, $id) {
     $summary{licenses}{$text} = $report->{licenses}{$license}{risk};
   }
 
-  # Walk the full set of winning files (file_snippets_to_show), not the
-  # expansion-truncated subset in $report->{snippets}. max_expanded_files
-  # only caps how many file blocks the renderer shows; the diff/score
-  # must compare every snippet hash, otherwise two content-equivalent
-  # packages can produce different scores just because their first-N
-  # alphabetical files happen to contain different subsets of the global
-  # winning set.
+  # Renderer expansion limits must not make content-equivalent summaries differ.
   my $files = {};
   for my $file_id (keys %{$report->{missed_snippets}}) {
     my $filename = $report->{files}{$file_id};
@@ -369,16 +338,13 @@ sub _dig_report {
     $query->{id} = $limit_to_file;
   }
 
-  # First ignored_files glob whose pattern matches a filename, or undef. Shared by the live files below
-  # and the already-ignored ones further down so both record matching globs identically.
   my @ignore_globs  = keys %$ignored_file_res;
   my $matching_glob = sub ($filename) {
     for my $ifname (@ignore_globs) { return $ifname if $filename =~ $ignored_file_res->{$ifname} }
     return undef;
   };
 
-  # Bulk-fetch as arrays ([id, filename]) rather than a hashref per row: on a large package this is tens
-  # of thousands of files, and only the id and filename are used here.
+  # Avoid per-row hashes for packages with tens of thousands of files.
   my %globs_matched;
   for my $file ($db->select('matched_files', [qw(id filename)], $query)->arrays->each) {
     my ($id, $filename) = @$file;
@@ -386,13 +352,12 @@ sub _dig_report {
     else                                        { $report->{files}{$id} = $filename }
   }
 
-  # pm.file=mf.id already pins the matches to one generation, so only the files need the predicate
+  # The file join already pins matches to its generation.
   my $query_string = 'select distinct filename from
                       matched_files mf join pattern_matches pm
                       on pm.file=mf.id where mf.package=? and mf.generation=?
                       and pm.ignored=true';
 
-  # now check the files that were already ignored during indexing
   my $filenames;
   if ($limit_to_file) {
     $filenames = $db->query("$query_string and mf.id=?", $pkg->{id}, $generation, $limit_to_file);
@@ -428,11 +393,7 @@ sub _dig_report {
     $query
   );
 
-  # Order by content-stable keys (filename, then snippet id, then sline) so
-  # the dedup winner for each snippet is the same across packages with the
-  # same content. sline is package-local because it shifts when surrounding
-  # non-keyword text differs even slightly, so it must not be the primary
-  # key. snippet id is hash-derived and stable.
+  # Stable content keys make deduplication reproducible across packages.
   my @snip_rows = sort {
          ($report->{files}{$a->{file}} // '') cmp ($report->{files}{$b->{file}} // '')
       || $a->{id}                             <=> $b->{id}
@@ -443,20 +404,14 @@ sub _dig_report {
   my %file_snippets_to_fold;
   my %snippets_shown;
 
-  # Partition snippet occurrences by what the report does with them. Dropped occurrences are simply not
-  # collected; this never suppresses real pattern matches - a licensed match inside a dropped or cleared
-  # region still reports its license independently in _register_matches (the premise of overlap-clear).
+  # Snippet resolution never suppresses independent licensed matches.
   for my $snip_row (@snip_rows) {
     my $resolution = $snip_row->{resolution} // '';
 
-    # Files hidden by an ignored-files glob, or snippets the classifier rejects as non-legal text, are
-    # dropped: neither shown to a human nor a license source.
     if (!defined $report->{files}{$snip_row->{file}} || (!$snip_row->{license} && $snip_row->{classified})) {
       next;
     }
 
-    # The stored resolution (computed once by resolve_snippets) decides the outcome per file occurrence:
-    # 'fold' asserts the closest license; 'clear'/'overlap'/'covered' drop the snippet as resolved noise.
     elsif ($resolution eq 'fold') {
       _add_to_snippet_hash(\%file_snippets_to_fold, $snip_row);
     }
@@ -464,7 +419,6 @@ sub _dig_report {
       $report->{cleared}{$snip_row->{file}} = 1;
     }
 
-    # Otherwise it is unresolved backlog: show it once across files (deduplicated by snippet id).
     elsif ($snippets_shown{$snip_row->{id}}) {
       next;
     }

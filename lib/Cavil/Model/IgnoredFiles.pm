@@ -1,17 +1,5 @@
-# Copyright (C) 2024 SUSE LLC
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Model::IgnoredFiles;
 use Mojo::Base -base, -signatures;
@@ -24,8 +12,6 @@ sub add ($self, $glob, $owner, $contributor = undef) {
   my $db = $self->pg->db;
   my $id = $db->query('SELECT id FROM bot_users WHERE login = ?', $owner)->hash->{id};
 
-  # When a glob was proposed by someone else and accepted by an admin, credit the proposer as
-  # contributor (owner stays the accepting admin), mirroring how license patterns are recorded.
   my $contributor_id;
   if (defined $contributor) {
     $contributor_id = $db->query('SELECT id FROM bot_users WHERE login = ?', $contributor)->hash->{id};

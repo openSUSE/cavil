@@ -1,17 +1,5 @@
-# Copyright (C) 2019 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::PostProcess;
 use Mojo::Base -base, -signatures;
@@ -23,10 +11,7 @@ use Cavil::PostProcess::Markup qw(looks_like_markup strip_markup);
 has 'hash';
 has max_line_length => 115;
 
-# Find the offset (relative to $start) at which to break an over-long line: the first
-# split character (space/;/{/} keep the char on the current chunk, " breaks before it)
-# at or after $max_line_length, or 0 when none exists. A single regex scan replaces the
-# former character-by-character substr walk; behaviour is identical.
+# One regex scan avoids a character-by-character walk of long lines.
 sub _split_find_a_good_spot ($self, $line, $start, $len, $max_line_length) {
   my $length = $len - $start;
   return $length if ($max_line_length > $length);
@@ -91,10 +76,7 @@ sub _process_file ($self, $from, $mimetype) {
   my $source      = "$destdir/$from";
   my $destination = path($destdir, $to)->to_string;
 
-  # Markup files (HTML/XML, incl. unpacked ODF/OOXML component XML) are stripped to
-  # plain text - otherwise reviewers and the matcher only ever see tag soup. The
-  # stripped text is line-wrapped just like any other processed file. On any parser
-  # error we fall back to the plain line-wrapper below, so a file is never dropped.
+  # Strip markup to readable text; parser failures fall back without dropping the file.
   if (_is_markup($source)) {
     return $to if $self->_process_markup_file($source, $destination);
   }
@@ -111,9 +93,7 @@ sub _process_file ($self, $from, $mimetype) {
     $ignore_re = qr(^Name *:);
   }
 
-  # Only rewrite the file when a line actually needs splitting (or an ignore_re cut
-  # applies). The common short-lined file then costs a single read and no write -
-  # previously every text file was fully written and then unlinked again.
+  # Avoid writing the common unchanged file.
   return undef unless $self->_needs_processing($source, $ignore_re);
 
   open(my $f_in,  '<', $source)      || die "Can't open $from";
@@ -152,10 +132,7 @@ sub _read_head ($source, $bytes = 4096) {
   return $head;
 }
 
-# Does the file actually need rewriting? True when an ignore_re line is present, or a
-# line is long enough to have a split point at/after max_line_length. Mirrors the exact
-# conditions under which the rewrite loop produces different content, so skipping is
-# byte-for-byte equivalent to the old "write, then unlink if unchanged" behaviour.
+# Mirror the writer's conditions so the no-rewrite path remains equivalent.
 sub _needs_processing ($self, $source, $ignore_re) {
   my $max = $self->max_line_length;
   open(my $fh, '<', $source) || die "Can't open $source";
@@ -170,9 +147,7 @@ sub _needs_processing ($self, $source, $ignore_re) {
   return 0;
 }
 
-# Strip markup from $source into $destination, wrapping each stripped line to
-# max_line_length via the shared line-splitter. Returns 1 on success, 0 (removing any
-# partial file) on parser failure so the caller can fall back to plain processing.
+# Remove partial output before falling back from parser failure.
 sub _process_markup_file ($self, $source, $destination) {
   my $max = $self->max_line_length;
   my $ok  = eval {

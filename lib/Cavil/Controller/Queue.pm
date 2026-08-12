@@ -39,7 +39,6 @@ sub upload_package ($self) {
     return $self->render(json => {error => 'Upload failed'}, status => 500);
   }
 
-  # Idempotent on identical content (safe retries), like create_package
   $self->render(json => {saved => $obj, duplicate => $duplicate ? \1 : \0});
 }
 
@@ -82,8 +81,7 @@ sub create_package ($self) {
     ($srcpkg, $srcmd5, $verifymd5) = ($pkg, $rev, $rev);
   }
 
-  # Get package infomation, rev may be pointing to link, so we need the
-  # canonical srcmd5
+  # Resolve links before using the source checksum as identity.
   else {
     my $obs  = $app->obs;
     my $info = eval { $obs->package_info($api, $project, $pkg, {rev => $rev}) };
@@ -94,7 +92,6 @@ sub create_package ($self) {
     ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
   }
 
-  # Check if we need to import
   my $dir    = path($config->{checkout_dir}, $srcpkg, $verifymd5);
   my $create = !-e $dir;
 

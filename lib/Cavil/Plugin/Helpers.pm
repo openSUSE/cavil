@@ -74,8 +74,7 @@ sub _chart_data ($c, $hash) {
   return {licenses => \@licenses, licenses_html => \@licenses_html, 'num-files' => \@num_files, colours => \@colours};
 }
 
-# The stages a rebuild passes through, in the order the compact progress bar shows them. A reindex that
-# needs no fresh sources skips straight past "Unpacking", which simply advances the bar by two.
+# Progress-bar order allows rebuilds without fresh sources to skip Unpacking.
 my %REBUILD_STAGES = (unpacking => 2, indexing => 3, analyzing => 4);
 
 # The queued jobs that lead to a new report. Deliberately not every job tagged for the package: generating
@@ -229,8 +228,6 @@ sub _report_details ($c, $pkg, $report) {
     push @missed, \%copy;
   }
 
-  # Vendored components: render licenses as clickable SPDX links (like every other license in the
-  # report) and link the name to the component's metadata file in the file browser
   my @components;
   for my $comp (@{$report->{components} // []}) {
     push @components, {
@@ -269,9 +266,7 @@ sub _report_details ($c, $pkg, $report) {
   };
 }
 
-# The package's stored legal documents, with a file-browser link added to each row and the count the
-# limit left out beside them. Undef until the package has been analyzed since the column arrived, and
-# every consumer then simply shows nothing.
+# Pre-annotation reports omit this section.
 sub _legal_documents ($c, $id) {
   return undef unless my $stored = ($c->reports->annotations($id) // {})->{legal_documents};
 
@@ -354,16 +349,12 @@ sub _package_summary ($c, $id) {
 
   my $requests = $pkgs->requests_for($id);
 
-  # Collapse the raw codestream names into their curated product name (falling back to the codestream name
-  # when unannotated) and dedupe, so a package spread across a dozen codestreams of one deliverable shows a
-  # single product name instead of a dozen cryptic paths
+  # Collapse codestreams into deduplicated curated product names.
   my %seen;
   my $products
     = [sort grep { !$seen{$_}++ } map { $_->{product} // $_->{name} } @{$c->products->for_package_products($id)}];
 
-  # Whether the Reindex button has anything to offer changes without the page being reloaded: a rebuild
-  # (this reviewer's or somebody else's) bumps the package past every pattern that made the button light
-  # up, and a pattern created while the page is open makes it light up again
+  # Recompute package-wide state for concurrent pattern and rebuild changes.
   my $state = $c->reindex_state($pkg);
 
   my $config = $c->app->config;
@@ -441,9 +432,7 @@ sub _package_summary ($c, $id) {
   };
 }
 
-# A compact, impact-ranked rollup of this package's unresolved snippets for the report: the full
-# per-snippet previews are enormous on large packages, so we surface only the top few (one pattern or
-# glob clears many identical occurrences) plus a total, and point at cavil_search_snippets for the rest.
+# Limit impact-ranked previews because large packages can have enormous unresolved sets.
 sub _unmatched_rollup ($c, $id, $top = 10) {
   my $result = $c->snippets->snippet_search(
     {resolution => 'unresolved', group => 'text', order => 'occurrences', package_id => $id, limit => $top});

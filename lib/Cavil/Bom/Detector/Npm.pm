@@ -6,7 +6,6 @@ use Mojo::Base -base, -signatures;
 
 use Mojo::JSON qw(decode_json);
 
-# npm ships a self-describing "package.json" inside every installed module
 sub files ($self) { return (qr{(?:^|/)package\.json$}) }
 
 sub parse ($self, $path, $content) {
@@ -54,7 +53,7 @@ sub _license ($json) {
 
 sub _purl ($name, $version) {
 
-  # Scoped packages ("@scope/name") keep the scope as an encoded namespace
+  # PURL requires an encoded npm scope.
   my $encoded = $name =~ m{^@([^/]+)/(.+)$} ? "%40$1/$2" : $name;
   return "pkg:npm/$encoded\@$version";
 }

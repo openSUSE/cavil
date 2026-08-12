@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 SUSE LLC
+# SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 use Mojo::Base -strict, -signatures;
@@ -14,7 +14,6 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-# Build a package (id 1) with real matched_files, then drive snippets through the scorer directly.
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'snippet_score_test');
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 my $app        = $t->app;
@@ -24,11 +23,7 @@ $app->minion->perform_jobs;
 my $db       = $app->pg->db;
 my $patterns = $app->patterns;
 
-# The similarity tables are maintained incrementally as patterns are created (sync_pattern_shingles +
-# triggers), so the fixtures above already populated them - no separate build step. The required-phrase
-# gate only fires a confident match when a shingle is distinctive (IDF >= 4), which needs a realistic
-# number of licenses in the corpus; the fixture has a handful, so seed enough padding licenses that the
-# *production* gate (not a relaxed one) can accept the deterministic fragments below.
+# Seed enough licenses for the production distinctive-shingle threshold (IDF >= 4).
 $patterns->create(pattern => "seed padding license number $_ alpha beta gamma delta", license => "Seed-Padding-$_")
   for 1 .. 45;
 

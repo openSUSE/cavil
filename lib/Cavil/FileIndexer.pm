@@ -1,17 +1,5 @@
-# Copyright (C) 2019 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::FileIndexer;
 use Mojo::Base -base, -signatures;
@@ -102,12 +90,8 @@ sub file ($self, $meta, $path, $mime) {
   $self->_check_missing_snippets($file_id, $path, \@matches);
 }
 
-# A 'snippet' is a region of a source file containing keywords.
-# The +-1 area around each keyword is taking into it and possible
-# keywordless lines in between near keywords too - to form one text
 sub _check_missing_snippets ($self, $file_id, $path, $matches) {
 
-  # extract missed snippets
   my %needed_lines;
 
   # Line spans of the concrete (licensed) matches. A keyword whose lines fall entirely within one is
@@ -119,7 +103,6 @@ sub _check_missing_snippets ($self, $file_id, $path, $matches) {
   # pattern_matches row is still recorded (in file()); we only decline to seed from it here.
   my @license_spans = map { [$_->[1], $_->[2]] } grep { !defined $_->[3] } @$matches;
 
-  # pick the keyword matches first (skipping those a licensed match already covers)
   for my $match (@$matches) {
     my ($mid, $ls, $le, $pm_id) = @$match;
     next unless $pm_id;
@@ -132,7 +115,6 @@ sub _check_missing_snippets ($self, $file_id, $path, $matches) {
 
     my $delta = 6;
 
-    # now check if matches get close to area 9
     for my $match (@$matches) {
       my ($mid, $ls, $le) = @$match;
       for (my $line = $ls - $delta; $line <= $ls; $line++) {
@@ -154,7 +136,6 @@ sub _check_missing_snippets ($self, $file_id, $path, $matches) {
 
   $path = $self->dir->child('.unpacked', $path);
 
-  # process snippet areas
   my $prev_line;
   my $first_snippet_line;
   for my $line (sort { $a <=> $b } keys %needed_lines) {

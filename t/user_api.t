@@ -19,12 +19,10 @@ my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'user_a
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 
-# Add patterns for known incompatible licenses
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',   license => 'Apache-2.0');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-2.0-only', license => 'GPL-2.0-only');
 $t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 GPL-2.0-only);
 
-# Add licenses for prediction
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: LGPL-2.1-or-later', license => 'LGPL-2.1-or-later');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-2.0-only',      license => 'MPL-2.0-only');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-2.0-or-later',  license => 'MPL-2.0-or-later');
@@ -45,13 +43,11 @@ $t->app->patterns->create(
   license => 'GPL-2.0-only WITH Classpath-exception-2.0'
 );
 
-# Add files with incompatible licenses
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 $dir->child('apache_file.txt')->spurt("# SPDX-License-Identifier: Apache-2.0\n\nThis is a test file.\n");
 $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nThis is another test file.\n");
 
-# Unpack and index
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
 

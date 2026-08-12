@@ -23,17 +23,12 @@ sub run ($self, @args) {
   my $pkgs = $app->packages;
   print STDOUT "Releasing package $id\n" if $pkgs->force_release($id);
 
-  # Releasing a package by hand and unpacking it again is how a build that went wrong is recovered, so it
-  # goes in at the top of the ladder in Cavil::Util rather than behind whatever is already queued
+  # Manual recovery should not wait behind unattended work.
   if   (my $job = $pkgs->unpack($id, PRIORITY_WAITING)) { print STDOUT "Triggered unpack job $job\n" }
   else                                                  { print STDOUT "Unpacking already in progress\n" }
 }
 
-# Re-unpack one batch of the oldest non-obsolete packages after $offset, at the sweep
-# band so the catch-up yields to live review traffic. Re-unpacking cascades through
-# index/analyze/report, so this is how a preprocessing change (e.g. markup stripping)
-# is rolled out gradually: call it, let the workers drain, then call again with the
-# printed "Next offset" when workload allows.
+# Batch preprocessing migrations at sweep priority so live reviews retain precedence.
 sub _rebatch ($self, $offset, $batch, $priority) {
   my $app = $self->app;
 

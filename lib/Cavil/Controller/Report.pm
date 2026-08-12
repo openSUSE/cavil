@@ -1,4 +1,4 @@
-# Copyright SUSE LLC
+# SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Controller::Report;
@@ -26,7 +26,7 @@ sub report ($self) {
     txt  => sub {
 
       # Only notes relevant to this review (native or an identical license report) go into the plain
-      # text report. Lawyer-only notes are deliberately excluded: these reports are shared publicly.
+      # Public reports must exclude lawyer-only notes.
       my $notes = $self->notes->list(
         $pkg->{name},
         relevant_only => 1,
@@ -133,20 +133,14 @@ sub spdx ($self) {
     $headers->content_type('application/json');
     $headers->vary('Accept-Encoding');
 
-    # Nobody reads one of these in a browser tab, so hand it over as a file. The name is the one the
-    # report page's download link advertises. Gzip below is a transfer encoding, which the browser undoes
-    # before saving, so what lands on disk is the JSON this names.
     $headers->content_disposition(qq{attachment; filename="$id.spdx.json"});
 
-    # The report is stored gzip-compressed. Hand it over untouched to clients that accept gzip (the
-    # common case, no extra work), and decompress on the fly for those that do not.
     if (($self->req->headers->accept_encoding // '') =~ /gzip/i) {
       $headers->content_encoding('gzip');
       return $self->reply->asset(Mojo::Asset::File->new(path => $path));
     }
 
-    # Rare client without gzip support: stream-decompress to a temporary file so we never hold the
-    # whole (potentially large) report in memory
+    # Stream decompression bounds memory for clients without gzip support.
     return $self->render(text => 'Could not read SPDX report', status => 500)
       unless my $gz = IO::Uncompress::Gunzip->new("$path");
     my $asset = Mojo::Asset::File->new;

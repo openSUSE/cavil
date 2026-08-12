@@ -93,8 +93,7 @@ sub generate_to_file ($self, $id, $file) {
   $handle->print('{"@context":"' . CONTEXT . '","@graph":[');
   my $graph = _Graph->new(handle => $handle, first => 1);
 
-  # Enumerate the unpacked files (for the file components, copyright/license scanning and subcomponent
-  # grouping). Individual files are not hashed - only the delivered archive is (see below).
+  # Hash only delivered archives; hashing every unpacked file is prohibitively expensive.
   my (%info, %paths, %original_files);
   for my $unpacked (@{$checkout->unpacked_files}) {
     my ($ufile, $mime) = @$unpacked;
@@ -254,8 +253,6 @@ sub generate_to_file ($self, $id, $file) {
     return undef;
   };
 
-  # Resolve a declared license *expression* (specfile or component metadata): a valid SPDX expression is
-  # used as-is, otherwise the section 6.1 ScanCode/LicenseRef fallback applies
   my $resolve_expr = sub ($string) {
     return undef unless defined $string && length $string;
     my $license = lic($string);
@@ -307,8 +304,7 @@ sub generate_to_file ($self, $id, $file) {
   my $version = $main->{version};
   $version = "$version" if defined $version;
 
-  # The creator-assigned version, used for the package URL (a timestamp fallback is not a meaningful purl
-  # version, so the purl is emitted only when a real version exists)
+  # A timestamp fallback is not a meaningful purl version.
   my $purl_version = (defined $version && length $version) ? $version : undef;
 
   # BSI TR-03183-2 section 5.2.2 requires a component version; when the creator assigns none, the mandated
@@ -327,8 +323,6 @@ sub generate_to_file ($self, $id, $file) {
   $package->{software_packageVersion} = $version     if defined $version && length $version;
   $package->{software_homePage}       = $main->{url} if $main->{url};
 
-  # An importer that carries no source coordinates leaves the producer genuinely unknown, which is said out
-  # loud rather than left to a missing key
   $package->{originatedBy} = $originated_by // [NO_ASSERTION_AGENT];
 
   # Content checksum of the delivered artifact(s), so the primary component carries a verifiable digest
@@ -339,9 +333,7 @@ sub generate_to_file ($self, $id, $file) {
       = "$src->{api_url}/source/$src->{project}/$src->{package}" . ($src->{srcmd5} ? "?rev=$src->{srcmd5}" : '');
   }
 
-  # Every component needs at least one software identifier to be looked up by. A creator-assigned version
-  # makes a package URL that resolves to something; the timestamp standing in for a missing version does not,
-  # so a package without one gets a versionless package URL rather than no identifier at all.
+  # Timestamp fallbacks use a versionless, still-resolvable purl.
   my $purl = "pkg:generic/$pkg->{name}";
   $purl .= "\@$purl_version" if defined $purl_version;
   $package->{externalIdentifier}
@@ -382,8 +374,7 @@ sub generate_to_file ($self, $id, $file) {
     $note_license->($lid, $meta->{risk}, [grep { $meta->{$_} } @FLAGS]) if $meta;
   }
 
-  # A package whose spec file declares nothing usable says so, instead of being the only component in the
-  # document with no license statement at all. No completeness marker: there is no list here to be complete.
+  # Distinguish "nothing found" from an omitted license field.
   else { $relationship->($pkgid, 'hasConcludedLicense', [NO_ASSERTION_LICENSE]) }
 
   # The delivered source archive(s) as deployable component file elements, reusing the digests computed

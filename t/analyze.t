@@ -20,7 +20,6 @@ subtest 'Analyze background job' => sub {
   $t->app->minion->enqueue(unpack => [1]);
   $t->app->minion->perform_jobs;
 
-  # Set the first version to acceptable
   my $pkg = $t->app->packages->find(1);
   $pkg->{reviewing_user}   = 1;
   $pkg->{result}           = 'Sure';
@@ -145,8 +144,6 @@ subtest 'Reindex of an accepted package upgrades it to acceptable_by_lawyer' => 
   my $shortname = $src->{checksum};
   ok $shortname, 'source package has a checksum';
 
-  # Create a same-name sibling sharing package 1's report (so summary()/history()
-  # have real data), in the requested state and with the same checksum.
   my $make = sub {
     my ($state) = @_;
     my $pid = $pkgs->add(

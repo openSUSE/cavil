@@ -37,24 +37,17 @@ sub add ($self, %args) {
   return $db->insert('bot_packages', $pkg, {returning => 'id'})->hash->{id};
 }
 
-# Ingest an uploaded source archive and start its review, shared by the browser upload form
-# (Controller::Upload) and the Bot API (Controller::Queue). This is a load-bearing ingress, so the
-# archive is verified and placed on disk *before* the package row is created: a truncated or corrupt
-# upload must never leave a row pointing at incomplete sources. Returns ($package, $duplicate); when an
-# optional md5 $checksum is given it is enforced, and a mismatch dies with {checksum_mismatch => 1}.
+# Store and verify the archive before creating its row to prevent incomplete sources.
 sub store_upload ($self, $upload, $opts) {
   my $file = $upload->asset->to_file;
 
-  # Content hash of the received bytes, also used as the checkout directory (see checkout_dir semantics)
   my $sum = md5_file($file->path);
   die {checksum_mismatch => 1} if defined $opts->{checksum} && lc($opts->{checksum}) ne $sum;
 
-  # Idempotent on identical content, so client retries are safe
+  # Identical uploads make client retries idempotent.
   my $name = $opts->{name};
   if (my $existing = $self->find_by_name_and_md5($name, $sum)) { return ($self->find($existing->{id}), 1) }
 
-  # Place the complete archive first, and roll the directory back on failure, so a crash can leave at
-  # most an orphan directory and never a package row without its sources
   my $dir = path($self->checkout_dir, $name, $sum);
   eval { $dir->make_path; $file->move_to($dir->child(path($upload->filename)->basename)) };
   if ($@) {
@@ -77,7 +70,6 @@ sub store_upload ($self, $upload, $opts) {
   $self->update($obj);
   $self->imported($id);
 
-  # An arriving package like any other; the review priority moves it around inside the incoming band
   $self->unpack($id, incoming_priority($opts->{priority}));
 
   return ($obj, 0);
@@ -123,14 +115,7 @@ sub analyze ($self, $id, $priority = 100, $parents = [], $generation = 0) {
   );
 }
 
-# One owner at a time. Every job that rewrites a package's checkout or its report claims the package row
-# before it starts and hands it back when it is done, so an unpack cannot pull the sources out from under
-# an indexing run and two rebuilds cannot fight over one report. The owner is the id of the Minion job
-# holding it, which buys three things a lock did not: there is no expiry to outlive a slow build (a
-# reindex of a large package can run for hours), the build hands the package back in the very transaction
-# that promotes its report, and a claim stranded by a worker that died is recovered the way admins already
-# recover everything else - retrying the failed job in the Minion admin UI re-claims the package, because
-# the claim it finds is its own.
+# A Minion job id provides exclusive ownership without expiring during long builds.
 sub claim ($self, $id, $job_id) {
   return !!$self->pg->db->query(
     'UPDATE bot_packages SET processing_job = ?
@@ -138,49 +123,35 @@ sub claim ($self, $id, $job_id) {
   )->rows;
 }
 
-# Claim the package for as long as the caller's scope lives, for jobs that do all their work themselves. A
-# report build spans four jobs and so claims and releases by hand instead.
+# Multi-job report builds manage their longer-lived claim explicitly.
 sub claim_guard ($self, $id, $job_id) {
   return undef unless $self->claim($id, $job_id);
   return scope_guard sub { $self->release($id, $job_id) };
 }
 
-# Hand the package back, but only while we are still the owner: a job whose claim was taken over by the
-# cleanup sweep must not clear the claim of whoever has it now on its way out.
+# A superseded job must not release its successor's claim.
 sub release ($self, $id, $job_id) {
   $self->pg->db->query('UPDATE bot_packages SET processing_job = NULL WHERE id = ? AND processing_job = ?',
     $id, $job_id);
 }
 
-# Hand the package back at the end of a chain of jobs, and start the rebuild it owes. Reindexes requested
-# while the package was busy are only written down (see request_reindex), so somebody has to act on them
-# once it is free, and that is whoever lets go of it last - otherwise the request sits there until the
-# nightly sweep, with the report page read-only the whole time. Only the successful path calls this; a job
-# that dies just releases, and its retry hands back instead. The order is not delicate: an index job that
-# is already queued for the package is deduplicated away, and a request arriving right after this ran
-# finds the package free and enqueues its own build.
+# The final owner services rebuild requests recorded while the package was busy.
 sub hand_back ($self, $id, $job_id) {
   $self->release($id, $job_id);
 
-  # The rebuild runs at the priority whoever asked for it would have got, so a reviewer who clicked
-  # Reindex while the package was busy is still ahead of the weekly sweep afterwards
+  # Preserve the requester's priority across the wait.
   return unless defined(my $priority = $self->reindex_request($id));
 
-  # Only clear the request once the build that answers it exists. A package that has become ineligible in
-  # the meantime (obsoleted, never indexed) keeps it, and the sweep clears it along with the package.
+  # Clear only after enqueue succeeds, so requests cannot be lost.
   return unless ($self->reindex($id, $priority) // '') eq 'now';
   $self->log->info("[$id] Reindex was requested while the package was busy, queueing it now");
   $self->clear_reindex_request($id);
 }
 
-# Enqueue the classify job when this package has snippets awaiting the classifier, coalesced to a single
-# pending run. The job is guarded and drains every package's snippets in one pass, so one queued run is
-# enough however many packages were analyzed. Packages whose snippets are all classified (the reindex
-# case) enqueue nothing, and so does an instance with no classifier configured to consume the snippets.
+# One classifier run drains pending snippets across packages, so coalesce queued work.
 sub classify ($self, $id) {
   return unless $self->classifier->url;
 
-  # Generation 0 only: this runs after the promote, so the build's rows are the live ones by now
   my $db = $self->pg->db;
   return unless $db->query(
     'SELECT 1 FROM file_snippets fs JOIN snippets s ON s.id = fs.snippet
@@ -232,10 +203,7 @@ sub pkg_checkout_dir ($self, $id) {
   return path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 }
 
-# Does the glob match at least one of the package's matched (reported) files? A glob only reduces
-# noise if it covers files that actually appear in the report, and matched_files is a small,
-# bounded set - so this check stays cheap even for packages with millions of files on disk, and
-# it uses the same filename basis that dig_report applies globs against.
+# Check the bounded report set rather than packages that may contain millions of files.
 sub glob_matches_report_files ($self, $id, $glob) {
   local $Text::Glob::strict_wildcard_slash = 0;
   my $regex = glob_to_regex($glob);
@@ -298,15 +266,8 @@ sub flags ($self, $id, $generation = 0) {
   return $flags;
 }
 
-# Nothing to do when the report is already on disk, and nothing to do when one is already on its way. The
-# queue itself is the record of the latter, the same way it is for every other job here: a job that fails,
-# is removed or never gets dequeued takes its own claim to the work with it. A Minion lock used to stand in
-# for that, and it outlived the job it belonged to - a build whose "analyzed" job failed left the lock
-# behind for its full two days, and for those two days the package could not be given a report at all,
-# because every attempt quietly refused to enqueue one and /spdx/<id> just kept saying "not ready".
-#
-# By default somebody is sitting in front of the download waiting for it, so it goes in at the top of the
-# ladder in Cavil::Util. The build that ends in one passes its own priority and stays in its band.
+# The queue is the deduplication record and cannot outlive the job as a lock can.
+# Interactive downloads use waiting priority; builds retain their own priority.
 sub generate_spdx_report ($self, $id, $options = {}) {
   return if $self->has_spdx_report($id);
 

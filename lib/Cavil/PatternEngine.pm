@@ -6,18 +6,10 @@ use Mojo::Base -strict, -signatures;
 
 use Carp 'croak';
 
-# Every line Cavil reads for text extraction - snippets, report previews, the file and snippet views - is
-# truncated to this many bytes in read_lines below. A longer line is minified machine content (a bundled
-# .js/.css/.map with the whole file on one line), never a license declaration, and left whole it would put
-# multi-hundred-KB "lines" into snippets and reports. Capping at this single chokepoint means no consumer
-# has to defend against it; the matcher reads files separately, so matching is unaffected.
+# Bound generated one-line content here; the matcher reads files separately.
 use constant MAX_LINE_SIZE => 8000;
 
-# Cavil can run its pattern matching on either of two C++ engines. Both expose the same package
-# functions and the same object method names, and (crucially) produce identical token hashes and
-# content checksums, so the engine can be switched with the "matcher" config value without any
-# database migration. Only the seven package-level functions need routing here; method calls on the
-# returned Matcher/Hash/Bag objects work unchanged because each object carries its class.
+# Engines share token hashes and checksums, so switching requires no migration.
 
 my %ENGINES = (cavil => 'Cavil::Matcher', spooky => 'Spooky::Patterns::XS');
 
@@ -26,9 +18,6 @@ require Cavil::Matcher;
 my $NAME   = 'cavil';
 my $ENGINE = $ENGINES{cavil};
 
-# Select the active engine, loading it if necessary. Called once at application startup from the
-# "matcher" config value. Dies with a clear message if an unknown engine is requested, or if the
-# alternative is selected but not installed.
 sub use_engine ($name) {
   $name //= 'cavil';
   my $pkg = $ENGINES{$name} or croak qq{Unknown pattern engine "$name" (use "cavil" or "spooky")};
@@ -43,7 +32,6 @@ sub use_engine ($name) {
 sub name ()   {$NAME}
 sub engine () {$ENGINE}
 
-# Thin dispatchers to the active engine's package functions.
 sub init_matcher         { $ENGINE->can('init_matcher')->(@_) }
 sub init_hash            { $ENGINE->can('init_hash')->(@_) }
 sub init_bag_of_patterns { $ENGINE->can('init_bag_of_patterns')->(@_) }
@@ -52,8 +40,7 @@ sub parse_tokens         { $ENGINE->can('parse_tokens')->(@_) }
 sub read_lines {
   my $rows = $ENGINE->can('read_lines')->(@_);
 
-  # Bound each line to MAX_LINE_SIZE; read_lines returns one row per physical line ([lineno, pid, text]),
-  # so this truncates a runaway line while keeping the engine's real line numbers intact.
+  # Preserve physical line numbers while truncating content.
   for my $row (@$rows) {
     $row->[2] = substr $row->[2], 0, MAX_LINE_SIZE if length $row->[2] > MAX_LINE_SIZE;
   }

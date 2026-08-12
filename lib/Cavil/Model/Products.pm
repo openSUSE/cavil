@@ -1,17 +1,5 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Model::Products;
 use Mojo::Base -base, -signatures;
@@ -38,8 +26,7 @@ sub for_package ($self, $id) {
     'name', {'bot_package_products.package' => $id})->arrays->flatten->to_array;
 }
 
-# Like for_package, but also returns the curated product annotation for each codestream, so callers can
-# collapse the raw codestream names into their human product name (falling back to the name when unset)
+# Curated names let callers collapse multiple codestreams into one product.
 sub for_package_products ($self, $id) {
   return $self->pg->db->query(
     'SELECT p.name, p.product FROM bot_package_products pp JOIN bot_products p ON (p.id = pp.product)
@@ -54,9 +41,7 @@ sub codestreams_for_product ($self, $product) {
     ->arrays->flatten->to_array;
 }
 
-# Attach a codestream to a curated product (the human deliverable name it rolls up to), or clear it when
-# the product is empty. Keyed by name so it works whether or not the sync bot has created the row yet, and
-# it only touches the annotation column, so a later sync (which rewrites membership) never clobbers it
+# Name-based creation works before sync and keeps later membership updates independent.
 sub set_annotation ($self, $name, $product) {
   my $db  = $self->pg->db;
   my $obj = $self->find_or_create($name);

@@ -15,7 +15,6 @@ sub add ($self, $name, $body, $author) {
     ->hash->{id};
 }
 
-# Unpaginated, for the template picker in the comment editor
 sub all ($self) {
   return $self->pg->db->query('SELECT id, name, body FROM comment_templates ORDER BY name')->hashes->to_array;
 }

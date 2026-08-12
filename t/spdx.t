@@ -26,7 +26,6 @@ $cavil_test->spdx_fixtures($t->app);
 # Make the "Apache-2.0" pattern unknown to SPDX, so it has to fall back to a ScanCode identifier
 $t->app->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', '', 'Apache-2.0');
 
-# Index by spdxId (or blank node @id) for easy graph lookups
 sub graph_index ($doc) {
   return {map { ($_->{spdxId} // $_->{'@id'}) => $_ } @{$doc->{'@graph'}}};
 }

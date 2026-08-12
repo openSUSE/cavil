@@ -1,17 +1,5 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::OBS;
 use Mojo::Base -base, -signatures;
@@ -98,7 +86,6 @@ sub get_embargoed_bugrefs ($self, $api) {
 sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   $dir = path($dir)->make_path;
 
-  # List files
   my $url = _url($api, 'source', $project, $pkg)->query(expand => 1);
   $url->query([rev => $options->{rev}]) if defined $options->{rev};
   my $res = $self->_request($url);
@@ -107,7 +94,6 @@ sub download_source ($self, $api, $project, $pkg, $dir, $options = {}) {
   my $srcmd5 = $dom->at('directory')->{srcmd5};
   my @files  = $dom->find('entry')->map('attr')->each;
 
-  # Download files
   for my $file (@files) {
 
     # We've actually seen this in IBS (usually a checksum mismatch)
@@ -133,7 +119,6 @@ sub package_info ($self, $api, $project, $pkg, $options = {}) {
   my $source = $res->dom->at('sourceinfo');
   my $info   = {srcmd5 => $source->{srcmd5}, verifymd5 => $source->{verifymd5}, package => $pkg};
 
-  # Find the deepest link
   my $linfo = $self->_find_link_target($api, $project, $pkg, $options->{rev} || $source->{srcmd5});
   $info->{package} = $linfo->{package} if $linfo;
   return $info;
@@ -147,7 +132,7 @@ sub _find_link_target ($self, $api, $project, $pkg, $lrev) {
   my $res = $self->_request($url);
   return undef unless $res->is_success;
 
-  # Check if we're on track
+  # Prefer the deepest linked package that still has its matching spec file.
   my $match = grep { $_->{name} eq "$pkg.spec" } $res->dom->find('entry')->map('attr')->each;
 
   if (my $link = $res->dom->at('linkinfo')) {

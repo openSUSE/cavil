@@ -30,16 +30,7 @@ our @EXPORT_OK = (
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
 
-# Where a package goes into the job queue. Minion runs the highest number first and breaks ties FIFO, so
-# these four bands are what keeps a reviewer who is waiting for a report in front of a weekend sweep of
-# the whole archive. They are the priority of the first job of a build; everything that build spawns
-# outranks it (see Cavil::Task::Index), so a package that has started is finished before the next one at
-# the same band is picked up. Also written down in docs/Architecture.md, keep the two in step.
-#
-# The gap of twenty between them is what makes a band a band. A build climbs one step per job and is seven
-# jobs long at most, and the incoming band spreads another five either way for the review priority, so
-# every package stays within a dozen of where it started - a reindex of chromium can never climb its way
-# into the queue an incoming package is waiting in, however long it runs.
+# Priority gaps keep an entire build within its band as each job increments priority.
 use constant {
 
   # Somebody is sitting in front of the report: the Reindex button, or the package a batch of new
@@ -57,12 +48,7 @@ use constant {
   PRIORITY_SWEEP => 20
 };
 
-# Where a package submitted through the Bot API goes in. The review priority a request carries says which
-# review a human should look at first (1 to 10, and the bot marks product imports right down at the
-# bottom); it is not a queue priority, and using it as one is how a batch of new patterns once managed to
-# put chromium in front of everything arriving that afternoon. So it only ever moves an import around
-# inside the incoming band: the lowest product import still outranks every reindex, and the most urgent
-# request still yields to a reviewer waiting on a report.
+# Review priority affects only position within the incoming queue band.
 sub incoming_priority ($review_priority) {
   my $prio = $review_priority // 5;
   $prio = 1  if $prio < 1;
@@ -264,10 +250,7 @@ sub snippet_checksum ($text) {
   return $ctx->hex;
 }
 
-# Normalize license-ish text for *similarity* comparison (not for storing as a pattern). Removes
-# the noise that parse_tokens would otherwise keep as tokens (markup, comment leaders, and
-# copyright/author/url/email lines), following the spirit of the SPDX matching guidelines. Case
-# folding and punctuation stripping are left to parse_tokens, which already does them.
+# Similarity normalization follows SPDX matching principles and is not for pattern storage.
 sub normalize_license_text ($text) {
   $text =~ s/<[^>]+>/ /g;                                      # html tags
   $text =~ s/&[a-zA-Z][a-zA-Z0-9]*;|&#\d+;/ /g;                # html entities
@@ -294,10 +277,7 @@ sub normalize_license_text ($text) {
   return $text;
 }
 
-# Set of token-shingles (k consecutive normalized tokens) for similarity scoring. Returns a hashref
-# keyed by shingle so callers can do set overlap / containment. Reuses the Spooky tokenizer so the
-# vocabulary matches the bag-of-patterns engine. Very short texts fall back to unigrams so that
-# one-line declarations still compare.
+# Reuse the matcher tokenizer so shingle and bag vocabularies agree.
 sub text_shingles ($text, $k = 3) {
   Cavil::PatternEngine::init_matcher();
   my $toks = Cavil::PatternEngine::parse_tokens(normalize_license_text($text));
@@ -542,9 +522,6 @@ sub pattern_contains_redundant_skip ($pattern) {
   return $pattern =~ /^\s*\$SKIP/ || $pattern =~ /\$SKIP\d*\s*$/;
 }
 
-# Normalize a license expression for matching: lower-case, collapse whitespace, drop "LicenseRef-"
-# prefixes, treat a trailing "+" as the SPDX "-or-later", and sort the operands of a flat "OR" list
-# (which is commutative, unlike "AND"/"WITH" or anything with parentheses)
 sub normalize_license_expr ($expr) {
   my $norm = lc $expr;
   $norm =~ s/^\s+|\s+$//g;

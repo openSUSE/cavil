@@ -4,7 +4,6 @@
 package Cavil::Bom::Detector::Pypi;
 use Mojo::Base -base, -signatures;
 
-# An installed Python distribution ships RFC822-style metadata
 sub files ($self) { return (qr{(?:^|/)[^/]+\.(?:dist-info|egg-info)/(?:METADATA|PKG-INFO)$}) }
 
 sub parse ($self, $path, $content) {
@@ -30,7 +29,8 @@ sub parse ($self, $path, $content) {
     }
   }
 
-  (my $normalized = lc $name) =~ s/[-_.]+/-/g;    # PyPI-normalized name for the purl
+  # PURL uses PyPI's normalized package name.
+  (my $normalized = lc $name) =~ s/[-_.]+/-/g;
   return [
     {
       type    => 'pypi',

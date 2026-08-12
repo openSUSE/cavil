@@ -109,8 +109,7 @@ sub _analyze ($job, $id, $generation = 0) {
     # served, and the build is retried or swept.
     if ($generation) {
 
-      # Retire the live generation first - deleting matched_files cascades its pattern_matches and
-      # file_snippets - then hand generation 0 to the rows this build wrote
+      # Deleting matched_files cascades its matches and snippets.
       $db->delete($_, {package => $id, generation => 0}) for qw(package_components urls emails matched_files);
       $db->update($_, {generation => 0}, {package => $id, generation => $generation})
         for qw(package_components urls emails pattern_matches file_snippets matched_files);
@@ -123,8 +122,7 @@ sub _analyze ($job, $id, $generation = 0) {
     %state = (%state, indexed => \'now()', processing_job => undef, index_stage => undef) if $generation;
     $db->update('bot_packages', \%state, {id => $id});
 
-    # bot_reports holds the cached reports and has exactly one row per package. A first import has none
-    # yet - nothing created it, because the spec file report was read straight from the checkout.
+    # A first import has no cached report row yet.
     my %cached = (ldig_report => to_json_fast($dig), annotations => to_json_fast($annotations));
     $cached{specfile_report} = $specfile_json if defined $specfile_json;
     if ($db->select('bot_reports', 'id', {package => $id})->hash) {
@@ -135,8 +133,7 @@ sub _analyze ($job, $id, $generation = 0) {
     }
     if ($pkg->{state} ne 'new') {
 
-      # in case we reindexed an old pkg, check if 'new' packages now match.
-      # new patterns might change the story
+      # New patterns may unblock matching packages still marked new.
       $new_candidates = $db->select('bot_packages', 'id',
         {name => $pkg->{name}, indexed => {'!=' => undef}, id => {'!=' => $pkg->{id}}, state => 'new'})->hashes;
     }
@@ -175,8 +172,7 @@ sub _analyze ($job, $id, $generation = 0) {
       $minion->enqueue(analyzed => [$cid] => {parents => [$job->id], priority => $prio, notes => {"pkg_$cid" => 1}});
     }
 
-    # Classify the snippets this package brought in, the same way a pattern change schedules pattern_stats:
-    # when there are snippets still awaiting the classifier, enqueue the (fleet-wide) classify job.
+    # One fleet-wide classifier job drains any pending snippets.
     $pkgs->classify($id);
   };
   if (my $err = $@) {

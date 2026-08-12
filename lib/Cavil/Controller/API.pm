@@ -1,17 +1,5 @@
-# Copyright (C) 2018 SUSE Linux GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 package Cavil::Controller::API;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
@@ -99,8 +87,7 @@ sub source ($self) {
   my $pkg     = $validation->param('package');
   my $rev     = $validation->param('rev');
 
-  # Get package infomation, rev may be pointing to link, so we need the
-  # canonical srcmd5
+  # Resolve links before using the source checksum as identity.
   my $obs  = $self->app->obs;
   my $info = eval { $obs->package_info($api, $project, $pkg, {rev => $rev}) };
   unless ($info && $info->{verifymd5}) {

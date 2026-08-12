@@ -11,8 +11,6 @@ sub index ($self) {
 sub store ($self) {
   my $wants_json = ($self->req->headers->accept // '') =~ /application\/json/;
 
-  # No package metadata is required for an arbitrary archive upload; the name is only used
-  # for the checkout directory and queue, and is prefilled from the filename in the UI
   my $validation = $self->validation;
   $validation->required('name')->like(qr/^[A-Za-z0-9\-\.]+$/);
   $validation->required('priority')->num;

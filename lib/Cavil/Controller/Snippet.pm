@@ -43,7 +43,6 @@ sub closest ($self) {
   my $exclude  = $v->param('exclude');
   my $patterns = $self->patterns;
 
-  # Ask for 2 matches when excluding, in case the best match is the excluded pattern itself
   my $matches = $patterns->closest_matches($text, defined $exclude ? 2 : 1);
   my $match   = $matches->[0];
   $match = $matches->[1] if defined $exclude && $match && $match->{pattern} == $exclude;
@@ -74,7 +73,6 @@ my %BATCH_KINDS = map { $_ => 1 } qw(
 
 my %ADMIN_ONLY_KINDS = map { $_ => 1 } qw(create-pattern create-ignore create-glob mark-non-license);
 
-# Glob proposals are file-path based, not snippet based, so they carry no snippet id.
 my %SNIPPETLESS_KINDS = map { $_ => 1 } qw(propose-glob create-glob);
 
 # Apply a list of snippet decisions as a single batch.
@@ -244,9 +242,7 @@ sub meta ($self) {
 
   # Scope to the occurrence the reviewer is actually on: snippets are content-hash deduped, so one
   # snippet id can have hundreds of occurrences across packages (a widely vendored license file).
-  # Without a file the model would pick an arbitrary one, and its match highlights/line numbers could
-  # describe a different package than the report the editor was opened from. A non-numeric file fails
-  # validation and is treated as absent (a graceful fallback), never reaching the bigint column.
+  # Content-deduplicated snippets need file context to match the review being edited.
   my $snippet  = $self->snippets->with_context($id, $v->param('file'));
   my $patterns = $self->patterns;
   my $licenses = $patterns->autocomplete;

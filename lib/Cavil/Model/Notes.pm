@@ -11,16 +11,8 @@ use constant NOTE_BODY_MAX_LENGTH => 65535;
 
 has 'pg';
 
-# Notes are shared across all bot_packages rows that share a name. The
-# originating package id (`package`) is kept as a "permalink" target so the UI
-# can show "originally added on review #N" — but it can become NULL if that
-# package row is later removed, and the note still belongs to the package
-# name.
-#
-# A pinned note is a reviewer's assertion that it matters for every future
-# review of the package name, so it deliberately escapes both mechanisms that
-# would otherwise bury it: it is exempt from the relevance filter, and the web
-# list pulls it out of the keyset scroll entirely (see pinned_for_package).
+# Notes belong to a package name; the nullable package id is only a permalink.
+# Pinned notes apply to every review and stay outside keyset pagination.
 
 sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only, $ai_assisted = 0, $tags = undef) {
   my $row = $self->pg->db->insert(
@@ -54,9 +46,6 @@ sub list ($self, $package_name, %opts) {
 
   push @sql, 'AND c.lawyer_only = false' unless $opts{include_lawyer_only};
 
-  # The web list hoists pinned notes into their own block above the scroll, so
-  # they must not also appear in the paginated stream. Consumers that render a
-  # single flat list (like the plain text report) leave this off.
   push @sql, 'AND c.pinned = false' if $opts{exclude_pinned};
 
   if (defined $opts{before_id}) {
@@ -64,9 +53,6 @@ sub list ($self, $package_name, %opts) {
     push @args, $opts{before_id};
   }
 
-  # "Only relevant notes" = pinned OR native to this review OR from a review
-  # with an identical license report (same bot_packages.checksum). Degrades to
-  # native-only when the current package has no report checksum yet.
   if ($opts{relevant_only}) {
     if (defined $opts{checksum}) {
       push @sql, 'AND (c.pinned = true OR c.package = ? OR p.checksum = ?)';
@@ -85,11 +71,7 @@ sub list ($self, $package_name, %opts) {
   return {notes => $rows, has_more => $has_more};
 }
 
-# All pinned notes for a package name, newest first. Kept out of the keyset
-# pagination in list() on purpose: sorting pinned notes to the front would put
-# rows with ids above the `before_id` cursor into later pages, which either
-# duplicates or drops them depending on where the scroll is. A separate query
-# is correct at any scroll position, and the pin limit keeps it small.
+# A separate query prevents pinned rows from crossing keyset cursors.
 sub pinned_for_package ($self, $package_name, %opts) {
   my @sql  = ('AND c.package_name = ?', 'AND c.pinned = true');
   my @args = ($package_name);
@@ -122,8 +104,6 @@ sub recent ($self, %opts) {
   return {notes => $rows, has_more => $has_more};
 }
 
-# Distinct tags across all notes with usage counts, most-used first. Powers the
-# autocomplete suggestions in the note tag editor and the recent-notes filter.
 sub all_tags ($self, %opts) {
   my $where = $opts{include_lawyer_only} ? '' : 'WHERE lawyer_only = false';
   return $self->pg->db->query(
@@ -191,9 +171,6 @@ sub counts ($self, $package_name) {
   )->hash;
 }
 
-# Count of visible notes "relevant" to the given review (pinned, native, or
-# identical license report), so the UI can gate the "Only relevant notes"
-# toggle and show "N of M". Mirrors the relevant_only predicate in list().
 sub relevant_count ($self, $package_name, $package_id, $checksum, %opts) {
   my @sql  = ('c.package_name = ?');
   my @args = ($package_name);
@@ -257,9 +234,7 @@ sub edit ($self, $id, $body, $tags = undef) {
   return $self->find($id);
 }
 
-# Pinning is curation of an existing note, not a change to what it says, so it
-# deliberately leaves `edited` alone - a pin must not make the note read as
-# "edited 2 minutes ago" to the next reviewer.
+# Pinning is curation, not an edit; preserve the content timestamp.
 sub set_pinned ($self, $id, $pinned) {
   my $rows
     = $self->pg->db->query('UPDATE package_notes SET pinned = ? WHERE id = ? RETURNING id', $pinned ? 1 : 0, $id)->rows;

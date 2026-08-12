@@ -71,9 +71,7 @@ sub file_view_meta ($self) {
   my $filename = $ctx->{filename};
   my $package  = $ctx->{package};
 
-  # The browser turns read-only for the same reason the report page does: it decides against a report
-  # that is about to be replaced, and the server would refuse the whole batch anyway. Sent with the very
-  # first payload so the actions never appear and then vanish; kept fresh by /reviews/report_state.
+  # Disable actions before a pending report replacement can invalidate their context.
   my $state   = $self->helpers->reindex_state($package);
   my $payload = {
     package => {
@@ -107,10 +105,7 @@ sub file_view_meta ($self) {
 sub _file_browser_context ($self) {
   my $filename = $self->stash('file');
 
-  # There are unfortunately few limits on what file can be - but it
-  # can't be a backward compat
-  # technically Foo..bar is allowed as file name, but we forbid this
-  # here for simplicity
+  # Reject parent traversal; this also forbids otherwise valid names containing "..".
   if ($filename =~ qr/\.\./) {
     $self->render(text => 'Bad Request', status => 400);
     return undef;

@@ -6,8 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use Mojo::DOM;
 
-# Every NuGet package carries a "<id>.nuspec" manifest; it is present both loose and inside an unpacked
-# .nupkg (a zip), so it is a reliable per-package presence signal
+# Present in loose and unpacked package forms, making it a reliable signal.
 sub files ($self) { return (qr{(?:^|/)[^/]+\.nuspec$}) }
 
 sub parse ($self, $path, $content) {
