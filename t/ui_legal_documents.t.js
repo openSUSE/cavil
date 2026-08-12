@@ -21,19 +21,24 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
     await t.test('lists what Cavil can explain of each file', async t => {
       t.match(await documents.locator('.cavil-notice-heading').innerText(), /Legal documents/, 'panel title');
 
+      // Located by path rather than index, so adding a document to the fixture does not renumber the rest
       const rows = documents.locator('.legal-document-item');
-      t.equal(await rows.count(), 3, 'the package own license files are listed, and only those');
-      t.match(await rows.nth(0).innerText(), /COPYING/, 'shallowest first, then alphabetical');
-      t.match(await rows.nth(1).innerText(), /LICENSE/, 'named');
-      t.match(await rows.nth(2).innerText(), /fonts\/tex-gyre\/META-INF\/LICENSE/, 'nested paths are kept in full');
+      const paths = await documents.locator('.cavil-path').allTextContents();
+      const rowFor = path => rows.nth(paths.indexOf(path));
+
+      t.equal(await rows.count(), 4, 'the package own license files are listed, and only those');
       t.notMatch(await documents.innerText(), /vendor|license\.go/, 'vendored licenses and source are left out');
+      t.match(
+        (await rows.allInnerTexts()).join('|'),
+        /COPYING.*COPYRIGHT.*LICENSE.*fonts\/tex-gyre/s,
+        'shallowest first, then alphabetical'
+      );
 
       // The whole point of the layout: 120 and 4 are different widths, and their digits still end at the
       // same x so the column can be scanned down rather than re-read on every row.
       const [long, short] = await Promise.all(
-        [0, 1].map(i =>
-          rows
-            .nth(i)
+        ['legal-docs-1.0/COPYING', 'legal-docs-1.0/LICENSE'].map(path =>
+          rowFor(path)
             .locator('.legal-document-count')
             .last()
             .evaluate(el => el.getBoundingClientRect().right)
@@ -44,19 +49,42 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       // The SPDX line resolves, the three lines of novel terms do not - and the report is otherwise clean,
       // which is exactly the case this number exists to surface. Absolute, not a percentage, so a small
       // clause inside a large recognised license body cannot round away to nothing.
-      t.match(await rows.nth(1).innerText(), /3 unexplained\s+4 lines/, 'size and unexplained remainder');
-      t.match(await rows.nth(0).innerText(), /119 unexplained\s+120 lines/, 'and on the longer document');
+      const license = rowFor('legal-docs-1.0/LICENSE');
+      t.match(await license.innerText(), /3 unexplained\s+4 lines/, 'size and unexplained remainder');
+      t.match(await rowFor('legal-docs-1.0/COPYING').innerText(), /119 unexplained\s+120 lines/, 'and on a longer one');
 
       // Bold is the scanning cue for "something here", so it goes on the remainder and not on the size
-      t.equal(await rows.nth(1).locator('b').innerText(), '3', 'the unexplained count is the emphasised part');
+      t.equal(await license.locator('b').innerText(), '3', 'the unexplained count is the emphasised part');
 
       // File names follow the report's convention: muted until hovered, not link-blue on arrival
-      const link = rows.nth(1).locator('a');
+      const link = license.locator('a');
       t.match(await link.getAttribute('href'), /\/reviews\/file_view\/1\//, 'opens in the file browser');
       t.equal(await link.evaluate(el => getComputedStyle(el).color), 'rgb(87, 96, 106)', 'muted like other file names');
 
+      // Cavil's marker for its own normalised copy never distinguishes two rows here - the original is
+      // not in the file list at all - so it is dropped rather than dimmed, sparing every reader the job
+      // of mentally stripping it. The real path stays available in the title.
+      const processed = rowFor('legal-docs-1.0/COPYRIGHT');
+      t.equal(await processed.locator('.cavil-path-name').innerText(), 'COPYRIGHT', 'the name reads as the real one');
+      t.equal(
+        await processed.locator('.cavil-path').getAttribute('title'),
+        'legal-docs-1.0/COPYRIGHT.processed',
+        'and the copy that was actually indexed is still recoverable'
+      );
+      t.equal(await rowFor('legal-docs-1.0/LICENSE').locator('.cavil-path').getAttribute('title'), null,
+        'a path with nothing hidden carries no title');
+
+      // Both parts light up together, or a dimmed one reads as unclickable
+      await processed.locator('a').hover();
+      const hovered = await Promise.all(
+        ['.cavil-path-dir', '.cavil-path-name'].map(part =>
+          processed.locator(part).evaluate(el => getComputedStyle(el).color)
+        )
+      );
+      t.strictSame(hovered, Array(2).fill('rgb(5, 80, 174)'), 'hovering turns the whole path link-blue');
+
       // The name is what the eye hunts for at the end of a long path, so the directory recedes a step
-      const nested = rows.nth(2).locator('a');
+      const nested = rowFor('legal-docs-1.0/fonts/tex-gyre/META-INF/LICENSE').locator('a');
       const dir = nested.locator('.cavil-path-dir');
       t.equal(await dir.innerText(), 'legal-docs-1.0/fonts/tex-gyre/META-INF/', 'the directory is a part of its own');
 

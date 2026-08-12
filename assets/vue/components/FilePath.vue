@@ -1,7 +1,7 @@
 <template>
-  <span class="cavil-path"
+  <span class="cavil-path" :title="processed ? path : null"
     ><span v-if="directory" class="cavil-path-dir">{{ directory }}</span
-    ><span class="cavil-path-name">{{ basename }}</span></span
+    ><span class="cavil-path-name">{{ name }}</span></span
   >
 </template>
 
@@ -20,8 +20,17 @@ export default {
       const cut = this.path.lastIndexOf('/');
       return cut < 0 ? '' : this.path.slice(0, cut + 1);
     },
-    basename() {
-      return this.path.slice(this.path.lastIndexOf('/') + 1);
+    // ".processed" is Cavil's marker for its own normalised copy of a file, not part of the upstream
+    // name, and file lists only ever show that copy - the original never reaches them, so the marker
+    // never distinguishes two rows. Dropping it saves every reader mentally stripping it to recover the
+    // name they know; the real path stays in the title, and the file browser shows filenames as they are.
+    name() {
+      const base = this.path.slice(this.path.lastIndexOf('/') + 1);
+      const match = base.match(/^(.*)\.processed(\..*)?$/);
+      return match ? match[1] + (match[2] ?? '') : base;
+    },
+    processed() {
+      return /\.processed(\.|$)/.test(this.path);
     }
   }
 };
@@ -36,9 +45,9 @@ export default {
 .cavil-path-name {
   color: #24292f;
 }
-/* Both halves follow the link colour on hover, so neither looks unclickable. */
-a:hover > .cavil-path > *,
-a:focus > .cavil-path > * {
+/* Both parts follow the link colour on hover, so neither looks unclickable. */
+a:hover .cavil-path *,
+a:focus .cavil-path * {
   color: inherit;
 }
 </style>

@@ -986,6 +986,11 @@ LICENSE
   $src->child('COPYING')->spew(join "\n", '# SPDX-License-Identifier: Apache-2.0',
     '', (map {"Clause $_ of some unrecognised terms."} 1 .. 119), '');
 
+  # Lines over 115 characters trip the line-wrapper, so Cavil indexes its own COPYRIGHT.processed copy
+  # and the report has a name carrying that marker
+  $src->child('COPYRIGHT')
+    ->spew("# SPDX-License-Identifier: Apache-2.0\n\n" . ('a distinctly unrecognised clause ' x 12) . "\n");
+
   # Buried the way TeX Live buries them, so the list has a path long enough for the directory to recede
   $src->child('fonts', 'tex-gyre', 'META-INF')->make_path->child('LICENSE')
     ->spew("# SPDX-License-Identifier: Apache-2.0\n\nTerms nobody recognises.\n");
