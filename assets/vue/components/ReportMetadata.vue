@@ -304,7 +304,7 @@
       icon="fa-solid fa-scale-balanced"
       title="Legal documents"
     >
-      <p v-if="documentsSummary !== null" class="cavil-notice-summary">{{ documentsSummary }}</p>
+      <p v-if="documentsDropped > 0" class="cavil-notice-summary">{{ documentsDropped }} more not listed.</p>
       <ul class="cavil-notice-list">
         <li v-for="document in documents" :key="document.path" class="cavil-notice-item legal-document-item">
           <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path"
@@ -456,14 +456,6 @@ export default {
       return this.documents.some(document => document.unexplained > 0);
     },
 
-    documentsSummary() {
-      const parts = [];
-      if (this.documentsUnexplained) {
-        parts.push('Counts on the right are lines no known license matched; files without one are fully recognised.');
-      }
-      if (this.documentsDropped > 0) parts.push(`${this.documentsDropped} more not listed.`);
-      return parts.length > 0 ? parts.join(' ') : null;
-    },
     // A curator gets accept and reject, a manager only the fasttrack accept
     reviewButtons() {
       if (this.hasAdminRole === true) {

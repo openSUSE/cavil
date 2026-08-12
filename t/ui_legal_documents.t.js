@@ -65,12 +65,8 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.equal(await covered.innerText(), '', 'a file with nothing left over says nothing');
       t.ok(await covered.evaluate(el => el.getBoundingClientRect().width > 0), 'but still holds the column open');
 
-      // Said once for the panel, rather than a word on every row
-      t.match(
-        await documents.locator('.cavil-notice-summary').innerText(),
-        /lines no known license matched/,
-        'the counts are explained where they are introduced'
-      );
+      // The rows say what the number is; a paragraph of panel furniture defining it does not earn its keep
+      t.equal(await documents.locator('.cavil-notice-summary').count(), 0, 'and nothing prefaces the list');
 
       // File names follow the report's convention: muted until hovered, not link-blue on arrival
       const link = license.locator('a');
