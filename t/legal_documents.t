@@ -39,6 +39,9 @@ Contact sales@example.com for enterprise terms.
 There is a redistribution of this document clause hiding on this line.
 EOF
 
+# A document with nothing left over states its size and stops there
+$dir->child('COPYING')->spurt("SPDX-License-Identifier: Apache-2.0\n");
+
 # Vendored licenses must not bury the package's own document.
 $dir->child('vendor', 'foo')->make_path->child('LICENSE')
   ->spurt("# SPDX-License-Identifier: Apache-2.0\n\nBundled dependency terms.\n");
@@ -59,8 +62,12 @@ subtest 'Legal documents and what Cavil can explain of them' => sub {
 
   is $license->{unexplained}, 4, 'catch_all markers count as recognised, bare keyword matches do not';
 
+  my ($copying) = grep { $_->{path} eq 'COPYING' } @{$documents->{documents}};
+  is $copying->{lines},       1, 'a document that is nothing but a tag is one line';
+  is $copying->{unexplained}, 0, 'and has nothing left over';
+
   my @paths = map { $_->{path} } @{$documents->{documents}};
-  is_deeply \@paths, ['LICENSE'], 'a vendored license and a Go file named license.go are both left out';
+  is_deeply \@paths, ['COPYING', 'LICENSE'], 'a vendored license and a Go file named license.go are both left out';
 };
 
 subtest 'Report metadata carries the documents with file browser links' => sub {
@@ -68,11 +75,11 @@ subtest 'Report metadata carries the documents with file browser links' => sub {
 
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
-    ->json_is('/legal_documents/documents/0/path',        'LICENSE')
-    ->json_is('/legal_documents/documents/0/lines',       6)
-    ->json_is('/legal_documents/documents/0/unexplained', 4)
-    ->json_is('/legal_documents/documents/0/kind',        'license')
-    ->json_like('/legal_documents/documents/0/url', qr!/reviews/file_view/1/LICENSE!)
+    ->json_is('/legal_documents/documents/1/path',        'LICENSE')
+    ->json_is('/legal_documents/documents/1/lines',       6)
+    ->json_is('/legal_documents/documents/1/unexplained', 4)
+    ->json_is('/legal_documents/documents/1/kind',        'license')
+    ->json_like('/legal_documents/documents/1/url', qr!/reviews/file_view/1/LICENSE!)
     ->json_is('/legal_documents/dropped', 0);
 };
 
@@ -89,14 +96,16 @@ subtest 'A package that has not been analyzed yet simply has no documents' => su
 
 # Both reports mark file paths with backticks; kept in a single-quoted variable so the pattern itself
 # stays free of them.
-my $DOCUMENT_LINE = '`LICENSE`: 6 lines, 4 unexplained';
+my $DOCUMENT_LINE = '`LICENSE`: 6 lines, 4 unrecognised';
+my $COVERED_LINE  = '`COPYING`: 1 line';
 
 subtest 'Text report lists the documents' => sub {
   $t->get_ok('/reviews/report/1.txt')->status_is(200);
   ok my $text = $t->tx->res->text, 'text response';
 
-  like $text, qr/## Legal Documents/, 'documents get a section';
-  like $text, qr/\Q$DOCUMENT_LINE\E/, 'with the unexplained remainder';
+  like $text, qr/## Legal Documents/,  'documents get a section';
+  like $text, qr/\Q$DOCUMENT_LINE\E/,  'with the unrecognised remainder';
+  like $text, qr/\Q$COVERED_LINE\E\n/, 'and a fully matched document stating only its size';
 
   unlike $text, qr/## Declared License/, 'and nothing grades the declared license';
 };
@@ -104,8 +113,9 @@ subtest 'Text report lists the documents' => sub {
 subtest 'MCP report lists the documents' => sub {
   my $mcp = $t->app->build_controller->mcp_report(1);
 
-  like $mcp, qr/## Legal Documents/, 'documents reach the AI too';
-  like $mcp, qr/\Q$DOCUMENT_LINE\E/, 'so it can read the part Cavil does not explain';
+  like $mcp, qr/## Legal Documents/,  'documents reach the AI too';
+  like $mcp, qr/\Q$DOCUMENT_LINE\E/,  'so it can read the part Cavil does not explain';
+  like $mcp, qr/\Q$COVERED_LINE\E\n/, 'and can skip the one there is nothing to read in';
 
   like $mcp,   qr/^Declared-License: Artistic-2\.0$/m, 'the declared value is still in the header';
   unlike $mcp, qr/^Declaration:/m,                     'but nothing grades it';

@@ -79,11 +79,11 @@ No files matched known license patterns or keywords.
 % if ($legal_documents && @{$legal_documents->{documents}}) {
 ## Legal Documents
 
-The files that state this package's terms, with how much of each no known license pattern explains.
+The files that state this package's terms, with the lines of each no known license pattern matched.
 
 %   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
-* `<%== $document->{path} %>`: <%= $document->{lines} %> lines<%== $unexplained ? ", $unexplained unexplained" : '' %>
+* `<%== $document->{path} %>`: <%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unrecognised" : '' %>
 %   }
 %   if (my $dropped = $legal_documents->{dropped}) {
 * ... <%= $dropped %> more not listed

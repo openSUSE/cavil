@@ -914,6 +914,18 @@ sub legal_documents_fixtures ($self, $app) {
   $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?)',
     'MIT', 'Apache-2.0', 'ISC');
 
+  # A body pattern as well as the tags, so a document can be fully recognised at a realistic length: a
+  # one-line SPDX stub would leave the panel with nothing but single digits to line up.
+  my $mit_body = <<'MIT';
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+MIT
+  $app->patterns->create(pattern => $mit_body, license => 'MIT');
+
   # A package carrying one of each thing the documents list has to get right: a LICENSE whose terms are
   # only partly recognised, a vendored dependency's own license that must not bury it, and a Go source
   # file named after a license word that is not a document at all.
@@ -954,6 +966,10 @@ LICENSE
   $src->child('COPYRIGHT')
     ->spew("# SPDX-License-Identifier: Apache-2.0\n\n" . ('a distinctly unrecognised clause ' x 12) . "\n");
 
+  # A document with nothing left over, sitting between two that have some: its row has to leave the slot
+  # for a remainder empty rather than let the line counts around it drift out of their column
+  $src->child('LICENSE.MIT')->spew($mit_body);
+
   # Buried the way TeX Live buries them, so the list has a path long enough for the directory to recede
   $src->child('fonts', 'tex-gyre', 'META-INF')->make_path->child('LICENSE')
     ->spew("# SPDX-License-Identifier: Apache-2.0\n\nTerms nobody recognises.\n");
@@ -979,6 +995,47 @@ LICENSE
   );
   $pkgs->imported($pkg_id);
   $pkgs->unpack($pkg_id);
+
+  # The ordinary case, and a package of its own because it is a property of the whole report rather than
+  # of a row: every document recognised, so the panel has no remainder to report and says nothing of one.
+  my $clean_name = 'legal-docs-clean';
+  my $clean_md5  = 'd0000000000000000000000000000002';
+  my $clean_dir  = $self->checkout_dir->child($clean_name, $clean_md5)->make_path;
+  $clean_dir->child("$clean_name.spec")->spew(<<"SPEC");
+Name:           $clean_name
+Version:        1.0
+Release:        0
+Summary:        Synthetic package whose license files Cavil fully recognises
+License:        MIT
+Group:          Development/Libraries/Perl
+Source0:        $clean_name-1.0.tar.gz
+BuildArch:      noarch
+
+%description
+Synthetic package carrying nothing but stock license text.
+SPEC
+
+  my $clean_stage = tempdir;
+  my $clean_src   = $clean_stage->child("$clean_name-1.0")->make_path;
+  $clean_src->child('COPYING')->spew($mit_body);
+  $clean_src->child('LICENSE')->spew("SPDX-License-Identifier: MIT\n");
+  my $clean_tarball = $clean_dir->child("$clean_name-1.0.tar.gz")->to_string;
+  system('tar', '-czf', $clean_tarball, '-C', $clean_stage->to_string, "$clean_name-1.0") == 0
+    or die "Failed to create synthetic tarball: $?";
+
+  my $clean_id = $pkgs->add(
+    name            => $clean_name,
+    checkout_dir    => $clean_md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => $clean_name,
+    srcmd5          => $clean_md5,
+    priority        => 5
+  );
+  $pkgs->imported($clean_id);
+  $pkgs->unpack($clean_id);
+
   $app->minion->perform_jobs;
   return $pkg_id;
 }

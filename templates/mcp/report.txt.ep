@@ -195,12 +195,12 @@ Ordered by occurrences<%= @urls > $url_limit ? ", top $url_limit of " . scalar(@
 
 ## Legal Documents
 
-The files that state this package's terms, with how much of each no known license pattern explains. An
-unexplained remainder is text Cavil does not recognise, which the auto-resolved snippet counts can hide.
+The files that state this package's terms, with the lines of each no known license pattern matched. Read
+those lines: the auto-resolved snippet counts can hide them.
 
 %   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
-* `<%== $document->{path} %>`: <%= $document->{lines} %> lines<%== $unexplained ? ", $unexplained unexplained" : '' %>
+* `<%== $document->{path} %>`: <%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unrecognised" : '' %>
 %   }
 %   if (my $dropped = $legal_documents->{dropped}) {
 * ... <%= $dropped %> more not listed

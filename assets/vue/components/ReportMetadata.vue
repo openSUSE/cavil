@@ -304,23 +304,26 @@
       icon="fa-solid fa-scale-balanced"
       title="Legal documents"
     >
-      <p v-if="documentsDropped > 0" class="cavil-notice-summary">{{ documentsDropped }} more not listed.</p>
+      <p v-if="documentsSummary !== null" class="cavil-notice-summary">{{ documentsSummary }}</p>
       <ul class="cavil-notice-list">
         <li v-for="document in documents" :key="document.path" class="cavil-notice-item legal-document-item">
           <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path"
             ><FilePath :path="document.path"
           /></a>
-          <!-- A file Cavil fully understands just states its size, so only the unexplained remainder is
-               bold and a clean row carries no emphasis at all. Absolute rather than a percentage on
-               purpose: what this catches is a small novel clause bolted onto a recognised license body,
-               and 15 added lines in a 312-line BSD file rounds away to "5%". -->
           <span class="legal-document-lines">
-            <span v-if="document.unexplained > 0" class="legal-document-unexplained">
-              <b class="legal-document-count">{{ count(document.unexplained) }}</b> unexplained
-            </span>
             <span class="legal-document-total">
               <span class="legal-document-count">{{ count(document.lines) }}</span>
               {{ document.lines === 1 ? 'line' : 'lines' }}
+            </span>
+            <!-- Size first, then the exception: a file Cavil fully understands just states how big it is
+                 and the row stops there, so the ragged tail is what the eye has to follow. Bold marks the
+                 remainder and a clean row carries no emphasis at all. Absolute rather than a percentage
+                 on purpose: what this catches is a small novel clause bolted onto a recognised license
+                 body, and 15 added lines in a 312-line BSD file rounds away to "5%". -->
+            <span v-if="documentsUnexplained" class="legal-document-unexplained">
+              <template v-if="document.unexplained > 0"
+                ><b class="legal-document-count">{{ count(document.unexplained) }}</b> unrecognised</template
+              >
             </span>
           </span>
         </li>
@@ -444,6 +447,22 @@ export default {
 
     documentsDropped() {
       return this.legalDocuments?.dropped ?? 0;
+    },
+
+    // Most packages have nothing Cavil could not match, and there the panel is a plain inventory: a
+    // column reserved for a number no row carries, under a sentence defining a remainder that never
+    // occurs, would be a puzzle to solve rather than a fact to read.
+    documentsUnexplained() {
+      return this.documents.some(document => document.unexplained > 0);
+    },
+
+    documentsSummary() {
+      const parts = [];
+      if (this.documentsUnexplained) {
+        parts.push('Counts on the right are lines no known license matched; files without one are fully recognised.');
+      }
+      if (this.documentsDropped > 0) parts.push(`${this.documentsDropped} more not listed.`);
+      return parts.length > 0 ? parts.join(' ') : null;
     },
     // A curator gets accept and reject, a manager only the fasttrack accept
     reviewButtons() {
@@ -865,10 +884,8 @@ export default {
   color: #0550ae;
   text-decoration-color: currentColor;
 }
-/* The size comes last because it is always present: ending at the row's right edge keeps the column
-   aligned without a fixed width, and leaves no blank tail on files with no remainder. Both groups are a
-   constant width, so the remainder lands in the same place too. No separator between them - a middle dot
-   orphans against "lines" when the remainder sits at the far side of its slot. */
+/* No separator between the two - a middle dot orphans against "lines" when the remainder sits at the far
+   side of its slot. */
 .legal-document-lines {
   color: #6e7781;
   display: flex;
@@ -878,14 +895,23 @@ export default {
   gap: 0.6rem;
   white-space: nowrap;
 }
+/* Both slots are held open from the left, because the row hangs off its right edge: sized to their
+   content, a one-line document would pull its count a whole "s" out of the column. */
+.legal-document-total {
+  min-width: 6.5em;
+}
 .legal-document-count {
   display: inline-block;
   min-width: 3.4em;
   text-align: right;
 }
-/* A bare number, not a chip. A chip reads as a status to be cleared; this is a measurement. */
-.legal-document-unexplained .legal-document-count {
-  min-width: 2.4em;
+/* Wide enough for the longest remainder this can state, so the slot keeps its width on a covered file
+   that has nothing to put in it: without that, every line count on the rows around it would sit a
+   remainder further right and the column would zigzag. Reserved with min-width rather than a flex basis,
+   which an empty slot does not contribute to its row. A bare number, not a chip - a chip reads as a
+   status to be cleared; this is a measurement. */
+.legal-document-unexplained {
+  min-width: 12.5em;
 }
 .metadata-collapse-inner {
   padding: 0.85rem 0 1.1rem;
