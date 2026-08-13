@@ -200,7 +200,7 @@ those lines: the auto-resolved snippet counts can hide them.
 
 %   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
-* `<%== $document->{path} %>`: <%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unrecognised" : '' %>
+* `<%== $document->{path} %>`: <%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unknown" : '' %>
 %   }
 %   if (my $dropped = $legal_documents->{dropped}) {
 * ... <%= $dropped %> more not listed

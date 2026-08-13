@@ -39,7 +39,7 @@ Contact sales@example.com for enterprise terms.
 There is a redistribution of this document clause hiding on this line.
 EOF
 
-# A document with nothing left over states its size and stops there
+# Nothing left over, so the row states its size and stops
 $dir->child('COPYING')->spurt("SPDX-License-Identifier: Apache-2.0\n");
 
 # Vendored licenses must not bury the package's own document.
@@ -96,7 +96,7 @@ subtest 'A package that has not been analyzed yet simply has no documents' => su
 
 # Both reports mark file paths with backticks; kept in a single-quoted variable so the pattern itself
 # stays free of them.
-my $DOCUMENT_LINE = '`LICENSE`: 6 lines, 4 unrecognised';
+my $DOCUMENT_LINE = '`LICENSE`: 6 lines, 4 unknown';
 my $COVERED_LINE  = '`COPYING`: 1 line';
 
 subtest 'Text report lists the documents' => sub {
@@ -104,7 +104,7 @@ subtest 'Text report lists the documents' => sub {
   ok my $text = $t->tx->res->text, 'text response';
 
   like $text, qr/## Legal Documents/,  'documents get a section';
-  like $text, qr/\Q$DOCUMENT_LINE\E/,  'with the unrecognised remainder';
+  like $text, qr/\Q$DOCUMENT_LINE\E/,  'with the unknown remainder';
   like $text, qr/\Q$COVERED_LINE\E\n/, 'and a fully matched document stating only its size';
 
   unlike $text, qr/## Declared License/, 'and nothing grades the declared license';

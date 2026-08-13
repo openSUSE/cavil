@@ -315,15 +315,20 @@
               <span class="legal-document-count">{{ count(document.lines) }}</span>
               {{ document.lines === 1 ? 'line' : 'lines' }}
             </span>
-            <!-- Size first, then the exception: a file Cavil fully understands just states how big it is
-                 and the row stops there, so the ragged tail is what the eye has to follow. Bold marks the
-                 remainder and a clean row carries no emphasis at all. Absolute rather than a percentage
-                 on purpose: what this catches is a small novel clause bolted onto a recognised license
-                 body, and 15 added lines in a 312-line BSD file rounds away to "5%". -->
-            <span v-if="documentsUnexplained" class="legal-document-unexplained">
-              <template v-if="document.unexplained > 0"
-                ><b class="legal-document-count">{{ count(document.unexplained) }}</b> unrecognised</template
-              >
+            <!-- Absolute, not a percentage: 15 novel lines in a 312-line BSD file round away to "5%" -->
+            <span
+              v-if="documentsUnexplained"
+              :class="['legal-document-unexplained', {'is-placeholder': document.unexplained === 0}]"
+              :title="documentShare(document)"
+            >
+              <b class="legal-document-count">{{ count(document.unexplained) }}</b> unknown
+              <span class="legal-document-meter" aria-hidden="true"
+                ><i
+                  v-for="block in 5"
+                  :key="block"
+                  :class="['legal-document-block', {'is-unknown': block <= documentBlocks(document)}]"
+                ></i
+              ></span>
             </span>
           </span>
         </li>
@@ -449,9 +454,7 @@ export default {
       return this.legalDocuments?.dropped ?? 0;
     },
 
-    // Most packages have nothing Cavil could not match, and there the panel is a plain inventory: a
-    // column reserved for a number no row carries, under a sentence defining a remainder that never
-    // occurs, would be a puzzle to solve rather than a fact to read.
+    // Most packages have no remainder anywhere, and a column no row fills reads as missing data
     documentsUnexplained() {
       return this.documents.some(document => document.unexplained > 0);
     },
@@ -548,6 +551,17 @@ export default {
   methods: {
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
+    },
+
+    // Never zero and never full below 100%: the case this exists for is a few lines in a large file
+    documentBlocks(document) {
+      if (document.unexplained >= document.lines) return 5;
+      return Math.min(4, Math.ceil((document.unexplained / document.lines) * 5));
+    },
+
+    documentShare(document) {
+      if (document.unexplained === 0) return null;
+      return `${this.count(document.unexplained)} of ${this.count(document.lines)} lines unknown`;
     },
     // Grouped explicitly rather than by browser locale, so a line count reads the same for everyone and
     // cannot come back as "4.651" for a reader whose locale swaps the separators.
@@ -876,8 +890,7 @@ export default {
   color: #0550ae;
   text-decoration-color: currentColor;
 }
-/* No separator between the two - a middle dot orphans against "lines" when the remainder sits at the far
-   side of its slot. */
+/* No separator - a middle dot orphans against "lines" when the remainder sits at the far side of its slot */
 .legal-document-lines {
   color: #6e7781;
   display: flex;
@@ -887,8 +900,7 @@ export default {
   gap: 0.6rem;
   white-space: nowrap;
 }
-/* Both slots are held open from the left, because the row hangs off its right edge: sized to their
-   content, a one-line document would pull its count a whole "s" out of the column. */
+/* Held open from the left, or the missing "s" of a one-line document pulls its count out of the column */
 .legal-document-total {
   min-width: 6.5em;
 }
@@ -897,13 +909,27 @@ export default {
   min-width: 3.4em;
   text-align: right;
 }
-/* Wide enough for the longest remainder this can state, so the slot keeps its width on a covered file
-   that has nothing to put in it: without that, every line count on the rows around it would sit a
-   remainder further right and the column would zigzag. Reserved with min-width rather than a flex basis,
-   which an empty slot does not contribute to its row. A bare number, not a chip - a chip reads as a
-   status to be cleared; this is a measurement. */
-.legal-document-unexplained {
-  min-width: 12.5em;
+/* A covered file renders the same slot and hides it, rather than reserving a width: the slot is then
+   exactly as wide as its content on every row, so the line counts share a column with no dead space
+   behind them. A bare number rather than a chip, which would read as a status to be cleared. */
+.legal-document-unexplained.is-placeholder {
+  visibility: hidden;
+}
+/* GitHub's diffstat mark: proportion beside the count, never instead of it. Amber rather than red, which
+   would grade text that is only unmatched, and green/red is the one pair some readers cannot separate. */
+.legal-document-meter {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 0.45rem;
+}
+.legal-document-block {
+  background: #d0d7de;
+  border-radius: 1px;
+  height: 8px;
+  width: 8px;
+}
+.legal-document-block.is-unknown {
+  background: #bf8700;
 }
 .metadata-collapse-inner {
   padding: 0.85rem 0 1.1rem;

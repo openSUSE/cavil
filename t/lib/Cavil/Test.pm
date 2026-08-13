@@ -914,8 +914,7 @@ sub legal_documents_fixtures ($self, $app) {
   $app->pg->db->query('UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?)',
     'MIT', 'Apache-2.0', 'ISC');
 
-  # A body pattern as well as the tags, so a document can be fully recognised at a realistic length: a
-  # one-line SPDX stub would leave the panel with nothing but single digits to line up.
+  # A body pattern, so a fully recognised document can be longer than a one-line SPDX stub
   my $mit_body = <<'MIT';
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -923,6 +922,16 @@ in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
+
+The above permission notice shall be included in all copies or substantial
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 MIT
   $app->patterns->create(pattern => $mit_body, license => 'MIT');
 
@@ -962,13 +971,19 @@ LICENSE
     '', (map {"Clause $_ of some unrecognised terms."} 1 .. 119), '');
 
   # Lines over 115 characters trip the line-wrapper, so Cavil indexes its own COPYRIGHT.processed copy
-  # and the report has a name carrying that marker
-  $src->child('COPYRIGHT')
-    ->spew("# SPDX-License-Identifier: Apache-2.0\n\n" . ('a distinctly unrecognised clause ' x 12) . "\n");
+  # and the report has a name carrying that marker. Only the keyword pattern matches it, and keywords are
+  # not recognition, so it is also the document with nothing recognised in it at all.
+  $app->patterns->create(pattern => 'a distinctly unrecognised clause');
+  $src->child('COPYRIGHT')->spew(('a distinctly unrecognised clause ' x 12) . "\n");
 
-  # A document with nothing left over, sitting between two that have some: its row has to leave the slot
-  # for a remainder empty rather than let the line counts around it drift out of their column
+  # Nothing left over, and between two documents that have some, where a collapsing slot would show
   $src->child('LICENSE.MIT')->spew($mit_body);
+
+  # The case the whole panel exists for: a couple of novel lines on an otherwise stock license body
+  $src->child('LICENSE.enterprise')
+    ->spew($mit_body
+      . "\nYou may not use this software commercially without a separate agreement.\n"
+      . "Contact sales\@example.com for enterprise terms.\n");
 
   # Buried the way TeX Live buries them, so the list has a path long enough for the directory to recede
   $src->child('fonts', 'tex-gyre', 'META-INF')->make_path->child('LICENSE')
@@ -996,8 +1011,7 @@ LICENSE
   $pkgs->imported($pkg_id);
   $pkgs->unpack($pkg_id);
 
-  # The ordinary case, and a package of its own because it is a property of the whole report rather than
-  # of a row: every document recognised, so the panel has no remainder to report and says nothing of one.
+  # A package of its own, because a panel with no remainder anywhere is a different panel
   my $clean_name = 'legal-docs-clean';
   my $clean_md5  = 'd0000000000000000000000000000002';
   my $clean_dir  = $self->checkout_dir->child($clean_name, $clean_md5)->make_path;

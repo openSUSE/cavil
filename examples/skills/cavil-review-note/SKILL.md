@@ -164,12 +164,12 @@ The **`## Legal Documents`** section lists the package's own license-declaration
 matched**. That number is the one signal that survives Cavil's own auto-resolution: the scanner
 folds, clears and covers boilerplate snippets, and that machinery can suppress the very snippet that
 named a novel term - so a license file can show **zero** unresolved matches and still contain a
-restriction. The unrecognised count does not go through that machinery.
+restriction. The unknown count does not go through that machinery.
 
-- **Any file with unrecognised lines is worth opening** with `cavil_get_file`. Unrecognised text in a
+- **Any file with unknown lines is worth opening** with `cavil_get_file`. Unknown text in a
   `LICENSE` is how an added field-of-use, branding, user-count or commercial-use restriction shows
   up when the rest of the file is a recognizable BSD/MIT/Apache body.
-- A file listed with no unrecognised lines is recognized boilerplate; you do not need to read it.
+- A file listed with no unknown lines is recognized boilerplate; you do not need to read it.
 - Any clause restricting use, distribution, or modification beyond the standard SPDX license is a
   material risk (Step 4 catch-all) → at least NEEDS HUMAN REVIEW.
 
@@ -190,7 +190,7 @@ Any one of these is enough to escalate:
 - The top-level `LICENSE`/`COPYING` combines a recognized OSS body (BSD/MIT/Apache/GPL) with an
   **added** clause restricting commercial use, user/seat count, field of use, deployment, or
   branding - or requiring a separate/"enterprise" license for ordinary use. A license file the
-  `## Legal Documents` section reports as **partly unrecognised** is exactly this shape: a recognized
+  `## Legal Documents` section reports as **partly unknown** is exactly this shape: a recognized
   body Cavil matched, plus lines it did not. Read those files first.
 - The license file is retitled to a custom **"<Project> License"** instead of a standard SPDX name.
 - A `LICENSE_HISTORY`, `LICENSE_NOTICE`, relicensing announcement, or a CLA reserving the right to
