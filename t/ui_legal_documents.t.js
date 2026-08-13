@@ -76,9 +76,9 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
         'and hovering names what the blocks stand for'
       );
 
-      const covered = rowFor('legal-docs-1.0/LICENSE.MIT').locator('.legal-document-meter');
-      t.notOk(await covered.isVisible(), 'a file with nothing unknown shows no mark');
-      t.ok(await covered.evaluate(el => el.getBoundingClientRect().width > 0), 'but still holds the column open');
+      const covered = rowFor('legal-docs-1.0/LICENSE.MIT');
+      t.equal(await filled(covered), 0, 'a file with nothing unknown marks five greys');
+      t.equal(await covered.locator('.legal-document-block').count(), 5, 'rather than nothing at all');
 
       // The rows say what the number is, so nothing has to preface them
       t.equal(await documents.locator('.cavil-notice-summary').count(), 0, 'and nothing prefaces the list');

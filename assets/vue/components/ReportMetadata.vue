@@ -313,10 +313,7 @@
           <span class="legal-document-lines" :title="documentShare(document)">
             <!-- Absolute, not a percentage: 15 novel lines in a 312-line BSD file round away to "5%" -->
             <span class="legal-document-tally">{{ documentTally(document) }}</span>
-            <span
-              v-if="documentsUnexplained"
-              :class="['legal-document-meter', {'is-placeholder': document.unexplained === 0}]"
-              aria-hidden="true"
+            <span v-if="documentsUnexplained" class="legal-document-meter" aria-hidden="true"
               ><i
                 v-for="block in 5"
                 :key="block"
@@ -903,13 +900,10 @@ export default {
 }
 /* GitHub's diffstat mark: proportion beside the count, never instead of it. Amber rather than red, which
    would grade text that is only unmatched, and green/red is the one pair some readers cannot separate.
-   A covered file renders it hidden, so the marks of the rows around it keep their column. */
+   A covered file marks five greys rather than nothing, which is what amber is read against. */
 .legal-document-meter {
   display: inline-flex;
   gap: 2px;
-}
-.legal-document-meter.is-placeholder {
-  visibility: hidden;
 }
 .legal-document-block {
   background: #d0d7de;
