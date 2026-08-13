@@ -273,6 +273,7 @@
                   v-else-if="file.source"
                   :lines="file.source.lines"
                   :file-id="file.id"
+                  :package-id="pkgId"
                   :filename="file.source.filename"
                   :packname="file.source.name"
                   :has-admin-role="hasAdminRole"

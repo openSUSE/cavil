@@ -10,6 +10,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Cavil::Util qw(SNIPPET_SCORE_VERSION);
+use Mojo::File  qw(path);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -561,6 +562,45 @@ subtest 'snippet_search excludes obsolete packages' => sub {
     is $occ[0]{file},    'current/live.txt', 'obsolete file path is not shown';
     is $occ[0]{package}, 1,                  'group=none exposes the actionable package_id';
   };
+};
+
+# Indexing records a file only once something matched in it, so the files whose license text nobody has a
+# pattern for yet are exactly the ones with no row to attach a snippet to.
+subtest 'A file nothing matched in can still start a snippet' => sub {
+  my $app = $t->app;
+  my $db  = $app->pg->db;
+  my $pkg = $app->packages->find(1);
+  my $new = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', 'NOVEL-TERMS.txt');
+  $new->spew("Custom terms nobody has a pattern for.\nA second line of them.\n");
+
+  my $row = {package => 1, filename => 'NOVEL-TERMS.txt', generation => 0};
+  is $db->select('matched_files', 'id', $row)->hash, undef, 'indexing never recorded the file';
+
+  ok my $snippet = $app->snippets->from_file_path(1, 'NOVEL-TERMS.txt', 1, 2), 'the range becomes a snippet anyway';
+  ok my $file    = $db->select('matched_files', 'id', $row)->hash, 'the file it hangs off was created for it';
+  my $occurrence = $db->select('file_snippets', ['sline', 'eline'], {snippet => $snippet, file => $file->{id}})->hash;
+  is_deeply $occurrence, {sline => 1, eline => 2}, 'linked to the lines that were selected';
+
+  is $app->snippets->from_file_path(1, 'NOVEL-TERMS.txt', 1, 2), $snippet, 'asking twice reuses both';
+  is $db->select('matched_files', 'id', $row)->hashes->size,     1,        'without a second file row';
+
+  is $app->snippets->from_file_path(1, 'gone.txt', 1, 2), undef, 'a path that is not in the checkout is refused';
+};
+
+# The path comes from a URL and from AI tool calls, and creating the row on demand means it is no longer
+# indexing that decides which files can be read
+subtest 'Only files inside the package can start a snippet' => sub {
+  my $app      = $t->app;
+  my $pkg      = $app->packages->find(1);
+  my $unpacked = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
+
+  is $app->snippets->from_file_path(1, '../../../../../../../etc/hostname', 1, 1), undef, 'no climbing out';
+
+  symlink '/etc/hostname', $unpacked->child('ESCAPE.txt')->to_string or die "Cannot symlink: $!";
+  is $app->snippets->from_file_path(1, 'ESCAPE.txt', 1, 1), undef, 'and no symlink out of the checkout';
+
+  is $app->pg->db->select('matched_files', 'id', {package => 1, filename => 'ESCAPE.txt'})->hash, undef,
+    'a refused path leaves no file row behind';
 };
 
 done_testing();

@@ -93,6 +93,7 @@
             :lines="meta.source.lines"
             :truncation="meta.source.truncated || null"
             :file-id="meta.source.id || 0"
+            :package-id="meta.package.id"
             :filename="meta.source.filename"
             :packname="meta.source.name"
             :has-admin-role="hasAdminRole"

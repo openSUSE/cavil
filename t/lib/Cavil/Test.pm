@@ -1050,6 +1050,44 @@ SPEC
   $pkgs->imported($clean_id);
   $pkgs->unpack($clean_id);
 
+  # More documents than the panel lists, so the count of what it leaves out has something to report
+  my $many_name = 'legal-docs-many';
+  my $many_md5  = 'd0000000000000000000000000000003';
+  my $many_dir  = $self->checkout_dir->child($many_name, $many_md5)->make_path;
+  $many_dir->child("$many_name.spec")->spew(<<"SPEC");
+Name:           $many_name
+Version:        1.0
+Release:        0
+Summary:        Synthetic package with more license files than the list shows
+License:        MIT
+Group:          Development/Libraries/Perl
+Source0:        $many_name-1.0.tar.gz
+BuildArch:      noarch
+
+%description
+Synthetic package carrying one license file per bundled component.
+SPEC
+
+  my $many_stage = tempdir;
+  my $many_src   = $many_stage->child("$many_name-1.0")->make_path;
+  $many_src->child(sprintf 'LICENSE.%02d', $_)->spew("SPDX-License-Identifier: MIT\n") for 1 .. 30;
+  my $many_tarball = $many_dir->child("$many_name-1.0.tar.gz")->to_string;
+  system('tar', '-czf', $many_tarball, '-C', $many_stage->to_string, "$many_name-1.0") == 0
+    or die "Failed to create synthetic tarball: $?";
+
+  my $many_id = $pkgs->add(
+    name            => $many_name,
+    checkout_dir    => $many_md5,
+    api_url         => 'https://api.opensuse.org',
+    requesting_user => $usr_id,
+    project         => 'devel:test',
+    package         => $many_name,
+    srcmd5          => $many_md5,
+    priority        => 5
+  );
+  $pkgs->imported($many_id);
+  $pkgs->unpack($many_id);
+
   $app->minion->perform_jobs;
   return $pkg_id;
 }

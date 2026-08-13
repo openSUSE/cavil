@@ -809,8 +809,9 @@ sub tool_cavil_create_snippet ($tool, $args) {
   return $tool->text_result('Invalid line range',          1) if $start_line > $end_line;
   return $tool->text_result('Maximum line range exceeded', 1) if ($end_line - $start_line) > 1000;
 
-  # A matched file is required (it also guarantees the file was unpacked and indexed)
-  return $tool->text_result('File not found in matched files', 1)
+  # Indexing records a file only once something matched in it, so a file with nothing matched has no row
+  # yet; one is created on demand, and what has to exist is the file in the unpacked checkout
+  return $tool->text_result('File not found in package', 1)
     unless defined(my $snippet_id = $c->snippets->from_file_path($id, $path, $start_line, $end_line));
 
   my $snippet = $c->snippets->find($snippet_id);

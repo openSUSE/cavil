@@ -270,11 +270,35 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   return $snippet_id;
 }
 
+# Indexing only records a file once something matched in it, so a file with no matches at all has no row
+# to hang a snippet on. That is exactly the file whose license text nobody has a pattern for yet, so the
+# row is created on demand; a reindex replaces these rows anyway, and the snippet outlives them.
 sub from_file_path ($self, $package_id, $filename, $first_line, $last_line) {
-  return undef
-    unless my $file
-    = $self->pg->db->select('matched_files', 'id', {package => $package_id, filename => $filename, generation => 0})
-    ->hash;
+  my $db   = $self->pg->db;
+  my $file = $db->select('matched_files', 'id', {package => $package_id, filename => $filename, generation => 0})->hash;
+
+  if (!$file) {
+    return undef if $filename =~ /\.\./;
+    return undef unless my $package = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $package_id})->hash;
+
+    my $unpacked = path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked');
+    my $path     = $unpacked->child($filename);
+    return undef unless -f $path;
+
+    # An unpacked archive can contain symlinks pointing anywhere, and the name has not been through
+    # indexing, so the file has to be proven to sit inside this package before its content is read
+    my $root = eval { $unpacked->realpath->to_string };
+    my $real = eval { $path->realpath->to_string };
+    return undef unless defined $root && defined $real && index($real, "$root/") == 0;
+
+    # The mimetype is used for display alone
+    $file->{id} = $db->insert(
+      'matched_files',
+      {package   => $package_id, filename => $filename, mimetype => 'text/plain', generation => 0},
+      {returning => 'id'}
+    )->hash->{id};
+  }
+
   return $self->from_file($file->{id}, $first_line, $last_line);
 }
 

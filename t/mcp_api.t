@@ -1857,13 +1857,27 @@ subtest 'MCP' => sub {
         };
       };
 
-      subtest 'File not in matched files' => sub {
-
-        # File exists on disk under .unpacked but was never indexed/matched
+      # A file with no matches has no row of its own, and is exactly the file whose license text nobody has
+      # a pattern for yet
+      subtest 'File that was never indexed' => sub {
         my $result = $client->call_tool('cavil_create_snippet',
           {package_id => 1, file_path => 'mcp_get_file_dir/mcp_get_file.txt', start_line => 1, end_line => 2});
+        ok !$result->{isError}, 'the snippet is created anyway';
+        like $result->{content}[0]{text}, qr/^Snippet \d+ created:/, 'and reported back with its text';
+      };
+
+      subtest 'File outside the package' => sub {
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => '../../../../../../etc/hostname', start_line => 1, end_line => 1});
+        ok $result->{isError}, 'a path climbing out of the checkout is refused';
+        is $result->{content}[0]{text}, 'File not found in package', 'and says so like any other bad path';
+      };
+
+      subtest 'File that is not in the checkout' => sub {
+        my $result = $client->call_tool('cavil_create_snippet',
+          {package_id => 1, file_path => 'no/such/file.txt', start_line => 1, end_line => 2});
         ok $result->{isError}, 'is an error';
-        is $result->{content}[0]{text}, 'File not found in matched files', 'not a matched file message';
+        is $result->{content}[0]{text}, 'File not found in package', 'not found message';
       };
 
       subtest 'Non-existent package' => sub {

@@ -37,6 +37,12 @@ my @probes = (
     url    => '/snippets/from_file/999999/1/2',
     allow  => [qw(admin contributor lawyer)]
   },
+  {
+    cap    => 'propose',
+    method => 'get_ok',
+    url    => '/snippets/from_path/999999/some/file.txt?start=1&end=2',
+    allow  => [qw(admin contributor lawyer)]
+  },
   {cap => 'classify', method => 'post_ok', url => '/snippets/999999', allow => [qw(admin classifier lawyer)]},
   {
     cap    => 'review',

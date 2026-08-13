@@ -3,6 +3,7 @@
     <div v-if="title !== null" class="cavil-notice-heading">
       <i v-if="icon !== null" :class="icon"></i>
       {{ title }}
+      <span v-if="note !== null" class="cavil-notice-heading-note">{{ note }}</span>
     </div>
     <!-- Intro prose needs a box of its own, an anonymous flex item cannot be told to shrink -->
     <template v-if="intro">
@@ -25,6 +26,7 @@ export default {
     id: {type: String, default: null},
     intro: {type: Boolean, default: false},
     items: {type: Array, default: () => []},
+    note: {type: String, default: null},
     title: {type: String, default: null},
     tone: {type: String, default: 'neutral'}
   },
@@ -95,6 +97,12 @@ export default {
 }
 .cavil-notice-heading i {
   color: #6e7781;
+}
+/* What the panel is not showing belongs to the panel, not to a row of the list it is missing from */
+.cavil-notice-heading-note {
+  color: #6e7781;
+  font-weight: 400;
+  margin-left: auto;
 }
 .cavil-notice-panel-warning {
   border-color: #eac54f;

@@ -1,5 +1,5 @@
 <template>
-  <table class="snippet" :class="{'editor-open': inlineEditor}">
+  <table class="snippet" :class="{'editor-open': inlineEditor, 'is-picking': picking}">
     <colgroup>
       <col v-if="!readOnly" class="snippet-col-actions" />
       <col class="snippet-col-linenumber" :style="lineNumberColumnStyle" />
@@ -15,11 +15,22 @@
         <tr
           v-if="!isHiddenByEditor(line)"
           :id="matchStartId(line)"
-          :class="rowClass(line[1])"
-          @mouseenter="onRowEnter($event, line[1])"
+          :class="[rowClass(line[1]), rangeClass(line[0])]"
+          @mouseenter="onRowEnter($event, line)"
           @mouseleave="onRowLeave"
         >
-          <td v-if="!readOnly && !showActions(line[1])" class="actions"></td>
+          <td v-if="!readOnly && !showActions(line)" class="actions">
+            <a
+              v-if="canSelectLines"
+              href="#"
+              class="snippet-tool-btn select-line-btn"
+              :title="selectLabel"
+              :aria-label="selectLabel"
+              @click.prevent="selectLine(line[0], $event)"
+            >
+              <i class="fa-solid fa-plus"></i>
+            </a>
+          </td>
           <td v-else-if="!readOnly" class="actions dropdown show">
             <a
               href="#"
@@ -34,22 +45,17 @@
               <i class="actions-menu fa-solid fa-ellipsis-vertical"></i>
             </a>
             <div class="dropdown-menu" :aria-labelledby="'dropdownMenuLink-' + fileId + '-' + line[0]">
-              <!-- Any snippet-backed line (unresolved, folded, cleared, or covered) edits the snippet
-                   to create or correct a pattern; a folded/cleared/covered line is how a reviewer fixes
-                   a wrong derived resolution. -->
+              <!-- A folded/cleared/covered line edits its snippet, which is how a reviewer corrects a
+                   wrong derived resolution -->
               <a
-                v-if="line[1].snippet"
+                v-if="rowRange(line)"
                 class="dropdown-item"
-                :href="editSnippetUrl(line[1].snippet, line[1].hash)"
-                @click="onCreateClick($event, line, line[1].snippet)"
-                >{{ snippetActionLabel(line[1]) }}</a
+                :href="rangeUrl(rowRange(line))"
+                @click="openRange($event, rowRange(line))"
+                >{{ rowRange(line).label }}</a
               >
-              <a
-                v-else-if="line[1].risk === 9"
-                class="dropdown-item"
-                :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
-                @click="onCreateClick($event, line, null)"
-                >Create Pattern from selection</a
+              <a v-if="selectionStartsHere(line)" href="#" class="dropdown-item" @click.prevent="clearSelection"
+                >Clear selection</a
               >
               <a
                 v-if="line[1].pid != null"
@@ -97,7 +103,15 @@
             </div>
           </td>
 
-          <td class="linenumber" :style="lineNumberColumnStyle">{{ line[0] }}</td>
+          <td
+            class="linenumber"
+            :class="{selectable: canSelectLines}"
+            :style="lineNumberColumnStyle"
+            :title="canSelectLines ? selectLabel : null"
+            @click="selectLine(line[0])"
+          >
+            {{ line[0] }}
+          </td>
           <td class="code">
             {{ line[2] }}<span v-if="derivedBadge(line)" class="derived-badge">{{ derivedBadge(line) }}</span>
             <PendingActionIndicator
@@ -130,19 +144,19 @@
             </a>
           </td>
 
-          <td v-if="!readOnly && line[1].end && line[1].risk === 9" class="quick-actions">
+          <td v-if="!readOnly" class="quick-actions">
             <a
-              :href="newSnippetUrl(line[0], line[1].end, line[1].hash)"
+              v-if="penRange(line)"
+              :href="rangeUrl(penRange(line))"
               class="snippet-tool-btn"
               target="_blank"
-              title="Create pattern from selection"
-              aria-label="Create pattern from selection"
-              @click="onCreateClick($event, line, line[1].snippet || null)"
+              :title="penRange(line).label"
+              :aria-label="penRange(line).label"
+              @click="openRange($event, penRange(line))"
             >
               <i class="fa-solid fa-pen-to-square"></i>
             </a>
           </td>
-          <td v-else-if="!readOnly" class="quick-actions"></td>
         </tr>
         <tr v-if="!readOnly && inlineEditor && inlineEditor.startLine === line[0]" class="inline-editor-row">
           <td colspan="4">
@@ -188,6 +202,7 @@ import PendingActionIndicator from './PendingActionIndicator.vue';
 import SnippetEditor from './SnippetEditor.vue';
 import {patternIdsFromInfo, showPatternTooltip} from '../helpers/patternTooltip.js';
 import {showResolutionTooltip} from '../helpers/resolutionTooltip.js';
+import {snippetRangeUrl} from '../helpers/snippetDecisions.js';
 
 export default {
   name: 'FileSource',
@@ -196,6 +211,7 @@ export default {
     lines: {type: Array, required: true},
     truncation: {type: Object, default: null},
     fileId: {type: Number, required: true},
+    packageId: {type: Number, default: 0},
     filename: {type: String, default: ''},
     packname: {type: String, default: ''},
     hasAdminRole: {type: Boolean, default: false},
@@ -206,11 +222,39 @@ export default {
   },
   emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
-    return {hoveredGroup: null, activeTooltip: null, pendingCompensation: null, dropdownOpen: false};
+    return {
+      hoveredGroup: null,
+      activeTooltip: null,
+      pendingCompensation: null,
+      dropdownOpen: false,
+
+      pickAnchor: null,
+      pickHover: null,
+      selection: null
+    };
   },
   computed: {
     isAdminOrContributor() {
       return this.hasAdminRole || this.hasContributorRole;
+    },
+
+    // A file that matched nothing has no id, and is exactly where a pattern has to start
+    canSelectLines() {
+      return !this.readOnly && this.isAdminOrContributor && (this.fileId > 0 || this.packageId > 0);
+    },
+
+    picking() {
+      return this.pickAnchor !== null;
+    },
+
+    selectLabel() {
+      return this.picking ? 'Finish the selection here' : 'Start a selection here';
+    },
+
+    preview() {
+      if (!this.picking) return null;
+      const reach = this.pickHover ?? this.pickAnchor;
+      return {start: Math.min(this.pickAnchor, reach), end: Math.max(this.pickAnchor, reach)};
     },
     tableColspan() {
       return this.readOnly ? 2 : 4;
@@ -274,6 +318,7 @@ export default {
     }
   },
   mounted() {
+    document.addEventListener('keydown', this.onKeyDown);
     // Bootstrap dropdown events bubble to the table root. When a row's action menu opens, hide the hover
     // tooltip and keep it suppressed until the menu closes, so the two never overlap; it comes back the
     // next time the cursor moves onto a row.
@@ -281,6 +326,7 @@ export default {
     this.$el.addEventListener('hidden.bs.dropdown', this.onDropdownHidden);
   },
   beforeUnmount() {
+    document.removeEventListener('keydown', this.onKeyDown);
     this.$el.removeEventListener('show.bs.dropdown', this.onDropdownShow);
     this.$el.removeEventListener('hidden.bs.dropdown', this.onDropdownHidden);
     if (this.activeTooltip) this.activeTooltip.destroy();
@@ -318,6 +364,10 @@ export default {
       if (info.snippet != null) return `s${info.snippet}`;
       return null;
     },
+    onKeyDown(event) {
+      if (event.key === 'Escape' && (this.picking || this.selection)) this.clearSelection();
+    },
+
     onDropdownShow() {
       this.dropdownOpen = true;
       this.hideTooltip();
@@ -325,7 +375,9 @@ export default {
     onDropdownHidden() {
       this.dropdownOpen = false;
     },
-    onRowEnter(event, info) {
+    onRowEnter(event, line) {
+      const info = line[1];
+      if (this.picking) this.pickHover = line[0];
       this.hoveredGroup = this.groupKey(info);
       // An open action menu owns the row; don't pop a tooltip over it until it closes.
       if (this.dropdownOpen) return;
@@ -375,14 +427,114 @@ export default {
       if (info.risk !== 9 || !info.end) return null;
       return `line-${this.fileId}-${line[0]}`;
     },
-    showActions(info) {
-      return !this.readOnly && this.isAdminOrContributor && this.fileId > 0 && info.end;
+    showActions(line) {
+      if (this.readOnly || !this.isAdminOrContributor) return false;
+      return Boolean(line[1].end && this.fileId > 0) || this.selectionStartsHere(line);
+    },
+
+    // What the row's menu entry, button, link and click all act on, so they cannot describe different
+    // ranges: the picked selection where it starts, otherwise the match group it heads
+    rowRange(line) {
+      if (this.selectionStartsHere(line)) {
+        const {start, end} = this.selection;
+        return {
+          start,
+          end,
+          hash: null,
+          snippetId: null,
+          label: start === end ? 'Create Pattern from line' : 'Create Pattern from selection',
+          isSelection: true
+        };
+      }
+      const info = line[1];
+      if (!info.end || (!info.snippet && info.risk !== 9)) return null;
+      return {
+        start: line[0],
+        end: info.end,
+        hash: info.hash ?? null,
+
+        // An extended range comes back marked with a synthetic snippet 0, which is not a snippet to edit
+        snippetId: info.snippet || null,
+        label: this.snippetActionLabel(info),
+        isSelection: false
+      };
+    },
+
+    penRange(line) {
+      const range = this.rowRange(line);
+      if (range === null) return null;
+      return range.isSelection || line[1].risk === 9 ? range : null;
+    },
+
+    // The shape the link, the editor and the fetch behind it all speak
+    rangeRef(range) {
+      return {
+        fileId: this.fileId,
+        packageId: this.packageId,
+        filePath: this.filename,
+        from: this.packname,
+        startLine: range.start,
+        endLine: range.end,
+        hash: range.hash
+      };
+    },
+
+    rangeUrl(range) {
+      if (range.snippetId) return this.editSnippetUrl(range.snippetId, range.hash);
+      return snippetRangeUrl(this.rangeRef(range));
+    },
+
+    openRange(event, range) {
+      event.preventDefault();
+      this.hideTooltip();
+      if (range.isSelection) this.clearSelection();
+      this.$emit('open-editor', {...this.rangeRef(range), snippetId: range.snippetId});
+    },
+
+    selectionStartsHere(line) {
+      return this.selection !== null && this.selection.start === line[0];
+    },
+
+    // Anchor, then confirm, with the preview between them: no click produces a range that was not shown
+    // first
+    selectLine(lineNumber, event = null) {
+      if (!this.canSelectLines) return;
+
+      // Focus keeps a button visible, so a mouse click would leave its + behind. Keyboard activation
+      // (detail 0) keeps focus, or the ring is lost.
+      if (event?.detail > 0) event.currentTarget.blur();
+
+      if (!this.picking) {
+        this.selection = null;
+        this.pickAnchor = lineNumber;
+        this.pickHover = lineNumber;
+        return;
+      }
+      this.selection = this.preview;
+      this.pickAnchor = null;
+      this.pickHover = null;
+    },
+
+    clearSelection() {
+      this.selection = null;
+      this.pickAnchor = null;
+      this.pickHover = null;
+    },
+
+    rangeClass(lineNumber) {
+      const preview = this.preview;
+      if (preview && lineNumber >= preview.start && lineNumber <= preview.end) {
+        return lineNumber === this.pickAnchor ? ['line-preview', 'line-anchor'] : ['line-preview'];
+      }
+      const selection = this.selection;
+      if (selection && lineNumber >= selection.start && lineNumber <= selection.end) return ['line-selected'];
+      return [];
     },
     snippetActionLabel(info) {
       if (info.folded) return 'Correct this fold';
       if (info.cleared) return info.clearReason === 'overlap' ? 'Review redundant text' : 'Review cleared text';
       if (info.covered) return 'Review covered snippet';
-      return 'Create Pattern from selection';
+      return 'Create Pattern from match';
     },
     derivedBadge(line) {
       const info = line[1];
@@ -410,29 +562,11 @@ export default {
     onDismiss(action) {
       this.$emit('dismiss-action', action.id);
     },
-    onCreateClick(event, line, snippetId) {
-      event.preventDefault();
-      this.hideTooltip();
-      this.$emit('open-editor', {
-        snippetId: snippetId ?? null,
-        fileId: this.fileId,
-        startLine: line[0],
-        endLine: line[1].end,
-        hash: line[1].hash ?? null,
-        from: this.packname,
-        filePath: this.filename
-      });
-    },
     hideTooltip() {
       this.hoveredGroup = null;
       if (!this.activeTooltip) return;
       this.activeTooltip.destroy();
       this.activeTooltip = null;
-    },
-    newSnippetUrl(start, end, hash) {
-      const qs = new URLSearchParams({from: this.packname});
-      if (hash) qs.set('hash', hash);
-      return `/snippets/from_file/${this.fileId}/${start}/${end}?${qs.toString()}`;
     },
     editSnippetUrl(id, hash) {
       const params = {from: this.packname};
@@ -505,6 +639,46 @@ export default {
   min-width: 0;
   padding: 0 0.35em 0 0.25em;
   width: auto;
+}
+.source .snippet td.linenumber.selectable {
+  cursor: pointer;
+}
+/* Painted on the row so the buttons sit inside the range rather than beside it. Blue: the risk palette is
+   spoken for, and a dashed border already means a derived resolution. */
+.snippet tr.line-preview {
+  background-color: #eef7ff;
+}
+.snippet tr.line-anchor {
+  box-shadow: inset 3px 0 0 #0969da;
+  animation: legal-line-anchor 1.6s ease-in-out infinite;
+}
+.snippet tr.line-selected {
+  background-color: #ddf4ff;
+  box-shadow: inset 3px 0 0 #0969da;
+}
+@keyframes legal-line-anchor {
+  50% {
+    box-shadow: inset 3px 0 0 rgba(9, 105, 218, 0.35);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snippet tr.line-anchor {
+    animation: none;
+  }
+}
+/* Hovering a match row reveals the whole group's controls, which was written when only the match-start
+   row had any: the gutter + belongs to the row under the pointer alone, or a 20-line group lights up 20
+   of them at once. */
+.snippet tr.group-hovered:not(:hover) .select-line-btn {
+  opacity: 0;
+}
+/* What acts on a live range stays put; the gutter + is not one of those and stays hover-only */
+.snippet tr.line-selected .snippet-tool-btn:not(.select-line-btn) {
+  opacity: 1;
+}
+/* Mid-pick there is exactly one thing to click */
+.snippet.is-picking .snippet-tool-btn:not(.select-line-btn) {
+  display: none;
 }
 .snippet .inline-editor-row > td {
   background: #ffffff;

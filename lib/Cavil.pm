@@ -315,6 +315,7 @@ sub startup ($self) {
   $logged_in->get('/snippet/smart_edit/<id:num>')->to('Snippet#smart_edit')->name('snippet_smart_edit');
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
   $can_propose->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
+  $can_propose->get('/snippets/from_path/<package:num>/*file')->to('Snippet#from_path')->name('new_snippet_from_path');
   $can_propose->post('/snippet/batch_decision')->to('Snippet#batch_decision')->name('snippet_batch_decision');
 
   $logged_in->get('/stats')->to('Stats#index')->name('stats');

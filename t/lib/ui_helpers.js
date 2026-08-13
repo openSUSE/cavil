@@ -41,7 +41,7 @@ export async function openCreatePatternEditor(page, fileId, options = {}) {
     await page.locator(options.triggerSelector).click();
     await page
       .locator(`#file-details-${fileId} .dropdown-menu.show a.dropdown-item`)
-      .filter({hasText: 'Create Pattern from selection'})
+      .filter({hasText: 'Create Pattern from match'})
       .first()
       .click();
     await waitForInlineSnippetEditor(page);
@@ -52,8 +52,8 @@ export async function openCreatePatternEditor(page, fileId, options = {}) {
     const root = document.getElementById(`file-details-${id}`);
     if (!root) throw new Error(`No #file-details-${id}`);
     const items = [...root.querySelectorAll('.dropdown-menu a.dropdown-item')];
-    const item = items.find(el => el.textContent.trim() === 'Create Pattern from selection');
-    if (!item) throw new Error(`No "Create Pattern from selection" item in #file-details-${id}`);
+    const item = items.find(el => el.textContent.trim() === 'Create Pattern from match');
+    if (!item) throw new Error(`No "Create Pattern from match" item in #file-details-${id}`);
     item.click();
   }, fileId);
   await waitForInlineSnippetEditor(page);

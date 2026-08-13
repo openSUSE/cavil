@@ -86,6 +86,8 @@ subtest 'Not authenticated' => sub {
   $t->post_ok('/licenses/meta/Apache-2.0')->status_is(403)->content_like(qr/Permission/);
   $t->post_ok('/licenses/update_patterns')->status_is(403)->content_like(qr/Permission/);
   $t->delete_ok('/licenses/remove_pattern/1')->status_is(403)->content_like(qr/Permission/);
+  $t->get_ok('/snippets/from_file/1/1/2')->status_is(403)->content_like(qr/Permission/);
+  $t->get_ok('/snippets/from_path/1/LICENSE?start=1&end=2')->status_is(403)->content_like(qr/Permission/);
   $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
   $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})
     ->status_is(403)

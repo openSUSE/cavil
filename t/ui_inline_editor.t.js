@@ -258,6 +258,67 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       await waitForInlineSnippetEditorClosed(page);
     });
 
+    // The gutter picker has to coexist with the match rows: mid-pick there is one thing to click, and a
+    // finished range acts through the same button a match group does.
+    await t.test('Picking a range beside the match rows', async t => {
+      const rows = page.locator(`#file-details-${fileId} tbody tr`);
+      const plain = rows.filter({has: page.locator('td.actions .select-line-btn')});
+      t.ok(await plain.count(), 'lines outside every match group offer the gutter');
+
+      // Hovering a match row reveals that whole group's controls, which must not now mean a gutter button
+      // on every one of its lines
+      const groupStart = page.locator(`#file-details-${fileId} tr.match-start`).first();
+      await groupStart.scrollIntoViewIfNeeded();
+      await groupStart.hover();
+      await page.waitForFunction(() => document.querySelectorAll('tr.group-hovered').length > 1, null, {
+        timeout: 5000
+      });
+      const litUp = await page.evaluate(
+        id =>
+          [...document.querySelectorAll(`#file-details-${id} .select-line-btn`)].filter(
+            btn => getComputedStyle(btn).opacity !== '0'
+          ).length,
+        fileId
+      );
+      t.equal(litUp, 0, 'hovering a match group lights up no gutter buttons at all, let alone one per line');
+
+      const first = plain.first();
+      await first.scrollIntoViewIfNeeded();
+      const lineOf = row => row.locator('td.linenumber').evaluate(el => Number(el.innerText.trim()));
+      const start = await lineOf(first);
+      await first.locator('.select-line-btn').click();
+
+      // A half-made selection owns the file: the match rows' own buttons step aside until it is finished
+      t.equal(
+        await page.locator(`#file-details-${fileId} .snippet-tool-btn:not(.select-line-btn):visible`).count(),
+        0,
+        'mid-pick nothing else is clickable'
+      );
+
+      const third = plain.nth(2);
+      const end = await lineOf(third);
+      await third.hover();
+      await third.locator('.select-line-btn').click();
+      t.equal(
+        await page.locator(`#file-details-${fileId} tr.line-selected`).count(),
+        end - start + 1,
+        'the committed range covers anchor to confirmation'
+      );
+
+      const pen = page.locator(`#file-details-${fileId} tr.line-selected td.quick-actions a`);
+      t.match(
+        await pen.getAttribute('href'),
+        new RegExp(`^/snippets/from_file/${fileId}/${start}/${end}`),
+        'and acts on exactly those lines'
+      );
+
+      await pen.click();
+      await waitForInlineSnippetEditor(page);
+      t.equal(await page.locator(`#file-details-${fileId} tr.line-selected`).count(), 0, 'the range is released');
+      await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
+      await waitForInlineSnippetEditorClosed(page);
+    });
+
     t.test('Console errors', t => {
       assertNoUnexpectedConsoleErrors(t, errorLogs);
       t.end();

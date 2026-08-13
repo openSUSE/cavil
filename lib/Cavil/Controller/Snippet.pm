@@ -170,6 +170,26 @@ sub from_file ($self) {
   my $snippets = $self->snippets;
   return $self->reply->not_found unless defined(my $snippet = $snippets->from_file($file_id, $first_line, $last_line));
 
+  return $self->_snippet_created($v, $snippet);
+}
+
+# A file with no matches has no id to address it by, so its ranges are named by path instead
+sub from_path ($self) {
+  my $v = $self->validation;
+  $v->optional('hash')->like($CHECKSUM_RE);
+  $v->optional('from');
+  $v->required('start')->num(1);
+  $v->required('end')->num(1);
+  return $self->reply->json_validation_error if $v->has_error || $v->param('start') > $v->param('end');
+
+  my $snippet = $self->snippets->from_file_path($self->stash('package'), $self->stash('file'), $v->param('start'),
+    $v->param('end'));
+  return $self->reply->not_found unless defined $snippet;
+
+  return $self->_snippet_created($v, $snippet);
+}
+
+sub _snippet_created ($self, $v, $snippet) {
   my $hash = $v->param('hash') // '';
   my $from = $v->param('from') // '';
   $self->respond_to(

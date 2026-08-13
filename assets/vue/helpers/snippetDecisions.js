@@ -1,10 +1,19 @@
 import UserAgent from '@mojojs/user-agent';
 
-export async function resolveSnippetFromFile({fileId, startLine, endLine, from, hash}) {
+// A file only gets an id once something matched in it, so one that matched nothing is addressed by path.
+// Shared with the link the button carries, so the two can never disagree about where a range lives.
+export function snippetRangeUrl({fileId, packageId, filePath, startLine, endLine, from, hash}) {
   const qs = new URLSearchParams({from});
   if (hash) qs.set('hash', hash);
+  if (fileId > 0) return `/snippets/from_file/${fileId}/${startLine}/${endLine}?${qs.toString()}`;
+  qs.set('start', startLine);
+  qs.set('end', endLine);
+  return `/snippets/from_path/${packageId}/${encodeURI(filePath)}?${qs.toString()}`;
+}
+
+export async function resolveSnippetFromFile(range) {
   const ua = new UserAgent({baseURL: window.location.href});
-  const res = await ua.get(`/snippets/from_file/${fileId}/${startLine}/${endLine}?${qs.toString()}`, {
+  const res = await ua.get(snippetRangeUrl(range), {
     headers: {Accept: 'application/json'}
   });
   if (!res.isSuccess) throw new Error(`Could not load snippet (HTTP ${res.statusCode})`);

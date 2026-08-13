@@ -168,6 +168,64 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
     await page.goto(`${url}/reviews/details/1`);
     await page.locator('#legal-documents').waitFor();
 
+    // What the panel is not showing is a fact about the panel, so it annotates the heading rather than
+    // sitting in the list as a row that is not a document
+    await t.test('a package with more documents than the list shows says so in its heading', async t => {
+      await page.goto(`${url}/reviews/details/3`);
+      const many = page.locator('#legal-documents');
+      await many.waitFor();
+
+      t.equal(await many.locator('.legal-document-item').count(), 25, 'the list stops at the limit');
+      t.equal(await many.locator('.cavil-notice-heading-note').innerText(), '5 more not listed', 'the rest is a note');
+      t.equal(await many.locator('.cavil-notice-summary').count(), 0, 'and nothing above the list');
+    });
+
+    await page.goto(`${url}/reviews/details/1`);
+    await page.locator('#legal-documents').waitFor();
+
+    // Indexing records a file only once something matched in it, so the document whose licence nobody has
+    // a pattern for has no file id at all - and that is exactly where a reviewer has to start one.
+    await t.test('a file nothing matched in can be picked line by line', async t => {
+      await page.goto(`${url}/reviews/file_view/1/legal-docs.spec`);
+      const table = page.locator('table.snippet');
+      await table.waitFor();
+      const rows = table.locator('tbody tr');
+
+      const gutter = rows.nth(2).locator('.select-line-btn');
+      t.equal(await gutter.getAttribute('title'), 'Start a selection here', 'the gutter says what it does');
+
+      // Anchor, then let the pointer propose the rest: the range follows it, in either direction
+      await gutter.click();
+      t.equal(await table.locator('tr.line-anchor').count(), 1, 'the first click anchors one line');
+      await rows.nth(5).hover();
+      t.equal(await table.locator('tr.line-preview').count(), 4, 'the preview reaches the hovered line');
+      await rows.nth(0).hover();
+      t.equal(await table.locator('tr.line-preview').count(), 3, 'and back the other way, above the anchor');
+      t.equal(await table.locator('tr.line-selected').count(), 0, 'nothing is decided until the second click');
+
+      await rows.nth(5).hover();
+      await rows.nth(5).locator('.select-line-btn').click();
+      t.equal(await table.locator('tr.line-selected').count(), 4, 'the second click commits what was shown');
+      t.equal(await table.locator('tr.line-preview').count(), 0, 'and the preview is done');
+
+      // The gutter is on every line in every state, so a reviewer can start over from inside a range
+      await rows.nth(4).hover();
+      t.equal(await rows.nth(4).locator('.select-line-btn').count(), 1, 'a selected line still offers the gutter');
+
+      // No file id to address, so the range is named by path
+      const pen = table.locator('td.quick-actions a');
+      t.equal(await pen.count(), 1, 'one button acts on the range');
+      t.match(await pen.getAttribute('href'), /\/snippets\/from_path\/1\/legal-docs\.spec\?.*start=3&end=6/, 'by path');
+
+      await pen.click();
+      await page.locator('#inline-snippet-editor').waitFor({timeout: 10000});
+      t.pass('the editor opens on a file indexing never recorded');
+      await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
+    });
+
+    await page.goto(`${url}/reviews/details/1`);
+    await page.locator('#legal-documents').waitFor();
+
     await t.test('nothing grades the declared license', async t => {
       const license = page.locator('#pkg-license');
       t.match(await license.innerText(), /MIT/, 'the declared license is shown as the plain value');
