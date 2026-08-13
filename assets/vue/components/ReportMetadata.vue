@@ -310,26 +310,19 @@
           <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path"
             ><FilePath :path="document.path"
           /></a>
-          <span class="legal-document-lines">
-            <span class="legal-document-total">
-              <span class="legal-document-count">{{ count(document.lines) }}</span>
-              {{ document.lines === 1 ? 'line' : 'lines' }}
-            </span>
+          <span class="legal-document-lines" :title="documentShare(document)">
             <!-- Absolute, not a percentage: 15 novel lines in a 312-line BSD file round away to "5%" -->
+            <span class="legal-document-tally">{{ documentTally(document) }}</span>
             <span
               v-if="documentsUnexplained"
-              :class="['legal-document-unexplained', {'is-placeholder': document.unexplained === 0}]"
-              :title="documentShare(document)"
-            >
-              <b class="legal-document-count">{{ count(document.unexplained) }}</b> unknown
-              <span class="legal-document-meter" aria-hidden="true"
-                ><i
-                  v-for="block in 5"
-                  :key="block"
-                  :class="['legal-document-block', {'is-unknown': block <= documentBlocks(document)}]"
-                ></i
-              ></span>
-            </span>
+              :class="['legal-document-meter', {'is-placeholder': document.unexplained === 0}]"
+              aria-hidden="true"
+              ><i
+                v-for="block in 5"
+                :key="block"
+                :class="['legal-document-block', {'is-unknown': block <= documentBlocks(document)}]"
+              ></i
+            ></span>
           </span>
         </li>
       </ul>
@@ -557,6 +550,12 @@ export default {
     documentBlocks(document) {
       if (document.unexplained >= document.lines) return 5;
       return Math.min(4, Math.ceil((document.unexplained / document.lines) * 5));
+    },
+
+    // One annotation on the mark rather than two aligned columns, now that the mark is what gets scanned
+    documentTally(document) {
+      if (document.unexplained > 0) return `${this.count(document.unexplained)} of ${this.count(document.lines)} lines`;
+      return `${this.count(document.lines)} ${document.lines === 1 ? 'line' : 'lines'}`;
     },
 
     documentShare(document) {
@@ -890,8 +889,10 @@ export default {
   color: #0550ae;
   text-decoration-color: currentColor;
 }
-/* No separator - a middle dot orphans against "lines" when the remainder sits at the far side of its slot */
 .legal-document-lines {
+  /* The mark has no text of its own, so its baseline is its bottom edge: it sits on the annotation's
+     baseline, where it sat when it was part of that text run. Stretch would hang it from the top. */
+  align-items: baseline;
   color: #6e7781;
   display: flex;
   flex: 0 0 auto;
@@ -900,27 +901,15 @@ export default {
   gap: 0.6rem;
   white-space: nowrap;
 }
-/* Held open from the left, or the missing "s" of a one-line document pulls its count out of the column */
-.legal-document-total {
-  min-width: 6.5em;
-}
-.legal-document-count {
-  display: inline-block;
-  min-width: 3.4em;
-  text-align: right;
-}
-/* A covered file renders the same slot and hides it, rather than reserving a width: the slot is then
-   exactly as wide as its content on every row, so the line counts share a column with no dead space
-   behind them. A bare number rather than a chip, which would read as a status to be cleared. */
-.legal-document-unexplained.is-placeholder {
-  visibility: hidden;
-}
 /* GitHub's diffstat mark: proportion beside the count, never instead of it. Amber rather than red, which
-   would grade text that is only unmatched, and green/red is the one pair some readers cannot separate. */
+   would grade text that is only unmatched, and green/red is the one pair some readers cannot separate.
+   A covered file renders it hidden, so the marks of the rows around it keep their column. */
 .legal-document-meter {
   display: inline-flex;
   gap: 2px;
-  margin-left: 0.45rem;
+}
+.legal-document-meter.is-placeholder {
+  visibility: hidden;
 }
 .legal-document-block {
   background: #d0d7de;

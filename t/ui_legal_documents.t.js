@@ -34,22 +34,35 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
         'shallowest first, then alphabetical'
       );
 
-      // Counts of different widths, and one row with no remainder at all, still share one column
-      const sizes = await documents
-        .locator('.legal-document-total .legal-document-count')
+      // The mark is what gets scanned, so it is the thing that has to share a column, including on a row
+      // with nothing to mark
+      const marks = await documents
+        .locator('.legal-document-meter')
         .evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().right)));
-      t.equal(sizes.length, 6, 'every row states its size');
-      t.equal(new Set(sizes).size, 1, 'and they right-align to one column');
+      t.equal(marks.length, 6, 'every row carries the mark');
+      t.equal(new Set(marks).size, 1, 'and they right-align to one column');
 
       // The SPDX line resolves, the three lines of novel terms do not - and the report is otherwise clean,
       // which is exactly the case this number exists to surface. Absolute, not a percentage, so a small
       // clause inside a large recognised license body cannot round away to nothing.
       const license = rowFor('legal-docs-1.0/LICENSE');
-      t.match(await license.innerText(), /4 lines\s+3 unknown/, 'the size, then what is left of it');
-      t.match(await rowFor('legal-docs-1.0/COPYING').innerText(), /120 lines\s+119 unknown/, 'and on a longer one');
+      t.match(await license.innerText(), /3 of 4 lines/, 'one annotation, not two counts to compare');
+      t.match(await rowFor('legal-docs-1.0/COPYING').innerText(), /119 of 120 lines/, 'and on a longer one');
+      t.match(await rowFor('legal-docs-1.0/LICENSE.MIT').innerText(), /\s14 lines/, 'a covered file states its size');
 
-      // Bold is the scanning cue for "something here", so it goes on the remainder and not on the size
-      t.equal(await license.locator('b').innerText(), '3', 'the remainder is the emphasised part');
+      // The mark is the scanning cue now, so no weight is spent on making the count stand out
+      t.equal(await license.locator('b').count(), 0, 'nothing in the row is emphasised');
+
+      // A flex child with no text of its own stretches to the row and hangs from the top unless told to
+      // sit on the baseline
+      const offCentre = await license.evaluate(el => {
+        const middle = selector => {
+          const box = el.querySelector(selector).getBoundingClientRect();
+          return box.top + box.height / 2;
+        };
+        return Math.abs(middle('.legal-document-tally') - middle('.legal-document-block'));
+      });
+      t.ok(offCentre <= 1.5, 'the mark sits on the annotation rather than above it');
 
       // Five blocks for a file with nothing recognised in it, four while any of it is matched
       const filled = row => row.locator('.legal-document-block.is-unknown').count();
@@ -58,19 +71,13 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       t.equal(await filled(rowFor('legal-docs-1.0/COPYRIGHT')), 5, 'a document that matched nothing is');
       t.equal(await filled(rowFor('legal-docs-1.0/LICENSE.enterprise')), 1, 'and a clause on a stock body is one');
       t.equal(
-        await license.locator('.legal-document-unexplained').getAttribute('title'),
+        await license.locator('.legal-document-lines').getAttribute('title'),
         '3 of 4 lines unknown',
-        'and hovering states the ratio the blocks stand for'
+        'and hovering names what the blocks stand for'
       );
 
-      // Hidden rather than reserved, so no row carries dead space behind its mark
-      const edges = await license
-        .locator('.legal-document-unexplained, .legal-document-meter')
-        .evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().right)));
-      t.equal(new Set(edges).size, 1, 'the mark ends where the slot does');
-
-      const covered = rowFor('legal-docs-1.0/LICENSE.MIT').locator('.legal-document-unexplained');
-      t.notOk(await covered.isVisible(), 'a file with nothing left over shows nothing');
+      const covered = rowFor('legal-docs-1.0/LICENSE.MIT').locator('.legal-document-meter');
+      t.notOk(await covered.isVisible(), 'a file with nothing unknown shows no mark');
       t.ok(await covered.evaluate(el => el.getBoundingClientRect().width > 0), 'but still holds the column open');
 
       // The rows say what the number is, so nothing has to preface them
@@ -148,14 +155,14 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
 
       t.equal(await clean.locator('.legal-document-item').count(), 2, 'both documents are listed');
       t.match(await clean.innerText(), /COPYING.*14 lines.*LICENSE.*1 line/s, 'each with nothing but its size');
-      t.equal(await clean.locator('.legal-document-unexplained').count(), 0, 'no slot for a count no row has');
+      t.equal(await clean.locator('.legal-document-meter').count(), 0, 'no mark for a count no row has');
       t.equal(await clean.locator('.cavil-notice-summary').count(), 0, 'and no sentence explaining one');
 
-      // "1 line" is narrower than "6 lines", so the digits align only because the count is a box of its own
-      const sizes = await clean
-        .locator('.legal-document-count')
+      // With no mark to hang off, the annotations are what has to end in one column
+      const tallies = await clean
+        .locator('.legal-document-tally')
         .evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().right)));
-      t.equal(new Set(sizes).size, 1, 'a lone document and a singular line count still share the column');
+      t.equal(new Set(tallies).size, 1, 'a singular line count ends where the others do');
     });
 
     await page.goto(`${url}/reviews/details/1`);
