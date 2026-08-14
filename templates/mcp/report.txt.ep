@@ -63,14 +63,20 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 % use Cavil::ReportUtil qw(ranked_incompatibilities incompatibility_location);
 % my $ranked = ranked_incompatibilities($report->{license_compatibility} // {});
 % if (@$ranked) {
-%   my (@investigate, $peripheral, $weak, $distant);
+%   my $VENDORED_LIMIT = 10;
+%   my (@investigate, @vendored, $peripheral, $weak, $distant);
 %   for my $r (@$ranked) {
 %     my $loc = incompatibility_location($r);
-%     if ($r->{confidence} >= 2 && !$r->{peripheral} && $loc) { push @investigate, [$r, $loc] }
-%     elsif ($r->{peripheral})            { $peripheral++ }
+%     if ($r->{confidence} >= 2 && $r->{tier} < 2 && $loc) {
+%       my $tags = ($r->{mutual} ? 'mutual' : 'one-way') . ($r->{confidence} == 2 ? ', folded' : '');
+%       push @{$r->{tier} ? \@vendored : \@investigate}, "* $r->{a} + $r->{b} [$tags] - $loc";
+%     }
+%     elsif ($r->{tier} == 2)               { $peripheral++ }
 %     elsif ($r->{confidence} == 1 && $loc) { $weak++ }
-%     else                                { $distant++ }
+%     else                                  { $distant++ }
 %   }
+%   my $dropped = @vendored - $VENDORED_LIMIT;
+%   splice @vendored, $VENDORED_LIMIT if $dropped > 0;
 
 ### Incompatible Licenses
 
@@ -79,23 +85,28 @@ proof - confirm with cavil_get_file.
 
 %   if (@investigate) {
 Worth investigating (co-located in shipped code):
-%     for my $pair (@investigate) {
-%       my ($r, $loc) = @$pair;
-%       my @tags = ($r->{mutual} ? 'mutual' : 'one-way');
-%       push @tags, 'folded'     if $r->{confidence} == 2;
-%       push @tags, 'unresolved' if $r->{confidence} <= 1;
-%       push @tags, 'peripheral' if $r->{peripheral};
-* <%== $r->{a} %> + <%== $r->{b} %> [<%== join(', ', @tags) %>] - <%== $loc %>
+%     for my $line (@investigate) {
+<%== $line %>
 %     }
 %   }
 %   else {
 None co-located in shipped code (aggregation only).
 %   }
+%   if (@vendored) {
+
+Vendored dependencies (spot check these - vendored code linked into the build is still a combined work):
+%     for my $line (@vendored) {
+<%== $line %>
+%     }
+%     if ($dropped > 0) {
+* and <%= $dropped %> more vendored pairs, not listed (full matrix in the web report)
+%     }
+%   }
 %   if ($peripheral || $weak || $distant) {
 
 Lower priority (full matrix in the web report):
 %     if ($peripheral) {
-* <%= $peripheral %> in tests/docs/vendored files
+* <%= $peripheral %> in tests/docs/examples (ignorable even inside a vendored tree)
 %     }
 %     if ($weak) {
 * <%= $weak %> via an unresolved-snippet guess

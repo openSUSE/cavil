@@ -330,10 +330,13 @@ down and clearly labelled.
 
 The ranking combines three signals, in a deliberate order of precedence:
 
-1. **Where the evidence lives.** A co-location in the package's shipped source outranks one that is only in
-   tests, documentation, vendored third-party trees, or a license-text catalogue (directories where unrelated
-   licenses sit next to each other by construction, which says nothing about combination). Shipped source
-   always wins, because that is what decides the actual deliverable.
+1. **Where the evidence lives.** Three tiers, in this order: the package's shipped source, then vendored
+   third-party code, then tests, documentation, examples and license-text catalogues (directories where
+   unrelated licenses sit next to each other by construction, which says nothing about combination). Shipped
+   source always wins, because that is what decides the actual deliverable. Vendored code sits in the middle
+   rather than at the bottom: a vendored library that gets linked into the build is a combined work like any
+   other, so it earns a look. A vendored dependency's own tests and documentation are as ignorable as the
+   package's own, and drop to the bottom tier with them.
 2. **How trustworthy the evidence is.** A real license match outranks a folded snippet, which outranks the
    guessed nearest license of an unresolved snippet. An unresolved guess is a similarity ranking for text
    Cavil could not identify, not a claim the license is present, so it is the weakest signal; it still counts,
@@ -351,11 +354,13 @@ recolour it by likelihood, a heat view that lets the genuinely combined pairs st
 that explains each verdict and links to the co-located files. The plain-text report distributed to packagers
 lists the hard, both-directions incompatibilities with their location. The MCP report handed to AI review
 assistants presents the ranked shortlist of co-located pairs with their files, so the assistant can open them
-and confirm or rule out a real combination.
+and confirm or rule out a real combination; pairs that meet only in vendored code are a separate, shorter list
+below it, still with their files, because an assistant that is told "vendored" without being shown where tends
+to write the pair off unchecked.
 
 These rules are heuristics for prioritisation, never legal conclusions, and the precedence order above is the
-part most worth preserving: future signals should slot into "shipped source before peripheral, stronger
-evidence before weaker, closer before farther" rather than disturb it.
+part most worth preserving: future signals should slot into "shipped source before vendored before peripheral,
+stronger evidence before weaker, closer before farther" rather than disturb it.
 
 ## Software Bill of Materials (SBOM)
 

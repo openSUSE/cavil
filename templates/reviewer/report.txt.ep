@@ -33,12 +33,13 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 %     push @tags, 'folded'     if $c == 2;
 %     push @tags, 'unresolved' if $c <= 1;
 %     my $tags  = @tags ? ' [' . join(', ', @tags) . ']' : '';
-%     my $where = $pair->{peripheral} ? ' (tests/docs/vendored only)' : $loc ? " ($loc)" : '';
+%     my $where = $pair->{tier} == 2 ? ' (tests/docs/examples only)' : $loc ? " ($loc)" : '';
 * <%== $pair->{a} %> and <%== $pair->{b} %><%== $tags %><%== $where %>
 %   }
 
-Only matters if the code is combined into one work; vendored or aggregated components usually are not. Most
-likely-real first; the web report has the full matrix and OSADL's explanations.
+Only matters if the code is combined into one work; separately shipped components usually are not, but a
+vendored library that gets linked in is. Most likely-real first; the web report has the full matrix and
+OSADL's explanations.
 
 % }
 % if (@{$report->{missed_files}}) {

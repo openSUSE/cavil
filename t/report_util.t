@@ -234,9 +234,9 @@ subtest 'license_compatibility proximity ranking' => sub {
     my $prox = license_compatibility($report, $TEST_MATRIX)->{proximity};
 
     # Closest Apache/GPL files share src/net (depth 2), not the shallower shared root.
-    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth},  2, 'ranked by the deepest shared directory';
-    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file},  0, 'not a same-file co-occurrence';
-    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{peripheral}, 0, 'src co-location is not peripheral';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth}, 2, 'ranked by the deepest shared directory';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file}, 0, 'not a same-file co-occurrence';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{tier},      0, 'src co-location is shipped source';
     is_deeply $prox->{'Apache-2.0'}{'GPL-2.0-only'}{files}, ['src/net/tls.c', 'src/net/http.c'],
       'representative closest file pair';
   };
@@ -273,7 +273,7 @@ subtest 'license_compatibility proximity ranking' => sub {
     is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file}, 1, 'the same-file hit wins over the root-level pair';
   };
 
-  subtest 'Peripheral files (tests, docs, vendored) are ranked below source' => sub {
+  subtest 'Vendored and peripheral files are ranked below source' => sub {
 
     # The pair meets deep inside src (depth 2) and also in a test fixture: the source co-location wins.
     my $report = {
@@ -285,19 +285,37 @@ subtest 'license_compatibility proximity ranking' => sub {
     # A file that carries both, but only under tests/, must not outrank the real source pair.
     $report->{licenses}{'Combo'} = {spdx => 'Apache-2.0 AND GPL-2.0-only'};
     my $prox = license_compatibility($report, $TEST_MATRIX)->{proximity};
-    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{peripheral}, 0, 'source co-location preferred over a peripheral same-file';
-    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file},  0, 'the peripheral same-file does not win';
-    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth},  2, 'keeps the real src/net depth';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{tier},      0, 'source co-location preferred over a peripheral same-file';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{same_file}, 0, 'the peripheral same-file does not win';
+    is $prox->{'Apache-2.0'}{'GPL-2.0-only'}{lca_depth}, 2, 'keeps the real src/net depth';
 
-    # With only the vendored/test evidence, the pair is surfaced but flagged peripheral.
+    # With only the vendored evidence, the pair is surfaced in the vendored tier: that code can still be
+    # linked into the build, so it is not as dismissible as a test fixture.
     my $only = {
       files    => {1       => 'third_party/foo/mix.c'},
       licenses => {'Combo' => {spdx    => 'Apache-2.0 AND GPL-2.0-only'}},
       risks    => {5       => {'Combo' => {100 => [1]}}}
     };
     my $pp = license_compatibility($only, $TEST_MATRIX)->{proximity};
-    is $pp->{'Apache-2.0'}{'GPL-2.0-only'}{peripheral}, 1, 'vendored-only evidence is flagged peripheral';
-    is $pp->{'Apache-2.0'}{'GPL-2.0-only'}{same_file},  1, 'still reports it as a same-file co-occurrence';
+    is $pp->{'Apache-2.0'}{'GPL-2.0-only'}{tier},      1, 'vendored-only evidence is the vendored tier';
+    is $pp->{'Apache-2.0'}{'GPL-2.0-only'}{same_file}, 1, 'still reports it as a same-file co-occurrence';
+
+    # A vendored dependency's own tests are as ignorable as the package's own, so they lose to vendored code
+    # even though the test file is the stronger (same-file) evidence.
+    my $mixed = {
+      files    => {1 => 'vendor/foo/lib.c', 2 => 'vendor/foo/a.c', 3 => 'vendor/bar/test/mix.c'},
+      licenses => {
+        'Apache-2.0'   => {spdx => 'Apache-2.0'},
+        'GPL-2.0-only' => {spdx => 'GPL-2.0-only'},
+        'Combo'        => {spdx => 'Apache-2.0 AND GPL-2.0-only'}
+      },
+      risks => {5 => {'Apache-2.0' => {100 => [1]}, 'GPL-2.0-only' => {101 => [2]}, 'Combo' => {102 => [3]}}}
+    };
+    my $mp = license_compatibility($mixed, $TEST_MATRIX)->{proximity};
+    is $mp->{'Apache-2.0'}{'GPL-2.0-only'}{tier},      1, 'vendored code beats a test tree inside a vendored one';
+    is $mp->{'Apache-2.0'}{'GPL-2.0-only'}{same_file}, 0, 'so the vendored test fixture does not win';
+    is_deeply $mp->{'Apache-2.0'}{'GPL-2.0-only'}{files}, ['vendor/foo/lib.c', 'vendor/foo/a.c'],
+      'and it points at the vendored code';
   };
 
   subtest 'Confidence-first selection prefers real files over folds' => sub {
@@ -349,8 +367,8 @@ subtest 'license_compatibility proximity ranking' => sub {
       risks    => {5 => {'Apache-2.0' => {100 => [1, 3]}, 'GPL-2.0-only' => {101 => [2, 4]}}}
     };
     my $p = license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
-    is $p->{peripheral}, 0, 'the core co-location is chosen over the peripheral license catalog';
-    is $p->{lca_depth},  0, 'the real code meets only at the package root';
+    is $p->{tier},      0, 'the core co-location is chosen over the peripheral license catalog';
+    is $p->{lca_depth}, 0, 'the real code meets only at the package root';
   };
 
   subtest 'No file evidence yields no proximity' => sub {
@@ -382,10 +400,11 @@ subtest 'license_compatibility proximity ranking' => sub {
 
   subtest 'Peripheral directory classification' => sub {
 
-    # A single file carrying both licenses is a same-file co-location whose peripheral flag is exactly the
-    # directory classification, so this pins the full test/docs/examples/vendored/license-catalog policy (and
-    # its non-matches) through the public API. Segments match at any depth and case-insensitively; a mere
-    # substring of a segment (testicular) or a license-named source file must NOT be demoted.
+    # A single file carrying both licenses is a same-file co-location whose tier is exactly the directory
+    # classification, so this pins the full test/docs/examples/vendored/license-catalog policy (and its
+    # non-matches) through the public API: 0 shipped source, 1 vendored code, 2 tests/docs/examples. Segments
+    # match at any depth and case-insensitively; a mere substring of a segment (testicular) or a
+    # license-named source file must NOT be demoted.
     #
     # OBS packs vendored trees into cpio archives, so a "node_modules"/"vendor" directory arrives decorated
     # with the app name and the ".obscpio._" unpack marker (portal_node_modules.obscpio._); those must still
@@ -397,14 +416,14 @@ subtest 'license_compatibility proximity ranking' => sub {
       'lib/net/x.c'                                                                     => 0,
       'gpl.c'                                                                           => 0,
       'src/testicular/x.c'                                                              => 0,
-      'test/x.c'                                                                        => 1,
-      'tests/x.c'                                                                       => 1,
-      'a/testing/b/x.c'                                                                 => 1,
-      'doc/x.c'                                                                         => 1,
-      'docs/x.c'                                                                        => 1,
-      'documentation/x.c'                                                               => 1,
-      'examples/x.c'                                                                    => 1,
-      'sample/x.c'                                                                      => 1,
+      'test/x.c'                                                                        => 2,
+      'tests/x.c'                                                                       => 2,
+      'a/testing/b/x.c'                                                                 => 2,
+      'doc/x.c'                                                                         => 2,
+      'docs/x.c'                                                                        => 2,
+      'documentation/x.c'                                                               => 2,
+      'examples/x.c'                                                                    => 2,
+      'sample/x.c'                                                                      => 2,
       'vendor/x.c'                                                                      => 1,
       'src/pip/_vendor/chardet/x.py'                                                    => 1,
       'third_party/x.c'                                                                 => 1,
@@ -413,7 +432,12 @@ subtest 'license_compatibility proximity ranking' => sub {
       'contrib/x.c'                                                                     => 1,
       'app/node_modules/foo/x.js'                                                       => 1,
       'gomodcache/cache/download/golang.org/toolchain/@v/src/internal/profile/graph.go' => 1,
-      'LICENSES/x'                                                                      => 1,
+      'LICENSES/x'                                                                      => 2,
+
+      # Tests, docs and examples stay ignorable inside a vendored tree, whichever segment comes first.
+      'app/node_modules/foo/test/x.js' => 2,
+      'vendor/foo/docs/x.md'           => 2,
+      'examples/vendor/foo/x.c'        => 2,
 
       # OBS cpio-decorated vendored trees: demoted.
       'portal_node_modules.obscpio._/package._1132/README.md' => 1,
@@ -430,11 +454,11 @@ subtest 'license_compatibility proximity ranking' => sub {
       'src/my_vendored_helpers/x.c'    => 0,
 
       # Fixture directories whose names are language conventions rather than the bare word "test"
-      'harbor-2.15.1/src/pkg/chart/testdata/harbor-schema1/LICENSE' => 1,
-      'src/parser/test-data/sample.c'                               => 1,
-      'src/parser/test_data/sample.c'                               => 1,
-      'app/__tests__/helper.js'                                     => 1,
-      'lib/fixtures/payload.json'                                   => 1,
+      'harbor-2.15.1/src/pkg/chart/testdata/harbor-schema1/LICENSE' => 2,
+      'src/parser/test-data/sample.c'                               => 2,
+      'src/parser/test_data/sample.c'                               => 2,
+      'app/__tests__/helper.js'                                     => 2,
+      'lib/fixtures/payload.json'                                   => 2,
 
       # The generic Go module cache path (pkg/mod) is deliberately NOT matched: "pkg" is a legitimate
       # source directory in most Go projects, so demoting it would hide real code. Neither is "spec",
@@ -450,7 +474,7 @@ subtest 'license_compatibility proximity ranking' => sub {
         risks    => {5       => {'Combo' => {100 => [1]}}}
       };
       my $p = license_compatibility($report, $TEST_MATRIX)->{proximity}{'Apache-2.0'}{'GPL-2.0-only'};
-      is $p->{peripheral}, $expect{$path}, "$path -> peripheral $expect{$path}";
+      is $p->{tier}, $expect{$path}, "$path -> tier $expect{$path}";
     }
   };
 };
@@ -489,10 +513,10 @@ subtest 'ranked_incompatibilities' => sub {
       'C' => {'B' => {compatibility => 'No'}}
     },
     proximity => {
-      'A' => {'B' => {confidence => 3, same_file => 0, lca_depth => 0, peripheral => 0, files => ['x.c', 'y.c']}},
+      'A' => {'B' => {confidence => 3, same_file => 0, lca_depth => 0, tier => 0, files => ['x.c', 'y.c']}},
       'B' => {
-        'C' => {confidence => 2, same_file => 1, lca_depth => 2, peripheral => 0, files => ['s/m.c',      's/m.c']},
-        'D' => {confidence => 1, same_file => 0, lca_depth => 4, peripheral => 1, files => ['t/deep/a.c', 't/deep/b.c']}
+        'C' => {confidence => 2, same_file => 1, lca_depth => 2, tier => 0, files => ['s/m.c',      's/m.c']},
+        'D' => {confidence => 1, same_file => 0, lca_depth => 4, tier => 2, files => ['t/deep/a.c', 't/deep/b.c']}
       }
     }
   };
@@ -515,12 +539,12 @@ subtest 'ranked_incompatibilities' => sub {
       confidence    => 3,
       same_file     => 0,
       lca_depth     => 0,
-      peripheral    => 0,
+      tier          => 0,
       files         => ['x.c', 'y.c']
       },
       'row carries the pair, severity and proximity annotations';
-    is $ranked->[2]{mutual},     0, 'B-D is one-directional (Check dependency), not mutual';
-    is $ranked->[2]{peripheral}, 1, 'B-D evidence is peripheral';
+    is $ranked->[2]{mutual}, 0, 'B-D is one-directional (Check dependency), not mutual';
+    is $ranked->[2]{tier},   2, 'B-D evidence is a test tree';
   };
 
   is_deeply ranked_incompatibilities({}), [], 'no compatibility data';
@@ -532,6 +556,7 @@ subtest 'peripheral_scope' => sub {
   is_deeply peripheral_scope(['a/testdata/x/LICENSE']),      ['test'],                  'Go fixture data';
   is_deeply peripheral_scope(['a/doc/x', 'a/tests/y']),      ['documentation', 'test'], 'more than one kind, sorted';
   is_deeply peripheral_scope(['vendor.obscpio._/pkg/x.go']), ['vendored'],              'an OBS-packed vendored tree';
+  is_deeply peripheral_scope(['a/vendor/foo/test/x.c']),     ['test'], 'a dependency test reads as a test';
   is_deeply peripheral_scope(['a/licenses/GPL-2.0', 'a/LICENSES/MIT']), ['license catalog'],
     'a license text collection';
 

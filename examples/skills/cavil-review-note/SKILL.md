@@ -204,25 +204,36 @@ so a scanning lawyer cannot miss it - prefix the bullet with `⚠ LICENSE CHANGE
 quoted briefly. This is the risk-7 non-commercial case, but do not let it read as a routine risk-7
 bullet - a relicense is the headline.
 
-#### License compatibility - informational, but you MUST check the co-located pairs
+#### License compatibility - informational, but you MUST check the co-located and vendored pairs
 The Licenses section has an `### Incompatible Licenses` block listing the OSADL-flagged pairs **ranked by
-how likely a real combination is**, split into two groups:
+how likely a real combination is**, split into three groups:
 - **Worth investigating (co-located in shipped code)** - pairs whose two licenses actually sit in the
-  **same file** or the **same directory**, each with the file path(s) and tags: `mutual` vs `one-way`, and
-  an evidence marker - `folded` or `unresolved` when the co-location rests on a folded snippet or an
-  unresolved-snippet guess rather than a real match (weaker; verify before you lean on it). Cavil has
-  already done the co-location analysis; these are the pairs to look at, and it names the exact files so you
-  can go straight to them.
-- **Lower priority** - a *count* of the remaining pairs that meet only in tests/docs/vendored files
-  (`peripheral`) or only at the package root (aggregation). Do **not** trace these; they are almost never
-  a combined work, and enumerating them is the noise reviewers asked us to stop producing.
+  **same file** or the **same directory** of the package's own code, each with the file path(s) and tags:
+  `mutual` vs `one-way`, and `folded` when the co-location rests on a folded snippet rather than a real
+  match (weaker; verify before you lean on it). Cavil has already done the co-location analysis; these are
+  the pairs to look at first, and it names the exact files so you can go straight to them.
+- **Vendored dependencies (spot check these)** - the same kind of evidence, but the two licenses meet inside
+  a vendored tree (`vendor/`, `node_modules/`, `third_party/`). Listed with their files as well, and you
+  **must open at least the highest-risk ones**. "Vendored" says where the code sits, not that it is
+  separable: a vendored library that the shipped code links, imports or compiles in is a combined work
+  exactly like a co-located one. This is the check reviewers report AI notes skipping most often, so treat
+  the label as a location, never as a verdict.
+- **Lower priority** - a *count* of the remaining pairs that meet only in tests, docs or examples (including
+  a vendored dependency's own tests and docs), only via an unresolved-snippet guess, or only at the package
+  root (aggregation). Tests, docs and examples are essentially always ignorable. Do **not** trace these;
+  enumerating them is the noise reviewers asked us to stop producing.
 
 It is still **informational, not a risk flag** - almost every package that vendors dependencies has some
 flagged pair. Do not escalate just because the section is present, and do not trace the lower-priority tail.
 
-**But you must not ignore the "Worth investigating" list.** Look into a pair when EITHER is true:
+**But you must not ignore the first two lists.** Look into a pair when ANY of these is true:
 - **It appears under "Worth investigating"** - the two licenses are co-located in shipped code (same file
   or directory), the strong sign they are actually combined. Open the named files.
+- **It appears under "Vendored dependencies"** - open the named files and establish whether that component
+  is pulled into the shipped build (linked, imported, bundled, compiled in) or is standalone. Writing
+  "vendored, so aggregation" without opening a file is not a review; it is exactly the gap this list exists
+  to close. If the list is long, check the highest-risk members first (copyleft: GPL/AGPL/CDDL, or the
+  package's own license) and say which ones you deferred.
 - **The package's own declared/primary `License:` is one of the two licenses** (e.g. a GPL-2.0-only
   package flagged against Apache-2.0) - the conflict would be about the package's own shipped code, so
   check it even if the report placed the pair lower.
@@ -237,11 +248,13 @@ co-presence in the same archive does not. **Open the named files with `cavil_get
 locates the code, it is not proof - and use `cavil_list_files` only to widen the picture:
 
 Signals it is likely a **false alarm** (lean ACCEPT, but say why):
-- The pair is tagged `peripheral`, or the files sit in **separate, independent components** not linked or
-  compiled together (a vendored build-time tool, an optional plugin, one library among unrelated bundles).
-  Aggregation on the same medium is not a combined work.
+- The files sit in **separate, independent components** not linked or compiled together (a build-time-only
+  tool, an optional plugin nothing imports, one library among unrelated bundles). Aggregation on the same
+  medium is not a combined work - but say what you checked to establish it (no import/include, not in the
+  build inputs, not installed), because "it is under `vendor/`" is not that check.
 - The flagged license text is confined to **test fixtures, sample data, documentation, or license
-  catalogs** (an SPDX license list, `licenses/` directory, or test corpus) rather than shipped code.
+  catalogs** (an SPDX license list, `licenses/` directory, or test corpus) rather than shipped code. This
+  holds inside a vendored tree too: a dependency's own tests are as ignorable as the package's own.
 - The actual file headers show a **more permissive variant** than the heuristic assumed - e.g. the GPL
   files are really `GPL-2.0-or-later` (relicensable to v3), or carry an exception (Classpath, autoconf,
   GCC-runtime, Bison, LLVM) that resolves the conflict.
@@ -251,6 +264,9 @@ Signals it is likely a **false alarm** (lean ACCEPT, but say why):
 Signals it is likely a **real problem** (lean REJECT or NEEDS HUMAN REVIEW):
 - The named files are **part of the same buildable/linkable unit** - same library or binary,
   `#include`/import across the boundary, or (the `same file` case) one source file carrying both headers.
+- **The vendored component is actually used by the shipped code** - an `#include`, `import`, `require` or
+  `use` of it, a static link, a bundler that inlines it into the shipped artifact, or a build file that
+  compiles it in. Sitting under `vendor/` or `node_modules/` does not make it separate.
 - A copyleft license (GPL/AGPL) governs core code that links against the other license's code.
 - You cannot determine from the files whether the components are combined.
 
@@ -263,21 +279,22 @@ include it):
 2. **Why** separate or combined - the boundary: separate/unlinked component, test-fixture / docs /
    license-catalog only, a more permissive variant or exception (name it, e.g. GPL-2.0-**or-later**,
    Classpath), or a weak/non-license snippet; for a real conflict, the `#include` / import /
-   shared-binary link across it.
+   shared-binary link across it. For a vendored pair this is the *usage* question, not the location one:
+   "under `vendor/`" is where it lives, "nothing in `src/` imports it" is why it is separate.
 3. **The one check** the lawyer can rerun, as a reproducible observation (e.g. "no `#include` of any
    `vendor/build-tool/` header under `src/`"; "GPL headers read *or … any later version*, see top of
    `src/engine.c`"). Cite the file you confirmed with `cavil_get_file`.
 
 The section's presence never blocks ACCEPT on its own; only a **confirmed combined-work conflict** leans
 REJECT or NEEDS HUMAN REVIEW (name the files on each side). A pair you traced to aggregation/separation
-needs only a brief scoped note. When the report's "Worth investigating" list is empty (everything is in the
-lower-priority tail), say so briefly and do not re-derive the aggregation; for a **large aggregation with a
-few co-located pairs you cannot fully trace**, spot-check the highest-risk members (copyleft/CDDL) with
-their locations and state which pairs you deferred, so the deferral is scoped.
+needs only a brief scoped note. When both the "Worth investigating" and "Vendored dependencies" lists are
+empty (everything is in the lower-priority tail), say so briefly and do not re-derive the aggregation; for a
+**large aggregation with more pairs than you can fully trace**, spot-check the highest-risk members
+(copyleft/CDDL) with their locations and state which pairs you deferred, so the deferral is scoped.
 
 ### Step 5 - Choose a recommendation
 Use one of these recommendations:
-- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT - but if a pair met the check above (declared-license pair, or both licenses in one directory) you looked at it and said so.
+- **ACCEPT**: You compared the declared package license against the report and it is consistent, identified licenses look acceptable, and unresolved matches are low-risk or clearly non-license text. A flagged license-compatibility pair does not by itself block ACCEPT - but if a pair met the check above (co-located in shipped code, vendored, or a declared-license pair) you opened its files and said what you found.
 - **REJECT**: The report appears to contain undeclared problematic licenses, significant primary-license mismatch, proprietary/non-commercial restrictions, a **confirmed combined-work license incompatibility**, or other issues that likely block acceptance.
 - **NEEDS HUMAN REVIEW**: The report contains ambiguity, complex licensing, unusual terms, a flagged incompatibility that met the check and you could not resolve as aggregation vs. combination, or insufficient context for a confident recommendation.
 
@@ -373,7 +390,7 @@ AI-assisted review recommendation: ACCEPT
 
 Issues for legal reviewer:
 - Declared license (GPL-2.0-only) matches the shipped code in `src/`; remaining licenses are permissive vendored dependencies.
-- Flagged combination (GPL-2.0-only + Apache-2.0) reviewed - false alarm. To confirm:
+- Flagged vendored combination (GPL-2.0-only + Apache-2.0) spot-checked - false alarm. To confirm:
   - Where: Apache-2.0 is 3 files, all under `vendor/build-tool/`; GPL-2.0-only is the shipped code in `src/*.c`.
   - Why separate: `vendor/build-tool/` is a build-time-only code generator, not linked into the shipped library (aggregation, not a combined work).
   - Check: no `#include`/import of any `vendor/build-tool/` header appears under `src/` (checked `src/*.c`, `src/*.h`); `vendor/build-tool/` runs standalone at build time, see `vendor/build-tool/README`.

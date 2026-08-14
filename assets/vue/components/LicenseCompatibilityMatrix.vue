@@ -121,11 +121,7 @@
           <span class="license-matrix-where-label">Where</span>
           <span class="license-matrix-where-verdict">{{ whereSummary }}</span>
           <span v-if="whereTag" class="license-matrix-where-tag">{{ whereTag }}</span>
-          <span
-            v-if="selectedProximity && !selectedProximity.no_colocation && selectedProximity.peripheral"
-            class="license-matrix-where-tag"
-            >tests / docs / vendored</span
-          >
+          <span v-if="scopeTag" class="license-matrix-where-tag">{{ scopeTag }}</span>
         </span>
         <ul v-if="selectedFiles.length" class="license-matrix-file-list">
           <li v-for="f in selectedFiles" :key="f">
@@ -174,7 +170,7 @@ export default {
   props: {
     licenses: {type: Array, default: () => []},
     matrix: {type: Object, default: () => ({})},
-    // Symmetric per-pair proximity {a: {b: {confidence, same_file, lca_depth, peripheral, files}}} (keyed
+    // Symmetric per-pair proximity {a: {b: {confidence, same_file, lca_depth, tier, files}}} (keyed
     // a < b) - drives the "Likelihood" colour mode and the detail panel's "Where" block. pkgId builds the
     // file-browser links.
     proximity: {type: Object, default: () => ({})},
@@ -286,6 +282,13 @@ export default {
       if (p.confidence === 2) return 'via a folded snippet';
       if (p.confidence === 1) return 'via an unresolved match';
       return null;
+    },
+    // Vendored code is named separately from tests and docs: it can be linked into the build, so it is not
+    // dismissible the way a fixture is.
+    scopeTag() {
+      const p = this.selectedProximity;
+      if (!p || p.no_colocation || !p.tier) return null;
+      return p.tier === 1 ? 'vendored' : 'tests / docs / examples';
     }
   },
   methods: {
@@ -317,7 +320,7 @@ export default {
       // because those are absence of evidence rather than a cooler tier.
       // Defensive: a flagged cell with no proximity entry at all (only if a license has no file evidence).
       if (p === null) [color, size] = ['var(--cavil-grey-2)', 0.48];
-      else if (p.peripheral) [color, size] = ['var(--cavil-edge-7)', 0.48];
+      else if (p.tier) [color, size] = ['var(--cavil-edge-7)', 0.48];
       else if (p.same_file) [color, size] = ['var(--cavil-heat-1)', 0.85];
       else if ((p.lca_depth ?? 0) >= 3) [color, size] = ['var(--cavil-heat-2)', 0.7];
       else if ((p.lca_depth ?? 0) >= 1) [color, size] = ['var(--cavil-heat-3)', 0.58];

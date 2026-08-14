@@ -287,20 +287,32 @@ my %PERIPHERAL_SEGMENT = (
 # OBS cpio paths decorate vendored segments, for example vendor.obscpio._.
 my $OBS_VENDORED_SEGMENT = qr/(?:^|_)(?:node_modules|vendor|vendored|third_party|3rdparty)\./;
 
-# Basenames do not determine whether code is peripheral.
+# Basenames do not determine whether code is peripheral. A test, doc or example segment anywhere in the path
+# beats a vendored one, because a vendored dependency's own tests are as ignorable as the package's own.
 sub _path_peripheral_kind ($path) {
   my @segs = split m{/}, $path;
   pop @segs;
+  my $vendored;
   for my $seg (@segs) {
-    my $lc = lc $seg;
-    return $PERIPHERAL_SEGMENT{$lc} if $PERIPHERAL_SEGMENT{$lc};
-
-    return 'vendored' if index($lc, '.') >= 0 && $lc =~ $OBS_VENDORED_SEGMENT;
+    my $lc   = lc $seg;
+    my $kind = $PERIPHERAL_SEGMENT{$lc};
+    $kind = 'vendored' if !$kind && index($lc, '.') >= 0 && $lc =~ $OBS_VENDORED_SEGMENT;
+    next         unless $kind;
+    return $kind unless $kind eq 'vendored';
+    $vendored = 1;
   }
-  return undef;
+  return $vendored ? 'vendored' : undef;
 }
 
 sub _path_is_peripheral ($path) { return _path_peripheral_kind($path) ? 1 : 0 }
+
+# 0 shipped source, 1 vendored dependency code, 2 tests/docs/examples/license catalogs. Vendored code sits
+# between the two because it can still be linked into the build, so it needs a look; the tier 2 kinds are
+# ignorable wherever they sit, including inside a vendored tree.
+sub _path_tier ($path) {
+  my $kind = _path_peripheral_kind($path) // return 0;
+  return $kind eq 'vendored' ? 1 : 2;
+}
 
 # Report peripheral location without prescribing action; the classification is heuristic.
 sub peripheral_scope ($paths) {
@@ -315,7 +327,7 @@ sub peripheral_scope ($paths) {
   return [sort keys %kinds];
 }
 
-# Rank core over peripheral, then confidence, same-file evidence, and directory depth.
+# Rank by tier (shipped source, then vendored, then tests/docs), then confidence, same-file evidence, depth.
 # Unresolved guesses contribute only to same-file evidence to bound tree-walk cost.
 sub _pair_proximity ($dig_report, $licenses, $matrix) {
   return {} unless @$licenses;
@@ -335,7 +347,7 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
 
   my $file_ids = _file_license_ids($dig_report);
 
-  my (%dir_amask, %dir_cmask, %dir_aconf, %dir_arep, %dir_cconf, %dir_crep, @same_file, %lic_rep, %lic_resolved);
+  my (@dir_mask, @dir_conf, @dir_rep, @same_file, %lic_rep, %lic_resolved);
   for my $path (keys %$file_ids) {
     my $ids = $file_ids->{$path};
     my %bconf;    # resolved (confidence >= 2) bit => confidence, for the directory machinery
@@ -351,21 +363,22 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
       $lic_resolved{$b} = 1 if $c >= 2;
     }
 
-    my $peripheral;
-    push @same_file, [$path, $amask, ($path =~ tr{/}{}), ($peripheral //= _path_is_peripheral($path))]
-      if $amask & ($amask - 1);
+    my $tier = _path_tier($path);
+    push @same_file, [$path, $amask, ($path =~ tr{/}{}), $tier] if $amask & ($amask - 1);
     next unless %bconf;
 
-    my $core  = ($peripheral //= _path_is_peripheral($path)) ? 0 : 1;
     my $rmask = 0;
     $rmask |= (1 << $_) for keys %bconf;
     for my $dir (_ancestor_dirs($path)) {
-      $dir_amask{$dir} |= $rmask;
-      $dir_cmask{$dir} |= $rmask if $core;
-      while (my ($b, $c) = each %bconf) {
-        if ($c > ($dir_aconf{$dir}{$b} // 0)) { $dir_aconf{$dir}{$b} = $c; $dir_arep{$dir}{$b} = $path }
-        next unless $core;
-        if ($c > ($dir_cconf{$dir}{$b} // 0)) { $dir_cconf{$dir}{$b} = $c; $dir_crep{$dir}{$b} = $path }
+
+      # Each tier's masks include everything above it, so tier 1 means "core or vendored code".
+      for my $t ($tier .. 2) {
+        $dir_mask[$t]{$dir} |= $rmask;
+        for my $b (keys %bconf) {
+          next unless $bconf{$b} > ($dir_conf[$t]{$dir}{$b} // 0);
+          $dir_conf[$t]{$dir}{$b} = $bconf{$b};
+          $dir_rep[$t]{$dir}{$b}  = $path;
+        }
       }
     }
   }
@@ -373,50 +386,43 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
   # The weights enforce the documented lexicographic ranking.
   my %best;
   my $consider = sub ($la, $lb, $cand) {
-    $cand->{_score} = $cand->{peripheral} ? 0 : 1_000_000;
+    $cand->{_score} = (2 - $cand->{tier}) * 1_000_000;
     $cand->{_score} += $cand->{confidence} * 10_000 + $cand->{same_file} * 100 + $cand->{lca_depth};
     my $cur = $best{$la}{$lb};
     $best{$la}{$lb} = $cand if !$cur || $cand->{_score} > $cur->{_score};
   };
 
-  for my $dir (keys %dir_amask) {
-    my $am = $dir_amask{$dir};
+  for my $dir (keys %{$dir_mask[2] // {}}) {
+    my $am = $dir_mask[2]{$dir};
     next unless $am & ($am - 1);
-    my $cm    = $dir_cmask{$dir} // 0;
     my $depth = _dir_depth($dir);
     for my $fp (@flagged_pairs) {
       my ($la, $lb, $ba, $bb) = @$fp;
       my ($mba, $mbb) = (1 << $ba, 1 << $bb);
       next unless ($am & $mba) && ($am & $mbb);
-      if (($cm & $mba) && ($cm & $mbb)) {
-        my $conf = $dir_cconf{$dir}{$ba} < $dir_cconf{$dir}{$bb} ? $dir_cconf{$dir}{$ba} : $dir_cconf{$dir}{$bb};
+
+      # The tier outweighs every other signal, so the lowest one carrying both licenses wins outright.
+      for my $t (0 .. 2) {
+        my $m = $dir_mask[$t]{$dir} // 0;
+        next unless ($m & $mba) && ($m & $mbb);
+        my ($ca, $cb) = ($dir_conf[$t]{$dir}{$ba}, $dir_conf[$t]{$dir}{$bb});
         $consider->(
           $la, $lb,
           {
-            confidence => $conf,
+            confidence => ($ca < $cb ? $ca : $cb),
             same_file  => 0,
             lca_depth  => $depth,
-            peripheral => 0,
-            files      => [$dir_crep{$dir}{$ba}, $dir_crep{$dir}{$bb}]
+            tier       => $t,
+            files      => [$dir_rep[$t]{$dir}{$ba}, $dir_rep[$t]{$dir}{$bb}]
           }
         );
+        last;
       }
-      my $conf = $dir_aconf{$dir}{$ba} < $dir_aconf{$dir}{$bb} ? $dir_aconf{$dir}{$ba} : $dir_aconf{$dir}{$bb};
-      $consider->(
-        $la, $lb,
-        {
-          confidence => $conf,
-          same_file  => 0,
-          lca_depth  => $depth,
-          peripheral => 1,
-          files      => [$dir_arep{$dir}{$ba}, $dir_arep{$dir}{$bb}]
-        }
-      );
     }
   }
 
   for my $sf (@same_file) {
-    my ($path, $mask, $depth, $periph) = @$sf;
+    my ($path, $mask, $depth, $tier) = @$sf;
     for my $fp (@flagged_pairs) {
       my ($la, $lb, $ba, $bb) = @$fp;
       next unless ($mask & (1 << $ba)) && ($mask & (1 << $bb));
@@ -427,7 +433,7 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
           confidence => ($ca < $cb ? $ca : $cb),
           same_file  => 1,
           lca_depth  => $depth,
-          peripheral => $periph,
+          tier       => $tier,
           files      => [$path, $path]
         }
       );
@@ -445,7 +451,7 @@ sub _pair_proximity ($dig_report, $licenses, $matrix) {
       confidence    =>  1,
       same_file     =>  0,
       lca_depth     => -1,
-      peripheral    =>  0,
+      tier          =>  0,
       files         => [map { $lic_rep{$_} } @weak]
     };
   }
@@ -483,7 +489,7 @@ sub ranked_incompatibilities ($compat) {
       next if $a ge $b;
       next unless $matrix->{$a}{$b} || $matrix->{$b}{$a};
       my $p = $prox->{$a}{$b}
-        // {no_colocation => 1, confidence => 0, same_file => 0, lca_depth => -1, peripheral => 0, files => []};
+        // {no_colocation => 1, confidence => 0, same_file => 0, lca_depth => -1, tier => 0, files => []};
       push @rows,
         {
         a             => $a,
@@ -493,7 +499,7 @@ sub ranked_incompatibilities ($compat) {
         confidence    => $p->{confidence} // 0,
         same_file     => $p->{same_file},
         lca_depth     => $p->{lca_depth},
-        peripheral    => $p->{peripheral},
+        tier          => $p->{tier},
         files         => $p->{files} // []
         };
     }
@@ -502,7 +508,7 @@ sub ranked_incompatibilities ($compat) {
   return [
     sort {
       $a->{no_colocation}   <=> $b->{no_colocation}    # co-located pairs first, not-co-located last
-        || $a->{peripheral} <=> $b->{peripheral}
+        || $a->{tier}       <=> $b->{tier}
         || $b->{confidence} <=> $a->{confidence}
         || $b->{same_file}  <=> $a->{same_file}
         || $b->{lca_depth}  <=> $a->{lca_depth}

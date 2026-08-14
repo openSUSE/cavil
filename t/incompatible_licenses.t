@@ -20,7 +20,9 @@ $cavil_test->mojo_fixtures($t->app);
 $t->app->pg->db->query('DELETE FROM license_patterns');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: Apache-2.0',   license => 'Apache-2.0');
 $t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-2.0-only', license => 'GPL-2.0-only');
-$t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 GPL-2.0-only);
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: GPL-3.0-only', license => 'GPL-3.0-only');
+$t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
+  for qw(Apache-2.0 GPL-2.0-only GPL-3.0-only);
 
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
@@ -31,6 +33,11 @@ $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\n
 my $module = $dir->child('src', 'net')->make_path;
 $module->child('tls.c')->spurt("# SPDX-License-Identifier: Apache-2.0\n\nDeeply nested Apache file.\n");
 $module->child('http.c')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nDeeply nested GPL file.\n");
+
+# A vendored dependency is its own tier: still worth a spot check, because it can be linked into the build.
+my $vendored = $dir->child('vendor', 'foo')->make_path;
+$vendored->child('lib.c')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nVendored GPL-2.0 library.\n");
+$vendored->child('plugin.c')->spurt("# SPDX-License-Identifier: GPL-3.0-only\n\nVendored GPL-3.0 plugin.\n");
 
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
@@ -48,7 +55,7 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
       ->json_like('/package_group',   qr!Development/Libraries/Perl!)
       ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
       ->json_like('/state',           qr!new!)
-      ->json_is('/unpacked_files', 343)
+      ->json_is('/unpacked_files', 345)
       ->json_is('/unpacked_size',  '2.5MiB');
 
     $t->json_like('/package_files/0/file',       qr/perl-Mojolicious\.spec/)
@@ -76,7 +83,7 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
 
     ok my $report = $json->{report},                  'report';
     ok my $compat = $report->{license_compatibility}, 'license compatibility matrix';
-    is_deeply $compat->{licenses}, ['Apache-2.0', 'GPL-2.0-only'], 'both licenses on the axes';
+    is_deeply $compat->{licenses}, ['Apache-2.0', 'GPL-2.0-only', 'GPL-3.0-only'], 'every flagged license on the axes';
 
     # OSADL flags both directions as "No", verbatim.
     is $compat->{matrix}{'Apache-2.0'}{'GPL-2.0-only'}{compatibility}, 'No', 'Apache-2.0 <- GPL-2.0-only: No';
@@ -90,16 +97,22 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     is $prox->{lca_depth}, 2, 'ranked by the deepest shared directory (src/net)';
     is $prox->{same_file}, 0, 'not a same-file co-occurrence';
     is_deeply [sort @{$prox->{files}}], ['src/net/http.c', 'src/net/tls.c'], 'representative closest file pair';
+    is $prox->{tier}, 0, 'shipped source';
+
+    # The vendored pair meets in its own tier, between shipped source and tests/docs.
+    ok my $vprox = $compat->{proximity}{'GPL-2.0-only'}{'GPL-3.0-only'}, 'proximity for the vendored pair';
+    is $vprox->{tier}, 1, 'vendored code';
+    is_deeply [sort @{$vprox->{files}}], ['vendor/foo/lib.c', 'vendor/foo/plugin.c'], 'the vendored files';
 
     # The frontend gets the proximity ranking alongside the matrix, so the grid can colour by likelihood
     # and the detail panel can link to the files.
     $t->get_ok('/reviews/report_details/1')
       ->status_is(200)
-      ->json_is('/license_compatibility/licenses',                                     ['Apache-2.0', 'GPL-2.0-only'])
+      ->json_is('/license_compatibility/licenses', ['Apache-2.0', 'GPL-2.0-only', 'GPL-3.0-only'])
       ->json_is('/license_compatibility/matrix/Apache-2.0/GPL-2.0-only/compatibility', 'No')
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/same_file',  0)
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/lca_depth',  2)
-      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/peripheral', 0)
+      ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/tier',       0)
       ->json_is('/license_compatibility/proximity/Apache-2.0/GPL-2.0-only/confidence', 3);
   };
 
@@ -114,6 +127,10 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
 
     # Packagers get the location so they can find the files that co-locate the two licenses.
     like $text, qr!\Qsame directory `src/net`\E!, 'text report annotates where the licenses co-locate';
+    like $text, qr!\Q* GPL-2.0-only and GPL-3.0-only (same directory `vendor/foo`\E!,
+      'a vendored pair keeps its location instead of being written off';
+    like $text, qr/a\s+vendored library that gets linked in is/,
+      'and the note says vendoring is not automatically separate';
   };
 
   subtest 'MCP report' => sub {
@@ -127,6 +144,13 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
     like $mcp, qr!same directory `src/net`: `src/net/tls\.c`, `src/net/http\.c`!, 'points at the co-located files';
     like $mcp, qr/Proximity locates the code/,                                    'tells the AI proximity is not proof';
     like $mcp, qr/cavil_get_file/, 'points the AI at the tool to confirm';
+
+    # Vendored pairs are a gate of their own: listed with their files for a spot check, not folded into the
+    # lower-priority count, because vendored code can still be linked into the shipped build.
+    like $mcp, qr/Vendored dependencies \(spot check/, 'vendored pairs get their own section';
+    like $mcp, qr!\QGPL-2.0-only + GPL-3.0-only [mutual] - same directory `vendor/foo`\E!,
+      'with the pair and the files to open';
+    unlike $mcp, qr/in tests\/docs\/examples/, 'nothing was demoted to the ignorable count';
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
