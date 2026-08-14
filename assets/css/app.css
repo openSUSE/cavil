@@ -137,7 +137,6 @@
   --cavil-danger-2: #82071e;
   --cavil-danger-3: #a40e26;
   --cavil-danger-4: #d7252a;
-  --cavil-danger-5: #e5383b;
   --cavil-danger-6: #dc3545;
   --cavil-danger-7: #f00;
   --cavil-danger-8: #ffa07a;
@@ -150,7 +149,6 @@
   --cavil-attention-3: #eac54f;
   --cavil-attention-4: #e2b53d;
   --cavil-attention-5: #d4a72c;
-  --cavil-attention-6: #f9a825;
   --cavil-attention-7: #ffc107;
   --cavil-attention-deep-2: #7a5c00;
   --cavil-attention-deep-3: #6f4e00;
@@ -158,8 +156,10 @@
   --cavil-attention-deep-5: #5c4500;
   --cavil-attention-deep-6: #5c3a00;
   --cavil-attention-deep-7: #a0562d;
+  --cavil-heat-1: #a21caf;
+  --cavil-heat-2: #e5383b;
+  --cavil-heat-3: #f9a825;
   --cavil-purple-1: #8250df;
-  --cavil-purple-2: #a21caf;
   --cavil-purple-3: #bf3989;
   --cavil-risk-unknown-bg: #57606a;
   --cavil-badge-gloss-top: rgba(255, 255, 255, 0.58);
@@ -302,7 +302,6 @@
   --cavil-danger-2: #ff7b72;
   --cavil-danger-3: #ff7b72;
   --cavil-danger-4: #f85149;
-  --cavil-danger-5: #f85149;
   --cavil-danger-6: #f85149;
   --cavil-danger-7: #f85149;
   --cavil-danger-8: #bd561d;
@@ -315,7 +314,6 @@
   --cavil-attention-3: #bb8009;
   --cavil-attention-4: #d29922;
   --cavil-attention-5: #bb8009;
-  --cavil-attention-6: #e3b341;
   --cavil-attention-7: #e3b341;
   --cavil-attention-deep-2: #f2cc60;
   --cavil-attention-deep-3: #f2cc60;
@@ -323,8 +321,10 @@
   --cavil-attention-deep-5: #f2cc60;
   --cavil-attention-deep-6: #f2cc60;
   --cavil-attention-deep-7: #f0883e;
+  --cavil-heat-1: #ff7b72;
+  --cavil-heat-2: #f85149;
+  --cavil-heat-3: #da3633;
   --cavil-purple-1: #ab7df8;
-  --cavil-purple-2: #d2a8ff;
   --cavil-purple-3: #db61a2;
   --cavil-risk-unknown-bg: #484f58;
   --cavil-badge-gloss-top: rgba(255, 255, 255, 0.05);

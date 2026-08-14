@@ -329,6 +329,21 @@ unless ($clean) {
     'CC-BY-4.0', 'MPL-1.0', 'CC-BY-SA-4.0 OR GFDL-1.3-or-later'
     );
 
+  # Proximity placement for the matrix heat ramp. Written flat, every flagged pair co-locates only at
+  # the package root, so the ramp never showed anything but its coolest step. Moving a few licenses into
+  # nested and peripheral directories gives each tier a real mutually-incompatible pair to colour:
+  # a deep shared directory, a shallow one, and a peripheral one. Everything else stays at the root and
+  # keeps demonstrating the neutral step.
+  my %compat_dirs = (
+    'GPL-2.0-only' => 'src/core/net',
+    'CDDL-1.0'     => 'src/core/net',
+    'Apache-2.0'   => 'src/core/net',
+    'MPL-1.1'      => 'src',
+    'OSL-3.0'      => 'src',
+    'EPL-2.0'      => 'docs',
+    'MS-RL'        => 'docs'
+  );
+
   my $compat_checkout = 'compatibilitylab00000000000000001';
   my $compat_dir      = $checkouts->child('cavil-compatibility-lab', $compat_checkout)->make_path;
   my $compat_i        = 0;
@@ -341,10 +356,16 @@ unless ($clean) {
       unique_id => sprintf('cccccccc-cccc-4ccc-8ccc-%012d', $compat_i)
     );
     (my $fn = $lic) =~ s/[^A-Za-z0-9._-]/_/g;
-    $compat_dir->child("$fn.txt")
-      ->spurt("$marker\n\nSynthetic license declaration for the compatibility matrix lab.\n");
+    my $target = $compat_dir;
+    if (my $sub = $compat_dirs{$lic}) { $target = $compat_dir->child(split m{/}, $sub)->make_path }
+    $target->child("$fn.txt")->spurt("$marker\n\nSynthetic license declaration for the compatibility matrix lab.\n");
     $compat_i++;
   }
+
+  # The hottest tier is same-file evidence, which no directory layout can produce: it needs one file
+  # declaring two licenses that OSADL calls mutually incompatible.
+  $compat_dir->child('src', 'core', 'net')->make_path->child('dual-licensed.txt')
+    ->spurt("compatibility lab license GPL-2.0-only\n\ncompatibility lab license CDDL-1.0\n");
   $app->pg->db->query(q{UPDATE license_patterns SET spdx = license WHERE pattern LIKE 'compatibility lab license %'});
 
   $pkg_id = $pkgs->add(

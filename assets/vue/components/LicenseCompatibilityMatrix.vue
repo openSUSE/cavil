@@ -311,16 +311,16 @@ export default {
       if (this.colorMode !== 'likelihood' || !this.isFlagged(outbound, inbound)) return null;
       const p = this.pairProximity(outbound, inbound);
       let color, size;
-      // Heat ramp, hottest first: same-file is a purple "ultra-hot" so the top signal is unmistakable and
-      // clearly apart from the red/gold lower tiers. Deeper shared dir = red, shallow shared dir = gold,
-      // package-root-only = cool grey-blue, peripheral = neutral grey. Size also grows with the tier so the
-      // hot cells carry extra weight.
+      // Heat ramp, hottest first: same-file, then deeper shared dir, then shallow. One hue stepped by
+      // lightness, so the tier order is legible as a ramp rather than as three colours to memorise; size
+      // grows with the tier as a second encoding. Package-root-only and peripheral stay neutral grey,
+      // because those are absence of evidence rather than a cooler tier.
       // Defensive: a flagged cell with no proximity entry at all (only if a license has no file evidence).
       if (p === null) [color, size] = ['var(--cavil-grey-2)', 0.48];
       else if (p.peripheral) [color, size] = ['var(--cavil-edge-7)', 0.48];
-      else if (p.same_file) [color, size] = ['var(--cavil-purple-2)', 0.85];
-      else if ((p.lca_depth ?? 0) >= 3) [color, size] = ['var(--cavil-danger-5)', 0.7];
-      else if ((p.lca_depth ?? 0) >= 1) [color, size] = ['var(--cavil-attention-6)', 0.58];
+      else if (p.same_file) [color, size] = ['var(--cavil-heat-1)', 0.85];
+      else if ((p.lca_depth ?? 0) >= 3) [color, size] = ['var(--cavil-heat-2)', 0.7];
+      else if ((p.lca_depth ?? 0) >= 1) [color, size] = ['var(--cavil-heat-3)', 0.58];
       else [color, size] = ['var(--cavil-grey-2)', 0.48];
       // Confidence dims the dot: a real match is solid, a fold muted, an unresolved guess faint - so the
       // trustworthy co-locations read strongest even at the same proximity tier.
@@ -951,13 +951,13 @@ export default {
 /* Likelihood legend swatches: distinct hues down the heat scale, a grey for peripheral - matching
    markStyle so the grid and the key read as one scale. */
 .license-matrix-swatch.swatch-file {
-  background: var(--cavil-purple-2);
+  background: var(--cavil-heat-1);
 }
 .license-matrix-swatch.swatch-deep {
-  background: var(--cavil-danger-5);
+  background: var(--cavil-heat-2);
 }
 .license-matrix-swatch.swatch-shared {
-  background: var(--cavil-attention-6);
+  background: var(--cavil-heat-3);
 }
 .license-matrix-swatch.swatch-root {
   background: var(--cavil-grey-2);
