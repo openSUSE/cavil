@@ -27,7 +27,7 @@
         <ul class="report-artifact-list">
           <li v-for="entry in section.shown" :key="entry[0]" class="report-artifact-item">
             <span class="report-artifact-value">{{ entry[0] }}</span>
-            <span class="report-artifact-source">{{ section.unit.label(entry[1]) }}</span>
+            <span class="report-artifact-source">{{ section.unit(entry[1]) }}</span>
           </li>
           <li v-if="section.canExpand" class="report-artifact-more">
             <button type="button" :data-artifact-more="section.key" @click="toggle(section)">
@@ -38,11 +38,6 @@
             </button>
           </li>
         </ul>
-
-        <!-- Always, not just once expanded: a heading saying 4000 over a button offering 490 is a puzzle -->
-        <p v-if="section.values.length < section.total" class="report-artifact-truncated">
-          Ordered by {{ section.unit.ordering }}, showing the top {{ section.values.length }} of {{ section.total }}.
-        </p>
       </div>
     </div>
   </div>
@@ -59,8 +54,8 @@ const PREVIEW = 10;
 const EMPTY = {total: 0, values: []};
 // Copyright notices are counted in the files they cover, the other two in how often they occur. Both
 // numbers are spelled out: a bare count next to a labelled one reads as the same thing measured twice.
-const OCCURRENCES = {label: count => `${count} ${count === 1 ? 'occurrence' : 'occurrences'}`, ordering: 'occurrences'};
-const FILES = {label: count => `${count} ${count === 1 ? 'file' : 'files'}`, ordering: 'file count'};
+const OCCURRENCES = count => `${count} ${count === 1 ? 'occurrence' : 'occurrences'}`;
+const FILES = count => `${count} ${count === 1 ? 'file' : 'files'}`;
 
 export default {
   name: 'ReportArtifacts',
@@ -187,10 +182,5 @@ export default {
 }
 .report-artifact-more button:hover {
   color: var(--cavil-accent);
-}
-.report-artifact-truncated {
-  color: var(--cavil-fg-muted);
-  font-size: 12px;
-  margin: 0.5rem 0 0;
 }
 </style>
