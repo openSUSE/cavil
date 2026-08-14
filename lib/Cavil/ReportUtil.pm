@@ -534,7 +534,10 @@ sub incompatibility_location ($row) {
 
 # Indexed files are more reliable than package metadata for finding legal documents.
 # Exclude peripheral paths so dependency licenses do not bury package-level terms.
-sub license_document_candidates ($dig_report, $limit = 25) {
+#
+# Ten because a lawyer stops being able to hold the list past that, and the sort puts the shallowest
+# paths first, so what the cap drops is the deep vendored terms rather than the package's own.
+sub license_document_candidates ($dig_report, $limit = 10) {
   my $files = $dig_report->{files} || {};
 
   my @found;

@@ -141,6 +141,12 @@ export default {
 </script>
 
 <style>
+/* The pane already pads itself off the tabs; without this the first section adds its own margin on top
+   and the tab opens lower than every other one */
+.report-artifacts .report-artifact-section:first-of-type {
+  margin-top: 0;
+}
+
 /* Same left wash the legal-document and unresolved-match rows use, in neutral rather than a hue that
    would read as a verdict. Dark gets an inset rule instead: a wash over near-black is only grey haze. */
 .report-artifacts .report-artifact-item,
