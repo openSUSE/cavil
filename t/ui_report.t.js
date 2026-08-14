@@ -246,25 +246,55 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.click('[data-tab="artifacts"]');
       await page.waitForSelector('[data-artifact-section="emails"]');
 
-      // Emails section: 14 entries, collapsed by default, click to expand
-      await page.click('text=14 Emails');
-      await page.waitForSelector('#artifacts-emails.show');
-      t.match(await page.innerText('#artifacts-emails'), /coolo@suse\.com/);
+      // Every list is open on the frequency-ordered head: the tab click is the disclosure
+      const emails = page.locator('[data-artifact-section="emails"]');
+      const urls = page.locator('[data-artifact-section="urls"]');
+      const copyrights = page.locator('[data-artifact-section="copyrights"]');
+      t.match(await emails.innerText(), /14 Emails/);
+      t.match(await emails.innerText(), /coolo@suse\.com/);
+      t.match(await urls.innerText(), /54 URLs/);
+      t.match(await copyrights.innerText(), /7 Copyright notices/);
+      t.match(await copyrights.innerText(), /Copyright \(C\) 2008-2017, Sebastian Riedel/);
+      t.match(await copyrights.innerText(), /1 file/, 'a notice is counted in the files it covers');
 
-      // URLs section: 54 entries
-      await page.click('text=54 URLs');
-      await page.waitForSelector('#artifacts-urls.show');
-      t.match(await page.innerText('#artifacts-urls'), /https?:\/\//);
+      // Lists are ordered by how often each occurs, most frequent first
+      const urlCounts = await urls
+        .locator('.report-artifact-source')
+        .evaluateAll(cells => cells.map(cell => Number(cell.innerText)));
+      t.same(urlCounts, [...urlCounts].sort((a, b) => b - a), 'URLs are ordered by occurrences');
 
-      // Copyright notices are harvested by the same pass and share the tab
-      await page.click('[data-artifact-section="copyrights"] .report-artifact-label');
-      await page.waitForSelector('#artifacts-copyrights.show');
-      t.match(await page.innerText('#artifacts-copyrights'), /Copyright \(C\) 2008-2017, Sebastian Riedel/);
-      t.match(
-        await page.innerText('[data-artifact-section="copyrights"]'),
-        /7 Copyright notices/,
-        'notices are counted like the other artifacts'
-      );
+      // Only the head is shown; the tail is a click away rather than several hundred rows of scroll
+      t.equal(urlCounts.length, 10, "the 54 URLs open on their top 10");
+      t.equal(await copyrights.locator('.report-artifact-item').count(), 7, 'a short list shows in full');
+      t.equal(await copyrights.locator('[data-artifact-more]').count(), 0, 'and offers nothing to expand');
+
+      await page.click('[data-artifact-more="urls"]');
+      await page.waitForFunction(() => {
+        const list = document.querySelector('[data-artifact-section="urls"]');
+        return list && list.querySelectorAll('.report-artifact-item').length === 54;
+      });
+      t.pass('"Show all 54" reveals the rest');
+      await page.click('[data-artifact-more="urls"]');
+      await page.waitForFunction(() => {
+        const list = document.querySelector('[data-artifact-section="urls"]');
+        return list && list.querySelectorAll('.report-artifact-item').length === 10;
+      });
+      t.pass('and collapses back to the top 10');
+
+      // The filter is there for when a reviewer does know what they are after; it overrides the preview
+      await page.locator('#report-artifact-filter-input').fill('coolo');
+      await page.waitForSelector('[data-artifact-section="urls"]', {state: 'detached'});
+      t.match(await emails.innerText(), /coolo@suse\.com/, 'matching emails survive');
+      t.notMatch(await emails.innerText(), /sri@cpan\.org/, 'non-matching emails are gone');
+      t.equal(await copyrights.locator('[data-artifact-more]').count(), 0, 'a filtered list is not also previewed');
+
+      await page.locator('#report-artifact-filter-input').fill('nothingmatchesthis');
+      await page.waitForSelector('[data-artifacts-no-match]');
+      t.pass('a filter that matches nothing says so');
+
+      await page.locator('#report-artifact-filter-input').fill('');
+      await page.waitForSelector('[data-artifact-more="urls"]');
+      t.pass('clearing the filter restores the preview');
 
       await page.click('[data-tab="review"]');
 
