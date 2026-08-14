@@ -83,11 +83,11 @@ export default {
 
 <style scoped>
 .glob-proposal-help {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
 }
 .glob-proposal-help code {
-  background: #eff1f3;
+  background: var(--cavil-tint-3);
   border-radius: 4px;
   padding: 0 4px;
 }

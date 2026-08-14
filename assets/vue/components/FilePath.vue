@@ -37,13 +37,13 @@ export default {
 </script>
 
 <style>
-/* Contrast comes from the near-black name, not from fading the directory. At #8c959f the directory reads
+/* Contrast comes from the near-black name, not from fading the directory. At var(--cavil-fg-disabled) the directory reads
    as washed out, and a lower font-weight blurs it; both were checked against production paths. */
 .cavil-path-dir {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
 }
 .cavil-path-name {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
 }
 /* Both parts follow the link colour on hover, so neither looks unclickable. */
 a:hover .cavil-path *,

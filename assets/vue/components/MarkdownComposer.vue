@@ -153,14 +153,14 @@ export default {
 
 <style>
 .markdown-composer {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
 }
 .markdown-composer-tabs {
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   gap: 4px;
   padding: 6px 8px 0;
@@ -171,7 +171,7 @@ export default {
   border: 1px solid transparent;
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
@@ -182,17 +182,17 @@ export default {
   padding: 8px 14px;
 }
 .markdown-composer-tab:hover:not(:disabled):not(.active) {
-  background: #eef0f3;
-  color: #1f2328;
+  background: var(--cavil-canvas-tint-strong);
+  color: var(--cavil-fg);
 }
 .markdown-composer-tab.active {
-  background: #ffffff;
-  border-color: #d0d7de;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  border-color: var(--cavil-border);
+  color: var(--cavil-fg);
   font-weight: 600;
 }
 .markdown-composer-tab:disabled {
-  color: #afb8c1;
+  color: var(--cavil-border-strong);
   cursor: not-allowed;
 }
 .markdown-composer-write,
@@ -200,8 +200,8 @@ export default {
   padding: 10px 12px;
 }
 .markdown-composer-textarea {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   font-size: 14px;
   line-height: 1.45;
@@ -209,8 +209,8 @@ export default {
   resize: vertical;
 }
 .markdown-composer-textarea:focus {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.3);
   outline: none;
 }
 .markdown-composer-preview {
@@ -219,7 +219,7 @@ export default {
 .markdown-composer-preview-loading,
 .markdown-composer-preview-empty {
   align-items: center;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: flex;
   gap: 8px;
   justify-content: center;
@@ -227,13 +227,13 @@ export default {
 }
 .markdown-composer-preview-error {
   align-items: center;
-  color: #cf222e;
+  color: var(--cavil-danger);
   display: flex;
   gap: 8px;
   padding: 12px 4px;
 }
 .markdown-composer-preview-body {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -241,12 +241,12 @@ export default {
   margin-bottom: 0;
 }
 .markdown-composer-preview-body pre {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
   border-radius: 6px;
   padding: 10px;
 }
 .markdown-composer-preview-body code {
-  background: rgba(175, 184, 193, 0.2);
+  background: rgba(var(--cavil-neutral-cool-rgb), 0.2);
   border-radius: 4px;
   font-size: 85%;
   padding: 0.2em 0.4em;
@@ -257,8 +257,8 @@ export default {
 }
 .markdown-composer-actions {
   align-items: center;
-  background: #f6f8fa;
-  border-top: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -266,21 +266,21 @@ export default {
   padding: 8px 12px;
 }
 .markdown-composer-cancel {
-  background-color: #f6f8fa;
-  border: 1px solid rgba(31, 35, 40, 0.15);
-  color: #1f2328;
+  background-color: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-control-edge);
+  color: var(--cavil-fg);
   font-size: 13px;
   padding: 5px 14px;
 }
 .markdown-composer-cancel:hover {
-  background-color: #eef0f3;
+  background-color: var(--cavil-canvas-tint-strong);
 }
 .markdown-composer-save {
   font-size: 13px;
   padding: 5px 16px;
 }
 .markdown-composer-error {
-  color: #cf222e;
+  color: var(--cavil-danger);
   font-size: 12px;
   margin-right: auto;
 }

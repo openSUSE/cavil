@@ -316,12 +316,12 @@ export default {
       // package-root-only = cool grey-blue, peripheral = neutral grey. Size also grows with the tier so the
       // hot cells carry extra weight.
       // Defensive: a flagged cell with no proximity entry at all (only if a license has no file evidence).
-      if (p === null) [color, size] = ['#9db2c6', 0.48];
-      else if (p.peripheral) [color, size] = ['#c3c9d0', 0.48];
-      else if (p.same_file) [color, size] = ['#a21caf', 0.85];
-      else if ((p.lca_depth ?? 0) >= 3) [color, size] = ['#e5383b', 0.7];
-      else if ((p.lca_depth ?? 0) >= 1) [color, size] = ['#f9a825', 0.58];
-      else [color, size] = ['#9db2c6', 0.48];
+      if (p === null) [color, size] = ['var(--cavil-grey-2)', 0.48];
+      else if (p.peripheral) [color, size] = ['var(--cavil-edge-7)', 0.48];
+      else if (p.same_file) [color, size] = ['var(--cavil-purple-2)', 0.85];
+      else if ((p.lca_depth ?? 0) >= 3) [color, size] = ['var(--cavil-danger-5)', 0.7];
+      else if ((p.lca_depth ?? 0) >= 1) [color, size] = ['var(--cavil-attention-6)', 0.58];
+      else [color, size] = ['var(--cavil-grey-2)', 0.48];
       // Confidence dims the dot: a real match is solid, a fold muted, an unresolved guess faint - so the
       // trustworthy co-locations read strongest even at the same proximity tier.
       const opacity = p ? ({3: 1, 2: 0.7, 1: 0.5}[p.confidence] ?? 1) : 0.5;
@@ -434,16 +434,16 @@ export default {
 
 <style scoped>
 .license-matrix-card {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(27, 31, 36, 0.08);
+  box-shadow: 0 1px 3px rgba(var(--cavil-shadow-rgb), 0.08);
   min-width: 0;
   overflow: hidden;
 }
 .license-matrix-header {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   border-radius: 6px 6px 0 0;
   display: flex;
   gap: 1rem;
@@ -456,7 +456,7 @@ export default {
   margin: 0;
 }
 .license-matrix-body {
-  background: #fff;
+  background: var(--cavil-canvas);
   padding: 1rem;
 }
 
@@ -465,10 +465,10 @@ export default {
   overflow-x: auto;
 }
 .license-matrix-tooltip {
-  background: #24292f;
+  background: var(--cavil-inverse-bg);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.22);
-  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.22);
+  color: var(--cavil-inverse-fg);
   display: grid;
   font-size: 12px;
   font-weight: 600;
@@ -486,7 +486,7 @@ export default {
 }
 .license-matrix-tooltip::after {
   border: 6px solid transparent;
-  border-top-color: #24292f;
+  border-top-color: var(--cavil-inverse-bg);
   content: '';
   left: 50%;
   position: absolute;
@@ -503,7 +503,7 @@ export default {
   grid-template-columns: minmax(3.1rem, auto) minmax(0, 1fr);
 }
 .license-matrix-tooltip-label {
-  color: #c9d1d9;
+  color: var(--cavil-inverse-fg-muted);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -515,13 +515,13 @@ export default {
   font-size: 12px;
 }
 .license-matrix-corner {
-  background: #fff;
+  background: var(--cavil-canvas);
   left: 0;
   position: sticky;
   z-index: 2;
 }
 .license-matrix-colhead {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
@@ -537,11 +537,11 @@ export default {
 .license-matrix-colhead.is-selected,
 .license-matrix-rowhead.is-selected .license-matrix-rowhead-index,
 .license-matrix-rowhead.is-selected .license-matrix-rowhead-name {
-  -webkit-text-stroke: 0.4px #1f2328;
-  color: #1f2328;
+  -webkit-text-stroke: 0.4px var(--cavil-fg);
+  color: var(--cavil-fg);
 }
 .license-matrix-rowhead {
-  background: #fff;
+  background: var(--cavil-canvas);
   left: 0;
   padding: 0.15rem 0.85rem 0.15rem 0;
   position: sticky;
@@ -551,7 +551,7 @@ export default {
   z-index: 1;
 }
 .license-matrix-rowhead-index {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   display: inline-block;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -561,7 +561,7 @@ export default {
   text-align: right;
 }
 .license-matrix-rowhead-name {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 12px;
   font-weight: 500;
 }
@@ -588,27 +588,27 @@ export default {
 }
 /* Colour classes - shared by the grid cells and the legend swatches (colour only, no behaviour) */
 .cell-self {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .cell-yes {
-  background: #ebedf0;
+  background: var(--cavil-tint-8);
 }
 .cell-no {
-  background: #ffebe9;
-  border-color: #ffcecb;
-  color: #cf222e;
+  background: var(--cavil-danger-bg);
+  border-color: var(--cavil-danger-border);
+  color: var(--cavil-danger);
   font-weight: 600;
 }
 .cell-check {
-  background: #fff8c5;
-  border-color: #9aa3ad66;
-  color: #7d4e00;
+  background: var(--cavil-attention-bg);
+  border-color: var(--cavil-edge-8);
+  color: var(--cavil-attention-deep);
   font-weight: 600;
 }
 .cell-unknown {
-  background: #eaeef2;
-  border-color: rgba(110, 119, 129, 0.25);
-  color: #57606a;
+  background: var(--cavil-neutral-bg);
+  border-color: rgba(var(--cavil-neutral-alt-rgb), 0.25);
+  color: var(--cavil-fg-muted);
 }
 /* In the grid the cell itself is a transparent tile; the colour lives in the dot (see below). The
    colour classes above are reused as-is by the legend swatches. */
@@ -626,13 +626,13 @@ export default {
    neutral slate (not red) so it marks the region without doubling up on the red dots; the red dots stay
    the severity signal. */
 .license-matrix-cell.cell-no.is-mutual {
-  background: #e7ebf1;
+  background: var(--cavil-tint-11);
   border-radius: 6px;
 }
 /* In Likelihood mode the "both directions" block is less relevant (proximity, not direction, is the point),
    so soften its fill to a barely-there tint that still groups the region without competing with the heat. */
 .license-matrix-cell.mode-likelihood.cell-no.is-mutual {
-  background: #f3f5f8;
+  background: var(--cavil-tint-1);
 }
 /* Merge a run of adjacent mutual tiles into a single block: square off (and, via border-spacing:0,
    butt up against) every side that touches another mutual tile, so only the block's outer corners
@@ -655,13 +655,13 @@ export default {
 }
 /* Solid, soft dots (no rings) - one calm mark per flagged relationship. */
 .license-matrix-cell.cell-no .license-matrix-mark {
-  background: #6f7b89;
+  background: var(--cavil-grey-3);
 }
 .license-matrix-cell.cell-check .license-matrix-mark {
-  background: #9aa3ad;
+  background: var(--cavil-grey-1);
 }
 .license-matrix-cell.cell-unknown .license-matrix-mark {
-  background: #c4c9cf;
+  background: var(--cavil-edge-6);
 }
 
 /* Only the grid cells are interactive; the legend swatches reuse the colour classes above */
@@ -678,8 +678,8 @@ export default {
 /* Selected cell: the dot lifts (grows + soft shadow with a white halo) like a tapped calendar day. */
 .license-matrix-cell.is-active .license-matrix-mark {
   box-shadow:
-    0 0 0 2px #ffffff,
-    0 1px 3px rgba(27, 31, 36, 0.28);
+    0 0 0 2px var(--cavil-canvas),
+    0 1px 3px rgba(var(--cavil-shadow-rgb), 0.28);
   transform: scale(1.3);
 }
 
@@ -687,8 +687,8 @@ export default {
    eye path. Muted swatch + text, no chip chrome, so it recedes rather than competing for attention. */
 .license-matrix-legend {
   align-items: center;
-  border-top: 1px solid #eaeef2;
-  color: #6e7781;
+  border-top: 1px solid var(--cavil-neutral-bg);
+  color: var(--cavil-fg-subtle);
   display: flex;
   flex-wrap: wrap;
   font-size: 11px;
@@ -710,22 +710,22 @@ export default {
 }
 /* Solid dots, matching the grid marks. */
 .license-matrix-swatch.cell-no {
-  background: #6f7b89;
+  background: var(--cavil-grey-3);
 }
 .license-matrix-swatch.cell-check {
-  background: #9aa3ad;
+  background: var(--cavil-grey-1);
 }
 .license-matrix-swatch.cell-unknown {
-  background: #c4c9cf;
+  background: var(--cavil-edge-6);
 }
 /* Compatible is drawn as empty space in the grid; show a faint outline here to say so. */
 .license-matrix-swatch.cell-yes {
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1px #d0d7de;
+  background: var(--cavil-canvas);
+  box-shadow: inset 0 0 0 1px var(--cavil-border);
 }
 /* Both-directions: the filled tile behind the dot. */
 .license-matrix-swatch.swatch-mutual {
-  background: #e7ebf1;
+  background: var(--cavil-tint-11);
   border-radius: 3px;
 }
 
@@ -735,10 +735,10 @@ export default {
 .license-matrix-toggle {
   align-items: baseline;
   appearance: none;
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  color: #1f2328;
+  color: var(--cavil-fg);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -749,31 +749,31 @@ export default {
   padding: 0.25rem 0.55rem;
 }
 .license-matrix-toggle:hover {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .license-matrix-toggle-count {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 1rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   line-height: 1;
 }
 .license-matrix-toggle-unit {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
   font-weight: 600;
 }
 
 .license-matrix-detail {
-  border-top: 1px solid #d0d7de;
+  border-top: 1px solid var(--cavil-border);
 }
 
 /* A deliberate two-band element: a verdict-tinted title bar over the explanation body. The bar's
    colour matches the cell that was clicked, tying the panel to the grid. */
 .license-matrix-detail-bar {
   align-items: center;
-  border-bottom: 1px solid #d0d7de;
-  color: #1f2328;
+  border-bottom: 1px solid var(--cavil-border);
+  color: var(--cavil-fg);
   display: flex;
   flex-wrap: wrap;
   font-size: 12px;
@@ -782,19 +782,19 @@ export default {
   padding: 0.55rem 1rem;
 }
 .bar-no {
-  background: #e8edf3;
-  border-bottom-color: #d2dce7;
+  background: var(--cavil-tint-9);
+  border-bottom-color: var(--cavil-edge-5);
 }
 .bar-check {
-  background: #eceef1;
-  border-bottom-color: #dbe0e6;
+  background: var(--cavil-tint-7);
+  border-bottom-color: var(--cavil-edge-4);
 }
 .bar-unknown {
-  background: #eef0f2;
-  border-bottom-color: #dde2e8;
+  background: var(--cavil-tint-6);
+  border-bottom-color: var(--cavil-edge-3);
 }
 .license-matrix-verdict {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-weight: 700;
 }
 .license-matrix-detail-title {
@@ -804,7 +804,7 @@ export default {
   gap: 0.4rem;
 }
 .license-matrix-detail-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -812,28 +812,28 @@ export default {
   text-transform: uppercase;
 }
 .license-matrix-connector {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
 }
 .license-matrix-detail-name {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-weight: 600;
 }
 .license-matrix-detail-body {
-  background: #ffffff;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  color: var(--cavil-fg);
   font-size: 13px;
   line-height: 1.5;
   margin: 0;
   padding: 0.85rem 1rem;
 }
 .bar-no + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(90, 108, 132, 0.55);
+  box-shadow: inset 0 11px 17px -20px rgba(var(--cavil-shadow-cool-rgb), 0.55);
 }
 .bar-check + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(154, 163, 173, 0.5);
+  box-shadow: inset 0 11px 17px -20px rgba(var(--cavil-neutral-soft-rgb), 0.5);
 }
 .bar-unknown + .license-matrix-detail-body {
-  box-shadow: inset 0 11px 17px -20px rgba(196, 201, 207, 0.5);
+  box-shadow: inset 0 11px 17px -20px rgba(var(--cavil-neutral-pale-rgb), 0.5);
 }
 
 /* Header controls: the colour-mode switch sits next to the show-all toggle. */
@@ -843,17 +843,17 @@ export default {
   gap: 0.6rem;
 }
 .license-matrix-mode {
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   display: inline-flex;
   overflow: hidden;
 }
 .license-matrix-mode-btn {
   appearance: none;
-  background: #fff;
+  background: var(--cavil-canvas);
   border: 0;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
@@ -862,19 +862,19 @@ export default {
   padding: 0.25rem 0.6rem;
 }
 .license-matrix-mode-btn + .license-matrix-mode-btn {
-  border-left: 1px solid #d0d7de;
+  border-left: 1px solid var(--cavil-border);
 }
 .license-matrix-mode-btn:hover {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .license-matrix-mode-btn.is-on {
-  background: #0969da;
-  color: #fff;
+  background: var(--cavil-accent-emphasis);
+  color: var(--cavil-on-accent);
 }
 
 /* Detail panel "Where" band: proximity summary + file-browser links, parked under the OSADL explanation. */
 .license-matrix-where {
-  border-top: 1px solid #eaeef2;
+  border-top: 1px solid var(--cavil-neutral-bg);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -887,21 +887,21 @@ export default {
   gap: 0.5rem;
 }
 .license-matrix-where-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 .license-matrix-where-verdict {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 13px;
   font-weight: 600;
 }
 .license-matrix-where-tag {
-  background: #eef1f4;
+  background: var(--cavil-tint-5);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 600;
   padding: 0.05rem 0.5rem;
@@ -909,8 +909,8 @@ export default {
 /* Files stacked one per line on a dotted rail, matching the license list's file lists (.risk-file-list in
    ReportDetails): a muted link with a small ::before dot, blue + underline only on hover. */
 .license-matrix-file-list {
-  border-left: 1px solid #d0d7de;
-  color: #57606a;
+  border-left: 1px solid var(--cavil-border);
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   list-style: none;
   margin: 0.1rem 0 0 0.35rem;
@@ -925,10 +925,10 @@ export default {
   position: relative;
 }
 .license-matrix-file-list li::before {
-  background: #6e7781;
-  border: 2px solid #ffffff;
+  background: var(--cavil-fg-subtle);
+  border: 2px solid var(--cavil-canvas);
   border-radius: 50%;
-  box-shadow: 0 0 0 1px #d0d7de;
+  box-shadow: 0 0 0 1px var(--cavil-border);
   content: '';
   height: 0.45rem;
   margin-left: -1.15rem;
@@ -938,31 +938,31 @@ export default {
   margin-top: 0.35rem;
 }
 .license-matrix-file-link {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   overflow-wrap: anywhere;
   text-decoration-color: transparent;
 }
 .license-matrix-file-link:hover,
 .license-matrix-file-link:focus {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
 
 /* Likelihood legend swatches: distinct hues down the heat scale, a grey for peripheral - matching
    markStyle so the grid and the key read as one scale. */
 .license-matrix-swatch.swatch-file {
-  background: #a21caf;
+  background: var(--cavil-purple-2);
 }
 .license-matrix-swatch.swatch-deep {
-  background: #e5383b;
+  background: var(--cavil-danger-5);
 }
 .license-matrix-swatch.swatch-shared {
-  background: #f9a825;
+  background: var(--cavil-attention-6);
 }
 .license-matrix-swatch.swatch-root {
-  background: #9db2c6;
+  background: var(--cavil-grey-2);
 }
 .license-matrix-swatch.swatch-peripheral {
-  background: #c3c9d0;
+  background: var(--cavil-edge-7);
 }
 </style>

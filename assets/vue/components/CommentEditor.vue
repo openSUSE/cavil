@@ -211,20 +211,20 @@ export default {
 
 <style scoped>
 .comment-editor {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
 }
 .comment-editor:focus-within {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.18);
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.18);
 }
 .comment-editor-header {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
-  color: #1f2328;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
+  color: var(--cavil-fg);
   display: flex;
   font-size: 13px;
   font-weight: 600;
@@ -242,11 +242,11 @@ export default {
 }
 .comment-editor-tool-btn {
   align-items: center;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #d0d7de;
+  background: var(--cavil-surface-raised);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
-  color: #1f2328;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-alt-rgb), 0.08);
+  color: var(--cavil-fg);
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
@@ -260,14 +260,14 @@ export default {
   width: 28px;
 }
 .comment-editor-tool-btn:hover:not(:disabled) {
-  background: #ffffff;
-  box-shadow: 0 2px 4px rgba(31, 35, 40, 0.12);
-  color: #0969da;
+  background: var(--cavil-canvas);
+  box-shadow: 0 2px 4px rgba(var(--cavil-shadow-alt-rgb), 0.12);
+  color: var(--cavil-accent);
 }
 .comment-editor-tool-btn:focus {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
-  color: #0969da;
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.3);
+  color: var(--cavil-accent);
   outline: none;
 }
 .comment-editor-tool-btn:disabled {
@@ -275,14 +275,14 @@ export default {
   opacity: 0.5;
 }
 .comment-editor-hints {
-  background: #f6f8fa;
-  border-top: 1px solid #d0d7de;
-  color: #57606a;
+  background: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
+  color: var(--cavil-fg-muted);
   font-size: 12px;
   padding: 0.35rem 0.75rem;
 }
 .comment-editor-hints code {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
 }
 .comment-editor-host :deep(.cm-editor) {
   height: auto;
@@ -292,10 +292,10 @@ export default {
   outline: none;
 }
 .comment-editor-host :deep(.cavil-placeholder) {
-  background: #ddf4ff;
+  background: var(--cavil-accent-bg);
   border-radius: 3px;
-  box-shadow: inset 0 0 0 1px #b6e3ff;
-  color: #0550ae;
+  box-shadow: inset 0 0 0 1px var(--cavil-accent-border);
+  color: var(--cavil-accent-strong);
 }
 .comment-editor.is-interactive .comment-editor-host :deep(.cavil-placeholder) {
   cursor: pointer;

@@ -751,7 +751,7 @@ export default {
   margin-bottom: 1.1rem;
 }
 .report-metadata-list {
-  color: #1f2328;
+  color: var(--cavil-fg);
   display: grid;
   font-feature-settings: 'liga', 'kern';
   font-size: 15px;
@@ -762,7 +762,7 @@ export default {
   margin: 0;
 }
 .report-metadata-list dt {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -775,7 +775,7 @@ export default {
   overflow-wrap: anywhere;
 }
 .report-metadata-list a:not(.cavil-external-link-target) {
-  color: #0969da;
+  color: var(--cavil-accent);
   text-decoration: none;
   text-underline-offset: 2px;
 }
@@ -784,7 +784,7 @@ export default {
   text-decoration: underline;
 }
 .report-metadata-list small {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   font-size: 12px;
   font-weight: 400;
 }
@@ -802,7 +802,7 @@ export default {
 }
 .report-metadata-id {
   border-radius: 6px;
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 14px;
   padding: 0.05rem 0.35rem;
@@ -812,12 +812,12 @@ export default {
 }
 .report-metadata-id:hover,
 .report-metadata-id:focus {
-  background: #f6f8fa;
-  color: #0969da;
+  background: var(--cavil-canvas-subtle);
+  color: var(--cavil-accent);
   outline: none;
 }
 .report-metadata-collapse-link {
-  border-bottom: 1px dashed #afb8c1;
+  border-bottom: 1px dashed var(--cavil-border-strong);
 }
 .report-metadata-collapse-link:hover,
 .report-metadata-collapse-link:focus {
@@ -841,10 +841,10 @@ export default {
 }
 .metadata-count-pill {
   align-items: center;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 12px;
   font-weight: 600;
@@ -855,24 +855,33 @@ export default {
 }
 .metadata-count-pill:hover,
 .metadata-count-pill:focus {
-  background: #eef6ff;
-  border-color: #b6e3ff;
-  color: #0969da;
+  background: var(--cavil-accent-tint-1);
+  border-color: var(--cavil-accent-border);
+  color: var(--cavil-accent);
   text-decoration: none;
 }
 .cavil-notice-item.legal-document-item {
   align-items: baseline;
-  background: linear-gradient(90deg, rgba(26, 127, 55, 0.08), #ffffff 2.5rem);
+  background: linear-gradient(90deg, rgba(var(--cavil-success-rgb), 0.08), var(--cavil-canvas) 2.5rem);
   display: flex;
   gap: 0.85rem;
   white-space: normal;
 }
 .cavil-notice-item.legal-document-item:hover {
-  background: linear-gradient(90deg, rgba(26, 127, 55, 0.12), #f6f8fa 2.5rem);
+  background: linear-gradient(90deg, rgba(var(--cavil-success-rgb), 0.12), var(--cavil-canvas-subtle) 2.5rem);
+}
+/* A wash needs a light canvas to read as a tint; over near-black it only ever comes out as
+   grey haze. Dark marks the row the way the risk bands already do, with a thin inset rule. */
+[data-bs-theme='dark'] .cavil-notice-item.legal-document-item {
+  background: var(--cavil-canvas);
+  box-shadow: inset 2px 0 0 var(--cavil-success-emphasis);
+}
+[data-bs-theme='dark'] .cavil-notice-item.legal-document-item:hover {
+  background: var(--cavil-canvas-subtle);
 }
 /* File names follow the report's convention: muted until hovered, where they turn link-blue */
 .legal-document-path {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   flex: 1 1 auto;
   font-size: 13px;
   font-weight: 500;
@@ -883,14 +892,14 @@ export default {
 }
 .legal-document-path:hover,
 .legal-document-path:focus {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
 .legal-document-lines {
   /* The mark has no text of its own, so its baseline is its bottom edge: it sits on the annotation's
      baseline, where it sat when it was part of that text run. Stretch would hang it from the top. */
   align-items: baseline;
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   display: flex;
   flex: 0 0 auto;
   font-size: 12px;
@@ -906,13 +915,13 @@ export default {
   gap: 2px;
 }
 .legal-document-block {
-  background: #d0d7de;
+  background: var(--cavil-border);
   border-radius: 1px;
   height: 8px;
   width: 8px;
 }
 .legal-document-block.is-unknown {
-  background: #bf8700;
+  background: var(--cavil-attention-strong);
 }
 .metadata-collapse-inner {
   padding: 0.85rem 0 1.1rem;
@@ -925,8 +934,8 @@ export default {
 }
 .metadata-related-item {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 8px;
   display: grid;
   gap: 0.75rem;
@@ -941,20 +950,20 @@ export default {
 }
 .metadata-related-item:hover,
 .metadata-file-item:hover {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .metadata-related-name {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 13px;
   font-weight: 600;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 .metadata-related-pill {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
@@ -963,7 +972,7 @@ export default {
 }
 .metadata-related-user,
 .metadata-related-date {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -975,12 +984,12 @@ export default {
 }
 .metadata-related-date:hover,
 .metadata-related-date:focus {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
 .metadata-file-item {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 8px;
   margin-bottom: 0.85rem;
   overflow: hidden;
@@ -991,9 +1000,9 @@ export default {
 }
 .metadata-file-title {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
-  color: #1f2328;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
+  color: var(--cavil-fg);
   display: flex;
   font-size: 13px;
   font-weight: 600;
@@ -1004,7 +1013,7 @@ export default {
   padding: 0.65rem 0.85rem;
 }
 .metadata-file-title i {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
 }
 .metadata-file-title a {
   color: inherit;
@@ -1024,11 +1033,11 @@ export default {
   padding: 0.75rem 0.85rem;
 }
 .metadata-file-details dt {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-weight: 600;
 }
 .metadata-file-details dd {
-  color: #1f2328;
+  color: var(--cavil-fg);
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1046,16 +1055,16 @@ export default {
    surrounding notice stack so reviewers and packagers can't miss it,
    regardless of whether the body is a single sentence or a multi-line diff. */
 .review-information-card {
-  background: #ffffff;
-  border: 1px solid #1f2328;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-review-card-border);
   border-radius: 6px;
   margin: 1.25rem 0;
   overflow: hidden;
 }
 .review-information-card-bar {
   align-items: center;
-  background: #1f2328;
-  color: #d0d7de;
+  background: var(--cavil-inverse-bg-alt);
+  color: var(--cavil-inverse-fg-subtle);
   display: flex;
   font-size: 12px;
   font-weight: 500;
@@ -1065,7 +1074,7 @@ export default {
   text-transform: lowercase;
 }
 .review-information-card-bar i {
-  color: #7d8590;
+  color: var(--cavil-grey-4);
   font-size: 11px;
 }
 /* The compared report id links to that report, but stays typographically
@@ -1079,7 +1088,7 @@ export default {
   text-decoration: underline;
 }
 .review-information-card-body {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 13px;
   line-height: 1.55;
@@ -1187,14 +1196,17 @@ export default {
   align-items: center;
   padding: 0.5rem;
   border-radius: 1rem;
-  background-color: #0b374d;
-  color: #ffffff;
+  background-color: var(--cavil-accent-deep-2);
+  color: var(--cavil-canvas);
   width: 150px;
 }
 .cavil-package-format-icon i {
-  color: #6c757d;
+  color: var(--cavil-fg-secondary);
 }
 
+/* The fills stay put across themes: they are saturated chips carrying white text, and the
+   brighter dark-mode greens and reds would drop that below legible. The neutral one is the
+   exception, because its light value inverts to a pale grey. */
 .cavil-green-ribbon {
   --cavil-ribbon-bg-color: #198754;
 }
@@ -1206,10 +1218,30 @@ export default {
   --cavil-ribbon-bg-color: #dc3545;
 }
 .cavil-gray-ribbon {
-  --cavil-ribbon-bg-color: #57606a;
+  --cavil-ribbon-bg-color: var(--cavil-risk-unknown-bg);
+}
+/* Tinted rather than filled, matching the risk chips. The ribbon is still the loudest thing
+   on the page: at this size the emphasis comes from the shape, so it does not also need a
+   saturated fill, which next to the chips just read as dated. No border, because clip-path
+   cuts the arrow out of the element and would cut the border with it. */
+[data-bs-theme='dark'] .cavil-green-ribbon {
+  --cavil-ribbon-bg-color: rgba(var(--cavil-success-rgb), 0.22);
+  --cavil-ribbon-color: var(--cavil-success);
+}
+[data-bs-theme='dark'] .cavil-orange-ribbon {
+  --cavil-ribbon-bg-color: rgba(var(--cavil-attention-border-rgb), 0.22);
+  --cavil-ribbon-color: var(--cavil-attention-deep);
+}
+[data-bs-theme='dark'] .cavil-red-ribbon {
+  --cavil-ribbon-bg-color: rgba(var(--cavil-danger-rgb), 0.22);
+  --cavil-ribbon-color: var(--cavil-danger);
+}
+[data-bs-theme='dark'] .cavil-gray-ribbon {
+  --cavil-ribbon-bg-color: var(--cavil-neutral-bg);
+  --cavil-ribbon-color: var(--cavil-fg-muted);
 }
 .cavil-ribbon {
-  color: var(--cavil-ribbon-color, #fff);
+  color: var(--cavil-ribbon-color, var(--cavil-on-accent));
   font-family:
     system-ui,
     -apple-system,

@@ -44,17 +44,17 @@ export default {
 
 <style>
 .cavil-notice-panel {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 8px;
-  color: #1f2328;
+  color: var(--cavil-fg);
   margin: 1.25rem 0;
   overflow: hidden;
 }
 .cavil-notice-panel-intro {
   align-items: center;
-  background: #f6f8fa;
-  color: #57606a;
+  background: var(--cavil-canvas-subtle);
+  color: var(--cavil-fg-muted);
   display: flex;
   font-size: 14px;
   gap: 0.75rem;
@@ -85,9 +85,9 @@ export default {
 }
 .cavil-notice-heading {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
-  color: #1f2328;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
+  color: var(--cavil-fg);
   display: flex;
   font-size: 13px;
   font-weight: 600;
@@ -96,66 +96,79 @@ export default {
   padding: 0.65rem 0.85rem;
 }
 .cavil-notice-heading i {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
 }
 /* What the panel is not showing belongs to the panel, not to a row of the list it is missing from */
 .cavil-notice-heading-note {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-weight: 400;
   margin-left: auto;
 }
 .cavil-notice-panel-warning {
-  border-color: #eac54f;
+  border-color: var(--cavil-attention-3);
 }
 .cavil-notice-panel-warning .cavil-notice-heading {
-  background: #fff8c5;
-  border-bottom-color: #eac54f;
-  color: #7d4e00;
+  background: var(--cavil-attention-bg);
+  border-bottom-color: var(--cavil-attention-3);
+  color: var(--cavil-attention-deep);
 }
 .cavil-notice-panel-warning .cavil-notice-heading i {
-  color: #7d4e00;
+  color: var(--cavil-attention-deep);
 }
 .cavil-notice-panel-info {
-  border-color: #b6e3ff;
+  border-color: var(--cavil-accent-border);
 }
 .cavil-notice-panel-info .cavil-notice-heading {
-  background: #ddf4ff;
-  border-bottom-color: #b6e3ff;
-  color: #0550ae;
+  background: var(--cavil-accent-bg);
+  border-bottom-color: var(--cavil-accent-border);
+  color: var(--cavil-accent-strong);
 }
 .cavil-notice-panel-info .cavil-notice-heading i {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
 }
 .cavil-notice-panel-success {
-  border-color: #aceebb;
+  border-color: var(--cavil-success-tint-3);
 }
 .cavil-notice-panel-success .cavil-notice-heading {
-  background: #dafbe1;
-  border-bottom-color: #aceebb;
-  color: #116329;
+  background: var(--cavil-success-tint-1);
+  border-bottom-color: var(--cavil-success-tint-3);
+  color: var(--cavil-success-deep);
 }
 .cavil-notice-panel-success .cavil-notice-heading i {
-  color: #116329;
+  color: var(--cavil-success-deep);
 }
+/* Light edges these panels with a pale tint of the hue. Inverting a pale tint lands on a
+   saturated mid-tone, which next to the chips reads as a hard outline, so dark uses the
+   same translucent hue border the chips do. The heading only has a bottom edge, so setting
+   all four is harmless. */
+[data-bs-theme='dark'] .cavil-notice-panel-warning,
+[data-bs-theme='dark'] .cavil-notice-panel-warning .cavil-notice-heading {
+  border-color: var(--cavil-attention-border);
+}
+[data-bs-theme='dark'] .cavil-notice-panel-success,
+[data-bs-theme='dark'] .cavil-notice-panel-success .cavil-notice-heading {
+  border-color: var(--cavil-success-border);
+}
+
 .cavil-notice-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .cavil-notice-summary {
-  background: #ffffff;
-  color: #57606a;
+  background: var(--cavil-canvas);
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   line-height: 1.45;
   margin: 0;
   padding: 0.75rem 0.85rem;
 }
 .cavil-notice-summary + .cavil-notice-list {
-  border-top: 1px solid #d8dee4;
+  border-top: 1px solid var(--cavil-border-muted);
 }
 .cavil-notice-item {
-  background: #ffffff;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  color: var(--cavil-fg);
   font-size: 14px;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -167,7 +180,7 @@ export default {
   position: relative;
 }
 .cavil-notice-panel-warning .cavil-notice-item::before {
-  background: #bf8700;
+  background: var(--cavil-attention-strong);
   border-radius: 50%;
   content: '';
   height: 0.4rem;
@@ -177,11 +190,11 @@ export default {
   width: 0.4rem;
 }
 .cavil-notice-item + .cavil-notice-item {
-  border-top: 1px solid #d8dee4;
+  border-top: 1px solid var(--cavil-border-muted);
 }
 .cavil-notice-pre {
-  background: #ffffff;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  color: var(--cavil-fg);
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
@@ -199,11 +212,11 @@ export default {
   padding: 0.75rem 0.85rem;
 }
 .cavil-notice-definition-list dt {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-weight: 600;
 }
 .cavil-notice-definition-list dd {
-  color: #1f2328;
+  color: var(--cavil-fg);
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;

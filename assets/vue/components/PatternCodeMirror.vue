@@ -22,9 +22,9 @@ export default {
       '&': {fontSize: '13px'},
       '.cm-scroller': {fontFamily: 'monospace, monospace', overflow: 'auto'},
       '.cm-gutters': {
-        backgroundColor: '#f6f8fa',
-        color: '#6e7781',
-        borderRight: '1px solid #d0d7de'
+        backgroundColor: 'var(--cavil-canvas-subtle)',
+        color: 'var(--cavil-fg-subtle)',
+        borderRight: '1px solid var(--cavil-border)'
       },
       '.cm-lineNumbers .cm-gutterElement': {padding: '0 8px 0 6px'}
     });
@@ -66,7 +66,7 @@ export default {
 
 <style scoped>
 .pattern-codemirror-host {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
 }

@@ -199,8 +199,8 @@ export default {
 }
 .upload-dropzone {
   align-items: center;
-  background: #f6f8fa;
-  border: 2px dashed #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 2px dashed var(--cavil-border);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -215,35 +215,35 @@ export default {
 }
 .upload-dropzone:hover,
 .upload-dropzone:focus {
-  border-color: #0969da;
+  border-color: var(--cavil-accent);
   outline: none;
 }
 .upload-dropzone.is-dragging {
-  background: #ddf4ff;
-  border-color: #0969da;
+  background: var(--cavil-accent-bg);
+  border-color: var(--cavil-accent);
 }
 .upload-dropzone.has-file {
-  background: #ffffff;
+  background: var(--cavil-canvas);
   border-style: solid;
 }
 .upload-file-input {
   display: none;
 }
 .upload-dropzone-icon {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-size: 1.75rem;
 }
 .upload-dropzone-primary {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 15px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 .upload-dropzone-link {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 .upload-dropzone-secondary {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
 }
 </style>

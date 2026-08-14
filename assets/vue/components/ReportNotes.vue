@@ -610,9 +610,9 @@ export default {
 .report-notes-loading,
 .report-notes-empty {
   align-items: center;
-  border: 1px dashed #d0d7de;
+  border: 1px dashed var(--cavil-border);
   border-radius: 8px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -622,15 +622,15 @@ export default {
   text-align: center;
 }
 .report-notes-empty i {
-  color: #afb8c1;
+  color: var(--cavil-border-strong);
   font-size: 28px;
 }
 .report-notes-error {
   align-items: center;
-  background: #ffebe9;
-  border: 1px solid #ff818266;
+  background: var(--cavil-danger-bg);
+  border: 1px solid var(--cavil-danger-edge);
   border-radius: 6px;
-  color: #82071e;
+  color: var(--cavil-danger-2);
   display: flex;
   gap: 8px;
   margin: 12px 0;
@@ -638,9 +638,9 @@ export default {
 }
 .report-note-retry {
   background: transparent;
-  border: 1px solid #cf222e;
+  border: 1px solid var(--cavil-danger);
   border-radius: 6px;
-  color: #cf222e;
+  color: var(--cavil-danger);
   cursor: pointer;
   margin-left: auto;
   padding: 2px 10px;
@@ -651,8 +651,8 @@ export default {
   padding: 0;
 }
 .report-note {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 8px;
   margin-bottom: 16px;
   overflow: hidden;
@@ -673,8 +673,8 @@ export default {
 .report-note-relevance-overlay {
   align-items: center;
   backdrop-filter: blur(2px);
-  background: rgba(255, 255, 255, 0.68);
-  color: #6e7781;
+  background: rgba(var(--cavil-canvas-rgb), 0.68);
+  color: var(--cavil-fg-subtle);
   display: flex;
   font-size: 11px;
   font-weight: 600;
@@ -693,10 +693,10 @@ export default {
   z-index: 1;
 }
 .report-note-relevance-label {
-  background: rgba(246, 248, 250, 0.88);
-  border: 1px solid rgba(110, 119, 129, 0.22);
+  background: rgba(var(--cavil-canvas-subtle-rgb), 0.88);
+  border: 1px solid rgba(var(--cavil-neutral-alt-rgb), 0.22);
   border-radius: 2em;
-  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.04);
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-alt-rgb), 0.04);
   padding: 2px 10px;
 }
 .report-note-deemphasized:hover .report-note-relevance-overlay,
@@ -710,36 +710,36 @@ export default {
   opacity: 1;
 }
 .report-note-lawyer-only {
-  border-left: 4px solid #bf8700;
-  background: linear-gradient(180deg, rgba(255, 244, 207, 0.45) 0%, #ffffff 60px);
+  border-left: 4px solid var(--cavil-attention-strong);
+  background: linear-gradient(180deg, rgba(var(--cavil-attention-tint-rgb), 0.45) 0%, var(--cavil-canvas) 60px);
 }
 /* Pinned notes keep the normal card shape - the left-border accent belongs to
    lawyer-only, and the two flags combine on one card. A firmer border plus the
    badge is enough to read as "held above the list". */
 .report-note-pinned {
-  border-color: #8c959f;
+  border-color: var(--cavil-fg-disabled);
 }
 .report-note-pinned-last {
   margin-bottom: 28px;
 }
 .report-note-header {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   padding: 10px 14px;
 }
 .report-note-lawyer-only .report-note-header {
-  background: #fff8e1;
-  border-bottom-color: #e9c46a;
+  background: var(--cavil-attention-tint-1);
+  border-bottom-color: var(--cavil-attention-2);
 }
 .report-note-avatar {
   align-items: center;
-  background: #0969da;
+  background: var(--cavil-accent-emphasis);
   border-radius: 50%;
-  color: #ffffff;
+  color: var(--cavil-on-accent);
   display: inline-flex;
   font-size: 13px;
   font-weight: 600;
@@ -748,13 +748,13 @@ export default {
   width: 28px;
 }
 .report-note-byline {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   flex: 1 1 auto;
   font-size: 13px;
   min-width: 0;
 }
 .report-note-author {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-weight: 600;
 }
 .report-note-role {
@@ -770,42 +770,42 @@ export default {
   white-space: nowrap;
 }
 .report-note-role-lawyer {
-  background: #fff8c5;
-  border-color: #d4a72c66;
-  color: #7d4e00;
+  background: var(--cavil-attention-bg);
+  border-color: var(--cavil-attention-border);
+  color: var(--cavil-attention-deep);
 }
 .report-note-role-admin {
-  background: #ddf4ff;
-  border-color: #54aeff66;
-  color: #0550ae;
+  background: var(--cavil-accent-bg);
+  border-color: var(--cavil-accent-vivid-fade);
+  color: var(--cavil-accent-strong);
 }
 .report-note-role-user {
-  background: #eaeef2;
-  border-color: rgba(110, 119, 129, 0.25);
-  color: #57606a;
+  background: var(--cavil-neutral-bg);
+  border-color: rgba(var(--cavil-neutral-alt-rgb), 0.25);
+  color: var(--cavil-fg-muted);
 }
 .report-note-date {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
 }
 .report-note-permalink {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   text-decoration: none;
 }
 .report-note-permalink:hover {
-  color: #0969da;
+  color: var(--cavil-accent);
   text-decoration: underline;
 }
 .report-note-package-link {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-weight: 600;
   text-decoration: none;
 }
 .report-note-package-link:hover {
-  color: #0969da;
+  color: var(--cavil-accent);
   text-decoration: underline;
 }
 .report-note-package-name {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-weight: 600;
 }
 .report-note-highlight {
@@ -813,10 +813,10 @@ export default {
 }
 @keyframes report-note-flash {
   0% {
-    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.45);
+    box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.45);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(9, 105, 218, 0);
+    box-shadow: 0 0 0 0 rgba(var(--cavil-accent-rgb), 0);
   }
 }
 .report-note-badges {
@@ -837,38 +837,38 @@ export default {
   white-space: nowrap;
 }
 .report-note-badge.lawyer-only-badge {
-  background: #fff8c5;
-  border-color: #d4a72c66;
-  color: #7d4e00;
+  background: var(--cavil-attention-bg);
+  border-color: var(--cavil-attention-border);
+  color: var(--cavil-attention-deep);
   text-transform: none;
 }
 .report-note-badge.ai-assisted-badge {
-  background: #ddf4ff;
-  border-color: #54aeff66;
-  color: #0550ae;
+  background: var(--cavil-accent-bg);
+  border-color: var(--cavil-accent-vivid-fade);
+  color: var(--cavil-accent-strong);
   text-transform: none;
 }
 .report-note-badge.pinned-badge {
-  background: #eaeef2;
-  border-color: rgba(110, 119, 129, 0.35);
-  color: #424a53;
+  background: var(--cavil-neutral-bg);
+  border-color: rgba(var(--cavil-neutral-alt-rgb), 0.35);
+  color: var(--cavil-fg-muted-strong);
   text-transform: none;
 }
 /* Origin badge: a neutral provenance link. Relevance is conveyed by the row
    (relevant = full contrast, non-relevant = de-emphasized), not the badge. */
 .report-note-badge.origin-report-badge {
-  background: #eaeef2;
-  border-color: rgba(110, 119, 129, 0.25);
-  color: #57606a;
+  background: var(--cavil-neutral-bg);
+  border-color: rgba(var(--cavil-neutral-alt-rgb), 0.25);
+  color: var(--cavil-fg-muted);
   text-decoration: none;
   text-transform: none;
 }
 .report-note-badge.origin-report-badge:hover {
-  background: #dde3ea;
+  background: var(--cavil-edge-2);
   text-decoration: none;
 }
 .report-note-origin-state {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   font-style: italic;
 }
 .report-notes-toolbar {
@@ -880,7 +880,7 @@ export default {
 }
 .report-notes-relevance-toggle {
   align-items: center;
-  color: #1f2328;
+  color: var(--cavil-fg);
   display: inline-flex;
   font-size: 13px;
   gap: 6px;
@@ -890,37 +890,37 @@ export default {
   margin: 0;
 }
 .report-notes-relevance-hint {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
 }
 /* Tag chip + editor styles live in TagInput.vue (imported here), which is the
    canonical home of the tag widget and supplies these .report-note-tag* rules. */
 .report-note-pin.is-pinned {
-  color: #424a53;
+  color: var(--cavil-fg-muted-strong);
 }
 .report-note-pin:hover:not(:disabled) {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
 }
 .report-note-edit:hover:not(:disabled) {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
 }
 .report-note-delete:hover:not(:disabled) {
-  color: #cf222e;
+  color: var(--cavil-danger);
 }
 .report-note-edited {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
   margin-left: 6px;
 }
 .report-note-separator {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   margin: 0 4px;
 }
 .report-note-edit-pane {
   padding: 12px 16px;
 }
 .report-note-body {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 14px;
   line-height: 1.5;
   padding: 14px 16px;
@@ -940,14 +940,14 @@ export default {
   margin-top: 4px;
 }
 .report-note-body pre {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
   border-radius: 6px;
   font-size: 12px;
   overflow: auto;
   padding: 12px;
 }
 .report-note-body code {
-  background: rgba(175, 184, 193, 0.2);
+  background: rgba(var(--cavil-neutral-cool-rgb), 0.2);
   border-radius: 4px;
   font-size: 85%;
   padding: 0.2em 0.4em;
@@ -957,13 +957,13 @@ export default {
   padding: 0;
 }
 .report-note-body blockquote {
-  border-left: 3px solid #d0d7de;
-  color: #57606a;
+  border-left: 3px solid var(--cavil-border);
+  color: var(--cavil-fg-muted);
   margin: 0 0 12px;
   padding-left: 12px;
 }
 .report-notes-sentinel {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   padding: 12px 0;
   text-align: center;
@@ -972,7 +972,7 @@ export default {
   margin-top: 24px;
 }
 .report-note-form-label {
-  color: #1f2328;
+  color: var(--cavil-fg);
   display: block;
   font-size: 13px;
   font-weight: 600;
@@ -986,7 +986,7 @@ export default {
 }
 .report-note-composer-toggle {
   align-items: center;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 13px;
   gap: 6px;

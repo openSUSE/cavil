@@ -11,8 +11,9 @@
         <span v-else-if="matchCount.matches === 0">This pattern has no matches.</span>
         <span v-else>
           This pattern has <b>{{ matchCount.matches }}</b> {{ matchCount.matches === 1 ? 'match' : 'matches' }} in
-          <b>{{ matchCount.packages }}</b>
-          <a :href="`/search?pattern=${pattern.id}`">{{ matchCount.packages === 1 ? 'package' : 'packages' }}</a
+          <b>{{ matchCount.packages }}</b
+          >{{ ' '
+          }}<a :href="`/search?pattern=${pattern.id}`">{{ matchCount.packages === 1 ? 'package' : 'packages' }}</a
           >.
         </span>
       </div>
@@ -376,7 +377,7 @@ export default {
   display: none;
 }
 .pattern-editor-tabs {
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
@@ -387,7 +388,7 @@ export default {
   border: 1px solid transparent;
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
@@ -401,31 +402,31 @@ export default {
     color 0.15s;
 }
 .pattern-editor-tab:hover:not(:disabled):not(.active) {
-  background: #f3f5f7;
-  color: #1f2328;
+  background: var(--cavil-canvas-tint);
+  color: var(--cavil-fg);
 }
 .pattern-editor-tab.active {
-  background: #ffffff;
-  border-color: #d0d7de;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  border-color: var(--cavil-border);
+  color: var(--cavil-fg);
   font-weight: 600;
 }
 .pattern-editor-tab:disabled {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   cursor: not-allowed;
 }
 .pattern-editor-tab-badge {
-  background: #ddf4ff;
+  background: var(--cavil-accent-bg);
   border-radius: 10px;
-  color: #0969da;
+  color: var(--cavil-accent);
   font-size: 11px;
   font-weight: 600;
   margin-left: 2px;
   padding: 1px 7px;
 }
 .pattern-editor-tab:disabled .pattern-editor-tab-badge {
-  background: #eaeef2;
-  color: #8c959f;
+  background: var(--cavil-neutral-bg);
+  color: var(--cavil-fg-disabled);
 }
 .pattern-editor-tab-pane {
   display: none;
@@ -442,16 +443,16 @@ export default {
   margin-left: 0.25rem;
 }
 .pattern-editor-inline {
-  background: #ffffff;
+  background: var(--cavil-canvas);
 }
 .pattern-editor-autocomplete-anchor {
   position: relative;
 }
 .autocomplete-container {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.2);
   cursor: pointer;
   left: 0;
   margin: 4px 0 0;
@@ -466,12 +467,12 @@ export default {
   overflow-y: auto;
 }
 .autocomplete-item {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 14px;
   padding: 6px 14px;
 }
 .autocomplete-item:hover {
-  background-color: #f6f8fa;
-  color: #1f2328;
+  background-color: var(--cavil-canvas-subtle);
+  color: var(--cavil-fg);
 }
 </style>

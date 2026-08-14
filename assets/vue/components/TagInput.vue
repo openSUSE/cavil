@@ -160,10 +160,10 @@ export default {
   position: relative;
 }
 .report-note-tag {
-  background: #eaeef2;
-  border: 1px solid rgba(110, 119, 129, 0.25);
+  background: var(--cavil-neutral-bg);
+  border: 1px solid rgba(var(--cavil-neutral-alt-rgb), 0.25);
   border-radius: 2em;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -173,8 +173,8 @@ export default {
 }
 .report-note-tag-editor {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   display: flex;
   flex-wrap: wrap;
@@ -183,8 +183,8 @@ export default {
   padding: 6px 8px;
 }
 .report-note-tag-editor:focus-within {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.15);
 }
 .report-note-tag.report-note-tag-removable {
   align-items: center;
@@ -196,20 +196,20 @@ export default {
   background: transparent;
   border: 0;
   border-radius: 50%;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
   padding: 0 4px;
 }
 .report-note-tag-remove:hover {
-  background: rgba(208, 215, 222, 0.5);
-  color: #1f2328;
+  background: rgba(var(--cavil-border-rgb), 0.5);
+  color: var(--cavil-fg);
 }
 .report-note-tag-input {
   background: transparent;
   border: 0;
-  color: #1f2328;
+  color: var(--cavil-fg);
   flex: 1 1 120px;
   font-size: 13px;
   min-width: 80px;
@@ -217,7 +217,7 @@ export default {
   padding: 2px 4px;
 }
 .report-note-tag-input::placeholder {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
 }
 .report-note-tag-input-error {
   animation: report-note-tag-shake 0.3s ease-in-out;
@@ -228,14 +228,14 @@ export default {
     background: transparent;
   }
   50% {
-    background: #ffebe9;
+    background: var(--cavil-danger-bg);
   }
 }
 .tag-input-suggestions {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.2);
   left: 0;
   list-style: none;
   margin: -4px 0 0;
@@ -250,7 +250,7 @@ export default {
 .tag-input-suggestion {
   align-items: center;
   border-radius: 4px;
-  color: #1f2328;
+  color: var(--cavil-fg);
   cursor: pointer;
   display: flex;
   font-size: 13px;
@@ -259,7 +259,7 @@ export default {
   padding: 5px 8px;
 }
 .tag-input-suggestion.is-active {
-  background: #ddf4ff;
+  background: var(--cavil-accent-bg);
 }
 .tag-input-suggestion-name {
   overflow: hidden;
@@ -267,7 +267,7 @@ export default {
   white-space: nowrap;
 }
 .tag-input-suggestion-count {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }

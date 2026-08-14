@@ -78,27 +78,27 @@ export default {
 
 <style scoped>
 .closest-container {
-  border: 1px solid rgb(208, 215, 222);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   margin-bottom: 1rem;
   overflow: hidden;
 }
 .closest-header {
-  background-color: rgb(246, 248, 250);
-  border-bottom: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
 }
 .closest-header a {
-  color: #212529;
+  color: var(--cavil-fg-body);
   text-decoration: none;
 }
 .closest-header a:hover {
   text-decoration: underline;
 }
 .closest-source {
-  background: #fff;
+  background: var(--cavil-canvas);
   overflow: auto;
 }
 .closest-source pre {
@@ -107,7 +107,7 @@ export default {
   margin: 0;
   font-size: 12px;
   line-height: 20px;
-  color: #24292e;
+  color: var(--cavil-fg-code);
   border: 0 !important;
   white-space: -moz-pre-wrap;
   white-space: -o-pre-wrap;
@@ -116,8 +116,8 @@ export default {
   word-break: break-all;
 }
 .closest-footer {
-  background-color: rgb(246, 248, 250);
-  border-top: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;

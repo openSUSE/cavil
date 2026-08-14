@@ -305,7 +305,7 @@ export default {
   appearance: none;
   background: transparent;
   border: 0;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -319,10 +319,10 @@ export default {
    focus - keyboard users still get the colour cue. */
 .license-obligations-toggle:hover,
 .license-obligations-toggle:focus-visible {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 .license-obligations-toggle i {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   width: 0.7rem;
 }
 
@@ -330,7 +330,7 @@ export default {
    cancel the .risk-license-item padding so the top rule spans edge to edge, and content re-pads to stay
    aligned with the license name above. */
 .license-obligations-body {
-  border-top: 1px solid #d8dee4;
+  border-top: 1px solid var(--cavil-border-muted);
   margin: 0.5rem -1rem 0;
   position: relative;
 }
@@ -340,14 +340,14 @@ export default {
 /* Separator only BETWEEN license sections (expressions) - never above the first one, which would draw a
    stray line under the caveat / below the toggle. */
 .lob-license + .lob-license {
-  border-top: 1px solid #eaeef2;
+  border-top: 1px solid var(--cavil-neutral-bg);
 }
 
 /* Caveat for a "WITH exception" license (base license shown; exception may relax it). Muted amber - a
    caution, not a deep-red risk signal. Extra right margin keeps it clear of the OSADL corner label. */
 .lob-caveat {
   align-items: baseline;
-  color: #6e5200;
+  color: var(--cavil-attention-deep-4);
   display: flex;
   font-size: 12px;
   gap: 0.45rem;
@@ -355,7 +355,7 @@ export default {
   margin: 0.6rem 4rem 0 1rem;
 }
 .lob-caveat i {
-  color: #9a6700;
+  color: var(--cavil-attention);
   flex: 0 0 auto;
   font-size: 11px;
 }
@@ -365,7 +365,7 @@ export default {
   margin: 0 0 0.5rem;
 }
 .lob-license-name .spdx-link {
-  color: #1f2328;
+  color: var(--cavil-fg);
 }
 
 /* Verified classification facts, "low tech report" style: small-caps muted label + plain value. */
@@ -386,14 +386,14 @@ export default {
   gap: 0.4rem;
 }
 .lob-attr dt {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .lob-attr dd {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 12px;
   font-weight: 500;
   margin: 0;
@@ -406,7 +406,7 @@ export default {
   margin-top: 0;
 }
 .lob-usecase-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -422,7 +422,7 @@ export default {
 }
 .lob-row {
   align-items: baseline;
-  color: #1f2328;
+  color: var(--cavil-fg);
   display: flex;
   font-size: 13px;
   gap: 0.45rem;
@@ -443,10 +443,10 @@ export default {
 /* Obligations: distinguished by icon SHAPE (check vs cross), with only a muted tint - deep reds are
    reserved for risk signals elsewhere, so must-not uses a calm terracotta rather than a signal red. */
 .lob-must .lob-icon {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
 }
 .lob-mustnot .lob-icon {
-  color: #a0562d;
+  color: var(--cavil-attention-deep-7);
 }
 
 /* Conditions and alternatives read as group headers, not code: muted branch icon, semibold (not italic)
@@ -458,30 +458,30 @@ export default {
 }
 .lob-condition .lob-icon,
 .lob-alt .lob-icon {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
 }
 .lob-condition .lob-text,
 .lob-alt .lob-text,
 .lob-group .lob-text {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-weight: 600;
 }
 
 /* Leaf qualifiers: quiet, dash-led, so the "how" recedes behind the obligation itself. */
 .lob-attribute .lob-text {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-size: 12px;
 }
 /* Leaf qualifiers and named sub-group headers share one dash marker so every item at a level is
    marked consistently; weight (group is semibold, qualifier muted) carries the hierarchy. */
 .lob-attribute .lob-text::before,
 .lob-group .lob-text::before {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   content: '– ';
 }
 
 .lob-none {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-size: 12px;
   font-style: italic;
   margin: 0;
@@ -490,7 +490,7 @@ export default {
 /* Source credit floated top-right, mirroring the "OSADL verdict" label on the compatibility matrix.
    Absolute so it does not take its own line; room for other sources beside OSADL later. */
 .lob-source {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;

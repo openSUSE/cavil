@@ -190,8 +190,8 @@ export default {
 }
 .recent-pattern-header {
   align-items: center;
-  background-color: rgb(246, 248, 250);
-  border-bottom: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   font-size: 13px;
   gap: 0.75rem;
@@ -218,7 +218,7 @@ export default {
 .recent-pattern-header a,
 .recent-pattern-footer a,
 .recent-pattern-file a {
-  color: #212529;
+  color: var(--cavil-fg-body);
   text-decoration: none;
 }
 .recent-pattern-footer a:hover,
@@ -226,20 +226,20 @@ export default {
   text-decoration: underline;
 }
 .recent-pattern-file-container {
-  border: 1px solid rgb(208, 215, 222);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
   padding: 0;
 }
 .recent-pattern-footer {
-  background-color: rgb(246, 248, 250);
-  border-top: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
 }
 .recent-pattern-source {
-  background: #fff;
+  background: var(--cavil-canvas);
   overflow: auto;
 }
 .recent-pattern-source td.linenumber,
@@ -249,13 +249,13 @@ export default {
   margin: 0;
   font-size: 12px;
   line-height: 20px;
-  color: rgba(27, 31, 35, 0.3);
+  color: var(--cavil-linenumber);
   border: 0 !important;
 }
 .recent-pattern-source td.code {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
-  color: #24292e;
+  color: var(--cavil-fg-code);
   margin-left: 0.5em;
   white-space: -moz-pre-wrap;
   white-space: -o-pre-wrap;
@@ -264,19 +264,19 @@ export default {
   word-break: break-all;
 }
 .recent-pattern-source td.linenumber {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--cavil-border-faint);
   padding: 0 0.5em;
   margin-right: 0.5em;
   text-align: right;
   width: 1%;
   min-width: 25px;
-  color: rgba(27, 31, 35, 0.3);
+  color: var(--cavil-linenumber);
   user-select: none;
 }
 .pattern-with-matches {
-  background-color: #ffffff;
+  background-color: var(--cavil-canvas);
 }
 .pattern-without-matches {
-  background-color: #ffebe9;
+  background-color: var(--cavil-danger-bg);
 }
 </style>

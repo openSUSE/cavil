@@ -323,7 +323,7 @@ export default {
   font-size: 0.8125rem;
 }
 .cavil-codestreams > summary {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: pointer;
 }
 .cavil-codestreams ul {
@@ -336,11 +336,11 @@ export default {
 }
 .cavil-codestreams a {
   font-family: var(--bs-font-monospace, monospace);
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   text-decoration: none;
 }
 .cavil-codestreams a:hover {
-  color: #0969da;
+  color: var(--cavil-accent);
   text-decoration: underline;
 }
 </style>

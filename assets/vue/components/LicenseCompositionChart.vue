@@ -19,7 +19,7 @@
             cy="60"
             r="44"
             pathLength="100"
-            :stroke="entry.color"
+            :style="{stroke: entry.color}"
             :stroke-dasharray="`${entry.share} ${100 - entry.share}`"
             :stroke-dashoffset="-entry.offset"
             tabindex="0"
@@ -61,7 +61,16 @@
 </template>
 
 <script>
-const LICENSE_CHART_COLORS = ['#0969da', '#1a7f37', '#9a6700', '#cf222e', '#8250df', '#bf3989', '#57606a', '#2da44e'];
+const LICENSE_CHART_COLORS = [
+  'var(--cavil-accent)',
+  'var(--cavil-success)',
+  'var(--cavil-attention)',
+  'var(--cavil-danger)',
+  'var(--cavil-purple-1)',
+  'var(--cavil-purple-3)',
+  'var(--cavil-fg-muted)',
+  'var(--cavil-success-2)'
+];
 
 export default {
   name: 'LicenseCompositionChart',
@@ -163,14 +172,14 @@ export default {
 
 <style scoped>
 .license-composition-card {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: visible;
 }
 .license-composition-header {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   border-radius: 6px 6px 0 0;
   display: flex;
   gap: 1rem;
@@ -184,8 +193,8 @@ export default {
 }
 .license-composition-total {
   align-items: flex-end;
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   display: flex;
   gap: 0.35rem;
@@ -193,20 +202,20 @@ export default {
   white-space: nowrap;
 }
 .license-composition-total-value {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.1;
 }
 .license-composition-total-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
 }
 .license-composition-body {
   align-items: center;
-  background: #fff;
+  background: var(--cavil-canvas);
   border-radius: 0 0 6px 6px;
   display: grid;
   gap: 1.25rem;
@@ -226,7 +235,7 @@ export default {
   width: 100%;
 }
 .license-composition-donut {
-  filter: drop-shadow(0 1px 2px rgba(27, 31, 36, 0.08));
+  filter: drop-shadow(0 1px 2px rgba(var(--cavil-shadow-rgb), 0.08));
   inset: 0;
   overflow: visible;
   position: absolute;
@@ -238,7 +247,7 @@ export default {
   stroke-width: 24;
 }
 .license-composition-donut-track {
-  stroke: #eaeef2;
+  stroke: var(--cavil-neutral-bg);
 }
 .license-composition-slice {
   cursor: help;
@@ -252,10 +261,10 @@ export default {
 }
 .license-composition-chart-label {
   align-items: center;
-  background: #fff;
+  background: var(--cavil-canvas);
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(27, 31, 36, 0.08);
-  color: #24292f;
+  box-shadow: inset 0 0 0 1px rgba(var(--cavil-shadow-rgb), 0.08);
+  color: var(--cavil-fg-emphasis);
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
@@ -273,7 +282,7 @@ export default {
   letter-spacing: 0;
 }
 .license-composition-chart-label span {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
   font-weight: 600;
   max-width: 100%;
@@ -281,10 +290,10 @@ export default {
 }
 .license-composition-tooltip {
   align-items: center;
-  background: #24292f;
+  background: var(--cavil-inverse-bg);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.22);
-  color: #fff;
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.22);
+  color: var(--cavil-inverse-fg);
   display: flex;
   flex-direction: column;
   font-size: 12px;
@@ -302,7 +311,7 @@ export default {
 }
 .license-composition-tooltip::after {
   border: 6px solid transparent;
-  border-top-color: #24292f;
+  border-top-color: var(--cavil-fg-emphasis);
   content: '';
   left: 50%;
   position: absolute;
@@ -339,13 +348,13 @@ export default {
   width: 10px;
 }
 .license-composition-name {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-weight: 600;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 .license-composition-percent {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -353,7 +362,7 @@ export default {
   text-align: right;
 }
 .license-composition-meter {
-  background: #eaeef2;
+  background: var(--cavil-neutral-bg);
   border-radius: 999px;
   height: 8px;
   margin-left: 1.35rem;

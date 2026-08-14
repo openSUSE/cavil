@@ -23,12 +23,12 @@ export default {
 
 <style scoped>
 .legal-loading {
-  --legal-loading-accent: #2f6f5e;
-  --legal-loading-ink: #24292f;
-  --legal-loading-surface: #f6f8fa;
+  --legal-loading-accent: var(--cavil-loading-accent);
+  --legal-loading-ink: var(--cavil-fg-emphasis);
+  --legal-loading-surface: var(--cavil-canvas-subtle);
 
   align-items: center;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   gap: 0.75rem;
   justify-content: center;
@@ -58,10 +58,10 @@ export default {
   align-items: center;
   animation: legal-loading-weigh 1.55s ease-in-out infinite;
   background: var(--legal-loading-surface);
-  border: 1px solid rgba(110, 119, 129, 0.22);
+  border: 1px solid rgba(var(--cavil-neutral-alt-rgb), 0.22);
   border-radius: 0.65rem;
   box-sizing: border-box;
-  box-shadow: 0 0.35rem 0.8rem rgba(36, 41, 47, 0.07);
+  box-shadow: 0 0.35rem 0.8rem rgba(var(--cavil-shadow-deep-rgb), 0.07);
   color: var(--legal-loading-accent);
   display: grid;
   font-size: 1.35rem;
@@ -93,19 +93,19 @@ export default {
 }
 .legal-loading-pulse {
   animation: legal-loading-pulse 1.55s ease-in-out infinite;
-  background: rgba(47, 111, 94, 0.12);
+  background: rgba(var(--cavil-loading-rgb), 0.12);
   border-radius: 999px;
   height: 1.8rem;
   position: absolute;
   width: 1.8rem;
 }
 .legal-loading-text {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.95rem;
   font-weight: 500;
 }
 .legal-loading-full .legal-loading-text {
-  color: #424a53;
+  color: var(--cavil-fg-muted-strong);
   font-size: 1rem;
 }
 .legal-loading-small .legal-loading-text {

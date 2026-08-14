@@ -150,11 +150,11 @@ export default {
 
 <style scoped>
 .stats-activity-tile {
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(27, 31, 36, 0.04);
-  color: #24292f;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-rgb), 0.04);
+  color: var(--cavil-fg-emphasis);
   display: grid;
   gap: 0.8rem;
   grid-column: span 3;
@@ -170,7 +170,7 @@ export default {
 }
 
 .stats-tile-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0;
@@ -178,7 +178,7 @@ export default {
 }
 
 .stats-activity-total {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 1.8rem;
   font-weight: 600;
   line-height: 1.1;
@@ -187,7 +187,7 @@ export default {
 
 .stats-activity-header span,
 .stats-activity-axis {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.78rem;
   font-weight: 500;
 }
@@ -199,17 +199,17 @@ export default {
 }
 
 .stats-activity-baseline {
-  stroke: #d8dee4;
+  stroke: var(--cavil-border-muted);
   stroke-width: 1;
 }
 
 .stats-activity-bar {
-  fill: #0969da;
+  fill: var(--cavil-accent);
 }
 
 .stats-activity-bar:focus {
   outline: none;
-  stroke: #24292f;
+  stroke: var(--cavil-fg-emphasis);
   stroke-width: 1;
 }
 

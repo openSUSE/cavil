@@ -164,13 +164,13 @@ export default {
   font-size: 13px;
 }
 .pending-actions-toggle {
-  box-shadow: 0 4px 12px rgba(27, 31, 36, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--cavil-shadow-rgb), 0.3);
 }
 .pending-actions-panel {
-  background: white;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.3);
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.3);
   width: 380px;
   max-height: 70vh;
   display: flex;
@@ -178,8 +178,8 @@ export default {
 }
 .pending-actions-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #d0d7de;
-  background: #f6f8fa;
+  border-bottom: 1px solid var(--cavil-border);
+  background: var(--cavil-canvas-subtle);
   border-radius: 6px 6px 0 0;
   display: flex;
   justify-content: space-between;
@@ -195,7 +195,7 @@ export default {
 }
 .pending-actions-item {
   padding: 10px 16px;
-  border-bottom: 1px solid #eaeef2;
+  border-bottom: 1px solid var(--cavil-neutral-bg);
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -213,14 +213,14 @@ export default {
 }
 .pending-actions-controls .btn {
   padding: 0.125rem 0.375rem;
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   text-decoration: none;
 }
 .pending-actions-controls .btn:hover {
-  color: #1f2328;
+  color: var(--cavil-fg);
 }
 .pending-actions-controls .btn:disabled {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
 }
 .pending-actions-item-label {
   display: flex;
@@ -228,11 +228,11 @@ export default {
   gap: 6px;
 }
 .pending-actions-license {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
 }
 .pending-actions-item-meta {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   margin-top: 2px;
   word-break: break-all;
@@ -244,7 +244,7 @@ export default {
   text-decoration: none;
 }
 .pending-actions-item-link:hover {
-  color: #0969da;
+  color: var(--cavil-accent);
   text-decoration: underline;
 }
 .pending-actions-item-link i {
@@ -256,27 +256,27 @@ export default {
   opacity: 0.6;
 }
 .pending-actions-item-error {
-  color: #cf222e;
+  color: var(--cavil-danger);
   font-size: 11px;
   margin-top: 4px;
 }
 .pending-actions-item.state-done .pending-actions-item-label {
-  color: #1a7f37;
+  color: var(--cavil-success);
 }
 .pending-actions-item.state-error .pending-actions-item-label {
-  color: #cf222e;
+  color: var(--cavil-danger);
 }
 .pending-actions-footer {
   padding: 12px 16px;
-  border-top: 1px solid #d0d7de;
-  background: #f6f8fa;
+  border-top: 1px solid var(--cavil-border);
+  background: var(--cavil-canvas-subtle);
   border-radius: 0 0 6px 6px;
 }
 .pending-actions-paused {
   align-items: baseline;
-  background: #ddf4ff;
-  border-top: 1px solid #b6e3ff;
-  color: #0a3069;
+  background: var(--cavil-accent-bg);
+  border-top: 1px solid var(--cavil-accent-border);
+  color: var(--cavil-accent-deep);
   display: flex;
   font-size: 12px;
   gap: 8px;

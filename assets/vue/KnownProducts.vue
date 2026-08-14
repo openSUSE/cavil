@@ -182,11 +182,11 @@ export default {
 .cavil-stream-count {
   margin-left: 8px;
   font-size: 12px;
-  color: #6c757d;
+  color: var(--cavil-fg-secondary);
 }
 .cavil-product-badge {
   margin-left: 8px;
   font-weight: normal;
-  color: #6c757d;
+  color: var(--cavil-fg-secondary);
 }
 </style>

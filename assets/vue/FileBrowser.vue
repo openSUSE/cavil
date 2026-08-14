@@ -460,16 +460,16 @@ export default {
 
 <style>
 .file-browser {
-  color: #1f2328;
+  color: var(--cavil-fg);
   margin-top: 1rem;
 }
 .file-browser-loading {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   padding: 24px 0;
 }
 .file-browser-header {
   align-items: center;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 6px 6px 0 0;
   display: flex;
   justify-content: space-between;
@@ -484,7 +484,7 @@ export default {
 }
 .file-browser-package {
   align-items: center;
-  color: #0969da;
+  color: var(--cavil-accent);
   display: inline-flex;
   font-size: 16px;
   font-weight: 600;
@@ -498,9 +498,9 @@ export default {
 }
 .file-browser-checkout,
 .file-browser-match-badge {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 2em;
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   font-size: 12px;
   line-height: 18px;
   padding: 0 7px;
@@ -508,8 +508,8 @@ export default {
 }
 .file-browser-breadcrumb {
   align-items: center;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-top: 0;
   display: flex;
   flex-wrap: wrap;
@@ -518,7 +518,7 @@ export default {
   padding: 10px 16px;
 }
 .file-browser-count {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   font-size: 12px;
   margin-left: auto;
   white-space: nowrap;
@@ -528,15 +528,15 @@ export default {
   gap: 6px;
 }
 .file-browser-breadcrumb a {
-  color: #0969da;
+  color: var(--cavil-accent);
   font-weight: 600;
   text-decoration: none;
 }
 .file-browser-separator {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
 }
 .file-browser-panel {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 0 0 6px 6px;
   border-top: 0;
   margin-bottom: 24px;
@@ -547,43 +547,43 @@ export default {
   width: 100%;
 }
 .file-browser-table tr {
-  border-bottom: 1px solid #d8dee4;
+  border-bottom: 1px solid var(--cavil-border-muted);
 }
 .file-browser-table tr:last-child {
   border-bottom: 0;
 }
 .file-browser-table tr:hover {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .file-browser-table td {
   padding: 8px 10px;
 }
 .file-browser-icon {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   text-align: center;
   width: 36px;
 }
 .file-browser-table .has-match .file-browser-icon {
-  color: #cf222e;
+  color: var(--cavil-danger);
 }
 .file-browser-name a {
-  color: #0969da;
+  color: var(--cavil-accent);
   text-decoration: none;
 }
 .file-browser-kind {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   font-size: 12px;
   text-align: right;
   white-space: nowrap;
   width: 120px;
 }
 .file-browser-match-badge {
-  background: rgba(207, 34, 46, 0.08);
-  border-color: rgba(207, 34, 46, 0.2);
-  color: #cf222e;
+  background: rgba(var(--cavil-danger-rgb), 0.08);
+  border-color: rgba(var(--cavil-danger-rgb), 0.2);
+  color: var(--cavil-danger);
 }
 .file-browser-empty {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   padding: 24px 16px !important;
   text-align: center;
 }
@@ -605,7 +605,7 @@ export default {
 .file-browser-too-large,
 .file-browser-unavailable {
   align-items: center;
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -616,12 +616,12 @@ export default {
 }
 .file-browser-too-large i,
 .file-browser-unavailable i {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   font-size: 32px;
 }
 .file-browser-too-large strong,
 .file-browser-unavailable strong {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 16px;
 }
 .cavil-pattern-tip-floating {

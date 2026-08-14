@@ -81,8 +81,8 @@ export default {
   computed: {
     packageActivitySlices() {
       return [
-        {label: 'open reviews', value: this.openReviews, color: '#0969da'},
-        {label: 'rejected packages', value: this.rejectedPackages, color: '#cf222e'}
+        {label: 'open reviews', value: this.openReviews, color: 'var(--cavil-accent)'},
+        {label: 'rejected packages', value: this.rejectedPackages, color: 'var(--cavil-danger)'}
       ];
     },
     reviewedPackages() {
@@ -101,8 +101,8 @@ export default {
     },
     reviewAutomationSlices() {
       return [
-        {label: 'manual reviews', value: this.displayedManualReviews, color: '#8250df'},
-        {label: 'automated reviews', value: this.displayedAutomatedReviews, color: '#1f883d'}
+        {label: 'manual reviews', value: this.displayedManualReviews, color: 'var(--cavil-purple-1)'},
+        {label: 'automated reviews', value: this.displayedAutomatedReviews, color: 'var(--cavil-success-emphasis)'}
       ];
     },
     numberTiles() {
@@ -146,8 +146,8 @@ export default {
 
 .stats-scope-toggle {
   align-self: flex-start;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   display: inline-flex;
   margin-top: 0.65rem;
@@ -159,7 +159,7 @@ export default {
   background: transparent;
   border: 0;
   border-radius: 4px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.25;
@@ -167,8 +167,8 @@ export default {
 }
 
 .stats-scope-toggle button.active {
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(27, 31, 36, 0.08);
-  color: #24292f;
+  background: var(--cavil-canvas);
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-rgb), 0.08);
+  color: var(--cavil-fg-emphasis);
 }
 </style>

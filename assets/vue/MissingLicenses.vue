@@ -344,8 +344,8 @@ export default {
 
 <style scoped>
 .change-confirmation {
-  background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 0.25rem;
   font-size: 13px;
   line-height: 20px;
@@ -366,8 +366,8 @@ export default {
 }
 .change-header {
   align-items: center;
-  background-color: rgb(246, 248, 250);
-  border-bottom: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   font-size: 13px;
   gap: 0.75rem;
@@ -396,7 +396,7 @@ export default {
 .change-header a,
 .change-file a,
 .change-footer a {
-  color: #212529;
+  color: var(--cavil-fg-body);
   text-decoration: none;
 }
 .change-header a:hover b,
@@ -405,7 +405,7 @@ export default {
   text-decoration: underline;
 }
 .change-file-container {
-  border: 1px solid rgb(208, 215, 222);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
   padding: 0;
@@ -413,15 +413,15 @@ export default {
 /* The card is a stack of full-width bands separated by hairlines - no nested boxes with their own borders
    or padding. Same edge-to-edge treatment as the report view and file browser (FileSource.vue). */
 .change-band {
-  border-top: 1px solid rgb(208, 215, 222);
+  border-top: 1px solid var(--cavil-border);
   padding: 12px 16px;
 }
 .change-reason {
-  background-color: rgb(246, 248, 250);
+  background-color: var(--cavil-canvas-subtle);
 }
 .change-actions-bar {
   align-items: center;
-  background-color: rgb(246, 248, 250);
+  background-color: var(--cavil-canvas-subtle);
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -429,7 +429,7 @@ export default {
 /* The inline editor is a flush band, not a boxed-in card: white like the source view, its own hairline
    above, and no rounded inner border. The editor's own top margin is dropped so it sits against the rule. */
 .change-editor {
-  background: #fff;
+  background: var(--cavil-canvas);
 }
 .change-editor :deep(.snippet-editor) {
   margin-top: 0;
@@ -440,13 +440,13 @@ export default {
    bands otherwise merge across a single hairline. Its own top hairline plus the rationale's change-band
    top hairline give it a crisp line on both edges. */
 .change-sep {
-  background: rgb(246, 248, 250);
-  border-top: 1px solid rgb(208, 215, 222);
+  background: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
   height: 8px;
 }
 .change-rationale {
-  background: #fff;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  color: var(--cavil-fg);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -478,13 +478,13 @@ export default {
   margin-top: 4px;
 }
 .change-rationale :deep(code) {
-  background: rgba(175, 184, 193, 0.2);
+  background: rgba(var(--cavil-neutral-cool-rgb), 0.2);
   border-radius: 4px;
   font-size: 85%;
   padding: 0.2em 0.4em;
 }
 .change-rationale :deep(pre) {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
   border-radius: 6px;
   font-size: 12px;
   overflow: auto;
@@ -495,17 +495,17 @@ export default {
   padding: 0;
 }
 .change-rationale :deep(a) {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 .change-footer {
-  background-color: rgb(246, 248, 250);
-  border-top: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
 }
 .change-source {
-  background: #fff;
+  background: var(--cavil-canvas);
   overflow: auto;
 }
 .change-source td.linenumber,
@@ -515,13 +515,13 @@ export default {
   margin: 0;
   font-size: 12px;
   line-height: 20px;
-  color: rgba(27, 31, 35, 0.3);
+  color: var(--cavil-linenumber);
   border: 0 !important;
 }
 .change-source td.code {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
-  color: #24292e;
+  color: var(--cavil-fg-code);
   margin-left: 0.5em;
   white-space: -moz-pre-wrap;
   white-space: -o-pre-wrap;
@@ -530,25 +530,25 @@ export default {
   word-break: break-all;
 }
 .change-source td.linenumber {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--cavil-border-faint);
   padding: 0 0.5em;
   margin-right: 0.5em;
   text-align: right;
   width: 1%;
   min-width: 25px;
-  color: rgba(27, 31, 35, 0.3);
+  color: var(--cavil-linenumber);
   user-select: none;
 }
 .change-license-line td {
-  background-color: rgba(31, 136, 61, 0.12);
+  background-color: rgba(var(--cavil-success-emphasis-rgb), 0.12);
 }
 .change-license-line td:first-child {
-  box-shadow: inset 3px 0 0 #1f883d;
+  box-shadow: inset 3px 0 0 var(--cavil-success-emphasis);
 }
 .change-keyword-line td {
-  background-color: rgba(191, 135, 0, 0.14);
+  background-color: rgba(var(--cavil-attention-strong-rgb), 0.14);
 }
 .change-keyword-line td:first-child {
-  box-shadow: inset 3px 0 0 #bf8700;
+  box-shadow: inset 3px 0 0 var(--cavil-attention-strong);
 }
 </style>

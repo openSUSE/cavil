@@ -111,10 +111,10 @@ export default {
   width: 100%;
 }
 .cavil-navbar-search .autocomplete-container {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.2);
   cursor: pointer;
   left: 0;
   margin: 4px 0 0;
@@ -129,7 +129,7 @@ export default {
   overflow-y: auto;
 }
 .cavil-navbar-search .autocomplete-item {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 14px;
   padding: 6px 14px;
   white-space: nowrap;
@@ -138,7 +138,7 @@ export default {
 }
 .cavil-navbar-search .autocomplete-item.active,
 .cavil-navbar-search .autocomplete-item:hover {
-  background-color: #f6f8fa;
-  color: #1f2328;
+  background-color: var(--cavil-canvas-subtle);
+  color: var(--cavil-fg);
 }
 </style>

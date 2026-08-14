@@ -40,11 +40,11 @@ export default {
 <style scoped>
 .template-picker-btn {
   align-items: center;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #d0d7de;
+  background: var(--cavil-surface-raised);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
-  color: #1f2328;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-alt-rgb), 0.08);
+  color: var(--cavil-fg);
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
@@ -57,14 +57,14 @@ export default {
     color 0.15s;
 }
 .template-picker-btn:hover {
-  background: #ffffff;
-  box-shadow: 0 2px 4px rgba(31, 35, 40, 0.12);
-  color: #0969da;
+  background: var(--cavil-canvas);
+  box-shadow: 0 2px 4px rgba(var(--cavil-shadow-alt-rgb), 0.12);
+  color: var(--cavil-accent);
 }
 .template-picker-btn:focus {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
-  color: #0969da;
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.3);
+  color: var(--cavil-accent);
   outline: none;
 }
 .template-picker-menu {
@@ -73,7 +73,7 @@ export default {
   overflow-y: auto;
 }
 .template-picker-manage {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
 }
 </style>

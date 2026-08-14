@@ -51,30 +51,30 @@ export default {
   max-width: 360px;
   padding: 0.65rem 0.9rem;
   border-radius: 0.5rem;
-  background: #ffffff;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  color: var(--cavil-fg);
   font-size: 14px;
   line-height: 1.3;
   box-shadow:
-    0 6px 24px rgba(31, 35, 40, 0.18),
-    0 2px 6px rgba(31, 35, 40, 0.08);
-  border-left: 4px solid #6c757d;
+    0 6px 24px rgba(var(--cavil-shadow-alt-rgb), 0.18),
+    0 2px 6px rgba(var(--cavil-shadow-alt-rgb), 0.08);
+  border-left: 4px solid var(--cavil-fg-secondary);
   pointer-events: auto;
 }
 .toast-success {
-  border-left-color: #1a7f37;
+  border-left-color: var(--cavil-success);
 }
 .toast-success .toast-icon {
-  color: #1a7f37;
+  color: var(--cavil-success);
 }
 .toast-danger {
-  border-left-color: #cf222e;
+  border-left-color: var(--cavil-danger);
 }
 .toast-danger .toast-icon {
-  color: #cf222e;
+  color: var(--cavil-danger);
 }
 .toast-info .toast-icon {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 .toast-icon {
   font-size: 16px;

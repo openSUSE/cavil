@@ -91,19 +91,19 @@ export default {
 
 <style>
 .cavil-list-page {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
 .cavil-list-page-heading {
-  border-bottom: 1px solid #d8dee4;
+  border-bottom: 1px solid var(--cavil-border-muted);
   margin-bottom: 1rem;
   padding-bottom: 0.6rem;
 }
 
 .cavil-list-page-heading h2 {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.3;
@@ -150,17 +150,17 @@ export default {
 }
 
 .cavil-list-control span {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.875rem;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .cavil-list-control .form-select {
-  background-color: #f6f8fa;
-  border-color: #d0d7de;
+  background-color: var(--cavil-canvas-subtle);
+  border-color: var(--cavil-border);
   border-radius: 6px;
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 0.875rem;
   min-height: 32px;
   min-width: 4.75rem;
@@ -182,7 +182,7 @@ export default {
 }
 
 .cavil-list-check label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.875rem;
   font-weight: 500;
   margin: 0;
@@ -191,10 +191,10 @@ export default {
 
 .cavil-list-toggle {
   align-items: center;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -207,20 +207,20 @@ export default {
 
 .cavil-list-toggle:hover,
 .cavil-list-toggle:focus {
-  background: #eef2f5;
-  border-color: #afb8c1;
-  color: #24292f;
+  background: var(--cavil-tint-4);
+  border-color: var(--cavil-border-strong);
+  color: var(--cavil-fg-emphasis);
 }
 
 .cavil-list-toggle:focus {
-  box-shadow: 0 0 0 3px #0969da33;
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.2);
   outline: none;
 }
 
 .cavil-list-toggle.is-active {
-  background: #ddf4ff;
-  border-color: #54aeff;
-  color: #0969da;
+  background: var(--cavil-accent-bg);
+  border-color: var(--cavil-accent-vivid);
+  color: var(--cavil-accent);
 }
 
 .cavil-list-toggle i {
@@ -253,13 +253,13 @@ export default {
 }
 
 .cavil-list-filter-box i {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   left: 0.75rem;
   position: absolute;
 }
 
 .cavil-list-filter-box input {
-  border-color: #d0d7de;
+  border-color: var(--cavil-border);
   border-radius: 6px;
   font-size: 0.875rem;
   min-height: 32px;
@@ -268,21 +268,21 @@ export default {
 
 .cavil-list-filter-box input:focus,
 .cavil-list-control .form-select:focus {
-  border-color: #0969da;
-  box-shadow: inset 0 0 0 1px #0969da;
+  border-color: var(--cavil-accent);
+  box-shadow: inset 0 0 0 1px var(--cavil-accent);
 }
 
 .cavil-list-panel {
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .cavil-list-header {
   align-items: center;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d8dee4;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border-muted);
   display: flex;
   gap: 1rem;
   justify-content: space-between;
@@ -291,7 +291,7 @@ export default {
 
 .cavil-list-title {
   align-items: center;
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   display: inline-flex;
   gap: 0.35rem;
   font-size: 0.875rem;
@@ -299,7 +299,7 @@ export default {
 }
 
 .cavil-list-title i {
-  color: #1a7f37;
+  color: var(--cavil-success);
 }
 
 .cavil-list-title strong {
@@ -315,9 +315,9 @@ export default {
 }
 
 .cavil-list-table thead th {
-  background: #fff;
-  border-bottom: 1px solid #d8dee4;
-  color: #57606a;
+  background: var(--cavil-canvas);
+  border-bottom: 1px solid var(--cavil-border-muted);
+  color: var(--cavil-fg-muted);
   font-size: 0.8125rem;
   font-weight: 600;
   padding: 0.5rem 0.75rem;
@@ -325,7 +325,7 @@ export default {
 }
 
 .cavil-list-table tbody td {
-  border-color: #d8dee4;
+  border-color: var(--cavil-border-muted);
   font-size: 0.875rem;
   padding: 0.7rem 0.75rem;
   vertical-align: middle;
@@ -341,7 +341,7 @@ export default {
 }
 
 .cavil-list-table tbody td.cavil-list-link {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.8125rem;
   font-weight: 400;
   min-width: min(10rem, 22vw);
@@ -354,10 +354,10 @@ export default {
 }
 
 .cavil-list-link a:not(.cavil-external-link-target) {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-block;
   font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.8125rem;
@@ -366,10 +366,10 @@ export default {
 }
 
 .cavil-list-token {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-block;
   font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.8125rem;
@@ -381,19 +381,19 @@ export default {
 .cavil-list-link a:not(.cavil-external-link-target):focus,
 .cavil-list-package a:hover,
 .cavil-list-package a:focus {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 
 .cavil-list-link a:not(.cavil-external-link-target):hover,
 .cavil-list-link a:not(.cavil-external-link-target):focus {
-  background: #ddf4ff;
-  border-color: #54aeff66;
+  background: var(--cavil-accent-bg);
+  border-color: var(--cavil-accent-vivid-fade);
 }
 
 .cavil-list-package a,
 .cavil-list-primary a,
 .cavil-list-report a {
-  color: #0969da;
+  color: var(--cavil-accent);
   font-weight: 600;
 }
 
@@ -403,7 +403,7 @@ export default {
 .cavil-list-primary a:focus,
 .cavil-list-report a:hover,
 .cavil-list-report a:focus {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
 }
 
 .cavil-list-table a:hover,
@@ -412,7 +412,7 @@ export default {
 }
 
 .cavil-list-table tbody td.cavil-list-time {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.8125rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -424,10 +424,10 @@ export default {
 }
 
 .cavil-list-comment-body {
-  background: #f6f8fa;
-  border-left: 3px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border-left: 3px solid var(--cavil-border);
   border-radius: 6px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-block;
   font-size: 0.8125rem;
   line-height: 1.45;
@@ -438,7 +438,7 @@ export default {
 }
 
 .cavil-list-state {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-weight: 600;
   height: 6rem;
   text-align: center;
@@ -483,7 +483,7 @@ export default {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  color: #0969da;
+  color: var(--cavil-accent);
   display: inline-flex;
   font-size: 0.875rem;
   justify-content: center;
@@ -496,21 +496,21 @@ export default {
 
 .cavil-list-footer #cavil-pagination .page-link:hover,
 .cavil-list-footer #cavil-pagination .page-link:focus {
-  background: #ddf4ff;
-  color: #0550ae;
+  background: var(--cavil-accent-bg);
+  color: var(--cavil-accent-strong);
   box-shadow: none;
 }
 
 .cavil-list-footer #cavil-pagination .page-item.active .page-link {
-  background: #0969da;
-  border-color: #0969da;
-  color: #fff;
+  background: var(--cavil-accent-emphasis);
+  border-color: var(--cavil-accent-emphasis);
+  color: var(--cavil-on-accent);
   font-weight: 600;
 }
 
 .cavil-list-footer #cavil-pagination .page-item.disabled .page-link {
   background: transparent;
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
 }
 
 @media (max-width: 767.98px) {

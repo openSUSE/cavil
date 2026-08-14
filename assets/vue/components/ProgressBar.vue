@@ -65,11 +65,11 @@ export default {
 
 <style scoped>
 .report-progress {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   padding: 14px 16px 12px;
-  box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+  box-shadow: 0 1px 0 rgba(var(--cavil-shadow-rgb), 0.04);
 }
 
 .progress-meta {
@@ -81,13 +81,13 @@ export default {
 }
 
 .progress-title {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 13px;
   font-weight: 600;
 }
 
 .progress-stage {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   font-size: 12px;
   font-weight: 400;
   white-space: nowrap;
@@ -97,13 +97,14 @@ export default {
 
 .report-progress .progress {
   height: 22px;
-  background: #eaeef2;
+  background: var(--cavil-neutral-bg);
   border-radius: 6px;
   overflow: hidden;
   border: 0;
 }
 
 .report-progress .progress-bar {
+  /* Divider between segments of a saturated bar, so it stays white in both themes. */
   border-right: 1px solid rgba(255, 255, 255, 0.6);
   font-size: 11px;
   font-weight: 500;
@@ -114,26 +115,26 @@ export default {
 }
 
 .report-progress .progress-segment.is-done {
-  background-color: #1f883d;
-  color: #ffffff;
+  background-color: var(--cavil-success-emphasis);
+  color: var(--cavil-on-accent);
 }
 .report-progress .progress-segment.is-active {
-  background-color: #54aeff;
-  color: #0a3069;
+  background-color: var(--cavil-accent-vivid);
+  color: var(--cavil-accent-deep);
   animation: cavil-progress-pulse 1.6s ease-in-out infinite;
 }
 .report-progress .progress-segment.is-pending {
   background-color: transparent;
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
 }
 
 @keyframes cavil-progress-pulse {
   0%,
   100% {
-    background-color: #54aeff;
+    background-color: var(--cavil-accent-vivid);
   }
   50% {
-    background-color: #80ccff;
+    background-color: var(--cavil-accent-2);
   }
 }
 
@@ -161,7 +162,7 @@ export default {
 }
 
 .report-progress-compact .progress {
-  background: #eef1f4;
+  background: var(--cavil-tint-5);
   border-radius: 4px;
   height: 16px;
 }
@@ -172,27 +173,27 @@ export default {
 }
 
 .report-progress-compact .progress-segment.is-done {
-  background-color: #d3ecdb;
-  color: #1a7f37;
+  background-color: var(--cavil-success-tint-2);
+  color: var(--cavil-success);
 }
 
 .report-progress-compact .progress-segment.is-active {
   animation: cavil-progress-pulse-muted 1.6s ease-in-out infinite;
-  background-color: #dbeeff;
-  color: #0a3069;
+  background-color: var(--cavil-accent-tint-5);
+  color: var(--cavil-accent-deep);
 }
 
 .report-progress-compact .progress-segment.is-pending {
-  color: #8b949e;
+  color: var(--cavil-grey-5);
 }
 
 @keyframes cavil-progress-pulse-muted {
   0%,
   100% {
-    background-color: #dbeeff;
+    background-color: var(--cavil-accent-tint-5);
   }
   50% {
-    background-color: #edf6ff;
+    background-color: var(--cavil-accent-tint-4);
   }
 }
 

@@ -1,3 +1,397 @@
+/* Theme tokens.
+ *
+ * Every value in :root is the literal the UI already shipped, so light mode is unchanged;
+ * [data-bs-theme='dark'] holds the Primer dark counterpart of the same token. Bootstrap
+ * 5.3 themes its own components off the same data-bs-theme attribute.
+ *
+ * The *-rgb tokens are bare triplets, consumed as rgba(var(--cavil-danger-rgb), 0.12), so
+ * one token covers every alpha a colour is used at.
+ *
+ * Numbered members of a family (tint-4, danger-3) are not a design scale. They exist
+ * because near-identical values were hand-picked in different components over time and
+ * light mode has to keep each one. For new code any member of the family is fine.
+ */
+:root {
+  --cavil-fg: #1f2328;
+  --cavil-fg-emphasis: #24292f;
+  --cavil-fg-code: #24292e;
+  --cavil-fg-body: #212529;
+  --cavil-fg-muted: #57606a;
+  --cavil-fg-muted-strong: #424a53;
+  --cavil-fg-muted-alt: #59636e;
+  --cavil-fg-subtle: #6e7781;
+  --cavil-fg-secondary: #6c757d;
+  --cavil-fg-disabled: #8c959f;
+  --cavil-canvas: #ffffff;
+  --cavil-canvas-subtle: #f6f8fa;
+  --cavil-canvas-tint: #f3f5f7;
+  --cavil-canvas-tint-strong: #eef0f3;
+  --cavil-neutral-bg: #eaeef2;
+  --cavil-border: #d0d7de;
+  --cavil-border-translucent: #d1d9e0b3;
+  --cavil-border-muted: #d8dee4;
+  --cavil-border-strong: #afb8c1;
+  --cavil-border-faint: #ddd;
+  --cavil-accent: #0969da;
+  --cavil-accent-strong: #0550ae;
+  --cavil-accent-emphasis: #0969da;
+  --cavil-accent-deep: #0a3069;
+  --cavil-accent-bg: #ddf4ff;
+  --cavil-accent-border: #b6e3ff;
+  --cavil-accent-vivid: #54aeff;
+  --cavil-accent-vivid-fade: #54aeff66;
+  --cavil-danger: #cf222e;
+  --cavil-danger-bg: #ffebe9;
+  --cavil-danger-border: #ffcecb;
+  --cavil-success: #1a7f37;
+  --cavil-success-emphasis: #1f883d;
+  --cavil-success-deep: #116329;
+  --cavil-success-bg: #e6ffec;
+  --cavil-success-border: #4ac26b66;
+  --cavil-attention: #9a6700;
+  --cavil-attention-strong: #bf8700;
+  --cavil-attention-deep: #7d4e00;
+  --cavil-attention-bg: #fff8c5;
+  --cavil-attention-border: #d4a72c66;
+  --cavil-inverse-bg: #24292f;
+  --cavil-inverse-bg-alt: #1f2328;
+  --cavil-inverse-fg: #ffffff;
+  --cavil-inverse-fg-muted: #c9d1d9;
+  --cavil-inverse-fg-subtle: #d0d7de;
+  --cavil-on-accent: #ffffff;
+  --cavil-surface-raised: rgba(255, 255, 255, 0.92);
+  --cavil-control-edge: rgba(31, 35, 40, 0.15);
+  --cavil-swatch-edge: rgba(27, 31, 36, 0.1);
+
+  --cavil-accent-rgb: 9, 105, 218;
+  --cavil-danger-rgb: 207, 34, 46;
+  --cavil-success-rgb: 26, 127, 55;
+  --cavil-success-emphasis-rgb: 31, 136, 61;
+  --cavil-attention-strong-rgb: 191, 135, 0;
+  --cavil-attention-vivid-rgb: 240, 180, 0;
+  --cavil-attention-border-rgb: 212, 167, 44;
+  --cavil-attention-tint-rgb: 255, 244, 207;
+  --cavil-loading-rgb: 47, 111, 94;
+  --cavil-shadow-rgb: 27, 31, 36;
+  --cavil-shadow-alt-rgb: 31, 35, 40;
+  --cavil-shadow-legacy-rgb: 27, 31, 35;
+  --cavil-shadow-deep-rgb: 36, 41, 47;
+  --cavil-shadow-cool-rgb: 90, 108, 132;
+  --cavil-shadow-success-rgb: 0, 45, 17;
+  --cavil-neutral-rgb: 140, 149, 159;
+  --cavil-neutral-alt-rgb: 110, 119, 129;
+  --cavil-neutral-cool-rgb: 175, 184, 193;
+  --cavil-neutral-soft-rgb: 154, 163, 173;
+  --cavil-neutral-pale-rgb: 196, 201, 207;
+  --cavil-border-rgb: 208, 215, 222;
+  --cavil-fg-muted-strong-rgb: 66, 74, 83;
+  --cavil-canvas-subtle-rgb: 246, 248, 250;
+  --cavil-canvas-rgb: 255, 255, 255;
+
+  --cavil-tint-1: #f3f5f8;
+  --cavil-tint-2: #f3f4f6;
+  --cavil-tint-3: #eff1f3;
+  --cavil-tint-4: #eef2f5;
+  --cavil-tint-5: #eef1f4;
+  --cavil-tint-6: #eef0f2;
+  --cavil-tint-7: #eceef1;
+  --cavil-tint-8: #ebedf0;
+  --cavil-tint-9: #e8edf3;
+  --cavil-tint-10: #e9ecef;
+  --cavil-tint-11: #e7ebf1;
+  --cavil-edge-1: #dfe2e5;
+  --cavil-edge-2: #dde3ea;
+  --cavil-edge-3: #dde2e8;
+  --cavil-edge-4: #dbe0e6;
+  --cavil-edge-5: #d2dce7;
+  --cavil-edge-6: #c4c9cf;
+  --cavil-edge-7: #c3c9d0;
+  --cavil-edge-8: #9aa3ad66;
+  --cavil-grey-1: #9aa3ad;
+  --cavil-grey-2: #9db2c6;
+  --cavil-grey-3: #6f7b89;
+  --cavil-grey-4: #7d8590;
+  --cavil-grey-5: #8b949e;
+  --cavil-grey-6: #586069;
+  --cavil-grey-7: #818182;
+  --cavil-grey-8: #777;
+  --cavil-grey-9: #666;
+  --cavil-ink: #17202a;
+  --cavil-accent-tint-1: #eef6ff;
+  --cavil-accent-tint-2: #f0f6ff;
+  --cavil-accent-tint-3: #eef7ff;
+  --cavil-accent-tint-4: #edf6ff;
+  --cavil-accent-tint-5: #dbeeff;
+  --cavil-accent-2: #80ccff;
+  --cavil-accent-deep-2: #0b374d;
+  --cavil-success-tint-1: #dafbe1;
+  --cavil-success-tint-2: #d3ecdb;
+  --cavil-success-tint-3: #aceebb;
+  --cavil-success-2: #2da44e;
+  --cavil-success-3: #187432;
+  --cavil-success-4: #198754;
+  --cavil-success-5: #90ee90;
+  --cavil-loading-accent: #2f6f5e;
+  --cavil-danger-tint-1: #fff1f1;
+  --cavil-danger-edge: #ff818266;
+  --cavil-danger-2: #82071e;
+  --cavil-danger-3: #a40e26;
+  --cavil-danger-4: #d7252a;
+  --cavil-danger-5: #e5383b;
+  --cavil-danger-6: #dc3545;
+  --cavil-danger-7: #f00;
+  --cavil-danger-8: #ffa07a;
+  --cavil-attention-tint-1: #fff8e1;
+  --cavil-attention-tint-2: #fffbdc;
+  --cavil-attention-tint-3: #fbeec0;
+  --cavil-attention-tint-4: #fcf8b2;
+  --cavil-attention-tint-5: #f0d98b;
+  --cavil-attention-2: #e9c46a;
+  --cavil-attention-3: #eac54f;
+  --cavil-attention-4: #e2b53d;
+  --cavil-attention-5: #d4a72c;
+  --cavil-attention-6: #f9a825;
+  --cavil-attention-7: #ffc107;
+  --cavil-attention-deep-2: #7a5c00;
+  --cavil-attention-deep-3: #6f4e00;
+  --cavil-attention-deep-4: #6e5200;
+  --cavil-attention-deep-5: #5c4500;
+  --cavil-attention-deep-6: #5c3a00;
+  --cavil-attention-deep-7: #a0562d;
+  --cavil-purple-1: #8250df;
+  --cavil-purple-2: #a21caf;
+  --cavil-purple-3: #bf3989;
+  --cavil-risk-unknown-bg: #57606a;
+  --cavil-badge-gloss-top: rgba(255, 255, 255, 0.58);
+  --cavil-badge-gloss-bottom: rgba(255, 255, 255, 0.22);
+  --cavil-badge-rim: rgba(255, 255, 255, 0.9);
+  --cavil-badge-text-shadow: rgba(255, 255, 255, 0.65);
+  --cavil-arrow-idle: #d0d7de;
+  --cavil-arrow-up: green;
+  --cavil-arrow-down: red;
+  --cavil-linenumber: rgba(27, 31, 35, 0.3);
+  --cavil-review-card-border: #1f2328;
+  --cavil-tip-title: #3d444d;
+  --cavil-footer-link-hover: #000;
+  --cavil-footer-bg: #f2ece9;
+  --cavil-navbar-bg: #f8f9fa;
+}
+[data-bs-theme='dark'] {
+  --cavil-fg: #e6edf3;
+  --cavil-fg-emphasis: #f0f6fc;
+  --cavil-fg-code: #e6edf3;
+  --cavil-fg-body: #e6edf3;
+  --cavil-fg-muted: #9198a1;
+  --cavil-fg-muted-strong: #b7bdc8;
+  --cavil-fg-muted-alt: #9198a1;
+  --cavil-fg-subtle: #8b949e;
+  --cavil-fg-secondary: #9198a1;
+  --cavil-fg-disabled: #6e7681;
+  --cavil-canvas: #0d1117;
+  --cavil-canvas-subtle: #151b23;
+  --cavil-canvas-tint: #1c2128;
+  --cavil-canvas-tint-strong: #21262d;
+  --cavil-neutral-bg: #262c36;
+  --cavil-border: #3d444d;
+  --cavil-border-translucent: #3d444db3;
+  --cavil-border-muted: #30363d;
+  --cavil-border-strong: #4a5158;
+  --cavil-border-faint: #30363d;
+  --cavil-accent: #58a6ff;
+  --cavil-accent-strong: #79c0ff;
+  --cavil-accent-emphasis: #1f6feb;
+  --cavil-accent-deep: #cae8ff;
+  --cavil-accent-bg: rgba(88, 166, 255, 0.15);
+  --cavil-accent-border: rgba(88, 166, 255, 0.4);
+  --cavil-accent-vivid: #388bfd;
+  --cavil-accent-vivid-fade: #388bfd66;
+  --cavil-danger: #f85149;
+  --cavil-danger-bg: rgba(248, 81, 73, 0.15);
+  --cavil-danger-border: rgba(248, 81, 73, 0.4);
+  --cavil-success: #3fb950;
+  --cavil-success-emphasis: #238636;
+  --cavil-success-deep: #56d364;
+  --cavil-success-bg: rgba(46, 160, 67, 0.15);
+  --cavil-success-border: rgba(46, 160, 67, 0.4);
+  --cavil-attention: #d29922;
+  --cavil-attention-strong: #e3b341;
+  --cavil-attention-deep: #f2cc60;
+  --cavil-attention-bg: rgba(187, 128, 9, 0.15);
+  --cavil-attention-border: rgba(187, 128, 9, 0.4);
+  --cavil-inverse-bg: #30363d;
+  --cavil-inverse-bg-alt: #262c36;
+  --cavil-inverse-fg: #e6edf3;
+  --cavil-inverse-fg-muted: #9198a1;
+  --cavil-inverse-fg-subtle: #9198a1;
+  --cavil-on-accent: #ffffff;
+  --cavil-surface-raised: rgba(22, 27, 34, 0.92);
+  --cavil-control-edge: #3d444d;
+  --cavil-swatch-edge: rgba(110, 118, 129, 0.4);
+
+  --cavil-accent-rgb: 88, 166, 255;
+  --cavil-danger-rgb: 248, 81, 73;
+  --cavil-success-rgb: 63, 185, 80;
+  --cavil-success-emphasis-rgb: 35, 134, 54;
+  --cavil-attention-strong-rgb: 227, 179, 65;
+  --cavil-attention-vivid-rgb: 227, 179, 65;
+  --cavil-attention-border-rgb: 187, 128, 9;
+  --cavil-attention-tint-rgb: 66, 52, 14;
+  --cavil-loading-rgb: 86, 211, 100;
+  --cavil-shadow-rgb: 1, 4, 9;
+  --cavil-shadow-alt-rgb: 1, 4, 9;
+  --cavil-shadow-legacy-rgb: 1, 4, 9;
+  --cavil-shadow-deep-rgb: 1, 4, 9;
+  --cavil-shadow-cool-rgb: 1, 4, 9;
+  --cavil-shadow-success-rgb: 1, 4, 9;
+  --cavil-neutral-rgb: 1, 4, 9;
+  --cavil-neutral-alt-rgb: 110, 118, 129;
+  --cavil-neutral-cool-rgb: 110, 118, 129;
+  --cavil-neutral-soft-rgb: 1, 4, 9;
+  --cavil-neutral-pale-rgb: 1, 4, 9;
+  --cavil-border-rgb: 61, 68, 77;
+  --cavil-fg-muted-strong-rgb: 1, 4, 9;
+  --cavil-canvas-subtle-rgb: 21, 27, 35;
+  --cavil-canvas-rgb: 13, 17, 23;
+
+  --cavil-tint-1: #1c2128;
+  --cavil-tint-2: #1c2128;
+  --cavil-tint-3: #21262d;
+  --cavil-tint-4: #21262d;
+  --cavil-tint-5: #21262d;
+  --cavil-tint-6: #21262d;
+  --cavil-tint-7: #21262d;
+  --cavil-tint-8: #21262d;
+  --cavil-tint-9: #21262d;
+  --cavil-tint-10: #21262d;
+  --cavil-tint-11: #262c36;
+  --cavil-edge-1: #30363d;
+  --cavil-edge-2: #30363d;
+  --cavil-edge-3: #30363d;
+  --cavil-edge-4: #30363d;
+  --cavil-edge-5: #373e47;
+  --cavil-edge-6: #4a5158;
+  --cavil-edge-7: #4a5158;
+  --cavil-edge-8: #6e768166;
+  --cavil-grey-1: #6e7681;
+  --cavil-grey-2: #6e7681;
+  --cavil-grey-3: #9198a1;
+  --cavil-grey-4: #9198a1;
+  --cavil-grey-5: #9198a1;
+  --cavil-grey-6: #9198a1;
+  --cavil-grey-7: #9198a1;
+  --cavil-grey-8: #9198a1;
+  --cavil-grey-9: #8b949e;
+  --cavil-ink: #f0f6fc;
+  --cavil-accent-tint-1: #121d2f;
+  --cavil-accent-tint-2: #121d2f;
+  --cavil-accent-tint-3: #121d2f;
+  --cavil-accent-tint-4: #121d2f;
+  --cavil-accent-tint-5: #163356;
+  --cavil-accent-2: #388bfd;
+  --cavil-accent-deep-2: #cae8ff;
+  --cavil-success-tint-1: rgba(46, 160, 67, 0.15);
+  --cavil-success-tint-2: rgba(46, 160, 67, 0.15);
+  --cavil-success-tint-3: #238636;
+  --cavil-success-2: #3fb950;
+  --cavil-success-3: #56d364;
+  --cavil-success-4: #3fb950;
+  --cavil-success-5: #238636;
+  --cavil-loading-accent: #56d364;
+  --cavil-danger-tint-1: rgba(248, 81, 73, 0.12);
+  --cavil-danger-edge: rgba(248, 81, 73, 0.4);
+  --cavil-danger-2: #ff7b72;
+  --cavil-danger-3: #ff7b72;
+  --cavil-danger-4: #f85149;
+  --cavil-danger-5: #f85149;
+  --cavil-danger-6: #f85149;
+  --cavil-danger-7: #f85149;
+  --cavil-danger-8: #bd561d;
+  --cavil-attention-tint-1: rgba(187, 128, 9, 0.12);
+  --cavil-attention-tint-2: rgba(187, 128, 9, 0.1);
+  --cavil-attention-tint-3: rgba(187, 128, 9, 0.2);
+  --cavil-attention-tint-4: rgba(187, 128, 9, 0.35);
+  --cavil-attention-tint-5: rgba(187, 128, 9, 0.4);
+  --cavil-attention-2: #bb8009;
+  --cavil-attention-3: #bb8009;
+  --cavil-attention-4: #d29922;
+  --cavil-attention-5: #bb8009;
+  --cavil-attention-6: #e3b341;
+  --cavil-attention-7: #e3b341;
+  --cavil-attention-deep-2: #f2cc60;
+  --cavil-attention-deep-3: #f2cc60;
+  --cavil-attention-deep-4: #f2cc60;
+  --cavil-attention-deep-5: #f2cc60;
+  --cavil-attention-deep-6: #f2cc60;
+  --cavil-attention-deep-7: #f0883e;
+  --cavil-purple-1: #ab7df8;
+  --cavil-purple-2: #d2a8ff;
+  --cavil-purple-3: #db61a2;
+  --cavil-risk-unknown-bg: #484f58;
+  --cavil-badge-gloss-top: rgba(255, 255, 255, 0.05);
+  --cavil-badge-gloss-bottom: rgba(255, 255, 255, 0.02);
+  --cavil-badge-rim: rgba(255, 255, 255, 0.08);
+  --cavil-badge-text-shadow: rgba(1, 4, 9, 0.55);
+  --cavil-arrow-idle: #4a5158;
+  --cavil-arrow-up: #3fb950;
+  --cavil-arrow-down: #f85149;
+  --cavil-linenumber: #6e7681;
+  --cavil-review-card-border: #6e7681;
+  --cavil-tip-title: #9198a1;
+  --cavil-footer-link-hover: #e6edf3;
+  --cavil-footer-bg: #0d1117;
+  --cavil-navbar-bg: #010409;
+}
+html[data-bs-theme='dark'] {
+  --bs-body-bg: var(--cavil-canvas);
+  --bs-body-bg-rgb: var(--cavil-canvas-rgb);
+  --bs-body-color: var(--cavil-fg);
+  --bs-body-color-rgb: 230, 237, 243;
+  --bs-emphasis-color: #f0f6fc;
+  --bs-emphasis-color-rgb: 240, 246, 252;
+  --bs-secondary-bg: var(--cavil-canvas-tint-strong);
+  --bs-secondary-bg-rgb: 33, 38, 45;
+  --bs-secondary-color: rgba(230, 237, 243, 0.75);
+  --bs-secondary-color-rgb: 230, 237, 243;
+  --bs-tertiary-bg: var(--cavil-canvas-subtle);
+  --bs-tertiary-bg-rgb: var(--cavil-canvas-subtle-rgb);
+  --bs-tertiary-color: rgba(230, 237, 243, 0.5);
+  --bs-tertiary-color-rgb: 230, 237, 243;
+  --bs-border-color: var(--cavil-border);
+  --bs-link-color: var(--cavil-accent);
+  --bs-link-color-rgb: var(--cavil-accent-rgb);
+  --bs-link-hover-color: var(--cavil-accent-strong);
+  --bs-link-hover-color-rgb: 121, 192, 255;
+  --bs-code-color: #ff7b72;
+  --bs-highlight-bg: rgba(var(--cavil-attention-border-rgb), 0.35);
+
+  /* The subtle triad drives alerts, list groups and anything else built from
+     *-bg-subtle / *-border-subtle / *-text-emphasis. Bootstrap's dark values are its own
+     blue-greys, so they get re-pointed too rather than left as an island. */
+  --bs-primary-text-emphasis: var(--cavil-accent);
+  --bs-secondary-text-emphasis: var(--cavil-fg-muted);
+  --bs-success-text-emphasis: var(--cavil-success);
+  --bs-danger-text-emphasis: var(--cavil-danger);
+  --bs-warning-text-emphasis: var(--cavil-attention-deep);
+  --bs-info-text-emphasis: var(--cavil-accent-strong);
+  --bs-primary-bg-subtle: var(--cavil-accent-bg);
+  --bs-secondary-bg-subtle: var(--cavil-neutral-bg);
+  --bs-success-bg-subtle: var(--cavil-success-bg);
+  --bs-danger-bg-subtle: var(--cavil-danger-bg);
+  --bs-warning-bg-subtle: var(--cavil-attention-bg);
+  --bs-info-bg-subtle: var(--cavil-accent-bg);
+  --bs-primary-border-subtle: var(--cavil-accent-border);
+  --bs-secondary-border-subtle: rgba(var(--cavil-neutral-alt-rgb), 0.4);
+  --bs-success-border-subtle: var(--cavil-success-border);
+  --bs-danger-border-subtle: var(--cavil-danger-border);
+  --bs-warning-border-subtle: var(--cavil-attention-border);
+  --bs-info-border-subtle: var(--cavil-accent-border);
+}
+
+/* Not Bootstrap's bg-body-tertiary: that is lighter than the page, which in dark makes the
+   bar float above the content instead of framing it. Same colour as bg-light in light. */
+.cavil-navbar {
+  background-color: var(--cavil-navbar-bg);
+}
 .cavil-brand {
   align-items: center;
   display: inline-flex;
@@ -14,12 +408,12 @@
   line-height: 1.05;
 }
 .cavil-brand-name {
-  color: #17202a;
+  color: var(--cavil-ink);
   font-size: 1rem;
   font-weight: 700;
 }
 .cavil-brand-subtitle {
-  color: #6c757d;
+  color: var(--cavil-fg-secondary);
   font-size: .72rem;
   font-weight: 500;
 }
@@ -54,8 +448,69 @@
 .cavil-dropdown-badge {
   margin-left: 1rem;
 }
+.cavil-theme-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding-right: 1rem;
+}
+/* A two-position switch rather than a single swapping glyph: the resting knob plus the
+   dimmed glyph on the far side is what tells you there is somewhere else to go. */
+.cavil-theme-toggle {
+  align-items: center;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  height: 22px;
+  justify-content: space-between;
+  padding: 0 4px;
+  position: relative;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+  width: 44px;
+}
+.cavil-theme-toggle > i {
+  color: var(--cavil-fg-disabled);
+  font-size: 10px;
+}
+.cavil-theme-toggle-knob {
+  align-items: center;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
+  border-radius: 50%;
+  color: var(--cavil-fg-muted);
+  display: flex;
+  font-size: 10px;
+  height: 18px;
+  justify-content: center;
+  left: 1px;
+  position: absolute;
+  top: 1px;
+  transition:
+    transform 0.18s ease,
+    color 0.15s;
+  width: 18px;
+}
+.cavil-theme-toggle.is-dark .cavil-theme-toggle-knob {
+  transform: translateX(22px);
+}
+.cavil-theme-toggle:hover {
+  border-color: var(--cavil-accent);
+}
+.cavil-theme-toggle:hover .cavil-theme-toggle-knob {
+  border-color: var(--cavil-accent);
+  color: var(--cavil-accent);
+}
+.cavil-theme-toggle:focus-visible {
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.3);
+  outline: none;
+}
 .cavil-user-dropdown .cavil-role-list {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: .8125rem;
   line-height: 1.4;
   max-width: 18rem;
@@ -72,10 +527,10 @@
 }
 .cavil-icon-action {
   align-items: center;
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   display: inline-flex;
   height: 30px;
   justify-content: center;
@@ -90,17 +545,17 @@ button.cavil-icon-action {
 .cavil-icon-action:hover,
 .cavil-icon-action:focus,
 .cavil-icon-action.active {
-  background: #f3f4f6;
-  color: #0969da;
+  background: var(--cavil-tint-2);
+  color: var(--cavil-accent);
   text-decoration: none;
 }
 .cavil-icon-action-danger:hover,
 .cavil-icon-action-danger:focus {
-  color: #cf222e;
+  color: var(--cavil-danger);
 }
 .cavil-icon-action:disabled,
 .cavil-icon-action.disabled {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   cursor: not-allowed;
   opacity: 0.65;
 }
@@ -121,37 +576,37 @@ button.cavil-icon-action {
   white-space: nowrap;
 }
 .cavil-meta-badge-muted {
-  background: #eaeef2;
-  border-color: rgba(110, 119, 129, 0.25);
-  color: #57606a;
+  background: var(--cavil-neutral-bg);
+  border-color: rgba(var(--cavil-neutral-alt-rgb), 0.25);
+  color: var(--cavil-fg-muted);
 }
 .cavil-meta-badge-info {
-  background: #ddf4ff;
-  border-color: #54aeff66;
-  color: #0550ae;
+  background: var(--cavil-accent-bg);
+  border-color: var(--cavil-accent-vivid-fade);
+  color: var(--cavil-accent-strong);
 }
 .cavil-meta-badge-warning {
-  background: #fff8c5;
-  border-color: #d4a72c66;
-  color: #7d4e00;
+  background: var(--cavil-attention-bg);
+  border-color: var(--cavil-attention-border);
+  color: var(--cavil-attention-deep);
 }
 .cavil-meta-badge-danger {
-  background: #ffebe9;
-  border-color: #ffcecb;
-  color: #cf222e;
+  background: var(--cavil-danger-bg);
+  border-color: var(--cavil-danger-border);
+  color: var(--cavil-danger);
 }
 .cavil-meta-badge-success {
-  background: #dafbe1;
-  border-color: #4ac26b66;
-  color: #1a7f37;
+  background: var(--cavil-success-tint-1);
+  border-color: var(--cavil-success-border);
+  color: var(--cavil-success);
 }
 .cavil-risk-unknown-badge {
-  background-color: #57606a;
-  color: #fff;
+  background-color: var(--cavil-risk-unknown-bg);
+  color: var(--cavil-on-accent);
 }
 .cavil-external-link {
   align-items: stretch;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 4px;
   display: inline-flex;
   font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
@@ -170,10 +625,10 @@ button.cavil-icon-action {
   white-space: nowrap;
 }
 .cavil-external-link-target {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 4px 0 0 4px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   min-width: 0;
   overflow: hidden;
   text-decoration: none;
@@ -185,14 +640,14 @@ button.cavil-icon-action {
 }
 a.cavil-external-link-target:hover,
 a.cavil-external-link-target:focus {
-  background: #eef6ff;
-  color: #0969da;
+  background: var(--cavil-accent-tint-1);
+  color: var(--cavil-accent);
   text-decoration: none;
 }
 .cavil-external-link-source {
-  background: #eaeef2;
-  border-left: 1px solid #d0d7de;
-  color: #57606a;
+  background: var(--cavil-neutral-bg);
+  border-left: 1px solid var(--cavil-border);
+  color: var(--cavil-fg-muted);
   flex: 0 0 auto;
   font-weight: 500;
   letter-spacing: 0;
@@ -222,7 +677,7 @@ h2 a {
 }
 /* license key word */
 pre .lkw {
-  background-color: #FCF8B2;
+  background-color: var(--cavil-attention-tint-4);
   /* font-weight: bold; */
 }
 
@@ -232,7 +687,7 @@ textarea.mono-textarea {
 
 .source {
   margin-bottom: 10px;
-  border: 1px solid #dfe2e5 !important;
+  border: 1px solid var(--cavil-edge-1) !important;
   border-top: 0 !important;
   border-radius: 0 0 .25rem .25rem;
 }
@@ -246,12 +701,12 @@ textarea.mono-textarea {
   margin: 0;
   font-size: 12px;
   line-height: 20px;
-  color: rgba(27,31,35,0.3);
+  color: var(--cavil-linenumber);
   border: 0 !important;
 }
 .source td.code {
   padding-left: .5em;
-  color: #24292e;
+  color: var(--cavil-fg-code);
   margin-left: .5em;
   white-space: -moz-pre-wrap;
   white-space: -o-pre-wrap;
@@ -260,31 +715,31 @@ textarea.mono-textarea {
   word-break: break-all;
 }
 .source td.linenumber {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--cavil-border-faint);
   padding: 0 .5em;
   margin-right: .5em;
   text-align: right;
   width: 1%;
   min-width: 25px;
-  color: rgba(27,31,35,0.3);
+  color: var(--cavil-linenumber);
   user-select: none;
 }
 .source tr.risk-9 {
-  background-color: #eaeef2;
-  box-shadow: inset 4px 0 0 #57606a;
-  color: #1f2328;
+  background-color: var(--cavil-neutral-bg);
+  box-shadow: inset 4px 0 0 var(--cavil-fg-muted);
+  color: var(--cavil-fg);
 }
 .source tr.risk-9 .code {
-  color: #1f2328;
+  color: var(--cavil-fg);
 }
 .source tr.risk-9 .linenumber {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
 }
 .source tr.risk-9 i.fas {
-  color: #1f2328;
+  color: var(--cavil-fg);
 }
 .source tr.risk-9 a.current-selector i.fas {
-  color: #9a6700;
+  color: var(--cavil-attention);
 }
 .source tr.risk-8 .code,
 .source tr.risk-7 .code,
@@ -295,7 +750,7 @@ textarea.mono-textarea {
 .source tr.risk-2 .code,
 .source tr.risk-1 .code,
 .source tr.risk-0 .code {
-  color: #1f2328;
+  color: var(--cavil-fg);
 }
 .source tr.risk-8 .linenumber,
 .source tr.risk-7 .linenumber,
@@ -306,17 +761,17 @@ textarea.mono-textarea {
 .source tr.risk-2 .linenumber,
 .source tr.risk-1 .linenumber,
 .source tr.risk-0 .linenumber {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
 }
 .source tr.risk-6,
 .source tr.risk-7,
 .source tr.risk-8 {
-  background-color: #fff1f1;
-  box-shadow: inset 3px 0 0 #cf222e;
+  background-color: var(--cavil-danger-tint-1);
+  box-shadow: inset 3px 0 0 var(--cavil-danger);
 }
 .source tr.risk-5 {
-  background-color: #fff8c5;
-  box-shadow: inset 3px 0 0 #9a6700;
+  background-color: var(--cavil-attention-bg);
+  box-shadow: inset 3px 0 0 var(--cavil-attention);
 }
 /* Match the popover risk palette: 0-4 green, 5 yellow, 6-8 red, 9 dark. */
 .source tr.risk-0,
@@ -324,16 +779,16 @@ textarea.mono-textarea {
 .source tr.risk-2,
 .source tr.risk-3,
 .source tr.risk-4 {
-  background-color: #e6ffec;
-  box-shadow: inset 3px 0 0 #1a7f37;
+  background-color: var(--cavil-success-bg);
+  box-shadow: inset 3px 0 0 var(--cavil-success);
 }
 
 span.diff-removed {
-  background-color: #ffebe9;
+  background-color: var(--cavil-danger-bg);
 }
 
 span.diff-added {
-  background-color: #e6ffec;
+  background-color: var(--cavil-success-bg);
 }
 
 #snippet {
@@ -375,7 +830,7 @@ body {
 .btn.back-to-top {
   align-items: center;
   bottom: 20px;
-  box-shadow: 0 4px 12px rgba(27, 31, 36, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--cavil-shadow-rgb), 0.3);
   cursor: pointer;
   display: inline-flex;
   font-size: 14px;
@@ -396,8 +851,8 @@ body {
   pointer-events: auto;
 }
 .file-container {
-  background-color: rgb(246, 248, 250);
-  border: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   margin-top: 1.75rem;
   /* Intentionally NOT overflow: hidden. The inline ▲/▼ extend buttons and the
@@ -411,9 +866,9 @@ body {
   border-top-right-radius: 0;
 }
 .file {
-  background-color: rgb(246, 248, 250);
+  background-color: var(--cavil-canvas-subtle);
   border: 0 !important;
-  border-bottom: 1px solid rgb(208, 215, 222) !important;
+  border-bottom: 1px solid var(--cavil-border) !important;
   border-radius: 5px 5px 0 0;
   font-size: 13px;
   line-height: 20px;
@@ -422,16 +877,16 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04), 0 8px 16px -16px rgba(27, 31, 36, 0.35);
+  box-shadow: 0 1px 0 rgba(var(--cavil-shadow-rgb), 0.04), 0 8px 16px -16px rgba(var(--cavil-shadow-rgb), 0.35);
 }
 .file.is-stuck {
   border-radius: 0;
 }
 .file a {
-  color: #586069;
+  color: var(--cavil-grey-6);
 }
 .file-container .source {
-  background-color: #ffffff;
+  background-color: var(--cavil-canvas);
   border: 0 !important;
   border-radius: 0;
   margin-bottom: 0;
@@ -440,7 +895,7 @@ body {
   font-size: 0.3em;
 }
 .format {
-  color: #818182;
+  color: var(--cavil-grey-7);
   font-size: 1.2em;
 }
 .footer {
@@ -452,27 +907,27 @@ body {
   z-index: -1;
 }
 
-.license-1 { background-color: #FFA07A };
-.license-0 { background-color: #90EE90 };
+.license-1 { background-color: var(--cavil-danger-8) };
+.license-0 { background-color: var(--cavil-success-5) };
 
 .field-with-error {
-  border: 2px solid #f00 !important;
+  border: 2px solid var(--cavil-danger-7) !important;
 }
 
 .cavil-copy {
   font-size: 14px;
 }
 .cavil-copy, .cavil-copy a {
-  color: #777;
+  color: var(--cavil-grey-8);
 }
 .cavil-footer {
   background: url(/images/pinstripe-light.png);
-  background-color: #f2ece9;
-  box-shadow: inset 0 10px 10px -5px #ddd;
-  color: #666;
+  background-color: var(--cavil-footer-bg);
+  box-shadow: inset 0 10px 10px -5px var(--cavil-border-faint);
+  color: var(--cavil-grey-9);
 }
 .cavil-footer a:hover {
-  color: #000;
+  color: var(--cavil-footer-link-hover);
   text-decoration: none;
 }
 
@@ -481,32 +936,32 @@ body {
   margin-top: 1rem;
 }
 .pattern-file-container {
-  border: 1px solid rgb(208, 215, 222);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
   padding: 0;
 }
 .pattern-header {
-  background-color: rgb(246, 248, 250);
-  border-bottom: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
 }
 .pattern-header a{
-  color: #212529;
+  color: var(--cavil-fg-body);
   text-decoration: none;
 }
 .pattern-header a:hover {
   text-decoration: underline;
 }
 .pattern-source {
-  background: #fff;
+  background: var(--cavil-canvas);
   font-family: monospace;
   font-size: 12px;
   line-height: 20px;
   padding: 0.5rem;
-  color: #24292e;
+  color: var(--cavil-fg-code);
 }
 .pattern-source pre {
   padding: 0;
@@ -519,8 +974,8 @@ body {
   word-break: break-all;
 }
 .pattern-footer {
-  background-color: rgb(246, 248, 250);
-  border-top: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
@@ -535,12 +990,12 @@ a.spdx-link:hover {
 }
 
 .file-list {
-  border-top: 1px solid rgb(208, 215, 222);
+  border-top: 1px solid var(--cavil-border);
   padding-top: 1em;
 }
 
 .hover-table tr:hover td {
-  background-color: #e9ecef;
+  background-color: var(--cavil-tint-10);
 }
 
 .breakable-column {
@@ -552,5 +1007,161 @@ a.spdx-link:hover {
 }
 
 .file-with-matches {
-  color: #d7252a;
+  color: var(--cavil-danger-4);
+}
+
+/* CodeMirror ships a light and a dark base theme, but picks between them from the editor
+   config, so following data-bs-theme would mean tearing down and rebuilding every live
+   editor on toggle. Overriding its light rules in CSS instead lets them just repaint.
+   Its own selectors are generated (.cm-editor carries a hashed class, not .cm-light), so
+   these match on .cm-editor and rely on the extra [data-bs-theme] for specificity.
+   caret-color is the one that matters most: without drawSelection these editors use the
+   native caret, which stays black. */
+[data-bs-theme='dark'] .cm-editor .cm-content {
+  caret-color: var(--cavil-fg);
+}
+[data-bs-theme='dark'] .cm-editor .cm-cursor {
+  border-left-color: var(--cavil-fg);
+}
+[data-bs-theme='dark'] .cm-editor .cm-selectionBackground,
+[data-bs-theme='dark'] .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: rgba(var(--cavil-accent-rgb), 0.35);
+}
+[data-bs-theme='dark'] .cm-editor .cm-activeLine {
+  background-color: rgba(var(--cavil-accent-rgb), 0.1);
+}
+[data-bs-theme='dark'] .cm-editor .cm-gutters {
+  background-color: var(--cavil-canvas-subtle);
+  border-color: var(--cavil-border);
+  color: var(--cavil-fg-subtle);
+}
+[data-bs-theme='dark'] .cm-editor .cm-activeLineGutter {
+  background-color: var(--cavil-canvas-tint-strong);
+}
+[data-bs-theme='dark'] .cm-editor .cm-panels,
+[data-bs-theme='dark'] .cm-tooltip {
+  background-color: var(--cavil-canvas-subtle);
+  border-color: var(--cavil-border);
+  color: var(--cavil-fg);
+}
+
+/* The pinstripe texture is baked into a light-grey PNG, so it cannot be themed. Its inset
+   recess cannot either: near black, the same 8% step that reads as a soft trough in light
+   reads as a hard band. A single top border separates the footer instead. */
+[data-bs-theme='dark'] .cavil-footer {
+  background-image: none;
+  border-top: 1px solid var(--cavil-border);
+  box-shadow: none;
+}
+
+/* Bootstrap's filled utilities in dark.
+ *
+ * Their saturated fills are the one thing on the page still speaking Bootstrap rather than
+ * Primer. Labels and actions want opposite answers, so they get different treatment: a
+ * badge describes something and goes quiet as a tinted chip, reusing the very tokens
+ * .cavil-meta-badge-* already uses; a button is an action and stays filled, only re-toned,
+ * because a button that reads as a label loses its affordance.
+ *
+ * Light is deliberately untouched: Bootstrap's own palette is what shipped there. */
+[data-bs-theme='dark'] .badge.text-bg-success,
+[data-bs-theme='dark'] .badge.bg-success {
+  background-color: var(--cavil-success-tint-1) !important;
+  border: 1px solid var(--cavil-success-border);
+  color: var(--cavil-success) !important;
+}
+[data-bs-theme='dark'] .badge.text-bg-danger,
+[data-bs-theme='dark'] .badge.bg-danger {
+  background-color: var(--cavil-danger-bg) !important;
+  border: 1px solid var(--cavil-danger-border);
+  color: var(--cavil-danger) !important;
+}
+[data-bs-theme='dark'] .badge.text-bg-warning,
+[data-bs-theme='dark'] .badge.bg-warning {
+  background-color: var(--cavil-attention-bg) !important;
+  border: 1px solid var(--cavil-attention-border);
+  color: var(--cavil-attention-deep) !important;
+}
+[data-bs-theme='dark'] .badge.text-bg-secondary,
+[data-bs-theme='dark'] .badge.bg-secondary,
+[data-bs-theme='dark'] .badge.text-bg-light,
+[data-bs-theme='dark'] .badge.cavil-risk-unknown-badge {
+  background-color: var(--cavil-neutral-bg) !important;
+  border: 1px solid rgba(var(--cavil-neutral-alt-rgb), 0.4);
+  color: var(--cavil-fg-muted) !important;
+}
+
+/* Every coloured button rests as the same neutral surface the default button uses, carrying
+   only hue text and a hue border, and fills in on hover. That is Primer's danger button
+   generalised: beside the muted chips a solid fill reads as the odd one out, and the hover
+   fill is what keeps the affordance a chip would lose. Outline variants land in the same
+   place, so they share the rules. */
+[data-bs-theme='dark'] .btn-primary,
+[data-bs-theme='dark'] .btn-success,
+[data-bs-theme='dark'] .btn-danger,
+[data-bs-theme='dark'] .btn-outline-primary,
+[data-bs-theme='dark'] .btn-outline-danger {
+  --bs-btn-bg: var(--cavil-canvas-tint-strong);
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-disabled-color: var(--cavil-fg-disabled);
+  --bs-btn-disabled-bg: var(--cavil-canvas-tint-strong);
+  --bs-btn-disabled-border-color: var(--cavil-border);
+}
+[data-bs-theme='dark'] .btn-primary,
+[data-bs-theme='dark'] .btn-outline-primary {
+  --bs-btn-color: var(--cavil-accent);
+  --bs-btn-border-color: rgba(var(--cavil-accent-rgb), 0.4);
+  --bs-btn-hover-bg: var(--cavil-accent-emphasis);
+  --bs-btn-hover-border-color: var(--cavil-accent);
+  --bs-btn-active-bg: #1158c7;
+  --bs-btn-active-border-color: var(--cavil-accent);
+  --bs-btn-focus-shadow-rgb: var(--cavil-accent-rgb);
+}
+[data-bs-theme='dark'] .btn-success {
+  --bs-btn-color: var(--cavil-success);
+  --bs-btn-border-color: rgba(var(--cavil-success-rgb), 0.4);
+  --bs-btn-hover-bg: #238636;
+  --bs-btn-hover-border-color: var(--cavil-success);
+  --bs-btn-active-bg: #1a7f37;
+  --bs-btn-active-border-color: var(--cavil-success);
+  --bs-btn-focus-shadow-rgb: 46, 160, 67;
+}
+[data-bs-theme='dark'] .btn-danger,
+[data-bs-theme='dark'] .btn-outline-danger {
+  --bs-btn-color: var(--cavil-danger);
+  --bs-btn-border-color: rgba(var(--cavil-danger-rgb), 0.4);
+  --bs-btn-hover-bg: #da3633;
+  --bs-btn-hover-border-color: var(--cavil-danger);
+  --bs-btn-active-bg: #b62324;
+  --bs-btn-active-border-color: var(--cavil-danger);
+  --bs-btn-focus-shadow-rgb: var(--cavil-danger-rgb);
+}
+/* GitHub's default button: a raised neutral surface, not a grey fill. */
+[data-bs-theme='dark'] .btn-secondary,
+[data-bs-theme='dark'] .btn-outline-secondary {
+  --bs-btn-color: var(--cavil-fg);
+  --bs-btn-bg: var(--cavil-canvas-tint-strong);
+  --bs-btn-border-color: var(--cavil-border);
+  --bs-btn-hover-color: var(--cavil-fg);
+  --bs-btn-hover-bg: var(--cavil-border-muted);
+  --bs-btn-hover-border-color: var(--cavil-fg-disabled);
+  --bs-btn-active-color: var(--cavil-fg);
+  --bs-btn-active-bg: var(--cavil-border-muted);
+  --bs-btn-active-border-color: var(--cavil-fg-disabled);
+  --bs-btn-disabled-color: var(--cavil-fg-disabled);
+  --bs-btn-disabled-bg: var(--cavil-canvas-tint-strong);
+  --bs-btn-disabled-border-color: var(--cavil-border);
+  --bs-btn-focus-shadow-rgb: var(--cavil-neutral-alt-rgb);
+}
+
+/* Two Bootstrap components hardcode its blue rather than reading a variable, so the bridge
+   cannot reach them. */
+[data-bs-theme='dark'] .form-check-input:checked {
+  background-color: var(--cavil-accent-emphasis);
+  border-color: var(--cavil-accent-emphasis);
+}
+[data-bs-theme='dark'] .pagination {
+  --bs-pagination-active-bg: var(--cavil-accent-emphasis);
+  --bs-pagination-active-border-color: var(--cavil-accent-emphasis);
+  --bs-pagination-active-color: var(--cavil-on-accent);
 }

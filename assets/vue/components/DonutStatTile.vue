@@ -15,7 +15,7 @@
           cy="60"
           r="44"
           pathLength="100"
-          :stroke="slice.color"
+          :style="{stroke: slice.color}"
           :stroke-dasharray="slice.dasharray"
           :stroke-dashoffset="-slice.offset"
         ></circle>
@@ -92,11 +92,11 @@ export default {
 <style scoped>
 .stats-donut-tile {
   align-items: center;
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(27, 31, 36, 0.04);
-  color: #24292f;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-rgb), 0.04);
+  color: var(--cavil-fg-emphasis);
   display: grid;
   gap: 0.9rem 1rem;
   grid-column: span 2;
@@ -112,7 +112,7 @@ export default {
 }
 
 .stats-tile-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0;
@@ -129,7 +129,7 @@ export default {
 }
 
 .stats-donut {
-  filter: drop-shadow(0 1px 2px rgba(27, 31, 36, 0.08));
+  filter: drop-shadow(0 1px 2px rgba(var(--cavil-shadow-rgb), 0.08));
   inset: 0;
   overflow: visible;
   position: absolute;
@@ -143,14 +143,14 @@ export default {
 }
 
 .stats-donut-track {
-  stroke: #1f883d;
+  stroke: var(--cavil-success-emphasis);
 }
 
 .stats-donut-center {
   align-items: center;
-  background: #fff;
+  background: var(--cavil-canvas);
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(27, 31, 36, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(var(--cavil-shadow-rgb), 0.08);
   display: flex;
   flex-direction: column;
   height: 50%;
@@ -168,7 +168,7 @@ export default {
 }
 
 .stats-donut-center span {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.62rem;
   font-weight: 600;
   max-width: 60px;
@@ -176,7 +176,7 @@ export default {
 }
 
 .stats-donut-legend {
-  border-top: 1px solid #d8dee4;
+  border-top: 1px solid var(--cavil-border-muted);
   display: grid;
   gap: 0.45rem;
   grid-column: 1 / -1;
@@ -192,7 +192,7 @@ export default {
 
 .stats-donut-legend dt {
   align-items: center;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: flex;
   font-size: 0.82rem;
   font-weight: 500;
@@ -200,7 +200,7 @@ export default {
 }
 
 .stats-donut-legend dd {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 0.86rem;
   font-weight: 600;
   margin: 0;
@@ -214,7 +214,7 @@ export default {
 }
 
 .stats-swatch-active {
-  background: #1f883d;
+  background: var(--cavil-success-emphasis);
 }
 
 @media (max-width: 575.98px) {

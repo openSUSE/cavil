@@ -24,7 +24,7 @@ export default {
 <style scoped>
 .empty-state {
   align-items: center;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -32,11 +32,11 @@ export default {
   text-align: center;
 }
 .empty-state-icon {
-  color: #1a7f37;
+  color: var(--cavil-success);
   font-size: 2.5rem;
 }
 .empty-state-title {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-size: 1.1rem;
   font-weight: 600;
   margin: 0.5rem 0 0;

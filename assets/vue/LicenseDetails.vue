@@ -370,22 +370,22 @@ export default {
 }
 .license-details-loading,
 .license-empty-state {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   padding: 1rem;
   text-align: center;
 }
 .license-details-header {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   margin-bottom: 1rem;
   overflow: hidden;
 }
 .license-details-title-row {
   align-items: flex-start;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   gap: 1rem;
   justify-content: space-between;
@@ -398,7 +398,7 @@ export default {
   overflow-wrap: anywhere;
 }
 .license-details-kicker {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   margin-bottom: 0.25rem;
 }
@@ -413,11 +413,11 @@ export default {
 }
 .license-details-stat,
 .license-details-spdx-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 14px;
 }
 .license-spdx-form {
-  border-top: 1px solid #d0d7de;
+  border-top: 1px solid var(--cavil-border);
 }
 .license-spdx-form .form-label {
   margin: 0;
@@ -439,7 +439,7 @@ export default {
   position: relative;
 }
 .license-filter-search i {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   left: 0.75rem;
   position: absolute;
   top: 50%;
@@ -453,13 +453,13 @@ export default {
   min-width: 130px;
 }
 .license-details-count {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 14px;
   text-align: right;
   white-space: nowrap;
 }
 .license-pattern-card {
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   margin-bottom: 1rem;
   overflow: hidden;
@@ -467,18 +467,18 @@ export default {
 .license-pattern-header,
 .license-pattern-footer {
   align-items: center;
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
   display: flex;
   gap: 0.75rem;
   justify-content: space-between;
   padding: 0.6rem 0.75rem;
 }
 .license-pattern-header {
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--cavil-border);
 }
 .license-pattern-footer {
-  border-top: 1px solid #d0d7de;
-  color: #57606a;
+  border-top: 1px solid var(--cavil-border);
+  color: var(--cavil-fg-muted);
   flex-wrap: wrap;
   font-size: 13px;
 }
@@ -490,15 +490,15 @@ export default {
   gap: 0.4rem;
 }
 .license-pattern-id {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-family: monospace;
   font-size: 13px;
 }
 .license-chip {
   align-items: center;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 12px;
   gap: 0.3rem;
@@ -506,12 +506,12 @@ export default {
   padding: 0.2rem 0.45rem;
 }
 .license-chip-flag {
-  background: #fff8c5;
-  border-color: #d4a72c;
-  color: #7d4e00;
+  background: var(--cavil-attention-bg);
+  border-color: var(--cavil-attention-5);
+  color: var(--cavil-attention-deep);
 }
 .license-pattern-code {
-  background: #ffffff;
+  background: var(--cavil-canvas);
   overflow: auto;
 }
 .license-pattern-code table {
@@ -529,8 +529,8 @@ export default {
   vertical-align: top;
 }
 .license-pattern-code td.linenumber {
-  border-right: 1px solid #ddd;
-  color: rgba(27, 31, 35, 0.3);
+  border-right: 1px solid var(--cavil-border-faint);
+  color: var(--cavil-linenumber);
   min-width: 25px;
   padding: 0 0.5em;
   margin-right: 0.5em;
@@ -539,27 +539,27 @@ export default {
   width: 1%;
 }
 .license-pattern-code td.code {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   padding-left: 0.75rem;
   padding-right: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
 }
 .license-expand-button {
-  background: #ffffff;
+  background: var(--cavil-canvas);
   border: 0;
-  border-top: 1px solid #d0d7de;
-  color: #0969da;
+  border-top: 1px solid var(--cavil-border);
+  color: var(--cavil-accent);
   font-size: 13px;
   padding: 0.45rem 0.75rem;
   text-align: left;
   width: 100%;
 }
 .license-expand-button:hover {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .license-inline-editor {
-  border-top: 1px solid #d0d7de;
+  border-top: 1px solid var(--cavil-border);
   padding: 1rem;
 }
 @media (max-width: 800px) {

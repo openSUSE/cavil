@@ -48,7 +48,7 @@ export default {
   display: inline-block;
 }
 .cavil-copyable.copied::after {
-  color: #1a7f37;
+  color: var(--cavil-success);
   content: ' Copied!';
   font-weight: 500;
   margin-left: 0.5rem;

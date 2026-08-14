@@ -88,7 +88,7 @@ export default {
   margin-bottom: 16px;
 }
 .recent-notes-filter-label {
-  color: #1f2328;
+  color: var(--cavil-fg);
   display: block;
   font-size: 13px;
   font-weight: 600;

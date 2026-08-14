@@ -646,19 +646,19 @@ export default {
 /* Painted on the row so the buttons sit inside the range rather than beside it. Blue: the risk palette is
    spoken for, and a dashed border already means a derived resolution. */
 .snippet tr.line-preview {
-  background-color: #eef7ff;
+  background-color: var(--cavil-accent-tint-3);
 }
 .snippet tr.line-anchor {
-  box-shadow: inset 3px 0 0 #0969da;
+  box-shadow: inset 3px 0 0 var(--cavil-accent);
   animation: legal-line-anchor 1.6s ease-in-out infinite;
 }
 .snippet tr.line-selected {
-  background-color: #ddf4ff;
-  box-shadow: inset 3px 0 0 #0969da;
+  background-color: var(--cavil-accent-bg);
+  box-shadow: inset 3px 0 0 var(--cavil-accent);
 }
 @keyframes legal-line-anchor {
   50% {
-    box-shadow: inset 3px 0 0 rgba(9, 105, 218, 0.35);
+    box-shadow: inset 3px 0 0 rgba(var(--cavil-accent-rgb), 0.35);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -681,9 +681,9 @@ export default {
   display: none;
 }
 .snippet .inline-editor-row > td {
-  background: #ffffff;
-  border-top: 1px solid #d0d7de !important;
-  border-bottom: 1px solid #d0d7de !important;
+  background: var(--cavil-canvas);
+  border-top: 1px solid var(--cavil-border) !important;
+  border-bottom: 1px solid var(--cavil-border) !important;
   padding: 12px 16px !important;
 }
 .snippet .inline-editor-row #inline-snippet-editor .snippet-editor {
@@ -704,9 +704,9 @@ export default {
   position: relative;
 }
 .snippet td.source-gap {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
   border: 0 !important;
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-family: inherit;
   font-size: 11px;
   letter-spacing: 0;
@@ -717,7 +717,7 @@ export default {
   user-select: none;
 }
 .snippet td.source-gap::before {
-  background: #d0d7de;
+  background: var(--cavil-border);
   content: '';
   height: 1px;
   left: 12px;
@@ -726,8 +726,8 @@ export default {
   top: 50%;
 }
 .snippet td.source-gap span {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
   padding: 1px 8px;
   position: relative;
@@ -742,14 +742,14 @@ export default {
   border-bottom-right-radius: 5px;
 }
 .snippet td.source-truncation.has-matches-below {
-  color: #7a5c00;
+  color: var(--cavil-attention-deep-2);
 }
 .snippet td.source-truncation.has-matches-below::before {
-  background: #e2b53d;
+  background: var(--cavil-attention-4);
 }
 .snippet td.source-truncation.has-matches-below span {
-  background: #fff8e1;
-  border-color: #e2b53d;
+  background: var(--cavil-attention-tint-1);
+  border-color: var(--cavil-attention-4);
 }
 /* Derived resolutions keep the risk/clear tint in the code area, but the gutter stays neutral.
    A dashed boundary and first-line badge mark the row as machine-derived without making it look like
@@ -762,7 +762,7 @@ export default {
 .snippet tr.folded td.code::before,
 .snippet tr.cleared td.code::before,
 .snippet tr.covered td.code::before {
-  border-left: 1px dashed #8c959f;
+  border-left: 1px dashed var(--cavil-fg-disabled);
   bottom: 0;
   content: '';
   left: 0;
@@ -773,7 +773,7 @@ export default {
    noise; their first-line badge ("cleared" vs "covered") is what tells them apart. */
 .snippet tr.cleared td.code,
 .snippet tr.covered td.code {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   font-style: italic;
 }
 /* A derived row explains itself through the resolution tooltip on hover, so flag it with the help
@@ -786,12 +786,12 @@ export default {
    grey title header are the shared .cavil-pattern-tip styling (kept identical on purpose), except the
    header gets a bottom border so it is symmetric with the bordered footer. */
 .cavil-resolution-tip .cavil-pattern-tip-header {
-  border-bottom: 1px solid #d1d9e0b3;
+  border-bottom: 1px solid var(--cavil-border-translucent);
 }
 /* A per-variant icon on the left of the title makes fold vs clear vs overlap vs covered legible at a
    glance without reading the text. */
 .cavil-resolution-tip-icon {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   margin-right: 6px;
   width: 12px;
 }
@@ -800,7 +800,7 @@ export default {
 }
 /* The lead sentence is context; keep it muted so the metric rows below carry the visual weight. */
 .cavil-resolution-tip-lead {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
 }
 .cavil-resolution-tip-metrics {
   align-items: baseline;
@@ -811,14 +811,14 @@ export default {
   row-gap: 3px;
 }
 .cavil-resolution-tip-metric-label {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .cavil-resolution-tip-metric-value {
-  color: #1f2328;
+  color: var(--cavil-fg);
   margin: 0;
   text-align: right;
 }
@@ -827,14 +827,14 @@ export default {
   font-size: 10px;
 }
 .cavil-resolution-tip-hint {
-  background: #f6f8fa;
-  border-top: 1px solid #d1d9e0b3;
-  color: #59636e;
+  background: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border-translucent);
+  color: var(--cavil-fg-muted-alt);
   font-style: italic;
   padding: 6px 11px;
 }
 .snippet .derived-badge {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   float: right;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 11px;
@@ -843,17 +843,17 @@ export default {
   margin: 1px 8px 0 12px;
   padding: 0 1px 1px;
   position: relative;
-  text-decoration: underline dashed #8c959f 1px;
+  text-decoration: underline dashed var(--cavil-fg-disabled) 1px;
   text-underline-offset: 3px;
   z-index: 1;
 }
 .snippet .snippet-tool-btn {
   align-items: center;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #d0d7de;
+  background: var(--cavil-surface-raised);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
-  color: #1f2328;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-alt-rgb), 0.08);
+  color: var(--cavil-fg);
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
@@ -904,23 +904,23 @@ export default {
   bottom: -12px;
 }
 .source .snippet .snippet-tool-btn i {
-  color: #1f2328;
+  color: var(--cavil-fg);
 }
 .snippet .snippet-tool-btn:hover {
-  background: #ffffff;
-  box-shadow: 0 2px 4px rgba(31, 35, 40, 0.12);
-  color: #0969da;
+  background: var(--cavil-canvas);
+  box-shadow: 0 2px 4px rgba(var(--cavil-shadow-alt-rgb), 0.12);
+  color: var(--cavil-accent);
 }
 .source .snippet .snippet-tool-btn:hover i {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 .snippet .snippet-tool-btn:focus {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
-  color: #0969da;
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.3);
+  color: var(--cavil-accent);
   outline: none;
 }
 .source .snippet .snippet-tool-btn:focus i {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 </style>

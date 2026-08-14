@@ -1288,7 +1288,7 @@ export default {
 }
 .report-tabs {
   align-items: stretch;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   gap: 4px;
   margin: 24px 0 16px;
@@ -1299,7 +1299,7 @@ export default {
   border: 1px solid transparent;
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: pointer;
   display: inline-flex;
   font-size: 14px;
@@ -1312,35 +1312,35 @@ export default {
     color 0.15s;
 }
 .report-tab:hover:not(:disabled):not(.active) {
-  background: #f3f5f7;
-  color: #1f2328;
+  background: var(--cavil-canvas-tint);
+  color: var(--cavil-fg);
 }
 .report-tab.active {
-  background: #ffffff;
-  border-color: #d0d7de;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  border-color: var(--cavil-border);
+  color: var(--cavil-fg);
   font-weight: 600;
 }
 .report-tab-badge {
-  background: #eaeef2;
+  background: var(--cavil-neutral-bg);
   border-radius: 10px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
   padding: 3px 8px;
 }
 .report-tab.active .report-tab-badge {
-  background: #ddf4ff;
-  color: #0969da;
+  background: var(--cavil-accent-bg);
+  color: var(--cavil-accent);
 }
 .report-tab-badge.report-tab-badge-lawyer {
-  background: #fff8c5;
-  color: #7d4e00;
+  background: var(--cavil-attention-bg);
+  color: var(--cavil-attention-deep);
 }
 .report-tab.active .report-tab-badge.report-tab-badge-lawyer {
-  background: #fbeec0;
-  color: #5c3a00;
+  background: var(--cavil-attention-tint-3);
+  color: var(--cavil-attention-deep-6);
 }
 .report-tab-content {
   display: block;
@@ -1360,10 +1360,10 @@ export default {
   margin-top: 0;
 }
 .risk-license-help-text {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 8px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   line-height: 1.45;
   margin: 1.5rem 0 1.1rem;
@@ -1379,11 +1379,11 @@ export default {
   position: absolute;
 }
 .risk-license-help-text::before {
-  border-top: 8px solid #d0d7de;
+  border-top: 8px solid var(--cavil-border);
   bottom: -8px;
 }
 .risk-license-help-text::after {
-  border-top: 8px solid #f6f8fa;
+  border-top: 8px solid var(--cavil-canvas-subtle);
   bottom: -7px;
 }
 .risk-license-heading {
@@ -1410,11 +1410,11 @@ export default {
   padding: 0.45rem 0.7rem;
 }
 .risk-license-summary {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-block;
   font-size: 12px;
   font-weight: 500;
@@ -1423,8 +1423,8 @@ export default {
   white-space: nowrap;
 }
 .risk-license-list {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 0 6px 6px 6px;
   list-style: none;
   margin: 0;
@@ -1435,8 +1435,8 @@ export default {
   border-top-right-radius: 0;
 }
 .risk-license-item {
-  background: #ffffff;
-  border-top: 1px solid #d8dee4;
+  background: var(--cavil-canvas);
+  border-top: 1px solid var(--cavil-border-muted);
   padding: 0.5rem 1rem;
   position: relative;
   transition: background-color 0.15s ease;
@@ -1445,7 +1445,7 @@ export default {
   border-top: 0;
 }
 .risk-license-item:hover {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .risk-license-row {
   align-items: center;
@@ -1460,7 +1460,7 @@ export default {
   min-width: 0;
 }
 .risk-license-name {
-  color: #1f2328;
+  color: var(--cavil-fg);
   font-weight: 600;
   line-height: 1.35;
   min-width: 0;
@@ -1468,10 +1468,10 @@ export default {
 }
 .risk-license-count {
   align-items: center;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 12px;
   font-weight: 600;
@@ -1485,9 +1485,9 @@ export default {
 }
 .risk-license-count:hover,
 .risk-license-count:focus {
-  background: #f0f6ff;
-  border-color: #d0d7de;
-  color: #0969da;
+  background: var(--cavil-accent-tint-2);
+  border-color: var(--cavil-border);
+  color: var(--cavil-accent);
   text-decoration: none;
 }
 .risk-license-flags {
@@ -1498,10 +1498,10 @@ export default {
 }
 .risk-license-flag {
   align-items: center;
-  background: #fff8c5;
-  border: 1px solid #f0d98b;
+  background: var(--cavil-attention-bg);
+  border: 1px solid var(--cavil-attention-tint-5);
   border-radius: 999px;
-  color: #5c4500;
+  color: var(--cavil-attention-deep-5);
   display: inline-flex;
   font-size: 12px;
   font-weight: 600;
@@ -1513,13 +1513,13 @@ export default {
    to be open (.is-open) and the list to be shown, and lives on the file list so it disappears with
    either - no leftover rule when obligations are collapsed or the list is hidden. */
 .license-obligations.is-open + .collapse.show {
-  border-top: 1px solid #d8dee4;
+  border-top: 1px solid var(--cavil-border-muted);
   margin: 0.5rem -1rem 0;
   padding: 0.55rem 1rem 0;
 }
 .risk-file-list {
-  border-left: 1px solid #d0d7de;
-  color: #57606a;
+  border-left: 1px solid var(--cavil-border);
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   list-style: none;
   margin: 0.3rem 0 0.1rem 0.35rem;
@@ -1534,10 +1534,10 @@ export default {
   position: relative;
 }
 .risk-file-list li::before {
-  background: #6e7781;
-  border: 2px solid #ffffff;
+  background: var(--cavil-fg-subtle);
+  border: 2px solid var(--cavil-canvas);
   border-radius: 50%;
-  box-shadow: 0 0 0 1px #d0d7de;
+  box-shadow: 0 0 0 1px var(--cavil-border);
   content: '';
   height: 0.45rem;
   margin-left: -1.15rem;
@@ -1547,26 +1547,34 @@ export default {
   margin-top: 0.35rem;
 }
 .risk-file-list .file-link {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   overflow-wrap: anywhere;
   text-decoration-color: transparent;
 }
 .risk-file-list .file-link:hover,
 .risk-file-list .file-link:focus {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
 .risk-unresolved-list {
   margin-bottom: 0;
 }
 .risk-unresolved-item {
-  background: linear-gradient(90deg, rgba(191, 135, 0, 0.08), #ffffff 2.5rem);
+  background: linear-gradient(90deg, rgba(var(--cavil-attention-strong-rgb), 0.08), var(--cavil-canvas) 2.5rem);
   padding-bottom: 0.5rem;
   padding-top: 0.5rem;
 }
 .risk-unresolved-item:hover {
-  background: linear-gradient(90deg, rgba(191, 135, 0, 0.12), #f6f8fa 2.5rem);
+  background: linear-gradient(90deg, rgba(var(--cavil-attention-strong-rgb), 0.12), var(--cavil-canvas-subtle) 2.5rem);
+}
+/* Inset rule rather than a wash, for the same reason as the legal-document rows. */
+[data-bs-theme='dark'] .risk-unresolved-item {
+  background: var(--cavil-canvas);
+  box-shadow: inset 2px 0 0 var(--cavil-attention);
+}
+[data-bs-theme='dark'] .risk-unresolved-item:hover {
+  background: var(--cavil-canvas-subtle);
 }
 .risk-unresolved-row {
   align-items: center;
@@ -1583,14 +1591,14 @@ export default {
 /* A location, not a verdict: muted prose rather than a badge, because "only in vendored files" is
    something to check, and the path classifier is a heuristic that has needed widening more than once. */
 .risk-license-scope {
-  color: #6e7781;
+  color: var(--cavil-fg-subtle);
   flex: 0 0 auto;
   font-size: 12px;
 }
 .risk-new {
-  background: #ddf4ff;
+  background: var(--cavil-accent-bg);
   border-radius: 999px;
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
   flex: 0 0 auto;
   font-size: 10px;
   font-weight: 600;
@@ -1599,7 +1607,7 @@ export default {
   text-transform: uppercase;
 }
 .risk-unresolved-file {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
@@ -1609,12 +1617,12 @@ export default {
 }
 .risk-unresolved-file:hover,
 .risk-unresolved-file:focus {
-  color: #0550ae;
+  color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
 .risk-unresolved-match {
   align-items: center;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 13px;
   gap: 0.35rem;
@@ -1622,7 +1630,7 @@ export default {
   overflow-wrap: anywhere;
 }
 .risk-unresolved-match::before {
-  background: #bf8700;
+  background: var(--cavil-attention-strong);
   border-radius: 999px;
   content: '';
   flex: 0 0 auto;
@@ -1631,7 +1639,7 @@ export default {
 }
 .risk-unresolved-estimate {
   align-items: center;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 12px;
   gap: 0.45rem;
@@ -1651,11 +1659,11 @@ export default {
 }
 .report-artifact-label {
   align-items: center;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   display: inline-flex;
   font-size: 12px;
   font-weight: 600;
@@ -1667,29 +1675,29 @@ export default {
 }
 .report-artifact-label:hover,
 .report-artifact-label:focus {
-  background: #ffffff;
-  color: #1f2328;
+  background: var(--cavil-canvas);
+  color: var(--cavil-fg);
   text-decoration: none;
 }
 .report-artifact-label.collapsed {
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--cavil-border);
   border-radius: 6px;
 }
 .report-artifact-label.collapsed:hover,
 .report-artifact-label.collapsed:focus {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .report-artifact-label-static {
   cursor: default;
 }
 .report-artifact-label-static:hover,
 .report-artifact-label-static:focus {
-  background: #f6f8fa;
-  color: #57606a;
+  background: var(--cavil-canvas-subtle);
+  color: var(--cavil-fg-muted);
 }
 .report-artifact-list {
-  background: #ffffff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 0 6px 6px 6px;
   list-style: none;
   margin: 0;
@@ -1698,8 +1706,8 @@ export default {
 }
 .report-artifact-item {
   align-items: center;
-  background: #ffffff;
-  border-top: 1px solid #d8dee4;
+  background: var(--cavil-canvas);
+  border-top: 1px solid var(--cavil-border-muted);
   display: grid;
   gap: 0.75rem;
   grid-template-columns: minmax(0, 1fr) minmax(160px, 0.45fr);
@@ -1710,10 +1718,10 @@ export default {
   border-top: 0;
 }
 .report-artifact-item:hover {
-  background: #f6f8fa;
+  background: var(--cavil-canvas-subtle);
 }
 .report-artifact-value {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
@@ -1721,10 +1729,10 @@ export default {
   overflow-wrap: anywhere;
 }
 .report-artifact-source {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 12px;
   font-weight: 600;
   justify-self: end;
@@ -1751,17 +1759,17 @@ export default {
   white-space: nowrap;
 }
 .report-component-empty {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   font-weight: 500;
   margin: 0 0 1rem;
   padding: 0.75rem 1rem;
 }
 .report-component-name {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 13px;
   font-weight: 600;
   min-width: 0;
@@ -1769,14 +1777,14 @@ export default {
   text-decoration: none;
 }
 a.report-component-name {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
 }
 a.report-component-name:hover,
 a.report-component-name:focus {
   text-decoration: underline;
 }
 .report-component-version {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-weight: 400;
 }
 .report-component-license {
@@ -1785,19 +1793,19 @@ a.report-component-name:focus {
   overflow-wrap: anywhere;
 }
 .report-component-search {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   justify-self: end;
   line-height: 1;
 }
 .report-component-search:hover,
 .report-component-search:focus {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 .report-component-ecosystem {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 999px;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 600;
   justify-self: end;
@@ -1816,7 +1824,7 @@ a.report-component-name:focus {
 }
 .report-glob-pattern {
   background: transparent;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   overflow-wrap: anywhere;
   padding: 0;
@@ -1853,18 +1861,18 @@ a.report-component-name:focus {
   line-height: 1;
 }
 .file-source-unavailable {
-  color: #59636e;
+  color: var(--cavil-fg-muted-alt);
   font-size: 13px;
   padding: 16px;
   text-align: center;
 }
 .file-action-link {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   text-decoration: none;
 }
 .file-action-link:hover,
 .file-action-link:focus {
-  color: #0969da;
+  color: var(--cavil-accent);
 }
 @media (max-width: 700px) {
   .risk-license-heading {
@@ -1905,7 +1913,7 @@ a.report-component-name:focus {
   font-size: 0.75rem;
   font-weight: 600;
   margin: 0 0 0.5rem;
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1917,7 +1925,7 @@ a.report-component-name:focus {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid #eaeef2;
+  border-bottom: 1px solid var(--cavil-neutral-bg);
 }
 .shortcuts-row:last-child {
   border-bottom: none;
@@ -1929,11 +1937,11 @@ a.report-component-name:focus {
   margin: 0;
 }
 .shortcuts-row kbd {
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: inset 0 -1px 0 #d0d7de;
-  color: #1f2328;
+  box-shadow: inset 0 -1px 0 var(--cavil-border);
+  color: var(--cavil-fg);
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
   font-size: 0.75rem;
   padding: 3px 6px;

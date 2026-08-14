@@ -282,7 +282,7 @@ export default {
   margin-top: 0.75rem;
 }
 .comment-template-placeholder-count {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 13px;
   margin-right: auto;
 }

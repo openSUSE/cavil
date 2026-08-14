@@ -166,11 +166,11 @@ export default {
    where near-black glyph and label read heavier than they do there. */
 .spdx-download-control {
   align-items: center;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #d0d7de;
+  background: var(--cavil-surface-raised);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
-  color: #424a53;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-alt-rgb), 0.08);
+  color: var(--cavil-fg-muted-strong);
   cursor: pointer;
   display: inline-flex;
   font-size: 13px;
@@ -188,13 +188,13 @@ export default {
 /* The list paints its links blue from an unscoped rule that outranks the class above. This one is a control,
    so it keeps the button ink and saves blue for hover like every other button on the page. */
 .spdx-download a.spdx-download-control {
-  color: #424a53;
+  color: var(--cavil-fg-muted-strong);
 }
 .spdx-download a.spdx-download-control:hover,
 .spdx-download-control:hover:not(:disabled) {
-  background: #ffffff;
-  box-shadow: 0 2px 4px rgba(31, 35, 40, 0.12);
-  color: #0969da;
+  background: var(--cavil-canvas);
+  box-shadow: 0 2px 4px rgba(var(--cavil-shadow-alt-rgb), 0.12);
+  color: var(--cavil-accent);
 
   /* The metadata list underlines its links on hover from an unscoped rule that reaches in here; this is a
      button, so it keeps its shape instead */
@@ -202,14 +202,14 @@ export default {
 }
 .spdx-download a.spdx-download-control:focus,
 .spdx-download-control:focus {
-  border-color: #0969da;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
-  color: #0969da;
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.3);
+  color: var(--cavil-accent);
   outline: none;
   text-decoration: none;
 }
 .spdx-download-control:disabled {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   cursor: default;
 }
 .spdx-download-ready span {
@@ -223,7 +223,7 @@ export default {
 }
 .spdx-download-size,
 .spdx-download-note {
-  color: #8c959f;
+  color: var(--cavil-fg-disabled);
   font-size: 12px;
 }
 </style>

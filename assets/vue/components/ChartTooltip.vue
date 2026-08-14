@@ -21,10 +21,10 @@ export default {
 <style scoped>
 .chart-tooltip {
   align-items: center;
-  background: #24292f;
+  background: var(--cavil-inverse-bg);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
-  color: #fff;
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.2);
+  color: var(--cavil-inverse-fg);
   display: flex;
   flex-direction: column;
   font-size: 12px;

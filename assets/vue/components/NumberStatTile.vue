@@ -17,11 +17,11 @@ export default {
 
 <style scoped>
 .stats-number-tile {
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(27, 31, 36, 0.04);
-  color: #24292f;
+  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-rgb), 0.04);
+  color: var(--cavil-fg-emphasis);
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -32,7 +32,7 @@ export default {
 }
 
 .stats-tile-label {
-  color: #57606a;
+  color: var(--cavil-fg-muted);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0;
@@ -40,7 +40,7 @@ export default {
 }
 
 .stats-tile-value {
-  color: #24292f;
+  color: var(--cavil-fg-emphasis);
   font-size: 2rem;
   font-weight: 600;
   line-height: 1;

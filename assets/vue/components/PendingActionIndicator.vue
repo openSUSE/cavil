@@ -60,9 +60,9 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 0.4em;
-  background: #fff8c5;
-  border: 1px solid rgba(212, 167, 44, 0.4);
-  color: #57606a;
+  background: var(--cavil-attention-bg);
+  border: 1px solid rgba(var(--cavil-attention-border-rgb), 0.4);
+  color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 500;
   padding: 1px 6px;
@@ -72,9 +72,9 @@ export default {
   white-space: nowrap;
 }
 .pending-action-badge.has-error {
-  background: #ffebe9;
-  border-color: rgba(207, 34, 46, 0.4);
-  color: #82071e;
+  background: var(--cavil-danger-bg);
+  border-color: rgba(var(--cavil-danger-rgb), 0.4);
+  color: var(--cavil-danger-2);
 }
 .pending-action-edit,
 .pending-action-label {
@@ -92,7 +92,7 @@ export default {
   padding: 0;
 }
 .pending-action-edit:hover {
-  color: #1f2328;
+  color: var(--cavil-fg);
   text-decoration: underline;
 }
 .pending-action-dismiss {
@@ -105,6 +105,6 @@ export default {
   line-height: 1;
 }
 .pending-action-dismiss:hover {
-  color: #cf222e;
+  color: var(--cavil-danger);
 }
 </style>

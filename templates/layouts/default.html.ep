@@ -2,7 +2,7 @@
 % my $stats = proposal_stats();
 % my $roles = current_user_roles();
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="<%= theme %>">
   <head>
     <!-- Meta, title, CSS, favicons, etc. -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,7 +30,7 @@
 
   </head>
   <body class="d-flex flex-column h-100">
-    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+    <nav class="navbar navbar-expand-lg cavil-navbar border-bottom">
       <div class="container">
         %= link_to '/' => (class => 'navbar-brand cavil-brand') => begin
           <img src="<%= url_for '/images/legal-hammer-symbol.svg' %>" width="32" height="32" alt="Cavil">

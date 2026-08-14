@@ -347,35 +347,35 @@ export default {
 
 <style>
 .snippet-approval a {
-  color: rgb(208, 215, 222);
+  color: var(--cavil-arrow-idle);
   font-size: 2.5rem;
 }
 .snippet-arrow-up-pressed a {
-  color: green;
+  color: var(--cavil-arrow-up);
 }
 .snippet-arrow-down-pressed a {
-  color: red;
+  color: var(--cavil-arrow-down);
 }
 .snippet-arrow-up a:hover {
-  color: green;
+  color: var(--cavil-arrow-up);
 }
 .snippet-arrow-down a:hover {
-  color: red;
+  color: var(--cavil-arrow-down);
 }
 .snippet-container {
   margin-bottom: 4rem;
   margin-top: 1rem;
 }
 .snippet-file {
-  background-color: rgb(246, 248, 250);
-  border-bottom: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-bottom: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
 }
 .snippet-file a,
 .snippet-likelyness a {
-  color: #212529;
+  color: var(--cavil-fg-body);
   text-decoration: none;
 }
 .snippet-file a:hover,
@@ -383,14 +383,14 @@ export default {
   text-decoration: underline;
 }
 .snippet-file-container {
-  border: 1px solid rgb(208, 215, 222);
+  border: 1px solid var(--cavil-border);
   border-radius: 6px;
   overflow: hidden;
   padding: 0;
 }
 .snippet-footer {
-  background-color: rgb(246, 248, 250);
-  border-top: 1px solid rgb(208, 215, 222);
+  background-color: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
   font-size: 13px;
   line-height: 20px;
   padding: 10px;
@@ -400,14 +400,14 @@ export default {
 }
 
 .snippet-risk-0 {
-  background-color: #ffffff;
+  background-color: var(--cavil-canvas);
 }
 .snippet-risk-1 {
-  background-color: #fffbdc;
+  background-color: var(--cavil-attention-tint-2);
 }
 
 .snippet-source {
-  background: #fff;
+  background: var(--cavil-canvas);
   overflow: auto;
 }
 
@@ -418,14 +418,14 @@ export default {
   margin: 0;
   font-size: 12px;
   line-height: 20px;
-  color: rgba(27, 31, 35, 0.3);
+  color: var(--cavil-linenumber);
   border: 0 !important;
 }
 
 .snippet-source td.code {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
-  color: #24292e;
+  color: var(--cavil-fg-code);
   margin-left: 0.5em;
   white-space: -moz-pre-wrap;
   white-space: -o-pre-wrap;
@@ -435,13 +435,13 @@ export default {
 }
 
 .snippet-source td.linenumber {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--cavil-border-faint);
   padding: 0 0.5em;
   margin-right: 0.5em;
   text-align: right;
   width: 1%;
   min-width: 25px;
-  color: rgba(27, 31, 35, 0.3);
+  color: var(--cavil-linenumber);
   user-select: none;
 }
 </style>

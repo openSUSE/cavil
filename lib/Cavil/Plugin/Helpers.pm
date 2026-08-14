@@ -34,6 +34,13 @@ sub register ($self, $app, $config) {
   $app->helper('spdx_state'                    => \&_spdx_state);
   $app->helper('format_file'                   => \&_format_file);
   $app->helper('markdown_to_safe_html'         => \&_markdown_to_safe_html);
+  $app->helper('theme'                         => \&_theme);
+}
+
+# Rendered into the html tag so the correct theme is in the first byte of markup and
+# there is no flash of light mode. Anything but "dark" is light, including no cookie.
+sub _theme ($c) {
+  return ($c->cookie('cavil_theme') // '') eq 'dark' ? 'dark' : 'light';
 }
 
 sub _markdown_to_safe_html ($c, $text) {
