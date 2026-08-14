@@ -8,6 +8,7 @@ use Cavil::Bom::Registry;
 use Cavil::Checkout;
 use Cavil::FileIndexer;
 use Cavil::PatternEngine;
+use Cavil::Util qw(fs_bytes);
 use Time::HiRes 'time';
 
 sub register ($self, $app, $config) {
@@ -118,6 +119,10 @@ sub _index_batch ($job, $id, $batch, $generation) {
 
   for my $file (@$batch) {
     my ($path, $mime) = @$file;
+
+    # The batch reached this job as JSON, which hands back characters
+    $path = fs_bytes($path);
+
     $fi->file(\%meta, $path, $mime);
     _detect_components($fi, $registry, \%meta, $path, $single_root);
   }

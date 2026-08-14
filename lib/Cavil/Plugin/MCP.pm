@@ -5,7 +5,7 @@ package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
-use Cavil::Util         qw(pattern_matches pattern_contains_redundant_skip read_lines validate_tags);
+use Cavil::Util         qw(checkout_path pattern_matches pattern_contains_redundant_skip read_lines), qw(validate_tags);
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
 use File::Find          qw(find);
 use Mojo::File          qw(path);
@@ -503,7 +503,7 @@ sub tool_cavil_get_file ($tool, $args) {
 
   $path =~ s,/$,,;
   return $tool->text_result('Invalid file path', 1) if $path =~ qr/\.\./;
-  my $file = path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $path);
+  my $file = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $path);
   return $tool->text_result('Maximum line range exceeded',     1) if ($end_line - $start_line) > 1000;
   return $tool->text_result('Invalid line range',              1) if $start_line > $end_line;
   return $tool->text_result('File not found',                  1) unless -e $file;
@@ -521,7 +521,7 @@ sub tool_cavil_list_files ($tool, $args) {
 
   local $Text::Glob::strict_wildcard_slash = 0;
   my $regex = glob_to_regex($glob);
-  my $root  = path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
+  my $root  = checkout_path($c->app->config->{checkout_dir}, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
   return $tool->text_result('Package is not yet unpacked', 1) unless -d $root;
 
   my @files;

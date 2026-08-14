@@ -5,7 +5,7 @@ package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
 use Mojo::File  qw(path);
-use Cavil::Util qw(file_and_checksum read_lines);
+use Cavil::Util qw(checkout_path file_and_checksum read_lines);
 use Cavil::ReportUtil
   qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
 
@@ -243,7 +243,8 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   return undef unless $file;
 
   my $package = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
-  my $path    = path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked', $file->{filename});
+  my $path
+    = checkout_path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked', $file->{filename});
 
   my ($text, $hash) = file_and_checksum($path, $first_line, $last_line);
   my $snippet_id
@@ -281,7 +282,7 @@ sub from_file_path ($self, $package_id, $filename, $first_line, $last_line) {
     return undef if $filename =~ /\.\./;
     return undef unless my $package = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $package_id})->hash;
 
-    my $unpacked = path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked');
+    my $unpacked = checkout_path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked');
     my $path     = $unpacked->child($filename);
     return undef unless -f $path;
 
@@ -655,7 +656,8 @@ sub with_context ($self, $id, $file_id = undef) {
     $sline   = $example->{sline};
     $package = {id => $example->{package}, name => $example->{name}, filename => $example->{filename}};
 
-    my $file = path($self->checkout_dir, $package->{name}, $example->{checkout_dir}, '.unpacked', $example->{filename});
+    my $file = checkout_path($self->checkout_dir, $package->{name}, $example->{checkout_dir}, '.unpacked',
+      $example->{filename});
     $text = read_lines($file, $example->{sline}, $example->{eline});
 
     my $patterns = $db->query(

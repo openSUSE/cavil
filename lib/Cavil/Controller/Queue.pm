@@ -4,7 +4,7 @@
 package Cavil::Controller::Queue;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Cavil::Util qw(incoming_priority);
+use Cavil::Util qw(checkout_path incoming_priority);
 use Mojo::File  qw(path);
 
 sub upload_package ($self) {
@@ -92,7 +92,7 @@ sub create_package ($self) {
     ($srcpkg, $srcmd5, $verifymd5) = @{$info}{qw(package srcmd5 verifymd5)};
   }
 
-  my $dir    = path($config->{checkout_dir}, $srcpkg, $verifymd5);
+  my $dir    = checkout_path($config->{checkout_dir}, $srcpkg, $verifymd5);
   my $create = !-e $dir;
 
   my $user = $self->users->licensedigger;

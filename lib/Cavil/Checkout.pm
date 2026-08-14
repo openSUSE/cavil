@@ -11,7 +11,7 @@ use Mojo::File 'path';
 use Mojo::Util 'dumper';
 use Cavil::Util (
   qw(buckets decode_json_fast encode_json_fast expand_spec_macros extract_copyrights),
-  qw(extract_urls_and_emails legal_review_notices parse_service_file slurp_and_decode)
+  qw(extract_urls_and_emails fs_bytes legal_review_notices parse_service_file slurp_and_decode)
 );
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
@@ -300,7 +300,8 @@ sub unpack ($self, $options = {}) {
     return;
   }
 
-  my $unpacked  = decode_json_fast($dir->child('.unpacked.json')->slurp);
+  my $unpacked = decode_json_fast($dir->child('.unpacked.json')->slurp);
+  $unpacked->{unpacked} = _byte_names($unpacked->{unpacked});
   my $processor = Cavil::PostProcess->new($unpacked);
   $processor->postprocess;
   $dir->child('.postprocessed.json')->spew(encode_json_fast($processor->hash));
@@ -312,7 +313,15 @@ sub unpack ($self, $options = {}) {
 # The file list of a big package is several megabytes and an index job reads it twice in a row, once
 # for the stats and once for the buckets, so hold on to it for the life of the checkout object
 sub _unpacked ($self) {
-  return $self->{_unpacked} //= decode_json_fast(path($self->dir)->child('.postprocessed.json')->slurp)->{unpacked};
+  return $self->{_unpacked}
+    //= _byte_names(decode_json_fast(path($self->dir)->child('.postprocessed.json')->slurp)->{unpacked});
+}
+
+# File names are recorded as the bytes found on disk, and JSON decoding turns those into characters: a
+# name holding any byte above 0x7f then opens nothing, and postprocess erases every file it cannot open.
+# Hand every reader the bytes back, so one name works for the filesystem, the database and the report.
+sub _byte_names ($unpacked) {
+  return {map { fs_bytes($_) => $unpacked->{$_} } keys %$unpacked};
 }
 
 sub unpacked_file_stats ($self) {

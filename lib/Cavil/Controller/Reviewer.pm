@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
 use Mojo::Util  qw(humanize_bytes);
-use Cavil::Util qw(lines_context PRIORITY_WAITING);
+use Cavil::Util qw(checkout_path lines_context PRIORITY_WAITING);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -119,7 +119,8 @@ sub _file_browser_context ($self) {
     return undef;
   }
 
-  my $unpacked = path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked');
+  my $unpacked
+    = checkout_path($self->app->config->{checkout_dir}, $package->{name}, $package->{checkout_dir}, '.unpacked');
 
   # No unpacked tree at all, which normally means it is being torn down and rebuilt right now (an admin
   # running "script/cavil unpack", a re-import). The report itself keeps working throughout, so this is a

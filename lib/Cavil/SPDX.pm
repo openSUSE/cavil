@@ -7,6 +7,7 @@ use Mojo::Base -base, -signatures;
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::PostProcess;
+use Cavil::Util qw(fs_bytes);
 use Digest::SHA;
 use IO::Compress::Gzip qw($GzipError);
 use Mojo::File         qw(path);
@@ -96,7 +97,10 @@ sub generate_to_file ($self, $id, $file) {
   my (%info, %original_files);
   for my $unpacked (@{$checkout->unpacked_files}) {
     my ($ufile, $mime) = @$unpacked;
-    $ufile = decode('UTF-8', $ufile) // $ufile;
+
+    # Undecoded on purpose. This name has to open a file and match the rows the indexer wrote under it,
+    # and both want the bytes the filesystem uses; it is decoded where the report states it, further down.
+    # Decoding here instead dropped every file with a non-ASCII name out of the document entirely.
 
     # The indexer pre-processes certain files so they can be scanned; report the original file name
     my $scan_path = $dir->child('.unpacked', $ufile)->to_string;
@@ -404,14 +408,14 @@ sub generate_to_file ($self, $id, $file) {
   for my $matched (
     $db->query('SELECT id, filename FROM matched_files WHERE package = ? AND generation = 0', $id)->hashes->each)
   {
-    $matched_files->{$matched->{filename}} = $matched->{id};
+    $matched_files->{fs_bytes($matched->{filename})} = $matched->{id};
   }
 
   # Stored one row per notice with the files it covers, which is the direction a NOTICE file is built
   # in. SPDX attributes a notice to a file, so the mapping is inverted once here rather than per file.
   my %copyrights_by_file;
   for my $row (@{$reports->copyrights($id)}) {
-    push @{$copyrights_by_file{$_}}, $row->{copyright} for @{$row->{files}};
+    push @{$copyrights_by_file{fs_bytes($_)}}, $row->{copyright} for @{$row->{files}};
   }
 
   # Emit the file components in chunks: license findings for a whole chunk are fetched in two batched
@@ -426,7 +430,8 @@ sub generate_to_file ($self, $id, $file) {
 
     for my $ufile (@chunk) {
       $file_num++;
-      my $real_name = $original_files{$ufile} // $ufile;
+      my $real_name = $original_files{$ufile}     // $ufile;
+      my $reported  = decode('UTF-8', $real_name) // $real_name;
       my $fid       = $iri->("file-$file_num");
 
       my $mfid = $matched_files->{$ufile};
@@ -452,7 +457,7 @@ sub generate_to_file ($self, $id, $file) {
         type                    => 'software_File',
         spdxId                  => $fid,
         creationInfo            => $creation,
-        name                    => "./$real_name",
+        name                    => "./$reported",
         software_primaryPurpose => _file_purpose($info{$ufile}{mime})
       };
       $node->{software_copyrightText} = join "\n", @$copyright if @$copyright;
@@ -489,7 +494,7 @@ sub generate_to_file ($self, $id, $file) {
 
             # A human-readable location name (file plus line range), so the snippet is a self-describing
             # element rather than an anonymous evidence node
-            name                     => "./$real_name#L$sline-L$eline",
+            name                     => "./$reported#L$sline-L$eline",
             software_snippetFromFile => $fid,
             software_lineRange       =>
               {type => 'PositiveIntegerRange', beginIntegerRange => $sline, endIntegerRange => $eline}

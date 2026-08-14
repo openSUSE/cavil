@@ -11,7 +11,7 @@ use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
-use Cavil::Util       qw(lines_context to_json_fast);
+use Cavil::Util       qw(checkout_path lines_context to_json_fast);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
@@ -79,7 +79,7 @@ sub _legal_documents ($self, $id, $dig_report) {
   push @{$spans{$_->[0]}}, [$_->[1], $_->[2]] for $matches->arrays->each;
 
   # Blankness and line numbering do not require decoding.
-  my $base = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
+  my $base = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
   for my $doc (@$docs) {
     my $file = $base->child($doc->{path});
     next unless -r $file;
@@ -194,7 +194,7 @@ sub source_for {
   # The report lives in the database but its source lines are read from the checkout on every request, and
   # a re-unpack tears that tree down and rebuilds it. Rather than answering with a silently empty file,
   # say the source is temporarily unavailable and let the caller show that instead.
-  my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $file->{filename});
+  my $fn = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $file->{filename});
   return {lines => [], name => $pkg->{name}, filename => $file->{filename}, unavailable => 1} unless -e $fn;
 
   if ($start > 0 && $end > 0) {
@@ -256,7 +256,7 @@ sub specfile_report {
 sub build_specfile_report ($self, $id) {
   return undef unless my $pkg = $self->pg->db->select('bot_packages', '*', {id => $id})->hash;
 
-  my $checkout = Cavil::Checkout->new(path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}));
+  my $checkout = Cavil::Checkout->new(checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}));
   return {} unless $checkout->is_unpacked;
 
   return $checkout->specfile_report({upload => (($pkg->{external_link} // '') eq 'upload')});
@@ -507,7 +507,8 @@ sub _dig_report {
 
   for my $file (keys %{$report->{files}}) {
     next unless $report->{expanded}{$file} || $limit_to_file;
-    my $fn = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$file});
+    my $fn
+      = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$file});
     $report->{lines}{$file}
       = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file}, $report->{folded_meta}{$file});
     $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore, \%snippets_to_remove);

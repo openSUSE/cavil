@@ -19,7 +19,8 @@ use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
 our @EXPORT_OK = (
-  qw(buckets expand_spec_macros file_and_checksum md5_file slurp_and_decode load_ignored_files lines_context normalize_license_expr),
+  qw(buckets checkout_path expand_spec_macros file_and_checksum fs_bytes md5_file slurp_and_decode load_ignored_files),
+  qw(lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
   qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file),
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip read_lines run_cmd),
@@ -142,6 +143,22 @@ sub license_is_catch_all ($license) {
   return 1 if $license eq 'All Rights Reserved' || $license eq 'Public-Domain';
   return 0;
 }
+
+# File names are the bytes the filesystem uses, but they reach us through JSON manifests, Minion job
+# arguments and text columns, each of which hands back characters. Joining those to anything, or looking
+# them up against a name that is still bytes, then silently names no file at all.
+sub fs_bytes ($string) {
+  utf8::downgrade($string, 1);
+  return $string;
+}
+
+# Every path inside a checkout goes through here, so a name cannot be bytes on one code path and
+# characters on another. It is the flag that matters, not the codepoints: two identical strings name
+# different files if one of them carries it, because Perl hands the syscall the UTF-8 encoding instead.
+#
+# ponytail: assumes a package name is ASCII, which OBS and RPM both guarantee. A non-ASCII one would sit
+# under its Latin-1 bytes rather than its UTF-8 bytes, so an existing checkout of it would have to move.
+sub checkout_path (@parts) { return path(fs_bytes(path(@parts)->to_string)) }
 
 sub extract_spdx_identifiers ($string) {
   return [] unless defined $string;

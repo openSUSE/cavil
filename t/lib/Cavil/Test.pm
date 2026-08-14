@@ -461,6 +461,13 @@ JS
 var c = 3;
 JS
 
+  # A non-ASCII filename, in the bytes a real checkout carries. Every lookup between the indexer and the
+  # SBOM keys on this name, so decoding it anywhere along the way drops the file out of the document.
+  $dir->child("b\xc3\xbccher.c")->spew(<<'JS');
+/* Copyright (c) 2019 Umlaut Authors */
+/* Permission is hereby granted under the Cavil Fixture License */
+JS
+
   # Markup is stripped to its text, so the declaration on line 6 is scanned as line 2
   $dir->child('page.html')->spew(<<'HTML');
 <html>

@@ -606,9 +606,12 @@ subtest 'Line ranges are translated back out of the post-processed copy' => sub 
   ok $files{'./page.html'},                 'the stripped file is reported under its original name';
   ok !(grep {/\.processed\./} keys %files), 'no scanned copy leaks into the report';
 
+  # Keyed by the file each snippet actually points at, so a third file with a match cannot land in
+  # another one's bucket
+  my %name_of = map { $_->{spdxId} => ($_->{name} =~ s{^\./}{}r) } values %files;
   my %ranges;
   for my $snippet (@{of_type($shift_doc, 'software_Snippet')}) {
-    my $file = $files{'./bundle.js'}{spdxId} eq $snippet->{software_snippetFromFile} ? 'bundle.js' : 'page.html';
+    next unless my $file = $name_of{$snippet->{software_snippetFromFile}};
     push @{$ranges{$file}}, $snippet->{software_lineRange};
   }
 
@@ -649,6 +652,17 @@ subtest 'A notice is stored once with the files it covers, and attributed back t
   # Notices are read from the original file, so a notice sitting past the point where post-processing
   # wraps a line is still whole (the ".processed" copy of bundle.js splits its long line in two)
   ok !$copyright{'./page.html'}, 'a file with no notice carries no copyright text';
+};
+
+subtest 'A file whose name is not ASCII is still a component of the document' => sub {
+  my $shift_doc = gen_doc($shift_id);
+  my $name      = "./b\x{fc}cher.c";
+
+  my ($node) = grep { ($_->{name} // '') eq $name } @{of_type($shift_doc, 'software_File')};
+  ok $node, 'the file is in the document, under the name a reader can type';
+  is $node->{software_copyrightText}, 'Copyright (c) 2019 Umlaut Authors', 'its notice is attributed to it';
+
+  ok $node && @{rels($shift_doc, 'hasConcludedLicense', $node->{spdxId})}, 'and so is the license found in it';
 };
 
 # A consumer has to be able to tell "we do not know" from "we did not look". Vendored code is where that

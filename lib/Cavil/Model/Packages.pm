@@ -4,8 +4,8 @@
 package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util
-  qw(incoming_priority md5_file paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP PRIORITY_WAITING);
+use Cavil::Util qw(checkout_path incoming_priority md5_file paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP),
+  qw(PRIORITY_WAITING);
 use Mojo::File qw(path);
 use Mojo::Util qw(dumper scope_guard);
 use Text::Glob qw(glob_to_regex);
@@ -48,7 +48,7 @@ sub store_upload ($self, $upload, $opts) {
   my $name = $opts->{name};
   if (my $existing = $self->find_by_name_and_md5($name, $sum)) { return ($self->find($existing->{id}), 1) }
 
-  my $dir = path($self->checkout_dir, $name, $sum);
+  my $dir = checkout_path($self->checkout_dir, $name, $sum);
   eval { $dir->make_path; $file->move_to($dir->child(path($upload->filename)->basename)) };
   if ($@) {
     $dir->remove_tree;
@@ -175,7 +175,7 @@ sub cleanup ($self, $id, $job_id) {
   my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'obsolete'], {id => $id})->hash;
   return if !$pkg || !$pkg->{obsolete};
 
-  my $dir = path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  my $dir = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
   if (-d $dir) {
     $log->info("[$id] Removing checkout $pkg->{name}/$pkg->{checkout_dir}");
     $dir->remove_tree;
@@ -199,9 +199,12 @@ sub cleanup ($self, $id, $job_id) {
   }
 }
 
+# The name comes back from the database as characters, and joining a character string to a file name
+# holding raw bytes upgrades the bytes into codepoints, so the path stops naming the file on disk. Every
+# path under a checkout is built from this one, so the flag is dropped here rather than at each join.
 sub pkg_checkout_dir ($self, $id) {
   my $pkg = $self->find($id);
-  return path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  return checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 }
 
 # Check the bounded report set rather than packages that may contain millions of files.
