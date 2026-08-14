@@ -61,15 +61,16 @@
 </template>
 
 <script>
+// Slots are assigned in order and never cycled; a ninth license is folded into "Misc" below.
 const LICENSE_CHART_COLORS = [
-  'var(--cavil-accent)',
-  'var(--cavil-success)',
-  'var(--cavil-attention)',
-  'var(--cavil-danger)',
-  'var(--cavil-purple-1)',
-  'var(--cavil-purple-3)',
-  'var(--cavil-fg-muted)',
-  'var(--cavil-success-2)'
+  'var(--cavil-chart-1)',
+  'var(--cavil-chart-2)',
+  'var(--cavil-chart-3)',
+  'var(--cavil-chart-4)',
+  'var(--cavil-chart-5)',
+  'var(--cavil-chart-6)',
+  'var(--cavil-chart-7)',
+  'var(--cavil-chart-8)'
 ];
 
 export default {

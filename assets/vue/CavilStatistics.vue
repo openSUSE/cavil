@@ -81,8 +81,8 @@ export default {
   computed: {
     packageActivitySlices() {
       return [
-        {label: 'open reviews', value: this.openReviews, color: 'var(--cavil-accent)'},
-        {label: 'rejected packages', value: this.rejectedPackages, color: 'var(--cavil-danger)'}
+        {label: 'open reviews', value: this.openReviews, color: 'var(--cavil-chart-2)'},
+        {label: 'rejected packages', value: this.rejectedPackages, color: 'var(--cavil-chart-5)'}
       ];
     },
     reviewedPackages() {
@@ -101,8 +101,8 @@ export default {
     },
     reviewAutomationSlices() {
       return [
-        {label: 'manual reviews', value: this.displayedManualReviews, color: 'var(--cavil-purple-1)'},
-        {label: 'automated reviews', value: this.displayedAutomatedReviews, color: 'var(--cavil-success-emphasis)'}
+        {label: 'manual reviews', value: this.displayedManualReviews, color: 'var(--cavil-chart-6)'},
+        {label: 'automated reviews', value: this.displayedAutomatedReviews, color: 'var(--cavil-chart-1)'}
       ];
     },
     numberTiles() {

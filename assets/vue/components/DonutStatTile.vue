@@ -143,7 +143,7 @@ export default {
 }
 
 .stats-donut-track {
-  stroke: var(--cavil-success-emphasis);
+  stroke: var(--cavil-chart-track);
 }
 
 .stats-donut-center {
@@ -214,7 +214,7 @@ export default {
 }
 
 .stats-swatch-active {
-  background: var(--cavil-success-emphasis);
+  background: var(--cavil-chart-track);
 }
 
 @media (max-width: 575.98px) {
