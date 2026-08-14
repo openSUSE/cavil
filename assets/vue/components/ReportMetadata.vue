@@ -313,11 +313,11 @@
           <span class="legal-document-lines" :title="documentShare(document)">
             <!-- Absolute, not a percentage: 15 novel lines in a 312-line BSD file round away to "5%" -->
             <span class="legal-document-tally">{{ documentTally(document) }}</span>
-            <span v-if="documentsUnexplained" class="legal-document-meter" aria-hidden="true"
+            <span class="legal-document-meter" aria-hidden="true"
               ><i
                 v-for="block in 5"
                 :key="block"
-                :class="['legal-document-block', {'is-unknown': block <= documentBlocks(document)}]"
+                :class="['legal-document-block', {'is-covered': block <= documentBlocks(document)}]"
               ></i
             ></span>
           </span>
@@ -444,11 +444,6 @@ export default {
       return this.legalDocuments?.dropped ?? 0;
     },
 
-    // Most packages have no remainder anywhere, and a column no row fills reads as missing data
-    documentsUnexplained() {
-      return this.documents.some(document => document.unexplained > 0);
-    },
-
     // A curator gets accept and reject, a manager only the fasttrack accept
     reviewButtons() {
       if (this.hasAdminRole === true) {
@@ -544,20 +539,24 @@ export default {
     },
 
     // Never zero and never full below 100%: the case this exists for is a few lines in a large file
+    // Filled is coverage, the direction every other meter in the world fills. Marking the deficit
+    // instead put amber on the rows that needed reading and lawyers could not decode it.
     documentBlocks(document) {
-      if (document.unexplained >= document.lines) return 5;
-      return Math.min(4, Math.ceil((document.unexplained / document.lines) * 5));
+      if (document.unexplained >= document.lines) return 0;
+      return 5 - Math.min(4, Math.ceil((document.unexplained / document.lines) * 5));
     },
 
-    // One annotation on the mark rather than two aligned columns, now that the mark is what gets scanned
+    // One annotation on the mark rather than two aligned columns, now that the mark is what gets scanned.
+    // Counts recognised lines, the same direction the blocks fill, or the two halves of the row disagree.
     documentTally(document) {
-      if (document.unexplained > 0) return `${this.count(document.unexplained)} of ${this.count(document.lines)} lines`;
+      const recognised = document.lines - document.unexplained;
+      if (document.unexplained > 0) return `${this.count(recognised)} of ${this.count(document.lines)} lines`;
       return `${this.count(document.lines)} ${document.lines === 1 ? 'line' : 'lines'}`;
     },
 
     documentShare(document) {
-      if (document.unexplained === 0) return null;
-      return `${this.count(document.unexplained)} of ${this.count(document.lines)} lines unknown`;
+      const recognised = document.lines - document.unexplained;
+      return `${this.count(recognised)} of ${this.count(document.lines)} lines recognised`;
     },
     // Grouped explicitly rather than by browser locale, so a line count reads the same for everyone and
     // cannot come back as "4.651" for a reader whose locale swaps the separators.
@@ -920,8 +919,8 @@ export default {
   height: 8px;
   width: 8px;
 }
-.legal-document-block.is-unknown {
-  background: var(--cavil-attention-strong);
+.legal-document-block.is-covered {
+  background: var(--cavil-success);
 }
 .metadata-collapse-inner {
   padding: 0.85rem 0 1.1rem;

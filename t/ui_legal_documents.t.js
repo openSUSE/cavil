@@ -46,8 +46,8 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       // which is exactly the case this number exists to surface. Absolute, not a percentage, so a small
       // clause inside a large recognised license body cannot round away to nothing.
       const license = rowFor('legal-docs-1.0/LICENSE');
-      t.match(await license.innerText(), /3 of 4 lines/, 'one annotation, not two counts to compare');
-      t.match(await rowFor('legal-docs-1.0/COPYING').innerText(), /119 of 120 lines/, 'and on a longer one');
+      t.match(await license.innerText(), /1 of 4 lines/, 'one annotation, not two counts to compare');
+      t.match(await rowFor('legal-docs-1.0/COPYING').innerText(), /1 of 120 lines/, 'and on a longer one');
       t.match(await rowFor('legal-docs-1.0/LICENSE.MIT').innerText(), /\s14 lines/, 'a covered file states its size');
 
       // The mark is the scanning cue now, so no weight is spent on making the count stand out
@@ -64,20 +64,20 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       });
       t.ok(offCentre <= 1.5, 'the mark sits on the annotation rather than above it');
 
-      // Five blocks for a file with nothing recognised in it, four while any of it is matched
-      const filled = row => row.locator('.legal-document-block.is-unknown').count();
+      // The blocks fill for what Cavil recognised, so none at all is the document it could not read
+      const filled = row => row.locator('.legal-document-block.is-covered').count();
       t.equal(await license.locator('.legal-document-block').count(), 5, 'the mark is five blocks');
-      t.equal(await filled(rowFor('legal-docs-1.0/COPYING')), 4, '119 of 120 lines is not the whole file');
-      t.equal(await filled(rowFor('legal-docs-1.0/COPYRIGHT')), 5, 'a document that matched nothing is');
-      t.equal(await filled(rowFor('legal-docs-1.0/LICENSE.enterprise')), 1, 'and a clause on a stock body is one');
+      t.equal(await filled(rowFor('legal-docs-1.0/COPYING')), 1, '1 of 120 lines is barely any of the file');
+      t.equal(await filled(rowFor('legal-docs-1.0/COPYRIGHT')), 0, 'a document that matched nothing fills none');
+      t.equal(await filled(rowFor('legal-docs-1.0/LICENSE.enterprise')), 4, 'a clause on a stock body leaves four');
       t.equal(
         await license.locator('.legal-document-lines').getAttribute('title'),
-        '3 of 4 lines unknown',
+        '1 of 4 lines recognised',
         'and hovering names what the blocks stand for'
       );
 
       const covered = rowFor('legal-docs-1.0/LICENSE.MIT');
-      t.equal(await filled(covered), 0, 'a file with nothing unknown marks five greys');
+      t.equal(await filled(covered), 5, 'a file Cavil read completely fills every block');
       t.equal(await covered.locator('.legal-document-block').count(), 5, 'rather than nothing at all');
 
       // The rows say what the number is, so nothing has to preface them
@@ -155,7 +155,9 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
 
       t.equal(await clean.locator('.legal-document-item').count(), 2, 'both documents are listed');
       t.match(await clean.innerText(), /COPYING.*14 lines.*LICENSE.*1 line/s, 'each with nothing but its size');
-      t.equal(await clean.locator('.legal-document-meter').count(), 0, 'no mark for a count no row has');
+      // The mark is permanent now, so the vocabulary is learned once rather than appearing on bad packages
+      t.equal(await clean.locator('.legal-document-meter').count(), 2, 'both rows still carry the mark');
+      t.equal(await clean.locator('.legal-document-block.is-covered').count(), 10, 'filled, because both are read');
       t.equal(await clean.locator('.cavil-notice-summary').count(), 0, 'and no sentence explaining one');
 
       // With no mark to hang off, the annotations are what has to end in one column
@@ -175,8 +177,8 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       const many = page.locator('#legal-documents');
       await many.waitFor();
 
-      t.equal(await many.locator('.legal-document-item').count(), 25, 'the list stops at the limit');
-      t.equal(await many.locator('.cavil-notice-heading-note').innerText(), '5 more not listed', 'the rest is a note');
+      t.equal(await many.locator('.legal-document-item').count(), 10, 'the list stops at the limit');
+      t.equal(await many.locator('.cavil-notice-heading-note').innerText(), '20 more not listed', 'the rest is a note');
       t.equal(await many.locator('.cavil-notice-summary').count(), 0, 'and nothing above the list');
     });
 
