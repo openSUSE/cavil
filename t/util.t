@@ -7,7 +7,8 @@ use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
-  qw(buckets expand_spec_macros legal_review_notices lines_context license_is_catch_all normalize_license_expr obs_ssh_auth),
+  qw(buckets expand_spec_macros extract_copyrights legal_review_notices lines_context license_is_catch_all),
+  qw(normalize_license_expr obs_ssh_auth),
   qw(parse_exclude_file parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
   qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
@@ -666,6 +667,118 @@ subtest 'legal_review_notices' => sub {
 
   is_deeply legal_review_notices("# Legal-Review-Notice: at the very end\n# with a continuation"),
     ["at the very end\nwith a continuation"], 'notice runs to the end of file';
+};
+
+subtest 'extract_copyrights' => sub {
+  my $notices = sub { [sort keys %{extract_copyrights(shift)}] };
+
+  subtest 'shapes that are notices' => sub {
+    my @cases = (
+      ['Copyright (c) 2018 Foo Bar',      'Copyright (c) 2018 Foo Bar'],
+      ['Copyright 2013 Thorsten Lorenz.', 'Copyright 2013 Thorsten Lorenz.'], ['(c) 2018 Foo', '(c) 2018 Foo'],
+      ['(C) Copyright 2002 Zwane Mwaikambo',          '(C) Copyright 2002 Zwane Mwaikambo'],
+      ['Copyright © 2019 John Doe',                   'Copyright © 2019 John Doe'],
+      ['SPDX-FileCopyrightText: 2019 Jane <j@e.org>', 'SPDX-FileCopyrightText: 2019 Jane <j@e.org>'],
+      [' * Copyright (c) 2018 Foo',                   'Copyright (c) 2018 Foo'],
+      ['// Copyright 2015 The Chromium Authors',      'Copyright 2015 The Chromium Authors'],
+      ['# Copyright (C) 2024 SUSE LLC',               'Copyright (C) 2024 SUSE LLC'],
+
+      # A notice on one line closes its comment on that line; the terminator is not part of the notice
+      ['/* Copyright (c) 2019 Foo Bar */',    'Copyright (c) 2019 Foo Bar'],
+      ['<!-- Copyright (c) 2019 Foo Bar -->', 'Copyright (c) 2019 Foo Bar'],
+
+      # A notice with no year at all. The commonest single notice in the wild, and requiring a year
+      # (as the SBOM writer used to) drops every one of them.
+      [
+        'Copyright (c) Microsoft Corporation. All rights reserved.',
+        'Copyright (c) Microsoft Corporation. All rights reserved.'
+      ],
+      ['Copyright (c) Sindre Sorhus <s@s.com>', 'Copyright (c) Sindre Sorhus <s@s.com>'],
+
+      # Patch files are most of an openSUSE package and carry notices behind a diff marker
+      ['+Copyright (c) 2009 The Go Authors.', 'Copyright (c) 2009 The Go Authors.'],
+      ['+ * Copyright (c) 2006 Intel Corp.',  'Copyright (c) 2006 Intel Corp.']
+    );
+    for my $case (@cases) {
+      my ($input, $expected) = @$case;
+      is_deeply $notices->($input), [$expected], "notice: $input";
+    }
+  };
+
+  subtest 'shapes that are not notices' => sub {
+    my @cases = (
+      'Copyright',                                                   # nothing follows the anchor
+      'The Copyright Office should be sent a form',                  # anchor not at the line start
+      'copyright notice, this list of conditions and the follow',    # wrapped license text
+      'COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR',       # wrapped warranty disclaimer
+      'Copyright and related rights are waived via the Creative',    # CC0 prose, no holder
+      'Copyright (C) YEAR NAME OF AUTHOR',                           # GPL boilerplate placeholder
+      'Copyright [yyyy] [name of copyright owner]',                  # Apache boilerplate placeholder
+      'Copyright (c) <year> <copyright holders>',                    # MIT boilerplate placeholder
+      'Copyright (c) <YEAR>, <OWNER>',                               # BSD boilerplate placeholder
+      'Copyright Holder, and derivatives of that collection',        # Artistic License defined term
+      'Copyright Holder may include your modifications in the',      # Artistic License defined term
+      'Copyright Holder. This restriction only applies to the'       # SIL OFL defined term
+    );
+    is_deeply $notices->($_), [], "not a notice: $_" for @cases;
+  };
+
+  subtest 'multi-line notices are collected whole' => sub {
+    is_deeply $notices->("Copyright (c) 2011 The Chromium Authors\nAll rights reserved.\n"),
+      ['Copyright (c) 2011 The Chromium Authors All rights reserved.'], 'the paired trailer comes along';
+
+    is_deeply $notices->(" * Copyright (c) 2019\n *     Alice <a\@e.org>\n *     Bob <b\@e.org>\n"),
+      ['Copyright (c) 2019 Alice <a@e.org> Bob <b@e.org>'], 'holders indented under a bare year';
+
+    is_deeply $notices->("Copyright 2019 Foo Inc.,\nBar Ltd.\n"), ['Copyright 2019 Foo Inc., Bar Ltd.'],
+      'a notice broken off mid sentence';
+
+    # Without this the fold runs straight from the notice into the license and stores the two as one
+    is_deeply $notices->("Copyright (c) Microsoft Corporation.\nLicensed under the Apache License\n"),
+      ['Copyright (c) Microsoft Corporation.'], 'the license body ends the notice';
+
+    is_deeply $notices->("Copyright (c) 2018 Foo\nCopyright (c) 2019 Bar\n"),
+      ['Copyright (c) 2018 Foo', 'Copyright (c) 2019 Bar'], 'the next notice ends the previous one';
+
+    is_deeply $notices->(" * Copyright (c) 2019\n\n *     Not A Holder\n"), ['Copyright (c) 2019'],
+      'a blank line ends the notice';
+  };
+
+  subtest 'occurrences are counted' => sub {
+    is_deeply extract_copyrights("Copyright 2019 Foo\nsome code\nCopyright 2019 Foo\n"), {'Copyright 2019 Foo' => 2},
+      'one entry, counted twice';
+  };
+
+  subtest 'hostile input stays bounded' => sub {
+    ok !%{extract_copyrights('')},             'empty string';
+    ok !%{extract_copyrights("\x00\xff\xfe")}, 'binary noise';
+    is_deeply $notices->('Copyright (c) 2019 Foo'), ['Copyright (c) 2019 Foo'], 'no trailing newline';
+
+    # A line of nothing but comment leaders must not make the anchor backtrack; a nested quantifier
+    # here is the classic way to hang a scanner that reads every file of every package
+    my $punctuation = ('#*/;!|>+-' x 20_000) . "X\n";
+    ok !%{extract_copyrights($punctuation)}, 'a long run of comment leaders is cheap';
+
+    # Caps: notices per file, lines scanned, continuation lines folded, stored notice length
+    my $many = join '', map {"Copyright (c) 2019 Holder $_\n"} 1 .. 500;
+    is scalar keys %{extract_copyrights($many)}, 100, 'notices per file are capped';
+
+    my $deep = "Copyright (c) 2019\n" . join '', map { (' ' x 40) . "Holder $_\n" } 1 .. 100;
+    is_deeply $notices->($deep), ['Copyright (c) 2019 Holder 1 Holder 2 Holder 3 Holder 4'],
+      'folding stops after a bounded run of continuation lines';
+
+    # A single line long enough to matter is a minified blob and never reaches the length cap; folding
+    # several wide continuation lines together is the way a stored notice can actually grow
+    my $wide = 'Copyright (c) 2019 ' . ('A' x 250) . "\n";
+    $wide .= join '', map { '    ' . ('B' x 250) . "\n" } 1 .. 4;
+    is length $notices->($wide)->[0], 1024, 'a folded notice is truncated to its cap';
+
+    my $blob = 'Copyright (c) 2019 ' . ('a' x 5000);
+    is_deeply $notices->($blob), [], 'an over-long source line is a minified blob, not a notice';
+
+    my $late = ("\n" x 25_000) . "Copyright (c) 2019 Too Far Down\n";
+    is_deeply $notices->($late), [], 'lines past the scan cap are not examined';
+  };
 };
 
 done_testing;

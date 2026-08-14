@@ -20,15 +20,27 @@ use Try::Tiny;
 
 our @EXPORT_OK = (
   qw(buckets expand_spec_macros file_and_checksum md5_file slurp_and_decode load_ignored_files lines_context normalize_license_expr),
-  qw(extract_spdx_identifiers legal_review_notices normalize_license_text obs_ssh_auth paginate parse_exclude_file),
+  qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
+  qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file),
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip read_lines run_cmd),
   qw(request_id_from_external_link),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
-  qw(license_is_catch_all SNIPPET_SCORE_VERSION),
+  qw(license_is_catch_all SNIPPET_SCORE_VERSION $COPYRIGHT_LEADER $COPYRIGHT_TOKEN),
   qw(decode_json_fast encode_json_fast to_json_fast),
   qw(incoming_priority PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
 );
+
+# What a copyright notice looks like, shared so the harvester and the snippet redactor cannot drift apart
+# about which forms count as one. Case sensitive on purpose: a line opening "copyright" or "COPYRIGHT" is
+# wrapped license text, never a notice. The leader is one flat character class rather than a nested
+# quantifier, which over every line of every package is the classic way to hang a scanner.
+our $COPYRIGHT_LEADER = qr{[\s\#*/;!|<>+-]*};
+our $COPYRIGHT_TOKEN  = qr{
+    SPDX-(?:File|Snippet)CopyrightText:
+  | Copyright (?: \s* (?: \(c\) | \(C\) | \x{00a9} ) )?
+  | (?: \(c\) | \(C\) | \x{00a9} ) (?: \s* Copyright )?
+}x;
 
 # Priority gaps keep an entire build within its band as each job increments priority.
 use constant {
@@ -64,6 +76,15 @@ use constant SNIPPET_SCORE_VERSION => 2;    # v2: markup normalization (C/line-n
 my $MAX_FILE_SIZE = 30000;
 use constant MAX_TAG_LENGTH => 32;
 use constant MAX_TAGS       => 16;
+
+# Bounds for the copyright harvester, which runs over every file of every package including hostile ones
+use constant {
+  MAX_COPYRIGHTS       => 100,       # notices kept per file
+  MAX_COPYRIGHT_SCAN   => 20_000,    # lines examined per file, whatever the read window allowed
+  MAX_COPYRIGHT_FOLLOW => 4,         # continuation lines folded into one notice
+  MAX_COPYRIGHT_LENGTH => 1024,      # stored length of one notice
+  MAX_COPYRIGHT_SOURCE => 300        # source line length above which this is a minified blob, not a notice
+};
 
 # Service modes that guarantee checkouts are complete and not amended by the OBS server
 my $SAFE_OBS_SRVICE_MODES = {buildtime => 1, localonly => 1, manual => 1, disabled => 1};
@@ -125,6 +146,140 @@ sub extract_spdx_identifiers ($string) {
   }
 
   return \@identifiers;
+}
+
+# RFC-sized bounds prevent quadratic scanning on long hostile input.
+my $EMAIL_RE = qr/[\w\.\+%-]{1,254}+@[\w-]{1,254}+\.[\w\.-]{1,254}\w/;
+my $URL_RE   = qr!
+  \b(\S{1,254}\s\S{1,254})\s+[\(<]?($EMAIL_RE)[\)>]?\s |
+  mailto:($EMAIL_RE)["' ]*>\s*([^<@\s]{1,254}\s+[^<@\s]{1,254})\s*< |
+  \b($EMAIL_RE)\b |
+  \b((https?|ftp|file)://[\w-]{1,254}+\.[\w\./:\\\+~-]{1,4000}\w\??)\b
+!ix;
+
+# Collect the URLs and email addresses of one file's text into $meta. Kept separate from the reading of
+# the file (Cavil::Checkout) because this is the part that faces hostile input: it runs over every file
+# of every package, test corpora of security tooling included, so it is worth being able to hold a
+# string against it directly.
+#
+# urls with user@ are currently not supported.
+sub extract_urls_and_emails ($text, $meta = undef) {
+  $meta //= {emails => {}, urls => {}};
+
+  # Every branch of $URL_RE needs either an "@" or a "://", so text containing neither cannot match
+  # anywhere. Most source files are exactly that, and skipping them outright is worth about a third of
+  # the time this costs on a package. Purely a shortcut for the common case - an attacker supplies an
+  # "@" for free, so the bounds in $URL_RE are what keep the bad case cheap.
+  return $meta if index($text, '@') < 0 && index($text, '://') < 0;
+
+  while ($text =~ /$URL_RE/g) {
+    my ($name, $email, $email2, $name2, $email3, $url) = ($1, $2, $3, $4, $5, $6);
+    $email = $email2 unless defined $email;
+    $email = $email3 unless defined $email;
+    $name  = $name2  unless defined $name;
+
+    $email = undef if defined $email and $email =~ m{(\@-|\@.*(\.-|-\.))};             # RFC 822 illegal
+    $email = undef if defined $email and $email =~ m{[\@\.]example\.(net|com|org)};    # RFC 2606
+    $url   = undef if defined $url   and $url   =~ m{[/\.]example\.(net|com|org)};     # RFC 2606
+    $name  = undef if defined $name  and ($name eq lc $name or $name =~ m{[\(\):\d,\n\r]});
+
+    # file:// urls not wanted in our context.
+    $url = undef if defined $url and $url =~ m{^file:/};
+
+    # put each url,email or cve in the list only once. (Once per file.)
+    if (defined $email) {
+      $email = lc $email;
+      $meta->{emails}->{$email} ||= {name => undef, count => 0};
+      $meta->{emails}->{$email}->{count}++;
+      $meta->{emails}->{$email}->{name} ||= $name;
+    }
+    if (defined $url) {
+      $url =~ s{^(\w+://.[^/])}{lc $1}e;
+      $meta->{urls}->{$url} ||= 0;
+      $meta->{urls}->{$url}++;
+    }
+  }
+
+  return $meta;
+}
+
+# An unfilled placeholder out of a license boilerplate, not somebody's notice. The bare words are matched
+# case sensitively (a "Year" or "Owner" in a real holder name is not a placeholder) while the bracketed
+# forms are not, and the bracket spans are bounded so a line of punctuation cannot make this expensive.
+my $COPYRIGHT_PLACEHOLDER = qr{
+    \b (?: YEAR | YYYY | yyyy | xxxx | XXXX ) \b
+  | \b (?i: name \s+ of \s+ (?: the \s+ )? (?: author | copyright \s+ (?: owner | holder ) ) ) \b
+  | [<\[] [^>\]]{0,40} (?i: year | name | author | owner | holder ) [^>\]]{0,40} [>\]]
+}x;
+
+# The start of the license itself. Reaching one of these means the notice above it has ended, so it stops
+# continuation folding from swallowing a whole license body into one "notice".
+my $COPYRIGHT_BODY = qr{^(?:
+    Permission \s+ is \s+ hereby
+  | Redistribution \s+ and \s+ use
+  | This \s+ (?: program | software | library | file | work ) \s+ is \s+ (?: free | licensed )
+  | Licensed \s+ under
+  | THE \s+ SOFTWARE \s+ IS \s+ PROVIDED
+)}xi;
+
+# The copyright notices in one file's text, keyed by notice with an occurrence count. Exported for the
+# same reason as extract_urls_and_emails: it faces hostile input, so being able to hold a string against
+# it directly is worth the indirection.
+#
+# A notice that names its holder on the lines below it ("Copyright (c) 2019" over an indented list of
+# names) is worthless to a NOTICE file without them, so a bounded run of continuation lines is folded in.
+sub extract_copyrights ($text) {
+  my %copyrights;
+
+  # Most files carry no notice at all, and splitting those into lines is this function's entire cost
+  return \%copyrights unless $text =~ /Copyright|\(c\)|\(C\)|\x{00a9}/;
+
+  my @lines = split /\n/, $text, -1;
+  my $limit = @lines < MAX_COPYRIGHT_SCAN ? @lines : MAX_COPYRIGHT_SCAN;
+
+  my $found = 0;
+  for (my $i = 0; $i < $limit; $i++) {
+    next if length $lines[$i] > MAX_COPYRIGHT_SOURCE;
+    next unless $lines[$i] =~ /^($COPYRIGHT_LEADER)($COPYRIGHT_TOKEN)\s+(\S.*)$/;
+    my ($indent, $token, $rest) = (length $1, $2, $3);
+
+    # A notice opens on its year or its holder; "Copyright and related rights are waived" is prose
+    next unless $rest =~ /^(?:[0-9(<"'\x{00a9}]|\p{Lu})/;
+
+    # The Artistic License and the SIL OFL define "Copyright Holder" as a term and then use it in prose
+    next if $rest =~ /^(?:Holders?|Owners?|Notice)\b/;
+
+    my $tail = $rest;
+    my @more;
+    for my $j ($i + 1 .. $i + MAX_COPYRIGHT_FOLLOW) {
+      last if $j >= $limit || length $lines[$j] > MAX_COPYRIGHT_SOURCE;
+
+      last unless $lines[$j] =~ /^($COPYRIGHT_LEADER)(\S.*)$/;
+      my ($next_indent, $next) = (length $1, $2);
+      last if $next =~ /^$COPYRIGHT_TOKEN/ || $next =~ $COPYRIGHT_BODY;
+
+      # Indented under the notice, or the notice broke off mid sentence, or the trailer it pairs with
+      last
+        unless $next_indent > $indent || $tail =~ /(?:,|\band\b|\bby\b|\d{4})$/ || $next =~ /^All rights reserved\b/i;
+
+      push @more, $next;
+      ($tail, $i) = ($next, $j);
+    }
+
+    my $notice = join ' ', "$token $rest", @more;
+    $notice =~ s/\s+/ /g;
+    $notice =~ s/^\s+|\s+$//g;
+
+    # The comment closes, the notice does not; this text goes into a NOTICE file as it stands
+    $notice =~ s{\s*(?:\*/|-->|\*\)|--\}\}|\}\})$}{};
+    $notice = substr $notice, 0, MAX_COPYRIGHT_LENGTH if length $notice > MAX_COPYRIGHT_LENGTH;
+    next if $notice =~ $COPYRIGHT_PLACEHOLDER;
+
+    $copyrights{$notice}++;
+    last if ++$found >= MAX_COPYRIGHTS;
+  }
+
+  return \%copyrights;
 }
 
 # Best-effort expansion of simple RPM spec macros, so metadata fields (most importantly Version) do
@@ -309,12 +464,19 @@ sub text_shingle_ids ($text, $k = 3) {
   return \%ids;
 }
 
-sub slurp_and_decode ($path) {
+# One partial character at the end of a truncated read fails the decode of the whole text, dropping it
+# back to bytes where every "\xa9" continuation byte reads as a copyright sign
+my $PARTIAL_UTF8 = qr/(?:[\xc2-\xdf]|[\xe0-\xef][\x80-\xbf]{0,1}|[\xf0-\xf4][\x80-\xbf]{0,2})\z/;
+
+sub slurp_and_decode ($path, $max = $MAX_FILE_SIZE) {
 
   open my $file, '<', $path or croak qq{Can't open file "$path": $!};
-  croak qq{Can't read from file "$path": $!} unless defined(my $ret = $file->sysread(my $content, $MAX_FILE_SIZE, 0));
+  croak qq{Can't read from file "$path": $!} unless defined($file->sysread(my $content, $max, 0));
 
-  return $content if -s $path > $MAX_FILE_SIZE;
+  $content =~ s/$PARTIAL_UTF8//;
+
+  # Text that is not UTF-8 stays a byte string, which Perl reads as one codepoint per byte and so is
+  # Latin-1 by another name - the right guess for the files that reach this
   return Mojo::Util::decode('UTF-8', $content) // $content;
 }
 

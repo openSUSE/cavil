@@ -160,6 +160,15 @@ subtest 'Every reader stays on the live report while a build has rows beside it'
   $db->insert('urls',   {package => 1, url   => "https://$marker.example.com/", hits => 3, generation => $generation});
   $db->insert('emails', {package => 1, email => "$marker\@example.com",         hits => 2, generation => $generation});
   $db->insert(
+    'copyrights',
+    {
+      package    => 1,
+      copyright  => "Copyright (c) 2019 $marker",
+      files      => ["$marker/BUILD-ONLY.txt"],
+      generation => $generation
+    }
+  );
+  $db->insert(
     'package_components',
     {
       package    => 1,
@@ -217,7 +226,7 @@ subtest 'Every reader stays on the live report while a build has rows beside it'
   # Pattern flags are aggregated over every match of the package, and the build's pattern is flagged
   is_deeply $pkgs->flags(1), $flags_before, 'package flags are not confused by the build';
 
-  is $pkgs->discard_builds(1, undef), 4, 'the build is thrown away again';
+  is $pkgs->discard_builds(1, undef), 5, 'the build is thrown away again';
   is $db->query('SELECT COUNT(*) FROM pattern_matches WHERE package = 1 AND generation <> 0')->array->[0], 0,
     'matches cascaded with it';
   is $db->query('SELECT COUNT(*) FROM file_snippets WHERE package = 1 AND generation <> 0')->array->[0], 0,

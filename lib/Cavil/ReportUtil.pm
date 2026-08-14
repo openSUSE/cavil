@@ -10,7 +10,7 @@ use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json from_json);
 use Mojo::Util;
 use Cavil::Licenses 'lic';
-use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
+use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers $COPYRIGHT_LEADER $COPYRIGHT_TOKEN);
 
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
@@ -599,14 +599,7 @@ sub minimal_snippet ($snippet) {
 
 my $COPYRIGHT_ANCHOR = qr{
   ^
-  (                                                       # $1: prefix to preserve
-    \s* (?: [\#*/;]+ \s* )?
-    (?:
-      SPDX-(?:File|Snippet)CopyrightText:
-      | Copyright (?: \s* (?: \(c\) | \(C\) | © ) )?
-      | (?: \(c\) | \(C\) | © ) (?: \s* Copyright )?
-    )
-  )
+  ($COPYRIGHT_LEADER $COPYRIGHT_TOKEN)                    # $1: prefix to preserve
   \s+ \S .* $                                             # at least one word follows
 }x;
 

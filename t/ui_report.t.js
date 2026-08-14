@@ -240,15 +240,33 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.waitForSelector('#file-details-7');
       t.same(await page.isVisible('#file-details-7'), true);
 
+      // Harvested artifacts are fetched only when their tab is opened, so none of them are on the page
+      // until it is clicked - that is the whole point of the tab, so assert it before opening
+      t.equal(await page.locator('[data-artifact-section]').count(), 0, 'artifacts are not on the report payload');
+      await page.click('[data-tab="artifacts"]');
+      await page.waitForSelector('[data-artifact-section="emails"]');
+
       // Emails section: 14 entries, collapsed by default, click to expand
       await page.click('text=14 Emails');
-      await page.waitForSelector('#emails.show');
-      t.match(await page.innerText('#emails'), /coolo@suse\.com/);
+      await page.waitForSelector('#artifacts-emails.show');
+      t.match(await page.innerText('#artifacts-emails'), /coolo@suse\.com/);
 
-      // URLs section: 53 entries
-      await page.click('text=53 URLs');
-      await page.waitForSelector('#urls.show');
-      t.match(await page.innerText('#urls'), /https?:\/\//);
+      // URLs section: 54 entries
+      await page.click('text=54 URLs');
+      await page.waitForSelector('#artifacts-urls.show');
+      t.match(await page.innerText('#artifacts-urls'), /https?:\/\//);
+
+      // Copyright notices are harvested by the same pass and share the tab
+      await page.click('[data-artifact-section="copyrights"] .report-artifact-label');
+      await page.waitForSelector('#artifacts-copyrights.show');
+      t.match(await page.innerText('#artifacts-copyrights'), /Copyright \(C\) 2008-2017, Sebastian Riedel/);
+      t.match(
+        await page.innerText('[data-artifact-section="copyrights"]'),
+        /7 Copyright notices/,
+        'notices are counted like the other artifacts'
+      );
+
+      await page.click('[data-tab="review"]');
 
       // Package file titlebars open the file browser without looking like special callouts.
       await page.locator('#num-spec-files a').click();
@@ -447,8 +465,8 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.waitForSelector('[data-tab="components"]');
       t.same(
         await page.locator('#report-tabs [data-tab]').evaluateAll(tabs => tabs.map(tab => tab.dataset.tab)),
-        ['review', 'notes', 'components'],
-        'optional components tab is third in tab order'
+        ['review', 'notes', 'artifacts', 'components'],
+        'the optional components tab sorts last, so the always-present tabs never move'
       );
 
       // Wait for every previewed file's source to finish loading. Navigation
@@ -519,15 +537,20 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.pass("'u' jumped to the Risk 9 unresolved matches list");
 
       await page.keyboard.press('3');
+      await page.waitForSelector('#report-artifacts-pane.is-active');
+      await page.waitForSelector('[data-artifact-section="copyrights"]');
+      t.pass("'3' opened and loaded the Artifacts tab");
+
+      await page.keyboard.press('4');
       await page.waitForSelector('#report-components-pane.is-active');
-      t.match(await page.innerText('#report-components-pane'), /shortcut-component/, "'3' opened the Components tab");
+      t.match(await page.innerText('#report-components-pane'), /shortcut-component/, "'4' opened the Components tab");
 
       await page.locator('#report-component-filter-input').fill('');
       await page.locator('#report-component-filter-input').click();
-      await page.keyboard.type('23');
+      await page.keyboard.type('234');
       t.equal(
         await page.locator('#report-component-filter-input').inputValue(),
-        '23',
+        '234',
         'tab shortcut keys are typed normally inside the component filter'
       );
 
@@ -558,6 +581,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.match(modalText, /Open Report tab/);
       t.match(modalText, /Open Components tab/);
       t.match(modalText, /Open Notes tab/);
+      t.match(modalText, /Open Artifacts tab/);
 
       await page.locator('#shortcutsModal .btn-close').click();
       await page.waitForFunction(() => {

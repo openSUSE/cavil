@@ -31,6 +31,19 @@
         >
       </button>
       <button
+        type="button"
+        class="report-tab"
+        :class="{active: activeTab === 'artifacts'}"
+        role="tab"
+        :aria-selected="activeTab === 'artifacts'"
+        data-tab="artifacts"
+        @click="setActiveTab('artifacts')"
+      >
+        <i class="fa-solid fa-fingerprint"></i>
+        Artifacts
+      </button>
+      <!-- Last because it is the only optional tab, so the others keep their position and number key -->
+      <button
         v-if="components.length > 0"
         type="button"
         class="report-tab"
@@ -290,52 +303,6 @@
               </div>
             </div>
           </div>
-          <div v-if="emails.length > 0" class="report-artifact-section">
-            <h2 class="report-artifact-heading">
-              <a
-                href="#emails"
-                class="report-artifact-label collapsed"
-                data-bs-toggle="collapse"
-                aria-expanded="false"
-                aria-controls="emails"
-              >
-                <i class="fa-regular fa-envelope"></i>
-                {{ emails.length }} {{ emails.length === 1 ? 'Email' : 'Emails' }}
-              </a>
-            </h2>
-            <div class="collapse" id="emails">
-              <ul class="report-artifact-list">
-                <li v-for="email in emails" :key="email[0]" class="report-artifact-item">
-                  <span class="report-artifact-value">{{ email[0] }}</span>
-                  <span class="report-artifact-source">{{ email[1] }}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div v-if="urls.length > 0" class="report-artifact-section">
-            <h2 class="report-artifact-heading">
-              <a
-                href="#urls"
-                class="report-artifact-label collapsed"
-                data-bs-toggle="collapse"
-                aria-expanded="false"
-                aria-controls="urls"
-              >
-                <i class="fa-solid fa-link"></i>
-                {{ urls.length }} {{ urls.length === 1 ? 'URL' : 'URLs' }}
-              </a>
-            </h2>
-            <div class="collapse" id="urls">
-              <ul class="report-artifact-list">
-                <li v-for="url in urls" :key="url[0]" class="report-artifact-item">
-                  <span class="report-artifact-value">{{ url[0] }}</span>
-                  <span class="report-artifact-source">{{ url[1] }}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
           <br />
         </div>
         <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" :read-only="reindexing" />
@@ -432,6 +399,15 @@
           @counts-changed="onNotesCountsChanged"
         />
       </div>
+      <div
+        class="report-tab-pane"
+        :class="{'is-active': activeTab === 'artifacts'}"
+        :aria-hidden="activeTab !== 'artifacts'"
+        id="report-artifacts-pane"
+        role="tabpanel"
+      >
+        <ReportArtifacts v-if="artifactsMounted" :pkg-id="pkgId" />
+      </div>
     </div>
 
     <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
@@ -469,8 +445,12 @@
                 <dd><kbd>2</kbd></dd>
               </div>
               <div class="shortcuts-row">
-                <dt>Open Components tab</dt>
+                <dt>Open Artifacts tab</dt>
                 <dd><kbd>3</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
+                <dt>Open Components tab</dt>
+                <dd><kbd>4</kbd></dd>
               </div>
               <div class="shortcuts-row">
                 <dt>Show this help dialog</dt>
@@ -495,6 +475,7 @@ import LicenseCompositionChart from './LicenseCompositionChart.vue';
 import LicenseObligations from './LicenseObligations.vue';
 import PendingActionsWidget from './PendingActionsWidget.vue';
 import ProgressBar from './ProgressBar.vue';
+import ReportArtifacts from './ReportArtifacts.vue';
 import ReportNotes from './ReportNotes.vue';
 import {resolveSnippetFromFile, submitSnippetDecisions} from '../helpers/snippetDecisions.js';
 import Refresh from '../mixins/refresh.js';
@@ -524,6 +505,7 @@ export default {
     LicenseObligations,
     PendingActionsWidget,
     ProgressBar,
+    ReportArtifacts,
     ReportNotes
   },
   mixins: [Refresh],
@@ -551,7 +533,6 @@ export default {
       chart: null,
       componentFilter: '',
       components: [],
-      emails: [],
       files: [],
       licenseCompatibility: {licenses: [], matrix: {}, proximity: {}},
       loading: true,
@@ -564,6 +545,7 @@ export default {
       pendingActions: [],
       hashHandled: false,
       activeTab: 'review',
+      artifactsMounted: false,
       notesMounted: false,
       noteTotal: null,
       noteLawyerCount: 0,
@@ -581,7 +563,6 @@ export default {
       risks: {},
       stage: null,
       unresolvedMatches: 0,
-      urls: [],
       currentMatchId: null,
       shortcutsModal: null,
       stickyFileHeaders: {},
@@ -664,6 +645,7 @@ export default {
     setActiveTab(tab, {scrollIntoView = false} = {}) {
       this.activeTab = tab;
       if (tab === 'notes') this.notesMounted = true;
+      if (tab === 'artifacts') this.artifactsMounted = true;
       this.$nextTick(() => {
         this.scheduleStickyFileHeaderUpdate();
         if (scrollIntoView) this.scrollToTabs();
@@ -771,8 +753,6 @@ export default {
         this.unresolvedMatches = 0;
         this.matchingGlobs = [];
         this.components = [];
-        this.emails = [];
-        this.urls = [];
         this.risks = {};
         this.files = [];
         this.stickyFileHeaders = {};
@@ -807,8 +787,6 @@ export default {
       if (data.package.name) this.packageName = data.package.name;
       this.matchingGlobs = data.matching_globs;
       this.components = data.components;
-      this.emails = data.emails;
-      this.urls = data.urls;
       if (this.components.length === 0 && this.activeTab === 'components') this.activeTab = 'review';
 
       const max = data.max_files_per_license;
@@ -1143,6 +1121,9 @@ export default {
         event.preventDefault();
         this.setActiveTab('notes', {scrollIntoView: true});
       } else if (event.key === '3') {
+        event.preventDefault();
+        this.setActiveTab('artifacts', {scrollIntoView: true});
+      } else if (event.key === '4') {
         if (this.components.length === 0) return;
         event.preventDefault();
         this.setActiveTab('components', {scrollIntoView: true});

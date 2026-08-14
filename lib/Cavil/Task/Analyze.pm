@@ -110,9 +110,10 @@ sub _analyze ($job, $id, $generation = 0) {
     if ($generation) {
 
       # Deleting matched_files cascades its matches and snippets.
-      $db->delete($_, {package => $id, generation => 0}) for qw(package_components urls emails matched_files);
+      $db->delete($_, {package => $id, generation => 0})
+        for qw(package_components urls emails copyrights matched_files);
       $db->update($_, {generation => 0}, {package => $id, generation => $generation})
-        for qw(package_components urls emails pattern_matches file_snippets matched_files);
+        for qw(package_components urls emails copyrights pattern_matches file_snippets matched_files);
     }
 
     # The build hands the package back in the same commit that makes its report the live one, so there is

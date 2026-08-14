@@ -88,7 +88,7 @@ is worth stating as invariants rather than leaving implicit:
   throughput it fans out into many parallel `index_batch` jobs and keeps the claim across the whole
   fan-out. These are *controlled* parallel writers, not a free-for-all - each batch owns a
   disjoint partition of the files and writes their rows in its own transaction, and the few tables
-  several batches share (harvested URLs and emails, detected components) use upserts that merge
+  several batches share (harvested URLs, emails and copyright notices, detected components) use upserts that merge
   concurrent contributions deterministically. The checkout *filesystem* still has a single writer
   throughout: the batch jobs only *read* the unpacked tree, and only the owning stage writes it (unpack
   builds the tree, index clears the stale SBOM). The web application never writes an existing checkout -
@@ -492,7 +492,8 @@ Two principles keep the result trustworthy:
 * **Cavil's own license scan fills the gaps.** Where a component's metadata omits the license, Cavil falls back to the
   license it detected by scanning that component's own files.
 
-Detected components are stored per package (the same way harvested emails and URLs are), shown in the report UI, and
+Detected components are stored per package (the same way harvested emails, URLs and copyright notices are), shown in
+the report UI, and
 emitted in the SPDX report as dependencies of the primary component, each carrying its purl, version and license
 (both the distribution and the original license, as BSI TR-03183-2 requires).
 
@@ -508,6 +509,35 @@ The package's own top-level manifest (an npm project's root `package.json`, say)
 component, even though it is present - it describes the primary artifact under review, not a vendored dependency, so
 listing it would make the package a subcomponent of itself. Only manifests nested below the source root are treated as
 vendored.
+
+### Copyright notices
+
+Indexing harvests the copyright notices of every file the same way it harvests URLs and email addresses. They are
+stored one row per distinct notice, carrying the list of files it covers: that is the direction a NOTICE file is built
+in, and it collapses a header notice repeated across a whole tree into one entry. Lawyers use them to build product
+NOTICE files, so the goal is a notice a human could paste rather than a line that merely mentions the word.
+
+Two things follow from that. Notices are read from the original file rather than the line-wrapped copy the matcher
+scans, because wrapping a long notice strands its holder on a line that no longer says "copyright" - collecting
+"Copyright (c) 2019" with the names lost is worse than collecting nothing. And a notice whose holders sit on the lines
+below it is folded back together, so an indented list of names, or the "All rights reserved" a notice is normally
+paired with, travels with the notice it belongs to.
+
+A notice has to state a year or name a holder. That accepts the very common yearless form (`Copyright (c) Microsoft
+Corporation. All rights reserved.`) while rejecting the unfilled boilerplate placeholders that look just like it
+(`Copyright (C) YEAR NAME OF AUTHOR`), the wrapped body of a license, and the "Copyright Holder" that licenses such as
+the Artistic License define as a term and then use in running text.
+
+Because this runs over every file of every package, including the test corpora of security tooling, every part of it is
+bounded: how much of a file is read, how many lines are examined, how many notices are kept, how many continuation
+lines fold into one, and how long a stored notice can be. Aggregated legal documents (`NOTICE`, `THIRD_PARTY` and the
+like) are the exception to the read window, being nothing but notices and the file a NOTICE builder most needs read to
+the end.
+
+The report UI shows notices next to the harvested URLs and email addresses, on a tab whose contents are fetched only
+when it is opened. The SBOM reads the same rows and inverts them, since SPDX attributes a notice to the file it was
+found in; nothing re-reads the tree to produce them. Splitting notices per vendored component is the same rows filtered
+by that component's directory, which is why the file list is stored rather than just a count.
 
 ### How it is generated and retrieved
 

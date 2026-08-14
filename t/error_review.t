@@ -87,10 +87,13 @@ subtest 'Details after indexing' => sub {
 
   $t->json_like('/errors/0', qr/Invalid SPDX license: Fake-Artistic/);
 
+  $t->get_ok('/reviews/report_artifacts/1')
+    ->status_is(200)
+    ->json_like('/emails/values/0/0',     qr!coolo\@suse\.com!)
+    ->json_like('/urls/values/0/0',       qr!http://mojolicious.org!)
+    ->json_like('/copyrights/values/0/0', qr!Copyright!);
   $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
-    ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
     ->json_has('/chart/licenses')
     ->json_is('/missed_files/0/max_risk', 9)
     ->json_has('/risks');
@@ -197,10 +200,13 @@ subtest 'Manual review' => sub {
     ->json_like('/state',           qr!acceptable!)
     ->json_like('/result',          qr/Test review/);
 
+  $t->get_ok('/reviews/report_artifacts/1')
+    ->status_is(200)
+    ->json_like('/emails/values/0/0',     qr!coolo\@suse\.com!)
+    ->json_like('/urls/values/0/0',       qr!http://mojolicious.org!)
+    ->json_like('/copyrights/values/0/0', qr!Copyright!);
   $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
-    ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
     ->json_has('/chart/licenses')
     ->json_is('/missed_files/1/name',     'Mojolicious-7.25/LICENSE')
     ->json_is('/missed_files/1/license',  'Keyword')

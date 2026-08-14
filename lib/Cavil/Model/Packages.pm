@@ -191,6 +191,7 @@ sub cleanup ($self, $id, $job_id) {
     $db->query('delete from bot_reports where package = ?',        $id);
     $db->query('delete from emails where package = ?',             $id);
     $db->query('delete from urls where package = ?',               $id);
+    $db->query('delete from copyrights where package = ?',         $id);
     $db->query('delete from package_components where package = ?', $id);
     $db->query('delete from pattern_matches where package = ?',    $id);
     $db->query('delete from matched_files where package = ?',      $id);
@@ -699,6 +700,7 @@ sub unsettled_builds ($self) {
     'SELECT DISTINCT package FROM matched_files      WHERE generation <> 0
       UNION SELECT DISTINCT package FROM urls               WHERE generation <> 0
       UNION SELECT DISTINCT package FROM emails             WHERE generation <> 0
+      UNION SELECT DISTINCT package FROM copyrights         WHERE generation <> 0
       UNION SELECT DISTINCT package FROM package_components WHERE generation <> 0
       UNION SELECT id FROM bot_packages
               WHERE processing_job IS NOT NULL OR index_stage IS NOT NULL OR reindex_requested IS NOT NULL'
@@ -722,8 +724,13 @@ sub discard_builds ($self, $id, $owner) {
 
   # matched_files last: pattern_matches and file_snippets cascade from it
   my $deleted = 0;
-  $deleted += $db->query("DELETE FROM $_ WHERE package = ? AND generation <> 0", $id)->rows
-    for qw(package_components urls emails matched_files);
+  for my $table (qw(package_components urls emails copyrights matched_files)) {
+
+    # A statement that matched nothing answers -1 here, not 0, so a table with no rows of this build
+    # would subtract one from the count of the tables that did have some
+    my $rows = $db->query("DELETE FROM $table WHERE package = ? AND generation <> 0", $id)->rows;
+    $deleted += $rows if $rows > 0;
+  }
   $tx->commit;
 
   return $deleted;

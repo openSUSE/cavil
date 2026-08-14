@@ -444,12 +444,21 @@ sub spdx_line_shift_fixtures ($self, $app) {
 
   # Line 3 is a minified blob that the line-wrapper breaks in two, so the declaration on line 4
   # is scanned as line 5
+  # The trailing notice is appended, not prepended: the line numbers above are what this fixture exists
+  # to pin. It repeats verbatim in helper.js below, which is how a header notice behaves in a real tree
+  # and what the notices being stored once per package with the files they cover has to survive.
   $dir->child('bundle.js')->spew(<<"JS");
 /* generated bundle, do not edit */
 var a = 1;
 @{['x' x 200]} @{['y' x 50]}
 /* Permission is hereby granted under the Cavil Fixture License */
 var b = 2;
+/* Copyright (c) 2019 Cavil Fixture Authors */
+JS
+
+  $dir->child('helper.js')->spew(<<'JS');
+/* Copyright (c) 2019 Cavil Fixture Authors */
+var c = 3;
 JS
 
   # Markup is stripped to its text, so the declaration on line 6 is scanned as line 2

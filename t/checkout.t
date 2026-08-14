@@ -9,11 +9,11 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File      qw(path curfile tempdir);
-use Mojo::JSON      qw(decode_json encode_json);
-use Cavil::Checkout qw(extract_urls_and_emails);
-use Cavil::Util     qw(encode_json_fast);
-use Time::HiRes     qw(time);
+use Mojo::File qw(path curfile tempdir);
+use Mojo::JSON qw(decode_json encode_json);
+use Cavil::Checkout;
+use Cavil::Util qw(encode_json_fast extract_urls_and_emails);
+use Time::HiRes qw(time);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 

@@ -8,6 +8,9 @@ use Mojo::Asset::File;
 use Cavil::Util 'lines_context';
 use IO::Uncompress::Gunzip ();
 
+# Far above any real package, so only a pathological one is ever truncated
+use constant API_ARTIFACT_LIMIT => 50_000;
+
 sub report ($self) {
   my $id = $self->stash('id');
   return $self->render(text => 'unknown package', status => 408) unless my $pkg = $self->packages->find($id);
@@ -22,8 +25,14 @@ sub report ($self) {
     unless my $report = $self->reports->sanitized_dig_report($id);
 
   $self->respond_to(
-    json => sub { $self->render(json => {report => $report, package => $pkg}) },
-    txt  => sub {
+    json => sub {
+
+      # Part of the published response shape, so served here even though the dig report leaves them to the tables.
+      my $artifacts = $self->reports->artifacts($id, API_ARTIFACT_LIMIT);
+      my %full      = (%$report, map { $_ => $artifacts->{$_}{values} } qw(emails urls copyrights));
+      $self->render(json => {report => \%full, package => $pkg});
+    },
+    txt => sub {
 
       # Only notes relevant to this review (native or an identical license report) go into the plain
       # Public reports must exclude lawyer-only notes.
@@ -68,6 +77,13 @@ sub details ($self) {
 
   return $self->render(json => {error => 'not indexed', %{_stage_payload($pkg)}}, status => 408) unless $pkg->{indexed};
   return $self->render(json => {error => 'no report',   %{_stage_payload($pkg)}}, status => 408);
+}
+
+# Kept off the report payload: a large package has tens of thousands and most reviews never open them
+sub artifacts ($self) {
+  my $id = $self->stash('id');
+  return $self->render(json => {error => 'unknown package'}, status => 404) unless $self->packages->find($id);
+  $self->render(json => $self->reports->artifacts($id));
 }
 
 # Cheap poll for a report page that is already on screen: just the rebuild state, with none of the work

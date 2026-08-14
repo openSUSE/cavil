@@ -7,7 +7,6 @@ use Mojo::Base -base, -signatures;
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::PostProcess;
-use Cavil::Util qw(slurp_and_decode);
 use Digest::SHA;
 use IO::Compress::Gzip qw($GzipError);
 use Mojo::File         qw(path);
@@ -94,7 +93,7 @@ sub generate_to_file ($self, $id, $file) {
   my $graph = _Graph->new(handle => $handle, first => 1);
 
   # Hash only delivered archives; hashing every unpacked file is prohibitively expensive.
-  my (%info, %paths, %original_files);
+  my (%info, %original_files);
   for my $unpacked (@{$checkout->unpacked_files}) {
     my ($ufile, $mime) = @$unpacked;
     $ufile = decode('UTF-8', $ufile) // $ufile;
@@ -106,10 +105,7 @@ sub generate_to_file ($self, $id, $file) {
       $original_files{$ufile} = $original if -e $dir->child('.unpacked', $original);
     }
 
-    if (-e $scan_path) {
-      $paths{$ufile} = $scan_path;
-      $info{$ufile}  = {mime => $mime};
-    }
+    if (-e $scan_path) { $info{$ufile} = {mime => $mime} }
     else {
       $log->error("Non-existing path in SPDX report $id: $scan_path");
     }
@@ -411,6 +407,13 @@ sub generate_to_file ($self, $id, $file) {
     $matched_files->{$matched->{filename}} = $matched->{id};
   }
 
+  # Stored one row per notice with the files it covers, which is the direction a NOTICE file is built
+  # in. SPDX attributes a notice to a file, so the mapping is inverted once here rather than per file.
+  my %copyrights_by_file;
+  for my $row (@{$reports->copyrights($id)}) {
+    push @{$copyrights_by_file{$_}}, $row->{copyright} for @{$row->{files}};
+  }
+
   # Emit the file components in chunks: license findings for a whole chunk are fetched in two batched
   # queries (see _license_rows_by_file) instead of two per file, while the graph is still streamed one
   # element at a time and only one chunk of rows is held in memory
@@ -431,7 +434,8 @@ sub generate_to_file ($self, $id, $file) {
         = $mfid
         ? _file_licenses($snippets_by_file->{$mfid} // [], $matches_by_file->{$mfid} // [], $resolve_license)
         : [];
-      my $copyright = _copyrights($paths{$ufile});
+
+      my $copyright = $copyrights_by_file{$real_name} // [];
 
       # Findings are line numbers in the ".processed" copy the indexer scanned, but the file is
       # reported under its original name, and post-processing shifts lines around (long lines are
@@ -645,41 +649,6 @@ sub _license_rows_by_file ($db, $file_ids) {
 # Extract the set flags from a match/snippet row (the fold path uses "p"-prefixed column aliases)
 sub _flags ($row, $prefix) {
   return [grep { $row->{"$prefix$_"} } @FLAGS];
-}
-
-# Extract distinct copyright statements from a file. Scans the file header (bounded by slurp_and_decode
-# to ~30kB) rather than only license-match regions, so copyright notices in files without a license
-# match are still found; copyright notices virtually always live near the top of a file.
-sub _copyrights ($path) {
-  return [] unless defined $path && -f $path;
-  my $text = slurp_and_decode($path) // return [];
-
-  # Fast path: the overwhelming majority of files contain no copyright notice at all, so skip the
-  # line-by-line work entirely unless there is something to find
-  return [] unless $text =~ /copyright|\x{00a9}/i;
-
-  # Pull out only the lines that mention copyright in a single regex pass, rather than splitting the file
-  # into lines and testing each one - on large trees the per-line test dominates report generation
-  my (%seen, @copyrights);
-  while ($text =~ /^([^\n]*(?:copyright|\x{00a9})[^\n]*)$/mgi) {
-    my $line = $1;
-
-    # Skip minified/one-line blobs that merely happen to mention "copyright" somewhere
-    next if length $line > 300;
-
-    # Strip comment/markup leaders and collapse whitespace
-    $line =~ s/^[\s*#;>|!\/-]+//;
-    $line =~ s/\s+/ /g;
-    $line =~ s/^\s+|\s+$//g;
-
-    # Require a year or a copyright symbol to keep out unrelated prose and license-template placeholders
-    next unless length $line && $line =~ /\d{4}|\x{00a9}/i;
-    next if $seen{$line}++;
-    push @copyrights, $line;
-    last if @copyrights >= 100;
-  }
-
-  return \@copyrights;
 }
 
 # Map a MIME type to an SPDX SoftwarePurpose, approximating the BSI executable/archive/structured

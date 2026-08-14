@@ -233,6 +233,7 @@ sub startup ($self) {
     ->name('report');
   $logged_in->get('/reviews/report_details/<id:num>')->to('Report#details')->name('report_details');
   $logged_in->get('/reviews/report_state/<id:num>')->to('Report#report_state')->name('report_state');
+  $logged_in->get('/reviews/report_artifacts/<id:num>')->to('Report#artifacts')->name('report_artifacts');
   $logged_in->get('/reviews/fetch_source/<id:num>' => [format => ['json']])->to('Report#source', format => 'json');
   $logged_in->get('/reviews/notes/recent'          => [format => ['html', 'json']])
     ->to('Notes#recent', format => 'html')

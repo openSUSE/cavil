@@ -192,6 +192,7 @@ DROP TABLE IF EXISTS bot_package_products;
 DROP TABLE IF EXISTS bot_products;
 DROP TABLE IF EXISTS urls;
 DROP TABLE IF EXISTS emails;
+DROP TABLE IF EXISTS copyrights;
 DROP TABLE IF EXISTS bot_packages;
 DROP TABLE IF EXISTS bot_users;
 DROP TABLE IF EXISTS bot_sources;
@@ -492,3 +493,15 @@ CREATE INDEX ON bot_products (product);
 
 -- 59 up
 ALTER TABLE bot_reports ADD COLUMN annotations text;
+
+-- 60 up
+CREATE TABLE copyrights (
+  id bigserial PRIMARY KEY,
+  package int REFERENCES bot_packages(id) NOT NULL,
+  copyright text NOT NULL,
+  files text[] NOT NULL DEFAULT '{}',
+  generation int NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX copyrights_package_md5_generation_idx ON copyrights (package, md5(copyright), generation);
+CREATE INDEX copyrights_package_idx  ON copyrights (package);
+CREATE INDEX copyrights_building_idx ON copyrights (package) WHERE generation <> 0;

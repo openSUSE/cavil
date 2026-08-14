@@ -633,6 +633,24 @@ subtest 'Line ranges are translated back out of the post-processed copy' => sub 
   schema_ok($shift_doc, 'translated document validates');
 };
 
+subtest 'A notice is stored once with the files it covers, and attributed back to each of them' => sub {
+  my $rows = $t->app->reports->copyrights($shift_id);
+  my ($shared) = grep { $_->{copyright} eq 'Copyright (c) 2019 Cavil Fixture Authors' } @$rows;
+  ok $shared, 'the notice both files carry is stored';
+  is_deeply $shared->{files}, ['bundle.js', 'helper.js'], 'one row, naming every file it was found in';
+
+  # The point of storing it once: two files, one entry, and the SBOM still names it on both of them
+  my $shift_doc = gen_doc($shift_id);
+  my %copyright = map { $_->{name} => $_->{software_copyrightText} }
+    grep { $_->{software_copyrightText} } @{of_type($shift_doc, 'software_File')};
+  is $copyright{'./bundle.js'}, 'Copyright (c) 2019 Cavil Fixture Authors', 'attributed to the first file';
+  is $copyright{'./helper.js'}, 'Copyright (c) 2019 Cavil Fixture Authors', 'attributed to the second file';
+
+  # Notices are read from the original file, so a notice sitting past the point where post-processing
+  # wraps a line is still whole (the ".processed" copy of bundle.js splits its long line in two)
+  ok !$copyright{'./page.html'}, 'a file with no notice carries no copyright text';
+};
+
 # A consumer has to be able to tell "we do not know" from "we did not look". Vendored code is where that
 # distinction bites: its embedded metadata names the component but almost never says who published it.
 # The go-vendor checkout is the counterpart to the line-shift one below: a package that does ship vendored code

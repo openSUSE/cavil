@@ -177,26 +177,28 @@ No files matched known license patterns or keywords.
 For the full list and per-snippet detail (verbatim text, overlaps, keywords, covered-by): cavil_search_snippets(package_id=<%= $summary->{id} %>).
 
 % }
-% my @emails = @{$report->{emails} // []};
+% my $emails = $artifacts->{emails} // {total => 0, values => []};
+% my @emails = @{$emails->{values}}[0 .. ($email_limit <= @{$emails->{values}} ? $email_limit - 1 : $#{$emails->{values}})];
 % if ($email_limit && @emails) {
 
 ## Email Addresses
 
-Ordered by occurrences<%= @emails > $email_limit ? ", top $email_limit of " . scalar(@emails) : '' %>.
+Ordered by occurrences<%= $emails->{total} > @emails ? ", top " . scalar(@emails) . " of $emails->{total}" : '' %>.
 
-%   for my $email (@emails[0 .. ($email_limit < @emails ? $email_limit - 1 : $#emails)]) {
+%   for my $email (@emails) {
 * `<%== $email->[0] %>`: <%== $email->[1] %>
 %   }
 % }
 
-% my @urls = @{$report->{urls} // []};
+% my $urls = $artifacts->{urls} // {total => 0, values => []};
+% my @urls = @{$urls->{values}}[0 .. ($url_limit <= @{$urls->{values}} ? $url_limit - 1 : $#{$urls->{values}})];
 % if ($url_limit && @urls) {
 
 ## URLs
 
-Ordered by occurrences<%= @urls > $url_limit ? ", top $url_limit of " . scalar(@urls) : '' %>.
+Ordered by occurrences<%= $urls->{total} > @urls ? ", top " . scalar(@urls) . " of $urls->{total}" : '' %>.
 
-%   for my $url (@urls[0 .. ($url_limit < @urls ? $url_limit - 1 : $#urls)]) {
+%   for my $url (@urls) {
 * `<%== $url->[0] %>`: <%== $url->[1] %>
 %   }
 % }

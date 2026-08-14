@@ -4,21 +4,24 @@
 package Cavil::Checkout;
 use Mojo::Base -base, -signatures;
 
-use Exporter 'import';
 use File::Unpack2;
 use File::Spec::Functions qw(catfile);
 use Mojo::DOM;
 use Mojo::File 'path';
 use Mojo::Util 'dumper';
-use Cavil::Util (qw(buckets decode_json_fast encode_json_fast expand_spec_macros legal_review_notices),
-  qw(parse_service_file slurp_and_decode));
+use Cavil::Util (
+  qw(buckets decode_json_fast encode_json_fast expand_spec_macros extract_copyrights),
+  qw(extract_urls_and_emails legal_review_notices parse_service_file slurp_and_decode)
+);
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
-use YAML::XS qw(Load);
+use Cavil::ReportUtil qw(is_license_filename);
+use YAML::XS          qw(Load);
 
 use constant DEBUG => $ENV{SUSE_CHECKOUT_DEBUG} || 0;
 
-our @EXPORT_OK = qw(extract_urls_and_emails);
+# Aggregated legal documents are the one place notices are not clustered at the top of the file
+use constant LEGAL_DOCUMENT_SIZE => 1_000_000;
 
 has 'dir';
 
@@ -52,15 +55,6 @@ my $BLACKLIST_MIME_RE = qr!
 )
 !x;
 
-# RFC-sized bounds prevent quadratic scanning on long hostile input.
-my $EMAIL_RE = qr/[\w\.\+%-]{1,254}+@[\w-]{1,254}+\.[\w\.-]{1,254}\w/;
-my $URL_RE   = qr!
-  \b(\S{1,254}\s\S{1,254})\s+[\(<]?($EMAIL_RE)[\)>]?\s |
-  mailto:($EMAIL_RE)["' ]*>\s*([^<@\s]{1,254}\s+[^<@\s]{1,254})\s*< |
-  \b($EMAIL_RE)\b |
-  \b((https?|ftp|file)://[\w-]{1,254}+\.[\w\./:\\\+~-]{1,4000}\w\??)\b
-!ix;
-
 my $LICENSE_COMMENT_RE = qr/^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/;
 
 # Plain "Dockerfile", multibuild flavors like "Dockerfile.driver-550", and named "foo.Dockerfile"
@@ -75,7 +69,7 @@ sub keyword_report ($self, $matcher, $meta, $file) {
   $file = $base->child($file);
   return undef unless -r $file;
 
-  _urls($file, $meta);
+  _text_metadata($base, $file, $meta);
 
   return {path => $file->to_rel($base)->to_string, matches => $matcher->find_matches($file)};
 }
@@ -473,57 +467,31 @@ sub _specfile ($file) {
   return $info;
 }
 
-sub _urls ($file, $meta) {
+sub _text_metadata ($base, $file, $meta) {
   my $text = slurp_and_decode($file);
   return undef unless defined $text;
   extract_urls_and_emails($text, $meta);
+
+  # Never the ".processed" copy: its line wrapping splits a notice from the holder it names, leaving
+  # "Copyright (c) 2019" with the names gone. Re-reading is skipped where it would read the same bytes.
+  my $original = _original_file($file);
+  $text = _copyright_text($original) // $text if $original ne $file || is_license_filename($original);
+
+  my $name = path($original)->to_rel($base)->to_string;
+  push @{$meta->{copyrights}{$_}}, $name for keys %{extract_copyrights($text)};
+
   return undef;
 }
 
-# Collect the URLs and email addresses of one file's text into $meta. Kept separate from the file
-# reading above, and exported, because this is the part that faces hostile input: it runs over every
-# file of every package, test corpora of security tooling included, so it is worth being able to hold
-# a string against it directly.
-#
-# urls with user@ are currently not supported.
-sub extract_urls_and_emails ($text, $meta = undef) {
-  $meta //= {emails => {}, urls => {}};
+# Matching runs against the ".processed" copy, but reading content wants the file it was made from
+sub _original_file ($path) {
+  my $original = ($path =~ s{\.processed(\.[^./]+)$}{$1}r) =~ s{\.processed$}{}r;
+  return $original ne $path && -f $original ? $original : $path;
+}
 
-  # Every branch of $URL_RE needs either an "@" or a "://", so text containing neither cannot match
-  # anywhere. Most source files are exactly that, and skipping them outright is worth about a third of
-  # the time this costs on a package. Purely a shortcut for the common case - an attacker supplies an
-  # "@" for free, so the bounds in $URL_RE are what keep the bad case cheap.
-  return $meta if index($text, '@') < 0 && index($text, '://') < 0;
-
-  while ($text =~ /$URL_RE/g) {
-    my ($name, $email, $email2, $name2, $email3, $url) = ($1, $2, $3, $4, $5, $6);
-    $email = $email2 unless defined $email;
-    $email = $email3 unless defined $email;
-    $name  = $name2  unless defined $name;
-
-    $email = undef if defined $email and $email =~ m{(\@-|\@.*(\.-|-\.))};             # RFC 822 illegal
-    $email = undef if defined $email and $email =~ m{[\@\.]example\.(net|com|org)};    # RFC 2606
-    $url   = undef if defined $url   and $url   =~ m{[/\.]example\.(net|com|org)};     # RFC 2606
-    $name  = undef if defined $name  and ($name eq lc $name or $name =~ m{[\(\):\d,\n\r]});
-
-    # file:// urls not wanted in our context.
-    $url = undef if defined $url and $url =~ m{^file:/};
-
-    # put each url,email or cve in the list only once. (Once per file.)
-    if (defined $email) {
-      $email = lc $email;
-      $meta->{emails}->{$email} ||= {name => undef, count => 0};
-      $meta->{emails}->{$email}->{count}++;
-      $meta->{emails}->{$email}->{name} ||= $name;
-    }
-    if (defined $url) {
-      $url =~ s{^(\w+://.[^/])}{lc $1}e;
-      $meta->{urls}->{$url} ||= 0;
-      $meta->{urls}->{$url}++;
-    }
-  }
-
-  return $meta;
+sub _copyright_text ($path) {
+  return undef unless -f $path;
+  return eval { is_license_filename($path) ? slurp_and_decode($path, LEGAL_DOCUMENT_SIZE) : slurp_and_decode($path) };
 }
 
 1;

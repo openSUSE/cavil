@@ -62,7 +62,8 @@ sub _index ($job, $id) {
     # Only our own leftovers, from an earlier attempt of this same job. Other non-zero generations are
     # left alone on purpose: "script/cavil unpack" force-releases the package, so a second build can
     # legitimately be running, and wiping its rows would corrupt it. The cleanup task sweeps those.
-    $db->delete($_, {package => $id, generation => $generation}) for qw(package_components urls emails matched_files);
+    $db->delete($_, {package => $id, generation => $generation})
+      for qw(package_components urls emails copyrights matched_files);
 
     $db->update('bot_packages', {index_stage => 'indexing'}, {id => $id});
     $tx->commit;
@@ -107,7 +108,7 @@ sub _index_batch ($job, $id, $batch, $generation) {
 
   my $registry    = Cavil::Bom::Registry->new;
   my $single_root = _single_unpacked_root($fi->dir);
-  my %meta        = (emails => {}, urls => {}, components => {});
+  my %meta        = (emails => {}, urls => {}, copyrights => {}, components => {});
 
   # Wrap the whole batch in one transaction: the per-file inserts (matched_files,
   # pattern_matches, file_snippets) plus the URL/email/component upserts below would otherwise
@@ -141,6 +142,17 @@ sub _index_batch ($job, $id, $batch, $generation) {
            values ($1, $2, $3, $4, $5)
          on conflict (package, md5(email), generation)
          do update set hits = emails.hits + $4', $id, $email, $e->{name}, $e->{count}, $generation
+    );
+  }
+
+  # Batches own disjoint files, so concatenating their file lists can never duplicate an entry. No length
+  # check like the two above need: the harvester caps a notice before it ever gets here.
+  for my $copyright (sort keys %{$meta{copyrights}}) {
+    $db->query(
+      'insert into copyrights (package, copyright, files, generation) values ($1, $2, $3, $4)
+         on conflict (package, md5(copyright), generation)
+         do update set files = copyrights.files || excluded.files', $id, $copyright, $meta{copyrights}{$copyright},
+      $generation
     );
   }
 

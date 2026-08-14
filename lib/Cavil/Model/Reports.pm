@@ -105,6 +105,45 @@ sub risk_is_acceptable {
   return $2;
 }
 
+# Harvested URLs, email addresses and copyright notices, ordered by how often each occurs. Every list is
+# capped and carries its own total, so a truncated one can say how much it is not showing.
+sub artifacts ($self, $id, $limit = 500, $generation = 0) {
+  my $db = $self->pg->db;
+
+  # COUNT(*) OVER () is evaluated before the LIMIT, so the total costs no second query. The tiebreak
+  # collates as bytes, because the database's own collation orders by locale rules and Perl's cmp does not.
+  my $list = sub ($table, $value, $hits) {
+    my $rows = $db->query(
+      "SELECT * FROM (
+         SELECT $value AS value, $hits AS hits, COUNT(*) OVER () AS total
+           FROM $table WHERE package = ? AND generation = ?
+       ) a ORDER BY hits DESC, value COLLATE \"C\" LIMIT ?", $id, $generation, $limit
+    )->hashes;
+    return {
+      total  => $rows->size ? $rows->first->{total} : 0,
+      values => [map { [$_->{value}, $_->{hits}] } $rows->each]
+    };
+  };
+
+  return {
+    emails => $list->('emails', q{CASE WHEN name IS NULL THEN email ELSE name || ' <' || email || '>' END}, 'hits'),
+    urls   => $list->('urls',   'url',                                                                      'hits'),
+
+    # Counted in files rather than occurrences, which is the number that means something to a lawyer
+    copyrights => $list->('copyrights', 'copyright', 'COALESCE(array_length(files, 1), 0)')
+  };
+}
+
+# Every notice of a package with the files it covers. Sorted here rather than stored sorted: parallel
+# index batches merge these rows, so which batch commits first decides the stored order.
+sub copyrights ($self, $id, $generation = 0) {
+  my $rows
+    = $self->pg->db->query(
+    'SELECT copyright, files FROM copyrights WHERE package = ? AND generation = ? ORDER BY copyright COLLATE "C"',
+    $id, $generation)->hashes;
+  return [map { {copyright => $_->{copyright}, files => [sort @{$_->{files}}]} } $rows->each];
+}
+
 sub sanitized_dig_report {
   my ($self, $id) = @_;
   return undef unless my $report = $self->cached_dig_report($id);
@@ -521,19 +560,6 @@ sub _dig_report {
   }
   $report->{missed_files} = \%missed_files;
 
-  my $emails = $db->select('emails', '*', {package => $pkg->{id}, generation => $generation});
-  for my $email ($emails->hashes->each) {
-    my $key = $email->{email};
-    if ($email->{name}) {
-      $key = "$email->{name} <$email->{email}>";
-    }
-    $report->{emails}{$key} = $email->{hits};
-  }
-  my $urls = $db->select('urls', '*', {package => $pkg->{id}, generation => $generation});
-  for my $url ($urls->hashes->each) {
-    $report->{urls}{$url->{url}} = $url->{hits};
-  }
-
   my $components = $db->select(
     'package_components', '*',
     {package  => $pkg->{id}, generation => $generation},
@@ -844,11 +870,6 @@ sub _sanitize_report {
     }
   }
 
-  # Emails and URLs
-  my $emails = $report->{emails};
-  $report->{emails} = [map { [$_, $emails->{$_}] } sort { $emails->{$b} <=> $emails->{$a} || $a cmp $b } keys %$emails];
-  my $urls = $report->{urls};
-  $report->{urls} = [map { [$_, $urls->{$_}] } sort { $urls->{$b} <=> $urls->{$a} || $a cmp $b } keys %$urls];
 }
 
 1;

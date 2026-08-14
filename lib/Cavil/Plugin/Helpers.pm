@@ -267,8 +267,6 @@ sub _report_details ($c, $pkg, $report) {
     hidden_inline_previews => $hidden_inline,
     matching_globs         => $report->{matching_globs} // [],
     files                  => \@files,
-    emails                 => $report->{emails} // [],
-    urls                   => $report->{urls}   // [],
     components             => \@components
   };
 }
@@ -320,6 +318,7 @@ sub _mcp_report ($c, $id, $opts = {}) {
   # 0 = omit the section entirely; otherwise cap the (already occurrence-ordered) lists.
   my $url_limit   = $opts->{url_limit}   // 10;
   my $email_limit = $opts->{email_limit} // 10;
+  my $wanted      = $url_limit > $email_limit ? $url_limit : $email_limit;
 
   return $c->render_to_string(
     'mcp/report',
@@ -327,6 +326,7 @@ sub _mcp_report ($c, $id, $opts = {}) {
     report      => $report,
     summary     => $summary,
     unmatched   => _unmatched_rollup($c, $id),
+    artifacts   => $wanted ? $c->reports->artifacts($id, $wanted) : {},
     url_limit   => $url_limit,
     email_limit => $email_limit
   );

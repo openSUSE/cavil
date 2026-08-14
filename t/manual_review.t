@@ -162,10 +162,13 @@ subtest 'Details after indexing' => sub {
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!new!);
 
+  $t->get_ok('/reviews/report_artifacts/1')
+    ->status_is(200)
+    ->json_like('/emails/values/0/0',     qr!coolo\@suse\.com!)
+    ->json_like('/urls/values/0/0',       qr!http://mojolicious.org!)
+    ->json_like('/copyrights/values/0/0', qr!Copyright!);
   $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
-    ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
     ->json_has('/files/0/id')
     ->json_has('/files/0/path')
     ->json_like('/files/0/file_url', qr!/reviews/file_view/1/!)
@@ -380,10 +383,13 @@ subtest 'Details after reindexing' => sub {
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!new!);
 
+  $t->get_ok('/reviews/report_artifacts/1')
+    ->status_is(200)
+    ->json_like('/emails/values/0/0',     qr!coolo\@suse\.com!)
+    ->json_like('/urls/values/0/0',       qr!http://mojolicious.org!)
+    ->json_like('/copyrights/values/0/0', qr!Copyright!);
   $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
-    ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
     ->json_has('/chart/licenses')
     ->json_has('/chart/num-files')
     ->json_has('/chart/colours')
@@ -436,10 +442,13 @@ subtest 'Manual review' => sub {
     ->json_like('/state',           qr!acceptable!)
     ->json_like('/result',          qr/Test review/);
 
+  $t->get_ok('/reviews/report_artifacts/1')
+    ->status_is(200)
+    ->json_like('/emails/values/0/0',     qr!coolo\@suse\.com!)
+    ->json_like('/urls/values/0/0',       qr!http://mojolicious.org!)
+    ->json_like('/copyrights/values/0/0', qr!Copyright!);
   $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->json_like('/emails/0/0', qr!coolo\@suse\.com!)
-    ->json_like('/urls/0/0',   qr!http://mojolicious.org!)
     ->json_has('/chart/licenses')
     ->json_is('/missed_files/1/name',     'Mojolicious-7.25/LICENSE')
     ->json_is('/missed_files/1/license',  'Keyword')
