@@ -39,7 +39,13 @@ our $COPYRIGHT_LEADER = qr{[\s\#*/;!|<>+-]*};
 our $COPYRIGHT_TOKEN  = qr{
     SPDX-(?:File|Snippet)CopyrightText:
   | Copyright (?: \s* (?: \(c\) | \(C\) | \x{00a9} ) )?
-  | (?: \(c\) | \(C\) | \x{00a9} ) (?: \s* Copyright )?
+  | \x{00a9} (?: \s* Copyright )?
+  | (?: \(c\) | \(C\) ) \s* Copyright
+
+  # A bare "(c)" is also how a license enumerates its clauses, and Apache-2.0 section 4(c) opens
+  # "(c) You must retain, in the Source form ..." in every package that ships the license. A year is
+  # what tells the copyright sign from the list marker; the cost is dropping a yearless "(c) Some Name".
+  | (?: \(c\) | \(C\) ) (?= \s* \d{4} )
 }x;
 
 # Priority gaps keep an entire build within its band as each job increments priority.

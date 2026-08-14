@@ -718,7 +718,13 @@ subtest 'extract_copyrights' => sub {
       'Copyright (c) <YEAR>, <OWNER>',                               # BSD boilerplate placeholder
       'Copyright Holder, and derivatives of that collection',        # Artistic License defined term
       'Copyright Holder may include your modifications in the',      # Artistic License defined term
-      'Copyright Holder. This restriction only applies to the'       # SIL OFL defined term
+      'Copyright Holder. This restriction only applies to the',      # SIL OFL defined term
+
+      # "(c)" also enumerates clauses. Apache-2.0 section 4(c) alone put this in 80 files of one package,
+      # and prose, maths and protocol comments all open the same way.
+      '(c) You must retain, in the Source form of any Derivative Works that You distribute, all',
+      '(c) The stream ID is for a locally-created stream which does not exist yet. This is a',
+      '(C) The PN is below the watermark.', '(c) 1 < qInv < p'
     );
     is_deeply $notices->($_), [], "not a notice: $_" for @cases;
   };
