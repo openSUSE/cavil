@@ -1730,12 +1730,10 @@ export default {
 .report-component-list {
   border-radius: 6px;
 }
-.report-component-toolbar,
-.report-artifact-toolbar {
+.report-component-toolbar {
   margin-bottom: 0.75rem;
 }
-.report-component-filter,
-.report-artifact-filter {
+.report-component-filter {
   flex: 1 1 20rem;
   margin: 0;
   min-width: min(20rem, 100%);

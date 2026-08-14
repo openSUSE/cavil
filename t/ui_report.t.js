@@ -255,12 +255,13 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.match(await urls.innerText(), /54 URLs/);
       t.match(await copyrights.innerText(), /7 Copyright notices/);
       t.match(await copyrights.innerText(), /Copyright \(C\) 2008-2017, Sebastian Riedel/);
-      t.match(await copyrights.innerText(), /1 file/, 'a notice is counted in the files it covers');
+      t.match(await copyrights.innerText(), /1 file\b/, 'a notice is counted in the files it covers');
+      t.match(await emails.innerText(), /\d+ occurrences/, 'the other two spell out their unit too');
 
       // Lists are ordered by how often each occurs, most frequent first
       const urlCounts = await urls
         .locator('.report-artifact-source')
-        .evaluateAll(cells => cells.map(cell => Number(cell.innerText)));
+        .evaluateAll(cells => cells.map(cell => parseInt(cell.innerText, 10)));
       t.same(urlCounts, [...urlCounts].sort((a, b) => b - a), 'URLs are ordered by occurrences');
 
       // Only the head is shown; the tail is a click away rather than several hundred rows of scroll
@@ -268,33 +269,25 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.equal(await copyrights.locator('.report-artifact-item').count(), 7, 'a short list shows in full');
       t.equal(await copyrights.locator('[data-artifact-more]').count(), 0, 'and offers nothing to expand');
 
+      // Never a total the click cannot deliver: the endpoint caps each list, so a package with 996 emails
+      // loads 500 of them and "Show all 996" would be a lie
+      t.equal(
+        (await page.locator('[data-artifact-more="urls"]').innerText()).trim(),
+        'Show 44 more',
+        'the button offers what it can actually reveal'
+      );
       await page.click('[data-artifact-more="urls"]');
       await page.waitForFunction(() => {
         const list = document.querySelector('[data-artifact-section="urls"]');
         return list && list.querySelectorAll('.report-artifact-item').length === 54;
       });
-      t.pass('"Show all 54" reveals the rest');
+      t.pass('and reveals the rest');
       await page.click('[data-artifact-more="urls"]');
       await page.waitForFunction(() => {
         const list = document.querySelector('[data-artifact-section="urls"]');
         return list && list.querySelectorAll('.report-artifact-item').length === 10;
       });
       t.pass('and collapses back to the top 10');
-
-      // The filter is there for when a reviewer does know what they are after; it overrides the preview
-      await page.locator('#report-artifact-filter-input').fill('coolo');
-      await page.waitForSelector('[data-artifact-section="urls"]', {state: 'detached'});
-      t.match(await emails.innerText(), /coolo@suse\.com/, 'matching emails survive');
-      t.notMatch(await emails.innerText(), /sri@cpan\.org/, 'non-matching emails are gone');
-      t.equal(await copyrights.locator('[data-artifact-more]').count(), 0, 'a filtered list is not also previewed');
-
-      await page.locator('#report-artifact-filter-input').fill('nothingmatchesthis');
-      await page.waitForSelector('[data-artifacts-no-match]');
-      t.pass('a filter that matches nothing says so');
-
-      await page.locator('#report-artifact-filter-input').fill('');
-      await page.waitForSelector('[data-artifact-more="urls"]');
-      t.pass('clearing the filter restores the preview');
 
       await page.click('[data-tab="review"]');
 
