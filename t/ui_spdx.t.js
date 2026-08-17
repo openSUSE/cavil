@@ -2,11 +2,11 @@
 import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
 import t from 'tap';
 
-// SPDX reports are generated on demand (always_generate_spdx_reports is off),
-// so the report page has to walk the reviewer through it: offer to build one,
-// animate while the job runs, then hand over a download. This drives that row
-// the way a reviewer does, clicking the button and letting the component's own
-// poll notice the finished job - the page is never reloaded in between.
+// SPDX reports are generated on demand, so the report page has to walk the
+// reviewer through it: offer to build one, animate while the job runs, then
+// hand over a download. This drives that row the way a reviewer does, clicking
+// the button and letting the component's own poll notice the finished job -
+// the page is never reloaded in between.
 t.test('Cavil UI - SPDX download', skipUnlessOnline, async t => {
   const ui = await launchUi('js_ui_spdx');
   const {context, page, url, performJobs, errorLogs} = ui;

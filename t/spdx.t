@@ -117,45 +117,6 @@ subtest 'Generate SPDX report' => sub {
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
-subtest 'Always generate SPDX reports when reindexing' => sub {
-  $t->app->packages->reindex(1);
-  $t->app->minion->perform_jobs;
-  ok !$t->app->packages->has_spdx_report(1), 'package has no SPDX report';
-
-  $t->app->config->{always_generate_spdx_reports} = 1;
-  $t->app->packages->reindex(1);
-  $t->app->minion->perform_jobs;
-  ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
-};
-
-# A build that dies on the way to its report must not leave the package unable to ever get one again. The
-# job that would have written it waits in the queue behind its failed parent, where an admin can see it and
-# retry - and nothing outside the queue is holding a claim on the work that could outlive the build.
-subtest 'A build whose analyzed job fails still gets its report from a retry' => sub {
-  my $minion = $t->app->minion;
-  my $pkgs   = $t->app->packages;
-  $pkgs->remove_spdx_report(1);
-
-  my $analyzed = $minion->tasks->{analyzed};
-  $minion->add_task(analyzed => sub ($job, @args) { die "Auto review went wrong\n" });
-  is $pkgs->reindex(1), 'now', 'reindex queued';
-  $minion->perform_jobs;
-  $minion->add_task(analyzed => $analyzed);
-
-  ok !$pkgs->has_spdx_report(1), 'package has no SPDX report';
-  is $minion->jobs({tasks => ['analyzed'],    states => ['failed']})->total,   1, 'the analyzed job failed';
-  is $minion->jobs({tasks => ['spdx_report'], states => ['inactive']})->total, 1, 'the report job is still queued';
-  is $t->app->pg->db->query('SELECT COUNT(*) FROM minion_locks')->array->[0], 0, 'nothing is locked';
-
-  # What an admin does from the Minion dashboard
-  my $failed = $minion->jobs({tasks => ['analyzed'], states => ['failed']})->next;
-  ok $minion->job($failed->{id})->retry, 'analyzed job retried';
-  $minion->perform_jobs;
-
-  is $minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
-  ok $pkgs->has_spdx_report(1), 'package has SPDX report';
-};
-
 my $path = $t->app->packages->spdx_report_path(1);
 my $doc  = read_report($path);
 my $g    = graph_index($doc);

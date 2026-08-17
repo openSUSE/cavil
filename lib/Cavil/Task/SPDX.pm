@@ -28,8 +28,7 @@ sub _spdx_report ($job, $id) {
   my $path = $pkgs->spdx_report_path($id);
   $spdx->generate_to_file($id, $path);
 
-  # Usually the last job to touch the package (with always_generate_spdx_reports every build ends here), so
-  # a reindex requested while it was running has nobody else to pick it up
+  # The only job touching the package, so a reindex requested while it was running has nobody else to pick it up
   $pkgs->hand_back($id, $job->id);
 }
 

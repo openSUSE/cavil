@@ -22,7 +22,6 @@ sub _analyze ($job, $id, $generation = 0) {
   my $minion = $app->minion;
   my $pkgs   = $app->packages;
   my $log    = $app->log;
-  my $config = $app->config;
 
   # Protect from race conditions. A build inherits its claim on the package from its index job, because
   # the promote below needs the same protection the indexing did, and hands it back as part of that same
@@ -155,15 +154,8 @@ sub _analyze ($job, $id, $generation = 0) {
   # here is still the package's problem - the follow-up work that hands the new report to the reviewer.
   # So it goes back on the way out, and only the successful path stays quiet.
   eval {
-    my $prio        = $job->info->{priority};
-    my $analyzed_id = $minion->enqueue(
-      analyzed => [$id] => {parents => [$job->id], priority => $prio + 1, notes => {"pkg_$id" => 1}});
-
-    # The real last job of the build when reports are generated for every one of them, so it keeps climbing
-    # the chain rather than dropping out of the build's band and being overtaken - by the time it came back
-    # round the package could be rebuilding again, and the report it was asked for would never be written.
-    $pkgs->generate_spdx_report($id, {parents => [$analyzed_id], priority => $prio + 2})
-      if $config->{always_generate_spdx_reports};
+    my $prio = $job->info->{priority};
+    $minion->enqueue(analyzed => [$id] => {parents => [$job->id], priority => $prio + 1, notes => {"pkg_$id" => 1}});
 
     # Each of these works on (and claims) the candidate, not this package, so it is noted as the
     # candidate's job - otherwise the cleanup sweep sees no job for a package that is being worked on and

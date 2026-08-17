@@ -49,7 +49,6 @@ sub default_config ($self) {
     max_worker_rss                           => 100000,
     max_expanded_files                       => 100,
     max_file_browser_size                    => 1_000_000,
-    always_generate_spdx_reports             => 0,
     spdx                                     => {
       namespace             => 'http://legaldb.suse.de/spdx/',
       creator               => {name => 'SUSE LLC', email => 'security@suse.de'},

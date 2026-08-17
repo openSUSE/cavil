@@ -253,11 +253,15 @@ These jobs are involved in report creation and usually run in the listed order:
 5. `indexed`: Synchronizes all pattern matching results.
 6. `analyze`: Combines patterns matching results to create the license report.
 7. `analyzed`: Checks the report for reasons to automatically accept it.
+
+Two more background jobs exist outside this chain. SBOMs are built on demand, when a reviewer asks for one on the report
+page or a client requests one that has not been cached yet.
+
 8. `spdx_report`: Creates report in SPDX format.
 
-The text classifier (see [AI Text Classification](#ai-text-classification)) adds one more background job. It is enqueued
-automatically whenever analysis produces snippets that still need classifying, and (unlike the others) is not specific to
-a single package checkout.
+The text classifier (see [AI Text Classification](#ai-text-classification)) adds the other one. It is enqueued
+automatically whenever analysis produces snippets that still need classifying, and (unlike the build jobs) is not
+specific to a single package checkout.
 
 9. `classify`: Sends all unclassified snippets of potential legal text to the text classification server, and if
                necessary updates reports.
@@ -281,7 +285,7 @@ happens to touch, a removed pattern or ignored line, a build the cleanup sweep f
 A band is the priority of the *first* job of a build. Every job that build spawns runs one step above the one before
 it, so a package that has started is carried through to its report before the next package in the same band is picked
 up; new work queues behind builds already under way instead of interleaving with them. The gap of twenty between the
-bands is what keeps that climb from turning into a promotion: a build is at most seven jobs long, so a reindex of
+bands is what keeps that climb from turning into a promotion: a build is at most six jobs long, so a reindex of
 something the size of chromium runs out of room well before it reaches the band above, however long it takes.
 
 The review priority a request carries is a different thing that reads like the same thing - it says which review a
@@ -545,13 +549,13 @@ by that component's directory, which is why the file list is stored rather than 
 
 ### How it is generated and retrieved
 
-SBOM generation is the final step of report creation (the `spdx_report` job) and can also run on demand. The result is
-cached next to the package checkout as `.report.spdx.json.gz` - stored gzip-compressed, because the JSON is highly
-repetitive and compresses roughly ten-fold, which matters at the scale of many cached reports. It is served over the
-REST API untouched to clients that accept gzip (essentially all of them) and decompressed on the fly for the rest; if a
-request arrives before the SBOM has been generated, the API returns a `408` status until it is ready. By default SBOMs
-are produced on demand, but an instance can be configured to generate one automatically whenever a package is indexed.
-The creator identity, document namespace and `LicenseRef` namespace are all set in the instance configuration.
+SBOMs are generated on demand (the `spdx_report` job), either from the download button on the report page or from a
+request for one that has not been built yet. The result is cached next to the package checkout as
+`.report.spdx.json.gz` - stored gzip-compressed, because the JSON is highly repetitive and compresses roughly ten-fold,
+which matters at the scale of many cached reports. It is served over the REST API untouched to clients that accept gzip
+(essentially all of them) and decompressed on the fly for the rest; if a request arrives before the SBOM has been
+generated, the API returns a `408` status until it is ready. The creator identity, document namespace and `LicenseRef`
+namespace are all set in the instance configuration.
 
 See the [User API documentation](UserAPI.md#retrieve-spdx-reports) for the exact endpoint and an example document.
 

@@ -311,10 +311,9 @@ subtest 'A reindex requested while an SPDX report runs starts as soon as it is o
   my $before = report_details();
   ok !$before->{error}, 'report is readable to begin with';
 
-  # An spdx job claims the package for as long as it takes, and one follows every single build when SPDX
-  # reports are generated automatically - so a reviewer pressing "Reindex" lands in that window fairly
-  # easily. Nothing is queued behind it that could notice the request, which is what makes the job itself
-  # responsible for it: otherwise the reviewer stares at a read-only report until the nightly sweep.
+  # An spdx job claims the package for as long as it takes, so a reviewer pressing "Reindex" can land in
+  # that window. Nothing is queued behind it that could notice the request, which is what makes the job
+  # itself responsible for it: otherwise the reviewer stares at a read-only report until the nightly sweep.
   my $spdx_id = $minion->enqueue('spdx_report' => [1] => {notes => {pkg_1 => 1}});
   ok $pkgs->claim(1, $spdx_id), 'the spdx job has the package';
   is $pkgs->reindex(1), 'later', 'the reindex has to wait for it';

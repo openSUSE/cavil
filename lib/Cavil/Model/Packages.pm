@@ -270,14 +270,14 @@ sub flags ($self, $id, $generation = 0) {
   return $flags;
 }
 
-# The queue is the deduplication record and cannot outlive the job as a lock can.
-# Interactive downloads use waiting priority; builds retain their own priority.
-sub generate_spdx_report ($self, $id, $options = {}) {
+# The queue is the deduplication record and cannot outlive the job as a lock can. Somebody is always
+# waiting for the download, so the job goes in at waiting priority.
+sub generate_spdx_report ($self, $id) {
   return if $self->has_spdx_report($id);
 
   my $minion = $self->minion;
   return if $minion->jobs({tasks => ['spdx_report'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
-  $minion->enqueue('spdx_report' => [$id] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}, %$options});
+  $minion->enqueue('spdx_report' => [$id] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}});
 }
 
 sub has_file_stats ($self, $id) {

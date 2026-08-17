@@ -16,9 +16,7 @@ sub report ($self) {
   return $self->render(text => 'unknown package', status => 408) unless my $pkg = $self->packages->find($id);
 
   # Jobs working on the package are deliberately not a reason to refuse it one. A rebuild is assembled
-  # beside the live report and swapped in with a single commit, so there is always a whole report to hand
-  # out - and refusing while anything is queued would refuse after every single build, because the
-  # spdx_report job that ends one holds the package for its duration while leaving the report alone.
+  # beside the live report and swapped in with a single commit, so there is always a whole report to hand out.
   return $self->render(text => 'not indexed', status => 408) unless $pkg->{indexed};
 
   return $self->render(text => 'no report', status => 408)
