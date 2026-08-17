@@ -42,17 +42,22 @@ sub generate_to_file ($self, $id, $file) {
 
   # Nothing is collected in memory: the cursor and the section list share a collation, so both are walked
   # once. Terms are written at the close because the notices above them arrive a row at a time.
-  my (%written, $open);
+  my (%written, $open, $noticed);
   my $index = 0;
   my $close = sub () {
-    _terms_of($out, $open, $terms, \%written) if defined $open;
+    return unless defined $open;
+    $out->("\n") if $noticed;
+    _terms_of($out, $open, $terms, \%written);
     $open = undef;
+  };
+  my $begin = sub ($license) {
+    $close->();
+    ($open, $noticed) = ($license, 0);
+    _heading($out, RULE, $license);
   };
   my $upto = sub ($license) {
     while ($index < @$licenses && (!defined $license || $licenses->[$index] lt $license)) {
-      $close->();
-      $open = $licenses->[$index++];
-      _heading($out, RULE, $open);
+      $begin->($licenses->[$index++]);
     }
   };
 
@@ -61,11 +66,10 @@ sub generate_to_file ($self, $id, $file) {
     sub ($license, $copyright) {
       if (!defined $open || $open ne $license) {
         $upto->($license);
-        $close->();
         $index++ if $index < @$licenses && $licenses->[$index] eq $license;
-        $open = $license;
-        _heading($out, RULE, $license);
+        $begin->($license);
       }
+      $noticed = 1;
       $out->("$copyright\n");
     }
   );
@@ -104,19 +108,24 @@ sub _completeness ($out, $licenses, $terms) {
 
 sub _heading ($out, $rule, $title) { $out->("\n", $rule, "\n$title\n", $rule, "\n\n") }
 
+# Blank lines separate the parts rather than trailing them, so every block ends on exactly one newline and
+# the space before the next heading is the heading's own
 sub _terms_of ($out, $license, $terms, $written) {
+  my $first = 1;
   for my $part (@{$terms->{$license}{parts}}) {
     my ($atom, $text, $where) = @$part;
+    $out->("\n") unless $first;
+    $first = 0;
 
     # A package carrying three GPL variants would otherwise ship the same 35kB three times over
-    if (my $first = $written->{$atom}) {
-      $out->("$atom: see the $first section above.\n\n");
+    if (my $seen = $written->{$atom}) {
+      $out->("$atom: see the $seen section above.\n");
       next;
     }
     $written->{$atom} = $license;
 
     $out->("$atom, as found at $where:\n\n") if defined $where;
-    $out->(_indent($text), "\n");
+    $out->(_indent($text));
   }
 }
 

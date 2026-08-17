@@ -60,6 +60,10 @@ subtest 'Notices are grouped under the licenses of the files they came from' => 
   # The whole point of the grouping: whoever redistributes has to retain these *and* the terms
   like $apache, qr/Copyright \(C\) 2013 Google Inc\..*Apache License.*TERMS AND CONDITIONS/s,
     'the terms follow the notices they cover';
+  like $apache, qr/^Copyright \(C\) 2013 Google Inc\.\n\n  Apache License$/m, 'separated by a blank line';
+
+  # One blank line before every heading, wherever the preceding block ended
+  unlike $notice, qr/\n\n\n/, 'no block leaves a double blank behind it';
 
   # Sorted, so two runs of the same data cannot disagree about the order
   my @notices = $apache =~ /^(Copyright \(C\) .+)$/mg;
