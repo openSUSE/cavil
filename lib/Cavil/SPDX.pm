@@ -241,7 +241,13 @@ sub generate_to_file ($self, $id, $file) {
   # BSI section 6.1: refer to licenses by SPDX identifier, else ScanCode ("LicenseRef-scancode-*"),
   # else a "LicenseRef-<inventorising-entity>-*" identifier. License text is never a substitute.
   my $ref_entity      = $config->{license_ref_namespace} || 'cavil';
-  my $resolve_license = sub ($spdx, $name) {
+  my $resolve_license = sub ($spdx, $name, $catch_all = 0) {
+
+    # A catch-all is the curator saying "license-shaped text we decline to identify" - "Any Permissive",
+    # "GPL-Unspecified", "SUSE-NotALicense". Minting a LicenseRef for one asserts a license that does not
+    # exist, so it resolves to nothing and the file simply carries no concluded license.
+    return undef if $catch_all;
+
     return $spdx if defined $spdx && length $spdx;
     if (defined $name && length $name) {
       if (my $scancode = scancode_suggestion($name)) { return $scancode }
@@ -357,6 +363,10 @@ sub generate_to_file ($self, $id, $file) {
     if $source_uri;
 
   $graph->add($package);
+
+  # rootElement above is what SPDX 3.0 says to use, but consumers carried over from 2.x look for a
+  # "describes" relationship instead and otherwise report the document as having no primary component
+  $relationship->($base, 'describes', [$pkgid]);
 
   # Distribution (concluded) and original (declared) licenses of the primary component
   my $declared = lic($main->{license} // '');
@@ -597,7 +607,7 @@ sub _file_licenses ($snippet_rows, $match_rows, $resolve_license) {
     }
     _matched_lines(\%matched_lines, $match->{sline}, $match->{eline}, 1);
 
-    next unless my $license = $resolve_license->($match->{spdx}, $match->{license});
+    next unless my $license = $resolve_license->($match->{spdx}, $match->{license}, $match->{catch_all});
     push @findings,
       {
       license => $license,
@@ -610,7 +620,7 @@ sub _file_licenses ($snippet_rows, $match_rows, $resolve_license) {
 
   # Folded snippets contribute their inferred license, just like a real match would
   for my $snippet (@folded) {
-    next unless my $license = $resolve_license->($snippet->{pspdx}, $snippet->{plicense});
+    next unless my $license = $resolve_license->($snippet->{pspdx}, $snippet->{plicense}, $snippet->{pcatch_all});
     push @findings,
       {
       license => $license,
@@ -633,7 +643,7 @@ sub _license_rows_by_file ($db, $file_ids) {
 
   my $snippet_sql = qq{
     SELECT f.file, f.sline, f.eline, f.resolution, s.license, s.like_pattern, s.likelyness,
-           p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk,
+           p.spdx AS pspdx, p.license AS plicense, p.risk AS prisk, p.catch_all AS pcatch_all,
            p.trademark AS ptrademark, p.patent AS ppatent, p.export_restricted AS pexport_restricted,
            p.cla AS pcla, p.eula AS peula
     FROM file_snippets f LEFT JOIN snippets s ON f.snippet = s.id LEFT JOIN license_patterns p ON s.like_pattern = p.id
@@ -642,7 +652,7 @@ sub _license_rows_by_file ($db, $file_ids) {
   push @{$snippets{$_->{file}}}, $_ for $db->query($snippet_sql, $file_ids)->hashes->each;
 
   my $match_sql = qq{
-    SELECT m.*, p.spdx, p.license, p.risk, p.trademark, p.patent, p.export_restricted, p.cla, p.eula
+    SELECT m.*, p.spdx, p.license, p.risk, p.catch_all, p.trademark, p.patent, p.export_restricted, p.cla, p.eula
     FROM pattern_matches m LEFT JOIN license_patterns p ON m.pattern = p.id
     WHERE m.file = ANY(?) AND ignored = false ORDER BY p.license, p.id DESC
   };

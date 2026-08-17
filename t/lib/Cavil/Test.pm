@@ -468,6 +468,11 @@ JS
 /* Permission is hereby granted under the Cavil Fixture License */
 JS
 
+  # Text a curator has looked at and declined to identify, which is what a catch-all license name means
+  $dir->child('unclear.c')->spew(<<'JS');
+/* Redistribution of this fixture is permitted under terms nobody has named */
+JS
+
   # Markup is stripped to its text, so the declaration on line 6 is scanned as line 2
   $dir->child('page.html')->spew(<<'HTML');
 <html>
@@ -505,6 +510,13 @@ HTML
     unique_id => '413430b9-8f04-49d8-93ef-953b68835d60'
   );
   $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', 'MIT');
+
+  # Cavil::Model::Patterns derives catch_all from the license name, so this one arrives flagged
+  $app->patterns->create(
+    pattern   => 'Redistribution of this fixture is permitted under terms nobody has named',
+    license   => 'Any Permissive',
+    unique_id => '413430b9-8f04-49d8-93ef-953b68835d61'
+  );
 
   return $pkg_id;
 }

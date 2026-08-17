@@ -654,6 +654,18 @@ subtest 'A notice is stored once with the files it covers, and attributed back t
   ok !$copyright{'./page.html'}, 'a file with no notice carries no copyright text';
 };
 
+subtest 'A catch-all is not asserted as a license' => sub {
+  my $matched = $t->app->pg->db->query(
+    "SELECT count(*) FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.package = ? AND lp.license = 'Any Permissive'", $shift_id
+  )->array->[0];
+  ok $matched, 'the catch-all pattern really did match, so the guard is what the next assertion tests';
+
+  my $shift_doc = gen_doc($shift_id);
+  my @exprs     = @{license_exprs($shift_doc)};
+  ok !(grep {/Any-Permissive/} @exprs), 'a license the curator declined to identify is claimed as none';
+};
+
 subtest 'A file whose name is not ASCII is still a component of the document' => sub {
   my $shift_doc = gen_doc($shift_id);
   my $name      = "./b\x{fc}cher.c";
