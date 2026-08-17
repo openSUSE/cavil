@@ -7,7 +7,7 @@ use Mojo::Base -base, -signatures;
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::PostProcess;
-use Cavil::Util qw(fs_bytes);
+use Cavil::Util qw(fs_bytes read_lines);
 use Digest::SHA;
 use IO::Compress::Gzip qw($GzipError);
 use Mojo::File         qw(path);
@@ -44,6 +44,9 @@ use constant UNKNOWNS_STATEMENT => join(' ',
   'subcomponents have no archive of their own to hash and so carry none.',
   'A vendored subcomponent whose own metadata states no version is listed without one.',
   'Nothing is withheld from this document.');
+
+# A pattern can cover a whole license body, so one match must not be able to flood the document
+use constant MAX_LICENSE_TEXT => 20_000;
 
 # Legal flags Cavil curates per license pattern, surfaced as additive SPDX annotations
 my @FLAGS = qw(trademark patent export_restricted cla eula);
@@ -163,20 +166,77 @@ sub generate_to_file ($self, $id, $file) {
     }
   );
 
+  # Inverted because notices are stored against the files they cover, and SPDX attributes them the
+  # other way round
+  my (@copyrights, %copyrights_by_file);
+  for my $row (@{$reports->copyrights($id)}) {
+    push @copyrights,                          $row->{copyright};
+    push @{$copyrights_by_file{fs_bytes($_)}}, $row->{copyright} for @{$row->{files}};
+  }
+
+  my %evidence;
+  $evidence{$_->{license}} = $_ for $reports->license_evidence($id)->each;
+
   # Shared helpers for licenses and relationships
   my (%license_pool, %license_meta, $license_num, $rel_num, $snippet_num, $annotation_num);
+  my (%ref_source, %declared_text, %custom_pool, $custom_num);
+  my $postprocess = Cavil::PostProcess->new;
+
+  # SPDX requires one of these for every "LicenseRef-" an expression uses, or the identifier resolves
+  # to nothing for a reader
+  my $custom_license = sub ($ref) {
+    return $custom_pool{$ref} if exists $custom_pool{$ref};
+    $custom_pool{$ref} = undef;
+
+    my $name = $ref_source{$ref};
+    my ($text, $where);
+    ($text, $where) = _evidence_text($dir, $postprocess, \%original_files, $evidence{$name})
+      if defined $name && $evidence{$name};
+
+    # A vendored component's manifest string is itself the reference
+    $text //= $declared_text{$ref};
+    return undef unless defined $text && length $text;
+
+    my $truncated = length($text) > MAX_LICENSE_TEXT;
+    $text = substr $text, 0, MAX_LICENSE_TEXT if $truncated;
+
+    my $cid  = $iri->('customlicense-' . ++$custom_num);
+    my $node = {
+      type                        => 'expandedlicensing_CustomLicense',
+      spdxId                      => $cid,
+      creationInfo                => $creation,
+      simplelicensing_licenseText => $text
+    };
+    $node->{name} = $name if defined $name && length $name;
+
+    # A declaration is evidence for the identifier, not terms to reproduce
+    my @comment = $where ? "Text as found at ./$where." : 'License as declared by the component metadata.';
+    push @comment, 'Truncated.' if $truncated;
+    $node->{comment} = join ' ', @comment;
+
+    $graph->add($node);
+    return $custom_pool{$ref} = $cid;
+  };
+
   my $license_ref = sub ($expr) {
     return $license_pool{$expr} if $license_pool{$expr};
     my $lid = $iri->('license-' . ++$license_num);
     $license_pool{$expr} = $lid;
-    $graph->add(
-      {
-        type                              => 'simplelicensing_LicenseExpression',
-        spdxId                            => $lid,
-        creationInfo                      => $creation,
-        simplelicensing_licenseExpression => $expr
-      }
-    );
+    my $node = {
+      type                              => 'simplelicensing_LicenseExpression',
+      spdxId                            => $lid,
+      creationInfo                      => $creation,
+      simplelicensing_licenseExpression => $expr
+    };
+
+    my @entries;
+    for my $ref ($expr =~ /(LicenseRef-[A-Za-z0-9.-]+)/g) {
+      next unless my $uri = $custom_license->($ref);
+      push @entries, {type => 'DictionaryEntry', key => $ref, value => $uri};
+    }
+    $node->{simplelicensing_customIdToUri} = \@entries if @entries;
+
+    $graph->add($node);
     return $lid;
   };
   my $relationship = sub ($from, $type, $to, $completeness = undef) {
@@ -250,10 +310,14 @@ sub generate_to_file ($self, $id, $file) {
 
     return $spdx if defined $spdx && length $spdx;
     if (defined $name && length $name) {
-      if (my $scancode = scancode_suggestion($name)) { return $scancode }
+      if (my $scancode = scancode_suggestion($name)) {
+        $ref_source{$scancode} //= $name;
+        return $scancode;
+      }
       my $ref = "LicenseRef-$ref_entity-$name";
       $ref =~ s/[^A-Za-z0-9.]+/-/g;
       $ref =~ s/-+$//;
+      $ref_source{$ref} //= $name;
       return $ref;
     }
     return undef;
@@ -263,7 +327,9 @@ sub generate_to_file ($self, $id, $file) {
     return undef unless defined $string && length $string;
     my $license = lic($string);
     return "$license" if !$license->error && length "$license";
-    return $resolve_license->(undef, $string);
+    return undef unless my $ref = $resolve_license->(undef, $string);
+    $declared_text{$ref} //= $string;
+    return $ref;
   };
 
   # Component origin (supplier) from the Open Build Service coordinates
@@ -330,6 +396,9 @@ sub generate_to_file ($self, $id, $file) {
   $package->{software_homePage}       = $main->{url} if $main->{url};
 
   $package->{originatedBy} = $originated_by // [NO_ASSERTION_AGENT];
+
+  # Copyright is a component attribute for CISA's Framing baseline, not only a per-file one
+  $package->{software_copyrightText} = join "\n", @copyrights if @copyrights;
 
   # Content checksum of the delivered artifact(s), so the primary component carries a verifiable digest
   $package->{verifiedUsing} = [map { $_->{hash} } @archives] if @archives;
@@ -421,19 +490,11 @@ sub generate_to_file ($self, $id, $file) {
     $matched_files->{fs_bytes($matched->{filename})} = $matched->{id};
   }
 
-  # Stored one row per notice with the files it covers, which is the direction a NOTICE file is built
-  # in. SPDX attributes a notice to a file, so the mapping is inverted once here rather than per file.
-  my %copyrights_by_file;
-  for my $row (@{$reports->copyrights($id)}) {
-    push @{$copyrights_by_file{fs_bytes($_)}}, $row->{copyright} for @{$row->{files}};
-  }
-
   # Emit the file components in chunks: license findings for a whole chunk are fetched in two batched
   # queries (see _license_rows_by_file) instead of two per file, while the graph is still streamed one
   # element at a time and only one chunk of rows is held in memory
   my $file_num;
-  my $postprocess = Cavil::PostProcess->new;
-  my @ordered     = sort keys %info;
+  my @ordered = sort keys %info;
   while (my @chunk = splice @ordered, 0, 1000) {
     my @file_ids = grep {defined} map { $matched_files->{$_} } @chunk;
     my ($snippets_by_file, $matches_by_file) = _license_rows_by_file($db, \@file_ids);
@@ -664,6 +725,25 @@ sub _license_rows_by_file ($db, $file_ids) {
 # Extract the set flags from a match/snippet row (the fold path uses "p"-prefixed column aliases)
 sub _flags ($row, $prefix) {
   return [grep { $row->{"$prefix$_"} } @FLAGS];
+}
+
+# Line numbers are positions in the ".processed" copy that was scanned, so they translate back like
+# snippet ranges do; one that will not translate yields nothing rather than the wrong lines.
+sub _evidence_text ($dir, $postprocess, $original_files, $row) {
+  my $scanned = fs_bytes($row->{filename});
+  my $real    = $original_files->{$scanned} // $scanned;
+  my $path    = $dir->child('.unpacked', $real)->to_string;
+  my ($sline, $eline) = ($row->{sline}, $row->{eline});
+
+  if ($real ne $scanned) {
+    my $lines = $postprocess->original_lines($path, [$sline, $eline]);
+    ($sline, $eline) = ($lines->{$sline}, $lines->{$eline});
+    return () unless $sline && $eline;
+  }
+
+  my $text = eval { read_lines($path, $sline, $eline) };
+  return () unless defined $text && length $text;
+  return ($text, "$real#L$sline-L$eline");
 }
 
 # Map a MIME type to an SPDX SoftwarePurpose, approximating the BSI executable/archive/structured

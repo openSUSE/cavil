@@ -654,6 +654,36 @@ subtest 'A notice is stored once with the files it covers, and attributed back t
   ok !$copyright{'./page.html'}, 'a file with no notice carries no copyright text';
 };
 
+subtest 'Every LicenseRef the document mints is defined in it' => sub {
+  my %custom = map { $_->{spdxId} => $_ } @{of_type($doc, 'expandedlicensing_CustomLicense')};
+
+  my @refs;
+  for my $expr (@{of_type($doc, 'simplelicensing_LicenseExpression')}) {
+    my @in = $expr->{simplelicensing_licenseExpression} =~ /(LicenseRef-[A-Za-z0-9.-]+)/g;
+    next unless @in;
+    my %bound = map { $_->{key} => $_->{value} } @{$expr->{simplelicensing_customIdToUri} // []};
+    for my $ref (@in) {
+      push @refs, $ref;
+      my $target = $bound{$ref};
+      ok $target, "$ref is bound to an element";
+      ok $custom{$target // ''}, "$ref resolves to a CustomLicense in this document";
+      ok length($custom{$target // ''}{simplelicensing_licenseText} // ''), 'which carries the text it stands for';
+
+      # A declaration is evidence for the identifier, not terms to reproduce, so it has to say so
+      like $custom{$target // ''}{comment}, qr/Text as found at|declared by the component metadata/,
+        'and says where the text came from';
+    }
+  }
+
+  # Otherwise the loop above proves nothing
+  ok @refs, 'the fixture does mint a LicenseRef';
+};
+
+subtest 'The package states its own copyright, not only its files' => sub {
+  my ($primary) = grep { $_->{spdxId} =~ /#package$/ } @{of_type($doc, 'software_Package')};
+  like $primary->{software_copyrightText}, qr/Copyright/, 'copyright is a component attribute too';
+};
+
 subtest 'A catch-all is not asserted as a license' => sub {
   my $matched = $t->app->pg->db->query(
     "SELECT count(*) FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern

@@ -144,6 +144,20 @@ sub copyrights ($self, $id, $generation = 0) {
   return [map { {copyright => $_->{copyright}, files => [sort @{$_->{files}}]} } $rows->each];
 }
 
+# Text behind a license that will resolve to a LicenseRef. The WHERE mirrors the condition Cavil::SPDX
+# mints one under, so the document cannot reference an identifier this cannot explain.
+sub license_evidence ($self, $id, $generation = 0) {
+  return $self->pg->db->query(
+    "SELECT DISTINCT ON (lp.license) lp.license, mf.filename, pm.sline, pm.eline
+       FROM pattern_matches pm
+       JOIN license_patterns lp ON lp.id = pm.pattern
+       JOIN matched_files    mf ON mf.id = pm.file
+      WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false
+        AND lp.spdx = '' AND lp.license <> '' AND lp.catch_all = false
+      ORDER BY lp.license, (pm.eline - pm.sline) DESC, mf.filename, pm.sline", $id, $generation
+  )->hashes;
+}
+
 sub sanitized_dig_report {
   my ($self, $id) = @_;
   return undef unless my $report = $self->cached_dig_report($id);
