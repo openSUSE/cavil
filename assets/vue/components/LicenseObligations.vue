@@ -18,7 +18,7 @@
       </p>
       <section v-for="lic in licenses" :key="lic.license" class="lob-license">
         <h5 v-if="showNames" class="lob-license-name">
-          <a class="spdx-link" :href="lic.spdxUrl" target="_blank" rel="noopener noreferrer">{{ lic.license }}</a>
+          <button type="button" class="spdx-link" :data-spdx="lic.license">{{ lic.license }}</button>
         </h5>
 
         <dl v-if="lic.attrs.length > 0" class="lob-attrs">
@@ -52,8 +52,6 @@
 </template>
 
 <script>
-import {spdxLicenseUrl} from '../helpers/links.js';
-
 // Conditions that hold a condition -> subtree map directly, rendered as "<label> <condition>". EITHER IF
 // / OR IF are handled separately in flatten() because they wrap their conditions in numbered alternative
 // branches (like EITHER / OR); anything not a known keyword is a named obligation/qualifier shown verbatim.
@@ -142,7 +140,6 @@ export default {
     licenses() {
       return this.entries.map(entry => ({
         license: entry.license,
-        spdxUrl: spdxLicenseUrl(entry.license),
         attrs: this.attributes(entry),
         sections: this.useCaseSections(entry)
       }));

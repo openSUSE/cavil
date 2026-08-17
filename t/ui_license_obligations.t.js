@@ -186,6 +186,37 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       t.ok((await body.locator('.lob-must').count()) > 0, 'the base license obligations are shown');
     });
 
+    await t.test('an SPDX identifier opens the license text overlay', async t => {
+      const link = apacheItem.locator('.spdx-link', {hasText: 'Apache-2.0'}).first();
+      t.equal(await link.getAttribute('data-spdx'), 'Apache-2.0', 'the identifier travels on the control');
+
+      const modal = page.locator('.spdx-license-modal');
+      await link.click();
+      const text = modal.locator('[data-spdx-text]');
+      await text.waitFor();
+      // Bootstrap only hands the overlay focus once its show transition ends, and Escape is ignored
+      // until then
+      await page.waitForFunction(() => document.activeElement.classList.contains('modal-body'));
+      t.match(page.url(), /\/reviews\/details\/1$/, 'the report page was not navigated away from');
+      t.equal(await modal.locator('.spdx-license-id').innerText(), 'Apache-2.0', 'the overlay names the license');
+      t.match(await text.innerText(), /Grant of Copyright License/, 'the license text is rendered');
+
+      t.equal(
+        await text.evaluate(el => getComputedStyle(el).whiteSpace),
+        'pre-wrap',
+        'authored blank lines and clause indents survive'
+      );
+      t.equal(
+        await modal.locator('.spdx-license-source').getAttribute('target'),
+        '_blank',
+        'spdx.org is one click away'
+      );
+
+      await page.keyboard.press('Escape');
+      await modal.waitFor({state: 'hidden'});
+      t.ok(await apacheItem.isVisible(), 'and the reviewer is back where they were');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     delete process.env.JS_UI_FIXTURES;

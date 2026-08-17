@@ -8,6 +8,7 @@ use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets expand_spec_macros extract_copyrights legal_review_notices lines_context license_is_catch_all),
+  qw(license_text),
   qw(normalize_license_expr obs_ssh_auth),
   qw(parse_exclude_file parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
@@ -422,50 +423,47 @@ subtest 'read_lines' => sub {
 };
 
 subtest 'spdx_link' => sub {
-  is spdx_link('MIT'), '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>',
-    'known license';
-  is spdx_link('Apache-2.0'),
-    '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a>',
+  is spdx_link('MIT'), '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>', 'known license';
+  is spdx_link('Apache-2.0'), '<button type="button" class="spdx-link" data-spdx="Apache-2.0">Apache-2.0</button>',
     'known license';
   is spdx_link('Unknown-License'), 'Unknown-License', 'unknown license';
 
   subtest 'Expression with AND' => sub {
     is spdx_link('Apache-2.0 AND MIT'),
-      '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a>' . ' AND '
-      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>';
+      '<button type="button" class="spdx-link" data-spdx="Apache-2.0">Apache-2.0</button>' . ' AND '
+      . '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>';
   };
 
   subtest 'Expression with OR' => sub {
-    is spdx_link('MIT OR GPL-2.0-only'),
-      '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>' . ' OR '
-      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/GPL-2.0-only.html">GPL-2.0-only</a>';
+    is spdx_link('MIT OR GPL-2.0-only'), '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>' . ' OR '
+      . '<button type="button" class="spdx-link" data-spdx="GPL-2.0-only">GPL-2.0-only</button>';
   };
 
   subtest 'Expression with parentheses and AND/OR' => sub {
     is spdx_link('(MIT OR Apache-2.0) AND GPL-2.0-only'),
         '('
-      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>' . ' OR '
-      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a>'
+      . '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>' . ' OR '
+      . '<button type="button" class="spdx-link" data-spdx="Apache-2.0">Apache-2.0</button>'
       . ') AND '
-      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/GPL-2.0-only.html">GPL-2.0-only</a>';
+      . '<button type="button" class="spdx-link" data-spdx="GPL-2.0-only">GPL-2.0-only</button>';
   };
 
   subtest 'Expression with exception' => sub {
     is spdx_link('Classpath-exception-2.0'),
-      '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Classpath-exception-2.0.html">Classpath-exception-2.0</a>',
+      '<button type="button" class="spdx-link" data-spdx="Classpath-exception-2.0">Classpath-exception-2.0</button>',
       'SPDX exception only';
 
     is spdx_link('GPL-2.0-only WITH Classpath-exception-2.0'),
-        '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/GPL-2.0-only.html">GPL-2.0-only</a>'
+        '<button type="button" class="spdx-link" data-spdx="GPL-2.0-only">GPL-2.0-only</button>'
       . ' WITH '
-      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Classpath-exception-2.0.html">'
-      . 'Classpath-exception-2.0</a>', 'SPDX license WITH exception';
+      . '<button type="button" class="spdx-link" data-spdx="Classpath-exception-2.0">'
+      . 'Classpath-exception-2.0</button>', 'SPDX license WITH exception';
 
     is spdx_link('MIT WITH Autoconf-exception-3.0'),
-        '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>'
+        '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>'
       . ' WITH '
-      . '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/Autoconf-exception-3.0.html">'
-      . 'Autoconf-exception-3.0</a>', 'MIT WITH Autoconf-exception-3.0';
+      . '<button type="button" class="spdx-link" data-spdx="Autoconf-exception-3.0">'
+      . 'Autoconf-exception-3.0</button>', 'MIT WITH Autoconf-exception-3.0';
   };
 
   subtest 'Untrusted text is HTML-escaped (no XSS)' => sub {
@@ -473,13 +471,21 @@ subtest 'spdx_link' => sub {
     # License strings can come from imported component metadata and are rendered with v-html, so any
     # non-link text must be escaped
     is spdx_link('MIT <img src=x onerror=alert(1)>'),
-      '<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/MIT.html">MIT</a>'
-      . ' &lt;img src=x onerror=alert(1)&gt;', 'markup around a known license is escaped';
+      '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>' . ' &lt;img src=x onerror=alert(1)&gt;',
+      'markup around a known license is escaped';
     is spdx_link('<script>alert(1)</script>'), '&lt;script&gt;alert(1)&lt;/script&gt;',
       'unknown license with markup is fully escaped';
     is spdx_link('Foo & Bar'), 'Foo &amp; Bar', 'ampersands are escaped';
     unlike spdx_link('MIT" onmouseover="alert(1)'), qr/onmouseover="alert/, 'attribute-breaking text is escaped';
   };
+};
+
+subtest 'license_text' => sub {
+  like license_text('MIT'),                     qr/Permission is hereby granted, free of charge/, 'a listed license';
+  like license_text('Classpath-exception-2.0'), qr/link this library/i, 'an exception, which spdx_link also links';
+  is license_text('Nope-1.0'), undef, 'an identifier that is not on the list';
+  is license_text(''),         undef, 'no identifier at all';
+  unlike license_text('MIT'), qr/\r/, 'no line endings introduced';
 };
 
 subtest 'ssh_sign' => sub {

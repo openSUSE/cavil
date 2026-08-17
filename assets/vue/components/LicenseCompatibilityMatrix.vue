@@ -97,21 +97,19 @@
         <span class="license-matrix-detail-title">
           <strong class="license-matrix-verdict">{{ verdictLabel(selected.compatibility) }}</strong>
           <span class="license-matrix-connector">using</span>
-          <a
+          <button
+            type="button"
             class="spdx-link license-matrix-detail-name"
-            :href="spdxLicenseUrl(selected.inbound)"
-            target="_blank"
-            rel="noopener noreferrer"
-            >{{ selected.inbound }}</a
-          >
+            :data-spdx="selected.inbound"
+            v-text="selected.inbound"
+          ></button>
           <span class="license-matrix-connector">in a work under</span>
-          <a
+          <button
+            type="button"
             class="spdx-link license-matrix-detail-name"
-            :href="spdxLicenseUrl(selected.outbound)"
-            target="_blank"
-            rel="noopener noreferrer"
-            >{{ selected.outbound }}</a
-          >
+            :data-spdx="selected.outbound"
+            v-text="selected.outbound"
+          ></button>
         </span>
         <span class="license-matrix-detail-label">OSADL verdict</span>
       </div>
@@ -427,9 +425,6 @@ export default {
         return;
       }
       this.selected = {outbound, inbound, compatibility: cell.compatibility, explanation: cell.explanation};
-    },
-    spdxLicenseUrl(name) {
-      return `https://spdx.org/licenses/${encodeURIComponent(name)}.html`;
     }
   }
 };

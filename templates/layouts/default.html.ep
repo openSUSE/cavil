@@ -24,6 +24,7 @@
       document.addEventListener('DOMContentLoaded', () => {
         cavil.setupMenu();
         cavil.setupPackageSearch();
+        cavil.setupSpdxViewer();
         %= content_for 'ready_function'
       });
     % end

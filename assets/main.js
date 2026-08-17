@@ -13,6 +13,7 @@ import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
 import CommentTemplates from './vue/CommentTemplates.vue';
 import PackageSearch from './vue/components/PackageSearch.vue';
+import SpdxLicenseDialog from './vue/components/SpdxLicenseDialog.vue';
 import EditPattern from './vue/EditPattern.vue';
 import EditSnippet from './vue/EditSnippet.vue';
 import FileBrowser from './vue/FileBrowser.vue';
@@ -134,6 +135,20 @@ window.cavil = {
     const app = createApp(LicenseDetails);
     app.config.globalProperties.licenseName = licenseName;
     app.mount('#license-details');
+  },
+
+  // Some spdx-links are rendered with v-html by the server, so there is no component to hang a click
+  // handler on; one delegated listener covers every producer
+  setupSpdxViewer() {
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const viewer = createApp(SpdxLicenseDialog).mount(el);
+
+    document.addEventListener('click', event => {
+      const link = event.target.closest('.spdx-link');
+      if (link === null) return;
+      viewer.open(link.dataset.spdx);
+    });
   },
 
   setupRecentPatterns(hasAdminRole) {

@@ -43,10 +43,6 @@ export function productLink(product, {blank = false} = {}) {
   return `<a href='/products/${encodeURIComponent(name)}'${attrs}>${name}</a>`;
 }
 
-export function spdxLicenseUrl(name) {
-  return `https://spdx.org/licenses/${encodeURIComponent(name)}.html`;
-}
-
 export function reportLink(review) {
   const id = review.id;
   if (!review.imported_epoch) return progressLink(review, 'not yet imported');

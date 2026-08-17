@@ -466,6 +466,10 @@ every license it records:
 
 License *text* is never used as a substitute for an identifier, as the guideline requires.
 
+The canonical text of all SPDX licenses and exceptions is bundled and reproduced verbatim, so a review cites
+the license list the release ships rather than whatever spdx.org serves that day. Every identifier in the
+application opens it as an overlay.
+
 ### Bundled components
 
 Modern packages frequently *vendor* their dependencies - a single source package can carry hundreds or thousands of

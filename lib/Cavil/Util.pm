@@ -26,7 +26,7 @@ our @EXPORT_OK = (
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip read_lines run_cmd),
   qw(request_id_from_external_link),
   qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
-  qw(license_is_catch_all SNIPPET_SCORE_VERSION $COPYRIGHT_LEADER $COPYRIGHT_TOKEN),
+  qw(license_is_catch_all license_text SNIPPET_SCORE_VERSION $COPYRIGHT_LEADER $COPYRIGHT_TOKEN),
   qw(decode_json_fast encode_json_fast to_json_fast),
   qw(incoming_priority PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
   qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
@@ -155,9 +155,6 @@ sub fs_bytes ($string) {
 # Every path inside a checkout goes through here, so a name cannot be bytes on one code path and
 # characters on another. It is the flag that matters, not the codepoints: two identical strings name
 # different files if one of them carries it, because Perl hands the syscall the UTF-8 encoding instead.
-#
-# ponytail: assumes a package name is ASCII, which OBS and RPM both guarantee. A non-ASCII one would sit
-# under its Latin-1 bytes rather than its UTF-8 bytes, so an existing checkout of it would have to move.
 sub checkout_path (@parts) { return path(fs_bytes(path(@parts)->to_string)) }
 
 sub extract_spdx_identifiers ($string) {
@@ -504,7 +501,14 @@ sub slurp_and_decode ($path, $max = $MAX_FILE_SIZE) {
 }
 
 sub _spdx_link ($match) {
-  return qq{<a class="spdx-link" target="_blank" href="https://spdx.org/licenses/$match.html">$match</a>};
+  return qq{<button type="button" class="spdx-link" data-spdx="$match">$match</button>};
+}
+
+# 5MB, so only workers that serve a license page pay the decode
+sub license_text ($id) {
+  return undef unless defined $id && length $id;
+  state $texts = decode_json_fast(path(__FILE__)->dirname->child('resources', 'license_texts.json')->slurp)->{texts};
+  return $texts->{$id};
 }
 
 sub spdx_link ($text) {

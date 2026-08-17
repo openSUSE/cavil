@@ -300,6 +300,9 @@ sub startup ($self) {
   $can_curate->post('/licenses/update_pattern/<id:num>')->to('License#update_pattern')->name('update_pattern');
   $can_curate->post('/licenses/update_patterns')->to('License#update_patterns')->name('update_patterns');
   $can_curate->delete('/licenses/remove_pattern/<id:num>')->to('License#remove_pattern')->name('remove_pattern');
+
+  # ":id" would read the dot in "Apache-2.0" as a format separator
+  $public->get('/licenses/spdx_meta/#id')->to('License#spdx_meta')->name('spdx_license_show_meta');
   $public->get('/licenses/*name')->to('License#show')->name('license_show');
 
   $public->get('/products')->to('Product#list')->name('products');

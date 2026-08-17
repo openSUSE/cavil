@@ -161,6 +161,25 @@ subtest 'Pattern change' => sub {
   ok exists $pattern->{matches_capped},  'license meta includes match cap marker';
   ok exists $pattern->{packages_capped}, 'license meta includes package cap marker';
 
+  subtest 'SPDX license text viewer' => sub {
+
+    # A dot in the identifier must not be taken for a format separator
+    $t->get_ok('/licenses/spdx_meta/Apache-2.0')->status_is(200)->json_is('/id' => 'Apache-2.0');
+    $t->get_ok('/licenses/spdx_meta/MIT')
+      ->status_is(200)
+      ->json_is('/id' => 'MIT')
+      ->json_like('/text' => qr/Permission is hereby granted, free of charge/)
+      ->json_is('/about/osi' => 1);
+
+    # spdx_link turns exceptions into links too, so the viewer has to serve them or every WITH link 404s
+    $t->get_ok('/licenses/spdx_meta/Classpath-exception-2.0')->status_is(200)->json_like('/text' => qr/\S/);
+
+    $t->get_ok('/licenses/spdx_meta/Not-A-Real-License')->status_is(404);
+
+    # The catch-all license route must not swallow the new one
+    $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('#license-details');
+  };
+
   $t->post_ok('/licenses/update_patterns' => form => {license => 'Apache-2.0', spdx => 'Apache-2'})
     ->status_is(302)
     ->header_is(Location => '/licenses/Apache-2.0');

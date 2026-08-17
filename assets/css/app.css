@@ -999,11 +999,16 @@ body {
   padding: 10px;
 }
 
-a.spdx-link {
+/* A button, not a link: it opens the bundled license text in an overlay, it does not navigate */
+.spdx-link {
+  background: none;
+  border: 0;
   color: inherit;
-  text-decoration: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: inherit;
 }
-a.spdx-link:hover {
+.spdx-link:hover {
   text-decoration: underline;
 }
 

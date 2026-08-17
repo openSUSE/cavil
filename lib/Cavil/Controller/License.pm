@@ -4,8 +4,9 @@
 package Cavil::Controller::License;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Cavil::Licenses qw(lic);
-use Cavil::Util     qw(spdx_link);
+use Cavil::Licenses   qw(lic);
+use Cavil::ReportUtil qw(license_classification);
+use Cavil::Util       qw(license_text spdx_link);
 
 sub create_pattern ($self) {
   my $validation = $self->validation;
@@ -191,6 +192,15 @@ sub remove_proposal ($self) {
   }
 
   $self->render(json => {removed => $removed ? 1 : 0, fallback => $fallback});
+}
+
+sub spdx_meta ($self) {
+  my $id = $self->stash('id');
+  return $self->reply->not_found unless defined(my $text = license_text($id));
+
+  # An exception id classifies as neither a license nor an obligation, and renders without chips
+  my $about = license_classification($id)->[0] // {};
+  $self->render(json => {id => $id, text => $text, about => $about});
 }
 
 sub show ($self) {

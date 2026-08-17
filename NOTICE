@@ -30,6 +30,7 @@ Source:  https://spdx.org/licenses/ and https://spdx.dev/
 Bundled: lib/Cavil/resources/license_list.txt
          lib/Cavil/resources/license_exceptions.txt
          lib/Cavil/resources/license_flags.json
+         lib/Cavil/resources/license_texts.json
          t/resources/spdx-3.0.1-schema.json
          t/resources/spdx-3.0.1-context.jsonld
 License: Creative Commons Zero v1.0 Universal (CC0-1.0)
@@ -41,9 +42,14 @@ Credit:  SPDX(R) is a project of the Linux Foundation. The SPDX License List
 Cavil uses the SPDX license and exception identifiers to name licenses, and the
 SPDX 3.0.1 JSON schema and JSON-LD context to generate and validate SBOMs. From
 the machine-readable license list it also takes the OSI approval and FSF "libre"
-classification flags, which are shown per license in the report. No attribution
-is required for CC0 data; SPDX is credited here alongside the other sources
-anyway.
+classification flags, which are shown per license in the report.
+
+Cavil further bundles the canonical text of every license and exception on the
+list, and serves it from its own pages so that a reviewer reads the wording of
+the list version this release ships rather than whatever the website serves on
+the day. The texts are reproduced verbatim; Cavil does not reformat, abridge or
+rewrite them. No attribution is required for CC0 data; SPDX is credited here
+alongside the other sources anyway.
 
 
 OSADL Open Source License Compliance Checklists

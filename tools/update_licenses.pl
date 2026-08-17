@@ -20,6 +20,7 @@ my $CHANGES_URL = 'https://raw.githubusercontent.com/openSUSE/obs-service-format
 my $SCANCODE_URL = 'https://scancode-licensedb.aboutcode.org/index.json';
 my $OSADL_URL    = 'https://www.osadl.org/fileadmin/checklists/matrixseqexpl.json';
 my $FLAGS_URL    = 'https://raw.githubusercontent.com/spdx/license-list-data/main/json/licenses.json';
+my $EXC_JSON_URL = 'https://raw.githubusercontent.com/spdx/license-list-data/main/json/exceptions.json';
 
 my $dir              = curfile->dirname->dirname->child('lib', 'Cavil', 'resources');
 my $license_file     = $dir->child('license_list.txt');
@@ -29,6 +30,7 @@ my $scancode_file    = $dir->child('license_list_scancode.txt');
 my $osadl_file       = $dir->child('license_compatibility.json');
 my $obligations_file = $dir->child('license_obligations.json');
 my $flags_file       = $dir->child('license_flags.json');
+my $texts_file       = $dir->child('license_texts.json');
 
 my $ua = Mojo::UserAgent->new;
 
@@ -137,3 +139,19 @@ for my $name (keys %$copyleft, keys %$disclosure) {
 
 $obligations_file->spew($JSON->encode({source => "$osadl_checklists/", licenses => \%obligations}));
 say qq(Updated @{[scalar keys %obligations]} OSADL obligation checklists in "$obligations_file");
+
+# Not each entry's "detailsUrl": it points at spdx.org, which rate-limits long before 819 documents
+my $DETAILS = 'https://raw.githubusercontent.com/spdx/license-list-data/main/json';
+my %texts;
+for my $entry (@{$spdx->{licenses}}) {
+  my $id     = $entry->{licenseId};
+  my $detail = decode_json(fetch("$DETAILS/details/$id.json")->body);
+  $texts{$id} = $detail->{licenseText} if length($detail->{licenseText} // '');
+}
+for my $entry (@{decode_json(fetch($EXC_JSON_URL)->body)->{exceptions}}) {
+  my $id     = $entry->{licenseExceptionId};
+  my $detail = decode_json(fetch("$DETAILS/exceptions/$id.json")->body);
+  $texts{$id} = $detail->{licenseExceptionText} if length($detail->{licenseExceptionText} // '');
+}
+$texts_file->spew($JSON->encode({source => $FLAGS_URL, texts => \%texts}));
+say qq(Updated @{[scalar keys %texts]} license texts in "$texts_file");
