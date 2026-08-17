@@ -11,7 +11,7 @@ use Mojo::File 'path';
 use Mojo::Util 'dumper';
 use Cavil::Util (
   qw(buckets decode_json_fast encode_json_fast expand_spec_macros extract_copyrights),
-  qw(extract_urls_and_emails fs_bytes legal_review_notices parse_service_file slurp_and_decode)
+  qw(extract_urls_and_emails fs_bytes legal_review_notices parse_service_file read_lines slurp_and_decode)
 );
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
@@ -59,6 +59,24 @@ my $LICENSE_COMMENT_RE = qr/^\s*#\s*SPDX-License-Identifier\s*:\s*(.+)\s*$/;
 
 # Plain "Dockerfile", multibuild flavors like "Dockerfile.driver-550", and named "foo.Dockerfile"
 my $DOCKERFILE_RE = qr/^(?:Dockerfile(?:\..+)?|.+\.Dockerfile)$/;
+
+# Matching ran against the ".processed" copy, so the recorded line numbers mean nothing in the original
+sub evidence_text ($self, $row) {
+  my $base    = path($self->dir)->child('.unpacked');
+  my $scanned = $base->child(fs_bytes($row->{filename}))->to_string;
+  my $path    = _original_file($scanned);
+
+  my ($sline, $eline) = ($row->{sline}, $row->{eline});
+  if ($path ne $scanned) {
+    my $lines = Cavil::PostProcess->new->original_lines($path, [$sline, $eline]);
+    ($sline, $eline) = ($lines->{$sline}, $lines->{$eline});
+    return () unless $sline && $eline;
+  }
+
+  my $text = eval { read_lines($path, $sline, $eline) };
+  return () unless defined $text && length $text;
+  return ($text, path($path)->to_rel($base)->to_string . "#L$sline-L$eline");
+}
 
 sub is_unpacked ($self) { -d path($self->dir)->child('.unpacked') }
 
@@ -246,7 +264,13 @@ sub specfile_report ($self, $opts = {}) {
 sub unpack ($self, $options = {}) {
   my $dir    = path($self->dir);
   my $unpack = $dir->child('.unpacked')->remove_tree;
-  my $log    = $dir->child('.postprocessed.json');
+
+  # Cavil's own derived documents (Cavil::Model::Packages::DOCUMENTS), stale the moment the tree is rebuilt.
+  # Deleted rather than excluded from the unpack: an exclusion glob matches every directory level, so a
+  # package shipping its own ".report.*" file would silently lose it from the index. Unpacking ours is not
+  # cosmetic either - it decompresses a NOTICE of pure license text back into the package.
+  $_->remove for $dir->list({hidden => 1})->grep(sub { $_->basename =~ /^\.report\./ })->each;
+  my $log = $dir->child('.postprocessed.json');
   unlink $log;
   $log = $dir->child('.unpacked.json');
   unlink $log;
@@ -285,9 +309,6 @@ sub unpack ($self, $options = {}) {
   $u->mime_helper('application=zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
 
   $u->exclude(vcs => 1);
-
-  # Avoid repeatedly unpacking and wrapping large generated SPDX reports.
-  $u->exclude(add => '.report*.spdx*');
 
   if (my $exclude = $options->{exclude}) {
     $u->exclude($_) for @$exclude;
@@ -342,8 +363,8 @@ sub unpacked_files ($self, $bucket_size = undef) {
   my @files;
   for my $file (sort keys %{$unpacked}) {
 
-    # Postprocessing can place the generated report's marker in either position.
-    next if $file =~ /\.report(?:\.processed)?\.spdx(?:\.processed)?(?:\.json)?(?:\.gz)?$/;
+    # Second line of defence, for a tree an older Cavil unpacked before the removal above existed
+    next if $file =~ m{^\.report\.};
 
     my $mime = $unpacked->{$file}{mime};
     next if $mime =~ $BLACKLIST_MIME_RE;

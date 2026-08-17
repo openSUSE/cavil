@@ -31,7 +31,7 @@ sub register ($self, $app, $config) {
   $app->helper('reindex_state'                 => \&_reindex_state);
   $app->helper('report_details'                => \&_report_details);
   $app->helper('reply.json_validation_error'   => \&_json_validation_error);
-  $app->helper('spdx_state'                    => \&_spdx_state);
+  $app->helper('documents_state'               => \&_documents_state);
   $app->helper('format_file'                   => \&_format_file);
   $app->helper('markdown_to_safe_html'         => \&_markdown_to_safe_html);
   $app->helper('theme'                         => \&_theme);
@@ -85,7 +85,7 @@ sub _chart_data ($c, $hash) {
 my %REBUILD_STAGES = (unpacking => 2, indexing => 3, analyzing => 4);
 
 # The queued jobs that lead to a new report. Deliberately not every job tagged for the package: generating
-# an SPDX report leaves the report itself alone, and locking the page for it would be a lie. "analyzed"
+# a document leaves the report itself alone, and locking the page for it would be a lie. "analyzed"
 # is left out for the same reason and because it runs *after* the promote - counting it would make the
 # progress bar drop back to "Queued" for one tick just as the new report goes live. Should it decide a
 # follow-up build is needed, that shows up as "reindex_requested" below before it clears it.
@@ -104,7 +104,7 @@ sub _reindex_state ($c, $pkg) {
   # The queue is the common signal, but a package can also be mid-build with its job already gone (a worker
   # that died), which is what the stage still shows, or carry a coalesced request that has not been turned
   # into a job yet. Any of them means the report is not settled, so none of them may look idle. Owning the
-  # package deliberately does not count: an spdx report claims it too and leaves the report alone.
+  # package deliberately does not count: a document build claims it too and leaves the report alone.
   my $reindexing
     = $stage
     || defined $pkg->{reindex_requested}
@@ -116,29 +116,35 @@ sub _reindex_state ($c, $pkg) {
     checksum      => $pkg->{checksum},
     reindexing    => $reindexing ? true          : false,
     rebuild_stage => $reindexing ? ($stage // 1) : undef,
-    spdx          => $c->spdx_state($pkg)
+    documents     => $c->documents_state($pkg)
   };
 }
 
-# Where the package stands with its SPDX report, for the download button on the report page. Reports are
-# generated on demand, so the button has to be able to say "there is one", "one is on its way", "the last
-# attempt failed" and "ask for one" - and it polls, so this has to stay cheap: a stat, and a queue lookup
-# only in the uncommon case that there is no report to hand out.
+# Where the package stands with its derived documents, for the download control on the report page. They
+# are generated on demand, so the control has to be able to say "they are here", "they are on their way",
+# "the last attempt failed" and "ask for them" - and it polls, so this has to stay cheap: a stat per
+# document, and a queue lookup only in the uncommon case that there is nothing to hand out.
 #
 # Only the newest job for the package is consulted. Looking for a failed one instead would leave a single
 # bad attempt stuck to the row for as long as the job table keeps it, long after a later attempt succeeded
-# and the report was collected.
-sub _spdx_state ($c, $pkg) {
+# and the documents were collected.
+sub _documents_state ($c, $pkg) {
   my $id = $pkg->{id};
   return {state => 'unavailable'} if $pkg->{obsolete} || !$pkg->{indexed};
 
   my $pkgs = $c->packages;
-  if ($pkgs->has_spdx_report($id)) {
-    my $size = $pkgs->spdx_report_size($id);
-    return {state => 'ready', size => defined $size ? humanize_bytes($size) : undef};
+  if (my $documents = $pkgs->ready_documents($id)) {
+    return {
+      state     => 'ready',
+      documents => [
+        map {
+          { %$_, url => "/documents/$id/$_->{key}", size => defined $_->{size} ? humanize_bytes($_->{size}) : undef }
+        } @$documents
+      ]
+    };
   }
 
-  my $job = $c->minion->jobs({tasks => ['spdx_report'], notes => ["pkg_$id"]})->next;
+  my $job = $c->minion->jobs({tasks => ['documents'], notes => ["pkg_$id"]})->next;
   return {state => 'none'} unless $job;
   return {state => 'building'} if $job->{state} eq 'inactive' || $job->{state} eq 'active';
   return {state => 'failed'}   if $job->{state} eq 'failed';
@@ -403,6 +409,7 @@ sub _package_summary ($c, $id) {
     actions              => $actions,
     copied_files         => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
     created              => $pkg->{created_epoch},
+    documents            => $state->{documents},
     legal_documents      => _legal_documents($c, $id),
     embargoed            => \!!$pkg->{embargoed},
     ai_assisted          => \!!$pkg->{ai_assisted},
@@ -432,7 +439,6 @@ sub _package_summary ($c, $id) {
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},
     should_reindex       => \!!$c->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed}),
-    spdx                 => $state->{spdx},
     state                => $pkg->{state},
     unpacked_files       => $pkg->{unpacked_files},
     unpacked_size        => humanize_bytes($pkg->{unpacked_size} // 0)

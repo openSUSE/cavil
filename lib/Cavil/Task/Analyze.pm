@@ -226,7 +226,7 @@ sub _analyzed ($job, $id) {
 
   _auto_review($app, $id);
 
-  # End of the chain unless an SPDX report follows, so the package is handed back here rather than left to
+  # End of the chain unless a document build follows, so the package is handed back here rather than left to
   # the guard, which would only release it and leave a reindex requested in the meantime waiting for the
   # nightly sweep. A failure skips this on purpose: the release is all the guard does, and the retry that
   # an admin starts from the Minion dashboard hands the package back properly.

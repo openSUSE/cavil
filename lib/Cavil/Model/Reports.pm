@@ -144,6 +144,50 @@ sub copyrights ($self, $id, $generation = 0) {
   return [map { {copyright => $_->{copyright}, files => [sort @{$_->{files}}]} } $rows->each];
 }
 
+# A notice is stored against the original file, a match against the ".processed" copy; joining without
+# undoing that silently drops every wrapped and markup-stripped file
+my $ORIGINAL_NAME = q{regexp_replace(mf.filename, '\.processed(\.[^./]+)?$', '\1')};
+
+# Catch-alls are excluded because a grab-bag marker is not a license declaration, as in Cavil::SPDX
+my $MATCH_LICENSE = q{COALESCE(NULLIF(lp.spdx, ''), lp.license)};
+my $LICENSED_FILE = qq{
+  FROM matched_files mf
+  JOIN pattern_matches   pm ON pm.file = mf.id AND pm.ignored = false
+  JOIN license_patterns  lp ON lp.id = pm.pattern AND lp.catch_all = false
+ WHERE mf.package = ? AND mf.generation = ? AND $MATCH_LICENSE <> ''};
+
+# Includes licenses no copyright notice sits next to, whose terms still have to be reproduced
+sub licenses_present ($self, $id, $generation = 0) {
+  return $self->pg->db->query(qq{SELECT DISTINCT $MATCH_LICENSE COLLATE "C" AS license $LICENSED_FILE ORDER BY license},
+    $id, $generation)->arrays->flatten->to_array;
+}
+
+# Joined in the database and streamed, because a vendored package has millions of (notice, file) pairs
+# that must not reach Perl
+sub each_licensed_copyright ($self, $id, $generation, $cb) {
+  my $sql = qq{
+    SELECT DISTINCT $MATCH_LICENSE COLLATE "C" AS license, c.copyright COLLATE "C" AS copyright
+      FROM copyrights c
+      JOIN matched_files mf ON mf.package = c.package AND mf.generation = c.generation
+                           AND $ORIGINAL_NAME = ANY(c.files)
+      JOIN pattern_matches  pm ON pm.file = mf.id AND pm.ignored = false
+      JOIN license_patterns lp ON lp.id = pm.pattern AND lp.catch_all = false
+     WHERE c.package = ? AND c.generation = ? AND $MATCH_LICENSE <> ''
+     ORDER BY license, copyright};
+  return $self->_each_row($sql, [$id, $generation], $cb);
+}
+
+# A notice Cavil cannot attribute still has to be retained by whoever redistributes the code
+sub each_unlicensed_copyright ($self, $id, $generation, $cb) {
+  my $sql = qq{
+    SELECT c.copyright
+      FROM copyrights c
+     WHERE c.package = ? AND c.generation = ?
+       AND NOT EXISTS (SELECT 1 $LICENSED_FILE AND $ORIGINAL_NAME = ANY(c.files))
+     ORDER BY c.copyright COLLATE "C"};
+  return $self->_each_row($sql, [$id, $generation, $id, $generation], $cb);
+}
+
 # Text behind a license that will resolve to a LicenseRef. The WHERE mirrors the condition Cavil::SPDX
 # mints one under, so the document cannot reference an identifier this cannot explain.
 sub license_evidence ($self, $id, $generation = 0) {
@@ -678,6 +722,25 @@ sub _prime_pattern_cache {
     my $id = delete $pattern->{id};
     $cache->{"pattern-$id"} = $pattern;
   }
+}
+
+# Peak memory is one batch rather than the whole result set. The transaction is not optional: a cursor
+# without one is closed before the first FETCH, and DECLARE and FETCH must share a connection.
+use constant CURSOR_BATCH => 1000;
+
+sub _each_row ($self, $sql, $bind, $cb) {
+  state $seq = 0;
+  my $name = 'cavil_rows_' . ++$seq;
+
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  $db->query("DECLARE $name NO SCROLL CURSOR FOR $sql", @$bind);
+  while (1) {
+    my $batch = $db->query("FETCH @{[CURSOR_BATCH]} FROM $name")->arrays;
+    last unless $batch->size;
+    $cb->(@$_) for $batch->each;
+  }
+  $db->query("CLOSE $name");
 }
 
 sub _load_pattern_from_cache {

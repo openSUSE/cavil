@@ -302,7 +302,7 @@ subtest 'A rebuild puts the report page into read-only mode' => sub {
 };
 
 subtest 'Generating an SPDX report does not lock the page' => sub {
-  $minion->enqueue('spdx_report' => [1] => {notes => {pkg_1 => 1}});
+  $minion->enqueue('documents' => [1] => {notes => {pkg_1 => 1}});
   $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/reindexing' => Mojo::JSON->false);
   $minion->perform_jobs;
 };
@@ -314,7 +314,7 @@ subtest 'A reindex requested while an SPDX report runs starts as soon as it is o
   # An spdx job claims the package for as long as it takes, so a reviewer pressing "Reindex" can land in
   # that window. Nothing is queued behind it that could notice the request, which is what makes the job
   # itself responsible for it: otherwise the reviewer stares at a read-only report until the nightly sweep.
-  my $spdx_id = $minion->enqueue('spdx_report' => [1] => {notes => {pkg_1 => 1}});
+  my $spdx_id = $minion->enqueue('documents' => [1] => {notes => {pkg_1 => 1}});
   ok $pkgs->claim(1, $spdx_id), 'the spdx job has the package';
   is $pkgs->reindex(1), 'later', 'the reindex has to wait for it';
   $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/reindexing' => Mojo::JSON->true);

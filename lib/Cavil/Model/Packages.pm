@@ -12,6 +12,59 @@ use Text::Glob qw(glob_to_regex);
 
 has [qw(checkout_dir classifier log minion pg)];
 
+# Adding a derived format is an entry here plus its generator; the job, the polled state, the routes and
+# the report UI all read this list. "gzip" is per entry because a format can be an archive served as it
+# lies. The ".report." prefix is not cosmetic: Cavil::Checkout keeps files carrying it out of the unpacked
+# tree and out of the indexer, so a format named anything else gets indexed as package content.
+use constant DOCUMENTS => [
+  {key => 'spdx',   file => '.report.spdx.json.gz',  name => 'spdx.json',  type => 'application/json', gzip => 1},
+  {key => 'notice', file => '.report.notice.txt.gz', name => 'NOTICE.txt', type => 'text/plain',       gzip => 1}
+];
+
+sub document ($self, $key) {
+  my ($doc) = grep { $_->{key} eq $key } @{DOCUMENTS()};
+  return $doc;
+}
+
+sub document_path ($self, $id, $key) {
+  return undef unless my $doc = $self->document($key);
+  return $self->pkg_checkout_dir($id)->child($doc->{file});
+}
+
+# The size a download produces, not the size on disk: a gzipped document is served compressed, and gzip
+# records the decompressed size in its last four bytes, so this costs a seek rather than a decompression.
+sub _size ($doc, $path) {
+  return undef unless my $compressed = -s $path;
+  return $compressed unless $doc->{gzip};
+
+  # ISIZE is the uncompressed size modulo 2^32, so it is only the answer while the report cannot have been
+  # bigger than that. JSON gzips by roughly ten to one, leaving this bound with room to spare; above it we
+  # would rather say nothing than name a size that has silently wrapped
+  return undef if $compressed > 256 * 1024 * 1024;
+
+  open my $fh, '<:raw', $path or return undef;
+  seek $fh, -4, 2 or return undef;
+  read($fh, my $isize, 4) == 4 or return undef;
+  return unpack 'V', $isize;
+}
+
+sub has_document ($self, $id, $key) { return -f $self->document_path($id, $key) }
+
+# undef unless every registered document is there: they are built in one pass, so a partial set means the
+# job is still running or died
+sub ready_documents ($self, $id) {
+  my $dir = $self->pkg_checkout_dir($id);
+
+  my @documents;
+  for my $doc (@{DOCUMENTS()}) {
+    my $path = $dir->child($doc->{file});
+    return undef unless -f $path;
+    push @documents, {key => $doc->{key}, name => "$id.$doc->{name}", size => _size($doc, $path)};
+  }
+
+  return \@documents;
+}
+
 sub add ($self, %args) {
 
   my $db     = $self->pg->db;
@@ -272,12 +325,12 @@ sub flags ($self, $id, $generation = 0) {
 
 # The queue is the deduplication record and cannot outlive the job as a lock can. Somebody is always
 # waiting for the download, so the job goes in at waiting priority.
-sub generate_spdx_report ($self, $id) {
-  return if $self->has_spdx_report($id);
+sub generate_documents ($self, $id) {
+  return if $self->ready_documents($id);
 
   my $minion = $self->minion;
-  return if $minion->jobs({tasks => ['spdx_report'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
-  $minion->enqueue('spdx_report' => [$id] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}});
+  return if $minion->jobs({tasks => ['documents'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+  $minion->enqueue('documents' => [$id] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}});
 }
 
 sub has_file_stats ($self, $id) {
@@ -287,10 +340,6 @@ sub has_file_stats ($self, $id) {
 sub has_manual_review ($self, $name) {
   return !!$self->pg->db->query('SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL',
     $name)->array->[0];
-}
-
-sub has_spdx_report ($self, $id) {
-  return -f $self->spdx_report_path($id);
 }
 
 sub history ($self, $name, $checksum, $id) {
@@ -949,43 +998,22 @@ sub reindex_package_ids ($self, $ids, $priority = PRIORITY_UPKEEP) {
   $minion->enqueue('index_later', [$_], {priority => $priority - 1}) for @$ids;
 }
 
-sub remove_spdx_report ($self, $id) {
+sub remove_documents ($self, $id) {
   my $dir = $self->pkg_checkout_dir($id);
+  $dir->child($_->{file})->remove for @{DOCUMENTS()};
 
-  # Remove the current report and its processed variant, plus legacy reports left behind by older Cavil
-  # versions (uncompressed JSON, and pre-3.0.1 non-JSON tag-value)
+  # Legacy reports left behind by older Cavil versions (a processed variant, uncompressed JSON, and
+  # pre-3.0.1 non-JSON tag-value)
   $dir->child($_)->remove for qw(
-    .report.spdx.json.gz .report.processed.spdx.json.gz
-    .report.spdx.json    .report.processed.spdx.json
-    .report.spdx         .report.processed.spdx
+    .report.processed.spdx.json.gz
+    .report.spdx.json .report.processed.spdx.json
+    .report.spdx      .report.processed.spdx
   );
 }
 
 sub requests_for ($self, $id) {
   return $self->pg->db->query('SELECT external_link FROM bot_requests WHERE package = ? ORDER BY id DESC', $id)
     ->arrays->flatten->to_array;
-}
-
-sub spdx_report_path ($self, $id) {
-  return $self->pkg_checkout_dir($id)->child('.report.spdx.json.gz');
-}
-
-# Size of the file a download of the report actually produces, which is the uncompressed one - the report
-# is stored gzipped and handed to the browser that way, but what lands on disk is the JSON. Gzip records
-# that in the last four bytes of the file, so it costs a seek rather than a decompression.
-sub spdx_report_size ($self, $id) {
-  my $path = $self->spdx_report_path($id);
-  return undef unless my $compressed = -s $path;
-
-  # ISIZE is the uncompressed size modulo 2^32, so it is only the answer while the report cannot have been
-  # bigger than that. JSON gzips by roughly ten to one, leaving this bound with room to spare; above it we
-  # would rather say nothing than name a size that has silently wrapped
-  return undef if $compressed > 256 * 1024 * 1024;
-
-  open my $fh, '<:raw', $path or return undef;
-  seek $fh, -4, 2 or return undef;
-  read($fh, my $isize, 4) == 4 or return undef;
-  return unpack 'V', $isize;
 }
 
 sub states ($self, $name) {

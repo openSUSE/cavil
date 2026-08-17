@@ -25,7 +25,8 @@ our @EXPORT_OK = (
   qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file),
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip read_lines run_cmd),
   qw(request_id_from_external_link),
-  qw(external_link_data snippet_checksum spdx_link ssh_sign text_shingles text_shingle_ids validate_tags),
+  qw(external_link_data snippet_checksum spdx_identifiers spdx_link ssh_sign text_shingles text_shingle_ids),
+  qw(validate_tags),
   qw(license_is_catch_all license_text SNIPPET_SCORE_VERSION $COPYRIGHT_LEADER $COPYRIGHT_TOKEN),
   qw(decode_json_fast encode_json_fast to_json_fast),
   qw(incoming_priority PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
@@ -509,6 +510,24 @@ sub license_text ($id) {
   return undef unless defined $id && length $id;
   state $texts = decode_json_fast(path(__FILE__)->dirname->child('resources', 'license_texts.json')->slurp)->{texts};
   return $texts->{$id};
+}
+
+# Exceptions as well as licenses, unlike extract_spdx_identifiers, whose callers would read
+# "GPL-2.0-only WITH Autoconf-exception-2.0" as two licenses. Bounded, so "Mitch" does not match MIT.
+my $SPDX_ATOM_RE = do {
+  my $atoms = join '|',
+    map {quotemeta} sort { length $b <=> length $a || $a cmp $b } (@SPDX_LICENSES, @SPDX_EXCEPTIONS);
+  qr/(?<![\w.+-])($atoms)(?![\w.+-])/;
+};
+
+sub spdx_identifiers ($expression) {
+  return [] unless defined $expression;
+
+  my (@identifiers, %seen);
+  while ($expression =~ /$SPDX_ATOM_RE/g) {
+    push @identifiers, $1 unless $seen{$1}++;
+  }
+  return \@identifiers;
 }
 
 sub spdx_link ($text) {

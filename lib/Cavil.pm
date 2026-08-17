@@ -20,6 +20,7 @@ use Cavil::Model::Requests;
 use Cavil::Model::Users;
 use Cavil::Model::APIKeys;
 use Cavil::Model::Snippets;
+use Cavil::Notice;
 use Cavil::OBS;
 use Cavil::SPDX;
 use Cavil::Sync;
@@ -29,7 +30,12 @@ use Mojo::File qw(path);
 has classifier => sub { Cavil::Classifier->new };
 has git        => sub { Cavil::Git->new };
 has obs        => sub { Cavil::OBS->new };
-has spdx       => sub ($self) {
+has notice     => sub ($self) {
+  my $notice = Cavil::Notice->new(app => $self);
+  weaken $notice->{app};
+  return $notice;
+};
+has spdx => sub ($self) {
   my $spdx = Cavil::SPDX->new(app => $self);
   weaken $spdx->{app};
   return $spdx;
@@ -81,7 +87,7 @@ sub startup ($self) {
   $self->plugin('Cavil::Task::Analyze');
   $self->plugin('Cavil::Task::Cleanup');
   $self->plugin('Cavil::Task::ClosestMatch');
-  $self->plugin('Cavil::Task::SPDX');
+  $self->plugin('Cavil::Task::Documents');
 
   $self->plugin('Cavil::Plugin::Linux');
 
@@ -208,7 +214,7 @@ sub startup ($self) {
   $api_key->get('/api/v1/reports')->to('API#reports');
   $api_key->get('/api/v1/search')->to('API#package_search')->name('search_api');
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
-  $api_key->get('/api/v1/spdx/<id:num>')->to('Report#spdx');
+  $api_key->get('/api/v1/documents/<id:num>/:key')->to('Report#document');
 
   $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');
   $logged_in->get('/api_keys/meta')->to('APIKeys#list_meta')->name('list_api_keys_meta');
@@ -250,8 +256,11 @@ sub startup ($self) {
   $can_curate->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
-  $logged_in->get('/spdx/<id:num>')->to('Report#spdx')->name('spdx_report');
-  $logged_in->post('/spdx/<id:num>')->to('Report#generate_spdx')->name('generate_spdx_report');
+
+  # A package is the default subject. Numeric ids are what leaves room for the same formats on a product or
+  # a codestream later ("/documents/product/<name>/<key>") without moving these
+  $logged_in->get('/documents/<id:num>/:key')->to('Report#document')->name('document');
+  $logged_in->post('/documents/<id:num>')->to('Report#generate_documents')->name('generate_documents');
 
   $public->get('/licenses')->to('License#list')->name('licenses');
   $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');

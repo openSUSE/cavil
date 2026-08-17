@@ -45,7 +45,7 @@ sub _index ($job, $id) {
   # Claiming the package is what protects the build from race conditions, and the claim is the generation:
   # the analyze job at the end of the chain hands it back as it promotes. Losing the race must not lose the
   # rebuild with it. Cavil::Model::Packages::reindex checks before enqueuing, but somebody else can still
-  # claim in between - an spdx report, the analyzed job of the build that just promoted - and this job
+  # claim in between - a document build, the analyzed job of the build that just promoted - and this job
   # writes nothing, so there would be no stranded rows for the cleanup sweep to notice and nothing to say a
   # rebuild was ever due. Record it the same way a request that arrives during a build is recorded, and
   # whoever frees the package up runs it - at the priority this build would have run at, so losing the
@@ -69,8 +69,8 @@ sub _index ($job, $id) {
     $db->update('bot_packages', {index_stage => 'indexing'}, {id => $id});
     $tx->commit;
 
-    # Remove stale SPDX output before it can be indexed as package content.
-    $pkgs->remove_spdx_report($id);
+    # Remove stale derived documents before they can be indexed as package content.
+    $pkgs->remove_documents($id);
   }
 
   my $dir      = $pkgs->pkg_checkout_dir($id);

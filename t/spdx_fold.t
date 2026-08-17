@@ -45,11 +45,11 @@ subtest 'a folded snippet contributes its license to the SPDX report' => sub {
   )->rows, 1, 'one snippet set up to fold';
   $app->snippets->resolve_snippets(1);    # refresh the stored resolution the SPDX report now reads
 
-  $t->get_ok('/spdx/1')->status_is(408);
+  $t->get_ok('/documents/1/spdx')->status_is(408);
   $app->minion->perform_jobs;
   is $app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
 
-  my $exprs = license_exprs($t->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  my $exprs = license_exprs($t->get_ok('/documents/1/spdx')->status_is(200)->tx->res->body);
   ok((grep {/\bFold-Test-SPDX\b/} @$exprs), 'folded license is listed for a file');
 };
 
@@ -77,9 +77,9 @@ subtest 'a cleared boilerplate snippet asserts no license in the SPDX report' =>
   );
   $a->snippets->resolve_snippets(1);
 
-  $tt->get_ok('/spdx/1')->status_is(408);
+  $tt->get_ok('/documents/1/spdx')->status_is(408);
   $a->minion->perform_jobs;
-  my $exprs = license_exprs($tt->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  my $exprs = license_exprs($tt->get_ok('/documents/1/spdx')->status_is(200)->tx->res->body);
   ok(!(grep {/Clear-Test-SPDX/} @$exprs), 'cleared boilerplate asserts no license');
 };
 
@@ -116,9 +116,9 @@ subtest 'an overlap-cleared snippet asserts nothing; the overlapping match still
     for $d->query('SELECT file, sline FROM file_snippets WHERE package = 1')->hashes->each;
   $a->snippets->resolve_snippets(1);
 
-  $tt->get_ok('/spdx/1')->status_is(408);
+  $tt->get_ok('/documents/1/spdx')->status_is(408);
   $a->minion->perform_jobs;
-  my $exprs = license_exprs($tt->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  my $exprs = license_exprs($tt->get_ok('/documents/1/spdx')->status_is(200)->tx->res->body);
   ok((grep {/\bOverlap-Test-SPDX\b/} @$exprs), 'the overlapping match still reports its license');
 };
 
@@ -169,9 +169,9 @@ subtest 'a covered snippet asserts nothing; the covering file license still repo
   ) for $d->query('SELECT file, eline FROM file_snippets WHERE package = 1')->hashes->each;
   $a->snippets->resolve_snippets(1);
 
-  $tt->get_ok('/spdx/1')->status_is(408);
+  $tt->get_ok('/documents/1/spdx')->status_is(408);
   $a->minion->perform_jobs;
-  my $exprs = license_exprs($tt->get_ok('/spdx/1')->status_is(200)->tx->res->body);
+  my $exprs = license_exprs($tt->get_ok('/documents/1/spdx')->status_is(200)->tx->res->body);
   ok((grep {/\bCover-Test-SPDX\b/} @$exprs), 'the covering file license still reports');
   ok(!(grep {/\bFrag-Test-SPDX\b/} @$exprs), 'the covered fragment asserts no license (not folded)');
 };

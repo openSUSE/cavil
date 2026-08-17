@@ -101,9 +101,9 @@
               <a :href="pkgUrl" target="_blank">{{ pkgUrl }}</a>
             </dd>
           </template>
-          <dt>SPDX report</dt>
-          <dd id="spdx-report">
-            <spdx-download :pkg-id="pkgId" :spdx="spdx" @error="notifyError" />
+          <dt>Documents</dt>
+          <dd id="report-documents">
+            <report-documents :pkg-id="pkgId" :documents="derivedDocuments" @error="notifyError" />
           </dd>
           <template v-if="pkgShortname !== null">
             <dt>Shortname</dt>
@@ -351,7 +351,7 @@ import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
 import FilePath from './FilePath.vue';
 import LegalLoading from './LegalLoading.vue';
-import SpdxDownload from './SpdxDownload.vue';
+import ReportDocuments from './ReportDocuments.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
 import {fileViewUrl, productLink} from '../helpers/links.js';
@@ -369,7 +369,7 @@ export default {
     ExternalLink,
     FilePath,
     LegalLoading,
-    SpdxDownload,
+    ReportDocuments,
     TemplatePicker,
     ToastNotifier
   },
@@ -420,7 +420,7 @@ export default {
       reviewingUser: null,
       reviewUrl: `/reviews/review_package/${this.pkgId}`,
       searchUrl: null,
-      spdx: null,
+      derivedDocuments: null,
       state: null,
       submitting: false,
       submittingId: null,
@@ -682,7 +682,7 @@ export default {
       this.legalDocuments = data.legal_documents ?? null;
       this.errors = data.errors;
       this.externalLink = data.external_link_data ?? data.external_link;
-      this.spdx = data.spdx;
+      this.derivedDocuments = data.documents;
       this.legalReviewNotices = data.legal_review_notices;
 
       this.actions = data.actions;

@@ -6,9 +6,6 @@
       <div v-if="chips.length" class="spdx-license-chips">
         <span v-for="chip in chips" :key="chip" class="spdx-license-chip">{{ chip }}</span>
       </div>
-
-      <!-- ponytail: pre-wrap returns a wrapped indented clause to the left margin instead of hanging it
-           under its indent; the fix is one block per authored line, padded from its leading whitespace -->
       <article class="spdx-license-text" data-spdx-text>{{ license.text }}</article>
     </template>
   </div>

@@ -428,24 +428,35 @@ subtest 'Tarball upload auto-detection' => sub {
   };
 };
 
-subtest 'Old SPDX reports are excluded from unpacking (no wasted copies)' => sub {
+# Cavil's derived documents live beside the checkout, so a re-unpack walks straight over them. They are
+# deleted rather than excluded by pattern, because an exclusion glob matches every directory level and
+# would take a package's own files with it.
+subtest 'Derived documents never reach the unpacked tree' => sub {
   my $co  = $TMP->child('report-exclude', 'hash')->make_path;
   my $src = $TMP->child('report-exclude-src')->make_path;
   $src->child('hello.txt')->spew("hello world\n");
-  is system('tar', '-czf', $co->child('src.tar.gz')->to_string, '-C', $src->to_string, 'hello.txt'), 0, 'archive built';
+  $src->child('vendor')->make_path->child('.report.json')->spew(qq({"tool": "not ours"}\n));
+  is system('tar', '-czf', $co->child('src.tar.gz')->to_string, '-C', $src->to_string, '.'), 0, 'archive built';
 
-  # A previous run's gzipped SPDX report sits in the checkout dir.
+  # A previous run's documents sit in the checkout dir
   $co->child('.report.spdx.json')->spew('{"spdxVersion":"SPDX-2.3","packages":[' . ('{"n":"x"},' x 200) . '{}]}');
   is system('gzip', $co->child('.report.spdx.json')->to_string), 0, 'report gzipped';
+  $co->child('.report.notice.txt')->spew("NOTICE\n\nPermission is hereby granted, free of charge\n");
+  is system('gzip', $co->child('.report.notice.txt')->to_string), 0, 'notice gzipped';
 
   Cavil::Checkout->new($co)->unpack;
 
   my $hash = decode_json($co->child('.postprocessed.json')->slurp)->{unpacked};
-  ok !(grep {/\.report.*\.spdx/} keys %$hash),                   'no report artifact in the unpacked set';
-  ok !-e $co->child('.unpacked', '.report.spdx.json'),           'report was not exploded into .unpacked';
-  ok !-e $co->child('.unpacked', '.report.spdx.processed.json'), 'no line-wrapped report copy';
-  ok -e $co->child('.report.spdx.json.gz'),                      'compact report still present in the checkout dir';
-  ok +(grep {m{hello\.txt$}} keys %$hash),                       'real source files are still unpacked';
+  ok !(grep {m{^\.report\.}} keys %$hash),             'no derived document in the unpacked set';
+  ok !-e $co->child('.unpacked', '.report.spdx.json'), 'the report was not exploded into .unpacked';
+
+  # A NOTICE is nothing but license text, so indexing one would match every license it reproduces
+  ok !-e $co->child('.unpacked', '.report.notice.txt'), 'nor the notice';
+  ok !-e $co->child('.report.spdx.json.gz'),            'the stale documents are gone from the checkout dir';
+  ok !-e $co->child('.report.notice.txt.gz'),           'both of them';
+
+  ok +(grep {m{hello\.txt$}} keys %$hash),            'real source files are still unpacked';
+  ok +(grep {m{vendor/\.report\.json$}} keys %$hash), "and so is a package's own .report file";
 };
 
 subtest 'Generated SPDX reports are never handed to the indexer' => sub {

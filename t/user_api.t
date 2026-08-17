@@ -127,7 +127,10 @@ subtest 'API keys' => sub {
     $t->get_ok('/api/v1/report/1.mcp')
       ->status_is(403)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
-    $t->get_ok('/api/v1/spdx/1')
+    $t->get_ok('/api/v1/documents/1/spdx')
+      ->status_is(403)
+      ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
+    $t->get_ok('/api/v1/documents/1/notice')
       ->status_is(403)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
   };
@@ -165,20 +168,34 @@ subtest 'API keys' => sub {
       ->content_like(qr/cavil_search_snippets\(package_id=1\)/);
   };
 
-  subtest 'Access SPDX with API key' => sub {
-    $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
+  subtest 'Access derived documents with API key' => sub {
+    $t->get_ok('/api/v1/documents/1/spdx' => {Authorization => "Bearer $key"})
       ->status_is(408)
-      ->content_like(qr/Your SPDX report is being generated/)
-      ->content_unlike(qr/<nav>/);
-    $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
+      ->content_is('being generated');
+    $t->get_ok('/api/v1/documents/1/spdx' => {Authorization => "Bearer $key"})
       ->status_is(408)
-      ->content_like(qr/Your SPDX report is being generated/)
-      ->content_unlike(qr/<nav>/);
+      ->content_is('being generated');
     $t->app->minion->perform_jobs;
-    $t->get_ok('/api/v1/spdx/1' => {Authorization => "Bearer $key"})
+    $t->get_ok('/api/v1/documents/1/spdx' => {Authorization => "Bearer $key"})
       ->status_is(200)
       ->content_type_is('application/json')
       ->json_is('/@context' => 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld');
+
+    # One request built every document, so the NOTICE is already there
+    $t->get_ok('/api/v1/documents/1/notice' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->content_type_is('text/plain')
+      ->header_is('Content-Disposition' => 'attachment; filename="1.NOTICE.txt"')
+      ->content_like(qr/^NOTICE for perl-Mojolicious/)
+      ->content_like(qr/^Completeness$/m)
+      ->content_like(qr/^Copyright \(C\) 2008-2017, Sebastian Riedel and others\.$/m);
+
+    # And the SBOM is reachable under the generic route too
+    $t->get_ok('/api/v1/documents/1/spdx' => {Authorization => "Bearer $key"})
+      ->status_is(200)
+      ->json_is('/@context' => 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld');
+
+    $t->get_ok('/api/v1/documents/1/cyclonedx' => {Authorization => "Bearer $key"})->status_is(404);
   };
 
   subtest 'List reports by external link' => sub {

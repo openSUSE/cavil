@@ -119,43 +119,44 @@ sub source ($self) {
   $self->render(json => {source => $source});
 }
 
-# Ask for a report to be built. The report page polls report_state afterwards, so the answer is the same
-# state payload that poll returns and the button can go straight into its "generating" animation.
-sub generate_spdx ($self) {
+# Ask for the documents to be built. The report page polls report_state afterwards, so the answer is the
+# same state payload that poll returns and the button can go straight into its "generating" animation.
+sub generate_documents ($self) {
   my $id = $self->stash('id');
   return $self->render(json => {error => 'unknown package'}, status => 404) unless my $pkg = $self->packages->find($id);
 
-  my $state = $self->helpers->spdx_state($pkg);
+  my $state = $self->helpers->documents_state($pkg);
   return $self->render(json => $state, status => 410) if $state->{state} eq 'unavailable';
 
-  # Idempotent: does nothing if the report is already there or already queued, so a double click (or two
-  # reviewers on the same report) costs one job between them
-  $self->packages->generate_spdx_report($id);
-  $self->render(json => $self->helpers->spdx_state($pkg));
+  # Idempotent: does nothing if the documents are already there or already queued, so a double click (or
+  # two reviewers on the same report) costs one job between them
+  $self->packages->generate_documents($id);
+  $self->render(json => $self->helpers->documents_state($pkg));
 }
 
-sub spdx ($self) {
+sub document ($self) {
   my $id   = $self->stash('id');
   my $pkgs = $self->app->packages;
 
-  return $self->render(text     => 'package is obsolete', status => 410) if $pkgs->is_obsolete($id);
-  return $self->render(template => 'report/waiting',      status => 408) unless $pkgs->is_indexed($id);
+  return $self->reply->not_found unless my $doc = $pkgs->document($self->stash('key'));
+  return $self->render(text => 'package is obsolete', status => 410) if $pkgs->is_obsolete($id);
+  return $self->render(text => 'not indexed',         status => 408) unless $pkgs->is_indexed($id);
 
-  if ($pkgs->has_spdx_report($id)) {
-    my $path    = $pkgs->spdx_report_path($id);
+  if ($pkgs->has_document($id, $doc->{key})) {
+    my $path    = $pkgs->document_path($id, $doc->{key});
     my $headers = $self->res->headers;
-    $headers->content_type('application/json');
+    $headers->content_type($doc->{type});
+    $headers->content_disposition(qq{attachment; filename="$id.$doc->{name}"});
+    return $self->reply->asset(Mojo::Asset::File->new(path => $path)) unless $doc->{gzip};
+
     $headers->vary('Accept-Encoding');
-
-    $headers->content_disposition(qq{attachment; filename="$id.spdx.json"});
-
     if (($self->req->headers->accept_encoding // '') =~ /gzip/i) {
       $headers->content_encoding('gzip');
       return $self->reply->asset(Mojo::Asset::File->new(path => $path));
     }
 
     # Stream decompression bounds memory for clients without gzip support.
-    return $self->render(text => 'Could not read SPDX report', status => 500)
+    return $self->render(text => 'Could not read document', status => 500)
       unless my $gz = IO::Uncompress::Gunzip->new("$path");
     my $asset = Mojo::Asset::File->new;
     my $buffer;
@@ -163,8 +164,9 @@ sub spdx ($self) {
     return $self->reply->asset($asset);
   }
 
-  $pkgs->generate_spdx_report($id);
-  $self->render(template => 'report/waiting', status => 408);
+  # No page here: the report UI never links a document before it exists, and a client watches the status
+  $pkgs->generate_documents($id);
+  $self->render(text => 'being generated', status => 408);
 }
 
 1;

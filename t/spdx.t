@@ -91,33 +91,52 @@ subtest 'Generate SPDX report' => sub {
     'UPDATE snippets SET classified = true, license = true, like_pattern = 1, likelyness = 0.95 WHERE id = any(?)', [2])
     ->rows, 1, 'one snippet is a license';
 
-  ok !$t->app->packages->has_spdx_report(1), 'package has no SPDX report';
-  $t->get_ok('/spdx/1')->status_is(408)->content_like(qr/generated/)->content_unlike(qr/\@graph/);
-  $t->get_ok('/spdx/1')->status_is(408)->content_like(qr/generated/)->content_unlike(qr/\@graph/);
+  ok !$t->app->packages->has_document(1, 'spdx'), 'package has no SPDX report';
+  $t->get_ok('/documents/1/spdx')->status_is(408)->content_is('being generated');
+  $t->get_ok('/documents/1/spdx')->status_is(408)->content_is('being generated');
   $t->app->minion->perform_jobs;
   is $t->app->minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
-  ok $t->app->packages->has_spdx_report(1), 'package has SPDX report';
+  ok $t->app->packages->has_document(1, 'spdx'), 'package has SPDX report';
 
   # gzip-capable client (Mojo's UA sends "Accept-Encoding: gzip" and transparently decompresses). Gzip is
   # only the transfer encoding, so the file the browser saves is the JSON the disposition names.
-  $t->get_ok('/spdx/1')
+  $t->get_ok('/documents/1/spdx')
     ->status_is(200)
     ->content_type_is('application/json')
     ->header_is('Content-Disposition' => 'attachment; filename="1.spdx.json"')
     ->json_has('/@graph');
 
   # Client that does not accept gzip gets the report decompressed on the fly, without a gzip encoding
-  $t->get_ok('/spdx/1' => {'Accept-Encoding' => 'identity'})
+  $t->get_ok('/documents/1/spdx' => {'Accept-Encoding' => 'identity'})
     ->status_is(200)
     ->content_type_is('application/json')
     ->header_is('Content-Encoding'    => undef)
     ->header_is('Content-Disposition' => 'attachment; filename="1.spdx.json"')
     ->json_has('/@graph');
 
+  # The generic route serves the same document, and every other one the registry lists
+  $t->get_ok('/documents/1/spdx')
+    ->status_is(200)
+    ->content_type_is('application/json')
+    ->header_is('Content-Disposition' => 'attachment; filename="1.spdx.json"')
+    ->json_has('/@graph');
+  $t->get_ok('/documents/1/notice')
+    ->status_is(200)
+    ->content_type_is('text/plain')
+    ->header_is('Content-Disposition' => 'attachment; filename="1.NOTICE.txt"')
+    ->content_like(qr/^NOTICE for perl-Mojolicious/);
+  $t->get_ok('/documents/1/notice' => {'Accept-Encoding' => 'identity'})
+    ->status_is(200)
+    ->header_is('Content-Encoding' => undef)
+    ->content_like(qr/^NOTICE for perl-Mojolicious/);
+
+  # A format nothing registered is not a package that has not been built yet
+  $t->get_ok('/documents/1/cyclonedx')->status_is(404);
+
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
-my $path = $t->app->packages->spdx_report_path(1);
+my $path = $t->app->packages->document_path(1, 'spdx');
 my $doc  = read_report($path);
 my $g    = graph_index($doc);
 
@@ -134,12 +153,12 @@ subtest 'Legacy reports are cleaned up' => sub {
   my @legacy = qw(.report.spdx .report.processed.spdx .report.spdx.json .report.processed.spdx.json);
   $dir->child($_)->spew('legacy') for @legacy;
   ok -e $dir->child($_), "legacy report $_ exists" for @legacy;
-  ok $t->app->packages->has_spdx_report(1), 'the current report exists';
+  ok $t->app->packages->has_document(1, 'spdx'), 'the current report exists';
 
-  $t->app->packages->remove_spdx_report(1);
+  $t->app->packages->remove_documents(1);
 
-  ok !-e $dir->child($_),                    "legacy report $_ removed" for @legacy;
-  ok !$t->app->packages->has_spdx_report(1), 'current report removed';
+  ok !-e $dir->child($_),                         "legacy report $_ removed" for @legacy;
+  ok !$t->app->packages->has_document(1, 'spdx'), 'current report removed';
 };
 
 subtest 'Valid SPDX 3.0.1 JSON document' => sub {
@@ -725,35 +744,41 @@ subtest 'The dependency list says whether it is complete' => sub {
 subtest 'SPDX state drives the report page download button' => sub {
   my $pkgs   = $t->app->packages;
   my $minion = $t->app->minion;
-  $pkgs->remove_spdx_report(1);
+  $pkgs->remove_documents(1);
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
 
   # Earlier subtests left finished report jobs behind; a job that is done is not a job in flight
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'none');
-  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/spdx/state', 'none');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'none');
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/documents/state', 'none');
 
-  $t->post_ok('/spdx/1')->status_is(200)->json_is('/state', 'building');
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'building');
+  $t->post_ok('/documents/1')->status_is(200)->json_is('/state', 'building');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'building');
 
   # Clicking twice (or two reviewers on the same report) costs one job between them
-  $t->post_ok('/spdx/1')->status_is(200)->json_is('/state', 'building');
-  is $minion->jobs({tasks => ['spdx_report'], states => ['inactive', 'active'], notes => ['pkg_1']})->total, 1,
+  $t->post_ok('/documents/1')->status_is(200)->json_is('/state', 'building');
+  is $minion->jobs({tasks => ['documents'], states => ['inactive', 'active'], notes => ['pkg_1']})->total, 1,
     'exactly one report job is queued';
 
   $minion->perform_jobs;
   is $minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
-  ok $pkgs->has_spdx_report(1), 'package has SPDX report';
+  ok $pkgs->has_document(1, 'spdx'), 'package has SPDX report';
 
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'ready');
-  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/spdx/state', 'ready');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'ready');
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/documents/state', 'ready');
+
+  # Both documents come out of the one click, and each is offered on its own
+  my $state = $t->tx->res->json('/documents');
+  is_deeply [map { $_->{key} } @{$state->{documents}}],  ['spdx', 'notice'], 'every registered document is offered';
+  is_deeply [map { $_->{name} } @{$state->{documents}}], ['1.spdx.json',       '1.NOTICE.txt'], 'named for a download';
+  is_deeply [map { $_->{url} } @{$state->{documents}}],  ['/documents/1/spdx', '/documents/1/notice'], 'and linked';
 
   # The size is the one the download produces, which is the uncompressed report, not the file on disk
-  my $state = $t->tx->res->json('/spdx');
-  my $path  = $pkgs->spdx_report_path(1);
+  my $path = $pkgs->document_path(1, 'spdx');
   gunzip("$path" => \my $buffer) or die "gunzip failed: $GunzipError";
-  is $pkgs->spdx_report_size(1), length($buffer), 'the reported size is the uncompressed one';
+  my ($ready) = grep { $_->{key} eq 'spdx' } @{$pkgs->ready_documents(1)};
+  is $ready->{size}, length($buffer), 'the reported size is the uncompressed one';
   ok length($buffer) > -s $path, 'and it is bigger than the file on disk';
-  like $state->{size}, qr/^[\d.]+\s?\w+$/, 'the button gets a human readable size';
+  like $state->{documents}[0]{size}, qr/^[\d.]+\s?\w+$/, 'the control gets a human readable size';
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -763,12 +788,12 @@ subtest 'SPDX state drives the report page download button' => sub {
 subtest 'A report job waits for whoever is holding the package' => sub {
   my $pkgs   = $t->app->packages;
   my $minion = $t->app->minion;
-  $pkgs->remove_spdx_report(1);
+  $pkgs->remove_documents(1);
 
   my $guard = $pkgs->claim_guard(1, 99999);
   ok $guard, 'package claimed by somebody else';
 
-  my $id = $minion->enqueue('spdx_report' => [1] => {notes => {pkg_1 => 1}});
+  my $id = $minion->enqueue('documents' => [1] => {notes => {pkg_1 => 1}});
 
   # Perform exactly one attempt: perform_jobs would drain the queue, and on a slow runner a single loop
   # iteration outlasts the few-second first-retry delay, so the freshly delayed job becomes ready again
@@ -776,7 +801,7 @@ subtest 'A report job waits for whoever is holding the package' => sub {
   my $worker = $minion->worker->register;
   $worker->dequeue(0, {id => $id})->perform;
   $worker->unregister;
-  ok !$pkgs->has_spdx_report(1), 'no report was written';
+  ok !$pkgs->has_document(1, 'spdx'), 'no report was written';
 
   my $info = $minion->job($id)->info;
   is $info->{state},                               'inactive', 'the job went back into the queue instead of finishing';
@@ -789,7 +814,7 @@ subtest 'A report job waits for whoever is holding the package' => sub {
 
   # Which is what keeps the button spinning while the wait lasts
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'building');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'building');
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 
   # Once the holder lets go, the retry finds the package free and writes the report
@@ -797,7 +822,7 @@ subtest 'A report job waits for whoever is holding the package' => sub {
   $minion->job($id)->retry;
   $minion->perform_jobs;
   is $minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
-  ok $pkgs->has_spdx_report(1), 'package has SPDX report';
+  ok $pkgs->has_document(1, 'spdx'), 'package has SPDX report';
 };
 
 subtest 'SPDX report is obsolete' => sub {
@@ -805,11 +830,11 @@ subtest 'SPDX report is obsolete' => sub {
 
   is $t->app->pg->db->query('UPDATE bot_packages SET obsolete = true WHERE id = any(?)', [1])->rows, 1,
     'one package obsoleted';
-  $t->get_ok('/spdx/1')->status_is(410)->content_like(qr/package is obsolete/);
+  $t->get_ok('/documents/1/spdx')->status_is(410)->content_like(qr/package is obsolete/);
 
   # And the button says so rather than offering a report that can never be built
-  $t->post_ok('/spdx/1')->status_is(410)->json_is('/state', 'unavailable');
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/spdx/state', 'unavailable');
+  $t->post_ok('/documents/1')->status_is(410)->json_is('/state', 'unavailable');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'unavailable');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
