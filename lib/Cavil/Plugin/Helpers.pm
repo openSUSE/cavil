@@ -208,7 +208,13 @@ sub _report_details ($c, $pkg, $report) {
   for my $risk (keys %$risks) {
     my @licenses;
     my $bucket = $risks->{$risk};
-    for my $lic (sort keys %$bucket) {
+
+    # Identified licenses first, placeholders after, each group by name. Inside one risk they are equally
+    # urgent, but they are not equally useful: a reviewer wants the licenses Cavil could name before the
+    # markers that name nothing, and alphabetically an "Any ..." would often land at the top.
+    my @order
+      = sort { ($bucket->{$a}{catch_all} ? 1 : 0) <=> ($bucket->{$b}{catch_all} ? 1 : 0) || $a cmp $b } keys %$bucket;
+    for my $lic (@order) {
       my $matches = $bucket->{$lic};
       my $display = $matches->{spdx} || $matches->{name};
       push @licenses, {

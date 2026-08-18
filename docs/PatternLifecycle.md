@@ -66,7 +66,9 @@ tells you whether that is GPL-2.0, GPL-3.0, or either. Here the license *is* kno
 obligations is not.
 
 Both kinds go on the report and both carry a risk, but neither counts as having identified the license, so neither is
-ever written into an SBOM and neither is enough on its own to sweep a related snippet aside. Cavil recognises them
+ever written into an SBOM and neither is enough on its own to sweep a related snippet aside. A report says so twice
+over: within each risk they are listed after everything Cavil could actually name, and each one carries a small `*`
+after its name. Cavil recognises them
 purely by their name, which makes the name you type when you create a pattern the decision itself: start it with
 `Any ` or end it with `-Unspecified` and it is treated as a placeholder, write anything else and Cavil takes you at
 your word that this is a real, identified license.

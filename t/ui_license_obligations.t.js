@@ -218,8 +218,8 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
     });
 
     // A grab-bag license names nothing identifiable, which is why it has no panel above. The list says so
-    // with a footnote mark on the name, and an identified license must not carry one.
-    await t.test('a grab-bag license is marked as a placeholder', async t => {
+    // with a footnote mark on the name, and sorts it below everything Cavil could actually name.
+    await t.test('a grab-bag license is marked as a placeholder and sorted last', async t => {
       const grabBag = page.locator('.risk-license-item', {hasText: 'Any reference local'});
       t.equal(await grabBag.count(), 1, 'the grab-bag license is on the report');
       t.equal(await grabBag.locator('.risk-license-name .risk-license-catch-all').count(), 1, 'and it is marked');
@@ -229,6 +229,16 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         'the mark explains itself on hover'
       );
       t.equal(await apacheItem.locator('.risk-license-catch-all').count(), 0, 'an identified license has no mark');
+
+      // "Any reference local" sorts before "Apache-2.0" by name, so last place can only come from the
+      // placeholders-after-identified rule
+      const names = await page.locator('.risk-license-item .risk-license-name').allInnerTexts();
+      t.ok(names.length > 2, `the bucket holds several licenses (${names.length})`);
+      t.match(names[names.length - 1], /Any reference local/, 'the placeholder is last');
+      t.ok(
+        names.indexOf('Apache-2.0') >= 0 && names.indexOf('Apache-2.0') < names.length - 1,
+        'an identified license comes before it despite sorting later by name'
+      );
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);

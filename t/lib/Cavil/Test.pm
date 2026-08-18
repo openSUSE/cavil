@@ -1162,12 +1162,9 @@ sub obligations_fixtures ($self, $app) {
   $app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-1.0',   license => 'MPL-1.0');
 
   # A grab-bag license, which names nothing identifiable and so carries neither an SPDX expression nor a
-  # panel. The report marks it as a placeholder instead.
-  $app->patterns->create(
-    pattern => 'License: see the accompanying LICENSE file',
-    license => 'Any reference local',
-    risk    => 3
-  );
+  # panel. The report marks it as a placeholder instead. It shares the risk of the licenses above and
+  # sorts before "Apache-2.0" by name, so it also pins the "placeholders last" ordering.
+  $app->patterns->create(pattern => 'License: see the accompanying LICENSE file', license => 'Any reference local');
 
   $app->pg->db->query(
     'UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?, ?, ?, ?)',
