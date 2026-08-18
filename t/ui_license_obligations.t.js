@@ -218,17 +218,25 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
     });
 
     // A grab-bag license names nothing identifiable, which is why it has no panel above. The list says so
-    // with a footnote mark on the name, and sorts it below everything Cavil could actually name.
-    await t.test('a grab-bag license is marked as a placeholder and sorted last', async t => {
+    // by sorting it below everything Cavil could name, and by softening its name there.
+    await t.test('a grab-bag license is softened and sorted last', async t => {
       const grabBag = page.locator('.risk-license-item', {hasText: 'Any reference local'});
       t.equal(await grabBag.count(), 1, 'the grab-bag license is on the report');
-      t.equal(await grabBag.locator('.risk-license-name .risk-license-catch-all').count(), 1, 'and it is marked');
-      t.equal(
-        await grabBag.locator('.risk-license-catch-all').getAttribute('title'),
-        'Placeholder, not an identified license',
-        'the mark explains itself on hover'
+      t.equal(await grabBag.evaluate(el => el.classList.contains('is-catch-all')), true, 'the row is flagged');
+      t.equal(await apacheItem.evaluate(el => el.classList.contains('is-catch-all')), false, 'the others are not');
+      t.not(
+        await grabBag.locator('.risk-license-name').evaluate(el => getComputedStyle(el).color),
+        await apacheItem.locator('.risk-license-name').first().evaluate(el => getComputedStyle(el).color),
+        'and its name is painted softer than an identified one'
       );
-      t.equal(await apacheItem.locator('.risk-license-catch-all').count(), 0, 'an identified license has no mark');
+
+      // Both carry a single file, so only the placeholder rule can be keeping this one shut
+      t.equal(await grabBag.locator('.risk-file-list').isVisible(), false, 'its file list starts closed');
+      t.equal(
+        await apacheItem.locator('.risk-file-list').first().isVisible(),
+        true,
+        'an identified license with as many files starts open'
+      );
 
       // "Any reference local" sorts before "Apache-2.0" by name, so last place can only come from the
       // placeholders-after-identified rule

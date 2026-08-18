@@ -181,17 +181,15 @@
               <div :class="['badge', riskBadgeClass(risk)]">Risk {{ risk }}</div>
             </h4>
             <ul :id="'risk-' + risk" class="risk-license-list">
-              <li v-for="lic in risks[risk]" :key="lic.list_id" class="risk-license-item">
+              <li
+                v-for="lic in risks[risk]"
+                :key="lic.list_id"
+                class="risk-license-item"
+                :class="{'is-catch-all': lic.catch_all}"
+              >
                 <div class="risk-license-row">
                   <span class="risk-license-label">
-                    <span class="risk-license-name"
-                      ><span v-html="lic.name_html"></span
-                      ><i
-                        v-if="lic.catch_all"
-                        class="fa-solid fa-asterisk risk-license-catch-all"
-                        title="Placeholder, not an identified license"
-                      ></i
-                    ></span>
+                    <span class="risk-license-name" v-html="lic.name_html"></span>
                     <span v-if="lic.new" class="risk-new">new</span>
                     <span v-if="lic.scope" class="risk-license-scope">only in {{ scopeLabel(lic.scope) }}</span>
                   </span>
@@ -803,7 +801,9 @@ export default {
         for (const lic of data.risks[risk]) {
           counter += 1;
           lic.list_id = `filelist-${counter}`;
-          lic.list_class = lic.files.length > 3 ? 'collapse' : 'collapse show';
+          // A placeholder's file list stays closed however short it is: it says which files carry text that
+          // names no license, which is not what a reviewer opens the bucket for
+          lic.list_class = lic.catch_all || lic.files.length > 3 ? 'collapse' : 'collapse show';
           if (max && lic.files.length > max + 1) {
             lic.shown_files = lic.files.slice(0, max + 1);
             lic.more_files = lic.files.length - (max + 1);
@@ -1454,12 +1454,12 @@ export default {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* Marks a license that names no identifiable license. It sits on rows that can outnumber the real
-   licenses, so it stays a footnote mark: no enclosure, well below the name's weight. */
-.risk-license-catch-all {
-  color: var(--cavil-fg-subtle);
-  font-size: 0.7em;
-  vertical-align: super;
+/* A license that names nothing identifiable. These sort to the end of every bucket, so softening the name
+   there dims one block rather than scattering hard-to-read names through the list, and the licenses Cavil
+   could actually name keep the full-strength treatment. Weight and size stay: this is a hint that the row
+   matters less, not a warning, and it still has to read as easily as the names above it. */
+.risk-license-item.is-catch-all .risk-license-name {
+  color: var(--cavil-fg-muted);
 }
 .risk-license-count {
   align-items: center;

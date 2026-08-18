@@ -171,15 +171,6 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await page.click('text=Licenses');
       t.equal(await page.innerText('title'), 'List licenses');
 
-      await page.waitForSelector('.known-licenses-list table tbody td.cavil-list-primary');
-      const rows = page.locator('.known-licenses-list table tbody tr');
-      const grabBag = rows.filter({hasText: 'Any reference local'});
-      const identified = rows.filter({hasText: 'Artistic-2.0'});
-      t.equal(await grabBag.count(), 1, 'the grab-bag license is listed');
-      t.equal(await identified.count(), 1, 'the identified license is listed');
-      t.equal(await grabBag.locator('.known-licenses-catch-all').count(), 1, 'grab-bag license is marked');
-      t.equal(await identified.locator('.known-licenses-catch-all').count(), 0, 'identified license carries no mark');
-
       await page.click('text=Artistic-2.0');
       t.equal(await page.innerText('title'), 'License details of Artistic-2.0');
       await page.waitForSelector('#license-details .license-pattern-card');

@@ -55,14 +55,7 @@
         </tbody>
         <tbody v-else-if="licenses.length > 0">
           <tr v-for="license in licenses" :key="license.link">
-            <td class="cavil-list-primary">
-              <span v-html="license.link"></span>
-              <i
-                v-if="license.catchAll"
-                class="fa-solid fa-asterisk known-licenses-catch-all"
-                title="Placeholder, not an identified license"
-              ></i>
-            </td>
+            <td class="cavil-list-primary" v-html="license.link"></td>
             <td v-html="license.spdxHtml"></td>
             <td>
               <span v-for="risk in license.risks" :key="risk" class="badge me-1" :class="badgeClass(risk)">{{
@@ -144,7 +137,6 @@ export default {
       for (const license of data.page) {
         licenses.push({
           link: licenseLink(license),
-          catchAll: license.catch_all,
           spdx: license.spdx,
           spdxHtml: license.spdx_html,
           risks: license.risks
@@ -172,11 +164,5 @@ export default {
 <style>
 .known-licenses-list.cavil-list-page {
   margin-top: 0 !important;
-}
-/* Same footnote mark as the report's license list, so the two surfaces read alike */
-.known-licenses-catch-all {
-  color: var(--cavil-fg-subtle);
-  font-size: 0.7em;
-  vertical-align: super;
 }
 </style>
