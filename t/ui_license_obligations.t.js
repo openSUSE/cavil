@@ -217,6 +217,20 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       t.ok(await apacheItem.isVisible(), 'and the reviewer is back where they were');
     });
 
+    // A grab-bag license names nothing identifiable, which is why it has no panel above. The list says so
+    // with a footnote mark on the name, and an identified license must not carry one.
+    await t.test('a grab-bag license is marked as a placeholder', async t => {
+      const grabBag = page.locator('.risk-license-item', {hasText: 'Any reference local'});
+      t.equal(await grabBag.count(), 1, 'the grab-bag license is on the report');
+      t.equal(await grabBag.locator('.risk-license-name .risk-license-catch-all').count(), 1, 'and it is marked');
+      t.equal(
+        await grabBag.locator('.risk-license-catch-all').getAttribute('title'),
+        'Placeholder, not an identified license',
+        'the mark explains itself on hover'
+      );
+      t.equal(await apacheItem.locator('.risk-license-catch-all').count(), 0, 'an identified license has no mark');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     delete process.env.JS_UI_FIXTURES;

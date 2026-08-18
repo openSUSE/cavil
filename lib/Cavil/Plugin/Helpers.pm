@@ -215,6 +215,7 @@ sub _report_details ($c, $pkg, $report) {
         name      => $matches->{name},
         spdx      => $matches->{spdx},
         name_html => spdx_link($display),
+        catch_all => $matches->{catch_all} ? \1 : \0,
         flags     => $matches->{flags} // [],
         files     => $matches->{files},
 

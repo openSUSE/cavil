@@ -524,6 +524,17 @@ sub ui_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 
   $self->mojo_fixtures($app);
+
+  # A grab-bag license for the license list to show next to the identified ones. Its text deliberately
+  # appears in none of the fixture packages: the reports here are navigated by file id and risk bucket,
+  # and one more match would renumber the files and put one file in two buckets.
+  $app->patterns->create(
+    pattern   => 'distributed under the same license as the accompanying package, see its LICENSE file',
+    license   => 'Any reference local',
+    risk      => 3,
+    unique_id => '413430b9-8f04-49d8-93ef-953b68835d56'
+  );
+
   my $pkgs = $app->packages;
   $pkgs->unpack($_) for 1 .. 2;
 
@@ -1150,6 +1161,14 @@ sub obligations_fixtures ($self, $app) {
   $app->patterns->create(pattern => 'SPDX-License-Identifier: CC-BY-4.0', license => 'CC-BY-4.0');
   $app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-1.0',   license => 'MPL-1.0');
 
+  # A grab-bag license, which names nothing identifiable and so carries neither an SPDX expression nor a
+  # panel. The report marks it as a placeholder instead.
+  $app->patterns->create(
+    pattern => 'License: see the accompanying LICENSE file',
+    license => 'Any reference local',
+    risk    => 3
+  );
+
   $app->pg->db->query(
     'UPDATE license_patterns SET spdx = license WHERE license IN (?, ?, ?, ?, ?, ?)',
     'Apache-2.0',
@@ -1187,6 +1206,7 @@ SPEC
     ->spew("# SPDX-License-Identifier: GPL-2.0-or-later WITH Classpath-exception-2.0\n\nBase plus an exception.\n");
   $src->child('details_file.txt')->spew("# SPDX-License-Identifier: CC-BY-4.0\n\nDocumentation, not code.\n");
   $src->child('no_fsf_file.txt')->spew("# SPDX-License-Identifier: MPL-1.0\n\nThe FSF never ruled on this one.\n");
+  $src->child('reference_file.txt')->spew("# License: see the accompanying LICENSE file\n\nNothing is named here.\n");
   my $tarball = $dir->child("$name-1.0.tar.gz")->to_string;
   system('tar', '-czf', $tarball, '-C', $stage->to_string, "$name-1.0") == 0
     or die "Failed to create synthetic tarball: $?";

@@ -660,16 +660,16 @@ sub paginate_known_licenses ($self, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT license, spdx, risks, COUNT(*) OVER() AS total
+      SELECT license, spdx, catch_all, risks, COUNT(*) OVER() AS total
       FROM (
-        SELECT license, spdx, ARRAY_AGG(DISTINCT(risk)) AS risks,
+        SELECT license, spdx, catch_all, ARRAY_AGG(DISTINCT(risk)) AS risks,
           similarity(LOWER(license), LOWER(?)) AS score,
           CASE WHEN LOWER(license) IN (LOWER(?), ?) THEN 1 ELSE 0 END AS exact
         FROM (
-          SELECT DISTINCT(license), spdx, risk FROM license_patterns
+          SELECT DISTINCT(license), spdx, catch_all, risk FROM license_patterns
           $where
         ) AS licenses
-        GROUP BY license, spdx
+        GROUP BY license, spdx, catch_all
       ) AS licenses
       ORDER BY $order
       LIMIT ? OFFSET ?

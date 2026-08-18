@@ -715,7 +715,7 @@ sub _prime_pattern_cache {
   return unless %needed;
 
   my $found = $db->query(
-    'SELECT id, license, spdx, risk, patent, trademark, export_restricted, cla, eula
+    'SELECT id, license, spdx, risk, patent, trademark, export_restricted, cla, eula, catch_all
        FROM license_patterns WHERE id = ANY(?)', [keys %needed]
   )->hashes;
   for my $pattern ($found->each) {
@@ -757,8 +757,12 @@ sub _load_pattern_from_cache {
 sub _register_license {
   my ($self, $report, $pid_info, $pattern, $pid, $file, $source) = @_;
 
-  $report->{licenses}{$pattern->{license}}
-    ||= {name => $pattern->{license}, spdx => $pattern->{spdx}, risk => $pattern->{risk}};
+  $report->{licenses}{$pattern->{license}} ||= {
+    name      => $pattern->{license},
+    spdx      => $pattern->{spdx},
+    risk      => $pattern->{risk},
+    catch_all => $pattern->{catch_all}
+  };
   $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
     for qw(patent trademark export_restricted cla eula);
 
@@ -933,7 +937,8 @@ sub _sanitize_report {
       my $current = $current->{$lic} = {};
       my $license = $licenses->{$lic};
       my $name    = $current->{name} = $license->{name};
-      $current->{spdx} = $license->{spdx};
+      $current->{spdx}      = $license->{spdx};
+      $current->{catch_all} = $license->{catch_all} ? 1 : 0;
 
       my $matches = $risk->{$lic};
       my %files   = map { $_ => 1 } map {@$_} values %$matches;

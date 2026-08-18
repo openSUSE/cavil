@@ -184,7 +184,14 @@
               <li v-for="lic in risks[risk]" :key="lic.list_id" class="risk-license-item">
                 <div class="risk-license-row">
                   <span class="risk-license-label">
-                    <span class="risk-license-name" v-html="lic.name_html"></span>
+                    <span class="risk-license-name"
+                      ><span v-html="lic.name_html"></span
+                      ><i
+                        v-if="lic.catch_all"
+                        class="fa-solid fa-asterisk risk-license-catch-all"
+                        title="Placeholder, not an identified license"
+                      ></i
+                    ></span>
                     <span v-if="lic.new" class="risk-new">new</span>
                     <span v-if="lic.scope" class="risk-license-scope">only in {{ scopeLabel(lic.scope) }}</span>
                   </span>
@@ -1446,6 +1453,13 @@ export default {
   line-height: 1.35;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+/* Marks a license that names no identifiable license. It sits on rows that can outnumber the real
+   licenses, so it stays a footnote mark: no enclosure, well below the name's weight. */
+.risk-license-catch-all {
+  color: var(--cavil-fg-subtle);
+  font-size: 0.7em;
+  vertical-align: super;
 }
 .risk-license-count {
   align-items: center;
