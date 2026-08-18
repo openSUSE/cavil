@@ -130,19 +130,20 @@ my $SPDX_IDENTIFIER_RE        = do {
   qr/(?<![\w.+-])($identifiers)(?![\w.+-])/i;
 };
 
-# A "catch-all" license is a grab-bag / marker pseudo-license rather than a concrete, identifiable
-# one: the "Any ..." vocabulary (Any Permissive, Any reference local, ...), the version-less
-# "*-Unspecified" families (GPL-Unspecified, "LGPL Unspecified"), and the "All Rights Reserved" /
-# "Public-Domain" markers. This is the seed rule for the license_patterns.catch_all flag; it mirrors
-# the SQL backfill in migrations/cavil.sql. Composite expressions ending in "Unspecified" (e.g.
-# "MIT OR BSD-Unspecified") are swept in too, which is the safe direction for the "covered" gate
-# (they simply do not count as coverage), and can be hand-corrected on the license afterwards.
+# A "catch-all" license names nothing anyone could distribute under, and the name has to say so. Two
+# naming conventions for two different reasons: the "Any ..." vocabulary (Any Permissive, Any reference
+# local, ...) is license-shaped text we decline to identify, and the "-Unspecified" suffix is a family
+# whose version the text does not pin down (GPL-Unspecified). Neither counts as coverage for the "covered"
+# gate, and neither reaches SPDX output. The name is the only source of truth: license_patterns.catch_all
+# is derived from it on every write, so renaming a license is the only way to change the flag.
+#
+# One placeholder anywhere in an expression makes the whole expression one, whichever side of the operator
+# it is on: "MIT OR BSD-Unspecified" and "BSD-Unspecified OR MIT" are the same statement, and an anchored
+# rule would have flagged only the first. Being told "MIT, or some BSD" still leaves the BSD unidentified,
+# and the fragment that would have named it is exactly what the "covered" gate must not sweep away.
 sub license_is_catch_all ($license) {
   return 0 unless defined $license && length $license;
-  return 1 if $license =~ /^Any /;
-  return 1 if $license =~ /Unspecified$/;
-  return 1 if $license eq 'All Rights Reserved' || $license eq 'Public-Domain';
-  return 0;
+  return $license =~ /(?:^|[\s(])Any / || $license =~ /-Unspecified(?:[\s)]|$)/ ? 1 : 0;
 }
 
 # File names are the bytes the filesystem uses, but they reach us through JSON manifests, Minion job

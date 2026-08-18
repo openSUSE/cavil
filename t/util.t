@@ -582,12 +582,12 @@ subtest 'obs_ssh_auth' => sub {
 };
 
 subtest 'license_is_catch_all' => sub {
-  ok license_is_catch_all('Any Permissive'),      'an "Any ..." grab-bag is catch_all';
-  ok license_is_catch_all('Any reference local'), 'another "Any ..." grab-bag is catch_all';
-  ok license_is_catch_all('GPL-Unspecified'),     'a version-less family marker is catch_all';
-  ok license_is_catch_all('LGPL Unspecified'),    'the space-separated variant is catch_all';
-  ok license_is_catch_all('All Rights Reserved'), 'the proprietary default marker is catch_all';
-  ok license_is_catch_all('Public-Domain'),       'the public-domain marker is catch_all';
+  ok license_is_catch_all('Any Permissive'),          'an "Any ..." grab-bag is catch_all';
+  ok license_is_catch_all('Any reference local'),     'another "Any ..." grab-bag is catch_all';
+  ok license_is_catch_all('Any Public Domain'),       'the public-domain marker is catch_all';
+  ok license_is_catch_all('Any All Rights Reserved'), 'the proprietary default marker is catch_all';
+  ok license_is_catch_all('GPL-Unspecified'),         'a version-less family marker is catch_all';
+  ok license_is_catch_all('LGPL-Unspecified'),        'another version-less family marker is catch_all';
 
   ok !license_is_catch_all('MIT'),                            'a concrete SPDX license is not catch_all';
   ok !license_is_catch_all('GPL-2.0 WITH Linking-exception'), 'a concrete WITH-exception license is not catch_all';
@@ -595,8 +595,20 @@ subtest 'license_is_catch_all' => sub {
   ok !license_is_catch_all(''),                               'the empty (keyword) license is not catch_all';
   ok !license_is_catch_all(undef),                            'undef is not catch_all';
 
-  # Composite expressions ending in "Unspecified" are swept in (the safe direction for coverage)
-  ok license_is_catch_all('MIT OR BSD-Unspecified'), 'a composite ending in Unspecified is treated as catch_all';
+  # One placeholder anywhere in an expression makes the whole expression one, on either side of the operator
+  ok license_is_catch_all('MIT OR BSD-Unspecified'),  'a composite naming an unspecified family is catch_all';
+  ok license_is_catch_all('BSD-Unspecified OR MIT'),  'and so is the same statement written the other way round';
+  ok license_is_catch_all('MIT AND BSD-Unspecified'), 'an unspecified half of an AND leaves it unknown too';
+  ok license_is_catch_all('BSD-3-Clause AND Any Permissive'),     'a grab-bag component counts the same';
+  ok license_is_catch_all('GPL-Unspecified WITH Font-Exception'), 'a version-less family carrying an exception';
+  ok license_is_catch_all('(LGPL-Unspecified AND GPL-Unspecified) OR MIT'), 'components inside parentheses count';
+
+  # Both conventions have to be spelled exactly, or the name no longer announces the flag
+  ok !license_is_catch_all('LGPL Unspecified'), 'the space-separated variant is not catch_all';
+  ok !license_is_catch_all('Anything'),         'a license merely starting with "Any" is not catch_all';
+  ok !license_is_catch_all('GPL-2.0 WITH Unspecified-Exception'),
+    'the suffix has to end a component, so an unknown exception has to be named "Exception-Unspecified"';
+  ok !license_is_catch_all('LicenseRef-SUSE-Public-Domain'), 'a LicenseRef is an identified license';
 };
 
 subtest 'incoming_priority' => sub {

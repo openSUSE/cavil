@@ -10,7 +10,7 @@
       [
          2,
          {
-            "name" : "SUSE-FSF",
+            "name" : "Any FSF",
             "pid" : 23013,
             "end": 2,
             "nextend": 8,
@@ -179,7 +179,7 @@
       [
          2,
          {
-            "name" : "SUSE-FSF",
+            "name" : "Any FSF",
             "pid" : 23013,
             "risk" : 0
          },

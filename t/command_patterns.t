@@ -400,7 +400,7 @@ subtest 'Catch-all flag' => sub {
   my $patterns = $app->patterns;
   my $db       = $app->pg->db;
 
-  # create() derives the flag from the license name (and inherits it for further patterns)
+  # create() derives the flag from the license name, for every pattern of the license
   $patterns->create(pattern => 'catch all marker one', license => 'Any Permissive');
   $patterns->create(pattern => 'catch all marker two', license => 'Any Permissive');
   is $db->query("SELECT count(*) c FROM license_patterns WHERE license = 'Any Permissive' AND catch_all")->hash->{c},
@@ -470,6 +470,46 @@ subtest 'Catch-all flag' => sub {
     is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 0,
       'editing back to a concrete license clears catch_all';
   };
+
+  subtest 'The "-Unspecified" suffix is the other half of the rule' => sub {
+    my $p = $patterns->create(pattern => 'a version-less family marker', license => 'Fictional-Unspecified');
+    is $p->{catch_all}, 1, 'a family named without a version is catch_all on create';
+
+    $patterns->update($p->{id}, pattern => 'a version-less family marker', license => 'Fictional-1.0');
+    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 0,
+      'pinning the version down clears catch_all';
+
+    $patterns->update($p->{id}, pattern => 'a version-less family marker', license => 'Fictional-Unspecified');
+    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 1,
+      'and taking it away again sets it back';
+
+    # Both conventions have to be spelled exactly, or the name stops announcing the flag
+    $patterns->update($p->{id}, pattern => 'a version-less family marker', license => 'Fictional Unspecified');
+    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 0,
+      'the space-separated variant is not the convention';
+  };
+
+  subtest 'A mislabelled sibling cannot teach a new pattern the wrong flag' => sub {
+    $db->query("UPDATE license_patterns SET catch_all = false WHERE license = 'Any Permissive'");
+    my $grab_bag = $patterns->create(pattern => 'a sibling of a mislabelled grab-bag', license => 'Any Permissive');
+    is $grab_bag->{catch_all}, 1, 'the name decides, not the rows already stored under it';
+
+    $db->query("UPDATE license_patterns SET catch_all = true WHERE license = 'Apache-2.0'");
+    my $concrete = $patterns->create(pattern => 'a sibling of a mislabelled concrete license', license => 'Apache-2.0');
+    is $concrete->{catch_all}, 0, 'and it decides in the other direction too';
+
+    $patterns->update(
+      $concrete->{id},
+      pattern => 'a sibling of a mislabelled concrete license',
+      license => 'Apache-2.0'
+    );
+    is $db->select('license_patterns', 'catch_all', {id => $concrete->{id}})->hash->{catch_all}, 0,
+      'an edit that leaves the license alone does not pick the wrong flag up either';
+
+    # The mislabelled rows are hand-written, so hand them back before the next subtest reads them
+    $db->query("UPDATE license_patterns SET catch_all = true  WHERE license = 'Any Permissive'");
+    $db->query("UPDATE license_patterns SET catch_all = false WHERE license = 'Apache-2.0'");
+  };
 };
 
 subtest 'Shingle backfill' => sub {
@@ -519,7 +559,7 @@ subtest 'Backfill SPDX identifier patterns' => sub {
     is $new->{license},   'Apache-2.0', 'license name';
     is $new->{spdx},      'Apache-2.0', 'inherited SPDX expression';
     is $new->{risk},      5,            'inherited risk';
-    is $new->{catch_all}, 0,            'inherited catch_all flag';
+    is $new->{catch_all}, 0,            'catch_all derived from the license name';
   };
 
   subtest 'Identifier pattern is matchable' => sub {

@@ -825,12 +825,12 @@ directory scope, anywhere in the same directory). The license is already on the 
 
 Three guards make this safe, and they are the whole point:
 
-- **Only a concrete license counts as coverage.** Cavil's vocabulary includes grab-bag "licenses" - `Any Permissive`,
-  `Any reference local`, `All Rights Reserved`, the version-less `GPL-Unspecified` family - that record "there is
-  *something* here" without identifying a real, distributable license. These are flagged `catch_all` and never count as
-  coverage. This matters: a file whose only match is `All Rights Reserved` might actually carry a real license (say,
-  the Ruby or JasPer license) that only the unresolved fragment names - clearing that fragment against the weak marker
-  would hide the one piece of real information. So coverage requires a genuine, identifiable license. The overlap-clear
+- **Only a concrete license counts as coverage.** Cavil's vocabulary includes grab-bag "licenses" - everything named
+  `Any ...`, and the version-less `...-Unspecified` families - that record "there is *something* here" without
+  identifying a real, distributable license. These are flagged `catch_all` and never count as coverage. This matters: a
+  file whose only match is a grab-bag marker might actually carry a real license (say, the Ruby or JasPer license) that
+  only the unresolved fragment names - clearing that fragment against the weak marker would hide the one piece of real
+  information. So coverage requires a genuine, identifiable license. The overlap-clear
   path applies the same rule: a snippet that overlaps *only* grab-bag markers is not cleared, because those markers are
   not the "genuine license declaration already on the report" that overlap-clear is premised on.
 - **Risk-monotonic.** A fragment is only covered when the established license is at least as risky as the fragment's own
@@ -901,7 +901,9 @@ For readers who want to trace this through the database, the tables involved are
 
 * `license_patterns` - the patterns themselves, including their license name, risk, global-vs-package scope, a
   uniquely-indexed checksum that prevents duplicates from being stored, and a per-license `catch_all` flag marking
-  grab-bag/marker pseudo-licenses (so only concrete licenses count as coverage for the `covered` resolution).
+  grab-bag/marker pseudo-licenses (so only concrete licenses count as coverage for the `covered` resolution). The flag
+  is derived from the license name and never set by hand: any component of the name that starts with `Any ` or ends in
+  `-Unspecified` makes the whole license one.
 * `pattern_matches` - one row per match found in a file, recording the pattern, the file, and the line range.
 * `snippets` and `file_snippets` - the extracted keyword regions and where they were found; `file_snippets.resolution`
   stores each occurrence's automated decision (`fold` / `clear` / `overlap` / `covered`, or empty for unresolved).

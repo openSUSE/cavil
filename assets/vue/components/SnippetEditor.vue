@@ -361,7 +361,7 @@ export default {
       smartEditBusy: false,
       riskHtml:
         '<b>Low risk licenses</b><br>' +
-        '<b>1:</b> Public-Domain<br>' +
+        '<b>1:</b> Public Domain<br>' +
         '<b>2:</b> BSD-2-Clause, MIT<br>' +
         '<b>3:</b> LGPL-2.0-only, LGPL-2.1-or-later<br>' +
         '<b>4:</b> GPL-2.0-only, GPL-3.0-or-later<br>' +

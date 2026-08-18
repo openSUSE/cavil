@@ -369,15 +369,15 @@ sub score_package_snippets ($self, $package_id, $generation = 0) {
   $tx->commit;
 }
 
-# spdx and catch_all are shared by every pattern of a license, not per-pattern form fields: inherit them
-# from an existing sibling pattern of the same license. For a brand-new license there is no sibling, so
-# fall back to an empty identifier and a catch_all derived from the license name. On updates pass the
-# pattern's own id as $exclude_id so it never inherits stale values from itself.
+# spdx is shared by every pattern of a license, not a per-pattern form field: inherit it from an existing
+# sibling pattern of the same license (a brand-new license has none, and gets an empty identifier). On
+# updates pass the pattern's own id as $exclude_id so it never inherits a stale value from itself.
+# catch_all is not inherited, it follows from the license name, which is what keeps the two in step.
 sub _license_properties ($self, $db, $license, $exclude_id = undef) {
   my %props = (spdx => '', catch_all => license_is_catch_all($license) ? 1 : 0);
   return \%props unless defined $license && length $license;
 
-  my $sql  = 'SELECT spdx, catch_all FROM license_patterns WHERE license = ?';
+  my $sql  = 'SELECT spdx FROM license_patterns WHERE license = ?';
   my @bind = ($license);
   if (defined $exclude_id) {
     $sql .= ' AND id <> ?';
@@ -385,7 +385,7 @@ sub _license_properties ($self, $db, $license, $exclude_id = undef) {
   }
   $sql .= ' LIMIT 1';
 
-  if (my $sibling = $db->query($sql, @bind)->hash) { @props{qw(spdx catch_all)} = @{$sibling}{qw(spdx catch_all)} }
+  if (my $sibling = $db->query($sql, @bind)->hash) { $props{spdx} = $sibling->{spdx} }
   return \%props;
 }
 
@@ -428,9 +428,11 @@ sub create ($self, %args) {
 # token_hexsum unique index) and maintain its shingles. Fills in token_hexsum from the pattern text when
 # absent. Returns the new id, or undef when a pattern with the same checksum already exists. Unlike create()
 # it takes the row verbatim (no property inheritance) and does NOT expire caches - the caller expires once
-# when the whole batch is done.
+# when the whole batch is done. catch_all is the one field it will not take on trust: an imported file that
+# claims something other than what the license name says would put drift back into the column.
 sub insert_pattern ($self, $row) {
   my $db = $self->pg->db;
+  $row->{catch_all} = license_is_catch_all($row->{license}) ? 1 : 0;
   $row->{token_hexsum} //= pattern_checksum($row->{pattern});
   return undef unless my $new = $db->insert('license_patterns', $row, {on_conflict => undef, returning => 'id'})->hash;
   $self->sync_pattern_shingles($db, $new->{id}, $row->{license} // '', $row->{pattern});

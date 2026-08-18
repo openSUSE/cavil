@@ -263,8 +263,8 @@ correct flag automatically (names match case-insensitively):
 | `Any reference remote` | a pointer to a license at a URL ("License: http://…") |
 | `Any Permissive` | a permissive grant that names no specific license ("free to use for any purpose", "may be freely copied and distributed") |
 | `Any floating warranty` / `Any no warranty` | a standalone warranty disclaimer with no license ("no warranty; not even for MERCHANTABILITY…") |
-| `GPL-Unspecified` / `LGPL Unspecified` / `BSD-Unspecified` | the license family named without a resolvable version |
-| `Public-Domain` / `Any Proprietary` | public-domain dedications / proprietary-license notices |
+| `GPL-Unspecified` / `LGPL-Unspecified` / `BSD-Unspecified` | the license family named without a resolvable version |
+| `Any Public Domain` / `Any Proprietary` | public-domain dedications / proprietary-license notices |
 
 Build the pattern as usual: `$SKIP` the subject, keep the legally meaningful core. These are
 **language-independent** - a recognizable patent/trademark/CLA/EULA notice in any language gets
