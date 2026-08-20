@@ -66,7 +66,23 @@ export function setupPopoverDelayed() {
   setTimeout(setupPopover, 1);
 }
 
+// Lawyers triage by "has the review agent been here yet", so the two states swap the glyph on one
+// element: a muted note for any relevant note, an accented check for a review note.
+function notesLink(review) {
+  const state = review.relevant_note;
+  if (!state) return '';
+  const isReview = state === 'review';
+  const icon = isReview ? 'fa-solid fa-clipboard-check' : 'fa-regular fa-note-sticky';
+  const label = isReview
+    ? 'A review note applies to this report'
+    : 'A note applies to this report, but no review note yet';
+  return ` <a class="cavil-list-notes${isReview ? ' is-review' : ''}" href="/reviews/details/${review.id}#notes"
+    title="${label}" aria-label="${label}"><i class="${icon}"></i></a>`;
+}
+
 function linkWithContext(html, review) {
+  html = `${html}${notesLink(review)}`;
+
   const unresolved = review.unresolved_matches;
   if (unresolved !== 0) html = `${html} <div class="badge cavil-risk-unknown-badge">${unresolved}</div>`;
 

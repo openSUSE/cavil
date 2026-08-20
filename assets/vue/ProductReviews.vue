@@ -59,6 +59,17 @@
 
     <template #controls>
       <button
+        id="cavil-pkg-annotated"
+        @click="toggleFilter('annotated')"
+        :aria-pressed="params.annotated.toString()"
+        :class="{'is-active': params.annotated}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.annotated" class="fa-solid fa-check" aria-hidden="true"></i>
+        Annotated
+      </button>
+      <button
         id="cavil-pkg-attention"
         @click="toggleFilter('attention')"
         :aria-pressed="params.attention.toString()"
@@ -199,6 +210,7 @@ export default {
     const params = getParams({
       limit: 10,
       offset: 0,
+      annotated: false,
       attention: false,
       unresolvedMatches: false,
       patent: false,
@@ -284,6 +296,7 @@ export default {
     ...genParamWatchers(
       'limit',
       'offset',
+      'annotated',
       'attention',
       'unresolvedMatches',
       'patent',

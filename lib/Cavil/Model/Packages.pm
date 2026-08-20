@@ -4,6 +4,7 @@
 package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
+use Cavil::Model::Notes qw(relevance_predicate);
 use Cavil::Util qw(checkout_path incoming_priority md5_file paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP),
   qw(PRIORITY_WAITING @LICENSE_FLAGS);
 use Mojo::File qw(path);
@@ -453,6 +454,27 @@ sub old_reviews ($self, $pkg) {
   )->hashes->to_array;
 }
 
+# Reviews a note applies to, or that none applies to, optionally narrowed to one tag (how the agent
+# asks for what it has not annotated yet). Empty unless asked for, so a listing that does not filter
+# on notes keeps the plan it has today.
+#
+# Resolve the annotated ids first and match on those; correlating the relevance predicate with each
+# candidate row instead costs 300ms on the production docket, because the planner then re-evaluates
+# it once per (review, note) pair. IN is safe, the subquery yields a primary key.
+sub _annotated_filter ($db, $options) {
+  return '' if ($options->{notes} // 'any') eq 'any';
+
+  my $not    = $options->{notes} eq 'without'  ? 'NOT'                                  : '';
+  my $tag    = $options->{notes_tag}           ? $db->dbh->quote($options->{notes_tag}) : '';
+  my $lawyer = $options->{include_lawyer_only} ? ''                                     : 'AND c.lawyer_only = false';
+
+  return "AND id $not IN (SELECT p.id FROM bot_packages p
+                            JOIN package_notes c ON c.package_name = p.name
+                            LEFT JOIN bot_packages np ON c.package = np.id
+                           WHERE "
+    . relevance_predicate('p') . " $lawyer" . ($tag ? " AND c.tags @> ARRAY[$tag]::text[]" : '') . ')';
+}
+
 sub paginate_open_reviews ($self, $options) {
   my $db = $self->pg->db;
 
@@ -478,13 +500,15 @@ sub paginate_open_reviews ($self, $options) {
     $embargoed = 'AND embargoed = false';
   }
 
+  my $notes = _annotated_filter($db, $options);
+
   my $results = $db->query(
     qq{
       SELECT id, name, EXTRACT(EPOCH FROM created) as created_epoch, EXTRACT(EPOCH FROM imported) as imported_epoch,
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
         priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages
-      WHERE state = 'new' AND obsolete = FALSE $priority $search $progress $embargoed
+      WHERE state = 'new' AND obsolete = FALSE $priority $search $progress $embargoed $notes
       ORDER BY priority DESC, external_link, unresolved_matches, name
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
@@ -544,6 +568,8 @@ sub paginate_product_reviews ($self, $name, $options) {
     $eula = 'AND eula = true';
   }
 
+  my $notes = _annotated_filter($db, $options);
+
   my $results = $db->query(
     qq{
       SELECT bot_packages.name, bot_packages.id, EXTRACT(EPOCH FROM imported) as imported_epoch,
@@ -551,7 +577,7 @@ sub paginate_product_reviews ($self, $name, $options) {
         checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages
       WHERE bot_packages.id IN (SELECT package FROM bot_package_products WHERE product = ANY(?))
-        $search $attention $unresolved $patent $trademark $export_restricted $cla $eula
+        $search $attention $unresolved $patent $trademark $export_restricted $cla $eula $notes
       ORDER BY bot_packages.id DESC
       LIMIT ? OFFSET ?
     }, $product_ids, $options->{limit}, $options->{offset}

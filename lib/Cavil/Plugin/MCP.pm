@@ -7,7 +7,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use MCP::Server;
 use Cavil::Util qw(checkout_path pattern_matches pattern_contains_redundant_skip read_lines),
   qw(validate_tags @LICENSE_FLAGS);
-use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
+use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG);
 use File::Find          qw(find);
 use Mojo::File          qw(path);
 use Text::Glob          qw(glob_to_regex);
@@ -33,15 +33,19 @@ sub register ($self, $app, $config) {
   $mcp->on(tools => \&_filter_tools);
 
   $mcp->tool(
-    name         => 'cavil_get_open_reviews',
-    description  => 'Get a paginated list of highest priority open reviews, use "search" to limit results',
+    name        => 'cavil_get_open_reviews',
+    description => 'Get a paginated list of highest priority open reviews, use "search" to limit results. Every '
+      . 'review reports whether a "review" tagged note already applies to its report, so a sweep does not have to '
+      . 'ask per package; without_review_note=true returns only those that have none yet.',
     input_schema => {
       type       => 'object',
       properties => {
         search       => {type => 'string',  description => 'Filter results by package name, checksum or external link'},
         limit        => {type => 'integer', minimum     => 1, maximum => 100, default => 20},
         offset       => {type => 'integer', minimum     => 0, default => 0},
-        min_priority => {type => 'integer', minimum     => 1, maximum => 10, default => 1}
+        min_priority => {type => 'integer', minimum     => 1, maximum => 10, default => 1},
+        without_review_note =>
+          {type => 'boolean', default => \0, description => 'Only reviews without a relevant "review" tagged note'}
       },
       required => []
     },
@@ -350,28 +354,37 @@ sub tool_cavil_get_open_reviews ($tool, $args) {
   return $tool->text_result($offset_error, 1) if $offset_error;
   my ($min_priority, $priority_error) = _bounded_int_arg($args->{min_priority}, 1, 1, 10, 'min_priority');
   return $tool->text_result($priority_error, 1) if $priority_error;
-  my $reviews = $c->packages->paginate_open_reviews(
+
+  my $without_review_note = $args->{without_review_note} ? 1 : 0;
+  my $reviews             = $c->packages->paginate_open_reviews(
     {
       limit         => $limit,
       offset        => $offset,
       priority      => $min_priority,
       in_progress   => 'false',
       not_embargoed => 'true',
-      search        => $args->{search} // ''
+      search        => $args->{search} // '',
+      notes         => $without_review_note ? 'without' : 'any',
+      notes_tag     => REVIEW_TAG
     }
   );
+
+  # No include_lawyer_only: an agent must not learn that lawyer-only notes exist
+  my $notes       = $c->notes->relevant_notes($reviews->{page});
   my $next_offset = $reviews->{end} < $reviews->{total} ? $offset + $limit : undef;
   return $c->render_to_string(
     'mcp/open_reviews',
-    format       => 'txt',
-    reviews      => $reviews->{page},
-    total        => $reviews->{total},
-    start        => $reviews->{start},
-    end          => $reviews->{end},
-    limit        => $limit,
-    offset       => $offset,
-    next_offset  => $next_offset,
-    min_priority => $min_priority
+    format              => 'txt',
+    reviews             => $reviews->{page},
+    notes               => $notes,
+    total               => $reviews->{total},
+    start               => $reviews->{start},
+    end                 => $reviews->{end},
+    limit               => $limit,
+    offset              => $offset,
+    next_offset         => $next_offset,
+    min_priority        => $min_priority,
+    without_review_note => $without_review_note
   );
 }
 

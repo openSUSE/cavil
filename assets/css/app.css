@@ -622,6 +622,21 @@ button.cavil-icon-action {
   background-color: var(--cavil-risk-unknown-bg);
   color: var(--cavil-on-accent);
 }
+/* Emitted as raw HTML by the listing report cell, so a scoped component style would not reach it.
+   Bare glyph on purpose: the unresolved-match count stays the only boxed thing in that cell. */
+.cavil-list-notes {
+  color: var(--cavil-fg-muted);
+  font-size: 0.8125rem;
+}
+.cavil-list-notes.is-review {
+  color: var(--cavil-accent);
+}
+/* The listing underlines links on hover, which an icon cannot carry */
+.cavil-list-table a.cavil-list-notes:hover,
+.cavil-list-table a.cavil-list-notes:focus {
+  color: var(--cavil-accent-strong);
+  text-decoration: none;
+}
 .cavil-external-link {
   align-items: stretch;
   border: 1px solid var(--cavil-border);

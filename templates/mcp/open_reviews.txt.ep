@@ -4,15 +4,19 @@
 Ordered by priority, <%== $total %> review<%== $total == 1 ? '' : 's' %> found, showing <%== $start %>-<%== $end %>.
 
 Pagination: limit=<%== $limit %>, offset=<%== $offset %><% if (defined $next_offset) { %>, next_offset=<%== $next_offset %><% } else { %>, next_offset=none<% } %>
-Filters: min_priority=<%== $min_priority %>
+Filters: min_priority=<%== $min_priority %>, without_review_note=<%== $without_review_note ? 'true' : 'false' %>
 
 
 Note: External links contain references to external source code management systems or codestreams the reviews
       originate from.
 
+Note: Review-Note is "yes" when a note tagged "review" already applies to this exact report, written on this review
+      or on another review with an identical license report. No need to check for one per package.
+
 %   for (my $i = 0; $i <= $#{$reviews}; $i++) {
 %     my $review = $reviews->[$i];
-<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>, Unresolved-Matches: <%== $review->{unresolved_matches} %>)
+%     my $relevant = $notes->{$review->{id}};
+<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>, Unresolved-Matches: <%== $review->{unresolved_matches} %>, Review-Note: <%== $relevant && $relevant->{review} ? 'yes' : 'no' %>)
 
 %   }
 % }

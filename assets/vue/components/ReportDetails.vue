@@ -680,11 +680,12 @@ export default {
       this.stickyFileHeaders = stuck;
     },
     applyInitialNoteHash() {
-      // Permalink format: #note-<id>. Switch to the Notes tab on mount
-      // so the deep link resolves before the user has to click anything.
-      const m = (window.location.hash || '').match(/^#note-(\d+)$/);
-      if (!m) return;
-      this.seekNoteId = Number(m[1]);
+      // Permalink formats: #note-<id> for one note, #notes for the tab (where the listing note
+      // icons link). Switch on mount so the deep link resolves before the user has to click.
+      const hash = window.location.hash || '';
+      const m = hash.match(/^#note-(\d+)$/);
+      if (!m && hash !== '#notes') return;
+      if (m) this.seekNoteId = Number(m[1]);
       this.activeTab = 'notes';
       this.notesMounted = true;
     },

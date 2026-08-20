@@ -611,13 +611,20 @@ sub ui_fixtures ($self, $app) {
   # page size is 20). The oldest entry doubles as a lawyer-only fixture so
   # the lawyer-only highlighting + tab-badge tinting always have data when
   # an admin views the second page.
+  # Seeded before the perl-Mojolicious block so that package keeps the newest note. harbor-helm is
+  # the plain-note case for the review listings: an icon, but no agent review behind it.
+  $notes->add($app->packages->find_by_name_and_md5('harbor-helm', '4fcfdab0e71b0bebfdf8b5cc3badfec4')->{id},
+    'harbor-helm', $bot_id, 'Chart bundles upstream manifests, worth a look.', 0);
+
+  # One perl-Mojolicious note is tagged "review", so review #1 carries the agent icon in the
+  # listings while every other review carries none.
   for my $i (1 .. 25) {
     my $lawyer = $i == 1 ? 1 : 0;
     my $body
       = $i == 25
       ? "Latest review notes.\n\n* check Apache-2.0 obligations\n* verify shipped LICENSE"
       : "Seed note #$i for **perl-Mojolicious**.";
-    $notes->add(1, 'perl-Mojolicious', $bot_id, $body, $lawyer, $i == 25 ? 1 : 0);
+    $notes->add(1, 'perl-Mojolicious', $bot_id, $body, $lawyer, $i == 25 ? 1 : 0, $i == 24 ? ['review'] : []);
   }
 
   # Product codestreams: two annotated to one deliverable (so the listing collapses them and the report

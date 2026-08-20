@@ -64,12 +64,15 @@ Cavil API key by setting the Authorization HTTP header:
 
 These tools are currently available:
 
-- *cavil_get_open_reviews* - Get a paginated list of highest priority open reviews
+- *cavil_get_open_reviews* - Get a paginated list of highest priority open reviews, each reporting whether a
+  `review` tagged note already applies to its report
   - **Required Roles**: `user` (read-only)
   - `search`: Filter results by package name, checksum, or external link. (string, optional)
   - `limit`: Maximum number of reviews to return. Defaults to `20`, maximum `100`. (number, optional)
   - `offset`: Number of reviews to skip for pagination. Defaults to `0`. (number, optional)
   - `min_priority`: Minimum package priority to include. Defaults to `1`, maximum `10`. (number, optional)
+  - `without_review_note`: Only return reviews no `review` tagged note applies to yet. Defaults to `false`.
+    (boolean, optional)
 
 - *cavil_search_packages* - Search all packages (any review state) by name or by a vendored component they ship
   - **Required Roles**: `user` (read-only)

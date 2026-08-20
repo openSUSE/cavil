@@ -18,6 +18,17 @@
   >
     <template #controls>
       <button
+        id="cavil-pkg-annotated"
+        @click="toggleFilter('annotated')"
+        :aria-pressed="params.annotated.toString()"
+        :class="{'is-active': params.annotated}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.annotated" class="fa-solid fa-check" aria-hidden="true"></i>
+        Annotated
+      </button>
+      <button
         id="cavil-pkg-in-progress"
         @click="toggleFilter('inProgress')"
         :aria-pressed="params.inProgress.toString()"
@@ -112,6 +123,7 @@ export default {
       limit: 10,
       offset: 0,
       inProgress: false,
+      annotated: false,
       priority: 2,
       filter: ''
     });
@@ -172,7 +184,7 @@ export default {
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset', 'inProgress', 'priority'),
+    ...genParamWatchers('limit', 'offset', 'inProgress', 'annotated', 'priority'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;

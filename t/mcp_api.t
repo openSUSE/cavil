@@ -278,7 +278,32 @@ subtest 'MCP' => sub {
         like $text, qr/External-Link:.+mojo/,                              'contains external link';
         like $text, qr/Priority:.+5/,                                      'contains priority';
         like $text, qr/Unresolved-Matches:.+6/,                            'contains unresolved matches';
+        like $text, qr/Review-Note: no/,                                   'nothing annotated yet';
         note $text;
+      };
+
+      subtest 'Review note presence and filter' => sub {
+        my $notes = $t->app->notes;
+        my $human = $notes->add(1, 'perl-Mojolicious', 2, 'Human note, not a review', 0);
+
+        my $text = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious'})->{content}[0]{text};
+        like $text, qr/Id:.+1,.+Review-Note: no/, 'an untagged note is not a review note';
+
+        $text = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious', without_review_note => true})
+          ->{content}[0]{text};
+        like $text, qr/Filters: min_priority=1, without_review_note=true/, 'filter is echoed back';
+        like $text, qr/Id:.+1/, 'a review that only has a human note still needs one';
+
+        my $review = $notes->add(1, 'perl-Mojolicious', 2, 'Agent review note', 0, 1, ['review']);
+        $text = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious'})->{content}[0]{text};
+        like $text, qr/Id:.+1,.+Review-Note: yes/, 'review note reported';
+
+        $text = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious', without_review_note => true})
+          ->{content}[0]{text};
+        unlike $text, qr/Id:.+1,/, 'annotated review drops out of the sweep';
+        like $text,   qr/Id:.+2,/, 'the sibling review is still waiting for one';
+
+        $notes->remove($_->{id}) for $human, $review;
       };
 
       subtest 'With search' => sub {

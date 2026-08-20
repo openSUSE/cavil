@@ -892,6 +892,63 @@ subtest 'Composer can create an already-pinned note' => sub {
   $app->notes->remove($_) for ($id, $plain);
 };
 
+subtest 'relevant_notes resolves a whole page of reviews at once' => sub {
+
+  # Two reviews of a package no other subtest touches, so leftover notes cannot skew the counts
+  my $name = 'zz-relevance-fixture';
+  my @ids  = map {
+    $app->packages->add(
+      name            => $name,
+      checkout_dir    => "checkout-$_",
+      api_url         => '',
+      project         => '',
+      package         => $name,
+      srcmd5          => "srcmd5-$_",
+      requesting_user => $contrib_id,
+      priority        => 5
+    )
+  } 1, 2;
+  my $db = $app->pg->db;
+  $db->update('bot_packages', {checksum => 'report-a'}, {id => $ids[0]});
+  $db->update('bot_packages', {checksum => 'report-b'}, {id => $ids[1]});
+  my $one = {id => $ids[0], name => $name, checksum => 'report-a'};
+  my $two = {id => $ids[1], name => $name, checksum => 'report-b'};
+
+  is_deeply $app->notes->relevant_notes([]),           {}, 'no query for an empty page';
+  is_deeply $app->notes->relevant_notes([$one, $two]), {}, 'no notes, no icons';
+
+  my $own = $app->notes->add($ids[0], $name, $contrib_id, 'about review 1', 0);
+  my $got = $app->notes->relevant_notes([$one, $two]);
+  is $got->{$ids[0]}{count},  1,     'note counts for the review it was written on';
+  is $got->{$ids[0]}{review}, 0,     'untagged note is not a review note';
+  is $got->{$ids[1]},         undef, 'and not for a sibling with a different report';
+
+  my $review = $app->notes->add($ids[0], $name, $contrib_id, 'agent says ok', 0, 1, ['review']);
+  is $app->notes->relevant_notes([$one])->{$ids[0]}{review}, 1,     'review tag surfaces on the whole review';
+  is $app->notes->relevant_notes([$two])->{$ids[1]},         undef, 'but not on the sibling it does not apply to';
+
+  my $pinned = $app->notes->add($ids[1], $name, $contrib_id, 'standing context', 0);
+  $app->notes->set_pinned($pinned->{id}, 1);
+  is $app->notes->relevant_notes([$one])->{$ids[0]}{count},  3, 'pinned note counts for every review of the package';
+  is $app->notes->relevant_notes([$two])->{$ids[1]}{review}, 0, 'a pinned note alone is no review note';
+
+  # Notes on review 1 reach review 2 once their license reports match
+  $db->update('bot_packages', {checksum => 'report-a'}, {id => $ids[1]});
+  $two->{checksum} = 'report-a';
+  my $same = $app->notes->relevant_notes([$one, $two]);
+  is $same->{$ids[1]}{count},  3, 'identical report pulls in the whole set';
+  is $same->{$ids[1]}{review}, 1, 'including the review note';
+
+  my $secret = $app->notes->add($ids[0], $name, $lawyer_id, 'for lawyers only', 1);
+  is $app->notes->relevant_notes([$one])->{$ids[0]}{count}, 3, 'lawyer-only note stays hidden';
+  is $app->notes->relevant_notes([$one], include_lawyer_only => 1)->{$ids[0]}{count}, 4, 'and shows up for a curator';
+
+  is $app->notes->relevant_count($name, $ids[0], 'report-a'), 3, 'single-package count agrees with the batch';
+
+  $app->notes->remove($_->{id}) for $own, $review, $pinned, $secret;
+  $db->delete('bot_packages', {id => \@ids});
+};
+
 subtest 'CommonMark renders safely' => sub {
   login_admin($t);
   my $body = "Click [me](javascript:alert(1)) or visit <https://example.com>.\n\n<script>alert(1)</script>";

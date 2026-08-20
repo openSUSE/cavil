@@ -89,6 +89,7 @@ sub open_reviews ($self) {
   $v->optional('priority')->num;
   $v->optional('inProgress');
   $v->optional('notEmbargoed');
+  $v->optional('annotated');
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit         = $v->param('limit')        // 10;
@@ -96,16 +97,19 @@ sub open_reviews ($self) {
   my $priority      = $v->param('priority')     // 2;
   my $in_progress   = $v->param('inProgress')   // 'false';
   my $not_embargoed = $v->param('notEmbargoed') // 'false';
+  my $annotated     = $v->param('annotated')    // 'false';
   my $search        = $v->param('filter')       // '';
 
   my $page = $self->packages->paginate_open_reviews(
     {
-      limit         => $limit,
-      offset        => $offset,
-      in_progress   => $in_progress,
-      not_embargoed => $not_embargoed,
-      priority      => $priority,
-      search        => $search
+      limit               => $limit,
+      offset              => $offset,
+      in_progress         => $in_progress,
+      not_embargoed       => $not_embargoed,
+      priority            => $priority,
+      search              => $search,
+      notes               => $annotated eq 'true' ? 'with' : 'any',
+      include_lawyer_only => $self->_can_see_lawyer_only
     }
   );
   $self->render(json => $self->_mark_active_packages($page));
@@ -122,6 +126,7 @@ sub product_reviews ($self) {
   $v->optional('exportRestricted');
   $v->optional('cla');
   $v->optional('eula');
+  $v->optional('annotated');
   $v->optional('filter');
   return $self->reply->json_validation_error if $v->has_error;
   my $limit              = $v->param('limit')             // 10;
@@ -133,22 +138,25 @@ sub product_reviews ($self) {
   my $export_restricted  = $v->param('exportRestricted')  // 'false';
   my $cla                = $v->param('cla')               // 'false';
   my $eula               = $v->param('eula')              // 'false';
+  my $annotated          = $v->param('annotated')         // 'false';
   my $search             = $v->param('filter')            // '';
 
   my $name = $self->stash('name');
   my $page = $self->packages->paginate_product_reviews(
     $name,
     {
-      limit              => $limit,
-      offset             => $offset,
-      attention          => $attention,
-      unresolved_matches => $unresolved_matches,
-      patent             => $patent,
-      trademark          => $trademark,
-      export_restricted  => $export_restricted,
-      cla                => $cla,
-      eula               => $eula,
-      search             => $search
+      limit               => $limit,
+      offset              => $offset,
+      attention           => $attention,
+      unresolved_matches  => $unresolved_matches,
+      patent              => $patent,
+      trademark           => $trademark,
+      export_restricted   => $export_restricted,
+      cla                 => $cla,
+      eula                => $eula,
+      search              => $search,
+      notes               => $annotated eq 'true' ? 'with' : 'any',
+      include_lawyer_only => $self->_can_see_lawyer_only
     }
   );
   $self->render(json => $self->_mark_active_packages($page));
@@ -220,13 +228,23 @@ sub review_search ($self) {
 sub _mark_active_packages ($self, $page) {
   my $minion = $self->minion;
   my $config = $self->app->config;
+
+  # One query for the whole page; the review search names the column "package" instead of "name"
+  my $rows
+    = [map { {id => $_->{id}, name => $_->{name} // $_->{package}, checksum => $_->{checksum}} } @{$page->{page}}];
+  my $notes = $self->notes->relevant_notes($rows, include_lawyer_only => $self->_can_see_lawyer_only);
+
   for my $pkg (@{$page->{page}}) {
     my $id = $pkg->{id};
     $pkg->{external_link_data} = external_link_data($pkg->{external_link}, $config->{external_link_sources});
     $pkg->{active_jobs}        = $minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
     $pkg->{failed_jobs}        = $minion->jobs({states => ['failed'], notes => ["pkg_$id"]})->total;
+    $pkg->{relevant_note}      = $notes->{$id} ? ($notes->{$id}{review} ? 'review' : 'note') : undef;
   }
   return $page;
 }
+
+# A note icon would give away the existence of a lawyer-only note to someone who cannot read it
+sub _can_see_lawyer_only ($self) { $self->current_user_can('curate') ? 1 : 0 }
 
 1;

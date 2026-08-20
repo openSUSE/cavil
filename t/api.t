@@ -496,6 +496,27 @@ subtest 'Pagination' => sub {
       ->json_is('/end',   0)
       ->json_is('/total', 0)
       ->json_hasnt('/page/0');
+
+    subtest 'Annotated, alone and combined with needs attention' => sub {
+      $t->get_ok('/pagination/products/openSUSE:Test?annotated=true')->json_is('/total', 0)->json_hasnt('/page/0');
+
+      my $notes     = $t->app->notes;
+      my $lawyer_id = $t->app->users->find_or_create(login => 'report_lawyer', roles => ['lawyer'])->{id};
+      my $pkg       = $t->app->packages->find(4);
+      my $note      = $notes->add($pkg->{id}, $pkg->{name}, $lawyer_id, 'Ships a vendored copy', 0);
+
+      $t->get_ok('/pagination/products/openSUSE:Test?annotated=true')
+        ->json_is('/total',                1)
+        ->json_is('/page/0/id',            4)
+        ->json_is('/page/0/relevant_note', 'note')
+        ->json_hasnt('/page/1');
+      $t->get_ok('/pagination/products/openSUSE:Test?annotated=true&attention=true')
+        ->json_is('/total',     1)
+        ->json_is('/page/0/id', 4);
+
+      $notes->remove($note->{id});
+      $t->get_ok('/pagination/products/openSUSE:Test?annotated=true')->json_is('/total', 0);
+    };
   };
 
   subtest 'Product annotations and grouping' => sub {
@@ -612,6 +633,27 @@ subtest 'Pagination' => sub {
       ->json_is('/total',     3)
       ->json_is('/page/0/id', 2)
       ->json_hasnt('/page/3');
+  };
+
+  subtest 'Relevant notes' => sub {
+    $t->get_ok('/pagination/reviews/open')->json_is('/page/0/relevant_note', undef);
+    my $open = $t->tx->res->json('/page/0');
+    $t->get_ok('/pagination/reviews/open?annotated=true')->json_is('/total', 0)->json_hasnt('/page/0');
+
+    my $notes     = $t->app->notes;
+    my $lawyer_id = $t->app->users->find_or_create(login => 'report_lawyer', roles => ['lawyer'])->{id};
+    my $human     = $notes->add($open->{id}, $open->{name}, $lawyer_id, 'Looks like a vendored zlib', 0);
+    $t->get_ok('/pagination/reviews/open?annotated=true')
+      ->json_is('/total',                1)
+      ->json_is('/page/0/id',            $open->{id})
+      ->json_is('/page/0/relevant_note', 'note')
+      ->json_hasnt('/page/1');
+
+    my $review = $notes->add($open->{id}, $open->{name}, $lawyer_id, 'Agent review', 0, 1, ['review']);
+    $t->get_ok('/pagination/reviews/open?annotated=true')->json_is('/page/0/relevant_note', 'review');
+
+    $notes->remove($_->{id}) for $human, $review;
+    $t->get_ok('/pagination/reviews/open')->json_is('/total', 3)->json_is('/page/0/relevant_note', undef);
   };
 };
 

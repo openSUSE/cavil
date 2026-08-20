@@ -6,13 +6,24 @@ use Mojo::Base -base, -signatures;
 use Cavil::Util qw(paginate);
 use Exporter 'import';
 
-our @EXPORT_OK = qw(NOTE_BODY_MAX_LENGTH);
+our @EXPORT_OK = qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG relevance_predicate);
 use constant NOTE_BODY_MAX_LENGTH => 65535;
+
+# Convention, not schema: the tag cavil-review-note writes, its idempotency guard checks, and the
+# review listings key their "the agent has been here" icon on.
+use constant REVIEW_TAG => 'review';
 
 has 'pg';
 
 # Notes belong to a package name; the nullable package id is only a permalink.
 # Pinned notes apply to every review and stay outside keyset pagination.
+
+# "Applies to the review being looked at": pinned, written on it, or written on another review with
+# an identical license report. Shared with Cavil::Model::Packages so a listing filter and the icon
+# beside it can never disagree. Callers supply the joins: note c, the review it was written on np.
+sub relevance_predicate ($outer) {
+  return "(c.pinned OR c.package = $outer.id OR np.checksum = $outer.checksum)";
+}
 
 sub add ($self, $package_id, $package_name, $author_id, $body, $lawyer_only, $ai_assisted = 0, $tags = undef) {
   my $row = $self->pg->db->insert(
@@ -172,20 +183,35 @@ sub counts ($self, $package_name) {
 }
 
 sub relevant_count ($self, $package_name, $package_id, $checksum, %opts) {
-  my @sql  = ('c.package_name = ?');
-  my @args = ($package_name);
-  push @sql, 'c.lawyer_only = false' unless $opts{include_lawyer_only};
-  if (defined $checksum) {
-    push @sql, '(c.pinned = true OR c.package = ? OR p.checksum = ?)';
-    push @args, $package_id, $checksum;
+  my $row      = {id => $package_id, name => $package_name, checksum => $checksum};
+  my $relevant = $self->relevant_notes([$row], %opts)->{$package_id};
+  return $relevant ? $relevant->{count} : 0;
+}
+
+# One query for a whole page of reviews, so a listing can show a note icon without a query per row.
+# Returns {package id => {count, review}}, reviews without a relevant note absent entirely.
+sub relevant_notes ($self, $rows, %opts) {
+  return {} unless @$rows;
+
+  my $lawyer = $opts{include_lawyer_only} ? '' : 'AND c.lawyer_only = false';
+  my $sql    = 'SELECT r.id, COUNT(*)::int AS count, bool_or(c.tags @> ?::text[]) AS review
+                  FROM unnest(?::bigint[], ?::text[], ?::text[]) AS r(id, name, checksum)
+                  JOIN package_notes c ON c.package_name = r.name
+                  LEFT JOIN bot_packages np ON c.package = np.id
+                 WHERE ' . relevance_predicate('r') . " $lawyer GROUP BY r.id";
+
+  my $results = $self->pg->db->query(
+    $sql, [REVIEW_TAG],
+    [map { $_->{id} } @$rows],
+    [map { $_->{name} } @$rows],
+    [map { $_->{checksum} } @$rows]
+  )->hashes;
+
+  my %relevant;
+  for my $row ($results->each) {
+    $relevant{$row->{id}} = {count => $row->{count}, review => $row->{review} ? 1 : 0};
   }
-  else {
-    push @sql,  '(c.pinned = true OR c.package = ?)';
-    push @args, $package_id;
-  }
-  my $sql = 'SELECT COUNT(*)::int AS relevant FROM package_notes c
-              LEFT JOIN bot_packages p ON c.package = p.id WHERE ' . join(' AND ', @sql);
-  return $self->pg->db->query($sql, @args)->hash->{relevant};
+  return \%relevant;
 }
 
 # Newest note id that carries $tag AND is relevant to the given review (native or
