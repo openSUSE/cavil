@@ -1000,7 +1000,7 @@ body {
 }
 
 /* A button, not a link: it opens the bundled license text in an overlay, it does not navigate */
-.spdx-link {
+.license-link {
   background: none;
   border: 0;
   color: inherit;
@@ -1008,7 +1008,7 @@ body {
   padding: 0;
   text-align: inherit;
 }
-.spdx-link:hover {
+.license-link:hover {
   text-decoration: underline;
 }
 

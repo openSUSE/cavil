@@ -166,6 +166,7 @@
 <script>
 import LegalLoading from './components/LegalLoading.vue';
 import PatternEditor from './components/PatternEditor.vue';
+import {PATTERN_FLAGS} from './components/PatternFlags.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
@@ -286,13 +287,7 @@ export default {
       return 'cavil-risk-unknown-badge';
     },
     flagsFor(pattern) {
-      const flags = [];
-      if (pattern.patent) flags.push('Patent');
-      if (pattern.trademark) flags.push('Trademark');
-      if (pattern.export_restricted) flags.push('Export restricted');
-      if (pattern.cla) flags.push('CLA');
-      if (pattern.eula) flags.push('EULA');
-      return flags;
+      return PATTERN_FLAGS.filter(flag => pattern[flag.name]).map(flag => flag.label);
     },
     countsKnown(pattern) {
       return (

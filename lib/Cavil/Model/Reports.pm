@@ -11,7 +11,7 @@ use Cavil::PatternEngine;
 use Cavil::Checkout;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
-use Cavil::Util       qw(checkout_path lines_context to_json_fast);
+use Cavil::Util       qw(checkout_path lines_context to_json_fast @LICENSE_FLAGS);
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
@@ -763,8 +763,7 @@ sub _register_license {
     risk      => $pattern->{risk},
     catch_all => $pattern->{catch_all}
   };
-  $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_}
-    for qw(patent trademark export_restricted cla eula);
+  $report->{licenses}{$pattern->{license}}{flaghash}{$_} ||= $pattern->{$_} for @LICENSE_FLAGS;
 
   my $rl = $report->{risks}{$pattern->{risk}};
   push(@{$rl->{$pattern->{license}}{$pid}}, $file);

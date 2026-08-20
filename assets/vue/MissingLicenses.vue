@@ -152,12 +152,10 @@ import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
 import LegalLoading from './components/LegalLoading.vue';
+import {PATTERN_FLAGS} from './components/PatternFlags.vue';
 import SnippetEditor from './components/SnippetEditor.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
-
-// Per-license flags carried on a new_license proposal, stored as JSON 0/1.
-const PROPOSAL_FLAGS = ['patent', 'trademark', 'export_restricted', 'cla', 'eula'];
 
 export default {
   name: 'MissingLicenses',
@@ -282,8 +280,8 @@ export default {
     async approveProposal(change) {
       const d = change.data;
       const formData = {pattern: d.pattern, license: d.license, risk: String(d.risk), checksum: change.token_hexsum};
-      for (const flag of PROPOSAL_FLAGS) {
-        if (Number(d[flag])) formData[flag] = '1';
+      for (const flag of PATTERN_FLAGS) {
+        if (Number(d[flag.name])) formData[flag.name] = '1';
       }
       if (d.from) formData.from = d.from;
       if (change.package !== null) formData.package = change.package.id;
@@ -320,7 +318,7 @@ export default {
       const d = change.data;
       // SnippetEditor.applyInitial expects booleans; the flags are stored as JSON 0/1, so coerce here.
       const initial = {pattern: d.pattern, license: d.license, risk: d.risk};
-      for (const flag of PROPOSAL_FLAGS) initial[flag] = !!Number(d[flag]);
+      for (const flag of PATTERN_FLAGS) initial[flag.name] = !!Number(d[flag.name]);
       return initial;
     },
     removeChange(change) {

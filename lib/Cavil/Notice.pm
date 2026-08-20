@@ -4,14 +4,10 @@
 package Cavil::Notice;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Checkout;
-use Cavil::Util        qw(license_text spdx_identifiers);
+use Cavil::Util        qw(license_text spdx_identifiers spdx_only_expression);
 use IO::Compress::Gzip qw($GzipError);
 use Mojo::File         qw(path);
 use Mojo::Util         qw(encode scope_guard);
-
-# A match can cover a whole license body, so evidence must not be able to flood the document
-use constant MAX_EVIDENCE_TEXT => 20_000;
 
 use constant RULE  => '=' x 78;
 use constant MINOR => '-' x 78;
@@ -21,11 +17,10 @@ has 'app';
 sub generate_to_file ($self, $id, $file) {
   path($file)->remove if -e $file;
 
-  my $app      = $self->app;
-  my $reports  = $app->reports;
-  my $checkout = Cavil::Checkout->new($app->packages->pkg_checkout_dir($id));
-  my $pkg      = $app->pg->db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
-  my $version  = ($reports->specfile_report($id)->{main} || {})->{version};
+  my $app     = $self->app;
+  my $reports = $app->reports;
+  my $pkg     = $app->pg->db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
+  my $version = ($reports->specfile_report($id)->{main} || {})->{version};
 
   my $tmp_file = "$file.tmp";
   my $cleanup  = scope_guard sub { -e $tmp_file && path($tmp_file)->remove };
@@ -35,7 +30,7 @@ sub generate_to_file ($self, $id, $file) {
   my $out = sub (@text) { $handle->print(encode('UTF-8', join '', @text)) };
 
   my $licenses = $reports->licenses_present($id);
-  my $terms    = $self->_terms($reports, $checkout, $id, $licenses);
+  my $terms    = _terms($app->patterns, $licenses);
 
   _header($out, $pkg, $version);
   _completeness($out, $licenses, $terms);
@@ -46,7 +41,6 @@ sub generate_to_file ($self, $id, $file) {
   my $index = 0;
   my $close = sub () {
     return unless defined $open;
-    $out->("\n") if $noticed;
     _terms_of($out, $open, $terms, \%written);
     $open = undef;
   };
@@ -69,6 +63,7 @@ sub generate_to_file ($self, $id, $file) {
         $index++ if $index < @$licenses && $licenses->[$index] eq $license;
         $begin->($license);
       }
+      $out->("\n") unless $noticed;
       $noticed = 1;
       $out->("$copyright\n");
     }
@@ -91,10 +86,11 @@ sub _header ($out, $pkg, $version) {
 # First, so nobody reaches the terms without knowing which are missing
 sub _completeness ($out, $licenses, $terms) {
   _heading($out, RULE, 'Completeness');
-  return $out->("Cavil detected no licenses in this package.\n") unless @$licenses;
+  return $out->("\nCavil detected no licenses in this package.\n") unless @$licenses;
 
-  my @gaps = grep { !@{$terms->{$_}{parts}} } @$licenses;
+  my @gaps = grep { !$terms->{$_}{complete} } @$licenses;
   $out->(
+    "\n",
     'This document reproduces the license text Cavil holds for ',
     scalar(@$licenses) - scalar(@gaps),
     ' of the ', scalar(@$licenses), " licenses detected in this package.\n"
@@ -106,16 +102,14 @@ sub _completeness ($out, $licenses, $terms) {
   $out->("\nThese must be resolved by hand before this document is shipped.\n");
 }
 
-sub _heading ($out, $rule, $title) { $out->("\n", $rule, "\n$title\n", $rule, "\n\n") }
+sub _heading ($out, $rule, $title) { $out->("\n", $rule, "\n$title\n", $rule, "\n") }
 
 # Blank lines separate the parts rather than trailing them, so every block ends on exactly one newline and
 # the space before the next heading is the heading's own
 sub _terms_of ($out, $license, $terms, $written) {
-  my $first = 1;
   for my $part (@{$terms->{$license}{parts}}) {
-    my ($atom, $text, $where) = @$part;
-    $out->("\n") unless $first;
-    $first = 0;
+    my ($atom, $text) = @$part;
+    $out->("\n");
 
     # A package carrying three GPL variants would otherwise ship the same 35kB three times over
     if (my $seen = $written->{$atom}) {
@@ -124,7 +118,6 @@ sub _terms_of ($out, $license, $terms, $written) {
     }
     $written->{$atom} = $license;
 
-    $out->("$atom, as found at $where:\n\n") if defined $where;
     $out->(_indent($text));
   }
 }
@@ -134,18 +127,17 @@ sub _unattributed ($out, $reports, $id) {
   $reports->each_unlicensed_copyright(
     $id, 0,
     sub ($copyright) {
-      _heading($out, MINOR, 'Notices not attributable to a specific license') if $first;
+      if ($first) { _heading($out, MINOR, 'Notices not attributable to a specific license'); $out->("\n") }
       $first = 0;
       $out->("$copyright\n");
     }
   );
 }
 
-# Bounded by the distinct licenses in a package, which is tens; a bundled text is a reference into
-# Cavil::Util::license_text, not a copy
-sub _terms ($self, $reports, $checkout, $id, $licenses) {
-  my %evidence;
-  $evidence{$_->{license}} = $_ for $reports->license_evidence($id)->each;
+# Verbatim or not at all: what a match happened to cover is evidence, and printing it here would count a
+# fragment as a resolved license
+sub _terms ($patterns, $licenses) {
+  my $curated = $patterns->full_license_texts($licenses);
 
   my %terms;
   for my $license (@$licenses) {
@@ -155,19 +147,24 @@ sub _terms ($self, $reports, $checkout, $id, $licenses) {
     my $atoms = spdx_identifiers($license);
     for my $atom (@$atoms) {
       next unless defined(my $text = license_text($atom));
-      push @parts, [$atom, $text, undef];
+      push @parts, [$atom, $text];
     }
 
-    # Nothing resolved, so the only terms available are the text the match was made against
-    if (!@parts && (my $row = $evidence{$license})) {
-      if (my ($text, $where) = $checkout->evidence_text($row)) {
-        $text = substr($text, 0, MAX_EVIDENCE_TEXT) . "\n[Truncated.]\n" if length $text > MAX_EVIDENCE_TEXT;
-        push @parts, [$license, $text, $where];
-      }
+    # The identifiers have to be the whole expression: printing MIT alone for "MIT AND Vendor-Thing-1.0"
+    # leaves half the terms out
+    my $complete = @$atoms && @parts == @$atoms && spdx_only_expression($license);
+
+    # A text curated against the whole expression is authoritative where the identifiers fall short
+    if (!$complete && defined $curated->{$license}) {
+      @parts    = ([$license, $curated->{$license}]);
+      $complete = 1;
     }
 
-    my $gap = @$atoms ? 'no bundled text for the identifier' : 'no SPDX identifier, no license document found';
-    $terms{$license} = {parts => \@parts, gap => $gap};
+    my $gap
+      = @parts  ? 'only part of the expression could be resolved'
+      : @$atoms ? 'no bundled text for the identifier'
+      :           'no SPDX identifier, no full text curated';
+    $terms{$license} = {parts => \@parts, complete => $complete, gap => $gap};
   }
 
   return \%terms;

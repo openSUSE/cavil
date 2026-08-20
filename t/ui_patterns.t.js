@@ -57,6 +57,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.locator('#inline-snippet-editor input[name="cla"]').check();
       await page.locator('#inline-snippet-editor input[name="eula"]').check();
 
+      // Selecting a whole license file in the viewer is how a curator produces terms a NOTICE can print
+      await page.locator('#inline-snippet-editor input[name="full_license_text"]').check();
+
       // Queue the create-pattern action (editor closes, indicator + widget appear)
       await page.locator('#inline-snippet-editor button[data-action="create-pattern"]').click();
       await waitForInlineSnippetEditorClosed(page);
@@ -95,6 +98,41 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.ok(flagChips.includes('Trademark'), 'Trademark flag chip rendered');
       t.ok(flagChips.includes('CLA'), 'CLA flag chip rendered');
       t.ok(flagChips.includes('EULA'), 'EULA flag chip rendered');
+      t.ok(flagChips.includes('Full license text'), 'the full-text claim is visible on the pattern');
+
+      // Which is what lets a license with no SPDX identifier resolve to terms at all
+      const meta = await page.evaluate(async () => {
+        const res = await fetch('/licenses/text_meta?license=Made-Up-License-1.0');
+        return {status: res.status, body: await res.text()};
+      });
+      t.equal(meta.status, 200, 'the license text viewer can now serve it');
+      t.match(JSON.parse(meta.body).text, /\S/, 'with the curated text');
+
+      // The license list is where reviewers research, so a curated text has to be reachable there without
+      // opening the individual patterns. It has no identifier to hang the link on, hence the shared column.
+      await page.click('text=Licenses');
+      const row = page.locator('.cavil-list-table tbody tr', {hasText: 'Made-Up-License-1.0'});
+      await row.waitFor();
+      const opener = row.locator('button.license-link');
+      t.equal(await opener.innerText(), 'Curated text', 'the row offers its text under a shared column');
+      t.equal(await opener.getAttribute('data-license'), 'Made-Up-License-1.0', 'keyed by the license itself');
+
+      await opener.click();
+      await page.locator('.license-modal [data-license-text]').waitFor({timeout: 15000});
+      t.match(
+        await page.locator('.license-modal [data-license-text]').innerText(),
+        /\S/,
+        'and opens the same overlay the report uses'
+      );
+      t.equal(
+        await page.locator('.license-modal .license-source').count(),
+        0,
+        'with no spdx.org link, since there is no canonical page for it'
+      );
+      // Bootstrap only hands the overlay focus once its show transition ends, and Escape is ignored until then
+      await page.waitForFunction(() => document.activeElement.classList.contains('modal-body'));
+      await page.keyboard.press('Escape');
+      await page.locator('.license-modal').waitFor({state: 'hidden'});
     });
 
     await t.test('Propose pattern: CLA/EULA flow through proposals page to accepted pattern', async t => {
@@ -113,6 +151,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await fillInlinePatternBasics(page, 'Made-Up-License-1.0');
       await page.locator('#inline-snippet-editor input[name="cla"]').check();
       await page.locator('#inline-snippet-editor input[name="eula"]').check();
+      await page.locator('#inline-snippet-editor input[name="full_license_text"]').check();
       await page.locator('#inline-snippet-editor button[aria-label="More actions"]').click();
       await page.locator('#inline-snippet-editor .dropdown-menu a[data-action="propose-pattern"]').click();
       await waitForInlineSnippetEditorClosed(page);
@@ -134,6 +173,13 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await claCheckbox.isChecked(), true, 'CLA checkbox pre-checked in proposal row');
       t.equal(await eulaCheckbox.isChecked(), true, 'EULA checkbox pre-checked in proposal row');
 
+      // The proposal round-trip stores flags as JSON 0/1 and reads them back, so a flag added later has to
+      // survive both hops rather than being dropped between propose and accept
+      const fullTextCheckbox = proposal
+        .locator('.form-check', {hasText: 'Full license text'})
+        .locator('input[type=checkbox]');
+      t.equal(await fullTextCheckbox.isChecked(), true, 'full license text pre-checked in proposal row');
+
       // Accept the proposal and capture the resulting pattern id
       const [acceptResp] = await Promise.all([
         page.waitForResponse(resp => /\/snippet\/batch_decision/.test(resp.url())),
@@ -154,6 +200,11 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#edit-pattern input[name=cla]');
       t.equal(await page.locator('#edit-pattern input[name=cla]').isChecked(), true, 'CLA checked on pattern editor');
       t.equal(await page.locator('#edit-pattern input[name=eula]').isChecked(), true, 'EULA checked on pattern editor');
+      t.equal(
+        await page.locator('#edit-pattern input[name=full_license_text]').isChecked(),
+        true,
+        'and the full-text claim survived propose -> accept'
+      );
     });
 
     await t.test('Batch: queue multiple actions, dismiss one, submit the rest', async t => {

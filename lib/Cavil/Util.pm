@@ -23,15 +23,23 @@ our @EXPORT_OK = (
   qw(lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
   qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file),
-  qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip read_lines run_cmd),
+  qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
+  qw(read_lines run_cmd),
   qw(request_id_from_external_link),
-  qw(external_link_data snippet_checksum spdx_identifiers spdx_link ssh_sign text_shingles text_shingle_ids),
+  qw(external_link_data license_link snippet_checksum spdx_identifiers spdx_link spdx_only_expression),
+  qw(ssh_sign text_shingles),
+  qw(text_shingle_ids),
   qw(validate_tags),
   qw(license_is_catch_all license_text SNIPPET_SCORE_VERSION $COPYRIGHT_LEADER $COPYRIGHT_TOKEN),
   qw(decode_json_fast encode_json_fast to_json_fast),
   qw(incoming_priority PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
-  qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES)
+  qw(@SPDX_LICENSES @SPDX_EXCEPTIONS @SCANCODE_LICENSES @LICENSE_FLAGS @PATTERN_FLAGS)
 );
+
+# Legal properties a curator sets on a pattern. The first group states facts about the license and becomes
+# SBOM annotations; full_license_text is about one row's text and must stay out of it.
+our @LICENSE_FLAGS = qw(patent trademark export_restricted cla eula);
+our @PATTERN_FLAGS = (@LICENSE_FLAGS, 'full_license_text');
 
 # What a copyright notice looks like, shared so the harvester and the snippet redactor cannot drift apart
 # about which forms count as one. Case sensitive on purpose: a line opening "copyright" or "COPYRIGHT" is
@@ -502,8 +510,21 @@ sub slurp_and_decode ($path, $max = $MAX_FILE_SIZE) {
   return Mojo::Util::decode('UTF-8', $content) // $content;
 }
 
-sub _spdx_link ($match) {
-  return qq{<button type="button" class="spdx-link" data-spdx="$match">$match</button>};
+# The label and the license can differ: a list may want to say "Curated text" while the viewer still has to
+# be asked for the license itself. The "spdx" class tells the viewer whether there is a page to link out to.
+sub _license_button ($label, $license, $spdx) {
+  my $class = $spdx ? 'license-link spdx' : 'license-link';
+  return
+      qq{<button type="button" class="$class" data-license="@{[Mojo::Util::xml_escape($license)]}">}
+    . Mojo::Util::xml_escape($label)
+    . '</button>';
+}
+
+# A name with no SPDX identifier in it is one indivisible token, so either the whole thing has a curated
+# text to show or none of it does
+sub license_link ($name, $has_text = 0, $label = undef) {
+  return spdx_link($name) unless $has_text;
+  return _license_button($label // $name, $name, 0);
 }
 
 # 5MB, so only workers that serve a license page pay the decode
@@ -520,6 +541,16 @@ my $SPDX_ATOM_RE = do {
     map {quotemeta} sort { length $b <=> length $a || $a cmp $b } (@SPDX_LICENSES, @SPDX_EXCEPTIONS);
   qr/(?<![\w.+-])($atoms)(?![\w.+-])/;
 };
+
+# Whether the identifiers account for the whole expression. "MIT AND Vendor-Thing-1.0" yields the MIT
+# identifier but is not covered by it, so reproducing MIT's text alone would leave half the terms out.
+sub spdx_only_expression ($expression) {
+  return 0 unless defined $expression && length $expression;
+  my $rest = $expression =~ s/$SPDX_ATOM_RE//gr;
+  $rest =~ s/\b(?:AND|OR|WITH)\b//gi;
+  $rest =~ s/[\s()+]//g;
+  return length($rest) ? 0 : 1;
+}
 
 sub spdx_identifiers ($expression) {
   return [] unless defined $expression;
@@ -542,7 +573,7 @@ sub spdx_link ($text) {
   my $is_token = 0;
   my $out      = '';
   for my $part (@parts) {
-    $out .= $is_token ? _spdx_link($part) : Mojo::Util::xml_escape($part);
+    $out .= $is_token ? _license_button($part, $part, 1) : Mojo::Util::xml_escape($part);
     $is_token = !$is_token;
   }
   return $out;
@@ -730,6 +761,9 @@ sub pattern_matches ($pattern, $text) {
 sub pattern_contains_redundant_skip ($pattern) {
   return $pattern =~ /^\s*\$SKIP/ || $pattern =~ /\$SKIP\d*\s*$/;
 }
+
+# A wildcard anywhere, which is what stops a pattern from being reproducible as license text
+sub pattern_contains_skip ($pattern) { return $pattern =~ /\$SKIP\d*/ ? 1 : 0 }
 
 sub normalize_license_expr ($expr) {
   my $norm = lc $expr;

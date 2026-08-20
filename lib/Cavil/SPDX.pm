@@ -7,7 +7,7 @@ use Mojo::Base -base, -signatures;
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::PostProcess;
-use Cavil::Util qw(fs_bytes read_lines);
+use Cavil::Util qw(fs_bytes read_lines @LICENSE_FLAGS);
 use Digest::SHA;
 use IO::Compress::Gzip qw($GzipError);
 use Mojo::File         qw(path);
@@ -47,9 +47,6 @@ use constant UNKNOWNS_STATEMENT => join(' ',
 
 # A pattern can cover a whole license body, so one match must not be able to flood the document
 use constant MAX_LICENSE_TEXT => 20_000;
-
-# Legal flags Cavil curates per license pattern, surfaced as additive SPDX annotations
-my @FLAGS = qw(trademark patent export_restricted cla eula);
 
 # Filename extensions of deployable source archives; their hash is the "deployable component" hash
 # BSI requires, and hashing just these is far cheaper than re-reading the whole unpacked tree
@@ -189,12 +186,20 @@ sub generate_to_file ($self, $id, $file) {
     $custom_pool{$ref} = undef;
 
     my $name = $ref_source{$ref};
-    my ($text, $where);
-    ($text, $where) = _evidence_text($dir, $postprocess, \%original_files, $evidence{$name})
-      if defined $name && $evidence{$name};
+    my ($text, $where, $origin);
+
+    # Same order the NOTICE resolves in, so the two documents cannot disagree about a license
+    if (defined $name && defined($text = $app->patterns->full_license_texts([$name])->{$name})) {
+      $origin = 'Full license text curated in Cavil.';
+    }
+    elsif (defined $name && $evidence{$name} && (($text, $where) = $checkout->evidence_text($evidence{$name}))) {
+      $origin = "Text as found at ./$where.";
+    }
 
     # A vendored component's manifest string is itself the reference
-    $text //= $declared_text{$ref};
+    elsif (defined($text = $declared_text{$ref})) {
+      $origin = 'License as declared by the component metadata.';
+    }
     return undef unless defined $text && length $text;
 
     my $truncated = length($text) > MAX_LICENSE_TEXT;
@@ -209,8 +214,8 @@ sub generate_to_file ($self, $id, $file) {
     };
     $node->{name} = $name if defined $name && length $name;
 
-    # A declaration is evidence for the identifier, not terms to reproduce
-    my @comment = $where ? "Text as found at ./$where." : 'License as declared by the component metadata.';
+    # A declaration is evidence for the identifier, not terms to reproduce, so it says where it was read
+    my @comment = ($origin);
     push @comment, 'Truncated.' if $truncated;
     $node->{comment} = join ' ', @comment;
 
@@ -450,7 +455,7 @@ sub generate_to_file ($self, $id, $file) {
               bool_or(export_restricted) AS export_restricted, bool_or(cla) AS cla, bool_or(eula) AS eula
        FROM license_patterns WHERE spdx = ? OR license = ?', "$declared", "$declared"
     )->hash;
-    $note_license->($lid, $meta->{risk}, [grep { $meta->{$_} } @FLAGS]) if $meta;
+    $note_license->($lid, $meta->{risk}, [grep { $meta->{$_} } @LICENSE_FLAGS]) if $meta;
   }
 
   # Distinguish "nothing found" from an omitted license field.
@@ -724,28 +729,11 @@ sub _license_rows_by_file ($db, $file_ids) {
 
 # Extract the set flags from a match/snippet row (the fold path uses "p"-prefixed column aliases)
 sub _flags ($row, $prefix) {
-  return [grep { $row->{"$prefix$_"} } @FLAGS];
+  return [grep { $row->{"$prefix$_"} } @LICENSE_FLAGS];
 }
 
 # Line numbers are positions in the ".processed" copy that was scanned, so they translate back like
 # snippet ranges do; one that will not translate yields nothing rather than the wrong lines.
-sub _evidence_text ($dir, $postprocess, $original_files, $row) {
-  my $scanned = fs_bytes($row->{filename});
-  my $real    = $original_files->{$scanned} // $scanned;
-  my $path    = $dir->child('.unpacked', $real)->to_string;
-  my ($sline, $eline) = ($row->{sline}, $row->{eline});
-
-  if ($real ne $scanned) {
-    my $lines = $postprocess->original_lines($path, [$sline, $eline]);
-    ($sline, $eline) = ($lines->{$sline}, $lines->{$eline});
-    return () unless $sline && $eline;
-  }
-
-  my $text = eval { read_lines($path, $sline, $eline) };
-  return () unless defined $text && length $text;
-  return ($text, "$real#L$sline-L$eline");
-}
-
 # Map a MIME type to an SPDX SoftwarePurpose, approximating the BSI executable/archive/structured
 # properties as closely as the available metadata allows.
 sub _file_purpose ($mime) {

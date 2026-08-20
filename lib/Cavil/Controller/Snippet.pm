@@ -7,7 +7,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(true false);
 use Cavil::ReportUtil qw(smart_edit_snippet spdx_edit_snippet);
-use Cavil::Util       qw(pattern_checksum pattern_contains_redundant_skip pattern_matches);
+use Cavil::Util       qw(pattern_checksum pattern_contains_redundant_skip pattern_matches @PATTERN_FLAGS);
 use Cavil::Util       qw(PRIORITY_UPKEEP PRIORITY_WAITING);
 
 my $CHECKSUM_RE = qr/^(?:[a-f0-9]{32}|manual[\w:-]+)$/i;
@@ -374,17 +374,14 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
   if ($kind eq 'create-pattern') {
     my $contributor_id = $form->{contributor} ? $users->id_for_login($form->{contributor}) : undef;
     my $pattern        = $patterns->create(
-      license           => $form->{license},
-      pattern           => $form->{pattern},
-      risk              => $form->{risk},
-      patent            => $form->{patent},
-      trademark         => $form->{trademark},
-      export_restricted => $form->{export_restricted},
-      cla               => $form->{cla},
-      eula              => $form->{eula},
-      owner             => $owner_id,
-      contributor       => $contributor_id
+      license => $form->{license},
+      pattern => $form->{pattern},
+      risk    => $form->{risk},
+      (map { $_ => $form->{$_} } @PATTERN_FLAGS),
+      owner       => $owner_id,
+      contributor => $contributor_id
     );
+    return {kind => $kind, error => $pattern->{error}}                            if $pattern->{error};
     return {kind => $kind, error => 'Conflicting license pattern already exists'} if $pattern->{conflict};
 
     if (my $checksum = $form->{checksum}) { $patterns->remove_proposal($checksum) }
@@ -425,12 +422,7 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
       license              => $form->{license},
       risk                 => $form->{risk},
       package              => $form->{package},
-      patent               => $form->{patent},
-      trademark            => $form->{trademark},
-      export_restricted    => $form->{export_restricted},
-      cla                  => $form->{cla},
-      eula                 => $form->{eula},
-      owner                => $owner_id
+      (map { $_ => $form->{$_} } @PATTERN_FLAGS), owner => $owner_id
     );
     return {
       kind   => $kind,
@@ -438,8 +430,9 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
       error  => 'This license and risk combination is not allowed, only use pre-existing licenses'
       }
       if $result->{license_conflict};
-    return {kind => $kind, error => 'Conflicting license pattern already exists'} if $result->{conflict};
-    return {kind => $kind, error => 'Conflicting license pattern proposal already exists'}
+    return {kind => $kind, status => 400, error => $result->{error}} if $result->{error};
+    return {kind => $kind, error  => 'Conflicting license pattern already exists'} if $result->{conflict};
+    return {kind => $kind, error  => 'Conflicting license pattern proposal already exists'}
       if $result->{proposal_conflict};
     return {kind => 'proposal'};
   }

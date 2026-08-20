@@ -423,46 +423,48 @@ subtest 'read_lines' => sub {
 };
 
 subtest 'spdx_link' => sub {
-  is spdx_link('MIT'), '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>', 'known license';
-  is spdx_link('Apache-2.0'), '<button type="button" class="spdx-link" data-spdx="Apache-2.0">Apache-2.0</button>',
+  is spdx_link('MIT'), '<button type="button" class="license-link spdx" data-license="MIT">MIT</button>',
     'known license';
+  is spdx_link('Apache-2.0'),
+    '<button type="button" class="license-link spdx" data-license="Apache-2.0">Apache-2.0</button>', 'known license';
   is spdx_link('Unknown-License'), 'Unknown-License', 'unknown license';
 
   subtest 'Expression with AND' => sub {
     is spdx_link('Apache-2.0 AND MIT'),
-      '<button type="button" class="spdx-link" data-spdx="Apache-2.0">Apache-2.0</button>' . ' AND '
-      . '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>';
+      '<button type="button" class="license-link spdx" data-license="Apache-2.0">Apache-2.0</button>' . ' AND '
+      . '<button type="button" class="license-link spdx" data-license="MIT">MIT</button>';
   };
 
   subtest 'Expression with OR' => sub {
-    is spdx_link('MIT OR GPL-2.0-only'), '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>' . ' OR '
-      . '<button type="button" class="spdx-link" data-spdx="GPL-2.0-only">GPL-2.0-only</button>';
+    is spdx_link('MIT OR GPL-2.0-only'),
+      '<button type="button" class="license-link spdx" data-license="MIT">MIT</button>' . ' OR '
+      . '<button type="button" class="license-link spdx" data-license="GPL-2.0-only">GPL-2.0-only</button>';
   };
 
   subtest 'Expression with parentheses and AND/OR' => sub {
     is spdx_link('(MIT OR Apache-2.0) AND GPL-2.0-only'),
         '('
-      . '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>' . ' OR '
-      . '<button type="button" class="spdx-link" data-spdx="Apache-2.0">Apache-2.0</button>'
+      . '<button type="button" class="license-link spdx" data-license="MIT">MIT</button>' . ' OR '
+      . '<button type="button" class="license-link spdx" data-license="Apache-2.0">Apache-2.0</button>'
       . ') AND '
-      . '<button type="button" class="spdx-link" data-spdx="GPL-2.0-only">GPL-2.0-only</button>';
+      . '<button type="button" class="license-link spdx" data-license="GPL-2.0-only">GPL-2.0-only</button>';
   };
 
   subtest 'Expression with exception' => sub {
     is spdx_link('Classpath-exception-2.0'),
-      '<button type="button" class="spdx-link" data-spdx="Classpath-exception-2.0">Classpath-exception-2.0</button>',
+      '<button type="button" class="license-link spdx" data-license="Classpath-exception-2.0">Classpath-exception-2.0</button>',
       'SPDX exception only';
 
     is spdx_link('GPL-2.0-only WITH Classpath-exception-2.0'),
-        '<button type="button" class="spdx-link" data-spdx="GPL-2.0-only">GPL-2.0-only</button>'
+        '<button type="button" class="license-link spdx" data-license="GPL-2.0-only">GPL-2.0-only</button>'
       . ' WITH '
-      . '<button type="button" class="spdx-link" data-spdx="Classpath-exception-2.0">'
+      . '<button type="button" class="license-link spdx" data-license="Classpath-exception-2.0">'
       . 'Classpath-exception-2.0</button>', 'SPDX license WITH exception';
 
     is spdx_link('MIT WITH Autoconf-exception-3.0'),
-        '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>'
+        '<button type="button" class="license-link spdx" data-license="MIT">MIT</button>'
       . ' WITH '
-      . '<button type="button" class="spdx-link" data-spdx="Autoconf-exception-3.0">'
+      . '<button type="button" class="license-link spdx" data-license="Autoconf-exception-3.0">'
       . 'Autoconf-exception-3.0</button>', 'MIT WITH Autoconf-exception-3.0';
   };
 
@@ -471,8 +473,8 @@ subtest 'spdx_link' => sub {
     # License strings can come from imported component metadata and are rendered with v-html, so any
     # non-link text must be escaped
     is spdx_link('MIT <img src=x onerror=alert(1)>'),
-      '<button type="button" class="spdx-link" data-spdx="MIT">MIT</button>' . ' &lt;img src=x onerror=alert(1)&gt;',
-      'markup around a known license is escaped';
+      '<button type="button" class="license-link spdx" data-license="MIT">MIT</button>'
+      . ' &lt;img src=x onerror=alert(1)&gt;', 'markup around a known license is escaped';
     is spdx_link('<script>alert(1)</script>'), '&lt;script&gt;alert(1)&lt;/script&gt;',
       'unknown license with markup is fully escaped';
     is spdx_link('Foo & Bar'), 'Foo &amp; Bar', 'ampersands are escaped';

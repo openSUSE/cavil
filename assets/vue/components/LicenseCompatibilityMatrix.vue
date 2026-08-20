@@ -99,15 +99,15 @@
           <span class="license-matrix-connector">using</span>
           <button
             type="button"
-            class="spdx-link license-matrix-detail-name"
-            :data-spdx="selected.inbound"
+            class="license-link license-matrix-detail-name"
+            :data-license="selected.inbound"
             v-text="selected.inbound"
           ></button>
           <span class="license-matrix-connector">in a work under</span>
           <button
             type="button"
-            class="spdx-link license-matrix-detail-name"
-            :data-spdx="selected.outbound"
+            class="license-link license-matrix-detail-name"
+            :data-license="selected.outbound"
             v-text="selected.outbound"
           ></button>
         </span>

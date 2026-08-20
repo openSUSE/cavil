@@ -4,8 +4,9 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util
-  qw(license_is_catch_all normalize_license_expr paginate pattern_checksum spdx_link text_shingle_ids SNIPPET_SCORE_VERSION PRIORITY_WAITING);
+use Cavil::Util qw(license_is_catch_all license_link normalize_license_expr paginate pattern_checksum),
+  qw(pattern_contains_skip),
+  qw(spdx_link text_shingle_ids SNIPPET_SCORE_VERSION PRIORITY_WAITING @LICENSE_FLAGS @PATTERN_FLAGS);
 use List::Util qw(min);
 use Mojo::File qw(path);
 use Mojo::JSON qw(true false);
@@ -48,20 +49,12 @@ use constant LICENSE_PREDICTION_LIMIT     => 10;
 sub autocomplete ($self) {
   my $licenses = {};
 
+  my $columns = join ', ', @LICENSE_FLAGS;
   my $patterns
-    = $self->pg->db->query(
-    'SELECT DISTINCT(license), risk, patent, trademark, export_restricted, cla, eula, catch_all FROM license_patterns')
-    ->hashes;
+    = $self->pg->db->query("SELECT DISTINCT(license), risk, $columns, catch_all FROM license_patterns")->hashes;
   for my $pattern ($patterns->each) {
-    $licenses->{$pattern->{license}} = {
-      risk              => $pattern->{risk},
-      patent            => $pattern->{patent},
-      trademark         => $pattern->{trademark},
-      export_restricted => $pattern->{export_restricted},
-      cla               => $pattern->{cla},
-      eula              => $pattern->{eula},
-      catch_all         => $pattern->{catch_all}
-    };
+    $licenses->{$pattern->{license}}
+      = {risk => $pattern->{risk}, catch_all => $pattern->{catch_all}, map { $_ => $pattern->{$_} } @LICENSE_FLAGS};
   }
   delete $licenses->{''};
 
@@ -389,6 +382,33 @@ sub _license_properties ($self, $db, $license, $exclude_id = undef) {
   return \%props;
 }
 
+# At most one row per license can satisfy this, so the caller never has to choose. The catch_all condition is
+# not redundant: "backfill-catch-all" re-derives that column from the name, long after a text was curated.
+sub full_license_texts ($self, $licenses) {
+  return {} unless @$licenses;
+  my $rows
+    = $self->pg->db->query(
+    'SELECT license, pattern FROM license_patterns WHERE license = ANY(?) AND full_license_text AND NOT catch_all',
+    $licenses);
+  return {map { $_->{license} => $_->{pattern} } $rows->hashes->each};
+}
+
+# The text is printed verbatim, so a wildcard would ship as part of the license, and a catch-all has no
+# license to print
+sub full_license_text_error ($self, %args) {
+  return undef unless $args{full_license_text};
+  return 'A catch-all license has no text to reproduce'      if $args{catch_all};
+  return 'A full license text cannot contain a $SKIP marker' if pattern_contains_skip($args{pattern} // '');
+  return undef;
+}
+
+# Exclusive per license, so the previous answer has to go. Before the write, or the unique index rejects it.
+sub _release_full_license_text ($db, $license, $except = undef) {
+  my $where = {license => $license, full_license_text => 1};
+  $where->{id} = {'!=' => $except} if defined $except;
+  $db->update('license_patterns', {full_license_text => 0}, $where);
+}
+
 sub create ($self, %args) {
   my $checksum = pattern_checksum($args{pattern});
   my $id       = $self->pattern_exists($checksum);
@@ -396,22 +416,24 @@ sub create ($self, %args) {
 
   my $db    = $self->pg->db;
   my $props = $self->_license_properties($db, $args{license});
+  if (my $error = $self->full_license_text_error(%args, catch_all => $props->{catch_all})) {
+    return {error => $error};
+  }
+
+  my $tx = $db->begin;
+  _release_full_license_text($db, $args{license} // '') if $args{full_license_text};
 
   my $mid = $db->insert(
     'license_patterns',
     {
-      pattern           => $args{pattern},
-      token_hexsum      => $checksum,
-      packname          => $args{packname}          // '',
-      patent            => $args{patent}            // 0,
-      trademark         => $args{trademark}         // 0,
-      export_restricted => $args{export_restricted} // 0,
-      cla               => $args{cla}               // 0,
-      eula              => $args{eula}              // 0,
-      catch_all         => $props->{catch_all},
-      license           => $args{license} // '',
-      spdx              => $props->{spdx},
-      risk              => $args{risk} // 5,
+      pattern      => $args{pattern},
+      token_hexsum => $checksum,
+      packname     => $args{packname} // '',
+      catch_all    => $props->{catch_all},
+      (map { $_ => $args{$_} // 0 } @PATTERN_FLAGS),
+      license => $args{license} // '',
+      spdx    => $props->{spdx},
+      risk    => $args{risk} // 5,
       ($args{unique_id}   ? (unique_id   => $args{unique_id})   : ()), ($args{owner} ? (owner => $args{owner}) : ()),
       ($args{contributor} ? (contributor => $args{contributor}) : ())
     },
@@ -419,6 +441,7 @@ sub create ($self, %args) {
   )->hash->{id};
 
   $self->sync_pattern_shingles($db, $mid, $args{license} // '', $args{pattern});
+  $tx->commit;
   $self->expire_cache;
 
   return $self->find($mid);
@@ -434,8 +457,20 @@ sub insert_pattern ($self, $row) {
   my $db = $self->pg->db;
   $row->{catch_all} = license_is_catch_all($row->{license}) ? 1 : 0;
   $row->{token_hexsum} //= pattern_checksum($row->{pattern});
+
+  # After the insert, not before: this ignores every conflict, so a row that turns out to be a duplicate must
+  # not have released the claim already here - and a colliding claim must not take the whole pattern with it.
+  my $claim = delete $row->{full_license_text};
+
+  my $tx = $db->begin;
   return undef unless my $new = $db->insert('license_patterns', $row, {on_conflict => undef, returning => 'id'})->hash;
+  if ($claim) {
+    _release_full_license_text($db, $row->{license} // '', $new->{id});
+    $db->update('license_patterns', {full_license_text => 1}, {id => $new->{id}});
+  }
   $self->sync_pattern_shingles($db, $new->{id}, $row->{license} // '', $row->{pattern});
+  $tx->commit;
+
   return $new->{id};
 }
 
@@ -675,7 +710,15 @@ sub paginate_known_licenses ($self, $options) {
       LIMIT ? OFFSET ?
     }, @bind, $options->{limit}, $options->{offset}
   )->hashes->to_array;
-  $_->{spdx_html} = spdx_link($_->{spdx}) for @$results;
+
+  # Reviewers research licenses here, so every readable text needs a way in, identifier or not
+  my $curated = $self->full_license_texts([map { $_->{license} } @$results]);
+  for my $row (@$results) {
+    $row->{text_html}
+      = length $row->{spdx}         ? spdx_link($row->{spdx})
+      : $curated->{$row->{license}} ? license_link($row->{license}, 1, 'Curated text')
+      :                               '';
+  }
 
   return paginate($results, $options);
 }
@@ -730,13 +773,9 @@ sub _insert_pattern_proposal ($self, $db, $action, $checksum, %args) {
           license              => $args{license},
           risk                 => $args{risk},
           package              => $args{package},
-          patent               => $args{patent}            // '0',
-          trademark            => $args{trademark}         // '0',
-          export_restricted    => $args{export_restricted} // '0',
-          cla                  => $args{cla}               // '0',
-          eula                 => $args{eula}              // '0',
-          ai_assisted          => $args{ai_assisted}       // 0,
-          reason               => $args{reason}            // ''
+          (map { $_ => $args{$_} // '0' } @PATTERN_FLAGS),
+          ai_assisted => $args{ai_assisted} // 0,
+          reason      => $args{reason}      // ''
         }
       },
       owner        => $args{owner},
@@ -748,6 +787,7 @@ sub _insert_pattern_proposal ($self, $db, $action, $checksum, %args) {
 sub propose_create ($self, %args) {
   my $checksum = pattern_checksum($args{pattern});
   if (my $conflict = $self->_pattern_proposal_conflict($checksum)) { return $conflict }
+  if (my $error    = $self->full_license_text_error(%args))        { return {error => $error} }
 
   my $db = $self->pg->db;
   my $hash
@@ -762,6 +802,7 @@ sub propose_create ($self, %args) {
 sub propose_new_license ($self, %args) {
   my $checksum = pattern_checksum($args{pattern});
   if (my $conflict = $self->_pattern_proposal_conflict($checksum)) { return $conflict }
+  if (my $error    = $self->full_license_text_error(%args))        { return {error => $error} }
 
   # Unlike propose_create there is deliberately no existing-license gate: introducing a license Cavil has
   # never seen is the whole point. The curator's approval (the create-pattern action) bootstraps the
@@ -1053,27 +1094,29 @@ sub update ($self, $id, %args) {
   my $catch_all   = $props->{catch_all};
   my $spdx        = $renamed ? $props->{spdx} : $old->{spdx};
 
+  if (my $error = $self->full_license_text_error(%args, catch_all => $catch_all)) { return {error => $error} }
+
+  my $tx = $db->begin;
+  _release_full_license_text($db, $new_license, $id) if $args{full_license_text};
+
   $db->update(
     'license_patterns',
     {
-      pattern           => $args{pattern},
-      token_hexsum      => $checksum,
-      packname          => $args{packname} // '',
-      license           => $args{license},
-      patent            => $args{patent}            // 0,
-      trademark         => $args{trademark}         // 0,
-      export_restricted => $args{export_restricted} // 0,
-      cla               => $args{cla}               // 0,
-      eula              => $args{eula}              // 0,
-      catch_all         => $catch_all,
-      spdx              => $spdx,
-      risk              => $args{risk} // 5,
+      pattern      => $args{pattern},
+      token_hexsum => $checksum,
+      packname     => $args{packname} // '',
+      license      => $args{license},
+      catch_all    => $catch_all,
+      (map { $_ => $args{$_} // 0 } @PATTERN_FLAGS),
+      spdx => $spdx,
+      risk => $args{risk} // 5,
       ($args{owner} ? (owner => $args{owner}) : ())
     },
     {id => $id}
   );
 
   $self->sync_pattern_shingles($db, $id, $args{license}, $args{pattern});
+  $tx->commit;
 }
 
 1;

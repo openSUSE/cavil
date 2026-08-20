@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(license_classification);
-use Cavil::Util       qw(license_text spdx_link);
+use Cavil::Util       qw(license_text spdx_link @PATTERN_FLAGS);
 
 sub create_pattern ($self) {
   my $validation = $self->validation;
@@ -14,28 +14,24 @@ sub create_pattern ($self) {
   $validation->optional('license');
   $validation->optional('packname');
   $validation->optional('risk')->num;
-  $validation->optional('patent');
-  $validation->optional('trademark');
-  $validation->optional('export_restricted');
-  $validation->optional('cla');
-  $validation->optional('eula');
+  $validation->optional($_) for @PATTERN_FLAGS;
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $pattern = $validation->param('pattern');
 
   my $patterns = $self->patterns;
   my $match    = $patterns->create(
-    license           => $validation->param('license'),
-    packname          => $validation->param('packname'),
-    pattern           => $pattern,
-    risk              => $validation->param('risk'),
-    patent            => $validation->param('patent'),
-    trademark         => $validation->param('trademark'),
-    export_restricted => $validation->param('export_restricted'),
-    cla               => $validation->param('cla'),
-    eula              => $validation->param('eula')
+    license  => $validation->param('license'),
+    packname => $validation->param('packname'),
+    pattern  => $pattern,
+    risk     => $validation->param('risk'),
+    (map { $_ => $validation->param($_) } @PATTERN_FLAGS)
   );
 
+  if (my $error = $match->{error}) {
+    $self->flash(danger => $error);
+    return $self->redirect_to('new_pattern');
+  }
   if ($match->{conflict}) {
     $self->flash(danger => 'Conflicting license pattern already exists.');
     return $self->redirect_to('new_pattern');
@@ -102,17 +98,7 @@ sub new_pattern ($self) {
   my $lname = $validation->param('license-name');
   $self->render(
     template => 'license/edit_pattern',
-    match    => {
-      license           => $lname,
-      pattern           => '',
-      risk              => 0,
-      patent            => 0,
-      trademark         => 0,
-      export_restricted => 0,
-      cla               => 0,
-      eula              => 0,
-      packname          => ''
-    }
+    match    => {license => $lname, pattern => '', risk => 0, packname => '', (map { $_ => 0 } @PATTERN_FLAGS)}
   );
 }
 
@@ -194,13 +180,18 @@ sub remove_proposal ($self) {
   $self->render(json => {removed => $removed ? 1 : 0, fallback => $fallback});
 }
 
-sub spdx_meta ($self) {
-  my $id = $self->stash('id');
-  return $self->reply->not_found unless defined(my $text = license_text($id));
+# A query parameter, not a path segment: one production license is called "SLED/SLES EULA"
+sub text_meta ($self) {
+  my $license = $self->param('license') // '';
+  return $self->reply->not_found unless length $license;
 
-  # An exception id classifies as neither a license nor an obligation, and renders without chips
-  my $about = license_classification($id)->[0] // {};
-  $self->render(json => {id => $id, text => $text, about => $about});
+  # Same order every document resolves in, so the viewer cannot show terms a NOTICE would not reproduce
+  my $text = license_text($license) // $self->patterns->full_license_texts([$license])->{$license};
+  return $self->reply->not_found unless defined $text;
+
+  # An exception id, and any license without one, classifies as neither and renders without chips
+  my $about = license_classification($license)->[0] // {};
+  $self->render(json => {license => $license, text => $text, about => $about});
 }
 
 sub show ($self) {
@@ -215,11 +206,7 @@ sub update_pattern ($self) {
   $validation->optional('license');
   $validation->optional('packname');
   $validation->optional('risk')->num;
-  $validation->optional('patent');
-  $validation->optional('trademark');
-  $validation->optional('export_restricted');
-  $validation->optional('cla');
-  $validation->optional('eula');
+  $validation->optional($_) for @PATTERN_FLAGS;
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $id       = $self->stash('id');
@@ -230,17 +217,17 @@ sub update_pattern ($self) {
   # expire old license pattern
   my $result = $patterns->update(
     $id,
-    packname          => $validation->param('packname'),
-    pattern           => $pattern,
-    license           => $validation->param('license'),
-    patent            => $validation->param('patent'),
-    trademark         => $validation->param('trademark'),
-    export_restricted => $validation->param('export_restricted'),
-    cla               => $validation->param('cla'),
-    eula              => $validation->param('eula'),
-    risk              => $validation->param('risk'),
-    owner             => $owner_id
+    packname => $validation->param('packname'),
+    pattern  => $pattern,
+    license  => $validation->param('license'),
+    (map { $_ => $validation->param($_) } @PATTERN_FLAGS),
+    risk  => $validation->param('risk'),
+    owner => $owner_id
   );
+  if (my $error = $result->{error}) {
+    $self->flash(danger => $error);
+    return $self->redirect_to('edit_pattern', id => $id);
+  }
   if ($result->{conflict}) {
     $self->flash(danger => 'Conflicting license pattern already exists.');
     return $self->redirect_to('edit_pattern', id => $id);
@@ -257,11 +244,7 @@ sub update_pattern_json ($self) {
   $validation->optional('license');
   $validation->optional('packname');
   $validation->optional('risk')->num;
-  $validation->optional('patent');
-  $validation->optional('trademark');
-  $validation->optional('export_restricted');
-  $validation->optional('cla');
-  $validation->optional('eula');
+  $validation->optional($_) for @PATTERN_FLAGS;
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $id       = $self->stash('id');
@@ -271,17 +254,14 @@ sub update_pattern_json ($self) {
 
   my $result = $patterns->update(
     $id,
-    packname          => $validation->param('packname'),
-    pattern           => $pattern,
-    license           => $validation->param('license'),
-    patent            => $validation->param('patent'),
-    trademark         => $validation->param('trademark'),
-    export_restricted => $validation->param('export_restricted'),
-    cla               => $validation->param('cla'),
-    eula              => $validation->param('eula'),
-    risk              => $validation->param('risk'),
-    owner             => $owner_id
+    packname => $validation->param('packname'),
+    pattern  => $pattern,
+    license  => $validation->param('license'),
+    (map { $_ => $validation->param($_) } @PATTERN_FLAGS),
+    risk  => $validation->param('risk'),
+    owner => $owner_id
   );
+  return $self->render(json => {error => $result->{error}}, status => 400) if $result->{error};
   return $self->render(json => {error => 'Conflicting license pattern already exists.'}, status => 409)
     if $result->{conflict};
 

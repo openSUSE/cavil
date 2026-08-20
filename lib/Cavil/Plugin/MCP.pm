@@ -5,7 +5,8 @@ package Cavil::Plugin::MCP;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use MCP::Server;
-use Cavil::Util         qw(checkout_path pattern_matches pattern_contains_redundant_skip read_lines), qw(validate_tags);
+use Cavil::Util qw(checkout_path pattern_matches pattern_contains_redundant_skip read_lines),
+  qw(validate_tags @LICENSE_FLAGS);
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
 use File::Find          qw(find);
 use Mojo::File          qw(path);
@@ -725,13 +726,12 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
     # Change Proposals page).
     $result = $c->patterns->propose_create(
       %common,
-      license           => $match->{license},
-      risk              => $match->{risk},
-      patent            => $match->{patent},
-      trademark         => $match->{trademark},
-      export_restricted => $match->{export_restricted},
-      cla               => $match->{cla},
-      eula              => $match->{eula}
+      license => $match->{license},
+      risk    => $match->{risk},
+
+      # Facts about the license, inherited. Not full_license_text: a snippet is not the license in full
+      # because it resembles one that is.
+      (map { $_ => $match->{$_} } @LICENSE_FLAGS)
     );
     $success = 'Proposal for new license pattern has been successfully submitted';
   }
@@ -751,19 +751,18 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
       return $tool->text_result("$intro Closest existing matches:\n$closest_list", 1);
     }
 
+    # Only the license-level flags the tool accepts; asserting that a text is a complete license is a
+    # curator's call, not an assistant's
     $result = $c->patterns->propose_new_license(
       %common,
-      license           => $license,
-      risk              => $risk,
-      patent            => $args->{patent}            ? 1 : 0,
-      trademark         => $args->{trademark}         ? 1 : 0,
-      export_restricted => $args->{export_restricted} ? 1 : 0,
-      cla               => $args->{cla}               ? 1 : 0,
-      eula              => $args->{eula}              ? 1 : 0
+      license => $license,
+      risk    => $risk,
+      (map { $_ => $args->{$_} ? 1 : 0 } @LICENSE_FLAGS)
     );
     $success = qq{Proposal to introduce new license "$license" (risk $risk) has been successfully submitted};
   }
 
+  return $tool->text_result($result->{error},                                      1) if $result->{error};
   return $tool->text_result('Conflicting license pattern already exists',          1) if $result->{conflict};
   return $tool->text_result('Conflicting license pattern proposal already exists', 1) if $result->{proposal_conflict};
 

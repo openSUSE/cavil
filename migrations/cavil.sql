@@ -505,3 +505,7 @@ CREATE TABLE copyrights (
 CREATE UNIQUE INDEX copyrights_package_md5_generation_idx ON copyrights (package, md5(copyright), generation);
 CREATE INDEX copyrights_package_idx  ON copyrights (package);
 CREATE INDEX copyrights_building_idx ON copyrights (package) WHERE generation <> 0;
+
+-- 61 up
+ALTER TABLE license_patterns ADD COLUMN full_license_text boolean DEFAULT false NOT NULL;
+CREATE UNIQUE INDEX license_patterns_full_text_idx ON license_patterns (license) WHERE full_license_text;

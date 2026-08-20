@@ -4,13 +4,18 @@
 package Cavil::Sync;
 use Mojo::Base -base, -signatures;
 
-use File::Find qw(find);
-use Mojo::File qw(path);
-use Mojo::JSON qw(decode_json encode_json);
+use File::Find  qw(find);
+use Mojo::File  qw(path);
+use Mojo::JSON  qw(decode_json encode_json);
+use Cavil::Util ();
 use Term::ProgressBar;
 
 has 'app';
 has silent => 0;
+
+# Selected and written from one list, so a new column cannot reach one and be dropped by the other. No id or
+# created: those are per-instance, and the import dedupes on unique_id.
+my @EXPORTED = (qw(unique_id license spdx packname pattern risk catch_all), @Cavil::Util::PATTERN_FLAGS);
 
 sub load ($self, $path) {
 
@@ -49,37 +54,18 @@ sub store ($self, $path) {
   my $progress = Term::ProgressBar->new(
     {count => $count, name => "Exporting $count patterns", term_width => 80, silent => $self->silent});
 
-  my $handle = $path->open('>');
-  my $last   = '00000000-0000-0000-0000-000000000000';
-  my $all    = 0;
+  my $handle  = $path->open('>');
+  my $last    = '00000000-0000-0000-0000-000000000000';
+  my $all     = 0;
+  my $columns = join ', ', @EXPORTED;
   while (1) {
-    my $results = $db->query(
-      'SELECT id, pattern, created, packname, patent, trademark, token_hexsum, license, risk, unique_id, spdx,
-         export_restricted, cla, eula, catch_all
-       FROM license_patterns WHERE unique_id > ? ORDER BY unique_id ASC LIMIT 100', $last
-    );
+    my $results
+      = $db->query("SELECT $columns FROM license_patterns WHERE unique_id > ? ORDER BY unique_id ASC LIMIT 100", $last);
     last unless $results->rows;
 
     for my $hash ($results->hashes->each) {
-      $last = my $uuid = $hash->{unique_id};
-
-      my $json = encode_json(
-        {
-          license           => $hash->{license},
-          spdx              => $hash->{spdx},
-          packname          => $hash->{packname},
-          patent            => $hash->{patent},
-          pattern           => $hash->{pattern},
-          risk              => $hash->{risk},
-          trademark         => $hash->{trademark},
-          export_restricted => $hash->{export_restricted},
-          cla               => $hash->{cla},
-          eula              => $hash->{eula},
-          catch_all         => $hash->{catch_all},
-          unique_id         => $uuid
-        }
-      );
-      print $handle "$json\n";
+      $last = $hash->{unique_id};
+      print $handle encode_json({map { $_ => $hash->{$_} } @EXPORTED}), "\n";
       $all++;
       $progress->update;
     }

@@ -42,7 +42,7 @@
         <thead>
           <tr>
             <th class="link" style="width: 50%">License</th>
-            <th>SPDX</th>
+            <th>License text</th>
             <th>Risks</th>
           </tr>
         </thead>
@@ -56,7 +56,7 @@
         <tbody v-else-if="licenses.length > 0">
           <tr v-for="license in licenses" :key="license.link">
             <td class="cavil-list-primary" v-html="license.link"></td>
-            <td v-html="license.spdxHtml"></td>
+            <td v-html="license.textHtml"></td>
             <td>
               <span v-for="risk in license.risks" :key="risk" class="badge me-1" :class="badgeClass(risk)">{{
                 risk
@@ -138,7 +138,7 @@ export default {
         licenses.push({
           link: licenseLink(license),
           spdx: license.spdx,
-          spdxHtml: license.spdx_html,
+          textHtml: license.text_html,
           risks: license.risks
         });
       }
@@ -164,5 +164,15 @@ export default {
 <style>
 .known-licenses-list.cavil-list-page {
   margin-top: 0 !important;
+}
+
+/* A report keeps these quiet because the license name carries itself there. In a research table the column
+   is otherwise indistinguishable from inert data, so it takes the same blue as the list's other links. */
+.known-licenses-list .license-link {
+  color: var(--cavil-accent);
+}
+.known-licenses-list .license-link:hover,
+.known-licenses-list .license-link:focus {
+  color: var(--cavil-accent-strong);
 }
 </style>

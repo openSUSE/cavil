@@ -187,18 +187,18 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
     });
 
     await t.test('an SPDX identifier opens the license text overlay', async t => {
-      const link = apacheItem.locator('.spdx-link', {hasText: 'Apache-2.0'}).first();
-      t.equal(await link.getAttribute('data-spdx'), 'Apache-2.0', 'the identifier travels on the control');
+      const link = apacheItem.locator('.license-link', {hasText: 'Apache-2.0'}).first();
+      t.equal(await link.getAttribute('data-license'), 'Apache-2.0', 'the identifier travels on the control');
 
-      const modal = page.locator('.spdx-license-modal');
+      const modal = page.locator('.license-modal');
       await link.click();
-      const text = modal.locator('[data-spdx-text]');
+      const text = modal.locator('[data-license-text]');
       await text.waitFor();
       // Bootstrap only hands the overlay focus once its show transition ends, and Escape is ignored
       // until then
       await page.waitForFunction(() => document.activeElement.classList.contains('modal-body'));
       t.match(page.url(), /\/reviews\/details\/1$/, 'the report page was not navigated away from');
-      t.equal(await modal.locator('.spdx-license-id').innerText(), 'Apache-2.0', 'the overlay names the license');
+      t.equal(await modal.locator('.license-id').innerText(), 'Apache-2.0', 'the overlay names the license');
       t.match(await text.innerText(), /Grant of Copyright License/, 'the license text is rendered');
 
       t.equal(
@@ -207,7 +207,7 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         'authored blank lines and clause indents survive'
       );
       t.equal(
-        await modal.locator('.spdx-license-source').getAttribute('target'),
+        await modal.locator('.license-source').getAttribute('target'),
         '_blank',
         'spdx.org is one click away'
       );

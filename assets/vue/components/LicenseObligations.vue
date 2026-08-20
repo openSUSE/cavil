@@ -18,7 +18,7 @@
       </p>
       <section v-for="lic in licenses" :key="lic.license" class="lob-license">
         <h5 v-if="showNames" class="lob-license-name">
-          <button type="button" class="spdx-link" :data-spdx="lic.license">{{ lic.license }}</button>
+          <button type="button" class="license-link" :data-license="lic.license">{{ lic.license }}</button>
         </h5>
 
         <dl v-if="lic.attrs.length > 0" class="lob-attrs">
@@ -361,7 +361,7 @@ export default {
   font-weight: 600;
   margin: 0 0 0.5rem;
 }
-.lob-license-name .spdx-link {
+.lob-license-name .license-link {
   color: var(--cavil-fg);
 }
 

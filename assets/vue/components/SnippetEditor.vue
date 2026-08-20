@@ -179,61 +179,7 @@
                   <div class="snippet-editor-attribute snippet-editor-attribute-flags">
                     <label class="form-label">Flags</label>
                     <div class="snippet-editor-attribute-flag-list">
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.patent"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="patent"
-                          name="patent"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="patent">Patent</label>
-                      </div>
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.trademark"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="trademark"
-                          name="trademark"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="trademark">Trademark</label>
-                      </div>
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.cla"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="cla"
-                          name="cla"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="cla">CLA</label>
-                      </div>
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.eula"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="eula"
-                          name="eula"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="eula">EULA</label>
-                      </div>
-                      <div class="form-check">
-                        <input
-                          v-model="licenseOptions.export_restricted"
-                          type="checkbox"
-                          class="form-check-input"
-                          id="export_restricted"
-                          name="export_restricted"
-                          value="1"
-                        />
-                        <label class="form-check-label" for="export_restricted">Export Restricted</label>
-                      </div>
+                      <PatternFlags v-model="licenseOptions" />
                     </div>
                   </div>
                 </div>
@@ -306,6 +252,7 @@
 <script>
 import ClosestPattern from './ClosestPattern.vue';
 import LegalLoading from './LegalLoading.vue';
+import PatternFlags, {LICENSE_FLAGS, PATTERN_FLAGS} from './PatternFlags.vue';
 import {rankLicenses} from '../helpers/licenseAutocomplete.js';
 import {fileViewUrl, setupPopoverDelayed} from '../helpers/links.js';
 import {renderPatternTooltip, showPatternTooltip} from '../helpers/patternTooltip.js';
@@ -317,7 +264,7 @@ const setDecoLinesEffect = StateEffect.define();
 
 export default {
   name: 'SnippetEditor',
-  components: {ClosestPattern, LegalLoading},
+  components: {ClosestPattern, LegalLoading, PatternFlags},
   props: {
     snippetId: {type: Number, required: true},
     fileId: {type: Number, default: null},
@@ -343,14 +290,7 @@ export default {
       license: '',
       licenseFocused: false,
       licenses: {},
-      licenseOptions: {
-        cla: false,
-        eula: false,
-        export_restricted: false,
-        patent: false,
-        risk: 1,
-        trademark: false
-      },
+      licenseOptions: {risk: 1, ...Object.fromEntries(PATTERN_FLAGS.map(flag => [flag.name, false]))},
       matches: {},
       originalDecorations: null,
       originalSnippetText: null,
@@ -445,7 +385,16 @@ export default {
     fillLicense(result) {
       if (this.$refs.license) this.$refs.license.blur();
       this.license = result;
-      if (this.licenses[result] !== undefined) this.licenseOptions = this.licenses[result];
+      // Copied, not aliased: the autocomplete cache is shared. And only the license's own properties -
+      // full_license_text is about this pattern's text.
+      const options = this.licenses[result];
+      if (options !== undefined) {
+        this.licenseOptions = {
+          ...this.licenseOptions,
+          risk: options.risk,
+          ...Object.fromEntries(LICENSE_FLAGS.map(flag => [flag.name, !!options[flag.name]]))
+        };
+      }
       this.results = this.suggestions;
       this.licenseFocused = false;
     },
@@ -490,11 +439,9 @@ export default {
       if (initial.pattern !== undefined) this.patternText = initial.pattern;
       if (initial.license !== undefined) this.license = initial.license;
       if (initial.risk !== undefined) this.licenseOptions.risk = Number(initial.risk);
-      this.licenseOptions.patent = initial.patent === '1' || initial.patent === true;
-      this.licenseOptions.trademark = initial.trademark === '1' || initial.trademark === true;
-      this.licenseOptions.export_restricted = initial.export_restricted === '1' || initial.export_restricted === true;
-      this.licenseOptions.cla = initial.cla === '1' || initial.cla === true;
-      this.licenseOptions.eula = initial.eula === '1' || initial.eula === true;
+      for (const flag of PATTERN_FLAGS) {
+        this.licenseOptions[flag.name] = initial[flag.name] === '1' || initial[flag.name] === true;
+      }
       if (initial.edited !== undefined) this.edited = String(initial.edited);
       if (initial['highlighted-keywords'] !== undefined) {
         this.highlightedKeywords = initial['highlighted-keywords'];
@@ -756,11 +703,7 @@ export default {
         'highlighted-keywords': this.highlightedKeywords,
         'highlighted-licenses': this.highlightedLicenses
       };
-      if (this.licenseOptions.patent) formData.patent = '1';
-      if (this.licenseOptions.trademark) formData.trademark = '1';
-      if (this.licenseOptions.export_restricted) formData.export_restricted = '1';
-      if (this.licenseOptions.cla) formData.cla = '1';
-      if (this.licenseOptions.eula) formData.eula = '1';
+      for (const flag of PATTERN_FLAGS) if (this.licenseOptions[flag.name]) formData[flag.name] = '1';
       if (this.hash !== null) formData.hash = this.hash;
       if (this.from !== null) formData.from = this.from;
       if (this.package !== null) formData.package = this.package.id;

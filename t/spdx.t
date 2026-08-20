@@ -650,13 +650,32 @@ subtest 'Every LicenseRef the document mints is defined in it' => sub {
       ok length($custom{$target // ''}{simplelicensing_licenseText} // ''), 'which carries the text it stands for';
 
       # A declaration is evidence for the identifier, not terms to reproduce, so it has to say so
-      like $custom{$target // ''}{comment}, qr/Text as found at|declared by the component metadata/,
+      like $custom{$target // ''}{comment}, qr/Text as found at|declared by the component metadata|curated in Cavil/,
         'and says where the text came from';
     }
   }
 
   # Otherwise the loop above proves nothing
   ok @refs, 'the fixture does mint a LicenseRef';
+};
+
+# A LicenseRef needs terms a reader can act on. What a match happened to cover is only evidence that the
+# identifier applies, so a curated full text has to win when one exists.
+subtest 'A CustomLicense prefers a curated full text over the matched evidence' => sub {
+  my ($name) = map { $_->{name} } grep { defined $_->{name} } @{of_type($doc, 'expandedlicensing_CustomLicense')};
+  ok $name, 'the fixture has a license Cavil knows by name only';
+
+  my $curated = "Curated terms for $name, reproduced in full and at some length.";
+  my $id      = $t->app->patterns->create(pattern => $curated, license => $name, full_license_text => 1)->{id};
+  ok $id, 'a full text was curated for it';
+
+  my ($node) = grep { ($_->{name} // '') eq $name } @{of_type(gen_doc(1), 'expandedlicensing_CustomLicense')};
+  is $node->{simplelicensing_licenseText}, $curated, 'the curated text is what the SBOM reproduces';
+  like $node->{comment}, qr/curated in Cavil/, 'and it is not passed off as text found in the package';
+
+  $t->app->pg->db->query('DELETE FROM license_patterns WHERE id = ?', $id);
+  my ($back) = grep { ($_->{name} // '') eq $name } @{of_type(gen_doc(1), 'expandedlicensing_CustomLicense')};
+  like $back->{comment}, qr/Text as found at/, 'without one it falls back to the evidence again';
 };
 
 subtest 'The package states its own copyright, not only its files' => sub {

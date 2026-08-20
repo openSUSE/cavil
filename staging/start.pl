@@ -368,6 +368,35 @@ unless ($clean) {
     ->spurt("compatibility lab license GPL-2.0-only\n\ncompatibility lab license CDDL-1.0\n");
   $app->pg->db->query(q{UPDATE license_patterns SET spdx = license WHERE pattern LIKE 'compatibility lab license %'});
 
+  # Both states of the "full license text" flag: one license with curated terms, one that stays a gap in the
+  # NOTICE. Neither marker may match the SPDX-setting update above, hence the different wording.
+  my $lab_eula = <<'EULA';
+Compatibility Lab End User License Agreement, version 1.0
+
+1. Grant. Permission is granted to use this synthetic agreement for the sole purpose of exercising
+   Cavil's handling of licenses that have no SPDX identifier.
+
+2. Attribution. This notice must be reproduced in full wherever the agreement is redistributed.
+
+3. Disclaimer. This text is a fixture. It grants nothing and identifies no real license.
+EULA
+  $compat_dir->child('LICENSE.eula')->spurt($lab_eula);
+  $app->patterns->create(
+    pattern           => $lab_eula,
+    license           => 'Compatibility-Lab-EULA',
+    risk              => 5,
+    full_license_text => 1,
+    unique_id         => sprintf('cccccccc-cccc-4ccc-8ccc-%012d', $compat_i++)
+  );
+
+  $compat_dir->child('src')->make_path->child('unwritten.txt')->spurt("compatibility lab custom terms apply here\n");
+  $app->patterns->create(
+    pattern   => 'compatibility lab custom terms apply here',
+    license   => 'Compatibility-Lab-Unwritten',
+    risk      => 5,
+    unique_id => sprintf('cccccccc-cccc-4ccc-8ccc-%012d', $compat_i++)
+  );
+
   $pkg_id = $pkgs->add(
     name            => 'cavil-compatibility-lab',
     checkout_dir    => $compat_checkout,

@@ -105,59 +105,8 @@
                     <label for="risk" class="form-label">Risk</label>
                   </div>
                 </div>
-                <div class="col-lg-2">
-                  <div class="form-check">
-                    <input
-                      v-model="form.patent"
-                      type="checkbox"
-                      class="form-check-input"
-                      id="patent"
-                      name="patent"
-                      value="1"
-                    />
-                    <label class="form-check-label" for="patent">Patent</label>
-                  </div>
-                  <div class="form-check">
-                    <input
-                      v-model="form.trademark"
-                      type="checkbox"
-                      class="form-check-input"
-                      id="trademark"
-                      name="trademark"
-                      value="1"
-                    />
-                    <label class="form-check-label" for="trademark">Trademark</label>
-                  </div>
-                </div>
-                <div class="col-lg-2">
-                  <div class="form-check">
-                    <input v-model="form.cla" type="checkbox" class="form-check-input" id="cla" name="cla" value="1" />
-                    <label class="form-check-label" for="cla">CLA</label>
-                  </div>
-                  <div class="form-check">
-                    <input
-                      v-model="form.eula"
-                      type="checkbox"
-                      class="form-check-input"
-                      id="eula"
-                      name="eula"
-                      value="1"
-                    />
-                    <label class="form-check-label" for="eula">EULA</label>
-                  </div>
-                </div>
-                <div class="col-lg-2">
-                  <div class="form-check">
-                    <input
-                      v-model="form.export_restricted"
-                      type="checkbox"
-                      class="form-check-input"
-                      id="export_restricted"
-                      name="export_restricted"
-                      value="1"
-                    />
-                    <label class="form-check-label" for="export_restricted">Export Restricted</label>
-                  </div>
+                <div class="col-lg-6 pattern-editor-flags">
+                  <PatternFlags v-model="form" />
                 </div>
               </div>
             </div>
@@ -204,12 +153,13 @@
 import ClosestPattern from './ClosestPattern.vue';
 import LegalLoading from './LegalLoading.vue';
 import PatternCodeMirror from './PatternCodeMirror.vue';
+import PatternFlags, {LICENSE_FLAGS, PATTERN_FLAGS} from './PatternFlags.vue';
 import {rankLicenses} from '../helpers/licenseAutocomplete.js';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'PatternEditor',
-  components: {ClosestPattern, LegalLoading, PatternCodeMirror},
+  components: {ClosestPattern, LegalLoading, PatternCodeMirror, PatternFlags},
   props: {
     pattern: {type: Object, required: true},
     inline: {type: Boolean, default: false},
@@ -266,11 +216,9 @@ export default {
       const options = this.licenses[result];
       if (options !== undefined) {
         this.form.risk = String(options.risk);
-        this.form.patent = !!options.patent;
-        this.form.trademark = !!options.trademark;
-        this.form.export_restricted = !!options.export_restricted;
-        this.form.cla = !!options.cla;
-        this.form.eula = !!options.eula;
+
+        // Only the license's own properties; full_license_text is about this pattern's text
+        for (const flag of LICENSE_FLAGS) this.form[flag.name] = !!options[flag.name];
       }
       this.results = this.suggestions;
       this.licenseFocused = false;
@@ -280,12 +228,8 @@ export default {
         license: pattern.license ?? '',
         pattern: pattern.pattern ?? '',
         risk: String(pattern.risk ?? 0),
-        patent: !!pattern.patent,
-        trademark: !!pattern.trademark,
-        export_restricted: !!pattern.export_restricted,
-        cla: !!pattern.cla,
-        eula: !!pattern.eula,
-        packname: pattern.packname ?? ''
+        packname: pattern.packname ?? '',
+        ...Object.fromEntries(PATTERN_FLAGS.map(flag => [flag.name, !!pattern[flag.name]]))
       };
     },
     formPayload() {
@@ -295,11 +239,7 @@ export default {
         risk: this.form.risk,
         packname: this.form.packname
       };
-      if (this.form.patent) form.patent = '1';
-      if (this.form.trademark) form.trademark = '1';
-      if (this.form.export_restricted) form.export_restricted = '1';
-      if (this.form.cla) form.cla = '1';
-      if (this.form.eula) form.eula = '1';
+      for (const flag of PATTERN_FLAGS) if (this.form[flag.name]) form[flag.name] = '1';
       return form;
     },
     async loadMatchCount() {

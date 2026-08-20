@@ -7,7 +7,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(license_classification peripheral_scope);
 use Cavil::Role       qw(roles_with_capability);
-use Cavil::Util       qw(external_link_data spdx_link);
+use Cavil::Util       qw(external_link_data license_link spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(false from_json true);
@@ -204,6 +204,11 @@ sub _report_details ($c, $pkg, $report) {
   }
 
   my $risks = $report->{risks} // {};
+
+  # One lookup for the whole report. Only link a name with no identifier when there is a text behind it; a
+  # link that leads nowhere is worse than plain text.
+  my %curated = map { $_ => 1 } keys %{$c->patterns->full_license_texts([map { keys %$_ } values %$risks])};
+
   my %risk_buckets;
   for my $risk (keys %$risks) {
     my @licenses;
@@ -220,7 +225,7 @@ sub _report_details ($c, $pkg, $report) {
       push @licenses, {
         name      => $matches->{name},
         spdx      => $matches->{spdx},
-        name_html => spdx_link($display),
+        name_html => license_link($display, $curated{$display}),
         catch_all => $matches->{catch_all} ? \1 : \0,
         flags     => $matches->{flags} // [],
         files     => $matches->{files},

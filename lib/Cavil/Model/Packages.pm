@@ -5,7 +5,7 @@ package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(checkout_path incoming_priority md5_file paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP),
-  qw(PRIORITY_WAITING);
+  qw(PRIORITY_WAITING @LICENSE_FLAGS);
 use Mojo::File qw(path);
 use Mojo::Util qw(dumper scope_guard);
 use Text::Glob qw(glob_to_regex);
@@ -301,21 +301,20 @@ sub find_by_name_and_md5 ($self, $pkg, $md5) {
 
 sub flags ($self, $id, $generation = 0) {
 
-  # Only include flags that have a field in the bot_packages table
-  my @flags = qw(patent trademark export_restricted cla eula);
-  my $flags = {map { $_ => 0 } @flags};
+  # Only the license-level flags, which are the ones with a field in the bot_packages table
+  my $flags   = {map { $_ => 0 } @LICENSE_FLAGS};
+  my $columns = join ', ',   @LICENSE_FLAGS;
+  my $any     = join ' OR ', map {"lp.$_ = true"} @LICENSE_FLAGS;
 
   my $results = $self->pg->db->query(
     qq{
-      SELECT patent, trademark, export_restricted, cla, eula
+      SELECT $columns
       FROM pattern_matches pm JOIN license_patterns lp ON pm.pattern = lp.id
-      WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false
-        AND (lp.patent = true OR lp.trademark = true OR lp.export_restricted = true
-             OR lp.cla = true OR lp.eula = true)
+      WHERE pm.package = ? AND pm.generation = ? AND pm.ignored = false AND ($any)
     }, $id, $generation
   )->hashes->to_array;
   for my $result (@$results) {
-    for my $flag (@flags) {
+    for my $flag (@LICENSE_FLAGS) {
       $flags->{$flag} = 1 if $result->{$flag};
     }
   }

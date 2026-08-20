@@ -147,31 +147,8 @@
                       <label for="risk" class="form-label">Risk</label>
                     </div>
                   </div>
-                  <div class="col-lg-2">
-                    <div class="form-check">
-                      <input v-model="change.data.patent" type="checkbox" class="form-check-input" />
-                      <label class="form-check-label" for="patent">Patent</label>
-                    </div>
-                    <div class="form-check">
-                      <input v-model="change.data.trademark" type="checkbox" class="form-check-input" />
-                      <label class="form-check-label" for="trademark">Trademark</label>
-                    </div>
-                  </div>
-                  <div class="col-lg-2">
-                    <div class="form-check">
-                      <input v-model="change.data.cla" type="checkbox" class="form-check-input" />
-                      <label class="form-check-label" for="cla">CLA</label>
-                    </div>
-                    <div class="form-check">
-                      <input v-model="change.data.eula" type="checkbox" class="form-check-input" />
-                      <label class="form-check-label" for="eula">EULA</label>
-                    </div>
-                  </div>
-                  <div class="col-lg-2">
-                    <div class="form-check">
-                      <input v-model="change.data.export_restricted" type="checkbox" class="form-check-input" />
-                      <label class="form-check-label" for="export_restricted">Export Restricted</label>
-                    </div>
+                  <div class="col-lg-6">
+                    <PatternFlags v-model="change.data" />
                   </div>
                 </div>
               </div>
@@ -251,6 +228,7 @@ import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
 import LegalLoading from './components/LegalLoading.vue';
+import PatternFlags, {PATTERN_FLAGS} from './components/PatternFlags.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
@@ -261,7 +239,7 @@ const REFILL_THRESHOLD = 5;
 
 export default {
   name: 'ProposedPatterns',
-  components: {BackToTop, CavilNoticePanel, EmptyState, LegalLoading, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, EmptyState, LegalLoading, PatternFlags, ToastNotifier},
   data() {
     const params = getParams({createIgnore: true, createPattern: true, createGlob: true, filter: ''});
 
@@ -291,9 +269,7 @@ export default {
       formData.delay = 600;
       let kind = null;
       if (change.action === 'create_pattern') {
-        for (const key of ['patent', 'trademark', 'export_restricted', 'cla', 'eula']) {
-          formData[key] = change.data[key] === true ? '1' : '0';
-        }
+        for (const flag of PATTERN_FLAGS) formData[flag.name] = change.data[flag.name] === true ? '1' : '0';
         formData.checksum = change.token_hexsum;
         kind = 'create-pattern';
       } else if (change.action === 'create_ignore') {
@@ -345,7 +321,7 @@ export default {
         if (change.closest !== null) change.closest.licenseUrl = `/licenses/edit_pattern/${change.closest.id}`;
 
         if (change.action === 'create_pattern') {
-          for (const key of ['edited', 'patent', 'trademark', 'export_restricted', 'cla', 'eula']) {
+          for (const key of ['edited', ...PATTERN_FLAGS.map(flag => flag.name)]) {
             change.data[key] = change.data[key] === '1' ? true : false;
           }
         } else if (change.action === 'create_ignore') {

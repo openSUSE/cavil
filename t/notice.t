@@ -24,6 +24,13 @@ $cavil_test->spdx_fixtures($t->app);
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
 
+my $FULL_TEXT = <<'EOF';
+The SUSE Fixture License, version 1.0
+
+Permission to use this fixture is granted to anyone, provided this notice is
+reproduced in full and nobody claims it identifies a real license.
+EOF
+
 # Generate a NOTICE with whatever data is currently set, and hand back its text
 sub gen ($id = 1) {
   my $file = tempfile;
@@ -35,7 +42,7 @@ sub gen ($id = 1) {
 # The body of one "====" delimited section, so an assertion about a section cannot be satisfied by text
 # that happens to sit in a different one
 sub section ($notice, $title) {
-  my @parts = split /^={70,}\n/m, $notice;
+  my @parts = split /^(?:={70,}|-{70,})\n/m, $notice;
   for my $i (0 .. $#parts) {
     next unless $parts[$i] =~ /\A\Q$title\E\n\z/;
     return $parts[$i + 1] // '';
@@ -70,13 +77,37 @@ subtest 'Notices are grouped under the licenses of the files they came from' => 
   is_deeply [sort { $a cmp $b } @notices], \@notices, 'notices are sorted within a section';
 };
 
-subtest 'A license Cavil knows by name only falls back to the text it matched' => sub {
+# What a match covered is evidence for an identifier, not terms anyone may redistribute under
+subtest 'A license with no SPDX id and no curated text reproduces nothing' => sub {
   my $notice = gen();
   my $custom = section($notice, 'SUSE-NotALicense');
-  ok defined $custom, 'the custom license has a section of its own';
+  ok defined $custom, 'the license still has a section of its own';
+  unlike $custom, qr/^ {2}\S/m,    'and it holds no terms';
+  unlike $notice, qr/as found at/, 'nothing is cited into the document as if it were the license';
+};
 
-  # Not canonical terms, so the document says where it read them instead of presenting them as the license
-  like $custom, qr{^SUSE-NotALicense, as found at Mojolicious-7\.25/\S+#L\d+-L\d+:$}m, 'cited to a file and lines';
+subtest 'A pattern flagged as the full license text supplies the terms' => sub {
+  my $db = $t->app->pg->db;
+  my $id
+    = $t->app->patterns->create(pattern => $FULL_TEXT, license => 'SUSE-NotALicense', risk => 5, full_license_text => 1)
+    ->{id};
+  ok $id, 'a full text was curated for the license';
+
+  my $notice  = gen();
+  my $curated = section($notice, 'SUSE-NotALicense');
+  like $curated,  qr/^  The SUSE Fixture License, version 1\.0$/m, 'reproduced verbatim, indented like any terms';
+  like $curated,  qr/^  reproduced in full and nobody claims it identifies a real license\.$/m, 'to the last line';
+  unlike $notice, qr/as found at/, 'presented as terms, not as a citation';
+  like $notice, qr/^This document reproduces the license text Cavil holds for 2 of the 2 licenses/m,
+    'which closes the gap';
+
+  $db->query(q{UPDATE license_patterns SET spdx = 'MIT' WHERE license = 'SUSE-NotALicense'});
+  my $upgraded = gen();
+  like section($upgraded, 'MIT'), qr/Permission is hereby granted, free of charge/, 'SPDX takes precedence';
+  unlike $upgraded,               qr/The SUSE Fixture License/,                     'and the curated text steps aside';
+
+  $db->query(q{UPDATE license_patterns SET spdx = '' WHERE license = 'SUSE-NotALicense'});
+  $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
 };
 
 subtest 'Notices no license could be attributed to are kept, not dropped' => sub {
@@ -89,9 +120,9 @@ subtest 'Notices no license could be attributed to are kept, not dropped' => sub
 
 subtest 'Completeness is stated up front' => sub {
   my $notice = gen();
-  like $notice, qr/^This document reproduces the license text Cavil holds for 2 of the 2 licenses/m,
-    'both licenses resolved';
-  unlike $notice, qr/No license text could be resolved/, 'so nothing is listed as missing';
+  like $notice, qr/^This document reproduces the license text Cavil holds for 1 of the 2 licenses/m,
+    'the license with no curated text is not counted as resolved';
+  like $notice, qr/^  \* SUSE-NotALicense \(no SPDX identifier, no full text curated\)$/m, 'and is named';
 
   # The completeness section comes before any terms, so it cannot be missed by somebody who stops reading
   ok index($notice, 'Completeness') < index($notice, 'Apache License'), 'and it precedes the license text';
@@ -101,8 +132,8 @@ subtest 'An identifier with no bundled text is named as a gap' => sub {
   $t->app->pg->db->query(q{UPDATE license_patterns SET spdx = 'Nope-1.0' WHERE license = 'Apache-2.0'});
   my $notice = gen();
 
-  like $notice, qr/^This document reproduces the license text Cavil holds for 1 of the 2 licenses/m, 'one short';
-  like $notice, qr/^  \* Nope-1\.0 \(no SPDX identifier, no license document found\)$/m, 'named, with the reason';
+  like $notice, qr/^This document reproduces the license text Cavil holds for 0 of the 2 licenses/m, 'one short';
+  like $notice, qr/^  \* Nope-1\.0 \(no SPDX identifier, no full text curated\)$/m,      'named, with the reason';
   like $notice, qr/^These must be resolved by hand before this document is shipped\.$/m, 'and what to do about it';
 
   # Still gets a section, so its notices are retained even though its terms could not be
@@ -127,6 +158,36 @@ subtest 'A license text is reproduced once, however many expressions name it' =>
   like $both, qr/^Apache-2\.0: see the Apache-2\.0 section above\.$/m, 'and the second mention points at it';
 
   $t->app->pg->db->query(q{UPDATE license_patterns SET spdx = '' WHERE license = 'SUSE-NotALicense'});
+};
+
+# A curated text must never shadow the canonical one Cavil ships
+subtest 'A bundled SPDX text beats a curated pattern for the same name' => sub {
+  my $db = $t->app->pg->db;
+  $db->query(q{UPDATE license_patterns SET license = 'MIT', spdx = '' WHERE license = 'SUSE-NotALicense'});
+  my $bogus = 'Curated text that must never stand in for a license Cavil ships the canonical text of';
+  my $id    = $t->app->patterns->create(pattern => $bogus, license => 'MIT', full_license_text => 1)->{id};
+
+  my $notice = gen();
+  like section($notice, 'MIT'), qr/Permission is hereby granted, free of charge/, 'the bundled text is used';
+  unlike $notice,               qr/\Qmust never stand in\E/,                      'and the curated one is not';
+
+  $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
+  $db->query(q{UPDATE license_patterns SET license = 'SUSE-NotALicense' WHERE license = 'MIT' AND spdx = ''});
+};
+
+# Printing MIT alone for "MIT AND Vendor-Thing-1.0" leaves half the terms out
+subtest 'An expression only partly resolved is not counted as resolved' => sub {
+  my $db = $t->app->pg->db;
+  $db->query(q{UPDATE license_patterns SET spdx = 'MIT AND Vendor-Thing-1.0' WHERE license = 'Apache-2.0'});
+
+  my $notice = gen();
+  like $notice, qr/^  \* MIT AND Vendor-Thing-1\.0 \(only part of the expression could be resolved\)$/m,
+    'the expression is named as a gap, with the reason';
+
+  like section($notice, 'MIT AND Vendor-Thing-1.0'), qr/Permission is hereby granted, free of charge/,
+    'and the identifier that resolved is still reproduced';
+
+  $db->query(q{UPDATE license_patterns SET spdx = 'Apache-2.0' WHERE license = 'Apache-2.0'});
 };
 
 subtest 'An exception is reproduced alongside the license it modifies' => sub {

@@ -79,6 +79,27 @@ that would have named it is exactly the one that must not be swept aside as alre
 part you cannot pin down being something other than the license itself: an unreadable exception makes the name
 `GPL-2.0 WITH Exception-Unspecified`, so that the suffix sits on the component that is actually unknown.
 
+## Marking a pattern as the full license text
+
+A NOTICE file has to print the terms of every license in a package. For an SPDX license Cavil already has the text.
+For a license it only knows by name - a vendor EULA, a one-off grant - it has nothing to print, and the license shows
+up in the NOTICE as a gap.
+
+Tick **Full license text** on a pattern to close that gap. It means this pattern's text *is* the whole license. The
+easy way to make one: open a license file from the report, select all of it, and create a pattern with the box ticked.
+
+Three rules:
+
+* **SPDX wins.** If the license later gets an identifier, Cavil uses its own text instead. Nothing to undo.
+* **One per license.** Ticking a second pattern moves the mark.
+* **No `$SKIP`.** The text is printed exactly as stored, so a wildcard would end up in the license. Keep the
+  skip-bearing pattern for matching and add a clean one for printing.
+
+Ticking the box does not change matching.
+
+Once a license has a text, you can read it from the **License text** column on `/licenses` and from the license name
+on any report.
+
 ## When Cavil resolves a snippet on its own
 
 Most snippets are noise, and a lot of it is the *same* noise or the same well-known license wording over and over. To

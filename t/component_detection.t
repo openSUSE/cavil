@@ -182,20 +182,20 @@ subtest 'Component enrichment in the report_details JSON (UI)' => sub {
   my $react = $by_name{react};
   ok $react, 'react component present in report_details';
   like $react->{file_url},     qr{/reviews/file_view/$id/}, 'name links to the metadata file in the file browser';
-  like $react->{license_html}, qr/spdx-link/,               'license rendered as a clickable SPDX link';
+  like $react->{license_html}, qr/license-link/,            'license rendered as a clickable SPDX link';
   like $react->{license_html}, qr/MIT/,                     'license text present';
   like $react->{search_url}, qr{/search\?component=pkg%3Anpm%2Freact%4018\.2\.0},
     'links to a component search by exact purl';
 
   # The backfilled license is a clickable link too (consistent rendering for every license)
-  like $by_name{'no-license-mod'}{license_html}, qr/spdx-link/, 'backfilled license is a clickable SPDX link';
+  like $by_name{'no-license-mod'}{license_html}, qr/license-link/, 'backfilled license is a clickable SPDX link';
 
   # A component whose imported metadata carries a malicious license string must not become a stored XSS
   # vector: license_html is rendered with v-html, so the untrusted markup has to be HTML-escaped while
   # the recognised SPDX id is still linked
   my $evil = $by_name{'evil-mod'};
   ok $evil, 'component with malicious license metadata is still detected';
-  like $evil->{license_html},   qr/spdx-link/,           'recognised SPDX id in a malicious string is still linked';
+  like $evil->{license_html},   qr/license-link/,        'recognised SPDX id in a malicious string is still linked';
   like $evil->{license_html},   qr/&lt;img/,             'injected markup is HTML-escaped';
   unlike $evil->{license_html}, qr/<img/,                'no raw markup reaches the DOM';
   unlike $evil->{license_html}, qr/onerror=alert\(1\)>/, 'payload cannot break out of text';
