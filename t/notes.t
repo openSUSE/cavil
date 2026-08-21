@@ -923,29 +923,42 @@ subtest 'relevant_notes resolves a whole page of reviews at once' => sub {
   is $got->{$ids[0]}{review}, 0,     'untagged note is not a review note';
   is $got->{$ids[1]},         undef, 'and not for a sibling with a different report';
 
-  my $review = $app->notes->add($ids[0], $name, $contrib_id, 'agent says ok', 0, 1, ['review']);
-  is $app->notes->relevant_notes([$one])->{$ids[0]}{review}, 1,     'review tag surfaces on the whole review';
-  is $app->notes->relevant_notes([$two])->{$ids[1]},         undef, 'but not on the sibling it does not apply to';
+  my $ai_only  = $app->notes->add($ids[0], $name, $contrib_id, 'agent summary, untagged', 0, 1);
+  my $untagged = $app->notes->relevant_notes([$one])->{$ids[0]};
+  is $untagged->{review}, 0, 'an AI-assisted note without the tag is not a review note';
+  is $untagged->{ai},     0, 'and does not count as an AI review either';
+
+  my $human    = $app->notes->add($ids[0], $name, $contrib_id, 'lawyer wrote this', 0, 0, ['review']);
+  my $by_human = $app->notes->relevant_notes([$one])->{$ids[0]};
+  is $by_human->{review}, 1, 'tagged note is a review note';
+  is $by_human->{ai},     0, 'written by a human, so not an AI review';
+
+  my $review   = $app->notes->add($ids[0], $name, $contrib_id, 'agent says ok', 0, 1, ['review']);
+  my $by_agent = $app->notes->relevant_notes([$one])->{$ids[0]};
+  is $by_agent->{review},                            1,     'tagged and AI-assisted is still a review note';
+  is $by_agent->{ai},                                1,     'and is flagged as an AI review';
+  is $app->notes->relevant_notes([$two])->{$ids[1]}, undef, 'but not on the sibling it does not apply to';
 
   my $pinned = $app->notes->add($ids[1], $name, $contrib_id, 'standing context', 0);
   $app->notes->set_pinned($pinned->{id}, 1);
-  is $app->notes->relevant_notes([$one])->{$ids[0]}{count},  3, 'pinned note counts for every review of the package';
+  is $app->notes->relevant_notes([$one])->{$ids[0]}{count},  5, 'pinned note counts for every review of the package';
   is $app->notes->relevant_notes([$two])->{$ids[1]}{review}, 0, 'a pinned note alone is no review note';
 
   # Notes on review 1 reach review 2 once their license reports match
   $db->update('bot_packages', {checksum => 'report-a'}, {id => $ids[1]});
   $two->{checksum} = 'report-a';
   my $same = $app->notes->relevant_notes([$one, $two]);
-  is $same->{$ids[1]}{count},  3, 'identical report pulls in the whole set';
+  is $same->{$ids[1]}{count},  5, 'identical report pulls in the whole set';
   is $same->{$ids[1]}{review}, 1, 'including the review note';
+  is $same->{$ids[1]}{ai},     1, 'and the fact that an agent wrote one';
 
   my $secret = $app->notes->add($ids[0], $name, $lawyer_id, 'for lawyers only', 1);
-  is $app->notes->relevant_notes([$one])->{$ids[0]}{count}, 3, 'lawyer-only note stays hidden';
-  is $app->notes->relevant_notes([$one], include_lawyer_only => 1)->{$ids[0]}{count}, 4, 'and shows up for a curator';
+  is $app->notes->relevant_notes([$one])->{$ids[0]}{count}, 5, 'lawyer-only note stays hidden';
+  is $app->notes->relevant_notes([$one], include_lawyer_only => 1)->{$ids[0]}{count}, 6, 'and shows up for a curator';
 
-  is $app->notes->relevant_count($name, $ids[0], 'report-a'), 3, 'single-package count agrees with the batch';
+  is $app->notes->relevant_count($name, $ids[0], 'report-a'), 5, 'single-package count agrees with the batch';
 
-  $app->notes->remove($_->{id}) for $own, $review, $pinned, $secret;
+  $app->notes->remove($_->{id}) for $own, $ai_only, $human, $review, $pinned, $secret;
   $db->delete('bot_packages', {id => \@ids});
 };
 

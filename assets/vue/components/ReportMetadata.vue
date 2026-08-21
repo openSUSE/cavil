@@ -738,6 +738,10 @@ export default {
         this.unpackedFiles = data.unpacked_files;
         this.unpackedSize = data.unpacked_size;
       }
+
+      // This block sits above the report tabs, so its height decides where they end up. Anything
+      // deep-linking to a tab has to wait for it.
+      this.$emit('loaded');
     }
   }
 };

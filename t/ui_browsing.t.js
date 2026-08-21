@@ -158,13 +158,19 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await page.goto(url);
       await page.waitForSelector('#open-reviews tbody > tr:nth-child(10)');
 
-      // ui_fixtures tags one perl-Mojolicious note "review" and leaves harbor-helm a plain one
+      // One fixture package per state: perl-UI-Test1 an agent review, perl-Mojolicious a human one
+      // (it also has an AI-assisted note, untagged, which must not promote it), harbor-helm a plain note
       const mojo1 = page.locator('#open-reviews tbody > tr').filter({hasText: 'mojo#1'}).first();
       const mojo2 = page.locator('#open-reviews tbody > tr').filter({hasText: 'mojo#2'}).first();
       const harbor = page.locator('#open-reviews tbody > tr').filter({hasText: 'harbor-helm'}).first();
-      t.equal(await mojo1.locator('.cavil-list-notes.is-review').count(), 1, 'review note icon on the annotated one');
-      t.equal(await harbor.locator('.cavil-list-notes').count(), 1, 'plain note icon where no agent has been');
-      t.equal(await harbor.locator('.cavil-list-notes.is-review').count(), 0, 'and it is not the agent icon');
+      const agent = page.locator('#open-reviews tbody > tr').filter({hasText: 'perl-UI-Test1'}).first();
+      t.equal(await agent.locator('.cavil-list-notes.is-review .fa-robot').count(), 1, 'robot for an agent review');
+      t.equal(
+        await mojo1.locator('.cavil-list-notes.is-review .fa-note-sticky').count(),
+        1,
+        'filled note for a human review, an untagged AI note does not make it an agent review'
+      );
+      t.equal(await harbor.locator('.cavil-list-notes:not(.is-review)').count(), 1, 'muted note for a plain note');
       t.equal(await mojo2.locator('.cavil-list-notes').count(), 0, 'no icon without a relevant note');
 
       await Promise.all([
@@ -173,13 +179,15 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
         ),
         page.click('#cavil-pkg-annotated')
       ]);
-      await page.waitForFunction(() => document.querySelectorAll('#open-reviews tbody > tr').length === 2);
-      t.equal(await page.locator('#open-reviews tbody > tr .cavil-list-notes').count(), 2, 'only annotated reviews');
+      await page.waitForFunction(() => document.querySelectorAll('#open-reviews tbody > tr').length === 3);
+      t.equal(await page.locator('#open-reviews tbody > tr .cavil-list-notes').count(), 3, 'only annotated reviews');
 
-      // The icon is a shortcut into the Notes tab of the report
+      // The icon is a shortcut into the Notes tab of the report, scrolled to, not just switched to
       await page.locator('#open-reviews tbody > tr').first().locator('.cavil-list-notes').click();
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForFunction(() => document.getElementById('report-tabs').getBoundingClientRect().top < 80);
+      t.pass('tab strip scrolled to the top of the viewport');
     });
 
     await t.test('Note icons and the Annotated filter on a product', async t => {

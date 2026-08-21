@@ -66,18 +66,22 @@ export function setupPopoverDelayed() {
   setTimeout(setupPopover, 1);
 }
 
-// Lawyers triage by "has the review agent been here yet", so the two states swap the glyph on one
-// element: a muted note for any relevant note, an accented robot for a review note. Deliberately
-// not a check mark, which would read as a verdict the note does not carry.
+// Lawyers triage by "has a review been written yet, and by whom", so one element swaps its glyph
+// through three states. Deliberately no check mark anywhere: a review note carries findings, not a
+// verdict, and the accept/reject decision is one click away.
+const NOTE_STATES = {
+  ai_review: ['fa-solid fa-robot', 'An AI-assisted review note applies to this report'],
+  review: ['fa-solid fa-note-sticky', 'A review note applies to this report'],
+  note: ['fa-regular fa-note-sticky', 'A note applies to this report, but no review note yet']
+};
+
 function notesLink(review) {
-  const state = review.relevant_note;
+  const state = NOTE_STATES[review.relevant_note];
   if (!state) return '';
-  const isReview = state === 'review';
-  const icon = isReview ? 'fa-solid fa-robot' : 'fa-regular fa-note-sticky';
-  const label = isReview
-    ? 'A review note applies to this report'
-    : 'A note applies to this report, but no review note yet';
-  return ` <a class="cavil-list-notes${isReview ? ' is-review' : ''}" href="/reviews/details/${review.id}#notes"
+  const [icon, label] = state;
+  const muted = review.relevant_note === 'note' ? '' : ' is-review';
+  // No whitespace around the link: the gap is CSS, so the cell's text stays exactly the report name
+  return `<a class="cavil-list-notes${muted}" href="/reviews/details/${review.id}#notes"
     title="${label}" aria-label="${label}"><i class="${icon}"></i></a>`;
 }
 

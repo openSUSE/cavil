@@ -197,6 +197,8 @@ unless ($clean) {
   my $notes = $app->notes;
   $notes->add($mojo_id,  'perl-Mojolicious', $user_id, "Just a note $_", 0) for 1 .. 25;
   $notes->add($mojo3_id, 'perl-Mojolicious', $user_id, 'Another test',   0);
+  $notes->add($mojo_id, 'perl-Mojolicious', $user_id, 'Recommend accepting, Artistic-2.0 throughout.', 0, 1,
+    ['review']);
 
   # "ceph-image" example data
   $pkg_id = $pkgs->add(

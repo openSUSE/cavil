@@ -1,6 +1,10 @@
 <template>
   <div>
-    <report-metadata ref="metadata" @reindex-queued="$refs.details.watchRebuild()" />
+    <report-metadata
+      ref="metadata"
+      @reindex-queued="$refs.details.watchRebuild()"
+      @loaded="$refs.details.onMetadataLoaded()"
+    />
     <report-details ref="details" @rebuild-finished="$refs.metadata.rebuildFinished()" />
   </div>
 </template>

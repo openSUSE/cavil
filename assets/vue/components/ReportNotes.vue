@@ -308,6 +308,11 @@ export default {
   async mounted() {
     await this.loadMore();
     if (this.seekNoteId !== null) await this.seekToNote(this.seekNoteId);
+
+    // Rendered, not merely fetched: counts-changed still fires while the list is a spinner, and
+    // anything scrolling to the notes needs their real height.
+    await this.$nextTick();
+    this.$emit('ready');
     this.setupObserver();
     // Tag autocomplete is only useful where the reviewer can author/edit notes.
     if (this.showComposer || this.allowActions) this.loadKnownTags();

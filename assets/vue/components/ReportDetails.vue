@@ -402,6 +402,7 @@
           :can-post-lawyer-only="canPostLawyerOnly"
           :seek-note-id="seekNoteId"
           @counts-changed="onNotesCountsChanged"
+          @ready="onNotesReady"
         />
       </div>
       <div
@@ -563,6 +564,9 @@ export default {
       reportChecksum: null,
       statePollTimer: null,
       seekNoteId: null,
+      pendingNotesScroll: false,
+      notesLoaded: false,
+      metadataLoaded: false,
       refreshDelay: 5000,
       refreshUrl: `/reviews/report_details/${this.pkgId}`,
       risks: {},
@@ -686,6 +690,9 @@ export default {
       const m = hash.match(/^#note-(\d+)$/);
       if (!m && hash !== '#notes') return;
       if (m) this.seekNoteId = Number(m[1]);
+      // #note-<id> scrolls itself once ReportNotes has the note; #notes has nothing to seek, so it
+      // waits for scrollToNotesWhenReady instead.
+      else this.pendingNotesScroll = true;
       this.activeTab = 'notes';
       this.notesMounted = true;
     },
@@ -703,6 +710,23 @@ export default {
       } catch (_) {
         // Silent: note count is informational.
       }
+    },
+    onMetadataLoaded() {
+      this.metadataLoaded = true;
+      this.scrollToNotesWhenReady();
+    },
+    onNotesReady() {
+      this.notesLoaded = true;
+      this.scrollToNotesWhenReady();
+    },
+
+    // Both halves have to be in place before a #notes deep link can scroll: the metadata above the
+    // tab strip decides where it lands, and the notes below it make the page long enough to get
+    // there at all. Either one arriving late leaves the reviewer looking at the top of the report.
+    scrollToNotesWhenReady() {
+      if (!this.pendingNotesScroll || !this.notesLoaded || !this.metadataLoaded) return;
+      this.pendingNotesScroll = false;
+      this.$nextTick(this.scrollToTabs);
     },
     onNotesCountsChanged(payload) {
       if (typeof payload.total === 'number') this.noteTotal = payload.total;

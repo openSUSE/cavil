@@ -189,19 +189,20 @@ sub relevant_count ($self, $package_name, $package_id, $checksum, %opts) {
 }
 
 # One query for a whole page of reviews, so a listing can show a note icon without a query per row.
-# Returns {package id => {count, review}}, reviews without a relevant note absent entirely.
+# Returns {package id => {count, review, ai}}, reviews without a relevant note absent entirely.
 sub relevant_notes ($self, $rows, %opts) {
   return {} unless @$rows;
 
   my $lawyer = $opts{include_lawyer_only} ? '' : 'AND c.lawyer_only = false';
-  my $sql    = 'SELECT r.id, COUNT(*)::int AS count, bool_or(c.tags @> ?::text[]) AS review
+  my $sql    = 'SELECT r.id, COUNT(*)::int AS count, bool_or(c.tags @> ?::text[]) AS review,
+                       bool_or(c.tags @> ?::text[] AND c.ai_assisted) AS ai
                   FROM unnest(?::bigint[], ?::text[], ?::text[]) AS r(id, name, checksum)
                   JOIN package_notes c ON c.package_name = r.name
                   LEFT JOIN bot_packages np ON c.package = np.id
                  WHERE ' . relevance_predicate('r') . " $lawyer GROUP BY r.id";
 
   my $results = $self->pg->db->query(
-    $sql, [REVIEW_TAG],
+    $sql, [REVIEW_TAG], [REVIEW_TAG],
     [map { $_->{id} } @$rows],
     [map { $_->{name} } @$rows],
     [map { $_->{checksum} } @$rows]
@@ -209,7 +210,7 @@ sub relevant_notes ($self, $rows, %opts) {
 
   my %relevant;
   for my $row ($results->each) {
-    $relevant{$row->{id}} = {count => $row->{count}, review => $row->{review} ? 1 : 0};
+    $relevant{$row->{id}} = {count => $row->{count}, review => $row->{review} ? 1 : 0, ai => $row->{ai} ? 1 : 0};
   }
   return \%relevant;
 }

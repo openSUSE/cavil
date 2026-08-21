@@ -239,9 +239,17 @@ sub _mark_active_packages ($self, $page) {
     $pkg->{external_link_data} = external_link_data($pkg->{external_link}, $config->{external_link_sources});
     $pkg->{active_jobs}        = $minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
     $pkg->{failed_jobs}        = $minion->jobs({states => ['failed'], notes => ["pkg_$id"]})->total;
-    $pkg->{relevant_note}      = $notes->{$id} ? ($notes->{$id}{review} ? 'review' : 'note') : undef;
+    $pkg->{relevant_note}      = _note_state($notes->{$id});
   }
   return $page;
+}
+
+# Strongest state wins: an agent review, a human review, or just a note
+sub _note_state ($relevant) {
+  return undef unless $relevant;
+  return 'ai_review' if $relevant->{ai};
+  return 'review'    if $relevant->{review};
+  return 'note';
 }
 
 # A note icon would give away the existence of a lawyer-only note to someone who cannot read it

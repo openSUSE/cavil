@@ -627,6 +627,7 @@ button.cavil-icon-action {
 .cavil-list-notes {
   color: var(--cavil-fg-muted);
   font-size: 0.8125rem;
+  margin-left: 0.35rem;
 }
 .cavil-list-notes.is-review {
   color: var(--cavil-accent);

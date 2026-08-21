@@ -607,17 +607,21 @@ sub ui_fixtures ($self, $app) {
   my $bot_id = $app->users->find(login => 'test_bot')->{id};
   my $notes  = $app->notes;
 
+  # One package per note-icon state in the review listings: harbor-helm a plain note, perl-UI-Test1
+  # an agent review, perl-Mojolicious a human review (note 24 below). Seeded before the
+  # perl-Mojolicious block so that package keeps the newest note.
+  $notes->add($app->packages->find_by_name_and_md5('harbor-helm', '4fcfdab0e71b0bebfdf8b5cc3badfec4')->{id},
+    'harbor-helm', $bot_id, 'Chart bundles upstream manifests, worth a look.', 0);
+  $notes->add(
+    $app->packages->find_by_name_and_md5('perl-UI-Test1', 'doesnotexist')->{id},
+    'perl-UI-Test1', $bot_id, 'Recommend accepting, MIT throughout.',
+    0,               1,       ['review']
+  );
+
   # 25 seeded notes so endless scroll must fetch a second page (default
   # page size is 20). The oldest entry doubles as a lawyer-only fixture so
   # the lawyer-only highlighting + tab-badge tinting always have data when
   # an admin views the second page.
-  # Seeded before the perl-Mojolicious block so that package keeps the newest note. harbor-helm is
-  # the plain-note case for the review listings: an icon, but no agent review behind it.
-  $notes->add($app->packages->find_by_name_and_md5('harbor-helm', '4fcfdab0e71b0bebfdf8b5cc3badfec4')->{id},
-    'harbor-helm', $bot_id, 'Chart bundles upstream manifests, worth a look.', 0);
-
-  # One perl-Mojolicious note is tagged "review", so review #1 carries the agent icon in the
-  # listings while every other review carries none.
   for my $i (1 .. 25) {
     my $lawyer = $i == 1 ? 1 : 0;
     my $body

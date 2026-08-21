@@ -649,10 +649,13 @@ subtest 'Pagination' => sub {
       ->json_is('/page/0/relevant_note', 'note')
       ->json_hasnt('/page/1');
 
-    my $review = $notes->add($open->{id}, $open->{name}, $lawyer_id, 'Agent review', 0, 1, ['review']);
+    my $review = $notes->add($open->{id}, $open->{name}, $lawyer_id, 'Reviewed, looks fine', 0, 0, ['review']);
     $t->get_ok('/pagination/reviews/open?annotated=true')->json_is('/page/0/relevant_note', 'review');
 
-    $notes->remove($_->{id}) for $human, $review;
+    my $agent = $notes->add($open->{id}, $open->{name}, $lawyer_id, 'Agent review', 0, 1, ['review']);
+    $t->get_ok('/pagination/reviews/open?annotated=true')->json_is('/page/0/relevant_note', 'ai_review');
+
+    $notes->remove($_->{id}) for $human, $review, $agent;
     $t->get_ok('/pagination/reviews/open')->json_is('/total', 3)->json_is('/page/0/relevant_note', undef);
   };
 };
