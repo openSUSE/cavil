@@ -67,12 +67,13 @@ export function setupPopoverDelayed() {
 }
 
 // Lawyers triage by "has the review agent been here yet", so the two states swap the glyph on one
-// element: a muted note for any relevant note, an accented check for a review note.
+// element: a muted note for any relevant note, an accented robot for a review note. Deliberately
+// not a check mark, which would read as a verdict the note does not carry.
 function notesLink(review) {
   const state = review.relevant_note;
   if (!state) return '';
   const isReview = state === 'review';
-  const icon = isReview ? 'fa-solid fa-clipboard-check' : 'fa-regular fa-note-sticky';
+  const icon = isReview ? 'fa-solid fa-robot' : 'fa-regular fa-note-sticky';
   const label = isReview
     ? 'A review note applies to this report'
     : 'A note applies to this report, but no review note yet';
