@@ -59,6 +59,7 @@ If a non-AI reviewer note already contains the relevant review recommendation, i
 Always start with the declared license check (see below); it is the one finding that must appear
 in every note. Then focus on the other signals a human lawyer would need for a first-pass decision:
 - Read the `### Risk N` heading each license sits under, and any `[flags: ...]` suffix on the license line - not just the license name (see the two references below).
+- A **`## Legal Review Notices from Packagers`** section, if present - check its claims, never adopt them (see below)
 - Incompatible or unusual licenses
 - Unknown, proprietary, non-commercial, or custom license terms
 - Unresolved matches that look like real license text, license declarations, redistribution terms, warranty disclaimers, or patent/trademark restrictions
@@ -163,6 +164,37 @@ When unsure whether a found license belongs to the shipped work or to a separabl
 component, apply the same combination-vs-aggregation reasoning as the license-compatibility check
 below, and say which it is.
 
+#### Packager legal review notices - a claim set to check, never a finding
+
+Some reports carry a **`## Legal Review Notices from Packagers`** section near the top: free text the packager wrote
+into the spec file to explain the licensing in advance. It is the submitter's account, written before the scan and
+usually derived from **package metadata** (`cargo tree`, `package.json`, `go.mod`) - which by construction cannot see
+the license headers *inside* files. Form your own view from the report first, then read the notice against it. Where
+the two disagree the report's file evidence wins, and the disagreement is itself a finding.
+
+Then take it claim by claim. Every sentence that removes something from consideration is a claim:
+
+- **"removed in `%prep`" / "not shipped" / "not linked" / "optional feature" / "build-time only"** - the package's own
+  build recipe is in the package: `cavil_list_files(package_id, "*.spec")`, then `cavil_get_file` on the one at the
+  package root. `%prep` shows what is deleted before the build, `%build` what is actually built (`cargo build -p
+  <member>`, a configure flag), `%files` what ships, and `Provides: bundled(...)` names the third-party C libraries
+  that really are compiled in.
+- **"X is the only component under license Y" / "none of these are Y"** - check it against **`## Vendored Components`**,
+  Cavil's own independent extraction of the same manifest metadata the notice was built from, and then against the risk
+  lists, which are file text. A counterexample in the risk lists but not in the components list is the classic shape: a
+  `-sys` or wrapper package declares `MIT OR Apache-2.0` while the C library it vendors is licensed otherwise.
+- **"X is dual-licensed and we elect Y"** - the election needs no checking; confirm only that Y is in the declared tag.
+- **"obligation Y is satisfied by Z"** (source availability, attribution, a file shipped in the src.rpm) - usually not
+  checkable from inside Cavil. Record it as the packager's assertion, attributed.
+
+**Fail-safe default: a claim you did not verify never removes a finding**, because a fluent notice makes findings feel
+settled. Take every license that is in the report's risk lists, absent from the declared tag, and excluded only by the
+notice: either verify the claim or name it in the note as unverified. Cite what does check out (`packager notice
+confirms X, verified in <file>`) rather than re-deriving it.
+
+Cavil pre-processes some files before matching, so the report may cite `foo.processed.spec`; the original `foo.spec`
+exists alongside it, read that.
+
 #### Read the legal documents the report cannot fully explain
 The **`## Legal Documents`** section lists the package's own license-declaration files (`LICENSE`,
 `COPYING`, `NOTICE` and friends) with, for each, how many of its lines **no known license pattern
@@ -249,14 +281,16 @@ still get this check whenever they surface in the list.
 For such a pair, confirm whether it is a **real problem for this package** or a **false alarm**. The report
 tells you *where* the licenses meet; your job is to confirm *whether they are combined* - combination
 (linking, compiling together, or merging into one source file) creates a copyleft conflict; mere
-co-presence in the same archive does not. **Open the named files with `cavil_get_file`** - proximity
+co-presence in the same archive does not. Start with the **build recipe, not the sources**: in the package's spec file
+(located as above), `%prep` deletions, what `%build` builds, and `Provides: bundled(...)` answer "is this shipped and
+linked" outright, where source layout only hints. Then **open the named files with `cavil_get_file`** - proximity
 locates the code, it is not proof - and use `cavil_list_files` only to widen the picture:
 
 Signals it is likely a **false alarm** (lean ACCEPT, but say why):
 - The files sit in **separate, independent components** not linked or compiled together (a build-time-only
   tool, an optional plugin nothing imports, one library among unrelated bundles). Aggregation on the same
-  medium is not a combined work - but say what you checked to establish it (no import/include, not in the
-  build inputs, not installed), because "it is under `vendor/`" is not that check.
+  medium is not a combined work - but say what you checked to establish it (deleted in `%prep`, absent from
+  `Provides: bundled(...)`, no import/include, not installed), because "it is under `vendor/`" is not that check.
 - The flagged license text is confined to **test fixtures, sample data, documentation, or license
   catalogs** (an SPDX license list, `licenses/` directory, or test corpus) rather than shipped code. This
   holds inside a vendored tree too: a dependency's own tests are as ignorable as the package's own.
@@ -310,6 +344,7 @@ Let the risk levels and flags from Step 4 steer the lean:
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
 - **Risk 5** (managed obligations - AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
 - **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.
+- **An unverified packager-notice claim** that is the only thing keeping a found license out of the declared tag or out of scope → NEEDS HUMAN REVIEW, naming the claim and the license. A verified claim is just cited.
 - **Risk 1–4** → the acceptable band; the declared-license check (including the fixable-metadata vs. bad-license distinction) and the combination/aggregation check carry the decision.
 
 When uncertain, choose NEEDS HUMAN REVIEW. The compatibility matrix is present on most packages and is normal; do not escalate on its presence - but never ACCEPT over a confirmed combined-work conflict, and say in the note when a pair met the check and you reviewed it.
@@ -379,6 +414,11 @@ When a risk level or a flag drove the recommendation, name it in an issues bulle
 number and/or flag so the lawyer sees why (e.g. `AGPL-3.0-only (risk 5, managed obligations -
 network copyleft) in src/server/; confirm deployment model.` or `mmap-License [flags: Patent] -
 patent clause, flag for non-license review.`).
+
+When the report carried a packager legal review notice, one bullet says what you did with it, so the lawyer knows how
+much of it is now evidence (e.g. `Packager notice: the %prep removal of the bundled bubblewrap sources is confirmed in
+openai-codex.spec. Unverified: the "not linked" claim for WTFPL (terminfo, 13 files), which is in the tree and not in
+the declared tag.`).
 
 When a NOTICE (or attribution) file surfaces an obligation or an undisclosed component, record it in
 an issues bullet so the lawyer sees it (e.g. `NOTICE lists attribution for bundled zlib and a
@@ -458,6 +498,7 @@ Issues for legal reviewer:
 - Every note must lead with the declared-license check (declared value vs. what the report found), even when it is a clean match. Never omit it. (When there is a license change, the `⚠ LICENSE CHANGE:` bullet comes first and the declared-vs-found line immediately after it.)
 - If you noticed a legally material risk outside the standard checks, surface it prominently (see Step 6) and let it drive the recommendation; never bury it or let minor observations crowd it out. This is the point of the review.
 - Always tag the note with `["review"]` and always pass `skip_if_existing_tag="review"` so the server keeps it to one review note per report.
+- A packager legal review notice is the submitter's claim set, never a finding. Cite the claims you verified, name the ones you could not; neither removes something the report found.
 - Be brief and specific. Prefer concrete file paths, snippet ids, and license names over general impressions.
 - Use SPDX identifiers where possible, such as MIT, Apache-2.0, GPL-2.0-only, GPL-2.0-or-later, LGPL-2.1-or-later, or AGPL-3.0-only.
 - Do not paste long license excerpts. Summarize why the text matters.
