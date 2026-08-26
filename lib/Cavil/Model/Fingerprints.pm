@@ -122,16 +122,15 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   for my $h (@page) {
     my ($hash, undef, $containment, $containment_of, $regions) = @$h;    # [hash, hits, containment, of, regions]
     my $where = $locs->{$hash} // [];
-    push @matches,
-      {
+    push @matches, {
       hash           => $hash,
       containment    => $containment,
       containment_of => $containment_of,
       licenses       => $lic->{$hash}{licenses} // [],
-      risk           => _risk_level($containment, $lic->{$hash}{risk} // 0),
+      risk           => $lic->{$hash}{risk},                       # max license risk (Cavil's 1-9 scale), undef if none
       files          => $where,
       excerpt        => $self->_excerpt($where->[0], $regions->[0])
-      };
+    };
   }
   return {matches => \@matches, total => $total, minimum_tokens => $minimum_tokens};
 }
@@ -234,14 +233,6 @@ sub _live_hashes ($self, $hashes, $exclude_embargoed = 0) {
       WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false$emb", $hashes
   )->hashes;
   return [map { $_->{hash} } @$rows];
-}
-
-# Containment weighted by the matched code's license risk: resembling risky (copyleft) code reads louder.
-sub _risk_level ($containment, $max_risk) {
-  return 'low'  if $containment < 0.2;
-  return 'high' if $max_risk >= 6;
-  return 'high' if $containment >= 0.6 && $max_risk >= 4;
-  return 'medium';
 }
 
 1;

@@ -92,7 +92,7 @@ subtest 'search finds an exact copy at full containment' => sub {
   cmp_ok $self->{containment_of}, '>',  0,    'content-direction containment is set';
   cmp_ok $self->{containment_of}, '<=', 1.0,  'and never exceeds 1.0';
   ok +(grep { $_->{package} == $sample->{package} } @{$self->{files}}), 'resolves back to the source package';
-  like $self->{risk}, qr/^(?:low|medium|high)$/, 'a risk level is assigned';
+  ok !defined $self->{risk} || $self->{risk} =~ /^\d+$/,                'risk, when known, is the numeric license risk';
 };
 
 subtest 'an unrelated snippet does not match the source (precision)' => sub {
@@ -152,7 +152,7 @@ subtest 'web search endpoint returns ranked matches' => sub {
     ->json_is('/minimum_tokens', 6)
     ->json_has('/matches/0/hash')
     ->json_has('/matches/0/containment')
-    ->json_has('/matches/0/risk');
+    ->json_has('/matches/0/licenses');
 };
 
 subtest 'MCP tool is offered and returns results' => sub {

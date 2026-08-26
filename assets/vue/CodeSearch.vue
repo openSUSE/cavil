@@ -53,10 +53,9 @@
                 </div>
               </div>
               <div class="code-search-result-signals">
-                <span :class="['code-search-result-risk', riskClass(match.risk)]">
-                  <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-                  {{ riskLabel(match.risk) }}
-                </span>
+                <span v-if="match.risk != null" class="badge" :class="riskClass(match.risk)"
+                  >Risk {{ match.risk }}</span
+                >
                 <div class="code-search-coverage">
                   <span class="code-search-coverage-value">{{ percent(match.containment) }}</span>
                   <span class="code-search-coverage-label">of snippet</span>
@@ -70,11 +69,7 @@
             <div v-if="match.excerpt.length" class="source">
               <table>
                 <tbody>
-                  <tr
-                    v-for="line in match.excerpt"
-                    :key="line.number"
-                    :class="{'cavil-cs-match': line.matched}"
-                  >
+                  <tr v-for="line in match.excerpt" :key="line.number" :class="{'cavil-cs-match': line.matched}">
                     <td class="linenumber">{{ line.number }}</td>
                     <td class="code">{{ line.text }}</td>
                   </tr>
@@ -110,8 +105,8 @@
         <span class="code-search-empty-icon" aria-hidden="true"><i class="fa-regular fa-file-code"></i></span>
         <strong>No matching open source code found.</strong>
         <span>
-          The submitted fragment did not overlap with indexed source files.
-          If it is very short, try a longer sample with at least {{ minimumTokens }} words, identifiers, or numbers.
+          The submitted fragment did not overlap with indexed source files. If it is very short, try a longer sample
+          with at least {{ minimumTokens }} words, identifiers, or numbers.
         </span>
       </div>
     </section>
@@ -119,8 +114,8 @@
 </template>
 
 <script>
-import UserAgent from '@mojojs/user-agent';
 import PatternCodeMirror from './components/PatternCodeMirror.vue';
+import UserAgent from '@mojojs/user-agent';
 
 const PAGE = 10;
 
@@ -184,10 +179,11 @@ export default {
       return `${Math.round((value ?? 0) * 100)}%`;
     },
     riskClass(risk) {
-      return `is-${risk}`;
-    },
-    riskLabel(risk) {
-      return `${risk.charAt(0).toUpperCase()}${risk.slice(1)} risk`;
+      const value = Number(risk);
+      if (value >= 1 && value <= 4) return 'text-bg-success';
+      if (value === 5) return 'text-bg-warning';
+      if (value === 6 || value === 7) return 'text-bg-danger';
+      return 'cavil-risk-unknown-badge';
     }
   }
 };
@@ -240,7 +236,9 @@ export default {
   padding: 0.65rem 0;
 }
 .code-search-editor :deep(.cm-focused) {
-  box-shadow: inset 0 0 0 1px var(--cavil-accent), 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.15);
+  box-shadow:
+    inset 0 0 0 1px var(--cavil-accent),
+    0 0 0 3px rgba(var(--cavil-accent-rgb), 0.15);
 }
 .code-search-query-actions {
   align-items: center;
@@ -340,33 +338,6 @@ export default {
   display: flex;
   flex: 0 0 auto;
   gap: 0.65rem;
-}
-.code-search-result-risk {
-  align-items: center;
-  border: 1px solid transparent;
-  border-radius: 2em;
-  display: inline-flex;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  gap: 0.3rem;
-  line-height: 1;
-  padding: 0.32rem 0.55rem;
-  white-space: nowrap;
-}
-.code-search-result-risk.is-high {
-  background: var(--cavil-danger-bg);
-  border-color: var(--cavil-danger-border);
-  color: var(--cavil-danger);
-}
-.code-search-result-risk.is-medium {
-  background: var(--cavil-attention-bg);
-  border-color: var(--cavil-attention-border);
-  color: var(--cavil-attention-deep);
-}
-.code-search-result-risk.is-low {
-  background: var(--cavil-neutral-bg);
-  border-color: rgba(var(--cavil-neutral-alt-rgb), 0.25);
-  color: var(--cavil-fg-muted);
 }
 .code-search-coverage {
   align-items: baseline;

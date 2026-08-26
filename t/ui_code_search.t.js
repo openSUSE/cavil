@@ -46,7 +46,6 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       t.equal(await page.locator('.code-search-result-path').getAttribute('target'), '_blank', 'source opens in a new tab');
       t.match(await page.innerText('.code-search-result'), /of snippet/, 'shows containment');
       t.match(await page.innerText('.code-search-coverage'), /<1%\s+of file/, 'does not round a small overlap to zero');
-      t.match(await page.innerText('.code-search-result-risk'), /risk/i, 'labels the match risk explicitly');
 
       // The matched region is highlighted inline, so the reviewer sees the code without a round trip.
       await page.waitForSelector('.code-search-result .source tr.cavil-cs-match');

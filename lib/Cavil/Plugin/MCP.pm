@@ -326,7 +326,7 @@ sub register ($self, $app, $config) {
     description =>
       'Find where a fragment of code (for example AI-generated) already exists in known open source. Returns '
       . 'matches ranked by containment (how much of your snippet is present in a file), the reverse fraction, the '
-      . 'packages and paths that carry the content, and a risk level weighted by the matched code\'s license. '
+      . 'packages and paths that carry the content, and the matched code\'s license risk on Cavil\'s 1-9 scale. '
       . 'Read-only; only available when code search is enabled on this instance.',
     input_schema => {
       type       => 'object',

@@ -702,8 +702,9 @@ snippet=<code fragment>&limit=20
 
 **Response:** `minimum_tokens` is the shortest fragment that can produce a fingerprint with this instance's
 configured `k` and `w`. Each match reports the matched content hash, containment in both directions (how much
-of the snippet is in the file, and how much of the file is the snippet), the matched line regions, a risk
-level, and the packages and paths that carry the content.
+of the snippet is in the file, and how much of the file is the snippet), the detected licenses and the
+matched code's license risk on Cavil's 1-9 scale (`null` when no license was detected), an excerpt of the
+matched lines, and the packages and paths that carry the content.
 
 ```
 HTTP/1.1 200 OK
@@ -717,9 +718,10 @@ Content-Type: application/json
       "hash": "a1b2c3...",
       "containment": 0.92,
       "containment_of": 0.15,
-      "risk": "high",
-      "regions": [[120, 40]],
-      "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}]
+      "licenses": ["GPL-2.0-only"],
+      "risk": 6,
+      "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}],
+      "excerpt": [{"number": 120, "text": "...", "matched": true}]
     }
   ]
 }
