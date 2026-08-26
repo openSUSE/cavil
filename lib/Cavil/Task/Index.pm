@@ -109,7 +109,7 @@ sub _index_batch ($job, $id, $batch, $generation) {
 
   my $registry    = Cavil::Bom::Registry->new;
   my $single_root = _single_unpacked_root($fi->dir);
-  my %meta        = (emails => {}, urls => {}, copyrights => {}, components => {});
+  my %meta        = (emails => {}, urls => {}, copyrights => {}, components => {}, fp_hashes => {});
 
   # Wrap the whole batch in one transaction: the per-file inserts (matched_files,
   # pattern_matches, file_snippets) plus the URL/email/component upserts below would otherwise
@@ -172,6 +172,9 @@ sub _index_batch ($job, $id, $batch, $generation) {
       $c->{name}, $c->{version}, $c->{license}, $c->{source}, $generation
     );
   }
+
+  # Code search content hashes, one sorted insert so concurrent batches never deadlock on fp_contents.
+  $app->fingerprints->queue_contents($db, $meta{fp_hashes}) if $app->codesearch;
 
   $tx->commit;
 

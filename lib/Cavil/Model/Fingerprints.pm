@@ -29,13 +29,18 @@ sub _index ($self) {
   return $self->{index} //= Cavil::Matcher::FpIndex->new(dir => $self->index_dir, k => $self->k, w => $self->w);
 }
 
-# Record one indexed file: its content hash maps to (package, path) at this generation, and the content is
-# queued for fingerprinting if we have not seen it before. Cheap enough for the indexing hot path (a hash
-# insert); the winnowing happens later in the fingerprint build task.
+# Record one indexed file: its content hash maps to (package, path) at this generation. The content itself
+# is registered separately (queue_contents), once per batch, to keep this hot-path insert conflict-free.
 sub record_file ($self, $db, $package, $filename, $hash, $generation) {
   $db->query('INSERT INTO fp_files (package, filename, hash, generation) VALUES (?, ?, ?, ?)',
     $package, $filename, $hash, $generation);
-  $db->query("INSERT INTO fp_contents (hash) VALUES (?) ON CONFLICT (hash) DO NOTHING", $hash);
+}
+
+# Register content hashes for fingerprinting (build_pending later winnows the pending ones). Inserted in
+# sorted order so concurrent index_batch jobs lock fp_contents keys in the same order; per-file inserts in
+# file order deadlocked in production. Mirrors the sorted url/email/copyright upserts in Task::Index.
+sub queue_contents ($self, $db, $hashes) {
+  $db->query('INSERT INTO fp_contents (hash) VALUES (?) ON CONFLICT (hash) DO NOTHING', $_) for sort keys %$hashes;
 }
 
 # Delete the on-disk index so the next build starts fresh (used to change k/w or force a full rebuild).

@@ -62,6 +62,7 @@ sub file ($self, $meta, $path, $mime) {
   if ($self->{codesearch} && !$ignored_file) {
     my $hash = Cavil::Matcher::content_hash($self->dir->child('.unpacked', $path)->to_string);
     $self->{app}->fingerprints->record_file($self->{db}, $package, $path, $hash, $self->{generation});
+    $meta->{fp_hashes}{$hash} = 1;    # registered in one sorted batch after the loop, see Task::Index
   }
 
   my @matches;
