@@ -80,6 +80,22 @@
       </div>
 
       <div v-else-if="meta.kind === 'file'" class="file-browser-panel file-browser-source-panel">
+        <div v-if="meta.source.provenance" class="file-browser-provenance">
+          <i class="fa-regular fa-copy" aria-hidden="true"></i>
+          <span
+            >Identical to code in {{ meta.source.provenance.count.toLocaleString() }} other
+            {{ meta.source.provenance.count === 1 ? 'package' : 'packages' }}:</span
+          >
+          <a
+            v-for="loc in meta.source.provenance.locations"
+            :key="loc.package + loc.filename"
+            :href="provenanceUrl(loc)"
+            >{{ loc.name }}</a
+          >
+          <span v-if="provenanceMore > 0" class="file-browser-provenance-more"
+            >and {{ provenanceMore.toLocaleString() }} more</span
+          >
+        </div>
         <div v-if="sourceIsOversized" class="file-browser-too-large" role="status">
           <i class="fa-regular fa-file-lines"></i>
           <strong>This file is too large to display.</strong>
@@ -180,6 +196,10 @@ export default {
     },
     sourceIsOversized() {
       return this.meta && this.meta.kind === 'file' && this.meta.source && this.meta.source.oversized;
+    },
+    provenanceMore() {
+      const p = this.meta && this.meta.kind === 'file' && this.meta.source && this.meta.source.provenance;
+      return p ? p.count - p.locations.length : 0;
     }
   },
   mounted() {
@@ -196,6 +216,9 @@ export default {
     },
     viewUrl(path) {
       return fileViewUrl(this.pkgId, path);
+    },
+    provenanceUrl(loc) {
+      return fileViewUrl(loc.package, loc.filename);
     },
     async fetchPath(path, options = {}) {
       this.loading = true;
@@ -589,6 +612,27 @@ export default {
 }
 .file-browser-rebuild-progress {
   padding: 0 0.85rem 0.75rem;
+}
+/* Provenance strip: kept quiet so it never competes with the code or the match highlights. */
+.file-browser-provenance {
+  align-items: center;
+  border-bottom: 1px solid var(--cavil-border-muted);
+  color: var(--cavil-fg-muted-alt);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 6px 10px;
+  padding: 8px 16px;
+}
+.file-browser-provenance i {
+  color: var(--cavil-fg-disabled);
+}
+.file-browser-provenance a {
+  color: var(--cavil-accent);
+  text-decoration: none;
+}
+.file-browser-provenance a:hover {
+  text-decoration: underline;
 }
 .file-browser-source.source {
   border: 0 !important;

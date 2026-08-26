@@ -321,6 +321,23 @@ sub register ($self, $app, $config) {
     },
     code => \&tool_cavil_search_snippets
   );
+  $mcp->tool(
+    name        => 'cavil_code_search',
+    description =>
+      'Find where a fragment of code (for example AI-generated) already exists in known open source. Returns '
+      . 'matches ranked by containment (how much of your snippet is present in a file), the reverse fraction, the '
+      . 'packages and paths that carry the content, and a risk level weighted by the matched code\'s license. '
+      . 'Read-only; only available when code search is enabled on this instance.',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        snippet => {type => 'string',  description => 'the code fragment to look up'},
+        limit   => {type => 'integer', minimum     => 1, maximum => 100, default => 20}
+      },
+      required => ['snippet']
+    },
+    code => \&tool_cavil_code_search
+  );
 
   return $mcp->to_action;
 }
@@ -859,6 +876,7 @@ sub _filter_tools ($server, $tools, $context) {
   my $filtered = [];
   for my $tool (@$tools) {
     my $name = $tool->name;
+    next if $name eq 'cavil_code_search' && !$c->codesearch;    # hidden unless code search is live
     if ($WRITE_ACCESS_TOOLS->{$name}) {
       next unless $scopes{'cavil:write'};
     }
@@ -882,6 +900,18 @@ sub _bounded_int_arg ($value, $default, $min, $max, $name) {
   my $int = int $value;
   return (undef, "$name must be an integer $range") if $int < $min || (defined $max && $int > $max);
   return ($int,  undef);
+}
+
+sub tool_cavil_code_search ($tool, $args) {
+  my $c = _get_controller($tool);
+
+  my $snippet = $args->{snippet};
+  return $tool->text_result('Argument "snippet" is required', 1) unless defined $snippet && length $snippet;
+  my ($limit, $le) = _bounded_int_arg($args->{limit}, 20, 1, 100, 'limit');
+  return $tool->text_result($le, 1) if $le;
+
+  my $result = $c->fingerprints->search($snippet, $limit, 0, 1);    # last arg: exclude embargoed (AI surface)
+  return $c->render_to_string('mcp/code_search', format => 'txt', matches => $result->{matches});
 }
 
 sub _get_controller ($tool) { $tool->context->{controller} }

@@ -20,6 +20,7 @@ use Cavil::Model::Requests;
 use Cavil::Model::Users;
 use Cavil::Model::APIKeys;
 use Cavil::Model::Snippets;
+use Cavil::Model::Fingerprints;
 use Cavil::Notice;
 use Cavil::OBS;
 use Cavil::SPDX;
@@ -54,8 +55,6 @@ sub startup ($self) {
   my $config = $self->plugin(Config => {file => $file});
   $self->secrets($config->{secrets});
 
-  Cavil::PatternEngine::use_engine($config->{matcher} // 'cavil');
-
   if (my $classifier = $config->{classifier}) {
     $self->classifier->type($classifier->{type})->url($classifier->{url})->token($classifier->{token});
   }
@@ -88,6 +87,7 @@ sub startup ($self) {
   $self->plugin('Cavil::Task::Cleanup');
   $self->plugin('Cavil::Task::ClosestMatch');
   $self->plugin('Cavil::Task::Documents');
+  $self->plugin('Cavil::Task::Fingerprint');
 
   $self->plugin('Cavil::Plugin::Linux');
 
@@ -143,6 +143,30 @@ sub startup ($self) {
         checkout_dir => $config->{checkout_dir},
         pg           => $c->pg,
         snippet_fold => $config->{snippet_fold}
+      );
+    }
+  );
+
+  # Snippet code search, off unless configured AND the installed Cavil::Matcher has fingerprint support, so
+  # an older matcher never breaks normal operation. codesearch returns the config (truthy) only when live.
+  $self->helper(
+    codesearch => sub ($c) {
+      state $cfg
+        = ($config->{codesearch} && $config->{codesearch}{enabled} && Cavil::Matcher->can('fingerprint_file'))
+        ? $config->{codesearch}
+        : undef;
+      return $cfg;
+    }
+  );
+  $self->helper(
+    fingerprints => sub ($c) {
+      return undef unless my $cfg = $c->codesearch;
+      state $fp = Cavil::Model::Fingerprints->new(
+        pg           => $c->pg,
+        log          => $self->log,
+        checkout_dir => $config->{checkout_dir},
+        index_dir    => $cfg->{index_dir} // path($config->{cache_dir})->child('fpindex')->make_path->to_string,
+        (defined $cfg->{k} ? (k => $cfg->{k}) : ()), (defined $cfg->{w} ? (w => $cfg->{w}) : ())
       );
     }
   );
@@ -215,6 +239,12 @@ sub startup ($self) {
   $api_key->get('/api/v1/search')->to('API#package_search')->name('search_api');
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
   $api_key->get('/api/v1/documents/<id:num>/:key')->to('Report#document');
+
+  # Both the API-key endpoint and the logged-in web page run the same search action; only the auth bridge
+  # differs.
+  $api_key->post('/api/v1/code/search')->to('CodeSearch#search')->name('code_search_api');
+  $logged_in->get('/code-search')->to('CodeSearch#index')->name('code_search');
+  $logged_in->post('/code-search/query')->to('CodeSearch#search')->name('code_search_query');
 
   $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');
   $logged_in->get('/api_keys/meta')->to('APIKeys#list_meta')->name('list_api_keys_meta');

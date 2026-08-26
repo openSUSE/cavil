@@ -24,21 +24,19 @@ use constant SIMILARITY_MIN_DISTINCTIVE => 2;
 
 has [qw(cache log pg minion)];
 
-# The compiled matcher and the tf-idf bag are cached under engine-specific filenames, because their
-# on-disk formats differ between engines. This lets an instance switch engines (or run "matcher-diff")
-# without ever reading a cache written by the other one. Snippet-similarity data lives in the database
-# (pattern_shingles / shingle_license), not on disk, so it needs no cache file here.
+# Snippet-similarity data lives in the database (pattern_shingles / shingle_license), not on disk, so only
+# the compiled matcher and the tf-idf bag are cached here.
 sub matcher_cache_file ($self) {
-  return path($self->cache, Cavil::PatternEngine::name() eq 'cavil' ? 'cavil.matcher' : 'cavil.tokens');
+  return path($self->cache, 'cavil.matcher');
 }
 
 sub bag_cache_file ($self) {
-  return path($self->cache, Cavil::PatternEngine::name() eq 'cavil' ? 'cavil.pattern.bag.cavil' : 'cavil.pattern.bag');
+  return path($self->cache, 'cavil.pattern.bag.cavil');
 }
 
 sub _all_cache_files ($self) {
   my $cache = path($self->cache);
-  return map { $cache->child($_) } qw(cavil.tokens cavil.matcher cavil.pattern.bag cavil.pattern.bag.cavil);
+  return map { $cache->child($_) } qw(cavil.matcher cavil.pattern.bag.cavil);
 }
 
 use constant LICENSE_DETAIL_MATCH_LIMIT   => 10_000;

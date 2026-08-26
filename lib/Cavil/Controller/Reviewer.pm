@@ -245,6 +245,9 @@ sub _file_browser_source ($self, $package, $file, $filename) {
 
   my $source = {id => $file_id, lines => lines_context(\@lines), name => $package->{name}, filename => $filename};
 
+  # Where else this exact file lives; needs the fingerprint index, so gated on code search.
+  $source->{provenance} = $self->fingerprints->file_provenance($package->{id}, $filename) if $self->codesearch;
+
   # A truncated file still carries the whole match map from indexing, so we can tell the reviewer whether
   # anything worth their attention sits past the cut. Real pattern matches (any risk, including 0, so keyed
   # on the pattern id) and unresolved snippets (risk 9) both count the same; cleared and covered

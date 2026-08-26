@@ -11,12 +11,10 @@ use Mojo::File qw(tempfile);
 use Cavil::PatternEngine;
 use Cavil::Util qw(file_and_checksum);
 
-# The original engine's fixed line buffer bounded every line to ~8 KB; Cavil::Matcher returns whole
-# physical lines, so the app caps them centrally in Cavil::PatternEngine::read_lines. Only the cavil
-# engine can produce an over-cap line (the original already truncates below the cap), so this is gated.
+# Cavil::Matcher returns whole physical lines, so the app caps them centrally in
+# Cavil::PatternEngine::read_lines.
 plan skip_all => 'Cavil::Matcher is not installed' unless eval { require Cavil::Matcher; 1 };
 
-Cavil::PatternEngine::use_engine('cavil');
 my $cap = Cavil::PatternEngine::MAX_LINE_SIZE;
 
 # One physical line far larger than the cap, then a short line.

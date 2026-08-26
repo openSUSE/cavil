@@ -1,0 +1,6 @@
+% layout 'default';
+% title 'Code Search';
+<div id="code-search"></div>
+% content_for 'ready_function' => begin
+  cavil.setupCodeSearch();
+% end

@@ -85,6 +85,7 @@
                 recentPatterns   => url_for('recent_patterns')->to_string,
                 recentNotes      => url_for('recent_notes')->to_string,
                 stats            => url_for('stats')->to_string,
+                codeSearch       => (codesearch() ? url_for('code_search')->to_string : undef),
                 upload           => url_for('/upload')->to_string,
                 ignoredMatches   => url_for('/ignored-matches')->to_string,
                 ignoredFiles     => url_for('/ignored-files')->to_string,

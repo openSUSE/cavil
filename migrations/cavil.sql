@@ -509,3 +509,22 @@ CREATE INDEX copyrights_building_idx ON copyrights (package) WHERE generation <>
 -- 61 up
 ALTER TABLE license_patterns ADD COLUMN full_license_text boolean DEFAULT false NOT NULL;
 CREATE UNIQUE INDEX license_patterns_full_text_idx ON license_patterns (license) WHERE full_license_text;
+
+-- 62 up
+CREATE TABLE fp_files (
+  package    int  REFERENCES bot_packages(id) ON DELETE CASCADE NOT NULL,
+  filename   text NOT NULL,
+  hash       text NOT NULL,
+  generation int  NOT NULL DEFAULT 0
+);
+CREATE INDEX fp_files_hash_idx ON fp_files (hash) WHERE generation = 0;
+CREATE INDEX fp_files_package_generation_idx ON fp_files (package, generation);
+CREATE TABLE fp_contents (
+  hash  text PRIMARY KEY,
+  state text NOT NULL DEFAULT 'pending'
+);
+CREATE INDEX fp_contents_pending_idx ON fp_contents (hash) WHERE state = 'pending';
+
+-- 62 down
+DROP TABLE IF EXISTS fp_files;
+DROP TABLE IF EXISTS fp_contents;

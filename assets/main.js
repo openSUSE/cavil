@@ -11,6 +11,7 @@ import ArchiveUpload from './vue/ArchiveUpload.vue';
 import CavilMenu from './vue/CavilMenu.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
+import CodeSearch from './vue/CodeSearch.vue';
 import CommentTemplates from './vue/CommentTemplates.vue';
 import LicenseDialog from './vue/components/LicenseDialog.vue';
 import PackageSearch from './vue/components/PackageSearch.vue';
@@ -91,6 +92,10 @@ window.cavil = {
     const app = createApp(ClassifySnippets);
     app.config.globalProperties.hasClassifierRole = hasClassifierRole;
     app.mount('#classify-snippets');
+  },
+
+  setupCodeSearch() {
+    createApp(CodeSearch).mount('#code-search');
   },
 
   setupEditSnippet(snippet, hasContributorRole, hasAdminRole) {

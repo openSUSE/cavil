@@ -1,0 +1,242 @@
+# SPDX-FileCopyrightText: SUSE LLC
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# The fingerprint index for snippet code search. The winnowed fingerprints live in an on-disk segment
+# store (Cavil::Matcher::FpIndex); this model keeps the database side: fp_files maps a content hash to the
+# packages/paths that carry it (generation-tracked, so it rides the report's atomic promote), and
+# fp_contents is the global "which contents are already fingerprinted" oracle. Everything here assumes the
+# installed Cavil::Matcher has fingerprint support; the caller gates on that (see Cavil::codesearch).
+
+package Cavil::Model::Fingerprints;
+use Mojo::Base -base, -signatures;
+
+use Cavil::PatternEngine;
+use Cavil::Util qw(checkout_path);
+use Mojo::File  qw(path tempfile);
+
+has [qw(pg log checkout_dir index_dir)];
+has k => 5;
+has w => 16;
+
+# Lines of context shown around a matched region in a result preview.
+use constant EXCERPT_CONTEXT => 3;
+
+# Loaded lazily, never at compile time: Cavil::Matcher::FpIndex (and the fingerprint functions) only exist
+# in a fingerprint-capable Cavil::Matcher. The caller gates on that support, so this model is only ever
+# constructed and used when the module is present - and Cavil still loads with an older matcher installed.
+sub _index ($self) {
+  require Cavil::Matcher::FpIndex;
+  return $self->{index} //= Cavil::Matcher::FpIndex->new(dir => $self->index_dir, k => $self->k, w => $self->w);
+}
+
+# Record one indexed file: its content hash maps to (package, path) at this generation, and the content is
+# queued for fingerprinting if we have not seen it before. Cheap enough for the indexing hot path (a hash
+# insert); the winnowing happens later in the fingerprint build task.
+sub record_file ($self, $db, $package, $filename, $hash, $generation) {
+  $db->query('INSERT INTO fp_files (package, filename, hash, generation) VALUES (?, ?, ?, ?)',
+    $package, $filename, $hash, $generation);
+  $db->query("INSERT INTO fp_contents (hash) VALUES (?) ON CONFLICT (hash) DO NOTHING", $hash);
+}
+
+# Delete the on-disk index so the next build starts fresh (used to change k/w or force a full rebuild).
+# The database is left untouched; resync/build_pending requeue and repopulate. Contents are removed rather
+# than the directory itself, and the cached handle is dropped so the next use recreates the index with the
+# current k/w.
+sub wipe ($self) {
+  my $dir = path($self->index_dir);
+  $dir->list({hidden => 1})->each(sub { $_->remove }) if -d $dir;
+  delete $self->{index};
+}
+
+# Keep the "already fingerprinted" bookkeeping honest with the on-disk index. If the segment store was
+# wiped (the supported way to change k/w or force a rebuild), it has no segments while the database still
+# marks contents as indexed; requeue them so a plain rebuild needs no manual database surgery. A no-op once
+# the index has any segments, so it is safe to call before every build.
+sub resync ($self) {
+  return if $self->_index->generation > 0;
+  $self->pg->db->query("UPDATE fp_contents SET state = 'pending' WHERE state <> 'pending'");
+}
+
+# Fingerprint up to $limit not-yet-indexed contents into one new segment. Returns the number fingerprinted.
+# One representative file per content is enough (all copies share the bytes); FpIndex::add_segment dedups
+# and appends without touching existing segments.
+sub build_pending ($self, $limit = 20000) {
+  my $rows = $self->pg->db->query(
+    "SELECT c.hash, p.name, p.checkout_dir AS co, f.filename
+       FROM fp_contents c
+       JOIN LATERAL (
+         SELECT package, filename FROM fp_files WHERE hash = c.hash AND generation = 0 LIMIT 1
+       ) f ON true
+       JOIN bot_packages p ON p.id = f.package
+      WHERE c.state = 'pending'
+      LIMIT ?", $limit
+  )->hashes;
+  return 0 unless @$rows;
+
+  my @paths
+    = map { checkout_path($self->checkout_dir, $_->{name}, $_->{co}, '.unpacked', $_->{filename})->to_string } @$rows;
+  $self->_index->add_segment(\@paths);
+
+  my @hashes = map { $_->{hash} } @$rows;
+  $self->pg->db->query("UPDATE fp_contents SET state = 'indexed' WHERE hash = ANY(?)", \@hashes);
+  return scalar @hashes;
+}
+
+# Search known sources for content resembling a snippet. Returns ranked matches, each with both-direction
+# containment, the matched line regions, the licenses/packages that carry the content, and a risk level.
+# $exclude_embargoed hides embargoed packages; only the MCP surface sets it, as its results feed an AI model.
+sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
+  my $minimum_tokens = $self->k + $self->w - 1;
+  return {matches => [], total => 0, minimum_tokens => $minimum_tokens} unless length($snippet // '');
+
+  # The matcher winnows files, not strings, so the snippet goes through a temp file for identical treatment.
+  my $tmp = tempfile;
+  $tmp->spew($snippet);
+  my @qfps = map { $_->[0] } @{Cavil::Matcher::fingerprint_file($tmp->to_string, $self->k, $self->w)};
+  return {matches => [], total => 0, minimum_tokens => $minimum_tokens} unless @qfps;
+
+  # Rank all in memory, enrich only the page: licenses and excerpts are the cost, so paging stays a few reads.
+  my $all = $self->_index->search(\@qfps, 0);
+
+  # Drop obsolete (and embargoed when asked) carriers before paging: segments are append-only, so a content
+  # can outlive its files, and filtering here keeps offset and total consistent.
+  my %live = map { $_ => 1 } @{$self->_live_hashes([map { $_->[0] } @$all], $exclude_embargoed)};
+  @$all = grep { $live{$_->[0]} } @$all;
+
+  my $total = scalar @$all;
+  return {matches => [], total => $total, minimum_tokens => $minimum_tokens} if $offset >= $total;
+  my $end = $offset + $limit - 1;
+  $end = $#$all if $end > $#$all;
+  my @page = @$all[$offset .. $end];
+
+  my @hashes = map { $_->[0] } @page;
+  my $lic    = $self->_licenses_by_hash(\@hashes, $exclude_embargoed);
+  my $locs   = $self->_locations_by_hash(\@hashes, $exclude_embargoed);
+
+  my @matches;
+  for my $h (@page) {
+    my ($hash, undef, $containment, $containment_of, $regions) = @$h;    # [hash, hits, containment, of, regions]
+    my $where = $locs->{$hash} // [];
+    push @matches,
+      {
+      hash           => $hash,
+      containment    => $containment,
+      containment_of => $containment_of,
+      licenses       => $lic->{$hash}{licenses} // [],
+      risk           => _risk_level($containment, $lic->{$hash}{risk} // 0),
+      files          => $where,
+      excerpt        => $self->_excerpt($where->[0], $regions->[0])
+      };
+  }
+  return {matches => \@matches, total => $total, minimum_tokens => $minimum_tokens};
+}
+
+# Names shown in the provenance strip; a larger total appears as a count, which flags common boilerplate.
+use constant PROVENANCE_LIST => 6;
+
+# Other current packages carrying this file's exact bytes. Content-derived only: never says whether the code
+# was accepted there, because acceptability is a per-package compatibility decision that does not transfer.
+# Obsolete carriers are dropped; embargoed are not, since this feeds the report browser (which shows them).
+# ponytail: excludes the current package by id, so another current version of it can still list; rare once
+# obsolete versions are filtered. Tighten to name if that gets noisy.
+sub file_provenance ($self, $package_id, $filename) {
+  my $db   = $self->pg->db;
+  my $hash = $db->query('SELECT hash FROM fp_files WHERE package = ? AND filename = ? AND generation = 0 LIMIT 1',
+    $package_id, $filename)->array;
+  return undef unless $hash;
+  $hash = $hash->[0];
+
+  # Cheap count first: most files are unique, so bail before the list query.
+  my $count = $db->query(
+    "SELECT count(DISTINCT p.name)
+       FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
+      WHERE ff.hash = ? AND ff.generation = 0 AND p.obsolete = false AND p.id <> ?", $hash, $package_id
+  )->array->[0];
+  return undef unless $count;
+
+  my $locations = $db->query(
+    "SELECT DISTINCT ON (p.name) p.id AS package, p.name, ff.filename
+       FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
+      WHERE ff.hash = ? AND ff.generation = 0 AND p.obsolete = false AND p.id <> ?
+      ORDER BY p.name LIMIT ?", $hash, $package_id, PROVENANCE_LIST
+  )->hashes->to_array;
+
+  return {count => $count, locations => $locations};
+}
+
+# The matched region of one representative file (all copies share the bytes), with a little context, each
+# line flagged matched or not - shown inline in the result so a reviewer sees the code without a round trip.
+sub _excerpt ($self, $where, $region) {
+  return [] unless $where && $region;
+  my ($sline, $span) = @$region;
+  my $pkg = $self->pg->db->select('bot_packages', ['name', 'checkout_dir'], {id => $where->{package}})->hash;
+  return [] unless $pkg;
+
+  my ($from, $to) = ($sline - EXCERPT_CONTEXT, $sline + $span + EXCERPT_CONTEXT);
+  $from = 1 if $from < 1;
+  my %wanted = map { $_ => 1 } $from .. $to;
+  my $abs    = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $where->{filename});
+  return [map { {number => $_->[0], text => $_->[2], matched => ($_->[0] >= $sline && $_->[0] <= $sline + $span)} }
+    sort { $a->[0] <=> $b->[0] } @{Cavil::PatternEngine::read_lines("$abs", \%wanted)}];
+}
+
+# The licenses (and their max risk) found in the matched content, from the per-file license data of the
+# packages that carry it. Best-effort: source with no license match of its own reports none - a follow-up
+# could fall back to the directory's declared license, the way the compatibility feature does.
+sub _licenses_by_hash ($self, $hashes, $exclude_embargoed = 0) {
+  my $emb = $exclude_embargoed ? ' AND p.embargoed = false' : '';
+  my %info;
+  my $rows = $self->pg->db->query(
+    "SELECT ff.hash, array_agg(DISTINCT lp.license) AS licenses, max(lp.risk) AS risk
+       FROM fp_files ff
+       JOIN bot_packages p ON p.id = ff.package AND p.obsolete = false$emb
+       JOIN matched_files mf ON mf.package = ff.package AND mf.filename = ff.filename AND mf.generation = 0
+       JOIN pattern_matches pm ON pm.file = mf.id AND pm.ignored = false
+       JOIN license_patterns lp ON lp.id = pm.pattern AND lp.license <> ''
+      WHERE ff.hash = ANY(?) AND ff.generation = 0
+      GROUP BY ff.hash", $hashes
+  )->hashes;
+  $info{$_->{hash}} = {risk => $_->{risk}, licenses => $_->{licenses}} for @$rows;
+  return \%info;
+}
+
+# Which packages/paths carry each matched content (capped per content; the full expansion is available on
+# demand). This is the "found in" list, and dedup means one content lists every version that ships it.
+sub _locations_by_hash ($self, $hashes, $exclude_embargoed = 0) {
+  my $emb = $exclude_embargoed ? ' AND p.embargoed = false' : '';
+  my %locs;
+  my $rows = $self->pg->db->query(
+    "SELECT ff.hash, p.name, p.id AS package, ff.filename
+       FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
+      WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false$emb
+      ORDER BY p.name", $hashes
+  )->hashes;
+  for my $r (@$rows) {
+    my $list = $locs{$r->{hash}} //= [];
+    push @$list, {package => $r->{package}, name => $r->{name}, filename => $r->{filename}} if @$list < 25;
+  }
+  return \%locs;
+}
+
+# Of the given hashes, those in a visible package: never obsolete, and never embargoed when asked.
+# ponytail: one indexed query over the whole candidate set; chunk it if a common snippet makes it too large.
+sub _live_hashes ($self, $hashes, $exclude_embargoed = 0) {
+  return [] unless @$hashes;
+  my $emb  = $exclude_embargoed ? ' AND p.embargoed = false' : '';
+  my $rows = $self->pg->db->query(
+    "SELECT DISTINCT ff.hash
+       FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
+      WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false$emb", $hashes
+  )->hashes;
+  return [map { $_->{hash} } @$rows];
+}
+
+# Containment weighted by the matched code's license risk: resembling risky (copyleft) code reads louder.
+sub _risk_level ($containment, $max_risk) {
+  return 'low'  if $containment < 0.2;
+  return 'high' if $max_risk >= 6;
+  return 'high' if $containment >= 0.6 && $max_risk >= 4;
+  return 'medium';
+}
+
+1;

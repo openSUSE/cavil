@@ -52,6 +52,7 @@
       </li>
       <li><hr class="dropdown-divider" /></li>
       <li><h3 class="dropdown-header">Insights</h3></li>
+      <li v-if="urls.codeSearch"><a :href="urls.codeSearch" class="dropdown-item">Code Search</a></li>
       <li><a :href="urls.recentPatterns" class="dropdown-item">Pattern Performance</a></li>
       <li><a :href="urls.recentNotes" class="dropdown-item">Recent Notes</a></li>
       <li><a :href="urls.stats" class="dropdown-item">Statistics</a></li>

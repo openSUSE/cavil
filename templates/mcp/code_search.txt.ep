@@ -1,0 +1,11 @@
+# Code search
+
+% unless (@$matches) {
+No matching open source code found.
+% }
+% for my $m (@$matches) {
+match <%= $m->{hash} %> · <%= int($m->{containment} * 100 + 0.5) %>% of snippet (<%= int($m->{containment_of} * 100 + 0.5) %>% of file) · <%= $m->{risk} %> risk
+%   for my $f (@{$m->{files}}) {
+  <%= $f->{name} %>: <%= $f->{filename} %> (package_id <%= $f->{package} %>)
+%   }
+% }

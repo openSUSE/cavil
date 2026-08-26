@@ -249,6 +249,7 @@ sub cleanup ($self, $id, $job_id) {
     $db->query('delete from package_components where package = ?', $id);
     $db->query('delete from pattern_matches where package = ?',    $id);
     $db->query('delete from matched_files where package = ?',      $id);
+    $db->query('delete from fp_files where package = ?',           $id);
     $tx->commit;
   }
 }

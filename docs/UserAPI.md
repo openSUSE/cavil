@@ -98,6 +98,11 @@ These tools are currently available:
   - `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
   - `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
 
+- *cavil_code_search* - Find where a code fragment already exists in known open source, ranked by containment, with a risk indicator (see the code search section in [Setup](Setup.md)). Only available when code search is enabled on the instance
+  - **Required Roles**: `user` (read-only)
+  - `snippet`: The code fragment to look up. (string, required)
+  - `limit`: Maximum number of matches to return. Defaults to `20`, maximum `100`. (number, optional)
+
 - *cavil_get_file* - Get content of a specific file in the package
   - **Required Roles**: `user` (read-only)
   - `package_id`: ID of package to read file from. (number, required)
@@ -666,6 +671,55 @@ Content-Type: application/json
       "components": [
         {"purl": "pkg:npm/lodash@4.17.19", "name": "lodash", "version": "4.17.19", "type": "npm", "license": "MIT"}
       ]
+    }
+  ]
+}
+```
+
+### Code Search
+
+`POST /api/v1/code/search`
+
+Find where a code fragment already exists in the open source Cavil has indexed, ranked by containment, with
+a risk indicator. Only available when code search is enabled on the instance (otherwise `404`); see the
+code search section in the [Setup](Setup.md) guide.
+
+**Request parameters:**
+
+* `snippet`: The code fragment to look up (required).
+* `limit`: Maximum number of matches to return. Defaults to `20`, maximum `100`.
+
+**Request:**
+
+```
+POST /api/v1/code/search
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+Content-Type: application/x-www-form-urlencoded
+
+snippet=<code fragment>&limit=20
+```
+
+**Response:** `minimum_tokens` is the shortest fragment that can produce a fingerprint with this instance's
+configured `k` and `w`. Each match reports the matched content hash, containment in both directions (how much
+of the snippet is in the file, and how much of the file is the snippet), the matched line regions, a risk
+level, and the packages and paths that carry the content.
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "total": 1,
+  "minimum_tokens": 20,
+  "matches": [
+    {
+      "hash": "a1b2c3...",
+      "containment": 0.92,
+      "containment_of": 0.15,
+      "risk": "high",
+      "regions": [[120, 40]],
+      "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}]
     }
   ]
 }

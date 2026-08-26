@@ -32,7 +32,8 @@ sub new ($class, $app, $package, $db = undef, $generation = 0) {
   my %hashes = map { $_->{hash} => $_->{id} } @{$igls->hashes};
   $self->{ignored_lines} = \%hashes;
 
-  $self->{db} = $db;
+  $self->{db}         = $db;
+  $self->{codesearch} = $app->codesearch ? 1 : 0;
   $self->dir($app->packages->pkg_checkout_dir($package));
   $self->{checkout}   = Cavil::Checkout->new($self->dir);
   $self->{snippets}   = {};
@@ -52,6 +53,15 @@ sub file ($self, $meta, $path, $mime) {
     next unless $path =~ $ifre;
     $ignored_file = 1;
     last;
+  }
+
+  # Snippet code search: map this file's content hash to (package, path) so a later query can resolve a
+  # fingerprint match back to where the code lives. Only the cheap hash is done here (the file is already
+  # warm from keyword_report); winnowing happens off the hot path in the fingerprint_build task. The hash
+  # is the same one the segment store keys on, so the two join.
+  if ($self->{codesearch} && !$ignored_file) {
+    my $hash = Cavil::Matcher::content_hash($self->dir->child('.unpacked', $path)->to_string);
+    $self->{app}->fingerprints->record_file($self->{db}, $package, $path, $hash, $self->{generation});
   }
 
   my @matches;

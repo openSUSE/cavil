@@ -108,11 +108,12 @@ sub _analyze ($job, $id, $generation = 0) {
     # served, and the build is retried or swept.
     if ($generation) {
 
-      # Deleting matched_files cascades its matches and snippets.
+      # Deleting matched_files cascades its matches and snippets. fp_files (snippet code search) is a plain
+      # map that rides the same swap; it is a no-op when code search is off (no such rows were written).
       $db->delete($_, {package => $id, generation => 0})
-        for qw(package_components urls emails copyrights matched_files);
+        for qw(package_components urls emails copyrights matched_files fp_files);
       $db->update($_, {generation => 0}, {package => $id, generation => $generation})
-        for qw(package_components urls emails copyrights pattern_matches file_snippets matched_files);
+        for qw(package_components urls emails copyrights pattern_matches file_snippets matched_files fp_files);
     }
 
     # The build hands the package back in the same commit that makes its report the live one, so there is
@@ -225,6 +226,11 @@ sub _analyzed ($job, $id) {
   return $job->finish("Package $id is already being processed") unless my $guard = $pkgs->claim_guard($id, $job->id);
 
   _auto_review($app, $id);
+
+  # Snippet code search: queue a fingerprint build for the contents this package just promoted. The lock
+  # rate-limits enqueues so a burst of analyzed packages cannot flood the queue; the build is single-flight
+  # and a no-op when code search is off.
+  $app->minion->enqueue('fingerprint_build') if $app->codesearch && $app->minion->lock('fp_build_enqueue', 300);
 
   # End of the chain unless a document build follows, so the package is handed back here rather than left to
   # the guard, which would only release it and leave a reindex requested in the meantime waiting for the

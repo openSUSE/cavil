@@ -605,14 +605,9 @@ Pattern matching is the heart of Cavil. It is how the `index_batch` job turns ra
 keyword matches that every report is built from. The matching itself is done by a separate, performance-critical C++
 library; Cavil provides the glue that loads patterns into it, runs files through it, and stores the results.
 
-The engine is selectable through the `matcher` configuration value. The default is
-[Cavil::Matcher](https://github.com/openSUSE/cavil-matcher), described below; it keeps its compiled index in a
-memory-mapped file that every worker on a host shares, which is what removes the memory ceiling discussed under
-[Scaling Characteristics](#scaling-characteristics-and-limits). The alternative `spooky` engine
-([Spooky::Patterns::XS](https://github.com/openSUSE/Spooky-Patterns-XS)) is the original implementation and remains
-fully supported. Both use the same tokenizer and the same token-hash algorithm, and therefore produce identical
-matches and identical stored hashes, so an instance can switch between them at any time without a reindex or a
-migration.
+The matching engine is [Cavil::Matcher](https://github.com/openSUSE/cavil-matcher), described below. It keeps its
+compiled index in a memory-mapped file that every worker on a host shares, which is what removes the memory ceiling
+discussed under [Scaling Characteristics](#scaling-characteristics-and-limits).
 
 ### Patterns and Keywords
 

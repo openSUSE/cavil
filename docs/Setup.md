@@ -192,6 +192,40 @@ sign-off, `manager` signs off as a non-lawyer expert, `contributor` proposes pat
 snippets. Use `-A`/`-R` to add and remove them; the full capability matrix is in the
 [Architecture](Architecture.md) guide.
 
+## Optional: code search
+
+Code search lets someone paste a code fragment and find where similar open source code already exists in
+the sources you have indexed, with a risk indicator. When it is on, the report file browser also shows a
+per-file provenance line ("identical to code in other packages"), so a reviewer can see when a file is a
+copy of code that lives elsewhere. It is off by default, and it also stays off unless the
+installed `Cavil::Matcher` has fingerprint support, so an older matcher never affects normal operation.
+Turn it on with a `codesearch` block in the config:
+
+```perl
+codesearch => {
+  enabled => 1,
+  k       => 5,
+  w       => 16
+}
+```
+
+The fingerprint index defaults to `fpindex` under `cache_dir`, so enabling the feature needs nothing more.
+Set `index_dir` to move it (tens of gigabytes on a large corpus) onto faster or roomier storage. `k` and
+`w` are the winnowing parameters: a token is a word or identifier (operators and
+punctuation do not count), and a snippet only starts matching once it has about `w + k` tokens. The default
+`w = 16` matches pastes of three or four lines; raise it (for example to `64`) to shrink the index roughly
+fourfold on a very large corpus, at the price of only matching larger pastes.
+
+The index fills in as packages are indexed. To build it on demand, or after changing `k`/`w` (which needs a
+full rebuild), restart the workers and queue a build (a Minion worker does the work):
+
+```sh
+CAVIL_CONF=/path/to/cavil.conf script/cavil fingerprint            # build what is missing
+CAVIL_CONF=/path/to/cavil.conf script/cavil fingerprint --rebuild  # discard and rebuild from scratch
+```
+
+The API and MCP surfaces are covered in the [User API](UserAPI.md) guide.
+
 ## Next steps
 
 Your instance is now ready to review packages. To feed it work, connect the

@@ -6,12 +6,15 @@
 
 <script>
 import {EditorState} from '@codemirror/state';
-import {EditorView, lineNumbers} from '@codemirror/view';
+import {EditorView, lineNumbers as lineNumbersExt} from '@codemirror/view';
 
 export default {
   name: 'PatternCodeMirror',
   props: {
-    modelValue: {type: String, default: ''}
+    modelValue: {type: String, default: ''},
+    lineNumbers: {type: Boolean, default: true},
+    ariaLabel: {type: String, default: ''},
+    contentId: {type: String, default: ''}
   },
   emits: ['update:modelValue'],
   data() {
@@ -32,8 +35,12 @@ export default {
     const state = EditorState.create({
       doc: this.modelValue,
       extensions: [
-        lineNumbers(),
+        ...(this.lineNumbers ? [lineNumbersExt()] : []),
         EditorView.lineWrapping,
+        EditorView.contentAttributes.of({
+          ...(this.ariaLabel ? {'aria-label': this.ariaLabel} : {}),
+          ...(this.contentId ? {id: this.contentId} : {})
+        }),
         theme,
         EditorView.updateListener.of(update => {
           if (!update.docChanged || this.suppressEmit) return;

@@ -816,6 +816,22 @@ textarea.mono-textarea {
   background-color: var(--cavil-success-bg);
   box-shadow: inset 3px 0 0 var(--cavil-success);
 }
+/* Code search marks the matched region with the same left-edge inset wash, token-driven so it holds in
+   dark mode too. */
+.source tr.cavil-cs-match {
+  background-color: var(--cavil-attention-bg);
+  box-shadow: inset 3px 0 0 var(--cavil-attention);
+}
+/* The report's .source sits flush under a file header, so it drops its top border; standalone in a code
+   search card it needs the full box. */
+.code-search .source {
+  border-top: 1px solid var(--cavil-edge-1) !important;
+  border-radius: .25rem !important;
+}
+/* An empty paste box would collapse to one line; give it room to read as a code input. */
+.code-search .pattern-codemirror-host .cm-content {
+  min-height: 12rem;
+}
 
 span.diff-removed {
   background-color: var(--cavil-danger-bg);

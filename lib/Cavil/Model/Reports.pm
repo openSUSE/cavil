@@ -15,7 +15,7 @@ use Cavil::Util       qw(checkout_path lines_context to_json_fast @LICENSE_FLAGS
 
 has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
 
-# we need a HUGE number because Spooky uses unsigned integers
+# we need a HUGE number because the matcher uses unsigned integers
 use constant PATTERN_DELTA => 10000000000;
 
 sub cached_dig_report {

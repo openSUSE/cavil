@@ -19,6 +19,8 @@ count as legal advice and no guarantees are made for their correctness!
 * 28.000 curated patterns for 2000 license combinations with 500 distinct [SPDX](https://spdx.dev) expressions
 * Detection of vendored/bundled subcomponents (npm, Cargo, PyPI, Maven, Go, Composer, NuGet, RubyGems) shipped inside
   packages, surfaced in the SBOM and the review report
+* Code search: paste a snippet to find where matching open source code already exists across all indexed sources,
+  with per-file provenance shown in reports (optional, fingerprint-based)
 
 ### SBOM & compliance
 
