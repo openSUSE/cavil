@@ -24,6 +24,13 @@ sub _cleanup ($job) {
   _sweep_builds($app);
 
   $pkgs->obsolete_duplicate_new;
+
+  # Code search: drop content bookkeeping whose files are all gone, so fp_contents does not ratchet upward.
+  if ($app->codesearch) {
+    my $pruned = $app->fingerprints->prune_contents;
+    $app->log->info("Pruned $pruned orphaned code search content rows") if $pruned;
+  }
+
   my $ids     = $pkgs->need_cleanup;
   my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 

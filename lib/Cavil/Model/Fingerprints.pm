@@ -87,6 +87,15 @@ sub build_pending ($self, $limit = 20000) {
   return scalar @hashes;
 }
 
+# Drop content bookkeeping for hashes no file references any more (their packages went obsolete or were
+# reindexed away). fp_files is pruned by the promote and obsolete cleanup, so without this fp_contents would
+# only ever grow. Called from the daily cleanup; segment space is reclaimed separately by a full rebuild.
+# ponytail: one anti-join over fp_files, fine for a daily maintenance pass.
+sub prune_contents ($self) {
+  return $self->pg->db->query(
+    'DELETE FROM fp_contents WHERE NOT EXISTS (SELECT 1 FROM fp_files WHERE fp_files.hash = fp_contents.hash)')->rows;
+}
+
 # Search known sources for content resembling a snippet. Returns ranked matches, each with both-direction
 # containment, the matched line regions, the licenses/packages that carry the content, and a risk level.
 # $exclude_embargoed hides embargoed packages; only the MCP surface sets it, as its results feed an AI model.

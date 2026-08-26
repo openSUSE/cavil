@@ -200,4 +200,17 @@ subtest 'the fingerprint command queues a rebuild that a worker runs' => sub {
   ok +(grep { $_->{hash} eq $sample->{hash} } @$matches), 'content is searchable again after the rebuild';
 };
 
+subtest 'cleanup prunes content bookkeeping with no files left' => sub {
+
+  # An orphan is a fp_contents row whose files are all gone (obsolete cleanup removes fp_files, not
+  # fp_contents); a hash that no fp_files references models exactly that.
+  my $orphan = 'f' x 32;
+  $db->query("INSERT INTO fp_contents (hash, state) VALUES (?, 'indexed')", $orphan);
+  my $kept = $db->query('SELECT hash FROM fp_files WHERE generation = 0 LIMIT 1')->array->[0];
+
+  ok $app->fingerprints->prune_contents >= 1, 'prune removes orphaned content rows';
+  ok !$db->query('SELECT 1 FROM fp_contents WHERE hash = ?', $orphan)->rows, 'the orphan is gone';
+  ok $db->query('SELECT 1 FROM fp_contents WHERE hash = ?',  $kept)->rows,   'referenced content is kept';
+};
+
 done_testing;
