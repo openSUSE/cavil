@@ -171,6 +171,16 @@ sub startup ($self) {
     }
   );
 
+  # One startup line per process: web and worker can load different configs or run in different modes, and
+  # code search is otherwise silently on or off (no menu / no MCP tool when off).
+  $self->log->info(
+    sprintf 'Code search %s (mode %s, config enabled=%s, matcher support=%s)',
+    $self->codesearch ? 'enabled' : 'disabled',
+    $self->mode,
+    ($config->{codesearch} && $config->{codesearch}{enabled}) ? 'yes' : 'no',
+    Cavil::Matcher->can('fingerprint_file')                   ? 'yes' : 'no'
+  );
+
   $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
 
   $self->helper(notes => sub ($c) { state $nts = Cavil::Model::Notes->new(pg => $c->pg) });
