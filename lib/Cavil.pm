@@ -243,6 +243,9 @@ sub startup ($self) {
   # Both the API-key endpoint and the logged-in web page run the same search action; only the auth bridge
   # differs.
   $api_key->post('/api/v1/code/search')->to('CodeSearch#search')->name('code_search_api');
+  $api_key->get('/api/v1/code/config')->to('CodeSearch#config')->name('code_config_api');
+  $api_key->post('/api/v1/code/known')->to('CodeSearch#known')->name('code_known_api');
+  $api_key->post('/api/v1/code/search-batch')->to('CodeSearch#search_batch')->name('code_search_batch_api');
   $logged_in->get('/code-search')->to('CodeSearch#index')->name('code_search');
   $logged_in->post('/code-search/query')->to('CodeSearch#search')->name('code_search_query');
 

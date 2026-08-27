@@ -18,7 +18,7 @@ requires 'Text::Diff';
 requires 'Text::Glob';
 requires 'Try::Tiny';
 requires 'YAML::XS';
-requires 'JSON::Validator';
+requires 'JSON::Schema::Tiny';
 requires 'Digest::SHA1';
 requires 'MCP', '>= 0.07';
 requires 'CommonMark';

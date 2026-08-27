@@ -10,7 +10,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::Date;
-use Mojo::File qw(tempdir path);
+use Mojo::File qw(tempdir path tempfile);
 use MCP::Client;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -213,6 +213,71 @@ subtest 'HTTP API endpoint returns ranked matches' => sub {
     ->status_is(200)
     ->json_has('/matches/0/hash')
     ->json_has('/total');
+};
+
+subtest 'the CLI API endpoints (config, known-hash, batch fingerprint search)' => sub {
+
+  # The api_key Bearer header set in the MCP subtest still applies to $t->ua.
+
+  # config exposes the winnowing parameters the client must match.
+  $t->get_ok('/api/v1/code/config')
+    ->status_is(200)
+    ->json_is('/k' => $config{codesearch}{k})
+    ->json_is('/w' => $config{codesearch}{w});
+
+  # known-hash recognition: an indexed hash comes back with licenses/risk, an unindexed one is absent.
+  my $bogus = 'a' x 32;
+  $t->post_ok('/api/v1/code/known' => json => {hashes => [$sample->{hash}, $bogus]})
+    ->status_is(200)
+    ->json_has("/$sample->{hash}")
+    ->json_hasnt("/$bogus");
+
+  # batch fingerprint search: winnow the sample content the way the server would, send the deduped
+  # fingerprints as decimal strings with the query's line span, and find the sample among the matches.
+  my $tmp = tempfile;
+  $tmp->spew($content);
+  my $raw = Cavil::Matcher::fingerprint_file($tmp->to_string, $config{codesearch}{k}, $config{codesearch}{w});
+  my %seen;
+  my @fps = grep { !$seen{$_}++ } map {"$_->[0]"} @$raw;
+  my ($lo, $hi);
+  for my $r (@$raw) {
+    $lo = $r->[1] if !defined $lo || $r->[1] < $lo;
+    $hi = $r->[2] if !defined $hi || $r->[2] > $hi;
+  }
+  $t->post_ok(
+    '/api/v1/code/search-batch' => json => {queries => [{id => 'q1', fingerprints => \@fps, span => $hi - $lo + 1}]})
+    ->status_is(200)
+    ->json_is('/results/0/id' => 'q1')
+    ->json_has('/results/0/matches/0/hash');
+  my $matches = $t->tx->res->json('/results/0/matches');
+  ok +(grep { $_->{hash} eq $sample->{hash} } @$matches), 'the batch query finds the sample content';
+
+  # A query below the fingerprint floor is reported too short, not as noise.
+  $t->post_ok(
+    '/api/v1/code/search-batch' => json => {queries => [{id => 'tiny', fingerprints => ['1', '2'], span => 2}]})
+    ->status_is(200)
+    ->json_has('/results/0/too_short')
+    ->json_is('/results/0/matches' => []);
+
+  # Schema validation rejects malformed bodies with a 400 instead of a crash or garbage.
+  $t->post_ok('/api/v1/code/known'        => json => {hashes  => [{}]})->status_is(400);
+  $t->post_ok('/api/v1/code/known'        => json => {nope    => 1})->status_is(400);
+  $t->post_ok('/api/v1/code/search-batch' => json => {queries => ['not-an-object']})->status_is(400);
+};
+
+subtest 'the CLI API endpoints are gated on code search being enabled' => sub {
+  my $toff = Test::Mojo->new(Cavil => {%config, codesearch => {enabled => 0}});
+  $toff->get_ok('/login')->status_is(302);
+  my $expires = Mojo::Date->new(time + 36000)->to_datetime =~ s/:\d{2}Z$//r;
+  $toff->post_ok('/api_keys' => form => {expires => $expires, type => 'read-only', description => 'off'})
+    ->status_is(200);
+  $toff->get_ok('/api_keys/meta')->status_is(200);
+  my $key = $toff->tx->res->json('/keys/0/api_key');
+  $toff->ua->on(start => sub ($ua, $tx) { $tx->req->headers->authorization("Bearer $key") });
+
+  # Authenticated, but the instance has code search off: the endpoints report that, they do not 403.
+  $toff->get_ok('/api/v1/code/config')->status_is(404);
+  $toff->post_ok('/api/v1/code/known' => json => {hashes => ['a' x 32]})->status_is(404);
 };
 
 subtest 'search page renders behind login' => sub {

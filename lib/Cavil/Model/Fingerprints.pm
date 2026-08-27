@@ -117,12 +117,8 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   my %seen;
   my @qfps = grep { !$seen{$_}++ } map { $_->[0] } @$raw;
 
-  # Too few distinct fingerprints to search on (see MIN_QUERY_FINGERPRINTS); say so rather than return noise.
-  # No token-count guidance: the real floor is distinct fingerprints, which repetitive code reaches far later.
-  return {matches => [], total => 0, too_short => \1} if @qfps < MIN_QUERY_FINGERPRINTS;
-
-  # The snippet's line span, used as the alignment window: a verbatim copy occupies about this many lines in
-  # the matched file, so matched fingerprints landing within one such window are the aligned copy.
+  # The snippet's line span feeds alignment (see search_fingerprints / _alignment): a verbatim copy occupies
+  # about this many lines in the matched file.
   my ($qlo, $qhi);
   for my $r (@$raw) {
     $qlo = $r->[1] if !defined $qlo || $r->[1] < $qlo;
@@ -130,8 +126,22 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   }
   my $qspan = defined $qlo ? $qhi - $qlo + 1 : 1;
 
+  return $self->search_fingerprints(\@qfps, $qspan, $limit, $offset, $exclude_embargoed);
+}
+
+# Rank and enrich a page of matches for an already-winnowed query: the deduped query fingerprints and their
+# line span (needed for alignment). This is the shared core of the snippet search and the batch fingerprint
+# API; search() is just the winnowing front-end that turns a snippet into these. Fingerprints may arrive as
+# numbers (snippet path) or decimal strings (batch API, where JSON cannot carry a 64-bit value losslessly);
+# both coerce identically for the index lookup and for the alignment hash keys.
+sub search_fingerprints ($self, $qfps, $qspan, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
+
+  # Too few distinct fingerprints to search on (see MIN_QUERY_FINGERPRINTS); say so rather than return noise.
+  # No token-count guidance: the real floor is distinct fingerprints, which repetitive code reaches far later.
+  return {matches => [], total => 0, too_short => \1} if @$qfps < MIN_QUERY_FINGERPRINTS;
+
   # Rank all in memory, enrich only the page: licenses and excerpts are the cost, so paging stays a few reads.
-  my $all = $self->_index->search(\@qfps, 0);
+  my $all = $self->_index->search($qfps, 0);
 
   # Drop obsolete (and embargoed when asked) carriers before paging: segments are append-only, so a content
   # can outlive its files, and filtering here keeps offset and total consistent.
@@ -156,7 +166,7 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   for my $h (@page) {
     my ($hash, undef, $containment, $containment_of, $regions) = @$h;    # [hash, hits, containment, of, regions]
     my $where = $locs->{$hash} // [];
-    my ($marks, $aligned) = _alignment($regions, \@qfps, $qspan);
+    my ($marks, $aligned) = _alignment($regions, $qfps, $qspan);
     push @matches, {
       hash           => $hash,
       containment    => $containment,
@@ -167,11 +177,22 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
       excerpt        => $self->_excerpt($where->[0], $regions->[0]),
       marks          => $marks,                                      # per query fingerprint, in order: 1 aligned, 0 not
       aligned        => $aligned,
-      total          => scalar @qfps,
-      exact          => ($aligned == @qfps ? true : false)           # Mojo::JSON booleans: correct in Perl and JSON
+      total          => scalar @$qfps,
+      exact          => ($aligned == @$qfps ? true : false)          # Mojo::JSON booleans: correct in Perl and JSON
     };
   }
   return {matches => \@matches, total => $total};
+}
+
+# Batch content-hash lookup for the CLI: for each hash Cavil has seen, its licenses and max risk. A hash the
+# instance knows but has no license match for still returns an entry (empty licenses, undef risk), so the
+# caller can tell "known, no license detected" from "never seen" (which is absent from the result).
+sub known_hashes ($self, $hashes, $exclude_embargoed = 0) {
+  return {} unless @$hashes;
+  my $live = $self->_live_hashes($hashes, $exclude_embargoed);
+  return {} unless @$live;
+  my $lic = $self->_licenses_by_hash($live, $exclude_embargoed);
+  return {map { $_ => {licenses => $lic->{$_}{licenses} // [], risk => $lic->{$_}{risk}} } @$live};
 }
 
 # Tell an aligned copy from scattered coincidence: group the matched fingerprints' content lines into runs,

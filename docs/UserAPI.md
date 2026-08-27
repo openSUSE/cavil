@@ -737,6 +737,109 @@ Content-Type: application/json
 }
 ```
 
+### Code Search Configuration
+
+`GET /api/v1/code/config`
+
+The winnowing parameters this instance's index was built with. A client that computes fingerprints itself
+(see the batch fingerprint search below) must use the same values, or its fingerprints will not match. Only
+available when code search is enabled (otherwise `404`).
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"k": 4, "w": 8}
+```
+
+### Batch Content Hash Lookup
+
+`POST /api/v1/code/known`
+
+Ask, for a batch of content hashes, which ones Cavil has already seen and under what licenses and risk. This
+is the cheap recognition path: a content hash is a fixed property of a file's bytes, so its licenses and risk
+never change, and the answer can be cached indefinitely by the client. Compute the hashes with the same
+function Cavil uses (the `content_hash` in the `Cavil::Matcher` distribution), so they match the indexed
+values. Only available when code search is enabled (otherwise `404`); at most 1000 hashes per request.
+
+A hash Cavil knows but has no detected license for still returns an entry, with empty `licenses` and `null`
+risk, so "known, no license detected" is distinct from "never seen" (which is simply absent from the result).
+
+**Request:**
+
+```
+POST /api/v1/code/known
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+Content-Type: application/json
+
+{"hashes": ["8c2fa3f24a09137f9bb3860fa21c677e", "..."]}
+```
+
+**Response:** an object keyed by the hashes that were recognized.
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "8c2fa3f24a09137f9bb3860fa21c677e": {"licenses": ["GPL-2.0-only"], "risk": 6}
+}
+```
+
+### Batch Fingerprint Search
+
+`POST /api/v1/code/search-batch`
+
+Search for many code fragments in one request, sending fingerprints rather than source. The client winnows
+each fragment itself with `fingerprint_file` from the `Cavil::Matcher` distribution, using the `k` and `w`
+from the configuration endpoint above, deduplicates the resulting fingerprints, and sends them with the
+fragment's line span. Fingerprints are transported as decimal strings, because a 64-bit value cannot survive
+JSON as a number without losing precision. Only available when code search is enabled (otherwise `404`); at
+most 100 queries per request.
+
+Each query carries an opaque `id` that is echoed back, so results can be matched to queries. Each result has
+the same shape as a single code search, including the `too_short`, `aligned`/`total`, `exact` and `marks`
+fields described above.
+
+**Request:**
+
+```
+POST /api/v1/code/search-batch
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+Content-Type: application/json
+
+{
+  "queries": [
+    {"id": "src/foo.c:40-88", "fingerprints": ["10293847561029", "..."], "span": 49}
+  ],
+  "limit": 10
+}
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "results": [
+    {
+      "id": "src/foo.c:40-88",
+      "total": 24,
+      "matches": [
+        {"hash": "a1b2c3...", "containment": 0.92, "containment_of": 0.15,
+         "aligned": 22, "total": 24, "exact": false, "risk": 6,
+         "licenses": ["GPL-2.0-only"],
+         "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}]}
+      ]
+    }
+  ]
+}
+```
+
 ### Retrieve License Reports
 
 `GET /api/v1/report/<package_id>.<format>`
