@@ -101,13 +101,19 @@
         </div>
       </div>
 
+      <div v-else-if="tooShort" class="code-search-empty">
+        <span class="code-search-empty-icon" aria-hidden="true"><i class="fa-regular fa-file-code"></i></span>
+        <strong>This snippet is too short or too repetitive to locate reliably.</strong>
+        <span
+          >Paste a longer or more distinctive sample (at least {{ minimumTokens }} words, identifiers, or
+          numbers).</span
+        >
+      </div>
+
       <div v-else class="code-search-empty">
         <span class="code-search-empty-icon" aria-hidden="true"><i class="fa-regular fa-file-code"></i></span>
         <strong>No matching open source code found.</strong>
-        <span>
-          The submitted fragment did not overlap with indexed source files. If it is very short, try a longer sample
-          with at least {{ minimumTokens }} words, identifiers, or numbers.
-        </span>
+        <span>The submitted fragment did not overlap with indexed source files.</span>
       </div>
     </section>
   </div>
@@ -128,6 +134,7 @@ export default {
       matches: [],
       total: 0,
       minimumTokens: 0,
+      tooShort: false,
       loading: false,
       loadingMore: false,
       searched: false
@@ -160,6 +167,7 @@ export default {
       this.matches.push(...(data.matches ?? []));
       this.total = data.total ?? 0;
       this.minimumTokens = data.minimum_tokens ?? 0;
+      this.tooShort = data.too_short ?? false;
     },
     async onScroll() {
       if (this.loading || this.loadingMore || this.matches.length >= this.total) return;

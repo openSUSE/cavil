@@ -911,7 +911,12 @@ sub tool_cavil_code_search ($tool, $args) {
   return $tool->text_result($le, 1) if $le;
 
   my $result = $c->fingerprints->search($snippet, $limit, 0, 1);    # last arg: exclude embargoed (AI surface)
-  return $c->render_to_string('mcp/code_search', format => 'txt', matches => $result->{matches});
+  return $c->render_to_string(
+    'mcp/code_search',
+    format    => 'txt',
+    matches   => $result->{matches},
+    too_short => $result->{too_short}
+  );
 }
 
 sub _get_controller ($tool) { $tool->context->{controller} }

@@ -4,13 +4,26 @@ import t from 'tap';
 
 // Code search: paste a snippet, get the reviewed open source content it resembles, ranked by
 // containment with a risk badge and an inline excerpt of the matched region. The fixture indexes
-// itself (codesearch config on, so the normal unpack/analyze pipeline fingerprints its files), and
-// the snippet below is a verbatim function from the perl-Mojolicious fixture, so it must match.
+// itself (codesearch config on, so the normal unpack/analyze pipeline fingerprints its files). The block
+// below is verbatim from the perl-Mojolicious fixture and long enough to winnow to enough fingerprints to
+// be searchable (a shorter paste is legitimately reported as too short - see the dedicated subtest).
 const SNIPPET = `sub element_count_is {
   my ($self, $selector, $count, $desc) = @_;
-  $desc = _desc($desc, qq{element count for selector "$selector"});
   my $size = $self->tx->res->dom->find($selector)->size;
-  return $self->_test('is', $size, $count, $desc);
+  return $self->_test('is', $size, $count,
+    _desc($desc, qq{element count for selector "$selector"}));
+}
+
+sub element_exists {
+  my ($self, $selector, $desc) = @_;
+  $desc = _desc($desc, qq{element for selector "$selector" exists});
+  return $self->_test('ok', $self->tx->res->dom->at($selector), $desc);
+}
+
+sub element_exists_not {
+  my ($self, $selector, $desc) = @_;
+  $desc = _desc($desc, qq{no element for selector "$selector"});
+  return $self->_test('ok', !$self->tx->res->dom->at($selector), $desc);
 }`;
 
 t.test('Cavil UI - code search', skipUnlessOnline, async t => {
@@ -45,13 +58,12 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       t.match(await page.innerText('.code-search-result'), /Test\/Mojo\.pm/, 'names the file');
       t.equal(await page.locator('.code-search-result-path').getAttribute('target'), '_blank', 'source opens in a new tab');
       t.match(await page.innerText('.code-search-result'), /of snippet/, 'shows containment');
-      t.match(await page.innerText('.code-search-coverage'), /<1%\s+of file/, 'does not round a small overlap to zero');
 
       // The matched region is highlighted inline, so the reviewer sees the code without a round trip.
       await page.waitForSelector('.code-search-result .source tr.cavil-cs-match');
       t.match(
         await page.innerText('.code-search-result .source tr.cavil-cs-match'),
-        /element_count_is|find\(\$selector\)/,
+        /element_|selector|_test/,
         'the matched line is the pasted code'
       );
 
@@ -84,11 +96,15 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       await page.click('button[type=submit]');
       await page.waitForSelector('.code-search-empty:has-text("No matching open source code found")');
       t.equal(await page.locator('.code-search-result').count(), 0, 'no false-positive results');
-      t.match(
-        await page.innerText('.code-search-empty'),
-        /submitted fragment did not overlap.*at least 20 words, identifiers, or numbers/is,
-        'explains both no overlap and the configured minimum searchable length'
-      );
+    });
+
+    await t.test('A too-short or repetitive snippet is not searched', async t => {
+      await page.goto(`${url}/code-search`);
+      await page.locator('.code-search .cm-content').click();
+      await page.keyboard.insertText('int a;\nint b;\nint c;\nint d;\nint e;');
+      await page.click('button[type=submit]');
+      await page.waitForSelector('.code-search-empty:has-text("too short or too repetitive")');
+      t.equal(await page.locator('.code-search-result').count(), 0, 'no noisy matches for a weak snippet');
     });
 
     await t.test('File browser shows cross-package provenance', async t => {

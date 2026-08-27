@@ -701,10 +701,12 @@ snippet=<code fragment>&limit=20
 ```
 
 **Response:** `minimum_tokens` is the shortest fragment that can produce a fingerprint with this instance's
-configured `k` and `w`. Each match reports the matched content hash, containment in both directions (how much
-of the snippet is in the file, and how much of the file is the snippet), the detected licenses and the
-matched code's license risk on Cavil's 1-9 scale (`null` when no license was detected), an excerpt of the
-matched lines, and the packages and paths that carry the content.
+configured `k` and `w`. A snippet that is too short or too repetitive to yield enough distinct fingerprints
+to locate reliably comes back with `too_short: true` and no matches, rather than a flood of weak hits.
+Otherwise each match reports the matched content hash, containment in both directions (how much of the
+snippet is in the file, and how much of the file is the snippet), the detected licenses and the matched
+code's license risk on Cavil's 1-9 scale (`null` when no license was detected), an excerpt of the matched
+lines, and the packages and paths that carry the content.
 
 ```
 HTTP/1.1 200 OK

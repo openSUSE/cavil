@@ -96,6 +96,13 @@ subtest 'search finds an exact copy at full containment' => sub {
   cmp_ok $self->{containment_of}, '<=', 1.0,  'and never exceeds 1.0';
   ok +(grep { $_->{package} == $sample->{package} } @{$self->{files}}), 'resolves back to the source package';
   ok !defined $self->{risk} || $self->{risk} =~ /^\d+$/,                'risk, when known, is the numeric license risk';
+  ok !(grep { $_->{containment} < 0.25 } @$matches), 'every returned match clears the containment floor';
+};
+
+subtest 'a snippet too short to yield enough fingerprints is not searched' => sub {
+  my $result = $app->fingerprints->search('one two three four five six seven eight');
+  ok $result->{too_short}, 'flagged as too short to locate reliably';
+  is scalar @{$result->{matches}}, 0, 'and returns no noisy matches';
 };
 
 subtest 'an unrelated snippet does not match the source (precision)' => sub {

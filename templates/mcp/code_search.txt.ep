@@ -1,6 +1,9 @@
 # Code search
 
-% unless (@$matches) {
+% if ($too_short) {
+Snippet too short or too repetitive to locate reliably; try a longer or more distinctive sample.
+% }
+% elsif (!@$matches) {
 No matching open source code found.
 % }
 % for my $m (@$matches) {

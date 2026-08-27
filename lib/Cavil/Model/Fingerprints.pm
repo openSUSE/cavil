@@ -96,6 +96,15 @@ sub prune_contents ($self) {
     'DELETE FROM fp_contents WHERE NOT EXISTS (SELECT 1 FROM fp_files WHERE fp_files.hash = fp_contents.hash)')->rows;
 }
 
+# A query winnowing to fewer distinct fingerprints than this cannot be located reliably: containment is
+# hits/distinct, so with a tiny set even one shared common gram scores 100%. Short or repetitive pastes (a
+# struct of identical short fields, say) land here and are reported as too short instead of flooding results.
+use constant MIN_QUERY_FINGERPRINTS => 8;
+
+# A match must share at least this fraction of the (now guaranteed sizable) query; below it is idiom
+# coincidence, not resemblance.
+use constant MIN_CONTAINMENT => 0.25;
+
 # Search known sources for content resembling a snippet. Returns ranked matches, each with both-direction
 # containment, the matched line regions, the licenses/packages that carry the content, and a risk level.
 # $exclude_embargoed hides embargoed packages; only the MCP surface sets it, as its results feed an AI model.
@@ -106,8 +115,13 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   # The matcher winnows files, not strings, so the snippet goes through a temp file for identical treatment.
   my $tmp = tempfile;
   $tmp->spew($snippet);
-  my @qfps = map { $_->[0] } @{Cavil::Matcher::fingerprint_file($tmp->to_string, $self->k, $self->w)};
-  return {matches => [], total => 0, minimum_tokens => $minimum_tokens} unless @qfps;
+  my %seen;
+  my @qfps
+    = grep { !$seen{$_}++ } map { $_->[0] } @{Cavil::Matcher::fingerprint_file($tmp->to_string, $self->k, $self->w)};
+
+  # Too few distinct fingerprints to search on (see MIN_QUERY_FINGERPRINTS); say so rather than return noise.
+  return {matches => [], total => 0, minimum_tokens => $minimum_tokens, too_short => \1}
+    if @qfps < MIN_QUERY_FINGERPRINTS;
 
   # Rank all in memory, enrich only the page: licenses and excerpts are the cost, so paging stays a few reads.
   my $all = $self->_index->search(\@qfps, 0);
@@ -116,6 +130,10 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   # can outlive its files, and filtering here keeps offset and total consistent.
   my %live = map { $_ => 1 } @{$self->_live_hashes([map { $_->[0] } @$all], $exclude_embargoed)};
   @$all = grep { $live{$_->[0]} } @$all;
+
+  # Keep only real resemblance, then order strongest first (containment, then how much of the file matched,
+  # so the file the snippet mostly *is* outranks one that merely embeds it).
+  @$all = sort { $b->[2] <=> $a->[2] || $b->[3] <=> $a->[3] } grep { $_->[2] >= MIN_CONTAINMENT } @$all;
 
   my $total = scalar @$all;
   return {matches => [], total => $total, minimum_tokens => $minimum_tokens} if $offset >= $total;
