@@ -14,6 +14,7 @@ use Cavil::PatternEngine;
 use Cavil::Util qw(checkout_path);
 use Mojo::File  qw(path tempfile);
 use Mojo::JSON  qw(false true);
+use Time::HiRes ();
 
 has [qw(pg log checkout_dir index_dir)];
 has k => 4;
@@ -103,6 +104,9 @@ use constant MIN_QUERY_FINGERPRINTS => 8;
 # coincidence, not resemblance.
 use constant MIN_CONTAINMENT => 0.25;
 
+# A search taking at least this long is logged with a timing breakdown, to pinpoint performance problems.
+use constant SLOW_SEARCH_MS => 1000;
+
 # Search known sources for content resembling a snippet. Returns ranked matches, each with both-direction
 # containment, the matched line regions, the licenses/packages that carry the content, and a risk level.
 # $exclude_embargoed hides embargoed packages; only the MCP surface sets it, as its results feed an AI model.
@@ -140,16 +144,37 @@ sub search_fingerprints ($self, $qfps, $qspan, $limit = 10, $offset = 0, $exclud
   return {matches => [], total => 0, too_short => \1} if @$qfps < MIN_QUERY_FINGERPRINTS;
 
   # Rank all in memory, enrich only the page: licenses and excerpts are the cost, so paging stays a few reads.
-  my $all = $self->_index->search($qfps, 0);
+  my $t0    = Time::HiRes::time;
+  my $all   = $self->_index->search($qfps, 0);
+  my $t_idx = Time::HiRes::time;
+  my $n_raw = scalar @$all;
+
+  # Apply the containment floor first, before anything touches the database. A whole-file query matches masses
+  # of contents through common fingerprints, but almost none clear this floor; filtering here means the
+  # liveness lookup (and the sort) run over the few real resemblances instead of every coincidence.
+  @$all = grep { $_->[2] >= MIN_CONTAINMENT } @$all;
 
   # Drop obsolete (and embargoed when asked) carriers before paging: segments are append-only, so a content
   # can outlive its files, and filtering here keeps offset and total consistent.
   my %live = map { $_ => 1 } @{$self->_live_hashes([map { $_->[0] } @$all], $exclude_embargoed)};
   @$all = grep { $live{$_->[0]} } @$all;
+  my $t_db = Time::HiRes::time;
 
-  # Keep only real resemblance, then order strongest first (containment, then how much of the file matched,
-  # so the file the snippet mostly *is* outranks one that merely embeds it).
-  @$all = sort { $b->[2] <=> $a->[2] || $b->[3] <=> $a->[3] } grep { $_->[2] >= MIN_CONTAINMENT } @$all;
+  # A slow query is logged with where the time went, so a production performance problem can be pinpointed as
+  # the index scan (too many common fingerprints in the query) or the database (liveness/enrichment).
+  if ($self->log && (my $ms = int(($t_db - $t0) * 1000)) >= SLOW_SEARCH_MS) {
+    $self->log->info(
+      sprintf 'Slow code search: %d fingerprints, %d raw matches, %d over floor; index %dms, db %dms',
+      scalar @$qfps,
+      $n_raw, scalar @$all,
+      int(($t_idx - $t0) * 1000),
+      int(($t_db - $t_idx) * 1000)
+    );
+  }
+
+  # Order strongest first (containment, then how much of the file matched, so the file the snippet mostly *is*
+  # outranks one that merely embeds it).
+  @$all = sort { $b->[2] <=> $a->[2] || $b->[3] <=> $a->[3] } @$all;
 
   my $total = scalar @$all;
   return {matches => [], total => $total} if $offset >= $total;
