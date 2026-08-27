@@ -42,11 +42,7 @@
                 </a>
               </div>
               <div class="code-search-result-tags">
-                <span
-                  v-for="license in match.licenses"
-                  :key="license"
-                  class="cavil-meta-badge cavil-meta-badge-muted"
-                >
+                <span v-for="license in match.licenses" :key="license" class="cavil-meta-badge cavil-meta-badge-muted">
                   {{ license }}
                 </span>
                 <span v-if="match.risk != null" :class="['cavil-meta-badge', riskClass(match.risk)]"
@@ -59,7 +55,7 @@
                     match.exact ? 'cavil-meta-badge-success' : 'cavil-meta-badge-warning'
                   ]"
                 >
-                  {{ match.exact ? 'Exact match' : 'Modified match' }}
+                  {{ match.exact ? 'Fully aligned' : 'Partially aligned' }}
                 </span>
               </div>
               <div class="code-search-result-measurements">

@@ -59,7 +59,7 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       t.equal(await page.locator('.code-search-result-path').getAttribute('target'), '_blank', 'source opens in a new tab');
       t.match(await page.innerText('.code-search-coverage'), /File coverage\s+\d+%/, 'labels file coverage explicitly');
 
-      // Match evidence: a verbatim block is exact, so every marker in the compact map is aligned.
+      // Match evidence: a verbatim block aligns fully, so every marker in the compact map is aligned.
       const first = page.locator('.code-search-result').first();
       t.equal(
         await first.locator('.code-search-result-measurements > .code-search-match-evidence').count(),
@@ -75,7 +75,11 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       );
       const evidence = first.locator('.code-search-match-evidence');
       await evidence.locator('.code-search-match-map').waitFor();
-      t.equal(await first.locator('.code-search-match-kind').innerText(), 'Exact match', 'labels exact evidence clearly');
+      t.equal(
+        await first.locator('.code-search-match-kind').innerText(),
+        'Fully aligned',
+        'labels full alignment clearly'
+      );
       t.match(await evidence.locator('.code-search-match-count').innerText(), /\d+ of \d+ fingerprints aligned/, 'shows the fingerprint alignment count');
       t.equal(await evidence.locator('.code-search-match-cell').count(), 10, 'the match meter stays at ten blocks');
       t.same(
@@ -116,9 +120,9 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       t.ok(footerTop - resultBottom >= 48, 'the result panel leaves breathing room above the page footer');
     });
 
-    await t.test('A modified snippet is flagged modified', async t => {
+    await t.test('A partly-aligned snippet is flagged partial', async t => {
       // The same block, prefixed with lines absent from the source: the copied part aligns, the added lines
-      // do not, so the match is modified with dark cells.
+      // do not, so the match is only partially aligned with dark cells.
       const noise = [...Array(12).keys()].map(i => `zzqx_${i} wibble_${i} frobnicate_${i} grumble_${i}`).join('\n');
       await page.goto(`${url}/code-search`);
       await page.locator('.code-search .cm-content').click();
@@ -126,7 +130,7 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       await page.click('button[type=submit]');
       await page.waitForSelector('.code-search-result');
       const first = page.locator('.code-search-result').first();
-      t.equal(await first.locator('.code-search-match-kind').innerText(), 'Modified match', 'flagged modified');
+      t.equal(await first.locator('.code-search-match-kind').innerText(), 'Partially aligned', 'flagged partial');
       t.ok((await first.locator('.code-search-match-cell:not(.is-on)').count()) > 0, 'the match map shows differences');
     });
 

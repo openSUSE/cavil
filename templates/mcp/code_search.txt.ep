@@ -7,7 +7,7 @@ Snippet too short or too repetitive to locate reliably; try a longer or more dis
 No matching open source code found.
 % }
 % for my $m (@$matches) {
-match <%= $m->{hash} %> · <%= $m->{aligned} %>/<%= $m->{total} %> fingerprints aligned (<%= $m->{exact} ? 'exact' : 'modified' %>) · <%= int($m->{containment_of} * 100 + 0.5) %>% of file<%= defined $m->{risk} ? " · risk $m->{risk}" : '' %>
+match <%= $m->{hash} %> · <%= $m->{aligned} %>/<%= $m->{total} %> fingerprints aligned (<%= $m->{exact} ? 'fully aligned' : 'partially aligned' %>) · <%= int($m->{containment_of} * 100 + 0.5) %>% of file<%= defined $m->{risk} ? " · risk $m->{risk}" : '' %>
 %   for my $f (@{$m->{files}}) {
   <%= $f->{name} %>: <%= $f->{filename} %> (package_id <%= $f->{package} %>)
 %   }

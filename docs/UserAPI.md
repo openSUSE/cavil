@@ -709,7 +709,9 @@ scale (`null` when no license was detected), an excerpt of the matched lines, an
 that carry the content. It also reports alignment: `aligned`/`total` is how many of the snippet's
 fingerprints line up as one contiguous copy (versus scattered coincidental hits), `exact` is true when all
 of them do, and `marks` is a per-fingerprint array in snippet order (`1` aligned, `0` differs) for a match
-grid. A modified copy has `exact: false` with the changed fingerprints marked `0`.
+grid. `exact` means every fingerprint aligned, not that the copy is byte-identical: fingerprinting samples
+the code, so a small edit that does not change a sampled fingerprint (such as renaming a single identifier)
+can still align fully.
 
 ```
 HTTP/1.1 200 OK
