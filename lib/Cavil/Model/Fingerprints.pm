@@ -109,8 +109,7 @@ use constant MIN_CONTAINMENT => 0.25;
 # containment, the matched line regions, the licenses/packages that carry the content, and a risk level.
 # $exclude_embargoed hides embargoed packages; only the MCP surface sets it, as its results feed an AI model.
 sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
-  my $minimum_tokens = $self->k + $self->w - 1;
-  return {matches => [], total => 0, minimum_tokens => $minimum_tokens} unless length($snippet // '');
+  return {matches => [], total => 0} unless length($snippet // '');
 
   # The matcher winnows files, not strings, so the snippet goes through a temp file for identical treatment.
   my $tmp = tempfile;
@@ -120,8 +119,8 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
     = grep { !$seen{$_}++ } map { $_->[0] } @{Cavil::Matcher::fingerprint_file($tmp->to_string, $self->k, $self->w)};
 
   # Too few distinct fingerprints to search on (see MIN_QUERY_FINGERPRINTS); say so rather than return noise.
-  return {matches => [], total => 0, minimum_tokens => $minimum_tokens, too_short => \1}
-    if @qfps < MIN_QUERY_FINGERPRINTS;
+  # No token-count guidance: the real floor is distinct fingerprints, which repetitive code reaches far later.
+  return {matches => [], total => 0, too_short => \1} if @qfps < MIN_QUERY_FINGERPRINTS;
 
   # Rank all in memory, enrich only the page: licenses and excerpts are the cost, so paging stays a few reads.
   my $all = $self->_index->search(\@qfps, 0);
@@ -136,7 +135,7 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   @$all = sort { $b->[2] <=> $a->[2] || $b->[3] <=> $a->[3] } grep { $_->[2] >= MIN_CONTAINMENT } @$all;
 
   my $total = scalar @$all;
-  return {matches => [], total => $total, minimum_tokens => $minimum_tokens} if $offset >= $total;
+  return {matches => [], total => $total} if $offset >= $total;
   my $end = $offset + $limit - 1;
   $end = $#$all if $end > $#$all;
   my @page = @$all[$offset .. $end];
@@ -159,7 +158,7 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
       excerpt        => $self->_excerpt($where->[0], $regions->[0])
     };
   }
-  return {matches => \@matches, total => $total, minimum_tokens => $minimum_tokens};
+  return {matches => \@matches, total => $total};
 }
 
 # Names shown in the provenance strip; a larger total appears as a count, which flags common boilerplate.

@@ -105,8 +105,8 @@
         <span class="code-search-empty-icon" aria-hidden="true"><i class="fa-regular fa-file-code"></i></span>
         <strong>This snippet is too short or too repetitive to locate reliably.</strong>
         <span
-          >Paste a longer or more distinctive sample (at least {{ minimumTokens }} words, identifiers, or
-          numbers).</span
+          >Paste a longer, more distinctive sample; short or highly repetitive code lacks the unique detail needed to
+          find it.</span
         >
       </div>
 
@@ -133,7 +133,6 @@ export default {
       snippet: '',
       matches: [],
       total: 0,
-      minimumTokens: 0,
       tooShort: false,
       loading: false,
       loadingMore: false,
@@ -166,7 +165,6 @@ export default {
       const data = await (await ua.post('/code-search/query', {form})).json();
       this.matches.push(...(data.matches ?? []));
       this.total = data.total ?? 0;
-      this.minimumTokens = data.minimum_tokens ?? 0;
       this.tooShort = data.too_short ?? false;
     },
     async onScroll() {

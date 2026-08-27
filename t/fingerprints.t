@@ -159,7 +159,6 @@ subtest 'web search endpoint returns ranked matches' => sub {
   $t->get_ok('/login')->status_is(302);
   $t->post_ok('/code-search/query' => form => {snippet => $content})
     ->status_is(200)
-    ->json_is('/minimum_tokens', 6)
     ->json_has('/matches/0/hash')
     ->json_has('/matches/0/containment')
     ->json_has('/matches/0/licenses');
