@@ -11,10 +11,11 @@ package Cavil::Model::Fingerprints;
 use Mojo::Base -base, -signatures;
 
 use Cavil::PatternEngine;
-use Cavil::Util qw(checkout_path);
-use Mojo::File  qw(path tempfile);
-use Mojo::JSON  qw(false true);
-use Time::HiRes ();
+use Cavil::ReportUtil qw(is_vendored_path);
+use Cavil::Util       qw(checkout_path);
+use Mojo::File        qw(path tempfile);
+use Mojo::JSON        qw(false true);
+use Time::HiRes       ();
 
 has [qw(pg log checkout_dir index_dir)];
 has k => 4;
@@ -187,6 +188,7 @@ sub search_fingerprints (
   my @hashes = map { $_->[0] } @page;
   my $lic    = $self->_licenses_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
   my $locs   = $self->_locations_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
+  my $decl   = $self->_declared_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
 
   my @matches;
   for my $h (@page) {
@@ -204,7 +206,11 @@ sub search_fingerprints (
       marks          => $marks,                                      # per query fingerprint, in order: 1 aligned, 0 not
       aligned        => $aligned,
       total          => scalar @$qfps,
-      exact          => ($aligned == @$qfps ? true : false)          # Mojo::JSON booleans: correct in Perl and JSON
+      exact          => ($aligned == @$qfps ? true : false),         # Mojo::JSON booleans: correct in Perl and JSON
+
+      # The carrier's declared main license when this content is its own (non-vendored) source; accompanies the
+      # per-file licenses above, which still drive the risk. Absent when no non-vendored carrier declares one.
+      ($decl->{$hash} ? (declared_license => $decl->{$hash}) : ())
     };
   }
   return {matches => \@matches, total => $total};
@@ -225,13 +231,15 @@ sub known_hashes ($self, $hashes, $exclude_embargoed = 0, $exclude_packages = un
 
   my $lic  = $self->_licenses_by_hash($live, $exclude_embargoed, $exclude_packages);
   my $locs = $self->_locations_by_hash($live, $exclude_embargoed, $exclude_packages);
+  my $decl = $self->_declared_by_hash($live, $exclude_embargoed, $exclude_packages);
   my %known;
   for my $hash (@$live) {
     my $where = $locs->{$hash}[0];
     $known{$hash} = {
       licenses => $lic->{$hash}{licenses} // [],
       risk     => $lic->{$hash}{risk},
-      ($where ? (package => $where->{name}, filename => $where->{filename}) : ())
+      ($where         ? (package          => $where->{name}, filename => $where->{filename}) : ()),
+      ($decl->{$hash} ? (declared_license => $decl->{$hash})                                 : ())
     };
   }
   return \%known;
@@ -350,6 +358,33 @@ sub _locations_by_hash ($self, $hashes, $exclude_embargoed = 0, $exclude_package
     push @$list, {package => $r->{package}, name => $r->{name}, filename => $r->{filename}} if @$list < 25;
   }
   return \%locs;
+}
+
+# For each hash, the declared (specfile) main license of a carrier that ships it as its own, non-vendored code -
+# the high-value indicator the report shows at the top. Only carriers with a declared license are considered
+# (declared_license IS NOT NULL), and a vendored carrier is skipped: a package's declared license describes its
+# own source, not a dependency it bundles. The first non-vendored carrier by name wins; a hash carried only in
+# vendored trees (or by packages that declare nothing) is simply absent. Accompanies the per-file licenses, it
+# does not replace them, so the risk and gate still come from the per-file patterns.
+sub _declared_by_hash ($self, $hashes, $exclude_embargoed = 0, $exclude_packages = undef) {
+  return {} unless @$hashes;
+  my $emb  = $exclude_embargoed                      ? ' AND p.embargoed = false' : '';
+  my $exc  = $exclude_packages && @$exclude_packages ? ' AND p.name <> ALL(?)'    : '';
+  my $rows = $self->pg->db->query(
+    "SELECT ff.hash, ff.filename, r.declared_license
+       FROM fp_files ff
+       JOIN bot_packages p ON p.id = ff.package
+       JOIN bot_reports r ON r.package = p.id
+      WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false AND r.declared_license IS NOT NULL$emb$exc
+      ORDER BY p.name", $hashes, ($exc ? $exclude_packages : ())
+  )->hashes;
+
+  my %declared;
+  for my $r (@$rows) {
+    next if exists $declared{$r->{hash}} || is_vendored_path($r->{filename});
+    $declared{$r->{hash}} = $r->{declared_license};
+  }
+  return \%declared;
 }
 
 # Of the given hashes, those in a visible package: never obsolete, never embargoed when asked, and never carried

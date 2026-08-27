@@ -528,3 +528,6 @@ CREATE INDEX fp_contents_pending_idx ON fp_contents (hash) WHERE state = 'pendin
 -- 62 down
 DROP TABLE IF EXISTS fp_files;
 DROP TABLE IF EXISTS fp_contents;
+
+-- 63 up
+ALTER TABLE bot_reports ADD COLUMN declared_license text;

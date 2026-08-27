@@ -711,7 +711,10 @@ fingerprints line up as one contiguous copy (versus scattered coincidental hits)
 of them do, and `marks` is a per-fingerprint array in snippet order (`1` aligned, `0` differs) for a match
 grid. `exact` means every fingerprint aligned, not that the copy is byte-identical: fingerprinting samples
 the code, so a small edit that does not change a sampled fingerprint (such as renaming a single identifier)
-can still align fully.
+can still align fully. When the match is a carrier's own, non-vendored source, it also carries
+`declared_license`: the main license declared in that package's metadata (the specfile `License:`), a curated,
+higher-value indicator that accompanies `licenses` (it does not replace them, and `risk` still comes from the
+per-file licenses). It is omitted for content found only in vendored/bundled trees.
 
 ```
 HTTP/1.1 200 OK
@@ -730,6 +733,7 @@ Content-Type: application/json
       "marks": [1, 1, 0, 1, 1, 0, 1],
       "licenses": ["GPL-2.0-only"],
       "risk": 6,
+      "declared_license": "GPL-3.0-or-later",
       "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}],
       "excerpt": [{"number": 120, "text": "...", "matched": true}]
     }
@@ -766,7 +770,11 @@ A hash Cavil knows but has no detected license for still returns an entry, with 
 risk, so "known, no license detected" is distinct from "never seen" (which is simply absent from the result).
 Each recognized hash also names one `package` and `filename` that carry that content, so a client can report
 what a file is a copy of rather than just "a known source" (a hash Cavil knows only from license data, with no
-carrying file, omits both).
+carrying file, omits both). When the content is a carrier's own, non-vendored source, the entry also carries
+`declared_license`: the main license declared in that package's metadata (the specfile `License:`), the
+expression shown at the top of its report. It is a higher-value, curated indicator that accompanies `licenses`
+(it does not replace them, and `risk` still comes from the per-file licenses); it is omitted for content found
+only in vendored/bundled trees, where a package's declared license does not describe it.
 
 The optional `exclude_packages` array drops carriers by package name: a hash carried only by an excluded
 package is treated as not known (absent from the response), while one also carried elsewhere still returns,
@@ -796,7 +804,8 @@ Content-Type: application/json
     "licenses": ["GPL-2.0-only"],
     "risk": 6,
     "package": "coreutils",
-    "filename": "src/ls.c"
+    "filename": "src/ls.c",
+    "declared_license": "GPL-3.0-or-later"
   }
 }
 ```

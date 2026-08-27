@@ -7,8 +7,9 @@ use Test::More;
 use Mojo::File qw(path);
 use Mojo::JSON qw(from_json);
 use Cavil::ReportUtil (
-  qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
-  qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
+  qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename is_vendored_path),
+  qw(license_classification license_compatibility license_document_candidates license_obligations),
+  qw(license_obligation_ids minimal_snippet),
   qw(new_license_names new_unresolved_files overlapping_licenses peripheral_scope ranked_incompatibilities),
   qw(report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
@@ -29,6 +30,19 @@ my $TEST_MATRIX = {
   'Zlib'         => {'libpng-2.0'   => {compatibility => 'Unknown', explanation => 'zlib<-libpng unknown'}}
 };
 use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers);
+
+subtest 'is_vendored_path' => sub {
+  ok is_vendored_path($_), "$_ is vendored" for qw(
+    vendor/foo.c third_party/foo.c 3rdparty/foo.c node_modules/pkg/index.js src/vendor/foo.c
+    gomodcache/x.go a/b/vendored/c.rb
+  );
+  ok is_vendored_path('vendor.obscpio._/curl/http.c'), 'an OBS vendored cpio segment is vendored';
+
+  # The package's own code - source, tests, docs - is not vendored, so its declared license applies.
+  ok !is_vendored_path($_), "$_ is not vendored" for qw(
+    src/main.c lib/Mojo/DOM.pm README.md t/basic.t test/foo.c docs/guide.md examples/demo.c COPYING
+  );
+};
 
 subtest 'estimated_risk' => sub {
   subtest 'Risk 0' => sub {

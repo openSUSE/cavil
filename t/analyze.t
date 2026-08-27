@@ -38,6 +38,24 @@ subtest 'Analyze background job' => sub {
   is $res->{state},       'new', 'not approved';
 };
 
+subtest 'the declared spec file license is denormalized into bot_reports' => sub {
+  my $reports = $t->app->reports;
+  my $db      = $t->app->pg->db;
+
+  # Analyze stored the declared (main) license beside the spec file report, matching what the report shows.
+  for my $id (1, 2) {
+    my $col = $db->select('bot_reports', 'declared_license', {package => $id})->hash->{declared_license};
+    ok defined $col, "package $id has a denormalized declared license";
+    is $col, $reports->summary($id)->{specfile}, "package $id declared license matches the report summary";
+  }
+
+  # The helper canonicalizes and is total: undef (-> NULL column) when nothing is declared, distinct from a
+  # license literally named Unknown.
+  is $reports->declared_license({}), undef, 'no main section yields undef';
+  is $reports->declared_license({main => {license => ''}}),    undef, 'a blank license yields undef';
+  is $reports->declared_license({main => {license => 'MIT'}}), 'MIT', 'a valid license is canonicalized';
+};
+
 subtest 'Analyze clears stale notice when reusing a previous accepted review' => sub {
   my $pkgs = $t->app->packages;
   my $db   = $t->app->pg->db;

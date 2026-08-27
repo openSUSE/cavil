@@ -288,6 +288,19 @@ sub source_for {
   return {lines => $lines, name => $pkg->{name}, filename => $file->{filename}};
 }
 
+# The canonical form of the license declared in the packaging metadata (the specfile "License:"), which is the
+# main license the report shows at the top. Kept alongside specfile_report in bot_reports (written together, so
+# it can never drift from it) as a queryable column. Returns undef when there is no declared license or it does
+# not canonicalize, so a NULL column means "none" rather than a license literally named Unknown (cf. summary,
+# which shows the string 'Unknown' for the same case). Cavil::Licenses can die on a macro-laden License:, so
+# the canonicalize is guarded.
+sub declared_license ($self, $specfile) {
+  my $raw = ($specfile->{main} // {})->{license};
+  return undef unless defined $raw && length $raw;
+  my $canon = eval { lic($raw)->canonicalize->to_string };
+  return length($canon // '') ? $canon : undef;
+}
+
 sub specfile_report {
   my ($self, $id) = @_;
 
@@ -299,7 +312,11 @@ sub specfile_report {
 
     return {} unless %$specfile;
 
-    my $report = {package => $id, specfile_report => to_json_fast($specfile)};
+    my $report = {
+      package          => $id,
+      specfile_report  => to_json_fast($specfile),
+      declared_license => $self->declared_license($specfile)
+    };
     $hash = $db->insert('bot_reports', $report, {returning => '*'})->hash;
   }
 

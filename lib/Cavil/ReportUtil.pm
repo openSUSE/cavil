@@ -15,7 +15,7 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers $COPYRIGHT_LEA
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
-  qw(peripheral_scope),
+  qw(is_vendored_path peripheral_scope),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
@@ -305,6 +305,12 @@ sub _path_peripheral_kind ($path) {
 }
 
 sub _path_is_peripheral ($path) { return _path_peripheral_kind($path) ? 1 : 0 }
+
+# True when a path is bundled third-party code (vendor/, node_modules/, third_party/, an OBS vendored cpio
+# segment, ...). The package's declared license does not describe such code, so a caller can decide whether the
+# declared license applies to a file: it does for the package's own source, tests and docs, but not for what it
+# vendors in. Tests/docs are the package's own, so they are deliberately not "vendored" here.
+sub is_vendored_path ($path) { return (_path_peripheral_kind($path) // '') eq 'vendored' ? 1 : 0 }
 
 # 0 shipped source, 1 vendored dependency code, 2 tests/docs/examples/license catalogs. Vendored code sits
 # between the two because it can still be linked into the build, so it needs a look; the tier 2 kinds are

@@ -317,6 +317,38 @@ subtest 'catch_all patterns are noise, excluded from the reported licenses and r
   cmp_ok $known->{risk}, '<', 9, 'and its risk does not count towards the max either';
 };
 
+subtest 'a match on non-vendored source carries the carrier declared license' => sub {
+  my $hash = $sample->{hash};
+  ok !Cavil::ReportUtil::is_vendored_path($sample->{filename}),
+    'the sample file is the package own source, not vendored';
+
+  # Give every carrier of the content a known declared license, so whichever non-vendored carrier is picked
+  # returns it.
+  $db->query(
+    'UPDATE bot_reports SET declared_license = ? WHERE package IN
+       (SELECT DISTINCT package FROM fp_files WHERE hash = ? AND generation = 0)', 'Sentinel-1.0', $hash
+  );
+
+  is $app->fingerprints->known_hashes([$hash])->{$hash}{declared_license}, 'Sentinel-1.0',
+    'recognition carries the declared license alongside the per-file licenses';
+
+  my $tmp = tempfile;
+  $tmp->spew($content);
+  my $raw = Cavil::Matcher::fingerprint_file($tmp->to_string, $config{codesearch}{k}, $config{codesearch}{w});
+  my %seen;
+  my @qfps   = grep { !$seen{$_}++ } map { $_->[0] } @$raw;
+  my ($self) = grep { $_->{hash} eq $hash } @{$app->fingerprints->search_fingerprints(\@qfps, 1, 20)->{matches}};
+  is $self->{declared_license}, 'Sentinel-1.0', 'and a search match carries it too';
+
+  # With nothing declared, the field is simply absent (per-file licenses still stand).
+  $db->query(
+    'UPDATE bot_reports SET declared_license = NULL WHERE package IN
+       (SELECT DISTINCT package FROM fp_files WHERE hash = ? AND generation = 0)', $hash
+  );
+  ok !exists $app->fingerprints->known_hashes([$hash])->{$hash}{declared_license},
+    'no declared license means the field is omitted, not null-filled';
+};
+
 subtest 'exclude_packages suppresses a content carried only by an excluded package (self-match)' => sub {
   my $hash = $sample->{hash};
   ok @sample_carriers, 'the sample content has at least one carrier';

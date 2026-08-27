@@ -79,8 +79,10 @@ sub _analyze ($job, $id, $generation = 0) {
   # reason to re-review.
   my $annotations = $reports->build_annotations($id, $dig);
 
-  # Free up memory
-  my $specfile_json = $generation && %$specfile ? to_json_fast($specfile) : undef;
+  # Free up memory, but first derive the declared (main) license so it can be stored alongside the spec file
+  # report below, in lockstep with it.
+  my $specfile_json    = $generation && %$specfile ? to_json_fast($specfile) : undef;
+  my $declared_license = $reports->declared_license($specfile);
   undef $specfile;
 
   my $new_candidates = [];
@@ -125,7 +127,13 @@ sub _analyze ($job, $id, $generation = 0) {
 
     # A first import has no cached report row yet.
     my %cached = (ldig_report => to_json_fast($dig), annotations => to_json_fast($annotations));
-    $cached{specfile_report} = $specfile_json if defined $specfile_json;
+
+    # declared_license rides exactly the same condition as specfile_report, so the two never disagree: rewritten
+    # on a rebuild (fresh sources), left untouched on a plain re-analyze (cached spec file report kept).
+    if (defined $specfile_json) {
+      $cached{specfile_report}  = $specfile_json;
+      $cached{declared_license} = $declared_license;
+    }
     if ($db->select('bot_reports', 'id', {package => $id})->hash) {
       $db->update('bot_reports', \%cached, {package => $id});
     }
