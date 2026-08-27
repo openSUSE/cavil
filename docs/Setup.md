@@ -216,8 +216,10 @@ punctuation do not count), and a snippet only starts matching once it has about 
 `w = 16` matches pastes of three or four lines; raise it (for example to `64`) to shrink the index roughly
 fourfold on a very large corpus, at the price of only matching larger pastes.
 
-The index fills in as packages are indexed. To build it on demand, or after changing `k`/`w` (which needs a
-full rebuild), restart the workers and queue a build (a Minion worker does the work):
+Indexing only records which content needs fingerprinting; the fingerprints themselves are built by the daily
+cleanup job (see [Maintenance](Maintenance.md)), so the index trails the corpus by up to a day. Building once
+a day rather than after every package keeps the on-disk segments dense. To build on demand, or after changing
+`k`/`w` (which needs a full rebuild), queue a build yourself (a Minion worker does the work):
 
 ```sh
 CAVIL_CONF=/path/to/cavil.conf script/cavil fingerprint            # build what is missing

@@ -59,6 +59,13 @@ elsif ($fixtures eq 'compatibility')   { $cavil_test->compatibility_fixtures($ap
 elsif ($fixtures eq 'legal_documents') { $cavil_test->legal_documents_fixtures($app) }
 elsif ($fixtures eq 'obligations')     { $cavil_test->obligations_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }
+
+# Building is a scheduled job in production (Task::Cleanup), so the fixtures leave content pending; build it
+# here so the code search page has an index to query.
+if ($fixtures eq 'codesearch') {
+  $app->minion->enqueue('fingerprint_build');
+  $app->minion->perform_jobs;
+}
 my %report_state_original;
 
 sub _save_report_state ($c, $id) {

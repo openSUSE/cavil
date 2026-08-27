@@ -60,9 +60,12 @@ subtest 'indexing records content hashes that ride the atomic promote' => sub {
   ok $db->query("SELECT count(*) FROM fp_contents")->array->[0] > 0, 'contents queued';
 };
 
-subtest 'the pipeline fingerprints new contents automatically' => sub {
+subtest 'a fingerprint build indexes the pending contents' => sub {
 
-  # _analyzed enqueues fingerprint_build, which perform_jobs above already ran, so nothing is left pending.
+  # Indexing only records content; a scheduled build (Task::Cleanup) fingerprints it, so it is pending here.
+  ok $db->query("SELECT count(*) FROM fp_contents WHERE state = 'pending'")->array->[0] > 0, 'contents await a build';
+  $app->minion->enqueue('fingerprint_build');
+  $app->minion->perform_jobs;
   is $db->query("SELECT count(*) FROM fp_contents WHERE state = 'pending'")->array->[0], 0, 'all contents built';
   ok $db->query("SELECT count(*) FROM fp_contents WHERE state = 'indexed'")->array->[0] > 0, 'contents marked indexed';
   is $app->fingerprints->build_pending, 0, 'an explicit build is then a no-op';

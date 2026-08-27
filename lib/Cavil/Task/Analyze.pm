@@ -227,10 +227,8 @@ sub _analyzed ($job, $id) {
 
   _auto_review($app, $id);
 
-  # Snippet code search: queue a fingerprint build for the contents this package just promoted. The lock
-  # rate-limits enqueues so a burst of analyzed packages cannot flood the queue; the build is single-flight
-  # and a no-op when code search is off.
-  $app->minion->enqueue('fingerprint_build') if $app->codesearch && $app->minion->lock('fp_build_enqueue', 300);
+  # Code search fingerprints are not built here: a scheduled build (see Task::Cleanup) drains all pending
+  # content at once, which keeps segments dense instead of one tiny segment per analyzed package.
 
   # End of the chain unless a document build follows, so the package is handed back here rather than left to
   # the guard, which would only release it and leave a reindex requested in the meantime waiting for the

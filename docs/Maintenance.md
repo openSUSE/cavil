@@ -92,6 +92,9 @@ command:
 The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
 recommended way to run reindexing and cleanup.
 
+When code search is enabled, the daily cleanup also builds the new fingerprints and prunes stale ones, so nothing extra
+needs scheduling for it. Building once a day (rather than after every package) keeps the on-disk segments dense.
+
 ### Collecting abandoned builds
 
 A rebuild can die halfway: a worker is killed, a job fails and is removed from the queue, an admin deletes a job that
