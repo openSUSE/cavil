@@ -303,6 +303,11 @@ sub _excerpt ($self, $where, $region) {
 # The licenses (and their max risk) found in the matched content, from the per-file license data of the
 # packages that carry it. Best-effort: source with no license match of its own reports none - a follow-up
 # could fall back to the directory's declared license, the way the compatibility feature does.
+#
+# catch_all patterns are excluded: they match generic boilerplate (a specfile's shape, a copyright phrase, a
+# "reference" to a license elsewhere) rather than establishing a license, exactly as the rest of Cavil treats
+# them as non-concrete. Including them buried the real license in "Any openSUSE specfile, Any SUSE copyright,
+# ..." noise and skewed the risk.
 sub _licenses_by_hash ($self, $hashes, $exclude_embargoed = 0) {
   my $emb = $exclude_embargoed ? ' AND p.embargoed = false' : '';
   my %info;
@@ -312,7 +317,7 @@ sub _licenses_by_hash ($self, $hashes, $exclude_embargoed = 0) {
        JOIN bot_packages p ON p.id = ff.package AND p.obsolete = false$emb
        JOIN matched_files mf ON mf.package = ff.package AND mf.filename = ff.filename AND mf.generation = 0
        JOIN pattern_matches pm ON pm.file = mf.id AND pm.ignored = false
-       JOIN license_patterns lp ON lp.id = pm.pattern AND lp.license <> ''
+       JOIN license_patterns lp ON lp.id = pm.pattern AND lp.license <> '' AND lp.catch_all = false
       WHERE ff.hash = ANY(?) AND ff.generation = 0
       GROUP BY ff.hash", $hashes
   )->hashes;

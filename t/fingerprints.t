@@ -269,6 +269,41 @@ subtest 'the CLI API endpoints (config, known-hash, batch fingerprint search)' =
   $t->post_ok('/api/v1/code/search-batch' => json => {queries => ['not-an-object']})->status_is(400);
 };
 
+subtest 'catch_all patterns are noise, excluded from the reported licenses and risk' => sub {
+
+  # Wire both a concrete and a catch_all license pattern onto the sample's file, then confirm only the concrete
+  # one surfaces. catch_all patterns match generic boilerplate (a specfile's shape, a copyright phrase) and must
+  # never masquerade as the file's license, or the real one drowns in "Any openSUSE specfile, Any ..." noise.
+  my $mf = $db->insert(
+    'matched_files',
+    {package   => $sample->{package}, filename => $sample->{filename}, mimetype => 'text/plain'},
+    {returning => 'id'}
+  )->hash->{id};
+  my $concrete = $db->insert(
+    'license_patterns',
+    {pattern   => 'concrete pattern text', token_hexsum => '1' x 32, license => 'Test-Concrete-1.0', risk => 3},
+    {returning => 'id'}
+  )->hash->{id};
+  my $catchall = $db->insert(
+    'license_patterns',
+    {
+      pattern      => 'catch_all pattern text',
+      token_hexsum => '2' x 32,
+      license      => 'Any test boilerplate',
+      risk         => 9,
+      catch_all    => 1
+    },
+    {returning => 'id'}
+  )->hash->{id};
+  $db->insert('pattern_matches', {file => $mf, pattern => $_, sline => 1, eline => 1, package => $sample->{package}})
+    for $concrete, $catchall;
+
+  my $known = $app->fingerprints->known_hashes([$sample->{hash}])->{$sample->{hash}};
+  ok +(grep { $_ eq 'Test-Concrete-1.0' } @{$known->{licenses}}),    'the concrete license is reported';
+  ok !(grep { $_ eq 'Any test boilerplate' } @{$known->{licenses}}), 'the catch_all pattern is excluded';
+  cmp_ok $known->{risk}, '<', 9, 'and its risk does not count towards the max either';
+};
+
 subtest 'the CLI API endpoints are gated on code search being enabled' => sub {
   my $toff = Test::Mojo->new(Cavil => {%config, codesearch => {enabled => 0}});
   $toff->get_ok('/login')->status_is(302);
