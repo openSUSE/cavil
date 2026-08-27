@@ -59,7 +59,8 @@ sub search ($self) {
 # The winnowing parameters the client must use so its fingerprints match this instance's index.
 sub config ($self) {
   return $self->render(json => {error => 'Code search is not enabled'}, status => 404) unless $self->codesearch;
-  $self->render(json => {k => $self->fingerprints->k, w => $self->fingerprints->w});
+  my $fp = $self->fingerprints;
+  $self->render(json => {k => $fp->k, w => $fp->w, generation => $fp->generation});
 }
 
 # Batch content-hash lookup: {hashes => [...]} -> {<hash> => {licenses => [...], risk => N}}. Unknown hashes

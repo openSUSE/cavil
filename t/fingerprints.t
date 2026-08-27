@@ -223,7 +223,8 @@ subtest 'the CLI API endpoints (config, known-hash, batch fingerprint search)' =
   $t->get_ok('/api/v1/code/config')
     ->status_is(200)
     ->json_is('/k' => $config{codesearch}{k})
-    ->json_is('/w' => $config{codesearch}{w});
+    ->json_is('/w' => $config{codesearch}{w})
+    ->json_has('/generation');
 
   # known-hash recognition: an indexed hash comes back with licenses/risk, an unindexed one is absent.
   my $bogus = 'a' x 32;

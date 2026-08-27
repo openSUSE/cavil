@@ -89,7 +89,6 @@ sub build_pending ($self, $limit = 20000) {
 # Drop content bookkeeping for hashes no file references any more (their packages went obsolete or were
 # reindexed away). fp_files is pruned by the promote and obsolete cleanup, so without this fp_contents would
 # only ever grow. Called from the daily cleanup; segment space is reclaimed separately by a full rebuild.
-# ponytail: one anti-join over fp_files, fine for a daily maintenance pass.
 sub prune_contents ($self) {
   return $self->pg->db->query(
     'DELETE FROM fp_contents WHERE NOT EXISTS (SELECT 1 FROM fp_files WHERE fp_files.hash = fp_contents.hash)')->rows;
@@ -187,6 +186,10 @@ sub search_fingerprints ($self, $qfps, $qspan, $limit = 10, $offset = 0, $exclud
 # Batch content-hash lookup for the CLI: for each hash Cavil has seen, its licenses and max risk. A hash the
 # instance knows but has no license match for still returns an entry (empty licenses, undef risk), so the
 # caller can tell "known, no license detected" from "never seen" (which is absent from the result).
+# The on-disk index generation, bumped on every rebuild. A client caches search results against it and drops
+# them when it changes, so a reindex never leaves stale matches behind.
+sub generation ($self) { $self->_index->generation }
+
 sub known_hashes ($self, $hashes, $exclude_embargoed = 0) {
   return {} unless @$hashes;
   my $live = $self->_live_hashes($hashes, $exclude_embargoed);
@@ -224,8 +227,6 @@ use constant PROVENANCE_LIST => 6;
 # Other current packages carrying this file's exact bytes. Content-derived only: never says whether the code
 # was accepted there, because acceptability is a per-package compatibility decision that does not transfer.
 # Obsolete carriers are dropped; embargoed are not, since this feeds the report browser (which shows them).
-# ponytail: excludes the current package by id, so another current version of it can still list; rare once
-# obsolete versions are filtered. Tighten to name if that gets noisy.
 sub file_provenance ($self, $package_id, $filename) {
   my $db   = $self->pg->db;
   my $hash = $db->query('SELECT hash FROM fp_files WHERE package = ? AND filename = ? AND generation = 0 LIMIT 1',
@@ -306,7 +307,6 @@ sub _locations_by_hash ($self, $hashes, $exclude_embargoed = 0) {
 }
 
 # Of the given hashes, those in a visible package: never obsolete, and never embargoed when asked.
-# ponytail: one indexed query over the whole candidate set; chunk it if a common snippet makes it too large.
 sub _live_hashes ($self, $hashes, $exclude_embargoed = 0) {
   return [] unless @$hashes;
   my $emb  = $exclude_embargoed ? ' AND p.embargoed = false' : '';
