@@ -66,6 +66,14 @@ for
 }
 ok $sample, 'found a fingerprintable file to query with' or BAIL_OUT('no fingerprintable fixture file');
 
+# Every package name that carries the sample content, for the self-exclusion tests below.
+my @sample_carriers = map { $_->{name} } @{
+  $db->query(
+    'SELECT DISTINCT p.name FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
+      WHERE ff.hash = ? AND ff.generation = 0 AND p.obsolete = false', $sample->{hash}
+  )->hashes
+};
+
 subtest 'search finds an exact copy at full containment' => sub {
   my $matches = $app->fingerprints->search($content, 20)->{matches};
   ok @$matches, 'got matches';
@@ -236,6 +244,11 @@ subtest 'the CLI API endpoints (config, known-hash, batch fingerprint search)' =
     ->json_has("/$sample->{hash}/filename")
     ->json_hasnt("/$bogus");
 
+  # exclude_packages flows through the endpoint: excluding every carrier makes the sample unknown.
+  $t->post_ok('/api/v1/code/known' => json => {hashes => [$sample->{hash}], exclude_packages => \@sample_carriers})
+    ->status_is(200)
+    ->json_hasnt("/$sample->{hash}");
+
   # batch fingerprint search: winnow the sample content the way the server would, send the deduped
   # fingerprints as decimal strings with the query's line span, and find the sample among the matches.
   my $tmp = tempfile;
@@ -302,6 +315,26 @@ subtest 'catch_all patterns are noise, excluded from the reported licenses and r
   ok +(grep { $_ eq 'Test-Concrete-1.0' } @{$known->{licenses}}),    'the concrete license is reported';
   ok !(grep { $_ eq 'Any test boilerplate' } @{$known->{licenses}}), 'the catch_all pattern is excluded';
   cmp_ok $known->{risk}, '<', 9, 'and its risk does not count towards the max either';
+};
+
+subtest 'exclude_packages suppresses a content carried only by an excluded package (self-match)' => sub {
+  my $hash = $sample->{hash};
+  ok @sample_carriers, 'the sample content has at least one carrier';
+
+  ok $app->fingerprints->known_hashes([$hash])->{$hash}, 'recognized with no exclusion';
+  ok $app->fingerprints->known_hashes([$hash], 0, ['definitely-not-a-package'])->{$hash},
+    'excluding an unrelated package changes nothing';
+  ok !$app->fingerprints->known_hashes([$hash], 0, \@sample_carriers)->{$hash},
+    'excluding every carrier makes the content unknown, so a working copy stops matching itself';
+
+  # And the same filter reaches the batch search: excluding every carrier drops the sample from the matches.
+  my $tmp = tempfile;
+  $tmp->spew($content);
+  my $raw = Cavil::Matcher::fingerprint_file($tmp->to_string, $config{codesearch}{k}, $config{codesearch}{w});
+  my %seen;
+  my @qfps    = grep { !$seen{$_}++ } map { $_->[0] } @$raw;
+  my $matches = $app->fingerprints->search_fingerprints(\@qfps, 1, 20, 0, 0, \@sample_carriers)->{matches};
+  ok !(grep { $_->{hash} eq $hash } @$matches), 'search excludes the self-match too';
 };
 
 subtest 'the CLI API endpoints are gated on code search being enabled' => sub {

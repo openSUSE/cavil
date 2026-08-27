@@ -768,6 +768,12 @@ Each recognized hash also names one `package` and `filename` that carry that con
 what a file is a copy of rather than just "a known source" (a hash Cavil knows only from license data, with no
 carrying file, omits both).
 
+The optional `exclude_packages` array drops carriers by package name: a hash carried only by an excluded
+package is treated as not known (absent from the response), while one also carried elsewhere still returns,
+attributed to a non-excluded carrier. This lets an engineer scanning a checkout of their own open source
+project stop it from matching its own indexed package, without hiding a file that is genuinely shared with
+another. At most 100 names.
+
 **Request:**
 
 ```
@@ -776,7 +782,7 @@ Host: legaldb.suse.de
 Authorization: Bearer generated_api_key_here
 Content-Type: application/json
 
-{"hashes": ["8c2fa3f24a09137f9bb3860fa21c677e", "..."]}
+{"hashes": ["8c2fa3f24a09137f9bb3860fa21c677e", "..."], "exclude_packages": ["my-project"]}
 ```
 
 **Response:** an object keyed by the hashes that were recognized.
@@ -808,7 +814,8 @@ most 100 queries per request.
 
 Each query carries an opaque `id` that is echoed back, so results can be matched to queries. Each result has
 the same shape as a single code search, including the `too_short`, `aligned`/`total`, `exact` and `marks`
-fields described above.
+fields described above. The optional `exclude_packages` array works exactly as for the recognition endpoint: a
+match carried only by an excluded package drops out, so a working copy does not match its own indexed package.
 
 **Request:**
 
@@ -822,7 +829,8 @@ Content-Type: application/json
   "queries": [
     {"id": "src/foo.c:40-88", "fingerprints": ["10293847561029", "..."], "span": 49}
   ],
-  "limit": 10
+  "limit": 10,
+  "exclude_packages": ["my-project"]
 }
 ```
 

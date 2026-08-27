@@ -137,7 +137,14 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
 # API; search() is just the winnowing front-end that turns a snippet into these. Fingerprints may arrive as
 # numbers (snippet path) or decimal strings (batch API, where JSON cannot carry a 64-bit value losslessly);
 # both coerce identically for the index lookup and for the alignment hash keys.
-sub search_fingerprints ($self, $qfps, $qspan, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
+sub search_fingerprints (
+  $self, $qfps, $qspan,
+  $limit             = 10,
+  $offset            = 0,
+  $exclude_embargoed = 0,
+  $exclude_packages  = undef
+  )
+{
 
   # Too few distinct fingerprints to search on (see MIN_QUERY_FINGERPRINTS); say so rather than return noise.
   # No token-count guidance: the real floor is distinct fingerprints, which repetitive code reaches far later.
@@ -151,7 +158,7 @@ sub search_fingerprints ($self, $qfps, $qspan, $limit = 10, $offset = 0, $exclud
 
   # Drop obsolete (and embargoed when asked) carriers before paging: segments are append-only, so a content
   # can outlive its files, and filtering here keeps offset and total consistent.
-  my %live = map { $_ => 1 } @{$self->_live_hashes([map { $_->[0] } @$all], $exclude_embargoed)};
+  my %live = map { $_ => 1 } @{$self->_live_hashes([map { $_->[0] } @$all], $exclude_embargoed, $exclude_packages)};
   @$all = grep { $live{$_->[0]} } @$all;
   my $t_db = Time::HiRes::time;
 
@@ -178,8 +185,8 @@ sub search_fingerprints ($self, $qfps, $qspan, $limit = 10, $offset = 0, $exclud
   my @page = @$all[$offset .. $end];
 
   my @hashes = map { $_->[0] } @page;
-  my $lic    = $self->_licenses_by_hash(\@hashes, $exclude_embargoed);
-  my $locs   = $self->_locations_by_hash(\@hashes, $exclude_embargoed);
+  my $lic    = $self->_licenses_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
+  my $locs   = $self->_locations_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
 
   my @matches;
   for my $h (@page) {
@@ -211,13 +218,13 @@ sub generation ($self) { $self->_index->generation }
 # and path that carry it (so the client can say what a recognized file is a copy of, not just "a known
 # source"). A hash the instance knows but has no license match for still returns an entry (empty licenses,
 # undef risk), so the caller can tell "known, no license detected" from "never seen" (absent from the result).
-sub known_hashes ($self, $hashes, $exclude_embargoed = 0) {
+sub known_hashes ($self, $hashes, $exclude_embargoed = 0, $exclude_packages = undef) {
   return {} unless @$hashes;
-  my $live = $self->_live_hashes($hashes, $exclude_embargoed);
+  my $live = $self->_live_hashes($hashes, $exclude_embargoed, $exclude_packages);
   return {} unless @$live;
 
-  my $lic  = $self->_licenses_by_hash($live, $exclude_embargoed);
-  my $locs = $self->_locations_by_hash($live, $exclude_embargoed);
+  my $lic  = $self->_licenses_by_hash($live, $exclude_embargoed, $exclude_packages);
+  my $locs = $self->_locations_by_hash($live, $exclude_embargoed, $exclude_packages);
   my %known;
   for my $hash (@$live) {
     my $where = $locs->{$hash}[0];
@@ -308,8 +315,9 @@ sub _excerpt ($self, $where, $region) {
 # "reference" to a license elsewhere) rather than establishing a license, exactly as the rest of Cavil treats
 # them as non-concrete. Including them buried the real license in "Any openSUSE specfile, Any SUSE copyright,
 # ..." noise and skewed the risk.
-sub _licenses_by_hash ($self, $hashes, $exclude_embargoed = 0) {
-  my $emb = $exclude_embargoed ? ' AND p.embargoed = false' : '';
+sub _licenses_by_hash ($self, $hashes, $exclude_embargoed = 0, $exclude_packages = undef) {
+  my $emb = $exclude_embargoed                      ? ' AND p.embargoed = false' : '';
+  my $exc = $exclude_packages && @$exclude_packages ? ' AND p.name <> ALL(?)'    : '';
   my %info;
   my $rows = $self->pg->db->query(
     "SELECT ff.hash, array_agg(DISTINCT lp.license) AS licenses, max(lp.risk) AS risk
@@ -318,8 +326,8 @@ sub _licenses_by_hash ($self, $hashes, $exclude_embargoed = 0) {
        JOIN matched_files mf ON mf.package = ff.package AND mf.filename = ff.filename AND mf.generation = 0
        JOIN pattern_matches pm ON pm.file = mf.id AND pm.ignored = false
        JOIN license_patterns lp ON lp.id = pm.pattern AND lp.license <> '' AND lp.catch_all = false
-      WHERE ff.hash = ANY(?) AND ff.generation = 0
-      GROUP BY ff.hash", $hashes
+      WHERE ff.hash = ANY(?) AND ff.generation = 0$exc
+      GROUP BY ff.hash", $hashes, ($exc ? $exclude_packages : ())
   )->hashes;
   $info{$_->{hash}} = {risk => $_->{risk}, licenses => $_->{licenses}} for @$rows;
   return \%info;
@@ -327,14 +335,15 @@ sub _licenses_by_hash ($self, $hashes, $exclude_embargoed = 0) {
 
 # Which packages/paths carry each matched content (capped per content; the full expansion is available on
 # demand). This is the "found in" list, and dedup means one content lists every version that ships it.
-sub _locations_by_hash ($self, $hashes, $exclude_embargoed = 0) {
-  my $emb = $exclude_embargoed ? ' AND p.embargoed = false' : '';
+sub _locations_by_hash ($self, $hashes, $exclude_embargoed = 0, $exclude_packages = undef) {
+  my $emb = $exclude_embargoed                      ? ' AND p.embargoed = false' : '';
+  my $exc = $exclude_packages && @$exclude_packages ? ' AND p.name <> ALL(?)'    : '';
   my %locs;
   my $rows = $self->pg->db->query(
     "SELECT ff.hash, p.name, p.id AS package, ff.filename
        FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
-      WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false$emb
-      ORDER BY p.name", $hashes
+      WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false$emb$exc
+      ORDER BY p.name", $hashes, ($exc ? $exclude_packages : ())
   )->hashes;
   for my $r (@$rows) {
     my $list = $locs{$r->{hash}} //= [];
@@ -343,14 +352,18 @@ sub _locations_by_hash ($self, $hashes, $exclude_embargoed = 0) {
   return \%locs;
 }
 
-# Of the given hashes, those in a visible package: never obsolete, and never embargoed when asked.
-sub _live_hashes ($self, $hashes, $exclude_embargoed = 0) {
+# Of the given hashes, those in a visible package: never obsolete, never embargoed when asked, and never carried
+# only by an excluded package. A hash left with no carrier is simply not live: an engineer scanning their own
+# package excludes it and their code stops matching itself, while a file also shipped elsewhere still surfaces.
+sub _live_hashes ($self, $hashes, $exclude_embargoed = 0, $exclude_packages = undef) {
   return [] unless @$hashes;
-  my $emb  = $exclude_embargoed ? ' AND p.embargoed = false' : '';
+  my $emb  = $exclude_embargoed                      ? ' AND p.embargoed = false' : '';
+  my $exc  = $exclude_packages && @$exclude_packages ? ' AND p.name <> ALL(?)'    : '';
   my $rows = $self->pg->db->query(
     "SELECT DISTINCT ff.hash
        FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
-      WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false$emb", $hashes
+      WHERE ff.hash = ANY(?) AND ff.generation = 0 AND p.obsolete = false$emb$exc", $hashes,
+    ($exc ? $exclude_packages : ())
   )->hashes;
   return [map { $_->{hash} } @$rows];
 }

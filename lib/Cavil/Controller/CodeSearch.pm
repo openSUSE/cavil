@@ -12,14 +12,18 @@ my %SCHEMA = (
   known => {
     type       => 'object',
     required   => ['hashes'],
-    properties => {hashes => {type => 'array', maxItems => 1000, items => {type => 'string'}}}
+    properties => {
+      hashes           => {type => 'array', maxItems => 1000, items => {type => 'string'}},
+      exclude_packages => {type => 'array', maxItems => 100,  items => {type => 'string'}}
+    }
   },
   search_batch => {
     type       => 'object',
     required   => ['queries'],
     properties => {
-      limit   => {type => 'integer'},
-      queries => {
+      limit            => {type => 'integer'},
+      exclude_packages => {type => 'array', maxItems => 100, items => {type => 'string'}},
+      queries          => {
         type     => 'array',
         maxItems => 100,
         items    => {
@@ -64,12 +68,13 @@ sub config ($self) {
 }
 
 # Batch content-hash lookup: {hashes => [...]} -> {<hash> => {licenses => [...], risk => N}}. Unknown hashes
-# are omitted. This is the CLI's cheap recognition path, answered straight from an index.
+# are omitted. This is the CLI's cheap recognition path, answered straight from an index. exclude_packages drops
+# carriers by name, so an engineer scanning their own package does not see it match itself.
 sub known ($self) {
   return $self->render(json => {error => 'Code search is not enabled'}, status => 404) unless $self->codesearch;
   my $data = $self->_body($SCHEMA{known}) or return;
 
-  $self->render(json => $self->fingerprints->known_hashes($data->{hashes}));
+  $self->render(json => $self->fingerprints->known_hashes($data->{hashes}, 0, $data->{exclude_packages}));
 }
 
 # Batch fingerprint search: {queries => [{id, fingerprints => [...], span => N}, ...]} -> {results => [...]}.
@@ -84,9 +89,10 @@ sub search_batch ($self) {
   $limit = 1   if $limit < 1;
 
   my $fingerprints = $self->fingerprints;
+  my $exclude      = $data->{exclude_packages};
   my @results;
   for my $q (@{$data->{queries}}) {
-    my $result = $fingerprints->search_fingerprints($q->{fingerprints}, $q->{span} // 1, $limit, 0);
+    my $result = $fingerprints->search_fingerprints($q->{fingerprints}, $q->{span} // 1, $limit, 0, 0, $exclude);
     $result->{id} = $q->{id};
     push @results, $result;
   }
