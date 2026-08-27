@@ -57,7 +57,36 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
       t.match(await page.innerText('.code-search-result'), /perl-Mojolicious/, 'resolves to the source package');
       t.match(await page.innerText('.code-search-result'), /Test\/Mojo\.pm/, 'names the file');
       t.equal(await page.locator('.code-search-result-path').getAttribute('target'), '_blank', 'source opens in a new tab');
-      t.match(await page.innerText('.code-search-result'), /of snippet/, 'shows containment');
+      t.match(await page.innerText('.code-search-coverage'), /File coverage\s+\d+%/, 'labels file coverage explicitly');
+
+      // Match evidence: a verbatim block is exact, so every marker in the compact map is aligned.
+      const first = page.locator('.code-search-result').first();
+      t.equal(
+        await first.locator('.code-search-result-measurements > .code-search-match-evidence').count(),
+        1,
+        'keeps fingerprint evidence in the measurement row'
+      );
+      t.same(
+        await first.locator('.code-search-result-header').evaluate(element =>
+          [...element.children].map(child => child.className)
+        ),
+        ['code-search-result-identity', 'code-search-result-tags', 'code-search-result-measurements'],
+        'orders identity, categorical badges, then measurements'
+      );
+      const evidence = first.locator('.code-search-match-evidence');
+      await evidence.locator('.code-search-match-map').waitFor();
+      t.equal(await first.locator('.code-search-match-kind').innerText(), 'Exact match', 'labels exact evidence clearly');
+      t.match(await evidence.locator('.code-search-match-count').innerText(), /\d+ of \d+ fingerprints aligned/, 'shows the fingerprint alignment count');
+      t.equal(await evidence.locator('.code-search-match-cell').count(), 10, 'the match meter stays at ten blocks');
+      t.same(
+        await evidence.locator('.code-search-match-cell').first().evaluate(element => {
+          const box = element.getBoundingClientRect();
+          return {width: box.width, height: box.height, gap: getComputedStyle(element.parentElement).gap};
+        }),
+        {width: 8, height: 8, gap: '2px'},
+        'uses the report coverage-square geometry'
+      );
+      t.equal(await evidence.locator('.code-search-match-cell:not(.is-on)').count(), 0, 'a verbatim block aligns every marker');
 
       // The matched region is highlighted inline, so the reviewer sees the code without a round trip.
       await page.waitForSelector('.code-search-result .source tr.cavil-cs-match');
@@ -85,6 +114,59 @@ t.test('Cavil UI - code search', skipUnlessOnline, async t => {
         .evaluate(element => element.getBoundingClientRect().bottom);
       const footerTop = await page.locator('.cavil-footer').evaluate(element => element.getBoundingClientRect().top);
       t.ok(footerTop - resultBottom >= 48, 'the result panel leaves breathing room above the page footer');
+    });
+
+    await t.test('A modified snippet is flagged modified', async t => {
+      // The same block, prefixed with lines absent from the source: the copied part aligns, the added lines
+      // do not, so the match is modified with dark cells.
+      const noise = [...Array(12).keys()].map(i => `zzqx_${i} wibble_${i} frobnicate_${i} grumble_${i}`).join('\n');
+      await page.goto(`${url}/code-search`);
+      await page.locator('.code-search .cm-content').click();
+      await page.keyboard.insertText(`${noise}\n${SNIPPET}`);
+      await page.click('button[type=submit]');
+      await page.waitForSelector('.code-search-result');
+      const first = page.locator('.code-search-result').first();
+      t.equal(await first.locator('.code-search-match-kind').innerText(), 'Modified match', 'flagged modified');
+      t.ok((await first.locator('.code-search-match-cell:not(.is-on)').count()) > 0, 'the match map shows differences');
+    });
+
+    await t.test('A large fingerprint set stays compact', async t => {
+      const queryUrl = '**/code-search/query';
+      await page.route(queryUrl, route =>
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            total: 1,
+            matches: [
+              {
+                hash: 'large-match',
+                containment_of: 0.12,
+                aligned: 198,
+                total: 220,
+                exact: false,
+                marks: [],
+                licenses: [],
+                risk: null,
+                files: [{package: 1, name: 'large-package', filename: 'src/large.c'}],
+                excerpt: []
+              }
+            ]
+          })
+        })
+      );
+      try {
+        await page.goto(`${url}/code-search`);
+        await page.locator('.code-search .cm-content').click();
+        await page.keyboard.insertText(SNIPPET);
+        await page.click('button[type=submit]');
+        await page.waitForSelector('.code-search-result');
+        const meter = page.locator('.code-search-match-map');
+        t.match(await page.innerText('.code-search-match-count'), /198 of 220/, 'keeps the precise count');
+        t.equal(await meter.locator('.code-search-match-cell').count(), 10, 'caps the visual meter at ten blocks');
+        t.equal(await meter.locator('.code-search-match-cell.is-on').count(), 9, 'summarises 90% alignment without a green blob');
+      } finally {
+        await page.unroute(queryUrl);
+      }
     });
 
     await t.test('Unrelated code finds nothing', async t => {

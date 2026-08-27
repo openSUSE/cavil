@@ -706,7 +706,10 @@ minimum length; highly repetitive code needs far more than distinctive code). Ot
 the matched content hash, containment in both directions (how much of the snippet is in the file, and how
 much of the file is the snippet), the detected licenses and the matched code's license risk on Cavil's 1-9
 scale (`null` when no license was detected), an excerpt of the matched lines, and the packages and paths
-that carry the content.
+that carry the content. It also reports alignment: `aligned`/`total` is how many of the snippet's
+fingerprints line up as one contiguous copy (versus scattered coincidental hits), `exact` is true when all
+of them do, and `marks` is a per-fingerprint array in snippet order (`1` aligned, `0` differs) for a match
+grid. A modified copy has `exact: false` with the changed fingerprints marked `0`.
 
 ```
 HTTP/1.1 200 OK
@@ -719,6 +722,10 @@ Content-Type: application/json
       "hash": "a1b2c3...",
       "containment": 0.92,
       "containment_of": 0.15,
+      "aligned": 58,
+      "total": 64,
+      "exact": false,
+      "marks": [1, 1, 0, 1, 1, 0, 1],
       "licenses": ["GPL-2.0-only"],
       "risk": 6,
       "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}],

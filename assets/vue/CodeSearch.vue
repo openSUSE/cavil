@@ -26,7 +26,6 @@
       <div v-if="matches.length" class="code-search-results-panel">
         <header class="code-search-results-header">
           <div class="cavil-list-title">
-            <i class="fa-solid fa-code-compare" aria-hidden="true"></i>
             <strong>{{ total.toLocaleString() }}</strong>
             <span>{{ total === 1 ? 'matching source' : 'matching sources' }}</span>
           </div>
@@ -37,31 +36,53 @@
             <header class="code-search-result-header">
               <div class="code-search-result-identity">
                 <a :href="fileUrl(primary(match))" class="code-search-result-path" target="_blank" rel="noopener">
-                  <i class="fa-regular fa-file-code" aria-hidden="true"></i>
                   <strong>{{ primary(match).name }}</strong>
                   <span class="code-search-path-separator">/</span>
                   <span>{{ primary(match).filename }}</span>
                 </a>
-                <div v-if="match.licenses.length" class="code-search-result-meta">
-                  <span
-                    v-for="license in match.licenses"
-                    :key="license"
-                    class="cavil-meta-badge cavil-meta-badge-muted"
-                  >
-                    {{ license }}
-                  </span>
-                </div>
               </div>
-              <div class="code-search-result-signals">
-                <span v-if="match.risk != null" class="badge" :class="riskClass(match.risk)"
+              <div class="code-search-result-tags">
+                <span
+                  v-for="license in match.licenses"
+                  :key="license"
+                  class="cavil-meta-badge cavil-meta-badge-muted"
+                >
+                  {{ license }}
+                </span>
+                <span v-if="match.risk != null" :class="['cavil-meta-badge', riskClass(match.risk)]"
                   >Risk {{ match.risk }}</span
                 >
+                <span
+                  :class="[
+                    'cavil-meta-badge',
+                    'code-search-match-kind',
+                    match.exact ? 'cavil-meta-badge-success' : 'cavil-meta-badge-warning'
+                  ]"
+                >
+                  {{ match.exact ? 'Exact match' : 'Modified match' }}
+                </span>
+              </div>
+              <div class="code-search-result-measurements">
+                <div class="code-search-match-evidence">
+                  <span class="code-search-match-count">
+                    {{ match.aligned }} of {{ match.total }} fingerprints aligned
+                  </span>
+                  <span
+                    class="code-search-match-map"
+                    role="img"
+                    :aria-label="`${match.aligned} of ${match.total} fingerprints aligned`"
+                  >
+                    <span
+                      v-for="block in 10"
+                      :key="block"
+                      class="code-search-match-cell"
+                      :class="{'is-on': block <= matchBlocks(match)}"
+                    ></span>
+                  </span>
+                </div>
                 <div class="code-search-coverage">
-                  <span class="code-search-coverage-value">{{ percent(match.containment) }}</span>
-                  <span class="code-search-coverage-label">of snippet</span>
-                  <span class="code-search-coverage-divider" aria-hidden="true"></span>
+                  <span class="code-search-coverage-label">File coverage</span>
                   <span class="code-search-coverage-value">{{ percent(match.containment_of) }}</span>
-                  <span class="code-search-coverage-label">of file</span>
                 </div>
               </div>
             </header>
@@ -184,11 +205,16 @@ export default {
       if (value > 0 && value < 0.01) return '<1%';
       return `${Math.round((value ?? 0) * 100)}%`;
     },
+    matchBlocks(match) {
+      if (!match.total || match.aligned <= 0) return 0;
+      if (match.aligned >= match.total) return 10;
+      return Math.max(1, Math.floor((match.aligned / match.total) * 10));
+    },
     riskClass(risk) {
       const value = Number(risk);
-      if (value >= 1 && value <= 4) return 'text-bg-success';
-      if (value === 5) return 'text-bg-warning';
-      if (value === 6 || value === 7) return 'text-bg-danger';
+      if (value >= 1 && value <= 4) return 'cavil-meta-badge-success';
+      if (value === 5) return 'cavil-meta-badge-warning';
+      if (value === 6 || value === 7) return 'cavil-meta-badge-danger';
       return 'cavil-risk-unknown-badge';
     }
   }
@@ -279,9 +305,6 @@ export default {
   display: inline-flex;
   gap: 0.35rem;
 }
-.cavil-list-title i {
-  color: var(--cavil-success);
-}
 .cavil-list-title strong {
   font-weight: 600;
 }
@@ -293,12 +316,8 @@ export default {
   border-bottom: 0;
 }
 .code-search-result-header {
-  align-items: flex-start;
   background: var(--cavil-canvas-subtle);
   border-bottom: 1px solid var(--cavil-border-muted);
-  display: flex;
-  gap: 1.25rem;
-  justify-content: space-between;
   padding: 0.7rem 0.8rem;
 }
 .code-search-result-identity {
@@ -317,10 +336,6 @@ export default {
 .code-search-result-path:focus {
   text-decoration: underline;
 }
-.code-search-result-path i {
-  color: var(--cavil-fg-muted);
-  flex: 0 0 auto;
-}
 .code-search-result-path strong {
   flex: 0 0 auto;
   font-weight: 600;
@@ -332,25 +347,60 @@ export default {
 .code-search-path-separator {
   color: var(--cavil-fg-disabled);
 }
-.code-search-result-meta {
+.code-search-result-tags {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-top: 0.45rem;
 }
-.code-search-result-signals {
+.code-search-result-measurements {
   align-items: center;
   display: flex;
-  flex: 0 0 auto;
-  gap: 0.65rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: space-between;
+  margin-top: 0.45rem;
 }
 .code-search-coverage {
   align-items: baseline;
   display: grid;
   gap: 0 0.3rem;
-  grid-template-columns: auto auto 1px auto auto;
+  grid-template-columns: auto auto;
   white-space: nowrap;
+}
+.code-search-match-evidence {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  justify-content: flex-start;
+}
+.code-search-match-kind {
+  text-transform: none;
+}
+.code-search-match-count {
+  color: var(--cavil-fg-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.code-search-match-map {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: flex-start;
+  justify-self: start;
+  max-width: 24rem;
+}
+.code-search-match-cell {
+  background: var(--cavil-border);
+  border-radius: 1px;
+  flex: 0 0 8px;
+  height: 8px;
+  width: 8px;
+}
+.code-search-match-cell.is-on {
+  background: var(--cavil-success);
 }
 .code-search-coverage-value {
   color: var(--cavil-fg-emphasis);
@@ -360,11 +410,6 @@ export default {
 .code-search-coverage-label {
   color: var(--cavil-fg-muted);
   font-size: 0.6875rem;
-}
-.code-search-coverage-divider {
-  align-self: stretch;
-  background: var(--cavil-border);
-  margin: 0 0.35rem;
 }
 .code-search-result .source {
   background: var(--cavil-canvas);
@@ -483,7 +528,6 @@ export default {
   font-size: 0.8125rem;
 }
 @media (max-width: 700px) {
-  .code-search-result-header,
   .code-search-query-actions {
     align-items: stretch;
     flex-direction: column;
@@ -492,8 +536,10 @@ export default {
     justify-content: center;
     width: 100%;
   }
-  .code-search-result-signals {
-    justify-content: space-between;
+  .code-search-match-map {
+    justify-content: flex-start;
+    justify-self: start;
+    max-width: 100%;
   }
 }
 </style>

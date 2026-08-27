@@ -18,7 +18,7 @@ plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'codesearch_test');
 my $index_dir  = tempdir;
 
-# Small k/w so the modest fixture files still winnow to fingerprints (production uses 5/64).
+# Small k/w so the modest fixture files still winnow to fingerprints (production uses 4/8).
 my %config = (%{$cavil_test->default_config}, codesearch => {enabled => 1, index_dir => "$index_dir", k => 3, w => 4});
 
 # Config gate: with code search disabled the helpers are inert no matter what matcher is installed.
@@ -32,25 +32,6 @@ my $t   = Test::Mojo->new(Cavil => \%config);
 my $app = $t->app;
 my $db  = $app->pg->db;
 $cavil_test->mojo_fixtures($app);
-
-# Capability gate: the feature only lives when the installed Cavil::Matcher has fingerprint support. If it
-# does not, everything must stay cleanly disabled - and this one test still passes, covering both worlds.
-unless ($app->codesearch) {
-  subtest 'disabled without fingerprint support in Cavil::Matcher' => sub {
-    ok !$app->fingerprints, 'no fingerprints model';
-    $app->minion->enqueue(unpack => [1]);
-    $app->minion->perform_jobs;
-    is $db->query('SELECT count(*) FROM fp_files')->array->[0], 0, 'indexing records nothing';
-    $t->get_ok('/login')->status_is(302);
-    $t->post_ok('/code-search/query' => form => {snippet => 'anything'})->status_is(404);
-
-    require Cavil::Command::fingerprint;
-    eval { Cavil::Command::fingerprint->new(app => $app)->run };
-    like $@, qr/disabled/i, 'the fingerprint command reports the feature is disabled';
-  };
-  done_testing;
-  exit;
-}
 
 subtest 'indexing records content hashes that ride the atomic promote' => sub {
   $app->minion->enqueue(unpack => [1]);
@@ -97,6 +78,51 @@ subtest 'search finds an exact copy at full containment' => sub {
   ok +(grep { $_->{package} == $sample->{package} } @{$self->{files}}), 'resolves back to the source package';
   ok !defined $self->{risk} || $self->{risk} =~ /^\d+$/,                'risk, when known, is the numeric license risk';
   ok !(grep { $_->{containment} < 0.25 } @$matches), 'every returned match clears the containment floor';
+
+  # A verbatim copy aligns every query fingerprint as one block.
+  ok $self->{exact}, 'a verbatim copy is reported exact';
+  is $self->{aligned},         $self->{total}, 'all query fingerprints align';
+  is scalar @{$self->{marks}}, $self->{total}, 'one mark per query fingerprint';
+  ok !(grep { $_ == 0 } @{$self->{marks}}), 'no fingerprint is marked as differing';
+};
+
+# The real paste is a fragment, not the whole file. Identical text can winnow to a slightly wider line span
+# in the file than in the standalone fragment: this short, comment-heavy block spans 11 query lines but 14
+# in the file, so a window sized to the query clipped its edge fingerprints and called a verbatim copy
+# "modified" (regression). Extracted verbatim from perl-Mojolicious lib/Mojo/DOM/HTML.pm.
+subtest 'a verbatim fragment that winnows wider in the file is still exact' => sub {
+  my $fragment = <<'FRAGMENT';
+sub _end {
+  my ($end, $xml, $current) = @_;
+  # Search stack for start tag
+  my $next = $$current;
+  do {
+    # Ignore useless end tag
+    return if $next->[0] eq 'root';
+    # Right tag
+    return $$current = $next->[3] if $next->[1] eq $end;
+    # Phrasing content can only cross phrasing content
+    return if !$xml && $PHRASING{$end} && !$PHRASING{$next->[1]};
+  } while $next = $next->[3];
+}
+FRAGMENT
+  my $matches = $app->fingerprints->search($fragment, 20)->{matches};
+  my ($self) = grep { $_->{files}[0]{filename} =~ m!Mojo/DOM/HTML\.pm$! } @$matches;
+  ok $self, 'the source file is found from the fragment' or return;
+  cmp_ok $self->{containment}, '>=', 0.99, 'every fragment fingerprint is present in the file';
+  ok $self->{exact}, 'and the verbatim fragment is reported exact';
+  is $self->{aligned}, $self->{total}, 'every fingerprint of the fragment aligns';
+  ok !(grep { $_ == 0 } @{$self->{marks}}), 'no fingerprint is marked as differing';
+};
+
+subtest 'a modified query is reported as not exact, with the changed fingerprints marked' => sub {
+  my $noise  = join "\n", map {"zzqx_$_ wibble_$_ frobnicate_$_ grumble_$_"} 1 .. 8;    # absent from the source
+  my ($self) = grep { $_->{hash} eq $sample->{hash} } @{$app->fingerprints->search("$noise\n$content", 20)->{matches}};
+  ok $self,           'the source content is still found';
+  ok !$self->{exact}, 'not exact: the added fingerprints are absent from the source';
+  cmp_ok $self->{aligned}, '<', $self->{total}, 'fewer aligned than total';
+  ok +(grep { $_ == 0 } @{$self->{marks}}), 'the differing fingerprints are marked';
+  ok +(grep { $_ == 1 } @{$self->{marks}}), 'the copied part is marked aligned';
 };
 
 subtest 'a snippet too short to yield enough fingerprints is not searched' => sub {

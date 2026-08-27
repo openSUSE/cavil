@@ -147,14 +147,10 @@ sub startup ($self) {
     }
   );
 
-  # Snippet code search, off unless configured AND the installed Cavil::Matcher has fingerprint support, so
-  # an older matcher never breaks normal operation. codesearch returns the config (truthy) only when live.
+  # Snippet code search, off unless configured. codesearch returns the config (truthy) only when enabled.
   $self->helper(
     codesearch => sub ($c) {
-      state $cfg
-        = ($config->{codesearch} && $config->{codesearch}{enabled} && Cavil::Matcher->can('fingerprint_file'))
-        ? $config->{codesearch}
-        : undef;
+      state $cfg = ($config->{codesearch} && $config->{codesearch}{enabled}) ? $config->{codesearch} : undef;
       return $cfg;
     }
   );
@@ -173,13 +169,7 @@ sub startup ($self) {
 
   # One startup line per process: web and worker can load different configs or run in different modes, and
   # code search is otherwise silently on or off (no menu / no MCP tool when off).
-  $self->log->info(
-    sprintf 'Code search %s (mode %s, config enabled=%s, matcher support=%s)',
-    $self->codesearch ? 'enabled' : 'disabled',
-    $self->mode,
-    ($config->{codesearch} && $config->{codesearch}{enabled}) ? 'yes' : 'no',
-    Cavil::Matcher->can('fingerprint_file')                   ? 'yes' : 'no'
-  );
+  $self->log->info(sprintf 'Code search %s (mode %s)', $self->codesearch ? 'enabled' : 'disabled', $self->mode);
 
   $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
 

@@ -13,8 +13,7 @@ sub run ($self, @args) {
   getopt \@args, 'rebuild' => \my $rebuild;
 
   my $app = $self->app;
-  die "Code search is disabled (enable it in the config and install a fingerprint-capable Cavil::Matcher).\n"
-    unless $app->codesearch;
+  die "Code search is disabled (enable it in the config).\n" unless $app->codesearch;
 
   # The build can run for hours, so it is a Minion job (memory limits, retries, single-flight guard); a
   # worker does the work. --rebuild discards the index first, inside the job.

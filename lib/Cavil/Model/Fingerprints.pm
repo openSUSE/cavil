@@ -4,8 +4,8 @@
 # The fingerprint index for snippet code search. The winnowed fingerprints live in an on-disk segment
 # store (Cavil::Matcher::FpIndex); this model keeps the database side: fp_files maps a content hash to the
 # packages/paths that carry it (generation-tracked, so it rides the report's atomic promote), and
-# fp_contents is the global "which contents are already fingerprinted" oracle. Everything here assumes the
-# installed Cavil::Matcher has fingerprint support; the caller gates on that (see Cavil::codesearch).
+# fp_contents is the global "which contents are already fingerprinted" oracle. Only used when code search is
+# enabled (see Cavil::codesearch).
 
 package Cavil::Model::Fingerprints;
 use Mojo::Base -base, -signatures;
@@ -13,6 +13,7 @@ use Mojo::Base -base, -signatures;
 use Cavil::PatternEngine;
 use Cavil::Util qw(checkout_path);
 use Mojo::File  qw(path tempfile);
+use Mojo::JSON  qw(false true);
 
 has [qw(pg log checkout_dir index_dir)];
 has k => 4;
@@ -21,9 +22,7 @@ has w => 8;
 # Lines of context shown around a matched region in a result preview.
 use constant EXCERPT_CONTEXT => 3;
 
-# Loaded lazily, never at compile time: Cavil::Matcher::FpIndex (and the fingerprint functions) only exist
-# in a fingerprint-capable Cavil::Matcher. The caller gates on that support, so this model is only ever
-# constructed and used when the module is present - and Cavil still loads with an older matcher installed.
+# Loaded lazily so instances that never search (code search off) don't pay for the on-disk index store.
 sub _index ($self) {
   require Cavil::Matcher::FpIndex;
   return $self->{index} //= Cavil::Matcher::FpIndex->new(dir => $self->index_dir, k => $self->k, w => $self->w);
@@ -114,13 +113,22 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   # The matcher winnows files, not strings, so the snippet goes through a temp file for identical treatment.
   my $tmp = tempfile;
   $tmp->spew($snippet);
+  my $raw = Cavil::Matcher::fingerprint_file($tmp->to_string, $self->k, $self->w);    # [[fp, sline, eline], ...]
   my %seen;
-  my @qfps
-    = grep { !$seen{$_}++ } map { $_->[0] } @{Cavil::Matcher::fingerprint_file($tmp->to_string, $self->k, $self->w)};
+  my @qfps = grep { !$seen{$_}++ } map { $_->[0] } @$raw;
 
   # Too few distinct fingerprints to search on (see MIN_QUERY_FINGERPRINTS); say so rather than return noise.
   # No token-count guidance: the real floor is distinct fingerprints, which repetitive code reaches far later.
   return {matches => [], total => 0, too_short => \1} if @qfps < MIN_QUERY_FINGERPRINTS;
+
+  # The snippet's line span, used as the alignment window: a verbatim copy occupies about this many lines in
+  # the matched file, so matched fingerprints landing within one such window are the aligned copy.
+  my ($qlo, $qhi);
+  for my $r (@$raw) {
+    $qlo = $r->[1] if !defined $qlo || $r->[1] < $qlo;
+    $qhi = $r->[2] if !defined $qhi || $r->[2] > $qhi;
+  }
+  my $qspan = defined $qlo ? $qhi - $qlo + 1 : 1;
 
   # Rank all in memory, enrich only the page: licenses and excerpts are the cost, so paging stays a few reads.
   my $all = $self->_index->search(\@qfps, 0);
@@ -148,17 +156,45 @@ sub search ($self, $snippet, $limit = 10, $offset = 0, $exclude_embargoed = 0) {
   for my $h (@page) {
     my ($hash, undef, $containment, $containment_of, $regions) = @$h;    # [hash, hits, containment, of, regions]
     my $where = $locs->{$hash} // [];
+    my ($marks, $aligned) = _alignment($regions, \@qfps, $qspan);
     push @matches, {
       hash           => $hash,
       containment    => $containment,
       containment_of => $containment_of,
       licenses       => $lic->{$hash}{licenses} // [],
-      risk           => $lic->{$hash}{risk},                       # max license risk (Cavil's 1-9 scale), undef if none
+      risk           => $lic->{$hash}{risk},             # max license risk (Cavil's 1-9 scale), undef if none
       files          => $where,
-      excerpt        => $self->_excerpt($where->[0], $regions->[0])
+      excerpt        => $self->_excerpt($where->[0], $regions->[0]),
+      marks          => $marks,                                      # per query fingerprint, in order: 1 aligned, 0 not
+      aligned        => $aligned,
+      total          => scalar @qfps,
+      exact          => ($aligned == @qfps ? true : false)           # Mojo::JSON booleans: correct in Perl and JSON
     };
   }
   return {matches => \@matches, total => $total};
+}
+
+# Tell an aligned copy from scattered coincidence: group the matched fingerprints' content lines into runs,
+# breaking a run at any gap wider than the snippet itself - the largest run is the copy. Returns a per-query-
+# fingerprint mark array (query order, 1 = inside that run) and the aligned count. A verbatim copy aligns
+# every fingerprint; a modified one leaves the changed ones dark - absent, or matched only outside the copy
+# (as when a renamed token's fingerprint happens to recur elsewhere in the file, which inflates containment).
+# Gap-based, not a fixed-width window: identical text can winnow to a slightly wider line span in the file
+# than in the standalone snippet, so a window sized to the query span clips the copy's edge fingerprints.
+sub _alignment ($regions, $qfps, $qspan) {
+  my @pts = sort { $a->[0] <=> $b->[0] } map { [$_->[0], $_->[2]] } @$regions;    # [content_line, fp]
+  my $gap = $qspan > 1 ? $qspan : 1;
+  my (%best, %run);
+  for my $i (0 .. $#pts) {
+    if ($i > 0 && $pts[$i][0] - $pts[$i - 1][0] > $gap) {
+      %best = %run if keys %run > keys %best;
+      %run  = ();
+    }
+    $run{$pts[$i][1]} = 1;
+  }
+  %best = %run if keys %run > keys %best;
+  my @marks = map { $best{$_} ? 1 : 0 } @$qfps;
+  return (\@marks, scalar grep {$_} @marks);
 }
 
 # Names shown in the provenance strip; a larger total appears as a count, which flags common boilerplate.

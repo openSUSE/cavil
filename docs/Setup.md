@@ -197,9 +197,7 @@ snippets. Use `-A`/`-R` to add and remove them; the full capability matrix is in
 Code search lets someone paste a code fragment and find where similar open source code already exists in
 the sources you have indexed, with a risk indicator. When it is on, the report file browser also shows a
 per-file provenance line ("identical to code in other packages"), so a reviewer can see when a file is a
-copy of code that lives elsewhere. It is off by default, and it also stays off unless the
-installed `Cavil::Matcher` has fingerprint support, so an older matcher never affects normal operation.
-Turn it on with a `codesearch` block in the config:
+copy of code that lives elsewhere. It is off by default. Turn it on with a `codesearch` block in the config:
 
 ```perl
 codesearch => {
