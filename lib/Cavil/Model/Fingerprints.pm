@@ -203,19 +203,31 @@ sub search_fingerprints ($self, $qfps, $qspan, $limit = 10, $offset = 0, $exclud
   return {matches => \@matches, total => $total};
 }
 
-# Batch content-hash lookup for the CLI: for each hash Cavil has seen, its licenses and max risk. A hash the
-# instance knows but has no license match for still returns an entry (empty licenses, undef risk), so the
-# caller can tell "known, no license detected" from "never seen" (which is absent from the result).
 # The on-disk index generation, bumped on every rebuild. A client caches search results against it and drops
 # them when it changes, so a reindex never leaves stale matches behind.
 sub generation ($self) { $self->_index->generation }
 
+# Batch content-hash lookup for the CLI: for each hash Cavil has seen, its licenses, max risk, and one package
+# and path that carry it (so the client can say what a recognized file is a copy of, not just "a known
+# source"). A hash the instance knows but has no license match for still returns an entry (empty licenses,
+# undef risk), so the caller can tell "known, no license detected" from "never seen" (absent from the result).
 sub known_hashes ($self, $hashes, $exclude_embargoed = 0) {
   return {} unless @$hashes;
   my $live = $self->_live_hashes($hashes, $exclude_embargoed);
   return {} unless @$live;
-  my $lic = $self->_licenses_by_hash($live, $exclude_embargoed);
-  return {map { $_ => {licenses => $lic->{$_}{licenses} // [], risk => $lic->{$_}{risk}} } @$live};
+
+  my $lic  = $self->_licenses_by_hash($live, $exclude_embargoed);
+  my $locs = $self->_locations_by_hash($live, $exclude_embargoed);
+  my %known;
+  for my $hash (@$live) {
+    my $where = $locs->{$hash}[0];
+    $known{$hash} = {
+      licenses => $lic->{$hash}{licenses} // [],
+      risk     => $lic->{$hash}{risk},
+      ($where ? (package => $where->{name}, filename => $where->{filename}) : ())
+    };
+  }
+  return \%known;
 }
 
 # Tell an aligned copy from scattered coincidence: group the matched fingerprints' content lines into runs,

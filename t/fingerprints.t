@@ -226,11 +226,14 @@ subtest 'the CLI API endpoints (config, known-hash, batch fingerprint search)' =
     ->json_is('/w' => $config{codesearch}{w})
     ->json_has('/generation');
 
-  # known-hash recognition: an indexed hash comes back with licenses/risk, an unindexed one is absent.
+  # known-hash recognition: an indexed hash comes back with licenses/risk and a carrying package/path, an
+  # unindexed one is absent.
   my $bogus = 'a' x 32;
   $t->post_ok('/api/v1/code/known' => json => {hashes => [$sample->{hash}, $bogus]})
     ->status_is(200)
     ->json_has("/$sample->{hash}")
+    ->json_has("/$sample->{hash}/package")
+    ->json_has("/$sample->{hash}/filename")
     ->json_hasnt("/$bogus");
 
   # batch fingerprint search: winnow the sample content the way the server would, send the deduped

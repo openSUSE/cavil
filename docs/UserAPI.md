@@ -764,6 +764,9 @@ values. Only available when code search is enabled (otherwise `404`); at most 10
 
 A hash Cavil knows but has no detected license for still returns an entry, with empty `licenses` and `null`
 risk, so "known, no license detected" is distinct from "never seen" (which is simply absent from the result).
+Each recognized hash also names one `package` and `filename` that carry that content, so a client can report
+what a file is a copy of rather than just "a known source" (a hash Cavil knows only from license data, with no
+carrying file, omits both).
 
 **Request:**
 
@@ -783,7 +786,12 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-  "8c2fa3f24a09137f9bb3860fa21c677e": {"licenses": ["GPL-2.0-only"], "risk": 6}
+  "8c2fa3f24a09137f9bb3860fa21c677e": {
+    "licenses": ["GPL-2.0-only"],
+    "risk": 6,
+    "package": "coreutils",
+    "filename": "src/ls.c"
+  }
 }
 ```
 
