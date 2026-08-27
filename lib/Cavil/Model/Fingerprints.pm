@@ -15,8 +15,8 @@ use Cavil::Util qw(checkout_path);
 use Mojo::File  qw(path tempfile);
 
 has [qw(pg log checkout_dir index_dir)];
-has k => 5;
-has w => 16;
+has k => 4;
+has w => 8;
 
 # Lines of context shown around a matched region in a result preview.
 use constant EXCERPT_CONTEXT => 3;

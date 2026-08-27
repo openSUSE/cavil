@@ -70,8 +70,8 @@ my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
   ],
   codesearch => {
     enabled => 1,
-    k       => 5,
-    w       => 16
+    k       => 4,
+    w       => 8
   },
   tokens               => ['staging:123'],
   pg                   => '$online',

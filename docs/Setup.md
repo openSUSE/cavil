@@ -204,17 +204,18 @@ Turn it on with a `codesearch` block in the config:
 ```perl
 codesearch => {
   enabled => 1,
-  k       => 5,
-  w       => 16
+  k       => 4,
+  w       => 8
 }
 ```
 
 The fingerprint index defaults to `fpindex` under `cache_dir`, so enabling the feature needs nothing more.
 Set `index_dir` to move it (tens of gigabytes on a large corpus) onto faster or roomier storage. `k` and
-`w` are the winnowing parameters: a token is a word or identifier (operators and
-punctuation do not count), and a snippet only starts matching once it has about `w + k` tokens. The default
-`w = 16` matches pastes of three or four lines; raise it (for example to `64`) to shrink the index roughly
-fourfold on a very large corpus, at the price of only matching larger pastes.
+`w` are the winnowing parameters: a token is a word or identifier (operators and punctuation do not count).
+The defaults `k = 4`, `w = 8` were tuned on a mixed C/C++/Perl/Python corpus to make function-sized pastes
+(~15-25 lines) searchable and to keep recall high on edited or AI-derived code. Raising `w` shrinks the
+index (roughly `2/(w+1)` of the grams are kept) but only matches larger pastes; `w = 16` is about half the
+size but leaves many single functions too short to locate. Changing either needs a full rebuild.
 
 Indexing only records which content needs fingerprinting; the fingerprints themselves are built by the daily
 cleanup job (see [Maintenance](Maintenance.md)), so the index trails the corpus by up to a day. Building once
