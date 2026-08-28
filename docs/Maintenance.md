@@ -68,8 +68,8 @@ register a schedule once with `script/cavil minion schedule`, and your Minion wo
 own (as long as at least one worker is running).
 
 ```sh
-    # Reindex everything every Saturday at 20:00
-    script/cavil minion schedule -e weekly_reindexing -c '0 20 * * 6' -t reindex_all
+    # Reindex everything every Friday at 20:00
+    script/cavil minion schedule -e weekly_reindexing -c '0 20 * * 5' -t reindex_all
 
     # Clean up obsolete reports every day at 01:00
     script/cavil minion schedule -e daily_cleanup -c '0 1 * * *' -t obsolete
@@ -77,8 +77,8 @@ own (as long as at least one worker is running).
     # Collect builds that died halfway, every hour
     script/cavil minion schedule -e hourly_sweep -c '25 * * * *' -t sweep_builds
 
-    # Build the code search fingerprint index (only if code search is enabled), every day at 02:00
-    script/cavil minion schedule -e daily_fingerprints -c '0 2 * * *' -t fingerprint_build
+    # Build the code search fingerprint index (only if code search is enabled), Sunday to Thursday at 02:00
+    script/cavil minion schedule -e daily_fingerprints -c '0 2 * * 0-4' -t fingerprint_build
 ```
 
 The `-e` value is just a name for the schedule (used to update, pause, or remove it later), `-c` is a standard cron
@@ -98,8 +98,12 @@ recommended way to run reindexing and cleanup.
 When code search is enabled, schedule `fingerprint_build` as shown above: it prunes stale content, winnows whatever was
 indexed since the last run, refreshes the stopword set, and bumps the generation clients cache against. It is a separate
 schedule from the cleanup so its frequency can be tuned independently. A single-flight guard means a run started while
-one is still going simply exits, so a tight schedule is safe. The fingerprints live in a Postgres GIN inverted index; it
-and the other code-search tables (`fp_files`, `fp_contents`, `fp_stopwords`) are large but fully regenerable, so exclude
+one is still going simply exits, so a tight schedule is safe. Skip the reindex window, though: the example runs it Sunday
+to Thursday so it never overlaps the Friday `reindex_all`, which is the heaviest job on the system - overlapping is safe
+(content is addressed by hash, so a concurrent reindex cannot corrupt the build) but the two only slow each other down.
+Letting the weekend reindex finish and fingerprinting its new content on Sunday keeps both fast. The fingerprints live in
+a Postgres GIN inverted index; it and the other code-search tables (`fp_files`, `fp_contents`, `fp_stopwords`) are large
+but fully regenerable, so exclude
 their data from database backups.
 
 ### Collecting abandoned builds
