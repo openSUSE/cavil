@@ -42,10 +42,15 @@ subtest 'indexing records content hashes that ride the atomic promote' => sub {
 
 subtest 'a fingerprint build indexes the pending contents' => sub {
 
-  # Indexing only records content; a scheduled build (Task::Cleanup) fingerprints it, so it is pending here.
+  # Indexing only records content; the scheduled fingerprint_build task fingerprints it, so it is pending here.
   ok $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0] > 0, 'contents await a build';
+
+  # The task is self-contained: it also prunes content whose files are all gone (an orphan has no fp_files row).
+  my $orphan = 'e' x 32;
+  $db->query('INSERT INTO fp_contents (hash) VALUES (?)', $orphan);
   $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
+  ok !$db->query('SELECT 1 FROM fp_contents WHERE hash = ?', $orphan)->rows, 'the build pruned an orphaned content';
   is $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0], 0, 'all contents built';
   ok $db->query('SELECT count(*) FROM fp_contents WHERE indexed')->array->[0] > 0, 'contents marked indexed';
   is $app->fingerprints->build_pending, 0, 'an explicit build is then a no-op';
@@ -421,7 +426,8 @@ subtest 'refresh_stopwords records a ubiquitous fingerprint, and the query prune
   # Pick a cap above every real fingerprint's document frequency, then seed one synthetic fingerprint above it.
   my $maxdf = $db->query(
     'SELECT COALESCE(max(df), 0) FROM
-       (SELECT count(*) df FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp) s')->array->[0];
+       (SELECT count(*) df FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp) s'
+  )->array->[0];
   my $cap    = $maxdf + 2;
   my $common = 4242424242;
   my @ids;
@@ -433,8 +439,8 @@ subtest 'refresh_stopwords records a ubiquitous fingerprint, and the query prune
   }
 
   # A real fingerprint (DF <= cap) to prove only the over-cap one becomes a stopword.
-  my $real = $db->query('SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE fp <> ? LIMIT 1', $common)
-    ->array->[0];
+  my $real
+    = $db->query('SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE fp <> ? LIMIT 1', $common)->array->[0];
 
   $app->fingerprints->refresh_stopwords($cap);
 
@@ -446,10 +452,10 @@ subtest 'refresh_stopwords records a ubiquitous fingerprint, and the query prune
   # It stays in the arrays (GIN compresses it away) but is dropped from the query, so the contents that carry only
   # it are never dragged into the candidate set: a query of the sample plus the stopword still finds the sample and
   # none of the stopword-only contents.
-  my $stored = $db->query('SELECT fingerprints FROM fp_contents WHERE hash = ?', $sample->{hash})->array->[0];
+  my $stored  = $db->query('SELECT fingerprints FROM fp_contents WHERE hash = ?', $sample->{hash})->array->[0];
   my $matches = $app->fingerprints->search_fingerprints([@$stored, $common], 1, 50)->{matches};
   ok +(grep { $_->{hash} eq $sample->{hash} } @$matches), 'the real content is still found';
-  ok !(grep { $_->{hash} =~ /^stopword-/ } @$matches), 'a content sharing only the stopword is not pulled in';
+  ok !(grep { $_->{hash} =~ /^stopword-/ } @$matches),    'a content sharing only the stopword is not pulled in';
 
   $db->query('DELETE FROM fp_contents WHERE id = ANY(?)',      \@ids);
   $db->query('DELETE FROM fp_stopwords WHERE fingerprint = ?', $common);
@@ -474,7 +480,8 @@ subtest 'the build stores one array entry per distinct fingerprint, at its first
   $app->fingerprints->_store_arrays($db, $id, [[111, 1, 1], [222, 2, 5], [111, 3, 3]]);
 
   my $row = $db->query('SELECT fingerprints, slines, elines, indexed FROM fp_contents WHERE id = ?', $id)->hash;
-  is_deeply $row->{fingerprints}, [Cavil::Model::Fingerprints::_fp_bigint(111), Cavil::Model::Fingerprints::_fp_bigint(222)],
+  is_deeply $row->{fingerprints},
+    [Cavil::Model::Fingerprints::_fp_bigint(111), Cavil::Model::Fingerprints::_fp_bigint(222)],
     'each distinct fingerprint is stored once, in first-seen order (the repeat is dropped)';
   is_deeply $row->{slines}, [1, 2], 'with the start line of its first occurrence';
   is_deeply $row->{elines}, [1, 5], 'and the matching end line';

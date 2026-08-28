@@ -76,6 +76,9 @@ own (as long as at least one worker is running).
 
     # Collect builds that died halfway, every hour
     script/cavil minion schedule -e hourly_sweep -c '25 * * * *' -t sweep_builds
+
+    # Build the code search fingerprint index (only if code search is enabled), every day at 02:00
+    script/cavil minion schedule -e daily_fingerprints -c '0 2 * * *' -t fingerprint_build
 ```
 
 The `-e` value is just a name for the schedule (used to update, pause, or remove it later), `-c` is a standard cron
@@ -92,9 +95,11 @@ command:
 The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
 recommended way to run reindexing and cleanup.
 
-When code search is enabled, the daily cleanup also builds the new fingerprints, refreshes the stopword set, and prunes
-stale content, so nothing extra needs scheduling for it. The fingerprints live in a Postgres GIN inverted index; it and
-the other code-search tables (`fp_files`, `fp_contents`, `fp_stopwords`) are large but fully regenerable, so exclude
+When code search is enabled, schedule `fingerprint_build` as shown above: it prunes stale content, winnows whatever was
+indexed since the last run, refreshes the stopword set, and bumps the generation clients cache against. It is a separate
+schedule from the cleanup so its frequency can be tuned independently. A single-flight guard means a run started while
+one is still going simply exits, so a tight schedule is safe. The fingerprints live in a Postgres GIN inverted index; it
+and the other code-search tables (`fp_files`, `fp_contents`, `fp_stopwords`) are large but fully regenerable, so exclude
 their data from database backups.
 
 ### Collecting abandoned builds

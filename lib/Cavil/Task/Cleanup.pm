@@ -25,15 +25,6 @@ sub _cleanup ($job) {
 
   $pkgs->obsolete_duplicate_new;
 
-  # Code search: prune content bookkeeping whose files are all gone (so fp_contents does not ratchet up),
-  # then fingerprint whatever accumulated since the last run. Building once here, rather than per analyzed
-  # package, keeps the day's new content in a few dense segments instead of many tiny ones.
-  if ($app->codesearch) {
-    my $pruned = $app->fingerprints->prune_contents;
-    $app->log->info("Pruned $pruned orphaned code search content rows") if $pruned;
-    $app->minion->enqueue('fingerprint_build', [] => {parents => [$job->id]});
-  }
-
   my $ids     = $pkgs->need_cleanup;
   my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
 
