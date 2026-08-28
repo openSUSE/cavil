@@ -231,18 +231,17 @@ sub search_fingerprints (
   my @live = grep { !$stop{$_} } @bfps;
   return {matches => [], total => 0} unless @live;
 
-  # The GIN aggregate: candidates are contents whose array overlaps a live query fingerprint (index scan), then
-  # count how many of them each shares. Materialized so the overlap prefilter runs before the unnest, keeping the
-  # unnest to the handful of candidates instead of the whole table.
+  # Use the GIN index as a true inverted index: one lookup per live query fingerprint (contents that contain it),
+  # union the postings, then count per content. This touches only the matching postings - never unnesting a
+  # candidate's whole array, and with no per-element membership test - so cost tracks the postings read, not
+  # (candidates x array size x query size). Counting via unnest+`f = ANY(query)` instead makes that ANY a linear
+  # scan of the query array per element, which multiplied the work by the query size and cost tens of seconds.
   my $cand = $db->query(
-    "WITH cand AS MATERIALIZED (
-       SELECT id, hash, fingerprints FROM fp_contents WHERE indexed AND fingerprints && ?::bigint[]
-     )
-     SELECT c.id AS content, c.hash, count(*) AS hits
-       FROM cand c, unnest(c.fingerprints) f
-      WHERE f = ANY(?::bigint[])
+    "SELECT c.id AS content, c.hash, count(*) AS hits
+       FROM unnest(?::bigint[]) AS q(fp)
+       JOIN fp_contents c ON c.indexed AND c.fingerprints @> ARRAY[q.fp]
       GROUP BY c.id, c.hash
-      HAVING count(*) >= ?", \@live, \@live, $need
+      HAVING count(*) >= ?", \@live, $need
   )->hashes;
   my $t_idx = Time::HiRes::time;
 
@@ -280,8 +279,10 @@ sub search_fingerprints (
     @{
       $db->query(
         'SELECT c.id AS content, u.fp, u.sl, u.el
-           FROM fp_contents c, unnest(c.fingerprints, c.slines, c.elines) AS u(fp, sl, el)
-          WHERE c.id = ANY(?::int[]) AND u.fp = ANY(?::bigint[])', \@ids, \@live
+           FROM fp_contents c
+           CROSS JOIN LATERAL unnest(c.fingerprints, c.slines, c.elines) AS u(fp, sl, el)
+           JOIN unnest(?::bigint[]) AS q(fp) ON q.fp = u.fp
+          WHERE c.id = ANY(?::int[])', \@live, \@ids
       )->hashes
     }
     )
