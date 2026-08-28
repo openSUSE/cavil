@@ -236,7 +236,8 @@ subtest 'the CLI API endpoints (config, known-hash, batch fingerprint search)' =
     ->status_is(200)
     ->json_is('/k' => $config{codesearch}{k})
     ->json_is('/w' => $config{codesearch}{w})
-    ->json_has('/generation');
+    ->json_has('/generation')
+    ->json_has('/max_fingerprints');
 
   # known-hash recognition: an indexed hash comes back with licenses/risk and a carrying package/path, an
   # unindexed one is absent.
@@ -488,6 +489,47 @@ subtest 'the build stores one array entry per distinct fingerprint, at its first
   ok $row->{indexed}, 'and the content is marked indexed';
 
   $db->query('DELETE FROM fp_contents WHERE id = ?', $id);
+};
+
+subtest 'a pathologically large content is capped to max_fingerprints' => sub {
+  my $fp   = $app->fingerprints;
+  my $prev = $fp->max_fingerprints;
+  $fp->max_fingerprints(2);
+  my $id
+    = $db->query('INSERT INTO fp_contents (hash, indexed) VALUES (?, false) RETURNING id', 'cap-arrays')->array->[0];
+  $fp->_store_arrays($db, $id, [[10, 1, 1], [20, 2, 2], [30, 3, 3], [40, 4, 4]]);
+
+  my $row = $db->query('SELECT fingerprints, slines, elines FROM fp_contents WHERE id = ?', $id)->hash;
+  is scalar @{$row->{fingerprints}}, 2, 'only the first max_fingerprints are stored';
+  is_deeply $row->{fingerprints},
+    [Cavil::Model::Fingerprints::_fp_bigint(10), Cavil::Model::Fingerprints::_fp_bigint(20)],
+    'keeping the earliest in file order';
+  is_deeply $row->{slines}, [1, 2], 'positions are truncated in step';
+  is_deeply $row->{elines}, [1, 2], 'both position arrays stay aligned';
+
+  $fp->max_fingerprints($prev);
+  $db->query('DELETE FROM fp_contents WHERE id = ?', $id);
+};
+
+subtest 'an oversized query is capped to max_fingerprints' => sub {
+  my $tmp = tempfile;
+  $tmp->spew($content);
+  my $raw = Cavil::Matcher::fingerprint_file($tmp->to_string, $config{codesearch}{k}, $config{codesearch}{w});
+  my %seen;
+  my @qfps = grep { !$seen{$_}++ } map { $_->[0] } @$raw;
+  return unless @qfps >= 9;    # need more than the floor so a cap below the query size still searches
+
+  my $fp   = $app->fingerprints;
+  my $prev = $fp->max_fingerprints;
+  my $cap  = $#qfps;                  # one below the query size, so the cap actually bites
+  $fp->max_fingerprints($cap);
+
+  my ($self) = grep { $_->{hash} eq $sample->{hash} } @{$fp->search_fingerprints(\@qfps, 1, 20)->{matches}};
+  ok $self, 'still finds the sample from the capped query';
+  is $self->{total},           $cap, 'total reflects the capped query size, not the original';
+  is scalar @{$self->{marks}}, $cap, 'one mark per capped fingerprint';
+
+  $fp->max_fingerprints($prev);
 };
 
 subtest 'fingerprints reinterpret uint64 to signed bigint losslessly and bijectively' => sub {

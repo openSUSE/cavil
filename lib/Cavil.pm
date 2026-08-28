@@ -162,7 +162,9 @@ sub startup ($self) {
         log             => $self->log,
         checkout_dir    => $config->{checkout_dir},
         generation_file => path($config->{cache_dir})->make_path->child('fp-generation')->to_string,
-        (defined $cfg->{k} ? (k => $cfg->{k}) : ()), (defined $cfg->{w} ? (w => $cfg->{w}) : ())
+        (defined $cfg->{k}      ? (k      => $cfg->{k})      : ()), (defined $cfg->{w} ? (w => $cfg->{w}) : ()),
+        (defined $cfg->{df_cap} ? (df_cap => $cfg->{df_cap}) : ()),
+        (defined $cfg->{max_fingerprints} ? (max_fingerprints => $cfg->{max_fingerprints}) : ())
       );
     }
   );

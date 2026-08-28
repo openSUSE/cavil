@@ -201,9 +201,11 @@ copy of code that lives elsewhere. It is off by default. Turn it on with a `code
 
 ```perl
 codesearch => {
-  enabled => 1,
-  k       => 4,
-  w       => 8
+  enabled          => 1,
+  k                => 4,
+  w                => 8,
+  df_cap           => 500,
+  max_fingerprints => 5000
 }
 ```
 
@@ -213,9 +215,16 @@ needs nothing more. `k` and `w` are the winnowing parameters: a token is a word 
 punctuation do not count). The defaults `k = 4`, `w = 8` were tuned on a mixed C/C++/Perl/Python corpus to make
 function-sized pastes (~15-25 lines) searchable and to keep recall high on edited or AI-derived code. Raising `w`
 shrinks the index (roughly `2/(w+1)` of the grams are kept) but only matches larger pastes; `w = 16` is about
-half the size but leaves many single functions too short to locate. Ubiquitous fingerprints above a
-document-frequency cap are recorded as a stopword set and pruned from every query - the other precision knob,
-deliberately aggressive. Changing `k`/`w` needs a full rebuild.
+half the size but leaves many single functions too short to locate. Ubiquitous fingerprints in more than `df_cap`
+distinct contents are recorded as a stopword set and pruned from every query - the other precision and
+query-speed knob, deliberately aggressive (lower prunes more, so searches touch fewer candidates). Because the
+cap is an absolute count, the stopword set is small during a from-scratch rebuild and only fills in as enough of
+the corpus is indexed; if searches run hot mid-rebuild, refresh the set with a lower cap in the meantime
+(`script/cavil eval 'app->fingerprints->refresh_stopwords(100)'`). `max_fingerprints` caps how many fingerprints
+a single content stores (0 disables): a generated, minified or data file can winnow to tens of thousands, and
+because a search counts overlap by unnesting a candidate's whole array, one such giant content makes every query
+that shares a fingerprint with it slow. Such files are not function-copy targets, so only the first
+`max_fingerprints` (in file order) are kept. Changing `k`/`w` needs a full rebuild.
 
 Indexing only records which content needs fingerprinting; the fingerprints themselves are built by the daily
 cleanup job (see [Maintenance](Maintenance.md)), so the index trails the corpus by up to a day. To build on

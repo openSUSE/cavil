@@ -64,7 +64,8 @@ sub search ($self) {
 sub config ($self) {
   return $self->render(json => {error => 'Code search is not enabled'}, status => 404) unless $self->codesearch;
   my $fp = $self->fingerprints;
-  $self->render(json => {k => $fp->k, w => $fp->w, generation => $fp->generation});
+  $self->render(
+    json => {k => $fp->k, w => $fp->w, generation => $fp->generation, max_fingerprints => $fp->max_fingerprints});
 }
 
 # Batch content-hash lookup: {hashes => [...]} -> {<hash> => {licenses => [...], risk => N}}. Unknown hashes

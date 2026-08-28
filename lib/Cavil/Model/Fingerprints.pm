@@ -24,13 +24,22 @@ has [qw(pg log checkout_dir generation_file)];
 has k => 4;
 has w => 8;
 
+# A fingerprint whose document frequency (contents it appears in) exceeds this is a stopword: pruned from every
+# query (never stored-out, just skipped) because it is common boilerplate that discriminates nothing and, left in,
+# drags a huge candidate set out of the index. The main precision and query-speed knob, config-driven
+# (codesearch.df_cap) so it can be tuned per deployment; deliberately aggressive. Absolute count, so during a
+# from-scratch rebuild the set is small until enough of the corpus is indexed - refresh with a lower cap for
+# interim speed if searches run hot mid-rebuild.
+has df_cap => 500;
+
+# Cap on fingerprints stored per content (0 disables). A generated, minified or data file can winnow to tens of
+# thousands of fingerprints; the overlap count unnests a candidate's whole array, so one such giant content makes
+# every query that shares a single fingerprint with it slow. Such files are not function-copy targets anyway, so
+# keep only the first max_fingerprints (file order). Config-driven (codesearch.max_fingerprints).
+has max_fingerprints => 5000;
+
 # Lines of context shown around a matched region in a result preview.
 use constant EXCERPT_CONTEXT => 3;
-
-# A fingerprint whose document frequency (contents it appears in) exceeds this is a stopword: pruned from the
-# index, because it is common boilerplate that neither discriminates a copy nor fits in a lean index. The main
-# precision and size knob; deliberately aggressive, and re-tunable on the next reindex (see Cavil::codesearch).
-use constant DF_CAP => 500;
 
 # Winnowed fingerprints are uint64; a Postgres bigint is signed. Reinterpret the bits losslessly (NOT $fp -
 # 2**64, which is float-lossy) and identically on write and query, so the same content hashes to the same key.
@@ -98,6 +107,12 @@ sub _store_arrays ($self, $db, $content, $raw) {
     push @sl, $row->[1];
     push @el, $row->[2];
   }
+
+  # Cap a pathologically large file (generated/minified/data): its array would be unnested in full by every query
+  # that shares a single fingerprint with it. Keep the first max_fingerprints in file order; 0 disables the cap.
+  my $max = $self->max_fingerprints;
+  if ($max && @fp > $max) { $#fp = $#sl = $#el = $max - 1 }
+
   $db->query(
     'UPDATE fp_contents SET fingerprints = ?::bigint[], slines = ?::int[], elines = ?::int[], indexed = true
                 WHERE id = ?', \@fp, \@sl, \@el, $content
@@ -107,7 +122,8 @@ sub _store_arrays ($self, $db, $content, $raw) {
 # Recompute the stopword set - fingerprints whose document frequency exceeds the cap - over the current arrays,
 # so the query can prune them. No array rewrite: they stay stored (GIN compresses them away) and are dropped at
 # query time. A GROUP BY over the unnested arrays, no re-winnowing; run at the end of a build.
-sub refresh_stopwords ($self, $cap = DF_CAP) {
+sub refresh_stopwords ($self, $cap = undef) {
+  $cap //= $self->df_cap;
   $self->pg->db->query(
     'INSERT INTO fp_stopwords (fingerprint)
        SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp HAVING count(*) > ?
@@ -193,6 +209,12 @@ sub search_fingerprints (
   # Too few distinct fingerprints to search on (see MIN_QUERY_FINGERPRINTS); say so rather than return noise.
   # No token-count guidance: the real floor is distinct fingerprints, which repetitive code reaches far later.
   return {matches => [], total => 0, too_short => \1} if @$qfps < MIN_QUERY_FINGERPRINTS;
+
+  # Cap an oversized query the same way the index caps a content (see _store_arrays): a huge file - a data blob, a
+  # minified bundle - winnows to tens of thousands of fingerprints, and an overlap search on all of them would
+  # gather most of the corpus. It is not a function-copy target, so search on its first max_fingerprints.
+  my $max = $self->max_fingerprints;
+  $qfps = [@{$qfps}[0 .. $max - 1]] if $max && @$qfps > $max;
 
   my $db    = $self->pg->db;
   my $t0    = Time::HiRes::time;
