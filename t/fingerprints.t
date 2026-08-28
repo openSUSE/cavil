@@ -10,20 +10,19 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::Date;
-use Mojo::File qw(tempdir path tempfile);
+use Mojo::File qw(path tempfile);
 use MCP::Client;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'codesearch_test');
-my $index_dir  = tempdir;
 
 # Small k/w so the modest fixture files still winnow to fingerprints (production uses 4/8).
-my %config = (%{$cavil_test->default_config}, codesearch => {enabled => 1, index_dir => "$index_dir", k => 3, w => 4});
+my %config = (%{$cavil_test->default_config}, codesearch => {enabled => 1, k => 3, w => 4});
 
 # Config gate: with code search disabled the helpers are inert no matter what matcher is installed.
 subtest 'disabled by config' => sub {
-  my $off = Test::Mojo->new(Cavil => {%config, codesearch => {enabled => 0, index_dir => "$index_dir"}});
+  my $off = Test::Mojo->new(Cavil => {%config, codesearch => {enabled => 0}});
   ok !$off->app->codesearch,   'codesearch helper is off';
   ok !$off->app->fingerprints, 'no fingerprints model';
 };
@@ -44,11 +43,11 @@ subtest 'indexing records content hashes that ride the atomic promote' => sub {
 subtest 'a fingerprint build indexes the pending contents' => sub {
 
   # Indexing only records content; a scheduled build (Task::Cleanup) fingerprints it, so it is pending here.
-  ok $db->query("SELECT count(*) FROM fp_contents WHERE state = 'pending'")->array->[0] > 0, 'contents await a build';
+  ok $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0] > 0, 'contents await a build';
   $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
-  is $db->query("SELECT count(*) FROM fp_contents WHERE state = 'pending'")->array->[0], 0, 'all contents built';
-  ok $db->query("SELECT count(*) FROM fp_contents WHERE state = 'indexed'")->array->[0] > 0, 'contents marked indexed';
+  is $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0], 0, 'all contents built';
+  ok $db->query('SELECT count(*) FROM fp_contents WHERE indexed')->array->[0] > 0, 'contents marked indexed';
   is $app->fingerprints->build_pending, 0, 'an explicit build is then a no-op';
 };
 
@@ -399,7 +398,7 @@ subtest 'the fingerprint command queues a rebuild that a worker runs' => sub {
   like $out, qr/Queued .* job \d+ \(rebuild\)/, 'command enqueues a rebuild job instead of doing the work inline';
 
   $app->minion->perform_jobs;    # the worker discards the index and rebuilds, no database surgery
-  is $db->query("SELECT count(*) FROM fp_contents WHERE state = 'pending'")->array->[0], 0, 'nothing left pending';
+  is $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0], 0, 'nothing left pending';
   my $matches = $app->fingerprints->search($content, 20)->{matches};
   ok +(grep { $_->{hash} eq $sample->{hash} } @$matches), 'content is searchable again after the rebuild';
 };
@@ -409,12 +408,83 @@ subtest 'cleanup prunes content bookkeeping with no files left' => sub {
   # An orphan is a fp_contents row whose files are all gone (obsolete cleanup removes fp_files, not
   # fp_contents); a hash that no fp_files references models exactly that.
   my $orphan = 'f' x 32;
-  $db->query("INSERT INTO fp_contents (hash, state) VALUES (?, 'indexed')", $orphan);
+  $db->query('INSERT INTO fp_contents (hash, indexed) VALUES (?, true)', $orphan);
   my $kept = $db->query('SELECT hash FROM fp_files WHERE generation = 0 LIMIT 1')->array->[0];
 
   ok $app->fingerprints->prune_contents >= 1, 'prune removes orphaned content rows';
   ok !$db->query('SELECT 1 FROM fp_contents WHERE hash = ?', $orphan)->rows, 'the orphan is gone';
   ok $db->query('SELECT 1 FROM fp_contents WHERE hash = ?',  $kept)->rows,   'referenced content is kept';
+};
+
+subtest 'refresh_stopwords prunes a ubiquitous fingerprint out of the index' => sub {
+
+  # Pick a cap above every real fingerprint's document frequency, then seed one synthetic fingerprint above it.
+  my $maxdf
+    = $db->query(
+    'SELECT COALESCE(max(df), 0) FROM (SELECT count(DISTINCT content) df FROM fp_postings GROUP BY fingerprint) s')
+    ->array->[0];
+  my $cap    = $maxdf + 2;
+  my $common = 4242424242;
+  my @ids;
+  for (1 .. $cap + 3) {
+    my $id
+      = $db->query('INSERT INTO fp_contents (hash, indexed) VALUES (?, true) RETURNING id', "stopword-$_")->array->[0];
+    push @ids, $id;
+    $db->query('INSERT INTO fp_postings (content, fingerprint, sline, eline) VALUES (?, ?, 1, 1)', $id, $common);
+  }
+
+  # A real fingerprint (DF <= cap) to prove only the over-cap one is pruned.
+  my $real = $db->query('SELECT fingerprint FROM fp_postings WHERE fingerprint <> ? LIMIT 1', $common)->array->[0];
+
+  $app->fingerprints->refresh_stopwords($cap);
+
+  ok $db->query('SELECT 1 FROM fp_stopwords WHERE fingerprint = ?', $common)->rows,
+    'the over-cap fingerprint became a stopword';
+  is $db->query('SELECT count(*) FROM fp_postings WHERE fingerprint = ?', $common)->array->[0], 0,
+    'and its postings were deleted from the index';
+  ok !$db->query('SELECT 1 FROM fp_stopwords WHERE fingerprint = ?', $real)->rows,
+    'a below-cap fingerprint is left alone';
+  ok $db->query('SELECT 1 FROM fp_postings WHERE fingerprint = ?', $real)->rows, 'and keeps its postings';
+
+  $db->query('DELETE FROM fp_contents WHERE id = ANY(?)',      \@ids);     # cascades any leftover postings
+  $db->query('DELETE FROM fp_stopwords WHERE fingerprint = ?', $common);
+};
+
+subtest 'a query for fingerprints absent from the index returns nothing, fast' => sub {
+  my @absent = map {"90000000000000000$_"} 1 .. 12;                    # distinctive values that cannot be in the corpus
+  my $result = $app->fingerprints->search_fingerprints(\@absent, 1);
+  is scalar @{$result->{matches}}, 0, 'no matches';
+  is $result->{total},             0, 'and a zero total';
+};
+
+subtest 'generation advances on each build so clients drop stale caches' => sub {
+  my $g0 = $app->fingerprints->generation;
+  $app->fingerprints->bump_generation;
+  is $app->fingerprints->generation, $g0 + 1, 'generation is bumped';
+};
+
+subtest 'the build skips postings for known stopwords, keeping repeated positions of the rest' => sub {
+  my $id
+    = $db->query('INSERT INTO fp_contents (hash, indexed) VALUES (?, true) RETURNING id', 'store-postings')->array->[0];
+  my $keep = Cavil::Model::Fingerprints::_fp_bigint(111);
+  my $drop = Cavil::Model::Fingerprints::_fp_bigint(222);
+  $app->fingerprints->_store_postings($db, $id, [[111, 1, 1], [222, 2, 2], [111, 3, 3]], {$drop => 1});
+
+  is $db->query('SELECT count(*) FROM fp_postings WHERE content = ? AND fingerprint = ?', $id, $keep)->array->[0], 2,
+    'a kept fingerprint is stored once per position';
+  is $db->query('SELECT count(*) FROM fp_postings WHERE content = ? AND fingerprint = ?', $id, $drop)->array->[0], 0,
+    'a stopword fingerprint is never stored';
+
+  $db->query('DELETE FROM fp_contents WHERE id = ?', $id);    # cascade removes the postings
+};
+
+subtest 'fingerprints reinterpret uint64 to signed bigint losslessly and bijectively' => sub {
+  is Cavil::Model::Fingerprints::_fp_bigint(5),                       5, 'a small value is unchanged';
+  is Cavil::Model::Fingerprints::_fp_bigint('18446744073709551615'), -1, 'the top uint64 maps to -1';
+  is Cavil::Model::Fingerprints::_fp_bigint('9223372036854775808'), '-9223372036854775808',
+    '2^63 maps to the min int64';
+  isnt Cavil::Model::Fingerprints::_fp_bigint('9223372036854775808'),
+    Cavil::Model::Fingerprints::_fp_bigint('9223372036854775809'), 'adjacent values stay distinct';
 };
 
 done_testing;

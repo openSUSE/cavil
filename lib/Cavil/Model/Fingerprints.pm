@@ -1,15 +1,17 @@
 # SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# The fingerprint index for snippet code search. The winnowed fingerprints live in an on-disk segment
-# store (Cavil::Matcher::FpIndex); this model keeps the database side: fp_files maps a content hash to the
-# packages/paths that carry it (generation-tracked, so it rides the report's atomic promote), and
-# fp_contents is the global "which contents are already fingerprinted" oracle. Only used when code search is
-# enabled (see Cavil::codesearch).
+# The fingerprint index for snippet code search: a Postgres inverted index. fp_files maps a content hash to
+# the packages/paths that carry it (generation-tracked, so it rides the report's atomic promote), fp_contents
+# is the content dimension (a compact id per distinct content), and fp_postings is the inverted index proper -
+# fingerprint -> content, with line positions - hash-partitioned by fingerprint. Ubiquitous fingerprints are
+# pruned into fp_stopwords at build time and never stored, so a query only ever touches the postings of its own
+# (discriminative) fingerprints. Only used when code search is enabled (see Cavil::codesearch).
 
 package Cavil::Model::Fingerprints;
 use Mojo::Base -base, -signatures;
 
+use Cavil::Matcher ();
 use Cavil::PatternEngine;
 use Cavil::ReportUtil qw(is_vendored_path);
 use Cavil::Util       qw(checkout_path);
@@ -17,18 +19,21 @@ use Mojo::File        qw(path tempfile);
 use Mojo::JSON        qw(false true);
 use Time::HiRes       ();
 
-has [qw(pg log checkout_dir index_dir)];
+has [qw(pg log checkout_dir generation_file)];
 has k => 4;
 has w => 8;
 
 # Lines of context shown around a matched region in a result preview.
 use constant EXCERPT_CONTEXT => 3;
 
-# Loaded lazily so instances that never search (code search off) don't pay for the on-disk index store.
-sub _index ($self) {
-  require Cavil::Matcher::FpIndex;
-  return $self->{index} //= Cavil::Matcher::FpIndex->new(dir => $self->index_dir, k => $self->k, w => $self->w);
-}
+# A fingerprint whose document frequency (contents it appears in) exceeds this is a stopword: pruned from the
+# index, because it is common boilerplate that neither discriminates a copy nor fits in a lean index. The main
+# precision and size knob; deliberately aggressive, and re-tunable on the next reindex (see Cavil::codesearch).
+use constant DF_CAP => 500;
+
+# Winnowed fingerprints are uint64; a Postgres bigint is signed. Reinterpret the bits losslessly (NOT $fp -
+# 2**64, which is float-lossy) and identically on write and query, so the same content hashes to the same key.
+sub _fp_bigint ($fp) { return unpack 'q', pack 'Q', $fp }
 
 # Record one indexed file: its content hash maps to (package, path) at this generation. The content itself
 # is registered separately (queue_contents), once per batch, to keep this hot-path insert conflict-free.
@@ -44,53 +49,95 @@ sub queue_contents ($self, $db, $hashes) {
   $db->query('INSERT INTO fp_contents (hash) VALUES (?) ON CONFLICT (hash) DO NOTHING', $_) for sort keys %$hashes;
 }
 
-# Delete the on-disk index so the next build starts fresh (used to change k/w or force a full rebuild).
-# The database is left untouched; resync/build_pending requeue and repopulate. Contents are removed rather
-# than the directory itself, and the cached handle is dropped so the next use recreates the index with the
-# current k/w.
-sub wipe ($self) {
-  my $dir = path($self->index_dir);
-  $dir->list({hidden => 1})->each(sub { $_->remove }) if -d $dir;
-  delete $self->{index};
+# Discard the whole index so the next build starts fresh (a k/w change or a forced rebuild): drop every
+# posting and stopword and set every content back to pending. Cheap next to a re-winnow, and the reindex
+# repopulates.
+sub reset_index ($self) {
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  $db->query('TRUNCATE fp_postings');
+  $db->query('DELETE FROM fp_stopwords');
+  $db->query('UPDATE fp_contents SET indexed = false WHERE indexed');
+  $tx->commit;
 }
 
-# Keep the "already fingerprinted" bookkeeping honest with the on-disk index. If the segment store was
-# wiped (the supported way to change k/w or force a rebuild), it has no segments while the database still
-# marks contents as indexed; requeue them so a plain rebuild needs no manual database surgery. A no-op once
-# the index has any segments, so it is safe to call before every build.
-sub resync ($self) {
-  return if $self->_index->generation > 0;
-  $self->pg->db->query("UPDATE fp_contents SET state = 'pending' WHERE state <> 'pending'");
-}
-
-# Fingerprint up to $limit not-yet-indexed contents into one new segment. Returns the number fingerprinted.
-# One representative file per content is enough (all copies share the bytes); FpIndex::add_segment dedups
-# and appends without touching existing segments.
+# Fingerprint up to $limit not-yet-indexed contents into the inverted index. One representative file per content
+# is enough (all copies share the bytes). Postings for known stopwords are skipped so common fingerprints are
+# never stored; a from-scratch reindex (empty stopwords) stores everything and refresh_stopwords prunes after.
 sub build_pending ($self, $limit = 20000) {
-  my $rows = $self->pg->db->query(
-    "SELECT c.hash, p.name, p.checkout_dir AS co, f.filename
+  my $db   = $self->pg->db;
+  my $rows = $db->query(
+    "SELECT c.id, p.name, p.checkout_dir AS co, f.filename
        FROM fp_contents c
        JOIN LATERAL (
          SELECT package, filename FROM fp_files WHERE hash = c.hash AND generation = 0 LIMIT 1
        ) f ON true
        JOIN bot_packages p ON p.id = f.package
-      WHERE c.state = 'pending'
+      WHERE NOT c.indexed
       LIMIT ?", $limit
   )->hashes;
   return 0 unless @$rows;
 
-  my @paths
-    = map { checkout_path($self->checkout_dir, $_->{name}, $_->{co}, '.unpacked', $_->{filename})->to_string } @$rows;
-  $self->_index->add_segment(\@paths);
+  my %stop = map { $_->{fingerprint} => 1 } @{$db->query('SELECT fingerprint FROM fp_stopwords')->hashes};
 
-  my @hashes = map { $_->{hash} } @$rows;
-  $self->pg->db->query("UPDATE fp_contents SET state = 'indexed' WHERE hash = ANY(?)", \@hashes);
-  return scalar @hashes;
+  my $tx = $db->begin;
+  for my $r (@$rows) {
+    my $abs = checkout_path($self->checkout_dir, $r->{name}, $r->{co}, '.unpacked', $r->{filename});
+    $self->_store_postings($db, $r->{id}, Cavil::Matcher::fingerprint_file("$abs", $self->k, $self->w), \%stop);
+    $db->query('UPDATE fp_contents SET indexed = true WHERE id = ?', $r->{id});
+  }
+  $tx->commit;
+  return scalar @$rows;
+}
+
+# Insert a content's winnowed rows as postings (signed fingerprint + line span), skipping stopwords, in bind-
+# limit-safe chunks (4 params per row).
+sub _store_postings ($self, $db, $content, $raw, $stop) {
+  my @tuples;
+  for my $row (@$raw) {
+    my $fp = _fp_bigint($row->[0]);
+    push @tuples, [$content, $fp, $row->[1], $row->[2]] unless $stop->{$fp};
+  }
+  while (my @chunk = splice @tuples, 0, 10000) {
+    my $sql
+      = 'INSERT INTO fp_postings (content, fingerprint, sline, eline) VALUES ' . join(',', ('(?, ?, ?, ?)') x @chunk);
+    $db->query($sql, map {@$_} @chunk);
+  }
+}
+
+# Recompute the stopword set over the current postings and delete their rows, so ubiquitous fingerprints stop
+# occupying the index. A GROUP BY + DELETE over postings, no re-winnowing; run at the end of a build.
+sub refresh_stopwords ($self, $cap = DF_CAP) {
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  $db->query(
+    'INSERT INTO fp_stopwords (fingerprint)
+       SELECT fingerprint FROM fp_postings GROUP BY fingerprint HAVING count(DISTINCT content) > ?
+     ON CONFLICT DO NOTHING', $cap
+  );
+  $db->query('DELETE FROM fp_postings WHERE fingerprint IN (SELECT fingerprint FROM fp_stopwords)');
+  $tx->commit;
+}
+
+# The corpus version, bumped per build, in a small file in the shared cache dir. Losing it resets to 0, which
+# only makes clients drop their caches once (they invalidate on any change, not on ordering).
+sub generation ($self) {
+  my $g = eval { path($self->generation_file)->slurp } // '';
+  $g =~ s/\D//g;
+  return length $g ? 0 + $g : 0;
+}
+
+sub bump_generation ($self) {
+  my $file = path($self->generation_file);
+  my $tmp  = $file->sibling($file->basename . ".tmp.$$");
+  $tmp->spew($self->generation + 1);
+  rename $tmp, "$file" or die "cannot update fingerprint generation: $!\n";
+  return $self;
 }
 
 # Drop content bookkeeping for hashes no file references any more (their packages went obsolete or were
 # reindexed away). fp_files is pruned by the promote and obsolete cleanup, so without this fp_contents would
-# only ever grow. Called from the daily cleanup; segment space is reclaimed separately by a full rebuild.
+# only ever grow. Called from the daily cleanup; a pruned content's postings go with it via ON DELETE CASCADE.
 sub prune_contents ($self) {
   return $self->pg->db->query(
     'DELETE FROM fp_contents WHERE NOT EXISTS (SELECT 1 FROM fp_files WHERE fp_files.hash = fp_contents.hash)')->rows;
@@ -151,62 +198,96 @@ sub search_fingerprints (
   # No token-count guidance: the real floor is distinct fingerprints, which repetitive code reaches far later.
   return {matches => [], total => 0, too_short => \1} if @$qfps < MIN_QUERY_FINGERPRINTS;
 
-  # Apply the containment floor inside the scorer, so a query full of common fingerprints never ships its
-  # hundreds of thousands of coincidental matches back here just to be discarded.
+  my $db    = $self->pg->db;
   my $t0    = Time::HiRes::time;
-  my $all   = $self->_index->search($qfps, 0, MIN_CONTAINMENT);
+  my @bfps  = map { _fp_bigint($_) } @$qfps;
+  my $denom = scalar @bfps;
+  my $need  = int(MIN_CONTAINMENT * $denom);
+  $need++ if MIN_CONTAINMENT * $denom > $need;    # ceil: a match must clear the containment floor
+
+  # The inverted-index aggregate: hits per content over the query's fingerprints. Stopword fingerprints have no
+  # postings, so they cost nothing and simply do not contribute - no query-side pruning needed.
+  my $cand = $db->query(
+    "SELECT fp.content, c.hash, count(DISTINCT fp.fingerprint) AS hits
+       FROM fp_postings fp JOIN fp_contents c ON c.id = fp.content
+      WHERE fp.fingerprint = ANY(?::bigint[])
+      GROUP BY fp.content, c.hash
+      HAVING count(DISTINCT fp.fingerprint) >= ?", \@bfps, $need
+  )->hashes;
   my $t_idx = Time::HiRes::time;
 
-  # Drop obsolete (and embargoed when asked) carriers before paging: segments are append-only, so a content
-  # can outlive its files, and filtering here keeps offset and total consistent.
-  my %live = map { $_ => 1 } @{$self->_live_hashes([map { $_->[0] } @$all], $exclude_embargoed, $exclude_packages)};
-  @$all = grep { $live{$_->[0]} } @$all;
+  # Drop obsolete (and embargoed/excluded when asked) carriers before paging, keyed by hash, so offset/total
+  # stay consistent - a content can outlive or be excluded from its visible carriers.
+  my %live = map { $_ => 1 } @{$self->_live_hashes([map { $_->{hash} } @$cand], $exclude_embargoed, $exclude_packages)};
+  my @all  = grep { $live{$_->{hash}} } @$cand;
   my $t_db = Time::HiRes::time;
 
-  # A slow query is logged with where the time went: the index scan (a query full of common fingerprints)
-  # versus the database (liveness of the survivors).
   if ($self->log && int(($t_db - $t0) * 1000) >= SLOW_SEARCH_MS) {
     $self->log->info(
-      sprintf 'Slow code search: %d fingerprints, %d matches; index %dms, db %dms',
-      scalar @$qfps,
-      scalar @$all,
+      sprintf 'Slow code search: %d fingerprints, %d matches; aggregate %dms, db %dms',
+      $denom, scalar @all,
       int(($t_idx - $t0) * 1000),
       int(($t_db - $t_idx) * 1000)
     );
   }
 
-  # Order strongest first (containment, then how much of the file matched, so the file the snippet mostly *is*
-  # outranks one that merely embeds it).
-  @$all = sort { $b->[2] <=> $a->[2] || $b->[3] <=> $a->[3] } @$all;
-
-  my $total = scalar @$all;
+  # Strongest first by containment (hits/denom, and denom is constant so hits orders it); a stable hash tiebreak
+  # keeps paging deterministic.
+  @all = sort { $b->{hits} <=> $a->{hits} || $a->{hash} cmp $b->{hash} } @all;
+  my $total = scalar @all;
   return {matches => [], total => $total} if $offset >= $total;
   my $end = $offset + $limit - 1;
-  $end = $#$all if $end > $#$all;
-  my @page = @$all[$offset .. $end];
+  $end = $#all if $end > $#all;
+  my @page   = @all[$offset .. $end];
+  my @ids    = map { $_->{content} } @page;
+  my @hashes = map { $_->{hash} } @page;
 
-  my @hashes = map { $_->[0] } @page;
-  my $lic    = $self->_licenses_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
-  my $locs   = $self->_locations_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
-  my $decl   = $self->_declared_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
+  # For the page only: the matched postings (for alignment and the excerpt) and each content's stored
+  # fingerprint count (for the content-direction containment - no maintained column needed).
+  my %regions;
+  for my $p (
+    @{
+      $db->query(
+        'SELECT content, fingerprint, sline, eline FROM fp_postings WHERE content = ANY(?::int[]) AND fingerprint = ANY(?::bigint[])',
+        \@ids, \@bfps
+      )->hashes
+    }
+    )
+  {
+    push @{$regions{$p->{content}}}, [$p->{sline}, $p->{eline} - $p->{sline}, $p->{fingerprint}];    # [sline, span, fp]
+  }
+  my %cfps = map { $_->{content} => $_->{n} } @{
+    $db->query(
+      'SELECT content, count(DISTINCT fingerprint) AS n FROM fp_postings WHERE content = ANY(?::int[]) GROUP BY content',
+      \@ids
+    )->hashes
+  };
+
+  my $lic  = $self->_licenses_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
+  my $locs = $self->_locations_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
+  my $decl = $self->_declared_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
 
   my @matches;
-  for my $h (@page) {
-    my ($hash, undef, $containment, $containment_of, $regions) = @$h;    # [hash, hits, containment, of, regions]
-    my $where = $locs->{$hash} // [];
-    my ($marks, $aligned) = _alignment($regions, $qfps, $qspan);
+  for my $p (@page) {
+    my $hash    = $p->{hash};
+    my $regions = [sort { $a->[0] <=> $b->[0] } @{$regions{$p->{content}} // []}];
+    my $where   = $locs->{$hash} // [];
+
+    # Marks are over the query's own fingerprints in order (@bfps mirrors @$qfps); a stopword query fingerprint
+    # never aligns, like any unmatched one.
+    my ($marks, $aligned) = _alignment($regions, \@bfps, $qspan);
     push @matches, {
       hash           => $hash,
-      containment    => $containment,
-      containment_of => $containment_of,
+      containment    => $p->{hits} / $denom,
+      containment_of => $p->{hits} / ($cfps{$p->{content}} || $p->{hits}),
       licenses       => $lic->{$hash}{licenses} // [],
-      risk           => $lic->{$hash}{risk},             # max license risk (Cavil's 1-9 scale), undef if none
-      files          => $where,
-      excerpt        => $self->_excerpt($where->[0], $regions->[0]),
-      marks          => $marks,                                      # per query fingerprint, in order: 1 aligned, 0 not
-      aligned        => $aligned,
-      total          => scalar @$qfps,
-      exact          => ($aligned == @$qfps ? true : false),         # Mojo::JSON booleans: correct in Perl and JSON
+      risk    => $lic->{$hash}{risk},                           # max license risk (Cavil's 1-9 scale), undef if none
+      files   => $where,
+      excerpt => $self->_excerpt($where->[0], $regions->[0]),
+      marks   => $marks,                                        # per query fingerprint, in order: 1 aligned, 0 not
+      aligned => $aligned,
+      total   => scalar @$qfps,
+      exact   => ($aligned == @$qfps ? true : false),           # Mojo::JSON booleans: correct in Perl and JSON
 
       # The carrier's declared main license when this content is its own (non-vendored) source; accompanies the
       # per-file licenses above, which still drive the risk. Absent when no non-vendored carrier declares one.
@@ -215,10 +296,6 @@ sub search_fingerprints (
   }
   return {matches => \@matches, total => $total};
 }
-
-# The on-disk index generation, bumped on every rebuild. A client caches search results against it and drops
-# them when it changes, so a reindex never leaves stale matches behind.
-sub generation ($self) { $self->_index->generation }
 
 # Batch content-hash lookup for the CLI: for each hash Cavil has seen, its licenses, max risk, and one package
 # and path that carry it (so the client can say what a recognized file is a copy of, not just "a known

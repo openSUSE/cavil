@@ -16,7 +16,7 @@ use lib "$FindBin::Bin/../lib";
 use lib "$FindBin::Bin/../../lib";
 
 use Mojo::Server::Daemon;
-use Mojo::File qw(curfile tempdir);
+use Mojo::File qw(curfile);
 use Mojo::JSON qw(from_json to_json);
 use Test::Mojo;
 use Cavil::Test;
@@ -43,8 +43,8 @@ $config->{snippet_fold}
 $config->{max_file_browser_size} = 2000 if $fixtures eq 'large_file';
 
 # Code search on: the standard fixtures then index themselves as a side effect (FileIndexer records
-# content hashes, the analyze pipeline builds the fingerprint segment), so the page has data to find.
-$config->{codesearch} = {enabled => 1, index_dir => "@{[tempdir]}", k => 5, w => 16} if $fixtures eq 'codesearch';
+# content hashes, the analyze pipeline builds the fingerprint inverted index), so the page has data to find.
+$config->{codesearch} = {enabled => 1, k => 5, w => 16} if $fixtures eq 'codesearch';
 
 my $app = Test::Mojo->new(Cavil => $config)->app;
 $daemon->app($app);

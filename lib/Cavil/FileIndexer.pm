@@ -58,7 +58,7 @@ sub file ($self, $meta, $path, $mime) {
   # Snippet code search: map this file's content hash to (package, path) so a later query can resolve a
   # fingerprint match back to where the code lives. Only the cheap hash is done here (the file is already
   # warm from keyword_report); winnowing happens off the hot path in the fingerprint_build task. The hash
-  # is the same one the segment store keys on, so the two join.
+  # is the content key fp_contents/fp_postings use, so the two join.
   if ($self->{codesearch} && !$ignored_file) {
     my $hash = Cavil::Matcher::content_hash($self->dir->child('.unpacked', $path)->to_string);
     $self->{app}->fingerprints->record_file($self->{db}, $package, $path, $hash, $self->{generation});

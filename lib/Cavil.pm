@@ -158,10 +158,10 @@ sub startup ($self) {
     fingerprints => sub ($c) {
       return undef unless my $cfg = $c->codesearch;
       state $fp = Cavil::Model::Fingerprints->new(
-        pg           => $c->pg,
-        log          => $self->log,
-        checkout_dir => $config->{checkout_dir},
-        index_dir    => $cfg->{index_dir} // path($config->{cache_dir})->child('fpindex')->make_path->to_string,
+        pg              => $c->pg,
+        log             => $self->log,
+        checkout_dir    => $config->{checkout_dir},
+        generation_file => path($config->{cache_dir})->make_path->child('fp-generation')->to_string,
         (defined $cfg->{k} ? (k => $cfg->{k}) : ()), (defined $cfg->{w} ? (w => $cfg->{w}) : ())
       );
     }

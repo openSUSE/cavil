@@ -525,9 +525,28 @@ CREATE TABLE fp_contents (
 );
 CREATE INDEX fp_contents_pending_idx ON fp_contents (hash) WHERE state = 'pending';
 
--- 62 down
-DROP TABLE IF EXISTS fp_files;
-DROP TABLE IF EXISTS fp_contents;
-
 -- 63 up
 ALTER TABLE bot_reports ADD COLUMN declared_license text;
+
+-- 64 up
+DROP TABLE IF EXISTS fp_contents;
+CREATE TABLE fp_contents (
+  id      serial PRIMARY KEY,
+  hash    text NOT NULL UNIQUE,
+  indexed boolean NOT NULL DEFAULT false
+);
+CREATE INDEX fp_contents_pending_idx ON fp_contents (id) WHERE NOT indexed;
+CREATE TABLE fp_postings (
+  content     int    NOT NULL REFERENCES fp_contents(id) ON DELETE CASCADE,
+  fingerprint bigint NOT NULL,
+  sline       int    NOT NULL,
+  eline       int    NOT NULL
+) PARTITION BY HASH (fingerprint);
+DO $$ BEGIN
+  FOR i IN 0..31 LOOP
+    EXECUTE format('CREATE TABLE fp_postings_%s PARTITION OF fp_postings FOR VALUES WITH (MODULUS 32, REMAINDER %s)', i, i);
+  END LOOP;
+END $$;
+CREATE INDEX ON fp_postings (fingerprint, content);
+CREATE INDEX ON fp_postings (content);
+CREATE TABLE fp_stopwords (fingerprint bigint PRIMARY KEY);
