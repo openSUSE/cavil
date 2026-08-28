@@ -550,3 +550,10 @@ END $$;
 CREATE INDEX ON fp_postings (fingerprint, content);
 CREATE INDEX ON fp_postings (content);
 CREATE TABLE fp_stopwords (fingerprint bigint PRIMARY KEY);
+
+-- 65 up
+ALTER TABLE fp_contents ADD COLUMN fingerprints bigint[];
+ALTER TABLE fp_contents ADD COLUMN slines int[];
+ALTER TABLE fp_contents ADD COLUMN elines int[];
+CREATE INDEX fp_contents_fingerprints_idx ON fp_contents USING gin (fingerprints);
+DROP TABLE fp_postings;

@@ -416,37 +416,42 @@ subtest 'cleanup prunes content bookkeeping with no files left' => sub {
   ok $db->query('SELECT 1 FROM fp_contents WHERE hash = ?',  $kept)->rows,   'referenced content is kept';
 };
 
-subtest 'refresh_stopwords prunes a ubiquitous fingerprint out of the index' => sub {
+subtest 'refresh_stopwords records a ubiquitous fingerprint, and the query prunes it' => sub {
 
   # Pick a cap above every real fingerprint's document frequency, then seed one synthetic fingerprint above it.
-  my $maxdf
-    = $db->query(
-    'SELECT COALESCE(max(df), 0) FROM (SELECT count(DISTINCT content) df FROM fp_postings GROUP BY fingerprint) s')
-    ->array->[0];
+  my $maxdf = $db->query(
+    'SELECT COALESCE(max(df), 0) FROM
+       (SELECT count(*) df FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp) s')->array->[0];
   my $cap    = $maxdf + 2;
   my $common = 4242424242;
   my @ids;
   for (1 .. $cap + 3) {
-    my $id
-      = $db->query('INSERT INTO fp_contents (hash, indexed) VALUES (?, true) RETURNING id', "stopword-$_")->array->[0];
-    push @ids, $id;
-    $db->query('INSERT INTO fp_postings (content, fingerprint, sline, eline) VALUES (?, ?, 1, 1)', $id, $common);
+    push @ids, $db->query(
+      'INSERT INTO fp_contents (hash, indexed, fingerprints, slines, elines)
+         VALUES (?, true, ?::bigint[], ?::int[], ?::int[]) RETURNING id', "stopword-$_", [$common], [1], [1]
+    )->array->[0];
   }
 
-  # A real fingerprint (DF <= cap) to prove only the over-cap one is pruned.
-  my $real = $db->query('SELECT fingerprint FROM fp_postings WHERE fingerprint <> ? LIMIT 1', $common)->array->[0];
+  # A real fingerprint (DF <= cap) to prove only the over-cap one becomes a stopword.
+  my $real = $db->query('SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE fp <> ? LIMIT 1', $common)
+    ->array->[0];
 
   $app->fingerprints->refresh_stopwords($cap);
 
   ok $db->query('SELECT 1 FROM fp_stopwords WHERE fingerprint = ?', $common)->rows,
     'the over-cap fingerprint became a stopword';
-  is $db->query('SELECT count(*) FROM fp_postings WHERE fingerprint = ?', $common)->array->[0], 0,
-    'and its postings were deleted from the index';
   ok !$db->query('SELECT 1 FROM fp_stopwords WHERE fingerprint = ?', $real)->rows,
     'a below-cap fingerprint is left alone';
-  ok $db->query('SELECT 1 FROM fp_postings WHERE fingerprint = ?', $real)->rows, 'and keeps its postings';
 
-  $db->query('DELETE FROM fp_contents WHERE id = ANY(?)',      \@ids);     # cascades any leftover postings
+  # It stays in the arrays (GIN compresses it away) but is dropped from the query, so the contents that carry only
+  # it are never dragged into the candidate set: a query of the sample plus the stopword still finds the sample and
+  # none of the stopword-only contents.
+  my $stored = $db->query('SELECT fingerprints FROM fp_contents WHERE hash = ?', $sample->{hash})->array->[0];
+  my $matches = $app->fingerprints->search_fingerprints([@$stored, $common], 1, 50)->{matches};
+  ok +(grep { $_->{hash} eq $sample->{hash} } @$matches), 'the real content is still found';
+  ok !(grep { $_->{hash} =~ /^stopword-/ } @$matches), 'a content sharing only the stopword is not pulled in';
+
+  $db->query('DELETE FROM fp_contents WHERE id = ANY(?)',      \@ids);
   $db->query('DELETE FROM fp_stopwords WHERE fingerprint = ?', $common);
 };
 
@@ -463,19 +468,19 @@ subtest 'generation advances on each build so clients drop stale caches' => sub 
   is $app->fingerprints->generation, $g0 + 1, 'generation is bumped';
 };
 
-subtest 'the build skips postings for known stopwords, keeping repeated positions of the rest' => sub {
+subtest 'the build stores one array entry per distinct fingerprint, at its first position' => sub {
   my $id
-    = $db->query('INSERT INTO fp_contents (hash, indexed) VALUES (?, true) RETURNING id', 'store-postings')->array->[0];
-  my $keep = Cavil::Model::Fingerprints::_fp_bigint(111);
-  my $drop = Cavil::Model::Fingerprints::_fp_bigint(222);
-  $app->fingerprints->_store_postings($db, $id, [[111, 1, 1], [222, 2, 2], [111, 3, 3]], {$drop => 1});
+    = $db->query('INSERT INTO fp_contents (hash, indexed) VALUES (?, false) RETURNING id', 'store-arrays')->array->[0];
+  $app->fingerprints->_store_arrays($db, $id, [[111, 1, 1], [222, 2, 5], [111, 3, 3]]);
 
-  is $db->query('SELECT count(*) FROM fp_postings WHERE content = ? AND fingerprint = ?', $id, $keep)->array->[0], 2,
-    'a kept fingerprint is stored once per position';
-  is $db->query('SELECT count(*) FROM fp_postings WHERE content = ? AND fingerprint = ?', $id, $drop)->array->[0], 0,
-    'a stopword fingerprint is never stored';
+  my $row = $db->query('SELECT fingerprints, slines, elines, indexed FROM fp_contents WHERE id = ?', $id)->hash;
+  is_deeply $row->{fingerprints}, [Cavil::Model::Fingerprints::_fp_bigint(111), Cavil::Model::Fingerprints::_fp_bigint(222)],
+    'each distinct fingerprint is stored once, in first-seen order (the repeat is dropped)';
+  is_deeply $row->{slines}, [1, 2], 'with the start line of its first occurrence';
+  is_deeply $row->{elines}, [1, 5], 'and the matching end line';
+  ok $row->{indexed}, 'and the content is marked indexed';
 
-  $db->query('DELETE FROM fp_contents WHERE id = ?', $id);    # cascade removes the postings
+  $db->query('DELETE FROM fp_contents WHERE id = ?', $id);
 };
 
 subtest 'fingerprints reinterpret uint64 to signed bigint losslessly and bijectively' => sub {

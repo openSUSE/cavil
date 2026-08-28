@@ -207,15 +207,15 @@ codesearch => {
 }
 ```
 
-The fingerprint index lives in Postgres (an inverted index of fingerprint -> content, tens of gigabytes on a
-large corpus, and safe to exclude from backups since it is regenerable), so enabling the feature needs nothing
-more. `k` and `w` are the winnowing parameters: a token is a word or identifier (operators and punctuation do
-not count). The defaults `k = 4`, `w = 8` were tuned on a mixed C/C++/Perl/Python corpus to make function-sized
-pastes (~15-25 lines) searchable and to keep recall high on edited or AI-derived code. Raising `w` shrinks the
-index (roughly `2/(w+1)` of the grams are kept) but only matches larger pastes; `w = 16` is about half the size
-but leaves many single functions too short to locate. Ubiquitous fingerprints above a document-frequency cap
-are dropped from the index entirely (a stopword set) - the other size and precision knob, deliberately
-aggressive. Changing `k`/`w` needs a full rebuild.
+The fingerprint index lives in Postgres (a GIN inverted index over each content's fingerprint array, tens of
+gigabytes on a large corpus, and safe to exclude from backups since it is regenerable), so enabling the feature
+needs nothing more. `k` and `w` are the winnowing parameters: a token is a word or identifier (operators and
+punctuation do not count). The defaults `k = 4`, `w = 8` were tuned on a mixed C/C++/Perl/Python corpus to make
+function-sized pastes (~15-25 lines) searchable and to keep recall high on edited or AI-derived code. Raising `w`
+shrinks the index (roughly `2/(w+1)` of the grams are kept) but only matches larger pastes; `w = 16` is about
+half the size but leaves many single functions too short to locate. Ubiquitous fingerprints above a
+document-frequency cap are recorded as a stopword set and pruned from every query - the other precision knob,
+deliberately aggressive. Changing `k`/`w` needs a full rebuild.
 
 Indexing only records which content needs fingerprinting; the fingerprints themselves are built by the daily
 cleanup job (see [Maintenance](Maintenance.md)), so the index trails the corpus by up to a day. To build on

@@ -93,9 +93,9 @@ The `reindex_all` and `obsolete` tasks are exactly what the manual commands belo
 recommended way to run reindexing and cleanup.
 
 When code search is enabled, the daily cleanup also builds the new fingerprints, refreshes the stopword set, and prunes
-stale content, so nothing extra needs scheduling for it. The fingerprints live in a Postgres inverted index; it and the
-other code-search tables (`fp_postings`, `fp_files`, `fp_contents`, `fp_stopwords`) are large but fully regenerable, so
-exclude their data from database backups.
+stale content, so nothing extra needs scheduling for it. The fingerprints live in a Postgres GIN inverted index; it and
+the other code-search tables (`fp_files`, `fp_contents`, `fp_stopwords`) are large but fully regenerable, so exclude
+their data from database backups.
 
 ### Collecting abandoned builds
 

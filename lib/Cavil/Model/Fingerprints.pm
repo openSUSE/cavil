@@ -1,12 +1,13 @@
 # SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# The fingerprint index for snippet code search: a Postgres inverted index. fp_files maps a content hash to
-# the packages/paths that carry it (generation-tracked, so it rides the report's atomic promote), fp_contents
-# is the content dimension (a compact id per distinct content), and fp_postings is the inverted index proper -
-# fingerprint -> content, with line positions - hash-partitioned by fingerprint. Ubiquitous fingerprints are
-# pruned into fp_stopwords at build time and never stored, so a query only ever touches the postings of its own
-# (discriminative) fingerprints. Only used when code search is enabled (see Cavil::codesearch).
+# The fingerprint index for snippet code search: a Postgres GIN inverted index. fp_files maps a content hash to
+# the packages/paths that carry it (generation-tracked, so it rides the report's atomic promote), and fp_contents
+# is the content dimension - one row per distinct content holding its winnowed fingerprints as a GIN-indexed
+# bigint[] with parallel slines/elines arrays for the line positions. A query overlaps (&&) its own fingerprints
+# against those arrays, so it only touches contents that share one. Ubiquitous fingerprints are recorded in
+# fp_stopwords and pruned from the query (not the arrays), so a common gram never blows the candidate set up.
+# Only used when code search is enabled (see Cavil::codesearch).
 
 package Cavil::Model::Fingerprints;
 use Mojo::Base -base, -signatures;
@@ -49,21 +50,19 @@ sub queue_contents ($self, $db, $hashes) {
   $db->query('INSERT INTO fp_contents (hash) VALUES (?) ON CONFLICT (hash) DO NOTHING', $_) for sort keys %$hashes;
 }
 
-# Discard the whole index so the next build starts fresh (a k/w change or a forced rebuild): drop every
-# posting and stopword and set every content back to pending. Cheap next to a re-winnow, and the reindex
-# repopulates.
+# Discard the whole index so the next build starts fresh (a k/w change or a forced rebuild): drop the stopwords
+# and set every content back to pending. The stale arrays are simply overwritten as each content is rebuilt, and
+# search ignores non-indexed rows, so there is nothing to clear. Cheap next to a re-winnow.
 sub reset_index ($self) {
   my $db = $self->pg->db;
   my $tx = $db->begin;
-  $db->query('TRUNCATE fp_postings');
   $db->query('DELETE FROM fp_stopwords');
   $db->query('UPDATE fp_contents SET indexed = false WHERE indexed');
   $tx->commit;
 }
 
-# Fingerprint up to $limit not-yet-indexed contents into the inverted index. One representative file per content
-# is enough (all copies share the bytes). Postings for known stopwords are skipped so common fingerprints are
-# never stored; a from-scratch reindex (empty stopwords) stores everything and refresh_stopwords prunes after.
+# Fingerprint up to $limit not-yet-indexed contents into the index. One representative file per content is enough
+# (all copies share the bytes).
 sub build_pending ($self, $limit = 20000) {
   my $db   = $self->pg->db;
   my $rows = $db->query(
@@ -78,45 +77,42 @@ sub build_pending ($self, $limit = 20000) {
   )->hashes;
   return 0 unless @$rows;
 
-  my %stop = map { $_->{fingerprint} => 1 } @{$db->query('SELECT fingerprint FROM fp_stopwords')->hashes};
-
   my $tx = $db->begin;
   for my $r (@$rows) {
     my $abs = checkout_path($self->checkout_dir, $r->{name}, $r->{co}, '.unpacked', $r->{filename});
-    $self->_store_postings($db, $r->{id}, Cavil::Matcher::fingerprint_file("$abs", $self->k, $self->w), \%stop);
-    $db->query('UPDATE fp_contents SET indexed = true WHERE id = ?', $r->{id});
+    $self->_store_arrays($db, $r->{id}, Cavil::Matcher::fingerprint_file("$abs", $self->k, $self->w));
   }
   $tx->commit;
   return scalar @$rows;
 }
 
-# Insert a content's winnowed rows as postings (signed fingerprint + line span), skipping stopwords, in bind-
-# limit-safe chunks (4 params per row).
-sub _store_postings ($self, $db, $content, $raw, $stop) {
-  my @tuples;
+# Store a content's winnowed fingerprints as a GIN-indexed array with parallel line positions, one entry per
+# distinct fingerprint (its first occurrence). Stopwords are kept here and pruned from the query instead, so a
+# shifting stopword set never has to rewrite arrays.
+sub _store_arrays ($self, $db, $content, $raw) {
+  my (%seen, @fp, @sl, @el);
   for my $row (@$raw) {
     my $fp = _fp_bigint($row->[0]);
-    push @tuples, [$content, $fp, $row->[1], $row->[2]] unless $stop->{$fp};
+    next if $seen{$fp}++;
+    push @fp, $fp;
+    push @sl, $row->[1];
+    push @el, $row->[2];
   }
-  while (my @chunk = splice @tuples, 0, 10000) {
-    my $sql
-      = 'INSERT INTO fp_postings (content, fingerprint, sline, eline) VALUES ' . join(',', ('(?, ?, ?, ?)') x @chunk);
-    $db->query($sql, map {@$_} @chunk);
-  }
+  $db->query(
+    'UPDATE fp_contents SET fingerprints = ?::bigint[], slines = ?::int[], elines = ?::int[], indexed = true
+                WHERE id = ?', \@fp, \@sl, \@el, $content
+  );
 }
 
-# Recompute the stopword set over the current postings and delete their rows, so ubiquitous fingerprints stop
-# occupying the index. A GROUP BY + DELETE over postings, no re-winnowing; run at the end of a build.
+# Recompute the stopword set - fingerprints whose document frequency exceeds the cap - over the current arrays,
+# so the query can prune them. No array rewrite: they stay stored (GIN compresses them away) and are dropped at
+# query time. A GROUP BY over the unnested arrays, no re-winnowing; run at the end of a build.
 sub refresh_stopwords ($self, $cap = DF_CAP) {
-  my $db = $self->pg->db;
-  my $tx = $db->begin;
-  $db->query(
+  $self->pg->db->query(
     'INSERT INTO fp_stopwords (fingerprint)
-       SELECT fingerprint FROM fp_postings GROUP BY fingerprint HAVING count(DISTINCT content) > ?
+       SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp HAVING count(*) > ?
      ON CONFLICT DO NOTHING', $cap
   );
-  $db->query('DELETE FROM fp_postings WHERE fingerprint IN (SELECT fingerprint FROM fp_stopwords)');
-  $tx->commit;
 }
 
 # The corpus version, bumped per build, in a small file in the shared cache dir. Losing it resets to 0, which
@@ -137,7 +133,7 @@ sub bump_generation ($self) {
 
 # Drop content bookkeeping for hashes no file references any more (their packages went obsolete or were
 # reindexed away). fp_files is pruned by the promote and obsolete cleanup, so without this fp_contents would
-# only ever grow. Called from the daily cleanup; a pruned content's postings go with it via ON DELETE CASCADE.
+# only ever grow. Called from the daily cleanup; a pruned content's fingerprint arrays go with its row.
 sub prune_contents ($self) {
   return $self->pg->db->query(
     'DELETE FROM fp_contents WHERE NOT EXISTS (SELECT 1 FROM fp_files WHERE fp_files.hash = fp_contents.hash)')->rows;
@@ -205,14 +201,26 @@ sub search_fingerprints (
   my $need  = int(MIN_CONTAINMENT * $denom);
   $need++ if MIN_CONTAINMENT * $denom > $need;    # ceil: a match must clear the containment floor
 
-  # The inverted-index aggregate: hits per content over the query's fingerprints. Stopword fingerprints have no
-  # postings, so they cost nothing and simply do not contribute - no query-side pruning needed.
+  # Prune stopword fingerprints from the query: a ubiquitous gram sits in a huge fraction of contents, so an
+  # overlap on it would pull the whole corpus into the candidate set. denom stays the full query size, so a
+  # stopword-heavy query simply scores lower, exactly as if those grams were absent from the index.
+  my %stop = map { $_->{fingerprint} => 1 }
+    @{$db->query('SELECT fingerprint FROM fp_stopwords WHERE fingerprint = ANY(?::bigint[])', \@bfps)->hashes};
+  my @live = grep { !$stop{$_} } @bfps;
+  return {matches => [], total => 0} unless @live;
+
+  # The GIN aggregate: candidates are contents whose array overlaps a live query fingerprint (index scan), then
+  # count how many of them each shares. Materialized so the overlap prefilter runs before the unnest, keeping the
+  # unnest to the handful of candidates instead of the whole table.
   my $cand = $db->query(
-    "SELECT fp.content, c.hash, count(DISTINCT fp.fingerprint) AS hits
-       FROM fp_postings fp JOIN fp_contents c ON c.id = fp.content
-      WHERE fp.fingerprint = ANY(?::bigint[])
-      GROUP BY fp.content, c.hash
-      HAVING count(DISTINCT fp.fingerprint) >= ?", \@bfps, $need
+    "WITH cand AS MATERIALIZED (
+       SELECT id, hash, fingerprints FROM fp_contents WHERE indexed AND fingerprints && ?::bigint[]
+     )
+     SELECT c.id AS content, c.hash, count(*) AS hits
+       FROM cand c, unnest(c.fingerprints) f
+      WHERE f = ANY(?::bigint[])
+      GROUP BY c.id, c.hash
+      HAVING count(*) >= ?", \@live, \@live, $need
   )->hashes;
   my $t_idx = Time::HiRes::time;
 
@@ -242,24 +250,28 @@ sub search_fingerprints (
   my @ids    = map { $_->{content} } @page;
   my @hashes = map { $_->{hash} } @page;
 
-  # For the page only: the matched postings (for alignment and the excerpt) and each content's stored
-  # fingerprint count (for the content-direction containment - no maintained column needed).
+  # For the page only, straight from each content's arrays: the matched line positions (for alignment and the
+  # excerpt) and its stored fingerprint count for the content-direction containment. Both use the live query
+  # fingerprints and exclude stopwords, so a stopword gram never spuriously aligns and a self-match reads ~1.0.
   my %regions;
   for my $p (
     @{
       $db->query(
-        'SELECT content, fingerprint, sline, eline FROM fp_postings WHERE content = ANY(?::int[]) AND fingerprint = ANY(?::bigint[])',
-        \@ids, \@bfps
+        'SELECT c.id AS content, u.fp, u.sl, u.el
+           FROM fp_contents c, unnest(c.fingerprints, c.slines, c.elines) AS u(fp, sl, el)
+          WHERE c.id = ANY(?::int[]) AND u.fp = ANY(?::bigint[])', \@ids, \@live
       )->hashes
     }
     )
   {
-    push @{$regions{$p->{content}}}, [$p->{sline}, $p->{eline} - $p->{sline}, $p->{fingerprint}];    # [sline, span, fp]
+    push @{$regions{$p->{content}}}, [$p->{sl}, $p->{el} - $p->{sl}, $p->{fp}];    # [sline, span, fp]
   }
   my %cfps = map { $_->{content} => $_->{n} } @{
     $db->query(
-      'SELECT content, count(DISTINCT fingerprint) AS n FROM fp_postings WHERE content = ANY(?::int[]) GROUP BY content',
-      \@ids
+      'SELECT c.id AS content, count(*) AS n
+         FROM fp_contents c, unnest(c.fingerprints) f
+        WHERE c.id = ANY(?::int[]) AND f NOT IN (SELECT fingerprint FROM fp_stopwords)
+        GROUP BY c.id', \@ids
     )->hashes
   };
 

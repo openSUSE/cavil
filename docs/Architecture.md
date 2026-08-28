@@ -956,6 +956,66 @@ In short: the design is comfortable to a few hundred thousand patterns with no r
 index between workers has pushed the memory ceiling well out of sight. What is left to hurt first - long before any hard
 limit - is the rebuild-everything-on-any-change cache behaviour, and the engine already has what is needed to fix it.
 
+## Code Search
+
+Code search answers a different question from license detection: not "what license is this text" but "has Cavil
+already seen this code, and where". It backs the `cavil` command-line client, which an engineer or a CI job points
+at a working tree to find out whether files are copies of something already indexed (open source or the commercial
+software Cavil also carries), and it powers the "found in" provenance strip in the report browser. The unit is a
+whole file's content, identified by hash, so recognition is exact and license-neutral: the client sends content
+hashes and gets back the packages that carry them, their detected licenses and risk, and the declared license of
+any non-vendored carrier.
+
+Near-duplicate detection - "this file *resembles* known code" rather than "is byte-identical to it" - uses
+**winnowing**. A file is tokenised (identifiers and words; punctuation and operators are ignored), hashed in
+overlapping k-token grams, and a deterministic sliding window of `w` grams keeps a stable subset of gram hashes as
+the file's **fingerprints**. Because the selection is positional, not random, an edited copy keeps most of the
+originals fingerprints, so resemblance becomes set overlap: **containment** is the fraction of a query's
+fingerprints found in a stored file. The client winnows locally with the same `k`/`w` the server publishes, so
+only fingerprints - never source - leave the machine.
+
+### The inverted index and its two tricks
+
+The corpus is large and grows fast, so the lookup is a text-search **inverted index**: given a query's
+fingerprints, find the contents that share enough of them, without ever scanning the corpus. Two design choices
+are worth explaining, because the obvious alternatives are what an earlier version actually did, and both hurt.
+
+**Arrays with a GIN index, not a row per posting.** The natural relational shape is one row per
+(content, fingerprint) - a classic posting list. It works, but at corpus scale every posting pays a full row's
+overhead (a tuple header plus its own entries in two btree indexes), which dwarfs the ~20 bytes of actual data, so
+the index balloons to hundreds of gigabytes to a terabyte. Instead each content is a single row holding its
+fingerprints as a `bigint[]`, with parallel arrays for the line positions, under a **GIN index**. GIN stores one
+compressed posting list per fingerprint value with no per-posting tuple header, which measured about four times
+smaller than the row-per-posting table at the same query latency. A query is an array-overlap (`&&`) against the
+GIN index, which returns just the contents that share a fingerprint; those candidates are then unnested to count
+the overlap and read out the matched line positions for the result preview.
+
+The one subtlety is that the overlap must run *before* the unnest, or Postgres will happily unnest every content
+in the table and filter afterwards - turning a millisecond lookup into a full scan. Forcing the overlap prefilter
+to materialise first (a `MATERIALIZED` CTE) keeps the unnest bounded to the handful of real candidates.
+
+**Stopwords are pruned from the query, not from the index.** A handful of fingerprints are ubiquitous - the grams
+of boilerplate that appear in a large fraction of all files. They discriminate nothing, and worse, an overlap on
+one of them would pull almost the whole corpus into the candidate set and defeat the index. Fingerprints whose
+document frequency exceeds a cap are therefore recorded as a **stopword set** and dropped from each query before
+the overlap runs. They are *not* deleted from the stored arrays: doing that would mean rewriting every array
+whenever the stopword set shifts (a daily build recomputes it), whereas leaving them in costs almost nothing
+because GIN compresses a value that appears everywhere down to near-free. The query's denominator stays the full
+fingerprint count, so a boilerplate-heavy paste simply scores lower rather than matching spuriously - which is the
+correct outcome for a tool meant to catch copied *functions*, not to match shared boilerplate. This cap is the
+main precision and size knob, and is deliberately aggressive (see [Setup](Setup.md)).
+
+### Freshness and maintenance
+
+Indexing a package only records which content hashes exist; the winnowing itself runs off the hot path in the
+daily build job, so the index trails the corpus by up to a day. That job fingerprints the newly-seen contents,
+refreshes the stopword set, and bumps a **generation** counter that the client caches against, dropping its local
+cache whenever the corpus changes. Contents are content-addressed, so an already-indexed hash is never
+re-winnowed: after the initial full build the index grows by small inserts for genuinely new content and shrinks
+by pruning contents whose files have all gone obsolete. Only a `k`/`w` change forces a full rebuild from scratch.
+The index is large but entirely regenerable from the checkouts, so its tables are excluded from database backups
+(see [Maintenance](Maintenance.md)).
+
 ## AI Text Classification
 
 Text classification via a machine learning model runs as an HTTP service that needs to be configured; the automated
