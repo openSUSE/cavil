@@ -525,6 +525,10 @@ CREATE TABLE fp_contents (
 );
 CREATE INDEX fp_contents_pending_idx ON fp_contents (hash) WHERE state = 'pending';
 
+-- 62 down
+DROP TABLE IF EXISTS fp_contents;
+DROP TABLE IF EXISTS fp_files;
+
 -- 63 up
 ALTER TABLE bot_reports ADD COLUMN declared_license text;
 
@@ -550,6 +554,11 @@ END $$;
 CREATE INDEX ON fp_postings (fingerprint, content);
 CREATE INDEX ON fp_postings (content);
 CREATE TABLE fp_stopwords (fingerprint bigint PRIMARY KEY);
+
+-- 64 down
+DROP TABLE IF EXISTS fp_stopwords;
+DROP TABLE IF EXISTS fp_postings;
+DROP TABLE IF EXISTS fp_contents;
 
 -- 65 up
 ALTER TABLE fp_contents ADD COLUMN fingerprints bigint[];
