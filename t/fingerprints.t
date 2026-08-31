@@ -570,7 +570,7 @@ subtest 'the build stores one array entry per distinct fingerprint, at its first
 
   my $row = $db->query('SELECT fingerprints, slines, elines, indexed FROM fp_contents WHERE id = ?', $id)->hash;
   is_deeply $row->{fingerprints},
-    [Cavil::Model::Fingerprints::_fp_bigint(111), Cavil::Model::Fingerprints::_fp_bigint(222)],
+    [(Cavil::Model::Fingerprints::_fp_bigints(111))[0], (Cavil::Model::Fingerprints::_fp_bigints(222))[0]],
     'each distinct fingerprint is stored once, in first-seen order (the repeat is dropped)';
   is_deeply $row->{slines}, [1, 2], 'with the start line of its first occurrence';
   is_deeply $row->{elines}, [1, 5], 'and the matching end line';
@@ -590,7 +590,7 @@ subtest 'a pathologically large content is capped to max_fingerprints' => sub {
   my $row = $db->query('SELECT fingerprints, slines, elines FROM fp_contents WHERE id = ?', $id)->hash;
   is scalar @{$row->{fingerprints}}, 2, 'only the first max_fingerprints are stored';
   is_deeply $row->{fingerprints},
-    [Cavil::Model::Fingerprints::_fp_bigint(10), Cavil::Model::Fingerprints::_fp_bigint(20)],
+    [(Cavil::Model::Fingerprints::_fp_bigints(10))[0], (Cavil::Model::Fingerprints::_fp_bigints(20))[0]],
     'keeping the earliest in file order';
   is_deeply $row->{slines}, [1, 2], 'positions are truncated in step';
   is_deeply $row->{elines}, [1, 2], 'both position arrays stay aligned';
@@ -621,12 +621,17 @@ subtest 'an oversized query is capped to max_fingerprints' => sub {
 };
 
 subtest 'fingerprints reinterpret uint64 to signed bigint losslessly and bijectively' => sub {
-  is Cavil::Model::Fingerprints::_fp_bigint(5),                       5, 'a small value is unchanged';
-  is Cavil::Model::Fingerprints::_fp_bigint('18446744073709551615'), -1, 'the top uint64 maps to -1';
-  is Cavil::Model::Fingerprints::_fp_bigint('9223372036854775808'), '-9223372036854775808',
-    '2^63 maps to the min int64';
-  isnt Cavil::Model::Fingerprints::_fp_bigint('9223372036854775808'),
-    Cavil::Model::Fingerprints::_fp_bigint('9223372036854775809'), 'adjacent values stay distinct';
+  my $conv = \&Cavil::Model::Fingerprints::_fp_bigints;
+
+  is_deeply [$conv->(5)],                      [ 5],                     'a small value is unchanged';
+  is_deeply [$conv->('18446744073709551615')], [-1],                     'the top uint64 maps to -1';
+  is_deeply [$conv->('9223372036854775808')],  ['-9223372036854775808'], '2^63 maps to the min int64';
+  isnt(($conv->('9223372036854775808'))[0], ($conv->('9223372036854775809'))[0], 'adjacent values stay distinct');
+
+  # Converted a list at a time for speed, so the list form has to agree value for value with the single form.
+  my @many = (0, 1, 5, '9223372036854775807', '9223372036854775808', '18446744073709551615');
+  is_deeply [$conv->(@many)], [map { ($conv->($_))[0] } @many], 'a list converts exactly as its values do';
+  is_deeply [$conv->()],      [],                               'and an empty list is empty, not a stray value';
 };
 
 done_testing;
