@@ -130,12 +130,14 @@ sub _store_arrays ($self, $db, $content, $raw) {
 
 # Recompute the stopword set - fingerprints whose document frequency exceeds the cap - over the current arrays,
 # so the query can prune them. No array rewrite: they stay stored (GIN compresses them away) and are dropped at
-# query time. A GROUP BY over the unnested arrays, no re-winnowing; run at the end of a build.
+# query time. ORDER BY is load-bearing, not tidiness: shards run this concurrently, and a GROUP BY emits rows in
+# hash order, so without one insert order two of them take conflict locks in opposite orders and deadlock.
 sub refresh_stopwords ($self, $cap = undef) {
   $cap //= $self->df_cap;
   $self->pg->db->query(
     'INSERT INTO fp_stopwords (fingerprint)
        SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp HAVING count(*) > ?
+       ORDER BY fp
      ON CONFLICT DO NOTHING', $cap
   );
 }
