@@ -24,12 +24,11 @@ has [qw(pg log checkout_dir generation_file)];
 has k => 4;
 has w => 8;
 
-# A fingerprint whose document frequency (contents it appears in) exceeds this is a stopword: pruned from every
-# query (never stored-out, just skipped) because it is common boilerplate that discriminates nothing and, left in,
-# drags a huge candidate set out of the index. The main precision and query-speed knob, config-driven
-# (codesearch.df_cap) so it can be tuned per deployment; deliberately aggressive. Absolute count, so during a
-# from-scratch rebuild the set is small until enough of the corpus is indexed - refresh with a lower cap for
-# interim speed if searches run hot mid-rebuild.
+# How many contents a fingerprint may be carried by before it stops discriminating a copy. It bounds the search
+# twice over, which is what keeps query cost predictable: refresh_stopwords records the fingerprints above it so
+# their posting lists are skipped outright, and search_fingerprints caps how many carriers of any ONE fingerprint
+# it will read, so total work stays under (query size x df_cap) even for a gram no stopword sweep has caught yet.
+# The main precision and query-speed knob, config-driven (codesearch.df_cap); deliberately aggressive.
 has df_cap => 500;
 
 # Cap on fingerprints stored per content (0 disables). A generated, minified or data file can winnow to tens of
@@ -223,9 +222,11 @@ sub search_fingerprints (
   my $need  = int(MIN_CONTAINMENT * $denom);
   $need++ if MIN_CONTAINMENT * $denom > $need;    # ceil: a match must clear the containment floor
 
-  # Prune stopword fingerprints from the query: a ubiquitous gram sits in a huge fraction of contents, so an
-  # overlap on it would pull the whole corpus into the candidate set. denom stays the full query size, so a
-  # stopword-heavy query simply scores lower, exactly as if those grams were absent from the index.
+  # Skip fingerprints already known to be ubiquitous, so their posting lists are never read at all. This is an
+  # optimization, not a correctness or safety requirement: the probe limit below independently bounds what any
+  # single fingerprint can cost, so a stopword the set has not caught yet (the set is recomputed as the corpus
+  # grows) is merely a little slower, never catastrophic. denom stays the full query size, so a query full of
+  # common grams simply scores lower.
   my %stop = map { $_->{fingerprint} => 1 }
     @{$db->query('SELECT fingerprint FROM fp_stopwords WHERE fingerprint = ANY(?::bigint[])', \@bfps)->hashes};
   my @live = grep { !$stop{$_} } @bfps;
@@ -236,12 +237,20 @@ sub search_fingerprints (
   # candidate's whole array, and with no per-element membership test - so cost tracks the postings read, not
   # (candidates x array size x query size). Counting via unnest+`f = ANY(query)` instead makes that ANY a linear
   # scan of the query array per element, which multiplied the work by the query size and cost tens of seconds.
+  #
+  # LIMIT bounds each fingerprint's contribution, which is what keeps the whole query safe: total work is at most
+  # (query size x df_cap) however common a gram turns out to be, instead of being dominated by the single worst
+  # one. Truncation only ever affects a fingerprint carried by more than df_cap contents, and such a fingerprint
+  # cannot identify a copy anyway - it is precisely what the stopword set exists to discard - so this reads as
+  # "look at up to df_cap carriers of any one gram" rather than as an approximation of something meaningful.
   my $cand = $db->query(
     "SELECT c.id AS content, c.hash, count(*) AS hits
        FROM unnest(?::bigint[]) AS q(fp)
-       JOIN fp_contents c ON c.indexed AND c.fingerprints @> ARRAY[q.fp]
+       CROSS JOIN LATERAL (
+         SELECT id, hash FROM fp_contents WHERE indexed AND fingerprints @> ARRAY[q.fp] LIMIT ?
+       ) c
       GROUP BY c.id, c.hash
-      HAVING count(*) >= ?", \@live, $need
+      HAVING count(*) >= ?", \@live, $self->df_cap, $need
   )->hashes;
   my $t_idx = Time::HiRes::time;
 

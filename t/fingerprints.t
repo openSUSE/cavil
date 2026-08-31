@@ -479,6 +479,41 @@ subtest 'refresh_stopwords records a ubiquitous fingerprint, and the query prune
   $db->query('DELETE FROM fp_stopwords WHERE fingerprint = ?', $common);
 };
 
+subtest 'a missing stopword costs speed, not correctness: the probe limit bounds every fingerprint' => sub {
+  my $fp   = $app->fingerprints;
+  my $prev = $fp->df_cap;
+
+  # Same ubiquitous fingerprint as above, but deliberately NOT recorded as a stopword - the state the index is in
+  # whenever the corpus has grown since the last sweep. Searches must stay correct and bounded regardless.
+  my $common = 4242424242;
+  my @ids;
+  for (1 .. 20) {
+    push @ids, $db->query(
+      'INSERT INTO fp_contents (hash, indexed, fingerprints, slines, elines)
+         VALUES (?, true, ?::bigint[], ?::int[], ?::int[]) RETURNING id', "unpruned-$_", [$common], [1], [1]
+    )->array->[0];
+  }
+  is $db->query('SELECT count(*) FROM fp_stopwords WHERE fingerprint = ?', $common)->array->[0], 0,
+    'the ubiquitous fingerprint is not in the stopword set';
+
+  my $stored = $db->query('SELECT fingerprints FROM fp_contents WHERE hash = ?', $sample->{hash})->array->[0];
+  my $query  = [@$stored, $common];
+
+  # The probe limit truncates how many carriers of the unpruned fingerprint are read; the real match is found on
+  # its own (rare) fingerprints either way, so the answer does not depend on the stopword sweep having run.
+  $fp->df_cap(2);
+  my $capped = $fp->search_fingerprints($query, 1, 50)->{matches};
+  ok +(grep { $_->{hash} eq $sample->{hash} } @$capped), 'the real content is still found with a tight probe limit';
+
+  $fp->df_cap(1000);
+  my $full = $fp->search_fingerprints($query, 1, 50)->{matches};
+  is_deeply [map { $_->{hash} } @$capped], [map { $_->{hash} } @$full],
+    'and a limit above every document frequency gives exactly the same matches, in the same order';
+
+  $fp->df_cap($prev);
+  $db->query('DELETE FROM fp_contents WHERE id = ANY(?)', \@ids);
+};
+
 subtest 'a query for fingerprints absent from the index returns nothing, fast' => sub {
   my @absent = map {"90000000000000000$_"} 1 .. 12;                    # distinctive values that cannot be in the corpus
   my $result = $app->fingerprints->search_fingerprints(\@absent, 1);
