@@ -78,8 +78,10 @@ sub reset_index ($self) {
 }
 
 # Fingerprint up to $limit not-yet-indexed contents into the index. One representative file per content is enough
-# (all copies share the bytes).
-sub build_pending ($self, $limit = 20000) {
+# (all copies share the bytes). Several builders can run at once, each taking one shard of the ids: the slices
+# are disjoint by construction, so two of them can never write the same row and nothing has to be claimed. A
+# single builder passes shards = 1, where "id % 1 = 0" is simply always true.
+sub build_pending ($self, $shard = 0, $shards = 1, $limit = 20000) {
   my $db   = $self->pg->db;
   my $rows = $db->query(
     "SELECT c.id, p.name, p.checkout_dir AS co, f.filename
@@ -88,8 +90,8 @@ sub build_pending ($self, $limit = 20000) {
          SELECT package, filename FROM fp_files WHERE hash = c.hash AND generation = 0 LIMIT 1
        ) f ON true
        JOIN bot_packages p ON p.id = f.package
-      WHERE NOT c.indexed
-      LIMIT ?", $limit
+      WHERE NOT c.indexed AND c.id % ? = ?
+      LIMIT ?", $shards, $shard, $limit
   )->hashes;
   return 0 unless @$rows;
 

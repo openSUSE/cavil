@@ -205,7 +205,8 @@ codesearch => {
   k                => 4,
   w                => 8,
   df_cap           => 500,
-  max_fingerprints => 5000
+  max_fingerprints => 5000,
+  workers          => 1
 }
 ```
 
@@ -225,6 +226,14 @@ a single content stores (0 disables): a generated, minified or data file can win
 because a search counts overlap by unnesting a candidate's whole array, one such giant content makes every query
 that shares a fingerprint with it slow. Such files are not function-copy targets, so only the first
 `max_fingerprints` (in file order) are kept. Changing `k`/`w` needs a full rebuild.
+
+`workers` is how many jobs build the index side by side, each taking a disjoint shard of the contents. Building
+is dominated by database writes, so builders overlap well - measured 1.9x at four - but they contend on the same
+index and gain little beyond that. The cost is worker slots: each shard holds one for the entire build, which
+can run for hours, so `workers` should stay well below the `-j` the Minion worker was started with (a production
+worker at `-j 22` gives up about a fifth of its capacity at `workers => 4`). Priority governs which job is
+picked up next, not whether a running one yields, so this is a real reservation rather than a preference. A
+shard that fails costs nothing structural: its contents stay pending and the next build finishes them.
 
 Indexing only records which content needs fingerprinting; the fingerprints themselves are built by the daily
 cleanup job (see [Maintenance](Maintenance.md)), so the index trails the corpus by up to a day. To build on

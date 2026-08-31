@@ -9,6 +9,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Cavil::Util qw(PRIORITY_SWEEP);
 use Mojo::Date;
 use Mojo::File qw(path tempfile);
 use MCP::Client;
@@ -56,21 +57,79 @@ subtest 'a fingerprint build indexes the pending contents' => sub {
   is $app->fingerprints->build_pending, 0, 'an explicit build is then a no-op';
 };
 
-subtest 'only one builder runs at a time, and the lock is released when it finishes' => sub {
+subtest 'one builder per shard, and the lock is released when it finishes' => sub {
 
-  # A second builder alongside the first would duplicate every winnow and double the write load on the index
-  # searches read. The task holds a lock it renews as it runs, so a build that outlives one TTL stays alone.
-  my $held = $app->minion->lock('fingerprint_build', 3600);
-  ok $held, 'the lock is free between builds (the previous build released it)';
+  # A second builder on the same shard would duplicate every winnow and double the write load on the index
+  # searches read. Each shard holds its own lock, renewed as it runs, so a build outliving one TTL stays alone.
+  ok $app->minion->lock('fingerprint_build_0', 3600), 'the lock is free between builds (the last one released it)';
 
   my $id = $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
-  is $app->minion->job($id)->info->{result}, 'Fingerprint build already in progress', 'a second builder bows out';
+  is $app->minion->job($id)->info->{result}, 'Shard 0 is already being built', 'a second builder bows out';
 
-  $app->minion->unlock('fingerprint_build');
+  # The lock is per shard, not one across the whole build: another shard is free to run meanwhile.
+  my $other = $app->minion->enqueue(fingerprint_build => [{shard => 1, shards => 4}]);
+  $app->minion->perform_jobs;
+  isnt $app->minion->job($other)->info->{result}, 'Shard 1 is already being built', 'a different shard is unaffected';
+
+  $app->minion->unlock('fingerprint_build_0');
   $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
-  ok $app->minion->lock('fingerprint_build', 0), 'and the lock is free again once the build is done';
+  ok $app->minion->lock('fingerprint_build_0', 0), 'and the lock is free again once the build is done';
+  $app->minion->unlock('fingerprint_build_0');
+};
+
+subtest 'several workers split the build into disjoint shards' => sub {
+  my $pending = sub { $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0] };
+  my $reset   = sub { $db->query('UPDATE fp_contents SET indexed = false') };
+
+  # A single worker (the default) does the whole thing itself, exactly as before.
+  $reset->();
+  ok $pending->() > 0, 'contents are pending again';
+  $app->minion->enqueue('fingerprint_build');
+  $app->minion->perform_jobs;
+  is $pending->(), 0, 'one worker builds everything without splitting';
+
+  # With workers configured the entry job only splits, and indexes nothing itself.
+  my $four = Test::Mojo->new(Cavil => {%config, codesearch => {%{$config{codesearch}}, workers => 4}})->app;
+  $reset->();
+  my $entry = $four->minion->enqueue('fingerprint_build');
+  $four->minion->perform_jobs;
+  like $four->minion->job($entry)->info->{result}, qr/Split into 4 shards/, 'the entry job reports the split';
+  ok !defined $four->minion->job($entry)->info->{notes}{fingerprinted}, 'and fingerprinted nothing itself';
+  is $db->query(
+    "SELECT DISTINCT priority FROM minion_jobs
+      WHERE task = 'fingerprint_build' AND args::text LIKE '%shard%' AND id > ?", $entry
+  )->array->[0], PRIORITY_SWEEP, 'shards queue in the sweep band, not below every reindex the sweep enqueues';
+
+  # perform_jobs ran the shard jobs it enqueued too, so between them they cover every content.
+  is $pending->(), 0, 'four shards together leave nothing pending';
+
+  # And each shard really is confined to its own slice: run only shard 2 and nothing else may move.
+  $reset->();
+  $four->minion->enqueue(fingerprint_build => [{shard => 2, shards => 4}]);
+  $four->minion->perform_jobs;
+  is $db->query('SELECT count(*) FROM fp_contents WHERE indexed AND id % 4 <> 2')->array->[0], 0,
+    'no content outside the shard was touched';
+  ok $db->query('SELECT count(*) FROM fp_contents WHERE indexed AND id % 4 = 2')->array->[0] > 0,
+    'and its own slice was built';
+
+  # Whatever a failed shard leaves behind is simply pending, so a later build finishes the job. No claim to
+  # release, no state to repair - the reason this needs none of the indexing fan-out's machinery.
+  $app->minion->enqueue('fingerprint_build');
+  $app->minion->perform_jobs;
+  is $pending->(), 0, 'a later build picks up whatever a shard left behind';
+};
+
+subtest 'a rebuild refuses to discard the index while shards are running' => sub {
+  ok $app->minion->lock('fingerprint_build_3', 3600), 'a shard is running';
+  my $four = Test::Mojo->new(Cavil => {%config, codesearch => {%{$config{codesearch}}, workers => 4}})->app;
+  my $id   = $four->minion->enqueue(fingerprint_build => [{rebuild => 1}]);
+  $four->minion->perform_jobs;
+  is $four->minion->job($id)->info->{result}, 'Cannot rebuild while a build is running',
+    'resetting the index under a running shard is refused';
+  ok $db->query('SELECT count(*) FROM fp_contents WHERE indexed')->array->[0] > 0, 'so the index is still there';
+  $app->minion->unlock('fingerprint_build_3');
 };
 
 # Re-querying an indexed file with its own content must find that exact content at full containment. Pick a

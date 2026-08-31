@@ -78,7 +78,7 @@ own (as long as at least one worker is running).
     script/cavil minion schedule -e hourly_sweep -c '25 * * * *' -t sweep_builds
 
     # Build the code search fingerprint index (only if code search is enabled), Sunday to Thursday at 02:00
-    script/cavil minion schedule -e daily_fingerprints -c '0 2 * * 0-4' -t fingerprint_build
+    script/cavil minion schedule -e daily_fingerprints -c '0 2 * * 0-4' -t fingerprint_build -p 20
 ```
 
 The `-e` value is just a name for the schedule (used to update, pause, or remove it later), `-c` is a standard cron
@@ -97,7 +97,10 @@ recommended way to run reindexing and cleanup.
 
 When code search is enabled, schedule `fingerprint_build` as shown above: it prunes stale content, winnows whatever was
 indexed since the last run, refreshes the stopword set, and bumps the generation clients cache against. It is a separate
-schedule from the cleanup so its frequency can be tuned independently. A single-flight guard means a run started while
+schedule from the cleanup so its frequency can be tuned independently. The `-p 20` puts it in the same priority band as
+the weekly reindex; without it the build sits below every reindex that sweep queues up and can wait a long time to
+start. With `codesearch.workers` above 1 this one entry is still all you need - the job splits itself into that many
+shard jobs (see [Setup](Setup.md), which also covers the worker slots they occupy). A single-flight guard means a run started while
 one is still going simply exits, so a tight schedule is safe. Skip the reindex window, though: the example runs it Sunday
 to Thursday so it never overlaps the Friday `reindex_all`, which is the heaviest job on the system - overlapping is safe
 (content is addressed by hash, so a concurrent reindex cannot corrupt the build) but the two only slow each other down.
