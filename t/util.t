@@ -9,7 +9,7 @@ use Mojo::JSON qw(decode_json);
 use Cavil::Util (
   qw(buckets expand_spec_macros extract_copyrights legal_review_notices lines_context license_is_catch_all),
   qw(license_text),
-  qw(normalize_license_expr obs_ssh_auth),
+  qw(normalize_license_expr obs_ssh_auth original_filename),
   qw(parse_exclude_file parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
   qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
@@ -805,6 +805,19 @@ subtest 'extract_copyrights' => sub {
     my $late = ("\n" x 25_000) . "Copyright (c) 2019 Too Far Down\n";
     is_deeply $notices->($late), [], 'lines past the scan cap are not examined';
   };
+};
+
+subtest 'original_filename undoes the ".processed" naming, and leaves everything else alone' => sub {
+
+  # The inverse of how Cavil::PostProcess names a rewritten copy: "<base>.processed.<ext>", or a bare
+  # "<name>.processed" when the name has no extension to keep.
+  is original_filename('lib/foo.processed.js'), 'lib/foo.js', 'the extension is restored';
+  is original_filename('Makefile.processed'),   'Makefile',   'a name with no extension loses the suffix';
+  is original_filename('a/b.c/x.processed'),    'a/b.c/x',    'a dot in a directory is not mistaken for one';
+
+  is original_filename('lib/foo.js'),        'lib/foo.js',        'an ordinary path is untouched';
+  is original_filename('processed.js'),      'processed.js',      'a file merely named "processed" is untouched';
+  is original_filename('foo.processed.d/x'), 'foo.processed.d/x', 'and a directory named ".processed.d" is not a copy';
 };
 
 done_testing;

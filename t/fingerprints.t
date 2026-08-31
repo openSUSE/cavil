@@ -514,6 +514,42 @@ subtest 'a missing stopword costs speed, not correctness: the probe limit bounds
   $db->query('DELETE FROM fp_contents WHERE id = ANY(?)', \@ids);
 };
 
+subtest 'results name the original file, not the internal ".processed" copy' => sub {
+
+  # A file with over-long lines is indexed through a rewritten copy (Cavil::PostProcess), so that is the name
+  # fp_files stores. Callers should never see it: the copy is an implementation detail, and the name they are
+  # shown has to be one they can find in the source.
+  my $stored
+    = $db->query("SELECT hash, filename FROM fp_files WHERE generation = 0 AND filename LIKE '%.processed.%' LIMIT 1")
+    ->hash;
+  ok $stored, 'the fixture has a post-processed file' or return;
+
+  my $original = Cavil::Util::original_filename($stored->{filename});
+  isnt $original, $stored->{filename}, 'which is stored under a name that differs from the original';
+
+  my $known = $app->fingerprints->known_hashes([$stored->{hash}])->{$stored->{hash}};
+  ok $known, 'the content is recognized' or return;
+  is $known->{filename}, $original, 'recognition reports the file the copy was made from';
+
+  # The same for a search hit - and its excerpt must still be produced, which is what proves the internal path
+  # was kept for reading (the line numbers are positions in the copy, so reading the original would misalign).
+  my $fps = $db->query('SELECT fingerprints FROM fp_contents WHERE hash = ?', $stored->{hash})->array;
+  ok $fps && @{$fps->[0]} >= 8, 'and it winnowed to enough fingerprints to search for' or return;
+  my ($match)
+    = grep { $_->{hash} eq $stored->{hash} } @{$app->fingerprints->search_fingerprints($fps->[0], 1, 20)->{matches}};
+  ok $match, 'the search finds it' or return;
+  is $match->{files}[0]{filename}, $original, 'and the match names the original file too';
+  ok @{$match->{excerpt}}, 'while the excerpt is still read from the copy that was scanned';
+
+  # Since the names are the original's but the line numbers are the copy's, say so rather than leave the caller
+  # to discover the mismatch: it is the caller who knows whether it is previewing text or resolving a location.
+  ok $match->{processed}, 'the match is flagged as indexed through a rewritten copy';
+  ok $known->{processed}, 'and so is the recognition';
+
+  my ($plain) = grep { !$_->{processed} } @{$app->fingerprints->search($content, 20)->{matches}};
+  ok $plain, 'a match on a file that was never rewritten carries no such flag';
+};
+
 subtest 'a query for fingerprints absent from the index returns nothing, fast' => sub {
   my @absent = map {"90000000000000000$_"} 1 .. 12;                    # distinctive values that cannot be in the corpus
   my $result = $app->fingerprints->search_fingerprints(\@absent, 1);

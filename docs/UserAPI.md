@@ -716,6 +716,12 @@ can still align fully. When the match is a carrier's own, non-vendored source, i
 higher-value indicator that accompanies `licenses` (it does not replace them, and `risk` still comes from the
 per-file licenses). It is omitted for content found only in vendored/bundled trees.
 
+Files whose lines are too long to index directly are scanned through a re-wrapped copy. Paths are always
+reported as the original file, never that internal copy, but such a match also carries `processed: true` -
+because its line numbers (the excerpt's, and the region they were taken from) are positions in the copy, so
+they do not address the file as named. Treat the excerpt as a preview in that case, and do not use the line
+numbers to point at the original; the flag is absent for every ordinary match.
+
 ```
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -774,7 +780,9 @@ carrying file, omits both). When the content is a carrier's own, non-vendored so
 `declared_license`: the main license declared in that package's metadata (the specfile `License:`), the
 expression shown at the top of its report. It is a higher-value, curated indicator that accompanies `licenses`
 (it does not replace them, and `risk` still comes from the per-file licenses); it is omitted for content found
-only in vendored/bundled trees, where a package's declared license does not describe it.
+only in vendored/bundled trees, where a package's declared license does not describe it. An entry whose file
+was indexed through a re-wrapped copy (see the snippet search above) reports the original path and adds
+`processed: true`.
 
 The optional `exclude_packages` array drops carriers by package name: a hash carried only by an excluded
 package is treated as not known (absent from the response), while one also carried elsewhere still returns,

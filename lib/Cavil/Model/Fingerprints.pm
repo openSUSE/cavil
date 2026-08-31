@@ -15,7 +15,7 @@ use Mojo::Base -base, -signatures;
 use Cavil::Matcher ();
 use Cavil::PatternEngine;
 use Cavil::ReportUtil qw(is_vendored_path);
-use Cavil::Util       qw(checkout_path);
+use Cavil::Util       qw(checkout_path original_filename);
 use Mojo::File        qw(path tempfile);
 use Mojo::JSON        qw(false true);
 use Time::HiRes       ();
@@ -43,6 +43,12 @@ use constant EXCERPT_CONTEXT => 3;
 # Winnowed fingerprints are uint64; a Postgres bigint is signed. Reinterpret the bits losslessly (NOT $fp -
 # 2**64, which is float-lossy) and identically on write and query, so the same content hashes to the same key.
 sub _fp_bigint ($fp) { return unpack 'q', pack 'Q', $fp }
+
+# Was this location indexed through a rewritten ".processed" copy? Reported so a caller knows the names it got
+# are the original's while any line numbers are the copy's (see the processed flag in search_fingerprints).
+sub _is_processed ($where) {
+  return $where && original_filename($where->{filename}) ne $where->{filename} ? 1 : 0;
+}
 
 # Record one indexed file: its content hash maps to (package, path) at this generation. The content itself
 # is registered separately (queue_contents), once per batch, to keep this hot-path insert conflict-free.
@@ -325,13 +331,26 @@ sub search_fingerprints (
       containment    => $p->{hits} / $denom,
       containment_of => $p->{hits} / ($cfps{$p->{content}} || $p->{hits}),
       licenses       => $lic->{$hash}{licenses} // [],
-      risk    => $lic->{$hash}{risk},                           # max license risk (Cavil's 1-9 scale), undef if none
-      files   => $where,
+      risk           => $lic->{$hash}{risk},    # max license risk (Cavil's 1-9 scale), undef if none
+
+      # Reported under the name the scanned copy was made from, so a caller is never shown (or handed on) the
+      # internal ".processed" variant. The excerpt keeps the real path, because its line numbers are the copy's.
+      files => [
+        map {
+          { %$_, filename => original_filename($_->{filename}) }
+        } @$where
+      ],
       excerpt => $self->_excerpt($where->[0], $regions->[0]),
       marks   => $marks,                                        # per query fingerprint, in order: 1 aligned, 0 not
       aligned => $aligned,
       total   => scalar @$qfps,
       exact   => ($aligned == @$qfps ? true : false),           # Mojo::JSON booleans: correct in Perl and JSON
+
+      # Set when this content was indexed through a rewritten copy of the file (long lines re-wrapped, see
+      # Cavil::PostProcess). The names above are the original's, but the line numbers - excerpt, and the regions
+      # they came from - are positions in that copy, so they do not address the named file. Flagged rather than
+      # papered over: only the caller knows whether it is showing a preview (fine) or resolving a location.
+      (_is_processed($where->[0]) ? (processed => true) : ()),
 
       # The carrier's declared main license when this content is its own (non-vendored) source; accompanies the
       # per-file licenses above, which still drive the risk. Absent when no non-vendored carrier declares one.
@@ -359,8 +378,8 @@ sub known_hashes ($self, $hashes, $exclude_embargoed = 0, $exclude_packages = un
     $known{$hash} = {
       licenses => $lic->{$hash}{licenses} // [],
       risk     => $lic->{$hash}{risk},
-      ($where         ? (package          => $where->{name}, filename => $where->{filename}) : ()),
-      ($decl->{$hash} ? (declared_license => $decl->{$hash})                                 : ())
+      ($where ? (package => $where->{name}, filename => original_filename($where->{filename})) : ()),
+      (_is_processed($where) ? (processed => true) : ()), ($decl->{$hash} ? (declared_license => $decl->{$hash}) : ())
     };
   }
   return \%known;

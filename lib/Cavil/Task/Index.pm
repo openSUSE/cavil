@@ -8,7 +8,7 @@ use Cavil::Bom::Registry;
 use Cavil::Checkout;
 use Cavil::FileIndexer;
 use Cavil::PatternEngine;
-use Cavil::Util qw(fs_bytes);
+use Cavil::Util qw(fs_bytes original_filename);
 use Time::HiRes 'time';
 
 sub register ($self, $app, $config) {
@@ -203,8 +203,7 @@ sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
   # composer installed.json) would otherwise be invisible here. Detect on the canonical name and read the
   # original file (kept on disk) - never the processed copy, whose injected line breaks corrupt structured
   # metadata such as JSON.
-  (my $orig = $path) =~ s{\.processed(\.[^./]+)$}{$1};
-  $orig =~ s{\.processed$}{};
+  my $orig = original_filename($path);
 
   return unless $registry->matches($orig);
 

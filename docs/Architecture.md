@@ -966,6 +966,13 @@ whole file's content, identified by hash, so recognition is exact and license-ne
 hashes and gets back the packages that carry them, their detected licenses and risk, and the declared license of
 any non-vendored carrier.
 
+One wrinkle is worth knowing about, because it is visible in the API. A file whose lines are too long to index
+directly is scanned through a re-wrapped copy (see Preprocessing), and that copy is what the index records. Results
+always report the original path, since the copy is an internal artifact nobody can look up - but the line numbers
+that come with them are positions in the copy, not in the file as named. Rather than paper over the mismatch or
+translate line numbers nobody may need, such a result is flagged `processed`, leaving the caller to decide: a
+preview can be shown as-is, while anything resolving a location knows not to trust the numbers.
+
 Near-duplicate detection - "this file *resembles* known code" rather than "is byte-identical to it" - uses
 **winnowing**. A file is tokenised (identifiers and words; punctuation and operators are ignored), hashed in
 overlapping k-token grams, and a deterministic sliding window of `w` grams keeps a stable subset of gram hashes as

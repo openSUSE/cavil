@@ -11,7 +11,8 @@ use Mojo::File 'path';
 use Mojo::Util 'dumper';
 use Cavil::Util (
   qw(buckets decode_json_fast encode_json_fast expand_spec_macros extract_copyrights),
-  qw(extract_urls_and_emails fs_bytes legal_review_notices parse_service_file read_lines slurp_and_decode)
+  qw(extract_urls_and_emails fs_bytes legal_review_notices original_filename parse_service_file read_lines),
+  qw(slurp_and_decode)
 );
 use Cavil::Licenses 'lic';
 use Cavil::PostProcess;
@@ -515,7 +516,7 @@ sub _text_metadata ($base, $file, $meta) {
 
 # Matching runs against the ".processed" copy, but reading content wants the file it was made from
 sub _original_file ($path) {
-  my $original = ($path =~ s{\.processed(\.[^./]+)$}{$1}r) =~ s{\.processed$}{}r;
+  my $original = original_filename($path);
   return $original ne $path && -f $original ? $original : $path;
 }
 

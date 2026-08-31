@@ -22,7 +22,7 @@ our @EXPORT_OK = (
   qw(buckets checkout_path expand_spec_macros file_and_checksum fs_bytes md5_file slurp_and_decode load_ignored_files),
   qw(lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
-  qw(normalize_license_text obs_ssh_auth paginate parse_exclude_file),
+  qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file),
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
   qw(read_lines run_cmd),
   qw(request_id_from_external_link),
@@ -166,6 +166,15 @@ sub fs_bytes ($string) {
 # characters on another. It is the flag that matters, not the codepoints: two identical strings name
 # different files if one of them carries it, because Perl hands the syscall the UTF-8 encoding instead.
 sub checkout_path (@parts) { return path(fs_bytes(path(@parts)->to_string)) }
+
+# The name a ".processed" copy was made from ("foo.processed.js" -> "foo.js", "Makefile.processed" ->
+# "Makefile"; see Cavil::PostProcess). Names only: the original is kept on disk, but its line numbering is not
+# the copy's, so use this where a path is a label and never where it is paired with line numbers from a scan.
+sub original_filename ($name) {
+  $name =~ s{\.processed(\.[^./]+)$}{$1};
+  $name =~ s{\.processed$}{};
+  return $name;
+}
 
 sub extract_spdx_identifiers ($string) {
   return [] unless defined $string;
