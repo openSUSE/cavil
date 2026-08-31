@@ -59,15 +59,14 @@ subtest 'a fingerprint build indexes the pending contents' => sub {
 
 subtest 'one builder per shard, and the lock is released when it finishes' => sub {
 
-  # A second builder on the same shard would duplicate every winnow and double the write load on the index
-  # searches read. Each shard holds its own lock, renewed as it runs, so a build outliving one TTL stays alone.
+  # A second builder on the same shard would duplicate every winnow and double the write load.
   ok $app->minion->lock('fingerprint_build_0', 3600), 'the lock is free between builds (the last one released it)';
 
   my $id = $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
   is $app->minion->job($id)->info->{result}, 'Shard 0 is already being built', 'a second builder bows out';
 
-  # The lock is per shard, not one across the whole build: another shard is free to run meanwhile.
+  # Per shard, not one across the build: another shard must still be free to run.
   my $other = $app->minion->enqueue(fingerprint_build => [{shard => 1, shards => 4}]);
   $app->minion->perform_jobs;
   isnt $app->minion->job($other)->info->{result}, 'Shard 1 is already being built', 'a different shard is unaffected';
@@ -83,14 +82,14 @@ subtest 'several workers split the build into disjoint shards' => sub {
   my $pending = sub { $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0] };
   my $reset   = sub { $db->query('UPDATE fp_contents SET indexed = false') };
 
-  # A single worker (the default) does the whole thing itself, exactly as before.
+  # The default worker does the whole thing itself, without splitting.
   $reset->();
   ok $pending->() > 0, 'contents are pending again';
   $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
   is $pending->(), 0, 'one worker builds everything without splitting';
 
-  # With workers configured the entry job only splits, and indexes nothing itself.
+  # With workers configured the entry job only splits.
   my $four = Test::Mojo->new(Cavil => {%config, codesearch => {%{$config{codesearch}}, workers => 4}})->app;
   $reset->();
   my $entry = $four->minion->enqueue('fingerprint_build');
@@ -102,10 +101,10 @@ subtest 'several workers split the build into disjoint shards' => sub {
       WHERE task = 'fingerprint_build' AND args::text LIKE '%shard%' AND id > ?", $entry
   )->array->[0], PRIORITY_SWEEP, 'shards queue in the sweep band, not below every reindex the sweep enqueues';
 
-  # perform_jobs ran the shard jobs it enqueued too, so between them they cover every content.
+  # perform_jobs ran the shards it enqueued too, so between them they cover everything.
   is $pending->(), 0, 'four shards together leave nothing pending';
 
-  # And each shard really is confined to its own slice: run only shard 2 and nothing else may move.
+  # Confinement is what the design rests on: run only shard 2, nothing else may move.
   $reset->();
   $four->minion->enqueue(fingerprint_build => [{shard => 2, shards => 4}]);
   $four->minion->perform_jobs;
@@ -114,8 +113,7 @@ subtest 'several workers split the build into disjoint shards' => sub {
   ok $db->query('SELECT count(*) FROM fp_contents WHERE indexed AND id % 4 = 2')->array->[0] > 0,
     'and its own slice was built';
 
-  # Whatever a failed shard leaves behind is simply pending, so a later build finishes the job. No claim to
-  # release, no state to repair - the reason this needs none of the indexing fan-out's machinery.
+  # A failed shard leaves its contents pending, nothing to repair.
   $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
   is $pending->(), 0, 'a later build picks up whatever a shard left behind';

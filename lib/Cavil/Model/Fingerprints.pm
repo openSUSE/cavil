@@ -78,9 +78,8 @@ sub reset_index ($self) {
 }
 
 # Fingerprint up to $limit not-yet-indexed contents into the index. One representative file per content is enough
-# (all copies share the bytes). Several builders can run at once, each taking one shard of the ids: the slices
-# are disjoint by construction, so two of them can never write the same row and nothing has to be claimed. A
-# single builder passes shards = 1, where "id % 1 = 0" is simply always true.
+# (all copies share the bytes). Shards are disjoint id slices, so parallel builders never write the same row and
+# nothing needs claiming; at shards = 1 the filter is a no-op, which keeps it to one query.
 sub build_pending ($self, $shard = 0, $shards = 1, $limit = 20000) {
   my $db   = $self->pg->db;
   my $rows = $db->query(

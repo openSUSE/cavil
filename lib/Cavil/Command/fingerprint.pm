@@ -17,8 +17,8 @@ sub run ($self, @args) {
   die "Code search is disabled (enable it in the config).\n" unless $app->codesearch;
 
   # The build can run for hours, so it is a Minion job (memory limits, retries, single-flight guard); a
-  # worker does the work. --rebuild discards the index first, inside the job. Queued at sweep priority, the
-  # same band as the weekly reindex: below it the build waits behind every reindex the sweep queues up.
+  # worker does the work. --rebuild discards the index first, inside the job. Sweep priority, or it waits
+  # behind every reindex the weekly sweep queues up.
   my $id = $app->minion->enqueue('fingerprint_build', [{rebuild => $rebuild ? 1 : 0}], {priority => PRIORITY_SWEEP});
   print "Queued code search fingerprint build as job $id", ($rebuild ? ' (rebuild)' : ''), ".\n";
 }

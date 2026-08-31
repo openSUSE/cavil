@@ -6,11 +6,9 @@
 # not-yet-fingerprinted contents into the Postgres inverted index in batches, refreshing the stopword set as it
 # goes, then bumps the generation. Schedule it on its own (see docs/Maintenance.md).
 #
-# With codesearch.workers above 1 the scheduled job becomes an entry point that splits the work into that many
-# shard jobs and lets Minion run them side by side (measured 1.9x with 4). It needs none of the machinery the
-# package indexing fan-out has - no claim, no finisher, no state column - because a shard's unit of work is one
-# fp_contents row whose "indexed" flag flips in the same transaction as its arrays. A shard that dies simply
-# leaves those contents pending for the next build, so there is never anything stranded to recover.
+# codesearch.workers > 1 splits the work into that many shard jobs. Unlike the indexing fan-out this needs no
+# claim and no finisher: a shard's unit of work is one row whose "indexed" flag flips with its arrays, so a dead
+# shard only leaves them pending for the next build.
 
 package Cavil::Task::Fingerprint;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
@@ -18,20 +16,15 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Util qw(PRIORITY_SWEEP);
 use Mojo::Util  qw(scope_guard steady_time);
 
-# Each shard holds its own lock, renewed while it runs. Minion locks just expire, so a fixed one let a build that
-# outlives it (a big build runs for days) acquire a second builder alongside the first, doubling the write load
-# on the very index searches are trying to read. Renewing keeps one builder per shard no matter how long it
-# takes, while a dead worker still releases within one TTL. Deliberately one lock per shard rather than one
-# across the whole build: a lock shared by several jobs is what made the indexing fan-out painful to restart.
+# One lock per shard, renewed as it runs: Minion locks only expire, and a build outlives any fixed TTL. Not one
+# lock across the whole build - a lock shared between jobs is what made the indexing fan-out painful to restart.
 use constant LOCK_TTL => 3600;
 
 sub _lock ($shard) { return "fingerprint_build_$shard" }
 
-# Refresh the stopword set once a build has added this many contents, then on a geometric schedule. Document
-# frequencies climb as contents are added, so a long build leaves newly-ubiquitous fingerprints unpruned and
-# every search drags a huge candidate set out of the index - searches are unusable until the build ends. The
-# threshold is what matters, not whether this is a rebuild: a big incremental build has the same problem. Small
-# daily builds never reach it and just refresh once at the end, since the scan covers the whole corpus.
+# Refresh the stopword set after this many contents, then geometrically: document frequencies climb as a long
+# build runs, and an unpruned ubiquitous fingerprint makes every search drag in a huge candidate set. Keyed on
+# size, not on --rebuild, because a big incremental build has the same problem.
 use constant STOPWORD_REFRESH_AFTER => 100_000;
 
 sub register ($self, $app, $config) {
@@ -45,19 +38,19 @@ sub _fingerprint_build ($job, $opts = {}) {
   my $minion = $app->minion;
   my $fp     = $app->fingerprints;
 
-  # The entry point (no shard of its own) does the once-per-build work, then either splits or builds.
+  # The entry point (no shard of its own) does what has to happen once, then splits or builds.
   my $pruned;
   unless (defined $opts->{shard}) {
     my $workers = $cfg->{workers} || 1;
 
-    # A rebuild discards the whole index, which would pull the ground out from under any shard still writing.
+    # Resetting would pull the index out from under any shard still writing to it.
     if ($opts->{rebuild}) {
       return $job->finish('Cannot rebuild while a build is running')
         if grep { $minion->is_locked(_lock($_)) } 0 .. $workers - 1;
       $fp->reset_index;
     }
 
-    # Once per build rather than once per shard, so concurrent identical deletes cannot collide.
+    # Here rather than per shard, so concurrent identical deletes cannot collide.
     $pruned = $fp->prune_contents;
 
     if ($workers > 1) {
@@ -77,7 +70,6 @@ sub _fingerprint_build ($job, $opts = {}) {
   while (my $n = $fp->build_pending($shard, $shards)) {
     $total += $n;
 
-    # Push the lock expiry out and record progress, so a days-long build keeps its shard and stays visible.
     if (steady_time > $renew_at) {
       $minion->unlock($lock);
       $minion->lock($lock, LOCK_TTL);
@@ -90,9 +82,8 @@ sub _fingerprint_build ($job, $opts = {}) {
     $next = $total * 2;
   }
 
-  # Every shard refreshes and bumps, rather than electing one to finish: refresh_stopwords is an idempotent
-  # insert, and a shard that finished early would otherwise leave the others' fingerprints unpruned until the
-  # next build. Bumping the generation more than once only makes clients drop their caches again.
+  # Every shard, not an elected finisher: both are idempotent, and one that finished early would leave the
+  # others' fingerprints unpruned until tomorrow.
   $fp->refresh_stopwords;
   $fp->bump_generation;
   $job->note(fingerprinted => $total, defined $pruned ? (pruned => $pruned) : ());
