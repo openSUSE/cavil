@@ -56,6 +56,23 @@ subtest 'a fingerprint build indexes the pending contents' => sub {
   is $app->fingerprints->build_pending, 0, 'an explicit build is then a no-op';
 };
 
+subtest 'only one builder runs at a time, and the lock is released when it finishes' => sub {
+
+  # A second builder alongside the first would duplicate every winnow and double the write load on the index
+  # searches read. The task holds a lock it renews as it runs, so a build that outlives one TTL stays alone.
+  my $held = $app->minion->lock('fingerprint_build', 3600);
+  ok $held, 'the lock is free between builds (the previous build released it)';
+
+  my $id = $app->minion->enqueue('fingerprint_build');
+  $app->minion->perform_jobs;
+  is $app->minion->job($id)->info->{result}, 'Fingerprint build already in progress', 'a second builder bows out';
+
+  $app->minion->unlock('fingerprint_build');
+  $app->minion->enqueue('fingerprint_build');
+  $app->minion->perform_jobs;
+  ok $app->minion->lock('fingerprint_build', 0), 'and the lock is free again once the build is done';
+};
+
 # Re-querying an indexed file with its own content must find that exact content at full containment. Pick a
 # file that actually winnows to a few fingerprints (tiny files legitimately produce none).
 my ($sample, $content);
