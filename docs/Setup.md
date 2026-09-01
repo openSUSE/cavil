@@ -216,15 +216,12 @@ needs nothing more. `k` and `w` are the winnowing parameters: a token is a word 
 punctuation do not count). The defaults `k = 4`, `w = 8` were tuned on a mixed C/C++/Perl/Python corpus to make
 function-sized pastes (~15-25 lines) searchable and to keep recall high on edited or AI-derived code. Raising `w`
 shrinks the index (roughly `2/(w+1)` of the grams are kept) but only matches larger pastes; `w = 16` is about
-half the size but leaves many single functions too short to locate. Ubiquitous fingerprints in more than `df_cap`
-distinct contents are recorded as a stopword set and pruned from every query - the other precision and
-query-speed knob, deliberately aggressive (lower prunes more, so searches touch fewer candidates). Because the
-cap is an absolute count, the stopword set is small during a from-scratch rebuild and only fills in as enough of
-the corpus is indexed; if searches run hot mid-rebuild, refresh the set with a lower cap in the meantime
-(`script/cavil eval 'app->fingerprints->refresh_stopwords(100)'`). `max_fingerprints` caps how many fingerprints
-a single content stores (0 disables): a generated, minified or data file can winnow to tens of thousands, and
-because a search counts overlap by unnesting a candidate's whole array, one such giant content makes every query
-that shares a fingerprint with it slow. Such files are not function-copy targets, so only the first
+half the size but leaves many single functions too short to locate. `df_cap` is how many carriers of any one
+fingerprint a search will read before it stops looking: a gram in more contents than that cannot identify a copy,
+so reading further only costs time. It is what bounds a search at `query size x df_cap` no matter how common a
+gram turns out to be, and it needs no maintenance of any kind. `max_fingerprints` caps how many fingerprints a
+single content stores (0 disables): a generated, minified or data file can winnow to tens of thousands, and one
+such giant content makes every query that shares a fingerprint with it slow. Such files are not function-copy targets, so only the first
 `max_fingerprints` (in file order) are kept. Changing `k`/`w` needs a full rebuild.
 
 `workers` is how many jobs build the index side by side, each taking a disjoint shard of the contents. A build

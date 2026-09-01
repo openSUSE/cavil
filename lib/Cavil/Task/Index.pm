@@ -64,7 +64,7 @@ sub _index ($job, $id) {
     # left alone on purpose: "script/cavil unpack" force-releases the package, so a second build can
     # legitimately be running, and wiping its rows would corrupt it. The cleanup task sweeps those.
     $db->delete($_, {package => $id, generation => $generation})
-      for qw(package_components urls emails copyrights matched_files);
+      for qw(package_components urls emails copyrights matched_files fp_files);
 
     $db->update('bot_packages', {index_stage => 'indexing'}, {id => $id});
     $tx->commit;
@@ -109,7 +109,7 @@ sub _index_batch ($job, $id, $batch, $generation) {
 
   my $registry    = Cavil::Bom::Registry->new;
   my $single_root = _single_unpacked_root($fi->dir);
-  my %meta        = (emails => {}, urls => {}, copyrights => {}, components => {}, fp_hashes => {});
+  my %meta        = (emails => {}, urls => {}, copyrights => {}, components => {}, fp_hashes => {}, fp_files => []);
 
   # Wrap the whole batch in one transaction: the per-file inserts (matched_files,
   # pattern_matches, file_snippets) plus the URL/email/component upserts below would otherwise
@@ -173,10 +173,16 @@ sub _index_batch ($job, $id, $batch, $generation) {
     );
   }
 
-  # Code search content hashes, one sorted insert so concurrent batches never deadlock on fp_contents.
-  $app->fingerprints->queue_contents($db, $meta{fp_hashes}) if $app->codesearch;
+  # Rides the generation promote with the rest of the batch, so it stays in the transaction.
+  $app->fingerprints->record_files($db, $meta{fp_files}, $generation) if $app->codesearch;
 
   $tx->commit;
+
+  # Code search bookkeeping, deliberately after the commit. fp_contents is orders of magnitude larger than
+  # anything else indexing writes, so a slow insert here used to sit on the urls and emails locks every other
+  # batch needs, and one stuck batch stalled the whole pipeline. Nothing downstream depends on it being atomic
+  # with the batch: the hashes are content-addressed, the insert ignores conflicts, and a retry redoes them.
+  $app->fingerprints->queue_contents($db, $meta{fp_hashes}) if $app->codesearch;
 
   my $total = time - $start;
   my $dir   = $fi->dir;

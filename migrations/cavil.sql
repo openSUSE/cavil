@@ -566,3 +566,6 @@ ALTER TABLE fp_contents ADD COLUMN slines int[];
 ALTER TABLE fp_contents ADD COLUMN elines int[];
 CREATE INDEX fp_contents_fingerprints_idx ON fp_contents USING gin (fingerprints);
 DROP TABLE fp_postings;
+
+-- 66 up
+DROP TABLE fp_stopwords;

@@ -96,8 +96,8 @@ The `reindex_all` and `obsolete` tasks are exactly what the manual commands belo
 recommended way to run reindexing and cleanup.
 
 When code search is enabled, schedule `fingerprint_build` as shown above: it prunes stale content, winnows whatever was
-indexed since the last run, refreshes the stopword set, and bumps the generation clients cache against. It is a separate
-schedule from the cleanup so its frequency can be tuned independently. The `-p 20` puts it in the same priority band as
+indexed since the last run, and bumps the generation clients cache against. It is a separate schedule from the
+cleanup so its frequency can be tuned independently. The `-p 20` puts it in the same priority band as
 the weekly reindex; without it the build sits below every reindex that sweep queues up and can wait a long time to
 start. With `codesearch.workers` above 1 this one entry is still all you need - the job splits itself into that many
 shard jobs (see [Setup](Setup.md), which also covers the worker slots they occupy). A single-flight guard means a run started while
@@ -105,9 +105,8 @@ one is still going simply exits, so a tight schedule is safe. Skip the reindex w
 to Thursday so it never overlaps the Friday `reindex_all`, which is the heaviest job on the system - overlapping is safe
 (content is addressed by hash, so a concurrent reindex cannot corrupt the build) but the two only slow each other down.
 Letting the weekend reindex finish and fingerprinting its new content on Sunday keeps both fast. The fingerprints live in
-a Postgres GIN inverted index; it and the other code-search tables (`fp_files`, `fp_contents`, `fp_stopwords`) are large
-but fully regenerable, so exclude
-their data from database backups.
+a Postgres GIN inverted index; it and the other code-search table (`fp_files`) are large but fully regenerable,
+so exclude their data from database backups.
 
 ### Collecting abandoned builds
 

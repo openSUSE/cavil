@@ -3,8 +3,8 @@
 #
 # Builds the code search fingerprint index off the indexing hot path. Indexing only records a content
 # hash per file (see Cavil::FileIndexer); this task prunes content whose files are all gone, winnows the
-# not-yet-fingerprinted contents into the Postgres inverted index in batches, then refreshes the stopword set
-# and bumps the generation. Schedule it on its own (see docs/Maintenance.md).
+# not-yet-fingerprinted contents into the Postgres inverted index in batches, then bumps the generation.
+# Schedule it on its own (see docs/Maintenance.md).
 #
 # codesearch.workers > 1 splits the work into that many shard jobs. Unlike the indexing fan-out this needs no
 # claim and no finisher: a shard's unit of work is one row whose "indexed" flag flips with its arrays, so a dead
@@ -72,11 +72,6 @@ sub _fingerprint_build ($job, $opts = {}) {
       $job->note(fingerprinted => $total);
     }
   }
-
-  # Once, at the end, and only in whichever shard wins the race for it (see refresh_stopwords). Not during the
-  # build: that was worth its cost only before the probe limit made an unpruned fingerprint merely slower to
-  # read rather than able to drag the whole corpus into a search.
-  $fp->refresh_stopwords;
   $fp->bump_generation;
   $job->note(fingerprinted => $total, defined $pruned ? (pruned => $pruned) : ());
 }

@@ -38,6 +38,12 @@ subtest 'indexing records content hashes that ride the atomic promote' => sub {
   $app->minion->perform_jobs;
   ok $db->query("SELECT count(*) FROM fp_files WHERE generation = 0")->array->[0] > 0, 'fp_files at generation 0';
   is $db->query("SELECT count(*) FROM fp_files WHERE generation <> 0")->array->[0], 0, 'nothing left mid-build';
+
+  # A retried index re-records every file, so its own leftovers have to go first or provenance counts double.
+  is $db->query(
+    'SELECT count(*) FROM (SELECT package, filename FROM fp_files WHERE generation = 0
+                   GROUP BY 1, 2 HAVING count(*) > 1) d'
+  )->array->[0], 0, 'and no file is recorded twice';
   ok $db->query("SELECT count(*) FROM fp_contents")->array->[0] > 0, 'contents queued';
 };
 
@@ -117,20 +123,6 @@ subtest 'several workers split the build into disjoint shards' => sub {
   $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
   is $pending->(), 0, 'a later build picks up whatever a shard left behind';
-};
-
-subtest 'only one stopword refresh runs at a time' => sub {
-
-  # Shards used to run this together: it unnests every stored array, so concurrent copies spilled hundreds of
-  # gigabytes and deadlocked on each other's uncommitted keys. A second caller must skip, not queue.
-  my $held = $app->pg->db;
-  my $tx   = $held->begin;
-  is $held->query('SELECT pg_try_advisory_xact_lock(?)', Cavil::Model::Fingerprints->STOPWORD_LOCK)->array->[0], 1,
-    'a refresh is in flight';
-  is $app->fingerprints->refresh_stopwords, 0, 'a second one skips rather than piling on';
-  undef $tx;
-
-  is $app->fingerprints->refresh_stopwords, 1, 'and runs once the lock is free';
 };
 
 subtest 'a rebuild refuses to discard the index while shards are running' => sub {
@@ -279,6 +271,19 @@ subtest 'file provenance links identical content in other current packages' => s
 
   # A path that was never fingerprinted has none.
   ok !$app->fingerprints->file_provenance($sample->{package}, 'does/not/exist'), 'unknown file has no provenance';
+
+  # A ubiquitous file must not turn a page view into a scan of every carrier: past the scan limit the count is
+  # reported as a floor. One package repeated is enough, since the bound is on rows read, not names found.
+  ok !$prov->{capped}, 'an ordinary file is counted exactly';
+  my $other = $db->query('SELECT id FROM bot_packages WHERE id <> ? LIMIT 1', $sample->{package})->hash->{id};
+  $db->query(
+    "INSERT INTO fp_files (package, filename, hash, generation)
+       SELECT ?, 'padding/' || i, ?, 0 FROM generate_series(1, 1000) i", $other, $sample->{hash}
+  );
+  my $many = $app->fingerprints->file_provenance($sample->{package}, $sample->{filename});
+  ok $many->{capped}, 'past the scan limit the count is a floor';
+  is $many->{count}, 1, 'and the same package is still listed once';
+  $db->query("DELETE FROM fp_files WHERE filename LIKE 'padding/%'");
 };
 
 subtest 'web search endpoint returns ranked matches' => sub {
@@ -373,6 +378,13 @@ subtest 'the CLI API endpoints (config, known-hash, batch fingerprint search)' =
   $t->post_ok('/api/v1/code/known'        => json => {hashes  => [{}]})->status_is(400);
   $t->post_ok('/api/v1/code/known'        => json => {nope    => 1})->status_is(400);
   $t->post_ok('/api/v1/code/search-batch' => json => {queries => ['not-an-object']})->status_is(400);
+
+  # Each query is capped on its own, but a batch multiplies them, so the request as a whole has a budget.
+  my @huge = map {"$_"} 1 .. 30_000;
+  $t->post_ok('/api/v1/code/search-batch' => json =>
+      {queries => [{id => 'a', fingerprints => \@huge}, {id => 'b', fingerprints => \@huge}]})
+    ->status_is(400)
+    ->json_has('/limit');
 };
 
 subtest 'catch_all patterns are noise, excluded from the reported licenses and risk' => sub {
@@ -510,52 +522,12 @@ subtest 'cleanup prunes content bookkeeping with no files left' => sub {
   ok $db->query('SELECT 1 FROM fp_contents WHERE hash = ?',  $kept)->rows,   'referenced content is kept';
 };
 
-subtest 'refresh_stopwords records a ubiquitous fingerprint, and the query prunes it' => sub {
-
-  # Pick a cap above every real fingerprint's document frequency, then seed one synthetic fingerprint above it.
-  my $maxdf = $db->query(
-    'SELECT COALESCE(max(df), 0) FROM
-       (SELECT count(*) df FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp) s'
-  )->array->[0];
-  my $cap    = $maxdf + 2;
-  my $common = 4242424242;
-  my @ids;
-  for (1 .. $cap + 3) {
-    push @ids, $db->query(
-      'INSERT INTO fp_contents (hash, indexed, fingerprints, slines, elines)
-         VALUES (?, true, ?::bigint[], ?::int[], ?::int[]) RETURNING id', "stopword-$_", [$common], [1], [1]
-    )->array->[0];
-  }
-
-  # A real fingerprint (DF <= cap) to prove only the over-cap one becomes a stopword.
-  my $real
-    = $db->query('SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE fp <> ? LIMIT 1', $common)->array->[0];
-
-  $app->fingerprints->refresh_stopwords($cap);
-
-  ok $db->query('SELECT 1 FROM fp_stopwords WHERE fingerprint = ?', $common)->rows,
-    'the over-cap fingerprint became a stopword';
-  ok !$db->query('SELECT 1 FROM fp_stopwords WHERE fingerprint = ?', $real)->rows,
-    'a below-cap fingerprint is left alone';
-
-  # It stays in the arrays (GIN compresses it away) but is dropped from the query, so the contents that carry only
-  # it are never dragged into the candidate set: a query of the sample plus the stopword still finds the sample and
-  # none of the stopword-only contents.
-  my $stored  = $db->query('SELECT fingerprints FROM fp_contents WHERE hash = ?', $sample->{hash})->array->[0];
-  my $matches = $app->fingerprints->search_fingerprints([@$stored, $common], 1, 50)->{matches};
-  ok +(grep { $_->{hash} eq $sample->{hash} } @$matches), 'the real content is still found';
-  ok !(grep { $_->{hash} =~ /^stopword-/ } @$matches),    'a content sharing only the stopword is not pulled in';
-
-  $db->query('DELETE FROM fp_contents WHERE id = ANY(?)',      \@ids);
-  $db->query('DELETE FROM fp_stopwords WHERE fingerprint = ?', $common);
-};
-
-subtest 'a missing stopword costs speed, not correctness: the probe limit bounds every fingerprint' => sub {
+subtest 'a ubiquitous fingerprint costs speed, not correctness: the probe limit bounds every one' => sub {
   my $fp   = $app->fingerprints;
   my $prev = $fp->df_cap;
 
-  # Same ubiquitous fingerprint as above, but deliberately NOT recorded as a stopword - the state the index is in
-  # whenever the corpus has grown since the last sweep. Searches must stay correct and bounded regardless.
+  # A gram carried by far more contents than any real one. Nothing prunes it - the probe limit is the only thing
+  # standing between it and a search that reads the whole corpus.
   my $common = 4242424242;
   my @ids;
   for (1 .. 20) {
@@ -564,14 +536,11 @@ subtest 'a missing stopword costs speed, not correctness: the probe limit bounds
          VALUES (?, true, ?::bigint[], ?::int[], ?::int[]) RETURNING id', "unpruned-$_", [$common], [1], [1]
     )->array->[0];
   }
-  is $db->query('SELECT count(*) FROM fp_stopwords WHERE fingerprint = ?', $common)->array->[0], 0,
-    'the ubiquitous fingerprint is not in the stopword set';
-
   my $stored = $db->query('SELECT fingerprints FROM fp_contents WHERE hash = ?', $sample->{hash})->array->[0];
   my $query  = [@$stored, $common];
 
-  # The probe limit truncates how many carriers of the unpruned fingerprint are read; the real match is found on
-  # its own (rare) fingerprints either way, so the answer does not depend on the stopword sweep having run.
+  # The probe limit truncates how many of its carriers are read; the real match is found on its own rare
+  # fingerprints either way.
   $fp->df_cap(2);
   my $capped = $fp->search_fingerprints($query, 1, 50)->{matches};
   ok +(grep { $_->{hash} eq $sample->{hash} } @$capped), 'the real content is still found with a tight probe limit';

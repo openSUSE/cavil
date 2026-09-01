@@ -61,8 +61,8 @@ sub file ($self, $meta, $path, $mime) {
   # is the content key fp_contents and fp_files share, so the two join.
   if ($self->{codesearch} && !$ignored_file) {
     my $hash = Cavil::Matcher::content_hash($self->dir->child('.unpacked', $path)->to_string);
-    $self->{app}->fingerprints->record_file($self->{db}, $package, $path, $hash, $self->{generation});
-    $meta->{fp_hashes}{$hash} = 1;    # registered in one sorted batch after the loop, see Task::Index
+    push @{$meta->{fp_files}}, [$package, $path, $hash];
+    $meta->{fp_hashes}{$hash} = 1;    # both written in one batch after the loop, see Task::Index
   }
 
   my @matches;

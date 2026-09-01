@@ -985,7 +985,7 @@ only fingerprints - never source - leave the machine.
 
 The corpus is large and grows fast, so the lookup is a text-search **inverted index**: given a query's
 fingerprints, find the contents that share enough of them, without ever scanning the corpus. Two design choices
-are worth explaining, because the obvious alternatives are what an earlier version actually did, and both hurt.
+are worth explaining, because the obvious alternatives are what earlier versions actually did, and both hurt.
 
 **Arrays with a GIN index, not a row per posting.** The natural relational shape is one row per
 (content, fingerprint) - a classic posting list. It works, but at corpus scale every posting pays a full row's
@@ -993,31 +993,29 @@ overhead (a tuple header plus its own entries in two btree indexes), which dwarf
 the index balloons to hundreds of gigabytes to a terabyte. Instead each content is a single row holding its
 fingerprints as a `bigint[]`, with parallel arrays for the line positions, under a **GIN index**. GIN stores one
 compressed posting list per fingerprint value with no per-posting tuple header, which measured about four times
-smaller than the row-per-posting table at the same query latency. A query is an array-overlap (`&&`) against the
-GIN index, which returns just the contents that share a fingerprint; those candidates are then unnested to count
-the overlap and read out the matched line positions for the result preview.
+smaller than the row-per-posting table at the same query latency, and about a third faster to build.
 
-The one subtlety is that the overlap must run *before* the unnest, or Postgres will happily unnest every content
-in the table and filter afterwards - turning a millisecond lookup into a full scan. Forcing the overlap prefilter
-to materialise first (a `MATERIALIZED` CTE) keeps the unnest bounded to the handful of real candidates.
+**Probe once per fingerprint, and cap what each one may return.** The tempting way to query an array index is a
+single array-overlap (`&&`) for the whole query, then count the shared values by unnesting each candidate. That
+is how this worked at first, and it was catastrophic: unnesting a candidate's *whole* array to count a handful of
+matches, with a membership test that scans the query array per element, made cost scale as candidates x array
+size x query size - tens of seconds for a query matching nothing. The index is instead used the way an inverted
+index is meant to be: one lookup per query fingerprint (`fingerprints @> ARRAY[fp]`), unioned and counted per
+content, so only matching postings are ever touched.
 
-**Stopwords are pruned from the query, not from the index.** A handful of fingerprints are ubiquitous - the grams
-of boilerplate that appear in a large fraction of all files. They discriminate nothing, and worse, an overlap on
-one of them would pull almost the whole corpus into the candidate set and defeat the index. Fingerprints whose
-document frequency exceeds a cap are therefore recorded as a **stopword set** and dropped from each query before
-the overlap runs. They are *not* deleted from the stored arrays: doing that would mean rewriting every array
-whenever the stopword set shifts (a daily build recomputes it), whereas leaving them in costs almost nothing
-because GIN compresses a value that appears everywhere down to near-free. The query's denominator stays the full
-fingerprint count, so a boilerplate-heavy paste simply scores lower rather than matching spuriously - which is the
-correct outcome for a tool meant to catch copied *functions*, not to match shared boilerplate. This cap is the
-main precision and size knob, and is deliberately aggressive (see [Setup](Setup.md)).
+That leaves one exposure - a gram so common that its own posting list is enormous. Rather than maintain a list of
+which grams those are, each lookup simply stops after `df_cap` carriers. A fingerprint in more contents than that
+cannot identify a copy, so reading further buys nothing, and total work is bounded at `query size x df_cap` no
+matter how common a gram turns out to be. This replaced a maintained **stopword set**, which worked but had to be
+recomputed by scanning every stored array - tens of gigabytes of temporary spill that stalled the indexing
+pipeline it shared a disk with. A bound that needs no maintenance beat a list that needed a great deal.
 
 ### Freshness and maintenance
 
 Indexing a package only records which content hashes exist; the winnowing itself runs off the hot path in the
-daily build job, so the index trails the corpus by up to a day. That job fingerprints the newly-seen contents,
-refreshes the stopword set, and bumps a **generation** counter that the client caches against, dropping its local
-cache whenever the corpus changes. Contents are content-addressed, so an already-indexed hash is never
+daily build job, so the index trails the corpus by up to a day. That job fingerprints the newly-seen contents and
+bumps a **generation** counter that the client caches against, dropping its local cache whenever the corpus
+changes. Contents are content-addressed, so an already-indexed hash is never
 re-winnowed: after the initial full build the index grows by small inserts for genuinely new content and shrinks
 by pruning contents whose files have all gone obsolete. Only a `k`/`w` change forces a full rebuild from scratch.
 The index is large but entirely regenerable from the checkouts, so its tables are excluded from database backups

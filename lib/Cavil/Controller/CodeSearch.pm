@@ -37,6 +37,12 @@ my %SCHEMA = (
   }
 );
 
+# Fingerprints a single search_batch request may ask about in total. Each query is capped on its own
+# (max_fingerprints) and each fingerprint reads at most df_cap carriers, but a batch multiplies those, so
+# without a budget one request can occupy a web worker for minutes. Ten full-size queries is the ceiling; the
+# client chunks well below it, and many small queries still batch wide.
+use constant MAX_BATCH_FINGERPRINTS => 50_000;
+
 sub index ($self) {
   return $self->reply->not_found unless $self->codesearch;
   $self->render;
@@ -84,6 +90,13 @@ sub known ($self) {
 sub search_batch ($self) {
   return $self->render(json => {error => 'Code search is not enabled'}, status => 404) unless $self->codesearch;
   my $data = $self->_body($SCHEMA{search_batch}) or return;
+
+  my $budget = 0;
+  $budget += scalar @{$_->{fingerprints}} for @{$data->{queries}};
+  return $self->render(
+    json   => {error => 'Too many fingerprints in one request', limit => MAX_BATCH_FINGERPRINTS},
+    status => 400
+  ) if $budget > MAX_BATCH_FINGERPRINTS;
 
   my $limit = $data->{limit} // 10;
   $limit = 100 if $limit > 100;

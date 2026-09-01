@@ -235,8 +235,8 @@ sub _analyzed ($job, $id) {
 
   _auto_review($app, $id);
 
-  # Code search fingerprints are not built here: a scheduled build (see Task::Cleanup) drains all pending
-  # content at once, which keeps segments dense instead of one tiny segment per analyzed package.
+  # Code search fingerprints are not built here: a scheduled build (see Task::Fingerprint) drains all pending
+  # content at once, rather than paying a transaction per analyzed package.
 
   # End of the chain unless a document build follows, so the package is handed back here rather than left to
   # the guard, which would only release it and leave a reindex requested in the meantime waiting for the

@@ -39,7 +39,7 @@ Cavil::Command::fingerprint - Build the code search fingerprint index
     script/cavil fingerprint --rebuild
 
   Options:
-    --rebuild   Discard the on-disk index and rebuild it from scratch. Use after changing the winnowing
+    --rebuild   Discard the index and rebuild it from scratch. Use after changing the winnowing
                 parameters (k/w) in the config, or to force a clean rebuild.
 
   Queues a Minion job (a worker does the work, which can take a while); without options it fingerprints

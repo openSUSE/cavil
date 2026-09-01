@@ -4,9 +4,8 @@
 # The fingerprint index for snippet code search: a Postgres GIN inverted index. fp_files maps a content hash to
 # the packages/paths that carry it (generation-tracked, so it rides the report's atomic promote), and fp_contents
 # is the content dimension - one row per distinct content holding its winnowed fingerprints as a GIN-indexed
-# bigint[] with parallel slines/elines arrays for the line positions. A query overlaps (&&) its own fingerprints
-# against those arrays, so it only touches contents that share one. Ubiquitous fingerprints are recorded in
-# fp_stopwords and pruned from the query (not the arrays), so a common gram never blows the candidate set up.
+# bigint[] with parallel slines/elines arrays for the line positions. A query probes the index once per
+# fingerprint and reads at most df_cap carriers of each, which is what keeps a ubiquitous gram from dominating.
 # Only used when code search is enabled (see Cavil::codesearch).
 
 package Cavil::Model::Fingerprints;
@@ -24,11 +23,9 @@ has [qw(pg log checkout_dir generation_file)];
 has k => 4;
 has w => 8;
 
-# How many contents a fingerprint may be carried by before it stops discriminating a copy. It bounds the search
-# twice over, which is what keeps query cost predictable: refresh_stopwords records the fingerprints above it so
-# their posting lists are skipped outright, and search_fingerprints caps how many carriers of any ONE fingerprint
-# it will read, so total work stays under (query size x df_cap) even for a gram no stopword sweep has caught yet.
-# The main precision and query-speed knob, config-driven (codesearch.df_cap); deliberately aggressive.
+# How many carriers of any one fingerprint a search will read before it stops looking. A gram in more contents
+# than this cannot identify a copy, so reading further only costs time: total work stays under (query size x
+# df_cap) however common a gram turns out to be. The main query-speed knob, config-driven (codesearch.df_cap).
 has df_cap => 500;
 
 # Cap on fingerprints stored per content (0 disables). A generated, minified or data file can winnow to tens of
@@ -52,29 +49,38 @@ sub _is_processed ($where) {
   return $where && original_filename($where->{filename}) ne $where->{filename} ? 1 : 0;
 }
 
-# Record one indexed file: its content hash maps to (package, path) at this generation. The content itself
-# is registered separately (queue_contents), once per batch, to keep this hot-path insert conflict-free.
-sub record_file ($self, $db, $package, $filename, $hash, $generation) {
-  $db->query('INSERT INTO fp_files (package, filename, hash, generation) VALUES (?, ?, ?, ?)',
-    $package, $filename, $hash, $generation);
+# Record a batch of indexed files: each content hash maps to (package, path) at this generation. Written in
+# chunks rather than per file, because this runs inside the batch transaction that also holds the urls and
+# emails locks every other batch wants - the less time spent here the smaller that window.
+sub record_files ($self, $db, $files, $generation) {
+  my @todo = @$files;
+  while (my @chunk = splice @todo, 0, 1000) {
+    $db->query(
+      'INSERT INTO fp_files (package, filename, hash, generation) VALUES ' . join(',', ('(?, ?, ?, ?)') x @chunk),
+      map { (@$_, $generation) } @chunk);
+  }
 }
 
 # Register content hashes for fingerprinting (build_pending later winnows the pending ones). Inserted in
 # sorted order so concurrent index_batch jobs lock fp_contents keys in the same order; per-file inserts in
 # file order deadlocked in production. Mirrors the sorted url/email/copyright upserts in Task::Index.
 sub queue_contents ($self, $db, $hashes) {
-  $db->query('INSERT INTO fp_contents (hash) VALUES (?) ON CONFLICT (hash) DO NOTHING', $_) for sort keys %$hashes;
+  my @sorted = sort keys %$hashes;
+
+  # Chunked rather than one statement per hash: each one probes a unique index on a table with tens of millions
+  # of rows, so a batch of them was a round trip and a random read apiece. Still sorted, which is what keeps
+  # concurrent batches taking the keys in one order.
+  while (my @chunk = splice @sorted, 0, 1000) {
+    $db->query('INSERT INTO fp_contents (hash) VALUES ' . join(',', ('(?)') x @chunk) . ' ON CONFLICT DO NOTHING',
+      @chunk);
+  }
 }
 
-# Discard the whole index so the next build starts fresh (a k/w change or a forced rebuild): drop the stopwords
-# and set every content back to pending. The stale arrays are simply overwritten as each content is rebuilt, and
-# search ignores non-indexed rows, so there is nothing to clear. Cheap next to a re-winnow.
+# Discard the whole index so the next build starts fresh (a k/w change or a forced rebuild): set every content
+# back to pending. The stale arrays are simply overwritten as each content is rebuilt, and search ignores
+# non-indexed rows, so there is nothing to clear. Cheap next to a re-winnow.
 sub reset_index ($self) {
-  my $db = $self->pg->db;
-  my $tx = $db->begin;
-  $db->query('DELETE FROM fp_stopwords');
-  $db->query('UPDATE fp_contents SET indexed = false WHERE indexed');
-  $tx->commit;
+  $self->pg->db->query('UPDATE fp_contents SET indexed = false WHERE indexed');
 }
 
 # Fingerprint up to $limit not-yet-indexed contents into the index. One representative file per content is enough
@@ -104,8 +110,7 @@ sub build_pending ($self, $shard = 0, $shards = 1, $limit = 20000) {
 }
 
 # Store a content's winnowed fingerprints as a GIN-indexed array with parallel line positions, one entry per
-# distinct fingerprint (its first occurrence). Stopwords are kept here and pruned from the query instead, so a
-# shifting stopword set never has to rewrite arrays.
+# distinct fingerprint (its first occurrence).
 sub _store_arrays ($self, $db, $content, $raw) {
   my @signed = _fp_bigints(map { $_->[0] } @$raw);
 
@@ -128,31 +133,6 @@ sub _store_arrays ($self, $db, $content, $raw) {
   );
 }
 
-# Recompute the stopword set - fingerprints whose document frequency exceeds the cap - over the current arrays,
-# so the query can prune them. No array rewrite: they stay stored (GIN compresses them away) and are dropped at
-# query time.
-#
-# One at a time, and skip rather than queue. This unnests every stored array, which at corpus scale spills tens
-# of gigabytes; several shards running it together multiplied that and deadlocked on each other's uncommitted
-# keys. Whichever shard finishes last finds the lock free and makes the complete pass, and a skipped refresh
-# costs nothing now that the per-fingerprint probe limit bounds query cost on its own. Returns whether it ran.
-use constant STOPWORD_LOCK => 4_021_763_001;
-
-sub refresh_stopwords ($self, $cap = undef) {
-  $cap //= $self->df_cap;
-  my $db = $self->pg->db;
-  my $tx = $db->begin;
-  return 0 unless $db->query('SELECT pg_try_advisory_xact_lock(?)', STOPWORD_LOCK)->array->[0];
-
-  $db->query(
-    'INSERT INTO fp_stopwords (fingerprint)
-       SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp HAVING count(*) > ?
-     ON CONFLICT DO NOTHING', $cap
-  );
-  $tx->commit;
-  return 1;
-}
-
 # The corpus version, bumped per build, in a small file in the shared cache dir. Losing it resets to 0, which
 # only makes clients drop their caches once (they invalidate on any change, not on ordering).
 sub generation ($self) {
@@ -171,7 +151,8 @@ sub bump_generation ($self) {
 
 # Drop content bookkeeping for hashes no file references any more (their packages went obsolete or were
 # reindexed away). fp_files is pruned by the promote and obsolete cleanup, so without this fp_contents would
-# only ever grow. Called from the daily cleanup; a pruned content's fingerprint arrays go with its row.
+# only ever grow; a pruned content's fingerprint arrays go with its row. An anti-join across both tables, so it
+# runs once per build from the entry point rather than in the shards.
 sub prune_contents ($self) {
   return $self->pg->db->query(
     'DELETE FROM fp_contents WHERE NOT EXISTS (SELECT 1 FROM fp_files WHERE fp_files.hash = fp_contents.hash)')->rows;
@@ -245,27 +226,17 @@ sub search_fingerprints (
   my $need  = int(MIN_CONTAINMENT * $denom);
   $need++ if MIN_CONTAINMENT * $denom > $need;    # ceil: a match must clear the containment floor
 
-  # Skip fingerprints already known to be ubiquitous, so their posting lists are never read at all. This is an
-  # optimization, not a correctness or safety requirement: the probe limit below independently bounds what any
-  # single fingerprint can cost, so a stopword the set has not caught yet (the set is recomputed as the corpus
-  # grows) is merely a little slower, never catastrophic. denom stays the full query size, so a query full of
-  # common grams simply scores lower.
-  my %stop = map { $_->{fingerprint} => 1 }
-    @{$db->query('SELECT fingerprint FROM fp_stopwords WHERE fingerprint = ANY(?::bigint[])', \@bfps)->hashes};
-  my @live = grep { !$stop{$_} } @bfps;
-  return {matches => [], total => 0} unless @live;
-
   # Use the GIN index as a true inverted index: one lookup per live query fingerprint (contents that contain it),
   # union the postings, then count per content. This touches only the matching postings - never unnesting a
   # candidate's whole array, and with no per-element membership test - so cost tracks the postings read, not
   # (candidates x array size x query size). Counting via unnest+`f = ANY(query)` instead makes that ANY a linear
   # scan of the query array per element, which multiplied the work by the query size and cost tens of seconds.
   #
-  # LIMIT bounds each fingerprint's contribution, which is what keeps the whole query safe: total work is at most
-  # (query size x df_cap) however common a gram turns out to be, instead of being dominated by the single worst
-  # one. Truncation only ever affects a fingerprint carried by more than df_cap contents, and such a fingerprint
-  # cannot identify a copy anyway - it is precisely what the stopword set exists to discard - so this reads as
-  # "look at up to df_cap carriers of any one gram" rather than as an approximation of something meaningful.
+  # LIMIT bounds each fingerprint's contribution, which is the only thing keeping the query safe: total work is
+  # at most (query size x df_cap) however common a gram turns out to be, instead of being dominated by the
+  # single worst one. It only ever truncates a fingerprint carried by more than df_cap contents, which cannot
+  # identify a copy anyway, so it reads as "look at up to df_cap carriers of any one gram" rather than as an
+  # approximation of something meaningful.
   my $cand = $db->query(
     "SELECT c.id AS content, c.hash, count(*) AS hits
        FROM unnest(?::bigint[]) AS q(fp)
@@ -273,7 +244,7 @@ sub search_fingerprints (
          SELECT id, hash FROM fp_contents WHERE indexed AND fingerprints @> ARRAY[q.fp] LIMIT ?
        ) c
       GROUP BY c.id, c.hash
-      HAVING count(*) >= ?", \@live, $self->df_cap, $need
+      HAVING count(*) >= ?", \@bfps, $self->df_cap, $need
   )->hashes;
   my $t_idx = Time::HiRes::time;
 
@@ -304,8 +275,7 @@ sub search_fingerprints (
   my @hashes = map { $_->{hash} } @page;
 
   # For the page only, straight from each content's arrays: the matched line positions (for alignment and the
-  # excerpt) and its stored fingerprint count for the content-direction containment. Both use the live query
-  # fingerprints and exclude stopwords, so a stopword gram never spuriously aligns and a self-match reads ~1.0.
+  # excerpt) and its stored fingerprint count for the content-direction containment.
   my %regions;
   for my $p (
     @{
@@ -314,21 +284,17 @@ sub search_fingerprints (
            FROM fp_contents c
            CROSS JOIN LATERAL unnest(c.fingerprints, c.slines, c.elines) AS u(fp, sl, el)
            JOIN unnest(?::bigint[]) AS q(fp) ON q.fp = u.fp
-          WHERE c.id = ANY(?::int[])', \@live, \@ids
+          WHERE c.id = ANY(?::int[])', \@bfps, \@ids
       )->hashes
     }
     )
   {
     push @{$regions{$p->{content}}}, [$p->{sl}, $p->{el} - $p->{sl}, $p->{fp}];    # [sline, span, fp]
   }
-  my %cfps = map { $_->{content} => $_->{n} } @{
-    $db->query(
-      'SELECT c.id AS content, count(*) AS n
-         FROM fp_contents c, unnest(c.fingerprints) f
-        WHERE c.id = ANY(?::int[]) AND f NOT IN (SELECT fingerprint FROM fp_stopwords)
-        GROUP BY c.id', \@ids
-    )->hashes
-  };
+  my %cfps
+    = map { $_->{content} => $_->{n} }
+    @{$db->query('SELECT id AS content, cardinality(fingerprints) AS n FROM fp_contents WHERE id = ANY(?::int[])',
+      \@ids)->hashes};
 
   my $lic  = $self->_licenses_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
   my $locs = $self->_locations_by_hash(\@hashes, $exclude_embargoed, $exclude_packages);
@@ -340,8 +306,7 @@ sub search_fingerprints (
     my $regions = [sort { $a->[0] <=> $b->[0] } @{$regions{$p->{content}} // []}];
     my $where   = $locs->{$hash} // [];
 
-    # Marks are over the query's own fingerprints in order (@bfps mirrors @$qfps); a stopword query fingerprint
-    # never aligns, like any unmatched one.
+    # Marks are over the query's own fingerprints in order (@bfps mirrors @$qfps).
     my ($marks, $aligned) = _alignment($regions, \@bfps, $qspan);
     push @matches, {
       hash           => $hash,
@@ -428,6 +393,12 @@ sub _alignment ($regions, $qfps, $qspan) {
 # Names shown in the provenance strip; a larger total appears as a count, which flags common boilerplate.
 use constant PROVENANCE_LIST => 6;
 
+# Carrier rows read before the count is reported as a floor. This runs on a plain file browser page view, and a
+# ubiquitous file (an empty __init__.py, a stock COPYING) has hundreds of thousands of carriers: counting them
+# all was seconds of work to render one line. Beyond this many the exact number tells a reviewer nothing the
+# "1,000+" does not.
+use constant PROVENANCE_SCAN => 1000;
+
 # Other current packages carrying this file's exact bytes. Content-derived only: never says whether the code
 # was accepted there, because acceptability is a per-package compatibility decision that does not transfer.
 # Obsolete carriers are dropped; embargoed are not, since this feeds the report browser (which shows them).
@@ -436,24 +407,26 @@ sub file_provenance ($self, $package_id, $filename) {
   my $hash = $db->query('SELECT hash FROM fp_files WHERE package = ? AND filename = ? AND generation = 0 LIMIT 1',
     $package_id, $filename)->array;
   return undef unless $hash;
-  $hash = $hash->[0];
 
-  # Cheap count first: most files are unique, so bail before the list query.
-  my $count = $db->query(
-    "SELECT count(DISTINCT p.name)
-       FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
-      WHERE ff.hash = ? AND ff.generation = 0 AND p.obsolete = false AND p.id <> ?", $hash, $package_id
-  )->array->[0];
-  return undef unless $count;
-
-  my $locations = $db->query(
-    "SELECT DISTINCT ON (p.name) p.id AS package, p.name, ff.filename
+  my $rows = $db->query(
+    "SELECT p.id AS package, p.name, ff.filename
        FROM fp_files ff JOIN bot_packages p ON p.id = ff.package
       WHERE ff.hash = ? AND ff.generation = 0 AND p.obsolete = false AND p.id <> ?
-      ORDER BY p.name LIMIT ?", $hash, $package_id, PROVENANCE_LIST
-  )->hashes->to_array;
+      LIMIT ?", $hash->[0], $package_id, PROVENANCE_SCAN
+  )->hashes;
+  return undef unless @$rows;
 
-  return {count => $count, locations => $locations};
+  # One row per package name, since a package can carry the same bytes at several paths.
+  my %by_name;
+  $by_name{$_->{name}} //= $_ for @$rows;
+  my @names = sort keys %by_name;
+  splice @names, PROVENANCE_LIST if @names > PROVENANCE_LIST;
+
+  return {
+    count     => scalar keys %by_name,
+    capped    => (@$rows < PROVENANCE_SCAN ? false : true),
+    locations => [map { $by_name{$_} } @names]
+  };
 }
 
 # The matched region of one representative file (all copies share the bytes), with a little context, each

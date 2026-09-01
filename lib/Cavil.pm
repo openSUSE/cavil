@@ -147,10 +147,15 @@ sub startup ($self) {
     }
   );
 
-  # Snippet code search, off unless configured. codesearch returns the config (truthy) only when enabled.
+  # Snippet code search, off unless configured. Also off when the installed Cavil::Matcher predates fingerprint
+  # support: without this every index_batch job would die on the first file. codesearch returns the config
+  # (truthy) only when enabled.
   $self->helper(
     codesearch => sub ($c) {
-      state $cfg = ($config->{codesearch} && $config->{codesearch}{enabled}) ? $config->{codesearch} : undef;
+      state $cfg
+        = ($config->{codesearch} && $config->{codesearch}{enabled} && Cavil::Matcher->can('fingerprint_file'))
+        ? $config->{codesearch}
+        : undef;
       return $cfg;
     }
   );

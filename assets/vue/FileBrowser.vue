@@ -83,7 +83,8 @@
         <div v-if="meta.source.provenance" class="file-browser-provenance">
           <i class="fa-regular fa-copy" aria-hidden="true"></i>
           <span
-            >Identical to code in {{ meta.source.provenance.count.toLocaleString() }} other
+            >Identical to code in {{ meta.source.provenance.count.toLocaleString()
+            }}{{ meta.source.provenance.capped ? '+' : '' }} other
             {{ meta.source.provenance.count === 1 ? 'package' : 'packages' }}:</span
           >
           <a
@@ -93,7 +94,7 @@
             >{{ loc.name }}</a
           >
           <span v-if="provenanceMore > 0" class="file-browser-provenance-more"
-            >and {{ provenanceMore.toLocaleString() }} more</span
+            >and {{ provenanceMore.toLocaleString() }}{{ meta.source.provenance.capped ? '+' : '' }} more</span
           >
         </div>
         <div v-if="sourceIsOversized" class="file-browser-too-large" role="status">
