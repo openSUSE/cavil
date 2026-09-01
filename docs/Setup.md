@@ -218,8 +218,9 @@ function-sized pastes (~15-25 lines) searchable and to keep recall high on edite
 shrinks the index (roughly `2/(w+1)` of the grams are kept) but only matches larger pastes; `w = 16` is about
 half the size but leaves many single functions too short to locate. `df_cap` is how many carriers of any one
 fingerprint a search will read before it stops looking: a gram in more contents than that cannot identify a copy,
-so reading further only costs time. It is what bounds a search at `query size x df_cap` no matter how common a
-gram turns out to be, and it needs no maintenance of any kind. `max_fingerprints` caps how many fingerprints a
+so reading further only costs time. It bounds the expensive half of a search, the rows actually fetched, at
+`query size x df_cap` no matter how common a gram turns out to be, and it needs no maintenance of any kind.
+`max_fingerprints` caps how many fingerprints a
 single content stores (0 disables): a generated, minified or data file can winnow to tens of thousands, and one
 such giant content makes every query that shares a fingerprint with it slow. Such files are not function-copy targets, so only the first
 `max_fingerprints` (in file order) are kept. Changing `k`/`w` needs a full rebuild.

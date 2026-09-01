@@ -24,14 +24,16 @@ has k => 4;
 has w => 8;
 
 # How many carriers of any one fingerprint a search will read before it stops looking. A gram in more contents
-# than this cannot identify a copy, so reading further only costs time: total work stays under (query size x
-# df_cap) however common a gram turns out to be. The main query-speed knob, config-driven (codesearch.df_cap).
+# than this cannot identify a copy, so reading further only costs time: rows fetched stay under (query size x
+# df_cap) however common a gram is. It does not bound reading the posting list, which the index scan finishes
+# before the limit applies. The main query-speed knob, config-driven (codesearch.df_cap).
 has df_cap => 500;
 
 # Cap on fingerprints stored per content (0 disables). A generated, minified or data file can winnow to tens of
-# thousands of fingerprints; the overlap count unnests a candidate's whole array, so one such giant content makes
-# every query that shares a single fingerprint with it slow. Such files are not function-copy targets anyway, so
-# keep only the first max_fingerprints (file order). Config-driven (codesearch.max_fingerprints).
+# thousands of fingerprints, which makes it a carrier of that many grams (so it surfaces as a candidate for
+# unrelated queries) and makes the region lookup unnest its whole array whenever it lands on a page of results.
+# Such files are not function-copy targets anyway, so keep only the first max_fingerprints (file order).
+# Config-driven (codesearch.max_fingerprints).
 has max_fingerprints => 5000;
 
 # Lines of context shown around a matched region in a result preview.
@@ -107,6 +109,17 @@ sub build_pending ($self, $shard = 0, $shards = 1, $limit = 20000) {
   }
   $tx->commit;
   return scalar @$rows;
+}
+
+# Merge the GIN index's pending list into the tree. Postgres parks new entries in an unsorted list and every
+# search scans it whole, so a build that leaves entries there taxes every later query: in production a 20GB
+# leftover list turned a 2ms probe into 30s. Builders outrun the inline cleanup (only one backend may clean at a
+# time while the rest keep appending), so the drain has to happen when the writing stops.
+# Nothing to drain when the index is absent: a full rebuild drops it for the duration (see docs/Maintenance.md),
+# and dying here would fail the job after all its work was already committed.
+sub clean_pending_list ($self) {
+  $self->pg->db->query(
+    "SELECT gin_clean_pending_list(i) FROM to_regclass('fp_contents_fingerprints_idx') i WHERE i IS NOT NULL");
 }
 
 # Store a content's winnowed fingerprints as a GIN-indexed array with parallel line positions, one entry per
@@ -214,8 +227,8 @@ sub search_fingerprints (
   return {matches => [], total => 0, too_short => \1} if @$qfps < MIN_QUERY_FINGERPRINTS;
 
   # Cap an oversized query the same way the index caps a content (see _store_arrays): a huge file - a data blob, a
-  # minified bundle - winnows to tens of thousands of fingerprints, and an overlap search on all of them would
-  # gather most of the corpus. It is not a function-copy target, so search on its first max_fingerprints.
+  # minified bundle - winnows to tens of thousands of fingerprints, and the search costs one index probe apiece.
+  # It is not a function-copy target, so search on its first max_fingerprints.
   my $max = $self->max_fingerprints;
   $qfps = [@{$qfps}[0 .. $max - 1]] if $max && @$qfps > $max;
 

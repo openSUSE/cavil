@@ -966,56 +966,60 @@ whole file's content, identified by hash, so recognition is exact and license-ne
 hashes and gets back the packages that carry them, their detected licenses and risk, and the declared license of
 any non-vendored carrier.
 
-One wrinkle is worth knowing about, because it is visible in the API. A file whose lines are too long to index
-directly is scanned through a re-wrapped copy (see Preprocessing), and that copy is what the index records. Results
-always report the original path, since the copy is an internal artifact nobody can look up - but the line numbers
-that come with them are positions in the copy, not in the file as named. Rather than paper over the mismatch or
+Line numbers come with a caveat that is visible in the API. A file whose lines are too long to index directly is
+scanned through a re-wrapped copy (see Preprocessing), and that copy is what the index records. Results always
+report the original path, since the copy is an internal artifact nobody can look up, but the line numbers that come
+with them are positions in the copy rather than in the file as named. Rather than paper over the mismatch or
 translate line numbers nobody may need, such a result is flagged `processed`, leaving the caller to decide: a
 preview can be shown as-is, while anything resolving a location knows not to trust the numbers.
 
-Near-duplicate detection - "this file *resembles* known code" rather than "is byte-identical to it" - uses
-**winnowing**. A file is tokenised (identifiers and words; punctuation and operators are ignored), hashed in
-overlapping k-token grams, and a deterministic sliding window of `w` grams keeps a stable subset of gram hashes as
-the file's **fingerprints**. Because the selection is positional, not random, an edited copy keeps most of the
-originals fingerprints, so resemblance becomes set overlap: **containment** is the fraction of a query's
-fingerprints found in a stored file. The client winnows locally with the same `k`/`w` the server publishes, so
-only fingerprints - never source - leave the machine.
+Finding code that merely resembles known code, rather than matching it byte for byte, uses winnowing. A file is
+tokenised (identifiers and words; punctuation and operators are ignored), hashed in overlapping k-token grams, and
+a deterministic sliding window of `w` grams keeps a stable subset of those gram hashes as the file's fingerprints.
+Because the selection is positional rather than random, an edited copy keeps most of the original's fingerprints,
+which turns resemblance into set overlap: containment is the fraction of a query's fingerprints found in a stored
+file. The client winnows locally with the same `k` and `w` the server publishes, so only fingerprints ever leave
+the machine, never source.
 
-### The inverted index and its two tricks
+### The inverted index
 
-The corpus is large and grows fast, so the lookup is a text-search **inverted index**: given a query's
-fingerprints, find the contents that share enough of them, without ever scanning the corpus. Two design choices
-are worth explaining, because the obvious alternatives are what earlier versions actually did, and both hurt.
+The corpus is large and grows fast, so the lookup is a text-search inverted index: given a query's fingerprints,
+find the contents that share enough of them without ever scanning the corpus. Two things about how that is built
+are easy to get wrong, and earlier versions got both of them wrong in the obvious way.
 
-**Arrays with a GIN index, not a row per posting.** The natural relational shape is one row per
-(content, fingerprint) - a classic posting list. It works, but at corpus scale every posting pays a full row's
-overhead (a tuple header plus its own entries in two btree indexes), which dwarfs the ~20 bytes of actual data, so
-the index balloons to hundreds of gigabytes to a terabyte. Instead each content is a single row holding its
-fingerprints as a `bigint[]`, with parallel arrays for the line positions, under a **GIN index**. GIN stores one
-compressed posting list per fingerprint value with no per-posting tuple header, which measured about four times
-smaller than the row-per-posting table at the same query latency, and about a third faster to build.
+The first is the table shape. One row per (content, fingerprint) is the natural relational answer and a classic
+posting list, but at corpus scale every posting pays a full row's overhead, a tuple header plus its own entries in
+two btree indexes, which dwarfs the twenty-odd bytes of actual data and balloons the index to hundreds of gigabytes.
+Each content is instead a single row holding its fingerprints as a `bigint[]`, with parallel arrays for the line
+positions, under a GIN index. GIN keeps one compressed posting list per fingerprint value and no per-posting tuple
+header, which measured about four times smaller than the row-per-posting table at the same query latency, and about
+a third faster to build.
 
-**Probe once per fingerprint, and cap what each one may return.** The tempting way to query an array index is a
-single array-overlap (`&&`) for the whole query, then count the shared values by unnesting each candidate. That
-is how this worked at first, and it was catastrophic: unnesting a candidate's *whole* array to count a handful of
-matches, with a membership test that scans the query array per element, made cost scale as candidates x array
-size x query size - tens of seconds for a query matching nothing. The index is instead used the way an inverted
-index is meant to be: one lookup per query fingerprint (`fingerprints @> ARRAY[fp]`), unioned and counted per
+The second is how that index is queried. Asking for a single array overlap (`&&`) across the whole query and then
+counting the shared values by unnesting each candidate is the tempting approach, and it is what this did at first.
+It was catastrophic: unnesting a candidate's entire array to count a handful of matches, with a membership test
+that rescans the query array for every element, made the cost scale as candidates times array size times query
+size, and a query that matched nothing could take tens of seconds. The index is now used the way an inverted index
+is meant to be, with one lookup per query fingerprint (`fingerprints @> ARRAY[fp]`), unioned and counted per
 content, so only matching postings are ever touched.
 
-That leaves one exposure - a gram so common that its own posting list is enormous. Rather than maintain a list of
-which grams those are, each lookup simply stops after `df_cap` carriers. A fingerprint in more contents than that
-cannot identify a copy, so reading further buys nothing, and total work is bounded at `query size x df_cap` no
-matter how common a gram turns out to be. This replaced a maintained **stopword set**, which worked but had to be
-recomputed by scanning every stored array - tens of gigabytes of temporary spill that stalled the indexing
-pipeline it shared a disk with. A bound that needs no maintenance beat a list that needed a great deal.
+That leaves one exposure, a gram so common that its own posting list is enormous. Rather than maintain a list of
+which grams those are, each lookup stops after `df_cap` carriers. A fingerprint in more contents than that cannot
+identify a copy, so reading further buys nothing. What the cap bounds is the expensive half, the rows actually
+fetched and examined, at most `query size x df_cap` of them however common a gram turns out to be. It does not
+bound reading the posting list itself, because the index scan collects a key's matches before the cap can apply.
+That part stays proportional to how common the gram is, but it is a compressed sequential read rather than random
+row access. All of this replaced a maintained stopword set, which worked but had to be recomputed by scanning
+every stored array, tens of gigabytes of temporary spill that stalled the indexing pipeline it shared a disk with.
+A bound that needs no maintenance beat a list that needed a great deal.
 
 ### Freshness and maintenance
 
 Indexing a package only records which content hashes exist; the winnowing itself runs off the hot path in the
-daily build job, so the index trails the corpus by up to a day. That job fingerprints the newly-seen contents and
-bumps a **generation** counter that the client caches against, dropping its local cache whenever the corpus
-changes. Contents are content-addressed, so an already-indexed hash is never
+daily build job, so the index trails the corpus by up to a day. That job fingerprints the newly-seen contents,
+consolidates what it wrote into the index (Postgres parks new GIN entries in an unsorted list that every search
+would otherwise have to read), and bumps a **generation** counter that the client caches against, dropping its
+local cache whenever the corpus changes. Contents are content-addressed, so an already-indexed hash is never
 re-winnowed: after the initial full build the index grows by small inserts for genuinely new content and shrinks
 by pruning contents whose files have all gone obsolete. Only a `k`/`w` change forces a full rebuild from scratch.
 The index is large but entirely regenerable from the checkouts, so its tables are excluded from database backups

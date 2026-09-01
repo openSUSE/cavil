@@ -72,6 +72,11 @@ sub _fingerprint_build ($job, $opts = {}) {
       $job->note(fingerprinted => $total);
     }
   }
+
+  # Each shard drains what it wrote; they serialize on the cleanup lock, so whichever finishes last takes the
+  # remainder. No finisher job needed, which is what keeps a dead shard from stranding anything.
+  $fp->clean_pending_list if $total;
+
   $fp->bump_generation;
   $job->note(fingerprinted => $total, defined $pruned ? (pruned => $pruned) : ());
 }

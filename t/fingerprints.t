@@ -55,12 +55,25 @@ subtest 'a fingerprint build indexes the pending contents' => sub {
   # The task is self-contained: it also prunes content whose files are all gone (an orphan has no fp_files row).
   my $orphan = 'e' x 32;
   $db->query('INSERT INTO fp_contents (hash) VALUES (?)', $orphan);
-  $app->minion->enqueue('fingerprint_build');
+  my $build = $app->minion->enqueue('fingerprint_build');
   $app->minion->perform_jobs;
+
+  # Covers the whole task body, including the GIN pending list drain that every later search depends on.
+  is $app->minion->job($build)->info->{state}, 'finished', 'the build job succeeded';
   ok !$db->query('SELECT 1 FROM fp_contents WHERE hash = ?', $orphan)->rows, 'the build pruned an orphaned content';
   is $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0], 0, 'all contents built';
   ok $db->query('SELECT count(*) FROM fp_contents WHERE indexed')->array->[0] > 0, 'contents marked indexed';
   is $app->fingerprints->build_pending, 0, 'an explicit build is then a no-op';
+
+  # The documented full-rebuild procedure drops the GIN index for the duration, so the build has to survive
+  # finding it gone; failing at the drain would waste the entire run.
+  $db->query('DROP INDEX fp_contents_fingerprints_idx');
+  $db->query('UPDATE fp_contents SET indexed = false');
+  my $rebuild = $app->minion->enqueue('fingerprint_build');
+  $app->minion->perform_jobs;
+  is $app->minion->job($rebuild)->info->{state}, 'finished', 'a build with the index dropped still succeeds';
+  is $db->query('SELECT count(*) FROM fp_contents WHERE NOT indexed')->array->[0], 0, 'and still indexed everything';
+  $db->query('CREATE INDEX fp_contents_fingerprints_idx ON fp_contents USING gin (fingerprints)');
 };
 
 subtest 'one builder per shard, and the lock is released when it finishes' => sub {

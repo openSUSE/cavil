@@ -27,7 +27,7 @@ Not all failures will be as self explanatory as HTTP timeouts and might require 
 
 If you have configured an `exclude_file` in `cavil.conf`, it lets you keep whole files out of unpacking and indexing.
 Its most important job is defensive: neutralizing hostile or pathological inputs that would otherwise break the
-unpacker — zip bombs, archives that make `tar` loop forever, files with names that make unpacking fail, and
+unpacker - zip bombs, archives that make `tar` loop forever, files with names that make unpacking fail, and
 deliberately deep or malicious directory structures. It is also handy for cutting pure noise, such as generated code or
 large vendored blobs that only clutter reports. When you find an input that hangs or fails the unpacker (often surfaced
 as a stuck or failed Minion job), adding it here is usually the fix, so expect this list to grow over time.
@@ -107,6 +107,39 @@ to Thursday so it never overlaps the Friday `reindex_all`, which is the heaviest
 Letting the weekend reindex finish and fingerprinting its new content on Sunday keeps both fast. The fingerprints live in
 a Postgres GIN inverted index; it and the other code-search table (`fp_files`) are large but fully regenerable,
 so exclude their data from database backups.
+
+### Rebuilding the whole fingerprint index
+
+A first build, or a `script/cavil fingerprint --rebuild` after changing `k` or `w`, writes the entire corpus into the
+GIN index one row at a time. That is the wrong shape for the job and it will cost you days. Postgres parks incoming
+GIN entries in an unsorted pending list, which every search then has to read from end to end; the inline cleanup that
+normally drains it can only run in one backend at a time, so several shard builders will always outrun it. The result
+is an index that answers correctly and takes tens of seconds to do it, and draining that list afterwards is slower
+than the build was.
+
+So for a **full** rebuild, drop the index first and put it back afterwards:
+
+```sql
+    DROP INDEX fp_contents_fingerprints_idx;
+    -- run the build to completion, then:
+    CREATE INDEX fp_contents_fingerprints_idx ON fp_contents USING gin (fingerprints);
+```
+
+Building from scratch sorts all the entries in one pass instead of inserting billions of them at random positions, and
+gives a denser index. Code search is unavailable while the index is gone, which is the trade: for a full rebuild the
+old index is stale or invalid anyway. Give the `CREATE INDEX` a generous `maintenance_work_mem`.
+`REINDEX INDEX CONCURRENTLY` is the equivalent repair if you only discover the problem afterwards; it needs room for
+a second copy of the index but does not take the feature offline.
+
+Incremental builds need none of this. They drain the pending list themselves when they finish, so it stays empty
+between runs. If you ever want to check, `pgstatginindex` reports it (the `pgstattuple` extension provides it):
+
+```sql
+    SELECT pending_pages, pending_tuples FROM pgstatginindex('fp_contents_fingerprints_idx');
+```
+
+Anything other than zero shortly after a build means searches are paying for it, and the fix is
+`SELECT gin_clean_pending_list('fp_contents_fingerprints_idx')` - or, if the backlog is large, the rebuild above.
 
 ### Collecting abandoned builds
 
