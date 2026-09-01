@@ -119,6 +119,20 @@ subtest 'several workers split the build into disjoint shards' => sub {
   is $pending->(), 0, 'a later build picks up whatever a shard left behind';
 };
 
+subtest 'only one stopword refresh runs at a time' => sub {
+
+  # Shards used to run this together: it unnests every stored array, so concurrent copies spilled hundreds of
+  # gigabytes and deadlocked on each other's uncommitted keys. A second caller must skip, not queue.
+  my $held = $app->pg->db;
+  my $tx   = $held->begin;
+  is $held->query('SELECT pg_try_advisory_xact_lock(?)', Cavil::Model::Fingerprints->STOPWORD_LOCK)->array->[0], 1,
+    'a refresh is in flight';
+  is $app->fingerprints->refresh_stopwords, 0, 'a second one skips rather than piling on';
+  undef $tx;
+
+  is $app->fingerprints->refresh_stopwords, 1, 'and runs once the lock is free';
+};
+
 subtest 'a rebuild refuses to discard the index while shards are running' => sub {
   ok $app->minion->lock('fingerprint_build_3', 3600), 'a shard is running';
   my $four = Test::Mojo->new(Cavil => {%config, codesearch => {%{$config{codesearch}}, workers => 4}})->app;

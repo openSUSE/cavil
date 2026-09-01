@@ -130,16 +130,27 @@ sub _store_arrays ($self, $db, $content, $raw) {
 
 # Recompute the stopword set - fingerprints whose document frequency exceeds the cap - over the current arrays,
 # so the query can prune them. No array rewrite: they stay stored (GIN compresses them away) and are dropped at
-# query time. ORDER BY is load-bearing, not tidiness: shards run this concurrently, and a GROUP BY emits rows in
-# hash order, so without one insert order two of them take conflict locks in opposite orders and deadlock.
+# query time.
+#
+# One at a time, and skip rather than queue. This unnests every stored array, which at corpus scale spills tens
+# of gigabytes; several shards running it together multiplied that and deadlocked on each other's uncommitted
+# keys. Whichever shard finishes last finds the lock free and makes the complete pass, and a skipped refresh
+# costs nothing now that the per-fingerprint probe limit bounds query cost on its own. Returns whether it ran.
+use constant STOPWORD_LOCK => 4_021_763_001;
+
 sub refresh_stopwords ($self, $cap = undef) {
   $cap //= $self->df_cap;
-  $self->pg->db->query(
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  return 0 unless $db->query('SELECT pg_try_advisory_xact_lock(?)', STOPWORD_LOCK)->array->[0];
+
+  $db->query(
     'INSERT INTO fp_stopwords (fingerprint)
        SELECT fp FROM fp_contents c, unnest(c.fingerprints) fp WHERE c.indexed GROUP BY fp HAVING count(*) > ?
-       ORDER BY fp
      ON CONFLICT DO NOTHING', $cap
   );
+  $tx->commit;
+  return 1;
 }
 
 # The corpus version, bumped per build, in a small file in the shared cache dir. Losing it resets to 0, which
