@@ -959,7 +959,7 @@ limit - is the rebuild-everything-on-any-change cache behaviour, and the engine 
 ## Code Search
 
 Code search answers a different question from license detection: not "what license is this text" but "has Cavil
-already seen this code, and where". It backs the `cavil` command-line client, which an engineer or a CI job points
+already seen this code, and where". It backs the `cavil-cli` command-line client, which an engineer or a CI job points
 at a working tree to find out whether files are copies of something already indexed (open source or the commercial
 software Cavil also carries), and it powers the "found in" provenance strip in the report browser. The unit is a
 whole file's content, identified by hash, so recognition is exact and license-neutral: the client sends content
