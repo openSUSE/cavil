@@ -569,3 +569,8 @@ DROP TABLE fp_postings;
 
 -- 66 up
 DROP TABLE fp_stopwords;
+
+-- 67 up
+DROP TABLE IF EXISTS fp_files;
+DROP TABLE IF EXISTS fp_contents;
+ALTER TABLE bot_reports DROP COLUMN IF EXISTS declared_license;

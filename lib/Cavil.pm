@@ -20,7 +20,6 @@ use Cavil::Model::Requests;
 use Cavil::Model::Users;
 use Cavil::Model::APIKeys;
 use Cavil::Model::Snippets;
-use Cavil::Model::Fingerprints;
 use Cavil::Notice;
 use Cavil::OBS;
 use Cavil::SPDX;
@@ -87,7 +86,6 @@ sub startup ($self) {
   $self->plugin('Cavil::Task::Cleanup');
   $self->plugin('Cavil::Task::ClosestMatch');
   $self->plugin('Cavil::Task::Documents');
-  $self->plugin('Cavil::Task::Fingerprint');
 
   $self->plugin('Cavil::Plugin::Linux');
 
@@ -146,37 +144,6 @@ sub startup ($self) {
       );
     }
   );
-
-  # Snippet code search, off unless configured. Also off when the installed Cavil::Matcher predates fingerprint
-  # support: without this every index_batch job would die on the first file. codesearch returns the config
-  # (truthy) only when enabled.
-  $self->helper(
-    codesearch => sub ($c) {
-      state $cfg
-        = ($config->{codesearch} && $config->{codesearch}{enabled} && Cavil::Matcher->can('fingerprint_file'))
-        ? $config->{codesearch}
-        : undef;
-      return $cfg;
-    }
-  );
-  $self->helper(
-    fingerprints => sub ($c) {
-      return undef unless my $cfg = $c->codesearch;
-      state $fp = Cavil::Model::Fingerprints->new(
-        pg              => $c->pg,
-        log             => $self->log,
-        checkout_dir    => $config->{checkout_dir},
-        generation_file => path($config->{cache_dir})->make_path->child('fp-generation')->to_string,
-        (defined $cfg->{k}      ? (k      => $cfg->{k})      : ()), (defined $cfg->{w} ? (w => $cfg->{w}) : ()),
-        (defined $cfg->{df_cap} ? (df_cap => $cfg->{df_cap}) : ()),
-        (defined $cfg->{max_fingerprints} ? (max_fingerprints => $cfg->{max_fingerprints}) : ())
-      );
-    }
-  );
-
-  # One startup line per process: web and worker can load different configs or run in different modes, and
-  # code search is otherwise silently on or off (no menu / no MCP tool when off).
-  $self->log->info(sprintf 'Code search %s (mode %s)', $self->codesearch ? 'enabled' : 'disabled', $self->mode);
 
   $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
 
@@ -247,15 +214,6 @@ sub startup ($self) {
   $api_key->post('/api/v1/packages/upload')->to('API#upload')->name('upload_api');
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
   $api_key->get('/api/v1/documents/<id:num>/:key')->to('Report#document');
-
-  # Both the API-key endpoint and the logged-in web page run the same search action; only the auth bridge
-  # differs.
-  $api_key->post('/api/v1/code/search')->to('CodeSearch#search')->name('code_search_api');
-  $api_key->get('/api/v1/code/config')->to('CodeSearch#config')->name('code_config_api');
-  $api_key->post('/api/v1/code/known')->to('CodeSearch#known')->name('code_known_api');
-  $api_key->post('/api/v1/code/search-batch')->to('CodeSearch#search_batch')->name('code_search_batch_api');
-  $logged_in->get('/code-search')->to('CodeSearch#index')->name('code_search');
-  $logged_in->post('/code-search/query')->to('CodeSearch#search')->name('code_search_query');
 
   $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');
   $logged_in->get('/api_keys/meta')->to('APIKeys#list_meta')->name('list_api_keys_meta');

@@ -98,11 +98,6 @@ These tools are currently available:
   - `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
   - `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
 
-- *cavil_code_search* - Find where a code fragment already exists in known open source, ranked by containment, with a risk indicator (see the code search section in [Setup](Setup.md)). Only available when code search is enabled on the instance
-  - **Required Roles**: `user` (read-only)
-  - `snippet`: The code fragment to look up. (string, required)
-  - `limit`: Maximum number of matches to return. Defaults to `20`, maximum `100`. (number, optional)
-
 - *cavil_get_file* - Get content of a specific file in the package
   - **Required Roles**: `user` (read-only)
   - `package_id`: ID of package to read file from. (number, required)

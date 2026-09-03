@@ -192,60 +192,6 @@ sign-off, `manager` signs off as a non-lawyer expert, `contributor` proposes pat
 snippets. Use `-A`/`-R` to add and remove them; the full capability matrix is in the
 [Architecture](Architecture.md) guide.
 
-## Optional: code search
-
-Code search lets someone paste a code fragment and find where similar open source code already exists in
-the sources you have indexed, with a risk indicator. When it is on, the report file browser also shows a
-per-file provenance line ("identical to code in other packages"), so a reviewer can see when a file is a
-copy of code that lives elsewhere. It is off by default. Turn it on with a `codesearch` block in the config:
-
-```perl
-codesearch => {
-  enabled          => 1,
-  k                => 4,
-  w                => 8,
-  df_cap           => 500,
-  max_fingerprints => 5000,
-  workers          => 1
-}
-```
-
-The fingerprint index lives in Postgres (a GIN inverted index over each content's fingerprint array, tens of
-gigabytes on a large corpus, and safe to exclude from backups since it is regenerable), so enabling the feature
-needs nothing more. `k` and `w` are the winnowing parameters: a token is a word or identifier (operators and
-punctuation do not count). The defaults `k = 4`, `w = 8` were tuned on a mixed C/C++/Perl/Python corpus to make
-function-sized pastes (~15-25 lines) searchable and to keep recall high on edited or AI-derived code. Raising `w`
-shrinks the index (roughly `2/(w+1)` of the grams are kept) but only matches larger pastes; `w = 16` is about
-half the size but leaves many single functions too short to locate. `df_cap` is how many carriers of any one
-fingerprint a search will read before it stops looking: a gram in more contents than that cannot identify a copy,
-so reading further only costs time. It bounds the expensive half of a search, the rows actually fetched, at
-`query size x df_cap` no matter how common a gram turns out to be, and it needs no maintenance of any kind.
-`max_fingerprints` caps how many fingerprints a
-single content stores (0 disables): a generated, minified or data file can winnow to tens of thousands, and one
-such giant content makes every query that shares a fingerprint with it slow. Such files are not function-copy targets, so only the first
-`max_fingerprints` (in file order) are kept. Changing `k`/`w` needs a full rebuild.
-
-`workers` is how many jobs build the index side by side, each taking a disjoint shard of the contents. A build
-spends most of its time waiting on database writes rather than computing, so builders overlap well; the point of
-diminishing returns depends on the storage and on how much of the index fits in cache, so find it by timing a
-real build rather than trusting a figure. The cost is worker slots: each shard holds one for the entire build,
-which can run for hours, so `workers` should stay well below the `-j` the Minion worker was started with (a
-production worker at `-j 22` gives up about a fifth of its capacity at `workers => 4`). Priority governs which
-job is picked up next, not whether a running one yields, so this is a real reservation rather than a preference.
-A shard that fails costs nothing structural: its contents stay pending and the next build finishes them.
-
-Indexing only records which content needs fingerprinting; the fingerprints themselves are built by the daily
-cleanup job (see [Maintenance](Maintenance.md)), so the index trails the corpus by up to a day. To build on
-demand, or after changing `k`/`w` (which needs a full rebuild), queue a build yourself (a Minion worker does
-the work):
-
-```sh
-CAVIL_CONF=/path/to/cavil.conf script/cavil fingerprint            # build what is missing
-CAVIL_CONF=/path/to/cavil.conf script/cavil fingerprint --rebuild  # discard and rebuild from scratch
-```
-
-The API and MCP surfaces are covered in the [User API](UserAPI.md) guide.
-
 ## Next steps
 
 Your instance is now ready to review packages. To feed it work, connect the

@@ -42,10 +42,6 @@ $config->{snippet_fold}
 # Small enough that a few kilobytes of source already trips the file browser's truncation path
 $config->{max_file_browser_size} = 2000 if $fixtures eq 'large_file';
 
-# Code search on: the standard fixtures then index themselves as a side effect (FileIndexer records
-# content hashes, the analyze pipeline builds the fingerprint inverted index), so the page has data to find.
-$config->{codesearch} = {enabled => 1, k => 5, w => 16} if $fixtures eq 'codesearch';
-
 my $app = Test::Mojo->new(Cavil => $config)->app;
 $daemon->app($app);
 $app->log->level('warn');
@@ -60,12 +56,6 @@ elsif ($fixtures eq 'legal_documents') { $cavil_test->legal_documents_fixtures($
 elsif ($fixtures eq 'obligations')     { $cavil_test->obligations_fixtures($app) }
 else                                   { $cavil_test->ui_fixtures($app) }
 
-# Building is a scheduled job in production (Task::Cleanup), so the fixtures leave content pending; build it
-# here so the code search page has an index to query.
-if ($fixtures eq 'codesearch') {
-  $app->minion->enqueue('fingerprint_build');
-  $app->minion->perform_jobs;
-}
 my %report_state_original;
 
 sub _save_report_state ($c, $id) {

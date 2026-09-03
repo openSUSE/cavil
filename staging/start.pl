@@ -68,11 +68,6 @@ my $conf   = $dir->child('cavil.conf')->spew(<<"EOF");
       title   => 'Gitea pull request'
     }
   ],
-  codesearch => {
-    enabled => 1,
-    k       => 4,
-    w       => 8
-  },
   tokens               => ['staging:123'],
   pg                   => '$online',
   acceptable_risk      => 4,

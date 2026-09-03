@@ -76,9 +76,6 @@ own (as long as at least one worker is running).
 
     # Collect builds that died halfway, every hour
     script/cavil minion schedule -e hourly_sweep -c '25 * * * *' -t sweep_builds
-
-    # Build the code search fingerprint index (only if code search is enabled), Sunday to Thursday at 02:00
-    script/cavil minion schedule -e daily_fingerprints -c '0 2 * * 0-4' -t fingerprint_build -p 20
 ```
 
 The `-e` value is just a name for the schedule (used to update, pause, or remove it later), `-c` is a standard cron
@@ -94,52 +91,6 @@ command:
 
 The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
 recommended way to run reindexing and cleanup.
-
-When code search is enabled, schedule `fingerprint_build` as shown above: it prunes stale content, winnows whatever was
-indexed since the last run, and bumps the generation clients cache against. It is a separate schedule from the
-cleanup so its frequency can be tuned independently. The `-p 20` puts it in the same priority band as
-the weekly reindex; without it the build sits below every reindex that sweep queues up and can wait a long time to
-start. With `codesearch.workers` above 1 this one entry is still all you need - the job splits itself into that many
-shard jobs (see [Setup](Setup.md), which also covers the worker slots they occupy). A single-flight guard means a run started while
-one is still going simply exits, so a tight schedule is safe. Skip the reindex window, though: the example runs it Sunday
-to Thursday so it never overlaps the Friday `reindex_all`, which is the heaviest job on the system - overlapping is safe
-(content is addressed by hash, so a concurrent reindex cannot corrupt the build) but the two only slow each other down.
-Letting the weekend reindex finish and fingerprinting its new content on Sunday keeps both fast. The fingerprints live in
-a Postgres GIN inverted index; it and the other code-search table (`fp_files`) are large but fully regenerable,
-so exclude their data from database backups.
-
-### Rebuilding the whole fingerprint index
-
-A first build, or a `script/cavil fingerprint --rebuild` after changing `k` or `w`, writes the entire corpus into the
-GIN index one row at a time. That is the wrong shape for the job and it will cost you days. Postgres parks incoming
-GIN entries in an unsorted pending list, which every search then has to read from end to end; the inline cleanup that
-normally drains it can only run in one backend at a time, so several shard builders will always outrun it. The result
-is an index that answers correctly and takes tens of seconds to do it, and draining that list afterwards is slower
-than the build was.
-
-So for a **full** rebuild, drop the index first and put it back afterwards:
-
-```sql
-    DROP INDEX fp_contents_fingerprints_idx;
-    -- run the build to completion, then:
-    CREATE INDEX fp_contents_fingerprints_idx ON fp_contents USING gin (fingerprints);
-```
-
-Building from scratch sorts all the entries in one pass instead of inserting billions of them at random positions, and
-gives a denser index. Code search is unavailable while the index is gone, which is the trade: for a full rebuild the
-old index is stale or invalid anyway. Give the `CREATE INDEX` a generous `maintenance_work_mem`.
-`REINDEX INDEX CONCURRENTLY` is the equivalent repair if you only discover the problem afterwards; it needs room for
-a second copy of the index but does not take the feature offline.
-
-Incremental builds need none of this. They drain the pending list themselves when they finish, so it stays empty
-between runs. If you ever want to check, `pgstatginindex` reports it (the `pgstattuple` extension provides it):
-
-```sql
-    SELECT pending_pages, pending_tuples FROM pgstatginindex('fp_contents_fingerprints_idx');
-```
-
-Anything other than zero shortly after a build means searches are paying for it, and the fix is
-`SELECT gin_clean_pending_list('fp_contents_fingerprints_idx')` - or, if the backlog is large, the rebuild above.
 
 ### Collecting abandoned builds
 
