@@ -930,6 +930,17 @@ export default {
   line-height: 1.5;
   padding: 14px 16px;
 }
+/* Note bodies are arbitrary markdown (AI-assisted notes have emitted `##`); without this,
+   headings render at Bootstrap defaults and tower over the note column. Keep them near body size. */
+.report-note-body :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 16px 0 8px;
+}
+.report-note-body :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
 .report-note-body p {
   margin-bottom: 12px;
 }
