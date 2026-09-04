@@ -164,7 +164,7 @@ export default {
         reviews.push({
           id: review.id,
           externalLink: review.external_link_data ?? review.external_link,
-          imported: moment(review.imported_epoch * 1000).fromNow(),
+          imported: review.imported_epoch ? moment(review.imported_epoch * 1000).fromNow() : '',
           package: packageLink(review),
           priority: review.priority,
           report: reportLink(review)

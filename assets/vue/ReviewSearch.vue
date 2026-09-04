@@ -142,7 +142,7 @@ export default {
       for (const review of data.page) {
         reviews.push({
           comment: review.comment,
-          imported: moment(review.imported_epoch * 1000).fromNow(),
+          imported: review.imported_epoch ? moment(review.imported_epoch * 1000).fromNow() : '',
           package: review.package,
           report: reportLink(review),
           state: review.state,
