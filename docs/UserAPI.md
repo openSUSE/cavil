@@ -873,6 +873,65 @@ Content-Type: application/json
 }
 ```
 
+### Submit a Package for Review
+
+`POST /api/v1/packages/upload`
+
+Upload a source archive to start a standard legal review, the same pipeline the web upload form and the bot API
+use. This is the entry point for a command-line or CI legal check: package your working tree into an archive,
+upload it, then poll the report endpoint below. It requires a read-write key whose user holds the `infra`
+capability (the same high access level as the web upload form); other keys receive a `403`.
+
+The request is `multipart/form-data`.
+
+**Request parameters:**
+
+* `name` (required): Package name, used for the checkout directory and queue.
+
+* `priority` (required): Priority of this package review.
+
+* `tarball` (required): The source archive file (tar.*, zip, and the other formats the review pipeline unpacks).
+
+* `checksum` (required): MD5 checksum of the archive, in lower-case hex. A mismatch is rejected with a `400`
+                         `Checksum mismatch`, so a truncated upload never starts a review over incomplete sources.
+
+* `external_link` (optional): Short string describing the source, for traceability (for example a repository URL
+                              and commit).
+
+**Request:**
+
+```
+POST /api/v1/packages/upload
+Host: legaldb.suse.de
+Authorization: Bearer generated_api_key_here
+Accept: application/json
+Content-Type: multipart/form-data; boundary=...
+
+...multipart body with name, priority, checksum, external_link and the tarball file...
+```
+
+**Response:**
+
+Uploading the same archive under the same name again is idempotent: the existing package is returned with
+`duplicate` set to `true`, and no second review is started. The `id` in `saved` is the package/review id used
+with the report and document endpoints below.
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "duplicate": false,
+  "saved": {
+    "id": 23,
+    "name": "my-project",
+    "state": "new",
+    "checkout_dir": "c1ffb4256878c64eb0e40c48f36d24d2",
+    "priority": 5
+  }
+}
+```
+
 ### Retrieve License Reports
 
 `GET /api/v1/report/<package_id>.<format>`
@@ -880,6 +939,12 @@ Content-Type: application/json
 Get legal report in plain text or JSON format. Additionally to `txt` and `json`, the extended report format used for
 MCP is available with the format identifier `mcp`. Note that the exact report format is not static and will change from
 time to time.
+
+While the package is still being unpacked, indexed or analyzed the endpoint returns `408`; poll until it returns
+`200`. The JSON format includes two top-level fields for gating a CI run without a second request: `risk`, the
+report's maximum license risk on the 1-9 scale (the same number the web report shows, forced to `9` when there
+are unresolved matches), and `acceptable_risk`, the instance's configured threshold at or below which a report is
+considered acceptable.
 
 **Request:**
 

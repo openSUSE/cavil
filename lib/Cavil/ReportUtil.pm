@@ -16,9 +16,9 @@ our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
   qw(is_vendored_path peripheral_scope),
-  qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_shortname),
-  qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
-  qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
+  qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_risk),
+  qw(report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
+  qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
 );
 
 use constant PAD_WORDS => 5;
@@ -727,6 +727,14 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
   $l ||= 'Unknown';
 
   return "$l-$max_risk:$chksum";
+}
+
+# Max risk for a package, parsed from its report checksum ("<license>-<risk>:<hash>"); unresolved keyword
+# matches are risk-9 findings, so they raise it to 9. Shared by the web header and the API so they cannot diverge.
+sub report_risk ($checksum, $unresolved = 0) {
+  my ($risk) = ($checksum // '') =~ /-(\d+):\w+$/;
+  $risk = 9 if ($unresolved || 0) > 0;
+  return $risk;
 }
 
 sub summary_delta ($old, $new) {

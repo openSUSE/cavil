@@ -9,7 +9,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Mojo::File qw(path);
+use Cavil::Util qw(md5_file);
+use Mojo::File  qw(path tempdir);
 use Mojo::Date;
 use Mojo::JSON qw(true false);
 
@@ -298,6 +299,70 @@ subtest 'API keys' => sub {
     $t->delete_ok('/api_keys/2')->status_is(200)->json_is('/removed' => 0);
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
   }
+};
+
+subtest 'Upload API' => sub {
+  my $expires = Mojo::Date->new(time + 36000)->to_datetime;
+
+  # tester (id 2) is an admin, so has the infra capability; test_bot (id 1) is only a plain user
+  my $admin_rw
+    = $t->app->api_keys->create(owner => 2, type => 'read-write', description => 'a-rw', expires => $expires);
+  my $admin_ro = $t->app->api_keys->create(owner => 2, type => 'read-only', description => 'a-ro', expires => $expires);
+  my $user_rw = $t->app->api_keys->create(owner => 1, type => 'read-write', description => 'u-rw', expires => $expires);
+
+  my $tmp = tempdir;
+  my $src = $tmp->child('proj')->make_path;
+  $src->child('main.c')->spew("// SPDX-License-Identifier: Apache-2.0\nint main() { return 0; }\n");
+  my $archive = $tmp->child('proj.tar.gz');
+  is system('tar', '-czf', $archive->to_string, '-C', $src->to_string, '.'), 0, 'archive created';
+  my $sum = md5_file($archive->to_string);
+
+  # A fresh form each call: Mojo::UserAgent consumes the file asset while building the request, so a shared
+  # hashref would upload empty bytes on the second post.
+  my $form = sub {
+    my %extra = @_;
+    return {name => 'cli-proj', priority => '5', checksum => $sum, tarball => {file => $archive->to_string}, %extra};
+  };
+
+  subtest 'Rejected without the infra capability or a write scope' => sub {
+    $t->post_ok('/api/v1/packages/upload' => form => $form->())->status_is(403);
+    $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $admin_ro->{api_key}"} => form => $form->())
+      ->status_is(403);
+    $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $user_rw->{api_key}"} => form => $form->())
+      ->status_is(403);
+  };
+
+  my $id;
+  subtest 'Admin write key uploads and attributes to the key user' => sub {
+    $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $admin_rw->{api_key}"} => form => $form->())
+      ->status_is(200)
+      ->json_is('/duplicate'  => false)
+      ->json_is('/saved/name' => 'cli-proj');
+    $id = $t->tx->res->json('/saved/id');
+    ok $id, 'package id returned';
+    is $t->app->packages->find($id)->{requesting_user}, 2, 'attributed to the key user, not the bot';
+  };
+
+  subtest 'Checksum mismatch is rejected' => sub {
+    $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $admin_rw->{api_key}"} => form =>
+        $form->(checksum => 'a' x 32))->status_is(400)->json_is('/error' => 'Checksum mismatch');
+  };
+
+  subtest 'Re-upload of the same archive is idempotent' => sub {
+    $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $admin_rw->{api_key}"} => form => $form->())
+      ->status_is(200)
+      ->json_is('/duplicate' => true)
+      ->json_is('/saved/id'  => $id);
+  };
+
+  subtest 'Report carries the risk verdict' => sub {
+    $t->app->minion->perform_jobs;
+    $t->get_ok("/api/v1/report/$id.json" => {Authorization => "Bearer $admin_rw->{api_key}"})
+      ->status_is(200)
+      ->json_is('/package/id'      => $id)
+      ->json_is('/acceptable_risk' => $t->app->reports->acceptable_risk);
+    ok defined $t->tx->res->json('/risk'), 'max risk surfaced for gating';
+  };
 };
 
 subtest 'License prediction' => sub {

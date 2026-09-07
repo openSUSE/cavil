@@ -11,7 +11,7 @@ use Cavil::ReportUtil (
   qw(license_classification license_compatibility license_document_candidates license_obligations),
   qw(license_obligation_ids minimal_snippet),
   qw(new_license_names new_unresolved_files overlapping_licenses peripheral_scope ranked_incompatibilities),
-  qw(report_checksum report_shortname),
+  qw(report_checksum report_risk report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
 );
@@ -1597,6 +1597,19 @@ subtest 'report_shortname' => sub {
     }
     ),
     'BSD-2-Clause-3:jemn5u', 'incompatibilities no longer elevate the risk';
+};
+
+subtest 'report_risk' => sub {
+  is report_risk('Artistic-2.0-3:xK1e'),   3, 'risk parsed from the checksum shortname';
+  is report_risk('Unknown-0:abcd'),        0, 'a zero risk is preserved, not treated as missing';
+  is report_risk('BSD-2-Clause-9:jemn5u'), 9, 'a risk-9 checksum';
+
+  is report_risk('MIT-2:abcd', 0), 2, 'no unresolved matches leaves the parsed risk alone';
+  is report_risk('MIT-2:abcd', 5), 9, 'unresolved matches force the risk to 9';
+
+  is report_risk(undef),    undef, 'no checksum (never analyzed) is undef';
+  is report_risk(''),       undef, 'an empty checksum is undef';
+  is report_risk(undef, 3), 9,     'unresolved matches force 9 even before a checksum exists';
 };
 
 subtest 'should_fold_snippet' => sub {

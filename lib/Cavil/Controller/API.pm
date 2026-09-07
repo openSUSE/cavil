@@ -109,6 +109,46 @@ sub status ($self) {
   $self->render(json => {package => $name, requests => $self->packages->states($name)});
 }
 
+sub upload ($self) {
+
+  # Submitting runs the full pipeline and adds to the legal backlog, so it takes the same infra capability the
+  # web upload form requires, plus a write-scoped key.
+  my %scopes = map { $_ => 1 } @{$self->current_user_scopes};
+  return $self->render(
+    json   => {error => 'It appears you have insufficient permissions for accessing this resource'},
+    status => 403
+  ) unless $self->current_user_can('infra') && $scopes{'cavil:write'};
+
+  my $validation = $self->validation;
+  $validation->required('name')->like(qr/^[A-Za-z0-9\-\.]+$/);
+  $validation->required('priority')->num;
+  $validation->required('tarball')->upload->size(1, undef);
+  $validation->required('checksum')->like(qr/^[a-f0-9]{32}$/i);
+  $validation->optional('external_link');
+  return $self->reply->json_validation_error if $validation->has_error;
+
+  my ($obj, $duplicate) = eval {
+    $self->packages->store_upload(
+      $validation->param('tarball'),
+      {
+        name            => $validation->param('name'),
+        priority        => $validation->param('priority'),
+        requesting_user => $self->users->id_for_login($self->current_user),
+        external_link   => $validation->param('external_link'),
+        checksum        => $validation->param('checksum')
+      }
+    );
+  };
+  if (my $err = $@) {
+    return $self->render(json => {error => 'Checksum mismatch'}, status => 400)
+      if ref $err eq 'HASH' && $err->{checksum_mismatch};
+    $self->app->log->error("Upload of package @{[$validation->param('name')]} failed: $err");
+    return $self->render(json => {error => 'Upload failed'}, status => 500);
+  }
+
+  $self->render(json => {saved => $obj, duplicate => $duplicate ? \1 : \0});
+}
+
 sub whoami ($self) {
   my $user = $self->current_user;
   my $id   = $self->users->id_for_login($user);

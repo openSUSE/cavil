@@ -5,7 +5,7 @@ package Cavil::Plugin::Helpers;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Licenses   qw(lic);
-use Cavil::ReportUtil qw(license_classification peripheral_scope);
+use Cavil::ReportUtil qw(license_classification peripheral_scope report_risk);
 use Cavil::Role       qw(roles_with_capability);
 use Cavil::Util       qw(external_link_data license_link spdx_link);
 use CommonMark        ();
@@ -367,10 +367,9 @@ sub _package_summary ($c, $id) {
   my $group   = $main->{group};
   my $url     = $main->{url};
 
-  my $report = $pkg->{checksum} // '';
-  my ($risk, $shortname) = $report =~ /-(\d+):(\w+)$/;
-
-  $risk = 9 if ($pkg->{unresolved_matches} || 0) > 0;
+  my $report      = $pkg->{checksum} // '';
+  my ($shortname) = $report =~ /-\d+:(\w+)$/;
+  my $risk        = report_risk($report, $pkg->{unresolved_matches});
 
   my $requests = $pkgs->requests_for($id);
 

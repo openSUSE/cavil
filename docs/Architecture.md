@@ -234,6 +234,23 @@ These are the standard risk levels used for license patterns included with Cavil
                         customers can use the software.
 * 9 - `Unknown`: Keywords and phrases used to identify potential candidates for new license patterns.
 
+## Command-line / CI review
+
+A developer or a CI job can run the standard legal review against the project they are working on, using the
+[cavil-cli](https://github.com/openSUSE/cavil-cli) client. The client packages the working tree into an archive
+(deliberately including installed vendored subcomponents such as `node_modules`, which a full review must cover),
+uploads it to `POST /api/v1/packages/upload`, and polls `GET /api/v1/report/<id>.json` until it stops returning
+`408`. The upload runs the same unpack → index → analyze → auto-review pipeline as any other package, so nothing
+downstream is special-cased.
+
+The report's JSON carries a `risk` (its maximum license risk, the same number the report page shows) and the
+instance's `acceptable_risk` threshold, so the client can turn a review into a pass/fail CI gate without a second
+request or waiting for a human verdict.
+
+Because a submission enters the real review backlog, the endpoint requires the same high access as the web upload
+form: a read-write API key whose user holds the `infra` capability (see Access Levels). A later, separate feature
+will give ordinary users a sandbox namespace that yields a report without adding to the backlog.
+
 ## Report Creation
 
 Report creation is triggered via the REST [Bot API](BotAPI.md), usually by bots like

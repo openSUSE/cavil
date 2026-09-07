@@ -244,6 +244,7 @@ sub startup ($self) {
   $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
   $api_key->get('/api/v1/reports')->to('API#reports');
   $api_key->get('/api/v1/search')->to('API#package_search')->name('search_api');
+  $api_key->post('/api/v1/packages/upload')->to('API#upload')->name('upload_api');
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
   $api_key->get('/api/v1/documents/<id:num>/:key')->to('Report#document');
 

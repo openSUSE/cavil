@@ -6,6 +6,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::Asset::File;
 use Cavil::Util 'lines_context';
+use Cavil::ReportUtil 'report_risk';
 use IO::Uncompress::Gunzip ();
 
 # Far above any real package, so only a pathological one is ever truncated
@@ -28,7 +29,16 @@ sub report ($self) {
       # Part of the published response shape, so served here even though the dig report leaves them to the tables.
       my $artifacts = $self->reports->artifacts($id, API_ARTIFACT_LIMIT);
       my %full      = (%$report, map { $_ => $artifacts->{$_}{values} } qw(emails urls copyrights));
-      $self->render(json => {report => \%full, package => $pkg});
+
+      # Verdict fields so a CLI/CI client can gate in one request; risk matches the web header (shared helper).
+      $self->render(
+        json => {
+          report          => \%full,
+          package         => $pkg,
+          risk            => report_risk($pkg->{checksum}, $pkg->{unresolved_matches}),
+          acceptable_risk => $self->reports->acceptable_risk
+        }
+      );
     },
     txt => sub {
 
