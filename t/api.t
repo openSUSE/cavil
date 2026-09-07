@@ -116,7 +116,7 @@ subtest 'Create package' => sub {
   # job being queued is not one
   $t->get_ok('/package/1/report' => {Authorization => 'Token test_token'})
     ->status_is(408)
-    ->content_like(qr/not indexed/);
+    ->json_is('/stage' => 'queued');
   $t->app->minion->on(
     worker => sub {
       my ($minion, $worker) = @_;

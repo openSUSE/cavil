@@ -80,7 +80,7 @@ subtest 'Details after import (indexing in progress)' => sub {
 
   $t->json_is('/errors', []);
 
-  $t->get_ok('/reviews/report/1')->status_is(408)->content_like(qr/not indexed/);
+  $t->get_ok('/reviews/report/1')->status_is(408)->json_is('/stage' => 'queued');
   $t->get_ok('/reviews/report_details/1')
     ->status_is(408)
     ->json_is('/error', 'not indexed')

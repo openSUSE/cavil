@@ -355,6 +355,12 @@ subtest 'Upload API' => sub {
       ->json_is('/saved/id'  => $id);
   };
 
+  subtest 'Report is pending with a stage while the review runs' => sub {
+    $t->get_ok("/api/v1/report/$id.json" => {Authorization => "Bearer $admin_rw->{api_key}"})
+      ->status_is(408)
+      ->json_is('/stage' => 'queued');
+  };
+
   subtest 'Report carries the risk verdict' => sub {
     $t->app->minion->perform_jobs;
     $t->get_ok("/api/v1/report/$id.json" => {Authorization => "Bearer $admin_rw->{api_key}"})

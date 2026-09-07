@@ -898,6 +898,10 @@ The request is `multipart/form-data`.
 * `external_link` (optional): Short string describing the source, for traceability (for example a repository URL
                               and commit).
 
+* `ephemeral` (optional): Reserved. Signals a request for a one-off report with no lasting side effects (no
+                          open review left in the legal backlog). Currently ignored, for a planned ad-hoc
+                          review mode; a submission today always enters the standard review workflow.
+
 **Request:**
 
 ```
@@ -941,10 +945,11 @@ MCP is available with the format identifier `mcp`. Note that the exact report fo
 time to time.
 
 While the package is still being unpacked, indexed or analyzed the endpoint returns `408`; poll until it returns
-`200`. The JSON format includes two top-level fields for gating a CI run without a second request: `risk`, the
-report's maximum license risk on the 1-9 scale (the same number the web report shows, forced to `9` when there
-are unresolved matches), and `acceptable_risk`, the instance's configured threshold at or below which a report is
-considered acceptable.
+`200`. For the JSON format the `408` body carries a `stage` field (`queued`, `unpacking`, `indexing`,
+`analyzing` or `finalizing`) so a client can show progress. Once ready, the JSON includes two top-level fields
+for gating a CI run without a second request: `risk`, the report's maximum license risk on the 1-9 scale (the
+same number the web report shows, forced to `9` when there are unresolved matches), and `acceptable_risk`, the
+instance's configured threshold at or below which a report is considered acceptable.
 
 **Request:**
 

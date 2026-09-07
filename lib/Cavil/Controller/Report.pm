@@ -18,10 +18,9 @@ sub report ($self) {
 
   # Jobs working on the package are deliberately not a reason to refuse it one. A rebuild is assembled
   # beside the live report and swapped in with a single commit, so there is always a whole report to hand out.
-  return $self->render(text => 'not indexed', status => 408) unless $pkg->{indexed};
-
-  return $self->render(text => 'no report', status => 408)
-    unless my $report = $self->reports->sanitized_dig_report($id);
+  # While there is no report yet, a JSON client (a polling CLI) gets the pipeline stage so it can show progress.
+  return _pending($self, $pkg->{index_stage} // 'queued', 'not indexed') unless $pkg->{indexed};
+  return _pending($self, 'finalizing', 'no report') unless my $report = $self->reports->sanitized_dig_report($id);
 
   $self->respond_to(
     json => sub {
@@ -61,6 +60,12 @@ sub report ($self) {
     },
     mcp => sub { $self->render(text => $self->helpers->mcp_report($id)) }
   );
+}
+
+# A report that is not ready yet: 408 so a client keeps polling, with the pipeline stage for a JSON client to
+# show and the existing plain-text reason for everyone else.
+sub _pending ($self, $stage, $text) {
+  return $self->respond_to(json => {json => {stage => $stage}, status => 408}, any => {text => $text, status => 408});
 }
 
 sub details ($self) {
