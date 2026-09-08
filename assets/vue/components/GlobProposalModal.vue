@@ -10,20 +10,21 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="globProposalModalLabel">Propose ignore glob</h5>
+          <h5 class="modal-title" id="globProposalModalLabel">{{ create ? 'Add ignore glob' : 'Propose ignore glob' }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <p class="glob-proposal-help">
-            Propose a file path glob to exclude matching files from license scanning system-wide. Use
+            {{ create ? 'Add' : 'Propose' }} a file path glob to exclude matching files from license scanning
+            system-wide<template v-if="create"> right away</template>. Use
             <code>*</code> for the version segment so it applies to future versions of the package.
           </p>
           <form @submit.prevent="onSubmit">
             <div class="mb-3">
               <label for="glob-proposal-input" class="col-form-label">Glob</label>
-              <input v-model="glob" id="glob-proposal-input" class="form-control glob-proposal-input" />
+              <input v-model="glob" ref="input" id="glob-proposal-input" class="form-control glob-proposal-input" />
             </div>
-            <div class="mb-3">
+            <div v-if="!create" class="mb-3">
               <label for="glob-proposal-reason" class="col-form-label">Reason</label>
               <textarea v-model="reason" id="glob-proposal-reason" class="form-control" rows="3"></textarea>
             </div>
@@ -38,7 +39,7 @@
             class="btn btn-primary"
             :disabled="glob.trim() === ''"
           >
-            Propose Ignore Glob
+            {{ create ? 'Add Ignore Glob' : 'Propose Ignore Glob' }}
           </button>
         </div>
       </div>
@@ -53,7 +54,7 @@ export default {
   name: 'GlobProposalModal',
   emits: ['submit'],
   data() {
-    return {glob: '', reason: '', modal: null};
+    return {glob: '', reason: '', create: false, modal: null};
   },
   beforeUnmount() {
     if (this.modal) {
@@ -62,11 +63,26 @@ export default {
     }
   },
   methods: {
-    open({glob = '', reason = ''} = {}) {
+    open({glob = '', reason = '', create = false} = {}) {
       this.glob = glob;
       this.reason = reason;
+      this.create = create;
       if (!this.modal) this.modal = Modal.getOrCreateInstance(this.$refs.modal);
       this.modal.show();
+
+      // The glob is pre-filled from the file path, which is almost always longer than the field.
+      // The part worth editing is the tail (the filename), so once the modal has shown, focus the
+      // input and put the cursor at the end - which also scrolls the field to reveal that tail.
+      this.$refs.modal.addEventListener(
+        'shown.bs.modal',
+        () => {
+          const input = this.$refs.input;
+          input.focus();
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
+        },
+        {once: true}
+      );
     },
     hide() {
       if (this.modal) this.modal.hide();

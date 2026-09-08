@@ -895,6 +895,111 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       );
     });
 
+    // Expand the risk buckets and open the first license-match file, returning its id, so the
+    // file-header actions menu is on screen. Earlier tests have already suppressed some files, so
+    // a fixed file id is not safe here - pick whatever the report still shows.
+    const openFirstReportFile = async () => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      await page.waitForSelector('#license-chart');
+      const fileId = await page.evaluate(() => {
+        for (const toggle of document.querySelectorAll('[id^="risk-"] a[data-bs-toggle="collapse"]')) toggle.click();
+        const link = document.querySelector('[id^="risk-"] a.file-link[href^="#file-"]');
+        if (!link) throw new Error('No license-match file link found in risk buckets');
+        link.click();
+        return link.getAttribute('href').replace('#file-', '');
+      });
+      await page.waitForSelector(`#file-details-${fileId}`);
+      return fileId;
+    };
+
+    await t.test('Only curators get the direct "Add ignore glob" file action', async t => {
+      // A contributor may propose but not curate, so their file-header menu offers only the
+      // proposal path - no direct add.
+      await page.goto(new URL('login_as_contributor', url).toString());
+      await page.waitForLoadState('load');
+
+      const fileId = await openFirstReportFile();
+      await page.locator(`#file-menu-${fileId}`).click();
+      const contribMenu = page.locator(`[aria-labelledby="file-menu-${fileId}"]`);
+      await contribMenu.waitFor({state: 'visible'});
+      t.equal(
+        await contribMenu.locator('.dropdown-item', {hasText: 'Add ignore glob'}).count(),
+        0,
+        'contributor has no direct add'
+      );
+      t.equal(
+        await contribMenu.locator('.dropdown-item', {hasText: 'Propose ignore glob'}).count(),
+        1,
+        'contributor can still propose'
+      );
+    });
+
+    await t.test('Add ignore glob directly as a curator', async t => {
+      // Back to the admin "tester" (a curator). This drives the direct path: the glob goes
+      // straight into ignored_files, never becoming a change proposal.
+      await page.goto(new URL('login', url).toString());
+      await page.waitForLoadState('load');
+
+      const fileId = await openFirstReportFile();
+      await page.locator(`#file-menu-${fileId}`).click();
+      const fileMenu = page.locator(`[aria-labelledby="file-menu-${fileId}"]`);
+      await fileMenu.waitFor({state: 'visible'});
+      await fileMenu.locator('.dropdown-item', {hasText: 'Add ignore glob'}).click();
+
+      // Create mode: titled for adding, and it drops the reason field a proposal would carry.
+      await page.waitForSelector('#globProposalModal.show');
+      t.match(await page.innerText('#globProposalModalLabel'), /Add ignore glob/, 'modal is in add mode');
+      t.equal(await page.locator('#glob-proposal-reason').count(), 0, 'reason field is hidden when adding directly');
+      const glob = await page.locator('#glob-proposal-input').inputValue();
+      t.match(glob, /^Mojolicious-\*\//, 'suggested glob wildcards the versioned top-level directory');
+      // Focus lands after the modal's fade transition (shown.bs.modal), so poll for it.
+      await page.waitForFunction(() => {
+        const el = document.getElementById('glob-proposal-input');
+        return el && document.activeElement === el && el.selectionStart === el.value.length;
+      });
+      t.pass('input is focused with the cursor at the end so the filename tail is in view');
+      await page.locator('#glob-proposal-submit').click();
+      await page.waitForSelector('#globProposalModal', {state: 'hidden'});
+
+      // Staged as an "Add ignore glob" action, then committed as a batch.
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      const item = page.locator('.pending-actions-item').filter({hasText: 'Add ignore glob'}).first();
+      await item.waitFor();
+      await Promise.all([page.waitForNavigation(), page.locator('#pending-actions-submit').click()]);
+
+      // It went straight into ignored_files, without ever creating a change proposal.
+      await page.goto(new URL('licenses/proposed', url).toString());
+      await page.waitForSelector('#proposed-patterns');
+      t.equal(
+        await page.locator('.change-file-container').filter({hasText: glob}).count(),
+        0,
+        'direct add never created a change proposal'
+      );
+
+      // The added glob appears on the admin Ignored Files page, owned by the curator.
+      await page.goto(new URL('ignored-files', url).toString());
+      await page.waitForSelector('#ignored-files tbody tr');
+      const row = page.locator('#ignored-files tbody tr').filter({hasText: glob}).first();
+      await row.waitFor();
+      t.equal(await row.locator('td').nth(0).innerText(), glob, 'added glob is listed');
+      t.equal(await row.locator('td').nth(2).innerText(), 'tester', 'curator is recorded as owner');
+
+      // Adding enqueued a reindex of the originating package; run it, then confirm the report now
+      // lists the file as suppressed by the new glob.
+      const jobs = await context.newPage();
+      await jobs.goto(performJobs, {timeout: 120000});
+      t.match(await jobs.innerText('div'), /done/);
+      await jobs.close();
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+      await page.waitForSelector('#license-chart');
+      const globList = page.locator('.report-glob-list');
+      await globList.waitFor();
+      t.ok((await globList.innerText()).includes(glob), 'report lists the added glob after reindexing');
+    });
+
     t.test('Console errors', t => {
       assertNoUnexpectedConsoleErrors(t, errorLogs);
       t.end();

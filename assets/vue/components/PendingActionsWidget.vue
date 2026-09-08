@@ -101,6 +101,7 @@ const ACTION_LABELS = {
   'propose-pattern': 'Propose pattern',
   'propose-ignore': 'Propose ignore',
   'propose-glob': 'Propose ignore glob',
+  'create-glob': 'Add ignore glob',
   'propose-missing': 'Propose missing license'
 };
 

@@ -267,7 +267,15 @@
                       <i class="fa-solid fa-ellipsis-vertical"></i>
                     </a>
                     <div class="dropdown-menu dropdown-menu-end" :aria-labelledby="'file-menu-' + file.id">
-                      <a href="#" class="dropdown-item" @click.prevent="openGlobProposal(file)">
+                      <a
+                        v-if="hasAdminRole"
+                        href="#"
+                        class="dropdown-item"
+                        @click.prevent="openGlobProposal(file, true)"
+                      >
+                        Add ignore glob&hellip;
+                      </a>
+                      <a href="#" class="dropdown-item" @click.prevent="openGlobProposal(file, false)">
                         Propose ignore glob&hellip;
                       </a>
                     </div>
@@ -556,6 +564,7 @@ export default {
       packageName: '',
       globProposalFileId: null,
       globProposalEditingId: null,
+      globProposalCreate: false,
       pendingActions: [],
       hashHandled: false,
       activeTab: 'review',
@@ -1099,10 +1108,11 @@ export default {
       parts[0] = parts[0].replace(/-[0-9][^/]*$/, '-*');
       return parts.join('/');
     },
-    openGlobProposal(file) {
+    openGlobProposal(file, create = false) {
       this.globProposalFileId = file.id;
       this.globProposalEditingId = null;
-      this.$refs.globProposalModal.open({glob: this.suggestGlob(file.path), reason: ''});
+      this.globProposalCreate = create;
+      this.$refs.globProposalModal.open({glob: this.suggestGlob(file.path), reason: '', create});
     },
     onGlobProposalSubmit({glob, reason}) {
       const editingIdx =
@@ -1110,6 +1120,11 @@ export default {
           ? this.pendingActions.findIndex(a => a.id === this.globProposalEditingId)
           : -1;
       const baseId = editingIdx >= 0 ? this.pendingActions[editingIdx].id : ++pendingActionIdSeq;
+      // Curators add the glob straight to ignored_files (create-glob); everyone else stages a
+      // proposal for later review (propose-glob), which is the only difference between the two.
+      const formData = this.globProposalCreate
+        ? {glob, from: this.packageName, package: this.pkgId}
+        : {glob, reason, from: this.packageName, package: this.pkgId};
       const action = {
         id: baseId,
         snippetId: null,
@@ -1118,8 +1133,8 @@ export default {
         endLine: null,
         hash: null,
         from: this.packageName,
-        action: 'propose-glob',
-        formData: {glob, reason, from: this.packageName, package: this.pkgId},
+        action: this.globProposalCreate ? 'create-glob' : 'propose-glob',
+        formData,
         license: '',
         locationLabel: glob,
         state: 'pending',
@@ -1219,10 +1234,12 @@ export default {
     async editAction(id) {
       const action = this.pendingActions.find(a => a.id === id);
       if (!action) return;
-      if (action.action === 'propose-glob') {
+      if (action.action === 'propose-glob' || action.action === 'create-glob') {
+        const create = action.action === 'create-glob';
         this.globProposalFileId = action.fileId;
         this.globProposalEditingId = action.id;
-        this.$refs.globProposalModal.open({glob: action.formData.glob, reason: action.formData.reason ?? ''});
+        this.globProposalCreate = create;
+        this.$refs.globProposalModal.open({glob: action.formData.glob, reason: action.formData.reason ?? '', create});
         return;
       }
       await this.showInlineEditor({
