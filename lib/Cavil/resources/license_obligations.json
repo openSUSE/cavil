@@ -1945,6 +1945,7 @@
       "CC-BY-SA-3.0": {
          "copyleft": "Yes (restricted)",
          "patent_hints": null,
+         "source_disclosure": "No",
          "use_cases": {
             "Image delivery OR Font delivery": {
                "IF": {
@@ -2291,6 +2292,10 @@
                ]
             }
          }
+      },
+      "CDLA-Permissive-2.0": {
+         "copyleft": "No",
+         "source_disclosure": "No"
       },
       "CPL-1.0": {
          "copyleft": "Yes",

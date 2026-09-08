@@ -187,6 +187,9 @@
       "BSD-2-Clause-pkgconf-disclaimer": {
          "osi": false
       },
+      "BSD-2-Clause-pos-unchanged": {
+         "osi": false
+      },
       "BSD-3-Clause": {
          "fsf": true,
          "osi": true
@@ -221,6 +224,9 @@
       },
       "BSD-3-Clause-Open-MPI": {
          "osi": true
+      },
+      "BSD-3-Clause-OpenWebUI": {
+         "osi": false
       },
       "BSD-3-Clause-Sun": {
          "osi": false
@@ -268,6 +274,9 @@
       "BSD-Source-Code": {
          "osi": false
       },
+      "BSD-Source-Code-no-disclaimer": {
+         "osi": false
+      },
       "BSD-Source-beginning-file": {
          "osi": false
       },
@@ -276,6 +285,9 @@
       },
       "BSD-Systemics-W3Works": {
          "osi": false
+      },
+      "BSD-ask-to-endorse": {
+         "osi": true
       },
       "BSL-1.0": {
          "fsf": true,
@@ -770,6 +782,9 @@
       "FDK-AAC": {
          "osi": false
       },
+      "FDK-MPEG-H": {
+         "osi": false
+      },
       "FSFAP": {
          "fsf": true,
          "osi": false
@@ -1027,6 +1042,9 @@
          "osi": false
       },
       "Hippocratic-2.1": {
+         "osi": false
+      },
+      "Hippocratic-3.0-core": {
          "osi": false
       },
       "IBM-pibs": {
@@ -2080,7 +2098,7 @@
          "osi": false
       },
       "curl": {
-         "osi": false
+         "osi": true
       },
       "cve-tou": {
          "osi": false
