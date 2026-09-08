@@ -1,37 +1,53 @@
 <template>
-  <form class="d-flex cavil-navbar-search" role="search" @submit.prevent="submit">
-    <div class="cavil-package-search-anchor">
-      <input
-        ref="input"
-        v-model="query"
-        type="text"
-        class="form-control cavil-search-input"
-        placeholder="Search packages"
-        aria-label="Search packages"
-        autocomplete="off"
-        @input="onInput"
-        @keydown.down.prevent="move(1)"
-        @keydown.up.prevent="move(-1)"
-        @keydown.enter.prevent="submit"
-        @keydown.esc="close"
-        @focus="onFocus"
-        @blur="onBlur"
-      />
-      <div v-show="open && suggestions.length > 0" class="autocomplete-container">
-        <div class="autocomplete">
-          <div
-            v-for="(name, i) in suggestions"
-            :key="name"
-            :class="['autocomplete-item', {active: i === highlighted}]"
-            @mousedown.prevent="choose(name)"
-            @mousemove="highlighted = i"
-          >
-            {{ name }}
+  <div class="cavil-package-search-control">
+    <button
+      ref="trigger"
+      type="button"
+      class="nav-link cavil-package-search-trigger"
+      aria-label="Find Package"
+      :aria-expanded="expanded"
+      aria-controls="cavil-package-search-popover"
+      @click="toggleSearch"
+    >
+      Find Package
+    </button>
+    <div v-show="expanded" id="cavil-package-search-popover" class="cavil-package-search-popover">
+      <form role="search" @submit.prevent="submit">
+        <label for="cavil-package-search-input" class="visually-hidden">Find Package</label>
+        <div class="cavil-package-search-anchor">
+          <input
+            id="cavil-package-search-input"
+            ref="input"
+            v-model="query"
+            type="text"
+            class="form-control cavil-search-input"
+            placeholder="Package name"
+            autocomplete="off"
+            @input="onInput"
+            @keydown.down.prevent="move(1)"
+            @keydown.up.prevent="move(-1)"
+            @keydown.enter.prevent="submit"
+            @keydown.esc.prevent="dismiss"
+            @focus="onFocus"
+            @blur="onBlur"
+          />
+          <div v-show="open && suggestions.length > 0" class="autocomplete-container">
+            <div class="autocomplete">
+              <div
+                v-for="(name, i) in suggestions"
+                :key="name"
+                :class="['autocomplete-item', {active: i === highlighted}]"
+                @mousedown.prevent="choose(name)"
+                @mousemove="highlighted = i"
+              >
+                {{ name }}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </form>
     </div>
-  </form>
+  </div>
 </template>
 
 <script>
@@ -43,11 +59,31 @@ export default {
       suggestions: [],
       highlighted: -1,
       open: false,
+      expanded: false,
       debounce: null,
       requestId: 0
     };
   },
+  mounted() {
+    document.addEventListener('mousedown', this.onDocumentMouseDown);
+  },
+  beforeUnmount() {
+    document.removeEventListener('mousedown', this.onDocumentMouseDown);
+    clearTimeout(this.debounce);
+  },
   methods: {
+    toggleSearch() {
+      if (this.expanded) {
+        this.close();
+        return;
+      }
+
+      this.expanded = true;
+      this.$nextTick(() => this.$refs.input.focus());
+    },
+    onDocumentMouseDown(event) {
+      if (this.expanded && !this.$el.contains(event.target)) this.close();
+    },
     onInput() {
       this.highlighted = -1;
       this.open = true;
@@ -98,30 +134,52 @@ export default {
       this.open = false;
     },
     close() {
+      this.expanded = false;
       this.open = false;
       this.highlighted = -1;
+    },
+    dismiss() {
+      this.close();
+      this.$nextTick(() => this.$refs.trigger.focus());
     }
   }
 };
 </script>
 
 <style>
+.cavil-package-search-control {
+  position: relative;
+}
+.cavil-package-search-trigger {
+  color: var(--cavil-fg-secondary);
+  white-space: nowrap;
+}
+.cavil-package-search-trigger:hover,
+.cavil-package-search-trigger:focus,
+.cavil-package-search-trigger[aria-expanded='true'] {
+  color: var(--cavil-fg-emphasis);
+}
+.cavil-package-search-popover {
+  background: var(--cavil-canvas);
+  border: 1px solid var(--cavil-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.2);
+  padding: 0.75rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  width: min(20rem, calc(100vw - 2rem));
+  z-index: 1000;
+}
 .cavil-package-search-anchor {
   position: relative;
   width: 100%;
 }
 .cavil-navbar-search .autocomplete-container {
-  background: var(--cavil-canvas);
-  border: 1px solid var(--cavil-border);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(var(--cavil-neutral-rgb), 0.2);
+  border-top: 1px solid var(--cavil-border-muted);
   cursor: pointer;
-  left: 0;
-  margin: 4px 0 0;
-  padding: 4px 0;
-  position: absolute;
-  right: 0;
-  z-index: 1000;
+  margin: 0.5rem -0.75rem -0.75rem;
+  padding: 0.25rem 0;
 }
 .cavil-navbar-search .autocomplete {
   max-height: 320px;
@@ -140,5 +198,11 @@ export default {
 .cavil-navbar-search .autocomplete-item:hover {
   background-color: var(--cavil-canvas-subtle);
   color: var(--cavil-fg);
+}
+@media (max-width: 991.98px) {
+  .cavil-package-search-popover {
+    left: 0;
+    right: auto;
+  }
 }
 </style>

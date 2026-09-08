@@ -437,7 +437,6 @@ html[data-bs-theme='dark'] {
 }
 .cavil-navbar-search {
   margin-right: .75rem;
-  min-width: 14rem;
 }
 .cavil-search-input {
   border-radius: 6px;
@@ -538,9 +537,8 @@ html[data-bs-theme='dark'] {
 }
 @media (max-width: 991.98px) {
   .cavil-navbar-search {
+    align-self: flex-start;
     margin: .5rem 0;
-    min-width: 0;
-    width: 100%;
   }
 }
 .cavil-icon-action {
