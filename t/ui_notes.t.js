@@ -11,8 +11,12 @@ import t from 'tap';
 t.test('Cavil UI - notes', skipUnlessOnline, async t => {
   const ui = await launchUi('js_ui_notes');
   const {page, context, url, errorLogs} = ui;
-  const noteScope = '[data-notes-scope-select]';
-  const selectNoteScope = scope => page.locator(noteScope).selectOption(scope);
+  const noteScope = '[data-notes-filter]';
+  const currentScope = () => page.locator(noteScope).getAttribute('data-note-scope');
+  const toggleNoteScope = () => page.locator('[data-notes-scope-toggle]').click();
+  const setNoteScope = async scope => {
+    if ((await currentScope()) !== scope) await toggleNoteScope();
+  };
 
   try {
     // Establish the admin session.
@@ -102,7 +106,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       });
       await page.click('[data-tab="notes"]');
       await page.waitForSelector(noteScope);
-      await selectNoteScope('history');
+      await toggleNoteScope();
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
       const sharedNewest = page.locator('.report-note').first();
       t.match(await sharedNewest.locator('.report-note-body').innerText(), /First admin reply/);
@@ -125,7 +129,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       );
 
       // Add a lawyer-only note from review #2; verify highlight + tab tint.
-      await selectNoteScope('relevant');
+      await setNoteScope('relevant');
       await page.waitForSelector('[data-composer-input="new"]');
       await page.locator('[data-composer-input="new"]').fill('Confidential note for lawyers only');
       await page.locator('[data-note-lawyer-only]').check();
@@ -159,7 +163,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       // Admin can also delete a seed note authored by test_bot. The
       // fixture seeds 24 "Seed note #N" bodies (N=1..24) plus a 25th
       // "Latest review notes" body, so any "Seed note #N" target works.
-      await selectNoteScope('history');
+      await setNoteScope('history');
       const seedTarget = page.locator('.report-note').filter({hasText: 'Seed note #24'}).first();
       await seedTarget.waitFor();
       page.once('dialog', dialog => dialog.accept());
@@ -255,33 +259,26 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       // remains discoverable with an explicit count.
       await page.goto(`${url}/reviews/details/2`);
       await page.click('[data-tab="notes"]');
-      const emptyRelevant = page.locator(noteScope);
-      await emptyRelevant.waitFor();
-      t.equal(await emptyRelevant.inputValue(), 'relevant', 'Relevant is the default scope');
-      t.match(
-        await emptyRelevant.locator('option:checked').innerText(),
-        /Relevant notes · 0/,
-        'zero relevant notes is explicit'
-      );
+      await page.waitForSelector(noteScope);
+      t.equal(await currentScope(), 'relevant', 'Relevant is the default scope');
       t.equal(await page.locator('.report-note').count(), 0, 'historical notes never leak into the Relevant view');
       t.equal(
         await page.locator('.report-notes-empty').innerText(),
         'No notes are relevant to this report.',
         'empty state explains why the list is empty'
       );
-      const initialHistory = emptyRelevant.locator('option[value="history"]');
       t.match(
-        await initialHistory.innerText(),
-        /Previous notes · [1-9]/,
+        await page.locator('[data-notes-scope-toggle]').innerText(),
+        /show [1-9]\d* previous/,
         'History remains discoverable when relevance is zero'
       );
       await Promise.all([
         page.waitForResponse(r => /\/reviews\/notes\/2/.test(r.url()) && r.url().includes('history_only=1')),
-        selectNoteScope('history')
+        toggleNoteScope()
       ]);
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
       t.match(
-        await page.locator('[data-notes-history-hint]').innerText(),
+        await page.locator('[data-notes-history-hint]').getAttribute('title'),
         /different licensing.*may not apply/i,
         'History carries persistent applicability context'
       );
@@ -324,19 +321,19 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
 
       await Promise.all([
         page.waitForResponse(r => /\/reviews\/notes\/1/.test(r.url()) && r.url().includes('history_only=1')),
-        selectNoteScope('history')
+        toggleNoteScope()
       ]);
       await inherited.waitFor();
       const originBadge = inherited.locator('[data-note-origin-badge]');
       t.match(await originBadge.innerText(), /from report #2/, 'inherited note links back to report #2');
       t.equal(await nativeNote.count(), 0, 'native note is absent from History');
 
-      await selectNoteScope('relevant');
+      await toggleNoteScope();
       await page.waitForSelector(`#note-${inheritedId}`, {state: 'detached'});
       await nativeNote.waitFor();
 
       // Cleanup: delete the inherited note so downstream counts stay at 25.
-      await selectNoteScope('history');
+      await toggleNoteScope();
       await inherited.waitFor();
       page.once('dialog', dialog => dialog.accept());
       await Promise.all([
@@ -402,7 +399,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       await page.goto(`${url}/reviews/details/2`);
       await page.click('[data-tab="notes"]');
       await page.waitForSelector(`#note-${id}`);
-      t.equal(await page.locator(noteScope).inputValue(), 'relevant', 'pinned inherited note appears in Relevant');
+      t.equal(await currentScope(), 'relevant', 'pinned inherited note appears in Relevant');
 
       // Unpin from review #2 - any curator can unpin, from any review.
       const [unpinResp] = await Promise.all([
@@ -414,7 +411,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       t.equal(unpinResp.status(), 200);
       t.equal((await unpinResp.json()).note.pinned, false, 'server reports the note as unpinned');
       await page.waitForSelector(`#note-${id}`, {state: 'detached'});
-      await selectNoteScope('history');
+      await setNoteScope('history');
       await page.waitForSelector(`#note-${id}`);
       t.equal(
         await page.locator(`#note-${id} [data-note-pinned-badge]`).count(),

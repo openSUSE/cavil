@@ -1,22 +1,24 @@
 <template>
   <div class="report-notes">
-    <div v-if="showNoteFilter" class="report-notes-filter" data-notes-filter>
-      <label class="report-notes-filter-control">
-        <span>Show</span>
-        <select
-          class="form-select"
-          :value="noteScope"
-          :disabled="initialLoading"
-          data-notes-scope-select
-          @change="setNoteScope($event.target.value)"
-        >
-          <option value="relevant">Relevant notes · {{ relevant }}</option>
-          <option value="history">Previous notes · {{ historyCount }}</option>
-        </select>
-      </label>
-      <span v-if="noteScope === 'history'" class="report-notes-history-hint" data-notes-history-hint>
-        From reports with different licensing; may not apply to this report.
-      </span>
+    <div v-if="showNoteFilter" class="report-notes-scope" :data-note-scope="noteScope" data-notes-filter>
+      Showing
+      <span
+        v-if="noteScope === 'history'"
+        class="report-notes-scope-caveat"
+        title="From reports with different licensing; may not apply to this report."
+        data-notes-history-hint
+        >previous</span
+      ><template v-else>relevant</template>
+      <span class="report-notes-scope-sep">·</span>
+      <button
+        type="button"
+        class="report-notes-scope-toggle"
+        :disabled="initialLoading"
+        data-notes-scope-toggle
+        @click="setNoteScope(noteScope === 'history' ? 'relevant' : 'history')"
+      >
+        show {{ noteScope === 'history' ? relevant : historyCount }} {{ noteScope === 'history' ? 'relevant' : 'previous' }}
+      </button>
     </div>
     <div v-if="initialLoading" class="report-notes-loading">
       <LegalLoading message="Loading notes..." size="small" />
@@ -861,40 +863,35 @@ export default {
   color: var(--cavil-fg-disabled);
   font-style: italic;
 }
-.report-notes-filter {
-  align-items: center;
-  border-bottom: 1px solid var(--cavil-border);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
+.report-notes-scope {
+  color: var(--cavil-fg-muted);
+  font-size: 12px;
   margin-bottom: 16px;
-  padding-bottom: 10px;
-}
-.report-notes-filter-control {
-  align-items: center;
-  display: flex;
-  gap: 7px;
-  color: var(--cavil-fg-muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-.report-notes-filter-control .form-select {
-  background-color: var(--cavil-canvas-subtle);
-  border-color: var(--cavil-border);
-  border-radius: 6px;
-  color: var(--cavil-fg-emphasis);
-  font-size: 12px;
-  min-height: 30px;
-  min-width: 12rem;
-  padding-bottom: 3px;
-  padding-top: 3px;
-}
-.report-notes-history-hint {
-  color: var(--cavil-fg-muted);
-  flex: 1 1 20rem;
-  font-size: 12px;
-  margin-left: auto;
   text-align: right;
+}
+.report-notes-scope-caveat {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.report-notes-scope-sep {
+  color: var(--cavil-fg-disabled);
+  margin: 0 2px;
+}
+.report-notes-scope-toggle {
+  background: none;
+  border: none;
+  color: var(--cavil-accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.report-notes-scope-toggle:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.report-notes-scope-toggle:disabled {
+  color: var(--cavil-fg-disabled);
+  cursor: default;
 }
 /* Tag chip + editor styles live in TagInput.vue (imported here), which is the
    canonical home of the tag widget and supplies these .report-note-tag* rules. */
