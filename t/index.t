@@ -266,11 +266,12 @@ subtest 'License detail JSON endpoint permissions' => sub {
 
 # Automatic reindexing
 my $list = $t->app->minion->backend->list_jobs(0, 10, {states => ['inactive']});
-is $list->{total},         2,                       'two inactives job';
-is $list->{jobs}[0]{task}, 'reindex_matched_later', 'right task';
-is $list->{jobs}[1]{task}, 'pattern_stats',         'right task';
-is_deeply $list->{jobs}[0]{args}, [1], 'right arguments';
-my $reindex_id = $list->{jobs}[0]{id};
+is $list->{total},         3,                       'three inactive jobs';
+is $list->{jobs}[0]{task}, 'index_later',           'right task';
+is $list->{jobs}[1]{task}, 'reindex_matched_later', 'right task';
+is $list->{jobs}[2]{task}, 'pattern_stats',         'right task';
+is_deeply $list->{jobs}[1]{args}, [1], 'right arguments';
+my $reindex_id = $list->{jobs}[1]{id};
 $t->app->minion->perform_jobs;
 is $t->app->minion->job($reindex_id)->info->{state}, 'finished', 'job is finished';
 ok -f $t->app->patterns->matcher_cache_file, 'cache initialized';
@@ -294,11 +295,11 @@ is_deeply $res,
 $t->app->pg->db->query("update license_patterns set pattern = 'powerful' where id = 1");
 $t->app->patterns->expire_cache;
 $list = $t->app->minion->backend->list_jobs(0, 10, {tasks => ['index_later']});
-is $list->{total}, 1, 'one index_later jobs';
+is $list->{total}, 2, 'two index_later jobs';
 $t->app->minion->enqueue('reindex_all');
 $t->app->minion->perform_jobs;
 $list = $t->app->minion->backend->list_jobs(0, 10, {tasks => ['index_later']});
-is $list->{total},          3,          'three index_later jobs';
+is $list->{total},          4,          'four index_later jobs';
 is $list->{jobs}[0]{state}, 'finished', 'right state';
 is $list->{jobs}[1]{state}, 'finished', 'right state';
 $res = $db->select(
