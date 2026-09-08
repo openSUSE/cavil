@@ -583,7 +583,27 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('.toast-message'), 'Reviewed perl-Mojolicious as acceptable', 'toast');
       await page.waitForFunction(() => document.querySelector('#pkg-state').innerText.trim() === 'acceptable');
       t.equal(await page.innerText('#pkg-state'), 'acceptable', 'state badge updated in place');
+      t.match(
+        await page.innerText('.comment-editor-footer .metadata-review-status'),
+        /Review finalized/i,
+        'comment footer confirms the finalized decision'
+      );
+      t.equal(
+        await page.locator('.comment-editor-footer .cavil-meta-badge').count(),
+        0,
+        'comment footer does not repeat the selected decision'
+      );
+      t.equal(await page.locator('#acceptable').getAttribute('aria-pressed'), 'true', 'chosen decision is pressed');
+      t.equal(await page.locator('#unacceptable').getAttribute('aria-pressed'), 'false', 'alternative decision is not pressed');
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious', 'still on the report');
+
+      await page.reload();
+      await page.waitForSelector('.comment-editor-footer .metadata-review-status');
+      t.match(
+        await page.innerText('.comment-editor-footer .metadata-review-status'),
+        /Review finalized/i,
+        'finalized decision remains explicit after reload'
+      );
 
       await page.click('text=Recently Reviewed');
       t.equal(await page.innerText('title'), 'List recent reviews');

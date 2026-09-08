@@ -130,19 +130,6 @@
             <dt>Created</dt>
             <dd class="from-now">{{ created }}</dd>
           </template>
-          <template v-if="reviewed !== null">
-            <dt>Reviewed</dt>
-            <dd class="from-now">{{ reviewed }}</dd>
-          </template>
-          <template v-if="reviewingUser !== null">
-            <dt>Reviewing user</dt>
-            <dd>
-              {{ reviewingUser }}
-              <span v-if="pkgAiAssisted" class="ai-assisted-badge"
-                >(with AI Assistant <i class="fa-solid fa-robot"></i>)</span
-              >
-            </dd>
-          </template>
         </dl>
       </div>
       <div class="col-2">
@@ -254,6 +241,27 @@
                 @select="insertTemplate"
               />
             </template>
+            <template #footer v-if="selectedButtonId !== null">
+              <div
+                :class="['metadata-review-status', `is-${selectedButtonId}`]"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <i class="fa-solid fa-circle-check metadata-review-status-icon" aria-hidden="true"></i>
+                <strong>Review finalized</strong>
+                <span v-if="reviewingUser !== null || reviewed !== null" class="metadata-review-status-detail">
+                  <template v-if="reviewingUser !== null">
+                    by {{ reviewingUser }}
+                    <span v-if="pkgAiAssisted" class="ai-assisted-badge">
+                      (with AI Assistant <i class="fa-solid fa-robot" aria-hidden="true"></i>)
+                    </span>
+                  </template>
+                  <template v-if="reviewingUser !== null && reviewed !== null"> &middot; </template>
+                  <template v-if="reviewed !== null">{{ reviewed }}</template>
+                </span>
+              </div>
+            </template>
           </CommentEditor>
         </div>
         <div v-if="canReview" class="col mb-3 metadata-review-actions">
@@ -262,8 +270,8 @@
                  reviewer's capability, so a non-lawyer can never post a lawyer sign-off.
 
                  The pair doubles as a live indicator of the current decision: the button matching the
-                 stored state carries a check and stays solid, the alternative recedes to an outline but
-                 stays fully clickable so the reviewer can still switch their mind. -->
+                 stored state stays solid, while the alternative recedes to an outline but stays fully
+                 clickable so the reviewer can still switch their mind. -->
             <button
               v-for="button in reviewButtons"
               :key="button.id"
@@ -275,11 +283,11 @@
               ]"
               :id="button.id"
               :name="button.id"
+              :aria-pressed="selectedButtonId === button.id"
               :disabled="submitting"
               @click="submitReview(submitUrl, button.id)"
             >
               <i v-if="submittingId === button.id" class="fa-solid fa-rotate fa-spin" aria-hidden="true"></i>
-              <i v-else-if="selectedButtonId === button.id" class="fa-solid fa-circle-check" aria-hidden="true"></i>
               {{ button.label }}
             </button>
           </div>
@@ -1120,6 +1128,28 @@ export default {
   font-weight: 600;
   position: relative;
 }
+.metadata-review-status {
+  align-items: center;
+  color: var(--cavil-fg);
+  display: flex;
+  flex: 1;
+  font-size: 13px;
+  gap: 0.5rem;
+}
+.metadata-review-status-icon {
+  color: var(--cavil-success);
+}
+.metadata-review-status.is-unacceptable .metadata-review-status-icon {
+  color: var(--cavil-danger);
+}
+.metadata-review-status strong {
+  font-weight: 600;
+}
+.metadata-review-status-detail {
+  color: var(--cavil-fg-muted);
+  font-size: 12px;
+  margin-left: auto;
+}
 .metadata-review-actions-group {
   align-items: center;
   display: inline-flex;
@@ -1186,6 +1216,13 @@ export default {
   }
 }
 @media (max-width: 700px) {
+  .metadata-review-status-detail {
+    flex-basis: calc(100% - 1.5rem);
+    margin-left: 1.5rem;
+  }
+  .metadata-review-status {
+    flex-wrap: wrap;
+  }
   .metadata-file-details {
     grid-template-columns: 1fr;
   }

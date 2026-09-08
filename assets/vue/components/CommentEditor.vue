@@ -32,6 +32,9 @@
     <div v-if="isInteractive && placeholderCount > 0" class="comment-editor-hints">
       Click a <code>[PLACEHOLDER]</code> to replace it &middot; Tab jumps to the next &middot; Esc leaves the editor
     </div>
+    <div v-if="$slots.footer" class="comment-editor-footer">
+      <slot name="footer"></slot>
+    </div>
   </div>
 </template>
 
@@ -283,6 +286,14 @@ export default {
 }
 .comment-editor-hints code {
   color: var(--cavil-fg-muted);
+}
+.comment-editor-footer {
+  align-items: center;
+  background: var(--cavil-canvas-subtle);
+  border-top: 1px solid var(--cavil-border);
+  display: flex;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
 }
 .comment-editor-host :deep(.cm-editor) {
   height: auto;

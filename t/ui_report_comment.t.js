@@ -215,6 +215,32 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
       ]);
       await page.waitForFunction(() => document.querySelector('#pkg-state').innerText.trim() === 'unacceptable');
       t.equal(await page.innerText('#pkg-state'), 'unacceptable', 'state badge updated in place');
+      t.match(
+        await page.innerText('.comment-editor-footer .metadata-review-status'),
+        /Review finalized/i,
+        'comment footer confirms the finalized decision'
+      );
+      t.equal(
+        await page.locator('.comment-editor-footer .cavil-meta-badge').count(),
+        0,
+        'comment footer does not repeat the selected decision'
+      );
+      t.equal(
+        await page.locator('.comment-editor-footer .metadata-review-status-icon').count(),
+        1,
+        'comment footer carries the single finalization checkmark'
+      );
+      t.equal(await page.locator('#unacceptable .fa-circle-check').count(), 0, 'selected button does not repeat the checkmark');
+      t.match(
+        await page.innerText('.comment-editor-footer .metadata-review-status-detail'),
+        /by tester\s+.*ago/i,
+        'comment footer carries reviewer and time'
+      );
+      const metadataLabels = await page.locator('.report-metadata-list dt').allInnerTexts();
+      t.notOk(metadataLabels.includes('Reviewed'), 'review time is not duplicated in metadata');
+      t.notOk(metadataLabels.includes('Reviewing user'), 'reviewer is not duplicated in metadata');
+      t.equal(await page.locator('#unacceptable').getAttribute('aria-pressed'), 'true', 'chosen decision is pressed');
+      t.equal(await page.locator('#acceptable').getAttribute('aria-pressed'), 'false', 'alternative decision is not pressed');
       t.equal(await docText(), 'Rejected <b>because</b> of\nthe bundled font', 'comment survives the refresh');
 
       await page.click('text=Recently Reviewed');
