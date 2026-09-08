@@ -23,10 +23,14 @@ sub list ($self) {
   $v->optional('limit')->num;
   $v->optional('before_id')->num;
   $v->optional('relevant_only')->in('0', '1');
+  $v->optional('history_only')->in('0', '1');
   return $self->reply->json_validation_error if $v->has_error;
 
-  my $before_id           = $v->param('before_id');
-  my $relevant_only       = ($v->param('relevant_only') // '0') eq '1';
+  my $before_id     = $v->param('before_id');
+  my $relevant_only = ($v->param('relevant_only') // '0') eq '1';
+  my $history_only  = ($v->param('history_only')  // '0') eq '1';
+  return $self->render(json => {error => 'relevant_only and history_only are mutually exclusive'}, status => 400)
+    if $relevant_only && $history_only;
   my $include_lawyer_only = $self->_can_see_lawyer_only;
   my $page                = $self->notes->list(
     $pkg->{name},
@@ -35,14 +39,14 @@ sub list ($self) {
     limit               => $v->param('limit'),
     before_id           => $before_id,
     relevant_only       => $relevant_only,
+    history_only        => $history_only,
     package_id          => $id,
     checksum            => $pkg->{checksum}
   );
   my $counts  = $self->notes->counts($pkg->{name});
   my $user_id = $self->_current_user_id;
 
-  # Visible relevant count drives the "Only relevant notes" toggle (shown only
-  # when there are non-relevant notes to hide) and its "N of M" hint.
+  # Visible relevant count drives the Relevant and History view counters.
   my $relevant
     = $self->notes->relevant_count($pkg->{name}, $id, $pkg->{checksum}, include_lawyer_only => $include_lawyer_only);
 
@@ -60,10 +64,11 @@ sub list ($self) {
     can_pin             => $self->_can_pin              ? \1                     : \0
   };
 
-  # Pinned notes sit outside the scroll, so they only belong on the first page.
+  # Pinned notes sit outside the scroll and are relevant by definition, so they
+  # belong only on the first page of the unscoped or Relevant view.
   # The key is omitted entirely on cursor fetches rather than sent empty, so a
   # later page cannot clear the block the first page rendered.
-  if (!defined $before_id) {
+  if (!defined $before_id && !$history_only) {
     my $rows = $self->notes->pinned_for_package($pkg->{name}, include_lawyer_only => $include_lawyer_only);
     $json->{pinned} = [map { $self->_format_note($_, $user_id, $pkg->{checksum}) } @$rows];
   }

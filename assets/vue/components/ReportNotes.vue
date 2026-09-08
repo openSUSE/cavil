@@ -1,11 +1,22 @@
 <template>
   <div class="report-notes">
-    <div v-if="showRelevanceFilter" class="report-notes-toolbar" data-notes-toolbar>
-      <label class="report-notes-relevance-toggle">
-        <input type="checkbox" v-model="relevantOnly" class="form-check-input" data-notes-relevant-only />
-        Only relevant notes
+    <div v-if="showNoteFilter" class="report-notes-filter" data-notes-filter>
+      <label class="report-notes-filter-control">
+        <span>Show</span>
+        <select
+          class="form-select"
+          :value="noteScope"
+          :disabled="initialLoading"
+          data-notes-scope-select
+          @change="setNoteScope($event.target.value)"
+        >
+          <option value="relevant">Relevant notes · {{ relevant }}</option>
+          <option value="history">Previous notes · {{ historyCount }}</option>
+        </select>
       </label>
-      <span class="report-notes-relevance-hint">{{ relevant }} of {{ total }} relevant to this report</span>
+      <span v-if="noteScope === 'history'" class="report-notes-history-hint" data-notes-history-hint>
+        From reports with different licensing; may not apply to this report.
+      </span>
     </div>
     <div v-if="initialLoading" class="report-notes-loading">
       <LegalLoading message="Loading notes..." size="small" />
@@ -16,7 +27,7 @@
       </div>
       <div v-if="allNotes.length === 0 && !loadError" class="report-notes-empty">
         <i class="fa-regular fa-note-sticky"></i>
-        <p class="mb-0">{{ emptyMessage }}</p>
+        <p class="mb-0">{{ scopedEmptyMessage }}</p>
       </div>
       <ul v-else class="report-notes-list">
         <li
@@ -28,8 +39,7 @@
             {
               'report-note-lawyer-only': c.lawyer_only,
               'report-note-pinned': c.pinned,
-              'report-note-pinned-last': c.pinned && i === pinnedNotes.length - 1,
-              'report-note-deemphasized': isNonRelevant(c)
+              'report-note-pinned-last': c.pinned && i === pinnedNotes.length - 1
             }
           ]"
           :data-note-id="c.id"
@@ -174,9 +184,6 @@
           </div>
           <div v-else class="report-note-body-wrap">
             <div class="report-note-body markdown-body" v-html="c.body_html"></div>
-            <span v-if="isNonRelevant(c)" class="report-note-relevance-overlay" data-note-relevance-overlay>
-              <span class="report-note-relevance-label">Not relevant to this report</span>
-            </span>
           </div>
         </li>
       </ul>
@@ -191,7 +198,7 @@
         <span v-else>Scroll to load more</span>
       </div>
 
-      <div v-if="showComposer" class="report-note-form" data-note-form>
+      <div v-if="showComposer && noteScope !== 'history'" class="report-note-form" data-note-form>
         <label class="report-note-form-label">Add a note</label>
         <TagInput ref="newTagInput" v-model="tags" :suggestions="knownTags" data-key="new" />
         <MarkdownComposer
@@ -259,19 +266,20 @@ export default {
     allNotes() {
       return [...this.pinnedNotes, ...this.notes];
     },
-    // Show the "Only relevant notes" toggle only when filtering would actually
-    // help: there must be both relevant notes to keep and non-relevant ones to
-    // hide. (De-emphasis itself is unconditional - any non-relevant note recedes
-    // whether or not relevant siblings exist.)
-    showRelevanceFilter() {
-      return (
-        this.pkgId !== null &&
-        !this.showPackageName &&
-        this.total !== null &&
-        this.relevant !== null &&
-        this.relevant > 0 &&
-        this.relevant < this.total
-      );
+    reportScoped() {
+      return this.pkgId !== null && !this.showPackageName;
+    },
+    historyCount() {
+      if (this.total === null || this.relevant === null) return 0;
+      return Math.max(0, this.total - this.relevant);
+    },
+    showNoteFilter() {
+      return this.reportScoped && this.total !== null && this.relevant !== null && this.historyCount > 0;
+    },
+    scopedEmptyMessage() {
+      if (this.noteScope === 'relevant' && this.showNoteFilter) return 'No notes are relevant to this report.';
+      if (this.noteScope === 'history') return 'No previous notes for this package.';
+      return this.emptyMessage;
     }
   },
   data() {
@@ -293,7 +301,7 @@ export default {
       pinned: false,
       tags: [],
       knownTags: [],
-      relevantOnly: false,
+      noteScope: this.pkgId !== null && !this.showPackageName ? 'relevant' : 'all',
       total: null,
       relevant: null,
       editingId: null,
@@ -307,7 +315,13 @@ export default {
   },
   async mounted() {
     await this.loadMore();
-    if (this.seekNoteId !== null) await this.seekToNote(this.seekNoteId);
+    if (this.seekNoteId !== null) {
+      const found = await this.seekToNote(this.seekNoteId);
+      if (!found && this.reportScoped && this.noteScope === 'relevant' && this.historyCount > 0) {
+        await this.setNoteScope('history');
+        await this.seekToNote(this.seekNoteId);
+      }
+    }
 
     // Rendered, not merely fetched: counts-changed still fires while the list is a spinner, and
     // anything scrolling to the notes needs their real height.
@@ -327,9 +341,6 @@ export default {
     // Changing a filter restarts the keyset scroll from the top, the same reset
     // semantics the other filtered infinite-scroll pages use.
     filterTags() {
-      this.reloadFromTop();
-    },
-    relevantOnly() {
       this.reloadFromTop();
     }
   },
@@ -375,13 +386,6 @@ export default {
     isRelevant(c) {
       return this.isCurrentReview(c) || c.same_report === true;
     },
-    // Inherited from a report with different licensing - de-emphasized in a
-    // mixed list so the relevant notes stand out by contrast. A pin is a
-    // reviewer saying the note applies whatever the report says, which
-    // outranks the automatic judgement.
-    isNonRelevant(c) {
-      return this.isFromOtherReport(c) && !this.isRelevant(c) && !c.pinned;
-    },
     isObsoleteOrigin(c) {
       return !!(c.original_package && c.original_package.obsolete);
     },
@@ -393,7 +397,12 @@ export default {
       const stateText = state ? ` (report state: ${state})` : '';
       return `From a report with different licensing${stateText}. ${this.originTitle(c)}`;
     },
-    reloadFromTop() {
+    async setNoteScope(scope) {
+      if (scope === this.noteScope) return;
+      this.noteScope = scope;
+      await this.reloadFromTop();
+    },
+    async reloadFromTop() {
       if (this.observer) {
         this.observer.disconnect();
         this.observer = null;
@@ -402,9 +411,22 @@ export default {
       this.pinnedNotes = [];
       this.hasMore = false;
       this.initialLoading = true;
-      this.loadMore().then(() => this.setupObserver());
+      await this.loadMore();
+      if (this.noteScope === 'history' && this.historyCount === 0) {
+        this.noteScope = 'relevant';
+        this.notes = [];
+        this.pinnedNotes = [];
+        this.hasMore = false;
+        this.initialLoading = true;
+        await this.loadMore();
+      }
+      this.setupObserver();
     },
     setupObserver() {
+      if (this.observer) {
+        this.observer.disconnect();
+        this.observer = null;
+      }
       const target = this.$refs.sentinel;
       if (!target || typeof IntersectionObserver === 'undefined') return;
       this.observer = new IntersectionObserver(entries => {
@@ -423,7 +445,8 @@ export default {
         const qs = {limit: 20};
         if (this.notes.length > 0) qs.before_id = this.notes[this.notes.length - 1].id;
         if (this.filterTags.length) qs.tags_json = JSON.stringify(this.filterTags);
-        if (this.relevantOnly) qs.relevant_only = 1;
+        if (this.noteScope === 'relevant') qs.relevant_only = 1;
+        if (this.noteScope === 'history') qs.history_only = 1;
         const res = await this.ua.get(this.listEndpoint, {query: qs});
         if (!res.isSuccess) {
           this.loadError = `Failed to load notes (HTTP ${res.statusCode})`;
@@ -474,6 +497,8 @@ export default {
         // of the stream, so let the server place it.
         if (data.note.pinned) this.pinnedNotes.unshift(data.note);
         else this.notes.unshift(data.note);
+        if (this.total !== null) this.total += 1;
+        if (this.relevant !== null) this.relevant += 1;
         this.draft = '';
         this.lawyerOnly = false;
         this.pinned = false;
@@ -499,10 +524,11 @@ export default {
       }
       await this.$nextTick();
       const el = document.getElementById(`note-${targetId}`);
-      if (!el) return;
+      if (!el) return false;
       el.scrollIntoView({behavior: 'smooth', block: 'center'});
       el.classList.add('report-note-highlight');
       setTimeout(() => el.classList.remove('report-note-highlight'), 2000);
+      return true;
     },
     startEdit(c) {
       this.editingId = c.id;
@@ -581,7 +607,7 @@ export default {
         // The note moves between the pinned block and the keyset stream, and
         // the two are paginated independently. Splicing it across by hand
         // risks it reappearing on the next scroll page, so reload from the top.
-        this.reloadFromTop();
+        await this.reloadFromTop();
       } catch (err) {
         this.pinError = err.message || 'Failed to pin note';
       } finally {
@@ -598,6 +624,14 @@ export default {
         for (const list of [this.notes, this.pinnedNotes]) {
           const idx = list.findIndex(x => x.id === c.id);
           if (idx >= 0) list.splice(idx, 1);
+        }
+        if (this.total !== null) this.total = Math.max(0, this.total - 1);
+        if (this.relevant !== null && (c.pinned || this.isRelevant(c))) {
+          this.relevant = Math.max(0, this.relevant - 1);
+        }
+        if (this.noteScope === 'history' && this.historyCount === 0) {
+          await this.reloadFromTop();
+          return;
         }
         this.$emit('counts-changed', {bump: -1, lawyer_only_bump: c.lawyer_only ? -1 : 0});
       } finally {
@@ -663,56 +697,8 @@ export default {
   overflow: hidden;
   position: relative;
 }
-/* Notes inherited from a report with different licensing keep their provenance
-  readable, while the body recedes behind a frosted-glass relevance marker. */
-.report-note-deemphasized .report-note-body {
-  filter: blur(7px);
-  opacity: 0.38;
-  transition:
-    filter 0.15s ease,
-    opacity 0.15s ease;
-}
 .report-note-body-wrap {
   position: relative;
-}
-.report-note-relevance-overlay {
-  align-items: center;
-  backdrop-filter: blur(2px);
-  background: rgba(var(--cavil-canvas-rgb), 0.68);
-  color: var(--cavil-fg-subtle);
-  display: flex;
-  font-size: 11px;
-  font-weight: 600;
-  inset: 0;
-  justify-content: center;
-  letter-spacing: 0;
-  opacity: 1;
-  padding: 16px;
-  pointer-events: none;
-  position: absolute;
-  text-align: center;
-  transition:
-    opacity 0.15s ease,
-    visibility 0.15s ease;
-  visibility: visible;
-  z-index: 1;
-}
-.report-note-relevance-label {
-  background: rgba(var(--cavil-canvas-subtle-rgb), 0.88);
-  border: 1px solid rgba(var(--cavil-neutral-alt-rgb), 0.22);
-  border-radius: 2em;
-  box-shadow: 0 1px 2px rgba(var(--cavil-shadow-alt-rgb), 0.04);
-  padding: 2px 10px;
-}
-.report-note-deemphasized:hover .report-note-relevance-overlay,
-.report-note-deemphasized:focus-within .report-note-relevance-overlay {
-  opacity: 0;
-  visibility: hidden;
-}
-.report-note-deemphasized:hover .report-note-body,
-.report-note-deemphasized:focus-within .report-note-body {
-  filter: none;
-  opacity: 1;
 }
 .report-note-lawyer-only {
   border-left: 4px solid var(--cavil-attention-strong);
@@ -859,8 +845,7 @@ export default {
   color: var(--cavil-fg-muted-strong);
   text-transform: none;
 }
-/* Origin badge: a neutral provenance link. Relevance is conveyed by the row
-   (relevant = full contrast, non-relevant = de-emphasized), not the badge. */
+/* Origin badge: a neutral provenance link within the explicitly scoped view. */
 .report-note-badge.origin-report-badge {
   background: var(--cavil-neutral-bg);
   border-color: rgba(var(--cavil-neutral-alt-rgb), 0.25);
@@ -876,27 +861,40 @@ export default {
   color: var(--cavil-fg-disabled);
   font-style: italic;
 }
-.report-notes-toolbar {
+.report-notes-filter {
   align-items: center;
+  border-bottom: 1px solid var(--cavil-border);
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px 14px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
 }
-.report-notes-relevance-toggle {
+.report-notes-filter-control {
   align-items: center;
-  color: var(--cavil-fg);
-  display: inline-flex;
-  font-size: 13px;
-  gap: 6px;
-  margin: 0;
-}
-.report-notes-relevance-toggle .form-check-input {
-  margin: 0;
-}
-.report-notes-relevance-hint {
+  display: flex;
+  gap: 7px;
   color: var(--cavil-fg-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.report-notes-filter-control .form-select {
+  background-color: var(--cavil-canvas-subtle);
+  border-color: var(--cavil-border);
+  border-radius: 6px;
+  color: var(--cavil-fg-emphasis);
   font-size: 12px;
+  min-height: 30px;
+  min-width: 12rem;
+  padding-bottom: 3px;
+  padding-top: 3px;
+}
+.report-notes-history-hint {
+  color: var(--cavil-fg-muted);
+  flex: 1 1 20rem;
+  font-size: 12px;
+  margin-left: auto;
+  text-align: right;
 }
 /* Tag chip + editor styles live in TagInput.vue (imported here), which is the
    canonical home of the tag widget and supplies these .report-note-tag* rules. */

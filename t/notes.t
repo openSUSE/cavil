@@ -678,6 +678,15 @@ subtest 'Relevance: same_report flag and relevant_only filter' => sub {
   );
   ok(!(grep { $_->{same_report} == false && $_->{original_package}{id} != 1 } @$filtered),
     'no non-relevant notes survive the relevant_only filter');
+
+  # history_only is the complementary audit trail: different-report notes
+  # remain available without mixing them into the applicable notes stream.
+  $t->get_ok('/reviews/notes/1?history_only=1')->status_is(200);
+  my $history = $t->tx->res->json('/notes');
+  ok((grep { $_->{body} eq 'relevance identical note' } @$history), 'different-report note kept under history_only');
+  ok(!(grep { $_->{body} eq 'relevance native note' } @$history),   'native note hidden under history_only');
+  ok(!(grep { $_->{pinned} } @$history),                            'pinned notes never enter history');
+  $t->get_ok('/reviews/notes/1?relevant_only=1&history_only=1')->status_is(400);
   logout($t);
 
   $app->notes->remove($_) for ($native, $ident);
@@ -782,6 +791,7 @@ subtest 'Pinned notes are hoisted out of the paginated stream' => sub {
 
   # A pin outlives the relevance filter resetting the scroll.
   $t->get_ok('/reviews/notes/1?relevant_only=1')->status_is(200)->json_is('/pinned/0/id' => $id);
+  $t->get_ok('/reviews/notes/1?history_only=1')->status_is(200)->json_hasnt('/pinned');
 
   logout($t);
   $app->notes->remove($id);

@@ -74,6 +74,14 @@ sub list ($self, $package_name, %opts) {
       push @args, $opts{package_id};
     }
   }
+  elsif ($opts{history_only}) {
+    push @sql,  'AND c.pinned = false AND c.package IS DISTINCT FROM ?';
+    push @args, $opts{package_id};
+    if (defined $opts{checksum}) {
+      push @sql,  'AND p.checksum IS DISTINCT FROM ?';
+      push @args, $opts{checksum};
+    }
+  }
 
   my $rows = $self->_query(join(' ', @sql), \@args, 'ORDER BY c.id DESC LIMIT ?', [$limit + 1]);
 
