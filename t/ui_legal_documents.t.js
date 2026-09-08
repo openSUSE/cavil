@@ -222,6 +222,21 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
       await pen.click();
       await page.locator('#inline-snippet-editor').waitFor({timeout: 10000});
       t.pass('the editor opens on a file indexing never recorded');
+
+      // Creating the snippet returns its checksum, so the editor has the context that gates the
+      // ignore, missing-license and no-legal-text actions - previously these only appeared after a
+      // reload because a picked selection reached the editor with no hash.
+      t.equal(
+        await page.locator('#inline-snippet-editor [data-action="propose-missing"]').count(),
+        1,
+        'the Missing License action is offered on a freshly picked selection'
+      );
+      t.equal(
+        await page.locator('#inline-snippet-editor [data-action="mark-non-license"]').count(),
+        1,
+        'and so is No Legal Text'
+      );
+
       await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
     });
 

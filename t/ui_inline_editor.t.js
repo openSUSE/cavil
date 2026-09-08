@@ -315,6 +315,21 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       await pen.click();
       await waitForInlineSnippetEditor(page);
       t.equal(await page.locator(`#file-details-${fileId} tr.line-selected`).count(), 0, 'the range is released');
+
+      // Creating the snippet returns its checksum, so the editor has the context that gates the
+      // ignore, missing-license and no-legal-text actions - previously these only appeared after a
+      // reload because a picked selection reached the editor with no hash.
+      t.equal(
+        await page.locator('#inline-snippet-editor [data-action="propose-missing"]').count(),
+        1,
+        'the Missing License action is offered on a freshly picked selection'
+      );
+      t.equal(
+        await page.locator('#inline-snippet-editor [data-action="mark-non-license"]').count(),
+        1,
+        'and so is No Legal Text'
+      );
+
       await page.locator('#inline-snippet-editor [data-action="cancel"]').click();
       await waitForInlineSnippetEditorClosed(page);
     });

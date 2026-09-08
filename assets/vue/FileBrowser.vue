@@ -316,10 +316,16 @@ export default {
     async openEditor(meta) {
       this.editorError = null;
       let snippetId = meta.snippetId;
+      let hash = meta.hash ?? null;
+      let from = meta.from ?? null;
       try {
         if (snippetId === null) {
+          // A selection has no snippet or hash yet; creating it returns both, and the hash is what
+          // lets the editor offer the full set of actions right away (not just after a reload).
           const data = await resolveSnippetFromFile(meta);
           snippetId = data.snippet;
+          if (!hash) hash = data.hash || null;
+          if (!from) from = data.from || null;
         }
       } catch (err) {
         this.editorError = err.message ?? String(err);
@@ -330,8 +336,8 @@ export default {
         fileId: meta.fileId,
         startLine: meta.startLine,
         endLine: meta.endLine,
-        hash: meta.hash ?? null,
-        from: meta.from ?? null,
+        hash,
+        from,
         filePath: meta.filePath ?? null,
         initial: null
       });

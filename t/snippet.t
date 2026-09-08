@@ -108,6 +108,13 @@ subtest 'Snippet from a file path' => sub {
     ->json_is('/from', 'perl-Mojolicious');
   my $snippet = $t->tx->res->json->{snippet};
 
+  # No hash was passed (a fresh selection has none yet), so the response has to carry the created
+  # snippet's own checksum - that is the context the inline editor needs to offer the ignore,
+  # missing-license and no-legal-text actions immediately instead of only after a reload.
+  my $created_hash = $t->tx->res->json->{hash};
+  like $created_hash, qr/^manual:/, 'response carries the created snippet checksum';
+  is $created_hash, $t->app->snippets->find($snippet)->{hash}, 'checksum matches the stored snippet';
+
   $t->get_ok(
     '/snippets/from_path/1/UNINDEXED.txt?start=1&end=2&from=perl-Mojolicious' => {Accept => 'application/json'})
     ->status_is(200)

@@ -190,7 +190,11 @@ sub from_path ($self) {
 }
 
 sub _snippet_created ($self, $v, $snippet) {
-  my $hash = $v->param('hash') // '';
+
+  # Selections made in a report have no hash yet - the snippet is being created here. Return the
+  # freshly stored checksum so the editor has the context (hash + from) that gates the ignore,
+  # missing-license and no-legal-text actions; without it those only reappeared after a reload.
+  my $hash = $v->param('hash') || $self->snippets->find($snippet)->{hash};
   my $from = $v->param('from') // '';
   $self->respond_to(
     json => sub { $self->render(json => {snippet => $snippet, hash => $hash, from => $from}) },
