@@ -297,12 +297,20 @@ sub update_patterns ($self) {
 sub update_patterns_json ($self) {
   my $validation = $self->validation;
   $validation->required('license');
+  $validation->optional('new_license');
+  $validation->optional('risk')->num(0, 9);
   $validation->optional('spdx');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $license = $validation->param('license');
-  my $spdx    = $validation->param('spdx') // '';
-  my $l       = lic($spdx);
+
+  # The empty-license bucket is keyword/no-license patterns that seed unresolved snippets; a bulk rename
+  # would silently turn those markers into real license assertions, so it is never allowed here.
+  return $self->render(json => {error => 'Cannot bulk-edit patterns without a license.'}, status => 400)
+    if $license eq '';
+
+  my $spdx = $validation->param('spdx') // '';
+  my $l    = lic($spdx);
   return $self->render(
     json => {
       error =>
@@ -310,10 +318,40 @@ sub update_patterns_json ($self) {
     },
     status => 400
   ) unless $l->is_valid;
-
   my $canon = $l->to_string;
-  my $rows  = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $canon, $license)->rows;
-  $self->render(json => {updated => $rows, spdx => $canon, spdx_html => spdx_link($canon)});
+
+  # new_license absent (or empty) means "keep the name"; risk absent (or empty) means "keep each pattern's
+  # own risk", so a rename or an spdx change need not flatten mixed risks.
+  my $new_license = $validation->param('new_license');
+  $new_license = $license unless defined $new_license && length $new_license;
+  my $risk = $validation->param('risk');
+  $risk = undef unless defined $risk && length $risk;
+
+  my $patterns = $self->patterns;
+  my $result   = $patterns->update_license_meta($license, license => $new_license, risk => $risk, spdx => $canon);
+
+  # Rebuild the cached reports of every package matched by the destination license (renamed rows plus any
+  # pre-existing rows merged into it, whose spdx may have changed) so the new risk/name/spdx take effect.
+  # Every generation, not just the live one, mirroring reindex_matched_packages: a package whose in-flight
+  # build matched needs the reindex too.
+  my $packages = [
+    map { $_->{package} } $self->pg->db->query(
+      'SELECT DISTINCT pm.package FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+       WHERE lp.license = ?', $new_license
+    )->hashes->each
+  ];
+  $self->packages->reindex_package_ids($packages);
+
+  $self->render(
+    json => {
+      updated   => $result->{updated},
+      license   => $new_license,
+      renamed   => ($new_license ne $license) ? \1 : \0,
+      risk      => $risk,
+      spdx      => $canon,
+      spdx_html => spdx_link($canon)
+    }
+  );
 }
 
 1;

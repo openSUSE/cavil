@@ -1117,4 +1117,60 @@ sub update ($self, $id, %args) {
   $tx->commit;
 }
 
+# Bulk-edit the shared name/risk/spdx of every pattern of one license at once, atomically. This is the
+# whole-license counterpart of update(): the pattern text is untouched, so it never changes matcher/bag
+# caches (they key on text -> id) and needs no expire_cache - only the denormalized name copies and the
+# cached reports have to follow, which the shingle resync here and the caller's reindex handle.
+#   %args: license (new name, required), risk (undef leaves each pattern's risk), spdx (canonical string,
+#   '' clears). Empty old names are the keyword-pattern bucket and must never be bulk-edited (guarded in
+#   the controller). Returns {updated => n, license => $new, spdx => $spdx}.
+sub update_license_meta ($self, $old_license, %args) {
+  my $new  = $args{license};
+  my $risk = $args{risk};
+  my $spdx = $args{spdx} // '';
+  my $db   = $self->pg->db;
+
+  my $ids = $db->query('SELECT id FROM license_patterns WHERE license = ?', $old_license)->arrays->flatten->to_array;
+  return {updated => 0} unless @$ids;
+
+  my $renamed   = $new ne $old_license;
+  my $catch_all = license_is_catch_all($new) ? 1 : 0;
+
+  my $tx = $db->begin;
+
+  # full_license_text is unique per license name (partial unique index). A catch-all has no text to
+  # reproduce, and merging into a destination that already carries a full-text pattern would collide, so
+  # in either case the incoming rows give up the claim rather than fight the index.
+  if ($catch_all) {
+    $db->query('UPDATE license_patterns SET full_license_text = false WHERE id = ANY(?)', $ids);
+  }
+  elsif (
+    $renamed
+    && $db->query('SELECT 1 FROM license_patterns WHERE license = ? AND full_license_text AND id <> ALL(?) LIMIT 1',
+      $new, $ids)->rows
+    )
+  {
+    $db->query('UPDATE license_patterns SET full_license_text = false WHERE id = ANY(?)', $ids);
+  }
+
+  $db->query('UPDATE license_patterns SET license = ?, catch_all = ? WHERE id = ANY(?)', $new, $catch_all, $ids);
+  $db->query('UPDATE license_patterns SET risk = ? WHERE id = ANY(?)', $risk, $ids) if defined $risk;
+
+  # spdx and catch_all are per-license properties: normalize them across the whole destination so a merge
+  # cannot leave the pre-existing rows with a different identifier than the ones just moved in.
+  $db->query('UPDATE license_patterns SET spdx = ?, catch_all = ? WHERE license = ?', $spdx, $catch_all, $new);
+
+  # The name is denormalized into pattern_shingles/shingle_license; resync the moved rows so snippet
+  # scoring attributes to the new name (the DELETE+INSERT lets the shingle_license trigger follow).
+  if ($renamed) {
+    for my $row ($db->query('SELECT id, pattern FROM license_patterns WHERE id = ANY(?)', $ids)->hashes->each) {
+      $self->sync_pattern_shingles($db, $row->{id}, $new, $row->{pattern});
+    }
+  }
+
+  $tx->commit;
+
+  return {updated => scalar @$ids, license => $new, spdx => $spdx};
+}
+
 1;

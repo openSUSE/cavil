@@ -29,16 +29,33 @@
           >
           <span v-for="risk in risks" :key="risk" class="badge" :class="riskClass(risk)">Risk {{ risk }}</span>
         </div>
-        <form v-if="canCurate" class="license-spdx-form" @submit.prevent="saveSpdx">
-          <input type="hidden" name="license" :value="details.license" />
-          <label class="form-label" for="license-spdx">SPDX</label>
-          <div class="license-spdx-control">
-            <input v-model="spdx" type="text" id="license-spdx" name="spdx" class="form-control" />
-            <button type="submit" class="btn btn-secondary" :disabled="savingSpdx">
-              <i v-if="savingSpdx" class="fa-solid fa-rotate fa-spin"></i>
+        <form v-if="canCurate && details.license" id="license-edit-form" class="license-edit-form" @submit.prevent="saveLicense">
+          <div class="license-edit-grid">
+            <label class="license-edit-field" for="license-edit-name">
+              <span class="form-label">License name</span>
+              <input v-model="newLicense" type="text" id="license-edit-name" class="form-control" />
+            </label>
+            <label class="license-edit-field" for="license-edit-risk">
+              <span class="form-label">Risk</span>
+              <select v-model="riskChoice" id="license-edit-risk" class="form-select">
+                <option value="">Keep current</option>
+                <option v-for="r in 10" :key="r - 1" :value="String(r - 1)">{{ r - 1 }}</option>
+              </select>
+            </label>
+            <label class="license-edit-field" for="license-edit-spdx">
+              <span class="form-label">SPDX</span>
+              <input v-model="spdx" type="text" id="license-edit-spdx" class="form-control" />
+            </label>
+            <button type="submit" class="btn btn-secondary license-edit-save" :disabled="saving">
+              <i v-if="saving" class="fa-solid fa-rotate fa-spin"></i>
               Save
             </button>
           </div>
+          <p v-if="risks.length > 1" class="license-edit-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            These patterns span multiple risk levels ({{ risks.join(', ') }}). Choosing a risk sets all
+            {{ patterns.length }} patterns to it.
+          </p>
         </form>
         <div v-else class="license-details-spdx">
           <span class="license-details-spdx-label">SPDX</span>
@@ -184,7 +201,9 @@ export default {
       riskFilter: 'all',
       scopeFilter: 'all',
       spdx: '',
-      savingSpdx: false,
+      newLicense: '',
+      riskChoice: '',
+      saving: false,
       editingId: null,
       editorVersion: 0,
       expandedIds: new Set(),
@@ -254,6 +273,8 @@ export default {
         this.details = details;
         this.patterns = details.patterns;
         this.spdx = details.spdx ?? '';
+        this.newLicense = details.license ?? '';
+        this.riskChoice = this.risks.length === 1 ? String(this.risks[0]) : '';
         loaded = true;
       } catch (error) {
         this.error = error.message;
@@ -326,23 +347,40 @@ export default {
       this.editingId = this.editingId === id ? null : id;
       this.editorVersion++;
     },
-    async saveSpdx() {
-      this.savingSpdx = true;
+    async saveLicense() {
+      const renamed = this.newLicense !== this.details.license;
+      const changes = [];
+      if (renamed) changes.push(`rename "${this.details.license}" to "${this.newLicense}"`);
+      if (this.riskChoice !== '')
+        changes.push(`set the risk of all ${this.patterns.length} patterns to ${this.riskChoice}`);
+      changes.push(this.spdx ? `set the SPDX identifier to "${this.spdx}"` : 'clear the SPDX identifier');
+      if (!window.confirm(`This will ${changes.join(', ')}, and reindex every affected package. Continue?`)) return;
+
+      this.saving = true;
       try {
-        const res = await this.ua.post(this.detailUrl, {form: {license: this.details.license, spdx: this.spdx}});
+        const form = {license: this.details.license, new_license: this.newLicense, spdx: this.spdx};
+        if (this.riskChoice !== '') form.risk = this.riskChoice;
+        const res = await this.ua.post(this.detailUrl, {form});
         const data = await res.json();
-        if (!res.isSuccess) throw new Error(data.error || `SPDX update failed with HTTP ${res.statusCode}`);
+        if (!res.isSuccess) throw new Error(data.error || `Update failed with HTTP ${res.statusCode}`);
+
+        // The whole page keys on the license name, so a rename has to reload under the new name.
+        if (data.renamed) {
+          window.location = `/licenses/${encodeURIComponent(this.newLicense)}`;
+          return;
+        }
         this.details.spdx = data.spdx;
         this.details.spdx_html = data.spdx_html;
         this.patterns.forEach(pattern => {
           pattern.spdx = data.spdx;
           pattern.spdx_html = data.spdx_html;
+          if (this.riskChoice !== '') pattern.risk = Number(this.riskChoice);
         });
         this.$refs.toaster?.notify(`${data.updated} patterns updated`);
       } catch (error) {
         this.$refs.toaster?.notify(error.message, 'danger', 5000);
       } finally {
-        this.savingSpdx = false;
+        this.saving = false;
       }
     },
     async onPatternSaved() {
@@ -398,8 +436,7 @@ export default {
   margin-bottom: 0.25rem;
 }
 .license-details-meta-row,
-.license-details-spdx,
-.license-spdx-form {
+.license-details-spdx {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -411,17 +448,34 @@ export default {
   color: var(--cavil-fg-muted);
   font-size: 14px;
 }
-.license-spdx-form {
+.license-edit-form {
   border-top: 1px solid var(--cavil-border);
+  padding: 0.75rem 1rem;
 }
-.license-spdx-form .form-label {
+.license-edit-grid {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(220px, 2fr) minmax(120px, auto) minmax(160px, 1fr) auto;
+}
+.license-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
   margin: 0;
 }
-.license-spdx-control {
+.license-edit-field .form-label {
+  color: var(--cavil-fg-muted);
+  font-size: 13px;
+  margin: 0;
+}
+.license-edit-warning {
+  align-items: baseline;
+  color: var(--cavil-attention-deep);
   display: flex;
-  flex: 1;
-  gap: 0.5rem;
-  min-width: 260px;
+  font-size: 13px;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
 }
 .license-details-toolbar {
   align-items: center;
@@ -564,9 +618,11 @@ export default {
   .license-details-count {
     text-align: left;
   }
-  .license-spdx-control,
   .license-details-title-row {
     flex-direction: column;
+  }
+  .license-edit-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

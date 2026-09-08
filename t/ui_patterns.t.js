@@ -1069,6 +1069,61 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.match(await page.innerText('#license-details .license-pattern-card'), /Risk 4/);
     });
 
+    await t.test('License details page (Vue) - combined edit renames, sets risk, clears SPDX', async t => {
+      // Give Vue-Create-Test-License a second pattern at a different risk so it has mixed risks (its
+      // first pattern was set to risk 4 by the inline-edit subtest above).
+      await page.goto(`${url}/licenses/new_pattern?license-name=Vue-Create-Test-License`);
+      await page.waitForSelector('#edit-pattern .cm-editor');
+      await page.locator('#edit-pattern select[name=risk]').selectOption('7');
+      await page.evaluate(() => {
+        const view = document.querySelector('#edit-pattern .cm-editor').cmView;
+        view.dispatch({changes: {from: 0, insert: 'second unique pattern body for the combined edit test'}});
+      });
+      await Promise.all([
+        page.waitForURL(/\/licenses\/edit_pattern\/\d+/),
+        page.locator('#edit-pattern button[type=submit]').click()
+      ]);
+
+      await page.goto(`${url}/licenses/Vue-Create-Test-License`);
+      await page.waitForSelector('#license-edit-form');
+      t.equal(await page.locator('.license-edit-warning').count(), 1, 'danger notice shown for mixed risks');
+      t.equal(await page.inputValue('#license-edit-risk'), '', 'risk defaults to "Keep current" when risks are mixed');
+
+      // First, set an SPDX in place (no rename) so the later clear is meaningful.
+      await page.locator('#license-edit-spdx').fill('MIT');
+      page.once('dialog', dialog => dialog.accept());
+      await Promise.all([
+        page.waitForResponse(resp => /\/licenses\/meta\//.test(resp.url()) && resp.request().method() === 'POST'),
+        page.locator('#license-edit-form button[type="submit"]').click()
+      ]);
+      await page.waitForSelector('#license-details .toast-item');
+      t.equal(await page.inputValue('#license-edit-spdx'), 'MIT', 'SPDX set in place without a reload');
+
+      // Now rename + flatten the risk + clear the SPDX in one combined save; the page reloads under the
+      // new name because the whole view keys on it.
+      await page.locator('#license-edit-name').fill('Vue-Combined-Renamed');
+      await page.locator('#license-edit-risk').selectOption('6');
+      await page.locator('#license-edit-spdx').fill('');
+      page.once('dialog', dialog => dialog.accept());
+      await Promise.all([
+        page.waitForURL(/\/licenses\/Vue-Combined-Renamed$/),
+        page.locator('#license-edit-form button[type="submit"]').click()
+      ]);
+
+      t.equal(await page.innerText('title'), 'License details of Vue-Combined-Renamed', 'reloaded under the new name');
+      await page.waitForSelector('#license-details .license-pattern-card');
+      const cards = await page.locator('#license-details .license-pattern-card').allInnerTexts();
+      t.equal(cards.length, 2, 'both patterns carried over to the new name');
+      t.ok(cards.every(text => /Risk 6/.test(text)), 'every pattern flattened to the chosen risk');
+      t.equal(await page.inputValue('#license-edit-spdx'), '', 'SPDX cleared by the combined edit');
+      t.equal(await page.locator('.license-edit-warning').count(), 0, 'no danger notice once risks are uniform');
+
+      // Drain the reindex jobs the rename queued so later subtests see a settled queue.
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
+    });
+
     await t.test('Edit pattern page (Vue) - delete redirects to /licenses', async t => {
       // Use the throwaway pattern created in the classify-snippets subtest
       // above so we can exercise the destructive DELETE path without breaking
