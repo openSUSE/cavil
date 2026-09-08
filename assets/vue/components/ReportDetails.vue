@@ -443,6 +443,14 @@
                 <dd><kbd>c</kbd></dd>
               </div>
               <div class="shortcuts-row">
+                <dt>Scroll to top of report</dt>
+                <dd><kbd>t</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
+                <dt>Jump to review finalization</dt>
+                <dd><kbd>f</kbd></dd>
+              </div>
+              <div class="shortcuts-row">
                 <dt>Open Report tab</dt>
                 <dd><kbd>1</kbd></dd>
               </div>
@@ -1159,6 +1167,14 @@ export default {
         if (this.components.length === 0) return;
         event.preventDefault();
         this.setActiveTab('components', {scrollIntoView: true});
+      } else if (event.key === 't') {
+        event.preventDefault();
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      } else if (event.key === 'f') {
+        const el = document.getElementById('pkg-review');
+        if (!el) return;
+        event.preventDefault();
+        el.scrollIntoView({behavior: 'smooth', block: 'start'});
       } else if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
         event.preventDefault();
         this.showShortcuts();
