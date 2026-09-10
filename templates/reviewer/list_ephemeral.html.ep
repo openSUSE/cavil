@@ -1,0 +1,8 @@
+% layout 'default';
+% title "Ephemeral reviews";
+
+<div id="ephemeral-reviews"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupEphemeralReviews();
+% end

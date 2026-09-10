@@ -678,6 +678,40 @@ sub paginate_recent_reviews ($self, $options) {
   return paginate($results, $options);
 }
 
+# Every currently-active ephemeral review, in any state (they run the full pipeline and auto-review, so the
+# set spans new/acceptable/acceptable_by_lawyer/unacceptable). login is the uploader, not a reviewer.
+sub paginate_ephemeral_reviews ($self, $options) {
+  my $db = $self->pg->db;
+
+  my $search = '';
+  if (length($options->{search}) > 0) {
+    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+    $search = "
+      AND (
+        p.checksum ILIKE $quoted
+        OR p.external_link ILIKE $quoted
+        OR p.name ILIKE $quoted
+        OR p.state::text ILIKE $quoted
+      )";
+  }
+
+  my $results = $db->query(
+    qq{
+      SELECT p.id, p.name, u.login, EXTRACT(EPOCH FROM p.created) AS created_epoch,
+        EXTRACT(EPOCH FROM p.imported) as imported_epoch, EXTRACT(EPOCH FROM p.unpacked) as unpacked_epoch,
+        EXTRACT(EPOCH FROM p.indexed) as indexed_epoch, external_link, priority, state, checksum,
+        unresolved_matches, COUNT(*) OVER() AS total
+       FROM bot_packages p
+         LEFT JOIN bot_users u ON p.requesting_user = u.id
+       WHERE p.ephemeral = TRUE $search
+       ORDER BY p.created DESC
+       LIMIT ? OFFSET ?
+    }, $options->{limit}, $options->{offset}
+  )->hashes->to_array;
+
+  return paginate($results, $options);
+}
+
 sub paginate_review_search ($self, $name, $options) {
   my $db = $self->pg->db;
 

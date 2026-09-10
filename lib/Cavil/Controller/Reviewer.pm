@@ -266,6 +266,10 @@ sub list_recent ($self) {
   $self->render;
 }
 
+sub list_ephemeral ($self) {
+  $self->render;
+}
+
 # Just hooking ajax
 sub list_reviews { }
 

@@ -22,6 +22,7 @@ import IgnoredMatches from './vue/IgnoredMatches.vue';
 import KnownLicenses from './vue/KnownLicenses.vue';
 import KnownProducts from './vue/KnownProducts.vue';
 import LegalReport from './vue/LegalReport.vue';
+import EphemeralReviews from './vue/EphemeralReviews.vue';
 import LicenseDetails from './vue/LicenseDetails.vue';
 import MissingLicenses from './vue/MissingLicenses.vue';
 import OpenReviews from './vue/OpenReviews.vue';
@@ -155,6 +156,10 @@ window.cavil = {
     const app = createApp(RecentPatterns);
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.mount('#recent-patterns');
+  },
+
+  setupEphemeralReviews() {
+    createApp(EphemeralReviews).mount('#ephemeral-reviews');
   },
 
   setupOpenReviews() {

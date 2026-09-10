@@ -227,6 +227,7 @@ sub startup ($self) {
     ->to('Pagination#review_search')
     ->name('pagination_review_search');
   $public->get('/reviews/recent')->to('Reviewer#list_recent')->name('reviews_recent');
+  $logged_in->get('/reviews/ephemeral')->to('Reviewer#list_ephemeral')->name('reviews_ephemeral');
   $logged_in->get('/reviews/file_view/<id:num>/*file' => {file => ''})->to('Reviewer#file_view')->name('file_view');
   $logged_in->get('/reviews/file_view_meta/<id:num>/*file' => {file => ''})
     ->to('Reviewer#file_view_meta')
@@ -255,6 +256,9 @@ sub startup ($self) {
   $can_curate->post('/reviews/reindex/<id:num>')->to('Reviewer#reindex_package')->name('reindex_package');
   $public->get('/pagination/reviews/open')->to('Pagination#open_reviews')->name('pagination_open_reviews');
   $public->get('/pagination/reviews/recent')->to('Pagination#recent_reviews')->name('pagination_recent_reviews');
+  $logged_in->get('/pagination/reviews/ephemeral')
+    ->to('Pagination#ephemeral_reviews')
+    ->name('pagination_ephemeral_reviews');
 
   # A package is the default subject. Numeric ids are what leaves room for the same formats on a product or
   # a codestream later ("/documents/product/<name>/<key>") without moving these

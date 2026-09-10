@@ -218,4 +218,34 @@ subtest 'Ephemeral upload is flagged and runs a band below normal incoming' => s
   is $meta->{ephemeral_delete}, $meta->{created} + 24 * 3600, 'deletion time is created plus the configured window';
 };
 
+subtest 'Ephemeral reviews are listed together in every state' => sub {
+  my $tmp = tempdir;
+  my $src = $tmp->child('eph2')->make_path;
+  $src->child('file.txt')->spew("second ephemeral content\n");
+  my $archive = $tmp->child('eph2.tar.gz');
+  is system('tar', '-czf', $archive->to_string, '-C', $src->to_string, '.'), 0, 'second ephemeral archive created';
+
+  $t->post_ok(
+    '/upload',
+    {Accept => 'application/json'},
+    form => {name => 'eph-accepted', priority => '5', ephemeral => 1, tarball => {file => $archive->to_string}}
+  )->status_is(200);
+  my $id2 = $t->tx->res->json->{id};
+  $t->app->minion->perform_jobs;
+
+  # Force two different states so the listing is proven not to filter by state
+  my $id1 = $t->app->pg->db->select('bot_packages', 'id', {name => 'eph-web'})->hash->{id};
+  $t->app->packages->update({id => $id1, state => 'new'});
+  $t->app->packages->update({id => $id2, state => 'acceptable'});
+
+  $t->get_ok('/pagination/reviews/ephemeral')->status_is(200);
+  my $page  = $t->tx->res->json;
+  my %by_id = map { $_->{id} => $_ } @{$page->{page}};
+  ok $by_id{$id1},        'new-state ephemeral review is listed';
+  ok $by_id{$id2},        'acceptable-state ephemeral review is listed';
+  ok !$by_id{3},          'a normal (non-ephemeral) package is not listed';
+  ok $by_id{$id1}{login}, 'uploader login is present';
+  is $by_id{$id1}{ephemeral_delete}, $by_id{$id1}{created_epoch} + 24 * 3600, 'row carries the scheduled deletion time';
+};
+
 done_testing();

@@ -71,6 +71,23 @@ t.test('Cavil UI - tarball upload', skipUnlessOnline, async t => {
       t.equal(await page.locator('#pkg-ephemeral').count(), 0, 'no ephemeral hint on a normal report');
     });
 
+    await t.test('Ephemeral reviews page is reachable from the account menu', async t => {
+      await page.goto(`${url}/reviews/ephemeral`);
+      t.equal(await page.innerText('title'), 'Ephemeral reviews', 'ephemeral reviews page renders');
+      await page.waitForSelector('#ephemeral-reviews');
+
+      // Only a normal package was uploaded, so the list shows its empty state
+      await page.waitForSelector('text=No active ephemeral reviews');
+      t.pass('empty state shown when no ephemeral reviews are active');
+
+      // The account dropdown links here
+      t.equal(
+        await page.locator('a.dropdown-item[href="/reviews/ephemeral"]').count(),
+        1,
+        'account menu links to the ephemeral reviews page'
+      );
+    });
+
     t.test('Console errors', t => {
       // Landing on the report immediately after upload polls once while the package is
       // still being processed, which the browser logs as an expected 408.

@@ -225,6 +225,26 @@ sub review_search ($self) {
   $self->render(json => $self->_mark_active_packages($page));
 }
 
+sub ephemeral_reviews ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('filter');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('filter') // '';
+
+  my $page = $self->packages->paginate_ephemeral_reviews({limit => $limit, offset => $offset, search => $search});
+  $self->_mark_active_packages($page);
+
+  # Scheduled deletion time, same formula as the report metadata (created + the configured TTL).
+  my $hours = $self->app->config->{hours_to_keep_ephemeral_packages} // 24;
+  $_->{ephemeral_delete} = $_->{created_epoch} + $hours * 3600 for @{$page->{page}};
+
+  $self->render(json => $page);
+}
+
 sub _mark_active_packages ($self, $page) {
   my $minion = $self->minion;
   my $config = $self->app->config;

@@ -54,6 +54,7 @@
       <li><h3 class="dropdown-header">Insights</h3></li>
       <li><a :href="urls.recentPatterns" class="dropdown-item">Pattern Performance</a></li>
       <li><a :href="urls.recentNotes" class="dropdown-item">Recent Notes</a></li>
+      <li><a :href="urls.ephemeral" class="dropdown-item">Ephemeral Reviews</a></li>
       <li><a :href="urls.stats" class="dropdown-item">Statistics</a></li>
       <li><hr class="dropdown-divider" /></li>
       <template v-if="canCurate">
