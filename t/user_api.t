@@ -369,6 +369,81 @@ subtest 'Upload API' => sub {
       ->json_is('/acceptable_risk' => $t->app->reports->acceptable_risk);
     ok defined $t->tx->res->json('/risk'), 'max risk surfaced for gating';
   };
+
+  subtest 'Ephemeral upload is reviewed but stays out of every listing and is purged' => sub {
+    my $esrc = $tmp->child('eph')->make_path;
+    $esrc->child('main.c')->spew("// SPDX-License-Identifier: Apache-2.0\nint eph() { return 1; }\n");
+    my $earchive = $tmp->child('eph.tar.gz');
+    is system('tar', '-czf', $earchive->to_string, '-C', $esrc->to_string, '.'), 0, 'ephemeral archive created';
+    my $esum = md5_file($earchive->to_string);
+
+    $t->post_ok(
+      '/api/v1/packages/upload' => {Authorization => "Bearer $admin_rw->{api_key}"} => form => {
+        name      => 'eph-proj',
+        priority  => '5',
+        checksum  => $esum,
+        ephemeral => 1,
+        tarball   => {file => $earchive->to_string}
+      }
+    )->status_is(200)->json_is('/duplicate' => false)->json_is('/saved/ephemeral' => 1);
+    my $eid = $t->tx->res->json('/saved/id');
+    ok $eid, 'ephemeral package id returned';
+
+    $t->app->minion->perform_jobs;
+
+    # Reachable directly by id, exactly like a normal report
+    $t->get_ok("/api/v1/report/$eid.json" => {Authorization => "Bearer $admin_rw->{api_key}"})
+      ->status_is(200)
+      ->json_is('/package/id' => $eid);
+
+    # ... but absent from every backlog/search listing, while the normal package is present
+    my $pkgs = $t->app->packages;
+    my $has  = sub {
+      my ($rows, $r) = @_;
+      grep { $_->{id} == $r } @$rows;
+    };
+    my $open = $pkgs->paginate_open_reviews(
+      {
+        search        => '',
+        priority      => 0,
+        in_progress   => 'false',
+        not_embargoed => 'false',
+        notes         => 'any',
+        limit         => 100,
+        offset        => 0
+      }
+    )->{page};
+    my $search = $pkgs->paginate_review_search(undef,
+      {search => '', not_obsolete => 'false', not_embargoed => 'false', limit => 100, offset => 0})->{page};
+    my $recent = $pkgs->paginate_recent_reviews(
+      {
+        search             => '',
+        by_user            => 'false',
+        ai_assisted        => 'false',
+        unresolved_matches => 'false',
+        limit              => 100,
+        offset             => 0
+      }
+    )->{page};
+    ok $has->($search,  $id),  'normal package is in review search';
+    ok !$has->($search, $eid), 'ephemeral package is hidden from review search';
+    ok $has->($open,    $id),  'normal package is in the open review backlog';
+    ok !$has->($open,   $eid), 'ephemeral package is hidden from the open review backlog';
+    ok !$has->($recent, $eid), 'ephemeral package is hidden from recent reviews';
+
+    # Fully purged by the hourly ephemeral cleanup task, leaving no trace
+    my $dir = $pkgs->pkg_checkout_dir($eid);
+    ok -d $dir, 'ephemeral checkout exists before purge';
+    my $src_id = $t->app->pg->db->select('bot_packages', 'source', {id => $eid})->hash->{source};
+    $t->app->config->{hours_to_keep_ephemeral_packages} = 0;
+    $t->app->minion->enqueue('cleanup_ephemeral');
+    $t->app->minion->perform_jobs;
+
+    ok !defined($pkgs->find($eid)),                                          'ephemeral package row is gone';
+    ok !$t->app->pg->db->select('bot_sources', 'id', {id => $src_id})->hash, 'ephemeral source row is gone';
+    ok !-d $dir,                                                             'ephemeral checkout is removed';
+    ok defined($pkgs->find($id)), 'normal package is untouched by the ephemeral purge';
+  };
 };
 
 subtest 'License prediction' => sub {

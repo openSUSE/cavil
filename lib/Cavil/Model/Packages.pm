@@ -86,7 +86,8 @@ sub add ($self, %args) {
     requesting_user => $args{requesting_user},
     priority        => $args{priority},
     state           => 'new',
-    embargoed       => $args{embargoed} ? 1 : 0
+    embargoed       => $args{embargoed} ? 1 : 0,
+    ephemeral       => $args{ephemeral} ? 1 : 0
   };
   return $db->insert('bot_packages', $pkg, {returning => 'id'})->hash->{id};
 }
@@ -117,14 +118,19 @@ sub store_upload ($self, $upload, $opts) {
     project         => '',
     priority        => $opts->{priority},
     package         => $name,
-    srcmd5          => $sum
+    srcmd5          => $sum,
+    ephemeral       => $opts->{ephemeral}
   );
   my $obj = $self->find($id);
   $obj->{external_link} = $opts->{external_link};
   $self->update($obj);
   $self->imported($id);
 
-  $self->unpack($id, incoming_priority($opts->{priority}));
+  # Ephemeral one-off uploads run a whole band below normal incoming, so even a burst of them yields to
+  # real reviews.
+  my $priority = incoming_priority($opts->{priority});
+  $priority -= PRIORITY_INCOMING - PRIORITY_UPKEEP if $opts->{ephemeral};
+  $self->unpack($id, $priority);
 
   return ($obj, 0);
 }
@@ -239,18 +245,51 @@ sub cleanup ($self, $id, $job_id) {
   {
     my $tx = $db->begin;
     $db->query('UPDATE bot_packages SET cleaned = NOW() WHERE id = ?', $id);
-
-    # No generation predicate on purpose: the package is obsolete and going away, so everything it owns
-    # goes, including the rows of a reindex that was still building when it was superseded
-    $db->query('delete from bot_reports where package = ?',        $id);
-    $db->query('delete from emails where package = ?',             $id);
-    $db->query('delete from urls where package = ?',               $id);
-    $db->query('delete from copyrights where package = ?',         $id);
-    $db->query('delete from package_components where package = ?', $id);
-    $db->query('delete from pattern_matches where package = ?',    $id);
-    $db->query('delete from matched_files where package = ?',      $id);
+    _delete_package_rows($db, $id);
     $tx->commit;
   }
+}
+
+# The package-owned rows both teardown paths remove. No generation predicate on purpose: the package is
+# going away, so everything it owns goes, including the rows of a reindex that was still building when it
+# was superseded. matched_files cascades to pattern_matches and file_snippets.
+sub _delete_package_rows ($db, $id) {
+  $db->query('delete from bot_reports where package = ?',        $id);
+  $db->query('delete from emails where package = ?',             $id);
+  $db->query('delete from urls where package = ?',               $id);
+  $db->query('delete from copyrights where package = ?',         $id);
+  $db->query('delete from package_components where package = ?', $id);
+  $db->query('delete from pattern_matches where package = ?',    $id);
+  $db->query('delete from matched_files where package = ?',      $id);
+}
+
+# Full teardown for an ephemeral one-off review: everything cleanup() removes, plus the bot_packages row
+# itself and its private bot_sources row, so it leaves as little trace as possible. The shared content-hash
+# dictionaries (snippets, report_checksums) are deliberately left alone: snippets keeps its cross-package
+# learning with the origin back-reference nulled (ON DELETE SET NULL), and report_checksums has no
+# per-package key. Deletes run parents-last because these FKs are NOT NULL without ON DELETE CASCADE.
+sub purge ($self, $id, $job_id) {
+  my $db  = $self->pg->db;
+  my $log = $self->log;
+
+  return unless my $guard = $self->claim_guard($id, $job_id);
+
+  my $pkg = $db->select('bot_packages', ['name', 'checkout_dir', 'source', 'ephemeral'], {id => $id})->hash;
+  return if !$pkg || !$pkg->{ephemeral};
+
+  my $dir = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  if (-d $dir) {
+    $log->info("[$id] Purging ephemeral checkout $pkg->{name}/$pkg->{checkout_dir}");
+    $dir->remove_tree;
+  }
+
+  my $tx = $db->begin;
+  _delete_package_rows($db, $id);
+  $db->query('delete from bot_requests where package = ?',         $id);
+  $db->query('delete from bot_package_products where package = ?', $id);
+  $db->query('delete from bot_packages where id = ?',              $id);
+  $db->query('delete from bot_sources where id = ?',               $pkg->{source});
+  $tx->commit;
 }
 
 # The name comes back from the database as characters, and joining a character string to a file name
@@ -337,9 +376,12 @@ sub has_file_stats ($self, $id) {
   return defined($self->pg->db->select('bot_packages', 'unpacked_files', {id => $id})->hash->{unpacked_files});
 }
 
+# Ephemeral one-off reviews are excluded from every sibling lookup below: they must not anchor or veto a
+# normal package's auto-review, and since they are fully purged their deletion must not change any decision.
 sub has_manual_review ($self, $name) {
-  return !!$self->pg->db->query('SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL',
-    $name)->array->[0];
+  return !!$self->pg->db->query(
+    'SELECT COUNT(*) FROM bot_packages WHERE name = ? AND reviewing_user IS NOT NULL AND ephemeral = FALSE', $name)
+    ->array->[0];
 }
 
 sub history ($self, $name, $checksum, $id) {
@@ -347,7 +389,7 @@ sub history ($self, $name, $checksum, $id) {
     "select p.id, external_link, result, state, login,
        extract(epoch from created) as created_epoch, obsolete
      from bot_packages p left join bot_users u on p.reviewing_user = u.id
-     where name = ? and checksum = ? and p.id != ? and state != 'new'
+     where name = ? and checksum = ? and p.id != ? and state != 'new' and ephemeral = false
      order by p.id desc", $name, $checksum, $id
   )->hashes->to_array;
 }
@@ -444,11 +486,12 @@ sub old_reviews ($self, $pkg) {
     'bot_packages',
     'id,checksum',
     {
-      name     => $pkg->{name},
-      state    => [qw(acceptable acceptable_by_lawyer)],
-      id       => {'!=' => $pkg->{id}},
-      obsolete => 0,
-      indexed  => {'!=' => undef}
+      name      => $pkg->{name},
+      state     => [qw(acceptable acceptable_by_lawyer)],
+      id        => {'!=' => $pkg->{id}},
+      obsolete  => 0,
+      ephemeral => 0,
+      indexed   => {'!=' => undef}
     },
     {-desc => 'id'}
   )->hashes->to_array;
@@ -508,7 +551,7 @@ sub paginate_open_reviews ($self, $options) {
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
         priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages
-      WHERE state = 'new' AND obsolete = FALSE $priority $search $progress $embargoed $notes
+      WHERE state = 'new' AND obsolete = FALSE AND ephemeral = FALSE $priority $search $progress $embargoed $notes
       ORDER BY priority DESC, external_link, unresolved_matches, name
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
@@ -625,7 +668,8 @@ sub paginate_recent_reviews ($self, $options) {
         external_link, priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
        FROM bot_packages p
          LEFT JOIN bot_users u ON p.reviewing_user = u.id
-       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' $search $user $ai_assisted $unresolved
+       WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' AND p.ephemeral = FALSE
+         $search $user $ai_assisted $unresolved
        ORDER BY reviewed DESC
        LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
@@ -689,7 +733,8 @@ sub paginate_review_search ($self, $name, $options) {
         EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
         u.login AS user,  unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
-      WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) $search $obsolete $embargoed
+      WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) AND p.ephemeral = FALSE
+        $search $obsolete $embargoed
       ORDER BY id DESC
       LIMIT \$3 OFFSET \$4
     }, $name || undef, $packages, $options->{limit}, $options->{offset}
@@ -743,7 +788,7 @@ sub export_components ($self, $cb) {
         JOIN bot_packages p                ON p.id = pc.package
         LEFT JOIN bot_package_products pp   ON pp.package = p.id
         LEFT JOIN bot_products prod         ON prod.id = pp.product
-       WHERE pc.generation = 0 AND p.embargoed = FALSE AND p.obsolete = FALSE
+       WHERE pc.generation = 0 AND p.embargoed = FALSE AND p.obsolete = FALSE AND p.ephemeral = FALSE
        ORDER BY p.id, pc.name, pc.version
   }
   );
@@ -766,6 +811,12 @@ sub mark_matched_for_reindex ($self, $pid, $priority = PRIORITY_UPKEEP) {
 sub need_cleanup ($self) {
   return $self->pg->db->query('SELECT id FROM bot_packages WHERE obsolete IS TRUE AND cleaned IS NULL ORDER BY ID')
     ->arrays->flatten->to_array;
+}
+
+sub need_ephemeral_cleanup ($self, $hours) {
+  return $self->pg->db->query(
+    "SELECT id FROM bot_packages WHERE ephemeral IS TRUE AND created < NOW() - (INTERVAL '1 hour' * ?) ORDER BY id",
+    $hours)->arrays->flatten->to_array;
 }
 
 # Every package that is not in a clean, settled state as far as reindexing goes: one with rows from a
@@ -1053,11 +1104,11 @@ sub stats {
 
   my $stats = $self->pg->db->query(
     "SELECT
-       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false) AS active_packages,
-       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND embargoed = true) AS embargoed_packages,
-       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'unacceptable') AS rejected_packages,
-       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND state = 'new') AS open_reviews,
-      (SELECT COALESCE(SUM(unresolved_matches), 0) FROM bot_packages WHERE obsolete = false) AS unresolved_matches,
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND ephemeral = false) AS active_packages,
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND ephemeral = false AND embargoed = true) AS embargoed_packages,
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND ephemeral = false AND state = 'unacceptable') AS rejected_packages,
+       (SELECT COUNT(*) FROM bot_packages WHERE obsolete = false AND ephemeral = false AND state = 'new') AS open_reviews,
+      (SELECT COALESCE(SUM(unresolved_matches), 0) FROM bot_packages WHERE obsolete = false AND ephemeral = false) AS unresolved_matches,
        overall_reviews.performed AS performed_reviews,
        overall_reviews.manual AS manual_reviews,
        overall_reviews.automated AS automated_reviews,

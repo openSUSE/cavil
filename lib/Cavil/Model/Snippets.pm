@@ -481,8 +481,8 @@ sub snippet_search ($self, $options) {
   # snippets are dead work; excluding them (as every other query does) keeps the impact ranking real.
   # Occurrences are also pinned to the live report (generation 0), so a package being reindexed right now
   # contributes each of its occurrences once, not twice.
-  my $visible
-    = 'fs.generation = 0 AND bp.embargoed = false AND bp.obsolete = false AND COALESCE(sp.embargoed, false) = false';
+  my $visible = 'fs.generation = 0 AND bp.embargoed = false AND bp.obsolete = false AND bp.ephemeral = false'
+    . ' AND COALESCE(sp.embargoed, false) = false';
 
   # Fetch one extra row to detect a next page without an exact total (COUNT(*) OVER does not scale).
   my $rows;
@@ -628,7 +628,8 @@ sub _visible_occurrence ($db, $id) {
   return $db->query(
     'SELECT fs.package, fs.file, fs.sline, fs.eline
        FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
-      WHERE fs.snippet = ? AND fs.generation = 0 AND p.embargoed = false AND p.obsolete = false LIMIT 1', $id
+      WHERE fs.snippet = ? AND fs.generation = 0 AND p.embargoed = false AND p.obsolete = false
+        AND p.ephemeral = false LIMIT 1', $id
   )->hash;
 }
 

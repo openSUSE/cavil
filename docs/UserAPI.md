@@ -671,203 +671,6 @@ Content-Type: application/json
 }
 ```
 
-### Code Search
-
-`POST /api/v1/code/search`
-
-Find where a code fragment already exists in the open source Cavil has indexed, ranked by containment, with
-a risk indicator. Only available when code search is enabled on the instance (otherwise `404`); see the
-code search section in the [Setup](Setup.md) guide.
-
-**Request parameters:**
-
-* `snippet`: The code fragment to look up (required).
-* `limit`: Maximum number of matches to return. Defaults to `20`, maximum `100`.
-
-**Request:**
-
-```
-POST /api/v1/code/search
-Host: legaldb.suse.de
-Authorization: Bearer generated_api_key_here
-Content-Type: application/x-www-form-urlencoded
-
-snippet=<code fragment>&limit=20
-```
-
-**Response:** A snippet too short or too repetitive to yield enough distinct fingerprints to locate reliably
-comes back with `too_short: true` and no matches, rather than a flood of weak hits (there is no fixed
-minimum length; highly repetitive code needs far more than distinctive code). Otherwise each match reports
-the matched content hash, containment in both directions (how much of the snippet is in the file, and how
-much of the file is the snippet), the detected licenses and the matched code's license risk on Cavil's 1-9
-scale (`null` when no license was detected), an excerpt of the matched lines, and the packages and paths
-that carry the content. It also reports alignment: `aligned`/`total` is how many of the snippet's
-fingerprints line up as one contiguous copy (versus scattered coincidental hits), `exact` is true when all
-of them do, and `marks` is a per-fingerprint array in snippet order (`1` aligned, `0` differs) for a match
-grid. `exact` means every fingerprint aligned, not that the copy is byte-identical: fingerprinting samples
-the code, so a small edit that does not change a sampled fingerprint (such as renaming a single identifier)
-can still align fully. When the match is a carrier's own, non-vendored source, it also carries
-`declared_license`: the main license declared in that package's metadata (the specfile `License:`), a curated,
-higher-value indicator that accompanies `licenses` (it does not replace them, and `risk` still comes from the
-per-file licenses). It is omitted for content found only in vendored/bundled trees.
-
-Files whose lines are too long to index directly are scanned through a re-wrapped copy. Paths are always
-reported as the original file, never that internal copy, but such a match also carries `processed: true` -
-because its line numbers (the excerpt's, and the region they were taken from) are positions in the copy, so
-they do not address the file as named. Treat the excerpt as a preview in that case, and do not use the line
-numbers to point at the original; the flag is absent for every ordinary match.
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "total": 1,
-  "matches": [
-    {
-      "hash": "a1b2c3...",
-      "containment": 0.92,
-      "containment_of": 0.15,
-      "aligned": 58,
-      "total": 64,
-      "exact": false,
-      "marks": [1, 1, 0, 1, 1, 0, 1],
-      "licenses": ["GPL-2.0-only"],
-      "risk": 6,
-      "declared_license": "GPL-3.0-or-later",
-      "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}],
-      "excerpt": [{"number": 120, "text": "...", "matched": true}]
-    }
-  ]
-}
-```
-
-### Code Search Configuration
-
-`GET /api/v1/code/config`
-
-The winnowing parameters this instance's index was built with. A client that computes fingerprints itself
-(see the batch fingerprint search below) must use the same values, or its fingerprints will not match. Only
-available when code search is enabled (otherwise `404`).
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{"k": 4, "w": 8}
-```
-
-### Batch Content Hash Lookup
-
-`POST /api/v1/code/known`
-
-Ask, for a batch of content hashes, which ones Cavil has already seen and under what licenses and risk. This
-is the cheap recognition path: a content hash is a fixed property of a file's bytes, so its licenses and risk
-never change, and the answer can be cached indefinitely by the client. Compute the hashes with the same
-function Cavil uses (the `content_hash` in the `Cavil::Matcher` distribution), so they match the indexed
-values. Only available when code search is enabled (otherwise `404`); at most 1000 hashes per request.
-
-A hash Cavil knows but has no detected license for still returns an entry, with empty `licenses` and `null`
-risk, so "known, no license detected" is distinct from "never seen" (which is simply absent from the result).
-Each recognized hash also names one `package` and `filename` that carry that content, so a client can report
-what a file is a copy of rather than just "a known source" (a hash Cavil knows only from license data, with no
-carrying file, omits both). When the content is a carrier's own, non-vendored source, the entry also carries
-`declared_license`: the main license declared in that package's metadata (the specfile `License:`), the
-expression shown at the top of its report. It is a higher-value, curated indicator that accompanies `licenses`
-(it does not replace them, and `risk` still comes from the per-file licenses); it is omitted for content found
-only in vendored/bundled trees, where a package's declared license does not describe it. An entry whose file
-was indexed through a re-wrapped copy (see the snippet search above) reports the original path and adds
-`processed: true`.
-
-The optional `exclude_packages` array drops carriers by package name: a hash carried only by an excluded
-package is treated as not known (absent from the response), while one also carried elsewhere still returns,
-attributed to a non-excluded carrier. This lets an engineer scanning a checkout of their own open source
-project stop it from matching its own indexed package, without hiding a file that is genuinely shared with
-another. At most 100 names.
-
-**Request:**
-
-```
-POST /api/v1/code/known
-Host: legaldb.suse.de
-Authorization: Bearer generated_api_key_here
-Content-Type: application/json
-
-{"hashes": ["8c2fa3f24a09137f9bb3860fa21c677e", "..."], "exclude_packages": ["my-project"]}
-```
-
-**Response:** an object keyed by the hashes that were recognized.
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "8c2fa3f24a09137f9bb3860fa21c677e": {
-    "licenses": ["GPL-2.0-only"],
-    "risk": 6,
-    "package": "coreutils",
-    "filename": "src/ls.c",
-    "declared_license": "GPL-3.0-or-later"
-  }
-}
-```
-
-### Batch Fingerprint Search
-
-`POST /api/v1/code/search-batch`
-
-Search for many code fragments in one request, sending fingerprints rather than source. The client winnows
-each fragment itself with `fingerprint_file` from the `Cavil::Matcher` distribution, using the `k` and `w`
-from the configuration endpoint above, deduplicates the resulting fingerprints, and sends them with the
-fragment's line span. Fingerprints are transported as decimal strings, because a 64-bit value cannot survive
-JSON as a number without losing precision. Only available when code search is enabled (otherwise `404`); at
-most 100 queries per request.
-
-Each query carries an opaque `id` that is echoed back, so results can be matched to queries. Each result has
-the same shape as a single code search, including the `too_short`, `aligned`/`total`, `exact` and `marks`
-fields described above. The optional `exclude_packages` array works exactly as for the recognition endpoint: a
-match carried only by an excluded package drops out, so a working copy does not match its own indexed package.
-
-**Request:**
-
-```
-POST /api/v1/code/search-batch
-Host: legaldb.suse.de
-Authorization: Bearer generated_api_key_here
-Content-Type: application/json
-
-{
-  "queries": [
-    {"id": "src/foo.c:40-88", "fingerprints": ["10293847561029", "..."], "span": 49}
-  ],
-  "limit": 10,
-  "exclude_packages": ["my-project"]
-}
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "results": [
-    {
-      "id": "src/foo.c:40-88",
-      "total": 24,
-      "matches": [
-        {"hash": "a1b2c3...", "containment": 0.92, "containment_of": 0.15,
-         "aligned": 22, "total": 24, "exact": false, "risk": 6,
-         "licenses": ["GPL-2.0-only"],
-         "files": [{"package": 23, "name": "some-package", "filename": "src/foo.c"}]}
-      ]
-    }
-  ]
-}
-```
-
 ### Submit a Package for Review
 
 `POST /api/v1/packages/upload`
@@ -893,9 +696,17 @@ The request is `multipart/form-data`.
 * `external_link` (optional): Short string describing the source, for traceability (for example a repository URL
                               and commit).
 
-* `ephemeral` (optional): Reserved. Signals a request for a one-off report with no lasting side effects (no
-                          open review left in the legal backlog). Currently ignored, for a planned ad-hoc
-                          review mode; a submission today always enters the standard review workflow.
+* `ephemeral` (optional): Request a one-off report that leaves as little trace as possible. An ephemeral
+                          submission runs the exact same pipeline as a normal one (same license patterns,
+                          ignore rules, report formats and endpoints), but it never appears in the open
+                          review backlog, the recent reviews list, package or component search, or the
+                          snippet backlog, and it never influences the automatic review of normal packages.
+                          It runs at a lower priority than normal uploads, so a burst of them stays out of
+                          the way of day-to-day reviews. It is reachable only by the `id` returned below, via
+                          the report and document endpoints. Ephemeral reviews are fully purged (row,
+                          checkout and all derived data) a short, instance-configurable time after upload, so
+                          fetch the report and any documents you need promptly. The `saved` object below echoes
+                          `ephemeral`.
 
 **Request:**
 

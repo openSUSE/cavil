@@ -22,6 +22,12 @@ t.test('Cavil UI - tarball upload', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'Upload archive');
       await page.waitForSelector('.upload-dropzone');
       t.equal(await page.locator('#upload-button').isDisabled(), true, 'upload disabled until a file is chosen');
+
+      // The ephemeral one-off option is present, off by default, and toggles.
+      t.equal(await page.locator('#upload-ephemeral').isChecked(), false, 'ephemeral is off by default');
+      await page.check('#upload-ephemeral');
+      t.equal(await page.locator('#upload-ephemeral').isChecked(), true, 'ephemeral can be toggled on');
+      await page.uncheck('#upload-ephemeral');
     });
 
     await t.test('Selecting an archive prefills the name from the filename', async t => {

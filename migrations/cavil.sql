@@ -409,3 +409,10 @@ DROP TABLE IF EXISTS bot_packages;
 DROP TABLE IF EXISTS bot_users;
 DROP TABLE IF EXISTS bot_sources;
 DROP TYPE IF EXISTS bot_state;
+
+-- 68 up
+ALTER TABLE bot_packages ADD COLUMN ephemeral boolean DEFAULT false NOT NULL;
+DROP INDEX bot_packages_open_reviews_idx;
+CREATE INDEX bot_packages_open_reviews_idx ON bot_packages (priority DESC, external_link, unresolved_matches, name)
+  WHERE state = 'new' AND obsolete = false AND ephemeral = false;
+

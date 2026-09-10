@@ -9,7 +9,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
-use Cavil::Util qw(incoming_priority);
+use Cavil::Util qw(incoming_priority PRIORITY_INCOMING PRIORITY_UPKEEP);
 use Mojo::File  qw(path tempdir);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -188,6 +188,27 @@ subtest 'Non-JSON upload redirects to the dashboard' => sub {
   $t->get_ok('/')->status_is(200)->content_like(qr/perl-Mojo-Redirect has been uploaded/);
   ok $t->app->packages->find_by_name_and_md5('perl-Mojo-Redirect', 'c1ffb4256878c64eb0e40c48f36d24d2'),
     'package created via the redirect path';
+};
+
+subtest 'Ephemeral upload is flagged and runs a band below normal incoming' => sub {
+  my $tmp = tempdir;
+  my $src = $tmp->child('eph')->make_path;
+  $src->child('file.txt')->spew("ephemeral content\n");
+  my $archive = $tmp->child('eph.tar.gz');
+  is system('tar', '-czf', $archive->to_string, '-C', $src->to_string, '.'), 0, 'ephemeral archive created';
+
+  $t->post_ok(
+    '/upload',
+    {Accept => 'application/json'},
+    form => {name => 'eph-web', priority => '6', ephemeral => 1, tarball => {file => $archive->to_string}}
+  )->status_is(200);
+  my $id = $t->tx->res->json->{id};
+
+  ok $t->app->packages->find($id)->{ephemeral}, 'package is flagged ephemeral';
+
+  my $unpack = $t->app->minion->jobs({tasks => ['unpack'], notes => ["pkg_$id"]})->next;
+  is $unpack->{priority}, incoming_priority(6) - (PRIORITY_INCOMING - PRIORITY_UPKEEP),
+    'queued a whole band below normal incoming';
 };
 
 done_testing();

@@ -8,10 +8,12 @@ use Cavil::Util qw(PRIORITY_SWEEP PRIORITY_UPKEEP);
 use Mojo::File  qw(path);
 
 sub register ($self, $app, $config) {
-  $app->minion->add_task(obsolete      => \&_obsolete);
-  $app->minion->add_task(cleanup       => \&_cleanup);
-  $app->minion->add_task(cleanup_batch => \&_cleanup_batch);
-  $app->minion->add_task(sweep_builds  => \&_sweep);
+  $app->minion->add_task(obsolete          => \&_obsolete);
+  $app->minion->add_task(cleanup           => \&_cleanup);
+  $app->minion->add_task(cleanup_batch     => \&_cleanup_batch);
+  $app->minion->add_task(cleanup_ephemeral => \&_cleanup_ephemeral);
+  $app->minion->add_task(purge_batch       => \&_purge_batch);
+  $app->minion->add_task(sweep_builds      => \&_sweep);
 }
 
 # Sweep stale claims more often than disk cleanup; compare-and-swap makes runs independent.
@@ -35,6 +37,24 @@ sub _cleanup ($job) {
 sub _cleanup_batch ($job, @ids) {
   my $pkgs = $job->app->packages;
   for my $id (@ids) { $pkgs->cleanup($id, $job->id) }
+}
+
+# Ephemeral one-off reviews are fully purged on a much shorter TTL than the normal obsolete cleanup, run on
+# its own schedule so a burst of them never delays the nightly sweep.
+sub _cleanup_ephemeral ($job) {
+  my $app  = $job->app;
+  my $pkgs = $app->packages;
+
+  my $ids     = $pkgs->need_ephemeral_cleanup($app->config->{hours_to_keep_ephemeral_packages} // 24);
+  my $buckets = Cavil::Util::buckets($ids, $app->config->{cleanup_bucket_average});
+
+  my $minion = $app->minion;
+  $minion->enqueue('purge_batch', $_, {parents => [$job->id], priority => PRIORITY_SWEEP}) for @$buckets;
+}
+
+sub _purge_batch ($job, @ids) {
+  my $pkgs = $job->app->packages;
+  for my $id (@ids) { $pkgs->purge($id, $job->id) }
 }
 
 # Recover from reindexes that died halfway: a worker that was killed, a job that failed and was removed

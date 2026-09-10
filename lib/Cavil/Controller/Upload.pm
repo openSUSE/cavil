@@ -15,6 +15,7 @@ sub store ($self) {
   $validation->required('name')->like(qr/^[A-Za-z0-9\-\.]+$/);
   $validation->required('priority')->num;
   $validation->required('tarball')->upload->size(1, undef);
+  $validation->optional('ephemeral');
   if ($validation->has_error) {
     my $failed = join(', ', @{$validation->failed});
     return $self->render(json => {error => "Invalid upload ($failed)"}, status => 400) if $wants_json;
@@ -32,7 +33,8 @@ sub store ($self) {
       name            => $name,
       priority        => $validation->param('priority'),
       requesting_user => $self->users->id_for_login($self->current_user),
-      external_link   => 'upload'
+      external_link   => 'upload',
+      ephemeral       => $validation->param('ephemeral') ? 1 : 0
     }
   );
 

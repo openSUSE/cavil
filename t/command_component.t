@@ -64,6 +64,11 @@ $db->update('bot_packages', {obsolete => 1}, {id => $obs});
 add_comp($obs, 'npm', 'old-dep', '0.1.0');
 $db->insert('bot_package_products', {package => $obs, product => $p1});
 
+# Ephemeral one-off reviews must never appear in the export either
+my $eph = add_pkg('ephemeral-pkg', 'e' x 32);
+$db->update('bot_packages', {ephemeral => 1}, {id => $eph});
+add_comp($eph, 'npm', 'throwaway-dep', '9.9.9');
+
 subtest 'component --export' => sub {
   my $buffer = '';
   {
@@ -91,6 +96,7 @@ subtest 'component --export' => sub {
   # Excluded packages
   ok !$by_pkg{'embargoed-pkg'}, 'embargoed package is excluded';
   ok !$by_pkg{'obsolete-pkg'},  'obsolete package is excluded';
+  ok !$by_pkg{'ephemeral-pkg'}, 'ephemeral package is excluded';
 
   # Each record carries the checksum (the source-hosting checksum that, with the name, uniquely
   # identifies the package)

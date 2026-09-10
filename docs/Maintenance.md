@@ -76,6 +76,9 @@ own (as long as at least one worker is running).
 
     # Collect builds that died halfway, every hour
     script/cavil minion schedule -e hourly_sweep -c '25 * * * *' -t sweep_builds
+
+    # Purge expired ephemeral one-off reviews, every hour
+    script/cavil minion schedule -e hourly_ephemeral_cleanup -c '15 * * * *' -t cleanup_ephemeral
 ```
 
 The `-e` value is just a name for the schedule (used to update, pause, or remove it later), `-c` is a standard cron

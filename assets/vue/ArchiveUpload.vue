@@ -56,6 +56,17 @@
       </div>
     </div>
 
+    <div class="form-check mt-3">
+      <input id="upload-ephemeral" v-model="ephemeral" name="ephemeral" type="checkbox" class="form-check-input" />
+      <label class="form-check-label" for="upload-ephemeral">
+        Ephemeral one-off review
+        <span class="form-text d-block">
+          Kept out of the review backlog and automatically deleted a short time after upload. Use for quick ad-hoc
+          checks.
+        </span>
+      </label>
+    </div>
+
     <div v-if="uploading || progress > 0" class="mt-3">
       <div class="progress" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100">
         <div
@@ -108,6 +119,7 @@ export default {
       file: null,
       name: '',
       priority: '5',
+      ephemeral: false,
       isDragging: false,
       uploading: false,
       progress: 0,
@@ -158,6 +170,7 @@ export default {
       const form = new FormData();
       form.append('name', this.name.trim());
       form.append('priority', this.priority);
+      if (this.ephemeral) form.append('ephemeral', '1');
       form.append('tarball', this.file);
 
       const xhr = new XMLHttpRequest();

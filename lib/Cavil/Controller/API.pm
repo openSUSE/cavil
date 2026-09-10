@@ -125,6 +125,7 @@ sub upload ($self) {
   $validation->required('tarball')->upload->size(1, undef);
   $validation->required('checksum')->like(qr/^[a-f0-9]{32}$/i);
   $validation->optional('external_link');
+  $validation->optional('ephemeral');
   return $self->reply->json_validation_error if $validation->has_error;
 
   my ($obj, $duplicate) = eval {
@@ -135,7 +136,8 @@ sub upload ($self) {
         priority        => $validation->param('priority'),
         requesting_user => $self->users->id_for_login($self->current_user),
         external_link   => $validation->param('external_link'),
-        checksum        => $validation->param('checksum')
+        checksum        => $validation->param('checksum'),
+        ephemeral       => $validation->param('ephemeral') ? 1 : 0
       }
     );
   };
