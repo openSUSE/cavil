@@ -209,6 +209,13 @@ subtest 'Ephemeral upload is flagged and runs a band below normal incoming' => s
   my $unpack = $t->app->minion->jobs({tasks => ['unpack'], notes => ["pkg_$id"]})->next;
   is $unpack->{priority}, incoming_priority(6) - (PRIORITY_INCOMING - PRIORITY_UPKEEP),
     'queued a whole band below normal incoming';
+
+  # The report metadata hints that the review is ephemeral and when it will be deleted
+  $t->app->minion->perform_jobs;
+  $t->get_ok("/reviews/meta/$id")->status_is(200);
+  ok $t->tx->res->json('/ephemeral'), 'metadata marks the report ephemeral';
+  my $meta = $t->tx->res->json;
+  is $meta->{ephemeral_delete}, $meta->{created} + 24 * 3600, 'deletion time is created plus the configured window';
 };
 
 done_testing();

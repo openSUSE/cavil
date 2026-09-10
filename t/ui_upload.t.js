@@ -66,6 +66,9 @@ t.test('Cavil UI - tarball upload', skipUnlessOnline, async t => {
 
       // No declared license metadata, so the package needs manual review
       t.match(await page.innerText('body'), /Manual review is required/, 'manual review notice is shown');
+
+      // A normal (non-ephemeral) upload shows no ephemeral hint
+      t.equal(await page.locator('#pkg-ephemeral').count(), 0, 'no ephemeral hint on a normal report');
     });
 
     t.test('Console errors', t => {

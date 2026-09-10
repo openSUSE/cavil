@@ -417,12 +417,16 @@ sub _package_summary ($c, $id) {
   }
 
   return {
-    actions              => $actions,
-    copied_files         => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
-    created              => $pkg->{created_epoch},
-    documents            => $state->{documents},
-    legal_documents      => _legal_documents($c, $id),
-    embargoed            => \!!$pkg->{embargoed},
+    actions          => $actions,
+    copied_files     => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
+    created          => $pkg->{created_epoch},
+    documents        => $state->{documents},
+    legal_documents  => _legal_documents($c, $id),
+    embargoed        => \!!$pkg->{embargoed},
+    ephemeral        => \!!$pkg->{ephemeral},
+    ephemeral_delete => $pkg->{ephemeral}
+    ? $pkg->{created_epoch} + ($config->{hours_to_keep_ephemeral_packages} // 24) * 3600
+    : undef,
     ai_assisted          => \!!$pkg->{ai_assisted},
     errors               => $spec->{errors} // [],
     external_link        => $pkg->{external_link},

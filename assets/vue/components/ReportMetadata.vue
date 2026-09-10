@@ -32,6 +32,16 @@
             </span>
           </dd>
           <dd v-else id="pkg-embargoed">No</dd>
+          <template v-if="pkgEphemeral === true">
+            <dt>Ephemeral</dt>
+            <dd id="pkg-ephemeral">
+              <span class="badge text-bg-warning" title="One-off review, not part of the legal backlog">
+                <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+                One-off review
+              </span>
+              <span v-if="ephemeralDelete !== ''" class="report-ephemeral-hint">deleted {{ ephemeralDelete }}</span>
+            </dd>
+          </template>
           <template v-if="state !== null">
             <dt>State</dt>
             <dd id="pkg-state">
@@ -399,6 +409,8 @@ export default {
       pkgAiAssisted: false,
       pkgChecksum: null,
       pkgEmbargoed: false,
+      pkgEphemeral: false,
+      ephemeralDelete: '',
       pkgFiles: [],
       pkgGroup: null,
       pkgLicense: null,
@@ -717,6 +729,8 @@ export default {
       this.pkgUrl = data.package_url;
       this.pkgVersion = data.package_version;
       this.pkgEmbargoed = data.embargoed;
+      this.pkgEphemeral = data.ephemeral;
+      this.ephemeralDelete = data.ephemeral_delete ? moment(data.ephemeral_delete * 1000).fromNow() : '';
       this.pkgAiAssisted = data.ai_assisted;
 
       this.pkgChecksum = data.package_checksum;
@@ -810,6 +824,11 @@ export default {
   align-items: center;
   display: inline-flex;
   gap: 0.35rem;
+}
+.report-ephemeral-hint {
+  color: var(--cavil-fg-muted);
+  font-size: 13px;
+  margin-left: 0.4rem;
 }
 .report-metadata-id {
   border-radius: 6px;
