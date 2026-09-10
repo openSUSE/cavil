@@ -10,14 +10,16 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="globProposalModalLabel">{{ create ? 'Add ignore glob' : 'Propose ignore glob' }}</h5>
+          <h5 class="modal-title" id="globProposalModalLabel">
+            {{ create ? 'Add ignore glob' : 'Propose ignore glob' }}
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <p class="glob-proposal-help">
             {{ create ? 'Add' : 'Propose' }} a file path glob to exclude matching files from license scanning
-            system-wide<template v-if="create"> right away</template>. Use
-            <code>*</code> for the version segment so it applies to future versions of the package.
+            system-wide<template v-if="create"> right away</template>. Use <code>*</code> for the version segment so it
+            applies to future versions of the package.
           </p>
           <form @submit.prevent="onSubmit">
             <div class="mb-3">

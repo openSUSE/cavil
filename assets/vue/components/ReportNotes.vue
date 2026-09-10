@@ -17,7 +17,8 @@
         data-notes-scope-toggle
         @click="setNoteScope(noteScope === 'history' ? 'relevant' : 'history')"
       >
-        show {{ noteScope === 'history' ? relevant : historyCount }} {{ noteScope === 'history' ? 'relevant' : 'previous' }}
+        show {{ noteScope === 'history' ? relevant : historyCount }}
+        {{ noteScope === 'history' ? 'relevant' : 'previous' }}
       </button>
     </div>
     <div v-if="initialLoading" class="report-notes-loading">

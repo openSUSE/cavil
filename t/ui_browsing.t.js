@@ -143,7 +143,7 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
 
       await page.click('text=Next');
       t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(2)'), 'test#7');
-      t.match(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(3)'), /ago/);
+      t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(3)'), '', 'no import time yet');
       t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(4)'), 'perl-UI-Test7');
       t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(5)'), 'not yet imported');
 
@@ -256,18 +256,19 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
         initialCards
       );
 
-      const spdx = await page.locator('#license-details input[name="spdx"]').inputValue();
-      await page.locator('#license-details input[name="spdx"]').fill(spdx);
-      await page.locator('#license-details .license-spdx-form button[type="submit"]').click();
+      const spdxInput = page.locator('#license-details #license-edit-spdx');
+      await spdxInput.fill(await spdxInput.inputValue());
+      page.once('dialog', dialog => dialog.accept());
+      await page.locator('#license-details #license-edit-form button[type="submit"]').click();
       await page.waitForSelector('#license-details .toast-item.toast-success');
       t.match(await page.innerText('#license-details .toast-item'), /patterns updated/);
     });
 
     await t.test('Search (logged in)', async t => {
       await page.goto(url);
-      await page.locator('[placeholder="Search packages"]').click();
-      await page.locator('[placeholder="Search packages"]').fill('perl-Mojolicious');
-      await page.locator('[placeholder="Search packages"]').press('Enter');
+      await page.click('#cavil-package-search .cavil-package-search-trigger');
+      await page.locator('#cavil-package-search-input').fill('perl-Mojolicious');
+      await page.locator('#cavil-package-search-input').press('Enter');
       await page.waitForURL(`${url}/search?q=perl-Mojolicious`);
       t.equal(await page.innerText('title'), 'Search Results');
       await page.waitForFunction(() => {

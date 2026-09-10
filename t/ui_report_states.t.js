@@ -79,6 +79,7 @@ t.test('Cavil UI - report states', skipUnlessOnline, async t => {
       );
 
       await page.click('[data-tab="notes"]');
+      await page.click('#report-notes-pane [data-notes-scope-toggle]');
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
       t.ok(await page.locator('#report-notes-pane.is-active .report-note').count(), 'notes load for obsolete package');
 

@@ -29,7 +29,12 @@
           >
           <span v-for="risk in risks" :key="risk" class="badge" :class="riskClass(risk)">Risk {{ risk }}</span>
         </div>
-        <form v-if="canCurate && details.license" id="license-edit-form" class="license-edit-form" @submit.prevent="saveLicense">
+        <form
+          v-if="canCurate && details.license"
+          id="license-edit-form"
+          class="license-edit-form"
+          @submit.prevent="saveLicense"
+        >
           <div class="license-edit-grid">
             <label class="license-edit-field" for="license-edit-name">
               <span class="form-label">License name</span>
