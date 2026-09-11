@@ -131,9 +131,9 @@
               type="text"
               class="form-control cavil-snippet-search"
               id="snippet-search"
-              placeholder="Search snippet text"
+              placeholder="Search snippet text or id"
             />
-            <label class="form-label" for="snippet-search">Search text</label>
+            <label class="form-label" for="snippet-search">Search text or id</label>
           </div>
         </form>
       </div>

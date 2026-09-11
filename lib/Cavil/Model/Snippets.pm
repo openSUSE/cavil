@@ -414,7 +414,21 @@ sub unclassified ($self, $options) {
     : @kinds                              ? ' AND fs_count.resolution IN (' . join(', ', ('?') x @kinds) . ')'
     :                                       '';
   my @count_binds = (@kinds, @kinds);
-  my $order       = $options->{order} // 'recent';
+
+  # A bare numeric search is an exact snippets.id lookup (review notes cite snippet ids). Match the one
+  # row and drop every other filter: a cited snippet is often already classified/approved/resolved, and
+  # the state defaults (classified, not approved) would otherwise hide it, defeating the lookup.
+  my $where = "$is_approved AND $is_classified $before $legal $confidence $timeframe $resolution $search";
+  if (defined $options->{search} && $options->{search} =~ /^\d+$/) {
+    $where       = 's.id = ?';
+    @binds       = ($options->{search});
+    @kinds       = ();
+    $match       = 'AND fs.generation = 0';
+    $count_match = 'AND fs_count.generation = 0';
+    @count_binds = ();
+  }
+
+  my $order = $options->{order} // 'recent';
   my $order_by
     = $order eq 'occurrences' ? 'occurrence_count DESC, package_count DESC, s.id DESC'
     : $order eq 'packages'    ? 'package_count DESC, occurrence_count DESC, s.id DESC'
@@ -429,7 +443,7 @@ sub unclassified ($self, $options) {
      FROM snippets s
        LEFT JOIN bot_packages bp ON (bp.id = s.package)
        LEFT JOIN license_patterns lp ON (lp.id = s.like_pattern)
-     WHERE $is_approved AND $is_classified $before $legal $confidence $timeframe $resolution $search
+     WHERE $where
      ORDER BY $order_by LIMIT 11 $offset", @count_binds, @binds
   )->hashes->to_array;
 

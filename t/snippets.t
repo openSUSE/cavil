@@ -128,6 +128,37 @@ subtest 'resolution + text-search filters and keyset pagination' => sub {
       'a no-match term returns nothing';
   };
 
+  subtest 'a bare numeric search is an exact id lookup that bypasses the state filters' => sub {
+
+    # Approved, so the %base defaults (classified, not approved) would hide it in every text-search view.
+    my $approved_id = $db->insert(
+      'snippets',
+      {
+        hash          => 'id-lookup',
+        text          => 'approved snippet body cited in a review note',
+        package       => 1,
+        classified    => 1,
+        license       => 1,
+        approved      => 1,
+        confidence    => 100,
+        likelyness    => 0,
+        second_match  => 0,
+        score_version => SNIPPET_SCORE_VERSION
+      },
+      {returning => 'id'}
+    )->hash->{id};
+    $db->insert('file_snippets',
+      {package => 1, file => $mf, snippet => $approved_id, sline => 3, eline => 5, resolution => 'fold'});
+
+    my @rows = @{$app->snippets->unclassified({%base, search => "$approved_id"})->{snippets}};
+    is scalar @rows,   1,            'the id lookup returns exactly one row';
+    is $rows[0]->{id}, $approved_id, 'and it is the requested snippet';
+    ok !(grep { $_->{id} == $approved_id } @{$app->snippets->unclassified({%base})->{snippets}}),
+      'proof the bypass matters: the default view hides this approved snippet';
+    is scalar(@{$app->snippets->unclassified({%base, search => '999999999'})->{snippets}}), 0,
+      'a non-existent id returns nothing';
+  };
+
   subtest 'fold + search compose (the proactive-audit path)' => sub {
     my $hits = $app->snippets->unclassified({%base, resolution => 'fold', search => 'marker'});
     ok scalar(@{$hits->{snippets}}) > 0,                       'folded rows containing the term are returned';

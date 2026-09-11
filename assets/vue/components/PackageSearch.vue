@@ -125,7 +125,14 @@ export default {
       this.navigate(name);
     },
     navigate(name) {
-      window.location.href = `${this.searchUrl}?q=${encodeURIComponent(name)}`;
+      // A bare numeric id is a bot_packages.id (as cited in review notes); jump straight to its report
+      // rather than a name search, which would exact-match the digits against a name and find nothing.
+      const trimmed = name.trim();
+      if (/^\d+$/.test(trimmed)) {
+        window.location.href = `/reviews/details/${trimmed}`;
+        return;
+      }
+      window.location.href = `${this.searchUrl}?q=${encodeURIComponent(trimmed)}`;
     },
     onFocus() {
       if (this.suggestions.length > 0) this.open = true;

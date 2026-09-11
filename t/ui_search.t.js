@@ -87,6 +87,22 @@ t.test('Cavil UI - package search', skipUnlessOnline, async t => {
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(5)'), /perl-Mojolicious/);
     });
 
+    await t.test('A bare numeric id jumps straight to that package report', async t => {
+      // Review notes cite raw package ids; grab a real one from the results page, then look it up.
+      await page.goto(`${url}/search?q=perl-Mojolicious`);
+      const href = await page.getAttribute('#review-search a[href^="/reviews/details/"]', 'href');
+      const id = href.match(/\/reviews\/details\/(\d+)/)[1];
+
+      // The report page is logged-in only (the wrapper's dummy auth creates the admin "tester").
+      await page.goto(url);
+      await page.click('text=Login');
+      await openPackageSearch();
+      await page.locator(input).fill(id);
+      await page.locator(input).press('Enter');
+      await page.waitForURL(`${url}/reviews/details/${id}`);
+      t.pass('numeric id navigates to the report, not a name search');
+    });
+
     t.test('Console errors', t => {
       assertNoUnexpectedConsoleErrors(t, errorLogs);
       t.end();
