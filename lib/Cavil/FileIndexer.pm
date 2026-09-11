@@ -80,6 +80,17 @@ sub file ($self, $meta, $path, $mime) {
       $self->{generation}
     )->array->[0];
 
+    # A licensed match can be ignored per-package by content hash. Snippets are checked in _snippet, but
+    # a licensed match never seeds a snippet, so it is checked here against the same ignored_lines set.
+    # Only pay the per-range hash when this package actually has ignores.
+    if (!$no_license && !$ignored_file && %{$self->{ignored_lines}}) {
+      my $unpacked = $self->dir->child('.unpacked', $path);
+      my (undef, $hash) = file_and_checksum($unpacked, $ls, $le);
+      if (my $ignore_id = $self->{ignored_lines}{$hash}) {
+        $self->{db}->update('pattern_matches', {ignored => 1, ignored_line => $ignore_id}, {id => $pm_id});
+      }
+    }
+
     push @matches, $no_license ? [@$match, $pm_id] : $match;
 
     # to mark an ignored file, one pattern is enough

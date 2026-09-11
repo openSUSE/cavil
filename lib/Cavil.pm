@@ -332,6 +332,9 @@ sub startup ($self) {
   $public->post('/snippet/closest')->to('Snippet#closest')->name('snippet_closest');
   $can_propose->get('/snippets/from_file/:file/<start:num>/<end:num>')->to('Snippet#from_file')->name('new_snippet');
   $can_propose->get('/snippets/from_path/<package:num>/*file')->to('Snippet#from_path')->name('new_snippet_from_path');
+  $can_propose->get('/snippets/match_checksum/<file:num>/<pattern:num>/<line:num>')
+    ->to('Snippet#match_checksum')
+    ->name('snippet_match_checksum');
   $can_propose->post('/snippet/batch_decision')->to('Snippet#batch_decision')->name('snippet_batch_decision');
 
   $logged_in->get('/stats')->to('Stats#index')->name('stats');

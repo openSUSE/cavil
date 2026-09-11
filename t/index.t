@@ -10,6 +10,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Cavil::ReportUtil qw(report_checksum);
+use Cavil::Util       qw(file_and_checksum);
 use Mojo::File        qw(path);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -534,6 +535,58 @@ subtest 'License text viewer' => sub {
 
   # The catch-all license route must not swallow the new one
   $t->get_ok('/licenses/Apache-2.0')->status_is(200)->element_exists('#license-details');
+};
+
+subtest 'Ignore a resolved licensed match' => sub {
+  $t->app->minion->perform_jobs;
+
+  # Any live (generation 0) match that resolved to a real license, not a keyword marker
+  my $match = $db->select(
+    ['pattern_matches', ['matched_files', id => 'file'], ['license_patterns', id => 'pattern']],
+    [\'matched_files.id AS file_id', 'matched_files.filename', 'sline', 'eline', 'pattern_matches.pattern'],
+    {'license_patterns.license' => {'!=' => ''}, 'pattern_matches.ignored' => 0, 'pattern_matches.generation' => 0},
+    {order_by => ['matched_files.filename', 'sline'], limit => 1}
+  )->hash;
+  ok $match, 'found a licensed match to ignore';
+
+  # checksum_for_match is what the ignore-a-match UI resolves through: given the pattern and any line the
+  # match covers (here a line in its interior), it must hash the match's full stored [sline, eline] - the
+  # same range the indexer recomputes - or the ignore silently no-ops.
+  my $inside = int(($match->{sline} + $match->{eline}) / 2);
+  my $hash   = $t->app->snippets->checksum_for_match($match->{file_id}, $match->{pattern}, $inside);
+  ok $hash, 'checksum_for_match produced a hash for the covered line';
+  my $unpacked = $t->app->packages->pkg_checkout_dir(1)->child('.unpacked', $match->{filename});
+  my (undef, $direct) = file_and_checksum($unpacked, $match->{sline}, $match->{eline});
+  is $hash, $direct, 'covered-line resolution hashes the full stored range, matching the indexer';
+
+  my $where = {
+    'matched_files.filename'  => $match->{filename},
+    'pattern_matches.pattern' => $match->{pattern},
+    'pattern_matches.sline'   => $match->{sline}
+  };
+  my $current = sub {
+    $db->select(
+      ['pattern_matches',         ['matched_files', id => 'file']],
+      ['pattern_matches.ignored', 'ignored_line'],
+      {%$where, 'pattern_matches.generation' => 0}
+    )->hash;
+  };
+
+  # ignore_line records the row and returns the packages the caller must reindex (batch_decision does this
+  # in production); reindex here to prove the suppression takes effect.
+  my $ids = $t->app->packages->ignore_line(
+    {package => 'perl-Mojolicious', hash => $hash, owner => undef, contributor => undef});
+  ok @$ids, 'ignore_line reports the packages to reindex';
+  $t->app->packages->reindex($_) for @$ids;
+  $t->app->minion->perform_jobs;
+  my $ignored = $current->();
+  is $ignored->{ignored}, 1, 'licensed match is ignored after reindex';
+  ok $ignored->{ignored_line}, 'match links to its ignored_lines row';
+
+  my $iid = $db->select('ignored_lines', 'id', {hash => $hash, packname => 'perl-Mojolicious'})->hash->{id};
+  $t->app->packages->remove_ignored_line($iid, 'tester');
+  $t->app->minion->perform_jobs;
+  is $current->()->{ignored}, 0, 'match returns once the ignore is removed';
 };
 
 done_testing();

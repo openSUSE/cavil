@@ -63,7 +63,14 @@
                 :href="editPatternUrl(line[1].pid)"
                 target="_blank"
                 rel="noopener"
-                >Show Pattern</a
+                >Show pattern</a
+              >
+              <a
+                v-if="canIgnoreMatch(line)"
+                href="#"
+                class="dropdown-item"
+                @click.prevent="openIgnore(line)"
+                >Ignore this match</a
               >
 
               <template v-if="line[0] > 1">
@@ -220,7 +227,7 @@ export default {
     inlineEditor: {type: Object, default: null},
     readOnly: {type: Boolean, default: false}
   },
-  emits: ['extend', 'open-editor', 'dismiss-action', 'close-editor', 'editor-submit'],
+  emits: ['extend', 'open-editor', 'ignore-match', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
     return {
       hoveredGroup: null,
@@ -489,6 +496,30 @@ export default {
       this.hideTooltip();
       if (range.isSelection) this.clearSelection();
       this.$emit('open-editor', {...this.rangeRef(range), snippetId: range.snippetId});
+    },
+
+    // A resolved licensed match (has a license pattern, so risk != 9, and no derived snippet). Gated on the
+    // curator capability (hasAdminRole = current_user_can('curate')), like every other create action; this
+    // is a correction path, not a proposal.
+    canIgnoreMatch(line) {
+      const info = line[1];
+      return this.hasAdminRole && info.pid != null && info.risk !== 9 && !info.snippet;
+    },
+
+    // Ignoring a match needs no editing, so the host stages it straight away instead of opening the editor.
+    // pid + line resolve the hash from the match's stored range (which can differ from the rendered group
+    // under overlaps); startLine/endLine are the displayed range the pending-action marker attaches to.
+    openIgnore(line) {
+      this.hideTooltip();
+      this.$emit('ignore-match', {
+        fileId: this.fileId,
+        from: this.packname,
+        filePath: this.filename,
+        pid: line[1].pid,
+        line: line[0],
+        startLine: line[0],
+        endLine: line[1].end ?? line[0]
+      });
     },
 
     selectionStartsHere(line) {

@@ -453,6 +453,18 @@ subtest 'Cancelled proposal' => sub {
   };
 };
 
+subtest 'Match checksum endpoint returns a hash without creating an occurrence' => sub {
+  my $match
+    = $db->select('pattern_matches', ['file', 'pattern', 'sline'], {package => 1, generation => 0}, {limit => 1})->hash;
+  ok $match, 'have an indexed match';
+  my $before = $db->query('SELECT COUNT(*) AS c FROM file_snippets')->hash->{c};
+  $t->get_ok("/snippets/match_checksum/$match->{file}/$match->{pattern}/$match->{sline}")
+    ->status_is(200)
+    ->json_like('/hash', qr/^[0-9a-f]+$/);
+  is $db->query('SELECT COUNT(*) AS c FROM file_snippets')->hash->{c}, $before,
+    'staging an ignore creates no file_snippets row (the match stays resolved until submit)';
+};
+
 subtest 'Remove ignored match' => sub {
   $t->app->minion->perform_jobs;
   $t->app->users->add_role(2, 'admin');
@@ -461,8 +473,8 @@ subtest 'Remove ignored match' => sub {
   dec(1, 'create-ignore', {hash => 'abe8204ddebdc31a4d0e77aa647f42cd', from => 'package-with-snippets'})
     ->status_is(200)
     ->json_is('/results/0/kind', 'ignore');
-  is $t->app->minion->jobs({tasks => ['index'],   states => ['inactive']})->total, 0, 'no reindex enqueued';
-  is $t->app->minion->jobs({tasks => ['analyze'], states => ['inactive']})->total, 1, 'analyze job enqueued';
+  is $t->app->minion->jobs({tasks => ['index'],   states => ['inactive']})->total, 1, 'reindex enqueued';
+  is $t->app->minion->jobs({tasks => ['analyze'], states => ['inactive']})->total, 0, 'no direct analyze job';
   $t->get_ok('/pagination/matches/ignored')
     ->status_is(200)
     ->json_has('/page/0')
@@ -497,7 +509,7 @@ subtest 'Remove ignored match' => sub {
   is $t->app->minion->jobs({tasks => ['index'], states => ['inactive']})->total, 1, 'job created';
 };
 
-subtest 'Ignore with real snippet (analyze-only path)' => sub {
+subtest 'Ignore with real snippet (reindex path)' => sub {
   $t->app->minion->perform_jobs;
 
   # Pick a real snippet hash with at least one overlapping pattern_match
@@ -514,8 +526,8 @@ subtest 'Ignore with real snippet (analyze-only path)' => sub {
   dec(1, 'create-ignore', {hash => $hash, from => 'package-with-snippets'})
     ->status_is(200)
     ->json_is('/results/0/kind', 'ignore');
-  is $t->app->minion->jobs({tasks => ['index'],   states => ['inactive']})->total, 0, 'no reindex enqueued';
-  is $t->app->minion->jobs({tasks => ['analyze'], states => ['inactive']})->total, 1, 'analyze job enqueued';
+  is $t->app->minion->jobs({tasks => ['index'],   states => ['inactive']})->total, 1, 'reindex enqueued';
+  is $t->app->minion->jobs({tasks => ['analyze'], states => ['inactive']})->total, 0, 'no direct analyze job';
   $t->app->minion->perform_jobs;
 
   $t->get_ok('/pagination/matches/ignored?filter=with-snippets')
@@ -526,7 +538,16 @@ subtest 'Ignore with real snippet (analyze-only path)' => sub {
     ->json_is('/page/0/packages', 1);
   my $marked = $t->tx->res->json->{page}[0]{matches};
   my $id     = $t->tx->res->json->{page}[0]{id};
-  ok $marked > 0, "pattern_matches marked ignored via analyze ($marked rows)";
+  ok $marked > 0, "pattern_matches marked ignored via reindex ($marked rows)";
+
+  # Regression for the common "license header + code comment" case: ignoring the snippet region must not
+  # sweep up a licensed match whose own range differs. A licensed match is only ignored when its exact
+  # range hash is the one that was ignored (see Cavil::FileIndexer).
+  my $licensed_live = $db->query(
+    "SELECT COUNT(*) AS c FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+       WHERE pm.package = 1 AND lp.license != '' AND pm.ignored = FALSE"
+  )->hash->{c};
+  ok $licensed_live > 0, "licensed matches survive a snippet ignore ($licensed_live rows)";
 
   subtest 'Re-ignoring the same hash is idempotent' => sub {
     dec(1, 'create-ignore', {hash => $hash, from => 'package-with-snippets'})

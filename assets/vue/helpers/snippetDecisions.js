@@ -11,6 +11,42 @@ export function snippetRangeUrl({fileId, packageId, filePath, startLine, endLine
   return `/snippets/from_path/${packageId}/${encodeURI(filePath)}?${qs.toString()}`;
 }
 
+// The checksum a licensed match must be ignored by, resolved server-side from the match's stored range so
+// it matches what the indexer recomputes. No snippet occurrence is created (resolveSnippetFromFile would
+// leave a file_snippets row and make the match look unresolved). Keyed by pattern id + a line the match
+// covers, since the rendered range can differ from the stored one under overlaps.
+export async function resolveMatchChecksum({fileId, pid, line}) {
+  const ua = new UserAgent({baseURL: window.location.href});
+  const res = await ua.get(`/snippets/match_checksum/${fileId}/${pid}/${line}`, {
+    headers: {Accept: 'application/json'}
+  });
+  if (!res.isSuccess) throw new Error(`Could not compute checksum (HTTP ${res.statusCode})`);
+  return await res.json();
+}
+
+// A staged create-ignore, shared by every host so the shape stays in sync. startLine/endLine carry the
+// displayed match range (so the line marker attaches via FileSource's actionsForLine) while hash is the
+// server-resolved checksum of the match's stored range.
+export function ignorePendingAction({id, meta, hash}) {
+  const from = meta.from ?? null;
+  return {
+    id,
+    snippetId: null,
+    fileId: meta.fileId,
+    startLine: meta.startLine,
+    endLine: meta.endLine,
+    hash,
+    from,
+    filePath: meta.filePath ?? null,
+    action: 'create-ignore',
+    formData: {hash, from},
+    license: '',
+    locationLabel: `${meta.filePath ?? `file ${meta.fileId}`}:${meta.startLine}-${meta.endLine}`,
+    state: 'pending',
+    error: null
+  };
+}
+
 export async function resolveSnippetFromFile(range) {
   const ua = new UserAgent({baseURL: window.location.href});
   const res = await ua.get(snippetRangeUrl(range), {

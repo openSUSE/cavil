@@ -73,7 +73,8 @@ my %BATCH_KINDS = map { $_ => 1 } qw(
 
 my %ADMIN_ONLY_KINDS = map { $_ => 1 } qw(create-pattern create-ignore create-glob mark-non-license);
 
-my %SNIPPETLESS_KINDS = map { $_ => 1 } qw(propose-glob create-glob);
+# create-ignore keys on a content hash, not a snippet occurrence, so it needs no snippet id
+my %SNIPPETLESS_KINDS = map { $_ => 1 } qw(propose-glob create-glob create-ignore);
 
 # Apply a list of snippet decisions as a single batch.
 #
@@ -202,6 +203,16 @@ sub _snippet_created ($self, $v, $snippet) {
       $self->redirect_to($self->url_for('edit_snippet', id => $snippet)->query(hash => $hash, from => $from));
     }
   );
+}
+
+# Ignoring a licensed match needs the checksum of its stored range, not a snippet occurrence. Resolving it
+# by (file, pattern, covered line) guarantees the hash matches what the indexer recomputes, and creating no
+# snippet avoids leaving a file_snippets row that would make the match look unresolved until the next
+# reindex.
+sub match_checksum ($self) {
+  my $hash = $self->snippets->checksum_for_match($self->stash('file'), $self->stash('pattern'), $self->stash('line'));
+  return $self->reply->not_found unless defined $hash;
+  $self->render(json => {hash => $hash});
 }
 
 sub list ($self) {
@@ -400,9 +411,13 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
 
   if ($kind eq 'create-ignore') {
     my $contributor_id = $form->{contributor} ? $users->id_for_login($form->{contributor}) : undef;
-    $packages->ignore_line(
+    my $ids            = $packages->ignore_line(
       {package => $form->{from}, hash => $form->{hash}, owner => $owner_id, contributor => $contributor_id});
     $patterns->remove_proposal($form->{hash});
+
+    # Reindex every package sharing the name through the batch's deferred loop, so it runs once and at the
+    # priority the reviewer's report deserves (see batch_decision) instead of jumping the queue here.
+    $packages_to_reindex->{$_} = 1 for @$ids;
     return {kind => 'ignore'};
   }
 

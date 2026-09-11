@@ -271,6 +271,34 @@ sub from_file ($self, $file_id, $first_line, $last_line) {
   return $snippet_id;
 }
 
+# Just the content checksum of a range, with no snippet or file_snippets row created. Used by the
+# ignore-a-match path, which only needs the hash and must not leave an occurrence behind.
+sub checksum_for_file ($self, $file_id, $first_line, $last_line) {
+  my $db = $self->pg->db;
+  return undef unless my $file = $db->select('matched_files', '*', {id => $file_id})->hash;
+  my $package = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $file->{package}})->hash;
+  my $path
+    = checkout_path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked', $file->{filename});
+  my (undef, $hash) = file_and_checksum($path, $first_line, $last_line);
+  return $hash;
+}
+
+# The checksum a licensed match must be ignored by. It has to be hashed over the match's own stored
+# [sline, eline] - the same range the indexer recomputes - not the visual group the report renders, which
+# can differ when a higher-risk match overlaps or an identical pattern matches an adjacent block. The
+# caller passes the pattern id plus any line the match covers (the row the reviewer clicked); the tightest
+# covering match wins if several share the pattern on that line.
+sub checksum_for_match ($self, $file_id, $pid, $line) {
+  my $match = $self->pg->db->select(
+    'pattern_matches',
+    ['sline', 'eline'],
+    {file     => $file_id, pattern => $pid, generation => 0, sline => {'<=' => $line}, eline => {'>=' => $line}},
+    {order_by => \'(eline - sline)', limit => 1}
+  )->hash;
+  return undef unless $match;
+  return $self->checksum_for_file($file_id, $match->{sline}, $match->{eline});
+}
+
 # Indexing only records a file once something matched in it, so a file with no matches at all has no row
 # to hang a snippet on. That is exactly the file whose license text nobody has a pattern for yet, so the
 # row is created on demand; a reindex replaces these rows anyway, and the snippet outlives them.

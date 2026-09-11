@@ -309,6 +309,7 @@
                   :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
                   @extend="onExtend(file, $event)"
                   @open-editor="openEditor"
+                  @ignore-match="onIgnoreMatch"
                   @dismiss-action="dismissAction"
                   @close-editor="closeInlineEditor"
                   @editor-submit="onEditorSubmit"
@@ -499,7 +500,12 @@ import PendingActionsWidget from './PendingActionsWidget.vue';
 import ProgressBar from './ProgressBar.vue';
 import ReportArtifacts from './ReportArtifacts.vue';
 import ReportNotes from './ReportNotes.vue';
-import {resolveSnippetFromFile, submitSnippetDecisions} from '../helpers/snippetDecisions.js';
+import {
+  ignorePendingAction,
+  resolveMatchChecksum,
+  resolveSnippetFromFile,
+  submitSnippetDecisions
+} from '../helpers/snippetDecisions.js';
 import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import {Modal} from 'bootstrap';
@@ -1075,6 +1081,19 @@ export default {
     },
     closeInlineEditor() {
       this.openInlineEditor = null;
+    },
+    async onIgnoreMatch(meta) {
+      // Curator correction path (the menu item is gated on the curate capability in FileSource): stage the
+      // ignore in one click instead of opening the editor, since ignoring needs no editing.
+      let hash;
+      try {
+        ({hash} = await resolveMatchChecksum(meta));
+      } catch (err) {
+        // eslint-disable-next-line no-alert
+        alert(err.message ?? String(err));
+        return;
+      }
+      this.pendingActions.push(ignorePendingAction({id: ++pendingActionIdSeq, meta, hash}));
     },
     onEditorSubmit(payload) {
       const ctx = this.openInlineEditor ?? {};

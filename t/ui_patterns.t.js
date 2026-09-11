@@ -135,6 +135,58 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.locator('.license-modal').waitFor({state: 'hidden'});
     });
 
+    await t.test('Ignore a resolved license match from the file preview', async t => {
+      await page.goto(url);
+      await page.click('text=Artistic');
+      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
+      await page.waitForSelector('#license-chart');
+
+      // Open a file listed under a concrete license (not the risk-9 unresolved bucket); some lists start
+      // collapsed, so reveal it first.
+      const section = page.locator('.risk-license-section:not(.risk-license-section-unresolved)').first();
+      const list = section.locator('ul.risk-file-list').first();
+      if (!(await list.isVisible())) {
+        await section.locator('a.risk-license-count').first().click();
+        await list.waitFor({state: 'visible'});
+      }
+      const fileLink = list.locator('a.file-link').first();
+      const fileId = (await fileLink.getAttribute('href')).replace('#file-', '');
+      await fileLink.click();
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+
+      // A resolved license match (risk 1-8, never the unresolved risk-9) offers "Ignore this match"
+      await page.locator(`#file-details-${fileId} tr:not(.risk-9) a[data-bs-toggle="dropdown"]`).first().click();
+      const ignoreItem = page
+        .locator(`#file-details-${fileId} .dropdown-menu.show a.dropdown-item`)
+        .filter({hasText: 'Ignore this match'});
+      t.equal(await ignoreItem.count(), 1, 'a resolved license match offers "Ignore this match"');
+
+      // One click stages the ignore for an admin - no editor step in between
+      await ignoreItem.click();
+      await page.waitForSelector('#pending-actions-widget');
+      t.equal(await page.locator('#inline-snippet-editor').count(), 0, 'no editor step for a one-click ignore');
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      t.match(
+        await page.innerText('#pending-actions-widget'),
+        /Create ignore/,
+        'the ignore is staged as a pending action'
+      );
+      t.equal(
+        await page.locator(`#file-details-${fileId} .pending-action-badge`).count(),
+        1,
+        'the pending-change marker shows on the match line'
+      );
+
+      // Drop it again so the shared report state is left untouched for later subtests
+      await page.locator('#pending-actions-widget [data-action-control="remove"]').first().click();
+      await page.waitForSelector('#pending-actions-widget', {state: 'detached'});
+      t.equal(
+        await page.locator(`#file-details-${fileId} .pending-action-badge`).count(),
+        0,
+        'the marker clears when the pending change is dropped'
+      );
+    });
+
     await t.test('Propose pattern: CLA/EULA flow through proposals page to accepted pattern', async t => {
       await page.goto(url);
       await page.click('text=Artistic');
