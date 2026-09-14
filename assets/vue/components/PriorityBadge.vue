@@ -1,5 +1,5 @@
 <template>
-  <span v-if="priority >= 8" class="priority-badge priority-badge-danger" :title="`Priority ${priority}`">
+  <span v-if="priority >= 7" class="priority-badge priority-badge-danger" :title="`Priority ${priority}`">
     {{ priority }}
   </span>
   <span v-else-if="priority >= 5" class="priority-badge priority-badge-warning" :title="`Priority ${priority}`">
