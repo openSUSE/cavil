@@ -360,12 +360,16 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.equal(await pills.count(), 2, 'both tags shown as read-only pills');
       t.equal(await page.locator('#pkg-tags .report-cve-tag').count(), 1, 'CVE tag styled distinctly');
 
-      await page.waitForSelector('#pkg-target');
-      t.equal(await page.innerText('#pkg-target'), 'openSUSE:Factory/perl-Mojolicious', 'primary target on its own labelled row');
-      t.match(
-        await page.innerText('.report-metadata-request-target'),
-        /Target: products\/PackageHub/,
-        'request target is explicitly labelled'
+      await page.waitForSelector('#pkg-link .report-target-hint');
+      t.equal(
+        await page.getAttribute('#pkg-link .report-target-hint', 'data-bs-content'),
+        'openSUSE:Factory/perl-Mojolicious',
+        'primary target shown in a hover popover on the link'
+      );
+      t.equal(
+        await page.getAttribute('.report-metadata-request .report-target-hint', 'data-bs-content'),
+        'products/PackageHub',
+        'request target shown in a hover popover on the request'
       );
 
       await page.unroute('**/reviews/meta/1');

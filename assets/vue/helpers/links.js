@@ -59,7 +59,9 @@ export function reportLink(review) {
 
 export function setupPopover() {
   const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
-  [...popoverTriggerList].map(popoverTriggerEl => new Popover(popoverTriggerEl));
+  // getOrCreateInstance so a re-init (e.g. a list refresh or the report metadata poll) reuses the existing
+  // popover instead of stacking a duplicate on the same element.
+  [...popoverTriggerList].map(popoverTriggerEl => Popover.getOrCreateInstance(popoverTriggerEl));
 }
 
 export function setupPopoverDelayed() {

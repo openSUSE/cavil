@@ -78,21 +78,37 @@
           </template>
           <template v-if="externalLink !== null">
             <dt>Link</dt>
-            <dd><ExternalLink :link="externalLink" /></dd>
-          </template>
-          <template v-if="externalLink && externalLink.target">
-            <dt>Target</dt>
-            <dd id="pkg-target">{{ externalLink.target }}</dd>
+            <dd id="pkg-link">
+              <ExternalLink :link="externalLink" />
+              <a
+                v-if="externalLink.target"
+                class="report-target-hint"
+                data-bs-toggle="popover"
+                data-bs-trigger="hover focus"
+                data-bs-title="Submission target"
+                :data-bs-content="externalLink.target"
+              >
+                <i class="fa-solid fa-circle-question"></i>
+              </a>
+            </dd>
           </template>
           <template v-if="requests.length > 0">
             <dt>Requests</dt>
             <dd>
-              <div v-for="(request, index) in requests" :key="index" class="report-metadata-request">
+              <span v-for="(request, index) in requests" :key="index" class="report-metadata-request">
+                <span v-if="index > 0">, </span>
                 <ExternalLink :link="request" />
-                <span v-if="request.target" class="report-metadata-request-target">
-                  Target: {{ request.target }}
-                </span>
-              </div>
+                <a
+                  v-if="request.target"
+                  class="report-target-hint"
+                  data-bs-toggle="popover"
+                  data-bs-trigger="hover focus"
+                  data-bs-title="Submission target"
+                  :data-bs-content="request.target"
+                >
+                  <i class="fa-solid fa-circle-question"></i>
+                </a>
+              </span>
             </dd>
           </template>
           <template v-if="productsHtml !== null">
@@ -401,7 +417,7 @@ import ReportDocuments from './ReportDocuments.vue';
 import TagInput from './TagInput.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
-import {fileViewUrl, productLink} from '../helpers/links.js';
+import {fileViewUrl, productLink, setupPopoverDelayed} from '../helpers/links.js';
 import {findPlaceholders} from '../helpers/placeholders.js';
 import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
@@ -821,6 +837,10 @@ export default {
         this.unpackedSize = data.unpacked_size;
       }
 
+      // Initialise the target hover popovers once their icons have rendered (getOrCreateInstance keeps
+      // repeated polls from stacking duplicates).
+      this.$nextTick(setupPopoverDelayed);
+
       // This block sits above the report tabs, so its height decides where they end up. Anything
       // deep-linking to a tab has to wait for it.
       this.$emit('loaded');
@@ -890,13 +910,17 @@ export default {
   font-size: 13px;
   margin-left: 0.4rem;
 }
-.report-metadata-request + .report-metadata-request {
-  margin-top: 0.35rem;
-}
-.report-metadata-request-target {
+/* "Hover for the destination target" hint next to a link (Bootstrap popover), consistent for the primary
+   link and each request. Same solid question-mark affordance as the inline pattern editor's help. */
+/* Qualified with .report-metadata-list to beat that list's generic `a` accent-colour rule, which would
+   otherwise turn the hint blue. */
+.report-metadata-list a.report-target-hint,
+.report-metadata-list a.report-target-hint:hover,
+.report-metadata-list a.report-target-hint:focus {
   color: var(--cavil-fg-muted);
-  display: block;
-  font-size: 12px;
+  cursor: help;
+  margin-left: 0.35rem;
+  text-decoration: none;
 }
 /* One bordered bar with a distinct-background "Tags" label segment on the left, mirroring the two-tone
    ExternalLink idiom. TagInput brings its own bordered editor, so inside the bar that inner border is
