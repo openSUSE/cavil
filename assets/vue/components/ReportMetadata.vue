@@ -229,9 +229,9 @@
     <cavil-notice-panel
       v-if="legalReviewNotices.length > 0"
       id="spec-legal-review-notices"
-      icon="fa-solid fa-scale-balanced"
+      icon="fa-solid fa-user-pen"
       :items="legalReviewNotices"
-      title="Legal review notices"
+      title="Legal review notices from packagers"
       tone="success"
     />
     <div class="metadata-review-section">
