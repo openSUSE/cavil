@@ -449,6 +449,44 @@ post '/request/1237' => (query => {cmd => 'diff', view => 'xml', withissues => 1
 </request>
 EOF
 
+post '/request/500001' => (query => {cmd => 'diff', view => 'xml', withissues => 1, withdescriptionissues => 1}) =>
+  {status => 200, text => <<'EOF'};
+<request id="500001" actions="0">
+  <action type="submit">
+    <sourcediff key="08943b6f0b415b013042f01b8c0fabdd">
+      <issues>
+        <issue state="added" tracker="cve" name="2024-22038" label="CVE-2024-22038" url="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-22038"/>
+      </issues>
+    </sourcediff>
+  </action>
+</request>
+EOF
+
+get '/request/500001' => {status => 200, text => <<'EOF'};
+<request id="500001">
+  <action type="submit">
+    <source project="devel:languages:perl" package="perl-Mojolicious"/>
+    <target project="openSUSE:Factory" package="perl-Mojolicious"/>
+  </action>
+  <action type="submit">
+    <source project="devel:languages:perl" package="perl-Mojolicious"/>
+    <target project="openSUSE:Leap:15.6" package="perl-Mojolicious"/>
+  </action>
+  <action type="submit">
+    <source project="devel:languages:perl" package="perl-Mojolicious"/>
+    <target project="openSUSE:Factory" package="perl-Mojolicious"/>
+  </action>
+</request>
+EOF
+
+get '/request/500002' => {status => 200, text => <<'EOF'};
+<request id="500002">
+  <action type="maintenance_incident">
+    <target project="SUSE:Maintenance" releaseproject="SUSE:SLE-15-SP2:Update"/>
+  </action>
+</request>
+EOF
+
 get '/api/embargoed-bugs' => {format => 'json', text => <<'EOF'};
 [
   {
@@ -632,6 +670,28 @@ subtest 'Embargo' => sub {
     local $obs->config->{'127.0.0.1'} = undef;
     is $obs->check_for_embargo($api, 1236), 0, 'not embargoed';
   };
+
+  subtest 'Reuse prefetched bugrefs' => sub {
+    my $bugrefs = $obs->get_bugrefs_for_request($api, 1236);
+    is $obs->check_for_embargo($api, 1236, $bugrefs), 1, 'embargoed';
+  };
+};
+
+subtest 'CVEs for request' => sub {
+  is_deeply $obs->cves_for_request($api, 1236), ['CVE-2024-22038'], 'one CVE';
+  is_deeply $obs->cves_for_request($api, 344036),
+    ['CVE-2022-2850', 'CVE-2024-1062', 'CVE-2024-2199', 'CVE-2024-3657', 'CVE-2024-5953'], 'CVE subset of bugrefs';
+  is_deeply $obs->cves_for_request($api, 1237), [], 'no CVEs';
+
+  my $bugrefs = $obs->get_bugrefs_for_request($api, 1237);
+  is_deeply $obs->cves_for_request($api, 1237, $bugrefs), [], 'no CVEs with prefetched bugrefs';
+};
+
+subtest 'Request target' => sub {
+  is $obs->request_target($api, 500001), 'openSUSE:Factory/perl-Mojolicious, openSUSE:Leap:15.6/perl-Mojolicious',
+    'targets deduplicated and joined';
+  is $obs->request_target($api, 500002), 'SUSE:Maintenance', 'project-only target';
+  is $obs->request_target($api, 999999), undef,              'no target for missing request';
 };
 
 subtest 'Bot API (with Minion background jobs)' => sub {
@@ -654,7 +714,8 @@ subtest 'Bot API (with Minion background jobs)' => sub {
 
   # Standard import
   $t->post_ok('/packages', $headers,
-    form => {api => $api, package => 'perl-Mojolicious', project => 'home:kraih', rev => 1})
+    form =>
+      {api => $api, package => 'perl-Mojolicious', project => 'home:kraih', rev => 1, external_link => 'obs#500001'})
     ->status_is(200)
     ->json_is('/saved/id' => 1);
   ok !$t->app->packages->is_imported(1), 'not imported yet';
@@ -667,8 +728,18 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
   $worker->unregister;
   ok $t->app->packages->is_imported(1), 'imported';
+  is_deeply $t->app->packages->find(1)->{tags}, ['CVE-2024-22038'], 'CVE tag added from request during import';
   $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_like('/imported' => qr/\d/);
   unlike $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'no race condition';
+
+  # Targets are resolved off the request path by a separate job
+  $worker = $minion->worker->register;
+  my $target_job_id = $minion->jobs({tasks => ['resolve_targets']})->next->{id};
+  ok my $target_job = $worker->dequeue(0, {id => $target_job_id}), 'resolve_targets job dequeued';
+  is $target_job->execute, undef, 'no error';
+  $worker->unregister;
+  is $t->app->packages->find(1)->{target}, 'openSUSE:Factory/perl-Mojolicious, openSUSE:Leap:15.6/perl-Mojolicious',
+    'target resolved asynchronously from the request';
 
   # Prevent import race condition
   ok $minion->job($job_id)->retry,                          'import job retried';

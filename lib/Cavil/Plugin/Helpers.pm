@@ -324,6 +324,12 @@ sub _current_user_roles ($c) {
   return $c->users->roles($user);
 }
 
+sub _link_with_target ($link, $target, $config) {
+  return undef unless my $data = external_link_data($link, $config->{external_link_sources});
+  $data->{target} = $target if defined $target;
+  return $data;
+}
+
 sub _json_validation_error ($c) {
   my $failed = join ', ', @{$c->validation->failed};
   $c->render(json => {error => "Invalid request parameters ($failed)"}, status => 400);
@@ -423,6 +429,8 @@ sub _package_summary ($c, $id) {
     documents        => $state->{documents},
     legal_documents  => _legal_documents($c, $id),
     embargoed        => \!!$pkg->{embargoed},
+    tags             => $pkg->{tags} // [],
+    can_edit_tags    => $c->current_user_can('curate') ? \1 : \0,
     ephemeral        => \!!$pkg->{ephemeral},
     ephemeral_delete => $pkg->{ephemeral}
     ? $pkg->{created_epoch} + ($config->{hours_to_keep_ephemeral_packages} // 24) * 3600
@@ -430,7 +438,7 @@ sub _package_summary ($c, $id) {
     ai_assisted          => \!!$pkg->{ai_assisted},
     errors               => $spec->{errors} // [],
     external_link        => $pkg->{external_link},
-    external_link_data   => external_link_data($pkg->{external_link}, $config->{external_link_sources}),
+    external_link_data   => _link_with_target($pkg->{external_link}, $pkg->{target}, $config),
     id                   => $pkg->{id},
     legal_review_notices => \@legal_review_notices,
     notice               => $pkg->{notice},
@@ -448,8 +456,8 @@ sub _package_summary ($c, $id) {
     package_version      => $version,
     products             => $products,
     reindexing           => $state->{reindexing},
-    requests             => $requests,
-    requests_data        => [map { external_link_data($_, $config->{external_link_sources}) } @$requests],
+    requests             => [map { $_->{external_link} } @$requests],
+    requests_data        => [map { _link_with_target($_->{external_link}, $_->{target}, $config) } @$requests],
     result               => $pkg->{result},
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},

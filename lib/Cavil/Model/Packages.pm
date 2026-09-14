@@ -525,7 +525,7 @@ sub paginate_open_reviews ($self, $options) {
     qq{
       SELECT id, name, EXTRACT(EPOCH FROM created) as created_epoch, EXTRACT(EPOCH FROM imported) as imported_epoch,
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
-        priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
+        priority, state, checksum, unresolved_matches, tags, COUNT(*) OVER() AS total
       FROM bot_packages
       WHERE state = 'new' AND obsolete = FALSE AND ephemeral = FALSE $priority $search $progress $embargoed $notes
       ORDER BY priority DESC, external_link, unresolved_matches, name
@@ -1097,9 +1097,49 @@ sub remove_documents ($self, $id) {
   );
 }
 
+sub source_api_url ($self, $id) {
+  return $self->pg->db->query(
+    'SELECT s.api_url FROM bot_packages p JOIN bot_sources s ON p.source = s.id WHERE p.id = ?', $id)->hash->{api_url};
+}
+
+# Autocomplete suggestions for the tag editor. Machine-added CVE-... tags are excluded (near-unique, they
+# would swamp the list and nobody types them by hand) and the result is capped, so this stays small no
+# matter how many CVEs accumulate.
+sub all_tags ($self) {
+  return $self->pg->db->query(
+    q{SELECT tag, COUNT(*)::int AS count FROM (SELECT unnest(tags) AS tag FROM bot_packages) t
+      WHERE tag NOT ILIKE 'CVE-%' GROUP BY tag ORDER BY count DESC, tag LIMIT 100}
+  )->hashes->to_array;
+}
+
+# The api travels in the job args (like obs_import) so the OBS request lookup can be mocked in tests and is
+# not re-derived in the worker.
+sub resolve_targets ($self, $id, $api) {
+  my $minion = $self->minion;
+
+  # Deduplicate on its own note, not "pkg_$id": this light lookup must not count among a package's active
+  # build jobs (the listing spinner) or block anything.
+  return undef if $minion->jobs({tasks => ['resolve_targets'], states => ['inactive'], notes => ["target_$id"]})->next;
+  return $minion->enqueue(
+    'resolve_targets' => [$id, $api] => {priority => PRIORITY_UPKEEP, notes => {"target_$id" => 1}});
+}
+
+sub add_tags ($self, $id, $tags) {
+  return unless @$tags;
+  my $db       = $self->pg->db;
+  my $existing = $db->select('bot_packages', ['tags'], {id => $id})->hash->{tags} // [];
+  my %seen;
+  my @merged = grep { !$seen{$_}++ } @$existing, @$tags;
+  $db->query('UPDATE bot_packages SET tags = ? WHERE id = ?', \@merged, $id);
+}
+
+sub set_tags ($self, $id, $tags) {
+  $self->pg->db->query('UPDATE bot_packages SET tags = ? WHERE id = ?', $tags, $id);
+}
+
 sub requests_for ($self, $id) {
-  return $self->pg->db->query('SELECT external_link FROM bot_requests WHERE package = ? ORDER BY id DESC', $id)
-    ->arrays->flatten->to_array;
+  return $self->pg->db->query('SELECT external_link, target FROM bot_requests WHERE package = ? ORDER BY id DESC', $id)
+    ->hashes->to_array;
 }
 
 sub states ($self, $name) {
@@ -1188,7 +1228,7 @@ sub unpacked ($self, $id) {
 sub update ($self, $pkg) {
   my %updates = map { exists $pkg->{$_} ? ($_ => $pkg->{$_}) : () } (
     qw(created checksum priority state obsolete result notice diff_report reviewed reviewing_user external_link),
-    qw(embargoed ai_assisted)
+    qw(embargoed target ai_assisted)
   );
   $updates{reviewed} = \'now()' if $pkg->{review_timestamp};
   return $self->pg->db->update('bot_packages', \%updates, {id => $pkg->{id}});

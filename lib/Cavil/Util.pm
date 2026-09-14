@@ -12,6 +12,7 @@ use Encode   qw(from_to decode);
 use IPC::Run ();
 use Mojo::Util;
 use Mojo::DOM;
+use Mojo::JSON qw(from_json);
 use Mojo::File qw(path tempfile);
 use POSIX 'ceil';
 use Cavil::PatternEngine;
@@ -29,7 +30,7 @@ our @EXPORT_OK = (
   qw(external_link_data license_link snippet_checksum spdx_identifiers spdx_link spdx_only_expression),
   qw(ssh_sign text_shingles),
   qw(text_shingle_ids),
-  qw(validate_tags),
+  qw(validate_tags tags_from_request),
   qw(license_is_catch_all license_text SNIPPET_SCORE_VERSION $COPYRIGHT_LEADER $COPYRIGHT_TOKEN),
   qw(decode_json_fast encode_json_fast to_json_fast),
   qw(incoming_priority PRIORITY_WAITING PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_SWEEP),
@@ -676,7 +677,21 @@ sub obs_ssh_auth ($challenge, $user, $key) {
   return qq{Signature keyId="$user",algorithm="ssh",signature="$signature",headers="(created)",created="$now"};
 }
 
-sub validate_tags ($tags) {
+# Tags arrive as a JSON array string (Vue UI) or repeated form params (bot/API/test clients). A present but
+# malformed tags_json is an error, not an empty list, so a bad payload never silently clears a package's tags.
+sub tags_from_request ($req, $exempt = undef) {
+  my $raw;
+  if (defined(my $json = $req->param('tags_json'))) {
+    $raw = $json eq '' ? [] : eval { from_json($json) };
+    return (undef, 'tags must be an array of strings') unless ref $raw eq 'ARRAY';
+  }
+  else { $raw = $req->every_param('tags') }
+  return validate_tags($raw, $exempt);
+}
+
+# $exempt is an optional regex for tags that should not count against MAX_TAGS (machine-derived package
+# CVE tags can legitimately exceed the human input cap).
+sub validate_tags ($tags, $exempt = undef) {
   return ([],    undef)                              unless defined $tags;
   return (undef, 'tags must be an array of strings') unless ref $tags eq 'ARRAY';
 
@@ -690,7 +705,8 @@ sub validate_tags ($tags) {
     next                                                            if $seen{$trimmed}++;
     push @clean, $trimmed;
   }
-  return (undef,   'too many tags, maximum is ' . MAX_TAGS) if @clean > MAX_TAGS;
+  my $counted = defined $exempt ? grep { $_ !~ $exempt } @clean : scalar @clean;
+  return (undef,   'too many tags, maximum is ' . MAX_TAGS) if $counted > MAX_TAGS;
   return (\@clean, undef);
 }
 

@@ -4,7 +4,7 @@
 package Cavil::Controller::Queue;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Cavil::Util qw(checkout_path incoming_priority);
+use Cavil::Util qw(checkout_path incoming_priority tags_from_request);
 use Mojo::File  qw(path);
 
 sub upload_package ($self) {
@@ -65,6 +65,9 @@ sub create_package ($self) {
 
   return $self->reply->json_validation_error if $validation->has_error;
 
+  my ($tags, $tag_error) = tags_from_request($self->req, qr/^CVE(-|$)/i);
+  return $self->render(json => {error => $tag_error}, status => 400) if $tag_error;
+
   my $api     = $validation->param('api');
   my $project = $validation->param('project') // '';
   my $pkg     = $validation->param('package');
@@ -115,11 +118,15 @@ sub create_package ($self) {
   }
 
   # Product imports are low priority, and we want real requests if possible
+  my $old_link = $obj->{external_link};
   $obj->{external_link} //= $link;
   $obj->{external_link} = $link if $link && $prio >= $obj->{priority};
 
+  # Clear a stale target when the link changed so the async resolver picks the new one up
+  $obj->{target}   = undef if ($obj->{external_link} // '') ne ($old_link // '');
   $obj->{obsolete} = 0;
   $pkgs->update($obj);
+  $pkgs->add_tags($obj->{id}, $tags);
   if ($create) {
 
     # The import goes in at the incoming band, moved up or down within it by the review priority the
@@ -150,6 +157,9 @@ sub create_package ($self) {
     }
   }
 
+  # Enqueued after the import so the import job keeps the lower id callers may rely on
+  $pkgs->resolve_targets($obj->{id}, $api);
+
   $self->render(json => {saved => $obj});
 }
 
@@ -163,7 +173,10 @@ sub create_request ($self) {
   my $pkgs = $validation->every_param('package');
 
   my $requests = $self->requests;
-  $requests->add($link, $_) for @$pkgs;
+  for my $id (@$pkgs) {
+    $requests->add($link, $id);
+    $self->packages->resolve_targets($id, $self->packages->source_api_url($id));
+  }
 
   $self->render(json => {created => $link});
 }
@@ -175,6 +188,9 @@ sub import_package ($self) {
   $validation->optional('external_link');
   return $self->reply->json_validation_error if $validation->has_error;
 
+  my ($tags, $tag_error) = tags_from_request($self->req, qr/^CVE(-|$)/i);
+  return $self->render(json => {error => $tag_error}, status => 400) if $tag_error;
+
   my $pkgs = $self->packages;
   my $id   = $self->stash('id');
   my $obj  = $pkgs->find($id);
@@ -182,6 +198,7 @@ sub import_package ($self) {
   my $reindex;
   if (my $link = $validation->param('external_link')) {
     $obj->{external_link} = $link;
+    $obj->{target}        = undef;
   }
   if (my $priority = $validation->param('priority')) {
     $obj->{priority} = $priority;
@@ -197,6 +214,8 @@ sub import_package ($self) {
     }
   }
   $pkgs->update($obj);
+  $pkgs->add_tags($id, $tags);
+  $pkgs->resolve_targets($id, $pkgs->source_api_url($id));
   $pkgs->reindex($id) if $reindex;
 
   return $self->render(json => {imported => $obj});

@@ -26,7 +26,7 @@
           </template>
           <dt>Embargoed</dt>
           <dd v-if="pkgEmbargoed === true" id="pkg-embargoed">
-            <span class="badge text-bg-warning embargo-status-badge" title="Package is embargoed">
+            <span class="badge text-bg-warning metadata-status-badge" title="Package is embargoed">
               <i class="fa-solid fa-lock" aria-hidden="true"></i>
               Yes
             </span>
@@ -80,13 +80,19 @@
             <dt>Link</dt>
             <dd><ExternalLink :link="externalLink" /></dd>
           </template>
+          <template v-if="externalLink && externalLink.target">
+            <dt>Target</dt>
+            <dd id="pkg-target">{{ externalLink.target }}</dd>
+          </template>
           <template v-if="requests.length > 0">
             <dt>Requests</dt>
             <dd>
-              <span v-for="(request, index) in requests" :key="index">
-                <span v-if="index > 0">, </span>
+              <div v-for="(request, index) in requests" :key="index" class="report-metadata-request">
                 <ExternalLink :link="request" />
-              </span>
+                <span v-if="request.target" class="report-metadata-request-target">
+                  Target: {{ request.target }}
+                </span>
+              </div>
             </dd>
           </template>
           <template v-if="productsHtml !== null">
@@ -234,6 +240,28 @@
       title="Legal review notices from packagers"
       tone="success"
     />
+    <section v-if="tags.length > 0 || canEditTags" id="package-tags" class="package-tags-bar">
+      <span class="package-tags-label">Tags</span>
+      <div id="pkg-tags" class="package-tags-body">
+        <TagInput
+          v-if="canEditTags"
+          :model-value="tags"
+          :suggestions="knownTags"
+          data-key="pkg-tags"
+          @update:model-value="onTagsChanged"
+        />
+        <div v-else class="package-tags-readonly">
+          <span
+            v-for="tag in tags"
+            :key="tag"
+            class="report-note-tag"
+            :class="{'report-cve-tag': isCve(tag)}"
+            :title="`Tag: ${tag}`"
+            >{{ tag }}</span
+          >
+        </div>
+      </div>
+    </section>
     <div class="metadata-review-section">
       <form class="container metadata-review-form" id="pkg-review" @submit.prevent>
         <div class="col metadata-review-editor">
@@ -370,6 +398,7 @@ import ExternalLink from './ExternalLink.vue';
 import FilePath from './FilePath.vue';
 import LegalLoading from './LegalLoading.vue';
 import ReportDocuments from './ReportDocuments.vue';
+import TagInput from './TagInput.vue';
 import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
 import {fileViewUrl, productLink} from '../helpers/links.js';
@@ -388,6 +417,7 @@ export default {
     FilePath,
     LegalLoading,
     ReportDocuments,
+    TagInput,
     TemplatePicker,
     ToastNotifier
   },
@@ -410,6 +440,9 @@ export default {
       pkgChecksum: null,
       pkgEmbargoed: false,
       pkgEphemeral: false,
+      tags: [],
+      knownTags: [],
+      canEditTags: false,
       ephemeralDelete: '',
       pkgFiles: [],
       pkgGroup: null,
@@ -556,6 +589,30 @@ export default {
   methods: {
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
+    },
+
+    isCve(tag) {
+      return /^CVE(-|$)/i.test(tag);
+    },
+
+    onTagsChanged(tags) {
+      this.tags = tags;
+      this.saveTags();
+    },
+
+    async saveTags() {
+      const ua = new UserAgent({baseURL: window.location.href});
+      const res = await ua.patch(`/reviews/tags/${this.pkgId}`, {form: {tags_json: JSON.stringify(this.tags)}});
+      if (!res.isSuccess) this.$refs.toaster?.notify('Failed to save tags', 'danger', 5000);
+    },
+
+    async loadKnownTags() {
+      const ua = new UserAgent({baseURL: window.location.href});
+      const res = await ua.get('/reviews/tags.json');
+      if (res.isSuccess) {
+        const data = await res.json();
+        if (Array.isArray(data.tags)) this.knownTags = data.tags;
+      }
     },
 
     // Never zero and never full below 100%: the case this exists for is a few lines in a large file
@@ -729,6 +786,9 @@ export default {
       this.pkgUrl = data.package_url;
       this.pkgVersion = data.package_version;
       this.pkgEmbargoed = data.embargoed;
+      this.tags = data.tags ?? [];
+      this.canEditTags = data.can_edit_tags === true;
+      if (this.canEditTags && this.knownTags.length === 0) this.loadKnownTags();
       this.pkgEphemeral = data.ephemeral;
       this.ephemeralDelete = data.ephemeral_delete ? moment(data.ephemeral_delete * 1000).fromNow() : '';
       this.pkgAiAssisted = data.ai_assisted;
@@ -820,7 +880,7 @@ export default {
   padding: 0.4em 0.65em;
   vertical-align: baseline;
 }
-.embargo-status-badge {
+.metadata-status-badge {
   align-items: center;
   display: inline-flex;
   gap: 0.35rem;
@@ -829,6 +889,73 @@ export default {
   color: var(--cavil-fg-muted);
   font-size: 13px;
   margin-left: 0.4rem;
+}
+.report-metadata-request + .report-metadata-request {
+  margin-top: 0.35rem;
+}
+.report-metadata-request-target {
+  color: var(--cavil-fg-muted);
+  display: block;
+  font-size: 12px;
+}
+/* One bordered bar with a distinct-background "Tags" label segment on the left, mirroring the two-tone
+   ExternalLink idiom. TagInput brings its own bordered editor, so inside the bar that inner border is
+   neutralised: the bar is the single box, the label is a segment of it, not a box around a box. */
+.package-tags-bar {
+  align-items: stretch;
+  border: 1px solid var(--cavil-border);
+  border-radius: 6px;
+  display: flex;
+  margin: 1.25rem 0;
+  position: relative;
+}
+/* Anchor TagInput's autocomplete popover to the whole bar (not the input segment right of the label) so it
+   spans full width and drops below the bar instead of starting mid-bar. */
+.package-tags-body .tag-input {
+  position: static;
+}
+.package-tags-bar:focus-within {
+  border-color: var(--cavil-accent);
+  box-shadow: 0 0 0 3px rgba(var(--cavil-accent-rgb), 0.18);
+}
+/* Matches the CommentEditor header label just below it (same bg, colour, size, weight) so the two
+   interactive elements read as a consistent pair. */
+.package-tags-label {
+  align-items: center;
+  background: var(--cavil-canvas-subtle);
+  border-radius: 6px 0 0 6px;
+  border-right: 1px solid var(--cavil-border);
+  color: var(--cavil-fg);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0.45rem 0.75rem;
+}
+.package-tags-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+}
+.package-tags-body .report-note-tag-editor {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  margin-bottom: 0;
+  padding: 0;
+}
+.package-tags-body .report-note-tag-editor:focus-within {
+  box-shadow: none;
+}
+.package-tags-readonly {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+#pkg-tags .report-note-tag.report-cve-tag {
+  background: var(--cavil-danger-bg);
+  border-color: var(--cavil-danger-border);
+  color: var(--cavil-danger);
 }
 .report-metadata-id {
   border-radius: 6px;
@@ -1079,7 +1206,7 @@ export default {
 .metadata-file-details a:focus {
   text-decoration-color: currentColor;
 }
-/* Review-information card. Rendered as a terminal/console panel — a small
+/* Review-information card. Rendered as a terminal/console panel - a small
    dark title bar with a prompt-style caret + label, then the freeform
    monospace body as if it were tool output. Visually distinct from the
    surrounding notice stack so reviewers and packagers can't miss it,
@@ -1108,7 +1235,7 @@ export default {
   font-size: 11px;
 }
 /* The compared report id links to that report, but stays typographically
-   part of the tool output — only an underline on hover gives it away. */
+   part of the tool output - only an underline on hover gives it away. */
 .review-information-card-body a {
   color: inherit;
   text-decoration: none;

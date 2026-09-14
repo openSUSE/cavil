@@ -7,6 +7,18 @@ Package: <%== $summary->{package_name} %>
 Id: <%== $summary->{id} %>
 State: <%== $summary->{state} %>
 External-Link: <%== $summary->{external_link} %>
+% if (my $data = $summary->{external_link_data}) { if (my $target = $data->{target}) {
+Target: <%== $target %>
+% } }
+% if (my @tags = @{$summary->{tags} // []}) {
+Tags: <%== join(', ', @tags) %>
+% }
+% if (my @requests = @{$summary->{requests_data}}) {
+Requests:
+% for my $request (@requests) {
+- <%== $request->{text} %><%== $request->{target} ? " (Target: $request->{target})" : '' %>
+% }
+% }
 % if (my $version = $summary->{package_version}) {
 Version: <%== $version %>
 % }

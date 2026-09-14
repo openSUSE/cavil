@@ -416,3 +416,8 @@ DROP INDEX bot_packages_open_reviews_idx;
 CREATE INDEX bot_packages_open_reviews_idx ON bot_packages (priority DESC, external_link, unresolved_matches, name)
   WHERE state = 'new' AND obsolete = false AND ephemeral = false;
 
+-- 69 up
+ALTER TABLE bot_packages ADD COLUMN target text;
+ALTER TABLE bot_packages ADD COLUMN tags text[] DEFAULT '{}' NOT NULL;
+ALTER TABLE bot_requests ADD COLUMN target text;
+CREATE INDEX bot_packages_tags_idx ON bot_packages USING gin (tags);

@@ -196,6 +196,12 @@ Create package.
 
 * `priority` (optional): Priority of this package review.
 
+* `tags` (optional): Free-form labels to attach to the review, shown to reviewers and usable for prioritization. Repeat
+                     the parameter for multiple values (`tags=security&tags=needs-legal`) or pass a JSON array string as
+                     `tags_json`. For Open Build Service imports, `CVE-...` tags are also derived automatically from the
+                     request's bug references. Tags are merged with any already on the package (deduplicated); a maximum
+                     of 16 non-`CVE-` tags of up to 32 characters each is enforced.
+
 ```
 POST /packages
 Authorization: Token configured_access_token_here
@@ -355,6 +361,9 @@ Re-import package. Usually used to reopen a review after it has already been obs
 * `external_link` (optional): Short string describing the package source. Configured `external_link_sources` can render
                               values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
                               source links with labels.
+
+* `tags` (optional): Free-form labels to merge onto the review (see `POST /packages`). Repeat the parameter or pass a
+                     JSON array string as `tags_json`.
 
 ```
 POST /packages/import/23

@@ -280,6 +280,11 @@ subtest 'MCP' => sub {
         like $text, qr/Unresolved-Matches:.+6/,                            'contains unresolved matches';
         like $text, qr/Review-Note: no/,                                   'nothing annotated yet';
         note $text;
+
+        $t->app->packages->set_tags(1, ['CVE-2024-3654']);
+        my $tagged = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious'})->{content}[0]{text};
+        like $tagged, qr/Tags: CVE-2024-3654/, 'CVE tag shown in open reviews listing';
+        $t->app->packages->set_tags(1, []);
       };
 
       subtest 'Review note presence and filter' => sub {
@@ -476,6 +481,16 @@ subtest 'MCP' => sub {
     };
 
     subtest 'cavil_get_report tool' => sub {
+      subtest 'Target and tags' => sub {
+        $t->app->pg->db->update('bot_packages', {target => 'openSUSE:Factory/perl-Mojolicious'}, {id => 1});
+        $t->app->packages->set_tags(1, ['CVE-2024-3654', 'needs-second-opinion']);
+        my $text = $client->call_tool('cavil_get_report', {package_id => 1})->{content}[0]{text};
+        like $text, qr{Target:.+openSUSE:Factory/perl-Mojolicious}, 'contains target';
+        like $text, qr/Tags:.+CVE-2024-3654.+needs-second-opinion/, 'contains tags';
+        $t->app->pg->db->update('bot_packages', {target => undef}, {id => 1});
+        $t->app->packages->set_tags(1, []);
+      };
+
       subtest 'Embargoed package' => sub {
         $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
         my $result = $client->call_tool('cavil_get_report', {package_id => 1});

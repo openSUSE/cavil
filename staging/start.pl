@@ -161,7 +161,9 @@ unless ($clean) {
   $pkgs->imported($pkg_id);
   my $mojo = $pkgs->find($pkg_id);
   $mojo->{external_link} = 'obs#456712';
+  $mojo->{target}        = 'openSUSE:Factory/perl-Mojolicious';
   $pkgs->update($mojo);
+  $pkgs->add_tags($pkg_id, ['CVE-2024-3654', 'needs-second-opinion']);
   $pkgs->unpack($pkg_id);
   $pkg_id = $pkgs->add(
     name            => 'perl-Mojolicious',
@@ -283,8 +285,10 @@ unless ($clean) {
   $pkgs->imported($pkg_id);
   my $obsprj = $pkgs->find($pkg_id);
   $obsprj->{external_link} = 'soo#products/PackageHub!123';
+  $obsprj->{target}        = 'products/PackageHub';
   $pkgs->update($obsprj);
   $pkgs->unpack($pkg_id);
+  $app->requests->add('soo#products/PackageHub!124', $pkg_id, 'products/PackageHub');
 
   # "cavil-compatibility-lab" example data: a large, dense OSADL sub-matrix (~45 licenses, hundreds of
   # mutual "No" pairs plus one-directional and check-dependency relationships) to exercise the license

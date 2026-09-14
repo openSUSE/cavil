@@ -331,11 +331,62 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
 
       await page.goto(url);
       await page.click('text=Artistic');
-      const badge = page.locator('#pkg-embargoed .embargo-status-badge');
+      const badge = page.locator('#pkg-embargoed .metadata-status-badge');
       await badge.waitFor();
       t.equal(await badge.innerText(), 'Yes');
       t.equal(await badge.getAttribute('title'), 'Package is embargoed');
       t.equal(await badge.locator('.fa-lock').count(), 1, 'embargoed yes includes a lock icon');
+
+      await page.unroute('**/reviews/meta/1');
+    });
+
+    await t.test('Targets and read-only tags are shown', async t => {
+      await page.route('**/reviews/meta/1', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.tags = ['CVE-2024-3654', 'needs-second-opinion'];
+        data.can_edit_tags = false;
+        data.external_link_data = {text: 'obs#123', target: 'openSUSE:Factory/perl-Mojolicious'};
+        data.requests = ['soo#products/PackageHub!7'];
+        data.requests_data = [{text: 'soo#products/PackageHub!7', target: 'products/PackageHub'}];
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+
+      const pills = page.locator('#pkg-tags .report-note-tag');
+      await pills.first().waitFor();
+      t.equal(await pills.count(), 2, 'both tags shown as read-only pills');
+      t.equal(await page.locator('#pkg-tags .report-cve-tag').count(), 1, 'CVE tag styled distinctly');
+
+      await page.waitForSelector('#pkg-target');
+      t.equal(await page.innerText('#pkg-target'), 'openSUSE:Factory/perl-Mojolicious', 'primary target on its own labelled row');
+      t.match(
+        await page.innerText('.report-metadata-request-target'),
+        /Target: products\/PackageHub/,
+        'request target is explicitly labelled'
+      );
+
+      await page.unroute('**/reviews/meta/1');
+    });
+
+    await t.test('Curators get a tag editor', async t => {
+      await page.route('**/reviews/meta/1', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.tags = ['CVE-2024-3654'];
+        data.can_edit_tags = true;
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+
+      const editor = page.locator('#pkg-tags .report-note-tag-editor');
+      await editor.waitFor();
+      t.ok(await editor.count(), 'tag editor rendered for curator');
+      t.equal(await page.locator('#pkg-tags .report-note-tag-removable').count(), 1, 'existing tag shown as removable chip');
 
       await page.unroute('**/reviews/meta/1');
     });

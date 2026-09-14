@@ -154,6 +154,29 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       t.match(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(5)'), /Artistic/);
     });
 
+    await t.test('CVE badge next to the external link', async t => {
+      await page.route('**/pagination/reviews/open*', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        // A bare "CVE" tag counts too, and a hostile tag proves the badge escapes tag content.
+        if (data.page && data.page[0]) data.page[0].tags = ['CVE', 'CVE-<img src=x onerror=alert(1)>'];
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      const badge = page.locator('#open-reviews tbody > tr:nth-child(1) .cavil-list-link .cavil-cve-badge');
+      await badge.waitFor();
+      t.equal(await badge.innerText(), 'CVE', 'CVE badge sits in the link cell for a CVE-tagged review');
+      t.match(await badge.getAttribute('title'), /security issue/, 'badge explains the CVE');
+      t.equal(
+        await page.locator('#open-reviews tbody > tr:nth-child(1) img').count(),
+        0,
+        'hostile tag content is escaped, not rendered as HTML'
+      );
+
+      await page.unroute('**/pagination/reviews/open*');
+    });
+
     await t.test('Note icons and the Annotated filter', async t => {
       await page.goto(url);
       await page.waitForSelector('#open-reviews tbody > tr:nth-child(10)');

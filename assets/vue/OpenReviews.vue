@@ -86,7 +86,10 @@
       <tbody v-else-if="reviews.length > 0">
         <tr v-for="review in reviews" :key="review.id">
           <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
-          <td class="cavil-list-link"><ExternalLink :link="review.externalLink" /></td>
+          <td class="cavil-list-link">
+            <ExternalLink :link="review.externalLink" />
+            <CveBadge :tags="review.tags" />
+          </td>
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td class="cavil-list-package" v-html="review.package"></td>
           <td class="cavil-list-report" v-html="review.report"></td>
@@ -105,6 +108,7 @@
 
 <script>
 import CavilListLayout from './components/CavilListLayout.vue';
+import CveBadge from './components/CveBadge.vue';
 import EmptyState from './components/EmptyState.vue';
 import ExternalLink from './components/ExternalLink.vue';
 import LegalLoading from './components/LegalLoading.vue';
@@ -117,7 +121,7 @@ import moment from 'moment';
 export default {
   name: 'OpenReviews',
   mixins: [Refresh],
-  components: {CavilListLayout, EmptyState, ExternalLink, LegalLoading, PriorityBadge},
+  components: {CavilListLayout, CveBadge, EmptyState, ExternalLink, LegalLoading, PriorityBadge},
   data() {
     const params = getParams({
       limit: 10,
@@ -167,7 +171,8 @@ export default {
           imported: review.imported_epoch ? moment(review.imported_epoch * 1000).fromNow() : '',
           package: packageLink(review),
           priority: review.priority,
-          report: reportLink(review)
+          report: reportLink(review),
+          tags: review.tags
         });
       }
       this.reviews = reviews;

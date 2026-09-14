@@ -234,6 +234,8 @@ sub startup ($self) {
     ->name('file_view_meta');
   $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
+  $logged_in->get('/reviews/tags' => [format => ['json']])->to('Reviewer#tags', format => 'json')->name('package_tags');
+  $can_curate->patch('/reviews/tags/<id:num>')->to('Reviewer#set_tags')->name('set_package_tags');
   $logged_in->get('/reviews/report/<id:num>' => [format => ['json', 'txt']])
     ->to('Report#report', format => 'json')
     ->name('report');

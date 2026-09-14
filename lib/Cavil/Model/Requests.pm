@@ -6,10 +6,20 @@ use Mojo::Base -base, -signatures;
 
 has 'pg';
 
-sub add ($self, $link, $pkg) {
+sub add ($self, $link, $pkg, $target = undef) {
   my $db = $self->pg->db;
-  $db->query('INSERT INTO bot_requests (external_link, package) VALUES (?, ?) ON CONFLICT DO NOTHING', $link, $pkg);
+  $db->query('INSERT INTO bot_requests (external_link, package, target) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',
+    $link, $pkg, $target);
   return $db->query('SELECT id FROM bot_requests WHERE external_link = ? AND package = ?', $link, $pkg)->hash->{id};
+}
+
+sub unresolved_targets ($self, $package) {
+  return $self->pg->db->query('SELECT id, external_link FROM bot_requests WHERE package = ? AND target IS NULL',
+    $package)->hashes->to_array;
+}
+
+sub set_target ($self, $id, $target) {
+  $self->pg->db->query('UPDATE bot_requests SET target = ? WHERE id = ?', $target, $id);
 }
 
 sub all ($self) {

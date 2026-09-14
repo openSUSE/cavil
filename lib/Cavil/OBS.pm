@@ -26,12 +26,12 @@ has ua     => sub {
   return $ua;
 };
 
-sub check_for_embargo ($self, $api, $request) {
+sub check_for_embargo ($self, $api, $request, $bugrefs = undef) {
   my $host = _url($api)->host;
   return 0 unless my $config = $self->config->{$host};
   return 0 unless $config->{embargoed_bugs};
 
-  my $bugrefs = $self->get_bugrefs_for_request($api, $request);
+  $bugrefs //= $self->get_bugrefs_for_request($api, $request);
   return 0 unless @$bugrefs;
 
   my $embargoed_bugrefs = $self->get_embargoed_bugrefs($api);
@@ -41,6 +41,25 @@ sub check_for_embargo ($self, $api, $request) {
   }
 
   return 0;
+}
+
+sub cves_for_request ($self, $api, $request, $bugrefs = undef) {
+  $bugrefs //= $self->get_bugrefs_for_request($api, $request);
+  return [grep {/^CVE-/i} @$bugrefs];
+}
+
+sub request_target ($self, $api, $request) {
+  my $res = $self->_request(_url($api, 'request', $request));
+  return undef unless $res->is_success;
+
+  my (@targets, %seen);
+  for my $target ($res->dom->find('action > target[project]')->each) {
+    my $name = $target->{project};
+    $name .= "/$target->{package}" if defined $target->{package};
+    push @targets, $name unless $seen{$name}++;
+  }
+
+  return @targets ? join(', ', @targets) : undef;
 }
 
 sub get_bugrefs_for_request ($self, $api, $request) {

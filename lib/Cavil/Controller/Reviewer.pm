@@ -6,7 +6,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
 use Mojo::Util  qw(humanize_bytes);
-use Cavil::Util qw(checkout_path lines_context PRIORITY_WAITING);
+use Cavil::Util qw(checkout_path lines_context tags_from_request PRIORITY_WAITING);
 
 my $SMALL_REPORT_RE = qr/
   (?:
@@ -32,6 +32,22 @@ sub meta ($self) {
   return $self->render(json => {error => 'Package not found'}, status => 404)
     unless my $summary = $self->helpers->package_summary($id);
   $self->render(json => $summary);
+}
+
+sub tags ($self) {
+  $self->render(json => {tags => $self->packages->all_tags});
+}
+
+# Curators replace the whole tag set; CVE tags removed here return on the next reindex (derived facts).
+sub set_tags ($self) {
+  my $id = $self->stash('id');
+  return $self->render(json => {error => 'Package not found'}, status => 404) unless $self->packages->find($id);
+
+  my ($tags, $error) = tags_from_request($self->req, qr/^CVE(-|$)/i);
+  return $self->render(json => {error => $error}, status => 400) if $error;
+
+  $self->packages->set_tags($id, $tags);
+  $self->render(json => {tags => $tags});
 }
 
 sub fasttrack_package ($self) {

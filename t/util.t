@@ -570,6 +570,16 @@ subtest 'validate_tags' => sub {
     is $clean, undef, 'undef element rejected';
     like $error, qr/tags must be an array of strings/, 'error explains';
   };
+
+  subtest 'exempt regex skips the count cap' => sub {
+    my @cves = map {"CVE-2024-$_"} 1 .. 20;
+    my ($clean, $error) = validate_tags([@cves], qr/^CVE-/i);
+    is $error,         undef, 'many CVE tags allowed when exempt from the count';
+    is scalar @$clean, 20,    'all CVE tags kept';
+
+    ($clean, $error) = validate_tags([@cves, map {"t$_"} 1 .. 17], qr/^CVE-/i);
+    like $error, qr/too many tags, maximum is 16/, 'non-exempt tags still counted against the cap';
+  };
 };
 
 subtest 'obs_ssh_auth' => sub {

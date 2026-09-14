@@ -105,12 +105,24 @@ subtest 'Package not created yet' => sub {
 };
 
 subtest 'Create package' => sub {
-  my $form = {api => $api, package => 'perl-Mojolicious', project => 'devel:languages:perl'};
+  my $form = {api => $api, package => 'perl-Mojolicious', project => 'devel:languages:perl', tags => ['gitea-fix']};
   $t->app->patterns->expire_cache;
   $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)
     ->status_is(200)
     ->json_is('/saved/checkout_dir', '236d7b56886a0d2799c0d114eddbb7f1')
     ->json_is('/saved/id',           1);
+  is_deeply $t->app->packages->find(1)->{tags}, ['gitea-fix'], 'bot-provided tag stored on import';
+
+  # A malformed tags payload must be rejected, not silently treated as an empty list
+  $t->post_ok(
+    '/packages' => {Authorization => 'Token test_token'} => form => {
+      api       => $api,
+      package   => 'perl-Mojolicious',
+      project   => 'devel:languages:perl',
+      tags_json => '{"not":"an array"}'
+    }
+  )->status_is(400)->json_like('/error', qr/array of strings/);
+  is_deeply $t->app->packages->find(1)->{tags}, ['gitea-fix'], 'existing tags untouched by the rejected request';
 
   # Nothing has been indexed yet, which is the only reason there is no report to serve here - the import
   # job being queued is not one
@@ -256,6 +268,37 @@ subtest 'Remove request again' => sub {
   $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123'})
     ->status_is(200);
   $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
+};
+
+subtest 'Gitea request target derived from link' => sub {
+  $t->post_ok('/requests' => {Authorization => 'Token test_token'} => form =>
+      {external_link => 'soo#products/PackageHub!7', package => 1})->status_is(200);
+
+  # Targets are resolved by an asynchronous job (a gitea link needs no external lookup)
+  $t->app->minion->perform_jobs;
+  my $requests = $t->app->packages->requests_for(1);
+  is $requests->[0]{external_link}, 'soo#products/PackageHub!7', 'right link';
+  is $requests->[0]{target},        'products/PackageHub',       'target derived from gitea link';
+  $t->delete_ok(
+    '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'soo#products/PackageHub!7'})
+    ->status_is(200);
+};
+
+subtest 'Package tags model' => sub {
+  my $pkgs = $t->app->packages;
+  $pkgs->set_tags(1, []);
+  $pkgs->add_tags(1, ['CVE-2024-3654', 'security']);
+  is_deeply $pkgs->find(1)->{tags}, ['CVE-2024-3654', 'security'], 'tags added';
+
+  $pkgs->add_tags(1, ['security', 'CVE-2024-9999']);
+  is_deeply $pkgs->find(1)->{tags}, ['CVE-2024-3654', 'security', 'CVE-2024-9999'], 'add_tags unions and dedups';
+
+  # Autocomplete suggestions exclude the near-unique CVE-... tags so the list cannot balloon
+  is_deeply [map { $_->{tag} } @{$pkgs->all_tags}], ['security'], 'all_tags aggregates non-CVE tags only';
+
+  $pkgs->set_tags(1, ['only-this']);
+  is_deeply $pkgs->find(1)->{tags}, ['only-this'], 'set_tags replaces the whole set';
+  $pkgs->set_tags(1, []);
 };
 
 subtest 'Products' => sub {

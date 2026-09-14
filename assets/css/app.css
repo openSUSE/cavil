@@ -620,6 +620,18 @@ button.cavil-icon-action {
   background-color: var(--cavil-risk-unknown-bg);
   color: var(--cavil-on-accent);
 }
+/* Global (not scoped) because CveBadge.vue ships no scoped style. The .badge qualifier is required:
+   bootstrap.css loads after this file, so a bare .cavil-cve-badge loses to bootstrap's .badge color.
+   Danger tokens are theme-aware, so light and dark both work. */
+.badge.cavil-cve-badge {
+  background-color: var(--cavil-danger-bg);
+  border: 1px solid var(--cavil-danger-border);
+  color: var(--cavil-danger);
+  font-size: 0.6875rem;
+  letter-spacing: 0.03em;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
 /* Emitted as raw HTML by the listing report cell, so a scoped component style would not reach it.
    Bare glyph on purpose: the unresolved-match count stays the only boxed thing in that cell. */
 .cavil-list-notes {

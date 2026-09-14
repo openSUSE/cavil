@@ -36,7 +36,8 @@ sub register ($self, $app, $config) {
     name        => 'cavil_get_open_reviews',
     description => 'Get a paginated list of highest priority open reviews, use "search" to limit results. Every '
       . 'review reports whether a "review" tagged note already applies to its report, so a sweep does not have to '
-      . 'ask per package; without_review_note=true returns only those that have none yet.',
+      . 'ask per package; without_review_note=true returns only those that have none yet. Reviews also list their '
+      . 'tags, including CVE-... tags for updates that fix a security issue.',
     input_schema => {
       type       => 'object',
       properties => {

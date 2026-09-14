@@ -16,7 +16,7 @@ Note: Review-Note is "yes" when a note tagged "review" already applies to this e
 %   for (my $i = 0; $i <= $#{$reviews}; $i++) {
 %     my $review = $reviews->[$i];
 %     my $relevant = $notes->{$review->{id}};
-<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>, Unresolved-Matches: <%== $review->{unresolved_matches} %>, Review-Note: <%== $relevant && $relevant->{review} ? 'yes' : 'no' %>)
+<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>, Unresolved-Matches: <%== $review->{unresolved_matches} %>, Review-Note: <%== $relevant && $relevant->{review} ? 'yes' : 'no' %><%== @{$review->{tags} // []} ? ', Tags: ' . join(', ', @{$review->{tags}}) : '' %>)
 
 %   }
 % }
