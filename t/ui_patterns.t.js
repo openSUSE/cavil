@@ -215,6 +215,10 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       ]);
       t.equal(proposeResp.status(), 200, 'propose-pattern submission succeeds');
 
+      // A successful submit reloads the report page; let that navigation settle before leaving, otherwise
+      // the goto below races it and aborts (net::ERR_ABORTED).
+      await page.waitForLoadState('load');
+
       // Proposal arrives on the change proposals page with CLA/EULA pre-checked
       await page.goto(`${url}/licenses/proposed`);
       t.equal(await page.innerText('title'), 'Change Proposals');

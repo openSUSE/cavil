@@ -126,8 +126,13 @@ export async function launchUi(schema) {
 // expected-failure ones. Every t/ui_*.t.js file calls this once at the end.
 export function assertNoUnexpectedConsoleErrors(t, errorLogs) {
   // Some subtests intentionally drive the server to return 400 - the browser
-  // logs that as a console error.
-  const unexpected = errorLogs.filter(msg => !/status of 400 \(Bad Request\)/.test(msg));
+  // logs that as a console error. A 409 is the same kind of expected, handled
+  // response: submitting a decision while the report is being rebuilt is refused
+  // as a whole and the page just waits for the new report, but the browser still
+  // logs the refused request.
+  const unexpected = errorLogs.filter(
+    msg => !/status of 400 \(Bad Request\)/.test(msg) && !/status of 409 \(Conflict\)/.test(msg)
+  );
   for (const message of unexpected) {
     t.comment(`Unexpected console error: ${message.replace(/\s+/g, ' ')}`);
   }

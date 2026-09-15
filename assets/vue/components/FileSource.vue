@@ -65,11 +65,7 @@
                 rel="noopener"
                 >Show pattern</a
               >
-              <a
-                v-if="canIgnoreMatch(line)"
-                href="#"
-                class="dropdown-item"
-                @click.prevent="openIgnore(line)"
+              <a v-if="canIgnoreMatch(line)" href="#" class="dropdown-item" @click.prevent="openIgnore(line)"
                 >Ignore this match</a
               >
 
