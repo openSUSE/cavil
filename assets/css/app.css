@@ -714,7 +714,7 @@ a.cavil-external-link-target:focus {
   overflow: hidden;
 }
 .cavil-external-link-target-project {
-  color: var(--cavil-fg);
+  color: var(--cavil-fg-muted);
   flex: 0 1 auto;
   font-weight: 600;
   min-width: 0;
