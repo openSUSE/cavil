@@ -1,5 +1,8 @@
 <template>
   <span v-if="hasContext" class="cavil-external-link">
+    <span v-if="hasLabel" class="cavil-external-link-source">
+      <span class="cavil-external-link-source-text">{{ link.label }}</span>
+    </span>
     <a
       v-if="hasUrl"
       class="cavil-external-link-target"
@@ -12,9 +15,6 @@
     </a>
     <span v-else class="cavil-external-link-target">
       <span class="cavil-external-link-text">{{ text }}</span>
-    </span>
-    <span v-if="hasLabel" class="cavil-external-link-source">
-      <span class="cavil-external-link-source-text">{{ link.label }}</span>
     </span>
     <details v-if="hasTarget" class="cavil-external-link-submission" :title="`Submission target: ${link.target}`">
       <summary class="cavil-external-link-submission-summary">

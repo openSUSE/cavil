@@ -346,7 +346,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         const data = await response.json();
         data.tags = ['CVE-2024-3654', 'needs-second-opinion'];
         data.can_edit_tags = false;
-        data.external_link_data = {text: 'obs#123', target: 'openSUSE:Factory/perl-Mojolicious'};
+        data.external_link_data = {text: 'obs#123', label: 'SUSE', target: 'openSUSE:Factory/perl-Mojolicious'};
         data.requests = ['soo#products/PackageHub!7', 'obs#456'];
         data.requests_data = [
           {text: 'soo#products/PackageHub!7', target: 'products/PackageHub'},
@@ -364,6 +364,13 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.equal(await page.locator('#pkg-tags .report-cve-tag').count(), 1, 'CVE tag styled distinctly');
 
       await page.waitForSelector('#pkg-link .cavil-external-link-submission');
+      t.same(
+        await page.locator('#pkg-link .cavil-external-link').evaluate(element =>
+          [...element.children].map(child => child.className)
+        ),
+        ['cavil-external-link-source', 'cavil-external-link-target', 'cavil-external-link-submission'],
+        'source label prefixes the external reference and submission target'
+      );
       t.equal(
         await page.locator('#pkg-link .cavil-external-link-submission-text').textContent(),
         'openSUSE:Factory/perl-Mojolicious',

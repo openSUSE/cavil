@@ -683,6 +683,9 @@ button.cavil-icon-action {
   border: 0;
   border-radius: 0;
 }
+.cavil-external-link-source + .cavil-external-link-target {
+  border-left: 1px solid var(--cavil-border);
+}
 a.cavil-external-link-target:hover,
 a.cavil-external-link-target:focus {
   background: var(--cavil-accent-tint-1);
@@ -691,7 +694,6 @@ a.cavil-external-link-target:focus {
 }
 .cavil-external-link-source {
   background: var(--cavil-neutral-bg);
-  border-left: 1px solid var(--cavil-border);
   color: var(--cavil-fg-muted);
   flex: 0 0 auto;
   font-weight: 500;
