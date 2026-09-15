@@ -1,5 +1,5 @@
 <template>
-  <span v-if="hasLabel" class="cavil-external-link">
+  <span v-if="hasContext" class="cavil-external-link">
     <a
       v-if="hasUrl"
       class="cavil-external-link-target"
@@ -13,8 +13,15 @@
     <span v-else class="cavil-external-link-target">
       <span class="cavil-external-link-text">{{ text }}</span>
     </span>
-    <span class="cavil-external-link-source">
+    <span v-if="hasLabel" class="cavil-external-link-source">
       <span class="cavil-external-link-source-text">{{ link.label }}</span>
+    </span>
+    <span v-if="hasTarget" class="cavil-external-link-submission" :title="`Submission target: ${link.target}`">
+      <span class="cavil-external-link-submission-prefix">to</span>
+      <span class="cavil-external-link-submission-text">
+        <span class="cavil-external-link-target-project">{{ targetProject }}</span>
+        <span v-if="targetPackage" class="cavil-external-link-target-package">/{{ targetPackage }}</span>
+      </span>
     </span>
   </span>
   <a
@@ -46,6 +53,22 @@ export default {
     },
     hasLabel() {
       return this.link && typeof this.link === 'object' && !!this.link.label;
+    },
+    hasTarget() {
+      return this.link && typeof this.link === 'object' && !!this.link.target;
+    },
+    targetProject() {
+      if (!this.hasTarget) return '';
+      const separator = this.link.target.lastIndexOf('/');
+      return separator > 0 ? this.link.target.slice(0, separator) : this.link.target;
+    },
+    targetPackage() {
+      if (!this.hasTarget) return '';
+      const separator = this.link.target.lastIndexOf('/');
+      return separator > 0 ? this.link.target.slice(separator + 1) : '';
+    },
+    hasContext() {
+      return this.hasLabel || this.hasTarget;
     },
     hasUrl() {
       return this.link && typeof this.link === 'object' && !!this.link.url;

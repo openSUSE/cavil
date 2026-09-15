@@ -80,34 +80,13 @@
             <dt>Link</dt>
             <dd id="pkg-link">
               <ExternalLink :link="externalLink" />
-              <a
-                v-if="externalLink.target"
-                class="report-target-hint"
-                data-bs-toggle="popover"
-                data-bs-trigger="hover focus"
-                data-bs-title="Submission target"
-                :data-bs-content="externalLink.target"
-              >
-                <i class="fa-solid fa-circle-question"></i>
-              </a>
             </dd>
           </template>
           <template v-if="requests.length > 0">
             <dt>Requests</dt>
-            <dd>
+            <dd class="report-metadata-requests">
               <span v-for="(request, index) in requests" :key="index" class="report-metadata-request">
-                <span v-if="index > 0">, </span>
                 <ExternalLink :link="request" />
-                <a
-                  v-if="request.target"
-                  class="report-target-hint"
-                  data-bs-toggle="popover"
-                  data-bs-trigger="hover focus"
-                  data-bs-title="Submission target"
-                  :data-bs-content="request.target"
-                >
-                  <i class="fa-solid fa-circle-question"></i>
-                </a>
               </span>
             </dd>
           </template>
@@ -910,17 +889,17 @@ export default {
   font-size: 13px;
   margin-left: 0.4rem;
 }
-/* "Hover for the destination target" hint next to a link (Bootstrap popover), consistent for the primary
-   link and each request. Same solid question-mark affordance as the inline pattern editor's help. */
-/* Qualified with .report-metadata-list to beat that list's generic `a` accent-colour rule, which would
-   otherwise turn the hint blue. */
-.report-metadata-list a.report-target-hint,
-.report-metadata-list a.report-target-hint:hover,
-.report-metadata-list a.report-target-hint:focus {
-  color: var(--cavil-fg-muted);
-  cursor: help;
-  margin-left: 0.35rem;
-  text-decoration: none;
+.report-metadata-requests {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
+}
+.report-metadata-request {
+  display: inline-flex;
+  flex: 0 0 auto;
+  max-width: 100%;
+  min-width: 0;
 }
 /* One bordered bar with a distinct-background "Tags" label segment on the left, mirroring the two-tone
    ExternalLink idiom. TagInput brings its own bordered editor, so inside the bar that inner border is

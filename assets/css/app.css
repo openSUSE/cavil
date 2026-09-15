@@ -659,7 +659,8 @@ button.cavil-icon-action {
   vertical-align: middle;
 }
 .cavil-external-link-target,
-.cavil-external-link-source {
+.cavil-external-link-source,
+.cavil-external-link-submission {
   align-items: center;
   display: inline-flex;
   font-size: 0.8125rem;
@@ -695,6 +696,37 @@ a.cavil-external-link-target:focus {
   flex: 0 0 auto;
   font-weight: 500;
   letter-spacing: 0;
+}
+.cavil-external-link-submission {
+  background: var(--cavil-canvas-default);
+  border-left: 1px solid var(--cavil-border);
+  color: var(--cavil-fg-muted);
+  gap: 0.35rem;
+  min-width: 0;
+}
+.cavil-external-link-submission-prefix {
+  color: var(--cavil-fg-disabled);
+  flex: 0 0 auto;
+}
+.cavil-external-link-submission-text {
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
+}
+.cavil-external-link-target-project {
+  color: var(--cavil-fg);
+  flex: 0 1 auto;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cavil-external-link-target-package {
+  color: var(--cavil-fg-disabled);
+  flex: 1 5 auto;
+  min-width: 1.5ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cavil-external-link-text,
 .cavil-external-link-source-text {

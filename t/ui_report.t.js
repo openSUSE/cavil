@@ -347,8 +347,11 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         data.tags = ['CVE-2024-3654', 'needs-second-opinion'];
         data.can_edit_tags = false;
         data.external_link_data = {text: 'obs#123', target: 'openSUSE:Factory/perl-Mojolicious'};
-        data.requests = ['soo#products/PackageHub!7'];
-        data.requests_data = [{text: 'soo#products/PackageHub!7', target: 'products/PackageHub'}];
+        data.requests = ['soo#products/PackageHub!7', 'obs#456'];
+        data.requests_data = [
+          {text: 'soo#products/PackageHub!7', target: 'products/PackageHub'},
+          {text: 'obs#456', target: 'openSUSE:Backports:SLE-15-SP7/perl-Mojolicious'}
+        ];
         await route.fulfill({response, json: data});
       });
 
@@ -360,17 +363,37 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.equal(await pills.count(), 2, 'both tags shown as read-only pills');
       t.equal(await page.locator('#pkg-tags .report-cve-tag').count(), 1, 'CVE tag styled distinctly');
 
-      await page.waitForSelector('#pkg-link .report-target-hint');
+      await page.waitForSelector('#pkg-link .cavil-external-link-submission');
       t.equal(
-        await page.getAttribute('#pkg-link .report-target-hint', 'data-bs-content'),
+        await page.locator('#pkg-link .cavil-external-link-submission-text').textContent(),
         'openSUSE:Factory/perl-Mojolicious',
-        'primary target shown in a hover popover on the link'
+        'primary submission target is visible beside the link'
       );
       t.equal(
-        await page.getAttribute('.report-metadata-request .report-target-hint', 'data-bs-content'),
-        'products/PackageHub',
-        'request target shown in a hover popover on the request'
+        await page.locator('#pkg-link .cavil-external-link-target-project').innerText(),
+        'openSUSE:Factory',
+        'submission project is separated for emphasis'
       );
+      t.equal(
+        await page.locator('#pkg-link .cavil-external-link-target-package').innerText(),
+        '/perl-Mojolicious',
+        'less important package suffix remains visible'
+      );
+      t.same(
+        await page.locator('.report-metadata-request .cavil-external-link-submission-text').allTextContents(),
+        ['products/PackageHub', 'openSUSE:Backports:SLE-15-SP7/perl-Mojolicious'],
+        'multiple request submission targets are individually visible'
+      );
+
+      await page.setViewportSize({width: 480, height: 720});
+      const requestLayout = await page.locator('.report-metadata-requests').evaluate(element => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        tops: [...element.children].map(child => child.getBoundingClientRect().top)
+      }));
+      t.equal(requestLayout.scrollWidth, requestLayout.clientWidth, 'request targets do not overflow at mobile width');
+      t.ok(requestLayout.tops[1] > requestLayout.tops[0], 'multiple request targets wrap onto separate lines');
+      await page.setViewportSize({width: 1280, height: 720});
 
       await page.unroute('**/reviews/meta/1');
     });
