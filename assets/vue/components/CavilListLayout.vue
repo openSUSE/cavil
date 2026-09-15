@@ -406,6 +406,15 @@ export default {
   color: var(--cavil-accent-strong);
 }
 
+.cavil-review-docket-table .cavil-list-package a {
+  color: var(--cavil-fg-muted);
+}
+
+.cavil-review-docket-table .cavil-list-package a:hover,
+.cavil-review-docket-table .cavil-list-package a:focus {
+  color: var(--cavil-accent);
+}
+
 .cavil-list-table a:hover,
 .cavil-list-table a:focus {
   text-decoration: underline;

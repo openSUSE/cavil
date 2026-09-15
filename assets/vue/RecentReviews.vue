@@ -64,7 +64,7 @@
       </label>
     </template>
 
-    <table class="cavil-list-table table">
+    <table class="cavil-list-table cavil-review-docket-table table">
       <thead>
         <tr>
           <th class="priority">Priority</th>
