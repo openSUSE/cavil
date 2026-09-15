@@ -1,5 +1,12 @@
 # Cavil User API
 
+## Contents
+
+- [Authentication](#authentication)
+- [MCP API](#mcp-api)
+- [Agent Skills](#agent-skills)
+- [REST API](#rest-api)
+
 ## Authentication
 
 All user API endpoints use bearer tokens you can generate with the "API Keys" menu entry after logging into Cavil.
@@ -60,115 +67,183 @@ Cavil API key by setting the Authorization HTTP header:
 }
 ```
 
+### MCP tool index
+
+| Tool | Access | Purpose |
+| --- | --- | --- |
+| [`cavil_get_open_reviews`](#cavil_get_open_reviews) | Read-only | List highest-priority open reviews |
+| [`cavil_search_packages`](#cavil_search_packages) | Read-only | Search packages and vendored components |
+| [`cavil_get_report`](#cavil_get_report) | Read-only | Get a package's legal report |
+| [`cavil_search_snippets`](#cavil_search_snippets) | Read-only | Search and aggregate snippets |
+| [`cavil_get_file`](#cavil_get_file) | Read-only | Read part of a package file |
+| [`cavil_list_files`](#cavil_list_files) | Read-only | List files in a package |
+| [`cavil_create_note`](#cavil_create_note) | Read-write | Add an AI-assisted note |
+| [`cavil_get_notes`](#cavil_get_notes) | Read-only | List notes for a package |
+| [`cavil_accept_review`](#cavil_accept_review) | Read-write | Accept a legal review |
+| [`cavil_reject_review`](#cavil_reject_review) | Read-write | Reject a legal review |
+| [`cavil_propose_ignore_snippet`](#cavil_propose_ignore_snippet) | Read-write | Propose ignoring a snippet |
+| [`cavil_propose_license_pattern`](#cavil_propose_license_pattern) | Read-write | Propose a license pattern |
+| [`cavil_propose_ignore_glob`](#cavil_propose_ignore_glob) | Read-write | Propose a file exclusion glob |
+| [`cavil_report_missing_license`](#cavil_report_missing_license) | Read-write | Report an unrecognized license |
+
 ### MCP tools
 
-These tools are currently available:
+#### cavil_get_open_reviews
 
-- *cavil_get_open_reviews* - Get a paginated list of highest priority open reviews, each reporting whether a
-  `review` tagged note already applies to its report and listing its tags (including a `CVE` tag for updates
-  that fix a security issue)
-  - **Required Roles**: `user` (read-only)
-  - `search`: Filter results by package name, checksum, or external link. (string, optional)
-  - `limit`: Maximum number of reviews to return. Defaults to `20`, maximum `100`. (number, optional)
-  - `offset`: Number of reviews to skip for pagination. Defaults to `0`. (number, optional)
-  - `min_priority`: Minimum package priority to include. Defaults to `1`, maximum `10`. (number, optional)
-  - `without_review_note`: Only return reviews no `review` tagged note applies to yet. Defaults to `false`.
-    (boolean, optional)
+Get a paginated list of highest priority open reviews, each reporting whether a `review` tagged note already applies
+to its report and listing its tags (including a `CVE` tag for updates that fix a security issue).
 
-- *cavil_search_packages* - Search all packages (any review state) by name or by a vendored component they ship
-  - **Required Roles**: `user` (read-only)
-  - `name`: Exact package name. (string, optional)
-  - `component`: Case-insensitive substring matched against a vendored component's name and its purl, e.g. `lodash` or `pkg:npm/lodash@4.17.20`. Matching components are attached to each result. (string, optional)
-  - `limit`: Maximum number of packages to return. Defaults to `25`, maximum `100`. (number, optional)
-  - `offset`: Number of packages to skip for pagination. Defaults to `0`. (number, optional)
+- **Required Roles**: `user` (read-only)
+- `search`: Filter results by package name, checksum, or external link. (string, optional)
+- `limit`: Maximum number of reviews to return. Defaults to `20`, maximum `100`. (number, optional)
+- `offset`: Number of reviews to skip for pagination. Defaults to `0`. (number, optional)
+- `min_priority`: Minimum package priority to include. Defaults to `1`, maximum `10`. (number, optional)
+- `without_review_note`: Only return reviews no `review` tagged note applies to yet. Defaults to `false`.
+  (boolean, optional)
 
-- *cavil_get_report* - Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use *cavil_search_snippets* for the full list and per-snippet detail
-  - **Required Roles**: `user` (read-only)
-  - `package_id`: ID of package to get report for. (number, required)
-  - `url_limit`: Maximum number of URLs to include (occurrence-ordered). Defaults to `10`, `0` omits the section. (number, optional)
-  - `email_limit`: Maximum number of email addresses to include (occurrence-ordered). Defaults to `10`, `0` omits the section. (number, optional)
+#### cavil_search_packages
 
-- *cavil_search_snippets* - Query the unresolved-snippet backlog: filter by resolution / package / license / full-text, aggregate identical snippets by impact, or list individual occurrences with per-snippet detail
-  - **Required Roles**: `user` (read-only)
-  - `resolution`: One of `unresolved` (default), `reported` (has an open missing-license report, whatever its resolution - reporting a snippet Cavil auto-resolved is a valid correction), `fold`, `clear`, `overlap`, `covered`, `any`. (string, optional)
-  - `group`: `text` (default, impact-ranked distinct snippets) or `none` (individual occurrences with overlaps/keywords/covered-by detail). (string, optional)
-  - `order`: For `group=text`, one of `occurrences` (default), `packages`, `risk`, `recent`. (string, optional)
-  - `package_id`: Scope to one package; omit for fleet-wide. (number, optional)
-  - `license`: Filter by the snippet's closest license name. (string, optional)
-  - `search`: Full-text search over snippet bodies. (string, optional)
-  - `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
-  - `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
+Search all packages (any review state) by name or by a vendored component they ship.
 
-- *cavil_get_file* - Get content of a specific file in the package
-  - **Required Roles**: `user` (read-only)
-  - `package_id`: ID of package to read file from. (number, required)
-  - `file_path`: Path to file inside the package checkout. (string, required)
-  - `start_line`: First line to read. Defaults to `1`. (number, optional)
-  - `end_line`: Last line to read. Defaults to `100` and maximum range is 1000 lines. (number, optional)
+- **Required Roles**: `user` (read-only)
+- `name`: Exact package name. (string, optional)
+- `component`: Case-insensitive substring matched against a vendored component's name and its purl, e.g. `lodash` or
+  `pkg:npm/lodash@4.17.20`. Matching components are attached to each result. (string, optional)
+- `limit`: Maximum number of packages to return. Defaults to `25`, maximum `100`. (number, optional)
+- `offset`: Number of packages to skip for pagination. Defaults to `0`. (number, optional)
 
-- *cavil_list_files* - List files in the package
-  - **Required Roles**: `user` (read-only)
-  - `package_id`: ID of package to list files from. (number, required)
-  - `file_glob`: Optional glob pattern used to filter listed files. Defaults to `*` (all files). (string, optional)
+#### cavil_get_report
 
-- *cavil_create_note* - Create a public note for a specific package, marked as AI-assisted
-  - **Required Roles**: `user` (read-write)
-  - `package_id`: ID of package to add a note to. (number, required)
-  - `body`: Note body in Markdown format. (string, required)
-  - `tags`: Array of tag strings, at most 32 characters each and 16 per note. (array of strings, optional)
-  - `skip_if_existing_tag`: Skip the write if a note with this tag already applies to the report, making the call idempotent. (string, optional)
+Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use
+`cavil_search_snippets` for the full list and per-snippet detail.
 
-- *cavil_get_notes* - Get a paginated list of notes for a specific package, optionally filtered by tags. Notes a
-  reviewer has pinned are marked `[pinned]`, sort first, and are always returned regardless of `relevant_only`
-  - **Required Roles**: `user` (read-only)
-  - `package_id`: ID of package to list notes for. (number, required)
-  - `tags`: Return only notes carrying all of the given tags. (array of strings, optional)
-  - `relevant_only`: When `true`, return only notes that apply to this report. Defaults to `false`. (boolean, optional)
-  - `limit`: Maximum number of notes to return. Defaults to `20`, maximum `100`. (number, optional)
-  - `offset`: Number of notes to skip for pagination. Defaults to `0`. (number, optional)
+- **Required Roles**: `user` (read-only)
+- `package_id`: ID of package to get report for. (number, required)
+- `url_limit`: Maximum number of URLs to include (occurrence-ordered). Defaults to `10`, `0` omits the section.
+  (number, optional)
+- `email_limit`: Maximum number of email addresses to include (occurrence-ordered). Defaults to `10`, `0` omits the
+  section. (number, optional)
 
-- *cavil_accept_review* - Accept a legal review for a specific package
-  - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
-  - **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.
-  - `package_id`: ID of package to accept. (number, required)
-  - `reason`: Reason for package acceptance. (string, optional)
+#### cavil_search_snippets
 
-- *cavil_reject_review* - Reject a legal review for a specific package
-  - **Required Roles**: `lawyer` or `admin` (read-write)
-  - **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.
-  - `package_id`: ID of package to reject. (number, required)
-  - `reason`: Reason for package rejection. (string, required)
+Query the unresolved-snippet backlog: filter by resolution, package, license, or full text; aggregate identical
+snippets by impact; or list individual occurrences with per-snippet detail.
 
-- *cavil_propose_ignore_snippet* - Propose to ignore a specific snippet in the legal review
-  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
-  - `package_id`: ID of package to ignore snippet for. (number, required)
-  - `snippet_id`: ID of snippet to ignore. (number, required)
-  - `reason`: Reason for snippet to be ignored. (string, required)
+- **Required Roles**: `user` (read-only)
+- `resolution`: One of `unresolved` (default), `reported` (has an open missing-license report, whatever its resolution
+  - reporting a snippet Cavil auto-resolved is a valid correction), `fold`, `clear`, `overlap`, `covered`, `any`.
+  (string, optional)
+- `group`: `text` (default, impact-ranked distinct snippets) or `none` (individual occurrences with
+  overlaps/keywords/covered-by detail). (string, optional)
+- `order`: For `group=text`, one of `occurrences` (default), `packages`, `risk`, `recent`. (string, optional)
+- `package_id`: Scope to one package; omit for fleet-wide. (number, optional)
+- `license`: Filter by the snippet's closest license name. (string, optional)
+- `search`: Full-text search over snippet bodies. (string, optional)
+- `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
+- `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
 
-- *cavil_propose_license_pattern* - Propose a license pattern. If the license already exists, the pattern is added to
-  it and the proposal lands on the admin **Change Proposals** page (risk and flags are inherited from the license). If
-  the license is unknown, pass an integer `risk` to propose introducing it as a new license; that proposal lands on the
-  lawyers' **Missing Licenses** page to ratify.
-  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
-  - `package_id`: ID of the package the snippet belongs to. (number, required)
-  - `snippet_id`: ID of the snippet the pattern is derived from. (number, required)
-  - `pattern`: License pattern text; must match the snippet. (string, required)
-  - `license`: License expression or SPDX identifier. (string, required)
-  - `reason`: Why this is the license (shown as the proposal's rationale). (string, required)
-  - `risk`: Risk level 1-9; required only when introducing a new (unknown) license. (number, optional)
-  - `patent`, `trademark`, `export_restricted`, `cla`, `eula`: Flags describing a new license. (boolean, optional)
+#### cavil_get_file
 
-- *cavil_propose_ignore_glob* - Propose a file path glob to exclude whole files from scanning system-wide
-  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
-  - `package_id`: ID of package the glob is proposed from; rejected unless it matches a reported file. (number, required)
-  - `glob`: File path glob, e.g. `pkgname-*/testdata/*.log`. (string, required)
-  - `reason`: Reason the matched files should be ignored. (string, required)
+Get content of a specific file in the package.
 
-- *cavil_report_missing_license* - Report a snippet as genuine license text that cannot be confidently patterned, so a lawyer can author the real pattern (it lands on the Missing Licenses review queue)
-  - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
-  - `package_id`: ID of package the snippet belongs to. (number, required)
-  - `snippet_id`: ID of snippet to report as a missing license. (number, required)
-  - `reason`: Reason the snippet needs human review. (string, required)
+- **Required Roles**: `user` (read-only)
+- `package_id`: ID of package to read file from. (number, required)
+- `file_path`: Path to file inside the package checkout. (string, required)
+- `start_line`: First line to read. Defaults to `1`. (number, optional)
+- `end_line`: Last line to read. Defaults to `100` and maximum range is 1000 lines. (number, optional)
+
+#### cavil_list_files
+
+List files in the package.
+
+- **Required Roles**: `user` (read-only)
+- `package_id`: ID of package to list files from. (number, required)
+- `file_glob`: Optional glob pattern used to filter listed files. Defaults to `*` (all files). (string, optional)
+
+#### cavil_create_note
+
+Create a public note for a specific package, marked as AI-assisted.
+
+- **Required Roles**: `user` (read-write)
+- `package_id`: ID of package to add a note to. (number, required)
+- `body`: Note body in Markdown format. (string, required)
+- `tags`: Array of tag strings, at most 32 characters each and 16 per note. (array of strings, optional)
+- `skip_if_existing_tag`: Skip the write if a note with this tag already applies to the report, making the call
+  idempotent. (string, optional)
+
+#### cavil_get_notes
+
+Get a paginated list of notes for a specific package, optionally filtered by tags. Notes a reviewer has pinned are
+marked `[pinned]`, sort first, and are always returned regardless of `relevant_only`.
+
+- **Required Roles**: `user` (read-only)
+- `package_id`: ID of package to list notes for. (number, required)
+- `tags`: Return only notes carrying all of the given tags. (array of strings, optional)
+- `relevant_only`: When `true`, return only notes that apply to this report. Defaults to `false`. (boolean, optional)
+- `limit`: Maximum number of notes to return. Defaults to `20`, maximum `100`. (number, optional)
+- `offset`: Number of notes to skip for pagination. Defaults to `0`. (number, optional)
+
+#### cavil_accept_review
+
+Accept a legal review for a specific package.
+
+- **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
+- **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.
+- `package_id`: ID of package to accept. (number, required)
+- `reason`: Reason for package acceptance. (string, optional)
+
+#### cavil_reject_review
+
+Reject a legal review for a specific package.
+
+- **Required Roles**: `lawyer` or `admin` (read-write)
+- **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.
+- `package_id`: ID of package to reject. (number, required)
+- `reason`: Reason for package rejection. (string, required)
+
+#### cavil_propose_ignore_snippet
+
+Propose to ignore a specific snippet in the legal review.
+
+- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- `package_id`: ID of package to ignore snippet for. (number, required)
+- `snippet_id`: ID of snippet to ignore. (number, required)
+- `reason`: Reason for snippet to be ignored. (string, required)
+
+#### cavil_propose_license_pattern
+
+Propose a license pattern. If the license already exists, the pattern is added to it and the proposal lands on the
+admin **Change Proposals** page (risk and flags are inherited from the license). If the license is unknown, pass an
+integer `risk` to propose introducing it as a new license; that proposal lands on the lawyers' **Missing Licenses**
+page to ratify.
+
+- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- `package_id`: ID of the package the snippet belongs to. (number, required)
+- `snippet_id`: ID of the snippet the pattern is derived from. (number, required)
+- `pattern`: License pattern text; must match the snippet. (string, required)
+- `license`: License expression or SPDX identifier. (string, required)
+- `reason`: Why this is the license (shown as the proposal's rationale). (string, required)
+- `risk`: Risk level 1-9; required only when introducing a new (unknown) license. (number, optional)
+- `patent`, `trademark`, `export_restricted`, `cla`, `eula`: Flags describing a new license. (boolean, optional)
+
+#### cavil_propose_ignore_glob
+
+Propose a file path glob to exclude whole files from scanning system-wide.
+
+- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- `package_id`: ID of package the glob is proposed from; rejected unless it matches a reported file. (number, required)
+- `glob`: File path glob, e.g. `pkgname-*/testdata/*.log`. (string, required)
+- `reason`: Reason the matched files should be ignored. (string, required)
+
+#### cavil_report_missing_license
+
+Report a snippet as genuine license text that cannot be confidently patterned, so a lawyer can author the real
+pattern (it lands on the Missing Licenses review queue).
+
+- **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
+- `package_id`: ID of package the snippet belongs to. (number, required)
+- `snippet_id`: ID of snippet to report as a missing license. (number, required)
+- `reason`: Reason the snippet needs human review. (string, required)
 
 ### Agent Skills
 
@@ -543,6 +618,18 @@ should be approved for release to customers.
 ```
 
 ## REST API
+
+### Endpoint index
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | [`/api/v1/whoami`](#diagnostics) | Identify the API user |
+| `GET` | [`/api/v1/reports`](#locate-reports) | Locate reports by external link |
+| `GET` | [`/api/v1/search`](#search-packages) | Search packages and components |
+| `POST` | [`/api/v1/packages/upload`](#submit-a-package-for-review) | Submit a source archive for review |
+| `GET` | [`/api/v1/report/<package_id>.<format>`](#retrieve-license-reports) | Retrieve a legal report |
+| `GET` | [`/api/v1/documents/<package_id>/spdx`](#retrieve-spdx-reports) | Retrieve an SPDX document |
+| `GET` | [`/api/v1/documents/<package_id>/notice`](#retrieve-notice-files) | Retrieve a NOTICE file |
 
 ### Compression
 

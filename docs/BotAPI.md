@@ -2,6 +2,22 @@
 
 ## REST API
 
+### Endpoint index
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | [`/package/<package_id>`](#get-package-status) | Get package status |
+| `PATCH` | [`/package/<package_id>`](#update-package-information) | Update package information |
+| `POST` | [`/packages`](#create-a-package) | Create a package from a remote source |
+| `POST` | [`/packages/upload`](#upload-a-package) | Create a package from a source archive |
+| `POST` | [`/packages/import/<package_id>`](#re-import-a-package) | Re-import an existing package |
+| `GET` | [`/package/<package_id>/report.txt`](#get-a-package-report) | Get a plain-text legal report |
+| `POST` | [`/requests`](#create-a-review-request) | Create a package review request |
+| `GET` | [`/requests`](#list-review-requests) | List open review requests |
+| `DELETE` | [`/requests`](#delete-review-requests) | Delete review requests |
+| `PATCH` | [`/products/<product_name>`](#update-a-product) | Update the packages in a product |
+| `DELETE` | [`/products`](#delete-a-product) | Delete a product |
+
 ### Authentication
 
 All bot API endpoints use previously configured access tokens for authentication. These tokens are passed with every
@@ -66,6 +82,8 @@ Content-Encoding: gzip
 
 ### Packages
 
+#### Get package status
+
 `GET /package/<package_id>`
 
 Get package status in JSON format.
@@ -114,7 +132,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### Update package information
 
 `PATCH /package/<package_id>`
 
@@ -172,7 +190,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### Create a package
 
 `POST /packages`
 
@@ -254,7 +272,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### Upload a package
 
 `POST /packages/upload`
 
@@ -346,7 +364,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### Re-import a package
 
 `POST /packages/import/<package_id>`
 
@@ -417,7 +435,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### Get a package report
 
 `GET /package/<package_id>/report.txt`
 
@@ -447,6 +465,8 @@ Checkout: 4fcfdab0e71b0bebfdf8b5cc3badfec4
 ```
 
 ### Requests
+
+#### Create a review request
 
 `POST /requests`
 
@@ -486,7 +506,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### List review requests
 
 `GET /requests`
 
@@ -518,7 +538,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### Delete review requests
 
 `DELETE /requests`
 
@@ -559,6 +579,8 @@ Content-Type: application/json
 
 ### Products
 
+#### Update a product
+
 `PATCH /products/<product_name>`
 
 Update packages belonging to product.
@@ -593,7 +615,7 @@ Content-Type: application/json
 }
 ```
 
----
+#### Delete a product
 
 `DELETE /products`
 
