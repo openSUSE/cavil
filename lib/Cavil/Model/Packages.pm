@@ -1108,7 +1108,7 @@ sub source_api_url ($self, $id) {
 sub all_tags ($self) {
   return $self->pg->db->query(
     q{SELECT tag, COUNT(*)::int AS count FROM (SELECT unnest(tags) AS tag FROM bot_packages) t
-      WHERE tag NOT ILIKE 'CVE-%' GROUP BY tag ORDER BY count DESC, tag LIMIT 100}
+      WHERE tag !~* '^CVE(-|$)' GROUP BY tag ORDER BY count DESC, tag LIMIT 100}
   )->hashes->to_array;
 }
 

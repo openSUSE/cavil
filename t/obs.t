@@ -728,7 +728,7 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
   $worker->unregister;
   ok $t->app->packages->is_imported(1), 'imported';
-  is_deeply $t->app->packages->find(1)->{tags}, ['CVE-2024-22038'], 'CVE tag added from request during import';
+  is_deeply $t->app->packages->find(1)->{tags}, ['CVE'], 'single CVE marker tag added when the request references CVEs';
   $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_like('/imported' => qr/\d/);
   unlike $minion->job($job_id)->info->{result}, qr/Package \d+ is already being processed/, 'no race condition';
 

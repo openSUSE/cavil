@@ -47,7 +47,11 @@ sub _bugref_flags ($job, $id, $data) {
 
   my $embargoed = $obs->check_for_embargo($data->{api}, $request_id, $bugrefs);
   $app->packages->update({id => $id, embargoed => $embargoed});
-  $app->packages->add_tags($id, $obs->cves_for_request($data->{api}, $request_id, $bugrefs));
+
+  # A single "CVE" marker rather than one tag per id: reviewers prioritize on "is this a security fix",
+  # and the individual ids (dozens on some packages) only cluttered the report - they stay in the request.
+  my $cves = $obs->cves_for_request($data->{api}, $request_id, $bugrefs);
+  $app->packages->add_tags($id, @$cves ? ['CVE'] : []);
 }
 
 sub _git ($job, $id, $data) {

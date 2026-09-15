@@ -198,9 +198,9 @@ Create package.
 
 * `tags` (optional): Free-form labels to attach to the review, shown to reviewers and usable for prioritization. Repeat
                      the parameter for multiple values (`tags=security&tags=needs-legal`) or pass a JSON array string as
-                     `tags_json`. For Open Build Service imports, `CVE-...` tags are also derived automatically from the
-                     request's bug references. Tags are merged with any already on the package (deduplicated); a maximum
-                     of 16 non-`CVE-` tags of up to 32 characters each is enforced.
+                     `tags_json`. For Open Build Service imports, a single `CVE` tag is added automatically when the
+                     request references any CVE. Tags are merged with any already on the package (deduplicated); a
+                     maximum of 16 tags of up to 32 characters each is enforced.
 
 ```
 POST /packages

@@ -65,7 +65,7 @@ Cavil API key by setting the Authorization HTTP header:
 These tools are currently available:
 
 - *cavil_get_open_reviews* - Get a paginated list of highest priority open reviews, each reporting whether a
-  `review` tagged note already applies to its report and listing its tags (including `CVE-...` tags for updates
+  `review` tagged note already applies to its report and listing its tags (including a `CVE` tag for updates
   that fix a security issue)
   - **Required Roles**: `user` (read-only)
   - `search`: Filter results by package name, checksum, or external link. (string, optional)

@@ -163,7 +163,7 @@ unless ($clean) {
   $mojo->{external_link} = 'obs#456712';
   $mojo->{target}        = 'openSUSE:Factory/perl-Mojolicious';
   $pkgs->update($mojo);
-  $pkgs->add_tags($pkg_id, ['CVE-2024-3654', 'needs-second-opinion']);
+  $pkgs->add_tags($pkg_id, ['CVE', 'needs-second-opinion']);
   $pkgs->unpack($pkg_id);
   $pkg_id = $pkgs->add(
     name            => 'perl-Mojolicious',
