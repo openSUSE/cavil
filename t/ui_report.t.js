@@ -379,6 +379,18 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         '/perl-Mojolicious',
         'less important package suffix remains visible'
       );
+      const primaryTarget = page.locator('#pkg-link .cavil-external-link-submission');
+      const primaryTargetPackage = page.locator('#pkg-link .cavil-external-link-target-package');
+      t.equal((await primaryTargetPackage.boundingBox()).width, 0, 'package suffix is collapsed by default');
+      await primaryTarget.hover();
+      await page.waitForFunction(
+        selector => document.querySelector(selector).getBoundingClientRect().width > 0,
+        '#pkg-link .cavil-external-link-target-package'
+      );
+      t.ok((await primaryTargetPackage.boundingBox()).width > 0, 'hover reveals the package suffix');
+      await primaryTarget.locator('summary').click();
+      await page.mouse.move(0, 0);
+      t.ok(await primaryTarget.evaluate(element => element.open), 'click keeps the full target expanded');
       t.same(
         await page.locator('.report-metadata-request .cavil-external-link-submission-text').allTextContents(),
         ['products/PackageHub', 'openSUSE:Backports:SLE-15-SP7/perl-Mojolicious'],

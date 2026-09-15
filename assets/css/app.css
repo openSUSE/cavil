@@ -701,8 +701,20 @@ a.cavil-external-link-target:focus {
   background: var(--cavil-canvas-default);
   border-left: 1px solid var(--cavil-border);
   color: var(--cavil-fg-muted);
-  gap: 0.35rem;
   min-width: 0;
+  overflow: hidden;
+}
+.cavil-external-link-submission-summary {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 0.35rem;
+  list-style: none;
+  max-width: 100%;
+  min-width: 0;
+}
+.cavil-external-link-submission-summary::-webkit-details-marker {
+  display: none;
 }
 .cavil-external-link-submission-prefix {
   color: var(--cavil-fg-disabled);
@@ -723,10 +735,18 @@ a.cavil-external-link-target:focus {
 }
 .cavil-external-link-target-package {
   color: var(--cavil-fg-disabled);
-  flex: 1 5 auto;
-  min-width: 1.5ch;
+  flex: 0 5 auto;
+  max-width: 0;
   overflow: hidden;
+  opacity: 0;
   text-overflow: ellipsis;
+  transition: max-width 160ms ease, opacity 120ms ease;
+}
+.cavil-external-link-submission:hover .cavil-external-link-target-package,
+.cavil-external-link-submission:focus-within .cavil-external-link-target-package,
+.cavil-external-link-submission[open] .cavil-external-link-target-package {
+  max-width: 24rem;
+  opacity: 1;
 }
 .cavil-external-link-text,
 .cavil-external-link-source-text {

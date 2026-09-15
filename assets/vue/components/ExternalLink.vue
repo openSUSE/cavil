@@ -16,13 +16,15 @@
     <span v-if="hasLabel" class="cavil-external-link-source">
       <span class="cavil-external-link-source-text">{{ link.label }}</span>
     </span>
-    <span v-if="hasTarget" class="cavil-external-link-submission" :title="`Submission target: ${link.target}`">
-      <span class="cavil-external-link-submission-prefix">to</span>
-      <span class="cavil-external-link-submission-text">
-        <span class="cavil-external-link-target-project">{{ targetProject }}</span>
-        <span v-if="targetPackage" class="cavil-external-link-target-package">/{{ targetPackage }}</span>
-      </span>
-    </span>
+    <details v-if="hasTarget" class="cavil-external-link-submission" :title="`Submission target: ${link.target}`">
+      <summary class="cavil-external-link-submission-summary">
+        <span class="cavil-external-link-submission-prefix">to</span>
+        <span class="cavil-external-link-submission-text">
+          <span class="cavil-external-link-target-project">{{ targetProject }}</span>
+          <span v-if="targetPackage" class="cavil-external-link-target-package">/{{ targetPackage }}</span>
+        </span>
+      </summary>
+    </details>
   </span>
   <a
     v-else-if="hasUrl"
