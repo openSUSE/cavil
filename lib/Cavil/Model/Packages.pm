@@ -641,7 +641,7 @@ sub paginate_recent_reviews ($self, $options) {
       SELECT p.id, p.name, u.login, p.result, p.ai_assisted, EXTRACT(EPOCH FROM p.created) AS created_epoch,
         EXTRACT(EPOCH FROM p.reviewed) AS reviewed_epoch, EXTRACT(EPOCH FROM p.imported) as imported_epoch,
         EXTRACT(EPOCH FROM p.unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) as indexed_epoch,
-        external_link, priority, state, checksum, unresolved_matches, COUNT(*) OVER() AS total
+        external_link, priority, state, checksum, unresolved_matches, p.tags, COUNT(*) OVER() AS total
        FROM bot_packages p
          LEFT JOIN bot_users u ON p.reviewing_user = u.id
        WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' AND p.ephemeral = FALSE

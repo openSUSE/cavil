@@ -88,7 +88,10 @@
       <tbody v-else-if="reviews.length > 0">
         <tr v-for="review in reviews" :key="review.id">
           <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
-          <td class="cavil-list-link"><ExternalLink :link="review.externalLink" /></td>
+          <td class="cavil-list-link">
+            <ExternalLink :link="review.externalLink" />
+            <CveBadge :tags="review.tags" />
+          </td>
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td class="relative-time cavil-list-time">{{ review.reviewed }}</td>
           <td class="cavil-list-package" v-html="review.package"></td>
@@ -114,6 +117,7 @@
 
 <script>
 import CavilListLayout from './components/CavilListLayout.vue';
+import CveBadge from './components/CveBadge.vue';
 import EmptyState from './components/EmptyState.vue';
 import ExternalLink from './components/ExternalLink.vue';
 import LegalLoading from './components/LegalLoading.vue';
@@ -126,7 +130,7 @@ import moment from 'moment';
 export default {
   name: 'RecentReviews',
   mixins: [Refresh],
-  components: {CavilListLayout, EmptyState, ExternalLink, LegalLoading, PriorityBadge},
+  components: {CavilListLayout, CveBadge, EmptyState, ExternalLink, LegalLoading, PriorityBadge},
   data() {
     const params = getParams({
       limit: 10,
@@ -185,7 +189,8 @@ export default {
           report: reportLink(review),
           login: login.join(' '),
           result: review.result,
-          state: review.state
+          state: review.state,
+          tags: review.tags
         });
       }
       this.reviews = reviews;

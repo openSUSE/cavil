@@ -177,6 +177,45 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await page.unroute('**/pagination/reviews/open*');
     });
 
+    await t.test('CVE badge on recent reviews', async t => {
+      // ui_fixtures has no reviewed packages, so inject a synthetic recent row to exercise the wiring.
+      const now = Date.now() / 1000;
+      await page.route('**/pagination/reviews/recent*', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.page = [
+          {
+            id: 999999,
+            name: 'cve-recent-test',
+            external_link: 'ibs#4321',
+            imported_epoch: now,
+            reviewed_epoch: now,
+            unpacked_epoch: now,
+            indexed_epoch: now,
+            checksum: 'deadbeefdeadbeefdeadbeefdeadbeef',
+            unresolved_matches: 0,
+            priority: 5,
+            result: 'ok',
+            state: 'acceptable',
+            login: 'tester',
+            tags: ['CVE']
+          }
+        ];
+        data.total = 1;
+        data.start = 1;
+        data.end = 1;
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      await page.click('text=Recently Reviewed');
+      const badge = page.locator('#recent-reviews tbody > tr:nth-child(1) .cavil-list-link .cavil-cve-badge');
+      await badge.waitFor();
+      t.equal(await badge.innerText(), 'CVE', 'CVE badge sits in the recent-reviews link cell');
+
+      await page.unroute('**/pagination/reviews/recent*');
+    });
+
     await t.test('Note icons and the Annotated filter', async t => {
       await page.goto(url);
       await page.waitForSelector('#open-reviews tbody > tr:nth-child(10)');
