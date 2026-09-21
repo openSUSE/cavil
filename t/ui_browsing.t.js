@@ -213,6 +213,19 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       await badge.waitFor();
       t.equal(await badge.innerText(), 'CVE', 'CVE badge sits in the recent-reviews link cell');
 
+      // A fresh click (no filter typed first) must refetch with the tag filter, not the stale empty one
+      await Promise.all([
+        page.waitForResponse(
+          resp => /\/pagination\/reviews\/recent/.test(resp.url()) && /filter=tag(%3A|%3D|:|=)CVE/i.test(resp.url())
+        ),
+        badge.click()
+      ]);
+      t.equal(
+        await page.inputValue('#recent-reviews-filter-input'),
+        'tag=CVE',
+        'badge click fills the recent filter box and refetches with it'
+      );
+
       await page.unroute('**/pagination/reviews/recent*');
     });
 

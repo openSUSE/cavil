@@ -208,8 +208,10 @@ export default {
       this.doApiRefresh();
     },
     applyFilter(val) {
+      // filterNow must run after the `filter` watcher has copied the value into params, or the refresh
+      // fires with the old filter and the table does not actually change.
       this.filter = val;
-      this.filterNow();
+      this.$nextTick(this.filterNow);
     }
   },
   watch: {
