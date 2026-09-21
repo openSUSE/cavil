@@ -89,8 +89,10 @@
         <tr v-for="review in reviews" :key="review.id">
           <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
           <td class="cavil-list-link">
-            <ExternalLink :link="review.externalLink" />
-            <CveBadge :tags="review.tags" @filter="applyFilter" />
+            <div class="cavil-list-link-inner">
+              <ExternalLink :link="review.externalLink" />
+              <CveBadge :tags="review.tags" @filter="applyFilter" />
+            </div>
           </td>
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td class="relative-time cavil-list-time">{{ review.reviewed }}</td>

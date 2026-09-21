@@ -348,6 +348,15 @@ export default {
   max-width: 18rem;
   overflow-wrap: break-word;
 }
+/* Flex lives on an inner wrapper, not the td: a display:flex cell stops being a table-cell and breaks the
+   row borders in narrow states. This lays the link box and its trailing CVE badge out with a real gap, so
+   when the column is narrow and the badge wraps below the box, gap (unlike a margin) adds no leading indent. */
+.cavil-list-link-inner {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
 
 .cavil-list-table a {
   text-decoration: none;
