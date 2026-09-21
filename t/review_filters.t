@@ -12,7 +12,7 @@ use Cavil::Test;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'tag_filter_test');
+my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'review_filters_test');
 my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->no_fixtures($t->app);
 my $pkgs = $t->app->packages;
