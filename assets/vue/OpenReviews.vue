@@ -6,7 +6,7 @@
     filter-aria-label="Open review filters"
     filter-input-id="open-reviews-filter-input"
     filter-label="Filter reviews"
-    filter-placeholder="Filter reviews"
+    filter-placeholder="Filter reviews (try tag=CVE)"
     plural="open reviews"
     singular="open review"
     :start="start"
@@ -88,7 +88,7 @@
           <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
           <td class="cavil-list-link">
             <ExternalLink :link="review.externalLink" />
-            <CveBadge :tags="review.tags" />
+            <CveBadge :tags="review.tags" @filter="applyFilter" />
           </td>
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td class="cavil-list-package" v-html="review.package"></td>
@@ -186,6 +186,10 @@ export default {
       this.cancelApiRefresh();
       this.reviews = null;
       this.doApiRefresh();
+    },
+    applyFilter(val) {
+      this.filter = val;
+      this.filterNow();
     }
   },
   watch: {

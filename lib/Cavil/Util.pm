@@ -23,7 +23,7 @@ our @EXPORT_OK = (
   qw(buckets checkout_path expand_spec_macros file_and_checksum fs_bytes md5_file slurp_and_decode load_ignored_files),
   qw(lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
-  qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file),
+  qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file parse_list_filter),
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
   qw(read_lines run_cmd),
   qw(request_id_from_external_link),
@@ -708,6 +708,18 @@ sub validate_tags ($tags, $exempt = undef) {
   my $counted = defined $exempt ? grep { $_ !~ $exempt } @clean : scalar @clean;
   return (undef,   'too many tags, maximum is ' . MAX_TAGS) if $counted > MAX_TAGS;
   return (\@clean, undef);
+}
+
+sub parse_list_filter ($string, $allowed) {
+  my %allowed = map { lc($_) => 1 } @$allowed;
+  my (%quals, @text);
+  for my $token (split ' ', $string // '') {
+
+    # An unknown field is left in the free text so a mistyped qualifier still searches for something
+    if ($token =~ /^(\w+)[:=](\S+)$/ && $allowed{lc $1}) { $quals{lc $1} = $2 }
+    else                                                 { push @text, $token }
+  }
+  return (\%quals, join(' ', @text));
 }
 
 sub paginate ($results, $options) {

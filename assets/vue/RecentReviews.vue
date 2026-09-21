@@ -6,7 +6,7 @@
     filter-aria-label="Recent review filters"
     filter-input-id="recent-reviews-filter-input"
     filter-label="Filter reviews"
-    filter-placeholder="Filter reviews"
+    filter-placeholder="Filter reviews (try tag=CVE)"
     plural="recent reviews"
     singular="recent review"
     :start="start"
@@ -90,7 +90,7 @@
           <td class="cavil-list-priority"><PriorityBadge :priority.sync="review.priority" /></td>
           <td class="cavil-list-link">
             <ExternalLink :link="review.externalLink" />
-            <CveBadge :tags="review.tags" />
+            <CveBadge :tags="review.tags" @filter="applyFilter" />
           </td>
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
           <td class="relative-time cavil-list-time">{{ review.reviewed }}</td>
@@ -204,6 +204,10 @@ export default {
       this.cancelApiRefresh();
       this.reviews = null;
       this.doApiRefresh();
+    },
+    applyFilter(val) {
+      this.filter = val;
+      this.filterNow();
     }
   },
   watch: {

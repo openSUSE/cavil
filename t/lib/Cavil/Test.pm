@@ -574,6 +574,9 @@ sub ui_fixtures ($self, $app) {
   $pkgs->update($harbor);
   $pkgs->unpack($pkg_id);
 
+  # One open review with a CVE tag so the tag filter (tag:CVE) has real data to match
+  $pkgs->add_tags($pkg_id, ['CVE']);
+
   # Synthetic package with many unresolved keyword matches. Built from a real
   # tarball and indexed by the regular unpack + analyze pipeline so the
   # missed_files collection is genuine (no bot_reports surgery). Drives the

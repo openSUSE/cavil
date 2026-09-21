@@ -5,8 +5,8 @@ package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Model::Notes qw(relevance_predicate);
-use Cavil::Util qw(checkout_path incoming_priority md5_file paginate PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP),
-  qw(PRIORITY_WAITING @LICENSE_FLAGS);
+use Cavil::Util         qw(checkout_path incoming_priority md5_file paginate parse_list_filter),
+  qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP), qw(PRIORITY_WAITING @LICENSE_FLAGS);
 use Mojo::File qw(path);
 use Mojo::Util qw(dumper scope_guard);
 use Text::Glob qw(glob_to_regex);
@@ -497,10 +497,18 @@ sub _annotated_filter ($db, $options) {
 sub paginate_open_reviews ($self, $options) {
   my $db = $self->pg->db;
 
+  my ($quals, $text) = parse_list_filter($options->{search}, ['tag']);
+
   my $search = '';
-  if (length($options->{search}) > 0) {
-    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+  if (length($text) > 0) {
+    my $quoted = $db->dbh->quote("\%$text\%");
     $search = "AND (checksum ILIKE $quoted OR external_link ILIKE $quoted OR name ILIKE $quoted)";
+  }
+
+  my $tag = '';
+  if (defined(my $v = $quals->{tag})) {
+    my $quoted = $db->dbh->quote($v);
+    $tag = "AND EXISTS (SELECT 1 FROM unnest(tags) t WHERE t ILIKE $quoted)";
   }
 
   my $priority = '';
@@ -527,7 +535,7 @@ sub paginate_open_reviews ($self, $options) {
         EXTRACT(EPOCH FROM unpacked) as unpacked_epoch, EXTRACT(EPOCH FROM indexed) as indexed_epoch, external_link,
         priority, state, checksum, unresolved_matches, tags, COUNT(*) OVER() AS total
       FROM bot_packages
-      WHERE state = 'new' AND obsolete = FALSE AND ephemeral = FALSE $priority $search $progress $embargoed $notes
+      WHERE state = 'new' AND obsolete = FALSE AND ephemeral = FALSE $priority $search $tag $progress $embargoed $notes
       ORDER BY priority DESC, external_link, unresolved_matches, name
       LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}
@@ -608,9 +616,11 @@ sub paginate_product_reviews ($self, $name, $options) {
 sub paginate_recent_reviews ($self, $options) {
   my $db = $self->pg->db;
 
+  my ($quals, $text) = parse_list_filter($options->{search}, ['tag']);
+
   my $search = '';
-  if (length($options->{search}) > 0) {
-    my $quoted = $db->dbh->quote("\%$options->{search}\%");
+  if (length($text) > 0) {
+    my $quoted = $db->dbh->quote("\%$text\%");
     $search = "
       AND (
         p.checksum ILIKE $quoted
@@ -619,6 +629,12 @@ sub paginate_recent_reviews ($self, $options) {
         OR p.state::text ILIKE $quoted
         OR p.result ILIKE $quoted
       )";
+  }
+
+  my $tag = '';
+  if (defined(my $v = $quals->{tag})) {
+    my $quoted = $db->dbh->quote($v);
+    $tag = "AND EXISTS (SELECT 1 FROM unnest(p.tags) t WHERE t ILIKE $quoted)";
   }
 
   my $user = '';
@@ -645,7 +661,7 @@ sub paginate_recent_reviews ($self, $options) {
        FROM bot_packages p
          LEFT JOIN bot_users u ON p.reviewing_user = u.id
        WHERE reviewed IS NOT NULL AND reviewed > NOW() - INTERVAL '90 DAYS' AND p.ephemeral = FALSE
-         $search $user $ai_assisted $unresolved
+         $search $tag $user $ai_assisted $unresolved
        ORDER BY reviewed DESC
        LIMIT ? OFFSET ?
     }, $options->{limit}, $options->{offset}

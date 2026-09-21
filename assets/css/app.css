@@ -627,10 +627,17 @@ button.cavil-icon-action {
   background-color: var(--cavil-danger-bg);
   border: 1px solid var(--cavil-danger-border);
   color: var(--cavil-danger);
+  cursor: pointer;
+  font-family: inherit;
   font-size: 0.6875rem;
   letter-spacing: 0.03em;
   margin-left: 0.35rem;
   vertical-align: middle;
+}
+.badge.cavil-cve-badge:hover,
+.badge.cavil-cve-badge:focus {
+  background-color: var(--cavil-danger);
+  color: var(--cavil-on-accent);
 }
 /* Emitted as raw HTML by the listing report cell, so a scoped component style would not reach it.
    Bare glyph on purpose: the unresolved-match count stays the only boxed thing in that cell. */

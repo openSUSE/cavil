@@ -167,7 +167,7 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       const badge = page.locator('#open-reviews tbody > tr:nth-child(1) .cavil-list-link .cavil-cve-badge');
       await badge.waitFor();
       t.equal(await badge.innerText(), 'CVE', 'CVE badge sits in the link cell for a CVE-tagged review');
-      t.match(await badge.getAttribute('title'), /security issue/, 'badge explains the CVE');
+      t.match(await badge.getAttribute('title'), /security fixes/, 'badge explains the CVE');
       t.equal(
         await page.locator('#open-reviews tbody > tr:nth-child(1) img').count(),
         0,
@@ -214,6 +214,35 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       t.equal(await badge.innerText(), 'CVE', 'CVE badge sits in the recent-reviews link cell');
 
       await page.unroute('**/pagination/reviews/recent*');
+    });
+
+    await t.test('Filter reviews by CVE tag', async t => {
+      await page.goto(url);
+      await page.waitForSelector('#open-reviews tbody > tr:nth-child(1)');
+
+      // Typing a tag:field token narrows to the one CVE-tagged fixture (harbor-helm)
+      await Promise.all([
+        page.waitForResponse(
+          resp => /\/pagination\/reviews\/open/.test(resp.url()) && /filter=tag(%3A|%3D|:|=)CVE/i.test(resp.url())
+        ),
+        (async () => {
+          await page.fill('#open-reviews-filter-input', 'tag:CVE');
+          await page.press('#open-reviews-filter-input', 'Enter');
+        })()
+      ]);
+      await page.waitForFunction(() => document.querySelectorAll('#open-reviews tbody > tr').length === 1);
+      const row = page.locator('#open-reviews tbody > tr').first();
+      t.match(await row.innerText(), /harbor-helm/, 'only the CVE-tagged review remains');
+      t.equal(await row.locator('.cavil-cve-badge').count(), 1, 'the surviving row keeps its CVE badge');
+
+      // Clicking the badge is the point-and-click path into the same filter
+      await Promise.all([
+        page.waitForResponse(
+          resp => /\/pagination\/reviews\/open/.test(resp.url()) && /filter=tag(%3A|%3D|:|=)CVE/i.test(resp.url())
+        ),
+        row.locator('.cavil-cve-badge').click()
+      ]);
+      t.equal(await page.inputValue('#open-reviews-filter-input'), 'tag=CVE', 'badge click fills the filter box');
     });
 
     await t.test('Note icons and the Annotated filter', async t => {

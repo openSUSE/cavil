@@ -1,10 +1,19 @@
 <template>
-  <span v-if="hasCve" class="badge cavil-cve-badge" title="Fixes a security issue">CVE</span>
+  <button
+    v-if="hasCve"
+    type="button"
+    class="badge cavil-cve-badge"
+    title="Filter to security fixes"
+    @click="$emit('filter', 'tag=CVE')"
+  >
+    CVE
+  </button>
 </template>
 
 <script>
 export default {
   name: 'CveBadge',
+  emits: ['filter'],
   props: {
     tags: {
       type: Array,

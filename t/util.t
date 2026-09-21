@@ -10,7 +10,7 @@ use Cavil::Util (
   qw(buckets expand_spec_macros extract_copyrights legal_review_notices lines_context license_is_catch_all),
   qw(license_text),
   qw(normalize_license_expr obs_ssh_auth original_filename),
-  qw(parse_exclude_file parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
+  qw(parse_exclude_file parse_list_filter parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
   qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
   qw(decode_json_fast encode_json_fast to_json_fast)
@@ -148,6 +148,16 @@ subtest 'parse_exclude_file' => sub {
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc1'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/cavil.exclude', 'gcc9'),    ['another.tar.gz',  'specific.zip'];
   is_deeply parse_exclude_file('t/exclude-files/empty.exclude', 'whatever'), [];
+};
+
+subtest 'parse_list_filter' => sub {
+  is_deeply [parse_list_filter('tag:CVE openssl', ['tag'])], [{tag => 'CVE'}, 'openssl'], 'qual and free text';
+  is_deeply [parse_list_filter('tag=CVE', ['tag'])],         [{tag => 'CVE'}, ''],        'equals syntax';
+  is_deeply [parse_list_filter('TAG:CVE', ['tag'])],         [{tag => 'CVE'}, ''], 'field name is case insensitive';
+  is_deeply [parse_list_filter('foo:bar baz', ['tag'])],     [{}, 'foo:bar baz'],     'unknown field folded into text';
+  is_deeply [parse_list_filter('just some words', ['tag'])], [{}, 'just some words'], 'plain text untouched';
+  is_deeply [parse_list_filter('', ['tag'])],                [{}, ''],                'empty string';
+  is_deeply [parse_list_filter(undef, ['tag'])],             [{}, ''],                'undef string';
 };
 
 subtest 'parse_service_file' => sub {
