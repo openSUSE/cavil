@@ -349,11 +349,13 @@ sub expand_spec_macros ($content) {
   }
 
   # Expand references repeatedly to resolve chains (e.g. mainver -> major), bounded so recursive or
-  # cyclic definitions cannot loop forever. Only defined macros are substituted; the "(?<!%)" guard
-  # leaves escaped "%%" alone, and using /ge with a hash lookup (never string interpolation) means
-  # hostile macro values cannot inject regex or replacement syntax.
+  # cyclic definitions cannot loop forever. Only defined macros are substituted, conditionals included,
+  # since an undefined one may still come from the build system. The "(?<!%)" guard leaves escaped "%%"
+  # alone, and using /ge with a hash lookup (never string interpolation) means hostile macro values
+  # cannot inject regex or replacement syntax.
   for (1 .. 10) {
     my $before = $content;
+    $content =~ s/(?<!%)(%\{(!?)\?(\w+)(?::([^{}]*))?\})/exists $macros{$3} ? ($2 ? '' : $4 \/\/ $macros{$3}) : $1/ge;
     $content =~ s/(?<!%)%\{(\w+)\}/exists $macros{$1} ? $macros{$1} : "%{$1}"/ge;
     $content =~ s/(?<!%)%(\w+)/exists $macros{$1} ? $macros{$1} : "%$1"/ge;
     last if $content eq $before;

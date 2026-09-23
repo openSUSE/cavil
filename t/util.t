@@ -71,6 +71,14 @@ subtest 'expand_spec_macros' => sub {
     is $tag->($chained, 'Source'), 'tool-91.2.tar.gz', 'seeded %{version} is itself macro-resolved';
   };
 
+  subtest 'conditional references to defined macros' => sub {
+    my $spec = "%define name_ext -test\n%define short_name os-autoinst\nName: %{short_name}%{?name_ext}\n";
+    is $tag->($spec,                                  'Name'),    'os-autoinst-test', '%{?foo} (the os-autoinst case)';
+    is $tag->("%define x 1\nVersion: 2%{?x:.%{x}}\n", 'Version'), '2.1', '%{?foo:text} with a nested reference';
+    is $tag->("%define x 1\nVersion: 2%{!?x:.0}\n",   'Version'), '2',   '%{!?foo:text}';
+    is $tag->("Version: 2%{!?x:.0}\n", 'Version'), '2%{!?x:.0}',         'undefined is left for the build system';
+  };
+
   subtest 'unknown macros are left untouched' => sub {
     is $tag->("Version: %{_prefix}/x\n", 'Version'), '%{_prefix}/x', 'undefined braced macro passes through';
     is $tag->("Version: %undefined\n",   'Version'), '%undefined',   'undefined bare macro passes through';
