@@ -5,23 +5,21 @@
       <div class="col-10 mt-3">
         <h2 class="report-metadata-name">
           <a :href="searchUrl" target="_blank">{{ pkgName }}</a>
-          <span class="cavil-package-format-icon"
+          <span v-if="formatIcon !== null" class="cavil-package-format-icon"
             >&nbsp;
-            <i class="fa-brands fa-suse" v-if="pkgType === 'spec'"></i>
-            <i class="fa-brands fa-debian" v-else-if="pkgType === 'debian'"></i>
-            <i class="fa-solid fa-kiwi-bird" v-else-if="pkgType === 'kiwi'"></i>
-            <i class="fa-brands fa-docker" v-else-if="pkgType === 'dockerfile'"></i>
-            <i class="fa-solid fa-dharmachakra" v-else-if="pkgType === 'helm'"></i>
-            <i class="fa-solid fa-industry" v-else-if="pkgType === 'obsprj'"></i>
-            <i class="fa-regular fa-circle-question" v-else></i>
+            <i :class="formatIcon"></i>
           </span>
         </h2>
         <dl class="report-metadata-list">
-          <template v-if="pkgLicense !== null && pkgLicense.name !== null">
+          <template v-if="declarations.length > 0">
             <dt>License</dt>
-            <dd id="pkg-license">
-              {{ pkgLicense.name }}
-              <small v-if="pkgLicense.spdx === false">(not SPDX)</small>
+            <dd id="pkg-declarations">
+              <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
+                <span v-if="d.license_html !== null" v-html="d.license_html"></span>
+                <span v-if="d.name && d.name !== pkgName" class="metadata-declaration-name">{{ d.name }}</span>
+                <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ d.file }}</a>
+                <span class="metadata-declaration-format">{{ d.format }}</span>
+              </div>
             </dd>
           </template>
           <dt>Embargoed</dt>
@@ -58,15 +56,6 @@
               >#{{ pkgId }}</copyable-text
             >
           </dd>
-          <template v-if="pkgFiles.length > 0">
-            <dt>Package files</dt>
-            <dd id="num-spec-files">
-              <a href="#spec-files" class="report-metadata-collapse-link" data-bs-toggle="collapse">
-                <span v-if="pkgFiles.length === 1">1 file</span>
-                <span v-else>{{ pkgFiles.length }} files</span>
-              </a>
-            </dd>
-          </template>
           <template v-if="actions.length > 0">
             <dt>Actions</dt>
             <dd>
@@ -101,10 +90,6 @@
           <template v-if="pkgSummary !== null">
             <dt>Summary</dt>
             <dd id="pkg-summary">{{ pkgSummary }}</dd>
-          </template>
-          <template v-if="pkgGroup !== null">
-            <dt>Group</dt>
-            <dd id="pkg-group">{{ pkgGroup }}</dd>
           </template>
           <template v-if="pkgUrl !== null">
             <dt>URL</dt>
@@ -163,46 +148,6 @@
         </ul>
       </div>
     </div>
-    <div v-if="pkgFiles.length > 0" id="spec-files" class="collapse">
-      <div class="metadata-collapse-inner">
-        <ul class="metadata-file-list">
-          <li v-for="file in pkgFiles" :key="file.file" class="metadata-file-item">
-            <h3 class="metadata-file-title">
-              <i class="fa-solid fa-file-lines"></i>
-              <a :href="file.fileUrl" target="_blank" rel="noopener">{{ file.file }}</a>
-            </h3>
-            <dl class="metadata-file-details">
-              <template v-if="file.licenses !== null">
-                <dt>Licenses</dt>
-                <dd>{{ file.licenses }}</dd>
-              </template>
-              <template v-if="file.version !== null">
-                <dt>Version</dt>
-                <dd>{{ file.version }}</dd>
-              </template>
-              <template v-if="file.summary !== null">
-                <dt>Summary</dt>
-                <dd>{{ file.summary }}</dd>
-              </template>
-              <template v-if="file.group !== null">
-                <dt>Group</dt>
-                <dd>{{ file.group }}</dd>
-              </template>
-              <template v-if="file.url !== null">
-                <dt>URL</dt>
-                <dd>
-                  <a :href="file.url" target="_blank">{{ file.url }}</a>
-                </dd>
-              </template>
-              <template v-if="file.sources !== null">
-                <dt>Sources</dt>
-                <dd>{{ file.sources }}</dd>
-              </template>
-            </dl>
-          </li>
-        </ul>
-      </div>
-    </div>
     <section v-if="notice !== null" id="review-information" class="review-information-card">
       <header class="review-information-card-bar">
         <i class="fa-solid fa-caret-right"></i>
@@ -220,11 +165,11 @@
       >{{ segment.text }}</a><template v-else>{{ segment.text }}</template></span></pre>
     </section>
     <cavil-notice-panel
-      v-if="errors.length > 0"
-      id="spec-errors"
+      v-if="incompleteCheckout.length > 0"
+      id="incomplete-checkout"
       icon="fa-solid fa-triangle-exclamation"
-      :items="errors"
-      title="Package file warnings"
+      :items="incompleteCheckout"
+      title="Checkout may be incomplete"
       tone="warning"
     />
     <cavil-notice-panel
@@ -402,6 +347,23 @@ import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
+const FORMAT_ICONS = {
+  spec: 'fa-brands fa-suse',
+  debian: 'fa-brands fa-debian',
+  kiwi: 'fa-solid fa-kiwi-bird',
+  dockerfile: 'fa-brands fa-docker',
+  helm: 'fa-solid fa-dharmachakra',
+  obsprj: 'fa-solid fa-industry',
+  npm: 'fa-brands fa-npm',
+  cargo: 'fa-brands fa-rust',
+  pypi: 'fa-brands fa-python',
+  maven: 'fa-brands fa-java',
+  golang: 'fa-brands fa-golang',
+  composer: 'fa-brands fa-php',
+  gem: 'fa-solid fa-gem',
+  nuget: 'fa-brands fa-microsoft'
+};
+
 export default {
   name: 'ReportMetadata',
   components: {
@@ -424,8 +386,8 @@ export default {
       checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
       created: null,
+      declarations: [],
       legalDocuments: null,
-      errors: [],
       externalLink: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
@@ -439,15 +401,12 @@ export default {
       knownTags: [],
       canEditTags: false,
       ephemeralDelete: '',
-      pkgFiles: [],
-      pkgGroup: null,
-      pkgLicense: null,
+      incompleteCheckout: [],
       pkgName: null,
       pkgPriority: null,
       pkgRisk: null,
       pkgShortname: null,
       pkgSummary: null,
-      pkgType: null,
       pkgUrl: null,
       pkgVersion: null,
       productsHtml: null,
@@ -480,6 +439,9 @@ export default {
     };
   },
   computed: {
+    formatIcon() {
+      return FORMAT_ICONS[this.declarations[0]?.format] ?? null;
+    },
     canReview() {
       return this.hasAdminRole === true || this.hasManagerRole === true;
     },
@@ -752,7 +714,6 @@ export default {
 
       this.created = moment(data.created * 1000).fromNow();
       this.legalDocuments = data.legal_documents ?? null;
-      this.errors = data.errors;
       this.externalLink = data.external_link_data ?? data.external_link;
       this.derivedDocuments = data.documents;
       this.legalReviewNotices = data.legal_review_notices;
@@ -763,21 +724,17 @@ export default {
         action.actionUrl = `/reviews/details/${action.id}`;
       }
 
-      this.pkgFiles = data.package_files;
-      for (const file of this.pkgFiles) {
-        file.fileUrl = fileViewUrl(this.pkgId, file.file);
-        file.licenses = file.licenses.length > 0 ? file.licenses.join(', ') : null;
-        file.sources = file.sources.length > 0 ? file.sources.join(', ') : null;
-      }
+      this.declarations = data.declarations;
+      for (const d of this.declarations) d.fileUrl = fileViewUrl(this.pkgId, d.file);
+      this.incompleteCheckout = data.incomplete_checkout.map(
+        service => `Remote service in _service file: ${service.name} (mode: ${service.mode})`
+      );
 
-      this.pkgGroup = data.package_group;
-      this.pkgLicense = data.package_license;
       this.pkgName = data.package_name;
       this.pkgPriority = data.package_priority;
       this.pkgRisk = data.package_risk;
       this.pkgShortname = data.package_shortname;
       this.pkgSummary = data.package_summary;
-      this.pkgType = data.package_type;
       this.pkgUrl = data.package_url;
       this.pkgVersion = data.package_version;
       this.pkgEmbargoed = data.embargoed;
@@ -1086,8 +1043,7 @@ export default {
 .metadata-collapse-inner {
   padding: 0.85rem 0 1.1rem;
 }
-.metadata-related-list,
-.metadata-file-list {
+.metadata-related-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1108,8 +1064,7 @@ export default {
 .metadata-related-item:last-child {
   margin-bottom: 0;
 }
-.metadata-related-item:hover,
-.metadata-file-item:hover {
+.metadata-related-item:hover {
   background: var(--cavil-canvas-subtle);
 }
 .metadata-related-name {
@@ -1147,67 +1102,33 @@ export default {
   color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
-.metadata-file-item {
-  background: var(--cavil-canvas);
-  border: 1px solid var(--cavil-border);
-  border-radius: 8px;
-  margin-bottom: 0.85rem;
-  overflow: hidden;
-  transition: background-color 0.15s ease;
-}
-.metadata-file-item:last-child {
-  margin-bottom: 0;
-}
-.metadata-file-title {
-  align-items: center;
-  background: var(--cavil-canvas-subtle);
-  border-bottom: 1px solid var(--cavil-border);
-  color: var(--cavil-fg);
+.metadata-declaration {
+  align-items: baseline;
   display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  gap: 0.45rem;
-  line-height: 1.35;
-  margin: 0;
-  overflow-wrap: anywhere;
-  padding: 0.65rem 0.85rem;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
 }
-.metadata-file-title i {
-  color: var(--cavil-fg-subtle);
-}
-.metadata-file-title a {
-  color: inherit;
-  text-decoration-color: transparent;
-}
-.metadata-file-title a:hover,
-.metadata-file-title a:focus {
-  color: inherit;
-  text-decoration-color: currentColor;
-}
-.metadata-file-details {
-  display: grid;
-  font-size: 13px;
-  gap: 0.35rem 0.85rem;
-  grid-template-columns: max-content minmax(0, 1fr);
-  margin: 0;
-  padding: 0.75rem 0.85rem;
-}
-.metadata-file-details dt {
+.metadata-declaration-name,
+.report-metadata-list a.metadata-declaration-file {
   color: var(--cavil-fg-muted);
+  font-size: 13px;
+}
+.report-metadata-list a.metadata-declaration-file:hover,
+.report-metadata-list a.metadata-declaration-file:focus {
+  color: var(--cavil-accent);
+}
+.metadata-declaration-format {
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
+  border-radius: 999px;
+  color: var(--cavil-fg-muted);
+  font-size: 11px;
   font-weight: 600;
-}
-.metadata-file-details dd {
-  color: var(--cavil-fg);
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.metadata-file-details a {
-  text-decoration-color: transparent;
-}
-.metadata-file-details a:hover,
-.metadata-file-details a:focus {
-  text-decoration-color: currentColor;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 /* Review-information card. Rendered as a terminal/console panel - a small
    dark title bar with a prompt-style caret + label, then the freeform
@@ -1371,12 +1292,6 @@ export default {
   }
   .metadata-review-status {
     flex-wrap: wrap;
-  }
-  .metadata-file-details {
-    grid-template-columns: 1fr;
-  }
-  .metadata-file-details dd + dt {
-    margin-top: 0.25rem;
   }
 }
 .cavil-classification-badge {

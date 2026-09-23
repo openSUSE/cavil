@@ -25,7 +25,7 @@ our @EXPORT_OK = (
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
   qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file parse_list_filter),
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
-  qw(read_lines run_cmd),
+  qw(read_lines run_cmd safe_string),
   qw(request_id_from_external_link),
   qw(external_link_data license_link snippet_checksum spdx_identifiers spdx_link spdx_only_expression),
   qw(ssh_sign text_shingles),
@@ -744,6 +744,9 @@ sub parse_exclude_file ($path, $name) {
 
   return $exclude;
 }
+
+# Metadata comes from untrusted files, so a value that is not a short single-line string is unusable
+sub safe_string ($value) { defined $value && !ref $value && length $value <= 512 && $value !~ /[\x00-\x1f]/ }
 
 sub parse_service_file ($file) {
   my $dom = Mojo::DOM->new($file);

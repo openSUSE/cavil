@@ -1009,34 +1009,37 @@ subtest 'spdx_edit_snippet' => sub {
 subtest 'report_checksum' => sub {
   subtest 'Specfile license' => sub {
     is report_checksum({}, {}), '1709a28fde41022c01762131a1711875', 'empty report';
-    is report_checksum({main => {license => 'MIT'}}, {}), '2d5198bd51f0617d05bf585eb3dc4758', 'specfile license only';
-    is report_checksum({main => {license => 'GPL-2.0+'}}, {}), '10371a26faed4e5fe9bac58c3b7b2c25',
+    is report_checksum({declarations => [{license => 'MIT'}]}, {}), '2d5198bd51f0617d05bf585eb3dc4758',
+      'declared license only';
+    is report_checksum({declarations => [{license => 'GPL-2.0+'}]}, {}), '10371a26faed4e5fe9bac58c3b7b2c25',
       'canonicalize license';
-    is report_checksum({main => {license => 'GPL-2.0-or-later'}}, {}), '10371a26faed4e5fe9bac58c3b7b2c25',
+    is report_checksum({declarations => [{license => 'GPL-2.0-or-later'}]}, {}), '10371a26faed4e5fe9bac58c3b7b2c25',
       'already caninicallized license';
   };
 
   subtest 'Dig licenses' => sub {
-    is report_checksum({main => {license => 'MIT'}}, {licenses => {'Apache-2.0' => {risk => 2}}}),
-      'e91c43850ffd197cee057b93e1f00e0a', 'specfile and dig licenses';
-    is report_checksum({main => {license => 'MIT'}}, {licenses => {'Apache-2.0' => {risk => 2}, 'Foo' => {risk => 0}}}),
+    is report_checksum({declarations => [{license => 'MIT'}]}, {licenses => {'Apache-2.0' => {risk => 2}}}),
+      'e91c43850ffd197cee057b93e1f00e0a', 'declared and dig licenses';
+    is report_checksum({declarations => [{license => 'MIT'}]},
+      {licenses => {'Apache-2.0' => {risk => 2}, 'Foo' => {risk => 0}}}),
       'e91c43850ffd197cee057b93e1f00e0a', 'ignore risk 0 licenses';
-    is report_checksum({main => {license => 'MIT'}},
+    is report_checksum({declarations => [{license => 'MIT'}]},
       {licenses => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}}}),
       '9c6028aac6ea076c135afa22bb1af168', 'two dig licenses';
   };
 
   subtest 'Flags' => sub {
-    is report_checksum({main => {license => 'MIT'}}, {licenses => {'Apache-2.0' => {risk => 2, flags => ['patent']}}}),
+    is report_checksum({declarations => [{license => 'MIT'}]},
+      {licenses => {'Apache-2.0' => {risk => 2, flags => ['patent']}}}),
       '44145ca2199684606c72e444d16c10b5', 'one license flag';
-    is report_checksum({main => {license => 'MIT'}},
+    is report_checksum({declarations => [{license => 'MIT'}]},
       {licenses => {'Apache-2.0' => {risk => 2, flags => ['patent', 'trademark']}}}),
       '4bbcf593950c619f3beb693643925559', 'two license flags';
   };
 
   subtest 'Snippets' => sub {
     is report_checksum(
-      {main => {license => 'MIT'}},
+      {declarations => [{license => 'MIT'}]},
       {
         licenses        => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
         missed_snippets => {2            => [[10, 20, 4, '6d5198bd51f0617d05bf585rb3dc475f']]}
@@ -1044,7 +1047,7 @@ subtest 'report_checksum' => sub {
       ),
       'e53a9998d69ce6a27f198c415abaf363', 'one snippet present';
     is report_checksum(
-      {main => {license => 'MIT'}},
+      {declarations => [{license => 'MIT'}]},
       {
         licenses        => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
         missed_snippets => {
@@ -1055,7 +1058,7 @@ subtest 'report_checksum' => sub {
       ),
       '1715f865453e0ab679688cf0c219fbe4', 'multiple snippets present';
     is report_checksum(
-      {main => {license => 'MIT'}},
+      {declarations => [{license => 'MIT'}]},
       {
         licenses        => {'Apache-2.0' => {risk => 2}, 'BSD-3-Clause' => {risk => 1}},
         missed_snippets => {
@@ -1073,9 +1076,9 @@ subtest 'report_checksum' => sub {
 
     # The compatibility matrix is informational and derived from the (already hashed) license set, so
     # it deliberately does not change the report checksum - incompatibilities must not drive re-reviews.
-    my $without = report_checksum({main => {license => 'MIT'}}, {licenses => $licenses});
+    my $without = report_checksum({declarations => [{license => 'MIT'}]}, {licenses => $licenses});
     my $with    = report_checksum(
-      {main => {license => 'MIT'}},
+      {declarations => [{license => 'MIT'}]},
       {
         licenses              => $licenses,
         license_compatibility => {
@@ -1094,15 +1097,15 @@ subtest 'report_checksum' => sub {
 subtest 'summary_delta_score' => sub {
   subtest 'Specfile' => sub {
     is summary_delta_score(
-      {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}},
-      {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {}}
+      {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {}},
+      {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {}}
       ),
-      0, 'same specfile';
+      0, 'same declared license';
     is summary_delta_score(
-      {id => 1, specfile => 'MIT',      missed_snippets => {}, licenses => {}},
-      {id => 2, specfile => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
+      {id => 1, declared => 'MIT',      missed_snippets => {}, licenses => {}},
+      {id => 2, declared => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
       ),
-      1000, 'different specfile';
+      1000, 'different declared license';
   };
 
   subtest 'Snippets' => sub {
@@ -1110,7 +1113,7 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99', '741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1119,7 +1122,7 @@ subtest 'summary_delta_score' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99', '741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1131,7 +1134,7 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99', '741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1140,7 +1143,7 @@ subtest 'summary_delta_score' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1152,7 +1155,7 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1161,7 +1164,7 @@ subtest 'summary_delta_score' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99']},
           licenses        => {}
         }
@@ -1170,7 +1173,7 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/Changes'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1179,7 +1182,7 @@ subtest 'summary_delta_score' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1194,13 +1197,13 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
           licenses        => {}
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1212,13 +1215,13 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
           licenses        => {}
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99'],
@@ -1231,7 +1234,7 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1240,7 +1243,7 @@ subtest 'summary_delta_score' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1252,7 +1255,7 @@ subtest 'summary_delta_score' => sub {
       is summary_delta_score(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1261,7 +1264,7 @@ subtest 'summary_delta_score' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => [
@@ -1279,41 +1282,41 @@ subtest 'summary_delta_score' => sub {
   subtest 'Licenses' => sub {
     subtest 'Not noteworthy' => sub {
       is summary_delta_score(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}}
         ),
         0, 'same licenses';
       is summary_delta_score(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3, 'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3, 'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3}}
         ),
         0, 'License removed';
       is summary_delta_score(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 4}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 4}}
         ),
         0, 'different risk';
     };
 
     subtest 'Noteworthy' => sub {
       is summary_delta_score(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
         30, 'new license';
       is summary_delta_score(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {},
           licenses        => {'Apache-2.0' => 5, 'MIT' => 3, 'GPL-2.0+' => 1}
         }
         ),
         40, 'new licenses';
       is summary_delta_score(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
         80, 'more new licenses';
     };
@@ -1323,15 +1326,15 @@ subtest 'summary_delta_score' => sub {
 subtest 'summary_delta' => sub {
   subtest 'Specfile' => sub {
     is summary_delta(
-      {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}},
-      {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {}}
+      {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {}},
+      {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {}}
       ),
-      '', 'same specfile';
+      '', 'same declared license';
     is summary_delta(
-      {id => 1, specfile => 'MIT',      missed_snippets => {}, licenses => {}},
-      {id => 2, specfile => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
+      {id => 1, declared => 'MIT',      missed_snippets => {}, licenses => {}},
+      {id => 2, declared => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
       ),
-      "Diff to closest match 1\n\n  Spec file license  MIT -> GPL-2.0+\n", 'different specfile';
+      "Diff to closest match 1\n\n  Declared license  MIT -> GPL-2.0+\n", 'different declared license';
   };
 
   subtest 'License incompatibilities are not part of the diff' => sub {
@@ -1339,8 +1342,8 @@ subtest 'summary_delta' => sub {
     # Even when a new mutually-incompatible license appears, the diff only reports the new license
     # itself - incompatibilities are informational context and never show up here.
     is summary_delta(
-      {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 2}},
-      {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 2, 'GPL-2.0-only' => 1}}
+      {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 2}},
+      {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 2, 'GPL-2.0-only' => 1}}
       ),
       "Diff to closest match 1\n\n  New licenses (by risk)\n    1  GPL-2.0-only\n",
       'new license shown, no incompatibility block';
@@ -1351,7 +1354,7 @@ subtest 'summary_delta' => sub {
       is summary_delta(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99', '741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1360,7 +1363,7 @@ subtest 'summary_delta' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99', '741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1372,7 +1375,7 @@ subtest 'summary_delta' => sub {
       is summary_delta(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99', '741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1381,7 +1384,7 @@ subtest 'summary_delta' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['741e8cc6ac467ffcbb5b2c27088def9a']
@@ -1393,7 +1396,7 @@ subtest 'summary_delta' => sub {
       is summary_delta(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1402,7 +1405,7 @@ subtest 'summary_delta' => sub {
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {'Mojolicious-7.25/LICENSE' => ['641e8cc6ac467ffcbb5b2c27088def99']},
           licenses        => {}
         }
@@ -1417,13 +1420,13 @@ subtest 'summary_delta' => sub {
       is summary_delta(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
           licenses        => {}
         },
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {
             'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98'],
             'Mojolicious-7.25/LICENSE'            => ['641e8cc6ac467ffcbb5b2c27088def99']
@@ -1438,11 +1441,11 @@ subtest 'summary_delta' => sub {
       is summary_delta(
         {
           id              => 1,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {'Mojolicious-7.25/lib/Mojolicious.pm' => ['541e8cc6ac467ffcbb5b2c27088def98']},
           licenses        => {}
         },
-        {id => 2, specfile => 'MIT', missed_snippets => \%many, licenses => {}}
+        {id => 2, declared => 'MIT', missed_snippets => \%many, licenses => {}}
         ),
         "Diff to closest match 1\n\n  New unresolved matches in 6 files\n", 'multiple new files (count only)';
     };
@@ -1451,41 +1454,41 @@ subtest 'summary_delta' => sub {
   subtest 'Licenses' => sub {
     subtest 'Not noteworthy' => sub {
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}}
         ),
         '', 'same licenses';
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3, 'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3, 'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'MIT' => 3}}
         ),
         '', 'License removed';
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 4}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 4}}
         ),
         '', 'different risk';
     };
 
     subtest 'Noteworthy' => sub {
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
         "Diff to closest match 1\n\n  New licenses (by risk)\n    3  MIT\n", 'new license';
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5}},
         {
           id              => 2,
-          specfile        => 'MIT',
+          declared        => 'MIT',
           missed_snippets => {},
           licenses        => {'Apache-2.0' => 5, 'MIT' => 3, 'GPL-2.0+' => 1}
         }
         ),
         "Diff to closest match 1\n\n  New licenses (by risk)\n    3  MIT\n    1  GPL-2.0+\n", 'new licenses';
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'Apache-2.0' => 5, 'MIT' => 3}}
         ),
         "Diff to closest match 1\n\n  New licenses (by risk)\n    5  Apache-2.0\n    3  MIT\n", 'more new licenses';
     };
@@ -1495,13 +1498,13 @@ subtest 'summary_delta' => sub {
       # Detection is by license name; a license that only gains a flag between
       # versions is the same UI row and is not reported as new.
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT'        => 3}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT:patent' => 3}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'MIT'        => 3}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'MIT:patent' => 3}}
         ),
         '', 'existing license gaining a flag is not new';
       is summary_delta(
-        {id => 1, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT'        => 3}},
-        {id => 2, specfile => 'MIT', missed_snippets => {}, licenses => {'MIT:patent' => 3, 'Apache-2.0' => 5}}
+        {id => 1, declared => 'MIT', missed_snippets => {}, licenses => {'MIT'        => 3}},
+        {id => 2, declared => 'MIT', missed_snippets => {}, licenses => {'MIT:patent' => 3, 'Apache-2.0' => 5}}
         ),
         "Diff to closest match 1\n\n  New licenses (by risk)\n    5  Apache-2.0\n",
         'only the genuinely new name is reported';
@@ -1561,18 +1564,19 @@ subtest 'new_license_names' => sub {
 
 subtest 'report_shortname' => sub {
   is report_shortname('jemn9u', {}, {}), 'Unknown-0:jemn9u', 'minimal shortname';
-  is report_shortname('jemn8u', {main => {license => 'Artistic-2.0'}}, {}), 'Artistic-2.0-0:jemn8u', 'same license';
-  is report_shortname('jemn7u', {main => {license => 'MIT OR BSD-2-Clause'}}, {}), 'BSD-2-Clause-0:jemn7u',
+  is report_shortname('jemn8u', {declarations => [{license => 'Artistic-2.0'}]}, {}), 'Artistic-2.0-0:jemn8u',
+    'same license';
+  is report_shortname('jemn7u', {declarations => [{license => 'MIT OR BSD-2-Clause'}]}, {}), 'BSD-2-Clause-0:jemn7u',
     'multiple licenses';
   is report_shortname(
     'jemn6u',
-    {main  => {license => 'MIT OR BSD-2-Clause'}},
-    {risks => {5       => {'Apache-2.0' => {1 => [13, 13], 2 => [12, 13, 13]}, 'SUSE-NotALicense' => {4 => [10, 11]}}}}
+    {declarations => [{license => 'MIT OR BSD-2-Clause'}]},
+    {risks        => {5 => {'Apache-2.0' => {1 => [13, 13], 2 => [12, 13, 13]}, 'SUSE-NotALicense' => {4 => [10, 11]}}}}
     ),
     'BSD-2-Clause-5:jemn6u', 'license risk';
   is report_shortname(
     'jemn5u',
-    {main => {license => 'MIT OR BSD-2-Clause'}},
+    {declarations => [{license => 'MIT OR BSD-2-Clause'}]},
     {
       risks => {5 => {'Apache-2.0' => {1 => [13, 13], 2 => [12, 13, 13]}, 'SUSE-NotALicense' => {4 => [10, 11]}}},
       missed_files => {12 => [9, 0, undef], 14 => [9, 0, undef], 8 => [9, 0, undef], 9 => [9, 0, undef]}
@@ -1584,7 +1588,7 @@ subtest 'report_shortname' => sub {
   # reflects the actual license/snippet risk (here risk 3), not 9.
   is report_shortname(
     'jemn5u',
-    {main => {license => 'MIT OR BSD-2-Clause'}},
+    {declarations => [{license => 'MIT OR BSD-2-Clause'}]},
     {
       risks => {3 => {'Apache-2.0' => {1 => [13, 13], 2 => [12, 13, 13]}, 'GPL-2.0-only' => {3 => [10, 11]}}},
       license_compatibility => {

@@ -682,9 +682,9 @@ sub spdx_edit_snippet ($snippet) {
   return {text => $text, start_line => $snippet->{sline} // 1, changed => $text eq $original_text ? 0 : 1};
 }
 
-sub report_checksum ($specfile_report, $dig_report) {
+sub report_checksum ($declarations, $dig_report) {
 
-  my $canon_license = lic($specfile_report->{main}{license})->canonicalize->to_string;
+  my $canon_license = lic(($declarations->{declarations}[0] // {})->{license})->canonicalize->to_string;
   $canon_license ||= "Unknown";
   my $text = "RPM-License $canon_license\n";
 
@@ -711,7 +711,7 @@ sub report_checksum ($specfile_report, $dig_report) {
   return Mojo::Util::md5_sum $text;
 }
 
-sub report_shortname ($chksum, $specfile_report, $dig_report) {
+sub report_shortname ($chksum, $declarations, $dig_report) {
   my $max_risk = 0;
   for my $risk (keys %{$dig_report->{risks}}) {
     $max_risk = $risk if $risk > $max_risk;
@@ -723,7 +723,7 @@ sub report_shortname ($chksum, $specfile_report, $dig_report) {
 
   # Common vendored incompatibilities must not flood the review queue.
 
-  my $l = lic($specfile_report->{main}{license})->example;
+  my $l = lic(($declarations->{declarations}[0] // {})->{license})->example;
   $l ||= 'Unknown';
 
   return "$l-$max_risk:$chksum";
@@ -740,8 +740,8 @@ sub report_risk ($checksum, $unresolved = 0) {
 sub summary_delta ($old, $new) {
   my @blocks;
 
-  if ($new->{specfile} ne $old->{specfile}) {
-    push @blocks, "  Spec file license  $old->{specfile} -> $new->{specfile}";
+  if ($new->{declared} ne $old->{declared}) {
+    push @blocks, "  Declared license  $old->{declared} -> $new->{declared}";
   }
 
   my $new_snippets = _new_snippets($old, $new);
@@ -766,7 +766,7 @@ sub summary_delta ($old, $new) {
 sub summary_delta_score ($old, $new) {
   my $score = 0;
 
-  $score += 1000 if $new->{specfile} ne $old->{specfile};
+  $score += 1000 if $new->{declared} ne $old->{declared};
 
   my $new_snippets = _new_snippets($old, $new);
   $score += 10 * keys %$new_snippets;

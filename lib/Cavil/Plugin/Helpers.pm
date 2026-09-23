@@ -12,7 +12,6 @@ use CommonMark        ();
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(false from_json true);
 use Mojo::Util        qw(decode humanize_bytes xml_escape);
-use List::Util        qw(first uniq);
 
 sub register ($self, $app, $config) {
   $app->helper('chart_data'                    => \&_chart_data);
@@ -360,18 +359,8 @@ sub _package_summary ($c, $id) {
   my $pkgs = $c->packages;
   return undef unless my $pkg = $pkgs->find($id);
 
-  my $spec = $c->reports->specfile_report($id);
-  my $type = first { length $_ } map { $_->{type} } @{$spec->{sub} // []};
-
-  my $main               = $spec->{main};
-  my $main_license       = $main->{license};
-  my $normalized_license = lic($main_license)->to_string;
-  my $package_license    = $normalized_license || $main_license;
-
-  my $version = $main->{version};
-  my $summary = $main->{summary};
-  my $group   = $main->{group};
-  my $url     = $main->{url};
+  my $declarations = $c->reports->declarations($id);
+  my $primary      = $declarations->{declarations}[0] // {};
 
   my $report      = $pkg->{checksum} // '';
   my ($shortname) = $report =~ /-\d+:(\w+)$/;
@@ -401,25 +390,22 @@ sub _package_summary ($c, $id) {
     push @$actions, $entry;
   }
 
-  my (%docs, %lics, @package_files, @legal_review_notices);
-  for my $sub (@{$spec->{sub} // []}) {
-    my $entry = {
-      file     => $sub->{file},
-      group    => $sub->{group},
-      licenses => [uniq @{$sub->{licenses} // []}],
-      sources  => [uniq @{$sub->{sources}  // []}],
-      summary  => $sub->{summary},
-      url      => $sub->{url},
-      version  => $sub->{version}
-    };
-    push @package_files, $entry;
-    for my $line (@{$sub->{'%doc'}}) {
-      $docs{$_} = 1 for split(/ /, $line);
-    }
-    for my $line (@{$sub->{'%license'}}) {
-      $lics{$_} = 1 for split(/ /, $line);
-    }
-    push @legal_review_notices, @{$sub->{'legal_review_notices'} // []};
+  my (%docs, %lics, @declarations, @legal_review_notices);
+  for my $d (@{$declarations->{declarations}}) {
+    my $license = $d->{license};
+    push @declarations,
+      {
+      format       => $d->{format},
+      file         => $d->{file},
+      name         => $d->{name},
+      version      => $d->{version},
+      license      => $license,
+      license_html => defined $license        ? spdx_link($license) : undef,
+      spdx         => lic($license)->is_valid ? true                : false
+      };
+    $docs{$_} = 1 for @{$d->{'%doc'}     // []};
+    $lics{$_} = 1 for @{$d->{'%license'} // []};
+    push @legal_review_notices, @{$d->{notices} // []};
   }
 
   return {
@@ -428,32 +414,30 @@ sub _package_summary ($c, $id) {
     created          => $pkg->{created_epoch},
     documents        => $state->{documents},
     legal_documents  => _legal_documents($c, $id),
-    embargoed        => \!!$pkg->{embargoed},
+    embargoed        => $pkg->{embargoed} ? true : false,
     tags             => $pkg->{tags} // [],
-    can_edit_tags    => $c->current_user_can('curate') ? \1 : \0,
-    ephemeral        => \!!$pkg->{ephemeral},
+    can_edit_tags    => $c->current_user_can('curate') ? \1   : \0,
+    ephemeral        => $pkg->{ephemeral}              ? true : false,
     ephemeral_delete => $pkg->{ephemeral}
     ? $pkg->{created_epoch} + ($config->{hours_to_keep_ephemeral_packages} // 24) * 3600
     : undef,
-    ai_assisted          => \!!$pkg->{ai_assisted},
-    errors               => $spec->{errors} // [],
+    ai_assisted          => $pkg->{ai_assisted} ? true : false,
     external_link        => $pkg->{external_link},
     external_link_data   => _link_with_target($pkg->{external_link}, $pkg->{target}, $config),
     id                   => $pkg->{id},
     legal_review_notices => \@legal_review_notices,
+    declarations         => \@declarations,
+    incomplete_checkout  => $declarations->{incomplete_checkout},
     notice               => $pkg->{notice},
     package_checksum     => $pkg->{checkout_dir},
-    package_files        => \@package_files,
-    package_group        => $group,
-    package_license      => {name => $package_license, spdx => \!!$normalized_license},
     package_name         => $pkg->{name},
     package_priority     => $pkg->{priority},
     package_risk         => $risk,
     package_shortname    => $shortname,
-    package_summary      => $summary,
-    package_type         => $type,
-    package_url          => $url,
-    package_version      => $version,
+    package_summary      => $primary->{summary},
+    package_type         => $primary->{format},
+    package_url          => $primary->{url},
+    package_version      => $primary->{version},
     products             => $products,
     reindexing           => $state->{reindexing},
     requests             => [map { $_->{external_link} } @$requests],
@@ -461,7 +445,7 @@ sub _package_summary ($c, $id) {
     result               => $pkg->{result},
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},
-    should_reindex       => \!!$c->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed}),
+    should_reindex       => $c->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed}) ? true : false,
     state                => $pkg->{state},
     unpacked_files       => $pkg->{unpacked_files},
     unpacked_size        => humanize_bytes($pkg->{unpacked_size} // 0)

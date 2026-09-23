@@ -128,9 +128,9 @@ subtest 'The report stays readable for the whole rebuild, then swaps' => sub {
 
 subtest 'The promote never leaves the report row empty' => sub {
   my $row = $db->select('bot_reports', '*', {package => 1})->hash;
-  ok $row,                    'report row exists';
-  ok $row->{ldig_report},     'dig report is cached';
-  ok $row->{specfile_report}, 'spec file report is cached';
+  ok $row,                 'report row exists';
+  ok $row->{ldig_report},  'dig report is cached';
+  ok $row->{declarations}, 'declarations are cached';
 };
 
 subtest 'Every reader stays on the live report while a build has rows beside it' => sub {
@@ -236,22 +236,22 @@ subtest 'Every reader stays on the live report while a build has rows beside it'
 subtest 'The cached reports are only ever replaced, never emptied' => sub {
   my sub cached ($column) { return $db->select('bot_reports', $column, {package => 1})->hash->{$column} }
 
-  # A spec file report that could only have come from the previous sources, so it is obvious which of the
-  # two paths below refreshed it
-  my $stale = to_json({main => {license => 'Cached-From-The-Previous-Sources'}});
-  $db->update('bot_reports', {specfile_report => $stale}, {package => 1});
+  # Declarations that could only have come from the previous sources, so it is obvious which of the two
+  # paths below refreshed them
+  my $stale = to_json({declarations => [{license => 'Cached-From-The-Previous-Sources'}], incomplete_checkout => []});
+  $db->update('bot_reports', {declarations => $stale}, {package => 1});
 
   # A plain re-analyze - an approved snippet, a newly ignored line - used to begin by nulling the cached
   # dig report, which took the report page down for as long as it ran
   $pkgs->analyze(1);
   step_jobs(sub ($task) { ok cached('ldig_report'), "the dig report is still cached after $task" });
-  is cached('specfile_report'), $stale, 'a re-analyze has no new sources and keeps the cached spec file report';
+  is cached('declarations'), $stale, 'a re-analyze has no new sources and keeps the cached declarations';
 
-  # A rebuild can follow a re-unpack, which replaces the sources and with them the spec file
+  # A rebuild can follow a re-unpack, which replaces the sources and with them the declarations
   is $pkgs->reindex(1), 'now', 'reindex enqueued';
   step_jobs(sub ($task) { ok cached('ldig_report'), "the dig report is still cached after $task" });
-  isnt cached('specfile_report'), $stale, 'a rebuild replaced the spec file report';
-  is_deeply $app->reports->specfile_report(1), $app->reports->build_specfile_report(1),
+  isnt cached('declarations'), $stale, 'a rebuild replaced the declarations';
+  is_deeply $app->reports->declarations(1), $app->reports->build_declarations(1),
     'with one built from the sources it just indexed';
 };
 

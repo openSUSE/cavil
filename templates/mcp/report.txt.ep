@@ -22,14 +22,12 @@ Requests:
 % if (my $version = $summary->{package_version}) {
 Version: <%== $version %>
 % }
-% if (my $declared = $summary->{package_license}{name}) {
-Declared-License: <%== $declared %><%== $summary->{package_license}{spdx} ? '' : ' (not a valid SPDX expression)' %>
+% my $primary = $summary->{declarations}[0] // {};
+% if (defined(my $declared = $primary->{license})) {
+Declared-License: <%== $declared %> (from <%== $primary->{file} %>)<%== $primary->{spdx} ? '' : ' (not a valid SPDX expression)' %>
 % }
 % if (my $sum = $summary->{package_summary}) {
 Summary: <%== $sum %>
-% }
-% if (my $group = $summary->{package_group}) {
-Group: <%== $group %>
 % }
 % if (my $url = $summary->{package_url}) {
 URL: <%== $url %>
@@ -61,11 +59,22 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 
 
 % }
-% if (@{$summary->{errors}}) {
-## Package File Warnings
+% if (@{$summary->{declarations}}) {
+## Package Declarations
 
-%   for my $error (@{$summary->{errors}}) {
-* <%== $error %>
+%   for my $d (@{$summary->{declarations}}) {
+%     my $name = join '@', grep { length($_ // '') } $d->{name}, $d->{version};
+* `<%== $d->{file} %>` (<%== $d->{format} %>)<%== length $name ? ": $name" : '' %><%== defined $d->{license} ? ", $d->{license}" : '' %>
+%   }
+
+
+
+% }
+% if (@{$summary->{incomplete_checkout}}) {
+## Checkout May Be Incomplete
+
+%   for my $service (@{$summary->{incomplete_checkout}}) {
+* Remote service in _service file: <%== $service->{name} %> (mode: <%== $service->{mode} %>)
 %   }
 
 

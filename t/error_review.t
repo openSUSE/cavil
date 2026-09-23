@@ -10,6 +10,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::File qw(path);
+use Mojo::JSON qw(false true);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -52,40 +53,25 @@ subtest 'Details after indexing' => sub {
 
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
-    ->json_like('/package_license/name', qr!Fake-Artistic!)
-    ->json_is('/package_license/spdx', undef)
+    ->json_is('/package_type',           'spec')
+    ->json_is('/declarations/0/file',    'perl-Mojolicious.spec')
+    ->json_is('/declarations/0/license', 'Fake-Artistic')
+    ->json_is('/declarations/0/spdx',    false)
+    ->json_is('/declarations/1/file',    'perl-Mojolicious-whatever.spec')
+    ->json_is('/declarations/1/license', 'MIT')
+    ->json_hasnt('/declarations/2')
     ->json_like('/package_shortname', qr/\w+/)
-    ->json_has('/package_files/1')
-    ->json_like('/package_version', qr!7\.25!)
-    ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
-    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
-    ->json_like('/state',           qr!new!);
+    ->json_like('/package_version',   qr!7\.25!)
+    ->json_like('/package_summary',   qr!Real-time web framework!)
+    ->json_like('/package_url',       qr!http://search\.cpan\.org/dist/Mojolicious/!)
+    ->json_like('/state',             qr!new!)
+    ->json_is('/incomplete_checkout', []);
 
-  $t->get_ok('/reviews/meta/1')
-    ->status_is(200)
-    ->json_like('/package_license/name', qr!Fake-Artistic!)
-    ->json_is('/package_license/spdx', undef)
-    ->json_like('/package_shortname', qr/\w+/)
-    ->json_has('/package_files/1')
-    ->json_like('/package_version', qr!7\.25!)
-    ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
-    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
-    ->json_like('/state',           qr!new!);
-
-  $t->json_like('/package_files/1/file',       qr/perl-Mojolicious\.spec/)
-    ->json_like('/package_files/1/licenses/0', qr/Fake-Artistic/)
-    ->json_like('/package_files/1/version',    qr/7\.25/)
-    ->json_like('/package_files/1/summary',    qr/Real-time web framework/)
-    ->json_like('/package_files/1/group',      qr/Development\/Libraries\/Perl/)
-    ->json_like('/package_files/0/file',       qr/perl-Mojolicious-whatever\.spec/)
-    ->json_is('/package_files/0/licenses', ['MIT', 'BSD', 'Artistic2'])
-    ->json_like('/package_files/0/version', qr/1\.2\.3/)
-    ->json_like('/package_files/0/summary', qr/Fake summary/)
-    ->json_like('/package_files/0/group',   qr/Fake group/);
-
-  $t->json_like('/errors/0', qr/Invalid SPDX license: Fake-Artistic/);
+  my $mcp = $t->app->build_controller->mcp_report(1);
+  like $mcp, qr/^Declared-License: Fake-Artistic \(from perl-Mojolicious\.spec\) \(not a valid SPDX expression\)$/m,
+    'invalid declared license marked';
+  like $mcp,   qr/^\* `perl-Mojolicious-whatever\.spec` \(spec\): 1\.2\.3, MIT$/m, 'second declaration listed';
+  unlike $mcp, qr/Checkout May Be Incomplete/,                                     'no incomplete checkout section';
 
   $t->get_ok('/reviews/report_artifacts/1')
     ->status_is(200)
@@ -189,16 +175,19 @@ subtest 'Manual review' => sub {
 
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
-    ->json_like('/package_license/name', qr!Fake-Artistic!)
-    ->json_is('/package_license/spdx', undef)
+    ->json_is('/package_type',           'spec')
+    ->json_is('/declarations/0/file',    'perl-Mojolicious.spec')
+    ->json_is('/declarations/0/license', 'Fake-Artistic')
+    ->json_is('/declarations/0/spdx',    false)
+    ->json_is('/declarations/1/file',    'perl-Mojolicious-whatever.spec')
+    ->json_is('/declarations/1/license', 'MIT')
+    ->json_hasnt('/declarations/2')
     ->json_like('/package_shortname', qr/\w+/)
-    ->json_has('/package_files/1')
-    ->json_like('/package_version', qr!7\.25!)
-    ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
-    ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
-    ->json_like('/state',           qr!acceptable!)
-    ->json_like('/result',          qr/Test review/);
+    ->json_like('/package_version',   qr!7\.25!)
+    ->json_like('/package_summary',   qr!Real-time web framework!)
+    ->json_like('/package_url',       qr!http://search\.cpan\.org/dist/Mojolicious/!)
+    ->json_like('/state',             qr!acceptable!)
+    ->json_like('/result',            qr/Test review/);
 
   $t->get_ok('/reviews/report_artifacts/1')
     ->status_is(200)

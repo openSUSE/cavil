@@ -117,8 +117,9 @@ subtest 'MCP report lists the documents' => sub {
   like $mcp, qr/\Q$DOCUMENT_LINE\E/,  'so it can read the part Cavil does not explain';
   like $mcp, qr/\Q$COVERED_LINE\E\n/, 'and can skip the one there is nothing to read in';
 
-  like $mcp,   qr/^Declared-License: Artistic-2\.0$/m, 'the declared value is still in the header';
-  unlike $mcp, qr/^Declaration:/m,                     'but nothing grades it';
+  like $mcp, qr/^Declared-License: Artistic-2\.0 \(from perl-Mojolicious\.spec\)$/m,
+    'the declared value is still in the header';
+  unlike $mcp, qr/^Declaration:/m, 'but nothing grades it';
 };
 
 done_testing;

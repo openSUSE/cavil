@@ -10,6 +10,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::File qw(path);
+use Mojo::JSON qw(true);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -48,25 +49,15 @@ subtest 'GPL-2.0-only and Apache-2.0 detected as incompatible' => sub {
   subtest 'Details after indexing' => sub {
     $t->get_ok('/reviews/meta/1')
       ->status_is(200)
-      ->json_like('/package_license/name', qr!Artistic-2.0!)
-      ->json_is('/package_license/spdx', 1)
+      ->json_is('/declarations/0/file',    'perl-Mojolicious.spec')
+      ->json_is('/declarations/0/license', 'Artistic-2.0')
+      ->json_is('/declarations/0/spdx',    true)
       ->json_like('/package_version', qr!7\.25!)
       ->json_like('/package_summary', qr!Real-time web framework!)
-      ->json_like('/package_group',   qr!Development/Libraries/Perl!)
       ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
       ->json_like('/state',           qr!new!)
       ->json_is('/unpacked_files', 345)
       ->json_is('/unpacked_size',  '2.5MiB');
-
-    $t->json_like('/package_files/0/file',       qr/perl-Mojolicious\.spec/)
-      ->json_like('/package_files/0/licenses/0', qr/Artistic-2.0/)
-      ->json_like('/package_files/0/version',    qr/7\.25/)
-      ->json_like('/package_files/0/sources/0',  qr/http:\/\/www\.cpan\.org/)
-      ->json_like('/package_files/0/summary',    qr/Real-time web framework/)
-      ->json_like('/package_files/0/url',        qr/http:\/\//)
-      ->json_like('/package_files/0/group',      qr/Development\/Libraries\/Perl/);
-
-    $t->json_is('/errors', []);
   };
 
   subtest 'JSON report' => sub {

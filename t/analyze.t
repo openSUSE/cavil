@@ -32,7 +32,7 @@ subtest 'Analyze background job' => sub {
 
   my $res = $t->app->pg->db->select('bot_packages', '*', {id => 2})->hashes->[0];
   is $res->{result}, undef, 'result cleared';
-  is $res->{notice}, "Diff to closest match 1\n\n  Spec file license  Artistic-2.0 -> GPL-1.0-or-later\n",
+  is $res->{notice}, "Diff to closest match 1\n\n  Declared license  Artistic-2.0 -> GPL-1.0-or-later\n",
     'different spec';
   is $res->{diff_report}, undef, 'no structured diff for a spec-only delta (no new unresolved matches)';
   is $res->{state},       'new', 'not approved';
@@ -55,8 +55,8 @@ subtest 'Analyze clears stale notice when reusing a previous accepted review' =>
   );
 
   $db->query(
-    'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
-     SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg3_id, 1
+    'INSERT INTO bot_reports (package, ldig_report, declarations, rolemodel)
+     SELECT ?, ldig_report, declarations, rolemodel FROM bot_reports WHERE package = ?', $pkg3_id, 1
   );
   $db->query(
     "UPDATE bot_packages SET indexed = NOW(), checksum = ?, notice = ?, diff_report = '{\"version\":1}' WHERE id = ?",
@@ -157,8 +157,8 @@ subtest 'Reindex of an accepted package upgrades it to acceptable_by_lawyer' => 
       priority        => 5
     );
     $db->query(
-      'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
-       SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = 1', $pid
+      'INSERT INTO bot_reports (package, ldig_report, declarations, rolemodel)
+       SELECT ?, ldig_report, declarations, rolemodel FROM bot_reports WHERE package = 1', $pid
     );
     $db->query(
       'UPDATE bot_packages SET indexed = NOW(), reviewed = NOW(), reviewing_user = 1, checksum = ?, state = ? WHERE id = ?',

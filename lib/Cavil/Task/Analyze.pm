@@ -63,14 +63,14 @@ sub _analyze ($job, $id, $generation = 0) {
   # shows the backfilled ones.
   _backfill_component_licenses($app->pg->db, $id, $generation);
 
-  # A rebuild can follow a re-unpack, which replaces the sources and with them the spec file. Take a fresh
-  # spec file report for it and store it with the promote below, so a reader never sees the new spec file
-  # license beside the old file report. A plain re-analyze cannot have new sources, so it uses the cache.
-  my $specfile = ($generation ? $reports->build_specfile_report($id) : $reports->specfile_report($id)) // {};
-  my $dig      = $reports->dig_report($id, undef, $generation);
+  # A rebuild can follow a re-unpack, which replaces the sources and with them the declarations. Take fresh
+  # ones for it and store them with the promote below, so a reader never sees the new declared license beside
+  # the old file report. A plain re-analyze cannot have new sources, so it uses the cache.
+  my $declarations = ($generation ? $reports->build_declarations($id) : undef) // $reports->declarations($id);
+  my $dig          = $reports->dig_report($id, undef, $generation);
 
-  my $chksum    = report_checksum($specfile, $dig);
-  my $shortname = report_shortname($reports->shortname($chksum), $specfile, $dig);
+  my $chksum    = report_checksum($declarations, $dig);
+  my $shortname = report_shortname($reports->shortname($chksum), $declarations, $dig);
   my $flags     = $pkgs->flags($id, $generation);
 
   # Informational annotations derived from the finished report - today the package's legal documents and
@@ -80,8 +80,8 @@ sub _analyze ($job, $id, $generation = 0) {
   my $annotations = $reports->build_annotations($id, $dig);
 
   # Free up memory.
-  my $specfile_json = $generation && %$specfile ? to_json_fast($specfile) : undef;
-  undef $specfile;
+  my $declarations_json = $generation ? to_json_fast($declarations) : undef;
+  undef $declarations;
 
   my $new_candidates = [];
 
@@ -125,13 +125,13 @@ sub _analyze ($job, $id, $generation = 0) {
     # A first import has no cached report row yet.
     my %cached = (ldig_report => to_json_fast($dig), annotations => to_json_fast($annotations));
 
-    # Rewritten on a rebuild (fresh sources), left untouched on a plain re-analyze (cached spec file report kept).
-    $cached{specfile_report} = $specfile_json if defined $specfile_json;
+    # Rewritten on a rebuild (fresh sources), left untouched on a plain re-analyze (cached declarations kept).
+    $cached{declarations} = $declarations_json if defined $declarations_json;
     if ($db->select('bot_reports', 'id', {package => $id})->hash) {
       $db->update('bot_reports', \%cached, {package => $id});
     }
     else {
-      $db->insert('bot_reports', {package => $id, specfile_report => $specfile_json // '{}', %cached});
+      $db->insert('bot_reports', {package => $id, %cached});
     }
     if ($pkg->{state} ne 'new') {
 
@@ -256,8 +256,7 @@ sub _auto_review ($app, $id) {
   }
 
   # Incomplete checkout
-  my $specfile = $reports->specfile_report($id);
-  if ($specfile->{incomplete_checkout}) {
+  if (@{$reports->declarations($id)->{incomplete_checkout}}) {
     _look_for_smallest_delta($app, $pkg, 0, 0, 1) if $pkg->{state} eq 'new';
     return;
   }

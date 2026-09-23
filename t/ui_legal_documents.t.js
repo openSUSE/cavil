@@ -244,7 +244,7 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
     await page.locator('#legal-documents').waitFor();
 
     await t.test('nothing grades the declared license', async t => {
-      const license = page.locator('#pkg-license');
+      const license = page.locator('#pkg-declarations');
       t.match(await license.innerText(), /MIT/, 'the declared license is shown as the plain value');
       t.notMatch(await license.innerText(), /declared|confirming|found in the code/i, 'with no annotation');
       t.equal(await page.locator('#declaration-note').count(), 0, 'and no annotation element at all');

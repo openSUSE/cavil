@@ -571,15 +571,17 @@ subtest 'MCP' => sub {
         my $result = $client->call_tool('cavil_get_report', {package_id => 1});
         ok !$result->{isError}, 'not an error';
         my $text = $result->{content}[0]{text};
-        like $text,   qr/Package:.+perl-Mojolicious/,                                          'package name';
-        like $text,   qr/Id:.+1/,                                                              'package id';
-        like $text,   qr/State:.+new/,                                                         'state';
-        like $text,   qr/External-Link:.+mojo/,                                                'external link';
-        like $text,   qr/Version:.+7\.25/,                                                     'version';
-        like $text,   qr/Declared-License:.+Artistic-2\.0/,                                    'declared license';
-        like $text,   qr/Summary:.+Real-time web framework/,                                   'summary';
-        like $text,   qr/Group:.+Development\/Libraries\/Perl/,                                'group';
-        like $text,   qr/URL:.+search\.cpan\.org/,                                             'url';
+        like $text, qr/Package:.+perl-Mojolicious/,                                        'package name';
+        like $text, qr/Id:.+1/,                                                            'package id';
+        like $text, qr/State:.+new/,                                                       'state';
+        like $text, qr/External-Link:.+mojo/,                                              'external link';
+        like $text, qr/Version:.+7\.25/,                                                   'version';
+        like $text, qr/Declared-License: Artistic-2\.0 \(from perl-Mojolicious\.spec\)$/m, 'declared license';
+        like $text, qr/Summary:.+Real-time web framework/,                                 'summary';
+        like $text, qr/URL:.+search\.cpan\.org/,                                           'url';
+        like $text,
+          qr/## Package Declarations\n\n\* `perl-Mojolicious\.spec` \(spec\): perl-Mojolicious\@7\.25, Artistic-2\.0/,
+          'declarations';
         like $text,   qr/Shortname:./,                                                         'shortname';
         like $text,   qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/,                         'checkout';
         like $text,   qr/Unpacked:.+ files/,                                                   'unpacked';

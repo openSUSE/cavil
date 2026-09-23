@@ -76,9 +76,8 @@ subtest 'Details after import (indexing in progress)' => sub {
     ->status_is(200)
     ->json_is('/package_name',   'perl-Mojolicious')
     ->json_is('/state',          'new')
-    ->json_is('/unpacked_files', undef);
-
-  $t->json_is('/errors', []);
+    ->json_is('/unpacked_files', undef)
+    ->json_is('/declarations',   []);
 
   $t->get_ok('/reviews/report/1')->status_is(408)->json_is('/stage' => 'queued');
   $t->get_ok('/reviews/report_details/1')
@@ -102,26 +101,14 @@ subtest 'Details after indexing' => sub {
 
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
-    ->json_like('/package_license/name', qr!Artistic-2.0!)
-    ->json_is('/package_license/spdx', 1)
+    ->json_is('/declarations/0/license', 'Artistic-2.0')
     ->json_like('/package_version',        qr!7\.25!)
     ->json_like('/package_summary',        qr!Real-time web framework!)
-    ->json_like('/package_group',          qr!Development/Libraries/Perl!)
     ->json_like('/package_url',            qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',                  qr!new!)
     ->json_like('/legal_review_notices/0', qr!Upstream project maintained by SUSE employee!)
     ->json_is('/unpacked_files', 339)
     ->json_is('/unpacked_size',  '2.5MiB');
-
-  $t->json_like('/package_files/0/file',       qr/perl-Mojolicious\.spec/)
-    ->json_like('/package_files/0/licenses/0', qr/Artistic-2.0/)
-    ->json_like('/package_files/0/version',    qr/7\.25/)
-    ->json_like('/package_files/0/sources/0',  qr/http:\/\/www\.cpan\.org/)
-    ->json_like('/package_files/0/summary',    qr/Real-time web framework/)
-    ->json_like('/package_files/0/url',        qr/http:\/\//)
-    ->json_like('/package_files/0/group',      qr/Development\/Libraries\/Perl/);
-
-  $t->json_is('/errors', []);
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
@@ -154,11 +141,9 @@ subtest 'Details after indexing' => sub {
 
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
-    ->json_like('/package_license/name', qr!Artistic-2.0!)
-    ->json_is('/package_license/spdx', 1)
+    ->json_is('/declarations/0/license', 'Artistic-2.0')
     ->json_like('/package_version', qr!7\.25!)
     ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!new!);
 
@@ -375,11 +360,9 @@ subtest 'Details after reindexing' => sub {
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
     ->json_has('/package_shortname')
-    ->json_like('/package_license/name', qr!Artistic-2.0!)
-    ->json_is('/package_license/spdx', 1)
+    ->json_is('/declarations/0/license', 'Artistic-2.0')
     ->json_like('/package_version', qr!7\.25!)
     ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!new!);
 
@@ -433,11 +416,9 @@ subtest 'Manual review' => sub {
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
     ->json_has('/package_shortname')
-    ->json_like('/package_license/name', qr!Artistic-2.0!)
-    ->json_is('/package_license/spdx', 1)
+    ->json_is('/declarations/0/license', 'Artistic-2.0')
     ->json_like('/package_version', qr!7\.25!)
     ->json_like('/package_summary', qr!Real-time web framework!)
-    ->json_like('/package_group',   qr!Development/Libraries/Perl!)
     ->json_like('/package_url',     qr!http://search\.cpan\.org/dist/Mojolicious/!)
     ->json_like('/state',           qr!acceptable!)
     ->json_like('/result',          qr/Test review/);

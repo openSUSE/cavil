@@ -262,10 +262,14 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       const urlCounts = await urls
         .locator('.report-artifact-source')
         .evaluateAll(cells => cells.map(cell => parseInt(cell.innerText, 10)));
-      t.same(urlCounts, [...urlCounts].sort((a, b) => b - a), 'URLs are ordered by occurrences');
+      t.same(
+        urlCounts,
+        [...urlCounts].sort((a, b) => b - a),
+        'URLs are ordered by occurrences'
+      );
 
       // Only the head is shown; the tail is a click away rather than several hundred rows of scroll
-      t.equal(urlCounts.length, 10, "the 54 URLs open on their top 10");
+      t.equal(urlCounts.length, 10, 'the 54 URLs open on their top 10');
       t.equal(await copyrights.locator('.report-artifact-item').count(), 7, 'a short list shows in full');
       t.equal(await copyrights.locator('[data-artifact-more]').count(), 0, 'and offers nothing to expand');
 
@@ -291,34 +295,43 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
 
       await page.click('[data-tab="review"]');
 
-      // Package file titlebars open the file browser without looking like special callouts.
-      await page.locator('#num-spec-files a').click();
-      const packageFileLink = page.locator('#spec-files .metadata-file-title a').first();
-      await packageFileLink.waitFor();
-      const quietLinkStyle = await packageFileLink.evaluate(link => {
-        const linkStyle = getComputedStyle(link);
-        const titleStyle = getComputedStyle(link.closest('.metadata-file-title'));
-        return {
-          color: linkStyle.color,
-          titleColor: titleStyle.color,
-          decorationColor: linkStyle.textDecorationColor
-        };
-      });
-      t.equal(quietLinkStyle.color, quietLinkStyle.titleColor, 'package file title link inherits titlebar color');
-      t.not(quietLinkStyle.decorationColor, quietLinkStyle.color, 'package file title link is not underlined at rest');
-      await packageFileLink.hover();
-      t.equal(
-        await packageFileLink.evaluate(link => getComputedStyle(link).textDecorationColor),
-        quietLinkStyle.color,
-        'package file title link underlines on hover'
+      // Each declaration names the file it comes from, one click from the file browser
+      const declaration = page.locator('#pkg-declarations .metadata-declaration').first();
+      t.match(
+        await declaration.innerText(),
+        /Artistic-2\.0\s+perl-Mojolicious\.spec\s+spec/i,
+        'license, file and format'
       );
+      t.equal(await page.locator('.cavil-package-format-icon .fa-suse').count(), 1, 'icon of the primary declaration');
+      t.equal(await page.locator('#incomplete-checkout').count(), 0, 'no warning for a complete checkout');
 
-      const packageFileHref = await packageFileLink.getAttribute('href');
-      const [packageFilePage] = await Promise.all([context.waitForEvent('page'), packageFileLink.click()]);
-      await packageFilePage.waitForLoadState('load');
-      await packageFilePage.waitForSelector('.file-browser');
-      t.match(packageFilePage.url(), new RegExp(`${packageFileHref}$`), 'package file title opens file browser tab');
-      await packageFilePage.close();
+      const declarationFile = declaration.locator('.metadata-declaration-file');
+      const declarationHref = await declarationFile.getAttribute('href');
+      const [filePage] = await Promise.all([context.waitForEvent('page'), declarationFile.click()]);
+      await filePage.waitForLoadState('load');
+      await filePage.waitForSelector('.file-browser');
+      t.match(filePage.url(), new RegExp(`${declarationHref}$`), 'declaration file opens file browser tab');
+      await filePage.close();
+    });
+
+    await t.test('Packages without declarations', async t => {
+      await page.route('**/reviews/meta/1', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.declarations = [];
+        data.incomplete_checkout = [{name: 'download_files', mode: 'trylocal'}];
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+      const panel = page.locator('#incomplete-checkout');
+      await panel.waitFor();
+      t.match(await panel.innerText(), /Remote service in _service file: download_files \(mode: trylocal\)/);
+      t.equal(await page.locator('.cavil-package-format-icon').count(), 0, 'no format icon');
+      t.equal(await page.locator('#pkg-declarations').count(), 0, 'no license row');
+
+      await page.unroute('**/reviews/meta/1');
     });
 
     await t.test('Embargoed metadata is visually distinct', async t => {
@@ -365,9 +378,9 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
 
       await page.waitForSelector('#pkg-link .cavil-external-link-submission');
       t.same(
-        await page.locator('#pkg-link .cavil-external-link').evaluate(element =>
-          [...element.children].map(child => child.className)
-        ),
+        await page
+          .locator('#pkg-link .cavil-external-link')
+          .evaluate(element => [...element.children].map(child => child.className)),
         ['cavil-external-link-source', 'cavil-external-link-target', 'cavil-external-link-submission'],
         'source label prefixes the external reference and submission target'
       );
@@ -432,7 +445,11 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       const editor = page.locator('#pkg-tags .report-note-tag-editor');
       await editor.waitFor();
       t.ok(await editor.count(), 'tag editor rendered for curator');
-      t.equal(await page.locator('#pkg-tags .report-note-tag-removable').count(), 1, 'existing tag shown as removable chip');
+      t.equal(
+        await page.locator('#pkg-tags .report-note-tag-removable').count(),
+        1,
+        'existing tag shown as removable chip'
+      );
 
       await page.unroute('**/reviews/meta/1');
     });
@@ -1010,11 +1027,17 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       return fileId;
     };
 
+    // Every response re-sends the session cookie, so a request still running on the previous page would
+    // restore the old user's session right after the login. Leaving the page cancels them.
+    const loginVia = async path => {
+      await page.goto('about:blank');
+      await page.goto(new URL(path, url).toString());
+    };
+
     await t.test('Only curators get the direct "Add ignore glob" file action', async t => {
       // A contributor may propose but not curate, so their file-header menu offers only the
       // proposal path - no direct add.
-      await page.goto(new URL('login_as_contributor', url).toString());
-      await page.waitForLoadState('load');
+      await loginVia('login_as_contributor');
 
       const fileId = await openFirstReportFile();
       await page.locator(`#file-menu-${fileId}`).click();
@@ -1035,8 +1058,7 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
     await t.test('Add ignore glob directly as a curator', async t => {
       // Back to the admin "tester" (a curator). This drives the direct path: the glob goes
       // straight into ignored_files, never becoming a change proposal.
-      await page.goto(new URL('login', url).toString());
-      await page.waitForLoadState('load');
+      await loginVia('login');
 
       const fileId = await openFirstReportFile();
       await page.locator(`#file-menu-${fileId}`).click();

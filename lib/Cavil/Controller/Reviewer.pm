@@ -8,23 +8,14 @@ use Mojo::File  qw(path);
 use Mojo::Util  qw(humanize_bytes);
 use Cavil::Util qw(checkout_path lines_context tags_from_request PRIORITY_WAITING);
 
-my $SMALL_REPORT_RE = qr/
-  (?:
-    \.spec
-  |
-    \/(?:copying|copyright|legal|license|readme)(?:\.\w+)?
-  )$
-/xi;
-
 sub details ($self) {
   my $id   = $self->stash('id');
   my $pkgs = $self->packages;
   return $self->render(text => 'Package not found', status => 404) unless my $pkg = $pkgs->find($id);
-  my $report = $self->reports->specfile_report($id);
 
   my $should_reindex = $self->patterns->has_new_patterns($pkg->{name}, $pkg->{indexed});
 
-  $self->render(spec => $report, package => $pkg, should_reindex => $should_reindex);
+  $self->render(package => $pkg, should_reindex => $should_reindex);
 }
 
 sub meta ($self) {

@@ -25,7 +25,7 @@ If no package_id was provided, use `cavil_get_open_reviews` to list open reviews
 
 ### Step 2 - Fetch the report
 Use `cavil_get_report(package_id)` to retrieve the legal report. The report contains:
-- **Package metadata**: name, version, and the declared primary license on the `Declared-License:` line (carries a `(not a valid SPDX expression)` marker when Cavil could not normalize it)
+- **Package metadata**: name, version, and the declared primary license on the `Declared-License:` line, with the file declaring it (carries a `(not a valid SPDX expression)` marker when the value is not a valid SPDX expression)
 - **License breakdown**: all licenses identified by pattern matching, with file counts and percentages
 - **Risk levels**: each found license sits under a `### Risk N` heading; unresolved/unknown matches are grouped under `### Risk 9` (see the scale in 3b)
 - **License flags**: a license line may carry a `[flags: ...]` suffix (e.g. `* AGPL-3.0-only: 1 file [flags: CLA]`) - curated CLA / Patent / Trademark / Export restricted / EULA markers (see 3b)
@@ -40,13 +40,17 @@ Consider existing reviewer notes together with the current report. If a note con
 
 #### 3a. Declared license check - never skip it
 The most important first-pass check is whether the license **declared in the package file** (the
-`License:` tag from the spec file / package metadata) matches the licenses actually found in the
-report. This comparison must appear in every review, even when it is a clean match - it is the
-single most common reason a package needs human attention.
+`License:` tag of the spec file, or whatever packaging file or project manifest declares it) matches
+the licenses actually found in the report. This comparison must appear in every review, even when
+it is a clean match - it is the single most common reason a package needs human attention.
 
-The report surfaces the declared value on the `Declared-License:` line near the top (it carries a
-`(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
-the package file had no declared license - say so explicitly and lean toward NEEDS HUMAN REVIEW.
+The report surfaces the declared value on the `Declared-License:` line near the top, verbatim and
+followed by the file that declares it (e.g. `(from foo.spec)`); it carries a `(not a valid SPDX
+expression)` marker when the value is not a valid SPDX expression. `## Package Declarations` lists
+every packaging file and project manifest at the package root with what each declares, so you can
+see the packager's declaration next to upstream's own (`package.json`, `Cargo.toml`, ...). If the
+`Declared-License:` line is absent, none of them declares a license (nothing listed there means plain
+upstream source) - say so explicitly and lean toward NEEDS HUMAN REVIEW.
 
 **Always read the package's own license-declaration files with `cavil_get_file` before you compare**,
 do not judge from the tag alone. Read the top-level `LICENSE`/`COPYING`, and list siblings with
@@ -80,7 +84,7 @@ below, and say which it is. See the mismatch thresholds under ANALYSIS GUIDELINE
 **Fixable metadata vs. bad license.** Distinguish *why* a mismatch occurs. If the only problem is
 that the declared tag misrepresents the actually-found licenses, but those found licenses are
 themselves in the acceptable band (risk 1–4, no blocking flags or confirmed conflict), treat it as
-**fixable metadata**: the recommended fix is "correct the declared `License:` tag to `<X>` and
+**fixable metadata**: the recommended fix is "correct the declared license in `<file>` to `<X>` and
 resubmit," not a license rejection. Reserve REJECT for genuinely unacceptable content (risk 6/7, a
 third-party proprietary EULA, or a confirmed combined-work conflict). This matters because
 customer-facing SBOMs are generated from the declared tag, so it must match reality.
@@ -90,13 +94,15 @@ damaging thing a package update can do, from SUSE's position, is switch from an 
 a non-commercial, field-of-use, source-available, or otherwise non-free license (the open-webui "Open
 WebUI License", the Redis RSAL, SSPL, "Good-not-Evil"). It silently converts code SUSE could ship into
 code SUSE may not, and because downstream already depends on the old terms a *transition* is worse than
-a package that was always non-free. Any one of these is enough to escalate: the `LICENSE`/`COPYING`
-combines a recognized OSS body with an added clause restricting commercial use, user/seat count, field
-of use, deployment, or branding (or requiring a separate "enterprise" license for ordinary use); the
-file is retitled to a custom `"<Project> License"`; a `LICENSE_HISTORY`/CLA/relicensing announcement
-states or reserves a change; or an `[other report]` note on an earlier version described a standard OSS
-license the current text no longer matches. When you see it, recommend **REJECT**, make it the first
-line of the findings summary marked `⚠ LICENSE CHANGE:` and name both sides (from `<old OSS license>`
+a package that was always non-free. A `Declared license OLD -> NEW` line in the System Notice means the
+declaration itself changed since the last reviewed version: always check the new terms against the signs
+that follow. Any one of these is enough to escalate: the `LICENSE`/`COPYING` combines a recognized OSS
+body with an added clause restricting commercial use, user/seat count, field of use, deployment, or
+branding (or requiring a separate "enterprise" license for ordinary use); the file is retitled to a
+custom `"<Project> License"`; a `LICENSE_HISTORY`/CLA/relicensing announcement states or reserves a
+change; or an `[other report]` note on an earlier version described a standard OSS license the current
+text no longer matches. When you see it, recommend **REJECT**, make it the first line of the findings
+summary marked `⚠ LICENSE CHANGE:` and name both sides (from `<old OSS license>`
 to `<new restrictive terms>`, with the file and clause) - do not let it read as a routine risk-7 bullet.
 
 **SPDX AND/OR sanity (light-touch).** When the declared expression combines licenses with `AND`/`OR`,

@@ -421,3 +421,7 @@ ALTER TABLE bot_packages ADD COLUMN target text;
 ALTER TABLE bot_packages ADD COLUMN tags text[] DEFAULT '{}' NOT NULL;
 ALTER TABLE bot_requests ADD COLUMN target text;
 CREATE INDEX bot_packages_tags_idx ON bot_packages USING gin (tags);
+
+-- 70 up
+ALTER TABLE bot_reports DROP COLUMN specfile_report;
+ALTER TABLE bot_reports ADD COLUMN declarations text;

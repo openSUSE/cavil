@@ -11,6 +11,7 @@ use Cavil::Util (
   qw(license_text),
   qw(normalize_license_expr obs_ssh_auth original_filename),
   qw(parse_exclude_file parse_list_filter parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
+  qw(safe_string),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
   qw(validate_tags PRIORITY_INCOMING PRIORITY_UPKEEP PRIORITY_WAITING),
   qw(decode_json_fast encode_json_fast to_json_fast)
@@ -838,6 +839,18 @@ subtest 'original_filename undoes the ".processed" naming, and leaves everything
   is original_filename('lib/foo.js'),        'lib/foo.js',        'an ordinary path is untouched';
   is original_filename('processed.js'),      'processed.js',      'a file merely named "processed" is untouched';
   is original_filename('foo.processed.d/x'), 'foo.processed.d/x', 'and a directory named ".processed.d" is not a copy';
+};
+
+subtest 'safe_string' => sub {
+  ok safe_string('MIT OR Apache-2.0'), 'plain value';
+  ok safe_string(''),                  'empty value';
+  ok safe_string('x' x 512),           'longest value';
+  ok !safe_string(undef),              'undefined';
+  ok !safe_string([1]),                'reference';
+  ok !safe_string('x' x 513),          'too long';
+  ok !safe_string("two\nlines"),       'newline';
+  ok !safe_string("tab\there"),        'tab';
+  ok !safe_string("nul\x00"),          'NUL byte';
 };
 
 done_testing;

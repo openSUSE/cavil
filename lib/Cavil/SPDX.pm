@@ -61,15 +61,15 @@ has 'app';
 sub generate_to_file ($self, $id, $file) {
   path($file)->remove if -e $file;
 
-  my $app             = $self->app;
-  my $log             = $app->log;
-  my $config          = $app->config->{spdx} || {};
-  my $namespace       = $config->{namespace} || 'http://legaldb.suse.de/spdx/';
-  my $dir             = $app->packages->pkg_checkout_dir($id);
-  my $checkout        = Cavil::Checkout->new($dir);
-  my $reports         = $app->reports;
-  my $specfile_report = $reports->specfile_report($id);
-  my $db              = $app->pg->db;
+  my $app          = $self->app;
+  my $log          = $app->log;
+  my $config       = $app->config->{spdx} || {};
+  my $namespace    = $config->{namespace} || 'http://legaldb.suse.de/spdx/';
+  my $dir          = $app->packages->pkg_checkout_dir($id);
+  my $checkout     = Cavil::Checkout->new($dir);
+  my $reports      = $app->reports;
+  my $declarations = $reports->declarations($id);
+  my $db           = $app->pg->db;
 
   my $pkg
     = $db->query('SELECT *, EXTRACT(EPOCH FROM created)::bigint AS created_epoch FROM bot_packages WHERE id = ?', $id)
@@ -377,7 +377,7 @@ sub generate_to_file ($self, $id, $file) {
   }
 
   # Primary component (the package itself)
-  my $main    = $specfile_report->{main} || {};
+  my $main    = $declarations->{declarations}[0] // {};
   my $version = $main->{version};
   $version = "$version" if defined $version;
 

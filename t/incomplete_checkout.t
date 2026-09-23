@@ -51,6 +51,9 @@ EOF
   is $pkg2->{state}, 'new', 'still new';
   like $pkg2->{notice}, qr/Not found.+ manual review is required because the checkout might be incomplete/,
     'notice about incomplete checkout';
+  like $t->app->build_controller->mcp_report(2),
+    qr/## Checkout May Be Incomplete\n\n\* Remote service in _service file: download_files \(mode: trylocal\)/,
+    'incomplete checkout section';
 };
 
 done_testing();

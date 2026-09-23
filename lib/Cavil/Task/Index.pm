@@ -6,6 +6,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Bom::Registry;
 use Cavil::Checkout;
+use Cavil::Declarations qw(is_root_file single_root);
 use Cavil::FileIndexer;
 use Cavil::PatternEngine;
 use Cavil::Util qw(fs_bytes original_filename);
@@ -108,7 +109,7 @@ sub _index_batch ($job, $id, $batch, $generation) {
   my $preptime = time - $start;
 
   my $registry    = Cavil::Bom::Registry->new;
-  my $single_root = _single_unpacked_root($fi->dir);
+  my $single_root = single_root($fi->dir->child('.unpacked'));
   my %meta        = (emails => {}, urls => {}, copyrights => {}, components => {});
 
   # Wrap the whole batch in one transaction: the per-file inserts (matched_files,
@@ -181,17 +182,6 @@ sub _index_batch ($job, $id, $batch, $generation) {
     sprintf("[$id] Indexed batch of @{[scalar @$batch]} files from $dir (%.02f prep, %.02f total)", $preptime, $total));
 }
 
-# The unpacked tree is a "single wrapper" when it has exactly one top-level directory (a conventional
-# name-version/ source tarball). Multiple top-level directories mean several archives were unpacked side
-# by side (a common OBS shape, since archive_name_as_dir is off and archives land directly under
-# .unpacked), so a manifest one level down is a separate archive, not the primary root.
-sub _single_unpacked_root ($dir) {
-  my $unpacked = $dir->child('.unpacked');
-  return 0 unless -d $unpacked;
-  my $dirs = grep { -d $_ } $unpacked->list({dir => 1})->each;
-  return $dirs == 1 ? 1 : 0;
-}
-
 # Component identity comes from content, not its path.
 sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
 
@@ -204,22 +194,8 @@ sub _detect_components ($fi, $registry, $meta, $path, $single_root) {
 
   return unless $registry->matches($orig);
 
-  # A package manifest (package.json, Cargo.toml, ...) that describes the primary artifact under review
-  # must not be reported as a vendored subcomponent, or the SBOM lists the package as a dependency of
-  # itself. Such a manifest sits at the top of the source tree: at the unpacked root (depth 0), or one
-  # level in when the tree is a single wrapper directory (a conventional name-version/ tarball). But when
-  # several archives are unpacked side by side (multiple top-level directories), a depth-1 manifest is a
-  # *separate* vendored archive (e.g. serde-1.0.197/Cargo.toml) and must be kept. Listing files (Go's
-  # vendor/modules.txt) never describe the primary and are never skipped.
-  #
-  # Depth is measured against the package-root directory the manifest identifies. Python ships its
-  # metadata inside a <name>.egg-info/ or <name>.dist-info/ directory, so the package root is one level
-  # up from the metadata file - otherwise a project's own PKG-INFO/METADATA would sit at depth 2 and
-  # self-list. For every other ecosystem the package root is simply the manifest's own directory.
-  my $root = $orig =~ s{/[^/]*$}{}r;
-  $root =~ s{(?:^|/)[^/]+\.(?:egg-info|dist-info)$}{};
-  my $depth = $root eq '' ? 0 : ($root =~ tr{/}{}) + 1;
-  return if $registry->is_self_manifest($orig) && ($depth == 0 || ($depth == 1 && $single_root));
+  # The package's own manifest is a declaration, listing it here would make the package a dependency of itself
+  return if $registry->is_self_manifest($orig) && is_root_file($orig, $single_root);
 
   my $file = $fi->dir->child('.unpacked', $orig);
   return unless -f $file && -s $file < 4_000_000;

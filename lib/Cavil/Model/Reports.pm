@@ -9,6 +9,7 @@ use Mojo::File 'path';
 use Mojo::JSON qw(from_json);
 use Cavil::PatternEngine;
 use Cavil::Checkout;
+use Cavil::Declarations;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
 use Cavil::Util       qw(checkout_path lines_context to_json_fast @LICENSE_FLAGS);
@@ -288,42 +289,32 @@ sub source_for {
   return {lines => $lines, name => $pkg->{name}, filename => $file->{filename}};
 }
 
-sub specfile_report {
-  my ($self, $id) = @_;
+sub declarations ($self, $id) {
+  my $db  = $self->pg->db;
+  my $row = $db->select('bot_reports', 'declarations', {package => $id})->hash;
+  return from_json($row->{declarations}) if $row && defined $row->{declarations};
 
-  my $db   = $self->pg->db;
-  my $hash = $db->select('bot_reports', '*', {package => $id})->hash;
-
-  unless ($hash) {
-    return undef unless defined(my $specfile = $self->build_specfile_report($id));
-
-    return {} unless %$specfile;
-
-    my $report = {package => $id, specfile_report => to_json_fast($specfile)};
-    $hash = $db->insert('bot_reports', $report, {returning => '*'})->hash;
-  }
-
-  return from_json($hash->{specfile_report});
+  return {declarations => [], incomplete_checkout => []} unless my $declarations = $self->build_declarations($id);
+  my $json = to_json_fast($declarations);
+  if ($row) { $db->update('bot_reports', {declarations => $json}, {package => $id}) }
+  else      { $db->insert('bot_reports', {package => $id, declarations => $json}) }
+  return $declarations;
 }
 
-# Read the spec file report straight from the checkout, ignoring the cached copy. A rebuild that follows a
+# Read the declarations straight from the checkout, ignoring the cached copy. A rebuild that follows a
 # re-unpack has entirely new sources, so the cache describes the previous ones - Cavil::Task::Analyze takes
-# a fresh report from here and stores it with the promote, not before, so the spec file license and the
-# file report always change over together. Returns undef for a package that is gone and an empty report
-# while the sources are not unpacked.
-sub build_specfile_report ($self, $id) {
+# fresh declarations from here and stores them with the promote, not before, so the declared license and the
+# file report always change over together. Returns undef for a package that is gone or not unpacked.
+sub build_declarations ($self, $id) {
   return undef unless my $pkg = $self->pg->db->select('bot_packages', '*', {id => $id})->hash;
-
-  my $checkout = Cavil::Checkout->new(checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}));
-  return {} unless $checkout->is_unpacked;
-
-  return $checkout->specfile_report({upload => (($pkg->{external_link} // '') eq 'upload')});
+  my $dir = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  return Cavil::Checkout->new($dir)->is_unpacked ? Cavil::Declarations->new->detect($dir) : undef;
 }
 
 sub summary ($self, $id) {
-  my %summary  = (id => $id);
-  my $specfile = $self->specfile_report($id);
-  $summary{specfile} = lic($specfile->{main}{license})->canonicalize->to_string || 'Unknown';
+  my %summary = (id => $id);
+  $summary{declared}
+    = lic(($self->declarations($id)->{declarations}[0] // {})->{license})->canonicalize->to_string || 'Unknown';
 
   # Analyze has already cached this expensive match walk when available.
   my $cached = $self->cached_dig_report($id);

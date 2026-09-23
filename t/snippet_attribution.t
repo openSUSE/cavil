@@ -118,8 +118,8 @@ subtest 'Byte-identical packages have a zero summary_delta_score' => sub {
     priority        => 5
   );
   $db->query(
-    'INSERT INTO bot_reports (package, ldig_report, specfile_report, rolemodel)
-     SELECT ?, ldig_report, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg2_id, 1
+    'INSERT INTO bot_reports (package, ldig_report, declarations, rolemodel)
+     SELECT ?, ldig_report, declarations, rolemodel FROM bot_reports WHERE package = ?', $pkg2_id, 1
   );
 
   my $orig2_id = $db->insert(
@@ -168,8 +168,8 @@ subtest 'Summary covers all snippet hashes regardless of max_expanded_files' => 
       priority        => 5
     );
     $db->query(
-      'INSERT INTO bot_reports (package, specfile_report, rolemodel)
-       SELECT ?, specfile_report, rolemodel FROM bot_reports WHERE package = ?', $pkg_id, 1
+      'INSERT INTO bot_reports (package, declarations, rolemodel)
+       SELECT ?, declarations, rolemodel FROM bot_reports WHERE package = ?', $pkg_id, 1
     );
     for my $name (@$order) {
       my $file_id = $db->insert(
@@ -198,8 +198,8 @@ subtest 'Summary covers all snippet hashes regardless of max_expanded_files' => 
 
   is scalar keys %$forward, 10, 'summary covers every winning file, not just the expanded subset';
   is summary_delta_score(
-    {missed_snippets => $forward, specfile => 'Unknown'},
-    {missed_snippets => $reverse, specfile => 'Unknown'}
+    {missed_snippets => $forward, declared => 'Unknown'},
+    {missed_snippets => $reverse, declared => 'Unknown'}
     ),
     0, 'two content-identical packages have a zero delta regardless of expansion order';
 };

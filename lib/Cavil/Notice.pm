@@ -20,7 +20,7 @@ sub generate_to_file ($self, $id, $file) {
   my $app     = $self->app;
   my $reports = $app->reports;
   my $pkg     = $app->pg->db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
-  my $version = ($reports->specfile_report($id)->{main} || {})->{version};
+  my $version = ($reports->declarations($id)->{declarations}[0] // {})->{version};
 
   my $tmp_file = "$file.tmp";
   my $cleanup  = scope_guard sub { -e $tmp_file && path($tmp_file)->remove };

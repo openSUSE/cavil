@@ -208,8 +208,8 @@ Reports may be automatically accepted by the system under these conditions:
                   done for empty metadata packages like `000product`.
 
 One condition overrides all of the above and is a first-class safety property: **an incomplete checkout is never
-auto-accepted.** If the source could not be fully retrieved - a file the spec references is missing, so what was
-indexed is not the whole package - the analyze step detects it and stops before any of the acceptance paths run,
+auto-accepted.** If the source might not have been fully retrieved - the package's `_service` file runs a service
+remotely instead of from committed files, so what was indexed may not be the whole package - the analyze step detects it and stops before any of the acceptance paths run,
 leaving the report in `new` for a human, with a notice that manual review is required because the checkout might be
 incomplete. Acceptance decisions are only ever made against evidence known to be complete; a partial checkout can hide
 exactly the license that matters, so the system declines to rule on it rather than accept on incomplete grounds. (A
@@ -454,7 +454,7 @@ available metadata allows:
 * **A unique identity for the SBOM** - its own URI, so it can be referenced from other SBOMs, plus an iteration number.
   The URI stays the same every time a package's report is rebuilt, so the iteration number is what tells a recipient
   which of two documents is the newer one.
-* **Component name and version** - for the package (from its spec file) and for each bundled component (from the
+* **Component name and version** - for the package (from its primary declaration, see [Package declarations](#package-declarations)) and for each bundled component (from the
   component's own metadata).
 * **Supplier / originator** - derived from the Open Build Service coordinates the package came from.
 * **Download and home page locations** - where the source can be obtained and the upstream project page.
@@ -533,8 +533,28 @@ stated as an explicit unknown rather than left blank).
 
 The package's own top-level manifest (an npm project's root `package.json`, say) is *not* reported as a bundled
 component, even though it is present - it describes the primary artifact under review, not a vendored dependency, so
-listing it would make the package a subcomponent of itself. Only manifests nested below the source root are treated as
-vendored.
+listing it would make the package a subcomponent of itself. It is a declaration instead, see below.
+
+### Package declarations
+
+One boundary separates the two kinds of metadata file in a package. A file at the package root describes the package
+itself and is a *declaration*; the same kind of file below the root describes something the package ships and is a
+*component*. The root is the top of the unpacked tree, or the single directory a conventional `name-version/` tarball
+unpacks to. Python metadata directories and `debian/` count as the project directory they sit in. Several top-level
+directories are archives unpacked side by side, so nothing below them describes the package.
+
+Declarations come from distribution packaging (RPM spec, Debian, Kiwi, Dockerfile, Helm chart, OBS project) and from
+the upstream project's own manifest (`package.json`, `Cargo.toml`, `pyproject.toml`, ...), read by the same detectors
+as bundled components. Each records the file, its format, and what it claims: name, version, license, home page and
+summary, plus packager Legal-Review-Notices. Values are kept verbatim. A declared license is never rewritten, so an
+invalid SPDX expression is shown as written and marked invalid rather than silently corrected. A spec subpackage with
+its own `License:` becomes a declaration of its own. Missing values are simply absent, there are no warnings about them.
+
+Declarations are ordered distribution packaging first (in the order above, the file named after the package first
+within a format), then upstream manifests. The **primary declaration** is the first one that declares a license. It
+provides the package's declared license, version and home page for the report, the SBOM and the NOTICE, and a change
+of its license between two versions is called out in the review notice as `Declared license OLD -> NEW`. The packager's
+and upstream's declarations are shown side by side without a verdict; comparing them is the reviewer's call.
 
 ### Copyright notices
 

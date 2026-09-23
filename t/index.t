@@ -100,9 +100,9 @@ my $file_id = $db->select('matched_files', ['id'], {filename => 'Mojolicious-7.2
 ok $file_id,                                                               'file has been added';
 ok $db->select('bot_packages', ['unpacked'], {id => 1})->hash->{unpacked}, 'unpacked';
 
-my $specfile = $t->app->reports->specfile_report(1);
-my $dig      = $t->app->reports->dig_report(1);
-is report_checksum($specfile, $dig), '7d2fa36eff75adc8d7c309b8ff025992', 'right checksum';
+my $declarations = $t->app->reports->declarations(1);
+my $dig          = $t->app->reports->dig_report(1);
+is report_checksum($declarations, $dig), '7d2fa36eff75adc8d7c309b8ff025992', 'right checksum';
 
 my $res = $db->select(
   ['pattern_matches', ['matched_files', id => 'file']],

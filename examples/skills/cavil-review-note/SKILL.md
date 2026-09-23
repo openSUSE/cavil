@@ -127,14 +127,18 @@ Use `cavil_get_file` for context when an unresolved match is truncated, ambiguou
 
 #### Always review the declared package license - never skip it
 The most important first-pass check is whether the license **declared in the package file**
-(the `License:` tag from the spec file / package metadata) matches the licenses actually found in
-the report. This comparison **must appear in every note**, even when it is a clean match - it is
-the single most common reason a package needs human attention, so a note that omits it is
-incomplete.
+(the `License:` tag of the spec file, or whatever packaging file or project manifest declares it)
+matches the licenses actually found in the report. This comparison **must appear in every note**,
+even when it is a clean match - it is the single most common reason a package needs human
+attention, so a note that omits it is incomplete.
 
-The report surfaces the declared value on the `Declared-License:` line near the top (it carries a
-`(not a valid SPDX expression)` marker when Cavil could not normalize it). If that line is absent,
-the package file had no declared license - say so explicitly and lean toward NEEDS HUMAN REVIEW.
+The report surfaces the declared value on the `Declared-License:` line near the top, verbatim and
+followed by the file that declares it (e.g. `(from foo.spec)`); it carries a `(not a valid SPDX
+expression)` marker when the value is not a valid SPDX expression. `## Package Declarations` lists
+every packaging file and project manifest at the package root with what each declares, so you can
+see the packager's declaration next to upstream's own (`package.json`, `Cargo.toml`, ...). If the
+`Declared-License:` line is absent, none of them declares a license (nothing listed there means plain
+upstream source) - say so explicitly and lean toward NEEDS HUMAN REVIEW.
 
 Do not judge from the tag alone: read the package's own licensing files first, which the
 `## Legal Documents` section below lists for you.
@@ -151,8 +155,8 @@ Compare the declared license against the licenses in the Licenses/risk breakdown
   **Fixable metadata vs. bad license.** Distinguish *why* it mismatches. If the only problem is that
   the declared tag misrepresents the actually-found licenses, but those found licenses are
   themselves in the acceptable band (risk 1-4, no blocking flags or confirmed conflict), treat it as
-  **fixable metadata**: the suggested next step is "correct the declared `License:` tag to `<X>` and
-  resubmit," not a license rejection. Reserve REJECT-framing for genuinely unacceptable content
+  **fixable metadata**: the suggested next step is "correct the declared license in `<file>` to `<X>`
+  and resubmit," not a license rejection. Reserve REJECT-framing for genuinely unacceptable content
   (risk 6/7, a third-party proprietary EULA, or a confirmed combined-work conflict). This matters
   because customer-facing SBOMs are generated from the declared tag, so it must match reality.
 
@@ -175,8 +179,8 @@ the two disagree the report's file evidence wins, and the disagreement is itself
 Then take it claim by claim. Every sentence that removes something from consideration is a claim:
 
 - **"removed in `%prep`" / "not shipped" / "not linked" / "optional feature" / "build-time only"** - the package's own
-  build recipe is in the package: `cavil_list_files(package_id, "*.spec")`, then `cavil_get_file` on the one at the
-  package root. `%prep` shows what is deleted before the build, `%build` what is actually built (`cargo build -p
+  build recipe is in the package: `cavil_get_file` on the spec file listed under `## Package Declarations`.
+  `%prep` shows what is deleted before the build, `%build` what is actually built (`cargo build -p
   <member>`, a configure flag), `%files` what ships, and `Provides: bundled(...)` names the third-party C libraries
   that really are compiled in.
 - **"X is the only component under license Y" / "none of these are Y"** - check it against **`## Vendored Components`**,
@@ -222,6 +226,9 @@ license** - the open-webui "Open WebUI License", the Redis RSAL, SSPL, "Good-not
 relicenses. It silently converts code SUSE could ship into code SUSE may not, and because downstream
 already depends on the old terms, a *transition* is worse than a package that was always non-free.
 Treat any sign of it as the top finding in the note, above every other check.
+
+A `Declared license OLD -> NEW` line in the System Notice means the declaration itself changed since
+the last reviewed version: always check the new terms against the signs below.
 
 Any one of these is enough to escalate:
 - The top-level `LICENSE`/`COPYING` combines a recognized OSS body (BSD/MIT/Apache/GPL) with an
