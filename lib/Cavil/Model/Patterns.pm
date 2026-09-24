@@ -7,11 +7,15 @@ use Mojo::Base -base, -signatures;
 use Cavil::Util qw(license_is_catch_all license_link normalize_license_expr paginate pattern_checksum),
   qw(pattern_contains_skip),
   qw(spdx_link text_shingle_ids SNIPPET_SCORE_VERSION PRIORITY_WAITING @LICENSE_FLAGS @PATTERN_FLAGS);
-use List::Util qw(min);
-use Mojo::File qw(path);
+use List::Util qw(max min sum);
+use Mojo::File qw(path tempfile);
 use Mojo::JSON qw(true false);
 use Mojo::Util qw(md5_sum);
 use Cavil::PatternEngine;
+
+# Bounds of the cavil_test_pattern dry run (also run on every AI pattern proposal)
+use constant TEST_PATTERN_CANDIDATES => 1000;
+use constant TEST_PATTERN_TIMEOUT    => 10;
 
 use constant SIMILARITY_PROBE_SHINGLES => 20;
 
@@ -599,6 +603,328 @@ sub capped_match_count ($self, $id) {
   };
 }
 
+# Corpus query over curated patterns - the precedent lookup ("what does Cavil already say about this text?")
+# and the maintenance worklists. %opts:
+#   filters: license, risk, flag (one of @PATTERN_FLAGS), catch_all, search (pattern substring), min_skip
+#   contained_in: text - curated patterns that match inside it (full matcher, same engine as indexing), plus
+#                 the similar_to neighbours so near-variants of the wording show up too
+#   similar_to: text - nearest patterns by shingle containment, both ways (pattern_cov, text_cov)
+#   report: 'inconsistent_risk' - licenses whose patterns disagree on risk
+#   limit, offset
+# Text queries also return a verdict: consensus (one license/risk), conflict, or none. Patterns matching inside
+# the text outrank merely similar ones.
+sub search ($self, %opts) {
+  my $limit  = $opts{limit}  // 20;
+  my $offset = $opts{offset} // 0;
+  return $self->_inconsistent_risk($opts{license}, $limit, $offset) if ($opts{report} // '') eq 'inconsistent_risk';
+
+  my (@where, @bind, %extra);
+  my $hits;
+  if (defined(my $text = $opts{contained_in})) {
+    $hits = $self->_contained_in($text);
+    my $similar = $self->_similar_to($text, keys %$hits);
+    $hits->{$_} = {%{$similar->{$_}}, %{$hits->{$_} // {}}} for keys %$similar;
+  }
+  elsif (defined $opts{similar_to}) { $hits = $self->_similar_to($opts{similar_to}) }
+  if    ($hits) {
+    return {rows => [], verdict => _verdict([]), total => 0} unless %$hits;
+    push @where, 'id = ANY(?)';
+    push @bind,  [keys %$hits];
+    %extra = %$hits;
+  }
+
+  push @where, "license <> ''";
+  if (defined $opts{exclude_id}) { push @where, 'id <> ?';     push @bind, $opts{exclude_id} }
+  if (defined $opts{license})    { push @where, 'license = ?'; push @bind, $opts{license} }
+  if (defined $opts{risk})       { push @where, 'risk = ?';    push @bind, $opts{risk} }
+  if (defined(my $flag = $opts{flag})) {
+    die "Unknown flag: $flag\n" unless grep { $_ eq $flag } @PATTERN_FLAGS;
+    push @where, $flag;
+  }
+  push @where, ($opts{catch_all} ? '' : 'NOT ') . 'catch_all' if defined $opts{catch_all};
+  if (defined $opts{search} && length $opts{search}) {
+    push @where, 'pattern ILIKE ?';
+    push @bind,  '%' . ($opts{search} =~ s/([%_\\])/\\$1/gr) . '%';
+  }
+  if (defined $opts{min_skip}) {
+    push @where, q{(SELECT MAX(m[1]::int) FROM regexp_matches(pattern, '\$SKIP(\d+)', 'g') m) >= ?};
+    push @bind,  $opts{min_skip};
+  }
+
+  my $rows = $self->pg->db->query(
+        'SELECT id, license, risk, pattern, catch_all, '
+      . join(', ', @PATTERN_FLAGS)
+      . ', COUNT(*) OVER() AS total
+     FROM license_patterns WHERE ' . join(' AND ', @where) . ' ORDER BY id', @bind
+  )->hashes;
+
+  my $total = @$rows ? $rows->[0]{total} : 0;
+  for my $row (@$rows) {
+    delete $row->{total};
+    my $pattern = delete $row->{pattern};
+    $row->{length}   = length $pattern;
+    $row->{max_skip} = max(0, map { 0 + $_ } $pattern =~ /\$SKIP(\d+)/g);
+    $row->{flags}    = [grep { delete $row->{$_} } @LICENSE_FLAGS];
+    $row->{$_}       = $row->{$_} ? true : false for qw(catch_all full_license_text);
+    $row->{excerpt}  = substr($pattern =~ s/\s+/ /gr, 0, 160);
+    %$row            = (%$row, %{$extra{$row->{id}}}) if $extra{$row->{id}};
+  }
+
+  # Strongest evidence first: contained, then by how much of each other the pattern and the text share
+  my @sorted = sort {
+         ($b->{contained} // 0)   <=> ($a->{contained} // 0)
+      || ($b->{pattern_cov} // 0) <=> ($a->{pattern_cov} // 0)
+      || $a->{id}                 <=> $b->{id}
+  } @$rows;
+  my @page = grep {defined} @sorted[$offset .. min($offset + $limit, scalar @sorted) - 1];
+  $_->{matches} = $self->capped_match_count($_->{id}) for @page;
+
+  return {rows => \@page, total => 0 + $total, (%extra ? (verdict => _verdict(\@sorted)) : ())};
+}
+
+# Consensus is decided by the patterns that match inside the text and cover at least half of it (a short
+# pattern inside a longer text says nothing about the rest); near-misses only count when nothing matches.
+# Dissent lists close variants of the wording (half the pattern or more, a fifth of the text) classified differently from every
+# strong match - the "precedent itself conflicts" case a reviewer needs to hear about.
+sub _verdict ($rows) {
+  my @strong = grep { $_->{contained} && ($_->{text_cov} // 0) >= 0.5 } @$rows;
+  @strong = grep { ($_->{pattern_cov} // 0) >= 0.8 && ($_->{text_cov} // 0) >= 0.8 } @$rows unless @strong;
+  return {status => 'none', basis => undef, classes => [], dissent => []} unless @strong;
+
+  my %classes;
+  push @{$classes{"$_->{license}\0$_->{risk}"}}, $_->{id} for @strong;
+  my @classes = map { my ($l, $r) = split /\0/; {license => $l, risk => 0 + $r, ids => $classes{$_}} }
+    sort { @{$classes{$b}} <=> @{$classes{$a}} || $a cmp $b } keys %classes;
+  my @dissent
+    = map { {id => $_->{id}, license => $_->{license}, risk => 0 + $_->{risk}} }
+    grep  { !$classes{"$_->{license}\0$_->{risk}"} && ($_->{pattern_cov} // 0) >= 0.5 && ($_->{text_cov} // 0) >= 0.2 }
+    @$rows;
+  return {
+    status  => @classes == 1         ? 'consensus' : 'conflict',
+    basis   => $strong[0]{contained} ? 'contained' : 'similar',
+    classes => \@classes,
+    dissent => \@dissent
+  };
+}
+
+sub _contained_in ($self, $text) {
+  my $matcher = Cavil::PatternEngine::init_matcher();
+  $self->load_unspecific($matcher);
+  my $file = tempfile->spew("ABC\n$text\nABC\n", 'UTF-8');
+
+  # Line 1 is the padding line, so shift spans back to the text's own numbering
+  my %hits;
+  for my $m (@{$matcher->find_matches($file)}) {
+    my ($id, $sline, $eline) = @$m;
+    $hits{$id} //= {contained => true, lines => ($sline - 1) . '-' . ($eline - 1)};
+  }
+  return \%hits;
+}
+
+# Candidates come from two sources, because neither sees everything: the shingle index (normalization drops
+# copyright lines, so one-line notices mentioning copyright have no shingles) and the tf-idf bag. Coverage is
+# then measured on raw token shingles in both directions, so the agent sees near-variants as well as supersets.
+sub _similar_to ($self, $text, @always) {
+  my @ids = keys %{text_shingle_ids($text, SIMILARITY_SHINGLE_SIZE)};
+  my $db  = $self->pg->db;
+  my %candidates;
+  if (@ids) {
+    my $licenses = $db->query(
+      'SELECT license FROM shingle_license WHERE shingle = ANY(?::bigint[])
+       GROUP BY license ORDER BY COUNT(*) DESC, license LIMIT 20', \@ids
+    )->arrays->map(sub { $_->[0] })->to_array;
+    $candidates{$_->[0]} = 1
+      for $db->query(
+      'SELECT pattern_id FROM pattern_shingles WHERE license = ANY(?::text[]) AND shingle = ANY(?::bigint[])
+       GROUP BY pattern_id ORDER BY COUNT(*) DESC, pattern_id LIMIT 50', $licenses, \@ids
+      )->arrays->each;
+  }
+  $candidates{$_->{pattern}} = 1 for @{$self->closest_matches($text, 20)};
+  $candidates{$_} = 2 for @always;
+  return {} unless %candidates;
+
+  my $mine = _raw_shingles($text);
+  return {} unless %$mine;
+  my %hits;
+  for
+    my $row ($db->query('SELECT id, pattern FROM license_patterns WHERE id = ANY(?)', [keys %candidates])->hashes->each)
+  {
+    my $theirs = _raw_shingles($row->{pattern});
+    next unless my $size = keys %$theirs;
+    my $shared = grep { $mine->{$_} } keys %$theirs;
+    my ($pattern_cov, $text_cov) = ($shared / $size, $shared / keys(%$mine));
+
+    next if $pattern_cov < 0.3 && $text_cov < 0.3 && $candidates{$row->{id}} != 2;
+    $hits{$row->{id}}
+      = {pattern_cov => int($pattern_cov * 100 + 0.5) / 100, text_cov => int($text_cov * 100 + 0.5) / 100};
+  }
+  return \%hits;
+}
+
+# Token shingles without the scoring normalization; $SKIP tokens (encoded as their small width) are dropped
+sub _raw_shingles ($text) {
+  Cavil::PatternEngine::init_matcher();
+  my @toks = grep { $_ >= 100 } @{Cavil::PatternEngine::parse_tokens($text)};
+  my $k    = SIMILARITY_SHINGLE_SIZE;
+  return {map { $_                                  => 1 } @toks} if @toks < $k;
+  return {map { join(',', @toks[$_ .. $_ + $k - 1]) => 1 } 0 .. @toks - $k};
+}
+
+# Where a pattern matches in a text, and which words each $SKIPn swallowed there - what a reviewer needs to
+# check a long pattern without reading it. Same token semantics as the matcher ($SKIPn = 1..n words), found
+# by a depth-first walk that tries the shortest skips first. Returns undef when the pattern does not match.
+sub align ($self, $pattern, $text) {
+  Cavil::PatternEngine::init_matcher();
+  my @p = @{Cavil::PatternEngine::parse_tokens($pattern)};
+  my @t = @{Cavil::Matcher::normalize($text)};
+  return undef unless @p && @t && $p[0] >= 100;
+
+  # Walk returns the text position after the match plus the [position, words used, declared n] of each skip
+  no warnings 'recursion';
+  my %failed;
+  my $walk;
+  $walk = sub ($i, $j) {
+    return [$j]  if $i == @p;
+    return undef if $j >= @t || $failed{"$i,$j"};
+    if ($p[$i] < 100) {
+      for my $k (1 .. $p[$i]) {
+        my $rest = $walk->($i + 1, $j + $k) or next;
+        return [$rest->[0], [$j, $k, $p[$i]], @$rest[1 .. $#$rest]];
+      }
+    }
+    elsif ($t[$j][2] eq $p[$i]) {
+      my $rest = $walk->($i + 1, $j + 1);
+      return $rest if $rest;
+    }
+    $failed{"$i,$j"} = 1;
+    return undef;
+  };
+
+  my $found;
+  for my $start (grep { $t[$_][2] eq $p[0] } 0 .. $#t) {
+    next unless my $walked = $walk->(0, $start);
+    my ($end, @skips) = @$walked;
+    my @lines = split /\n/, $text, -1;
+    my ($first, $last) = ($t[$start][0], $t[$end - 1][0]);
+    $found = {
+      lines => [$first, $last],
+      text  => join("\n", @lines[$first - 1 .. $last - 1]),
+      skips => [
+        map {
+          {skip => $_->[2], words => join(' ', map { $_->[1] } @t[$_->[0] .. $_->[0] + $_->[1] - 1])}
+        } @skips
+      ]
+    };
+    last;
+  }
+  undef $walk;
+  return $found;
+}
+
+# Dry run of a pattern against the snippet corpus: how many snippets and packages it would match, samples, and
+# what its $SKIPs swallow there. Candidates are prefiltered by full-text search on the pattern's longest
+# literal words, then confirmed with the real matcher. Embargoed, obsolete and ephemeral packages never show.
+sub test_pattern ($self, $pattern, %opts) {
+  Cavil::PatternEngine::init_matcher();
+  (my $literal = $pattern) =~ s/\$SKIP\d+/ /g;
+  my %seen;
+  my @words = grep { !$seen{$_}++ } map { $_->[1] } @{Cavil::Matcher::normalize($literal)};
+  @words = sort { length $b <=> length $a || $a cmp $b } grep {/^\w{3,}$/} @words;
+  splice @words, 4 if @words > 4;
+  return {error => 'Pattern has no searchable words'} unless @words;
+
+  # Production has millions of snippets and file_snippets rows, so every query is capped and the whole dry
+  # run shares one statement timeout; a timeout is reported, never retried
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  $db->query("SET LOCAL statement_timeout = '@{[TEST_PATTERN_TIMEOUT]}s'");
+  my $result = eval { $self->_test_pattern_queries($db, $pattern, \@words, $opts{package_id}) };
+  return {error => 'Dry run timed out, narrow it with package_id or more distinctive wording', searched => \@words}
+    if !$result && $@ =~ /statement timeout/;
+  die $@ unless $result;
+  return $result;
+}
+
+sub _test_pattern_queries ($self, $db, $pattern, $words, $package_id) {
+  my $cap  = TEST_PATTERN_CANDIDATES;
+  my @pkg  = defined $package_id ? ($package_id)        : ();
+  my $pkg  = @pkg                ? 'AND fs.package = ?' : '';
+  my $live = 'fs.generation = 0 AND NOT p.embargoed AND NOT p.obsolete AND NOT p.ephemeral';
+
+  # No ORDER BY: with one the planner may walk the primary key and compute to_tsvector for every snippet
+  # instead of using snippets_text_fts_idx
+  my $candidates = $db->query(
+    "SELECT s.id, s.text FROM snippets s
+     WHERE to_tsvector('english', s.text) @@ websearch_to_tsquery('english', ?)
+       AND EXISTS (SELECT 1 FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
+                   WHERE fs.snippet = s.id AND $live $pkg)
+     LIMIT ?", join(' ', @$words), @pkg, $cap + 1
+  )->hashes;
+  my $capped = @$candidates > $cap;
+  pop @$candidates if $capped;
+
+  my $matcher = Cavil::PatternEngine::init_matcher();
+  $matcher->add_pattern(1, Cavil::PatternEngine::parse_tokens($pattern));
+  my @matched;
+  for my $snippet (@$candidates) {
+    my $file = tempfile->spew("ABC\n$snippet->{text}\nABC\n", 'UTF-8');
+    push @matched, $snippet if @{$matcher->find_matches($file)};
+  }
+
+  my $stats   = {snippets => 0, occurrences => 0, packages => 0, unresolved => 0};
+  my $samples = [];
+  if (my @ids = map { $_->{id} } @matched) {
+
+    # A single snippet (an SPDX line) can occur millions of times, so counts stop at a limit, like
+    # capped_match_count
+    my ($occ_limit, $pkg_limit) = (LICENSE_DETAIL_MATCH_LIMIT, LICENSE_DETAIL_PACKAGE_LIMIT);
+    my $counts = $db->query(
+      "SELECT o.occurrences, o.unresolved, pk.packages
+       FROM (SELECT COUNT(*)::int AS occurrences, COUNT(*) FILTER (WHERE resolution IS NULL)::int AS unresolved
+             FROM (SELECT fs.resolution FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
+                   WHERE fs.snippet = ANY(?) AND $live $pkg LIMIT ?) l) o,
+            (SELECT COUNT(*)::int AS packages
+             FROM (SELECT DISTINCT fs.package FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package
+                   WHERE fs.snippet = ANY(?) AND $live $pkg LIMIT ?) l) pk", \@ids, @pkg, $occ_limit + 1, \@ids, @pkg,
+      $pkg_limit + 1
+    )->hash;
+    $capped ||= $counts->{occurrences} > $occ_limit || $counts->{packages} > $pkg_limit;
+    $stats = {
+      snippets    => scalar @ids,
+      occurrences => min($counts->{occurrences}, $occ_limit),
+      packages    => min($counts->{packages},    $pkg_limit),
+      unresolved  => min($counts->{unresolved},  $occ_limit)
+    };
+
+    # One occurrence for each of the first 5 matched snippets, never a sort over all occurrences
+    my @first = @ids[0 .. min(4, $#ids)];
+    $samples = $db->query(
+      "SELECT o.* FROM unnest(?::int[]) AS sn(id), LATERAL (
+         SELECT fs.snippet, fs.package, p.name, m.filename, fs.sline, fs.resolution, lp.license AS closest_license
+         FROM file_snippets fs JOIN bot_packages p ON p.id = fs.package JOIN matched_files m ON m.id = fs.file
+           JOIN snippets s ON s.id = fs.snippet LEFT JOIN license_patterns lp ON lp.id = s.like_pattern
+         WHERE fs.snippet = sn.id AND $live $pkg LIMIT 1) o", \@first, @pkg
+    )->hashes->to_array;
+    my %text = map { $_->{id} => $_->{text} } @matched;
+    $_->{skips} = ($self->align($pattern, $text{$_->{snippet}}) // {})->{skips} // [] for @$samples;
+  }
+
+  return {%$stats, capped => $capped ? true : false, searched => $words, samples => $samples};
+}
+
+sub _inconsistent_risk ($self, $license, $limit, $offset) {
+  my $rows = $self->pg->db->query(
+    q{SELECT license, jsonb_object_agg(risk, jsonb_build_object('patterns', n, 'ids', ids)) AS risks, SUM(n)::int AS patterns, COUNT(*) OVER() AS total
+      FROM (SELECT license, risk, COUNT(*) AS n, (array_agg(id ORDER BY id))[1:5] AS ids
+            FROM license_patterns WHERE license <> '' AND (?::text IS NULL OR license = ?) GROUP BY license, risk) r
+      GROUP BY license HAVING COUNT(*) > 1 ORDER BY SUM(n) DESC, license LIMIT ? OFFSET ?}, $license, $license, $limit,
+    $offset
+  )->expand->hashes;
+  my $total = @$rows ? $rows->[0]{total} : 0;
+  delete $_->{total} for @$rows;
+  return {report => 'inconsistent_risk', rows => $rows, total => 0 + $total};
+}
+
 sub remove_proposal ($self, $checksum) {
   my $sth = $self->pg->db->dbh->prepare('DELETE FROM proposed_changes WHERE token_hexsum = ?');
   my $rc  = $sth->execute($checksum);
@@ -788,7 +1114,11 @@ sub _insert_pattern_proposal ($self, $db, $action, $checksum, %args) {
           package              => $args{package},
           (map { $_ => $args{$_} // '0' } @PATTERN_FLAGS),
           ai_assisted => $args{ai_assisted} // 0,
-          reason      => $args{reason}      // ''
+          reason      => $args{reason}      // '',
+
+          # Server-computed facts for the reviewer (precedent, impact, $SKIP alignment) and the grouping key
+          # for proposals about one legal text
+          (map { defined $args{$_} ? ($_ => $args{$_}) : () } qw(evidence family))
         }
       },
       owner        => $args{owner},

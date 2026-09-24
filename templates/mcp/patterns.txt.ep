@@ -1,0 +1,45 @@
+% my $rows = $result->{rows};
+% my $next = $offset + @$rows < $result->{total} ? $offset + $limit : undef;
+% if (($result->{report} // '') eq 'inconsistent_risk') {
+# Report: licenses whose patterns disagree on risk (<%= $result->{total} %>)
+
+%   for my $r (@$rows) {
+<%= $r->{license} %> · <%= $r->{patterns} %> patterns
+%     for my $risk (sort { $a <=> $b } keys %{$r->{risks}}) {
+  risk <%= $risk %>: <%= $r->{risks}{$risk}{patterns} %> (e.g. #<%= join ', #', @{$r->{risks}{$risk}{ids}} %>)
+%     }
+%   }
+% }
+% else {
+# Patterns<% if ($subject) { %> matching <%= $subject %><% } %> (<%= $result->{total} %>)
+
+%   if (my $v = $result->{verdict}) {
+%     if ($v->{status} eq 'none') {
+Verdict: none - no curated pattern matches or closely resembles this wording.
+%     }
+%     else {
+Verdict: <%= $v->{status} %> (<%= $v->{basis} eq 'contained' ? 'patterns matching inside the text' : 'near-identical wording' %>)
+%       for my $class (@{$v->{classes}}) {
+  <%= $class->{license} %>, risk <%= $class->{risk} %>: #<%= join ', #', @{$class->{ids}} %>
+%       }
+%       if (@{$v->{dissent}}) {
+Dissent (close variants classified differently): <%= join ' · ', map {"#$_->{id} $_->{license} risk $_->{risk}"} @{$v->{dissent}} %>
+%       }
+%     }
+
+%   }
+%   unless (@$rows) {
+No matching patterns.
+%   }
+%   for my $p (@$rows) {
+%     my $m = $p->{matches};
+#<%= $p->{id} %> · <%= $p->{license} %> · risk <%= $p->{risk} %>\
+<% if (@{$p->{flags}}) { %> · <%= join ',', @{$p->{flags}} %><% } %>\
+<% if ($p->{full_license_text}) { %> · full-text<% } %><% if ($p->{contained}) { %> · CONTAINED lines <%= $p->{lines} %><% } %>\
+<% if (defined $p->{pattern_cov}) { %> · pattern_cov <%= $p->{pattern_cov} %> text_cov <%= $p->{text_cov} %><% } %>
+  <%= $p->{length} %> chars, widest $SKIP<%= $p->{max_skip} %>, matches <%= $m->{matches} %><%= $m->{matches_capped} ? '+' : '' %> in <%= $m->{packages} %><%= $m->{packages_capped} ? '+' : '' %> packages
+  <%== $p->{excerpt} %>
+%   }
+% }
+
+Pagination: limit=<%= $limit %>, offset=<%= $offset %>, next_offset=<%= defined $next ? $next : 'none' %>

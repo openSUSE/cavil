@@ -83,4 +83,38 @@ subtest 'empty / tiny text is safe' => sub {
   is $r->{license}, undef, 'no license';
 };
 
+subtest 'align shows what each $SKIP swallowed' => sub {
+  my $text
+    = "/*\n * Copyright (c) 2019 Foo Bar Inc.\n * Licensed under the Apache License, Version 2.0\n * no more\n */";
+  my $a = $patterns->align('Copyright $SKIP5 Licensed under the Apache License, Version 2.0', $text);
+  is_deeply $a->{lines}, [2, 3],                                     'matched lines';
+  is_deeply $a->{skips}, [{skip => 5, words => '2019 foo bar inc'}], 'skipped words';
+  like $a->{text}, qr/^ \* Copyright.*Version 2\.0$/s, 'matched text';
+  is $patterns->align('Copyright $SKIP2 Licensed', $text), undef, 'skip too narrow';
+  is $patterns->align('Licensed under the MIT',    $text), undef, 'no match';
+};
+
+subtest 'verdict: containment decides, near-variants dissent' => sub {
+  my $v = Cavil::Model::Patterns::_verdict(
+    [
+      {id => 1, license => 'Any Proprietary',           risk => 7, contained   => 1, pattern_cov => 1, text_cov => 0.9},
+      {id => 2, license => 'Any specification license', risk => 3, pattern_cov => 0.6, text_cov  => 0.3},
+      {id => 3, license => 'MIT',                       risk => 1, contained   => 1, pattern_cov => 1, text_cov => 0.1}
+    ]
+  );
+  is $v->{status}, 'consensus', 'short contained pattern does not count';
+  is_deeply $v->{classes}, [{license => 'Any Proprietary', risk => 7, ids => [1]}], 'consensus class';
+  is_deeply [map { $_->{id} } @{$v->{dissent}}], [2], 'variant dissents, short pattern does not';
+
+  $v = Cavil::Model::Patterns::_verdict(
+    [
+      {id => 1, license => 'A', risk => 7, pattern_cov => 0.9,  text_cov => 0.9},
+      {id => 2, license => 'B', risk => 3, pattern_cov => 0.85, text_cov => 0.8}
+    ]
+  );
+  is $v->{status},                                   'conflict', 'near-identical wording, two classifications';
+  is $v->{basis},                                    'similar',  'decided by similarity';
+  is Cavil::Model::Patterns::_verdict([])->{status}, 'none',     'no precedent';
+};
+
 done_testing;

@@ -123,7 +123,6 @@ sub proposed_meta ($self) {
   my $changes = $self->patterns->proposed_changes({actions => $actions, before => $before, search => $search});
 
   for my $change (@{$changes->{changes}}) {
-    next unless $change->{action} eq 'new_license';
     (my $reason = $change->{data}{reason} // '') =~ s/^AI Assistant:\s*//;
     $change->{reason_html} = $self->markdown_to_safe_html($reason);
   }

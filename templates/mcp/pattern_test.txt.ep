@@ -1,0 +1,26 @@
+% my $i = $impact;
+# Pattern dry run
+
+Would match <%= $i->{snippets} %><%= $i->{capped} ? '+' : '' %> snippets (<%= $i->{occurrences} %> occurrences, <%= $i->{unresolved} %> unresolved) in <%= $i->{packages} %> packages
+Prefiltered on: <%= join ' ', @{$i->{searched}} %><% if ($i->{capped}) { %> (candidate cap reached, counts are a lower bound)<% } %>
+
+% if (@{$i->{samples}}) {
+Samples:
+% }
+% for my $s (@{$i->{samples}}) {
+  snippet <%= $s->{snippet} %> · <%= $s->{name} %> (package_id <%= $s->{package} %>) · <%= $s->{filename} %>:<%= $s->{sline} %> · <%= $s->{resolution} // 'unresolved' %><% if ($s->{closest_license}) { %> · closest <%= $s->{closest_license} %><% } %>
+%   for my $skip (@{$s->{skips}}) {
+    $SKIP<%= $skip->{skip} %> swallowed: <%== $skip->{words} %>
+%   }
+% }
+
+% if (@$similar) {
+Most similar existing patterns:
+%   for my $p (@$similar) {
+  #<%= $p->{id} %> · <%= $p->{license} %> · risk <%= $p->{risk} %> · pattern_cov <%= $p->{pattern_cov} %> text_cov <%= $p->{text_cov} %>
+    <%== $p->{excerpt} %>
+%   }
+% }
+% else {
+No existing pattern has similar wording.
+% }

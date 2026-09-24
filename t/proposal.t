@@ -772,4 +772,26 @@ subtest 'New-license proposal keeps its missing-license report as a fallback' =>
   is $missing_count->(), 0, 'menu counter clears once the proposal is approved';
 };
 
+subtest 'Markdown reasons on every proposal type' => sub {
+  my $patterns = $t->app->patterns;
+  is_deeply $patterns->propose_create(
+    snippet     => 2,
+    pattern     => 'Brand New License 1.0 markdown reason wording',
+    license     => 'Brand-New-1.0',
+    risk        => 3,
+    package     => 1,
+    owner       => 2,
+    ai_assisted => 1,
+    reason      => "AI Assistant: **Brand-New-1.0, risk 3.**\n\n- deciding clause<script>alert(1)</script>"
+    ),
+    {}, 'pattern proposal filed';
+
+  $t->get_ok('/licenses/proposed/meta?action=create_pattern&filter=markdown')->status_is(200);
+  my $html = $t->tx->res->json->{changes}[0]{reason_html};
+  like $html,   qr{<strong>Brand-New-1\.0, risk 3\.</strong>}, 'markdown rendered for create_pattern';
+  like $html,   qr{<li>deciding clause},                       'list rendered';
+  unlike $html, qr{<script},                                   'html sanitised';
+  unlike $html, qr{AI Assistant},                              'prefix stripped';
+};
+
 done_testing();

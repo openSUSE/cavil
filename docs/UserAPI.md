@@ -75,6 +75,8 @@ Cavil API key by setting the Authorization HTTP header:
 | [`cavil_search_packages`](#cavil_search_packages) | Read-only | Search packages and vendored components |
 | [`cavil_get_report`](#cavil_get_report) | Read-only | Get a package's legal report |
 | [`cavil_search_snippets`](#cavil_search_snippets) | Read-only | Search and aggregate snippets |
+| [`cavil_search_patterns`](#cavil_search_patterns) | Read-only | Precedent research over curated patterns |
+| [`cavil_test_pattern`](#cavil_test_pattern) | Read-only | Dry-run a draft or existing pattern against all snippets |
 | [`cavil_get_file`](#cavil_get_file) | Read-only | Read part of a package file |
 | [`cavil_list_files`](#cavil_list_files) | Read-only | List files in a package |
 | [`cavil_create_note`](#cavil_create_note) | Read-write | Add an AI-assisted note |
@@ -141,6 +143,35 @@ snippets by impact; or list individual occurrences with per-snippet detail.
 - `search`: Full-text search over snippet bodies. (string, optional)
 - `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
 - `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
+
+#### cavil_search_patterns
+
+Query the curated license patterns. With a subject it answers "what does Cavil already say about this text?": the
+patterns matching inside it plus near-variants, with a verdict (`consensus`, `conflict` or `none`) and the close
+variants classified differently (dissent). Without a subject it lists patterns by filter or runs a report.
+
+- **Required Roles**: `user` (read-only)
+- `snippet_id`: Subject snippet; requires `package_id`, embargoed packages are refused. (number, optional)
+- `package_id`: Package the snippet belongs to. (number, optional)
+- `text`: Subject text, e.g. a draft pattern or a file excerpt. (string, optional)
+- `pattern_id`: Subject pattern; returns the most similar other patterns. (number, optional)
+- `report`: `inconsistent_risk` lists licenses whose patterns disagree on risk. (string, optional)
+- `license`, `risk`, `flag` (`patent`, `trademark`, `export_restricted`, `cla`, `eula`, `full_license_text`),
+  `catch_all`, `search` (pattern substring), `min_skip` (widest `$SKIPn` at least n): Filters. (optional)
+- `limit`: Maximum number of rows to return. Defaults to `20`, maximum `100`. (number, optional)
+- `offset`: Number of rows to skip for pagination. Defaults to `0`. (number, optional)
+
+#### cavil_test_pattern
+
+Dry-run a pattern: how many snippets and packages it would match, up to 5 samples with the words each `$SKIPn`
+swallowed, and the most similar existing patterns. Candidates are prefiltered by full-text search on the pattern's
+longest words (at most 1000 candidates). Occurrence and package counts stop at 10000 and 1000, and the whole dry run
+has a 10 second statement timeout, so it is safe on a production-sized database; a `+` marks a lower bound.
+
+- **Required Roles**: `user` (read-only)
+- `pattern`: Draft pattern text. (string, optional)
+- `pattern_id`: Existing pattern to test instead. (number, optional)
+- `package_id`: Restrict the dry run to one package. (number, optional)
 
 #### cavil_get_file
 

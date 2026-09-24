@@ -167,6 +167,28 @@ worklist snippet, take the **first** action that applies:
    the snippet is finished - no pattern for it.
 7. **Cannot name any license** → note.
 
+**PRECEDENT STEP (mandatory before steps 3, 4 and 6, and before any catch-all or pseudo-license).**
+Call `cavil_search_patterns(package_id, snippet_id)` and act on its verdict:
+
+- **consensus** → file with exactly that license and risk. This overrides the `Any Proprietary` ban.
+  If a **Dissent** line lists close variants classified differently, still follow the consensus, and
+  add the dissenting ids to the RECLASSIFY section of the summary.
+- **conflict** → do **not** pattern the snippet. The curated patterns disagree with each other, so a
+  lawyer has to settle it first. Leave it open and argue it in RECLASSIFY (ids and classification
+  on each side, which is right and why).
+- **none** → no precedent. Apply the NOTICE RUBRIC and the grab-bag rule below.
+
+Then **dry-run the draft** with `cavil_test_pattern(pattern)` before proposing. Check that every
+sample is the same legal text, that each `$SKIP` swallowed only variable words (holder, year, product
+name - never a license name or an operative clause), and that it would not match unrelated packages.
+The propose call enforces both checks: it refuses a license/risk that contradicts curated precedent for
+the text your pattern covers, and a pattern reaching more than 20 other packages unless you pass
+`broad_ok=true` and explain the breadth in the reason. Set the same `family` on every proposal about
+one legal text (e.g. `"Khronos spec notice"`) so the lawyer decides them together.
+
+Rows marked `CONTAINED` are curated patterns that already match inside the snippet. If they cover
+only part of it (see `lines`), the rest is what is still unresolved: pattern that part, not the whole.
+
 Operate autonomously: work through your worklist and execute each action without pausing for
 confirmation. Create each pattern **once** - Cavil re-indexes and resolves every duplicate
 occurrence; do not also ignore them.
@@ -265,9 +287,21 @@ correct flag automatically (names match case-insensitively):
 | `Any Permissive` | a permissive grant that names no specific license ("free to use for any purpose", "may be freely copied and distributed") |
 | `Any floating warranty` / `Any no warranty` | a standalone warranty disclaimer with no license ("no warranty; not even for MERCHANTABILITY…") |
 | `GPL-Unspecified` / `LGPL-Unspecified` / `BSD-Unspecified` | the license family named without a resolvable version |
-| `Any specification license` | copyright/usage notices on **specification documents** (Khronos/OpenGL/EGL spec notices, SGI/3Dlabs spec legends, vendor notices and "IP Status" lines in extension specs) |
+| `Any specification license` | notices on **specification documents** that *grant* use/redistribution of the spec (e.g. "you may use and distribute this specification free of charge…"). Not for reservation-only legends ("strictly prohibited", "does not convey any rights") and not for "IP Status" metadata lines - and always check precedent first (grab-bag step 4) |
 | `Any Public Domain` | public-domain dedications |
 | `Any Proprietary` | **Dangerous - avoid; see below.** |
+
+**NOTICE RUBRIC (no precedent).** Decide what the text legally *does* before choosing a license:
+
+| The notice… | Class | Allowed `license` | Risk |
+| --- | --- | --- | --- |
+| grants use/copying/redistribution, maybe with conditions | grant | named license, `Any Permissive`, `Any specification license` (spec documents only) | per tool levels |
+| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | report-missing if it covers shipped code; otherwise the closest restrictive pseudo-license | **6 or higher** |
+| marks confidentiality ("Confidential", "Proprietary and Confidential") with no terms | marker | include the surrounding notice (grab-bag item 3), then re-classify | - |
+| only disclaims warranty | disclaimer | `Any floating warranty` / `Any no warranty` | per tool levels |
+| is metadata ("IP Status: …", a license field in a catalog) | metadata | ignore, unless it names a license (Mode B) | - |
+
+Quote the deciding clause (≤25 words) in the reason - that is what the lawyer checks.
 
 **Avoid grab-bag values - be specific and correct.** Humans sometimes park hard snippets in a broad
 bucket to defer a decision. You have time to decide, so don't copy that habit. A catch-all that is
@@ -281,12 +315,12 @@ merely *not wrong* will be rejected. Before using any `Any …` value:
 3. Never pattern a bare marker line (`X Proprietary and Confidential`, `IP Status: X Proprietary`)
    with no context. Include the surrounding notice so the pattern shows what kind of document it
    belongs to.
-4. **Check how the corpus already classifies the same text.** The report's per-file
-   `similarity to "X"` estimates, and resolved matches of the same notice in *other* files, show the
-   existing curated classification. Filing identical text under two licenses gives two risks for one
-   legal fact, which is worse than either choice alone. If you believe the existing classification
-   is wrong, still propose the better one, but say in the `reason` and in the final summary that the
-   existing patterns need reclassifying too. You cannot move them yourself.
+4. **Precedent wins (the PRECEDENT STEP above).** Filing identical text under two licenses gives two
+   risks for one legal fact, which is worse than either choice alone. When `cavil_search_patterns`
+   reports consensus, file with the same license and risk - even when that is `Any Proprietary`,
+   since a lawyer already made that call. If you believe the precedent is wrong, do **not** propose a
+   contrary pattern (lawyers reject it and the snippet stays open); leave the snippet unresolved and
+   argue the case in RECLASSIFY, citing the pattern ids on each side.
 5. **Risk lives on each pattern, not on the license name.** Most `Any …` names have patterns at
    several risk levels. For those, the tool refuses a call without `risk` and lists each level with
    a pattern count and an example. Pick the level whose example is **legally closest** to your text:
@@ -302,7 +336,8 @@ documents, website docs, contest rules) are one low-weight decision per director
 redistributable unmodified?" Terms on code that is built, linked or installed are what can block
 inclusion; spend your care there, and flag them first in the summary.
 
-**`Any Proprietary` is dangerous; treat it as off-limits by default.** It fails in both directions:
+**`Any Proprietary` is dangerous; treat it as off-limits by default** (unless precedent for the same
+wording already uses it - step 4). It fails in both directions:
 - **Over-flagging.** An accepted pattern flags every future match in every package as proprietary.
   That is a false alarm on distributable content, and it trains reviewers to wave the label through.
 - **Under-flagging.** Its patterns span many risk levels. File real no-redistribution terms at a low
@@ -325,6 +360,31 @@ suggestions find the most specific existing value, rather than falling back to N
 catch-all only when nothing narrower exists (grab-bag rule above). Caveat: use these only
 for **standalone** notices - a trademark/patent clause that is part of a full license body (e.g.
 Apache-2.0 §6) is covered when that whole license is patterned (mode A).
+
+## REASONS (what the lawyer reads)
+
+Every `reason` is rendered as **Markdown** on the lawyer's card. The lawyer should be able to accept
+in under a minute without redoing your research, so argue the case for them: do the checking, then
+state the conclusion and the evidence. A screenful at most; a clear-cut SPDX tag needs only the
+verdict line.
+
+```markdown
+**<license>, risk N.** Follows #<id> (<license>, risk N) - or: *no precedent found*
+
+- **What it is:** <spec notice / vendor header / EULA / SPDX tag ...>
+- **Deciding clause:** "<25 words or fewer, quoted from the snippet>"
+- **Grants rights:** yes / conditional / no (reservation only)
+- **Shipped:** built into binaries / source-only reference document
+- **Double-check:** <the one thing the lawyer should look at>
+```
+
+- Ignores: verdict line (`**Not license text.**`) plus **Why:** in one line.
+- Globs: verdict line plus **Why these files** and the file count.
+- Report missing: verdict line naming the license and recommended SPDX id, plus **Why nothing known
+  fits**.
+- Cite, don't paste: quote only the deciding clause, never the whole pattern back.
+- Don't repeat the numbers: the card already shows the precedent verdict, match impact and what each
+  `$SKIP` swallowed, computed by the server. Argue the judgement those facts don't settle.
 
 ## GLOBS
 
@@ -350,9 +410,10 @@ actions taken, giving the `license` and filed `risk` for every pattern and notin
 duplicates will auto-resolve on re-index. Lead with anything that affects shipping the package
 (terms on built/installed code, reported vendor licenses). Include a **"RECLASSIFY (admin)"**
 section for each case where your proposal disagrees with how existing curated patterns classify the
-same text. Example: Khronos spec notices already filed as `Any Proprietary` risk 7, while you
-proposed `Any specification license`. Admins fix the existing patterns with the bulk edit on the
-license's details page. Include an
+same text and you therefore left snippets open. Example: Khronos spec notices are filed as
+`Any Proprietary` risk 7 (#15780, #17955) while near-identical Imagination spec wording is
+`Any specification license` risk 3 - name both sides, say which is right and why. Admins fix the
+existing patterns with the bulk edit on the license's details page. Include an
 **"UNIDENTIFIED (needs your eyes)"** section listing every Note snippet - id, file path, and a
 one-line reason - and a **"PROPOSED GLOBS"** section with each glob, the files it covers, and its
 rationale.
@@ -363,10 +424,16 @@ rationale.
   package's distinct unresolved snippets, most-repeated first, each with a `snippet_id`, occurrence
   count, verbatim body, and `keywords`. Act once per `snippet_id`. `group=none` (adds file+line for
   one snippet) is for inspection only - never page through it to enumerate occurrences.
+- `cavil_search_patterns(package_id, snippet_id)` - **precedent**: curated patterns matching inside
+  the snippet plus near-variants, with a consensus / conflict / none verdict and dissent. Also takes
+  `text` (check a draft or an excerpt), `pattern_id` (similar patterns) and filters (`license`,
+  `risk`, `flag`, `catch_all`, `search`, `min_skip`).
+- `cavil_test_pattern(pattern | pattern_id, package_id?)` - dry run: snippets/packages the pattern
+  would match, samples with what each `$SKIP` swallowed, and the most similar existing patterns.
 - `cavil_get_file(package_id, file_path, start_line, end_line)` - read file context (≤1000
   lines). Line-number prefixes are display-only; never copy them into patterns.
 - `cavil_list_files(package_id, glob?)` - list files in a package (optional glob filter).
-- `cavil_propose_license_pattern(package_id, snippet_id, pattern, license, reason, risk?)` - create a
+- `cavil_propose_license_pattern(package_id, snippet_id, pattern, license, reason, risk?, family?, broad_ok?)` - create a
   pattern. Pass `risk` only when the tool lists several risk levels for the license (grab-bag rule,
   item 5). Never pass it to invent a new license; that is report-missing's job.
 - `cavil_create_snippet(package_id, file_path, start_line, end_line)` - make a larger snippet

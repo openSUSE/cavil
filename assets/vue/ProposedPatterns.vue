@@ -45,7 +45,18 @@
     </div>
     <div v-if="changes !== null && changes.length > 0">
       <transition-group name="row" tag="div" @before-leave="onBeforeLeave" @leave="onLeave">
-        <div v-for="change in changes" :key="change.id" class="row change-container">
+        <div v-for="(change, i) in changes" :key="change.id" class="row change-container">
+          <div v-if="isFamilyStart(change, i)" class="col-12 change-family">
+            <span>
+              <i class="fa-solid fa-layer-group"></i> <b>{{ change.data.family }}</b> ·
+              {{ familyOf(change).length }} related proposals, decide them together
+            </span>
+            <span v-if="hasAdminRole">
+              <button @click="acceptFamily(change)" class="btn btn-success btn-sm">Accept all</button>
+              &nbsp;
+              <button @click="rejectFamily(change)" class="btn btn-danger btn-sm">Reject all</button>
+            </span>
+          </div>
           <div v-if="change.state === 'proposed'" class="col-12 change-file-container">
             <div class="change-header">
               <div class="change-title">
@@ -111,7 +122,13 @@
                 </button>
               </div>
             </div>
-            <div v-if="change.lines" class="change-source">
+            <PatternEvidence v-if="change.data.evidence" :data="change.data" />
+            <div v-if="change.data.evidence" class="change-raw-toggle">
+              <a href="#" @click.prevent="change.showRaw = !change.showRaw">
+                {{ change.showRaw ? 'Hide' : 'Show' }} raw pattern
+              </a>
+            </div>
+            <div v-if="change.lines && (!change.data.evidence || change.showRaw)" class="change-source">
               <table :class="getClassForCode(change)">
                 <tbody>
                   <tr v-for="line in change.lines" :key="line.num" :class="getClassForLine(line)">
@@ -183,10 +200,10 @@
                   </div>
                 </div>
               </div>
-              <div v-if="change.data.reason" class="row">
+              <div v-if="change.reason_html" class="row">
                 <div class="col mb-3">
-                  <label class="form-label" for="reason">Reason</label>
-                  <textarea v-model="change.data.reason" class="form-control" disabled="disabled" rows="3"></textarea>
+                  <label class="form-label">Reason</label>
+                  <ProposalReason class="change-reason" :html="change.reason_html" />
                 </div>
               </div>
               <span v-if="hasAdminRole">
@@ -228,7 +245,9 @@ import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
 import LegalLoading from './components/LegalLoading.vue';
+import PatternEvidence from './components/PatternEvidence.vue';
 import PatternFlags, {PATTERN_FLAGS} from './components/PatternFlags.vue';
+import ProposalReason from './components/ProposalReason.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import {genParamWatchers, getParams} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
@@ -239,7 +258,16 @@ const REFILL_THRESHOLD = 5;
 
 export default {
   name: 'ProposedPatterns',
-  components: {BackToTop, CavilNoticePanel, EmptyState, LegalLoading, PatternFlags, ToastNotifier},
+  components: {
+    BackToTop,
+    CavilNoticePanel,
+    EmptyState,
+    LegalLoading,
+    PatternEvidence,
+    PatternFlags,
+    ProposalReason,
+    ToastNotifier
+  },
   data() {
     const params = getParams({createIgnore: true, createPattern: true, createGlob: true, filter: ''});
 
@@ -295,6 +323,20 @@ export default {
         'Proposal accepted, reindexing related packages in 10 minutes if necessary',
         'success'
       );
+    },
+    async acceptFamily(change) {
+      for (const member of this.familyOf(change)) await this.acceptProposal(member);
+    },
+    familyOf(change) {
+      return this.changes.filter(c => c.state === 'proposed' && c.data.family === change.data.family);
+    },
+    // Only proposals loaded so far are grouped; a family split across pages gets a second header
+    isFamilyStart(change, i) {
+      if (!change.data.family || change.state !== 'proposed') return false;
+      return this.changes.findIndex(c => c.state === 'proposed' && c.data.family === change.data.family) === i;
+    },
+    async rejectFamily(change) {
+      for (const member of this.familyOf(change)) await this.rejectProposal(member);
     },
     async getChanges() {
       const url = new URL(this.changeUrl, window.location.href);
@@ -421,6 +463,27 @@ export default {
 </script>
 
 <style scoped>
+.change-reason {
+  border: 1px solid var(--cavil-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+.change-family {
+  align-items: center;
+  background-color: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
+  border-radius: 6px;
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 8px 10px;
+}
+.change-raw-toggle {
+  border-top: 1px solid var(--cavil-border-faint);
+  font-size: 12px;
+  padding: 4px 10px;
+}
 .change-confirmation {
   background-color: var(--cavil-canvas-subtle);
   border: 1px solid var(--cavil-border);

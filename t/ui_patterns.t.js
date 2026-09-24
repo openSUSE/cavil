@@ -650,7 +650,11 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
         'comment footer does not repeat the selected decision'
       );
       t.equal(await page.locator('#acceptable').getAttribute('aria-pressed'), 'true', 'chosen decision is pressed');
-      t.equal(await page.locator('#unacceptable').getAttribute('aria-pressed'), 'false', 'alternative decision is not pressed');
+      t.equal(
+        await page.locator('#unacceptable').getAttribute('aria-pressed'),
+        'false',
+        'alternative decision is not pressed'
+      );
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious', 'still on the report');
 
       await page.reload();
@@ -1170,7 +1174,10 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#license-details .license-pattern-card');
       const cards = await page.locator('#license-details .license-pattern-card').allInnerTexts();
       t.equal(cards.length, 2, 'both patterns carried over to the new name');
-      t.ok(cards.every(text => /Risk 6/.test(text)), 'every pattern flattened to the chosen risk');
+      t.ok(
+        cards.every(text => /Risk 6/.test(text)),
+        'every pattern flattened to the chosen risk'
+      );
       t.equal(await page.inputValue('#license-edit-spdx'), '', 'SPDX cleared by the combined edit');
       t.equal(await page.locator('.license-edit-warning').count(), 0, 'no danger notice once risks are uniform');
 
@@ -1202,6 +1209,35 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       page.once('dialog', dialog => dialog.accept());
       await Promise.all([page.waitForURL(/\/licenses\/?(\?|#|$)/), page.locator('#edit-pattern .del-pattern').click()]);
       t.equal(await page.innerText('title'), 'List licenses', 'redirected to license list after delete');
+    });
+
+    await t.test('Change Proposals: evidence panel and family group', async t => {
+      await page.goto(`${url}/test/evidence_proposals`);
+      await page.goto(`${url}/licenses/proposed`);
+      await page.waitForSelector('#proposed-patterns .pattern-evidence');
+
+      const families = page.locator('#proposed-patterns .change-family');
+      t.equal(await families.count(), 1, 'one group header for both proposals of the family');
+      t.match(await families.first().innerText(), /Evidence Corp spec notice · 2 related proposals/);
+
+      const evidence = page.locator('#proposed-patterns .pattern-evidence').first();
+      t.equal(await evidence.locator('.evidence-skip').innerText(), '2024 evidence corp', 'skipped words shown greyed');
+      t.match(await evidence.innerText(), /verbatim except 1 skipped span/);
+      t.match(await evidence.innerText(), /follows Any Proprietary risk 7/);
+      t.equal(await evidence.locator('tr.evidence-agree').count(), 1, 'agreeing precedent marked');
+      t.equal(await evidence.locator('tr.evidence-differ').count(), 1, 'differing precedent marked');
+      t.match(await evidence.innerText(), /matches 3 snippets in 2 packages/);
+      t.match(await evidence.innerText(), /evidence-pkg a\/NOTICE:4 · unresolved/);
+
+      // The raw $SKIP pattern stays behind a toggle
+      const card = page.locator('#proposed-patterns .change-container').first();
+      t.equal(await card.locator('.change-source').count(), 0, 'raw pattern hidden by default');
+      await card.locator('.change-raw-toggle a').click();
+      t.match(await card.locator('.change-source').innerText(), /\$SKIP5 Evidence Corp/, 'raw pattern on demand');
+
+      await families.first().locator('button', {hasText: 'Reject all'}).click();
+      await page.waitForFunction(() => document.querySelectorAll('#proposed-patterns .pattern-evidence').length === 0);
+      t.pass('Reject all removed the whole family');
     });
 
     await t.test('Pattern Performance', async t => {

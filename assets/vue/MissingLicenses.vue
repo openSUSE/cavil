@@ -76,19 +76,8 @@
                 </tbody>
               </table>
             </div>
-            <div v-if="change.action === 'new_license' && change.reason_html" class="change-sep"></div>
-            <div
-              v-if="change.action === 'new_license' && change.reason_html"
-              class="change-band change-rationale markdown-body"
-              v-html="change.reason_html"
-            ></div>
-            <div
-              v-else-if="change.action === 'missing_license' && change.data.reason"
-              class="change-band change-reason"
-            >
-              <label class="form-label">Reason</label>
-              <textarea v-model="change.data.reason" class="form-control" disabled="disabled" rows="3"></textarea>
-            </div>
+            <div v-if="change.reason_html" class="change-sep"></div>
+            <ProposalReason v-if="change.reason_html" class="change-band change-rationale" :html="change.reason_html" />
 
             <div v-if="hasAdminRole && editingId !== change.id" class="change-band change-actions-bar">
               <template v-if="change.action === 'new_license'">
@@ -153,13 +142,14 @@ import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import EmptyState from './components/EmptyState.vue';
 import LegalLoading from './components/LegalLoading.vue';
 import {PATTERN_FLAGS} from './components/PatternFlags.vue';
+import ProposalReason from './components/ProposalReason.vue';
 import SnippetEditor from './components/SnippetEditor.vue';
 import ToastNotifier from './components/ToastNotifier.vue';
 import UserAgent from '@mojojs/user-agent';
 
 export default {
   name: 'MissingLicenses',
-  components: {BackToTop, CavilNoticePanel, EmptyState, LegalLoading, SnippetEditor, ToastNotifier},
+  components: {BackToTop, CavilNoticePanel, EmptyState, LegalLoading, ProposalReason, SnippetEditor, ToastNotifier},
   data() {
     return {
       ignoreForPackage: true,
@@ -414,9 +404,6 @@ export default {
   border-top: 1px solid var(--cavil-border);
   padding: 12px 16px;
 }
-.change-reason {
-  background-color: var(--cavil-canvas-subtle);
-}
 .change-actions-bar {
   align-items: center;
   background-color: var(--cavil-canvas-subtle);
@@ -432,8 +419,6 @@ export default {
 .change-editor :deep(.snippet-editor) {
   margin-top: 0;
 }
-/* The rationale is server-rendered markdown (same pipeline as notes), so style its elements via :deep -
-   scoped rules do not reach v-html content. Mirrors the note body treatment for a consistent look. */
 /* A grey separation strip between the white snippet source and the white markdown rationale - two white
    bands otherwise merge across a single hairline. Its own top hairline plus the rationale's change-band
    top hairline give it a crisp line on both edges. */
@@ -441,59 +426,6 @@ export default {
   background: var(--cavil-canvas-subtle);
   border-top: 1px solid var(--cavil-border);
   height: 8px;
-}
-.change-rationale {
-  background: var(--cavil-canvas);
-  color: var(--cavil-fg);
-  font-size: 14px;
-  line-height: 1.5;
-}
-.change-rationale :deep(h1),
-.change-rationale :deep(h2),
-.change-rationale :deep(h3),
-.change-rationale :deep(h4) {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 16px 0 8px;
-}
-.change-rationale :deep(h1:first-child),
-.change-rationale :deep(h2:first-child),
-.change-rationale :deep(h3:first-child) {
-  margin-top: 0;
-}
-.change-rationale :deep(p) {
-  margin-bottom: 12px;
-}
-.change-rationale :deep(p:last-child) {
-  margin-bottom: 0;
-}
-.change-rationale :deep(ul),
-.change-rationale :deep(ol) {
-  margin-bottom: 12px;
-  padding-left: 22px;
-}
-.change-rationale :deep(li + li) {
-  margin-top: 4px;
-}
-.change-rationale :deep(code) {
-  background: rgba(var(--cavil-neutral-cool-rgb), 0.2);
-  border-radius: 4px;
-  font-size: 85%;
-  padding: 0.2em 0.4em;
-}
-.change-rationale :deep(pre) {
-  background: var(--cavil-canvas-subtle);
-  border-radius: 6px;
-  font-size: 12px;
-  overflow: auto;
-  padding: 12px;
-}
-.change-rationale :deep(pre code) {
-  background: transparent;
-  padding: 0;
-}
-.change-rationale :deep(a) {
-  color: var(--cavil-accent);
 }
 .change-footer {
   background-color: var(--cavil-canvas-subtle);

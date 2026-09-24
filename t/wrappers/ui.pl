@@ -175,6 +175,47 @@ $app->routes->get(
   }
 );
 
+# Two AI proposals about one legal text, carrying the server-computed evidence the MCP propose tool stores
+$app->routes->get(
+  '/test/evidence_proposals' => sub ($c) {
+    my $patterns = $c->app->patterns;
+    my $snippet  = $c->app->pg->db->query('SELECT id FROM snippets ORDER BY id LIMIT 1')->hash->{id};
+    for my $n (1, 2) {
+      my $pattern = "Copyright \$SKIP5 Evidence Corp spec notice $n. All rights reserved";
+      $patterns->_insert_pattern_proposal(
+        $c->app->pg->db,
+        'create_pattern',
+        Cavil::Util::pattern_checksum($pattern),
+        snippet     => $snippet,
+        pattern     => $pattern,
+        license     => 'Any Proprietary',
+        risk        => 7,
+        owner       => $c->app->users->find(login => 'tester')->{id},
+        ai_assisted => 1,
+        reason      => "**Any Proprietary, risk 7.** Follows #1",
+        family      => 'Evidence Corp spec notice',
+        evidence    => {
+          alignment => {lines => [1, 1], skips => [{skip => 5, words => '2024 evidence corp'}]},
+          precedent => {
+            verdict => {status => 'consensus', classes => [{license => 'Any Proprietary', risk => 7, ids => [1]}]},
+            rows    => [
+              {id => 1, license => 'Any Proprietary', risk => 7, contained => 1, pattern_cov => 1, text_cov => 0.9},
+              {id => 2, license => 'Any specification license', risk => 3, pattern_cov => 0.6, text_cov => 0.3}
+            ]
+          },
+          impact => {
+            snippets => 3,
+            packages => 2,
+            capped   => 0,
+            samples => [{snippet => $snippet, package => 1, name => 'evidence-pkg', filename => 'a/NOTICE', sline => 4}]
+          }
+        }
+      );
+    }
+    $c->render(text => 'ok');
+  }
+);
+
 $app->routes->get('/test/restore_obsolete_without_report/:id' =>
     sub ($c) { $c->redirect_to('/test/restore_report_state/' . $c->stash('id')) });
 

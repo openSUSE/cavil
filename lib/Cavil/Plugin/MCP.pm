@@ -9,6 +9,7 @@ use Cavil::Util qw(checkout_path pattern_matches pattern_contains_redundant_skip
   qw(validate_tags @LICENSE_FLAGS);
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG);
 use File::Find          qw(find);
+use List::Util          qw(max);
 use Mojo::File          qw(path);
 use Text::Glob          qw(glob_to_regex);
 
@@ -24,6 +25,15 @@ my $WRITE_TOOL_ROLES = {
 my $WRITE_ACCESS_TOOLS = {cavil_create_note => 1};
 
 my $FINALIZE_REVIEW_TOOLS = {cavil_accept_review => 1, cavil_reject_review => 1};
+
+use constant BROAD_PATTERN_PACKAGES => 20;
+
+# Proposal reasons are shown to the reviewing lawyer rendered as Markdown
+my $PROPOSAL_REASON = {
+  type        => 'string',
+  description => 'Rendered as Markdown for the reviewing lawyer: lead with a bold verdict line, then short bullets'
+    . ' with the deciding evidence'
+};
 
 sub register ($self, $app, $config) {
   my $mcp = MCP::Server->new;
@@ -187,7 +197,7 @@ sub register ($self, $app, $config) {
       properties => {
         package_id => {type => 'integer', minimum => 1},
         snippet_id => {type => 'integer', minimum => 1},
-        reason     => {type => 'string'}
+        reason     => $PROPOSAL_REASON
       },
       required => ['package_id', 'snippet_id', 'reason']
     },
@@ -202,7 +212,12 @@ sub register ($self, $app, $config) {
       . 'with "risk", and the error lists them with examples. If the '
       . 'license is unknown, this is a request to INTRODUCE a new license: pass an integer "risk" (1-9) and it '
       . 'lands on the lawyers\' Missing Licenses page for ratification. Optional patent/trademark/'
-      . 'export_restricted/cla/eula flags describe a new license',
+      . 'export_restricted/cla/eula flags describe a new license. Cavil attaches the precedent, impact and '
+      . '$SKIP alignment to the proposal for the reviewer, and refuses a license/risk that contradicts curated '
+      . 'patterns already classifying the same wording (check first with cavil_search_patterns) and a pattern '
+      . 'matching more than '
+      . BROAD_PATTERN_PACKAGES
+      . ' other packages unless broad_ok is set',
     input_schema => {
       type       => 'object',
       properties => {
@@ -210,7 +225,7 @@ sub register ($self, $app, $config) {
         snippet_id => {type => 'integer', minimum => 1},
         pattern    => {type => 'string'},
         license    => {type => 'string'},
-        reason     => {type => 'string'},
+        reason     => $PROPOSAL_REASON,
         risk       => {
           type        => 'integer',
           minimum     => 0,
@@ -222,7 +237,16 @@ sub register ($self, $app, $config) {
         trademark         => {type => 'boolean', description => 'new-license flag (optional)'},
         export_restricted => {type => 'boolean', description => 'new-license flag (optional)'},
         cla               => {type => 'boolean', description => 'new-license flag (optional)'},
-        eula              => {type => 'boolean', description => 'new-license flag (optional)'}
+        eula              => {type => 'boolean', description => 'new-license flag (optional)'},
+        broad_ok          => {
+          type        => 'boolean',
+          description => 'the pattern is meant to match widely (explain why in the reason); see cavil_test_pattern'
+        },
+        family => {
+          type        => 'string',
+          description => 'same short label on every proposal about one legal text (e.g. "Khronos spec notice"), so'
+            . ' the reviewer decides them together'
+        }
       },
       required => ['package_id', 'snippet_id', 'pattern', 'license', 'reason']
     },
@@ -238,7 +262,7 @@ sub register ($self, $app, $config) {
     input_schema => {
       type       => 'object',
       properties =>
-        {package_id => {type => 'integer', minimum => 1}, glob => {type => 'string'}, reason => {type => 'string'}},
+        {package_id => {type => 'integer', minimum => 1}, glob => {type => 'string'}, reason => $PROPOSAL_REASON},
       required => ['package_id', 'glob', 'reason']
     },
     code => \&tool_cavil_propose_ignore_glob
@@ -269,7 +293,7 @@ sub register ($self, $app, $config) {
       . ' turn into a license pattern yourself, so that a human lawyer can author the real pattern. Use this instead'
       . ' of guessing a pattern when the license cannot be cleanly isolated (e.g. non-standard custom prose, or text'
       . ' whose identity stays unclear even with file context). The snippet is added to the Missing Licenses review'
-      . ' queue. The "reason" should clearly explain in one or two sentences why this needs human judgement and,'
+      . ' queue. The "reason" (Markdown) should clearly explain why this needs human judgement and,'
       . ' whenever possible, recommend the SPDX license identifier you believe applies (e.g. "Looks like a custom'
       . ' variant of BSD-3-Clause; recommend a lawyer confirm BSD-3-Clause"). Do not use this for text that is'
       . ' definitely not a license (use cavil_propose_ignore_snippet) or for clear declarations you can pattern'
@@ -279,7 +303,7 @@ sub register ($self, $app, $config) {
       properties => {
         package_id => {type => 'integer', minimum => 1},
         snippet_id => {type => 'integer', minimum => 1},
-        reason     => {type => 'string'}
+        reason     => $PROPOSAL_REASON
       },
       required => ['package_id', 'snippet_id', 'reason']
     },
@@ -324,6 +348,59 @@ sub register ($self, $app, $config) {
       required => []
     },
     code => \&tool_cavil_search_snippets
+  );
+  $mcp->tool(
+    name        => 'cavil_search_patterns',
+    description =>
+      'Query the curated license patterns - precedent research and pattern maintenance. Give a subject to ask '
+      . '"what does Cavil already say about this text?": snippet_id (+ package_id) or text returns the patterns '
+      . 'that match inside it plus near-variants of the wording, with a verdict (consensus = one license/risk, '
+      . 'conflict = curated patterns disagree, none = no precedent) and dissent (close variants classified '
+      . 'differently); pattern_id returns the patterns most similar to that one. Without a subject it lists '
+      . 'patterns by filter (license, risk, flag, catch_all, search, min_skip), or runs report=inconsistent_risk '
+      . '(licenses whose patterns disagree on risk). Rows carry license, risk, flags, widest $SKIP, match counts '
+      . 'and coverage (pattern_cov = share of the pattern\'s wording found in the subject, text_cov = share of '
+      . 'the subject it covers). Read-only',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        snippet_id => {type => 'integer', minimum     => 1, description => 'subject snippet (requires package_id)'},
+        package_id => {type => 'integer', minimum     => 1, description => 'package the snippet belongs to'},
+        text       => {type => 'string',  description => 'subject text, e.g. a draft pattern or a file excerpt'},
+        pattern_id => {type => 'integer', minimum     => 1, description => 'subject pattern: find similar patterns'},
+        report     => {type => 'string',  enum        => ['inconsistent_risk']},
+        license    => {type => 'string',  description => 'exact license name'},
+        risk       => {type => 'integer', minimum     => 0, maximum => 9},
+        flag       =>
+          {type => 'string', description => 'patent | trademark | export_restricted | cla | eula | full_license_text'},
+        catch_all => {type => 'boolean', description => 'Any .../-Unspecified pseudo-licenses only (or none)'},
+        search    => {type => 'string',  description => 'substring of the pattern text'},
+        min_skip  => {type => 'integer', minimum     => 1, description => 'widest $SKIPn is at least this'},
+        limit     => {type => 'integer', minimum     => 1, maximum     => 100, default => 20},
+        offset    => {type => 'integer', minimum     => 0, default     => 0}
+      },
+      required => []
+    },
+    code => \&tool_cavil_search_patterns
+  );
+  $mcp->tool(
+    name        => 'cavil_test_pattern',
+    description =>
+      'Dry-run a draft pattern (or an existing pattern_id) against the snippet corpus before proposing it: how '
+      . 'many snippets, occurrences and packages it would match (unresolved = what it would newly resolve), up '
+      . 'to 5 samples with file, current resolution and the words each $SKIP swallowed there, and the existing '
+      . 'patterns with the most similar wording (duplicates and conflicting classifications). Use it to check a '
+      . 'pattern is neither too broad (matches unrelated text) nor too narrow. Read-only',
+    input_schema => {
+      type       => 'object',
+      properties => {
+        pattern    => {type => 'string',  description => 'draft pattern text ($SKIPn allowed)'},
+        pattern_id => {type => 'integer', minimum     => 1, description => 'existing pattern to test instead'},
+        package_id => {type => 'integer', minimum     => 1, description => 'only count matches in this package'}
+      },
+      required => []
+    },
+    code => \&tool_cavil_test_pattern
   );
 
   return $mcp->to_action;
@@ -453,6 +530,66 @@ sub tool_cavil_get_report ($tool, $args) {
   my $report = $c->helpers->mcp_report($id, {url_limit => $url_limit, email_limit => $email_limit});
   return $tool->text_result('No report available', 1) unless defined $report;
   return $tool->text_result($report);
+}
+
+sub tool_cavil_search_patterns ($tool, $args) {
+  my $c = _get_controller($tool);
+
+  my ($limit, $le) = _bounded_int_arg($args->{limit}, 20, 1, 100, 'limit');
+  return $tool->text_result($le, 1) if $le;
+  my ($offset, $oe) = _bounded_int_arg($args->{offset}, 0, 0, undef, 'offset');
+  return $tool->text_result($oe, 1) if $oe;
+
+  my %opts = (
+    limit  => $limit,
+    offset => $offset,
+    map { $_ => $args->{$_} } grep { defined $args->{$_} } qw(report license risk flag catch_all search min_skip)
+  );
+  my $subject;
+  if (defined $args->{snippet_id}) {
+    return $tool->text_result('package_id is required with snippet_id', 1) unless defined $args->{package_id};
+    return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($args->{package_id});
+    return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+    return $tool->text_result('Snippet not found', 1) unless my $snippet = $c->snippets->find($args->{snippet_id});
+    $opts{contained_in} = $snippet->{text};
+    $subject = "snippet $args->{snippet_id}";
+  }
+  elsif (defined $args->{text}) {
+    $opts{contained_in} = $args->{text};
+    $subject = 'text';
+  }
+  elsif (defined $args->{pattern_id}) {
+    return $tool->text_result('Pattern not found', 1) unless my $pattern = $c->patterns->find($args->{pattern_id});
+    $opts{similar_to} = $pattern->{pattern};
+    $opts{exclude_id} = $pattern->{id};
+    $subject          = "pattern $pattern->{id} ($pattern->{license}, risk $pattern->{risk})";
+  }
+
+  my $result = eval { $c->patterns->search(%opts) };
+  return $tool->text_result($@ =~ s/\n$//r, 1) unless $result;
+  return $c->render_to_string('mcp/patterns', format => 'txt', result => $result, subject => $subject, %opts);
+}
+
+sub tool_cavil_test_pattern ($tool, $args) {
+  my $c = _get_controller($tool);
+
+  my ($pattern, $exclude);
+  if (defined $args->{pattern_id}) {
+    return $tool->text_result('Pattern not found', 1) unless my $row = $c->patterns->find($args->{pattern_id});
+    ($pattern, $exclude) = ($row->{pattern}, $row->{id});
+  }
+  $pattern //= $args->{pattern};
+  return $tool->text_result('pattern or pattern_id is required', 1) unless defined $pattern && $pattern =~ /\S/;
+  if (defined $args->{package_id}) {
+    return $tool->text_result('Package not found', 1) unless my $pkg = $c->packages->find($args->{package_id});
+    return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
+  }
+
+  my $impact = $c->patterns->test_pattern($pattern, package_id => $args->{package_id});
+  return $tool->text_result($impact->{error}, 1) if $impact->{error};
+  my $similar
+    = $c->patterns->search(similar_to => $pattern, limit => 5, defined $exclude ? (exclude_id => $exclude) : ());
+  return $c->render_to_string('mcp/pattern_test', format => 'txt', impact => $impact, similar => $similar->{rows});
 }
 
 sub tool_cavil_search_snippets ($tool, $args) {
@@ -720,6 +857,15 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
   return $tool->text_result('License pattern contains redundant $SKIP at beginning or end', 1)
     if pattern_contains_redundant_skip($pattern);
 
+  my $evidence = _pattern_evidence($c, $pattern, $snippet->{text});
+  my $impact   = $evidence->{impact};
+  return $tool->text_result(
+    "Pattern would match snippets in $impact->{other_packages} other packages (limit @{[BROAD_PATTERN_PACKAGES]})."
+      . ' Check it with cavil_test_pattern and narrow it, or call again with "broad_ok" and explain in the reason'
+      . ' why it should match that widely',
+    1
+  ) if $impact->{other_packages} > BROAD_PATTERN_PACKAGES && !$args->{broad_ok};
+
   my $matches = $c->patterns->closest_licenses($license);
   my $match   = $matches->{exact};
 
@@ -733,7 +879,9 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
     package              => $package_id,
     owner                => $c->users->id_for_login($c->current_user),
     ai_assisted          => 1,
-    reason               => "AI Assistant: $reason"
+    reason               => "AI Assistant: $reason",
+    evidence             => $evidence,
+    family               => $args->{family}
   );
 
   my ($result, $success);
@@ -760,6 +908,9 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
       return $tool->text_result("$intro\n$list", 1);
     }
 
+    if (my $error = _precedent_error($evidence->{precedent}, $match->{license}, $level->{risk})) {
+      return $tool->text_result($error, 1);
+    }
     $result = $c->patterns->propose_create(
       %common,
       license => $match->{license},
@@ -787,6 +938,8 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
         = join("\n", map { sprintf('* %s (%d%% match)', $_->{license}, int($_->{score} * 100 + 0.5)) } @$closest);
       return $tool->text_result("$intro Closest existing matches:\n$closest_list", 1);
     }
+
+    if (my $error = _precedent_error($evidence->{precedent}, $license, $risk)) { return $tool->text_result($error, 1) }
 
     # Only the license-level flags the tool accepts; asserting that a text is a complete license is a
     # curator's call, not an assistant's
@@ -897,6 +1050,45 @@ sub _filter_tools ($server, $tools, $context) {
   }
 
   @$tools = @$filtered;
+}
+
+# Facts the reviewer would otherwise have to research: which words each $SKIP swallowed in this snippet, what
+# curated patterns say about the exact text the pattern covers, and how far the pattern reaches in the corpus
+sub _pattern_evidence ($c, $pattern, $text) {
+  my $patterns  = $c->patterns;
+  my $alignment = $patterns->align($pattern, $text) // {lines => [], text => $text, skips => []};
+  my $precedent = $patterns->search(contained_in => delete $alignment->{text}, limit => 5);
+  my $impact    = $patterns->test_pattern($pattern);
+
+  # The proposal's own snippet is always one package, so breadth is what lies beyond it
+  $impact->{other_packages} = max(0, ($impact->{packages} // 0) - 1);
+  return {
+    alignment => $alignment,
+    precedent => {
+      verdict => $precedent->{verdict},
+      rows    => [
+        map {
+          { %$_{qw(id license risk contained pattern_cov text_cov)} }
+        } @{$precedent->{rows}}
+      ]
+    },
+    impact => $impact
+  };
+}
+
+# Precedent wins: curated patterns classifying the same wording decide, disagreement goes to a reviewer
+sub _precedent_error ($precedent, $license, $risk) {
+  my $verdict = $precedent->{verdict};
+  my $sides = join '; ', map {"$_->{license} risk $_->{risk} (#@{[join ', #', @{$_->{ids}}]})"} @{$verdict->{classes}};
+  if ($verdict->{status} eq 'conflict') {
+    return "Curated patterns already classify this wording inconsistently: $sides. Do not add to either side;"
+      . ' leave the snippet open and report the conflict for a reviewer';
+  }
+  return undef unless $verdict->{status} eq 'consensus';
+  my $class = $verdict->{classes}[0];
+  return undef if $class->{license} eq $license && $class->{risk} == $risk;
+  return "Curated patterns already classify this wording as $sides. File it with the same license and risk, or"
+    . ' leave the snippet open and argue for reclassifying those patterns';
 }
 
 sub _bounded_int_arg ($value, $default, $min, $max, $name) {

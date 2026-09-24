@@ -61,9 +61,16 @@ For each worklist snippet:
    wording, so read it, do not guess from the file name.
 2. **Identify + confirm** the license against a primary source (see RESEARCH). Resolve it to a canonical
    name and, if it has one, its SPDX id.
-3. **Run the propose-only checklist above.** If any item fails → **leave it** and move on.
-4. **Determine risk + flags** (RISK LEVELS, FLAGS) - needed only if the license is new to Cavil.
-5. **Propose** (THE PROPOSE CALL).
+3. **Check precedent.** `cavil_search_patterns(package_id, snippet_id)`. A **consensus** verdict means
+   curated patterns already classify this wording: propose with exactly that license and risk. A
+   **conflict** verdict means the curated patterns disagree - leave it and name the ids on each side in
+   your summary.
+   Before proposing, `cavil_test_pattern(pattern)` the draft: every sample must be the same legal text.
+   The propose call refuses a license/risk contradicting precedent, and a pattern reaching more than 20
+   other packages unless `broad_ok=true` with the breadth explained in the reason.
+4. **Run the propose-only checklist above.** If any item fails → **leave it** and move on.
+5. **Determine risk + flags** (RISK LEVELS, FLAGS) - needed only if the license is new to Cavil.
+6. **Propose** (THE PROPOSE CALL).
 
 ## RISK LEVELS
 
@@ -221,6 +228,8 @@ and a **"LEFT FOR A HUMAN"** list of every snippet you did not propose - id, fil
 ## TOOLS
 
 - `cavil_search_snippets(resolution=reported, group=text, order=occurrences, package_id?)` - your worklist.
+- `cavil_search_patterns(package_id, snippet_id | text | pattern_id, license?, risk?, flag?, search?)` - precedent: curated patterns matching or resembling the text, with a consensus / conflict / none verdict.
+- `cavil_test_pattern(pattern | pattern_id, package_id?)` - dry run: snippets/packages a pattern would match, samples with what each `$SKIP` swallowed, most similar existing patterns.
 - `cavil_get_file(package_id, file_path, start_line, end_line)` - read license text (≤1000 lines);
   line-number prefixes are display-only, never copy them into a pattern.
 - `cavil_list_files(package_id, glob?)` - list files.

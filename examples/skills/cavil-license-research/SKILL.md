@@ -33,6 +33,8 @@ create notes, or propose patterns.
 - `cavil_search_packages(name?, component?)` — locate a package across the whole set
 - `cavil_get_report(package_id)` — fetch a package's legal report for overall context
 - `cavil_search_snippets(package_id?, resolution, group, search?, license?)` — locate an unresolved snippet and its file+line (search by text or `license`, or scope to a package); each `group=none` row carries the file path, line range, and verbatim body
+- `cavil_search_patterns(package_id, snippet_id | text | pattern_id, license?, risk?, flag?, search?)` — precedent: curated patterns matching or resembling the text, with a consensus / conflict / none verdict.
+- `cavil_test_pattern(pattern | pattern_id, package_id?)` — dry run: snippets/packages a pattern would match, samples with what each `$SKIP` swallowed, most similar existing patterns.
 - `cavil_get_file(package_id, file_path, start_line, end_line)` — read the actual license text in a package
 - `cavil_list_files(package_id, glob?)` — list files in a package
 
