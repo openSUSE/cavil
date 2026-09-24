@@ -1097,6 +1097,9 @@ body {
 .license-link:hover {
   text-decoration: underline;
 }
+.license-nowrap {
+  white-space: nowrap;
+}
 
 .file-list {
   border-top: 1px solid var(--cavil-border);

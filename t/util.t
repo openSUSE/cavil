@@ -462,10 +462,10 @@ subtest 'spdx_link' => sub {
 
   subtest 'Expression with parentheses and AND/OR' => sub {
     is spdx_link('(MIT OR Apache-2.0) AND GPL-2.0-only'),
-        '('
-      . '<button type="button" class="license-link spdx" data-license="MIT">MIT</button>' . ' OR '
-      . '<button type="button" class="license-link spdx" data-license="Apache-2.0">Apache-2.0</button>'
-      . ') AND '
+      '<span class="license-nowrap">(<button type="button" class="license-link spdx" data-license="MIT">MIT</button></span>'
+      . ' OR '
+      . '<span class="license-nowrap"><button type="button" class="license-link spdx" data-license="Apache-2.0">Apache-2.0</button>)</span>'
+      . ' AND '
       . '<button type="button" class="license-link spdx" data-license="GPL-2.0-only">GPL-2.0-only</button>';
   };
 

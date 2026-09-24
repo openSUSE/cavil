@@ -580,13 +580,15 @@ sub spdx_link ($text) {
   # Wrap recognised SPDX identifiers in links, but HTML-escape everything else. The input can be a
   # license string harvested from an imported component's metadata, and the result is rendered with
   # v-html, so any non-link text must be escaped or it becomes a stored XSS vector. Only the matched
-  # tokens (known SPDX ids) are emitted as trusted markup.
-  my @parts    = split /($spdx_re)/o, $text;
-  my $is_token = 0;
-  my $out      = '';
-  for my $part (@parts) {
-    $out .= $is_token ? _license_button($part, $part, 1) : Mojo::Util::xml_escape($part);
-    $is_token = !$is_token;
+  # tokens (known SPDX ids) are emitted as trusted markup. Buttons are atomic inline boxes, so adjacent
+  # parentheses are glued to them, or a line may break between "(" and the id it opens.
+  my @parts = split /(\(*)($spdx_re)(\)*)/o, $text;
+  my $out   = Mojo::Util::xml_escape(shift(@parts) // '');
+  while (my ($open, $id, $close, $rest) = splice @parts, 0, 4) {
+    my $button = _license_button($id, $id, 1);
+    $close //= '';
+    $out .= length "$open$close" ? qq{<span class="license-nowrap">$open$button$close</span>} : $button;
+    $out .= Mojo::Util::xml_escape($rest // '');
   }
   return $out;
 }

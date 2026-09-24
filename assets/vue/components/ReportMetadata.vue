@@ -13,11 +13,11 @@
         <dl class="report-metadata-list">
           <template v-if="declarations.length > 0">
             <dt>License</dt>
-            <dd id="pkg-declarations">
+            <dd id="pkg-declarations" :class="{'metadata-declarations-named': declarations.length > 1}">
               <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
+                <span v-if="declarations.length > 1" class="metadata-declaration-name">{{ d.name }}</span>
                 <span v-if="d.license_html !== null" v-html="d.license_html"></span>
                 <span v-else class="metadata-declaration-undeclared">No license declared</span>
-                <span v-if="d.name && d.name !== pkgName" class="metadata-declaration-name">{{ d.name }}</span>
                 <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ d.file }}</a>
                 <span class="metadata-declaration-format">{{ d.format }}</span>
               </div>
@@ -1103,11 +1103,18 @@ export default {
   color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
-.metadata-declaration {
+#pkg-declarations {
   align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 0.5rem;
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+}
+#pkg-declarations.metadata-declarations-named {
+  grid-template-columns: repeat(4, auto);
+}
+.metadata-declaration {
+  display: contents;
 }
 .metadata-declaration-name,
 .metadata-declaration-undeclared,
@@ -1126,6 +1133,7 @@ export default {
   color: var(--cavil-fg-muted);
   font-size: 11px;
   font-weight: 600;
+  justify-self: start;
   letter-spacing: 0.03em;
   line-height: 1;
   padding: 0.3rem 0.55rem;
