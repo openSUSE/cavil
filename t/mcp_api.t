@@ -2024,6 +2024,21 @@ subtest 'MCP' => sub {
           "SELECT COUNT(*) AS c FROM proposed_changes WHERE action = 'missing_license' AND (data->>'snippet')::bigint = 5"
         )->hash->{c}, 1, 'one missing-license report for snippet 5';
 
+        # A LicenseRef-* name would pass as a real SPDX id
+        my $ref = $client->call_tool(
+          'cavil_propose_license_pattern',
+          {
+            package_id => 1,
+            snippet_id => 5,
+            pattern    => 'terms of the Artistic License version 2.0',
+            license    => 'LicenseRef-scancode-artistic-9.9',
+            risk       => 7,
+            reason     => 'Researched'
+          }
+        );
+        ok $ref->{isError}, 'LicenseRef name refused';
+        like $ref->{content}[0]{text}, qr/not as a "LicenseRef-\*" identifier/, 'plain name requested';
+
         # An unknown license plus an explicit risk files a new_license proposal (not an error) ...
         my $result = $client->call_tool(
           'cavil_propose_license_pattern',

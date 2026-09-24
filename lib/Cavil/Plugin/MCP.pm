@@ -935,6 +935,12 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
     # Unknown license. With an explicit researched risk this is a request to introduce a NEW license (it
     # goes to the lawyers' Missing Licenses page to ratify); without one we cannot classify it, so fall
     # back to listing the closest known licenses.
+    # A "LicenseRef-*" name would pass as a valid SPDX id (patterns --inherit-spdx), the SBOM derives it itself
+    return $tool->text_result(
+      'Name a new license in plain words (e.g. "Broadcom Standard Terms"), not as a "LicenseRef-*" identifier.'
+        . ' Cavil derives the SBOM reference itself.',
+      1
+    ) if $license =~ /LicenseRef-/i;
     my $risk = $args->{risk};
     unless (defined $risk && $risk =~ /^[1-9]$/) {
       my $intro = 'License expression is not in the list of known licenses. To introduce it as a new license,'

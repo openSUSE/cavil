@@ -232,6 +232,9 @@ sub _inherit_spdx ($self) {
 
   for my $license ($db->query('SELECT DISTINCT(license) AS name FROM license_patterns')->hashes->each) {
     next unless my $name = $license->{name};
+
+    # A "LicenseRef-*" name parses as valid SPDX, but it is only a local reference (the SBOM derives its own)
+    if ($name =~ /LicenseRef-/i) { say "$name: skipped, LicenseRef is not an SPDX identifier"; next }
     my $lic = lic($name);
     next if $lic->error;
     my $rows = $db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $lic->to_string, $name)->rows;

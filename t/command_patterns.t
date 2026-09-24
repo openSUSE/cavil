@@ -305,6 +305,7 @@ subtest 'Show pattern match' => sub {
 
 subtest 'Inherit SPDX expressions from license name' => sub {
   $app->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE id = 1', '');
+  my $ref    = $app->patterns->create(pattern => 'Broadcom standard terms', license => 'LicenseRef-scancode-broadcom');
   my $before = $app->pg->db->query('SELECT * FROM license_patterns WHERE id = 1')->hash;
 
   my $buffer = '';
@@ -319,6 +320,11 @@ subtest 'Inherit SPDX expressions from license name' => sub {
   my $after = $app->pg->db->query('SELECT * FROM license_patterns WHERE id = 1')->hash;
   is $before->{spdx}, '',           'no SPDX expression';
   is $after->{spdx},  'Apache-2.0', 'correct SPDX expression';
+
+  like $buffer, qr/LicenseRef-scancode-broadcom: skipped/, 'LicenseRef name skipped';
+  is $app->pg->db->query('SELECT spdx FROM license_patterns WHERE id = ?', $ref->{id})->hash->{spdx}, '',
+    'LicenseRef not copied into spdx';
+  $app->patterns->remove($ref->{id});
 };
 
 subtest 'Check SPDX' => sub {

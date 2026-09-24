@@ -264,7 +264,8 @@ these hold. Otherwise report missing (in `reported` mode: leave it for a human):
 4. No closest match the tool offers is that license, and no pseudo-license fits (`Any Proprietary`
    and, for a full body, `Any EULA` never count).
 
-Call with the canonical name (the SPDX id if it has one) and **no** `risk` first. If Cavil replies
+Call with the canonical name (the SPDX id if it has one, else the plain title, e.g. `Broadcom Standard
+Terms` - never a `LicenseRef-*` id; Cavil derives that for the SBOM) and **no** `risk` first. If Cavil replies
 *"not in the list of known licenses"* with closest matches: one of them is your license → re-call with
 that exact name; none is and the checklist holds → re-call with `risk=N` and any flags, which files it
 for the lawyers on the Missing Licenses page; unsure → treat the checklist as failed.
