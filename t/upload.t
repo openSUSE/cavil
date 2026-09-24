@@ -248,4 +248,31 @@ subtest 'Ephemeral reviews are listed together in every state' => sub {
   is $by_id{$id1}{ephemeral_delete}, $by_id{$id1}{created_epoch} + 24 * 3600, 'row carries the scheduled deletion time';
 };
 
+subtest 'Uploader role can only make ephemeral uploads' => sub {
+  $t->app->pg->db->update('bot_users', {roles => ['uploader']}, {login => 'tester'});
+  $t->get_ok('/upload')->status_is(200)->content_like(qr/setupArchiveUpload\('[^']+', true\)/);
+
+  my $tmp = tempdir;
+  my $src = $tmp->child('up')->make_path;
+  $src->child('file.txt')->spew("uploader content\n");
+  my $archive = $tmp->child('up.tar.gz');
+  is system('tar', '-czf', $archive->to_string, '-C', $src->to_string, '.'), 0, 'uploader archive created';
+
+  # No ephemeral flag at all, the server forces it
+  $t->post_ok(
+    '/upload',
+    {Accept => 'application/json'},
+    form => {name => 'up-web', priority => '6', tarball => {file => $archive->to_string}}
+  )->status_is(200);
+  my $id = $t->tx->res->json->{id};
+  ok $t->app->packages->find($id)->{ephemeral}, 'package is forced ephemeral';
+  $t->app->minion->perform_jobs;
+
+  $t->get_ok('/pagination/reviews/open?priority=1&limit=100')->status_is(200);
+  ok !(grep { $_->{id} == $id } @{$t->tx->res->json->{page}}), 'not in the open review backlog';
+  $t->get_ok('/pagination/reviews/ephemeral')->status_is(200);
+  ok((grep { $_->{id} == $id } @{$t->tx->res->json->{page}}), 'listed with the ephemeral reviews');
+  $t->get_ok("/reviews/details/$id")->status_is(200);
+};
+
 done_testing();

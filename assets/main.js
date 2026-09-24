@@ -67,6 +67,7 @@ window.cavil = {
       currentUser: el.dataset.currentUser,
       canCurate: el.dataset.canCurate === '1',
       canInfra: el.dataset.canInfra === '1',
+      canUpload: el.dataset.canUpload === '1',
       initialStats: parseJsonData(el, 'stats', {missing: 0, proposals: 0}),
       roles: parseJsonData(el, 'roles', []),
       urls: parseJsonData(el, 'urls', {})
@@ -239,9 +240,10 @@ window.cavil = {
     createApp(CavilStatistics).mount('#statistics');
   },
 
-  setupArchiveUpload(storeUrl) {
+  setupArchiveUpload(storeUrl, ephemeralOnly) {
     const app = createApp(ArchiveUpload);
     app.config.globalProperties.storeUrl = storeUrl;
+    app.config.globalProperties.ephemeralOnly = ephemeralOnly;
     app.mount('#archive-upload');
   },
 

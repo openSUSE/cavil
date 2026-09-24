@@ -444,6 +444,28 @@ subtest 'Upload API' => sub {
     ok !-d $dir,                                                             'ephemeral checkout is removed';
     ok defined($pkgs->find($id)), 'normal package is untouched by the ephemeral purge';
   };
+
+  subtest 'Uploader key can only submit ephemeral reviews' => sub {
+    my $uploader = $t->app->users->find_or_create(login => 'api_uploader', roles => ['uploader'])->{id};
+    my $up_rw    = $t->app->api_keys->create(owner => $uploader, type => 'read-write', description => 'up-rw',
+      expires => $expires);
+    my $up_ro
+      = $t->app->api_keys->create(owner => $uploader, type => 'read-only', description => 'up-ro', expires => $expires);
+
+    $t->post_ok(
+      '/api/v1/packages/upload' => {Authorization => "Bearer $up_ro->{api_key}"} => form => $form->(name => 'up-proj'))
+      ->status_is(403);
+
+    $t->post_ok(
+      '/api/v1/packages/upload' => {Authorization => "Bearer $up_rw->{api_key}"} => form => $form->(name => 'up-proj'))
+      ->status_is(200)
+      ->json_is('/saved/ephemeral' => 1);
+    ok $t->app->packages->find($t->tx->res->json('/saved/id'))->{ephemeral}, 'forced ephemeral without the flag';
+
+    $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $up_rw->{api_key}"} => form =>
+        $form->(name => 'up-proj2', ephemeral => 0))->status_is(200)->json_is('/saved/ephemeral' => 1);
+    ok $t->app->packages->find($t->tx->res->json('/saved/id'))->{ephemeral}, 'forced ephemeral despite ephemeral=0';
+  };
 };
 
 subtest 'License prediction' => sub {

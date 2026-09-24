@@ -765,8 +765,9 @@ Content-Type: application/json
 
 Upload a source archive to start a standard legal review, the same pipeline the web upload form and the bot API
 use. This is the entry point for a command-line or CI legal check: package your working tree into an archive,
-upload it, then poll the report endpoint below. It requires a read-write key whose user holds the `infra`
-capability (the same high access level as the web upload form); other keys receive a `403`.
+upload it, then poll the report endpoint below. It requires a read-write key whose user holds the `upload_ephemeral`
+capability (the same access level as the web upload form); other keys receive a `403`. Unless the user also holds
+the `infra` capability, every submission is ephemeral (see below), whatever the `ephemeral` parameter says.
 
 The request is `multipart/form-data`.
 

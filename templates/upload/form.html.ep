@@ -4,5 +4,5 @@
 <div id="archive-upload"></div>
 
 % content_for 'ready_function' => begin
-  cavil.setupArchiveUpload('<%= url_for 'store_upload' %>');
+  cavil.setupArchiveUpload('<%= url_for 'store_upload' %>', <%= current_user_can('infra') ? 'false' : 'true' %>);
 % end

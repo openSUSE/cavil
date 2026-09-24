@@ -166,6 +166,7 @@ sub startup ($self) {
   my $can_propose  = $public->under('/' => {roles => roles_with_capability('propose')})->to('Auth#check');
   my $can_review   = $public->under('/' => {roles => roles_with_capability('review')})->to('Auth#check');
   my $can_classify = $public->under('/' => {roles => roles_with_capability('classify')})->to('Auth#check');
+  my $can_upload   = $public->under('/' => {roles => roles_with_capability('upload_ephemeral')})->to('Auth#check');
 
   if (my $openid = $config->{openid}) {
     $self->plugin(
@@ -342,8 +343,8 @@ sub startup ($self) {
   $logged_in->get('/stats')->to('Stats#index')->name('stats');
   $logged_in->get('/stats/meta')->to('Stats#meta')->name('stats_meta');
 
-  $can_infra->get('/upload')->to('Upload#index')->name('upload');
-  $can_infra->post('/upload')->to('Upload#store')->name('store_upload');
+  $can_upload->get('/upload')->to('Upload#index')->name('upload');
+  $can_upload->post('/upload')->to('Upload#store')->name('store_upload');
 }
 
 1;

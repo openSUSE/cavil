@@ -12,13 +12,13 @@ If you just want to try Cavil out locally, the fastest path is the staging scrip
 
 A working Cavil instance is made of a few cooperating pieces:
 
-* **A web application** — the [Mojolicious](https://mojolicious.org) app that serves the review UI and the REST/MCP
+* **A web application** - the [Mojolicious](https://mojolicious.org) app that serves the review UI and the REST/MCP
   APIs. This is what you point your browser at.
-* **One or more background workers** — [Minion](https://minion.pm) jobs do all the real work (downloading, unpacking,
+* **One or more background workers** - [Minion](https://minion.pm) jobs do all the real work (downloading, unpacking,
   license matching, analysis, report generation). The web app only enqueues jobs; nothing happens until a worker runs.
-* **A PostgreSQL database** — the single source of truth for packages, users, patterns, reports and the job queue.
-* **The curated license patterns** — the 28,000+ patterns Cavil ships with, loaded into the database.
-* **An AI text classifier** — a required component that separates genuine license text from scanner noise (see below).
+* **A PostgreSQL database** - the single source of truth for packages, users, patterns, reports and the job queue.
+* **The curated license patterns** - the 28,000+ patterns Cavil ships with, loaded into the database.
+* **An AI text classifier** - a required component that separates genuine license text from scanner noise (see below).
 
 The web app and the workers are the same program (`script/cavil`) started differently, reading the same config file.
 Restart both after any configuration change.
@@ -26,7 +26,7 @@ Restart both after any configuration change.
 ## Prerequisites
 
 * **PostgreSQL** with the `pgcrypto` and `pg_trgm` extensions available (any supported release). Cavil enables
-  `pgcrypto` itself during migration, but the server must provide it — hence `postgresql-contrib` below.
+  `pgcrypto` itself during migration, but the server must provide it - hence `postgresql-contrib` below.
 * **Perl and system dependencies.** On openSUSE, install them as packages; the full list is in the `cpanfile` and can
   otherwise be installed from CPAN (`cpanm --installdeps .`). `Cavil::Matcher`, the pattern matching engine, is an XS
   module and needs a C++ toolchain.
@@ -64,20 +64,20 @@ Copy the shipped `cavil.conf` as your starting point and edit it. Cavil reads wh
 `CAVIL_CONF` environment variable. Every option is commented in that file; the ones you **must** set for a fresh
 instance are:
 
-* `secrets` — a list of your own random strings used to sign session cookies. Never keep the default.
-* `pg` — the connection string for the database from step 1 (e.g. `postgresql://user@/legaldb`).
-* `checkout_dir` — a directory on a **large** disk where unpacked source is kept for reindexing.
-* `tmp_dir` — a directory for incoming files before they are moved into `checkout_dir`.
-* `cache_dir` — a directory for temporary files shared between indexing processes.
-* `classifier` — the AI classifier connection (see step 6).
-* `openid` — OpenID Connect settings for real user login. If omitted, Cavil falls back to a dummy login that makes
+* `secrets` - a list of your own random strings used to sign session cookies. Never keep the default.
+* `pg` - the connection string for the database from step 1 (e.g. `postgresql://user@/legaldb`).
+* `checkout_dir` - a directory on a **large** disk where unpacked source is kept for reindexing.
+* `tmp_dir` - a directory for incoming files before they are moved into `checkout_dir`.
+* `cache_dir` - a directory for temporary files shared between indexing processes.
+* `classifier` - the AI classifier connection (see step 6).
+* `openid` - OpenID Connect settings for real user login. If omitted, Cavil falls back to a dummy login that makes
   everyone an admin, which is fine for a first boot but must not be left on for a shared instance.
 
 To connect Cavil to your sources (Open Build Service, Gitea, or the bot API), also set the `obs`, `git`,
-`external_link_sources` and `tokens` options — all documented in `cavil.conf`. These can be added later.
+`external_link_sources` and `tokens` options - all documented in `cavil.conf`. These can be added later.
 
-In production mode Cavil also picks up a mode-specific config file next to your main one automatically — a
-`cavil.production.conf` beside `cavil.conf` is merged on top of it — which is a convenient place to keep
+In production mode Cavil also picks up a mode-specific config file next to your main one automatically - a
+`cavil.production.conf` beside `cavil.conf` is merged on top of it - which is a convenient place to keep
 production-only overrides separate from shared settings.
 
 ### 4. Run the database migrations
@@ -148,12 +148,12 @@ ExecStart=/path/to/cavil/script/cavil prefork -m production --proxy -w 20 -c 1 -
 
 The flags let you size and tune the server (adjust the numbers to your hardware):
 
-* `-m production` — production mode (short, systemd-friendly logs).
-* `--proxy` — trust the reverse proxy's forwarding headers, so client addresses and HTTPS are seen correctly.
-* `-w` — number of worker processes; `-c` — maximum concurrent connections per worker.
-* `-i` / `-H` / `-G` — inactivity, heartbeat and graceful-shutdown timeouts in seconds; generous values suit
+* `-m production` - production mode (short, systemd-friendly logs).
+* `--proxy` - trust the reverse proxy's forwarding headers, so client addresses and HTTPS are seen correctly.
+* `-w` - number of worker processes; `-c` - maximum concurrent connections per worker.
+* `-i` / `-H` / `-G` - inactivity, heartbeat and graceful-shutdown timeouts in seconds; generous values suit
   long-running requests such as large uploads and report generation.
-* `-l` — the address to listen on.
+* `-l` - the address to listen on.
 
 Run the worker as its own systemd unit alongside it. Its `ExecStart` is simply the `minion worker` command, with `-j`
 setting how many jobs it processes in parallel (size this to the host's CPU and memory):
@@ -188,8 +188,8 @@ CAVIL_CONF=/path/to/cavil.conf script/cavil user -A admin <id>
 ```
 
 Roles are capability bundles: `admin` runs the instance and curates patterns, `lawyer` curates and carries the legal
-sign-off, `manager` signs off as a non-lawyer expert, `contributor` proposes patterns, and `classifier` classifies
-snippets. Use `-A`/`-R` to add and remove them; the full capability matrix is in the
+sign-off, `manager` signs off as a non-lawyer expert, `contributor` proposes patterns, `classifier` classifies
+snippets, and `uploader` can only make ephemeral one-off uploads. Use `-A`/`-R` to add and remove them; the full capability matrix is in the
 [Architecture](Architecture.md) guide.
 
 ## Next steps
@@ -199,6 +199,6 @@ Your instance is now ready to review packages. To feed it work, connect the
 [Gitea bot](https://github.com/openSUSE/cavil-gitea), upload tarballs directly from the UI, or use the REST/MCP APIs
 documented in the [Bot API](BotAPI.md) and [User API](UserAPI.md) guides.
 
-For ongoing care — reindexing after pattern updates, cleaning up obsolete reports, and retrying failed jobs, all via
-Minion's built-in scheduler — see the [Maintenance](Maintenance.md) guide. For how Cavil works internally, see the
+For ongoing care - reindexing after pattern updates, cleaning up obsolete reports, and retrying failed jobs, all via
+Minion's built-in scheduler - see the [Maintenance](Maintenance.md) guide. For how Cavil works internally, see the
 [Architecture](Architecture.md) guide.

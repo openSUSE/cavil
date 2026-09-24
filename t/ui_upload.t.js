@@ -88,6 +88,31 @@ t.test('Cavil UI - tarball upload', skipUnlessOnline, async t => {
       );
     });
 
+    await t.test('Uploader role can only make ephemeral uploads', async t => {
+      await page.goto(`${url}/login_as_uploader`);
+      t.equal(await page.locator('a.dropdown-item[href="/upload"]').count(), 1, 'account menu links to the upload');
+      t.equal(await page.locator('a.dropdown-item[href="/minion"]').count(), 0, 'no administration links');
+
+      await page.goto(`${url}/upload`);
+      await page.waitForSelector('.upload-dropzone');
+      t.equal(await page.locator('#upload-ephemeral').isChecked(), true, 'ephemeral is on');
+      t.equal(await page.locator('#upload-ephemeral').isDisabled(), true, 'ephemeral cannot be turned off');
+      t.match(await page.innerText('.upload-page'), /can only create ephemeral reviews/, 'the lock is explained');
+
+      await page.setInputFiles('#archive-upload input[name="tarball"]', ARCHIVE);
+      await page.fill('#upload-name', 'Mojolicious-oneoff');
+      await Promise.all([page.waitForURL(/\/reviews\/details\/\d+$/), page.locator('#upload-button').click()]);
+      const reportUrl = page.url();
+
+      const drainPage = await context.newPage();
+      await drainPage.goto(performJobs, {timeout: 120000});
+      await drainPage.close();
+
+      await page.goto(reportUrl);
+      await page.waitForSelector('#pkg-ephemeral');
+      t.pass('report carries the ephemeral hint');
+    });
+
     t.test('Console errors', t => {
       // Landing on the report immediately after upload polls once while the package is
       // still being processed, which the browser logs as an expected 408.

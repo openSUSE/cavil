@@ -2,8 +2,8 @@
   <div class="upload-page">
     <cavil-notice-panel tone="warning" title="Experimental feature" icon="fa-solid fa-flask">
       <p class="cavil-notice-summary">
-        Upload any archive supported by Cavil (tar.*, zip, rpm, 7z, …) for legal review. No metadata is required &mdash;
-        the package name is taken from the filename and licenses are detected automatically.
+        Upload any archive supported by Cavil (tar.*, zip, rpm, 7z, …) for legal review. No metadata is required, the
+        package name is taken from the filename and licenses are detected automatically.
       </p>
     </cavil-notice-panel>
 
@@ -57,13 +57,21 @@
     </div>
 
     <div class="form-check mt-3">
-      <input id="upload-ephemeral" v-model="ephemeral" name="ephemeral" type="checkbox" class="form-check-input" />
+      <input
+        id="upload-ephemeral"
+        v-model="ephemeral"
+        name="ephemeral"
+        type="checkbox"
+        class="form-check-input"
+        :disabled="ephemeralOnly"
+      />
       <label class="form-check-label" for="upload-ephemeral">
         Ephemeral one-off review
         <span class="form-text d-block">
           Kept out of the review backlog and automatically deleted a short time after upload. Use for quick ad-hoc
           checks.
         </span>
+        <span v-if="ephemeralOnly" class="form-text d-block">Your account can only create ephemeral reviews.</span>
       </label>
     </div>
 
@@ -119,7 +127,7 @@ export default {
       file: null,
       name: '',
       priority: '5',
-      ephemeral: false,
+      ephemeral: this.ephemeralOnly,
       isDragging: false,
       uploading: false,
       progress: 0,

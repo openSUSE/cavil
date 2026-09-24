@@ -34,7 +34,7 @@ sub store ($self) {
       priority        => $validation->param('priority'),
       requesting_user => $self->users->id_for_login($self->current_user),
       external_link   => 'upload',
-      ephemeral       => $validation->param('ephemeral') ? 1 : 0
+      ephemeral       => !$self->current_user_can('infra') || $validation->param('ephemeral') ? 1 : 0
     }
   );
 

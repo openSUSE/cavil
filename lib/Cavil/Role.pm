@@ -14,8 +14,9 @@ my %ROLE_CAPABILITIES = (
   classifier  => [qw(view classify)],
   contributor => [qw(view propose)],
   manager     => [qw(view review)],
-  admin       => [qw(view classify propose curate review infra)],
-  lawyer      => [qw(view classify propose curate review review_lawyer)],
+  uploader    => [qw(view upload_ephemeral)],
+  admin       => [qw(view classify propose curate review infra upload_ephemeral)],
+  lawyer      => [qw(view classify propose curate review review_lawyer upload_ephemeral)],
 );
 
 # Internal identities such as `bot` are not web roles and grant no capabilities.

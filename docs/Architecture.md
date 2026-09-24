@@ -166,23 +166,26 @@ naming a role, and roles are named bundles of capabilities.
 | classify | Validate AI text-classification results, creating training data. |
 | propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
 | curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores and comment templates, accept or reject proposals, apply snippet decisions, edit review tags, reindex, and accept or reject reviews. |
-| infra | Operate the instance: the job dashboard and package upload. |
+| infra | Operate the instance: the job dashboard and package upload into the review backlog. |
 | review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off). |
 | review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |
+| upload_ephemeral | Upload archives for ephemeral one-off reviews, via the web form or the User API. Without `infra` every upload is forced ephemeral, so it can never reach the review backlog. |
 
 `user` and `admin` are the base roles; the rest add capabilities on top. `admin` and `lawyer` share
 the same curator core and differ by one capability each - `admin` also runs the instance (`infra`),
 `lawyer` also carries the legal sign-off (`review_lawyer`) - so neither is a superset of the other, and
-the `lawyer` role alone is enough to curate and sign off.
+the `lawyer` role alone is enough to curate and sign off. `uploader` is for users who only need one-off legal
+reports: it can make ephemeral uploads and nothing else.
 
-| Role | view | classify | propose | curate | review | infra | review_lawyer |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| user | ✓ | | | | | | |
-| classifier | ✓ | ✓ | | | | | |
-| contributor | ✓ | | ✓ | | | | |
-| manager | ✓ | | | | ✓ | | |
-| admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| lawyer | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| Role | view | classify | propose | curate | review | infra | review_lawyer | upload_ephemeral |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| user | ✓ | | | | | | | |
+| uploader | ✓ | | | | | | | ✓ |
+| classifier | ✓ | ✓ | | | | | | |
+| contributor | ✓ | | ✓ | | | | | |
+| manager | ✓ | | | | ✓ | | | |
+| admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| lawyer | ✓ | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ |
 
 `acceptable_by_lawyer` means a lawyer signed off, so it is always derived from the `review_lawyer`
 capability and never taken from the request: a non-lawyer curator can accept a package but can never
@@ -247,9 +250,9 @@ The report's JSON carries a `risk` (its maximum license risk, the same number th
 instance's `acceptable_risk` threshold, so the client can turn a review into a pass/fail CI gate without a second
 request or waiting for a human verdict.
 
-Because a submission enters the real review backlog, the endpoint requires the same high access as the web upload
-form: a read-write API key whose user holds the `infra` capability (see Access Levels). A later, separate feature
-will give ordinary users a sandbox namespace that yields a report without adding to the backlog.
+The endpoint takes a read-write API key whose user holds the `upload_ephemeral` capability (see Access Levels). Only
+users who also hold `infra` can add to the real review backlog; for everyone else, such as the `uploader` role, every
+submission is an ephemeral one-off review that yields a report without adding to the backlog.
 
 ## Report Creation
 

@@ -64,9 +64,13 @@
         <li><a :href="urls.commentTemplates" class="dropdown-item">Comment Templates</a></li>
         <li><hr class="dropdown-divider" /></li>
       </template>
+      <template v-if="canUpload">
+        <li><h3 class="dropdown-header">Uploads</h3></li>
+        <li><a :href="urls.upload" class="dropdown-item">Upload Tarball</a></li>
+        <li><hr class="dropdown-divider" /></li>
+      </template>
       <template v-if="canInfra">
         <li><h3 class="dropdown-header">Administration</h3></li>
-        <li><a :href="urls.upload" class="dropdown-item">Upload Tarball</a></li>
         <li><a :href="urls.minion" class="dropdown-item">Minion Dashboard</a></li>
         <li><hr class="dropdown-divider" /></li>
       </template>
@@ -87,6 +91,7 @@ export default {
     currentUser: {type: String, required: true},
     canCurate: {type: Boolean, default: false},
     canInfra: {type: Boolean, default: false},
+    canUpload: {type: Boolean, default: false},
     initialStats: {type: Object, required: true},
     roles: {type: Array, default: () => []},
     urls: {type: Object, required: true}

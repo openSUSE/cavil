@@ -77,6 +77,7 @@
               data-current-user="<%= $user %>"
               data-can-curate="<%= current_user_can('curate') ? 1 : 0 %>"
               data-can-infra="<%= current_user_can('infra') ? 1 : 0 %>"
+              data-can-upload="<%= current_user_can('upload_ephemeral') ? 1 : 0 %>"
               data-roles='<%= encode_json($roles) %>'
               data-stats='<%= encode_json($stats) %>'
               data-urls='<%= encode_json({

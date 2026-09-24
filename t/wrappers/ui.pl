@@ -105,6 +105,18 @@ $app->routes->get(
 );
 
 $app->routes->get(
+  '/login_as_uploader' => sub ($c) {
+    my $user = $c->users->find_or_create(
+      login => 'uploader_tester',
+      email => 'uploader_tester@example.com',
+      roles => ['uploader']
+    );
+    $c->session(user => $user->{login});
+    $c->redirect_to('dashboard');
+  }
+);
+
+$app->routes->get(
   '/test/obsolete_with_report/:id' => sub ($c) {
     my $id = $c->stash('id');
     _save_report_state($c, $id);

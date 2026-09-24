@@ -111,13 +111,13 @@ sub status ($self) {
 
 sub upload ($self) {
 
-  # Submitting runs the full pipeline and adds to the legal backlog, so it takes the same infra capability the
-  # web upload form requires, plus a write-scoped key.
+  # Only infra may add to the legal backlog, everyone else with the upload capability is forced ephemeral (same
+  # rule as the web upload form), plus a write-scoped key.
   my %scopes = map { $_ => 1 } @{$self->current_user_scopes};
   return $self->render(
     json   => {error => 'It appears you have insufficient permissions for accessing this resource'},
     status => 403
-  ) unless $self->current_user_can('infra') && $scopes{'cavil:write'};
+  ) unless $self->current_user_can('upload_ephemeral') && $scopes{'cavil:write'};
 
   my $validation = $self->validation;
   $validation->required('name')->like(qr/^[A-Za-z0-9\-\.]+$/);
@@ -137,7 +137,7 @@ sub upload ($self) {
         requesting_user => $self->users->id_for_login($self->current_user),
         external_link   => $validation->param('external_link'),
         checksum        => $validation->param('checksum'),
-        ephemeral       => $validation->param('ephemeral') ? 1 : 0
+        ephemeral       => !$self->current_user_can('infra') || $validation->param('ephemeral') ? 1 : 0
       }
     );
   };
