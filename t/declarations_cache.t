@@ -69,4 +69,12 @@ subtest 'Declaration without a license' => sub {
   unlike $report, qr/Declared-License/,                                       'nothing declared';
 };
 
+subtest 'Declared license only valid as an alias' => sub {
+  $t->app->packages->pkg_checkout_dir(2)->child('Dockerfile')->spew("# SPDX-License-Identifier: GPL-3.0+\n");
+  $t->app->minion->enqueue(unpack => [2]);
+  $t->app->minion->perform_jobs;
+  like $t->app->build_controller->mcp_report(2),
+    qr/^Declared-License: GPL-3\.0\+ \(from Dockerfile\) \(not a valid SPDX expression\)$/m, 'marked as not SPDX';
+};
+
 done_testing;

@@ -13,9 +13,9 @@
         <dl class="report-metadata-list">
           <template v-if="declarations.length > 0">
             <dt>License</dt>
-            <dd id="pkg-declarations" :class="{'metadata-declarations-named': declarations.length > 1}">
+            <dd id="pkg-declarations" :class="{'metadata-declarations-named': namedDeclarations}">
               <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
-                <span v-if="declarations.length > 1" class="metadata-declaration-name">{{ d.name }}</span>
+                <span v-if="namedDeclarations" class="metadata-declaration-name">{{ d.showName ? d.name : '' }}</span>
                 <span v-if="d.license_html !== null" v-html="d.license_html"></span>
                 <span v-else class="metadata-declaration-undeclared">No license declared</span>
                 <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ d.file }}</a>
@@ -440,6 +440,9 @@ export default {
     };
   },
   computed: {
+    namedDeclarations() {
+      return this.declarations.some(d => d.showName);
+    },
     formatIcon() {
       return FORMAT_ICONS[this.declarations[0]?.format] ?? null;
     },
@@ -726,7 +729,12 @@ export default {
       }
 
       this.declarations = data.declarations;
-      for (const d of this.declarations) d.fileUrl = fileViewUrl(this.pkgId, d.file);
+      const perFile = {};
+      for (const d of this.declarations) perFile[d.file] = (perFile[d.file] ?? 0) + 1;
+      for (const d of this.declarations) {
+        d.fileUrl = fileViewUrl(this.pkgId, d.file);
+        d.showName = perFile[d.file] > 1;
+      }
       this.incompleteCheckout = data.incomplete_checkout.map(
         service => `Remote service in _service file: ${service.name} (mode: ${service.mode})`
       );

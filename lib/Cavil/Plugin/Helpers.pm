@@ -400,8 +400,8 @@ sub _package_summary ($c, $id) {
       name         => $d->{name},
       version      => $d->{version},
       license      => $license,
-      license_html => defined $license        ? spdx_link($license) : undef,
-      spdx         => lic($license)->is_valid ? true                : false
+      license_html => defined $license            ? spdx_link($license) : undef,
+      spdx         => lic($license)->is_canonical ? true                : false
       };
     $docs{$_} = 1 for @{$d->{'%doc'}     // []};
     $lics{$_} = 1 for @{$d->{'%license'} // []};

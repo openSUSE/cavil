@@ -334,20 +334,30 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.unroute('**/reviews/meta/1');
     });
 
-    await t.test('Declarations without a license', async t => {
+    await t.test('Subpackage names and declarations without a license', async t => {
+      const spec = {format: 'spec', file: 'perl-Mojolicious.spec', license: 'MIT', license_html: 'MIT'};
       await page.route('**/reviews/meta/1', async route => {
         const response = await route.fetch();
         const data = await response.json();
-        data.declarations = [{format: 'dockerfile', file: 'Dockerfile', license: null, license_html: null}];
+        data.declarations = [
+          {...spec, name: 'perl-Mojolicious'},
+          {...spec, name: 'perl-Mojolicious-doc'},
+          {format: 'dockerfile', file: 'Dockerfile', name: 'mojo-image', license: null, license_html: null}
+        ];
         await route.fulfill({response, json: data});
       });
 
       await page.goto(url);
       await page.click('text=Artistic');
-      const declarations = page.locator('#pkg-declarations');
-      await declarations.waitFor();
-      t.match(await declarations.innerText(), /No license declared\s+Dockerfile\s+DOCKERFILE/);
-      t.equal(await page.locator('.cavil-package-format-icon .fa-docker').count(), 1, 'format icon');
+      const names = page.locator('#pkg-declarations .metadata-declaration-name');
+      await names.first().waitFor();
+      t.same(
+        await names.allInnerTexts(),
+        ['perl-Mojolicious', 'perl-Mojolicious-doc', ''],
+        'only subpackages are named'
+      );
+      t.match(await page.locator('#pkg-declarations').innerText(), /No license declared\s+Dockerfile\s+DOCKERFILE/);
+      t.equal(await page.locator('.cavil-package-format-icon .fa-suse').count(), 1, 'format icon');
 
       await page.unroute('**/reviews/meta/1');
     });
