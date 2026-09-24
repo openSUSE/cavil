@@ -26,7 +26,8 @@ for* - name it and the recommended SPDX id in the `reason`. Both of these must h
 it:
 
 - Nothing known covers the text: no entry in the tool's closest-match list is the license you
-  identified (if one is, use it), and no pseudo-license from the table below fits.
+  identified (if one is, use it), and no pseudo-license from the table below fits. (Exception:
+  `Any Proprietary` never counts as fitting. Vendor-only terms are reported; see the grab-bag rule.)
 - You can **name** the license. "This is hard", "the wording is unusual", or "I am not sure what
   this is" are **Notes**, not reports.
 
@@ -264,15 +265,64 @@ correct flag automatically (names match case-insensitively):
 | `Any Permissive` | a permissive grant that names no specific license ("free to use for any purpose", "may be freely copied and distributed") |
 | `Any floating warranty` / `Any no warranty` | a standalone warranty disclaimer with no license ("no warranty; not even for MERCHANTABILITY…") |
 | `GPL-Unspecified` / `LGPL-Unspecified` / `BSD-Unspecified` | the license family named without a resolvable version |
-| `Any Public Domain` / `Any Proprietary` | public-domain dedications / proprietary-license notices |
+| `Any specification license` | copyright/usage notices on **specification documents** (Khronos/OpenGL/EGL spec notices, SGI/3Dlabs spec legends, vendor notices and "IP Status" lines in extension specs) |
+| `Any Public Domain` | public-domain dedications |
+| `Any Proprietary` | **Dangerous - avoid; see below.** |
+
+**Avoid grab-bag values - be specific and correct.** Humans sometimes park hard snippets in a broad
+bucket to defer a decision. You have time to decide, so don't copy that habit. A catch-all that is
+merely *not wrong* will be rejected. Before using any `Any …` value:
+
+1. Is there a specific SPDX id or named license? Use it.
+2. Is there a narrower pseudo-license for what the document actually *is*? Probe with a descriptive
+   name that cannot exist (e.g. `license="Khronos spec notice probe"`, no `risk`). A miss submits
+   nothing and returns the closest existing names; that is how `Any specification license` was
+   found. An exact hit **does** submit, so never probe with a real name.
+3. Never pattern a bare marker line (`X Proprietary and Confidential`, `IP Status: X Proprietary`)
+   with no context. Include the surrounding notice so the pattern shows what kind of document it
+   belongs to.
+4. **Check how the corpus already classifies the same text.** The report's per-file
+   `similarity to "X"` estimates, and resolved matches of the same notice in *other* files, show the
+   existing curated classification. Filing identical text under two licenses gives two risks for one
+   legal fact, which is worse than either choice alone. If you believe the existing classification
+   is wrong, still propose the better one, but say in the `reason` and in the final summary that the
+   existing patterns need reclassifying too. You cannot move them yourself.
+5. **Risk lives on each pattern, not on the license name.** Most `Any …` names have patterns at
+   several risk levels. For those, the tool refuses a call without `risk` and lists each level with
+   a pattern count and an example. Pick the level whose example is **legally closest** to your text:
+   - Never default to the lowest level or the most common one.
+   - Terms that restrict redistribution, modification or use never go in a low-risk bucket.
+   - If no listed level fits, the license is the wrong choice. Go back to step 2.
+
+   The success message echoes the license and risk that were filed; copy both into the summary.
+
+**Weigh importance before effort.** Ask whether the text changes the decision to ship the package in
+openSUSE/SLE. Reference documents in a source tarball that are never built or installed (spec
+documents, website docs, contest rules) are one low-weight decision per directory: "is this text
+redistributable unmodified?" Terms on code that is built, linked or installed are what can block
+inclusion; spend your care there, and flag them first in the summary.
+
+**`Any Proprietary` is dangerous; treat it as off-limits by default.** It fails in both directions:
+- **Over-flagging.** An accepted pattern flags every future match in every package as proprietary.
+  That is a false alarm on distributable content, and it trains reviewers to wave the label through.
+- **Under-flagging.** Its patterns span many risk levels. File real no-redistribution terms at a low
+  one and they get buried among routine matches.
+
+It also says nothing about *which* terms apply. The word "proprietary" in a spec notice, a
+confidentiality marker or a metadata field never qualifies. Real vendor-only terms on code in the
+package (e.g. a Broadcom "proprietary software of Broadcom… separate written license agreement"
+header) go to **report missing**, naming the vendor terms, so a lawyer rules on it. This is the one
+explicit exception to "no pseudo-license fits" in the report-missing rule: a vendor's
+no-license-without-contract terms are a legal finding about the package, not a pattern decision.
 
 Build the pattern as usual: `$SKIP` the subject, keep the legally meaningful core. These are
 **language-independent** - a recognizable patent/trademark/CLA/EULA notice in any language gets
 patterned, not noted. The MPEG-style portfolio notices are common and widely translated;
 recognise them by the portfolio name + personal/non-commercial-use wording. The table above is
 not exhaustive - Cavil has a rich catch-all vocabulary; when a snippet is clearly licensey but
-fits no specific SPDX id, try a descriptive `Any …` value and let the tool's closest-match
-suggestions correct the exact spelling, rather than falling back to Note. Caveat: use these only
+fits no specific SPDX id, probe with a descriptive name and let the tool's closest-match
+suggestions find the most specific existing value, rather than falling back to Note. Use a broad
+catch-all only when nothing narrower exists (grab-bag rule above). Caveat: use these only
 for **standalone** notices - a trademark/patent clause that is part of a full license body (e.g.
 Apache-2.0 §6) is covered when that whole license is patterned (mode A).
 
@@ -296,7 +346,13 @@ move on.
 ## SUMMARY (final output)
 
 Report metrics (X patterns, Y ignored, Z globs, N reported missing) and a concise table of
-actions taken, noting how many duplicates will auto-resolve on re-index. Include an
+actions taken, giving the `license` and filed `risk` for every pattern and noting how many
+duplicates will auto-resolve on re-index. Lead with anything that affects shipping the package
+(terms on built/installed code, reported vendor licenses). Include a **"RECLASSIFY (admin)"**
+section for each case where your proposal disagrees with how existing curated patterns classify the
+same text. Example: Khronos spec notices already filed as `Any Proprietary` risk 7, while you
+proposed `Any specification license`. Admins fix the existing patterns with the bulk edit on the
+license's details page. Include an
 **"UNIDENTIFIED (needs your eyes)"** section listing every Note snippet - id, file path, and a
 one-line reason - and a **"PROPOSED GLOBS"** section with each glob, the files it covers, and its
 rationale.
@@ -310,8 +366,9 @@ rationale.
 - `cavil_get_file(package_id, file_path, start_line, end_line)` - read file context (≤1000
   lines). Line-number prefixes are display-only; never copy them into patterns.
 - `cavil_list_files(package_id, glob?)` - list files in a package (optional glob filter).
-- `cavil_propose_license_pattern(package_id, snippet_id, pattern, license, reason)` - create a
-  pattern.
+- `cavil_propose_license_pattern(package_id, snippet_id, pattern, license, reason, risk?)` - create a
+  pattern. Pass `risk` only when the tool lists several risk levels for the license (grab-bag rule,
+  item 5). Never pass it to invent a new license; that is report-missing's job.
 - `cavil_create_snippet(package_id, file_path, start_line, end_line)` - make a larger snippet
   from a matched file; returns the new snippet_id (and text) to pattern against.
 - `cavil_propose_ignore_snippet(package_id, snippet_id, reason)` - ignore non-license text.

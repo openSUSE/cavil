@@ -44,12 +44,17 @@ use constant LICENSE_DETAIL_PACKAGE_LIMIT => 1_000;
 use constant LICENSE_PREDICTION_THRESHOLD => 0.3;
 use constant LICENSE_PREDICTION_LIMIT     => 10;
 
+# One risk/flags combination per license for pre-filling editors. Catch-alls ("Any ...") carry patterns at
+# many risks, so pick deterministically: the most common combination wins (ascending order, last write
+# wins), the higher risk on a tie. Anything that must not guess uses license_risks instead.
 sub autocomplete ($self) {
   my $licenses = {};
 
-  my $columns = join ', ', @LICENSE_FLAGS;
-  my $patterns
-    = $self->pg->db->query("SELECT DISTINCT(license), risk, $columns, catch_all FROM license_patterns")->hashes;
+  my $columns  = join ', ', @LICENSE_FLAGS;
+  my $patterns = $self->pg->db->query(
+    "SELECT license, risk, $columns, catch_all, COUNT(*) AS patterns FROM license_patterns
+      GROUP BY license, risk, $columns, catch_all ORDER BY patterns ASC, risk ASC"
+  )->hashes;
   for my $pattern ($patterns->each) {
     $licenses->{$pattern->{license}}
       = {risk => $pattern->{risk}, catch_all => $pattern->{catch_all}, map { $_ => $pattern->{$_} } @LICENSE_FLAGS};
@@ -57,6 +62,16 @@ sub autocomplete ($self) {
   delete $licenses->{''};
 
   return $licenses;
+}
+
+# Every risk level a license's patterns use, lowest first, with the pattern count and the flags and text of
+# its oldest pattern as an example (the one most likely to be curated rather than derived).
+sub license_risks ($self, $license) {
+  my $columns = join ', ', @LICENSE_FLAGS;
+  return $self->pg->db->query(
+    "SELECT DISTINCT ON (risk) risk, $columns, pattern AS example, COUNT(*) OVER (PARTITION BY risk) AS patterns
+       FROM license_patterns WHERE license = ? ORDER BY risk ASC, id ASC", $license
+  )->hashes->to_array;
 }
 
 sub closest_licenses ($self, $expr) {

@@ -213,9 +213,12 @@ Propose to ignore a specific snippet in the legal review.
 #### cavil_propose_license_pattern
 
 Propose a license pattern. If the license already exists, the pattern is added to it and the proposal lands on the
-admin **Change Proposals** page (risk and flags are inherited from the license). If the license is unknown, pass an
-integer `risk` to propose introducing it as a new license; that proposal lands on the lawyers' **Missing Licenses**
-page to ratify.
+admin **Change Proposals** page, inheriting risk and flags from one of the license's existing risk levels. A license
+whose patterns all share one risk is inherited silently. Catch-alls like `Any Proprietary` usually span several levels,
+and guessing one could file restrictive terms at risk 1, so there the call fails with a list of the levels (pattern
+count and an example pattern each) and must be repeated with `risk` set to one of them. The success message echoes the
+license and risk that were filed. If the license is unknown, pass an integer `risk` to propose introducing it as a new
+license; that proposal lands on the lawyers' **Missing Licenses** page to ratify.
 
 - **Required Roles**: `contributor`, `lawyer` or `admin` (read-write)
 - `package_id`: ID of the package the snippet belongs to. (number, required)
@@ -223,7 +226,8 @@ page to ratify.
 - `pattern`: License pattern text; must match the snippet. (string, required)
 - `license`: License expression or SPDX identifier. (string, required)
 - `reason`: Why this is the license (shown as the proposal's rationale). (string, required)
-- `risk`: Risk level 1-9; required only when introducing a new (unknown) license. (number, optional)
+- `risk`: For an existing license, one of its existing risk levels (0-9); required when it has more than one. For a new
+  (unknown) license, the researched risk level 1-9; required. (number, optional)
 - `patent`, `trademark`, `export_restricted`, `cla`, `eula`: Flags describing a new license. (boolean, optional)
 
 #### cavil_propose_ignore_glob

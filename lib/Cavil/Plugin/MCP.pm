@@ -197,7 +197,9 @@ sub register ($self, $app, $config) {
     name        => 'cavil_propose_license_pattern',
     description =>
       'Propose a license pattern. If the license already exists in Cavil, the pattern is added to it and the '
-      . 'proposal lands on the admin Change Proposals page (risk/flags are inherited from the license). If the '
+      . 'proposal lands on the admin Change Proposals page with risk/flags inherited from the license; when the '
+      . 'license\'s patterns span several risk levels (common for "Any ..." catch-alls) you must pick one of them '
+      . 'with "risk", and the error lists them with examples. If the '
       . 'license is unknown, this is a request to INTRODUCE a new license: pass an integer "risk" (1-9) and it '
       . 'lands on the lawyers\' Missing Licenses page for ratification. Optional patent/trademark/'
       . 'export_restricted/cla/eula flags describe a new license',
@@ -211,9 +213,10 @@ sub register ($self, $app, $config) {
         reason     => {type => 'string'},
         risk       => {
           type        => 'integer',
-          minimum     => 1,
+          minimum     => 0,
           maximum     => 9,
-          description => 'required only when introducing a new (unknown) license; the researched risk level'
+          description => 'existing license: required when its patterns span several risk levels, and must be one of'
+            . ' them; new (unknown) license: required, the researched risk level (1-9)'
         },
         patent            => {type => 'boolean', description => 'new-license flag (optional)'},
         trademark         => {type => 'boolean', description => 'new-license flag (optional)'},
@@ -736,18 +739,38 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
   my ($result, $success);
   if ($match) {
 
-    # Known license: add another pattern to it, inheriting risk/flags from the existing record (admin
-    # Change Proposals page).
+    # Known license: add another pattern to it, inheriting risk/flags from an existing risk level (admin
+    # Change Proposals page). Catch-alls span several levels, and guessing one could file proprietary terms
+    # at risk 1, so with more than one level the caller has to choose.
+    my $risks   = $c->patterns->license_risks($match->{license});
+    my $wanted  = $args->{risk};
+    my ($level) = defined $wanted ? grep { $_->{risk} == $wanted } @$risks : @$risks == 1 ? @$risks : ();
+    unless ($level) {
+      my $intro
+        = defined $wanted
+        ? qq{License "$match->{license}" has no patterns at risk $wanted; call again with "risk" set to one of}
+        . ' its existing levels:'
+        : qq{License "$match->{license}" has patterns at several risk levels; call again with "risk" set to the}
+        . ' level whose examples are legally closest to this text:';
+      my $list = join "\n", map {
+        my $example = $_->{example} =~ s/\s+/ /gr;
+        $example = substr($example, 0, 117) . '...' if length $example > 120;
+        sprintf '* risk %d (%d patterns), e.g. "%s"', $_->{risk}, $_->{patterns}, $example
+      } @$risks;
+      return $tool->text_result("$intro\n$list", 1);
+    }
+
     $result = $c->patterns->propose_create(
       %common,
       license => $match->{license},
-      risk    => $match->{risk},
+      risk    => $level->{risk},
 
       # Facts about the license, inherited. Not full_license_text: a snippet is not the license in full
       # because it resembles one that is.
-      (map { $_ => $match->{$_} } @LICENSE_FLAGS)
+      (map { $_ => $level->{$_} } @LICENSE_FLAGS)
     );
-    $success = 'Proposal for new license pattern has been successfully submitted';
+    $success = qq{Proposal for new license pattern has been successfully submitted (license "$match->{license}",}
+      . " risk $level->{risk})";
   }
   else {
 

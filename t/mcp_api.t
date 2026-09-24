@@ -12,7 +12,7 @@ use Cavil::Test;
 use Cavil::Model::Notes qw(NOTE_BODY_MAX_LENGTH);
 use Mojo::File          qw(path);
 use Mojo::Date;
-use Mojo::Util qw(encode);
+use Mojo::Util qw(encode md5_sum);
 use Mojo::JSON qw(true false);
 use MCP::Client;
 
@@ -1583,7 +1583,8 @@ subtest 'MCP' => sub {
           }
         );
         ok !$result->{isError}, 'not an error';
-        is $result->{content}[0]{text}, 'Proposal for new license pattern has been successfully submitted',
+        is $result->{content}[0]{text},
+          'Proposal for new license pattern has been successfully submitted (license "Artistic-2.0", risk 5)',
           'proposal message';
 
         $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
@@ -1627,7 +1628,8 @@ subtest 'MCP' => sub {
           }
         );
         ok !$result->{isError}, 'not an error';
-        is $result->{content}[0]{text}, 'Proposal for new license pattern has been successfully submitted',
+        is $result->{content}[0]{text},
+          'Proposal for new license pattern has been successfully submitted (license "Artistic-2.0", risk 5)',
           'proposal message';
 
         $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
@@ -1666,6 +1668,54 @@ subtest 'MCP' => sub {
         ok $result->{isError}, 'is an error';
         is $result->{content}[0]{text}, 'Conflicting license pattern proposal already exists', 'conflict message';
         $t->app->pg->db->delete('proposed_changes');
+      };
+
+      subtest 'Propose license pattern (license with several risk levels)' => sub {
+        my $db    = $t->app->pg->db;
+        my $extra = $db->insert(
+          'license_patterns',
+          {
+            pattern      => 'Artistic example at another risk level',
+            token_hexsum => md5_sum('Artistic example at another risk level'),
+            license      => 'Artistic-2.0',
+            risk         => 2,
+            patent       => 0
+          },
+          {returning => 'id'}
+        )->hash->{id};
+        my %args = (
+          package_id => 1,
+          snippet_id => 5,
+          pattern    => 'terms of the Artistic License version 2.0',
+          license    => 'Artistic-2.0',
+          reason     => 'Just a test pattern proposal'
+        );
+
+        my $result = $client->call_tool('cavil_propose_license_pattern', \%args);
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/License "Artistic-2.0" has patterns at several risk levels/,
+          'asks for a risk';
+        like $result->{content}[0]{text},
+          qr/^\* risk 2 \(1 patterns\), e\.g\. "Artistic example at another risk level"$/m, 'lists risk 2 with example';
+        like $result->{content}[0]{text}, qr/^\* risk 5 \(\d+ patterns\), e\.g\. "/m, 'lists risk 5';
+        is $db->query('SELECT COUNT(*) FROM proposed_changes')->array->[0], 0, 'nothing proposed';
+
+        $result = $client->call_tool('cavil_propose_license_pattern', {%args, risk => 7});
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/License "Artistic-2.0" has no patterns at risk 7/, 'rejects unused risk';
+        like $result->{content}[0]{text}, qr/^\* risk 2 /m,                                     'lists valid risks';
+
+        $result = $client->call_tool('cavil_propose_license_pattern', {%args, risk => 2});
+        ok !$result->{isError}, 'not an error';
+        is $result->{content}[0]{text},
+          'Proposal for new license pattern has been successfully submitted (license "Artistic-2.0", risk 2)',
+          'proposal message with chosen risk';
+        my $change = $db->query('SELECT data FROM proposed_changes')->expand->hash->{data};
+        is $change->{risk},   2, 'chosen risk';
+        is $change->{patent}, 0, 'flags from the chosen risk level, not the risk 5 ones';
+
+        $db->delete('proposed_changes');
+        $db->delete('license_patterns', {id => $extra});
       };
 
       subtest 'Propose license pattern (conflicting license pattern)' => sub {
@@ -1885,7 +1935,8 @@ subtest 'MCP' => sub {
             }
           );
           ok !$propose->{isError}, 'not an error';
-          is $propose->{content}[0]{text}, 'Proposal for new license pattern has been successfully submitted',
+          like $propose->{content}[0]{text},
+            qr/^Proposal for new license pattern has been successfully submitted \(license "GPL-2\.0-only", risk \d\)$/,
             'proposal submitted from the newly created snippet';
 
           $t->get_ok('/login')->status_is(302)->header_is(Location => '/');

@@ -120,6 +120,9 @@ Then routing is automatic, and you drive it like this:
   - None match and you are confident this is a **new** license → re-call **with** `risk=N` (1-7) and any
     flags. Cavil files it as a new-license proposal on the lawyers' page.
   - You are not sure which → **leave it** (do not force a guess).
+- If Cavil replies that a known license *"has patterns at several risk levels"* (typical for `Any …`
+  catch-alls), it lists each level with an example pattern. Re-call with `risk` set to the level whose
+  examples are legally closest to your text; never default to the lowest one.
 
 ### Worked examples
 
