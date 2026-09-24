@@ -334,6 +334,24 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.unroute('**/reviews/meta/1');
     });
 
+    await t.test('Declarations without a license', async t => {
+      await page.route('**/reviews/meta/1', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.declarations = [{format: 'dockerfile', file: 'Dockerfile', license: null, license_html: null}];
+        await route.fulfill({response, json: data});
+      });
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+      const declarations = page.locator('#pkg-declarations');
+      await declarations.waitFor();
+      t.match(await declarations.innerText(), /No license declared\s+Dockerfile\s+DOCKERFILE/);
+      t.equal(await page.locator('.cavil-package-format-icon .fa-docker').count(), 1, 'format icon');
+
+      await page.unroute('**/reviews/meta/1');
+    });
+
     await t.test('Embargoed metadata is visually distinct', async t => {
       await page.route('**/reviews/meta/1', async route => {
         const response = await route.fetch();

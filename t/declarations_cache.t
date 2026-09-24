@@ -56,4 +56,17 @@ subtest 'Package without declarations' => sub {
   $t->get_ok('/reviews/meta/2')->status_is(200)->json_is('/declarations', [])->json_is('/package_type', undef);
 };
 
+subtest 'Declaration without a license' => sub {
+  $t->app->packages->pkg_checkout_dir(2)->child('Dockerfile')->spew("FROM scratch\n");
+  $t->app->minion->enqueue(unpack => [2]);
+  $t->app->minion->perform_jobs;
+  $t->get_ok('/reviews/meta/2')
+    ->status_is(200)
+    ->json_is('/declarations/0/license', undef)
+    ->json_is('/package_type',           'dockerfile');
+  my $report = $t->app->build_controller->mcp_report(2);
+  like $report,   qr/^\* `Dockerfile` \(dockerfile\), no license declared$/m, 'listed as undeclared';
+  unlike $report, qr/Declared-License/,                                       'nothing declared';
+};
+
 done_testing;

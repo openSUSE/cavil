@@ -16,6 +16,7 @@
             <dd id="pkg-declarations">
               <div v-for="(d, index) in declarations" :key="index" class="metadata-declaration">
                 <span v-if="d.license_html !== null" v-html="d.license_html"></span>
+                <span v-else class="metadata-declaration-undeclared">No license declared</span>
                 <span v-if="d.name && d.name !== pkgName" class="metadata-declaration-name">{{ d.name }}</span>
                 <a :href="d.fileUrl" class="metadata-declaration-file" target="_blank">{{ d.file }}</a>
                 <span class="metadata-declaration-format">{{ d.format }}</span>
@@ -1109,6 +1110,7 @@ export default {
   gap: 0 0.5rem;
 }
 .metadata-declaration-name,
+.metadata-declaration-undeclared,
 .report-metadata-list a.metadata-declaration-file {
   color: var(--cavil-fg-muted);
   font-size: 13px;

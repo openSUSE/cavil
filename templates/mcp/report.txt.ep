@@ -64,7 +64,7 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 
 %   for my $d (@{$summary->{declarations}}) {
 %     my $name = join '@', grep { length($_ // '') } $d->{name}, $d->{version};
-* `<%== $d->{file} %>` (<%== $d->{format} %>)<%== length $name ? ": $name" : '' %><%== defined $d->{license} ? ", $d->{license}" : '' %>
+* `<%== $d->{file} %>` (<%== $d->{format} %>)<%== length $name ? ": $name" : '' %><%== defined $d->{license} ? ", $d->{license}" : ', no license declared' %>
 %   }
 
 
