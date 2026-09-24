@@ -52,8 +52,9 @@ document (license, EULA, CLA, long notice), even when its name gives no hint (`d
 `README`, a stray `.html`). Other signals: a `LICENSE`/`COPYING`/`NOTICE` file, `*_License.txt`,
 `*license*.html`, a file under `3rd-party/`, `lib/<vendor>/` or a similar bundled-component
 directory. → Capture the whole body and propose **one** pattern over it (CAPTURING A FULL LICENSE
-BODY). Never submit the individual mid-document snippets as their own patterns. Use the SPDX id, or
-the matching pseudo-license (`Any EULA`, `Any CLA`, …) for non-SPDX legal text. When in doubt, prefer
+BODY). Never submit the individual mid-document snippets as their own patterns. Use the SPDX id; a
+vendor's EULA or license terms with their own title (e.g. "MICROSOFT SOFTWARE LICENSE TERMS / MICROSOFT
+DIRECTX") get a named license (an existing one, else NEW LICENSES), never `Any EULA`. When in doubt, prefer
 Mode A: short-patterning a fragment of a legal document is the harmful failure; over-expanding is not.
 
 A file of ordinary code/docs that merely carries 2+ *independent* declarations (an SPDX tag at the
@@ -114,6 +115,11 @@ under two licenses gives two risks for one legal fact, which is worse than eithe
   uncovered part; if your pattern must include the covered part, classify it consistently with them or
   explain in the reason why the whole text differs.
 - **none** → no precedent. Apply the NOTICE RUBRIC and the grab-bag rule below.
+
+Precedent is the **same wording** only. A catch-all on *other* texts (other vendors' EULAs filed as
+`Any EULA`, often by a reviewer in a hurry) is not precedent and never a template: when a dedicated
+identifier is obvious, use it - check the closest matches first, Cavil has many (`Nvidia EULA`,
+`VMWare EULA`, `Opera EULA`, …), else propose one under NEW LICENSES.
 
 If you believe a precedent is wrong, never propose a contrary pattern (lawyers reject it and the
 snippet stays open); argue it in RECLASSIFY, citing the pattern ids on each side.
@@ -187,7 +193,7 @@ correct flag automatically (names match case-insensitively):
 | `Any trademark` | trademark ownership notices / disclaimers ("X is a trademark of Y") |
 | `Any Patent` | patent notices/grants not tied to a license - **including media patent-portfolio notices** (MPEG-4 Visual / AVC / H.264 / MPEG-2 / VC-1 / HEVC: portfolio name + personal/non-commercial-use wording) |
 | `Any CLA` | references to a Contributor License Agreement |
-| `Any EULA` | End User License Agreement text / references |
+| `Any EULA` | references to a EULA ("subject to the EULA", a EULA URL) - not a full EULA body, which gets a named license |
 | `Any reference local` | a pointer to a license file/header elsewhere - **the corpus's largest category** |
 | `Any reference remote` | a pointer to a license at a URL |
 | `Any Permissive` | a permissive grant that names no specific license ("free to use for any purpose") |
@@ -207,7 +213,7 @@ grab-bag step 2).
 | The notice… | Class | Allowed `license` | Risk |
 | --- | --- | --- | --- |
 | grants use/copying/redistribution, maybe with conditions | grant | named license, `Any Permissive`, `Any specification license` (spec documents only) | per tool levels |
-| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | a new license (NEW LICENSES) if it covers shipped code; otherwise the closest restrictive pseudo-license | **6 or higher** |
+| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | a new license (NEW LICENSES) if it covers shipped code; otherwise the closest restrictive pseudo-license | **7** |
 | marks confidentiality ("Confidential", "Proprietary and Confidential") with no terms | marker | include the surrounding notice (grab-bag step 3), then re-classify | - |
 | only disclaims warranty | disclaimer | `Any floating warranty` / `Any no warranty` | per tool levels |
 | is metadata ("IP Status: …", a license field in a catalog) | metadata | ignore, unless it names a license (Mode B) | - |
@@ -227,7 +233,8 @@ rejected. Before using any `Any …` value:
    several risk levels; the tool then refuses a call without `risk` and lists each level with an
    example. Pick the level whose example is **legally closest** to your text - never the lowest or
    most common by default. Terms restricting redistribution, modification or use never go in a
-   low-risk bucket. If no level fits, the license is wrong; go back to step 2.
+   low-risk bucket. If no level fits, the license is wrong; go back to step 2. **Unsure → risk 7** (see
+   RISK 7 DEFAULT).
 
 **Weigh importance before effort.** Ask whether the text changes the decision to ship the package in
 openSUSE/SLE. Reference documents in a source tarball that are never built or installed (spec
@@ -255,7 +262,7 @@ these hold. Otherwise report missing (in `reported` mode: leave it for a human):
    new license.
 3. You can quote the **single clause** that fixes its risk tier.
 4. No closest match the tool offers is that license, and no pseudo-license fits (`Any Proprietary`
-   never counts).
+   and, for a full body, `Any EULA` never count).
 
 Call with the canonical name (the SPDX id if it has one) and **no** `risk` first. If Cavil replies
 *"not in the list of known licenses"* with closest matches: one of them is your license → re-call with
@@ -276,6 +283,12 @@ resolve).
 | 5 | Managed Obligations | Copyleft + a network-use trigger, or a legacy advertising clause | AGPL-3.0, 4-clause BSD |
 | 6 | Restrictive | Source-available terms that can force whole-stack disclosure | SSPL |
 | 7 | Non-Commercial / field-of-use / ethical | Limits *how the software may be used* | CC-BY-NC, JSON "Good not Evil" |
+
+**RISK 7 DEFAULT.** When a new license or a catch-all pattern without precedent does not clearly
+belong to a lower tier, use risk 7. Any legal reviewer can accept a pattern at the top of the scale,
+while a lower tier needs a lawyer's check; a lawyer can lower it later. Name the tier you think is real
+in the reason's **Double-check** line ("likely 6 if …"). Clear-cut cases (MIT-style grant, GPL
+variant) keep their real tier.
 
 Rate by obligations, not badges: AGPL-3.0 is OSI-approved and still risk 5. **Never use risk 9** - that
 is Cavil's keyword-only Unknown bucket, never for a license you named.
