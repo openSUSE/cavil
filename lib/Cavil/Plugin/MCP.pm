@@ -217,7 +217,7 @@ sub register ($self, $app, $config) {
       . 'patterns already classifying the same wording (check first with cavil_search_patterns) and a pattern '
       . 'matching more than '
       . BROAD_PATTERN_PACKAGES
-      . ' other packages unless broad_ok is set',
+      . ' other packages (or whose dry run was capped or timed out) unless broad_ok is set',
     input_schema => {
       type       => 'object',
       properties => {
@@ -859,12 +859,19 @@ sub tool_cavil_propose_license_pattern ($tool, $args) {
 
   my $evidence = _pattern_evidence($c, $pattern, $snippet->{text});
   my $impact   = $evidence->{impact};
+
+  # A capped or timed-out dry run only gives a lower bound, so it cannot prove the pattern is narrow
+  my $reach
+    = $impact->{error}  ? 'could not be measured (dry run timed out)'
+    : $impact->{capped} ? "is at least $impact->{other_packages} other packages (dry run capped, true reach unknown)"
+    : $impact->{other_packages} > BROAD_PATTERN_PACKAGES ? "is $impact->{other_packages} other packages"
+    :                                                      undef;
   return $tool->text_result(
-    "Pattern would match snippets in $impact->{other_packages} other packages (limit @{[BROAD_PATTERN_PACKAGES]})."
+    "Pattern reach $reach, limit @{[BROAD_PATTERN_PACKAGES]}."
       . ' Check it with cavil_test_pattern and narrow it, or call again with "broad_ok" and explain in the reason'
       . ' why it should match that widely',
     1
-  ) if $impact->{other_packages} > BROAD_PATTERN_PACKAGES && !$args->{broad_ok};
+  ) if $reach && !$args->{broad_ok};
 
   my $matches = $c->patterns->closest_licenses($license);
   my $match   = $matches->{exact};
@@ -1057,7 +1064,7 @@ sub _filter_tools ($server, $tools, $context) {
 sub _pattern_evidence ($c, $pattern, $text) {
   my $patterns  = $c->patterns;
   my $alignment = $patterns->align($pattern, $text) // {lines => [], text => $text, skips => []};
-  my $precedent = $patterns->search(contained_in => delete $alignment->{text}, limit => 5);
+  my $precedent = $patterns->search(contained_in => $alignment->{text}, limit => 5);
   my $impact    = $patterns->test_pattern($pattern);
 
   # The proposal's own snippet is always one package, so breadth is what lies beyond it

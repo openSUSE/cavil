@@ -1862,10 +1862,26 @@ subtest 'MCP' => sub {
         local *Cavil::Model::Patterns::test_pattern = sub { {packages => 30, snippets => 40, samples => []} };
         $result = $client->call_tool('cavil_propose_license_pattern', {%args, license => 'Any Proprietary', risk => 7});
         ok $result->{isError}, 'is an error';
-        like $result->{content}[0]{text}, qr/would match snippets in 29 other packages \(limit 20\)/, 'too broad';
+        like $result->{content}[0]{text}, qr/reach is 29 other packages, limit 20/, 'too broad';
         $result = $client->call_tool('cavil_propose_license_pattern',
           {%args, license => 'Any Proprietary', risk => 7, broad_ok => true});
         ok !$result->{isError}, 'broad_ok overrides';
+        $db->delete('proposed_changes');
+
+        # A capped or failed dry run is only a lower bound, so it never counts as narrow
+        local *Cavil::Model::Patterns::test_pattern
+          = sub { {packages => 3, snippets => 1000, capped => 1, samples => []} };
+        $result = $client->call_tool('cavil_propose_license_pattern', {%args, license => 'Any Proprietary', risk => 7});
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/reach is at least 2 other packages \(dry run capped/,
+          'capped is not narrow';
+        local *Cavil::Model::Patterns::test_pattern = sub { {error => 'Dry run timed out'} };
+        $result = $client->call_tool('cavil_propose_license_pattern', {%args, license => 'Any Proprietary', risk => 7});
+        ok $result->{isError}, 'is an error';
+        like $result->{content}[0]{text}, qr/reach could not be measured/, 'timeout is not narrow';
+        $result = $client->call_tool('cavil_propose_license_pattern',
+          {%args, license => 'Any Proprietary', risk => 7, broad_ok => true});
+        ok !$result->{isError}, 'broad_ok overrides an unmeasured reach';
 
         $db->delete('proposed_changes');
         $db->delete('license_patterns', {id => $curated});

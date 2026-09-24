@@ -683,12 +683,14 @@ sub search ($self, %opts) {
 }
 
 # Consensus is decided by the patterns that match inside the text and cover at least half of it (a short
-# pattern inside a longer text says nothing about the rest); near-misses only count when nothing matches.
+# pattern inside a longer text says nothing about the rest); near-misses only count when nothing matches. Short
+# contained patterns alone make the verdict "partial": curated wording covers part of the text, never "none".
 # Dissent lists close variants of the wording (half the pattern or more, a fifth of the text) classified differently from every
 # strong match - the "precedent itself conflicts" case a reviewer needs to hear about.
 sub _verdict ($rows) {
   my @strong = grep { $_->{contained} && ($_->{text_cov} // 0) >= 0.5 } @$rows;
   @strong = grep { ($_->{pattern_cov} // 0) >= 0.8 && ($_->{text_cov} // 0) >= 0.8 } @$rows unless @strong;
+  my $partial = !@strong && (@strong = grep { $_->{contained} } @$rows);
   return {status => 'none', basis => undef, classes => [], dissent => []} unless @strong;
 
   my %classes;
@@ -700,10 +702,10 @@ sub _verdict ($rows) {
     grep  { !$classes{"$_->{license}\0$_->{risk}"} && ($_->{pattern_cov} // 0) >= 0.5 && ($_->{text_cov} // 0) >= 0.2 }
     @$rows;
   return {
-    status  => @classes == 1         ? 'consensus' : 'conflict',
+    status  => $partial ? 'partial' : @classes == 1 ? 'consensus' : 'conflict',
     basis   => $strong[0]{contained} ? 'contained' : 'similar',
     classes => \@classes,
-    dissent => \@dissent
+    dissent => $partial ? [] : \@dissent
   };
 }
 

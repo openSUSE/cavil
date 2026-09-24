@@ -195,7 +195,11 @@ $app->routes->get(
         reason      => "**Any Proprietary, risk 7.** Follows #1",
         family      => 'Evidence Corp spec notice',
         evidence    => {
-          alignment => {lines => [1, 1], skips => [{skip => 5, words => '2024 evidence corp'}]},
+          alignment => {
+            lines => [1, 1],
+            text  => "Copyright 2024 Evidence Corp spec notice $n. All rights reserved.",
+            skips => [{skip => 5, words => '2024 evidence corp'}]
+          },
           precedent => {
             verdict => {status => 'consensus', classes => [{license => 'Any Proprietary', risk => 7, ids => [1]}]},
             rows    => [

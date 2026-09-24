@@ -115,6 +115,16 @@ subtest 'verdict: containment decides, near-variants dissent' => sub {
   is $v->{status},                                   'conflict', 'near-identical wording, two classifications';
   is $v->{basis},                                    'similar',  'decided by similarity';
   is Cavil::Model::Patterns::_verdict([])->{status}, 'none',     'no precedent';
+
+  $v = Cavil::Model::Patterns::_verdict(
+    [
+      {id => 1, license => 'MIT', risk => 1, contained   => 1,   pattern_cov => 1, text_cov => 0.1},
+      {id => 2, license => 'B',   risk => 3, pattern_cov => 0.6, text_cov    => 0.3}
+    ]
+  );
+  is $v->{status}, 'partial', 'only short contained patterns';
+  is_deeply $v->{classes}, [{license => 'MIT', risk => 1, ids => [1]}], 'partial class';
+  is_deeply $v->{dissent}, [],                                          'no dissent against a partial match';
 };
 
 done_testing;

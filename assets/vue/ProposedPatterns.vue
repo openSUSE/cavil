@@ -45,18 +45,7 @@
     </div>
     <div v-if="changes !== null && changes.length > 0">
       <transition-group name="row" tag="div" @before-leave="onBeforeLeave" @leave="onLeave">
-        <div v-for="(change, i) in changes" :key="change.id" class="row change-container">
-          <div v-if="isFamilyStart(change, i)" class="col-12 change-family">
-            <span>
-              <i class="fa-solid fa-layer-group"></i> <b>{{ change.data.family }}</b> ·
-              {{ familyOf(change).length }} related proposals, decide them together
-            </span>
-            <span v-if="hasAdminRole">
-              <button @click="acceptFamily(change)" class="btn btn-success btn-sm">Accept all</button>
-              &nbsp;
-              <button @click="rejectFamily(change)" class="btn btn-danger btn-sm">Reject all</button>
-            </span>
-          </div>
+        <div v-for="change in changes" :key="change.id" class="row change-container">
           <div v-if="change.state === 'proposed'" class="col-12 change-file-container">
             <div class="change-header">
               <div class="change-title">
@@ -67,6 +56,13 @@
                     <a :href="change.editUrl" target="_blank" class="cavil-meta-badge cavil-meta-badge-muted">
                       {{ change.data.edited === true ? 'edited snippet' : 'unedited snippet' }}
                     </a>
+                    <span
+                      v-if="change.data.family"
+                      class="cavil-meta-badge cavil-meta-badge-muted change-family"
+                      title="Proposals about the same legal text share this label"
+                    >
+                      <i class="fa-solid fa-layer-group"></i> {{ change.data.family }}
+                    </span>
                     <span v-if="change.data.ai_assisted" class="cavil-meta-badge cavil-meta-badge-info">
                       <i class="fa-solid fa-robot"></i> AI assisted
                     </span>
@@ -212,7 +208,7 @@
                 <button @click="rejectProposal(change)" class="btn btn-danger btn-sm mb-2">Reject</button>
               </span>
             </div>
-            <div v-if="change.action !== 'create_glob'" class="change-footer">
+            <div v-if="change.action !== 'create_glob' && !change.data.evidence" class="change-footer">
               <div v-if="change.closest !== null">
                 <a :href="change.closest.licenseUrl" target="_blank">
                   <b>{{ change.closest.similarity }}%</b> similarity to
@@ -323,20 +319,6 @@ export default {
         'Proposal accepted, reindexing related packages in 10 minutes if necessary',
         'success'
       );
-    },
-    async acceptFamily(change) {
-      for (const member of this.familyOf(change)) await this.acceptProposal(member);
-    },
-    familyOf(change) {
-      return this.changes.filter(c => c.state === 'proposed' && c.data.family === change.data.family);
-    },
-    // Only proposals loaded so far are grouped; a family split across pages gets a second header
-    isFamilyStart(change, i) {
-      if (!change.data.family || change.state !== 'proposed') return false;
-      return this.changes.findIndex(c => c.state === 'proposed' && c.data.family === change.data.family) === i;
-    },
-    async rejectFamily(change) {
-      for (const member of this.familyOf(change)) await this.rejectProposal(member);
     },
     async getChanges() {
       const url = new URL(this.changeUrl, window.location.href);
@@ -467,17 +449,6 @@ export default {
   border: 1px solid var(--cavil-border);
   border-radius: 0.375rem;
   padding: 0.5rem 0.75rem;
-}
-.change-family {
-  align-items: center;
-  background-color: var(--cavil-canvas-subtle);
-  border: 1px solid var(--cavil-border);
-  border-radius: 6px;
-  display: flex;
-  font-size: 13px;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
-  padding: 8px 10px;
 }
 .change-raw-toggle {
   border-top: 1px solid var(--cavil-border-faint);

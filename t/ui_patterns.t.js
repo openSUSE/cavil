@@ -1211,33 +1211,48 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'List licenses', 'redirected to license list after delete');
     });
 
-    await t.test('Change Proposals: evidence panel and family group', async t => {
+    await t.test('Change Proposals: evidence panel and family label', async t => {
       await page.goto(`${url}/test/evidence_proposals`);
       await page.goto(`${url}/licenses/proposed`);
       await page.waitForSelector('#proposed-patterns .pattern-evidence');
 
       const families = page.locator('#proposed-patterns .change-family');
-      t.equal(await families.count(), 1, 'one group header for both proposals of the family');
-      t.match(await families.first().innerText(), /Evidence Corp spec notice · 2 related proposals/);
+      t.equal(await families.count(), 2, 'each proposal of the family is labelled');
+      t.match(await families.first().innerText(), /Evidence Corp spec notice/);
+      t.equal(await page.locator('#proposed-patterns button', {hasText: 'Reject all'}).count(), 0, 'no bulk buttons');
 
+      const card = n => page.locator('#proposed-patterns .change-container').nth(n);
       const evidence = page.locator('#proposed-patterns .pattern-evidence').first();
       t.equal(await evidence.locator('.evidence-skip').innerText(), '2024 evidence corp', 'skipped words shown greyed');
-      t.match(await evidence.innerText(), /verbatim except 1 skipped span/);
+      t.match(
+        await evidence.locator('.evidence-source').innerText(),
+        /snippet lines 1-1, exactly as in the file; \$SKIP swallowed:\s*2024 evidence corp\s+Copyright 2024 Evidence Corp spec notice 2\. All rights reserved\./,
+        'exact source shown'
+      );
+      t.equal(await evidence.locator('.evidence-text').count(), 1, 'source shown once, no second pattern view');
       t.match(await evidence.innerText(), /follows Any Proprietary risk 7/);
+      t.equal(await evidence.locator('.evidence-precedent details[open]').count(), 0, 'agreeing precedent collapsed');
+      t.equal(await card(0).locator('.change-footer').count(), 0, 'no closest-similarity footer next to evidence');
       t.equal(await evidence.locator('tr.evidence-agree').count(), 1, 'agreeing precedent marked');
       t.equal(await evidence.locator('tr.evidence-differ').count(), 1, 'differing precedent marked');
       t.match(await evidence.innerText(), /matches 3 snippets in 2 packages/);
-      t.match(await evidence.innerText(), /evidence-pkg a\/NOTICE:4 · unresolved/);
+      await evidence.locator('.evidence-impact summary').click();
+      t.match(await evidence.innerText(), /evidence-pkg a\/NOTICE:4 · unresolved/, 'samples on demand');
 
       // The raw $SKIP pattern stays behind a toggle
-      const card = page.locator('#proposed-patterns .change-container').first();
-      t.equal(await card.locator('.change-source').count(), 0, 'raw pattern hidden by default');
-      await card.locator('.change-raw-toggle a').click();
-      t.match(await card.locator('.change-source').innerText(), /\$SKIP5 Evidence Corp/, 'raw pattern on demand');
+      t.equal(await card(0).locator('.change-source').count(), 0, 'raw pattern hidden by default');
+      await card(0).locator('.change-raw-toggle a').click();
+      t.match(await card(0).locator('.change-source').innerText(), /\$SKIP5 Evidence Corp/, 'raw pattern on demand');
 
-      await families.first().locator('button', {hasText: 'Reject all'}).click();
+      for (let n = 0; n < 2; n++) {
+        await page
+          .locator('#proposed-patterns .change-container')
+          .first()
+          .locator('button', {hasText: 'Reject'})
+          .click();
+      }
       await page.waitForFunction(() => document.querySelectorAll('#proposed-patterns .pattern-evidence').length === 0);
-      t.pass('Reject all removed the whole family');
+      t.pass('proposals rejected one by one');
     });
 
     await t.test('Pattern Performance', async t => {

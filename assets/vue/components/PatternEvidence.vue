@@ -1,8 +1,18 @@
 <template>
   <div class="pattern-evidence">
-    <div class="evidence-section">
+    <div v-if="source" class="evidence-section evidence-source">
       <div class="evidence-label">
-        Matched text
+        Matched source
+        <span class="evidence-note">{{ sourceSummary }}</span>
+        <span v-for="(skip, i) in skips" :key="i" class="evidence-skip" :title="`$SKIP${skip.skip}`">{{
+          skip.words
+        }}</span>
+      </div>
+      <div class="evidence-text">{{ source }}</div>
+    </div>
+    <div v-else class="evidence-section">
+      <div class="evidence-label">
+        Pattern
         <span class="evidence-note">{{ alignmentSummary }}</span>
       </div>
       <div class="evidence-text">
@@ -19,30 +29,36 @@
         Precedent
         <span class="evidence-note">{{ precedentSummary }}</span>
       </div>
-      <table v-if="precedent.rows.length > 0" class="table table-sm evidence-table">
-        <tbody>
-          <tr v-for="row in precedent.rows" :key="row.id" :class="agrees(row) ? 'evidence-agree' : 'evidence-differ'">
-            <td>
-              <a :href="`/licenses/edit_pattern/${row.id}`" target="_blank">#{{ row.id }}</a>
-            </td>
-            <td>{{ row.license }}</td>
-            <td>risk {{ row.risk }}</td>
-            <td>{{ row.contained ? 'matches inside this text' : `${percent(row.text_cov)} shared wording` }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <details v-if="precedent.rows.length > 0" :open="precedentNeedsLook">
+        <summary>{{ precedent.rows.length }} curated pattern{{ precedent.rows.length === 1 ? '' : 's' }}</summary>
+        <table class="table table-sm evidence-table">
+          <tbody>
+            <tr v-for="row in precedent.rows" :key="row.id" :class="agrees(row) ? 'evidence-agree' : 'evidence-differ'">
+              <td>
+                <a :href="`/licenses/edit_pattern/${row.id}`" target="_blank">#{{ row.id }}</a>
+              </td>
+              <td>{{ row.license }}</td>
+              <td>risk {{ row.risk }}</td>
+              <td>{{ row.contained ? 'matches inside this text' : `${percent(row.text_cov)} shared wording` }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
     </div>
     <div class="evidence-section evidence-impact">
       <div class="evidence-label">
         Impact
         <span class="evidence-note">{{ impactSummary }}</span>
       </div>
-      <ul v-if="impact.samples && impact.samples.length > 0" class="evidence-samples">
-        <li v-for="sample in impact.samples" :key="sample.snippet">
-          <a :href="`/reviews/details/${sample.package}`" target="_blank">{{ sample.name }}</a>
-          {{ sample.filename }}:{{ sample.sline }} · {{ sample.resolution ?? 'unresolved' }}
-        </li>
-      </ul>
+      <details v-if="impact.samples && impact.samples.length > 0">
+        <summary>{{ impact.samples.length }} sample{{ impact.samples.length === 1 ? '' : 's' }}</summary>
+        <ul class="evidence-samples">
+          <li v-for="sample in impact.samples" :key="sample.snippet">
+            <a :href="`/reviews/details/${sample.package}`" target="_blank">{{ sample.name }}</a>
+            {{ sample.filename }}:{{ sample.sline }} · {{ sample.resolution ?? 'unresolved' }}
+          </li>
+        </ul>
+      </details>
     </div>
   </div>
 </template>
@@ -67,10 +83,29 @@ export default {
       }
       return segments;
     },
+    // Exact snippet lines the pattern matched; older proposals did not store them
+    source() {
+      return this.evidence.alignment?.text;
+    },
+    sourceSummary() {
+      const [first, last] = this.evidence.alignment?.lines ?? [];
+      const where =
+        first === undefined ? 'exactly as in the file' : `snippet lines ${first}-${last}, exactly as in the file`;
+      return this.skips.length === 0 ? `${where}, nothing skipped` : `${where}; $SKIP swallowed:`;
+    },
+    skips() {
+      return this.evidence.alignment?.skips ?? [];
+    },
+    // The table only opens by itself when the proposal does not simply follow agreeing precedent
+    precedentNeedsLook() {
+      const verdict = this.precedent.verdict;
+      if (!verdict || verdict.status === 'none') return false;
+      return verdict.status !== 'consensus' || !this.agrees(verdict.classes[0]) || verdict.dissent?.length > 0;
+    },
     alignmentSummary() {
       const skips = this.evidence.alignment?.skips ?? [];
-      if (skips.length === 0) return 'verbatim, nothing skipped';
-      return `verbatim except ${skips.length} skipped span${skips.length === 1 ? '' : 's'} (greyed)`;
+      if (skips.length === 0) return 'no $SKIP';
+      return `${skips.length} $SKIP span${skips.length === 1 ? '' : 's'}, greyed words are what each one swallowed`;
     },
     precedent() {
       return {rows: [], ...this.evidence.precedent};
@@ -80,6 +115,7 @@ export default {
       if (!verdict || verdict.status === 'none') return 'no curated pattern matches or resembles this wording';
       const classes = verdict.classes.map(c => `${c.license} risk ${c.risk}`).join(' vs. ');
       if (verdict.status === 'conflict') return `conflict: curated patterns disagree (${classes})`;
+      if (verdict.status === 'partial') return `curated patterns cover only part of this text (${classes})`;
       return this.agrees(verdict.classes[0]) ? `follows ${classes}` : `curated patterns say ${classes}`;
     },
     impact() {
@@ -146,6 +182,10 @@ export default {
 }
 .evidence-differ td:first-child {
   box-shadow: inset 3px 0 0 var(--cavil-danger);
+}
+.evidence-label .evidence-skip {
+  font-weight: normal;
+  margin-left: 0.5rem;
 }
 .evidence-samples {
   margin: 0;

@@ -17,6 +17,12 @@
 %     if ($v->{status} eq 'none') {
 Verdict: none - no curated pattern matches or closely resembles this wording.
 %     }
+%     elsif ($v->{status} eq 'partial') {
+Verdict: partial - curated patterns match only part of the text (see CONTAINED lines). Pattern the rest, or classify your pattern consistently with them.
+%       for my $class (@{$v->{classes}}) {
+  <%= $class->{license} %>, risk <%= $class->{risk} %>: #<%= join ', #', @{$class->{ids}} %>
+%       }
+%     }
 %     else {
 Verdict: <%= $v->{status} %> (<%= $v->{basis} eq 'contained' ? 'patterns matching inside the text' : 'near-identical wording' %>)
 %       for my $class (@{$v->{classes}}) {

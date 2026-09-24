@@ -147,8 +147,8 @@ snippets by impact; or list individual occurrences with per-snippet detail.
 #### cavil_search_patterns
 
 Query the curated license patterns. With a subject it answers "what does Cavil already say about this text?": the
-patterns matching inside it plus near-variants, with a verdict (`consensus`, `conflict` or `none`) and the close
-variants classified differently (dissent). Without a subject it lists patterns by filter or runs a report.
+patterns matching inside it plus near-variants, with a verdict (`consensus`, `conflict`, `partial` or `none`) and
+the close variants classified differently (dissent). Without a subject it lists patterns by filter or runs a report.
 
 - **Required Roles**: `user` (read-only)
 - `snippet_id`: Subject snippet; requires `package_id`, embargoed packages are refused. (number, optional)
@@ -312,7 +312,8 @@ running one is as simple as typing a short command at the agent prompt.
 - **[cavil-refine](../examples/skills/cavil-refine/)** - complex skill that is not recommended to be used with models
   less capable than Claude Opus 4.8. Helps clean up the license database by proposing new license patterns, marking
   irrelevant snippets to be ignored, or proposing globs to exclude whole fixture/data files, so future reviews of
-  similar packages have fewer false positives. The proposals still need a human to approve them in the admin UI.
+  similar packages have fewer false positives. Licenses it can name but Cavil lacks are researched and proposed as new
+licenses with a risk. The proposals still need a human to approve them in the admin UI.
 
 - **[cavil-license-research](../examples/skills/cavil-license-research/)** - researches a single license that Cavil does
   not recognise yet - a license name, an unfamiliar SPDX identifier, or the license text behind an unresolved snippet -
@@ -329,7 +330,8 @@ running one is as simple as typing a short command at the agent prompt.
   authoring into ratifying; anything it genuinely cannot identify is left as a standing report for a human. Because
   each proposal fixes a license's risk for every future report, this skill does legal research and judgment and is
   **not recommended below an opus-class model** (Claude Opus 4.8 or better). Run it as an unattended backlog pass; the
-  proposals still need a human to approve them.
+  proposals still need a human to approve them. It is a thin wrapper around `cavil-refine` (its `reported` mode), so
+  install both.
 
 #### Setting up a skill on your own laptop
 
