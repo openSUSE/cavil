@@ -247,7 +247,7 @@ sub remove_request ($self) {
   my $removed = $self->requests->remove($link);
   my $pkgs    = $self->packages;
   for my $id (@$removed) {
-    $pkgs->obsolete_if_not_in_product($id);
+    $pkgs->obsolete_if_unused($id);
   }
 
   $self->render(json => {removed => $removed});

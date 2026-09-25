@@ -189,7 +189,7 @@ subtest 'Embargoed packages' => sub {
   };
 
   subtest 'Check embargo status on re-import' => sub {
-    $t->app->packages->obsolete_if_not_in_product(3);
+    $t->app->packages->obsolete_if_unused(3);
     is $t->app->minion->jobs({tasks => ['obs_import']})->total, 1, 'one import job';
 
     $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)

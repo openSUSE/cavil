@@ -270,6 +270,26 @@ subtest 'Remove request again' => sub {
   $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
 };
 
+subtest 'Package shared by requests from two bots stays live until the last one is removed' => sub {
+  my $auth = {Authorization => 'Token test_token'};
+  $t->post_ok('/requests' => $auth => form => {external_link => $_, package => 1})->status_is(200) for 'obs#1', 'ibs#2';
+  $t->get_ok('/package/1' => $auth)->status_is(200)->json_is('/obsolete', 0);
+
+  $t->delete_ok('/requests' => $auth => form => {external_link => 'obs#1'})->status_is(200);
+  $t->get_ok('/package/1' => $auth)->status_is(200)->json_is('/obsolete', 0);
+  $t->get_ok('/requests'  => $auth)
+    ->status_is(200)
+    ->json_is('/requests/0/external_link', 'ibs#2')
+    ->json_is('/requests/1',               undef);
+
+  $t->delete_ok('/requests' => $auth => form => {external_link => 'ibs#2'})->status_is(200);
+  $t->get_ok('/package/1' => $auth)->status_is(200)->json_is('/obsolete', 1);
+
+  $t->post_ok('/requests' => $auth => form => {external_link => 'ibs#3', package => 1})->status_is(200);
+  $t->get_ok('/package/1' => $auth)->status_is(200)->json_is('/obsolete', 0);
+  $t->delete_ok('/requests' => $auth => form => {external_link => 'ibs#3'})->status_is(200);
+};
+
 subtest 'Gitea request target derived from link' => sub {
   $t->post_ok('/requests' => {Authorization => 'Token test_token'} => form =>
       {external_link => 'soo#products/PackageHub!7', package => 1})->status_is(200);
