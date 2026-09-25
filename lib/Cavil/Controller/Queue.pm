@@ -158,7 +158,7 @@ sub create_package ($self) {
   }
 
   # Enqueued after the import so the import job keeps the lower id callers may rely on
-  $pkgs->resolve_targets($obj->{id}, $api);
+  $pkgs->resolve_targets($obj->{id});
 
   $self->render(json => {saved => $obj});
 }
@@ -175,7 +175,7 @@ sub create_request ($self) {
   my $requests = $self->requests;
   for my $id (@$pkgs) {
     $requests->add($link, $id);
-    $self->packages->resolve_targets($id, $self->packages->source_api_url($id));
+    $self->packages->resolve_targets($id);
   }
 
   $self->render(json => {created => $link});
@@ -215,7 +215,7 @@ sub import_package ($self) {
   }
   $pkgs->update($obj);
   $pkgs->add_tags($id, $tags);
-  $pkgs->resolve_targets($id, $pkgs->source_api_url($id));
+  $pkgs->resolve_targets($id);
   $pkgs->reindex($id) if $reindex;
 
   return $self->render(json => {imported => $obj});

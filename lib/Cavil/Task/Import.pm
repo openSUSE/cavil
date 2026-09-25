@@ -17,23 +17,28 @@ sub register ($self, $app, $config) {
 # Destination targets can need an OBS request lookup, so they are resolved here off the bot API request path.
 # Gitea links carry their target in the link itself; OBS links need the request. Only unresolved targets are
 # looked up, so re-runs are cheap and a changed link is picked up once the controller clears the old value.
-sub _resolve_targets ($job, $id, $api) {
+sub _resolve_targets ($job, $id) {
   my $app  = $job->app;
   my $pkgs = $app->packages;
   return unless my $pkg = $pkgs->find($id);
 
-  $pkgs->update({id => $id, target => _target($app, $pkg->{external_link}, $api)}) unless defined $pkg->{target};
+  $pkgs->update({id => $id, target => _target($app, $pkg->{external_link})}) unless defined $pkg->{target};
 
   my $requests = $app->requests;
   for my $request (@{$requests->unresolved_targets($id)}) {
-    $requests->set_target($request->{id}, _target($app, $request->{external_link}, $api));
+    $requests->set_target($request->{id}, _target($app, $request->{external_link}));
   }
 }
 
-sub _target ($app, $link, $api_url) {
+# The build service is chosen by the link, never by the package or the bot that sent it: deduplicated packages are
+# shared between build services, and request numbers overlap, so the wrong instance returns an unrelated request
+sub _target ($app, $link) {
   return undef unless defined $link;
-  return $1                                               if $link                     =~ /^(?:soo|ssd)#([^!]+)!\d+$/;
-  return eval { $app->obs->request_target($api_url, $1) } if defined $api_url && $link =~ /^(?:obs|ibs)#(\d+)$/;
+  return $1 if $link =~ /^(?:soo|ssd)#([^!]+)!\d+$/;
+  for my $source (@{$app->config->{external_link_sources} // []}) {
+    next unless $source->{api} && $source->{pattern} && $link =~ /$source->{pattern}/;
+    return eval { $app->obs->request_target($source->{api}, $1) };
+  }
   return undef;
 }
 

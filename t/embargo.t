@@ -137,14 +137,11 @@ subtest 'Embargoed packages' => sub {
             start => sub {
               my $job  = shift;
               my $task = $job->task;
-              return unless $task eq 'obs_import' || $task eq 'resolve_targets';
+              return unless $task eq 'obs_import';
               $job->app->obs(Cavil::OBS->new(config => $job->app->obs->config));
               my $api = 'http://127.0.0.1:' . $job->app->obs->ua->server->app($mock_app)->url->port;
               $job->app->obs->config->{'127.0.0.1'}{embargoed_bugs} = "$api/api/embargoed-bugs";
-
-              # obs_import carries its api inside the data hash, resolve_targets as a bare argument
-              if   ($task eq 'obs_import') { $job->args->[1]{api} = $api }
-              else                         { $job->args->[1]      = $api }
+              $job->args->[1]{api} = $api;
             }
           );
         }

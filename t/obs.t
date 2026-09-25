@@ -704,6 +704,7 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   $t->app->obs->ua->server->app(app);
   my $api = 'http://127.0.0.1:' . $t->app->obs->ua->server->app(app)->url->port;
   $t->app->obs->config({'127.0.0.1' => {user => 'test', password => 'testing'}});
+  $t->app->config->{external_link_sources} = [{pattern => '^obs#(\d+)$', api => $api}];
 
   # Validation errors
   $t->post_ok('/packages')->status_is(403);
@@ -740,6 +741,14 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   $worker->unregister;
   is $t->app->packages->find(1)->{target}, 'openSUSE:Factory/perl-Mojolicious, openSUSE:Leap:15.6/perl-Mojolicious',
     'target resolved asynchronously from the request';
+
+  # The same request number on another build service is a different request, never looked up on this one
+  $t->post_ok('/requests', $headers, form => {external_link => 'obs#500002', package => 1})->status_is(200);
+  $t->post_ok('/requests', $headers, form => {external_link => 'ibs#500001', package => 1})->status_is(200);
+  $minion->perform_jobs_in_foreground;
+  is_deeply $t->app->packages->requests_for(1),
+    [{external_link => 'ibs#500001', target => undef}, {external_link => 'obs#500002', target => 'SUSE:Maintenance'}],
+    'request targets resolved only against the build service of their link';
 
   # Prevent import race condition
   ok $minion->job($job_id)->retry,                          'import job retried';

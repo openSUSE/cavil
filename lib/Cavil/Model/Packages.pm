@@ -1115,11 +1115,6 @@ sub remove_documents ($self, $id) {
   );
 }
 
-sub source_api_url ($self, $id) {
-  return $self->pg->db->query(
-    'SELECT s.api_url FROM bot_packages p JOIN bot_sources s ON p.source = s.id WHERE p.id = ?', $id)->hash->{api_url};
-}
-
 # Autocomplete suggestions for the tag editor. Machine-added CVE-... tags are excluded (near-unique, they
 # would swamp the list and nobody types them by hand) and the result is capped, so this stays small no
 # matter how many CVEs accumulate.
@@ -1130,16 +1125,13 @@ sub all_tags ($self) {
   )->hashes->to_array;
 }
 
-# The api travels in the job args (like obs_import) so the OBS request lookup can be mocked in tests and is
-# not re-derived in the worker.
-sub resolve_targets ($self, $id, $api) {
+sub resolve_targets ($self, $id) {
   my $minion = $self->minion;
 
   # Deduplicate on its own note, not "pkg_$id": this light lookup must not count among a package's active
   # build jobs (the listing spinner) or block anything.
   return undef if $minion->jobs({tasks => ['resolve_targets'], states => ['inactive'], notes => ["target_$id"]})->next;
-  return $minion->enqueue(
-    'resolve_targets' => [$id, $api] => {priority => PRIORITY_UPKEEP, notes => {"target_$id" => 1}});
+  return $minion->enqueue('resolve_targets' => [$id] => {priority => PRIORITY_UPKEEP, notes => {"target_$id" => 1}});
 }
 
 sub add_tags ($self, $id, $tags) {
