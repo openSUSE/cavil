@@ -646,7 +646,7 @@ sub ui_fixtures ($self, $app) {
   $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51',        'Multi-Linux Manager');
   $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51:Update', 'Multi-Linux Manager');
 
-  # A brand-new-license proposal exactly as the cavil-missing-licenses agent files it: an unresolved
+  # A brand-new-license proposal exactly as the cavil-refine agent files it: an unresolved
   # mojo#2 snippet, researched to a license Cavil does not know yet, at a chosen risk. No web flow creates
   # a new_license action (only the MCP propose path does), so the lawyer's ratify journey on the Missing
   # Licenses page legitimately starts from a seeded proposal.

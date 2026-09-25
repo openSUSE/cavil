@@ -704,7 +704,7 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
     });
 
     await t.test('Missing Licenses page: approve a proposed new license', async t => {
-      // The cavil-missing-licenses agent files new-license proposals (action=new_license); a lawyer
+      // The cavil-refine agent files new-license proposals (action=new_license); a lawyer
       // ratifies one with a single click. ui_fixtures seeds one against an unresolved mojo#2 snippet, so
       // this runs before the report/dismiss subtests below and consumes that seeded card.
       await openAccountMenu(page);

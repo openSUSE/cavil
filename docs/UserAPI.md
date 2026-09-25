@@ -313,7 +313,9 @@ running one is as simple as typing a short command at the agent prompt.
   less capable than Claude Opus 4.8. Helps clean up the license database by proposing new license patterns, marking
   irrelevant snippets to be ignored, or proposing globs to exclude whole fixture/data files, so future reviews of
   similar packages have fewer false positives. Licenses it can name but Cavil lacks are researched and proposed as new
-licenses with a risk. The proposals still need a human to approve them in the admin UI.
+  licenses with a risk. Run `/cavil-refine reported` to sweep the backlog of *reported* missing licenses instead: the
+  confident cases land on the **Missing Licenses** page as one-click **Approve** cards, and anything it cannot identify
+  is left as a standing report for a human. The proposals still need a human to approve them in the admin UI.
 
 - **[cavil-license-research](../examples/skills/cavil-license-research/)** - researches a single license that Cavil does
   not recognise yet - a license name, an unfamiliar SPDX identifier, or the license text behind an unresolved snippet -
@@ -322,16 +324,6 @@ licenses with a risk. The proposals still need a human to approve them in the ad
   example when a **Missing Licenses** report names an identifier you don't know. **The skill never writes anything to
   Cavil** - you still author the pattern and set the risk yourself. Because it only reads, this is the one bundled skill
   that works with a **read-only** API key.
-
-- **[cavil-missing-licenses](../examples/skills/cavil-missing-licenses/)** - sweeps the backlog of *reported* missing
-  licenses (`cavil_search_snippets` with `resolution=reported`), researches each one, and for the confident cases files
-  a ready-to-approve pattern proposal - for a license Cavil has never seen, a new-license proposal carrying a researched
-  risk. It lands on the **Missing Licenses** page as a one-click **Approve** card, turning the lawyers' job from
-  authoring into ratifying; anything it genuinely cannot identify is left as a standing report for a human. Because
-  each proposal fixes a license's risk for every future report, this skill does legal research and judgment and is
-  **not recommended below an opus-class model** (Claude Opus 4.8 or better). Run it as an unattended backlog pass; the
-  proposals still need a human to approve them. It is a thin wrapper around `cavil-refine` (its `reported` mode), so
-  install both.
 
 #### Setting up a skill on your own laptop
 
@@ -350,8 +342,8 @@ You can do this end to end yourself. Three one-time steps:
    command for Claude Code, similar one-liners for Gemini CLI, opencode, and goose).
 
 3. **Download the skill folders and put them in the right place.** From the [Cavil GitHub repository](https://github.com/openSUSE/cavil)
-   you need the five folders under `examples/skills/`: `cavil-review-note`, `cavil-review`, `cavil-refine`,
-   `cavil-license-research`, and `cavil-missing-licenses`. The
+   you need the four folders under `examples/skills/`: `cavil-review-note`, `cavil-review`, `cavil-refine`, and
+   `cavil-license-research`. The
    easiest way to grab them is to download the repository as a ZIP (the green "Code" button on GitHub → "Download ZIP"),
    unzip it, and then move each folder into your agent's skills directory:
 
@@ -362,8 +354,8 @@ You can do this end to end yourself. Three one-time steps:
      faster than this doc; the rest of the workflow is identical.
 
 After those three steps, restart the agent. Every time you launch it from then on it picks the skill up automatically.
-You invoke it by typing `/cavil-review-note` (or `/cavil-review`, `/cavil-refine`, `/cavil-license-research`,
-`/cavil-missing-licenses`) followed by what you'd like reviewed.
+You invoke it by typing `/cavil-review-note` (or `/cavil-review`, `/cavil-refine`, `/cavil-license-research`)
+followed by what you'd like reviewed.
 
 **Troubleshooting.** If `/cavil-review-note` doesn't appear in the agent's auto-complete, the most common causes are
 (a) the folder name is wrong (it must match exactly, including the dash), (b) the folder is in the wrong place
