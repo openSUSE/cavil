@@ -1110,11 +1110,13 @@ sub _insert_pattern_proposal ($self, $db, $action, $checksum, %args) {
           pattern              => $args{pattern},
           highlighted_keywords => $args{highlighted_keywords},
           highlighted_licenses => $args{highlighted_licenses},
-          edited               => $args{edited} // '0',
+          edited               => $args{edited} ? '1' : '0',
           license              => $args{license},
           risk                 => $args{risk},
           package              => $args{package},
-          (map { $_ => $args{$_} // '0' } @PATTERN_FLAGS),
+
+          # Always strings, the proposals page and the create-pattern form expect '1'/'0'
+          (map { $_ => $args{$_} ? '1' : '0' } @PATTERN_FLAGS),
           ai_assisted => $args{ai_assisted} // 0,
           reason      => $args{reason}      // '',
 

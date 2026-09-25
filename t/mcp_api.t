@@ -1755,6 +1755,7 @@ subtest 'MCP' => sub {
           ->json_like('/changes/0/data/pattern', qr/terms of the Artistic License version 2.0/)
           ->json_like('/changes/0/data/reason',  qr/AI Assistant: Just a test pattern proposal/)
           ->json_is('/changes/0/data/snippet', 5);
+        like $t->tx->res->body, qr/"$_":"1"/, "$_ stored as string" for qw(patent trademark export_restricted cla eula);
         $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
       };
 

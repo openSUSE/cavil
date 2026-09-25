@@ -346,7 +346,7 @@ export default {
 
         if (change.action === 'create_pattern') {
           for (const key of ['edited', ...PATTERN_FLAGS.map(flag => flag.name)]) {
-            change.data[key] = change.data[key] === '1' ? true : false;
+            change.data[key] = change.data[key] == 1;
           }
         } else if (change.action === 'create_ignore') {
           change.editUrl = `${change.editUrl}?hash=${change.token_hexsum}&from=${change.data.from}`;

@@ -440,7 +440,7 @@ export default {
       if (initial.license !== undefined) this.license = initial.license;
       if (initial.risk !== undefined) this.licenseOptions.risk = Number(initial.risk);
       for (const flag of PATTERN_FLAGS) {
-        this.licenseOptions[flag.name] = initial[flag.name] === '1' || initial[flag.name] === true;
+        this.licenseOptions[flag.name] = initial[flag.name] == 1;
       }
       if (initial.edited !== undefined) this.edited = String(initial.edited);
       if (initial['highlighted-keywords'] !== undefined) {
