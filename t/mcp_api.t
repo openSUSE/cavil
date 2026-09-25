@@ -86,7 +86,7 @@ subtest 'MCP' => sub {
 
     subtest 'Authentication' => sub {
       $t->get_ok('/mcp')
-        ->status_is(403)
+        ->status_is(401)
         ->json_is({error => 'It appears you have insufficient permissions for accessing this resource'});
 
       $t->ua->on(start => sub ($ua, $tx) { $tx->req->headers->authorization("Bearer $key") });
@@ -921,7 +921,7 @@ subtest 'MCP' => sub {
     subtest 'Authentication' => sub {
       $t->ua->unsubscribe('start');
       $t->get_ok('/mcp')
-        ->status_is(403)
+        ->status_is(401)
         ->json_is({error => 'It appears you have insufficient permissions for accessing this resource'});
 
       $t->ua->on(start => sub ($ua, $tx) { $tx->req->headers->authorization("Bearer $write_key") });

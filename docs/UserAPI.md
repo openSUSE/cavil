@@ -48,11 +48,16 @@ Many features have access restrictions, and which are available to you will depe
 **Important**: Embargoed package updates cannot be processed with AI and are completely hidden from MCP tools. That
 means you have to manually review them in the UI.
 
-Most MCP clients today support Bearer token authentication, so that is what Cavil relies on as well. More
-authentication mechanisms will be added as the technology evolves.
+Cavil supports the OAuth login from the MCP authorization specification. Clients with OAuth support only need the URL
+`https://legaldb.suse.de/mcp`: they open your browser, you log in to Cavil as usual, and you click **Allow**. There are
+no API keys to create or copy. Write access and accepting/rejecting reviews are both off by default, and you can turn
+them on in the same Allow dialog. Every connection appears as "<client name> (OAuth)" on the **API Keys** page.
+Deleting it there disconnects the client immediately. Some clients don't tell Cavil when you disconnect them on their
+side, so this is the only reliable way to revoke access. See the [claude](#claude) section below for an example.
 
-This example configuration in the `mcp.json` format, which is commonly used by MCP clients, shows how to include a
-Cavil API key by setting the Authorization HTTP header:
+Clients without OAuth support can use Bearer token authentication with an API key instead. This example configuration
+in the `mcp.json` format, which is commonly used by MCP clients, shows how to include a Cavil API key by setting the
+Authorization HTTP header:
 
 ```
 {
@@ -509,14 +514,21 @@ After restarting gemini-cli, it will automatically discover available Cavil tool
 
 #### claude
 
-Once you have installed and set up [Claude Code](https://code.claude.com/docs/en/quickstart), you can use the clause
+Once you have installed and set up [Claude Code](https://code.claude.com/docs/en/quickstart), you can use the claude
 mcp command to add Cavil:
+
+```
+claude mcp add --transport http cavil https://legaldb.suse.de/mcp
+```
+
+Then start claude, type `/mcp`, select **cavil** and choose **Authenticate**. Your browser opens the Cavil login, and
+after you click **Allow** claude will automatically discover available Cavil tools and make use of them on its own.
+
+If you prefer an API key, add it as a header instead:
 
 ```
 claude mcp add --transport http cavil https://legaldb.suse.de/mcp --header "Authorization: Bearer generated_api_key_here"
 ```
-
-After restarting claude, it will automatically discover available Cavil tools and make use of them on its own.
 
 #### opencode
 

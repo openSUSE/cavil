@@ -425,3 +425,27 @@ CREATE INDEX bot_packages_tags_idx ON bot_packages USING gin (tags);
 -- 70 up
 ALTER TABLE bot_reports DROP COLUMN specfile_report;
 ALTER TABLE bot_reports ADD COLUMN declarations text;
+
+-- 71 up
+CREATE TABLE oauth_clients (
+  id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name          text NOT NULL,
+  redirect_uris text[] NOT NULL,
+  created       timestamp with time zone DEFAULT now() NOT NULL
+);
+CREATE TABLE oauth_codes (
+  code                 uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  client               uuid REFERENCES oauth_clients(id) ON DELETE CASCADE NOT NULL,
+  owner                int REFERENCES bot_users(id) ON DELETE CASCADE NOT NULL,
+  redirect_uri         text NOT NULL,
+  code_challenge       text NOT NULL,
+  write_access         boolean DEFAULT false NOT NULL,
+  can_finalize_reviews boolean DEFAULT false NOT NULL,
+  expires              timestamp with time zone DEFAULT now() + interval '60 seconds' NOT NULL
+);
+ALTER TABLE api_keys ADD COLUMN oauth_client uuid REFERENCES oauth_clients(id) ON DELETE CASCADE;
+
+-- 71 down
+ALTER TABLE api_keys DROP COLUMN IF EXISTS oauth_client;
+DROP TABLE IF EXISTS oauth_codes;
+DROP TABLE IF EXISTS oauth_clients;

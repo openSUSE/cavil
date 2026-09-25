@@ -12,7 +12,7 @@ sub login ($self) {
   );
 
   $self->session(user => $user->{login});
-  $self->redirect_to('dashboard');
+  $self->redirect_to(delete $self->session->{return_to} // 'dashboard');
 }
 
 1;

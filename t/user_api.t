@@ -114,25 +114,25 @@ subtest 'API keys' => sub {
 
   subtest 'Access API without key' => sub {
     $t->get_ok('/api/v1/whoami')
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
     $t->get_ok('/api/v1/reports')
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
     $t->get_ok('/api/v1/report/1.json')
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
     $t->get_ok('/api/v1/report/1.txt')
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
     $t->get_ok('/api/v1/report/1.mcp')
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
     $t->get_ok('/api/v1/documents/1/spdx')
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
     $t->get_ok('/api/v1/documents/1/notice')
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
   };
 
@@ -273,7 +273,7 @@ subtest 'API keys' => sub {
   subtest 'Expired API key' => sub {
     $t->app->pg->db->query("UPDATE api_keys SET expires = NOW() - INTERVAL '1 hour' WHERE api_key = ?", $key);
     $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
 
     $t->app->pg->db->query("UPDATE api_keys SET expires = NOW() + INTERVAL '10 hours' WHERE api_key = ?", $key);
@@ -288,7 +288,7 @@ subtest 'API keys' => sub {
 
     $t->delete_ok('/api_keys/1')->status_is(200)->json_is('/removed' => 1);
     $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $key"})
-      ->status_is(403)
+      ->status_is(401)
       ->json_is('/error' => 'It appears you have insufficient permissions for accessing this resource');
 
     $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
@@ -325,7 +325,7 @@ subtest 'Upload API' => sub {
   };
 
   subtest 'Rejected without the infra capability or a write scope' => sub {
-    $t->post_ok('/api/v1/packages/upload' => form => $form->())->status_is(403);
+    $t->post_ok('/api/v1/packages/upload' => form => $form->())->status_is(401);
     $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $admin_ro->{api_key}"} => form => $form->())
       ->status_is(403);
     $t->post_ok('/api/v1/packages/upload' => {Authorization => "Bearer $user_rw->{api_key}"} => form => $form->())
@@ -634,7 +634,7 @@ subtest 'Package search API' => sub {
   );
 
   subtest 'Requires authentication' => sub {
-    $t->get_ok('/api/v1/search' => form => {component => 'lodash'})->status_is(403);
+    $t->get_ok('/api/v1/search' => form => {component => 'lodash'})->status_is(401);
   };
 
   subtest 'Finds packages by component name, embargoed and obsolete hidden' => sub {

@@ -26,9 +26,11 @@ sub check ($self) {
 }
 
 sub _denied ($self) {
+  my $metadata = $self->url_for('oauth_protected_resource')->to_abs;
+  $self->res->headers->www_authenticate(qq{Bearer resource_metadata="$metadata"});
   $self->render(
     json   => {error => 'It appears you have insufficient permissions for accessing this resource'},
-    status => 403
+    status => 401
   );
 }
 

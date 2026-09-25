@@ -27,7 +27,7 @@ sub login ($self) {
 
       $self->session(user => $login);
       $self->log->info(qq{User "$login" logged in});
-      $self->redirect_to('dashboard');
+      $self->redirect_to(delete $self->session->{return_to} // 'dashboard');
     }
   )->catch(
     sub ($error) {

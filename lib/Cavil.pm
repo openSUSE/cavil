@@ -208,6 +208,15 @@ sub startup ($self) {
   $public->get('/api/1.0/package/:name')->to('API#status')->name('package_api');
   $public->get('/api/1.0/source')->to('API#source')->name('source_api');
 
+  $public->get('/.well-known/oauth-protected-resource/*resource_path' => {resource_path => ''})
+    ->to('OAuth#protected_resource')
+    ->name('oauth_protected_resource');
+  $public->get('/.well-known/oauth-authorization-server')->to('OAuth#metadata');
+  $public->post('/oauth/register')->to('OAuth#register');
+  $public->get('/oauth/authorize')->to('OAuth#authorize')->name('oauth_authorize');
+  $public->post('/oauth/authorize')->to('OAuth#consent')->name('oauth_consent');
+  $public->post('/oauth/token')->to('OAuth#token');
+
   $api_key->any('/mcp' => $mcp_action)->name('mcp');
   $api_key->get('/api/v1/whoami')->to('API#whoami')->name('whoami_api');
   $api_key->get('/api/v1/reports')->to('API#reports');

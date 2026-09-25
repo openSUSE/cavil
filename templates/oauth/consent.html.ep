@@ -1,0 +1,33 @@
+% layout 'default', title => 'Authorize application';
+
+<div class="row justify-content-center mt-5">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="card-title">Authorize <%= $client->{name} %></h4>
+        <p>
+          <strong><%= $client->{name} %></strong> (redirects to <code><%= $host %></code>) wants to use Cavil as
+          <strong><%= current_user %></strong>.
+        </p>
+        %= form_for 'oauth_consent' => begin
+          %= csrf_field
+          % for my $name (@$params) {
+            % next unless defined(my $value = param $name);
+            %= hidden_field $name => $value
+          % }
+          <div class="mb-2 form-check">
+            <input type="checkbox" class="form-check-input" id="write_access" name="write_access" value="1">
+            <label class="form-check-label" for="write_access">Allow changes (write access)</label>
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="can_finalize_reviews" name="can_finalize_reviews"
+              value="1">
+            <label class="form-check-label" for="can_finalize_reviews">Allow accept/reject of reviews</label>
+          </div>
+          <button type="submit" name="allow" value="1" class="btn btn-success">Allow</button>
+          <button type="submit" name="deny" value="1" class="btn btn-outline-secondary">Cancel</button>
+        % end
+      </div>
+    </div>
+  </div>
+</div>
