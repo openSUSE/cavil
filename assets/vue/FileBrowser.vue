@@ -46,6 +46,15 @@
             >{{ meta.source.lines.length }} {{ meta.source.lines.length === 1 ? 'line' : 'lines' }}</template
           >
         </span>
+        <a
+          v-if="meta.kind === 'file'"
+          :href="meta.source.rawUrl"
+          class="file-browser-download"
+          download
+          title="Download raw file"
+          aria-label="Download raw file"
+          ><i class="fa-solid fa-download" aria-hidden="true"></i
+        ></a>
       </nav>
 
       <div v-if="meta.kind === 'unavailable'" class="file-browser-panel">
@@ -559,6 +568,16 @@ export default {
   font-size: 12px;
   margin-left: auto;
   white-space: nowrap;
+}
+.file-browser-breadcrumb a.file-browser-download {
+  color: var(--cavil-fg-muted-alt);
+  font-size: 13px;
+  line-height: 1;
+}
+.file-browser-breadcrumb a.file-browser-download:hover,
+.file-browser-breadcrumb a.file-browser-download:focus-visible {
+  color: var(--cavil-accent);
+  text-decoration: none;
 }
 .file-browser-breadcrumb-item {
   display: inline-flex;

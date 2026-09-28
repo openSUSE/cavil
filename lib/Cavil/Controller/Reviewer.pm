@@ -4,7 +4,9 @@
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+use Mojo::Asset::File;
 use Mojo::File  qw(path);
+use Mojo::Util  qw(encode url_escape);
 use Cavil::Util qw(checkout_path lines_context tags_from_request PRIORITY_WAITING);
 
 use constant WINDOW_LINES => 2000;
@@ -109,6 +111,21 @@ sub file_view_meta ($self) {
   }
 
   return $self->render(json => $payload);
+}
+
+# Package content is untrusted, so it must never render on this origin: always a download, never sniffed
+sub file_raw ($self) {
+  return unless my $ctx = $self->_file_browser_context;
+  return $self->reply->not_found if $ctx->{unavailable} || -d $ctx->{file};
+
+  my $name    = $ctx->{file}->basename;
+  my $ascii   = $name =~ s/[^\x20-\x7e]|["\\]/_/gr;
+  my $headers = $self->res->headers;
+  $headers->content_type('application/octet-stream');
+  $headers->header('X-Content-Type-Options' => 'nosniff');
+  $headers->content_disposition(
+    qq{attachment; filename="$ascii"; filename*=UTF-8''} . url_escape(encode('UTF-8', $name)));
+  return $self->reply->asset(Mojo::Asset::File->new(path => $ctx->{file}));
 }
 
 sub _file_browser_context ($self) {
@@ -226,7 +243,13 @@ sub _file_browser_source ($self, $package, $file, $filename, $from) {
   pop @text if @text && $text[-1] eq '';
   my @lines = map { my $nr = $from + $_; [$nr, {%{$info_by_line{$nr} // {risk => 0}}}, $text[$_]] } 0 .. $#text;
 
-  my $source = {id => $file_id, lines => lines_context(\@lines), name => $package->{name}, filename => $filename};
+  my $source = {
+    id       => $file_id,
+    lines    => lines_context(\@lines),
+    name     => $package->{name},
+    filename => $filename,
+    rawUrl   => $self->url_for('file_raw', id => $package->{id}, file => $filename)->to_string
+  };
   return $source unless $windowed;
 
   # The match map from indexing covers the whole file, so the reviewer can see what lies outside the window.

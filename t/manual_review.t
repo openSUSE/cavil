@@ -276,6 +276,43 @@ subtest 'Details after indexing' => sub {
     $t->get_ok('/reviews/file_view_meta/1/../COPYING')->status_is(400);
   };
 
+  subtest 'file browser download' => sub {
+    my $path = 'Mojolicious-7.25/lib/Mojolicious.pm';
+    $t->get_ok("/reviews/file_view_meta/1/$path")->json_is('/source/rawUrl', "/reviews/file_raw/1/$path");
+
+    my $package  = $t->app->packages->find(1);
+    my $unpacked = $cavil_test->checkout_dir->child('perl-Mojolicious', $package->{checkout_dir}, '.unpacked');
+    $t->get_ok("/reviews/file_raw/1/$path")
+      ->status_is(200)
+      ->content_type_is('application/octet-stream')
+      ->header_is('X-Content-Type-Options' => 'nosniff')
+      ->header_is('Content-Disposition' => q{attachment; filename="Mojolicious.pm"; filename*=UTF-8''Mojolicious.pm});
+    ok $t->tx->res->body eq $unpacked->child($path)->slurp, 'the download is the file byte for byte';
+
+    # Too large for the browser to show at once, still downloaded whole
+    local $t->app->config->{max_file_browser_size} = 400;
+    $unpacked->child('large.txt')->spurt(join '', map {"line $_ padding padding padding\n"} 1 .. 50);
+    $t->get_ok('/reviews/file_raw/1/large.txt')->status_is(200);
+    is length $t->tx->res->body, -s $unpacked->child('large.txt'), 'large file is downloaded whole';
+
+    # Package content never renders on this origin, and odd names cannot break out of the header
+    $unpacked->child(qq{evil "page".html})->spurt('<script>alert(1)</script>');
+    $t->get_ok('/reviews/file_raw/1/' . url_escape(qq{evil "page".html}))
+      ->status_is(200)
+      ->content_type_is('application/octet-stream')
+      ->header_is(
+      'Content-Disposition' => q{attachment; filename="evil _page_.html"; filename*=UTF-8''evil%20%22page%22.html});
+    $unpacked->child("caf\x{e9}.txt")->spurt('x');
+    $t->get_ok('/reviews/file_raw/1/caf%C3%A9.txt')
+      ->status_is(200)
+      ->header_is('Content-Disposition' => q{attachment; filename="caf_.txt"; filename*=UTF-8''caf%C3%A9.txt});
+    $unpacked->child($_)->remove for 'large.txt', qq{evil "page".html}, "caf\x{e9}.txt";
+
+    $t->get_ok('/reviews/file_raw/1/Mojolicious-7.25')->status_is(404);
+    $t->get_ok('/reviews/file_raw/1/does-not-exist')->status_is(404);
+    $t->get_ok('/reviews/file_raw/1/../COPYING')->status_is(400);
+  };
+
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 

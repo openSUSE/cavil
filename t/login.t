@@ -46,6 +46,7 @@ subtest 'Login required' => sub {
   $t->get_ok('/reviews/fetch_source/1')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/file_view/1/LICENSE')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/file_view_meta/1/LICENSE')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/reviews/file_raw/1/LICENSE')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/notes/recent')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/notes/recent.json')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/reviews/notes/tags')->status_is(401)->content_like(qr/Login Required/);

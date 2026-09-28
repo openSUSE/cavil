@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
+import fs from 'node:fs/promises';
 import t from 'tap';
 
 // The report shows a license's matches inline, and the file browser pages through files of any size in
@@ -48,6 +49,13 @@ t.test('Cavil UI - large file windows', skipUnlessOnline, async t => {
       await page.click('.source-window button');
       await page.waitForSelector('.source-window:has-text("Show previous lines · 1 match above")');
       t.ok(Number(await page.locator('td.linenumber').first().innerText()) > 1, 'the next window starts later');
+    });
+
+    await t.test('the whole file downloads, not just the window', async t => {
+      const [download] = await Promise.all([page.waitForEvent('download'), page.click('a.file-browser-download')]);
+      t.equal(download.suggestedFilename(), 'hidden-match.txt', 'it keeps the file name');
+      const text = await fs.readFile(await download.path(), 'utf8');
+      t.equal(text.split('\n').length - 1, 152, 'every line is in it');
     });
 
     await t.test('a deep link past the first window highlights its line', async t => {

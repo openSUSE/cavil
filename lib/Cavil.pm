@@ -241,6 +241,7 @@ sub startup ($self) {
   $logged_in->get('/reviews/file_view_meta/<id:num>/*file' => {file => ''})
     ->to('Reviewer#file_view_meta')
     ->name('file_view_meta');
+  $logged_in->get('/reviews/file_raw/<id:num>/*file')->to('Reviewer#file_raw')->name('file_raw');
   $logged_in->get('/reviews/details/<id:num>')->to('Reviewer#details')->name('package_details');
   $logged_in->get('/reviews/meta/<id:num>')->to('Reviewer#meta')->name('package_meta');
   $logged_in->get('/reviews/tags' => [format => ['json']])->to('Reviewer#tags', format => 'json')->name('package_tags');
