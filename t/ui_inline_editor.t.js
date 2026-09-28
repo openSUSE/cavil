@@ -314,6 +314,7 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       // Creating the snippet returns its checksum, so the editor has the context that gates the
       // ignore, missing-license and no-legal-text actions - previously these only appeared after a
       // reload because a picked selection reached the editor with no hash.
+      await page.locator('#inline-snippet-editor [data-action="propose-missing"]').waitFor({state: 'attached'});
       t.equal(
         await page.locator('#inline-snippet-editor [data-action="propose-missing"]').count(),
         1,

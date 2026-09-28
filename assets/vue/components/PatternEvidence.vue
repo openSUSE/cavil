@@ -16,6 +16,7 @@
         <span class="evidence-note">{{ alignmentSummary }}</span>
       </div>
       <div class="evidence-text">
+        <!-- eslint-disable-next-line vue/no-v-for-template-key -->
         <template v-for="(segment, i) in segments" :key="i">
           <span v-if="segment.skip !== undefined" class="evidence-skip" :title="`$SKIP${segment.skip}`">{{
             segment.words
