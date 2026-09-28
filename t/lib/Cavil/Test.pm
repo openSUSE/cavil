@@ -850,10 +850,9 @@ FILE
   $build->('d0000000000000000000000000000004', [1], {}, $other);
 }
 
-# Two files that both exceed the (test-lowered) max_file_browser_size, so the standalone file browser
-# shows only their top and appends the end-of-file marker. "top-heavy.txt" keeps its one license match
-# in the shown header (marker reassures: no matches below); "hidden-match.txt" repeats the match well
-# past the cut (marker warns: one match below). The wrapper sets max_file_browser_size to 2000 bytes.
+# A file that exceeds the (test-lowered) max_file_browser_size, so the standalone file browser pages through
+# it in windows. It repeats its license match past the first window. The wrapper sets max_file_browser_size
+# to 2000 bytes.
 sub large_file_fixtures ($self, $app) {
   $app->pg->migrations->migrate;
 
@@ -872,12 +871,10 @@ sub large_file_fixtures ($self, $app) {
   my $md5 = 'aa00000000000000000000000000aa01';
   my $dir = $self->checkout_dir->child('large-file', $md5)->make_path;
 
-  # ~46 bytes per filler line, so both files clear 2000 bytes many times over. The header marker sits in
-  # the shown window; hidden-match repeats it at line 82 (~3.7 KB in), comfortably past the 2000 byte cut.
+  # ~46 bytes per filler line, so hidden-match repeats the marker at line 82 (~3.7 KB in), past the first window
   my $filler = sub {
     join '', map { sprintf "large file lab filler line %03d padding padding\n", $_ } $_[0] .. $_[1];
   };
-  $dir->child('top-heavy.txt')->spew("large file lab license marker\n" . $filler->(1, 150));
   $dir->child('hidden-match.txt')
     ->spew(
     "large file lab license marker\n" . $filler->(1, 80) . "large file lab license marker\n" . $filler->(81, 150));

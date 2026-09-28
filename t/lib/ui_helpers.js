@@ -27,6 +27,7 @@ export async function waitForInlineSnippetEditorClosed(page) {
 }
 
 export async function expandFileDetails(page, fileId) {
+  await page.waitForSelector('.cavil-reveal-leave-active', {state: 'detached'});
   if (!(await page.isVisible(`#file-details-${fileId}`))) {
     await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
   }
@@ -35,7 +36,7 @@ export async function expandFileDetails(page, fileId) {
 
 export async function openCreatePatternEditor(page, fileId, options = {}) {
   await waitForInlineSnippetEditorClosed(page);
-  await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+  await expandFileDetails(page, fileId);
 
   if (options.triggerSelector) {
     await page.locator(options.triggerSelector).click();

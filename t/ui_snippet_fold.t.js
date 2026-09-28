@@ -34,8 +34,7 @@ await t.test('Cavil UI - snippet fold-in', skipUnlessOnline, async t => {
       await gpl.waitFor();
       t.ok(await gpl.count(), 'folded GPL license appears in the risk-5 bucket');
 
-      // Expand the license and open its file
-      await gpl.locator('a[data-bs-toggle="collapse"]').click();
+      // Open its file
       const fileLink = gpl.locator('a.file-link[href^="#file-"]').first();
       await fileLink.waitFor();
       const fileId = (await fileLink.getAttribute('href')).replace('#file-', '');

@@ -20,8 +20,8 @@ export function encodePath(path) {
     .join('/');
 }
 
-export function fileViewUrl(pkgId, path) {
-  return `/reviews/file_view/${pkgId}/${encodePath(path)}`;
+export function fileViewUrl(pkgId, path, line = 0) {
+  return `/reviews/file_view/${pkgId}/${encodePath(path)}${line ? `#L${line}` : ''}`;
 }
 
 export function licenseLink(license) {

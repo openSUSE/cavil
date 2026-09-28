@@ -154,39 +154,11 @@ subtest 'Details after indexing' => sub {
     ->json_like('/copyrights/values/0/0', qr!Copyright!);
   $t->get_ok('/reviews/report_details/1')
     ->status_is(200)
-    ->json_has('/files/0/id')
-    ->json_has('/files/0/path')
-    ->json_like('/files/0/file_url', qr!/reviews/file_view/1/!)
+    ->json_hasnt('/files')
     ->json_has('/chart/licenses')
     ->json_has('/chart/num-files')
     ->json_has('/chart/colours')
     ->json_has('/risks');
-
-  subtest 'Expanded file limit' => sub {
-    my $db       = $t->app->pg->db;
-    my $row      = $db->select('bot_reports', 'ldig_report', {package => 1})->hash;
-    my $original = $row->{ldig_report};
-    my $dig      = Mojo::JSON::from_json($original);
-    my $fpid     = 999998;
-    for my $id (9100 .. 9249) {
-      $dig->{files}{$id}           = "fake/missed/missed$id.txt";
-      $dig->{missed_snippets}{$id} = [[1, 1, $id, 'deadbeef', 0.1, $fpid]];
-      $dig->{missed_files}{$id}    = [9, 0.1, 'Keyword', undef];
-    }
-    $db->update('bot_reports', {ldig_report => Mojo::JSON::to_json($dig)}, {package => 1});
-
-    $t->get_ok('/reviews/report_details/1')->status_is(200);
-    my $details = $t->tx->res->json;
-    my $expand  = grep { $_->{expand} } @{$details->{files}};
-    cmp_ok $expand,                     '<=', 100,     'expand=true count capped at max_expanded_files';
-    cmp_ok scalar @{$details->{files}}, '>',  $expand, 'remaining files are sent collapsed';
-    is $details->{max_expanded_files}, 100, 'max_expanded_files reported in response';
-    cmp_ok $details->{hidden_inline_previews}, '>', 0, 'hidden_inline_previews counts missed files past the inline cap';
-    is $details->{hidden_inline_previews}, scalar(@{$details->{missed_files}}) - $expand,
-      'hidden_inline_previews equals total missed files minus inline-expanded ones';
-
-    $db->update('bot_reports', {ldig_report => $original}, {package => 1});
-  };
 
   $t->get_ok('/reviews/fetch_source/1')
     ->status_is(200)
@@ -196,7 +168,41 @@ subtest 'Details after indexing' => sub {
   $t->get_ok('/reviews/fetch_source/1.json')
     ->status_is(200)
     ->content_type_is('application/json;charset=UTF-8')
-    ->json_like('/source/name', qr/perl-Mojolicious/);
+    ->json_like('/source/name', qr/perl-Mojolicious/)
+    ->json_hasnt('/source/total');
+
+  subtest 'Source scoped to one report row' => sub {
+    my $js     = 'Mojolicious-7.25/lib/Mojolicious/resources/public/mojo/prettify/run_prettify.processed.js';
+    my $risk   = $t->get_ok('/reviews/report_details/1')->tx->res->json->{risks}{5};
+    my ($file) = grep { $_->[1] eq $js } map { @{$_->{files}} } grep { $_->{name} eq 'Apache-2.0' } @$risk;
+    my $url    = "/reviews/fetch_source/$file->[0].json?license=Apache-2.0&risk=5";
+
+    my $source = $t->get_ok($url)->status_is(200)->json_is('/source/total', 4)->tx->res->json->{source};
+    my @starts = grep { $_->[1]{end} } @{$source->{lines}};
+    is scalar @starts, 4, 'every match of the license is shown';
+    ok !(grep { $_->[1]{pid} && $_->[1]{name} ne 'Apache-2.0' } @{$source->{lines}}), 'no other license is shown';
+
+    $source = $t->get_ok("$url&groups=1")->status_is(200)->json_is('/source/total', 4)->tx->res->json->{source};
+    @starts = grep { $_->[1]{end} } @{$source->{lines}};
+    is scalar @starts, 1, 'only the first match is shown';
+    ok !$starts[0][1]{nextend}, 'no match to step to beyond the page';
+
+    my $end = $starts[0][1]{end};
+    $source = $t->get_ok("$url&groups=1&start=$end&end=" . ($end + 2))->status_is(200)->tx->res->json->{source};
+    ok !(grep { $_->[1]{pid} && $_->[1]{name} ne 'Apache-2.0' } @{$source->{lines}}), 'extending keeps the scope';
+    ok grep({ $_->[0] == $end + 5 } @{$source->{lines}}), 'extended range comes with context';
+
+    $t->get_ok('/reviews/fetch_source/1.json?license=Apache-2.0')->status_is(400);
+    $t->get_ok('/reviews/fetch_source/1.json?groups=0')->status_is(400);
+    $t->get_ok('/reviews/fetch_source/1.json?license=')->status_is(400);
+    $t->get_ok('/reviews/fetch_source/1.json?license=&risk=5')->status_is(200)->json_is('/source/total', 0);
+
+    $source = $t->get_ok('/reviews/fetch_source/5.json?unresolved=1')->status_is(200)->tx->res->json->{source};
+    ok $source->{total}, 'unresolved snippets are counted';
+    my @marked = grep { $_->[1]{risk} } @{$source->{lines}};
+    ok @marked,                               'unresolved snippets are shown';
+    ok !(grep { !$_->[1]{snippet} } @marked), 'only unresolved snippets are shown';
+  };
 
   subtest 'Vue file browser metadata' => sub {
     $t->get_ok('/reviews/file_view_meta/1/')
@@ -207,8 +213,7 @@ subtest 'Details after indexing' => sub {
       ->json_has('/entries/0/name')
       ->json_has('/breadcrumbs/0/url');
 
-    $t->get_ok('/reviews/report_details/1')->status_is(200);
-    my $path = $t->tx->res->json->{files}[0]{path};
+    my $path = 'Mojolicious-7.25/lib/Mojolicious.pm';
     my $url  = join '/', map { url_escape $_ } split '/', $path;
     $t->get_ok("/reviews/file_view_meta/1/$url")
       ->status_is(200)
@@ -225,40 +230,47 @@ subtest 'Details after indexing' => sub {
     cmp_ok scalar @{$source->{lines}}, '>', 1000, 'file browser returns the whole source file';
     ok grep({ $_->[1]{pid} } @{$source->{lines}}), 'whole source file keeps pattern annotations';
 
-    # A file over the limit with no line break in its first chunk (typically minified) can't be shown as
-    # lines, so it falls back to the "too large" panel with no source body.
-    local $t->app->config->{max_file_browser_size} = 10;
-    my $package = $t->app->packages->find(1);
-    my $large
-      = $cavil_test->checkout_dir->child('perl-Mojolicious', $package->{checkout_dir}, '.unpacked', 'large.txt');
-    $large->spurt("This file is too large for the configured browser limit.\n");
-    $t->get_ok('/reviews/file_view_meta/1/large.txt')
+    # A file over the limit is shown one window at a time, from wherever the reviewer asks for
+    local $t->app->config->{max_file_browser_size} = 400;
+    my $package  = $t->app->packages->find(1);
+    my $unpacked = $cavil_test->checkout_dir->child('perl-Mojolicious', $package->{checkout_dir}, '.unpacked');
+    $unpacked->child('large.txt')->spurt(join '', map {"line $_ padding padding padding\n"} 1 .. 50);
+    my $window
+      = $t->get_ok('/reviews/file_view_meta/1/large.txt')
       ->status_is(200)
-      ->json_is('/kind',             'file')
-      ->json_is('/source/filename',  'large.txt')
-      ->json_is('/source/oversized', 1)
-      ->json_is('/source/maxSize',   10)
-      ->json_has('/source/sizeLabel')
-      ->json_has('/source/maxSizeLabel')
-      ->json_hasnt('/source/lines');
-
-    # A file over the limit that does have line breaks is shown truncated to its top instead of withheld,
-    # with a marker describing the cut. Nothing is indexed here, so no matches wait below.
-    local $t->app->config->{max_file_browser_size} = 40;
-    my $truncated
-      = $cavil_test->checkout_dir->child('perl-Mojolicious', $package->{checkout_dir}, '.unpacked', 'truncated.txt');
-    $truncated->spurt(join '', map {"line $_ padding padding padding\n"} 1 .. 50);
-    my $tsrc
-      = $t->get_ok('/reviews/file_view_meta/1/truncated.txt')
-      ->status_is(200)
-      ->json_is('/source/filename', 'truncated.txt')
-      ->json_hasnt('/source/oversized')
+      ->json_is('/source/filename',            'large.txt')
+      ->json_is('/source/window/from',         1)
+      ->json_is('/source/window/more',         1)
+      ->json_is('/source/window/matchesAbove', 0)
+      ->json_is('/source/window/matchesBelow', 0)
+      ->json_is('/source/lines/0/2',           'line 1 padding padding padding')
       ->tx->res->json->{source};
-    cmp_ok scalar @{$tsrc->{lines}}, '>', 0,  'truncated file shows the top as source lines';
-    cmp_ok scalar @{$tsrc->{lines}}, '<', 50, 'truncated file does not show the whole source';
-    ok $tsrc->{truncated}{shownLines}, 'marker reports how many lines are shown';
-    is $tsrc->{truncated}{matchesBelow}, 0, 'marker reports no matches below the cut';
-    ok $tsrc->{truncated}{shownLabel}, 'marker reports the shown size';
+    my $to = $window->{window}{to};
+    cmp_ok $to, '<', 50, 'window does not show the whole file';
+    is $window->{lines}[-1][0], $to, 'window ends where it says';
+
+    $window
+      = $t->get_ok('/reviews/file_view_meta/1/large.txt?from=' . ($to + 1))
+      ->status_is(200)
+      ->json_is('/source/window/from', $to + 1)
+      ->json_is('/source/lines/0/0',   $to + 1)
+      ->json_is('/source/lines/0/2',   'line ' . ($to + 1) . ' padding padding padding');
+    $window
+      = $t->get_ok('/reviews/file_view_meta/1/large.txt?from=45')
+      ->status_is(200)
+      ->json_is('/source/window/to',   50)
+      ->json_is('/source/window/more', 0)
+      ->tx->res->json->{source};
+    is $window->{lines}[-1][2], 'line 50 padding padding padding', 'last window ends with the file';
+
+    # One line longer than the budget (minified code) is clipped instead of read whole
+    $unpacked->child('minified.js')->spurt(('x' x 1000) . "\nnext\n");
+    $t->get_ok('/reviews/file_view_meta/1/minified.js')
+      ->status_is(200)
+      ->json_is('/source/lines/0/2',   'x' x 400)
+      ->json_is('/source/window/to',   1)
+      ->json_is('/source/window/more', 1);
+    $unpacked->child($_)->remove for qw(large.txt minified.js);
 
     $t->get_ok('/reviews/file_view_meta/1/does-not-exist')->status_is(404);
     $t->get_ok('/reviews/file_view_meta/1/../COPYING')->status_is(400);

@@ -85,9 +85,7 @@ sub _analyze ($job, $id, $generation = 0) {
 
   my $new_candidates = [];
 
-  # Unresolved keyword matches. Count the full set (missed_snippets), NOT the expansion-truncated
-  # $dig->{snippets}: max_expanded_files only caps how many file previews the report renders, it must
-  # never shrink the stored count. (Mirrors the full-set walk in Cavil::Model::Reports::summary.)
+  # Unresolved keyword matches, counted once per snippet across all files
   my $unresolved = 0;
   if (my $missed = $dig->{missed_snippets}) {
     my %seen;

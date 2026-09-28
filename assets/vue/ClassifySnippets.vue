@@ -273,7 +273,7 @@ export default {
 
       for (const snippet of snippets) {
         snippet.buttonPressed = null;
-        snippet.fileUrl = snippet.filename == null ? null : fileViewUrl(snippet.filepackage, snippet.filename);
+        snippet.fileUrl = snippet.filename == null ? null : fileViewUrl(snippet.filepackage, snippet.filename, snippet.sline);
         snippet.editUrl = `/snippet/edit/${snippet.id}`;
         let num = snippet.sline ?? 1;
         const lines = [];

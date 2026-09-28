@@ -21,7 +21,7 @@ use Try::Tiny;
 
 our @EXPORT_OK = (
   qw(buckets checkout_path expand_spec_macros file_and_checksum fs_bytes md5_file slurp_and_decode load_ignored_files),
-  qw(lines_context normalize_license_expr),
+  qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
   qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file parse_list_filter),
   qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
@@ -620,7 +620,7 @@ sub external_link_data ($link, $sources = undef) {
   return {text => $link};
 }
 
-sub _line_tag ($line) {
+sub line_tag ($line) {
   return $line->[1]->{pid} if defined $line->[1]->{pid};
 
   # the actual value does not matter - as long as it differs between snippets
@@ -639,8 +639,8 @@ sub lines_context ($lines) {
     if ($last && ($line->[0] - $last->[0]) > 1) {
       $line->[1]->{withgap} = 1;
     }
-    my $linetag = _line_tag($line);
-    if (_line_tag($last) != $linetag) {
+    my $linetag = line_tag($line);
+    if (line_tag($last) != $linetag) {
       $currentstart->[1]->{end} = $last->[0] if $currentstart;
       if ($linetag) {
         push(@starts, $line);

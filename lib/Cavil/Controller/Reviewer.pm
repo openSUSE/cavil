@@ -5,8 +5,9 @@ package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Mojo::File  qw(path);
-use Mojo::Util  qw(humanize_bytes);
 use Cavil::Util qw(checkout_path lines_context tags_from_request PRIORITY_WAITING);
+
+use constant WINDOW_LINES => 2000;
 
 sub details ($self) {
   my $id   = $self->stash('id');
@@ -102,8 +103,9 @@ sub file_view_meta ($self) {
     $payload->{entries} = $self->_file_browser_entries($package, $file, $filename);
   }
   else {
+    my $from = $self->param('from') // '';
     $payload->{kind}   = 'file';
-    $payload->{source} = $self->_file_browser_source($package, $file, $filename);
+    $payload->{source} = $self->_file_browser_source($package, $file, $filename, $from =~ /^[1-9]\d*$/ ? $from : 1);
   }
 
   return $self->render(json => $payload);
@@ -196,7 +198,7 @@ sub _file_browser_entries ($self, $package, $file, $filename) {
   return \@entries;
 }
 
-sub _file_browser_source ($self, $package, $file, $filename) {
+sub _file_browser_source ($self, $package, $file, $filename, $from) {
   my $file_id = 0;
   my %info_by_line;
   if (
@@ -209,64 +211,64 @@ sub _file_browser_source ($self, $package, $file, $filename) {
     %info_by_line = %{$self->snippets->file_line_info($package->{id}, $file_id)};
   }
 
-  my $size = -s $file;
-  my $max  = $self->app->config->{max_file_browser_size} // 256_000;
-
-  # Above the budget we still show the top of the file - most license matches sit in the header - instead
-  # of withholding it entirely. Only the first $max bytes are read, so an arbitrarily huge file never
-  # lands in memory; the buffer is then trimmed back to its last newline so every shown line stays whole
-  # and, because a newline is a single byte, no UTF-8 character is ever cut mid-sequence.
-  my ($bytes, $truncated);
-  if ($max && $size > $max) {
-    my $handle = $file->open('<');
-    read $handle, my ($head), $max;
-    my $nl = rindex($head, "\n");
-
-    # A file whose first chunk holds no line break at all (typically minified) cannot be shown as lines,
-    # so it falls back to the old "too large" panel rather than rendering one broken partial line.
-    if ($nl < 0) {
-      return {
-        id           => $file_id,
-        name         => $package->{name},
-        filename     => $filename,
-        oversized    => 1,
-        size         => $size,
-        maxSize      => $max,
-        sizeLabel    => humanize_bytes($size),
-        maxSizeLabel => humanize_bytes($max)
-      };
-    }
-    $bytes     = substr $head, 0, $nl + 1;
-    $truncated = 1;
+  # Above the budget the file is shown one window at a time, starting wherever the reviewer asked for (a
+  # deep link to a line, or paging on from the previous window), so every part of it stays reachable
+  my $max      = $self->app->config->{max_file_browser_size} // 256_000;
+  my $windowed = $max && -s $file > $max;
+  my ($bytes, $more);
+  if ($windowed) {
+    (my $window, $more) = _read_window($file, $from, $max);
+    $bytes = join '', map {"$_\n"} @$window;
   }
-  $bytes //= $file->slurp;
+  else { ($bytes, $from) = ($file->slurp, 1) }
 
-  my @lines;
-  my $number = 1;
-  my @text   = split /\n/, $self->maybe_utf8($bytes), -1;
+  my @text = split /\n/, $self->maybe_utf8($bytes), -1;
   pop @text if @text && $text[-1] eq '';
-  for my $line (@text) {
-    push @lines, [$number, {%{$info_by_line{$number} // {risk => 0}}}, $line];
-    $number++;
-  }
+  my @lines = map { my $nr = $from + $_; [$nr, {%{$info_by_line{$nr} // {risk => 0}}}, $text[$_]] } 0 .. $#text;
 
   my $source = {id => $file_id, lines => lines_context(\@lines), name => $package->{name}, filename => $filename};
+  return $source unless $windowed;
 
-  # A truncated file still carries the whole match map from indexing, so we can tell the reviewer whether
-  # anything worth their attention sits past the cut. Real pattern matches (any risk, including 0, so keyed
-  # on the pattern id) and unresolved snippets (risk 9) both count the same; cleared and covered
-  # boilerplate, which assert no license, have neither and are not flagged.
-  if ($truncated) {
-    my $shown = @lines ? $lines[-1][0] : 0;
-    my $below = grep {
-      my $i = $info_by_line{$_};
-      $_ > $shown && (defined $i->{pid} || ($i->{risk} // 0) == 9);
-    } keys %info_by_line;
-    $source->{truncated}
-      = {shownLines => $shown, matchesBelow => $below, size => $size, shownLabel => humanize_bytes(length $bytes)};
+  # The match map from indexing covers the whole file, so the reviewer can see what lies outside the window.
+  # Real pattern matches (any risk, keyed on the pattern id) and unresolved snippets (risk 9) count the same;
+  # cleared and covered boilerplate asserts no license and has neither.
+  my $to = $from + @lines - 1;
+  my ($above, $below) = (0, 0);
+  for my $nr (keys %info_by_line) {
+    my $info = $info_by_line{$nr};
+    next unless defined $info->{pid} || ($info->{risk} // 0) == 9;
+    $above++ if $nr < $from;
+    $below++ if $nr > $to;
   }
+  $source->{window}
+    = {from => $from, to => $to, more => $more ? \1 : \0, matchesAbove => $above, matchesBelow => $below};
 
   return $source;
+}
+
+# Stream fixed-size chunks, so neither the lines before the window nor one enormous line (minified code) is
+# ever held whole. A line running past the byte budget is clipped and ends the window.
+sub _read_window ($file, $from, $budget) {
+  my $handle = $file->open('<');
+  my ($nr, $used, $line, $open, $more, @lines) = (1, 0, '');
+CHUNK: while (read $handle, my $chunk, 65536) {
+    for my $piece (split /(?<=\n)/, $chunk) {
+      my $ends = $piece =~ s/\n\z//;
+      if ($nr >= $from) {
+        if (!$open && (@lines >= WINDOW_LINES || $used >= $budget)) { $more = 1; last CHUNK }
+        my $take = substr $piece, 0, $budget > $used ? $budget - $used : 0;
+        $line .= $take;
+        $used += length($take) + 1;
+      }
+      $open = !$ends;
+      next if $open;
+      push @lines, $line if $nr >= $from;
+      ($line, $nr) = ('', $nr + 1);
+    }
+  }
+  push @lines, $line if $open && $nr >= $from;
+
+  return (\@lines, $more);
 }
 
 sub list_recent ($self) {

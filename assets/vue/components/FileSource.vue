@@ -7,6 +7,19 @@
       <col v-if="!readOnly" class="snippet-col-quick-actions" />
     </colgroup>
     <tbody>
+      <tr v-if="fileWindow && fileWindow.from > 1">
+        <td
+          class="source-gap source-window"
+          :class="{'has-matches': fileWindow.matchesAbove > 0}"
+          :colspan="tableColspan"
+        >
+          <button type="button" @click="$emit('page', 'previous')">
+            Show previous lines<template v-if="fileWindow.matchesAbove > 0">
+              · {{ matchCount(fileWindow.matchesAbove) }} above</template
+            >
+          </button>
+        </td>
+      </tr>
       <!-- eslint-disable-next-line vue/no-v-for-template-key -->
       <template v-for="(line, idx) in lines" :key="idx">
         <tr v-if="line[1].withgap">
@@ -68,6 +81,9 @@
               <a v-if="canIgnoreMatch(line)" href="#" class="dropdown-item" @click.prevent="openIgnore(line)"
                 >Ignore this match</a
               >
+              <a v-if="fileUrl" class="dropdown-item" :href="lineUrl(line[0])" target="_blank" rel="noopener"
+                >View in file at line {{ line[0] }}</a
+              >
 
               <template v-if="line[0] > 1">
                 <div class="dropdown-divider"></div>
@@ -113,7 +129,10 @@
             :title="canSelectLines ? selectLabel : null"
             @click="selectLine(line[0])"
           >
-            {{ line[0] }}
+            <a v-if="fileUrl && !canSelectLines" :href="lineUrl(line[0])" target="_blank" rel="noopener">{{
+              line[0]
+            }}</a>
+            <template v-else>{{ line[0] }}</template>
           </td>
           <td class="code">
             {{ line[2] }}<span v-if="derivedBadge(line)" class="derived-badge">{{ derivedBadge(line) }}</span>
@@ -181,19 +200,17 @@
           </td>
         </tr>
       </template>
-      <!-- End-of-file marker for a file the browser shortened. Warns (amber) when license or unresolved
-           matches remain past the cut, reassures (neutral) when none do. -->
-      <tr v-if="truncation">
+      <tr v-if="fileWindow && fileWindow.more">
         <td
-          class="source-gap source-truncation"
-          :class="{'has-matches-below': truncation.matchesBelow > 0}"
+          class="source-gap source-window"
+          :class="{'has-matches': fileWindow.matchesBelow > 0}"
           :colspan="tableColspan"
         >
-          <span v-if="truncation.matchesBelow > 0"
-            >File shortened to the first {{ truncation.shownLabel }} - {{ truncation.matchesBelow }} more
-            {{ truncation.matchesBelow === 1 ? 'match' : 'matches' }} below.</span
-          >
-          <span v-else>File shortened to the first {{ truncation.shownLabel }} - no further matches below.</span>
+          <button type="button" @click="$emit('page', 'next')">
+            Show next lines<template v-if="fileWindow.matchesBelow > 0">
+              · {{ matchCount(fileWindow.matchesBelow) }} below</template
+            >
+          </button>
         </td>
       </tr>
     </tbody>
@@ -212,7 +229,9 @@ export default {
   components: {PendingActionIndicator, SnippetEditor},
   props: {
     lines: {type: Array, required: true},
-    truncation: {type: Object, default: null},
+    fileWindow: {type: Object, default: null},
+    fileUrl: {type: String, default: ''},
+    targetLine: {type: Number, default: 0},
     fileId: {type: Number, required: true},
     packageId: {type: Number, default: 0},
     filename: {type: String, default: ''},
@@ -223,7 +242,7 @@ export default {
     inlineEditor: {type: Object, default: null},
     readOnly: {type: Boolean, default: false}
   },
-  emits: ['extend', 'open-editor', 'ignore-match', 'dismiss-action', 'close-editor', 'editor-submit'],
+  emits: ['page', 'extend', 'open-editor', 'ignore-match', 'dismiss-action', 'close-editor', 'editor-submit'],
   data() {
     return {
       hoveredGroup: null,
@@ -549,6 +568,7 @@ export default {
     },
 
     rangeClass(lineNumber) {
+      if (lineNumber === this.targetLine) return ['line-target'];
       const preview = this.preview;
       if (preview && lineNumber >= preview.start && lineNumber <= preview.end) {
         return lineNumber === this.pickAnchor ? ['line-preview', 'line-anchor'] : ['line-preview'];
@@ -599,6 +619,12 @@ export default {
       const params = {from: this.packname};
       if (hash) params.hash = hash;
       return `/snippet/edit/${id}?${new URLSearchParams(params).toString()}`;
+    },
+    lineUrl(lineNumber) {
+      return `${this.fileUrl}#L${lineNumber}`;
+    },
+    matchCount(count) {
+      return `${count} ${count === 1 ? 'match' : 'matches'}`;
     },
     editPatternUrl(id) {
       return `/licenses/edit_pattern/${id}`;
@@ -683,6 +709,21 @@ export default {
   background-color: var(--cavil-accent-bg);
   box-shadow: inset 3px 0 0 var(--cavil-accent);
 }
+/* A linked line, the blob-view highlight on GitHub. Wins over a match row's risk tint for that one line. */
+.source .snippet tr.line-target {
+  background-color: var(--cavil-attention-bg);
+}
+.source .snippet tr.line-target td.linenumber {
+  box-shadow: inset 3px 0 0 var(--cavil-attention-strong);
+  color: var(--cavil-fg);
+}
+.source .snippet td.linenumber a {
+  color: inherit;
+  text-decoration: none;
+}
+.source .snippet td.linenumber a:hover {
+  color: var(--cavil-accent);
+}
 @keyframes legal-line-anchor {
   50% {
     box-shadow: inset 3px 0 0 rgba(var(--cavil-accent-rgb), 0.35);
@@ -760,21 +801,40 @@ export default {
   position: relative;
   z-index: 1;
 }
-/* End-of-file truncation marker. The neutral variant reuses the skipped-lines pill; when matches remain
-   past the cut it turns amber so a reviewer reads it as "you are not seeing everything" at a glance. As
-   the last row its full-width strip has to tuck inside the panel's rounded bottom corners (6px outer
-   radius minus the 1px border), which the panel cannot clip itself without cutting off row action menus. */
-.snippet td.source-truncation {
+/* Window boundaries of a file too large to show at once: the skipped-lines pill as a button, amber when
+   matches sit on the far side. As first or last row the strip tucks inside the panel's rounded corners,
+   which the panel cannot clip itself without cutting off row action menus. */
+.snippet tr:first-child td.source-window {
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+}
+.snippet tr:last-child td.source-window {
   border-bottom-left-radius: 5px;
   border-bottom-right-radius: 5px;
 }
-.snippet td.source-truncation.has-matches-below {
+.snippet td.source-window button {
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 1px 8px;
+  position: relative;
+  z-index: 1;
+}
+.snippet td.source-window button:hover,
+.snippet td.source-window button:focus-visible {
+  border-color: var(--cavil-accent);
+  color: var(--cavil-accent);
+}
+.snippet td.source-window.has-matches {
   color: var(--cavil-attention-deep-2);
 }
-.snippet td.source-truncation.has-matches-below::before {
+.snippet td.source-window.has-matches::before {
   background: var(--cavil-attention-4);
 }
-.snippet td.source-truncation.has-matches-below span {
+.snippet td.source-window.has-matches button {
   background: var(--cavil-attention-tint-1);
   border-color: var(--cavil-attention-4);
 }

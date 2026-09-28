@@ -697,7 +697,7 @@ sub report_checksum ($declarations, $dig_report) {
     $text .= "\n";
   }
 
-  # Hash the complete set deterministically; snippets is expansion-truncated.
+  # Hash the complete set deterministically.
   if (my $snippets = $dig_report->{missed_snippets}) {
     my @all;
     for my $file (keys %$snippets) {

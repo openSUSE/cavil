@@ -39,7 +39,9 @@
           <template v-else-if="meta.kind === 'directory'">
             {{ meta.entries.length }} {{ meta.entries.length === 1 ? 'item' : 'items' }}
           </template>
-          <template v-else-if="sourceIsOversized">{{ meta.source.sizeLabel }} file</template>
+          <template v-else-if="meta.source.window"
+            >lines {{ meta.source.window.from }}-{{ meta.source.window.to }}</template
+          >
           <template v-else
             >{{ meta.source.lines.length }} {{ meta.source.lines.length === 1 ? 'line' : 'lines' }}</template
           >
@@ -80,18 +82,11 @@
       </div>
 
       <div v-else-if="meta.kind === 'file'" class="file-browser-panel file-browser-source-panel">
-        <div v-if="sourceIsOversized" class="file-browser-too-large" role="status">
-          <i class="fa-regular fa-file-lines"></i>
-          <strong>This file is too large to display.</strong>
-          <span
-            >{{ meta.source.filename }} is {{ meta.source.sizeLabel }}. The display limit is
-            {{ meta.source.maxSizeLabel }}.</span
-          >
-        </div>
-        <div v-else class="source file-browser-source">
+        <div class="source file-browser-source">
           <FileSource
             :lines="meta.source.lines"
-            :truncation="meta.source.truncated || null"
+            :file-window="meta.source.window || null"
+            :target-line="targetLine"
             :file-id="meta.source.id || 0"
             :package-id="meta.package.id"
             :filename="meta.source.filename"
@@ -101,6 +96,7 @@
             :read-only="reindexing"
             :pending-actions="pendingActionsForCurrentFile"
             :inline-editor="openInlineEditor"
+            @page="onPage"
             @extend="onExtend"
             @open-editor="openEditor"
             @ignore-match="onIgnoreMatch"
@@ -137,6 +133,7 @@ let pendingActionIdSeq = 0;
 const REBUILD_LABELS = ['Queued', 'Unpacking', 'Indexing', 'Analyzing'];
 const STATE_POLL_DELAY = 5000;
 const IDLE_POLL_DELAY = 15000;
+const WINDOW_LINES = 2000;
 
 export default {
   name: 'FileBrowser',
@@ -173,7 +170,8 @@ export default {
       rebuildLabels: REBUILD_LABELS,
       rebuildStage: null,
       reindexing: false,
-      statePollTimer: null
+      statePollTimer: null,
+      targetLine: 0
     };
   },
   computed: {
@@ -183,22 +181,19 @@ export default {
     pendingActionsForCurrentFile() {
       if (!this.meta || this.meta.kind !== 'file') return [];
       return this.pendingActions.filter(a => a.fileId === this.meta.source.id);
-    },
-    sourceIsOversized() {
-      return this.meta && this.meta.kind === 'file' && this.meta.source && this.meta.source.oversized;
     }
   },
   mounted() {
     window.addEventListener('popstate', this.onPopState);
-    this.fetchPath(this.initialPath, {replace: true});
+    this.fetchPath(this.initialPath, {replace: true, seek: true});
   },
   beforeUnmount() {
     window.removeEventListener('popstate', this.onPopState);
     if (this.statePollTimer !== null) clearTimeout(this.statePollTimer);
   },
   methods: {
-    metaUrl(path) {
-      return `/reviews/file_view_meta/${this.pkgId}/${encodePath(path)}`;
+    metaUrl(path, from) {
+      return `/reviews/file_view_meta/${this.pkgId}/${encodePath(path)}${from > 1 ? `?from=${from}` : ''}`;
     },
     viewUrl(path) {
       return fileViewUrl(this.pkgId, path);
@@ -208,8 +203,11 @@ export default {
       this.error = null;
       this.editorError = null;
       this.notice = null;
+      // A file too large to show at once opens on a window that starts a little above the linked line
+      const line = options.replace ? Number((window.location.hash.match(/^#L(\d+)$/) || [])[1] ?? 0) : 0;
+      const from = options.from ?? Math.max(1, line - 20);
       try {
-        const res = await fetch(this.metaUrl(path));
+        const res = await fetch(this.metaUrl(path, from));
         if (!res.ok) {
           this.error = `Could not load file browser data (HTTP ${res.status}).`;
           return;
@@ -224,12 +222,27 @@ export default {
         else if (this.meta.kind === 'directory')
           document.title = `Directory listing of ${this.meta.currentPath || '/'}`;
         else document.title = `Content of ${this.meta.currentPath}`;
-        const nextUrl = this.viewUrl(this.meta.currentPath);
+        this.targetLine = line;
+        const nextUrl = this.viewUrl(this.meta.currentPath) + (options.replace ? window.location.hash : '');
         if (options.replace) history.replaceState({path: this.meta.currentPath}, '', nextUrl);
         else history.pushState({path: this.meta.currentPath}, '', nextUrl);
       } finally {
         this.loading = false;
       }
+      if (line && options.seek) {
+        await this.$nextTick();
+        document.querySelector('tr.line-target')?.scrollIntoView({block: 'center'});
+      }
+    },
+    async onPage(direction) {
+      const {from, to} = this.meta.source.window;
+      await this.fetchPath(this.meta.currentPath, {
+        replace: true,
+        from: direction === 'next' ? to + 1 : Math.max(1, from - WINDOW_LINES)
+      });
+      const rows = document.querySelectorAll('.file-browser-source tr');
+      if (direction === 'next') rows[0]?.scrollIntoView({block: 'start'});
+      else rows[rows.length - 1]?.scrollIntoView({block: 'end'});
     },
     openPath(event, path) {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
@@ -272,7 +285,7 @@ export default {
       const prefix = `/reviews/file_view/${this.pkgId}`;
       let path = window.location.pathname.startsWith(prefix) ? window.location.pathname.slice(prefix.length) : '';
       path = path.replace(/^\//, '');
-      this.fetchPath(decodeURIComponent(path), {replace: true});
+      this.fetchPath(decodeURIComponent(path), {replace: true, seek: true});
     },
     async fetchSource(start = 0, end = 0) {
       if (!this.meta || this.meta.kind !== 'file' || !this.meta.source.id) return;
@@ -626,7 +639,6 @@ export default {
 .file-browser-source .snippet tr.has-pattern-tooltip td.code {
   cursor: help;
 }
-.file-browser-too-large,
 .file-browser-unavailable {
   align-items: center;
   color: var(--cavil-fg-muted-alt);
@@ -638,12 +650,10 @@ export default {
   padding: 32px 16px;
   text-align: center;
 }
-.file-browser-too-large i,
 .file-browser-unavailable i {
   color: var(--cavil-fg-disabled);
   font-size: 32px;
 }
-.file-browser-too-large strong,
 .file-browser-unavailable strong {
   color: var(--cavil-fg);
   font-size: 16px;

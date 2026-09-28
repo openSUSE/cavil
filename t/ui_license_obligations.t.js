@@ -230,13 +230,7 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         'and its name is painted softer than an identified one'
       );
 
-      // Both carry a single file, so only the placeholder rule can be keeping this one shut
-      t.equal(await grabBag.locator('.risk-file-list').isVisible(), false, 'its file list starts closed');
-      t.equal(
-        await apacheItem.locator('.risk-file-list').first().isVisible(),
-        true,
-        'an identified license with as many files starts open'
-      );
+      t.equal(await grabBag.locator('.risk-file-list').isVisible(), true, 'its file list shows like any other');
 
       // "Any reference local" sorts before "Apache-2.0" by name, so last place can only come from the
       // placeholders-after-identified rule

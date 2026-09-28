@@ -38,7 +38,8 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
 
       // Use menu to select a pattern (the action line shifts after each extend, so
       // use a position-stable selector rooted at the file's source container).
-      const actionTrigger = '#file-details-1 a[data-bs-toggle="dropdown"]';
+      await expandFileDetails(page, 1);
+      const actionTrigger = '#file-details-1 .source a[data-bs-toggle="dropdown"]';
       const actionMenuItem = label => `#file-details-1 .dropdown-menu :has-text("${label}")`;
       await page.locator(actionTrigger).click();
       await page.locator(actionMenuItem('Extend one line above')).click();
@@ -141,15 +142,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
 
-      // Open a file listed under a concrete license (not the risk-9 unresolved bucket); some lists start
-      // collapsed, so reveal it first.
+      // Open a file listed under a concrete license (not the risk-9 unresolved bucket)
       const section = page.locator('.risk-license-section:not(.risk-license-section-unresolved)').first();
-      const list = section.locator('ul.risk-file-list').first();
-      if (!(await list.isVisible())) {
-        await section.locator('a.risk-license-count').first().click();
-        await list.waitFor({state: 'visible'});
-      }
-      const fileLink = list.locator('a.file-link').first();
+      const fileLink = section.locator('ul.risk-file-list a.file-link').first();
       const fileId = (await fileLink.getAttribute('href')).replace('#file-', '');
       await fileLink.click();
       await page.waitForSelector(`#file-details-${fileId} table.snippet`);
@@ -472,8 +467,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       await page.waitForSelector('#pending-actions-widget');
 
       // Collapse the file again so we can verify the widget link re-expands it
-      await page.locator(`#expand-link-${fileId} ~ div .file-preview-close`).click();
-      t.same(await page.isVisible(`#file-details-${fileId}`), false, 'file collapsed before jump');
+      await page.locator(`#filelist-snippets a[href="#file-${fileId}"]`).click();
+      await page.waitForSelector(`#file-details-${fileId}`, {state: 'detached'});
+      t.pass('file collapsed before jump');
 
       // Expand widget and click the location link
       await page.locator('#pending-actions-widget .pending-actions-toggle').click();
@@ -688,6 +684,12 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
       await page.waitForSelector('#license-chart');
 
+      // An open panel survives the reindex, although every file id changes
+      const row = page.locator('#filelist-snippets a.file-link').first();
+      const path = await row.innerText();
+      await row.click();
+      await page.waitForSelector('.report-match-panel table.snippet');
+
       // Wait for the reindex POST to complete before triggering job processing -
       // otherwise page2.goto(performJobs) can race ahead of the job being queued.
       const page2 = await context.newPage();
@@ -701,6 +703,9 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
 
       await page.waitForSelector('#license-chart');
       t.match(await page.innerText('ul#risk-3 li'), /Made-Up-License-1.0/);
+      const reopened = page.locator('#filelist-snippets a.file-link[aria-expanded="true"]');
+      t.equal(await reopened.innerText(), path, 'the same file is still open');
+      await page.waitForSelector('.report-match-panel table.snippet');
     });
 
     await t.test('Missing Licenses page: approve a proposed new license', async t => {

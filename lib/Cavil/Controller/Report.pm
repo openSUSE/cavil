@@ -122,13 +122,23 @@ sub source ($self) {
   my $validation = $self->validation;
   $validation->optional('start')->num;
   $validation->optional('end')->num;
+  $validation->optional('license');
+  $validation->required('risk')->num if defined $validation->param('license');
+  $validation->optional('unresolved')->in(1);
+  $validation->optional('groups')->num(1, undef);
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $id    = $self->stash('id');
   my $start = $validation->param('start') || 0;
   my $end   = $validation->param('end')   || 0;
+  my $scope = {
+    license    => $validation->param('license'),
+    risk       => $validation->param('risk'),
+    unresolved => $validation->param('unresolved'),
+    groups     => $validation->param('groups') // 10
+  };
   return $self->render(json => {error => 'unknown file'}, status => 404)
-    unless my $source = $self->reports->source_for($id, $start, $end);
+    unless my $source = $self->reports->source_for($id, $start, $end, $scope);
 
   $source->{lines} = lines_context($source->{lines});
   $self->render(json => {source => $source});

@@ -413,7 +413,7 @@ html[data-bs-theme='dark'] {
 .cavil-brand {
   align-items: center;
   display: inline-flex;
-  gap: .6rem;
+  gap: 0.6rem;
   margin-right: 1.25rem;
 }
 .cavil-brand img {
@@ -432,18 +432,18 @@ html[data-bs-theme='dark'] {
 }
 .cavil-brand-subtitle {
   color: var(--cavil-fg-secondary);
-  font-size: .72rem;
+  font-size: 0.72rem;
   font-weight: 500;
 }
 .cavil-navbar-search {
-  margin-right: .75rem;
+  margin-right: 0.75rem;
 }
 .cavil-search-input {
   border-radius: 6px;
-  font-size: .875rem;
+  font-size: 0.875rem;
 }
 .cavil-user-menu-icon {
-  margin-right: .25rem;
+  margin-right: 0.25rem;
 }
 .cavil-user-name {
   display: inline-block;
@@ -454,7 +454,7 @@ html[data-bs-theme='dark'] {
   white-space: nowrap;
 }
 .cavil-menu-badge {
-  margin-left: .35rem;
+  margin-left: 0.35rem;
   vertical-align: text-bottom;
 }
 .cavil-user-dropdown .dropdown-item {
@@ -528,17 +528,17 @@ html[data-bs-theme='dark'] {
 }
 .cavil-user-dropdown .cavil-role-list {
   color: var(--cavil-fg-muted);
-  font-size: .8125rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
   max-width: 18rem;
   font-weight: 500;
-  padding: .1rem 1rem .55rem;
+  padding: 0.1rem 1rem 0.55rem;
   white-space: normal;
 }
 @media (max-width: 991.98px) {
   .cavil-navbar-search {
     align-self: flex-start;
-    margin: .5rem 0;
+    margin: 0.5rem 0;
   }
 }
 .cavil-icon-action {
@@ -748,7 +748,9 @@ a.cavil-external-link-target:focus {
   overflow: hidden;
   opacity: 0;
   text-overflow: ellipsis;
-  transition: max-width 160ms ease, opacity 120ms ease;
+  transition:
+    max-width 160ms ease,
+    opacity 120ms ease;
 }
 .cavil-external-link-submission:hover .cavil-external-link-target-package,
 .cavil-external-link-submission:focus-within .cavil-external-link-target-package,
@@ -793,7 +795,7 @@ textarea.mono-textarea {
   margin-bottom: 10px;
   border: 1px solid var(--cavil-edge-1) !important;
   border-top: 0 !important;
-  border-radius: 0 0 .25rem .25rem;
+  border-radius: 0 0 0.25rem 0.25rem;
 }
 .source td.quick-actions {
   position: relative;
@@ -809,9 +811,9 @@ textarea.mono-textarea {
   border: 0 !important;
 }
 .source td.code {
-  padding-left: .5em;
+  padding-left: 0.5em;
   color: var(--cavil-fg-code);
-  margin-left: .5em;
+  margin-left: 0.5em;
   white-space: -moz-pre-wrap;
   white-space: -o-pre-wrap;
   white-space: pre-wrap;
@@ -820,8 +822,8 @@ textarea.mono-textarea {
 }
 .source td.linenumber {
   border-right: 1px solid var(--cavil-border-faint);
-  padding: 0 .5em;
-  margin-right: .5em;
+  padding: 0 0.5em;
+  margin-right: 0.5em;
   text-align: right;
   width: 1%;
   min-width: 25px;
@@ -913,23 +915,26 @@ html {
 body {
   margin-bottom: 60px;
 }
-.table th.fit, table td.fit {
+.table th.fit,
+table td.fit {
   padding-left: 0px !important;
   width: 1%;
   white-space: nowrap;
 }
-.table.borderless td, .table.borderless th {
+.table.borderless td,
+.table.borderless th {
   border: none;
 }
 .noleftpad {
   padding-left: 0 !important;
 }
-.novertpad th, .novertpad td {
+.novertpad th,
+.novertpad td {
   padding-bottom: 0 !important;
   padding-top: 0 !important;
 }
 .top-buffer {
-  margin-top:20px;
+  margin-top: 20px;
 }
 .btn.back-to-top {
   align-items: center;
@@ -954,47 +959,6 @@ body {
   opacity: 1;
   pointer-events: auto;
 }
-.file-container {
-  background-color: var(--cavil-canvas-subtle);
-  border: 1px solid var(--cavil-border);
-  border-radius: 6px;
-  margin-top: 1.75rem;
-  /* Intentionally NOT overflow: hidden. The inline ▲/▼ extend buttons and the
-     action pulldown menu in FileSource sit slightly outside their row's edge,
-     and clipping them at the container boundary used to cut them in half on
-     the first/last match rows. Inner backgrounds (.file header, .source row
-     borders) are rounded individually so the corners still look clean. */
-}
-.file-container.is-header-stuck {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-.file {
-  background-color: var(--cavil-canvas-subtle);
-  border: 0 !important;
-  border-bottom: 1px solid var(--cavil-border) !important;
-  border-radius: 5px 5px 0 0;
-  font-size: 13px;
-  line-height: 20px;
-  margin-top: 0;
-  padding: 10px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  box-shadow: 0 1px 0 rgba(var(--cavil-shadow-rgb), 0.04), 0 8px 16px -16px rgba(var(--cavil-shadow-rgb), 0.35);
-}
-.file.is-stuck {
-  border-radius: 0;
-}
-.file a {
-  color: var(--cavil-grey-6);
-}
-.file-container .source {
-  background-color: var(--cavil-canvas);
-  border: 0 !important;
-  border-radius: 0;
-  margin-bottom: 0;
-}
 .fineprint {
   font-size: 0.3em;
 }
@@ -1011,8 +975,12 @@ body {
   z-index: -1;
 }
 
-.license-1 { background-color: var(--cavil-danger-8) };
-.license-0 { background-color: var(--cavil-success-5) };
+.license-1 {
+  background-color: var(--cavil-danger-8);
+}
+.license-0 {
+  background-color: var(--cavil-success-5);
+}
 
 .field-with-error {
   border: 2px solid var(--cavil-danger-7) !important;
@@ -1021,7 +989,8 @@ body {
 .cavil-copy {
   font-size: 14px;
 }
-.cavil-copy, .cavil-copy a {
+.cavil-copy,
+.cavil-copy a {
   color: var(--cavil-grey-8);
 }
 .cavil-footer {
@@ -1052,7 +1021,7 @@ body {
   line-height: 20px;
   padding: 10px;
 }
-.pattern-header a{
+.pattern-header a {
   color: var(--cavil-fg-body);
   text-decoration: none;
 }
@@ -1276,4 +1245,45 @@ body {
   --bs-pagination-active-bg: var(--cavil-accent-emphasis);
   --bs-pagination-active-border-color: var(--cavil-accent-emphasis);
   --bs-pagination-active-color: var(--cavil-on-accent);
+}
+
+/* Height reveal for <Transition name="cavil-reveal">: one grid row whose only child can shrink to nothing.
+   Clipped only while moving, so menus inside can overflow. */
+.cavil-reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.cavil-reveal > * {
+  min-height: 0;
+}
+.cavil-reveal-enter-active {
+  animation: cavil-reveal-open 150ms ease-out;
+}
+.cavil-reveal-leave-active {
+  animation: cavil-reveal-close 150ms ease-out;
+}
+@keyframes cavil-reveal-open {
+  from {
+    clip-path: inset(0);
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes cavil-reveal-close {
+  from {
+    clip-path: inset(0);
+  }
+  to {
+    clip-path: inset(0);
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cavil-reveal {
+    animation: none !important;
+  }
 }

@@ -400,23 +400,13 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
 
       const apache = page.locator('#risk-5 > li').filter({hasText: 'Apache-2.0'}).first();
       t.match(await apache.innerText(), /102 files/);
+      t.equal(await apache.locator('a.file-link').count(), 3, 'every license shows its first 3 files');
+      await apache.locator('button.risk-file-more').click();
       t.equal(await apache.locator('a.file-link').count(), 21);
       t.match(await apache.textContent(), /81 more/);
     });
 
-    await t.test('Large unresolved report omits inline preview indicator', async t => {
-      // mojo#1 has only a handful of unresolved matches, well under the
-      // max_expanded_files cap - the indicator must stay out of the DOM.
-      await page.goto(url);
-      await page.click('text=Artistic');
-      t.equal(await page.innerText('title'), 'Report for perl-Mojolicious');
-      await page.waitForSelector('#license-chart');
-      t.equal(
-        await page.locator('#hidden-previews-notice').count(),
-        0,
-        'no indicator when missed-file count is under the cap'
-      );
-
+    await t.test('Large unresolved report loads no sources until a file is opened', async t => {
       // synthetic-many-unresolved is a fixture package with 110 files, each
       // containing one unresolved keyword match (real index pipeline, real
       // sources). Navigate via the priority-1 open-reviews page -> row link
@@ -438,7 +428,10 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       t.equal(await page.innerText('title'), 'Report for synthetic-many-unresolved');
       await page.waitForSelector('#unmatched-files');
       t.match(await page.innerText('#unmatched-files'), /110 files/);
-      t.equal(await page.locator('#hidden-previews-notice').count(), 0, 'inline preview indicator is not shown');
+      t.equal(await page.locator('.report-match-panel').count(), 0, 'no match panel is open');
+      await page.locator('#filelist-snippets .file-link').first().click();
+      await page.waitForSelector('.report-match-panel table.snippet');
+      t.equal(await page.locator('.report-match-panel tr.match-start').count(), 1, 'the file opens inline');
     });
 
     await t.test('Missing Licenses', async t => {

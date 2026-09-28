@@ -23,20 +23,15 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
     await page.click('text=Artistic');
     await page.waitForSelector('#license-chart');
 
-    // Wait until at least one auto-expanded risk-9 file has rendered a
-    // match-start row. That's where the new ▲ button attaches.
-    await page.waitForFunction(() => document.querySelector('.file-container:not(.d-none) tr.match-start'), {
-      timeout: 10000
-    });
-
-    // Pick the first auto-expanded risk-9 file. Both subtests below operate
-    // on the same match-start so the "+" subtest sees a range that has been
-    // extended in both directions.
+    // Open the first risk-9 file. Both subtests below operate on the same match-start so the "+" subtest
+    // sees a range that has been extended in both directions.
+    await page.locator('#filelist-snippets .file-link').first().click();
+    await page.waitForSelector('.report-match-panel tr.match-start');
     const fileId = await page.evaluate(() => {
-      const row = document.querySelector('.file-container:not(.d-none) tr.match-start');
+      const row = document.querySelector('.report-match-panel tr.match-start');
       return Number(row.id.match(/^line-(\d+)-/)[1]);
     });
-    t.ok(fileId, `found auto-expanded risk-9 file: file-${fileId}`);
+    t.ok(fileId, `opened risk-9 file: file-${fileId}`);
 
     await page.locator(`#file-details-${fileId} tr.match-start`).first().scrollIntoViewIfNeeded();
 
@@ -83,7 +78,7 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
     const start0 = await readStartLine();
     const end0 = await readEndLine();
 
-    await t.test('Extend up multiple times — selection grows, button stays under cursor', async t => {
+    await t.test('Extend up multiple times - selection grows, button stays under cursor', async t => {
       t.ok(start0 > 3, `match-start at line ${start0} has room to extend three lines up`);
 
       let currentLine = start0;
@@ -116,7 +111,7 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       t.equal(currentLine, start0 - 3, 'three clicks decremented the match-start by exactly 3');
     });
 
-    await t.test('Extend down multiple times — selection grows, button stays under cursor', async t => {
+    await t.test('Extend down multiple times - selection grows, button stays under cursor', async t => {
       t.ok(end0, `match has a ▼ button at line ${end0}`);
 
       // Guarantee room below the report so the cursor-stick watcher's
@@ -195,7 +190,7 @@ t.test('Cavil UI - inline editor on match rows', skipUnlessOnline, async t => {
       // known snippet (the previous subtest reset it). The inline editor
       // button must stay rendered (used to be gated on line[1].snippet, which
       // is dropped after extending) AND must open the editor without hanging
-      // — the click handler has to coerce the server's synthetic snippet=0
+      // - the click handler has to coerce the server's synthetic snippet=0
       // marker to null, otherwise openEditor skips the from_file fetch and
       // mounts SnippetEditor against a non-existent snippet.
       const reExtendStartRow = page.locator(`#file-details-${fileId} tr.match-start`).first();

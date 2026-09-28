@@ -151,39 +151,7 @@ sub _documents_state ($c, $pkg) {
 }
 
 sub _report_details ($c, $pkg, $report) {
-  my $config       = $c->app->config;
-  my $max          = $config->{min_files_short_report};
-  my $expand_limit = $config->{max_expanded_files};
-
-  my %linked;
-  $linked{$_->{id}} = 1 for @{$report->{missed_files} // []};
-  for my $bucket (values %{$report->{risks} // {}}) {
-    for my $lic (values %$bucket) {
-      my $count = 0;
-      for my $file (@{$lic->{files} // []}) {
-        $linked{$file->[0]} = 1;
-        last if ++$count > $max;
-      }
-    }
-  }
-
-  my $num_expanded  = 0;
-  my $hidden_inline = 0;
-  my @files;
-  for my $file (@{$report->{files} // []}) {
-    next unless $linked{$file->{id}};
-    my $wants_expand = $file->{expand}                                ? 1 : 0;
-    my $expand       = $wants_expand && $num_expanded < $expand_limit ? 1 : 0;
-    $num_expanded++  if $expand;
-    $hidden_inline++ if $wants_expand && !$expand;
-    push @files,
-      {
-      id       => $file->{id},
-      path     => $file->{path},
-      expand   => $expand ? \1 : \0,
-      file_url => $c->url_for('file_view', id => $pkg->{id}, file => $file->{path})->to_string
-      };
-  }
+  my $max = $c->app->config->{min_files_short_report};
 
   # _chart_data() mutates its input hash, so pass a shallow copy
   my %chart_copy = %{$report->{chart} // {}};
@@ -221,13 +189,14 @@ sub _report_details ($c, $pkg, $report) {
     for my $lic (@order) {
       my $matches = $bucket->{$lic};
       my $display = $matches->{spdx} || $matches->{name};
+      my $files   = [map { [0 + $_->[0], $_->[1]] } @{$matches->{files} // []}];
       push @licenses, {
         name      => $matches->{name},
         spdx      => $matches->{spdx},
         name_html => license_link($display, $curated{$display}),
         catch_all => $matches->{catch_all} ? \1 : \0,
         flags     => $matches->{flags} // [],
-        files     => $matches->{files},
+        files     => $files,
 
         # What the external datasets (OSADL obligation checklists, SPDX classification flags) say about
         # each SPDX identifier named in this entry, verbatim and per constituent for expressions like
@@ -237,7 +206,7 @@ sub _report_details ($c, $pkg, $report) {
 
         # Where this license lives, when not one file of it is in shipped code. Lets a reader skip a
         # license that only ever turns up in a vendored tree or a test fixture without reading paths.
-        scope => peripheral_scope([map { $_->[1] } @{$matches->{files} // []}]),
+        scope => peripheral_scope([map { $_->[1] } @$files]),
         ($new_license{$matches->{name}} ? (new => \1) : ())
       };
     }
@@ -280,11 +249,8 @@ sub _report_details ($c, $pkg, $report) {
     missed_files          => \@missed,
     risks                 => \%risk_buckets,
     max_files_per_license => $max,
-    max_expanded_files    => $expand_limit,
-    hidden_inline_previews => $hidden_inline,
-    matching_globs         => $report->{matching_globs} // [],
-    files                  => \@files,
-    components             => \@components
+    matching_globs        => $report->{matching_globs} // [],
+    components            => \@components
   };
 }
 

@@ -6,7 +6,6 @@ use Mojo::Base -strict;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 
-use Mojo::File qw(path);
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
@@ -28,20 +27,6 @@ my $reports = $t->app->reports;
 
 my $base_file     = $db->select('matched_files', '*', {package => 1})->hashes->[0];
 my $base_snippets = $db->select('file_snippets', '*', {package => 1}, {order_by => 'id'})->hashes;
-
-# The report builder reads each expanded file from disk to attach line context.
-# These tests synthesize matched_files rows that have no on-disk counterpart;
-# touch an empty file for every row so the reader doesn't warn.
-sub touch_matched_files {
-  my ($pkg_id) = @_;
-  my $pkg      = $pkgs->find($pkg_id);
-  my $dir      = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
-  $dir->make_path;
-  for my $row (@{$db->select('matched_files', '*', {package => $pkg_id})->hashes}) {
-    my $file = $dir->child($row->{filename});
-    $file->spew('') unless -e $file;
-  }
-}
 
 # Mirror the indexed file_snippets onto a sibling matched_files row, with
 # either original-first or duplicate-first physical insertion order
@@ -142,12 +127,11 @@ subtest 'Byte-identical packages have a zero summary_delta_score' => sub {
     );
   }
   rebuild_file_snippets($pkg2_id, $orig2_id, $base_file->{filename}, $base_file->{mimetype}, $base_snippets, 1);
-  touch_matched_files($pkg2_id);
 
   is summary_delta_score($reports->summary(1), $reports->summary($pkg2_id)), 0, 'zero delta';
 };
 
-subtest 'Summary covers all snippet hashes regardless of max_expanded_files' => sub {
+subtest 'Summary covers all snippet hashes' => sub {
   my @filenames      = map { sprintf 'file%02d.txt', $_ } 1 .. 10;
   my %snippet_id_for = map {
     ($_ => $db->insert('snippets', {hash => "snippet-$_", text => "text $_"}, {returning => 'id'})->hash->{id})
@@ -180,28 +164,25 @@ subtest 'Summary covers all snippet hashes regardless of max_expanded_files' => 
       $db->insert('file_snippets',
         {package => $pkg_id, file => $file_id, snippet => $snippet_id_for{$name}, sline => 1, eline => 5});
     }
-    touch_matched_files($pkg_id);
 
     # Cache a real dig report the way analyze does, so summary reads the cache (the production path)
-    # rather than recomputing. Generated under the low max_expanded_files cap set above, to prove the
-    # cached missed_snippets stays complete regardless of the preview cap.
+    # rather than recomputing.
     $db->update('bot_reports', {ldig_report => to_json($reports->dig_report($pkg_id))}, {package => $pkg_id});
     return $pkg_id;
   };
 
-  $reports->max_expanded_files(3);
   my $forward_id = $build_pkg->('forward',  [@filenames]);
   my $reverse_id = $build_pkg->('reversed', [reverse @filenames]);
 
   my $forward = $reports->summary($forward_id)->{missed_snippets};
   my $reverse = $reports->summary($reverse_id)->{missed_snippets};
 
-  is scalar keys %$forward, 10, 'summary covers every winning file, not just the expanded subset';
+  is scalar keys %$forward, 10, 'summary covers every winning file';
   is summary_delta_score(
     {missed_snippets => $forward, declared => 'Unknown'},
     {missed_snippets => $reverse, declared => 'Unknown'}
     ),
-    0, 'two content-identical packages have a zero delta regardless of expansion order';
+    0, 'two content-identical packages have a zero delta regardless of insertion order';
 };
 
 done_testing;

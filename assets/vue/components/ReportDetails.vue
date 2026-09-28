@@ -156,8 +156,9 @@
                       <a
                         :href="'#file-' + file.id"
                         class="file-link risk-unresolved-file"
-                        @click.prevent="onFileLinkClick(file.id)"
-                        ><FilePath :path="file.name"
+                        :aria-expanded="isOpen(unresolvedTarget(file)) ? 'true' : 'false'"
+                        @click.prevent="togglePanel(unresolvedTarget(file))"
+                        ><i class="fa-solid file-link-chevron" aria-hidden="true"></i><FilePath :path="file.name"
                       /></a>
                       <span v-if="file.new" class="risk-new">new</span>
                     </span>
@@ -170,7 +171,38 @@
                         Risk {{ file.max_risk }}
                       </span>
                     </span>
+                    <ReportFileActions
+                      v-if="isOpen(unresolvedTarget(file))"
+                      :file-id="panel.fileId"
+                      :view-url="panelViewUrl"
+                      :has-admin-role="hasAdminRole"
+                      :has-contributor-role="hasContributorRole"
+                      @glob="openGlobProposal(panel, $event)"
+                      @close="panel = null"
+                    />
                   </div>
+                  <Transition name="cavil-reveal">
+                    <ReportMatchPanel
+                      v-if="isOpen(unresolvedTarget(file))"
+                      :panel="panel"
+                      :pkg-id="pkgId"
+                      :step="panelStep"
+                      :has-admin-role="hasAdminRole"
+                      :has-contributor-role="hasContributorRole"
+                      :read-only="reindexing"
+                      :pending-actions="pendingActionsForFile(panel.fileId)"
+                      :inline-editor="
+                        openInlineEditor && openInlineEditor.fileId === panel.fileId ? openInlineEditor : null
+                      "
+                      @show-more="showMore"
+                      @extend="onExtend"
+                      @open-editor="openEditor"
+                      @ignore-match="onIgnoreMatch"
+                      @dismiss-action="dismissAction"
+                      @close-editor="closeInlineEditor"
+                      @editor-submit="onEditorSubmit"
+                    />
+                  </Transition>
                 </li>
               </ul>
             </div>
@@ -183,7 +215,7 @@
             <ul :id="'risk-' + risk" class="risk-license-list">
               <li
                 v-for="lic in risks[risk]"
-                :key="lic.list_id"
+                :key="lic.key"
                 class="risk-license-item"
                 :class="{'is-catch-all': lic.catch_all}"
               >
@@ -193,28 +225,88 @@
                     <span v-if="lic.new" class="risk-new">new</span>
                     <span v-if="lic.scope" class="risk-license-scope">only in {{ scopeLabel(lic.scope) }}</span>
                   </span>
-                  <a :href="'#' + lic.list_id" class="risk-license-count" data-bs-toggle="collapse">
+                  <button
+                    v-if="lic.classification && lic.classification.length > 0"
+                    type="button"
+                    class="license-obligations-toggle"
+                    :aria-expanded="openObligations.has(lic.key) ? 'true' : 'false'"
+                    @click="toggleObligations(lic.key)"
+                  >
+                    <i
+                      :class="['fa-solid', openObligations.has(lic.key) ? 'fa-caret-down' : 'fa-caret-right']"
+                      aria-hidden="true"
+                    ></i>
+                    {{ obligationsLabel(lic.classification) }}
+                  </button>
+                  <span class="risk-license-count">
                     {{ lic.files.length }} {{ lic.files.length === 1 ? 'file' : 'files' }}
-                  </a>
+                  </span>
                 </div>
                 <div v-if="lic.flags.length > 0" class="risk-license-flags" aria-label="License flags">
                   <span v-for="flag in lic.flags" :key="flag" class="risk-license-flag">
                     {{ licenseFlagLabel(flag) }}
                   </span>
                 </div>
-                <LicenseObligations
-                  v-if="lic.classification && lic.classification.length > 0"
-                  :entries="lic.classification"
-                  :label="lic.spdx || lic.name"
-                />
-                <div :id="lic.list_id" :class="lic.list_class">
+                <Transition name="cavil-reveal">
+                  <LicenseObligations
+                    v-if="openObligations.has(lic.key)"
+                    :entries="lic.classification"
+                    :label="lic.spdx || lic.name"
+                  />
+                </Transition>
+                <div class="risk-files">
                   <ul class="risk-file-list">
-                    <li v-for="file in lic.shown_files" :key="file[0]">
-                      <a :href="'#file-' + file[0]" class="file-link" @click.prevent="onFileLinkClick(file[0])"
-                        ><FilePath :path="file[1]"
+                    <li v-for="file in shownFiles(lic)" :key="file[0]">
+                      <a
+                        :href="'#file-' + file[0]"
+                        class="file-link"
+                        :aria-expanded="isOpen(licenseTarget(risk, lic, file)) ? 'true' : 'false'"
+                        @click.prevent="togglePanel(licenseTarget(risk, lic, file))"
+                        ><i class="fa-solid file-link-chevron" aria-hidden="true"></i><FilePath :path="file[1]"
                       /></a>
+                      <ReportFileActions
+                        v-if="isOpen(licenseTarget(risk, lic, file))"
+                        :file-id="panel.fileId"
+                        :view-url="panelViewUrl"
+                        :has-admin-role="hasAdminRole"
+                        :has-contributor-role="hasContributorRole"
+                        @glob="openGlobProposal(panel, $event)"
+                        @close="panel = null"
+                      />
+                      <Transition name="cavil-reveal">
+                        <ReportMatchPanel
+                          v-if="isOpen(licenseTarget(risk, lic, file))"
+                          :panel="panel"
+                          :pkg-id="pkgId"
+                          :step="panelStep"
+                          :has-admin-role="hasAdminRole"
+                          :has-contributor-role="hasContributorRole"
+                          :read-only="reindexing"
+                          :pending-actions="pendingActionsForFile(panel.fileId)"
+                          :inline-editor="
+                            openInlineEditor && openInlineEditor.fileId === panel.fileId ? openInlineEditor : null
+                          "
+                          @show-more="showMore"
+                          @extend="onExtend"
+                          @open-editor="openEditor"
+                          @ignore-match="onIgnoreMatch"
+                          @dismiss-action="dismissAction"
+                          @close-editor="closeInlineEditor"
+                          @editor-submit="onEditorSubmit"
+                        />
+                      </Transition>
                     </li>
-                    <li v-if="lic.more_files > 0">{{ lic.more_files }} more</li>
+                    <li v-if="lic.files.length - shownFiles(lic).length > 0">
+                      <button
+                        v-if="!openLists.has(lic.key)"
+                        type="button"
+                        class="risk-file-more"
+                        @click="openLists.add(lic.key)"
+                      >
+                        {{ lic.files.length - shownFiles(lic).length }} more
+                      </button>
+                      <span v-else class="risk-file-more">{{ lic.files.length - shownFiles(lic).length }} more</span>
+                    </li>
                   </ul>
                 </div>
               </li>
@@ -235,88 +327,6 @@
             </ul>
           </div>
 
-          <div v-if="files.length > 0">
-            <div
-              v-for="file in files"
-              :key="file.id"
-              :class="['file-container', {'d-none': !file.expanded, 'is-header-stuck': stickyFileHeaders[file.id]}]"
-              :data-file-id="file.id"
-            >
-              <a :name="'file-' + file.id"></a>
-              <div :class="['file', 'report-file-header', {'is-stuck': stickyFileHeaders[file.id]}]">
-                <a
-                  :href="file.file_url"
-                  :id="'expand-link-' + file.id"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open file in a new tab"
-                  >{{ file.path }}</a
-                >
-                <div class="float-end file-actions">
-                  <span v-if="isAdminOrContributor" class="dropdown file-action-menu">
-                    <a
-                      href="#"
-                      :id="'file-menu-' + file.id"
-                      class="file-action-link"
-                      data-bs-toggle="dropdown"
-                      aria-haspopup="true"
-                      aria-expanded="false"
-                      title="File actions"
-                      aria-label="File actions"
-                    >
-                      <i class="fa-solid fa-ellipsis-vertical"></i>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-end" :aria-labelledby="'file-menu-' + file.id">
-                      <a
-                        v-if="hasAdminRole"
-                        href="#"
-                        class="dropdown-item"
-                        @click.prevent="openGlobProposal(file, true)"
-                      >
-                        Add ignore glob&hellip;
-                      </a>
-                      <a href="#" class="dropdown-item" @click.prevent="openGlobProposal(file, false)">
-                        Propose ignore glob&hellip;
-                      </a>
-                    </div>
-                  </span>
-                  <button
-                    type="button"
-                    class="cavil-icon-action file-preview-close"
-                    title="Close file preview"
-                    aria-label="Close file preview"
-                    @click="toggleExpand(file)"
-                  >
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-              </div>
-              <div v-if="file.expanded" :id="'file-details-' + file.id" class="source" :data-file-id="file.id">
-                <div v-if="file.sourceUnavailable" class="file-source-unavailable">
-                  The sources are being unpacked, this file becomes readable again once reindexing finishes.
-                </div>
-                <FileSource
-                  v-else-if="file.source"
-                  :lines="file.source.lines"
-                  :file-id="file.id"
-                  :package-id="pkgId"
-                  :filename="file.source.filename"
-                  :packname="file.source.name"
-                  :has-admin-role="hasAdminRole"
-                  :has-contributor-role="hasContributorRole"
-                  :read-only="reindexing"
-                  :pending-actions="pendingActionsForFile(file.id)"
-                  :inline-editor="openInlineEditor && openInlineEditor.fileId === file.id ? openInlineEditor : null"
-                  @extend="onExtend(file, $event)"
-                  @open-editor="openEditor"
-                  @ignore-match="onIgnoreMatch"
-                  @dismiss-action="dismissAction"
-                  @close-editor="closeInlineEditor"
-                  @editor-submit="onEditorSubmit"
-                />
-              </div>
-            </div>
-          </div>
           <br />
         </div>
         <PendingActionsWidget v-if="isAdminOrContributor && pendingActions.length > 0" :read-only="reindexing" />
@@ -490,16 +500,18 @@
 <script>
 import CavilNoticePanel from './CavilNoticePanel.vue';
 import FilePath from './FilePath.vue';
-import FileSource from './FileSource.vue';
 import GlobProposalModal from './GlobProposalModal.vue';
 import LegalLoading from './LegalLoading.vue';
 import LicenseCompatibilityMatrix from './LicenseCompatibilityMatrix.vue';
 import LicenseCompositionChart from './LicenseCompositionChart.vue';
-import LicenseObligations from './LicenseObligations.vue';
+import LicenseObligations, {obligationsLabel} from './LicenseObligations.vue';
 import PendingActionsWidget from './PendingActionsWidget.vue';
 import ProgressBar from './ProgressBar.vue';
 import ReportArtifacts from './ReportArtifacts.vue';
+import ReportFileActions from './ReportFileActions.vue';
+import ReportMatchPanel from './ReportMatchPanel.vue';
 import ReportNotes from './ReportNotes.vue';
+import {fileViewUrl} from '../helpers/links.js';
 import {
   ignorePendingAction,
   resolveMatchChecksum,
@@ -519,13 +531,14 @@ const COMPONENT_LICENSE_CHART_LIMIT = 7;
 const REBUILD_LABELS = ['Queued', 'Unpacking', 'Indexing', 'Analyzing'];
 const STATE_POLL_DELAY = 5000;
 const IDLE_POLL_DELAY = 15000;
+const FOLDED_FILES = 3;
+const PANEL_STEP = 10;
 
 export default {
   name: 'ReportDetails',
   components: {
     CavilNoticePanel,
     FilePath,
-    FileSource,
     GlobProposalModal,
     LegalLoading,
     LicenseCompatibilityMatrix,
@@ -534,6 +547,8 @@ export default {
     PendingActionsWidget,
     ProgressBar,
     ReportArtifacts,
+    ReportFileActions,
+    ReportMatchPanel,
     ReportNotes
   },
   mixins: [Refresh],
@@ -561,13 +576,17 @@ export default {
       chart: null,
       componentFilter: '',
       components: [],
-      files: [],
       licenseCompatibility: {licenses: [], matrix: {}, proximity: {}},
       loading: true,
       matchingGlobs: [],
+      maxFiles: Infinity,
       missedFiles: [],
+      openLists: new Set(),
+      openObligations: new Set(),
       openInlineEditor: null,
       packageName: '',
+      panel: null,
+      panelStep: PANEL_STEP,
       globProposalFileId: null,
       globProposalEditingId: null,
       globProposalCreate: false,
@@ -596,9 +615,7 @@ export default {
       stage: null,
       unresolvedMatches: 0,
       currentMatchId: null,
-      shortcutsModal: null,
-      stickyFileHeaders: {},
-      stickyFileHeaderFrame: null
+      shortcutsModal: null
     };
   },
   computed: {
@@ -638,6 +655,10 @@ export default {
         return terms.every(term => haystack.includes(term));
       });
     },
+    panelViewUrl() {
+      const first = this.panel?.source?.lines.find(line => line[1].end);
+      return fileViewUrl(this.pkgId, this.panel.path, first ? first[0] : 0);
+    },
     sortedRisks() {
       return Object.keys(this.risks).sort((a, b) => Number(b) - Number(a));
     },
@@ -650,23 +671,14 @@ export default {
   },
   mounted() {
     window.addEventListener('keydown', this.handleKeydown);
-    window.addEventListener('scroll', this.scheduleStickyFileHeaderUpdate, {passive: true});
-    window.addEventListener('resize', this.scheduleStickyFileHeaderUpdate);
     this.applyInitialNoteHash();
     this.loadInitialNoteCount();
-    this.$nextTick(this.scheduleStickyFileHeaderUpdate);
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
-    window.removeEventListener('scroll', this.scheduleStickyFileHeaderUpdate);
-    window.removeEventListener('resize', this.scheduleStickyFileHeaderUpdate);
     if (this.statePollTimer !== null) {
       clearTimeout(this.statePollTimer);
       this.statePollTimer = null;
-    }
-    if (this.stickyFileHeaderFrame !== null) {
-      cancelAnimationFrame(this.stickyFileHeaderFrame);
-      this.stickyFileHeaderFrame = null;
     }
     if (this.shortcutsModal) {
       this.shortcutsModal.dispose();
@@ -678,33 +690,11 @@ export default {
       this.activeTab = tab;
       if (tab === 'notes') this.notesMounted = true;
       if (tab === 'artifacts') this.artifactsMounted = true;
-      this.$nextTick(() => {
-        this.scheduleStickyFileHeaderUpdate();
-        if (scrollIntoView) this.scrollToTabs();
-      });
+      if (scrollIntoView) this.$nextTick(this.scrollToTabs);
     },
     scrollToTabs() {
       const el = document.getElementById('report-tabs');
       if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
-    },
-    scheduleStickyFileHeaderUpdate() {
-      if (this.stickyFileHeaderFrame !== null) return;
-      this.stickyFileHeaderFrame = requestAnimationFrame(() => {
-        this.stickyFileHeaderFrame = null;
-        this.updateStickyFileHeaders();
-      });
-    },
-    updateStickyFileHeaders() {
-      const stuck = {};
-      const containers = document.querySelectorAll('.file-container:not(.d-none)[data-file-id]');
-      for (const container of containers) {
-        const header = container.querySelector('.file');
-        if (!header) continue;
-        const rect = container.getBoundingClientRect();
-        const headerRect = header.getBoundingClientRect();
-        if (rect.top < 6 && rect.bottom > headerRect.height) stuck[container.dataset.fileId] = true;
-      }
-      this.stickyFileHeaders = stuck;
     },
     applyInitialNoteHash() {
       // Permalink formats: #note-<id> for one note, #notes for the tab (where the listing note
@@ -807,8 +797,7 @@ export default {
         this.matchingGlobs = [];
         this.components = [];
         this.risks = {};
-        this.files = [];
-        this.stickyFileHeaders = {};
+        this.panel = null;
         return;
       }
 
@@ -843,47 +832,20 @@ export default {
       if (this.components.length === 0 && this.activeTab === 'components') this.activeTab = 'review';
 
       const max = data.max_files_per_license;
-      let counter = 0;
-      const sortedRisks = Object.keys(data.risks).sort((a, b) => Number(b) - Number(a));
-      for (const risk of sortedRisks) {
-        for (const lic of data.risks[risk]) {
-          counter += 1;
-          lic.list_id = `filelist-${counter}`;
-          // A placeholder's file list stays closed however short it is: it says which files carry text that
-          // names no license, which is not what a reviewer opens the bucket for
-          lic.list_class = lic.catch_all || lic.files.length > 3 ? 'collapse' : 'collapse show';
-          if (max && lic.files.length > max + 1) {
-            lic.shown_files = lic.files.slice(0, max + 1);
-            lic.more_files = lic.files.length - (max + 1);
-          } else {
-            lic.shown_files = lic.files;
-            lic.more_files = 0;
-          }
-        }
+      this.maxFiles = max ? max + 1 : Infinity;
+      for (const [risk, licenses] of Object.entries(data.risks)) {
+        for (const lic of licenses) lic.key = `${risk}:${lic.name}`;
       }
       this.risks = data.risks;
 
-      // Which previews are open is remembered by path, not by id: a reindex deletes and recreates every
-      // matched_files row, so after a swap the ids are all new while the paths are the same. The cached
-      // source belongs to the old row though, so it is dropped and refetched below whenever the id moved.
-      const existing = new Map(this.files.map(f => [f.path, f]));
-      this.files = data.files.map(f => {
-        const prev = existing.get(f.path);
-        return {
-          ...f,
-          expanded: prev ? prev.expanded : f.expand,
-          source: prev && prev.id === f.id ? prev.source : null,
-          sourceUnavailable: false
-        };
-      });
-
-      this.$nextTick(() => {
-        for (const file of this.files) {
-          if (file.expanded && !file.source) this.fetchSource(file);
-        }
-        this.handleInitialHash();
-        this.scheduleStickyFileHeaderUpdate();
-      });
+      // An open panel is remembered by what it shows, not by file id: a reindex deletes and recreates every
+      // matched_files row, so after a swap the ids are all new while the paths are the same
+      if (this.panel) {
+        const target = this.findTarget(this.panel);
+        if (!target) this.panel = null;
+        else if (target.fileId !== this.panel.fileId) this.openPanel(target, this.panel.groups);
+      }
+      this.$nextTick(this.handleInitialHash);
     },
     scheduleStatePoll() {
       if (this.statePollTimer !== null) return;
@@ -936,23 +898,92 @@ export default {
     },
     handleInitialHash() {
       if (this.hashHandled) return;
-      const match = (window.location.hash || '').match(/^#file-(\d+)$/);
-      if (!match) {
-        this.hashHandled = true;
-        return;
-      }
-      const file = this.files.find(f => String(f.id) === match[1]);
-      if (!file) return;
       this.hashHandled = true;
-      this.scrollToFile(file);
+      const match = (window.location.hash || '').match(/^#file-(\d+)$/);
+      if (!match) return;
+      const target = this.targetForFile(Number(match[1]));
+      if (target) this.revealPanel(target);
     },
-    async scrollToFile(file) {
-      if (!file.expanded) file.expanded = true;
-      if (!file.source) await this.fetchSource(file);
+    // The row a bare file id stands for: its unresolved snippets when it has any, else its first license
+    targetForFile(id) {
+      const missed = this.missedFiles.find(f => f.id === id);
+      if (missed) return this.unresolvedTarget(missed);
+      for (const risk of this.sortedRisks) {
+        for (const lic of this.risks[risk]) {
+          const file = lic.files.find(f => f[0] === id);
+          if (file) return this.licenseTarget(risk, lic, file);
+        }
+      }
+      return null;
+    },
+    unresolvedTarget(file) {
+      return {list: 'unresolved', risk: 9, license: null, fileId: file.id, path: file.name};
+    },
+    licenseTarget(risk, lic, file) {
+      return {list: 'license', risk: Number(risk), license: lic.name, fileId: file[0], path: file[1]};
+    },
+    panelKey(target) {
+      return [target.list, target.risk, target.license, target.path].join(':');
+    },
+    isOpen(target) {
+      return this.panel !== null && this.panel.key === this.panelKey(target);
+    },
+    // The same row in a freshly loaded report, or null when it is gone
+    findTarget(target) {
+      if (target.list === 'unresolved') {
+        const file = this.missedFiles.find(f => f.name === target.path);
+        return file ? this.unresolvedTarget(file) : null;
+      }
+      const lic = (this.risks[target.risk] ?? []).find(l => l.name === target.license);
+      const file = lic ? lic.files.find(f => f[1] === target.path) : null;
+      return file ? this.licenseTarget(target.risk, lic, file) : null;
+    },
+    obligationsLabel,
+    toggleObligations(key) {
+      if (!this.openObligations.delete(key)) this.openObligations.add(key);
+    },
+    shownFiles(lic) {
+      return lic.files.slice(0, this.openLists.has(lic.key) ? this.maxFiles : FOLDED_FILES);
+    },
+    togglePanel(target) {
+      if (this.isOpen(target)) this.panel = null;
+      else this.openPanel(target);
+    },
+    // One panel at a time keeps memory bounded, and FileSource's element ids unique for a file listed twice
+    openPanel(target, groups = PANEL_STEP) {
+      this.panel = {...target, key: this.panelKey(target), groups, source: null, unavailable: false};
+      return this.fetchPanel();
+    },
+    async revealPanel(target) {
+      if (target.list === 'license') {
+        const lic = this.risks[target.risk].find(l => l.name === target.license);
+        if (!this.shownFiles(lic).some(f => f[0] === target.fileId)) this.openLists.add(lic.key);
+      }
+      if (!this.isOpen(target)) await this.openPanel(target);
       await this.$nextTick();
-      const el =
-        document.getElementById('file-details-' + file.id) || document.querySelector('[name="file-' + file.id + '"]');
-      if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+      document.getElementById('file-details-' + target.fileId)?.scrollIntoView({behavior: 'smooth', block: 'center'});
+    },
+    async fetchPanel(start = 0, end = 0) {
+      const panel = this.panel;
+      const query = {groups: panel.groups};
+      if (panel.list === 'unresolved') query.unresolved = 1;
+      else Object.assign(query, {license: panel.license, risk: panel.risk});
+      if (start) query.start = start;
+      if (end) query.end = end;
+      const res = await fetch(`/reviews/fetch_source/${panel.fileId}.json?${new URLSearchParams(query)}`);
+      if (!res.ok || this.panel !== panel) return;
+      const {source} = await res.json();
+      if (this.panel !== panel) return;
+
+      // A re-unpack has the checkout torn down, so there is no source to show. Say that instead of
+      // rendering an empty file, and leave any matches already on screen alone.
+      if (source.unavailable) panel.unavailable = true;
+      else Object.assign(panel, {source, unavailable: false});
+    },
+    // ponytail: refetches the larger page and drops manual extends, merge the new lines in if reviewers mind
+    showMore() {
+      this.panel.groups += PANEL_STEP;
+      return this.fetchPanel();
     },
     scrollToUnresolvedList() {
       const el = document.getElementById('unmatched-files') || document.getElementById('filelist-snippets');
@@ -961,46 +992,23 @@ export default {
     async scrollToAction(id) {
       const action = this.pendingActions.find(a => a.id === id);
       if (!action) return;
-      const file = this.files.find(f => f.id === action.fileId);
-      if (!file) return;
-      if (!file.expanded) file.expanded = true;
-      if (!file.source) await this.fetchSource(file);
+      if (this.panel?.fileId !== action.fileId) {
+        const target = this.targetForFile(action.fileId);
+        if (!target) return;
+        await this.revealPanel(target);
+      }
       await this.$nextTick();
-      const indicator = document.getElementById('pending-indicator-' + id);
-      const fallback = document.getElementById('file-details-' + file.id);
-      const target = indicator || fallback;
+      const target =
+        document.getElementById('pending-indicator-' + id) || document.getElementById('file-details-' + action.fileId);
       if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
     },
     normalizeChartLicenseName(name) {
       return String(name).replace(/:\s*\d+\s+files?$/u, '');
     },
-    toggleExpand(file) {
-      file.expanded = !file.expanded;
-      if (file.expanded && !file.source) this.fetchSource(file);
-      this.$nextTick(this.scheduleStickyFileHeaderUpdate);
-    },
-    async fetchSource(file, start = 0, end = 0) {
-      const qs = new URLSearchParams();
-      if (start) qs.set('start', start);
-      if (end) qs.set('end', end);
-      const url = `/reviews/fetch_source/${file.id}.json${qs.toString() ? '?' + qs.toString() : ''}`;
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const data = await res.json();
-
-      // A re-unpack has the checkout torn down, so there is no source to show. Say that instead of
-      // rendering an empty file, and leave any preview already on screen alone.
-      if (data.source.unavailable) file.sourceUnavailable = true;
-      else {
-        file.sourceUnavailable = false;
-        file.source = data.source;
-      }
-      this.$nextTick(this.scheduleStickyFileHeaderUpdate);
-    },
-    onExtend(file, payload) {
-      // Reset re-fetches with no start/end so source_for returns the report's
+    onExtend(payload) {
+      // Reset re-fetches with no start/end so source_for returns the panel's
       // default view (original match boundaries + a few lines of context).
-      if (payload.kind === 'reset') return this.fetchSource(file);
+      if (payload.kind === 'reset') return this.fetchPanel();
 
       let start = Number(payload.start);
       let end = Number(payload.end);
@@ -1024,12 +1032,7 @@ export default {
           end = Number(payload.nextend);
           break;
       }
-      this.fetchSource(file, start, end);
-    },
-    onFileLinkClick(id) {
-      const file = this.files.find(f => String(f.id) === String(id));
-      if (!file) return;
-      return this.scrollToFile(file);
+      this.fetchPanel(start, end);
     },
     scrollToCompatibility() {
       const el = document.getElementById('license-compatibility');
@@ -1069,10 +1072,9 @@ export default {
       });
     },
     async showInlineEditor(payload) {
-      const file = this.files.find(f => f.id === payload.fileId);
-      if (file) {
-        if (!file.expanded) file.expanded = true;
-        if (!file.source) await this.fetchSource(file);
+      if (this.panel?.fileId !== payload.fileId) {
+        const target = this.targetForFile(payload.fileId);
+        if (target) await this.revealPanel(target);
       }
       this.openInlineEditor = {...payload, key: ++openEditorKeySeq};
       await this.$nextTick();
@@ -1133,11 +1135,11 @@ export default {
       parts[0] = parts[0].replace(/-[0-9][^/]*$/, '-*');
       return parts.join('/');
     },
-    openGlobProposal(file, create = false) {
-      this.globProposalFileId = file.id;
+    openGlobProposal(panel, create = false) {
+      this.globProposalFileId = panel.fileId;
       this.globProposalEditingId = null;
       this.globProposalCreate = create;
-      this.$refs.globProposalModal.open({glob: this.suggestGlob(file.path), reason: '', create});
+      this.$refs.globProposalModal.open({glob: this.suggestGlob(panel.path), reason: '', create});
     },
     onGlobProposalSubmit({glob, reason}) {
       const editingIdx =
@@ -1220,35 +1222,35 @@ export default {
         this.showShortcuts();
       }
     },
-    gotoMatch(direction) {
-      // Walk the DOM in document order. Each unresolved match start carries a
-      // `match-start` class (added by FileSource.vue). This is more reliable
-      // than a pre-computed target list: files load asynchronously past
-      // max_expanded_files, the rendered source can drop snippet lines when
-      // adjacent snippets overlap, and the missed-file sort order does not
-      // match the order files appear on screen.
-      const els = Array.from(document.querySelectorAll('.match-start'));
-      if (els.length === 0) return;
+    // Steps through the unresolved snippets in the open panel, loads more past the last one shown, and
+    // opens the neighbouring file's panel past the end of a file
+    async gotoMatch(direction) {
+      const starts = () =>
+        Array.from(document.querySelectorAll('.report-match-panel:not(.cavil-reveal-leave-active) tr.match-start'));
+      const panel = this.panel?.list === 'unresolved' ? this.panel : null;
+      let els = panel ? starts() : [];
+      let idx = els.findIndex(el => el.id === this.currentMatchId);
+      if (idx < 0) idx = direction > 0 ? -1 : els.length;
+      let target = els[idx + direction];
 
-      let currentIdx = -1;
-      if (this.currentMatchId) {
-        currentIdx = els.findIndex(el => el.id === this.currentMatchId);
+      if (!target && direction > 0 && panel?.source && panel.source.total > panel.groups) {
+        await this.showMore();
+        await this.$nextTick();
+        target = starts()[idx + direction];
       }
-      if (currentIdx < 0) {
-        // No remembered position (or it's gone from the DOM): fall back to the
-        // last match-start that's at or above the viewport top. A small
-        // positive threshold absorbs the in-flight position of a still-
-        // animating smooth scroll.
-        for (let i = 0; i < els.length; i++) {
-          if (els[i].getBoundingClientRect().top < 5) currentIdx = i;
-          else break;
-        }
+      if (!target) {
+        const files = this.missedFiles;
+        const current = panel ? files.findIndex(f => f.name === panel.path) : -1;
+        const file = files[current < 0 ? (direction > 0 ? 0 : files.length - 1) : current + direction];
+        if (!file) return;
+        await this.openPanel(this.unresolvedTarget(file));
+        await this.$nextTick();
+        els = starts();
+        target = direction > 0 ? els[0] : els[els.length - 1];
       }
-
-      const idx = Math.max(0, Math.min(els.length - 1, currentIdx + direction));
-      const target = els[idx];
+      if (!target) return;
       this.currentMatchId = target.id;
-      target.scrollIntoView({behavior: 'smooth', block: 'start'});
+      target.scrollIntoView({behavior: 'smooth', block: 'center'});
     },
     showShortcuts() {
       const el = document.getElementById('shortcutsModal');
@@ -1499,11 +1501,19 @@ export default {
   border-radius: 0 6px 6px 6px;
   list-style: none;
   margin: 0;
-  overflow: hidden;
   padding: 0;
 }
 .risk-license-section-unresolved .risk-license-list {
   border-top-right-radius: 0;
+}
+/* Rounded rows instead of a clipping list, which would cut off line action menus */
+.risk-license-item:first-child {
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+.risk-license-item:last-child {
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
 }
 .risk-license-item {
   background: var(--cavil-canvas);
@@ -1522,7 +1532,36 @@ export default {
   align-items: center;
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-auto-flow: column;
+  grid-template-columns: minmax(0, 1fr);
+}
+.license-obligations-toggle {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--cavil-fg-muted);
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 0.4rem;
+  letter-spacing: 0.01em;
+  padding: 0.1rem 0;
+}
+.license-obligations-toggle:hover,
+.license-obligations-toggle:focus-visible {
+  color: var(--cavil-accent);
+}
+.license-obligations-toggle i {
+  color: var(--cavil-fg-disabled);
+  opacity: 0;
+  width: 0.7rem;
+}
+.license-obligations-toggle:hover i,
+.license-obligations-toggle:focus-visible i,
+.license-obligations-toggle[aria-expanded='true'] i {
+  opacity: 1;
 }
 .risk-license-label {
   align-items: center;
@@ -1561,13 +1600,6 @@ export default {
   text-decoration: none;
   white-space: nowrap;
 }
-.risk-license-count:hover,
-.risk-license-count:focus {
-  background: var(--cavil-accent-tint-2);
-  border-color: var(--cavil-border);
-  color: var(--cavil-accent);
-  text-decoration: none;
-}
 .risk-license-flags {
   display: flex;
   flex-wrap: wrap;
@@ -1587,10 +1619,8 @@ export default {
   padding: 0.3rem 0.55rem;
   white-space: nowrap;
 }
-/* Divider between an expanded obligations panel and a visible file list. Requires BOTH the obligations
-   to be open (.is-open) and the list to be shown, and lives on the file list so it disappears with
-   either - no leftover rule when obligations are collapsed or the list is hidden. */
-.license-obligations.is-open + .collapse.show {
+/* Divider between an expanded obligations panel and the file list, gone with the panel */
+.license-obligations + .risk-files {
   border-top: 1px solid var(--cavil-border-muted);
   margin: 0.5rem -1rem 0;
   padding: 0.55rem 1rem 0;
@@ -1607,7 +1637,7 @@ export default {
   align-items: center;
   display: grid;
   gap: 0.55rem;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   line-height: 1.35;
   position: relative;
 }
@@ -1631,9 +1661,56 @@ export default {
   text-decoration-color: transparent;
 }
 .risk-file-list .file-link:hover,
-.risk-file-list .file-link:focus {
+.risk-file-list .file-link:focus-visible {
   color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
+}
+.risk-file-list .report-match-panel {
+  grid-column: 2 / -1;
+}
+.risk-file-more {
+  appearance: none;
+  justify-self: start;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0 0 0 0.95rem;
+}
+button.risk-file-more {
+  cursor: pointer;
+}
+button.risk-file-more:hover,
+button.risk-file-more:focus-visible {
+  color: var(--cavil-accent-strong);
+}
+/* GitHub's file-header chevron, shown on hover and while its panel is open so the lists stay calm */
+.file-link-chevron {
+  font-size: 9px;
+  margin-right: 0.35rem;
+  opacity: 0;
+  width: 0.6rem;
+}
+.file-link-chevron::before {
+  content: '\f054';
+}
+.file-link:hover .file-link-chevron,
+.file-link:focus-visible .file-link-chevron,
+.file-link[aria-expanded='true'] .file-link-chevron {
+  opacity: 1;
+}
+.file-link[aria-expanded='true'] .file-link-chevron::before {
+  content: '\f078';
+}
+/* The open row is a header: no link colour, and no row hover or wash competing with the code below it */
+.risk-license-item .file-link[aria-expanded='true'] {
+  color: var(--cavil-fg);
+  text-decoration-color: transparent;
+}
+[data-bs-theme] .risk-license-item:has(.report-match-panel),
+[data-bs-theme] .risk-license-item:has(.report-match-panel):hover {
+  background: var(--cavil-canvas);
+  box-shadow: none;
 }
 .risk-unresolved-list {
   margin-bottom: 0;
@@ -1658,7 +1735,7 @@ export default {
   align-items: center;
   display: grid;
   gap: 0.6rem;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) auto auto;
 }
 .risk-unresolved-name {
   align-items: center;
@@ -1694,7 +1771,7 @@ export default {
   text-decoration-color: transparent;
 }
 .risk-unresolved-file:hover,
-.risk-unresolved-file:focus {
+.risk-unresolved-file:focus-visible {
   color: var(--cavil-accent-strong);
   text-decoration-color: currentColor;
 }
@@ -1907,51 +1984,6 @@ a.report-component-name:focus {
   overflow-wrap: anywhere;
   padding: 0;
 }
-.report-file-header {
-  align-items: center;
-  display: flex;
-}
-.report-file-header > a {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.file-actions {
-  align-items: center;
-  display: inline-flex;
-  float: none !important;
-  gap: 0.75rem;
-  margin-left: auto;
-}
-/* The close glyph is centred on whole pixels on purpose. At the 13px font size
-   inherited from the file header, fa-xmark leaves 2.5px of free space above and
-   4.125px to its left inside the 20px button; macOS renders those fractions,
-   but Chrome on Linux snaps hinted glyphs to whole pixels and rounds both down,
-   so the X drifts up and to the left. A 12px glyph is exactly 9px wide (0.75em),
-   and the extra pixel of left padding makes the content box odd, so both axes
-   now divide into whole pixels. */
-.file-preview-close {
-  height: 20px;
-  padding-left: 1px;
-  width: 20px;
-}
-.file-preview-close i {
-  font-size: 12px;
-  line-height: 1;
-}
-.file-source-unavailable {
-  color: var(--cavil-fg-muted-alt);
-  font-size: 13px;
-  padding: 16px;
-  text-align: center;
-}
-.file-action-link {
-  color: var(--cavil-fg-muted);
-  text-decoration: none;
-}
-.file-action-link:hover,
-.file-action-link:focus {
-  color: var(--cavil-accent);
-}
 @media (max-width: 700px) {
   .risk-license-heading {
     flex-wrap: wrap;
@@ -1963,6 +1995,7 @@ a.report-component-name:focus {
   }
   .risk-license-row {
     align-items: flex-start;
+    grid-auto-flow: row;
     grid-template-columns: 1fr;
   }
   .risk-license-count {

@@ -1,16 +1,6 @@
 <template>
-  <div class="license-obligations" :class="{'is-open': open}">
-    <button
-      type="button"
-      class="license-obligations-toggle"
-      :aria-expanded="open ? 'true' : 'false'"
-      @click="open = !open"
-    >
-      <i :class="['fa-solid', open ? 'fa-caret-down' : 'fa-caret-right']" aria-hidden="true"></i>
-      {{ toggleLabel }}
-    </button>
-
-    <div v-if="open" class="license-obligations-body">
+  <div class="license-obligations cavil-reveal">
+    <div class="license-obligations-body">
       <span class="lob-source">{{ sourceLabel }}</span>
       <p v-if="exceptions.length > 0" class="lob-caveat">
         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
@@ -83,6 +73,14 @@ function isEmpty(value) {
   return false;
 }
 
+// How complete the information is, in one word. "Obligations" is a strict superset of "Details": it means
+// OSADL publishes an actual checklist for at least one constituent, so the panel answers what you have to
+// do. Without one, all we have is classification, and promising obligations we cannot deliver would be
+// worse than naming the smaller thing.
+export function obligationsLabel(entries) {
+  return entries.some(entry => !isEmpty(entry.use_cases)) ? 'Obligations' : 'Details';
+}
+
 export default {
   name: 'LicenseObligations',
   props: {
@@ -98,17 +96,7 @@ export default {
     // AOMPL-1.0 has no checklist), so the obligations shown are clearly attributed to BSD-2-Clause.
     label: {type: String, default: ''}
   },
-  data() {
-    return {open: false};
-  },
   computed: {
-    // How complete the information is, in one word. "Obligations" is a strict superset of "Details":
-    // it means OSADL publishes an actual checklist for at least one constituent, so the panel answers
-    // what you have to do. Without one, all we have is classification, and promising obligations we
-    // cannot deliver would be worse than naming the smaller thing.
-    toggleLabel() {
-      return this.entries.some(entry => !isEmpty(entry.use_cases)) ? 'Obligations' : 'Details';
-    },
     // Credit only the sources that actually contributed to this panel - OSADL requires attribution
     // (CC-BY-4.0) and naming a source that said nothing here would be misleading either way. SPDX
     // comes first, matching the order its flags appear in within each attributes row.
@@ -292,43 +280,14 @@ export default {
 </script>
 
 <style scoped>
-.license-obligations {
-  margin-top: 0.4rem;
-}
-
-/* Quiet, in-row toggle - the license list stays as clean as before until a reviewer opens it. */
-.license-obligations-toggle {
-  align-items: center;
-  appearance: none;
-  background: transparent;
-  border: 0;
-  color: var(--cavil-fg-muted);
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  gap: 0.4rem;
-  letter-spacing: 0.01em;
-  padding: 0.1rem 0;
-}
-/* :focus-visible, not :focus, so a mouse click does not leave the toggle stuck blue after it keeps
-   focus - keyboard users still get the colour cue. */
-.license-obligations-toggle:hover,
-.license-obligations-toggle:focus-visible {
-  color: var(--cavil-accent);
-}
-.license-obligations-toggle i {
-  color: var(--cavil-fg-disabled);
-  width: 0.7rem;
-}
-
 /* A full-width section of the license row, not a card floating inside it: negative horizontal margins
    cancel the .risk-license-item padding so the top rule spans edge to edge, and content re-pads to stay
    aligned with the license name above. */
+.license-obligations {
+  margin: 0.5rem -1rem 0;
+}
 .license-obligations-body {
   border-top: 1px solid var(--cavil-border-muted);
-  margin: 0.5rem -1rem 0;
   position: relative;
 }
 .lob-license {

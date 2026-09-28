@@ -417,7 +417,7 @@ export default {
       this.package = snippet.package;
       if (this.package !== null) {
         this.package.packageUrl = `/reviews/details/${this.package.id}`;
-        this.package.fileUrl = fileViewUrl(this.package.id, this.package.filename);
+        this.package.fileUrl = fileViewUrl(this.package.id, this.package.filename, snippet.sline);
         this.package.file = this.package.filename.split('/').pop();
       }
       this.patternText = snippet.text;

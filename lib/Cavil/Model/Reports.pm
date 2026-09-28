@@ -12,9 +12,9 @@ use Cavil::Checkout;
 use Cavil::Declarations;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
-use Cavil::Util       qw(checkout_path lines_context to_json_fast @LICENSE_FLAGS);
+use Cavil::Util       qw(checkout_path line_tag to_json_fast @LICENSE_FLAGS);
 
-has [qw(acceptable_packages acceptable_risk checkout_dir max_expanded_files pg snippet_fold)];
+has [qw(acceptable_packages acceptable_risk checkout_dir pg snippet_fold)];
 
 # we need a HUGE number because the matcher uses unsigned integers
 use constant PATTERN_DELTA => 10000000000;
@@ -236,8 +236,7 @@ sub shortname ($self, $chksum) {
   die "Could not allocate a shortname for checksum $chksum after 100 attempts";
 }
 
-sub source_for {
-  my ($self, $fileid, $start, $end) = @_;
+sub source_for ($self, $fileid, $start, $end, $scope = {}) {
 
   # The file id comes straight from a request, so pin it to the live report: a build running alongside
   # has its own matched_files rows and must never be rendered
@@ -255,6 +254,9 @@ sub source_for {
   # say the source is temporarily unavailable and let the caller show that instead.
   my $fn = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $file->{filename});
   return {lines => [], name => $pkg->{name}, filename => $file->{filename}, unavailable => 1} unless -e $fn;
+
+  my $total;
+  ($lines, $total) = _scope_lines($lines, $scope) if defined($scope->{license}) || $scope->{unresolved};
 
   if ($start > 0 && $end > 0) {
     my %pid_info;    # cache
@@ -286,7 +288,46 @@ sub source_for {
     $lines = $self->_lines($db, \%pid_info, $fn, \%needed, \%folded_meta);
   }
 
-  return {lines => $lines, name => $pkg->{name}, filename => $file->{filename}};
+  return {
+    lines    => $lines,
+    name     => $pkg->{name},
+    filename => $file->{filename},
+    defined $total ? (total => $total) : ()
+  };
+}
+
+# Keep the first few matches a report row stands for (one license at one risk, or the unresolved snippets), with
+# their context. Every other line keeps its text but loses its match info, so the view only steps between the
+# matches in scope. One license can sit at two risks, which is why the risk is part of the scope.
+sub _scope_lines ($lines, $scope) {
+  my ($license, $risk, $groups) = @{$scope}{qw(license risk groups)};
+  my $in_scope
+    = defined $license
+    ? sub ($info) { defined $info->{pid} && ($info->{name} // '') eq $license && $info->{risk} == $risk }
+    : sub ($info) { $info->{snippet} && !$info->{folded} && $info->{risk} == 9 };
+
+  my ($total, $prev, %keep) = (0);
+  for my $line (@$lines) {
+    my ($nr, $info) = @$line;
+    next unless $in_scope->($info);
+    my $tag = line_tag($line);
+    $total++ unless $prev && $prev->[0] == $nr - 1 && $prev->[1] == $tag;
+    $prev = [$nr, $tag];
+    next if $total > $groups;
+    $keep{$_} //= 0 for $nr - 3 .. $nr + 3;
+    $keep{$nr} = 1;
+  }
+
+  # Same small-gap filling as _lines, so a scoped view does not break up where the full one would not
+  my $last;
+  for my $nr (sort { $a <=> $b } keys %keep) {
+    if ($last && $nr - $last > 1 && $nr - $last < 6) { $keep{$_} //= 0 for $last + 1 .. $nr - 1 }
+    $last = $nr;
+  }
+
+  my @scoped
+    = map { [$_->[0], $keep{$_->[0]} ? $_->[1] : {risk => 0}, $_->[2]] } grep { exists $keep{$_->[0]} } @$lines;
+  return (\@scoped, $total);
 }
 
 sub declarations ($self, $id) {
@@ -333,7 +374,6 @@ sub summary ($self, $id) {
     $summary{licenses}{$text} = $report->{licenses}{$license}{risk};
   }
 
-  # Renderer expansion limits must not make content-equivalent summaries differ.
   my $files = {};
   for my $file_id (keys %{$report->{missed_snippets}}) {
     my $filename = $report->{files}{$file_id};
@@ -347,7 +387,7 @@ sub summary ($self, $id) {
 }
 
 sub _check_ignores {
-  my ($self, $report, $file, $ignored_lines, $matches_to_ignore, $snippets_to_remove) = @_;
+  my ($self, $report, $file, $ignored_lines, $matches_to_ignore) = @_;
 
   my $lastline = '';
   my @clines   = @{$report->{lines}{$file}};
@@ -361,9 +401,6 @@ sub _check_ignores {
       push(@marks, $line);
       if ($line->[1]->{snippet}) {
         $hex = $report->{snippets}{$file}{$line->[1]->{snippet}};
-        if (defined $ignored_lines->{$hex}) {
-          $snippets_to_remove->{$line->[1]->{snippet}} = 1;
-        }
         while ($line = shift @clines) {
           $lastline = $line->[2];
           last if $line->[1]{risk} != 9;
@@ -518,16 +555,10 @@ sub _dig_report {
 
   $report->{missed_snippets} = \%file_snippets_to_show;
 
-  my $expanded_limit = $self->max_expanded_files;
-  my $num_expanded   = 0;
-
   my %matches_to_ignore;
-  my %snippets_to_remove;
 
-  for my $file (sort { $report->{files}{$a} cmp $report->{files}{$b} } keys %file_snippets_to_show) {
-    last if $num_expanded++ > $expanded_limit;
-
-    $report->{expanded}{$file} = 1;
+  # Source lines are only ever rendered for one file at a time
+  for my $file ($limit_to_file ? keys %file_snippets_to_show : ()) {
     for my $snip_row (@{$file_snippets_to_show{$file}}) {
       my ($sline, $eline, $id, $hash, $dummy1, $dummy2) = @$snip_row;
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
@@ -543,8 +574,8 @@ sub _dig_report {
     }
   }
 
-  $self->_register_matches($db, $report, $pid_info, $matches, \%matches_to_ignore);
-  $self->_register_folds($db, $report, $pid_info, \%file_snippets_to_fold);
+  $self->_register_matches($db, $report, $pid_info, $matches, \%matches_to_ignore, $limit_to_file);
+  $self->_register_folds($db, $report, $pid_info, \%file_snippets_to_fold, $limit_to_file);
 
   $report->{flags} = [keys %{$report->{flags}}] if $report->{flags};
 
@@ -554,13 +585,12 @@ sub _dig_report {
     delete $license->{flaghash};
   }
 
-  for my $file (keys %{$report->{files}}) {
-    next unless $report->{expanded}{$file} || $limit_to_file;
+  for my $file ($limit_to_file ? keys %{$report->{files}} : ()) {
     my $fn
       = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked', $report->{files}{$file});
     $report->{lines}{$file}
       = $self->_lines($db, $pid_info, $fn, $report->{needed_lines}{$file}, $report->{folded_meta}{$file});
-    $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore, \%snippets_to_remove);
+    $self->_check_ignores($report, $file, $ignored_lines, \%matches_to_ignore);
   }
 
   # in case ignored lines found unignored matches (i.e. first load), update them
@@ -577,18 +607,7 @@ sub _dig_report {
   delete $report->{needed_lines};
   delete $report->{folded_meta};
 
-  if ($limit_to_file) {
-    return $report;
-  }
-
-  # Scoped to the generation being built, or rendering the live report in the web process would delete
-  # rows out from under a reindex that is running alongside it
-  if (%snippets_to_remove) {
-    for my $id (keys %snippets_to_remove) {
-      $db->delete('file_snippets', {snippet => $id, package => $pkg->{id}, generation => $generation});
-    }
-    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, undef, $generation);
-  }
+  return $report if $limit_to_file;
 
   my %missed_files;
 
@@ -772,7 +791,7 @@ sub _register_license {
 # fully inside an ignored/cleared snippet region are skipped, and matches in glob-hidden files are
 # queued for ignoring.
 sub _register_matches {
-  my ($self, $db, $report, $pid_info, $matches, $matches_to_ignore) = @_;
+  my ($self, $db, $report, $pid_info, $matches, $matches_to_ignore, $with_lines) = @_;
 
   # Prime the pattern cache in one shot. Every match references a pattern, and the per-match
   # _load_pattern_from_cache below would otherwise fire one single-row SELECT per cache miss - hundreds
@@ -801,6 +820,7 @@ sub _register_matches {
 
     my ($file, $mid, $sline, $eline) = @{$match}{qw(file id sline eline)};
     $self->_register_license($report, $pid_info, $pattern, $pid, $file, 'match');
+    next unless $with_lines;
     my $risk = $pattern->{risk};
 
     # Hoist the two per-file line maps: the loop runs once per line of every match (its ±3 context lines
@@ -834,7 +854,7 @@ sub _register_matches {
 # only holds one integer per line, so the originating snippet id/hash (the handle reviewers need to
 # correct a wrong fold) is carried in a parallel folded_meta map.
 sub _register_folds {
-  my ($self, $db, $report, $pid_info, $file_snippets_to_fold) = @_;
+  my ($self, $db, $report, $pid_info, $file_snippets_to_fold, $with_lines) = @_;
 
   for my $file (keys %$file_snippets_to_fold) {
     for my $snip_row (@{$file_snippets_to_fold->{$file}}) {
@@ -845,11 +865,7 @@ sub _register_folds {
 
       $self->_register_license($report, $pid_info, $pattern, $pid, $file, 'fold');
       $report->{folded}{$file} = 1;
-
-      # Do not auto-expand a file just because it folded: only files with unresolved matches are
-      # expanded inline (the show loop above). A fully-folded file is still listed under its inferred
-      # license and rendered on demand - opened from the report file link or in the file browser (both
-      # go through the limit_to_file path, which builds its lines and the fold highlighting below).
+      next unless $with_lines;
 
       for (my $i = $sline - 3; $i <= $eline + 3; $i++) {
         next if $i < 1;
@@ -879,13 +895,10 @@ sub _sanitize_report {
 
   # Files
   my $files    = $report->{files};
-  my $expanded = $report->{expanded};
-  my $lines    = $report->{lines};
   my $snippets = $report->{missed_snippets};
 
   my @missed;
   for my $file (keys %$snippets) {
-    $expanded->{$file} = 1;
     my ($max_risk, $match, $license, $spdx) = @{$report->{missed_files}{$file}};
     $license = 'Keyword' unless $license;
     push(
@@ -904,15 +917,7 @@ sub _sanitize_report {
   delete $report->{missed_snippets};
   $report->{missed_files} = [sort { $b->{max_risk} cmp $a->{max_risk} || $a->{name} cmp $b->{name} } @missed];
 
-  $report->{files} = [];
-  for my $file (sort { $files->{$a} cmp $files->{$b} } keys %$files) {
-    my $path = $files->{$file};
-    push @{$report->{files}}, my $current = {id => $file, path => $path, expand => $expanded->{$file}};
-
-    if ($lines->{$file}) {
-      $current->{lines} = lines_context($lines->{$file});
-    }
-  }
+  $report->{files} = [map { {id => $_, path => $files->{$_}} } sort { $files->{$a} cmp $files->{$b} } keys %$files];
 
   # Risks
   my $chart = $report->{chart} = {};
