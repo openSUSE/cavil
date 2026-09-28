@@ -1598,30 +1598,19 @@ export default {
   white-space: nowrap;
 }
 .risk-file-list {
-  border-left: 1px solid var(--cavil-border);
   color: var(--cavil-fg-muted);
   font-size: 13px;
   list-style: none;
-  margin: 0.3rem 0 0.1rem 0.35rem;
-  padding-left: 0.9rem;
+  margin: 0.3rem 0 0.1rem;
+  padding: 0;
 }
 .risk-file-list li {
   align-items: center;
   display: grid;
   gap: 0.55rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   line-height: 1.35;
   position: relative;
-}
-.risk-file-list li::before {
-  background: var(--cavil-fg-subtle);
-  border: 2px solid var(--cavil-canvas);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--cavil-border);
-  content: '';
-  height: 0.45rem;
-  margin-left: -1.15rem;
-  width: 0.45rem;
 }
 .risk-file-list li + li {
   margin-top: 0.35rem;
@@ -1638,7 +1627,7 @@ export default {
   text-decoration-color: currentColor;
 }
 .risk-file-list .report-match-panel {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
 }
 .risk-file-more {
   appearance: none;

@@ -904,33 +904,15 @@ export default {
   font-weight: 600;
   padding: 0.05rem 0.5rem;
 }
-/* Files stacked one per line on a dotted rail, matching the license list's file lists (.risk-file-list in
-   ReportDetails): a muted link with a small ::before dot, blue + underline only on hover. */
 .license-matrix-file-list {
-  border-left: 1px solid var(--cavil-border);
   color: var(--cavil-fg-muted);
   font-size: 13px;
   list-style: none;
-  margin: 0.1rem 0 0 0.35rem;
-  padding-left: 0.9rem;
+  margin: 0.1rem 0 0;
+  padding: 0;
 }
 .license-matrix-file-list li {
-  align-items: center;
-  display: grid;
-  gap: 0.55rem;
-  grid-template-columns: auto minmax(0, 1fr);
   line-height: 1.35;
-  position: relative;
-}
-.license-matrix-file-list li::before {
-  background: var(--cavil-fg-subtle);
-  border: 2px solid var(--cavil-canvas);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--cavil-border);
-  content: '';
-  height: 0.45rem;
-  margin-left: -1.15rem;
-  width: 0.45rem;
 }
 .license-matrix-file-list li + li {
   margin-top: 0.35rem;
