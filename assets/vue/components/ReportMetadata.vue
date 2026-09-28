@@ -293,7 +293,7 @@
       :note="documentsDropped > 0 ? `${count(documentsDropped)} more not listed` : null"
     >
       <ul class="cavil-notice-list">
-        <li v-for="document in documents" :key="document.path" class="cavil-notice-item legal-document-item">
+        <li v-for="document in shownDocuments" :key="document.path" class="cavil-notice-item legal-document-item">
           <a :href="document.url" target="_blank" rel="noopener" class="legal-document-path"
             ><FilePath :path="document.path"
           /></a>
@@ -309,6 +309,13 @@
             ></span>
           </span>
         </li>
+        <ListMoreToggle
+          v-if="documents.length > DOCUMENTS_PREVIEW"
+          :expanded="documentsExpanded"
+          :hidden="documents.length - DOCUMENTS_PREVIEW"
+          :preview="DOCUMENTS_PREVIEW"
+          @toggle="documentsExpanded = !documentsExpanded"
+        />
       </ul>
     </cavil-notice-panel>
     <cavil-notice-panel
@@ -338,6 +345,7 @@ import CopyableText from './CopyableText.vue';
 import ExternalLink from './ExternalLink.vue';
 import FilePath from './FilePath.vue';
 import LegalLoading from './LegalLoading.vue';
+import ListMoreToggle from './ListMoreToggle.vue';
 import ReportDocuments from './ReportDocuments.vue';
 import TagInput from './TagInput.vue';
 import TemplatePicker from './TemplatePicker.vue';
@@ -374,6 +382,7 @@ export default {
     ExternalLink,
     FilePath,
     LegalLoading,
+    ListMoreToggle,
     ReportDocuments,
     TagInput,
     TemplatePicker,
@@ -388,6 +397,8 @@ export default {
       copiedFiles: {'%doc': null, '%license': null},
       created: null,
       declarations: [],
+      DOCUMENTS_PREVIEW: 10,
+      documentsExpanded: false,
       legalDocuments: null,
       externalLink: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
@@ -452,6 +463,10 @@ export default {
 
     documents() {
       return this.legalDocuments?.documents ?? [];
+    },
+
+    shownDocuments() {
+      return this.documentsExpanded ? this.documents : this.documents.slice(0, this.DOCUMENTS_PREVIEW);
     },
 
     documentsDropped() {
@@ -988,21 +1003,27 @@ export default {
 }
 .cavil-notice-item.legal-document-item {
   align-items: baseline;
-  background: linear-gradient(90deg, rgba(var(--cavil-success-rgb), 0.08), var(--cavil-canvas) 2.5rem);
   display: flex;
   gap: 0.85rem;
   white-space: normal;
 }
-.cavil-notice-item.legal-document-item:hover {
+.cavil-notice-item.legal-document-item,
+#legal-documents .list-more-toggle {
+  background: linear-gradient(90deg, rgba(var(--cavil-success-rgb), 0.08), var(--cavil-canvas) 2.5rem);
+}
+.cavil-notice-item.legal-document-item:hover,
+#legal-documents .list-more-toggle:hover {
   background: linear-gradient(90deg, rgba(var(--cavil-success-rgb), 0.12), var(--cavil-canvas-subtle) 2.5rem);
 }
 /* A wash needs a light canvas to read as a tint; over near-black it only ever comes out as
    grey haze. Dark marks the row the way the risk bands already do, with a thin inset rule. */
-[data-bs-theme='dark'] .cavil-notice-item.legal-document-item {
+[data-bs-theme='dark'] .cavil-notice-item.legal-document-item,
+[data-bs-theme='dark'] #legal-documents .list-more-toggle {
   background: var(--cavil-canvas);
   box-shadow: inset 2px 0 0 var(--cavil-success-emphasis);
 }
-[data-bs-theme='dark'] .cavil-notice-item.legal-document-item:hover {
+[data-bs-theme='dark'] .cavil-notice-item.legal-document-item:hover,
+[data-bs-theme='dark'] #legal-documents .list-more-toggle:hover {
   background: var(--cavil-canvas-subtle);
 }
 /* File names follow the report's convention: muted until hovered, where they turn link-blue */

@@ -29,14 +29,14 @@
             <span class="report-artifact-value">{{ entry[0] }}</span>
             <span class="report-artifact-source">{{ section.unit(entry[1]) }}</span>
           </li>
-          <li v-if="section.canExpand" class="report-artifact-more">
-            <button type="button" :data-artifact-more="section.key" @click="toggle(section)">
-              <i :class="expanded[section.key] ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>
-              {{
-                expanded[section.key] ? 'Show top ' + PREVIEW : 'Show ' + (section.values.length - PREVIEW) + ' more'
-              }}
-            </button>
-          </li>
+          <ListMoreToggle
+            v-if="section.canExpand"
+            :data-artifact-more="section.key"
+            :expanded="!!expanded[section.key]"
+            :hidden="section.values.length - PREVIEW"
+            :preview="PREVIEW"
+            @toggle="toggle(section)"
+          />
         </ul>
       </div>
     </div>
@@ -45,6 +45,7 @@
 
 <script>
 import LegalLoading from './LegalLoading.vue';
+import ListMoreToggle from './ListMoreToggle.vue';
 import UserAgent from '@mojojs/user-agent';
 
 // Reviewers read these top down looking for what occurs most, so the head of each list is what the tab
@@ -59,7 +60,7 @@ const FILES = count => `${count} ${count === 1 ? 'file' : 'files'}`;
 
 export default {
   name: 'ReportArtifacts',
-  components: {LegalLoading},
+  components: {LegalLoading, ListMoreToggle},
   props: {
     pkgId: {type: Number, required: true}
   },
@@ -150,43 +151,20 @@ export default {
 /* Same left wash the legal-document and unresolved-match rows use, in neutral rather than a hue that
    would read as a verdict. Dark gets an inset rule instead: a wash over near-black is only grey haze. */
 .report-artifacts .report-artifact-item,
-.report-artifacts .report-artifact-more {
+.report-artifacts .list-more-toggle {
   background: linear-gradient(90deg, rgba(var(--cavil-neutral-rgb), 0.08), var(--cavil-canvas) 2.5rem);
 }
 .report-artifacts .report-artifact-item:hover,
-.report-artifacts .report-artifact-more button:hover {
+.report-artifacts .list-more-toggle button:hover {
   background: linear-gradient(90deg, rgba(var(--cavil-neutral-rgb), 0.12), var(--cavil-canvas-subtle) 2.5rem);
 }
 [data-bs-theme='dark'] .report-artifacts .report-artifact-item,
-[data-bs-theme='dark'] .report-artifacts .report-artifact-more {
+[data-bs-theme='dark'] .report-artifacts .list-more-toggle {
   background: var(--cavil-canvas);
   box-shadow: inset 2px 0 0 var(--cavil-border-strong);
 }
 [data-bs-theme='dark'] .report-artifacts .report-artifact-item:hover,
-[data-bs-theme='dark'] .report-artifacts .report-artifact-more button:hover {
+[data-bs-theme='dark'] .report-artifacts .list-more-toggle button:hover {
   background: var(--cavil-canvas-subtle);
-}
-
-/* The last row of the list rather than a control floating under it */
-.report-artifact-more {
-  border-top: 1px solid var(--cavil-border-muted);
-}
-
-.report-artifact-more button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: var(--cavil-fg-muted);
-  cursor: pointer;
-  display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  gap: 0.45rem;
-  justify-content: center;
-  padding: 0.6rem 1rem;
-  width: 100%;
-}
-.report-artifact-more button:hover {
-  color: var(--cavil-accent);
 }
 </style>

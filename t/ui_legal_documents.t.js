@@ -170,16 +170,24 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
     await page.goto(`${url}/reviews/details/1`);
     await page.locator('#legal-documents').waitFor();
 
-    // What the panel is not showing is a fact about the panel, so it annotates the heading rather than
-    // sitting in the list as a row that is not a document
-    await t.test('a package with more documents than the list shows says so in its heading', async t => {
+    await t.test('a package with more documents than the preview can show all of them', async t => {
       await page.goto(`${url}/reviews/details/3`);
       const many = page.locator('#legal-documents');
       await many.waitFor();
+      const toggle = many.locator('.list-more-toggle button');
 
-      t.equal(await many.locator('.legal-document-item').count(), 10, 'the list stops at the limit');
-      t.equal(await many.locator('.cavil-notice-heading-note').innerText(), '20 more not listed', 'the rest is a note');
-      t.equal(await many.locator('.cavil-notice-summary').count(), 0, 'and nothing above the list');
+      t.equal(await many.locator('.legal-document-item').count(), 10, 'the list opens on the first 10');
+      t.equal(await many.locator('.cavil-notice-heading-note').count(), 0, 'with nothing left out');
+      t.equal((await toggle.innerText()).trim(), 'Show 20 more', 'the rest is a click away');
+
+      await toggle.click();
+      await many.locator('.legal-document-item').nth(29).waitFor();
+      t.equal(await many.locator('.legal-document-item').count(), 30, 'and all of them are listed');
+      t.equal((await toggle.innerText()).trim(), 'Show top 10', 'the button collapses again');
+
+      await toggle.click();
+      await many.locator('.legal-document-item').nth(10).waitFor({state: 'detached'});
+      t.equal(await many.locator('.legal-document-item').count(), 10, 'back to the first 10');
     });
 
     await page.goto(`${url}/reviews/details/1`);
