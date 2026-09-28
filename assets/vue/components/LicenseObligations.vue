@@ -1,43 +1,41 @@
 <template>
-  <div class="license-obligations cavil-reveal">
-    <div class="license-obligations-body">
-      <span class="lob-source">{{ sourceLabel }}</span>
-      <p v-if="exceptions.length > 0" class="lob-caveat">
-        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-        <span>May be modified by {{ exceptionsLabel }}.</span>
-      </p>
-      <section v-for="lic in licenses" :key="lic.license" class="lob-license">
-        <h5 v-if="showNames" class="lob-license-name">
-          <button type="button" class="license-link" :data-license="lic.license">{{ lic.license }}</button>
-        </h5>
+  <div class="license-obligations">
+    <span class="lob-source">{{ sourceLabel }}</span>
+    <p v-if="exceptions.length > 0" class="lob-caveat">
+      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+      <span>May be modified by {{ exceptionsLabel }}.</span>
+    </p>
+    <section v-for="lic in licenses" :key="lic.license" class="lob-license">
+      <h5 v-if="showNames" class="lob-license-name">
+        <button type="button" class="license-link spdx" :data-license="lic.license">{{ lic.license }}</button>
+      </h5>
 
-        <dl v-if="lic.attrs.length > 0" class="lob-attrs">
-          <div v-for="attr in lic.attrs" :key="attr.label" class="lob-attr">
-            <dt>{{ attr.label }}</dt>
-            <dd>{{ attr.value }}</dd>
-          </div>
-        </dl>
-
-        <div v-for="uc in lic.sections" :key="uc.label" class="lob-usecase">
-          <div class="lob-usecase-label">{{ uc.label }}</div>
-          <ul v-if="uc.rows.length > 0" class="lob-tree">
-            <li
-              v-for="(row, idx) in uc.rows"
-              :key="idx"
-              :class="['lob-row', 'lob-' + row.kind]"
-              :style="{paddingLeft: row.depth * 1.15 + 'rem'}"
-            >
-              <i v-if="row.icon" :class="['lob-icon', 'fa-solid', row.icon]" aria-hidden="true"></i>
-              <span v-if="row.label" class="visually-hidden">{{ row.label }}</span>
-              <span class="lob-text">{{ row.text }}</span>
-            </li>
-          </ul>
-          <p v-else class="lob-none">No specific obligations.</p>
+      <dl v-if="lic.attrs.length > 0" class="lob-attrs">
+        <div v-for="attr in lic.attrs" :key="attr.label" class="lob-attr">
+          <dt>{{ attr.label }}</dt>
+          <dd>{{ attr.value }}</dd>
         </div>
+      </dl>
 
-        <p v-if="lic.sections.length === 0" class="lob-none">No obligation checklist published for this license.</p>
-      </section>
-    </div>
+      <div v-for="uc in lic.sections" :key="uc.label" class="lob-usecase">
+        <div class="lob-usecase-label">{{ uc.label }}</div>
+        <ul v-if="uc.rows.length > 0" class="lob-tree">
+          <li
+            v-for="(row, idx) in uc.rows"
+            :key="idx"
+            :class="['lob-row', 'lob-' + row.kind]"
+            :style="{paddingLeft: row.depth * 1.15 + 'rem'}"
+          >
+            <i v-if="row.icon" :class="['lob-icon', 'fa-solid', row.icon]" aria-hidden="true"></i>
+            <span v-if="row.label" class="visually-hidden">{{ row.label }}</span>
+            <span class="lob-text">{{ row.text }}</span>
+          </li>
+        </ul>
+        <p v-else class="lob-none">No specific obligations.</p>
+      </div>
+
+      <p v-if="lic.sections.length === 0" class="lob-none">No obligation checklist published for this license.</p>
+    </section>
   </div>
 </template>
 
@@ -280,23 +278,13 @@ export default {
 </script>
 
 <style scoped>
-/* A full-width section of the license row, not a card floating inside it: negative horizontal margins
-   cancel the .risk-license-item padding so the top rule spans edge to edge, and content re-pads to stay
-   aligned with the license name above. */
 .license-obligations {
-  margin: 0.5rem -1rem 0;
-}
-.license-obligations-body {
-  border-top: 1px solid var(--cavil-border-muted);
   position: relative;
 }
-.lob-license {
-  padding: 0.7rem 1rem;
-}
-/* Separator only BETWEEN license sections (expressions) - never above the first one, which would draw a
-   stray line under the caveat / below the toggle. */
 .lob-license + .lob-license {
   border-top: 1px solid var(--cavil-neutral-bg);
+  margin-top: 1rem;
+  padding-top: 1rem;
 }
 
 /* Caveat for a "WITH exception" license (base license shown; exception may relax it). Muted amber - a
@@ -308,7 +296,7 @@ export default {
   font-size: 12px;
   gap: 0.45rem;
   line-height: 1.4;
-  margin: 0.6rem 4rem 0 1rem;
+  margin: 0 4rem 0.8rem 0;
 }
 .lob-caveat i {
   color: var(--cavil-attention);
@@ -451,8 +439,8 @@ export default {
   font-weight: 600;
   letter-spacing: 0.02em;
   position: absolute;
-  right: 1rem;
+  right: 0;
   text-transform: uppercase;
-  top: 0.5rem;
+  top: 0;
 }
 </style>

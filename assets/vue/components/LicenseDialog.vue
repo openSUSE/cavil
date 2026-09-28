@@ -3,7 +3,7 @@
     <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <span class="license-eyebrow">License</span>
+          <span class="license-eyebrow">{{ entries ? obligationsLabel(entries) : 'License' }}</span>
           <h2 class="license-id" id="licenseDialogLabel">{{ license }}</h2>
           <!-- Only an SPDX identifier has a page there; a curated text has no canonical source to offer -->
           <a
@@ -19,7 +19,8 @@
         <!-- The scrollport is the body, and Bootstrap only ever focuses the modal itself, so PageDown
              and the arrow keys are dead until the body is given focus -->
         <div class="modal-body" ref="body" tabindex="-1">
-          <LicenseText v-if="license" :key="license" :license="license" />
+          <LicenseObligations v-if="entries" :entries="entries" :label="license" />
+          <LicenseText v-else-if="license" :key="license" :license="license" />
         </div>
       </div>
     </div>
@@ -27,24 +28,29 @@
 </template>
 
 <script>
+import LicenseObligations, {obligationsLabel} from './LicenseObligations.vue';
 import LicenseText from './LicenseText.vue';
 import {Modal} from 'bootstrap';
 
 export default {
   name: 'LicenseDialog',
-  components: {LicenseText},
+  components: {LicenseObligations, LicenseText},
   data() {
-    return {license: null, isSpdx: false, modal: null};
+    return {license: null, isSpdx: false, entries: null, modal: null};
   },
   mounted() {
     this.$refs.modal.addEventListener('shown.bs.modal', () => this.$refs.body.focus());
   },
   methods: {
-    open(license, isSpdx) {
-      this.license = license;
-      this.isSpdx = isSpdx;
+    obligationsLabel,
+    // Also called while already open, when a license inside the obligations is clicked, so the sheet
+    // swaps content instead of stacking a second modal
+    open(license, isSpdx, entries = null) {
+      Object.assign(this, {license, isSpdx, entries});
       if (!this.modal) this.modal = Modal.getOrCreateInstance(this.$refs.modal);
       this.modal.show();
+      this.$refs.body.scrollTop = 0;
+      this.$refs.body.focus();
     }
   }
 };

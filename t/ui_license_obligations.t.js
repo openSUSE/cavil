@@ -2,8 +2,8 @@
 import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
 import t from 'tap';
 
-// Each license in the report's license list can carry a collapsed panel of external classification
-// data, credited to the sources it came from. The toggle word says how complete that data is:
+// Each license in the report's license list can open a sheet of external classification data, credited
+// to the sources it came from. The toggle word says how complete that data is:
 // "Obligations" when OSADL publishes an actual checklist (what a reviewer must do to ship the license,
 // grouped by delivery use case), "Details" when all we have is SPDX's OSI / FSF classification. The
 // "obligations" fixture builds a package covering both, plus expressions and a WITH-exception license.
@@ -20,12 +20,23 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
     const apacheItem = page.locator('.risk-license-item', {hasText: 'Apache-2.0'});
     await apacheItem.locator('.license-obligations-toggle').waitFor();
 
-    await t.test('the obligation panel is collapsed by default', async t => {
-      t.equal(
-        await apacheItem.locator('.license-obligations-body').count(),
-        0,
-        'no obligation body is rendered until the toggle is opened'
-      );
+    // The sheet is the same modal as the license text, so every panel is opened from its row and closed
+    // again the way a reviewer would
+    const modal = page.locator('.license-modal');
+    const openPanel = async item => {
+      await item.locator('.license-obligations-toggle').click();
+      const body = modal.locator('.license-obligations');
+      await body.waitFor();
+      await page.waitForFunction(() => document.activeElement.classList.contains('modal-body'));
+      return body;
+    };
+    const closePanel = async () => {
+      await page.keyboard.press('Escape');
+      await modal.waitFor({state: 'hidden'});
+    };
+
+    await t.test('the obligation sheet is closed by default', async t => {
+      t.equal(await modal.isVisible(), false, 'nothing covers the report until the toggle is clicked');
       t.match(
         await apacheItem.locator('.license-obligations-toggle').innerText(),
         /Obligations/,
@@ -34,9 +45,9 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
     });
 
     await t.test('opening Apache-2.0 shows use cases, obligations and attribution', async t => {
-      await apacheItem.locator('.license-obligations-toggle').click();
-      const body = apacheItem.locator('.license-obligations-body');
-      await body.waitFor();
+      const body = await openPanel(apacheItem);
+      t.equal(await modal.locator('.license-eyebrow').innerText(), 'OBLIGATIONS', 'the sheet says what it holds');
+      t.equal(await modal.locator('.license-id').innerText(), 'Apache-2.0', 'and names the license');
 
       const useCases = await body.locator('.lob-usecase-label').allInnerTexts();
       t.ok(
@@ -81,13 +92,12 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
 
       // A single license needs no per-constituent heading.
       t.equal(await body.locator('.lob-license-name').count(), 0, 'single license has no constituent header');
+      await closePanel();
     });
 
     await t.test('an expression shows one obligation section per constituent license', async t => {
       const exprItem = page.locator('.risk-license-item', {hasText: 'MIT OR BSD-3-Clause'});
-      await exprItem.locator('.license-obligations-toggle').click();
-      const body = exprItem.locator('.license-obligations-body');
-      await body.waitFor();
+      const body = await openPanel(exprItem);
 
       const names = await body.locator('.lob-license-name').allInnerTexts();
       t.ok(
@@ -98,6 +108,15 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         names.some(n => /BSD-3-Clause/.test(n)),
         'BSD-3-Clause has its own obligation section'
       );
+
+      await body.locator('.license-link', {hasText: 'MIT'}).click();
+      await modal.locator('[data-license-text]').waitFor();
+      t.equal(await modal.locator('.license-eyebrow').innerText(), 'LICENSE', 'a constituent swaps in its text');
+      t.equal(await modal.locator('.license-id').innerText(), 'MIT', 'in the same sheet');
+      t.equal(await modal.locator('.license-obligations').count(), 0, 'replacing the obligations');
+      t.equal(await page.locator('.modal-backdrop').count(), 1, 'rather than stacking a second modal');
+      await page.waitForFunction(() => document.activeElement.classList.contains('modal-body'));
+      await closePanel();
     });
 
     await t.test('an expression whose constituents have different coverage names each one', async t => {
@@ -105,9 +124,7 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       // Each constituent gets its own named section, so the obligations are unambiguously attributed to
       // BSD-2-Clause and Beerware is visibly the one with nothing more than flags.
       const partialItem = page.locator('.risk-license-item', {hasText: 'BSD-2-Clause AND Beerware'});
-      await partialItem.locator('.license-obligations-toggle').click();
-      const body = partialItem.locator('.license-obligations-body');
-      await body.waitFor();
+      const body = await openPanel(partialItem);
 
       const names = await body.locator('.lob-license-name').allInnerTexts();
       t.equal(names.length, 2, 'both constituents are named');
@@ -122,6 +139,7 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         /No obligation checklist/i,
         'and says so rather than leaving the section blank'
       );
+      await closePanel();
     });
 
     await t.test('a license with no OSADL checklist shows SPDX details instead', async t => {
@@ -131,9 +149,8 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       const toggle = detailsItem.locator('.license-obligations-toggle');
       t.match(await toggle.innerText(), /Details/, 'the toggle says "Details", not "Obligations"');
 
-      await toggle.click();
-      const body = detailsItem.locator('.license-obligations-body');
-      await body.waitFor();
+      const body = await openPanel(detailsItem);
+      t.equal(await modal.locator('.license-eyebrow').innerText(), 'DETAILS', 'and so does the sheet');
 
       const attrs = await body.locator('.lob-attr').allInnerTexts();
       t.ok(
@@ -146,15 +163,14 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       );
       t.equal(await body.locator('.lob-source').innerText(), 'SPDX', 'only SPDX is credited');
       t.equal(await body.locator('.lob-usecase').count(), 0, 'no use cases are invented');
+      await closePanel();
     });
 
     await t.test('a license the FSF never ruled on shows no FSF row at all', async t => {
       // SPDX omits isFsfLibre for licenses the FSF has not ruled on. That is not a "not free" verdict, so
       // the row must be absent rather than rendered as a third state or flattened into "No".
       const noFsfItem = page.locator('.risk-license-item', {hasText: 'MPL-1.0'});
-      await noFsfItem.locator('.license-obligations-toggle').click();
-      const body = noFsfItem.locator('.license-obligations-body');
-      await body.waitFor();
+      const body = await openPanel(noFsfItem);
 
       const attrs = await body.locator('.lob-attr').allInnerTexts();
       t.ok(
@@ -165,15 +181,14 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         attrs.some(a => /FSF/i.test(a)),
         'but there is no FSF row, because there is no ruling'
       );
+      await closePanel();
     });
 
     await t.test('a WITH-exception license shows base obligations with an exception caveat', async t => {
       // "GPL-2.0-or-later WITH Classpath-exception-2.0": OSADL has no exception-aware checklist, so the
       // base license's obligations are shown and the panel caveats that the exception may modify them.
       const excItem = page.locator('.risk-license-item', {hasText: 'Classpath-exception-2.0'});
-      await excItem.locator('.license-obligations-toggle').click();
-      const body = excItem.locator('.license-obligations-body');
-      await body.waitFor();
+      const body = await openPanel(excItem);
 
       const caveat = await body.locator('.lob-caveat').innerText();
       t.match(caveat, /Classpath-exception-2\.0/, 'the caveat names the exception');
@@ -184,6 +199,7 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         'the base license GPL-2.0-or-later is named'
       );
       t.ok((await body.locator('.lob-must').count()) > 0, 'the base license obligations are shown');
+      await closePanel();
     });
 
     await t.test('an SPDX identifier opens the license text overlay', async t => {
@@ -206,11 +222,7 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
         'pre-wrap',
         'authored blank lines and clause indents survive'
       );
-      t.equal(
-        await modal.locator('.license-source').getAttribute('target'),
-        '_blank',
-        'spdx.org is one click away'
-      );
+      t.equal(await modal.locator('.license-source').getAttribute('target'), '_blank', 'spdx.org is one click away');
 
       await page.keyboard.press('Escape');
       await modal.waitFor({state: 'hidden'});
@@ -226,7 +238,10 @@ await t.test('Cavil UI - license obligations', skipUnlessOnline, async t => {
       t.equal(await apacheItem.evaluate(el => el.classList.contains('is-catch-all')), false, 'the others are not');
       t.not(
         await grabBag.locator('.risk-license-name').evaluate(el => getComputedStyle(el).color),
-        await apacheItem.locator('.risk-license-name').first().evaluate(el => getComputedStyle(el).color),
+        await apacheItem
+          .locator('.risk-license-name')
+          .first()
+          .evaluate(el => getComputedStyle(el).color),
         'and its name is painted softer than an identified one'
       );
 

@@ -229,13 +229,9 @@
                     v-if="lic.classification && lic.classification.length > 0"
                     type="button"
                     class="license-obligations-toggle"
-                    :aria-expanded="openObligations.has(lic.key) ? 'true' : 'false'"
-                    @click="toggleObligations(lic.key)"
+                    aria-haspopup="dialog"
+                    @click="openObligations(lic)"
                   >
-                    <i
-                      :class="['fa-solid', openObligations.has(lic.key) ? 'fa-caret-down' : 'fa-caret-right']"
-                      aria-hidden="true"
-                    ></i>
                     {{ obligationsLabel(lic.classification) }}
                   </button>
                   <span class="risk-license-count">
@@ -247,13 +243,6 @@
                     {{ licenseFlagLabel(flag) }}
                   </span>
                 </div>
-                <Transition name="cavil-reveal">
-                  <LicenseObligations
-                    v-if="openObligations.has(lic.key)"
-                    :entries="lic.classification"
-                    :label="lic.spdx || lic.name"
-                  />
-                </Transition>
                 <div class="risk-files">
                   <ul class="risk-file-list">
                     <li v-for="file in shownFiles(lic)" :key="file[0]">
@@ -504,7 +493,7 @@ import GlobProposalModal from './GlobProposalModal.vue';
 import LegalLoading from './LegalLoading.vue';
 import LicenseCompatibilityMatrix from './LicenseCompatibilityMatrix.vue';
 import LicenseCompositionChart from './LicenseCompositionChart.vue';
-import LicenseObligations, {obligationsLabel} from './LicenseObligations.vue';
+import {obligationsLabel} from './LicenseObligations.vue';
 import PendingActionsWidget from './PendingActionsWidget.vue';
 import ProgressBar from './ProgressBar.vue';
 import ReportArtifacts from './ReportArtifacts.vue';
@@ -543,7 +532,6 @@ export default {
     LegalLoading,
     LicenseCompatibilityMatrix,
     LicenseCompositionChart,
-    LicenseObligations,
     PendingActionsWidget,
     ProgressBar,
     ReportArtifacts,
@@ -582,7 +570,6 @@ export default {
       maxFiles: Infinity,
       missedFiles: [],
       openLists: new Set(),
-      openObligations: new Set(),
       openInlineEditor: null,
       packageName: '',
       panel: null,
@@ -939,8 +926,9 @@ export default {
       return file ? this.licenseTarget(target.risk, lic, file) : null;
     },
     obligationsLabel,
-    toggleObligations(key) {
-      if (!this.openObligations.delete(key)) this.openObligations.add(key);
+    openObligations(lic) {
+      const detail = {label: lic.spdx || lic.name, entries: lic.classification};
+      document.dispatchEvent(new CustomEvent('cavil:obligations', {detail}));
     },
     shownFiles(lic) {
       return lic.files.slice(0, this.openLists.has(lic.key) ? this.maxFiles : FOLDED_FILES);
@@ -1553,16 +1541,6 @@ export default {
 .license-obligations-toggle:focus-visible {
   color: var(--cavil-accent);
 }
-.license-obligations-toggle i {
-  color: var(--cavil-fg-disabled);
-  opacity: 0;
-  width: 0.7rem;
-}
-.license-obligations-toggle:hover i,
-.license-obligations-toggle:focus-visible i,
-.license-obligations-toggle[aria-expanded='true'] i {
-  opacity: 1;
-}
 .risk-license-label {
   align-items: center;
   display: inline-flex;
@@ -1618,12 +1596,6 @@ export default {
   line-height: 1;
   padding: 0.3rem 0.55rem;
   white-space: nowrap;
-}
-/* Divider between an expanded obligations panel and the file list, gone with the panel */
-.license-obligations + .risk-files {
-  border-top: 1px solid var(--cavil-border-muted);
-  margin: 0.5rem -1rem 0;
-  padding: 0.55rem 1rem 0;
 }
 .risk-file-list {
   border-left: 1px solid var(--cavil-border);

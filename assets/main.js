@@ -151,6 +151,9 @@ window.cavil = {
       if (link === null) return;
       viewer.open(link.dataset.license, link.classList.contains('spdx'));
     });
+    document.addEventListener('cavil:obligations', event =>
+      viewer.open(event.detail.label, false, event.detail.entries)
+    );
   },
 
   setupRecentPatterns(hasAdminRole) {
