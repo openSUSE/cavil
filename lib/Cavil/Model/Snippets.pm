@@ -5,7 +5,7 @@ package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
 use Mojo::File  qw(path);
-use Cavil::Util qw(checkout_path file_and_checksum read_lines);
+use Cavil::Util qw(checkout_path file_and_checksum path_within read_lines);
 use Cavil::ReportUtil
   qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
 
@@ -312,13 +312,7 @@ sub from_file_path ($self, $package_id, $filename, $first_line, $last_line) {
 
     my $unpacked = checkout_path($self->checkout_dir, $package->{name}, $package->{checkout_dir}, '.unpacked');
     my $path     = $unpacked->child($filename);
-    return undef unless -f $path;
-
-    # An unpacked archive can contain symlinks pointing anywhere, and the name has not been through
-    # indexing, so the file has to be proven to sit inside this package before its content is read
-    my $root = eval { $unpacked->realpath->to_string };
-    my $real = eval { $path->realpath->to_string };
-    return undef unless defined $root && defined $real && index($real, "$root/") == 0;
+    return undef unless -f $path && path_within($unpacked, $path);
 
     # The mimetype is used for display alone
     $file->{id} = $db->insert(

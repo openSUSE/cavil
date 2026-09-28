@@ -4,10 +4,9 @@
 package Cavil::Controller::Reviewer;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Mojo::Asset::File;
 use Mojo::File  qw(path);
 use Mojo::Util  qw(encode url_escape);
-use Cavil::Util qw(checkout_path lines_context tags_from_request PRIORITY_WAITING);
+use Cavil::Util qw(checkout_path lines_context path_within tags_from_request PRIORITY_WAITING);
 
 use constant WINDOW_LINES => 2000;
 
@@ -125,7 +124,7 @@ sub file_raw ($self) {
   $headers->header('X-Content-Type-Options' => 'nosniff');
   $headers->content_disposition(
     qq{attachment; filename="$ascii"; filename*=UTF-8''} . url_escape(encode('UTF-8', $name)));
-  return $self->reply->asset(Mojo::Asset::File->new(path => $ctx->{file}));
+  return $self->reply->file($ctx->{file});
 }
 
 sub _file_browser_context ($self) {
@@ -154,7 +153,7 @@ sub _file_browser_context ($self) {
   return {filename => $filename, package => $package, unavailable => 1} unless -d $unpacked;
 
   my $file = $unpacked->child($filename);
-  unless (-e $file) {
+  unless (-e $file && path_within($unpacked, $file)) {
     $self->reply->not_found;
     return undef;
   }

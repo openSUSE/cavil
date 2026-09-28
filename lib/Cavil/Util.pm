@@ -24,7 +24,7 @@ our @EXPORT_OK = (
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
   qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file parse_list_filter),
-  qw(parse_service_file pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
+  qw(parse_service_file path_within pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
   qw(read_lines run_cmd safe_string),
   qw(request_id_from_external_link),
   qw(external_link_data license_link snippet_checksum spdx_identifiers spdx_link spdx_only_expression),
@@ -724,6 +724,13 @@ sub parse_list_filter ($string, $allowed) {
     else                                                 { push @text, $token }
   }
   return (\%quals, join(' ', @text));
+}
+
+# Unpacked archives keep their symlinks, which can point anywhere, so a name inside the tree proves nothing
+sub path_within ($root, $path) {
+  my $top  = eval { $root->realpath->to_string } // return undef;
+  my $real = eval { $path->realpath->to_string } // return undef;
+  return $real eq $top || index($real, "$top/") == 0;
 }
 
 sub paginate ($results, $options) {

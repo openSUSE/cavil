@@ -310,7 +310,37 @@ subtest 'Details after indexing' => sub {
 
     $t->get_ok('/reviews/file_raw/1/Mojolicious-7.25')->status_is(404);
     $t->get_ok('/reviews/file_raw/1/does-not-exist')->status_is(404);
-    $t->get_ok('/reviews/file_raw/1/../COPYING')->status_is(400);
+  };
+
+  subtest 'file browser stays inside the package' => sub {
+    my $package  = $t->app->packages->find(1);
+    my $unpacked = $cavil_test->checkout_dir->child('perl-Mojolicious', $package->{checkout_dir}, '.unpacked');
+    my $secret   = $unpacked->dirname->child('secret.txt')->spew('SECRET');
+
+    # Archives unpack their symlinks as they are, pointing anywhere
+    symlink "$secret",                             $unpacked->child('absolute-link');
+    symlink '../secret.txt',                       $unpacked->child('relative-link');
+    symlink "@{[$unpacked->dirname]}",             $unpacked->child('dir-link');
+    symlink 'Mojolicious-7.25/lib/Mojolicious.pm', $unpacked->child('inside-link');
+
+    my @escapes = (
+      '../secret.txt',         '%2e%2e/secret.txt',  '%2E%2E%2Fsecret.txt',        '..%2fsecret.txt',
+      '.%2e/secret.txt',       'a/../../secret.txt', 'x/%2e%2e/%2e%2e/secret.txt', '..\\secret.txt',
+      '%252e%252e/secret.txt', '/etc/passwd',        '%2Fetc%2Fpasswd',            'absolute-link',
+      'relative-link',         'dir-link',           'dir-link/secret.txt'
+    );
+    for my $route (qw(file_raw file_view_meta file_view)) {
+      for my $escape (@escapes) {
+        my $res = $t->ua->get("/reviews/$route/1/$escape")->result;
+        ok $res->code == 400 || $res->code == 404, "$route refuses $escape";
+        unlike $res->body, qr/SECRET|root:/, "$route leaks nothing for $escape";
+      }
+    }
+
+    # A link that stays inside the package is just another name for one of its files
+    $t->get_ok('/reviews/file_raw/1/inside-link')->status_is(200)->content_like(qr/package Mojolicious/);
+
+    $_->remove for $secret, map { $unpacked->child($_) } qw(absolute-link relative-link dir-link inside-link);
   };
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
