@@ -157,7 +157,10 @@
                         :href="'#file-' + file.id"
                         class="file-link risk-unresolved-file"
                         :aria-expanded="isOpen(unresolvedTarget(file)) ? 'true' : 'false'"
+                        :aria-busy="isLoading(unresolvedTarget(file))"
                         @click.prevent="togglePanel(unresolvedTarget(file))"
+                        @mouseenter="schedulePrefetch(unresolvedTarget(file))"
+                        @mouseleave="cancelPrefetch"
                         ><i class="fa-solid file-link-chevron" aria-hidden="true"></i><FilePath :path="file.name"
                       /></a>
                       <span v-if="file.new" class="risk-new">new</span>
@@ -183,7 +186,7 @@
                   </div>
                   <Transition name="cavil-reveal">
                     <ReportMatchPanel
-                      v-if="isOpen(unresolvedTarget(file))"
+                      v-if="isShown(unresolvedTarget(file))"
                       :panel="panel"
                       :pkg-id="pkgId"
                       :step="panelStep"
@@ -250,7 +253,10 @@
                         :href="'#file-' + file[0]"
                         class="file-link"
                         :aria-expanded="isOpen(licenseTarget(risk, lic, file)) ? 'true' : 'false'"
+                        :aria-busy="isLoading(licenseTarget(risk, lic, file))"
                         @click.prevent="togglePanel(licenseTarget(risk, lic, file))"
+                        @mouseenter="schedulePrefetch(licenseTarget(risk, lic, file))"
+                        @mouseleave="cancelPrefetch"
                         ><i class="fa-solid file-link-chevron" aria-hidden="true"></i><FilePath :path="file[1]"
                       /></a>
                       <ReportFileActions
@@ -264,7 +270,7 @@
                       />
                       <Transition name="cavil-reveal">
                         <ReportMatchPanel
-                          v-if="isOpen(licenseTarget(risk, lic, file))"
+                          v-if="isShown(licenseTarget(risk, lic, file))"
                           :panel="panel"
                           :pkg-id="pkgId"
                           :step="panelStep"
@@ -663,6 +669,7 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
+    this.cancelPrefetch();
     if (this.statePollTimer !== null) {
       clearTimeout(this.statePollTimer);
       this.statePollTimer = null;
@@ -769,6 +776,7 @@ export default {
       return 'text-bg-danger';
     },
     refreshData(data) {
+      this.prefetch = null;
       if (data.obsolete) this.packageObsolete = true;
       if (data.report_unavailable) {
         this.loading = false;
@@ -830,7 +838,10 @@ export default {
       if (this.panel) {
         const target = this.findTarget(this.panel);
         if (!target) this.panel = null;
-        else if (target.fileId !== this.panel.fileId) this.openPanel(target, this.panel.groups);
+        else if (target.fileId !== this.panel.fileId) {
+          Object.assign(this.panel, target);
+          this.fetchPanel();
+        }
       }
       this.$nextTick(this.handleInitialHash);
     },
@@ -915,6 +926,13 @@ export default {
     isOpen(target) {
       return this.panel !== null && this.panel.key === this.panelKey(target);
     },
+    // Mounting only once the matches are in lets the panel reveal in one motion instead of opening twice
+    isShown(target) {
+      return this.isOpen(target) && (this.panel.source !== null || this.panel.unavailable);
+    },
+    isLoading(target) {
+      return this.isOpen(target) && !this.isShown(target);
+    },
     // The same row in a freshly loaded report, or null when it is gone
     findTarget(target) {
       if (target.list === 'unresolved') {
@@ -939,8 +957,22 @@ export default {
     },
     // One panel at a time keeps memory bounded, and FileSource's element ids unique for a file listed twice
     openPanel(target, groups = PANEL_STEP) {
-      this.panel = {...target, key: this.panelKey(target), groups, source: null, unavailable: false};
-      return this.fetchPanel();
+      const key = this.panelKey(target);
+      this.panel = {...target, key, groups, source: null, unavailable: false};
+      const prefetch = this.prefetch?.key === key && groups === PANEL_STEP ? this.prefetch : null;
+      this.prefetch = null;
+      return prefetch ? this.applySource(this.panel, prefetch.promise) : this.fetchPanel();
+    },
+    schedulePrefetch(target) {
+      this.cancelPrefetch();
+      this.prefetchTimer = setTimeout(() => {
+        const key = this.panelKey(target);
+        if (this.isOpen(target) || this.prefetch?.key === key) return;
+        this.prefetch = {key, promise: this.fetchSource(target, PANEL_STEP).catch(() => null)};
+      }, 100);
+    },
+    cancelPrefetch() {
+      clearTimeout(this.prefetchTimer);
     },
     async revealPanel(target) {
       if (target.list === 'license') {
@@ -951,17 +983,21 @@ export default {
       await this.$nextTick();
       document.getElementById('file-details-' + target.fileId)?.scrollIntoView({behavior: 'smooth', block: 'center'});
     },
-    async fetchPanel(start = 0, end = 0) {
-      const panel = this.panel;
-      const query = {groups: panel.groups};
-      if (panel.list === 'unresolved') query.unresolved = 1;
-      else Object.assign(query, {license: panel.license, risk: panel.risk});
+    async fetchSource(target, groups, start = 0, end = 0) {
+      const query = {groups};
+      if (target.list === 'unresolved') query.unresolved = 1;
+      else Object.assign(query, {license: target.license, risk: target.risk});
       if (start) query.start = start;
       if (end) query.end = end;
-      const res = await fetch(`/reviews/fetch_source/${panel.fileId}.json?${new URLSearchParams(query)}`);
-      if (!res.ok || this.panel !== panel) return;
-      const {source} = await res.json();
-      if (this.panel !== panel) return;
+      const res = await fetch(`/reviews/fetch_source/${target.fileId}.json?${new URLSearchParams(query)}`);
+      return res.ok ? (await res.json()).source : null;
+    },
+    fetchPanel(start = 0, end = 0) {
+      return this.applySource(this.panel, this.fetchSource(this.panel, this.panel.groups, start, end));
+    },
+    async applySource(panel, promise) {
+      const source = await promise;
+      if (!source || this.panel !== panel) return;
 
       // A re-unpack has the checkout torn down, so there is no source to show. Say that instead of
       // rendering an empty file, and leave any matches already on screen alone.
@@ -1662,6 +1698,24 @@ button.risk-file-more:focus-visible {
 }
 .file-link[aria-expanded='true'] .file-link-chevron::before {
   content: '\f078';
+}
+/* GitHub's file-tree spinner, only for responses slow enough to notice */
+.file-link[aria-busy='true'] {
+  cursor: progress;
+}
+.file-link[aria-busy='true'] .file-link-chevron::before {
+  animation: file-link-busy 0.8s linear 150ms infinite;
+  display: inline-block;
+}
+@keyframes file-link-busy {
+  from {
+    content: '\f1ce';
+    transform: rotate(0);
+  }
+  to {
+    content: '\f1ce';
+    transform: rotate(360deg);
+  }
 }
 /* The open row is a header: no link colour, and no row hover or wash competing with the code below it */
 .risk-license-item .file-link[aria-expanded='true'] {

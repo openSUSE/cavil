@@ -746,8 +746,18 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         // Matched files live in the risk buckets, not in #filelist-snippets, so
         // expand the second file via its risk-bucket link (expandFileDetails
         // only knows about the unresolved snippet list).
+        await page.evaluate(() => {
+          window.emptyPanels = 0;
+          new MutationObserver(records => {
+            for (const node of records.flatMap(r => [...r.addedNodes])) {
+              if (node.classList?.contains('report-match-panel') && !node.querySelector('.source'))
+                window.emptyPanels++;
+            }
+          }).observe(document.body, {childList: true, subtree: true});
+        });
         await page.locator(`[id^="risk-"] a.file-link[href="#file-${secondReportFileId}"]`).click();
         await page.waitForSelector(`#file-details-${secondReportFileId} table.snippet`);
+        t.equal(await page.evaluate(() => window.emptyPanels), 0, 'the panel mounts with its matches already in');
         // With a tooltip already open over the first file, hover a matched row in
         // the second file: the pointer moving between previews must hand the
         // transient tooltip over so only one stays alive.

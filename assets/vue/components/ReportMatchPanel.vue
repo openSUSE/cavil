@@ -1,14 +1,9 @@
 <template>
-  <div
-    :id="'file-details-' + panel.fileId"
-    class="report-match-panel cavil-reveal"
-    :class="{'is-loaded': panel.source && !panel.unavailable}"
-  >
+  <div :id="'file-details-' + panel.fileId" class="report-match-panel cavil-reveal">
     <div class="report-match-inner">
       <div v-if="panel.unavailable" class="report-match-note">
         The sources are being unpacked, this file becomes readable again once reindexing finishes.
       </div>
-      <div v-else-if="!panel.source" class="report-match-note report-match-loading">Loading matches&hellip;</div>
       <div v-else class="source">
         <FileSource
           v-bind="$attrs"
@@ -77,21 +72,8 @@ export default {
 </script>
 
 <style>
-/* Reveals once the matches arrive, not when the panel mounts */
-.report-match-panel.is-loaded:not(.cavil-reveal-leave-active) {
-  animation: cavil-reveal-open 150ms ease-out;
-}
 .report-match-inner {
   padding: 0.3rem 0 0.2rem;
-}
-/* Fast responses never show it */
-.report-match-loading {
-  animation: report-match-delay 150ms step-end;
-}
-@keyframes report-match-delay {
-  from {
-    visibility: hidden;
-  }
 }
 .report-match-more:hover,
 .report-match-more:focus-visible {
