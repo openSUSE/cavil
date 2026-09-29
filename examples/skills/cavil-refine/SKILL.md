@@ -49,7 +49,8 @@ text must never be short-patterned.
 the **multi-snippet trigger**: when `cavil_get_file` shows license wording spread across the file,
 or the same file shows up under several worklist snippets, the file is almost always one legal
 document (license, EULA, CLA, long notice), even when its name gives no hint (`docs/.../index.md`, a
-`README`, a stray `.html`). Other signals: a `LICENSE`/`COPYING`/`NOTICE` file, `*_License.txt`,
+`README`, a stray `.html`). Other signals: a snippet starting mid-sentence (open the file), a
+`LICENSE`/`COPYING`/`NOTICE`/`COPYRIGHT` file, `*_License.txt`,
 `*license*.html`, a file under `3rd-party/`, `lib/<vendor>/` or a similar bundled-component
 directory. → Capture the whole body and propose **one** pattern over it (CAPTURING A FULL LICENSE
 BODY). Never submit the individual mid-document snippets as their own patterns. Use the SPDX id; a
@@ -99,7 +100,8 @@ worklist snippet, take the **first** action that applies:
    step 5.
 5. **Mode B** → short identifier pattern. **The common case.**
 6. **Named, but Cavil does not know it** → propose it as a new license (NEW LICENSES). If that
-   checklist fails, `cavil_report_missing_license` (in `reported` mode: leave it).
+   checklist fails, `cavil_report_missing_license` (in `reported` mode: leave it). Only with a license
+   name quoted from the text, and only on the Mode A body, never a fragment; else step 7.
 7. **Cannot name any license** → Note (text output only, no tool).
 
 **PRECEDENT STEP (mandatory before steps 3, 4 and 6, and before any catch-all or pseudo-license).**
@@ -257,7 +259,7 @@ grab-bag step 2).
 | The notice… | Class | Allowed `license` | Risk |
 | --- | --- | --- | --- |
 | grants use/copying/redistribution, maybe with conditions | grant | named license, `Any Permissive`, `Any specification license` (spec documents only) | per tool levels |
-| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | a new license (NEW LICENSES) if it covers shipped code; otherwise the closest restrictive pseudo-license | **7** |
+| only reserves rights ("may not be reproduced", "strictly prohibited", "does not convey any rights") | reservation only | a new license (NEW LICENSES) if it covers shipped code; otherwise the closest restrictive pseudo-license (none at risk 7 → Note + DATA FIXES) | **7** |
 | marks confidentiality ("Confidential", "Proprietary and Confidential") with no terms | marker | include the surrounding notice (grab-bag step 3), then re-classify | - |
 | only disclaims warranty | disclaimer | `Any floating warranty` / `Any no warranty` | per tool levels |
 | is metadata ("IP Status: …", a license field in a catalog) | metadata | ignore, unless it names a license (Mode B) | - |
@@ -268,7 +270,8 @@ rejected. Before using any `Any …` value:
 
 1. Is there a specific SPDX id or named license? Use it.
 2. Is there a narrower pseudo-license for what the document actually *is*? Probe with a descriptive
-   name that cannot exist (e.g. `license="Khronos spec notice probe"`, no `risk`). A miss submits
+   name that cannot exist (e.g. `license="Khronos spec notice probe"`, no `risk`) and your full draft
+   pattern (a short phrase trips the reach check first). A miss submits
    nothing and returns the closest existing names; that is how `Any specification license` was
    found. An exact hit **does** submit, so never probe with a real name.
 3. Never pattern a bare marker line (`X Proprietary and Confidential`) with no context. Include the
