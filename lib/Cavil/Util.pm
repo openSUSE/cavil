@@ -667,7 +667,8 @@ sub lines_context ($lines) {
 
 sub load_ignored_files ($db) {
   local $Text::Glob::strict_wildcard_slash = 0;
-  my %ignored_file_res = map { $_->[0] => glob_to_regex($_->[0]) } @{$db->select('ignored_files', 'glob')->arrays};
+  my %ignored_file_res
+    = map { $_->[0] => glob_to_regex($_->[0]) } @{$db->query('SELECT glob FROM ignored_files')->arrays};
   return \%ignored_file_res;
 }
 

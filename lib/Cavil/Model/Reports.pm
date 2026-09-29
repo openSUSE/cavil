@@ -4,7 +4,7 @@
 package Cavil::Model::Reports;
 use Mojo::Base -base, -signatures;
 
-use Encode qw(from_to decode);
+use Encode qw(find_encoding from_to);
 use Mojo::File 'path';
 use Mojo::JSON qw(from_json);
 use Cavil::PatternEngine;
@@ -18,6 +18,9 @@ has [qw(acceptable_packages acceptable_risk checkout_dir pg snippet_fold)];
 
 # we need a HUGE number because the matcher uses unsigned integers
 use constant PATTERN_DELTA => 10000000000;
+
+# Looked up once, a lookup by name per decoded line was most of the source view's time
+my $UTF8 = find_encoding('UTF-8');
 
 sub cached_dig_report {
   my ($self, $id) = @_;
@@ -33,8 +36,8 @@ sub dig_report {
   $generation //= 0;
 
   my $db            = $self->pg->db;
-  my $pkg           = $db->select('bot_packages',  '*',            {id       => $id})->hash;
-  my $ignored       = $db->select('ignored_lines', ['id', 'hash'], {packname => $pkg->{name}});
+  my $pkg           = $db->query('SELECT * FROM bot_packages WHERE id = ?',               $id)->hash;
+  my $ignored       = $db->query('SELECT id, hash FROM ignored_lines WHERE packname = ?', $pkg->{name});
   my %ignored_lines = map { $_->{hash} => $_->{id} } $ignored->hashes->each;
 
   my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file, $generation);
@@ -239,12 +242,12 @@ sub shortname ($self, $chksum) {
 sub source_for ($self, $fileid, $start, $end, $scope = {}) {
 
   # The file id comes straight from a request, so pin it to the live report: a build running alongside
-  # has its own matched_files rows and must never be rendered
-  my $db   = $self->pg->db;
-  my $file = $db->select('matched_files', '*', {id => $fileid, generation => 0})->hash;
+  # has its own matched_files rows and must never be rendered. No handle is held across dig_report: the pool
+  # caches one connection, so a second one would be a fresh login on every request.
+  my $file = $self->pg->db->query('SELECT * FROM matched_files WHERE id = ? AND generation = 0', $fileid)->hash;
   return undef unless $file;
 
-  my $pkg = $db->select('bot_packages', '*', {id => $file->{package}})->hash;
+  my $pkg = $self->pg->db->query('SELECT * FROM bot_packages WHERE id = ?', $file->{package})->hash;
 
   my $report = $self->dig_report($file->{package}, $fileid);
   my $lines  = $report->{lines}{$fileid};
@@ -285,7 +288,7 @@ sub source_for ($self, $fileid, $start, $end, $scope = {}) {
       $needed{$end + $c}   //= 0;
     }
 
-    $lines = $self->_lines($db, \%pid_info, $fn, \%needed, \%folded_meta);
+    $lines = $self->_lines($self->pg->db, \%pid_info, $fn, \%needed, \%folded_meta);
   }
 
   return {
@@ -458,10 +461,7 @@ sub _dig_report {
 
   my $ignored_file_res = Cavil::Util::load_ignored_files($db);
   my $report           = {};
-  my $query            = {package => $pkg->{id}, generation => $generation};
-  if ($limit_to_file) {
-    $query->{id} = $limit_to_file;
-  }
+  my @only             = $limit_to_file ? ($limit_to_file) : ();
 
   my @ignore_globs  = keys %$ignored_file_res;
   my $matching_glob = sub ($filename) {
@@ -471,25 +471,22 @@ sub _dig_report {
 
   # Avoid per-row hashes for packages with tens of thousands of files.
   my %globs_matched;
-  for my $file ($db->select('matched_files', [qw(id filename)], $query)->arrays->each) {
+  my $files
+    = $db->query(
+    'SELECT id, filename FROM matched_files WHERE package = ? AND generation = ?' . (@only ? ' AND id = ?' : ''),
+    $pkg->{id}, $generation, @only);
+  for my $file ($files->arrays->each) {
     my ($id, $filename) = @$file;
     if (my $glob = $matching_glob->($filename)) { $globs_matched{$glob} = 1 }
     else                                        { $report->{files}{$id} = $filename }
   }
 
   # The file join already pins matches to its generation.
-  my $query_string = 'select distinct filename from
-                      matched_files mf join pattern_matches pm
-                      on pm.file=mf.id where mf.package=? and mf.generation=?
-                      and pm.ignored=true';
-
-  my $filenames;
-  if ($limit_to_file) {
-    $filenames = $db->query("$query_string and mf.id=?", $pkg->{id}, $generation, $limit_to_file);
-  }
-  else {
-    $filenames = $db->query($query_string, $pkg->{id}, $generation);
-  }
+  my $filenames = $db->query(
+    'SELECT DISTINCT filename FROM matched_files mf JOIN pattern_matches pm ON pm.file = mf.id
+      WHERE mf.package = ? AND mf.generation = ? AND pm.ignored = true' . (@only ? ' AND mf.id = ?' : ''), $pkg->{id},
+    $generation, @only
+  );
 
   for my $file ($filenames->hashes->each) {
     if (my $glob = $matching_glob->($file->{filename})) { $globs_matched{$glob} = 1 }
@@ -498,24 +495,17 @@ sub _dig_report {
 
   $report->{matching_globs} = [keys %globs_matched];
 
-  $query = {package => $pkg->{id}, ignored => 0, generation => $generation};
-  if ($limit_to_file) {
-    $query->{file} = $limit_to_file;
-  }
-  my $matches = $db->select('pattern_matches', [qw(id file pattern sline eline)], $query);
+  my $matches
+    = $db->query(
+    'SELECT id, file, pattern, sline, eline FROM pattern_matches WHERE package = ? AND ignored = false AND generation = ?'
+      . (@only ? ' AND file = ?' : ''),
+    $pkg->{id}, $generation, @only);
 
-  $query = {'file_snippets.package' => $pkg->{id}, 'file_snippets.generation' => $generation};
-  if ($limit_to_file) {
-    $query->{file} = $limit_to_file;
-  }
-  my $snippets = $db->select(
-    ['snippets', ['file_snippets', snippet => 'id']],
-    [
-      'snippets.id', 'snippets.hash', 'snippets.likelyness', 'snippets.like_pattern',
-      'file',        'sline',         'eline',               'classified',
-      'license',     'resolution'
-    ],
-    $query
+  my $snippets = $db->query(
+    'SELECT s.id, s.hash, s.likelyness, s.like_pattern, fs.file, fs.sline, fs.eline, s.classified, s.license,
+       fs.resolution
+     FROM snippets s JOIN file_snippets fs ON fs.snippet = s.id
+     WHERE fs.package = ? AND fs.generation = ?' . (@only ? ' AND fs.file = ?' : ''), $pkg->{id}, $generation, @only
   );
 
   # Stable content keys make deduplication reproducible across packages.
@@ -681,14 +671,15 @@ sub _lines {
     my ($index, $pid, $line) = @$row;
 
     # Sanitize line - first try UTF-8 strict and then LATIN1
-    eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
+    eval { $line = $UTF8->decode($line, Encode::FB_CROAK | Encode::LEAVE_SRC) };
     if ($@) {
       from_to($line, 'ISO-LATIN-1', 'UTF-8', Encode::FB_DEFAULT);
-      $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
+      $line = $UTF8->decode($line, Encode::FB_DEFAULT);
     }
     if ($pid >= PATTERN_DELTA) {
       my $sid  = $pid - PATTERN_DELTA;
-      my $info = $snippet_info{$sid} ||= $db->select('snippets', ['hash', 'like_pattern'], {id => $sid})->hash || {};
+      my $info = $snippet_info{$sid}
+        ||= $db->query('SELECT hash, like_pattern FROM snippets WHERE id = ?', $sid)->hash || {};
       my $line_info = {risk => 9, snippet => $sid, name => 'Snippet of missing keywords'};
       $line_info->{hash} = $info->{hash}           if $info->{hash};
       $line_info->{pids} = [$info->{like_pattern}] if $info->{like_pattern};
