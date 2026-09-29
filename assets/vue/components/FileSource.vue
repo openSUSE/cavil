@@ -709,13 +709,21 @@ export default {
   background-color: var(--cavil-accent-bg);
   box-shadow: inset 3px 0 0 var(--cavil-accent);
 }
-/* A linked line, the blob-view highlight on GitHub. Wins over a match row's risk tint for that one line. */
-.source .snippet tr.line-target {
-  background-color: var(--cavil-attention-bg);
-}
+/* A linked line. A row tint would hide the risk colour of a match, so it gets a pointer in the 1ch of slack
+   lineNumberColumnStyle leaves left of the number instead. */
 .source .snippet tr.line-target td.linenumber {
-  box-shadow: inset 3px 0 0 var(--cavil-attention-strong);
   color: var(--cavil-fg);
+  font-weight: 600;
+  position: relative;
+}
+.source .snippet tr.line-target td.linenumber::before {
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid var(--cavil-fg);
+  border-top: 5px solid transparent;
+  content: '';
+  left: 0.25em;
+  position: absolute;
+  top: calc(50% - 5px);
 }
 .source .snippet td.linenumber a {
   color: inherit;
