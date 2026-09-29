@@ -32,7 +32,7 @@ sub cached_dig_report {
 # value is a reindex building alongside it (only Cavil::Task::Analyze passes one, to build the report it
 # is about to promote)
 sub dig_report {
-  my ($self, $id, $limit_to_file, $generation) = @_;
+  my ($self, $id, $limit_to_file, $generation, $scope) = @_;
   $generation //= 0;
 
   my $db            = $self->pg->db;
@@ -40,7 +40,7 @@ sub dig_report {
   my $ignored       = $db->query('SELECT id, hash FROM ignored_lines WHERE packname = ?', $pkg->{name});
   my %ignored_lines = map { $_->{hash} => $_->{id} } $ignored->hashes->each;
 
-  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file, $generation);
+  my $report = $self->_dig_report($db, {}, $pkg, \%ignored_lines, $limit_to_file, $generation, $scope);
 
   $report->{license_compatibility} = license_compatibility($report);
 
@@ -249,7 +249,7 @@ sub source_for ($self, $fileid, $start, $end, $scope = {}) {
 
   my $pkg = $self->pg->db->query('SELECT * FROM bot_packages WHERE id = ?', $file->{package})->hash;
 
-  my $report = $self->dig_report($file->{package}, $fileid);
+  my $report = $self->dig_report($file->{package}, $fileid, 0, $scope);
   my $lines  = $report->{lines}{$fileid};
 
   # The report lives in the database but its source lines are read from the checkout on every request, and
@@ -456,7 +456,7 @@ sub _add_to_snippet_hash {
 }
 
 sub _dig_report {
-  my ($self, $db, $pid_info, $pkg, $ignored_lines, $limit_to_file, $generation) = @_;
+  my ($self, $db, $pid_info, $pkg, $ignored_lines, $limit_to_file, $generation, $scope) = @_;
   $generation //= 0;
 
   my $ignored_file_res = Cavil::Util::load_ignored_files($db);
@@ -564,8 +564,9 @@ sub _dig_report {
     }
   }
 
-  $self->_register_matches($db, $report, $pid_info, $matches, \%matches_to_ignore, $limit_to_file);
-  $self->_register_folds($db, $report, $pid_info, \%file_snippets_to_fold, $limit_to_file);
+  my $owns = _owns_lines($scope);
+  $self->_register_matches($db, $report, $pid_info, $matches, \%matches_to_ignore, $limit_to_file, $owns);
+  $self->_register_folds($db, $report, $pid_info, \%file_snippets_to_fold, $limit_to_file, $owns);
 
   $report->{flags} = [keys %{$report->{flags}}] if $report->{flags};
 
@@ -590,7 +591,7 @@ sub _dig_report {
   }
 
   if (%matches_to_ignore) {
-    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, $limit_to_file, $generation);
+    return $self->_dig_report($db, $pid_info, $pkg, $ignored_lines, $limit_to_file, $generation, $scope);
   }
 
   # we read the lines and that's enough
@@ -777,12 +778,20 @@ sub _register_license {
   $pid_info->{$pid} = {risk => $pattern->{risk}, name => $pattern->{license}, pid => $pid};
 }
 
+# A line holds one pattern (equal risk, last one wins), so a license can lose every line it matched to others.
+# A scoped view would then come up empty, so there its license registers last and takes its lines regardless.
+sub _owns_lines ($scope) {
+  return sub ($pattern) {0}
+    unless defined(my $license = $scope->{license});
+  return sub ($pattern) { $pattern->{license} eq $license && $pattern->{risk} == $scope->{risk} };
+}
+
 # Register every real (non-ignored) license pattern match into the report: add its license and
 # highlight its lines with the pattern id (without lowering an already-higher risk on a line). Matches
 # fully inside an ignored/cleared snippet region are skipped, and matches in glob-hidden files are
 # queued for ignoring.
 sub _register_matches {
-  my ($self, $db, $report, $pid_info, $matches, $matches_to_ignore, $with_lines) = @_;
+  my ($self, $db, $report, $pid_info, $matches, $matches_to_ignore, $with_lines, $owns) = @_;
 
   # Prime the pattern cache in one shot. Every match references a pattern, and the per-match
   # _load_pattern_from_cache below would otherwise fire one single-row SELECT per cache miss - hundreds
@@ -790,6 +799,8 @@ sub _register_matches {
   # ids that are not cached yet with a single ANY() query instead.
   my $rows = $matches->hashes->to_array;
   $self->_prime_pattern_cache($db, [map { $_->{pattern} } @$rows]);
+  my %owned = map { $_ => $owns->($self->_load_pattern_from_cache($db, $_)) } map { $_->{pattern} } @$rows;
+  @$rows = sort { $owned{$a->{pattern}} <=> $owned{$b->{pattern}} } @$rows;
 
   for my $match (@$rows) {
     my $pid = $match->{pattern};
@@ -812,7 +823,7 @@ sub _register_matches {
     my ($file, $mid, $sline, $eline) = @{$match}{qw(file id sline eline)};
     $self->_register_license($report, $pid_info, $pattern, $pid, $file, 'match');
     next unless $with_lines;
-    my $risk = $pattern->{risk};
+    my ($risk, $owned) = ($pattern->{risk}, $owned{$pid});
 
     # Hoist the two per-file line maps: the loop runs once per line of every match (its ±3 context lines
     # included), so re-descending these two-level hashes each iteration is the hot path on a big package.
@@ -823,11 +834,11 @@ sub _register_matches {
       next if $i < 1;
       if ($i >= $sline && $i <= $eline) {
         my $opid = $needed->{$i} // 0;
-        next if $opid > PATTERN_DELTA;
+        next if !$owned && $opid > PATTERN_DELTA;
 
         # Set the line's pattern, but never lower an already-higher risk. An unmarked line (opid 0) has
         # risk 0 and can never out-rank this match, so skip the lookup for it.
-        next if $opid && $risk < $self->_info_for_pattern($db, $pid_info, $opid)->{risk};
+        next if !$owned && $opid && $risk < $self->_info_for_pattern($db, $pid_info, $opid)->{risk};
         $needed->{$i}  = $pid;
         $matched->{$i} = $mid;
       }
@@ -845,7 +856,7 @@ sub _register_matches {
 # only holds one integer per line, so the originating snippet id/hash (the handle reviewers need to
 # correct a wrong fold) is carried in a parallel folded_meta map.
 sub _register_folds {
-  my ($self, $db, $report, $pid_info, $file_snippets_to_fold, $with_lines) = @_;
+  my ($self, $db, $report, $pid_info, $file_snippets_to_fold, $with_lines, $owns) = @_;
 
   for my $file (keys %$file_snippets_to_fold) {
     for my $snip_row (@{$file_snippets_to_fold->{$file}}) {
@@ -853,6 +864,7 @@ sub _register_folds {
       next unless $pid;
       my $pattern = $self->_load_pattern_from_cache($db, $pid);
       next if $pattern->{license} eq '';
+      my $owned = $owns->($pattern);
 
       $self->_register_license($report, $pid_info, $pattern, $pid, $file, 'fold');
       $report->{folded}{$file} = 1;
@@ -866,7 +878,7 @@ sub _register_folds {
           # (1..PATTERN_DELTA) or an unresolved-snippet marker (> PATTERN_DELTA) already on the line is
           # authoritative, so a fold never repaints a line a curated match already explains.
           my $opid = $report->{needed_lines}{$file}{$i} // 0;
-          next if $opid;
+          next if $opid && !$owned;
           $report->{needed_lines}{$file}{$i} = $pid;
           $report->{folded_meta}{$file}{$i}  = {snippet => $sid, hash => $hash};
         }

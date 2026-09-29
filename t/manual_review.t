@@ -618,4 +618,26 @@ subtest 'Fasttrack review' => sub {
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
+subtest 'Scoped source for licenses sharing a line at the same risk' => sub {
+  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+
+  # Joins "powerful web development toolkit" (SUSE-NotALicense) on the same README line, one wins the line
+  $t->app->patterns->create(pattern => 'that you can use for all kinds of', license => 'Any reference local');
+  $t->app->patterns->expire_cache;
+  $t->app->packages->reindex(1);
+  $t->app->minion->perform_jobs;
+
+  my $risk = $t->get_ok('/reviews/report_details/1')->tx->res->json->{risks}{5};
+  for my $license ('SUSE-NotALicense', 'Any reference local') {
+    my ($file)
+      = grep { $_->[1] eq 'Mojolicious-7.25/README.processed.md' }
+      map { @{$_->{files}} } grep { $_->{name} eq $license } @$risk;
+    my $url    = "/reviews/fetch_source/$file->[0].json?license=" . url_escape($license) . '&risk=5';
+    my $source = $t->get_ok($url)->status_is(200)->json_is('/source/total', 1)->tx->res->json->{source};
+    ok grep({ ($_->[1]{name} // '') eq $license } @{$source->{lines}}), "$license line is shown";
+  }
+
+  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
+};
+
 done_testing;
