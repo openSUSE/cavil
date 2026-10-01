@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# Copyright SUSE LLC
-# SPDX-License-Identifier: GPL-2.0-or-later
 package Cavil::Controller::Notes;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
@@ -61,7 +59,8 @@ sub list ($self) {
     lawyer_only         => $include_lawyer_only         ? $counts->{lawyer_only} : 0,
     can_lawyer_only     => $self->_can_post_lawyer_only ? \1                     : \0,
     can_see_lawyer_only => $include_lawyer_only         ? \1                     : \0,
-    can_pin             => $self->_can_pin              ? \1                     : \0
+    can_pin             => $self->_can_pin              ? \1                     : \0,
+    can_limitation      => $self->_can_limit            ? \1                     : \0
   };
 
   # Pinned notes sit outside the scroll and are relevant by definition, so they
@@ -84,6 +83,7 @@ sub create ($self) {
   my $v = $self->validation;
   $v->required('body')->size(1, NOTE_BODY_MAX_LENGTH);
   $v->optional('lawyer_only')->in('0', '1');
+  $v->optional('limitation')->in('0', '1');
   $v->optional('pinned')->in('0', '1');
   return $self->reply->json_validation_error if $v->has_error;
 
@@ -92,7 +92,12 @@ sub create ($self) {
   return $self->render(json => {error => 'Not allowed to post lawyer-only notes'}, status => 403)
     if $lawyer_only && !$self->_can_post_lawyer_only;
 
-  my $pinned = ($v->param('pinned') // '0') eq '1' ? 1 : 0;
+  my $pinned     = ($v->param('pinned')     // '0') eq '1' ? 1 : 0;
+  my $limitation = ($v->param('limitation') // '0') eq '1' ? 1 : 0;
+  return $self->render(json => {error => 'Not allowed to add limitations'}, status => 403)
+    if $limitation && !$self->_can_limit;
+  return $self->render(json => {error => 'Limitations cannot be lawyer-only'}, status => 400)
+    if $limitation && $lawyer_only;
   return $self->render(json => {error => 'Not allowed to pin notes'}, status => 403) if $pinned && !$self->_can_pin;
   return $self->render(json => {error => _pin_limit_error()},         status => 400)
     if $pinned && $self->notes->pinned_count($pkg->{name}) >= PIN_LIMIT;
@@ -103,8 +108,9 @@ sub create ($self) {
   my $author = $self->users->find(login => $self->current_user)
     or return $self->render(json => {error => 'Unknown user'}, status => 403);
 
-  my $note = $self->notes->add($id, $pkg->{name}, $author->{id}, $body, $lawyer_only, 0, $tags);
+  my $note = $self->notes->add($id, $pkg->{name}, $author->{id}, $body, $lawyer_only, 0, $tags, $limitation);
   $note = $self->notes->set_pinned($note->{id}, 1) if $pinned;
+  $self->_limitation_changed($note);
   $self->render(json => {note => $self->_format_note($note, $author->{id})});
 }
 
@@ -135,6 +141,7 @@ sub recent ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('before_id')->num;
+  $v->optional('limitation')->in('0', '1');
   return $self->reply->json_validation_error if $v->has_error;
 
   # An invalid filter (too many/long tags) shouldn't 400 a list view; just
@@ -146,7 +153,8 @@ sub recent ($self) {
     include_lawyer_only => $include_lawyer_only,
     limit               => $v->param('limit'),
     before_id           => $v->param('before_id'),
-    tags                => $tags
+    tags                => $tags,
+    limitation          => $v->param('limitation')
   );
   my $user_id = $self->_current_user_id;
 
@@ -178,6 +186,7 @@ sub remove ($self) {
     unless $is_owner || $can_curate;
 
   my $removed = $self->notes->remove($id);
+  $self->_limitation_changed($note);
   $self->render(json => {removed => $removed ? \1 : \0});
 }
 
@@ -209,6 +218,7 @@ sub update ($self) {
 
   my $updated = $self->notes->edit($id, $v->param('body'), $tags_arg);
   return $self->render(json => {error => 'Edit failed'}, status => 500) unless $updated;
+  $self->_limitation_changed($updated);
   $self->render(json => {note => $self->_format_note($updated, $author->{id})});
 }
 
@@ -219,11 +229,17 @@ sub preview ($self) {
   $self->render(json => {html => $self->markdown_to_safe_html($v->param('body'))});
 }
 
+# Held versions only see a changed limitation through their next auto review
+sub _limitation_changed ($self, $note) {
+  $self->packages->analyze_waiting($note->{package_name}) if $note->{limitation};
+}
+
 sub _can_post_lawyer_only ($self) {
   return $self->current_user_can('curate') ? 1 : 0;
 }
 
-sub _can_pin ($self) { $self->_can_post_lawyer_only }
+sub _can_pin   ($self) { $self->_can_post_lawyer_only }
+sub _can_limit ($self) { $self->_can_post_lawyer_only }
 
 sub _pin_limit_error () {
   return 'This package already has ' . PIN_LIMIT . ' pinned notes, unpin one first';
@@ -253,6 +269,7 @@ sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
     lawyer_only   => $row->{lawyer_only} ? \1 : \0,
     ai_assisted   => $row->{ai_assisted} ? \1 : \0,
     pinned        => $row->{pinned}      ? \1 : \0,
+    limitation    => $row->{limitation}  ? \1 : \0,
     same_report   => $same_report,
     tags          => $row->{tags} // [],
     package_name  => $row->{package_name},

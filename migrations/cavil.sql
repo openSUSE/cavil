@@ -449,3 +449,7 @@ ALTER TABLE api_keys ADD COLUMN oauth_client uuid REFERENCES oauth_clients(id) O
 ALTER TABLE api_keys DROP COLUMN IF EXISTS oauth_client;
 DROP TABLE IF EXISTS oauth_codes;
 DROP TABLE IF EXISTS oauth_clients;
+
+-- 72 up
+ALTER TABLE package_notes ADD COLUMN limitation boolean DEFAULT false NOT NULL;
+CREATE INDEX ON package_notes (package_name) WHERE limitation;

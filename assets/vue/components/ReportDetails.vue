@@ -1004,7 +1004,6 @@ export default {
       if (source.unavailable) panel.unavailable = true;
       else Object.assign(panel, {source, unavailable: false});
     },
-    // ponytail: refetches the larger page and drops manual extends, merge the new lines in if reviewers mind
     showMore() {
       this.panel.groups += PANEL_STEP;
       return this.fetchPanel();

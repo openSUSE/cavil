@@ -192,6 +192,9 @@ capability and never taken from the request: a non-lawyer curator can accept a p
 assert a lawyer sign-off, on either the web or automation path. A user's capabilities are the union of
 their assigned roles.
 
+Curators and lawyers can also add limitation notes. While a package has one, only they can decide on it: managers
+cannot fasttrack it, and AI assistants cannot accept or reject it.
+
 ### Automatic Acceptance
 
 Reports may be automatically accepted by the system under these conditions:
@@ -217,6 +220,13 @@ leaving the report in `new` for a human, with a notice that manual review is req
 incomplete. Acceptance decisions are only ever made against evidence known to be complete; a partial checkout can hide
 exactly the license that matters, so the system declines to rule on it rather than accept on incomplete grounds. (A
 previous result is still surfaced as context, but only as a notice - never as an automatic acceptance.)
+
+A second override covers limitations: **while a package name has a limitation note, no new report for it is
+auto-accepted.** Cavil cannot check whether a request meets the limitations, so a human has to check every new version
+against them. The report stays in `new`, and the "why this needs review" notice quotes each limitation, links the review
+it was written on, and names the automatic acceptance that was blocked. An accepted review also only covers the
+requests it was made for: when a new request arrives for the same sources, it goes back to `new`. The block ends when
+the last limitation note is removed.
 
 ### Standard Risk Levels
 
@@ -930,6 +940,11 @@ relevance filter everywhere the note is rendered, on the reviewer's own assertio
 version. It is deliberately mutable curation state, unlike the lawyer-only flag, because the notes worth pinning are
 usually the ones that only turned out to matter later. A per-package limit keeps the pinned block small enough that
 reviewers still read it.
+
+A **limitation** note goes one step further: it sits above the pinned notes, and while it exists every new version of
+the package needs a human decision (see *Automatic Acceptance*). Listings mark these packages with a red warning icon,
+and the recent notes page can list all limitations. Limitations are never lawyer-only, because the people who package
+and ship the software need to see them.
 
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 

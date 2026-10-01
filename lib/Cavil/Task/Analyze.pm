@@ -259,6 +259,8 @@ sub _auto_review ($app, $id) {
     return;
   }
 
+  my $limitations = $app->notes->limitations($pkg->{name});
+
   # Already accepted: the auto-accept machinery below is for 'new' packages only.
   # Refresh the notice/diff so a reindex with new patterns cannot leave a stale
   # diff, and still allow the upgrade to 'acceptable_by_lawyer' when a sibling
@@ -268,7 +270,8 @@ sub _auto_review ($app, $id) {
 
     # An "unacceptable" sibling with the same report vetoes the upgrade, exactly
     # as it did for these packages at the (former) unacceptable-history guard.
-    unless (grep { $_->{state} eq 'unacceptable' } @$siblings) {
+    # Limitations veto it too, an inherited lawyer sign-off is an auto-accept.
+    unless (@$limitations || grep { $_->{state} eq 'unacceptable' } @$siblings) {
       my $lawyer;
       for my $p (@$siblings) {
         next               if $p->{obsolete};
@@ -293,6 +296,7 @@ sub _auto_review ($app, $id) {
   my $name                = $pkg->{name};
   my $acceptable_packages = $config->{acceptable_packages} || [];
   if (grep { $name eq $_ } @$acceptable_packages) {
+    return _hold($app, $pkg, $limitations, 'package name') if @$limitations;
     $pkg->{state}            = 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{reviewing_user}   = undef;
@@ -335,6 +339,7 @@ sub _auto_review ($app, $id) {
 
   # Previously reviewed and accepted
   if (my $f_id = $found_acceptable_by_lawyer || $found_acceptable) {
+    return _hold($app, $pkg, $limitations, "same license as $f_id") if @$limitations;
     $pkg->{state}            = $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{reviewing_user}   = undef;
@@ -343,6 +348,12 @@ sub _auto_review ($app, $id) {
     $pkg->{result}           = "Accepted because previously reviewed under the same license ($f_id)";
     $pkgs->update($pkg);
     return;
+  }
+
+  # Risk 0 is never accepted, and without a risk only no significant difference would have been
+  if (@$limitations) {
+    my $risk = $reports->risk_is_acceptable($pkg_shortname);
+    return _hold($app, $pkg, $limitations, $risk ? "low risk ($risk)" : undef, !defined $risk);
   }
 
   # Acceptable risk
@@ -416,18 +427,36 @@ sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $in
 # whatever it was when the package was last in 'new' state. Leaves state,
 # result, reviewing_user, and review_timestamp untouched.
 sub _refresh_notice ($app, $pkg) {
-  my ($matched_id, $best, $summary) = _smallest_delta($app, $pkg);
-
-  my ($notice, $diff_report);
-  if (defined $matched_id && !$best) {
-    $notice = "Not found any significant difference against $matched_id";
-  }
-  elsif ($best) {
-    $notice      = summary_delta($best, $summary);
-    $notice      = undef unless length $notice;
-    $diff_report = _diff_report($best, $summary);
-  }
+  my ($notice, $diff_report) = _delta_notice($app, $pkg);
   $app->packages->update({id => $pkg->{id}, notice => $notice, diff_report => $diff_report});
+}
+
+# Returns (notice, diff_report, no_diff_id), the last one only set when there was no significant difference
+sub _delta_notice ($app, $pkg) {
+  my ($matched_id, $best, $summary) = _smallest_delta($app, $pkg);
+  return ("Not found any significant difference against $matched_id", undef, $matched_id)
+    if defined $matched_id && !$best;
+  return (undef, undef, undef) unless $best;
+
+  my $notice = summary_delta($best, $summary);
+  return (length $notice ? $notice : undef, _diff_report($best, $summary), undef);
+}
+
+# The id phrases here are linkified by the report UI, keep them in sync
+sub _hold ($app, $pkg, $limitations, $otherwise, $no_diff_accepts = 0) {
+  my ($notice, $diff_report, $no_diff_id) = _delta_notice($app, $pkg);
+  $otherwise //= "no significant difference against $no_diff_id" if $no_diff_accepts && defined $no_diff_id;
+
+  my @blocks;
+  for my $limitation (@$limitations) {
+    push @blocks, $limitation->{package} ? "Limitation noted in $limitation->{package}" : 'Limitation noted';
+    push @blocks, join("\n", map { length ? "  $_" : '' } split /\r?\n/, $limitation->{body});
+  }
+  push @blocks, "Otherwise accepted $otherwise" if defined $otherwise;
+  push @blocks, $notice                         if defined $notice && !(defined $no_diff_id && defined $otherwise);
+  $app->packages->update(
+    {id => $pkg->{id}, notice => join("\n\n", @blocks), diff_report => $diff_report, result => undef});
+  return;
 }
 
 # Structured, machine-readable companion to the notice text, stored in the

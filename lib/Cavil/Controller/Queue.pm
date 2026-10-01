@@ -174,7 +174,7 @@ sub create_request ($self) {
 
   my $requests = $self->requests;
   for my $id (@$pkgs) {
-    $requests->add($link, $id);
+    $self->packages->rereview_limited($id) if $requests->add($link, $id);
     $self->packages->resolve_targets($id);
   }
 

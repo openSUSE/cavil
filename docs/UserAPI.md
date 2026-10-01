@@ -210,7 +210,8 @@ Create a public note for a specific package, marked as AI-assisted.
 #### cavil_get_notes
 
 Get a paginated list of notes for a specific package, optionally filtered by tags. Notes a reviewer has pinned are
-marked `[pinned]`, sort first, and are always returned regardless of `relevant_only`.
+marked `[pinned]`, sort first, and are always returned regardless of `relevant_only`. Notes marked `[limitation]` are
+limitations a lawyer set for every version of this package, they sort first as well.
 
 - **Required Roles**: `user` (read-only)
 - `package_id`: ID of package to list notes for. (number, required)
@@ -221,7 +222,7 @@ marked `[pinned]`, sort first, and are always returned regardless of `relevant_o
 
 #### cavil_accept_review
 
-Accept a legal review for a specific package.
+Accept a legal review for a specific package. Packages with limitations always need a human review and are refused.
 
 - **Required Roles**: `manager`, `lawyer` or `admin` (read-write)
 - **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.
@@ -230,7 +231,7 @@ Accept a legal review for a specific package.
 
 #### cavil_reject_review
 
-Reject a legal review for a specific package.
+Reject a legal review for a specific package. Packages with limitations always need a human review and are refused.
 
 - **Required Roles**: `lawyer` or `admin` (read-write)
 - **Also requires**: the API key was created with the "Allow accept/reject of reviews" option enabled.

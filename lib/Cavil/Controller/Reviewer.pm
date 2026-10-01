@@ -53,6 +53,10 @@ sub fasttrack_package ($self) {
   my $id  = $self->stash('id');
   my $pkg = $self->packages->find($id);
   return $self->render(json => {error => 'Package not found'}, status => 404) unless $pkg;
+  return $self->render(
+    json   => {error => 'Limitations apply to this package, it needs a review by a curator or lawyer'},
+    status => 403
+  ) if @{$self->notes->limitations($pkg->{name})};
 
   $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
   my $result = $pkg->{result} = $validation->param('comment') || 'Reviewed ok';

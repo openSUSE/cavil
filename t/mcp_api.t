@@ -1479,6 +1479,28 @@ subtest 'MCP' => sub {
           ->json_is('/ai_assisted', 1);
         $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
       };
+
+      subtest 'Accept and reject review (limitations apply)' => sub {
+        $t->app->pg->db->update('bot_packages', {state => 'new', reviewing_user => undef, ai_assisted => 0}, {id => 1});
+        my $note = $t->app->notes->add(2, 'perl-Mojolicious', 2, 'Only with approval', 0, 0, undef, 1)->{id};
+
+        my $text = $client->call_tool('cavil_get_notes', {package_id => 1})->{content}[0]{text};
+        like $text, qr/## Note #${note}\b[^\n]*\[limitation\]/, 'limitation note is marked [limitation]';
+
+        my $error  = 'Limitations apply to this package, it needs a human review';
+        my $result = $client->call_tool('cavil_accept_review', {package_id => 1});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text},         $error, 'limitation message';
+        is $t->app->packages->find(1)->{state}, 'new',  'not accepted';
+        $result = $client->call_tool('cavil_reject_review', {package_id => 1, reason => 'No'});
+        ok $result->{isError}, 'is error';
+        is $result->{content}[0]{text},         $error, 'limitation message';
+        is $t->app->packages->find(1)->{state}, 'new',  'not rejected';
+
+        $t->app->notes->remove($note);
+        $result = $client->call_tool('cavil_accept_review', {package_id => 1});
+        ok !$result->{isError}, 'accepted once the limitation is removed';
+      };
     };
 
     subtest 'cavil_propose_ignore_snippet tool' => sub {

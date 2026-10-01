@@ -494,14 +494,15 @@ export default {
       if (this.state === 'unacceptable') return 'unacceptable';
       return null;
     },
-    // Notices that compare against an older review name it by id ("Diff to
-    // closest match 538922", "Not found any significant difference against
-    // 538922"). Those ids become links to that report, everything else stays
-    // plain text.
+    // Notices that refer to an older review name it by id ("Diff to closest
+    // match 538922", "Not found any significant difference against 538922",
+    // "Limitation noted in 538922", "same license as 538922"). Those ids
+    // become links to that report, everything else stays plain text.
     noticeSegments() {
       if (this.notice === null) return [];
       const segments = [];
-      const pattern = /(?<=Diff to closest match |significant difference against )\d+/g;
+      const pattern =
+        /(?<=Diff to closest match |significant difference against |Limitation noted in |same license as )\d+/g;
       let plainFrom = 0;
       for (const match of this.notice.matchAll(pattern)) {
         segments.push({text: this.notice.slice(plainFrom, match.index)});

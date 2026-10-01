@@ -153,7 +153,8 @@ sub register ($self, $app, $config) {
       . 'marked by relevance to this package report: [this report] (written on it), [same report] (from another '
       . 'review with an identical license report), or [other report] (different licensing). Pass relevant_only=true '
       . 'to return only the first two. Notes marked [pinned] were singled out by a reviewer as standing context for '
-      . 'every review of this package, so they sort first and are always returned regardless of relevant_only.',
+      . 'every review of this package, so they sort first and are always returned regardless of relevant_only. Notes '
+      . 'marked [limitation] are limitations a lawyer set for every version of this package, they sort first as well.',
     input_schema => {
       type       => 'object',
       properties => {
@@ -170,7 +171,8 @@ sub register ($self, $app, $config) {
   $mcp->tool(
     name        => 'cavil_accept_review',
     description =>
-      'Accept a legal review for a specific package, only give a reason if there are special circumstances',
+      'Accept a legal review for a specific package, only give a reason if there are special circumstances.'
+      . ' Packages with limitations always need a human review and are refused',
     input_schema => {
       type       => 'object',
       properties =>
@@ -180,8 +182,9 @@ sub register ($self, $app, $config) {
     code => \&tool_cavil_accept_review
   );
   $mcp->tool(
-    name         => 'cavil_reject_review',
-    description  => 'Reject a legal review for a specific package',
+    name        => 'cavil_reject_review',
+    description => 'Reject a legal review for a specific package.'
+      . ' Packages with limitations always need a human review and are refused',
     input_schema => {
       type       => 'object',
       properties => {package_id => {type => 'integer', minimum => 1}, reason => {type => 'string'}},
@@ -407,24 +410,9 @@ sub register ($self, $app, $config) {
 }
 
 sub tool_cavil_accept_review ($tool, $args) {
-  my $id   = $args->{package_id};
-  my $c    = _get_controller($tool);
-  my $pkgs = $c->packages;
-  return $tool->text_result('Package not found', 1) unless my $pkg = $pkgs->find($id);
-  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
-  return $tool->text_result('Package has already been reviewed',                     1) if $pkg->{state} ne 'new';
-
+  my $state  = _get_controller($tool)->current_user_can('review_lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
   my $reason = $args->{reason};
-  $pkg->{result} = $reason ? "AI Assistant: $reason" : 'Reviewed ok';
-  my $user = $c->current_user;
-  $pkg->{reviewing_user}   = $c->users->id_for_login($user);
-  $pkg->{state}            = $c->current_user_can('review_lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
-  $pkg->{review_timestamp} = 1;
-  $pkg->{ai_assisted}      = 1;
-
-  $pkgs->update($pkg);
-
-  return 'Review has been successfully accepted';
+  return _decide($tool, $args->{package_id}, $state, $reason ? "AI Assistant: $reason" : 'Reviewed ok', 'accepted');
 }
 
 sub tool_cavil_get_open_reviews ($tool, $args) {
@@ -1021,24 +1009,26 @@ sub tool_cavil_create_snippet ($tool, $args) {
 }
 
 sub tool_cavil_reject_review ($tool, $args) {
-  my $id   = $args->{package_id};
+  return _decide($tool, $args->{package_id}, 'unacceptable', "AI Assistant: $args->{reason}", 'rejected');
+}
+
+sub _decide ($tool, $id, $state, $result, $outcome) {
   my $c    = _get_controller($tool);
   my $pkgs = $c->packages;
   return $tool->text_result('Package not found', 1) unless my $pkg = $pkgs->find($id);
-  return $tool->text_result('Package is embargoed and may not be processed with AI', 1) if $pkg->{embargoed};
-  return $tool->text_result('Package has already been reviewed',                     1) if $pkg->{state} ne 'new';
+  return $tool->text_result('Package is embargoed and may not be processed with AI',      1) if $pkg->{embargoed};
+  return $tool->text_result('Package has already been reviewed',                          1) if $pkg->{state} ne 'new';
+  return $tool->text_result('Limitations apply to this package, it needs a human review', 1)
+    if @{$c->notes->limitations($pkg->{name})};
 
-  my $reason = $args->{reason};
-  $pkg->{result} = "AI Assistant: $reason";
-  my $user = $c->current_user;
-  $pkg->{reviewing_user}   = $c->users->id_for_login($user);
-  $pkg->{state}            = 'unacceptable';
+  $pkg->{result}           = $result;
+  $pkg->{reviewing_user}   = $c->users->id_for_login($c->current_user);
+  $pkg->{state}            = $state;
   $pkg->{review_timestamp} = 1;
   $pkg->{ai_assisted}      = 1;
-
   $pkgs->update($pkg);
 
-  return 'Review has been successfully rejected';
+  return "Review has been successfully $outcome";
 }
 
 sub _filter_tools ($server, $tools, $context) {

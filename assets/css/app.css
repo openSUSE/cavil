@@ -648,6 +648,9 @@ button.cavil-icon-action {
 .cavil-list-notes.is-review {
   color: var(--cavil-accent);
 }
+.cavil-list-notes.is-limitation {
+  color: var(--cavil-danger);
+}
 /* The listing underlines links on hover, which an icon cannot carry */
 .cavil-list-table a.cavil-list-notes:hover,
 .cavil-list-table a.cavil-list-notes:focus {

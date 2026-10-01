@@ -1,4 +1,20 @@
 % use Mojo::Util qw(humanize_bytes);
+% my $render_note = begin
+%   my $note = shift;
+%   my $body = $note->{body};
+%   $body = substr($body, 0, 4000) . "\n\n[Note truncated]" if length $body > 4000;
+%   $body =~ s/\s+$//;
+%   $body =~ s/^/> /mg;
+%   my $date = Mojo::Date->new($note->{created_epoch})->to_datetime;
+%   my @markers;
+%   push @markers, 'pinned'      if $note->{pinned};
+%   push @markers, 'AI-assisted' if $note->{ai_assisted};
+%   push @markers, 'tags: ' . join(', ', @{$note->{tags}}) if @{$note->{tags}};
+%   my $suffix = @markers ? ' - ' . join(' - ', @markers) : '';
+### <%== $note->{author_login} %> on <%= $date %><%== $suffix %>
+
+%== $body
+% end
 
 # Legal Report
 
@@ -10,6 +26,18 @@ Unpacked: <%== $num_files %> <%== $num_files == 1 ? 'file' : 'files' %> (<%= $si
 
 
 
+% my @limitations = grep { $_->{limitation} } @$notes;
+% if (@limitations) {
+## Limitations
+
+Every new version of this package needs a human legal review against these limitations.
+
+%   for my $note (@limitations) {
+%== $render_note->($note)
+%   }
+
+
+% }
 % if (my $notice = $package->{notice}) {
 ## System Notice
 
@@ -92,24 +120,12 @@ The files that state this package's terms, with the lines of each no known licen
 
 
 % }
-% if ($notes && @$notes) {
+% my @notes = grep { !$_->{limitation} } @$notes;
+% if (@notes) {
 ## Notes
 
-%   for my $note (@$notes) {
-%     my $body = $note->{body};
-%     $body = substr($body, 0, 4000) . "\n\n[Note truncated]" if length $body > 4000;
-%     $body =~ s/\s+$//;
-%     $body =~ s/^/> /mg;
-%     my $date = Mojo::Date->new($note->{created_epoch})->to_datetime;
-%     my @markers;
-%     push @markers, 'pinned'      if $note->{pinned};
-%     push @markers, 'AI-assisted' if $note->{ai_assisted};
-%     push @markers, 'tags: ' . join(', ', @{$note->{tags}}) if @{$note->{tags}};
-%     my $suffix = @markers ? ' - ' . join(' - ', @markers) : '';
-### <%== $note->{author_login} %> on <%= $date %><%== $suffix %>
-
-%== $body
-
+%   for my $note (@notes) {
+%== $render_note->($note)
 %   }
 % }
 ## About

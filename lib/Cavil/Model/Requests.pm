@@ -8,12 +8,13 @@ has 'pg';
 
 sub add ($self, $link, $pkg, $target = undef) {
   my $db = $self->pg->db;
-  $db->query('INSERT INTO bot_requests (external_link, package, target) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',
-    $link, $pkg, $target);
+  my $added
+    = $db->query('INSERT INTO bot_requests (external_link, package, target) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',
+    $link, $pkg, $target)->rows;
 
   # After the insert, so a concurrent removal of another request can never retire a package this one needs
   $db->query('UPDATE bot_packages SET obsolete = false WHERE id = ?', $pkg);
-  return $db->query('SELECT id FROM bot_requests WHERE external_link = ? AND package = ?', $link, $pkg)->hash->{id};
+  return $added;
 }
 
 sub unresolved_targets ($self, $package) {

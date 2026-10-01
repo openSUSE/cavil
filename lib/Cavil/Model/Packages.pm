@@ -175,6 +175,13 @@ sub analyze ($self, $id, $priority = 100, $parents = [], $generation = 0) {
   );
 }
 
+# A changed limitation only reaches the versions waiting for review through their next auto review
+sub analyze_waiting ($self, $name) {
+  $self->_enqueue('analyzed', $_->{id})
+    for $self->pg->db->query("SELECT id FROM bot_packages WHERE name = ? AND state = 'new' AND NOT obsolete", $name)
+    ->hashes->each;
+}
+
 # A Minion job id provides exclusive ownership without expiring during long builds.
 sub claim ($self, $id, $job_id) {
   return !!$self->pg->db->query(
@@ -951,7 +958,7 @@ sub obsolete_duplicate_new ($self) {
   $db->query(
     q{
       UPDATE bot_packages
-      SET obsolete = true, state = 'obsolete'
+      SET obsolete = true
       WHERE id IN (
         SELECT a.id FROM (
           SELECT id, ROW_NUMBER() OVER (PARTITION BY external_link, name ORDER BY id DESC) row_no
@@ -1150,6 +1157,15 @@ sub set_tags ($self, $id, $tags) {
 sub requests_for ($self, $id) {
   return $self->pg->db->query('SELECT external_link, target FROM bot_requests WHERE package = ? ORDER BY id DESC', $id)
     ->hashes->to_array;
+}
+
+# An acceptance under limitations only covers the requests it was made for, a new one needs a human decision again
+sub rereview_limited ($self, $id) {
+  $self->_enqueue('analyzed', $id) if $self->pg->db->query(
+    q{UPDATE bot_packages p SET state = 'new'
+      WHERE id = ? AND state IN ('acceptable', 'acceptable_by_lawyer')
+        AND EXISTS (SELECT 1 FROM package_notes WHERE package_name = p.name AND limitation)}, $id
+  )->rows;
 }
 
 sub states ($self, $name) {

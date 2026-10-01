@@ -290,6 +290,7 @@ Before taking any action, present a clear, concise summary to the user structure
 Let the risk levels and flags from 3b steer the lean:
 - **A license change to non-open-source terms (3a)** → REJECT; make it the first line of the summary, marked `⚠ LICENSE CHANGE:`. This outranks every other signal.
 - **A material unanticipated risk (3e)** → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Give it its own line in the summary and cite it in the reasoning.
+- **A System Notice starting with "Limitation noted", or a note marked `[limitation]`** → NEEDS HUMAN REVIEW, never ACCEPT. A lawyer set conditions for every version of this package that the report cannot check. Quote the limitations from the notice in the summary. `cavil_accept_review` and `cavil_reject_review` refuse these packages anyway.
 - **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
 - **Risk 5** (managed obligations - AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.

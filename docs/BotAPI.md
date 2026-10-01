@@ -439,7 +439,8 @@ Content-Type: application/json
 
 `GET /package/<package_id>/report.txt`
 
-Get package legal report in plain text format.
+Get package legal report in plain text format. Limitations set for the package come first, under their own
+heading.
 
 **Request parameters:**
 
@@ -470,7 +471,8 @@ Checkout: 4fcfdab0e71b0bebfdf8b5cc3badfec4
 
 `POST /requests`
 
-Create request for package.
+Create request for package. An accepted package whose name has a limitation note goes back to `new` for a human
+review when a request it has not seen before is added.
 
 **Request parameters:**
 

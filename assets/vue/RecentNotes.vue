@@ -19,6 +19,10 @@
             placeholder="Filter by tag…"
             data-key="filter"
           />
+          <label class="recent-notes-limitations">
+            <input type="checkbox" v-model="limitationsOnly" class="form-check-input" data-recent-notes-limitations />
+            Limitations only
+          </label>
         </div>
         <ReportNotes
           endpoint="/reviews/notes/recent.json"
@@ -27,6 +31,7 @@
           :show-package-name="true"
           :permalink-to-origin="true"
           :filter-tags="filterTags"
+          :limitations-only="limitationsOnly"
           empty-message="No recent notes found."
         />
       </div>
@@ -52,10 +57,11 @@ export default {
     TagInput
   },
   data() {
-    const params = getParams({tags: ''});
+    const params = getParams({tags: '', limitation: ''});
     const filterTags = params.tags ? params.tags.split(',').filter(Boolean) : [];
     return {
       filterTags,
+      limitationsOnly: params.limitation === '1',
       knownTags: [],
       ua: new UserAgent({baseURL: window.location.href})
     };
@@ -63,6 +69,9 @@ export default {
   watch: {
     filterTags(tags) {
       setParam('tags', tags.join(','));
+    },
+    limitationsOnly(on) {
+      setParam('limitation', on ? '1' : '');
     }
   },
   mounted() {
@@ -86,6 +95,17 @@ export default {
 <style scoped>
 .recent-notes-filter {
   margin-bottom: 16px;
+}
+.recent-notes-limitations {
+  align-items: center;
+  color: var(--cavil-fg-muted);
+  display: flex;
+  font-size: 13px;
+  gap: 6px;
+  margin-top: 8px;
+}
+.recent-notes-limitations .form-check-input {
+  margin-top: 0;
 }
 .recent-notes-filter-label {
   color: var(--cavil-fg);

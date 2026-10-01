@@ -902,6 +902,52 @@ subtest 'Composer can create an already-pinned note' => sub {
   $app->notes->remove($_) for ($id, $plain);
 };
 
+subtest 'Limitation notes are standing context for every review' => sub {
+  my $db    = $app->pg->db;
+  my $orig1 = $app->packages->find(1)->{checksum};
+  my $orig2 = $app->packages->find(2)->{checksum};
+  $db->update('bot_packages', {checksum => 'LIM-A'}, {id => 1});
+  $db->update('bot_packages', {checksum => 'LIM-B'}, {id => 2});
+
+  my $pkg1   = {id => 1, name => 'perl-Mojolicious', checksum => 'LIM-A'};
+  my $before = $app->notes->relevant_count('perl-Mojolicious', 1, 'LIM-A');
+  is $app->notes->relevant_notes([$pkg1])->{1}{limitation} // 0, 0, 'no limitation yet';
+
+  my $pinned = $app->notes->add(2, 'perl-Mojolicious', $contrib_id, 'standing advice', 0);
+  $app->notes->set_pinned($pinned->{id}, 1);
+  my $id = $app->notes->add(2, 'perl-Mojolicious', $lawyer_id, 'only with approval', 0, 0, undef, 1)->{id};
+
+  my $relevant = $app->notes->list('perl-Mojolicious', relevant_only => 1, package_id => 1, checksum => 'LIM-A');
+  ok((grep { $_->{id} == $id } @{$relevant->{notes}}), 'different-report limitation survives relevant_only');
+  my $history = $app->notes->list('perl-Mojolicious', history_only => 1, package_id => 1, checksum => 'LIM-A');
+  ok !(grep { $_->{id} == $id } @{$history->{notes}}), 'but is never history';
+  is $app->notes->relevant_count('perl-Mojolicious', 1, 'LIM-A'), $before + 2, 'relevant count includes both';
+  is $app->notes->relevant_notes([$pkg1])->{1}{limitation},       1,           'listing icon knows about it';
+
+  my $page = $app->notes->paginate_for_package('perl-Mojolicious', limit => 5, package_id => 1, checksum => 'LIM-A');
+  is $page->{page}[0]{id},         $id, 'limitation sorts first for the MCP list, above pins';
+  is $page->{page}[0]{limitation}, 1,   'limitation flag is exposed to the MCP renderer';
+
+  login_admin($t);
+  $t->get_ok('/reviews/notes/1?relevant_only=1')
+    ->status_is(200)
+    ->json_is('/pinned/0/id'         => $id)
+    ->json_is('/pinned/0/limitation' => 1)
+    ->json_is('/pinned/1/id'         => $pinned->{id});
+  ok !(grep { $_->{id} == $id } @{$t->tx->res->json('/notes')}), 'not repeated in the stream';
+  logout($t);
+
+  $t->get_ok('/test/become/contrib_user')->status_is(200);
+  $t->get_ok('/reviews/notes/recent.json?limitation=1')->status_is(200)->json_is('/notes/0/id' => $id);
+  is scalar(@{$t->tx->res->json('/notes')}), 1, 'the recent feed can list just the limitations, for everyone';
+  $t->get_ok('/reviews/notes/recent.json?limitation=2')->status_is(400);
+  logout($t);
+
+  $app->notes->remove($_) for ($id, $pinned->{id});
+  $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+  $db->update('bot_packages', {checksum => $orig2}, {id => 2});
+};
+
 subtest 'relevant_notes resolves a whole page of reviews at once' => sub {
 
   # Two reviews of a package no other subtest touches, so leftover notes cannot skew the counts

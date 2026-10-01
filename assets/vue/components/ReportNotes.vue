@@ -41,8 +41,9 @@
             'report-note',
             {
               'report-note-lawyer-only': c.lawyer_only,
+              'report-note-limitation': c.limitation,
               'report-note-pinned': c.pinned,
-              'report-note-pinned-last': c.pinned && i === pinnedNotes.length - 1
+              'report-note-pinned-last': i === pinnedNotes.length - 1
             }
           ]"
           :data-note-id="c.id"
@@ -106,6 +107,14 @@
                 >
               </a>
               <span
+                v-if="c.limitation"
+                class="report-note-badge limitation-badge"
+                title="Future versions of this package always need a human review"
+                data-note-limitation-badge
+              >
+                <i class="fa-solid fa-triangle-exclamation"></i> Limitation
+              </span>
+              <span
                 v-if="c.pinned"
                 class="report-note-badge pinned-badge"
                 title="Pinned by a reviewer as standing context for every review of this package"
@@ -137,7 +146,7 @@
                 >{{ t }}</span
               >
               <button
-                v-if="allowActions && c.can_pin && editingId !== c.id"
+                v-if="allowActions && c.can_pin && !c.limitation && editingId !== c.id"
                 type="button"
                 :class="['report-note-pin', 'cavil-icon-action', {'is-pinned': c.pinned}]"
                 :disabled="pinningId === c.id"
@@ -217,12 +226,38 @@
           <template #leading>
             <span class="report-note-composer-toggles">
               <label v-if="canPostLawyerOnly" class="report-note-composer-toggle">
-                <input type="checkbox" v-model="lawyerOnly" class="form-check-input" data-note-lawyer-only />
+                <input
+                  type="checkbox"
+                  v-model="lawyerOnly"
+                  :disabled="limitation"
+                  class="form-check-input"
+                  data-note-lawyer-only
+                />
                 Lawyers only
               </label>
               <label v-if="canPin" class="report-note-composer-toggle">
-                <input type="checkbox" v-model="pinned" class="form-check-input" data-note-pinned />
+                <input
+                  type="checkbox"
+                  v-model="pinned"
+                  :disabled="limitation"
+                  class="form-check-input"
+                  data-note-pinned
+                />
                 Pinned
+              </label>
+              <label
+                v-if="canLimitation"
+                class="report-note-composer-toggle"
+                title="Future versions of this package always need a human review"
+              >
+                <input
+                  type="checkbox"
+                  v-model="limitation"
+                  class="form-check-input"
+                  data-note-limitation
+                  @change="lawyerOnly = pinned = false"
+                />
+                Limitation
               </label>
             </span>
           </template>
@@ -252,7 +287,8 @@ export default {
     emptyMessage: {type: String, default: 'No notes yet. Leave the first one to help future reviewers.'},
     showPackageName: {type: Boolean, default: false},
     permalinkToOrigin: {type: Boolean, default: false},
-    filterTags: {type: Array, default: () => []}
+    filterTags: {type: Array, default: () => []},
+    limitationsOnly: {type: Boolean, default: false}
   },
   emits: ['counts-changed'],
   computed: {
@@ -299,9 +335,11 @@ export default {
       pinningId: null,
       pinError: null,
       canPin: false,
+      canLimitation: false,
       draft: '',
       lawyerOnly: false,
       pinned: false,
+      limitation: false,
       tags: [],
       knownTags: [],
       noteScope: this.pkgId !== null && !this.showPackageName ? 'relevant' : 'all',
@@ -344,6 +382,9 @@ export default {
     // Changing a filter restarts the keyset scroll from the top, the same reset
     // semantics the other filtered infinite-scroll pages use.
     filterTags() {
+      this.reloadFromTop();
+    },
+    limitationsOnly() {
       this.reloadFromTop();
     }
   },
@@ -394,7 +435,7 @@ export default {
     },
     originBadgeTitle(c) {
       if (c.same_report === true) {
-        return `Identical license report — this note applies to your report. ${this.originTitle(c)}`;
+        return `Identical license report, this note applies to your report. ${this.originTitle(c)}`;
       }
       const state = c.original_package && c.original_package.state;
       const stateText = state ? ` (report state: ${state})` : '';
@@ -448,6 +489,7 @@ export default {
         const qs = {limit: 20};
         if (this.notes.length > 0) qs.before_id = this.notes[this.notes.length - 1].id;
         if (this.filterTags.length) qs.tags_json = JSON.stringify(this.filterTags);
+        if (this.limitationsOnly) qs.limitation = 1;
         if (this.noteScope === 'relevant') qs.relevant_only = 1;
         if (this.noteScope === 'history') qs.history_only = 1;
         const res = await this.ua.get(this.listEndpoint, {query: qs});
@@ -460,6 +502,7 @@ export default {
         // Only the first page carries the pinned block.
         if (Array.isArray(data.pinned)) this.pinnedNotes = data.pinned;
         if (data.can_pin !== undefined) this.canPin = !!data.can_pin;
+        if (data.can_limitation !== undefined) this.canLimitation = !!data.can_limitation;
         this.hasMore = !!data.has_more;
         if (data.total !== undefined) this.total = data.total;
         if (data.relevant !== undefined) this.relevant = data.relevant;
@@ -481,7 +524,12 @@ export default {
       this.submitting = true;
       this.submitError = null;
       try {
-        const form = {body, lawyer_only: this.lawyerOnly ? '1' : '0', pinned: this.pinned ? '1' : '0'};
+        const form = {
+          body,
+          lawyer_only: this.lawyerOnly ? '1' : '0',
+          pinned: this.pinned ? '1' : '0',
+          limitation: this.limitation ? '1' : '0'
+        };
         if (this.tags.length) form.tags_json = JSON.stringify(this.tags);
         const res = await this.ua.post(`/reviews/notes/${this.pkgId}`, {form});
         if (!res.isSuccess) {
@@ -498,13 +546,16 @@ export default {
         const data = await res.json();
         // A pinned note belongs in the block above the scroll, not at the head
         // of the stream, so let the server place it.
-        if (data.note.pinned) this.pinnedNotes.unshift(data.note);
+        if (data.note.limitation) this.pinnedNotes.unshift(data.note);
+        else if (data.note.pinned)
+          this.pinnedNotes.splice(this.pinnedNotes.filter(n => n.limitation).length, 0, data.note);
         else this.notes.unshift(data.note);
         if (this.total !== null) this.total += 1;
         if (this.relevant !== null) this.relevant += 1;
         this.draft = '';
         this.lawyerOnly = false;
         this.pinned = false;
+        this.limitation = false;
         this.tags = [];
         // Re-fetch counts via a HEAD-like call would be cheap; piggyback on
         // the next page request instead: refresh counts by re-counting locally
@@ -619,7 +670,10 @@ export default {
     },
     async deleteNote(c) {
       // eslint-disable-next-line no-alert
-      if (!window.confirm('Delete this note?')) return;
+      const question = c.limitation
+        ? `Remove this limitation? Future versions of ${c.package_name} can be accepted automatically again.`
+        : 'Delete this note?';
+      if (!window.confirm(question)) return;
       this.deletingId = c.id;
       try {
         const res = await this.ua.delete(`/reviews/notes/${c.id}`);
@@ -629,7 +683,7 @@ export default {
           if (idx >= 0) list.splice(idx, 1);
         }
         if (this.total !== null) this.total = Math.max(0, this.total - 1);
-        if (this.relevant !== null && (c.pinned || this.isRelevant(c))) {
+        if (this.relevant !== null && (c.pinned || c.limitation || this.isRelevant(c))) {
           this.relevant = Math.max(0, this.relevant - 1);
         }
         if (this.noteScope === 'history' && this.historyCount === 0) {
@@ -724,6 +778,14 @@ export default {
   flex-wrap: wrap;
   gap: 10px;
   padding: 10px 14px;
+}
+.report-note-limitation {
+  border-left: 4px solid var(--cavil-danger);
+  background: linear-gradient(180deg, rgba(var(--cavil-danger-rgb), 0.12) 0%, var(--cavil-canvas) 60px);
+}
+.report-note-limitation .report-note-header {
+  background: var(--cavil-danger-tint-1);
+  border-bottom-color: var(--cavil-danger-border);
 }
 .report-note-lawyer-only .report-note-header {
   background: var(--cavil-attention-tint-1);
@@ -840,6 +902,12 @@ export default {
   background: var(--cavil-accent-bg);
   border-color: var(--cavil-accent-vivid-fade);
   color: var(--cavil-accent-strong);
+  text-transform: none;
+}
+.report-note-badge.limitation-badge {
+  background: var(--cavil-canvas);
+  border-color: var(--cavil-danger-border);
+  color: var(--cavil-danger);
   text-transform: none;
 }
 .report-note-badge.pinned-badge {

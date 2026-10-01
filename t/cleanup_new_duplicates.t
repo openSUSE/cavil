@@ -158,7 +158,7 @@ subtest 'Clean up duplicates' => sub {
   $t->app->minion->enqueue('cleanup');
   $t->app->minion->perform_jobs;
 
-  is $t->app->packages->find($one_id)->{state}, 'obsolete', 'right state';
+  is $t->app->packages->find($one_id)->{state}, 'new', 'state kept';
   ok $t->app->packages->find($one_id)->{obsolete}, 'obsolete';
   ok $t->app->packages->find($one_id)->{cleaned},  'cleanup done';
   is $t->app->packages->find($one_id)->{result}, undef, 'right result';
@@ -169,7 +169,7 @@ subtest 'Clean up duplicates' => sub {
   ok !$t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $one_id})->array->[0], 'no pattern matches';
   ok !$t->app->pg->db->select('file_snippets',   [\'count(*)'], {package => $one_id})->array->[0], 'no file snippets';
 
-  is $t->app->packages->find($two_id)->{state}, 'obsolete', 'right state';
+  is $t->app->packages->find($two_id)->{state}, 'new', 'state kept';
   ok $t->app->packages->find($two_id)->{obsolete}, 'obsolete';
   ok $t->app->packages->find($two_id)->{cleaned},  'cleanup done';
   is $t->app->packages->find($two_id)->{result}, undef, 'right result';
@@ -215,6 +215,24 @@ subtest 'Clean up duplicates' => sub {
   ok $t->app->pg->db->select('matched_files',   [\'count(*)'], {package => $five_id})->array->[0], 'has matched files';
   ok $t->app->pg->db->select('pattern_matches', [\'count(*)'], {package => $five_id})->array->[0],
     'has pattern matches';
+};
+
+subtest 'Sending the sources again brings the duplicate back without a reopen' => sub {
+  my $form = {
+    type          => 'git',
+    api           => 'https://src.opensuse.org',
+    package       => 'perl-Mojolicious',
+    rev           => 'c7cfdab0e71b0bebfdf8b2dc3badfecd',
+    external_link => 'openSUSE:Factory',
+    priority      => 1
+  };
+  $t->post_ok('/packages' => {Authorization => 'Token test_token'} => form => $form)
+    ->status_is(200)
+    ->json_is('/saved/id',       $one_id)
+    ->json_is('/saved/state',    'new')
+    ->json_is('/saved/obsolete', 0);
+  is $t->app->minion->jobs({tasks => ['git_import'], notes => ["pkg_$one_id"]})->total, 1,
+    'cleaned checkout reimported';
 };
 
 done_testing();

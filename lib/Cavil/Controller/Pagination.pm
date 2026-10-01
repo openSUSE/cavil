@@ -264,11 +264,12 @@ sub _mark_active_packages ($self, $page) {
   return $page;
 }
 
-# Strongest state wins: an agent review, a human review, or just a note
+# Strongest state wins: a limitation, an agent review, a human review, or just a note
 sub _note_state ($relevant) {
   return undef unless $relevant;
-  return 'ai_review' if $relevant->{ai};
-  return 'review'    if $relevant->{review};
+  return 'limitation' if $relevant->{limitation};
+  return 'ai_review'  if $relevant->{ai};
+  return 'review'     if $relevant->{review};
   return 'note';
 }
 

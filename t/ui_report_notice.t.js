@@ -84,6 +84,72 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
       t.equal(await link.getAttribute('target'), '_blank', 'link opens in another tab');
     });
 
+    await t.test('a limitation note holds the next version and links where it was noted', async t => {
+      await page.goto(`${url}/reviews/details/3`);
+      await page.click('[data-tab="notes"]');
+      await page.locator('[data-composer-input="new"]').fill('Only with approval');
+      await page.check('[data-note-limitation]');
+      t.ok(await page.isDisabled('[data-note-lawyer-only]'), 'a limitation cannot be lawyer-only');
+      t.ok(await page.isDisabled('[data-note-pinned]'), 'nor pinned, it sits above the pins anyway');
+      const [post] = await Promise.all([
+        page.waitForResponse(res => /\/reviews\/notes\/3$/.test(res.url()) && res.request().method() === 'POST'),
+        page.locator('[data-composer-save="new"]').click()
+      ]);
+      t.equal(post.status(), 200, 'posted');
+      const card = page.locator('.report-note-limitation');
+      await card.waitFor();
+      t.equal(await card.locator('[data-note-limitation-badge]').count(), 1, 'the card carries the badge');
+      t.equal(await card.locator('[data-note-pin]').count(), 0, 'and no pin button');
+
+      // Package 4 was auto-accepted against 3, a bot reopening it brings it back through the auto review
+      const reopen = await page.request.post(`${url}/packages/import/4`, {
+        headers: {Authorization: 'Token test_token'},
+        form: {state: 'new'}
+      });
+      t.equal(reopen.status(), 200, 'reopened');
+      await page.goto(`${url}/perform_jobs`);
+      await page.goto(`${url}/reviews/details/4`);
+      await page.waitForSelector('#review-information');
+
+      const box = await page.innerText('#review-information');
+      t.match(box, /Limitation noted in 3\s+Only with approval/, 'box quotes the limitation');
+      const link = page.locator('#review-information a').first();
+      t.equal((await link.innerText()).trim(), '3', 'the review it was noted on is a link');
+      t.equal(await link.getAttribute('href'), '/reviews/details/3', 'link points at that review');
+      t.match(box, /Otherwise accepted no significant difference against 3$/, 'blocked');
+      t.equal(await page.locator('#review-information a').count(), 2, 'both ids are links');
+
+      await page.goto(url);
+      const row = page.locator('#open-reviews tbody > tr').filter({has: page.locator('a[href="/reviews/details/4"]')});
+      await row.first().waitFor();
+      t.equal(
+        await row.locator('.cavil-list-notes.is-limitation .fa-triangle-exclamation').count(),
+        1,
+        'the listing warns about the limitation'
+      );
+    });
+
+    await t.test('removing the limitation lets the next version be accepted automatically again', async t => {
+      await page.goto(`${url}/reviews/details/3`);
+      await page.click('[data-tab="notes"]');
+      const card = page.locator('.report-note-limitation');
+      await card.waitFor();
+      let question;
+      page.once('dialog', dialog => {
+        question = dialog.message();
+        dialog.accept();
+      });
+      await Promise.all([
+        page.waitForResponse(res => /\/reviews\/notes\/\d+$/.test(res.url()) && res.request().method() === 'DELETE'),
+        card.locator('.report-note-delete').click()
+      ]);
+      t.match(question, /^Remove this limitation\? Future versions of report-notice-\S+ can be accepted/, 'warns');
+
+      await page.goto(`${url}/perform_jobs`);
+      const pkg = await page.request.get(`${url}/package/4`, {headers: {Authorization: 'Token test_token'}});
+      t.match((await pkg.json()).state, /^acceptable/, 'held version accepted without a reindex');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     delete process.env.JS_UI_FIXTURES;

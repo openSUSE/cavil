@@ -41,15 +41,15 @@ sub report ($self) {
     },
     txt => sub {
 
-      # Only notes relevant to this review (native or an identical license report) go into the plain
-      # Public reports must exclude lawyer-only notes.
-      my $notes = $self->notes->list(
+      # Only notes relevant to this review go into the plain text report, never lawyer-only ones, with
+      # limitations and pinned notes first so the limit never cuts them off.
+      my $notes = $self->notes->paginate_for_package(
         $pkg->{name},
         relevant_only => 1,
         package_id    => $id,
         checksum      => $pkg->{checksum},
         limit         => 100
-      )->{notes};
+      )->{page};
       $self->render(
         'reviewer/report',
         report          => $report,
