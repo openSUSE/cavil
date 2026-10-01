@@ -19,6 +19,7 @@ plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'oauth_test');
 my $config     = $cavil_test->default_config;
 $config->{oauth_redirect_hosts} = ['*.harvey.ai', 'localhost', '::1'];
+$config->{max_request_size}     = 524288000;
 my $t = Test::Mojo->new(Cavil => $config);
 $cavil_test->no_fixtures($t->app);
 
@@ -202,8 +203,9 @@ subtest 'Expired code' => sub {
 subtest 'Use token and revoke it' => sub {
   $t->get_ok('/api/v1/whoami' => {Authorization => "Bearer $token"})
     ->status_is(200)
-    ->json_is('/user'         => 'tester')
-    ->json_is('/write_access' => Mojo::JSON::false);
+    ->json_is('/user'            => 'tester')
+    ->json_is('/write_access'    => Mojo::JSON::false)
+    ->json_is('/max_upload_size' => 524288000);
 
   my $mcp = Test::Mojo->new($t->app);
   $mcp->ua->on(start => sub ($ua, $tx) { $tx->req->headers->authorization("Bearer $token") });

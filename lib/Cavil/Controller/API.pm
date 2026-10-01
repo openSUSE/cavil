@@ -156,10 +156,11 @@ sub whoami ($self) {
   my $id   = $self->users->id_for_login($user);
   $self->render(
     json => {
-      id           => $id,
-      user         => $user,
-      roles        => $self->current_user_roles,
-      write_access => $self->current_user_has_write_access ? true : false
+      id              => $id,
+      user            => $user,
+      roles           => $self->current_user_roles,
+      write_access    => $self->current_user_has_write_access ? true : false,
+      max_upload_size => $self->app->max_request_size
     }
   );
 }

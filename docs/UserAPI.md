@@ -820,7 +820,8 @@ The request is `multipart/form-data`.
 * `priority` (required): Priority of this package review.
 
 * `tarball` (required): The source archive file (tar.*, zip, and the other formats the review pipeline unpacks). Its
-                        size is limited by the instance's `max_request_size` setting (250 MiB by default).
+                        size is limited by the instance's `max_request_size` setting (250 MiB by default), which
+                        `GET /api/v1/whoami` reports in bytes as `max_upload_size`.
 
 * `checksum` (required): MD5 checksum of the archive, in lower-case hex. A mismatch is rejected with a `400`
                          `Checksum mismatch`, so a truncated upload never starts a review over incomplete sources.
