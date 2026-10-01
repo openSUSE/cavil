@@ -166,7 +166,8 @@ For a real deployment:
 
 * **Put a reverse proxy in front of it (strongly recommended).** Run nginx (or similar) in front of the app to
   terminate TLS and forward requests, and keep the application port off the public network (firewall or a loopback
-  bind).
+  bind). The proxy has its own request size limit (nginx `client_max_body_size` defaults to 1 MB), raise it to at
+  least Cavil's `max_request_size` or large uploads fail at the proxy.
 * **Run them as services under a dedicated user.** Run the web app and worker(s) as separate systemd units owned by an
   unprivileged user that owns the checkout, `checkout_dir` and config. Size the worker count and worker job concurrency
   to the host's CPU and memory (`max_worker_rss` and `max_task_memory` cap their memory use).

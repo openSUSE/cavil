@@ -60,7 +60,7 @@ sub startup ($self) {
 
   # Avoid huge temp files in "/tmp"
   $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};
-  $self->max_request_size(262144000);
+  $self->max_request_size($config->{max_request_size} // 262144000);
 
   if (my $obs = $config->{obs}) { $self->obs->config($obs) }
   if (my $git = $config->{git}) { $self->git->config($git) }

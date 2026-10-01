@@ -288,7 +288,8 @@ The request is a `multipart/form-data` upload rather than a URL-encoded form.
 
 * `priority` (required): Priority of this package review.
 
-* `tarball` (required): The source archive file.
+* `tarball` (required): The source archive file. Its size is limited by the instance's `max_request_size` setting
+                        (250 MiB by default).
 
 * `checksum` (required): MD5 checksum of the archive, in lower-case hex. The upload is rejected with a `Checksum
                          mismatch` error if the received bytes do not match, so a truncated or corrupt archive can
