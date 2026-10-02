@@ -85,40 +85,46 @@
                 >View in file at line {{ line[0] }}</a
               >
 
-              <template v-if="line[0] > 1">
-                <div class="dropdown-divider"></div>
-                <a
-                  v-if="line[1].prevstart"
-                  href="#"
-                  class="dropdown-item"
-                  @click.prevent="emitExtend('match-above', line)"
-                  >Extend to match above</a
-                >
-                <a href="#" class="dropdown-item" @click.prevent="emitExtend('one-line-above', line)"
-                  >Extend one line above</a
-                >
-                <a href="#" class="dropdown-item" @click.prevent="emitExtend('top', line)">Extend to the top of file</a>
-              </template>
+              <template v-if="fileId > 0">
+                <template v-if="line[0] > 1">
+                  <div class="dropdown-divider"></div>
+                  <a
+                    v-if="extendRange(line).prevstart"
+                    href="#"
+                    class="dropdown-item"
+                    @click.prevent="emitExtend('match-above', extendRange(line))"
+                    >Extend to match above</a
+                  >
+                  <a href="#" class="dropdown-item" @click.prevent="emitExtend('one-line-above', extendRange(line))"
+                    >Extend one line above</a
+                  >
+                  <a href="#" class="dropdown-item" @click.prevent="emitExtend('top', extendRange(line))"
+                    >Extend to the top of file</a
+                  >
+                </template>
 
-              <template v-if="line[1].end">
+                <template v-if="extendRange(line).end">
+                  <div class="dropdown-divider"></div>
+                  <a
+                    v-if="extendRange(line).nextend"
+                    href="#"
+                    class="dropdown-item"
+                    @click.prevent="emitExtend('match-below', extendRange(line))"
+                    >Extend to match below</a
+                  >
+                  <a href="#" class="dropdown-item" @click.prevent="emitExtend('one-line-below', extendRange(line))"
+                    >Extend one line below</a
+                  >
+                  <a href="#" class="dropdown-item" @click.prevent="emitExtend('bottom', extendRange(line))"
+                    >Extend to the end of the file</a
+                  >
+                </template>
+
                 <div class="dropdown-divider"></div>
-                <a
-                  v-if="line[1].nextend"
-                  href="#"
-                  class="dropdown-item"
-                  @click.prevent="emitExtend('match-below', line)"
-                  >Extend to match below</a
-                >
-                <a href="#" class="dropdown-item" @click.prevent="emitExtend('one-line-below', line)"
-                  >Extend one line below</a
-                >
-                <a href="#" class="dropdown-item" @click.prevent="emitExtend('bottom', line)"
-                  >Extend to the end of the file</a
+                <a href="#" class="dropdown-item" @click.prevent="emitExtend('reset', extendRange(line))"
+                  >Reset selection</a
                 >
               </template>
-
-              <div class="dropdown-divider"></div>
-              <a href="#" class="dropdown-item" @click.prevent="emitExtend('reset', line)">Reset selection</a>
             </div>
           </td>
 
@@ -294,8 +300,8 @@ export default {
         const info = line[1];
         if (info.risk === 9 && info.end) {
           map.set(info.end, {
-            startLine: line[0],
-            endLine: info.end,
+            start: line[0],
+            end: info.end,
             prevstart: info.prevstart || 0,
             nextend: info.nextend || 0
           });
@@ -629,14 +635,15 @@ export default {
     editPatternUrl(id) {
       return `/licenses/edit_pattern/${id}`;
     },
-    emitExtend(kind, line) {
-      this.$emit('extend', {
-        kind,
-        start: line[0],
-        end: line[1].end,
-        prevstart: line[1].prevstart || 0,
-        nextend: line[1].nextend || 0
-      });
+    // Like rowRange: a picked selection extends itself, not the match its first row happens to sit in
+    extendRange(line) {
+      if (this.selectionStartsHere(line)) return {...this.selection, prevstart: 0, nextend: 0};
+      const info = line[1];
+      return {start: line[0], end: info.end, prevstart: info.prevstart || 0, nextend: info.nextend || 0};
+    },
+    emitExtend(kind, range) {
+      this.clearSelection();
+      this.$emit('extend', {kind, ...range});
     },
     canExtendUp(line) {
       return !this.readOnly && this.isAdminOrContributor && line[1].risk === 9 && line[1].end && line[0] > 1;
@@ -646,19 +653,13 @@ export default {
     },
     onExtendUp(event, line) {
       this.scheduleCompensation(event, 'one-line-above', line[0] - 1);
-      this.emitExtend('one-line-above', line);
+      this.emitExtend('one-line-above', this.extendRange(line));
     },
     onExtendDown(event, endLine) {
       const meta = this.matchExtents.get(endLine);
       if (!meta) return;
       this.scheduleCompensation(event, 'one-line-below', endLine + 1);
-      this.$emit('extend', {
-        kind: 'one-line-below',
-        start: meta.startLine,
-        end: meta.endLine,
-        prevstart: meta.prevstart,
-        nextend: meta.nextend
-      });
+      this.emitExtend('one-line-below', meta);
     },
     scheduleCompensation(event, kind, targetLine) {
       // Capture the button's viewport y BEFORE the re-render. The watcher on

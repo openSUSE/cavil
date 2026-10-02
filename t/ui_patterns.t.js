@@ -182,6 +182,45 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       );
     });
 
+    await t.test('A picked selection extends itself, in the report preview and the file browser', async t => {
+      const extendSelection = async (t, root, fileId) => {
+        const table = root.locator('table.snippet');
+        const pickable = table.locator('tr:has(.select-line-btn)');
+        const lineNumber = async row => Number((await row.locator('td.linenumber').innerText()).trim());
+        const start = await lineNumber(pickable.nth(1));
+        const end = await lineNumber(pickable.nth(2));
+        await pickable.nth(1).locator('.select-line-btn').click();
+        await pickable.nth(2).hover();
+        await pickable.nth(2).locator('.select-line-btn').click();
+
+        const menu = table.locator('.dropdown-menu.show a.dropdown-item');
+        await table.locator('tr.line-selected a[data-bs-toggle="dropdown"]').click();
+        t.equal(await menu.filter({hasText: 'Extend one line above'}).count(), 1, 'the menu extends upwards');
+        t.equal(await menu.filter({hasText: 'Extend one line below'}).count(), 1, 'and downwards');
+
+        await menu.filter({hasText: 'Extend one line below'}).click();
+        const pen = table.locator(`td.quick-actions a[href^="/snippets/from_file/${fileId}/${start}/${end + 1}?"]`);
+        await pen.waitFor();
+        t.pass('the selection grew by one line');
+        t.equal(await table.locator('tr.line-selected').count(), 0, 'and became a range like an extended match');
+      };
+
+      await page.goto(url);
+      await page.click('text=Artistic');
+      await page.waitForSelector('#license-chart');
+      const section = page.locator('.risk-license-section:not(.risk-license-section-unresolved)').first();
+      const fileLink = section.locator('ul.risk-file-list a.file-link').first();
+      const fileId = (await fileLink.getAttribute('href')).replace('#file-', '');
+      await fileLink.click();
+      await page.waitForSelector(`#file-details-${fileId} table.snippet`);
+      await t.test('report preview', t => extendSelection(t, page.locator(`#file-details-${fileId}`), fileId));
+
+      const viewUrl = await page.locator(`.dropdown-menu a.dropdown-item:has-text("View file")`).getAttribute('href');
+      await page.goto(`${url}${viewUrl}`);
+      await page.waitForSelector('.file-browser-source table.snippet');
+      await t.test('file browser', t => extendSelection(t, page.locator('.file-browser-source'), fileId));
+    });
+
     await t.test('Propose pattern: CLA/EULA flow through proposals page to accepted pattern', async t => {
       await page.goto(url);
       await page.click('text=Artistic');
