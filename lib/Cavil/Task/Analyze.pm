@@ -296,7 +296,7 @@ sub _auto_review ($app, $id) {
   my $name                = $pkg->{name};
   my $acceptable_packages = $config->{acceptable_packages} || [];
   if (grep { $name eq $_ } @$acceptable_packages) {
-    return _hold($app, $pkg, $limitations, 'package name') if @$limitations;
+    return _hold($app, $pkg, $limitations, 'Otherwise accepted package name') if @$limitations;
     $pkg->{state}            = 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{reviewing_user}   = undef;
@@ -325,7 +325,10 @@ sub _auto_review ($app, $id) {
 
   # Exclude "unacceptable" reviews
   my $packages = $pkgs->history($name, $pkg_shortname, $id);
-  return if grep { $_->{state} eq 'unacceptable' } @$packages;
+  if (my ($rejected) = grep { $_->{state} eq 'unacceptable' } @$packages) {
+    return _hold($app, $pkg, $limitations,
+      "Manual review is required because it was rejected before with the same license as $rejected->{id}");
+  }
 
   my ($found_acceptable_by_lawyer, $found_acceptable);
   for my $p (@$packages) {
@@ -339,7 +342,7 @@ sub _auto_review ($app, $id) {
 
   # Previously reviewed and accepted
   if (my $f_id = $found_acceptable_by_lawyer || $found_acceptable) {
-    return _hold($app, $pkg, $limitations, "same license as $f_id") if @$limitations;
+    return _hold($app, $pkg, $limitations, "Otherwise accepted same license as $f_id") if @$limitations;
     $pkg->{state}            = $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable';
     $pkg->{review_timestamp} = 1;
     $pkg->{reviewing_user}   = undef;
@@ -353,7 +356,7 @@ sub _auto_review ($app, $id) {
   # Risk 0 is never accepted, and without a risk only no significant difference would have been
   if (@$limitations) {
     my $risk = $reports->risk_is_acceptable($pkg_shortname);
-    return _hold($app, $pkg, $limitations, $risk ? "low risk ($risk)" : undef, !defined $risk);
+    return _hold($app, $pkg, $limitations, $risk ? "Otherwise accepted low risk ($risk)" : undef, !defined $risk);
   }
 
   # Acceptable risk
@@ -443,17 +446,18 @@ sub _delta_notice ($app, $pkg) {
 }
 
 # The id phrases here are linkified by the report UI, keep them in sync
-sub _hold ($app, $pkg, $limitations, $otherwise, $no_diff_accepts = 0) {
+sub _hold ($app, $pkg, $limitations, $reason, $no_diff_accepts = 0) {
   my ($notice, $diff_report, $no_diff_id) = _delta_notice($app, $pkg);
-  $otherwise //= "no significant difference against $no_diff_id" if $no_diff_accepts && defined $no_diff_id;
+  $reason //= "Otherwise accepted no significant difference against $no_diff_id"
+    if $no_diff_accepts && defined $no_diff_id;
 
   my @blocks;
   for my $limitation (@$limitations) {
     push @blocks, $limitation->{package} ? "Limitation noted in $limitation->{package}" : 'Limitation noted';
     push @blocks, join("\n", map { length ? "  $_" : '' } split /\r?\n/, $limitation->{body});
   }
-  push @blocks, "Otherwise accepted $otherwise" if defined $otherwise;
-  push @blocks, $notice                         if defined $notice && !(defined $no_diff_id && defined $otherwise);
+  push @blocks, $reason if defined $reason;
+  push @blocks, $notice if defined $notice && !(defined $no_diff_id && defined $reason);
   $app->packages->update(
     {id => $pkg->{id}, notice => join("\n\n", @blocks), diff_report => $diff_report, result => undef});
   return;

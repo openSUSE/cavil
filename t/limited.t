@@ -242,4 +242,15 @@ subtest 'A new request without limitations changes nothing' => sub {
   $t->get_ok('/package/1/report.txt' => $bot)->status_is(200)->content_unlike(qr/## Limitations/);
 };
 
+subtest 'A rejected review with the same report still explains the hold' => sub {
+  my $rejected = $copy->('unacceptable');
+  my $waiting  = $copy->();
+  my $reason   = "Manual review is required because it was rejected before with the same license as $rejected";
+  is $analyze->($waiting)->{notice}, $reason, 'names the rejected review';
+
+  $note_id = $limit->(1, 'Only with approval');
+  is $pkgs->find($waiting)->{notice}, "Limitation noted in 1\n\n  Only with approval\n\n$reason",
+    'and quotes the limitation';
+};
+
 done_testing;
