@@ -1,0 +1,5 @@
+postgres-data
+postgres-socket
+.git
+node_modules
+staging/do_not_commit
