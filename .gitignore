@@ -10,5 +10,6 @@ pm_to_blib
 MYMETA.*
 Makefile
 .gemini
+postgres-data
 postgres-socket
 *.swp
