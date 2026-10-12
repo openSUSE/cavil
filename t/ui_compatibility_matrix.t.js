@@ -108,7 +108,7 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       const mode = matrix.locator('.license-matrix-mode');
       await mode.waitFor();
 
-      await matrix.locator('.license-matrix-mode-btn', {hasText: 'Likelihood'}).click();
+      await mode.locator('.cavil-segmented-btn', {hasText: 'Likelihood'}).click();
       t.equal(
         await matrix.locator('.license-matrix-cell.mode-likelihood').count() > 0,
         true,
@@ -124,7 +124,7 @@ await t.test('Cavil UI - license compatibility matrix', skipUnlessOnline, async 
       const mark = matrix.locator('td.license-matrix-cell.cell-no .license-matrix-mark').first();
       t.match(await mark.getAttribute('style'), /background/, 'the dot is tinted by its heat tier');
 
-      await matrix.locator('.license-matrix-mode-btn', {hasText: 'Verdict'}).click();
+      await mode.locator('.cavil-segmented-btn', {hasText: 'Verdict'}).click();
     });
 
     assertNoUnexpectedConsoleErrors(t, errorLogs);

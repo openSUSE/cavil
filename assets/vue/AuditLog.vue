@@ -16,6 +16,20 @@
     @goto-page="gotoPage"
     @update:filter="filter = $event"
   >
+    <template #controls>
+      <button
+        id="audit-log-by-user"
+        @click="toggleFilter('byUser')"
+        :aria-pressed="params.byUser.toString()"
+        :class="{'is-active': params.byUser}"
+        type="button"
+        class="cavil-list-toggle"
+      >
+        <i v-if="params.byUser" class="fa-solid fa-check" aria-hidden="true"></i>
+        By user
+      </button>
+    </template>
+
     <template #per-page>
       <label class="cavil-list-control">
         <span>Per page</span>
@@ -102,7 +116,7 @@ export default {
   mixins: [Refresh],
   components: {CavilListLayout, EmptyState, LegalLoading},
   data() {
-    const params = getParams({limit: 25, offset: 0, filter: ''});
+    const params = getParams({limit: 25, offset: 0, byUser: false, filter: ''});
 
     return {
       end: 0,
@@ -153,6 +167,10 @@ export default {
         };
       });
     },
+    toggleFilter(name) {
+      this.params[name] = !this.params[name];
+      this.gotoPage(1);
+    },
     filterNow() {
       this.cancelApiRefresh();
       this.events = null;
@@ -160,7 +178,7 @@ export default {
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset'),
+    ...genParamWatchers('limit', 'offset', 'byUser'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;

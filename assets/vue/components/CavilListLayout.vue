@@ -443,7 +443,6 @@ export default {
 
 .cavil-list-comment-body {
   background: var(--cavil-canvas-subtle);
-  border-left: 3px solid var(--cavil-border);
   border-radius: 6px;
   color: var(--cavil-fg-muted);
   display: inline-block;

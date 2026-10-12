@@ -96,8 +96,7 @@ sub create ($self) {
   my $limitation = ($v->param('limitation') // '0') eq '1' ? 1 : 0;
   return $self->render(json => {error => 'Not allowed to add limitations'}, status => 403)
     if $limitation && !$self->_can_limit;
-  return $self->render(json => {error => 'Limitations cannot be lawyer-only'}, status => 400)
-    if $limitation && $lawyer_only;
+  return $self->render(json => {error => _one_kind_error()}, status => 400) if $lawyer_only + $pinned + $limitation > 1;
   return $self->render(json => {error => 'Not allowed to pin notes'}, status => 403) if $pinned && !$self->_can_pin;
   return $self->render(json => {error => _pin_limit_error()},         status => 400)
     if $pinned && $self->notes->pinned_count($pkg->{name}) >= PIN_LIMIT;
@@ -127,6 +126,8 @@ sub pin ($self) {
   return $self->reply->json_validation_error if $v->has_error;
   my $pinned = $v->param('pinned') eq '1' ? 1 : 0;
 
+  return $self->render(json => {error => _one_kind_error()}, status => 400)
+    if $pinned && ($note->{lawyer_only} || $note->{limitation});
   return $self->render(json => {error => _pin_limit_error()}, status => 400)
     if $pinned && !$note->{pinned} && $self->notes->pinned_count($note->{package_name}) >= PIN_LIMIT;
 
@@ -241,6 +242,10 @@ sub _can_post_lawyer_only ($self) {
 sub _can_pin   ($self) { $self->_can_post_lawyer_only }
 sub _can_limit ($self) { $self->_can_post_lawyer_only }
 
+sub _one_kind_error () {
+  return 'A note is either pinned, lawyer-only or a limitation';
+}
+
 sub _pin_limit_error () {
   return 'This package already has ' . PIN_LIMIT . ' pinned notes, unpin one first';
 }
@@ -275,7 +280,7 @@ sub _format_note ($self, $row, $user_id, $current_checksum = undef) {
     package_name  => $row->{package_name},
     can_delete    => ($is_owner || $can_curate) ? \1 : \0,
     can_edit      => ($is_owner || $can_curate) ? \1 : \0,
-    can_pin       => $can_curate ? \1 : \0,
+    can_pin       => $can_curate && ($row->{pinned} || !($row->{lawyer_only} || $row->{limitation})) ? \1 : \0,
     created_epoch => $row->{created_epoch} + 0,
     edited_epoch  => $row->{edited_epoch} ? $row->{edited_epoch} + 0 : undef,
     author => {id => $row->{author_id}, login => $row->{author_login}, badge => _author_badge($row->{author_roles})},

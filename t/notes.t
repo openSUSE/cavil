@@ -769,6 +769,30 @@ subtest 'Pin and unpin a note' => sub {
   $app->notes->remove($id);
 };
 
+subtest 'A note is one kind only' => sub {
+  login_admin($t);
+  my $one_kind = 'A note is either pinned, lawyer-only or a limitation';
+  for my $kinds ({lawyer_only => 1, pinned => 1}, {pinned => 1, limitation => 1}, {lawyer_only => 1, limitation => 1}) {
+    $t->post_ok('/reviews/notes/1' => form => {body => 'two kinds', %$kinds})
+      ->status_is(400)
+      ->json_is('/error', $one_kind);
+  }
+
+  my $secret = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'for lawyers', 1)->{id};
+  my ($note) = grep { $_->{id} == $secret } @{$t->get_ok('/reviews/notes/1')->tx->res->json('/notes')};
+  is $note->{can_pin}, false, 'a lawyer-only note offers no pin';
+  $t->patch_ok("/reviews/notes/$secret/pin" => form => {pinned => '1'})->status_is(400)->json_is('/error', $one_kind);
+
+  # Pinned lawyer-only notes from before the rule can still be unpinned
+  $app->notes->set_pinned($secret, 1);
+  ($note) = @{$t->get_ok('/reviews/notes/1')->tx->res->json('/pinned')};
+  is $note->{can_pin}, true, 'an old combination can be unpinned';
+  $t->patch_ok("/reviews/notes/$secret/pin" => form => {pinned => '0'})->status_is(200)->json_is('/note/pinned', false);
+
+  logout($t);
+  $app->notes->remove($secret);
+};
+
 subtest 'Pinned notes are hoisted out of the paginated stream' => sub {
   my $id = $app->notes->add(1, 'perl-Mojolicious', $contrib_id, 'hoisted note', 0)->{id};
   login_admin($t);

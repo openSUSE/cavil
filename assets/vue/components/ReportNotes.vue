@@ -146,7 +146,7 @@
                 >{{ t }}</span
               >
               <button
-                v-if="allowActions && c.can_pin && !c.limitation && editingId !== c.id"
+                v-if="allowActions && c.can_pin && editingId !== c.id"
                 type="button"
                 :class="['report-note-pin', 'cavil-icon-action', {'is-pinned': c.pinned}]"
                 :disabled="pinningId === c.id"
@@ -218,48 +218,13 @@
           :saving="submitting"
           :error="submitError"
           :placeholder="formPlaceholder"
-          save-label="Note"
+          save-label="Post"
           save-busy-label="Posting…"
           data-attr="new"
           @save="submit"
         >
-          <template #leading>
-            <span class="report-note-composer-toggles">
-              <label v-if="canPostLawyerOnly" class="report-note-composer-toggle">
-                <input
-                  type="checkbox"
-                  v-model="lawyerOnly"
-                  :disabled="limitation"
-                  class="form-check-input"
-                  data-note-lawyer-only
-                />
-                Lawyers only
-              </label>
-              <label v-if="canPin" class="report-note-composer-toggle">
-                <input
-                  type="checkbox"
-                  v-model="pinned"
-                  :disabled="limitation"
-                  class="form-check-input"
-                  data-note-pinned
-                />
-                Pinned
-              </label>
-              <label
-                v-if="canLimitation"
-                class="report-note-composer-toggle"
-                title="Future versions of this package always need a human review"
-              >
-                <input
-                  type="checkbox"
-                  v-model="limitation"
-                  class="form-check-input"
-                  data-note-limitation
-                  @change="lawyerOnly = pinned = false"
-                />
-                Limitation
-              </label>
-            </span>
+          <template #leading v-if="kinds.length > 1">
+            <SegmentedControl v-model="kind" class="report-note-kind" label="Kind of note" :options="kinds" />
           </template>
         </MarkdownComposer>
       </div>
@@ -270,13 +235,14 @@
 <script>
 import LegalLoading from './LegalLoading.vue';
 import MarkdownComposer from './MarkdownComposer.vue';
+import SegmentedControl from './SegmentedControl.vue';
 import TagInput from './TagInput.vue';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {
   name: 'ReportNotes',
-  components: {LegalLoading, MarkdownComposer, TagInput},
+  components: {LegalLoading, MarkdownComposer, SegmentedControl, TagInput},
   props: {
     pkgId: {type: Number, default: null},
     endpoint: {type: String, default: null},
@@ -296,6 +262,19 @@ export default {
       return this.canPostLawyerOnly
         ? 'Use Markdown for formatting. Lawyer-only notes stay visible to lawyers and admins.'
         : 'Use Markdown for formatting.';
+    },
+    kinds() {
+      return [
+        {value: 'note', label: 'Note'},
+        this.canPin && {value: 'pinned', label: 'Pinned', attrs: {'data-note-pinned': ''}},
+        this.canPostLawyerOnly && {value: 'lawyer_only', label: 'Lawyers only', attrs: {'data-note-lawyer-only': ''}},
+        this.canLimitation && {
+          value: 'limitation',
+          label: 'Limitation',
+          title: 'Future versions of this package always need a human review',
+          attrs: {'data-note-limitation': ''}
+        }
+      ].filter(Boolean);
     },
     listEndpoint() {
       return this.endpoint || `/reviews/notes/${this.pkgId}`;
@@ -337,9 +316,7 @@ export default {
       canPin: false,
       canLimitation: false,
       draft: '',
-      lawyerOnly: false,
-      pinned: false,
-      limitation: false,
+      kind: 'note',
       tags: [],
       knownTags: [],
       noteScope: this.pkgId !== null && !this.showPackageName ? 'relevant' : 'all',
@@ -526,9 +503,9 @@ export default {
       try {
         const form = {
           body,
-          lawyer_only: this.lawyerOnly ? '1' : '0',
-          pinned: this.pinned ? '1' : '0',
-          limitation: this.limitation ? '1' : '0'
+          lawyer_only: this.kind === 'lawyer_only' ? '1' : '0',
+          pinned: this.kind === 'pinned' ? '1' : '0',
+          limitation: this.kind === 'limitation' ? '1' : '0'
         };
         if (this.tags.length) form.tags_json = JSON.stringify(this.tags);
         const res = await this.ua.post(`/reviews/notes/${this.pkgId}`, {form});
@@ -553,9 +530,7 @@ export default {
         if (this.total !== null) this.total += 1;
         if (this.relevant !== null) this.relevant += 1;
         this.draft = '';
-        this.lawyerOnly = false;
-        this.pinned = false;
-        this.limitation = false;
+        this.kind = 'note';
         this.tags = [];
         // Re-fetch counts via a HEAD-like call would be cheap; piggyback on
         // the next page request instead: refresh counts by re-counting locally
@@ -1058,21 +1033,7 @@ export default {
   font-weight: 600;
   margin-bottom: 6px;
 }
-.report-note-composer-toggles {
-  align-items: center;
-  display: inline-flex;
-  gap: 14px;
+.report-note-kind {
   margin-right: auto;
-}
-.report-note-composer-toggle {
-  align-items: center;
-  color: var(--cavil-fg-muted);
-  display: inline-flex;
-  font-size: 13px;
-  gap: 6px;
-  margin: 0;
-}
-.report-note-composer-toggle .form-check-input {
-  margin: 0;
 }
 </style>

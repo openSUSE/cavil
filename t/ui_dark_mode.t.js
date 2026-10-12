@@ -28,10 +28,14 @@ t.test('Cavil UI - dark mode', skipUnlessOnline, async t => {
       );
     });
 
-    await t.test('The account menu carries a switch on the Roles row', async t => {
+    await t.test('The account menu carries a switch on the user row', async t => {
       await openAccountMenu(page);
       await page.waitForSelector('.cavil-theme-toggle');
-      t.equal(await page.innerText('.cavil-theme-row .dropdown-header'), 'Roles', 'sits on the Roles header row');
+      t.equal(
+        await page.innerText('.cavil-theme-row .dropdown-header'),
+        'contrib_tester',
+        'sits on the user header row'
+      );
       t.equal(await toggle(page).getAttribute('role'), 'switch', 'is a switch, not a plain button');
       t.equal(await toggle(page).getAttribute('aria-checked'), 'false', 'reading as off while light');
       t.equal(await toggle(page).getAttribute('title'), 'Switch to dark mode', 'and says where it goes');

@@ -82,7 +82,7 @@ subtest 'Only curators add limitations' => sub {
   $t->get_ok('/reviews/notes/1')->status_is(200)->json_is('/can_limitation', 1);
   $t->post_ok('/reviews/notes/1' => form => {body => 'Only with approval', limitation => 1, lawyer_only => 1})
     ->status_is(400)
-    ->json_is('/error', 'Limitations cannot be lawyer-only');
+    ->json_is('/error', 'A note is either pinned, lawyer-only or a limitation');
   is_deeply $app->notes->limitations('perl-Mojolicious'), [], 'nothing added';
 
   $t->post_ok('/reviews/review_package/1' => form => {acceptable => 1, comment => 'Checked'})->status_is(200);

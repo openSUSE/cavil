@@ -11,12 +11,15 @@ sub audit_events ($self) {
   $v->optional('limit')->num;
   $v->optional('offset')->num;
   $v->optional('filter');
+  $v->optional('byUser');
   return $self->reply->json_validation_error if $v->has_error;
-  my $limit  = $v->param('limit')  // 10;
-  my $offset = $v->param('offset') // 0;
-  my $search = $v->param('filter') // '';
+  my $limit   = $v->param('limit')  // 10;
+  my $offset  = $v->param('offset') // 0;
+  my $search  = $v->param('filter') // '';
+  my $by_user = ($v->param('byUser') // 'false') eq 'true';
 
-  my $page = $self->helpers->audit_log->paginate_events({limit => $limit, offset => $offset, search => $search});
+  my $page = $self->helpers->audit_log->paginate_events(
+    {limit => $limit, offset => $offset, search => $search, by_user => $by_user});
   $self->render(json => $page);
 }
 

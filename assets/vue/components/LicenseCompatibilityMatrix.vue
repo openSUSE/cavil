@@ -3,24 +3,16 @@
     <header class="license-matrix-header">
       <h3>License compatibility</h3>
       <div class="license-matrix-controls">
-        <div v-if="hasProximity" class="license-matrix-mode" role="group" aria-label="Grid colouring">
-          <button
-            type="button"
-            class="license-matrix-mode-btn"
-            :class="{'is-on': colorMode === 'verdict'}"
-            @click="colorMode = 'verdict'"
-          >
-            Verdict
-          </button>
-          <button
-            type="button"
-            class="license-matrix-mode-btn"
-            :class="{'is-on': colorMode === 'likelihood'}"
-            @click="colorMode = 'likelihood'"
-          >
-            Likelihood
-          </button>
-        </div>
+        <SegmentedControl
+          v-if="hasProximity"
+          v-model="colorMode"
+          class="license-matrix-mode"
+          label="Grid colouring"
+          :options="[
+            {value: 'verdict', label: 'Verdict'},
+            {value: 'likelihood', label: 'Likelihood'}
+          ]"
+        />
         <button v-if="canShrink" type="button" class="license-matrix-toggle" @click="showAll = !showAll">
           <span class="license-matrix-toggle-verb">{{ toggleVerb }}</span>
           <strong class="license-matrix-toggle-count">{{ toggleCount }}</strong>
@@ -160,11 +152,12 @@
 
 <script>
 import FilePath from './FilePath.vue';
+import SegmentedControl from './SegmentedControl.vue';
 import {fileViewUrl} from '../helpers/links.js';
 
 export default {
   name: 'LicenseCompatibilityMatrix',
-  components: {FilePath},
+  components: {FilePath, SegmentedControl},
   props: {
     licenses: {type: Array, default: () => []},
     matrix: {type: Object, default: () => ({})},
@@ -840,36 +833,6 @@ export default {
   display: flex;
   gap: 0.6rem;
 }
-.license-matrix-mode {
-  background: var(--cavil-canvas);
-  border: 1px solid var(--cavil-border);
-  border-radius: 6px;
-  display: inline-flex;
-  overflow: hidden;
-}
-.license-matrix-mode-btn {
-  appearance: none;
-  background: var(--cavil-canvas);
-  border: 0;
-  color: var(--cavil-fg-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  padding: 0.25rem 0.6rem;
-}
-.license-matrix-mode-btn + .license-matrix-mode-btn {
-  border-left: 1px solid var(--cavil-border);
-}
-.license-matrix-mode-btn:hover {
-  background: var(--cavil-canvas-subtle);
-}
-.license-matrix-mode-btn.is-on {
-  background: var(--cavil-accent-emphasis);
-  color: var(--cavil-on-accent);
-}
-
 /* Detail panel "Where" band: proximity summary + file-browser links, parked under the OSADL explanation. */
 .license-matrix-where {
   border-top: 1px solid var(--cavil-neutral-bg);

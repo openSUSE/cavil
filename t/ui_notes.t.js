@@ -132,7 +132,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       await setNoteScope('relevant');
       await page.waitForSelector('[data-composer-input="new"]');
       await page.locator('[data-composer-input="new"]').fill('Confidential note for lawyers only');
-      await page.locator('[data-note-lawyer-only]').check();
+      await page.locator('[data-note-lawyer-only]').click();
       const [lawyerPostResp] = await Promise.all([
         page.waitForResponse(resp => /\/reviews\/notes\/2$/.test(resp.url()) && resp.request().method() === 'POST'),
         page.locator('[data-composer-save="new"]').click()
@@ -423,7 +423,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       await page.goto(`${url}/reviews/details/1`);
       await page.click('[data-tab="notes"]');
       await page.waitForSelector('#report-notes-pane.is-active .report-note');
-      await page.locator('[data-note-pinned]').check();
+      await page.locator('[data-note-pinned]').click();
       await page.locator('[data-composer-input="new"]').fill('Pinned straight from the composer');
       const [postResp] = await Promise.all([
         page.waitForResponse(r => /\/reviews\/notes\/1$/.test(r.url()) && r.request().method() === 'POST'),
@@ -438,7 +438,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
         String(composed),
         'composed note lands in the pinned block'
       );
-      t.notOk(await page.locator('[data-note-pinned]').isChecked(), 'pin checkbox resets after posting');
+      t.equal(await page.getAttribute('[data-note-pinned]', 'aria-pressed'), 'false', 'kind resets after posting');
       t.equal(await page.innerText('[data-tab="notes"] [data-note-count]'), '26');
 
       // Cleanup: delete the composed note so downstream counts stay at 25.
@@ -742,7 +742,7 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       t.equal(
         await page.locator('[data-note-lawyer-only]').count(),
         0,
-        'lawyer-only checkbox is hidden from contributors'
+        'lawyer-only choice is hidden from contributors'
       );
 
       // Contributors can post regular notes and delete their own.

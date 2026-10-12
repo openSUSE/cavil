@@ -88,9 +88,14 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
       await page.goto(`${url}/reviews/details/3`);
       await page.click('[data-tab="notes"]');
       await page.locator('[data-composer-input="new"]').fill('Only with approval');
-      await page.check('[data-note-limitation]');
-      t.ok(await page.isDisabled('[data-note-lawyer-only]'), 'a limitation cannot be lawyer-only');
-      t.ok(await page.isDisabled('[data-note-pinned]'), 'nor pinned, it sits above the pins anyway');
+      await page.click('[data-note-lawyer-only]');
+      await page.click('[data-note-limitation]');
+      t.equal(
+        await page.getAttribute('[data-note-lawyer-only]', 'aria-pressed'),
+        'false',
+        'a limitation is not lawyer-only'
+      );
+      t.equal(await page.getAttribute('[data-note-limitation]', 'aria-pressed'), 'true', 'one kind at a time');
       const [post] = await Promise.all([
         page.waitForResponse(res => /\/reviews\/notes\/3$/.test(res.url()) && res.request().method() === 'POST'),
         page.locator('[data-composer-save="new"]').click()

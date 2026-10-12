@@ -980,7 +980,8 @@ reviewers still read it.
 A **limitation** note goes one step further: it sits above the pinned notes, and while it exists every new version of
 the package needs a human decision (see *Automatic Acceptance*). Listings mark these packages with a red warning icon,
 and the recent notes page can list all limitations. Limitations are never lawyer-only, because the people who package
-and ship the software need to see them.
+and ship the software need to see them. A note is exactly one kind (plain, pinned, lawyer-only or a limitation), so
+the note composer offers them as a single choice.
 
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 

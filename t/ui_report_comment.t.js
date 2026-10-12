@@ -264,6 +264,14 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
       t.match(await row.innerText(), /Rejected <b>because<\/b> of\nthe bundled font/, 'the comment as plain text');
       t.match(await row.innerText(), /tester/, 'the reviewer');
       t.equal(await row.locator('b').count(), 0, 'no markup was injected');
+
+      await page.click('#audit-log-by-user');
+      await page.waitForFunction(
+        () => document.querySelector('#audit-log-by-user').getAttribute('aria-pressed') === 'true'
+      );
+      await page.waitForSelector('#audit-log tbody > tr:nth-child(1) td:nth-child(4)');
+      t.match(await page.locator('#audit-log tbody > tr').first().innerText(), /tester/, 'manual events stay');
+      t.match(page.url(), /byUser=true/, 'the filter is kept in the URL');
     });
 
     t.test('Console errors', t => {

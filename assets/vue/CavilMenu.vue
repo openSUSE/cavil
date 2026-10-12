@@ -15,7 +15,7 @@
     </a>
     <ul class="dropdown-menu dropdown-menu-end cavil-user-dropdown">
       <li class="cavil-theme-row">
-        <h3 class="dropdown-header">{{ roles.length > 0 ? 'Roles' : 'Appearance' }}</h3>
+        <h3 class="dropdown-header">{{ currentUser }}</h3>
         <button
           type="button"
           class="cavil-theme-toggle"
@@ -37,7 +37,6 @@
         <span class="dropdown-item-text cavil-role-list">{{ rolesSummary }}</span>
       </li>
       <li><hr class="dropdown-divider" /></li>
-      <li><h3 class="dropdown-header">Queues</h3></li>
       <li>
         <a :href="urls.missing" class="dropdown-item">
           <span>Missing Licenses</span>
@@ -51,30 +50,20 @@
         </a>
       </li>
       <li><hr class="dropdown-divider" /></li>
-      <li><h3 class="dropdown-header">Insights</h3></li>
       <li><a :href="urls.recentPatterns" class="dropdown-item">Pattern Performance</a></li>
       <li><a :href="urls.recentNotes" class="dropdown-item">Recent Notes</a></li>
       <li><a :href="urls.ephemeral" class="dropdown-item">Ephemeral Reviews</a></li>
       <li><a :href="urls.stats" class="dropdown-item">Statistics</a></li>
       <li><hr class="dropdown-divider" /></li>
       <template v-if="canCurate">
-        <li><h3 class="dropdown-header">Curation</h3></li>
         <li><a :href="urls.ignoredMatches" class="dropdown-item">Ignored Matches</a></li>
         <li><a :href="urls.ignoredFiles" class="dropdown-item">Ignored Files</a></li>
         <li><a :href="urls.commentTemplates" class="dropdown-item">Comment Templates</a></li>
         <li><a :href="urls.auditLog" class="dropdown-item">Audit Log</a></li>
-        <li><hr class="dropdown-divider" /></li>
       </template>
-      <template v-if="canUpload">
-        <li><h3 class="dropdown-header">Uploads</h3></li>
-        <li><a :href="urls.upload" class="dropdown-item">Upload Tarball</a></li>
-        <li><hr class="dropdown-divider" /></li>
-      </template>
-      <template v-if="canInfra">
-        <li><h3 class="dropdown-header">Administration</h3></li>
-        <li><a :href="urls.minion" class="dropdown-item">Minion Dashboard</a></li>
-        <li><hr class="dropdown-divider" /></li>
-      </template>
+      <li v-if="canUpload"><a :href="urls.upload" class="dropdown-item">Upload Tarball</a></li>
+      <li v-if="canInfra"><a :href="urls.minion" class="dropdown-item">Minion Dashboard</a></li>
+      <li v-if="canCurate || canUpload || canInfra"><hr class="dropdown-divider" /></li>
       <li><a :href="urls.documentation" class="dropdown-item">Documentation</a></li>
       <li><a :href="urls.apiKeys" class="dropdown-item">API Keys</a></li>
       <li><a :href="urls.logout" class="dropdown-item">Logout</a></li>

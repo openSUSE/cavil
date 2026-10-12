@@ -11,11 +11,14 @@ has 'pg';
 # Exact matches only, a substring would mix in every package sharing a prefix (gcc, gcc13, cross-gcc...)
 sub paginate_events ($self, $options) {
   my $search = $options->{search} // '';
-  my ($where, @bind) = ('');
+  my (@where, @bind);
   if ($search =~ /^\d+$/ && $search < 2**31) {
-    ($where, @bind) = ('WHERE e.package = ? OR e.package_name = ?', $search, $search);
+    push @where, '(e.package = ? OR e.package_name = ?)';
+    push @bind, $search, $search;
   }
-  elsif (length $search) { ($where, @bind) = ('WHERE e.package_name = ?', $search) }
+  elsif (length $search) { push @where, 'e.package_name = ?'; push @bind, $search }
+  push @where, 'e.actor IS NOT NULL' if $options->{by_user};
+  my $where = @where ? 'WHERE ' . join(' AND ', @where) : '';
 
   my $db      = $self->pg->db;
   my $results = $db->query(

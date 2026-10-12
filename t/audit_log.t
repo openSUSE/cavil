@@ -156,6 +156,12 @@ subtest 'Audit log page' => sub {
   my $of_one = $db->query('SELECT count(*) FROM audit_events WHERE package = 1')->array->[0];
   $t->get_ok('/pagination/audit?filter=1')->status_is(200)->json_is('/total', $of_one);
   $t->get_ok('/pagination/audit?filter=Mojolicious')->status_is(200)->json_is('/total', 0);
+  my $manual
+    = $db->query(q{SELECT count(*) FROM audit_events WHERE package_name = 'perl-Mojolicious' AND actor IS NOT NULL})
+    ->array->[0];
+  ok $manual && $manual < $total, 'some manual, some automatic';
+  $t->get_ok('/pagination/audit?filter=perl-Mojolicious&byUser=true')->status_is(200)->json_is('/total', $manual);
+  $t->get_ok('/pagination/audit?filter=perl-Mojolicious&byUser=false')->status_is(200)->json_is('/total', $total);
   $t->get_ok('/pagination/audit?filter=99999999999999999999')->status_is(200)->json_is('/total', 0);
   $t->get_ok("/pagination/audit?filter=perl-Mojolicious&offset=$total")
     ->status_is(200)
