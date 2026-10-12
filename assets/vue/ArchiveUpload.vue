@@ -1,11 +1,11 @@
 <template>
   <div class="upload-page">
-    <cavil-notice-panel tone="warning" title="Experimental feature" icon="fa-solid fa-flask">
-      <p class="cavil-notice-summary">
+    <div class="row mt-3">
+      <cavil-notice-panel intro class="col-12">
         Upload any archive supported by Cavil (tar.*, zip, rpm, 7z, …) for legal review. No metadata is required, the
         package name is taken from the filename and licenses are detected automatically.
-      </p>
-    </cavil-notice-panel>
+      </cavil-notice-panel>
+    </div>
 
     <div
       class="upload-dropzone"
@@ -215,9 +215,6 @@ export default {
 </script>
 
 <style>
-.upload-page {
-  margin-top: 1rem;
-}
 .upload-dropzone {
   align-items: center;
   background: var(--cavil-canvas-subtle);
