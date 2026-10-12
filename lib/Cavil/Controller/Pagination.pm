@@ -252,14 +252,18 @@ sub _mark_active_packages ($self, $page) {
   # One query for the whole page; the review search names the column "package" instead of "name"
   my $rows
     = [map { {id => $_->{id}, name => $_->{name} // $_->{package}, checksum => $_->{checksum}} } @{$page->{page}}];
-  my $notes = $self->notes->relevant_notes($rows, include_lawyer_only => $self->_can_see_lawyer_only);
+  my $notes    = $self->notes->relevant_notes($rows, include_lawyer_only => $self->_can_see_lawyer_only);
+  my $products = $self->products->annotations([map { $_->{external_link} } @{$page->{page}}]);
 
   for my $pkg (@{$page->{page}}) {
-    my $id = $pkg->{id};
-    $pkg->{external_link_data} = external_link_data($pkg->{external_link}, $config->{external_link_sources});
-    $pkg->{active_jobs}        = $minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
-    $pkg->{failed_jobs}        = $minion->jobs({states => ['failed'], notes => ["pkg_$id"]})->total;
-    $pkg->{relevant_note}      = _note_state($notes->{$id});
+    my $id   = $pkg->{id};
+    my $link = $pkg->{external_link_data} = external_link_data($pkg->{external_link}, $config->{external_link_sources});
+    if (defined(my $product = $products->{$pkg->{external_link} // ''})) {
+      @$link{qw(text title)} = ($product, $pkg->{external_link});
+    }
+    $pkg->{active_jobs}   = $minion->jobs({states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
+    $pkg->{failed_jobs}   = $minion->jobs({states => ['failed'], notes => ["pkg_$id"]})->total;
+    $pkg->{relevant_note} = _note_state($notes->{$id});
   }
   return $page;
 }

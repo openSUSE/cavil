@@ -36,7 +36,7 @@
   >
     <span class="cavil-external-link-text">{{ text }}</span>
   </a>
-  <span v-else>{{ text }}</span>
+  <span v-else :title="link?.title">{{ text }}</span>
 </template>
 
 <script>

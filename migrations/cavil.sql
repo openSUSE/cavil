@@ -453,3 +453,6 @@ DROP TABLE IF EXISTS oauth_clients;
 -- 72 up
 ALTER TABLE package_notes ADD COLUMN limitation boolean DEFAULT false NOT NULL;
 CREATE INDEX ON package_notes (package_name) WHERE limitation;
+
+-- 73 up
+ALTER TABLE bot_products ADD COLUMN priority int;

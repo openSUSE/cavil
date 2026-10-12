@@ -634,6 +634,39 @@ subtest 'Pagination' => sub {
     $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51:Update', '');
     is $products->find('SUSE:SLE-15-SP7:Update:Products:MLM51')->{product}, undef, 'annotation cleared';
     $t->get_ok('/pagination/products/known?filter=Multi-Linux')->json_is('/total', 0);
+
+    # A curated priority overrides the bots for reviews still in the backlog, now and on every later sync
+    my $packages = $t->app->packages;
+    $packages->update({id => 4, state => 'acceptable'});
+    my $before = $packages->find(4)->{priority};
+    $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51', '', 7);
+    is $products->find('SUSE:SLE-15-SP7:Update:Products:MLM51')->{priority}, 7, 'priority stored';
+    is $packages->find(1)->{priority},                                       7, 'open review gets the curated priority';
+    is $packages->find(4)->{priority}, $before,                                 'reviewed package keeps its priority';
+    $products->update($s1, [1, 4, 5]);
+    is $packages->find(5)->{priority}, 7, 'review added by a later sync gets the curated priority';
+
+    # Default leaves whatever the bots assign alone
+    $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51', '', '');
+    is $products->find('SUSE:SLE-15-SP7:Update:Products:MLM51')->{priority}, undef, 'priority cleared';
+    $packages->update({id => 5, priority => 3});
+    $products->update($s1, [1, 4, 5]);
+    is $packages->find(5)->{priority}, 3, 'bot priority kept after clearing';
+    $packages->update({id => 4, state => 'new'});
+
+    # Review lists show a codestream link as its curated product name, with the codestream kept as the title
+    my $link = $packages->find(4)->{external_link};
+    $packages->update({id => 4, external_link => 'SUSE:SLE-15-SP7:Update:Products:MLM51'});
+    $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51', 'Multi-Linux Manager');
+    $t->get_ok('/pagination/reviews/open?filter=MLM51')
+      ->json_is('/page/0/id',                       4)
+      ->json_is('/page/0/external_link_data/text',  'Multi-Linux Manager')
+      ->json_is('/page/0/external_link_data/title', 'SUSE:SLE-15-SP7:Update:Products:MLM51');
+    $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51', '');
+    $t->get_ok('/pagination/reviews/open?filter=MLM51')
+      ->json_is('/page/0/external_link_data/text', 'SUSE:SLE-15-SP7:Update:Products:MLM51')
+      ->json_hasnt('/page/0/external_link_data/title');
+    $packages->update({id => 4, external_link => $link});
   };
 
   subtest 'Licenses' => sub {

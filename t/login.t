@@ -111,6 +111,14 @@ subtest 'Dummy' => sub {
   $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})
     ->status_is(200)
     ->json_is('/product', 'Tumbleweed');
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed', priority => 7})
+    ->status_is(200)
+    ->json_is('/priority', 7);
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed', priority => ''})
+    ->status_is(200)
+    ->json_is('/priority', undef);
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {priority => 11})->status_is(400);
+  $t->put_ok('/products/openSUSE:Factory/annotation' => form => {priority => 'x'})->status_is(400);
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
   $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
   $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})

@@ -130,6 +130,18 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
         page.click('#cavil-save-annotation')
       ]);
       await page.waitForSelector('#cavil-save-annotation .fa-check');
+
+      // The review priority override is saved with the same button and survives a reload
+      t.equal(await page.inputValue('#cavil-product-priority'), '', 'priority defaults to the bots');
+      await page.selectOption('#cavil-product-priority', '6');
+      await Promise.all([
+        page.waitForResponse(resp => /\/products\/.*\/annotation/.test(resp.url())),
+        page.click('#cavil-save-annotation')
+      ]);
+      await page.waitForSelector('#cavil-save-annotation .fa-check');
+      await page.reload();
+      await page.waitForSelector('#cavil-product-priority');
+      t.equal(await page.inputValue('#cavil-product-priority'), '6', 'priority override is pre-selected');
     });
 
     await t.test('Open reviews (logged in)', async t => {
@@ -143,7 +155,11 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
 
       await page.click('text=Next');
       t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(2)'), 'test#7');
-      t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(3)'), '', 'no import time yet');
+      t.equal(
+        await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(3)'),
+        '',
+        'no import time yet'
+      );
       t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(4)'), 'perl-UI-Test7');
       t.equal(await page.innerText('#open-reviews tbody > tr:nth-child(1) > td:nth-child(5)'), 'not yet imported');
 

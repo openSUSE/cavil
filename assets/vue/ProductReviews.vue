@@ -33,10 +33,24 @@
             placeholder="e.g. Multi-Linux Manager"
           />
         </div>
+        <label class="cavil-list-control">
+          <span>Priority</span>
+          <select
+            id="cavil-product-priority"
+            v-model="priorityDraft"
+            @change="annotationSaved = false"
+            class="form-select"
+          >
+            <option value="">Default</option>
+            <option v-for="p in 8" :key="p" :value="String(p)">{{ p }}</option>
+          </select>
+        </label>
         <button
           id="cavil-save-annotation"
           @click="saveAnnotation"
-          :disabled="savingAnnotation || annotationDraft === annotationSavedValue"
+          :disabled="
+            savingAnnotation || (annotationDraft === annotationSavedValue && priorityDraft === prioritySavedValue)
+          "
           type="button"
           class="cavil-list-toggle"
         >
@@ -232,7 +246,9 @@ export default {
       annotationDraft: this.annotation,
       annotationSavedValue: this.annotation,
       annotationSaved: false,
-      savingAnnotation: false
+      savingAnnotation: false,
+      priorityDraft: this.priority,
+      prioritySavedValue: this.priority
     };
   },
   computed: {
@@ -284,10 +300,11 @@ export default {
       this.savingAnnotation = true;
       const ua = new UserAgent({baseURL: window.location.href});
       await ua.post(`/products/${encodeURIComponent(this.currentProduct)}/annotation`, {
-        form: {product: this.annotationDraft},
+        form: {product: this.annotationDraft, priority: this.priorityDraft},
         query: {_method: 'PUT'}
       });
       this.annotationSavedValue = this.annotationDraft;
+      this.prioritySavedValue = this.priorityDraft;
       this.annotationSaved = true;
       this.savingAnnotation = false;
     }

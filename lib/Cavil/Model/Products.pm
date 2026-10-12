@@ -34,6 +34,14 @@ sub for_package_products ($self, $id) {
   )->hashes->to_array;
 }
 
+sub annotations ($self, $names) {
+  return {
+    map { $_->[0] => $_->[1] } $self->pg->db->query(
+      'SELECT name, product FROM bot_products WHERE name = ANY(?) AND product IS NOT NULL', $names
+    )->arrays->each
+  };
+}
+
 # The codestream names that roll up to a curated product, so the aggregate group page can offer a curator a
 # way back down to each individual codestream (where its annotation can be changed or cleared)
 sub codestreams_for_product ($self, $product) {
@@ -42,11 +50,13 @@ sub codestreams_for_product ($self, $product) {
 }
 
 # Name-based creation works before sync and keeps later membership updates independent.
-sub set_annotation ($self, $name, $product) {
+sub set_annotation ($self, $name, $product, $priority = undef) {
   my $db  = $self->pg->db;
   my $obj = $self->find_or_create($name);
-  $product = undef if defined $product && $product eq '';
-  $db->update('bot_products', {product => $product}, {id => $obj->{id}});
+  $product  = undef if defined $product  && $product eq '';
+  $priority = undef if defined $priority && $priority eq '';
+  $db->update('bot_products', {product => $product, priority => $priority}, {id => $obj->{id}});
+  $self->_apply_priority($db, $obj->{id});
   return $product;
 }
 
@@ -137,6 +147,15 @@ sub update ($self, $product, $packages) {
     'insert into bot_package_products (product, package) values (?, ?)
      on conflict do nothing', $product, $_
   ) for @$packages;
+  $self->_apply_priority($db, $product);
+}
+
+# Bots assign their own priority, a curated one overrides it for every review still in the backlog
+sub _apply_priority ($self, $db, $id) {
+  $db->query(
+    "UPDATE bot_packages SET priority = p.priority FROM bot_package_products pp JOIN bot_products p ON (p.id = pp.product)
+     WHERE p.id = ? AND p.priority IS NOT NULL AND pp.package = bot_packages.id AND bot_packages.state = 'new'", $id
+  );
 }
 
 1;

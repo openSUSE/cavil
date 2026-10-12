@@ -5,6 +5,7 @@
   data-can-curate="<%= $can_curate %>"
   data-codestream="<%= $codestream %>"
   data-annotation="<%= $annotation %>"
+  data-priority="<%= $priority %>"
   data-members="<%= $members %>"
 ></div>
 

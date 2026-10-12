@@ -188,6 +188,7 @@ window.cavil = {
     app.config.globalProperties.canCurate = el.dataset.canCurate === '1';
     app.config.globalProperties.isCodestream = el.dataset.codestream === '1';
     app.config.globalProperties.annotation = el.dataset.annotation ?? '';
+    app.config.globalProperties.priority = el.dataset.priority ?? '';
     app.config.globalProperties.members = JSON.parse(el.dataset.members || '[]');
     app.mount(el);
   },
