@@ -456,3 +456,35 @@ CREATE INDEX ON package_notes (package_name) WHERE limitation;
 
 -- 73 up
 ALTER TABLE bot_products ADD COLUMN priority int;
+
+-- 74 up
+CREATE TABLE audit_events (
+  id           bigserial PRIMARY KEY,
+  created      timestamp with time zone DEFAULT now() NOT NULL,
+  type         text NOT NULL,
+  package      int REFERENCES bot_packages(id),
+  package_name text,
+  actor        int REFERENCES bot_users(id),
+  data         jsonb DEFAULT '{}' NOT NULL
+);
+CREATE INDEX ON audit_events (package, id DESC);
+CREATE INDEX ON audit_events (package_name, id DESC);
+CREATE FUNCTION audit_review() RETURNS trigger AS $$
+  DECLARE
+    actor int := CASE WHEN NEW.state <> 'new' THEN NEW.reviewing_user END;
+  BEGIN
+    INSERT INTO audit_events (type, package, package_name, actor, data) VALUES ('review.decision', NEW.id, NEW.name,
+      actor, jsonb_build_object('from', OLD.state, 'to', NEW.state, 'checksum', NEW.checksum,
+        'result', CASE WHEN NEW.state <> 'new' THEN NEW.result END, 'ai_assisted', actor IS NOT NULL AND NEW.ai_assisted));
+    RETURN NULL;
+  END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER audit_review_trg AFTER UPDATE OF state, reviewed ON bot_packages
+  FOR EACH ROW WHEN (OLD.state IS DISTINCT FROM NEW.state
+    OR (NEW.reviewed IS NOT NULL AND OLD.reviewed IS DISTINCT FROM NEW.reviewed))
+  EXECUTE FUNCTION audit_review();
+
+-- 74 down
+DROP TRIGGER IF EXISTS audit_review_trg ON bot_packages;
+DROP FUNCTION IF EXISTS audit_review;
+DROP TABLE IF EXISTS audit_events;

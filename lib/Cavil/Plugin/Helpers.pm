@@ -383,6 +383,7 @@ sub _package_summary ($c, $id) {
     embargoed        => $pkg->{embargoed} ? true : false,
     tags             => $pkg->{tags} // [],
     can_edit_tags    => $c->current_user_can('curate') ? \1   : \0,
+    can_view_audit   => $c->current_user_can('curate') ? \1   : \0,
     ephemeral        => $pkg->{ephemeral}              ? true : false,
     ephemeral_delete => $pkg->{ephemeral}
     ? $pkg->{created_epoch} + ($config->{hours_to_keep_ephemeral_packages} // 24) * 3600

@@ -65,8 +65,7 @@ sub run ($self, @args) {
     $obj = $pkgs->find($id);
   }
   $obj->{external_link} //= 'obs-command';
-  $obj->{obsolete} = 0;
-  $pkgs->update($obj);
+  $pkgs->update({id => $obj->{id}, external_link => $obj->{external_link}, obsolete => 0});
 
   # An admin at the command line asking for one specific package is waiting on it, same as the Reindex
   # button on a report page - and --reimport is how a package that went wrong is put back together, so it

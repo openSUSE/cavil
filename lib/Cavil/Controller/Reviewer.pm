@@ -53,20 +53,31 @@ sub fasttrack_package ($self) {
   my $id  = $self->stash('id');
   my $pkg = $self->packages->find($id);
   return $self->render(json => {error => 'Package not found'}, status => 404) unless $pkg;
+
+  # Restating an acceptance (to fix its comment) is fine, overriding a curator's or lawyer's decision is not
+  return $self->render(json => {error => 'Only a curator or lawyer can change this decision'}, status => 403)
+    unless $pkg->{state} eq 'new' || $pkg->{state} eq 'acceptable';
   return $self->render(
     json   => {error => 'Limitations apply to this package, it needs a review by a curator or lawyer'},
     status => 403
   ) if @{$self->notes->limitations($pkg->{name})};
 
-  $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
-  my $result = $pkg->{result} = $validation->param('comment') || 'Reviewed ok';
-  $pkg->{state}            = 'acceptable';
-  $pkg->{review_timestamp} = 1;
-  $self->packages->update($pkg);
+  my $result = $validation->param('comment') || 'Reviewed ok';
+  my $review = {
+    id               => $id,
+    reviewing_user   => $self->users->find(login => $user)->{id},
+    result           => $result,
+    state            => 'acceptable',
+    review_timestamp => 1,
+    ai_assisted      => 0
+  };
 
-  $self->app->log->info(qq{Fasttrack review by $user: $pkg->{name} ($id) is $pkg->{state}:}, $result);
+  return $self->render(json => {error => 'Package has been reviewed meanwhile'}, status => 409)
+    unless $self->packages->update($review, {state => $pkg->{state}, reviewed => $pkg->{reviewed}});
 
-  return $self->render(json => {ok => 1, id => $pkg->{id}, name => $pkg->{name}, state => $pkg->{state}});
+  $self->app->log->info(qq{Fasttrack review by $user: $pkg->{name} ($id) is acceptable:}, $result);
+
+  return $self->render(json => {ok => 1, id => $pkg->{id}, name => $pkg->{name}, state => 'acceptable'});
 }
 
 sub file_view ($self) {
@@ -301,6 +312,10 @@ sub list_recent ($self) {
   $self->render;
 }
 
+sub list_audit ($self) {
+  $self->render;
+}
+
 sub list_ephemeral ($self) {
   $self->render;
 }
@@ -332,29 +347,35 @@ sub review_package ($self) {
   my $pkg = $self->packages->find($id);
   return $self->render(json => {error => 'Package not found'}, status => 404) unless $pkg;
 
-  $pkg->{reviewing_user} = $self->users->find(login => $user)->{id};
-  my $result = $pkg->{result} = $validation->param('comment') || 'Reviewed ok';
+  my $result = $validation->param('comment') || 'Reviewed ok';
+  my $state;
 
   # The acceptance state is derived from the reviewer's capability, never taken from the request: only a
   # holder of "review_lawyer" (the lawyer role) can produce acceptable_by_lawyer, so a non-lawyer curator
   # (e.g. a plain admin) can accept a package but can never mint a lawyer sign-off. Mirrors the MCP path.
   if ($validation->param('unacceptable')) {
-    $pkg->{state} = 'unacceptable';
+    $state = 'unacceptable';
   }
   elsif ($validation->param('acceptable')) {
-    $pkg->{state} = $self->current_user_can('review_lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
+    $state = $self->current_user_can('review_lawyer') ? 'acceptable_by_lawyer' : 'acceptable';
   }
   else {
     return $self->render(json => {error => 'Missing decision'}, status => 400);
   }
-  $pkg->{review_timestamp} = 1;
-  $pkg->{ai_assisted}      = 0;
+  $self->packages->update(
+    {
+      id               => $id,
+      reviewing_user   => $self->users->find(login => $user)->{id},
+      result           => $result,
+      state            => $state,
+      review_timestamp => 1,
+      ai_assisted      => 0
+    }
+  );
 
-  $self->packages->update($pkg);
+  $self->app->log->info(qq{Review by $user: $pkg->{name} ($id) is $state:}, $result);
 
-  $self->app->log->info(qq{Review by $user: $pkg->{name} ($id) is $pkg->{state}:}, $result);
-
-  $self->render(json => {ok => 1, id => $pkg->{id}, name => $pkg->{name}, state => $pkg->{state}});
+  $self->render(json => {ok => 1, id => $pkg->{id}, name => $pkg->{name}, state => $state});
 }
 
 1;

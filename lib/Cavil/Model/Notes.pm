@@ -26,21 +26,44 @@ sub relevance_predicate ($outer) {
 }
 
 sub add ($self, $package_id, $name, $author_id, $body, $lawyer_only, $ai_assisted = 0, $tags = undef, $limitation = 0) {
-  my $row = $self->pg->db->insert(
-    'package_notes',
+
+  # The handle goes out of scope before find takes its own from the pool
+  my $id = do {
+    my $db = $self->pg->db;
+    my $tx = $db->begin;
+    my $id = $db->insert(
+      'package_notes',
+      {
+        package      => $package_id,
+        package_name => $name,
+        author       => $author_id,
+        ai_assisted  => $ai_assisted ? 1 : 0,
+        body         => $body,
+        lawyer_only  => $lawyer_only ? 1 : 0,
+        limitation   => $limitation  ? 1 : 0,
+        tags         => $tags // []
+      },
+      {returning => 'id'}
+    )->hash->{id};
+    _audit_limitation($db, 'added', $author_id, {id => $id, package_name => $name, to => $body}) if $limitation;
+    $tx->commit;
+    $id;
+  };
+  return $self->find($id);
+}
+
+# Lifting a limitation unblocks auto-accept for every future version, and notes are hard-deleted, so the audit log
+# is the only record left of what a limitation said and who changed it
+sub _audit_limitation ($db, $action, $actor, $note) {
+  $db->insert(
+    'audit_events',
     {
-      package      => $package_id,
-      package_name => $name,
-      author       => $author_id,
-      ai_assisted  => $ai_assisted ? 1 : 0,
-      body         => $body,
-      lawyer_only  => $lawyer_only ? 1 : 0,
-      limitation   => $limitation  ? 1 : 0,
-      tags         => $tags // []
-    },
-    {returning => 'id'}
-  )->hash;
-  return $self->find($row->{id});
+      type         => "limitation.$action",
+      package_name => $note->{package_name},
+      actor        => $actor,
+      data => {-json => {note => $note->{id}, map { exists $note->{$_} ? ($_ => $note->{$_}) : () } qw(from to)}}
+    }
+  );
 }
 
 sub find ($self, $id) {
@@ -241,24 +264,33 @@ sub relevant_tagged_note ($self, $package_name, $package_id, $checksum, $tag, %o
   return $row ? $row->{id} : undef;
 }
 
-sub remove ($self, $id) {
-  return $self->pg->db->query('DELETE FROM package_notes WHERE id = ? RETURNING id', $id)->rows;
+sub remove ($self, $id, $actor = undef) {
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  my $note
+    = $db->query('DELETE FROM package_notes WHERE id = ? RETURNING id, package_name, body AS "from", limitation', $id)
+    ->hash;
+  _audit_limitation($db, 'removed', $actor, $note) if $note && $note->{limitation};
+  $tx->commit;
+  return $note ? 1 : 0;
 }
 
-sub edit ($self, $id, $body, $tags = undef) {
-  my $rows;
-  if (defined $tags) {
-    $rows
-      = $self->pg->db->query('UPDATE package_notes SET body = ?, tags = ?, edited = now() WHERE id = ? RETURNING id',
-      $body, $tags, $id)->rows;
-  }
-  else {
-    $rows
-      = $self->pg->db->query('UPDATE package_notes SET body = ?, edited = now() WHERE id = ? RETURNING id', $body, $id)
-      ->rows;
-  }
-  return undef unless $rows;
-  return $self->find($id);
+sub edit ($self, $id, $body, $tags = undef, $actor = undef) {
+  my $found = do {
+    my $db  = $self->pg->db;
+    my $tx  = $db->begin;
+    my $old = $db->query('SELECT package_name, body, limitation FROM package_notes WHERE id = ? FOR UPDATE', $id)->hash;
+    if ($old) {
+      $db->query('UPDATE package_notes SET body = ?, tags = COALESCE(?, tags), edited = now() WHERE id = ?',
+        $body, $tags, $id);
+      _audit_limitation($db, 'edited', $actor,
+        {id => $id, package_name => $old->{package_name}, from => $old->{body}, to => $body})
+        if $old->{limitation} && $old->{body} ne $body;
+      $tx->commit;
+    }
+    $old;
+  };
+  return $found ? $self->find($id) : undef;
 }
 
 # Pinning is curation, not an edit; preserve the content timestamp.

@@ -185,7 +185,7 @@ sub remove ($self) {
   return $self->render(json => {error => 'Not allowed to remove this note'}, status => 403)
     unless $is_owner || $can_curate;
 
-  my $removed = $self->notes->remove($id);
+  my $removed = $self->notes->remove($id, $author->{id});
   $self->_limitation_changed($note);
   $self->render(json => {removed => $removed ? \1 : \0});
 }
@@ -216,7 +216,7 @@ sub update ($self) {
   return $self->render(json => {error => $tag_error}, status => 400) if $tag_error;
   my $tags_arg = defined $raw_tags ? $tags : undef;
 
-  my $updated = $self->notes->edit($id, $v->param('body'), $tags_arg);
+  my $updated = $self->notes->edit($id, $v->param('body'), $tags_arg, $author->{id});
   return $self->render(json => {error => 'Edit failed'}, status => 500) unless $updated;
   $self->_limitation_changed($updated);
   $self->render(json => {note => $self->_format_note($updated, $author->{id})});

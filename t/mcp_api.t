@@ -1372,6 +1372,14 @@ subtest 'MCP' => sub {
           my $result = $client->call_tool('cavil_reject_review', {package_id => 1, reason => 'Test review rejection'});
           ok !$result->{isError}, 'not an error';
           is $result->{content}[0]{text}, 'Review has been successfully rejected', 'reject message';
+
+          my $event = $t->app->pg->db->query(
+            "SELECT u.login, e.data FROM audit_events e JOIN bot_users u ON u.id = e.actor
+             WHERE e.package = 1 ORDER BY e.id DESC LIMIT 1"
+          )->expand->hash;
+          is $event->{login},             'tester',       'attributed to the key owner';
+          is $event->{data}{to},          'unacceptable', 'rejected';
+          is $event->{data}{ai_assisted}, 1,              'by an AI assistant';
         };
 
         subtest 'Reject already reviewed package' => sub {

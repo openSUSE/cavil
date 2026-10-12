@@ -8,6 +8,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap';
 import ApiKeys from './vue/ApiKeys.vue';
 import ArchiveUpload from './vue/ArchiveUpload.vue';
+import AuditLog from './vue/AuditLog.vue';
 import CavilMenu from './vue/CavilMenu.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
@@ -160,6 +161,10 @@ window.cavil = {
     const app = createApp(RecentPatterns);
     app.config.globalProperties.hasAdminRole = hasAdminRole;
     app.mount('#recent-patterns');
+  },
+
+  setupAuditLog() {
+    createApp(AuditLog).mount('#audit-log');
   },
 
   setupEphemeralReviews() {

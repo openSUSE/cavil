@@ -123,9 +123,10 @@ sub create_package ($self) {
   $obj->{external_link} = $link if $link && $prio >= $obj->{priority};
 
   # Clear a stale target when the link changed so the async resolver picks the new one up
-  $obj->{target}   = undef if ($obj->{external_link} // '') ne ($old_link // '');
-  $obj->{obsolete} = 0;
-  $pkgs->update($obj);
+  my %changes = (external_link => $obj->{external_link}, obsolete => 0);
+  $changes{target} = undef if ($obj->{external_link} // '') ne ($old_link // '');
+  @$obj{keys %changes} = values %changes;
+  $pkgs->update({id => $obj->{id}, %changes});
   $pkgs->add_tags($obj->{id}, $tags);
   if ($create) {
 
@@ -195,25 +196,19 @@ sub import_package ($self) {
   my $id   = $self->stash('id');
   my $obj  = $pkgs->find($id);
 
-  my $reindex;
-  if (my $link = $validation->param('external_link')) {
-    $obj->{external_link} = $link;
-    $obj->{target}        = undef;
-  }
+  my %changes;
+  @changes{qw(external_link target)} = ($validation->param('external_link'), undef)
+    if $validation->param('external_link');
   if (my $priority = $validation->param('priority')) {
-    $obj->{priority} = $priority;
+    $changes{priority} = $priority;
   }
-  if (my $state = $validation->param('state')) {
-    $obj->{state} = $state;
-    if ($state eq 'new') {
-      $obj->{result}         = undef;
-      $obj->{reviewed}       = undef;
-      $obj->{reviewing_user} = undef;
-      $obj->{obsolete}       = 0;
-      $reindex               = 1;
-    }
-  }
-  $pkgs->update($obj);
+
+  # "new" is the only state a bot may ask for
+  my $reindex = $validation->param('state');
+  %changes = (%changes, state => 'new', result => undef, reviewed => undef, reviewing_user => undef, obsolete => 0)
+    if $reindex;
+  @$obj{keys %changes} = values %changes;
+  $pkgs->update({id => $id, %changes});
   $pkgs->add_tags($id, $tags);
   $pkgs->resolve_targets($id);
   $pkgs->reindex($id) if $reindex;
@@ -270,7 +265,7 @@ sub update_package ($self) {
   my $pkgs = $self->packages;
   my $obj  = $pkgs->find($self->stash('id'));
   $obj->{priority} = $validation->param('priority');
-  $pkgs->update($obj);
+  $pkgs->update({id => $obj->{id}, priority => $obj->{priority}});
 
   $self->render(json => {updated => $obj});
 }

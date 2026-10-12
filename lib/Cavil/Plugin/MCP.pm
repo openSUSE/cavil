@@ -1021,12 +1021,15 @@ sub _decide ($tool, $id, $state, $result, $outcome) {
   return $tool->text_result('Limitations apply to this package, it needs a human review', 1)
     if @{$c->notes->limitations($pkg->{name})};
 
-  $pkg->{result}           = $result;
-  $pkg->{reviewing_user}   = $c->users->id_for_login($c->current_user);
-  $pkg->{state}            = $state;
-  $pkg->{review_timestamp} = 1;
-  $pkg->{ai_assisted}      = 1;
-  $pkgs->update($pkg);
+  my $review = {
+    id               => $id,
+    result           => $result,
+    reviewing_user   => $c->users->id_for_login($c->current_user),
+    state            => $state,
+    review_timestamp => 1,
+    ai_assisted      => 1
+  };
+  return $tool->text_result('Package has already been reviewed', 1) unless $pkgs->update($review, {state => 'new'});
 
   return "Review has been successfully $outcome";
 }

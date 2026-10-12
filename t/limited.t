@@ -110,6 +110,7 @@ subtest 'Low risk and no significant difference blocked' => sub {
   my $pkg = $analyze->($copy->('new', 'perl-Mojolicious-1:low'));
   is $pkg->{state},  'new',                                        'not accepted';
   is $pkg->{notice}, "$header\n\nOtherwise accepted low risk (1)", 'names the blocked auto-accept';
+  like $analyze->($same)->{notice}, qr/^\Q$header\E\n\n/, 'quoted when nothing would have been accepted either';
 
   $pkg = $analyze->($copy->('new', 'perl-Mojolicious-9:high'));
   is $pkg->{state}, 'new', 'not accepted';
@@ -127,6 +128,17 @@ subtest 'Package name fast-track blocked' => sub {
   my $pkg = $analyze->($same);
   is $pkg->{state},  'new',                                        'not accepted';
   is $pkg->{notice}, "$header\n\nOtherwise accepted package name", 'names the blocked auto-accept';
+};
+
+subtest 'Auto-accept risk threshold blocked before any manual review' => sub {
+  local $app->config->{auto_accept_risk} = 2;
+  my $reviewed = $db->query('SELECT id, reviewing_user FROM bot_packages WHERE reviewing_user IS NOT NULL')->hashes;
+  $db->query('UPDATE bot_packages SET reviewing_user = NULL');
+  my $pkg = $analyze->($copy->('new', 'perl-Mojolicious-1:low'));
+  is $pkg->{state},  'new',                                        'not accepted';
+  is $pkg->{notice}, "$header\n\nOtherwise accepted low risk (1)", 'names the blocked auto-accept';
+  like $analyze->($same)->{notice}, qr/^\Q$header\E\n\n/, 'quoted when nothing would have been accepted either';
+  $db->update('bot_packages', {reviewing_user => $_->{reviewing_user}}, {id => $_->{id}}) for @$reviewed;
 };
 
 subtest 'Inherited lawyer sign-off blocked' => sub {
@@ -189,6 +201,10 @@ subtest 'Removing the last limitation lifts the block' => sub {
   $db->update('bot_users', {roles => ['manager']}, {login => 'tester'});
   $t->post_ok("/reviews/fasttrack_package/$waiting" => form => {comment => 'ok'})->status_is(200);
   is $pkgs->find($waiting)->{state}, 'acceptable', 'fasttracked again';
+  $t->post_ok("/reviews/fasttrack_package/$same" => form => {comment => 'ok'})
+    ->status_is(403)
+    ->json_is('/error', 'Only a curator or lawyer can change this decision');
+  is $pkgs->find($same)->{state}, 'acceptable_by_lawyer', 'a lawyer sign-off is not overridden';
   $db->update('bot_users', {roles => ['admin']}, {login => 'tester'});
 };
 

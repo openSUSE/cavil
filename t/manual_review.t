@@ -615,6 +615,13 @@ subtest 'Fasttrack review' => sub {
   $t->post_ok('/reviews/fasttrack_package/1' => form => {comment => ''})->status_is(200)->json_is('/ok', 1);
   is $t->app->packages->find(1)->{result}, 'Reviewed ok', 'default comment';
 
+  # A rejection stays a rejection
+  $t->post_ok('/reviews/review_package/1'    => form => {unacceptable => 1, comment => 'No'})->status_is(200);
+  $t->post_ok('/reviews/fasttrack_package/1' => form => {comment      => 'Yes'})
+    ->status_is(403)
+    ->json_is('/error', 'Only a curator or lawyer can change this decision');
+  is $t->app->packages->find(1)->{state}, 'unacceptable', 'not overridden';
+
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 

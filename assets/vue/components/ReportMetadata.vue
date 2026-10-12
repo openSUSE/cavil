@@ -43,8 +43,14 @@
           </template>
           <template v-if="state !== null">
             <dt>State</dt>
-            <dd id="pkg-state">
-              <span class="badge" :class="stateBadgeClass">{{ state }}</span>
+            <dd>
+              <span id="pkg-state" class="badge" :class="stateBadgeClass">{{ state }}</span>
+              <a
+                v-if="canViewAudit"
+                :href="`/audit?filter=${encodeURIComponent(pkgName)}`"
+                class="metadata-history-link"
+                >History</a
+              >
             </dd>
           </template>
           <dt>Package ID</dt>
@@ -412,6 +418,7 @@ export default {
       tags: [],
       knownTags: [],
       canEditTags: false,
+      canViewAudit: false,
       ephemeralDelete: '',
       incompleteCheckout: [],
       pkgName: null,
@@ -458,7 +465,8 @@ export default {
       return FORMAT_ICONS[this.declarations[0]?.format] ?? null;
     },
     canReview() {
-      return this.hasAdminRole === true || this.hasManagerRole === true;
+      if (this.hasAdminRole === true) return true;
+      return this.hasManagerRole === true && (this.state === 'new' || this.state === 'acceptable');
     },
 
     documents() {
@@ -561,7 +569,7 @@ export default {
   },
   // Templates barely ever change, so they are fetched once instead of on every metadata refresh
   mounted() {
-    if (this.canReview) this.loadTemplates();
+    if (this.hasAdminRole === true || this.hasManagerRole === true) this.loadTemplates();
   },
   methods: {
     insertTemplate(template) {
@@ -765,6 +773,7 @@ export default {
       this.pkgEmbargoed = data.embargoed;
       this.tags = data.tags ?? [];
       this.canEditTags = data.can_edit_tags === true;
+      this.canViewAudit = data.can_view_audit === true;
       if (this.canEditTags && this.knownTags.length === 0) this.loadKnownTags();
       this.pkgEphemeral = data.ephemeral;
       this.ephemeralDelete = data.ephemeral_delete ? moment(data.ephemeral_delete * 1000).fromNow() : '';
@@ -1148,13 +1157,19 @@ export default {
 }
 .metadata-declaration-name,
 .metadata-declaration-undeclared,
-.report-metadata-list a.metadata-declaration-file {
+.report-metadata-list a.metadata-declaration-file,
+.report-metadata-list a.metadata-history-link {
   color: var(--cavil-fg-muted);
   font-size: 13px;
 }
 .report-metadata-list a.metadata-declaration-file:hover,
-.report-metadata-list a.metadata-declaration-file:focus {
+.report-metadata-list a.metadata-declaration-file:focus,
+.report-metadata-list a.metadata-history-link:hover,
+.report-metadata-list a.metadata-history-link:focus {
   color: var(--cavil-accent);
+}
+.report-metadata-list a.metadata-history-link {
+  margin-left: 8px;
 }
 .metadata-declaration-format {
   background: var(--cavil-canvas-subtle);

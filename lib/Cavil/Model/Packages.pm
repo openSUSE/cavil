@@ -121,9 +121,8 @@ sub store_upload ($self, $upload, $opts) {
     srcmd5          => $sum,
     ephemeral       => $opts->{ephemeral}
   );
+  $self->update({id => $id, external_link => $opts->{external_link}});
   my $obj = $self->find($id);
-  $obj->{external_link} = $opts->{external_link};
-  $self->update($obj);
   $self->imported($id);
 
   # Ephemeral one-off uploads run a whole band below normal incoming, so even a burst of them yields to
@@ -294,6 +293,7 @@ sub purge ($self, $id, $job_id) {
   _delete_package_rows($db, $id);
   $db->query('delete from bot_requests where package = ?',         $id);
   $db->query('delete from bot_package_products where package = ?', $id);
+  $db->query('delete from audit_events where package = ?',         $id);
   $db->query('delete from bot_packages where id = ?',              $id);
   $db->query('delete from bot_sources where id = ?',               $pkg->{source});
   $tx->commit;
@@ -1251,13 +1251,17 @@ sub unpacked ($self, $id) {
   );
 }
 
-sub update ($self, $pkg) {
+# Pass only the fields being changed, never a whole row read earlier: writing back what was read reverts whatever
+# changed in between, like a reviewer's decision or a freshly promoted report. Nothing is written unless the row still
+# has the expected values. Returns the number of rows changed.
+sub update ($self, $pkg, $expected = {}) {
   my %updates = map { exists $pkg->{$_} ? ($_ => $pkg->{$_}) : () } (
     qw(created checksum priority state obsolete result notice diff_report reviewed reviewing_user external_link),
     qw(embargoed target ai_assisted)
   );
   $updates{reviewed} = \'now()' if $pkg->{review_timestamp};
-  return $self->pg->db->update('bot_packages', \%updates, {id => $pkg->{id}});
+  return 0 unless %updates;
+  return $self->pg->db->update('bot_packages', \%updates, {%$expected, id => $pkg->{id}})->rows;
 }
 
 sub update_file_stats ($self, $id, $stats) {

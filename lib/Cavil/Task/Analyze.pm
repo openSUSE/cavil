@@ -278,14 +278,9 @@ sub _auto_review ($app, $id) {
         $lawyer = $p->{id} if $p->{state} eq 'acceptable_by_lawyer';
         last               if $lawyer;
       }
-      if ($lawyer) {
-        $pkg->{state}            = 'acceptable_by_lawyer';
-        $pkg->{review_timestamp} = 1;
-        $pkg->{reviewing_user}   = undef;
-        $pkg->{ai_assisted}      = 0;
-        $pkg->{result}           = "Accepted because reviewed by lawyer under the same license ($lawyer)";
-        $pkgs->update($pkg);
-      }
+      _accept($app, $pkg, 'acceptable_by_lawyer',
+        "Accepted because reviewed by lawyer under the same license ($lawyer)")
+        if $lawyer;
     }
 
     _refresh_notice($app, $pkg);
@@ -297,12 +292,7 @@ sub _auto_review ($app, $id) {
   my $acceptable_packages = $config->{acceptable_packages} || [];
   if (grep { $name eq $_ } @$acceptable_packages) {
     return _hold($app, $pkg, $limitations, 'Otherwise accepted package name') if @$limitations;
-    $pkg->{state}            = 'acceptable';
-    $pkg->{review_timestamp} = 1;
-    $pkg->{reviewing_user}   = undef;
-    $pkg->{result}           = "Accepted because of package name ($name)";
-    $pkgs->update($pkg);
-    return;
+    return _accept($app, $pkg, 'acceptable', "Accepted because of package name ($name)");
   }
 
   # Every package above threshold needs a human review before future versions can be auto-accepted
@@ -311,14 +301,12 @@ sub _auto_review ($app, $id) {
     my $auto_accept_risk = $config->{auto_accept_risk};
     my $risk             = $reports->risk_is_acceptable($pkg_shortname);
     if (defined($risk) && $risk > 0 && $auto_accept_risk && $risk <= $auto_accept_risk) {
-      $pkg->{state}            = 'acceptable';
-      $pkg->{review_timestamp} = 1;
-      $pkg->{reviewing_user}   = undef;
-      $pkg->{result} = "Accepted because of low risk ($risk) and auto-accept risk threshold ($auto_accept_risk)";
-      $pkgs->update($pkg);
-      return;
+      return _hold($app, $pkg, $limitations, "Otherwise accepted low risk ($risk)") if @$limitations;
+      return _accept($app, $pkg, 'acceptable',
+        "Accepted because of low risk ($risk) and auto-accept risk threshold ($auto_accept_risk)");
     }
 
+    return _hold($app, $pkg, $limitations, undef) if @$limitations;
     _look_for_smallest_delta($app, $pkg, 0, 0, 0) if $pkg->{state} eq 'new';
     return;
   }
@@ -343,14 +331,12 @@ sub _auto_review ($app, $id) {
   # Previously reviewed and accepted
   if (my $f_id = $found_acceptable_by_lawyer || $found_acceptable) {
     return _hold($app, $pkg, $limitations, "Otherwise accepted same license as $f_id") if @$limitations;
-    $pkg->{state}            = $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable';
-    $pkg->{review_timestamp} = 1;
-    $pkg->{reviewing_user}   = undef;
-    $pkg->{notice}           = undef;
-    $pkg->{diff_report}      = undef;
-    $pkg->{result}           = "Accepted because previously reviewed under the same license ($f_id)";
-    $pkgs->update($pkg);
-    return;
+    return _accept(
+      $app, $pkg, $found_acceptable_by_lawyer ? 'acceptable_by_lawyer' : 'acceptable',
+      "Accepted because previously reviewed under the same license ($f_id)",
+      notice      => undef,
+      diff_report => undef
+    );
   }
 
   # Risk 0 is never accepted, and without a risk only no significant difference would have been
@@ -363,66 +349,73 @@ sub _auto_review ($app, $id) {
   if (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname))) {
 
     # risk 0 is spooky
-    unless ($risk) {
-      $pkg->{result}      = undef;
-      $pkg->{notice}      = 'Manual review is required because of unusually low risk (0)';
-      $pkg->{diff_report} = undef;
-      $pkgs->update($pkg);
-      return;
-    }
-
-    $pkg->{state}            = 'acceptable';
-    $pkg->{review_timestamp} = 1;
-    $pkg->{reviewing_user}   = undef;
-    $pkg->{result}           = "Accepted because of low risk ($risk)";
-    $pkgs->update($pkg);
+    return _write(
+      $app, $pkg,
+      result      => undef,
+      notice      => 'Manual review is required because of unusually low risk (0)',
+      diff_report => undef
+    ) unless $risk;
+    _accept($app, $pkg, 'acceptable', "Accepted because of low risk ($risk)");
   }
 
   _look_for_smallest_delta($app, $pkg, 1, 1, 0) if $pkg->{state} eq 'new';
 }
 
 sub _look_for_smallest_delta ($app, $pkg, $allow_accept, $has_manual_review, $incomplete_checkout) {
-  my $pkgs = $app->packages;
   my ($matched_id, $best, $summary) = _smallest_delta($app, $pkg);
 
   if (defined $matched_id && !$best) {
-    $pkg->{result} = undef;
-    if ($allow_accept) {
-      $pkg->{result}           = "Accepted because of no significant difference ($matched_id)";
-      $pkg->{state}            = 'acceptable';
-      $pkg->{review_timestamp} = 1;
-      $pkg->{reviewing_user}   = undef;
-    }
-
-    $pkg->{notice} = "Not found any significant difference against $matched_id";
+    my $notice = "Not found any significant difference against $matched_id";
     if ($incomplete_checkout) {
-      $pkg->{notice} .= ', manual review is required because the checkout might be incomplete';
+      $notice .= ', manual review is required because the checkout might be incomplete';
     }
     elsif (!$has_manual_review) {
-      $pkg->{notice} .= ', manual review is required because previous reports are missing a reviewing user';
+      $notice .= ', manual review is required because previous reports are missing a reviewing user';
     }
 
-    $pkg->{diff_report} = undef;
-    $pkgs->update($pkg);
-    return;
+    return _accept(
+      $app, $pkg, 'acceptable', "Accepted because of no significant difference ($matched_id)",
+      notice      => $notice,
+      diff_report => undef
+    ) if $allow_accept;
+    return _write($app, $pkg, result => undef, notice => $notice, diff_report => undef);
   }
 
-  unless ($best) {
-    $pkg->{result}      = undef;
-    $pkg->{notice}      = 'Manual review is required because no previous reports are available';
-    $pkg->{diff_report} = undef;
-    $pkgs->update($pkg);
-    return;
-  }
+  return _write(
+    $app, $pkg,
+    result      => undef,
+    notice      => 'Manual review is required because no previous reports are available',
+    diff_report => undef
+  ) unless $best;
 
-  $pkgs->update(
-    {
-      id          => $pkg->{id},
-      result      => undef,
-      notice      => summary_delta($best, $summary),
-      diff_report => _diff_report($best, $summary)
-    }
+  _write(
+    $app, $pkg,
+    result      => undef,
+    notice      => summary_delta($best, $summary),
+    diff_report => _diff_report($best, $summary)
   );
+}
+
+sub _accept ($app, $pkg, $state, $result, %fields) {
+  _write(
+    $app, $pkg,
+    state            => $state,
+    result           => $result,
+    review_timestamp => 1,
+    reviewing_user   => undef,
+    ai_assisted      => 0,
+    %fields
+  );
+}
+
+# The delta search is slow and a reviewer may decide meanwhile, so only the changed fields are written, and only
+# while no decision has been made since the package was read. A decision moves "reviewed" in the database only, so it
+# has to be the last guarded write of a run.
+sub _write ($app, $pkg, %fields) {
+  my %read = (state => $pkg->{state}, reviewed => $pkg->{reviewed});
+  @$pkg{keys %fields} = values %fields;
+  return if $app->packages->update({id => $pkg->{id}, %fields}, \%read);
+  $app->log->info("[$pkg->{id}] Automatic review skipped, the package was reviewed meanwhile");
 }
 
 # Refresh just the notice column for already-reviewed packages, so the text
@@ -458,8 +451,7 @@ sub _hold ($app, $pkg, $limitations, $reason, $no_diff_accepts = 0) {
   }
   push @blocks, $reason if defined $reason;
   push @blocks, $notice if defined $notice && !(defined $no_diff_id && defined $reason);
-  $app->packages->update(
-    {id => $pkg->{id}, notice => join("\n\n", @blocks), diff_report => $diff_report, result => undef});
+  _write($app, $pkg, notice => join("\n\n", @blocks), diff_report => $diff_report, result => undef);
   return;
 }
 

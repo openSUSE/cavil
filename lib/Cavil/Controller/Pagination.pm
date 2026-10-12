@@ -6,6 +6,20 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Cavil::Util qw(external_link_data);
 
+sub audit_events ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('filter');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('filter') // '';
+
+  my $page = $self->helpers->audit_log->paginate_events({limit => $limit, offset => $offset, search => $search});
+  $self->render(json => $page);
+}
+
 sub comment_templates ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;

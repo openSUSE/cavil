@@ -19,6 +19,7 @@ use Cavil::Model::Reports;
 use Cavil::Model::Requests;
 use Cavil::Model::Users;
 use Cavil::Model::APIKeys;
+use Cavil::Model::AuditLog;
 use Cavil::Model::Snippets;
 use Cavil::Notice;
 use Cavil::OBS;
@@ -146,7 +147,8 @@ sub startup ($self) {
 
   $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
 
-  $self->helper(notes => sub ($c) { state $nts = Cavil::Model::Notes->new(pg => $c->pg) });
+  $self->helper(notes     => sub ($c) { state $nts = Cavil::Model::Notes->new(pg => $c->pg) });
+  $self->helper(audit_log => sub ($c) { state $log = Cavil::Model::AuditLog->new(pg => $c->pg) });
 
   # Migrations run only through the migrate command.
   my $path = $self->home->child('migrations', 'cavil.sql');
@@ -292,6 +294,8 @@ sub startup ($self) {
   $can_curate->delete('/ignored-matches/<id:num>')->to('Ignore#remove_match')->name('remove_ignored_match');
   $can_curate->get('/pagination/matches/ignored')->to('Pagination#ignored_matches')->name('pagination_ignored_matches');
 
+  $can_curate->get('/audit')->to('Reviewer#list_audit')->name('audit_log');
+  $can_curate->get('/pagination/audit')->to('Pagination#audit_events')->name('pagination_audit_events');
   $can_curate->get('/ignored-files')->to('Ignore#list_globs')->name('list_globs');
   $can_curate->post('/ignored-files')->to('Ignore#add_glob')->name('add_ignore');
   $can_curate->delete('/ignored-files/<id:num>')->to('Ignore#remove_glob')->name('remove_ignored_file');

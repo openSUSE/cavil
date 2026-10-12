@@ -1,0 +1,8 @@
+% layout 'default';
+% title "Audit log";
+
+<div id="audit-log"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupAuditLog();
+% end
