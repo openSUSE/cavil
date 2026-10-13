@@ -613,12 +613,13 @@ subtest 'obs_ssh_auth' => sub {
 };
 
 subtest 'license_is_catch_all' => sub {
-  ok license_is_catch_all('Any Permissive'),          'an "Any ..." grab-bag is catch_all';
-  ok license_is_catch_all('Any reference local'),     'another "Any ..." grab-bag is catch_all';
-  ok license_is_catch_all('Any Public Domain'),       'the public-domain marker is catch_all';
-  ok license_is_catch_all('Any All Rights Reserved'), 'the proprietary default marker is catch_all';
-  ok license_is_catch_all('GPL-Unspecified'),         'a version-less family marker is catch_all';
-  ok license_is_catch_all('LGPL-Unspecified'),        'another version-less family marker is catch_all';
+  ok license_is_catch_all('Any Permissive'),                         'an "Any ..." grab-bag is catch_all';
+  ok license_is_catch_all('Any reference local'),                    'another "Any ..." grab-bag is catch_all';
+  ok license_is_catch_all('Any Public Domain'),                      'the public-domain marker is catch_all';
+  ok license_is_catch_all('Any All Rights Reserved'),                'the proprietary default marker is catch_all';
+  ok license_is_catch_all('GPL-Unspecified'),                        'a version-less family marker is catch_all';
+  ok license_is_catch_all('LGPL-Unspecified'),                       'another version-less family marker is catch_all';
+  ok license_is_catch_all('Nmap Public Source License Unspecified'), 'the suffix may follow a space instead of a dash';
 
   ok !license_is_catch_all('MIT'),                            'a concrete SPDX license is not catch_all';
   ok !license_is_catch_all('GPL-2.0 WITH Linking-exception'), 'a concrete WITH-exception license is not catch_all';
@@ -633,13 +634,20 @@ subtest 'license_is_catch_all' => sub {
   ok license_is_catch_all('BSD-3-Clause AND Any Permissive'),     'a grab-bag component counts the same';
   ok license_is_catch_all('GPL-Unspecified WITH Font-Exception'), 'a version-less family carrying an exception';
   ok license_is_catch_all('(LGPL-Unspecified AND GPL-Unspecified) OR MIT'), 'components inside parentheses count';
+  ok license_is_catch_all('MIT OR Nmap Public Source License Unspecified'), 'the space variant counts in a composite';
+  ok license_is_catch_all('(Nmap Public Source License Unspecified AND MIT) OR GPL-2.0'), 'and inside parentheses';
+  ok license_is_catch_all('Nmap Public Source License Unspecified WITH Foo-exception'),   'and carrying an exception';
+  ok license_is_catch_all('Unspecified'),        'a bare "Unspecified" identifies nothing either';
+  ok license_is_catch_all('MIT OR Unspecified'), 'wherever it sits in the expression';
+  ok license_is_catch_all('(Unspecified)'),      'including directly inside parentheses';
 
   # Both conventions have to be spelled exactly, or the name no longer announces the flag
-  ok !license_is_catch_all('LGPL Unspecified'), 'the space-separated variant is not catch_all';
-  ok !license_is_catch_all('Anything'),         'a license merely starting with "Any" is not catch_all';
+  ok !license_is_catch_all('Anything'), 'a license merely starting with "Any" is not catch_all';
   ok !license_is_catch_all('GPL-2.0 WITH Unspecified-Exception'),
     'the suffix has to end a component, so an unknown exception has to be named "Exception-Unspecified"';
   ok !license_is_catch_all('LicenseRef-SUSE-Public-Domain'), 'a LicenseRef is an identified license';
+  ok !license_is_catch_all('Foo unspecified'),               'the suffix is case-sensitive, like "Any "';
+  ok !license_is_catch_all('Foo-NotUnspecified'),            'and it has to be a word of its own';
 };
 
 subtest 'incoming_priority' => sub {

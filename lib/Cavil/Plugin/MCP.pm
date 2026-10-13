@@ -376,7 +376,7 @@ sub register ($self, $app, $config) {
         risk       => {type => 'integer', minimum     => 0, maximum => 9},
         flag       =>
           {type => 'string', description => 'patent | trademark | export_restricted | cla | eula | full_license_text'},
-        catch_all => {type => 'boolean', description => 'Any .../-Unspecified pseudo-licenses only (or none)'},
+        catch_all => {type => 'boolean', description => 'Any .../...Unspecified pseudo-licenses only (or none)'},
         search    => {type => 'string',  description => 'substring of the pattern text'},
         min_skip  => {type => 'integer', minimum     => 1, description => 'widest $SKIPn is at least this'},
         limit     => {type => 'integer', minimum     => 1, maximum     => 100, default => 20},

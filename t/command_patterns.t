@@ -477,7 +477,7 @@ subtest 'Catch-all flag' => sub {
       'editing back to a concrete license clears catch_all';
   };
 
-  subtest 'The "-Unspecified" suffix is the other half of the rule' => sub {
+  subtest 'The "Unspecified" suffix is the other half of the rule' => sub {
     my $p = $patterns->create(pattern => 'a version-less family marker', license => 'Fictional-Unspecified');
     is $p->{catch_all}, 1, 'a family named without a version is catch_all on create';
 
@@ -489,10 +489,10 @@ subtest 'Catch-all flag' => sub {
     is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 1,
       'and taking it away again sets it back';
 
-    # Both conventions have to be spelled exactly, or the name stops announcing the flag
+    # A space works as well as a dash, names written out in words read better that way
     $patterns->update($p->{id}, pattern => 'a version-less family marker', license => 'Fictional Unspecified');
-    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 0,
-      'the space-separated variant is not the convention';
+    is $db->select('license_patterns', 'catch_all', {id => $p->{id}})->hash->{catch_all}, 1,
+      'the space-separated variant is the same convention';
   };
 
   subtest 'A mislabelled sibling cannot teach a new pattern the wrong flag' => sub {

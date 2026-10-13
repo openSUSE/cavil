@@ -141,10 +141,11 @@ my $SPDX_IDENTIFIER_RE        = do {
 
 # A "catch-all" license names nothing anyone could distribute under, and the name has to say so. Two
 # naming conventions for two different reasons: the "Any ..." vocabulary (Any Permissive, Any reference
-# local, ...) is license-shaped text we decline to identify, and the "-Unspecified" suffix is a family
-# whose version the text does not pin down (GPL-Unspecified). Neither counts as coverage for the "covered"
-# gate, and neither reaches SPDX output. The name is the only source of truth: license_patterns.catch_all
-# is derived from it on every write, so renaming a license is the only way to change the flag.
+# local, ...) is license-shaped text we decline to identify, and the "Unspecified" suffix (after a dash
+# or a space) is a family whose version the text does not pin down (GPL-Unspecified). Neither counts as
+# coverage for the "covered" gate, and neither reaches SPDX output. The name is the only source of truth:
+# license_patterns.catch_all is derived from it on every write, so renaming a license is the only way to
+# change the flag.
 #
 # One placeholder anywhere in an expression makes the whole expression one, whichever side of the operator
 # it is on: "MIT OR BSD-Unspecified" and "BSD-Unspecified OR MIT" are the same statement, and an anchored
@@ -152,7 +153,7 @@ my $SPDX_IDENTIFIER_RE        = do {
 # and the fragment that would have named it is exactly what the "covered" gate must not sweep away.
 sub license_is_catch_all ($license) {
   return 0 unless defined $license && length $license;
-  return $license =~ /(?:^|[\s(])Any / || $license =~ /-Unspecified(?:[\s)]|$)/ ? 1 : 0;
+  return $license =~ /(?:^|[\s(])Any / || $license =~ /(?:^|[\s(-])Unspecified(?:[\s)]|$)/ ? 1 : 0;
 }
 
 # File names are the bytes the filesystem uses, but they reach us through JSON manifests, Minion job

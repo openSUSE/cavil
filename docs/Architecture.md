@@ -1016,7 +1016,7 @@ For readers who want to trace this through the database, the tables involved are
   uniquely-indexed checksum that prevents duplicates from being stored, and a per-license `catch_all` flag marking
   grab-bag/marker pseudo-licenses (so only concrete licenses count as coverage for the `covered` resolution). The flag
   is derived from the license name and never set by hand: any component of the name that starts with `Any ` or ends in
-  `-Unspecified` makes the whole license one. A `full_license_text` flag marks the one pattern per license whose text
+  `Unspecified` (after a dash or a space) makes the whole license one. A `full_license_text` flag marks the one pattern per license whose text
   *is* the license in full, which is how a license with no SPDX identifier gets terms to reproduce.
 * `pattern_matches` - one row per match found in a file, recording the pattern, the file, and the line range.
 * `snippets` and `file_snippets` - the extracted keyword regions and where they were found; `file_snippets.resolution`

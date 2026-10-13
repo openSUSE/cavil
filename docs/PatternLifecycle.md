@@ -61,7 +61,7 @@ one a naming convention so you can tell from the name alone which you are dealin
 pointer to a license file somewhere else, a permissive grant that names no license, a bare warranty disclaimer, a
 trademark notice, a contributor agreement. There is nothing to look up, because the author never said.
 
-**`…-Unspecified`** is a family without a version. *GPL-Unspecified* means the text plainly says GPL, but nothing in it
+**`…-Unspecified`** (or `… Unspecified`) is a family without a version. *GPL-Unspecified* means the text plainly says GPL, but nothing in it
 tells you whether that is GPL-2.0, GPL-3.0, or either. Here the license *is* known; the one detail that settles the
 obligations is not.
 
@@ -69,7 +69,7 @@ Both kinds go on the report and both carry a risk, but neither counts as having 
 ever written into an SBOM and neither is enough on its own to sweep a related snippet aside. A report keeps them out
 of your way accordingly: within each risk they are listed after everything Cavil could actually name, their names are
 set in a softer grey, and their file lists start closed. Cavil recognises them purely by their name, which makes the
-name you type when you create a pattern the decision itself: start it with `Any ` or end it with `-Unspecified` and it
+name you type when you create a pattern the decision itself: start it with `Any ` or end it with `Unspecified` (after a dash or a space) and it
 is treated as a placeholder, write anything else and Cavil takes you at your word that this is a real, identified
 license.
 
