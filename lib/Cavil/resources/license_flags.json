@@ -277,6 +277,9 @@
       "BSD-Source-Code-no-disclaimer": {
          "osi": false
       },
+      "BSD-Source-alt-GPL": {
+         "osi": false
+      },
       "BSD-Source-beginning-file": {
          "osi": false
       },
@@ -615,7 +618,7 @@
          "osi": true
       },
       "CNRI-Python-GPL-Compatible": {
-         "osi": false
+         "osi": true
       },
       "COIL-1.0": {
          "osi": false
@@ -1682,7 +1685,7 @@
          "osi": true
       },
       "Python-2.0.1": {
-         "osi": false
+         "osi": true
       },
       "QPL-1.0": {
          "fsf": true,
