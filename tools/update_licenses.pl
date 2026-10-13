@@ -94,6 +94,22 @@ for my $license (@$scancode) {
 $scancode_file->spew(join("\n", sort @scancode_keys) . "\n");
 say qq(Updated @{[scalar @scancode_keys]} ScanCode licenses in "$scancode_file");
 
+# Not each entry's "detailsUrl": it points at spdx.org, which rate-limits long before 819 documents
+my $DETAILS = 'https://raw.githubusercontent.com/spdx/license-list-data/main/json';
+my %texts;
+for my $entry (@{$spdx->{licenses}}) {
+  my $id     = $entry->{licenseId};
+  my $detail = decode_json(fetch("$DETAILS/details/$id.json")->body);
+  $texts{$id} = $detail->{licenseText} if length($detail->{licenseText} // '');
+}
+for my $entry (@{decode_json(fetch($EXC_JSON_URL)->body)->{exceptions}}) {
+  my $id     = $entry->{licenseExceptionId};
+  my $detail = decode_json(fetch("$DETAILS/exceptions/$id.json")->body);
+  $texts{$id} = $detail->{licenseExceptionText} if length($detail->{licenseExceptionText} // '');
+}
+$texts_file->spew($JSON->encode({source => $FLAGS_URL, texts => \%texts}));
+say qq(Updated @{[scalar keys %texts]} license texts in "$texts_file");
+
 # Compatible cells are implied by absence; preserve all other directional results verbatim.
 my $osadl = decode_json(fetch($OSADL_URL)->body);
 my (%matrix, $cells);
@@ -139,19 +155,3 @@ for my $name (keys %$copyleft, keys %$disclosure) {
 
 $obligations_file->spew($JSON->encode({source => "$osadl_checklists/", licenses => \%obligations}));
 say qq(Updated @{[scalar keys %obligations]} OSADL obligation checklists in "$obligations_file");
-
-# Not each entry's "detailsUrl": it points at spdx.org, which rate-limits long before 819 documents
-my $DETAILS = 'https://raw.githubusercontent.com/spdx/license-list-data/main/json';
-my %texts;
-for my $entry (@{$spdx->{licenses}}) {
-  my $id     = $entry->{licenseId};
-  my $detail = decode_json(fetch("$DETAILS/details/$id.json")->body);
-  $texts{$id} = $detail->{licenseText} if length($detail->{licenseText} // '');
-}
-for my $entry (@{decode_json(fetch($EXC_JSON_URL)->body)->{exceptions}}) {
-  my $id     = $entry->{licenseExceptionId};
-  my $detail = decode_json(fetch("$DETAILS/exceptions/$id.json")->body);
-  $texts{$id} = $detail->{licenseExceptionText} if length($detail->{licenseExceptionText} // '');
-}
-$texts_file->spew($JSON->encode({source => $FLAGS_URL, texts => \%texts}));
-say qq(Updated @{[scalar keys %texts]} license texts in "$texts_file");
