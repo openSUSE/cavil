@@ -1253,6 +1253,16 @@ t.test('Cavil UI - pattern workflows', skipUnlessOnline, async t => {
       page.once('dialog', dialog => dialog.accept());
       await Promise.all([page.waitForURL(/\/licenses\/?(\?|#|$)/), page.locator('#edit-pattern .del-pattern').click()]);
       t.equal(await page.innerText('title'), 'List licenses', 'redirected to license list after delete');
+
+      await page.goto(`${url}/audit?category=patterns`);
+      await page.waitForSelector('#audit-log tbody > tr:nth-child(1) td:nth-child(4)');
+      const removed = page.locator('#audit-log tbody > tr').first();
+      t.match(await removed.innerText(), /Pattern removed/, 'the removal is the latest pattern event');
+      t.match(await removed.innerText(), /Page-Editor-License-1\.0/, 'with what the pattern was');
+      t.equal(await removed.locator('td:nth-child(3) a').count(), 0, 'a removed pattern has no link');
+      const created = page.locator('#audit-log tbody > tr', {hasText: 'Vue-Create-Test-License'}).last();
+      t.match(await created.innerText(), /Pattern created/, 'the creation from the new pattern page');
+      t.match(await created.locator('td:nth-child(3) a').getAttribute('href'), /\/licenses\/edit_pattern\/\d+$/);
     });
 
     await t.test('Change Proposals: evidence panel and family label', async t => {

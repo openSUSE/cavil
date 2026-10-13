@@ -4,8 +4,9 @@
 package Cavil::Model::Snippets;
 use Mojo::Base -base, -signatures;
 
-use Mojo::File  qw(path);
-use Cavil::Util qw(checkout_path file_and_checksum path_within read_lines);
+use Mojo::File             qw(path);
+use Cavil::Model::AuditLog qw(audit_event);
+use Cavil::Util            qw(checkout_path file_and_checksum path_within read_lines);
 use Cavil::ReportUtil
   qw(is_license_filename overlapping_licenses should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear);
 
@@ -629,8 +630,19 @@ sub _enrich_snippet_detail ($self, $db, $row) {
   };
 }
 
-sub mark_non_license ($self, $id) {
-  $self->pg->db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
+sub mark_non_license ($self, $id, $actor = undef, $contributor = undef) {
+  my $db  = $self->pg->db;
+  my $tx  = $db->begin;
+  my $old = $db->query('SELECT hash, license, approved FROM snippets WHERE id = ? FOR UPDATE', $id)->hash;
+  $db->update('snippets', {license => 0, approved => 1, classified => 1}, {id => $id});
+  $contributor = undef unless defined $contributor && $db->select('bot_users', 'id', {login => $contributor})->rows;
+  audit_event(
+    $db,
+    type  => 'snippet.non_license',
+    actor => $actor,
+    data  => {hash => $old->{hash}, defined $contributor ? (contributor => $contributor) : ()}
+  ) if $old && !($old->{approved} && !$old->{license});
+  $tx->commit;
 }
 
 # Every generation on purpose: this drives reindexing after a snippet decision, and a package whose

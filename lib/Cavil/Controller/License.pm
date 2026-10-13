@@ -25,7 +25,7 @@ sub create_pattern ($self) {
     packname => $validation->param('packname'),
     pattern  => $pattern,
     risk     => $validation->param('risk'),
-    (map { $_ => $validation->param($_) } @PATTERN_FLAGS)
+    (map { $_ => $validation->param($_) } @PATTERN_FLAGS), owner => $self->users->id_for_login($self->current_user)
   );
 
   if (my $error = $match->{error}) {
@@ -154,7 +154,7 @@ sub recent_meta ($self) {
 sub remove_pattern ($self) {
   my $id = $self->stash('id');
 
-  my $packages = $self->patterns->remove($id);
+  my $packages = $self->patterns->remove($id, $self->users->id_for_login($self->current_user));
   $self->packages->reindex_package_ids($packages);
 
   $self->render(json => 'ok');
@@ -280,9 +280,13 @@ sub update_patterns ($self) {
   my $spdx = $validation->param('spdx') // '';
   my $l    = lic($spdx);
   if ($l->is_valid) {
-    my $rows
-      = $self->pg->db->query('UPDATE license_patterns SET spdx = ? WHERE license = ?', $l->to_string, $license)->rows;
-    $self->flash(success => "$rows patterns have been updated.");
+    my $result = $self->patterns->update_license_meta(
+      $license,
+      license => $license,
+      spdx    => $l->to_string,
+      actor   => $self->users->id_for_login($self->current_user)
+    );
+    $self->flash(success => "$result->{updated} patterns have been updated.");
   }
   else {
     $self->flash(danger =>
@@ -327,7 +331,13 @@ sub update_patterns_json ($self) {
   $risk = undef unless defined $risk && length $risk;
 
   my $patterns = $self->patterns;
-  my $result   = $patterns->update_license_meta($license, license => $new_license, risk => $risk, spdx => $canon);
+  my $result   = $patterns->update_license_meta(
+    $license,
+    license => $new_license,
+    risk    => $risk,
+    spdx    => $canon,
+    actor   => $self->users->id_for_login($self->current_user)
+  );
 
   # Rebuild the cached reports of every package matched by the destination license (renamed rows plus any
   # pre-existing rows merged into it, whose spdx may have changed) so the new risk/name/spdx take effect.

@@ -425,7 +425,7 @@ sub _apply_action ($self, $a, $packages_to_reindex) {
     my $sid = $snippets->id_for_checksum($form->{hash});
     return {kind => $kind, error => 'Snippet not found for hash'} unless $sid;
     $patterns->remove_proposal($form->{hash});
-    $snippets->mark_non_license($sid);
+    $snippets->mark_non_license($sid, $owner_id, $form->{contributor});
     my $pkgs = $snippets->packages_for_snippet($sid);
     $packages_to_reindex->{$_} = 1 for @$pkgs;
     return {kind => 'non-license', packages => $pkgs};

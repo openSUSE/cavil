@@ -4,7 +4,8 @@
 package Cavil::Controller::Pagination;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use Cavil::Util qw(external_link_data);
+use Cavil::Model::AuditLog qw(CATEGORIES);
+use Cavil::Util            qw(external_link_data);
 
 sub audit_events ($self) {
   my $v = $self->validation;
@@ -12,6 +13,7 @@ sub audit_events ($self) {
   $v->optional('offset')->num;
   $v->optional('filter');
   $v->optional('byUser');
+  $v->optional('category')->in('', keys %{CATEGORIES()});
   return $self->reply->json_validation_error if $v->has_error;
   my $limit   = $v->param('limit')  // 10;
   my $offset  = $v->param('offset') // 0;
@@ -19,7 +21,7 @@ sub audit_events ($self) {
   my $by_user = ($v->param('byUser') // 'false') eq 'true';
 
   my $page = $self->helpers->audit_log->paginate_events(
-    {limit => $limit, offset => $offset, search => $search, by_user => $by_user});
+    {limit => $limit, offset => $offset, search => $search, by_user => $by_user, category => $v->param('category')});
   $self->render(json => $page);
 }
 

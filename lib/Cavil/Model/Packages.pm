@@ -4,8 +4,9 @@
 package Cavil::Model::Packages;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Model::Notes qw(relevance_predicate);
-use Cavil::Util         qw(checkout_path incoming_priority md5_file paginate parse_list_filter),
+use Cavil::Model::AuditLog qw(audit_event);
+use Cavil::Model::Notes    qw(relevance_predicate);
+use Cavil::Util            qw(checkout_path incoming_priority md5_file paginate parse_list_filter),
   qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP), qw(PRIORITY_WAITING @LICENSE_FLAGS);
 use Mojo::File qw(path);
 use Mojo::Util qw(dumper scope_guard);
@@ -403,9 +404,25 @@ sub history ($self, $name, $checksum, $id) {
 
 sub ignore_line ($self, $options) {
   my $db = $self->pg->db;
-  $db->query(
+  my $tx = $db->begin;
+  my $added
+    = $db->query(
     'insert into ignored_lines (hash, packname, owner, contributor) values (?, ?, ?, ?) on conflict do nothing',
-    $options->{hash}, $options->{package}, $options->{owner}, $options->{contributor});
+    $options->{hash}, $options->{package}, $options->{owner}, $options->{contributor})->rows;
+  if ($added) {
+    my $contributor
+      = $options->{contributor}
+      ? $db->select('bot_users', 'login', {id => $options->{contributor}})->hash->{login}
+      : undef;
+    audit_event(
+      $db,
+      type         => 'ignored_match.added',
+      actor        => $options->{owner},
+      package_name => $options->{package},
+      data         => {hash => $options->{hash}, defined $contributor ? (contributor => $contributor) : ()}
+    );
+  }
+  $tx->commit;
 
   # Suppression is applied at index time (see Cavil::FileIndexer), so every package sharing this name must
   # be reindexed. The ids are returned rather than reindexed here so a batch of decisions reindexes each
@@ -415,8 +432,21 @@ sub ignore_line ($self, $options) {
 }
 
 sub remove_ignored_line ($self, $id, $user) {
-  return undef
-    unless my $hash = $self->pg->db->delete('ignored_lines', {id => $id}, {returning => ['hash', 'packname']})->hash;
+  my $hash = do {
+    my $db   = $self->pg->db;
+    my $tx   = $db->begin;
+    my $hash = $db->delete('ignored_lines', {id => $id}, {returning => ['hash', 'packname']})->hash;
+    audit_event(
+      $db,
+      type         => 'ignored_match.removed',
+      actor        => $db->select('bot_users', 'id', {login => $user})->hash->{id},
+      package_name => $hash->{packname},
+      data         => {hash => $hash->{hash}}
+    ) if $hash;
+    $tx->commit;
+    $hash;
+  };
+  return undef unless $hash;
   $self->log->info(qq{User "$user" removed ignored match "$hash->{hash}"});
 
   $self->reindex_packages($hash->{packname});

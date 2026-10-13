@@ -4,7 +4,8 @@
 package Cavil::Model::IgnoredFiles;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(paginate);
+use Cavil::Model::AuditLog qw(audit_event);
+use Cavil::Util            qw(paginate);
 
 has [qw(log pg)];
 
@@ -17,8 +18,16 @@ sub add ($self, $glob, $owner, $contributor = undef) {
     $contributor_id = $db->query('SELECT id FROM bot_users WHERE login = ?', $contributor)->hash->{id};
   }
 
+  my $tx = $db->begin;
   $db->insert('ignored_files',
     {glob => $glob, owner => $id, (defined $contributor_id ? (contributor => $contributor_id) : ())});
+  audit_event(
+    $db,
+    type  => 'ignored_file.added',
+    actor => $id,
+    data  => {glob => $glob, defined $contributor_id ? (contributor => $contributor) : ()}
+  );
+  $tx->commit;
 }
 
 sub find_glob ($self, $glob) {
@@ -51,7 +60,16 @@ sub paginate_ignored_files ($self, $options) {
 }
 
 sub remove ($self, $id, $user) {
-  return undef unless my $hash = $self->pg->db->delete('ignored_files', {id => $id}, {returning => ['glob']})->hash;
+  my $db = $self->pg->db;
+  my $tx = $db->begin;
+  return undef unless my $hash = $db->delete('ignored_files', {id => $id}, {returning => ['glob']})->hash;
+  audit_event(
+    $db,
+    type  => 'ignored_file.removed',
+    actor => $db->select('bot_users', 'id', {login => $user})->hash->{id},
+    data  => {glob => $hash->{glob}}
+  );
+  $tx->commit;
   $self->log->info(qq{User "$user" removed glob "$hash->{glob}"});
   return 1;
 }

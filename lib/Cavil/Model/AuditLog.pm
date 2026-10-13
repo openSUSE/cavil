@@ -5,8 +5,24 @@ package Cavil::Model::AuditLog;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(paginate);
+use Exporter 'import';
+
+our @EXPORT_OK = qw(audit_event CATEGORIES);
+
+use constant CATEGORIES => {
+  reviews     => ['review.%'],
+  limitations => ['limitation.%'],
+  patterns    => ['pattern.%', 'license.%'],
+  ignored     => ['ignored_match.%', 'ignored_file.%', 'snippet.%']
+};
 
 has 'pg';
+
+# Callers pass the handle of the transaction making the change, so the event commits or rolls back with it
+sub audit_event ($db, %event) {
+  $event{data} = {-json => $event{data} // {}};
+  $db->insert('audit_events', \%event);
+}
 
 # Exact matches only, a substring would mix in every package sharing a prefix (gcc, gcc13, cross-gcc...)
 sub paginate_events ($self, $options) {
@@ -18,6 +34,7 @@ sub paginate_events ($self, $options) {
   }
   elsif (length $search) { push @where, 'e.package_name = ?'; push @bind, $search }
   push @where, 'e.actor IS NOT NULL' if $options->{by_user};
+  if (my $types = CATEGORIES->{$options->{category} // ''}) { push @where, 'e.type LIKE ANY(?)'; push @bind, $types }
   my $where = @where ? 'WHERE ' . join(' AND ', @where) : '';
 
   my $db      = $self->pg->db;

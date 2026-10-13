@@ -140,6 +140,7 @@ export default {
 .cavil-list-per-page {
   align-items: center;
   display: flex;
+  gap: 0.75rem;
   margin-left: auto;
 }
 

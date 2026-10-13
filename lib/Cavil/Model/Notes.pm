@@ -3,7 +3,8 @@
 
 package Cavil::Model::Notes;
 use Mojo::Base -base, -signatures;
-use Cavil::Util qw(paginate);
+use Cavil::Model::AuditLog qw(audit_event);
+use Cavil::Util            qw(paginate);
 use Exporter 'import';
 
 our @EXPORT_OK = qw(NOTE_BODY_MAX_LENGTH REVIEW_TAG relevance_predicate);
@@ -55,14 +56,12 @@ sub add ($self, $package_id, $name, $author_id, $body, $lawyer_only, $ai_assiste
 # Lifting a limitation unblocks auto-accept for every future version, and notes are hard-deleted, so the audit log
 # is the only record left of what a limitation said and who changed it
 sub _audit_limitation ($db, $action, $actor, $note) {
-  $db->insert(
-    'audit_events',
-    {
-      type         => "limitation.$action",
-      package_name => $note->{package_name},
-      actor        => $actor,
-      data => {-json => {note => $note->{id}, map { exists $note->{$_} ? ($_ => $note->{$_}) : () } qw(from to)}}
-    }
+  audit_event(
+    $db,
+    type         => "limitation.$action",
+    package_name => $note->{package_name},
+    actor        => $actor,
+    data         => {note => $note->{id}, map { exists $note->{$_} ? ($_ => $note->{$_}) : () } qw(from to)}
   );
 }
 

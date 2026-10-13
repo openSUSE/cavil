@@ -154,9 +154,9 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
               Cavil.
 * `Licenses`: Lists known licenses and the associated license patterns. License patterns without a name are considered
               keyword patterns, and are used to identify new snippets of potential legal text.
-* `Audit Log`: Lists every review decision in order, automatic and manual, and every change to a limitation, for
-               curators and lawyers. The State on a report links to it, filtered to that package (see *Audit Log*
-               below).
+* `Audit Log`: Lists every review decision in order, automatic and manual, and every change to limitations, license
+               patterns and ignores, for curators and lawyers. The State on a report links to it, filtered to that
+               package (see *Audit Log* below).
 
 ### Access Levels
 
@@ -233,36 +233,49 @@ the last limitation note is removed.
 
 ### Audit Log
 
-A package row only holds its latest decision, so every review decision is also written to an audit log.
-What goes in is a deliberate choice: the log records **decisions**, never **derived state**.
+A package row only holds its latest decision, and patterns and ignores are edited in place or deleted outright, so the
+decisions that shape reports are also written to an audit log. What goes in is a deliberate choice: the log records
+**decisions**, never **derived state**.
 
 * **Recorded:** every change of a review's state, every decision that keeps the state (a second rejection with a new
   comment), and every limitation added, edited or removed. Lifting a limitation unblocks automatic acceptance for every
   future version and the note itself is deleted, so the log is the only record of it. Each review event keeps who
   decided (no user means Cavil decided on its own, including every reopen; the AI assistant flag marks MCP decisions),
-  the reason as the result text, and the report checksum the decision was made against.
+  the reason as the result text, and the report checksum the decision was made against. The corpus is recorded too:
+  every license pattern created, edited (only the fields that changed) or removed (with the full pattern, since the
+  row is gone), every bulk edit of a license as one event, every ignored match and ignored file glob added or removed,
+  and every snippet marked as not legal text everywhere, each with who did it and, for accepted proposals, who
+  proposed it.
 * **Not recorded:** reindexing, notices and diffs, checksum or risk changes, priorities, tags, documents and ordinary
   notes, which are regenerated from the source on every rebuild (see the invariants above) or kept elsewhere, and a
-  review becoming obsolete, which is housekeeping by the cleanup jobs rather than a decision. The weekly reindex of the
+  review becoming obsolete, which is housekeeping by the cleanup jobs rather than a decision. Changes made from the
+  command line (pattern maintenance commands, corpus imports and backfills) are not recorded either: they need shell
+  access, which is outside what the log can account for, and they are mechanical rather than decisions. Neither are
+  proposals until they are accepted, an ignore that already exists, the full license text flag leaving another
+  pattern of the same license when one claims it (the claiming pattern's event shows it), or snippets validated on the
+  Snippets page, which is training data for the text classifier. The weekly reindex of the
   whole archive therefore writes nothing unless it actually changes a decision, such as an inherited lawyer sign-off.
   The checksum stored on each decision is what links it to the evidence.
 
 Review events are written by a database trigger on the package row, not by the application. State is changed from
 many code paths (the automatic review, reviewers, AI assistants, bots resetting a review, and plain SQL reopening a
-review under limitations), and a trigger cannot be skipped by the next path someone adds. Limitation events are
-written by the application, in the same transaction as the note change, because only the application knows who removed
-or edited a note. Either way an event commits or rolls back together with the change it describes.
+review under limitations), and a trigger cannot be skipped by the next path someone adds. Limitation and corpus
+events are written by the application, in the same transaction as the change, because only the application knows who
+removed or edited something. Either way an event commits or rolls back together with the change it
+describes.
 
 The application only ever inserts events, and only deletes them together with the ephemeral one-off review they belong
 to, explicitly when it is purged; any other attempt to delete a package that has events fails instead of silently
 taking its history with it. This describes how Cavil behaves, it is not a guarantee against whoever administers the
 database.
 
-The log is meant to grow. An event has a type named after its subject (`review.decision`, `limitation.removed`, and
-later `pattern.created` and the like) and a JSON payload, so a new kind of event needs no schema change beyond, at most,
-a column referencing its subject. Events about a package name rather than one version, such as limitations, carry only
-the name, which is also what the audit log page filters on. Payloads only ever gain fields, so older events stay
-readable, and the page renders types it does not know as their raw payload until it is taught a sentence for them.
+The log is meant to grow. An event has a type named after its subject (`review.decision`, `limitation.removed`,
+`pattern.created` and the like) and a JSON payload, so a new kind of event needs no schema change. The subject lives
+in the payload rather than in a referencing column: a removed pattern is exactly the one the log has to keep showing.
+Events about a package name rather than one version, such as limitations and ignored matches, carry only the name,
+which is also what the audit log page filters on, next to a category filter that works on the type prefix. Payloads
+only ever gain fields, so older events stay readable, and the page renders types it does not know as their raw payload
+until it is taught a sentence for them.
 
 ### Standard Risk Levels
 

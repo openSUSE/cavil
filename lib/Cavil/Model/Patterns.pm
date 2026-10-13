@@ -4,7 +4,8 @@
 package Cavil::Model::Patterns;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util qw(license_is_catch_all license_link normalize_license_expr paginate pattern_checksum),
+use Cavil::Model::AuditLog qw(audit_event);
+use Cavil::Util            qw(license_is_catch_all license_link normalize_license_expr paginate pattern_checksum),
   qw(pattern_contains_skip),
   qw(spdx_link text_shingle_ids SNIPPET_SCORE_VERSION PRIORITY_WAITING @LICENSE_FLAGS @PATTERN_FLAGS);
 use List::Util qw(max min sum);
@@ -458,10 +459,33 @@ sub create ($self, %args) {
   )->hash->{id};
 
   $self->sync_pattern_shingles($db, $mid, $args{license} // '', $args{pattern});
+  my $contributor
+    = $args{contributor} ? $db->select('bot_users', 'login', {id => $args{contributor}})->hash->{login} : undef;
+  audit_event(
+    $db,
+    type         => 'pattern.created',
+    actor        => $args{owner},
+    package_name => $args{packname} || undef,
+    data         => {
+      pattern => $mid,
+      %{_audit_snapshot({%args, license => $args{license} // '', risk => 0 + ($args{risk} // 5)})},
+      defined $contributor ? (contributor => $contributor) : ()
+    }
+  );
   $tx->commit;
   $self->expire_cache;
 
   return $self->find($mid);
+}
+
+# What a pattern said, for events about it, removed patterns are only left in the audit log
+sub _audit_snapshot ($row) {
+  return {
+    license => $row->{license},
+    risk    => $row->{risk},
+    text    => $row->{pattern},
+    map { $row->{$_} ? ($_ => true) : () } @PATTERN_FLAGS
+  };
 }
 
 # Low-level bulk write behind imports and backfills: insert one fully-specified pattern row (deduped on the
@@ -1397,7 +1421,7 @@ sub recent ($self, $options) {
   return {has_more => $has_more, patterns => $patterns};
 }
 
-sub remove ($self, $id) {
+sub remove ($self, $id, $actor = undef) {
   my $db = $self->pg->db;
 
   # Capture the affected packages and delete the pattern in one transaction. The "ON DELETE
@@ -1409,7 +1433,15 @@ sub remove ($self, $id) {
   my $tx       = $db->begin;
   my $packages = [map { $_->{package} }
       $db->query('SELECT DISTINCT package FROM pattern_matches WHERE pattern = ?', $id)->hashes->each];
-  $db->delete('license_patterns', {id => $id});
+  if (my $old = $db->delete('license_patterns', {id => $id}, {returning => '*'})->hash) {
+    audit_event(
+      $db,
+      type         => 'pattern.removed',
+      actor        => $actor,
+      package_name => $old->{packname} || undef,
+      data         => {pattern => $id, %{_audit_snapshot($old)}}
+    );
+  }
   $tx->commit;
 
   # Only expire the caches once the row is actually gone, otherwise a concurrent index job
@@ -1435,7 +1467,7 @@ sub update ($self, $id, %args) {
   # clear it for a brand-new license. Leaving spdx untouched on a rename was the bug that kept the stale
   # identifier after a GPL-3.0-only -> GPL-3.0-or-later correction.
   my $new_license = $args{license} // '';
-  my $old         = $db->select('license_patterns', ['license', 'spdx'], {id => $id})->hash;
+  my $old         = $db->select('license_patterns', '*', {id => $id})->hash;
   my $renamed     = !$old || $old->{license} ne $new_license;
   my $props       = $self->_license_properties($db, $new_license, $id);
   my $catch_all   = $props->{catch_all};
@@ -1463,6 +1495,29 @@ sub update ($self, $id, %args) {
   );
 
   $self->sync_pattern_shingles($db, $id, $args{license}, $args{pattern});
+
+  my %new = (
+    pattern  => $args{pattern},
+    license  => $new_license,
+    risk     => 0 + ($args{risk} // 5),
+    packname => $args{packname} // '',
+    spdx     => $spdx,
+    map { $_ => $args{$_} ? 1 : 0 } @PATTERN_FLAGS
+  );
+  my %changes;
+
+  for my $field (keys %new) {
+    my $was = $old->{$field} // '';
+    next if $was eq $new{$field};
+    $changes{$field eq 'pattern' ? 'text' : $field} = [$was, $new{$field}];
+  }
+  audit_event(
+    $db,
+    type         => 'pattern.updated',
+    actor        => $args{owner},
+    package_name => $new{packname} || $old->{packname} || undef,
+    data         => {pattern => $id, license => $new_license, changes => \%changes}
+  ) if $old && %changes;
   $tx->commit;
 }
 
@@ -1485,7 +1540,13 @@ sub update_license_meta ($self, $old_license, %args) {
   my $renamed   = $new ne $old_license;
   my $catch_all = license_is_catch_all($new) ? 1 : 0;
 
-  my $tx = $db->begin;
+  my $tx         = $db->begin;
+  my ($old_spdx) = $db->query('SELECT spdx FROM license_patterns WHERE id = ?', $ids->[0])->array->@*;
+  my $old_risks  = $db->query('SELECT DISTINCT risk FROM license_patterns WHERE id = ANY(?)', $ids)->arrays->flatten;
+  my $merged     = $renamed && $db->query(
+    'SELECT count(*) AS patterns, min(spdx) AS spdx FROM license_patterns
+       WHERE license = ? AND id <> ALL(?) HAVING count(*) > 0', $new, $ids
+  )->hash;
 
   # full_license_text is unique per license name (partial unique index). A catch-all has no text to
   # reproduce, and merging into a destination that already carries a full-text pattern would collide, so
@@ -1517,6 +1578,24 @@ sub update_license_meta ($self, $old_license, %args) {
     }
   }
 
+  my %changes;
+  $changes{license} = [$old_license, $new]  if $renamed;
+  $changes{spdx}    = [$old_spdx,    $spdx] if $old_spdx ne $spdx;
+  $changes{risk}    = [$old_risks->size == 1 ? $old_risks->[0] : undef, 0 + $risk]
+    if defined $risk && ($old_risks->size != 1 || $old_risks->[0] != $risk);
+
+  # A rename into an existing license brings its patterns into line, which changes them too
+  if ($merged) {
+    my $was = delete $merged->{spdx};
+    $merged = {patterns => 0 + $merged->{patterns}, $was ne $spdx ? (spdx => [$was, $spdx]) : ()};
+  }
+  audit_event(
+    $db,
+    type  => 'license.updated',
+    actor => $args{actor},
+    data  =>
+      {license => $old_license, changes => \%changes, patterns => scalar @$ids, $merged ? (merged => $merged) : ()}
+  ) if %changes;
   $tx->commit;
 
   return {updated => scalar @$ids, license => $new, spdx => $spdx};

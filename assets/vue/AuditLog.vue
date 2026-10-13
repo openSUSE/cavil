@@ -32,6 +32,16 @@
 
     <template #per-page>
       <label class="cavil-list-control">
+        <span>Show</span>
+        <select v-model="params.category" @change="gotoPage(1)" class="form-select" id="audit-log-category">
+          <option value="">All events</option>
+          <option value="reviews">Reviews</option>
+          <option value="limitations">Limitations</option>
+          <option value="patterns">Patterns</option>
+          <option value="ignored">Ignored</option>
+        </select>
+      </label>
+      <label class="cavil-list-control">
         <span>Per page</span>
         <select v-model="params.limit" @change="gotoPage(1)" class="form-select">
           <option>10</option>
@@ -47,7 +57,7 @@
         <tr>
           <th>Time</th>
           <th>Package</th>
-          <th>Report</th>
+          <th>Subject</th>
           <th>Event</th>
           <th>By</th>
         </tr>
@@ -68,10 +78,13 @@
             }}</a>
           </td>
           <td class="cavil-list-report">
-            <a v-if="event.package" :href="`/reviews/details/${event.package}`">{{
-              event.checksum ?? event.package
-            }}</a>
-            <span v-if="event.changed" class="text-muted" title="The report has changed since"> (changed) </span>
+            <template v-if="event.subject">
+              <a v-if="event.subject.href" :href="event.subject.href">{{ event.subject.text }}</a>
+              <span v-else :class="{'cavil-list-token': event.subject.mono}" :title="event.subject.title">{{
+                event.subject.text
+              }}</span>
+              <span v-if="event.subject.note" class="text-muted">{{ event.subject.note }}</span>
+            </template>
           </td>
           <td>
             <div>{{ event.summary }}</div>
@@ -99,24 +112,91 @@ import {genParamWatchers, getParams, setParam} from './helpers/params.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
 
+const clip = text => (text.length > 300 ? `${text.slice(0, 300)}…` : text);
+const lines = (...parts) => parts.filter(part => part != null && part !== '').join('\n');
+const count = n => `${n} ${n === 1 ? 'pattern' : 'patterns'}`;
+const proposedBy = data => (data.contributor ? `Proposed by ${data.contributor}` : null);
+const pattern = data =>
+  lines(`${data.license || 'Keyword pattern'}, risk ${data.risk}`, proposedBy(data), clip(data.text));
+const patternLink = data => ({text: `Pattern ${data.pattern}`, href: `/licenses/edit_pattern/${data.pattern}`});
+const changes = data =>
+  lines(
+    ...Object.keys(data.changes)
+      .sort()
+      .map(field => {
+        const [from, to] = data.changes[field];
+        if (field === 'text') return `text:\n${clip(to)}`;
+        return `${field}: ${from === '' ? '(none)' : (from ?? 'mixed')} → ${to === '' ? '(none)' : to}`;
+      })
+  );
+
 // Unknown types still render, so a new event type is visible before it gets a formatter here
 const formatters = {
-  'review.decision': data => ({
+  'review.decision': (data, event) => ({
     summary: data.from === data.to ? `${data.to} (decided again)` : `${data.from} → ${data.to}`,
-    detail: data.result
+    detail: data.result,
+    subject: {
+      text: data.checksum ?? event.package,
+      href: `/reviews/details/${event.package}`,
+      note: data.checksum != null && data.checksum !== event.package_checksum ? ' (changed)' : null
+    }
   }),
   'limitation.added': data => ({summary: 'Limitation added', detail: data.to}),
   'limitation.edited': data => ({summary: 'Limitation edited', detail: data.to}),
-  'limitation.removed': data => ({summary: 'Limitation removed', detail: data.from})
+  'limitation.removed': data => ({summary: 'Limitation removed', detail: data.from}),
+  'pattern.created': data => ({summary: 'Pattern created', detail: pattern(data), subject: patternLink(data)}),
+  'pattern.updated': data => ({summary: 'Pattern edited', detail: changes(data), subject: patternLink(data)}),
+  'pattern.removed': data => ({
+    summary: 'Pattern removed',
+    detail: pattern(data),
+    subject: {text: `Pattern ${data.pattern}`}
+  }),
+  'license.updated': data => {
+    const name = data.changes.license?.[1] ?? data.license;
+    return {
+      summary: `License edited (${count(data.patterns)})`,
+      detail: lines(
+        changes(data),
+        data.merged
+          ? `merged with ${count(data.merged.patterns)} already there${
+              data.merged.spdx
+                ? `, their spdx: ${data.merged.spdx[0] || '(none)'} → ${data.merged.spdx[1] || '(none)'}`
+                : ''
+            }`
+          : null
+      ),
+      subject: {text: name, href: `/licenses/${encodeURIComponent(name)}`}
+    };
+  },
+  'ignored_match.added': data => ({
+    summary: 'Match ignored',
+    detail: proposedBy(data),
+    subject: {text: data.hash.slice(0, 12), title: data.hash, mono: true}
+  }),
+  'ignored_match.removed': data => ({
+    summary: 'Ignored match removed',
+    subject: {text: data.hash.slice(0, 12), title: data.hash, mono: true}
+  }),
+  'snippet.non_license': data => ({
+    summary: 'Marked as not legal text',
+    detail: proposedBy(data),
+    subject: {text: data.hash.slice(0, 12), title: data.hash, mono: true}
+  }),
+  'ignored_file.added': data => ({
+    summary: 'Files ignored',
+    detail: proposedBy(data),
+    subject: {text: data.glob, mono: true}
+  }),
+  'ignored_file.removed': data => ({summary: 'Ignored files removed', subject: {text: data.glob, mono: true}})
 };
-const fallback = (data, type) => ({summary: type, detail: JSON.stringify(data)});
+const fallback = (data, event) => ({summary: event.type, detail: JSON.stringify(data)});
 
 export default {
   name: 'AuditLog',
   mixins: [Refresh],
   components: {CavilListLayout, EmptyState, LegalLoading},
   data() {
-    const params = getParams({limit: 25, offset: 0, byUser: false, filter: ''});
+    const params = getParams({limit: 25, offset: 0, byUser: false, category: '', filter: ''});
 
     return {
       end: 0,
@@ -152,18 +232,14 @@ export default {
 
       this.events = data.page.map(event => {
         const created = moment(event.created_epoch * 1000);
-        const checksum = event.data.checksum;
         const login = event.login ?? 'Cavil';
         return {
           id: event.id,
           time: created.format('YYYY-MM-DD HH:mm:ss Z'),
           ago: created.fromNow(),
-          package: event.package,
           packageName: event.package_name,
-          checksum,
-          changed: checksum != null && checksum !== event.package_checksum,
           actor: event.data.ai_assisted ? `${login} (AI assistant)` : login,
-          ...(formatters[event.type] ?? fallback)(event.data, event.type)
+          ...(formatters[event.type] ?? fallback)(event.data, event)
         };
       });
     },
@@ -178,7 +254,7 @@ export default {
     }
   },
   watch: {
-    ...genParamWatchers('limit', 'offset', 'byUser'),
+    ...genParamWatchers('limit', 'offset', 'byUser', 'category'),
     filter: function (val) {
       this.params.filter = val;
       this.params.offset = 0;
