@@ -80,7 +80,7 @@ sub _size ($doc, $path) {
 # Everything the dossier quotes besides the report, as whole rows so a new column is covered without
 # anybody remembering it. Only columns that change while nothing the dossier shows does are left out; one forgotten
 # here costs a needless rebuild, never a stale dossier. (Not the package summary: it reports the documents' own state.)
-sub dossier_stamp ($self, $pkg) {
+sub dossier_stamp ($self, $pkg, $memo = {}) {
   my $rows = $self->pg->db->query(
     "SELECT md5(concat_ws('|',
        (SELECT (to_jsonb(p) - 'processing_job' - 'index_stage' - 'reindex_requested' - 'reindex_priority' - 'cleaned'
@@ -91,7 +91,7 @@ sub dossier_stamp ($self, $pkg) {
        COALESCE((SELECT string_agg(to_jsonb(n)::text, ',' ORDER BY n.id) FROM package_notes n WHERE package_name = \$2),
           '')))", $pkg->{id}, $pkg->{name}
   )->array->[0];
-  return md5_sum(encode('UTF-8', to_json([$rows, $self->review_history($pkg), $self->report_stamp($pkg)])));
+  return md5_sum(encode('UTF-8', to_json([$rows, $self->review_history($pkg), $self->report_stamp($pkg, $memo)])));
 }
 
 sub has_document ($self, $id, $key) {
@@ -103,10 +103,11 @@ sub has_document ($self, $id, $key) {
 # Every registered document of a package row, built on its own, each ready or not
 sub document_status ($self, $pkg) {
   my $dir = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  my %memo;
   return [
     map {
       my $path  = $dir->child($_->{file});
-      my $ready = -f $path && $self->_fresh($_, $path, $pkg);
+      my $ready = -f $path && $self->_fresh($_, $path, $pkg, \%memo);
       {
         key   => $_->{key},
         name  => "$pkg->{id}.$_->{name}",
@@ -119,18 +120,21 @@ sub document_status ($self, $pkg) {
 
 # The report a document was built from, as stored: every rebuild and re-analyze writes it anew. Its JSON is not
 # serialised in a stable key order, so a re-analyze that changed nothing still makes the documents count as missing,
-# a rebuild on the next request rather than evidence nobody can tell is outdated.
-sub report_stamp ($self, $pkg) {
-  my $row
-    = $self->pg->db->query("SELECT md5(concat_ws('|', ldig_report, annotations)) FROM bot_reports WHERE package = ?",
-    $pkg->{id})->array;
-  return $row ? $row->[0] // '' : '';
+# a rebuild on the next request rather than evidence nobody can tell is outdated. The memo lets one status check hash
+# a multi-megabyte report once for all of its documents.
+sub report_stamp ($self, $pkg, $memo = {}) {
+  return $memo->{report} //= do {
+    my $row
+      = $self->pg->db->query("SELECT md5(concat_ws('|', ldig_report, annotations)) FROM bot_reports WHERE package = ?",
+      $pkg->{id})->array;
+    $row ? $row->[0] // '' : '';
+  };
 }
 
-sub _fresh ($self, $doc, $path, $pkg) {
+sub _fresh ($self, $doc, $path, $pkg, $memo = {}) {
   return 1 unless my $stamp = $doc->{stamp};
   my $gz = IO::Uncompress::Gunzip->new("$path") or return 0;
-  return ($gz->getHeaderInfo->{Comment} // '') eq $self->$stamp($pkg);
+  return ($gz->getHeaderInfo->{Comment} // '') eq $self->$stamp($pkg, $memo);
 }
 
 sub add ($self, %args) {

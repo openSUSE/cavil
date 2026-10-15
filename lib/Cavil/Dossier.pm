@@ -20,6 +20,7 @@ use constant {
   DOSSIER_MAX     => 1_000_000,
   NOTES_BYTES     => 150_000,
   HEAD_LINES      => 400,
+  RISK_HEAD_LINES => 60,
   SCAN_LINES      => 5000,
   CONTEXT         => 15,
   WINDOW_LINES    => 300,
@@ -106,36 +107,60 @@ sub _first_match_lines ($ctx, $file_id, $licenses) {
   return \%first;
 }
 
-# One file per license at risk 5 or above or with a blocking flag, a license-named one if there is any
+# One file per license at risk 5 or above or with a blocking flag. A flag belongs to the patterns that carry it, and a
+# common license gets one from a few of its patterns (an Apache-2.0 patent clause), so a flagged license is shown
+# where a flagged pattern matched. Otherwise a license-named file if there is any, its beginning holds the terms.
 sub _high_risk ($ctx) {
   my $risks = $ctx->{report}{risks} // {};
+  my %label = (eula => 'EULA', patent => 'Patent', export_restricted => 'Export restricted');
 
   my @evidence;
   for my $risk (sort { $b <=> $a } keys %$risks) {
     for my $license (sort keys %{$risks->{$risk}}) {
       my $matches = $risks->{$risk}{$license};
-      next unless $risk >= 5 || grep {/^(?:eula|patent|export_restricted)$/} @{$matches->{flags} // []};
+      my @flags   = grep { $label{$_} } @{$matches->{flags} // []};
+      next unless $risk >= 5 || @flags;
 
-      my @paths = grep { _ships($_) } map { $_->[1] } @{$matches->{files}};
-      next unless defined(my $pick = (grep({ is_license_filename($_) } @paths), @paths)[0]);
-      my $name  = $matches->{spdx} || $matches->{name};
-      my $first = _first_match_lines($ctx, _file_ids($ctx, [$pick])->{$pick}, [grep {defined} $license, $name]);
-      my $line  = min(values %$first);
+      my $name = $matches->{spdx} || $matches->{name};
+      my ($pick, $line) = @flags ? _flagged_match($ctx, $license, $risk) : ();
+      unless (defined $pick) {
+        my @paths = grep { _ships($_) } map { $_->[1] } @{$matches->{files}};
+        next unless defined($pick = (grep({ is_license_filename($_) } @paths), @paths)[0]);
+        $line = min(values %{_first_match_lines($ctx, _file_ids($ctx, [$pick])->{$pick}, [$license, $name])});
+      }
+
       my $files = @{$matches->{files}};
       push @evidence,
         _evidence(
         $pick, 'risk',
-        "risk $risk: $name, matched in $files file"
-          . ($files == 1             ? ''                            : 's')
-          . (is_vendored_path($pick) ? ', vendored'                  : '')
-          . (defined $line           ? ", first match at line $line" : ''),
-        head  => is_license_filename($pick) ? HEAD_LINES : 0,
+        "risk $risk: $name"
+          . (@flags ? ' [flags: ' . join(', ', map { $label{$_} } @flags) . ']' : '')
+          . ", matched in $files file"
+          . ($files == 1             ? ''                                                                        : 's')
+          . (is_vendored_path($pick) ? ', vendored'                                                              : '')
+          . (defined $line           ? (@flags ? ", flagged text at line $line" : ", first match at line $line") : ''),
+        head  => is_license_filename($pick) ? RISK_HEAD_LINES : 0,
         lines => [$line // 1]
         );
     }
   }
 
   return @evidence;
+}
+
+# The first shipped file where a pattern of the license and risk carrying a blocking flag matched, a license-named one
+# first. A catch-all license sits at several risks, each with patterns of its own.
+sub _flagged_match ($ctx, $license, $risk) {
+  my $rows = $ctx->{db}->query(
+    'SELECT mf.filename, MIN(pm.sline) AS line FROM pattern_matches pm
+       JOIN license_patterns lp ON lp.id = pm.pattern JOIN matched_files mf ON mf.id = pm.file
+      WHERE pm.package = ? AND pm.generation = 0 AND pm.ignored = false AND lp.license = ? AND lp.risk = ?
+        AND (lp.eula OR lp.patent OR lp.export_restricted)
+      GROUP BY mf.filename ORDER BY mf.filename LIMIT 500', $ctx->{pkg}{id}, $license, $risk
+  )->arrays->to_array;
+  my @shipped = grep { _ships($_->[0]) } @$rows;
+  my ($pick) = (grep({ is_license_filename($_->[0]) } @shipped), @shipped);
+  return $pick ? @$pick : ();
 }
 
 # The pairs the report lists as co-located or vendored, in its proximity order, with evidence for both licenses in

@@ -27,10 +27,15 @@ my $db  = $app->pg->db;
 $app->patterns->create(pattern => "SPDX-License-Identifier: $_", license => $_) for qw(GPL-2.0-only Apache-2.0);
 $app->patterns->create(pattern => "SPDX-License-Identifier: $_->[0]", license => $_->[0], risk => $_->[1])
   for ['GPL-2.0-or-later', 4], ['MPL-1.1', 3], ['MIT', 1];
+$app->patterns->create(pattern => 'The penguin patent grant applies', license => 'MIT', risk => 1, patent => 1);
 $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
   for qw(GPL-2.0-only Apache-2.0 GPL-2.0-or-later MPL-1.1 MIT);
 my $pkg = $app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+
+# A permissive license flagged by one of its patterns, matched plainly in a license file and flagged in a source file
+$dir->child('LICENSE.mit')->spew("SPDX-License-Identifier: MIT\n");
+$dir->child('src')->make_path->child('patented.c')->spew("/* Code */\n/* The penguin patent grant applies */\n");
 
 # A mutual conflict and a one-way pair deeper down, which the report's proximity ranking puts first
 $dir->child('src')->make_path->child('mutual.c')
@@ -178,6 +183,14 @@ subtest 'A mutual conflict comes before a one-way pair' => sub {
   like [evidence($text, 'src/deep/nested/oneway.c')]->[0],
     qr/^- incompatible pair GPL-2\.0-or-later \+ MIT \(one-way;/m, 'the one-way one';
   ok index($pairs, '### `src/mutual.c`') < index($pairs, '### `src/deep/nested/oneway.c`'), 'mutual first';
+};
+
+subtest 'A flagged license is shown where the flag is' => sub {
+  my $text = dossier();
+  my ($reasons, $body) = evidence($text, 'src/patented.c');
+  like $reasons, qr/^- risk 1: MIT \[flags: Patent\], matched in \d+ files, flagged text at line 2$/m,
+    'the flag named, and the file the flagged text is in rather than any license file';
+  like $body, qr/^ +2  \/\* The penguin patent grant applies \*\/$/m, 'with that text';
 };
 
 subtest 'The main spec survives past any line cap' => sub {
