@@ -521,6 +521,10 @@ sub snippet_search ($self, $options) {
   my $visible = 'fs.generation = 0 AND bp.embargoed = false AND bp.obsolete = false AND bp.ephemeral = false'
     . ' AND COALESCE(sp.embargoed, false) = false';
 
+  # A caller that already vetted the package (a document built for it) lists all of its own occurrences, which
+  # live in its own files whatever other package the text was first seen in, and ephemeral uploads included
+  $visible = 'fs.generation = 0' if $options->{own_package} && $options->{package_id};
+
   # Fetch one extra row to detect a next page without an exact total (COUNT(*) OVER does not scale).
   my $rows;
   if ($group eq 'none') {
@@ -567,7 +571,8 @@ sub snippet_search ($self, $options) {
   for my $r (@$rows) { $r->{similarity} = int(($r->{similarity} // 0) * 100 + 0.5) }
 
   # Tier-2 detail (bounded by page size): overlaps / covered-by / keywords, for agent decisions.
-  $self->_enrich_snippet_detail($db, $_) for $options->{detail} || $group eq 'none' ? @$rows : ();
+  my $detail = !$options->{skip_detail} && ($options->{detail} || $group eq 'none');
+  $self->_enrich_snippet_detail($db, $_) for $detail ? @$rows : ();
 
   return {has_more => $has_more, offset => $offset, limit => $limit, group => $group, snippets => $rows};
 }

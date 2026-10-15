@@ -122,7 +122,10 @@ Search all packages (any review state) by name or by a vendored component they s
 #### cavil_get_report
 
 Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use
-`cavil_search_snippets` for the full list and per-snippet detail.
+`cavil_search_snippets` for the full list and per-snippet detail. A **Review History** section lists the last five
+decisions on other versions of the package, with the reviewer's result and whether the report was identical, and
+licenses or unresolved files this version added compared with the closest earlier review are marked `NEW`. Decisions
+on embargoed versions are never listed.
 
 - **Required Roles**: `user` (read-only)
 - `package_id`: ID of package to get report for. (number, required)
@@ -130,6 +133,9 @@ Get legal report for a specific package. Unresolved snippets are summarised as a
   (number, optional)
 - `email_limit`: Maximum number of email addresses to include (occurrence-ordered). Defaults to `10`, `0` omits the
   section. (number, optional)
+- `components_limit`: Vendored components to list. Past it the section becomes a license tally plus the components
+  that are not plainly permissive (risk above 2, or a license Cavil has no pattern for). Defaults to `50`, `0` omits
+  the section. (number, optional)
 
 #### cavil_search_snippets
 
@@ -180,7 +186,8 @@ has a 10 second statement timeout, so it is safe on a production-sized database;
 
 #### cavil_get_file
 
-Get content of a specific file in the package.
+Get content of a specific file in the package. Lines longer than 8000 bytes are cut there and end with a
+`[line truncated, 8000 byte limit]` marker.
 
 - **Required Roles**: `user` (read-only)
 - `package_id`: ID of package to read file from. (number, required)
@@ -310,6 +317,10 @@ running one is as simple as typing a short command at the agent prompt.
   rather than as an answer, and the note tells you which ones it confirmed and which it could not. That matters
   because such a notice is usually derived from package metadata (`cargo tree`, `package.json`), which cannot see the
   license headers inside individual files - so an honest notice can still miss something the scan found.
+
+  Without an agent that can reach Cavil, the [AI review dossier](#retrieve-ai-review-dossiers) on the report page
+  carries the evidence the skill would have fetched, for any AI you can upload a file to. It brings no review method
+  of its own; the skill's `SKILL.md` makes a good starting point for your own prompt.
 
 - **[cavil-review](../examples/skills/cavil-review/)** - walks you through a full review of one package end to end, and
   (only if you confirm) actually accepts or rejects it. Use this when you're sitting at your desk working on a single
@@ -672,6 +683,7 @@ should be approved for release to customers.
 | `GET` | [`/api/v1/report/<package_id>.<format>`](#retrieve-license-reports) | Retrieve a legal report |
 | `GET` | [`/api/v1/documents/<package_id>/spdx`](#retrieve-spdx-reports) | Retrieve an SPDX document |
 | `GET` | [`/api/v1/documents/<package_id>/notice`](#retrieve-notice-files) | Retrieve a NOTICE file |
+| `GET` | [`/api/v1/documents/<package_id>/dossier`](#retrieve-ai-review-dossiers) | Retrieve an AI review dossier |
 
 ### Compression
 
@@ -880,8 +892,8 @@ Content-Type: application/json
 `GET /api/v1/report/<package_id>.<format>`
 
 Get legal report in plain text or JSON format. Additionally to `txt` and `json`, the extended report format used for
-MCP is available with the format identifier `mcp`. Note that the exact report format is not static and will change from
-time to time.
+MCP is available with the format identifier `mcp`. That format is meant for AI, so like the MCP tools it answers `403`
+for embargoed packages. Note that the exact report format is not static and will change from time to time.
 
 While the package is still being unpacked, indexed or analyzed the endpoint returns `408`; poll until it returns
 `200`. For the JSON format the `408` body carries a `stage` field (`queued`, `unpacking`, `indexing`,
@@ -933,8 +945,9 @@ Diff to closest match 12345:
 `GET /api/v1/documents/<package_id>/spdx`
 
 Get the legal report as an SPDX 3.0.1 SBOM in JSON format, following BSI TR-03183-2 (and, where the two do not
-conflict, the CISA minimum elements). Note that this report may be
-generated on demand, and in such cases the server will return a `408` error code until the report has been generated.
+conflict, the CISA minimum elements). Note that this report may be generated on demand, and in such cases the server
+will return a `408` error code until the report has been generated. Building it can take a long time for large
+packages, and it is built on its own, so asking for it never delays the other documents.
 These documents are meant to be saved rather than read in a browser, so the response carries
 `Content-Disposition: attachment; filename="<package_id>.spdx.json"`.
 
@@ -1058,6 +1071,32 @@ Notices not attributable to a specific license
 Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
 ```
 
-Every document Cavil derives from a package is available at `GET /api/v1/documents/<package_id>/<key>`; `spdx` and
-`notice` are the keys it currently builds, and an unknown key is a `404`. One request builds them all, so asking for
-either produces both.
+### Retrieve AI Review Dossiers
+
+`GET /api/v1/documents/<package_id>/dossier`
+
+Get a single Markdown file with everything an AI reviewer needs, for AI tools that cannot reach Cavil, such as an
+external legal assistant a lawyer uploads files to. It opens with a short legend explaining Cavil's markers and
+terms, but no review method or output format, which are left to the prompt of whoever uses it. The legend is followed
+by the MCP report and the notes in full except lawyer-only ones (newest first after limitations and pinned notes, as
+many as fit its size budget). Then come the files of evidence, in five sections: the package's license documents,
+the build evidence that decides what ships (the spec file, project manifests and install rules), unresolved snippets,
+high-risk and flagged licenses, and incompatible license pairs. Every file appears once, under the first section that
+needs it, with every reason it is included. Short files are shown whole, long ones as their beginning and windows
+around the lines that matter, with line numbers and the lines no known license pattern matched marked `>>`. Every
+section has a size budget and lists what it left out.
+
+Like the other documents it may be generated on demand, and the server will return a `408` error code until it is
+ready. Notes, review decisions and the package's own metadata change without a reindex, so a dossier whose inputs have
+changed since it was generated counts as missing and is generated again on the next request. The response carries
+`Content-Disposition: attachment; filename="<package_id>.dossier.md"`.
+
+Dossiers are built for embargoed packages too, since an on premise AI system may be allowed to handle embargoed
+information. Which AI a dossier is handed to is up to the user, and the dossier of an embargoed package says so at the
+top.
+
+Every document Cavil derives from a package is available at `GET /api/v1/documents/<package_id>/<key>`; `spdx`,
+`notice` and `dossier` are the keys it currently builds, and an unknown key is a `404`. Each document is built on its
+own: the first request for a missing one builds that document alone and answers `408` until it is ready, and requests
+for different documents are built in parallel. A document is built again once the license report it was built from
+has been replaced, by a reindex or a re-analysis.

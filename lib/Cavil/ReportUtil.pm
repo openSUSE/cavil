@@ -15,7 +15,7 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers $COPYRIGHT_LEA
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
-  qw(is_vendored_path peripheral_scope),
+  qw(is_catalog_entry is_vendored_path license_terms_kind peripheral_scope unexplained_line_numbers),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_risk),
   qw(report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
   qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
@@ -550,7 +550,7 @@ sub license_document_candidates ($dig_report, $limit = 100) {
   my @found;
   for my $id (keys %$files) {
     my $path = $files->{$id};
-    next unless defined $path && is_license_filename($path) && !_path_is_peripheral($path);
+    next unless defined $path && is_license_filename($path) && !is_catalog_entry($path) && !license_terms_kind($path);
     push @found, {id => $id, path => $path};
   }
 
@@ -562,9 +562,23 @@ sub license_document_candidates ($dig_report, $limit = 100) {
   return {documents => \@found, dropped => $dropped};
 }
 
+# Debian copyright files catalog every component's license and state no terms of their own
+sub is_catalog_entry ($path) {
+  return $path =~ m{(?:^|/)debian/copyright$}i || $path =~ m{(?:^|/)[^/]*copyright\.template$}i ? 1 : 0;
+}
+
+# Where a license file sits, like the peripheral classification. A REUSE LICENSES/ directory holds texts named by
+# SPDX id, which is_license_filename already rejects, but linux-firmware keeps its real terms there as
+# LICENSE.<vendor>, so for a license-named file that directory alone is not peripheral.
+sub license_terms_kind ($path) {
+  return _path_peripheral_kind(is_license_filename($path) ? $path =~ s{(?:^|/)licenses/(?=[^/]+$)}{/}ir : $path);
+}
+
 # Use only real matches; snippet resolution can suppress an unrecognized clause.
-sub unexplained_lines ($spans, $lines) {
-  return 0 unless $lines && @$lines;
+sub unexplained_lines ($spans, $lines) { return scalar @{unexplained_line_numbers($spans, $lines)} }
+
+sub unexplained_line_numbers ($spans, $lines) {
+  return [] unless $lines && @$lines;
 
   my %covered;
   for my $span (@{$spans || []}) {
@@ -574,13 +588,7 @@ sub unexplained_lines ($spans, $lines) {
     $covered{$_} = 1 for $start .. $end;
   }
 
-  my $unexplained = 0;
-  for my $i (0 .. $#$lines) {
-    next           if $covered{$i + 1};
-    $unexplained++ if $lines->[$i] =~ /\S/;
-  }
-
-  return $unexplained;
+  return [grep { !$covered{$_} && $lines->[$_ - 1] =~ /\S/ } 1 .. @$lines];
 }
 
 sub minimal_snippet ($snippet) {

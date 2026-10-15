@@ -167,6 +167,14 @@ subtest 'API keys' => sub {
       ->content_like(qr/## Unmatched Snippets/)
       ->content_like(qr/^\* \d+x snippet \d+ /m)
       ->content_like(qr/cavil_search_snippets\(package_id=1\)/);
+
+    # The mcp format exists to be handed to AI, which an embargo forbids, the plain text report is for people
+    $t->app->pg->db->update('bot_packages', {embargoed => 1}, {id => 1});
+    $t->get_ok('/api/v1/report/1.mcp' => {Authorization => "Bearer $key"})
+      ->status_is(403)
+      ->content_is('Package is embargoed and may not be processed with AI');
+    $t->get_ok('/api/v1/report/1.txt' => {Authorization => "Bearer $key"})->status_is(200);
+    $t->app->pg->db->update('bot_packages', {embargoed => 0}, {id => 1});
   };
 
   subtest 'Access derived documents with API key' => sub {
@@ -182,7 +190,14 @@ subtest 'API keys' => sub {
       ->content_type_is('application/json')
       ->json_is('/@context' => 'https://spdx.org/rdf/3.0.1/spdx-context.jsonld');
 
-    # One request built every document, so the NOTICE is already there
+    # Each document is built on its own, so asking for the SBOM built nothing else
+    ok !-e $t->app->packages->document_path(1, 'notice'), 'the NOTICE was not built along with it';
+    is $t->app->minion->jobs({tasks => ['documents']})->total, 1, 'one job, for the SBOM alone';
+    $t->get_ok('/api/v1/documents/1/notice' => {Authorization => "Bearer $key"})
+      ->status_is(408)
+      ->content_is('being generated');
+    $t->app->minion->perform_jobs;
+    ok !-e $t->app->packages->document_path(1, 'dossier'), 'nor the dossier with the NOTICE';
     $t->get_ok('/api/v1/documents/1/notice' => {Authorization => "Bearer $key"})
       ->status_is(200)
       ->content_type_is('text/plain')

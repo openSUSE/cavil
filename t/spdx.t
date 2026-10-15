@@ -114,12 +114,14 @@ subtest 'Generate SPDX report' => sub {
     ->header_is('Content-Disposition' => 'attachment; filename="1.spdx.json"')
     ->json_has('/@graph');
 
-  # The generic route serves the same document, and every other one the registry lists
+  # The generic route serves the same document, and every other one the registry lists, each built on its own
   $t->get_ok('/documents/1/spdx')
     ->status_is(200)
     ->content_type_is('application/json')
     ->header_is('Content-Disposition' => 'attachment; filename="1.spdx.json"')
     ->json_has('/@graph');
+  $t->get_ok('/documents/1/notice')->status_is(408)->content_is('being generated');
+  $t->app->minion->perform_jobs;
   $t->get_ok('/documents/1/notice')
     ->status_is(200)
     ->content_type_is('text/plain')
@@ -141,7 +143,8 @@ my $doc  = read_report($path);
 my $g    = graph_index($doc);
 
 subtest 'Report is stored gzip-compressed on disk' => sub {
-  ok !-e "$path.tmp", 'SPDX temp file has been cleaned up';
+  is_deeply [grep {/^\.report\.[A-Za-z0-9]{8}$/} map { $_->basename } $path->dirname->list({hidden => 1})->each], [],
+    'no temporary file is left behind';
   is $path->basename,            '.report.spdx.json.gz', 'report is a gzip-compressed JSON file';
   is substr($path->slurp, 0, 2), "\x1f\x8b",             'on-disk report has the gzip magic bytes';
 };
@@ -760,88 +763,82 @@ subtest 'The dependency list says whether it is complete' => sub {
 
 # What the download button on the report page sees. It renders from the state the report metadata carries
 # and, once a report is on its way, from the same cheap poll the rebuild progress bar uses.
-subtest 'SPDX state drives the report page download button' => sub {
+subtest 'Every document has its own download control state' => sub {
   my $pkgs   = $t->app->packages;
   my $minion = $t->app->minion;
   $pkgs->remove_documents(1);
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
+  my $states = sub ($path) {
+    +{map { $_->{key} => $_->{state} } @{$t->tx->res->json($path)}};
+  };
 
   # Earlier subtests left finished report jobs behind; a job that is done is not a job in flight
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'none');
-  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/documents/state', 'none');
+  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'available');
+  is_deeply $states->('/documents/documents'), {spdx => 'none', notice => 'none', dossier => 'none'}, 'none built';
+  $t->get_ok('/reviews/meta/1')->status_is(200);
+  is_deeply $states->('/documents/documents'), {spdx => 'none', notice => 'none', dossier => 'none'}, 'same in meta';
 
-  $t->post_ok('/documents/1')->status_is(200)->json_is('/state', 'building');
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'building');
+  $t->post_ok('/documents/1/spdx')->status_is(200);
+  is_deeply $states->('/documents'), {spdx => 'building', notice => 'none', dossier => 'none'}, 'only the SBOM builds';
 
-  # Clicking twice (or two reviewers on the same report) costs one job between them
-  $t->post_ok('/documents/1')->status_is(200)->json_is('/state', 'building');
-  is $minion->jobs({tasks => ['documents'], states => ['inactive', 'active'], notes => ['pkg_1']})->total, 1,
-    'exactly one report job is queued';
+  # Clicking twice (or two reviewers on the same report) costs one job between them, another document one of its own
+  $t->post_ok('/documents/1/spdx')->status_is(200);
+  $t->post_ok('/documents/1/notice')->status_is(200);
+  is_deeply $states->('/documents'), {spdx => 'building', notice => 'building', dossier => 'none'}, 'both build';
+  my ($jobs, @queued) = ($minion->jobs({tasks => ['documents'], states => ['inactive']}));
+  while (my $job = $jobs->next) { push @queued, $job->{args}[1] }
+  is_deeply [sort @queued], ['notice', 'spdx'], 'one job per document';
 
   $minion->perform_jobs;
   is $minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
-  ok $pkgs->has_document(1, 'spdx'), 'package has SPDX report';
+  $t->get_ok('/reviews/report_state/1')->status_is(200);
+  is_deeply $states->('/documents/documents'), {spdx => 'ready', notice => 'ready', dossier => 'none'},
+    'what was asked for is ready, nothing else';
 
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'ready');
-  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/documents/state', 'ready');
-
-  # Both documents come out of the one click, and each is offered on its own
   my $state = $t->tx->res->json('/documents');
-  is_deeply [map { $_->{key} } @{$state->{documents}}],  ['spdx', 'notice'], 'every registered document is offered';
-  is_deeply [map { $_->{name} } @{$state->{documents}}], ['1.spdx.json',       '1.NOTICE.txt'], 'named for a download';
-  is_deeply [map { $_->{url} } @{$state->{documents}}],  ['/documents/1/spdx', '/documents/1/notice'], 'and linked';
+  is_deeply [map { $_->{name} } @{$state->{documents}}], ['1.spdx.json', '1.NOTICE.txt', '1.dossier.md'],
+    'every registered document is named for a download';
+  is_deeply [map { $_->{url} } @{$state->{documents}}],
+    ['/documents/1/spdx', '/documents/1/notice', '/documents/1/dossier'], 'and linked';
 
   # The size is the one the download produces, which is the uncompressed report, not the file on disk
   my $path = $pkgs->document_path(1, 'spdx');
   gunzip("$path" => \my $buffer) or die "gunzip failed: $GunzipError";
-  my ($ready) = grep { $_->{key} eq 'spdx' } @{$pkgs->ready_documents(1)};
+  my ($ready) = grep { $_->{key} eq 'spdx' } @{$pkgs->document_status($pkgs->find(1))};
   is $ready->{size}, length($buffer), 'the reported size is the uncompressed one';
   ok length($buffer) > -s $path, 'and it is bigger than the file on disk';
   like $state->{documents}[0]{size}, qr/^[\d.]+\s?\w+$/, 'the control gets a human readable size';
 
+  $t->post_ok('/documents/1/cyclonedx')->status_is(404);
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 
-# A report asked for while the package is busy has to wait for it rather than quietly produce nothing: the
-# reviewer who clicked is watching an animation that would otherwise never resolve.
-subtest 'A report job waits for whoever is holding the package' => sub {
+# Documents are built without holding the package, an SBOM can take hours. What keeps one from being handed out after
+# the report changed under it is the stamp taken when its build started.
+subtest 'A document built from a report that was replaced meanwhile counts as missing' => sub {
   my $pkgs   = $t->app->packages;
   my $minion = $t->app->minion;
   $pkgs->remove_documents(1);
 
   my $guard = $pkgs->claim_guard(1, 99999);
-  ok $guard, 'package claimed by somebody else';
-
-  my $id = $minion->enqueue('documents' => [1] => {notes => {pkg_1 => 1}});
-
-  # Perform exactly one attempt: perform_jobs would drain the queue, and on a slow runner a single loop
-  # iteration outlasts the few-second first-retry delay, so the freshly delayed job becomes ready again
-  # and spins the retry count up until the delay settles to a minute.
-  my $worker = $minion->worker->register;
-  $worker->dequeue(0, {id => $id})->perform;
-  $worker->unregister;
-  ok !$pkgs->has_document(1, 'spdx'), 'no report was written';
-
-  my $info = $minion->job($id)->info;
-  is $info->{state},                               'inactive', 'the job went back into the queue instead of finishing';
-  is $info->{retries},                             1,          'and counts its attempt';
-  is $minion->jobs({states => ['failed']})->total, 0,          'no failed jobs';
-
-  # Somebody is watching the button, so the first attempts come back in seconds rather than minutes
-  my $waited = $info->{delayed} - $info->{retried};
-  ok $waited <= 5, "the first retry waits seconds, not minutes ($waited)";
-
-  # Which is what keeps the button spinning while the wait lasts
-  $t->get_ok('/login')->status_is(302)->header_is(Location => '/');
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'building');
-  $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
-
-  # Once the holder lets go, the retry finds the package free and writes the report
-  undef $guard;
-  $minion->job($id)->retry;
+  ok $guard, 'package claimed by a rebuild';
+  $pkgs->generate_document(1, 'spdx');
   $minion->perform_jobs;
   is $minion->jobs({states => ['failed']})->total, 0, 'no failed jobs';
-  ok $pkgs->has_document(1, 'spdx'), 'package has SPDX report';
+  ok $pkgs->has_document(1, 'spdx'), 'the SBOM was built all the same';
+  undef $guard;
+
+  # The build started from the old report and a re-analysis replaces it while it runs
+  my $stamp = $pkgs->report_stamp($pkgs->find(1));
+  $pkgs->analyze(1);
+  $minion->perform_jobs;
+  $t->app->spdx->generate_to_file(1, $pkgs->document_path(1, 'spdx'), $stamp);
+  ok -e $pkgs->document_path(1, 'spdx'), 'the file is written';
+  ok !$pkgs->has_document(1, 'spdx'),    'but nobody is handed it';
+
+  $pkgs->generate_document(1, 'spdx');
+  $minion->perform_jobs;
+  ok $pkgs->has_document(1, 'spdx'), 'the next request builds it from the current report';
 };
 
 subtest 'SPDX report is obsolete' => sub {
@@ -852,7 +849,7 @@ subtest 'SPDX report is obsolete' => sub {
   $t->get_ok('/documents/1/spdx')->status_is(410)->content_like(qr/package is obsolete/);
 
   # And the button says so rather than offering a report that can never be built
-  $t->post_ok('/documents/1')->status_is(410)->json_is('/state', 'unavailable');
+  $t->post_ok('/documents/1/spdx')->status_is(410)->json_is('/state', 'unavailable');
   $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/documents/state', 'unavailable');
 
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');

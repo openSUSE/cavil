@@ -12,12 +12,12 @@ resolution, and SBOM generation.
 * [License Pattern Lifecycle](PatternLifecycle.md)
 
   A plain-language guide, written for lawyers and reviewers, to how a piece of text becomes a reusable license
-  pattern — the review queues, who proposes what, and what "missing license" means.
+  pattern - the review queues, who proposes what, and what "missing license" means.
 
 * [User API](UserAPI.md)
 
-  Legal reports and SPDX documents over HTTP, the MCP endpoint for AI assisted review, and the agent skills that ship
-  with Cavil for triaging the review queue.
+  Legal reports and SPDX documents over HTTP, the MCP endpoint for AI assisted review, the agent skills that ship
+  with Cavil for triaging the review queue, and the AI review dossier for AI tools that cannot reach Cavil.
 
 * [Contributors](Contributors.md)
 

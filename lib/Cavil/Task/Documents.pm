@@ -8,28 +8,19 @@ sub register ($self, $app, $config) {
   $app->minion->add_task(documents => \&_documents);
 }
 
-sub _documents ($job, $id) {
+# One document, without holding the package: the stamp is taken before the build starts, so if the report or anything
+# else the document is built from changes in the meantime, the document counts as missing rather than being handed out
+sub _documents ($job, $id, $key) {
   my $app  = $job->app;
   my $pkgs = $app->packages;
 
-  # Busy packages are retried because an interactive download is waiting for output.
-  my $pkg_guard = $pkgs->claim_guard($id, $job->id);
-  unless ($pkg_guard) {
-    my $retries = $job->info->{retries} // 0;
-    return $job->fail("Package $id has been busy for an hour, giving up") if $retries >= 70;
-    return $job->retry({delay => $retries < 10 ? 3 : 60});
-  }
   return $job->fail("Package $id is not indexed yet") unless $pkgs->is_indexed($id);
+  return $job->fail("Unknown document $key") unless my $doc = $pkgs->document($key);
+  return $job->finish("Document $key of package $id is up to date") if $pkgs->has_document($id, $key);
 
   # A registry key names the application helper that generates it, so a new format needs no wiring here
-  $pkgs->remove_documents($id);
-  for my $doc (@{$pkgs->DOCUMENTS}) {
-    my $key = $doc->{key};
-    $app->$key->generate_to_file($id, $pkgs->document_path($id, $key));
-  }
-
-  # The only job touching the package, so a reindex requested while it was running has nobody else to pick it up
-  $pkgs->hand_back($id, $job->id);
+  my $stamp = $pkgs->${\$doc->{stamp}}($pkgs->find($id));
+  $app->$key->generate_to_file($id, $pkgs->document_path($id, $key), $stamp);
 }
 
 1;

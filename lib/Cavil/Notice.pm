@@ -4,27 +4,21 @@
 package Cavil::Notice;
 use Mojo::Base -base, -signatures;
 
-use Cavil::Util        qw(license_text spdx_identifiers spdx_only_expression);
-use IO::Compress::Gzip qw($GzipError);
-use Mojo::File         qw(path);
-use Mojo::Util         qw(encode scope_guard);
+use Cavil::Util qw(document_writer license_text spdx_identifiers spdx_only_expression);
+use Mojo::Util  qw(encode);
 
 use constant RULE  => '=' x 78;
 use constant MINOR => '-' x 78;
 
 has 'app';
 
-sub generate_to_file ($self, $id, $file) {
-  path($file)->remove if -e $file;
-
+sub generate_to_file ($self, $id, $file, $stamp = undef) {
   my $app     = $self->app;
   my $reports = $app->reports;
   my $pkg     = $app->pg->db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
   my $version = ($reports->declarations($id)->{declarations}[0] // {})->{version};
 
-  my $tmp_file = "$file.tmp";
-  my $cleanup  = scope_guard sub { -e $tmp_file && path($tmp_file)->remove };
-  my $handle   = IO::Compress::Gzip->new($tmp_file) or die qq{Can't create NOTICE "$tmp_file": $GzipError};
+  my ($handle, $tmp) = document_writer($file, $stamp);
 
   # The gzip layer takes bytes, and everything written here is characters
   my $out = sub (@text) { $handle->print(encode('UTF-8', join '', @text)) };
@@ -74,7 +68,7 @@ sub generate_to_file ($self, $id, $file) {
   _unattributed($out, $reports, $id);
 
   $handle->close;
-  path($tmp_file)->move_to($file);
+  $tmp->move_to($file);
 }
 
 sub _header ($out, $pkg, $version) {

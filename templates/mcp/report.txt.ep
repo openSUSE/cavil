@@ -49,6 +49,23 @@ Created: <%== Mojo::Date->new($summary->{created})->to_datetime %>
 
 
 % }
+% if (@$history) {
+## Review History
+
+Decisions on other versions of this package, newest first. A lawyer's result on the same report is the strongest precedent.
+
+%   for my $h (@$history) {
+%     my $who  = $h->{login} ? " by $h->{login}" : '';
+* <%= $h->{id} %><%== $h->{version} ? " (version $h->{version})" : '' %>: <%= $h->{state} %><%== $who %> on <%= Mojo::Date->new($h->{reviewed_epoch})->to_datetime %><%== $h->{same} ? ' [same report]' : '' %>
+%     if (length(my $result = $h->{result} // '')) {
+%       $result =~ s/\s+/ /g;
+  Result: <%== length $result > 1000 ? substr($result, 0, 1000) . '...' : $result %>
+%     }
+%   }
+
+
+
+% }
 % if (@{$summary->{legal_review_notices}}) {
 ## Legal Review Notices from Packagers
 
@@ -149,7 +166,7 @@ similarity drops.
 
 %   for my $file (@{$report->{missed_files}}) {
 %     my $license = $file->{spdx} || $file->{license};
-* `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $license %>", estimated risk <%== $file->{max_risk} %>
+* `<%== $file->{name} %>`: <%== $file->{match} %>% similarity to "<%== $license %>", estimated risk <%== $file->{max_risk} %><%== $new_files->{$file->{name}} ? ' NEW' : '' %>
 %   }
 
 % }
@@ -161,13 +178,13 @@ similarity drops.
 
 %   for my $lic (sort keys %$current) {
 %     my $matches = $current->{$lic};
-%     my $files = [sort @{$matches->{files}}];
+%     my $files = [sort { $a->[1] cmp $b->[1] } @{$matches->{files}}];
 %     my $num = scalar @$files;
 %     my $max_files = $MAX_FILES_PER_LICENSE > $num ? $num : $MAX_FILES_PER_LICENSE;
 %     my @flag_labels = (['patent', 'Patent'], ['trademark', 'Trademark'], ['export_restricted', 'Export restricted'], ['cla', 'CLA'], ['eula', 'EULA']);
 %     my %has_flag = map { $_ => 1 } @{$matches->{flags} || []};
 %     my $flags = join(', ', map { $_->[1] } grep { $has_flag{$_->[0]} } @flag_labels);
-* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %><%== $flags ? " [flags: $flags]" : '' %>
+* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %><%== $flags ? " [flags: $flags]" : '' %><%== $new_lics->{$matches->{name}} ? ' NEW' : '' %>
 %     for (my $i = $max_files - 1; $i >= 0; $i--) {
   - `<%== $files->[$i][1] %>`
 %     }
@@ -240,11 +257,25 @@ those lines: the auto-resolved snippet counts can hide them.
 * ... <%= $dropped %> more not listed
 %   }
 % }
-% if (@{$report->{components} // []}) {
+% if ($components->{total}) {
 
 ## Vendored Components
 
-%   for my $c (@{$report->{components}}) {
+%   if (my $tally = $components->{tally}) {
+<%= $components->{total} %> components. By license: <%== join ', ', map {"$_->[1] $_->[0]"} @$tally %><%== $components->{tally_dropped} ? ", and $components->{tally_dropped} more licenses" : '' %>.
+
+%     if (@{$components->{listed}}) {
+Not plainly permissive (risk above 2, or a license without a Cavil pattern), the rest are not listed:
+%     }
+%     else {
+All of them are plainly permissive, so none are listed.
+%     }
+
+%   }
+%   for my $c (@{$components->{listed}}) {
 * `<%== $c->{name} %><%== length($c->{version} // '') ? '@' . $c->{version} : '' %>` (<%== $c->{type} %>)<%== length($c->{license} // '') ? ': ' . $c->{license} : '' %>
+%   }
+%   if (my $dropped = $components->{unusual_dropped}) {
+* ... <%= $dropped %> more not listed
 %   }
 % }

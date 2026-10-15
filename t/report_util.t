@@ -13,7 +13,8 @@ use Cavil::ReportUtil (
   qw(new_license_names new_unresolved_files overlapping_licenses peripheral_scope ranked_incompatibilities),
   qw(report_checksum report_risk report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
-  qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
+  qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_line_numbers unexplained_lines),
+  qw(is_catalog_entry license_terms_kind)
 );
 
 # A small injectable OSADL-style matrix (outbound -> inbound), so the compatibility tests do not depend
@@ -581,6 +582,23 @@ subtest 'peripheral_scope' => sub {
   is peripheral_scope([]),                                     undef, 'no files at all is not vacuously peripheral';
 };
 
+subtest 'license_terms_kind' => sub {
+  is license_terms_kind('fw/LICENSES/LICENSE.dell'),         undef,             'vendor terms in LICENSES ship';
+  is license_terms_kind('linux/LICENSES/preferred/GPL-2.0'), 'license catalog', 'SPDX-named catalog text';
+  is license_terms_kind('linux/LICENSES/GPL-2.0'),           'license catalog', 'not license-named';
+  is license_terms_kind('vendor/x/LICENSES/LICENSE.foo'),    'vendored',        'vendored terms stay vendored';
+  is license_terms_kind('docs/licenses/LICENSE.bar'),        'documentation',   'docs stay docs';
+  is license_terms_kind('src/main.c'),                       undef,             'plain source';
+  ok is_catalog_entry('debian/copyright'),                'Debian copyright';
+  ok is_catalog_entry('tools/debian/copyright.template'), 'Debian copyright template';
+  ok !is_catalog_entry('COPYRIGHT'),                      'a package COPYRIGHT file';
+};
+
+subtest 'unexplained_line_numbers' => sub {
+  is_deeply unexplained_line_numbers([[2, 2]], ['a', 'b', '', 'c']), [1, 4], 'uncovered non-blank lines';
+  is unexplained_lines([[2, 2]], ['a', 'b', '', 'c']), 2, 'counted the same way';
+};
+
 subtest 'license_document_candidates' => sub {
   my $report = sub {
     my %files;
@@ -601,6 +619,26 @@ subtest 'license_document_candidates' => sub {
     my $found = license_document_candidates(
       $report->('LICENSE', 'node_modules/foo/LICENSE', 'vendor/bar/COPYING', 'licenses/OGDL-Taiwan-1.0'));
     is_deeply [map { $_->{path} } @{$found->{documents}}], ['LICENSE'], 'only the package own license file survives';
+  };
+
+  subtest 'A LICENSES directory counts when it holds license-named terms' => sub {
+    my $found = license_document_candidates(
+      $report->(
+        'fw/LICENSES/LICENSE.dell',         'fw/LICENSES/LICENCE.HP',
+        'linux/LICENSES/preferred/GPL-2.0', 'linux/LICENSES/LICENSE.oddity',
+        'cockpit/LICENSES/GPL-3.0.txt',     'vendor/x/LICENSES/LICENSE.foo',
+        'docs/licenses/LICENSE.bar'
+      )
+    );
+    is_deeply [map { $_->{path} } @{$found->{documents}}],
+      ['fw/LICENSES/LICENCE.HP', 'fw/LICENSES/LICENSE.dell', 'linux/LICENSES/LICENSE.oddity'],
+      'vendor terms are kept, SPDX-named catalog texts and peripheral trees are not';
+  };
+
+  subtest 'Debian copyright catalogs are not the package terms' => sub {
+    my $found = license_document_candidates(
+      $report->('LICENSE', 'debian/copyright', 'tools/debian/copyright.template', 'COPYRIGHT'));
+    is_deeply [map { $_->{path} } @{$found->{documents}}], ['COPYRIGHT', 'LICENSE'], 'only real terms remain';
   };
 
   # The peripheral classifier is shared with the incompatibility proximity ranking, where docs are

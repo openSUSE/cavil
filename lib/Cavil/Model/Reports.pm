@@ -70,17 +70,7 @@ sub _legal_documents ($self, $id, $dig_report) {
   my $db = $self->pg->db;
   return $result unless my $pkg = $db->select('bot_packages', ['name', 'checkout_dir'], {id => $id})->hash;
 
-  # Every candidate's licensed line spans in one query. The question is whether Cavil recognised the text
-  # at all, so catch_all markers count - excluding them (as the cover guard does, where the question is
-  # whether a license may be asserted) leaves a NOTICE of matched attribution boilerplate reading as
-  # almost entirely unexplained. Keyword patterns stay out: they are trigger words, and a stray
-  # "copyright notice" would mark a line of novel terms as explained. The file ids pin one generation.
-  my %spans;
-  my $matches = $db->query(
-    "SELECT pm.file, pm.sline, pm.eline FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
-      WHERE pm.file = ANY(?) AND pm.ignored = false AND lp.license <> ''", [map { $_->{id} } @$docs]
-  );
-  push @{$spans{$_->[0]}}, [$_->[1], $_->[2]] for $matches->arrays->each;
+  my $spans = $self->licensed_spans([map { $_->{id} } @$docs]);
 
   # Blankness and line numbering do not require decoding.
   my $base = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir}, '.unpacked');
@@ -95,11 +85,26 @@ sub _legal_documents ($self, $id, $dig_report) {
       kind        => 'license',
       path        => $doc->{path},
       lines       => $total,
-      unexplained => unexplained_lines($spans{$doc->{id}}, \@lines)
+      unexplained => unexplained_lines($spans->{$doc->{id}}, \@lines)
       };
   }
 
   return $result;
+}
+
+# Every file's licensed line spans in one query. The question is whether Cavil recognised the text at all, so
+# catch_all markers count - excluding them (as the cover guard does, where the question is whether a license may
+# be asserted) leaves a NOTICE of matched attribution boilerplate reading as almost entirely unexplained. Keyword
+# patterns stay out: they are trigger words, and a stray "copyright notice" would mark a line of novel terms as
+# explained. The file ids pin one generation.
+sub licensed_spans ($self, $file_ids) {
+  my %spans;
+  my $matches = $self->pg->db->query(
+    "SELECT pm.file, pm.sline, pm.eline FROM pattern_matches pm JOIN license_patterns lp ON lp.id = pm.pattern
+      WHERE pm.file = ANY(?) AND pm.ignored = false AND lp.license <> ''", $file_ids
+  );
+  push @{$spans{$_->[0]}}, [$_->[1], $_->[2]] for $matches->arrays->each;
+  return \%spans;
 }
 
 sub risk_is_acceptable {
@@ -166,30 +171,36 @@ sub licenses_present ($self, $id, $generation = 0) {
     $id, $generation)->arrays->flatten->to_array;
 }
 
-# Joined in the database and streamed, because a vendored package has millions of (notice, file) pairs
-# that must not reach Perl
+# Joined in the database and streamed, because a vendored package has millions of (notice, file) pairs that must not
+# reach Perl. Each notice's file list is unnested so the join is a hash join on the name: matching names with "= ANY"
+# compares every notice with every file, which took a kernel 24 minutes against well under a second.
 sub each_licensed_copyright ($self, $id, $generation, $cb) {
   my $sql = qq{
-    SELECT DISTINCT $MATCH_LICENSE COLLATE "C" AS license, c.copyright COLLATE "C" AS copyright
-      FROM copyrights c
-      JOIN matched_files mf ON mf.package = c.package AND mf.generation = c.generation
-                           AND $ORIGINAL_NAME = ANY(c.files)
+    SELECT DISTINCT $MATCH_LICENSE COLLATE "C" AS license, cf.copyright COLLATE "C" AS copyright
+      FROM (SELECT c.copyright, unnest(c.files) AS name FROM copyrights c WHERE c.package = ? AND c.generation = ?) cf
+      JOIN matched_files mf ON mf.package = ? AND mf.generation = ? AND $ORIGINAL_NAME = cf.name
       JOIN pattern_matches  pm ON pm.file = mf.id AND pm.ignored = false
       JOIN license_patterns lp ON lp.id = pm.pattern AND lp.catch_all = false
-     WHERE c.package = ? AND c.generation = ? AND $MATCH_LICENSE <> ''
+     WHERE $MATCH_LICENSE <> ''
      ORDER BY license, copyright};
-  return $self->_each_row($sql, [$id, $generation], $cb);
+  return $self->_each_row($sql, [$id, $generation, $id, $generation], $cb);
 }
 
-# A notice Cavil cannot attribute still has to be retained by whoever redistributes the code
+# A notice Cavil cannot attribute still has to be retained by whoever redistributes the code. Set based for the same
+# reason as above: the notices with any licensed file are found in one hash join, the rest are what is left.
 sub each_unlicensed_copyright ($self, $id, $generation, $cb) {
   my $sql = qq{
+    WITH licensed AS (SELECT DISTINCT $ORIGINAL_NAME AS name $LICENSED_FILE),
+      attributed AS (
+        SELECT DISTINCT c.id FROM copyrights c CROSS JOIN LATERAL unnest(c.files) f(name)
+          JOIN licensed l ON l.name = f.name
+         WHERE c.package = ? AND c.generation = ?
+      )
     SELECT c.copyright
-      FROM copyrights c
-     WHERE c.package = ? AND c.generation = ?
-       AND NOT EXISTS (SELECT 1 $LICENSED_FILE AND $ORIGINAL_NAME = ANY(c.files))
+      FROM copyrights c LEFT JOIN attributed a ON a.id = c.id
+     WHERE c.package = ? AND c.generation = ? AND a.id IS NULL
      ORDER BY c.copyright COLLATE "C"};
-  return $self->_each_row($sql, [$id, $generation, $id, $generation], $cb);
+  return $self->_each_row($sql, [$id, $generation, $id, $generation, $id, $generation], $cb);
 }
 
 # Text behind a license that will resolve to a LicenseRef. The WHERE mirrors the condition Cavil::SPDX

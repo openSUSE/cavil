@@ -8,8 +8,10 @@ use Cavil::Model::AuditLog qw(audit_event);
 use Cavil::Model::Notes    qw(relevance_predicate);
 use Cavil::Util            qw(checkout_path incoming_priority md5_file paginate parse_list_filter),
   qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP), qw(PRIORITY_WAITING @LICENSE_FLAGS);
+use IO::Uncompress::Gunzip;
 use Mojo::File qw(path);
-use Mojo::Util qw(dumper scope_guard);
+use Mojo::JSON qw(to_json);
+use Mojo::Util qw(dumper encode md5_sum scope_guard);
 use Text::Glob qw(glob_to_regex);
 
 has [qw(checkout_dir classifier log minion pg)];
@@ -17,10 +19,35 @@ has [qw(checkout_dir classifier log minion pg)];
 # Adding a derived format is an entry here plus its generator; the job, the polled state, the routes and
 # the report UI all read this list. "gzip" is per entry because a format can be an archive served as it
 # lies. The ".report." prefix is not cosmetic: Cavil::Checkout keeps files carrying it out of the unpacked
-# tree and out of the indexer, so a format named anything else gets indexed as package content.
+# tree and out of the indexer, so a format named anything else gets indexed as package content. A "stamp" names
+# the method fingerprinting what the document was built from, taken when its build starts and recorded in the gzip
+# header; a document whose stamp no longer matches counts as missing. That is what lets documents be built without
+# holding the package: a report promoted in the middle of a build leaves a document nobody is ever handed.
 use constant DOCUMENTS => [
-  {key => 'spdx',   file => '.report.spdx.json.gz',  name => 'spdx.json',  type => 'application/json', gzip => 1},
-  {key => 'notice', file => '.report.notice.txt.gz', name => 'NOTICE.txt', type => 'text/plain',       gzip => 1}
+  {
+    key   => 'spdx',
+    file  => '.report.spdx.json.gz',
+    name  => 'spdx.json',
+    type  => 'application/json',
+    gzip  => 1,
+    stamp => 'report_stamp'
+  },
+  {
+    key   => 'notice',
+    file  => '.report.notice.txt.gz',
+    name  => 'NOTICE.txt',
+    type  => 'text/plain',
+    gzip  => 1,
+    stamp => 'report_stamp'
+  },
+  {
+    key   => 'dossier',
+    file  => '.report.dossier.md.gz',
+    name  => 'dossier.md',
+    type  => 'text/markdown',
+    gzip  => 1,
+    stamp => 'dossier_stamp'
+  }
 ];
 
 sub document ($self, $key) {
@@ -50,21 +77,60 @@ sub _size ($doc, $path) {
   return unpack 'V', $isize;
 }
 
-sub has_document ($self, $id, $key) { return -f $self->document_path($id, $key) }
+# Everything the dossier quotes besides the report, as whole rows so a new column is covered without
+# anybody remembering it. Only columns that change while nothing the dossier shows does are left out; one forgotten
+# here costs a needless rebuild, never a stale dossier. (Not the package summary: it reports the documents' own state.)
+sub dossier_stamp ($self, $pkg) {
+  my $rows = $self->pg->db->query(
+    "SELECT md5(concat_ws('|',
+       (SELECT (to_jsonb(p) - 'processing_job' - 'index_stage' - 'reindex_requested' - 'reindex_priority' - 'cleaned'
+          - 'sbom_version')::text FROM bot_packages p WHERE id = \$1),
+       COALESCE((SELECT string_agg(to_jsonb(r)::text, ',' ORDER BY r.id) FROM bot_requests r WHERE package = \$1), ''),
+       COALESCE((SELECT string_agg(to_jsonb(pp)::text, ',' ORDER BY pp.product) FROM bot_package_products pp
+          WHERE package = \$1), ''),
+       COALESCE((SELECT string_agg(to_jsonb(n)::text, ',' ORDER BY n.id) FROM package_notes n WHERE package_name = \$2),
+          '')))", $pkg->{id}, $pkg->{name}
+  )->array->[0];
+  return md5_sum(encode('UTF-8', to_json([$rows, $self->review_history($pkg), $self->report_stamp($pkg)])));
+}
 
-# undef unless every registered document is there: they are built in one pass, so a partial set means the
-# job is still running or died
-sub ready_documents ($self, $id) {
-  my $dir = $self->pkg_checkout_dir($id);
+sub has_document ($self, $id, $key) {
+  my $doc  = $self->document($key);
+  my $path = $self->document_path($id, $key);
+  return -f $path && $self->_fresh($doc, $path, $self->find($id));
+}
 
-  my @documents;
-  for my $doc (@{DOCUMENTS()}) {
-    my $path = $dir->child($doc->{file});
-    return undef unless -f $path;
-    push @documents, {key => $doc->{key}, name => "$id.$doc->{name}", size => _size($doc, $path)};
-  }
+# Every registered document of a package row, built on its own, each ready or not
+sub document_status ($self, $pkg) {
+  my $dir = checkout_path($self->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
+  return [
+    map {
+      my $path  = $dir->child($_->{file});
+      my $ready = -f $path && $self->_fresh($_, $path, $pkg);
+      {
+        key   => $_->{key},
+        name  => "$pkg->{id}.$_->{name}",
+        ready => $ready ? 1                : 0,
+        size  => $ready ? _size($_, $path) : undef
+      }
+    } @{DOCUMENTS()}
+  ];
+}
 
-  return \@documents;
+# The report a document was built from, as stored: every rebuild and re-analyze writes it anew. Its JSON is not
+# serialised in a stable key order, so a re-analyze that changed nothing still makes the documents count as missing,
+# a rebuild on the next request rather than evidence nobody can tell is outdated.
+sub report_stamp ($self, $pkg) {
+  my $row
+    = $self->pg->db->query("SELECT md5(concat_ws('|', ldig_report, annotations)) FROM bot_reports WHERE package = ?",
+    $pkg->{id})->array;
+  return $row ? $row->[0] // '' : '';
+}
+
+sub _fresh ($self, $doc, $path, $pkg) {
+  return 1 unless my $stamp = $doc->{stamp};
+  my $gz = IO::Uncompress::Gunzip->new("$path") or return 0;
+  return ($gz->getHeaderInfo->{Comment} // '') eq $self->$stamp($pkg);
 }
 
 sub add ($self, %args) {
@@ -370,14 +436,15 @@ sub flags ($self, $id, $generation = 0) {
   return $flags;
 }
 
-# The queue is the deduplication record and cannot outlive the job as a lock can. Somebody is always
-# waiting for the download, so the job goes in at waiting priority.
-sub generate_documents ($self, $id) {
-  return if $self->ready_documents($id);
+# One job per document. The queue is the deduplication record and cannot outlive the job as a lock can, so a
+# double click, or two reviewers on the same report, cost one job between them. Somebody is always waiting for the
+# download, so the job goes in at waiting priority.
+sub generate_document ($self, $id, $key) {
+  return if $self->has_document($id, $key);
 
-  my $minion = $self->minion;
-  return if $minion->jobs({tasks => ['documents'], states => ['inactive', 'active'], notes => ["pkg_$id"]})->total;
-  $minion->enqueue('documents' => [$id] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}});
+  my $jobs = $self->minion->jobs({tasks => ['documents'], states => ['inactive', 'active'], notes => ["pkg_$id"]});
+  while (my $job = $jobs->next) { return if ($job->{args}[1] // '') eq $key }
+  $self->minion->enqueue('documents' => [$id, $key] => {priority => PRIORITY_WAITING, notes => {"pkg_$id" => 1}});
 }
 
 sub has_file_stats ($self, $id) {
@@ -399,6 +466,21 @@ sub history ($self, $name, $checksum, $id) {
      from bot_packages p left join bot_users u on p.reviewing_user = u.id
      where name = ? and checksum = ? and p.id != ? and state != 'new' and ephemeral = false
      order by p.id desc", $name, $checksum, $id
+  )->hashes->to_array;
+}
+
+# Embargoed reviews stay out because a reviewer's result can describe the embargoed issue, and this history is
+# handed to AI. The version comes from the stored declarations only, building them would need the checkout.
+sub review_history ($self, $pkg, $limit = 5) {
+  return $self->pg->db->query(
+    "SELECT p.id, p.state, p.result, p.checksum, p.external_link, u.login,
+       EXTRACT(EPOCH FROM COALESCE(p.reviewed, p.created)) AS reviewed_epoch,
+       r.declarations::jsonb #>> '{declarations,0,version}' AS version
+     FROM bot_packages p
+       LEFT JOIN bot_users u ON u.id = p.reviewing_user
+       LEFT JOIN bot_reports r ON r.package = p.id
+     WHERE p.name = ? AND p.id != ? AND p.state != 'new' AND p.ephemeral = false AND p.embargoed = false
+     ORDER BY p.id DESC LIMIT ?", $pkg->{name}, $pkg->{id}, $limit
   )->hashes->to_array;
 }
 

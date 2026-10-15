@@ -7,7 +7,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(license_classification peripheral_scope report_risk);
 use Cavil::Role       qw(roles_with_capability);
-use Cavil::Util       qw(external_link_data license_link spdx_link);
+use Cavil::Util       qw(external_link_data extract_spdx_identifiers license_link spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(false from_json true);
@@ -119,35 +119,40 @@ sub _reindex_state ($c, $pkg) {
   };
 }
 
-# Where the package stands with its derived documents, for the download control on the report page. They
-# are generated on demand, so the control has to be able to say "they are here", "they are on their way",
-# "the last attempt failed" and "ask for them" - and it polls, so this has to stay cheap: a stat per
-# document, and a queue lookup only in the uncommon case that there is nothing to hand out.
+# Where each derived document of the package stands, for its download control on the report page. Each is generated
+# on demand and on its own, so every control has to be able to say "it is here", "it is on its way", "the last attempt
+# failed" and "ask for it" - and it polls, so this has to stay cheap: a stat per document, and a queue lookup only
+# when one is missing.
 #
-# Only the newest job for the package is consulted. Looking for a failed one instead would leave a single
-# bad attempt stuck to the row for as long as the job table keeps it, long after a later attempt succeeded
-# and the documents were collected.
+# Only the newest job for each document is consulted. Looking for a failed one instead would leave a single bad
+# attempt stuck to the row for as long as the job table keeps it, long after a later attempt succeeded.
 sub _documents_state ($c, $pkg) {
   my $id = $pkg->{id};
   return {state => 'unavailable'} if $pkg->{obsolete} || !$pkg->{indexed};
 
-  my $pkgs = $c->packages;
-  if (my $documents = $pkgs->ready_documents($id)) {
-    return {
-      state     => 'ready',
-      documents => [
-        map {
-          { %$_, url => "/documents/$id/$_->{key}", size => defined $_->{size} ? humanize_bytes($_->{size}) : undef }
-        } @$documents
-      ]
-    };
+  my $documents = $c->packages->document_status($pkg);
+  my %job;
+  if (grep { !$_->{ready} } @$documents) {
+    my $jobs = $c->minion->jobs({tasks => ['documents'], notes => ["pkg_$id"]});
+    while (my $job = $jobs->next) { $job{$job->{args}[1] // ''} //= $job->{state} }
   }
 
-  my $job = $c->minion->jobs({tasks => ['documents'], notes => ["pkg_$id"]})->next;
-  return {state => 'none'} unless $job;
-  return {state => 'building'} if $job->{state} eq 'inactive' || $job->{state} eq 'active';
-  return {state => 'failed'}   if $job->{state} eq 'failed';
-  return {state => 'none'};
+  my %building = (inactive => 1, active => 1);
+  return {
+    state     => 'available',
+    documents => [
+      map {
+        my $job = $job{$_->{key}} // '';
+        {
+          key   => $_->{key},
+          name  => $_->{name},
+          url   => "/documents/$id/$_->{key}",
+          size  => defined $_->{size} ? humanize_bytes($_->{size}) : undef,
+          state => $_->{ready} ? 'ready' : $building{$job} ? 'building' : $job eq 'failed' ? 'failed' : 'none'
+        }
+      } @$documents
+    ]
+  };
 }
 
 sub _report_details ($c, $pkg, $report) {
@@ -309,16 +314,57 @@ sub _mcp_report ($c, $id, $opts = {}) {
   my $email_limit = $opts->{email_limit} // 10;
   my $wanted      = $url_limit > $email_limit ? $url_limit : $email_limit;
 
+  my $pkg  = $c->packages->find($id);
+  my $diff = eval { from_json($pkg->{diff_report} // 'null') } // {};
+
   return $c->render_to_string(
     'mcp/report',
-    format      => 'txt',
-    report      => $report,
-    summary     => $summary,
+    format  => 'txt',
+    report  => $report,
+    summary => $summary,
+    history => [
+      map {
+        { %$_, same => defined $_->{checksum} && $_->{checksum} eq ($pkg->{checksum} // '') }
+      } @{$c->packages->review_history($pkg)}
+    ],
+    new_files   => {map { $_->{name} => 1 } @{$diff->{new_unresolved} // []}},
+    new_lics    => {map { $_         => 1 } @{$diff->{new_licenses}   // []}},
+    components  => _components_digest($c, $report->{components} // [], $opts->{components_limit} // 50),
     unmatched   => _unmatched_rollup($c, $id),
     artifacts   => $wanted ? $c->reports->artifacts($id, $wanted) : {},
     url_limit   => $url_limit,
     email_limit => $email_limit
   );
+}
+
+# Hundreds of npm or crate rows outweigh the rest of a report, and they are almost all permissive. Past the limit,
+# what a reviewer needs is the license tally and every component that is not plainly permissive (risk above 2, or a
+# license Cavil has no pattern for), which is where a large vendored tree hides its one copyleft dependency.
+sub _components_digest ($c, $components, $limit) {
+  return {listed => [], total => 0} unless $limit && @$components;
+  return {listed => $components, total => scalar @$components} if @$components <= $limit;
+
+  my $known = $c->patterns->autocomplete;
+  my (%tally, @unusual);
+  for my $comp (@$components) {
+    my $license = $comp->{license} // '';
+    $tally{length $license ? $license : 'no license declared'}++;
+    my @ids = @{extract_spdx_identifiers($license)};
+    push @unusual, $comp if !@ids || !lic($license)->is_valid || grep { ($known->{$_}{risk} // 9) > 2 } @ids;
+  }
+  my @tally         = map { [$_, $tally{$_}] } sort { $tally{$b} <=> $tally{$a} || $a cmp $b } keys %tally;
+  my $tally_dropped = @tally > 20 ? @tally - 20 : 0;
+  splice @tally, 20;
+  my $dropped = @unusual > $limit ? @unusual - $limit : 0;
+  splice @unusual, $limit;
+
+  return {
+    listed          => \@unusual,
+    total           => scalar @$components,
+    tally           => \@tally,
+    tally_dropped   => $tally_dropped,
+    unusual_dropped => $dropped
+  };
 }
 
 sub _package_summary ($c, $id) {

@@ -16,7 +16,8 @@ Filters: relevant_only=true
 
 %   for my $note (@$notes) {
 %     my $body = $note->{body};
-%     $body = substr($body, 0, 4000) . "\n[Note body truncated]" if length $body > 4000;
+%     my $body_limit = stash('body_limit') // 4000;
+%     $body = substr($body, 0, $body_limit) . "\n[Note body truncated]" if $body_limit && length $body > $body_limit;
 %     $body =~ s/^/> /mg;
 %     my $relevance = '[other report]';
 %     if (defined $current_package_id && $note->{package_id} && $note->{package_id} == $current_package_id) {

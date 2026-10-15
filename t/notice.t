@@ -244,7 +244,7 @@ subtest 'Evidence is read from the original file, through the post-processing th
 # worse than an SBOM here: unpacking decompresses a file of pure license text back into the tree, and the
 # next index reads every line of it as package content.
 subtest 'A re-unpack does not feed the documents back into the index' => sub {
-  $t->app->packages->generate_documents(1);
+  $t->app->packages->generate_document(1, $_) for qw(spdx notice dossier);
   $t->app->minion->perform_jobs;
   my $dir = $t->app->packages->pkg_checkout_dir(1);
   ok -f $dir->child('.report.notice.txt.gz'), 'the NOTICE is cached beside the checkout';

@@ -89,13 +89,15 @@ sub register ($self, $app, $config) {
     description =>
       'Get legal report for a specific package. Unresolved snippets are summarised as a top-by-impact rollup; use'
       . ' cavil_search_snippets(package_id=...) for the full list and per-snippet detail. url_limit/email_limit cap'
-      . ' those occurrence-ordered lists (default 10, 0 = omit the section)',
+      . ' those occurrence-ordered lists (default 10, 0 = omit the section). Past components_limit (default 50, 0 ='
+      . ' omit) vendored components are summarised as a license tally plus the ones that are not plainly permissive',
     input_schema => {
       type       => 'object',
       properties => {
-        package_id  => {type => 'integer', minimum => 1},
-        url_limit   => {type => 'integer', minimum => 0, default => 10},
-        email_limit => {type => 'integer', minimum => 0, default => 10}
+        package_id       => {type => 'integer', minimum => 1},
+        url_limit        => {type => 'integer', minimum => 0, default => 10},
+        email_limit      => {type => 'integer', minimum => 0, default => 10},
+        components_limit => {type => 'integer', minimum => 0, default => 50}
       },
       required => ['package_id']
     },
@@ -515,7 +517,11 @@ sub tool_cavil_get_report ($tool, $args) {
   my ($email_limit, $ee) = _bounded_int_arg($args->{email_limit}, 10, 0, undef, 'email_limit');
   return $tool->text_result($ee, 1) if $ee;
 
-  my $report = $c->helpers->mcp_report($id, {url_limit => $url_limit, email_limit => $email_limit});
+  my ($components_limit, $ce) = _bounded_int_arg($args->{components_limit}, 50, 0, undef, 'components_limit');
+  return $tool->text_result($ce, 1) if $ce;
+
+  my $report = $c->helpers->mcp_report($id,
+    {url_limit => $url_limit, email_limit => $email_limit, components_limit => $components_limit});
   return $tool->text_result('No report available', 1) unless defined $report;
   return $tool->text_result($report);
 }

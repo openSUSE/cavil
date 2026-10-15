@@ -58,7 +58,11 @@ sub report ($self) {
         legal_documents => $self->helpers->legal_documents($id)
       );
     },
-    mcp => sub { $self->render(text => $self->helpers->mcp_report($id)) }
+    mcp => sub {
+      return $self->render(text => 'Package is embargoed and may not be processed with AI', status => 403)
+        if $pkg->{embargoed};
+      $self->render(text => $self->helpers->mcp_report($id));
+    }
   );
 }
 
@@ -144,18 +148,19 @@ sub source ($self) {
   $self->render(json => {source => $source});
 }
 
-# Ask for the documents to be built. The report page polls report_state afterwards, so the answer is the
-# same state payload that poll returns and the button can go straight into its "generating" animation.
-sub generate_documents ($self) {
+# Ask for one document to be built. The report page polls report_state afterwards, so the answer is the same state
+# payload that poll returns and the row can go straight into its spinning state.
+sub generate_document ($self) {
   my $id = $self->stash('id');
   return $self->render(json => {error => 'unknown package'}, status => 404) unless my $pkg = $self->packages->find($id);
+  return $self->render(json => {error => 'unknown document'}, status => 404)
+    unless my $doc = $self->packages->document($self->stash('key'));
 
   my $state = $self->helpers->documents_state($pkg);
   return $self->render(json => $state, status => 410) if $state->{state} eq 'unavailable';
 
-  # Idempotent: does nothing if the documents are already there or already queued, so a double click (or
-  # two reviewers on the same report) costs one job between them
-  $self->packages->generate_documents($id);
+  # Idempotent: does nothing if the document is already there or already queued
+  $self->packages->generate_document($id, $doc->{key});
   $self->render(json => $self->helpers->documents_state($pkg));
 }
 
@@ -190,7 +195,7 @@ sub document ($self) {
   }
 
   # No page here: the report UI never links a document before it exists, and a client watches the status
-  $pkgs->generate_documents($id);
+  $pkgs->generate_document($id, $doc->{key});
   $self->render(text => 'being generated', status => 408);
 }
 

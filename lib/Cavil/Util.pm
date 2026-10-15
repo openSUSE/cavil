@@ -8,8 +8,9 @@ use Carp 'croak';
 use Cpanel::JSON::XS ();
 use Digest::MD5      ();
 use Exporter 'import';
-use Encode   qw(from_to decode);
-use IPC::Run ();
+use Encode             qw(from_to decode);
+use IO::Compress::Gzip ();
+use IPC::Run           ();
 use Mojo::Util;
 use Mojo::DOM;
 use Mojo::JSON qw(from_json);
@@ -20,7 +21,8 @@ use Text::Glob 'glob_to_regex';
 use Try::Tiny;
 
 our @EXPORT_OK = (
-  qw(buckets checkout_path expand_spec_macros file_and_checksum fs_bytes md5_file slurp_and_decode load_ignored_files),
+  qw(buckets checkout_path document_writer expand_spec_macros file_and_checksum fs_bytes md5_file slurp_and_decode),
+  qw(load_ignored_files),
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
   qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file parse_list_filter),
@@ -377,6 +379,17 @@ sub buckets ($things, $size) {
   }
 
   return \@buckets;
+}
+
+# A derived document is written to a temporary file of its own beside the final one and moved into place when done, so
+# concurrent builds never share a file and a reader never sees half of one. The ".report." prefix keeps the temporary
+# file out of the indexer like the document itself, and the stamp of what it was built from goes into the gzip header.
+sub document_writer ($file, $stamp = undef) {
+  my $tmp = tempfile(DIR => path($file)->dirname, TEMPLATE => '.report.XXXXXXXX');
+  $tmp->chmod(0644);
+  my $handle = IO::Compress::Gzip->new("$tmp", defined $stamp ? (Comment => $stamp) : ())
+    or die qq{Can't create "$tmp": $IO::Compress::Gzip::GzipError};
+  return ($handle, $tmp);
 }
 
 sub md5_file ($file) {
@@ -840,6 +853,7 @@ sub read_lines ($path, $start_line, $end_line, $with_line_numbers = 0) {
   my $text = '';
   for my $row (@{Cavil::PatternEngine::read_lines($path, \%needed_lines)}) {
     my ($index, $pid, $line) = @$row;
+    my $cut = length $line >= Cavil::PatternEngine::MAX_LINE_SIZE;
 
     # Sanitize line - first try UTF-8 strict and then LATIN1
     eval { $line = decode 'UTF-8', $line, Encode::FB_CROAK; };
@@ -848,7 +862,9 @@ sub read_lines ($path, $start_line, $end_line, $with_line_numbers = 0) {
       $line = decode 'UTF-8', $line, Encode::FB_DEFAULT;
     }
 
-    # Prefix the absolute line number for reference (display-only, must not leak into patterns/snippets)
+    # Prefix the absolute line number for reference (display-only, must not leak into patterns/snippets), and say
+    # where the line cap cut a line, since whatever followed it there is missing from the display
+    $line .= ' [line truncated, ' . Cavil::PatternEngine::MAX_LINE_SIZE . ' byte limit]' if $with_line_numbers && $cut;
     $text .= $with_line_numbers ? sprintf("%6d  %s\n", $index, $line) : "$line\n";
   }
   return $text;

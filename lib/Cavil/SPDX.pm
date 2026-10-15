@@ -7,14 +7,12 @@ use Mojo::Base -base, -signatures;
 use Cavil::Checkout;
 use Cavil::Licenses qw(lic scancode_suggestion);
 use Cavil::PostProcess;
-use Cavil::Util qw(fs_bytes read_lines @LICENSE_FLAGS);
+use Cavil::Util qw(document_writer fs_bytes read_lines @LICENSE_FLAGS);
 use Digest::SHA;
-use IO::Compress::Gzip qw($GzipError);
-use Mojo::File         qw(path);
-use Mojo::JSON         qw(encode_json);
+use Mojo::JSON qw(encode_json);
 use Mojo::Date;
 use Mojo::URL;
-use Mojo::Util qw(decode scope_guard);
+use Mojo::Util qw(decode);
 
 # BSI TR-03183-2 requires SPDX 3.0.1 (or higher) in JSON format (see section 4)
 use constant SPEC_VERSION => '3.0.1';
@@ -58,9 +56,7 @@ my $ARCHIVE_RE = qr/\.(?:
 
 has 'app';
 
-sub generate_to_file ($self, $id, $file) {
-  path($file)->remove if -e $file;
-
+sub generate_to_file ($self, $id, $file, $stamp = undef) {
   my $app          = $self->app;
   my $log          = $app->log;
   my $config       = $app->config->{spdx} || {};
@@ -83,12 +79,9 @@ sub generate_to_file ($self, $id, $file) {
   my $base = "$namespace$id";
   my $iri  = sub ($fragment) {"$base#$fragment"};
 
-  my $tmp_file = "$file.tmp";
-  my $cleanup  = scope_guard sub { -e $tmp_file && path($tmp_file)->remove };
-
   # The report is stored gzip-compressed on disk (it is highly repetitive JSON, so this saves a lot of
   # space); it is served untouched to clients that accept gzip, and decompressed on the fly for the rest
-  my $handle = IO::Compress::Gzip->new($tmp_file) or die qq{Can't create SPDX report "$tmp_file": $GzipError};
+  my ($handle, $tmp) = document_writer($file, $stamp);
 
   $handle->print('{"@context":"' . CONTEXT . '","@graph":[');
   my $graph = _Graph->new(handle => $handle, first => 1);
@@ -642,9 +635,10 @@ sub generate_to_file ($self, $id, $file) {
     );
   }
 
+  $graph->flush;
   $handle->print(']}');
   $handle->close;
-  path($tmp_file)->move_to($file);
+  $tmp->move_to($file);
 }
 
 # Collect license findings for a single file from its pre-fetched snippet and match rows (fetched in
@@ -758,12 +752,17 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Util qw(encode_json_fast);
 
-# Stream elements into the "@graph" array one at a time to keep memory bounded for large packages. Each
-# element is written in a single print (comma prepended) to halve the writes into the gzip layer.
+# Stream elements into the "@graph" array to keep memory bounded for large packages, but hand them to the gzip layer
+# in chunks: a print per element costs more in IO::Compress than the compression itself (a kernel has half a million).
 sub add ($self, $node) {
-  my $json = encode_json_fast($node);
-  $self->{handle}->print($self->{first} ? $json : ",$json");
+  $self->{buffer} .= ($self->{first} ? '' : ',') . encode_json_fast($node);
   $self->{first} = 0;
+  $self->flush if length $self->{buffer} >= 65536;
+}
+
+sub flush ($self) {
+  $self->{handle}->print($self->{buffer}) if length($self->{buffer} // '');
+  $self->{buffer} = '';
 }
 
 1;

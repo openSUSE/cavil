@@ -51,13 +51,17 @@ $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\n
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
 
-# Add deterministic test files for cavil_get_file/cavil_list_files MCP tools
+# Add deterministic test files for cavil_get_file/cavil_list_files MCP tools, again after every re-unpack
 my $unpacked_dir = $dir->child('.unpacked');
-$unpacked_dir->make_path;
-my $mcp_dir = $unpacked_dir->child('mcp_get_file_dir')->make_path;
-$mcp_dir->child('mcp_get_file.txt')->spurt(encode('UTF-8', "first line\nsecond 👌 line\nthird line\nfourth line\n"));
-$mcp_dir->child('nested')->make_path->child('nested_file.txt')->spurt("nested content\n");
-$unpacked_dir->child('mcp_root_file.txt')->spurt("root content\n");
+
+sub add_mcp_files {
+  $unpacked_dir->make_path;
+  my $mcp_dir = $unpacked_dir->child('mcp_get_file_dir')->make_path;
+  $mcp_dir->child('mcp_get_file.txt')->spew(encode('UTF-8', "first line\nsecond 👌 line\nthird line\nfourth line\n"));
+  $mcp_dir->child('nested')->make_path->child('nested_file.txt')->spew("nested content\n");
+  $unpacked_dir->child('mcp_root_file.txt')->spew("root content\n");
+}
+add_mcp_files();
 
 subtest 'MCP' => sub {
   my $key           = '';
@@ -593,6 +597,93 @@ subtest 'MCP' => sub {
         like $text, qr/Tags:.+CVE-2024-3654.+needs-second-opinion/, 'contains tags';
         $t->app->pg->db->update('bot_packages', {target => undef}, {id => 1});
         $t->app->packages->set_tags(1, []);
+      };
+
+      subtest 'Review history and NEW markers' => sub {
+        my $db       = $t->app->pg->db;
+        my $lawyer   = $t->app->users->find_or_create(login => 'history_lawyer', roles => ['lawyer'])->{id};
+        my $checksum = $t->app->packages->find(1)->{checksum};
+        $db->update(
+          'bot_packages',
+          {
+            state          => 'acceptable_by_lawyer',
+            result         => "Vendor terms reviewed,\n fine to distribute",
+            reviewing_user => $lawyer,
+            checksum       => $checksum
+          },
+          {id => 2}
+        );
+        my $secret = $t->app->packages->add(
+          name            => 'perl-Mojolicious',
+          checkout_dir    => 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          api_url         => 'https://api.opensuse.org',
+          requesting_user => 1,
+          project         => 'devel:languages:perl',
+          package         => 'perl-Mojolicious',
+          srcmd5          => 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          priority        => 5
+        );
+        $db->update(
+          'bot_packages',
+          {state => 'unacceptable', result => 'EMBARGOED DETAILS', embargoed => 1},
+          {id    => $secret}
+        );
+        $db->update(
+          'bot_packages',
+          {diff_report => '{"version":1,"closest":2,"new_licenses":["Apache-2.0"]}'},
+          {id          => 1}
+        );
+
+        my $text = $client->call_tool('cavil_get_report', {package_id => 1})->{content}[0]{text};
+        like $text, qr/## Review History\n/, 'history section';
+        like $text, qr/\* 2: acceptable_by_lawyer by history_lawyer on \S+ \[same report\]\n/,
+          'lawyer decision on the same report';
+        like $text,   qr/  Result: Vendor terms reviewed, fine to distribute\n/, 'result on one line';
+        unlike $text, qr/EMBARGOED DETAILS/,                                     'embargoed sibling left out';
+        like $text,   qr/\* Apache-2\.0: \d+ files? NEW\n/,                      'new license marked';
+
+        $db->update('bot_packages', {state => 'new', result => undef, reviewing_user => undef}, {id => 2});
+        $db->update('bot_packages', {diff_report => undef}, {id => 1});
+        $db->update('bot_packages', {obsolete    => 1},     {id => $secret});
+        unlike $client->call_tool('cavil_get_report', {package_id => 1})->{content}[0]{text}, qr/Review History/,
+          'no history without decisions';
+      };
+
+      subtest 'Vendored components are summarised past the limit' => sub {
+        $t->app->patterns->create(pattern => 'mit permission notice for history test', license => 'MIT', risk => 1);
+        my @rows = (
+          (map { ["perm$_", 'MIT'] } 1 .. 55),
+          ['copyleft',   'GPL-2.0-only'],
+          ['custom',     'LicenseRef-x'],
+          ['unlicensed', undef]
+        );
+        my $modules = $dir->child('node_modules');
+        for my $row (@rows) {
+          my %manifest = (name => $row->[0], version => '1.0', $row->[1] ? (license => $row->[1]) : ());
+          $modules->child($row->[0])->make_path->child('package.json')->spew(Mojo::JSON::encode_json(\%manifest));
+        }
+        $t->app->minion->enqueue(unpack => [1]);
+        $t->app->minion->perform_jobs;
+
+        my $text = $client->call_tool('cavil_get_report', {package_id => 1})->{content}[0]{text};
+        like $text, qr/58 components\. By license: 55 MIT, 1 GPL-2\.0-only, 1 LicenseRef-x, 1 no license declared\./,
+          'license tally';
+        like $text,   qr/\* `copyleft\@1\.0` \(npm\): GPL-2\.0-only/, 'copyleft component listed';
+        like $text,   qr/\* `custom\@1\.0` \(npm\): LicenseRef-x/,    'unknown license listed';
+        like $text,   qr/\* `unlicensed\@1\.0` \(npm\)\n/,            'missing license listed';
+        unlike $text, qr/perm1\@/,                                    'permissive components not listed';
+
+        $text = $client->call_tool('cavil_get_report', {package_id => 1, components_limit => 100})->{content}[0]{text};
+        like $text,   qr/\* `perm1\@1\.0` \(npm\): MIT/, 'everything listed under the limit';
+        unlike $text, qr/By license:/,                   'no tally under the limit';
+
+        $text = $client->call_tool('cavil_get_report', {package_id => 1, components_limit => 0})->{content}[0]{text};
+        unlike $text, qr/## Vendored Components/, 'section omitted';
+
+        $modules->remove_tree;
+        $t->app->minion->enqueue(unpack => [1]);
+        $t->app->minion->perform_jobs;
+        add_mcp_files();
       };
 
       subtest 'Embargoed package' => sub {

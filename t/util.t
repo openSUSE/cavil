@@ -438,6 +438,11 @@ subtest 'read_lines' => sub {
     is read_lines($file, 2, 10, 1), "     2  b\x{e4}r\n     3  caf\x{e9}\n",
       'numbering reflects file position, not offset within the range';
     is read_lines($file, 1, 3, 0), "alpha\nb\x{e4}r\ncaf\x{e9}\n", 'falsy flag is identical to omitting it';
+
+    my $long = tempfile->spew(('x' x 9000) . " RESTRICTION\nshort\n");
+    is read_lines($long, 1, 2, 1), '     1  ' . ('x' x 8000) . " [line truncated, 8000 byte limit]\n     2  short\n",
+      'a line cut at the cap says so';
+    is read_lines($long, 1, 1), ('x' x 8000) . "\n", 'but never in raw text, which snippets are made from';
   };
 };
 

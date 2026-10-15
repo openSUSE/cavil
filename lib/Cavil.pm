@@ -22,6 +22,7 @@ use Cavil::Model::APIKeys;
 use Cavil::Model::AuditLog;
 use Cavil::Model::Snippets;
 use Cavil::Notice;
+use Cavil::Dossier;
 use Cavil::OBS;
 use Cavil::SPDX;
 use Cavil::Sync;
@@ -35,6 +36,11 @@ has notice     => sub ($self) {
   my $notice = Cavil::Notice->new(app => $self);
   weaken $notice->{app};
   return $notice;
+};
+has dossier => sub ($self) {
+  my $dossier = Cavil::Dossier->new(app => $self);
+  weaken $dossier->{app};
+  return $dossier;
 };
 has spdx => sub ($self) {
   my $spdx = Cavil::SPDX->new(app => $self);
@@ -277,7 +283,7 @@ sub startup ($self) {
   # A package is the default subject. Numeric ids are what leaves room for the same formats on a product or
   # a codestream later ("/documents/product/<name>/<key>") without moving these
   $logged_in->get('/documents/<id:num>/:key')->to('Report#document')->name('document');
-  $logged_in->post('/documents/<id:num>')->to('Report#generate_documents')->name('generate_documents');
+  $logged_in->post('/documents/<id:num>/:key')->to('Report#generate_document')->name('generate_document');
 
   $public->get('/licenses')->to('License#list')->name('licenses');
   $public->get('/pagination/licenses/known')->to('Pagination#known_licenses')->name('pagination_known_licenses');

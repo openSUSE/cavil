@@ -1,30 +1,39 @@
 <template>
   <div class="report-documents">
     <span v-if="current.state === 'unavailable'" class="report-documents-note">not available</span>
-    <template v-else-if="current.state === 'ready'">
-      <div v-for="doc in current.documents" :key="doc.key" class="report-documents-row">
-        <a class="report-documents-control report-documents-ready" :href="doc.url" :download="doc.name">
+    <template v-else>
+      <!-- One row per document, each a single control: asking for it, waiting for it and downloading it are one
+           affordance, so only the glyph changes under the cursor -->
+      <div v-for="doc in current.documents ?? []" :key="doc.key" class="report-documents-row">
+        <a
+          v-if="doc.state === 'ready'"
+          class="report-documents-control report-documents-file"
+          :href="doc.url"
+          :download="doc.name"
+          title="Download"
+        >
           <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>
           <span>{{ doc.name }}</span>
         </a>
-        <span v-if="doc.size" class="report-documents-size">{{ doc.size }}</span>
+        <button
+          v-else
+          type="button"
+          class="report-documents-control report-documents-file"
+          :disabled="doc.state === 'building' || busy[doc.key]"
+          :aria-busy="doc.state === 'building'"
+          title="Generate"
+          @click="generate(doc.key)"
+        >
+          <i
+            :class="doc.state === 'building' ? 'fa-solid fa-rotate fa-spin' : 'fa-solid fa-file-circle-plus'"
+            aria-hidden="true"
+          ></i>
+          <span>{{ doc.name }}</span>
+        </button>
+        <span v-if="doc.state === 'ready' && doc.size" class="report-documents-size">{{ doc.size }}</span>
+        <span v-else-if="doc.state === 'failed'" class="report-documents-note">last attempt failed</span>
       </div>
     </template>
-    <div v-else class="report-documents-row">
-      <!-- The same control throughout: asking for the documents and waiting for them are one affordance,
-           so only the glyph and the label change under the cursor -->
-      <button
-        type="button"
-        class="report-documents-control"
-        :disabled="building || busy"
-        :aria-busy="building"
-        @click="generate"
-      >
-        <i :class="building ? 'fa-solid fa-rotate fa-spin' : 'fa-solid fa-file-arrow-down'" aria-hidden="true"></i>
-        <span>{{ label }}</span>
-      </button>
-      <span v-if="current.state === 'failed'" class="report-documents-note">last attempt failed</span>
-    </div>
   </div>
 </template>
 
@@ -41,10 +50,10 @@ async function parseJson(res) {
   }
 }
 
-// Derived documents are built on demand and can take a while, so this is a three-state affordance rather
-// than a link: offer to build them, spin while they are being built, then hand them over. A document is
-// never fetched into the page - an SBOM runs to hundreds of megabytes, so the last state is a plain
-// browser download.
+// Derived documents are built on demand and on their own, an SBOM can take hours while a dossier takes seconds. So
+// every document is a row that offers to build it, spins while it is being built, and then hands it over. It is not
+// downloaded on its own when ready: browsers block a page starting several downloads, and cancel one for the next. A
+// document is never fetched into the page - an SBOM runs to hundreds of megabytes, so the last step is a plain link.
 export default {
   name: 'ReportDocuments',
   props: {
@@ -56,7 +65,7 @@ export default {
   emits: ['error'],
   data() {
     return {
-      busy: false,
+      busy: {},
 
       // Set once this component has an answer of its own (from the POST or its own poll), which is fresher
       // than the metadata refresh that feeds the prop. Dropped again as soon as the two can no longer
@@ -67,43 +76,35 @@ export default {
   },
   computed: {
     building() {
-      return this.current.state === 'building';
+      return (this.current.documents ?? []).some(doc => doc.state === 'building');
     },
     current() {
-      return this.override ?? this.documents ?? {state: 'none'};
-    },
-    generateUrl() {
-      return `/documents/${this.pkgId}`;
-    },
-    // The row is already labelled "Documents", so the verb carries it on its own
-    label() {
-      if (this.building) return 'Generating';
-      return this.current.state === 'failed' ? 'Try again' : 'Generate';
+      return this.override ?? this.documents ?? {documents: []};
     }
   },
   watch: {
     // Polling is tied to the state rather than to the click, so documents somebody else asked for (or ones
     // already being built when the page opened) are watched to completion just the same
-    'current.state': {
-      handler(state) {
-        if (state === 'building') this.startPolling();
+    building: {
+      handler(building) {
+        if (building) this.startPolling();
         else this.stopPolling();
       },
       immediate: true
     },
     documents() {
-      if (this.timer === null && this.busy === false) this.override = null;
+      if (this.timer === null && Object.keys(this.busy).length === 0) this.override = null;
     }
   },
   beforeUnmount() {
     this.stopPolling();
   },
   methods: {
-    async generate() {
-      this.busy = true;
+    async generate(key) {
+      this.busy[key] = true;
       try {
         const ua = new UserAgent({baseURL: window.location.href});
-        const res = await ua.post(this.generateUrl);
+        const res = await ua.post(`/documents/${this.pkgId}/${key}`);
         const data = await parseJson(res);
 
         if (res.isSuccess && data !== null) {
@@ -114,7 +115,7 @@ export default {
       } catch (err) {
         this.$emit('error', `Document request failed: ${err}`);
       } finally {
-        this.busy = false;
+        delete this.busy[key];
       }
     },
     startPolling() {
@@ -213,12 +214,12 @@ export default {
   color: var(--cavil-fg-muted);
   cursor: default;
 }
-.report-documents-ready span {
+.report-documents-file span {
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
 
   /* The mono face reserves more room under the baseline than the label font does, and centring its line box
-     spends that room above the characters instead, landing the filename a pixel higher than "Generate" sits
-     in the same button. This puts it back on the line its neighbour uses. */
+     spends that room above the characters instead, landing the filename a pixel higher than the size and the
+     notes beside it. This puts it back on the line its neighbours use. */
   position: relative;
   top: 1px;
 }

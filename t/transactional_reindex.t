@@ -302,35 +302,26 @@ subtest 'A rebuild puts the report page into read-only mode' => sub {
 };
 
 subtest 'Generating an SPDX report does not lock the page' => sub {
-  $minion->enqueue('documents' => [1] => {notes => {pkg_1 => 1}});
+  $minion->enqueue('documents' => [1, 'spdx'] => {notes => {pkg_1 => 1}});
   $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/reindexing' => Mojo::JSON->false);
   $minion->perform_jobs;
 };
 
-subtest 'A reindex requested while an SPDX report runs starts as soon as it is over' => sub {
+subtest 'Building a document never holds up a reindex' => sub {
   my $before = report_details();
   ok !$before->{error}, 'report is readable to begin with';
 
-  # An spdx job claims the package for as long as it takes, so a reviewer pressing "Reindex" can land in
-  # that window. Nothing is queued behind it that could notice the request, which is what makes the job
-  # itself responsible for it: otherwise the reviewer stares at a read-only report until the nightly sweep.
-  my $spdx_id = $minion->enqueue('documents' => [1] => {notes => {pkg_1 => 1}});
-  ok $pkgs->claim(1, $spdx_id), 'the spdx job has the package';
-  is $pkgs->reindex(1), 'later', 'the reindex has to wait for it';
-  $t->get_ok('/reviews/report_state/1')->status_is(200)->json_is('/reindexing' => Mojo::JSON->true);
-
-  my $worker = $minion->worker->register;
-  my $job    = $worker->dequeue(0, {id => $spdx_id});
-  my $err    = $job->execute;
+  # An SBOM can take hours. Documents are stamped with the report they were built from instead of holding the
+  # package, so a reviewer pressing "Reindex" in that window gets the rebuild right away.
+  my $spdx_id = $minion->enqueue('documents' => [1, 'spdx'] => {notes => {pkg_1 => 1}});
+  my $worker  = $minion->worker->register;
+  my $job     = $worker->dequeue(0, {id => $spdx_id});
+  is $pkgs->reindex(1),                'now', 'the reindex does not wait for the document';
+  is $pkgs->find(1)->{processing_job}, undef, 'which never held the package';
+  my $err = $job->execute;
   $err ? $job->fail($err) : $job->finish;
-  is $err, undef, 'spdx job was successful';
+  is $err, undef, 'the document job was successful';
   $worker->unregister;
-
-  my $pkg = $pkgs->find(1);
-  is $pkg->{processing_job},    undef, 'the package is free again';
-  is $pkg->{reindex_requested}, undef, 'and no longer owes a rebuild';
-  ok $minion->jobs({tasks => ['index'], states => ['inactive'], notes => ['pkg_1']})->total,
-    'because the rebuild is queued already, with no sweep involved';
 
   $minion->perform_jobs;
   my $after = report_details();
