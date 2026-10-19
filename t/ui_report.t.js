@@ -968,6 +968,36 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.goto(new URL(path, url).toString());
     };
 
+    await t.test('Leaving the page with unsubmitted changes asks first', async t => {
+      const fileId = await openFirstReportFile();
+      await page.locator(`#file-menu-${fileId}`).click();
+      const fileMenu = page.locator(`[aria-labelledby="file-menu-${fileId}"]`);
+      await fileMenu.waitFor({state: 'visible'});
+      await fileMenu.locator('.dropdown-item', {hasText: 'Propose ignore glob'}).click();
+      await page.waitForSelector('#globProposalModal.show');
+      await page.locator('#glob-proposal-reason').fill('Staged but never submitted');
+      await page.locator('#glob-proposal-submit').click();
+      await page.waitForSelector('#globProposalModal', {state: 'hidden'});
+      await page.waitForSelector('#pending-actions-widget');
+
+      const dialogs = [];
+      const onDialog = dialog => {
+        dialogs.push(dialog.type());
+        dialog.dismiss();
+      };
+      page.on('dialog', onDialog);
+      await page.goto(url, {timeout: 2000}).catch(() => {});
+      t.same(dialogs, ['beforeunload'], 'browser asks before leaving');
+      t.ok(await page.locator('#pending-actions-widget').isVisible(), 'staying keeps the pending changes');
+
+      await page.locator('#pending-actions-widget .pending-actions-toggle').click();
+      await page.locator('#pending-actions-widget button', {hasText: 'Clear'}).click();
+      await page.waitForSelector('#pending-actions-widget', {state: 'detached'});
+      await page.goto(url);
+      t.same(dialogs, ['beforeunload'], 'no question once the batch is cleared');
+      page.off('dialog', onDialog);
+    });
+
     await t.test('Only curators get the direct "Add ignore glob" file action', async t => {
       // A contributor may propose but not curate, so their file-header menu offers only the
       // proposal path - no direct add.

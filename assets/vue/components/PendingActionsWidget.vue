@@ -130,6 +130,12 @@ export default {
       return this.store.actions.filter(a => a.state !== 'done').length;
     }
   },
+  mounted() {
+    window.addEventListener('beforeunload', this.onBeforeUnload);
+  },
+  unmounted() {
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+  },
   watch: {
     'store.actions.length'(n) {
       if (n === 0) this.expanded = false;
@@ -147,6 +153,10 @@ export default {
     },
     async onSubmit() {
       await this.store.submitAll();
+    },
+    // Not pendingCount: a successful submit reloads the page while its actions are still "submitting".
+    onBeforeUnload(event) {
+      if (this.store.actions.some(a => a.state === 'pending' || a.state === 'error')) event.preventDefault();
     },
     onJumpTo(action) {
       this.expanded = false;
