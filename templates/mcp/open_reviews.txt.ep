@@ -8,7 +8,7 @@ Filters: min_priority=<%== $min_priority %>, without_review_note=<%== $without_r
 
 
 Note: External links contain references to external source code management systems or codestreams the reviews
-      originate from.
+      originate from. Product is the name of the product a codestream belongs to, when known.
 
 Note: Review-Note is "yes" when a note tagged "review" already applies to this exact report, written on this review
       or on another review with an identical license report. No need to check for one per package.
@@ -16,7 +16,8 @@ Note: Review-Note is "yes" when a note tagged "review" already applies to this e
 %   for (my $i = 0; $i <= $#{$reviews}; $i++) {
 %     my $review = $reviews->[$i];
 %     my $relevant = $notes->{$review->{id}};
-<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, Priority: <%== $review->{priority} %>, Unresolved-Matches: <%== $review->{unresolved_matches} %>, Review-Note: <%== $relevant && $relevant->{review} ? 'yes' : 'no' %><%== @{$review->{tags} // []} ? ', Tags: ' . join(', ', @{$review->{tags}}) : '' %>)
+%     my $product = $products->{$review->{external_link} // ''};
+<%== $i + 1 %>. <%== $review->{name} %> (Id: <%== $review->{id} %>, External-Link: <%== $review->{external_link} %>, <%== defined $product ? "Product: $product, " : '' %>Priority: <%== $review->{priority} %>, Unresolved-Matches: <%== $review->{unresolved_matches} %>, Review-Note: <%== $relevant && $relevant->{review} ? 'yes' : 'no' %><%== @{$review->{tags} // []} ? ', Tags: ' . join(', ', @{$review->{tags}}) : '' %>)
 
 %   }
 % }

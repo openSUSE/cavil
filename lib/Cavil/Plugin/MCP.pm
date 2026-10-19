@@ -51,10 +51,11 @@ sub register ($self, $app, $config) {
     input_schema => {
       type       => 'object',
       properties => {
-        search       => {type => 'string',  description => 'Filter results by package name, checksum or external link'},
-        limit        => {type => 'integer', minimum     => 1, maximum => 100, default => 20},
-        offset       => {type => 'integer', minimum     => 0, default => 0},
-        min_priority => {type => 'integer', minimum     => 1, maximum => 10, default => 1},
+        search =>
+          {type => 'string', description => 'Filter results by package name, checksum, external link or product name'},
+        limit               => {type => 'integer', minimum => 1, maximum => 100, default => 20},
+        offset              => {type => 'integer', minimum => 0, default => 0},
+        min_priority        => {type => 'integer', minimum => 1, maximum => 10, default => 1},
         without_review_note =>
           {type => 'boolean', default => \0, description => 'Only reviews without a relevant "review" tagged note'}
       },
@@ -446,12 +447,14 @@ sub tool_cavil_get_open_reviews ($tool, $args) {
 
   # No include_lawyer_only: an agent must not learn that lawyer-only notes exist
   my $notes       = $c->notes->relevant_notes($reviews->{page});
+  my $products    = $c->products->annotations([map { $_->{external_link} } @{$reviews->{page}}]);
   my $next_offset = $reviews->{end} < $reviews->{total} ? $offset + $limit : undef;
   return $c->render_to_string(
     'mcp/open_reviews',
     format              => 'txt',
     reviews             => $reviews->{page},
     notes               => $notes,
+    products            => $products,
     total               => $reviews->{total},
     start               => $reviews->{start},
     end                 => $reviews->{end},

@@ -393,6 +393,14 @@ subtest 'MCP' => sub {
         my $tagged = $client->call_tool('cavil_get_open_reviews', {search => 'Mojolicious'})->{content}[0]{text};
         like $tagged, qr/Tags: CVE-2024-3654/, 'CVE tag shown in open reviews listing';
         $t->app->packages->set_tags(1, []);
+
+        $t->app->products->find_or_create('mojo#1');
+        $t->app->products->set_annotation('mojo#1', 'Mojo Suite');
+        my $product = $client->call_tool('cavil_get_open_reviews', {search => 'mojo suite'})->{content}[0]{text};
+        like $product,   qr/1 review found/,                             'found by product name';
+        like $product,   qr/External-Link: mojo#1, Product: Mojo Suite/, 'product shown in open reviews listing';
+        unlike $product, qr/mojo#2/,                                     'other codestream not matched';
+        $t->app->products->set_annotation('mojo#1', '');
       };
 
       subtest 'Review note presence and filter' => sub {

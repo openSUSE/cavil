@@ -715,7 +715,8 @@ sub paginate_open_reviews ($self, $options) {
   my $search = '';
   if (length($text) > 0) {
     my $quoted = $db->dbh->quote("\%$text\%");
-    $search = "AND (checksum ILIKE $quoted OR external_link ILIKE $quoted OR name ILIKE $quoted)";
+    $search = "AND (checksum ILIKE $quoted OR external_link ILIKE $quoted OR name ILIKE $quoted
+      OR external_link IN (SELECT bp.name FROM bot_products bp WHERE bp.product ILIKE $quoted))";
   }
 
   my $tag = '';
