@@ -6,11 +6,13 @@ use Mojo::Base -base, -signatures;
 
 use Cavil::Model::AuditLog qw(audit_event);
 use Cavil::Model::Notes    qw(relevance_predicate);
-use Cavil::Util            qw(checkout_path incoming_priority md5_file paginate parse_list_filter),
-  qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP), qw(PRIORITY_WAITING @LICENSE_FLAGS);
+use Cavil::Util            qw(checkout_path external_link_data incoming_priority lookup_tokens md5_file paginate),
+  qw(parse_list_filter parse_lookup), qw(PRIORITY_INCOMING PRIORITY_SWEEP PRIORITY_UPKEEP),
+  qw(PRIORITY_WAITING @LICENSE_FLAGS);
 use IO::Uncompress::Gunzip;
+use List::Util qw(max);
 use Mojo::File qw(path);
-use Mojo::JSON qw(to_json);
+use Mojo::JSON qw(false to_json true);
 use Mojo::Util qw(dumper encode md5_sum scope_guard);
 use Text::Glob qw(glob_to_regex);
 
@@ -214,7 +216,9 @@ sub actions ($self, $link, $id) {
     "select p.id, p.name, result, state, login,
        extract(epoch from created) as created_epoch, obsolete
      from bot_packages p left join bot_users u on p.reviewing_user = u.id
-     where external_link = ? and p.id != ?
+     where (external_link = \$1
+         or exists (select 1 from bot_requests where package = p.id and external_link = \$1 and removed is null))
+       and p.id != \$2
      order by p.id desc", $link, $id
   )->hashes->to_array;
 }
@@ -408,9 +412,91 @@ sub find ($self, $id) {
   )->hash;
 }
 
+# Only the candidates matching the most other words are kept. Words matching none (filler like "SR" or "PR") score
+# nothing, so they never empty the result. A Cavil id is matched against its report URL, so a pasted report URL beats a
+# request with the same number from a similar host. Primary links are active like in links_for.
+sub lookup ($self, $query, $opts = {}) {
+  return undef unless my $lookup = parse_lookup($query);
+  my $number = $lookup->{number};
+  my $id     = $number <= 2147483647 ? $number : undef;
+
+  my $hits = $self->pg->db->query(
+    q{SELECT * FROM (
+        SELECT id, name, embargoed, ephemeral, NULL AS link, NOT obsolete AS active FROM bot_packages WHERE id = $1
+        UNION ALL
+        SELECT id, name, embargoed, ephemeral, external_link, NOT obsolete AND (state = 'new' AND NOT EXISTS (
+            SELECT 1 FROM bot_requests r WHERE r.package = p.id AND r.external_link = p.external_link) OR EXISTS (
+            SELECT 1 FROM bot_requests r
+            WHERE r.package = p.id AND r.external_link = p.external_link AND r.removed IS NULL))
+          FROM bot_packages p WHERE substring(external_link from '[#!](\d+)$') = $2
+        UNION ALL
+        SELECT p.id, p.name, p.embargoed, p.ephemeral, r.external_link, NOT p.obsolete AND r.removed IS NULL
+          FROM bot_requests r JOIN bot_packages p ON p.id = r.package
+          WHERE substring(r.external_link from '[#!](\d+)$') = $2
+      ) AS hits WHERE NOT ephemeral AND NOT ($3 AND embargoed)}, $id, $number, $opts->{not_embargoed} ? 1 : 0
+  )->hashes->to_array;
+
+  my %score;
+  for my $hit (@$hits) {
+    my $data
+      = defined $hit->{link}
+      ? external_link_data($hit->{link}, $opts->{sources})
+      : {text => 'cavil', url => ($opts->{base} // '') . "/reviews/details/$hit->{id}"};
+    my %tokens
+      = map { $_ => 1 } @{lookup_tokens(join ' ', grep {defined} $hit->{name}, @{$data}{qw(text url title label)})};
+    my $score = grep { $tokens{$_} } @{$lookup->{words}};
+    my $best  = $score{$hit->{id}} //= [-1, 0];
+    if ($score > $best->[0]) { @$best = ($score, $hit->{active} ? 1 : 0) }
+    elsif ($score == $best->[0] && $hit->{active}) { $best->[1] = 1 }
+  }
+  my $max = max(map { $_->[0] } values %score) // 0;
+  my @ids = grep { $score{$_}[0] == $max } keys %score;
+
+  return [sort { $score{$b}[1] <=> $score{$a}[1] || $b <=> $a } @ids];
+}
+
+# The primary link first, then the requests that are not just the primary again, active before closed. A primary link
+# that is no request (a product) is active, and a request nobody ever recorded (an upload) is active while the review is
+# still pending.
+sub links_for ($self, $ids, $sources = []) {
+  my $rows = $self->pg->db->query(
+    q{SELECT id AS package, external_link, TRUE AS is_primary, target, 0 AS request,
+        substring(external_link from '[#!](\d+)$') IS NULL
+          OR (state = 'new' AND NOT obsolete AND NOT EXISTS (
+            SELECT 1 FROM bot_requests r WHERE r.package = p.id AND r.external_link = p.external_link))
+          OR EXISTS (SELECT 1 FROM bot_requests r
+            WHERE r.package = p.id AND r.external_link = p.external_link AND r.removed IS NULL) AS active
+      FROM bot_packages p WHERE id = ANY ($1) AND external_link IS NOT NULL
+      UNION ALL
+      SELECT r.package, r.external_link, FALSE, r.target, r.id, r.removed IS NULL
+      FROM bot_requests r JOIN bot_packages p ON p.id = r.package
+      WHERE r.package = ANY ($1) AND r.external_link IS DISTINCT FROM p.external_link
+      ORDER BY package, is_primary DESC, active DESC, request DESC}, $ids
+  )->hashes;
+
+  my %links;
+  for my $row ($rows->each) {
+    my $data = external_link_data($row->{external_link}, $sources);
+    $data->{target} = $row->{target} if defined $row->{target};
+    push @{$links{$row->{package}}}, {%$data, active => $row->{active} ? true : false};
+  }
+  return \%links;
+}
+
+sub summaries ($self, $ids) {
+  return $self->pg->db->query(
+    'SELECT id, name, state, obsolete, EXTRACT(EPOCH FROM created)::bigint AS created FROM bot_packages
+     WHERE id = ANY (?)', $ids
+  )->hashes->each(sub { $_->{obsolete} = $_->{obsolete} ? true : false })->to_array;
+}
+
 sub find_by_link ($self, $link) {
-  return $self->pg->db->query('SELECT id FROM bot_packages WHERE external_link = ? AND obsolete = FALSE', $link)
-    ->arrays->flatten->to_array;
+  return $self->pg->db->query(
+    'SELECT r.package FROM bot_requests r JOIN bot_packages p ON p.id = r.package
+       WHERE r.external_link = $1 AND r.removed IS NULL AND p.embargoed = FALSE
+     UNION SELECT id FROM bot_packages WHERE external_link = $1 AND obsolete = FALSE AND embargoed = FALSE ORDER BY 1',
+    $link
+  )->arrays->flatten->to_array;
 }
 
 sub find_by_name_and_md5 ($self, $pkg, $md5) {
@@ -853,6 +939,13 @@ sub paginate_review_search ($self, $name, $options) {
       )->arrays->flatten;
   }
 
+  # Lookups narrow any other filter and keep their relevance order
+  my $order = 'id DESC';
+  if (my $lookup = $options->{lookup}) {
+    my %in = map { $_ => 1 } @{$packages // $lookup};
+    ($packages, $order) = ([grep { $in{$_} } @$lookup], 'array_position($2, p.id)');
+  }
+
   my $search = '';
   if (length($options->{search}) > 0) {
     my $quoted = $db->dbh->quote("\%$options->{search}\%");
@@ -877,14 +970,14 @@ sub paginate_review_search ($self, $name, $options) {
 
   my $results = $db->query(
     qq{
-      SELECT p.id AS id, name AS package, state, checksum, p.result AS comment,
+      SELECT p.id AS id, name AS package, state, obsolete, checksum, p.result AS comment,
         EXTRACT(EPOCH FROM p.created) AS created_epoch, EXTRACT(EPOCH FROM p.imported) AS imported_epoch,
         EXTRACT(EPOCH FROM p.unpacked) AS unpacked_epoch, EXTRACT(EPOCH FROM p.indexed) AS indexed_epoch,
         u.login AS user,  unresolved_matches, COUNT(*) OVER() AS total
       FROM bot_packages p LEFT JOIN bot_users u ON p.reviewing_user = u.id
       WHERE (name = \$1 OR \$1 IS NULL) AND (p.id = ANY (\$2) OR \$2 IS NULL) AND p.ephemeral = FALSE
         $search $obsolete $embargoed
-      ORDER BY id DESC
+      ORDER BY $order
       LIMIT \$3 OFFSET \$4
     }, $name || undef, $packages, $options->{limit}, $options->{offset}
   )->hashes->to_array;
@@ -1097,7 +1190,7 @@ sub obsolete_if_unused ($self, $id) {
     q{UPDATE bot_packages SET obsolete = true
       WHERE id = ? AND state IN ('new', 'unacceptable')
         AND NOT EXISTS (SELECT 1 FROM bot_package_products WHERE package = bot_packages.id)
-        AND NOT EXISTS (SELECT 1 FROM bot_requests WHERE package = bot_packages.id)}, $id
+        AND NOT EXISTS (SELECT 1 FROM bot_requests WHERE package = bot_packages.id AND removed IS NULL)}, $id
   );
 }
 
@@ -1268,11 +1361,6 @@ sub add_tags ($self, $id, $tags) {
 
 sub set_tags ($self, $id, $tags) {
   $self->pg->db->query('UPDATE bot_packages SET tags = ? WHERE id = ?', $tags, $id);
-}
-
-sub requests_for ($self, $id) {
-  return $self->pg->db->query('SELECT external_link, target FROM bot_requests WHERE package = ? ORDER BY id DESC', $id)
-    ->hashes->to_array;
 }
 
 # An acceptance under limitations only covers the requests it was made for, a new one needs a human decision again

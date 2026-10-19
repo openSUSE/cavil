@@ -488,3 +488,8 @@ CREATE TRIGGER audit_review_trg AFTER UPDATE OF state, reviewed ON bot_packages
 DROP TRIGGER IF EXISTS audit_review_trg ON bot_packages;
 DROP FUNCTION IF EXISTS audit_review;
 DROP TABLE IF EXISTS audit_events;
+
+-- 75 up
+ALTER TABLE bot_requests ADD COLUMN removed timestamp with time zone;
+CREATE INDEX bot_requests_number_idx ON bot_requests ((substring(external_link from '[#!](\d+)$')));
+CREATE INDEX bot_packages_link_number_idx ON bot_packages ((substring(external_link from '[#!](\d+)$')));

@@ -77,7 +77,7 @@ Authorization HTTP header:
 | Tool | Access | Purpose |
 | --- | --- | --- |
 | [`cavil_get_open_reviews`](#cavil_get_open_reviews) | Read-only | List highest-priority open reviews |
-| [`cavil_search_packages`](#cavil_search_packages) | Read-only | Search packages and vendored components |
+| [`cavil_search_packages`](#cavil_search_packages) | Read-only | Search packages by name, cited id or vendored component |
 | [`cavil_get_report`](#cavil_get_report) | Read-only | Get a package's legal report |
 | [`cavil_search_snippets`](#cavil_search_snippets) | Read-only | Search and aggregate snippets |
 | [`cavil_search_patterns`](#cavil_search_patterns) | Read-only | Precedent research over curated patterns |
@@ -110,10 +110,13 @@ to its report and listing its tags (including a `CVE` tag for updates that fix a
 
 #### cavil_search_packages
 
-Search all packages (any review state) by name or by a vendored component they ship.
+Search all packages (any review state) by name, by any cited id or by a vendored component they ship. Embargoed
+packages are always excluded, obsolete ones unless searching by id.
 
 - **Required Roles**: `user` (read-only)
 - `name`: Exact package name. (string, optional)
+- `id`: Any id as it was cited, like the `q` parameter of [Locate Reports](#locate-reports). Lists every package it may
+  refer to, with all its links, closed ones marked. (string, optional)
 - `component`: Case-insensitive substring matched against a vendored component's name and its purl, e.g. `lodash` or
   `pkg:npm/lodash@4.17.20`. Matching components are attached to each result. (string, optional)
 - `limit`: Maximum number of packages to return. Defaults to `25`, maximum `100`. (number, optional)
@@ -677,7 +680,7 @@ should be approved for release to customers.
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | [`/api/v1/whoami`](#diagnostics) | Identify the API user |
-| `GET` | [`/api/v1/reports`](#locate-reports) | Locate reports by external link |
+| `GET` | [`/api/v1/reports`](#locate-reports) | Locate reports by any cited id or external link |
 | `GET` | [`/api/v1/search`](#search-packages) | Search packages and components |
 | `POST` | [`/api/v1/packages/upload`](#submit-a-package-for-review) | Submit a source archive for review |
 | `GET` | [`/api/v1/report/<package_id>.<format>`](#retrieve-license-reports) | Retrieve a legal report |
@@ -731,16 +734,28 @@ Content-Type: application/json
 
 `GET /api/v1/reports`
 
-Get the package ids for legal reports.
+Find every legal report an id may refer to. This is the same lookup as the "Find Package" search in the web UI.
 
 **Request parameters:**
 
-* `external_link` (required): Short string describing the package source. Configured `external_link_sources` can render
-                              values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
-                              source links with labels.
+* `q` (optional): Any id as it was cited, for example `540123`, `SR#1234567`, `ibs#331002`, `pool/foo!12`, a
+                  request URL or a Cavil report URL. The number matches Cavil package ids and the number of every
+                  external link, current or closed. All other words narrow the results down to the reviews whose
+                  link, link URL, report URL or package name contain the most of them, and are ignored when they
+                  appear nowhere. Obsolete reviews are included, embargoed and ephemeral ones never.
+
+* `external_link` (optional): Exact external link, like `obs#123`, `ibs#123`, `soo#org/package!123` or
+                              `ssd#org/package!123`. Only matches open requests and packages that are not obsolete
+                              or embargoed.
+
+One of `q` or `external_link` is required. Results from `q` are ordered by relevance: open requests on reviews that
+are not obsolete first, then newest first. `active` describes the request, not the review: it is `false` for closed
+requests, whether the review is obsolete is the separate `obsolete` field. A request link Cavil has no record of is
+`active` while the review is still pending. Links that are no request at all, like a product name, are always `active`,
+and show the curated product name if there is one.
 
 ```
-GET /api/v1/reports?external_link=ibs%23123
+GET /api/v1/reports?q=SR%23123
 Host: legaldb.suse.de
 Authorization: Bearer generated_api_key_here
 Accept: application/json
@@ -751,11 +766,20 @@ Accept: application/json
 
 ```
 HTTP/1.1 200 OK
-Content-Length: 44
 Content-Type: application/json
 
 {"reports": [
-  {"id": 23},
+  {
+    "id": 23,
+    "name": "perl-Mojolicious",
+    "state": "new",
+    "obsolete": false,
+    "created": 1792402303,
+    "links": [
+      {"text": "ibs#123", "url": "https://build.suse.de/request/show/123", "active": true},
+      {"text": "ibs#99", "url": "https://build.suse.de/request/show/99", "active": false}
+    ]
+  },
   ...
 ]}
 ```

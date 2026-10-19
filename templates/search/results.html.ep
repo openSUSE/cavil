@@ -3,5 +3,5 @@
 <div id="review-search"></div>
 
 % content_for 'ready_function' => begin
-  cavil.setupReviewSearch('<%= param 'q' %>');
+  cavil.setupReviewSearch(<%== Mojo::JSON::to_json(param('q') // '') %>);
 % end

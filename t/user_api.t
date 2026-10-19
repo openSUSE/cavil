@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
@@ -249,6 +249,97 @@ subtest 'API keys' => sub {
           ->json_hasnt('/reports/0');
         $t->app->pg->db->query('UPDATE bot_packages SET obsolete = false WHERE id = 1');
       };
+    };
+
+    subtest 'Look up any cited id' => sub {
+      my $bot = {Authorization => 'Token test_token'};
+      $t->post_ok('/requests' => $bot => form => {external_link => 'ibs#1',             package => 2})->status_is(200);
+      $t->post_ok('/requests' => $bot => form => {external_link => 'soo#pool/other!12', package => 2})->status_is(200);
+      $t->post_ok('/requests' => $bot => form => {external_link => 'soo#pool/somethin!12', package => 1})
+        ->status_is(200);
+      $t->delete_ok('/requests' => $bot => form => {external_link => 'soo#pool/somethin!12'})->status_is(200);
+      my $lookup = sub ($q) {
+        $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {q => $q})->status_is(200);
+        return [map { $_->{id} } @{$t->tx->res->json('/reports')}];
+      };
+
+      is_deeply $lookup->('1'),        [2, 1], 'Cavil id 1 and the request ibs#1 of another review';
+      is_deeply $lookup->('ibs#1'),    [2],    'link prefix narrows';
+      is_deeply $lookup->('cavil 1'),  [1],    'Cavil narrows';
+      is_deeply $lookup->('SR #1'),    [2, 1], 'unknown words are ignored';
+      is_deeply $lookup->('other!12'), [2],    'repository narrows Gitea PRs';
+      is_deeply $lookup->('https://src.opensuse.org/pool/other/pulls/12'), [2],    'Gitea URL';
+      is_deeply $lookup->('12'),                                           [2, 1], 'active before closed';
+
+      $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {q => 'ibs#1'})
+        ->json_is('/reports/0/name',     'perl-Mojolicious')
+        ->json_is('/reports/0/obsolete', false)
+        ->json_has('/reports/0/state')
+        ->json_has('/reports/0/created')
+        ->json_is('/reports/0/links/0/text',   'mojo#2')
+        ->json_is('/reports/0/links/0/active', true)
+        ->json_is('/reports/0/links/2/text',   'ibs#1')
+        ->json_is('/reports/0/links/2/active', true)
+        ->json_is('/reports/1',                undef);
+
+      # A pasted report URL wins over a request with the same number from a host with similar words
+      my $base = $t->ua->server->url->path('')->to_string =~ s{/$}{}r;
+      local $t->app->config->{external_link_sources}
+        = [{pattern => '^ibs#(\d+)$', url => "$base/request/show/\$1", title => 'Build service request'}];
+      is_deeply $lookup->("$base/reviews/details/1"), [1], 'Cavil report URL';
+      is_deeply $lookup->("$base/request/show/1"),    [2], 'request URL';
+
+      # The REST API never exposes embargoed reviews
+      $t->app->pg->db->query('UPDATE bot_packages SET embargoed = true WHERE id = 2');
+      is_deeply $lookup->('1'), [1], 'embargoed review not found by its request';
+      $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"} => form => {external_link => 'ibs#1'})
+        ->status_is(200)
+        ->json_is('/reports', []);
+      $t->app->pg->db->query('UPDATE bot_packages SET embargoed = false WHERE id = 2');
+
+      # Ephemeral reviews stay out of every search, they are only reachable through the report endpoints
+      $t->app->pg->db->query('UPDATE bot_packages SET ephemeral = true WHERE id = 2');
+      is_deeply $lookup->('1'), [1], 'ephemeral review not found by its request';
+      is_deeply $lookup->('2'), [],  'ephemeral review not found by its id';
+      $t->get_ok('/pagination/search/2')->status_is(200)->json_is('/total', 0);
+      $t->app->pg->db->query('UPDATE bot_packages SET ephemeral = false WHERE id = 2');
+
+      # Obsolete reviews are never hidden from a cited id
+      $t->app->pg->db->query('UPDATE bot_packages SET obsolete = true WHERE id = 1');
+      $t->get_ok('/pagination/search/1?notObsolete=true')
+        ->status_is(200)
+        ->json_is('/lookup',          '1')
+        ->json_is('/page/0/id',       2)
+        ->json_is('/page/1/id',       1)
+        ->json_is('/page/1/obsolete', 1);
+      $t->get_ok('/pagination/search/perl-Mojolicious?notObsolete=true')
+        ->json_is('/lookup', undef)
+        ->json_is('/total',  1);
+      $t->app->pg->db->query('UPDATE bot_packages SET obsolete = false WHERE id = 1');
+
+      # Misses are logged on page load and in the API, not on every refresh of the results page
+      my @logged;
+      my $level = $t->app->log->level;
+      my $cb    = $t->app->log->level('info')->on(message => sub ($log, $level, @lines) { push @logged, "@lines" });
+      is_deeply $lookup->('999999'), [], 'no match';
+      $t->get_ok('/pagination/search/999998')->status_is(200);
+      $t->get_ok('/search?q=999997')->status_is(200);
+      $t->app->log->level($level)->unsubscribe(message => $cb);
+      ok grep({/Lookup without match: 999999/} @logged), 'API miss logged';
+      ok !grep({/999998/} @logged),                      'refresh not logged';
+      ok grep({/Lookup without match: 999997/} @logged), 'page load miss logged';
+
+      # The query reaches the page as a JavaScript string, not as HTML
+      $t->get_ok('/search?q=' . Mojo::Util::url_escape(q{a&b'</script>}))
+        ->status_is(200)
+        ->content_like(qr/setupReviewSearch\("a&b'<\\\/script>"\)/);
+
+      $t->get_ok('/api/v1/reports' => {Authorization => "Bearer $key"})
+        ->status_is(400)
+        ->json_is('/error', 'Either q or external_link is required');
+
+      $t->delete_ok('/requests' => $bot => form => {external_link => $_})->status_is(200)
+        for 'ibs#1', 'soo#pool/other!12';
     };
 
     subtest 'Find by mixed links' => sub {

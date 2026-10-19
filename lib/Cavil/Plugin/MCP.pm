@@ -65,17 +65,21 @@ sub register ($self, $app, $config) {
   $mcp->tool(
     name        => 'cavil_search_packages',
     description =>
-      'Search all packages regardless of review state, by exact name or by a vendored component they ship. Unlike'
+      'Search all packages regardless of review state, by exact name, by any cited id or by a vendored component they'
+      . ' ship. "id" takes an id as people cite it (a Cavil package id, a request like "SR#1234567", "ibs#331002" or'
+      . ' "pool/foo!12", or a request or report URL) and lists every package it may refer to, including obsolete'
+      . ' ones, with all their request links (closed ones marked). Unlike'
       . ' cavil_get_open_reviews (which only returns the open review queue), this searches the whole package set,'
       . ' including already reviewed packages. Use "component" for security and supply-chain triage, e.g. to find'
       . ' every package that bundles a vulnerable dependency; it is a case-insensitive substring matched against a'
       . ' component name and its purl, so "lodash" matches all versions and "pkg:npm/lodash@4.17.20" pins one. When'
       . ' searching by component, each result lists the matching components so you see the exact version shipped.'
-      . ' Embargoed and obsolete packages are always excluded',
+      . ' Embargoed packages are always excluded, obsolete ones unless searching by id',
     input_schema => {
       type       => 'object',
       properties => {
         name      => {type => 'string',  description => 'Exact package name'},
+        id        => {type => 'string',  description => 'Any cited id or URL of a package review or request'},
         component => {type => 'string',  description => 'Vendored component name or purl (case-insensitive substring)'},
         limit     => {type => 'integer', minimum     => 1, maximum => 100, default => 25},
         offset    => {type => 'integer', minimum     => 0, default => 0}
@@ -466,20 +470,24 @@ sub tool_cavil_search_packages ($tool, $args) {
   my ($offset, $offset_error) = _bounded_int_arg($args->{offset}, 0, 0, undef, 'offset');
   return $tool->text_result($offset_error, 1) if $offset_error;
 
-  # Same package search as the web UI and the search API, but never exposes embargoed or obsolete packages
+  # Same package search as the web UI and the search API, but never exposes embargoed packages, and obsolete ones only
+  # for a cited id
   my $name      = $args->{name};
   my $component = $args->{component};
+  my $lookup    = defined $args->{id} ? $c->lookup_reviews($args->{id}, not_embargoed => 1) // [] : undef;
   my $page      = $c->packages->paginate_review_search(
     $name,
     {
       search        => '',
       component     => $component,
+      lookup        => $lookup,
       limit         => $limit,
       offset        => $offset,
-      not_obsolete  => 'true',
+      not_obsolete  => $lookup ? 'false' : 'true',
       not_embargoed => 'true'
     }
   );
+  my $links = $lookup ? $c->review_links([map { $_->{id} } @{$page->{page}}]) : {};
 
   # When searching by component, attach the matching components so a caller sees the exact version shipped
   my @ids        = map { $_->{id} } @{$page->{page}};
@@ -498,6 +506,8 @@ sub tool_cavil_search_packages ($tool, $args) {
     offset      => $offset,
     next_offset => $next_offset,
     name        => $name,
+    id          => $args->{id},
+    links       => $links,
     component   => $component
   );
 }

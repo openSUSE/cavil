@@ -14,7 +14,7 @@
 | `GET` | [`/package/<package_id>/report.txt`](#get-a-package-report) | Get a plain-text legal report |
 | `POST` | [`/requests`](#create-a-review-request) | Create a package review request |
 | `GET` | [`/requests`](#list-review-requests) | List open review requests |
-| `DELETE` | [`/requests`](#delete-review-requests) | Delete review requests |
+| `DELETE` | [`/requests`](#delete-review-requests) | Close review requests |
 | `PATCH` | [`/products/<product_name>`](#update-a-product) | Update the packages in a product |
 | `DELETE` | [`/products`](#delete-a-product) | Delete a product |
 
@@ -211,6 +211,9 @@ Create package.
 * `external_link` (optional): Short string describing the package source. Configured `external_link_sources` can render
                               values like `obs#123`, `ibs#123`, `soo#org/package!123` and `ssd#org/package!123` as
                               source links with labels.
+                              An existing package keeps its link unless the new request has the same or a higher
+                              priority. Use [`POST /requests`](#create-a-review-request) to record every request
+                              a package belongs to.
 
 * `priority` (optional): Priority of this package review.
 
@@ -545,7 +548,8 @@ Content-Type: application/json
 
 `DELETE /requests`
 
-Delete review requests.
+Close review requests. They are no longer listed by `GET /requests`, but stay recorded so reviewers can still look up
+a package by the request id. Adding the same request again reopens it.
 
 **Request parameters:**
 

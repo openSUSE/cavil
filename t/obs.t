@@ -746,8 +746,9 @@ subtest 'Bot API (with Minion background jobs)' => sub {
   $t->post_ok('/requests', $headers, form => {external_link => 'obs#500002', package => 1})->status_is(200);
   $t->post_ok('/requests', $headers, form => {external_link => 'ibs#500001', package => 1})->status_is(200);
   $minion->perform_jobs_in_foreground;
-  is_deeply $t->app->packages->requests_for(1),
-    [{external_link => 'ibs#500001', target => undef}, {external_link => 'obs#500002', target => 'SUSE:Maintenance'}],
+  is_deeply [map { [$_->{text}, $_->{target}] }
+    grep { $_->{text} =~ /^(?:ibs#500001|obs#500002)$/ } @{$t->app->packages->links_for([1])->{1}}],
+    [['ibs#500001', undef], ['obs#500002', 'SUSE:Maintenance']],
     'request targets resolved only against the build service of their link';
 
   # Prevent import race condition

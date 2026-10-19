@@ -577,6 +577,11 @@ sub ui_fixtures ($self, $app) {
   # One open review with a CVE tag so the tag filter (tag:CVE) has real data to match
   $pkgs->add_tags($pkg_id, ['CVE']);
 
+  # A closed request whose number collides with the Cavil id of perl-UI-Test1, for the id lookup
+  my $test1 = $app->pg->db->select('bot_packages', 'id', {name => 'perl-UI-Test1'})->hash->{id};
+  $app->requests->add("ibs#$test1", $pkg_id);
+  $app->requests->remove("ibs#$test1");
+
   # Synthetic package with many unresolved keyword matches. Built from a real
   # tarball and indexed by the regular unpack + analyze pipeline so the
   # missed_files collection is genuine (no bot_reports surgery). Drives the

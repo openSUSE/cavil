@@ -560,6 +560,39 @@ subtest 'MCP' => sub {
         unlike $text, qr/Components:/,                    'no component query means no components attached';
       };
 
+      subtest 'Search by cited id' => sub {
+        $t->app->requests->add('obs#9191', $_) for $clean, $emb, $obs;
+        $db->query(q{UPDATE bot_requests SET removed = NOW() WHERE package = ?}, $obs);
+        $db->update('bot_packages', {obsolete => 1}, {id => $obs});
+
+        my $result = $client->call_tool('cavil_search_packages', {id => 'SR#9191'});
+        ok !$result->{isError}, 'not an error';
+        my $text = $result->{content}[0]{text};
+        like $text,   qr/id=SR#9191/,                                            'filter shown';
+        like $text,   qr/mcp-search-clean \(Id: $clean, State: new,/,            'open request first';
+        like $text,   qr/Links: obs#9191\n/,                                     'open link';
+        like $text,   qr/mcp-search-obsolete \(Id: $obs, State: new, obsolete,/, 'obsolete review included';
+        like $text,   qr/Links: obs#9191 \(closed\)/,                            'closed link marked';
+        unlike $text, qr/mcp-search-embargoed/,                                  'embargoed review hidden';
+        like $text,   qr/1\. mcp-search-clean.*2\. mcp-search-obsolete/s,        'open before closed';
+
+        # An embargoed review matching more words must not push out the visible ones
+        $text = $client->call_tool('cavil_search_packages', {id => 'mcp-search-embargoed 9191'})->{content}[0]{text};
+        like $text,   qr/mcp-search-clean/,          'visible reviews still found';
+        unlike $text, qr/\d\. mcp-search-embargoed/, 'embargoed review still hidden';
+
+        # Other filters narrow a lookup
+        $text = $client->call_tool('cavil_search_packages', {id => 'SR#9191', name => 'mcp-search-obsolete'})
+          ->{content}[0]{text};
+        like $text, qr/1 package found/,         'name narrows a lookup';
+        like $text, qr/1\. mcp-search-obsolete/, 'to the named package';
+        $text
+          = $client->call_tool('cavil_search_packages', {id => 'SR#9191', component => 'react'})->{content}[0]{text};
+        like $text, qr/1 package found/,  'only one package ships react';
+        like $text, qr/mcp-search-clean/, 'and it is the clean one';
+        $db->query(q{DELETE FROM bot_requests WHERE external_link = 'obs#9191'});
+      };
+
       subtest 'Embargoed hidden from a plain name search too' => sub {
         my $result = $client->call_tool('cavil_search_packages', {name => 'mcp-search-embargoed'});
         ok !$result->{isError}, 'not an error';
@@ -593,8 +626,8 @@ subtest 'MCP' => sub {
         $t->app->pg->db->update('bot_packages', {target => 'openSUSE:Factory/perl-Mojolicious'}, {id => 1});
         $t->app->packages->set_tags(1, ['CVE-2024-3654', 'needs-second-opinion']);
         my $text = $client->call_tool('cavil_get_report', {package_id => 1})->{content}[0]{text};
-        like $text, qr{Target:.+openSUSE:Factory/perl-Mojolicious}, 'contains target';
-        like $text, qr/Tags:.+CVE-2024-3654.+needs-second-opinion/, 'contains tags';
+        like $text, qr{^- mojo#1 \(Target: openSUSE:Factory/perl-Mojolicious\)}m, 'contains target';
+        like $text, qr/Tags:.+CVE-2024-3654.+needs-second-opinion/,               'contains tags';
         $t->app->pg->db->update('bot_packages', {target => undef}, {id => 1});
         $t->app->packages->set_tags(1, []);
       };
@@ -769,7 +802,7 @@ subtest 'MCP' => sub {
         like $text, qr/Package:.+perl-Mojolicious/,                                        'package name';
         like $text, qr/Id:.+1/,                                                            'package id';
         like $text, qr/State:.+new/,                                                       'state';
-        like $text, qr/External-Link:.+mojo/,                                              'external link';
+        like $text, qr/^Links:\n- mojo#1/m,                                                'links';
         like $text, qr/Version:.+7\.25/,                                                   'version';
         like $text, qr/Declared-License: Artistic-2\.0 \(from perl-Mojolicious\.spec\)$/m, 'declared license';
         like $text, qr/Summary:.+Real-time web framework/,                                 'summary';

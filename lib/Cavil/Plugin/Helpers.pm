@@ -7,7 +7,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(license_classification peripheral_scope report_risk);
 use Cavil::Role       qw(roles_with_capability);
-use Cavil::Util       qw(external_link_data extract_spdx_identifiers license_link spdx_link);
+use Cavil::Util       qw(extract_spdx_identifiers license_link spdx_link);
 use CommonMark        ();
 use Mojo::File        qw(path);
 use Mojo::JSON        qw(false from_json true);
@@ -23,6 +23,7 @@ sub register ($self, $app, $config) {
   $app->helper('current_user_has_write_access' => \&_current_user_has_write_access);
   $app->helper('current_user_scopes'           => \&_current_user_scopes);
   $app->helper('lic'                           => sub { shift; lic(@_) });
+  $app->helper('lookup_reviews'                => \&_lookup_reviews);
   $app->helper('maybe_utf8'                    => sub { decode('UTF-8', $_[1]) // $_[1] });
   $app->helper('mcp_report'                    => \&_mcp_report);
   $app->helper('package_summary'               => \&_package_summary);
@@ -30,6 +31,7 @@ sub register ($self, $app, $config) {
   $app->helper('reindex_state'                 => \&_reindex_state);
   $app->helper('report_details'                => \&_report_details);
   $app->helper('reply.json_validation_error'   => \&_json_validation_error);
+  $app->helper('review_links'                  => \&_review_links);
   $app->helper('documents_state'               => \&_documents_state);
   $app->helper('format_file'                   => \&_format_file);
   $app->helper('markdown_to_safe_html'         => \&_markdown_to_safe_html);
@@ -294,10 +296,20 @@ sub _current_user_roles ($c) {
   return $c->users->roles($user);
 }
 
-sub _link_with_target ($link, $target, $config) {
-  return undef unless my $data = external_link_data($link, $config->{external_link_sources});
-  $data->{target} = $target if defined $target;
-  return $data;
+sub _lookup_reviews ($c, $query, %opts) {
+  my $sources = $c->app->config->{external_link_sources};
+  return $c->packages->lookup($query, {%opts, sources => $sources, base => $c->req->url->base->to_string});
+}
+
+# Curated product names replace codestreams, like in the review lists
+sub _review_links ($c, $ids) {
+  my $links    = $c->packages->links_for($ids, $c->app->config->{external_link_sources});
+  my @all      = map {@$_} values %$links;
+  my $products = $c->products->annotations([map { $_->{text} } @all]);
+  for my $link (@all) {
+    @$link{qw(text title)} = ($products->{$link->{text}}, $link->{text}) if defined $products->{$link->{text}};
+  }
+  return $links;
 }
 
 sub _json_validation_error ($c) {
@@ -378,8 +390,6 @@ sub _package_summary ($c, $id) {
   my ($shortname) = $report =~ /-\d+:(\w+)$/;
   my $risk        = report_risk($report, $pkg->{unresolved_matches});
 
-  my $requests = $pkgs->requests_for($id);
-
   # Collapse codestreams into deduplicated curated product names.
   my %seen;
   my $products
@@ -436,7 +446,6 @@ sub _package_summary ($c, $id) {
     : undef,
     ai_assisted          => $pkg->{ai_assisted} ? true : false,
     external_link        => $pkg->{external_link},
-    external_link_data   => _link_with_target($pkg->{external_link}, $pkg->{target}, $config),
     id                   => $pkg->{id},
     legal_review_notices => \@legal_review_notices,
     declarations         => \@declarations,
@@ -453,8 +462,7 @@ sub _package_summary ($c, $id) {
     package_version      => $primary->{version},
     products             => $products,
     reindexing           => $state->{reindexing},
-    requests             => [map { $_->{external_link} } @$requests],
-    requests_data        => [map { _link_with_target($_->{external_link}, $_->{target}, $config) } @$requests],
+    links                => _review_links($c, [$id])->{$id} // [],
     result               => $pkg->{result},
     reviewed             => $pkg->{reviewed_epoch},
     reviewing_user       => $pkg->{login},

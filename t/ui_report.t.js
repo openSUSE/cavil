@@ -334,12 +334,14 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
         const data = await response.json();
         data.tags = ['CVE-2024-3654', 'needs-second-opinion'];
         data.can_edit_tags = false;
-        data.external_link_data = {text: 'obs#123', label: 'SUSE', target: 'openSUSE:Factory/perl-Mojolicious'};
-        data.requests = ['soo#products/PackageHub!7', 'obs#456'];
-        data.requests_data = [
-          {text: 'soo#products/PackageHub!7', target: 'products/PackageHub'},
-          {text: 'obs#456', target: 'openSUSE:Backports:SLE-15-SP7/perl-Mojolicious'}
+        data.links = [
+          {text: 'obs#123', label: 'SUSE', target: 'openSUSE:Factory/perl-Mojolicious', active: true},
+          {text: 'soo#products/PackageHub!7', target: 'products/PackageHub', active: true},
+          {text: 'obs#456', target: 'openSUSE:Backports:SLE-15-SP7/perl-Mojolicious', active: true},
+          {text: 'obs#99', url: 'https://build.opensuse.org/request/show/99', active: false},
+          {text: 'Multi-Linux Manager', title: 'SUSE:SLE-15-SP7:Update:Products:MLM51', active: true}
         ];
+        data.products = ['Multi-Linux Manager'];
         await route.fulfill({response, json: data});
       });
 
@@ -351,49 +353,70 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       t.equal(await pills.count(), 2, 'both tags shown as read-only pills');
       t.equal(await page.locator('#pkg-tags .report-cve-tag').count(), 1, 'CVE tag styled distinctly');
 
-      await page.waitForSelector('#pkg-link .cavil-external-link-submission');
+      await page.waitForSelector('#pkg-link .report-metadata-link:first-child .cavil-external-link-submission');
+      t.same(
+        await page.locator('#pkg-link .cavil-external-link-text').allTextContents(),
+        ['obs#123', 'soo#products/PackageHub!7', 'obs#456', 'obs#99'],
+        'every link in one row, in server order, a product link only in the Products row'
+      );
+      t.equal(
+        await page.locator('#pkg-link .report-metadata-link.is-closed').innerText(),
+        'obs#99',
+        'closed link muted'
+      );
+      t.equal(await page.locator('dt:has(+ #pkg-link)').textContent(), 'Links', 'one row for all links');
       t.same(
         await page
-          .locator('#pkg-link .cavil-external-link')
+          .locator('#pkg-link .report-metadata-link:first-child .cavil-external-link')
           .evaluate(element => [...element.children].map(child => child.className)),
         ['cavil-external-link-source', 'cavil-external-link-target', 'cavil-external-link-submission'],
         'source label prefixes the external reference and submission target'
       );
       t.equal(
-        await page.locator('#pkg-link .cavil-external-link-submission-text').textContent(),
+        await page
+          .locator('#pkg-link .report-metadata-link:first-child .cavil-external-link-submission-text')
+          .textContent(),
         'openSUSE:Factory/perl-Mojolicious',
         'primary submission target is visible beside the link'
       );
       t.equal(
-        await page.locator('#pkg-link .cavil-external-link-target-project').innerText(),
+        await page
+          .locator('#pkg-link .report-metadata-link:first-child .cavil-external-link-target-project')
+          .innerText(),
         'openSUSE:Factory',
         'submission project is separated for emphasis'
       );
       t.equal(
-        await page.locator('#pkg-link .cavil-external-link-target-package').innerText(),
+        await page
+          .locator('#pkg-link .report-metadata-link:first-child .cavil-external-link-target-package')
+          .innerText(),
         '/perl-Mojolicious',
         'less important package suffix remains visible'
       );
-      const primaryTarget = page.locator('#pkg-link .cavil-external-link-submission');
-      const primaryTargetPackage = page.locator('#pkg-link .cavil-external-link-target-package');
+      const primaryTarget = page.locator('#pkg-link .report-metadata-link:first-child .cavil-external-link-submission');
+      const primaryTargetPackage = page.locator(
+        '#pkg-link .report-metadata-link:first-child .cavil-external-link-target-package'
+      );
       t.equal((await primaryTargetPackage.boundingBox()).width, 0, 'package suffix is collapsed by default');
       await primaryTarget.hover();
       await page.waitForFunction(
         selector => document.querySelector(selector).getBoundingClientRect().width > 0,
-        '#pkg-link .cavil-external-link-target-package'
+        '#pkg-link .report-metadata-link:first-child .cavil-external-link-target-package'
       );
       t.ok((await primaryTargetPackage.boundingBox()).width > 0, 'hover reveals the package suffix');
       await primaryTarget.locator('summary').click();
       await page.mouse.move(0, 0);
       t.ok(await primaryTarget.evaluate(element => element.open), 'click keeps the full target expanded');
       t.same(
-        await page.locator('.report-metadata-request .cavil-external-link-submission-text').allTextContents(),
+        await page
+          .locator('.report-metadata-link:not(:first-child) .cavil-external-link-submission-text')
+          .allTextContents(),
         ['products/PackageHub', 'openSUSE:Backports:SLE-15-SP7/perl-Mojolicious'],
         'multiple request submission targets are individually visible'
       );
 
       await page.setViewportSize({width: 480, height: 720});
-      const requestLayout = await page.locator('.report-metadata-requests').evaluate(element => ({
+      const requestLayout = await page.locator('.report-metadata-links').evaluate(element => ({
         clientWidth: element.clientWidth,
         scrollWidth: element.scrollWidth,
         tops: [...element.children].map(child => child.getBoundingClientRect().top)

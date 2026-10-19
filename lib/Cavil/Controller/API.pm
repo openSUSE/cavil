@@ -4,7 +4,6 @@
 package Cavil::Controller::API;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
-use List::Util qw(uniq);
 use Mojo::JSON qw(true false);
 
 sub identify ($self) {
@@ -17,15 +16,28 @@ sub identify ($self) {
 
 sub reports ($self) {
   my $validation = $self->validation;
-  $validation->required('external_link');
+  $validation->optional('q');
+  $validation->optional('external_link');
   return $self->reply->json_validation_error if $validation->has_error;
+  my $q    = $validation->param('q');
+  my $link = $validation->param('external_link');
+  return $self->render(json => {error => 'Either q or external_link is required'}, status => 400)
+    unless defined $q || defined $link;
 
-  my $external_link = $validation->param('external_link');
-  my $request_ids   = $self->requests->find_by_link($external_link);
-  my $package_ids   = $self->packages->find_by_link($external_link);
-  my @ids           = sort { $a <=> $b } uniq(@$request_ids, @$package_ids);
+  my $ids = defined $q ? $self->lookup_reviews($q, not_embargoed => 1) // [] : $self->packages->find_by_link($link);
+  $self->log->info('Lookup without match: ' . ($q =~ s/\s+/ /gr)) if defined $q && !@$ids;
+  my $links = $self->review_links($ids);
+  my %rows  = map { $_->{id} => $_ } @{$self->packages->summaries($ids)};
 
-  $self->render(json => {reports => [map { {id => $_} } @ids]});
+  $self->render(
+    json => {
+      reports => [
+        map {
+          { %{$rows{$_}}, links => $links->{$_} // [] }
+        } grep { $rows{$_} } @$ids
+      ]
+    }
+  );
 }
 
 sub package_search ($self) {

@@ -144,11 +144,11 @@ t.test('Cavil UI - public browsing', skipUnlessOnline, async t => {
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
       t.equal(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(5)'), /perl-Mojolicious/);
-      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(6)'), /GPL/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(7)'), /GPL/);
       t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(1)'), /ago/);
       t.equal(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(2)'), 'new');
       t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(5)'), /perl-Mojolicious/);
-      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(6)'), /Artistic/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(7)'), /Artistic/);
     });
 
     t.test('Console errors', t => {

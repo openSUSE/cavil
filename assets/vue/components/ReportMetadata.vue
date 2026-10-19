@@ -72,17 +72,16 @@
               </a>
             </dd>
           </template>
-          <template v-if="externalLink !== null">
-            <dt>Link</dt>
-            <dd id="pkg-link">
-              <ExternalLink :link="externalLink" />
-            </dd>
-          </template>
-          <template v-if="requests.length > 0">
-            <dt>Requests</dt>
-            <dd class="report-metadata-requests">
-              <span v-for="(request, index) in requests" :key="index" class="report-metadata-request">
-                <ExternalLink :link="request" />
+          <template v-if="links.length > 0">
+            <dt>{{ links.length === 1 ? 'Link' : 'Links' }}</dt>
+            <dd id="pkg-link" class="report-metadata-links">
+              <span
+                v-for="(link, index) in links"
+                :key="index"
+                :class="['report-metadata-link', {'is-closed': !link.active}]"
+                :title="link.active ? null : 'Closed'"
+              >
+                <ExternalLink :link="link" />
               </span>
             </dd>
           </template>
@@ -406,7 +405,6 @@ export default {
       DOCUMENTS_PREVIEW: 10,
       documentsExpanded: false,
       legalDocuments: null,
-      externalLink: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
       manageTemplatesUrl: '/comment-templates',
@@ -440,7 +438,7 @@ export default {
       reindexFailed: false,
       reindexing: false,
       reindexQueued: false,
-      requests: [],
+      links: [],
       result: '',
       reviewed: null,
       reviewingUser: null,
@@ -742,7 +740,6 @@ export default {
 
       this.created = moment(data.created * 1000).fromNow();
       this.legalDocuments = data.legal_documents ?? null;
-      this.externalLink = data.external_link_data ?? data.external_link;
       this.derivedDocuments = data.documents;
       this.legalReviewNotices = data.legal_review_notices;
 
@@ -788,10 +785,8 @@ export default {
       if (data.products.length > 0) {
         this.productsHtml = data.products.map(name => productLink({name}, {blank: true})).join(', ');
       }
-      this.requests = [];
-      if (data.requests.length > 0) {
-        this.requests = data.requests_data ?? data.requests;
-      }
+      // A product link would only repeat the Products row
+      this.links = data.links.filter(link => !data.products.includes(link.text));
 
       if (data.reviewed !== null) this.reviewed = moment(data.reviewed * 1000).fromNow();
       this.reviewingUser = data.reviewing_user;
@@ -880,13 +875,16 @@ export default {
   font-size: 13px;
   margin-left: 0.4rem;
 }
-.report-metadata-requests {
+.report-metadata-links {
   align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 0.5rem;
 }
-.report-metadata-request {
+.report-metadata-link.is-closed {
+  opacity: 0.6;
+}
+.report-metadata-link {
   display: inline-flex;
   flex: 0 0 auto;
   max-width: 100%;

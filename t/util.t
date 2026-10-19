@@ -10,6 +10,7 @@ use Cavil::Util (
   qw(buckets expand_spec_macros extract_copyrights legal_review_notices lines_context license_is_catch_all),
   qw(license_text),
   qw(normalize_license_expr obs_ssh_auth original_filename),
+  qw(parse_lookup),
   qw(parse_exclude_file parse_list_filter parse_service_file normalize_license_text pattern_matches pattern_contains_redundant_skip read_lines),
   qw(safe_string),
   qw(external_link_data incoming_priority request_id_from_external_link run_cmd spdx_link ssh_sign text_shingles),
@@ -365,6 +366,20 @@ subtest 'normalize_license_expr' => sub {
     is normalize_license_expr('(MIT OR Apache-2.0) AND GPL-2.0-only'), '(mit or apache-2.0) and gpl-2.0-only',
       'expressions with parentheses are not reordered';
   };
+};
+
+subtest 'parse_lookup' => sub {
+  is_deeply parse_lookup('1234567'),     {number => '1234567', words => []},              'bare number';
+  is_deeply parse_lookup('SR#0331002'),  {number => '331002',  words => ['sr']},          'prefix becomes a word';
+  is_deeply parse_lookup('pool/foo#12'), {number => '12',      words => ['pool', 'foo']}, 'gitea reference';
+  is_deeply parse_lookup('https://src.opensuse.org/pool/foo/pulls/12'),
+    {number => '12', words => [qw(https src opensuse org pool foo pulls)]}, 'url';
+  is parse_lookup('https://build.opensuse.org/request/show/12?notification_id=99#c3')->{number}, '12',
+    'url query and fragment ignored';
+  is parse_lookup('perl-Mojolicious'),   undef, 'package name';
+  is parse_lookup('python3.11'),         undef, 'name with a version is not a number';
+  is parse_lookup('openSUSE:Leap:16.0'), undef, 'project name';
+  is parse_lookup(undef),                undef, 'nothing';
 };
 
 subtest 'request_id_from_external_link' => sub {

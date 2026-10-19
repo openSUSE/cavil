@@ -87,20 +87,35 @@ t.test('Cavil UI - package search', skipUnlessOnline, async t => {
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(5)'), /perl-Mojolicious/);
     });
 
-    await t.test('A bare numeric id jumps straight to that package report', async t => {
-      // Review notes cite raw package ids; grab a real one from the results page, then look it up.
-      await page.goto(`${url}/search?q=perl-Mojolicious`);
-      const href = await page.getAttribute('#review-search a[href^="/reviews/details/"]', 'href');
-      const id = href.match(/\/reviews\/details\/(\d+)/)[1];
+    await t.test('Any cited id lists every review it may refer to', async t => {
+      const rows = '#review-search tbody > tr';
+      const ids = name => page.locator(rows).filter({hasText: name}).locator('td:nth-child(6)');
 
-      // The report page is logged-in only (the wrapper's dummy auth creates the admin "tester").
-      await page.goto(url);
-      await page.click('text=Login');
+      // The Cavil id of perl-UI-Test1 is also the number in perl-UI-Test3's link and a closed request of harbor-helm
+      await page.goto(`${url}/search?q=perl-UI-Test1`);
+      const id = (await ids('perl-UI-Test1').locator('.cavil-list-token').innerText()).match(/Cavil #(\d+)/)[1];
       await openPackageSearch();
       await page.locator(input).fill(id);
       await page.locator(input).press('Enter');
-      await page.waitForURL(`${url}/reviews/details/${id}`);
-      t.pass('numeric id navigates to the report, not a name search');
+      await page.waitForURL(`${url}/search?q=${id}`);
+      await page.waitForSelector(`${rows}:nth-child(3) > td:nth-child(6)`);
+      t.equal(await page.locator(rows).count(), 3, 'every candidate listed, no jump to a report');
+      t.equal(await ids('perl-UI-Test1').locator('.cavil-list-token.is-matched').innerText(), `Cavil #${id}`);
+      t.equal(await ids('perl-UI-Test3').locator('.cavil-search-link.is-matched').innerText(), `test#${id}`);
+      t.equal(await ids('harbor-helm').locator('.cavil-search-link.is-matched.is-closed').innerText(), `ibs#${id}`);
+      t.match(await ids('harbor-helm').innerText(), /obs#123456/, 'primary link shown too');
+      t.match(await page.innerText(`${rows}:nth-child(3)`), /harbor-helm/, 'closed match listed last');
+
+      // Extra words narrow when they fit a candidate, and are ignored when they fit none
+      await page.goto(`${url}/search?q=${encodeURIComponent(`ibs#${id}`)}`);
+      await page.waitForSelector(`${rows}:nth-child(1) > td:nth-child(6)`);
+      t.equal(await page.locator(rows).count(), 1, 'link prefix narrows to the request');
+      t.match(await page.innerText(`${rows}:nth-child(1) > td:nth-child(5)`), /harbor-helm/);
+
+      await page.goto(`${url}/search?q=${encodeURIComponent('SR#123456')}`);
+      await page.waitForSelector(`${rows}:nth-child(1) > td:nth-child(6)`);
+      t.equal(await page.locator(rows).count(), 1, 'unknown word "SR" is ignored');
+      t.match(await page.innerText(`${rows}:nth-child(1) > td:nth-child(5)`), /harbor-helm/);
     });
 
     t.test('Console errors', t => {

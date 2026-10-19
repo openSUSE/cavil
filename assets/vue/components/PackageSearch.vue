@@ -21,7 +21,7 @@
             v-model="query"
             type="text"
             class="form-control cavil-search-input"
-            placeholder="Package name"
+            placeholder="Package name or id"
             autocomplete="off"
             @input="onInput"
             @keydown.down.prevent="move(1)"
@@ -125,14 +125,7 @@ export default {
       this.navigate(name);
     },
     navigate(name) {
-      // A bare numeric id is a bot_packages.id (as cited in review notes); jump straight to its report
-      // rather than a name search, which would exact-match the digits against a name and find nothing.
-      const trimmed = name.trim();
-      if (/^\d+$/.test(trimmed)) {
-        window.location.href = `/reviews/details/${trimmed}`;
-        return;
-      }
-      window.location.href = `${this.searchUrl}?q=${encodeURIComponent(trimmed)}`;
+      window.location.href = `${this.searchUrl}?q=${encodeURIComponent(name.trim())}`;
     },
     onFocus() {
       if (this.suggestions.length > 0) this.open = true;

@@ -20,6 +20,7 @@
   >
     <template #controls>
       <button
+        v-if="!lookup"
         id="cavil-search-not-obsolete"
         @click="toggleFilter('notObsolete')"
         :aria-pressed="params.notObsolete.toString()"
@@ -52,12 +53,13 @@
           <th class="comment">Comment</th>
           <th class="user">Reviewing User</th>
           <th class="created">Package</th>
+          <th class="ids">Ids</th>
           <th class="report">Report</th>
         </tr>
       </thead>
       <tbody v-if="reviews === null">
         <tr>
-          <td id="all-done" colspan="6" class="cavil-list-state">
+          <td id="all-done" colspan="7" class="cavil-list-state">
             <LegalLoading message="Searching review docket..." size="small" />
           </td>
         </tr>
@@ -65,19 +67,35 @@
       <tbody v-else-if="reviews.length > 0">
         <tr v-for="review in reviews" :key="review.id">
           <td class="relative-time cavil-list-time">{{ review.imported }}</td>
-          <td v-html="review.state"></td>
+          <td>
+            <span v-html="review.state"></span>
+            <span v-if="review.obsolete" class="cavil-search-obsolete"> · obsolete</span>
+          </td>
           <td class="cavil-list-comment">
             <!-- Review comments are plain text, they must not be interpolated as HTML -->
             <div class="cavil-list-comment-body">{{ review.comment }}</div>
           </td>
           <td v-html="review.user"></td>
           <td class="cavil-list-package" v-html="review.package"></td>
+          <td class="cavil-list-link">
+            <div class="cavil-list-link-inner">
+              <span :class="['cavil-list-token', {'is-matched': review.idMatched}]">Cavil #{{ review.id }}</span>
+              <span
+                v-for="link in review.links"
+                :key="link.text"
+                :class="['cavil-search-link', {'is-closed': !link.active, 'is-matched': link.matched}]"
+                :title="link.active ? null : 'Closed'"
+              >
+                <ExternalLink :link="link" />
+              </span>
+            </div>
+          </td>
           <td class="cavil-list-report" v-html="review.report"></td>
         </tr>
       </tbody>
       <tbody v-else>
         <tr>
-          <td id="all-done" colspan="6" class="cavil-list-empty-cell">
+          <td id="all-done" colspan="7" class="cavil-list-empty-cell">
             <EmptyState message="No reviews found." />
           </td>
         </tr>
@@ -89,6 +107,7 @@
 <script>
 import CavilListLayout from './components/CavilListLayout.vue';
 import EmptyState from './components/EmptyState.vue';
+import ExternalLink from './components/ExternalLink.vue';
 import LegalLoading from './components/LegalLoading.vue';
 import {reportLink, setupPopoverDelayed} from './helpers/links.js';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
@@ -98,7 +117,7 @@ import moment from 'moment';
 export default {
   name: 'ReviewSearch',
   mixins: [Refresh],
-  components: {CavilListLayout, EmptyState, LegalLoading},
+  components: {CavilListLayout, EmptyState, ExternalLink, LegalLoading},
   data() {
     const params = getParams({
       limit: 10,
@@ -110,8 +129,9 @@ export default {
     return {
       end: 0,
       params,
+      lookup: false,
       reviews: null,
-      refreshUrl: `/pagination/search/${this.currentPackage}`,
+      refreshUrl: `/pagination/search/${encodeURIComponent(this.currentPackage)}`,
       filter: params.filter,
       start: 0,
       total: 0
@@ -137,10 +157,20 @@ export default {
       this.start = data.start;
       this.end = data.end;
       this.total = data.total;
+      this.lookup = data.lookup !== null;
 
+      const number = data.lookup ?? '';
       const reviews = [];
       for (const review of data.page) {
         reviews.push({
+          id: review.id,
+          idMatched: number !== '' && String(review.id) === number,
+          links: review.links.map(link => ({
+            ...link,
+            target: undefined,
+            matched: number !== '' && new RegExp(`[#!]${number}$`).test(link.text)
+          })),
+          obsolete: review.obsolete,
           comment: review.comment,
           imported: review.imported_epoch ? moment(review.imported_epoch * 1000).fromNow() : '',
           package: review.package,
@@ -172,3 +202,15 @@ export default {
   }
 };
 </script>
+
+<style>
+.cavil-search-obsolete,
+.cavil-search-link.is-closed {
+  opacity: 0.6;
+}
+.cavil-list-token.is-matched,
+.cavil-search-link.is-matched .cavil-external-link-text {
+  color: var(--cavil-fg);
+  font-weight: 600;
+}
+</style>

@@ -26,6 +26,7 @@ our @EXPORT_OK = (
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
   qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file parse_list_filter),
+  qw(lookup_tokens parse_lookup),
   qw(parse_service_file path_within pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
   qw(read_lines run_cmd safe_string),
   qw(request_id_from_external_link),
@@ -868,6 +869,21 @@ sub read_lines ($path, $start_line, $end_line, $with_line_numbers = 0) {
     $text .= $with_line_numbers ? sprintf("%6d  %s\n", $index, $line) : "$line\n";
   }
   return $text;
+}
+
+# Packagers cite reviews in forms nobody can enumerate (SR#123, URLs, pool/foo!12), so there is no grammar: the
+# number finds candidates and every other word may only narrow them down
+sub parse_lookup ($query) {
+  my @tokens = grep {length} split /[^\w.+-]+/, ($query // '') =~ s{(\w+://[^\s?#]*)[?#]\S*}{$1}gr;
+  my ($i) = grep { $tokens[$_] =~ /^\d+$/ } reverse 0 .. $#tokens;
+  return undef unless defined $i;
+
+  my $number = splice(@tokens, $i, 1) =~ s/^0+(?=\d)//r;
+  return {number => $number, words => lookup_tokens(join ' ', @tokens)};
+}
+
+sub lookup_tokens ($text) {
+  [grep {length} split /[^\w+-]+/, lc($text // '')]
 }
 
 sub request_id_from_external_link ($link) {

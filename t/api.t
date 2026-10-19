@@ -266,8 +266,50 @@ subtest 'Request has been created' => sub {
 
 subtest 'Remove request again' => sub {
   $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123'})
-    ->status_is(200);
+    ->status_is(200)
+    ->json_is('/removed', [1]);
   $t->get_ok('/requests' => {Authorization => 'Token test_token'})->status_is(200)->json_is('/requests', []);
+  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123'})
+    ->status_is(200)
+    ->json_is('/removed', []);
+
+  # Closed requests are kept, so the review can still be looked up by them
+  is_deeply $t->app->packages->lookup('obs#123'), [1], 'closed request still found';
+  is_deeply $t->app->packages->links_for([1])->{1}, [{text => 'obs#123', active => false}],
+    'primary link that is also the closed request shown once, inactive';
+};
+
+subtest 'A request link nobody recorded is active while the review is pending' => sub {
+  my $pkgs = $t->app->packages;
+  my $old  = $pkgs->find(1);
+  $pkgs->update({id => 1, external_link => 'gh#org/package!123', state => 'new', obsolete => 0});
+  is_deeply $pkgs->links_for([1])->{1}[0], {text => 'gh#org/package!123', active => true}, 'pending upload link';
+  $pkgs->update({id => 1, state => 'acceptable'});
+  is_deeply $pkgs->links_for([1])->{1}[0], {text => 'gh#org/package!123', active => false}, 'decided upload link';
+  $pkgs->update({id => 1, map { $_ => $old->{$_} } qw(external_link state obsolete)});
+};
+
+subtest 'Reopening a closed request' => sub {
+  $t->post_ok(
+    '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123', package => 1})
+    ->status_is(200);
+  $t->get_ok('/requests' => {Authorization => 'Token test_token'})
+    ->status_is(200)
+    ->json_is('/requests/0/external_link', 'obs#123');
+  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#123'})
+    ->status_is(200);
+};
+
+subtest 'Related reviews include packages whose primary link was replaced' => sub {
+  my $pkgs = $t->app->packages;
+  $pkgs->update({id => 2, external_link => 'obs#777'});
+  $t->post_ok(
+    '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#777', package => 1})
+    ->status_is(200);
+  is_deeply [map { $_->{id} } @{$pkgs->actions('obs#777', 2)}], [1], 'sibling found via its request';
+  $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#777'})
+    ->status_is(200);
+  is_deeply $pkgs->actions('obs#777', 2), [], 'closed request no longer relates them';
 };
 
 subtest 'Package shared by requests from two bots stays live until the last one is removed' => sub {
@@ -296,9 +338,22 @@ subtest 'Gitea request target derived from link' => sub {
 
   # Targets are resolved by an asynchronous job (a gitea link needs no external lookup)
   $t->app->minion->perform_jobs;
-  my $requests = $t->app->packages->requests_for(1);
-  is $requests->[0]{external_link}, 'soo#products/PackageHub!7', 'right link';
-  is $requests->[0]{target},        'products/PackageHub',       'target derived from gitea link';
+  my $target = sub {
+    my ($link) = grep { $_->{text} eq 'soo#products/PackageHub!7' } @{$t->app->packages->links_for([1])->{1}};
+    return $link->{target};
+  };
+  is $target->(), 'products/PackageHub', 'target derived from gitea link';
+
+  # Reopening resolves the target again, like a new request
+  $t->delete_ok(
+    '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'soo#products/PackageHub!7'})
+    ->status_is(200);
+  $t->app->pg->db->query(q{UPDATE bot_requests SET target = 'stale' WHERE external_link = 'soo#products/PackageHub!7'});
+  $t->post_ok('/requests' => {Authorization => 'Token test_token'} => form =>
+      {external_link => 'soo#products/PackageHub!7', package => 1})->status_is(200);
+  is $target->(), undef, 'stale target dropped on reopen';
+  $t->app->minion->perform_jobs;
+  is $target->(), 'products/PackageHub', 'target resolved again';
   $t->delete_ok(
     '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'soo#products/PackageHub!7'})
     ->status_is(200);
@@ -662,6 +717,12 @@ subtest 'Pagination' => sub {
       ->json_is('/page/0/id',                       4)
       ->json_is('/page/0/external_link_data/text',  'Multi-Linux Manager')
       ->json_is('/page/0/external_link_data/title', 'SUSE:SLE-15-SP7:Update:Products:MLM51');
+    my $name = $packages->find(4)->{name};
+    $t->get_ok("/pagination/search/$name")
+      ->json_is('/page/0/id',             4)
+      ->json_is('/page/0/links/0/text',   'Multi-Linux Manager')
+      ->json_is('/page/0/links/0/title',  'SUSE:SLE-15-SP7:Update:Products:MLM51')
+      ->json_is('/page/0/links/0/active', true);
     $products->set_annotation('SUSE:SLE-15-SP7:Update:Products:MLM51', '');
     $t->get_ok('/pagination/reviews/open?filter=MLM51')
       ->json_is('/page/0/external_link_data/text', 'SUSE:SLE-15-SP7:Update:Products:MLM51')

@@ -398,11 +398,11 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(1)'), /ago/);
       t.equal(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(2)'), 'new');
       t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(5)'), /perl-Mojolicious/);
-      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(6)'), /GPL/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(1) > td:nth-child(7)'), /GPL/);
       t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(1)'), /ago/);
       t.equal(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(2)'), 'new');
       t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(5)'), /perl-Mojolicious/);
-      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(6)'), /Artistic/);
+      t.match(await page.innerText('#review-search tbody > tr:nth-child(2) > td:nth-child(7)'), /Artistic/);
     });
 
     await t.test('File list cap per license (min_files_short_report)', async t => {

@@ -5,7 +5,7 @@ package Cavil::Controller::Pagination;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Cavil::Model::AuditLog qw(CATEGORIES);
-use Cavil::Util            qw(external_link_data);
+use Cavil::Util            qw(external_link_data parse_lookup);
 
 sub audit_events ($self) {
   my $v = $self->validation;
@@ -228,19 +228,26 @@ sub review_search ($self) {
   my $ignore       = $v->param('ignore');
   my $component    = $v->param('component');
 
-  my $name = $self->stash('name');
-  my $page = $self->packages->paginate_review_search(
-    $name,
+  # A cited id is looked up on purpose, so obsolete reviews are never hidden from it
+  my $name   = $self->stash('name');
+  my $lookup = $self->lookup_reviews($name);
+  my $page   = $self->packages->paginate_review_search(
+    $lookup ? undef : $name,
     {
       limit        => $limit,
       offset       => $offset,
-      not_obsolete => $not_obsolete,
+      not_obsolete => $lookup ? 'false' : $not_obsolete,
       search       => $search,
       pattern      => $pattern,
       ignore       => $ignore,
-      component    => $component
+      component    => $component,
+      lookup       => $lookup
     }
   );
+
+  my $links = $self->review_links([map { $_->{id} } @{$page->{page}}]);
+  $_->{links}     = $links->{$_->{id}} // [] for @{$page->{page}};
+  $page->{lookup} = $lookup ? parse_lookup($name)->{number} : undef;
   $self->render(json => $self->_mark_active_packages($page));
 }
 
