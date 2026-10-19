@@ -79,7 +79,7 @@
           <td class="cavil-list-package" v-html="review.package"></td>
           <td class="cavil-list-link">
             <div class="cavil-list-link-inner">
-              <span :class="['cavil-list-token', {'is-matched': review.idMatched}]">Cavil #{{ review.id }}</span>
+              <span :class="['cavil-list-token', {'is-matched': review.idMatched}]">cavil#{{ review.id }}</span>
               <span
                 v-for="link in review.links"
                 :key="link.text"
@@ -204,6 +204,16 @@ export default {
 </script>
 
 <style>
+/* Long Gitea links wrap instead of ellipsizing like in the review lists, the number at the end is what was searched */
+.cavil-search-link {
+  max-width: 100%;
+  min-width: 0;
+}
+.cavil-search-link .cavil-external-link-target {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
 .cavil-search-obsolete,
 .cavil-search-link.is-closed {
   opacity: 0.6;

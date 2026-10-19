@@ -93,14 +93,14 @@ t.test('Cavil UI - package search', skipUnlessOnline, async t => {
 
       // The Cavil id of perl-UI-Test1 is also the number in perl-UI-Test3's link and a closed request of harbor-helm
       await page.goto(`${url}/search?q=perl-UI-Test1`);
-      const id = (await ids('perl-UI-Test1').locator('.cavil-list-token').innerText()).match(/Cavil #(\d+)/)[1];
+      const id = (await ids('perl-UI-Test1').locator('.cavil-list-token').innerText()).match(/cavil#(\d+)/)[1];
       await openPackageSearch();
       await page.locator(input).fill(id);
       await page.locator(input).press('Enter');
       await page.waitForURL(`${url}/search?q=${id}`);
       await page.waitForSelector(`${rows}:nth-child(3) > td:nth-child(6)`);
       t.equal(await page.locator(rows).count(), 3, 'every candidate listed, no jump to a report');
-      t.equal(await ids('perl-UI-Test1').locator('.cavil-list-token.is-matched').innerText(), `Cavil #${id}`);
+      t.equal(await ids('perl-UI-Test1').locator('.cavil-list-token.is-matched').innerText(), `cavil#${id}`);
       t.equal(await ids('perl-UI-Test3').locator('.cavil-search-link.is-matched').innerText(), `test#${id}`);
       t.equal(await ids('harbor-helm').locator('.cavil-search-link.is-matched.is-closed').innerText(), `ibs#${id}`);
       t.match(await ids('harbor-helm').innerText(), /obs#123456/, 'primary link shown too');
@@ -116,6 +116,32 @@ t.test('Cavil UI - package search', skipUnlessOnline, async t => {
       await page.waitForSelector(`${rows}:nth-child(1) > td:nth-child(6)`);
       t.equal(await page.locator(rows).count(), 1, 'unknown word "SR" is ignored');
       t.match(await page.innerText(`${rows}:nth-child(1) > td:nth-child(5)`), /harbor-helm/);
+    });
+
+    await t.test('Long links wrap inside the Ids column instead of overlapping the report', async t => {
+      await page.route('**/pagination/search/**', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        data.page[0].links = [
+          {
+            text: 'ssd#pool/aws-nitro-enclaves-cli!12',
+            label: 'SUSE',
+            url: 'https://src.suse.de/pool/aws-nitro-enclaves-cli/pulls/12',
+            active: true
+          }
+        ];
+        await route.fulfill({response, json: data});
+      });
+      await page.goto(`${url}/search?q=perl-Mojolicious`);
+      const cell = page.locator('#review-search tbody > tr:nth-child(1) > td:nth-child(6)');
+      await cell.locator('.cavil-search-link').waitFor();
+      const {pill, report} = await cell.evaluate(td => ({
+        pill: td.querySelector('.cavil-external-link').getBoundingClientRect().right,
+        report: td.nextElementSibling.getBoundingClientRect().left
+      }));
+      t.ok(pill <= report, 'link stays left of the report column');
+      t.match(await cell.innerText(), /cli!12/, 'request number stays visible');
+      await page.unroute('**/pagination/search/**');
     });
 
     t.test('Console errors', t => {
