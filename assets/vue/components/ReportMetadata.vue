@@ -49,6 +49,7 @@
                 v-if="canViewAudit"
                 :href="`/audit?filter=${encodeURIComponent(pkgName)}`"
                 class="metadata-history-link"
+                target="_blank"
                 >History</a
               >
             </dd>
