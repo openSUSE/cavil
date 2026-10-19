@@ -30,6 +30,7 @@ use constant DOCUMENTS => [
     key   => 'spdx',
     file  => '.report.spdx.json.gz',
     name  => 'spdx.json',
+    label => 'SBOM (spdx.json)',
     type  => 'application/json',
     gzip  => 1,
     stamp => 'report_stamp'
@@ -38,6 +39,7 @@ use constant DOCUMENTS => [
     key   => 'notice',
     file  => '.report.notice.txt.gz',
     name  => 'NOTICE.txt',
+    label => 'Notice (txt)',
     type  => 'text/plain',
     gzip  => 1,
     stamp => 'report_stamp'
@@ -46,6 +48,7 @@ use constant DOCUMENTS => [
     key   => 'dossier',
     file  => '.report.dossier.md.gz',
     name  => 'dossier.md',
+    label => 'Dossier (md)',
     type  => 'text/markdown',
     gzip  => 1,
     stamp => 'dossier_stamp'
@@ -113,6 +116,7 @@ sub document_status ($self, $pkg) {
       {
         key   => $_->{key},
         name  => "$pkg->{id}.$_->{name}",
+        label => $_->{label},
         ready => $ready ? 1                : 0,
         size  => $ready ? _size($_, $path) : undef
       }

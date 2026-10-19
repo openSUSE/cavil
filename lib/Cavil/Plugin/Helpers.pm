@@ -148,6 +148,7 @@ sub _documents_state ($c, $pkg) {
         {
           key   => $_->{key},
           name  => $_->{name},
+          label => $_->{label},
           url   => "/documents/$id/$_->{key}",
           size  => defined $_->{size} ? humanize_bytes($_->{size}) : undef,
           state => $_->{ready} ? 'ready' : $building{$job} ? 'building' : $job eq 'failed' ? 'failed' : 'none'

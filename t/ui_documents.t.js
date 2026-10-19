@@ -30,7 +30,7 @@ t.test('Cavil UI - report documents', skipUnlessOnline, async t => {
       await row.locator('.report-documents-control').first().waitFor();
       t.same(
         await row.locator('.report-documents-control').allInnerTexts(),
-        ['1.spdx.json', '1.NOTICE.txt', '1.dossier.md'],
+        ['SBOM (spdx.json)', 'Notice (txt)', 'Dossier (md)'],
         'one control per document, labelled with the file it gets'
       );
       t.equal(await row.locator('a[download]').count(), 0, 'nothing built yet');
@@ -45,7 +45,7 @@ t.test('Cavil UI - report documents', skipUnlessOnline, async t => {
 
     await t.test('Asking for the dossier builds the dossier alone', async t => {
       const row = page.locator('#report-documents');
-      const dossier = row.locator('button.report-documents-control', {hasText: '1.dossier.md'});
+      const dossier = row.locator('button.report-documents-control', {hasText: 'Dossier'});
       await dossier.click();
 
       // The POST answers with the new state, so the spinner is up before a worker has even picked up the job
@@ -66,7 +66,7 @@ t.test('Cavil UI - report documents', skipUnlessOnline, async t => {
       t.match(await row.locator('.report-documents-size').innerText(), /^[\d.]+\s?\w+$/, 'with its size beside it');
       t.equal(await row.locator('button.report-documents-control').count(), 2, 'the others still wait to be asked');
       t.equal(
-        await row.locator('a[download] i.fa-file-arrow-down').count(),
+        await row.locator('a[download] i.fa-download').count(),
         1,
         'the ready one shows the download icon'
       );
@@ -79,8 +79,8 @@ t.test('Cavil UI - report documents', skipUnlessOnline, async t => {
 
     await t.test('Several documents can be asked for at once', async t => {
       const row = page.locator('#report-documents');
-      await row.locator('button.report-documents-control', {hasText: '1.spdx.json'}).click();
-      await row.locator('button.report-documents-control', {hasText: '1.NOTICE.txt'}).click();
+      await row.locator('button.report-documents-control', {hasText: 'SBOM'}).click();
+      await row.locator('button.report-documents-control', {hasText: 'Notice'}).click();
       await t.resolves(
         page.waitForFunction(() => document.querySelectorAll('#report-documents i.fa-spin').length === 2),
         'both rows spin'

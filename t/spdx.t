@@ -798,6 +798,8 @@ subtest 'Every document has its own download control state' => sub {
   my $state = $t->tx->res->json('/documents');
   is_deeply [map { $_->{name} } @{$state->{documents}}], ['1.spdx.json', '1.NOTICE.txt', '1.dossier.md'],
     'every registered document is named for a download';
+  is_deeply [map { $_->{label} } @{$state->{documents}}], ['SBOM (spdx.json)', 'Notice (txt)', 'Dossier (md)'],
+    'and labelled for the report page';
   is_deeply [map { $_->{url} } @{$state->{documents}}],
     ['/documents/1/spdx', '/documents/1/notice', '/documents/1/dossier'], 'and linked';
 

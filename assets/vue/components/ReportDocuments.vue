@@ -7,28 +7,28 @@
       <div v-for="doc in current.documents ?? []" :key="doc.key" class="report-documents-row">
         <a
           v-if="doc.state === 'ready'"
-          class="report-documents-control report-documents-file"
+          class="report-documents-control"
           :href="doc.url"
           :download="doc.name"
           title="Download"
         >
-          <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>
-          <span>{{ doc.name }}</span>
+          <i class="fa-solid fa-download" aria-hidden="true"></i>
+          <span>{{ doc.label }}</span>
         </a>
         <button
           v-else
           type="button"
-          class="report-documents-control report-documents-file"
+          class="report-documents-control"
           :disabled="doc.state === 'building' || busy[doc.key]"
           :aria-busy="doc.state === 'building'"
           title="Generate"
           @click="generate(doc.key)"
         >
           <i
-            :class="doc.state === 'building' ? 'fa-solid fa-rotate fa-spin' : 'fa-solid fa-file-circle-plus'"
+            :class="doc.state === 'building' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-file-circle-plus'"
             aria-hidden="true"
           ></i>
-          <span>{{ doc.name }}</span>
+          <span>{{ doc.label }}</span>
         </button>
         <span v-if="doc.state === 'ready' && doc.size" class="report-documents-size">{{ doc.size }}</span>
         <span v-else-if="doc.state === 'failed'" class="report-documents-note">last attempt failed</span>
@@ -213,15 +213,6 @@ export default {
 .report-documents-control:disabled {
   color: var(--cavil-fg-muted);
   cursor: default;
-}
-.report-documents-file span {
-  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
-
-  /* The mono face reserves more room under the baseline than the label font does, and centring its line box
-     spends that room above the characters instead, landing the filename a pixel higher than the size and the
-     notes beside it. This puts it back on the line its neighbours use. */
-  position: relative;
-  top: 1px;
 }
 .report-documents-size,
 .report-documents-note {
