@@ -101,7 +101,8 @@ worklist snippet, take the **first** action that applies:
 5. **Mode B** → short identifier pattern. **The common case.**
 6. **Named, but Cavil does not know it** → propose it as a new license (NEW LICENSES). If that
    checklist fails, `cavil_report_missing_license` (in `reported` mode: leave it). Only with a license
-   name quoted from the text, and only on the Mode A body, never a fragment; else step 7.
+   name quoted from the text, and only on the Mode A body or a notice naming the license *with its
+   version* (NEW LICENSES item 1), never a mid-document fragment; else step 7.
 7. **Cannot name any license** → Note (text output only, no tool).
 
 **PRECEDENT STEP (mandatory before steps 3, 4 and 6, and before any catch-all or pseudo-license).**
@@ -145,7 +146,7 @@ skipped a check, so never answer it by adding `broad_ok` and retrying.
 2. **Real reach:** if the dry run says `candidate cap reached`, its count is only a lower bound. Get
    the real reach from `cavil_search_snippets(resolution=any, search=<literal identifier>)`, which
    lists every package holding the load-bearing token. Use `broad_ok` only when that evidence
-   supports it, and cite the evidence in the reason.
+   supports it, and cite the evidence in the reason by naming the packages, not "about N".
 3. **Coverage:** dry-run with `package_id` to confirm that every worklist variant (`#`, `//`, one-line
    and two-line headers) matches.
 
@@ -303,11 +304,15 @@ agreement), so a lawyer rules on them.
 A new license fixes a risk for every future report that uses it, so propose one only when **all** of
 these hold. Otherwise report missing (in `reported` mode: leave it for a human):
 
-1. You read the whole text (`cavil_get_file`, title through last line) and can name a **specific**
-   license. "The wording is unusual" or "I am not sure what this is" is a Note.
-2. You confirmed it against a primary source with `WebFetch` (sources below). No web access means no
-   new license.
-3. You can quote the **single clause** that fixes its risk tier.
+1. You read the whole text and can name a **specific** license. "The wording is unusual" or "I am not
+   sure what this is" is a Note. The whole text is the body in the package (`cavil_get_file`, title
+   through last line), or, when the package carries only a notice naming the license with its version,
+   the steward's published text; the card says which, and whether the text ships in the package.
+2. You confirmed it against a primary source with `WebFetch` (sources below): the steward's canonical
+   text or the SPDX list, never only a project's re-hosted copy. No web access means no new license.
+3. You can quote the **single clause** that fixes its risk tier, and you looked up the closest license
+   Cavil already rates (the one it derives from, or its nearest sibling) with `cavil_search_patterns(license=…)`.
+   Match its risk or say why not; a comparator outside its own tier goes to DATA FIXES.
 4. No closest match the tool offers is that license, and no pseudo-license fits (`Any Proprietary`
    and, for a full body, `Any EULA` never count).
 
@@ -363,13 +368,16 @@ verdict line.
 - **What it is:** <spec notice / vendor header / EULA / SPDX tag ...>
 - **Deciding clause:** "<25 words or fewer, quoted from the snippet>"
 - **Grants rights:** yes / conditional / no (reservation only)
-- **Shipped:** built into binaries / source-only reference document
+- **Shipped:** built into binaries / source-only reference document (how you know, or "not verified")
 - **Double-check:** <the one thing the lawyer should look at>
 ```
 
 A new license adds, after the verdict line `**<name> (<SPDX id or "no SPDX id">), risk N.**`:
-**Why this license** (how you identified and confirmed it), **Obligations** (attribution, copyleft
-scope and network trigger, patent / non-commercial / field-of-use terms) and **Sources** (title - url).
+**Why this license** (how you identified and confirmed it), **Compared with** (the Cavil license and
+risk from item 3), **Obligations** (attribution, copyleft scope and network trigger, patent /
+non-commercial / field-of-use terms) and **Sources** (title - url; plus the SPDX result, an id or "not
+listed, checked"). A deciding clause quoted from the license text rather than the snippet is labelled
+"(from <source>)".
 
 - Ignores: verdict line (`**Not license text.**`) plus **Why:** in one line.
 - Globs: verdict line plus **Why these files** and the file count.
