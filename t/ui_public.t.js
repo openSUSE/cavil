@@ -3,7 +3,7 @@ import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib
 import t from 'tap';
 
 // Public (no login) interactions: the parts of Cavil that are accessible
-// without an account. Open reviews lists, pagination, package search,
+// without an account. Open reviews lists, pagination, review search,
 // top-level navigation.
 t.test('Cavil UI - public browsing', skipUnlessOnline, async t => {
   const ui = await launchUi('js_ui_public');

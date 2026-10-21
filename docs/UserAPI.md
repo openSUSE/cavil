@@ -734,7 +734,7 @@ Content-Type: application/json
 
 `GET /api/v1/reports`
 
-Find every legal report an id may refer to. This is the same lookup as the "Find Package" search in the web UI.
+Find every legal report an id may refer to. This is the same lookup as the "Find Review" search in the web UI.
 
 **Request parameters:**
 

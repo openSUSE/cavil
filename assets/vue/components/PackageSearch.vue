@@ -4,16 +4,16 @@
       ref="trigger"
       type="button"
       class="nav-link cavil-package-search-trigger"
-      aria-label="Find Package"
+      aria-label="Find Review"
       :aria-expanded="expanded"
       aria-controls="cavil-package-search-popover"
       @click="toggleSearch"
     >
-      Find Package
+      Find Review
     </button>
     <div v-show="expanded" id="cavil-package-search-popover" class="cavil-package-search-popover">
       <form role="search" @submit.prevent="submit">
-        <label for="cavil-package-search-input" class="visually-hidden">Find Package</label>
+        <label for="cavil-package-search-input" class="visually-hidden">Find Review</label>
         <div class="cavil-package-search-anchor">
           <input
             id="cavil-package-search-input"
@@ -21,7 +21,7 @@
             v-model="query"
             type="text"
             class="form-control cavil-search-input"
-            placeholder="Package name or id"
+            placeholder="Package name, request or id"
             autocomplete="off"
             @input="onInput"
             @keydown.down.prevent="move(1)"

@@ -2,12 +2,12 @@
 import {assertNoUnexpectedConsoleErrors, launchUi, skipUnlessOnline} from './lib/ui_helpers.js';
 import t from 'tap';
 
-// Package search: the navbar autocomplete (PackageSearch.vue) that predicts
+// Review search: the navbar autocomplete (PackageSearch.vue) that predicts
 // package names via the /package/autocomplete endpoint (trigram + substring
 // blend), plus the search results page it navigates to. Exercises the real
 // user flow - typing, the suggestion dropdown, mouse and keyboard selection,
 // and typo tolerance - rather than poking the endpoint directly.
-t.test('Cavil UI - package search', skipUnlessOnline, async t => {
+t.test('Cavil UI - review search', skipUnlessOnline, async t => {
   const ui = await launchUi('js_ui_search');
   const {page, url, errorLogs} = ui;
 
@@ -23,12 +23,12 @@ t.test('Cavil UI - package search', skipUnlessOnline, async t => {
   try {
     await t.test('Suggestion dropdown and mouse selection', async t => {
       await page.goto(url);
-      t.notOk(await page.locator(input).isVisible(), 'package search starts collapsed');
+      t.notOk(await page.locator(input).isVisible(), 'review search starts collapsed');
       await openPackageSearch();
-      t.ok(await isFocused(input), 'opening package search focuses the input');
+      t.ok(await isFocused(input), 'opening review search focuses the input');
 
       await page.locator(input).press('Escape');
-      t.notOk(await page.locator(input).isVisible(), 'Escape collapses package search');
+      t.notOk(await page.locator(input).isVisible(), 'Escape collapses review search');
       t.ok(await isFocused(trigger), 'Escape restores focus to the trigger');
       await openPackageSearch();
 
