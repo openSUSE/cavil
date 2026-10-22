@@ -26,28 +26,36 @@ subtest 'Permission errors' => sub {
   $t->post_ok('/settings/excluded-files')->status_is(403);
   $t->get_ok('/pagination/settings/excluded-files')->status_is(403);
 
+  $t->get_ok('/settings')->status_is(401);
+  $t->get_ok('/settings/api-keys')->status_is(401);
+
   $t->get_ok('/login')->status_is(302);
   for my $role (qw(user manager lawyer)) {
     $set_roles->($role);
     $t->get_ok('/settings/auto-accept')->status_is(403);
     $t->get_ok('/settings/auto-accept.json')->status_is(403);
     $t->delete_ok('/settings/excluded-files/1')->status_is(403);
+    $t->get_ok('/settings')->status_is(302)->header_is(Location => '/settings/api-keys');
+    $t->get_ok('/settings/api-keys')->status_is(200);
   }
 
-  $t->get_ok('/settings')->status_is(302)->header_is(Location => '/settings/comment-templates');
-  $t->get_ok('/settings/comment-templates')
-    ->status_is(200)
-    ->content_like(qr/setupSettings\('comment-templates', false\)/, 'lawyers only see comment templates');
-  $set_roles->('manager');
-  $t->get_ok('/settings')->status_is(403);
+  $t->get_ok('/settings/api-keys')
+    ->content_like(qr/setupSettings\('api-keys', false, true\)/, 'lawyers also see comment templates');
+  $t->get_ok('/settings/comment-templates')->status_is(200);
+  $set_roles->('user');
+  $t->get_ok('/settings/api-keys')
+    ->content_like(qr/setupSettings\('api-keys', false, false\)/, 'everybody else only their own keys');
   $t->get_ok('/settings/comment-templates')->status_is(403);
+  $t->get_ok('/api_keys')->status_is(302)->header_is(Location => '/settings/api-keys');
   $set_roles->('admin');
 };
 
 subtest 'Pages' => sub {
-  $t->get_ok('/settings')->status_is(302)->header_is(Location => '/settings/auto-accept');
-  $t->get_ok('/settings/auto-accept')->status_is(200)->content_like(qr/setupSettings\('auto-accept', true\)/);
-  $t->get_ok('/settings/excluded-files')->status_is(200)->content_like(qr/setupSettings\('excluded-files', true\)/);
+  $t->get_ok('/settings')->status_is(302)->header_is(Location => '/settings/api-keys');
+  $t->get_ok('/settings/auto-accept')->status_is(200)->content_like(qr/setupSettings\('auto-accept', true, true\)/);
+  $t->get_ok('/settings/excluded-files')
+    ->status_is(200)
+    ->content_like(qr/setupSettings\('excluded-files', true, true\)/);
   $t->get_ok('/settings/nothing')->status_is(404);
 };
 

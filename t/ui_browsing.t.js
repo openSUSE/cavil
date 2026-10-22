@@ -511,10 +511,13 @@ t.test('Cavil UI - admin browsing', skipUnlessOnline, async t => {
     await t.test('API Keys', async t => {
       await page.goto(url);
       await openAccountMenu(page);
-      await page.click('text=API Keys');
-      t.equal(await page.innerText('title'), 'API Keys');
-      await page.waitForSelector('#api-keys tbody > tr:nth-child(1)');
-      t.equal(await page.innerText('#api-keys tbody > tr:nth-child(1) > td:nth-child(1)'), 'No API keys found.');
+      await page.click('.dropdown-item >> text=Settings');
+      t.equal(await page.innerText('title'), 'Settings');
+      await page.waitForSelector('.cavil-settings-nav-item.active');
+      t.equal(await page.innerText('.cavil-settings-nav-item.active'), 'API keys', 'settings open on the API keys');
+      await page.waitForSelector('#api-keys .empty-state');
+      t.match(await page.innerText('#api-keys .empty-state'), /No API keys found\./, 'empty state');
+      t.match(await page.innerText('#api-keys .cavil-list-title'), /0\s+API keys/, 'count in the list header');
     });
 
     t.test('Console errors', t => {

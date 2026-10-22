@@ -94,7 +94,6 @@
                 minion           => url_for('/minion')->to_string,
                 settings         => url_for('/settings')->to_string,
                 documentation    => 'https://github.com/openSUSE/cavil/blob/master/docs/README.md',
-                apiKeys          => url_for('list_api_keys')->to_string,
                 logout           => url_for('logout')->to_string
               }) %>'
             >

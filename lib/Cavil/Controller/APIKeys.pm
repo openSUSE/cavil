@@ -24,10 +24,6 @@ sub create ($self) {
   $self->render(json => {created => $api_key->{id}});
 }
 
-sub list ($self) {
-  $self->render('api_keys/list');
-}
-
 sub list_meta ($self) {
   my $owner_id = $self->users->id_for_login($self->current_user);
   my $keys     = $self->api_keys->list($owner_id);

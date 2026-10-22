@@ -9,7 +9,8 @@
 
 ## Authentication
 
-All user API endpoints use bearer tokens you can generate with the "API Keys" menu entry after logging into Cavil.
+All user API endpoints use bearer tokens you can generate in the **API keys** section of **Settings**, which you find
+in the account menu after logging into Cavil.
 These bearer tokens are passed with every request via the `Authorization` header.
 
 ```
@@ -51,7 +52,7 @@ means you have to manually review them in the UI.
 Cavil supports the OAuth login from the MCP authorization specification. Clients with OAuth support only need the URL
 `https://legaldb.suse.de/mcp`: they open your browser, you log in to Cavil as usual, and you click **Allow**. There are
 no API keys to create or copy. Write access and accepting/rejecting reviews are both off by default, and you can turn
-them on in the same Allow dialog. Every connection appears as "<client name> (OAuth)" on the **API Keys** page.
+them on in the same Allow dialog. Every connection appears as "<client name> (OAuth)" in the **API keys** section of **Settings**.
 Deleting it there disconnects the client immediately. Some clients don't tell Cavil when you disconnect them on their
 side, so this is the only reliable way to revoke access. See the [claude](#claude) section below for an example.
 
@@ -349,7 +350,7 @@ running one is as simple as typing a short command at the agent prompt.
 
 You can do this end to end yourself. Three one-time steps:
 
-1. **Create a Cavil API key.** Log into the Cavil web UI, open your user menu, click **API Keys**, and create a
+1. **Create a Cavil API key.** Log into the Cavil web UI, open **Settings** from your user menu, and in the **API keys** section create a
    **read-write** key - four of the bundled skills write something back (notes, decisions, or pattern proposals), and a
    read-write key also works for the read-only `cavil-license-research`, so one key covers them all. Copy the generated
    key somewhere safe and treat it like a password. Anything the AI does with this key shows up under your name in

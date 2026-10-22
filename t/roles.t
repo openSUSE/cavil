@@ -54,10 +54,17 @@ my @probes = (
     url    => '/reviews/fasttrack_package/999999',
     allow  => [qw(admin lawyer manager)]
   },
-  {cap => 'curate/settings',  method => 'get_ok',    url => '/settings',                   allow => [qw(admin lawyer)]},
   {cap => 'curate/templates', method => 'get_ok',    url => '/settings/comment-templates', allow => [qw(admin lawyer)]},
   {cap => 'curate/templates', method => 'get_ok',    url => '/comment-templates',          allow => [qw(admin lawyer)]},
   {cap => 'curate/templates', method => 'delete_ok', url => '/comment-templates/999999',   allow => [qw(admin lawyer)]},
+
+  # Personal settings only need a login
+  {
+    cap    => 'logged_in/settings',
+    method => 'get_ok',
+    url    => '/settings/api-keys',
+    allow  => [qw(user uploader classifier contributor manager admin lawyer)]
+  },
 
   # Reading templates only needs a login, managers write review comments too and need the picker
   {

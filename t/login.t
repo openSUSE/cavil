@@ -36,6 +36,8 @@ subtest 'Public (main menu)' => sub {
 
 subtest 'Login required' => sub {
   $t->get_ok('/api_keys')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/settings')->status_is(401)->content_like(qr/Login Required/);
+  $t->get_ok('/settings/api-keys')->status_is(401)->content_like(qr/Login Required/);
   $t->get_ok('/api_keys/meta')->status_is(401)->content_like(qr/Login Required/);
   $t->post_ok('/api_keys')->status_is(401)->content_like(qr/Login Required/);
   $t->delete_ok('/api_keys/1')->status_is(401)->content_like(qr/Login Required/);

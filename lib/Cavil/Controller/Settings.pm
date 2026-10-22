@@ -26,7 +26,7 @@ sub auto_accept ($self) {
 }
 
 sub first ($self) {
-  $self->redirect_to($self->current_user_can('infra') ? '/settings/auto-accept' : '/settings/comment-templates');
+  $self->redirect_to('/settings/api-keys');
 }
 
 sub remove_exclusion ($self) {

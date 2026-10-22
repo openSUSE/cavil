@@ -61,11 +61,10 @@
         <li><a :href="urls.auditLog" class="dropdown-item">Audit Log</a></li>
       </template>
       <li v-if="canUpload"><a :href="urls.upload" class="dropdown-item">Upload Tarball</a></li>
-      <li v-if="canCurate"><a :href="urls.settings" class="dropdown-item">Settings</a></li>
       <li v-if="canInfra"><a :href="urls.minion" class="dropdown-item">Minion Dashboard</a></li>
       <li v-if="canCurate || canUpload || canInfra"><hr class="dropdown-divider" /></li>
+      <li><a :href="urls.settings" class="dropdown-item">Settings</a></li>
       <li><a :href="urls.documentation" class="dropdown-item">Documentation</a></li>
-      <li><a :href="urls.apiKeys" class="dropdown-item">API Keys</a></li>
       <li><a :href="urls.logout" class="dropdown-item">Logout</a></li>
     </ul>
   </li>

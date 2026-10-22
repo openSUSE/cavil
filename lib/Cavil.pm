@@ -199,8 +199,9 @@ sub startup ($self) {
 
   $self->plugin('Minion::Admin' => {route => $can_infra->any('/minion')});
 
-  # Gated per section, curators manage comment templates but only admins decide what is accepted automatically
-  $can_curate->get('/settings')->to('Settings#first');
+  # Gated per section: everybody manages their own API keys, curators the comment templates, admins the rest
+  $logged_in->get('/settings')->to('Settings#first');
+  $logged_in->get('/settings/api-keys')->to('Settings#show', section => 'api-keys');
   $can_curate->get('/settings/comment-templates')->to('Settings#show', section => 'comment-templates');
   $can_infra->get('/settings/:section' => [section => [qw(auto-accept excluded-files)]])
     ->to('Settings#show')
@@ -249,7 +250,7 @@ sub startup ($self) {
   $api_key->get('/api/v1/report/<id:num>' => [format => ['json', 'txt', 'mcp']])->to('Report#report');
   $api_key->get('/api/v1/documents/<id:num>/:key')->to('Report#document');
 
-  $logged_in->get('/api_keys')->to('APIKeys#list')->name('list_api_keys');
+  $logged_in->get('/api_keys' => sub ($c) { $c->redirect_to('/settings/api-keys') });
   $logged_in->get('/api_keys/meta')->to('APIKeys#list_meta')->name('list_api_keys_meta');
   $logged_in->post('/api_keys')->to('APIKeys#create')->name('create_api_keys');
   $logged_in->delete('/api_keys/:id')->to('APIKeys#remove')->name('remove_api_keys');

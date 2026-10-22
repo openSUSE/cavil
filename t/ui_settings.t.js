@@ -20,11 +20,45 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.goto(url);
       await openAccountMenu(page);
       await page.click('.dropdown-item >> text=Settings');
-      await page.waitForSelector('#low-risk-enabled');
+      await page.waitForSelector('#api-keys');
       t.match(await page.title(), /Settings/, 'on the settings page');
-      t.equal(await page.innerText('.cavil-settings-nav-item.active'), 'Automatic acceptance', 'first section');
+      t.same(
+        await page.locator('.cavil-settings-nav-heading').allInnerTexts(),
+        ['Personal', 'Reviews'],
+        'personal and review settings are kept apart'
+      );
+      t.equal(await page.innerText('.cavil-settings-nav-item.active'), 'API keys', 'personal settings first');
+
+      await page.click('.cavil-settings-nav-item >> text=Automatic acceptance');
+      await page.waitForSelector('#low-risk-enabled');
+      t.equal(await page.innerText('.cavil-settings-nav-item.active'), 'Automatic acceptance', 'review settings');
       t.equal(await page.isDisabled('#settings-save'), true, 'nothing to save yet');
       t.match(await page.innerText('.cavil-settings-last-change'), /Using default values/, 'no change yet');
+    });
+
+    await t.test('API keys', async t => {
+      await page.click('.cavil-settings-nav-item >> text=API keys');
+      await page.waitForSelector('#api-keys .empty-state');
+      await page.click('[name="add-api-key"]');
+      await page.waitForSelector('#api-key-description', {state: 'visible'});
+      await page.fill('#api-key-description', 'Settings test key');
+      t.equal(await page.locator('#api-key-can-finalize-reviews').count(), 0, 'no accept/reject for read-only keys');
+      await page.selectOption('#api-key-type', 'read-write');
+      await page.check('#api-key-can-finalize-reviews');
+      await page.click('#apiKeyAddButton');
+      await page.waitForSelector('#api-keys td >> text=Settings test key');
+      await page.waitForSelector('#api-key-description', {state: 'detached'});
+      t.pass('form closes after adding');
+      t.match(await page.innerText('#api-keys tbody'), /read-write\s+accept\/reject/, 'accept/reject marked');
+      t.match(await page.innerText('#api-keys .cavil-list-title'), /1\s+API key\b/, 'counted in the list header');
+
+      page.once('dialog', dialog => dialog.accept());
+      await page.click('[title="Delete API key"]');
+      await page.waitForSelector('#api-keys .empty-state');
+      t.pass('deleted');
+
+      await page.click('.cavil-settings-nav-item >> text=Automatic acceptance');
+      await page.waitForSelector('#low-risk-enabled');
     });
 
     await t.test('Switch the low-risk rule off and on', async t => {

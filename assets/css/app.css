@@ -1305,10 +1305,20 @@ table td.fit {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.cavil-settings-nav {
+.cavil-settings-nav,
+.cavil-settings-nav-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.cavil-settings-nav {
+  gap: 1rem;
+}
+.cavil-settings-nav-heading {
+  padding: 0 8px 4px;
+  color: var(--cavil-fg-muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 .cavil-settings-nav-item {
   display: flex;

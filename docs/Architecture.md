@@ -158,9 +158,9 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
 * `Audit Log`: Lists every review decision in order, automatic and manual, and every change to limitations, license
                patterns, ignores and settings, for curators and lawyers. The State on a report links to it, filtered
                to that package (see *Audit Log* below).
-* `Settings`: Where admins decide which reviews Cavil may accept on its own and which files it skips when unpacking
-              (see *Automatic Acceptance* and *Excluded Files* below), and where curators and lawyers maintain the
-              comment templates reviewers pick from on report pages.
+* `Settings`: Where everybody manages their own API keys. Admins also decide here which reviews Cavil may accept on
+              its own and which files it skips when unpacking (see *Automatic Acceptance* and *Excluded Files* below),
+              and curators and lawyers maintain the comment templates reviewers pick from on report pages.
 
 ### Access Levels
 
@@ -199,8 +199,9 @@ capability and never taken from the request: a non-lawyer curator can accept a p
 assert a lawyer sign-off, on either the web or automation path. A user's capabilities are the union of
 their assigned roles.
 
-Each section of the Settings page asks for its own capability, and people only see the sections they may use.
-Comment templates need `curate`, while automatic acceptance and excluded files are limited to admins for now. The page
+The Settings page keeps personal settings apart from the ones that shape reviews for everybody, and each section asks
+for its own capability, so people only see the sections they may use. Anyone who is logged in can manage their own API
+keys, comment templates need `curate`, and automatic acceptance and excluded files are limited to admins for now. The page
 is written for people who are not technical, so opening a section to lawyers later is only a change of who may reach
 it.
 

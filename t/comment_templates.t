@@ -131,7 +131,7 @@ subtest 'Manage templates' => sub {
   $t->get_ok('/comment-templates')->status_is(302)->header_is(Location => '/settings/comment-templates');
   $t->get_ok('/settings/comment-templates')
     ->status_is(200)
-    ->content_like(qr/setupSettings\('comment-templates', true\)/);
+    ->content_like(qr/setupSettings\('comment-templates', true, true\)/);
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 

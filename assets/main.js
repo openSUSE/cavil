@@ -6,7 +6,6 @@ import '@fortawesome/fontawesome-free/css/v4-shims.css';
 import './css/app.css';
 import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap';
-import ApiKeys from './vue/ApiKeys.vue';
 import ArchiveUpload from './vue/ArchiveUpload.vue';
 import AuditLog from './vue/AuditLog.vue';
 import CavilMenu from './vue/CavilMenu.vue';
@@ -118,12 +117,8 @@ window.cavil = {
     createApp(IgnoredFiles).mount('#ignored-files');
   },
 
-  setupSettings(section, canInfra) {
-    createApp(SettingsPage, {section, canInfra}).mount('#settings');
-  },
-
-  setupApiKeys() {
-    createApp(ApiKeys).mount('#api-keys');
+  setupSettings(section, canInfra, canCurate) {
+    createApp(SettingsPage, {section, canInfra, canCurate}).mount('#settings');
   },
 
   setupKnownLicenses() {
