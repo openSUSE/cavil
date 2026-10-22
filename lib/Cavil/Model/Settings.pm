@@ -12,7 +12,10 @@ use Mojo::JSON             qw(encode_json);
 my %SETTINGS = (
   acceptable_risk     => {default => 4,                                                      check => \&_risk},
   auto_accept_risk    => {default => 2,                                                      check => \&_risk},
-  acceptable_packages => {default => [qw(000product 000release-packages 000package-groups)], check => \&_names}
+  acceptable_packages => {default => [qw(000product 000release-packages 000package-groups)], check => \&_names},
+  sbom_creator_name   => {default => '',                                                     check => \&_line},
+  sbom_creator_email  => {default => '',                                                     check => \&_email},
+  sbom_creator_url    => {default => '',                                                     check => \&_url}
 );
 
 has 'pg';
@@ -23,9 +26,15 @@ sub defaults ($self) {
 
 sub get ($self) { return $self->_effective($self->_stored($self->pg->db)) }
 
-sub summary ($self) {
-  my $stored = $self->_stored($self->pg->db);
-  return {values => $self->_effective($stored), defaults => $self->defaults, custom => [sort keys %$stored]};
+sub summary ($self, @keys) {
+  my $stored    = $self->_stored($self->pg->db);
+  my $effective = $self->_effective($stored);
+  my $defaults  = $self->defaults;
+  return {
+    values   => {map { $_ => $effective->{$_} } @keys},
+    defaults => {map { $_ => $defaults->{$_} } @keys},
+    custom   => [sort grep { exists $stored->{$_} } @keys]
+  };
 }
 
 sub update ($self, $login, $values, $reset = []) {
@@ -92,6 +101,18 @@ sub _effective ($self, $stored) {
   return {map { $_ => exists $stored->{$_} ? _checked($_, $stored->{$_}) : _default($_) } keys %SETTINGS};
 }
 
+sub _email ($value) {
+  my ($line, $error) = _line($value);
+  return (undef, $error) if defined $error;
+  return length $line && $line !~ /^[^@\s]+@[^@\s]+\.[^@\s]+$/ ? (undef, 'Must be an email address') : $line;
+}
+
+sub _line ($value) {
+  return (undef, 'Must be a single line of at most 200 characters')
+    unless defined $value && !ref $value && $value !~ /[\r\n]/ && length $value <= 200;
+  return $value =~ s/^\s+|\s+$//gr;
+}
+
 sub _names ($value) {
   return (undef, 'Must be a list of package names') unless ref $value eq 'ARRAY' && !grep { !defined || ref } @$value;
   my %seen;
@@ -102,6 +123,12 @@ sub _names ($value) {
 
 sub _risk ($value) {
   return defined $value && !ref $value && $value =~ /^\d$/ ? 0 + $value : (undef, 'Must be a risk level from 0 to 9');
+}
+
+sub _url ($value) {
+  my ($line, $error) = _line($value);
+  return (undef, $error) if defined $error;
+  return length $line && $line !~ m{^https?://\S+$} ? (undef, 'Must be a web address starting with https://') : $line;
 }
 
 sub _stored ($self, $db) {

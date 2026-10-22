@@ -20,8 +20,10 @@
 
 ### Authentication
 
-All bot API endpoints use previously configured access tokens for authentication. These tokens are passed with every
-request via the `Authorization` header.
+All bot API endpoints use access tokens for authentication, which admins create in the **Bot tokens** section of
+**Settings** in the web interface. Every bot should have its own token, so one can be removed without locking out the
+others, and while no token exists the bot API refuses every request. The token is passed with every request via the
+`Authorization` header.
 
 ```
 GET /package/1
@@ -553,10 +555,10 @@ a package by the request id. Adding the same request again reopens it.
 
 **Request parameters:**
 
-* `external_link` (required): Short string describing the package source. Special values like `obs#123`, `ibs#123`,
-                              `soo#org/package!123` and `ssd#org/package!123` result in links to
-                              `https://build.opensuse.org`, `https://build.suse.de`, `https://src.opensuse.org` and
-                              `https://src.suse.de`.
+* `external_link` (required): Short string describing the package source. Values matching one of the
+                              `external_link_sources` patterns in the configuration, such as `obs#123` or
+                              `soo#org/package!123`, are shown as links to the build service or Git hosting
+                              instance the request came from.
 
 ```
 DELETE /requests

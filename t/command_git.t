@@ -45,7 +45,7 @@ subtest 'Git' => sub {
     my $hash = run_cmd($src_dir, ['git', 'rev-parse', 'HEAD'])->{stdout};
     chomp $hash;
 
-    my $headers = {Authorization => "Token $config->{tokens}[0]"};
+    my $headers = {Authorization => "Token test_token"};
     $t->get_ok('/package/1', $headers)->status_is(200)->json_is('/state' => 'new')->json_is('/imported' => undef);
 
     my $minion = $t->app->minion;

@@ -134,11 +134,15 @@ const changes = data =>
 const settingLabels = {
   auto_accept_risk: 'Accept low-risk packages nobody has reviewed yet',
   acceptable_risk: 'Accept packages a person has reviewed before',
-  acceptable_packages: 'Always accept these packages'
+  acceptable_packages: 'Always accept these packages',
+  sbom_creator_name: 'SBOM organisation',
+  sbom_creator_email: 'SBOM email address',
+  sbom_creator_url: 'SBOM web address'
 };
 const settingValue = (field, value) => {
   if (Array.isArray(value)) return value.length ? value.join(', ') : '(none)';
   if (field === 'auto_accept_risk' && value === 0) return 'off';
+  if (value === '') return '(none)';
   return typeof value === 'number' ? `${value} - ${riskName(value)}` : String(value);
 };
 const settingChanges = data =>
@@ -211,7 +215,9 @@ const formatters = {
     subject: {text: data.glob, mono: true}
   }),
   'ignored_file.removed': data => ({summary: 'Ignored files removed', subject: {text: data.glob, mono: true}}),
-  'settings.changed': data => ({summary: 'Automatic acceptance changed', detail: settingChanges(data)}),
+  'settings.changed': data => ({summary: 'Settings changed', detail: settingChanges(data)}),
+  'bot_token.added': data => ({summary: 'Bot token added', detail: data.description}),
+  'bot_token.removed': data => ({summary: 'Bot token removed', detail: data.description}),
   'unpack_exclusion.added': data => ({summary: 'Excluded file added', detail: data.reason, subject: exclusion(data)}),
   'unpack_exclusion.removed': data => ({
     summary: 'Excluded file removed',

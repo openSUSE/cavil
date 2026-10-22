@@ -180,7 +180,7 @@ sub _request ($self, $url, $method = 'GET') {
   die "Missing configuration for OBS instance: $host" unless my $config = $self->config->{$host};
   die "Missing user for OBS instance: $host"          unless my $user   = $config->{user};
 
-  # "api.suse.de" needs ssh authentication
+  # Instances configured with an SSH key sign their requests
   my $tx;
   if (my $ssh_key = $config->{ssh_key}) {
     $tx = $ua->start($ua->build_tx($method => $url));

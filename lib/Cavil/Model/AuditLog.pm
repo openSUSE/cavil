@@ -13,8 +13,8 @@ use constant CATEGORIES => {
   reviews     => ['review.%'],
   limitations => ['limitation.%'],
   patterns    => ['pattern.%',       'license.%'],
-  ignored     => ['ignored_match.%', 'ignored_file.%', 'snippet.%'],
-  settings    => ['settings.%',      'unpack_exclusion.%']
+  ignored     => ['ignored_match.%', 'ignored_file.%',     'snippet.%'],
+  settings    => ['settings.%',      'unpack_exclusion.%', 'bot_token.%']
 };
 
 has 'pg';
@@ -25,11 +25,13 @@ sub audit_event ($db, %event) {
   $db->insert('audit_events', \%event);
 }
 
-sub last_event ($self, $types) {
+# Settings events can be narrowed down to the keys of one section
+sub last_event ($self, $types, $keys = undef) {
+  my $only = $keys ? q{AND (jsonb_exists_any(e.data->'changes', ?) OR jsonb_exists_any(e.data->'reset', ?))} : '';
   return $self->pg->db->query(
-    'SELECT EXTRACT(EPOCH FROM e.created) AS created_epoch, u.login
+    "SELECT EXTRACT(EPOCH FROM e.created) AS created_epoch, u.login
        FROM audit_events e LEFT JOIN bot_users u ON u.id = e.actor
-      WHERE e.type = ANY(?) ORDER BY e.id DESC LIMIT 1', $types
+      WHERE e.type = ANY(?) $only ORDER BY e.id DESC LIMIT 1", $types, $keys ? ($keys, $keys) : ()
   )->hash;
 }
 

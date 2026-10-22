@@ -21,6 +21,7 @@ use Cavil::Model::Settings;
 use Cavil::Model::UnpackExclusions;
 use Cavil::Model::Users;
 use Cavil::Model::APIKeys;
+use Cavil::Model::BotTokens;
 use Cavil::Model::AuditLog;
 use Cavil::Model::Snippets;
 use Cavil::Notice;
@@ -154,7 +155,8 @@ sub startup ($self) {
     }
   );
 
-  $self->helper(api_keys => sub ($c) { state $keys = Cavil::Model::APIKeys->new(pg => $c->pg) });
+  $self->helper(api_keys   => sub ($c) { state $keys   = Cavil::Model::APIKeys->new(pg => $c->pg) });
+  $self->helper(bot_tokens => sub ($c) { state $tokens = Cavil::Model::BotTokens->new(pg => $c->pg) });
 
   $self->helper(notes     => sub ($c) { state $nts = Cavil::Model::Notes->new(pg => $c->pg) });
   $self->helper(audit_log => sub ($c) { state $log = Cavil::Model::AuditLog->new(pg => $c->pg) });
@@ -203,11 +205,18 @@ sub startup ($self) {
   $logged_in->get('/settings')->to('Settings#first');
   $logged_in->get('/settings/api-keys')->to('Settings#show', section => 'api-keys');
   $can_curate->get('/settings/comment-templates')->to('Settings#show', section => 'comment-templates');
-  $can_infra->get('/settings/:section' => [section => [qw(auto-accept excluded-files)]])
+  $can_infra->get('/settings/:section' => [section => [qw(auto-accept excluded-files bot-tokens sbom)]])
     ->to('Settings#show')
     ->name('settings');
-  $can_infra->get('/settings/auto-accept.json')->to('Settings#auto_accept')->name('settings_auto_accept');
-  $can_infra->put('/settings/auto-accept.json')->to('Settings#update_auto_accept')->name('update_settings_auto_accept');
+  $can_infra->get('/settings/<section>.json' => [section => [qw(auto-accept sbom)]])
+    ->to('Settings#section')
+    ->name('settings_section');
+  $can_infra->put('/settings/<section>.json' => [section => [qw(auto-accept sbom)]])
+    ->to('Settings#update_section')
+    ->name('update_settings_section');
+  $can_infra->get('/settings/bot-tokens.json')->to('Settings#list_bot_tokens')->name('settings_bot_tokens');
+  $can_infra->post('/settings/bot-tokens')->to('Settings#add_bot_token')->name('add_bot_token');
+  $can_infra->delete('/settings/bot-tokens/<id:num>')->to('Settings#remove_bot_token')->name('remove_bot_token');
   $can_infra->post('/settings/excluded-files')->to('Settings#add_exclusion')->name('add_exclusion');
   $can_infra->delete('/settings/excluded-files/<id:num>')->to('Settings#remove_exclusion')->name('remove_exclusion');
   $can_infra->get('/pagination/settings/excluded-files')

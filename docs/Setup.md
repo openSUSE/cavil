@@ -65,16 +65,19 @@ Copy the shipped `cavil.conf` as your starting point and edit it. Cavil reads wh
 instance are:
 
 * `secrets` - a list of your own random strings used to sign session cookies. Never keep the default.
-* `pg` - the connection string for the database from step 1 (e.g. `postgresql://user@/legaldb`).
+* `pg` - the connection string for the database from step 1 (e.g. `postgresql://user@/cavil`).
 * `checkout_dir` - a directory on a **large** disk where unpacked source is kept for reindexing.
 * `tmp_dir` - a directory for incoming files before they are moved into `checkout_dir`.
 * `cache_dir` - a directory for temporary files shared between indexing processes.
 * `classifier` - the AI classifier connection (see step 6).
+* `spdx` - the `namespace` is the base address of every identifier in the SBOMs Cavil generates, usually the address
+  of your instance followed by `/spdx/`. It ends up in every published SBOM, so choose it once and keep it. There is
+  no built-in fallback: until it is set, SBOMs cannot be generated.
 * `openid` - OpenID Connect settings for real user login. If omitted, Cavil falls back to a dummy login that makes
   everyone an admin, which is fine for a first boot but must not be left on for a shared instance.
 
-To connect Cavil to your sources (Open Build Service, Gitea, or the bot API), also set the `obs`, `git`,
-`external_link_sources` and `tokens` options - all documented in `cavil.conf`. These can be added later.
+To connect Cavil to your sources (Open Build Service, Gitea, or the bot API), also set the `obs`, `git` and
+`external_link_sources` options - all documented in `cavil.conf`. These can be added later.
 
 In production mode Cavil also picks up a mode-specific config file next to your main one automatically - a
 `cavil.production.conf` beside `cavil.conf` is merged on top of it - which is a convenient place to keep
@@ -199,6 +202,11 @@ Some decisions are made in the web interface rather than in `cavil.conf`. Log in
 the account menu, and check that automatic acceptance matches what your organisation is comfortable with: which risk
 levels Cavil may accept without a person, and which placeholder packages are always accepted. The defaults are a
 reasonable start. The same page holds the list of files Cavil should never unpack.
+
+Two more sections connect Cavil to the outside world. Under **Bot tokens**, add one token for every bot that will
+submit packages, such as the Open Build Service or Gitea integration; until there is at least one token the bot API
+refuses every request. Under **SBOM**, enter the name and email address of your organisation, so the SBOMs Cavil
+generates say who created them.
 
 ## Next steps
 

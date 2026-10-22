@@ -89,28 +89,16 @@ import SettingsLastChange from './SettingsLastChange.vue';
 import TagInput from './TagInput.vue';
 import ToastNotifier from './ToastNotifier.vue';
 import {riskName} from '../helpers/riskLevels.js';
-import UserAgent from '@mojojs/user-agent';
-
-const SETTINGS_URL = '/settings/auto-accept.json';
+import SettingsForm from '../mixins/settingsForm.js';
 
 export default {
   name: 'SettingsAutoAccept',
   components: {LegalLoading, SettingsDefaultLabel, SettingsLastChange, TagInput, ToastNotifier},
+  mixins: [SettingsForm],
   data() {
-    return {custom: [], defaults: {}, errors: {}, form: null, lastChange: null, saved: {}, saving: false};
+    return {settingsUrl: '/settings/auto-accept.json'};
   },
   computed: {
-    dirtyValues() {
-      if (this.form === null) return {};
-      const dirty = {};
-      for (const [key, value] of Object.entries(this.form)) {
-        if (JSON.stringify(value) !== JSON.stringify(this.saved[key])) dirty[key] = value;
-      }
-      return dirty;
-    },
-    dirty() {
-      return Object.keys(this.dirtyValues).length > 0;
-    },
     lowRiskEnabled: {
       get() {
         return this.form.auto_accept_risk > 0;
@@ -125,10 +113,6 @@ export default {
       if (this.form.auto_accept_risk > risk) this.form.auto_accept_risk = risk;
     }
   },
-  async mounted() {
-    const ua = new UserAgent({baseURL: window.location.href});
-    this.load(await (await ua.get(SETTINGS_URL)).json());
-  },
   methods: {
     levels(from, to, current) {
       const levels = [];
@@ -136,44 +120,7 @@ export default {
       if (current !== undefined && !levels.includes(current)) levels.push(current);
       return levels;
     },
-    load(data) {
-      this.custom = data.custom;
-      this.defaults = data.defaults;
-      this.lastChange = data.last_change;
-      this.saved = data.values;
-      this.form = JSON.parse(JSON.stringify(data.values));
-    },
-    reset(name) {
-      return this.send({reset: [name]});
-    },
-    riskName,
-    save() {
-      return this.send({values: this.dirtyValues});
-    },
-    async send(body) {
-      this.saving = true;
-      const ua = new UserAgent({baseURL: window.location.href});
-      const res = await ua.put(SETTINGS_URL, {json: body});
-      const data = await res.json().catch(() => ({}));
-      this.saving = false;
-
-      if (!res.isSuccess) {
-        this.errors = data.errors ?? {};
-        this.$refs.toaster.notify(data.error ?? 'Settings could not be saved', 'danger', 5000);
-        return;
-      }
-
-      const pending = this.dirtyValues;
-      for (const key of body.reset ?? []) delete pending[key];
-      this.errors = {};
-      this.load(data);
-      Object.assign(this.form, JSON.parse(JSON.stringify(pending)));
-
-      const n = data.rechecked;
-      this.$refs.toaster.notify(
-        n > 0 ? `Saved. ${n} open ${n === 1 ? 'review' : 'reviews'} will be checked again.` : 'Saved.'
-      );
-    }
+    riskName
   }
 };
 </script>

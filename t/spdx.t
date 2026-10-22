@@ -19,8 +19,12 @@ use Digest::SHA;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'spdx_test');
-my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
+my $cavil_test = Cavil::Test->new(
+  online   => $ENV{TEST_ONLINE},
+  schema   => 'spdx_test',
+  settings => {sbom_creator_name => 'SUSE LLC', sbom_creator_email => 'security@suse.de'}
+);
+my $t = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->spdx_fixtures($t->app);
 
 # Make the "Apache-2.0" pattern unknown to SPDX, so it has to fall back to a ScanCode identifier
@@ -229,7 +233,7 @@ subtest 'Creation information (BSI: creator and timestamp)' => sub {
 
 subtest 'SBOM document (BSI: SBOM-URI)' => sub {
   my $sbom = of_type($doc, 'software_Sbom')->[0];
-  is $sbom->{spdxId}, 'http://legaldb.suse.de/spdx/1', 'SBOM-URI';
+  is $sbom->{spdxId}, 'https://cavil.example.com/spdx/1', 'SBOM-URI';
   is_deeply $sbom->{software_sbomType}, ['source'], 'source SBOM';
 
   # The URI is the same for every rebuild of this package, so the iteration counter is the only thing
@@ -429,10 +433,12 @@ subtest 'Line ranges are the original file\'s, not the scanned copy\'s' => sub {
 # The remaining subtests regenerate the report with different configuration/data, restoring state afterwards
 my $spdx_config = $t->app->config->{spdx};
 
-subtest 'Creator identity is configurable (URL fallback and defaults)' => sub {
+subtest 'Creator identity comes from the settings (URL fallback and defaults)' => sub {
+  my $settings = $t->app->settings;
 
   # A creator with a URL but no email must use a "urlScheme" identifier
-  $t->app->config->{spdx} = {%$spdx_config, creator => {name => 'ACME Corp', url => 'https://acme.example/'}};
+  $settings->update('test_bot',
+    {sbom_creator_name => 'ACME Corp', sbom_creator_email => '', sbom_creator_url => 'https://acme.example/'});
   my $url_doc = gen_doc();
   my $ci      = of_type($url_doc, 'CreationInfo')->[0];
   my %by_id   = map { ($_->{spdxId} // $_->{'@id'}) => $_ } @{$url_doc->{'@graph'}};
@@ -443,16 +449,32 @@ subtest 'Creator identity is configurable (URL fallback and defaults)' => sub {
     'creator without an email uses a URL identifier';
   schema_ok($url_doc, 'URL-creator document still validates');
 
-  # Without any SPDX configuration at all, sensible defaults are used
-  $t->app->config->{spdx} = undef;
+  # Without any creator settings, the deployment is named and not the tool
+  $settings->update('test_bot', {}, [qw(sbom_creator_name sbom_creator_email sbom_creator_url)]);
   my $default_doc = gen_doc();
   my $dci         = of_type($default_doc, 'CreationInfo')->[0];
   my %dby_id      = map { ($_->{spdxId} // $_->{'@id'}) => $_ } @{$default_doc->{'@graph'}};
-  is $dby_id{$dci->{createdBy}[0]}{name}, 'legaldb.suse.de',
+  is $dby_id{$dci->{createdBy}[0]}{name}, 'cavil.example.com',
     'an unconfigured creator falls back to the deployment, not to the tool';
   is $dby_id{$dci->{createdUsing}[0]}{name}, 'Cavil', 'defaults to Cavil as the tool';
+  is_deeply $dby_id{$dci->{createdBy}[0]}{externalIdentifier},
+    [
+    {
+      type                   => 'ExternalIdentifier',
+      externalIdentifierType => 'urlScheme',
+      identifier             => 'https://cavil.example.com/spdx/'
+    }
+    ],
+    'identified by the address SBOMs are published under';
+
+  # Without a namespace there is nothing to build identifiers from, so nothing is published
+  $t->app->config->{spdx} = undef;
+  eval { gen_doc() };
+  like $@, qr/SBOMs need "spdx.namespace" in the configuration/, 'no SBOM with made up identifiers';
+  is $t->app->spdx->creator->{name}, undef, 'the settings page shows no fallback either';
 
   $t->app->config->{spdx} = $spdx_config;
+  $settings->update('test_bot', {sbom_creator_name => 'SUSE LLC', sbom_creator_email => 'security@suse.de'});
 };
 
 subtest 'Every rebuild is a new iteration of the same SBOM' => sub {

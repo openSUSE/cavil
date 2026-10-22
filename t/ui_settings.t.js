@@ -24,7 +24,7 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       t.match(await page.title(), /Settings/, 'on the settings page');
       t.same(
         await page.locator('.cavil-settings-nav-heading').allInnerTexts(),
-        ['Personal', 'Reviews'],
+        ['Personal', 'Reviews', 'Integrations'],
         'personal and review settings are kept apart'
       );
       t.equal(await page.innerText('.cavil-settings-nav-item.active'), 'API keys', 'personal settings first');
@@ -107,7 +107,7 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.click('.cavil-settings-last-change a');
       await page.waitForSelector('#audit-log-category');
       t.equal(await page.inputValue('#audit-log-category'), 'settings', 'filtered to settings');
-      await page.waitForSelector('text=Automatic acceptance changed');
+      await page.waitForSelector('text=Settings changed');
       t.match(await page.innerText('body'), /Always accept these packages: .* → .*my-placeholder/, 'readable change');
     });
 
@@ -126,6 +126,51 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.click('[title="Remove excluded file"]');
       await page.waitForSelector('text=No excluded files.');
       t.pass('removed');
+    });
+
+    await t.test('Bot tokens', async t => {
+      await page.click('.cavil-settings-nav-item >> text=Bot tokens');
+      await page.waitForSelector('#bot-tokens td >> text=test_token');
+      t.match(await page.innerText('#bot-tokens .cavil-list-title'), /1\s+bot token\b/, 'the token the tests run with');
+
+      await page.click('[name="add-bot-token"]');
+      await page.fill('#bot-token-description', 'Gitea bot');
+      await page.click('#save-bot-token');
+      await page.waitForSelector('#bot-tokens td >> text=Gitea bot');
+
+      await page.click('[name="add-bot-token"]');
+      await page.fill('#bot-token-description', 'Pasted');
+      await page.fill('#bot-token-value', 'short');
+      await page.click('#save-bot-token');
+      await page.waitForSelector('.toast-danger >> text=at least 16 characters');
+      t.pass('short tokens are refused');
+      await page.fill('#bot-token-value', 'an-existing-bot-token');
+      await page.click('#save-bot-token');
+      await page.waitForSelector('#bot-tokens td >> text=Pasted');
+      t.match(await page.innerText('#bot-tokens .cavil-list-title'), /3\s+bot tokens/, 'generated and pasted');
+      t.match(await page.innerText('.cavil-settings-last-change'), /Last changed by tester/, 'who changed it');
+
+      page.once('dialog', dialog => dialog.accept());
+      await page.locator('#bot-tokens tr', {hasText: 'Pasted'}).locator('[title="Remove bot token"]').click();
+      await page.waitForSelector('#bot-tokens td >> text=Pasted', {state: 'detached'});
+      t.pass('removed');
+    });
+
+    await t.test('SBOM creator', async t => {
+      await page.click('.cavil-settings-nav-item >> text=SBOM');
+      await page.waitForSelector('#sbom-creator-name');
+      t.equal(await page.getAttribute('#sbom-creator-name', 'placeholder'), 'cavil.example.com', 'shows the fallback');
+      await page.fill('#sbom-creator-name', 'ACME Corp');
+      await page.fill('#sbom-creator-email', 'sbom@acme.example');
+      await save();
+      await page.reload();
+      await page.waitForSelector('#sbom-creator-name');
+      t.equal(await page.inputValue('#sbom-creator-name'), 'ACME Corp', 'saved');
+
+      await page.click('[data-reset="sbom_creator_name"]');
+      await page.waitForSelector('[data-default="sbom_creator_name"]');
+      t.equal(await page.inputValue('#sbom-creator-name'), '', 'back to the fallback');
+      t.equal(await page.inputValue('#sbom-creator-email'), 'sbom@acme.example', 'other field kept');
     });
 
     t.test('Console errors', t => {

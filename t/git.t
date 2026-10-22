@@ -75,7 +75,7 @@ subtest 'Local git' => sub {
     my $t          = Test::Mojo->new(Cavil => $config);
     $cavil_test->no_fixtures($t->app);
 
-    my $headers = {Authorization => "Token $config->{tokens}[0]"};
+    my $headers = {Authorization => "Token test_token"};
 
     subtest 'Validation errors' => sub {
       $t->post_ok('/packages')->status_is(403);
@@ -175,7 +175,7 @@ subtest 'Live git server tests' => sub {
     my $t          = Test::Mojo->new(Cavil => $config);
     $cavil_test->no_fixtures($t->app);
 
-    my $headers = {Authorization => "Token $config->{tokens}[0]"};
+    my $headers = {Authorization => "Token test_token"};
 
     subtest 'Standard import' => sub {
       $t->post_ok(

@@ -21,6 +21,8 @@
         <SettingsAutoAccept v-else-if="section === 'auto-accept'" />
         <SettingsExcludedFiles v-else-if="section === 'excluded-files'" />
         <SettingsCommentTemplates v-else-if="section === 'comment-templates'" />
+        <SettingsBotTokens v-else-if="section === 'bot-tokens'" />
+        <SettingsSbom v-else-if="section === 'sbom'" />
       </div>
     </div>
   </div>
@@ -29,8 +31,10 @@
 <script>
 import SettingsApiKeys from './components/SettingsApiKeys.vue';
 import SettingsAutoAccept from './components/SettingsAutoAccept.vue';
+import SettingsBotTokens from './components/SettingsBotTokens.vue';
 import SettingsCommentTemplates from './components/SettingsCommentTemplates.vue';
 import SettingsExcludedFiles from './components/SettingsExcludedFiles.vue';
+import SettingsSbom from './components/SettingsSbom.vue';
 
 const SECTIONS = [
   {id: 'api-keys', label: 'API keys', icon: 'fa-solid fa-key', group: 'Personal'},
@@ -48,12 +52,21 @@ const SECTIONS = [
     icon: 'fa-solid fa-comment-dots',
     group: 'Reviews',
     cap: 'curate'
-  }
+  },
+  {id: 'bot-tokens', label: 'Bot tokens', icon: 'fa-solid fa-robot', group: 'Integrations', cap: 'infra'},
+  {id: 'sbom', label: 'SBOM', icon: 'fa-solid fa-file-shield', group: 'Integrations', cap: 'infra'}
 ];
 
 export default {
   name: 'SettingsPage',
-  components: {SettingsApiKeys, SettingsAutoAccept, SettingsCommentTemplates, SettingsExcludedFiles},
+  components: {
+    SettingsApiKeys,
+    SettingsAutoAccept,
+    SettingsBotTokens,
+    SettingsCommentTemplates,
+    SettingsExcludedFiles,
+    SettingsSbom
+  },
   props: {
     canCurate: {type: Boolean, default: false},
     canInfra: {type: Boolean, default: false},

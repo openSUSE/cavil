@@ -513,3 +513,15 @@ CREATE INDEX ON audit_events (type, id DESC);
 -- 76 down
 DROP TABLE IF EXISTS unpack_exclusions;
 DROP TABLE IF EXISTS settings;
+
+-- 77 up
+CREATE TABLE bot_tokens (
+  id          serial PRIMARY KEY,
+  token       text NOT NULL UNIQUE,
+  description text DEFAULT '' NOT NULL,
+  owner       int REFERENCES bot_users(id),
+  created     timestamp with time zone DEFAULT now() NOT NULL
+);
+
+-- 77 down
+DROP TABLE IF EXISTS bot_tokens;

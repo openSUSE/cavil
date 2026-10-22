@@ -708,7 +708,7 @@ subtest 'Bot API (with Minion background jobs)' => sub {
 
   # Validation errors
   $t->post_ok('/packages')->status_is(403);
-  my $headers = {Authorization => "Token $config->{tokens}[0]"};
+  my $headers = {Authorization => "Token test_token"};
   $t->post_ok('/packages', $headers)
     ->status_is(400)
     ->json_is({error => 'Invalid request parameters (api, package, project)'});

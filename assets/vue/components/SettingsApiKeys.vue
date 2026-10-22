@@ -80,7 +80,7 @@
               <td>
                 <copyable-text
                   :value="key.apiKey"
-                  class="api-key"
+                  class="cavil-secret"
                   title="Click to copy"
                   aria-label="Reveal API key on hover, click to copy"
                 >
@@ -201,16 +201,5 @@ export default {
 <style>
 .table {
   margin-top: 1rem;
-}
-.api-key .real {
-  display: inline-block;
-  filter: blur(6px);
-  transition: filter 0.15s ease;
-  user-select: none;
-}
-.api-key:hover .real,
-.api-key:focus .real {
-  filter: none;
-  user-select: text;
 }
 </style>

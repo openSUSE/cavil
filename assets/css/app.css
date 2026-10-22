@@ -1382,6 +1382,20 @@ table td.fit {
 .cavil-settings-nested .form-select {
   max-width: 280px;
 }
+.cavil-secret .real {
+  display: inline-block;
+  filter: blur(6px);
+  transition: filter 0.15s ease;
+  user-select: none;
+}
+.cavil-secret:hover .real,
+.cavil-secret:focus .real {
+  filter: none;
+  user-select: text;
+}
+.cavil-settings-text {
+  max-width: 420px;
+}
 .cavil-settings-default {
   margin-left: 0.5rem;
   padding: 0 7px;

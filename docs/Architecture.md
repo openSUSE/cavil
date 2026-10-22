@@ -160,7 +160,8 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
                to that package (see *Audit Log* below).
 * `Settings`: Where everybody manages their own API keys. Admins also decide here which reviews Cavil may accept on
               its own and which files it skips when unpacking (see *Automatic Acceptance* and *Excluded Files* below),
-              and curators and lawyers maintain the comment templates reviewers pick from on report pages.
+              manage the tokens bots use and the organisation SBOMs name as their creator, and curators and lawyers
+              maintain the comment templates reviewers pick from on report pages.
 
 ### Access Levels
 
@@ -173,7 +174,7 @@ naming a role, and roles are named bundles of capabilities.
 | classify | Validate AI text-classification results, creating training data. |
 | propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
 | curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores and comment templates, accept or reject proposals, apply snippet decisions, edit review tags, reindex, and accept or reject reviews. |
-| infra | Operate the instance: the job dashboard, the automatic acceptance and excluded files settings, and package upload into the review backlog. |
+| infra | Operate the instance: the job dashboard, the automatic acceptance, excluded files, bot token and SBOM settings, and package upload into the review backlog. |
 | review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off), or replace the comment of an `acceptable` one. Never changes a rejection or a lawyer sign-off. |
 | review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |
 | upload_ephemeral | Upload archives for ephemeral one-off reviews, via the web form or the User API. Without `infra` every upload is forced ephemeral, so it can never reach the review backlog. |
@@ -199,9 +200,10 @@ capability and never taken from the request: a non-lawyer curator can accept a p
 assert a lawyer sign-off, on either the web or automation path. A user's capabilities are the union of
 their assigned roles.
 
-The Settings page keeps personal settings apart from the ones that shape reviews for everybody, and each section asks
-for its own capability, so people only see the sections they may use. Anyone who is logged in can manage their own API
-keys, comment templates need `curate`, and automatic acceptance and excluded files are limited to admins for now. The page
+The Settings page groups its sections into personal settings, the ones that shape reviews for everybody, and the
+integrations with the outside world, and each section asks for its own capability, so people only see the sections they
+may use. Anyone who is logged in can manage their own API keys, comment templates need `curate`, and automatic
+acceptance, excluded files, bot tokens and the SBOM creator are limited to admins for now. The page
 is written for people who are not technical, so opening a section to lawyers later is only a change of who may reach
 it.
 
@@ -266,8 +268,9 @@ decisions that shape reports are also written to an audit log. What goes in is a
   every license pattern created, edited (only the fields that changed) or removed (with the full pattern, since the
   row is gone), every bulk edit of a license as one event, every ignored match and ignored file glob added or removed,
   and every snippet marked as not legal text everywhere, each with who did it and, for accepted proposals, who
-  proposed it. Changes on the Settings page are recorded as well: every change to automatic acceptance, with the old
-  and new value of each setting, and every excluded file added or removed, with its reason.
+  proposed it. Changes on the Settings page are recorded as well: every change to automatic acceptance and the SBOM
+  creator, with the old and new value of each setting, every excluded file added or removed, with its reason, and every
+  bot token added or removed, with its description but never the token itself.
 * **Not recorded:** reindexing, notices and diffs, checksum or risk changes, priorities, tags, documents and ordinary
   notes, which are regenerated from the source on every rebuild (see the invariants above) or kept elsewhere, and a
   review becoming obsolete, which is housekeeping by the cleanup jobs rather than a decision. Changes made from the
@@ -550,8 +553,8 @@ The document describes the package as the *primary component* and records, for i
 below it, the following data fields - those BSI TR-03183-2 describes, plus those the CISA list adds - as far as the
 available metadata allows:
 
-* **Who created the SBOM and when** - a configurable creator identity (organisation name plus an email address, or a
-  URL if no email is available) and a timestamp. This is the organisation running Cavil, never Cavil itself; an
+* **Who created the SBOM and when** - a creator identity admins set on the Settings page (organisation name plus an
+  email address, or a URL if no email is available) and a timestamp. This is the organisation running Cavil, never Cavil itself; an
   instance that has not been told who operates it falls back to the host it publishes its SBOMs under.
 * **Which tool wrote it** - Cavil, with its version.
 * **A unique identity for the SBOM** - its own URI, so it can be referenced from other SBOMs, plus an iteration number.
@@ -700,7 +703,9 @@ Each document is cached next to the package checkout, gzip-compressed where that
 repetitive and compresses roughly ten-fold, which matters at the scale of many cached reports. A gzipped document is
 served over the REST API untouched to clients that accept gzip (essentially all of them) and decompressed on the fly
 for the rest; if a request arrives before it has been generated, the API returns a `408` status until it is ready. The
-creator identity, document namespace and `LicenseRef` namespace are all set in the instance configuration.
+document namespace and `LicenseRef` namespace are set in the instance configuration, the creator identity on the
+Settings page. A changed creator applies to SBOMs generated from then on; the ones already built keep the old one until
+their package is next reindexed.
 
 See the [User API documentation](UserAPI.md#retrieve-spdx-reports) for the exact endpoint and an example document.
 

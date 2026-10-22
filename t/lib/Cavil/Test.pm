@@ -35,7 +35,6 @@ sub default_config ($self) {
     checkout_dir                             => $self->checkout_dir,
     cache_dir                                => $self->cache_dir,
     matcher                                  => $ENV{CAVIL_MATCHER} || 'cavil',
-    tokens                                   => ['test_token'],
     pg                                       => $self->postgres_url,
     index_bucket_average                     => 100,
     cleanup_bucket_average                   => 50,
@@ -47,11 +46,7 @@ sub default_config ($self) {
     max_worker_rss                           => 100000,
     max_expanded_files                       => 100,
     max_file_browser_size                    => 1_000_000,
-    spdx                                     => {
-      namespace             => 'http://legaldb.suse.de/spdx/',
-      creator               => {name => 'SUSE LLC', email => 'security@suse.de'},
-      license_ref_namespace => 'cavil'
-    },
+    spdx         => {namespace => 'https://cavil.example.com/spdx/', license_ref_namespace => 'cavil'},
     snippet_fold => {
       enabled         => 0,
       threshold       => 0.95,
@@ -253,6 +248,7 @@ sub migrate ($self, $app) {
   $app->pg->db->query('INSERT INTO settings (name, value) VALUES (?, ?) ON CONFLICT DO NOTHING',
     $_, {json => $settings{$_}})
     for keys %settings;
+  $app->pg->db->query(q{INSERT INTO bot_tokens (token) VALUES ('test_token') ON CONFLICT DO NOTHING});
 }
 
 sub no_fixtures ($self, $app) {

@@ -56,11 +56,24 @@ my $ARCHIVE_RE = qr/\.(?:
 
 has 'app';
 
+# The entity that operates Cavil, which is not Cavil itself - the tool is a separate field in the SBOM. An instance
+# that has not been told who runs it is identified by the host it publishes its SBOMs under, which at least names a
+# real party, rather than by the name of the software that wrote the file.
+sub creator ($self) {
+  my $namespace = $self->_namespace;
+  my $settings  = $self->app->settings->get;
+  return {
+    name  => $settings->{sbom_creator_name} || ($namespace && (Mojo::URL->new($namespace)->host || $namespace)),
+    email => $settings->{sbom_creator_email},
+    url   => $settings->{sbom_creator_url} || $namespace
+  };
+}
+
 sub generate_to_file ($self, $id, $file, $stamp = undef) {
-  my $app          = $self->app;
-  my $log          = $app->log;
-  my $config       = $app->config->{spdx} || {};
-  my $namespace    = $config->{namespace} || 'http://legaldb.suse.de/spdx/';
+  my $app    = $self->app;
+  my $log    = $app->log;
+  my $config = $app->config->{spdx} || {};
+  die qq{SBOMs need "spdx.namespace" in the configuration\n} unless my $namespace = $self->_namespace;
   my $dir          = $app->packages->pkg_checkout_dir($id);
   my $checkout     = Cavil::Checkout->new($dir);
   my $reports      = $app->reports;
@@ -121,20 +134,13 @@ sub generate_to_file ($self, $id, $file, $stamp = undef) {
     }
   );
 
-  my $creator = $config->{creator} || {};
-
-  # The entity that operates Cavil, which is not Cavil itself - the tool is a separate field further down.
-  # An instance that has not been told who runs it is identified by the host it publishes its SBOMs under,
-  # which at least names a real party, rather than by the name of the software that wrote the file.
-  my $creator_name  = $creator->{name} || Mojo::URL->new($namespace)->host || $namespace;
-  my $creator_email = $creator->{email};
-  my $creator_url   = $creator->{url} || $namespace;
+  my $creator = $self->creator;
   my $creator_org
-    = {type => 'Organization', spdxId => $iri->('creator'), creationInfo => $creation, name => $creator_name};
+    = {type => 'Organization', spdxId => $iri->('creator'), creationInfo => $creation, name => $creator->{name}};
   $creator_org->{externalIdentifier}
-    = [$creator_email
-    ? {type => 'ExternalIdentifier', externalIdentifierType => 'email',     identifier => $creator_email}
-    : {type => 'ExternalIdentifier', externalIdentifierType => 'urlScheme', identifier => $creator_url}
+    = [$creator->{email}
+    ? {type => 'ExternalIdentifier', externalIdentifierType => 'email',     identifier => $creator->{email}}
+    : {type => 'ExternalIdentifier', externalIdentifierType => 'urlScheme', identifier => $creator->{url}}
     ];
   $graph->add($creator_org);
 
@@ -645,6 +651,9 @@ sub generate_to_file ($self, $id, $file, $stamp = undef) {
 # batches by the caller, see _license_rows_by_file), reusing the same snippet/keyword resolution the
 # report uses. Each finding carries the resolved license identifier, Cavil's risk and legal flags, and
 # the line range it was found on (for snippet evidence).
+# No built-in fallback, every identifier in a published SBOM is built from it
+sub _namespace ($self) { ($self->app->config->{spdx} // {})->{namespace} }
+
 sub _file_licenses ($snippet_rows, $match_rows, $resolve_license) {
   my (@findings, @folded, %matched_lines, %ignored_lines, %similarity);
 

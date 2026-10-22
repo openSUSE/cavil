@@ -66,7 +66,10 @@ subtest 'Registry' => sub {
     {
     acceptable_risk     => 4,
     auto_accept_risk    => 2,
-    acceptable_packages => [qw(000product 000release-packages 000package-groups)]
+    acceptable_packages => [qw(000product 000release-packages 000package-groups)],
+    sbom_creator_name   => '',
+    sbom_creator_email  => '',
+    sbom_creator_url    => ''
     },
     'defaults match the old configuration';
   is $settings->value('auto_accept_risk'), 0, 'test harness override';
@@ -75,8 +78,9 @@ subtest 'Registry' => sub {
   like $@, qr/Unknown setting: acceptable_rsk/, 'typo dies';
 
   $db->insert('settings', {name => 'retired_setting', value => {-json => 1}});
-  is_deeply [sort keys %{$settings->get}], [qw(acceptable_packages acceptable_risk auto_accept_risk)],
-    'rows for settings that no longer exist are ignored';
+  is_deeply [sort keys %{$settings->get}], [sort keys %$defaults], 'rows for settings that no longer exist are ignored';
+  is_deeply $settings->update('tester', {retired_setting => 2})->{errors}, {retired_setting => 'Unknown setting'},
+    'unknown settings cannot be changed';
 
   $db->insert('settings', {name => 'acceptable_risk', value => {-json => 'high'}});
   eval { $settings->get };
@@ -103,7 +107,10 @@ subtest 'Read and update' => sub {
     ->json_like('/errors/acceptable_packages', qr/spaces/);
   $t->put_ok('/settings/auto-accept.json' => json => {values => {nope => 1}})
     ->status_is(400)
-    ->json_is('/errors/nope', 'Unknown setting');
+    ->json_is('/errors/nope', 'Not part of this section');
+  $t->put_ok('/settings/auto-accept.json' => json => {values => {sbom_creator_name => 'ACME'}})
+    ->status_is(400)
+    ->json_is('/errors/sbom_creator_name', 'Not part of this section');
   $t->put_ok('/settings/auto-accept.json' => json => {values => {auto_accept_risk => 5}})
     ->status_is(400)
     ->json_like('/errors/auto_accept_risk', qr/Cannot be higher/);
@@ -220,6 +227,86 @@ subtest 'Excluded files' => sub {
     ],
     'audited';
   $t->get_ok('/pagination/audit?category=settings')->status_is(200)->json_is('/total', 10);
+};
+
+subtest 'SBOM creator' => sub {
+  $t->get_ok('/settings/sbom.json')
+    ->status_is(200)
+    ->json_is('/values',         {sbom_creator_name => '', sbom_creator_email => '', sbom_creator_url => ''})
+    ->json_is('/fallbacks/name', 'cavil.example.com', 'empty fields show what SBOMs say instead')
+    ->json_is('/fallbacks/url',  'https://cavil.example.com/spdx/')
+    ->json_is('/last_change',    undef, 'acceptance changes are not counted for this section')
+    ->json_hasnt('/values/acceptable_risk');
+
+  $t->put_ok('/settings/sbom.json' => json => {values => {sbom_creator_email => 'not-an-address'}})
+    ->status_is(400)
+    ->json_like('/errors/sbom_creator_email', qr/email/);
+  $t->put_ok('/settings/sbom.json' => json => {values => {sbom_creator_url => 'ftp://acme.example'}})
+    ->status_is(400)
+    ->json_like('/errors/sbom_creator_url', qr/web address/);
+  $t->put_ok('/settings/sbom.json' => json => {values => {sbom_creator_name => "two\nlines"}})
+    ->status_is(400)
+    ->json_like('/errors/sbom_creator_name', qr/single line/);
+  $t->put_ok('/settings/sbom.json' => json => {values => {auto_accept_risk => 1}})
+    ->status_is(400)
+    ->json_is('/errors/auto_accept_risk', 'Not part of this section');
+
+  $t->put_ok('/settings/sbom.json' => json =>
+      {values => {sbom_creator_name => ' ACME Corp ', sbom_creator_email => 'sbom@acme.example'}})
+    ->status_is(200)
+    ->json_is('/values/sbom_creator_name', 'ACME Corp')
+    ->json_is('/fallbacks/name',           'ACME Corp')
+    ->json_is('/rechecked',                0)
+    ->json_is('/last_change/login',        'tester');
+  is_deeply $app->spdx->creator,
+    {name => 'ACME Corp', email => 'sbom@acme.example', url => 'https://cavil.example.com/spdx/'},
+    'SBOMs use the new creator';
+  $t->get_ok('/settings/auto-accept.json')->status_is(200)->json_is('/last_change/login', 'tester');
+};
+
+subtest 'Bot tokens' => sub {
+  my $bot = sub ($token) { {Authorization => "Token $token"} };
+  $t->get_ok('/package/1' => $bot->('test_token'))->status_is(200);
+
+  $t->post_ok('/settings/bot-tokens' => form => {description => 'Short', token => 'too-short'})
+    ->status_is(400)
+    ->json_like('/error', qr/at least 16/);
+  $t->post_ok('/settings/bot-tokens' => form => {description => 'Spaces', token => 'has spaces in the token'})
+    ->status_is(400);
+  $t->post_ok('/settings/bot-tokens' => form => {description => 'OBS bot', token => 'existing-obs-bot-token'})
+    ->status_is(200);
+  $t->post_ok('/settings/bot-tokens' => form => {description => 'Again', token => 'existing-obs-bot-token'})
+    ->status_is(400)
+    ->json_like('/error', qr/already exists/);
+  $t->post_ok('/settings/bot-tokens' => form => {description => 'Gitea bot', token => ''})->status_is(200);
+
+  $t->get_ok('/settings/bot-tokens.json')
+    ->status_is(200)
+    ->json_is('/tokens/0/description', 'Gitea bot')
+    ->json_like('/tokens/0/token', qr/^[0-9a-f-]{36}$/, 'generated when left empty')
+    ->json_is('/tokens/0/login',    'tester')
+    ->json_is('/tokens/1/token',    'existing-obs-bot-token')
+    ->json_is('/last_change/login', 'tester');
+  my $generated = $t->tx->res->json('/tokens/0/token');
+
+  $t->get_ok('/package/1' => $bot->('existing-obs-bot-token'))->status_is(200);
+  $t->get_ok('/package/1' => $bot->($generated))->status_is(200);
+  $t->get_ok('/package/1' => $bot->('unknown-token-for-the-bot-api'))->status_is(403);
+  $t->get_ok('/package/1')->status_is(403);
+
+  my $audit = $db->query(q{SELECT data::text FROM audit_events WHERE type LIKE 'bot_token.%'})->arrays->flatten;
+  is $audit->size, 2, 'both tokens audited';
+  ok !(grep {/existing-obs-bot-token|\Q$generated\E/} @$audit), 'tokens never end up in the audit log';
+
+  my $id = $db->select('bot_tokens', 'id', {token => 'existing-obs-bot-token'})->hash->{id};
+  $t->delete_ok("/settings/bot-tokens/$id")->status_is(200);
+  $t->delete_ok("/settings/bot-tokens/$id")->status_is(400);
+  $t->get_ok('/package/1' => $bot->('existing-obs-bot-token'))->status_is(403, 'removing a token locks its bot out');
+
+  $db->delete('bot_tokens');
+  $t->get_ok('/package/1' => $bot->('test_token'))->status_is(403);
+  $t->get_ok('/package/1')->status_is(403, 'without any token the bot API refuses everything');
+  $db->insert('bot_tokens', {token => 'test_token'});
 };
 
 done_testing;
