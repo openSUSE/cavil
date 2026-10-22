@@ -69,7 +69,7 @@ instance are:
 * `checkout_dir` - a directory on a **large** disk where unpacked source is kept for reindexing.
 * `tmp_dir` - a directory for incoming files before they are moved into `checkout_dir`.
 * `cache_dir` - a directory for temporary files shared between indexing processes.
-* `classifier` - the AI classifier connection (see step 6).
+* `classifier` - the AI classifier connection (see step 5).
 * `spdx` - the `namespace` is the base address of every identifier in the SBOMs Cavil generates, usually the address
   of your instance followed by `/spdx/`. It ends up in every published SBOM, so choose it once and keep it. There is
   no built-in fallback: until it is set, SBOMs cannot be generated.
@@ -77,7 +77,10 @@ instance are:
   GitLab, Google, Microsoft Entra and others): the Cavil login is the first of the `nickname`, `preferred_username` and
   verified `email` claims the provider sends. Register `https://<your host>/oidc/callback` as the redirect URI and allow
   the `openid`, `email` and `profile` scopes. If omitted, Cavil falls back to a dummy login that makes everyone an
-  admin, which is fine for a first boot but must not be left on for a shared instance.
+  admin, which is fine for a first boot but must not be left on for a shared instance. A production instance shows a
+  warning banner on every page while it is.
+* `admin` - the login of the first administrator, who is made admin when logging in through OpenID Connect while the
+  instance has no admin yet (see step 7).
 
 To connect Cavil to your sources (Open Build Service, Gitea, or the bot API), also set the `obs`, `git` and
 `external_link_sources` options - all documented in `cavil.conf`. These can be added later.
@@ -86,23 +89,23 @@ In production mode Cavil also picks up a mode-specific config file next to your 
 `cavil.production.conf` beside `cavil.conf` is merged on top of it - which is a convenient place to keep
 production-only overrides separate from shared settings.
 
-### 4. Run the database migrations
+The configuration file is Perl, so any value can also come from an environment variable, which suits containers and
+secret stores: `pg => $ENV{CAVIL_PG}` or `secrets => [$ENV{CAVIL_SECRET}]`.
 
-Cavil does **not** migrate automatically. Run it once now, and again after every upgrade:
+### 4. Run setup
 
-```sh
-CAVIL_CONF=/path/to/cavil.conf script/cavil migrate
-```
-
-### 5. Load the license patterns
-
-An empty instance can't recognize any license. Load the curated set:
+Cavil does **not** change its database on its own. The `setup` command creates the tables, loads the 28,000+ curated
+license patterns (an empty instance can't recognize any license) and schedules the recurring maintenance tasks
+described in the [Maintenance](Maintenance.md) guide:
 
 ```sh
-CAVIL_CONF=/path/to/cavil.conf script/cavil sync -i lib/Cavil/resources/license_patterns.jsonl
+CAVIL_CONF=/path/to/cavil.conf script/cavil setup
 ```
 
-### 6. Set up the AI classifier
+It only does what is still missing, so it is safe to run as often as you like, and it is the same command you run
+after every upgrade (see [Upgrading](#upgrading)).
+
+### 5. Set up the AI classifier
 
 The keyword scanner has a false-positive rate around 80%; the classifier is what tells real license text from that
 noise, and all of Cavil's automated snippet resolution builds on its verdict. Without it you get raw keyword matching
@@ -134,7 +137,7 @@ Cavil also still speaks the older classifier API, if you would rather run one of
 ([Character-level-cnn-pytorch](https://github.com/kraih/Character-level-cnn-pytorch/) or
 [llm-lawyer](https://github.com/kraih/llm-lawyer)). Omit the `type` key from the `classifier` block in that case.
 
-### 7. Start the web application and workers
+### 6. Start the web application and workers
 
 Run the web application with the `prefork` command in production mode, and start at least one worker. Both read
 `CAVIL_CONF`:
@@ -181,25 +184,26 @@ For a real deployment:
   on a large volume and keep the cleanup task scheduled. Back up the database regularly and test a restore; patterns
   can also be exported with `script/cavil sync -e` as an extra copy.
 
-### 8. Create your first admin user
+### 7. Become the first admin
 
-Users are created on first login, so you can't grant a role to someone who hasn't signed in yet:
+With `admin` set to your login in `cavil.conf` (step 3), log in through OpenID Connect and you are the administrator.
+This only happens while the instance has no admin at all, so removing the role from that login later sticks as long as
+someone else is admin.
 
-1. Start the web app and log in once as the future administrator (with OpenID Connect this creates a `user`-role
-   account).
-2. List users to find its id, then grant the `admin` role:
+Everybody else gets their roles from an admin. Users are created on first login, so you can't grant a role to someone
+who hasn't signed in yet. Once they have, list the users to find their id and add a role:
 
 ```sh
 CAVIL_CONF=/path/to/cavil.conf script/cavil user
-CAVIL_CONF=/path/to/cavil.conf script/cavil user -A admin <id>
+CAVIL_CONF=/path/to/cavil.conf script/cavil user -A lawyer <id>
 ```
 
 Roles are capability bundles: `admin` runs the instance and curates patterns, `lawyer` curates and carries the legal
 sign-off, `manager` signs off as a non-lawyer expert, `contributor` proposes patterns, `classifier` classifies
-snippets, and `uploader` can only make ephemeral one-off uploads. Use `-A`/`-R` to add and remove them; the full capability matrix is in the
-[Architecture](Architecture.md) guide.
+snippets, and `uploader` can only make ephemeral one-off uploads. Use `-A`/`-R` to add and remove them; the full
+capability matrix is in the [Architecture](Architecture.md) guide.
 
-### 9. Review the settings
+### 8. Review the settings
 
 Some decisions are made in the web interface rather than in `cavil.conf`. Log in as the admin, open **Settings** from
 the account menu, and check that automatic acceptance matches what your organisation is comfortable with: which risk
@@ -210,6 +214,44 @@ Two more sections connect Cavil to the outside world. Under **Bot tokens**, add 
 submit packages, such as the Open Build Service or Gitea integration; until there is at least one token the bot API
 refuses every request. Under **SBOM**, enter the name and email address of your organisation, so the SBOMs Cavil
 generates say who created them.
+
+Finally, open **Status** to see whether anything is still missing (see below).
+
+## Checking your instance
+
+The **Status** section of the Settings page (admins only) checks the things a new or changed instance most often gets
+wrong, and marks each one green, amber or red: the database schema, the license patterns, running workers, the
+maintenance schedules, the classifier, the tools needed to unpack archives, free space for `checkout_dir`, the
+`secrets`, the SBOM configuration and the login. The same checks run on the command line, which helps before the web
+application is reachable, and the command fails when any check found an error:
+
+```sh
+CAVIL_CONF=/path/to/cavil.conf script/cavil doctor
+```
+
+For monitoring, load balancers and container health checks, `GET /health` answers `200 ok` as long as the web
+application can reach its database, and `503` otherwise. It reveals nothing else and needs no login.
+
+## Upgrading
+
+A new Cavil version can change the database schema, and workers still running the old code must never meet the new
+schema. So an upgrade goes like this:
+
+1. Stop the web application, so no new work comes in.
+2. Wait until the job queue is empty (the **Minion Dashboard** in the account menu shows it).
+3. Stop all workers.
+4. Update Cavil and rebuild the assets (`npm i && npm run build`).
+5. Run `script/cavil setup`.
+6. Start the workers and the web application again.
+
+`setup` checks this for you: as long as workers are running or jobs are queued, it refuses to touch the schema and
+says what is still running. When nothing needs migrating it never refuses, so it is just as safe to run on every
+start.
+
+New Cavil versions can also ship new license patterns. `setup` never adds them to an instance that already has
+patterns, because lawyers may have removed or reworded some on purpose. It tells you how many shipped patterns are not
+part of your instance; [Maintenance](Maintenance.md#applying-shipped-license-patterns) explains how to review and add
+them.
 
 ## Next steps
 

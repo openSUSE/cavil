@@ -12,6 +12,13 @@ subtest 'cleanup' => sub {
   like $cmd->usage, qr/cleanup/, 'has usage information';
 };
 
+subtest 'doctor' => sub {
+  require Cavil::Command::doctor;
+  my $cmd = Cavil::Command::doctor->new;
+  ok $cmd->description, 'has a description';
+  like $cmd->usage, qr/doctor/, 'has usage information';
+};
+
 subtest 'exclusions' => sub {
   require Cavil::Command::exclusions;
   my $cmd = Cavil::Command::exclusions->new;
@@ -52,6 +59,13 @@ subtest 'rindex' => sub {
   my $cmd = Cavil::Command::rindex->new;
   ok $cmd->description, 'has a description';
   like $cmd->usage, qr/rindex/, 'has usage information';
+};
+
+subtest 'setup' => sub {
+  require Cavil::Command::setup;
+  my $cmd = Cavil::Command::setup->new;
+  ok $cmd->description, 'has a description';
+  like $cmd->usage, qr/setup/, 'has usage information';
 };
 
 subtest 'sync' => sub {

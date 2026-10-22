@@ -6,7 +6,7 @@ use Mojo::Base -base, -signatures;
 
 use File::Unpack2;
 use File::Spec::Functions qw(catfile);
-use Mojo::File 'path';
+use Mojo::File            qw(path tempdir);
 use Cavil::Util (qw(buckets decode_json_fast encode_json_fast extract_copyrights extract_urls_and_emails fs_bytes),
   qw(original_filename read_lines slurp_and_decode));
 use Cavil::PostProcess;
@@ -102,34 +102,7 @@ sub unpack ($self, $options = {}) {
   local $SIG{TERM} = 'DEFAULT';
   local $SIG{QUIT} = 'DEFAULT';
 
-  my $u = File::Unpack2->new(
-    verbose => 0,
-
-    maxfilesize          => '30G',
-    one_shot             => 0,
-    no_op                => 0,
-    world_readable       => 1,
-    archive_name_as_dir  => 0,
-    follow_file_symlinks => 0,
-
-    # Kill a mime helper that makes NO I/O progress at all for 5 minutes. This is safe even for
-    # huge legit archives (chromium's 30G tarball): a real extraction keeps advancing an fd or
-    # emitting output, so it is never touched - only a genuinely stuck helper (blocked on a fifo,
-    # deadlocked pipe, ...) is reaped. We deliberately do NOT set the absolute max_files /
-    # max_total_bytes / helper_timeout caps, which would clip legitimately huge packages.
-    stall_timeout => 300,
-
-    destdir      => "$unpack",
-    logfile      => "$log",
-    log_type     => 'JSON',
-    log_fullpath => 0
-  );
-
-  # Zstandard, requires zstd
-  $u->mime_helper('application=zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
-
-  $u->exclude(vcs => 1);
-
+  my $u = _unpacker($unpack, "$log");
   if (my $exclude = $options->{exclude}) {
     $u->exclude($_) for @$exclude;
   }
@@ -149,6 +122,25 @@ sub unpack ($self, $options = {}) {
 
   # Whatever we had read before is what the previous unpack produced
   delete $self->{_unpacked};
+}
+
+# Every command the unpacker may run, tar and cpio are located by File::Unpack2 itself and reported by mime type when
+# that fails
+sub unpack_tools {
+  my $tmp = tempdir;
+  my $u   = _unpacker($tmp, \my $log);
+  my (%tools, %located);
+  for my $helper (@{$u->mime_helper}) {
+    for my $cmd (grep { ref eq 'ARRAY' } @{$helper->{argvv}}) {
+      my $tool = $cmd->[0];
+      if (ref $tool eq 'CODE') {
+        next if $located{$tool}++;
+        ($tool) = eval { $tool->($u) }
+      }
+      $tools{$tool // $helper->{name}} = 1;
+    }
+  }
+  return [sort keys %tools];
 }
 
 # The file list of a big package is several megabytes and an index job reads it twice in a row, once
@@ -222,6 +214,38 @@ sub _original_file ($path) {
 sub _copyright_text ($path) {
   return undef unless -f $path;
   return eval { is_license_filename($path) ? slurp_and_decode($path, LEGAL_DOCUMENT_SIZE) : slurp_and_decode($path) };
+}
+
+sub _unpacker ($destdir, $log) {
+  my $u = File::Unpack2->new(
+    verbose => 0,
+
+    maxfilesize          => '30G',
+    one_shot             => 0,
+    no_op                => 0,
+    world_readable       => 1,
+    archive_name_as_dir  => 0,
+    follow_file_symlinks => 0,
+
+    # Kill a mime helper that makes NO I/O progress at all for 5 minutes. This is safe even for
+    # huge legit archives (chromium's 30G tarball): a real extraction keeps advancing an fd or
+    # emitting output, so it is never touched - only a genuinely stuck helper (blocked on a fifo,
+    # deadlocked pipe, ...) is reaped. We deliberately do NOT set the absolute max_files /
+    # max_total_bytes / helper_timeout caps, which would clip legitimately huge packages.
+    stall_timeout => 300,
+
+    destdir      => "$destdir",
+    logfile      => $log,
+    log_type     => 'JSON',
+    log_fullpath => 0
+  );
+
+  # Zstandard, requires zstd
+  $u->mime_helper('application=zstd', qr{(?:zst)}, [qw(/usr/bin/zstd -d -c -f %(src)s)], qw(> %(destfile)s));
+
+  $u->exclude(vcs => 1);
+
+  return $u;
 }
 
 1;

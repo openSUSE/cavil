@@ -9,6 +9,7 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Cavil::Model::AuditLog qw(audit_event);
 use Mojolicious::Lite;
 use Mojo::File qw(tempdir);
 use Mojo::JSON qw(decode_json encode_json);
@@ -126,6 +127,45 @@ subtest 'An import cannot smuggle in a flag the license name contradicts' => sub
   is $db->query('SELECT catch_all FROM license_patterns WHERE pattern = ?',
     'an imported concrete license claiming otherwise')->hash->{catch_all}, 0,
     'and the concrete license is left unflagged';
+};
+
+subtest 'Update license patterns' => sub {
+  my $db = $t->app->pg->db;
+  my %id = map { $_ => $patterns->create(pattern => "Update fixture $_ terms", license => "Update-$_")->{id} }
+    qw(kept edited removed legacy reworded unaudited);
+  my $shipped = $tempdir->child('shipped.jsonl');
+  $sync->store($shipped);
+  my $new = {unique_id => '6f1c0f4e-0d6b-4c8e-9a51-6a5d0c1b2e3f', license => 'Update-new', pattern => 'Update new'};
+  $shipped->spew($shipped->slurp . encode_json($new) . "\n");
+
+  $patterns->update($id{edited}, pattern => 'Update fixture edited terms, revised', license => 'Update-edited');
+  $patterns->remove($id{removed});
+
+  # Removed before removals recorded the unique_id, one of them after an edit
+  my $legacy = $patterns->find($id{legacy});
+  $db->delete('license_patterns', {id => $id{legacy}});
+  audit_event($db, type => 'pattern.removed', data => {pattern => $id{legacy}, text => $legacy->{pattern}});
+  $patterns->update($id{reworded}, pattern => 'Update fixture reworded terms, revised', license => 'Update-reworded');
+  $db->delete('license_patterns', {id => $id{reworded}});
+  audit_event(
+    $db,
+    type => 'pattern.removed',
+    data => {pattern => $id{reworded}, text => 'Update fixture reworded terms, revised'}
+  );
+
+  # Removed before the audit log existed, there is no trace left
+  $db->delete('license_patterns', {id => $id{unaudited}});
+
+  is $sync->pending($shipped), 2, 'the new pattern and the untraceable removal';
+  is_deeply [sort map { $_->{license} } @{$sync->update($shipped)}], ['Update-new', 'Update-unaudited'],
+    'only those are added';
+  is $db->select('license_patterns', 'id', {unique_id => $new->{unique_id}})->rows, 1, 'new pattern exists';
+  is $db->select('license_patterns', 'id', {license => "Update-$_"})->rows, 0, "$_ pattern stays removed"
+    for qw(removed legacy reworded);
+  is_deeply $db->select('license_patterns', 'pattern', {license => 'Update-edited'})->arrays->to_array,
+    [['Update fixture edited terms, revised']], 'the edit stands, the shipped text does not return';
+  is $sync->pending($shipped), 0, 'nothing pending';
+  is_deeply $sync->update($shipped), [], 'nothing added';
 };
 
 done_testing;

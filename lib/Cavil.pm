@@ -28,6 +28,7 @@ use Cavil::Notice;
 use Cavil::Dossier;
 use Cavil::OBS;
 use Cavil::SPDX;
+use Cavil::Status;
 use Cavil::Sync;
 use Scalar::Util 'weaken';
 use Mojo::File qw(path);
@@ -49,6 +50,11 @@ has spdx => sub ($self) {
   my $spdx = Cavil::SPDX->new(app => $self);
   weaken $spdx->{app};
   return $spdx;
+};
+has status => sub ($self) {
+  my $status = Cavil::Status->new(app => $self);
+  weaken $status->{app};
+  return $status;
 };
 has sync => sub ($self) {
   my $sync = Cavil::Sync->new(app => $self);
@@ -198,6 +204,12 @@ sub startup ($self) {
   }
   else { $public->get('/login')->to('Auth::Dummy#login')->name('login') }
   $public->get('/logout')->to('Auth#logout')->name('logout');
+  $public->get(
+    '/health' => sub ($c) {
+      return $c->render(text => 'ok') if eval { $c->pg->db->query('SELECT 1') };
+      $c->render(text => 'Database unavailable', status => 503);
+    }
+  );
 
   $self->plugin('Minion::Admin' => {route => $can_infra->any('/minion')});
 
@@ -205,7 +217,7 @@ sub startup ($self) {
   $logged_in->get('/settings')->to('Settings#first');
   $logged_in->get('/settings/api-keys')->to('Settings#show', section => 'api-keys');
   $can_curate->get('/settings/comment-templates')->to('Settings#show', section => 'comment-templates');
-  $can_infra->get('/settings/:section' => [section => [qw(auto-accept excluded-files bot-tokens sbom)]])
+  $can_infra->get('/settings/:section' => [section => [qw(auto-accept excluded-files bot-tokens sbom status)]])
     ->to('Settings#show')
     ->name('settings');
   $can_infra->get('/settings/<section>.json' => [section => [qw(auto-accept sbom)]])
@@ -215,6 +227,7 @@ sub startup ($self) {
     ->to('Settings#update_section')
     ->name('update_settings_section');
   $can_infra->get('/settings/bot-tokens.json')->to('Settings#list_bot_tokens')->name('settings_bot_tokens');
+  $can_infra->get('/settings/status.json')->to('Settings#status')->name('settings_status');
   $can_infra->post('/settings/bot-tokens')->to('Settings#add_bot_token')->name('add_bot_token');
   $can_infra->delete('/settings/bot-tokens/<id:num>')->to('Settings#remove_bot_token')->name('remove_bot_token');
   $can_infra->post('/settings/excluded-files')->to('Settings#add_exclusion')->name('add_exclusion');

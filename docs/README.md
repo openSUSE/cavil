@@ -27,7 +27,7 @@ resolution, and SBOM generation.
 
 * [Setup](Setup.md)
 
-  A guide to setting up a fresh Cavil instance for production.
+  A guide to setting up a fresh Cavil instance for production, checking that it works, and upgrading it.
 
 * [Maintenance](Maintenance.md)
 

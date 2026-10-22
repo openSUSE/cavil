@@ -5,7 +5,7 @@ package Cavil::Command::patterns;
 use Mojo::Base 'Mojolicious::Command', -signatures;
 
 use Cavil::Licenses qw(lic);
-use Cavil::Util     qw(license_is_catch_all PRIORITY_SWEEP);
+use Cavil::Util     qw(license_is_catch_all);
 use Mojo::Util      qw(encode getopt tablify);
 use YAML::XS        qw(Dump);
 
@@ -14,35 +14,24 @@ has usage       => sub ($self) { $self->extract_usage };
 
 sub run ($self, @args) {
   getopt \@args,
-    'backfill-catch-all'     => \my $backfill_catch_all,
-    'backfill-shingles'      => \my $backfill_shingles,
-    'backfill-spdx-ids'      => \my $backfill_spdx_ids,
-    'check-catch-all'        => \my $check_catch_all,
-    'check-risks'            => \my $check_risks,
-    'check-spdx'             => \my $check_spdx,
-    'check-unused'           => \my $check_unused,
-    'check-unused-ignore'    => \my $check_unused_ignore,
-    'check-used'             => \my $check_used,
-    'fix-risk=i'             => \my $fix_risk,
-    'inherit-spdx'           => \my $inherit_spdx,
-    'license|l=s'            => \my $license,
-    'match=i'                => \my $match,
-    'preview|P=i'            => \(my $preview = 57),
-    'remove-unused=i'        => \my $remove_unused,
-    'remove-unused-extras=s' => \my $remove_unused_extras,
-    'remove-unused-ignore'   => \my $remove_unused_ignore,
-    'remove-used=i'          => \my $remove_used;
+    'backfill-catch-all'   => \my $backfill_catch_all,
+    'backfill-shingles'    => \my $backfill_shingles,
+    'backfill-spdx-ids'    => \my $backfill_spdx_ids,
+    'check-catch-all'      => \my $check_catch_all,
+    'check-risks'          => \my $check_risks,
+    'check-spdx'           => \my $check_spdx,
+    'check-unused'         => \my $check_unused,
+    'check-unused-ignore'  => \my $check_unused_ignore,
+    'check-used'           => \my $check_used,
+    'inherit-spdx'         => \my $inherit_spdx,
+    'license|l=s'          => \my $license,
+    'match=i'              => \my $match,
+    'preview|P=i'          => \(my $preview = 57),
+    'remove-unused-ignore' => \my $remove_unused_ignore;
 
   return $self->_match($match, $preview) if $match;
 
-  return $self->_remove_unused($remove_unused)               if $remove_unused;
-  return $self->_remove_unused_extras($remove_unused_extras) if $remove_unused_extras;
-
-  return $self->_remove_used($remove_used) if $remove_used;
-
   return $self->_check_ignore(1) if $remove_unused_ignore;
-
-  return $self->_fix_risk($license, $fix_risk) if defined $fix_risk;
 
   return $self->_inherit_spdx if $inherit_spdx;
 
@@ -69,9 +58,7 @@ sub run ($self, @args) {
   return $self->_stats;
 }
 
-# The "still in use" checks in this command (here, _remove_unused, _remove_unused_extras) deliberately
-# count matches in every report generation, not just the live one. A pattern or ignore that only a
-# reindex-in-progress matches is still in use, and counting it errs towards keeping the row.
+# Matches in every report generation count, an ignore that only a reindex in progress matches is still in use
 sub _check_ignore ($self, $remove) {
   my $db      = $self->app->pg->db;
   my $ignored = $db->query('SELECT id FROM ignored_lines')->arrays->flatten->to_array;
@@ -220,12 +207,6 @@ sub _check_use ($self, $unused, $license, $preview) {
   print tablify $table;
 }
 
-sub _fix_risk ($self, $license, $risk) {
-  die 'License name is required' unless defined $license;
-  my $rows = $self->app->pg->db->query('UPDATE license_patterns SET risk = ? WHERE license = ?', $risk, $license)->rows;
-  say "$rows patterns fixed";
-}
-
 sub _inherit_spdx ($self) {
   my $db = $self->app->pg->db;
   my $tx = $db->begin;
@@ -321,62 +302,6 @@ sub _preview ($pattern, $preview) {
   return $snippet;
 }
 
-sub _remove_unused ($self, $id) {
-  my $app = $self->app;
-  my $db  = $app->pg->db;
-
-  my $tx    = $db->begin;
-  my $count = $db->query('SELECT count(*) AS count FROM pattern_matches WHERE pattern = ?', $id)->hash->{count};
-  die "Pattern $id is still in use and cannot be removed" unless $count == 0;
-  $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
-  $tx->commit;
-
-  $app->patterns->expire_cache;
-}
-
-sub _remove_unused_extras ($self, $license) {
-  my $app = $self->app;
-  my $db  = $app->pg->db;
-
-  my $tx = $db->begin;
-
-  my $used_count = $db->query(
-    'SELECT count(*) AS count
-     FROM license_patterns lp
-     WHERE lp.license = ?
-       AND EXISTS (SELECT FROM pattern_matches pm WHERE pm.pattern = lp.id)', $license
-  )->hash->{count};
-  die qq{No patterns in use found for license "$license"} unless $used_count > 0;
-
-  my $removed = $db->query(
-    'DELETE FROM license_patterns lp
-     WHERE lp.license = ?
-       AND NOT EXISTS (SELECT FROM pattern_matches pm WHERE pm.pattern = lp.id)
-     RETURNING id', $license
-  )->rows;
-
-  $tx->commit;
-
-  $app->patterns->expire_cache;
-  say qq{Removed $removed unused patterns for license "$license"};
-}
-
-sub _remove_used ($self, $id) {
-  my $app = $self->app;
-  my $db  = $app->pg->db;
-
-  my $tx       = $db->begin;
-  my $packages = $db->query('SELECT DISTINCT(package) FROM pattern_matches WHERE pattern = ?', $id)
-    ->hashes->map(sub { $_->{package} })->to_array;
-  $db->query('DELETE FROM license_patterns WHERE id = ?', $id);
-  $tx->commit;
-
-  $app->patterns->expire_cache;
-  my $pkgs = $app->packages;
-  say "@{[scalar @$packages]} packages need to be reindexed";
-  $pkgs->reindex($_, PRIORITY_SWEEP) for @$packages;
-}
-
 sub _stats ($self) {
   return unless my $patterns = $self->app->pg->db->query('SELECT COUNT(*) AS count FROM license_patterns')->hash;
   return
@@ -399,20 +324,17 @@ Cavil::Command::patterns - Cavil command to manage license patterns
 
     script/cavil patterns
 
+  Reports on the license patterns and maintains data derived from them. Patterns themselves are edited and removed on
+  the web interface, which records every change in the audit log.
+
     # Check risk assessments for inconsistencies
     script/cavil patterns --check-risks
-
-    # Fix risk assessment for a license
-    script/cavil patterns --license MIT --fix-risk 3
 
     # Check for licenses with unused patterns
     script/cavil patterns --check-unused
 
     # Check for unused license patterns of a specific license
     script/cavil patterns --check-unused --license Artistic-2.0
-
-    # Remove unused license pattern (cannot remove patterns still in use)
-    script/cavil patterns --remove-unused 23
 
     # Show all known information for a specific pattern match
     script/cavil patterns --match 12345
@@ -450,20 +372,12 @@ Cavil::Command::patterns - Cavil command to manage license patterns
         --check-unused-ignore           Check for unused ignore patterns
         --check-used                    Check for license patterns currently
                                         in use
-        --fix-risk <risk>               Fix risk assessments for a license
     -h, --help                          Show this summary of available
                                         options
         --inherit-spdx                  Reuse the license name for all
                                         licenses that are already valid SPDX
                                         expressions
     -l, --license <name>                License name
-        --remove-unused <id>            Remove unused license pattern (cannot
-                                        remove patterns still in use)
-        --remove-used <id>              Remove license pattern despite it
-                                        being currently in use
-        --remove-unused-extras <name>   Remove all unused license patterns
-                                        for a specific license, but only if
-                                        there are patterns in use remaining
         --remove-unused-ignore          Remove all unused ignore patterns
     -P, --preview <length>              Length of pattern previews, defaults
                                         to 57

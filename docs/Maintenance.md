@@ -60,9 +60,9 @@ Maintenance tasks that can be automated.
 
 ### Scheduling recurring jobs
 
-Minion has a built-in scheduler, so recurring maintenance no longer needs an external `cron` job or systemd timer. You
-register a schedule once with `script/cavil minion schedule`, and your Minion workers will dispatch the due jobs on their
-own (as long as at least one worker is running).
+Minion has a built-in scheduler, so recurring maintenance no longer needs an external `cron` job or systemd timer.
+`script/cavil setup` registers the default schedules below, and your Minion workers dispatch the due jobs on their own
+(as long as at least one worker is running). These are the defaults, and how you would register them by hand:
 
 ```sh
     # Reindex everything every Friday at 20:00
@@ -89,8 +89,31 @@ command:
     script/cavil minion schedule -R weekly_reindexing  # remove
 ```
 
+To turn off one of the defaults, pause it rather than removing it: `setup` brings back any default schedule that is
+missing the next time it runs, but leaves paused ones alone. The **Status** section of the Settings page warns about
+both. A changed cron expression is kept too.
+
 The `reindex_all` and `obsolete` tasks are exactly what the manual commands below enqueue, so scheduling them is the
 recommended way to run reindexing and cleanup.
+
+### Applying shipped license patterns
+
+New Cavil versions can ship new license patterns. `setup` loads them only into an empty instance, and afterwards just
+reports how many shipped patterns are not part of your instance (so does the **Status** section). They are not all
+new: patterns that lawyers removed on purpose look exactly the same from the outside. Add only the ones this instance
+has never seen with:
+
+```sh
+    script/cavil sync --update lib/Cavil/resources/license_patterns.jsonl
+```
+
+It skips every pattern that is already there (also when it was reworded since, it keeps its identity), and every
+pattern that was removed, using the audit log. It then lists how many patterns it added per license, so a lawyer can
+review them. One limit: patterns removed before your instance had an audit log left no trace and come back, so look
+out for them in that list.
+
+Reindex afterwards (or wait for the weekly reindexing) for the new patterns to show up in reports. To seed an empty
+instance from an export made with `script/cavil sync -e`, use `script/cavil setup --patterns <file>`.
 
 ### Collecting abandoned builds
 

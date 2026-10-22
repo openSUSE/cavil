@@ -11,7 +11,8 @@ use Cavil::Util ();
 use Term::ProgressBar;
 
 has 'app';
-has silent => 0;
+has shipped => sub { path(__FILE__)->dirname->child('resources', 'license_patterns.jsonl') };
+has silent  => 0;
 
 # Selected and written from one list, so a new column cannot reach one and be dropped by the other. No id or
 # created: those are per-instance, and the import dedupes on unique_id.
@@ -45,6 +46,8 @@ sub load ($self, $path) {
   return $imported;
 }
 
+sub pending ($self, $path) { scalar @{$self->_unknown($path)} }
+
 sub store ($self, $path) {
 
   my $db = $self->app->pg->db;
@@ -73,6 +76,40 @@ sub store ($self, $path) {
   say "\n$all license patterns exported to $path" unless $self->silent;
 
   return $all;
+}
+
+sub update ($self, $path) {
+  my $patterns = $self->app->patterns;
+  my @added    = grep { $patterns->insert_pattern({%$_}) } @{$self->_unknown($path)};
+  $patterns->expire_cache if @added;
+  return \@added;
+}
+
+# Patterns this instance has never seen. Removed ones count as seen, edited ones keep their unique_id, and an edit
+# followed by a removal leaves the shipped text only among the old texts of the edit.
+sub _unknown ($self, $path) {
+  die "License pattern file $path not found" unless -r ($path = path($path));
+
+  my $db    = $self->app->pg->db;
+  my %ids   = map { $_ => 1 } @{$db->query('SELECT unique_id FROM license_patterns')->arrays->flatten};
+  my %sums  = map { $_ => 1 } @{$db->query('SELECT token_hexsum FROM license_patterns')->arrays->flatten};
+  my $known = $db->query(
+    q{SELECT data->>'unique_id' AS unique_id, COALESCE(data->>'text', data->'changes'->'text'->>0) AS text
+        FROM audit_events WHERE type IN ('pattern.removed', 'pattern.updated')}
+  );
+  for my $event ($known->hashes->each) {
+    $ids{$event->{unique_id}}                            = 1 if defined $event->{unique_id};
+    $sums{Cavil::Util::pattern_checksum($event->{text})} = 1 if defined $event->{text};
+  }
+
+  my @unknown;
+  for my $line (split /\n/, $path->slurp) {
+    my $row = decode_json $line;
+    next if $ids{$row->{unique_id} // ''};
+    next if $sums{$row->{token_hexsum} = Cavil::Util::pattern_checksum($row->{pattern})};
+    push @unknown, $row;
+  }
+  return \@unknown;
 }
 
 1;

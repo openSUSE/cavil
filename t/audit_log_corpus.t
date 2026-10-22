@@ -9,6 +9,8 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use Mojo::File qw(tempfile);
+use Mojo::JSON qw(encode_json);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -84,11 +86,17 @@ subtest 'A bulk license edit is one event' => sub {
 };
 
 subtest 'A removed pattern stays readable' => sub {
-  my $n = $count->();
+  my $n    = $count->();
+  my $uuid = $t->app->pg->db->select('license_patterns', ['unique_id'], {id => $id})->hash->{unique_id};
   $t->delete_ok("/licenses/remove_pattern/$id")->status_is(200);
   my $e = $since->($n);
   is_deeply [map { [$_->{type}, $_->{actor}, $_->{data}] } @$e],
-    [['pattern.removed', $tester, {pattern => $id, license => 'MIT-audited', risk => 3, text => "$text, revised"}]],
+    [
+    [
+      'pattern.removed', $tester,
+      {pattern => $id, unique_id => $uuid, license => 'MIT-audited', risk => 3, text => "$text, revised"}
+    ]
+    ],
     'the full pattern';
 };
 
@@ -194,10 +202,11 @@ subtest 'Command line maintenance records nothing' => sub {
   my $n = $count->();
   open my $out, '>', \my $buffer;
   local *STDOUT = $out;
-  $app->start('patterns', '--fix-risk', 4, '-l', 'Apache-2.0');
-  is $db->query('SELECT DISTINCT risk FROM license_patterns WHERE license = ?', 'Apache-2.0')->array->[0], 4,
-    'risk fixed';
-  is $count->(), $n, 'no event';
+  my $file = tempfile;
+  $file->spew(encode_json({license => 'CLI-Import-1.0', pattern => 'Command line import fixture terms'}) . "\n");
+  $app->start('sync', '--update', $file);
+  is $db->select('license_patterns', 'id', {license => 'CLI-Import-1.0'})->rows, 1,  'pattern imported';
+  is $count->(),                                                                 $n, 'no event';
 };
 
 subtest 'Categories' => sub {

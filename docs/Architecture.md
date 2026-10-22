@@ -200,10 +200,11 @@ capability and never taken from the request: a non-lawyer curator can accept a p
 assert a lawyer sign-off, on either the web or automation path. A user's capabilities are the union of
 their assigned roles.
 
-The Settings page groups its sections into personal settings, the ones that shape reviews for everybody, and the
-integrations with the outside world, and each section asks for its own capability, so people only see the sections they
-may use. Anyone who is logged in can manage their own API keys, comment templates need `curate`, and automatic
-acceptance, excluded files, bot tokens and the SBOM creator are limited to admins for now. The page
+The Settings page groups its sections into personal settings, the ones that shape reviews for everybody, the
+integrations with the outside world, and the instance itself, and each section asks for its own capability, so people
+only see the sections they may use. Anyone who is logged in can manage their own API keys, comment templates need
+`curate`, and automatic acceptance, excluded files, bot tokens, the SBOM creator and the instance status are limited to
+admins for now. The page
 is written for people who are not technical, so opening a section to lawyers later is only a change of who may reach
 it.
 
@@ -1119,7 +1120,7 @@ snippet resolution depends on it. It usually runs on port `5000`.
 
 ```
 classifier => {
-  url.  => 'http://localhost:5000',
+  url   => 'http://localhost:5000',
   token => 'API_TOKEN'
 }
 ```

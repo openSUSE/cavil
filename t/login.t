@@ -105,6 +105,10 @@ subtest 'OpenID' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/oidc/callback');
 };
 
+subtest 'Health' => sub {
+  $t->get_ok('/health')->status_is(200)->content_is('ok');
+};
+
 subtest 'OpenID Connect claims' => sub {
   my $claims   = {};
   my $provider = Mojolicious->new;
@@ -167,11 +171,48 @@ subtest 'OpenID Connect claims' => sub {
 
   $claims = {sub => '1234'};
   $refuse->();
+
+  subtest 'First admin' => sub {
+    $t->app->config->{admin} = 'boss';
+    my $minion = sub ($claim, $status) {
+      $claims = {nickname => $claim};
+      $t->get_ok('/oidc/callback?code=42')->status_is(302);
+      $t->get_ok('/minion')->status_is($status);
+      $t->get_ok('/logout')->status_is(302);
+    };
+
+    $minion->('early', 403);
+    $minion->('boss',  200);
+    is_deeply $users->roles('early'), ['user'], 'only the configured login';
+    $minion->('boss', 200);
+    is_deeply $users->roles('boss'), ['admin', 'user'], 'granted once';
+
+    my $boss = $users->find(login => 'boss')->{id};
+    $users->add_role($users->find_or_create(login => 'deputy')->{id}, 'admin');
+    $users->remove_role($boss, 'admin');
+    $minion->('boss', 403);
+
+    $users->remove_role($users->find(login => 'deputy')->{id}, 'admin');
+    $minion->('boss', 200);
+    delete $t->app->config->{admin};
+  };
+};
+
+subtest 'Dummy login banner' => sub {
+  $t->get_ok('/')->status_is(200)->element_exists_not('#cavil-dummy-login');
+  {
+    local $ENV{MOJO_MODE} = 'production';
+    Test::Mojo->new(Cavil => $config)->get_ok('/')->status_is(200)->element_exists_not('#cavil-dummy-login');
+    my %dummy = %$config;
+    delete $dummy{openid};
+    Test::Mojo->new(Cavil => \%dummy)->get_ok('/')->status_is(200)->element_exists('#cavil-dummy-login');
+  }
 };
 
 subtest 'Dummy' => sub {
   delete $config->{openid};
   $t = Test::Mojo->new(Cavil => $config);
+  $t->get_ok('/')->status_is(200)->element_exists_not('#cavil-dummy-login', 'no banner in development mode');
   $t->get_ok('/upload')->status_is(403)->content_like(qr/Permission/);
   $t->put_ok('/products/openSUSE:Factory/annotation' => form => {product => 'Tumbleweed'})
     ->status_is(403)

@@ -73,6 +73,8 @@ sub show ($self) {
   $self->render('settings/show', section => $self->stash('section'));
 }
 
+sub status ($self) { $self->render(json => {checks => $self->app->status->checks}) }
+
 sub update_section ($self) {
   my $keys = $SECTION_KEYS{$self->stash('section')};
   my $body = $self->req->json;

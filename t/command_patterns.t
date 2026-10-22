@@ -78,24 +78,6 @@ subtest 'Check risks' => sub {
     }
     like $buffer, qr/MyTestLicense-1.0: 7, 9/, 'multiple risk assessments detected';
   };
-
-  subtest 'Fix risk assessment for license' => sub {
-    my $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '-l', 'MyTestLicense-1.0', '--fix-risk', '8');
-    }
-    like $buffer, qr/3 patterns fixed/, 'two patterns fixed';
-
-    $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '--check-risks');
-    }
-    is $buffer, '', 'no noteworthy risk assessments anymore';
-  };
 };
 
 subtest 'Check unused patterns' => sub {
@@ -106,7 +88,7 @@ subtest 'Check unused patterns' => sub {
       local *STDOUT = $handle;
       $app->start('patterns', '--check-unused', '-l', 'MyTestLicense-1.0');
     }
-    like $buffer, qr/7.+8.+My.+test.+license.+8.+8.+My.+license/s, 'both patterns are unused';
+    like $buffer, qr/7.+7.+My.+test.+license.+8.+9.+My.+license/s, 'both patterns are unused';
   };
 
   subtest 'Two unused patterns (short preview)' => sub {
@@ -116,7 +98,7 @@ subtest 'Check unused patterns' => sub {
       local *STDOUT = $handle;
       $app->start('patterns', '--check-unused', '-l', 'MyTestLicense-1.0', '--preview', '5');
     }
-    like $buffer, qr/7.+8.+My.+te\.\.\.14.+8.+8.+My.+li\.\.\.5/s, 'both patterns are unused';
+    like $buffer, qr/7.+7.+My.+te\.\.\.14.+8.+9.+My.+li\.\.\.5/s, 'both patterns are unused';
   };
 
   subtest 'One used and one unused' => sub {
@@ -132,9 +114,9 @@ subtest 'Check unused patterns' => sub {
         local *STDOUT = $handle;
         $app->start('patterns', '--check-unused', '-l', 'MyTestLicense-1.0');
       }
-      like $buffer,   qr/7.+8.+My.+test.+license/s, 'first pattern is unused';
-      unlike $buffer, qr/8.+8.+My.+license/s,       'second pattern is used';
-      unlike $buffer, qr/9.+8.+Whatever/s,          'third pattern is used';
+      like $buffer,   qr/7.+7.+My.+test.+license/s, 'first pattern is unused';
+      unlike $buffer, qr/8.+9.+My.+license/s,       'second pattern is used';
+      unlike $buffer, qr/9.+7.+Whatever/s,          'third pattern is used';
     };
 
     subtest 'Used pattern is visible' => sub {
@@ -144,116 +126,10 @@ subtest 'Check unused patterns' => sub {
         local *STDOUT = $handle;
         $app->start('patterns', '--check-used', '-l', 'MyTestLicense-1.0');
       }
-      unlike $buffer, qr/7.+8.+My.+test.+license/s, 'first pattern is unused';
-      like $buffer,   qr/8.+1.+8.+My.+license/s,    'second pattern is used';
-      like $buffer,   qr/9.+1.+8.+Whatever/s,       'third pattern is used';
+      unlike $buffer, qr/7.+7.+My.+test.+license/s, 'first pattern is unused';
+      like $buffer,   qr/8.+1.+9.+My.+license/s,    'second pattern is used';
+      like $buffer,   qr/9.+1.+7.+Whatever/s,       'third pattern is used';
     };
-  };
-
-  subtest 'Remove unused patterns' => sub {
-    my $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '--remove-unused', '7');
-    }
-    is $buffer, '', 'pattern removed';
-
-    $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '--check-unused', '-l', 'MyTestLicense-1.0');
-    }
-    is $buffer, '', 'no unused patterns';
-
-    eval { $app->start('patterns', '--remove-unused', '8') };
-    like $@, qr/Pattern 8 is still in use and cannot be removed/, 'patterns still in use cannot be removed';
-  };
-
-  subtest 'Remove unused extras' => sub {
-    my $patterns = $app->patterns;
-    $patterns->create(pattern => 'Extra used pattern',   license => 'MyExtraLicense-1.0', risk => 4);
-    $patterns->create(pattern => 'Extra unused pattern', license => 'MyExtraLicense-1.0', risk => 4);
-    $patterns->create(pattern => 'Extra also unused',    license => 'MyExtraLicense-1.0', risk => 4);
-
-    my $used_pattern_id = $app->pg->db->query('SELECT id FROM license_patterns WHERE license = ? AND pattern = ?',
-      'MyExtraLicense-1.0', 'Extra used pattern')->hash->{id};
-
-    my $file_id
-      = $app->pg->db->query('INSERT INTO matched_files (package, filename, mimetype) VALUES (?, ?, ?) RETURNING id',
-      1, 'extra.txt', 'text/plain')->hash->{id};
-    $app->pg->db->insert('pattern_matches',
-      {file => $file_id, package => 1, pattern => $used_pattern_id, sline => 1, eline => 1});
-
-    my $before
-      = $app->pg->db->query('SELECT count(*) AS count FROM license_patterns WHERE license = ?', 'MyExtraLicense-1.0')
-      ->hash->{count};
-    is $before, 3, 'three patterns before cleanup';
-
-    my $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '--remove-unused-extras', 'MyExtraLicense-1.0');
-    }
-    like $buffer, qr/Removed 2 unused patterns for license "MyExtraLicense-1\.0"/, 'removed pattern count is shown';
-
-    my $after
-      = $app->pg->db->query('SELECT count(*) AS count FROM license_patterns WHERE license = ?', 'MyExtraLicense-1.0')
-      ->hash->{count};
-    is $after, 1, 'only used pattern remains';
-  };
-
-  subtest 'Remove unused extras (nothing removed)' => sub {
-    my $patterns = $app->patterns;
-    $patterns->create(pattern => 'Extra keep pattern one', license => 'MyExtraKeepLicense-1.0', risk => 4);
-    $patterns->create(pattern => 'Extra keep pattern two', license => 'MyExtraKeepLicense-1.0', risk => 4);
-
-    my @pattern_ids
-      = map { $_->{id} }
-      $app->pg->db->query('SELECT id FROM license_patterns WHERE license = ? ORDER BY id ASC', 'MyExtraKeepLicense-1.0')
-      ->hashes->each;
-
-    my $file_id
-      = $app->pg->db->query('INSERT INTO matched_files (package, filename, mimetype) VALUES (?, ?, ?) RETURNING id',
-      1, 'extra-keep.txt', 'text/plain')->hash->{id};
-    $app->pg->db->insert('pattern_matches', {file => $file_id, package => 1, pattern => $_, sline => 1, eline => 1})
-      for @pattern_ids;
-
-    my $before = $app->pg->db->query('SELECT count(*) AS count FROM license_patterns WHERE license = ?',
-      'MyExtraKeepLicense-1.0')->hash->{count};
-    is $before, 2, 'two patterns before cleanup';
-
-    my $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '--remove-unused-extras', 'MyExtraKeepLicense-1.0');
-    }
-    like $buffer, qr/Removed 0 unused patterns for license "MyExtraKeepLicense-1\.0"/, 'zero removals are reported';
-
-    my $after = $app->pg->db->query('SELECT count(*) AS count FROM license_patterns WHERE license = ?',
-      'MyExtraKeepLicense-1.0')->hash->{count};
-    is $after, 2, 'all patterns remain';
-  };
-
-  subtest 'Remove unused extras (no patterns in use)' => sub {
-    my $patterns = $app->patterns;
-    $patterns->create(pattern => 'Extra never used one', license => 'MyExtraUnusedLicense-1.0', risk => 4);
-    $patterns->create(pattern => 'Extra never used two', license => 'MyExtraUnusedLicense-1.0', risk => 4);
-
-    my $before = $app->pg->db->query('SELECT count(*) AS count FROM license_patterns WHERE license = ?',
-      'MyExtraUnusedLicense-1.0')->hash->{count};
-    is $before, 2, 'two patterns before failed cleanup';
-
-    eval { $app->start('patterns', '--remove-unused-extras', 'MyExtraUnusedLicense-1.0') };
-    like $@, qr/No patterns in use found for license "MyExtraUnusedLicense-1\.0"/,
-      'command refuses removal when no patterns are in use';
-
-    my $after = $app->pg->db->query('SELECT count(*) AS count FROM license_patterns WHERE license = ?',
-      'MyExtraUnusedLicense-1.0')->hash->{count};
-    is $after, 2, 'patterns remain after failed cleanup';
   };
 
   subtest 'Three licenses with unused patterns remaining' => sub {
@@ -266,27 +142,6 @@ subtest 'Check unused patterns' => sub {
     like $buffer, qr/Apache.*Artistic.*NotALicense/s, 'three licenses';
   };
 
-  subtest 'Remove used patterns' => sub {
-    my $before = $app->minion->jobs({task => 'index'})->total;
-    my $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '--remove-used', '8');
-    }
-    like $buffer, qr/1 packages need to be reindexed/, 'pattern removed';
-    my $after = $app->minion->jobs({task => 'index'})->total;
-    ok $before < $after, 'packages will be reindexed';
-
-    $buffer = '';
-    {
-      open my $handle, '>', \$buffer;
-      local *STDOUT = $handle;
-      $app->start('patterns', '--check-used', '-l', 'MyTestLicense-1.0');
-    }
-    unlike $buffer, qr/8.+1.+8.+My.+license/s, 'second pattern has been removed';
-    like $buffer,   qr/9.+1.+8.+Whatever/,     'only third pattern remains';
-  };
 };
 
 subtest 'Show pattern match' => sub {

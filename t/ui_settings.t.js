@@ -24,7 +24,7 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       t.match(await page.title(), /Settings/, 'on the settings page');
       t.same(
         await page.locator('.cavil-settings-nav-heading').allInnerTexts(),
-        ['Personal', 'Reviews', 'Integrations'],
+        ['Personal', 'Reviews', 'Integrations', 'Instance'],
         'personal and review settings are kept apart'
       );
       t.equal(await page.innerText('.cavil-settings-nav-item.active'), 'API keys', 'personal settings first');
@@ -174,6 +174,15 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.waitForSelector('[data-default="sbom_creator_name"]');
       t.equal(await page.inputValue('#sbom-creator-name'), '', 'back to the fallback');
       t.equal(await page.inputValue('#sbom-creator-email'), 'sbom@acme.example', 'other field kept');
+    });
+
+    await t.test('Status', async t => {
+      await page.click('.cavil-settings-nav-item >> text=Status');
+      await page.waitForSelector('#status td.cavil-status-name');
+      const names = await page.locator('#status td.cavil-status-name').allInnerTexts();
+      t.same(names.slice(0, 3), ['Database', 'License patterns', 'Workers'], 'checks in order');
+      t.equal(await page.locator('#status td.cavil-status-ok >> text=Database').count(), 1, 'schema is current');
+      t.match(await page.innerText('#status .cavil-list-title'), /checks? needs? attention/, 'problems summarized');
     });
 
     t.test('Console errors', t => {

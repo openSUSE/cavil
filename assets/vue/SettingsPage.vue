@@ -23,6 +23,7 @@
         <SettingsCommentTemplates v-else-if="section === 'comment-templates'" />
         <SettingsBotTokens v-else-if="section === 'bot-tokens'" />
         <SettingsSbom v-else-if="section === 'sbom'" />
+        <SettingsStatus v-else-if="section === 'status'" />
       </div>
     </div>
   </div>
@@ -35,6 +36,7 @@ import SettingsBotTokens from './components/SettingsBotTokens.vue';
 import SettingsCommentTemplates from './components/SettingsCommentTemplates.vue';
 import SettingsExcludedFiles from './components/SettingsExcludedFiles.vue';
 import SettingsSbom from './components/SettingsSbom.vue';
+import SettingsStatus from './components/SettingsStatus.vue';
 
 const SECTIONS = [
   {id: 'api-keys', label: 'API keys', icon: 'fa-solid fa-key', group: 'Personal'},
@@ -54,7 +56,8 @@ const SECTIONS = [
     cap: 'curate'
   },
   {id: 'bot-tokens', label: 'Bot tokens', icon: 'fa-solid fa-robot', group: 'Integrations', cap: 'infra'},
-  {id: 'sbom', label: 'SBOM', icon: 'fa-solid fa-file-shield', group: 'Integrations', cap: 'infra'}
+  {id: 'sbom', label: 'SBOM', icon: 'fa-solid fa-file-shield', group: 'Integrations', cap: 'infra'},
+  {id: 'status', label: 'Status', icon: 'fa-solid fa-heart-pulse', group: 'Instance', cap: 'infra'}
 ];
 
 export default {
@@ -65,7 +68,8 @@ export default {
     SettingsBotTokens,
     SettingsCommentTemplates,
     SettingsExcludedFiles,
-    SettingsSbom
+    SettingsSbom,
+    SettingsStatus
   },
   props: {
     canCurate: {type: Boolean, default: false},

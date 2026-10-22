@@ -10,7 +10,7 @@ use Test::More;
 use Test::Mojo;
 use Cavil::Test;
 use Mojo::File qw(tempdir);
-use Mojo::JSON qw(decode_json);
+use Mojo::JSON qw(decode_json encode_json);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -57,13 +57,26 @@ subtest 'Sync' => sub {
     {
       open my $handle, '>', \$buffer;
       local *STDERR = $handle;
-      $app->start('sync', '-i', $path);
+      $app->sync->load($path);
     }
     like $buffer, qr/Importing 7 patterns/, 'right output';
 
     # Re-import into a database that already has them, so the rows are dedupe-skipped rather than doubled
     is $app->pg->db->query('SELECT COUNT(*) FROM license_patterns WHERE full_license_text')->array->[0], 1,
       'and importing it again leaves exactly one claim standing';
+  };
+
+  subtest 'Update' => sub {
+    $path->spew(
+      $path->slurp . encode_json({license => 'Sync-Update-1.0', pattern => 'Sync update fixture terms'}) . "\n");
+    $app->patterns->remove($curated);
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      $app->start('sync', '-u', $path);
+    }
+    is $buffer, "1 x Sync-Update-1.0\nAdded 1 license patterns\n", 'only the new pattern, not the removed one';
   };
 };
 

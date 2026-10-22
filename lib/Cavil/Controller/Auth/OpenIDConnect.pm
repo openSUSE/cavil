@@ -36,6 +36,9 @@ sub login ($self) {
 
       my $user  = $self->users->find_or_create(login => $data->{$claim}, email => $data->{email});
       my $login = $user->{login};
+      if ($login eq ($self->config->{admin} // '') && $self->users->grant_first_admin($user->{id})) {
+        $self->log->info(qq{User "$login" is the first admin});
+      }
 
       $self->session(user => $login);
       $self->log->info(qq{User "$login" logged in});

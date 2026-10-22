@@ -24,7 +24,7 @@ count as legal advice and no guarantees are made for their correctness!
 
 * Software Bill of Materials (SBOM) generation in SPDX 3.0.1 format, for the EU Cyber Resilience Act (CRA) as specified
   by [BSI TR-03183-2](https://www.bsi.bund.de/dok/TR-03183-en), and satisfying the
-  [CISA minimum elements](https://www.cisa.gov/sbom) on top of it wherever the two do not conflict — see
+  [CISA minimum elements](https://www.cisa.gov/sbom) on top of it wherever the two do not conflict - see
   [standards and coverage](docs/Architecture.md#standards-and-coverage) for the four things that are not covered yet,
   and why
 * Package and component (purl) search, plus a component export, for supply-chain and vulnerability triage
@@ -49,13 +49,13 @@ count as legal advice and no guarantees are made for their correctness!
 
 Cavil relies on a machine learning model for text classification. The pattern matching that identifies clusters of
 legal keywords (snippets) has a false-positive rate of about 80%, and the classifier is what tells genuine legal text
-apart from that noise. Everything Cavil does with a snippet after that — scoring it against the known licenses, and
-automatically folding, clearing or covering it in reports — builds on the classifier's judgement. Even a simple model
+apart from that noise. Everything Cavil does with a snippet after that - scoring it against the known licenses, and
+automatically folding, clearing or covering it in reports - builds on the classifier's judgement. Even a simple model
 identifies almost all of the false positives.
 
 The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) has a collection of models fine-tuned specifically for
 this task, such as `Cavil-Qwen3.5-4B`, usually served with a [llama.cpp](https://github.com/ggml-org/llama.cpp) server.
-See the [setup guide](docs/Setup.md#6-set-up-the-ai-classifier) for deployment instructions.
+See the [setup guide](docs/Setup.md#5-set-up-the-ai-classifier) for deployment instructions.
 
 ## Getting Started
 
@@ -101,10 +101,10 @@ instance, follow the [setup guide](docs/Setup.md) instead.
 
 ## Documentation
 
-* [Setup](docs/Setup.md) — setting up a fresh Cavil instance for production.
-* [Architecture](docs/Architecture.md) — how the pieces fit together: components, the review workflow, pattern
+* [Setup](docs/Setup.md) - setting up a fresh Cavil instance for production.
+* [Architecture](docs/Architecture.md) - how the pieces fit together: components, the review workflow, pattern
   matching and SBOM generation.
-* [License Pattern Lifecycle](docs/PatternLifecycle.md) — a plain-language guide, written for lawyers and reviewers,
+* [License Pattern Lifecycle](docs/PatternLifecycle.md) - a plain-language guide, written for lawyers and reviewers,
   to how a piece of text becomes a reusable license pattern.
 
 The [documentation index](docs/README.md) has the full list, including the API reference, maintenance tasks and the

@@ -9,6 +9,12 @@ use lib "$FindBin::Bin/lib";
 use Test::More;
 use Test::Mojo;
 use Cavil::Test;
+use IO::Socket::IP;
+use Mojo::IOLoop::Server;
+use Mojo::Server::Daemon;
+use Mojolicious;
+use POSIX       ();
+use Time::HiRes qw(sleep);
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
@@ -25,6 +31,7 @@ subtest 'Permission errors' => sub {
   $t->put_ok('/settings/auto-accept.json' => json => {values => {}})->status_is(403);
   $t->post_ok('/settings/excluded-files')->status_is(403);
   $t->get_ok('/pagination/settings/excluded-files')->status_is(403);
+  $t->get_ok('/settings/status.json')->status_is(403);
 
   $t->get_ok('/settings')->status_is(401);
   $t->get_ok('/settings/api-keys')->status_is(401);
@@ -34,6 +41,8 @@ subtest 'Permission errors' => sub {
     $set_roles->($role);
     $t->get_ok('/settings/auto-accept')->status_is(403);
     $t->get_ok('/settings/auto-accept.json')->status_is(403);
+    $t->get_ok('/settings/status')->status_is(403);
+    $t->get_ok('/settings/status.json')->status_is(403);
     $t->delete_ok('/settings/excluded-files/1')->status_is(403);
     $t->get_ok('/settings')->status_is(302)->header_is(Location => '/settings/api-keys');
     $t->get_ok('/settings/api-keys')->status_is(200);
@@ -306,6 +315,90 @@ subtest 'Bot tokens' => sub {
   $t->get_ok('/package/1' => $bot->('test_token'))->status_is(403);
   $t->get_ok('/package/1')->status_is(403, 'without any token the bot API refuses everything');
   $db->insert('bot_tokens', {token => 'test_token'});
+};
+
+subtest 'Status' => sub {
+  $t->get_ok('/settings/status')->status_is(200)->content_like(qr/setupSettings\('status', true, true\)/);
+  my $checks = sub {
+    my $res = $t->get_ok('/settings/status.json')->status_is(200)->tx->res->json;
+    return {map { $_->{name} => $_ } @{$res->{checks}}};
+  };
+  my $doctor = sub {
+    my $buffer = '';
+    {
+      open my $handle, '>', \$buffer;
+      local *STDOUT = $handle;
+      eval { $app->start('doctor') };
+    }
+    return ($buffer, $@);
+  };
+
+  my $c = $checks->();
+  is_deeply [sort keys %$c],
+    [
+    sort 'Database', 'License patterns', 'Workers', 'Maintenance', 'Classifier', 'Unpack tools',
+    'Storage',       'Secrets',          'SBOM',    'Login'
+    ],
+    'all checks';
+  is $c->{Database}{level}, 'ok', 'schema is current';
+  like $c->{'License patterns'}{message}, qr/^\d+ patterns, \d+ shipped patterns are not part of this instance/,
+    'patterns counted';
+  is $c->{Workers}{level},     'error',   'no worker';
+  is $c->{Maintenance}{level}, 'warning', 'nothing scheduled';
+  like $c->{Maintenance}{message}, qr/Missing schedules: weekly_reindexing/, 'missing schedules named';
+  is $c->{Classifier}{level}, 'warning', 'no classifier';
+  like $c->{Storage}{message}, qr/GiB free in .+ used\)/, 'free space of the checkout directory';
+  is $c->{Secrets}{level}, 'ok', 'custom secrets';
+  like $c->{SBOM}{message}, qr/spdx\.namespace/, 'example namespace';
+  is $c->{Login}{level}, 'warning', 'dummy login outside of production';
+
+  my ($output, $error) = $doctor->();
+  like $output, qr/error\s+Workers\s+No worker is running/, 'doctor lists the same checks';
+  like $error,  qr/Some checks found errors/,               'and fails';
+
+  $app->classifier->url('http://127.0.0.1:1');
+  is $checks->()->{Classifier}{level}, 'error', 'classifier unreachable';
+  my $port = Mojo::IOLoop::Server->generate_port;
+  my $pid  = fork // die "Fork failed: $!";
+  unless ($pid) {
+    Mojo::Server::Daemon->new(
+      app    => Mojolicious->new,
+      ioloop => Mojo::IOLoop->new,
+      listen => ["http://127.0.0.1:$port"],
+      silent => 1
+    )->run;
+    POSIX::_exit(0);
+  }
+  sleep 0.1 until IO::Socket::IP->new(PeerAddr => '127.0.0.1', PeerPort => $port);
+  $app->classifier->url("http://127.0.0.1:$port");
+  is $checks->()->{Classifier}{level}, 'ok', 'classifier reachable';
+  kill 'TERM', $pid;
+  waitpid $pid, 0;
+  $app->classifier->url(undef);
+
+  $app->settings->update('tester', {}, ['sbom_creator_name']);
+  my $worker = $app->minion->worker->register;
+  $app->minion->schedule(@$_) for @Cavil::Status::SCHEDULES;
+  $app->minion->pause_schedule('hourly_sweep');
+  local $app->config->{spdx}{namespace} = 'https://cavil.test/spdx/';
+  $c = $checks->();
+  like $c->{Workers}{message}, qr/^1 running/, 'worker found';
+  is_deeply $c->{Maintenance},
+    {name => 'Maintenance', level => 'warning', message => 'Paused schedules: hourly_sweep'}, 'paused schedule';
+  like $c->{SBOM}{message}, qr/name of your organisation/, 'creator missing';
+
+  $app->minion->resume_schedule('hourly_sweep');
+  $app->settings->update('tester', {sbom_creator_name => 'Example Organisation'});
+  $c = $checks->();
+  is $c->{Maintenance}{level}, 'ok', 'all scheduled';
+  $app->minion->schedule("custom_$_", '0 3 * * *', 'obsolete') for 1 .. 101;
+  is $checks->()->{Maintenance}{level}, 'ok', 'still found behind many newer schedules';
+  is $c->{SBOM}{level},                 'ok', 'SBOM configured';
+
+  ($output, $error) = $doctor->();
+  unlike $output, qr/^error/m, 'no errors';
+  is $error, '', 'and success';
+  $worker->unregister;
 };
 
 done_testing;

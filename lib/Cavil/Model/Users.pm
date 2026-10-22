@@ -34,6 +34,14 @@ sub id_for_login ($self, $login) {
   return $hash->{id};
 }
 
+sub grant_first_admin ($self, $id) {
+  return $self->pg->db->query(
+    q{UPDATE bot_users SET roles = array_append(roles, 'admin')
+       WHERE id = ? AND NOT 'admin' = ANY(roles) AND NOT EXISTS (SELECT 1 FROM bot_users WHERE 'admin' = ANY(roles))},
+    $id
+  )->rows;
+}
+
 sub licensedigger ($self) {
   $self->find_or_create(login => 'licensedigger', roles => ['bot'], comment => 'Legal-auto bot');
 }

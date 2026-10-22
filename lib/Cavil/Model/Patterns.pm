@@ -1439,7 +1439,7 @@ sub remove ($self, $id, $actor = undef) {
       type         => 'pattern.removed',
       actor        => $actor,
       package_name => $old->{packname} || undef,
-      data         => {pattern => $id, %{_audit_snapshot($old)}}
+      data         => {pattern => $id, unique_id => $old->{unique_id}, %{_audit_snapshot($old)}}
     );
   }
   $tx->commit;
