@@ -23,37 +23,34 @@ cleanup releases the package and requeues the work it never finished.
 
 Not all failures will be as self explanatory as HTTP timeouts and might require more investigation.
 
-### Maintaining the file exclude list
+### Maintaining excluded files
 
-If you have configured an `exclude_file` in `cavil.conf`, it lets you keep whole files out of unpacking and indexing.
-Its most important job is defensive: neutralizing hostile or pathological inputs that would otherwise break the
+Admins can keep whole files out of unpacking on the **Excluded files** section of the Settings page (in the account
+menu). Its most important job is defensive: neutralizing hostile or pathological inputs that would otherwise break the
 unpacker - zip bombs, archives that make `tar` loop forever, files with names that make unpacking fail, and
-deliberately deep or malicious directory structures. It is also handy for cutting pure noise, such as generated code or
-large vendored blobs that only clutter reports. When you find an input that hangs or fails the unpacker (often surfaced
-as a stuck or failed Minion job), adding it here is usually the fix, so expect this list to grow over time.
+deliberately deep or malicious directory structures. It is also handy for cutting pure noise, such as huge test data
+that only clutters reports. When you find an input that hangs or fails the unpacker (often surfaced as a stuck or
+failed Minion job), adding it here is usually the fix, so expect this list to grow over time.
 
-Each line is a rule of the form `package-name-glob : filename`, where the glob is matched against the package name, so
-you can scope an exclusion to a single package or a whole family of them. Lines beginning with `#` are comments. For
-example:
+Each rule has three parts. The package it applies to can use `*` and `?` to cover a whole family of packages, such as
+`rust*` for every version of a Rust toolchain. The file is a name or pattern that is matched in any folder of the
+package. The reason is free text; write down why the file is excluded, so whoever looks at the list next can tell a
+zip bomb from a performance workaround. Every rule added or removed is recorded in the audit log.
 
-```
-# Files that make the unpacker hang or fail
-buildah: test.tar
-onedrive: bad-file-name.tar.xz
+Instances that still have a `cavil.exclude` file from older versions of Cavil can import it once. Each `#` comment
+becomes the reason for the rules below it, and rules that already exist are skipped, so running it twice is harmless.
+Rules the Settings page would refuse, such as a package pattern with an unclosed bracket, are listed and skipped, and
+everything imported shows up in the audit log under the user you name:
 
-# Malicious deep directory structures (a glob matches a whole package family)
-gcc*: pax-global-records.tar
-docker: pax-global-records.tar
-
-# Zip bombs
-SecLists: zip-bomb.zip
-SecLists: zbxl.zip
+```sh
+script/cavil exclusions --import /etc/cavil/cavil.exclude --user <your-login>
 ```
 
 One thing to keep in mind: exclusions are applied when a package is **unpacked**, not during pattern matching. A normal
 reindex (`script/cavil rindex`) re-runs the matcher against the files already on disk, so it will **not** drop files you
-have just added to the exclude list. Those changes only take effect the next time a package is unpacked. To roll a
-change out across packages that were already processed, re-unpack them with the paced
+have just added to the list. Those changes only take effect the next time a package is unpacked, which for a single
+package you can trigger with `script/cavil unpack <id>`. To roll a change out across packages that were already
+processed, re-unpack them with the paced
 `script/cavil unpack --rebatch` procedure described in
 [Rolling out a preprocessing change](#rolling-out-a-preprocessing-change-paced-re-unpacking) below.
 

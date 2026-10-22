@@ -399,19 +399,19 @@ subtest 'Products' => sub {
 };
 
 subtest 'Acceptable risk' => sub {
-  is $t->app->reports->risk_is_acceptable(''),                 undef, 'not acceptable';
-  is $t->app->reports->risk_is_acceptable('Whatever 123'),     undef, 'not acceptable';
-  is $t->app->reports->risk_is_acceptable('Unknown-9:w6Hs'),   undef, 'not acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-9:Hwo6'),  undef, 'not acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-10:Hwo6'), undef, 'not acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-0:Hwo6'),  0,     'acceptable';
-  is $t->app->reports->risk_is_acceptable('Unknown-0:w6Ht'),   0,     'acceptable';
-  is $t->app->reports->risk_is_acceptable('Unknown-1:w6Ht'),   1,     'acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-1:Hwo6'),  1,     'acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-2:Hwo6'),  2,     'acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-3:Hwo6'),  3,     'acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-4:Hwo6'),  4,     'acceptable';
-  is $t->app->reports->risk_is_acceptable('GPL-2.0+-5:Hwo6'),  undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('',                 4), undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('Whatever 123',     4), undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('Unknown-9:w6Hs',   4), undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-9:Hwo6',  4), undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-10:Hwo6', 4), undef, 'not acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-0:Hwo6',  4), 0,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('Unknown-0:w6Ht',   4), 0,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('Unknown-1:w6Ht',   4), 1,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-1:Hwo6',  4), 1,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-2:Hwo6',  4), 2,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-3:Hwo6',  4), 3,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-4:Hwo6',  4), 4,     'acceptable';
+  is $t->app->reports->risk_is_acceptable('GPL-2.0+-5:Hwo6',  4), undef, 'not acceptable';
 };
 
 subtest 'Identify package' => sub {

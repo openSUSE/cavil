@@ -5,7 +5,6 @@ package Cavil::Task::Unpack;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Cavil::Checkout;
-use Cavil::Util qw(parse_exclude_file);
 
 sub register ($self, $app, $config) {
   $app->minion->add_task(unpack => \&_unpack);
@@ -22,11 +21,7 @@ sub _unpack ($job, $id) {
   # Clear unpacked to block indexing, but retain the live report during rebuilding.
   $app->pg->db->update('bot_packages', {unpacked => undef, index_stage => 'unpacking'}, {id => $id});
 
-  my $exclude = [];
-  if (my $exclude_file = $app->config->{exclude_file}) {
-    my $name = $app->packages->find($id)->{name};
-    $exclude = parse_exclude_file($exclude_file, $name);
-  }
+  my $exclude = $app->unpack_exclusions->for_package($pkgs->find($id)->{name});
 
   my $dir = $pkgs->pkg_checkout_dir($id);
   Cavil::Checkout->new($dir)->unpack({exclude => $exclude});

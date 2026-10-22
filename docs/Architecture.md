@@ -156,8 +156,11 @@ The entire human driven workflow happens via HTTP web UI. These are the most imp
 * `Licenses`: Lists known licenses and the associated license patterns. License patterns without a name are considered
               keyword patterns, and are used to identify new snippets of potential legal text.
 * `Audit Log`: Lists every review decision in order, automatic and manual, and every change to limitations, license
-               patterns and ignores, for curators and lawyers. The State on a report links to it, filtered to that
-               package (see *Audit Log* below).
+               patterns, ignores and settings, for curators and lawyers. The State on a report links to it, filtered
+               to that package (see *Audit Log* below).
+* `Settings`: Where admins decide which reviews Cavil may accept on its own and which files it skips when unpacking
+              (see *Automatic Acceptance* and *Excluded Files* below), and where curators and lawyers maintain the
+              comment templates reviewers pick from on report pages.
 
 ### Access Levels
 
@@ -170,7 +173,7 @@ naming a role, and roles are named bundles of capabilities.
 | classify | Validate AI text-classification results, creating training data. |
 | propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
 | curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores and comment templates, accept or reject proposals, apply snippet decisions, edit review tags, reindex, and accept or reject reviews. |
-| infra | Operate the instance: the job dashboard and package upload into the review backlog. |
+| infra | Operate the instance: the job dashboard, the automatic acceptance and excluded files settings, and package upload into the review backlog. |
 | review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off), or replace the comment of an `acceptable` one. Never changes a rejection or a lawyer sign-off. |
 | review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |
 | upload_ephemeral | Upload archives for ephemeral one-off reviews, via the web form or the User API. Without `infra` every upload is forced ephemeral, so it can never reach the review backlog. |
@@ -196,6 +199,11 @@ capability and never taken from the request: a non-lawyer curator can accept a p
 assert a lawyer sign-off, on either the web or automation path. A user's capabilities are the union of
 their assigned roles.
 
+Each section of the Settings page asks for its own capability, and people only see the sections they may use.
+Comment templates need `curate`, while automatic acceptance and excluded files are limited to admins for now. The page
+is written for people who are not technical, so opening a section to lawyers later is only a change of who may reach
+it.
+
 Curators and lawyers can also add limitation notes. While a package has one, only they can decide on it: managers
 cannot fasttrack it, and AI assistants cannot accept or reject it.
 
@@ -203,19 +211,30 @@ cannot fasttrack it, and AI assistants cannot accept or reject it.
 
 Reports may be automatically accepted by the system under these conditions:
 
-* `Low Risk with Manual Review`: There was a prior manual review of the package by a human expert or lawyer. The
-                                 maximum risk of any given license in the report is not higher than **3**. And there
-                                 are no unresolved keyword matches with a risk higher than **3**. The resulting state
-                                 can only be `acceptable.`
-* `Low Risk without Manual Review`: The maximum risk of any given license in the report is not higher than **2**. And
-                                    there are no unresolved keyword matches with a risk higher than **2**. The
-                                    resulting state can only be `acceptable.`
+* `Low Risk with Manual Review`: There was a prior manual review of the package by a human expert or lawyer, and no
+                                 license or unresolved keyword match in the report is riskier than the level set as
+                                 "Accept packages a person has reviewed before" (**4** by default). The resulting
+                                 state can only be `acceptable`.
+* `Low Risk without Manual Review`: Nobody has reviewed the package yet, but nothing in the report is riskier than the
+                                    level set as "Accept low-risk packages nobody has reviewed yet" (**2** by default,
+                                    and it can be switched off). The resulting state can only be `acceptable`.
 * `Previous Result`: A previous report with the same checksum (based on licenses and keyword matches) exists for the
                      same package. In this case the previous result will be inherited.
 * `No Differences`: A previous report exists where the checksum does not match but there are no significant differences
                     between licenses and unique keyword matches.
-* `Package Name`: The package has been configured to always be `acceptable`. For SUSE instances of OBS this is usually
-                  done for empty metadata packages like `000product`.
+* `Package Name`: The package is on the "Always accept these packages" list. By default that is the empty metadata
+                  packages the Open Build Service uses, such as `000product`.
+
+The two risk levels and the package list are the parts of this an organisation may reasonably see differently, so
+admins change them on the Settings page instead of in the configuration file. Each control is labelled with the
+condition it governs, risk levels are shown with their names, and every change is recorded in the audit log. A value
+nobody has changed follows the default that ships with Cavil, which is marked as such on the page. Saving a looser
+setting checks the open reviews it could now accept again right away, rather than leaving them to the next weekly
+reindex. A stricter setting never takes back a decision that was already made.
+
+The rest of the decision sequence is not a preference and has no setting: the overrides below, the refusal to accept a
+report whose highest risk is 0 (it looks too clean to trust), and the refusal to accept a package whose sibling with
+the same report was rejected by a lawyer.
 
 One condition overrides all of the above and is a first-class safety property: **an incomplete checkout is never
 auto-accepted.** If the source might not have been fully retrieved - the package's `_service` file runs a service
@@ -246,7 +265,8 @@ decisions that shape reports are also written to an audit log. What goes in is a
   every license pattern created, edited (only the fields that changed) or removed (with the full pattern, since the
   row is gone), every bulk edit of a license as one event, every ignored match and ignored file glob added or removed,
   and every snippet marked as not legal text everywhere, each with who did it and, for accepted proposals, who
-  proposed it.
+  proposed it. Changes on the Settings page are recorded as well: every change to automatic acceptance, with the old
+  and new value of each setting, and every excluded file added or removed, with its reason.
 * **Not recorded:** reindexing, notices and diffs, checksum or risk changes, priorities, tags, documents and ordinary
   notes, which are regenerated from the source on every rebuild (see the invariants above) or kept elsewhere, and a
   review becoming obsolete, which is housekeeping by the cleanup jobs rather than a decision. Changes made from the
@@ -307,8 +327,9 @@ uploads it to `POST /api/v1/packages/upload`, and polls `GET /api/v1/report/<id>
 downstream is special-cased.
 
 The report's JSON carries a `risk` (its maximum license risk, the same number the report page shows) and the
-instance's `acceptable_risk` threshold, so the client can turn a review into a pass/fail CI gate without a second
-request or waiting for a human verdict.
+instance's `acceptable_risk` threshold, which admins set on the Settings page as "Accept packages a person has reviewed
+before", so the client can turn a review into a pass/fail CI gate without a second request or waiting for a human
+verdict.
 
 The endpoint takes a read-write API key whose user holds the `upload_ephemeral` capability (see Access Levels). Only
 users who also hold `infra` can add to the real review backlog; for everyone else, such as the `uploader` role, every
@@ -325,9 +346,9 @@ resources.
 These jobs are involved in report creation and usually run in the listed order:
 
 1. `obs_import` or `git_import`: Checks out the package sources from OBS or git repo.
-2. `unpack`: Recursively unpacks all archives contained in package sources, then preprocesses the unpacked text
-             files into `.processed` variants that the indexer scans instead of the originals (see *Preprocessing*
-             below).
+2. `unpack`: Recursively unpacks all archives contained in package sources, skipping excluded files (see *Excluded
+             Files* below), then preprocesses the unpacked text files into `.processed` variants that the indexer
+             scans instead of the originals (see *Preprocessing* below).
 3. `index`: Creates file lists and splits them up into batches for parallel processing.
 4. `index_batch`: Performs two phase pattern matching on all files in the batch with license and keyword patterns.
                   There can be thousands of `index_batch` jobs at the same time.
@@ -401,6 +422,20 @@ transformations happen here:
 
 Rolling out a change to this step means re-unpacking existing packages; the `unpack --rebatch` command does that in
 paced batches (see the Maintenance guide).
+
+### Excluded Files
+
+Some files should never be unpacked at all. Package sources occasionally ship hostile or pathological test data: zip
+bombs, archives that make `tar` loop forever, file names that make unpacking fail, and directory trees nested so deep
+that they exhaust the unpacker. Others are simply so large that unpacking them costs hours and adds nothing but noise to
+the report. Admins keep a list of these on the Settings page. Each rule names the packages it applies to, with `*` and
+`?` matching a whole family such as every version of a Rust toolchain, the file to skip, which is matched in any folder
+of the package, and a reason, so the next person can tell a zip bomb from a performance workaround.
+
+Exclusions take effect when a package is unpacked, so a reindex alone does not apply a new rule to packages that were
+already processed; they have to be unpacked again. This is what sets them apart from ignored file globs (see
+*Suppressing Noise* below), which curators use to keep legitimate but irrelevant files out of reports and which do take
+effect on the next reindex. Every rule added or removed is recorded in the audit log.
 
 ## License Compatibility
 
@@ -1013,6 +1048,8 @@ Two mechanisms keep known false positives out of reports, at different granulari
   been indexed in the first place - the `*` in the top-level segment lets one glob cover every version of a package.
   Globs are evaluated both while indexing (matched files are skipped) and while building a report (matching files are
   filtered out), so a newly added glob takes effect on a package's next reindex.
+
+Files that must not even be unpacked are a different matter, handled by *Excluded Files* above.
 
 ### Data Model
 

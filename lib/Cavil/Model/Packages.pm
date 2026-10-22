@@ -253,6 +253,23 @@ sub analyze ($self, $id, $priority = 100, $parents = [], $generation = 0) {
   );
 }
 
+# Looser settings only reach the reviews waiting for a decision through their next auto review. A review below the old
+# threshold is still waiting for another reason, so only the newly covered risks need it.
+sub analyze_held ($self, $old, $new) {
+  my %old_names = map  { $_ => 1 } @{$old->{acceptable_packages}};
+  my @names     = grep { !$old_names{$_} } @{$new->{acceptable_packages}};
+  my @ranges = map { [$old->{$_}, $new->{$_}] } grep { $new->{$_} > $old->{$_} } qw(auto_accept_risk acceptable_risk);
+  return 0 unless @names || @ranges;
+
+  my $risk = q{substring(checksum from '-(\d):[^:]+$')::int};
+  my $ids  = $self->pg->db->query(
+    "SELECT id FROM bot_packages WHERE state = 'new' AND NOT obsolete AND indexed IS NOT NULL
+       AND (name = ANY(?) @{[map {qq{OR ($risk > ? AND $risk <= ?)}} @ranges]})", \@names, map {@$_} @ranges
+  )->arrays->flatten->to_array;
+  $self->_enqueue('analyzed', $_, PRIORITY_UPKEEP) for @$ids;
+  return scalar @$ids;
+}
+
 # A changed limitation only reaches the versions waiting for review through their next auto review
 sub analyze_waiting ($self, $name) {
   $self->_enqueue('analyzed', $_->{id})

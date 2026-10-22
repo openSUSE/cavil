@@ -12,8 +12,9 @@ our @EXPORT_OK = qw(audit_event CATEGORIES);
 use constant CATEGORIES => {
   reviews     => ['review.%'],
   limitations => ['limitation.%'],
-  patterns    => ['pattern.%', 'license.%'],
-  ignored     => ['ignored_match.%', 'ignored_file.%', 'snippet.%']
+  patterns    => ['pattern.%',       'license.%'],
+  ignored     => ['ignored_match.%', 'ignored_file.%', 'snippet.%'],
+  settings    => ['settings.%',      'unpack_exclusion.%']
 };
 
 has 'pg';
@@ -22,6 +23,14 @@ has 'pg';
 sub audit_event ($db, %event) {
   $event{data} = {-json => $event{data} // {}};
   $db->insert('audit_events', \%event);
+}
+
+sub last_event ($self, $types) {
+  return $self->pg->db->query(
+    'SELECT EXTRACT(EPOCH FROM e.created) AS created_epoch, u.login
+       FROM audit_events e LEFT JOIN bot_users u ON u.id = e.actor
+      WHERE e.type = ANY(?) ORDER BY e.id DESC LIMIT 1', $types
+  )->hash;
 }
 
 # Exact matches only, a substring would mix in every package sharing a prefix (gcc, gcc13, cross-gcc...)

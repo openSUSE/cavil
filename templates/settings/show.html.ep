@@ -1,0 +1,8 @@
+% layout 'default';
+% title 'Settings';
+
+<div id="settings"></div>
+
+% content_for 'ready_function' => begin
+  cavil.setupSettings('<%= $section %>', <%= current_user_can('infra') ? 'true' : 'false' %>);
+% end

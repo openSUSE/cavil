@@ -193,6 +193,13 @@ sign-off, `manager` signs off as a non-lawyer expert, `contributor` proposes pat
 snippets, and `uploader` can only make ephemeral one-off uploads. Use `-A`/`-R` to add and remove them; the full capability matrix is in the
 [Architecture](Architecture.md) guide.
 
+### 9. Review the settings
+
+Some decisions are made in the web interface rather than in `cavil.conf`. Log in as the admin, open **Settings** from
+the account menu, and check that automatic acceptance matches what your organisation is comfortable with: which risk
+levels Cavil may accept without a person, and which placeholder packages are always accepted. The defaults are a
+reasonable start. The same page holds the list of files Cavil should never unpack.
+
 ## Next steps
 
 Your instance is now ready to review packages. To feed it work, connect the

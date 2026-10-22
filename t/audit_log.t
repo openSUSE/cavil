@@ -12,10 +12,12 @@ use Cavil::Test;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
-my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'audit_log_test');
-my $config     = $cavil_test->default_config;
-$config->{acceptable_packages} = ['perl-Mojolicious'];
-my $t = Test::Mojo->new(Cavil => $config);
+my $cavil_test = Cavil::Test->new(
+  online   => $ENV{TEST_ONLINE},
+  schema   => 'audit_log_test',
+  settings => {acceptable_packages => ['perl-Mojolicious']}
+);
+my $t = Test::Mojo->new(Cavil => $cavil_test->default_config);
 $cavil_test->mojo_fixtures($t->app);
 my $app  = $t->app;
 my $db   = $app->pg->db;
@@ -170,7 +172,7 @@ subtest 'Audit log page' => sub {
 };
 
 subtest 'A decision made while the automatic review runs is kept' => sub {
-  local $app->config->{acceptable_packages} = [];
+  $app->settings->update('tester', {acceptable_packages => []});
   $set_roles->('lawyer');
   my $n    = $all->()->size;
   my $slow = \&Cavil::Task::Analyze::_smallest_delta;
@@ -192,6 +194,7 @@ subtest 'A decision made while the automatic review runs is kept' => sub {
   like $logs, qr/Automatic review skipped, the package was reviewed meanwhile/, 'skip logged';
   is_deeply [map { $decision->($_) } @{$since->($n)}],
     [['review.decision', $tester, 'new', 'unacceptable', 'Meanwhile', 0]], 'only the human decision';
+  $app->settings->update('tester', {acceptable_packages => ['perl-Mojolicious']});
 };
 
 subtest 'A fasttrack does not overwrite a decision made meanwhile' => sub {

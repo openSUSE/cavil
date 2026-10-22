@@ -23,12 +23,14 @@ t.test('Cavil UI - comment templates', skipUnlessOnline, async t => {
     await page.goto(url);
     await page.click('text=Login');
 
-    await t.test('Reachable from the curation menu', async t => {
+    await t.test('Reachable from the settings', async t => {
       await page.goto(url);
       await openAccountMenu(page);
-      await page.click('text=Comment Templates');
+      await page.click('.dropdown-item >> text=Settings');
+      await page.click('.cavil-settings-nav-item >> text=Comment templates');
       await page.waitForSelector('#comment-templates .cavil-list-table');
-      t.match(await page.title(), /Comment templates/, 'on the template page');
+      t.match(await page.title(), /Settings/, 'on the settings page');
+      t.equal(await page.innerText('.cavil-settings-nav-item.active'), 'Comment templates', 'in its own section');
     });
 
     await t.test('The template that ships with Cavil is listed', async t => {

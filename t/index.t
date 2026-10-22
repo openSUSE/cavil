@@ -132,7 +132,7 @@ subtest 'Make sure there are no leftover .processed files' => sub {
 
 
 # Raise acceptable risk
-$config->{acceptable_risk} = 5;
+$t->app->settings->update('test_bot', {acceptable_risk => 5});
 $t = Test::Mojo->new(Cavil => $config);
 
 # License management requires a login
@@ -360,10 +360,10 @@ subtest 'Accept package because of its name' => sub {
   is $pkg->{state}, 'new',              'new again';
   is $pkg->{name},  'perl-Mojolicious', 'rigth name';
 
-  $t->app->config->{acceptable_packages} = ['perl-Mojolicious'];
+  $t->app->settings->update('test_bot', {acceptable_packages => ['perl-Mojolicious']});
   $t->app->minion->enqueue('reindex_all');
   $t->app->minion->perform_jobs;
-  $t->app->config->{acceptable_packages} = [];
+  $t->app->settings->update('test_bot', {acceptable_packages => []});
 
   $pkg = $t->app->packages->find(1);
   is $pkg->{state},  'acceptable',                                          'automatically accepted';
@@ -389,9 +389,10 @@ subtest 'Accept package because of auto-accept risk threshold' => sub {
   # Ensure no previous human review exists for this package name
   $db->query('UPDATE bot_packages SET reviewing_user = NULL WHERE name = ?', $pkg->{name});
 
-  local $t->app->config->{auto_accept_risk} = 2;
+  $t->app->settings->update('test_bot', {auto_accept_risk => 2});
   $t->app->minion->enqueue(analyzed => [1]);
   $t->app->minion->perform_jobs;
+  $t->app->settings->update('test_bot', {auto_accept_risk => 0});
 
   $pkg = $t->app->packages->find(1);
   is $pkg->{state}, 'acceptable', 'automatically accepted';

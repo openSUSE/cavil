@@ -14,7 +14,7 @@ use Cavil::Licenses   qw(lic);
 use Cavil::ReportUtil qw(estimated_risk license_compatibility license_document_candidates unexplained_lines);
 use Cavil::Util       qw(checkout_path line_tag to_json_fast @LICENSE_FLAGS);
 
-has [qw(acceptable_packages acceptable_risk checkout_dir pg snippet_fold)];
+has [qw(checkout_dir pg snippet_fold)];
 
 # we need a HUGE number because the matcher uses unsigned integers
 use constant PATTERN_DELTA => 10000000000;
@@ -107,10 +107,9 @@ sub licensed_spans ($self, $file_ids) {
   return \%spans;
 }
 
-sub risk_is_acceptable {
-  my ($self, $shortname) = @_;
+sub risk_is_acceptable ($self, $shortname, $max) {
   return undef unless $shortname =~ /^(.+)-(\d):[^:]+$/;
-  return undef if $2 > $self->acceptable_risk;
+  return undef if $2 > $max;
   return $2;
 }
 

@@ -128,7 +128,10 @@ subtest 'Manage templates' => sub {
   like $logs, qr/User "tester" removed comment template "Bundled fonts"/, 'right message';
   undef $logs;
 
-  $t->get_ok('/comment-templates')->status_is(200)->text_like('title', qr/Comment templates/);
+  $t->get_ok('/comment-templates')->status_is(302)->header_is(Location => '/settings/comment-templates');
+  $t->get_ok('/settings/comment-templates')
+    ->status_is(200)
+    ->content_like(qr/setupSettings\('comment-templates', true\)/);
   $t->get_ok('/logout')->status_is(302)->header_is(Location => '/');
 };
 

@@ -37,8 +37,6 @@ sub default_config ($self) {
     matcher                                  => $ENV{CAVIL_MATCHER} || 'cavil',
     tokens                                   => ['test_token'],
     pg                                       => $self->postgres_url,
-    acceptable_risk                          => 4,
-    auto_accept_risk                         => 0,
     index_bucket_average                     => 100,
     cleanup_bucket_average                   => 50,
     days_to_keep_orphaned_packages           => 7,
@@ -247,8 +245,18 @@ sub multiarchive_fixtures ($self, $app) {
   return $pkg_id;
 }
 
-sub no_fixtures ($self, $app) {
+# Most tests predate automatic acceptance of low-risk packages being on by default. Settings passed to the
+# constructor are in place before any fixture is analyzed.
+sub migrate ($self, $app) {
   $app->pg->migrations->migrate;
+  my %settings = (auto_accept_risk => 0, %{$self->{options}{settings} // {}});
+  $app->pg->db->query('INSERT INTO settings (name, value) VALUES (?, ?) ON CONFLICT DO NOTHING',
+    $_, {json => $settings{$_}})
+    for keys %settings;
+}
+
+sub no_fixtures ($self, $app) {
+  $self->migrate($app);
 
   # Allow Devel::Cover to collect stats for background jobs
   $app->minion->on(
@@ -521,7 +529,7 @@ HTML
 }
 
 sub ui_fixtures ($self, $app) {
-  $app->pg->migrations->migrate;
+  $self->migrate($app);
 
   $self->mojo_fixtures($app);
 
@@ -751,7 +759,7 @@ FILE
 
 # Two real pipeline versions exercise notice diffs and the five-file display cap.
 sub report_notice_fixtures ($self, $app) {
-  $app->pg->migrations->migrate;
+  $self->migrate($app);
 
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
@@ -859,7 +867,7 @@ FILE
 # it in windows. It repeats its license match past the first window. The wrapper sets max_file_browser_size
 # to 2000 bytes.
 sub large_file_fixtures ($self, $app) {
-  $app->pg->migrations->migrate;
+  $self->migrate($app);
 
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
@@ -902,7 +910,7 @@ sub large_file_fixtures ($self, $app) {
 }
 
 sub compatibility_fixtures ($self, $app) {
-  $app->pg->migrations->migrate;
+  $self->migrate($app);
 
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
@@ -957,7 +965,7 @@ SPEC
 }
 
 sub legal_documents_fixtures ($self, $app) {
-  $app->pg->migrations->migrate;
+  $self->migrate($app);
 
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
@@ -1147,7 +1155,7 @@ SPEC
 }
 
 sub obligations_fixtures ($self, $app) {
-  $app->pg->migrations->migrate;
+  $self->migrate($app);
 
   my $pkgs   = $app->packages;
   my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};

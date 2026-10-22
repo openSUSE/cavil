@@ -236,9 +236,9 @@ sub _analyzed ($job, $id) {
 # Everything the automatic review does once the package is claimed, with plenty of early returns for the
 # states it leaves alone
 sub _auto_review ($app, $id) {
-  my $config  = $app->config;
-  my $reports = $app->reports;
-  my $pkgs    = $app->packages;
+  my $settings = $app->settings->get;
+  my $reports  = $app->reports;
+  my $pkgs     = $app->packages;
 
   # Only "new" and "acceptable" can be reviewed automatically. Every already
   # reviewed package still needs its notice refreshed on each reindex so it does
@@ -288,9 +288,8 @@ sub _auto_review ($app, $id) {
   }
 
   # Fast-track packages that are configured to always be acceptable
-  my $name                = $pkg->{name};
-  my $acceptable_packages = $config->{acceptable_packages} || [];
-  if (grep { $name eq $_ } @$acceptable_packages) {
+  my $name = $pkg->{name};
+  if (grep { $name eq $_ } @{$settings->{acceptable_packages}}) {
     return _hold($app, $pkg, $limitations, 'Otherwise accepted package name') if @$limitations;
     return _accept($app, $pkg, 'acceptable', "Accepted because of package name ($name)");
   }
@@ -298,8 +297,8 @@ sub _auto_review ($app, $id) {
   # Every package above threshold needs a human review before future versions can be auto-accepted
   if (!$pkgs->has_manual_review($pkg->{name})) {
 
-    my $auto_accept_risk = $config->{auto_accept_risk};
-    my $risk             = $reports->risk_is_acceptable($pkg_shortname);
+    my $auto_accept_risk = $settings->{auto_accept_risk};
+    my $risk             = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk});
     if (defined($risk) && $risk > 0 && $auto_accept_risk && $risk <= $auto_accept_risk) {
       return _hold($app, $pkg, $limitations, "Otherwise accepted low risk ($risk)") if @$limitations;
       return _accept($app, $pkg, 'acceptable',
@@ -341,12 +340,12 @@ sub _auto_review ($app, $id) {
 
   # Risk 0 is never accepted, and without a risk only no significant difference would have been
   if (@$limitations) {
-    my $risk = $reports->risk_is_acceptable($pkg_shortname);
+    my $risk = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk});
     return _hold($app, $pkg, $limitations, $risk ? "Otherwise accepted low risk ($risk)" : undef, !defined $risk);
   }
 
   # Acceptable risk
-  if (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname))) {
+  if (defined(my $risk = $reports->risk_is_acceptable($pkg_shortname, $settings->{acceptable_risk}))) {
 
     # risk 0 is spooky
     return _write(

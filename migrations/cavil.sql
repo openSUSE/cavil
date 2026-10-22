@@ -493,3 +493,23 @@ DROP TABLE IF EXISTS audit_events;
 ALTER TABLE bot_requests ADD COLUMN removed timestamp with time zone;
 CREATE INDEX bot_requests_number_idx ON bot_requests ((substring(external_link from '[#!](\d+)$')));
 CREATE INDEX bot_packages_link_number_idx ON bot_packages ((substring(external_link from '[#!](\d+)$')));
+
+-- 76 up
+CREATE TABLE settings (
+  name  text PRIMARY KEY,
+  value jsonb NOT NULL
+);
+CREATE TABLE unpack_exclusions (
+  id           serial PRIMARY KEY,
+  package_glob text NOT NULL,
+  file         text NOT NULL,
+  reason       text DEFAULT '' NOT NULL,
+  owner        int REFERENCES bot_users(id) NOT NULL,
+  created      timestamp with time zone DEFAULT now() NOT NULL,
+  UNIQUE (package_glob, file)
+);
+CREATE INDEX ON audit_events (type, id DESC);
+
+-- 76 down
+DROP TABLE IF EXISTS unpack_exclusions;
+DROP TABLE IF EXISTS settings;

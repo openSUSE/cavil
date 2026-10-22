@@ -39,6 +39,7 @@
           <option value="limitations">Limitations</option>
           <option value="patterns">Patterns</option>
           <option value="ignored">Ignored</option>
+          <option value="settings">Settings</option>
         </select>
       </label>
       <label class="cavil-list-control">
@@ -109,6 +110,7 @@ import CavilListLayout from './components/CavilListLayout.vue';
 import EmptyState from './components/EmptyState.vue';
 import LegalLoading from './components/LegalLoading.vue';
 import {genParamWatchers, getParams, setParam} from './helpers/params.js';
+import {riskName} from './helpers/riskLevels.js';
 import Refresh from './mixins/refresh.js';
 import moment from 'moment';
 
@@ -129,6 +131,27 @@ const changes = data =>
         return `${field}: ${from === '' ? '(none)' : (from ?? 'mixed')} → ${to === '' ? '(none)' : to}`;
       })
   );
+const settingLabels = {
+  auto_accept_risk: 'Accept low-risk packages nobody has reviewed yet',
+  acceptable_risk: 'Accept packages a person has reviewed before',
+  acceptable_packages: 'Always accept these packages'
+};
+const settingValue = (field, value) => {
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '(none)';
+  if (field === 'auto_accept_risk' && value === 0) return 'off';
+  return typeof value === 'number' ? `${value} - ${riskName(value)}` : String(value);
+};
+const settingChanges = data =>
+  lines(
+    ...[...new Set([...Object.keys(data.changes), ...(data.reset ?? [])])].sort().map(field => {
+      const label = settingLabels[field] ?? field;
+      if (!data.changes[field]) return `${label}: back to default`;
+      const [from, to] = data.changes[field];
+      const reset = data.reset?.includes(field) ? ' (default)' : '';
+      return `${label}: ${settingValue(field, from)} → ${settingValue(field, to)}${reset}`;
+    })
+  );
+const exclusion = data => ({text: `${data.package_glob} : ${data.file}`, mono: true});
 
 // Unknown types still render, so a new event type is visible before it gets a formatter here
 const formatters = {
@@ -187,7 +210,14 @@ const formatters = {
     detail: proposedBy(data),
     subject: {text: data.glob, mono: true}
   }),
-  'ignored_file.removed': data => ({summary: 'Ignored files removed', subject: {text: data.glob, mono: true}})
+  'ignored_file.removed': data => ({summary: 'Ignored files removed', subject: {text: data.glob, mono: true}}),
+  'settings.changed': data => ({summary: 'Automatic acceptance changed', detail: settingChanges(data)}),
+  'unpack_exclusion.added': data => ({summary: 'Excluded file added', detail: data.reason, subject: exclusion(data)}),
+  'unpack_exclusion.removed': data => ({
+    summary: 'Excluded file removed',
+    detail: data.reason,
+    subject: exclusion(data)
+  })
 };
 const fallback = (data, event) => ({summary: event.type, detail: JSON.stringify(data)});
 

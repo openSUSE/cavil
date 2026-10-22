@@ -358,6 +358,7 @@ import TemplatePicker from './TemplatePicker.vue';
 import ToastNotifier from './ToastNotifier.vue';
 import {fileViewUrl, productLink, setupPopoverDelayed} from '../helpers/links.js';
 import {findPlaceholders} from '../helpers/placeholders.js';
+import {riskName} from '../helpers/riskLevels.js';
 import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
@@ -408,7 +409,7 @@ export default {
       legalDocuments: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
-      manageTemplatesUrl: '/comment-templates',
+      manageTemplatesUrl: '/settings/comment-templates',
       notice: null,
       pkgAiAssisted: false,
       pkgChecksum: null,
@@ -536,14 +537,7 @@ export default {
       return 'cavil-gray-ribbon';
     },
     ribbonDescription() {
-      if (this.pkgRisk === '1') return 'Public Domain';
-      if (this.pkgRisk === '2') return 'Permissive';
-      if (this.pkgRisk === '3') return 'Weak Copyleft';
-      if (this.pkgRisk === '4') return 'Strong Copyleft';
-      if (this.pkgRisk === '5') return 'Managed Obligations';
-      if (this.pkgRisk === '6') return 'Restrictive Obligations';
-      if (this.pkgRisk === '7') return 'Non-Commercial';
-      return 'Unknown Risk';
+      return riskName(this.pkgRisk);
     },
     stateBadgeClass() {
       if (this.state === 'new') return 'text-bg-secondary';

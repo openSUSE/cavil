@@ -472,7 +472,7 @@ subtest 'Upload API' => sub {
     $t->get_ok("/api/v1/report/$id.json" => {Authorization => "Bearer $admin_rw->{api_key}"})
       ->status_is(200)
       ->json_is('/package/id'      => $id)
-      ->json_is('/acceptable_risk' => $t->app->reports->acceptable_risk);
+      ->json_is('/acceptable_risk' => 4);
     ok defined $t->tx->res->json('/risk'), 'max risk surfaced for gating';
   };
 

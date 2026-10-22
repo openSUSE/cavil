@@ -1,17 +1,18 @@
 <template>
-  <div>
-    <div class="row mt-3">
-      <cavil-notice-panel intro class="col-12">
-        These templates prefill the review comment box on report pages. Reviewers pick one from the editor and replace
-        the [PLACEHOLDER] tokens, so recurring instructions only have to be written once.
-        <template #actions>
-          <button name="add-template" class="btn btn-primary" @click="startAdd()">Add Template</button>
-        </template>
-      </cavil-notice-panel>
+  <section id="comment-templates">
+    <div class="cavil-settings-header">
+      <h3>Comment templates</h3>
+      <p>
+        Templates prefill the review comment box on report pages. Reviewers pick one and replace the [PLACEHOLDER]
+        tokens, so recurring instructions only have to be written once.
+      </p>
     </div>
 
-    <div v-if="editing !== null" class="row mt-3">
-      <div class="col-12 comment-template-form">
+    <div class="cavil-settings-actions">
+      <button name="add-template" class="btn btn-success" @click="startAdd()">Add template</button>
+    </div>
+    <div v-if="editing !== null" class="mb-3">
+      <div class="comment-template-form">
         <div class="mb-3">
           <label for="template-name" class="form-label">Name</label>
           <input v-model="editing.name" class="form-control" id="template-name" placeholder="Unacceptable-File" />
@@ -121,26 +122,25 @@
       </table>
     </CavilListLayout>
     <ToastNotifier ref="toaster" />
-  </div>
+  </section>
 </template>
 
 <script>
-import CavilListLayout from './components/CavilListLayout.vue';
-import CavilNoticePanel from './components/CavilNoticePanel.vue';
-import CommentEditor from './components/CommentEditor.vue';
-import EmptyState from './components/EmptyState.vue';
-import LegalLoading from './components/LegalLoading.vue';
-import ToastNotifier from './components/ToastNotifier.vue';
-import {genParamWatchers, getParams, setParam} from './helpers/params.js';
-import {findPlaceholders} from './helpers/placeholders.js';
-import Refresh from './mixins/refresh.js';
+import CavilListLayout from './CavilListLayout.vue';
+import CommentEditor from './CommentEditor.vue';
+import EmptyState from './EmptyState.vue';
+import LegalLoading from './LegalLoading.vue';
+import ToastNotifier from './ToastNotifier.vue';
+import {genParamWatchers, getParams, setParam} from '../helpers/params.js';
+import {findPlaceholders} from '../helpers/placeholders.js';
+import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
 export default {
-  name: 'CommentTemplates',
+  name: 'SettingsCommentTemplates',
   mixins: [Refresh],
-  components: {CavilListLayout, CavilNoticePanel, CommentEditor, EmptyState, LegalLoading, ToastNotifier},
+  components: {CavilListLayout, CommentEditor, EmptyState, LegalLoading, ToastNotifier},
   data() {
     const params = getParams({
       limit: 10,

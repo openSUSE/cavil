@@ -177,6 +177,14 @@ t.test('Cavil UI - review comment editor', skipUnlessOnline, async t => {
       const appended = await docText();
       t.equal(appended.match(/\[LICENSE\]/g).length, 2, 'an edited template is kept and appended to');
       t.match(appended, /^Rejected outright\./, 'the reviewer text is still there');
+
+      await page.click('#template-picker-btn');
+      t.equal(
+        await page.getAttribute('.template-picker-manage', 'href'),
+        '/settings/comment-templates',
+        'templates are managed in the settings'
+      );
+      await page.keyboard.press('Escape');
     });
 
     await t.test('Unfilled placeholders are a warning, not a block', async t => {

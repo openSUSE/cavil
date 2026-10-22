@@ -25,10 +25,6 @@ sub all ($self) {
   return $self->render(json => $self->comment_templates->all);
 }
 
-sub list ($self) {
-  $self->render('comment_templates/list');
-}
-
 sub remove ($self) {
   return $self->render(json => {error => 'Comment template does not exist'}, status => 400)
     unless $self->comment_templates->remove($self->param('id'), $self->current_user);

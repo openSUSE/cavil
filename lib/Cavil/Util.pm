@@ -25,7 +25,7 @@ our @EXPORT_OK = (
   qw(load_ignored_files),
   qw(line_tag lines_context normalize_license_expr),
   qw(extract_copyrights extract_spdx_identifiers extract_urls_and_emails legal_review_notices),
-  qw(normalize_license_text obs_ssh_auth original_filename paginate parse_exclude_file parse_list_filter),
+  qw(normalize_license_text obs_ssh_auth original_filename paginate parse_list_filter),
   qw(lookup_tokens parse_lookup),
   qw(parse_service_file path_within pattern_checksum pattern_matches pattern_contains_redundant_skip pattern_contains_skip),
   qw(read_lines run_cmd safe_string),
@@ -753,23 +753,6 @@ sub paginate ($results, $options) {
   my $total = @$results ? $results->[0]{total} : 0;
   delete $_->{total} for @$results;
   return {total => $total, start => $options->{offset} + 1, end => $options->{offset} + @$results, page => $results};
-}
-
-sub parse_exclude_file ($path, $name) {
-  my $content = path($path)->slurp;
-  my $exclude = [];
-
-  local $Text::Glob::strict_wildcard_slash = 0;
-  for my $line (split "\n", $content) {
-    next unless $line =~ /^\s*([^\s\#]\S+)\s*:\s*(\S+)(?:\s.*)?$/;
-    my ($pattern, $file) = ($1, $2);
-
-    next unless $name =~ glob_to_regex($pattern);
-
-    push @$exclude, $file;
-  }
-
-  return $exclude;
 }
 
 # Metadata comes from untrusted files, so a value that is not a short single-line string is unusable

@@ -30,6 +30,8 @@ my @probes = (
   {cap => 'upload_ephemeral', method => 'get_ok',  url => '/upload', allow => [qw(admin lawyer uploader)]},
   {cap => 'upload_ephemeral', method => 'post_ok', url => '/upload', allow => [qw(admin lawyer uploader)]},
   {cap => 'infra',            method => 'get_ok',  url => '/minion', allow => [qw(admin)]},
+  {cap => 'infra/settings', method => 'get_ok',  url => '/settings/auto-accept',          allow => [qw(admin)]},
+  {cap => 'infra/settings', method => 'get_ok',  url => '/settings/excluded-files',       allow => [qw(admin)]},
   {cap => 'curate',         method => 'get_ok',  url => '/licenses/new_pattern',          allow => [qw(admin lawyer)]},
   {cap => 'curate/review',  method => 'post_ok', url => '/reviews/review_package/999999', allow => [qw(admin lawyer)]},
   {cap => 'curate/reindex', method => 'post_ok', url => '/reviews/reindex/999999',        allow => [qw(admin lawyer)]},
@@ -52,8 +54,10 @@ my @probes = (
     url    => '/reviews/fasttrack_package/999999',
     allow  => [qw(admin lawyer manager)]
   },
-  {cap => 'curate/templates', method => 'get_ok',    url => '/comment-templates',        allow => [qw(admin lawyer)]},
-  {cap => 'curate/templates', method => 'delete_ok', url => '/comment-templates/999999', allow => [qw(admin lawyer)]},
+  {cap => 'curate/settings',  method => 'get_ok',    url => '/settings',                   allow => [qw(admin lawyer)]},
+  {cap => 'curate/templates', method => 'get_ok',    url => '/settings/comment-templates', allow => [qw(admin lawyer)]},
+  {cap => 'curate/templates', method => 'get_ok',    url => '/comment-templates',          allow => [qw(admin lawyer)]},
+  {cap => 'curate/templates', method => 'delete_ok', url => '/comment-templates/999999',   allow => [qw(admin lawyer)]},
 
   # Reading templates only needs a login, managers write review comments too and need the picker
   {

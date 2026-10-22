@@ -124,14 +124,15 @@ subtest 'Low risk and no significant difference blocked' => sub {
 };
 
 subtest 'Package name fast-track blocked' => sub {
-  local $app->config->{acceptable_packages} = ['perl-Mojolicious'];
+  $app->settings->update('tester', {acceptable_packages => ['perl-Mojolicious']});
   my $pkg = $analyze->($same);
   is $pkg->{state},  'new',                                        'not accepted';
   is $pkg->{notice}, "$header\n\nOtherwise accepted package name", 'names the blocked auto-accept';
+  $app->settings->update('tester', {}, ['acceptable_packages']);
 };
 
 subtest 'Auto-accept risk threshold blocked before any manual review' => sub {
-  local $app->config->{auto_accept_risk} = 2;
+  $app->settings->update('tester', {auto_accept_risk => 2});
   my $reviewed = $db->query('SELECT id, reviewing_user FROM bot_packages WHERE reviewing_user IS NOT NULL')->hashes;
   $db->query('UPDATE bot_packages SET reviewing_user = NULL');
   my $pkg = $analyze->($copy->('new', 'perl-Mojolicious-1:low'));
@@ -139,6 +140,7 @@ subtest 'Auto-accept risk threshold blocked before any manual review' => sub {
   is $pkg->{notice}, "$header\n\nOtherwise accepted low risk (1)", 'names the blocked auto-accept';
   like $analyze->($same)->{notice}, qr/^\Q$header\E\n\n/, 'quoted when nothing would have been accepted either';
   $db->update('bot_packages', {reviewing_user => $_->{reviewing_user}}, {id => $_->{id}}) for @$reviewed;
+  $app->settings->update('tester', {auto_accept_risk => 0});
 };
 
 subtest 'Inherited lawyer sign-off blocked' => sub {

@@ -302,12 +302,14 @@ subtest 'Unpack background job' => sub {
   is $t->app->packages->find(1)->{processing_job}, undef, 'package no longer claimed';
 };
 
-subtest 'Unpack background job (with exclude file)' => sub {
+subtest 'Unpack background job (with excluded files)' => sub {
   my $cavil_test = Cavil::Test->new(online => $ENV{TEST_ONLINE}, schema => 'unpack_test_buildah');
-  my $config     = $cavil_test->default_config;
-  $config->{exclude_file} = curfile->sibling('exclude-files', 'checkout.exclude')->to_string;
-  my $t = Test::Mojo->new(Cavil => $config);
+  my $t          = Test::Mojo->new(Cavil => $cavil_test->default_config);
   $cavil_test->unpack_fixtures($t->app);
+  my $exclusions = $t->app->unpack_exclusions;
+  $exclusions->add({package_glob => 'buildah-synthetic-broken', file => 'test-case.tar', reason => 'Broken'},
+    'test_bot');
+  $exclusions->add({package_glob => 'buildah-synthetic-good-too', file => 'bar.tar', reason => 'Test'}, 'test_bot');
 
   my $minion = $t->app->minion;
 

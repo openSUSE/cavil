@@ -20,7 +20,7 @@ my $FILES = 110;
 my $t   = Test::Mojo->new(Cavil => $cavil_test->default_config);
 my $app = $t->app;
 
-$app->pg->migrations->migrate;
+$cavil_test->migrate($app);
 my $usr_id = $app->pg->db->insert('bot_users', {login => 'test_bot'}, {returning => 'id'})->hash->{id};
 $cavil_test->_synthetic_many_unresolved_fixture($app, $usr_id);
 $app->minion->perform_jobs;

@@ -35,7 +35,7 @@ sub report ($self) {
           report          => \%full,
           package         => $pkg,
           risk            => report_risk($pkg->{checksum}, $pkg->{unresolved_matches}),
-          acceptable_risk => $self->reports->acceptable_risk
+          acceptable_risk => $self->settings->value('acceptable_risk')
         }
       );
     },

@@ -924,7 +924,7 @@ While the package is still being unpacked, indexed or analyzed the endpoint retu
 `analyzing` or `finalizing`) so a client can show progress. Once ready, the JSON includes two top-level fields
 for gating a CI run without a second request: `risk`, the report's maximum license risk on the 1-9 scale (the
 same number the web report shows, forced to `9` when there are unresolved matches), and `acceptable_risk`, the
-instance's configured threshold at or below which a report is considered acceptable.
+threshold at or below which a report is considered acceptable, as admins have set it on the Settings page.
 
 **Request:**
 

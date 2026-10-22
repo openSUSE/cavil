@@ -12,7 +12,6 @@ import AuditLog from './vue/AuditLog.vue';
 import CavilMenu from './vue/CavilMenu.vue';
 import CavilStatistics from './vue/CavilStatistics.vue';
 import ClassifySnippets from './vue/ClassifySnippets.vue';
-import CommentTemplates from './vue/CommentTemplates.vue';
 import LicenseDialog from './vue/components/LicenseDialog.vue';
 import PackageSearch from './vue/components/PackageSearch.vue';
 import EditPattern from './vue/EditPattern.vue';
@@ -33,6 +32,7 @@ import RecentNotes from './vue/RecentNotes.vue';
 import RecentPatterns from './vue/RecentPatterns.vue';
 import RecentReviews from './vue/RecentReviews.vue';
 import ReviewSearch from './vue/ReviewSearch.vue';
+import SettingsPage from './vue/SettingsPage.vue';
 import moment from 'moment';
 import {createApp} from 'vue';
 
@@ -118,8 +118,8 @@ window.cavil = {
     createApp(IgnoredFiles).mount('#ignored-files');
   },
 
-  setupCommentTemplates() {
-    createApp(CommentTemplates).mount('#comment-templates');
+  setupSettings(section, canInfra) {
+    createApp(SettingsPage, {section, canInfra}).mount('#settings');
   },
 
   setupApiKeys() {

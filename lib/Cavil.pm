@@ -17,6 +17,8 @@ use Cavil::Model::Patterns;
 use Cavil::Model::Products;
 use Cavil::Model::Reports;
 use Cavil::Model::Requests;
+use Cavil::Model::Settings;
+use Cavil::Model::UnpackExclusions;
 use Cavil::Model::Users;
 use Cavil::Model::APIKeys;
 use Cavil::Model::AuditLog;
@@ -118,15 +120,16 @@ sub startup ($self) {
   $self->helper(
     reports => sub ($c) {
       state $reps = Cavil::Model::Reports->new(
-        acceptable_risk => $config->{acceptable_risk},
-        checkout_dir    => $config->{checkout_dir},
-        snippet_fold    => $config->{snippet_fold},
-        pg              => $c->pg
+        checkout_dir => $config->{checkout_dir},
+        snippet_fold => $config->{snippet_fold},
+        pg           => $c->pg
       );
     }
   );
-  $self->helper(requests => sub ($c) { state $reqs  = Cavil::Model::Requests->new(pg => $c->pg) });
-  $self->helper(users    => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
+  $self->helper(requests          => sub ($c) { state $reqs  = Cavil::Model::Requests->new(pg => $c->pg) });
+  $self->helper(settings          => sub ($c) { state $sets  = Cavil::Model::Settings->new(pg => $c->pg) });
+  $self->helper(unpack_exclusions => sub ($c) { state $excl  = Cavil::Model::UnpackExclusions->new(pg => $c->pg) });
+  $self->helper(users             => sub ($c) { state $users = Cavil::Model::Users->new(pg => $c->pg) });
   $self->helper(
     ignored_files => sub ($c) { state $pkgs = Cavil::Model::IgnoredFiles->new(pg => $c->pg, log => $self->log) });
   $self->helper(
@@ -195,6 +198,20 @@ sub startup ($self) {
   $public->get('/logout')->to('Auth#logout')->name('logout');
 
   $self->plugin('Minion::Admin' => {route => $can_infra->any('/minion')});
+
+  # Gated per section, curators manage comment templates but only admins decide what is accepted automatically
+  $can_curate->get('/settings')->to('Settings#first');
+  $can_curate->get('/settings/comment-templates')->to('Settings#show', section => 'comment-templates');
+  $can_infra->get('/settings/:section' => [section => [qw(auto-accept excluded-files)]])
+    ->to('Settings#show')
+    ->name('settings');
+  $can_infra->get('/settings/auto-accept.json')->to('Settings#auto_accept')->name('settings_auto_accept');
+  $can_infra->put('/settings/auto-accept.json')->to('Settings#update_auto_accept')->name('update_settings_auto_accept');
+  $can_infra->post('/settings/excluded-files')->to('Settings#add_exclusion')->name('add_exclusion');
+  $can_infra->delete('/settings/excluded-files/<id:num>')->to('Settings#remove_exclusion')->name('remove_exclusion');
+  $can_infra->get('/pagination/settings/excluded-files')
+    ->to('Pagination#excluded_files')
+    ->name('pagination_excluded_files');
 
   $bot->get('/package/<id:num>')->to('Queue#package_status');
   $bot->patch('/package/<id:num>')->to('Queue#update_package');
@@ -309,7 +326,7 @@ sub startup ($self) {
 
   # Reading templates is not gated on "curate", managers write review comments too and need the picker
   $logged_in->get('/comment-templates/all')->to('CommentTemplates#all')->name('all_comment_templates');
-  $can_curate->get('/comment-templates')->to('CommentTemplates#list')->name('list_comment_templates');
+  $can_curate->get('/comment-templates' => sub ($c) { $c->redirect_to('/settings/comment-templates') });
   $can_curate->post('/comment-templates')->to('CommentTemplates#add')->name('add_comment_template');
   $can_curate->put('/comment-templates/<id:num>')->to('CommentTemplates#update')->name('update_comment_template');
   $can_curate->delete('/comment-templates/<id:num>')->to('CommentTemplates#remove')->name('remove_comment_template');

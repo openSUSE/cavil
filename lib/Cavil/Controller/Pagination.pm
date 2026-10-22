@@ -40,6 +40,22 @@ sub comment_templates ($self) {
   $self->render(json => $page);
 }
 
+sub excluded_files ($self) {
+  my $v = $self->validation;
+  $v->optional('limit')->num;
+  $v->optional('offset')->num;
+  $v->optional('filter');
+  return $self->reply->json_validation_error if $v->has_error;
+  my $limit  = $v->param('limit')  // 10;
+  my $offset = $v->param('offset') // 0;
+  my $search = $v->param('filter') // '';
+
+  my $page
+    = $self->helpers->unpack_exclusions->paginate_exclusions({limit => $limit, offset => $offset, search => $search});
+  $page->{last_change} = $self->audit_log->last_event(['unpack_exclusion.added', 'unpack_exclusion.removed']);
+  $self->render(json => $page);
+}
+
 sub ignored_matches ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;

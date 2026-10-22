@@ -164,7 +164,7 @@ affected packages will be automatically regenerated.
 
 Here are some example risk assessments for very common licenses:
 ```
-Low risk licenses (auto-accepted)
+Low risk licenses
 0: Public Domain
 1: MIT, BSD-2-clause
 2: GPL-2.0-or-later, Artistic-2.0
@@ -179,10 +179,12 @@ Unknown risk (reserved)
 9: Keyword patterns
 ```
 
-Risk values `0` to `3` are considered low risk, and allow for reviews to be auto accepted if a previous report has been
-reviewed by a human, and it contains only low risk licenses. Risks `4` to `8` are classified as high risk and will only
-allow for reviews to be auto-accepted when there have been no licensing changes since the last review. Risk `9` is
-reserved for keywords used to identify legally relevant text.
+The risk you assign decides how much of the review Cavil may do on its own. Licenses at or below a certain level allow
+a new version of a package to be accepted automatically when an earlier version was reviewed by a person, and the
+lowest levels can even allow it for a package nobody has reviewed yet. Above that level, a review is only accepted
+automatically when nothing about the licensing changed since the last one. Where exactly those lines are drawn is
+decided by the admins of your instance on its Settings page. Risk `9` is reserved for keywords used to identify legally
+relevant text.
 
 ### Pattern Performance
 
