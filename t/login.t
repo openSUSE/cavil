@@ -1,13 +1,17 @@
 # SPDX-FileCopyrightText: SUSE LLC
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 
 use FindBin;
 use lib "$FindBin::Bin/lib";
 
 use Test::More;
 use Test::Mojo;
+use Mojo::JSON;
+use Mojo::Server::Daemon;
+use Mojo::URL;
+use Mojolicious;
 use Cavil::Test;
 
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
@@ -99,6 +103,58 @@ subtest 'Not authenticated' => sub {
 
 subtest 'OpenID' => sub {
   $t->get_ok('/login')->status_is(302)->header_is(Location => '/oidc/callback');
+};
+
+subtest 'OpenID Connect claims' => sub {
+  my $claims   = {};
+  my $provider = Mojolicious->new;
+  $provider->routes->post('/token' => {json => {access_token => 'secret_token'}});
+  $provider->routes->get(
+    '/userinfo' => sub ($c) {
+      return $c->render(json => {}, status => 401) unless $c->req->headers->authorization eq 'Bearer secret_token';
+      $c->render(json => $claims);
+    }
+  );
+  my $daemon = Mojo::Server::Daemon->new(app => $provider, listen => ['http://127.0.0.1'], silent => 1)->start;
+  my $url    = Mojo::URL->new('http://127.0.0.1')->port($daemon->ports->[0]);
+  my $config = $t->app->oauth2->providers->{opensuse};
+  $config->{token_url}    = $url->clone->path('/token')->to_string;
+  $config->{userinfo_url} = $url->clone->path('/userinfo')->to_string;
+  my $users = $t->app->users;
+
+  my $login = sub ($expected) {
+    $t->get_ok('/oidc/callback?code=42')->status_is(302)->header_is(Location => '/');
+    $t->get_ok('/settings/api-keys')->status_is(200);
+    ok $users->find(login => $expected), "user $expected created";
+    $t->get_ok('/logout')->status_is(302);
+  };
+  my $refuse = sub {
+    $t->get_ok('/oidc/callback?code=42')->status_is(403)->content_like(qr/did not supply a username or verified email/);
+    $t->get_ok('/settings')->status_is(401);
+  };
+
+  $claims = {nickname => 'nick', preferred_username => 'preferred', email => 'nick@example.com'};
+  $login->('nick');
+  ok !$users->find(login => 'preferred'), 'nickname wins';
+
+  $claims = {preferred_username => 'keycloak', email => 'keycloak@example.com'};
+  $login->('keycloak');
+  is $users->find(login => 'keycloak')->{email}, 'keycloak@example.com', 'email stored';
+
+  $claims = {nickname => '', email => 'google@example.com', email_verified => Mojo::JSON->true};
+  $login->('google@example.com');
+
+  $claims = {email => 'entra@example.com'};
+  $login->('entra@example.com');
+
+  $claims = {email => 'unverified@example.com', email_verified => Mojo::JSON->false};
+  $refuse->();
+  $claims = {email => 'cognito@example.com', email_verified => 'false'};
+  $refuse->();
+  ok !$users->find(login => $_), 'no user created' for qw(unverified@example.com cognito@example.com);
+
+  $claims = {sub => '1234'};
+  $refuse->();
 };
 
 subtest 'Dummy' => sub {

@@ -4,6 +4,8 @@
 package Cavil::Controller::Auth::OpenIDConnect;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+use List::Util qw(first);
+
 sub login ($self) {
   my $config = $self->oauth2->providers->{opensuse};
 
@@ -19,10 +21,20 @@ sub login ($self) {
   )->then(
     sub ($tx) {
       return undef unless defined $tx;
-      my $data = $tx->res->json;
+      my $data = $tx->res->json // {};
 
-      # Create in DB
-      my $user  = $self->users->find_or_create(login => $data->{nickname}, email => $data->{email});
+      # "nickname" first keeps existing logins stable, an unverified email must not claim an email-based login
+      my @claims   = qw(nickname preferred_username);
+      my $verified = $data->{email_verified};
+      push @claims, 'email' unless defined $verified && (!$verified || $verified eq 'false');
+      my $claim = first { length($data->{$_} // '') } @claims;
+      unless (defined $claim) {
+        $self->log->error('OpenID Connect userinfo has no usable login, claims: ' . join(', ', sort keys %$data));
+        return $self->render(text => 'OpenID Connect provider did not supply a username or verified email',
+          status => 403);
+      }
+
+      my $user  = $self->users->find_or_create(login => $data->{$claim}, email => $data->{email});
       my $login = $user->{login};
 
       $self->session(user => $login);

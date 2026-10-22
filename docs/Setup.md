@@ -73,8 +73,10 @@ instance are:
 * `spdx` - the `namespace` is the base address of every identifier in the SBOMs Cavil generates, usually the address
   of your instance followed by `/spdx/`. It ends up in every published SBOM, so choose it once and keep it. There is
   no built-in fallback: until it is set, SBOMs cannot be generated.
-* `openid` - OpenID Connect settings for real user login. If omitted, Cavil falls back to a dummy login that makes
-  everyone an admin, which is fine for a first boot but must not be left on for a shared instance.
+* `openid` - OpenID Connect settings for real user login. Any standard provider works (Keycloak, Okta, Authentik,
+  GitLab, Google, Microsoft Entra and others): the Cavil login is the first of the `nickname`, `preferred_username` and
+  verified `email` claims the provider sends. If omitted, Cavil falls back to a dummy login that makes everyone an
+  admin, which is fine for a first boot but must not be left on for a shared instance.
 
 To connect Cavil to your sources (Open Build Service, Gitea, or the bot API), also set the `obs`, `git` and
 `external_link_sources` options - all documented in `cavil.conf`. These can be added later.
