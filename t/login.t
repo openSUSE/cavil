@@ -137,6 +137,18 @@ subtest 'OpenID Connect claims' => sub {
   $login->('nick');
   ok !$users->find(login => 'preferred'), 'nickname wins';
 
+  $claims = {
+    sub                => '29d5fd09b5a900b46d934ee3fdca0a180d69691c1954b1c0d7f4bb63708a0e68',
+    email              => 'authentik@example.com',
+    email_verified     => Mojo::JSON->false,
+    name               => 'Jane Doe',
+    given_name         => 'Jane Doe',
+    preferred_username => 'authentik',
+    nickname           => 'authentik',
+    groups             => []
+  };
+  $login->('authentik');
+
   $claims = {preferred_username => 'keycloak', email => 'keycloak@example.com'};
   $login->('keycloak');
   is $users->find(login => 'keycloak')->{email}, 'keycloak@example.com', 'email stored';

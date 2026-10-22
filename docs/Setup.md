@@ -75,7 +75,8 @@ instance are:
   no built-in fallback: until it is set, SBOMs cannot be generated.
 * `openid` - OpenID Connect settings for real user login. Any standard provider works (Keycloak, Okta, Authentik,
   GitLab, Google, Microsoft Entra and others): the Cavil login is the first of the `nickname`, `preferred_username` and
-  verified `email` claims the provider sends. If omitted, Cavil falls back to a dummy login that makes everyone an
+  verified `email` claims the provider sends. Register `https://<your host>/oidc/callback` as the redirect URI and allow
+  the `openid`, `email` and `profile` scopes. If omitted, Cavil falls back to a dummy login that makes everyone an
   admin, which is fine for a first boot but must not be left on for a shared instance.
 
 To connect Cavil to your sources (Open Build Service, Gitea, or the bot API), also set the `obs`, `git` and

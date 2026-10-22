@@ -9,7 +9,7 @@ use List::Util qw(first);
 sub login ($self) {
   my $config = $self->oauth2->providers->{opensuse};
 
-  # Required for id.opensuse.org
+  # OpenID Connect requires "response_type" (id.opensuse.org and Authentik reject requests without), the plugin omits it
   $config->{authorize_url} .= '?response_type=code' unless $config->{authorize_url} =~ /response_type=/;
 
   my $callback_url = $self->url_for('openid')->to_abs->to_string;
