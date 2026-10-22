@@ -58,14 +58,15 @@ has 'app';
 
 # The entity that operates Cavil, which is not Cavil itself - the tool is a separate field in the SBOM. An instance
 # that has not been told who runs it is identified by the host it publishes its SBOMs under, which at least names a
-# real party, rather than by the name of the software that wrote the file.
+# real party, rather than by the name of the software that wrote the file. There is no made up contact address though,
+# without one the creator has a name only.
 sub creator ($self) {
   my $namespace = $self->_namespace;
   my $settings  = $self->app->settings->get;
   return {
-    name  => $settings->{sbom_creator_name} || ($namespace && (Mojo::URL->new($namespace)->host || $namespace)),
-    email => $settings->{sbom_creator_email},
-    url   => $settings->{sbom_creator_url} || $namespace
+    name  => $settings->{sbom_creator_name}  || ($namespace && (Mojo::URL->new($namespace)->host || $namespace)),
+    email => $settings->{sbom_creator_email} || undef,
+    url   => $settings->{sbom_creator_url}   || undef
   };
 }
 
@@ -137,11 +138,14 @@ sub generate_to_file ($self, $id, $file, $stamp = undef) {
   my $creator = $self->creator;
   my $creator_org
     = {type => 'Organization', spdxId => $iri->('creator'), creationInfo => $creation, name => $creator->{name}};
-  $creator_org->{externalIdentifier}
-    = [$creator->{email}
-    ? {type => 'ExternalIdentifier', externalIdentifierType => 'email',     identifier => $creator->{email}}
-    : {type => 'ExternalIdentifier', externalIdentifierType => 'urlScheme', identifier => $creator->{url}}
-    ];
+  if (my $email = $creator->{email}) {
+    $creator_org->{externalIdentifier}
+      = [{type => 'ExternalIdentifier', externalIdentifierType => 'email', identifier => $email}];
+  }
+  elsif (my $url = $creator->{url}) {
+    $creator_org->{externalIdentifier}
+      = [{type => 'ExternalIdentifier', externalIdentifierType => 'urlScheme', identifier => $url}];
+  }
   $graph->add($creator_org);
 
   # The name of the tool and its version are two separate data fields, and SPDX 3.0.1 gives a Tool no version

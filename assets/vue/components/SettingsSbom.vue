@@ -4,10 +4,24 @@
       <h3>SBOM</h3>
       <p>
         The organisation the SPDX SBOMs name as their creator. BSI TR-03183-2 asks for an email address, or a web
-        address when there is none. An empty field uses the value shown in it.
+        address when there is none. Without a name, SBOMs use the one shown in the field.
       </p>
       <p>Changes apply to SBOMs generated from now on, existing ones follow with the next reindex of their package.</p>
     </div>
+
+    <cavil-notice-panel
+      v-if="form !== null && !saved.sbom_creator_email && !saved.sbom_creator_url"
+      id="sbom-contact-missing"
+      tone="warning"
+      title="No contact for SBOMs"
+      icon="fa-solid fa-triangle-exclamation"
+      class="mb-4"
+    >
+      <p class="cavil-notice-summary">
+        SBOMs name the organisation but give no way to reach it, which BSI TR-03183-2 requires. Enter an email address
+        or a web address below.
+      </p>
+    </cavil-notice-panel>
 
     <LegalLoading v-if="form === null" message="Loading settings..." size="small" />
     <form v-else @submit.prevent="save()">
@@ -39,6 +53,7 @@
 </template>
 
 <script>
+import CavilNoticePanel from './CavilNoticePanel.vue';
 import LegalLoading from './LegalLoading.vue';
 import SettingsDefaultLabel from './SettingsDefaultLabel.vue';
 import SettingsLastChange from './SettingsLastChange.vue';
@@ -47,7 +62,7 @@ import SettingsForm from '../mixins/settingsForm.js';
 
 export default {
   name: 'SettingsSbom',
-  components: {LegalLoading, SettingsDefaultLabel, SettingsLastChange, ToastNotifier},
+  components: {CavilNoticePanel, LegalLoading, SettingsDefaultLabel, SettingsLastChange, ToastNotifier},
   mixins: [SettingsForm],
   data() {
     return {

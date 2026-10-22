@@ -555,7 +555,9 @@ available metadata allows:
 
 * **Who created the SBOM and when** - a creator identity admins set on the Settings page (organisation name plus an
   email address, or a URL if no email is available) and a timestamp. This is the organisation running Cavil, never Cavil itself; an
-  instance that has not been told who operates it falls back to the host it publishes its SBOMs under.
+  instance that has not been told who operates it is named after the host it publishes its SBOMs under. No contact
+  address is ever made up, so until an email or web address is entered the creator has none, and the Settings page
+  warns that BSI requires one.
 * **Which tool wrote it** - Cavil, with its version.
 * **A unique identity for the SBOM** - its own URI, so it can be referenced from other SBOMs, plus an iteration number.
   The URI stays the same every time a package's report is rebuilt, so the iteration number is what tells a recipient

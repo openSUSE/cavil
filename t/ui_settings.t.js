@@ -160,12 +160,15 @@ t.test('Cavil UI - settings', skipUnlessOnline, async t => {
       await page.click('.cavil-settings-nav-item >> text=SBOM');
       await page.waitForSelector('#sbom-creator-name');
       t.equal(await page.getAttribute('#sbom-creator-name', 'placeholder'), 'cavil.example.com', 'shows the fallback');
+      t.equal(await page.locator('#sbom-contact-missing').count(), 1, 'warns while there is no contact');
+      t.equal(await page.getAttribute('#sbom-creator-url', 'placeholder'), '', 'no made up web address');
       await page.fill('#sbom-creator-name', 'ACME Corp');
       await page.fill('#sbom-creator-email', 'sbom@acme.example');
       await save();
       await page.reload();
       await page.waitForSelector('#sbom-creator-name');
       t.equal(await page.inputValue('#sbom-creator-name'), 'ACME Corp', 'saved');
+      t.equal(await page.locator('#sbom-contact-missing').count(), 0, 'warning gone with an email address');
 
       await page.click('[data-reset="sbom_creator_name"]');
       await page.waitForSelector('[data-default="sbom_creator_name"]');

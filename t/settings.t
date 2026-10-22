@@ -234,8 +234,8 @@ subtest 'SBOM creator' => sub {
     ->status_is(200)
     ->json_is('/values',         {sbom_creator_name => '', sbom_creator_email => '', sbom_creator_url => ''})
     ->json_is('/fallbacks/name', 'cavil.example.com', 'empty fields show what SBOMs say instead')
-    ->json_is('/fallbacks/url',  'https://cavil.example.com/spdx/')
-    ->json_is('/last_change',    undef, 'acceptance changes are not counted for this section')
+    ->json_is('/fallbacks/url',  undef,               'no made up web address')
+    ->json_is('/last_change',    undef,               'acceptance changes are not counted for this section')
     ->json_hasnt('/values/acceptable_risk');
 
   $t->put_ok('/settings/sbom.json' => json => {values => {sbom_creator_email => 'not-an-address'}})
@@ -258,8 +258,7 @@ subtest 'SBOM creator' => sub {
     ->json_is('/fallbacks/name',           'ACME Corp')
     ->json_is('/rechecked',                0)
     ->json_is('/last_change/login',        'tester');
-  is_deeply $app->spdx->creator,
-    {name => 'ACME Corp', email => 'sbom@acme.example', url => 'https://cavil.example.com/spdx/'},
+  is_deeply $app->spdx->creator, {name => 'ACME Corp', email => 'sbom@acme.example', url => undef},
     'SBOMs use the new creator';
   $t->get_ok('/settings/auto-accept.json')->status_is(200)->json_is('/last_change/login', 'tester');
 };

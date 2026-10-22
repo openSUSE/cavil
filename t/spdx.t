@@ -457,15 +457,8 @@ subtest 'Creator identity comes from the settings (URL fallback and defaults)' =
   is $dby_id{$dci->{createdBy}[0]}{name}, 'cavil.example.com',
     'an unconfigured creator falls back to the deployment, not to the tool';
   is $dby_id{$dci->{createdUsing}[0]}{name}, 'Cavil', 'defaults to Cavil as the tool';
-  is_deeply $dby_id{$dci->{createdBy}[0]}{externalIdentifier},
-    [
-    {
-      type                   => 'ExternalIdentifier',
-      externalIdentifierType => 'urlScheme',
-      identifier             => 'https://cavil.example.com/spdx/'
-    }
-    ],
-    'identified by the address SBOMs are published under';
+  ok !exists $dby_id{$dci->{createdBy}[0]}{externalIdentifier}, 'no made up contact address';
+  schema_ok($default_doc, 'a creator without contact still validates');
 
   # Without a namespace there is nothing to build identifiers from, so nothing is published
   $t->app->config->{spdx} = undef;
