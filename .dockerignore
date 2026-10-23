@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+.gemini
+.env
+node_modules
+public/asset
+public/webfonts
+assets/cache
+cache
+staging
+t

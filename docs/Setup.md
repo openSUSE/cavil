@@ -5,8 +5,8 @@ install, how to configure the core settings, and the order in which to bring the
 is documented inline in the shipped [`cavil.conf`](../cavil.conf), so this guide points you there for the details
 rather than repeating them.
 
-If you just want to try Cavil out locally, the fastest path is the staging scripts described in the
-[README](../README.md#getting-started); this guide is for a real deployment.
+To work on Cavil itself, see the [development guide](Development.md) instead; its environment is made for testing
+and not for reviewing real packages.
 
 ## What you will be running
 
@@ -22,6 +22,45 @@ A working Cavil instance is made of a few cooperating pieces:
 
 The web app and the workers are the same program (`script/cavil`) started differently, reading the same config file.
 Restart both after any configuration change.
+
+## Quick start with Docker
+
+The quickest way to a working instance is the container setup that ships with Cavil: one image for the web application
+and the workers, plus PostgreSQL, started with Docker Compose. The classifier is not part of it, because it needs a GPU
+to be fast and containers rarely get one, so it runs next to them.
+
+Podman works too: install the `docker-compose` package and `podman compose` behaves exactly like Docker. The
+alternative `podman-compose` tool also runs it, but starts the web application and workers even when `setup` failed,
+so after an upgrade check `podman compose logs setup` before relying on the instance.
+
+1. Start the classifier as described in [step 5](#5-set-up-the-ai-classifier), listening on an address the
+   containers can reach.
+2. Copy `.env.example` to `.env` and fill in at least `CAVIL_URL`, `CAVIL_SECRETS` and `CAVIL_CLASSIFIER_URL`. For an
+   instance other people use, also set up OpenID Connect and `CAVIL_ADMIN` there (see step 3 for what they mean).
+   Point `CAVIL_DATA` at a directory on a large disk: the unpacked source code of every reviewed package is kept
+   there and is by far the biggest part of a deployment. The containers run as user ID 1000, so give it the directory
+   with `sudo chown 1000 /srv/cavil/data` (or `podman unshare chown 1000 /srv/cavil/data` with rootless Podman).
+3. Start everything with `docker compose up -d`. The first start loads the license patterns, which takes a few
+   minutes.
+4. Open `http://localhost:3000`, log in, review the settings as described in [step 8](#8-review-the-settings), and
+   open **Status** to check that nothing is missing.
+
+The web interface only listens on the local machine by default. To make it available to others, put a reverse proxy
+with TLS in front of it and set `CAVIL_LISTEN` (see [step 6](#6-start-the-web-application-and-workers) for the upload
+size limit). Everything Cavil stores lives in `CAVIL_DATA` and `CAVIL_POSTGRES_DATA`, or the `data` and `postgres`
+volumes when they are not set; back up the database with `docker compose exec postgres pg_dump -U cavil cavil >
+cavil.sql`.
+
+More worker containers process packages in parallel: `docker compose up -d --scale worker=3`. Workers on other
+machines run the same image and need the same database and the same `/data` (for example over NFS). To upgrade,
+follow [Upgrading](#upgrading) with `docker compose stop web`, `docker compose stop worker`, `docker compose pull`
+and `docker compose up -d`; the `setup` service runs automatically on every start.
+
+The environment variables cover what most instances need. Integrations such as the Open Build Service or external
+link sources need options from step 3 that have no variable; for those, copy `docker/cavil.conf`, add them, mount the
+file into the containers and point `CAVIL_CONF` at it.
+
+The rest of this guide installs Cavil directly on a host, which gives you full control over every option.
 
 ## Prerequisites
 
@@ -113,13 +152,28 @@ drowning in false positives: a package like the Linux kernel ends up with about 
 classifier run resolves completely. An instance without one gives a wrong impression of what Cavil can do, so a
 classifier is required for every real instance.
 
-The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) publishes models fine-tuned for this task (e.g.
-`Cavil-Qwen3.5-4B`), best served with a [llama.cpp](https://github.com/ggml-org/llama.cpp) server (a GPU helps; it can
-run on the Cavil host or a separate machine):
+The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) publishes the model fine-tuned for this task,
+`Cavil-Qwen3.5-4B`, with ready-made files for a [llama.cpp](https://github.com/ggml-org/llama.cpp) server in
+[Cavil-Qwen3.5-4B-GGUF](https://huggingface.co/openSUSE/Cavil-Qwen3.5-4B-GGUF). `llama-server` downloads the
+recommended file itself, and can run on the Cavil host or a separate machine:
 
 ```sh
-llama-server Cavil-Qwen3.5-4B.f16.gguf --host localhost --port 5000 --api-key TOKEN
+llama-server -hf openSUSE/Cavil-Qwen3.5-4B-GGUF:Q8_0 --host localhost --port 5000 --api-key TOKEN
 ```
+
+How fast it is depends on the hardware: a GPU is much faster than a CPU, where 4 cores need about 5 seconds per
+snippet and more cores help. Every new package brings new snippets, so this matters.
+
+* **macOS:** install llama.cpp with `brew install llama.cpp`; it uses the Apple GPU automatically.
+* **Linux with an NVIDIA GPU:** use a llama.cpp build with CUDA from your distribution, or the official container,
+  for example `docker run --gpus all -p 5000:5000 ghcr.io/ggml-org/llama.cpp:server-cuda -hf
+  openSUSE/Cavil-Qwen3.5-4B-GGUF:Q8_0 --host 0.0.0.0 --port 5000 --api-key TOKEN`.
+* **CPU only:** any llama.cpp build works, it is just slower.
+
+Cavil talks to the API of `llama-server` itself, so other model servers such as Ollama or LM Studio do not work in its
+place. When Cavil runs in containers, the classifier has to listen on an address they can reach, such as
+`--host 0.0.0.0` (keep the API key, and do not expose the port beyond your network), and `CAVIL_CLASSIFIER_URL` is
+`http://host.docker.internal:5000`.
 
 Then add the matching block to `cavil.conf`:
 

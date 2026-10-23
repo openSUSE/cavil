@@ -75,7 +75,8 @@ sub startup ($self) {
   }
 
   # Avoid huge temp files in "/tmp"
-  $ENV{MOJO_TMPDIR} = $config->{tmp_dir} if $config->{tmp_dir};
+  $ENV{MOJO_TMPDIR} = path($config->{tmp_dir})->make_path->to_string if $config->{tmp_dir};
+  path($config->{checkout_dir})->make_path;
   $self->max_request_size($config->{max_request_size} // 262144000);
 
   if (my $obs = $config->{obs}) { $self->obs->config($obs) }

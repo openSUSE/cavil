@@ -1,0 +1,67 @@
+# Cavil with PostgreSQL, see "Quick start with Docker" in docs/Setup.md. The AI classifier runs outside of this stack
+# (it needs a GPU to be fast, which containers rarely get), point CAVIL_CLASSIFIER_URL at it.
+x-cavil: &cavil
+  image: ghcr.io/opensuse/cavil:latest
+  build: .
+  environment:
+    CAVIL_URL: ${CAVIL_URL:?Set CAVIL_URL in .env}
+    CAVIL_SECRETS: ${CAVIL_SECRETS:?Set CAVIL_SECRETS in .env}
+    CAVIL_PG: postgresql://cavil:cavil@postgres/cavil
+    CAVIL_CLASSIFIER_URL: ${CAVIL_CLASSIFIER_URL:?Set CAVIL_CLASSIFIER_URL in .env, a classifier is required}
+    CAVIL_CLASSIFIER_TOKEN: ${CAVIL_CLASSIFIER_TOKEN:-}
+    CAVIL_ADMIN: ${CAVIL_ADMIN:-}
+    CAVIL_OIDC_WELL_KNOWN_URL: ${CAVIL_OIDC_WELL_KNOWN_URL:-}
+    CAVIL_OIDC_CLIENT_ID: ${CAVIL_OIDC_CLIENT_ID:-}
+    CAVIL_OIDC_CLIENT_SECRET: ${CAVIL_OIDC_CLIENT_SECRET:-}
+  volumes:
+    - ${CAVIL_DATA:-data}:/data
+  extra_hosts:
+    - host.docker.internal:host-gateway
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17
+    environment:
+      POSTGRES_USER: cavil
+      POSTGRES_PASSWORD: cavil
+      POSTGRES_DB: cavil
+    volumes:
+      - ${CAVIL_POSTGRES_DATA:-postgres}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cavil"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  setup:
+    <<: *cavil
+    command: ["script/cavil", "setup"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *cavil
+    command: ["script/cavil", "prefork", "--proxy", "-w", "4", "-l", "http://*:3000"]
+    ports:
+      - ${CAVIL_LISTEN:-127.0.0.1:3000}:3000
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 30s
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    <<: *cavil
+    command: ["script/cavil", "minion", "worker", "-j", "${CAVIL_WORKER_JOBS:-4}"]
+    stop_grace_period: 5m
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  data:
+  postgres:

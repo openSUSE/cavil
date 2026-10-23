@@ -1,7 +1,6 @@
 # Documentation
 
-For an introduction to Cavil itself, and a quick development environment to try it in, see the
-[project README](../README.md).
+For an introduction to Cavil itself, see the [project README](../README.md).
 
 The [**Architecture**](Architecture.md) overview is the best starting point for how Cavil actually works: the
 components and how they communicate, the review workflow and access levels, pattern matching and automated snippet
@@ -27,7 +26,8 @@ resolution, and SBOM generation.
 
 * [Setup](Setup.md)
 
-  A guide to setting up a fresh Cavil instance for production, checking that it works, and upgrading it.
+  A guide to setting up a fresh Cavil instance for production, with Docker or directly on a host, checking that it
+  works, and upgrading it.
 
 * [Maintenance](Maintenance.md)
 
@@ -36,3 +36,9 @@ resolution, and SBOM generation.
 * [Bot API](BotAPI.md)
 
   The REST API bots use to connect Cavil with source code management systems such as the Open Build Service and Gitea.
+
+### Working on Cavil
+
+* [Development](Development.md)
+
+  A local development environment with example data, set up with the staging scripts.

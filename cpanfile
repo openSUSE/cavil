@@ -3,7 +3,7 @@ requires 'Mojolicious::Plugin::Webpack';
 requires 'Mojo::Pg',         '>= 4.27';
 requires 'Minion',           '>= 10.27';
 requires 'Cpanel::JSON::XS', '>= 4.09';
-requires 'File::Unpack2';
+requires 'File::Unpack2', '>= 2.03';
 requires 'HTML::Parser';
 requires 'IPC::Run';
 requires 'Cavil::Matcher', '>= 1.04';
