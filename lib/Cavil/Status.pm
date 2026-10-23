@@ -5,6 +5,7 @@ package Cavil::Status;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
+use Cavil::Classifier;
 use IPC::Cmd qw(can_run);
 use IPC::Run qw(run);
 use Mojo::UserAgent;
@@ -62,10 +63,12 @@ sub checks ($self) {
   $try->(
     'Workers' => sub {
       my $busy = $self->busy;
-      if ($busy->{workers}) {
-        $check->('Workers', 'ok', "$busy->{workers} running, $busy->{jobs} jobs queued or active");
-      }
-      else { $check->('Workers', 'error', 'No worker is running, packages will not be processed') }
+      return $check->('Workers', 'error', 'No worker is running, packages will not be processed')
+        unless $busy->{workers};
+      my $failed  = $app->minion->stats->{failed_jobs};
+      my $message = "$busy->{workers} running, $busy->{jobs} jobs queued or active";
+      return $check->('Workers', 'ok', $message) unless $failed;
+      $check->('Workers', 'warning', "$message, $failed failed jobs (see the Minion Dashboard)");
     }
   );
 
@@ -84,13 +87,31 @@ sub checks ($self) {
 
   $try->(
     'Classifier' => sub {
-      my $url = $app->classifier->url;
+      my $classifier = $app->classifier;
       return $check->('Classifier', 'error',
         'Not configured, but required to resolve the scanner noise in real packages')
-        unless $url;
-      my $ua = Mojo::UserAgent->new(connect_timeout => 3, request_timeout => 5);
-      if   (defined $ua->get($url)->res->code) { $check->('Classifier', 'ok',    "Reachable at $url") }
-      else                                     { $check->('Classifier', 'error', "Not reachable at $url") }
+        unless my $url = $classifier->url;
+
+      my $waiting = $db->query(
+        'SELECT COUNT(*) FROM snippets s LEFT JOIN bot_packages bp ON (s.package = bp.id)
+         WHERE NOT classified AND NOT approved AND (NOT bp.embargoed OR s.package IS NULL)'
+      )->array->[0];
+      my $backlog = $waiting ? ", $waiting snippets waiting for classification" : '';
+
+      my $ua = Mojo::UserAgent->new(connect_timeout => 3, inactivity_timeout => 30);
+      my $probe
+        = Cavil::Classifier->new(type => $classifier->type, url => $url, token => $classifier->token, ua => $ua);
+      my $res = eval { $probe->classify('SPDX-License-Identifier: MIT') };
+      if (ref $res eq 'HASH' && defined $res->{license} && defined $res->{confidence}) {
+        $check->('Classifier', 'ok', "Answering at $url$backlog");
+      }
+      elsif (my $err = $@) { $check->('Classifier', 'error', "Not answering at $url: " . (split /\n/, $err)[0]) }
+      else {
+        my $type = $classifier->type;
+        $check->(
+          'Classifier', 'error', qq{Unexpected answer from $url, check the token and that it is a "$type" classifier}
+        );
+      }
     }
   );
 
@@ -107,8 +128,10 @@ sub checks ($self) {
 
   $try->(
     'Storage' => sub {
+      for my $writable (grep {defined} @$config{qw(checkout_dir tmp_dir cache_dir)}) {
+        return $check->('Storage', 'error', "$writable is not a writable directory") unless -d $writable && -w _;
+      }
       my $dir = $config->{checkout_dir};
-      return $check->('Storage', 'error', "$dir is not a writable directory") unless -d $dir && -w _;
       run ['df', '-Pk', $dir], \undef, \my $out, \my $err;
       my (undef, $size, undef, $free, $used) = split /\s+/, (split /\n/, $out // '')[-1] // '';
       return $check->('Storage', 'ok', "$dir is writable") unless defined $used && $used =~ /^(\d+)%$/;

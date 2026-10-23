@@ -357,12 +357,29 @@ subtest 'Status' => sub {
   like $error,  qr/Some checks found errors/,               'and fails';
 
   $app->classifier->url('http://127.0.0.1:1');
-  is $checks->()->{Classifier}{level}, 'error', 'classifier unreachable';
+  like $checks->()->{Classifier}{message}, qr/^Not answering at http:\/\/127.0.0.1:1: /, 'classifier unreachable';
+
+  # Stand-in that speaks both classifier APIs
+  my $stand_in = Mojolicious->new;
+  $stand_in->routes->post(
+    '/' => sub ($c) {
+      return $c->render(json => {error => 'denied'}, status => 403)
+        unless ($c->req->headers->authorization // '') eq 'Token secret';
+      $c->render(json => {license => Mojo::JSON->true, confidence => 99});
+    }
+  );
+  $stand_in->routes->post(
+    '/completion' => sub ($c) {
+      return $c->render(json => {error => 'denied'}, status => 401)
+        unless ($c->req->headers->authorization // '') eq 'Bearer secret';
+      $c->render(json => {content => 'yes', completion_probabilities => [{logprob => -0.01}]});
+    }
+  );
   my $port = Mojo::IOLoop::Server->generate_port;
   my $pid  = fork // die "Fork failed: $!";
   unless ($pid) {
     Mojo::Server::Daemon->new(
-      app    => Mojolicious->new,
+      app    => $stand_in,
       ioloop => Mojo::IOLoop->new,
       listen => ["http://127.0.0.1:$port"],
       silent => 1
@@ -370,8 +387,30 @@ subtest 'Status' => sub {
     POSIX::_exit(0);
   }
   sleep 0.1 until IO::Socket::IP->new(PeerAddr => '127.0.0.1', PeerPort => $port);
-  $app->classifier->url("http://127.0.0.1:$port");
-  is $checks->()->{Classifier}{level}, 'ok', 'classifier reachable';
+  $app->classifier->url("http://127.0.0.1:$port")->token('wrong');
+  is_deeply $checks->()->{Classifier},
+    {
+    name    => 'Classifier',
+    level   => 'error',
+    message => qq{Unexpected answer from http://127.0.0.1:$port, check the token and that it is a "legacy" classifier}
+    },
+    'legacy classifier rejects the token';
+  $app->classifier->token('secret');
+  like $checks->()->{Classifier}{message}, qr/^Answering at http:\/\/127.0.0.1:$port/, 'legacy classifier answers';
+  $app->classifier->type('llama_cpp')->token('wrong');
+  like $checks->()->{Classifier}{message}, qr/check the token and that it is a "llama_cpp" classifier/,
+    'llama.cpp server rejects the token';
+  $app->classifier->token('secret');
+  is $checks->()->{Classifier}{level}, 'ok', 'llama.cpp server answers';
+  my $snippet
+    = $db->insert('snippets', {hash => 'status-backlog', text => 'Some license text'}, {returning => 'id'})->hash->{id};
+  like $checks->()->{Classifier}{message}, qr/, \d+ snippets waiting for classification$/, 'backlog shown';
+  $db->update('snippets', {classified => 1}, {id => $snippet});
+
+  {
+    local $app->config->{tmp_dir} = '/does/not/exist';
+    is $checks->()->{Storage}{message}, '/does/not/exist is not a writable directory', 'upload directory checked';
+  }
 
   $app->settings->update('tester', {}, ['sbom_creator_name']);
   my $worker = $app->minion->worker->register;
@@ -380,6 +419,11 @@ subtest 'Status' => sub {
   local $app->config->{spdx}{namespace} = 'https://cavil.test/spdx/';
   $c = $checks->();
   like $c->{Workers}{message}, qr/^1 running/, 'worker found';
+  my $failed = $app->minion->enqueue('obsolete');
+  $worker->dequeue(0, {id => $failed})->fail('Something broke');
+  is $checks->()->{Workers}{level}, 'warning', 'failed job';
+  like $checks->()->{Workers}{message}, qr/, 1 failed jobs \(see the Minion Dashboard\)$/, 'failed jobs counted';
+  $app->minion->job($failed)->remove;
   is_deeply $c->{Maintenance},
     {name => 'Maintenance', level => 'warning', message => 'Paused schedules: hourly_sweep'}, 'paused schedule';
   like $c->{SBOM}{message}, qr/name of your organisation/, 'creator missing';
@@ -398,7 +442,7 @@ subtest 'Status' => sub {
   $worker->unregister;
   kill 'TERM', $pid;
   waitpid $pid, 0;
-  $app->classifier->url(undef);
+  $app->classifier->url(undef)->type('legacy')->token('');
 };
 
 done_testing;
