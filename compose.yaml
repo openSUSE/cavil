@@ -1,8 +1,8 @@
 # Cavil with PostgreSQL, see "Quick start with Docker" in docs/Setup.md. The AI classifier runs outside of this stack
 # (it needs a GPU to be fast, which containers rarely get), point CAVIL_CLASSIFIER_URL at it.
 x-cavil: &cavil
-  image: ghcr.io/opensuse/cavil:latest
-  build: .
+  image: cavil:local
+  pull_policy: never
   environment:
     CAVIL_URL: ${CAVIL_URL:?Set CAVIL_URL in .env}
     CAVIL_SECRETS: ${CAVIL_SECRETS:?Set CAVIL_SECRETS in .env}
@@ -35,6 +35,8 @@ services:
 
   setup:
     <<: *cavil
+    build: .
+    pull_policy: build
     command: ["script/cavil", "setup"]
     depends_on:
       postgres:

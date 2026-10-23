@@ -33,16 +33,17 @@ Podman works too: install the `docker-compose` package and `podman compose` beha
 alternative `podman-compose` tool also runs it, but starts the web application and workers even when `setup` failed,
 so after an upgrade check `podman compose logs setup` before relying on the instance.
 
-1. Start the classifier as described in [step 5](#5-set-up-the-ai-classifier), listening on an address the
+1. Get the code with `git clone https://github.com/openSUSE/cavil.git` and change into the `cavil` directory.
+2. Start the classifier as described in [step 5](#5-set-up-the-ai-classifier), listening on an address the
    containers can reach.
-2. Copy `.env.example` to `.env` and fill in at least `CAVIL_URL`, `CAVIL_SECRETS` and `CAVIL_CLASSIFIER_URL`. For an
+3. Copy `.env.example` to `.env` and fill in at least `CAVIL_URL`, `CAVIL_SECRETS` and `CAVIL_CLASSIFIER_URL`. For an
    instance other people use, also set up OpenID Connect and `CAVIL_ADMIN` there (see step 3 for what they mean).
    Point `CAVIL_DATA` at a directory on a large disk: the unpacked source code of every reviewed package is kept
    there and is by far the biggest part of a deployment. The containers run as user ID 1000, so give it the directory
    with `sudo chown 1000 /srv/cavil/data` (or `podman unshare chown 1000 /srv/cavil/data` with rootless Podman).
-3. Start everything with `docker compose up -d`. The first start loads the license patterns, which takes a few
-   minutes.
-4. Open `http://localhost:3000`, log in, review the settings as described in [step 8](#8-review-the-settings), and
+4. Start everything with `docker compose up -d`. The first start builds the container image and loads the license
+   patterns, which takes a while; later starts are quick.
+5. Open `http://localhost:3000`, log in, review the settings as described in [step 8](#8-review-the-settings), and
    open **Status** to check that nothing is missing.
 
 The web interface only listens on the local machine by default. To make it available to others, put a reverse proxy
@@ -53,8 +54,8 @@ cavil.sql`.
 
 More worker containers process packages in parallel: `docker compose up -d --scale worker=3`. Workers on other
 machines run the same image and need the same database and the same `/data` (for example over NFS). To upgrade,
-follow [Upgrading](#upgrading) with `docker compose stop web`, `docker compose stop worker`, `docker compose pull`
-and `docker compose up -d`; the `setup` service runs automatically on every start.
+follow [Upgrading](#upgrading) with `docker compose stop web`, `docker compose stop worker`, `git pull` and
+`docker compose up -d`, which rebuilds the image and runs `setup` automatically.
 
 The environment variables cover what most instances need. Integrations such as the Open Build Service or external
 link sources need options from step 3 that have no variable; for those, copy `docker/cavil.conf`, add them, mount the
