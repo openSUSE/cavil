@@ -3,6 +3,12 @@
 
 use Mojo::Base -strict;
 
+our $FROZEN_TIME;
+
+BEGIN {
+  *CORE::GLOBAL::time = sub { $FROZEN_TIME // CORE::time }
+}
+
 use Test::More;
 use Mojo::File qw(path curfile tempfile);
 use Mojo::JSON qw(decode_json);
@@ -613,6 +619,7 @@ subtest 'validate_tags' => sub {
 };
 
 subtest 'obs_ssh_auth' => sub {
+  local $FROZEN_TIME = time;
   my $auth_header
     = obs_ssh_auth('Signature realm="Use your developer account",headers="(created)"', 'user', $PRIVATE_KEY);
   isnt obs_ssh_auth('Signature realm="Use your developer account",headers="(created)"', 'user2', $PRIVATE_KEY),
