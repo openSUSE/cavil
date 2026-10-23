@@ -12,69 +12,14 @@ has token => sub {''};
 has type  => sub {'legacy'};
 has 'url';
 
-my $PROMPT = <<'EOF';
-You are a helpful lawyer. Analyze the code or documentation snippet enclosed
-in "[CODE]" and "[/CODE]" tokens to determine if it contains legal text that
-was written with the intention of describing how the code should be used.
-Answer only with "yes" or "no".
-
-User:
-[CODE]// SPDX-License-Identifier: MIT[/CODE]
-Assistant:
-yes
-
-User:
-[CODE]// Released under BSD-2-clause license[/CODE]
-Assistant:
-yes
-
-User:
-[CODE]# Released under BSD-3-clause license[/CODE]
-Assistant:
-yes
-
-User:
-[CODE]Hello World[/CODE]
-Assistant:
-no
-
-User:
-[CODE]Foo Bar Baz[/CODE]
-Assistant:
-no
-
-User:
-[CODE]GPL License Version 2.0[/CODE]
-Assistant:
-yes
-
-User:
-[CODE]// Copyright 2024
-//Licensed as BSD-3-clause
-[/CODE]
-Assistant:
-yes
-
-User:
-[CODE]my $foo = 23;[/CODE]
-Assistant:
-no
-
-User:
-[CODE]
-# SPDX-License-Identifier: MIT
-my $foo = 23;
-[/CODE]
-Assistant:
-yes
-
-User:
-[CODE]if (license === true) {[/CODE]
-Assistant:
-no
-
-Analyze the following code or documentation snippet. Answer only with "yes" or "no".
-EOF
+# Exactly the Alpaca template the Cavil models are fine-tuned with (spaces included), on the first 2048 characters of
+# a snippet like in training; other wording or longer input costs accuracy and speed
+my $PROMPT
+  = "Below is an instruction that describes a task, paired with an input that provides further context. Write a"
+  . " response that appropriately completes the request.\n\n### Instruction:\n Analyze the code or documentation"
+  . ' snippet enclosed in "[CODE]" and "[/CODE]" tokens to determine if it contains legal text that was written with'
+  . ' the intention of describing how the code should be used. Answer only with "yes" or "no". '
+  . "\n\n### Input:\n[CODE]%s[/CODE]\n\n### Response:\n";
 
 sub classify ($self, $text) {
   croak 'No classifier configured' unless my $url = $self->url;
@@ -99,8 +44,6 @@ sub _classify_llama_cpp ($self, $url, $text) {
   return {license => $is_license, confidence => $confidence};
 }
 
-sub _prompt ($text) {
-  return "$PROMPT\nUser:\n\[CODE\]$text\[/CODE\]\nAssistant:\n";
-}
+sub _prompt ($text) { sprintf $PROMPT, substr $text, 0, 2048 }
 
 1;

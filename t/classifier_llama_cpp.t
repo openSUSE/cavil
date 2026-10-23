@@ -110,7 +110,27 @@ subtest 'Token authentication and prompt format' => sub {
   is_deeply $t->app->classifier->classify('Fixed copyright notice'), {confidence => '91.24', license => 1},
     'is legal text';
   is $TOKEN, 'TEST:TOKEN:12345', 'right token';
-  like $PROMPT, qr/\[CODE\]Fixed copyright notice\[\/CODE\]/, 'right prompt';
+  my $instruction
+    = ' Analyze the code or documentation snippet enclosed in "[CODE]" and "[/CODE]" tokens to determine if it'
+    . ' contains legal text that was written with the intention of describing how the code should be used. Answer'
+    . ' only with "yes" or "no". ';
+  is $PROMPT,
+    join("\n",
+    'Below is an instruction that describes a task, paired with an input that provides further context. Write a'
+      . ' response that appropriately completes the request.',
+    '',
+    '### Instruction:',
+    $instruction,
+    '',
+    '### Input:',
+    '[CODE]Fixed copyright notice[/CODE]',
+    '',
+    '### Response:',
+    ''),
+    'the template the models are fine-tuned with';
+
+  $t->app->classifier->classify('a' x 2048 . 'b' x 1000);
+  like $PROMPT, qr/\[CODE\]a{2048}\[\/CODE\]/, 'snippet cut to the 2048 characters the models are trained on';
 };
 
 done_testing;

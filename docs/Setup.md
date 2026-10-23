@@ -162,7 +162,7 @@ recommended file itself, and can run on the Cavil host or a separate machine:
 llama-server -hf openSUSE/Cavil-Qwen3.5-4B-GGUF:Q8_0 --host localhost --port 5000 --api-key TOKEN
 ```
 
-How fast it is depends on the hardware: a GPU is much faster than a CPU, where 4 cores need about 5 seconds per
+How fast it is depends on the hardware: a GPU is much faster than a CPU, where 4 cores need about 2 seconds per
 snippet and more cores help. Every new package brings new snippets, so this matters.
 
 * **macOS:** install llama.cpp with `brew install llama.cpp`; it uses the Apple GPU automatically.
