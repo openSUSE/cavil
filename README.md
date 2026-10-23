@@ -96,8 +96,9 @@ perl staging/stop.pl
 ```
 
 The staging environment has no real authentication, so the **Login** link signs you straight in as an admin. From
-there you can browse any example reports and upload a tarball of your own to get a first legal report. For a real
-instance, follow the [setup guide](docs/Setup.md) instead.
+there you can browse any example reports and upload a tarball of your own to get a first legal report. Staging also
+runs without the AI classifier, which only works because its example packages are made for testing without one; real
+packages need a classifier. For a real instance, follow the [setup guide](docs/Setup.md) instead.
 
 ## Documentation
 

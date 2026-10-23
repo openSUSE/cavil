@@ -85,7 +85,8 @@ sub checks ($self) {
   $try->(
     'Classifier' => sub {
       my $url = $app->classifier->url;
-      return $check->('Classifier', 'warning', 'Not configured, snippets will not be resolved automatically')
+      return $check->('Classifier', 'error',
+        'Not configured, but required to resolve the scanner noise in real packages')
         unless $url;
       my $ua = Mojo::UserAgent->new(connect_timeout => 3, request_timeout => 5);
       if   (defined $ua->get($url)->res->code) { $check->('Classifier', 'ok',    "Reachable at $url") }

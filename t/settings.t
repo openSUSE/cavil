@@ -346,7 +346,7 @@ subtest 'Status' => sub {
   is $c->{Workers}{level},     'error',   'no worker';
   is $c->{Maintenance}{level}, 'warning', 'nothing scheduled';
   like $c->{Maintenance}{message}, qr/Missing schedules: weekly_reindexing/, 'missing schedules named';
-  is $c->{Classifier}{level}, 'warning', 'no classifier';
+  is $c->{Classifier}{level}, 'error', 'no classifier';
   like $c->{Storage}{message}, qr/GiB free in .+ used\)/, 'free space of the checkout directory';
   is $c->{Secrets}{level}, 'ok', 'custom secrets';
   like $c->{SBOM}{message}, qr/spdx\.namespace/, 'example namespace';
@@ -372,9 +372,6 @@ subtest 'Status' => sub {
   sleep 0.1 until IO::Socket::IP->new(PeerAddr => '127.0.0.1', PeerPort => $port);
   $app->classifier->url("http://127.0.0.1:$port");
   is $checks->()->{Classifier}{level}, 'ok', 'classifier reachable';
-  kill 'TERM', $pid;
-  waitpid $pid, 0;
-  $app->classifier->url(undef);
 
   $app->settings->update('tester', {}, ['sbom_creator_name']);
   my $worker = $app->minion->worker->register;
@@ -399,6 +396,9 @@ subtest 'Status' => sub {
   unlike $output, qr/^error/m, 'no errors';
   is $error, '', 'and success';
   $worker->unregister;
+  kill 'TERM', $pid;
+  waitpid $pid, 0;
+  $app->classifier->url(undef);
 };
 
 done_testing;

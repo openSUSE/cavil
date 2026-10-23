@@ -109,7 +109,9 @@ after every upgrade (see [Upgrading](#upgrading)).
 
 The keyword scanner has a false-positive rate around 80%; the classifier is what tells real license text from that
 noise, and all of Cavil's automated snippet resolution builds on its verdict. Without it you get raw keyword matching
-drowning in false positives, so a classifier is required for a real instance.
+drowning in false positives: a package like the Linux kernel ends up with about 2,500 unresolved matches, which a
+classifier run resolves completely. An instance without one gives a wrong impression of what Cavil can do, so a
+classifier is required for every real instance.
 
 The [openSUSE HuggingFace org](https://huggingface.co/openSUSE) publishes models fine-tuned for this task (e.g.
 `Cavil-Qwen3.5-4B`), best served with a [llama.cpp](https://github.com/ggml-org/llama.cpp) server (a GPU helps; it can
