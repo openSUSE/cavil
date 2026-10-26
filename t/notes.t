@@ -939,7 +939,8 @@ subtest 'Limitation notes are standing context for every review' => sub {
 
   my $pinned = $app->notes->add(2, 'perl-Mojolicious', $contrib_id, 'standing advice', 0);
   $app->notes->set_pinned($pinned->{id}, 1);
-  my $id = $app->notes->add(2, 'perl-Mojolicious', $lawyer_id, 'only with approval', 0, 0, undef, 1)->{id};
+  my $id     = $app->notes->add(2, 'perl-Mojolicious', $lawyer_id, 'only with approval', 0, 0, undef, 1)->{id};
+  my $secret = $app->notes->add(2, 'perl-Mojolicious', $lawyer_id, 'between lawyers',    1)->{id};
 
   my $relevant = $app->notes->list('perl-Mojolicious', relevant_only => 1, package_id => 1, checksum => 'LIM-A');
   ok((grep { $_->{id} == $id } @{$relevant->{notes}}), 'different-report limitation survives relevant_only');
@@ -962,12 +963,20 @@ subtest 'Limitation notes are standing context for every review' => sub {
   logout($t);
 
   $t->get_ok('/test/become/contrib_user')->status_is(200);
-  $t->get_ok('/reviews/notes/recent.json?limitation=1')->status_is(200)->json_is('/notes/0/id' => $id);
+  $t->get_ok('/reviews/notes/recent.json?kind=limitation')->status_is(200)->json_is('/notes/0/id' => $id);
   is scalar(@{$t->tx->res->json('/notes')}), 1, 'the recent feed can list just the limitations, for everyone';
-  $t->get_ok('/reviews/notes/recent.json?limitation=2')->status_is(400);
+  $t->get_ok('/reviews/notes/recent.json?kind=pinned')->status_is(200)->json_is('/notes/0/id' => $pinned->{id});
+  is scalar(@{$t->tx->res->json('/notes')}), 1, 'or just the pinned notes';
+  $t->get_ok('/reviews/notes/recent.json?kind=lawyer_only')->status_is(200)->json_is('/notes' => []);
+  $t->get_ok('/reviews/notes/recent.json?kind=bogus')->status_is(400);
   logout($t);
 
-  $app->notes->remove($_) for ($id, $pinned->{id});
+  $t->get_ok('/test/become/lawyer_user')->status_is(200);
+  $t->get_ok('/reviews/notes/recent.json?kind=lawyer_only')->status_is(200)->json_is('/notes/0/id' => $secret);
+  ok !(grep { !$_->{lawyer_only} } @{$t->tx->res->json('/notes')}), 'lawyers can list just the lawyer-only notes';
+  logout($t);
+
+  $app->notes->remove($_) for ($id, $secret, $pinned->{id});
   $db->update('bot_packages', {checksum => $orig1}, {id => 1});
   $db->update('bot_packages', {checksum => $orig2}, {id => 2});
 };

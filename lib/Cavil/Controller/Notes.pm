@@ -142,7 +142,7 @@ sub recent ($self) {
   my $v = $self->validation;
   $v->optional('limit')->num;
   $v->optional('before_id')->num;
-  $v->optional('limitation')->in('0', '1');
+  $v->optional('kind')->in('pinned', 'lawyer_only', 'limitation');
   return $self->reply->json_validation_error if $v->has_error;
 
   # An invalid filter (too many/long tags) shouldn't 400 a list view; just
@@ -155,7 +155,7 @@ sub recent ($self) {
     limit               => $v->param('limit'),
     before_id           => $v->param('before_id'),
     tags                => $tags,
-    limitation          => $v->param('limitation')
+    kind                => $v->param('kind')
   );
   my $user_id = $self->_current_user_id;
 

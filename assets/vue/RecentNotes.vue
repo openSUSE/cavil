@@ -19,10 +19,7 @@
             placeholder="Filter by tag…"
             data-key="filter"
           />
-          <label class="recent-notes-limitations">
-            <input type="checkbox" v-model="limitationsOnly" class="form-check-input" data-recent-notes-limitations />
-            Limitations only
-          </label>
+          <SegmentedControl v-model="kind" class="recent-notes-kind" label="Kind of note" :options="kinds" />
         </div>
         <ReportNotes
           endpoint="/reviews/notes/recent.json"
@@ -31,7 +28,7 @@
           :show-package-name="true"
           :permalink-to-origin="true"
           :filter-tags="filterTags"
-          :limitations-only="limitationsOnly"
+          :filter-kind="kind"
           empty-message="No recent notes found."
         />
       </div>
@@ -44,6 +41,7 @@
 import BackToTop from './components/BackToTop.vue';
 import CavilNoticePanel from './components/CavilNoticePanel.vue';
 import ReportNotes from './components/ReportNotes.vue';
+import SegmentedControl from './components/SegmentedControl.vue';
 import TagInput from './components/TagInput.vue';
 import {getParams, setParam} from './helpers/params.js';
 import UserAgent from '@mojojs/user-agent';
@@ -54,24 +52,39 @@ export default {
     BackToTop,
     CavilNoticePanel,
     ReportNotes,
+    SegmentedControl,
     TagInput
   },
   data() {
-    const params = getParams({tags: '', limitation: ''});
+    const params = getParams({tags: '', kind: ''});
     const filterTags = params.tags ? params.tags.split(',').filter(Boolean) : [];
     return {
       filterTags,
-      limitationsOnly: params.limitation === '1',
+      kind: params.kind,
       knownTags: [],
       ua: new UserAgent({baseURL: window.location.href})
     };
+  },
+  computed: {
+    kinds() {
+      return [
+        {value: '', label: 'All'},
+        {value: 'pinned', label: 'Pinned', attrs: {'data-recent-notes-pinned': ''}},
+        this.canSeeLawyerOnly && {
+          value: 'lawyer_only',
+          label: 'Lawyers only',
+          attrs: {'data-recent-notes-lawyer-only': ''}
+        },
+        {value: 'limitation', label: 'Limitations', attrs: {'data-recent-notes-limitations': ''}}
+      ].filter(Boolean);
+    }
   },
   watch: {
     filterTags(tags) {
       setParam('tags', tags.join(','));
     },
-    limitationsOnly(on) {
-      setParam('limitation', on ? '1' : '');
+    kind(kind) {
+      setParam('kind', kind);
     }
   },
   mounted() {
@@ -96,16 +109,8 @@ export default {
 .recent-notes-filter {
   margin-bottom: 16px;
 }
-.recent-notes-limitations {
-  align-items: center;
-  color: var(--cavil-fg-muted);
-  display: flex;
-  font-size: 13px;
-  gap: 6px;
+.recent-notes-kind {
   margin-top: 8px;
-}
-.recent-notes-limitations .form-check-input {
-  margin-top: 0;
 }
 .recent-notes-filter-label {
   color: var(--cavil-fg);

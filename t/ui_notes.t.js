@@ -629,6 +629,17 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
         1,
         'admin recent notes include lawyer-only notes'
       );
+
+      await page.click('[data-recent-notes-lawyer-only]');
+      await page.waitForFunction(() => document.querySelectorAll('#recent-notes .report-note').length === 1);
+      t.equal(
+        await page.locator('#recent-notes .report-note-lawyer-only').count(),
+        1,
+        'kind filter narrows to lawyer-only'
+      );
+      t.match(page.url(), /kind=lawyer_only/, 'kind filter is kept in the URL');
+      await page.click('[data-recent-notes-filter] .cavil-segmented-btn:has-text("All")');
+      await page.waitForFunction(() => document.querySelectorAll('#recent-notes .report-note').length > 1);
     });
 
     await t.test('Recent Notes tag filter + autocomplete (admin)', async t => {
@@ -788,6 +799,8 @@ t.test('Cavil UI - notes', skipUnlessOnline, async t => {
       );
       await page.waitForSelector('#recent-notes .report-note');
       t.equal(await page.locator('#recent-notes [data-note-form]').count(), 0, 'recent notes page has no composer');
+      t.equal(await page.locator('[data-recent-notes-lawyer-only]').count(), 0, 'no lawyer-only kind filter');
+      t.equal(await page.locator('[data-recent-notes-limitations]').count(), 1, 'limitations kind filter for everyone');
 
       const newest = page.locator('#recent-notes .report-note').first();
       t.match(await newest.locator('.report-note-body').innerText(), /Edited body with/);

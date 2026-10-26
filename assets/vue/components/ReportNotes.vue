@@ -254,7 +254,7 @@ export default {
     showPackageName: {type: Boolean, default: false},
     permalinkToOrigin: {type: Boolean, default: false},
     filterTags: {type: Array, default: () => []},
-    limitationsOnly: {type: Boolean, default: false}
+    filterKind: {type: String, default: ''}
   },
   emits: ['counts-changed'],
   computed: {
@@ -361,7 +361,7 @@ export default {
     filterTags() {
       this.reloadFromTop();
     },
-    limitationsOnly() {
+    filterKind() {
       this.reloadFromTop();
     }
   },
@@ -466,7 +466,7 @@ export default {
         const qs = {limit: 20};
         if (this.notes.length > 0) qs.before_id = this.notes[this.notes.length - 1].id;
         if (this.filterTags.length) qs.tags_json = JSON.stringify(this.filterTags);
-        if (this.limitationsOnly) qs.limitation = 1;
+        if (this.filterKind) qs.kind = this.filterKind;
         if (this.noteScope === 'relevant') qs.relevant_only = 1;
         if (this.noteScope === 'history') qs.history_only = 1;
         const res = await this.ua.get(this.listEndpoint, {query: qs});

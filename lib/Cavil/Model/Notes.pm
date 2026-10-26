@@ -132,7 +132,7 @@ sub recent ($self, %opts) {
     push @sql,  'AND c.id < ?';
     push @args, $opts{before_id};
   }
-  push @sql, 'AND c.limitation' if $opts{limitation};
+  push @sql, "AND c.$1" if ($opts{kind} // "") =~ /^(pinned|lawyer_only|limitation)$/;
   if (defined $opts{tags} && @{$opts{tags}}) {
     push @sql,  'AND c.tags @> ?::text[]';
     push @args, $opts{tags};
