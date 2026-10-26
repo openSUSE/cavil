@@ -284,8 +284,8 @@ my %PERIPHERAL_SEGMENT = (
   licenses => 'license catalog'
 );
 
-# OBS cpio paths decorate vendored segments, for example vendor.obscpio._.
-my $OBS_VENDORED_SEGMENT = qr/(?:^|_)(?:node_modules|vendor|vendored|third_party|3rdparty)\./;
+# OBS cpio paths decorate vendored segments, for example vendor.obscpio._ or build-gomodcache._1.
+my $OBS_VENDORED_SEGMENT = qr/(?:^|[_-])(?:node_modules|vendor|vendored|third_party|3rdparty|gomodcache)\./;
 
 # Basenames do not determine whether code is peripheral. A test, doc or example segment anywhere in the path
 # beats a vendored one, because a vendored dependency's own tests are as ignorable as the package's own.

@@ -39,6 +39,8 @@ subtest 'is_vendored_path' => sub {
     gomodcache/x.go a/b/vendored/c.rb
   );
   ok is_vendored_path('vendor.obscpio._/curl/http.c'), 'an OBS vendored cpio segment is vendored';
+  ok is_vendored_path('build-gomodcache._12/github.com/aws/aws-sdk-go/@v/LICENSE.txt'),
+    'an unpacked Go module cache is vendored';
 
   # The package's own code - source, tests, docs - is not vendored, so its declared license applies.
   ok !is_vendored_path($_), "$_ is not vendored" for qw(
