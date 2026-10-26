@@ -452,6 +452,10 @@ subtest 'license_compatibility proximity ranking' => sub {
       'gomodcache/cache/download/golang.org/toolchain/@v/src/internal/profile/graph.go' => 1,
       'build-gomodcache/cloud.google.com/go/compute/metadata/@v/LICENSE'                => 1,
       'LICENSES/x'                                                                      => 2,
+      'agent/THIRD_PARTY_LICENSES/github.com/pkg/errors/LICENSE'                        => 2,
+      'cudnn-frontend-1.19.1/include/cudnn_frontend/thirdparty/nlohmann/LICENSE.MIT'    => 1,
+      'web/deps/amqp_client/LICENSE-MPL-RabbitMQ'                                       => 1,
+      'mariadb-11.8.9/storage/duckdb/third_parties/duckdb/LICENSE'                      => 1,
 
       # Tests, docs and examples stay ignorable inside a vendored tree, whichever segment comes first.
       'app/node_modules/foo/test/x.js' => 2,
@@ -637,11 +641,11 @@ subtest 'license_document_candidates' => sub {
   subtest 'A LICENSES directory counts when it holds license-named terms' => sub {
     my $found = license_document_candidates(
       $report->(
-        'fw/LICENSES/LICENSE.dell',         'fw/LICENSES/LICENCE.HP',
-        'linux/LICENSES/preferred/GPL-2.0', 'linux/LICENSES/LICENSE.oddity',
-        'cockpit/LICENSES/GPL-3.0.txt',     'vendor/x/LICENSES/LICENSE.foo',
-        'docs/licenses/LICENSE.bar',        'kde/LICENSES/LicenseRef-Qt-Commercial.txt',
-        'vendor/x/LICENSES/LicenseRef-Foo.txt'
+        'fw/LICENSES/LICENSE.dell',             'fw/LICENSES/LICENCE.HP',
+        'linux/LICENSES/preferred/GPL-2.0',     'linux/LICENSES/LICENSE.oddity',
+        'cockpit/LICENSES/GPL-3.0.txt',         'vendor/x/LICENSES/LICENSE.foo',
+        'docs/licenses/LICENSE.bar',            'kde/LICENSES/LicenseRef-Qt-Commercial.txt',
+        'vendor/x/LICENSES/LicenseRef-Foo.txt', 'agent/THIRD_PARTY_LICENSES/golang.org/x/net/LICENSE'
       )
     );
     is_deeply [map { $_->{path} } @{$found->{documents}}],

@@ -279,9 +279,10 @@ my %PERIPHERAL_SEGMENT = (
   (map { $_ => 'example' } qw(example examples sample samples)),
   (
     map { $_ => 'vendored' }
-      qw(vendor vendored _vendor third_party third-party 3rdparty contrib node_modules gomodcache)
+      qw(vendor vendored _vendor third_party third-party thirdparty third_parties third-parties 3rdparty),
+    qw(contrib deps node_modules gomodcache)
   ),
-  licenses => 'license catalog'
+  (map { $_ => 'license catalog' } qw(licenses third_party_licenses third-party-licenses))
 );
 
 # OBS cpio paths decorate vendored segments, for example vendor.obscpio._ or build-gomodcache._1. Only the
