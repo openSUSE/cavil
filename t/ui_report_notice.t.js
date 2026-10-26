@@ -179,7 +179,7 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
       await page.keyboard.press('ControlOrMeta+a');
       await page.keyboard.type('Only for internal use');
       await checkbox.check();
-      t.match(await effect.innerText(), /^Accepting turns your comment into a limitation/, 'says what accepting does');
+      t.match(await effect.innerText(), /^Accepting saves your comment as a limitation\.$/, 'says what accepting does');
       const [review] = await accept();
       t.equal(review.status(), 200, 'accepted');
       const card = page.locator('.report-note-limitation');
@@ -195,11 +195,11 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
       await page.goto(`${url}/reviews/details/3`);
       await effect.waitFor();
       t.equal(await checkbox.isChecked(), true, 'checked while the limitation exists');
-      t.equal(await effect.innerText(), 'Accepting keeps the limitation from this review.', 'keeps it');
+      t.equal(await effect.innerText(), 'Noted in this review.', 'names where it was noted');
       await checkbox.uncheck();
       t.match(
         await effect.innerText(),
-        /Accepting removes the limitation from this review\. Future versions can be accepted automatically again\.$/,
+        /Accepting removes the limitation\. Future versions can be accepted automatically\.$/,
         'warns before removing it'
       );
       t.equal(await page.locator('[data-limitation-effect].is-removing .fa-triangle-exclamation').count(), 1, 'loudly');

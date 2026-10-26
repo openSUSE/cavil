@@ -261,10 +261,10 @@ large batches, and a separate step on the Notes tab was easy to forget. Next to 
 limitation" checkbox. It is checked whenever the package has a limitation, so it reflects the current state. When a
 review is accepted with the box newly checked, the comment becomes a limitation note (a generic text if the comment is
 empty). Accepting with the box unchecked removes every limitation the package has, including any created twice by
-accident. A rejection never touches limitations. Below the box, a single sentence states what accepting will do, and
-it only appears when the click would add, keep or remove something. Almost every review has no limitation, so in that
-case the box is all there is. If someone else changed the limitations while the page was open, the removal is refused
-instead of deleting one the reviewer never saw.
+accident. A rejection never touches limitations. Next to the box, a few words say what accepting will add or remove,
+or where the existing limitation was noted. Almost every review has no limitation, so in that case the box is all there
+is. If someone else changed the limitations while the page was open, the removal is refused instead of deleting one
+the reviewer never saw.
 
 ### Audit Log
 

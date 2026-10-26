@@ -276,22 +276,39 @@
               {{ button.label }}
             </button>
           </div>
-          <label
-            v-if="hasAdminRole === true"
-            :class="['metadata-review-limitation', {'is-checked': withLimitation}]"
-            title="Your comment becomes a limitation, every future version will need a human review"
-          >
-            <input
-              v-model="withLimitation"
-              type="checkbox"
-              class="form-check-input"
-              aria-describedby="limitation-effect"
-              :disabled="submitting"
-              data-limitation-checkbox
-              @change="limitationTouched = true"
-            />
-            With limitation
-          </label>
+          <div v-if="hasAdminRole === true" class="metadata-review-limitation">
+            <label
+              :class="{'is-checked': withLimitation}"
+              :title="
+                limitations.length === 0
+                  ? 'Accepting saves your comment as a limitation, so every future version needs a human review'
+                  : null
+              "
+            >
+              <input
+                v-model="withLimitation"
+                type="checkbox"
+                class="form-check-input"
+                aria-describedby="limitation-effect"
+                :disabled="submitting"
+                data-limitation-checkbox
+                @change="limitationTouched = true"
+              />
+              With limitation
+            </label>
+            <!-- prettier-ignore -->
+            <span
+              v-if="limitationEffect !== null"
+              id="limitation-effect"
+              :class="['metadata-review-limitation-effect', {'is-removing': limitationEffect.removing}]"
+              data-limitation-effect
+            >
+              <i v-if="limitationEffect.removing" class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i
+              >{{ limitationEffect.before }}<span v-for="(origin, index) in limitationEffect.origins" :key="origin.text"
+              >{{ index > 0 ? ' and ' : '' }}<a v-if="origin.url" :href="origin.url" target="_blank" rel="noopener"
+              >{{ origin.text }}</a><template v-else>{{ origin.text }}</template></span>{{ limitationEffect.after }}
+            </span>
+          </div>
           <button
             v-if="hasAdminRole === true"
             type="button"
@@ -304,17 +321,6 @@
             <i v-if="reindexBusy || rebuildPending" class="fa-solid fa-rotate fa-spin" aria-hidden="true"></i>
             {{ reindexBusy || rebuildPending ? 'Reindexing…' : 'Reindex' }}
           </button>
-          <Transition name="cavil-reveal">
-            <div v-if="limitationEffect !== null" class="cavil-reveal metadata-review-limitation-effect">
-              <!-- prettier-ignore -->
-              <p id="limitation-effect" :class="{'is-removing': limitationEffect.removing}" data-limitation-effect>
-                <i v-if="limitationEffect.removing" class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-                {{ limitationEffect.before }}<span v-for="(origin, index) in limitationEffect.origins" :key="origin.text"
-                >{{ index > 0 ? ' and ' : '' }}<a v-if="origin.url" :href="origin.url" target="_blank" rel="noopener"
-                >{{ origin.text }}</a><template v-else>{{ origin.text }}</template></span>{{ limitationEffect.after }}
-              </p>
-            </div>
-          </Transition>
         </div>
       </form>
     </div>
@@ -522,31 +528,31 @@ export default {
       if (this.hasManagerRole === true) return [{id: 'acceptable', variant: 'btn-success', label: 'Acceptable'}];
       return [];
     },
-    // Only Accept applies the checkbox, so every effect is phrased as what accepting does
+    // Only Accept applies the checkbox, so a change is phrased as what accepting does
     limitationEffect() {
       if (this.hasAdminRole !== true) return null;
       const count = this.limitations.length;
       if (count === 0) {
         if (!this.withLimitation) return null;
-        if (this.result.trim() === '')
-          return {before: 'Accepting adds a limitation. Write the conditions in the comment.'};
-        return {before: 'Accepting turns your comment into a limitation. Every future version needs a human review.'};
+        return {
+          before:
+            this.result.trim() === ''
+              ? 'Write the limitation in the comment.'
+              : 'Accepting saves your comment as a limitation.'
+        };
+      }
+      if (!this.withLimitation) {
+        const what = count === 1 ? 'the limitation' : count === 2 ? 'both limitations' : `all ${count} limitations`;
+        return {before: `Accepting removes ${what}. Future versions can be accepted automatically.`, removing: true};
       }
 
       const origins = [];
       for (const id of new Set(this.limitations.map(limitation => limitation.package))) {
-        if (id === null) origins.push({text: 'a review that is gone'});
+        if (id === null) origins.push({text: 'a deleted review'});
         else if (id === Number(this.pkgId)) origins.push({text: 'this review'});
         else origins.push({text: `review #${id}`, url: `/reviews/details/${id}`});
       }
-      const keeping = this.withLimitation;
-      const what = count === 1 ? 'the limitation' : `${keeping ? '' : 'all '}${count} limitations`;
-      return {
-        before: `Accepting ${keeping ? 'keeps' : 'removes'} ${what} from `,
-        origins,
-        after: keeping ? '.' : '. Future versions can be accepted automatically again.',
-        removing: !keeping
-      };
+      return {before: 'Noted in ', origins, after: '.'};
     },
     submitUrl() {
       return this.hasAdminRole === true ? this.reviewUrl : this.fasttrackUrl;
@@ -1392,33 +1398,49 @@ export default {
 .metadata-review-actions-secondary {
   margin-left: auto;
 }
-/* Nearly every review has no limitation, so the box stays a muted line until it would change something */
+/* Nearly every review has no limitation, so the box stays a muted label until it would change something, and then
+   the label just continues with what accepting will do */
 .metadata-review-limitation {
-  align-items: center;
+  align-items: baseline;
   color: var(--cavil-fg-muted);
-  cursor: pointer;
-  display: inline-flex;
+  display: flex;
   font-size: 13px;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.metadata-review-limitation label {
+  cursor: pointer;
+  flex: none;
   margin: 0;
 }
-.metadata-review-limitation .form-check-input {
-  margin: 0;
-}
-.metadata-review-limitation.is-checked {
+.metadata-review-limitation label.is-checked {
   color: var(--cavil-fg);
 }
-.metadata-review-limitation-effect {
-  flex-basis: 100%;
-  margin-top: -0.4rem;
+.metadata-review-limitation .form-check-input {
+  margin: 0 0.4rem 0 0;
+  vertical-align: -0.15em;
 }
-.metadata-review-limitation-effect p {
-  color: var(--cavil-fg-muted);
-  font-size: 13px;
-  margin: 0;
+.metadata-review-limitation-effect::before {
+  content: '·';
+  margin-right: 0.35rem;
 }
-.metadata-review-limitation-effect p.is-removing {
+.metadata-review-limitation-effect i {
+  margin-right: 0.3rem;
+}
+.metadata-review-limitation-effect a {
+  color: inherit;
+  text-decoration: none;
+}
+.metadata-review-limitation-effect a:hover,
+.metadata-review-limitation-effect a:focus {
+  color: var(--cavil-accent);
+  text-decoration: underline;
+}
+.metadata-review-limitation-effect.is-removing {
   color: var(--cavil-danger);
+}
+.metadata-review-limitation-effect.is-removing::before {
+  color: var(--cavil-fg-muted);
 }
 @media (max-width: 900px) {
   .metadata-related-item {
