@@ -159,7 +159,22 @@ sub checks ($self) {
     }
   );
 
-  if ($config->{openid}) { $check->('Login', 'ok', 'OpenID Connect') }
+  if (my $openid = $config->{openid}) {
+    $try->(
+      'Login' => sub {
+        return $check->('Login', 'error', 'OpenID Connect is configured without "well_known_url", login will not work')
+          unless my $url = $openid->{well_known_url};
+        my $ua  = Mojo::UserAgent->new(connect_timeout => 3, inactivity_timeout => 30);
+        my $res = eval { $ua->get($url)->result };
+        return $check->('Login', 'error', "Provider not answering at $url: " . (split /\n/, $@)[0]) unless $res;
+        my $json = $res->is_success ? $res->json : undef;
+        if (ref $json eq 'HASH' && !grep { !$json->{$_} } qw(authorization_endpoint token_endpoint jwks_uri)) {
+          $check->('Login', 'ok', "OpenID Connect provider answering at $url");
+        }
+        else { $check->('Login', 'error', qq{Unexpected answer from $url, check "openid.well_known_url"}) }
+      }
+    );
+  }
   else {
     $check->(
       'Login',

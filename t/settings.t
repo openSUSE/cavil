@@ -375,6 +375,8 @@ subtest 'Status' => sub {
       $c->render(json => {content => 'yes', completion_probabilities => [{logprob => -0.01}]});
     }
   );
+  $stand_in->routes->get('/.well-known/openid-configuration' =>
+      {json => {authorization_endpoint => '/authorize', token_endpoint => '/token', jwks_uri => '/jwks'}});
   my $port = Mojo::IOLoop::Server->generate_port;
   my $pid  = fork // die "Fork failed: $!";
   unless ($pid) {
@@ -406,6 +408,24 @@ subtest 'Status' => sub {
     = $db->insert('snippets', {hash => 'status-backlog', text => 'Some license text'}, {returning => 'id'})->hash->{id};
   like $checks->()->{Classifier}{message}, qr/, \d+ snippets waiting for classification$/, 'backlog shown';
   $db->update('snippets', {classified => 1}, {id => $snippet});
+
+  {
+    local $app->config->{openid} = {key => 'APP_NAME', secret => 'APP_SECRET'};
+    like $checks->()->{Login}{message}, qr/without "well_known_url"/, 'OpenID Connect without well-known URL';
+    $app->config->{openid}{well_known_url} = 'http://127.0.0.1:1/.well-known/openid-configuration';
+    like $checks->()->{Login}{message}, qr/^Provider not answering at http:\/\/127.0.0.1:1\//, 'provider unreachable';
+    $app->config->{openid}{well_known_url} = "http://127.0.0.1:$port/does-not-exist";
+    like $checks->()->{Login}{message}, qr/^Unexpected answer from .+ check "openid.well_known_url"$/,
+      'not an OpenID configuration';
+    $app->config->{openid}{well_known_url} = "http://127.0.0.1:$port/.well-known/openid-configuration";
+    is_deeply $checks->()->{Login},
+      {
+      name    => 'Login',
+      level   => 'ok',
+      message => "OpenID Connect provider answering at http://127.0.0.1:$port/.well-known/openid-configuration"
+      },
+      'provider answers';
+  }
 
   {
     local $app->config->{tmp_dir} = '/does/not/exist';
