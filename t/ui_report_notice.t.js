@@ -155,6 +155,60 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
       t.match((await pkg.json()).state, /^acceptable/, 'held version accepted without a reindex');
     });
 
+    await t.test('the review form sets and lifts the limitation together with the decision', async t => {
+      const checkbox = page.locator('[data-limitation-checkbox]');
+      const effect = page.locator('[data-limitation-effect]');
+      const accept = () =>
+        Promise.all([
+          page.waitForResponse(res => /\/reviews\/review_package\/3$/.test(res.url())),
+          page.click('#acceptable')
+        ]);
+      const state = async () => {
+        await page.goto(`${url}/perform_jobs`);
+        const pkg = await page.request.get(`${url}/package/4`, {headers: {Authorization: 'Token test_token'}});
+        return (await pkg.json()).state;
+      };
+
+      await page.goto(`${url}/reviews/details/3`);
+      await page.click('[data-tab="notes"]');
+      await page.locator('.report-notes-list, .report-notes-empty').first().waitFor();
+      t.equal(await checkbox.isChecked(), false, 'unchecked without a limitation');
+      t.equal(await effect.count(), 0, 'and nothing to explain');
+
+      await page.click('.metadata-review-editor .cm-content');
+      await page.keyboard.press('ControlOrMeta+a');
+      await page.keyboard.type('Only for internal use');
+      await checkbox.check();
+      t.match(await effect.innerText(), /^Accepting turns your comment into a limitation/, 'says what accepting does');
+      const [review] = await accept();
+      t.equal(review.status(), 200, 'accepted');
+      const card = page.locator('.report-note-limitation');
+      await card.waitFor();
+      t.match(await card.innerText(), /Only for internal use/, 'the comment is the limitation, shown right away');
+
+      await page.request.post(`${url}/packages/import/4`, {
+        headers: {Authorization: 'Token test_token'},
+        form: {state: 'new'}
+      });
+      t.equal(await state(), 'new', 'the next version is held');
+
+      await page.goto(`${url}/reviews/details/3`);
+      await effect.waitFor();
+      t.equal(await checkbox.isChecked(), true, 'checked while the limitation exists');
+      t.equal(await effect.innerText(), 'Accepting keeps the limitation from this review.', 'keeps it');
+      await checkbox.uncheck();
+      t.match(
+        await effect.innerText(),
+        /Accepting removes the limitation from this review\. Future versions can be accepted automatically again\.$/,
+        'warns before removing it'
+      );
+      t.equal(await page.locator('[data-limitation-effect].is-removing .fa-triangle-exclamation').count(), 1, 'loudly');
+      await accept();
+      await effect.waitFor({state: 'detached'});
+      t.equal(await checkbox.isChecked(), false, 'unchecked again');
+      t.match(await state(), /^acceptable/, 'the held version is accepted automatically again');
+    });
+
     assertNoUnexpectedConsoleErrors(t, errorLogs);
   } finally {
     delete process.env.JS_UI_FIXTURES;

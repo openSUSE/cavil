@@ -276,6 +276,22 @@
               {{ button.label }}
             </button>
           </div>
+          <label
+            v-if="hasAdminRole === true"
+            :class="['metadata-review-limitation', {'is-checked': withLimitation}]"
+            title="Your comment becomes a limitation, every future version will need a human review"
+          >
+            <input
+              v-model="withLimitation"
+              type="checkbox"
+              class="form-check-input"
+              aria-describedby="limitation-effect"
+              :disabled="submitting"
+              data-limitation-checkbox
+              @change="limitationTouched = true"
+            />
+            With limitation
+          </label>
           <button
             v-if="hasAdminRole === true"
             type="button"
@@ -288,6 +304,17 @@
             <i v-if="reindexBusy || rebuildPending" class="fa-solid fa-rotate fa-spin" aria-hidden="true"></i>
             {{ reindexBusy || rebuildPending ? 'Reindexing…' : 'Reindex' }}
           </button>
+          <Transition name="cavil-reveal">
+            <div v-if="limitationEffect !== null" class="cavil-reveal metadata-review-limitation-effect">
+              <!-- prettier-ignore -->
+              <p id="limitation-effect" :class="{'is-removing': limitationEffect.removing}" data-limitation-effect>
+                <i v-if="limitationEffect.removing" class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                {{ limitationEffect.before }}<span v-for="(origin, index) in limitationEffect.origins" :key="origin.text"
+                >{{ index > 0 ? ' and ' : '' }}<a v-if="origin.url" :href="origin.url" target="_blank" rel="noopener"
+                >{{ origin.text }}</a><template v-else>{{ origin.text }}</template></span>{{ limitationEffect.after }}
+              </p>
+            </div>
+          </Transition>
         </div>
       </form>
     </div>
@@ -396,7 +423,7 @@ export default {
     ToastNotifier
   },
   mixins: [Refresh],
-  emits: ['reindex-queued'],
+  emits: ['limitations-changed', 'reindex-queued'],
   data() {
     return {
       actions: [],
@@ -409,6 +436,8 @@ export default {
       legalDocuments: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
+      limitations: [],
+      limitationTouched: false,
       manageTemplatesUrl: '/settings/comment-templates',
       notice: null,
       pkgAiAssisted: false,
@@ -454,7 +483,8 @@ export default {
       flashTimer: null,
       templates: [],
       unpackedFiles: 0,
-      unpackedSize: 'n/a'
+      unpackedSize: 'n/a',
+      withLimitation: false
     };
   },
   computed: {
@@ -491,6 +521,32 @@ export default {
       }
       if (this.hasManagerRole === true) return [{id: 'acceptable', variant: 'btn-success', label: 'Acceptable'}];
       return [];
+    },
+    // Only Accept applies the checkbox, so every effect is phrased as what accepting does
+    limitationEffect() {
+      if (this.hasAdminRole !== true) return null;
+      const count = this.limitations.length;
+      if (count === 0) {
+        if (!this.withLimitation) return null;
+        if (this.result.trim() === '')
+          return {before: 'Accepting adds a limitation. Write the conditions in the comment.'};
+        return {before: 'Accepting turns your comment into a limitation. Every future version needs a human review.'};
+      }
+
+      const origins = [];
+      for (const id of new Set(this.limitations.map(limitation => limitation.package))) {
+        if (id === null) origins.push({text: 'a review that is gone'});
+        else if (id === Number(this.pkgId)) origins.push({text: 'this review'});
+        else origins.push({text: `review #${id}`, url: `/reviews/details/${id}`});
+      }
+      const keeping = this.withLimitation;
+      const what = count === 1 ? 'the limitation' : `${keeping ? '' : 'all '}${count} limitations`;
+      return {
+        before: `Accepting ${keeping ? 'keeps' : 'removes'} ${what} from `,
+        origins,
+        after: keeping ? '.' : '. Future versions can be accepted automatically again.',
+        removing: !keeping
+      };
     },
     submitUrl() {
       return this.hasAdminRole === true ? this.reviewUrl : this.fasttrackUrl;
@@ -663,9 +719,17 @@ export default {
       this.submitting = true;
       this.submittingId = decision;
 
+      const form = {comment: this.result, [decision]: 1};
+      const limiting = decision === 'acceptable' && this.hasAdminRole === true;
+      if (limiting) {
+        form.limitation = this.withLimitation ? 1 : 0;
+        form.limitations_seen = this.limitations.map(limitation => limitation.id).join(',');
+      }
+      const limitationsChange = limiting && this.withLimitation !== this.limitations.length > 0;
+
       try {
         const ua = new UserAgent({baseURL: window.location.href});
-        const res = await ua.post(url, {form: {comment: this.result, [decision]: 1}});
+        const res = await ua.post(url, {form});
 
         let data = null;
         try {
@@ -680,7 +744,9 @@ export default {
           // Do not race the pending refresh timer, and do not update the state optimistically, the
           // stale local state is what makes refreshData() adopt the comment the server just stored
           this.cancelApiRefresh();
+          this.limitationTouched = false;
           await this.doApiRefresh();
+          if (limitationsChange) this.$emit('limitations-changed');
 
           // The refresh has flipped the selected button, now pulse it so the change is unmissable
           this.flashDecision(this.selectedButtonId);
@@ -791,6 +857,8 @@ export default {
       if (data.state !== this.state) this.result = data.result ?? '';
       this.notice = data.notice;
       this.state = data.state;
+      this.limitations = data.limitations;
+      if (!this.limitationTouched) this.withLimitation = this.limitations.length > 0;
 
       if (data.unpacked_files !== null) {
         this.unpackedFiles = data.unpacked_files;
@@ -1323,6 +1391,34 @@ export default {
 }
 .metadata-review-actions-secondary {
   margin-left: auto;
+}
+/* Nearly every review has no limitation, so the box stays a muted line until it would change something */
+.metadata-review-limitation {
+  align-items: center;
+  color: var(--cavil-fg-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 0.4rem;
+  margin: 0;
+}
+.metadata-review-limitation .form-check-input {
+  margin: 0;
+}
+.metadata-review-limitation.is-checked {
+  color: var(--cavil-fg);
+}
+.metadata-review-limitation-effect {
+  flex-basis: 100%;
+  margin-top: -0.4rem;
+}
+.metadata-review-limitation-effect p {
+  color: var(--cavil-fg-muted);
+  font-size: 13px;
+  margin: 0;
+}
+.metadata-review-limitation-effect p.is-removing {
+  color: var(--cavil-danger);
 }
 @media (max-width: 900px) {
   .metadata-related-item {

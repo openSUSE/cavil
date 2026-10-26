@@ -412,6 +412,7 @@
       >
         <ReportNotes
           v-if="notesMounted"
+          ref="notes"
           :pkg-id="pkgId"
           :can-post-lawyer-only="canPostLawyerOnly"
           :seek-note-id="seekNoteId"
@@ -717,6 +718,10 @@ export default {
       } catch (_) {
         // Silent: note count is informational.
       }
+    },
+    notesChanged() {
+      if (this.notesMounted) this.$refs.notes?.reloadFromTop();
+      else this.loadInitialNoteCount();
     },
     onMetadataLoaded() {
       this.metadataLoaded = true;

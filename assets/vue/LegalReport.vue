@@ -3,6 +3,7 @@
     <report-metadata
       ref="metadata"
       @reindex-queued="$refs.details.watchRebuild()"
+      @limitations-changed="$refs.details.notesChanged()"
       @loaded="$refs.details.onMetadataLoaded()"
     />
     <report-details ref="details" @rebuild-finished="$refs.metadata.rebuildFinished()" />

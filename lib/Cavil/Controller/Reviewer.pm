@@ -8,7 +8,8 @@ use Mojo::File  qw(path);
 use Mojo::Util  qw(encode url_escape);
 use Cavil::Util qw(checkout_path lines_context path_within tags_from_request PRIORITY_WAITING);
 
-use constant WINDOW_LINES => 2000;
+use constant WINDOW_LINES        => 2000;
+use constant LIMITATION_FALLBACK => 'Only acceptable with a limitation, see the review comment';
 
 sub details ($self) {
   my $id   = $self->stash('id');
@@ -339,6 +340,8 @@ sub review_package ($self) {
   $validation->optional('comment');
   $validation->optional('unacceptable');
   $validation->optional('acceptable');
+  $validation->optional('limitation')->in('0', '1');
+  $validation->optional('limitations_seen', 'not_empty')->like(qr/^\d+(?:,\d+)*$/);
   return $self->reply->json_validation_error if $validation->has_error;
 
   my $user = $self->session('user');
@@ -362,10 +365,20 @@ sub review_package ($self) {
   else {
     return $self->render(json => {error => 'Missing decision'}, status => 400);
   }
+
+  my $user_id = $self->users->find(login => $user)->{id};
+  my $limit   = $state eq 'unacceptable' ? undef : $validation->param('limitation');
+  my $limited
+    = defined $limit
+    ? $self->_limit($pkg, $user_id, $limit, $validation->param('comment'), $validation->param('limitations_seen'))
+    : 0;
+  return $self->render(json => {error => 'The limitations have changed meanwhile, reload the page'}, status => 409)
+    unless defined $limited;
+
   $self->packages->update(
     {
       id               => $id,
-      reviewing_user   => $self->users->find(login => $user)->{id},
+      reviewing_user   => $user_id,
       result           => $result,
       state            => $state,
       review_timestamp => 1,
@@ -373,9 +386,29 @@ sub review_package ($self) {
     }
   );
 
+  $self->packages->analyze_waiting($pkg->{name}) if $limited;
+
   $self->app->log->info(qq{Review by $user: $pkg->{name} ($id) is $state:}, $result);
 
   $self->render(json => {ok => 1, id => $pkg->{id}, name => $pkg->{name}, state => $state});
+}
+
+# The checkbox says whether the package stays limited, so it only adds a first limitation and removes all of them
+# together (several are an accident). Only the ones the reviewer was shown may go, a stale page returns undef.
+sub _limit ($self, $pkg, $user_id, $limit, $comment, $seen) {
+  my $notes   = $self->notes;
+  my @current = map { $_->{id} } @{$notes->limitations($pkg->{name})};
+  return 0 if $limit ? @current : !@current;
+
+  if ($limit) {
+    my $body = ($comment // '') =~ /\S/ ? $comment : LIMITATION_FALLBACK;
+    $notes->add($pkg->{id}, $pkg->{name}, $user_id, $body, 0, 0, undef, 1);
+    return 1;
+  }
+  my %seen = map { $_ => 1 } split /,/, $seen // '';
+  return undef if grep { !$seen{$_} } @current;
+  $notes->remove($_, $user_id) for @current;
+  return 1;
 }
 
 1;

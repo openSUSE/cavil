@@ -449,6 +449,7 @@ sub _package_summary ($c, $id) {
     external_link        => $pkg->{external_link},
     id                   => $pkg->{id},
     legal_review_notices => \@legal_review_notices,
+    limitations          => $c->notes->limitations($pkg->{name}),
     declarations         => \@declarations,
     incomplete_checkout  => $declarations->{incomplete_checkout},
     notice               => $pkg->{notice},

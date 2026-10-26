@@ -208,8 +208,9 @@ admins for now. The page
 is written for people who are not technical, so opening a section to lawyers later is only a change of who may reach
 it.
 
-Curators and lawyers can also add limitation notes. While a package has one, only they can decide on it: managers
-cannot fasttrack it, and AI assistants cannot accept or reject it.
+Curators and lawyers can also set limitations, with the "With limitation" checkbox next to the decision buttons or
+as a note. While a package has one, only they can decide on it: managers cannot fasttrack it, and AI assistants cannot
+accept or reject it.
 
 ### Automatic Acceptance
 
@@ -254,6 +255,16 @@ against them. The report stays in `new`, and the "why this needs review" notice 
 it was written on, and names the automatic acceptance that was blocked. An accepted review also only covers the
 requests it was made for: when a new request arrives for the same sources, it goes back to `new`. The block ends when
 the last limitation note is removed.
+
+Limitations are usually set and lifted together with the decision. Lawyers tend to review packages that need one in
+large batches, and a separate step on the Notes tab was easy to forget. Next to the decision buttons sits a "With
+limitation" checkbox. It is checked whenever the package has a limitation, so it reflects the current state. When a
+review is accepted with the box newly checked, the comment becomes a limitation note (a generic text if the comment is
+empty). Accepting with the box unchecked removes every limitation the package has, including any created twice by
+accident. A rejection never touches limitations. Below the box, a single sentence states what accepting will do, and
+it only appears when the click would add, keep or remove something. Almost every review has no limitation, so in that
+case the box is all there is. If someone else changed the limitations while the page was open, the removal is refused
+instead of deleting one the reviewer never saw.
 
 ### Audit Log
 
@@ -1044,7 +1055,8 @@ A **limitation** note goes one step further: it sits above the pinned notes, and
 the package needs a human decision (see *Automatic Acceptance*). Listings mark these packages with a red warning icon,
 and the recent notes page can list all limitations. Limitations are never lawyer-only, because the people who package
 and ship the software need to see them. A note is exactly one kind (plain, pinned, lawyer-only or a limitation), so
-the note composer offers them as a single choice.
+the note composer offers them as a single choice. Most limitations come from the checkbox next to the decision
+buttons instead. The composer is for adding one without making a decision, and editing a note changes its wording.
 
 ### Suppressing Noise: Ignored Lines and Ignored File Globs
 

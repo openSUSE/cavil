@@ -271,4 +271,67 @@ subtest 'A rejected review with the same report still explains the hold' => sub 
     'and quotes the limitation';
 };
 
+subtest 'The review form keeps, lifts and sets limitations' => sub {
+  my $limitations = sub {
+    [map { [$_->{id}, $_->{body}, $_->{package}] } @{$app->notes->limitations('perl-Mojolicious')}]
+  };
+  my $events = sub ($since) {
+    $db->query(q{SELECT type FROM audit_events WHERE type LIKE 'limitation.%' AND id > ? ORDER BY id}, $since)
+      ->arrays->map(sub { $_->[0] })->to_array;
+  };
+  my $since  = $db->query('SELECT coalesce(max(id), 0) FROM audit_events')->array->[0];
+  my $review = sub (%form) {
+    $t->post_ok('/reviews/review_package/1' => form => {acceptable => 1, comment => 'Checked', %form});
+    $app->minion->perform_jobs;
+  };
+  my $reason = "Manual review is required because it was rejected before with the same license as "
+    . $db->query(q{SELECT max(id) FROM bot_packages WHERE state = 'unacceptable'})->array->[0];
+  my $waiting = $db->query(q{SELECT max(id) FROM bot_packages WHERE state = 'new'})->array->[0];
+
+  $t->get_ok('/reviews/meta/1')
+    ->status_is(200)
+    ->json_is('/limitations/0/id',      $note_id)
+    ->json_is('/limitations/0/body',    'Only with approval')
+    ->json_is('/limitations/0/package', 1)
+    ->json_hasnt('/limitations/1');
+
+  $review->(limitation => 1, limitations_seen => $note_id);
+  $t->status_is(200);
+  is_deeply $limitations->(), [[$note_id, 'Only with approval', 1]], 'kept as it was';
+  $t->post_ok('/reviews/review_package/1' => form => {unacceptable => 1, limitation => 0})->status_is(200);
+  is_deeply $limitations->(), [[$note_id, 'Only with approval', 1]], 'a rejection never lifts a limitation';
+  $review->();
+  is_deeply $limitations->(), [[$note_id, 'Only with approval', 1]], 'untouched without the checkbox';
+
+  my $second = $limit->(1, 'Not for SLE Micro');
+  $review->(limitation => 0, limitations_seen => $note_id, comment => 'Stale');
+  $t->status_is(409)->json_is('/error', 'The limitations have changed meanwhile, reload the page');
+  is $pkgs->find(1)->{result},   'Checked', 'no decision recorded';
+  is scalar @{$limitations->()}, 2,         'nothing lifted from a stale page';
+
+  $review->(limitation => 0, limitations_seen => "$note_id,$second");
+  $t->status_is(200);
+  is_deeply $limitations->(), [], 'an accidental second limitation goes with the first';
+  is $pkgs->find($waiting)->{notice}, $reason, 'the waiting version no longer quotes them';
+
+  $review->(limitation => 1, comment => 'Only for internal use');
+  $t->status_is(200);
+  my ($added) = @{$limitations->()};
+  is_deeply [@$added[1, 2]], ['Only for internal use', 1], 'the comment becomes the limitation';
+  is $pkgs->find(1)->{state}, 'acceptable', 'and the decision is recorded';
+  is $pkgs->find($waiting)->{notice}, "Limitation noted in 1\n\n  Only for internal use\n\n$reason",
+    'the waiting version quotes it right away';
+  $review->(limitation => 1, limitations_seen => $added->[0], comment => 'Still only for internal use');
+  is_deeply $limitations->(), [$added], 'no duplicate';
+
+  $review->(limitation => 0, limitations_seen => $added->[0]);
+  $review->(limitation => 1, comment          => ' ');
+  is_deeply [map { $_->[1] } @{$limitations->()}], ['Only acceptable with a limitation, see the review comment'],
+    'generic limitation without a comment';
+
+  is_deeply $events->($since),
+    [qw(limitation.added limitation.removed limitation.removed limitation.added limitation.removed limitation.added)],
+    'every change is in the audit log';
+};
+
 done_testing;
