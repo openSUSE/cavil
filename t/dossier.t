@@ -28,6 +28,11 @@ $app->patterns->create(pattern => "SPDX-License-Identifier: $_", license => $_) 
 $app->patterns->create(pattern => "SPDX-License-Identifier: $_->[0]", license => $_->[0], risk => $_->[1])
   for ['GPL-2.0-or-later', 4], ['MPL-1.1', 3], ['MIT', 1];
 $app->patterns->create(pattern => 'The penguin patent grant applies', license => 'MIT', risk => 1, patent => 1);
+$app->patterns->create(
+  pattern => 'Commercial use requires a penguin license',
+  license => 'Penguin-Commercial',
+  risk    => 7
+);
 $db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
   for qw(GPL-2.0-only Apache-2.0 GPL-2.0-or-later MPL-1.1 MIT);
 my $pkg = $app->packages->find(1);
@@ -36,6 +41,10 @@ my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 # A permissive license flagged by one of its patterns, matched plainly in a license file and flagged in a source file
 $dir->child('LICENSE.mit')->spew("SPDX-License-Identifier: MIT\n");
 $dir->child('src')->make_path->child('patented.c')->spew("/* Code */\n/* The penguin patent grant applies */\n");
+
+# Custom terms kept in a REUSE catalog, the only place the license is matched
+$dir->child('LICENSES')->make_path->child('LicenseRef-Penguin-Commercial.txt')
+  ->spew("Commercial use requires a penguin license.\n");
 
 # A mutual conflict and a one-way pair deeper down, which the report's proximity ranking puts first
 $dir->child('src')->make_path->child('mutual.c')
@@ -191,6 +200,12 @@ subtest 'A flagged license is shown where the flag is' => sub {
   like $reasons, qr/^- risk 1: MIT \[flags: Patent\], matched in \d+ files, flagged text at line 2$/m,
     'the flag named, and the file the flagged text is in rather than any license file';
   like $body, qr/^ +2  \/\* The penguin patent grant applies \*\/$/m, 'with that text';
+};
+
+subtest 'A license only in the catalog says so' => sub {
+  my ($reasons) = evidence(dossier(), 'LICENSES/LicenseRef-Penguin-Commercial.txt');
+  like $reasons, qr/^- risk 7: Penguin-Commercial, matched in 1 file, only in license catalog files, first match/m,
+    'the catalog context travels with the risk';
 };
 
 subtest 'The main spec survives past any line cap' => sub {

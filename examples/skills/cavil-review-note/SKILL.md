@@ -207,7 +207,7 @@ exists alongside it, read that.
 
 #### Read the legal documents the report cannot fully explain
 The **`## Legal Documents`** section lists the package's own license-declaration files (`LICENSE`,
-`COPYING`, `NOTICE` and friends, including vendor terms kept in a `LICENSES/` directory) with, for each, how many of its lines **no known license pattern
+`COPYING`, `NOTICE` and friends, including vendor terms and custom `LicenseRef-*` texts kept in a `LICENSES/` directory) with, for each, how many of its lines **no known license pattern
 matched**. That number is the one signal that survives Cavil's own auto-resolution: the scanner
 folds, clears and covers boilerplate snippets, and that machinery can suppress the very snippet that
 named a novel term - so a license file can show **zero** unresolved matches and still contain a
@@ -359,7 +359,7 @@ Let the risk levels and flags from Step 4 steer the lean:
 - **A license change to non-open-source terms** (Step 4 relicense check) → REJECT; lead the note with the `⚠ LICENSE CHANGE:` bullet. This outranks every other signal.
 - **A material unanticipated legal risk** (the Step 4 catch-all) → at least NEEDS HUMAN REVIEW, or REJECT if it clearly blocks; never ACCEPT around it. Lead the note with it.
 - **A System Notice starting with "Limitation noted", or a note marked `[limitation]`** → NEEDS HUMAN REVIEW, never ACCEPT. A lawyer set conditions for every version of this package that the report cannot check. Quote the limitations from the notice in the note.
-- **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license.
+- **Risk 6 or 7 present** (e.g. SSPL; non-commercial / field-of-use / ethical) → REJECT lean; name the license. When its license line is marked `(only in license catalog files)`, lean NEEDS HUMAN REVIEW instead: its only match is a license text kept in a catalog directory such as `LICENSES/`, not code under that license. Say so, and never ACCEPT on this label alone.
 - **EULA flag** → NEEDS HUMAN REVIEW; identify whether it is a SUSE (distributable) or third-party proprietary EULA.
 - **Risk 5** (managed obligations - AGPL network copyleft, advertising clauses), **or a Patent / Export restricted flag** → NEEDS HUMAN REVIEW.
 - **CLA or Trademark flag** → note it, but do not change the recommendation on that alone.

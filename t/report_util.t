@@ -10,7 +10,8 @@ use Cavil::ReportUtil (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename is_vendored_path),
   qw(license_classification license_compatibility license_document_candidates license_obligations),
   qw(license_obligation_ids minimal_snippet),
-  qw(new_license_names new_unresolved_files overlapping_licenses peripheral_scope ranked_incompatibilities),
+  qw(new_license_names new_unresolved_files overlapping_licenses peripheral_scope peripheral_scope_label),
+  qw(ranked_incompatibilities),
   qw(report_checksum report_risk report_shortname),
   qw(should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear smart_edit_snippet),
   qw(spdx_edit_snippet summary_delta summary_delta_score unexplained_line_numbers unexplained_lines),
@@ -582,8 +583,17 @@ subtest 'peripheral_scope' => sub {
   is peripheral_scope([]),                                     undef, 'no files at all is not vacuously peripheral';
 };
 
+subtest 'peripheral_scope_label' => sub {
+  is peripheral_scope_label(['a/LICENSES/LicenseRef-Qt-Commercial.txt']), 'license catalog files', 'one kind';
+  is peripheral_scope_label(['a/doc/x', 'a/tests/y']), 'documentation and test files', 'two kinds';
+  is peripheral_scope_label(['a/doc/x', 'a/tests/y', 'a/vendor/z']), 'documentation, test and vendored files',
+    'three kinds';
+  is peripheral_scope_label(['a/vendor/x', 'src/main.c']), undef, 'nothing to say while shipped code is involved';
+};
+
 subtest 'license_terms_kind' => sub {
   is license_terms_kind('fw/LICENSES/LICENSE.dell'),         undef,             'vendor terms in LICENSES ship';
+  is license_terms_kind('kde/LICENSES/LicenseRef-Qt.txt'),   undef,             'custom terms in LICENSES ship';
   is license_terms_kind('linux/LICENSES/preferred/GPL-2.0'), 'license catalog', 'SPDX-named catalog text';
   is license_terms_kind('linux/LICENSES/GPL-2.0'),           'license catalog', 'not license-named';
   is license_terms_kind('vendor/x/LICENSES/LICENSE.foo'),    'vendored',        'vendored terms stay vendored';
@@ -627,11 +637,15 @@ subtest 'license_document_candidates' => sub {
         'fw/LICENSES/LICENSE.dell',         'fw/LICENSES/LICENCE.HP',
         'linux/LICENSES/preferred/GPL-2.0', 'linux/LICENSES/LICENSE.oddity',
         'cockpit/LICENSES/GPL-3.0.txt',     'vendor/x/LICENSES/LICENSE.foo',
-        'docs/licenses/LICENSE.bar'
+        'docs/licenses/LICENSE.bar',        'kde/LICENSES/LicenseRef-Qt-Commercial.txt',
+        'vendor/x/LICENSES/LicenseRef-Foo.txt'
       )
     );
     is_deeply [map { $_->{path} } @{$found->{documents}}],
-      ['fw/LICENSES/LICENCE.HP', 'fw/LICENSES/LICENSE.dell', 'linux/LICENSES/LICENSE.oddity'],
+      [
+      'fw/LICENSES/LICENCE.HP',                    'fw/LICENSES/LICENSE.dell',
+      'kde/LICENSES/LicenseRef-Qt-Commercial.txt', 'linux/LICENSES/LICENSE.oddity'
+      ],
       'vendor terms are kept, SPDX-named catalog texts and peripheral trees are not';
   };
 
@@ -1832,6 +1846,10 @@ subtest 'is_license_filename' => sub {
   ok is_license_filename('foo/LICENSE-2.0.txt'),     'LICENSE-2.0.txt (dash separator)';
   ok is_license_filename('foo/EULA.md'),             'EULA.md';
   ok is_license_filename('foo/license.processed'),   'case-insensitive + Cavil processed variant';
+
+  # REUSE keeps custom terms as LicenseRef-<id> texts, SPDX-named texts are only a catalog
+  ok is_license_filename('pkg/LICENSES/LicenseRef-Qt-Commercial.txt'), 'custom license text';
+  ok !is_license_filename('pkg/LICENSES/GPL-3.0-or-later.txt'),        'SPDX-named license text';
 
   # Boundaries: the keyword must sit at a path boundary and end at one
   ok !is_license_filename('spdx-0.13.4/src/text/licenses/OGDL-Taiwan-1.0'),

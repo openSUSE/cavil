@@ -94,7 +94,7 @@ Decisions on other versions of this package, newest first. A lawyer's result on 
 
 % }
 ## Licenses
-% use Cavil::ReportUtil qw(ranked_incompatibilities incompatibility_location);
+% use Cavil::ReportUtil qw(incompatibility_location peripheral_scope_label ranked_incompatibilities);
 % my $ranked = ranked_incompatibilities($report->{license_compatibility} // {});
 % if (@$ranked) {
 %   my $VENDORED_LIMIT = 10;
@@ -180,7 +180,8 @@ similarity drops.
 %     my @flag_labels = (['patent', 'Patent'], ['trademark', 'Trademark'], ['export_restricted', 'Export restricted'], ['cla', 'CLA'], ['eula', 'EULA']);
 %     my %has_flag = map { $_ => 1 } @{$matches->{flags} || []};
 %     my $flags = join(', ', map { $_->[1] } grep { $has_flag{$_->[0]} } @flag_labels);
-* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %><%== $flags ? " [flags: $flags]" : '' %><%== $new_lics->{$matches->{name}} ? ' NEW' : '' %>
+%     my $where = peripheral_scope_label([map { $_->[1] } @$files]);
+* <%== $matches->{spdx} || $matches->{name} %>: <%== $num %> <%== $num == 1 ? 'file' : 'files' %><%== $where ? " (only in $where)" : '' %><%== $flags ? " [flags: $flags]" : '' %><%== $new_lics->{$matches->{name}} ? ' NEW' : '' %>
 %     for (my $i = $max_files - 1; $i >= 0; $i--) {
   - `<%== $files->[$i][1] %>`
 %     }

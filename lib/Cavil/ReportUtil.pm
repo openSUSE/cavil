@@ -15,7 +15,8 @@ use Cavil::Util qw(SNIPPET_SCORE_VERSION extract_spdx_identifiers $COPYRIGHT_LEA
 our @EXPORT_OK = (
   qw(estimated_risk hard_incompatibilities incompatibility_location is_license_filename license_classification),
   qw(license_compatibility license_document_candidates license_obligations license_obligation_ids minimal_snippet),
-  qw(is_catalog_entry is_vendored_path license_terms_kind peripheral_scope unexplained_line_numbers),
+  qw(is_catalog_entry is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
+  qw(unexplained_line_numbers),
   qw(new_license_names new_unresolved_files overlapping_licenses ranked_incompatibilities report_checksum report_risk),
   qw(report_shortname should_clear_boilerplate should_cover_snippet should_fold_snippet should_overlap_clear),
   qw(smart_edit_snippet spdx_edit_snippet summary_delta summary_delta_score unexplained_lines)
@@ -165,9 +166,8 @@ my $SOURCE_EXTENSION = do { my $alternation = join '|', @SOURCE_EXTENSIONS; qr/[
 sub is_license_filename ($path) {
   my ($basename) = $path =~ m{([^/]*)$};
   return 0 if $basename =~ $SOURCE_EXTENSION;
-  return $basename =~ m{^(?:LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE|THIRD[_-]?PARTY)(?:[.\-]|$)}i
-    ? 1
-    : 0;
+  return $basename
+    =~ m{^(?:LICEN[CS]E|LICENSEREF|COPYING|COPYRIGHT|NOTICE|EULA|LEGAL|UNLICENSE|THIRD[_-]?PARTY)(?:[.\-]|$)}i ? 1 : 0;
 }
 
 # Include unresolved guesses so compatibility review errs toward visibility; proximity conveys confidence.
@@ -331,6 +331,13 @@ sub peripheral_scope ($paths) {
   }
 
   return [sort keys %kinds];
+}
+
+# The wording of the web report's scope label, for the text reports
+sub peripheral_scope_label ($paths) {
+  my $kinds = peripheral_scope($paths) // return undef;
+  my $last  = pop @$kinds;
+  return (@$kinds ? join(', ', @$kinds) . " and $last" : $last) . ' files';
 }
 
 # Rank by tier (shipped source, then vendored, then tests/docs), then confidence, same-file evidence, depth.

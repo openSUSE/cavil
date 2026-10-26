@@ -5,7 +5,8 @@ package Cavil::Dossier;
 use Mojo::Base -base, -signatures;
 
 use Cavil::Checkout;
-use Cavil::ReportUtil qw(is_catalog_entry is_license_filename is_vendored_path license_terms_kind peripheral_scope),
+use Cavil::ReportUtil
+  qw(is_catalog_entry is_license_filename is_vendored_path license_terms_kind peripheral_scope peripheral_scope_label),
   qw(incompatibility_location ranked_incompatibilities unexplained_line_numbers);
 use Cavil::Util qw(checkout_path document_writer extract_spdx_identifiers md5_file original_filename read_lines);
 use List::Util  qw(max min);
@@ -130,14 +131,15 @@ sub _high_risk ($ctx) {
       }
 
       my $files = @{$matches->{files}};
+      my $where = peripheral_scope_label([map { $_->[1] } @{$matches->{files}}]);
       push @evidence,
         _evidence(
         $pick, 'risk',
         "risk $risk: $name"
           . (@flags ? ' [flags: ' . join(', ', map { $label{$_} } @flags) . ']' : '')
           . ", matched in $files file"
-          . ($files == 1             ? ''                                                                        : 's')
-          . (is_vendored_path($pick) ? ', vendored'                                                              : '')
+          . ($files == 1             ? ''           : 's')
+          . (is_vendored_path($pick) ? ', vendored' : $where ? ", only in $where" : '')
           . (defined $line           ? (@flags ? ", flagged text at line $line" : ", first match at line $line") : ''),
         head  => is_license_filename($pick) ? RISK_HEAD_LINES : 0,
         lines => [$line // 1]

@@ -41,12 +41,15 @@ $t->app->patterns->create(
   patent  => 1,
   cla     => 1
 );
-$t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_) for qw(Apache-2.0 GPL-2.0-only);
+$t->app->patterns->create(pattern => 'SPDX-License-Identifier: MPL-2.0', license => 'MPL-2.0');
+$t->app->pg->db->query('UPDATE license_patterns SET spdx = $1 WHERE license = $1', $_)
+  for qw(Apache-2.0 GPL-2.0-only MPL-2.0);
 
 my $pkg = $t->app->packages->find(1);
 my $dir = path($cavil_test->checkout_dir, $pkg->{name}, $pkg->{checkout_dir});
 $dir->child('apache_file.txt')->spurt("# SPDX-License-Identifier: Apache-2.0\n\nThis is a test file.\n");
 $dir->child('gpl2_file.txt')->spurt("# SPDX-License-Identifier: GPL-2.0-only\n\nThis is another test file.\n");
+$dir->child('LICENSES')->make_path->child('MPL-2.0.txt')->spurt("SPDX-License-Identifier: MPL-2.0\n");
 
 $t->app->minion->enqueue(unpack => [1]);
 $t->app->minion->perform_jobs;
@@ -842,6 +845,9 @@ subtest 'MCP' => sub {
         like $text,   qr/- Fixed copyright notice/,                       'unknown match preview';
         like $text,   qr/sri\@cpan\.org/,                                 'email found';
         like $text,   qr/http:\/\/mojolicious\.org/,                      'URL found';
+
+        # The web report's scope label, so an agent can tell a catalog text from code under the license
+        like $text, qr/\* MPL-2.0: 1 file \(only in license catalog files\)/, 'catalog-only license says so';
         note $text;
       };
 
