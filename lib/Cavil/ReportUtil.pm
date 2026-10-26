@@ -284,8 +284,10 @@ my %PERIPHERAL_SEGMENT = (
   licenses => 'license catalog'
 );
 
-# OBS cpio paths decorate vendored segments, for example vendor.obscpio._ or build-gomodcache._1.
-my $OBS_VENDORED_SEGMENT = qr/(?:^|[_-])(?:node_modules|vendor|vendored|third_party|3rdparty|gomodcache)\./;
+# OBS cpio paths decorate vendored segments, for example vendor.obscpio._ or build-gomodcache._1. Only the
+# distinctive gomodcache may also end a segment undotted (build-gomodcache), my_vendored_helpers is core code.
+my $OBS_VENDORED_SEGMENT
+  = qr/(?:^|[_-])(?:node_modules|vendor|vendored|third_party|3rdparty|gomodcache)\.|[_-]gomodcache$/;
 
 # Basenames do not determine whether code is peripheral. A test, doc or example segment anywhere in the path
 # beats a vendored one, because a vendored dependency's own tests are as ignorable as the package's own.
@@ -296,7 +298,7 @@ sub _path_peripheral_kind ($path) {
   for my $seg (@segs) {
     my $lc   = lc $seg;
     my $kind = $PERIPHERAL_SEGMENT{$lc};
-    $kind = 'vendored' if !$kind && index($lc, '.') >= 0 && $lc =~ $OBS_VENDORED_SEGMENT;
+    $kind = 'vendored' if !$kind && $lc =~ $OBS_VENDORED_SEGMENT;
     next         unless $kind;
     return $kind unless $kind eq 'vendored';
     $vendored = 1;

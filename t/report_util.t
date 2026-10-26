@@ -450,6 +450,7 @@ subtest 'license_compatibility proximity ranking' => sub {
       'contrib/x.c'                                                                     => 1,
       'app/node_modules/foo/x.js'                                                       => 1,
       'gomodcache/cache/download/golang.org/toolchain/@v/src/internal/profile/graph.go' => 1,
+      'build-gomodcache/cloud.google.com/go/compute/metadata/@v/LICENSE'                => 1,
       'LICENSES/x'                                                                      => 2,
 
       # Tests, docs and examples stay ignorable inside a vendored tree, whichever segment comes first.
