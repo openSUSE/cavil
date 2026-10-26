@@ -188,16 +188,24 @@ sub startup ($self) {
   my $can_upload   = $public->under('/' => {roles => roles_with_capability('upload_ephemeral')})->to('Auth#check');
 
   if (my $openid = $config->{openid}) {
-    $self->plugin(
-      OAuth2 => {
-        providers => {
-          opensuse => {
-            key            => $openid->{key},
-            secret         => $openid->{secret},
-            scope          => 'openid email profile',
-            well_known_url => $openid->{well_known_url}
-          },
-        },
+
+    # The plugin fetches the OpenID configuration on registration, only the web server needs that
+    my $loaded;
+    $self->hook(
+      before_server_start => sub ($server, $app) {
+        return if $loaded++;
+        $app->plugin(
+          OAuth2 => {
+            providers => {
+              opensuse => {
+                key            => $openid->{key},
+                secret         => $openid->{secret},
+                scope          => 'openid email profile',
+                well_known_url => $openid->{well_known_url}
+              },
+            },
+          }
+        );
       }
     );
     $public->get('/login' => sub ($c) { $c->redirect_to('openid') });

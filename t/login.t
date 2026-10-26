@@ -26,6 +26,12 @@ $config->{openid} = {
 my $t = Test::Mojo->new(Cavil => $config);
 $cavil_test->no_fixtures($t->app);
 
+subtest 'OpenID Connect is only set up for the web server' => sub {
+  ok !$t->app->renderer->get_helper('oauth2'), 'not before server start';
+  $t->get_ok('/')->status_is(200);
+  ok $t->app->renderer->get_helper('oauth2'), 'after server start';
+};
+
 subtest 'Unknown resource' => sub {
   $t->get_ok('/does_not_exist')->status_is(404)->content_like(qr/The requested resource does not exist/);
 };
