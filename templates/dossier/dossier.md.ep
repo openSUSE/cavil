@@ -30,6 +30,9 @@ can be looked up.
   third-party libraries compiled in. In `package.json`, runtime `dependencies` are bundled into what ships while
   `devDependencies` are build tooling, and a wheel or package mapping in `pyproject.toml` names the directories that
   end up in the package.
+- **License texts.** What must accompany each copy is stated in each license's own text and differs between
+  licenses. The spec's `%license` and `%doc` lines, listed under `Package Declarations`, put files into the binary
+  package; `Legal Documents` names the licenses Cavil matched in each document.
 - **Incompatible pairs** are pairs of licenses OSADL flags as incompatible when combined into one work, located by
   proximity in the files. Proximity is not proof of combination.
 - **Evidence files** appear once, under the first section that needs them, with every reason they are included.

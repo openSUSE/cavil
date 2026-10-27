@@ -79,6 +79,13 @@ Decisions on other versions of this package, newest first. A lawyer's result on 
 %     my $name = join '@', grep { length($_ // '') } $d->{name}, $d->{version};
 * `<%== $d->{file} %>` (<%== $d->{format} %>)<%== length $name ? ": $name" : '' %><%== defined $d->{license} ? ", $d->{license}" : ', no license declared' %>
 %   }
+%   if (grep { $_->{format} eq 'spec' } @{$summary->{declarations}}) {
+%     my $copied = $summary->{copied_files};
+* Spec `%license` (license texts shipped in the binary package): <%== @{$copied->{'%license'}} ? join ' ', map {"`$_`"} @{$copied->{'%license'}} : 'none' %>
+%     if (@{$copied->{'%doc'}}) {
+* Spec `%doc`: <%== join ' ', map {"`$_`"} @{$copied->{'%doc'}} %>
+%     }
+%   }
 
 
 
@@ -246,9 +253,15 @@ Ordered by occurrences<%= $urls->{total} > @urls ? ", top " . scalar(@urls) . " 
 The files that state this package's terms, with the lines of each no known license pattern matched. Read
 those lines: the auto-resolved snippet counts can hide them.
 
+%   use Cavil::Util qw(original_filename);
+%   my %matched;
+%   for my $matches (grep { $_->{spdx} } map { values %$_ } values %{$report->{risks}}) {
+%     $matched{original_filename($_->[1])}{$matches->{spdx}} = 1 for @{$matches->{files}};
+%   }
 %   for my $document (@{$legal_documents->{documents}}) {
 %     my $unexplained = $document->{unexplained};
-* `<%== $document->{path} %>`: <%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unknown" : '' %>
+%     my @licenses    = sort keys %{$matched{original_filename($document->{path})} // {}};
+* `<%== $document->{path} %>`: <%== @licenses ? join(', ', @licenses) . ', ' : '' %><%= $document->{lines} %> line<%= $document->{lines} == 1 ? '' : 's' %><%== $unexplained ? ", $unexplained unknown" : '' %>
 %   }
 %   if (my $dropped = $legal_documents->{dropped}) {
 * ... <%= $dropped %> more not listed

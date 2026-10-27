@@ -821,11 +821,14 @@ subtest 'MCP' => sub {
         like $text,
           qr/## Package Declarations\n\n\* `perl-Mojolicious\.spec` \(spec\): perl-Mojolicious\@7\.25, Artistic-2\.0/,
           'declarations';
-        like $text,   qr/Shortname:./,                                                         'shortname';
-        like $text,   qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/,                         'checkout';
-        like $text,   qr/Unpacked:.+ files/,                                                   'unpacked';
-        like $text,   qr/Priority:.+5/,                                                        'priority';
-        like $text,   qr/Created:.+/,                                                          'created';
+        like $text, qr/^\* Spec `%license` \(license texts shipped in the binary package\): `LICENSE`$/m,
+          'license texts the spec ships';
+        like $text,   qr/^\* Spec `%doc`: `Changes` `README\.md` `examples`$/m, 'documentation the spec ships';
+        like $text,   qr/Shortname:./,                                          'shortname';
+        like $text,   qr/Checkout:.+c7cfdab0e71b0bebfdf8b2dc3badfecd/,          'checkout';
+        like $text,   qr/Unpacked:.+ files/,                                    'unpacked';
+        like $text,   qr/Priority:.+5/,                                         'priority';
+        like $text,   qr/Created:.+/,                                           'created';
         like $text,   qr/Manual review is required because no previous reports are available/, 'system notice';
         like $text,   qr/Upstream project maintained by SUSE employee/,                        'legal review notice';
         like $text,   qr/### Incompatible Licenses/,                                           'compatibility section';

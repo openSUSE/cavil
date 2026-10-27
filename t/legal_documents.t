@@ -98,6 +98,8 @@ subtest 'A package that has not been analyzed yet simply has no documents' => su
 # stays free of them.
 my $DOCUMENT_LINE = '`LICENSE`: 6 lines, 4 unknown';
 my $COVERED_LINE  = '`COPYING`: 1 line';
+my $MCP_DOCUMENT  = '`LICENSE`: Artistic-2.0, 6 lines, 4 unknown';
+my $MCP_COVERED   = '`COPYING`: Apache-2.0, 1 line';
 
 subtest 'Text report lists the documents' => sub {
   $t->get_ok('/reviews/report/1.txt')->status_is(200);
@@ -113,9 +115,9 @@ subtest 'Text report lists the documents' => sub {
 subtest 'MCP report lists the documents' => sub {
   my $mcp = $t->app->build_controller->mcp_report(1);
 
-  like $mcp, qr/## Legal Documents/,  'documents reach the AI too';
-  like $mcp, qr/\Q$DOCUMENT_LINE\E/,  'so it can read the part Cavil does not explain';
-  like $mcp, qr/\Q$COVERED_LINE\E\n/, 'and can skip the one there is nothing to read in';
+  like $mcp, qr/## Legal Documents/, 'documents reach the AI too';
+  like $mcp, qr/\Q$MCP_DOCUMENT\E/,  'naming the license, so it can check the obligations';
+  like $mcp, qr/\Q$MCP_COVERED\E\n/, 'and can skip the one there is nothing to read in';
 
   like $mcp, qr/^Declared-License: Artistic-2\.0 \(from perl-Mojolicious\.spec\)$/m,
     'the declared value is still in the header';
