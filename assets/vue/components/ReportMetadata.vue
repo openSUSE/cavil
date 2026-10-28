@@ -389,7 +389,6 @@
       icon="fa-solid fa-user-pen"
       :items="legalReviewNotices"
       title="Legal review notices from packagers"
-      tone="success"
     />
     <cavil-notice-panel
       v-if="copiedFiles['%doc'] !== null || copiedFiles['%license'] !== null"
@@ -1363,6 +1362,9 @@ export default {
   overflow-x: auto;
   padding: 0.85rem 0.95rem;
   white-space: pre-wrap;
+}
+#spec-legal-review-notices .cavil-notice-heading i {
+  color: var(--cavil-success);
 }
 .ai-recommendation {
   align-items: flex-start;
