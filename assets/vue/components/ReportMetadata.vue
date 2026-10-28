@@ -198,7 +198,8 @@
             {{ aiRecommendation.after }}
           </div>
           <div class="ai-recommendation-meta">
-            AI assistant run by {{ aiRecommendation.author_login }}, {{ aiRecommendation.created }}
+            Asked by {{ aiRecommendation.author_login }} &middot;
+            <span :title="aiRecommendation.timestamp">{{ aiRecommendation.created }}</span>
           </div>
         </div>
         <span class="ai-recommendation-more">Read note <i class="fa-solid fa-arrow-down"></i></span>
@@ -439,6 +440,16 @@ const AI_VERDICT_MESSAGES = {
   },
   REJECT: {tone: 'danger', before: 'I recommend', phrase: 'rejecting', after: 'this review.'}
 };
+
+const chatTime = time => ({
+  created: time.calendar({
+    sameDay: '[today at] HH:mm',
+    lastDay: '[yesterday]',
+    lastWeek: 'dddd',
+    sameElse: 'MMM D, YYYY'
+  }),
+  timestamp: time.format('YYYY-MM-DD HH:mm')
+});
 
 const FORMAT_ICONS = {
   spec: 'fa-brands fa-suse',
@@ -893,7 +904,7 @@ export default {
       this.pkgAiAssisted = data.ai_assisted;
       const rec = data.ai_recommendation;
       this.aiRecommendation = rec
-        ? {...rec, ...AI_VERDICT_MESSAGES[rec.verdict], created: moment(rec.created_epoch * 1000).fromNow()}
+        ? {...rec, ...AI_VERDICT_MESSAGES[rec.verdict], ...chatTime(moment(rec.created_epoch * 1000))}
         : null;
 
       this.pkgChecksum = data.package_checksum;
