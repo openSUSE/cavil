@@ -1376,12 +1376,8 @@ export default {
   color: var(--cavil-fg);
 }
 .ai-recommendation-avatar {
-  background: var(--cavil-canvas-subtle);
-  border: 1px solid var(--cavil-border);
-  border-radius: 6px;
   flex: none;
   height: 40px;
-  padding: 3px;
   width: 40px;
 }
 .ai-recommendation-avatar line,
