@@ -1051,6 +1051,52 @@ subtest 'relevant_notes resolves a whole page of reviews at once' => sub {
   $db->delete('bot_packages', {id => \@ids});
 };
 
+subtest 'AI recommendation in the report metadata' => sub {
+  my $db    = $app->pg->db;
+  my $orig1 = $app->packages->find(1)->{checksum};
+  my $orig2 = $app->packages->find(2)->{checksum};
+  $db->update('bot_packages', {checksum => 'rec-A'}, {id => 1});
+  $db->update('bot_packages', {checksum => 'rec-B'}, {id => 2});
+
+  my $rec   = sub ($verdict) {"AI-assisted review recommendation: $verdict\n\nIssues for legal reviewer:\n- Fine.\n"};
+  my $notes = $app->notes;
+  my @ids;
+  my $add = sub (@args) { my $note = $notes->add(@args); push @ids, $note->{id}; $note };
+
+  login_admin($t);
+  $t->get_ok('/reviews/meta/1')->status_is(200)->json_is('/ai_recommendation' => undef);
+
+  my $accept = $add->(1, 'perl-Mojolicious', $lawyer_id, $rec->('ACCEPT'), 0, 1, ['review']);
+  $add->(1, 'perl-Mojolicious', $lawyer_id,  "Looks fine to me\n", 0, 1, ['review']);
+  $add->(1, 'perl-Mojolicious', $lawyer_id,  $rec->('REJECT'),     0, 0, ['review']);
+  $add->(1, 'perl-Mojolicious', $lawyer_id,  $rec->('REJECT'),     1, 1, ['review']);
+  $add->(1, 'perl-Mojolicious', $lawyer_id,  $rec->('REJECT'),     0, 1);
+  $add->(1, 'perl-Mojolicious', $contrib_id, $rec->('REJECT'),     0, 1, ['review']);
+  $add->(2, 'perl-Mojolicious', $lawyer_id,  $rec->('REJECT'),     0, 1, ['review']);
+  $t->get_ok('/reviews/meta/1')
+    ->status_is(200)
+    ->json_is('/ai_recommendation/id'           => $accept->{id})
+    ->json_is('/ai_recommendation/verdict'      => 'ACCEPT')
+    ->json_is('/ai_recommendation/author_login' => 'lawyer_user');
+
+  my $review = $add->(1, 'perl-Mojolicious', $lawyer_id, $rec->('NEEDS HUMAN REVIEW'), 0, 1, ['review', 'model:x']);
+  $t->get_ok('/reviews/meta/1')
+    ->status_is(200)
+    ->json_is('/ai_recommendation/id'      => $review->{id})
+    ->json_is('/ai_recommendation/verdict' => 'NEEDS HUMAN REVIEW');
+
+  $t->get_ok('/reviews/meta/2')->status_is(200)->json_is('/ai_recommendation/verdict' => 'REJECT');
+  $db->update('bot_packages', {checksum => 'rec-A'}, {id => 2});
+  $t->get_ok('/reviews/meta/2')
+    ->status_is(200)
+    ->json_is('/ai_recommendation/id' => $review->{id}, 'identical report shares the recommendation');
+  logout($t);
+
+  $notes->remove($_) for @ids;
+  $db->update('bot_packages', {checksum => $orig1}, {id => 1});
+  $db->update('bot_packages', {checksum => $orig2}, {id => 2});
+};
+
 subtest 'CommonMark renders safely' => sub {
   login_admin($t);
   my $body = "Click [me](javascript:alert(1)) or visit <https://example.com>.\n\n<script>alert(1)</script>";

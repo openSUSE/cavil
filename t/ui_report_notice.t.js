@@ -47,6 +47,26 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
       await popup.close();
     });
 
+    await t.test('an AI recommendation below the box leads to its note', async t => {
+      const rec = page.locator('#ai-recommendation');
+      t.match(await rec.innerText(), /I recommend\s+accepting\s+this review/, 'verdict in a sentence');
+      t.match(await rec.innerText(), /AI assistant run by ai_lawyer/, 'names who ran the assistant');
+      t.equal(await rec.locator('.ai-recommendation-success').count(), 1, 'ACCEPT is green');
+
+      await rec.click();
+      await page.waitForSelector('#report-notes-pane.is-active .report-note-highlight');
+      t.match(page.url(), /#note-\d+$/, 'the URL is a permalink to the note');
+      t.match(await page.innerText('.report-note-highlight'), /AI-assisted review recommendation: ACCEPT/);
+
+      // Clicking again from the top has to scroll back down, even though the hash does not change
+      await page.waitForSelector('.report-note-highlight', {state: 'detached'});
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await rec.click();
+      await page.waitForSelector('.report-note-highlight');
+      t.ok(await page.locator('.report-note-highlight').isVisible(), 'the note is highlighted again');
+      await page.click('[data-tab="review"]');
+    });
+
     await t.test('every new unresolved file is badged in the Risk 9 section', async t => {
       await page.waitForSelector('#filelist-snippets .risk-new');
       const rows = page.locator('#filelist-snippets .risk-unresolved-item');
@@ -82,6 +102,7 @@ t.test('Cavil UI - new unresolved matches badges', skipUnlessOnline, async t => 
       t.equal((await link.innerText()).trim(), '3', 'the package id itself is the link');
       t.equal(await link.getAttribute('href'), '/reviews/details/3', 'link points at the matched report');
       t.equal(await link.getAttribute('target'), '_blank', 'link opens in another tab');
+      t.equal(await page.locator('#ai-recommendation').count(), 0, 'no AI note, no recommendation');
     });
 
     await t.test('a limitation note holds the next version and links where it was noted', async t => {

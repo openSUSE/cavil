@@ -446,6 +446,7 @@ sub _package_summary ($c, $id) {
     ? $pkg->{created_epoch} + ($config->{hours_to_keep_ephemeral_packages} // 24) * 3600
     : undef,
     ai_assisted          => $pkg->{ai_assisted} ? true : false,
+    ai_recommendation    => $c->notes->ai_recommendation($pkg->{name}, $id, $pkg->{checksum}),
     external_link        => $pkg->{external_link},
     id                   => $pkg->{id},
     legal_review_notices => \@legal_review_notices,

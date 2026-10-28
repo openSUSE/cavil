@@ -171,6 +171,39 @@
         rel="noopener"
       >{{ segment.text }}</a><template v-else>{{ segment.text }}</template></span></pre>
     </section>
+    <a
+      v-if="aiRecommendation !== null"
+      id="ai-recommendation"
+      class="ai-recommendation"
+      :href="`#note-${aiRecommendation.id}`"
+      @click="seekSameNote"
+    >
+      <svg class="ai-recommendation-avatar" viewBox="0 0 32 32" aria-hidden="true">
+        <line x1="16" y1="4" x2="16" y2="9" />
+        <circle class="ai-recommendation-antenna" cx="16" cy="4" r="2" />
+        <rect class="ai-recommendation-ear" x="3" y="15" width="3" height="6" rx="1.5" />
+        <rect class="ai-recommendation-ear" x="26" y="15" width="3" height="6" rx="1.5" />
+        <rect class="ai-recommendation-head" x="6" y="9" width="20" height="17" rx="5" />
+        <g class="ai-recommendation-eyes">
+          <circle cx="12.5" cy="16" r="2" />
+          <circle cx="19.5" cy="16" r="2" />
+        </g>
+        <path class="ai-recommendation-mouth" d="M12.5 21 q3.5 2.2 7 0" />
+      </svg>
+      <div class="ai-recommendation-bubble">
+        <div class="ai-recommendation-speech">
+          <div class="ai-recommendation-says">
+            {{ aiRecommendation.before }}
+            <strong :class="`ai-recommendation-${aiRecommendation.tone}`">{{ aiRecommendation.phrase }}</strong>
+            {{ aiRecommendation.after }}
+          </div>
+          <div class="ai-recommendation-meta">
+            AI assistant run by {{ aiRecommendation.author_login }}, {{ aiRecommendation.created }}
+          </div>
+        </div>
+        <span class="ai-recommendation-more">Read note <i class="fa-solid fa-arrow-down"></i></span>
+      </div>
+    </a>
     <cavil-notice-panel
       v-if="incompleteCheckout.length > 0"
       id="incomplete-checkout"
@@ -178,14 +211,6 @@
       :items="incompleteCheckout"
       title="Checkout may be incomplete"
       tone="warning"
-    />
-    <cavil-notice-panel
-      v-if="legalReviewNotices.length > 0"
-      id="spec-legal-review-notices"
-      icon="fa-solid fa-user-pen"
-      :items="legalReviewNotices"
-      title="Legal review notices from packagers"
-      tone="success"
     />
     <section v-if="tags.length > 0 || canEditTags" id="package-tags" class="package-tags-bar">
       <span class="package-tags-label">Tags</span>
@@ -358,6 +383,14 @@
       </ul>
     </cavil-notice-panel>
     <cavil-notice-panel
+      v-if="legalReviewNotices.length > 0"
+      id="spec-legal-review-notices"
+      icon="fa-solid fa-user-pen"
+      :items="legalReviewNotices"
+      title="Legal review notices from packagers"
+      tone="success"
+    />
+    <cavil-notice-panel
       v-if="copiedFiles['%doc'] !== null || copiedFiles['%license'] !== null"
       icon="fa-regular fa-copy"
       title="Copied files"
@@ -396,6 +429,17 @@ import Refresh from '../mixins/refresh.js';
 import UserAgent from '@mojojs/user-agent';
 import moment from 'moment';
 
+const AI_VERDICT_MESSAGES = {
+  ACCEPT: {tone: 'success', before: 'I recommend', phrase: 'accepting', after: 'this review.'},
+  'NEEDS HUMAN REVIEW': {
+    tone: 'attention',
+    before: 'This review',
+    phrase: 'needs a closer look',
+    after: 'from a human.'
+  },
+  REJECT: {tone: 'danger', before: 'I recommend', phrase: 'rejecting', after: 'this review.'}
+};
+
 const FORMAT_ICONS = {
   spec: 'fa-brands fa-suse',
   debian: 'fa-brands fa-debian',
@@ -433,6 +477,7 @@ export default {
   data() {
     return {
       actions: [],
+      aiRecommendation: null,
       checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
       created: null,
@@ -627,6 +672,10 @@ export default {
     if (this.hasAdminRole === true || this.hasManagerRole === true) this.loadTemplates();
   },
   methods: {
+    // The browser fires no hashchange for the hash it is already on, so a second click would do nothing
+    seekSameNote(event) {
+      if (event.currentTarget.hash === window.location.hash) window.dispatchEvent(new HashChangeEvent('hashchange'));
+    },
     insertTemplate(template) {
       this.$refs.commentEditor?.insertTemplate(template.body);
     },
@@ -842,6 +891,10 @@ export default {
       this.pkgEphemeral = data.ephemeral;
       this.ephemeralDelete = data.ephemeral_delete ? moment(data.ephemeral_delete * 1000).fromNow() : '';
       this.pkgAiAssisted = data.ai_assisted;
+      const rec = data.ai_recommendation;
+      this.aiRecommendation = rec
+        ? {...rec, ...AI_VERDICT_MESSAGES[rec.verdict], created: moment(rec.created_epoch * 1000).fromNow()}
+        : null;
 
       this.pkgChecksum = data.package_checksum;
       this.checkoutUrl = `/reviews/file_view/${this.pkgId}`;
@@ -1299,6 +1352,135 @@ export default {
   overflow-x: auto;
   padding: 0.85rem 0.95rem;
   white-space: pre-wrap;
+}
+.ai-recommendation {
+  align-items: flex-start;
+  color: var(--cavil-fg);
+  display: flex;
+  gap: 14px;
+  margin: 1.25rem 0;
+  text-decoration: none;
+}
+.ai-recommendation:hover {
+  color: var(--cavil-fg);
+}
+.ai-recommendation-avatar {
+  background: var(--cavil-canvas-subtle);
+  border: 1px solid var(--cavil-border);
+  border-radius: 6px;
+  flex: none;
+  height: 40px;
+  padding: 3px;
+  width: 40px;
+}
+.ai-recommendation-avatar line,
+.ai-recommendation-avatar rect,
+.ai-recommendation-mouth {
+  fill: none;
+  stroke: var(--cavil-fg-muted);
+  stroke-linecap: round;
+  stroke-width: 1.6;
+}
+.ai-recommendation-avatar .ai-recommendation-head {
+  fill: var(--cavil-accent-bg);
+}
+.ai-recommendation-avatar .ai-recommendation-ear {
+  fill: var(--cavil-canvas);
+}
+.ai-recommendation-antenna {
+  fill: var(--cavil-attention-strong);
+}
+.ai-recommendation-eyes {
+  animation: ai-recommendation-blink 6s infinite;
+  fill: var(--cavil-fg);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes ai-recommendation-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-recommendation-eyes {
+    animation: none;
+  }
+}
+.ai-recommendation-bubble {
+  align-items: center;
+  background: var(--cavil-accent-tint-1);
+  border: 1px solid var(--cavil-accent-border);
+  border-radius: 14px;
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  min-width: 0;
+  padding: 10px 12px 10px 16px;
+  position: relative;
+}
+.ai-recommendation-bubble::before,
+.ai-recommendation-bubble::after {
+  border: 8px solid transparent;
+  border-left: 0;
+  content: '';
+  left: -8px;
+  position: absolute;
+  top: 12px;
+}
+.ai-recommendation-bubble::before {
+  border-right-color: var(--cavil-accent-border);
+}
+.ai-recommendation-bubble::after {
+  border-right-color: var(--cavil-accent-tint-1);
+  left: -7px;
+}
+.ai-recommendation-speech {
+  flex: 1;
+  min-width: 0;
+}
+.ai-recommendation-says {
+  font-size: 15px;
+}
+.ai-recommendation-meta {
+  color: var(--cavil-fg-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.ai-recommendation-says strong {
+  font-weight: 600;
+}
+.ai-recommendation-success {
+  color: var(--cavil-success);
+}
+.ai-recommendation-attention {
+  color: var(--cavil-attention);
+}
+.ai-recommendation-danger {
+  color: var(--cavil-danger);
+}
+.ai-recommendation-more {
+  background: var(--cavil-accent-bg);
+  border: 1px solid var(--cavil-accent-border);
+  border-radius: 2em;
+  color: var(--cavil-accent-strong);
+  flex: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 22px;
+  padding: 0 10px;
+  transition: background-color 0.15s;
+}
+.ai-recommendation-more i {
+  font-size: 10px;
+  margin-left: 2px;
+}
+.ai-recommendation:hover .ai-recommendation-more {
+  background: var(--cavil-accent-border);
 }
 .metadata-review-section {
   margin: 1.25rem 0;

@@ -841,11 +841,16 @@ FILE
   $pkgs->update($pkg1);
 
   # Version 2 adds eight unresolved files and one license.
-  $build->(
+  my $v2 = $build->(
     'b0000000000000000000000000000002',
     [101 .. 108],
     {'LICENSE-APACHE.txt' => "report-notice distinctive apache license marker\n"}
   );
+
+  my $ai_id = $app->users->find_or_create(login => 'ai_lawyer', email => 'ai@example.com', roles => ['lawyer'])->{id};
+  $app->notes->add($v2, 'report-notice', $ai_id,
+    "AI-assisted review recommendation: ACCEPT\n\nIssues for legal reviewer:\n- Declared license matches.\n",
+    0, 1, ['review']);
 
   # A separate name isolates the no-significant-difference history.
   my $other = 'report-notice-same';

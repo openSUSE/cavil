@@ -665,11 +665,13 @@ export default {
   },
   mounted() {
     window.addEventListener('keydown', this.handleKeydown);
-    this.applyInitialNoteHash();
+    window.addEventListener('hashchange', this.applyNoteHash);
+    this.applyNoteHash();
     this.loadInitialNoteCount();
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeydown);
+    window.removeEventListener('hashchange', this.applyNoteHash);
     this.cancelPrefetch();
     if (this.statePollTimer !== null) {
       clearTimeout(this.statePollTimer);
@@ -691,17 +693,22 @@ export default {
       const el = document.getElementById('report-tabs');
       if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
     },
-    applyInitialNoteHash() {
+    applyNoteHash() {
       // Permalink formats: #note-<id> for one note, #notes for the tab (where the listing note
       // icons link). Switch on mount so the deep link resolves before the user has to click.
       const hash = window.location.hash || '';
       const m = hash.match(/^#note-(\d+)$/);
       if (!m && hash !== '#notes') return;
+      this.activeTab = 'notes';
+      // seekNoteId only takes effect when ReportNotes mounts
+      if (this.notesMounted) {
+        this.$nextTick(() => (m ? this.$refs.notes?.seekToNote(Number(m[1])) : this.scrollToTabs()));
+        return;
+      }
       if (m) this.seekNoteId = Number(m[1]);
       // #note-<id> scrolls itself once ReportNotes has the note; #notes has nothing to seek, so it
       // waits for scrollToNotesWhenReady instead.
       else this.pendingNotesScroll = true;
-      this.activeTab = 'notes';
       this.notesMounted = true;
     },
     async loadInitialNoteCount() {

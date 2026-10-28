@@ -4,6 +4,7 @@
 package Cavil::Model::Notes;
 use Mojo::Base -base, -signatures;
 use Cavil::Model::AuditLog qw(audit_event);
+use Cavil::Role            qw(roles_with_capability);
 use Cavil::Util            qw(paginate);
 use Exporter 'import';
 
@@ -261,6 +262,23 @@ sub relevant_tagged_note ($self, $package_name, $package_id, $checksum, $tag, %o
     . join(' AND ', @sql) . ' ORDER BY c.id DESC LIMIT 1';
   my $row = $self->pg->db->query($sql, @args)->hash;
   return $row ? $row->{id} : undef;
+}
+
+# Any user with a write key can post an AI note, so only curator-authored ones speak for the report
+sub ai_recommendation ($self, $package_name, $package_id, $checksum) {
+  my $sql = q{
+    SELECT c.id, substring(c.body FROM ?) AS verdict, u.login AS author_login,
+           EXTRACT(EPOCH FROM c.created) AS created_epoch
+      FROM package_notes c
+      JOIN bot_users u ON c.author = u.id
+      LEFT JOIN bot_packages p ON c.package = p.id
+     WHERE c.package_name = ? AND c.ai_assisted AND NOT c.lawyer_only AND c.tags @> ?::text[] AND u.roles && ?::text[]
+       AND (c.package = ? OR p.checksum = ?) AND c.body ~ ?
+     ORDER BY c.id DESC LIMIT 1
+  };
+  my $verdict = '^\s*AI-assisted review recommendation:\s*(ACCEPT|NEEDS HUMAN REVIEW|REJECT)\s*(\n|$)';
+  return $self->pg->db->query($sql, $verdict, $package_name, [REVIEW_TAG], roles_with_capability('curate'),
+    $package_id, $checksum, $verdict)->hash;
 }
 
 sub remove ($self, $id, $actor = undef) {
