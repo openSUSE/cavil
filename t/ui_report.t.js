@@ -728,6 +728,13 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.goto(`${reportUrl}#file-6`);
       await page.waitForSelector('#file-details-6 table.snippet', {timeout: 10000});
       t.equal(await page.getAttribute('#risk-5 a[href="#file-6"]', 'aria-expanded'), 'true', 'file-6 opened');
+
+      // File 1 has unresolved snippets, so its row in the unresolved list opens instead
+      await page.goto(url);
+      await page.goto(`${reportUrl}#file-1`);
+      await page.waitForSelector('#file-details-1 table.snippet', {timeout: 10000});
+      const unresolvedLink = '.risk-license-section-unresolved a[href="#file-1"]';
+      t.equal(await page.getAttribute(unresolvedLink, 'aria-expanded'), 'true', 'file-1 opened');
     });
 
     await t.test('Pattern tooltip links are reachable in reports and inline editor', async t => {

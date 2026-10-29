@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-show="metadataLoaded">
     <div class="report-tabs" role="tablist" id="report-tabs">
       <button
         type="button"
@@ -666,7 +666,6 @@ export default {
   mounted() {
     window.addEventListener('keydown', this.handleKeydown);
     window.addEventListener('hashchange', this.applyNoteHash);
-    this.applyNoteHash();
     this.loadInitialNoteCount();
   },
   beforeUnmount() {
@@ -730,20 +729,23 @@ export default {
       if (this.notesMounted) this.$refs.notes?.reloadFromTop();
       else this.loadInitialNoteCount();
     },
+    // Hidden until the metadata above has rendered, so nothing it adds can push the report down, and deep
+    // links wait for it because scrolling to a hidden element does nothing
     onMetadataLoaded() {
+      if (this.metadataLoaded) return;
       this.metadataLoaded = true;
-      this.scrollToNotesWhenReady();
+      this.applyNoteHash();
+      this.$nextTick(this.handleInitialHash);
     },
     onNotesReady() {
       this.notesLoaded = true;
       this.scrollToNotesWhenReady();
     },
 
-    // Both halves have to be in place before a #notes deep link can scroll: the metadata above the
-    // tab strip decides where it lands, and the notes below it make the page long enough to get
-    // there at all. Either one arriving late leaves the reviewer looking at the top of the report.
+    // The notes below the tab strip have to be rendered before a #notes deep link can scroll, they make the
+    // page long enough to get there at all (the metadata above is already in place, see onMetadataLoaded).
     scrollToNotesWhenReady() {
-      if (!this.pendingNotesScroll || !this.notesLoaded || !this.metadataLoaded) return;
+      if (!this.pendingNotesScroll || !this.notesLoaded) return;
       this.pendingNotesScroll = false;
       this.$nextTick(this.scrollToTabs);
     },
@@ -907,7 +909,7 @@ export default {
       this.scheduleStatePoll();
     },
     handleInitialHash() {
-      if (this.hashHandled) return;
+      if (this.hashHandled || !this.metadataLoaded || this.loading) return;
       this.hashHandled = true;
       const match = (window.location.hash || '').match(/^#file-(\d+)$/);
       if (!match) return;

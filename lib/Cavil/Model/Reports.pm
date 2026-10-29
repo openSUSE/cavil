@@ -917,7 +917,7 @@ sub _sanitize_report {
     push(
       @missed,
       {
-        id       => $file,
+        id       => $file + 0,
         name     => $files->{$file},
         max_risk => $max_risk,
         license  => $license,
