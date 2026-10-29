@@ -193,6 +193,27 @@ await t.test('Cavil UI - legal documents', skipUnlessOnline, async t => {
     await page.goto(`${url}/reviews/details/1`);
     await page.locator('#legal-documents').waitFor();
 
+    await t.test('a long packager notice is clamped until asked for', async t => {
+      const notices = page.locator('#spec-legal-review-notices');
+      const items = notices.locator('.cavil-notice-item');
+      const toggle = notices.locator('.list-more-toggle button');
+
+      t.equal(await items.count(), 2, 'both notices are listed');
+      t.equal(await items.nth(0).innerText(), 'The enterprise terms do not apply to this build', 'short one as is');
+      t.equal(await toggle.count(), 1, 'only the long one has a toggle');
+      t.equal((await toggle.innerText()).trim(), 'Show full notice (8 lines)', 'which says how long it is');
+      const overflows = () => items.nth(1).evaluate(el => el.scrollHeight > el.clientHeight);
+      t.ok(await overflows(), 'the end is cut off');
+
+      await toggle.click();
+      await notices.locator('.legal-review-notice-clamped').waitFor({state: 'detached'});
+      t.notOk(await overflows(), 'all of it shows');
+      t.equal((await toggle.innerText()).trim(), 'Show less', 'the button collapses again');
+
+      await toggle.click();
+      t.equal((await toggle.innerText()).trim(), 'Show full notice (8 lines)', 'and it is clamped again');
+    });
+
     // Indexing records a file only once something matched in it, so the document whose licence nobody has
     // a pattern for has no file id at all - and that is exactly where a reviewer has to start one.
     await t.test('a file nothing matched in can be picked line by line', async t => {

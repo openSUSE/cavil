@@ -373,9 +373,24 @@
       v-if="legalReviewNotices.length > 0"
       id="spec-legal-review-notices"
       icon="fa-solid fa-user-pen"
-      :items="legalReviewNotices"
       title="Legal review notices from packagers"
-    />
+    >
+      <ul class="cavil-notice-list">
+        <!-- eslint-disable-next-line vue/no-v-for-template-key -->
+        <template v-for="(text, index) in legalReviewNotices" :key="index">
+          <li
+            :class="['cavil-notice-item', {'legal-review-notice-clamped': noticeClamped(text, index)}]"
+            v-text="text"
+          ></li>
+          <li v-if="noticeLines(text) > NOTICE_PREVIEW_LINES" class="list-more-toggle">
+            <button type="button" @click="toggleNotice(index)">
+              <i :class="noticesExpanded.has(index) ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>
+              {{ noticesExpanded.has(index) ? 'Show less' : `Show full notice (${noticeLines(text)} lines)` }}
+            </button>
+          </li>
+        </template>
+      </ul>
+    </cavil-notice-panel>
     <cavil-notice-panel
       v-if="copiedFiles['%doc'] !== null || copiedFiles['%license'] !== null"
       icon="fa-regular fa-copy"
@@ -484,6 +499,8 @@ export default {
       legalDocuments: null,
       fasttrackUrl: `/reviews/fasttrack_package/${this.pkgId}`,
       legalReviewNotices: [],
+      NOTICE_PREVIEW_LINES: 4,
+      noticesExpanded: new Set(),
       limitations: [],
       limitationTouched: false,
       manageTemplatesUrl: '/settings/comment-templates',
@@ -669,6 +686,18 @@ export default {
     if (this.hasAdminRole === true || this.hasManagerRole === true) this.loadTemplates();
   },
   methods: {
+    noticeLines(text) {
+      return text.split('\n').length;
+    },
+
+    noticeClamped(text, index) {
+      return this.noticeLines(text) > this.NOTICE_PREVIEW_LINES && !this.noticesExpanded.has(index);
+    },
+
+    toggleNotice(index) {
+      if (!this.noticesExpanded.delete(index)) this.noticesExpanded.add(index);
+    },
+
     // The browser fires no hashchange for the hash it is already on, so a second click would do nothing
     seekSameNote(event) {
       if (event.currentTarget.hash === window.location.hash) window.dispatchEvent(new HashChangeEvent('hashchange'));
@@ -1117,6 +1146,15 @@ export default {
   border-color: var(--cavil-accent-border);
   color: var(--cavil-accent);
   text-decoration: none;
+}
+/* Overflow is clipped at the padding edge, so bottom padding would show the top of the fifth line */
+.legal-review-notice-clamped {
+  -webkit-box-orient: vertical;
+  border-bottom: 0.75rem solid var(--cavil-canvas);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  padding-bottom: 0;
 }
 .cavil-notice-item.legal-document-item {
   align-items: baseline;

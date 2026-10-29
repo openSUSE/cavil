@@ -1020,6 +1020,17 @@ BuildArch:      noarch
 
 %description
 Synthetic package whose LICENSE carries terms Cavil does not recognise.
+
+# Legal-Review-Notice: The enterprise terms do not apply to this build
+
+# Legal-Review-Notice: A wall of text that has to be clamped,
+# line two of it,
+# line three of it,
+# line four of it,
+# line five of it,
+# line six of it,
+# line seven of it,
+# and line eight, the last one.
 SPEC
 
   my $stage = tempdir;
