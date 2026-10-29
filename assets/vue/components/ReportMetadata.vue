@@ -87,7 +87,7 @@
           </template>
           <template v-if="productsHtml !== null">
             <dt>Products</dt>
-            <dd v-html="productsHtml"></dd>
+            <dd id="pkg-products" v-html="productsHtml"></dd>
           </template>
           <template v-if="pkgVersion !== null">
             <dt>Version</dt>
@@ -1209,8 +1209,19 @@ export default {
 }
 .report-metadata-list a.metadata-declaration-file:hover,
 .report-metadata-list a.metadata-declaration-file:focus,
+#related-reviews,
+#pkg-products a,
+#checkout-url a {
+  color: var(--cavil-fg);
+}
 .report-metadata-list a.metadata-history-link:hover,
-.report-metadata-list a.metadata-history-link:focus {
+.report-metadata-list a.metadata-history-link:focus,
+#related-reviews:hover,
+#related-reviews:focus,
+#pkg-products a:hover,
+#pkg-products a:focus,
+#checkout-url a:hover,
+#checkout-url a:focus {
   color: var(--cavil-accent);
 }
 .report-metadata-list a.metadata-history-link {
