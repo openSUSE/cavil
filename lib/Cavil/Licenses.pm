@@ -109,7 +109,7 @@ sub parse ($self, $string) {
 }
 
 sub terms ($self) {
-  return undef if $self->error || !defined $self->{tree};
+  return undef unless defined $self->{tree};
   return [_and_terms($self->{tree})];
 }
 
