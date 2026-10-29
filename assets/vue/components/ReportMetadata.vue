@@ -64,12 +64,11 @@
               >#{{ pkgId }}</copyable-text
             >
           </dd>
-          <template v-if="actions.length > 0">
+          <template v-if="relatedReviews > 0">
             <dt>Actions</dt>
             <dd>
-              <a href="#actions" class="report-metadata-collapse-link" data-bs-toggle="collapse">
-                <span v-if="actions.length === 1">1 related review</span>
-                <span v-else>{{ actions.length }} related reviews</span>
+              <a id="related-reviews" :href="`/search?q=${encodeURIComponent(externalLink)}`" target="_blank">
+                {{ relatedReviews === 1 ? '1 related review' : `${relatedReviews} related reviews` }}
               </a>
             </dd>
           </template>
@@ -140,19 +139,6 @@
           <div class="cavil-ribbon-risk">{{ pkgRisk }}</div>
           <div class="cavil-ribbon-description">{{ ribbonDescription }}</div>
         </div>
-      </div>
-    </div>
-    <div v-if="actions.length > 0" class="collapse" id="actions">
-      <div class="metadata-collapse-inner">
-        <ul class="metadata-related-list">
-          <li v-for="action in actions" :key="action.id" class="metadata-related-item">
-            <span class="metadata-related-name">{{ action.name }}</span>
-            <span class="metadata-related-pill">{{ action.result }}</span>
-            <span class="metadata-related-pill">{{ action.state }}</span>
-            <span class="metadata-related-user">{{ action.reviewing_user }}</span>
-            <a :href="action.actionUrl" class="metadata-related-date" target="_blank">{{ action.created }}</a>
-          </li>
-        </ul>
       </div>
     </div>
     <section v-if="notice !== null" id="review-information" class="review-information-card">
@@ -486,7 +472,8 @@ export default {
   emits: ['limitations-changed', 'reindex-queued'],
   data() {
     return {
-      actions: [],
+      externalLink: null,
+      relatedReviews: 0,
       aiRecommendation: null,
       checkoutUrl: null,
       copiedFiles: {'%doc': null, '%license': null},
@@ -869,11 +856,8 @@ export default {
       this.derivedDocuments = data.documents;
       this.legalReviewNotices = data.legal_review_notices;
 
-      this.actions = data.actions;
-      for (const action of this.actions) {
-        action.created = moment(action.created * 1000).fromNow();
-        action.actionUrl = `/reviews/details/${action.id}`;
-      }
+      this.externalLink = data.external_link;
+      this.relatedReviews = data.related_reviews;
 
       this.declarations = data.declarations;
       const perFile = {};
@@ -1097,13 +1081,6 @@ export default {
   color: var(--cavil-accent);
   outline: none;
 }
-.report-metadata-collapse-link {
-  border-bottom: 1px dashed var(--cavil-border-strong);
-}
-.report-metadata-collapse-link:hover,
-.report-metadata-collapse-link:focus {
-  border-bottom-color: transparent;
-}
 #pkg-shortname,
 #checkout-url a,
 #pkg-version,
@@ -1209,68 +1186,6 @@ export default {
 }
 .legal-document-block.is-covered {
   background: var(--cavil-success);
-}
-.metadata-collapse-inner {
-  padding: 0.85rem 0 1.1rem;
-}
-.metadata-related-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.metadata-related-item {
-  align-items: center;
-  background: var(--cavil-canvas);
-  border: 1px solid var(--cavil-border);
-  border-radius: 8px;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: minmax(0, 1fr) auto auto minmax(120px, auto) auto;
-  margin-bottom: 0.75rem;
-  overflow: hidden;
-  padding: 0.65rem 0.85rem;
-  transition: background-color 0.15s ease;
-}
-.metadata-related-item:last-child {
-  margin-bottom: 0;
-}
-.metadata-related-item:hover {
-  background: var(--cavil-canvas-subtle);
-}
-.metadata-related-name {
-  color: var(--cavil-fg);
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.metadata-related-pill {
-  background: var(--cavil-canvas-subtle);
-  border: 1px solid var(--cavil-border);
-  border-radius: 999px;
-  color: var(--cavil-fg-muted);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 0.35rem 0.6rem;
-  white-space: nowrap;
-}
-.metadata-related-user,
-.metadata-related-date {
-  color: var(--cavil-fg-muted);
-  font-size: 13px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.metadata-related-date {
-  justify-self: end;
-  text-decoration-color: transparent;
-  white-space: nowrap;
-}
-.metadata-related-date:hover,
-.metadata-related-date:focus {
-  color: var(--cavil-accent-strong);
-  text-decoration-color: currentColor;
 }
 #pkg-declarations {
   align-items: baseline;
@@ -1632,15 +1547,6 @@ export default {
 }
 .metadata-review-limitation-effect.is-removing::before {
   color: var(--cavil-fg-muted);
-}
-@media (max-width: 900px) {
-  .metadata-related-item {
-    align-items: flex-start;
-    grid-template-columns: 1fr;
-  }
-  .metadata-related-date {
-    justify-self: start;
-  }
 }
 @media (max-width: 700px) {
   .metadata-review-status-detail {

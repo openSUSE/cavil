@@ -586,6 +586,10 @@ sub ui_fixtures ($self, $app) {
   $app->requests->add("ibs#$test1", $pkg_id);
   $app->requests->remove("ibs#$test1");
 
+  # An open request shared with perl-UI-Test21 makes it a related review of harbor-helm
+  my $test21 = $app->pg->db->select('bot_packages', 'id', {name => 'perl-UI-Test21'})->hash->{id};
+  $app->requests->add('obs#123456', $test21);
+
   # Synthetic package with many unresolved keyword matches. Built from a real
   # tarball and indexed by the regular unpack + analyze pipeline so the
   # missed_files collection is genuine (no bot_reports surgery). Drives the

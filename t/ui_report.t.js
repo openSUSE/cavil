@@ -328,6 +328,21 @@ t.test('Cavil UI - report view', skipUnlessOnline, async t => {
       await page.unroute('**/reviews/meta/1');
     });
 
+    await t.test('Related reviews link to the request lookup', async t => {
+      const rows = '#review-search tbody > tr';
+      await page.goto(`${url}/search?q=harbor-helm`);
+      await page.locator(`${rows}:nth-child(1) .cavil-list-report a[class^="report-"]`).click();
+      const related = page.locator('#related-reviews');
+      t.equal((await related.innerText()).trim(), '1 related review');
+      const href = await related.getAttribute('href');
+      t.equal(href, `/search?q=${encodeURIComponent('obs#123456')}`);
+
+      await page.goto(`${url}${href}`);
+      await page.waitForSelector(`${rows}:nth-child(2) > td:nth-child(5)`);
+      t.equal(await page.locator(rows).count(), 2, 'the package and its related review');
+      t.match(await page.innerText(`${rows}:nth-child(2) > td:nth-child(5)`), /perl-UI-Test21/);
+    });
+
     await t.test('Targets and read-only tags are shown', async t => {
       await page.route('**/reviews/meta/1', async route => {
         const response = await route.fetch();

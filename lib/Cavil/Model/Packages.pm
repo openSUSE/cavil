@@ -217,14 +217,12 @@ sub actions ($self, $link, $id) {
   return [] if !$link || !($link =~ /^obs#/ || $link =~ /^ibs#/);
 
   return $self->pg->db->query(
-    "select p.id, p.name, result, state, login,
-       extract(epoch from created) as created_epoch, obsolete
-     from bot_packages p left join bot_users u on p.reviewing_user = u.id
+    "select p.id from bot_packages p
      where (external_link = \$1
          or exists (select 1 from bot_requests where package = p.id and external_link = \$1 and removed is null))
        and p.id != \$2
      order by p.id desc", $link, $id
-  )->hashes->to_array;
+  )->arrays->flatten->to_array;
 }
 
 sub all ($self) { $self->pg->db->select('bot_packages')->hashes }

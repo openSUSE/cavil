@@ -114,7 +114,7 @@ t.test('Cavil UI - review search', skipUnlessOnline, async t => {
 
       await page.goto(`${url}/search?q=${encodeURIComponent('SR#123456')}`);
       await page.waitForSelector(`${rows}:nth-child(1) > td:nth-child(6)`);
-      t.equal(await page.locator(rows).count(), 1, 'unknown word "SR" is ignored');
+      t.equal(await page.locator(rows).count(), 2, 'unknown word "SR" is ignored');
       t.match(await page.innerText(`${rows}:nth-child(1) > td:nth-child(5)`), /harbor-helm/);
     });
 

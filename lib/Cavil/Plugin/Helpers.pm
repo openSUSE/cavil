@@ -401,18 +401,6 @@ sub _package_summary ($c, $id) {
 
   my $config = $c->app->config;
 
-  my $actions = [];
-  for my $action (@{$pkgs->actions($pkg->{external_link}, $id)}) {
-    my $entry = {
-      created => $action->{created_epoch},
-      id      => $action->{id},
-      name    => $action->{name},
-      result  => $action->{result} // '',
-      state   => $action->{state}
-    };
-    push @$actions, $entry;
-  }
-
   my (%docs, %lics, @declarations, @legal_review_notices);
   for my $d (@{$declarations->{declarations}}) {
     my $license = $d->{license};
@@ -432,7 +420,7 @@ sub _package_summary ($c, $id) {
   }
 
   return {
-    actions          => $actions,
+    related_reviews  => scalar @{$pkgs->actions($pkg->{external_link}, $id)},
     copied_files     => {'%doc' => [sort keys %docs], '%license' => [sort keys %lics]},
     created          => $pkg->{created_epoch},
     documents        => $state->{documents},

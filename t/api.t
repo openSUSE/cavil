@@ -306,7 +306,7 @@ subtest 'Related reviews include packages whose primary link was replaced' => su
   $t->post_ok(
     '/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#777', package => 1})
     ->status_is(200);
-  is_deeply [map { $_->{id} } @{$pkgs->actions('obs#777', 2)}], [1], 'sibling found via its request';
+  is_deeply $pkgs->actions('obs#777', 2), [1], 'sibling found via its request';
   $t->delete_ok('/requests' => {Authorization => 'Token test_token'} => form => {external_link => 'obs#777'})
     ->status_is(200);
   is_deeply $pkgs->actions('obs#777', 2), [], 'closed request no longer relates them';
