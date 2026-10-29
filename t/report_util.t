@@ -1394,6 +1394,25 @@ subtest 'summary_delta' => sub {
       {id => 2, declared => 'GPL-2.0+', missed_snippets => {}, licenses => {}}
       ),
       "Diff to closest match 1\n\n  Declared license  MIT -> GPL-2.0+\n", 'different declared license';
+
+    my $delta = sub {
+      my ($old, $new) = @_;
+      summary_delta(
+        {id => 1, declared => $old, missed_snippets => {}, licenses => {}},
+        {id => 2, declared => $new, missed_snippets => {}, licenses => {}}
+      );
+    };
+    is $delta->('Apache-2.0 AND CC0-1.0 AND MIT AND Zlib', 'Apache-2.0 AND MIT AND Zlib'),
+      "Diff to closest match 1\n\n  Declared license  CC0-1.0 removed\n", 'removed term';
+    is $delta->('Apache-2.0 AND CC0-1.0', 'Apache-2.0 AND GPL-3.0-only'),
+      "Diff to closest match 1\n\n  Declared license  GPL-3.0-only added, CC0-1.0 removed\n", 'added and removed term';
+    is $delta->('Apache-2.0 AND CC0-1.0', 'Apache-2.0 AND Zlib AND (MIT OR ISC)'),
+      "Diff to closest match 1\n\n  Declared license  (MIT OR ISC), Zlib added; CC0-1.0 removed\n",
+      'several added terms';
+    is $delta->('MIT AND Zlib', 'Zlib AND MIT'),
+      "Diff to closest match 1\n\n  Declared license  MIT AND Zlib -> Zlib AND MIT\n", 'reordered terms';
+    is $delta->('MIT AND Zlib', 'MIT AND %{zlib}'),
+      "Diff to closest match 1\n\n  Declared license  MIT AND Zlib -> MIT AND %{zlib}\n", 'unparsable expression';
   };
 
   subtest 'License incompatibilities are not part of the diff' => sub {

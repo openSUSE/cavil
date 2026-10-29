@@ -684,8 +684,9 @@ its own `License:` becomes a declaration of its own. Missing values are simply a
 Declarations are ordered distribution packaging first (in the order above, the file named after the package first
 within a format), then upstream manifests. The **primary declaration** is the first one that declares a license. It
 provides the package's declared license, version and home page for the report, the SBOM and the NOTICE, and a change
-of its license between two versions is called out in the review notice as `Declared license OLD -> NEW`. The packager's
-and upstream's declarations are shown side by side without a verdict; comparing them is the reviewer's call.
+of its license between two versions is called out in the review notice as `Declared license OLD -> NEW` (or just the
+terms added and removed when the two share some). The packager's and upstream's declarations are shown side by side
+without a verdict; comparing them is the reviewer's call.
 
 ### Copyright notices
 

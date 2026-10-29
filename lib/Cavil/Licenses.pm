@@ -108,9 +108,19 @@ sub parse ($self, $string) {
   return $self->normalized($before ne $string)->tree($tree);
 }
 
+sub terms ($self) {
+  return undef if $self->error || !defined $self->{tree};
+  return [_and_terms($self->{tree})];
+}
+
 sub to_string ($self) {
   return '' unless defined $self->{tree};
   return _tree_to_string($self->{tree});
+}
+
+sub _and_terms ($tree) {
+  return (_and_terms($tree->{left}), _and_terms($tree->{right})) if ($tree->{op} // '') eq 'and';
+  return _wrap_mixed($tree, 'and', _tree_to_string($tree));
 }
 
 sub _example ($tree) {

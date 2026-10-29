@@ -351,4 +351,12 @@ subtest 'SPDX operators are canonical and idempotent' => sub {
   }
 };
 
+subtest 'terms' => sub {
+  is_deeply lic('MIT')->terms, ['MIT'], 'single license';
+  is_deeply lic('MIT AND (Apache-2.0 OR BSD-3-Clause) AND GPL-2.0+')->terms,
+    ['MIT', '(Apache-2.0 OR BSD-3-Clause)', 'GPL-2.0-or-later'], 'top-level AND operands, aliases normalized';
+  is_deeply lic('MIT OR Apache-2.0')->terms, ['(MIT OR Apache-2.0)'], 'OR expression is one term';
+  is lic('Foo AND %{bar}')->terms, undef, 'no terms for invalid expression';
+};
+
 done_testing;

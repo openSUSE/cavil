@@ -109,10 +109,10 @@ damaging thing a package update can do, from SUSE's position, is switch from an 
 a non-commercial, field-of-use, source-available, or otherwise non-free license (the open-webui "Open
 WebUI License", the Redis RSAL, SSPL, "Good-not-Evil"). It silently converts code SUSE could ship into
 code SUSE may not, and because downstream already depends on the old terms a *transition* is worse than
-a package that was always non-free. A `Declared license OLD -> NEW` line in the System Notice means the
-declaration itself changed since the last reviewed version: always check the new terms against the signs
-that follow. Call it a change only when the review history, a prior note, that notice line or a
-`LICENSE_HISTORY` shows the earlier terms were open source; otherwise it is a risk-7 finding. Any one of these is enough to escalate: the `LICENSE`/`COPYING` combines a recognized OSS
+a package that was always non-free. A `Declared license` line in the System Notice (`OLD -> NEW`, or the
+terms added/removed) means the declaration itself changed since the last reviewed version: always check
+the new terms against the signs that follow. Call it a change only when the review history, a prior note,
+that notice line or a `LICENSE_HISTORY` shows the earlier terms were open source; otherwise it is a risk-7 finding. Any one of these is enough to escalate: the `LICENSE`/`COPYING` combines a recognized OSS
 body with an added clause restricting commercial use, user/seat count, field of use, deployment, or
 branding (or requiring a separate "enterprise" license for ordinary use); the file is retitled to a
 custom `"<Project> License"`; a `LICENSE_HISTORY`/CLA/relicensing announcement states or reserves a

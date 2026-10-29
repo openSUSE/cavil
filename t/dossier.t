@@ -224,6 +224,23 @@ subtest 'Build files past the cap are counted' => sub {
   like $text, qr/^2 more build files with install rules not reproduced\.$/m, 'the rest counted';
 };
 
+subtest 'A changed declared license brings the changelog' => sub {
+  my $changelog = sub ($notice) {
+    $db->update('bot_packages', {notice => $notice}, {id => 1});
+    $app->packages->remove_documents(1);
+    $t->post_ok('/documents/1/dossier')->status_is(200);
+    $app->minion->perform_jobs;
+    return [evidence(dossier(), 'perl-Mojolicious.changes')]->[0];
+  };
+  like $changelog->("Diff to closest match 2\n\n  Declared license  MIT -> Artistic-2.0\n"),
+    qr/^- changelog, the declared license changed$/m, 'whole expression replaced';
+  like $changelog->("Diff to closest match 2\n\n  Declared license  CC0-1.0 removed\n"),
+    qr/^- changelog, the declared license changed$/m, 'terms added or removed';
+  unlike $changelog->("Diff to closest match 2\n\n  New licenses (by risk)\n    1  MIT\n") // '',
+    qr/declared license changed/, 'not without a change';
+  $db->update('bot_packages', {notice => undef}, {id => 1});
+};
+
 subtest 'Notes past the size budget are not passed off as complete' => sub {
   $app->notes->add(1, 'perl-Mojolicious', $lawyer, "Bulk note $_ " . ('y' x 9000), 0, 0) for 1 .. 20;
   $app->packages->remove_documents(1);

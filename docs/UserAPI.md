@@ -975,9 +975,12 @@ Unpacked: 341 files (2.5MiB)
 
 ## System Notice
 
-Diff to closest match 12345:
+Diff to closest match 12345
 
-  Found new license MIT (risk 1) not present in old report
+  Declared license  MIT added
+
+  New licenses (by risk)
+    1  MIT
 
 
 ## Licenses

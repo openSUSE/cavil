@@ -460,7 +460,7 @@ sub _shipping ($ctx) {
   my @others = map {"`$_`"} grep { !defined $main || $_ ne $main } @specs;
   push @{$ctx->{extras}{shipping}}, 'Other spec files, not reproduced: ' . join(', ', @others) . '.' if @others;
 
-  if (($pkg->{notice} // '') =~ /Declared license .+ -> / && (my ($changes) = grep {/^[^\/]+\.changes$/} @files)) {
+  if (($pkg->{notice} // '') =~ /^  Declared license  /m && (my ($changes) = grep {/^[^\/]+\.changes$/} @files)) {
     push @evidence, _evidence($changes, 'shipping', 'changelog, the declared license changed', head => CHANGES_LINES);
   }
 
