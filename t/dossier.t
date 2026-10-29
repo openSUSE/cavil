@@ -234,7 +234,7 @@ subtest 'A changed declared license brings the changelog' => sub {
   };
   like $changelog->("Diff to closest match 2\n\n  Declared license  MIT -> Artistic-2.0\n"),
     qr/^- changelog, the declared license changed$/m, 'whole expression replaced';
-  like $changelog->("Diff to closest match 2\n\n  Declared license  CC0-1.0 removed\n"),
+  like $changelog->("Diff to closest match 2\n\n  Declared license\n    removed  CC0-1.0\n    added    MIT\n"),
     qr/^- changelog, the declared license changed$/m, 'terms added or removed';
   unlike $changelog->("Diff to closest match 2\n\n  New licenses (by risk)\n    1  MIT\n") // '',
     qr/declared license changed/, 'not without a change';

@@ -977,7 +977,10 @@ Unpacked: 341 files (2.5MiB)
 
 Diff to closest match 12345
 
-  Declared license  MIT added
+  Declared license
+    removed  Artistic-2.0
+    added    BSD-3-Clause
+    added    MIT
 
   New licenses (by risk)
     1  MIT

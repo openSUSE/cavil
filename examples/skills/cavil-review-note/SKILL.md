@@ -163,9 +163,9 @@ The most damaging thing an update can do is **switch from an open-source license
 source-available or otherwise non-free terms** (the open-webui "Open WebUI License", Redis RSAL, SSPL, "Good-not-Evil").
 It converts code SUSE could ship into code it may not, and because downstream already depends on the old terms, a
 transition is worse than a package that was always non-free. A `Declared license` line in the System Notice
-(`OLD -> NEW`, or the terms added/removed) means the declaration itself changed; always check the new terms. Call it a
-change only when Review History, a prior note, that System Notice line or a `LICENSE_HISTORY` shows the earlier terms
-were open source; otherwise it is a risk-7 or additional-risk finding. Any one of these signs is enough:
+(`OLD -> NEW`, or a column of removed/added licenses) means the declaration itself changed; always check the new terms.
+Call it a change only when Review History, a prior note, that System Notice line or a `LICENSE_HISTORY` shows the
+earlier terms were open source; otherwise it is a risk-7 or additional-risk finding. Any one of these signs is enough:
 - The top-level `LICENSE`/`COPYING` keeps a recognized OSS body but adds a clause restricting commercial use, user/seat
   count, field of use, deployment or branding, or requiring a separate "enterprise" license for ordinary use. A legal
   document with unknown lines is exactly this shape; read those first.

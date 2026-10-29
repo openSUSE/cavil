@@ -681,12 +681,12 @@ summary, plus packager Legal-Review-Notices. Values are kept verbatim. A declare
 invalid SPDX expression is shown as written and marked invalid rather than silently corrected. A spec subpackage with
 its own `License:` becomes a declaration of its own. Missing values are simply absent, there are no warnings about them.
 
-Declarations are ordered distribution packaging first (in the order above, the file named after the package first
-within a format), then upstream manifests. The **primary declaration** is the first one that declares a license. It
-provides the package's declared license, version and home page for the report, the SBOM and the NOTICE, and a change
-of its license between two versions is called out in the review notice as `Declared license OLD -> NEW` (or just the
-terms added and removed when the two share some). The packager's and upstream's declarations are shown side by side
-without a verdict; comparing them is the reviewer's call.
+Declarations are ordered distribution packaging first (in the order above, the file named after the package first within
+a format), then upstream manifests. The **primary declaration** is the first one that declares a license. It provides
+the package's declared license, version and home page for the report, the SBOM and the NOTICE, and a change of its
+license between two versions is called out in the review notice as `Declared license OLD -> NEW`, or, when more than one
+license is involved, as a column of the removed and added licenses. The packager's and upstream's declarations are shown
+side by side without a verdict; comparing them is the reviewer's call.
 
 ### Copyright notices
 

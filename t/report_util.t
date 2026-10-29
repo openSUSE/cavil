@@ -1402,17 +1402,27 @@ subtest 'summary_delta' => sub {
         {id => 2, declared => $new, missed_snippets => {}, licenses => {}}
       );
     };
-    is $delta->('Apache-2.0 AND CC0-1.0 AND MIT AND Zlib', 'Apache-2.0 AND MIT AND Zlib'),
-      "Diff to closest match 1\n\n  Declared license  CC0-1.0 removed\n", 'removed term';
+    my $notice = sub { "Diff to closest match 1\n\n" . join("\n", '  Declared license', @_) . "\n" };
+    is $delta->('Unknown', 'MIT'), "Diff to closest match 1\n\n  Declared license  Unknown -> MIT\n",
+      'one-for-one swap with Unknown';
+    is $delta->('MIT AND MIT', 'MIT'), "Diff to closest match 1\n\n  Declared license  MIT AND MIT -> MIT\n",
+      'duplicate term dropped';
+    is $delta->('BSD-3-Clause AND MIT', 'BSD-3-Clause AND ISC AND MIT AND Zlib'),
+      $notice->('    added    ISC', '    added    Zlib'), 'terms added';
+    is $delta->('Apache-2.0 AND CC0-1.0 AND MIT AND Zlib', 'Apache-2.0 AND MIT'),
+      $notice->('    removed  CC0-1.0', '    removed  Zlib'), 'terms removed';
     is $delta->('Apache-2.0 AND CC0-1.0', 'Apache-2.0 AND GPL-3.0-only'),
-      "Diff to closest match 1\n\n  Declared license  GPL-3.0-only added, CC0-1.0 removed\n", 'added and removed term';
-    is $delta->('Apache-2.0 AND CC0-1.0', 'Apache-2.0 AND Zlib AND (MIT OR ISC)'),
-      "Diff to closest match 1\n\n  Declared license  (MIT OR ISC), Zlib added; CC0-1.0 removed\n",
-      'several added terms';
-    is $delta->('MIT AND Zlib', 'Zlib AND MIT'),
-      "Diff to closest match 1\n\n  Declared license  MIT AND Zlib -> Zlib AND MIT\n", 'reordered terms';
-    is $delta->('MIT AND Zlib', 'MIT AND %{zlib}'),
-      "Diff to closest match 1\n\n  Declared license  MIT AND Zlib -> MIT AND %{zlib}\n", 'unparsable expression';
+      $notice->('    removed  CC0-1.0', '    added    GPL-3.0-only'), 'terms added and removed, removed first';
+    is $delta->('BSD-3-Clause AND MIT', 'Apache-2.0 AND ISC'),
+      $notice->('    removed  BSD-3-Clause', '    removed  MIT', '    added    Apache-2.0', '    added    ISC'),
+      'nothing in common';
+    is $delta->('Apache-2.0 OR MIT', 'Apache-2.0 AND MIT'),
+      $notice->('    removed  (Apache-2.0 OR MIT)', '    added    Apache-2.0', '    added    MIT'), 'OR became AND';
+    is $delta->('(ISC OR MIT) AND Zlib', '(Apache-2.0 OR MIT) AND Zlib'),
+      $notice->('    removed  (ISC OR MIT)', '    added    (Apache-2.0 OR MIT)'), 'choice inside a group changed';
+    is $delta->('Unknown', 'BSD-3-Clause AND MIT'),
+      $notice->('    removed  Unknown', '    added    BSD-3-Clause', '    added    MIT'),
+      'Unknown replaced by several terms';
   };
 
   subtest 'License incompatibilities are not part of the diff' => sub {

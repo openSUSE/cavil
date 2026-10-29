@@ -760,7 +760,7 @@ sub summary_delta ($old, $new) {
   my @blocks;
 
   if ($new->{declared} ne $old->{declared}) {
-    push @blocks, '  Declared license  ' . _declared_delta($old->{declared}, $new->{declared});
+    push @blocks, _declared_delta($old->{declared}, $new->{declared});
   }
 
   my $new_snippets = _new_snippets($old, $new);
@@ -796,21 +796,18 @@ sub summary_delta_score ($old, $new) {
   return $score;
 }
 
-# Long AND lists that differ in one term are unreadable side by side, so name just the changed terms.
+# A one-for-one swap reads as a sentence, anything bigger as a column of changed terms like the other blocks.
+# Unparsable declarations are already "Unknown" and count as a term of their own.
 sub _declared_delta ($old, $new) {
-  my ($old_terms, $new_terms) = (lic($old)->terms, lic($new)->terms);
-  return "$old -> $new" unless $old_terms && $new_terms;
+  my $old_terms = lic($old)->terms // [$old];
+  my $new_terms = lic($new)->terms // [$new];
+  my %old       = map             { $_ => 1 } @$old_terms;
+  my %new       = map             { $_ => 1 } @$new_terms;
+  my @removed   = sort +uniq grep { !$new{$_} } @$old_terms;
+  my @added     = sort +uniq grep { !$old{$_} } @$new_terms;
+  return "  Declared license  $old -> $new" if (@$old_terms == 1 && @$new_terms == 1) || !(@removed || @added);
 
-  my %old     = map             { $_ => 1 } @$old_terms;
-  my %new     = map             { $_ => 1 } @$new_terms;
-  my @added   = sort +uniq grep { !$old{$_} } @$new_terms;
-  my @removed = sort +uniq grep { !$new{$_} } @$old_terms;
-  return "$old -> $new" if !(grep { $old{$_} } @$new_terms) || (!@added && !@removed);
-
-  my @parts;
-  push @parts, join(', ', @added) . ' added'     if @added;
-  push @parts, join(', ', @removed) . ' removed' if @removed;
-  return join(@added > 1 || @removed > 1 ? '; ' : ', ', @parts);
+  return join "\n", '  Declared license', (map {"    removed  $_"} @removed), (map {"    added    $_"} @added);
 }
 
 # Flags label a license row, so novelty is determined by bare name.
