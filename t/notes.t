@@ -1079,11 +1079,14 @@ subtest 'AI recommendation in the report metadata' => sub {
     ->json_is('/ai_recommendation/verdict'      => 'ACCEPT')
     ->json_is('/ai_recommendation/author_login' => 'lawyer_user');
 
-  my $review = $add->(1, 'perl-Mojolicious', $lawyer_id, $rec->('NEEDS HUMAN REVIEW'), 0, 1, ['review', 'model:x']);
+  my $manager_id
+    = $app->users->find_or_create(login => 'manager_user', email => 'manager@example.com', roles => ['manager'])->{id};
+  my $review = $add->(1, 'perl-Mojolicious', $manager_id, $rec->('NEEDS HUMAN REVIEW'), 0, 1, ['review', 'model:x']);
   $t->get_ok('/reviews/meta/1')
     ->status_is(200)
-    ->json_is('/ai_recommendation/id'      => $review->{id})
-    ->json_is('/ai_recommendation/verdict' => 'NEEDS HUMAN REVIEW');
+    ->json_is('/ai_recommendation/id'           => $review->{id})
+    ->json_is('/ai_recommendation/verdict'      => 'NEEDS HUMAN REVIEW')
+    ->json_is('/ai_recommendation/author_login' => 'manager_user');
 
   $t->get_ok('/reviews/meta/2')->status_is(200)->json_is('/ai_recommendation/verdict' => 'REJECT');
   $db->update('bot_packages', {checksum => 'rec-A'}, {id => 2});

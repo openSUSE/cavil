@@ -354,6 +354,9 @@ Issues for legal reviewer:
 **Confidence:** Medium - note any important limitation, such as partial review of a large report.
 ```
 
+Copy the first line exactly as shown, with nothing before it and the recommendation in capitals: reviewers see it on
+the report page, and a note that starts differently only shows up in the Notes tab.
+
 Keep `**Suggested next step:**` and `**Confidence:**` bold, as separate paragraphs, so the footer stands apart from the
 list.
 

@@ -175,7 +175,7 @@ naming a role, and roles are named bundles of capabilities.
 | propose | Propose patterns, ignores and snippets; a proposal needs a curator to take effect. |
 | curate | Curate the corpus and drive reviews: create/edit/remove patterns, manage ignores and comment templates, accept or reject proposals, apply snippet decisions, edit review tags, reindex, and accept or reject reviews. |
 | infra | Operate the instance: the job dashboard, the automatic acceptance, excluded files, bot token and SBOM settings, and package upload into the review backlog. |
-| review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off), or replace the comment of an `acceptable` one. Never changes a rejection or a lawyer sign-off. |
+| review | Move a report from `new` to `acceptable` (a non-lawyer expert sign-off), or replace the comment of an `acceptable` one. Never changes a rejection or a lawyer sign-off. AI-assisted review notes by these users are shown as the recommendation on the report. |
 | review_lawyer | Move a report from `new` to `acceptable_by_lawyer` (the legal sign-off). |
 | upload_ephemeral | Upload archives for ephemeral one-off reviews, via the web form or the User API. Without `infra` every upload is forced ephemeral, so it can never reach the review backlog. |
 
@@ -1040,6 +1040,12 @@ for the guards, since it is advisory and model-dependent. What makes it a real c
 resolution engine cleared away - above all a relicense from open-source to non-free terms, the worst outcome a review
 can miss. It never accepts, rejects, patterns, or ignores; the note is its only output, and the lawyer still makes the
 call.
+
+The newest recommendation that applies to the report (written on it, or on a review with an identical license report)
+is also shown on the report page itself, right below the reason it needs review, and links to the full note. Only notes
+by users with the `review` capability count there: any API key with write access can post an AI note, and a
+recommendation shown that prominently has to come from someone trusted to make the decision themselves. A note whose
+first line is not the skill's fixed recommendation line is left in the Notes tab only.
 
 Notes are shared across every review of a package *name*, which makes them the natural home for context that outlives
 a single version - but only if the context survives the churn. A note ages out two ways: newer notes push it below the

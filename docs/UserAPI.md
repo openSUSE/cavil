@@ -218,6 +218,9 @@ Create a public note for a specific package, marked as AI-assisted.
 - `skip_if_existing_tag`: Skip the write if a note with this tag already applies to the report, making the call
   idempotent. (string, optional)
 
+A note tagged `review` whose first line is `AI-assisted review recommendation: ACCEPT` (or `NEEDS HUMAN REVIEW`,
+`REJECT`) is shown as the recommendation on the report, when its author has a role that can review packages.
+
 #### cavil_get_notes
 
 Get a paginated list of notes for a specific package, optionally filtered by tags. Notes a reviewer has pinned are
@@ -425,6 +428,12 @@ This is the explicit "redo" override. Without that phrase the agent assumes the 
 **What you'll see in the Notes tab.** Every note left by this skill is tagged `review` (the small grey chip in the
 note header) and marked **AI assisted** (the blue badge). Click any note for the full body. Notes are advisory only -
 nothing changes the package state until a human reviewer accepts or rejects it in the normal UI.
+
+**What you'll see on the report.** The recommendation also appears right on the report, as a small robot with a speech
+bubble below "why this needs review" (for example "I recommend accepting this review."). Click it to jump to the full
+note. It shows the newest review note that applies to this exact report, written on it or on another review with an
+identical license report, and only if the person who ran the skill can review packages themselves (the `manager`,
+`admin` and `lawyer` roles). Notes from anyone else stay in the Notes tab.
 
 If a note turns out to matter beyond the review it was written on - a standing decision about the package, a caveat
 for whoever picks up the next version - lawyers and admins can **pin** it with the thumbtack in the note header.
